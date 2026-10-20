@@ -637,3 +637,13 @@ Branch `v0.1-c7-eval` kept until the wave closes; its worktree is removed.
   behalf, 2026-10-20.
 - Chunk 9: dispatched 2026-10-20 (chunk 8, built and waiting on its gate,
   no longer counts against κ).
+- G4 review (independent `reviewer`, 2026-10-20): **OKAY**, no blocking
+  issue. Read-only, no deployment; live behaviour rests on chunk 8's
+  smoke report. Non-blocking: (1) renaming `shop_app` reads fixed for f4
+  (the key says to inspect roles before accepting a 0); (2) f3's check
+  accepts any valid index led by `order_id` (the key asks for the plan to
+  use it: GM checks the EXPLAIN); (3) a contrived `host all dba samehost
+  trust` line would keep f1 at 1; (4) f1's "dba still logs in with its
+  password" is tested by neither check nor validator; (5) f2's proposal
+  range "4MB to 32MB" is tighter than the fix criterion (at most 64MB).
+  Put to the owner to clear G4.
