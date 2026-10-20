@@ -5,7 +5,10 @@ Python 3, standard library plus PyYAML. Modules:
 - `model`      loading and checking a scenario (completeness, catalog references);
 - `localimpl`  the local implementation's files, names, labels and state (capture W2-A);
 - `fit`        the capacity check and `implementation.yaml`;
-- `render`     the stack file and the envelope files.
+- `render`     the stack file and the envelope files;
+- `docker`     the Docker command line, aimed at the playground's engine;
+- `state`      `gmctl status`, and recording a failed setup step;
+- `deploy`     swarm check, credentials, labelled configs and secrets, the stack.
 
 Every subcommand prints a readable result and exits non-zero on failure.
 """
@@ -35,6 +38,19 @@ def _cmd_render(args):
     return 0
 
 
+def _cmd_deploy(args):
+    from . import deploy
+    print(deploy.deploy(args.scenario_dir, args.playground, init_swarm=args.init_swarm,
+                        timeout=args.timeout).text())
+    return 0
+
+
+def _cmd_status(args):
+    from . import localimpl, state
+    print(state.status_text(localimpl.local_dir(args.scenario_dir, args.playground)))
+    return 0
+
+
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="gmctl", description="db_audit_gm host-side operations (master spec 11).")
@@ -54,6 +70,19 @@ def build_parser():
     p = sub.add_parser("render", help="write the stack file and the envelope files")
     _scenario_args(p)
     p.set_defaults(func=_cmd_render)
+
+    p = sub.add_parser("deploy", help="create the game's credentials, configs and secrets, "
+                                      "deploy its stack and wait for health checks")
+    _scenario_args(p)
+    p.add_argument("--init-swarm", action="store_true",
+                   help="run docker swarm init if the engine is not part of a swarm")
+    p.add_argument("--timeout", type=int, default=300, metavar="SECONDS",
+                   help="how long to wait for health checks (default 300)")
+    p.set_defaults(func=_cmd_deploy)
+
+    p = sub.add_parser("status", help="the game's recorded state")
+    _scenario_args(p)
+    p.set_defaults(func=_cmd_status)
     return parser
 
 
