@@ -1,0 +1,12 @@
+
+  db_audit_gm -- bastion
+
+  Start here:     ~/README.md (then ~/story.md and ~/issues.md)
+  Nodes:          ssh <node>          (key already in ~/.ssh)
+  Databases:      psql -h <node>      (as role dba; password in ~/.pgpass)
+  Your report:    ~/report.md
+  Check:          gm-validate         this bastion's own validator
+
+  DO NOT TAMPER with SSH, ~/.ssh/id_ed25519, ~/.pgpass, or anything
+  marked DO NOT TAMPER.
+
