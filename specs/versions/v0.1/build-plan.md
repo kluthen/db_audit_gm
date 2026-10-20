@@ -1,7 +1,8 @@
 # db_audit_gm v0.1 — Build plan
 
-Status: v1 (2026-10-20): first plan, written from the approved v0.1 master
-spec.
+Status: v2 (2026-10-20): reviewer's non-blocking findings written in
+(s6-overlay under stack deploy, captures, test packages, release notes;
+spec D46).
 Approval: awaiting the lead's approval under the owner's delegation (gate
 G1).
 Written from: [master-spec.md](master-spec.md) and
@@ -23,14 +24,24 @@ plan states only its deltas.
   log on the wave branch before the dependent chunk starts.
 - The build host used so far: Debian 13, Docker Engine 29.8, swarm mode
   inactive, Python 3 with PyYAML 6.0.2, no `shellcheck`.
+- **Tmpfs mounts under `docker stack deploy`**, confirmed on this host:
+  Docker tmpfs mounts default to `noexec`, and the stack loader (CLI
+  29.8.2) silently drops a tmpfs `mode` and `options: [exec]`, for file
+  formats 3.8 and 3.13 alike. s6-overlay v3 very likely needs an exec-able
+  `/run`. Chunk 2 proves its node under a real stack deploy for that
+  reason.
+- The master spec was clarified before wave 1 (spec D46): configs and
+  secrets are created and labelled by `gmctl deploy` and external in the
+  stack file; the validator reads a per-game envelope file; sealed checks
+  query PostgreSQL as `postgres`.
 
 ## Gates
 
 | Gate | What | Cleared by | Blocks | Status |
 |---|---|---|---|---|
 | G1 | Plan approval | The lead, under the owner's delegation | Wave 1 | open |
-| G2 | Network access at image build time (Debian and PostgreSQL apt repositories, the s6-overlay release download) | Hand check by the wave driver | Chunks 2, 3 | open |
-| G3 | A Docker host in swarm mode for the smoke runs (`docker swarm init` on the build host is enough) | Hand check by the wave driver | Wave 2 gate, wave 3 gate, release gate | open |
+| G2 | Network access at image build time (Debian and PostgreSQL apt repositories, the s6-overlay release download) | Hand check by the wave driver | Chunks 2, 3 | done (2026-10-20, wave driver's hand check: registry pull succeeded) |
+| G3 | A Docker host in swarm mode (`docker swarm init` on the build host is enough) | Hand check by the wave driver | Chunk 2, wave 2 gate, wave 3 gate, release gate | open |
 | G4 | Review of the v0.1 scenario's defects, issues and answer key | The lead | Chunk 8's merge | open |
 | G5 | Feedback tone judged acceptable | The owner | Release close | open |
 
@@ -38,7 +49,7 @@ plan states only its deltas.
 
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
-| 1 | 1, 2, 3 | G1, G2 | planned |
+| 1 | 1, 2, 3 | G1, G2, G3 (chunk 2) | planned |
 | 2 | 4, 5, 6 | wave 1 | planned |
 | 3 | 7, 8, 9 | wave 2, G4 (for chunk 8's merge) | planned |
 
@@ -47,8 +58,8 @@ plan states only its deltas.
 1 ──> 6
 4 ──> 5               (in-wave: local implementation files and render interface captured at wave start)
 2, 3, 4, 5 ──> 7
-1, 2, 6, 7 ──> 8      (in-wave 7 -> 8: script contracts are fixed by the master spec, section 8.1)
-5, 6, 7 ──> 9         (in-wave 7 -> 9: gmctl subcommands are fixed by the master spec, section 11)
+1, 2, 6, 7 ──> 8      (in-wave 7 -> 8: injection rules captured at wave 3 start; exit codes fixed by master spec 8.1)
+5, 6, 7 ──> 9         (in-wave 7 -> 9: gmctl signatures captured at wave 3 start)
 ```
 
 ## Workflow deltas
@@ -58,12 +69,14 @@ plan states only its deltas.
 - **Chunk checks**, in addition to the model's:
   - Python: `python3 -m unittest discover -s tools/tests -t .`
     (tests related to the files touched, or all of them; the suite is
-    small);
+    small). It needs `tools/__init__.py` and `tools/tests/__init__.py`,
+    which chunk 4 creates; no earlier chunk adds Python tests, so in wave 1
+    YAML files are checked with a one-line PyYAML load instead;
   - shell: `sh -n` on every `*.sh` the chunk touches (`shellcheck` too when
     installed);
-  - YAML: every YAML file the chunk touches loads with PyYAML (the unit
-    suite includes a test loading all templates, bricks, faults and
-    scenarios);
+  - YAML: every YAML file the chunk touches loads with PyYAML (from chunk
+    4 on, the unit suite includes a test loading all templates, bricks,
+    faults and scenarios);
   - image chunks: `docker build` of the brick.
 - **Wave gate (full quality command)**: the full unit suite, `sh -n` on
   every shell script, both image builds, and from wave 2 the smoke run
@@ -74,7 +87,8 @@ plan states only its deltas.
 
 ## Measurements and hand checks
 
-- G2 and G3: hand checks by the wave driver at the start of waves 1 and 2.
+- G2 and G3: hand checks by the wave driver before wave 1 (G3 before
+  chunk 2).
 - The play-through as `player` and the stance check-list: release gate.
 
 ## Chunks
@@ -93,7 +107,10 @@ wave driver at wave start so chunks 2 and 3 can write theirs.
   item, flag any missing one; the GM refuses to deploy an incomplete
   scenario), templates for `scenario.yaml`, `answer-key.yaml`,
   `brick.yaml`, `fault.yaml`, and the folder layouts; marked as initial and
-  expected to evolve. Out: no schema-check script.
+  expected to evolve. The fault template states that a sealed check run as
+  root queries PostgreSQL as `postgres` (`runuser -u postgres`, or exec as
+  `postgres`) so that peer authentication applies. Out: no schema-check
+  script.
 - Files: `.claude/skills/scenario-format/SKILL.md`,
   `.claude/skills/scenario-format/templates/{scenario,answer-key,brick,fault}.yaml`,
   `.claude/skills/scenario-format/templates/layouts.md`.
@@ -108,10 +125,12 @@ wave driver at wave start so chunks 2 and 3 can write theirs.
 
 Status: planned
 Wave: 1
-Depends on: chunk 1 (captured `brick.yaml` keys), G2
+Depends on: chunk 1 (captured `brick.yaml` keys), G2, G3
 Architecture capture: the brick's fixed in-container paths (seed
-directory, secrets, `/etc/postgresql`, PGDATA) and its secret names,
-recorded at wave start (chunks 5, 7 and 8 rely on them).
+directory, secrets, `/etc/postgresql`, PGDATA), its secret names, and the
+per-game envelope file's in-container path and format (read by the
+validator, delivered as a protected config), recorded at wave start
+(chunks 4, 5, 7 and 8 rely on them).
 
 - Goal: the PostgreSQL 18 node image and its brick definition.
 - Scope: in: Debian 13 image with PostgreSQL 18 server and client;
@@ -130,13 +149,27 @@ recorded at wave start (chunks 5, 7 and 8 rely on them).
   `bricks/postgres/docs/{player,gm}.md`.
 - Spec sections: master spec 9.1, 7, 8.1, 14.
 - Atoms: none.
-- Done when: the image builds; a container started from it by hand with
-  seed files and secrets serves PostgreSQL, accepts SSH as `player`, lets
+- Done when: the image builds; a **one-service `docker stack deploy`** of
+  the brick, using only the mounts, capabilities and `read_only` setting a
+  rendered stack file can express (no tmpfs `mode` or `exec` option, which
+  the stack loader drops), with seed files, the envelope file and secrets
+  as configs and secrets, serves PostgreSQL, accepts SSH as `player`, lets
   `player` run exactly the three wrappers, keeps edits to
   `/etc/postgresql` across a restart through `gm-restart-db`, and the
   validator exits 0 on an in-envelope configuration and 1 on an
-  out-of-envelope one.
-- Verification: chunk checks, plus the hand run above.
+  out-of-envelope one. A `docker run` with `--tmpfs /run:exec` does not
+  count: it would hide the problem.
+- Fallback, if s6-overlay cannot run on the stack-deployable `/run`: the
+  chunk owner chooses from evidence and reports which, and why:
+  (a) a named volume for `/run`, cleared by the entrypoint at start; or
+  (b) no read-only root on this node, with the protected files still
+  read-only mounts. Choice (b) changes the master spec's hardening; it
+  gets a decision entry from spec-writer when the chunk reports.
+- Build hints (not new scope): `sudo` needs a log file, since there is no
+  syslog; `sshd` host keys need a home on a read-only root; the player's
+  home must be writable for `.pgpass` and `report.md`; `/run/postgresql`
+  must be created at boot, owned by `postgres`.
+- Verification: chunk checks, plus the stack deploy above (needs G3).
 - Split rule: 2a image, s6, `sshd`, entrypoint and accounts; 2b wrappers,
   `sudoers`, validator, `brick.yaml`, docs.
 
@@ -169,9 +202,12 @@ recorded at wave start.
 Status: planned
 Wave: 2
 Depends on: chunk 1
-Architecture capture: the local implementation's files (`playground.yaml`,
-`implementation.yaml`, `state.yaml`, `secrets/`) and the `render`
-interface, recorded at wave start for chunk 5.
+Architecture capture, recorded at wave start for chunk 5: the local
+implementation's files (`playground.yaml`, `implementation.yaml`,
+`state.yaml`, `secrets/`); the `render` interface; that configs and
+secrets are created by `gmctl deploy`, labelled with the game id by
+`gmctl` itself, and referenced as external in the stack file; the
+per-game envelope file as captured in wave 1 (chunk 2).
 
 - Goal: `gmctl fit` and `gmctl render`, on a loaded and checked scenario.
 - Scope: in: the `gmctl` entry point; loading `scenario.yaml`,
@@ -179,19 +215,23 @@ interface, recorded at wave start for chunk 5.
   version (scenario-local bricks and faults first); refusing an incomplete
   scenario; the capacity check (no recomputation); game id generation;
   writing the local implementation; rendering the stack file (Compose file
-  format 3.8, game-id names, configs, secrets, volumes, capabilities,
-  `read_only`, tmpfs mounts, single-host placement, only the bastion port
-  published); `local/` in `.gitignore`; unit tests with a fixture scenario.
-  Out: talking to Docker.
-- Files: `tools/gmctl`, `tools/gm/{__init__,model,fit,render,localimpl}.py`,
-  `tools/tests/test_{model,fit,render}.py`, `tools/tests/fixtures/`,
-  `.gitignore`.
+  format 3.8, game-id names, external configs and secrets, volumes,
+  capabilities, `read_only`, the mounts chunk 2 proved, single-host
+  placement, only the bastion port published) and the per-game envelope
+  file; `local/` in `.gitignore`; unit tests with a fixture scenario. Out:
+  talking to Docker.
+- Files: `tools/__init__.py`, `tools/gmctl`,
+  `tools/gm/{__init__,model,fit,render,localimpl}.py`,
+  `tools/tests/__init__.py`, `tools/tests/test_{model,fit,render}.py`,
+  `tools/tests/fixtures/`, `.gitignore`.
 - Spec sections: master spec 6, 10.3, 11.
 - Atoms: none.
 - Done when: `fit` accepts the fixture on a sufficient playground and
   refuses it on an insufficient one; `render` produces a stack file whose
-  names all carry the game id and that `docker stack config` accepts; an
-  incomplete scenario is refused with the missing items listed.
+  names all carry the game id and that `docker stack config` accepts, and
+  an envelope file in the captured format; an incomplete scenario is
+  refused with the missing items listed;
+  `python3 -m unittest discover -s tools/tests -t .` runs.
 - Verification: chunk checks.
 - Split rule: 4a model, loading and `fit`; 4b local implementation and
   `render`.
@@ -208,7 +248,8 @@ Architecture capture: none beyond chunk 4's.
   for a swarm and reporting when there is none (or running `docker swarm
   init` when asked); generating per-game credentials into
   `local/<playground>/secrets/` (mode 0600); creating configs and secrets
-  named after the game id; `docker stack deploy --resolve-image never`;
+  named after the game id and labelled with it by `gmctl` (they are
+  external in the stack file, so the stack does not label them); `docker stack deploy --resolve-image never`;
   waiting for health checks; `exec` (find the container by service label,
   stream stdin to `sh -s` with environment variables, as a given user);
   label-based teardown including volumes; recording the stage and any
@@ -253,7 +294,13 @@ Architecture capture: none.
 Status: planned
 Wave: 3
 Depends on: chunks 2, 3, 5
-Architecture capture: none (contracts fixed by master spec 8.1).
+Architecture capture, by the wave driver at wave 3 start (chunks 8 and 9
+rely on it): the naming rule for fault-parameter environment variables;
+the order in which a fault's `inject/*.sh` scripts run; that `load-data`
+runs `psql -v ON_ERROR_STOP=1` as `postgres`, the data file creating its
+own database, with idempotency coming from stage tracking in `state.yaml`
+rather than from the SQL; the argument signatures of every `gmctl`
+subcommand. The exit-code contracts are already fixed by master spec 8.1.
 
 - Goal: `gmctl load-data`, `inject`, `validate`, `check`.
 - Scope: in: streaming `data/<node>.sql` into a node; running each state
@@ -277,7 +324,8 @@ Architecture capture: none (contracts fixed by master spec 8.1).
 Status: planned
 Wave: 3
 Depends on: chunks 1, 2, 6, 7; G4 before merge
-Architecture capture: none.
+Architecture capture: none of its own; it uses the parameter naming rule,
+the injection order and the `load-data` rules captured at wave 3 start.
 
 - Goal: the v0.1 scenario, complete, and the catalog faults it uses.
 - Scope: in: the chosen defects (from master spec 15's candidates, within
@@ -301,8 +349,10 @@ Architecture capture: none.
 
 Status: planned
 Wave: 3
-Depends on: chunks 5, 6, 7 (subcommands fixed by master spec 11)
-Architecture capture: none.
+Depends on: chunks 5, 6, 7
+Architecture capture: none of its own; it uses the `gmctl` argument
+signatures captured at wave 3 start (the subcommand set is fixed by master
+spec 11).
 
 - Goal: the GM persona and run skill.
 - Scope: in: explicit invocation (`/game-master`); the setup questions
@@ -331,13 +381,19 @@ Against master spec section 17, on the merged code, on a single-node swarm:
 
 1. A full game with the v0.1 scenario in a GM session: setup, local
    implementation, deployment, data load, planting, hand-over.
-2. The manual play-through as `player`: each fault's evidence reachable as
-   the answer key states; each *fix* issue fixed both by file and reload or
-   restart and by `ALTER SYSTEM`, with its sealed check turning from 1 to 0.
+2. Master spec section 17, item 3: the players reach the database node only
+   through the bastion, the write policy holds, and `sudo gm-validate`
+   runs. Then the manual play-through as `player`: each fault's evidence
+   reachable as the answer key states; each *fix* issue fixed both by file
+   and reload or restart and by `ALTER SYSTEM`, with its sealed check
+   turning from 1 to 0.
 3. The stance check-list, item by item.
 4. A fresh GM session resuming the game in progress.
 5. A forced setup failure: reported, torn down, stage recorded; teardown
    leaves nothing labelled with the game id.
 6. The wave-gate quality command, green.
 7. G5: the owner's judgement of the feedback tone.
-8. Release notes in `specs/versions/v0.1/README.md`.
+8. Release notes in `specs/versions/v0.1/README.md`. They state that the
+   per-game credentials are kept in the git-ignored
+   `local/<playground>/secrets/`, mode 0600 (spec D45 narrows spec D31's
+   "nothing written to the repository": nothing is committed).

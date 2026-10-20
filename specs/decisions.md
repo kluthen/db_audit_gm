@@ -261,3 +261,12 @@ entry links to the document that now states the ruling.
   list, with the lead's review of the final choice. Now in:
   [versions/v0.1/master-spec.md](versions/v0.1/master-spec.md) sections
   9 to 11 and 15.
+- **D46 (2026-10-20, set by spec-writer from the reviewer's non-blocking
+  findings, before wave 1): Three clarifications of the v0.1 master spec.**
+  `gmctl deploy` creates configs and secrets itself, labelled with the game
+  id and external in the stack file, so label-based teardown finds them;
+  the validator reads a per-game envelope file delivered as a protected
+  config; sealed checks query PostgreSQL as `postgres` (`runuser -u
+  postgres`) for peer authentication. Now in:
+  [versions/v0.1/master-spec.md](versions/v0.1/master-spec.md) sections
+  8.1, 9.1, 10.1, 11.

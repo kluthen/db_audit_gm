@@ -63,6 +63,11 @@ for v0.1; **later** = can wait for v1.0 or beyond. None is open for v0.1.
   [bricks-and-faults.md](bricks-and-faults.md).
 - **O24** (later) — Seed variation (names, values) per deployment of a
   scenario? Probably moot after D8; kept until the owner says so.
+- **O45** (later) — `ALTER SYSTEM` on a report-only database node cannot
+  be prevented for a superuser `dba`. When report-only database nodes
+  arrive: a non-superuser role there, or accept it under light enforcement?
+  Refs: [versions/v0.1/access-model.md](versions/v0.1/access-model.md),
+  "Known gaps".
 - **O25** (later) — Scenario-only bricks and faults may live in the
   scenario's folder (D24). Can they be promoted into the catalog, and
   through which review?

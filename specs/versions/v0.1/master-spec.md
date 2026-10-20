@@ -276,7 +276,9 @@ template for when the fault is known.
   still present, any other code is an error. The first output line says
   why, in one sentence the GM can reuse in feedback. A fix counts when it
   is in effect, whichever path the player took (editing a file and
-  reloading, or `ALTER SYSTEM`).
+  reloading, or `ALTER SYSTEM`). A check that queries PostgreSQL runs its
+  query as `postgres` (through `runuser -u postgres`, or by being executed
+  as `postgres`), so that local peer authentication applies.
 - **Public validator**: exit 0 green; 1 red, with one line per broken
   rule; any other code is an error.
 
@@ -324,7 +326,9 @@ the GM skill agree; the lead may revisit them.
   setuid.
 - **Public validator** (`gm-validate`, runs as `postgres`): every knob
   within its envelope, both the value in effect and the value pending in
-  the configuration files; the GM's `pg_hba.conf` line present; the server
+  the configuration files. The envelopes come from a per-game envelope
+  file, rendered from the scenario and delivered as a protected, read-only
+  config at a fixed path the brick declares; the GM's `pg_hba.conf` line present; the server
   accepting connections. Run by the GM too, through the exec operation,
   for the official result.
 - **Protected files**: `sshd_config`, `sudoers`, the wrappers, the
@@ -351,7 +355,10 @@ the GM skill agree; the lead may revisit them.
 - **Brick images are generic**: built once per brick version, carrying no
   scenario content and no spoilers.
 - **Scenario files travel as Swarm configs**, named after the game id (so
-  they are versioned per game; configs are immutable), mounted read-only
+  they are versioned per game; configs are immutable). `gmctl deploy`
+  creates every config and secret itself, labels it with the game id so
+  that teardown finds it, and the stack file refers to it as external.
+  Configs are mounted read-only
   under the brick's fixed seed directory, and copied once into the node's
   volume by the entrypoint. Players edit the copy.
 - **Protected files** are mounted directly from configs or come from the
@@ -411,7 +418,7 @@ the GM skill calls:
 |---|---|
 | `fit` | Capacity check of a scenario against a declared playground |
 | `render` | Writes the local implementation's stack file from `scenario.yaml` and the local implementation |
-| `deploy` | Ensures the swarm exists (or reports that it does not), generates the per-game credentials, creates configs and secrets named after the game id, deploys the stack, waits for health checks |
+| `deploy` | Ensures the swarm exists (or reports that it does not), generates the per-game credentials, creates configs and secrets named after and labelled with the game id (external in the stack file), deploys the stack, waits for health checks |
 | `exec` | Streams stdin into `sh -s` in a node's container, with environment variables, as a given user |
 | `load-data` | Streams `data/<node>.sql` into the node |
 | `inject` | Runs every state fault's injection scripts for the game |

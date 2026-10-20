@@ -180,3 +180,7 @@ logs on the node. Repeated denials have no effect.
   not enforced.
 - Credentials are shared by all players of a game and cannot be rotated
   during a game.
+- The rule that `alter-system` needs a fixable node cannot be enforced for
+  a PostgreSQL superuser: on a report-only database node, `dba` could
+  still run `ALTER SYSTEM`. Irrelevant in v0.1, whose only database node is
+  fixable; to revisit when report-only database nodes arrive.

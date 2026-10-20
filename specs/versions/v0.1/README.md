@@ -1,6 +1,6 @@
 # v0.1 — first milestone
 
-Status: master spec approved (D44); build plan v1 awaiting approval.
+Status: master spec approved (D44); build plan v2 awaiting approval.
 
 ## Goal
 
