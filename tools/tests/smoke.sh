@@ -1,14 +1,16 @@
 #!/bin/sh
-# Smoke run of gmctl on a real single-node swarm (build plan v0.1, chunk 5;
-# the wave gate's smoke run).
+# Smoke run of gmctl on a real single-node swarm (build plan v0.1, chunks 5
+# and 7; the wave gate's smoke run).
 #
 # On a copy of the fixture scenario (tools/tests/fixtures/fixture-audit):
 #   fit -> render -> deploy (credentials, labelled configs and secrets, stack,
-#   health checks) -> exec on both nodes -> logs, status -> teardown,
+#   health checks) -> exec on both nodes -> logs, status
+#   -> load-data -> inject twice (same result) -> status --set handed-over
+#   -> check (1) -> the fix through exec -> check (0)
+#   -> validate green, then red after an out-of-envelope change -> teardown,
 # then asserts that nothing carrying the game's labels is left (services,
 # containers, networks, volumes, configs, secrets) and that the objects not
 # belonging to the game are the same as before.
-# Chunk 7 adds `gmctl validate` and `gmctl check` at the marked place.
 #
 # Needs: a swarm manager on the local engine (docker swarm init), and the
 # bricks' images built locally:
@@ -136,7 +138,41 @@ same "exec as an unknown user exits 125" 125 "$?"
 check "logs" $GMCTL logs "$SCN" --playground "$PG" --node db --tail 5
 
 # --- validate and check (chunk 7) -------------------------------------------
-# Chunk 7 adds `gmctl validate` and `gmctl check` here, on the deployed game.
+# The setup steps after deployment, then the evaluation, on the deployed game.
+
+# exec_db <user>: the script on stdin, run on db as <user>; prints its output.
+exec_db() { $GMCTL exec "$SCN" --playground "$PG" --node db --user "$1"; }
+stage() { $GMCTL status "$SCN" --playground "$PG" | sed -n 's/^  stage: //p'; }
+# The indexes of shop's orders table, comma-separated.
+indexes() {
+    exec_db postgres <<'EOF'
+psql -XAtq -d shop -c "SELECT string_agg(indexname, ',' ORDER BY indexname) FROM pg_indexes WHERE tablename = 'orders'"
+EOF
+}
+
+info "gmctl load-data"
+check "load-data" $GMCTL load-data "$SCN" --playground "$PG"
+same "status: stage data-loaded" data-loaded "$(stage)"
+out=$(exec_db postgres <<'EOF'
+psql -XAtq -d shop -c "SELECT (SELECT count(*) FROM customers) || ' ' || (SELECT count(*) FROM orders)"
+EOF
+)
+same "fixture data loaded (customers, orders)" "500 20000" "$out"
+same "fixture data has the index the test fault drops" "orders_customer_id_idx,orders_pkey" "$(indexes)"
+out=$($GMCTL load-data "$SCN" --playground "$PG")
+same "load-data again: exit 0, nothing done" "0 already" \
+    "$? $(printf '%s' "$out" | grep -o 'already' | head -n 1)"
+
+info "gmctl inject (twice)"
+check "inject" $GMCTL inject "$SCN" --playground "$PG"
+same "status: stage injected" injected "$(stage)"
+first=$(indexes)
+same "the test fault is planted (index dropped)" "orders_pkey" "$first"
+check "inject again (replay)" $GMCTL inject "$SCN" --playground "$PG"
+same "second inject: same result" "$first" "$(indexes)"
+same "second inject: stage stays injected" injected "$(stage)"
+check "status --set handed-over" $GMCTL status "$SCN" --playground "$PG" --set handed-over
+same "status: stage handed-over" handed-over "$(stage)"
 
 # --- teardown -------------------------------------------------------------
 info "gmctl teardown"

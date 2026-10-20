@@ -90,6 +90,9 @@ class TestLoadFixture(unittest.TestCase):
         fault = sc.faults["f1"]
         self.assertEqual(fault.source, "scenario")
         self.assertEqual(fault.dir, FIXTURE_SCENARIO / "faults" / "fixture-random-page-cost")
+        state_fault = sc.faults["f2"]
+        self.assertEqual(state_fault.data["injection"]["kind"], "state")
+        self.assertEqual(sc.node("db")["data"]["file"], "data/db.sql")
 
 
 class TestRefusals(ScenarioCopyTest):
@@ -195,6 +198,31 @@ class TestRefusals(ScenarioCopyTest):
     def test_incomplete_local_fault(self):
         (self.scenario / "faults" / "fixture-random-page-cost" / "checks" / "fixed.sh").unlink()
         self.assertRefused("faults/fixture-random-page-cost", "checks/fixed.sh")
+
+    def test_fault_parameter_env_names(self):
+        self.assertEqual(model.fault_env_name("table-name"), "FAULT_TABLE_NAME")
+        self.assertEqual(model.fault_env_name("db2_name"), "FAULT_DB2_NAME")
+        for bad in ("2nd", "_x", "a.b", "naïve", "a b", ""):
+            self.assertIsNone(model.fault_env_name(bad), bad)
+
+    def test_invalid_parameter_name_refused_at_load(self):
+        def change(d):
+            d["parameters"]["a.b"] = {"description": "x", "default": 1, "required": False}
+            d["parameters"]["table_name"] = {"description": "x", "default": "t",
+                                             "required": False}
+        self.edit_yaml("faults/fixture-dropped-index/fault.yaml", change)
+        self.assertRefused("fault.yaml: parameters.a.b: not a valid environment name",
+                           "parameters.table_name: same environment name FAULT_TABLE_NAME")
+
+    def test_list_or_map_parameter_refused_at_load(self):
+        def fault(d):
+            d["parameters"]["database"]["default"] = ["shop"]
+        def scenario(d):
+            d["fault_instances"][1]["parameters"]["column"] = {"name": "customer_id"}
+        self.edit_yaml("faults/fixture-dropped-index/fault.yaml", fault)
+        self.edit_yaml("scenario.yaml", scenario)
+        self.assertRefused("parameters.database.default: a list or map",
+                           "fault_instances[f2].parameters.column: a list or map")
 
     def test_yaml_syntax_error_is_reported(self):
         (self.scenario / "scenario.yaml").write_text("id: [unclosed\n")

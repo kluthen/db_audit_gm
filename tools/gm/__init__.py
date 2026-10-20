@@ -7,9 +7,11 @@ Python 3, standard library plus PyYAML. Modules:
 - `fit`        the capacity check and `implementation.yaml`;
 - `render`     the stack file and the envelope files;
 - `docker`     the Docker command line, aimed at the playground's engine;
-- `state`      `gmctl status`, and recording a failed setup step;
+- `state`      `gmctl status` (and `--set`, the GM-recorded stages), and
+               recording a failed setup step;
 - `deploy`     swarm check, credentials, labelled configs and secrets, the stack;
 - `execnode`   `exec` (a script into a node's `sh -s`) and `logs`;
+- `inject`     `load-data` and `inject`, the setup steps after deployment;
 - `teardown`   removing everything carrying the game's label.
 
 Every subcommand prints a readable result and exits non-zero on failure.
@@ -49,7 +51,22 @@ def _cmd_deploy(args):
 
 def _cmd_status(args):
     from . import localimpl, state
-    print(state.status_text(localimpl.local_dir(args.scenario_dir, args.playground)))
+    ldir = localimpl.local_dir(args.scenario_dir, args.playground)
+    if args.set and not state.set_gm_stage(ldir, args.set):
+        print(f"Already at stage {args.set}: nothing changed.")
+    print(state.status_text(ldir))
+    return 0
+
+
+def _cmd_load_data(args):
+    from . import inject
+    print(inject.load_data(args.scenario_dir, args.playground, timeout=args.timeout).text())
+    return 0
+
+
+def _cmd_inject(args):
+    from . import inject
+    print(inject.inject(args.scenario_dir, args.playground, timeout=args.timeout).text())
     return 0
 
 
@@ -107,8 +124,28 @@ def build_parser():
                    help="how long to wait for health checks (default 300)")
     p.set_defaults(func=_cmd_deploy)
 
-    p = sub.add_parser("status", help="the game's recorded state")
+    p = sub.add_parser("load-data", help="stream each node's data/<node>.sql into it "
+                                         "(psql as postgres), after deployment")
     _scenario_args(p)
+    p.add_argument("--timeout", type=int, metavar="SECONDS",
+                   help="limit for each node's load (default: none)")
+    p.set_defaults(func=_cmd_load_data)
+
+    p = sub.add_parser("inject", help="plant the state faults: run each one's inject/ "
+                                      "scripts on its node, after the data load")
+    _scenario_args(p)
+    p.add_argument("--timeout", type=int, metavar="SECONDS",
+                   help="limit for each script (default: none)")
+    p.set_defaults(func=_cmd_inject)
+
+    from .state import GM_STAGES
+    p = sub.add_parser("status", help="the game's recorded state; --set records a stage "
+                                      "only the GM can tell")
+    _scenario_args(p)
+    # Not argparse choices: any other stage is a refused transition (exit 1).
+    p.add_argument("--set", metavar="<stage>",
+                   help=f"record {', '.join(GM_STAGES)} (each follows the one before; "
+                        "handed-over follows injected)")
     p.set_defaults(func=_cmd_status)
 
     p = sub.add_parser("exec", help="stream stdin into sh -s in a node's container, as a "

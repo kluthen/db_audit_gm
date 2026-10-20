@@ -1,4 +1,4 @@
-# Answer key of the fixture scenario (tools/tests, chunk 4).
+# Answer key of the fixture scenario (tools/tests, chunks 4 and 7).
 scenario:
   id: fixture-audit
   version: 0.1.0
@@ -19,5 +19,21 @@ instances:
       script: faults/fixture-random-page-cost/checks/fixed.sh
       at_handover: 1
       notes: the scenario's own fault (faults/ in the fixture folder).
+    interactions: []
+    validators_left_red: []
+  - instance: f2
+    what: the index on orders (customer_id) is gone.
+    why: every lookup of a customer's orders reads the whole orders table.
+    evidence:
+      - where: the indexes of orders, and the plan of a lookup by customer
+        how: ssh db, then psql -d shop -c '\d orders'
+        shows: no index on customer_id; EXPLAIN shows a sequential scan
+    acceptable:
+      diagnosis: names the missing index on orders (customer_id).
+      fix: a valid index leading with customer_id exists on orders, whatever its name.
+    sealed_check:
+      script: faults/fixture-dropped-index/checks/fixed.sh
+      at_handover: 1
+      notes: planted after the data load by gmctl inject (a state fault).
     interactions: []
     validators_left_red: []

@@ -1,9 +1,11 @@
-"""The game's recorded state: `gmctl status`, and setup failures.
+"""The game's recorded state: `gmctl status`, setup failures, GM stages.
 
 Master spec 11 (`status`) and 12 ("Failures"). `state.yaml` itself (stage,
 history, failure; capture W2-A) is read and written by `localimpl`; this
 module adds what a setup step needs: if the step fails, or anyone stops it,
 what it deployed is torn down and the failure is recorded with its reason.
+It also records the stages no script reaches, which only the GM can tell
+(`gmctl status --set`; spec D49, capture W3-A).
 """
 
 import contextlib
@@ -14,6 +16,10 @@ from .model import GmError
 # Stages at which the game holds objects on the swarm.
 DEPLOYED_STAGES = ("deployed", "data-loaded", "injected", "handed-over", "final-answer",
                    "feedback-given")
+
+# Stages only the GM records (`status --set`), each with the stage it follows.
+GM_STAGES = {"handed-over": "injected", "final-answer": "handed-over",
+             "feedback-given": "final-answer"}
 
 
 class SetupFailed(GmError):
@@ -58,6 +64,28 @@ def setup_step(ldir, stage, undo=None):
                 reason += f"; teardown after the failure also failed: {_reason(undo_exc)}"
         localimpl.set_failed(ldir, stage, reason)
         raise SetupFailed(stage, reason, undone) from exc
+
+
+def set_gm_stage(ldir, stage):
+    """`gmctl status --set <stage>`: record a stage only the GM can tell.
+
+    `handed-over` follows `injected`, `final-answer` follows `handed-over`,
+    `feedback-given` follows `final-answer`. Returns True when the stage was
+    recorded, False when the game is already at it (nothing changed); raises
+    GmError, state.yaml unchanged, for any other transition."""
+    if stage not in GM_STAGES:
+        raise GmError(f"--set {stage}: the GM records only {', '.join(GM_STAGES)}")
+    st = localimpl.read_state(ldir)
+    if st is None:
+        raise GmError(f"no game in {ldir}: run gmctl fit first")
+    current = st.get("stage")
+    if current == stage:
+        return False
+    if current != GM_STAGES[stage]:
+        raise GmError(f"game {st.get('game_id')} is at stage {current}: {stage} can only "
+                      f"follow {GM_STAGES[stage]}; nothing changed")
+    localimpl.set_stage(ldir, stage)
+    return True
 
 
 def status_text(ldir):

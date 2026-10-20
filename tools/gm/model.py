@@ -33,6 +33,24 @@ ORIGINS = ("hand-written", "from-brief", "gm-designed")
 RESOLUTION_KINDS = ("report", "propose", "fix", "improve")
 MAX_SESSION_MINUTES = 240
 
+# Fault parameters reach inject/ and checks/ scripts as FAULT_<NAME>
+# (captures W1-D, W3-A): the name upper-cased, `-` replaced by `_`.
+FAULT_ENV_PREFIX = "FAULT_"
+FAULT_ENV_NAME_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
+
+
+def fault_env_name(param_name):
+    """`FAULT_<NAME>` for a fault parameter, or None when the upper-cased
+    name, `-` replaced by `_`, is not `[A-Z][A-Z0-9_]*` (capture W3-A)."""
+    name = str(param_name).upper().replace("-", "_")
+    return FAULT_ENV_PREFIX + name if FAULT_ENV_NAME_RE.match(name) else None
+
+
+def _check_param_value(value, where, label, out):
+    if isinstance(value, (list, dict)):
+        out.append(f"{label}: {where}: a list or map cannot be passed to a script; "
+                   "use a scalar")
+
 
 class GmError(Exception):
     """A refusal or failure that gmctl reports to the GM (exit status 1)."""
@@ -483,6 +501,20 @@ def check_fault_dir(fault_dir, label_base=None):
                 out.append(f"{_rel(fault_dir / str(script), base)}: missing file")
     elif kind is not None:
         out.append(f"{label}: injection.kind: {kind} is not seed-file or state")
+    params = data.get("parameters")
+    env_names = {}
+    for pname, spec in params.items() if isinstance(params, dict) else ():
+        env = fault_env_name(pname)
+        if env is None:
+            out.append(f"{label}: parameters.{pname}: not a valid environment name once "
+                       f"upper-cased with - as _ (FAULT_ then [A-Z][A-Z0-9_]*)")
+        elif env in env_names:
+            out.append(f"{label}: parameters.{pname}: same environment name {env} as "
+                       f"parameter {env_names[env]}")
+        else:
+            env_names[env] = pname
+        if isinstance(spec, dict):
+            _check_param_value(spec.get("default"), f"parameters.{pname}.default", label, out)
     script = (data.get("sealed_check") or {}).get("script")
     if script and not (fault_dir / str(script)).is_file():
         out.append(f"{_rel(fault_dir / str(script), base)}: missing file (sealed_check.script)")
@@ -864,10 +896,11 @@ def _check_faults(data, nodes, bricks, sdir, catalog_root, out):
                 if isinstance(spec, dict) and spec.get("required") and pname not in params:
                     out.append(f"{label}: {p}.parameters.{pname}: missing (required by fault "
                                f"{fault.id})")
-            for pname in params:
+            for pname, value in params.items():
                 if pname not in fparams:
                     out.append(f"{label}: {p}.parameters.{pname}: not a parameter of fault "
                                f"{fault.id}")
+                _check_param_value(value, f"{p}.parameters.{pname}", label, out)
     return faults
 
 
