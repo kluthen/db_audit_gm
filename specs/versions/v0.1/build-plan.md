@@ -252,7 +252,12 @@ per-game envelope file as captured in wave 1 (chunk 2).
 
 ### Chunk 5 — Platform operations
 
-Status: in progress
+Status: merged (w2, 6231044)
+Record: split per its rule: 5a 54f4542, 5b fdd91ab, merged 6231044. No
+deviation from the spec or captures; choices within the spec logged as
+W2-C (`ssh-keygen` on the GM host, credentials regenerated per deploy and
+kept after teardown, deploy retry from a failed deploy, 300 s health
+wait). Smoke run: 17 checks passed on the local swarm.
 Wave: 2
 Depends on: chunk 4 (captured interface)
 Architecture capture: none beyond chunk 4's.
@@ -283,7 +288,7 @@ Architecture capture: none beyond chunk 4's.
 
 ### Chunk 6 — Scenario-document skill
 
-Status: planned
+Status: in progress
 Wave: 2
 Depends on: chunk 1
 Architecture capture: none.
