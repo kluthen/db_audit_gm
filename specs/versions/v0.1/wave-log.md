@@ -135,6 +135,25 @@ Recorded after chunk 2 merged.
 - **Inner-hop host key:** the node's sshd host key is regenerated at every
   container start, so a replaced container shows a changed host key.
 
+### Capture W1-F — outcomes of chunk 3 (read by 4, 5, 9)
+
+Recorded after chunk 3 merged; accepted by the wave driver.
+
+- **Extra volume `hostkeys`** at `/var/lib/gm-sshd-keys` on the bastion:
+  its sshd host key survives a container replacement, so players' own SSH
+  clients see no changed key mid-game. The bastion's volumes are `home`,
+  `run`, `hostkeys`.
+- **Inner hop:** strict host-key checking is off for dotless in-game names
+  only (`/etc/ssh/ssh_config.d/gm-game.conf`), so a replaced database node
+  never locks players out.
+- **Bastion `brick.yaml`:** `write_policies: [report-only]`; starter pack
+  `seed: {dir: /opt/gm/starter/, files: [README.md, story.md, issues.md]}`;
+  `extra.published_port_default: 2222`; secrets at mode `"0400"`.
+- **For the renderer (chunk 4):** `dba_password` is one Swarm secret shared
+  by both nodes; `player_ssh_key` is the private half of the database
+  node's `player_ssh_pubkey`; the bastion publishes container port 22
+  (host mode or routing mesh: the renderer's call).
+
 ### Dispatch
 
 - Chunk 1: dispatched 2026-10-20; merged 165e153 (chunk commit 8892378).
@@ -144,4 +163,5 @@ Recorded after chunk 2 merged.
 - Roadmap (spec-writer, outside the chunk list): merged 45ce85c
   (commit 6abcaa8; D47, D48, O46–O54). Branch `roadmap` kept until the
   wave merges.
-- Chunk 3: dispatched 2026-10-20.
+- Chunk 3: dispatched 2026-10-20; merged 1565cbe (chunk commit ddf2a19).
+  Hand run replaced by a two-service stack test; choices in W1-F.

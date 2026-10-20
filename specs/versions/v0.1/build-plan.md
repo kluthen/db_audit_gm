@@ -179,7 +179,10 @@ validator, delivered as a protected config), recorded at wave start
 
 ### Chunk 3 — Bastion brick
 
-Status: in progress
+Status: merged (w1, 1565cbe)
+Record: chunk commit ddf2a19; extra `hostkeys` volume, `/run` as a volume
+(W1-E), no strict host-key checking for in-game names; see wave-log
+capture W1-F.
 Wave: 1
 Depends on: chunk 1 (captured `brick.yaml` keys), G2
 Architecture capture: the bastion's secret names and starter-pack path,
