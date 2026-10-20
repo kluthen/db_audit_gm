@@ -12,6 +12,7 @@ Python 3, standard library plus PyYAML. Modules:
 - `deploy`     swarm check, credentials, labelled configs and secrets, the stack;
 - `execnode`   `exec` (a script into a node's `sh -s`) and `logs`;
 - `inject`     `load-data` and `inject`, the setup steps after deployment;
+- `checks`     `validate` and `check`, the evaluation's live evidence;
 - `teardown`   removing everything carrying the game's label.
 
 Every subcommand prints a readable result and exits non-zero on failure.
@@ -68,6 +69,36 @@ def _cmd_inject(args):
     from . import inject
     print(inject.inject(args.scenario_dir, args.playground, timeout=args.timeout).text())
     return 0
+
+
+def _evaluation(args, run):
+    """validate and check: exit 0/1/2 from the result; a refusal (nothing
+    run, the result unknown) exits 2, not 1, which would read as red or
+    present (capture W3-A)."""
+    from .checks import ERROR
+    from .model import GmError, IncompleteScenario
+    try:
+        result = run(args.scenario_dir, args.playground)
+    except IncompleteScenario as exc:
+        print(exc.report())
+        print(f"gmctl {args.command}: refused: the scenario is incomplete "
+              f"({len(exc.missing)} missing item(s))", file=sys.stderr)
+        return ERROR
+    except GmError as exc:
+        print(f"gmctl {args.command}: {exc}", file=sys.stderr)
+        return ERROR
+    print(result.text())
+    return result.exit_code
+
+
+def _cmd_validate(args):
+    from . import checks
+    return _evaluation(args, checks.validate)
+
+
+def _cmd_check(args):
+    from . import checks
+    return _evaluation(args, checks.check)
 
 
 def _cmd_exec(args):
@@ -137,6 +168,16 @@ def build_parser():
     p.add_argument("--timeout", type=int, metavar="SECONDS",
                    help="limit for each script (default: none)")
     p.set_defaults(func=_cmd_inject)
+
+    p = sub.add_parser("validate", help="the official run of every node's public validator; "
+                                        "exit 0 green, 1 red, 2 error")
+    _scenario_args(p)
+    p.set_defaults(func=_cmd_validate)
+
+    p = sub.add_parser("check", help="run every sealed check, one line per fault instance; "
+                                     "exit 0 all fixed, 1 any present, 2 any error")
+    _scenario_args(p)
+    p.set_defaults(func=_cmd_check)
 
     from .state import GM_STAGES
     p = sub.add_parser("status", help="the game's recorded state; --set records a stage "

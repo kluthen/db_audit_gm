@@ -151,7 +151,8 @@ EOF
 }
 
 info "gmctl load-data"
-check "load-data" $GMCTL load-data "$SCN" --playground "$PG"
+$GMCTL load-data "$SCN" --playground "$PG"
+same "load-data: exit 0" 0 "$?"
 same "status: stage data-loaded" data-loaded "$(stage)"
 out=$(exec_db postgres <<'EOF'
 psql -XAtq -d shop -c "SELECT (SELECT count(*) FROM customers) || ' ' || (SELECT count(*) FROM orders)"
@@ -164,7 +165,8 @@ same "load-data again: exit 0, nothing done" "0 already" \
     "$? $(printf '%s' "$out" | grep -o 'already' | head -n 1)"
 
 info "gmctl inject (twice)"
-check "inject" $GMCTL inject "$SCN" --playground "$PG"
+$GMCTL inject "$SCN" --playground "$PG"
+same "inject: exit 0" 0 "$?"
 same "status: stage injected" injected "$(stage)"
 first=$(indexes)
 same "the test fault is planted (index dropped)" "orders_pkey" "$first"
@@ -173,6 +175,53 @@ same "second inject: same result" "$first" "$(indexes)"
 same "second inject: stage stays injected" injected "$(stage)"
 check "status --set handed-over" $GMCTL status "$SCN" --playground "$PG" --set handed-over
 same "status: stage handed-over" handed-over "$(stage)"
+
+# verdicts <output>: the instance lines of gmctl check, without their reasons.
+verdicts() { printf '%s\n' "$1" | sed 's/ — .*//'; }
+
+info "gmctl check (faults present)"
+out=$($GMCTL check "$SCN" --playground "$PG"); rc=$?
+printf '%s\n' "$out"
+same "check: exit 1 while the faults are present" 1 "$rc"
+same "check: one line per instance, both present" "f1 fixture-random-page-cost: present
+f2 fixture-dropped-index: present" "$(verdicts "$out")"
+
+info "the fix, through exec (an index, random_page_cost lowered)"
+exec_db postgres >/dev/null <<'EOF'
+set -e
+psql -XAtq -v ON_ERROR_STOP=1 -d shop -c "CREATE INDEX orders_by_customer ON orders (customer_id)"
+psql -XAtq -v ON_ERROR_STOP=1 -c "ALTER SYSTEM SET random_page_cost = 1.1" -c "SELECT pg_reload_conf()"
+sleep 1
+EOF
+same "fix applied through exec" 0 "$?"
+out=$($GMCTL check "$SCN" --playground "$PG"); rc=$?
+printf '%s\n' "$out"
+same "check: exit 0 once fixed" 0 "$rc"
+same "check: both fixed" "f1 fixture-random-page-cost: fixed
+f2 fixture-dropped-index: fixed" "$(verdicts "$out")"
+
+info "gmctl validate (green)"
+out=$($GMCTL validate "$SCN" --playground "$PG"); rc=$?
+printf '%s\n' "$out"
+same "validate: exit 0, every node green" 0 "$rc"
+same "validate: verdicts" "Validators of game $GAME: bastion green, db green." \
+    "$(printf '%s\n' "$out" | tail -n 1)"
+
+info "an out-of-envelope change, through exec (work_mem above 64MB)"
+exec_db postgres >/dev/null <<'EOF'
+set -e
+psql -XAtq -v ON_ERROR_STOP=1 -c "ALTER SYSTEM SET work_mem = '128MB'" -c "SELECT pg_reload_conf()"
+sleep 1
+EOF
+same "change applied through exec" 0 "$?"
+out=$($GMCTL validate "$SCN" --playground "$PG"); rc=$?
+printf '%s\n' "$out"
+same "validate: exit 1 after the change" 1 "$rc"
+same "validate: verdicts" "Validators of game $GAME: bastion green, db red." \
+    "$(printf '%s\n' "$out" | tail -n 1)"
+same "validate: a red line under db names work_mem" yes \
+    "$(printf '%s\n' "$out" | sed -n '/^db:$/,$p' | grep -q '^  RED .*work_mem' && echo yes)"
+same "evaluation changed no stage" handed-over "$(stage)"
 
 # --- teardown -------------------------------------------------------------
 info "gmctl teardown"

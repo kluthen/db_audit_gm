@@ -141,3 +141,7 @@ interfaces:
   consumes: []
 extra:
   read_only_root: true              # read_only: true in the stack file
+  validator:                        # the GM's official run (gmctl validate, capture W3-A)
+    path: /opt/gm/validator/validate.sh
+    run_as: postgres                # docker exec -u postgres sets HOME=/var/lib/postgresql,
+                                    #   as gm-validate does
