@@ -1,0 +1,85 @@
+{
+  "docs_path": "docs/",
+  "diff_similarity_threshold": 0.85,
+  "bloating_factor": {
+    "default": 0.8,
+    "type_overrides": {
+      "API": 0.1,
+      "MODULE": 0.3,
+      "REQUIREMENT": 0.3,
+      "SPECIFICATION": 0.3,
+      "USECASE": 0.1,
+      "USER_STORY": 0.1
+    }
+  },
+  "model": "llama3.2",
+  "logging": {
+    "log_path": ".agent/logs/atd_trace.log"
+  },
+  "llm": {
+    "providers": [
+      {
+        "name": "remote",
+        "base_url": "http://192.168.1.10:11434",
+        "timeout_ms": 2000
+      },
+      {
+        "name": "local",
+        "base_url": "http://localhost:11434",
+        "timeout_ms": 500
+      },
+      {
+        "name": "ide_agent",
+        "base_url": "",
+        "timeout_ms": 0,
+        "type": "passthrough"
+      }
+    ],
+    "models": {
+      "deepseek-r1:7b": {
+        "tasks": [
+          "code_analysis",
+          "text_analysis",
+          "text_generation"
+        ],
+        "priority": 40
+      },
+      "llama3.1:8b": {
+        "tasks": [
+          "*"
+        ],
+        "priority": 20
+      },
+      "llama3.2": {
+        "tasks": [
+          "*"
+        ],
+        "priority": 10
+      },
+      "nomic-embed-text": {
+        "tasks": [
+          "embed"
+        ],
+        "priority": 100
+      },
+      "qwen2.5-coder:14b": {
+        "tasks": [
+          "code_analysis"
+        ],
+        "priority": 50
+      }
+    },
+    "fallback_model": "llama3.2",
+    "generate_timeout_ms": 120000
+  },
+  "webui": {
+    "host": "",
+    "port": 0,
+    "toolkit_path": ""
+  },
+  "verify": {
+    "command": "",
+    "test_pattern": "",
+    "max_parallelism": 0
+  }
+}
