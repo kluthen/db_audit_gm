@@ -1,0 +1,11 @@
+#!/bin/sh
+# Health check of the db_audit_gm bastion (DO NOT TAMPER).
+# Healthy while sshd is up under s6 and listening on port 22 (read from
+# /proc, so the check leaves no line in sshd's log).
+PATH=/command:/usr/sbin:/usr/bin:/sbin:/bin
+
+[ "$(s6-svstat -o up /run/service/sshd 2>/dev/null)" = true ] || { echo "sshd is not up"; exit 1; }
+# local_address ends in :0016 (port 22), state 0A (LISTEN)
+awk '$2 ~ /:0016$/ && $4 == "0A" { found = 1 } END { exit !found }' /proc/net/tcp /proc/net/tcp6 2>/dev/null \
+    || { echo "sshd is not listening on port 22"; exit 1; }
+exit 0
