@@ -4,7 +4,8 @@ Master spec 11: `exec` finds the node's container on the targeted engine by
 its Swarm service label and streams stdin into `sh -s` in it, with
 environment variables, as a given user. In-node scripts are POSIX shell.
 The GM's side of injection, data load, validation and sealed checks (chunk
-7) goes through `exec_node`.
+7) goes through `exec_node`; the data load streams SQL into `psql` rather
+than a script into `sh -s`, through its optional `argv` (capture W3-A).
 
 Exit status: `exec_node` returns the script's own exit status; it raises
 ExecError (a GmError) when the script cannot be started at all (no game, no
@@ -23,6 +24,7 @@ from .model import GmError
 ENV_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 USER_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]*(:[A-Za-z0-9_][A-Za-z0-9_.-]*)?$")
 CANNOT_RUN = 125        # gmctl exec's exit status when the script could not be started
+SHELL_ARGV = ("sh", "-s")   # what exec_node runs in the container by default
 
 
 class ExecError(GmError):
@@ -91,15 +93,17 @@ def node_container(docker, impl, node):
 
 
 def exec_node(ldir, node, user, stdin=None, env=None, capture=True, timeout=None,
-              docker=None):
+              docker=None, argv=None):
     """Run `sh -s` as `user` in `node`'s container, the script fed on stdin.
 
     `stdin`: the script, a str or bytes, or a binary file object streamed as
     is (a large SQL dump); `env`: {name: value}, set with `docker exec -e`;
     `capture`: return stdout and stderr (text, or bytes when `stdin` is
-    bytes) in the result, else leave them to the terminal. Returns an
-    ExecResult whose `returncode` is the script's; raises ExecError when the
-    script cannot be started."""
+    bytes) in the result, else leave them to the terminal; `argv`: the
+    command run in the container instead of `sh -s` (`load-data` runs
+    `psql`), stdin fed to it the same way. Returns an ExecResult whose
+    `returncode` is the script's; raises ExecError when the script cannot
+    be started."""
     if not USER_RE.match(str(user or "")):
         raise ExecError(f"user {user!r}: expected a user name (root, postgres, player)")
     env = dict(env or {})
@@ -118,7 +122,7 @@ def exec_node(ldir, node, user, stdin=None, env=None, capture=True, timeout=None
     args = ["exec", "-i", "-u", user]
     for key, value in env.items():
         args += ["-e", f"{key}={value}"]
-    args += [container, "sh", "-s"]
+    args += [container, *(argv or SHELL_ARGV)]
     kwargs = {"capture": capture, "check": False, "timeout": timeout}
     if isinstance(stdin, (str, bytes, bytearray)):
         kwargs["input"] = stdin

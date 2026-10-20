@@ -1,6 +1,7 @@
-# Fixture scenario for tools/tests (chunk 4). Not a game: a bastion and one
-# PostgreSQL node, built from .claude/skills/scenario-format/templates/
-# scenario.yaml. Complete, so that `gmctl fit` and `gmctl render` accept it.
+# Fixture scenario for tools/tests (chunks 4 and 7). Not a game: a bastion
+# and one PostgreSQL node, built from .claude/skills/scenario-format/
+# templates/scenario.yaml. Complete, so that every gmctl subcommand accepts
+# it: a seed-file fault (f1), a state fault planted on the data (f2).
 
 # --- Scenario information --------------------------------------------
 id: fixture-audit
@@ -84,6 +85,18 @@ nodes:
       - setting: autovacuum
         initial: "on"
         envelope: {allowed: ["on"]}
+    data:
+      file: data/db.sql
+      databases:
+        - name: shop
+          owner: shop
+          tables:
+            - name: customers
+              description: 500 customers (id, name); primary key on id.
+            - name: orders
+              description: >-
+                20 000 orders (id, customer_id, placed_at, total); primary key
+                on id, index orders_customer_id_idx on customer_id.
 
 flows:
   - from: bastion
@@ -100,6 +113,15 @@ fault_instances:
       version: 0.1.0
     node: db
     parameters: {}
+    visibility: hidden
+  - id: f2
+    fault:
+      id: fixture-dropped-index
+      version: 0.1.0
+    node: db
+    parameters:
+      column: customer_id
+      database: shop
     visibility: hidden
 
 issues: []
