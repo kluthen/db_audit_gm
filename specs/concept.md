@@ -123,9 +123,15 @@ Scoped separately, each in its own page (D4):
   producer, no monitoring. Its goal is to settle the GM stance
   ([gm-stance.md](gm-stance.md)). See
   [versions/v0.1/README.md](versions/v0.1/README.md).
+- **v0.2 to v0.5**: monitoring, then producers and consumers, then
+  transformers, then research and broadening (D47).
 - **v1.0, the first release**: the full pipeline, producer -> database ->
   transformation -> database -> consumer, plus monitoring tools and the
   bastion. See [versions/v1.0/README.md](versions/v1.0/README.md).
+- **Beyond v1.0**: other databases and tools (TimescaleDB, columnar
+  databases, MySQL…).
+
+The whole roadmap is in [versions/README.md](versions/README.md).
 
 The scenario format, brick definition and fault definition are designed
 from the start to express the v1.0 pipeline, even though v0.1 exercises a

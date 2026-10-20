@@ -1,0 +1,122 @@
+#!/bin/sh
+# gm-entrypoint: container entrypoint of the db_audit_gm bastion brick.
+# DO NOT TAMPER. Root-owned and read-only (master spec 9.2).
+#
+# Runs as root at every container start, then execs s6-overlay's /init:
+#   1. empties /run (a named volume: a stack file's tmpfs is noexec, and
+#      s6-overlay needs an executable /run) and creates the runtime dirs;
+#   2. creates the sshd host key in the `hostkeys` volume, once;
+#   3. checks the secrets;
+#   4. builds /run/gm/shadow (/etc/shadow points to it) with the hash of
+#      the per-game password;
+#   5. copies the starter pack from /opt/gm/starter into the player's home,
+#      once, never over an existing file;
+#   6. writes the player's ~/.ssh/id_ed25519 and ~/.pgpass from the secrets.
+set -eu
+
+SECRETS_DIR=/opt/gm/secrets
+STARTER_DIR=/opt/gm/starter
+STARTER_FILES="README.md story.md issues.md"
+HOSTKEY_DIR=/var/lib/gm-sshd-keys
+SHADOW_BASE=/usr/local/lib/gm/shadow.base
+PLAYER_HOME=/home/player
+
+log() { printf 'gm-entrypoint: %s\n' "$*" >&2; }
+die() { log "fatal: $*"; exit 1; }
+# read_secret <name>: the secret's content, trailing newlines removed;
+# fails unless it is a single non-empty line.
+read_secret() {
+    [ -s "$SECRETS_DIR/$1" ] || die "secret $SECRETS_DIR/$1 is missing or empty"
+    v=$(cat "$SECRETS_DIR/$1")
+    case $v in
+        '') die "secret $1 is empty" ;;
+        *'
+'*) die "secret $1 must be a single line" ;;
+    esac
+    printf '%s' "$v"
+}
+# put_file <path> <mode>: stdin into <path>, owned by player; whatever the
+# player left at <path> (a symlink, a directory) is removed first.
+put_file() {
+    rm -rf -- "$1"
+    (umask 077; cat > "$1")
+    chown player:player "$1"
+    chmod "$2" "$1"
+}
+
+# --- 1. /run ------------------------------------------------------------
+# Leftovers of a previous container (s6 state, sockets, pid files) must
+# not survive into this one.
+cd /run
+find . -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+cd /
+chown root:root /run
+chmod 0755 /run
+install -d -o root -g root -m 0755 /run/sshd
+install -d -o root -g root -m 0700 /run/gm
+install -d -o root -g root -m 1777 /run/tmp
+
+# --- 2. sshd host key ---------------------------------------------------
+# Kept in its own volume: the players' own SSH clients remember it, so it
+# must survive a container replacement.
+chown root:root "$HOSTKEY_DIR"
+chmod 0700 "$HOSTKEY_DIR"
+if [ ! -s "$HOSTKEY_DIR/ssh_host_ed25519_key" ]; then
+    rm -f "$HOSTKEY_DIR/ssh_host_ed25519_key" "$HOSTKEY_DIR/ssh_host_ed25519_key.pub"
+    ssh-keygen -q -t ed25519 -N '' -C '' -f "$HOSTKEY_DIR/ssh_host_ed25519_key"
+    log "sshd host key created"
+fi
+
+# --- 3. secrets ---------------------------------------------------------
+player_password=$(read_secret player_password)
+dba_password=$(read_secret dba_password)
+[ -s "$SECRETS_DIR/player_ssh_key" ] || die "secret $SECRETS_DIR/player_ssh_key is missing or empty"
+ssh-keygen -y -f "$SECRETS_DIR/player_ssh_key" >/dev/null 2>&1 \
+    || die "secret player_ssh_key is not an unencrypted OpenSSH private key"
+
+# --- 4. password ----------------------------------------------------------
+# The root filesystem is read-only, so /etc/shadow is a symlink to
+# /run/gm/shadow, rebuilt here at every start from the image's copy.
+hash=$(printf '%s\n' "$player_password" | openssl passwd -6 -stdin)
+case $hash in '$6$'*) ;; *) die "could not hash the player password" ;; esac
+GM_HASH=$hash awk -F: 'BEGIN { OFS = ":" } $1 == "player" { $2 = ENVIRON["GM_HASH"] } { print }' \
+    "$SHADOW_BASE" > /run/gm/shadow
+grep -q '^player:\$6\$' /run/gm/shadow || die "could not set the player password"
+chown root:shadow /run/gm/shadow
+chmod 0640 /run/gm/shadow
+unset player_password hash
+
+# --- 5. player's home and starter pack -------------------------------------
+chown player:player "$PLAYER_HOME"
+chmod 0750 "$PLAYER_HOME"
+for f in $STARTER_FILES; do
+    [ -f "$STARTER_DIR/$f" ] || die "starter pack file $STARTER_DIR/$f is missing"
+done
+if [ ! -e "$PLAYER_HOME/.gm-starter-copied" ]; then
+    for f in $STARTER_FILES; do
+        t=$PLAYER_HOME/$f
+        if [ -e "$t" ] || [ -L "$t" ]; then
+            log "starter pack: $t exists, left as it is"
+        else
+            install -o player -g player -m 0644 "$STARTER_DIR/$f" "$t"
+        fi
+    done
+    date -u '+starter pack copied %Y-%m-%dT%H:%M:%SZ from /opt/gm/starter (DO NOT TAMPER)' \
+        > "$PLAYER_HOME/.gm-starter-copied"
+    chown root:root "$PLAYER_HOME/.gm-starter-copied"
+    chmod 0444 "$PLAYER_HOME/.gm-starter-copied"
+    log "starter pack copied into $PLAYER_HOME"
+fi
+
+# --- 6. inner-hop key and ~/.pgpass, rewritten at every start ---------------
+if [ -L "$PLAYER_HOME/.ssh" ] || { [ -e "$PLAYER_HOME/.ssh" ] && [ ! -d "$PLAYER_HOME/.ssh" ]; }; then
+    rm -f -- "$PLAYER_HOME/.ssh"
+fi
+install -d -o player -g player -m 0700 "$PLAYER_HOME/.ssh"
+# OpenSSH refuses a private key without its final newline: add it back.
+printf '%s\n' "$(cat "$SECRETS_DIR/player_ssh_key")" | put_file "$PLAYER_HOME/.ssh/id_ed25519" 0600
+pw_pgpass=$(printf '%s' "$dba_password" | sed 's/[\\:]/\\&/g')
+printf '*:*:*:dba:%s\n' "$pw_pgpass" | put_file "$PLAYER_HOME/.pgpass" 0600
+unset dba_password pw_pgpass
+
+exec /init "$@"

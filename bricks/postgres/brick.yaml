@@ -1,0 +1,143 @@
+# brick.yaml: PostgreSQL 18 node (master spec 7 and 9.1).
+#
+# Initial version (v0.1), expected to evolve as games are played.
+# Top-level keys: capture W1-A; fixed paths, secrets, envelope file and
+# wrappers: capture W1-B; quoted octal modes: capture W1-D
+# (specs/versions/v0.1/wave-log.md). Operating notes: docs/gm.md.
+
+# --- Identity ---------------------------------------------------------
+id: postgres
+version: 0.1.0
+roles:
+  - database
+technology:
+  name: postgresql
+  version: "18"
+image: 127.0.0.1:5000/dbagm/postgres:0.1.0
+
+# --- Footprint --------------------------------------------------------
+footprint:
+  cpu: 0.5
+  memory: 512M
+  disk: 1G
+stateful: true
+
+# --- What the scenario sets -------------------------------------------
+parameters: {}                      # everything scenario-specific is in the seed files
+knobs:                              # default envelopes, sized for the default footprint;
+                                    # a scenario may tighten them, never widen them
+  - setting: shared_buffers
+    file: /etc/postgresql/postgresql.conf
+    default: 128MB
+    envelope: {min: 32MB, max: 256MB}
+  - setting: work_mem
+    file: /etc/postgresql/postgresql.conf
+    default: 4MB
+    envelope: {min: 1MB, max: 64MB}
+  - setting: maintenance_work_mem
+    file: /etc/postgresql/postgresql.conf
+    default: 64MB
+    envelope: {min: 16MB, max: 256MB}
+  - setting: max_connections
+    file: /etc/postgresql/postgresql.conf
+    default: 100
+    envelope: {min: 10, max: 200}
+  - setting: max_wal_size
+    file: /etc/postgresql/postgresql.conf
+    default: 1GB
+    envelope: {min: 64MB, max: 1GB}
+  - setting: autovacuum
+    file: /etc/postgresql/postgresql.conf
+    default: "on"                   # quoted: a bare `on` is a YAML boolean
+    envelope: {allowed: ["on"]}
+
+# --- Player plane -----------------------------------------------------
+write_policies:                     # v0.1: the database node is fixable (master spec 14)
+  - fixable
+writable_paths:
+  - /etc/postgresql                 # postgres:pgconf, 2775; seeded files 0664
+  - /home/player                    # ~/.pgpass (rewritten at each start), ~/report.md
+protected_files:
+  - /etc/ssh/sshd_config
+  - /etc/sudoers
+  - /etc/sudoers.d/gm-player
+  - /usr/local/sbin/gm-entrypoint
+  - /usr/local/sbin/gm-reload-db
+  - /usr/local/sbin/gm-restart-db
+  - /usr/local/sbin/gm-validate
+  - /usr/local/lib/gm/healthcheck
+  - /opt/gm/validator/validate.sh
+  - /opt/gm/protected/envelopes.conf
+  - /etc/s6-overlay/s6-rc.d
+  - /etc/s6-overlay/user-bundles.d
+player_access:
+  ssh_account: player
+  group: pgconf
+  sudo_wrappers:
+    - /usr/local/sbin/gm-reload-db
+    - /usr/local/sbin/gm-restart-db
+    - /usr/local/sbin/gm-validate
+capabilities:                       # added back after cap_drop: ALL; no-new-privileges stays off (sudo)
+  - AUDIT_WRITE                     # sudo: audit message (else a warning on every sudo)
+  - CHOWN                          # entrypoint: ownership of volumes and seeded files
+  - DAC_OVERRIDE                    # entrypoint: emptying /run, writing into player/postgres dirs
+  - FOWNER                          # entrypoint: modes on files it does not own
+  - KILL                            # s6: signals to the postgres-owned postmaster
+  - NET_BIND_SERVICE                # sshd on port 22 (Docker sets ip_unprivileged_port_start=0,
+                                    # other platforms may not)
+  - SETGID                          # sshd, sudo, runuser, s6-setuidgid
+  - SETUID                          # sshd, sudo, runuser, s6-setuidgid
+  - SYS_CHROOT                      # sshd privilege separation
+
+# --- Runtime ----------------------------------------------------------
+healthcheck:                        # healthy once PostgreSQL has accepted connections in this
+                                    # container and while sshd is up (docs/gm.md)
+  command: ["/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 60s
+secrets:
+  - name: player_ssh_pubkey         # inner-hop public key, for SSH as player
+    path: /opt/gm/secrets/player_ssh_pubkey
+    uid: 0
+    gid: 0
+    mode: "0444"                    # sshd reads it as player
+  - name: dba_password              # password of the dba role; also on the bastion
+    path: /opt/gm/secrets/dba_password
+    uid: 0
+    gid: 0
+    mode: "0400"
+seed:
+  dir: /opt/gm/seed/
+  files:
+    - postgresql.conf
+    - pg_hba.conf
+protected_configs:
+  - name: envelopes                 # per-game envelope file, read by the validator
+    path: /opt/gm/protected/envelopes.conf
+    uid: 0
+    gid: 0
+    mode: "0444"
+volumes:
+  - name: pgdata
+    path: /var/lib/postgresql/18/data
+  - name: pgconf
+    path: /etc/postgresql
+  - name: home
+    path: /home/player
+  - name: run                       # /run: a stack file's tmpfs is noexec and s6-overlay
+    path: /run                      # needs exec; emptied by the entrypoint at each start
+processes:
+  - postgres
+  - sshd
+
+# --- Catalog links ----------------------------------------------------
+compatible_faults: []
+interfaces:
+  provides:
+    - {name: sql, protocol: postgresql, port: 5432}
+    - {name: ssh, protocol: ssh, port: 22}
+  consumes: []
+extra:
+  read_only_root: true              # read_only: true in the stack file

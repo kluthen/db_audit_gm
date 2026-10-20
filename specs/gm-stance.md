@@ -101,7 +101,7 @@ file (the teacher is out of the game by then): O38.
 
 ## Future ideas
 
-Not in scope; kept so they are not lost.
+Not in scope, and beyond v1.0 (D48); kept so they are not lost.
 
 - **Customer interaction**: during the game, the GM answers players in
   character as the customer (context questions, the story, the business

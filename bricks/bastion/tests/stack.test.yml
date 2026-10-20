@@ -1,0 +1,98 @@
+# Stack test fixture for the bastion brick (chunk 3 Done-when).
+# Two services: the bastion and a PostgreSQL node (chunk 2's image), on one
+# overlay network, as in the v0.1 topology. Uses only what a rendered
+# Compose 3.8 stack file can express: no tmpfs `mode` or `exec` option.
+# Configs and secrets are external, created and removed by
+# run-stack-test.sh (mirroring gmctl deploy, master spec 10.1). Volume
+# names carry the node name, as the renderer's <game-id>_<node>_<name> do.
+version: "3.8"
+
+services:
+  bastion:
+    image: 127.0.0.1:5000/dbagm/bastion:0.1.0
+    hostname: bastion
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, KILL, NET_BIND_SERVICE, SETGID, SETUID, SYS_CHROOT]
+    healthcheck:
+      test: ["CMD", "/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    ports:
+      - {target: 22, published: "${GMTEST_BASTION_PORT:-22222}", protocol: tcp, mode: host}
+    volumes:
+      - {type: volume, source: bastion_home, target: /home/player}
+      - {type: volume, source: bastion_hostkeys, target: /var/lib/gm-sshd-keys}
+      - {type: volume, source: bastion_run, target: /run}
+    configs:
+      - {source: starter_readme, target: /opt/gm/starter/README.md, uid: "0", gid: "0", mode: 0444}
+      - {source: starter_story, target: /opt/gm/starter/story.md, uid: "0", gid: "0", mode: 0444}
+      - {source: starter_issues, target: /opt/gm/starter/issues.md, uid: "0", gid: "0", mode: 0444}
+    secrets:
+      - {source: player_password, target: /opt/gm/secrets/player_password, uid: "0", gid: "0", mode: 0400}
+      - {source: player_ssh_key, target: /opt/gm/secrets/player_ssh_key, uid: "0", gid: "0", mode: 0400}
+      - {source: dba_password, target: /opt/gm/secrets/dba_password, uid: "0", gid: "0", mode: 0400}
+    networks: [net]
+    deploy:
+      replicas: 1
+      resources:
+        limits: {cpus: "0.25", memory: 128M}
+
+  db:
+    image: 127.0.0.1:5000/dbagm/postgres:0.1.0
+    hostname: db
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [AUDIT_WRITE, CHOWN, DAC_OVERRIDE, FOWNER, KILL, NET_BIND_SERVICE, SETGID, SETUID, SYS_CHROOT]
+    healthcheck:
+      test: ["CMD", "/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - {type: volume, source: db_pgdata, target: /var/lib/postgresql/18/data}
+      - {type: volume, source: db_pgconf, target: /etc/postgresql}
+      - {type: volume, source: db_home, target: /home/player}
+      - {type: volume, source: db_run, target: /run}
+    configs:
+      - {source: seed_postgresql_conf, target: /opt/gm/seed/postgresql.conf, uid: "0", gid: "0", mode: 0444}
+      - {source: seed_pg_hba_conf, target: /opt/gm/seed/pg_hba.conf, uid: "0", gid: "0", mode: 0444}
+      - {source: envelopes, target: /opt/gm/protected/envelopes.conf, uid: "0", gid: "0", mode: 0444}
+    secrets:
+      - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
+      - {source: dba_password, target: /opt/gm/secrets/dba_password, uid: "0", gid: "0", mode: 0400}
+    networks: [net]
+    deploy:
+      replicas: 1
+      resources:
+        limits: {cpus: "0.5", memory: 512M}
+
+networks:
+  net:
+    driver: overlay
+
+volumes:
+  bastion_home: {}
+  bastion_hostkeys: {}
+  bastion_run: {}
+  db_pgdata: {}
+  db_pgconf: {}
+  db_home: {}
+  db_run: {}
+
+configs:
+  starter_readme: {external: true, name: gmtest-bastion_starter_readme}
+  starter_story: {external: true, name: gmtest-bastion_starter_story}
+  starter_issues: {external: true, name: gmtest-bastion_starter_issues}
+  seed_postgresql_conf: {external: true, name: gmtest-bastion_seed_postgresql_conf}
+  seed_pg_hba_conf: {external: true, name: gmtest-bastion_seed_pg_hba_conf}
+  envelopes: {external: true, name: gmtest-bastion_envelopes}
+
+secrets:
+  player_password: {external: true, name: gmtest-bastion_player_password}
+  player_ssh_key: {external: true, name: gmtest-bastion_player_ssh_key}
+  player_ssh_pubkey: {external: true, name: gmtest-bastion_player_ssh_pubkey}
+  dba_password: {external: true, name: gmtest-bastion_dba_password}

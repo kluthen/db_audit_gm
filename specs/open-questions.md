@@ -63,6 +63,11 @@ for v0.1; **later** = can wait for v1.0 or beyond. None is open for v0.1.
   [bricks-and-faults.md](bricks-and-faults.md).
 - **O24** (later) — Seed variation (names, values) per deployment of a
   scenario? Probably moot after D8; kept until the owner says so.
+- **O45** (later) — `ALTER SYSTEM` on a report-only database node cannot
+  be prevented for a superuser `dba`. When report-only database nodes
+  arrive: a non-superuser role there, or accept it under light enforcement?
+  Refs: [versions/v0.1/access-model.md](versions/v0.1/access-model.md),
+  "Known gaps".
 - **O25** (later) — Scenario-only bricks and faults may live in the
   scenario's folder (D24). Can they be promoted into the catalog, and
   through which review?
@@ -83,6 +88,68 @@ for v0.1; **later** = can wait for v1.0 or beyond. None is open for v0.1.
 - **O38** (later) — Does the GM's feedback include a score? Is it written
   to a file (the teacher is out of the game by then)? Refs:
   [scenario-lifecycle.md](scenario-lifecycle.md).
+
+## Roadmap: gaps and cross-version risks
+
+Raised with the roadmap (D47). The tag after the priority is the version
+the question concerns.
+
+- **O46** (soon, v0.2 → v1.0) — Multi-host and the registry were deferred
+  from v0.1. Does v1.0 still run on one host, or does the full pipeline
+  with monitoring need a multi-host swarm and a registry? The question
+  starts mattering in v0.2: Grafana, a metrics store and possibly a log
+  aggregator all count against one laptop's capacity. Refs:
+  [versions/v1.0/README.md](versions/v1.0/README.md),
+  [platform.md](platform.md).
+- **O47** (later, v1.0) — Which version brings scenario generation: the GM
+  designing from a partial or empty brief and filling the blanks (D16)?
+  v0.5 prepares for it without naming it. Refs:
+  [versions/v1.0/README.md](versions/v1.0/README.md).
+- **O48** (later, v0.3 → v1.0) — Where do aging (pre-aging, time
+  compression; O22) and the solvability probe as a gate (O20) enter the
+  roadmap? Load (v0.3) and generated scenarios both need them. Refs:
+  [versions/v1.0/README.md](versions/v1.0/README.md).
+- **O49** (soon, roadmap) — Backup tools (pgBackRest and the like) and the
+  backup-tooling fault families (D17) are in no version, although backups
+  were a founding example and the v0.1 goal speaks of "investigating a
+  backup". Which version? Refs:
+  [bricks-and-faults.md](bricks-and-faults.md), "Future ideas: backup
+  tooling".
+- **O50** (soon, v0.2) — Monitoring arrives in v0.2, before any load
+  (v0.3): dashboards over a static database show almost nothing, and
+  monitoring faults ("monitoring that lies") are hard to observe without
+  activity. Add a minimal load generator to v0.2, give the monitoring a
+  forged history, swap v0.2 and v0.3, or accept thin monitoring in v0.2?
+  Refs: [versions/v0.2/README.md](versions/v0.2/README.md).
+- **O51** (soon, v0.2) — Container and host monitoring ("docker up and
+  down, load") usually needs the Docker socket or host mounts (cAdvisor,
+  node exporters), which amounts to root on the host. That collides with
+  the rule that the player side never gets a Docker socket, if players can
+  reach the collector's node. Collect from the infrastructure plane, put
+  the collector behind a no-access write policy, use a read-only socket
+  proxy, or limit system monitoring to what needs no socket? Refs:
+  [planes-and-access.md](planes-and-access.md),
+  [versions/v0.2/README.md](versions/v0.2/README.md).
+- **O52** (later, v0.4) — dbt adds a Python toolchain and adapters to a
+  node image: image size and build time, one image per adapter (Postgres,
+  DuckDB), versions to pin. One transformer brick per technology? Refs:
+  [versions/v0.4/README.md](versions/v0.4/README.md).
+- **O53** (later, v0.5) — Bluebox as a dataset:
+  - its schema needs PostGIS, `pg_stat_statements` (a preloaded library)
+    and `pg_trgm`, so a PostgreSQL 18 brick with those extensions;
+  - its dump is about 88 MB compressed and larger restored, against the
+    disk budget and the time to load it at setup;
+  - a file that size should not live in the repository, yet a scenario
+    folder plus the repository is meant to be self-sufficient (D23);
+  - its code is MIT-licensed, but part of its data comes from TMDB and
+    other sources whose redistribution terms need checking;
+  - its ongoing data generation relies on `pg_cron`.
+
+  Refs: [versions/v0.5/README.md](versions/v0.5/README.md).
+- **O54** (later, v0.5) — Internet-sourced datasets: availability at setup
+  time, licensing, and reproducibility against the self-sufficient
+  scenario folder (D23). Pin by address and checksum and cache locally?
+  Refs: [versions/v0.5/README.md](versions/v0.5/README.md).
 
 ## Resolved
 

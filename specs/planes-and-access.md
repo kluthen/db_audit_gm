@@ -113,6 +113,9 @@ expected; changing SSH behaviour is not.
 - Reload and restart go through `sudo` wrappers.
 - `ALTER SYSTEM` is a legitimate fix path too. Sealed checks judge the
   effective live setting, not which file changed.
+- A superuser can run `ALTER SYSTEM` whatever the node's write policy, so
+  "no configuration changes" cannot be enforced on a report-only database
+  node. Irrelevant in v0.1 (its database node is fixable): O45.
 
 ### Node hardening
 

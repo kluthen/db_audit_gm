@@ -261,3 +261,27 @@ entry links to the document that now states the ruling.
   list, with the lead's review of the final choice. Now in:
   [versions/v0.1/master-spec.md](versions/v0.1/master-spec.md) sections
   9 to 11 and 15.
+- **D46 (2026-10-20, set by spec-writer from the reviewer's non-blocking
+  findings, before wave 1): Three clarifications of the v0.1 master spec.**
+  `gmctl deploy` creates configs and secrets itself, labelled with the game
+  id and external in the stack file, so label-based teardown finds them;
+  the validator reads a per-game envelope file delivered as a protected
+  config; sealed checks query PostgreSQL as `postgres` (`runuser -u
+  postgres`) for peer authentication. Now in:
+  [versions/v0.1/master-spec.md](versions/v0.1/master-spec.md) sections
+  8.1, 9.1, 10.1, 11.
+- **D47 (2026-10-20, set by the owner, relayed by the lead): The roadmap
+  to v1.0.** v0.2 monitoring and usual tooling; v0.3 producers and
+  consumers; v0.4 transformers; v0.5 research and broadening (more known
+  issues, pre-planned topology parts, common schemas and datasets, Bluebox
+  or internet sources). The owner believes v0.2–v0.5 suffice for v1.0.
+  Beyond v1.0: TimescaleDB, columnar databases, MySQL and other databases.
+  Gaps and risks it raises are O46–O54. Now in:
+  [versions/README.md](versions/README.md).
+- **D48 (2026-10-20, set by the owner, relayed by the lead): Customer
+  role-play and hints are beyond v1.0.** The GM playing the customer
+  during the game, and the GM giving hints (with node resets and extra
+  time), are out of v1.0 scope; both stay future ideas. Now in:
+  [versions/README.md](versions/README.md),
+  [versions/v1.0/README.md](versions/v1.0/README.md),
+  [gm-stance.md](gm-stance.md) "Future ideas".

@@ -1,0 +1,17 @@
+#!/bin/sh
+# Health check of the db_audit_gm PostgreSQL node (DO NOT TAMPER).
+# Healthy once PostgreSQL has accepted connections at least once in this
+# container and while sshd is up. After that first time, PostgreSQL being
+# down is the game's business (the validator reports it), not a reason for
+# Swarm to replace the container and cut the players' SSH sessions.
+PATH=/command:/usr/sbin:/usr/bin:/sbin:/bin
+MARK=/run/gm/postgres-was-ready
+
+[ "$(s6-svstat -o up /run/service/sshd 2>/dev/null)" = true ] || { echo "sshd is not up"; exit 1; }
+if pg_isready -q -h /run/postgresql -p 5432 -t 3; then
+    [ -e "$MARK" ] || : > "$MARK"
+    exit 0
+fi
+[ -e "$MARK" ] && exit 0
+echo "PostgreSQL is not accepting connections yet"
+exit 1

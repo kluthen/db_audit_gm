@@ -1,9 +1,26 @@
-# Versions
+# Roadmap
 
-Each version's scope and status. A version's master spec lands in its
-folder only when it is approved.
+The versions from the first milestone to the first release and beyond, as
+set out by the owner (D47). Each version has its own page; a version's
+master spec lands in its folder only when it is approved. Everything after
+v0.1 is draft.
 
-| Version | Scope | Status |
+| Version | Theme | Status |
 |---|---|---|
-| [v0.1](v0.1/README.md) | First milestone: settle the GM stance on one simple scenario, a static PostgreSQL database investigated for specific defects | master spec approved; build plan v1 |
-| [v1.0](v1.0/README.md) | First release: the full pipeline scenario with monitoring and the bastion | scoping |
+| [v0.1](v0.1/README.md) | Settle the GM stance on one simple scenario: a static PostgreSQL database investigated for specific defects | master spec approved; build in progress |
+| [v0.2](v0.2/README.md) | Monitoring and usual tooling: dashboards, system monitoring, possibly log aggregation | draft |
+| [v0.3](v0.3/README.md) | Producers and consumers: ingestion, load spikes, misbehaving requests, broad queries | draft |
+| [v0.4](v0.4/README.md) | Transformers: moving data between databases with scripts, dbt and the like | draft |
+| [v0.5](v0.5/README.md) | Research and broadening: more known issues, pre-planned topology parts, common schemas and datasets | draft |
+| [v1.0](v1.0/README.md) | First release: the full pipeline scenario, reached through v0.2–v0.5 | draft |
+
+**Beyond v1.0**:
+
+- integrating other tools and databases, such as TimescaleDB, columnar
+  databases, MySQL and others (D47);
+- the GM playing the customer during the game, and the GM giving hints,
+  node resets or extra time (D48).
+
+Questions about the roadmap as a whole (gaps between v0.5 and v1.0,
+risks across versions) are in [open-questions.md](../open-questions.md),
+O46 to O54.

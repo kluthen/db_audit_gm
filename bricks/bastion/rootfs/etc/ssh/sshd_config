@@ -1,0 +1,37 @@
+# sshd_config of the db_audit_gm bastion.
+# DO NOT TAMPER: changing SSH is not part of the game (master spec 14).
+# Root-owned, on a read-only root filesystem.
+
+Port 22
+HostKey /var/lib/gm-sshd-keys/ssh_host_ed25519_key
+PidFile /run/sshd.pid
+
+# Only `player` logs in, with the per-game password (master spec 9.2).
+AllowUsers player
+PermitRootLogin no
+PasswordAuthentication yes
+PubkeyAuthentication no
+AuthorizedKeysFile none
+KbdInteractiveAuthentication no
+PermitEmptyPasswords no
+# No PAM: no syslog or audit daemon in the container; sshd reads
+# /etc/shadow (a symlink to /run/gm/shadow, see gm-entrypoint).
+UsePAM no
+# Players often share one source address (a classroom NAT, Swarm's routing
+# mesh): per-source penalties would lock them all out after a few typos.
+PerSourcePenalties no
+
+AllowTcpForwarding no
+AllowAgentForwarding no
+AllowStreamLocalForwarding no
+X11Forwarding no
+PermitTunnel no
+PermitUserEnvironment no
+PrintMotd yes
+LogLevel INFO
+
+# psql as the players' superuser role by default (password in ~/.pgpass).
+SetEnv PGUSER=dba PGDATABASE=postgres
+
+# scp and sftp, to copy ~/report.md or notes to and from the players' machines.
+Subsystem sftp internal-sftp
