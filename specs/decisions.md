@@ -285,3 +285,10 @@ entry links to the document that now states the ruling.
   [versions/README.md](versions/README.md),
   [versions/v1.0/README.md](versions/v1.0/README.md),
   [gm-stance.md](gm-stance.md) "Future ideas".
+- **D49 (2026-10-20, set by spec-writer at the wave driver's request,
+  wave 3 start): `gmctl status --set` records the GM-only stages.**
+  `handed-over`, `final-answer` and `feedback-given` are reached by no
+  script, so `status` gains `--set`; it stays within master spec 11's
+  "`status` — the game's recorded state" and section 12's stages, so the
+  master spec is unchanged. Rules: wave-log capture W3-A. Now in:
+  [versions/v0.1/build-plan.md](versions/v0.1/build-plan.md) chunks 7, 9.

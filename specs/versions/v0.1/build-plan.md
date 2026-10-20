@@ -1,7 +1,7 @@
 # db_audit_gm v0.1 — Build plan
 
-Status: v3 (2026-10-20): wave-gate smoke run corrected to what chunk 5
-built; chunk 7 adds `validate` and `check` to it (wave 2 gate finding).
+Status: v4 (2026-10-20): chunk 7 widened to capture W3-A (files, `status
+--set`, split 7a/7b), chunk 9 records the GM stages with it (spec D49).
 Approval: approved 2026-10-20 by the lead under the owner's delegation (G1).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), both approved 2026-10-20. No design set
@@ -82,8 +82,8 @@ plan states only its deltas.
   chunk 5 built it: fit, render, deploy (waiting for health), `exec`,
   `logs`, `status`, teardown, then asserts nothing labelled with the game
   id is left and objects not belonging to the game are unchanged. Chunk 7
-  adds `gmctl validate` and `gmctl check` in the script's marked section,
-  so the wave gate runs them from wave 3.
+  adds `load-data`, `inject`, `check` and `validate` in the script's
+  marked section (capture W3-A), so the wave gate runs them from wave 3.
 - No link checker is configured; Markdown links are checked by reading.
 
 ## Measurements and hand checks
@@ -318,31 +318,56 @@ Architecture capture: none.
 Status: planned
 Wave: 3
 Depends on: chunks 2, 3, 5
-Architecture capture, by the wave driver at wave 3 start (chunks 8 and 9
-rely on it): the naming rule for fault-parameter environment variables;
-the order in which a fault's `inject/*.sh` scripts run; that `load-data`
-runs `psql -v ON_ERROR_STOP=1` as `postgres`, the data file creating its
-own database, with idempotency coming from stage tracking in `state.yaml`
-rather than from the SQL; the argument signatures of every `gmctl`
-subcommand. The exit-code contracts are already fixed by master spec 8.1.
+Architecture capture: recorded by the wave driver at wave 3 start as
+wave-log capture W3-A (chunks 8 and 9 rely on it): fault-parameter
+environment variables, the `load-data`, `inject`, `validate` and `check`
+rules, the GM-recorded stages, and the argument signatures of every
+`gmctl` subcommand. The exit-code contracts are fixed by master spec 8.1.
 
-- Goal: `gmctl load-data`, `inject`, `validate`, `check`.
+- Goal: `gmctl load-data`, `inject`, `validate`, `check`, and `status
+  --set` for the stages only the GM can record.
 - Scope: in: streaming `data/<node>.sql` into a node; running each state
-  fault's `inject/*.sh` with its parameters; the official validator run on
-  every node; running every sealed check and printing one line per fault
-  instance; exit codes per the contracts; marking a failed data load or
-  injection as a failed setup; a test fault and fixture data to exercise
-  them; the smoke script extended to these steps. Out: the v0.1 faults.
-- Files: `tools/gm/{inject,checks}.py`, `tools/tests/test_{inject,checks}.py`,
-  `tools/tests/fixtures/faults/`, `tools/tests/smoke.sh`.
-- Spec sections: master spec 8.1, 10.1, 11, 13 ("Evaluation").
+  fault's `inject/*.sh` with its parameters; refusing, when the scenario
+  loads, a fault parameter whose environment name is invalid; the
+  official validator run on every node, from the bricks' new
+  `extra.validator`; running every sealed check and printing one line per
+  fault instance; exit codes per the contracts; marking a failed data load
+  or injection as a failed setup; `gmctl status --set
+  handed-over|final-answer|feedback-given` with its allowed transitions
+  (spec D49); a test fault and fixture data to exercise them; the smoke
+  script extended to these steps. Out: the v0.1 faults; any brick image
+  change.
+- Files: `tools/gm/{inject,checks}.py` (new; module boundaries are the
+  chunk's choice, W3-A), `tools/gm/__init__.py` (CLI wiring),
+  `tools/gm/execnode.py` (optional `argv`), `tools/gm/model.py`
+  (parameter-name refusal), `tools/gm/state.py` (`status --set`, on
+  `localimpl`'s existing stage functions; `tools/gm/localimpl.py` only if
+  they need a change), `bricks/postgres/brick.yaml`,
+  `bricks/bastion/brick.yaml` (`extra.validator`),
+  `tools/tests/test_{inject,checks,state,model}.py`,
+  `tools/tests/fixtures/fixture-audit/` (a state test fault under
+  `faults/`, its instance and answer-key entry, `data/<node>.sql`, README
+  regenerated), `tools/tests/smoke.sh`.
+- Spec sections: master spec 8.1, 10.1, 11, 12, 13 ("Evaluation");
+  wave-log capture W3-A.
 - Atoms: none.
 - Done when: on the smoke deployment, the fixture data loads, the test
   fault plants twice with the same result, its sealed check returns 1,
   then 0 after the fix is applied through `exec`, and `validate` reports
-  green and red correctly.
+  green and red correctly; unit tests show `status --set` taking
+  `injected` to `handed-over`, `final-answer` and `feedback-given` in turn,
+  changing nothing when set to the current stage, and refusing any other
+  transition with exit 1 and `state.yaml` unchanged.
 - Verification: chunk checks, plus the smoke run `tools/tests/smoke.sh`,
-  extended with `validate` and `check` in its marked section (needs G3).
+  extended in its marked section as W3-A's "Smoke run" states (needs G3).
+- Split rule: 7a data load, injection and GM-recorded stages: `execnode`
+  `argv`, the parameter-name refusal and `FAULT_*` environment,
+  `load-data`, `inject`, `status --set` and their CLI wiring, the fixture
+  test fault and data, their tests, and the smoke steps `load-data` and
+  `inject` twice. 7b evaluation: `validate` with `extra.validator` in both
+  `brick.yaml`, `check`, their CLI wiring and tests, and the remaining
+  smoke steps (`check`, the fix through `exec`, `check`, `validate` green
+  then red).
 
 ### Chunk 8 — v0.1 faults and scenario folder
 
@@ -387,7 +412,8 @@ spec 11).
   stop only, polite refusals of hints, resets, restarts and extra time);
   report intake (pasted, `~/report.md` through `exec`, or discussion) and
   the final-answer question; evaluation with `validate` and `check`;
-  feedback structure and tone; teardown; restart from a local
+  feedback structure and tone; recording hand-over, final answer and
+  feedback with `gmctl status --set` (W3-A); teardown; restart from a local
   implementation in progress, and the recommended fresh session for the
   report. Marked initial and expected to evolve. Out: new scripts.
 - Files: `.claude/skills/game-master/SKILL.md`,
@@ -396,7 +422,8 @@ spec 11).
 - Atoms: none.
 - Done when: the skill text covers every item of the stance check-list
   (master spec 17, item 5) and the restart path, and calls only existing
-  `gmctl` subcommands.
+  `gmctl` subcommands; it records each of the three GM stages with
+  `status --set` at the step that reaches it.
 - Verification: chunk checks; the stance check-list itself runs at the
   release gate.
 

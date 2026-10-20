@@ -24,7 +24,7 @@ owner's confirmation; the register lists the ones with real alternatives.
 | [planes-and-access.md](planes-and-access.md) | Bastion-only rule, planes, the GM session, trust, write policies, hardening, validators | draft v4 |
 | [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls | draft v7 |
 | [open-questions.md](open-questions.md) | Open-questions register | live |
-| [decisions.md](decisions.md) | Decisions log, D1–D48 | live |
+| [decisions.md](decisions.md) | Decisions log, D1–D49 | live |
 
 History: the tree was seeded on 2026-10-20 from the owner's pre-spec notes,
 which are no longer a reference (D1).
