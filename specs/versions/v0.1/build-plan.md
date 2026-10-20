@@ -124,7 +124,10 @@ wave driver at wave start so chunks 2 and 3 can write theirs.
 
 ### Chunk 2 — PostgreSQL brick
 
-Status: in progress
+Status: merged (w1, 934925f)
+Record: chunk commit 8838643; `/run` fallback (a), a named volume emptied
+by the entrypoint (read-only root kept, spec unchanged); a fourth volume
+`run`; `fixable` only; see wave-log capture W1-E.
 Wave: 1
 Depends on: chunk 1 (captured `brick.yaml` keys), G2, G3
 Architecture capture: the brick's fixed in-container paths (seed
@@ -176,7 +179,7 @@ validator, delivered as a protected config), recorded at wave start
 
 ### Chunk 3 — Bastion brick
 
-Status: planned
+Status: in progress
 Wave: 1
 Depends on: chunk 1 (captured `brick.yaml` keys), G2
 Architecture capture: the bastion's secret names and starter-pack path,

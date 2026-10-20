@@ -106,8 +106,42 @@ Recorded after chunk 1 merged; chosen within its remit.
   checklists; chunk 4's completeness check takes its required-key list
   from the templates.
 
+### Capture W1-E — outcomes of chunk 2 (read by 3, 4, 5, 7, 8)
+
+Recorded after chunk 2 merged.
+
+- **`/run` fallback (a) taken.** s6-overlay 3.2.3.2 refuses a `noexec`
+  `/run` (`exec: /run/s6/basedir/bin/init: Permission denied`, exit 126),
+  and a stack file cannot make a tmpfs exec-able. `/run` is a named volume
+  `run`, emptied by the entrypoint before `/init`. The root filesystem stays
+  read-only, so the spec's hardening is unchanged and no decision entry is
+  needed. Every s6 brick (the bastion included) follows the same pattern.
+- **W1-B amended:** the PostgreSQL brick's volumes are `pgdata`, `pgconf`,
+  `home`, `run`. `sudo` logs to `/run/gm/sudo.log`; `/tmp` links to
+  `/run/tmp`.
+- **Write policy:** the PostgreSQL brick supports `fixable` only in v0.1
+  (spec 14: the database node is fixable).
+- **Seed requirements** (for chunk 8; in `bricks/postgres/docs/gm.md`):
+  the seed `postgresql.conf` sets `listen_addresses = '*'` and
+  `port = 5432` and never sets `config_file`, `hba_file` or
+  `data_directory`; the seed `pg_hba.conf` holds `local all postgres peer`
+  marked DO NOT TAMPER, plus scram lines for `dba`.
+- **Envelope rendering** (for chunk 4): `{min, max}` becomes
+  `<setting> range <min> <max>`, with `-` for an unbounded side;
+  `{allowed: [..]}` becomes `<setting> enum <v1>,<v2>`. Booleans are quoted
+  in YAML (`"on"`).
+- **Validator output** (for chunks 5, 7, 9): `GREEN`/`RED`/`ERROR` lines,
+  exit 0/1/2.
+- **Inner-hop host key:** the node's sshd host key is regenerated at every
+  container start, so a replaced container shows a changed host key.
+
 ### Dispatch
 
 - Chunk 1: dispatched 2026-10-20; merged 165e153 (chunk commit 8892378).
   No deviation.
-- Chunk 2: dispatched 2026-10-20.
+- Chunk 2: dispatched 2026-10-20; merged 934925f (chunk commit 8838643).
+  Fallback (a) for `/run`; deviations recorded in W1-E.
+- Roadmap (spec-writer, outside the chunk list): merged 45ce85c
+  (commit 6abcaa8; D47, D48, O46–O54). Branch `roadmap` kept until the
+  wave merges.
+- Chunk 3: dispatched 2026-10-20.
