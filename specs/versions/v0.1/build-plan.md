@@ -1,8 +1,7 @@
 # db_audit_gm v0.1 — Build plan
 
-Status: v2 (2026-10-20): reviewer's non-blocking findings written in
-(s6-overlay under stack deploy, captures, test packages, release notes;
-spec D46).
+Status: v3 (2026-10-20): wave-gate smoke run corrected to what chunk 5
+built; chunk 7 adds `validate` and `check` to it (wave 2 gate finding).
 Approval: approved 2026-10-20 by the lead under the owner's delegation (G1).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), both approved 2026-10-20. No design set
@@ -48,8 +47,8 @@ plan states only its deltas.
 
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
-| 1 | 1, 2, 3 | G1, G2, G3 (chunk 2) | gated (2026-10-20), awaiting merge |
-| 2 | 4, 5, 6 | wave 1 | planned |
+| 1 | 1, 2, 3 | G1, G2, G3 (chunk 2) | merged (80e9048) |
+| 2 | 4, 5, 6 | wave 1 | in progress |
 | 3 | 7, 8, 9 | wave 2, G4 (for chunk 8's merge) | planned |
 
 ```
@@ -79,9 +78,12 @@ plan states only its deltas.
   - image chunks: `docker build` of the brick.
 - **Wave gate (full quality command)**: the full unit suite, `sh -n` on
   every shell script, both image builds, and from wave 2 the smoke run
-  `tools/tests/smoke.sh` (deploys a scenario on the local single-node
-  swarm, runs `gmctl validate` and `gmctl check`, tears down, and asserts
-  nothing labelled with the game id is left).
+  `tools/tests/smoke.sh` on the local single-node swarm (needs G3). As
+  chunk 5 built it: fit, render, deploy (waiting for health), `exec`,
+  `logs`, `status`, teardown, then asserts nothing labelled with the game
+  id is left and objects not belonging to the game are unchanged. Chunk 7
+  adds `gmctl validate` and `gmctl check` in the script's marked section,
+  so the wave gate runs them from wave 3.
 - No link checker is configured; Markdown links are checked by reading.
 
 ## Measurements and hand checks
@@ -206,7 +208,14 @@ recorded at wave start.
 
 ### Chunk 4 — Scenario model, capacity check and renderer
 
-Status: planned
+Status: merged (w2, d49bca6)
+Record: chunk commit 79fc1d3, merged d49bca6; built as one commit, not
+split (fit writes the local implementation, so 4a/4b would cut one module).
+Choices within the spec, logged as W2-B: headroom 10 % per dimension;
+the scenario-id part of the game id is trimmed so every derived name fits
+Swarm's limits; fit refuses more than one network, brick secrets outside
+the four W2-A files, and protected configs other than `envelopes`;
+`implementation.yaml` carries extra derived names.
 Wave: 2
 Depends on: chunk 1
 Architecture capture, recorded at wave start for chunk 5: the local
@@ -245,7 +254,12 @@ per-game envelope file as captured in wave 1 (chunk 2).
 
 ### Chunk 5 — Platform operations
 
-Status: planned
+Status: merged (w2, 6231044)
+Record: split per its rule: 5a 54f4542, 5b fdd91ab, merged 6231044. No
+deviation from the spec or captures; choices within the spec logged as
+W2-C (`ssh-keygen` on the GM host, credentials regenerated per deploy and
+kept after teardown, deploy retry from a failed deploy, 300 s health
+wait). Smoke run: 17 checks passed on the local swarm.
 Wave: 2
 Depends on: chunk 4 (captured interface)
 Architecture capture: none beyond chunk 4's.
@@ -276,7 +290,10 @@ Architecture capture: none beyond chunk 4's.
 
 ### Chunk 6 — Scenario-document skill
 
-Status: planned
+Status: merged (w2, b2d0e1d)
+Record: chunk commit d5bc485, merged b2d0e1d. No deviation; the "answer
+key summary" renders every answer-key field (6.2 lists each as required
+content), and a section lists starter pack, node files and data as paths.
 Wave: 2
 Depends on: chunk 1
 Architecture capture: none.
@@ -324,7 +341,8 @@ subcommand. The exit-code contracts are already fixed by master spec 8.1.
   fault plants twice with the same result, its sealed check returns 1,
   then 0 after the fix is applied through `exec`, and `validate` reports
   green and red correctly.
-- Verification: chunk checks, plus the smoke run (needs G3).
+- Verification: chunk checks, plus the smoke run `tools/tests/smoke.sh`,
+  extended with `validate` and `check` in its marked section (needs G3).
 
 ### Chunk 8 — v0.1 faults and scenario folder
 

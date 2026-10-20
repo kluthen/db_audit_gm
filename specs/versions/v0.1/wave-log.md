@@ -188,3 +188,242 @@ Result: wave 1 gated. Waiting for the owner's word to merge `v0.1-w1` into
 `main`. Branches kept until then: `v0.1-c1-format-skill`,
 `v0.1-c2-postgres-brick`, `v0.1-c3-bastion-brick`, `roadmap`.
 Open gates: G4 (the lead, chunk 8's merge, wave 3), G5 (the owner, release).
+
+Merged into `main` on the owner's word: 80e9048 (2026-10-20). Wave 1
+worktree and branches removed.
+
+## Wave 2 — started 2026-10-20
+
+Chunks: 4, 5, 6 (order 4 → 5 → 6, κ = 1). Branch `v0.1-w2`, worktree
+`/home/bastien/work/db_audit_gm-wt/v0.1-w2`, cut from `main` at 80e9048.
+Gates: G3 done. Preflight: none (no registers).
+
+### Capture W2-A — local implementation and render interface (chunk 4; read by 5, 7, 9)
+
+Recorded before any code. Python module boundaries are chunk 4's choice;
+the files and command lines below are fixed.
+
+**Location.** `<scenario>/local/<playground>/`, where `<playground>` is a
+slug the GM chooses at setup (`laptop`, `classroom`). `local/` is
+git-ignored.
+
+**Files.**
+
+- `playground.yaml` — as declared: `name`, `platform: swarm`,
+  `docker_endpoint` (`null` for the local engine, or `ssh://user@host`;
+  never keys), `capacity: {cpu, memory, disk}`.
+- `implementation.yaml` — written by `fit`: `scenario: {id, path}`,
+  `game_id`, `created_at`, and per node: `brick` (id and version),
+  `image`, `resources: {limits, reservations}` (copied from the scenario,
+  never recomputed), `published_ports: [{target, published, mode: host}]`,
+  plus the derived names below.
+- `stack.yml` — written by `render`; Compose file format 3.8.
+- `envelopes/<node>.conf` — written by `render`, format of capture W1-B /
+  W1-E; the source of each node's `envelopes` protected config.
+- `state.yaml` — `game_id`, `stage`, `history: [{stage, at}]`,
+  `failure: {stage, reason, at}` or `null`. Stages, in order: `fitted`,
+  `rendered`, `deployed`, `data-loaded`, `injected`, `handed-over`,
+  `final-answer`, `feedback-given`, `torn-down`; or `failed`.
+- `secrets/` — directory 0700, files 0600, written by `deploy`:
+  `player_password`, `player_ssh_key`, `player_ssh_key.pub`,
+  `dba_password`.
+
+**Names** (game id: scenario id plus `-` plus 6 random `[a-z0-9]`, at most
+63 characters, lowercase, digits and hyphens):
+
+- stack: `<game_id>`; services `<game_id>_<node>`; network
+  `<game_id>_net` (overlay, not attachable);
+- volumes: `<game_id>_<node>_<volume>`, declared with an explicit `name:`;
+- configs: `<game_id>_<node>_<file>` for seed and starter files (file name
+  kept, `/` replaced by `-`), `<game_id>_<node>_envelopes` for the envelope
+  file;
+- secrets: `<game_id>_<secret>` (one `dba_password` shared by both nodes;
+  `player_ssh_pubkey` is the content of `secrets/player_ssh_key.pub`);
+- every config and secret carries the labels
+  `com.docker.stack.namespace=<game_id>` and `dbagm.game=<game_id>`, set by
+  `gmctl deploy`; volumes carry `dbagm.game=<game_id>` too. Teardown
+  removes everything with either label.
+
+**Stack file.** External configs and secrets; `read_only: true`,
+`cap_drop: [ALL]`, `cap_add` from `brick.yaml`; the brick's volumes
+(including `run`, W1-E, and the bastion's `hostkeys`, W1-F); no tmpfs;
+health check from `brick.yaml`; resources from the implementation; every
+service constrained to the single host (`node.role == manager` in v0.1);
+only the bastion publishes a port, in `mode: host`; brick parameters as
+`GM_<NAME>` environment variables.
+
+**Command lines** (every subcommand prints a readable result and exits
+non-zero on failure):
+
+- `gmctl fit <scenario-dir> --playground <name> [--endpoint <url>]
+  [--cpu N --memory SIZE --disk SIZE]` — loads and checks the scenario
+  (refuses an incomplete one, listing what is missing), writes or reuses
+  `playground.yaml`, runs the capacity check, writes `implementation.yaml`
+  and `state.yaml` (stage `fitted`). Insufficient capacity: exit 1, nothing
+  deployed.
+- `gmctl render <scenario-dir> --playground <name>` — writes `stack.yml`
+  and `envelopes/`, stage `rendered`.
+- Chunk 5 adds `deploy`, `exec`, `logs`, `status`, `teardown` with the same
+  `<scenario-dir> --playground <name>` pair; `exec` also takes `--node`,
+  `--user`, and `--env KEY=VALUE` (repeatable), streaming stdin.
+
+### Capture W2-B — chunk 4 outcomes and Python API (read by 5, 7, 9)
+
+Chunk 4 merged 2026-10-20 (79fc1d3, merge d49bca6); 64 unit tests OK;
+`docker stack config` accepts the rendered fixture stack file.
+
+**Choices within the spec.**
+
+- Headroom is 10 % of each declared dimension (`fit.HEADROOM`).
+- The scenario-id part of the game id is trimmed so every derived name
+  fits Swarm's limits (63 characters for services, 64 for configs and
+  secrets).
+- `fit` refuses what v0.1 cannot render: more than one scenario network, a
+  brick secret outside the four W2-A secret files, a protected config other
+  than `envelopes`.
+- `implementation.yaml` also carries: top level `playground`, `stack`,
+  `network`, `labels`, `secrets: [{name, secret, file}]`; per node
+  `service`, `volumes`, `configs: [{kind: seed|envelopes, name, file, path,
+  uid, gid, mode}]`, `secrets`. Every `file` is relative to the scenario
+  folder.
+- The fixture scenario (`tools/tests/fixtures/`) has one scenario-local
+  hidden fault, `fixture-random-page-cost` (`random_page_cost = 4.0`), and
+  seed files meeting W1-E.
+- The completeness check derives required keys from the templates'
+  `# optional` and "may be []" comments: changing those comments changes
+  what is refused.
+
+**Python API** (import from the repo root; `tools/gmctl` puts it on
+`sys.path`).
+
+- `tools.gm`: `main(argv)`, `build_parser()`; add a subcommand in
+  `build_parser` with `_scenario_args(p)` and `p.set_defaults(func=...)`;
+  raise `GmError` for a refusal (printed, exit 1).
+- `tools.gm.model`: `load_scenario(dir)` → `Scenario` (`.id`, `.nodes`,
+  `.node(name)`, `.bricks[node]`, `.faults[instance]`, each a `Definition`
+  with `.data`, `.dir`, `.source`), or raises `IncompleteScenario`
+  (`.missing`, `.report()`); also `GmError`, `parse_mode`.
+- `tools.gm.localimpl`: `local_dir(scenario_dir, playground)`,
+  `read_playground`, `read_implementation`, `read_state`,
+  `secrets_dir(ldir)`; `require_stage(ldir, *stages)`, `set_stage(ldir,
+  stage)`, `set_failed(ldir, stage, reason)`, `effective_stage(state)`,
+  `STAGES`; `labels(game_id)`, `SECRET_FILES` (`player_ssh_pubkey` maps to
+  `player_ssh_key.pub`), `STACK_FILE`, `write_text`.
+- `tools.gm.fit.fit(...)` → `FitResult` (`.ok`, `.game_id`, `.text()`);
+  `tools.gm.render.render(...)` → `RenderResult`.
+- Deploy creates configs and secrets from `implementation.yaml`
+  (`nodes[*].configs[*].{name,file}`, `secrets[*].{name,file}`) labelled
+  with `labels(game_id)`, then runs `docker stack deploy -c
+  local/<pg>/stack.yml <game_id>`.
+
+Left for chunk 5: the first proof that Swarm applies the volume labels and
+explicit `name:` on a real deploy.
+
+### Capture W2-C — chunk 5 outcomes and API (read by 7, 9)
+
+Chunk 5 merged 2026-10-20 (5a 54f4542, 5b fdd91ab, merge 6231044); 102
+unit tests OK; `tools/tests/smoke.sh` passed 17 checks on the local
+swarm; nothing labelled `dbagm.game` left afterwards (checked by the
+driver too). A real deploy confirmed Swarm applies the explicit volume
+`name:` and volume labels (W2-B's open item, closed).
+
+**Choices within the spec.**
+
+- The inner-hop ed25519 key is made with `ssh-keygen` on the GM host
+  (subprocess, like `docker`); gmctl stops with a clear message without it.
+- Credentials are regenerated on every deploy, no trailing newline;
+  player password 16 characters without ambiguous glyphs, DBA password 32
+  alphanumeric. Teardown leaves `secrets/` in place (0600, git-ignored).
+- Deploy refuses without changing state when there is no swarm, the
+  engine is a worker, or an image is missing. Credentials, objects, stack
+  deploy and the health wait are one setup step: any failure or Ctrl-C
+  tears down and records `failed`. A deploy may be retried from `failed`
+  when the failure was in deploy and the last stage reached `rendered`.
+- Teardown records `torn-down` (a failed game keeps its failure record),
+  is idempotent, waits up to 120 s, and reports leftovers instead of
+  recording `torn-down` when something won't go.
+- Health wait: 300 s default (`--timeout`); fails at once when Swarm
+  rejects a task.
+- `exec --env` values appear in the host's process list: fine for
+  `FAULT_*` and `GM_*`, never for credentials.
+- Only the local engine was exercised live; `ssh://` is unit-tested only.
+  `--init-swarm` passes no `--advertise-addr`.
+
+**Python API.**
+
+- `tools.gm.execnode.exec_node(ldir, node, user, stdin=None, env=None,
+  capture=True, timeout=None, docker=None)` → `ExecResult(node, user,
+  container, returncode, stdout, stderr)`, `.ok`. Runs `docker exec -i -u
+  <user> -e K=V… <container> sh -s` on the container labelled
+  `com.docker.swarm.service.name=<service>`. `stdin`: str, bytes, or a
+  binary file object streamed as is (for `load-data`). `returncode` is the
+  script's own status (validator 0/1/2 unchanged). Raises
+  `execnode.ExecError` (a `GmError`) when the script cannot start: no
+  game, a stage outside `state.DEPLOYED_STAGES`, unknown node, no running
+  container, unknown user, Docker error (probed first with `docker exec -u
+  <user> <ctr> true`).
+- `tools.gm.state.setup_step(ldir, stage, undo=None)`: context manager; on
+  error or interruption it calls `undo()`, records `failed` with the
+  reason, raises `state.SetupFailed`. For `load-data` and `inject`: `undo=
+  lambda: teardown.remove_game_objects(docker, game_id).text()`, then
+  `localimpl.set_stage(ldir, stage)` on success. Also
+  `state.status_text(ldir)`.
+- `tools.gm.teardown`: `remove_game_objects(docker, game_id, timeout=120)`
+  → `TeardownReport`; `teardown(scenario_dir, playground)`;
+  `leftovers(docker, game_id)`.
+- `tools.gm.docker.for_local_dir(ldir)` → `Docker` aimed at the
+  playground's endpoint; `Docker.run(args, input=, stdin=, capture=,
+  check=, timeout=)` raises `DockerError`. `deploy.deploy(...)` →
+  `DeployResult`.
+- Tests: `tools/tests/__init__.py` has `FakeDocker`, an in-memory engine.
+
+**CLI** (each takes `<scenario-dir> --playground <name>`): `deploy
+[--init-swarm] [--timeout SECONDS]`; `exec --node N --user U [--env
+K=V]...` (script on stdin; exits with the script's status, or 125 when it
+cannot start, reason on stderr); `logs --node N [--tail N] [--follow]`;
+`status`; `teardown`.
+
+**Smoke run.** `tools/tests/smoke.sh` has a marked section `# ---
+validate and check (chunk 7) ---` between exec/logs and teardown. It needs
+the swarm, both images and host port 2222 free.
+
+### Dispatch
+
+- Chunk 4: dispatched 2026-10-20; merged 2026-10-20 (d49bca6).
+- Chunk 5: dispatched 2026-10-20. Brief reads the wave-gate delta's
+  smoke run as fit, render, deploy, exec and teardown in wave 2;
+  `gmctl validate` and `check` arrive with chunk 7 (wave 3), which adds
+  them to `smoke.sh`. The delta's wording goes to `spec-writer` at the
+  wave 2 gate.
+- Chunk 5: merged 2026-10-20 (6231044).
+- Chunk 6: dispatched 2026-10-20.
+- Chunk 6: merged 2026-10-20 (b2d0e1d). The document is filled by the GM
+  per the skill (no script, out of scope), from `scenario.yaml`,
+  `gm/answer-key.yaml` and `brief.md` only; a stale README is caught by
+  the skill's reading checklist only.
+
+### Wave gate — 2026-10-20
+
+Run by the driver on `v0.1-w2` at 902c048, on the build host (Debian 13,
+Docker Engine 29.8, single-node swarm), machine otherwise idle.
+
+- Unit suite: 102 tests OK (4.6 s).
+- `sh -n` on every shell script (8 `*.sh` plus `#!/bin/sh` files): OK.
+- Image builds: postgres `sha256:a55e764b…`, bastion `sha256:314de9c7…`,
+  unchanged from wave 1.
+- `tools/tests/smoke.sh`: all checks passed (game `fixture-audit-ts8hzq`):
+  fit, render, deploy healthy, exec, logs, teardown, nothing labelled
+  left, objects not belonging to the game unchanged. Driver's check after:
+  no stack, 0 volumes, configs or secrets labelled `dbagm.game`.
+- No bundle or performance figures apply. No intent or data register: no
+  sync.
+- Sent to `spec-writer`: the wave-gate delta's smoke-run wording
+  (`validate` and `check` belong to chunk 7, wave 3).
+
+Open after wave 2: G4 (the lead, before chunk 8 merges), G5 (the owner,
+release close). Wave 3 captures due at its start: inject script order,
+`load-data` details, gmctl argument signatures (W2-C already fixes
+deploy, exec, logs, status and teardown).
+- `spec-writer` applied the smoke-run wording correction: plan v3
+  (fa402b3).
+- Report to the owner 2026-10-20; the owner said to merge.
