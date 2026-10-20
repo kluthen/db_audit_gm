@@ -1,0 +1,104 @@
+# fault.yaml — template for faults/<fault-id>/fault.yaml
+#   (or scenarios/<scenario-id>/faults/<fault-id>/ for a scenario-only fault)
+#
+# Initial version (v0.1), expected to evolve as games are played.
+# Shape: master spec sections 8 and 8.1.
+#
+# Markers:
+#   every key is REQUIRED unless marked otherwise;
+#   "# optional: <when>"  the key is present only when <when> holds.
+# An empty list (`[]`) or map (`{}`) is a valid value where its comment
+# says so; an absent key is not.
+# Replace every <placeholder>. A filled file keeps no <placeholder>.
+#
+# Known or hidden is NOT part of the definition: it is chosen per fault
+# instance, in scenario.yaml.
+
+# --- Identity ---------------------------------------------------------
+id: <fault-id>                      # lowercase, hyphens (pg-hba-trust)
+version: <0.1.0>                    # semver string
+title: <one line>
+family: <security>                  # security, performance, replication, backups, rules, ...
+severity: <medium>                  # low | medium | high | critical
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:                           # every brick this fault touches
+    - id: <postgres>
+      versions: [<"0.1.0">]         # brick versions it is known to work on
+  preconditions: []                 # topology preconditions ("needs a standby"); may be []
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:                         # map; may be {}
+  <name>:                           # given to inject/ and checks/ scripts as FAULT_<NAME>
+    description: <what it selects (which table, which setting)>
+    default: <value or null>
+    required: <false>
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: <seed-file>                 # seed-file: the change is part of a node's seed files,
+                                    #   written into scenarios/<id>/nodes/<node>/ at authoring;
+                                    # state: the GM streams inject/ scripts into the node
+  stage: <seed>                     # seed (present from first start)
+                                    # | after-data-load (state faults, before hand-over)
+  seed_changes:                     # optional: kind seed-file only
+    - file: <pg_hba.conf>           # a seed file name the target brick declares in seed.files
+      change: <what the scenario's copy of the file must contain>
+      material: <inject/pg_hba.conf.snippet>   # optional: a snippet to paste
+  scripts:                          # optional: kind state only; run in this order
+    - <inject/10-plant.sh>
+  run_as: root                      # injection scripts run as root unless stated here
+  # Contract (master spec 8.1): POSIX shell, fed on stdin to `sh -s` inside
+  # the target container, parameters as FAULT_<NAME> environment variables.
+  # Idempotent: running twice leaves the same state. Exit 0 on success; any
+  # other code fails the setup. Nothing used for injection stays on the node.
+
+# --- What the players can see ------------------------------------------
+evidence:                           # as the `player` OS user (and `dba` in psql)
+  - where: <file, view or command output>
+    how: <command run as player, e.g. "cat /etc/postgresql/pg_hba.conf">
+    shows: <what in the output reveals the fault>
+
+probe:                              # solvability probe: descriptive only in v0.1
+  description: checks/probe.md      # what it would run as player and what it expects
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:                        # which expected resolutions make sense for this fault
+  - kind: <report>                  # report | propose | fix | improve
+    write_policies: [<report-only>, <fixable>]   # node write policies under which it is possible
+  - kind: <fix>
+    write_policies: [<fixable>]
+acceptance:                         # what counts as acceptable
+  diagnosis: <what a correct diagnosis names>
+  proposal: <what an acceptable proposal recommends>   # optional: when resolutions lists propose
+  fix: <what state counts as fixed>                    # optional: when resolutions lists fix
+  improvement: <what counts as better>                 # optional: when resolutions lists improve
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+  # Contract (master spec 8.1): POSIX shell, fed on stdin to `sh -s` in the
+  # target container, parameters as FAULT_<NAME> environment variables.
+  # Exit 0: the fault is no longer present in the EFFECTIVE LIVE STATE;
+  # exit 1: still present; any other code: error.
+  # First output line: why, in one sentence the GM can reuse in feedback.
+  # A fix counts whichever path the player took (file edit and reload, or
+  # ALTER SYSTEM): check the value in effect, not only the file.
+  # PostgreSQL: a check run as root queries PostgreSQL as the `postgres` OS
+  # user, so that local peer authentication applies:
+  #   runuser -u postgres -- psql -XAtq -c "SELECT ..."
+  # (or the check is executed as `postgres`). Never as root, never as dba.
+
+# --- Interactions with other faults ------------------------------------
+interactions:                       # fault ids; each list may be []
+  masks: []                         # this fault hides those
+  masked_by: []                     # those hide this one
+  conflicts_with: []                # cannot be planted together
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  <How the customer would describe the symptom, in their words, without
+  naming the cause. Parameters may appear as {NAME}.>

@@ -1,0 +1,111 @@
+# brick.yaml — template for bricks/<brick-id>/brick.yaml
+#
+# Initial version (v0.1), expected to evolve as games are played.
+# Shape: master spec section 7; top-level keys fixed by capture W1-A
+# (specs/versions/v0.1/wave-log.md). Do not add, rename or drop a
+# top-level key here; brick-specific extras go under `extra`.
+#
+# Markers:
+#   every key is REQUIRED unless marked otherwise;
+#   "# optional in v0.1"  the key has no use yet; it is left commented out
+#                         and may be omitted;
+#   "# optional: <when>"  the key is present only when <when> holds.
+# An empty list (`[]`) is a valid value for a required list key where its
+# comment says so; an absent key is not.
+# Replace every <placeholder>. A filled file keeps no <placeholder>.
+#
+# Platform-neutral rules (master spec 7): seeds and secrets come from the
+# fixed paths declared here, never Swarm's default mount locations; the
+# health check is a command; interfaces are container ports; peers are
+# reached by node name only; nothing here names a Swarm-only feature.
+
+# --- Identity ---------------------------------------------------------
+id: <brick-id>                      # lowercase, hyphens (postgres, bastion)
+version: <0.1.0>                    # semver string
+roles:                              # role names (database, bastion)
+  - <role>
+technology:
+  name: <technology>                # postgresql, openssh
+  version: "<engine-version>"       # quoted ("18")
+image: 127.0.0.1:5000/dbagm/<brick-id>:<version>   # registry-qualified, never Docker Hub
+
+# --- Footprint --------------------------------------------------------
+footprint:                          # defaults; a scenario sets its own resources per node
+  cpu: <0.5>                        # CPUs
+  memory: <512M>
+  disk: <1G>
+# footprint_ranges:                 # optional in v0.1 (shape to settle when first used)
+#   cpu: {min: <0.25>, max: <2>}
+#   memory: {min: <256M>, max: <4G>}
+#   disk: {min: <512M>, max: <20G>}
+stateful: <true>                    # boolean; pinning is the renderer's business
+
+# --- What the scenario sets -------------------------------------------
+parameters:                         # map; may be {} when the scenario sets nothing
+  <name>:                           # passed to the container as GM_<NAME> (upper case)
+    description: <what it sets>
+    default: <value or null>
+    required: <false>
+knobs:                              # settings the player may change; may be [] (bastion)
+  - setting: <shared_buffers>
+    file: <in-container path of the file holding it, /etc/postgresql/postgresql.conf>
+    default: <128MB>                # written as the technology accepts it (128MB, 5s, on)
+    envelope: {min: <64MB>, max: <256MB>}   # or {allowed: [<v1>, <v2>]}
+                                    # default envelope; a scenario may tighten it, never widen it
+
+# --- Player plane -----------------------------------------------------
+write_policies:                     # policies this brick supports
+  - <fixable>                       # fixable | report-only
+writable_paths:                     # in-container paths the player may change; may be []
+  - <path>
+protected_files:                    # in-container paths, root-owned, read-only
+  - <path>
+player_access:
+  ssh_account: <player>
+  group: <group>
+  sudo_wrappers:                    # absolute paths; may be []
+    - </usr/local/sbin/gm-validate>
+capabilities:                       # added back after cap_drop: ALL
+  - <CAP_NAME>                      # e.g. SETUID, SETGID, CHOWN, ...
+
+# --- Runtime ----------------------------------------------------------
+healthcheck:
+  command: ["/bin/sh", "-c", "<check command>"]   # exec form; run inside the container
+  interval: <10s>
+  timeout: <5s>
+  retries: <5>
+  start_period: <30s>
+secrets:                            # per-game secrets gmctl deploy creates; may be []
+  - name: <logical-name>            # Swarm name is <game-id>_<name>
+    path: </opt/gm/secrets/<logical-name>>   # fixed in-container path
+    uid: <0>
+    gid: <0>
+    mode: "<0400>"                  # quoted octal string ("0400"); the renderer parses it base 8
+seed:                               # where the scenario's seed files land (read-only configs)
+  dir: </opt/gm/seed/>              # fixed in-container directory
+  files:                            # seed file names the scenario must provide; may be []
+    - <postgresql.conf>
+protected_configs:                  # read-only configs rendered per game; may be []
+  - name: <logical-name>            # e.g. envelopes
+    path: </opt/gm/protected/<file>>
+    uid: <0>
+    gid: <0>
+    mode: "<0444>"                  # quoted octal string, as above
+volumes:                            # named volumes; may be [] for a stateless brick
+  - name: <name>                    # volume name becomes <game-id>_<node>_<name>
+    path: <in-container path>
+processes:                          # s6-overlay service names
+  - <sshd>
+
+# --- Catalog links ----------------------------------------------------
+compatible_faults: []               # fault ids known to apply; may be empty at first
+# companion:                        # optional: only when the brick ships companion/ material
+#   path: companion/
+#   when: <when the GM runs or uses it, e.g. "before deploying a scenario that uses this brick">
+# interfaces:                       # optional in v0.1 (provided and consumed endpoints)
+#   provides: [{name: <sql>, protocol: <postgresql>, port: <5432>}]
+#   consumes: []
+# monitoring:                       # optional in v0.1 (metrics endpoints, logs)
+#   metrics: []
+#   logs: []
+# extra: {}                         # optional: brick-specific keys not covered above
