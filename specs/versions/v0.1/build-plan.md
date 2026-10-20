@@ -3,8 +3,7 @@
 Status: v2 (2026-10-20): reviewer's non-blocking findings written in
 (s6-overlay under stack deploy, captures, test packages, release notes;
 spec D46).
-Approval: awaiting the lead's approval under the owner's delegation (gate
-G1).
+Approval: approved 2026-10-20 by the lead under the owner's delegation (G1).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), both approved 2026-10-20. No design set
 (no interface to design).
@@ -39,9 +38,9 @@ plan states only its deltas.
 
 | Gate | What | Cleared by | Blocks | Status |
 |---|---|---|---|---|
-| G1 | Plan approval | The lead, under the owner's delegation | Wave 1 | open |
+| G1 | Plan approval | The lead, under the owner's delegation | Wave 1 | done (2026-10-20, plan v2 approved after review) |
 | G2 | Network access at image build time (Debian and PostgreSQL apt repositories, the s6-overlay release download) | Hand check by the wave driver | Chunks 2, 3 | done (2026-10-20, wave driver's hand check: registry pull succeeded) |
-| G3 | A Docker host in swarm mode (`docker swarm init` on the build host is enough) | Hand check by the wave driver | Chunk 2, wave 2 gate, wave 3 gate, release gate | open |
+| G3 | A Docker host in swarm mode (`docker swarm init` on the build host is enough) | Hand check by the wave driver | Chunk 2, wave 2 gate, wave 3 gate, release gate | done (2026-10-20, `docker swarm init` on the build host, owner-approved) |
 | G4 | Review of the v0.1 scenario's defects, issues and answer key | The lead | Chunk 8's merge | open |
 | G5 | Feedback tone judged acceptable | The owner | Release close | open |
 
@@ -49,7 +48,7 @@ plan states only its deltas.
 
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
-| 1 | 1, 2, 3 | G1, G2, G3 (chunk 2) | planned |
+| 1 | 1, 2, 3 | G1, G2, G3 (chunk 2) | in progress |
 | 2 | 4, 5, 6 | wave 1 | planned |
 | 3 | 7, 8, 9 | wave 2, G4 (for chunk 8's merge) | planned |
 
@@ -95,7 +94,7 @@ plan states only its deltas.
 
 ### Chunk 1 — Format skill and templates
 
-Status: planned
+Status: in progress
 Wave: 1
 Depends on: G1
 Architecture capture: the top-level keys of `brick.yaml`, recorded by the
