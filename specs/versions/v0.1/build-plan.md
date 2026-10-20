@@ -375,7 +375,7 @@ rules, the GM-recorded stages, and the argument signatures of every
 
 ### Chunk 8 — v0.1 faults and scenario folder
 
-Status: planned
+Status: built (cf1457c on `v0.1-c8-scenario`, waiting on G4)
 Wave: 3
 Depends on: chunks 1, 2, 6, 7; G4 before merge
 Architecture capture: none of its own; it uses the parameter naming rule,

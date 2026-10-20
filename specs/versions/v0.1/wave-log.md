@@ -617,3 +617,23 @@ Branch `v0.1-c7-eval` kept until the wave closes; its worktree is removed.
 - Chunk 8: dispatched 2026-10-20. Merge gate G4 (the lead's review of the
   scenario's defects, issues and answer key): the chunk reports built,
   branch kept.
+- Chunk 8: built 2026-10-20 (cf1457c on `v0.1-c8-scenario`, worktree
+  kept), waiting on G4. Scenario `bookshop-new-server` (Pages & Co, 180
+  min), six catalog faults: f1 `pg-hba-trust-remote` (known, seed-file),
+  f2 `pg-memory-over-envelope` (known, seed-file, `work_mem` 256MB over a
+  64MB envelope), f3 `pg-join-index-missing` (known, state), f4
+  `pg-role-superuser`, f5 `pg-table-autovacuum-off`, f6
+  `pg-abandoned-replication-slot` (hidden, state). Issues I1 fix (f2), I2
+  propose (f1), I3 fix (f3). `check_scenario` and `check_fault_dir`
+  return nothing missing; fit and render accept it; on the smoke
+  deployment every injection succeeds (replay identical), every check
+  present (exit 1), `validate` red on `work_mem` only (the planted f2);
+  every check turned 0 after a player-style fix, f2 by both paths; nothing
+  labelled left after teardown. 146 unit tests OK. README filled from the
+  template by a scratch script (the skill has no generator), checked
+  against the fixture's. Left open: `bricks/postgres/brick.yaml` keeps
+  `compatible_faults: []` (a brick change, outside chunk 8).
+- G4: review dispatched to an independent `reviewer` on the lead's
+  behalf, 2026-10-20.
+- Chunk 9: dispatched 2026-10-20 (chunk 8, built and waiting on its gate,
+  no longer counts against κ).
