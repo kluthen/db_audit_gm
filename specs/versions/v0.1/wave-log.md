@@ -401,3 +401,26 @@ the swarm, both images and host port 2222 free.
   per the skill (no script, out of scope), from `scenario.yaml`,
   `gm/answer-key.yaml` and `brief.md` only; a stale README is caught by
   the skill's reading checklist only.
+
+### Wave gate — 2026-10-20
+
+Run by the driver on `v0.1-w2` at 902c048, on the build host (Debian 13,
+Docker Engine 29.8, single-node swarm), machine otherwise idle.
+
+- Unit suite: 102 tests OK (4.6 s).
+- `sh -n` on every shell script (8 `*.sh` plus `#!/bin/sh` files): OK.
+- Image builds: postgres `sha256:a55e764b…`, bastion `sha256:314de9c7…`,
+  unchanged from wave 1.
+- `tools/tests/smoke.sh`: all checks passed (game `fixture-audit-ts8hzq`):
+  fit, render, deploy healthy, exec, logs, teardown, nothing labelled
+  left, objects not belonging to the game unchanged. Driver's check after:
+  no stack, 0 volumes, configs or secrets labelled `dbagm.game`.
+- No bundle or performance figures apply. No intent or data register: no
+  sync.
+- Sent to `spec-writer`: the wave-gate delta's smoke-run wording
+  (`validate` and `check` belong to chunk 7, wave 3).
+
+Open after wave 2: G4 (the lead, before chunk 8 merges), G5 (the owner,
+release close). Wave 3 captures due at its start: inject script order,
+`load-data` details, gmctl argument signatures (W2-C already fixes
+deploy, exec, logs, status and teardown).
