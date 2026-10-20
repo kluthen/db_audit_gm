@@ -48,7 +48,7 @@ plan states only its deltas.
 
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
-| 1 | 1, 2, 3 | G1, G2, G3 (chunk 2) | in progress |
+| 1 | 1, 2, 3 | G1, G2, G3 (chunk 2) | gated (2026-10-20), awaiting merge |
 | 2 | 4, 5, 6 | wave 1 | planned |
 | 3 | 7, 8, 9 | wave 2, G4 (for chunk 8's merge) | planned |
 

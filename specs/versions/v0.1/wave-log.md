@@ -165,3 +165,26 @@ Recorded after chunk 3 merged; accepted by the wave driver.
   wave merges.
 - Chunk 3: dispatched 2026-10-20; merged 1565cbe (chunk commit ddf2a19).
   Hand run replaced by a two-service stack test; choices in W1-F.
+
+### Wave gate — 2026-10-20
+
+Run by the wave driver on `v0.1-w1` (eaa5e1d), on the build host (Debian 13,
+Docker 29.8.2, single-node swarm), nothing else heavy running.
+
+- `sh -n` on every shell script under `bricks/` (with or without `.sh`):
+  pass.
+- PyYAML load of every YAML file (templates, both `brick.yaml`, both test
+  stacks): pass.
+- `docker build` of both images: pass (postgres `sha256:a55e764b…`,
+  bastion `sha256:314de9c7…`).
+- Stack tests: `bricks/postgres/tests/run-stack-test.sh` and
+  `bricks/bastion/tests/run-stack-test.sh`, all checks passed; teardown
+  left no stack, container, volume, config or secret.
+- No unit suite yet (arrives in chunk 4); no smoke run (from wave 2); no
+  bundle or performance figure applies.
+- No post-task sync: no intent or data register.
+
+Result: wave 1 gated. Waiting for the owner's word to merge `v0.1-w1` into
+`main`. Branches kept until then: `v0.1-c1-format-skill`,
+`v0.1-c2-postgres-brick`, `v0.1-c3-bastion-brick`, `roadmap`.
+Open gates: G4 (the lead, chunk 8's merge, wave 3), G5 (the owner, release).
