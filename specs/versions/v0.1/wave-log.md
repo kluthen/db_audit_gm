@@ -322,4 +322,8 @@ explicit `name:` on a real deploy.
 ### Dispatch
 
 - Chunk 4: dispatched 2026-10-20; merged 2026-10-20 (d49bca6).
-- Chunk 5: dispatched 2026-10-20.
+- Chunk 5: dispatched 2026-10-20. Brief reads the wave-gate delta's
+  smoke run as fit, render, deploy, exec and teardown in wave 2;
+  `gmctl validate` and `check` arrive with chunk 7 (wave 3), which adds
+  them to `smoke.sh`. The delta's wording goes to `spec-writer` at the
+  wave 2 gate.
