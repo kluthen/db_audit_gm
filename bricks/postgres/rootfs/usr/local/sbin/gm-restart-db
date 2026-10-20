@@ -1,0 +1,55 @@
+#!/bin/sh
+# gm-restart-db: restart PostgreSQL. Usage: sudo gm-restart-db
+# DO NOT TAMPER. Root-owned, read-only; allowed by /etc/sudoers.d/gm-player.
+# Checks that the configuration loads first and refuses to restart if it
+# does not, so a typo does not take the server down. The restart goes
+# through s6 (fast shutdown, then start); the container keeps running.
+set -u
+PATH=/command:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+PGBIN=/usr/lib/postgresql/18/bin
+PGDATA=/var/lib/postgresql/18/data
+SERVICE=/run/service/postgres
+WAIT=60
+
+if [ "$#" -ne 0 ]; then
+    echo "usage: sudo gm-restart-db (no arguments)" >&2
+    exit 2
+fi
+
+as_postgres() { runuser -u postgres -- env HOME=/var/lib/postgresql "$@"; }
+
+# 1. postgresql.conf loads (syntax, names, values).
+if ! out=$(as_postgres "$PGBIN/postgres" -D "$PGDATA" \
+        -c config_file=/etc/postgresql/postgresql.conf \
+        -c hba_file=/etc/postgresql/pg_hba.conf -C data_directory 2>&1); then
+    echo "gm-restart-db: postgresql.conf does not load; PostgreSQL was NOT restarted:"
+    printf '%s\n' "$out" | sed 's/^/  /'
+    exit 1
+fi
+# 2. pg_hba.conf parses (checked through the running server, if any).
+if hba=$(as_postgres psql -X -w -q -A -t -h /run/postgresql -p 5432 -d postgres -c \
+        "SELECT file_name || ':' || line_number || ': ' || error FROM pg_hba_file_rules WHERE error IS NOT NULL" 2>/dev/null) \
+   && [ -n "$hba" ]; then
+    echo "gm-restart-db: pg_hba.conf has errors; PostgreSQL was NOT restarted:"
+    printf '%s\n' "$hba" | sed 's/^/  /'
+    exit 1
+fi
+
+# 3. Restart under s6 and wait for a new postmaster to accept connections.
+old_pid=$(s6-svstat -o pid "$SERVICE" 2>/dev/null || echo -1)
+s6-svc -r "$SERVICE" || { echo "gm-restart-db: could not signal the postgres service" >&2; exit 1; }
+i=0
+while [ "$i" -lt "$WAIT" ]; do
+    sleep 1
+    i=$((i + 1))
+    pid=$(s6-svstat -o pid "$SERVICE" 2>/dev/null || echo -1)
+    if [ "$pid" != "$old_pid" ] && [ "$pid" != "-1" ] \
+       && pg_isready -q -h /run/postgresql -p 5432 -t 2; then
+        echo "gm-restart-db: PostgreSQL restarted and accepting connections."
+        exit 0
+    fi
+done
+echo "gm-restart-db: PostgreSQL did not come back within ${WAIT}s." >&2
+echo "  Check your last changes (sudo gm-validate), fix them, then run sudo gm-restart-db again." >&2
+exit 1

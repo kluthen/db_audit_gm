@@ -1,0 +1,35 @@
+# sshd_config of the db_audit_gm PostgreSQL node.
+# DO NOT TAMPER: changing SSH is not part of the game (master spec 14).
+# Root-owned, on a read-only root filesystem.
+
+Port 22
+HostKey /run/sshd-keys/ssh_host_ed25519_key
+PidFile /run/sshd.pid
+
+# Only `player` logs in, with the key delivered as a per-game secret.
+AllowUsers player
+PermitRootLogin no
+PubkeyAuthentication yes
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitEmptyPasswords no
+AuthorizedKeysFile none
+# No PAM: no syslog or audit daemon in the container.
+UsePAM no
+
+AllowTcpForwarding no
+AllowAgentForwarding no
+AllowStreamLocalForwarding no
+X11Forwarding no
+PermitTunnel no
+PermitUserEnvironment no
+PrintMotd yes
+LogLevel INFO
+
+# psql as the players' superuser role by default (password in ~/.pgpass).
+SetEnv PGUSER=dba PGDATABASE=postgres
+
+Subsystem sftp internal-sftp
+
+Match User player
+    AuthorizedKeysFile /opt/gm/secrets/player_ssh_pubkey

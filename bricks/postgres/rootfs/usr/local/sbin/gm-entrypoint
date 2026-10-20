@@ -1,0 +1,104 @@
+#!/bin/sh
+# gm-entrypoint: container entrypoint of the db_audit_gm PostgreSQL brick.
+# DO NOT TAMPER. Root-owned and read-only (master spec 9.1).
+#
+# Runs as root at every container start, then execs s6-overlay's /init:
+#   1. empties /run (a named volume: a stack file's tmpfs is noexec, and
+#      s6-overlay needs an executable /run) and creates the runtime dirs;
+#   2. generates this container's sshd host key under /run;
+#   3. checks the secrets;
+#   4. seeds /etc/postgresql from /opt/gm/seed once (marker .gm-seeded);
+#   5. initialises PGDATA if it is empty and creates the `dba` role;
+#   6. writes the player's ~/.pgpass.
+set -eu
+
+PG_MAJOR=18
+PGBIN=/usr/lib/postgresql/$PG_MAJOR/bin
+PGDATA=/var/lib/postgresql/$PG_MAJOR/data
+CONF_DIR=/etc/postgresql
+SEED_DIR=/opt/gm/seed
+SECRETS_DIR=/opt/gm/secrets
+SEED_FILES="postgresql.conf pg_hba.conf"
+PLAYER_HOME=/home/player
+
+log() { printf 'gm-entrypoint: %s\n' "$*" >&2; }
+die() { log "fatal: $*"; exit 1; }
+# chmod_setgid <dir> <group> <mode>: chmod run with <group> as gid, so the
+# kernel keeps the setgid bit without CAP_FSETID (root is not in <group>).
+chmod_setgid() { setpriv --regid="$2" --clear-groups -- chmod "$3" "$1"; }
+
+# --- 1. /run ------------------------------------------------------------
+# Leftovers of a previous container (s6 state, sockets, pid files) must
+# not survive into this one.
+cd /run
+find . -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+cd /
+chown root:root /run
+chmod 0755 /run
+install -d -o postgres -g postgres /run/postgresql
+chmod_setgid /run/postgresql postgres 2775
+install -d -o root -g root -m 0755 /run/sshd
+install -d -o root -g root -m 0700 /run/sshd-keys
+install -d -o root -g root -m 0700 /run/gm
+install -d -o root -g root -m 1777 /run/tmp
+
+# --- 2. sshd host key ---------------------------------------------------
+ssh-keygen -q -t ed25519 -N '' -C '' -f /run/sshd-keys/ssh_host_ed25519_key
+
+# --- 3. secrets ---------------------------------------------------------
+for s in player_ssh_pubkey dba_password; do
+    [ -s "$SECRETS_DIR/$s" ] || die "secret $SECRETS_DIR/$s is missing or empty"
+done
+dba_password=$(cat "$SECRETS_DIR/dba_password")
+case $dba_password in
+    *'
+'*) die "secret dba_password must be a single line" ;;
+esac
+
+# --- 4. configuration, seeded once ---------------------------------------
+chown postgres:pgconf "$CONF_DIR"
+chmod_setgid "$CONF_DIR" pgconf 2775
+if [ ! -e "$CONF_DIR/.gm-seeded" ]; then
+    for f in $SEED_FILES; do
+        [ -f "$SEED_DIR/$f" ] || die "seed file $SEED_DIR/$f is missing"
+    done
+    for f in $SEED_FILES; do
+        install -o postgres -g pgconf -m 0664 "$SEED_DIR/$f" "$CONF_DIR/$f"
+    done
+    date -u '+seeded %Y-%m-%dT%H:%M:%SZ from /opt/gm/seed (DO NOT TAMPER)' > "$CONF_DIR/.gm-seeded"
+    chown root:root "$CONF_DIR/.gm-seeded"
+    chmod 0444 "$CONF_DIR/.gm-seeded"
+    log "seeded $CONF_DIR from $SEED_DIR"
+fi
+
+# --- 5. PGDATA ----------------------------------------------------------
+chown postgres:postgres "$PGDATA"
+chmod 0700 "$PGDATA"
+if [ ! -s "$PGDATA/PG_VERSION" ]; then
+    log "initialising $PGDATA"
+    runuser -u postgres -- "$PGBIN/initdb" -D "$PGDATA" -U postgres \
+        --encoding=UTF8 --locale=C.UTF-8 \
+        --auth-local=peer --auth-host=scram-sha-256 >&2
+    # The players' superuser role, created in single-user mode (no network,
+    # no pg_hba.conf involved) against initdb's own default configuration.
+    pw_sql=$(printf '%s' "$dba_password" | sed "s/'/''/g")
+    printf "CREATE ROLE dba LOGIN SUPERUSER PASSWORD '%s';\n" "$pw_sql" |
+        runuser -u postgres -- "$PGBIN/postgres" --single -D "$PGDATA" postgres >/dev/null
+    # The live configuration is in /etc/postgresql; remove initdb's copies
+    # so there is only one place to look.
+    rm -f "$PGDATA/postgresql.conf" "$PGDATA/pg_hba.conf"
+    log "cluster initialised, role dba created"
+fi
+
+# --- 6. player's home ---------------------------------------------------
+chown player:player "$PLAYER_HOME"
+chmod 0750 "$PLAYER_HOME"
+pw_pgpass=$(printf '%s' "$dba_password" | sed 's/[\\:]/\\&/g')
+umask 077
+printf '*:*:*:dba:%s\n' "$pw_pgpass" > "$PLAYER_HOME/.pgpass"
+chown player:player "$PLAYER_HOME/.pgpass"
+chmod 0600 "$PLAYER_HOME/.pgpass"
+umask 022
+unset dba_password pw_sql pw_pgpass
+
+exec /init "$@"

@@ -1,0 +1,8 @@
+#!/bin/sh
+# s6 service `postgres` (DO NOT TAMPER). The configuration lives outside
+# PGDATA, in /etc/postgresql; `down-signal` is SIGINT (fast shutdown).
+exec 2>&1
+exec /command/s6-setuidgid postgres /usr/lib/postgresql/18/bin/postgres \
+    -D /var/lib/postgresql/18/data \
+    -c config_file=/etc/postgresql/postgresql.conf \
+    -c hba_file=/etc/postgresql/pg_hba.conf
