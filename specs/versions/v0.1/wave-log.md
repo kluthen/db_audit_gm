@@ -154,74 +154,6 @@ Recorded after chunk 3 merged; accepted by the wave driver.
   node's `player_ssh_pubkey`; the bastion publishes container port 22
   (host mode or routing mesh: the renderer's call).
 
-### Capture W2-C — chunk 5 outcomes and API (read by 7, 9)
-
-Chunk 5 merged 2026-10-20 (5a 54f4542, 5b fdd91ab, merge 6231044); 102
-unit tests OK; `tools/tests/smoke.sh` passed 17 checks on the local
-swarm; nothing labelled `dbagm.game` left afterwards (checked by the
-driver too). A real deploy confirmed Swarm applies the explicit volume
-`name:` and volume labels (W2-B's open item, closed).
-
-**Choices within the spec.**
-
-- The inner-hop ed25519 key is made with `ssh-keygen` on the GM host
-  (subprocess, like `docker`); gmctl stops with a clear message without it.
-- Credentials are regenerated on every deploy, no trailing newline;
-  player password 16 characters without ambiguous glyphs, DBA password 32
-  alphanumeric. Teardown leaves `secrets/` in place (0600, git-ignored).
-- Deploy refuses without changing state when there is no swarm, the
-  engine is a worker, or an image is missing. Credentials, objects, stack
-  deploy and the health wait are one setup step: any failure or Ctrl-C
-  tears down and records `failed`. A deploy may be retried from `failed`
-  when the failure was in deploy and the last stage reached `rendered`.
-- Teardown records `torn-down` (a failed game keeps its failure record),
-  is idempotent, waits up to 120 s, and reports leftovers instead of
-  recording `torn-down` when something won't go.
-- Health wait: 300 s default (`--timeout`); fails at once when Swarm
-  rejects a task.
-- `exec --env` values appear in the host's process list: fine for
-  `FAULT_*` and `GM_*`, never for credentials.
-- Only the local engine was exercised live; `ssh://` is unit-tested only.
-  `--init-swarm` passes no `--advertise-addr`.
-
-**Python API.**
-
-- `tools.gm.execnode.exec_node(ldir, node, user, stdin=None, env=None,
-  capture=True, timeout=None, docker=None)` → `ExecResult(node, user,
-  container, returncode, stdout, stderr)`, `.ok`. Runs `docker exec -i -u
-  <user> -e K=V… <container> sh -s` on the container labelled
-  `com.docker.swarm.service.name=<service>`. `stdin`: str, bytes, or a
-  binary file object streamed as is (for `load-data`). `returncode` is the
-  script's own status (validator 0/1/2 unchanged). Raises
-  `execnode.ExecError` (a `GmError`) when the script cannot start: no
-  game, a stage outside `state.DEPLOYED_STAGES`, unknown node, no running
-  container, unknown user, Docker error (probed first with `docker exec -u
-  <user> <ctr> true`).
-- `tools.gm.state.setup_step(ldir, stage, undo=None)`: context manager; on
-  error or interruption it calls `undo()`, records `failed` with the
-  reason, raises `state.SetupFailed`. For `load-data` and `inject`: `undo=
-  lambda: teardown.remove_game_objects(docker, game_id).text()`, then
-  `localimpl.set_stage(ldir, stage)` on success. Also
-  `state.status_text(ldir)`.
-- `tools.gm.teardown`: `remove_game_objects(docker, game_id, timeout=120)`
-  → `TeardownReport`; `teardown(scenario_dir, playground)`;
-  `leftovers(docker, game_id)`.
-- `tools.gm.docker.for_local_dir(ldir)` → `Docker` aimed at the
-  playground's endpoint; `Docker.run(args, input=, stdin=, capture=,
-  check=, timeout=)` raises `DockerError`. `deploy.deploy(...)` →
-  `DeployResult`.
-- Tests: `tools/tests/__init__.py` has `FakeDocker`, an in-memory engine.
-
-**CLI** (each takes `<scenario-dir> --playground <name>`): `deploy
-[--init-swarm] [--timeout SECONDS]`; `exec --node N --user U [--env
-K=V]...` (script on stdin; exits with the script's status, or 125 when it
-cannot start, reason on stderr); `logs --node N [--tail N] [--follow]`;
-`status`; `teardown`.
-
-**Smoke run.** `tools/tests/smoke.sh` has a marked section `# ---
-validate and check (chunk 7) ---` between exec/logs and teardown. It needs
-the swarm, both images and host port 2222 free.
-
 ### Dispatch
 
 - Chunk 1: dispatched 2026-10-20; merged 165e153 (chunk commit 8892378).
@@ -386,6 +318,74 @@ Chunk 4 merged 2026-10-20 (79fc1d3, merge d49bca6); 64 unit tests OK;
 
 Left for chunk 5: the first proof that Swarm applies the volume labels and
 explicit `name:` on a real deploy.
+
+### Capture W2-C — chunk 5 outcomes and API (read by 7, 9)
+
+Chunk 5 merged 2026-10-20 (5a 54f4542, 5b fdd91ab, merge 6231044); 102
+unit tests OK; `tools/tests/smoke.sh` passed 17 checks on the local
+swarm; nothing labelled `dbagm.game` left afterwards (checked by the
+driver too). A real deploy confirmed Swarm applies the explicit volume
+`name:` and volume labels (W2-B's open item, closed).
+
+**Choices within the spec.**
+
+- The inner-hop ed25519 key is made with `ssh-keygen` on the GM host
+  (subprocess, like `docker`); gmctl stops with a clear message without it.
+- Credentials are regenerated on every deploy, no trailing newline;
+  player password 16 characters without ambiguous glyphs, DBA password 32
+  alphanumeric. Teardown leaves `secrets/` in place (0600, git-ignored).
+- Deploy refuses without changing state when there is no swarm, the
+  engine is a worker, or an image is missing. Credentials, objects, stack
+  deploy and the health wait are one setup step: any failure or Ctrl-C
+  tears down and records `failed`. A deploy may be retried from `failed`
+  when the failure was in deploy and the last stage reached `rendered`.
+- Teardown records `torn-down` (a failed game keeps its failure record),
+  is idempotent, waits up to 120 s, and reports leftovers instead of
+  recording `torn-down` when something won't go.
+- Health wait: 300 s default (`--timeout`); fails at once when Swarm
+  rejects a task.
+- `exec --env` values appear in the host's process list: fine for
+  `FAULT_*` and `GM_*`, never for credentials.
+- Only the local engine was exercised live; `ssh://` is unit-tested only.
+  `--init-swarm` passes no `--advertise-addr`.
+
+**Python API.**
+
+- `tools.gm.execnode.exec_node(ldir, node, user, stdin=None, env=None,
+  capture=True, timeout=None, docker=None)` → `ExecResult(node, user,
+  container, returncode, stdout, stderr)`, `.ok`. Runs `docker exec -i -u
+  <user> -e K=V… <container> sh -s` on the container labelled
+  `com.docker.swarm.service.name=<service>`. `stdin`: str, bytes, or a
+  binary file object streamed as is (for `load-data`). `returncode` is the
+  script's own status (validator 0/1/2 unchanged). Raises
+  `execnode.ExecError` (a `GmError`) when the script cannot start: no
+  game, a stage outside `state.DEPLOYED_STAGES`, unknown node, no running
+  container, unknown user, Docker error (probed first with `docker exec -u
+  <user> <ctr> true`).
+- `tools.gm.state.setup_step(ldir, stage, undo=None)`: context manager; on
+  error or interruption it calls `undo()`, records `failed` with the
+  reason, raises `state.SetupFailed`. For `load-data` and `inject`: `undo=
+  lambda: teardown.remove_game_objects(docker, game_id).text()`, then
+  `localimpl.set_stage(ldir, stage)` on success. Also
+  `state.status_text(ldir)`.
+- `tools.gm.teardown`: `remove_game_objects(docker, game_id, timeout=120)`
+  → `TeardownReport`; `teardown(scenario_dir, playground)`;
+  `leftovers(docker, game_id)`.
+- `tools.gm.docker.for_local_dir(ldir)` → `Docker` aimed at the
+  playground's endpoint; `Docker.run(args, input=, stdin=, capture=,
+  check=, timeout=)` raises `DockerError`. `deploy.deploy(...)` →
+  `DeployResult`.
+- Tests: `tools/tests/__init__.py` has `FakeDocker`, an in-memory engine.
+
+**CLI** (each takes `<scenario-dir> --playground <name>`): `deploy
+[--init-swarm] [--timeout SECONDS]`; `exec --node N --user U [--env
+K=V]...` (script on stdin; exits with the script's status, or 125 when it
+cannot start, reason on stderr); `logs --node N [--tail N] [--follow]`;
+`status`; `teardown`.
+
+**Smoke run.** `tools/tests/smoke.sh` has a marked section `# ---
+validate and check (chunk 7) ---` between exec/logs and teardown. It needs
+the swarm, both images and host port 2222 free.
 
 ### Dispatch
 
