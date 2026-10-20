@@ -315,7 +315,11 @@ Architecture capture: none.
 
 ### Chunk 7 — Data load, injection, validator run and sealed checks
 
-Status: planned
+Status: merged (w3, cb19992)
+Record: chunk commits 8269558 (7a), d9b8560 (7b); no deviation from W3-A or
+D49; `validate` and `check` exit 2 on a refusal (wave-log capture W3-B);
+master spec 8.1's "fed to `sh -s`" wording for the data load sent to
+`spec-writer` at the wave gate.
 Wave: 3
 Depends on: chunks 2, 3, 5
 Architecture capture: recorded by the wave driver at wave 3 start as

@@ -543,3 +543,77 @@ uses `status --set` for hand-over, final answer and feedback.
 ### Dispatch
 
 - Chunk 7: dispatched 2026-10-20, halves in order (7a then 7b), one owner.
+- Chunk 7: merged 2026-10-20 (7a 8269558, 7b d9b8560, merge cb19992);
+  146 unit tests OK; `smoke.sh` 41 checks passed on the local swarm,
+  nothing labelled `dbagm.game` left. Images not rebuilt. Done when met
+  item by item (report checked by the driver). For the wave gate, to
+  `spec-writer`: master spec 8.1 still says the data load is fed to `sh
+  -s`; W3-A streams it into `psql` through `exec_node`'s `argv`.
+
+### Capture W3-B — chunk 7 outcomes and API (read by 8, 9)
+
+Recorded after chunk 7 merged; accepted by the wave driver.
+
+**Choices within W3-A.**
+
+- `validate` and `check` exit **2** when refused (no game, wrong stage,
+  incomplete scenario, required parameter without a value): nothing ran,
+  the result is unknown. Every other subcommand exits 1 on a refusal.
+- `docker exec -u postgres` sets `HOME=/var/lib/postgresql` from passwd,
+  so `extra.validator` is `{path, run_as}` only.
+- Load-time refusals in `model`: an invalid `FAULT_<NAME>`, two parameter
+  names mapping to the same variable (`table-name`, `table_name`), a list
+  or map as a default or an instance value.
+- An `inject` replay at `injected` leaves `state.yaml` untouched (no
+  history entry).
+- `load-data` streams into `psql` as `postgres` whatever the brick: right
+  for v0.1, where only PostgreSQL nodes hold data.
+
+**Output formats** (the GM skill reads these).
+
+- `inject`: `<instance> <script> (<node>, as <user>): ok|exit N`, then the
+  script's output indented 4 spaces.
+- `validate`: the validator's lines under `<node>:`, ending `Validators of
+  game <id>: <node> green|red|error, ...`.
+- `check`: one line per instance, `<instance> <fault-id>:
+  fixed|present|error — <reason>`; no summary line.
+- `status --set` on the current stage prints `Already at stage …`.
+
+**Python API.**
+
+- `tools.gm.inject`: `fault_env(fault_def, instance)` → `{FAULT_<NAME>:
+  text}` (GmError on a missing required value or a list/map);
+  `fault_instances(scenario)`, `node_of(inst, impl)`,
+  `output_lines(exec_result)`; `load_data(scenario_dir, playground,
+  timeout=None, docker=None, out=print)` → `LoadResult`; `inject(...)`
+  same arguments → `InjectResult`; both raise GmError on a refusal and
+  `state.SetupFailed` on a failure. Constants `PSQL_ARGV`, `DATA_USER`,
+  `DEFAULT_RUN_AS`.
+- `tools.gm.checks`: `validate(scenario_dir, playground, docker=None)` →
+  `ValidateResult` (`.nodes`, `.exit_code`, `.text()`); `check(...)` →
+  `CheckResult` (`.lines` of `CheckLine(instance, fault_id, verdict,
+  reason)`, `.exit_code`); `validator_of(brick_def)` → `(path, run_as)`;
+  `CHECK_STAGES`.
+- `tools.gm.state.set_gm_stage(ldir, stage)` → True when recorded, False
+  when nothing changed; `state.GM_STAGES`. `tools.gm.model.fault_env_name`.
+  `execnode.exec_node(..., argv=None)`, default `SHELL_ARGV = ("sh",
+  "-s")`.
+
+**Fixture.** Scenario-local state fault `fixture-dropped-index` (instance
+`f2` on `db`): parameters `database` (default `shop`), `table-name`
+(default `orders`, `FAULT_TABLE_NAME`), `column` (required, set to
+`customer_id`); scripts `inject/10-drop-index.sh`, `inject/20-analyze.sh`;
+`checks/fixed.sh`. `data/db.sql` creates role and database `shop` (500
+customers, 20000 orders). The fixture's README was regenerated in full
+from the scenario-document template. A worked example for chunk 8.
+
+**Smoke run** (marked section): `load-data` and its repeat, `inject`
+twice with the index list compared, `status --set handed-over`, `check`
+(1), the fix through `exec` (with a 1 s sleep after `pg_reload_conf()`),
+`check` (0), `validate` green then red (`work_mem` out of envelope).
+
+Branch `v0.1-c7-eval` kept until the wave closes; its worktree is removed.
+
+- Chunk 8: dispatched 2026-10-20. Merge gate G4 (the lead's review of the
+  scenario's defects, issues and answer key): the chunk reports built,
+  branch kept.
