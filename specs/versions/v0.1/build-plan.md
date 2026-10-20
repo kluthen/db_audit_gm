@@ -94,7 +94,9 @@ plan states only its deltas.
 
 ### Chunk 1 — Format skill and templates
 
-Status: in progress
+Status: merged (w1, 165e153)
+Record: chunk commit 8892378; no deviation from the spec; conventions
+recorded as wave-log capture W1-D.
 Wave: 1
 Depends on: G1
 Architecture capture: the top-level keys of `brick.yaml`, recorded by the
@@ -122,7 +124,7 @@ wave driver at wave start so chunks 2 and 3 can write theirs.
 
 ### Chunk 2 — PostgreSQL brick
 
-Status: planned
+Status: in progress
 Wave: 1
 Depends on: chunk 1 (captured `brick.yaml` keys), G2, G3
 Architecture capture: the brick's fixed in-container paths (seed

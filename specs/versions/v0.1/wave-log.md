@@ -88,6 +88,26 @@ Brick-specific extras are allowed under a key `extra`.
   secrets.
 - Container port 22; the stack publishes it (default 2222).
 
+### Capture W1-D — format conventions fixed by chunk 1 (read by 2, 3, 4, 7, 8)
+
+Recorded after chunk 1 merged; chosen within its remit.
+
+- Fault parameters reach inject and check scripts as `FAULT_<NAME>`
+  environment variables (distinct from bricks' `GM_<NAME>`).
+- Secret and protected-config modes in `brick.yaml` are quoted octal
+  strings (`"0400"`), parsed in base 8 by the renderer.
+- `scenario.yaml` nodes map each of the brick's `seed.files` to a folder
+  file via `seed_files: {<seed file>: <relative path>}`; the bastion's
+  starter pack is mapped the same way (`README.md: player/README.md`).
+- `published_ports: [{port, default}]` (bastion default 2222);
+  `resources.reservations` includes `disk`; `session_length_minutes`
+  (at most 240).
+- Required/optional status lives in template comments and the skill's
+  checklists; chunk 4's completeness check takes its required-key list
+  from the templates.
+
 ### Dispatch
 
-- Chunk 1: dispatched 2026-10-20.
+- Chunk 1: dispatched 2026-10-20; merged 165e153 (chunk commit 8892378).
+  No deviation.
+- Chunk 2: dispatched 2026-10-20.
