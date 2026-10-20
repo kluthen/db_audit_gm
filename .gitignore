@@ -1,1 +1,7 @@
 *.db
+
+# Local implementations inside scenario folders (master spec 5, 10.3)
+local/
+
+# Python bytecode (tools/)
+__pycache__/

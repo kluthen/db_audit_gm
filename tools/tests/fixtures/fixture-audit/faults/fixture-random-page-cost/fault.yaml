@@ -1,0 +1,52 @@
+# Scenario-local fault of the fixture scenario (tools/tests, chunk 4).
+id: fixture-random-page-cost
+version: 0.1.0
+title: random_page_cost left at the spinning-disk default on SSD storage
+family: performance
+severity: low
+
+applies_to:
+  bricks:
+    - id: postgres
+      versions: ["0.1.0"]
+  preconditions: []
+
+parameters: {}
+
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: postgresql.conf
+      change: random_page_cost = 4.0
+  run_as: root
+
+evidence:
+  - where: postgresql.conf and SHOW random_page_cost
+    how: ssh db, then psql -c 'SHOW random_page_cost'
+    shows: "4"
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+acceptance:
+  diagnosis: names random_page_cost as too high for SSD storage.
+  proposal: lower random_page_cost to about 1.1.
+
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+complaint_template: >-
+  Queries that should use an index read whole tables.
