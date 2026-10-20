@@ -401,7 +401,7 @@ the injection order and the `load-data` rules captured at wave 3 start.
 
 ### Chunk 9 — GM skill
 
-Status: planned
+Status: blocked (on the owner: stop reason during setup)
 Wave: 3
 Depends on: chunks 5, 6, 7
 Architecture capture: none of its own; it uses the `gmctl` argument

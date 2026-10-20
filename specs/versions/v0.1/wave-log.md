@@ -647,3 +647,18 @@ Branch `v0.1-c7-eval` kept until the wave closes; its worktree is removed.
   password" is tested by neither check nor validator; (5) f2's proposal
   range "4MB to 32MB" is tighter than the fix criterion (at most 64MB).
   Put to the owner to clear G4.
+- Chunk 9: built 2026-10-20 (1b42aa3 on `v0.1-c9-gm-skill`, worktree
+  kept), not merged: stopped on a gmctl behaviour that doesn't exist.
+  Master spec 12 says a stop during setup records "the stage reached and
+  the reason"; between steps the only tool is `teardown`, which records
+  `torn-down` with no reason (the stage reached shows in the history).
+  The skill tells the initiator the reason in the session and says gmctl
+  can't record it. Options: (a) accept history plus the in-session reason;
+  (b) a script change such as `teardown --reason TEXT`. Second finding:
+  after a failed `load-data` or `inject` and its teardown, the playground
+  is a dead end (`fit` says to tear down first, teardown keeps `failed`,
+  `deploy` retries only a failed deploy); the skill works around it with a
+  new playground slug. Done when otherwise met: every stance item mapped,
+  32 gmctl invocations parsed by gmctl's own parser and run live except
+  `fit`, the three GM stages recorded at their steps; live debug run on a
+  scratch fixture copy, nothing labelled left. Both put to the owner.
