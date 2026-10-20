@@ -1,0 +1,111 @@
+# scenario.yaml — template for scenarios/<scenario-id>/scenario.yaml
+#
+# Initial version (v0.1), expected to evolve as games are played.
+# Shape: master spec section 6. This file and gm/answer-key.yaml are
+# AUTHORITATIVE; README.md (the scenario document) is generated from them.
+#
+# Markers:
+#   every key is REQUIRED unless marked otherwise;
+#   "# optional: <when>"  the key is present only when <when> holds.
+# An empty list (`[]`) or map (`{}`) is a valid value where its comment
+# says so; an absent key is not.
+# Replace every <placeholder>. A filled file keeps no <placeholder>.
+# Paths are relative to the scenario folder.
+#
+# Units: cpu as a number of CPUs (0.5); memory and disk as 512M, 1G.
+# Names (nodes, networks) are valid Kubernetes names: lowercase letters,
+# digits and hyphens, starting with a letter, at most 63 characters.
+
+# --- Scenario information --------------------------------------------
+id: <scenario-id>
+version: <0.1.0>                    # semver string
+title: <one line>
+date: <YYYY-MM-DD>                  # date of this version
+origin: <hand-written>              # hand-written | from-brief | gm-designed
+session_length_minutes: <240>       # at most 240 (4 hours)
+brief: brief.md                     # the initiator's inputs as given
+                                    # (brief.md may say "hand-written, no brief")
+background: >-
+  <Short GM-facing summary of the customer and their context. The full
+  story the players read is player/story.md.>
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: <backend>
+    description: <what travels on it>
+
+nodes:                              # one entry per node (one service, one container)
+  - name: <db>                      # node name; peers reach it by this name only
+    brick:
+      id: <postgres>                # looked up in the scenario's bricks/ first, then the catalog
+      version: <0.1.0>              # pinned
+    role: <database>                # one of the brick's roles
+    stateful: <true>                # as the brick declares
+    networks: [<backend>]
+    write_policy: <fixable>         # fixable | report-only | no-access
+                                    # (fixable and report-only only when the brick supports them)
+    parameters: {}                  # map NAME -> value for the brick's parameters; every
+                                    # required brick parameter is set; may be {}
+    resources:                      # absolute in v0.1: never recomputed per playground
+      limits:
+        cpu: <1>
+        memory: <1G>
+      reservations:
+        cpu: <0.5>
+        memory: <512M>
+        disk: <2G>
+    published_ports: []             # bastion only in v0.1: [{port: 22, default: 2222}];
+                                    # the local implementation records the port actually used
+    seed_files:                     # one entry per file in the brick's seed.files; may be {}
+      <postgresql.conf>: nodes/<db>/postgresql.conf
+                                    # bastion: README.md: player/README.md, story.md:
+                                    # player/story.md, issues.md: player/issues.md
+    knobs:                          # one entry per knob the brick declares; may be []
+      - setting: <shared_buffers>
+        initial: <2GB>              # the value in the seed file; may lie outside the envelope
+                                    # (the validator is then red from the start: a finding)
+        envelope: {min: <64MB>, max: <256MB>}   # or {allowed: [..]}: the brick's default
+                                    # envelope, or tightened; never widened
+    data:                           # optional: only for a node that holds data
+      file: data/<db>.sql           # restored-backup data, streamed in after deployment
+      databases:                    # the data schema it holds
+        - name: <shop>
+          owner: <role>
+          tables:
+            - name: <orders>
+              description: <what it holds, rough row count, notable columns and indexes>
+
+flows:                              # every flow between nodes
+  - from: <bastion>
+    to: <db>
+    what: <what moves (players' SSH and SQL sessions)>
+    how: <protocol and port (ssh 22, postgresql 5432)>
+    cadence: <interactive | continuous | every 5 min | nightly>
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:                    # every fault planted in this scenario
+  - id: <f1>                        # instance id, unique in the scenario
+    fault:
+      id: <pg-hba-trust>            # scenario's faults/ first, then the catalog
+      version: <0.1.0>              # pinned
+    node: <db>                      # target node; its brick is in the fault's applies_to
+    parameters: {}                  # map NAME -> value for the fault's parameters; may be {}
+    visibility: <known>             # known | hidden; known exactly when an issue covers it
+
+issues:                             # given to the players at hand-over; may be []
+  - id: <I1>
+    complaint: >-
+      <The complaint as the players read it (also in player/issues.md).>
+    expected_resolution: <fix>      # report | propose | fix | improve
+    covers: [<f1>]                  # fault instance ids
+
+# --- Host topology it was designed for -------------------------------
+designed_for:
+  platform: <swarm>                 # swarm in v0.1
+  hosts:
+    - name: <host-1>
+      cpu: <4>
+      memory: <8G>
+      disk: <40G>
+  placement:                        # node name -> host name, for every node
+    <db>: <host-1>
