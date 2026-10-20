@@ -48,8 +48,8 @@ plan states only its deltas.
 
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
-| 1 | 1, 2, 3 | G1, G2, G3 (chunk 2) | gated (2026-10-20), awaiting merge |
-| 2 | 4, 5, 6 | wave 1 | planned |
+| 1 | 1, 2, 3 | G1, G2, G3 (chunk 2) | merged (80e9048) |
+| 2 | 4, 5, 6 | wave 1 | in progress |
 | 3 | 7, 8, 9 | wave 2, G4 (for chunk 8's merge) | planned |
 
 ```
@@ -206,7 +206,7 @@ recorded at wave start.
 
 ### Chunk 4 — Scenario model, capacity check and renderer
 
-Status: planned
+Status: in progress
 Wave: 2
 Depends on: chunk 1
 Architecture capture, recorded at wave start for chunk 5: the local

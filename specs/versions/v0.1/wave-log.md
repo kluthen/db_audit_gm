@@ -188,3 +188,85 @@ Result: wave 1 gated. Waiting for the owner's word to merge `v0.1-w1` into
 `main`. Branches kept until then: `v0.1-c1-format-skill`,
 `v0.1-c2-postgres-brick`, `v0.1-c3-bastion-brick`, `roadmap`.
 Open gates: G4 (the lead, chunk 8's merge, wave 3), G5 (the owner, release).
+
+Merged into `main` on the owner's word: 80e9048 (2026-10-20). Wave 1
+worktree and branches removed.
+
+## Wave 2 — started 2026-10-20
+
+Chunks: 4, 5, 6 (order 4 → 5 → 6, κ = 1). Branch `v0.1-w2`, worktree
+`/home/bastien/work/db_audit_gm-wt/v0.1-w2`, cut from `main` at 80e9048.
+Gates: G3 done. Preflight: none (no registers).
+
+### Capture W2-A — local implementation and render interface (chunk 4; read by 5, 7, 9)
+
+Recorded before any code. Python module boundaries are chunk 4's choice;
+the files and command lines below are fixed.
+
+**Location.** `<scenario>/local/<playground>/`, where `<playground>` is a
+slug the GM chooses at setup (`laptop`, `classroom`). `local/` is
+git-ignored.
+
+**Files.**
+
+- `playground.yaml` — as declared: `name`, `platform: swarm`,
+  `docker_endpoint` (`null` for the local engine, or `ssh://user@host`;
+  never keys), `capacity: {cpu, memory, disk}`.
+- `implementation.yaml` — written by `fit`: `scenario: {id, path}`,
+  `game_id`, `created_at`, and per node: `brick` (id and version),
+  `image`, `resources: {limits, reservations}` (copied from the scenario,
+  never recomputed), `published_ports: [{target, published, mode: host}]`,
+  plus the derived names below.
+- `stack.yml` — written by `render`; Compose file format 3.8.
+- `envelopes/<node>.conf` — written by `render`, format of capture W1-B /
+  W1-E; the source of each node's `envelopes` protected config.
+- `state.yaml` — `game_id`, `stage`, `history: [{stage, at}]`,
+  `failure: {stage, reason, at}` or `null`. Stages, in order: `fitted`,
+  `rendered`, `deployed`, `data-loaded`, `injected`, `handed-over`,
+  `final-answer`, `feedback-given`, `torn-down`; or `failed`.
+- `secrets/` — directory 0700, files 0600, written by `deploy`:
+  `player_password`, `player_ssh_key`, `player_ssh_key.pub`,
+  `dba_password`.
+
+**Names** (game id: scenario id plus `-` plus 6 random `[a-z0-9]`, at most
+63 characters, lowercase, digits and hyphens):
+
+- stack: `<game_id>`; services `<game_id>_<node>`; network
+  `<game_id>_net` (overlay, not attachable);
+- volumes: `<game_id>_<node>_<volume>`, declared with an explicit `name:`;
+- configs: `<game_id>_<node>_<file>` for seed and starter files (file name
+  kept, `/` replaced by `-`), `<game_id>_<node>_envelopes` for the envelope
+  file;
+- secrets: `<game_id>_<secret>` (one `dba_password` shared by both nodes;
+  `player_ssh_pubkey` is the content of `secrets/player_ssh_key.pub`);
+- every config and secret carries the labels
+  `com.docker.stack.namespace=<game_id>` and `dbagm.game=<game_id>`, set by
+  `gmctl deploy`; volumes carry `dbagm.game=<game_id>` too. Teardown
+  removes everything with either label.
+
+**Stack file.** External configs and secrets; `read_only: true`,
+`cap_drop: [ALL]`, `cap_add` from `brick.yaml`; the brick's volumes
+(including `run`, W1-E, and the bastion's `hostkeys`, W1-F); no tmpfs;
+health check from `brick.yaml`; resources from the implementation; every
+service constrained to the single host (`node.role == manager` in v0.1);
+only the bastion publishes a port, in `mode: host`; brick parameters as
+`GM_<NAME>` environment variables.
+
+**Command lines** (every subcommand prints a readable result and exits
+non-zero on failure):
+
+- `gmctl fit <scenario-dir> --playground <name> [--endpoint <url>]
+  [--cpu N --memory SIZE --disk SIZE]` — loads and checks the scenario
+  (refuses an incomplete one, listing what is missing), writes or reuses
+  `playground.yaml`, runs the capacity check, writes `implementation.yaml`
+  and `state.yaml` (stage `fitted`). Insufficient capacity: exit 1, nothing
+  deployed.
+- `gmctl render <scenario-dir> --playground <name>` — writes `stack.yml`
+  and `envelopes/`, stage `rendered`.
+- Chunk 5 adds `deploy`, `exec`, `logs`, `status`, `teardown` with the same
+  `<scenario-dir> --playground <name>` pair; `exec` also takes `--node`,
+  `--user`, and `--env KEY=VALUE` (repeatable), streaming stdin.
+
+### Dispatch
+
+- Chunk 4: dispatched 2026-10-20.
