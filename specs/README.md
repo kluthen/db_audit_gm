@@ -6,7 +6,7 @@ intent (D1). To resume cold: read this page, then
 [decisions.md](decisions.md) by ID only.
 
 Phase: **v0.1 approved for build** (master spec approved under the owner's
-delegation to the lead, D44); v1.0 still in drafting. Conventions:
+delegation to the lead, D44); v0.2 to v1.0 in drafting. Conventions:
 settled items are stated as fact, tentative ones are tagged `(proposed)`,
 and every open point cites an `O` ID. Every `(proposed)` item awaits the
 owner's confirmation; the register lists the ones with real alternatives.
@@ -16,7 +16,7 @@ owner's confirmation; the register lists the ones with real alternatives.
 | Document | Purpose | Status |
 |---|---|---|
 | [concept.md](concept.md) | Purpose, actors, vocabulary, scope, versions, prior art | draft v5 |
-| [versions/](versions/README.md) | Scope of v0.1 (first milestone) and v1.0 (first release); v0.1's [master spec](versions/v0.1/master-spec.md), [access model](versions/v0.1/access-model.md) and [build plan](versions/v0.1/build-plan.md) | v0.1 approved; v1.0 scoping |
+| [versions/](versions/README.md) | The roadmap: v0.1 to v1.0 and beyond, one page per version; v0.1's [master spec](versions/v0.1/master-spec.md), [access model](versions/v0.1/access-model.md) and [build plan](versions/v0.1/build-plan.md) | v0.1 approved; v0.2–v1.0 draft |
 | [gm-stance.md](gm-stance.md) | How the GM behaves and speaks: setup questions, issues, report-only interaction, no reveals, stop only, final answer, feedback tone, future ideas | draft v4 |
 | [scenario-lifecycle.md](scenario-lifecycle.md) | The game from setup to teardown: setup inputs, scenario, local implementation, deploy, aging, hand-over, end of the game | draft v6 |
 | [formats.md](formats.md) | What a scenario folder, a brick (with its companion material) and a fault definition must contain; the local implementation; the skills and templates | draft v6 |
@@ -24,7 +24,7 @@ owner's confirmation; the register lists the ones with real alternatives.
 | [planes-and-access.md](planes-and-access.md) | Bastion-only rule, planes, the GM session, trust, write policies, hardening, validators | draft v4 |
 | [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls | draft v7 |
 | [open-questions.md](open-questions.md) | Open-questions register | live |
-| [decisions.md](decisions.md) | Decisions log, D1–D46 | live |
+| [decisions.md](decisions.md) | Decisions log, D1–D48 | live |
 
 History: the tree was seeded on 2026-10-20 from the owner's pre-spec notes,
 which are no longer a reference (D1).
@@ -80,6 +80,10 @@ which are no longer a reference (D1).
 - Every scenario fits the playground's CPU, memory and disk; databases are
   nerfed;
   schemas simple, tables small; sessions up to 4 hours.
+- Roadmap (D47): v0.2 monitoring, v0.3 producers and consumers, v0.4
+  transformers, v0.5 research and broadening, then v1.0; beyond v1.0,
+  other databases and tools, customer role-play and hints (D48). Gaps and
+  risks: O46–O54.
 - Small project: scripts and small apps, no ATD, no UI/UX tree (D2).
 - v0.1 build: seven artifacts (three skills, a Python/POSIX-shell script
   set, PostgreSQL 18 on Debian 13 and bastion bricks, one scenario), one
