@@ -1,8 +1,7 @@
 # db_audit_gm v0.1 — Build plan
 
-Status: v2 (2026-10-20): reviewer's non-blocking findings written in
-(s6-overlay under stack deploy, captures, test packages, release notes;
-spec D46).
+Status: v3 (2026-10-20): wave-gate smoke run corrected to what chunk 5
+built; chunk 7 adds `validate` and `check` to it (wave 2 gate finding).
 Approval: approved 2026-10-20 by the lead under the owner's delegation (G1).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), both approved 2026-10-20. No design set
@@ -79,9 +78,12 @@ plan states only its deltas.
   - image chunks: `docker build` of the brick.
 - **Wave gate (full quality command)**: the full unit suite, `sh -n` on
   every shell script, both image builds, and from wave 2 the smoke run
-  `tools/tests/smoke.sh` (deploys a scenario on the local single-node
-  swarm, runs `gmctl validate` and `gmctl check`, tears down, and asserts
-  nothing labelled with the game id is left).
+  `tools/tests/smoke.sh` on the local single-node swarm (needs G3). As
+  chunk 5 built it: fit, render, deploy (waiting for health), `exec`,
+  `logs`, `status`, teardown, then asserts nothing labelled with the game
+  id is left and objects not belonging to the game are unchanged. Chunk 7
+  adds `gmctl validate` and `gmctl check` in the script's marked section,
+  so the wave gate runs them from wave 3.
 - No link checker is configured; Markdown links are checked by reading.
 
 ## Measurements and hand checks
@@ -339,7 +341,8 @@ subcommand. The exit-code contracts are already fixed by master spec 8.1.
   fault plants twice with the same result, its sealed check returns 1,
   then 0 after the fix is applied through `exec`, and `validate` reports
   green and red correctly.
-- Verification: chunk checks, plus the smoke run (needs G3).
+- Verification: chunk checks, plus the smoke run `tools/tests/smoke.sh`,
+  extended with `validate` and `check` in its marked section (needs G3).
 
 ### Chunk 8 — v0.1 faults and scenario folder
 
