@@ -1,0 +1,11 @@
+# sudo rules of the db_audit_gm PostgreSQL node (master spec 9.1).
+# DO NOT TAMPER. `player` may run exactly these three wrappers, as root,
+# with no arguments; nothing else.
+Defaults env_reset
+Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Defaults !syslog
+Defaults logfile=/run/gm/sudo.log
+Defaults lecture=never
+Defaults !mail_badpass
+
+player ALL=(root) NOPASSWD: /usr/local/sbin/gm-reload-db "", /usr/local/sbin/gm-restart-db "", /usr/local/sbin/gm-validate ""

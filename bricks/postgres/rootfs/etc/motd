@@ -1,0 +1,12 @@
+
+  db_audit_gm -- PostgreSQL 18 database node
+
+  Configuration:  /etc/postgresql/postgresql.conf, /etc/postgresql/pg_hba.conf
+  Connect:        psql            (as role dba; password in ~/.pgpass)
+  Apply changes:  sudo gm-reload-db     reload the configuration
+                  sudo gm-restart-db    restart PostgreSQL (checks the files first)
+  Check:          sudo gm-validate      public validator (envelopes, GM line, server)
+
+  DO NOT TAMPER with SSH, sudo, the gm-* wrappers, the validator, or the
+  line `local all postgres peer` in pg_hba.conf (the GM's access).
+

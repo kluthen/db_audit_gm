@@ -1,0 +1,41 @@
+#!/bin/sh
+# gm-reload-db: reload PostgreSQL's configuration. Usage: sudo gm-reload-db
+# DO NOT TAMPER. Root-owned, read-only; allowed by /etc/sudoers.d/gm-player.
+# Runs the reload as `postgres`, then lists what PostgreSQL found wrong in
+# the configuration files (bad values, settings that need a restart).
+set -u
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+PGBIN=/usr/lib/postgresql/18/bin
+PGDATA=/var/lib/postgresql/18/data
+
+if [ "$#" -ne 0 ]; then
+    echo "usage: sudo gm-reload-db (no arguments)" >&2
+    exit 2
+fi
+
+as_postgres() { runuser -u postgres -- env HOME=/var/lib/postgresql "$@"; }
+
+if ! as_postgres "$PGBIN/pg_ctl" reload -s -D "$PGDATA"; then
+    echo "gm-reload-db: PostgreSQL is not running; nothing reloaded (use: sudo gm-restart-db)" >&2
+    exit 1
+fi
+echo "gm-reload-db: reload signal sent to PostgreSQL."
+sleep 1
+
+problems=$(as_postgres psql -X -w -q -A -t -h /run/postgresql -p 5432 -d postgres -c "
+SELECT sourcefile || ':' || sourceline || ': ' || name || ': ' || error
+  FROM pg_file_settings WHERE error IS NOT NULL
+UNION ALL
+SELECT file_name || ':' || line_number || ': ' || error
+  FROM pg_hba_file_rules WHERE error IS NOT NULL" 2>&1) || {
+    echo "gm-reload-db: could not query PostgreSQL to check the files: $problems" >&2
+    exit 0
+}
+if [ -n "$problems" ]; then
+    echo "gm-reload-db: PostgreSQL reports, for the files as they are now:"
+    printf '%s\n' "$problems" | sed 's/^/  /'
+else
+    echo "gm-reload-db: no problem reported in the configuration files."
+fi
+exit 0
