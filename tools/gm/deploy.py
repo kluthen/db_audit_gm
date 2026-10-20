@@ -15,7 +15,8 @@ capture W2-A, the Python interface by capture W2-B. In order:
 5. gmctl waits until every node's container is healthy.
 
 Steps 2 to 5 form one setup step: if one fails, or the GM stops it, what
-was deployed is torn down and the failure recorded in `state.yaml`.
+was deployed is torn down (label-based, `teardown.remove_game_objects`)
+and the failure recorded in `state.yaml`.
 """
 
 import os
@@ -27,7 +28,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import localimpl, state
+from . import localimpl, state, teardown
 from .docker import for_local_dir, running_containers
 from .model import GmError
 
@@ -288,7 +289,10 @@ def deploy(scenario_dir, playground, init_swarm=False, timeout=HEALTH_TIMEOUT, d
                       "deployment never pulls")
 
     result = DeployResult(gid, docker.describe(), swarm)
-    with state.setup_step(ldir, DEPLOY_STAGE):
+    def undo():
+        return teardown.remove_game_objects(docker, gid, sleep=sleep, clock=clock).text()
+
+    with state.setup_step(ldir, DEPLOY_STAGE, undo=undo):
         result.credentials = generate_credentials(ldir, gid, keygen)
         result.configs, result.secrets = create_objects(docker, scenario_dir, impl)
         stack_deploy(docker, stack_file, gid)

@@ -8,7 +8,9 @@ Python 3, standard library plus PyYAML. Modules:
 - `render`     the stack file and the envelope files;
 - `docker`     the Docker command line, aimed at the playground's engine;
 - `state`      `gmctl status`, and recording a failed setup step;
-- `deploy`     swarm check, credentials, labelled configs and secrets, the stack.
+- `deploy`     swarm check, credentials, labelled configs and secrets, the stack;
+- `execnode`   `exec` (a script into a node's `sh -s`) and `logs`;
+- `teardown`   removing everything carrying the game's label.
 
 Every subcommand prints a readable result and exits non-zero on failure.
 """
@@ -51,6 +53,31 @@ def _cmd_status(args):
     return 0
 
 
+def _cmd_exec(args):
+    from . import execnode, localimpl
+    from .model import GmError
+    try:
+        result = execnode.exec_node(
+            localimpl.local_dir(args.scenario_dir, args.playground), args.node, args.user,
+            stdin=sys.stdin.buffer, env=execnode.parse_env(args.env), capture=False)
+    except GmError as exc:
+        print(f"gmctl exec: {exc}", file=sys.stderr)
+        return execnode.CANNOT_RUN
+    return result.returncode
+
+
+def _cmd_logs(args):
+    from . import execnode, localimpl
+    return execnode.logs(localimpl.local_dir(args.scenario_dir, args.playground), args.node,
+                         tail=args.tail, follow=args.follow)
+
+
+def _cmd_teardown(args):
+    from . import teardown
+    print(teardown.teardown(args.scenario_dir, args.playground).text())
+    return 0
+
+
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="gmctl", description="db_audit_gm host-side operations (master spec 11).")
@@ -83,6 +110,29 @@ def build_parser():
     p = sub.add_parser("status", help="the game's recorded state")
     _scenario_args(p)
     p.set_defaults(func=_cmd_status)
+
+    p = sub.add_parser("exec", help="stream stdin into sh -s in a node's container, as a "
+                                    "given user; exits with the script's status (125: "
+                                    "the script could not be started)")
+    _scenario_args(p)
+    p.add_argument("--node", required=True, metavar="<node>", help="node name (db, bastion)")
+    p.add_argument("--user", required=True, metavar="<user>",
+                   help="user to run as (root, postgres, player)")
+    p.add_argument("--env", action="append", default=[], metavar="KEY=VALUE",
+                   help="environment variable for the script (repeatable)")
+    p.set_defaults(func=_cmd_exec)
+
+    p = sub.add_parser("logs", help="a node's service logs")
+    _scenario_args(p)
+    p.add_argument("--node", required=True, metavar="<node>", help="node name (db, bastion)")
+    p.add_argument("--tail", type=int, metavar="N", help="only the last N lines")
+    p.add_argument("--follow", action="store_true", help="keep following the logs")
+    p.set_defaults(func=_cmd_logs)
+
+    p = sub.add_parser("teardown", help="remove everything carrying the game's label, "
+                                        "volumes included (never images or the swarm)")
+    _scenario_args(p)
+    p.set_defaults(func=_cmd_teardown)
     return parser
 
 

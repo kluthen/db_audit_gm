@@ -160,15 +160,17 @@ class FakeDocker:
                 self.add("volume", vol["name"], {**ns, **(vol.get("labels") or {})})
             return ""
         if cmd == "ps":
-            services = self.names("service")
-            for flt in self._filters(args):
-                if flt.startswith("label=com.docker.swarm.service.name="):
-                    services = [s for s in services if s == flt.split("=", 2)[2]]
-                elif flt.startswith("label=com.docker.stack.namespace="):
-                    ns = flt.split("=", 2)[2]
-                    services = [s for s in services if self.objects["service"][s].get(
-                        "com.docker.stack.namespace") == ns]
-            return "".join(f"{s}.1.ctr\n" for s in services)
+            ids = []
+            for svc, labels in sorted(self.objects["service"].items()):
+                ctr = {"com.docker.swarm.service.name": svc, **labels}
+                ok = True
+                for flt in self._filters(args):
+                    if flt.startswith("label="):
+                        key, _, value = flt[len("label="):].partition("=")
+                        ok = ok and ctr.get(key) == value
+                if ok:
+                    ids.append(f"{svc}.1.ctr")
+            return "".join(f"{i}\n" for i in ids)
         if cmd == "inspect":
             return self.health + "\n"
         if args[:2] == ["service", "ps"]:
