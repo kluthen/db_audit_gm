@@ -1,0 +1,217 @@
+# scenario.yaml — the v0.1 scenario (master spec 15), built from
+# .claude/skills/scenario-format/templates/scenario.yaml. Authoritative,
+# with gm/answer-key.yaml; README.md is generated from both by the
+# scenario-document skill.
+
+# --- Scenario information --------------------------------------------
+id: bookshop-new-server
+version: 0.1.0
+title: A bookshop's database, three weeks after a rushed migration
+date: 2026-10-20
+origin: hand-written
+session_length_minutes: 180
+brief: brief.md
+background: >-
+  Pages & Co, an independent bookshop selling online, moved its PostgreSQL
+  database from an ageing server (which had a standby) to a new one. The
+  contractor who did it left before it was reviewed. Three weeks later,
+  before the year-end season, the shop asks for an audit: out-of-memory
+  crashes during the month-end reports, a back office that opens orders
+  slowly, and an insurer's question about password-less access. The new
+  server has no standby. The data file creates the roles bookshop (owner
+  of the database, no login) and shop_app (the application's login, with
+  data rights on every table; made superuser after the load, f4); the
+  brick creates dba, the players' superuser.
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: backend
+    description: the players' SSH and SQL sessions from the bastion to db
+
+nodes:
+  - name: bastion
+    brick:
+      id: bastion
+      version: 0.1.0
+    role: bastion
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 256M
+    published_ports: [{port: 22, default: 2222}]
+    seed_files:
+      README.md: player/README.md
+      story.md: player/story.md
+      issues.md: player/issues.md
+    knobs: []
+
+  - name: db
+    brick:
+      id: postgres
+      version: 0.1.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.5
+        memory: 512M
+        disk: 2G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/db/postgresql.conf
+      pg_hba.conf: nodes/db/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 32MB, max: 256MB}
+      - setting: work_mem
+        initial: 256MB              # out of envelope: fault instance f2, validator red from the start
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 10, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+    data:
+      file: data/db.sql
+      databases:
+        - name: bookshop
+          owner: bookshop
+          tables:
+            - name: customers
+              description: >-
+                2 000 customers (id, email, full_name, city, created_at);
+                primary key on id, unique email.
+            - name: books
+              description: >-
+                1 200 titles (id, isbn, title, author, price, stock); primary
+                key on id, unique isbn.
+            - name: orders
+              description: >-
+                30 000 orders (id, customer_id, placed_at, status, total);
+                primary key on id, foreign key to customers; indexes
+                orders_customer_id_idx and orders_placed_at_idx.
+                Autovacuum turned off on it after the load (f5).
+            - name: order_lines
+              description: >-
+                90 000 lines (id, order_id, book_id, quantity, unit_price);
+                primary key on id, foreign keys to orders and books; index
+                order_lines_book_id_idx. order_lines_order_id_idx is in the
+                restored data and dropped after the load (f3).
+
+flows:
+  - from: bastion
+    to: db
+    what: the players' SSH sessions (as player) and SQL sessions (as dba)
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:
+  - id: f1
+    fault:
+      id: pg-hba-trust-remote
+      version: 0.1.0
+    node: db
+    parameters: {}
+    visibility: known
+  - id: f2
+    fault:
+      id: pg-memory-over-envelope
+      version: 0.1.0
+    node: db
+    parameters:
+      setting: work_mem
+      max: 64MB
+    visibility: known
+  - id: f3
+    fault:
+      id: pg-join-index-missing
+      version: 0.1.0
+    node: db
+    parameters:
+      database: bookshop
+      table-name: order_lines
+      column: order_id
+    visibility: known
+  - id: f4
+    fault:
+      id: pg-role-superuser
+      version: 0.1.0
+    node: db
+    parameters:
+      role: shop_app
+    visibility: hidden
+  - id: f5
+    fault:
+      id: pg-table-autovacuum-off
+      version: 0.1.0
+    node: db
+    parameters:
+      database: bookshop
+      table-name: orders
+    visibility: hidden
+  - id: f6
+    fault:
+      id: pg-abandoned-replication-slot
+      version: 0.1.0
+    node: db
+    parameters:
+      slot-name: standby1
+    visibility: hidden
+
+issues:
+  - id: I1
+    complaint: >-
+      Since the move to the new server, the database has been killed twice
+      for lack of memory while the month-end reports were running. The old
+      server never did that. Please make it stop.
+    expected_resolution: fix
+    covers: [f2]
+  - id: I2
+    complaint: >-
+      Our insurer's questionnaire asks whether anyone on our network can
+      connect to the database without a password. We do not know what the
+      contractor set up. Tell us how connections are authenticated today,
+      and propose what it should be.
+    expected_resolution: propose
+    covers: [f1]
+  - id: I3
+    complaint: >-
+      Opening an order in the back office takes far longer than on the old
+      server, and it gets worse as orders pile up. Please fix it.
+    expected_resolution: fix
+    covers: [f3]
+
+# --- Host topology it was designed for -------------------------------
+designed_for:
+  platform: swarm
+  hosts:
+    - name: host-1
+      cpu: 2
+      memory: 4G
+      disk: 20G
+  placement:
+    bastion: host-1
+    db: host-1

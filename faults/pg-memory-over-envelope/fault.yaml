@@ -1,0 +1,98 @@
+# Catalog fault: a memory setting above its envelope (master spec 15). A
+# seed-file fault: the scenario's postgresql.conf sets the value; the
+# node's public validator is red from the start (master spec 14).
+
+# --- Identity ---------------------------------------------------------
+id: pg-memory-over-envelope
+version: 0.1.0
+title: a memory setting is set above its envelope
+family: performance
+severity: high
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: postgres
+      versions: ["0.1.0"]
+  preconditions: []
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  setting:
+    description: the memory setting set too high (work_mem, maintenance_work_mem, shared_buffers)
+    default: null
+    required: true
+  max:
+    description: >-
+      the envelope's upper bound for that setting in the scenario, as
+      PostgreSQL writes sizes (64MB); the value in effect must not exceed it
+    default: null
+    required: true
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: postgresql.conf
+      change: >-
+        the setting named by `setting` is given a value above `max` (for
+        work_mem, a value that multiplied by max_connections and a few sort
+        or hash operations per query exceeds the node's memory limit); the
+        scenario's knob `initial` records the same value
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: the public validator
+    how: on the database node, sudo gm-validate
+    shows: a RED line for the setting, in effect and pending above the envelope's maximum
+  - where: postgresql.conf and the value in effect
+    how: grep the setting in /etc/postgresql/postgresql.conf; psql -c 'SHOW {SETTING}'
+    shows: the value, far above the envelope and out of proportion with the node's memory
+  - where: the node's memory limit and max_connections
+    how: cat /sys/fs/cgroup/memory.max; psql -c 'SHOW max_connections'
+    shows: that a few concurrent sorts or hashes at that size exceed the memory the node has
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names the setting and its value as too high for the node's memory and
+    connection count, and links it to out-of-memory failures (each sort or
+    hash of each connection may use that much); notes the validator is red.
+  proposal: >-
+    a value within the envelope, sized from the memory limit and
+    max_connections, applied by a reload; optionally a higher value for the
+    reporting sessions only (SET or ALTER ROLE ... SET, within the envelope).
+  fix: >-
+    the value in effect is within the envelope (at most `max`), whichever
+    path was taken (postgresql.conf edited and reloaded, or ALTER SYSTEM and
+    reload), and the validator is green for it (the pending value agrees).
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  Since the move to the new server, the database has been killed for
+  lack of memory while our heavier reports were running. The old server
+  never did that.
