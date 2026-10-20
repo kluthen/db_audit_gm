@@ -206,7 +206,14 @@ recorded at wave start.
 
 ### Chunk 4 — Scenario model, capacity check and renderer
 
-Status: in progress
+Status: merged (w2, d49bca6)
+Record: chunk commit 79fc1d3, merged d49bca6; built as one commit, not
+split (fit writes the local implementation, so 4a/4b would cut one module).
+Choices within the spec, logged as W2-B: headroom 10 % per dimension;
+the scenario-id part of the game id is trimmed so every derived name fits
+Swarm's limits; fit refuses more than one network, brick secrets outside
+the four W2-A files, and protected configs other than `envelopes`;
+`implementation.yaml` carries extra derived names.
 Wave: 2
 Depends on: chunk 1
 Architecture capture, recorded at wave start for chunk 5: the local
@@ -245,7 +252,7 @@ per-game envelope file as captured in wave 1 (chunk 2).
 
 ### Chunk 5 — Platform operations
 
-Status: planned
+Status: in progress
 Wave: 2
 Depends on: chunk 4 (captured interface)
 Architecture capture: none beyond chunk 4's.

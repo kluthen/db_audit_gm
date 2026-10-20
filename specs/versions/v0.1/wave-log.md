@@ -267,6 +267,59 @@ non-zero on failure):
   `<scenario-dir> --playground <name>` pair; `exec` also takes `--node`,
   `--user`, and `--env KEY=VALUE` (repeatable), streaming stdin.
 
+### Capture W2-B — chunk 4 outcomes and Python API (read by 5, 7, 9)
+
+Chunk 4 merged 2026-10-20 (79fc1d3, merge d49bca6); 64 unit tests OK;
+`docker stack config` accepts the rendered fixture stack file.
+
+**Choices within the spec.**
+
+- Headroom is 10 % of each declared dimension (`fit.HEADROOM`).
+- The scenario-id part of the game id is trimmed so every derived name
+  fits Swarm's limits (63 characters for services, 64 for configs and
+  secrets).
+- `fit` refuses what v0.1 cannot render: more than one scenario network, a
+  brick secret outside the four W2-A secret files, a protected config other
+  than `envelopes`.
+- `implementation.yaml` also carries: top level `playground`, `stack`,
+  `network`, `labels`, `secrets: [{name, secret, file}]`; per node
+  `service`, `volumes`, `configs: [{kind: seed|envelopes, name, file, path,
+  uid, gid, mode}]`, `secrets`. Every `file` is relative to the scenario
+  folder.
+- The fixture scenario (`tools/tests/fixtures/`) has one scenario-local
+  hidden fault, `fixture-random-page-cost` (`random_page_cost = 4.0`), and
+  seed files meeting W1-E.
+- The completeness check derives required keys from the templates'
+  `# optional` and "may be []" comments: changing those comments changes
+  what is refused.
+
+**Python API** (import from the repo root; `tools/gmctl` puts it on
+`sys.path`).
+
+- `tools.gm`: `main(argv)`, `build_parser()`; add a subcommand in
+  `build_parser` with `_scenario_args(p)` and `p.set_defaults(func=...)`;
+  raise `GmError` for a refusal (printed, exit 1).
+- `tools.gm.model`: `load_scenario(dir)` → `Scenario` (`.id`, `.nodes`,
+  `.node(name)`, `.bricks[node]`, `.faults[instance]`, each a `Definition`
+  with `.data`, `.dir`, `.source`), or raises `IncompleteScenario`
+  (`.missing`, `.report()`); also `GmError`, `parse_mode`.
+- `tools.gm.localimpl`: `local_dir(scenario_dir, playground)`,
+  `read_playground`, `read_implementation`, `read_state`,
+  `secrets_dir(ldir)`; `require_stage(ldir, *stages)`, `set_stage(ldir,
+  stage)`, `set_failed(ldir, stage, reason)`, `effective_stage(state)`,
+  `STAGES`; `labels(game_id)`, `SECRET_FILES` (`player_ssh_pubkey` maps to
+  `player_ssh_key.pub`), `STACK_FILE`, `write_text`.
+- `tools.gm.fit.fit(...)` → `FitResult` (`.ok`, `.game_id`, `.text()`);
+  `tools.gm.render.render(...)` → `RenderResult`.
+- Deploy creates configs and secrets from `implementation.yaml`
+  (`nodes[*].configs[*].{name,file}`, `secrets[*].{name,file}`) labelled
+  with `labels(game_id)`, then runs `docker stack deploy -c
+  local/<pg>/stack.yml <game_id>`.
+
+Left for chunk 5: the first proof that Swarm applies the volume labels and
+explicit `name:` on a real deploy.
+
 ### Dispatch
 
-- Chunk 4: dispatched 2026-10-20.
+- Chunk 4: dispatched 2026-10-20; merged 2026-10-20 (d49bca6).
+- Chunk 5: dispatched 2026-10-20.
