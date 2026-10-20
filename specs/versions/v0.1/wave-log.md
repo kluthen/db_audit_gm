@@ -532,3 +532,14 @@ Capture W3-A widens chunk 7 beyond its plan text: its **Files** also need
 `bricks/{postgres,bastion}/brick.yaml` (`extra.validator`, no image
 change), and its **Scope** the `status --set` stages. Chunk 9's scope
 uses `status --set` for hand-over, final answer and feedback.
+- `spec-writer` applied them: plan v4 (470c953), spec D49 (`status
+  --set` records the GM-only stages; an interpretation the owner may
+  overturn). Chunk 7 split into 7a (data load, injection, GM-recorded
+  stages) and 7b (evaluation); also adds `model.py` (parameter-name
+  refusal) and corrects the fixture path to
+  `tools/tests/fixtures/fixture-audit/` (a state test fault, its data,
+  the README regenerated).
+
+### Dispatch
+
+- Chunk 7: dispatched 2026-10-20, halves in order (7a then 7b), one owner.
