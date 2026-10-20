@@ -424,3 +424,6 @@ Open after wave 2: G4 (the lead, before chunk 8 merges), G5 (the owner,
 release close). Wave 3 captures due at its start: inject script order,
 `load-data` details, gmctl argument signatures (W2-C already fixes
 deploy, exec, logs, status and teardown).
+- `spec-writer` applied the smoke-run wording correction: plan v3
+  (fa402b3).
+- Report to the owner 2026-10-20; the owner said to merge.
