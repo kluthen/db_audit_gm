@@ -427,3 +427,108 @@ deploy, exec, logs, status and teardown).
 - `spec-writer` applied the smoke-run wording correction: plan v3
   (fa402b3).
 - Report to the owner 2026-10-20; the owner said to merge.
+
+## Wave 3 — started 2026-10-20
+
+Chunks: 7, 8, 9 (order 7 → 8 → 9, κ = 1). Branch `v0.1-w3`, worktree
+`/home/bastien/work/db_audit_gm-wt/v0.1-w3`, cut from `main` at d3547c3
+(wave 2 merged). Gates: G3 done; G4 open (the lead, before chunk 8
+merges); G5 open (the owner, release close). Preflight: none (no
+registers).
+
+### Capture W3-A — setup steps, evaluation and gmctl signatures (chunk 7; read by 8, 9)
+
+Recorded before any code. Python module boundaries are chunk 7's choice;
+the behaviour, names and command lines below are fixed.
+
+**Fault parameters** (extends W1-D). Each parameter the fault declares
+reaches its `inject/*.sh` and `checks/fixed.sh` as `FAULT_<NAME>`: the
+parameter name upper-cased, `-` replaced by `_`; a name that is then not
+`[A-Z][A-Z0-9_]*` is refused when the scenario loads. Value: the
+instance's `parameters` entry, else the fault's `default`. A scalar is
+passed as text (booleans as `true`/`false`); a list or map is refused. No
+value and `default: null`: the variable is not set, unless the parameter
+is `required`, which `inject` and `check` refuse before running anything.
+Nothing else is added to a script's environment.
+
+**`load-data`.** Allowed at stage `deployed`; at `data-loaded` or any
+later deployed stage it changes nothing, prints that the data is already
+loaded and exits 0 (idempotency is the stage, not the SQL). For every
+node with a `data` entry, in `nodes` order, `data/<node>.sql` (the
+entry's `file`) is streamed into `psql -X -q -v ON_ERROR_STOP=1 -d
+postgres`, run as OS user `postgres` in the node's container (local peer
+authentication); the file creates its own databases and roles. To stream
+SQL rather than a shell script, `exec_node` gains an optional `argv`
+(default `["sh", "-s"]`); `gmctl exec` keeps `sh -s`. A scenario with no
+data entry loads nothing and still records `data-loaded`. The whole load
+is one `state.setup_step` (any failure or Ctrl-C: teardown, `failed`).
+
+**`inject`.** Allowed at `data-loaded` and at `injected` (a second run
+replays the scripts, which are idempotent, and the stage stays
+`injected`). Fault instances run in `fault_instances` order; an instance
+whose fault has `injection.kind: seed-file` runs nothing; for a `state`
+fault, each entry of `injection.scripts`, in the listed order, is read
+from the fault's folder and streamed into `sh -s` on the instance's node,
+as `injection.run_as` (default `root`), with its `FAULT_*` variables. The
+first non-zero exit stops the run. The whole run is one `setup_step`;
+success records `injected`. Each script's output is printed with the
+instance id and script name.
+
+**`validate`** (the official run). Allowed at every deployed stage;
+changes no stage. Every node in `nodes` order runs its brick's public
+validator, read from a new `brick.yaml` key `extra.validator: {path,
+run_as}`: `postgres` — `{path: /opt/gm/validator/validate.sh, run_as:
+postgres}` with `HOME=/var/lib/postgresql` set, as `gm-validate` does;
+`bastion` — `{path: /opt/gm/validator/validate.sh, run_as: player}`.
+Started through `exec_node` as `exec <path>` on `sh -s`. The validator's
+lines are printed under a `<node>:` heading. Exit 0 when every node is
+green, 1 when any is red and none errored, 2 when any errored or could not
+be started.
+
+**`check`.** Allowed at `injected` and every later deployed stage;
+changes no stage. Every fault instance in `fault_instances` order runs its
+fault's `sealed_check.script` on its node as `sealed_check.run_as`
+(default `root`) with its `FAULT_*` variables, and prints one line:
+`<instance> <fault-id>: fixed|present|error — <first output line>`
+(error also for any exit other than 0 or 1, or a check that cannot
+start). Exit 0 when every instance is fixed, 1 when any is present and
+none errored, 2 when any errored.
+
+**GM-recorded stages.** The stages no script reaches are recorded through
+`status`: `gmctl status <scenario-dir> --playground <name> --set
+handed-over|final-answer|feedback-given`. `handed-over` is allowed from
+`injected`, `final-answer` from `handed-over`, `feedback-given` from
+`final-answer`; setting the stage the game is already at is a no-op;
+anything else is refused (exit 1, state unchanged). It then prints the
+status as `status` does.
+
+**Command lines** (all subcommands; each takes `<scenario-dir>
+--playground <name>`, prints a readable result, exits 1 on a refusal
+unless stated):
+
+- `fit [--endpoint <url>] [--cpu N --memory SIZE --disk SIZE]` (W2-A);
+- `render` (W2-A);
+- `deploy [--init-swarm] [--timeout SECONDS]` (W2-C);
+- `load-data [--timeout SECONDS]` (no timeout by default);
+- `inject [--timeout SECONDS]` (per script; no timeout by default);
+- `validate` (exit 0/1/2 as above);
+- `check` (exit 0/1/2 as above);
+- `exec --node N --user U [--env K=V]...` (W2-C; exit = script's, 125
+  when it cannot start);
+- `logs --node N [--tail N] [--follow]` (W2-C);
+- `status [--set <stage>]`;
+- `teardown` (W2-C).
+
+**Smoke run.** Chunk 7 fills `smoke.sh`'s marked section: `load-data`
+with fixture data, `inject` twice, `check` (1), the fix through `exec`,
+`check` (0), and `validate` green then red after an out-of-envelope
+change.
+
+### Plan corrections sent to `spec-writer` (before chunk 7 starts)
+
+Capture W3-A widens chunk 7 beyond its plan text: its **Files** also need
+`tools/gm/__init__.py` (CLI wiring), `tools/gm/execnode.py` (`argv`),
+`tools/gm/localimpl.py` or `state.py` (`status --set`) and
+`bricks/{postgres,bastion}/brick.yaml` (`extra.validator`, no image
+change), and its **Scope** the `status --set` stages. Chunk 9's scope
+uses `status --set` for hand-over, final answer and feedback.

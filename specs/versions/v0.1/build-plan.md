@@ -48,8 +48,8 @@ plan states only its deltas.
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
 | 1 | 1, 2, 3 | G1, G2, G3 (chunk 2) | merged (80e9048) |
-| 2 | 4, 5, 6 | wave 1 | in progress |
-| 3 | 7, 8, 9 | wave 2, G4 (for chunk 8's merge) | planned |
+| 2 | 4, 5, 6 | wave 1 | merged (d3547c3) |
+| 3 | 7, 8, 9 | wave 2, G4 (for chunk 8's merge) | in progress |
 
 ```
 1 ──> 2, 3            (in-wave: brick.yaml keys captured at wave start)
