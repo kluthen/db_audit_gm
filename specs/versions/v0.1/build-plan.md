@@ -288,7 +288,10 @@ Architecture capture: none beyond chunk 4's.
 
 ### Chunk 6 — Scenario-document skill
 
-Status: in progress
+Status: merged (w2, b2d0e1d)
+Record: chunk commit d5bc485, merged b2d0e1d. No deviation; the "answer
+key summary" renders every answer-key field (6.2 lists each as required
+content), and a section lists starter pack, node files and data as paths.
 Wave: 2
 Depends on: chunk 1
 Architecture capture: none.

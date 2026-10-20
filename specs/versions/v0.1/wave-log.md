@@ -397,3 +397,7 @@ the swarm, both images and host port 2222 free.
   wave 2 gate.
 - Chunk 5: merged 2026-10-20 (6231044).
 - Chunk 6: dispatched 2026-10-20.
+- Chunk 6: merged 2026-10-20 (b2d0e1d). The document is filled by the GM
+  per the skill (no script, out of scope), from `scenario.yaml`,
+  `gm/answer-key.yaml` and `brief.md` only; a stale README is caught by
+  the skill's reading checklist only.
