@@ -116,6 +116,7 @@ see §6).
 - at the very least, a list of all node addresses (worst case);
 - ideally, a short documentation of the topology and a rough description of
   what is going on in the system.
+- players are incarnating DBA, with low/mid programming experience.
 
 **[Proposed]**
 
@@ -421,3 +422,6 @@ as inspiration, not as a base. Practices that transfer:
     has on the infrastructure plane.
 16. **Network faults**: are network-level issues (wrong segmentation,
     exposed ports through the routing mesh) in scope?
+
+
+

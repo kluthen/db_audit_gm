@@ -40,7 +40,3 @@ input for the specification work.
 - **Sessions of up to 4 hours**, usually one scenario per class, sometimes one
   per student.
 
-## Language
-
-Everything in this repository (code, comments, documentation, commit
-messages) is written in **English**.
