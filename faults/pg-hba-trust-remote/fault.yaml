@@ -1,0 +1,89 @@
+# Catalog fault: remote connections authenticated with `trust` in
+# pg_hba.conf (master spec 15, first candidate). A seed-file fault: the
+# scenario's pg_hba.conf carries the line; nothing is run at injection.
+
+# --- Identity ---------------------------------------------------------
+id: pg-hba-trust-remote
+version: 0.1.0
+title: remote connections are accepted without a password (trust in pg_hba.conf)
+family: security
+severity: critical
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: postgres
+      versions: ["0.1.0"]
+  preconditions: []
+
+# --- Parameters the scenario sets -------------------------------------
+parameters: {}
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: pg_hba.conf
+      change: >-
+        a `host` line with method `trust` for a non-loopback address range,
+        placed before the `host` lines that ask for a password, so that it is
+        the line that matches remote connections; the GM's `local all
+        postgres peer` line stays first
+      material: inject/pg_hba.conf.snippet
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: /etc/postgresql/pg_hba.conf on the database node
+    how: on the database node, cat /etc/postgresql/pg_hba.conf
+    shows: a `host ... trust` line for a remote address range (0.0.0.0/0), matched before the scram-sha-256 line
+  - where: the pg_hba_file_rules view
+    how: psql -c "SELECT line_number, type, database, user_name, address, auth_method FROM pg_hba_file_rules"
+    shows: a `host` rule with auth_method `trust` and a non-loopback address
+  - where: a connection with no password
+    how: from the bastion, PGPASSFILE=/nonexistent psql -w -h {database node} -U dba -c 'SELECT 1'
+    shows: the connection succeeds although no password was given
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names the `trust` line in pg_hba.conf as letting anyone who reaches the
+    database port connect as any role, superusers included, without a
+    password.
+  proposal: >-
+    remove the trust line (or change its method to scram-sha-256) and keep
+    remote access to the roles and addresses that need it, with a password;
+    keeps the GM's `local all postgres peer` line; says that a reload applies it.
+  fix: >-
+    no rule other than `local` and loopback ones uses `trust` in pg_hba.conf,
+    and that file is in effect: a password-less TCP connection to the node's
+    own network address is refused; the players can still log in as dba
+    with the password.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  We are not sure who can connect to the database and how. Can someone on
+  our network get in without a password?
