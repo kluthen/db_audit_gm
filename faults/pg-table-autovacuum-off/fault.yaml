@@ -1,0 +1,89 @@
+# Catalog fault: autovacuum disabled on one table (master spec 15). A
+# state fault: a storage parameter set on the table after the data load.
+# The server-wide `autovacuum` setting stays on, so the validator stays
+# green.
+
+# --- Identity ---------------------------------------------------------
+id: pg-table-autovacuum-off
+version: 0.1.0
+title: autovacuum is disabled on a busy table
+family: maintenance
+severity: medium
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: postgres
+      versions: ["0.1.0"]
+  preconditions: []
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  database:
+    description: the database holding the table
+    default: null
+    required: true
+  table-name:
+    description: the table (schema-qualified if not in the search path) whose autovacuum is turned off
+    default: null
+    required: true
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: state
+  stage: after-data-load
+  scripts:
+    - inject/10-disable-autovacuum.sh
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: the table's storage parameters
+    how: psql -d {DATABASE} -c '\d+ {TABLE_NAME}'
+    shows: "Options: autovacuum_enabled=off"
+  - where: pg_class.reloptions
+    how: SELECT relname, reloptions FROM pg_class WHERE relkind = 'r' AND reloptions IS NOT NULL
+    shows: autovacuum_enabled=off on the table, while SHOW autovacuum says on
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names the table-level autovacuum_enabled=off and its consequences: dead
+    rows pile up (bloat, slower scans), statistics go stale (bad plans), and
+    nothing protects the table against transaction ID wraparound but the
+    forced anti-wraparound vacuum.
+  proposal: >-
+    re-enable autovacuum on the table (ALTER TABLE ... RESET
+    (autovacuum_enabled)), and, if the table is too busy for the defaults,
+    tune its per-table thresholds instead of turning it off; a manual
+    VACUUM (ANALYZE) to catch up.
+  fix: >-
+    the table no longer has autovacuum_enabled set to false (option reset,
+    or set to on).
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  The {TABLE_NAME} table keeps growing on disk faster than its data, and
+  queries on it slow down over the weeks.

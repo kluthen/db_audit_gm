@@ -1,7 +1,7 @@
 # db_audit_gm v0.1 — Build plan
 
-Status: v3 (2026-10-20): wave-gate smoke run corrected to what chunk 5
-built; chunk 7 adds `validate` and `check` to it (wave 2 gate finding).
+Status: v5 (2026-10-21): chunk 10 inserted in wave 3 for the teardown
+reason and a new game after a failed setup (spec D50, D51, D52).
 Approval: approved 2026-10-20 by the lead under the owner's delegation (G1).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), both approved 2026-10-20. No design set
@@ -40,7 +40,7 @@ plan states only its deltas.
 | G1 | Plan approval | The lead, under the owner's delegation | Wave 1 | done (2026-10-20, plan v2 approved after review) |
 | G2 | Network access at image build time (Debian and PostgreSQL apt repositories, the s6-overlay release download) | Hand check by the wave driver | Chunks 2, 3 | done (2026-10-20, wave driver's hand check: registry pull succeeded) |
 | G3 | A Docker host in swarm mode (`docker swarm init` on the build host is enough) | Hand check by the wave driver | Chunk 2, wave 2 gate, wave 3 gate, release gate | done (2026-10-20, `docker swarm init` on the build host, owner-approved) |
-| G4 | Review of the v0.1 scenario's defects, issues and answer key | The lead | Chunk 8's merge | open |
+| G4 | Review of the v0.1 scenario's defects, issues and answer key | The lead | Chunk 8's merge | done (2026-10-21, the owner after an independent review, OKAY) |
 | G5 | Feedback tone judged acceptable | The owner | Release close | open |
 
 ## Waves
@@ -48,8 +48,8 @@ plan states only its deltas.
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
 | 1 | 1, 2, 3 | G1, G2, G3 (chunk 2) | merged (80e9048) |
-| 2 | 4, 5, 6 | wave 1 | in progress |
-| 3 | 7, 8, 9 | wave 2, G4 (for chunk 8's merge) | planned |
+| 2 | 4, 5, 6 | wave 1 | merged (d3547c3) |
+| 3 | 7, 8, 9, 10 | wave 2, G4 (for chunk 8's merge) | gated (0955dda) |
 
 ```
 1 ──> 2, 3            (in-wave: brick.yaml keys captured at wave start)
@@ -58,6 +58,7 @@ plan states only its deltas.
 2, 3, 4, 5 ──> 7
 1, 2, 6, 7 ──> 8      (in-wave 7 -> 8: injection rules captured at wave 3 start; exit codes fixed by master spec 8.1)
 5, 6, 7 ──> 9         (in-wave 7 -> 9: gmctl signatures captured at wave 3 start)
+5, 7, 9 ──> 10        (in-wave 7, 9 -> 10: inserted after both merged; it builds on merged code)
 ```
 
 ## Workflow deltas
@@ -82,8 +83,8 @@ plan states only its deltas.
   chunk 5 built it: fit, render, deploy (waiting for health), `exec`,
   `logs`, `status`, teardown, then asserts nothing labelled with the game
   id is left and objects not belonging to the game are unchanged. Chunk 7
-  adds `gmctl validate` and `gmctl check` in the script's marked section,
-  so the wave gate runs them from wave 3.
+  adds `load-data`, `inject`, `check` and `validate` in the script's
+  marked section (capture W3-A), so the wave gate runs them from wave 3.
 - No link checker is configured; Markdown links are checked by reading.
 
 ## Measurements and hand checks
@@ -315,38 +316,70 @@ Architecture capture: none.
 
 ### Chunk 7 — Data load, injection, validator run and sealed checks
 
-Status: planned
+Status: merged (w3, cb19992)
+Record: chunk commits 8269558 (7a), d9b8560 (7b); no deviation from W3-A or
+D49; `validate` and `check` exit 2 on a refusal (wave-log capture W3-B);
+master spec 8.1's "fed to `sh -s`" wording for the data load sent to
+`spec-writer` at the wave gate.
 Wave: 3
 Depends on: chunks 2, 3, 5
-Architecture capture, by the wave driver at wave 3 start (chunks 8 and 9
-rely on it): the naming rule for fault-parameter environment variables;
-the order in which a fault's `inject/*.sh` scripts run; that `load-data`
-runs `psql -v ON_ERROR_STOP=1` as `postgres`, the data file creating its
-own database, with idempotency coming from stage tracking in `state.yaml`
-rather than from the SQL; the argument signatures of every `gmctl`
-subcommand. The exit-code contracts are already fixed by master spec 8.1.
+Architecture capture: recorded by the wave driver at wave 3 start as
+wave-log capture W3-A (chunks 8 and 9 rely on it): fault-parameter
+environment variables, the `load-data`, `inject`, `validate` and `check`
+rules, the GM-recorded stages, and the argument signatures of every
+`gmctl` subcommand. The exit-code contracts are fixed by master spec 8.1.
 
-- Goal: `gmctl load-data`, `inject`, `validate`, `check`.
+- Goal: `gmctl load-data`, `inject`, `validate`, `check`, and `status
+  --set` for the stages only the GM can record.
 - Scope: in: streaming `data/<node>.sql` into a node; running each state
-  fault's `inject/*.sh` with its parameters; the official validator run on
-  every node; running every sealed check and printing one line per fault
-  instance; exit codes per the contracts; marking a failed data load or
-  injection as a failed setup; a test fault and fixture data to exercise
-  them; the smoke script extended to these steps. Out: the v0.1 faults.
-- Files: `tools/gm/{inject,checks}.py`, `tools/tests/test_{inject,checks}.py`,
-  `tools/tests/fixtures/faults/`, `tools/tests/smoke.sh`.
-- Spec sections: master spec 8.1, 10.1, 11, 13 ("Evaluation").
+  fault's `inject/*.sh` with its parameters; refusing, when the scenario
+  loads, a fault parameter whose environment name is invalid; the
+  official validator run on every node, from the bricks' new
+  `extra.validator`; running every sealed check and printing one line per
+  fault instance; exit codes per the contracts; marking a failed data load
+  or injection as a failed setup; `gmctl status --set
+  handed-over|final-answer|feedback-given` with its allowed transitions
+  (spec D49); a test fault and fixture data to exercise them; the smoke
+  script extended to these steps. Out: the v0.1 faults; any brick image
+  change.
+- Files: `tools/gm/{inject,checks}.py` (new; module boundaries are the
+  chunk's choice, W3-A), `tools/gm/__init__.py` (CLI wiring),
+  `tools/gm/execnode.py` (optional `argv`), `tools/gm/model.py`
+  (parameter-name refusal), `tools/gm/state.py` (`status --set`, on
+  `localimpl`'s existing stage functions; `tools/gm/localimpl.py` only if
+  they need a change), `bricks/postgres/brick.yaml`,
+  `bricks/bastion/brick.yaml` (`extra.validator`),
+  `tools/tests/test_{inject,checks,state,model}.py`,
+  `tools/tests/fixtures/fixture-audit/` (a state test fault under
+  `faults/`, its instance and answer-key entry, `data/<node>.sql`, README
+  regenerated), `tools/tests/smoke.sh`.
+- Spec sections: master spec 8.1, 10.1, 11, 12, 13 ("Evaluation");
+  wave-log capture W3-A.
 - Atoms: none.
 - Done when: on the smoke deployment, the fixture data loads, the test
   fault plants twice with the same result, its sealed check returns 1,
   then 0 after the fix is applied through `exec`, and `validate` reports
-  green and red correctly.
+  green and red correctly; unit tests show `status --set` taking
+  `injected` to `handed-over`, `final-answer` and `feedback-given` in turn,
+  changing nothing when set to the current stage, and refusing any other
+  transition with exit 1 and `state.yaml` unchanged.
 - Verification: chunk checks, plus the smoke run `tools/tests/smoke.sh`,
-  extended with `validate` and `check` in its marked section (needs G3).
+  extended in its marked section as W3-A's "Smoke run" states (needs G3).
+- Split rule: 7a data load, injection and GM-recorded stages: `execnode`
+  `argv`, the parameter-name refusal and `FAULT_*` environment,
+  `load-data`, `inject`, `status --set` and their CLI wiring, the fixture
+  test fault and data, their tests, and the smoke steps `load-data` and
+  `inject` twice. 7b evaluation: `validate` with `extra.validator` in both
+  `brick.yaml`, `check`, their CLI wiring and tests, and the remaining
+  smoke steps (`check`, the fix through `exec`, `check`, `validate` green
+  then red).
 
 ### Chunk 8 — v0.1 faults and scenario folder
 
-Status: planned
+Status: merged (w3, fcfaeb1)
+Record: chunk commit cf1457c; no deviation from the spec; G4 review's
+non-blocking points in the wave log; `bricks/postgres/brick.yaml` keeps
+`compatible_faults: []` (a brick change, outside the chunk).
 Wave: 3
 Depends on: chunks 1, 2, 6, 7; G4 before merge
 Architecture capture: none of its own; it uses the parameter naming rule,
@@ -372,7 +405,10 @@ the injection order and the `load-data` rules captured at wave 3 start.
 
 ### Chunk 9 — GM skill
 
-Status: planned
+Status: merged (w3, d6a9d96)
+Record: chunk commit 1b42aa3; master spec 12's stop reason between setup
+steps not recordable by gmctl: the skill states it in the session until
+chunk 10 adds `teardown --reason` (owner ruling 2026-10-21).
 Wave: 3
 Depends on: chunks 5, 6, 7
 Architecture capture: none of its own; it uses the `gmctl` argument
@@ -387,7 +423,8 @@ spec 11).
   stop only, polite refusals of hints, resets, restarts and extra time);
   report intake (pasted, `~/report.md` through `exec`, or discussion) and
   the final-answer question; evaluation with `validate` and `check`;
-  feedback structure and tone; teardown; restart from a local
+  feedback structure and tone; recording hand-over, final answer and
+  feedback with `gmctl status --set` (W3-A); teardown; restart from a local
   implementation in progress, and the recommended fresh session for the
   report. Marked initial and expected to evolve. Out: new scripts.
 - Files: `.claude/skills/game-master/SKILL.md`,
@@ -396,9 +433,113 @@ spec 11).
 - Atoms: none.
 - Done when: the skill text covers every item of the stance check-list
   (master spec 17, item 5) and the restart path, and calls only existing
-  `gmctl` subcommands.
+  `gmctl` subcommands; it records each of the three GM stages with
+  `status --set` at the step that reaches it.
 - Verification: chunk checks; the stance check-list itself runs at the
   release gate.
+
+### Chunk 10 — Teardown reason, and a new game after a failed setup
+
+Status: merged (w3, f6c8776)
+Record: chunk commits 9c8c02f (10a), 2fad5c4 (10b); one choice beyond the
+text, accepted by the driver: `set_stage` and `set_failed` drop the
+teardown record, so a game that goes on after a teardown (deploy retry,
+refit) needs a fresh confirming teardown (wave-log capture W3-C).
+Wave: 3
+Depends on: chunks 5, 7, 9 (all merged)
+Architecture capture: none; the `teardown` record's shape in `state.yaml`
+is fixed below, and only this chunk's code and the GM skill read it.
+
+- Goal: a stop during setup records its reason (spec D50), and a
+  playground whose failed game was torn down takes a new game (spec D51).
+- Scope: in:
+  - **The teardown record.** `state.yaml` gains a top-level key
+    `teardown: {stage, reason, at}`: `stage` is the last stage reached
+    (`localimpl.effective_stage`), `reason` the text given or `null`, `at`
+    the time. A `gmctl teardown` that leaves nothing labelled with the game
+    id writes it when the state has none and the game is not already at
+    `torn-down`; a teardown that leaves objects (exit 1) writes nothing; a
+    later teardown leaves the record unchanged (and says so when given a
+    reason). Stages are recorded as now (W2-C): `torn-down` with its
+    history entry; for a failed game, stage `failed` and its `failure`
+    kept, no history entry. A new game's `state.yaml` has no record; a
+    state file without the key reads as having none.
+  - **`gmctl teardown [--reason TEXT]`.** The reason, whitespace collapsed
+    to one line, goes into the record; an empty reason is refused (exit 1)
+    before anything is removed. Without `--reason` the record carries
+    `reason: null`.
+  - **`status`** prints the record when there is one: `  torn down: at
+    <at>, from stage <stage>: <reason>` (`no reason given` when `null`).
+  - **`fit` after a torn-down failed game.** On a `failed` game whose
+    failure came after deployment (failure stage `deployed`, `data-loaded`
+    or `injected`) and that has a teardown record, `fit` starts a new game
+    (new game id, `implementation.yaml` and `state.yaml` written afresh,
+    stage `fitted`), as it does after `torn-down`. Unchanged: a refit
+    before deployment keeps the game id; `deploy` still retries a failed
+    deploy (W2-C).
+  - **`fit`'s remaining refusals** (exit 1, nothing written): a game at a
+    deployed stage, and a game failed after deployment with no teardown
+    record. The message names the game id and its stage (for a failed
+    game, the stage it failed before) and what unblocks it: `gmctl
+    teardown`, then `fit` again; for a failed deploy, also `gmctl deploy`
+    to retry it.
+  - **GM skill.** `SKILL.md` "Setup failures": the stop bullet runs
+    `teardown --reason` at whatever setup stage the game is (it removes
+    nothing when nothing was deployed) and no longer says `gmctl` cannot
+    record the reason; the "Trying again" bullet fits a new game on the
+    same playground after the confirming teardown, instead of a new
+    playground slug; the bullet on a failed `deploy`, `load-data` or
+    `inject` says the confirming teardown also records the teardown. The
+    in-progress rule in "Start: is a game in progress?", the restart
+    table's `failed` row and the "Teardown" section say that a failed game
+    with its teardown recorded is over, like `torn-down`. `gmctl.md`: the
+    "Stages" paragraph (the record), the `fit` and `teardown` rows, and
+    the `status` and `teardown` output lines.
+  - **Format skill.** `templates/layouts.md` "Script contracts" states the
+    data load as master spec 8.1 now does (spec D52).
+  - Out: the teardown a failed step runs itself (`state.setup_step`)
+    writes no record, the GM's confirming `gmctl teardown` does; `deploy`;
+    `smoke.sh` (unchanged).
+- Files: `tools/gm/teardown.py` (the record, `--reason`),
+  `tools/gm/localimpl.py` (the record's writer beside `set_stage` and
+  `set_failed`, if it goes there), `tools/gm/state.py` (`status` line),
+  `tools/gm/fit.py` (`_game_to_keep`, messages), `tools/gm/__init__.py`
+  (`--reason`), `tools/tests/test_{teardown,fit,state}.py`,
+  `.claude/skills/game-master/{SKILL,gmctl}.md`,
+  `.claude/skills/scenario-format/templates/layouts.md`.
+- Spec sections: master spec 8.1 (the data load), 11 (`teardown`), 12
+  ("Failures"); spec D50, D51, D52; wave-log captures W2-A (`state.yaml`),
+  W2-C (teardown, deploy retry), W3-B.
+- Atoms: none.
+- Done when:
+  - (D50) a unit test: on a game at `injected` (Docker stubbed), `teardown
+    --reason "stopped on request"` leaves nothing labelled, records
+    `torn-down`, and `state.yaml` holds `teardown: {stage: injected,
+    reason: stopped on request, at: ...}`, which `status` prints; the same
+    at `fitted`, with nothing to remove, gives `stage: fitted`;
+  - unit tests: without `--reason` the record has `reason: null`; an empty
+    reason is refused with exit 1, nothing removed, `state.yaml`
+    unchanged; a teardown that leaves objects writes no record; a second
+    teardown leaves the record unchanged; on a failed game, stage `failed`
+    and its `failure` stay and the record's `stage` is the last stage
+    reached;
+  - (D51) a unit test: a game failed in `load-data`, then torn down: `fit`
+    exits 0 with a new game id at stage `fitted`; the same after a failure
+    in `inject`;
+  - unit tests: `fit` refuses with exit 1, nothing written and the
+    corrected message, a game at a deployed stage and a game failed in
+    `inject` without a teardown record; the existing `fit` tests (a refit
+    before deployment keeps the game id) pass;
+  - the two GM skill files keep no new-slug workaround, the stop bullet
+    uses `--reason`, and every `gmctl` invocation in them parses with
+    `gmctl`'s own parser;
+  - the unit suite passes, and `tools/tests/smoke.sh` passes unchanged.
+- Verification: chunk checks, plus the smoke run `tools/tests/smoke.sh`
+  (it runs `fit` and `teardown`; needs G3).
+- Split rule: 10a the teardown record, `--reason`, the `status` line,
+  their tests, the skill's stop bullet and `gmctl.md`'s teardown lines;
+  10b `fit` after a torn-down failed game and its messages, their tests,
+  the other skill lines and `layouts.md`. 10b reads 10a's record.
 
 ## Release gate
 

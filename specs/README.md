@@ -19,12 +19,12 @@ owner's confirmation; the register lists the ones with real alternatives.
 | [versions/](versions/README.md) | The roadmap: v0.1 to v1.0 and beyond, one page per version; v0.1's [master spec](versions/v0.1/master-spec.md), [access model](versions/v0.1/access-model.md) and [build plan](versions/v0.1/build-plan.md) | v0.1 approved; v0.2–v1.0 draft |
 | [gm-stance.md](gm-stance.md) | How the GM behaves and speaks: setup questions, issues, report-only interaction, no reveals, stop only, final answer, feedback tone, future ideas | draft v4 |
 | [scenario-lifecycle.md](scenario-lifecycle.md) | The game from setup to teardown: setup inputs, scenario, local implementation, deploy, aging, hand-over, end of the game | draft v6 |
-| [formats.md](formats.md) | What a scenario folder, a brick (with its companion material) and a fault definition must contain; the local implementation; the skills and templates | draft v6 |
+| [formats.md](formats.md) | What a scenario folder, a brick (with its companion material) and a fault definition must contain; the local implementation; the skills and templates | draft v8 |
 | [bricks-and-faults.md](bricks-and-faults.md) | Catalog, per-brick checks, solvability probe, fault interactions and families, future backup-tooling faults | draft v4 |
 | [planes-and-access.md](planes-and-access.md) | Bastion-only rule, planes, the GM session, trust, write policies, hardening, validators | draft v4 |
 | [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls | draft v7 |
 | [open-questions.md](open-questions.md) | Open-questions register | live |
-| [decisions.md](decisions.md) | Decisions log, D1–D48 | live |
+| [decisions.md](decisions.md) | Decisions log, D1–D52 | live |
 
 History: the tree was seeded on 2026-10-20 from the owner's pre-spec notes,
 which are no longer a reference (D1).

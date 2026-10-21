@@ -427,3 +427,332 @@ deploy, exec, logs, status and teardown).
 - `spec-writer` applied the smoke-run wording correction: plan v3
   (fa402b3).
 - Report to the owner 2026-10-20; the owner said to merge.
+
+## Wave 3 — started 2026-10-20
+
+Chunks: 7, 8, 9 (order 7 → 8 → 9, κ = 1). Branch `v0.1-w3`, worktree
+`/home/bastien/work/db_audit_gm-wt/v0.1-w3`, cut from `main` at d3547c3
+(wave 2 merged). Gates: G3 done; G4 open (the lead, before chunk 8
+merges); G5 open (the owner, release close). Preflight: none (no
+registers).
+
+### Capture W3-A — setup steps, evaluation and gmctl signatures (chunk 7; read by 8, 9)
+
+Recorded before any code. Python module boundaries are chunk 7's choice;
+the behaviour, names and command lines below are fixed.
+
+**Fault parameters** (extends W1-D). Each parameter the fault declares
+reaches its `inject/*.sh` and `checks/fixed.sh` as `FAULT_<NAME>`: the
+parameter name upper-cased, `-` replaced by `_`; a name that is then not
+`[A-Z][A-Z0-9_]*` is refused when the scenario loads. Value: the
+instance's `parameters` entry, else the fault's `default`. A scalar is
+passed as text (booleans as `true`/`false`); a list or map is refused. No
+value and `default: null`: the variable is not set, unless the parameter
+is `required`, which `inject` and `check` refuse before running anything.
+Nothing else is added to a script's environment.
+
+**`load-data`.** Allowed at stage `deployed`; at `data-loaded` or any
+later deployed stage it changes nothing, prints that the data is already
+loaded and exits 0 (idempotency is the stage, not the SQL). For every
+node with a `data` entry, in `nodes` order, `data/<node>.sql` (the
+entry's `file`) is streamed into `psql -X -q -v ON_ERROR_STOP=1 -d
+postgres`, run as OS user `postgres` in the node's container (local peer
+authentication); the file creates its own databases and roles. To stream
+SQL rather than a shell script, `exec_node` gains an optional `argv`
+(default `["sh", "-s"]`); `gmctl exec` keeps `sh -s`. A scenario with no
+data entry loads nothing and still records `data-loaded`. The whole load
+is one `state.setup_step` (any failure or Ctrl-C: teardown, `failed`).
+
+**`inject`.** Allowed at `data-loaded` and at `injected` (a second run
+replays the scripts, which are idempotent, and the stage stays
+`injected`). Fault instances run in `fault_instances` order; an instance
+whose fault has `injection.kind: seed-file` runs nothing; for a `state`
+fault, each entry of `injection.scripts`, in the listed order, is read
+from the fault's folder and streamed into `sh -s` on the instance's node,
+as `injection.run_as` (default `root`), with its `FAULT_*` variables. The
+first non-zero exit stops the run. The whole run is one `setup_step`;
+success records `injected`. Each script's output is printed with the
+instance id and script name.
+
+**`validate`** (the official run). Allowed at every deployed stage;
+changes no stage. Every node in `nodes` order runs its brick's public
+validator, read from a new `brick.yaml` key `extra.validator: {path,
+run_as}`: `postgres` — `{path: /opt/gm/validator/validate.sh, run_as:
+postgres}` with `HOME=/var/lib/postgresql` set, as `gm-validate` does;
+`bastion` — `{path: /opt/gm/validator/validate.sh, run_as: player}`.
+Started through `exec_node` as `exec <path>` on `sh -s`. The validator's
+lines are printed under a `<node>:` heading. Exit 0 when every node is
+green, 1 when any is red and none errored, 2 when any errored or could not
+be started.
+
+**`check`.** Allowed at `injected` and every later deployed stage;
+changes no stage. Every fault instance in `fault_instances` order runs its
+fault's `sealed_check.script` on its node as `sealed_check.run_as`
+(default `root`) with its `FAULT_*` variables, and prints one line:
+`<instance> <fault-id>: fixed|present|error — <first output line>`
+(error also for any exit other than 0 or 1, or a check that cannot
+start). Exit 0 when every instance is fixed, 1 when any is present and
+none errored, 2 when any errored.
+
+**GM-recorded stages.** The stages no script reaches are recorded through
+`status`: `gmctl status <scenario-dir> --playground <name> --set
+handed-over|final-answer|feedback-given`. `handed-over` is allowed from
+`injected`, `final-answer` from `handed-over`, `feedback-given` from
+`final-answer`; setting the stage the game is already at is a no-op;
+anything else is refused (exit 1, state unchanged). It then prints the
+status as `status` does.
+
+**Command lines** (all subcommands; each takes `<scenario-dir>
+--playground <name>`, prints a readable result, exits 1 on a refusal
+unless stated):
+
+- `fit [--endpoint <url>] [--cpu N --memory SIZE --disk SIZE]` (W2-A);
+- `render` (W2-A);
+- `deploy [--init-swarm] [--timeout SECONDS]` (W2-C);
+- `load-data [--timeout SECONDS]` (no timeout by default);
+- `inject [--timeout SECONDS]` (per script; no timeout by default);
+- `validate` (exit 0/1/2 as above);
+- `check` (exit 0/1/2 as above);
+- `exec --node N --user U [--env K=V]...` (W2-C; exit = script's, 125
+  when it cannot start);
+- `logs --node N [--tail N] [--follow]` (W2-C);
+- `status [--set <stage>]`;
+- `teardown` (W2-C).
+
+**Smoke run.** Chunk 7 fills `smoke.sh`'s marked section: `load-data`
+with fixture data, `inject` twice, `check` (1), the fix through `exec`,
+`check` (0), and `validate` green then red after an out-of-envelope
+change.
+
+### Plan corrections sent to `spec-writer` (before chunk 7 starts)
+
+Capture W3-A widens chunk 7 beyond its plan text: its **Files** also need
+`tools/gm/__init__.py` (CLI wiring), `tools/gm/execnode.py` (`argv`),
+`tools/gm/localimpl.py` or `state.py` (`status --set`) and
+`bricks/{postgres,bastion}/brick.yaml` (`extra.validator`, no image
+change), and its **Scope** the `status --set` stages. Chunk 9's scope
+uses `status --set` for hand-over, final answer and feedback.
+- `spec-writer` applied them: plan v4 (470c953), spec D49 (`status
+  --set` records the GM-only stages; an interpretation the owner may
+  overturn). Chunk 7 split into 7a (data load, injection, GM-recorded
+  stages) and 7b (evaluation); also adds `model.py` (parameter-name
+  refusal) and corrects the fixture path to
+  `tools/tests/fixtures/fixture-audit/` (a state test fault, its data,
+  the README regenerated).
+
+### Dispatch
+
+- Chunk 7: dispatched 2026-10-20, halves in order (7a then 7b), one owner.
+- Chunk 7: merged 2026-10-20 (7a 8269558, 7b d9b8560, merge cb19992);
+  146 unit tests OK; `smoke.sh` 41 checks passed on the local swarm,
+  nothing labelled `dbagm.game` left. Images not rebuilt. Done when met
+  item by item (report checked by the driver). For the wave gate, to
+  `spec-writer`: master spec 8.1 still says the data load is fed to `sh
+  -s`; W3-A streams it into `psql` through `exec_node`'s `argv`.
+
+### Capture W3-B — chunk 7 outcomes and API (read by 8, 9)
+
+Recorded after chunk 7 merged; accepted by the wave driver.
+
+**Choices within W3-A.**
+
+- `validate` and `check` exit **2** when refused (no game, wrong stage,
+  incomplete scenario, required parameter without a value): nothing ran,
+  the result is unknown. Every other subcommand exits 1 on a refusal.
+- `docker exec -u postgres` sets `HOME=/var/lib/postgresql` from passwd,
+  so `extra.validator` is `{path, run_as}` only.
+- Load-time refusals in `model`: an invalid `FAULT_<NAME>`, two parameter
+  names mapping to the same variable (`table-name`, `table_name`), a list
+  or map as a default or an instance value.
+- An `inject` replay at `injected` leaves `state.yaml` untouched (no
+  history entry).
+- `load-data` streams into `psql` as `postgres` whatever the brick: right
+  for v0.1, where only PostgreSQL nodes hold data.
+
+**Output formats** (the GM skill reads these).
+
+- `inject`: `<instance> <script> (<node>, as <user>): ok|exit N`, then the
+  script's output indented 4 spaces.
+- `validate`: the validator's lines under `<node>:`, ending `Validators of
+  game <id>: <node> green|red|error, ...`.
+- `check`: one line per instance, `<instance> <fault-id>:
+  fixed|present|error — <reason>`; no summary line.
+- `status --set` on the current stage prints `Already at stage …`.
+
+**Python API.**
+
+- `tools.gm.inject`: `fault_env(fault_def, instance)` → `{FAULT_<NAME>:
+  text}` (GmError on a missing required value or a list/map);
+  `fault_instances(scenario)`, `node_of(inst, impl)`,
+  `output_lines(exec_result)`; `load_data(scenario_dir, playground,
+  timeout=None, docker=None, out=print)` → `LoadResult`; `inject(...)`
+  same arguments → `InjectResult`; both raise GmError on a refusal and
+  `state.SetupFailed` on a failure. Constants `PSQL_ARGV`, `DATA_USER`,
+  `DEFAULT_RUN_AS`.
+- `tools.gm.checks`: `validate(scenario_dir, playground, docker=None)` →
+  `ValidateResult` (`.nodes`, `.exit_code`, `.text()`); `check(...)` →
+  `CheckResult` (`.lines` of `CheckLine(instance, fault_id, verdict,
+  reason)`, `.exit_code`); `validator_of(brick_def)` → `(path, run_as)`;
+  `CHECK_STAGES`.
+- `tools.gm.state.set_gm_stage(ldir, stage)` → True when recorded, False
+  when nothing changed; `state.GM_STAGES`. `tools.gm.model.fault_env_name`.
+  `execnode.exec_node(..., argv=None)`, default `SHELL_ARGV = ("sh",
+  "-s")`.
+
+**Fixture.** Scenario-local state fault `fixture-dropped-index` (instance
+`f2` on `db`): parameters `database` (default `shop`), `table-name`
+(default `orders`, `FAULT_TABLE_NAME`), `column` (required, set to
+`customer_id`); scripts `inject/10-drop-index.sh`, `inject/20-analyze.sh`;
+`checks/fixed.sh`. `data/db.sql` creates role and database `shop` (500
+customers, 20000 orders). The fixture's README was regenerated in full
+from the scenario-document template. A worked example for chunk 8.
+
+**Smoke run** (marked section): `load-data` and its repeat, `inject`
+twice with the index list compared, `status --set handed-over`, `check`
+(1), the fix through `exec` (with a 1 s sleep after `pg_reload_conf()`),
+`check` (0), `validate` green then red (`work_mem` out of envelope).
+
+Branch `v0.1-c7-eval` kept until the wave closes; its worktree is removed.
+
+- Chunk 8: dispatched 2026-10-20. Merge gate G4 (the lead's review of the
+  scenario's defects, issues and answer key): the chunk reports built,
+  branch kept.
+- Chunk 8: built 2026-10-20 (cf1457c on `v0.1-c8-scenario`, worktree
+  kept), waiting on G4. Scenario `bookshop-new-server` (Pages & Co, 180
+  min), six catalog faults: f1 `pg-hba-trust-remote` (known, seed-file),
+  f2 `pg-memory-over-envelope` (known, seed-file, `work_mem` 256MB over a
+  64MB envelope), f3 `pg-join-index-missing` (known, state), f4
+  `pg-role-superuser`, f5 `pg-table-autovacuum-off`, f6
+  `pg-abandoned-replication-slot` (hidden, state). Issues I1 fix (f2), I2
+  propose (f1), I3 fix (f3). `check_scenario` and `check_fault_dir`
+  return nothing missing; fit and render accept it; on the smoke
+  deployment every injection succeeds (replay identical), every check
+  present (exit 1), `validate` red on `work_mem` only (the planted f2);
+  every check turned 0 after a player-style fix, f2 by both paths; nothing
+  labelled left after teardown. 146 unit tests OK. README filled from the
+  template by a scratch script (the skill has no generator), checked
+  against the fixture's. Left open: `bricks/postgres/brick.yaml` keeps
+  `compatible_faults: []` (a brick change, outside chunk 8).
+- G4: review dispatched to an independent `reviewer` on the lead's
+  behalf, 2026-10-20.
+- Chunk 9: dispatched 2026-10-20 (chunk 8, built and waiting on its gate,
+  no longer counts against κ).
+- G4 review (independent `reviewer`, 2026-10-20): **OKAY**, no blocking
+  issue. Read-only, no deployment; live behaviour rests on chunk 8's
+  smoke report. Non-blocking: (1) renaming `shop_app` reads fixed for f4
+  (the key says to inspect roles before accepting a 0); (2) f3's check
+  accepts any valid index led by `order_id` (the key asks for the plan to
+  use it: GM checks the EXPLAIN); (3) a contrived `host all dba samehost
+  trust` line would keep f1 at 1; (4) f1's "dba still logs in with its
+  password" is tested by neither check nor validator; (5) f2's proposal
+  range "4MB to 32MB" is tighter than the fix criterion (at most 64MB).
+  Put to the owner to clear G4.
+- Chunk 9: built 2026-10-20 (1b42aa3 on `v0.1-c9-gm-skill`, worktree
+  kept), not merged: stopped on a gmctl behaviour that doesn't exist.
+  Master spec 12 says a stop during setup records "the stage reached and
+  the reason"; between steps the only tool is `teardown`, which records
+  `torn-down` with no reason (the stage reached shows in the history).
+  The skill tells the initiator the reason in the session and says gmctl
+  can't record it. Options: (a) accept history plus the in-session reason;
+  (b) a script change such as `teardown --reason TEXT`. Second finding:
+  after a failed `load-data` or `inject` and its teardown, the playground
+  is a dead end (`fit` says to tear down first, teardown keeps `failed`,
+  `deploy` retries only a failed deploy); the skill works around it with a
+  new playground slug. Done when otherwise met: every stance item mapped,
+  32 gmctl invocations parsed by gmctl's own parser and run live except
+  `fit`, the three GM stages recorded at their steps; live debug run on a
+  scratch fixture copy, nothing labelled left. Both put to the owner.
+
+### Owner rulings — 2026-10-21
+
+- G4 cleared by the owner on the review's OKAY; the five non-blocking
+  points stay as logged. Chunk 8 merged by the driver (fcfaeb1).
+- Stop reason: add `gmctl teardown --reason TEXT`; chunk 9 merges as built
+  (d6a9d96) and a new chunk 10 in wave 3 adds the option and changes the
+  skill's one bullet.
+- Dead end after a failed `load-data` or `inject`: fixed in the same chunk
+  10 (`fit` may start a new game on a playground whose failed game was
+  torn down; its message corrected).
+- Sent to `spec-writer`: record both rulings, insert chunk 10 (plan v5),
+  and the master spec 8.1 wording (data load streamed into `psql`).
+- `spec-writer`: plan v5 (5113a95). D50 (`teardown --reason`), D51 (`fit`
+  after a torn-down failed game), owner rulings; D52, master spec 8.1 and
+  `formats.md` "Script contracts" clarified (the data load is SQL streamed
+  into `psql`); master spec 11's `teardown` row names the reason. Chunk 10
+  inserted in wave 3 (split 10a/10b); the 7 → 9 → 10 chain is over the
+  two-chunk in-wave limit, accepted because 7 and 9 were merged before
+  10 was inserted. `compatible_faults: []` in the postgres brick: nothing
+  requires it filled; left as is. Not changed: master spec 17 item 7 and
+  release-gate item 5 check the stage recorded, not the reason (owner's
+  call whether the release gate also checks a stop with reason).
+- Chunk 10 peek: no intent register, no data register; it adds no data.
+  Nothing to check beyond the plan.
+- Chunk 10: dispatched 2026-10-21, halves in order (10a then 10b).
+- Chunk 10: merged 2026-10-21 (10a 9c8c02f, 10b 2fad5c4, merge f6c8776);
+  165 unit tests OK; `smoke.sh` unchanged, 41 checks passed live, nothing
+  labelled left. Done when met item by item (report checked by the
+  driver).
+
+### Capture W3-C — the teardown record (chunk 10; extends W2-A's `state.yaml`)
+
+Recorded after chunk 10 merged; accepted by the wave driver.
+
+- `state.yaml` top-level `teardown: {stage, reason, at}`: `stage` the
+  last stage reached (`localimpl.effective_stage`), `reason` the
+  `--reason` text on one line or `null`, `at` ISO UTC (the same as the
+  `torn-down` history entry). Absent in a new game; absent reads as none
+  (`localimpl.teardown_record`).
+- Written by a `gmctl teardown` that leaves nothing labelled, when there
+  is no record and the stage is not `torn-down`. A non-failed game also
+  moves to `torn-down`; a failed game stays `failed` with its `failure`.
+  Not written: a teardown that leaves objects (exit 1), a repeat teardown
+  (says so when given a reason), the undo inside `state.setup_step`.
+  `--reason ""` (or whitespace) is refused, exit 1, before any Docker call.
+- **Choice beyond the chunk text, accepted:** `localimpl.set_stage` and
+  `set_failed` drop the record. Without it, a torn-down failed deploy,
+  retried and failing again in `load-data`, would keep the old record and
+  `fit` would start a new game with no confirming teardown, against
+  D51's "nothing labelled left". So "a later teardown leaves the record
+  unchanged" holds for repeated teardowns; after the game goes on, the
+  next teardown writes a fresh record.
+- Output: `status` prints `  torn down: at <at>, from stage <stage>:
+  <reason|no reason given>`; `teardown` prints `Recorded in state.yaml:
+  torn down at …` the first time. `fit`'s refusal names the game id, the
+  stage (or the stage it failed before), and `gmctl teardown`, then `gmctl
+  fit`; for a failed deploy also `gmctl deploy` to retry.
+- API: `localimpl.record_teardown(ldir, reason=None, now=None)`;
+  `teardown.teardown(scenario_dir, playground, reason=None, docker=None,
+  ...)`.
+
+### Wave gate — 2026-10-21
+
+Run by the driver on `v0.1-w3` at 0955dda, on the build host (Debian 13,
+Docker Engine 29.8.2, single-node swarm), machine otherwise idle.
+
+- Unit suite: 165 tests OK (13.5 s).
+- `sh -n` on every shell script (32 files, `*.sh` plus `#!/bin/sh`): OK.
+- Image builds: postgres `sha256:a55e764b…`, bastion `sha256:314de9c7…`,
+  unchanged since wave 1.
+- `tools/tests/smoke.sh`: 41 checks passed (game `fixture-audit-4emjvt`),
+  now including `load-data`, `inject` twice, `status --set`, `check`
+  1 → 0, `validate` green then red, the teardown record. Driver's check
+  after: 0 services, networks, volumes, configs, secrets, containers
+  labelled `dbagm.game`.
+- No bundle or performance figures apply. No intent or data register: no
+  sync.
+
+Open after wave 3: G5 (the owner, release close). Per the model the
+release gate runs on `v0.1-w3` before it merges into `main`; its commits
+(release notes) land there. Owner's call pending: whether the release
+gate also checks a stop during setup with its reason (master spec 17
+item 7 checks the stage only). Branches kept until the wave closes:
+`v0.1-c7-eval`, `v0.1-c8-scenario`, `v0.1-c9-gm-skill`,
+`v0.1-c10-teardown-reason`.
+
+- Report to the owner 2026-10-21; the owner said to merge wave 3 into
+  `main` and then run the release gate (the plan's release gate reads "on
+  the merged code"). The release gate runs on branch `v0.1-release`, cut
+  from `main` after the merge, so its commits (release notes, any fix)
+  land there and `main` takes them at release close. The stop-reason
+  question got no answer: the driver adds it to release-gate item 5 as an
+  extra check (spec D50), reported apart from master spec 17 item 7.

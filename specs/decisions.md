@@ -285,3 +285,33 @@ entry links to the document that now states the ruling.
   [versions/README.md](versions/README.md),
   [versions/v1.0/README.md](versions/v1.0/README.md),
   [gm-stance.md](gm-stance.md) "Future ideas".
+- **D49 (2026-10-20, set by spec-writer at the wave driver's request,
+  wave 3 start): `gmctl status --set` records the GM-only stages.**
+  `handed-over`, `final-answer` and `feedback-given` are reached by no
+  script, so `status` gains `--set`; it stays within master spec 11's
+  "`status` — the game's recorded state" and section 12's stages, so the
+  master spec is unchanged. Rules: wave-log capture W3-A. Now in:
+  [versions/v0.1/build-plan.md](versions/v0.1/build-plan.md) chunks 7, 9.
+- **D50 (2026-10-21, owner ruling, relayed by the wave driver): A stop's
+  reason is recorded by `gmctl teardown --reason TEXT`.** Master spec 12
+  ("Failures") requires the stage reached and the reason of a stop during
+  setup; between setup steps only `teardown` runs, and it recorded no
+  reason. The GM skill's stop bullet uses the option. Now in:
+  [versions/v0.1/master-spec.md](versions/v0.1/master-spec.md) section 11,
+  [versions/v0.1/build-plan.md](versions/v0.1/build-plan.md) chunk 10.
+- **D51 (2026-10-21, owner ruling, relayed by the wave driver): `fit` may
+  start a new game on a playground whose failed game was torn down.**
+  After a failed `load-data` or `inject` and its teardown the playground
+  was a dead end (`fit` refused with a misleading message, `deploy` only
+  retries a failed deploy). `fit` now accepts once nothing labelled with
+  the failed game's id is left, and its remaining refusals say what to do.
+  Now in: [versions/v0.1/build-plan.md](versions/v0.1/build-plan.md)
+  chunk 10.
+- **D52 (2026-10-21, set by spec-writer at the wave driver's request,
+  wave 3): Master spec 8.1 clarified for the data load.** It said the data
+  load is fed to `sh -s` like an injection script; as built (wave-log
+  capture W3-A, chunk 7) `data/<node>.sql` is SQL streamed into `psql` as
+  `postgres`, and running `load-data` again changes nothing. A
+  clarification of what was built, not a change of behaviour. Now in:
+  [versions/v0.1/master-spec.md](versions/v0.1/master-spec.md) section 8.1,
+  [formats.md](formats.md) "Script contracts".

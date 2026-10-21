@@ -108,3 +108,6 @@ interfaces:
 extra:
   read_only_root: true              # read_only: true in the stack file
   published_port_default: 2222      # scenario.yaml: published_ports: [{port: 22, default: 2222}]
+  validator:                        # the GM's official run (gmctl validate, capture W3-A)
+    path: /opt/gm/validator/validate.sh
+    run_as: player

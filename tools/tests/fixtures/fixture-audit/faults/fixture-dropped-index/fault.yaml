@@ -1,0 +1,66 @@
+# Scenario-local state fault of the fixture scenario (tools/tests, chunk 7):
+# exercises gmctl inject and gmctl check (FAULT_* parameters, scripts in
+# order, the sealed check) on the fixture data (data/db.sql).
+id: fixture-dropped-index
+version: 0.1.0
+title: the index serving lookups by customer is gone
+family: performance
+severity: medium
+
+applies_to:
+  bricks:
+    - id: postgres
+      versions: ["0.1.0"]
+  preconditions: []
+
+parameters:
+  database:
+    description: the database holding the table
+    default: shop
+    required: false
+  table-name:
+    description: the table whose index is dropped
+    default: orders
+    required: false
+  column:
+    description: the leading column of the dropped index(es)
+    default: null
+    required: true
+
+injection:
+  kind: state
+  stage: after-data-load
+  scripts:
+    - inject/10-drop-index.sh
+    - inject/20-analyze.sh
+  run_as: root
+
+evidence:
+  - where: the table's indexes, and the plan of a lookup by customer
+    how: psql -c '\d orders', then EXPLAIN SELECT * FROM orders WHERE customer_id = 42
+    shows: no index on customer_id; the lookup is a sequential scan of orders
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: names the missing index on orders (customer_id) as the cause of the slow lookups.
+  fix: an index whose leading column is customer_id exists on orders and is valid.
+
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+complaint_template: >-
+  Looking up a customer's orders has become slow.

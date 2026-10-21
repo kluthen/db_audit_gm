@@ -1,0 +1,260 @@
+# Answer key of bookshop-new-server, built from
+# .claude/skills/scenario-format/templates/answer-key.yaml. AUTHORITATIVE,
+# with scenario.yaml. SEALED: never shipped to a node, never shown to the
+# players before their final answer.
+
+scenario:
+  id: bookshop-new-server
+  version: 0.1.0
+notes: gm/notes.md
+
+instances:
+  - instance: f1
+    what: >-
+      pg_hba.conf on db has `host all all 0.0.0.0/0 trust` (commented
+      "migration tooling") before `host all all 0.0.0.0/0 scram-sha-256`, so
+      every TCP connection from any address is accepted without a password,
+      for any role.
+    why: >-
+      anyone who reaches port 5432 logs in as dba, the other superuser, or
+      shop_app, without a password: full control of the shop's data and
+      operating-system access as postgres. The scram-sha-256 line after it
+      never applies. The insurer's answer today is "yes, anyone on the
+      network can".
+    evidence:
+      - where: /etc/postgresql/pg_hba.conf on db
+        how: ssh db, then cat /etc/postgresql/pg_hba.conf
+        shows: the `host all all 0.0.0.0/0 trust` line, above the scram-sha-256 host line
+      - where: pg_hba_file_rules
+        how: psql -c "SELECT line_number, type, address, auth_method FROM pg_hba_file_rules"
+        shows: "line 12: host, address 0.0.0.0 (netmask 0.0.0.0), trust; then line 14: the same address, scram-sha-256"
+      - where: a password-less login from the bastion
+        how: PGPASSFILE=/nonexistent psql -w -h db -U dba -c 'SELECT 1'
+        shows: "1: the login succeeds with no password (it fails once trust is gone)"
+    acceptable:
+      diagnosis: >-
+        names the trust line as the reason anyone on the network can log in
+        without a password, as any role including superusers, and says that
+        the first matching line wins, so the scram-sha-256 line is dead.
+      proposal: >-
+        remove the trust line (or make it scram-sha-256), restrict host lines
+        to the roles and addresses that need them if possible (the
+        application's and the administrators'), keep `local all postgres
+        peer`, reload, and test that a password-less login now fails. Answers
+        "today: yes" to the insurer.
+      fix: >-
+        the trust line is gone or no longer trust and the change is in effect
+        (reloaded); dba still logs in from the bastion with its password;
+        the GM's peer line is intact (the validator says so).
+    sealed_check:
+      script: faults/pg-hba-trust-remote/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        The issue (I2) expects a proposal: a sealed check still at 1 is the
+        expected outcome when the players only propose. If they also fixed
+        it, it reads 0; both are acceptable. A file edited but not reloaded
+        reads 1.
+    interactions: []
+    validators_left_red: []
+
+  - instance: f2
+    what: >-
+      work_mem = 256MB in /etc/postgresql/postgresql.conf ("month-end reports
+      were too slow"), on a node limited to 1 GB of memory with
+      max_connections = 100. Its envelope is 1MB..64MB.
+    why: >-
+      work_mem is per sort or hash operation, per connection (and per
+      parallel worker): a few concurrent month-end reports each using a few
+      such operations ask for more memory than the node has, and the kernel's
+      out-of-memory killer ends a backend, which makes PostgreSQL restart
+      every connection. That is issue I1. The validator is red from the
+      start because of it.
+    evidence:
+      - where: the public validator on db
+        how: ssh db, then sudo gm-validate
+        shows: "RED work_mem: in effect 256MB; pending 256MB (/etc/postgresql/postgresql.conf:11); envelope 1MB..64MB"
+      - where: the setting and the node's memory
+        how: psql -c 'SHOW work_mem' -c 'SHOW max_connections'; cat /sys/fs/cgroup/memory.max on db
+        shows: 256MB, 100 connections, a memory limit of 1073741824 bytes (1 GB)
+      - where: postgresql.conf
+        how: grep -n work_mem /etc/postgresql/postgresql.conf on db
+        shows: "work_mem = 256MB with the comment about the month-end reports"
+    acceptable:
+      diagnosis: >-
+        names work_mem = 256MB as the cause of the out-of-memory crashes,
+        explains that it applies per operation and per connection, relates it
+        to the 1 GB limit and 100 connections, and notes the validator was
+        red on it.
+      proposal: >-
+        a global work_mem inside the envelope (4MB to 32MB is sound here),
+        applied by a reload; for the month-end reports, a higher value set
+        for their sessions or role only (SET work_mem, ALTER ROLE ... SET),
+        kept within reason; optionally fewer max_connections.
+      fix: >-
+        work_mem in effect is at most 64MB (the envelope), by either path:
+        postgresql.conf edited then sudo gm-reload-db (or pg_reload_conf()),
+        or ALTER SYSTEM SET work_mem then a reload; the validator is green on
+        work_mem (in effect and pending).
+    sealed_check:
+      script: faults/pg-memory-over-envelope/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        Reads the value in effect. A file edit without a reload reads 1. A
+        value under 1MB reads 0 but leaves the validator red: read the
+        official validator run too.
+    interactions: []
+    validators_left_red: []
+
+  - instance: f3
+    what: >-
+      order_lines (90 000 rows) has a foreign key order_id -> orders but no
+      index on order_id: order_lines_order_id_idx, present on the old server
+      and in the restored data, is gone.
+    why: >-
+      opening an order reads its lines by order_id: every such lookup, and
+      every join from orders to order_lines, reads the whole table. The
+      cost grows with the table, hence "worse as orders pile up" (issue
+      I3). Deleting an order also scans order_lines to check the key.
+    evidence:
+      - where: the table's definition
+        how: psql -d bookshop -c '\d order_lines'
+        shows: the foreign key on order_id, indexes on id (primary key) and book_id only
+      - where: the plan of an order's lines
+        how: psql -d bookshop -c 'EXPLAIN ANALYZE SELECT * FROM order_lines WHERE order_id = 42'
+        shows: "Seq Scan on order_lines, Filter: (order_id = 42), Rows Removed by Filter: 89997"
+    acceptable:
+      diagnosis: >-
+        names the missing index on order_lines (order_id) as the cause, with
+        a plan showing the sequential scan.
+      proposal: >-
+        CREATE INDEX (CONCURRENTLY on the live system) ON order_lines
+        (order_id), then the plan again.
+      fix: >-
+        a valid index whose first column is order_id exists on order_lines,
+        whatever its name, and the plan for one order's lines uses it (index
+        or bitmap scan). A bonus: checking the schema's other foreign keys
+        (all indexed here).
+    sealed_check:
+      script: faults/pg-join-index-missing/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        A multi-column index leading with order_id counts; one with order_id
+        second does not. An invalid index (failed CONCURRENTLY build) does
+        not count.
+    interactions: []
+    validators_left_red: []
+
+  - instance: f4
+    what: >-
+      the application's login role shop_app is a superuser. It already has
+      the data rights it needs (SELECT, INSERT, UPDATE, DELETE on every
+      table, USAGE on the sequences of bookshop), so the attribute adds
+      nothing the application uses.
+    why: >-
+      an SQL injection in the website or a leaked application password gives
+      full control: every database, every setting, and operating-system
+      commands as postgres (COPY ... TO PROGRAM). Least privilege: the
+      application should hold data rights on its own database only.
+    evidence:
+      - where: the cluster's roles
+        how: psql -c '\du'
+        shows: shop_app with the Superuser attribute, next to dba and postgres
+      - where: the role's own rights
+        how: psql -d bookshop -c '\dp' (or \z)
+        shows: shop_app already has arwd on every table, so it needs no superuser attribute
+    acceptable:
+      diagnosis: >-
+        names shop_app as a superuser it need not be, and the risk (a
+        compromised application or password owns the whole server).
+      proposal: >-
+        ALTER ROLE shop_app NOSUPERUSER, keeping its grants on bookshop;
+        check that it can still read and write the shop's tables (for
+        example SET ROLE shop_app; SELECT ... ; RESET ROLE).
+      fix: >-
+        shop_app still exists, can log in, and is no longer a superuser; its
+        data rights on bookshop are intact. Dropping the role, or revoking
+        its grants, breaks the website and is not acceptable.
+    sealed_check:
+      script: faults/pg-role-superuser/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        A dropped role reads 0 with a line saying the application lost its
+        login: judge it as not acceptable. The check does not test the
+        grants; when it reads 0, run \dp on bookshop through gmctl exec
+        before accepting the fix.
+    interactions: []
+    validators_left_red: []
+
+  - instance: f5
+    what: >-
+      autovacuum is disabled on the orders table (storage parameter
+      autovacuum_enabled=off), while the server-wide autovacuum setting is
+      on and the validator is green on it.
+    why: >-
+      orders changes all day (status updates, totals): dead rows accumulate
+      (bloat, slower scans and index-only scans), statistics go stale (bad
+      plans), and only the forced anti-wraparound vacuum would ever process
+      it. The year-end season makes it worse.
+    evidence:
+      - where: the table's options
+        how: psql -d bookshop -c '\d+ orders'
+        shows: "Options: autovacuum_enabled=off"
+      - where: every table with storage parameters
+        how: psql -d bookshop -c "SELECT relname, reloptions FROM pg_class WHERE relkind = 'r' AND reloptions IS NOT NULL"
+        shows: "orders | {autovacuum_enabled=off}"
+    acceptable:
+      diagnosis: >-
+        names the table-level autovacuum_enabled=off on orders and its
+        consequences (bloat, stale statistics, wraparound protection left to
+        the forced vacuum), noting that SHOW autovacuum says on.
+      proposal: >-
+        ALTER TABLE orders RESET (autovacuum_enabled), then VACUUM (ANALYZE)
+        orders; per-table thresholds if the table were too busy for the
+        defaults, never off.
+      fix: >-
+        orders no longer has autovacuum_enabled set to false (reset, or set
+        to on).
+    sealed_check:
+      script: faults/pg-table-autovacuum-off/checks/fixed.sh
+      at_handover: 1
+      notes: Hidden; a manual VACUUM alone does not change the check (the option stays off).
+    interactions: []
+    validators_left_red: []
+
+  - instance: f6
+    what: >-
+      a physical replication slot standby1 exists, inactive, with a
+      restart_lsn, and no standby: the old server's standby was switched off
+      at the move and the new server has none.
+    why: >-
+      the slot makes the server keep every WAL segment written since its
+      restart_lsn, and max_slot_wal_keep_size is -1 (unlimited): pg_wal
+      grows with every write until the disk is full and PostgreSQL
+      stops, likely during the year-end season. In the quiet game it holds
+      back little; the risk is in production.
+    evidence:
+      - where: pg_replication_slots
+        how: psql -c 'SELECT slot_name, slot_type, active, restart_lsn, wal_status FROM pg_replication_slots'
+        shows: "standby1 | physical | f | (an LSN) | reserved"
+      - where: replication and its limit
+        how: psql -c 'SELECT count(*) FROM pg_stat_replication' -c 'SHOW max_slot_wal_keep_size'
+        shows: no standby connected; -1 (no limit on the WAL a slot may hold)
+    acceptable:
+      diagnosis: >-
+        names the inactive slot standby1 with no standby behind it, and the
+        risk: unbounded WAL retention until the disk is full.
+      proposal: >-
+        drop it (SELECT pg_drop_replication_slot('standby1')) after checking
+        nothing uses it; set max_slot_wal_keep_size as a safety net; monitor
+        inactive slots and pg_wal's size; recreate a slot only with a new
+        standby.
+      fix: >-
+        the slot standby1 no longer exists.
+    sealed_check:
+      script: faults/pg-abandoned-replication-slot/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        Hidden. Setting max_slot_wal_keep_size alone leaves the slot (reads
+        1): an improvement, worth crediting, not the fix.
+    interactions: []
+    validators_left_red: []

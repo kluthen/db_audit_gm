@@ -1,0 +1,86 @@
+# Catalog fault: an abandoned replication slot (master spec 15). A state
+# fault: a physical slot reserving WAL is created after the data load,
+# with no standby to consume it.
+
+# --- Identity ---------------------------------------------------------
+id: pg-abandoned-replication-slot
+version: 0.1.0
+title: an abandoned replication slot keeps WAL forever
+family: replication
+severity: high
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: postgres
+      versions: ["0.1.0"]
+  preconditions: []                 # the slot is abandoned: no standby in the topology
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  slot-name:
+    description: the name of the physical replication slot left behind
+    default: null
+    required: true
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: state
+  stage: after-data-load
+  scripts:
+    - inject/10-create-slot.sh
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: the pg_replication_slots view
+    how: psql -c 'SELECT slot_name, slot_type, active, restart_lsn, wal_status FROM pg_replication_slots'
+    shows: a physical slot, active = false, with a restart_lsn (WAL from that point on is kept)
+  - where: the replication state and the WAL retained
+    how: >-
+      psql -c 'SELECT * FROM pg_stat_replication'; psql -c 'SELECT slot_name,
+      pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)) FROM pg_replication_slots'
+    shows: no standby connected; the WAL held back by the slot, growing with every write
+  - where: the limit on slot retention
+    how: psql -c 'SHOW max_slot_wal_keep_size'
+    shows: -1 (unlimited), so nothing stops the slot from filling the disk
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names the inactive slot with no standby behind it and its consequence:
+    every WAL segment written since its restart_lsn is kept, so pg_wal grows
+    until the disk is full and the server stops.
+  proposal: >-
+    confirm no standby or tool still uses it, then drop it
+    (pg_drop_replication_slot); optionally set max_slot_wal_keep_size so a
+    forgotten slot can no longer fill the disk, and monitor inactive slots.
+  fix: >-
+    the slot no longer exists.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  The database's disk usage keeps growing, much faster than our data, and
+  we do not know why.
