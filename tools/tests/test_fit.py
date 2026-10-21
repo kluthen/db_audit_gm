@@ -120,6 +120,7 @@ class TestFit(ScenarioCopyTest):
             gid + "_player_ssh_key": "local/laptop/secrets/player_ssh_key",
             gid + "_dba_password": "local/laptop/secrets/dba_password",
             gid + "_player_ssh_pubkey": "local/laptop/secrets/player_ssh_key.pub",
+            gid + "_tools_password": "local/laptop/secrets/tools_password",
         })
         self.assertEqual(impl["labels"], {"com.docker.stack.namespace": gid,
                                           "dbagm.game": gid})
