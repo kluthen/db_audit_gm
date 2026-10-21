@@ -8,7 +8,7 @@ intent (D1). To resume cold: read this page, then
 Phase: **v0.1 released** on 2026-10-21 and merged into `main`
 (3c852e1); its working record is archived in
 [archive/v0.1/](archive/v0.1/README.md) (master spec approved under the
-owner's delegation to the lead, D44). v0.2 to v0.6 and v1.0 in drafting. Conventions:
+owner's delegation to the lead, D44). v0.2 consolidated on 2026-10-21 into its master spec and access model, awaiting the owner's approval; v0.3 to v0.6 and v1.0 in drafting. Conventions:
 settled items are stated as fact, tentative ones are tagged `(proposed)`,
 and every open point cites an `O` ID. Every `(proposed)` item awaits the
 owner's confirmation; the register lists the ones with real alternatives.
@@ -18,15 +18,15 @@ owner's confirmation; the register lists the ones with real alternatives.
 | Document | Purpose | Status |
 |---|---|---|
 | [concept.md](concept.md) | Purpose, actors, vocabulary, scope, versions, prior art | draft v8 |
-| [versions/](versions/README.md) | The roadmap: v0.1 to v0.6, v1.0 and beyond, one page per version; v0.1's [master spec](versions/v0.1/master-spec.md), [access model](versions/v0.1/access-model.md) and [wave log](versions/v0.1/wave-log.md) | v0.1 released and archived; v0.2 draft v4; v0.3–v0.6 and v1.0 draft |
+| [versions/](versions/README.md) | The roadmap: v0.1 to v0.6, v1.0 and beyond, one page per version; v0.1's [master spec](versions/v0.1/master-spec.md), [access model](versions/v0.1/access-model.md) and [wave log](versions/v0.1/wave-log.md) | v0.1 released and archived; v0.2 draft v5, with its [master spec](versions/v0.2/master-spec.md) and [access model](versions/v0.2/access-model.md) awaiting the owner's approval; v0.3–v0.6 and v1.0 draft |
 | [gm-stance.md](gm-stance.md) | How the GM behaves and speaks: setup questions, issues, report-only interaction, no reveals, stop only, final answer, feedback tone, future ideas | draft v7 |
-| [scenario-lifecycle.md](scenario-lifecycle.md) | The game from setup to teardown: setup inputs, scenario, local implementation, deploy, aging, hand-over, end of the game | draft v9 |
-| [formats.md](formats.md) | What a scenario folder, a brick (with its companion material and GM documentation) and a fault definition must contain; versions and pins; the local implementation; the skills and templates | draft v13 |
-| [bricks-and-faults.md](bricks-and-faults.md) | Catalog, v0.2's monitoring bricks, per-brick checks, proportionate tooling, solvability probe, fault interactions and families, future backup-tooling faults | draft v7 |
-| [planes-and-access.md](planes-and-access.md) | Bastion-only rule (the bastion publishes the web interfaces), planes, the GM session, trust, write policies, hardening, validators | draft v9 |
-| [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls | draft v11 |
+| [scenario-lifecycle.md](scenario-lifecycle.md) | The game from setup to teardown: setup inputs, scenario, local implementation, deploy, aging, hand-over, end of the game | draft v10 |
+| [formats.md](formats.md) | What a scenario folder, a brick (with its companion material and GM documentation) and a fault definition must contain; versions and pins; the local implementation; the skills and templates | draft v14 |
+| [bricks-and-faults.md](bricks-and-faults.md) | Catalog, v0.2's monitoring bricks, per-brick checks, proportionate tooling, solvability probe, fault interactions and families, future backup-tooling faults | draft v8 |
+| [planes-and-access.md](planes-and-access.md) | Bastion-only rule (the bastion publishes the web interfaces), planes, the GM session, trust, write policies, hardening, validators | draft v10 |
+| [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls | draft v12 |
 | [open-questions.md](open-questions.md) | Open-questions register | live |
-| [decisions.md](decisions.md) | Decisions log, D55 onward (D90 last); D1–D54 archived with v0.1 | live |
+| [decisions.md](decisions.md) | Decisions log, D55 onward (D97 last); D1–D54 archived with v0.1 | live |
 | [archive/](archive/README.md) | Closed milestones' working records, kept verbatim: v0.1's build plan, decisions D1–D54, resolved questions | archive |
 
 History: the tree was seeded on 2026-10-20 from the owner's pre-spec notes,
@@ -121,7 +121,12 @@ access model.
   measured footprint in the definition of done. The node-health script
   is companion material of `prometheus`, versioned with it, which the GM
   mounts into the other nodes (D88, D89); no shared base image (D90).
-  No v0.2 question is open.
+  After the independent review (OKAY): Prometheus and Grafana on
+  separate nodes, node-health faults on the `prometheus` node planted
+  through a parameter, no default-password fault, Grafana's write policy
+  a known gap, players running pgBadger, per-node disk, the node-health
+  map explicit (D91–D97). No v0.2 question is open; the master spec and
+  access model are consolidated.
 - Small project: scripts and small apps, no ATD, no UI/UX tree (D2).
 - v0.1 build: seven artifacts (three skills, a Python/POSIX-shell script
   set, PostgreSQL 18 on Debian 13 and bastion bricks, one scenario), one
@@ -132,8 +137,8 @@ access model.
 
 ## Next steps
 
-1. v0.2 (draft v4 of its [page](versions/v0.2/README.md), every item
-   settled): an independent review of the settled v0.2 drafts, then, on
-   the owner's word, the master spec and its revised access model.
+1. v0.2: the owner approves (or amends) the
+   [master spec](versions/v0.2/master-spec.md) and its
+   [access model](versions/v0.2/access-model.md); then the build plan.
 2. The other "soon" question, O49 (backup tooling's version; it does not
    hold up v0.2), then v1.0's from the "later" ones.
