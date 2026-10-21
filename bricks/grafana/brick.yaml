@@ -1,0 +1,140 @@
+# brick.yaml: Grafana node, the game's dashboards and alerting (v0.2 master
+# spec 7 and 7.4).
+#
+# Version 0.1.0 (unreleased until the v0.2 release gate, D100).
+# Top-level keys: capture W1-A; fixed paths, secrets and wrappers: capture
+# W1-B; quoted octal modes: capture W1-D (specs/versions/v0.1/wave-log.md);
+# footprint shape, interfaces with `web_path`, secret kinds and `receives`:
+# capture W1; this brick's interface: capture W3
+# (specs/versions/v0.2/wave-log.md). Operating notes: docs/gm.md.
+
+# --- Identity ---------------------------------------------------------
+id: grafana
+version: 0.1.0
+roles:
+  - dashboards
+technology:
+  name: grafana
+  version: "13.2.4"
+image: 127.0.0.1:5000/dbagm/grafana:0.1.0
+
+# --- Footprint --------------------------------------------------------
+footprint:                          # master spec 12's estimate for the node, less what the
+                                    # node-health script adds to it (docs/gm.md, Footprint)
+  limits:       {cpu: 0.495, memory: 378M}
+  reservations: {cpu: 0.095, memory: 154M, disk: 256M}
+stateful: true
+
+# --- What the scenario sets -------------------------------------------
+parameters: {}                      # Prometheus' address is in the data source seed file
+knobs: []
+
+# --- Player plane -----------------------------------------------------
+write_policies:                     # fixable only (docs/gm.md, Known limits)
+  - fixable
+writable_paths:
+  - /etc/grafana/provisioning       # grafana:grafconf, 2775; seeded files 0664
+  - /home/player                    # ~/report.md, the player's notes
+protected_files:
+  - /etc/grafana/grafana.ini        # administrator, sub-path, authentication
+  - /etc/ssh/sshd_config
+  - /etc/sudoers
+  - /etc/sudoers.d/gm-player
+  - /usr/local/sbin/gm-entrypoint
+  - /usr/local/sbin/gm-reload-grafana
+  - /usr/local/sbin/gm-validate
+  - /usr/local/lib/gm/healthcheck
+  - /usr/local/lib/gm/grafana-api   # root:grafana 0750, not runnable by player
+  - /usr/local/lib/gm/grafana-files
+  - /opt/gm/validator/validate.sh
+  - /etc/s6-overlay/s6-rc.d
+  - /etc/s6-overlay/user-bundles.d
+  - /var/lib/gm-state               # seed marker .gm-seeded (volume gmstate)
+  - /run/gm-grafana                 # record of the last start or reload, root:grafana 0750
+player_access:
+  ssh_account: player
+  group: grafconf
+  sudo_wrappers:
+    - /usr/local/sbin/gm-reload-grafana
+    - /usr/local/sbin/gm-validate
+capabilities:                       # added back after cap_drop: ALL; no-new-privileges stays off (sudo)
+  - AUDIT_WRITE                     # sudo: audit message (else a warning on every sudo)
+  - CHOWN                           # entrypoint: ownership of volumes and seeded files
+  - DAC_OVERRIDE                    # entrypoint: emptying /run, writing into player/grafana dirs
+  - FOWNER                          # entrypoint: modes on files it does not own
+  - KILL                            # s6: signals to the grafana-owned server
+  - NET_BIND_SERVICE                # sshd on port 22 (Docker sets ip_unprivileged_port_start=0,
+                                    # other platforms may not)
+  - SETGID                          # sshd, sudo, runuser, s6-setuidgid
+  - SETUID                          # sshd, sudo, runuser, s6-setuidgid
+  - SYS_CHROOT                      # sshd privilege separation
+
+# --- Runtime ----------------------------------------------------------
+healthcheck:                        # healthy once Grafana has answered in this container
+                                    # and while sshd is up (docs/gm.md)
+  command: ["/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 120s                # first-start migrations at 0.5 CPU
+secrets:
+  - name: player_ssh_pubkey         # inner-hop public key, for SSH as player
+    kind: key-pair
+    pair: player_ssh_key            # the bastion mounts the private half
+    half: public
+    path: /opt/gm/secrets/player_ssh_pubkey
+    uid: 0
+    gid: 0
+    mode: "0444"                    # sshd reads it as player
+  - name: tools_password            # the administrator's password (user admin); also the
+    kind: password                  # bastion's web front password, handed over with it
+    handed_over: true
+    path: /opt/gm/secrets/tools_password
+    uid: 0
+    gid: 472                        # grafana's group: Grafana and the API helper read it
+    mode: "0440"
+seed:
+  dir: /opt/gm/seed/
+  files:                            # all five required; flat names (Swarm config names)
+    - datasources.yaml              # -> /etc/grafana/provisioning/datasources/datasources.yaml
+    - dashboards.yaml               # -> /etc/grafana/provisioning/dashboards/dashboards.yaml
+    - node-health.json              # -> /etc/grafana/provisioning/dashboards/node-health.json
+    - postgresql.json               # -> /etc/grafana/provisioning/dashboards/postgresql.json
+    - alert-rules.yaml              # -> /etc/grafana/provisioning/alerting/alert-rules.yaml
+protected_configs: []
+volumes:
+  - name: grafdata                  # grafana.db and plugins; grafana:grafana 0750
+    path: /var/lib/grafana
+  - name: grafconf
+    path: /etc/grafana/provisioning
+  - name: home
+    path: /home/player
+  - name: gmstate                   # seed marker /var/lib/gm-state/.gm-seeded, root-owned:
+    path: /var/lib/gm-state         #   kept out of the group-writable provisioning directory
+  - name: run                       # /run: a stack file's tmpfs is noexec and s6-overlay
+    path: /run                      # needs exec; emptied by the entrypoint at each start
+processes:
+  - grafana
+  - sshd
+
+# --- Catalog links ----------------------------------------------------
+interfaces:
+  provides:
+    - {name: ssh, protocol: ssh, port: 22}
+    - {name: ui, protocol: http, port: 3000, web_path: /grafana/}
+  consumes:
+    - {name: ui, protocol: http, port: 9090}   # Prometheus, the data source (address in the seed file)
+companion:
+  path: companion/
+  when: >-
+    when writing a scenario with a grafana node: copy companion/* into
+    the node's folder nodes/NODE/ as its seed files (NODE: the grafana
+    node's name); never mounted
+receives:                           # the image accepts another brick's mounted material
+  s6_overlay: "3.2.3.2"             # the version the Dockerfile installs
+  commands: [sh, cat, du, df, awk, sed, grep, sleep, perl, s6-svstat, s6-setuidgid]
+extra:
+  read_only_root: true              # read_only: true in the stack file
+  validator:                        # the GM's official run (gmctl validate, capture W3-A)
+    path: /opt/gm/validator/validate.sh
+    run_as: grafana                 # docker exec -u grafana; gm-validate uses runuser

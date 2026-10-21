@@ -1,0 +1,126 @@
+# brick.yaml: postgres-exporter node, PostgreSQL's metrics for Prometheus
+# (v0.2 master spec 7 and 7.3).
+#
+# Version 0.1.0 (unreleased until the v0.2 release gate, D100).
+# Interfaces, accounts, seed file, secret, wrappers and footprint: capture W3
+# (specs/versions/v0.2/wave-log.md); footprint shape, secret kinds and
+# `receives`: capture W1; the monitoring role it connects as: capture W2-B.
+# Operating notes: docs/gm.md.
+
+# --- Identity ---------------------------------------------------------
+id: postgres-exporter
+version: 0.1.0
+roles:
+  - metrics-exporter
+technology:
+  name: postgres_exporter
+  version: "0.20.1"
+image: 127.0.0.1:5000/dbagm/postgres-exporter:0.1.0
+
+# --- Footprint --------------------------------------------------------
+footprint:                          # master spec 12's estimate for the node, less what the
+                                    # node-health script adds to it (docs/gm.md, Footprint)
+  limits:       {cpu: 0.245, memory: 122M}
+  reservations: {cpu: 0.045, memory: 42M, disk: 64M}
+stateful: true
+
+# --- What the scenario sets -------------------------------------------
+parameters: {}                      # the database's address and user are in the seed file
+knobs: []                           # no envelope: the settings are checked by the validator
+
+# --- Player plane -----------------------------------------------------
+write_policies:                     # fixable only (docs/gm.md, Known limits)
+  - fixable
+writable_paths:
+  - /etc/postgres-exporter          # exporter:expconf, 2775; seeded exporter.conf 0664
+  - /home/player                    # ~/report.md, the player's notes
+protected_files:
+  - /etc/ssh/sshd_config
+  - /etc/sudoers
+  - /etc/sudoers.d/gm-player
+  - /usr/local/sbin/gm-entrypoint
+  - /usr/local/sbin/gm-restart-exporter
+  - /usr/local/sbin/gm-validate
+  - /usr/local/lib/gm/healthcheck
+  - /usr/local/lib/gm/exporter-conf         # reads exporter.conf for the service, wrapper, validator
+  - /usr/local/lib/gm/exporter-collectors   # the collectors this postgres_exporter offers
+  - /usr/local/lib/gm/postgres_exporter.yml # --config.file, no auth module
+  - /opt/gm/validator/validate.sh
+  - /etc/s6-overlay/s6-rc.d
+  - /etc/s6-overlay/user-bundles.d
+  - /var/lib/gm-state               # seed marker .gm-seeded (volume gmstate)
+player_access:
+  ssh_account: player
+  group: expconf                    # never exporter's group: the password stays out of reach
+  sudo_wrappers:
+    - /usr/local/sbin/gm-restart-exporter
+    - /usr/local/sbin/gm-validate
+capabilities:                       # added back after cap_drop: ALL; no-new-privileges stays off (sudo)
+  - AUDIT_WRITE                     # sudo: audit message (else a warning on every sudo)
+  - CHOWN                           # entrypoint: ownership of volumes and seeded files
+  - DAC_OVERRIDE                    # entrypoint: emptying /run, writing into player/exporter dirs
+  - FOWNER                          # entrypoint: modes on files it does not own
+  - KILL                            # s6: signals (restart) to the exporter-owned server
+  - NET_BIND_SERVICE                # sshd on port 22 (Docker sets ip_unprivileged_port_start=0,
+                                    # other platforms may not)
+  - SETGID                          # sshd, sudo, runuser, s6-setuidgid
+  - SETUID                          # sshd, sudo, runuser, s6-setuidgid
+  - SYS_CHROOT                      # sshd privilege separation
+
+# --- Runtime ----------------------------------------------------------
+healthcheck:                        # healthy once postgres_exporter has answered in this container
+                                    # and while sshd is up; never asks the database (docs/gm.md)
+  command: ["/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 60s
+secrets:
+  - name: player_ssh_pubkey         # inner-hop public key, for SSH as player
+    kind: key-pair
+    pair: player_ssh_key            # the bastion mounts the private half
+    half: public
+    path: /opt/gm/secrets/player_ssh_pubkey
+    uid: 0
+    gid: 0
+    mode: "0444"                    # sshd reads it as player
+  - name: monitoring_password       # the database's monitoring role (postgres 0.2.0 creates it)
+    kind: password                  # not handed over: 32 characters, players never type it
+    path: /opt/gm/secrets/monitoring_password
+    uid: 0
+    gid: 990                        # exporter's group (the Dockerfile fails the build otherwise)
+    mode: "0440"                    # root and exporter only; reaches the server as
+                                    # DATA_SOURCE_PASS_FILE, never in a file player reads
+seed:
+  dir: /opt/gm/seed/
+  files:
+    - exporter.conf                 # DATA_SOURCE_URI, DATA_SOURCE_USER, COLLECTORS
+protected_configs: []
+volumes:
+  - name: expconf                   # exporter.conf, edited by players
+    path: /etc/postgres-exporter
+  - name: home
+    path: /home/player
+  - name: gmstate                   # seed marker /var/lib/gm-state/.gm-seeded, root-owned:
+    path: /var/lib/gm-state         #   kept out of the group-writable /etc/postgres-exporter
+  - name: run                       # /run: a stack file's tmpfs is noexec and s6-overlay
+    path: /run                      # needs exec; emptied by the entrypoint at each start
+processes:
+  - postgres-exporter
+  - sshd
+
+# --- Catalog links ----------------------------------------------------
+interfaces:
+  provides:
+    - {name: metrics, protocol: http, port: 9187}   # /metrics; not routed through the web front
+    - {name: ssh, protocol: ssh, port: 22}
+  consumes:
+    - {name: sql, protocol: postgresql, port: 5432} # the database named in exporter.conf
+receives:                           # the image accepts another brick's mounted material
+  s6_overlay: "3.2.3.2"             # the version the Dockerfile installs
+  commands: [sh, cat, du, df, awk, sed, grep, sleep, perl, s6-svstat, s6-setuidgid]
+extra:
+  read_only_root: true              # read_only: true in the stack file
+  validator:                        # the GM's official run (gmctl validate, capture W3-A)
+    path: /opt/gm/validator/validate.sh
+    run_as: exporter                # docker exec -u exporter; gm-validate uses runuser

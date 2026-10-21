@@ -17,7 +17,8 @@ missing thing is not in the authoritative files yet.
 Source of the shape: v0.1's master spec (`specs/versions/v0.1/master-spec.md`,
 section 6, and 6.2 for the content) and v0.2's
 (`specs/versions/v0.2/master-spec.md`, 6.3: evidence `where` and `source`,
-tooling expectations). The template's sections follow the
+tooling expectations; 7.1 and 7.6: the node-health map and the web front's
+routes, rendered as "Map-valued parameters" below). The template's sections follow the
 keys of the format skill's
 [scenario.yaml](../scenario-format/templates/scenario.yaml) and
 [answer-key.yaml](../scenario-format/templates/answer-key.yaml) templates,
@@ -64,6 +65,9 @@ reconcile by hand. A hand-written note that belongs to the GM goes to
 2. **Read the inputs**: `scenario.yaml`, `gm/answer-key.yaml`, and
    `brief.md` (quoted as given). Nothing else is a source: the document
    names the other files of the folder by path, it does not copy them.
+   One exception: a node's parameter whose value is a map is rendered by
+   its `shape`, read from the pinned brick's `brick.yaml` (see
+   "Map-valued parameters" below).
 3. **Copy [template.md](template.md)** to `scenarios/<id>/README.md` and
    fill it top to bottom. Each section names the keys it comes from.
    Repeat a block once per entry where its comment says so, in the order
@@ -79,12 +83,56 @@ reconcile by hand. A hand-written note that belongs to the GM goes to
      appears, and every answer-key entry, one per fault instance, with
      each evidence entry's `where` and `source`, and every tooling
      expectation;
+   - every entry of a map-valued parameter appears, in the order of the
+     YAML and as `scenario.yaml` writes it: each `node-map` entry with
+     its node and its services (or `default`), each `web-routes` route
+     with its `ui:<name>`, its path, its node and its port;
    - every value matches its key (versions pinned, knobs' initial values
      and envelopes, reservations, placement);
    - each file path it names exists in the folder (`local/` excepted: it
      is never named);
    - the document is not named in any node's `seed_files` and nothing
      under `player/` quotes it.
+
+## Map-valued parameters
+
+A node parameter whose value is a map (capture W1 item 2 of
+`specs/versions/v0.2/wave-log.md`) is not written inline as YAML. Its
+rendering is keyed on the parameter's `shape` in the **pinned brick's
+`brick.yaml`**: the scenario's `bricks/<id>/brick.yaml` when the
+scenario carries the brick, the catalog's `bricks/<id>/brick.yaml`
+otherwise. That file is read for this alone, and is the one catalog file
+the skill reads; a scenario-local brick's map is covered the same way.
+On the node's **Parameters** line the parameter is named and pointed
+below ("node_health: the node-health map, below"); its block follows the
+node's bullets, before its resources (see the template).
+
+- **`node-map`** (`prometheus`'s `node_health`): one item per entry, in
+  YAML order, the node and its services, comma-separated; `default` is
+  kept as written and glossed as the brick's s6 processes ("`default`
+  (its brick's s6 processes)"). Then one line, in master spec 7.1's and
+  the access model's wording: "The node-health script is mounted into
+  every node listed, read-only for players; its endpoint is readable
+  from every node of the game, the bastion included." The map is shown
+  as `scenario.yaml` states it, before any parameter fault: a fault
+  leaving a node or a service out is listed in section 5, never applied
+  here.
+- **`web-routes`** (the bastion's `web_routes`): a table, one row per
+  route, in YAML order: the route as `ui:<name>` (the name the answer
+  key's evidence uses), its path `/<name>/` on the web front, the
+  upstream node and port (the value `"<node>:<port>"` split). Then one
+  line, in master spec 7.6's and access model 5 and 7's wording:
+  "Published on the bastion's web front port, behind HTTP basic
+  authentication on the tools password; a request without it is refused
+  with HTTP 401." An empty map (`{}` written in `scenario.yaml`): no
+  table, and the line "Web front routes (`<NAME>`): none. The web front
+  does not run, the bastion publishes SSH only and no tools password is
+  handed over." A parameter the scenario leaves out (its brick's default
+  applies) is not rendered: the Parameters line says what
+  `scenario.yaml` writes.
+
+A shape not listed here is a change to this skill and its template
+first; never invent its rendering.
 
 ## What it does not describe
 

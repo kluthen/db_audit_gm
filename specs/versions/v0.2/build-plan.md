@@ -83,8 +83,8 @@ model says (D100).
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
 | 1 | 1, 2, 3, 4 | G2 (chunks 1, 4); G3 (chunks 1, 3, 4) | merged (2026-10-21, 6467fb5) |
-| 2 | 5, 6, 7 | wave 1; G2, G3 | gated (2026-10-21); merge on the owner's word |
-| 3 | 8, 9, 10, 11 | wave 2 | planned |
+| 2 | 5, 6, 7 | wave 1; G2, G3 | merged (2026-10-21, 351de59) |
+| 3 | 8, 9, 10, 11 | wave 2 | gated (2026-10-21, 79144c2); merge on the owner's word |
 | 4 | 12, 13, 14 | wave 3; G10 (chunk 14's merge) | planned |
 
 ```
@@ -578,8 +578,13 @@ routes parameter and its `GM_WEB_ROUTES` encoding are W1's (items 2, 3).
 
 ### Chunk 8 — `gmctl fit` counts the images
 
-Status: planned
-Record: (after merge)
+Status: merged (w3, 100b5a9)
+Record: 044b882. No deviation from the spec. Besides `docker image
+inspect`, `fit` runs `docker history` (per-layer sizes) and `docker
+version` through the same endpoint; layers are keyed by OCI chain id.
+Outside its Files line: `tools/tests/__init__.py` (`FakeDocker` gains
+images, history, version; tests point `fit` at it) and the new stand-in
+`tools/tests/fakebin/docker` (capture W3-A).
 Wave: 3
 Depends on: chunk 1 (G6 done)
 Architecture capture: none.
@@ -605,8 +610,13 @@ Architecture capture: none.
 
 ### Chunk 9 — `postgres-exporter` brick
 
-Status: planned
-Record: (after merge)
+Status: merged (w3, f20ff5e)
+Record: 2fc4c54 (9a), ad102d8 (9b). No deviation from the spec or
+capture W3; fixable only, as `prometheus` (W3 ruling 1, in the wave 3
+report). `postgres_exporter` 0.20.1; image 165MB (master spec 12
+estimated about 25M over the shared layers). Outside its Files line:
+test fixtures under `bricks/postgres-exporter/tests/fixtures/`
+(capture W3-B).
 Wave: 3
 Depends on: chunks 3, 6; G2, G3
 Architecture capture: at wave 3 start, for chunk 11: its seed files,
@@ -638,8 +648,15 @@ parameters, metrics port, secret name and wrapper names.
 
 ### Chunk 10 — `grafana` brick
 
-Status: planned
-Record: (after merge)
+Status: merged (w3, e6707a6)
+Record: 0d56092 (10a), 8e01f9a (10b). Grafana OSS 13.2.4; image 866MB
+(master spec 12 estimated about 450M). Sub-path: `root_url` ending
+`/grafana/` with `serve_from_sub_path = true`. Differs from capture W3
+(within its "use what the version offers" exception):
+`default_timezone = UTC`, since 13.2.4 refuses `utc`; the
+`companion.when` wording uses `NODE`, since the loader reads `<node>` as
+a placeholder; an extra `provisioning/plugins/` directory. Fixable only
+(W3 ruling 1, in the wave 3 report). Capture W3-C.
 Wave: 3
 Depends on: chunks 3, 7; G2, G3 (G8 done)
 Architecture capture: at wave 3 start, for chunk 11: its seed files
@@ -682,8 +699,15 @@ a check reads its live state through its API, and wrapper names.
 
 ### Chunk 11 — Monitoring integration fixture and smoke run
 
-Status: planned
-Record: (after merge)
+Status: merged (w3, 141e952)
+Record: 47ff165. No deviation from the spec. The fixture carries one
+harmless scenario-local seed-file fault (the loader refuses an empty
+`fault_instances`), never injected. The smoke run reads node-health
+endpoints from the bastion with Perl, not `curl`, and parses
+Prometheus' JSON on the host (neither image has the tool W3 assumed).
+The `monitoring` line in `pg_hba.conf` uses `samenet`. Outside its Files
+line: `fixture-mounted/scenario.yaml`'s header comment, the root
+`README.md` bricks row (capture W3-D).
 Wave: 3
 Depends on: chunks 4, 5, 6, 7 (merged); chunks 9, 10 (in-wave, wave 3
 capture)

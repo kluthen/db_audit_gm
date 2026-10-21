@@ -1,0 +1,16 @@
+#!/bin/sh
+# s6 service `grafana` (DO NOT TAMPER). Settings: /etc/grafana/grafana.ini
+# (in the image); data source, dashboards and alert rules: the files under
+# /etc/grafana/provisioning, read at each start and on
+# `sudo gm-reload-grafana`. Served under /grafana/ on port 3000, the path the
+# bastion's web front forwards unchanged.
+# Before each start, records what Grafana provisions from (for the
+# validator's `reload` and `pending` rules).
+exec 2>&1
+. /usr/local/lib/gm/grafana-files
+applied_write start ok "$(prov_fingerprint)"
+cd /usr/share/grafana
+exec /command/s6-setuidgid grafana env HOME=/var/lib/grafana \
+    /usr/share/grafana/bin/grafana server \
+    --homepath=/usr/share/grafana \
+    --config=/etc/grafana/grafana.ini

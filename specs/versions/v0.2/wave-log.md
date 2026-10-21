@@ -780,3 +780,716 @@ logging and preload settings in their seeds (W2-B); chunk 11 fixes
 G11. Plan at v4. Branches left: `v0.2-w2` only. Next: wave 3 (chunks
 8, 9, 10, 11; chain 9, 10 → 11, captures at wave start), from `main`
 once wave 2 merges.
+- Merged into `main` 2026-10-21 on the owner's word: 351de59. Branch
+  and worktree `v0.2-w2` removed.
+
+### Owner direction after wave 2 — 2026-10-21
+
+The owner expects the `postgres` brick to grow many optional elements
+(PostGIS, TimescaleDB, pgBadger, replication modules, …), each
+documented and added to a scenario when appropriate. Ruled: brick
+options go to v0.5 (bricks improved and extended); v0.2 stays as built
+(pgBadger, the `pglog` volume, the `monitoring` role and secret in every
+game; the logging and preload settings already the scenario's, in its
+seed). Sent to `spec-writer` to record in `versions/v0.5/` and the
+registers, committed on `v0.2-w3`. Recorded in b59dfee: D107 (the
+ruling), O79 (the options model, `postgres` first: where the software
+comes from, how a scenario chooses, start-up, faults that need an
+option, docs) and O80 (every brick or only `postgres`), both due in v0.5.
+Next free: D108, O81.
+
+## Wave 3 — started 2026-10-21
+
+Chunks: 8, 9, 10, 11 (chain 9, 10 → 11). Branch `v0.2-w3`, worktree
+`/home/bastien/work/db_audit_gm-wt/v0.2-w3`, cut from `main` at
+351de59 (wave 2 merged).
+
+- **Concurrency.** The owner's allowance for this session holds: 8, 9
+  and 10 run side by side (no path between them, no shared source
+  file); 11 starts once 9 and 10 merge.
+- **Gates.** G2, G3 done; G8 done (spec D104). Swarm active, host idle.
+- **Preflight.** None (no intent register, no data register).
+- **Captures.** W3 (chunks 9 and 10's interfaces, for chunk 11) is
+  drafted before 9 and 10 start. Chunk 8 needs none and starts now.
+- Chunk 8 dispatched 2026-10-21.
+
+### Capture W3 — postgres-exporter and grafana interfaces (chunks 9, 10; read by 11, 12, 13, 14)
+
+Recorded 2026-10-21, before any code (drafted by a read-only planning
+agent, reviewed by the wave driver; the driver's rulings on its open
+points follow the capture). Sources: master spec 6, 7, 7.3, 7.4, 12, 15;
+access model 5, 7, 8, 11; D98 to D106; captures W1 to W2-C; `prometheus`
+0.1.0 as built, which is the model for the s6 setup, entrypoint,
+wrappers, validator, capability list, the `/run` volume and the seed
+marker. This capture fixes only what chunks 11 to 14 rely on; everything
+else is the chunk's, recorded after its merge. "(choice)" marks a point
+the sources left open and this capture settles.
+
+**Three API details rest on upstream knowledge, not on the repo**:
+`postgres_exporter`'s `DATA_SOURCE_PASS_FILE`, Grafana's `$__file{}`
+expansion in `grafana.ini`, and the `pg_stat_statements_*` metric names.
+Chunks 9 and 10 confirm them in their stack tests; if the pinned release
+differs, the chunk uses what the release offers, keeps the property this
+capture states (no credential in a file `player` reads, an argument or
+`--env`), and its report gives the actual names for the wave log.
+
+**Both bricks**
+- Each is a full node, as `prometheus` is: `debian:13-slim`, s6-overlay
+  3.2.3.2, `sshd`; `player` logs in by key only (`player_ssh_pubkey`:
+  `kind: key-pair`, `pair: player_ssh_key`, `half: public`, 0:0
+  `"0444"`); read-only root; `/run` a named volume emptied at each start
+  (D55), `/tmp` linked to `/run/tmp`; seed files copied once into an
+  editable volume, marker `/var/lib/gm-state/.gm-seeded` on volume
+  `gmstate`; the `sudo` log `/run/gm/sudo.log`; prometheus' capability
+  list; `curl` and `jq` installed (choice: wrappers, validators and
+  sealed checks parse JSON).
+- `write_policies: [fixable]`, `knobs: []`, `stateful: true`,
+  `extra.read_only_root: true` (see ruling 1).
+- `receives: {s6_overlay: "3.2.3.2", commands: [sh, cat, du, df, awk,
+  sed, grep, sleep, perl, s6-svstat, s6-setuidgid]}`, each command
+  checked with `command -v` in the image, and said in `docs/gm.md`
+  Connections (W1 item 5).
+- Service accounts get an explicit uid and gid in the Dockerfile; the
+  build fails if they differ (as postgres checks 100:102). The secret's
+  `gid` in `brick.yaml` is that number. `player`'s configuration group
+  is never the service account's group, so the secret stays out of
+  `player`'s reach.
+- Health check as prometheus': healthy while `sshd` is up, once the
+  service has answered once in this container (marker
+  `/run/gm/<service>-was-ready`); never depends on what the node watches.
+- Validator `/opt/gm/validator/validate.sh`: exit 0 `GREEN: …`; exit 1
+  one `RED <rule>: …` line per broken rule; exit 2 `ERROR: …`. It judges
+  only whether the tool runs its own files as written, never what it
+  watches or points at (prometheus' rule for scrape targets): a wrong
+  database address or data source URL is a finding, not a red rule.
+  `gm-validate` takes no arguments, runs the validator as the service
+  account through `runuser`, and passes its exit code through.
+- Footprint: master spec 12's node row minus the node-health script
+  (0.005 CPU / 6M), as W1-D did. The scenario's `resources` take the
+  full row.
+- No published port. The GM works inside the node through `gmctl exec`.
+  No credential ever goes in `--env` or on a command line (`docker
+  exec`'s arguments show in the host's process list): a secret is read
+  from its file inside the node and given to `curl` on stdin
+  (`curl -K -`).
+
+**`postgres-exporter` 0.1.0 (chunk 9)**
+- Identity: `id: postgres-exporter`, image
+  `127.0.0.1:5000/dbagm/postgres-exporter:0.1.0`, `roles:
+  [metrics-exporter]` (choice); technology `postgres_exporter`, pinned
+  with its checksum; the chunk picks the release, which must support
+  PostgreSQL 18 and `--collector.stat_statements`.
+- Accounts: `exporter` runs the server; `player` is in group `expconf`
+  (choice). `processes: [postgres-exporter, sshd]` (the s6 services,
+  which the node-health `default` entry expands to).
+- Interfaces: provides `{name: metrics, protocol: http, port: 9187}`
+  (no `web_path`: never routed through the web front) and `{name: ssh,
+  protocol: ssh, port: 22}`; consumes `{name: sql, protocol: postgresql,
+  port: 5432}`.
+- `parameters: {}`. The database's address lives in the seed file, as
+  Prometheus' scrape targets do (choice: a fault or a fix can live
+  there, and players can see it).
+- Seed `exporter.conf` (choice): `/opt/gm/seed/exporter.conf` (0:0
+  `"0444"`) copied to `/etc/postgres-exporter/exporter.conf`,
+  `exporter:expconf` `0664`; directory `2775`, on volume `expconf`.
+  UTF-8, one `KEY=value` per line; `#` lines and blank lines ignored.
+  The s6 `run` script reads it as root, so it parses the file and never
+  sources or evals it. An unknown key or a missing required key: the
+  service is not started and the validator's `config` rule is red.
+  ```
+  DATA_SOURCE_URI=db:5432/postgres?sslmode=disable   # required: <db node>:5432/postgres
+  DATA_SOURCE_USER=monitoring                        # required (W2-B's role)
+  COLLECTORS=--collector.stat_statements             # optional: only --collector.<x> / --no-collector.<x>
+  ```
+  `sslmode=disable` because postgres 0.2.0 runs with SSL off;
+  authentication is `scram-sha-256` through the seed `pg_hba.conf`
+  `host` line (W2-B).
+- Secret `monitoring_password`: `kind: password`, no `handed_over`,
+  `/opt/gm/secrets/monitoring_password`, uid 0, gid `exporter`'s,
+  `"0440"`; the entrypoint refuses a missing, empty or multi-line file,
+  as postgres does; it reaches the server only as
+  `DATA_SOURCE_PASS_FILE=/opt/gm/secrets/monitoring_password`, set by
+  the `run` script, never in `exporter.conf`, an argument or `--env`.
+- Listening address `:9187` and path `/metrics` are fixed in the `run`
+  script, not in the file.
+- Wrapper `gm-restart-exporter` (choice: `postgres_exporter` reads its
+  settings only at start): checks the file as the `run` script does and
+  refuses with "NOT restarted" (exit 1) if it fails; otherwise
+  `s6-svc -r`, waits up to 30 s for `/metrics`, prints `pg_up`.
+- `gm-validate`; validator rules at least `config`, `server` (port 9187
+  answers), `pending` (the file changed after the service started).
+  `extra.validator.run_as: exporter`.
+- Volumes: `expconf` `/etc/postgres-exporter`, `home` `/home/player`,
+  `gmstate` `/var/lib/gm-state`, `run` `/run`.
+- Footprint: limits `{cpu: 0.245, memory: 122M}`, reservations
+  `{cpu: 0.045, memory: 42M, disk: 64M}`.
+- Metrics other chunks rely on: `pg_up` (1 = connected);
+  `pg_stat_statements_calls_total` and
+  `pg_stat_statements_seconds_total` (need the collector flag and the
+  database's preload; names confirmed by chunk 9);
+  `pg_scrape_collector_success` (every default collector succeeds on
+  PostgreSQL 18).
+
+**`grafana` 0.1.0 (chunk 10)**
+- Identity: `id: grafana`, image `127.0.0.1:5000/dbagm/grafana:0.1.0`,
+  `roles: [dashboards]` (choice); Grafana OSS pinned with its checksum
+  (ruling 4); the chunk picks the version and records the image size.
+- Accounts: `grafana` runs the server; `player` is in group `grafconf`.
+  `processes: [grafana, sshd]`.
+- Interfaces: provides `{name: ui, protocol: http, port: 3000,
+  web_path: /grafana/}` (confirms W2-C's 3000) and `{name: ssh,
+  protocol: ssh, port: 22}`; consumes `{name: ui, protocol: http, port:
+  9090}` (Prometheus).
+- Route name `grafana`: `web_routes: {grafana: "grafana:3000",
+  prometheus: "prometheus:9090"}`. Other node names change the values,
+  never the keys (W1-C).
+- `parameters: {}`. Prometheus' address is in the data source seed
+  file, so master spec 11.1's "data source pointed at the wrong address"
+  is a seed-file fault.
+- `/etc/grafana/grafana.ini` is in the image, root `0444`, protected,
+  not a seed file (choice: it holds the admin account, sub-path and
+  authentication settings). It sets: `[server] http_port = 3000`,
+  `root_url = %(protocol)s://%(domain)s:%(http_port)s/grafana/`,
+  `serve_from_sub_path = true`; `[security] admin_user = admin`,
+  `admin_password = $__file{/opt/gm/secrets/tools_password}`;
+  `[date_formats] default_timezone = utc`; `[users] allow_sign_up =
+  false`; `[auth.anonymous] enabled = false`; `[auth.basic] enabled =
+  true` (the in-node API calls need it; the front strips
+  `Authorization` anyway); `[paths] data = /var/lib/grafana`,
+  `provisioning = /etc/grafana/provisioning`; `[log] mode = console`
+  (to `gmctl logs`); `[smtp] enabled = false`; no outbound calls
+  (analytics, update checks, news, plugin pre-install off); unified
+  alerting on, no contact point provisioned.
+- Administrator user `admin` (choice: Grafana's documented name; the
+  front's user `player` is not a Grafana user, so a leaked front header
+  can never log anyone in). Password: the tools password (ruling 8).
+  `grafana`'s `docs/player.md` names the user; chunks 12 and 14 use it
+  at hand-over and in the starter pack.
+- Seed files, all five required in every scenario; flat names keep the
+  Swarm config names short (W2-A's 64-character limit). Volume
+  `grafconf` at `/etc/grafana/provisioning`; files `grafana:grafconf`
+  `0664`, directories `2775`.
+
+  | seed file (`/opt/gm/seed/`) | live path under `/etc/grafana/provisioning/` | holds |
+  |---|---|---|
+  | `datasources.yaml` | `datasources/datasources.yaml` | name `Prometheus`, uid `prometheus`, type `prometheus`, url `http://<prometheus node>:9090/prometheus`, default |
+  | `dashboards.yaml` | `dashboards/dashboards.yaml` | the file provider, path `/etc/grafana/provisioning/dashboards` |
+  | `node-health.json` | `dashboards/node-health.json` | uid `node-health`: the node-health view (D104) |
+  | `postgresql.json` | `dashboards/postgresql.json` | uid `postgresql` |
+  | `alert-rules.yaml` | `alerting/alert-rules.yaml` | alert rules in Grafana's file format; no contact points, no policies |
+
+  A scenario needing another seeded dashboard bumps the brick, as
+  prometheus' rule files do. On a fixable node players may add files.
+- `companion/` holds those five files under the same names; its
+  `when`: "when writing a scenario with a grafana node: copy companion/*
+  into nodes/<node>/ as its seed files"; no `mounted` entry. Scenarios
+  copy the files, never point at them (the loader's `_inside` refuses a
+  path outside the scenario folder). Reference data source URL
+  `http://prometheus:9090/prometheus`. Dashboards set `"timezone":
+  "utc"` and the data source `{type: prometheus, uid: prometheus}`, have
+  no `__inputs`, and select by metric name and the `node` label, never
+  by `job`. Node-health dashboard per master spec 14 item 5: CPU,
+  memory, disk against the reservation, services per node; the host's
+  free space once. PostgreSQL dashboard: `pg_up`, `pg_stat_statements_*`.
+  Alert rules at least: a scrape target down (`up == 0`), a node-health
+  service down (`node_health_service_up == 0`), the exporter
+  disconnected (`pg_up == 0`), a disk near its reservation; rule uids
+  are chunk 10's, listed in `docs/gm.md`.
+- Secret `tools_password`: `kind: password`, `handed_over: true` (as on
+  the bastion), `/opt/gm/secrets/tools_password`, uid 0, gid
+  `grafana`'s, `"0440"`. A uid, gid or mode different from the
+  bastion's is allowed: W1-B compares only `kind`, `handed_over`, `pair`
+  and `half`.
+- Helper `/usr/local/lib/gm/grafana-api <METHOD> <path>` (choice):
+  root:grafana `0750`, protected, not a `sudo` wrapper; reads the secret
+  and sends `admin:<pw>` to `http://127.0.0.1:3000/grafana<path>`
+  through `curl -K -`, prints the body; exit 0 on 2xx, 1 on any other
+  HTTP status, 2 when Grafana does not answer. The wrapper, the
+  validator, sealed checks and the GM all use it.
+- Wrapper `gm-reload-grafana`: POSTs
+  `/api/admin/provisioning/{datasources,dashboards,alerting}/reload`,
+  prints each result; exit 1 if one is refused; if Grafana is down,
+  waits up to 30 s for s6 to bring it back.
+- `gm-validate`; validator rules at least `server` (`/api/health`
+  reports the database ok), `files` (all five present, the JSON parses
+  with `jq`), `reload` (the last start or reload provisioned without
+  error), `pending` (a provisioning file changed after the last
+  reload); a refused admin login is `ERROR` (exit 2): the DO NOT TAMPER
+  rule was broken. `extra.validator.run_as: grafana`.
+- Volumes: `grafdata` `/var/lib/grafana` (`grafana.db`; grafana:grafana
+  `0750`, unreadable to `player`), `grafconf`, `home`, `gmstate`, `run`.
+- Health check `start_period: 120s` (choice: first-start migrations at
+  0.5 CPU; deploy waits up to 300 s).
+- Footprint: limits `{cpu: 0.495, memory: 378M}`, reservations
+  `{cpu: 0.095, memory: 154M, disk: 256M}`.
+- Reading Grafana's live state (sealed checks with `run_as: root`, the
+  GM in chunk 12, chunk 11's smoke run): `gmctl exec --node <grafana>
+  --user root`, the script calling the helper on: `/api/health`;
+  `/api/user` (login `admin`, `isGrafanaAdmin`); `/api/datasources`,
+  `/api/datasources/uid/prometheus`,
+  `/api/datasources/uid/prometheus/health`; `/api/search?type=dash-db`,
+  `/api/dashboards/uid/<uid>`; `/api/v1/provisioning/alert-rules`;
+  `/api/prometheus/grafana/api/v1/rules` (rule state, firing alerts);
+  `/api/v1/provisioning/contact-points`; `/api/admin/settings`
+  (`date_formats.default_timezone`, `server.root_url`). Never send a
+  wrong admin password: Grafana's brute-force protection locks `admin`
+  out.
+
+**For chunk 11 (`fixture-monitoring`)**
+- Node names (choice): `bastion`, `db`, `prometheus`, `exporter`,
+  `grafana`, one network. Pins: bastion and postgres 0.2.0, the other
+  three 0.1.0. Each node's `resources` is its master spec 12 row.
+- bastion: `web_routes` as above, `published_ports: [{port: 22,
+  default: 2222}, {port: 8080, default: 8080}]`. The loader requires
+  8080 as the default, so `smoke.sh` and `smoke-monitoring.sh` never run
+  at the same time.
+- prometheus: `node_health: {bastion: default, db: default, prometheus:
+  default, exporter: default, grafana: default}`. Seed `prometheus.yml`,
+  retention 1d / 256MB, and:
+  ```yaml
+  scrape_configs:
+    - {job_name: prometheus, metrics_path: /prometheus/metrics, static_configs: [{targets: ['localhost:9090']}]}
+    - {job_name: postgres, static_configs: [{targets: ['exporter:9187']}]}
+    - {job_name: node-health, static_configs: [{targets: ['bastion:9110', 'db:9110', 'prometheus:9110', 'exporter:9110', 'grafana:9110']}]}
+  ```
+- db: seed `postgresql.conf` with W2-B's logging settings and
+  `shared_preload_libraries = 'pg_stat_statements'`; `pg_hba.conf` lets
+  `monitoring` in from `exporter` with `scram-sha-256`.
+- exporter: `exporter.conf` as above, with `--collector.stat_statements`.
+- grafana: the five seed files copied byte for byte from
+  `bricks/grafana/companion/`; a unit test compares them (choice).
+- Smoke checks:
+  - Prometheus, through `gmctl exec --node prometheus --user
+    prometheus`: `/prometheus/api/v1/targets` shows all 7 targets up;
+    `query?query=pg_up` returns 1; `count(pg_stat_statements_calls_total)
+    > 0`.
+  - Node health: from the bastion, `curl -s <node>:9110/metrics` for
+    each node; one service stopped with `s6-svc -d` shows
+    `node_health_service_up{node=…,service=…} 0`.
+  - Grafana, through exec and the helper: the data source health check
+    OK; both dashboard uids in the search; the alert rule count equals
+    the companion's; the default time zone `utc`.
+  - Web front from the host, the tools password read from
+    `local/<pg>/secrets/tools_password` and given to `curl -K -`:
+    without credentials 401; `/prometheus/-/ready` 200;
+    `/grafana/api/health` 200; `POST /grafana/login` with
+    `{"user":"admin","password":<tools>}` 200 (proves the admin
+    password and the Origin/Host pass-through).
+  - `Authorization` not reaching Grafana: `GET /grafana/api/user`
+    through the front, carrying only the front's credentials, gets the
+    same 401 body as an in-node request with no credentials, and differs
+    from an in-node request sending `player:<tools>` straight to port
+    3000 (`player` is no Grafana user, so no lockout).
+
+**Driver's rulings on the draft's open points**
+1. **Write policy.** Master spec 7 says every new brick is "fixable or
+   report-only per scenario", but no channel passes a node's write
+   policy to its container (`model.py` only checks it against
+   `write_policies`), and `prometheus` 0.1.0 already shipped fixable
+   only, under its `docs/gm.md` Known limits (wave 1). Both new bricks
+   follow that precedent: `write_policies: [fixable]`, and each
+   `docs/gm.md` Known limits says so in prometheus' wording. The access
+   model's report-only Grafana gap therefore cannot arise in v0.2. This
+   is a deviation from master spec 7 for all three monitoring bricks; it
+   goes to the owner in the wave 3 report (and to `spec-writer` if the
+   owner wants it recorded or built). It blocks nothing.
+2. **`consumes`.** The new bricks list what they reach, as the bastion
+   does; `prometheus` stays as built.
+3. **Grafana's built-in contact point.** Chunk 10 states it under Known
+   limits (never delivers with SMTP off; may log errors).
+4. **Grafana's source (G2).** G2 checked Grafana's apt repository. The
+   driver checked on 2026-10-21 that `dl.grafana.com` also answers from
+   the build host. Either source is fine: a tarball pinned with its
+   SHA-256, or the apt package pinned to an exact version (the signed
+   repository carries its checksum). The chunk records which.
+5. **Image sizes.** Chunks 9 and 10 record the real sizes; chunk 11's
+   `fit` on 8G checks the sum; chunk 14b takes the real figures.
+6. **Dashboard edits.** The Done when holds as long as an edited seed
+   file takes effect through the wrapper. Whether Grafana's own file
+   polling (`updateIntervalSeconds`) also applies it, and
+   `allowUiUpdates`, are chunk 10's choices, recorded in `docs/gm.md`.
+7. **PostgreSQL 18.** Chunk 9's stack test asserts
+   `pg_scrape_collector_success == 1` for every default collector.
+8. **"Always".** Floor: from the game's first start, the administrator's
+   password is the tools password, and no fault ever leaves a default
+   password (master spec 7.4: "always: there is no default-password
+   fault"). Whether each start also re-applies it (which would let a
+   restart recover the GM's checks after a tampered password) is chunk
+   10's choice, recorded in `docs/gm.md`.
+9. **Absolute links.** Accepted as drafted; chunk 11's login through the
+   front checks it end to end.
+10. **Open choices settled.** The exporter's database address in its
+    seed file, not a parameter; the administrator user `admin`.
+
+### Dispatch (chunks 9, 10)
+
+- Chunks 9 and 10 dispatched 2026-10-21, side by side, with capture W3
+  committed: branches `v0.2-c9-exporter` and `v0.2-c10-grafana` cut
+  from `v0.2-w3`. Host at dispatch: 5.1G memory available of 11G, 10G
+  free on `/`; chunk 8 still running.
+
+### Capture W3-A — chunk 8 outcomes (read by 11, 12, 14 and the release gate)
+
+Chunk 8 merged 2026-10-21: 044b882, merge 100b5a9. Unit suite 294 OK;
+`smoke.sh` passed once (no other stack on the swarm, no rerun needed).
+
+- **Report lines.** Just before the disk line: `images on <engine>:
+  <image> <size>, ...; <n> layers, <k> shared, each counted once:
+  <total>`. Disk line: `disk: reservations <r> + images <i> + headroom
+  <h> = <total> of <disk>: ok|too much`. Headroom is still 10% of the
+  declared capacity; the disk check is reservations + images + headroom
+  ≤ declared disk; CPU and memory unchanged.
+- **Real figures** (armenelos, 2026-10-21, fixture-audit): `bastion:0.2.0
+  176.51M, postgres:0.2.0 249.71M; 13 layers, 3 shared, each counted
+  once: 350.35M` (the shared layers: `debian:13-slim` and the two
+  s6-overlay archives); `disk: reservations 2.25G + images 350.35M +
+  headroom 2G = 4.59G of 20G: ok`.
+- **Refusals** (exit 1, stderr, nothing written; a fitted game left as
+  it is):
+  - missing image: `image(s) not on <engine>: <image> (build it: docker
+    build -t <image> bricks/<id>); ...; then gmctl fit again; nothing
+    written` (on a remote engine `docker -H <endpoint> build ...`; the
+    brick folder relative to the catalog root);
+  - engine down: `the engine <engine> is not reachable: <Docker's
+    message>. fit reads the images' sizes from the playground's engine:
+    start it or correct the endpoint (--endpoint), then gmctl fit again;
+    nothing written`;
+  - other inspect failure: `cannot read image <image> on <engine>:
+    <message>; nothing written`.
+  `fit` cannot run offline any more (D102, intended).
+- **Layer dedupe.** `docker image inspect` gives size and diff ids;
+  `docker history --no-trunc --human=false` on the image id gives layer
+  sizes; each layer keyed by its OCI chain id, counted once. An image
+  whose history rows do not match its layers one for one, or do not add
+  up to its size, is counted whole and shares nothing (can only
+  over-count).
+- **Python API.** `docker.py`: `PROBE_TIMEOUT` (60 s), `EngineUnreachable`,
+  `server_version`, `Image(name, id, size, layers)`, `chain_ids`,
+  `layer_sizes`, `inspect_image` (None when missing). `fit.py`:
+  `ImageFootprint(...).line()`, `scenario_images`, `build_command`,
+  `image_footprint`; `capacity_check(scenario, capacity, images)` needs
+  the footprint; `fit(..., docker=None)` defaults to the declared
+  endpoint's engine; `declare_playground` replaced by
+  `playground_declaration(...)` → `(declared, existing)`, writing
+  nothing; `playground.yaml` is written only after the images are read.
+  Order in `fit`: load, supported check, game to keep, declaration,
+  engine read, write `playground.yaml`, capacity check.
+- **Tests.** `tools/tests/__init__.py`: `FakeDocker` answers images
+  (default: each image a shared 78M base plus 100M of its own),
+  `history`, `version`, an unreachable mode (`missing=`, `reachable=`,
+  `from_environment(endpoint)`); `ScenarioCopyTest.setUp` points
+  `tools.gm.fit.Docker` at it; `fake_engine(missing, unreachable)` per
+  test; `run_gmctl` puts `tools/tests/fakebin/docker` first on PATH for
+  its child only. A test that needs `fit` against the real engine must
+  stop that patch (chunk 11: the fixture's loader-and-fit unit test runs
+  on the fake engine; `smoke-monitoring.sh` runs the real one).
+- **`gmctl.md`.** No command line changed; the `fit` row's Exit column
+  lists the two new refusals, and "What the output looks like" shows the
+  image line, the disk line and both refusals.
+
+### Capture W3-B — chunk 9 outcomes (read by 11, 13, 14)
+
+Chunk 9 merged 2026-10-21: 2fc4c54 (9a), ad102d8 (9b), merge f20ff5e.
+Unit suite 294 OK after the merge; stack test 76 PASS, 0 FAIL; image
+`postgres-exporter:0.1.0` 165MB (164,559,951 bytes, about 86MB over
+`debian:13-slim`). No deviation from capture W3; its API exception was
+not needed.
+
+- **Release.** `postgres_exporter` 0.20.1 linux-amd64, sha256
+  `89d4f7e7920cad48fdc3133f789556ef5253c330a9f5fdace3bdb6344c0a8b5a`
+  (the release's `sha256sums.txt`); carries the PostgreSQL 17+
+  `pg_stat_statements` query. Checked against PostgreSQL 18.6.
+- **Accounts.** `exporter` 990:990, group `expconf` 991; the build
+  fails if they differ or if `player` is in `exporter`. The secret is
+  `monitoring_password` 0:990 `0440`; the server's environment holds
+  only `DATA_SOURCE_PASS_FILE=/opt/gm/secrets/monitoring_password`.
+- **Metrics.** `pg_up`; `pg_stat_statements_calls_total`,
+  `pg_stat_statements_seconds_total`, `pg_stat_statements_rows_total`
+  (labels `datname`, `queryid`, `user`); `pg_scrape_collector_success
+  {collector=…}`, 1 for all 15 default collectors (database, locks,
+  replication, replication_slots, roles, settings, stat_activity,
+  stat_archiver, stat_bgwriter, stat_database, stat_progress_vacuum,
+  stat_replication, stat_user_tables, statio_user_tables, wal) plus
+  `stat_statements`.
+- **Wrappers.** `gm-restart-exporter` (prints `pg_up 1: connected…` or
+  `pg_up 0: NOT connected…`, exit 0 either way; refuses a bad file with
+  "NOT restarted", exit 1, the old exporter running on) and
+  `gm-validate`. Validator rules `config`, `server`, `pending`;
+  `run_as: exporter`.
+- **`exporter.conf` as built** (beyond W3): a comment may follow a
+  value (whitespace then `#`); refused: a key set twice, a value with
+  spaces, quotes or `` \ ` $ ; ``, a collector the release does not
+  offer (list in `/usr/local/lib/gm/exporter-collectors`), a symbolic
+  link. Messages give line numbers and keys, never values. One
+  root-owned reader, `/usr/local/lib/gm/exporter-conf`, checks for the
+  s6 `run`, the wrapper and the validator. A refused file: the service
+  exits 3, a `finish` script holds it down 4 s.
+- **`pending`** compares the file's mtime with the one recorded at start
+  in `/run/postgres-exporter/loaded`; a file rewritten with its old
+  content shows pending until the next restart (documented).
+- **Health check and `server` rule** use the landing page `/`, which
+  asks nothing of the database: a wrong address gives `pg_up 0` with the
+  validator green and the node healthy.
+- `--config.file` is a protected YAML with no auth module, so `/probe`
+  holds no credential. Upstream also serves `/debug/pprof` on the game
+  network (Known limits).
+- **Stack test.** Stack `gmtest-pgexp`, label
+  `dbagm.test=chunk9-postgres-exporter`, no published port; the db node
+  reuses `bricks/postgres/tests/fixtures/{postgresql.conf,envelopes.conf}`.
+- **Outside the Files line:** `bricks/postgres-exporter/tests/fixtures/
+  {exporter.conf,pg_hba.conf}`; under `rootfs/`,
+  `usr/local/lib/gm/postgres_exporter.yml` and the s6 `finish` file
+  (added with `git add -f`: the repo's `local/` ignore rule matches
+  `rootfs/usr/local/`).
+- **Left for the wave:** the root `README.md` row for `bricks/` lists
+  only postgres, bastion and prometheus (left to avoid a clash with
+  chunk 10; chunk 11 adds both new bricks). Branch `v0.2-c9-exporter`
+  kept; removed with the wave's branches.
+
+### Capture W3-C — chunk 10 outcomes (read by 11, 12, 13, 14)
+
+Chunk 10 merged 2026-10-21: 0d56092 (10a), 8e01f9a (10b), merge
+e6707a6. Unit suite 294 OK after the merge; stack test 88 PASS, 0 FAIL
+(against a real `prometheus` 0.1.0 node). `$__file{}` and every endpoint
+W3 lists work as stated (`$__file{}` trims the value).
+
+- **Grafana.** OSS 13.2.4, tarball
+  `https://dl.grafana.com/grafana/release/13.2.4/grafana_13.2.4_38252365904_linux_amd64.tar.gz`,
+  SHA-256 `c48765988fd88572607e4ea670251af8a8e64ab3e360d0f3cf67a6f3587b92ab`
+  (the published `.sha256`), `ADD --checksum` in a separate build stage;
+  only the bundled Prometheus plugin kept (13.2.3); source maps,
+  Swagger UI, docs dropped; binary unmodified. **Image 866MB**
+  (866181319 bytes; the binary alone 499M; master spec 12 estimated
+  about 450M). Healthy in about 12 s on first start; memory at rest
+  180–195M (`memory.current`, page cache included) against a 154M
+  reservation (release-gate footprint measurement decides); database
+  volume 1.7M.
+- **Differences from W3** (its "use what the version offers"
+  exception):
+  1. `default_timezone = UTC`: 13.2.4 refuses `utc` (warns "unknown
+     time zone utc" and keeps the browser's zone). `/api/admin/settings`
+     only echoes the file's raw value; **read the zone in effect from
+     `/api/frontend/settings` `.dateFormats.defaultTimezone`, expecting
+     `UTC`**. Dashboards keep `"timezone": "utc"`, which Grafana accepts.
+  2. `companion.when`: "copy companion/* into the node's folder
+     nodes/NODE/ as its seed files (NODE: the grafana node's name);
+     never mounted" (the loader reads `<node>` as an unfilled
+     placeholder).
+  3. The entrypoint also creates `provisioning/plugins/` (Grafana logs
+     an error without it).
+- **Accounts.** `grafana` 472:472, `grafconf` gid 473; `tools_password`
+  0:472 `0440`.
+- **Sub-path.** `root_url = %(protocol)s://%(domain)s:%(http_port)s/grafana/`,
+  `serve_from_sub_path = true`; route `grafana`, port 3000. Outside the
+  sub-path, `/` and `/login` answer 301 to `http://localhost:3000/grafana/…`
+  (except `/api/health`). Metrics at `/grafana/metrics`.
+- **Helper** `/usr/local/lib/gm/grafana-api <GET|POST|PUT|PATCH|DELETE>
+  </path>`, root:grafana `0750`: `admin:<pw>` via `curl -K -` to
+  `http://127.0.0.1:3000/grafana<path>`, no request body, prints the
+  body; non-2xx also writes `grafana-api: HTTP <code>` to stderr; exit 0
+  on 2xx, 1 any other status, 2 when Grafana does not answer or on a
+  usage error; never retries.
+- **Wrappers.** `/usr/local/sbin/gm-reload-grafana` (refuses broken JSON
+  with "NOT reloaded") and `/usr/local/sbin/gm-validate`;
+  `extra.validator.run_as: grafana`. Validator rules `files`, `server`,
+  `reload`, `pending`; a refused admin login is `ERROR`, exit 2 (not
+  exercised: no test sends a wrong password). Last-loaded state in
+  `/run/gm-grafana/applied` (root:grafana `0440`), written by the s6
+  `run` before each start and by the wrapper after each reload; shared
+  functions in `/usr/local/lib/gm/grafana-files`. `pending` is
+  fingerprint-based: a reload a player triggers through the API is not
+  recorded and stays red until a wrapper reload or restart (documented).
+- **Alert rules (5):** `gm-target-down`, `gm-service-down`,
+  `gm-exporter-disconnected`, `gm-disk-near-reservation`,
+  `gm-memory-near-limit`; group and folder `db_audit_gm`, interval 1m.
+  `Scrape target down` reached firing after 85 s in the stack test.
+- **Ruling 6.** The provider sets `updateIntervalSeconds: 86400`
+  (edits apply through the wrapper), `allowUiUpdates: false`; the data
+  source is `editable: false`: provisioned content changes in the files,
+  not the UI.
+- **Ruling 8.** The entrypoint resets the admin password from the
+  secret at every container start once the database exists (`grafana
+  cli admin reset-admin-password --password-from-stdin`): a restart
+  undoes a changed password; it does not clear a brute-force lockout.
+- **Ruling 3.** 13.2.4 has no default email contact point (receiver
+  `empty`, 0 integrations); Known limits says so.
+- Grafana keeps its default `secret_key`; the reference data source
+  holds no secret (documented).
+- **Stack test.** Stack `gmtest-grafana`, no published port; client
+  container `gmtest-grafana-client` (grafana image); reuses
+  `bricks/prometheus/tests/fixtures/prometheus.yml` read-only. Files
+  outside the Files line: none.
+- **Left for the wave:** the root `README.md` bricks row (chunk 11 adds
+  `postgres-exporter` and `grafana`). Branch `v0.2-c10-grafana` kept;
+  removed with the wave's branches.
+- **Images now** (armenelos, 2026-10-21): postgres 0.2.0 262MB, bastion
+  0.2.0 185MB, prometheus 0.1.0 488MB, postgres-exporter 0.1.0 165MB,
+  grafana 0.1.0 866MB; 10G free on `/`, 5.0G memory available.
+
+### Dispatch (chunk 11)
+
+- Chunk 11 dispatched 2026-10-21, branch `v0.2-c11-monitoring` cut from
+  `v0.2-w3` after chunks 8, 9, 10 merged, with W3-A, W3-B, W3-C
+  committed. Extra notes in its brief: W2-B's logging and preload seed
+  settings; the stale header comment in `fixture-mounted/scenario.yaml`;
+  the root `README.md` bricks row; read Grafana's zone from
+  `/api/frontend/settings` (W3-C); the fixture's unit-level `fit` runs on
+  the fake engine (W3-A).
+
+### Capture W3-D — chunk 11 outcomes (read by 12, 13, 14 and every later gate)
+
+Chunk 11 merged 2026-10-21: 47ff165, merge 141e952. Unit suite 298 OK
+after the merge. `smoke-monitoring.sh`: "all 43 checks passed in 46s
+(game fixture-monitoring-um24a9)", armenelos, swarm idle (a first run
+failed 3 checks on the script's own `jq` use; fixed in the script, no
+brick change).
+
+- **Real `fit` on the full five-brick game** (2 CPU / 4G / 8G):
+  `cpu: reservations 0.85 + headroom 0.2 = 1.05 of 2: ok`;
+  `memory: reservations 976M + headroom 409.6M = 1.35G of 4G: ok`;
+  `images on local engine: bastion:0.2.0 176.51M, postgres:0.2.0 249.71M,
+  prometheus:0.1.0 465.57M, postgres-exporter:0.1.0 156.94M,
+  grafana:0.1.0 826.05M; 31 layers, 3 shared, each counted once: 1.53G`;
+  `disk: reservations 3.31G + images 1.53G + headroom 819.2M = 5.65G of
+  8G: ok`.
+- **Differences from W3's chunk-11 notes** (no brick change):
+  1. The fixture carries one harmless scenario-local seed-file fault,
+     `fixture-random-page-cost` (copied from `fixture-audit`), because
+     the loader refuses an empty `fault_instances`; never injected or
+     checked.
+  2. The bastion has no `curl`: node-health endpoints are read as
+     `player` on the bastion with a Perl `IO::Socket::INET` GET.
+  3. `prometheus` 0.1.0 has `curl` but no `jq` (W3's `jq` covered only
+     the two new bricks): Prometheus' API answers come back through
+     `gmctl exec` and are parsed on the host with python3.
+  4. `pg_hba.conf`: `host postgres monitoring samenet scram-sha-256` (a
+     host name `exporter` does not match Swarm's reverse DNS), then the
+     `fixture-audit` line `host all all 0.0.0.0/0 scram-sha-256`.
+     **Chunk 14's seeds**: let `monitoring` in by `samenet` or an
+     address range, never by the exporter's host name.
+- **Fixture** `tools/tests/fixtures/fixture-monitoring/`: `scenario.yaml`,
+  `README.md`, `brief.md`, `gm/{answer-key.yaml,notes.md}`,
+  `player/{README,story,issues}.md`, `data/db.sql` (fixture-audit's
+  data), `faults/fixture-random-page-cost/`; `nodes/db/{postgresql.conf,
+  pg_hba.conf}` (W2-B's logging block plus the preload);
+  `nodes/prometheus/prometheus.yml` (W3's scrape config, retention 1d /
+  256MB); `nodes/exporter/exporter.conf` (with
+  `--collector.stat_statements`); `nodes/grafana/` (the five companion
+  files byte for byte). Nodes `bastion`, `db`, `prometheus`, `exporter`,
+  `grafana` on network `backend`, all `default` in `node_health`;
+  `web_routes: {grafana: "grafana:3000", prometheus: "prometheus:9090"}`;
+  ports 22→2222, 8080→8080; resources master spec 12's rows;
+  `designed_for` host `laptop`, 2 / 4G / 8G.
+- **Unit tests.** `TestMonitoringFixture` in `test_model.py` (4): loads
+  with its pins, map, routes, ports; fits at 2 / 4G / 8G on the fake
+  engine and renders one node-health config per node; Grafana seeds
+  equal the companion files; scrape targets cover every node.
+- **Smoke checks (43):** fit; deploy; load-data exit 0; data counts;
+  Prometheus 7 targets up (polls up to 120 s), `pg_up` 1,
+  `count(pg_stat_statements_calls_total) > 0` (up to 60 s); node health
+  per node (CPU, memory, disk, every listed service up; 10 checks); the
+  exporter's `postgres-exporter` service stopped with `s6-svc -d` shows
+  `node_health_service_up{node="exporter",service="postgres-exporter"} 0`,
+  then `-u` brings it back to 1; Grafana data source health OK,
+  dashboards exactly `node-health` and `postgresql`, 5 alert rules,
+  zone in effect `UTC`; web front on 8080: 401 without the password on
+  `/prometheus/` and `/grafana/`, 200 on `/prometheus/-/ready` and
+  `/grafana/api/health`, `POST /grafana/login` as admin (with an
+  `Origin` header) 200; `Authorization` stripped (`/grafana/api/user`
+  through the front equals an in-node request without credentials, and
+  differs from `player:<tools>` sent straight to 3000); only `bastion:
+  22/tcp 8080/tcp` published; SSH on 2222; `TZ=UTC` on all 5 nodes;
+  every timestamped line of `/var/log/postgresql/postgresql-*.log` UTC;
+  teardown, stage torn down, nothing labelled, objects outside the game
+  unchanged.
+- **Reading state.** Prometheus: `gmctl exec --node prometheus --user
+  prometheus` running `curl` on `localhost:9090/prometheus/api/v1/...`,
+  the PromQL in `--env QUERY` (not a secret). Grafana: `gmctl exec
+  --node grafana --user root` running `/usr/local/lib/gm/grafana-api
+  GET`, path and jq filter in `--env`. The tools password: read from
+  `local/<pg>/secrets/tools_password` into a shell variable, given only
+  to `curl -K -` through `printf` (a builtin), unset after use.
+- **Scenario-document rule as written.** A map-valued parameter is
+  rendered by its `shape` from the pinned brick's `brick.yaml` (the
+  scenario's `bricks/<id>/` first, then the catalog's; the one catalog
+  file the skill reads, for this alone). The Parameters line says "NAME:
+  the node-health map, below" or "NAME: the web front's routes, below".
+  - `node-map`: "Node-health map (`NAME`), as `scenario.yaml` states
+    it:", one item per entry in YAML order, services comma-separated or
+    "`default` (its brick's s6 processes)"; then "The node-health script
+    is mounted into every node listed, read-only for players; its
+    endpoint is readable from every node of the game, the bastion
+    included." Shown before any parameter fault; such faults in section
+    5 only.
+  - `web-routes`: table "Route | Path on the web front | Upstream node |
+    Port", one row per route in YAML order (`ui:<name>`, `/<name>/`,
+    node, port); then "Published on the bastion's web front port, behind
+    HTTP basic authentication on the tools password; a request without
+    it is refused with HTTP 401." Empty `{}`: "Web front routes
+    (`NAME`): none. The web front does not run, the bastion publishes
+    SSH only and no tools password is handed over." A parameter left out
+    of the scenario is not rendered.
+  - Step 6 checks every map entry; template version line "Version v0.2,
+    with map-valued parameters (v0.2 build plan chunk 11)".
+    `fixture-mounted`'s README regenerated with the rule.
+- **Outside the Files line:** `fixture-mounted/scenario.yaml` header
+  comment ("loaded, fitted and rendered by the unit tests, deployed only
+  on a fake engine"; 6 lines re-wrapped); root `README.md` `bricks/` row
+  lists `postgres-exporter` and `grafana`.
+- **Risks.** Waits of 120 s (targets) and 60 s (query statistics) are
+  margins a slower host leans on. The `Authorization` check compares raw
+  401 bodies; a Grafana build putting a trace id there would fail it
+  falsely (empty today). Branch `v0.2-c11-monitoring` kept; removed with
+  the wave's branches.
+
+### Wave gate — 2026-10-21
+
+All four chunks merged (8, 9, 10, 11). Gate started on `v0.2-w3` at the
+commit recording chunk 11, host idle (no other stack).
+
+| Step | Run 1 (0ad7a93, 17:31Z) | Run 2 (79144c2, 17:47Z) |
+|---|---|---|
+| unit suite | 298 OK | 298 OK |
+| `sh -n` / `perl -c` | ok (66 files) / ok | ok (71 files) / ok |
+| image builds | 4 ok; **grafana FAIL** | all 5 ok |
+| stack postgres / bastion / prometheus | 73 / 67 / 101 PASS | 73 / 67 / 101 PASS |
+| stack postgres-exporter / grafana | 76 / 88 PASS (grafana on chunk 10's image) | 76 / 88 PASS |
+| `smoke.sh` | pass | pass |
+| `smoke-monitoring.sh` | 43 passed, 46 s | 43 passed, 46 s |
+
+- **Failure, run 1.** `docker build bricks/grafana` failed: `chmod: cannot
+  access '/usr/local/lib/gm/healthcheck'`. Traced to chunk 10: the
+  repo's `.gitignore` rule `local/` (local implementations in scenario
+  folders) also matches `bricks/*/rootfs/usr/local/`; the other bricks'
+  files there were added with `git add -f`, chunk 10's six never were,
+  and its worktree had been removed. Its stack test and the run-1 smoke
+  passed on the image chunk 10 built from its worktree.
+- **Fix 79144c2** (coding-executor, on `v0.2-w3`): the six files
+  (`usr/local/sbin/{gm-entrypoint,gm-reload-grafana,gm-validate}`,
+  `usr/local/lib/gm/{grafana-api,grafana-files,healthcheck}`) restored
+  from the `COPY rootfs/ /` layer of chunk 10's image (byte-identical to
+  `docker cp`); the rest of that layer matches the committed `rootfs/`;
+  nothing else ignored in `postgres-exporter` or `fixture-monitoring`.
+  `.gitignore` gains `!bricks/*/rootfs/usr/local/`, so a brick's
+  `/usr/local` is no longer ignored while scenario `local/` folders
+  still are. The rebuilt image holds the same six files (checksums).
+  No behaviour change.
+- **Figures** (armenelos, 2026-10-21): images postgres 0.2.0 262MB,
+  bastion 0.2.0 185MB, prometheus 0.1.0 488MB, postgres-exporter 0.1.0
+  165MB, grafana 0.1.0 866MB; full five-brick game `fit`: images 1.53G
+  after layer sharing, disk 5.65G of 8G. 10G free on `/`, 5.0G memory
+  available after the gate. Untagged images from rebuilds (about 4.4G
+  listed, sharing layers) left in place; prune when the disk runs short.
+- **Sync.** None: no intent register, no data register.
+
+### Report to the owner — 2026-10-21
+
+Chunks 8, 9, 10, 11 merged; none moved. Gate passed on its second run
+after one fix (grafana's uncommitted `rootfs/usr/local`, 79144c2). Asked
+of the owner: (1) the monitoring bricks are fixable only (W3 ruling 1),
+against master spec 7's "fixable or report-only per scenario": accept as
+a v0.2 known limit, or have `spec-writer` record or plan the mechanism;
+(2) the merge into `main`. Noted: images well over master spec 12's
+estimates (exporter 165MB, grafana 866MB) and grafana's memory at rest
+(180–195M) over its 154M reservation, both for chunk 14b's footprint
+measurement and the release gate.

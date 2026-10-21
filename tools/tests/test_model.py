@@ -7,10 +7,11 @@ from pathlib import Path
 
 import yaml
 
-from tools.gm import model
+from tools.gm import fit, model, render
 from tools.tests import REPO_ROOT, FIXTURES, FIXTURE_SCENARIO, ScenarioCopyTest
 
 FIXTURE_MOUNTED = FIXTURES / "fixture-mounted"
+FIXTURE_MONITORING = FIXTURES / "fixture-monitoring"
 
 
 def repo_yaml_files():
@@ -279,6 +280,61 @@ class TestMountedFixture(MountedCopyTest):
         for brick_dir in sorted((FIXTURE_MOUNTED / "bricks").iterdir()):
             with self.subTest(brick=brick_dir.name):
                 self.assertEqual(model.check_brick_dir(brick_dir), [])
+
+
+class TestMonitoringFixture(ScenarioCopyTest):
+    """The v0.2 integration fixture (build plan chunk 11; capture W3, "For
+    chunk 11"): every v0.2 brick at its v0.2 version. smoke-monitoring.sh
+    deploys it on the real engine; here it loads, and fits on the fake
+    engine at the laptop playground's capacity."""
+
+    NODES = ["bastion", "db", "prometheus", "exporter", "grafana"]
+
+    def setUp(self):
+        super().setUp()
+        self.scenario = self.tmp / "fixture-monitoring"
+        shutil.copytree(FIXTURE_MONITORING, self.scenario)
+
+    def test_fixture_loads(self):
+        sc = model.load_scenario(FIXTURE_MONITORING)
+        self.assertEqual(sc.id, "fixture-monitoring")
+        self.assertEqual([n["name"] for n in sc.nodes], self.NODES)
+        self.assertEqual({n: (b.id, b.version, b.source) for n, b in sc.bricks.items()}, {
+            "bastion": ("bastion", "0.2.0", "catalog"),
+            "db": ("postgres", "0.2.0", "catalog"),
+            "prometheus": ("prometheus", "0.1.0", "catalog"),
+            "exporter": ("postgres-exporter", "0.1.0", "catalog"),
+            "grafana": ("grafana", "0.1.0", "catalog")})
+        self.assertEqual(sc.node("prometheus")["parameters"]["node_health"],
+                         {n: "default" for n in self.NODES})
+        self.assertEqual(sc.node("bastion")["parameters"]["web_routes"],
+                         {"grafana": "grafana:3000", "prometheus": "prometheus:9090"})
+        self.assertEqual(sc.node("bastion")["published_ports"],
+                         [{"port": 22, "default": 2222}, {"port": 8080, "default": 8080}])
+
+    def test_fits_the_laptop_playground_and_renders(self):
+        result = fit.fit(self.scenario, "laptop", cpu="2", memory="4G", disk="8G")
+        self.assertTrue(result.ok, result.text())
+        rendered = render.render(self.scenario, "laptop")
+        self.assertEqual(sorted(p.name for p in rendered.node_config_files),
+                         sorted(f"{n}.conf" for n in self.NODES))
+
+    def test_grafana_seeds_are_the_companion_files(self):
+        companion = REPO_ROOT / "bricks" / "grafana" / "companion"
+        seeds = model.load_scenario(FIXTURE_MONITORING).node("grafana")["seed_files"]
+        self.assertEqual(sorted(seeds), sorted(p.name for p in companion.iterdir()))
+        for name, path in seeds.items():
+            with self.subTest(seed=name):
+                self.assertEqual((FIXTURE_MONITORING / path).read_bytes(),
+                                 (companion / name).read_bytes())
+
+    def test_prometheus_scrapes_every_node_and_the_exporter(self):
+        conf = yaml.safe_load((FIXTURE_MONITORING / "nodes/prometheus/prometheus.yml").read_text())
+        targets = {job["job_name"]: [t for sc in job["static_configs"] for t in sc["targets"]]
+                   for job in conf["scrape_configs"]}
+        self.assertEqual(targets, {"prometheus": ["localhost:9090"],
+                                   "postgres": ["exporter:9187"],
+                                   "node-health": [f"{n}:9110" for n in self.NODES]})
 
 
 class TestMountedBrickRefusals(MountedCopyTest):

@@ -299,3 +299,9 @@ continues from D55; no ID is reused.
   game; Prometheus' retention is read from a seed file, so a retention
   fault is a seed-file fault, fixable on a fixable node. Now in: master
   spec 6.3, 7.2, 14.
+- **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
+  options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
+  will offer optional elements (PostGIS, TimescaleDB, pgBadger,
+  replication modules...), each documented and added to a scenario when
+  appropriate; v0.5 improves and extends the bricks. Design open: O79,
+  O80. Now in: [versions/v0.5/README.md](versions/v0.5/README.md).

@@ -1,0 +1,258 @@
+# Integration fixture of v0.2 (build plan chunk 11). Not a game: every v0.2
+# brick at its v0.2 version (bastion and postgres 0.2.0, prometheus,
+# postgres-exporter and grafana 0.1.0), deployed by
+# tools/tests/smoke-monitoring.sh at every wave gate from wave 3 on, and
+# loaded and fitted by tools/tests/test_model.py. Node names, pins, seeds and
+# resources: capture W3 of specs/versions/v0.2/wave-log.md ("For chunk 11");
+# each node's resources is its master spec 12 row. One harmless seed-file
+# fault (f1), since a scenario needs at least one; no monitoring fault.
+
+# --- Scenario information --------------------------------------------
+id: fixture-monitoring
+version: 0.1.0
+title: Integration fixture for the v0.2 monitoring bricks
+date: 2026-10-21
+origin: hand-written
+session_length_minutes: 60
+brief: brief.md
+background: >-
+  A small shop runs one PostgreSQL database watched by Prometheus, a
+  PostgreSQL exporter and Grafana, reached through a bastion whose web
+  front publishes Prometheus and Grafana.
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: backend
+    description: >-
+      players' sessions, the web front's routes, the scrapes, the exporter's
+      queries and Grafana's queries to Prometheus
+
+nodes:
+  - name: bastion
+    brick:
+      id: bastion
+      version: 0.2.0
+    role: bastion
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters:
+      web_routes: {grafana: "grafana:3000", prometheus: "prometheus:9090"}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.1
+        memory: 96M
+        disk: 256M
+    published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
+    seed_files:
+      README.md: player/README.md
+      story.md: player/story.md
+      issues.md: player/issues.md
+    knobs: []
+
+  - name: db
+    brick:
+      id: postgres
+      version: 0.2.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.5
+        memory: 512M
+        disk: 2.25G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/db/postgresql.conf
+      pg_hba.conf: nodes/db/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}    # tightened from the brick's 32MB
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 10, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+    data:
+      file: data/db.sql
+      databases:
+        - name: shop
+          owner: shop
+          tables:
+            - name: customers
+              description: 500 customers (id, name); primary key on id.
+            - name: orders
+              description: >-
+                20 000 orders (id, customer_id, placed_at, total); primary key
+                on id, index orders_customer_id_idx on customer_id.
+
+  - name: prometheus
+    brick:
+      id: prometheus
+      version: 0.1.0
+    role: metrics-store
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters:
+      node_health: {bastion: default, db: default, prometheus: default, exporter: default,
+                    grafana: default}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 384M
+      reservations:
+        cpu: 0.1
+        memory: 160M
+        disk: 512M
+    published_ports: []
+    seed_files:
+      prometheus.yml: nodes/prometheus/prometheus.yml
+    knobs: []
+
+  - name: exporter
+    brick:
+      id: postgres-exporter
+      version: 0.1.0
+    role: metrics-exporter
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.05
+        memory: 48M
+        disk: 64M
+    published_ports: []
+    seed_files:
+      exporter.conf: nodes/exporter/exporter.conf
+    knobs: []
+
+  - name: grafana
+    brick:
+      id: grafana
+      version: 0.1.0
+    role: dashboards
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 384M
+      reservations:
+        cpu: 0.1
+        memory: 160M
+        disk: 256M
+    published_ports: []
+    seed_files:                     # copied byte for byte from bricks/grafana/companion/
+      datasources.yaml: nodes/grafana/datasources.yaml
+      dashboards.yaml: nodes/grafana/dashboards.yaml
+      node-health.json: nodes/grafana/node-health.json
+      postgresql.json: nodes/grafana/postgresql.json
+      alert-rules.yaml: nodes/grafana/alert-rules.yaml
+    knobs: []
+
+flows:
+  - from: bastion
+    to: db
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: prometheus
+    what: players' SSH sessions, and the web front's route prometheus
+    how: ssh 22, http 9090
+    cadence: interactive
+  - from: bastion
+    to: exporter
+    what: players' SSH sessions
+    how: ssh 22
+    cadence: interactive
+  - from: bastion
+    to: grafana
+    what: players' SSH sessions, and the web front's route grafana
+    how: ssh 22, http 3000
+    cadence: interactive
+  - from: prometheus
+    to: exporter
+    what: the PostgreSQL metrics scrape
+    how: http 9187
+    cadence: every 15 s
+  - from: prometheus
+    to: bastion
+    what: the node-health scrape
+    how: http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: db
+    what: the node-health scrape
+    how: http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: grafana
+    what: the node-health scrape
+    how: http 9110
+    cadence: every 15 s
+  - from: exporter
+    to: db
+    what: the exporter's statistics queries, as the monitoring role
+    how: postgresql 5432
+    cadence: every 15 s (at each scrape)
+  - from: grafana
+    to: prometheus
+    what: dashboard queries and alert rule evaluation
+    how: http 9090
+    cadence: every 1 min, and interactive
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:
+  - id: f1
+    fault:
+      id: fixture-random-page-cost
+      version: 0.1.0
+    node: db
+    parameters: {}
+    visibility: hidden
+
+issues: []
+
+# --- Host topology it was designed for -------------------------------
+designed_for:
+  platform: swarm
+  hosts:
+    - name: laptop
+      cpu: 2
+      memory: 4G
+      disk: 8G
+  placement:
+    bastion: laptop
+    db: laptop
+    prometheus: laptop
+    exporter: laptop
+    grafana: laptop

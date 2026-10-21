@@ -1,0 +1,7 @@
+#!/bin/sh
+# s6 finish script of `postgres-exporter` (DO NOT TAMPER). After a refused
+# exporter.conf (run exits 3), keep the service down a few seconds before s6
+# tries again, so the log gets one line every few seconds, not every second.
+# Under s6's 5 s finish timeout.
+[ "${1:-}" = 3 ] && sleep 4
+exit 0

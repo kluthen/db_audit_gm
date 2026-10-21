@@ -4,13 +4,21 @@ Master spec 10.3 and 11; command line and files fixed by capture W2-A.
 The scenario's resource limits and envelopes are absolute in v0.1: the
 check compares, it never recomputes (recomputing could turn a deliberately
 planted out-of-bounds value into an in-bounds one).
+
+v0.2 (master spec 8, spec D83 and D102): the disk also holds the images.
+`fit` reads their sizes from the playground's engine, each layer counted
+once however many images hold it, and refuses a missing image with its
+build command, so it needs the engine reachable. Refusals about the engine
+write nothing.
 """
 
 import re
+import shlex
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import localimpl
+from .docker import Docker, DockerError, EngineUnreachable, inspect_image, server_version
 from .model import REPO_ROOT, GmError, format_size, load_scenario, parse_cpu, parse_size
 
 # Headroom kept free on every dimension, as a share of the declared capacity
@@ -31,9 +39,86 @@ def _fmt(key, value):
     return f"{value:g}" if key == "cpu" else format_size(value)
 
 
-def capacity_check(scenario, capacity):
-    """Sum of reservations plus headroom against the capacity, and every
-    node's limits against the host. Reads the scenario; changes nothing."""
+@dataclass
+class ImageFootprint:
+    """The scenario's images on the engine: `size` counts each layer once
+    (an image whose layers could not be sized counts whole)."""
+    engine: str
+    images: list                    # docker.Image, one per distinct image name
+    size: int
+    layers: int                     # distinct layers counted
+    shared: int                     # of which held by more than one image
+
+    def line(self):
+        each = ", ".join(f"{im.name} {format_size(im.size)}" for im in self.images)
+        return (f"images on {self.engine}: {each}; {self.layers} layers, {self.shared} "
+                f"shared, each counted once: {format_size(self.size)}")
+
+
+def scenario_images(scenario):
+    """`(image, brick)` per distinct image of the scenario's nodes, in node order."""
+    out = {}
+    for node in scenario.nodes:
+        brick = scenario.bricks[node["name"]]
+        out.setdefault(str(brick.data["image"]), brick)
+    return list(out.items())
+
+
+def build_command(docker, image, brick, catalog_root=REPO_ROOT):
+    """The command that builds `image` on the targeted engine, from the
+    catalog root (the brick's folder relative to it when inside it)."""
+    folder = Path(brick.dir).resolve()
+    try:
+        folder = folder.relative_to(Path(catalog_root).resolve())
+    except ValueError:
+        pass
+    return shlex.join(docker.command(["build", "-t", image, folder.as_posix()]))
+
+
+def image_footprint(scenario, docker, catalog_root=REPO_ROOT):
+    """Read the scenario's images from the engine. Raises GmError when the
+    engine does not answer or an image is missing (naming its build
+    command); changes nothing."""
+    try:
+        server_version(docker)
+    except EngineUnreachable as exc:
+        raise GmError(f"{exc}. fit reads the images' sizes from the playground's engine: "
+                      "start it or correct the endpoint (--endpoint), then gmctl fit again; "
+                      "nothing written") from None
+    images, missing = [], []
+    for name, brick in scenario_images(scenario):
+        try:
+            image = inspect_image(docker, name)
+        except DockerError as exc:
+            raise GmError(f"cannot read image {name} on {docker.describe()}: "
+                          f"{' '.join(exc.stderr.split())}; nothing written") from None
+        if image is None:
+            command = build_command(docker, name, brick, catalog_root)
+            missing.append(f"{name} (build it: {command})")
+        else:
+            images.append(image)
+    if missing:
+        raise GmError(f"image(s) not on {docker.describe()}: {'; '.join(missing)}; then gmctl "
+                      "fit again; nothing written")
+    holders, sizes, size = {}, {}, 0
+    for image in images:
+        if not image.layers:
+            size += image.size
+            continue
+        for chain, layer_size in image.layers:
+            holders[chain] = holders.get(chain, 0) + 1
+            sizes[chain] = layer_size
+    size += sum(sizes.values())
+    layers = len(sizes) + sum(1 for im in images if not im.layers)
+    shared = sum(1 for count in holders.values() if count > 1)
+    return ImageFootprint(engine=docker.describe(), images=images, size=size, layers=layers,
+                          shared=shared)
+
+
+def capacity_check(scenario, capacity, images):
+    """Sum of reservations plus headroom against the capacity, the images'
+    footprint (an ImageFootprint) counted in the disk, and every node's
+    limits against the host. Reads the scenario; changes nothing."""
     parsers = {"cpu": parse_cpu, "memory": parse_size, "disk": parse_size}
     cap = {key: parsers[key](capacity[key]) for key in parsers}
     lines, problems = [], []
@@ -42,8 +127,13 @@ def capacity_check(scenario, capacity):
                        for node in scenario.nodes)
         headroom = cap[key] * HEADROOM
         need = reserved + headroom
+        terms = f"reservations {_fmt(key, reserved)}"
+        if key == "disk":
+            lines.append(images.line())
+            need += images.size
+            terms += f" + images {_fmt(key, images.size)}"
         verdict = "ok" if need <= cap[key] else "too much"
-        line = (f"{key}: reservations {_fmt(key, reserved)} + headroom {_fmt(key, headroom)}"
+        line = (f"{key}: {terms} + headroom {_fmt(key, headroom)}"
                 f" = {_fmt(key, need)} of {_fmt(key, cap[key])}: {verdict}")
         lines.append(line)
         if need > cap[key]:
@@ -96,8 +186,9 @@ def _number(value):
     return int(cpu) if cpu == int(cpu) else cpu
 
 
-def declare_playground(ldir, name, endpoint=None, cpu=None, memory=None, disk=None):
-    """Write playground.yaml, or reuse it; returns the declaration."""
+def playground_declaration(ldir, name, endpoint=None, cpu=None, memory=None, disk=None):
+    """The playground's declaration, from playground.yaml and the options,
+    checked but not written: `(declaration, what playground.yaml holds)`."""
     existing = localimpl.read_playground(ldir)
     given = {k: v for k, v in (("cpu", cpu), ("memory", memory), ("disk", disk))
              if v is not None}
@@ -121,9 +212,7 @@ def declare_playground(ldir, name, endpoint=None, cpu=None, memory=None, disk=No
     updated = dict(declared, capacity=dict(declared.get("capacity") or {}, **given))
     if endpoint is not None:
         updated["docker_endpoint"] = endpoint
-    if updated != existing:
-        localimpl.write_playground(ldir, updated)
-    return updated
+    return updated, existing
 
 
 # Failure stages of a failed game that had been deployed (deploy, load-data, inject).
@@ -175,12 +264,16 @@ def _game_to_keep(ldir, scenario_id):
 
 
 def fit(scenario_dir, playground, endpoint=None, cpu=None, memory=None, disk=None,
-        catalog_root=REPO_ROOT):
-    """Load and check the scenario, declare the playground, run the capacity
-    check, and write implementation.yaml and state.yaml (stage fitted).
+        catalog_root=REPO_ROOT, docker=None):
+    """Load and check the scenario, declare the playground, read the images
+    from its engine (`docker`, by default the declared endpoint's), run the
+    capacity check, and write implementation.yaml and state.yaml (stage
+    fitted).
 
     Raises IncompleteScenario (listing every missing item) or GmError for a
-    refusal; returns a FitResult whose `ok` is False when capacity is short.
+    refusal (an unreachable engine or a missing image among them, before
+    anything is written); returns a FitResult whose `ok` is False when
+    capacity is short.
     """
     ldir = localimpl.local_dir(scenario_dir, playground)
     scenario = load_scenario(scenario_dir, catalog_root)
@@ -188,9 +281,13 @@ def fit(scenario_dir, playground, endpoint=None, cpu=None, memory=None, disk=Non
     if unsupported:
         raise GmError("cannot fit this scenario: " + "; ".join(unsupported))
     keep = _game_to_keep(ldir, scenario.id)
-    declared = declare_playground(ldir, playground, endpoint, cpu, memory, disk)
+    declared, existing = playground_declaration(ldir, playground, endpoint, cpu, memory, disk)
+    images = image_footprint(scenario, docker or Docker(declared.get("docker_endpoint")),
+                             catalog_root)
+    if declared != existing:
+        localimpl.write_playground(ldir, declared)
     try:
-        report = capacity_check(scenario, declared["capacity"])
+        report = capacity_check(scenario, declared["capacity"], images)
     except (KeyError, ValueError) as exc:
         raise GmError(f"playground {playground}: capacity incomplete or invalid ({exc})") \
             from None

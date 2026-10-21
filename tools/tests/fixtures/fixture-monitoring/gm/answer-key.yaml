@@ -1,0 +1,26 @@
+# Answer key of the monitoring fixture (tools/tests, v0.2 chunk 11).
+scenario:
+  id: fixture-monitoring
+  version: 0.1.0
+notes: gm/notes.md
+
+instances:
+  - instance: f1
+    what: random_page_cost is 4.0, the spinning-disk default, on SSD storage.
+    why: the planner overprices index scans and favours sequential scans.
+    evidence:
+      - where: node:db
+        source: postgresql.conf and SHOW random_page_cost
+        how: ssh db, then psql -c 'SHOW random_page_cost'
+        shows: "4"
+    acceptable:
+      diagnosis: names random_page_cost as too high for SSD storage.
+      proposal: lower random_page_cost to about 1.1.
+    sealed_check:
+      script: faults/fixture-random-page-cost/checks/fixed.sh
+      at_handover: 1
+      notes: the scenario's own fault (faults/ in the fixture folder).
+    interactions: []
+    validators_left_red: []
+
+tooling_expectations: []           # none in this fixture

@@ -1,5 +1,7 @@
 """Unit tests of gmctl (tools/gm), and the helpers they share."""
 
+import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -7,6 +9,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import yaml
 
@@ -14,6 +17,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 FIXTURE_SCENARIO = FIXTURES / "fixture-audit"
 GMCTL = REPO_ROOT / "tools" / "gmctl"
+# A `docker` stand-in answering as FakeDocker does, put first on PATH of gmctl
+# run by run_gmctl, so `fit` never reaches a real engine there.
+FAKE_BIN = Path(__file__).resolve().parent / "fakebin"
 
 SUFFICIENT = {"cpu": "2", "memory": "4G", "disk": "20G"}
 INSUFFICIENT = {"cpu": "0.5", "memory": "4G", "disk": "20G"}
@@ -28,6 +34,19 @@ class ScenarioCopyTest(unittest.TestCase):
         self.tmp = Path(self._tmp.name)
         self.scenario = self.tmp / "fixture-audit"
         shutil.copytree(FIXTURE_SCENARIO, self.scenario)
+        # `fit` called in-process reads the images from a FakeDocker (shaped by fake_engine)
+        engine = mock.patch("tools.gm.fit.Docker",
+                            lambda endpoint=None: FakeDocker.from_environment(endpoint))
+        engine.start()
+        self.addCleanup(engine.stop)
+
+    def fake_engine(self, missing=(), unreachable=False):
+        """The engine `fit` reads, in-process or through run_gmctl, for this test."""
+        env = mock.patch.dict(os.environ, {
+            FAKE_MISSING_ENV: ",".join(missing),
+            FAKE_UNREACHABLE_ENV: "1" if unreachable else ""})
+        env.start()
+        self.addCleanup(env.stop)
 
     def edit_yaml(self, relpath, change):
         path = self.scenario / relpath
@@ -41,10 +60,32 @@ class ScenarioCopyTest(unittest.TestCase):
 
 def run_gmctl(*args):
     env = dict(os.environ)
+    env["PATH"] = f"{FAKE_BIN}{os.pathsep}{env.get('PATH', '')}"
     return subprocess.run(
         [sys.executable, str(GMCTL), *map(str, args)],
         capture_output=True, text=True, env=env, cwd=str(REPO_ROOT),
     )
+
+
+# What FakeDocker.from_environment reads: the images missing (comma-separated),
+# and "1" for an engine that does not answer.
+FAKE_MISSING_ENV = "DBAGM_FAKE_DOCKER_MISSING"
+FAKE_UNREACHABLE_ENV = "DBAGM_FAKE_DOCKER_UNREACHABLE"
+UNREACHABLE = ("Cannot connect to the Docker daemon at unix:///var/run/docker.sock. "
+               "Is the docker daemon running?")
+
+# Every image of the fake engine sits on one shared base layer (as the brick
+# images on debian:13-slim) under one layer of its own.
+BASE_LAYER = ("sha256:" + "b" * 64, 78 * 1024 ** 2)
+OWN_LAYER_SIZE = 100 * 1024 ** 2
+
+
+def own_layer(image):
+    return ("sha256:" + hashlib.sha256(image.encode()).hexdigest(), OWN_LAYER_SIZE)
+
+
+def image_id(image):
+    return "sha256:" + hashlib.sha256(f"id:{image}".encode()).hexdigest()
 
 
 class FakeDocker:
@@ -53,21 +94,49 @@ class FakeDocker:
     with its labels), so deploy, exec and teardown run without Docker.
 
     `fail` maps a command prefix (tuple) to the stderr it fails with;
-    `health` is what `docker inspect` reports for every container."""
+    `health` is what `docker inspect` reports for every container.
+    `images`: True, every image is present (BASE_LAYER, then its own
+    layer); False, none is; or a dict of the present images, each to its
+    layers `[(diff id, size)]` bottom first. `missing` removes images;
+    `reachable=False` makes every command fail as an engine that does not
+    answer."""
 
     KINDS = ("service", "network", "volume", "config", "secret")
 
     def __init__(self, swarm=("active", True), images=True, health="healthy", fail=None,
-                 endpoint=None):
+                 endpoint=None, missing=(), reachable=True):
         from tools.gm.docker import Docker
         self._docker = Docker(endpoint)
         self.endpoint = endpoint
         self.swarm = swarm
         self.images = images
+        self.missing = set(missing)
+        self.reachable = reachable
         self.health = health
         self.fail = dict(fail or {})
         self.calls = []
         self.objects = {kind: {} for kind in self.KINDS}
+
+    @classmethod
+    def from_environment(cls, endpoint=None):
+        """The engine set by ScenarioCopyTest.fake_engine (every image present
+        by default), as `fit` and the `docker` stand-in on PATH read it."""
+        missing = [m for m in os.environ.get(FAKE_MISSING_ENV, "").split(",") if m]
+        return cls(missing=missing, reachable=os.environ.get(FAKE_UNREACHABLE_ENV) != "1",
+                   endpoint=endpoint)
+
+    def layers(self, image):
+        """The image's layers `[(diff id, size)]`, None when it is absent."""
+        if image in self.missing or self.images is False:
+            return None
+        if self.images is True:
+            return [BASE_LAYER, own_layer(image)]
+        return self.images.get(image)
+
+    def _image_by_id(self, ident):
+        names = [] if self.images in (True, False) else list(self.images)
+        names += [c[-1] for c in self.calls if c[:2] == ["image", "inspect"]]
+        return next((n for n in names if image_id(n) == ident or n == ident), None)
 
     def describe(self):
         return self._docker.describe()
@@ -133,15 +202,36 @@ class FakeDocker:
         return labels
 
     def _respond(self, args, input, stdin):
-        import json
         cmd = args[0]
+        if not self.reachable:
+            return (1, UNREACHABLE)
+        if cmd == "version":
+            return "29.9.1\n"
         if cmd == "info":
             return json.dumps({"LocalNodeState": self.swarm[0], "ControlAvailable": self.swarm[1]})
         if cmd == "swarm" and args[1] == "init":
             self.swarm = ("active", True)
             return ""
         if args[:2] == ["image", "inspect"]:
-            return "sha256:x" if self.images else (1, "No such image")
+            name = args[-1]
+            layers = self.layers(name)
+            if layers is None:
+                return (1, f"Error response from daemon: No such image: {name}")
+            if "{{json .}}" not in args:
+                return "sha256:x"
+            return json.dumps({"Id": image_id(name), "RepoTags": [name],
+                               "Size": sum(size for _, size in layers),
+                               "RootFS": {"Type": "layers",
+                                          "Layers": [diff for diff, _ in layers]}})
+        if cmd == "history":
+            name = self._image_by_id(args[-1])
+            if name is None and self.images is True:
+                name = args[-1]         # every default image has the same layer sizes
+            layers = self.layers(name) if name else None
+            if layers is None:
+                return (1, f"Error response from daemon: No such image: {args[-1]}")
+            # newest first, with rows that add no layer (ENTRYPOINT, ARG) at 0
+            return "0\n" + "".join(f"{size}\n0\n" for _, size in reversed(layers))
         if cmd in ("config", "secret") and args[1] == "create":
             name = args[-2]
             if name in self.objects[cmd]:

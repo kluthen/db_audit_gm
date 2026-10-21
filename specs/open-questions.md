@@ -10,7 +10,7 @@ their IDs keep their meaning. Resolved since: O56 (D57), O59 (D60), O51
 (D77), O66 (D78), O68 (D79), O69 (D80), O70 (D81), O71 (D82), O57 (D84),
 O58 (D85), O60 (D86), O64 (D88), O67 (D90), O72 (D100), O73 (D101),
 O74 (D102), O75 (D103), O76 (D104), O77 (D105). Numbering continues
-from O79.
+from O81.
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -158,3 +158,39 @@ the question concerns.
   time, licensing, and reproducibility against the self-sufficient
   scenario folder (D23). Pin by address and checksum and cache locally?
   Refs: [versions/v0.5/README.md](versions/v0.5/README.md).
+- **O79** (later, v0.5) — The brick options model (D107), `postgres`
+  first. In `postgres` 0.2.0, pgBadger, file logs on the `pglog` volume,
+  `pg_stat_statements`, the `monitoring` role and its
+  `monitoring_password` secret are in every game, while the logging and
+  preload settings are the scenario's, in its seed `postgresql.conf`.
+  First candidate options: those four, then PostGIS, TimescaleDB and the
+  replication modules. To settle:
+  1. Where an option's software comes from, given a read-only root and no
+     network at start: one image carrying every option (simple, but
+     PostGIS alone adds a few hundred MB every game pays), image variants
+     per option set (e.g. `postgres:0.x.0-postgis`), or a mix (light
+     options in the base, heavy ones as variants). `fit` counts image
+     sizes (D102), so the choice shows in capacity.
+  2. How a scenario chooses: e.g. `options: [pgbadger,
+     pg_stat_statements, postgis]` on the node, with `brick.yaml`
+     declaring the options it offers, each with its requirements
+     (preload library, volume), its footprint, and the secrets and
+     volumes that exist only with it (`pglog` and `monitoring_password`
+     would become per-option).
+  3. What start-up does for an option (create the extension, the role,
+     the directory), while its settings in `postgresql.conf` (preloads,
+     logging) stay in the seed so a fault can still remove them; the
+     loader checks the seed agrees with the chosen options.
+  4. Faults that need an option, as `applies_to` ties a fault to a brick
+     and version.
+  5. Documentation: one section per option in the brick's `docs/gm.md`
+     (what it adds, its cost, how to enable it, the faults it allows).
+
+  Akin to v0.2's declare/choose/check pattern for mounted material and
+  `receives` (D97). Refs: [versions/v0.5/README.md](versions/v0.5/README.md),
+  [formats.md](formats.md) "Brick definition",
+  [versions/v0.2/master-spec.md](versions/v0.2/master-spec.md) 7.5.
+- **O80** (later, v0.5) — Is the options model (O79) meant for every
+  brick, or only `postgres`? The owner's direction (D107) names
+  `postgres` "in particular". Refs:
+  [versions/v0.5/README.md](versions/v0.5/README.md).

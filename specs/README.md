@@ -102,7 +102,8 @@ access model.
   v0.4 transformers, v0.5 research and broadening, v0.6 the bastion as
   the players' main activity point, then v1.0; beyond v1.0,
   other databases and tools, customer role-play and hints (D48). Gaps and
-  risks: O46–O49, O52–O54.
+  risks: O46–O49, O52–O54. Brick options, `postgres` first, are a v0.5
+  topic; v0.2 stays as built (D107; O79, O80).
 - v0.2, ruled on 2026-10-21 (D63–D70): the owner's `bluebox-lab` is the
   reference and per-node health the gap; free tools, one brick per need,
   chosen by footprint; monitoring optional and tooling proportionate, with

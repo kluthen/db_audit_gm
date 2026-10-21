@@ -4,15 +4,24 @@ Master spec 10.2 and 11: the GM targets one swarm manager, the local engine
 or one reached over SSH (`docker_endpoint` in `playground.yaml`, such as
 `ssh://user@host`; never keys). Every Docker call of gmctl goes through
 `Docker.run`, so the unit tests replace it with a stub.
+
+The images' sizes (`gmctl fit`, master spec 8, spec D102) are read here:
+`docker image inspect` gives an image's size and its layers' diff ids,
+`docker history` the size of each layer. A layer is identified by its
+chain id (the OCI ChainID: the layer and every layer under it), the id
+the engine stores it by, so a layer two images share is found once.
 """
 
+import hashlib
 import json
 import subprocess
+from dataclasses import dataclass
 
 from . import localimpl
 from .model import GmError
 
 DOCKER = "docker"
+PROBE_TIMEOUT = 60              # seconds for the engine to answer `docker version`
 
 
 class DockerError(GmError):
@@ -94,3 +103,85 @@ def running_containers(docker, service):
     return docker.lines(["ps", "-q", "--no-trunc",
                          "--filter", label_filter("com.docker.swarm.service.name", service),
                          "--filter", "status=running"])
+
+
+# --- The engine and its images ----------------------------------------------
+
+class EngineUnreachable(GmError):
+    """The targeted engine does not answer."""
+
+
+def server_version(docker):
+    """The targeted engine's version; EngineUnreachable when it does not
+    answer (not running, wrong endpoint, SSH refused)."""
+    try:
+        lines = docker.lines(["version", "--format", "{{.Server.Version}}"])
+    except DockerError as exc:
+        detail = " ".join(exc.stderr.split()) or f"exit status {exc.returncode}"
+        raise EngineUnreachable(f"the engine {docker.describe()} is not reachable: "
+                                f"{detail}") from None
+    except GmError as exc:
+        raise EngineUnreachable(f"the engine {docker.describe()} is not reachable: "
+                                f"{exc}") from None
+    return lines[0] if lines else ""
+
+
+@dataclass
+class Image:
+    """An image as the engine holds it. `layers` lists `(chain id, size)`
+    from the bottom layer up; it is empty when `docker history` does not
+    give one size per layer, and the image then counts whole, sharing
+    nothing."""
+    name: str
+    id: str
+    size: int
+    layers: list
+
+
+def chain_ids(diff_ids):
+    """The OCI chain ids of a stack of layers given by their diff ids,
+    bottom first: the first layer's is its diff id, each next one
+    sha256(<chain id below> + " " + <diff id>)."""
+    out = []
+    for diff in diff_ids:
+        if not out:
+            out.append(diff)
+        else:
+            digest = hashlib.sha256(f"{out[-1]} {diff}".encode()).hexdigest()
+            out.append(f"sha256:{digest}")
+    return out
+
+
+def layer_sizes(docker, image_id, count):
+    """The sizes of an image's `count` layers, bottom first, from `docker
+    history` (whose rows without a layer weigh 0); None when its non-empty
+    rows are not one per layer (a layer of size 0 makes the match
+    ambiguous)."""
+    rows = docker.lines(["history", "--no-trunc", "--human=false", "--format", "{{.Size}}",
+                         image_id])
+    try:
+        sizes = [int(row) for row in reversed(rows)]
+    except ValueError:
+        return None
+    sizes = [size for size in sizes if size > 0]
+    return sizes if len(sizes) == count else None
+
+
+def inspect_image(docker, name):
+    """The image `name` on the targeted engine, None when it is absent;
+    any other failure raises DockerError."""
+    proc = docker.run(["image", "inspect", "--format", "{{json .}}", name], check=False)
+    if proc.returncode != 0:
+        if "no such image" in (proc.stderr or "").lower():
+            return None
+        raise DockerError(["image", "inspect", name], proc.returncode, proc.stderr)
+    data = json.loads(proc.stdout)
+    if isinstance(data, list):
+        data = data[0]
+    image_id, size = data["Id"], int(data["Size"])
+    diff_ids = (data.get("RootFS") or {}).get("Layers") or []
+    sizes = layer_sizes(docker, image_id, len(diff_ids)) if diff_ids else None
+    layers = []
+    if sizes is not None and sum(sizes) == size:
+        layers = list(zip(chain_ids(diff_ids), sizes))
+    return Image(name=name, id=image_id, size=size, layers=layers)

@@ -1,0 +1,84 @@
+#!/bin/sh
+# gm-reload-grafana: reload Grafana's provisioning files.
+# Usage: sudo gm-reload-grafana
+# DO NOT TAMPER. Root-owned, read-only; allowed by /etc/sudoers.d/gm-player.
+#
+# Checks the files as the validator does (as grafana: present, readable,
+# every dashboard file valid JSON) and refuses to reload if they fail, so a
+# broken dashboard does not silently disappear. Otherwise asks Grafana,
+# through its API as the administrator, to reload the data sources, the
+# dashboards and the alert rules from /etc/grafana/provisioning, and
+# prints each answer. If Grafana is not running (a file it refused when it
+# started, for example), s6 keeps restarting it: the wrapper waits up to
+# 30 s for it to come back, then reloads.
+set -u
+PATH=/command:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+API=/usr/local/lib/gm/grafana-api
+HEALTH=http://127.0.0.1:3000/grafana/api/health
+WAIT=30
+. /usr/local/lib/gm/grafana-files
+
+if [ "$#" -ne 0 ]; then
+    echo "usage: sudo gm-reload-grafana (no arguments)" >&2
+    exit 2
+fi
+
+answers() { curl -fsS -o /dev/null -m 3 "$HEALTH" 2>/dev/null; }
+
+# 1. The files.
+problems=$(runuser -u grafana -- /bin/sh -c '. /usr/local/lib/gm/grafana-files && prov_check_files' 2>&1)
+if printf '%s\n' "$problems" | grep -q 'is not valid JSON\|is not readable by grafana'; then
+    echo "gm-reload-grafana: the provisioning files have errors; Grafana was NOT reloaded:"
+    printf '%s\n' "$problems" | sed 's/^/  /'
+    exit 1
+fi
+if [ -n "$problems" ]; then
+    printf '%s\n' "$problems" | sed 's/^/gm-reload-grafana: warning: /'
+fi
+
+# 2. Not running: s6 restarts it on its own; wait for it.
+if ! answers; then
+    i=0
+    while [ "$i" -lt "$WAIT" ] && ! answers; do
+        sleep 1
+        i=$((i + 1))
+    done
+    if ! answers; then
+        echo "gm-reload-grafana: Grafana is not running and did not come back within ${WAIT}s." >&2
+        echo "  Check your last changes (sudo gm-validate), fix them, then run sudo gm-reload-grafana again." >&2
+        exit 1
+    fi
+    echo "gm-reload-grafana: Grafana was not running; it is back."
+fi
+
+# 3. Reload each kind of provisioning, in the order Grafana starts them.
+fp=$(prov_fingerprint)
+failed=
+for kind in datasources dashboards alerting; do
+    out=$("$API" POST "/api/admin/provisioning/$kind/reload" 2>&1); rc=$?
+    msg=$(printf '%s' "$out" | sed -n 's/.*"message":"\([^"]*\)".*/\1/p' | head -n 1)
+    [ -n "$msg" ] || msg=$(printf '%s' "$out" | tr '\n' ' ' | cut -c1-300)
+    if [ "$rc" -eq 0 ]; then
+        echo "gm-reload-grafana: $kind: $msg"
+        continue
+    fi
+    case $out in
+        *'HTTP 401'*)
+            echo "gm-reload-grafana: Grafana refused the administrator's login: its password is no longer the tools password." >&2
+            echo "  Changing Grafana's users or the administrator's password is not allowed (DO NOT TAMPER); tell the game master." >&2
+            exit 1 ;;
+    esac
+    echo "gm-reload-grafana: $kind: REFUSED: $msg"
+    failed="$failed${failed:+; }$kind: $msg"
+done
+
+if [ -n "$failed" ]; then
+    applied_write reload failed "$fp" "$failed"
+    echo "gm-reload-grafana: Grafana did not accept every file; fix them and run sudo gm-reload-grafana again."
+    echo "  Run sudo gm-validate; the details are in Grafana's log, which the game master can read."
+    exit 1
+fi
+applied_write reload ok "$fp"
+echo "gm-reload-grafana: provisioning reloaded."
+exit 0
