@@ -776,8 +776,15 @@ captured interfaces.
 
 ### Chunk 12 — GM skill for v0.2
 
-Status: in progress
-Record: (after merge)
+Status: merged (w4, d0e9c53)
+Record: 5b36f01. No deviation from the spec. Every `gmctl` invocation in
+the three files parses with `gmctl`'s own parser (39 full invocations, 18
+short mentions, a scratch check, not committed); the stance and "During
+the game" through "Report and final answer" sections are byte-identical.
+No in-node command was run against a live game: that is the release
+gate's play-through. Found outside its files: `bricks/bastion/docs/gm.md`
+put the tools password in `curl`'s arguments (fixed on the wave branch,
+see the wave log).
 Wave: 4
 Depends on: chunks 3, 5, 7, 8, 10
 Architecture capture: none.

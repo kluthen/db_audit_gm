@@ -1807,3 +1807,41 @@ check returns 1; fix 1, 4 and 5 as a player would; those three return
   capture W4 and its rulings, W1, W1-C, W2-A, W2-B and W3-B/C/D's
   fault-relevant items in its brief. spec-writer asked to align chunk
   13's `inject/` wording (ruling 1).
+
+### Capture W4-A — chunk 12 outcomes (read by 14 and the release gate)
+
+Chunk 12 merged 2026-10-21: 5b36f01, merge d0e9c53. Files:
+`.claude/skills/game-master/{SKILL,gmctl,feedback}.md` only.
+- **Done when**: master spec 9's items mapped to `SKILL.md` sections
+  (Setup steps 2, 4–7, 9; Hand-over; "Times"; "What you may do";
+  "Operating the nodes and the monitoring tools"; Evaluation steps 1,
+  3, 5, 7; Setup failures); the tools password and the web address
+  handed over only when the bastion's `web_routes` is not empty (D103),
+  the web port being the published one whose `target` is 8080, the SSH
+  port the one whose `target` is 22; `fit` needing a reachable engine
+  and the images built first (Setup steps 4, 5; its two refusals write
+  nothing); 39 `gmctl` invocations and 18 short mentions parse with
+  `tools.gm.build_parser()`, abbreviated options refused (scratch
+  script, not committed); the stance sections byte-identical. Unit
+  suite 298 OK.
+- **Skill shapes later work relies on**: on the host, credentials go
+  through `printf 'user = "player:%s"\n' "$(cat …)" | curl -s -K -`,
+  never in `--env` or an argument; the GM only reads the monitoring
+  tools, never reloads or changes them; after a Grafana 401 the GM
+  stops calling its API (lockout) and does not restart the node; a
+  tooling expectation an issue covers is judged inside that issue's
+  feedback block; at hand-over the players are told the history starts
+  at deployment (dashboards thin for 10–15 minutes); the monitoring
+  bricks are fixable only (D108, Setup step 2); the file log is found
+  by sorting names, right for `postgresql-%Y-%m-%d_%H%M%S.log` (a
+  scenario changing `log_filename` would break it: chunk 14 keeps
+  W2-B's).
+- **Left for the release gate**: a live run of the in-node commands
+  (the Prometheus, Grafana and web-front lines mirror
+  `smoke-monitoring.sh`; the log `tail` and the exporter and
+  node-health `curl` lines are unrun), the stance check-list, the
+  resume and the owner's judgement (items 8, 10, 12).
+- **Found outside its files**: `bricks/bastion/docs/gm.md` "After
+  deployment" passed the tools password in `curl -u` (visible in the
+  host's process list), against the owner's standing rule. Fixed on
+  the wave branch by a coding-executor (below).
