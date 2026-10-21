@@ -792,7 +792,11 @@ options go to v0.5 (bricks improved and extended); v0.2 stays as built
 (pgBadger, the `pglog` volume, the `monitoring` role and secret in every
 game; the logging and preload settings already the scenario's, in its
 seed). Sent to `spec-writer` to record in `versions/v0.5/` and the
-registers, committed on `v0.2-w3`.
+registers, committed on `v0.2-w3`. Recorded in b59dfee: D107 (the
+ruling), O79 (the options model, `postgres` first: where the software
+comes from, how a scenario chooses, start-up, faults that need an
+option, docs) and O80 (every brick or only `postgres`), both due in v0.5.
+Next free: D108, O81.
 
 ## Wave 3 — started 2026-10-21
 
