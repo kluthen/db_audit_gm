@@ -66,10 +66,20 @@ The story as the players read it: `player/story.md`.
   bricks/.
 - **Role**: bastion. **Stateful**: no. **Write policy**: report-only.
 - **Networks**: backend.
-- **Parameters**: web_routes = `{monitor: "monitor:9090"}`
+- **Parameters**: web_routes: the web front's routes, below.
 - **Published ports**: 22 (default host port 2222), 8080 (default host
   port 8080)
 - **Seed files**: none.
+
+Web front routes (`web_routes`):
+
+| Route | Path on the web front | Upstream node | Port |
+|---|---|---|---|
+| `ui:monitor` | `/monitor/` | `monitor` | 9090 |
+
+Published on the bastion's web front port, behind HTTP basic
+authentication on the tools password; a request without it is refused
+with HTTP 401.
 
 Resources (absolute, never recomputed per playground):
 
@@ -105,9 +115,19 @@ No knobs.
   bricks/.
 - **Role**: monitoring. **Stateful**: yes. **Write policy**: report-only.
 - **Networks**: backend.
-- **Parameters**: node_health = `{bastion: default, app: [app, sshd], monitor: default}`
+- **Parameters**: node_health: the node-health map, below.
 - **Published ports**: none.
 - **Seed files**: none.
+
+Node-health map (`node_health`), as `scenario.yaml` states it:
+
+- `bastion`: `default` (its brick's s6 processes)
+- `app`: app, sshd
+- `monitor`: `default` (its brick's s6 processes)
+
+The node-health script is mounted into every node listed, read-only for
+players; its endpoint is readable from every node of the game, the
+bastion included.
 
 Resources (absolute, never recomputed per playground):
 
