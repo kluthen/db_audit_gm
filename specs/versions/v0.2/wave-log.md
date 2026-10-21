@@ -540,3 +540,22 @@ O78 open (not blocking). Open gates after wave 1: G10 and G11 (owner,
 waves 4 and release). Plan at v4. Branches left: `v0.2-w1` only (every
 chunk branch and worktree removed). Next: wave 2 (chunks 5, 6, 7; chain
 5 → 7), from `main` once wave 1 merges.
+- Merged into `main` 2026-10-21 on the owner's word: 6467fb5. Branch
+  and worktree `v0.2-w1` removed.
+
+## Wave 2 — started 2026-10-21
+
+Chunks: 5, 6, 7 (chain 5 → 7). Branch `v0.2-w2`, worktree
+`/home/bastien/work/db_audit_gm-wt/v0.2-w2`, cut from `main` at
+6467fb5 (wave 1 merged).
+
+- **Concurrency.** The owner's allowance for this session holds: 5 and
+  6 run side by side (no path between them, no shared source file); 7
+  starts once 5 merges.
+- **Gates.** G2 and G3 done (wave 1); swarm still active, host idle.
+- **Preflight.** None (no intent register, no data register).
+- **Captures.** None new at wave start: chunk 5 implements W1 items 2
+  and 4 against W1-D's declaration as built; chunk 6 reads W1 item 7
+  (`monitoring_password`) and W1-B; chunk 7 reads W1 items 2, 3 and 7
+  (`tools_password`), W1-B and W1-C.
+- Chunks 5 and 6 dispatched 2026-10-21.
