@@ -506,3 +506,37 @@ companion:
 - **Known**: no scenario can use `prometheus` before chunk 7 (route for
   its `ui`); the root `README.md` row for `bricks/` does not list
   `prometheus` (fixed at the wave gate).
+
+### Wave gate — 2026-10-21
+
+On `v0.2-w1` at a450269, build host `armenelos` (Debian 13, Docker
+29.9.1, 12 CPUs, 11G), idle (no other stack), 2026-10-21T14:40Z. All
+PASS:
+
+| Check | Result |
+|---|---|
+| Unit suite | 253 tests OK (19 s) |
+| `sh -n`, every shell file | 49 files OK |
+| `perl -c`, every Perl file | `node-health.pl` OK |
+| Image builds | `postgres:0.2.0` 260MB, `bastion:0.2.0` 179MB, `prometheus:0.1.0` 488MB |
+| Stack tests | postgres 51 PASS, bastion 39 PASS, prometheus 101 PASS |
+| `smoke.sh` (fixture-audit) | 46 PASS, nothing left behind |
+
+No failure, no fix commit. No bundle or performance figure applies;
+images added this wave: `prometheus:0.1.0` 488MB (`postgres` and
+`bastion` 0.2.0 equal their 0.1.1 sizes). 10G free on `/`. The root
+`README.md` bricks row now lists `prometheus` (shared list chunk 4 left).
+No wave sync: no intent register.
+
+### Report to the owner — 2026-10-21
+
+Chunks 1 to 4 merged, none moved; gate green. For the owner: the
+node-health sampler runs as root (listener as `nobody`), the case the
+spec settles when `s6-svstat` cannot read unprivileged, narrowed by
+chunk 4; Prometheus' retention is in `prometheus.yml` (3.13 deprecates
+the flags), D106 still holds; the `prometheus` image is about 488MB
+against master spec 12's 150M estimate (chunks 8 and 14b count it);
+O78 open (not blocking). Open gates after wave 1: G10 and G11 (owner,
+waves 4 and release). Plan at v4. Branches left: `v0.2-w1` only (every
+chunk branch and worktree removed). Next: wave 2 (chunks 5, 6, 7; chain
+5 → 7), from `main` once wave 1 merges.

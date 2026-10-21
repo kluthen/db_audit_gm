@@ -82,7 +82,7 @@ model says (D100).
 
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
-| 1 | 1, 2, 3, 4 | G2 (chunks 1, 4); G3 (chunks 1, 3, 4) | in progress |
+| 1 | 1, 2, 3, 4 | G2 (chunks 1, 4); G3 (chunks 1, 3, 4) | gated (2026-10-21), awaiting merge |
 | 2 | 5, 6, 7 | wave 1; G2, G3 | planned |
 | 3 | 8, 9, 10, 11 | wave 2 | planned |
 | 4 | 12, 13, 14 | wave 3; G10 (chunk 14's merge) | planned |
