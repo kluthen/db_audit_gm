@@ -435,7 +435,8 @@ Which faults the brick hosts is stated only by each fault's `applies_to`
 (D59): a fault instance is accepted on a node when the fault's
 `applies_to` names the node's brick and version (`tools/gm/model.py`).
 This list is every catalog fault (`faults/`) whose `applies_to` names
-`postgres` `0.2.0`, and no other; all six also name `0.1.0` and `0.1.1`. A scenario's
+`postgres` `0.2.0`, and no other; all but `pg-stat-statements-not-preloaded`
+also name `0.1.0` and `0.1.1`. A scenario's
 own `faults/` folder may define more for itself (the test fixture
 `tools/tests/fixtures/fixture-audit` defines two); those are the
 scenario's, not the brick's, and are not listed here.
@@ -448,6 +449,7 @@ scenario's, not the brick's, and are not listed here.
 | `pg-join-index-missing` | state, after the data load | parameters `database`, `table-name`, `column`: a table the data file creates, with a foreign key and an index leading with that column; the scripts drop the index and run `ANALYZE` |
 | `pg-table-autovacuum-off` | state, after the data load | parameters `database`, `table-name`: a table the data file creates; the server-wide `autovacuum` stays `on`, so the validator stays green |
 | `pg-abandoned-replication-slot` | state, after the data load | parameter `slot-name`; no standby in the topology; a seed `postgresql.conf` that allows a physical slot (`wal_level` `replica` or above, `max_replication_slots` above 0: PostgreSQL's defaults); writes, for the retained WAL to grow |
+| `pg-stat-statements-not-preloaded` | seed file | the seed `postgresql.conf` (material `inject/postgresql.conf.snippet`) without `pg_stat_statements` in `shared_preload_libraries`, the logging settings above kept; the extension this version creates at initdb in database `postgres`; `gm-restart-db` for the fix (a reload is not enough); for its dashboard evidence, a `postgres-exporter` node with `--collector.stat_statements` |
 
 Every state fault's scripts run as root and query as `postgres` over the
 local socket, so they need the GM's `local all postgres peer` line in
@@ -455,12 +457,12 @@ local socket, so they need the GM's `local all postgres peer` line in
 
 Faults it lends itself to with no definition yet: a bloated table, and
 other configuration, schema, role or state defects visible without
-activity; and, from v0.2, the monitoring faults of master spec 11 this
-brick hosts (chunk 13): no slow-query log (`log_min_duration_statement =
--1`), a `log_line_prefix` pgBadger cannot parse or a non-English
-`lc_messages` (seed `postgresql.conf`), `pg_stat_statements` not
-preloaded (seed), and the role `monitoring` without `pg_monitor` (state,
-after the data load).
+activity; and, from v0.2, monitoring faults of master spec 11.1 not chosen for
+the v0.2 set: no slow-query log (`log_min_duration_statement = -1`), a
+`log_line_prefix` pgBadger cannot parse or a non-English `lc_messages`
+(seed `postgresql.conf`), and the role `monitoring` without `pg_monitor`
+(state, after the data load; it overlaps
+`pg-stat-statements-not-preloaded`).
 
 Known interactions:
 
@@ -472,7 +474,13 @@ Known interactions:
   `pg-table-autovacuum-off` leaves it green.
 - A `postgres-exporter` node reveals from outside what the node's
   statistics show (`pg_stat_statements` included); a fault on the
-  `monitoring` role or on preloading hides it. pgBadger shows only what
+  `monitoring` role or on preloading (`pg-stat-statements-not-preloaded`)
+  hides it, so a fault found through `pg_stat_statements` or the
+  PostgreSQL dashboard (`pg-join-index-missing`'s evidence is `EXPLAIN`
+  and the index catalogue) never goes with it.
+- A scenario with a `postgres-exporter` node lets `monitoring` in by
+  `samenet` (or an address range) in `pg_hba.conf`; the fix of
+  `pg-hba-trust-remote` must keep that line, or the exporter disconnects. pgBadger shows only what
   the logging settings let through.
 
 Faults it cannot host: anything needing a standby or a replication peer

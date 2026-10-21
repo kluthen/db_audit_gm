@@ -1,0 +1,6 @@
+# The query statistics section of the scenario's postgresql.conf, with the
+# preload commented out (or leave the line out). Keep the logging block of
+# postgres 0.2.0 above it; no other shared_preload_libraries line anywhere.
+
+# --- Query statistics (the exporter's pg_stat_statements metrics) ----------
+#shared_preload_libraries = 'pg_stat_statements'	# disabled during the migration, to re-enable

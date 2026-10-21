@@ -334,14 +334,22 @@ The levers that shrink it: a longer scrape interval, fewer collectors
 ## Supported faults
 
 Which faults the brick hosts is stated only by each fault's `applies_to`
-(D59). No catalog fault (`faults/`) names `postgres-exporter` `0.1.0`
-yet, so it supports none.
+(D59). No catalog fault (`faults/`) names `postgres-exporter` `0.1.0`,
+so it supports none.
+
+It shows one catalog fault of another brick: `pg-stat-statements-not-preloaded`
+(on the `postgres` node, which its `applies_to` names). With
+`--collector.stat_statements` in `exporter.conf`, the collector fails
+(`pg_scrape_collector_success{collector="stat_statements"}` 0) and the
+statement panels stay empty while `pg_up` is 1; a scenario planting that
+fault keeps the collector on, and keeps the exporter's target in
+Prometheus' configuration.
 
 Faults it lends itself to with no definition yet: the exporter pointed at
 the wrong database or host (`DATA_SOURCE_URI` in `exporter.conf`: a
-seed-file fault, `pg_up 0`); query statistics off (no
-`--collector.stat_statements`, or the database without the preload: a
-seed-file fault on either node); the database's `pg_hba.conf` not letting
+seed-file fault, `pg_up 0`); query statistics off on this node (no
+`--collector.stat_statements`; the database without the preload is
+`pg-stat-statements-not-preloaded`, above); the database's `pg_hba.conf` not letting
 `monitoring` in from this node (a seed-file fault on the database node).
 Each is fixable on a fixable node by editing `exporter.conf` and running
 `sudo gm-restart-exporter`, or on the database node.

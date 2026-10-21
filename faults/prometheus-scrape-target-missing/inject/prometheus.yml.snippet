@@ -1,0 +1,7 @@
+# The node-health job of the scenario's prometheus.yml, with every node's
+# endpoint but {NODE}'s. Replace <...> by the topology's other node names;
+# keep the prometheus and postgres jobs (the exporter's <exporter>:9187
+# target included) and the retention as they are.
+  - job_name: node-health
+    static_configs:
+      - targets: ['<node>:9110', '<node>:9110', '<node>:9110', '<node>:9110']

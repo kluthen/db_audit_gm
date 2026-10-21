@@ -421,24 +421,36 @@ source maps, the Prometheus data source plugin 54M.
 ## Supported faults
 
 Which faults the brick hosts is stated only by each fault's `applies_to`
-(D59). No catalog fault (`faults/`) names `grafana` `0.1.0` yet, so it
-supports none.
+(D59). This list is every catalog fault (`faults/`) whose `applies_to`
+names `grafana` `0.1.0`, and no other.
+
+| Fault | Kind | What it needs from the brick |
+|---|---|---|
+| `grafana-alert-for-too-long` | seed file | the seed `alert-rules.yaml` (material `inject/alert-rules.yaml.snippet`): rule `rule` (a uid, `gm-service-down` in the v0.2 scenario, never `gm-target-down`) with `for: 2h`, the other four seed files as the companion's; `gm-reload-grafana` for the fix; the helper `/usr/local/lib/gm/grafana-api` and `jq` for the sealed check, which reads the rule through `/api/v1/provisioning/alert-rules/<uid>` |
+
+It is fixable on this fixable node through the file and
+`gm-reload-grafana` (provisioned rules are not editable in the UI); the
+sealed check judges the live state through the API, so a change made
+through the API also counts.
 
 Faults it lends itself to with no definition yet (master spec 11.1's
-candidates, chunk 13), all seed-file faults on the scenario's copies of
-the companion files: the data source pointed at the wrong address
-(`datasources.yaml`); an alert left out, for example no alert on a target
-down (`alert-rules.yaml`); a misleading dashboard, for example a panel
-reading the wrong metric or a threshold set too high (`node-health.json`,
-`postgresql.json`); an alert rule with a threshold or `for` that never
-fires. All are fixable on a fixable node through the files and
-`gm-reload-grafana`; sealed checks judge the result through the API.
+candidates), all seed-file faults on the scenario's copies of the
+companion files: the data source pointed at the wrong address
+(`datasources.yaml`; not chosen for v0.2: it hides every other monitoring
+fault); an alert left out (`alert-rules.yaml`); a misleading dashboard,
+for example a panel reading the wrong metric or a threshold set too high
+(`node-health.json`, `postgresql.json`); an alert rule with a threshold
+in the wrong unit. All would be fixable on a fixable node through the
+files and `gm-reload-grafana`; sealed checks judge the result through the
+API.
 
 Known interactions: a data source at the wrong address empties every panel
 and makes every rule's evaluation fail (rule `health` `error`); a scrape
 target left out of Prometheus' configuration hides that node from the
 node-health view and fires no target-down alert, since Prometheus does not
-know the target.
+know the target. `gm-target-down` firing is the evidence of
+`prometheus-node-health-node-missing`, so `grafana-alert-for-too-long`
+never targets it.
 
 Faults it cannot host: anything needing a notification channel (none),
 and a default administrator's password: there is none (master spec 7.4).
