@@ -1127,3 +1127,62 @@ capture states (no credential in a file `player` reads, an argument or
   committed: branches `v0.2-c9-exporter` and `v0.2-c10-grafana` cut
   from `v0.2-w3`. Host at dispatch: 5.1G memory available of 11G, 10G
   free on `/`; chunk 8 still running.
+
+### Capture W3-A — chunk 8 outcomes (read by 11, 12, 14 and the release gate)
+
+Chunk 8 merged 2026-10-21: 044b882, merge 100b5a9. Unit suite 294 OK;
+`smoke.sh` passed once (no other stack on the swarm, no rerun needed).
+
+- **Report lines.** Just before the disk line: `images on <engine>:
+  <image> <size>, ...; <n> layers, <k> shared, each counted once:
+  <total>`. Disk line: `disk: reservations <r> + images <i> + headroom
+  <h> = <total> of <disk>: ok|too much`. Headroom is still 10% of the
+  declared capacity; the disk check is reservations + images + headroom
+  ≤ declared disk; CPU and memory unchanged.
+- **Real figures** (armenelos, 2026-10-21, fixture-audit): `bastion:0.2.0
+  176.51M, postgres:0.2.0 249.71M; 13 layers, 3 shared, each counted
+  once: 350.35M` (the shared layers: `debian:13-slim` and the two
+  s6-overlay archives); `disk: reservations 2.25G + images 350.35M +
+  headroom 2G = 4.59G of 20G: ok`.
+- **Refusals** (exit 1, stderr, nothing written; a fitted game left as
+  it is):
+  - missing image: `image(s) not on <engine>: <image> (build it: docker
+    build -t <image> bricks/<id>); ...; then gmctl fit again; nothing
+    written` (on a remote engine `docker -H <endpoint> build ...`; the
+    brick folder relative to the catalog root);
+  - engine down: `the engine <engine> is not reachable: <Docker's
+    message>. fit reads the images' sizes from the playground's engine:
+    start it or correct the endpoint (--endpoint), then gmctl fit again;
+    nothing written`;
+  - other inspect failure: `cannot read image <image> on <engine>:
+    <message>; nothing written`.
+  `fit` cannot run offline any more (D102, intended).
+- **Layer dedupe.** `docker image inspect` gives size and diff ids;
+  `docker history --no-trunc --human=false` on the image id gives layer
+  sizes; each layer keyed by its OCI chain id, counted once. An image
+  whose history rows do not match its layers one for one, or do not add
+  up to its size, is counted whole and shares nothing (can only
+  over-count).
+- **Python API.** `docker.py`: `PROBE_TIMEOUT` (60 s), `EngineUnreachable`,
+  `server_version`, `Image(name, id, size, layers)`, `chain_ids`,
+  `layer_sizes`, `inspect_image` (None when missing). `fit.py`:
+  `ImageFootprint(...).line()`, `scenario_images`, `build_command`,
+  `image_footprint`; `capacity_check(scenario, capacity, images)` needs
+  the footprint; `fit(..., docker=None)` defaults to the declared
+  endpoint's engine; `declare_playground` replaced by
+  `playground_declaration(...)` → `(declared, existing)`, writing
+  nothing; `playground.yaml` is written only after the images are read.
+  Order in `fit`: load, supported check, game to keep, declaration,
+  engine read, write `playground.yaml`, capacity check.
+- **Tests.** `tools/tests/__init__.py`: `FakeDocker` answers images
+  (default: each image a shared 78M base plus 100M of its own),
+  `history`, `version`, an unreachable mode (`missing=`, `reachable=`,
+  `from_environment(endpoint)`); `ScenarioCopyTest.setUp` points
+  `tools.gm.fit.Docker` at it; `fake_engine(missing, unreachable)` per
+  test; `run_gmctl` puts `tools/tests/fakebin/docker` first on PATH for
+  its child only. A test that needs `fit` against the real engine must
+  stop that patch (chunk 11: the fixture's loader-and-fit unit test runs
+  on the fake engine; `smoke-monitoring.sh` runs the real one).
+- **`gmctl.md`.** No command line changed; the `fit` row's Exit column
+  lists the two new refusals, and "What the output looks like" shows the
+  image line, the disk line and both refusals.

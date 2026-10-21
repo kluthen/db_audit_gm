@@ -578,8 +578,13 @@ routes parameter and its `GM_WEB_ROUTES` encoding are W1's (items 2, 3).
 
 ### Chunk 8 — `gmctl fit` counts the images
 
-Status: in progress
-Record: (after merge)
+Status: merged (w3, 100b5a9)
+Record: 044b882. No deviation from the spec. Besides `docker image
+inspect`, `fit` runs `docker history` (per-layer sizes) and `docker
+version` through the same endpoint; layers are keyed by OCI chain id.
+Outside its Files line: `tools/tests/__init__.py` (`FakeDocker` gains
+images, history, version; tests point `fit` at it) and the new stand-in
+`tools/tests/fakebin/docker` (capture W3-A).
 Wave: 3
 Depends on: chunk 1 (G6 done)
 Architecture capture: none.
