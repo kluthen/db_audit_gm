@@ -1,6 +1,8 @@
 # v0.1 — first milestone
 
-Status: master spec approved (D44); build plan approved (G1), now v5.
+Status: master spec approved (D44); build plan approved (G1), now v6;
+built (waves 1 to 3 merged); release gate run 2026-10-21, G5 open (see
+"Release notes").
 
 ## Goal
 
@@ -124,4 +126,96 @@ Deferred, not removed from the spec:
 Master spec consolidated and approved under the owner's delegation to the
 lead (D44): [master-spec.md](master-spec.md), with
 [access-model.md](access-model.md). Build plan:
-[build-plan.md](build-plan.md).
+[build-plan.md](build-plan.md). Built in three waves, merged into `main`
+at 763694c; the release gate's run is in
+[wave-log.md](wave-log.md), "Release gate — 2026-10-21".
+
+## Release notes
+
+v0.1, release gate run on 2026-10-21. Release close waits on G5 (below).
+
+### What v0.1 delivers
+
+- **`gmctl`** (`tools/gmctl`, Python 3 with PyYAML): the GM's one
+  host-side command. `fit` (capacity check against a declared
+  playground), `render` (the stack file), `deploy` (credentials, labelled
+  configs and secrets, the stack, health), `exec`, `load-data`, `inject`,
+  `validate`, `check` (the sealed checks), `logs`, `status` (with `--set`
+  for the stages only the GM reaches, spec D49), `teardown` (with
+  `--reason` for a stop, spec D50). After a failed setup and its
+  teardown, `fit` starts a new game on the same playground (spec D51).
+- **Two bricks**: `bricks/postgres` (PostgreSQL 18 on Debian 13, `sshd`,
+  s6-overlay, the `sudo` wrappers `gm-reload-db`, `gm-restart-db` and
+  `gm-validate`) and `bricks/bastion`.
+- **Six catalog faults** in `faults/`: `pg-hba-trust-remote`,
+  `pg-role-superuser`, `pg-memory-over-envelope`, `pg-join-index-missing`,
+  `pg-table-autovacuum-off`, `pg-abandoned-replication-slot`.
+- **The scenario `bookshop-new-server`**: a bastion and one static
+  PostgreSQL node holding a restored backup, with known and hidden
+  defects in the database and its configuration, and issues to report,
+  propose or fix. Reviewed under G4. Its `README.md` is the scenario
+  document, GM-only.
+- **Three skills** in `.claude/skills/`: `game-master` (invoked
+  explicitly, e.g. `/game-master`), `scenario-format` with its scenario,
+  brick and fault templates, and `scenario-document` with its template.
+
+### Per-game credentials
+
+The per-game credentials are kept in the git-ignored
+`local/<playground>/secrets/` of the scenario folder, mode 0600 (the
+directory 0700), so that a restarted GM can hand them over again. Spec
+D45 narrows spec D31's "nothing written to the repository": nothing is
+committed.
+
+### Release gate results
+
+Run on branch `v0.1-release` (from `main` at 763694c) on the build host:
+Debian 13, Docker Engine 29.9.1, single-node swarm. All six run items
+passed.
+
+- Full game `bookshop-new-server-pwbho8` on playground `laptop`
+  (declared CPU 2, memory 4G, disk 8G): setup through hand-over, every
+  step exit 0, 5 injection scripts.
+- Play-through as `player` through the bastion only: evidence of all six
+  fault instances reachable as the answer key states; each *fix* issue
+  fixed two ways, sealed check 1 → 0 → 1 → 0.
+- Stance check-list passed item by item; a stop after hand-over obeyed at
+  once, with its reason recorded.
+- A fresh GM session resumed the game at `handed-over`.
+- Forced setup failure (at `load-data`): reported, torn down, stage
+  recorded, nothing labelled left; then a new game on the same
+  playground, stopped during setup with its reason recorded.
+- Quality command: 165 unit tests OK (13.7 s), `sh -n` OK on 32 shell
+  scripts, both images built unchanged (postgres `sha256:a55e764b…`,
+  bastion `sha256:314de9c7…`), `smoke.sh` green, 0 objects labelled
+  `dbagm.game` left.
+
+### Known issues
+
+Found by the release gate; none blocked it.
+
+- **RG-1 (low–medium), open, waiting on the owner (O55).** On the
+  database node `/etc/postgresql` is group-writable by `pgconf` without
+  the sticky bit, so `player` can delete or replace the root-owned
+  `.gm-seeded` marker. The access model says protected files cannot be
+  edited, enforced by the system; here only the starter pack's DO NOT
+  TAMPER note protects the marker. Either the brick changes or the access
+  model's wording does.
+- **RG-2 (low): wording, clarified (spec D53).** Master spec 17 item 4
+  asked for every *fix* issue to be fixed by file and reload or restart
+  and by `ALTER SYSTEM`, which cannot apply to a fix made by DDL. The
+  item now asks it of configuration settings only; schema and index
+  fixes are made by their DDL. The answer key, the scenario and the code
+  are unchanged.
+- **RG-3 (cosmetic), open.** The answer key's bare `psql -c` evidence
+  commands work on the database node, not on the bastion (no `PGHOST`
+  there), and the key does not say where to run them.
+- **RG-4 (cosmetic), open.** GM sessions state times in different time
+  zones (one in CEST, another in UTC).
+
+### Feedback tone (G5)
+
+Open at the time of writing: the feedback of game
+`bookshop-new-server-pwbho8` was sent to the owner for judgement.
+
+- G5: _verdict, date — to fill on closing._

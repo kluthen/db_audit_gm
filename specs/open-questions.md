@@ -5,7 +5,8 @@ only when it is resolved and logged in [decisions.md](decisions.md); IDs
 are never reused. Resolved IDs are listed at the bottom.
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
-for v0.1; **later** = can wait for v1.0 or beyond. None is open for v0.1.
+for v0.1; **later** = can wait for v1.0 or beyond. Open for v0.1: O55,
+from the release gate.
 
 ## Project and scope
 
@@ -71,6 +72,17 @@ for v0.1; **later** = can wait for v1.0 or beyond. None is open for v0.1.
 - **O25** (later) — Scenario-only bricks and faults may live in the
   scenario's folder (D24). Can they be promoted into the catalog, and
   through which review?
+- **O55** (soon, v0.1) — Release-gate finding RG-1: `/etc/postgresql` on
+  the database node is group-writable by `pgconf` without the sticky bit,
+  so `player` can unlink or replace the root-owned `.gm-seeded` marker,
+  where the access model (5, protected files `edit`: deny; 7, "enforced
+  by the system") says it cannot. Change the PostgreSQL brick (the marker
+  outside the directory; a sticky bit would also stop `player` replacing
+  the `postgres`-owned configuration files, so `sed -i` and editors that
+  save by rename would fail), or reword the access model to light
+  enforcement for the marker? The owner's call. Refs:
+  [versions/v0.1/access-model.md](versions/v0.1/access-model.md),
+  [versions/v0.1/README.md](versions/v0.1/README.md) "Release notes".
 
 ## Game and feedback
 

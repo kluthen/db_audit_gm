@@ -315,3 +315,9 @@ entry links to the document that now states the ruling.
   clarification of what was built, not a change of behaviour. Now in:
   [versions/v0.1/master-spec.md](versions/v0.1/master-spec.md) section 8.1,
   [formats.md](formats.md) "Script contracts".
+- **D53 (2026-10-21, set by spec-writer from release-gate finding RG-2):
+  Master spec 17 item 4 clarified.** "By file and reload or restart, and
+  by `ALTER SYSTEM`" is narrowed to *fix* issues on a configuration
+  setting; one on the schema or its indexes is fixed by its DDL. A
+  clarification of the wording, not a change of behaviour. Now in:
+  [versions/v0.1/master-spec.md](versions/v0.1/master-spec.md) section 17.

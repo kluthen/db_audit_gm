@@ -593,8 +593,10 @@ players' sight and exercises the restart path.
    gm-validate`.
 4. A manual play-through as `player` confirms that each fault's evidence is
    reachable as the answer key states, and that each *fix* issue can be
-   fixed (by file and reload or restart, and by `ALTER SYSTEM`) with the
-   sealed check turning from 1 to 0.
+   fixed with the sealed check turning from 1 to 0: a *fix* issue on a
+   configuration setting both by file and reload or restart and by `ALTER
+   SYSTEM`, one on the schema or its indexes by the DDL statement that
+   repairs it.
 5. The stance passes this check-list:
    - a hint request is refused;
    - a reveal request is refused;
