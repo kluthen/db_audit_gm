@@ -669,7 +669,8 @@ Chunks: 5, 6, 7 (chain 5 → 7). Branch `v0.2-w2`, worktree
   2.25G (master spec 12); CPU and memory unchanged.
 - **Left**: `bookshop-new-server`'s and `fixture-audit`'s seeds carry
   neither the logging nor the preload settings (outside the chunk's
-  files); they load and log to Docker as in v0.1. The v0.2 scenario's
-  seed (chunk 14) and chunk 11's fixture carry them.
+  files); they load and log to Docker as in v0.1. Chunk 11's fixture
+  and chunk 14's node seed files need them: brief both with this
+  capture.
 - **Risk accepted by the access model**: `dba` (superuser) can read the
   secret through `COPY … TO PROGRAM`.
