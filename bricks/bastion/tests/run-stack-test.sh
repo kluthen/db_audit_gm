@@ -49,8 +49,8 @@ WPORT=${GMTEST_BASTION_WEB_PORT:-28080}
 export GMTEST_BASTION_PORT=$PORT GMTEST_BASTION_WEB_PORT=$WPORT
 LABEL=dbagm.test=chunk3-bastion
 CONFIGS="starter_readme starter_story starter_issues seed_postgresql_conf seed_pg_hba_conf envelopes stub_upstream"
-SECRETS="player_password player_ssh_key player_ssh_pubkey dba_password tools_password"
-VOLUMES="bastion_home bastion_hostkeys bastion_run db_pgdata db_pgconf db_home db_gmstate db_run"
+SECRETS="player_password player_ssh_key player_ssh_pubkey dba_password tools_password monitoring_password"
+VOLUMES="bastion_home bastion_hostkeys bastion_run db_pgdata db_pgconf db_home db_gmstate db_pglog db_run"
 
 failures=0
 pass() { printf 'PASS  %s\n' "$*"; }
@@ -115,6 +115,8 @@ printf 'wrong password\n' > "$tmp/bad_password"
 # The tools password, with a colon: basic authentication splits at the first.
 TOOLS_PASSWORD="t00ls:$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 printf '%s' "$TOOLS_PASSWORD" > "$tmp/tools_password"
+# The database node's monitoring role password (postgres 0.2.0); unused here.
+printf 'mon%s' "$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')" > "$tmp/monitoring_password"
 for p in player_password bad_password; do
     printf '#!/bin/sh\ncat %s\n' "$tmp/$p" > "$tmp/askpass_$p"
     chmod 0700 "$tmp/askpass_$p"
@@ -136,6 +138,7 @@ docker secret create -l "$LABEL" "${STACK}_player_ssh_key" "$tmp/id" >/dev/null
 docker secret create -l "$LABEL" "${STACK}_player_ssh_pubkey" "$tmp/id.pub" >/dev/null
 docker secret create -l "$LABEL" "${STACK}_dba_password" "$tmp/dba_password" >/dev/null
 docker secret create -l "$LABEL" "${STACK}_tools_password" "$tmp/tools_password" >/dev/null
+docker secret create -l "$LABEL" "${STACK}_monitoring_password" "$tmp/monitoring_password" >/dev/null
 
 info "deploying stack $STACK (bastion published on ports $PORT and $WPORT)"
 docker stack deploy --resolve-image never -c "$HERE/stack.test.yml" "$STACK" >/dev/null 2>&1
