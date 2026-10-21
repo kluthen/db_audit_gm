@@ -1,0 +1,25 @@
+# Answer key of the fixture-mounted scenario (tools/tests, v0.2 chunk 2).
+scenario:
+  id: fixture-mounted
+  version: 0.1.0
+notes: gm/notes.md
+
+instances:
+  - instance: f1
+    what: the application's service is down on app.
+    why: the application does not answer.
+    evidence:
+      - where: node:app
+        source: the application's service status
+        how: ssh app, then s6-svstat /run/service/app
+        shows: the service is down
+    acceptable:
+      diagnosis: names the application's service as down.
+    sealed_check:
+      script: faults/fixture-app-stopped/checks/fixed.sh
+      at_handover: 1
+      notes: the scenario's own fault (faults/ in the fixture folder).
+    interactions: []
+    validators_left_red: []
+
+tooling_expectations: []           # none in this scenario

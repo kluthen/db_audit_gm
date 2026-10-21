@@ -1,12 +1,16 @@
 """Scenario loading and completeness (tools/gm/model.py)."""
 
 import shutil
+import tempfile
 import unittest
+from pathlib import Path
 
 import yaml
 
 from tools.gm import model
-from tools.tests import REPO_ROOT, FIXTURE_SCENARIO, ScenarioCopyTest
+from tools.tests import REPO_ROOT, FIXTURES, FIXTURE_SCENARIO, ScenarioCopyTest
+
+FIXTURE_MOUNTED = FIXTURES / "fixture-mounted"
 
 
 def repo_yaml_files():
@@ -95,7 +99,7 @@ class TestLoadFixture(unittest.TestCase):
         self.assertEqual(sc.node("db")["data"]["file"], "data/db.sql")
 
 
-class TestRefusals(ScenarioCopyTest):
+class RefusalAsserts:
 
     def assertRefused(self, *fragments):
         with self.assertRaises(model.IncompleteScenario) as cm:
@@ -104,6 +108,9 @@ class TestRefusals(ScenarioCopyTest):
         for fragment in fragments:
             self.assertIn(fragment, text)
         return cm.exception.missing
+
+
+class TestRefusals(RefusalAsserts, ScenarioCopyTest):
 
     def test_every_missing_item_is_listed(self):
         def change(d):
@@ -227,6 +234,283 @@ class TestRefusals(ScenarioCopyTest):
     def test_yaml_syntax_error_is_reported(self):
         (self.scenario / "scenario.yaml").write_text("id: [unclosed\n")
         self.assertRefused("scenario.yaml")
+
+
+class MountedCopyTest(RefusalAsserts, ScenarioCopyTest):
+    """Each test works on a fresh copy of the fixture-mounted scenario:
+    scenario-local bricks that mount and receive material, and a web front
+    (v0.2 capture W1, items 3 to 6)."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory(prefix="gmctl-test-")
+        self.addCleanup(self._tmp.cleanup)
+        self.tmp = Path(self._tmp.name)
+        self.scenario = self.tmp / "fixture-mounted"
+        shutil.copytree(FIXTURE_MOUNTED, self.scenario)
+
+    def brick(self, brick_id, change):
+        self.edit_yaml(f"bricks/{brick_id}/brick.yaml", change)
+
+    def monitor_item(self, d):
+        return d["companion"]["mounted"][0]
+
+    def node_health(self, change):
+        self.edit_yaml("scenario.yaml",
+                       lambda d: change(self.node(d, "monitor")["parameters"]["node_health"]))
+
+    def web_routes(self, routes):
+        self.edit_yaml("scenario.yaml", lambda d: self.node(d, "bastion")["parameters"]
+                       .update(web_routes=routes))
+
+
+class TestMountedFixture(MountedCopyTest):
+
+    def test_fixture_loads(self):
+        sc = model.load_scenario(FIXTURE_MOUNTED)
+        self.assertEqual(sc.id, "fixture-mounted")
+        self.assertEqual({n: b.source for n, b in sc.bricks.items()},
+                         {"bastion": "scenario", "app": "scenario", "monitor": "scenario"})
+        self.assertEqual(sc.node("monitor")["parameters"]["node_health"],
+                         {"bastion": "default", "app": ["app", "sshd"], "monitor": "default"})
+        self.assertEqual(model.mounted_items(sc.bricks["monitor"].data)[0]["name"],
+                         "node-health")
+
+    def test_fixture_bricks_are_complete(self):
+        for brick_dir in sorted((FIXTURE_MOUNTED / "bricks").iterdir()):
+            with self.subTest(brick=brick_dir.name):
+                self.assertEqual(model.check_brick_dir(brick_dir), [])
+
+
+class TestMountedBrickRefusals(MountedCopyTest):
+
+    def test_mounted_file_missing_from_companion(self):
+        (self.scenario / "bricks/fixture-monitor/companion/node-health/s6/run").unlink()
+        self.assertRefused("bricks/fixture-monitor/companion/node-health/s6/run: missing file "
+                           "(companion.mounted[node-health].files)")
+
+    def test_mounted_source_outside_companion(self):
+        def change(d):
+            self.monitor_item(d)["files"][0]["source"] = "docs/gm.md"
+            self.monitor_item(d)["files"][1]["source"] = "companion/../../x"
+        self.brick("fixture-monitor", change)
+        self.assertRefused("companion.mounted[node-health].files[docs/gm.md].source: docs/gm.md "
+                           "is not under companion/",
+                           "files[companion/../../x].source: companion/../../x is not under "
+                           "companion/")
+
+    def test_mounted_target_not_absolute(self):
+        def change(d):
+            self.monitor_item(d)["files"][0]["target"] = "usr/local/lib/node-health.sh"
+            self.monitor_item(d)["node_config"]["target"] = "node.conf"
+        self.brick("fixture-monitor", change)
+        self.assertRefused("files[companion/node-health/node-health.sh].target: "
+                           "usr/local/lib/node-health.sh is not an absolute path",
+                           "companion.mounted[node-health].node_config.target: node.conf is "
+                           "not an absolute path")
+
+    def test_mounted_mode_has_no_write_bit(self):
+        def change(d):
+            self.monitor_item(d)["files"][0]["mode"] = "0755"
+            self.monitor_item(d)["node_config"]["mode"] = "0644"
+        self.brick("fixture-monitor", change)
+        self.assertRefused("files[companion/node-health/node-health.sh].mode: 0755 has a write "
+                           "bit (mounted material is read-only)",
+                           "node_config.mode: 0644 has a write bit")
+
+    def test_mounted_parameter_not_declared(self):
+        self.brick("fixture-monitor",
+                   lambda d: self.monitor_item(d).update(parameter="health_map"))
+        self.assertRefused("companion.mounted[node-health].parameter: health_map is not a "
+                           "parameter of the brick")
+
+    def test_mounted_parameter_not_a_node_map(self):
+        self.brick("fixture-monitor", lambda d: d["parameters"]["node_health"].pop("shape"))
+        self.assertRefused("companion.mounted[node-health].parameter: node_health is not a "
+                           "node-map parameter (shape: node-map)")
+
+    def test_unknown_shape(self):
+        self.brick("fixture-monitor",
+                   lambda d: d["parameters"]["node_health"].update(shape="list"))
+        self.assertRefused("parameters.node_health.shape: list is not node-map or web-routes")
+
+    def test_mounted_requirements_well_formed(self):
+        def change(d):
+            self.monitor_item(d)["requires"] = {"s6_overlay": 3, "commands": ["sh", "curl"]}
+        self.brick("fixture-monitor", change)
+        self.assertRefused("companion.mounted[node-health].requires.s6_overlay: 3 is not a "
+                           "quoted version string",
+                           "requires.commands: curl is not in the command vocabulary")
+
+    def test_receives_well_formed(self):
+        self.brick("fixture-app", lambda d: d.update(
+            receives={"s6_overlay": "v3", "commands": ["sh", "bash"]}))
+        self.assertRefused("fixture-app/brick.yaml: receives.s6_overlay: v3 is not a version "
+                           "(digits and dots)",
+                           "receives.commands: bash is not in the command vocabulary")
+
+    def test_receives_needs_its_keys(self):
+        self.brick("fixture-app", lambda d: d.update(receives={"commands": ["sh"]}))
+        self.assertRefused("fixture-app/brick.yaml: receives.s6_overlay: missing")
+
+    def test_footprint_units(self):
+        def change(d):
+            d["footprint"]["limits"]["memory"] = "lots"
+            self.monitor_item(d)["footprint"]["reservations"]["cpu"] = "some"
+        self.brick("fixture-monitor", change)
+        self.assertRefused("fixture-monitor/brick.yaml: footprint.limits.memory: not a size",
+                           "companion.mounted[node-health].footprint.reservations.cpu: not a "
+                           "CPU count")
+
+    def test_web_path_shape(self):
+        self.brick("fixture-monitor",
+                   lambda d: d["interfaces"]["provides"][0].update(web_path="/a/b/"))
+        self.assertRefused("interfaces.provides[ui].web_path: /a/b/ is not /<route>/")
+
+
+class TestNodeMapRefusals(MountedCopyTest):
+
+    def test_map_required_with_a_mounting_brick(self):
+        self.edit_yaml("scenario.yaml",
+                       lambda d: self.node(d, "monitor")["parameters"].pop("node_health"))
+        self.assertRefused("nodes[monitor].parameters.node_health: missing (required by brick "
+                           "fixture-monitor)")
+
+    def test_map_required_even_when_the_brick_says_optional(self):
+        self.brick("fixture-monitor",
+                   lambda d: d["parameters"]["node_health"].update(required=False))
+        self.edit_yaml("scenario.yaml",
+                       lambda d: self.node(d, "monitor")["parameters"].pop("node_health"))
+        self.assertRefused("nodes[monitor].parameters.node_health: missing (brick "
+                           "fixture-monitor mounts node-health into the nodes it lists)")
+
+    def test_map_lists_every_node(self):
+        self.node_health(lambda m: m.pop("app"))
+        self.assertRefused("nodes[monitor].parameters.node_health: node app is missing (the map "
+                           "lists every node of the topology)")
+
+    def test_map_lists_its_own_node(self):
+        self.node_health(lambda m: m.pop("monitor"))
+        self.assertRefused("node_health: node monitor is missing")
+
+    def test_map_key_not_a_node(self):
+        self.node_health(lambda m: m.update(ghost="default"))
+        self.assertRefused("nodes[monitor].parameters.node_health.ghost: not a node of the "
+                           "topology")
+
+    def test_map_entries(self):
+        self.node_health(lambda m: m.update(app=["app", "nginx"], bastion=[], monitor="all"))
+        self.assertRefused("node_health.app: nginx is not a process of brick fixture-app "
+                           "(app, sshd)",
+                           "node_health.bastion: [] is not default or a non-empty list",
+                           "node_health.monitor: 'all' is not default or a non-empty list")
+
+    def test_map_not_a_map(self):
+        self.edit_yaml("scenario.yaml", lambda d: self.node(d, "monitor")["parameters"]
+                       .update(node_health="default"))
+        self.assertRefused("nodes[monitor].parameters.node_health: not a map (shape node-map "
+                           "of brick fixture-monitor)")
+
+    def test_scalar_parameter_given_a_map(self):
+        self.edit_yaml("scenario.yaml", lambda d: self.node(d, "app")["parameters"]
+                       .update(listen_port={"port": 8000}))
+        self.assertRefused("nodes[app].parameters.listen_port: a list or map, but brick "
+                           "fixture-app declares it a scalar (no shape)")
+
+
+class TestReceivingRefusals(MountedCopyTest):
+
+    def test_receiver_without_receives(self):
+        self.brick("fixture-app", lambda d: d.pop("receives"))
+        self.assertRefused("scenario.yaml: nodes[app]: brick fixture-app 0.1.0 declares no "
+                           "receives, but brick fixture-monitor 0.1.0's node-health is mounted "
+                           "into it")
+
+    def test_mounting_node_receives_too(self):
+        self.brick("fixture-monitor", lambda d: d.pop("receives"))
+        self.assertRefused("nodes[monitor]: brick fixture-monitor 0.1.0 declares no receives")
+
+    def test_s6_overlay_version_prefix(self):
+        for have in ("2.2.0.3", "30.1", "3x"):
+            with self.subTest(have=have):
+                self.setUp()
+                self.brick("fixture-app", lambda d: d["receives"].update(s6_overlay=have))
+                self.assertRefused(f"nodes[app]: brick fixture-app 0.1.0 receives s6-overlay "
+                                   f"{have}, but brick fixture-monitor 0.1.0's node-health "
+                                   "requires 3")
+
+    def test_s6_overlay_prefix_accepted(self):
+        for need in ("3", "3.2", "3.2.3.2"):
+            with self.subTest(need=need):
+                self.setUp()
+                self.brick("fixture-monitor",
+                           lambda d: self.monitor_item(d)["requires"].update(s6_overlay=need))
+                model.load_scenario(self.scenario)
+
+    def test_missing_commands(self):
+        self.brick("fixture-app", lambda d: d["receives"].update(commands=["sh", "cat"]))
+        self.assertRefused("nodes[app]: brick fixture-app 0.1.0 lacks command(s) du, "
+                           "s6-svstat, s6-setuidgid, which brick fixture-monitor 0.1.0's "
+                           "node-health requires")
+
+    def test_unlisted_node_is_not_checked(self):
+        # Leaving a node out exists only as a parameter fault; the map is
+        # refused for it, not the node's receiving declaration.
+        self.brick("fixture-app", lambda d: d.pop("receives"))
+        self.node_health(lambda m: m.pop("app"))
+        missing = self.assertRefused("node app is missing")
+        self.assertNotIn("declares no receives", "\n".join(missing))
+
+
+class TestWebRouteRefusals(MountedCopyTest):
+
+    def test_route_to_an_unknown_node(self):
+        self.web_routes({"monitor": "ghost:9090"})
+        self.assertRefused("nodes[bastion].parameters.web_routes.monitor: ghost is not a node",
+                           "nodes[monitor]: web interface ui (port 9090, /monitor/) has no "
+                           "route in a web-routes parameter")
+
+    def test_route_target_shape(self):
+        self.web_routes({"monitor": "monitor"})
+        self.assertRefused("web_routes.monitor: 'monitor' is not \"<node>:<port>\"")
+
+    def test_route_to_a_port_without_web_interface(self):
+        self.web_routes({"monitor": "monitor:9091", "app": "app:8000"})
+        self.assertRefused("web_routes.monitor: brick fixture-monitor of node monitor provides "
+                           "no web interface on port 9091",
+                           "web_routes.app: brick fixture-app of node app provides no web "
+                           "interface on port 8000")
+
+    def test_route_name_is_the_web_path(self):
+        self.web_routes({"grafana": "monitor:9090"})
+        self.assertRefused("web_routes.grafana: monitor:9090 is served under /monitor/, not "
+                           "/grafana/")
+
+    def test_one_route_per_web_interface(self):
+        self.web_routes({"monitor": "monitor:9090", "mon": "monitor:9090"})
+        self.assertRefused("nodes[monitor]: web interface ui (port 9090, /monitor/) has 2 "
+                           "routes (mon, monitor); one route per web interface")
+
+    def test_front_port_when_routes(self):
+        self.edit_yaml("scenario.yaml", lambda d: self.node(d, "bastion")
+                       .update(published_ports=[{"port": 22, "default": 2222},
+                                                {"port": 8080, "default": 8081}]))
+        self.assertRefused("nodes[bastion].published_ports: no {port: 8080, default: 8080}, "
+                           "which the web front needs (web_routes is non-empty)")
+
+    def test_no_front_port_without_routes(self):
+        self.brick("fixture-monitor", lambda d: d["interfaces"]["provides"][0].pop("web_path"))
+        self.web_routes({})
+        missing = self.assertRefused("nodes[bastion].published_ports: port 8080 is published, "
+                                     "but web_routes is empty (the web front does not run)")
+        self.assertEqual(len(missing), 1, missing)
+
+    def test_empty_routes_by_default(self):
+        self.brick("fixture-monitor", lambda d: d["interfaces"]["provides"][0].pop("web_path"))
+        def change(d):
+            self.node(d, "bastion")["parameters"].pop("web_routes")
+            self.node(d, "bastion")["published_ports"] = [{"port": 22, "default": 2222}]
+        self.edit_yaml("scenario.yaml", change)
+        model.load_scenario(self.scenario)
 
 
 class TestUnits(unittest.TestCase):
