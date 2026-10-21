@@ -1857,3 +1857,66 @@ Chunk 12 merged 2026-10-21: 5b36f01, merge d0e9c53. Files:
   plan v5 (chunk 13's `inject/` "when it has material"); `specs/formats.md`
   v16 (the fault layout's `inject/` conditional); `specs/platform.md` v14
   (parameter faults, planted at rendering, as a third level, D92).
+
+### Capture W4-B — chunk 13 outcomes (read by 14, the wave gate and the release gate)
+
+Chunk 13 merged 2026-10-21: e7e5dd0, merge c698a28. Unit suite 298 OK
+after the merge.
+- **Files**: `faults/{prometheus-scrape-target-missing,
+  prometheus-node-health-node-missing,
+  prometheus-node-health-service-missing,
+  pg-stat-statements-not-preloaded, grafana-alert-for-too-long}/`
+  (`fault.yaml`, `checks/fixed.sh`, `checks/probe.md`, `gm.md` with
+  placement rules; `inject/*.snippet` only for 1, 4, 5); "Supported
+  faults" in `prometheus` (1, 2, 3), `grafana` (5), `postgres` (4; "all
+  but `pg-stat-statements-not-preloaded` also name 0.1.0 and 0.1.1";
+  the `samenet` note), `postgres-exporter` (prose);
+  `faults/pg-hba-trust-remote/gm.md` (its fix keeps the `monitoring`
+  `samenet` line). No brick version change; `fixture-monitoring`
+  unchanged.
+- **Versions and parameters**: every fault 0.1.0. `applies_to`: 1–3
+  `prometheus` `["0.1.0"]`, 4 `postgres` `["0.2.0"]`, 5 `grafana`
+  `["0.1.0"]`. Parameters, all required, default null: 1 and 2 `node`;
+  3 `node`, `service`; 4 none; 5 `rule`, `max-for` (`FAULT_MAX_FOR`).
+  W4's `fault_instances` block is usable as written. Severities: 1
+  medium, 2 medium, 3 high, 4 medium, 5 high.
+- **Names confirmed**: `node_health_sample_age_seconds{instance, job,
+  node}` (e.g. `{instance="db:9110", job="node-health", node="db"}`);
+  `node_health_service_up{node, service}`;
+  `pg_scrape_collector_success{collector="stat_statements"}` 0 planted,
+  1 fixed; `pg_stat_statements_calls_total` about 20 series 70 s after
+  the restart. Grafana 13.2.4's provisioning API returns `for` as
+  written (`"2h"`, `"1m"`); the check also reads `2h0m0s`. Fault 3's
+  panel is "Services: up or down, per node" (the row is "Services").
+- **Inject messages**: `<iid>: seed-file fault, planted by the seed
+  files; nothing to run` (1, 4, 5); `<iid>: parameter fault, planted at
+  rendering; nothing to run` (2, 3); a second run ends "run again
+  (replay)" and "Stage injected (unchanged)".
+- **Timings** from deploy's end: the exporter's node-health target down
+  at the first scrape (under 30 s); "Scrape target down" pending at
+  about 53 s, firing at about 1 min 54 s; the collector at 0 and `db`'s
+  services `sshd` only at the first scrape. After a fix: 4 and 5 read
+  fixed at once, 1 after the next scrape (15–30 s; the GM checks a
+  little after the reload); statement panels fill within about 70 s of
+  `gm-restart-db`.
+- **Verification** (uncommitted fixture copy, game `c13-faults-9sscf7`,
+  playground 2 CPU / 4G / 8G, disk 5.65G of 8G): render left
+  `exporter` without a node-health config and `db.conf` at
+  `services=sshd`; 5 services healthy; every check 1 before; after the
+  player fixes 1, 4, 5 at 0, 2 and 3 at 1; teardown left nothing
+  labelled. Error paths run by hand: unknown node 2; fault 3 on a node
+  without endpoint 2; fault 5 with a missing rule 1, a bad `max-for` 2.
+- **Wording rule found**: the loader reads any `<…>` in `fault.yaml` as
+  an unfilled placeholder, so evidence `where` text avoids angle
+  brackets.
+- **Risks**: fault 5 fixed through Grafana's API is lost at the next
+  restart or wrapper reload (`gm.md` says so); a fault-2/3 instance on a
+  node without the endpoint makes the check exit 2 (W4's placement
+  avoids it).
+
+### Dispatch (chunk 14a)
+
+- Chunk 14 set in progress 2026-10-21. Split per its split rule: 14a
+  (the scenario folder) dispatched first, built and kept on its branch,
+  for the owner's G10 review; 14b (the footprint measurement) follows on
+  the same branch once 14a is built, with any G10 changes.

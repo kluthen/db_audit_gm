@@ -818,8 +818,13 @@ Architecture capture: none.
 
 ### Chunk 13 — Monitoring faults
 
-Status: in progress
-Record: (after merge)
+Status: merged (w4, c698a28)
+Record: e7e5dd0. No deviation from capture W4 or the spec: the five
+faults of W4 (family `monitoring`, all 0.1.0), `inject/` only on the
+three seed-file faults (W4 ruling 1). Verified on an uncommitted copy
+of `fixture-monitoring` with all five planted (W4 ruling 4): inject
+twice, same result; every check 1; faults 1, 4, 5 fixed by `player`
+through the sudo wrappers read 0 within 30 s, 2 and 3 stay 1.
 Wave: 4
 Depends on: chunks 2, 4, 5, 6, 9, 10, 11
 Architecture capture: at wave 4 start, for chunk 14: the chosen faults,
@@ -849,7 +854,7 @@ their ids, kinds, target bricks, parameters and resolutions.
 
 ### Chunk 14 — The v0.2 scenario and the measured footprint
 
-Status: planned
+Status: in progress
 Record: (after merge)
 Wave: 4
 Depends on: chunk 13 (in-wave, wave 4 capture); chunks 4, 5, 6, 7, 9,
