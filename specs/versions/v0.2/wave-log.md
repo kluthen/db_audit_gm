@@ -2023,3 +2023,21 @@ freelancer who left.
     0.07 CPU against a 0.05 reservation (limit 0.25).
   - Scratch evidence in
     `/tmp/claude-1001/-home-bastien-work-db-audit-gm/c63cb38e-ef2d-4974-87de-962eb6ea7fea/scratchpad/c14b/`.
+
+### Wave-branch fixes after 14b (2026-10-21)
+
+- **37507f1** (coding-executor): every brick's Dockerfile copies
+  `rootfs/` through a `rootfs-modes` stage (`chmod -R u=rwX,go=rX`), so
+  the images ship 755/644 whatever the checkout's umask; the deliberate
+  modes set after the copy (sudoers 0440, `grafana.ini` and
+  `grafana-files` 0444, `grafana-api` 0750, the 2775 configuration
+  directories) are unchanged. Before: `/etc`, `/usr/local/**`,
+  `/etc/s6-overlay/**`, `/etc/ssh`, `/etc/sudoers.d` at 775 and s6 entry
+  files at 664 in every image. Builds under umask 002, 022 and 077 give
+  identical mode listings. All five images rebuilt (now the local tags);
+  stack tests postgres 73, bastion 67, prometheus 101, exporter 76,
+  grafana 88, all pass. No version bump (D100).
+- **d2c8429** (coding-executor): `fixture-monitoring` reserves 272M for
+  grafana (was 160M, spec 12's row), README regenerated; `fit` on
+  `laptop` 1.46G of 4G; unit suite 298 OK; `smoke-monitoring.sh` 43
+  checks pass in 51 s on the rebuilt images.
