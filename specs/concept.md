@@ -123,8 +123,9 @@ Scoped separately, each in its own page (D4):
   producer, no monitoring. Its goal is to settle the GM stance
   ([gm-stance.md](gm-stance.md)). See
   [versions/v0.1/README.md](versions/v0.1/README.md).
-- **v0.2 to v0.5**: monitoring, then producers and consumers, then
-  transformers, then research and broadening (D47).
+- **v0.2 to v0.6**: monitoring, then producers and consumers, then
+  transformers, then research and broadening (D47), then the bastion as
+  the players' main activity point (D71).
 - **v1.0, the first release**: the full pipeline, producer -> database ->
   transformation -> database -> consumer, plus monitoring tools and the
   bastion. See [versions/v1.0/README.md](versions/v1.0/README.md).

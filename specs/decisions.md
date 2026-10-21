@@ -112,3 +112,10 @@ continues from D55; no ID is reused.
 - **D70 (2026-10-21, owner ruling): v0.5 extends the tooling.** Other
   tools and hand-made scripts come in v0.5, beyond v0.2's basic defaults.
   Now in: [versions/v0.5/README.md](versions/v0.5/README.md) "In scope".
+- **D71 (2026-10-21, owner ruling): v0.6, the bastion as the players'
+  main activity point.** A new version, after v0.5: the bastion publishes
+  the dashboards and monitoring tools, hosts a documentation website, and
+  provides general-use tooling (`psql`, `pg_dump` and the like). v0.2
+  only publishes the monitoring UIs (D68). Now in:
+  [versions/v0.6/README.md](versions/v0.6/README.md),
+  [versions/README.md](versions/README.md).

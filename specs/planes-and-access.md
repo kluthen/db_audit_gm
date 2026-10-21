@@ -24,7 +24,9 @@ Credentials: see "Credentials and the way in" below.
 publishes a port. Ports published through the routing mesh are open on
 every host, so a UI port published by its own node would bypass the
 bastion. How the bastion publishes them (a web front as its second
-published port, or SSH forwarding through it): O63.
+published port, or SSH forwarding through it): O63. From v0.6 the bastion
+becomes the players' main activity point: web interfaces, a documentation
+website, general-use tooling (D71).
 
 ## Planes (D42)
 

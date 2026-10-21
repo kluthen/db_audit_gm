@@ -8,7 +8,7 @@ intent (D1). To resume cold: read this page, then
 Phase: **v0.1 released** on 2026-10-21 and merged into `main`
 (3c852e1); its working record is archived in
 [archive/v0.1/](archive/v0.1/README.md) (master spec approved under the
-owner's delegation to the lead, D44). v0.2 to v1.0 in drafting. Conventions:
+owner's delegation to the lead, D44). v0.2 to v0.6 and v1.0 in drafting. Conventions:
 settled items are stated as fact, tentative ones are tagged `(proposed)`,
 and every open point cites an `O` ID. Every `(proposed)` item awaits the
 owner's confirmation; the register lists the ones with real alternatives.
@@ -18,7 +18,7 @@ owner's confirmation; the register lists the ones with real alternatives.
 | Document | Purpose | Status |
 |---|---|---|
 | [concept.md](concept.md) | Purpose, actors, vocabulary, scope, versions, prior art | draft v8 |
-| [versions/](versions/README.md) | The roadmap: v0.1 to v1.0 and beyond, one page per version; v0.1's [master spec](versions/v0.1/master-spec.md), [access model](versions/v0.1/access-model.md) and [wave log](versions/v0.1/wave-log.md) | v0.1 released and archived; v0.2–v1.0 draft |
+| [versions/](versions/README.md) | The roadmap: v0.1 to v1.0 and beyond, one page per version; v0.1's [master spec](versions/v0.1/master-spec.md), [access model](versions/v0.1/access-model.md) and [wave log](versions/v0.1/wave-log.md) | v0.1 released and archived; v0.2–v0.6 and v1.0 draft |
 | [gm-stance.md](gm-stance.md) | How the GM behaves and speaks: setup questions, issues, report-only interaction, no reveals, stop only, final answer, feedback tone, future ideas | draft v5 |
 | [scenario-lifecycle.md](scenario-lifecycle.md) | The game from setup to teardown: setup inputs, scenario, local implementation, deploy, aging, hand-over, end of the game | draft v7 |
 | [formats.md](formats.md) | What a scenario folder, a brick (with its companion material and GM documentation) and a fault definition must contain; versions and pins; the local implementation; the skills and templates | draft v11 |
@@ -97,8 +97,9 @@ access model.
 - Every scenario fits the playground's CPU, memory and disk; databases are
   nerfed;
   schemas simple, tables small; sessions up to 4 hours.
-- Roadmap (D47): v0.2 monitoring, v0.3 producers and consumers, v0.4
-  transformers, v0.5 research and broadening, then v1.0; beyond v1.0,
+- Roadmap (D47, D71): v0.2 monitoring, v0.3 producers and consumers,
+  v0.4 transformers, v0.5 research and broadening, v0.6 the bastion as
+  the players' main activity point, then v1.0; beyond v1.0,
   other databases and tools, customer role-play and hints (D48). Gaps and
   risks: O46–O54.
 - Small project: scripts and small apps, no ATD, no UI/UX tree (D2).
