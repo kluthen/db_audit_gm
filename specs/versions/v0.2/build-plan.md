@@ -648,8 +648,15 @@ parameters, metrics port, secret name and wrapper names.
 
 ### Chunk 10 — `grafana` brick
 
-Status: in progress
-Record: (after merge)
+Status: merged (w3, e6707a6)
+Record: 0d56092 (10a), 8e01f9a (10b). Grafana OSS 13.2.4; image 866MB
+(master spec 12 estimated about 450M). Sub-path: `root_url` ending
+`/grafana/` with `serve_from_sub_path = true`. Differs from capture W3
+(within its "use what the version offers" exception):
+`default_timezone = UTC`, since 13.2.4 refuses `utc`; the
+`companion.when` wording uses `NODE`, since the loader reads `<node>` as
+a placeholder; an extra `provisioning/plugins/` directory. Fixable only
+(W3 ruling 1, in the wave 3 report). Capture W3-C.
 Wave: 3
 Depends on: chunks 3, 7; G2, G3 (G8 done)
 Architecture capture: at wave 3 start, for chunk 11: its seed files
@@ -692,7 +699,7 @@ a check reads its live state through its API, and wrapper names.
 
 ### Chunk 11 — Monitoring integration fixture and smoke run
 
-Status: planned
+Status: in progress
 Record: (after merge)
 Wave: 3
 Depends on: chunks 4, 5, 6, 7 (merged); chunks 9, 10 (in-wave, wave 3

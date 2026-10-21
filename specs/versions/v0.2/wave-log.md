@@ -1245,3 +1245,93 @@ not needed.
   only postgres, bastion and prometheus (left to avoid a clash with
   chunk 10; chunk 11 adds both new bricks). Branch `v0.2-c9-exporter`
   kept; removed with the wave's branches.
+
+### Capture W3-C — chunk 10 outcomes (read by 11, 12, 13, 14)
+
+Chunk 10 merged 2026-10-21: 0d56092 (10a), 8e01f9a (10b), merge
+e6707a6. Unit suite 294 OK after the merge; stack test 88 PASS, 0 FAIL
+(against a real `prometheus` 0.1.0 node). `$__file{}` and every endpoint
+W3 lists work as stated (`$__file{}` trims the value).
+
+- **Grafana.** OSS 13.2.4, tarball
+  `https://dl.grafana.com/grafana/release/13.2.4/grafana_13.2.4_38252365904_linux_amd64.tar.gz`,
+  SHA-256 `c48765988fd88572607e4ea670251af8a8e64ab3e360d0f3cf67a6f3587b92ab`
+  (the published `.sha256`), `ADD --checksum` in a separate build stage;
+  only the bundled Prometheus plugin kept (13.2.3); source maps,
+  Swagger UI, docs dropped; binary unmodified. **Image 866MB**
+  (866181319 bytes; the binary alone 499M; master spec 12 estimated
+  about 450M). Healthy in about 12 s on first start; memory at rest
+  180–195M (`memory.current`, page cache included) against a 154M
+  reservation (release-gate footprint measurement decides); database
+  volume 1.7M.
+- **Differences from W3** (its "use what the version offers"
+  exception):
+  1. `default_timezone = UTC`: 13.2.4 refuses `utc` (warns "unknown
+     time zone utc" and keeps the browser's zone). `/api/admin/settings`
+     only echoes the file's raw value; **read the zone in effect from
+     `/api/frontend/settings` `.dateFormats.defaultTimezone`, expecting
+     `UTC`**. Dashboards keep `"timezone": "utc"`, which Grafana accepts.
+  2. `companion.when`: "copy companion/* into the node's folder
+     nodes/NODE/ as its seed files (NODE: the grafana node's name);
+     never mounted" (the loader reads `<node>` as an unfilled
+     placeholder).
+  3. The entrypoint also creates `provisioning/plugins/` (Grafana logs
+     an error without it).
+- **Accounts.** `grafana` 472:472, `grafconf` gid 473; `tools_password`
+  0:472 `0440`.
+- **Sub-path.** `root_url = %(protocol)s://%(domain)s:%(http_port)s/grafana/`,
+  `serve_from_sub_path = true`; route `grafana`, port 3000. Outside the
+  sub-path, `/` and `/login` answer 301 to `http://localhost:3000/grafana/…`
+  (except `/api/health`). Metrics at `/grafana/metrics`.
+- **Helper** `/usr/local/lib/gm/grafana-api <GET|POST|PUT|PATCH|DELETE>
+  </path>`, root:grafana `0750`: `admin:<pw>` via `curl -K -` to
+  `http://127.0.0.1:3000/grafana<path>`, no request body, prints the
+  body; non-2xx also writes `grafana-api: HTTP <code>` to stderr; exit 0
+  on 2xx, 1 any other status, 2 when Grafana does not answer or on a
+  usage error; never retries.
+- **Wrappers.** `/usr/local/sbin/gm-reload-grafana` (refuses broken JSON
+  with "NOT reloaded") and `/usr/local/sbin/gm-validate`;
+  `extra.validator.run_as: grafana`. Validator rules `files`, `server`,
+  `reload`, `pending`; a refused admin login is `ERROR`, exit 2 (not
+  exercised: no test sends a wrong password). Last-loaded state in
+  `/run/gm-grafana/applied` (root:grafana `0440`), written by the s6
+  `run` before each start and by the wrapper after each reload; shared
+  functions in `/usr/local/lib/gm/grafana-files`. `pending` is
+  fingerprint-based: a reload a player triggers through the API is not
+  recorded and stays red until a wrapper reload or restart (documented).
+- **Alert rules (5):** `gm-target-down`, `gm-service-down`,
+  `gm-exporter-disconnected`, `gm-disk-near-reservation`,
+  `gm-memory-near-limit`; group and folder `db_audit_gm`, interval 1m.
+  `Scrape target down` reached firing after 85 s in the stack test.
+- **Ruling 6.** The provider sets `updateIntervalSeconds: 86400`
+  (edits apply through the wrapper), `allowUiUpdates: false`; the data
+  source is `editable: false`: provisioned content changes in the files,
+  not the UI.
+- **Ruling 8.** The entrypoint resets the admin password from the
+  secret at every container start once the database exists (`grafana
+  cli admin reset-admin-password --password-from-stdin`): a restart
+  undoes a changed password; it does not clear a brute-force lockout.
+- **Ruling 3.** 13.2.4 has no default email contact point (receiver
+  `empty`, 0 integrations); Known limits says so.
+- Grafana keeps its default `secret_key`; the reference data source
+  holds no secret (documented).
+- **Stack test.** Stack `gmtest-grafana`, no published port; client
+  container `gmtest-grafana-client` (grafana image); reuses
+  `bricks/prometheus/tests/fixtures/prometheus.yml` read-only. Files
+  outside the Files line: none.
+- **Left for the wave:** the root `README.md` bricks row (chunk 11 adds
+  `postgres-exporter` and `grafana`). Branch `v0.2-c10-grafana` kept;
+  removed with the wave's branches.
+- **Images now** (armenelos, 2026-10-21): postgres 0.2.0 262MB, bastion
+  0.2.0 185MB, prometheus 0.1.0 488MB, postgres-exporter 0.1.0 165MB,
+  grafana 0.1.0 866MB; 10G free on `/`, 5.0G memory available.
+
+### Dispatch (chunk 11)
+
+- Chunk 11 dispatched 2026-10-21, branch `v0.2-c11-monitoring` cut from
+  `v0.2-w3` after chunks 8, 9, 10 merged, with W3-A, W3-B, W3-C
+  committed. Extra notes in its brief: W2-B's logging and preload seed
+  settings; the stale header comment in `fixture-mounted/scenario.yaml`;
+  the root `README.md` bricks row; read Grafana's zone from
+  `/api/frontend/settings` (W3-C); the fixture's unit-level `fit` runs on
+  the fake engine (W3-A).
