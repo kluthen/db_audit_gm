@@ -1,6 +1,6 @@
 # Platform
 
-Status: draft v13
+Status: draft v14
 
 The swarm the games run on, the resource budget scenarios must fit, how
 scenario content reaches the nodes, and the Swarm behaviours that shape the
@@ -115,9 +115,14 @@ from one laptop to a classroom swarm.
    (volumes are per host).
 4. **Protected files are mounted directly** as configs, owned by root and
    read-only. Inside the container this is enforced, not just hash-checked.
-5. **Faults are planted at two levels.**
+5. **Faults are planted at three levels.**
    - *Configuration faults* are simply the content of the seeds (a bad
      `postgresql.conf`, a broken crontab).
+   - *Parameter faults* change a parameter of the target node, applied
+     when the local implementation is rendered (D92), for example a node
+     left out of the node-health map. They have no `inject/` material
+     ([formats.md](formats.md), "`fault.yaml` must contain", Injection;
+     [v0.2 master spec](versions/v0.2/master-spec.md) 6.4).
    - *State faults* (SQL changes, bloat, an abandoned slot, forged history)
      are planted by the GM after deployment: during aging, or right after
      deployment in v0.1, which has no aging (D39). Restored-backup data is

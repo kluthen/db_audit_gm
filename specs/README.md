@@ -24,7 +24,7 @@ owner's confirmation; the register lists the ones with real alternatives.
 | [formats.md](formats.md) | What a scenario folder, a brick (with its companion material and GM documentation) and a fault definition must contain; versions and pins; the local implementation; the skills and templates | draft v16 |
 | [bricks-and-faults.md](bricks-and-faults.md) | Catalog, v0.2's monitoring bricks, per-brick checks, proportionate tooling, solvability probe, fault interactions and families, future backup-tooling faults | draft v8 |
 | [planes-and-access.md](planes-and-access.md) | Bastion-only rule (the bastion publishes the web interfaces), planes, the GM session, trust, write policies, hardening, validators | draft v12 |
-| [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls | draft v13 |
+| [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls | draft v14 |
 | [open-questions.md](open-questions.md) | Open-questions register | live |
 | [decisions.md](decisions.md) | Decisions log, D55 onward (D108 last); D1–D54 archived with v0.1 | live |
 | [archive/](archive/README.md) | Closed milestones' working records, kept verbatim: v0.1's build plan, decisions D1–D54, resolved questions | archive |
