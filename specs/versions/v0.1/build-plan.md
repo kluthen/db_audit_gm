@@ -440,7 +440,11 @@ spec 11).
 
 ### Chunk 10 — Teardown reason, and a new game after a failed setup
 
-Status: planned
+Status: merged (w3, f6c8776)
+Record: chunk commits 9c8c02f (10a), 2fad5c4 (10b); one choice beyond the
+text, accepted by the driver: `set_stage` and `set_failed` drop the
+teardown record, so a game that goes on after a teardown (deploy retry,
+refit) needs a fresh confirming teardown (wave-log capture W3-C).
 Wave: 3
 Depends on: chunks 5, 7, 9 (all merged)
 Architecture capture: none; the `teardown` record's shape in `state.yaml`

@@ -688,3 +688,38 @@ Branch `v0.1-c7-eval` kept until the wave closes; its worktree is removed.
 - Chunk 10 peek: no intent register, no data register; it adds no data.
   Nothing to check beyond the plan.
 - Chunk 10: dispatched 2026-10-21, halves in order (10a then 10b).
+- Chunk 10: merged 2026-10-21 (10a 9c8c02f, 10b 2fad5c4, merge f6c8776);
+  165 unit tests OK; `smoke.sh` unchanged, 41 checks passed live, nothing
+  labelled left. Done when met item by item (report checked by the
+  driver).
+
+### Capture W3-C — the teardown record (chunk 10; extends W2-A's `state.yaml`)
+
+Recorded after chunk 10 merged; accepted by the wave driver.
+
+- `state.yaml` top-level `teardown: {stage, reason, at}`: `stage` the
+  last stage reached (`localimpl.effective_stage`), `reason` the
+  `--reason` text on one line or `null`, `at` ISO UTC (the same as the
+  `torn-down` history entry). Absent in a new game; absent reads as none
+  (`localimpl.teardown_record`).
+- Written by a `gmctl teardown` that leaves nothing labelled, when there
+  is no record and the stage is not `torn-down`. A non-failed game also
+  moves to `torn-down`; a failed game stays `failed` with its `failure`.
+  Not written: a teardown that leaves objects (exit 1), a repeat teardown
+  (says so when given a reason), the undo inside `state.setup_step`.
+  `--reason ""` (or whitespace) is refused, exit 1, before any Docker call.
+- **Choice beyond the chunk text, accepted:** `localimpl.set_stage` and
+  `set_failed` drop the record. Without it, a torn-down failed deploy,
+  retried and failing again in `load-data`, would keep the old record and
+  `fit` would start a new game with no confirming teardown, against
+  D51's "nothing labelled left". So "a later teardown leaves the record
+  unchanged" holds for repeated teardowns; after the game goes on, the
+  next teardown writes a fresh record.
+- Output: `status` prints `  torn down: at <at>, from stage <stage>:
+  <reason|no reason given>`; `teardown` prints `Recorded in state.yaml:
+  torn down at …` the first time. `fit`'s refusal names the game id, the
+  stage (or the stage it failed before), and `gmctl teardown`, then `gmctl
+  fit`; for a failed deploy also `gmctl deploy` to retry.
+- API: `localimpl.record_teardown(ldir, reason=None, now=None)`;
+  `teardown.teardown(scenario_dir, playground, reason=None, docker=None,
+  ...)`.
