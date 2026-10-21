@@ -831,3 +831,14 @@ players.
   RG-2, overturnable) with plan v6, and logged RG-1 as O55 (owner's
   decision). Open at this point: G5, O55, the owner's word to merge
   `v0.1-release` into `main`, then the milestone archive.
+
+### Owner rulings — 2026-10-21 (release close)
+
+- G5 cleared: the feedback tone of game `bookshop-new-server-pwbho8` is
+  acceptable.
+- RG-1 / O55: move the marker out of the group-writable directory (brick
+  change, access model unchanged). Fixed on `v0.1-release` before the
+  merge.
+- D53 accepted.
+- Merge `v0.1-release` into `main` once the RG-1 fix has passed the
+  quality command. RG-3 and RG-4 stay known issues.

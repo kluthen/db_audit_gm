@@ -42,7 +42,7 @@ plan states only its deltas.
 | G2 | Network access at image build time (Debian and PostgreSQL apt repositories, the s6-overlay release download) | Hand check by the wave driver | Chunks 2, 3 | done (2026-10-20, wave driver's hand check: registry pull succeeded) |
 | G3 | A Docker host in swarm mode (`docker swarm init` on the build host is enough) | Hand check by the wave driver | Chunk 2, wave 2 gate, wave 3 gate, release gate | done (2026-10-20, `docker swarm init` on the build host, owner-approved) |
 | G4 | Review of the v0.1 scenario's defects, issues and answer key | The lead | Chunk 8's merge | done (2026-10-21, the owner after an independent review, OKAY) |
-| G5 | Feedback tone judged acceptable | The owner | Release close | open |
+| G5 | Feedback tone judged acceptable | The owner | Release close | done (2026-10-21, the owner, on the feedback of game `bookshop-new-server-pwbho8`) |
 
 ## Waves
 
