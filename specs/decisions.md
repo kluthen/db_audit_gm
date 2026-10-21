@@ -31,3 +31,25 @@ continues from D55; no ID is reused.
   Access and known limits were added by spec-writer to the owner's seven,
   under the ruling's leave to refine. Now in: [formats.md](formats.md)
   "`docs/gm.md` must contain", [versions/v0.2/README.md](versions/v0.2/README.md).
+- **D57 (2026-10-21, owner ruling; resolves O56): A documentation update
+  to a brick bumps its version.** "Well they need to be updated, so it
+  updates the brick version." Applied in dd2c7b4: `postgres` and `bastion`
+  0.1.0 → 0.1.1 wherever pinned; for `postgres`, 0.1.1 also covers the
+  RG-1 rebuild (D54), which had kept 0.1.0. The 0.1.1 images are
+  byte-identical to 0.1.0. Now in: [formats.md](formats.md) "Versions and
+  pins", "`docs/gm.md` must contain".
+- **D58 (2026-10-21, owner ruling): The bump rule is for bricks only.** Any
+  change to a brick bumps its version. A fault or a scenario keeps its
+  version when it only re-pins a brick or widens `applies_to`, so the
+  catalog's six faults, the two fixture faults and both scenarios are
+  right to have kept theirs in dd2c7b4. Other changes to a fault or a
+  scenario are not ruled (O59). Now in: [formats.md](formats.md) "Versions
+  and pins".
+- **D59 (2026-10-21, owner ruling): A fault's `applies_to` is the only
+  source of which faults a brick hosts.** The code already reads only that
+  (`tools/gm/model.py`); `compatible_faults` leaves `brick.yaml`, its
+  template, both bricks and the format skill, and the brick's GM
+  documentation lists the faults whose `applies_to` names it. 0.1.1 is not
+  yet released (`v0.2-draft` is unmerged), so the removal folds into it
+  with no further bump. Now in: [formats.md](formats.md) "`brick.yaml`
+  must contain", "`docs/gm.md` must contain", "Versions and pins".

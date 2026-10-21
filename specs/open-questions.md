@@ -5,7 +5,8 @@ only when it is resolved and logged in [decisions.md](decisions.md); IDs
 are never reused. Questions resolved by the close of v0.1 (O1, O3, O4,
 O6–O9, O14, O15, O17–O19, O26–O28, O33–O37, O39–O44 and O55) are listed
 in [archive/v0.1/open-questions-resolved.md](archive/v0.1/open-questions-resolved.md);
-their IDs keep their meaning. Numbering continues from O57.
+their IDs keep their meaning. Resolved since: O56 (D57). Numbering
+continues from O61.
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -38,7 +39,29 @@ for the next version (v0.1 until it closed, with none left open);
 - **O12** (later) — Are network-level faults (segmentation, routing-mesh
   exposure) in scope? And the network layout itself (management network,
   zones, dual-homed nodes). Refs: [platform.md](platform.md).
+- **O57** (soon, v0.2) — A brick's footprint. `brick.yaml` gives one
+  figure per dimension (CPU, memory, disk), while
+  [formats.md](formats.md) and D56's Footprint section speak of limits and
+  reservations; nothing in the scripts reads it, since `gmctl fit` and the
+  renderer use the scenario's own `resources`. A Footprint section giving
+  both therefore introduces figures `brick.yaml` lacks, against D56's
+  agreement rule. Options: (a) `brick.yaml` takes the shape of the
+  scenario's `resources` (limits for CPU and memory, reservations for CPU,
+  memory and disk) as the default the GM starts from; (b) one figure per
+  dimension, with its meaning stated (the reservation, say); (c) no
+  footprint in `brick.yaml`, the sizing guidance only in `docs/gm.md`.
+  Default (proposed): (a), which matters for v0.2's monitoring bricks in
+  the capacity check. Refs: [formats.md](formats.md), "`brick.yaml` must
+  contain", "`docs/gm.md` must contain".
 
+- **O58** (soon, v0.2) — Rendered network names. A scenario names its
+  networks (`backend` in `bookshop-new-server`) and each node lists those
+  it joins, but v0.1 renders exactly one network, `<game_id>_net`,
+  whatever the scenario calls it, and refuses a scenario that declares
+  more (capture W2-A, `tools/gm/localimpl.py`). Harmless with one network;
+  a monitoring network (O12) needs a rule. Default (proposed): one
+  rendered network per declared one, named `<game_id>_<network name>`.
+  Refs: [formats.md](formats.md), "Local implementation".
 ## Player access and rules
 
 - **O13** (later) — How does the player reach monitoring web UIs (Grafana,
@@ -52,8 +75,13 @@ for the next version (v0.1 until it closed, with none left open);
 - **O20** (later) — Confirm the reading of D28: no project-wide mandatory
   machine check (no common brick lint, no schema check in the format skill),
   only the checks each brick ships. And confirm the solvability probe as a
-  gate for generated scenarios, run after aging and before hand-over. Refs:
-  [bricks-and-faults.md](bricks-and-faults.md).
+  gate for generated scenarios, run after aging and before hand-over. As
+  built in v0.1, the scripts already check every scenario, and the bricks
+  and faults it uses, against the templates when they load it
+  (`tools/gm/model.py`), a project-wide check the reading did not foresee,
+  while the format skill says there is no schema-check script. Refs:
+  [bricks-and-faults.md](bricks-and-faults.md), [formats.md](formats.md)
+  "Enforcement".
 - **O21** (later) — Can the starter documentation contain deliberate
   inaccuracies as faults, decided per scenario?
 - **O22** (later) — Default aging technique per fault (pre-aging, forged
@@ -75,12 +103,23 @@ for the next version (v0.1 until it closed, with none left open);
 - **O25** (later) — Scenario-only bricks and faults may live in the
   scenario's folder (D24). Can they be promoted into the catalog, and
   through which review?
-- **O56** (soon, v0.2) — Bringing the v0.1 bricks' `docs/gm.md` up to the
-  required sections (D56) changes no image and no `brick.yaml`. Does a
-  documentation-only change bump a brick's version, which scenarios pin?
-  Default (proposed): no, since `docs/gm.md` is never shipped and nothing
-  a scenario pins changes. Refs: [formats.md](formats.md), "`docs/gm.md`
-  must contain".
+- **O59** (soon, v0.2) — Versions of faults and scenarios beyond D58. D58
+  keeps a fault's or a scenario's version when it only re-pins a brick or
+  widens `applies_to`, and says nothing of other changes. A scenario pins
+  each fault by version, so a fault whose injection, sealed check or
+  acceptance criteria change under the same version leaves the pin
+  pointing at different behaviour. Does any other change bump a fault,
+  and when does a scenario's own version change (nothing pins a
+  scenario)? No default proposed: D58 deliberately limits the bump rule to
+  bricks. Refs: [formats.md](formats.md), "Versions and pins".
+- **O60** (later) — `applies_to` lists brick versions one by one (the v0.1
+  template and faults), where [formats.md](formats.md) used to say
+  "version ranges". Since every brick change bumps the brick (D58) and a
+  fault applies only to the versions it lists (D59), each bump means
+  editing every fault that still applies (eight in dd2c7b4). Ranges would
+  spare that, but let a fault claim a brick version nobody tried it on.
+  Default (proposed): keep lists. Refs: [formats.md](formats.md), "Versions
+  and pins".
 
 ## Game and feedback
 

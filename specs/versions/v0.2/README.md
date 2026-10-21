@@ -24,6 +24,15 @@ aggregators." (D47)
   footprint, supported faults and the rest), from the new monitoring
   bricks on; the v0.1 bricks (`postgres`, `bastion`) are brought up to
   it, and the format skill's brick check refuses a brick without them.
+  That update bumped both bricks to 0.1.1 (D57).
+- Brick versioning, partly settled: any change to a brick bumps its
+  version, a fault or scenario that only re-pins a brick or widens
+  `applies_to` keeps its own (D57, D58), and a fault's `applies_to` is
+  the only statement of which faults a brick hosts, so `compatible_faults`
+  leaves `brick.yaml` within 0.1.1 (D59). See
+  [formats.md](../../formats.md), "Versions and pins". Still open: other
+  changes to faults and scenarios (O59), version lists or ranges in
+  `applies_to` (O60).
 - Monitoring-related fault families as far as a static or near-static
   database allows (a collector pointed at the wrong node, a host not
   collected, a threshold in the wrong unit).
@@ -48,4 +57,7 @@ aggregators." (D47)
   host mounts, which collides with the rule that the player side never
   gets a Docker socket.
 - O46: whether the monitoring stack still fits one host.
-- O56: whether the v0.1 bricks' documentation update bumps their version.
+- O57: what a brick's footprint states (one figure, or limits and
+  reservations), before the monitoring bricks enter the capacity check.
+- O58: rendered network names, once a scenario has more than one network.
+- O59: when a fault's or a scenario's version changes, beyond D58.

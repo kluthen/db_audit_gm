@@ -1,6 +1,6 @@
 # Concept
 
-Status: draft v6
+Status: draft v7
 
 What the project is, who it is for, the words we use, and what is in and out
 of scope. Mechanics live in the other topic documents (see
@@ -59,9 +59,9 @@ hence the host/node split.
 |---|---|
 | **Host** | A Swarm node: a machine or VM running a Docker engine that is part of the swarm |
 | **Node** | An element of the scenario topology (a database, a producer, the bastion…), i.e. a Swarm service, usually one container |
-| **Brick** | A reusable, catalogued node definition: image, configuration, documentation, validator, compatible faults |
+| **Brick** | A reusable, catalogued node definition: image, configuration, documentation, validator. Versioned: any change bumps its version, and scenarios pin it (D57, D58) |
 | **Catalog** | The bricks and fault definitions kept in the repository |
-| **Fault** | An issue planted in a scenario. A *fault definition* is reusable; a *fault instance* is one fault applied in one scenario |
+| **Fault** | An issue planted in a scenario. A *fault definition* is reusable and names the brick versions it applies to (D59); a *fault instance* is one fault applied in one scenario |
 | **Known / hidden** | A fault instance is *known* when an issue given to the player covers it, *hidden* otherwise |
 | **Issue** | What the GM gives the player at hand-over: a complaint plus its expected resolution. A game may have none |
 | **Expected resolution** | What an issue asks of the player: *report* (diagnose and report), *propose* (diagnose and recommend a concrete fix without applying it), *fix* (alter the system so it works), *improve* (alter it so it works better) (D9) |
