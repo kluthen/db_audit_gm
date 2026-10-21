@@ -811,7 +811,7 @@ Architecture capture: none.
 
 ### Chunk 13 — Monitoring faults
 
-Status: planned
+Status: in progress
 Record: (after merge)
 Wave: 4
 Depends on: chunks 2, 4, 5, 6, 9, 10, 11

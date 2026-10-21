@@ -1526,3 +1526,284 @@ Chunks: 12, 13, 14 (chain 13 → 14). Branch `v0.2-w4`, worktree
   bricks, parameters, resolutions) is drafted before chunk 13 starts.
   Chunk 12 needs none and starts now.
 - Chunk 12 dispatched 2026-10-21.
+- **D108** recorded by spec-writer in bed965d: the monitoring bricks
+  are fixable only in v0.2 (master spec section 7, access model 6, 7,
+  11, 12); report-only monitoring nodes proposed for v0.3. The build
+  plan needed no change.
+
+### Capture W4 — the v0.2 monitoring faults (chunk 13; read by 14)
+
+Drafted 2026-10-21 by a read-only planning agent from: build plan
+chunks 13 and 14; master spec 6.4 and 11.1; D92, D93, D94, D104, D106;
+captures W1, W1-C, W1-D, W2-A, W2-B, W3, W3-B, W3-C, W3-D; the bricks
+as built; `tools/gm/model.py` and `localimpl.py`; the six v0.1 faults.
+Reviewed by the wave driver the same day; its rulings on the draft's
+open points are at the end. "(choice)" marks a point the sources left
+open and this capture settles. The owner sees the set at G10 (chunk
+14's merge) and was told of it when chunk 13 started.
+
+**The set: five faults, none a state fault.**
+
+| # | Fault id | Kind | `applies_to` | Lives in | Parameters (scenario value) | Resolutions |
+|---|---|---|---|---|---|---|
+| 1 | `prometheus-scrape-target-missing` | seed-file | `prometheus` `["0.1.0"]` | seed `prometheus.yml`, the node-health job's `static_configs` | `node`: the node whose `<node>:9110` target is left out (`grafana`) | report, propose `[report-only, fixable]`; fix `[fixable]` |
+| 2 | `prometheus-node-health-node-missing` | parameter | `prometheus` `["0.1.0"]` | `node_health` map, `remove-entry` `"{NODE}"` | `node`, required (`exporter`) | report, propose `[report-only, fixable]`; no fix |
+| 3 | `prometheus-node-health-service-missing` | parameter | `prometheus` `["0.1.0"]` | `node_health` map, `remove-from-entry` entry `"{NODE}"`, item `"{SERVICE}"` | `node`, required (`db`); `service`, required: the node's main service (`postgres`) | report, propose `[report-only, fixable]`; no fix |
+| 4 | `pg-stat-statements-not-preloaded` | seed-file | `postgres` `["0.2.0"]` | seed `postgresql.conf`, `shared_preload_libraries` | none (`{}`) | report, propose `[report-only, fixable]`; fix `[fixable]` |
+| 5 | `grafana-alert-for-too-long` | seed-file | `grafana` `["0.1.0"]` | seed `alert-rules.yaml`, one rule's `for` | `rule`: the rule uid (`gm-service-down`); `max-for`: the longest wait that counts as fixed (`5m`) | report, propose `[report-only, fixable]`; fix `[fixable]` |
+
+Across the set:
+- **Ids**: the catalog's `<brick prefix>-<defect>`; `pg-` kept for
+  postgres, the other bricks by full id (choice). Parameter names
+  hyphenated, as the catalog's (`table-name`).
+- **Family**: a new free-text `monitoring` (the field is free text);
+  severity is chunk 13's (choice).
+- **Resolutions**: report and propose under both write policies, fix
+  under `fixable`, as v0.1's faults. The monitoring bricks are fixable
+  only (D108), so every *fix* on 1 and 5 is possible.
+- **Faults 2 and 3** are report or propose only, even on the fixable
+  `prometheus` node: their material is read-only on every node (master
+  spec 11.1, D92).
+- **Injection** plants nothing at run time: `gmctl inject` prints
+  "nothing to run" for 1, 4, 5 and "planted at rendering" for 2, 3, so
+  a second run gives the same result.
+- **`inject/`**: the seed-file faults carry their snippet there as
+  `material`; the parameter faults have no `inject/` folder (ruling 1).
+- **Validators**: none of the five turns one red (Prometheus' never
+  judges targets, Grafana's only that its files load, postgres' only
+  the knob envelopes): `validators_left_red: []` for each.
+- **`interactions`**: `{masks: [], masked_by: [], conflicts_with: []}`
+  for each. The placement rules (below) go in each fault's `gm.md`,
+  since `interactions` names fault ids, not nodes (choice).
+
+**1. `prometheus-scrape-target-missing`.** A node's node-health
+endpoint missing from the scrape targets.
+- Plant: the scenario's `prometheus.yml` node-health job lists every
+  node's `<node>:9110` except `{NODE}`; every other job, `exporter:9187`
+  included, stays.
+- "With no alert on a target down" (master spec 11.1) is read as the
+  consequence, not a second defect (ruling 5): `gm-target-down` stays
+  in the scenario, but cannot fire for a target Prometheus does not
+  know. Fault 2 needs that rule for its evidence.
+- A tool starved of information: Prometheus never asks, while the node
+  serves its endpoint.
+- Evidence: `ui:prometheus` `/prometheus/targets` (the node-health job
+  has one target fewer than the topology has nodes; `{NODE}:9110`
+  absent); `ui:grafana` node-health dashboard (`/grafana/d/node-health`,
+  the node absent from every panel); `ui:grafana` alerting view ("Scrape
+  target down" stays Normal); `node:prometheus`
+  `/etc/prometheus/prometheus.yml`; `node:prometheus` `curl -s
+  {NODE}:9110/metrics` answers (the bastion has no `curl`, W3-D).
+- Fix: add the target, then `sudo gm-reload-prometheus`.
+- Sealed check: on `prometheus` as `root`, on Prometheus' live state,
+  not the file: fixed when an instant query returns
+  `node_health_sample_age_seconds{node="{NODE}"}`, through `promtool
+  query instant http://127.0.0.1:9090/prometheus …` (the image has
+  `curl` and `promtool`, no `jq`) (choice). Exit 2 if Prometheus is not
+  ready. Chunk 13 confirms the metric and label names against the
+  script as built.
+
+**2. `prometheus-node-health-node-missing`.** A node left without the
+node-health script.
+- Plant: `parameter_changes: [{parameter: node_health, op:
+  remove-entry, entry: "{NODE}"}]`; the renderer mounts nothing into
+  that node.
+- The scenario still scrapes the node: its `prometheus.yml` keeps
+  `{NODE}:9110`; otherwise the fault shows only by comparing nodes.
+- Evidence: `ui:prometheus` targets (`{NODE}:9110` down, connection
+  refused); `ui:grafana` alerting view ("Scrape target down" fires for
+  `{NODE}:9110` after about 2 minutes: `for: 1m` plus the 1-minute
+  interval); `ui:grafana` node-health dashboard (no row for the node);
+  `node:{NODE}` (no `/opt/gm/node-health/`).
+- Sealed check: on `prometheus` as `root`, `curl -s -m 5
+  http://{NODE}:9110/metrics`, on the endpoint, not Prometheus, so it
+  does not depend on fault 1. Present while there is no answer or no
+  sample for `node="{NODE}"`; fixed when the endpoint answers for the
+  node. Exit 2 if the name does not resolve.
+
+**3. `prometheus-node-health-service-missing`.** The node's main
+service left out of its service list.
+- Plant: `parameter_changes: [{parameter: node_health, op:
+  remove-from-entry, entry: "{NODE}", item: "{SERVICE}"}]`. The
+  scenario's `db` entry is `default`, expanding to `[postgres, sshd]`;
+  the planted list is `[sshd]`.
+- Constraint: `service` is never the entry's only item (the list would
+  be empty); the parameter's description says so (choice).
+- Effect: the node shows healthy while its database is down; at rest
+  the evidence is the service missing, not down.
+- Evidence: `node:db` `cat /opt/gm/node-health/node.conf` (`services=sshd`);
+  `ui:grafana` node-health dashboard, "Services" panel (`db` shows
+  `sshd` only, every other node its main service); `ui:prometheus`
+  (`node_health_service_up{node="db"}` has no `postgres` series).
+- Sealed check: on `prometheus` as `root`, `curl
+  http://{NODE}:9110/metrics`: present while the endpoint answers
+  without `node_health_service_up{…service="{SERVICE}"}`, fixed when
+  the series is there. Exit 2 if the endpoint does not answer.
+
+**4. `pg-stat-statements-not-preloaded`.** Query statistics never
+collected.
+- Plant: the scenario's `postgresql.conf` leaves `pg_stat_statements`
+  out of `shared_preload_libraries` (line absent or commented out);
+  the rest follows W2-B's logging block.
+- The scenario's `exporter.conf` keeps
+  `COLLECTORS=--collector.stat_statements`, so the collector error
+  shows. The extension already exists in database `postgres` (W2-B):
+  only the preload is missing.
+- Visible without load: with the preload, the exporter's own queries
+  fill the panels within about 60 seconds (W3-D).
+- A tool starved of information.
+- Evidence: `ui:grafana` PostgreSQL dashboard (the four statement
+  panels "No data", "Exporter connected" at 1); `ui:prometheus`
+  (`pg_scrape_collector_success{collector="stat_statements"}` 0,
+  `pg_stat_statements_calls_total` empty); `bastion` (`psql -h db -c
+  'SELECT * FROM pg_stat_statements LIMIT 1'` errors with "must be
+  loaded via shared_preload_libraries"; `SHOW
+  shared_preload_libraries` lacks it); `node:db`
+  `/etc/postgresql/postgresql.conf`.
+- Fix: edit the file or `ALTER SYSTEM`, then `sudo gm-restart-db`; a
+  reload is not enough.
+- Sealed check: on the db node as `root`, through `runuser -u postgres
+  -- psql -d postgres`: fixed when the library is in effect and `SELECT
+  count(*) FROM pg_stat_statements` succeeds. A file edited but not
+  restarted reads present.
+
+**5. `grafana-alert-for-too-long`.** An alert rule's pending period
+longer than any incident.
+- Plant: the scenario's `alert-rules.yaml` gives rule `{RULE}` a `for`
+  of `2h` (the companion's is `1m`).
+- The rule is `gm-service-down`, never `gm-target-down`, which would
+  hide fault 2's firing alert (choice).
+- The master spec's other variant, a threshold in the wrong unit, is
+  set aside: a player could fix it by the threshold or by rescaling the
+  expression, which a sealed check cannot judge reliably (choice).
+- Evidence: `ui:grafana` `/grafana/alerting/list` ("Service down on a
+  node", pending period 2h); `node:grafana`
+  `/etc/grafana/provisioning/alerting/alert-rules.yaml`.
+- Fix: edit the file, then `sudo gm-reload-grafana`. Provisioned rules
+  are not editable in the UI; D94's API path also counts.
+- Sealed check: on the grafana node as `root`,
+  `/usr/local/lib/gm/grafana-api GET
+  /api/v1/provisioning/alert-rules/{RULE}` and `jq`, on the live state:
+  present while the rule is missing, paused, or its `for` exceeds
+  `max-for`; fixed when it exists, is not paused and its `for` is at
+  most `max-for`. Exit 2 when the helper exits 2. Chunk 13 confirms
+  Grafana 13.2.4's duration format (`2h` or `2h0m0s`).
+
+**The set's properties.**
+- Visible without load: every fault shows in configuration, the targets
+  page, dashboards or the alerting view. History is thin for the first
+  10 to 15 minutes; fault 2's alert takes about 2 minutes.
+- Starved tools: faults 1 and 4 (2 and 3 arguably).
+- Node-health faults: only 2 and 3, parameter faults on the
+  `prometheus` node naming only `prometheus`, with required `node`
+  (W1-C checks this).
+- No masking (placement rules, in each fault's `gm.md`):
+  - faults 1, 2 and 3 sit on three different nodes; fault 1 on the db
+    node would hide fault 3, faults 1 and 2 on one node would hide
+    fault 2's alert;
+  - fault 1 never removes `exporter:9187`, which would hide fault 4;
+  - fault 5 avoids `gm-target-down`;
+  - out: a data source at a wrong address (empties every panel and
+    alert, hiding 1–4) and the role without `pg_monitor` (overlaps 4);
+  - faults 3 and 5 both weaken "an alert when db's postgres stops"
+    without hiding each other's evidence; `gm.md` says so, and one
+    issue may cover both.
+- Brick changes: none beyond the "Supported faults" sections:
+  `prometheus` rows for 1, 2, 3 (`test_brick_docs` matches `` | `id` |
+  `` rows); `grafana` a row for 5; `postgres` a row for 4 and its "all
+  six also name 0.1.0 and 0.1.1" sentence updated; `postgres-exporter`
+  prose only (fault 4 names `postgres`). They fold into each brick's
+  version, no bump (D100).
+
+**Chunk 13's verification.** The node names are the fixture's
+(`bastion`, `db`, `prometheus`, `exporter`, `grafana`), so the values
+above serve. The committed `fixture-monitoring` must carry no planted
+fault (`tools/tests/test_model.py:322,331` pin its Grafana seeds and
+scrape targets; `tools/tests/smoke-monitoring.sh:202,288` expect 7
+targets up and 5 rules). Chunk 13 plants all five together on an
+uncommitted copy of the fixture (the five instances added, the three
+seed files changed per each fault's `seed_changes`; `catalog_root`
+defaults to the repo) (ruling 4): fit, render, deploy, inject; every
+check returns 1; fix 1, 4 and 5 as a player would; those three return
+0, 2 and 3 still 1. This also shows the set does not mask itself.
+
+**What chunk 14's scenario declares.**
+- `node_health: {bastion: default, db: default, prometheus: default,
+  exporter: default, grafana: default}`: every node; `db`'s entry
+  contains `postgres`; `exporter` is present.
+- Seed files: `prometheus.yml` (the node-health job lists `bastion`,
+  `db`, `prometheus`, `exporter` on 9110, not `grafana`; the
+  `prometheus` and `postgres` (`exporter:9187`) jobs and the retention
+  as in the fixture); `alert-rules.yaml` (the companion's with
+  `gm-service-down` `for: 2h`; the other four Grafana files byte for
+  byte); `postgresql.conf` (W2-B's logging block, without the preload);
+  `exporter.conf` (with `--collector.stat_statements`); `pg_hba.conf`
+  (`monitoring` by `samenet`, W3-D).
+- `fault_instances` (instance ids and visibility are chunk 14's,
+  reviewed at G10):
+
+  ```yaml
+  - {id: f1, fault: {id: prometheus-scrape-target-missing, version: 0.1.0}, node: prometheus, parameters: {node: grafana}}
+  - {id: f2, fault: {id: prometheus-node-health-node-missing, version: 0.1.0}, node: prometheus, parameters: {node: exporter}}
+  - {id: f3, fault: {id: prometheus-node-health-service-missing, version: 0.1.0}, node: prometheus, parameters: {node: db, service: postgres}}
+  - {id: f4, fault: {id: pg-stat-statements-not-preloaded, version: 0.1.0}, node: db, parameters: {}}
+  - {id: f5, fault: {id: grafana-alert-for-too-long, version: 0.1.0}, node: grafana, parameters: {rule: gm-service-down, max-for: 5m}}
+  ```
+
+- Issues: one covering f2 or f3 expects `report` or `propose`; a *fix*
+  issue on f4 needs `db` `fixable`; release gate item 6 needs at least
+  one *fix* issue on a monitoring tool (f1 or f5).
+- Tooling expectation: not node health (D104), and none of these five
+  faults' subjects.
+- Answer key: each entry's `interactions` per the notes above;
+  `validators_left_red: []` except for the v0.1 fault below.
+- Mixing with v0.1's faults (all on `postgres` 0.2.0, all visible
+  without load):
+  - suit well: `pg-hba-trust-remote` (its fix must keep the
+    `monitoring` `samenet` line or the exporter disconnects; its
+    `gm.md` says so, a note chunk 13 adds), `pg-memory-over-envelope`
+    (shares `postgresql.conf` with f4; validator red but fixable),
+    `pg-role-superuser`, `pg-table-autovacuum-off`;
+  - with care: `pg-join-index-missing`, its evidence EXPLAIN and the
+    index catalogue, never `pg_stat_statements` or the PostgreSQL
+    dashboard, which f4 hides;
+  - weak: `pg-abandoned-replication-slot` (retained WAL grows only
+    with writes);
+  - suggested (choice, for G10): two or three of the "suit well" ones,
+    seven or eight instances in all.
+- Candidates not chosen (choice): the data source at a wrong address
+  (masks the others); the role without `pg_monitor` (overlaps f4);
+  retention shorter than the window (the dashboards' window is 1 hour
+  and Prometheus holds 2–3 hours in memory: a config-only finding with
+  no symptom in a session); no slow-query log (the report looks the
+  same at rest); non-English `lc_messages` (no locales in
+  `debian:13-slim`); a `log_line_prefix` pgBadger cannot parse (ruling
+  2).
+
+**The wave driver's rulings on the draft's open points (2026-10-21).**
+1. **No `inject/` for the parameter faults.** The format makes
+   `inject/` conditional ("when it has material") and the loader
+   requires it only for referenced material; git keeps no empty folder.
+   Chunk 13's scope line ("each with … `inject/`") is read that way;
+   spec-writer aligns its wording.
+2. **No pgBadger fault.** Release gate item 4's "report evidence by
+   generating the report" applies where the answer key has report
+   evidence; master spec 11.1 asks for none. pgBadger is still run in
+   the game (footprint, item 3). The `log_line_prefix` fault stays a
+   candidate the owner can ask for at G10 (it would need pgBadger 13.2's
+   at-rest behaviour confirmed first).
+3. **The owner is told the set when chunk 13 starts**; G10 stays at
+   chunk 14's merge as planned.
+4. **The uncommitted fixture copy is accepted** for chunk 13's
+   verification. From the wave 4 gate on, the smoke deployment of the
+   v0.2 scenario covers the five faults at 1; release gate item 6
+   covers the fixes at 0.
+5. **"With no alert on a target down"** is the consequence of fault 1,
+   not a second defect: the scenario keeps `gm-target-down`.
+
+### Dispatch (chunk 13)
+
+- Chunk 13 dispatched 2026-10-21 on branch `v0.2-c13-faults`, with
+  capture W4 and its rulings, W1, W1-C, W2-A, W2-B and W3-B/C/D's
+  fault-relevant items in its brief. spec-writer asked to align chunk
+  13's `inject/` wording (ruling 1).
