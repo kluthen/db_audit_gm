@@ -315,9 +315,19 @@ entry links to the document that now states the ruling.
   clarification of what was built, not a change of behaviour. Now in:
   [versions/v0.1/master-spec.md](versions/v0.1/master-spec.md) section 8.1,
   [formats.md](formats.md) "Script contracts".
-- **D53 (2026-10-21, set by spec-writer from release-gate finding RG-2):
-  Master spec 17 item 4 clarified.** "By file and reload or restart, and
+- **D53 (2026-10-21, set by spec-writer from release-gate finding RG-2;
+  accepted by the owner the same day): Master spec 17 item 4 clarified.** "By file and reload or restart, and
   by `ALTER SYSTEM`" is narrowed to *fix* issues on a configuration
   setting; one on the schema or its indexes is fixed by its DDL. A
   clarification of the wording, not a change of behaviour. Now in:
   [versions/v0.1/master-spec.md](versions/v0.1/master-spec.md) section 17.
+- **D54 (2026-10-21, owner ruling, relayed by the wave driver; resolves
+  O55): The seed marker leaves the group-writable directory.** Release-gate
+  finding RG-1: `player` (group `pgconf`) could remove the marker in
+  `/etc/postgresql`, against the access model. The brick changes, the
+  access model stays as written: the marker is
+  `/var/lib/gm-state/.gm-seeded` on a volume of its own, root-owned (fix
+  fd1c8a9, merged 1969011). Now in:
+  [versions/v0.1/master-spec.md](versions/v0.1/master-spec.md) section 9.1,
+  [platform.md](platform.md) "Delivering scenario content",
+  [planes-and-access.md](planes-and-access.md) "Node hardening".

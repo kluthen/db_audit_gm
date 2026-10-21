@@ -7,7 +7,7 @@ v0.1 is draft.
 
 | Version | Theme | Status |
 |---|---|---|
-| [v0.1](v0.1/README.md) | Settle the GM stance on one simple scenario: a static PostgreSQL database investigated for specific defects | master spec approved; build in progress |
+| [v0.1](v0.1/README.md) | Settle the GM stance on one simple scenario: a static PostgreSQL database investigated for specific defects | released 2026-10-21, pending the merge of `v0.1-release` into `main` |
 | [v0.2](v0.2/README.md) | Monitoring and usual tooling: dashboards, system monitoring, possibly log aggregation | draft |
 | [v0.3](v0.3/README.md) | Producers and consumers: ingestion, load spikes, misbehaving requests, broad queries | draft |
 | [v0.4](v0.4/README.md) | Transformers: moving data between databases with scripts, dbt and the like | draft |

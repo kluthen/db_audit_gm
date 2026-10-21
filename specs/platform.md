@@ -1,6 +1,6 @@
 # Platform
 
-Status: draft v8
+Status: draft v9
 
 The swarm the games run on, the resource budget scenarios must fit, how
 scenario content reaches the nodes, and the Swarm behaviours that shape the
@@ -99,8 +99,9 @@ from one laptop to a classroom swarm.
    root-owned. A config holds up to about 1 MiB, enough for configuration
    files.
 3. **Editable files are seeded once.** On first start the entrypoint copies
-   the seeds into the node's named volume and marks it seeded. It never
-   overwrites them afterwards. The player edits the volume copy. Volumes
+   the seeds into the node's named volume and marks it seeded, with a
+   root-owned marker outside every directory the player can write (D54).
+   It never overwrites them afterwards. The player edits the volume copy. Volumes
    are named per scenario and node, and stateful nodes are pinned to a host
    (volumes are per host).
 4. **Protected files are mounted directly** as configs, owned by root and
