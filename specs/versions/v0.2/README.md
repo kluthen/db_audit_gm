@@ -1,6 +1,6 @@
 # v0.2 — monitoring and usual tooling
 
-Status: draft v5. Consolidated into the [master spec](master-spec.md) and its [access model](access-model.md), both approved by the owner on 2026-10-21 (D98). Build plan: [build-plan.md](build-plan.md), approved 2026-10-21 (D99). The owner's rulings on the plan (D100–D106) amend the master spec and are written into this page.
+Status: draft v6. Consolidated into the [master spec](master-spec.md) and its [access model](access-model.md), both approved by the owner on 2026-10-21 (D98). Build plan: [build-plan.md](build-plan.md), approved 2026-10-21 (D99). The owner's rulings on the plan (D100–D106) and after wave 3 (D108) amend the master spec and are written into this page.
 
 Every item is settled and stated as fact with its decision. Planning
 the build raised O72 to O77, all ruled on 2026-10-21 (D100–D105). The owner accepted the draft v2 defaults on 2026-10-21
@@ -106,8 +106,9 @@ Consequences to carry into the build:
 **Node shape** (D74): every new brick is a full node, with `sshd`,
 s6-overlay, the `player` account, a validator and the seed-once
 entrypoint. Grafana, Prometheus and `postgres_exporter` are each a node
-of their own, *fixable* or *report-only* per scenario, with configuration
-they reload through `sudo` wrappers. pgBadger and `pg_stat_statements`
+of their own, with configuration they reload through `sudo` wrappers;
+in v0.2 all three are *fixable* only, a known limit, report-only
+monitoring nodes being later work (D108). pgBadger and `pg_stat_statements`
 live inside the `postgres` brick. Prometheus and Grafana keep separate
 nodes, whatever the measured footprint (D91). No shared base image (D90): every
 brick builds from `debian:13-slim`, as the v0.1 bricks do, and those are

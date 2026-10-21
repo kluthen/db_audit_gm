@@ -24,6 +24,10 @@ In the owner's words (D47):
   growing, data-flow defects (duplicates, dropped records).
 - Report-only nodes in practice: producers and consumers are typically
   observed, not fixed.
+- Report-only monitoring nodes (proposed, D108): the renderer passing a
+  node's write policy to its container, so that `prometheus`,
+  `postgres-exporter` and `grafana`, fixable only in v0.2, can also run
+  report-only.
 
 ## Out of scope
 

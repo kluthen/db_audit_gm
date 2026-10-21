@@ -2,7 +2,8 @@
 
 Status: **approved by the owner on 2026-10-21** with the
 [master spec](master-spec.md) it accompanies (spec D98); amended the
-same day for a game with no web interface (spec D103). Revises the
+same day for a game with no web interface (spec D103) and for the
+monitoring bricks being fixable only in v0.2 (spec D108). Revises the
 [v0.1 access model](../v0.1/access-model.md), which it replaces for v0.2
 games; "Changes from v0.1" at the end lists what moved.
 
@@ -153,7 +154,7 @@ they act only as configured, and their credentials are resources below.
 | `fixable-node` | `from-bastion` holds and the node's write policy is *fixable* |
 | `in-game-network` | The request comes from a node of the game (the bastion or any other node), where only players and the GM have a shell |
 | `through-web-front` | The request passes the web front with the tools password; from inside the game network, Prometheus is also reachable directly, since it has no login of its own |
-| `fixable-grafana` | `through-web-front` holds and the Grafana node's write policy is *fixable*. Not enforced on a report-only Grafana node: see "Known gaps" |
+| `fixable-grafana` | `through-web-front` holds and the Grafana node's write policy is *fixable*. Every v0.2 Grafana node is fixable (spec D108); on a report-only Grafana node it would not be enforced: see "Known gaps" |
 | `owns-host` | The initiator controls the Docker host (it gave the GM its endpoint). Players must not use it; not enforced when they own it |
 
 ## 7. Denial behaviour
@@ -167,9 +168,9 @@ they act only as configured, and their credentials are resources below.
 | Bastion or node login without valid credentials | Ordinary SSH refusal | Standard behaviour |
 | Web front without the tools password | HTTP 401 with a basic-authentication challenge | Standard behaviour; the browser asks for the password |
 | Editing protected files, the node-health script or its service list | Ordinary filesystem "permission denied" (read-only, root-owned) | Enforced by the system |
-| Editing configuration on a report-only node | Ordinary "permission denied" | Enforced by the system |
+| Editing configuration on a report-only node | Ordinary "permission denied" | Enforced by the system; not reachable in v0.2, whose database and monitoring nodes are all fixable (spec D108) |
 | Prometheus `admin` | Refused by Prometheus: those endpoints are disabled | Reloads go through the node's `sudo` wrapper, under the write policy |
-| Grafana `edit-content` on a report-only Grafana node | Not refused: Grafana lets an administrator edit | Known gap, accepted |
+| Grafana `edit-content` on a report-only Grafana node | Not refused: Grafana lets an administrator edit | Known gap, accepted; not reachable in v0.2 (spec D108) |
 | Grafana `administer` | Not refused by Grafana; forbidden by the rules and marked DO NOT TAMPER in the starter pack, since changing the administrator's password would lock the GM's own checks out | Trust where it cannot be enforced |
 | Monitoring role credentials | Ordinary "permission denied": the secret is readable by the exporter's account only | Enforced by the system |
 | `network-visitor` reaching anything but the bastion's two ports | Nothing listens: no other port is published | Bastion-only rule |
@@ -239,9 +240,13 @@ on each node. Repeated denials have no effect.
   could still run `ALTER SYSTEM`. v0.2's database nodes are fixable; to
   revisit when report-only database nodes arrive.
 - **Grafana's write policy cannot be enforced.** On a report-only Grafana
-  node, players can still change dashboards, data sources and alert rules
-  through the UI, since the tools password makes them administrators.
-  Accepted under light enforcement; sealed checks judge the live state.
+  node, players could still change dashboards, data sources and alert
+  rules through the UI, since the tools password makes them
+  administrators. Accepted under light enforcement; sealed checks judge
+  the live state. Not reachable in v0.2: `grafana`, like `prometheus`
+  and `postgres-exporter`, supports *fixable* only, since nothing yet
+  passes a node's write policy to its container (spec D108). To revisit
+  when report-only monitoring nodes arrive.
 - **Grafana administration is forbidden but not prevented.** Players can
   technically change Grafana's users or the administrator's password,
   which would lock the GM's checks out; the rule is documented, not
@@ -263,7 +268,8 @@ on each node. Repeated denials have no effect.
 - **Nodes**: the node rules, written for the database node in v0.1, now
   apply to every node but the bastion: the Prometheus, Grafana and
   exporter nodes have the same shell, configuration and protected-file
-  rules, each under its own write policy. The node-health script and its
+  rules, each under its own write policy, *fixable* for every v0.2
+  monitoring node (spec D108). The node-health script and its
   service list join the protected files.
 - **New conditions**: `holds-tools-password`, `in-game-network`,
   `through-web-front`, `fixable-grafana`.
@@ -272,7 +278,8 @@ on each node. Repeated denials have no effect.
   when it has none (D103). The network visitor's denial row changes
   accordingly.
 - **Denial behaviour**: HTTP 401 at the web front; Prometheus' admin
-  endpoints disabled; Grafana editing on a report-only node not refused;
+  endpoints disabled; Grafana editing on a report-only node not refused
+  (not reachable in v0.2, spec D108);
   Grafana administration forbidden by rule.
 - **Known gaps added**: Grafana's write policy, Grafana administration,
   plain HTTP, Prometheus without a login.

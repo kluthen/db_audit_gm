@@ -23,10 +23,10 @@ owner's confirmation; the register lists the ones with real alternatives.
 | [scenario-lifecycle.md](scenario-lifecycle.md) | The game from setup to teardown: setup inputs, scenario, local implementation, deploy, aging, hand-over, end of the game | draft v10 |
 | [formats.md](formats.md) | What a scenario folder, a brick (with its companion material and GM documentation) and a fault definition must contain; versions and pins; the local implementation; the skills and templates | draft v15 |
 | [bricks-and-faults.md](bricks-and-faults.md) | Catalog, v0.2's monitoring bricks, per-brick checks, proportionate tooling, solvability probe, fault interactions and families, future backup-tooling faults | draft v8 |
-| [planes-and-access.md](planes-and-access.md) | Bastion-only rule (the bastion publishes the web interfaces), planes, the GM session, trust, write policies, hardening, validators | draft v11 |
+| [planes-and-access.md](planes-and-access.md) | Bastion-only rule (the bastion publishes the web interfaces), planes, the GM session, trust, write policies, hardening, validators | draft v12 |
 | [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls | draft v13 |
 | [open-questions.md](open-questions.md) | Open-questions register | live |
-| [decisions.md](decisions.md) | Decisions log, D55 onward (D106 last); D1–D54 archived with v0.1 | live |
+| [decisions.md](decisions.md) | Decisions log, D55 onward (D108 last); D1–D54 archived with v0.1 | live |
 | [archive/](archive/README.md) | Closed milestones' working records, kept verbatim: v0.1's build plan, decisions D1–D54, resolved questions | archive |
 
 History: the tree was seeded on 2026-10-20 from the owner's pre-spec notes,
@@ -136,6 +136,8 @@ access model.
   view among them (D104); the `laptop` playground is declared on the
   build host (D105); one network enforced, unused bricks measured on the
   integration fixture, Prometheus' retention in a seed file (D106).
+  After wave 3: the monitoring bricks are fixable only in v0.2, a known
+  limit; report-only monitoring nodes proposed for v0.3 (D108).
 - Small project: scripts and small apps, no ATD, no UI/UX tree (D2).
 - v0.1 build: seven artifacts (three skills, a Python/POSIX-shell script
   set, PostgreSQL 18 on Debian 13 and bastion bricks, one scenario), one

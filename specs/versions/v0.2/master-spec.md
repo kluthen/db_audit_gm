@@ -3,7 +3,8 @@
 Status: **approved by the owner on 2026-10-21** (spec D98), as
 consolidated after an independent review of the drafts (verdict: no
 blocking issue); amended the same day by the owner's rulings on the
-build plan (D100–D106). Build plan: [build-plan.md](build-plan.md).
+build plan (D100–D106) and after wave 3 (D108: the monitoring bricks
+fixable only). Build plan: [build-plan.md](build-plan.md).
 Companion: [access-model.md](access-model.md).
 Baseline: the released [v0.1 master spec](../v0.1/master-spec.md) and its
 [access model](../v0.1/access-model.md). Everything v0.1 specifies stays
@@ -261,10 +262,16 @@ Every new brick is a **full node**: `sshd` and the `player` account
 reached from the bastion, s6-overlay, a read-only root, a public
 validator, the seed-once entrypoint copying the scenario's seed files
 into an editable volume on first start, capabilities dropped and added
-back as listed, *fixable* or *report-only* per scenario, configuration
-reloaded through `sudo` wrappers. Prometheus and Grafana keep separate
-nodes whatever the measured footprint. No node other than the bastion
-publishes a port.
+back as listed, configuration reloaded through `sudo` wrappers.
+Prometheus and Grafana keep separate nodes whatever the measured
+footprint. No node other than the bastion publishes a port.
+
+**Write policy: fixable only in v0.2** (D108). The three monitoring
+bricks support *fixable* only, a known limit stated under "Known limits"
+in each brick's `docs/gm.md`: nothing passes a node's write policy to
+its container, and a *report-only* node would need its configuration
+directory left not group-writable at start, from a value the renderer
+passes. Report-only monitoring nodes are later work (section 16).
 
 ### 7.1 The node-health script (companion of `prometheus`)
 
@@ -344,9 +351,11 @@ publishes a port.
   always: there is no default-password fault.
 - Because the tools password makes the players Grafana administrators,
   they can change dashboards, data sources and alert rules through the
-  UI even on a report-only Grafana node. This is accepted (access model,
-  "Known gaps"). Sealed checks on Grafana judge its effective live state,
-  through its API, not only the provisioned files.
+  UI whatever the node's write policy. On a report-only Grafana node
+  this would be a gap, accepted (access model, "Known gaps"); it is not
+  reachable in v0.2, whose Grafana nodes are fixable (section 7).
+  Sealed checks on Grafana judge its effective live state, through its
+  API, not only the provisioned files.
 
 ### 7.5 `postgres` 0.2.0
 
@@ -425,7 +434,9 @@ its list are read-only everywhere; they run pgBadger themselves on the
 database node; and two gaps are accepted under light enforcement: a
 PostgreSQL superuser can still run `ALTER SYSTEM` on a report-only
 database node, and a Grafana administrator can still edit Grafana's
-content on a report-only Grafana node.
+content on a report-only Grafana node. Neither is reachable in v0.2:
+its database nodes are fixable, and so are its monitoring nodes
+(section 7, D108).
 
 ## 11. The v0.2 scenarios and faults
 
@@ -639,6 +650,14 @@ Consciously left open; none blocks v0.2.
   masking pair of faults waits for this.
 - **Report-only database nodes**: a non-superuser role there, or accept
   the `ALTER SYSTEM` gap.
+- **Report-only monitoring nodes** (D108): `prometheus`,
+  `postgres-exporter` and `grafana` are fixable only in v0.2. A
+  report-only node needs the renderer to pass the node's write policy to
+  its container, which then leaves the configuration directory not
+  group-writable at start; the same channel would serve report-only
+  database nodes. On a report-only Grafana node, editing by its
+  administrators stays the accepted gap. Proposed for v0.3, with
+  report-only nodes in practice.
 - The other open items carried from v0.1 stand unchanged: further steps
   as scripts for generated scenarios; whether there is no project-wide
   machine check; the promotion of scenario-only bricks and faults;

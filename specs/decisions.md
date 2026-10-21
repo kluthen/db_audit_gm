@@ -305,3 +305,10 @@ continues from D55; no ID is reused.
   replication modules...), each documented and added to a scenario when
   appropriate; v0.5 improves and extends the bricks. Design open: O79,
   O80. Now in: [versions/v0.5/README.md](versions/v0.5/README.md).
+- **D108 (2026-10-21, owner ruling after the v0.2 wave 3 gate): The
+  monitoring bricks are fixable only in v0.2**, a known limit: nothing
+  passes a node's write policy to its container, so the report-only
+  Grafana gap cannot arise. Report-only monitoring nodes are later work
+  (proposed: v0.3). Now in: master spec 7, 7.4, 10, 16;
+  [versions/v0.2/access-model.md](versions/v0.2/access-model.md) 6, 7,
+  11, 12; [versions/v0.3/README.md](versions/v0.3/README.md).
