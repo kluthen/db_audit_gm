@@ -40,7 +40,7 @@ plan states only its deltas.
 | G1 | Plan approval | The lead, under the owner's delegation | Wave 1 | done (2026-10-20, plan v2 approved after review) |
 | G2 | Network access at image build time (Debian and PostgreSQL apt repositories, the s6-overlay release download) | Hand check by the wave driver | Chunks 2, 3 | done (2026-10-20, wave driver's hand check: registry pull succeeded) |
 | G3 | A Docker host in swarm mode (`docker swarm init` on the build host is enough) | Hand check by the wave driver | Chunk 2, wave 2 gate, wave 3 gate, release gate | done (2026-10-20, `docker swarm init` on the build host, owner-approved) |
-| G4 | Review of the v0.1 scenario's defects, issues and answer key | The lead | Chunk 8's merge | open |
+| G4 | Review of the v0.1 scenario's defects, issues and answer key | The lead | Chunk 8's merge | done (2026-10-21, the owner after an independent review, OKAY) |
 | G5 | Feedback tone judged acceptable | The owner | Release close | open |
 
 ## Waves
@@ -375,7 +375,10 @@ rules, the GM-recorded stages, and the argument signatures of every
 
 ### Chunk 8 — v0.1 faults and scenario folder
 
-Status: built (cf1457c on `v0.1-c8-scenario`, waiting on G4)
+Status: merged (w3, fcfaeb1)
+Record: chunk commit cf1457c; no deviation from the spec; G4 review's
+non-blocking points in the wave log; `bricks/postgres/brick.yaml` keeps
+`compatible_faults: []` (a brick change, outside the chunk).
 Wave: 3
 Depends on: chunks 1, 2, 6, 7; G4 before merge
 Architecture capture: none of its own; it uses the parameter naming rule,
@@ -401,7 +404,10 @@ the injection order and the `load-data` rules captured at wave 3 start.
 
 ### Chunk 9 — GM skill
 
-Status: blocked (on the owner: stop reason during setup)
+Status: merged (w3, d6a9d96)
+Record: chunk commit 1b42aa3; master spec 12's stop reason between setup
+steps not recordable by gmctl: the skill states it in the session until
+chunk 10 adds `teardown --reason` (owner ruling 2026-10-21).
 Wave: 3
 Depends on: chunks 5, 6, 7
 Architecture capture: none of its own; it uses the `gmctl` argument

@@ -662,3 +662,16 @@ Branch `v0.1-c7-eval` kept until the wave closes; its worktree is removed.
   32 gmctl invocations parsed by gmctl's own parser and run live except
   `fit`, the three GM stages recorded at their steps; live debug run on a
   scratch fixture copy, nothing labelled left. Both put to the owner.
+
+### Owner rulings — 2026-10-21
+
+- G4 cleared by the owner on the review's OKAY; the five non-blocking
+  points stay as logged. Chunk 8 merged by the driver (fcfaeb1).
+- Stop reason: add `gmctl teardown --reason TEXT`; chunk 9 merges as built
+  (d6a9d96) and a new chunk 10 in wave 3 adds the option and changes the
+  skill's one bullet.
+- Dead end after a failed `load-data` or `inject`: fixed in the same chunk
+  10 (`fit` may start a new game on a playground whose failed game was
+  torn down; its message corrected).
+- Sent to `spec-writer`: record both rulings, insert chunk 10 (plan v5),
+  and the master spec 8.1 wording (data load streamed into `psql`).
