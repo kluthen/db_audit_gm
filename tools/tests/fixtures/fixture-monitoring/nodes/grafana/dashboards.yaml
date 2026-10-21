@@ -1,0 +1,20 @@
+# Reference dashboard provider of the grafana brick (companion/; capture W3).
+# A scenario copies this file into nodes/<grafana node>/dashboards.yaml as
+# its seed file `dashboards.yaml`. Grafana loads every *.json under the
+# path, the seed files node-health.json and postgresql.json included.
+# Edits to the dashboard files take effect through `sudo gm-reload-grafana`
+# (Grafana's own polling is set to once a day, so the wrapper is the way
+# changes apply); dashboards loaded from files cannot be saved from the UI.
+apiVersion: 1
+
+providers:
+  - name: db_audit_gm
+    orgId: 1
+    type: file
+    folder: ''
+    disableDeletion: false
+    allowUiUpdates: false
+    updateIntervalSeconds: 86400
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false
