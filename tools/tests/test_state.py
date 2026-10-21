@@ -70,11 +70,23 @@ class TestStatus(FittedGame):
         self.assertIn("failure: before stage deployed", text)
         self.assertIn("health checks did not pass", text)
 
-    def test_deployed_points_at_credentials_without_printing_them(self):
+    def test_network_line_from_the_fit_on(self):
+        gid = localimpl.read_state(self.ldir)["game_id"]
+        text = state.status_text(self.ldir)
+        self.assertIn(f"\n  network: {gid}_backend", text)
+        self.assertNotIn("secrets:", text)      # nothing generated before deploy
+
+    def test_deployed_lists_secret_files_without_printing_them(self):
         localimpl.set_stage(self.ldir, "rendered")
         localimpl.set_stage(self.ldir, "deployed")
-        self.assertIn("credentials: ", state.status_text(self.ldir))
-        self.assertIn("(not printed)", state.status_text(self.ldir))
+        lines = state.status_text(self.ldir).splitlines()
+        start = lines.index(f"  secrets: {self.ldir / 'secrets'}/ (mode 0600, not printed)")
+        self.assertEqual(lines[start + 1:], [
+            "    player_password: password, handed over",
+            "    player_ssh_key: private key of pair player_ssh_key",
+            "    player_ssh_key.pub: public key of pair player_ssh_key",
+            "    dba_password: password",
+        ])
 
 
 class TestGmStages(FittedGame):

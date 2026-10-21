@@ -46,7 +46,7 @@ class TestTeardown(DeployedGame):
         self.assertEqual(len(report.removed["volume"]), 8)    # db 5, bastion 3
         self.assertEqual(len(report.removed["config"]), 6)
         self.assertEqual(len(report.removed["secret"]), 4)
-        self.assertEqual(report.removed["network"], [f"{self.gid}_net"])
+        self.assertEqual(report.removed["network"], [f"{self.gid}_backend"])
         self.assertIn("nothing carrying its label is left", report.text())
         # Every rm names an object listed by one of the game's labels.
         for call in self.fake.calls:

@@ -10,7 +10,9 @@ Master spec 10.3; files, names and labels fixed by capture W2-A
 - `stack.yml`, `envelopes/<node>.conf`  written by `render`;
 - `state.yaml`           the stage reached, its history, any failure, and
                          the teardown record (spec D50);
-- `secrets/`             written by `deploy` (directory 0700, files 0600).
+- `secrets/`             written by `deploy` (directory 0700, files 0600):
+                         the secrets the bricks declare, by kind (v0.2
+                         capture W1, item 7).
 
 Every path an implementation records (`file:`) is relative to the scenario
 folder.
@@ -44,19 +46,18 @@ SECRETS_DIR = "secrets"
 
 LABEL_NAMESPACE = "com.docker.stack.namespace"
 LABEL_GAME = "dbagm.game"
-NETWORK_KEY = "net"                 # becomes <game_id>_net under stack <game_id>
 PLACEMENT_CONSTRAINT = "node.role == manager"   # single host in v0.1
 ENVELOPES_CONFIG = "envelopes"      # the brick's protected config holding the envelope file
 SEED_CONFIG_UID, SEED_CONFIG_GID, SEED_CONFIG_MODE = 0, 0, "0444"
 
-# Per-game secrets gmctl deploy generates: logical name -> file in secrets/.
-# player_ssh_pubkey is the public half of player_ssh_key (captures W1-F, W2-A).
-SECRET_FILES = {
-    "player_password": "player_password",
-    "player_ssh_key": "player_ssh_key",
-    "player_ssh_pubkey": "player_ssh_key.pub",
-    "dba_password": "dba_password",
-}
+# Per-game secrets, by kind (v0.2 capture W1, item 7): a password writes
+# secrets/<name>; a key pair writes secrets/<pair> and secrets/<pair>.pub,
+# each half mounting the matching file. The Swarm secret is <game_id>_<name>.
+PASSWORD = "password"
+KEY_PAIR = "key-pair"
+SECRET_KINDS = (PASSWORD, KEY_PAIR)
+KEY_HALVES = ("private", "public")
+PUBLIC_KEY_SUFFIX = ".pub"
 
 GAME_ID_MAX = 63                    # master spec 10.3
 SERVICE_NAME_MAX = 63               # Swarm service names
@@ -295,19 +296,106 @@ def new_game_id(scenario_id, max_length=GAME_ID_MAX):
     return f"{prefix}-{suffix}"
 
 
-def check_supported(scenario):
-    """What v0.1's gmctl cannot render or deploy; [] when all is supported."""
-    problems = []
+def network_name(scenario):
+    """The name of the scenario's one network (it renders as
+    `<game_id>_<name>`, master spec 6.3); None when it declares none."""
     networks = scenario.data.get("networks") or []
-    if len(networks) != 1:
-        problems.append(f"the scenario declares {len(networks)} networks; v0.1 renders one "
-                        "network, <game_id>_net (capture W2-A)")
+    return networks[0].get("name") if networks and isinstance(networks[0], dict) else None
+
+
+def secret_file(sec):
+    """The file in `secrets/` a declared secret mounts: a password's name,
+    a key pair's `<pair>` (private half) or `<pair>.pub` (public half)."""
+    if sec.get("kind") == KEY_PAIR:
+        return sec["pair"] + (PUBLIC_KEY_SUFFIX if sec.get("half") == "public" else "")
+    return sec["name"]
+
+
+def _secret_identity(sec):
+    """What two declarations of one name must agree on (capture W1, item 7)."""
+    if sec.get("kind") == PASSWORD:
+        return {"kind": PASSWORD, "handed_over": sec.get("handed_over") is True}
+    return {"kind": KEY_PAIR, "pair": sec.get("pair"), "half": sec.get("half")}
+
+
+def _secret_problems(brick, sec):
+    """A declared secret's shape, as far as generating it goes."""
+    name = sec.get("name")
+    where = f"brick {brick.id}: secret {name}"
+    kind = sec.get("kind")
+    if kind not in SECRET_KINDS:
+        return [f"{where}: kind {kind} is not {' or '.join(SECRET_KINDS)}"]
+    out = []
+    if kind == PASSWORD:
+        if "handed_over" in sec and not isinstance(sec["handed_over"], bool):
+            out.append(f"{where}: handed_over is not true or false")
+        out += [f"{where}: {key} is for a key pair, not a password"
+                for key in ("pair", "half") if key in sec]
+    else:
+        pair = sec.get("pair")
+        if not isinstance(pair, str) or not OBJECT_NAME_RE.match(pair):
+            out.append(f"{where}: kind key-pair needs pair, the pair's name (got {pair!r})")
+        if sec.get("half") not in KEY_HALVES:
+            out.append(f"{where}: kind key-pair needs half, private or public "
+                       f"(got {sec.get('half')!r})")
+        if "handed_over" in sec:
+            out.append(f"{where}: handed_over is for a password, not a key pair")
+    return out
+
+
+def game_secrets(scenario):
+    """`(secrets, problems)`: the game's secrets, one per declared name in
+    topology order, each `{"secret": name, **identity, "file": file in
+    secrets/}`, and what refuses the topology (capture W1, item 7): a
+    malformed declaration, a name two bricks declare differently, or a
+    password whose file is a key pair's."""
+    found, problems = {}, []
     for node in scenario.nodes:
         brick = scenario.bricks[node["name"]]
         for sec in brick.data.get("secrets") or []:
-            if sec.get("name") not in SECRET_FILES:
-                problems.append(f"brick {brick.id} declares secret {sec.get('name')}, which "
-                                f"gmctl does not generate ({', '.join(SECRET_FILES)})")
+            name = sec.get("name")
+            shape = _secret_problems(brick, sec)
+            if shape:
+                problems += shape
+                continue
+            identity = _secret_identity(sec)
+            if name in found:
+                first_brick, first = found[name]
+                if first != identity:
+                    problems.append(
+                        f"secret {name} is declared differently by bricks {first_brick} "
+                        f"({_identity_text(first)}) and {brick.id} "
+                        f"({_identity_text(identity)}): one name is one secret")
+                continue
+            found[name] = (brick.id, identity)
+    pairs = {i["pair"] for _, i in found.values() if i["kind"] == KEY_PAIR}
+    pair_files = {f: p for p in pairs for f in (p, p + PUBLIC_KEY_SUFFIX)}
+    for name, (bid, identity) in found.items():
+        if identity["kind"] == PASSWORD and name in pair_files:
+            problems.append(f"password {name} (brick {bid}) would be written to the file of "
+                            f"key pair {pair_files[name]}: rename one of them")
+    secrets = [{"secret": name, **identity,
+                "file": secret_file({"name": name, **identity})}
+               for name, (_, identity) in found.items()]
+    return secrets, problems
+
+
+def _identity_text(identity):
+    if identity["kind"] == PASSWORD:
+        return "password" + (", handed over" if identity["handed_over"] else "")
+    return f"key pair {identity['pair']}, {identity['half']} half"
+
+
+def check_supported(scenario):
+    """What gmctl cannot render or deploy; [] when all is supported."""
+    problems = []
+    networks = scenario.data.get("networks") or []
+    if len(networks) != 1:
+        problems.append(f"the scenario declares {len(networks)} networks; gmctl renders one "
+                        "network, <game_id>_<network name> (spec D83, D106)")
+    problems += game_secrets(scenario)[1]
+    for node in scenario.nodes:
+        brick = scenario.bricks[node["name"]]
         for pc in brick.data.get("protected_configs") or []:
             if pc.get("name") != ENVELOPES_CONFIG:
                 problems.append(f"brick {brick.id} declares protected config "
@@ -315,12 +403,23 @@ def check_supported(scenario):
     return problems
 
 
+def implementation_secrets(scenario, playground, game_id):
+    """implementation.yaml's `secrets`: per game secret, its Swarm name
+    `<game_id>_<name>`, its declaration and its file (relative to the
+    scenario folder). GmError when the topology is refused."""
+    secrets, problems = game_secrets(scenario)
+    if problems:
+        raise GmError("; ".join(problems))
+    return [{"name": f"{game_id}_{sec['secret']}", **sec,
+             "file": f"local/{playground}/{SECRETS_DIR}/{sec['file']}"} for sec in secrets]
+
+
 def build_implementation(scenario, playground, game_id, created_at):
-    """implementation.yaml's content (capture W2-A)."""
+    """implementation.yaml's content (capture W2-A; v0.2: the network named
+    after the scenario's, the secrets by kind)."""
     gid = game_id
     local_rel = f"local/{playground}"
     nodes = {}
-    game_secrets = {}
     for node in scenario.nodes:
         name = node["name"]
         brick = scenario.bricks[name]
@@ -347,9 +446,6 @@ def build_implementation(scenario, playground, game_id, created_at):
             sname = f"{gid}_{sec['name']}"
             node_secrets.append({"name": sname, "path": sec["path"], "uid": sec["uid"],
                                  "gid": sec["gid"], "mode": sec["mode"]})
-            game_secrets.setdefault(sname, {
-                "name": sname, "secret": sec["name"],
-                "file": f"{local_rel}/{SECRETS_DIR}/{SECRET_FILES[sec['name']]}"})
         nodes[name] = {
             "brick": {"id": brick.id, "version": brick.version},
             "image": b["image"],
@@ -369,10 +465,10 @@ def build_implementation(scenario, playground, game_id, created_at):
         "created_at": created_at,
         "playground": playground,
         "stack": gid,
-        "network": f"{gid}_{NETWORK_KEY}",
+        "network": f"{gid}_{network_name(scenario)}",
         "labels": labels(gid),
         "nodes": nodes,
-        "secrets": list(game_secrets.values()),
+        "secrets": implementation_secrets(scenario, playground, gid),
     }
     _check_names(impl)
     return impl
