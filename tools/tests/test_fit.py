@@ -4,8 +4,9 @@ import unittest
 
 import yaml
 
-from tools.gm import deploy, fit, localimpl, model, state, teardown
-from tools.tests import INSUFFICIENT, SUFFICIENT, FakeDocker, ScenarioCopyTest, run_gmctl
+from tools.gm import deploy, docker, fit, localimpl, model, state, teardown
+from tools.tests import (BASE_LAYER, INSUFFICIENT, OWN_LAYER_SIZE, SUFFICIENT, UNREACHABLE,
+                         FakeDocker, ScenarioCopyTest, own_layer, run_gmctl)
 from tools.tests.test_deploy import RenderedGame
 from tools.tests.test_inject import FRAGMENTS
 from tools.tests.test_inject import DeployedGame as InjectableGame
@@ -29,37 +30,156 @@ class TestGameId(unittest.TestCase):
         self.assertRegex(gid, r"^ab-[a-z0-9]{6}$")
 
 
+POSTGRES = "127.0.0.1:5000/dbagm/postgres:0.2.0"
+BASTION = "127.0.0.1:5000/dbagm/bastion:0.2.0"
+M = 1024 ** 2
+# the fixture's two images on the default fake engine: the shared base once
+FIXTURE_IMAGES = BASE_LAYER[1] + 2 * OWN_LAYER_SIZE         # 278M
+
+
+def footprint(size=0):
+    return fit.ImageFootprint(engine="local engine", images=[], size=size, layers=0, shared=0)
+
+
 class TestCapacityCheck(unittest.TestCase):
 
     def setUp(self):
         from tools.tests import FIXTURE_SCENARIO
         self.sc = model.load_scenario(FIXTURE_SCENARIO)
 
+    def capacity_check(self, capacity, images=None):
+        return fit.capacity_check(self.sc, capacity, images or footprint())
+
     def test_sufficient(self):
-        report = fit.capacity_check(self.sc, {"cpu": 2, "memory": "4G", "disk": "20G"})
+        report = self.capacity_check({"cpu": 2, "memory": "4G", "disk": "20G"})
         self.assertTrue(report.ok, report.problems)
 
     def test_insufficient_cpu(self):
-        report = fit.capacity_check(self.sc, {"cpu": 0.5, "memory": "4G", "disk": "20G"})
+        report = self.capacity_check({"cpu": 0.5, "memory": "4G", "disk": "20G"})
         self.assertFalse(report.ok)
         self.assertTrue(any("cpu" in p for p in report.problems))
 
     def test_node_limit_larger_than_host(self):
         # reservations fit (0.6 + headroom < 0.9) but db's limit (1 CPU) does not
-        report = fit.capacity_check(self.sc, {"cpu": 0.9, "memory": "4G", "disk": "20G"})
+        report = self.capacity_check({"cpu": 0.9, "memory": "4G", "disk": "20G"})
         self.assertFalse(report.ok)
         self.assertTrue(any("db" in p and "limit" in p for p in report.problems))
 
     def test_headroom_counts(self):
         # 576M reserved: fits 600M without headroom, not with 10 %
-        report = fit.capacity_check(self.sc, {"cpu": 2, "memory": "600M", "disk": "20G"})
+        report = self.capacity_check({"cpu": 2, "memory": "600M", "disk": "20G"})
         self.assertFalse(report.ok)
         self.assertTrue(any("memory" in p for p in report.problems))
 
     def test_never_recomputes(self):
         before = yaml.safe_dump(self.sc.data)
-        fit.capacity_check(self.sc, {"cpu": 0.5, "memory": "1G", "disk": "1G"})
+        self.capacity_check({"cpu": 0.5, "memory": "1G", "disk": "1G"})
         self.assertEqual(before, yaml.safe_dump(self.sc.data))
+
+    def test_images_count_in_the_disk(self):
+        # 2.25G reserved: 2700M holds it with 10 % headroom (2574M), not with 278M of images
+        cap = {"cpu": 2, "memory": "4G", "disk": "2700M"}
+        self.assertTrue(self.capacity_check(cap).ok)
+        report = self.capacity_check(cap, footprint(FIXTURE_IMAGES))
+        self.assertFalse(report.ok)
+        self.assertEqual(report.problems, ["disk: reservations 2.25G + images 278M + headroom "
+                                           "270M = 2.79G of 2.64G: too much"])
+        cap["disk"] = "2900M"           # 2304M + 278M + 290M = 2872M
+        self.assertTrue(self.capacity_check(cap, footprint(FIXTURE_IMAGES)).ok)
+
+    def test_report_lines(self):
+        images = fit.image_footprint(self.sc, FakeDocker())
+        report = fit.capacity_check(self.sc, {"cpu": 2, "memory": "4G", "disk": "20G"}, images)
+        self.assertEqual(report.lines, [
+            "cpu: reservations 0.6 + headroom 0.2 = 0.8 of 2: ok",
+            "memory: reservations 576M + headroom 409.6M = 985.6M of 4G: ok",
+            f"images on local engine: {BASTION} 178M, {POSTGRES} 178M; 3 layers, 1 shared, "
+            "each counted once: 278M",
+            "disk: reservations 2.25G + images 278M + headroom 2G = 4.52G of 20G: ok",
+            "node bastion: limits cpu 0.25 ok, memory 128M ok",
+            "node db: limits cpu 1 ok, memory 1G ok",
+        ])
+
+
+class TestImageFootprint(unittest.TestCase):
+    """The images read from the engine (master spec 8, spec D102)."""
+
+    def setUp(self):
+        from tools.tests import FIXTURE_SCENARIO
+        self.sc = model.load_scenario(FIXTURE_SCENARIO)
+
+    def test_a_shared_layer_counts_once(self):
+        fp = fit.image_footprint(self.sc, FakeDocker())
+        self.assertEqual([im.name for im in fp.images], [BASTION, POSTGRES])
+        self.assertEqual([im.size for im in fp.images], [178 * M, 178 * M])
+        self.assertEqual((fp.size, fp.layers, fp.shared), (FIXTURE_IMAGES, 3, 1))
+
+    def test_layers_are_told_apart_by_chain_id(self):
+        # the same diff on another base is another layer; a common stack is shared
+        s6 = ("sha256:" + "5" * 64, 1 * M)
+        other_base = ("sha256:" + "e" * 64, 50 * M)
+        engine = FakeDocker(images={
+            POSTGRES: [BASE_LAYER, s6, own_layer(POSTGRES)],
+            BASTION: [other_base, s6, own_layer(BASTION)]})
+        fp = fit.image_footprint(self.sc, engine)
+        self.assertEqual((fp.layers, fp.shared), (6, 0))
+        self.assertEqual(fp.size, 78 * M + 50 * M + 2 * M + 2 * OWN_LAYER_SIZE)
+        engine.images[BASTION] = [BASE_LAYER, s6, own_layer(BASTION)]
+        fp = fit.image_footprint(self.sc, engine)
+        self.assertEqual((fp.layers, fp.shared), (4, 2))
+        self.assertEqual(fp.size, 78 * M + 1 * M + 2 * OWN_LAYER_SIZE)
+
+    def test_an_image_whose_layers_cannot_be_sized_counts_whole(self):
+        # a layer of size 0: history's non-empty rows no longer match the layers
+        engine = FakeDocker(images={
+            POSTGRES: [BASE_LAYER, ("sha256:" + "0" * 64, 0), own_layer(POSTGRES)],
+            BASTION: [BASE_LAYER, own_layer(BASTION)]})
+        fp = fit.image_footprint(self.sc, engine)
+        self.assertEqual(fp.images[1].layers, [])
+        self.assertEqual(fp.size, 2 * (78 * M + OWN_LAYER_SIZE))
+        self.assertEqual((fp.layers, fp.shared), (3, 0))
+
+    def test_reads_through_the_endpoint(self):
+        engine = FakeDocker(endpoint="ssh://gm@host")
+        fp = fit.image_footprint(self.sc, engine)
+        self.assertEqual(fp.engine, "ssh://gm@host")
+        self.assertIn(["image", "inspect", "--format", "{{json .}}", POSTGRES], engine.calls)
+        self.assertEqual(len(engine.called("history")), 2)
+        self.assertEqual(engine.command(["version"]), ["docker", "-H", "ssh://gm@host",
+                                                        "version"])
+
+    def test_a_missing_image_is_refused_with_its_build_command(self):
+        with self.assertRaises(model.GmError) as caught:
+            fit.image_footprint(self.sc, FakeDocker(missing=[POSTGRES]))
+        self.assertEqual(str(caught.exception),
+                         f"image(s) not on local engine: {POSTGRES} (build it: docker build -t "
+                         f"{POSTGRES} bricks/postgres); then gmctl fit again; nothing written")
+
+    def test_missing_images_on_an_endpoint_name_the_endpoint(self):
+        with self.assertRaises(model.GmError) as caught:
+            fit.image_footprint(self.sc, FakeDocker(images=False, endpoint="ssh://gm@host"))
+        self.assertEqual(str(caught.exception),
+                         "image(s) not on ssh://gm@host: "
+                         f"{BASTION} (build it: docker -H ssh://gm@host build -t {BASTION} "
+                         f"bricks/bastion); {POSTGRES} (build it: docker -H ssh://gm@host build "
+                         f"-t {POSTGRES} bricks/postgres); then gmctl fit again; nothing written")
+
+    def test_an_unreachable_engine_is_reported(self):
+        engine = FakeDocker(reachable=False)
+        with self.assertRaises(model.GmError) as caught:
+            fit.image_footprint(self.sc, engine)
+        self.assertEqual(str(caught.exception),
+                         f"the engine local engine is not reachable: {UNREACHABLE}. fit reads "
+                         "the images' sizes from the playground's engine: start it or correct "
+                         "the endpoint (--endpoint), then gmctl fit again; nothing written")
+        self.assertEqual(engine.calls, [["version", "--format", "{{.Server.Version}}"]])
+
+    def test_chain_ids(self):
+        self.assertEqual(docker.chain_ids([]), [])
+        a, b = "sha256:" + "a" * 64, "sha256:" + "b" * 64
+        import hashlib
+        self.assertEqual(docker.chain_ids([a, b]),
+                         [a, "sha256:" + hashlib.sha256(f"{a} {b}".encode()).hexdigest()])
 
 
 class TestFit(ScenarioCopyTest):
@@ -131,6 +251,49 @@ class TestFit(ScenarioCopyTest):
                 + list(secrets):
             self.assertLessEqual(len(name), 64)
             self.assertRegex(name, r"^[a-zA-Z0-9]+(?:[a-zA-Z0-9-_.]*[a-zA-Z0-9])?$")
+
+    def test_fit_counts_the_images(self):
+        result = fit.fit(self.scenario, "laptop", **SUFFICIENT)
+        text = result.text()
+        self.assertIn(f"  images on local engine: {BASTION} 178M, {POSTGRES} 178M; 3 layers, "
+                      "1 shared, each counted once: 278M\n", text)
+        self.assertIn("  disk: reservations 2.25G + images 278M + headroom 2G = 4.52G of 20G: "
+                      "ok\n", text)
+
+    def test_fit_refuses_when_the_images_overflow_the_disk(self):
+        result = fit.fit(self.scenario, "laptop", cpu="2", memory="4G", disk="2700M")
+        self.assertFalse(result.ok)
+        self.assertEqual(result.report.problems,
+                         ["disk: reservations 2.25G + images 278M + headroom 270M = 2.79G of "
+                          "2.64G: too much"])
+        self.assertIn("Result: does not fit; nothing deployed.", result.text())
+        self.assertFalse((self.ldir() / "implementation.yaml").exists())
+
+    def test_fit_reads_the_declared_endpoints_engine(self):
+        fit.fit(self.scenario, "laptop", endpoint="ssh://gm@host", **SUFFICIENT)
+        result = fit.fit(self.scenario, "laptop")
+        self.assertTrue(result.report.lines[2].startswith("images on ssh://gm@host: "))
+        engine = FakeDocker(endpoint="ssh://other@host")
+        result = fit.fit(self.scenario, "laptop", docker=engine)
+        self.assertTrue(result.report.lines[2].startswith("images on ssh://other@host: "))
+        self.assertTrue(engine.called("image", "inspect"))
+
+    def test_engine_refusals_write_nothing(self):
+        for engine in (FakeDocker(missing=[POSTGRES]), FakeDocker(reachable=False)):
+            with self.subTest(reachable=engine.reachable):
+                with self.assertRaises(model.GmError):
+                    fit.fit(self.scenario, "laptop", docker=engine, **SUFFICIENT)
+                self.assertFalse(self.ldir().exists())
+
+    def test_engine_refusals_leave_a_fitted_game_as_it_is(self):
+        fit.fit(self.scenario, "laptop", **SUFFICIENT)
+        files = {n: (self.ldir() / n).read_bytes()
+                 for n in ("playground.yaml", "implementation.yaml", "state.yaml")}
+        for engine in (FakeDocker(missing=[BASTION]), FakeDocker(reachable=False)):
+            with self.subTest(reachable=engine.reachable):
+                with self.assertRaises(model.GmError):
+                    fit.fit(self.scenario, "laptop", docker=engine, disk="30G")
+                self.assertEqual({n: (self.ldir() / n).read_bytes() for n in files}, files)
 
     def test_fit_refuses_on_insufficient_playground(self):
         result = fit.fit(self.scenario, "small", **INSUFFICIENT)
@@ -304,6 +467,28 @@ class TestGmctlFit(ScenarioCopyTest):
                       "--cpu", "0.5", "--memory", "4G", "--disk", "20G")
         self.assertEqual(r.returncode, 1)
         self.assertIn("does not fit", r.stdout + r.stderr)
+
+    def test_cli_refuses_a_missing_image(self):
+        self.fake_engine(missing=[POSTGRES])
+        r = run_gmctl("fit", self.scenario, "--playground", "laptop",
+                      "--cpu", "2", "--memory", "4G", "--disk", "20G")
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertEqual(r.stderr.strip(),
+                         f"gmctl fit: image(s) not on local engine: {POSTGRES} (build it: docker "
+                         f"build -t {POSTGRES} bricks/postgres); then gmctl fit again; nothing "
+                         "written")
+        self.assertFalse((self.scenario / "local").exists())
+
+    def test_cli_reports_an_unreachable_engine(self):
+        self.fake_engine(unreachable=True)
+        r = run_gmctl("fit", self.scenario, "--playground", "laptop", "--endpoint",
+                      "ssh://gm@host", "--cpu", "2", "--memory", "4G", "--disk", "20G")
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertEqual(r.stderr.strip(),
+                         f"gmctl fit: the engine ssh://gm@host is not reachable: {UNREACHABLE}. "
+                         "fit reads the images' sizes from the playground's engine: start it or "
+                         "correct the endpoint (--endpoint), then gmctl fit again; nothing "
+                         "written")
 
     def test_cli_lists_missing_items(self):
         self.edit_yaml("scenario.yaml", lambda d: (d.pop("flows"), d.pop("title")))
