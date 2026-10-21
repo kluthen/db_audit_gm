@@ -63,8 +63,8 @@ plan states only its deltas.
 | Gate | What | Cleared by | Blocks | Status |
 |---|---|---|---|---|
 | G1 | Plan approval | The owner | Wave 1 | done (2026-10-21, spec D99) |
-| G2 | Network access at image build time: Debian's apt repositories (pgBadger, Perl, the proxy), the PostgreSQL apt repository, the s6-overlay, Prometheus and `postgres_exporter` release downloads, Grafana's package source | Hand check by the wave driver | Chunks 1, 4, 6, 7, 9, 10 (every image build) | open |
-| G3 | A Docker host in swarm mode (swarm active on the build host, 2026-10-21) | Hand check by the wave driver | Every stack test and smoke run, every wave gate, the release gate | open |
+| G2 | Network access at image build time: Debian's apt repositories (pgBadger, Perl, the proxy), the PostgreSQL apt repository, the s6-overlay, Prometheus and `postgres_exporter` release downloads, Grafana's package source | Hand check by the wave driver | Chunks 1, 4, 6, 7, 9, 10 (every image build) | done (2026-10-21, hand check, wave log) |
+| G3 | A Docker host in swarm mode (swarm active on the build host, 2026-10-21) | Hand check by the wave driver | Every stack test and smoke run, every wave gate, the release gate | done (2026-10-21, hand check, wave log) |
 | G4 | O72: brick versions across wave merges | The owner | Wave 1's merge into `main`; the plan's shape | done (2026-10-21, spec D100: released at the release gate) |
 | G5 | O73: what happens to v0.1's free-text evidence `where` | The owner | Chunk 1 | done (2026-10-21, spec D101: moved to `source`) |
 | G6 | O74: where `gmctl fit` takes image sizes from | The owner | Chunk 8 | done (2026-10-21, spec D102: from the engine) |
@@ -82,7 +82,7 @@ model says (D100).
 
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
-| 1 | 1, 2, 3, 4 | G2 (chunks 1, 4); G3 (chunks 1, 3, 4) | planned |
+| 1 | 1, 2, 3, 4 | G2 (chunks 1, 4); G3 (chunks 1, 3, 4) | in progress |
 | 2 | 5, 6, 7 | wave 1; G2, G3 | planned |
 | 3 | 8, 9, 10, 11 | wave 2 | planned |
 | 4 | 12, 13, 14 | wave 3; G10 (chunk 14's merge) | planned |
@@ -178,7 +178,7 @@ that each is recorded.
 
 ### Chunk 1 — Format skill, templates and the v0.1 definitions migrated
 
-Status: planned
+Status: in progress
 Record: (after merge)
 Wave: 1
 Depends on: G2, G3 (G1, G5 done)

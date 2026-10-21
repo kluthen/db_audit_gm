@@ -299,3 +299,19 @@ unchecked; the expectation keys and shared `covers`.
   rules on the answer key. The same key meaning two things is raised to
   `spec-writer` as an open question for the owner; it blocks nothing in
   v0.2.
+
+### Plan correction sent to `spec-writer` (before chunks 2 to 4 start)
+
+From W1's resolutions. Plan v3 (e8a216b): chunk 5 renders shaped
+parameters (`node-map` never as `GM_*`, `web-routes` as sorted
+`name=node:port` tokens, `""` when empty); chunk 7 now depends on chunk
+5 (in wave 2, the encoding fixed by W1 item 2; chain 5 → 7, two chunks).
+Wave 2's membership is unchanged. Open question O78 (`where` in
+`fault.yaml`, recommended for v0.3's first format change) recorded for
+the owner; it blocks nothing in v0.2.
+
+### Dispatch
+
+- Chunk 1 dispatched 2026-10-21, branch `v0.2-c1-formats` cut from
+  f8be8ce (the plan correction does not touch it). Chunks 2, 3 and 4
+  start side by side once chunk 1 merges.
