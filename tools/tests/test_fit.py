@@ -78,7 +78,7 @@ class TestFit(ScenarioCopyTest):
         self.assertRegex(gid, r"^fixture-audit-[a-z0-9]{6}$")
         self.assertEqual(impl["scenario"]["id"], "fixture-audit")
         self.assertEqual(impl["stack"], gid)
-        self.assertEqual(impl["network"], gid + "_net")
+        self.assertEqual(impl["network"], gid + "_backend")   # the scenario's network
         db = impl["nodes"]["db"]
         self.assertEqual(db["brick"], {"id": "postgres", "version": "0.2.0"})
         self.assertEqual(db["image"], "127.0.0.1:5000/dbagm/postgres:0.2.0")
