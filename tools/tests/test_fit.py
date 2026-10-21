@@ -9,6 +9,7 @@ from tools.tests import INSUFFICIENT, SUFFICIENT, FakeDocker, ScenarioCopyTest, 
 from tools.tests.test_deploy import RenderedGame
 from tools.tests.test_inject import FRAGMENTS
 from tools.tests.test_inject import DeployedGame as InjectableGame
+from tools.tests.test_render import MountedCopyTest
 
 
 class TestGameId(unittest.TestCase):
@@ -101,14 +102,16 @@ class TestFit(ScenarioCopyTest):
         gid = impl["game_id"]
         db = impl["nodes"]["db"]
         self.assertEqual([v["name"] for v in db["volumes"]],
-                         [f"{gid}_db_{v}" for v in ("pgdata", "pgconf", "home", "gmstate", "run")])
+                         [f"{gid}_db_{v}" for v in ("pgdata", "pgconf", "home", "gmstate", "pglog",
+                                                     "run")])
         self.assertEqual(
             [c["name"] for c in db["configs"]],
             [gid + "_db_postgresql.conf", gid + "_db_pg_hba.conf", gid + "_db_envelopes"])
         self.assertEqual(db["configs"][0]["file"], "nodes/db/postgresql.conf")
         self.assertEqual(db["configs"][2]["file"], "local/laptop/envelopes/db.conf")
         self.assertEqual([s["name"] for s in db["secrets"]],
-                         [gid + "_player_ssh_pubkey", gid + "_dba_password"])
+                         [gid + "_player_ssh_pubkey", gid + "_dba_password",
+                          gid + "_monitoring_password"])
         bastion = impl["nodes"]["bastion"]
         self.assertEqual([v["name"] for v in bastion["volumes"]],
                          [f"{gid}_bastion_{v}" for v in ("home", "hostkeys", "run")])
@@ -119,6 +122,8 @@ class TestFit(ScenarioCopyTest):
             gid + "_player_ssh_key": "local/laptop/secrets/player_ssh_key",
             gid + "_dba_password": "local/laptop/secrets/dba_password",
             gid + "_player_ssh_pubkey": "local/laptop/secrets/player_ssh_key.pub",
+            gid + "_monitoring_password": "local/laptop/secrets/monitoring_password",
+            gid + "_tools_password": "local/laptop/secrets/tools_password",
         })
         self.assertEqual(impl["labels"], {"com.docker.stack.namespace": gid,
                                           "dbagm.game": gid})
@@ -309,6 +314,29 @@ class TestGmctlFit(ScenarioCopyTest):
         self.assertIn("incomplete", out)
         self.assertIn("flows", out)
         self.assertIn("title", out)
+
+
+class TestFitMounted(MountedCopyTest):
+    """fit on fixture-mounted: the mounted configs' names bound the game id,
+    and the parameter faults are applied (capture W1, items 4 and 8)."""
+
+    def test_game_id_leaves_room_for_mounted_names(self):
+        sc = model.load_scenario(self.scenario)
+        # longest derived part: _monitor_node-health.conf (25 characters)
+        self.assertEqual(localimpl.max_game_id_length(sc), 64 - 25)
+        result = fit.fit(self.scenario, "laptop", **SUFFICIENT)
+        self.assertLessEqual(len(result.game_id), 64 - 25)
+
+    def test_a_parameter_fault_planting_nothing_is_refused(self):
+        self.edit_yaml("faults/fixture-node-left-out/fault.yaml",
+                       lambda d: d["injection"]["parameter_changes"].append(
+                           dict(d["injection"]["parameter_changes"][0])))
+        r = run_gmctl("fit", self.scenario, "--playground", "laptop",
+                      "--cpu", "2", "--memory", "4G", "--disk", "20G")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("fault instance f2 (fixture-node-left-out): remove-entry node_health: "
+                      "node_health has no entry app", r.stderr)
+        self.assertFalse((self.scenario / "local" / "laptop" / "implementation.yaml").exists())
 
 
 if __name__ == "__main__":

@@ -11,8 +11,11 @@ client tools alongside, in the image
 `127.0.0.1:5000/dbagm/bastion:0.2.0`. It fills the role `bastion`: the
 players' only way into the game. They log in with a per-game password,
 find the starter pack in their home, and reach the in-game nodes from
-there by SSH and `psql`. The GM picks it for every scenario; nothing on
-it is part of the game.
+there by SSH and `psql`. When the topology has monitoring web interfaces
+(Prometheus, Grafana), its **web front**, a reverse proxy on a second
+port, publishes them to the players' browsers behind the per-game tools
+password (master spec 7.6). The GM picks it for every scenario; nothing
+on it is part of the game.
 
 The image:
 
@@ -20,6 +23,9 @@ The image:
   (OpenSSH 10.0), PostgreSQL 18 client tools from the PGDG repository
   (`trixie-pgdg`, `postgresql-client-18`), `openssl` (password hashing),
   `nano`, `vim-tiny`, `less`, `procps`. No `sudo`.
+- nginx 1.26.3 from Debian's own repository (package `nginx`), the web
+  front. Its packaged site, logs and state directories are removed; its
+  configuration is written at start-up.
 - s6-overlay 3.2.3.2 (x86_64), same archives and SHA-256 as the PostgreSQL
   brick.
 - Generic: no scenario content, no host key, no password in the image.
@@ -32,9 +38,10 @@ The image:
 - **Build**: `docker build -t 127.0.0.1:5000/dbagm/bastion:0.2.0 bricks/bastion`.
 - **How many**: one per scenario (master spec: the players reach the
   system through a single bastion).
-- **Next to which node**: any host. Its SSH port is published on the host
-  that runs it, so the players connect to that host's address; in v0.1 the
-  renderer runs the whole game on one host.
+- **Next to which node**: any host. Its SSH port, and the web front's port
+  when the front runs, are published in host mode on the host that runs
+  it, so the players connect to that host's address; the renderer runs the
+  whole game on one host.
 - **Stateful**: yes (`stateful: true`): the player's home (`~/report.md`,
   notes) and the sshd host key. Its volumes `home` and `hostkeys` must
   follow the node if it is replaced; `run` is emptied at each start.
@@ -44,9 +51,38 @@ The image:
 
 ## Configuration
 
-`brick.yaml` declares no parameters (`parameters: {}`) and no knobs
-(`knobs: []`): the scenario's content is the starter pack, and the rest is
-per-game secrets.
+`brick.yaml` declares one parameter, `web_routes`, and no knobs (`knobs:
+[]`): otherwise the scenario's content is the starter pack, and the rest
+is per-game secrets.
+
+### The routes parameter `web_routes`
+
+`shape: web-routes`, `default: {}`, `required: false` (capture W1, items 2
+and 3). A map from route name to `"<node>:<port>"`, one route per web
+interface of the topology, the route name being the upstream's own
+`web_path` without its slashes. On the bastion's node in `scenario.yaml`:
+
+```yaml
+parameters:
+  web_routes: {prometheus: "prometheus:9090", grafana: "grafana:3000"}
+published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
+```
+
+- The container gets it as `GM_WEB_ROUTES`: `name=node:port` tokens
+  sorted by name, separated by spaces (`grafana=grafana:3000
+  prometheus=prometheus:9090`).
+- Route `<name>` is served at `/<name>/` on the front, and the path is
+  forwarded unchanged: the upstream serves under `/<name>/` itself (its
+  brick's `web_path`, through Prometheus' or Grafana's sub-path setting).
+- Non-empty: the scenario also publishes the front's port, `{port: 8080,
+  default: 8080}`; the loader refuses one without the other.
+- Empty or absent (the default): the web front does not run, port 8080 is
+  not published and the tools password is not handed over, so the game
+  looks as in v0.1 (D103).
+- The loader checks that each route's node exists and provides a web
+  interface on that port with `web_path: /<name>/`, and that every web
+  interface of the topology has exactly one route. The entrypoint checks
+  the tokens again and fails the container on a malformed one.
 
 ### Values the GM sets per scenario and per game
 
@@ -56,12 +92,14 @@ per-game secrets.
 | Secret `player_password` (kind `password`, handed over) | `/opt/gm/secrets/player_password`, root `0400` | `gmctl deploy`; the GM hands it to the players |
 | Secret `player_ssh_key` (kind `key-pair`, pair `player_ssh_key`, half `private`) | `/opt/gm/secrets/player_ssh_key`, root `0400` | `gmctl deploy`: an ed25519 key pair whose public half is the database node's `player_ssh_pubkey` |
 | Secret `dba_password` (kind `password`, not handed over) | `/opt/gm/secrets/dba_password`, root `0400` | `gmctl deploy`: the same secret as the database node's |
-| Published port | the host's port for container port 22 | the scenario's `published_ports: [{port: 22, default: 2222}]` |
+| Secret `tools_password` (kind `password`, handed over) | `/opt/gm/secrets/tools_password`, root `0400`; read only when there are routes | `gmctl deploy`, whenever `bastion` 0.2.0 is in the topology; the GM hands it to the players only when the front runs (D103). The same secret as Grafana's administrator password |
+| Routes `web_routes` | `GM_WEB_ROUTES`, turned into `/run/web-front/nginx.conf` at start-up | the scenario's node `parameters` (above) |
+| Published ports | the host's ports for container port 22 and, with routes, 8080 | the scenario's `published_ports: [{port: 22, default: 2222}]`, plus `{port: 8080, default: 8080}` with routes |
 
 `dba_password` is the same Swarm secret as the database node's.
 `player_ssh_key` is the private half of the database node's
 `player_ssh_pubkey`: an unencrypted OpenSSH private key (ed25519).
-`player_password` and `dba_password` are single lines.
+`player_password`, `dba_password` and `tools_password` are single lines.
 
 ### Fixed paths (capture W1-C)
 
@@ -72,7 +110,7 @@ per-game secrets.
 | Starter marker | `/home/player/.gm-starter-copied` | root, `0444` |
 | Inner-hop key | `/home/player/.ssh/id_ed25519` | `player`, `0600`, rewritten at each start |
 | `.pgpass` | `/home/player/.pgpass` | `*:*:*:dba:<password>`, `player`, `0600`, rewritten at each start |
-| Secrets | `/opt/gm/secrets/player_password`, `player_ssh_key`, `dba_password` | root, `0400` |
+| Secrets | `/opt/gm/secrets/player_password`, `player_ssh_key`, `dba_password`, `tools_password` | root, `0400` |
 | sshd host key | `/var/lib/gm-sshd-keys/ssh_host_ed25519_key` | volume `hostkeys`, root, `0700` dir |
 | Password file | `/etc/shadow` → `/run/gm/shadow` | rebuilt at each start (see below) |
 | Runtime | `/run` | volume `run`, emptied at each start |
@@ -80,6 +118,10 @@ per-game secrets.
 | Entrypoint | `/usr/local/sbin/gm-entrypoint` | |
 | Health check | `/usr/local/lib/gm/healthcheck` | |
 | SSH client settings | `/etc/ssh/ssh_config.d/gm-game.conf` | see "Inner hop and host keys" |
+| Web front directory | `/run/web-front/` | only with routes; root:www-data, `0750`, rewritten at each start; `tmp/` (www-data, `0700`) holds nginx's pid and temporary files |
+| Web front configuration | `/run/web-front/nginx.conf` | root, `0444` |
+| Web front password file | `/run/web-front/htpasswd` | `player:<SHA-512 crypt>`, root:www-data, `0440` |
+| Web front service | `/etc/s6-overlay/s6-rc.d/web-front/run` | nginx as `www-data` |
 
 ### Start-up (`gm-entrypoint`, every container start)
 
@@ -104,11 +146,24 @@ per-game secrets.
    key without it) and `~/.pgpass` (`:` and `\` escaped). Whatever the
    player left at those paths is removed first, so a symlink cannot point
    root's write elsewhere.
-7. Execs s6-overlay's `/init`, which supervises `sshd`.
+7. Reads `GM_WEB_ROUTES`. With at least one route: fails the container on
+   a token that is not `name=node:port` (lowercase names, as the loader
+   checks them) or on a route given twice; reads `tools_password` (same
+   rules as the other passwords); writes `/run/web-front/htpasswd` (user
+   `player`, `openssl passwd -6` hash) and `/run/web-front/nginx.conf`
+   (one `location /<name>/` per route, see "Web front" under "Access");
+   fails the container if nginx (`nginx -t`, as `www-data`) refuses the
+   configuration. With none: writes nothing and does not read
+   `tools_password`, which may then be absent.
+8. Execs s6-overlay's `/init`, which supervises `sshd` and `web-front`.
+   Without `/run/web-front/nginx.conf` the `web-front` service marks
+   itself once-only (`s6-svc -O`) and exits: it stays down, and nothing
+   listens on port 8080.
 
 Seeded once: the starter pack (on a fresh `home` volume) and the sshd host
 key (on a fresh `hostkeys` volume). Rewritten at each start: `/run`, the
-password file, `~/.ssh/id_ed25519` and `~/.pgpass`.
+password file, `~/.ssh/id_ed25519`, `~/.pgpass`, and the web front's
+configuration and password file.
 
 ### Why `/etc/shadow` is a symlink
 
@@ -120,15 +175,21 @@ the one the GM handed over for the whole game.
 
 ## Connections
 
-The bastion provides one interface and consumes two (`interfaces` in
+The bastion provides two interfaces and consumes three (`interfaces` in
 `brick.yaml`).
 
 - **Provides `ssh`, SSH protocol, port 22**: the players, from outside
-  the game. It is the only port a game publishes: the scenario's
-  `published_ports: [{port: 22, default: 2222}]` (`extra.published_port_default:
-  2222`) publishes it on the host that runs the bastion, and the local
-  implementation records the port actually used. The players log in as
-  `player` with the per-game password (see "Access").
+  the game. The scenario's `published_ports: [{port: 22, default: 2222}]`
+  (`extra.published_port_default: 2222`) publishes it on the host that
+  runs the bastion, and the local implementation records the port
+  actually used. The players log in as `player` with the per-game
+  password (see "Access").
+- **Provides `web-front`, HTTP, port 8080**, only when `web_routes` is
+  non-empty: the players' browsers, from outside the game. The scenario
+  then also publishes `{port: 8080, default: 8080}`
+  (`extra.web_front_port_default: 8080`), in host mode like SSH; these two
+  are the only ports a game publishes. Without routes the port is neither
+  published nor listened on, and SSH is the only one, as in v0.1.
 - **Consumes `ssh`, SSH protocol, port 22**, on the in-game nodes, by node
   name: the inner hop, `ssh <node>` as `player`, with the key
   `~/.ssh/id_ed25519` written from the secret `player_ssh_key`. The other
@@ -145,9 +206,17 @@ The bastion provides one interface and consumes two (`interfaces` in
   node's seed files listen on port 5432 and let `dba` in from the game's
   network (PostgreSQL brick, [GM notes](../../postgres/docs/gm.md#what-the-seed-files-must-contain)).
 
+- **Consumes `ui`, HTTP**, on the nodes the routes name, by node name:
+  the topology's web interfaces (`prometheus` on port 9090, `grafana` on
+  port 3000), each declaring `web_path: /<route>/` and serving under that
+  path itself. The front resolves the node name through Docker's DNS at
+  request time, so an upstream that is down answers 502 until it is back,
+  and never stops the front or the bastion.
+
 **Monitoring**: `brick.yaml` declares no monitoring exposure, and the
-bastion has no metrics endpoint. The sshd log goes to the container's
-output only (`gmctl logs`). It has no web interface to relay in v0.1.
+bastion has no metrics endpoint. The sshd log and the web front's errors
+(a wrong password, an unreachable upstream) go to the container's output
+only (`gmctl logs`); the front keeps no access log.
 
 **Mounted material**: the image accepts another brick's mounted companion
 material (`brick.yaml` `receives`): it runs s6-overlay `3.2.3.2`, and the
@@ -214,7 +283,40 @@ override it in `~/.ssh/config`; nothing in the game depends on it.
   `/etc/s6-overlay/user-bundles.d`).
 - Write policy: `report-only`. Nothing on the bastion is part of the game:
   players write only their home.
-- No web interface.
+- The web front's files under `/run/web-front/` are root-owned; `player`
+  cannot read the password file.
+
+### Web front
+
+Master spec 7.6; access model 5 ("Bastion and web front"), 6 and 7.
+
+- **Where**: `http://<host>:<port>/<route>/`, `<port>` being the port the
+  local implementation recorded for container port 8080 (default 8080),
+  `<route>` a key of `web_routes`. With the v0.2 monitoring bricks:
+  `/prometheus/` and `/grafana/`. `/` (behind the password) lists the
+  routes as plain text, one path per line; `/<route>` redirects to
+  `/<route>/`; any other path answers 404.
+- **Authentication**: HTTP basic, user `player`, password the per-game
+  `tools_password`, on every path, `/` included. Without it, or with a
+  wrong user or password: `401` with `WWW-Authenticate: Basic
+  realm="db_audit_gm web front"`, so the browser asks for it. Plain HTTP
+  (access model, "Known gaps").
+- **What it forwards**: the request's method, path and query unchanged;
+  `Host` as the browser sent it (`<host>:<port>`, which Grafana compares
+  with `Origin`); `X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto:
+  http`; WebSocket upgrades (Grafana Live). It removes the `Authorization`
+  header, so Grafana never sees the front's credentials and keeps its own
+  login, and hides an upstream's `WWW-Authenticate` header, which would
+  make the browser drop the front's credentials.
+- **Errors**: an upstream that is down or not yet started answers `502`;
+  the other routes keep working.
+- **Without routes** (no web interface in the topology): nothing listens
+  on port 8080, the scenario publishes SSH only, and the GM hands over no
+  tools password (D103). `tools_password` is still generated and mounted
+  (it always is with `bastion` 0.2.0, capture W1 item 7), but unused.
+- **Process**: nginx (master and one worker) as `www-data` under s6
+  (`web-front`); 256 connections at most; request bodies up to 16M
+  (Grafana dashboard imports).
 
 ### Capabilities
 
@@ -226,7 +328,9 @@ waits out Docker's grace period and ends in `SIGKILL` (exit 137).
 `NET_BIND_SERVICE` is not needed under Docker, which sets
 `net.ipv4.ip_unprivileged_port_start=0`, but sshd binds port 22, so it
 stays for other platforms. `AUDIT_WRITE` is not needed: there is no
-`sudo` and no PAM.
+`sudo` and no PAM. The web front needs none of its own: it listens on an
+unprivileged port, and `s6-setuidgid www-data` uses `SETUID` and
+`SETGID`, already in the list.
 
 ### What the GM uses
 
@@ -259,6 +363,16 @@ limit from the expected number of simultaneous sessions, and the disk
 reservation from what the players may save. The levers that shrink it:
 fewer simultaneous sessions (players sharing a session), and a smaller
 limit for a single-player game.
+
+The web front fits within these figures, which v0.2 leaves unchanged:
+measured in the stack test (Docker 29.9.1, idle, 2026-10-21), the
+bastion's container uses about 5 MiB of memory with the front and 2.8 MiB
+without; nginx's master and worker show about 13 MiB resident, most of it
+shared libraries. What makes the front grow: the players' browsers
+(Grafana dashboards issue several requests per panel and refresh), each
+proxied response buffered in memory or, above nginx's buffers, under
+`/run/web-front/tmp/` (the `run` volume). CPU: a password check (SHA-512
+crypt) per request, a few milliseconds each.
 
 ## Supported faults
 
@@ -307,8 +421,12 @@ finding.
 
 ### Health check
 
-Healthy while `sshd` is up under s6 and listening on port 22. The check
-reads `/proc/net/tcp`, so it leaves nothing in sshd's log.
+Healthy while `sshd` is up under s6 and listening on port 22, and, when
+the web front is configured (`/run/web-front/nginx.conf` exists, so there
+is at least one route), while `web-front` is up and listening on port
+8080. The check reads `/proc/net/tcp`, so it leaves nothing in any log. It
+does not reach the upstreams: a monitoring node that is down shows on its
+own node, not here.
 
 ### Companion checks
 
@@ -331,15 +449,43 @@ password and the database node's `pg_hba.conf` all work. Then log in once
 from outside on the published port with the player password, as the
 players will.
 
+With routes, check the web front from outside, as the players' browsers
+will (`<web port>` is the port recorded for container port 8080; read the
+tools password from `local/<pg>/secrets/tools_password`, never pass it to
+`gmctl exec --env`):
+
+```sh
+curl -s -o /dev/null -w '%{http_code}\n' http://<host>:<web port>/<route>/      # 401
+curl -s -u "player:$(cat local/<pg>/secrets/tools_password)" http://<host>:<web port>/   # the routes
+```
+
+Then open each `/<route>/` with the password: a `502` means the upstream
+is not up (yet), or does not serve under `/<route>/`.
+
 ### Stack test
 
-`sh bricks/bastion/tests/run-stack-test.sh` deploys the bastion and a
-PostgreSQL node (chunk 2's image and its test fixtures) as a two-service
-stack (`tests/stack.test.yml`), logs in with the password on the published
-port (`GMTEST_BASTION_PORT`, default 22222), checks the inner hop by key
-and `psql`, replaces each node in turn, and removes everything it created,
-volumes, configs and secrets included. Needs a swarm manager, both images
-built, and an OpenSSH client 8.4 or later on the host (`SSH_ASKPASS_REQUIRE`).
+`sh bricks/bastion/tests/run-stack-test.sh` deploys the bastion, a
+PostgreSQL node (the `postgres` image and its test fixtures) and a stub web
+interface (`tests/fixtures/stub-upstream.pl`, a Perl script in
+`debian:13-slim` that answers with the request it received) as a
+three-service stack (`tests/stack.test.yml`, stack `gmtest-bastion`). It
+logs in with the password on the published SSH port (`GMTEST_BASTION_PORT`,
+default 22222), checks the inner hop by key and `psql`, replaces each node
+in turn, then checks the web front on its published port
+(`GMTEST_BASTION_WEB_PORT`, default 28080), with the routes `stub=stub:9090`
+and `other=stub:9091` (nothing listens there): 401 and the challenge
+without the tools password, with a wrong one or another user name; the
+stub reached under `/stub/` with the path and query unchanged, no
+`Authorization` header upstream, `Host` and `X-Forwarded-Proto` set, the
+stub's own challenge hidden; the redirect, the route list, 404, 502 on
+`/other/`; nginx as `www-data`; the health check failing while the front
+is stopped. It ends by emptying the routes, unpublishing port 8080 and
+removing the `tools_password` secret: the bastion is healthy, `web-front`
+is down, nothing listens on port 8080, only port 22 is published, and SSH
+answers. It removes everything it created, volumes, configs and secrets
+included. Needs a swarm manager, the bastion and postgres images built,
+`debian:13-slim`, `curl`, and an OpenSSH client 8.4 or later on the host
+(`SSH_ASKPASS_REQUIRE`).
 
 ## Known limits
 
@@ -350,6 +496,16 @@ built, and an OpenSSH client 8.4 or later on the host (`SSH_ASKPASS_REQUIRE`).
   secrets; a player's edits to them do not survive a restart.
 - **Single-line passwords.** A secret holding a newline fails the
   container.
-- **sshd log** only in the container output (`gmctl logs`).
+- **sshd log** only in the container output (`gmctl logs`), as the web
+  front's errors; the front keeps no access log.
+- **Plain HTTP** on the web front: the tools password crosses the network
+  base64-encoded (access model, "Known gaps").
+- **One user name**, `player`, for the web front; a browser that offers
+  another is refused like a wrong password.
+- **Routes fixed at start-up.** The front reads `GM_WEB_ROUTES` when the
+  container starts; a changed `web_routes` needs a new render and deploy.
+- **The front publishes, it does not protect.** Prometheus has no login of
+  its own and stays reachable from every node of the game without the
+  tools password (access model, "Known gaps").
 - **Stop timing**: s6 gives services 8 s to stop, inside Docker's default
   10 s stop grace period.

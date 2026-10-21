@@ -18,9 +18,11 @@ technology:
 image: 127.0.0.1:5000/dbagm/postgres:0.2.0
 
 # --- Footprint --------------------------------------------------------
-footprint:                          # v0.1's figures as reservations, limits twice CPU and memory
+footprint:                          # CPU and memory: v0.1's figures as reservations, limits
+                                    # twice; disk: master spec 12's db node (data and WAL 1G,
+                                    # log volume pglog 1G, home and pgBadger reports 256M)
   limits:       {cpu: 1, memory: 1G}
-  reservations: {cpu: 0.5, memory: 512M, disk: 1G}
+  reservations: {cpu: 0.5, memory: 512M, disk: 2.25G}
 stateful: true
 
 # --- What the scenario sets -------------------------------------------
@@ -57,7 +59,8 @@ write_policies:                     # v0.1: the database node is fixable (master
   - fixable
 writable_paths:
   - /etc/postgresql                 # postgres:pgconf, 2775; seeded files 0664
-  - /home/player                    # ~/.pgpass (rewritten at each start), ~/report.md
+  - /home/player                    # ~/.pgpass (rewritten at each start), ~/report.md,
+                                    #   pgBadger reports
 protected_files:
   - /etc/ssh/sshd_config
   - /etc/sudoers
@@ -114,6 +117,12 @@ secrets:
     uid: 0
     gid: 0
     mode: "0400"
+  - name: monitoring_password       # password of the role `monitoring` (pg_monitor), set at
+    kind: password                  #   initdb; also on the postgres-exporter node
+    path: /opt/gm/secrets/monitoring_password
+    uid: 0
+    gid: 102                        # postgres' group (the Dockerfile checks 100:102)
+    mode: "0440"                    # root and postgres only
 seed:
   dir: /opt/gm/seed/
   files:
@@ -134,6 +143,8 @@ volumes:
     path: /home/player
   - name: gmstate                   # seed marker /var/lib/gm-state/.gm-seeded, root-owned:
     path: /var/lib/gm-state         #   kept out of the group-writable /etc/postgresql
+  - name: pglog                     # PostgreSQL's file logs (log_directory in the seed
+    path: /var/log/postgresql       #   postgresql.conf); postgres:pgconf 2750, files 0640
   - name: run                       # /run: a stack file's tmpfs is noexec and s6-overlay
     path: /run                      # needs exec; emptied by the entrypoint at each start
 processes:

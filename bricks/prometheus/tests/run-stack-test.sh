@@ -36,8 +36,8 @@ NET=${STACK}_net
 CLIENT=${STACK}-client
 LABEL=dbagm.test=chunk4-prometheus
 CONFIGS="seed_prometheus_yml seed_postgresql_conf seed_pg_hba_conf envelopes nh_script nh_type nh_run nh_dep_base nh_bundle nh_conf_db nh_conf_prometheus"
-SECRETS="player_ssh_pubkey dba_password"
-VOLUMES="prom_data prom_conf prom_home prom_gmstate prom_run db_pgdata db_pgconf db_home db_gmstate db_run"
+SECRETS="player_ssh_pubkey dba_password monitoring_password"
+VOLUMES="prom_data prom_conf prom_home prom_gmstate prom_run db_pgdata db_pgconf db_home db_gmstate db_pglog db_run"
 PG_FIXTURES=$HERE/../../postgres/tests/fixtures
 NH=$HERE/../companion/node-health
 SSH_OPTS="-i /root/id -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o LogLevel=ERROR -o ConnectTimeout=10"
@@ -99,6 +99,8 @@ fi
 # --- per-game material, as gmctl deploy would create it ---------------------
 ssh-keygen -q -t ed25519 -N '' -C gmtest-player -f "$tmp/id"
 head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$tmp/dba_password"
+# The database node's monitoring role password (postgres 0.2.0); unused here.
+printf 'mon%s' "$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')" > "$tmp/monitoring_password"
 cfg() { docker config create -l "$LABEL" "${STACK}_$1" "$2" >/dev/null; }
 cfg seed_prometheus_yml "$HERE/fixtures/prometheus.yml"
 cfg seed_postgresql_conf "$PG_FIXTURES/postgresql.conf"
@@ -115,6 +117,7 @@ cfg nh_conf_db "$HERE/fixtures/node-health/db.conf"
 cfg nh_conf_prometheus "$HERE/fixtures/node-health/prometheus.conf"
 docker secret create -l "$LABEL" "${STACK}_player_ssh_pubkey" "$tmp/id.pub" >/dev/null
 docker secret create -l "$LABEL" "${STACK}_dba_password" "$tmp/dba_password" >/dev/null
+docker secret create -l "$LABEL" "${STACK}_monitoring_password" "$tmp/monitoring_password" >/dev/null
 
 info "deploying stack $STACK"
 docker stack deploy --resolve-image never -c "$HERE/stack.test.yml" "$STACK" >/dev/null 2>&1

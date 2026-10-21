@@ -9,14 +9,17 @@
 #   3. checks the secrets;
 #   4. seeds /etc/postgresql from /opt/gm/seed once (marker
 #      /var/lib/gm-state/.gm-seeded, outside the group-writable directory);
-#   5. initialises PGDATA if it is empty and creates the `dba` role;
-#   6. writes the player's ~/.pgpass.
+#   5. sets the log directory's owner and mode (files readable by pgconf);
+#   6. initialises PGDATA if it is empty, creates the `dba` and
+#      `monitoring` roles and the pg_stat_statements extension;
+#   7. writes the player's ~/.pgpass.
 set -eu
 
 PG_MAJOR=18
 PGBIN=/usr/lib/postgresql/$PG_MAJOR/bin
 PGDATA=/var/lib/postgresql/$PG_MAJOR/data
 CONF_DIR=/etc/postgresql
+LOG_DIR=/var/log/postgresql
 STATE_DIR=/var/lib/gm-state
 MARKER=$STATE_DIR/.gm-seeded
 SEED_DIR=/opt/gm/seed
@@ -49,13 +52,18 @@ install -d -o root -g root -m 1777 /run/tmp
 ssh-keygen -q -t ed25519 -N '' -C '' -f /run/sshd-keys/ssh_host_ed25519_key
 
 # --- 3. secrets ---------------------------------------------------------
-for s in player_ssh_pubkey dba_password; do
+for s in player_ssh_pubkey dba_password monitoring_password; do
     [ -s "$SECRETS_DIR/$s" ] || die "secret $SECRETS_DIR/$s is missing or empty"
 done
 dba_password=$(cat "$SECRETS_DIR/dba_password")
+monitoring_password=$(cat "$SECRETS_DIR/monitoring_password")
 case $dba_password in
     *'
 '*) die "secret dba_password must be a single line" ;;
+esac
+case $monitoring_password in
+    *'
+'*) die "secret monitoring_password must be a single line" ;;
 esac
 
 # --- 4. configuration, seeded once ---------------------------------------
@@ -78,7 +86,14 @@ if [ ! -e "$MARKER" ]; then
     log "seeded $CONF_DIR from $SEED_DIR"
 fi
 
-# --- 5. PGDATA ----------------------------------------------------------
+# --- 5. log directory ---------------------------------------------------
+# The seed postgresql.conf points log_directory here (volume pglog); with
+# log_file_mode 0640 the setgid bit gives each file the group pgconf, so
+# the players read the logs (pgBadger) without being able to write them.
+chown postgres:pgconf "$LOG_DIR"
+chmod_setgid "$LOG_DIR" pgconf 2750
+
+# --- 6. PGDATA ----------------------------------------------------------
 chown postgres:postgres "$PGDATA"
 chmod 0700 "$PGDATA"
 if [ ! -s "$PGDATA/PG_VERSION" ]; then
@@ -86,18 +101,26 @@ if [ ! -s "$PGDATA/PG_VERSION" ]; then
     runuser -u postgres -- "$PGBIN/initdb" -D "$PGDATA" -U postgres \
         --encoding=UTF8 --locale=C.UTF-8 \
         --auth-local=peer --auth-host=scram-sha-256 >&2
-    # The players' superuser role, created in single-user mode (no network,
-    # no pg_hba.conf involved) against initdb's own default configuration.
+    # Created in single-user mode (no network, no pg_hba.conf involved)
+    # against initdb's own default configuration: the players' superuser
+    # role; the monitoring role the postgres-exporter brick connects with;
+    # pg_stat_statements' view in the database `postgres` (querying it
+    # still needs the library preloaded by the seed postgresql.conf).
     pw_sql=$(printf '%s' "$dba_password" | sed "s/'/''/g")
-    printf "CREATE ROLE dba LOGIN SUPERUSER PASSWORD '%s';\n" "$pw_sql" |
-        runuser -u postgres -- "$PGBIN/postgres" --single -D "$PGDATA" postgres >/dev/null
+    mon_sql=$(printf '%s' "$monitoring_password" | sed "s/'/''/g")
+    {
+        printf "CREATE ROLE dba LOGIN SUPERUSER PASSWORD '%s';\n" "$pw_sql"
+        printf "CREATE ROLE monitoring LOGIN PASSWORD '%s';\n" "$mon_sql"
+        printf "GRANT pg_monitor TO monitoring;\n"
+        printf "CREATE EXTENSION pg_stat_statements;\n"
+    } | runuser -u postgres -- "$PGBIN/postgres" --single -D "$PGDATA" postgres >/dev/null
     # The live configuration is in /etc/postgresql; remove initdb's copies
     # so there is only one place to look.
     rm -f "$PGDATA/postgresql.conf" "$PGDATA/pg_hba.conf"
-    log "cluster initialised, role dba created"
+    log "cluster initialised: roles dba and monitoring, extension pg_stat_statements"
 fi
 
-# --- 6. player's home ---------------------------------------------------
+# --- 7. player's home ---------------------------------------------------
 chown player:player "$PLAYER_HOME"
 chmod 0750 "$PLAYER_HOME"
 pw_pgpass=$(printf '%s' "$dba_password" | sed 's/[\\:]/\\&/g')
@@ -106,6 +129,6 @@ printf '*:*:*:dba:%s\n' "$pw_pgpass" > "$PLAYER_HOME/.pgpass"
 chown player:player "$PLAYER_HOME/.pgpass"
 chmod 0600 "$PLAYER_HOME/.pgpass"
 umask 022
-unset dba_password pw_sql pw_pgpass
+unset dba_password monitoring_password pw_sql mon_sql pw_pgpass
 
 exec /init "$@"

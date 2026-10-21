@@ -82,8 +82,8 @@ model says (D100).
 
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
-| 1 | 1, 2, 3, 4 | G2 (chunks 1, 4); G3 (chunks 1, 3, 4) | gated (2026-10-21), awaiting merge |
-| 2 | 5, 6, 7 | wave 1; G2, G3 | planned |
+| 1 | 1, 2, 3, 4 | G2 (chunks 1, 4); G3 (chunks 1, 3, 4) | merged (2026-10-21, 6467fb5) |
+| 2 | 5, 6, 7 | wave 1; G2, G3 | gated (2026-10-21); merge on the owner's word |
 | 3 | 8, 9, 10, 11 | wave 2 | planned |
 | 4 | 12, 13, 14 | wave 3; G10 (chunk 14's merge) | planned |
 
@@ -422,8 +422,11 @@ it settles are recorded in its Record line and `docs/gm.md`.
 
 ### Chunk 5 — Mounted material and parameter faults in the local implementation
 
-Status: planned
-Record: (after merge)
+Status: merged (w2, 6248ad0)
+Record: 2ad4c21, merge 6248ad0; no deviation; outcomes in capture W2-A
+(wave log). The mounted footprint is not added to receiving nodes'
+`resources` by `fit`: master spec 7.1 puts it in the scenario's own
+`resources` (chunk 14 writes them).
 Wave: 2
 Depends on: chunks 2, 3
 Architecture capture: none of its own; it implements capture W1 items 2
@@ -473,8 +476,15 @@ loader.
 
 ### Chunk 6 — `postgres` 0.2.0
 
-Status: planned
-Record: (after merge)
+Status: merged (w2, f3f6e19)
+Record: 60f32d4 (6a), 787bf1d (6b), merge f3f6e19; no deviation;
+outcomes in capture W2-B (wave log). Master spec 15: the monitoring role
+is created by `gm-entrypoint` at initdb (single-user mode, before the
+first listen) from the `monitoring_password` secret, not by the data
+load. Outside its Files line: the expected secret and volume lists in
+`tools/tests/test_{deploy,fit,render,state,teardown}.py` and three
+counts in `tools/tests/smoke.sh`, which the new secret and volume
+broke.
 Wave: 2
 Depends on: chunks 1, 3; G2, G3
 Architecture capture: none (chunk 9 reads the merged brick).
@@ -516,8 +526,15 @@ Architecture capture: none (chunk 9 reads the merged brick).
 
 ### Chunk 7 — `bastion` 0.2.0: the web front
 
-Status: planned
-Record: (after merge)
+Status: merged (w2, 5c50c71)
+Record: 3925d13 (7a), eb7fed9 and 893d472 (7b), merge 5c50c71 (with
+4e69641 bringing chunk 6 in first); no deviation; outcomes in capture
+W2-C (wave log). Master spec 15: the reverse proxy is nginx 1.26.3
+(Debian 13); `Authorization` is cleared on every forwarded request.
+893d472 gives the bastion stack test's db node postgres 0.2.0's
+`monitoring_password` and `pglog` (chunk 6 broke it); the expected
+lists in `tools/tests/test_{deploy,fit,state,teardown}.py` and
+`smoke.sh`'s counts combine chunks 6 and 7.
 Wave: 2
 Depends on: chunks 1, 3, 5 (in wave 2: the routes parameter rendered
 as `GM_WEB_ROUTES`); G2, G3 (G7 done)

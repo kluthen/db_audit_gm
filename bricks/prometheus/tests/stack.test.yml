@@ -59,6 +59,7 @@ services:
       - {type: volume, source: db_pgconf, target: /etc/postgresql}
       - {type: volume, source: db_home, target: /home/player}
       - {type: volume, source: db_gmstate, target: /var/lib/gm-state}
+      - {type: volume, source: db_pglog, target: /var/log/postgresql}
       - {type: volume, source: db_run, target: /run}
     configs:
       - {source: seed_postgresql_conf, target: /opt/gm/seed/postgresql.conf, uid: "0", gid: "0", mode: 0444}
@@ -74,6 +75,7 @@ services:
     secrets:
       - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
       - {source: dba_password, target: /opt/gm/secrets/dba_password, uid: "0", gid: "0", mode: 0400}
+      - {source: monitoring_password, target: /opt/gm/secrets/monitoring_password, uid: "0", gid: "102", mode: 0440}
     networks: [net]
     deploy:
       replicas: 1
@@ -95,6 +97,7 @@ volumes:
   db_pgconf: {}
   db_home: {}
   db_gmstate: {}
+  db_pglog: {}
   db_run: {}
 
 configs:
@@ -113,3 +116,4 @@ configs:
 secrets:
   player_ssh_pubkey: {external: true, name: gmtest-prom_player_ssh_pubkey}
   dba_password: {external: true, name: gmtest-prom_dba_password}
+  monitoring_password: {external: true, name: gmtest-prom_monitoring_password}

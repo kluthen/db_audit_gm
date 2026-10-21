@@ -4,8 +4,9 @@
 # Top-level keys: capture W1-A; secrets and starter pack: capture W1-C;
 # quoted octal modes and seed_files mapping: capture W1-D; /run as a named
 # volume: capture W1-E (specs/versions/v0.1/wave-log.md); footprint shape,
-# secret kinds and `receives`: capture W1 (specs/versions/v0.2/wave-log.md).
-# Operating notes: docs/gm.md.
+# secret kinds and `receives`: capture W1 (specs/versions/v0.2/wave-log.md);
+# the web front (web_routes, web-front, tools_password): capture W1 items 2,
+# 3 and 7, built by v0.2 chunk 7. Operating notes: docs/gm.md.
 
 # --- Identity ---------------------------------------------------------
 id: bastion
@@ -18,13 +19,21 @@ technology:
 image: 127.0.0.1:5000/dbagm/bastion:0.2.0
 
 # --- Footprint --------------------------------------------------------
-footprint:                          # v0.1's figures as reservations, limits twice CPU and memory
+footprint:                          # v0.1's figures as reservations, limits twice CPU and memory;
+                                    # the web front (nginx, about 13M resident) fits within them
   limits:       {cpu: 0.5, memory: 256M}
   reservations: {cpu: 0.25, memory: 128M, disk: 256M}
 stateful: true                      # the player's home (~/report.md) and the sshd host key
 
 # --- What the scenario sets -------------------------------------------
-parameters: {}                      # the scenario's content is the starter pack (seed)
+parameters:                         # otherwise the scenario's content is the starter pack (seed)
+  web_routes:
+    description: >-
+      the web interfaces the web front publishes: route name -> "node:port",
+      each served under its own name (/name/, the upstream's own web_path); empty: no web front
+    default: {}
+    required: false
+    shape: web-routes               # GM_WEB_ROUTES="name=node:port ...", sorted (capture W1, item 2)
 knobs: []
 
 # --- Player plane -----------------------------------------------------
@@ -42,6 +51,8 @@ protected_files:
   - /opt/gm/validator/validate.sh
   - /etc/s6-overlay/s6-rc.d
   - /etc/s6-overlay/user-bundles.d
+  - /run/web-front                  # the web front's configuration and password file, rewritten
+                                    # at each start
 player_access:
   ssh_account: player               # password login, the per-game secret player_password
   group: player
@@ -58,7 +69,8 @@ capabilities:                       # added back after cap_drop: ALL
   - SYS_CHROOT                      # sshd privilege separation
 
 # --- Runtime ----------------------------------------------------------
-healthcheck:                        # healthy while sshd is up and listening on port 22
+healthcheck:                        # healthy while sshd is up and listening on port 22, and the
+                                    # web front on port 8080 when it has routes
   command: ["/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
   interval: 10s
   timeout: 5s
@@ -86,6 +98,13 @@ secrets:
     uid: 0
     gid: 0
     mode: "0400"
+  - name: tools_password            # the web front's password (user `player`), handed over by
+    kind: password                  # the GM when the front runs; also Grafana's administrator
+    handed_over: true               # password; read only when web_routes is non-empty (D103)
+    path: /opt/gm/secrets/tools_password
+    uid: 0
+    gid: 0
+    mode: "0400"
 seed:                               # the starter pack: copied once into /home/player, never
   dir: /opt/gm/starter/             # over an existing file
   files:                            # scenario.yaml maps them with seed_files
@@ -102,20 +121,26 @@ volumes:
     path: /run                      # needs exec; emptied by the entrypoint at each start
 processes:
   - sshd
+  - web-front                       # down by design when web_routes is empty
 
 # --- Catalog links ----------------------------------------------------
 interfaces:
   provides:
-    - {name: ssh, protocol: ssh, port: 22}   # the only port a game publishes (default 2222)
+    - {name: ssh, protocol: ssh, port: 22}   # published (default 2222)
+    - {name: web-front, protocol: http, port: 8080}   # published (default 8080) only when
+                                                      # web_routes is non-empty
   consumes:
     - {name: ssh, protocol: ssh, port: 22}   # in-game nodes, by node name
     - {name: sql, protocol: postgresql, port: 5432}
+    - {name: ui, protocol: http, port: 9090}   # through the web front: the routed web
+    - {name: ui, protocol: http, port: 3000}   # interfaces (prometheus, grafana)
 receives:                           # the image accepts another brick's mounted material
   s6_overlay: "3.2.3.2"             # the version the Dockerfile installs
   commands: [sh, cat, du, df, awk, sed, grep, sleep, perl, s6-svstat, s6-setuidgid]
 extra:
   read_only_root: true              # read_only: true in the stack file
   published_port_default: 2222      # scenario.yaml: published_ports: [{port: 22, default: 2222}]
+  web_front_port_default: 8080      # with routes, also {port: 8080, default: 8080} (capture W1, item 3)
   validator:                        # the GM's official run (gmctl validate, capture W3-A)
     path: /opt/gm/validator/validate.sh
     run_as: player

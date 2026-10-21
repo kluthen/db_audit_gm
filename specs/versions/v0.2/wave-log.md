@@ -540,3 +540,243 @@ O78 open (not blocking). Open gates after wave 1: G10 and G11 (owner,
 waves 4 and release). Plan at v4. Branches left: `v0.2-w1` only (every
 chunk branch and worktree removed). Next: wave 2 (chunks 5, 6, 7; chain
 5 → 7), from `main` once wave 1 merges.
+- Merged into `main` 2026-10-21 on the owner's word: 6467fb5. Branch
+  and worktree `v0.2-w1` removed.
+
+## Wave 2 — started 2026-10-21
+
+Chunks: 5, 6, 7 (chain 5 → 7). Branch `v0.2-w2`, worktree
+`/home/bastien/work/db_audit_gm-wt/v0.2-w2`, cut from `main` at
+6467fb5 (wave 1 merged).
+
+- **Concurrency.** The owner's allowance for this session holds: 5 and
+  6 run side by side (no path between them, no shared source file); 7
+  starts once 5 merges.
+- **Gates.** G2 and G3 done (wave 1); swarm still active, host idle.
+- **Preflight.** None (no intent register, no data register).
+- **Captures.** None new at wave start: chunk 5 implements W1 items 2
+  and 4 against W1-D's declaration as built; chunk 6 reads W1 item 7
+  (`monitoring_password`) and W1-B; chunk 7 reads W1 items 2, 3 and 7
+  (`tools_password`), W1-B and W1-C.
+- Chunks 5 and 6 dispatched 2026-10-21.
+- Chunk 5 merged 2026-10-21: 2ad4c21, merge 6248ad0; 277 unit tests
+  pass on `v0.2-w2` after the merge (253 before); `docker stack config`
+  accepts the rendered fixture-mounted stack; `smoke.sh` 46 PASS (one
+  rerun: chunk 6's `gmtest-pg` stack test started during the first and
+  tripped "objects not belonging to the game are unchanged"). Every
+  Done when item shown by a named test.
+
+### Capture W2-A — chunk 5 outcomes (read by 7, 11, 12, 13, 14)
+
+- **`implementation.yaml`, per receiving node**, appended to
+  `nodes.<n>.configs[]` after the seed and envelope entries: one entry
+  per mounted file,
+  `{kind: mounted, item, name: <gid>_<mounting node>_<item>-<k>, file, path, uid: 0, gid: 0, mode}`
+  (`k` from 1 in `files` order; for a catalog brick `file` is relative to
+  the scenario folder, climbing out to `../../bricks/<brick>/…`), then
+  the node's own
+  `{kind: node-config, item, name: <gid>_<node>_<item>.conf, file: local/<pg>/mounted/<item>/<node>.conf, path: <node_config.target>, uid: 0, gid: 0, mode}`.
+- **Swarm names**: each mounted file is one config shared by every
+  receiving node (deploy's name dedupe creates it once); the per-node
+  config is `<gid>_<node>_<item>.conf`. `max_game_id_length` reserves
+  room for these names (fixture-mounted's game id: at most 39
+  characters); `_check_names` refuses one name derived for two files.
+- **`parameter_faults`**: a new top-level key of `implementation.yaml`,
+  always present (`[]` when none):
+  `[{instance, fault, node, changes: [{parameter, op, entry|item|value}]}]`,
+  `{NAME}` already substituted. A file written before chunk 5 lacks it,
+  so `render` refuses it with "fit again".
+- **Parameters**: `service_environment` uses the fault-applied
+  parameters, so a parameter fault now reaches `GM_*` values (changes
+  v0.1 behaviour, where none existed). `GM_WEB_ROUTES` as W1 item 2:
+  sorted `name=node:port` tokens, space-separated, `""` when empty; a
+  `node-map` parameter is never in the environment.
+- **`render`** writes `local/<pg>/mounted/<item>/<node>.conf` (clearing
+  `mounted/` first) and prints those paths after the envelope files;
+  refuses "the mounted material changed since gmctl fit: fit again" when
+  its recomputation differs from `implementation.yaml`.
+- **`inject`**: a parameter fault prints
+  `  <iid>: parameter fault, planted at rendering; nothing to run` after
+  the seed-file lines; `InjectResult.rendered` lists them, `seeded`
+  still only seed-file faults.
+- **Refusals** (`fit` and `render`): a change that plants nothing,
+  `fault instance <iid> (<fault>): <op> <param>: <param> has no entry <e>`
+  or `…: entry <e> of <param> has no item <i>`; a missing or empty
+  mounted source file ("Swarm refuses an empty config").
+- **Python**: `localimpl.parameter_faults`, `node_parameters`,
+  `entry_services`, `mounted_material`, `mounted_configs`,
+  `node_config_file`, `node_config_text`, constants `MOUNTED_CONFIG`,
+  `NODE_CONFIG`, `MOUNTED_DIR`, `MOUNTED_UID`/`MOUNTED_GID`,
+  `DEFAULT_ENTRY`, `PARAMETER_KIND`; `render.web_routes_value`,
+  `NODE_MAP`, `WEB_ROUTES`, `RenderResult.node_config_files`;
+  `inject.InjectResult.rendered`.
+- **Left**: the mounted footprint is not added to receiving nodes'
+  `resources` (spec 7.1: the scenario's `resources` include it, chunk
+  14); `fixture-mounted/scenario.yaml`'s header still says "never
+  rendered nor deployed" though tests now render it (chunk 11 fixes it
+  when it regenerates that README).
+- Chunk 7 dispatched 2026-10-21 (chunk 6 still running).
+- Chunk 6 merged 2026-10-21: 60f32d4 (6a), 787bf1d (6b), merge
+  f3f6e19; stack test "all checks passed", nothing left behind; 277
+  unit tests pass on `v0.2-w2` after the merge. `smoke.sh` not run by
+  the chunk (swarm busy); its new counts run at the wave gate.
+- **Image tag.** Chunk 6 put the previous image back on
+  `127.0.0.1:5000/dbagm/postgres:0.2.0` after its stack test, so
+  worktrees without its `brick.yaml` (chunk 7's, cut at d509d65) keep
+  working; its image is `postgres:0.2.0-c6` (1ff1b9da83bc). The gate
+  rebuilds `postgres:0.2.0` from `v0.2-w2` and removes the `-c6` tag.
+  Between 14:58:02Z and 14:59:19Z the new image was on `0.2.0`; chunk 5's
+  first smoke run (the one that failed) overlapped that window, and its
+  passing rerun came after it. The gate's smoke run is the one that
+  counts.
+- Chunk 7 told (message): leave the postgres tag alone; chunk 6's
+  `smoke.sh` counts (configs+secrets 11, volumes 9, status secret lines
+  5) must be combined with its own at the merge.
+
+### Capture W2-B — chunk 6 outcomes (read by 9, 11, 13, 14)
+
+- **Monitoring role**: `monitoring`, `LOGIN`, member of `pg_monitor`,
+  not superuser; created once by `gm-entrypoint` when it initialises a
+  fresh `pgdata` (single-user mode, before the first listen), never
+  re-applied; a cluster from an older image has none. Password from the
+  secret `monitoring_password` (kind password, not handed over, 32
+  characters) at `/opt/gm/secrets/monitoring_password`, uid 0, gid 102
+  (`postgres`), mode 0440; the entrypoint refuses a missing, empty or
+  multi-line secret and stops the container. The Dockerfile fails the
+  build if `postgres` is not `100:102`.
+- **For chunk 9**: connect as `monitoring` to the database `postgres`
+  over TCP `<db node>:5432`, `scram-sha-256` through the seed
+  `pg_hba.conf` `host` line; declare `monitoring_password` `kind:
+  password`, no `handed_over`, at `/opt/gm/secrets/monitoring_password`
+  with the exporter's own uid, gid and mode. A scenario restricting
+  `pg_hba.conf` must let `monitoring` in from the exporter's node.
+- **Logs**: volume `pglog` at `/var/log/postgresql`, `postgres:pgconf`
+  2750 (setgid); files 0640 (`log_file_mode`); `player` reads them,
+  cannot write. Seed settings (brick test seed and `docs/gm.md`):
+  `logging_collector = on`, `log_directory = '/var/log/postgresql'`,
+  `log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log'`,
+  `log_line_prefix = '%t [%p]: user=%u,db=%d,app=%a,client=%h '`
+  (pgBadger's default, no `--prefix`), `log_timezone = 'UTC'`,
+  `log_rotation_size = 10MB`, `log_rotation_age = 0`; never pruned (1G
+  of the disk reservation). `gmctl logs` shows only the start-up.
+- **`pg_stat_statements`**: `CREATE EXTENSION` at initdb in `postgres`;
+  `shared_preload_libraries = 'pg_stat_statements'` in the seed.
+  Without the preload the view errors: the fault chunk 13 plants.
+- **pgBadger** 13.2 (PGDG `13.2-1.pgdg13+1`), run by `player` without
+  `sudo`, report `~/pgbadger.html`. Peak memory unmeasured (release
+  gate).
+- **Image** 262MB (was 260MB). **Footprint**: reservation disk 1G →
+  2.25G (master spec 12); CPU and memory unchanged.
+- **Left**: `bookshop-new-server`'s and `fixture-audit`'s seeds carry
+  neither the logging nor the preload settings (outside the chunk's
+  files); they load and log to Docker as in v0.1. Chunk 11's fixture
+  and chunk 14's node seed files need them: brief both with this
+  capture.
+- **Risk accepted by the access model**: `dba` (superuser) can read the
+  secret through `COPY … TO PROGRAM`.
+- Chunk 7 merged 2026-10-21: 3925d13 (7a), eb7fed9 and 893d472 (7b),
+  merge 5c50c71 (after 4e69641 merged `v0.2-w2` into the chunk branch);
+  stack test 67 PASS, 0 FAIL (with both postgres images); `smoke.sh` 48
+  PASS on the chunk branch before chunk 6 came in (two new checks: only
+  port 22 published, front not running); 277 unit tests pass on
+  `v0.2-w2` after the merge. `bastion:0.2.0` rebuilt from 7a
+  (7b9336873f01, 185MB, was 179MB). The merged counts add both chunks'
+  objects: `test_teardown.py` 6 secrets; `smoke.sh` 12 configs and
+  secrets, 6 status secret lines (Git alone would have taken one 5 for
+  both). 893d472 (outside one commit per half): the bastion stack test's
+  db node gets `monitoring_password` and `pglog`, which chunk 6's
+  entrypoint needs.
+
+### Capture W2-C — chunk 7 outcomes (read by 10, 11, 12, 14)
+
+- **Proxy**: nginx 1.26.3 (Debian 13 package `1.26.3-3+deb13u9`), s6
+  service `web-front`, run as `www-data` through `s6-setuidgid`, no
+  capability added. Without a configuration the service runs
+  `s6-svc -O .` and exits. Image 185MB.
+- **Start-up** (`gm-entrypoint` step 7): checks each `GM_WEB_ROUTES`
+  token (`name=node:port`, lowercase name, port 1–65535, no duplicate)
+  and fails the container otherwise; writes `/run/web-front/`
+  (root:www-data 0750) with `htpasswd` (`player:<openssl passwd -6>`,
+  root:www-data 0440) and `nginx.conf` (root 0444): `listen 8080`, per
+  route `location /<name>/` proxying to `<node>:<port>`, resolved per
+  request through `127.0.0.11`; then `nginx -t` as `www-data`. No token:
+  nothing written and `tools_password` not read (it is still generated
+  and mounted, W1 item 7).
+- **Behaviour**: basic auth on every path, user name **`player`**,
+  realm `db_audit_gm web front`; 401 with the challenge otherwise. `/`
+  lists the routes as plain text; `/<route>` redirects to `/<route>/`;
+  other paths 404; an upstream down 502. Forwarded: path and query
+  unchanged, `Host $http_host`, `X-Real-IP`, `X-Forwarded-For`,
+  `X-Forwarded-Proto`, WebSocket `Upgrade`/`Connection`; `Authorization`
+  cleared, an upstream's `WWW-Authenticate` hidden; bodies up to 16M,
+  read timeout 300 s; no access log, errors to the container output.
+- **Health check**: also requires `web-front` up and listening on 8080
+  when `/run/web-front/nginx.conf` exists.
+- **`brick.yaml`**: parameter `web_routes` (`shape: web-routes`,
+  `default: {}`, `required: false`); provides `{web-front, http, 8080}`;
+  consumes `{ui, http, 9090}` and `{ui, http, 3000}` (Grafana's port
+  taken from W1's example: chunk 10 confirms it); secret
+  `tools_password` (`kind: password`, `handed_over: true`,
+  `/opt/gm/secrets/tools_password`, 0:0, `"0400"`); `processes: [sshd,
+  web-front]` (node-health on the bastion expects `web-front` up, which
+  holds whenever `prometheus` is present, since the loader then
+  requires a route); `protected_files` gains `/run/web-front`;
+  `extra.web_front_port_default: 8080`.
+- **Footprint** unchanged (limits 0.5 / 256M, reservations 0.25 / 128M
+  / 256M); idle 5.0 MiB with the front, 2.8 MiB without.
+- **For chunk 10**: `player.md` says Grafana asks for its administrator
+  login with the tools password, without naming the user (chunk 10's).
+- **For chunk 12**: the hand-over is user `player` with the tools
+  password, at `http://<host>:8080/<route>/`.
+- **Stack test**: `STACK=gmtest-bastion`, `GMTEST_BASTION_PORT`
+  (22222), `GMTEST_BASTION_WEB_PORT` (28080); stub
+  `tests/fixtures/stub-upstream.pl` in `debian:13-slim` on 9090; routes
+  `other=stub:9091 stub=stub:9090`; needs `curl` on the host.
+- No root `README.md` change (no row describes the bastion's ports).
+
+### Wave gate — 2026-10-21
+
+Every chunk merged (5, 6, 7), none moved. On `v0.2-w2` at 6d7ceed,
+build host `armenelos` (Debian 13, Docker 29.9.1, 12 CPUs, 11G), idle
+(no other stack), 2026-10-21T15:31Z, with the wave 1 gate's commands;
+`postgres:0.2.0` rebuilt from the wave branch first (chunk 6's tag
+note), `postgres:0.2.0-c6` removed at the end.
+
+| Check | Result |
+|---|---|
+| Unit suite | 277 tests OK (22 s) |
+| `sh -n`, every shell file | 50 files OK |
+| `perl -c`, every Perl file | `node-health.pl`, `stub-upstream.pl` OK |
+| Image builds | `postgres:0.2.0` 262MB, `bastion:0.2.0` 185MB, `prometheus:0.1.0` 488MB |
+| Stack tests | postgres 73 PASS, bastion 67 PASS, prometheus 101 PASS (after the fix) |
+| `smoke.sh` (fixture-audit) | 48 PASS, nothing left behind |
+
+- **One failure, fixed.** The prometheus stack test failed ("db node
+  did not become healthy": `monitoring_password is missing or empty`).
+  Traced to chunk 6: its entrypoint requires the secret and its log
+  volume, which that test's db node lacked (chunk 7 had fixed the same
+  in the bastion test, 893d472). Fixed on the wave branch by a
+  `coding-executor`, test files only, a1ceac5; rerun 101 PASS, 0 FAIL,
+  nothing left behind.
+- **Figures.** No bundle or performance figure applies. Images: the
+  postgres image is 2MB larger (262MB) and the bastion image 6MB larger
+  (185MB) than at wave 1; prometheus unchanged. 10G free on `/`.
+  `postgres` and `bastion` 0.1.0 and 0.1.1 tags still built (prunable).
+- No wave sync: no intent register.
+
+### Report to the owner — 2026-10-21
+
+Chunks 5, 6, 7 merged, none moved; gate green after one test-file fix
+(a1ceac5, chunk 6's secret missing in the prometheus stack test). For
+the owner: the web front's basic-auth user is `player` (with the tools
+password); `tools_password` is generated and mounted even without a
+front, never read or handed over then (D103 holds); postgres' disk
+reservation is now 2.25G (master spec 12); the mounted node-health
+footprint goes into the scenario's own `resources` (chunk 14), not
+added by `fit`. Left for later chunks: chunk 10 confirms Grafana's port
+3000 and names its administrator; chunks 11 and 14 carry postgres'
+logging and preload settings in their seeds (W2-B); chunk 11 fixes
+`fixture-mounted`'s header and adds the map rule. Open gates: G10 and
+G11. Plan at v4. Branches left: `v0.2-w2` only. Next: wave 3 (chunks
+8, 9, 10, 11; chain 9, 10 → 11, captures at wave start), from `main`
+once wave 2 merges.

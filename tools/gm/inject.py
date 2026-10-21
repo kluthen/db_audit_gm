@@ -14,7 +14,8 @@ behaviour is fixed by capture W3-A (`specs/versions/v0.1/wave-log.md`):
   fault's `injection.scripts` are streamed in their listed order into `sh
   -s` on the instance's node, as `injection.run_as` (default root), with
   its `FAULT_*` variables; a `seed-file` fault runs nothing. The first
-  non-zero exit stops the run.
+  non-zero exit stops the run. A `parameter` fault (v0.2 capture W1, item
+  8) runs nothing either: render planted it.
 
 Each step is one `state.setup_step`: any failure, or Ctrl-C, tears the game
 down and records `failed` with the reason.
@@ -34,6 +35,7 @@ DATA_USER = "postgres"
 PSQL_ARGV = ("psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-d", "postgres")
 DEFAULT_RUN_AS = "root"
 STATE_KIND = "state"
+PARAMETER_KIND = localimpl.PARAMETER_KIND
 
 
 # --- Fault parameters --------------------------------------------------------
@@ -196,12 +198,15 @@ class InjectResult:
     replay: bool = False
     scripts: list = field(default_factory=list)    # [(instance, script)]
     seeded: list = field(default_factory=list)     # instances planted by their seed files
+    rendered: list = field(default_factory=list)   # parameter faults, planted at rendering
 
     def text(self):
         out = [f"Game {self.game_id}: {len(self.scripts)} injection script(s) run"
                + (" again (replay)." if self.replay else ".")]
         for iid in self.seeded:
             out.append(f"  {iid}: seed-file fault, planted by the seed files; nothing to run")
+        for iid in self.rendered:
+            out.append(f"  {iid}: parameter fault, planted at rendering; nothing to run")
         out.append(f"Stage {INJECT_STAGE}" + (" (unchanged)." if self.replay else "."))
         return "\n".join(out)
 
@@ -245,7 +250,8 @@ def inject(scenario_dir, playground, timeout=None, docker=None, out=print):
     with state.setup_step(ldir, INJECT_STAGE, undo=_undo(docker, impl["game_id"])):
         for iid, fault, node, run_as, env, scripts in plan:
             if not scripts:
-                result.seeded.append(iid)
+                kind = (fault.data.get("injection") or {}).get("kind")
+                (result.rendered if kind == PARAMETER_KIND else result.seeded).append(iid)
                 continue
             for script, text in scripts:
                 run = exec_node(ldir, node, run_as, stdin=text, env=env, timeout=timeout,

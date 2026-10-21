@@ -1,11 +1,21 @@
 #!/bin/sh
 # Health check of the db_audit_gm bastion (DO NOT TAMPER).
-# Healthy while sshd is up under s6 and listening on port 22 (read from
-# /proc, so the check leaves no line in sshd's log).
+# Healthy while sshd is up under s6 and listening on port 22 and, when
+# the web front is configured (/run/web-front/nginx.conf, at least one
+# route), while `web-front` is up and listening on port 8080. Listening
+# sockets are read from /proc, so the check leaves no line in any log.
 PATH=/command:/usr/sbin:/usr/bin:/sbin:/bin
 
+# listening <hex port>: a TCP socket in state 0A (LISTEN) on that port
+listening() {
+    awk -v p=":$1\$" '$2 ~ p && $4 == "0A" { found = 1 } END { exit !found }' \
+        /proc/net/tcp /proc/net/tcp6 2>/dev/null
+}
+
 [ "$(s6-svstat -o up /run/service/sshd 2>/dev/null)" = true ] || { echo "sshd is not up"; exit 1; }
-# local_address ends in :0016 (port 22), state 0A (LISTEN)
-awk '$2 ~ /:0016$/ && $4 == "0A" { found = 1 } END { exit !found }' /proc/net/tcp /proc/net/tcp6 2>/dev/null \
-    || { echo "sshd is not listening on port 22"; exit 1; }
+listening 0016 || { echo "sshd is not listening on port 22"; exit 1; }
+if [ -f /run/web-front/nginx.conf ]; then
+    [ "$(s6-svstat -o up /run/service/web-front 2>/dev/null)" = true ] || { echo "web-front is not up"; exit 1; }
+    listening 1F90 || { echo "web-front is not listening on port 8080"; exit 1; }
+fi
 exit 0

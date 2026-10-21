@@ -30,10 +30,10 @@ def declare_secrets(scenario, brick, *secrets):
     path.write_text(yaml.safe_dump(data, sort_keys=False))
 
 
-# Secrets no v0.1 brick declares: a password of each sort and a key pair
-# whose public half two bricks mount (capture W1, item 7).
+# Secrets no v0.1 brick declares: a key pair whose public half two bricks
+# mount, and a handed-over password (capture W1, item 7); the catalog
+# `postgres` 0.2.0 declares `monitoring_password` itself (chunk 6).
 NEW_DB_SECRETS = (
-    {"name": "monitoring_password", "kind": "password"},
     {"name": "backup_key", "kind": "key-pair", "pair": "backup_key", "half": "private"},
     {"name": "backup_pubkey", "kind": "key-pair", "pair": "backup_key", "half": "public",
      "mode": "0444"},
@@ -86,8 +86,8 @@ class TestCredentials(RenderedGame):
         sdir = self.ldir / "secrets"
         self.assertEqual(mode(sdir), 0o700)
         self.assertEqual(sorted(p.name for p in sdir.iterdir()),
-                         ["dba_password", "player_password", "player_ssh_key",
-                          "player_ssh_key.pub"])
+                         ["dba_password", "monitoring_password", "player_password",
+                          "player_ssh_key", "player_ssh_key.pub", "tools_password"])
         self.assertEqual(sorted(paths), sorted(sdir.iterdir()))
         for path in sdir.iterdir():
             self.assertEqual(mode(path), 0o600, path.name)
@@ -125,7 +125,7 @@ class TestDeploy(RenderedGame):
             f"{gid}_db_postgresql.conf", f"{gid}_db_pg_hba.conf", f"{gid}_db_envelopes"]))
         self.assertEqual(fake.names("secret"), sorted(
             f"{gid}_{s}" for s in ("player_password", "player_ssh_key", "player_ssh_pubkey",
-                                   "dba_password")))
+                                   "dba_password", "monitoring_password", "tools_password")))
         for kind in ("config", "secret"):
             for name, objlabels in fake.objects[kind].items():
                 self.assertEqual(objlabels, labels, name)
@@ -306,7 +306,7 @@ class TestSecretsByKind(ScenarioCopyTest):
                     for m in self.stack["services"][node]["secrets"]}
         db, bastion = mounts("db"), mounts("bastion")
         self.assertEqual(db[f"{gid}_monitoring_password"],
-                         ("/opt/gm/secrets/monitoring_password", 0o400))
+                         ("/opt/gm/secrets/monitoring_password", 0o440))
         self.assertEqual(db[f"{gid}_backup_key"], ("/opt/gm/secrets/backup_key", 0o400))
         self.assertEqual(db[f"{gid}_backup_pubkey"], ("/opt/gm/secrets/backup_pubkey", 0o444))
         self.assertEqual(bastion[f"{gid}_tools_password"],
@@ -405,7 +405,7 @@ class TestSecretRefusals(ScenarioCopyTest):
 
     def test_render_refuses_secrets_changed_since_fit(self):
         fit.fit(self.scenario, "laptop", **SUFFICIENT)
-        declare_secrets(self.scenario, "postgres", {"name": "monitoring_password",
+        declare_secrets(self.scenario, "postgres", {"name": "replication_password",
                                                      "kind": "password"})
         with self.assertRaisesRegex(GmError, "secrets changed since gmctl fit: fit again"):
             render.render(self.scenario, "laptop")

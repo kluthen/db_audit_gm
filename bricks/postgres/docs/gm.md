@@ -16,8 +16,10 @@ every catalog fault applies to it (see "Supported faults").
 The image:
 
 - Debian 13 (`debian:13-slim`), PostgreSQL 18 server and client from the
-  PGDG repository (`trixie-pgdg`, major version pinned by package name),
-  `openssh-server`, `sudo`, `nano`, `vim-tiny`, `less`, `procps`.
+  PGDG repository (`trixie-pgdg`, major version pinned by package name;
+  `pg_stat_statements` ships with the server), pgBadger from the same
+  repository (13.2 at the 0.2.0 build), `openssh-server`, `sudo`, `nano`,
+  `vim-tiny`, `less`, `procps`. About 262MB.
 - s6-overlay 3.2.3.2 (x86_64), archives verified by SHA-256 at build.
 - Generic: no scenario content and no host keys in the image.
 
@@ -29,14 +31,14 @@ The image:
 - **Build**: `docker build -t 127.0.0.1:5000/dbagm/postgres:0.2.0 bricks/postgres`.
 - **How many**: one per database node of the scenario. Each is its own
   container with its own volumes; the per-game secrets (`dba_password`,
-  `player_ssh_pubkey`) are generated once per game, so every database
-  node of a game gets the same values.
+  `monitoring_password`, `player_ssh_pubkey`) are generated once per
+  game, so every database node of a game gets the same values.
 - **Next to which node**: any host. The node needs no other node on its
   host; in v0.1 the renderer runs the whole game on one host.
 - **Stateful**: yes (`stateful: true`). Its volumes `pgdata`, `pgconf`,
-  `home`, `gmstate` and `run` (see "Configuration") must follow the node
-  if it is replaced; otherwise the data, the players' changes and the seed
-  marker are lost.
+  `home`, `gmstate`, `pglog` and `run` (see "Configuration") must follow
+  the node if it is replaced; otherwise the data, the players' changes,
+  the seed marker and the server log are lost.
 - **Networks**: it must share a network with the bastion, which is the
   players' only way in (see "Connections"). v0.1 renders a single network
   for the whole game, so it shares it with every node.
@@ -55,6 +57,7 @@ secrets, the envelope file and the data load.
 | Envelope file (protected config `envelopes`) | `/opt/gm/protected/envelopes.conf`, root `0444` | `gmctl render`, from the node's `knobs` envelopes |
 | Secret `player_ssh_pubkey` (kind `key-pair`, pair `player_ssh_key`, half `public`) | `/opt/gm/secrets/player_ssh_pubkey`, root `0444` | `gmctl deploy`: the public half of the bastion's `player_ssh_key` |
 | Secret `dba_password` (kind `password`, not handed over) | `/opt/gm/secrets/dba_password`, root `0400` | `gmctl deploy`: the same secret as the bastion's |
+| Secret `monitoring_password` (kind `password`, not handed over) | `/opt/gm/secrets/monitoring_password`, uid `0`, gid `102` (`postgres`), `0440`: root and `postgres` only | `gmctl deploy`: the same secret as the `postgres-exporter` node's (see "The monitoring role") |
 | Data | streamed in once, after deployment | `gmctl load-data`, from `data/<node>.sql` |
 
 ### Knobs and their default envelopes
@@ -79,9 +82,10 @@ for the default footprint; a scenario may tighten them, never widen them.
 | Configuration | `/etc/postgresql/` | volume `pgconf`; `postgres:pgconf`, dir `2775`, seeded files `0664` |
 | Seed marker | `/var/lib/gm-state/.gm-seeded` | volume `gmstate`; dir root `0755`, marker root `0444`; present means never seed again |
 | PGDATA | `/var/lib/postgresql/18/data` | volume `pgdata` |
-| Player home | `/home/player` | volume `home` |
+| Player home | `/home/player` | volume `home`; pgBadger reports land here |
+| Server log | `/var/log/postgresql/` | volume `pglog`; `postgres:pgconf`, dir `2750` (setgid), files `0640` |
 | Runtime | `/run` | volume `run`, emptied at each start (see below) |
-| Secrets | `/opt/gm/secrets/player_ssh_pubkey`, `/opt/gm/secrets/dba_password` | |
+| Secrets | `/opt/gm/secrets/player_ssh_pubkey`, `/opt/gm/secrets/dba_password`, `/opt/gm/secrets/monitoring_password` | |
 | Envelope file | `/opt/gm/protected/envelopes.conf` | protected config `envelopes`, root, `0444` |
 | Validator | `/opt/gm/validator/validate.sh` | |
 | Wrappers | `/usr/local/sbin/gm-reload-db`, `gm-restart-db`, `gm-validate` | |
@@ -96,7 +100,8 @@ for the default footprint; a scenario may tighten them, never widen them.
    `/run/sshd`, `/run/sshd-keys`, `/run/gm`, `/run/tmp` (`/tmp` and
    `/var/tmp` are symlinks to it).
 2. Generates an ed25519 sshd host key in `/run/sshd-keys`.
-3. Fails the container if a secret is missing or empty.
+3. Fails the container if a secret is missing or empty, or if
+   `dba_password` or `monitoring_password` is not a single line.
 4. If `/var/lib/gm-state/.gm-seeded` is absent: copies the seed files into
    `/etc/postgresql/` and writes the marker. A missing seed file fails the
    container. Never overwrites afterwards. The marker is on its own
@@ -104,23 +109,31 @@ for the default footprint; a scenario may tighten them, never widen them.
    configuration directory is group-writable without the sticky bit, so
    that editors saving by rename (`sed -i`) work, and a marker there could
    be removed.
-5. If PGDATA is empty: `initdb` (UTF8, `C.UTF-8`, data checksums on by
-   default in 18), then creates the role `dba` (`LOGIN SUPERUSER`, password
-   from the secret) in single-user mode, and removes initdb's own
-   `postgresql.conf` and `pg_hba.conf` from PGDATA, so the live files are
-   only in `/etc/postgresql`. `pg_ident.conf` stays in PGDATA.
-6. Writes `/home/player/.pgpass` (`*:*:*:dba:<password>`, `0600`).
-7. Execs s6-overlay's `/init`, which supervises `postgres` and `sshd`.
+5. Sets `/var/log/postgresql` to `postgres:pgconf`, `2750` with the
+   setgid bit, so every log file PostgreSQL writes there gets the group
+   `pgconf` (the players' group).
+6. If PGDATA is empty: `initdb` (UTF8, `C.UTF-8`, data checksums on by
+   default in 18), then, in single-user mode, creates the role `dba`
+   (`LOGIN SUPERUSER`, password from its secret), the role `monitoring`
+   (`LOGIN`, member of `pg_monitor`, password from `monitoring_password`)
+   and the extension `pg_stat_statements` in the database `postgres`;
+   then removes initdb's own `postgresql.conf` and `pg_hba.conf` from
+   PGDATA, so the live files are only in `/etc/postgresql`.
+   `pg_ident.conf` stays in PGDATA.
+7. Writes `/home/player/.pgpass` (`*:*:*:dba:<password>`, `0600`).
+8. Execs s6-overlay's `/init`, which supervises `postgres` and `sshd`.
 
 Seeded once: the configuration files (first start on a fresh `gmstate`
-volume) and the cluster with its `dba` role (first start on a fresh
-`pgdata` volume). Rewritten at each start: `/run`, the sshd host key and
+volume) and the cluster with its roles `dba` and `monitoring` and the
+extension (first start on a fresh `pgdata` volume). Rewritten at each start: `/run`, the sshd host key and
 `~/.pgpass`.
 
 PostgreSQL runs as
 `postgres -D /var/lib/postgresql/18/data -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf`.
-Its stderr goes to the container's output (`gmctl logs`); players do not
-see it.
+With the seed's `logging_collector = on`, it writes its log to files in
+`/var/log/postgresql` (see "What the seed files must contain"); only the
+lines before the collector starts reach the container's output (`gmctl
+logs`). Without it, the log goes to the container's output as in v0.1.
 
 ### Why `/run` is a volume
 
@@ -146,7 +159,8 @@ The scenario's seed files replace PostgreSQL's defaults entirely:
   cannot connect), `port = 5432` (the health check, the wrappers and the
   validator use 5432), and whatever initdb would have set that the scenario
   cares about (`dynamic_shared_memory_type`, `timezone`, `lc_messages`...).
-  Do not set `config_file`, `hba_file` or `data_directory`.
+  Do not set `config_file`, `hba_file` or `data_directory`. Plus the
+  logging and preload settings below.
 - `pg_hba.conf`: the line `local all postgres peer`, before any other line
   matching `postgres` on the local socket, with a comment marking it
   DO NOT TAMPER; plus the players' access for `dba`, for example
@@ -155,6 +169,89 @@ The scenario's seed files replace PostgreSQL's defaults entirely:
 - Every knob should be inside its envelope unless an out-of-envelope value
   is a planted finding. A knob the seed does not set takes PostgreSQL's
   default, which the validator checks too.
+
+### Logging and `pg_stat_statements` in the seed `postgresql.conf`
+
+The logging settings live in the seed, not in the image, so a scenario can
+plant a logging fault there (master spec 7.5). The stack test's seed
+(`tests/fixtures/postgresql.conf`) carries the reference values:
+
+```
+logging_collector = on
+log_destination = 'stderr'
+log_directory = '/var/log/postgresql'
+log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log'
+log_file_mode = 0640
+log_rotation_age = 0
+log_rotation_size = 10MB
+log_truncate_on_rotation = off
+log_line_prefix = '%t [%p]: user=%u,db=%d,app=%a,client=%h '
+log_timezone = 'UTC'
+log_min_duration_statement = 100ms
+log_checkpoints = on
+log_connections = on
+log_disconnections = on
+log_lock_waits = on
+log_temp_files = 0
+log_autovacuum_min_duration = 0
+lc_messages = 'C.UTF-8'
+shared_preload_libraries = 'pg_stat_statements'
+```
+
+- `log_directory` must be `/var/log/postgresql`, the volume `pglog`: a
+  relative path lands in PGDATA, which players cannot read.
+- `log_file_mode = 0640` with the directory's setgid bit makes the files
+  readable by `pgconf`, so the players read them and run pgBadger without
+  `sudo`; they cannot write them.
+- Rotation is by size only (`log_rotation_size`, a new file per 10MB;
+  `log_rotation_age = 0`). The file name carries the time the file was
+  opened, so no file is ever overwritten.
+- `log_line_prefix` is the stderr prefix pgBadger's documentation
+  recommends: pgBadger reads it with no `--prefix` option. Timestamps
+  (`%t`) are in `log_timezone`, UTC like the node (`TZ=UTC`).
+- `log_min_duration_statement` sets which queries pgBadger can report
+  (`-1` logs none, `0` logs all); `lc_messages` must be English (`C`,
+  `C.UTF-8` or `en_*`) for pgBadger to classify the messages.
+- `shared_preload_libraries = 'pg_stat_statements'` loads the library
+  (restart only). The extension already exists in the database `postgres`
+  (start-up step 6), so the view `pg_stat_statements` answers as soon as
+  the library is preloaded, and fails with "pg_stat_statements must be
+  loaded via shared_preload_libraries" when it is not. A data file
+  creating it in another database should use `CREATE EXTENSION IF NOT
+  EXISTS`.
+
+These are not knobs: the validator does not check them, so leaving one
+out or getting one wrong is a finding for the players, not a red
+validator.
+
+### The monitoring role
+
+Who creates the exporter's monitoring role and how its password reaches
+the database (master spec 15, settled by the build of this brick):
+
+- **Who and when**: this brick's start-up (`gm-entrypoint`, step 6), once,
+  when it initialises a fresh `pgdata` volume, in single-user mode, before
+  PostgreSQL first listens. Not the data load: the role exists before
+  `gmctl load-data` runs, whatever the scenario's data file holds.
+- **The role**: `monitoring`, `LOGIN`, not superuser, member of
+  `pg_monitor` (`GRANT pg_monitor TO monitoring`); it reads every
+  statistics view, `pg_stat_statements` included.
+- **The password**: the per-game secret `monitoring_password` (kind
+  `password`, 32 characters, not handed over), generated by `gmctl
+  deploy` from the declarations of this brick and of `postgres-exporter`
+  (the same name in both, so one secret per game), mounted at
+  `/opt/gm/secrets/monitoring_password` (root and `postgres` only). The
+  entrypoint reads it as root and sets it as the role's SCRAM password.
+  It is never written to the player's files.
+- **Connection**: over TCP to port 5432, database `postgres`, user
+  `monitoring`, `scram-sha-256` through the seed `pg_hba.conf`'s `host`
+  line for the game's network (the stack test's seed: `host all all
+  0.0.0.0/0 scram-sha-256`). A scenario restricting `pg_hba.conf` must
+  keep a line letting `monitoring` in from the exporter's node.
+- **Not re-applied**: a later start leaves the role as it is. The players
+  (as superuser `dba`) can alter or drop it, which only breaks their own
+  monitoring (access model 8); a fault taking `pg_monitor` away is a state
+  change after the data load.
 
 ## Connections
 
@@ -180,9 +277,15 @@ reachable only from nodes sharing a network with it, by its node name.
   is in the bastion brick's
   [GM notes](../../bastion/docs/gm.md#inner-hop-and-host-keys).
 
-**Monitoring**: `brick.yaml` declares no monitoring exposure, and the brick
-has no metrics endpoint or exporter. The server log and the sshd log go to
-the container's output only (`gmctl logs`).
+**Monitoring**: the node has no metrics endpoint of its own. What it
+exposes to monitoring is the `sql` interface itself: the `postgres-exporter`
+brick connects to it as the role `monitoring` (`pg_monitor`), with the
+per-game secret `monitoring_password` (see "The monitoring role"); the
+exporter's node must share a network with this node, and the seed
+`pg_hba.conf` must let `monitoring` in from it. `pg_stat_statements` is
+there for the exporter's query panels once the seed preloads it. The server
+log is in `/var/log/postgresql` (pgBadger); the sshd log and the server's
+start-up lines go to the container's output (`gmctl logs`).
 
 **Mounted material**: the image accepts another brick's mounted companion
 material (`brick.yaml` `receives`): it runs s6-overlay `3.2.3.2`, and the
@@ -214,13 +317,26 @@ exec` (see "Access").
   (`/etc/sudoers.d/gm-player`): `env_reset`, fixed `secure_path`, no
   syslog, log in `/run/gm/sudo.log`.
 
+- Logs: `player` reads `/var/log/postgresql/*.log` through the group
+  `pgconf` (files `0640`, directory `2750`), and runs pgBadger itself, with
+  no wrapper and no `sudo` (access model 8), for example `pgbadger -o
+  ~/pgbadger.html /var/log/postgresql/postgresql-*.log`. The report lands
+  in its home; the players copy it to the bastion with `scp
+  <node>:pgbadger.html .` (sshd's `internal-sftp` subsystem serves `scp`
+  and `sftp`) and from the bastion to their machine with `sftp`.
+- `monitoring`: the exporter's role (see "The monitoring role"); its
+  password is readable on this node by root and `postgres` only, never by
+  `player`.
+
 The node has no web interface.
 
 ### Writable and protected paths, write policies
 
 - Writable by the player: `/etc/postgresql` (`postgres:pgconf`, `2775`;
   seeded files `0664`) and `/home/player` (`~/.pgpass`, rewritten at each
-  start; `~/report.md`).
+  start; `~/report.md`; pgBadger reports).
+- Readable, not writable, by the player: `/var/log/postgresql` (volume
+  `pglog`, `postgres:pgconf`).
 - Protected (root-owned, read-only to the player): `/etc/ssh/sshd_config`,
   `/etc/sudoers`, `/etc/sudoers.d/gm-player`, the entrypoint, the three
   wrappers, the health check, the validator, the envelope file, the
@@ -261,15 +377,19 @@ off: `sudo` is setuid.
 `gmctl exec --node <node> --user postgres` (or `--user root`, then
 `runuser -u postgres`) for SQL over the local socket with peer
 authentication; `gmctl load-data`, `gmctl inject`, `gmctl check` and
-`gmctl validate` go the same way. `gmctl logs --node <node>` shows the
-server log.
+`gmctl validate` go the same way. `gmctl logs --node <node>` shows sshd and
+the server's start-up only; the GM reads the server log through the exec
+operation, for example `gmctl exec --node <node> --user postgres` running
+`tail -n 50 /var/log/postgresql/postgresql-*.log`.
 
 ## Footprint
 
 Default footprint in `brick.yaml`, in the shape of a scenario node's
 `resources`: limits CPU `1` and memory `1G`; reservations CPU `0.5`,
-memory `512M` and disk `1G` (v0.1's single figures became the
-reservations, the limits twice the CPU and memory). No allowed range. It
+memory `512M` and disk `2.25G` (v0.1's CPU and memory figures became the
+reservations, the limits twice them; the disk is master spec 12's
+database node with its log volume: data and WAL 1G, log volume 1G, home
+and pgBadger reports 256M). No allowed range. It
 excludes any material other bricks mount into the node: what that adds
 per node is stated by the brick that ships it, and the GM adds it to the
 node's `resources` in the scenario. The scenario sets each node's own
@@ -289,15 +409,25 @@ What makes it grow:
 - **Disk**: the restored data (`data/<node>.sql`) and its indexes in
   `pgdata`; WAL, up to `max_wal_size` (at most `1GB` in the default
   envelope), and without bound when a replication slot holds it (fault
-  `pg-abandoned-replication-slot`); a few megabytes for the configuration
-  and the player's home.
-- **CPU**: the data load, and the players' own queries.
+  `pg-abandoned-replication-slot`); the server log in `pglog`, never
+  pruned (one file per 10MB), growing with connections and with the
+  statements over `log_min_duration_statement`; a few megabytes for the
+  configuration, and about 1MB per pgBadger report in the player's home
+  (810KB for the stack test's small log).
+- **Memory**: a pgBadger run, within the node's own limits: a large run
+  takes memory from PostgreSQL (master spec 7.5; measured at the release,
+  master spec 14).
+- **CPU**: the data load, the players' own queries and their pgBadger
+  runs.
 
 Size the disk reservation from the data file (with its indexes) plus
-`max_wal_size`, and the memory limit from the knobs' initial values. The
-levers that shrink it: smaller knob values within their envelopes (a lower
-`shared_buffers`, `max_connections` or `max_wal_size`), a scenario
-envelope tightened to match, and a smaller data file.
+`max_wal_size` plus the expected log (1G covers a static database with
+the reference settings), and the memory limit from the knobs' initial
+values plus headroom for a pgBadger run. The levers that shrink it:
+smaller knob values within their envelopes (a lower `shared_buffers`,
+`max_connections` or `max_wal_size`), a scenario envelope tightened to
+match, a smaller data file, and fewer logged lines (a higher
+`log_min_duration_statement`, `log_connections` off).
 
 ## Supported faults
 
@@ -323,9 +453,14 @@ Every state fault's scripts run as root and query as `postgres` over the
 local socket, so they need the GM's `local all postgres peer` line in
 `pg_hba.conf`; every sealed check needs it too.
 
-Faults it lends itself to with no definition yet: a bloated table (a
-candidate of master spec 15), and other configuration, schema, role or
-state defects visible without activity.
+Faults it lends itself to with no definition yet: a bloated table, and
+other configuration, schema, role or state defects visible without
+activity; and, from v0.2, the monitoring faults of master spec 11 this
+brick hosts (chunk 13): no slow-query log (`log_min_duration_statement =
+-1`), a `log_line_prefix` pgBadger cannot parse or a non-English
+`lc_messages` (seed `postgresql.conf`), `pg_stat_statements` not
+preloaded (seed), and the role `monitoring` without `pg_monitor` (state,
+after the data load).
 
 Known interactions:
 
@@ -335,8 +470,10 @@ Known interactions:
 - The `autovacuum` knob's envelope allows `on` only: turning autovacuum
   off server-wide turns the validator red, while the table-level
   `pg-table-autovacuum-off` leaves it green.
-- No monitoring brick exists in v0.1, so nothing masks or reveals a fault
-  from outside the node.
+- A `postgres-exporter` node reveals from outside what the node's
+  statistics show (`pg_stat_statements` included); a fault on the
+  `monitoring` role or on preloading hides it. pgBadger shows only what
+  the logging settings let through.
 
 Faults it cannot host: anything needing a standby or a replication peer
 (the brick has the single role `database` and consumes nothing), and
@@ -407,8 +544,17 @@ The wiring to the bastion is confirmed from the bastion, as `player`:
 
 `sh bricks/postgres/tests/run-stack-test.sh` deploys the brick as a
 one-service stack (`tests/stack.test.yml`, test fixtures in
-`tests/fixtures/`), checks the chunk's Done-when, and removes everything
-it created, volumes included. Needs a swarm manager and the image built.
+`tests/fixtures/`), checks v0.1 chunk 2's and v0.2 chunk 6's Done-when
+(the file log in UTC on `pglog` readable by `player`, a pgBadger run as
+`player` into its home, `pg_stat_statements`, the role `monitoring` with
+`pg_monitor` and the secret's password, the secret out of `player`'s
+reach), and removes everything it created, volumes included. Needs a
+swarm manager and the image built.
+
+The monitoring role, by hand, from the GM side: `gmctl exec --node <node>
+--user postgres` running `psql -XAtc "select pg_has_role('monitoring',
+'pg_monitor', 'member')"` (`t`); that the exporter actually connects is
+the `postgres-exporter` brick's check.
 
 ## Known limits
 
@@ -416,8 +562,18 @@ it created, volumes included. Needs a swarm manager and the image built.
   container start. If the container is replaced, players see a changed
   host key on the inner hop.
 - **`.pgpass` is rewritten** at each container start from the secret.
-- **Server log** only in the container output; players see it only if a
-  scenario turns `logging_collector` on.
+- **`gmctl logs` shows only the start-up.** With file logging, the server
+  log leaves Docker's service logs: `gmctl logs` shows the lines before
+  the logging collector starts and sshd's log; the GM reads the file log
+  through the exec operation (see "What the GM uses").
+- **The log is never pruned.** PostgreSQL rotates by size but keeps every
+  file; the volume grows until the game ends. The disk reservation counts
+  1G for it.
+- **pgBadger shares the node's limits.** A large run competes with
+  PostgreSQL for the node's memory and CPU.
+- **The monitoring role is created once**, with a fresh `pgdata` volume:
+  a cluster from an older image has no `monitoring` role, and a password
+  changed in the secret is not applied to an existing cluster.
 - **Write policy**: only `fixable` in v0.1. A `report-only` node would need
   the configuration files not group-writable, decided at start from a
   value the renderer passes; not built.

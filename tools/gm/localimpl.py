@@ -7,7 +7,10 @@ Master spec 10.3; files, names and labels fixed by capture W2-A
 - `implementation.yaml`  written by `fit`: game id, per-node brick, image,
                          resources (copied, never recomputed), published
                          ports, and every derived name;
-- `stack.yml`, `envelopes/<node>.conf`  written by `render`;
+- `stack.yml`, `envelopes/<node>.conf`, `mounted/<item>/<node>.conf`
+                         written by `render` (the last: each receiving
+                         node's own config of a mounted item, v0.2 capture
+                         W1, item 4);
 - `state.yaml`           the stage reached, its history, any failure, and
                          the teardown record (spec D50);
 - `secrets/`             written by `deploy` (directory 0700, files 0600):
@@ -29,7 +32,7 @@ from pathlib import Path
 
 import yaml
 
-from .model import GmError, parse_mode
+from .model import SUBSTITUTION_RE, GmError, mounted_items, parse_mode, parse_size
 
 PLATFORM = "swarm"
 STAGES = ("fitted", "rendered", "deployed", "data-loaded", "injected", "handed-over",
@@ -43,12 +46,26 @@ STATE_FILE = "state.yaml"
 STACK_FILE = "stack.yml"
 ENVELOPES_DIR = "envelopes"
 SECRETS_DIR = "secrets"
+MOUNTED_DIR = "mounted"
 
 LABEL_NAMESPACE = "com.docker.stack.namespace"
 LABEL_GAME = "dbagm.game"
 PLACEMENT_CONSTRAINT = "node.role == manager"   # single host in v0.1
 ENVELOPES_CONFIG = "envelopes"      # the brick's protected config holding the envelope file
 SEED_CONFIG_UID, SEED_CONFIG_GID, SEED_CONFIG_MODE = 0, 0, "0444"
+
+# Mounted companion material (v0.2 capture W1, item 4; W1-D): each file of
+# an item is one config `<game_id>_<mounting node>_<item>-<k>` (k from 1, in
+# `files` order), shared by every receiving node; each receiving node's own
+# config is `<game_id>_<node>_<item>.conf`. All root-owned, read-only.
+MOUNTED_CONFIG = "mounted"
+NODE_CONFIG = "node-config"
+MOUNTED_UID, MOUNTED_GID = 0, 0
+DEFAULT_ENTRY = "default"           # a node-map entry: the brick's processes
+
+# Parameter faults (capture W1, item 8), applied when the implementation is
+# written, before the mounted material is derived (master spec 6.4, 8).
+PARAMETER_KIND = "parameter"
 
 # Per-game secrets, by kind (v0.2 capture W1, item 7): a password writes
 # secrets/<name>; a key pair writes secrets/<pair> and secrets/<pair>.pub,
@@ -275,6 +292,12 @@ def _derived_lengths(scenario):
             parts.append((f"_{name}_{pc['name']}", OBJECT_NAME_MAX))
         for sec in brick.get("secrets") or []:
             parts.append((f"_{sec['name']}", OBJECT_NAME_MAX))
+        # mounted material: any node of the topology may receive it
+        for item in mounted_items(brick):
+            files = item.get("files") or []
+            parts.append((f"_{name}_{item.get('name')}-{len(files)}", OBJECT_NAME_MAX))
+            for other in scenario.nodes:
+                parts.append((f"_{other['name']}_{item.get('name')}.conf", OBJECT_NAME_MAX))
     return parts
 
 
@@ -414,11 +437,201 @@ def implementation_secrets(scenario, playground, game_id):
              "file": f"local/{playground}/{SECRETS_DIR}/{sec['file']}"} for sec in secrets]
 
 
+# --- Parameter faults and mounted material ---------------------------------
+
+def _fault_values(fault, instance):
+    """`{NAME: value}` of a fault instance's parameters, for `{NAME}`: the
+    instance's value, else the fault's default; NAME is the parameter's name
+    upper-cased, `-` to `_` (capture W1, item 8)."""
+    given = instance.get("parameters") or {}
+    values = {}
+    for pname, spec in (fault.data.get("parameters") or {}).items():
+        value = given.get(pname)
+        if value is None:
+            value = (spec if isinstance(spec, dict) else {}).get("default")
+        values[str(pname).upper().replace("-", "_")] = value
+    return values
+
+
+def _substitute(value, values, where):
+    """`{NAME}` in a change's `entry`, `item` or `value` replaced by the
+    instance's parameter; a value that is only `{NAME}` takes its type."""
+    if not isinstance(value, str):
+        return value
+
+    def lookup(name):
+        if values.get(name) is None:
+            raise GmError(f"{where}: {{{name}}} has no value (fault parameter)")
+        return values[name]
+
+    whole = SUBSTITUTION_RE.fullmatch(value)
+    if whole:
+        return lookup(whole.group(1))
+    return SUBSTITUTION_RE.sub(lambda m: str(lookup(m.group(1))), value)
+
+
+def parameter_faults(scenario):
+    """implementation.yaml's `parameter_faults`: every instance of a
+    `parameter` fault, in `fault_instances` order, as `{instance, fault,
+    node, changes}`; each change `{parameter, op}` with its `entry`, `item`
+    or `value`, `{NAME}` replaced (capture W1, item 8)."""
+    out = []
+    for inst in scenario.data.get("fault_instances") or []:
+        fault = scenario.faults[inst["id"]]
+        injection = fault.data.get("injection") or {}
+        if injection.get("kind") != PARAMETER_KIND:
+            continue
+        values = _fault_values(fault, inst)
+        where = f"fault instance {inst['id']} ({fault.id})"
+        changes = []
+        for change in injection.get("parameter_changes") or []:
+            entry = {"parameter": change.get("parameter"), "op": change.get("op")}
+            for key in ("entry", "item", "value"):
+                if key in change:
+                    entry[key] = _substitute(change[key], values, where)
+            changes.append(entry)
+        out.append({"instance": inst["id"], "fault": fault.id, "node": inst.get("node"),
+                    "changes": changes})
+    return out
+
+
+def entry_services(scenario, node_name, entry):
+    """A node-map entry as a list: `default` is the node's brick's
+    `processes`."""
+    if entry == DEFAULT_ENTRY:
+        return [str(p) for p in scenario.bricks[node_name].data.get("processes") or []]
+    return [str(s) for s in entry or []]
+
+
+def _apply_change(scenario, brick, values, change, where):
+    pname, op = change.get("parameter"), change.get("op")
+    where = f"{where}: {op} {pname}"
+    spec = (brick.data.get("parameters") or {}).get(pname)
+    if not isinstance(spec, dict):
+        raise GmError(f"{where}: {pname} is not a parameter of brick {brick.id}")
+    if op == "set":
+        values[pname] = change.get("value")
+        return
+    current = values.get(pname, spec.get("default"))
+    if not isinstance(current, dict):
+        raise GmError(f"{where}: {pname} is not a map")
+    current = copy.deepcopy(current)
+    entry = change.get("entry")
+    if entry not in current:
+        raise GmError(f"{where}: {pname} has no entry {entry}")
+    if op == "remove-entry":
+        del current[entry]
+    elif op == "remove-from-entry":
+        items = entry_services(scenario, entry, current[entry])
+        item = change.get("item")
+        if item not in items:
+            raise GmError(f"{where}: entry {entry} of {pname} has no item {item}")
+        current[entry] = [i for i in items if i != item]
+    else:
+        raise GmError(f"{where}: op {op} is not set, remove-entry or remove-from-entry")
+    values[pname] = current
+
+
+def node_parameters(scenario):
+    """`{node: parameters}` in topology order: each node's `parameters` as
+    scenario.yaml writes them (copied; the scenario is left unchanged), with
+    every parameter fault's changes applied, in order, to its target node
+    (master spec 6.4, 8). A change that would plant nothing, an entry or an
+    item that is not there, is refused (GmError)."""
+    params = {n["name"]: copy.deepcopy(n.get("parameters") or {}) for n in scenario.nodes}
+    for pf in parameter_faults(scenario):
+        where = f"fault instance {pf['instance']} ({pf['fault']})"
+        if pf["node"] not in params:
+            raise GmError(f"{where}: node {pf['node']!r} is not a node of the topology")
+        brick = scenario.bricks[pf["node"]]
+        for change in pf["changes"]:
+            _apply_change(scenario, brick, params[pf["node"]], change, where)
+    return params
+
+
+def mounted_material(scenario, params):
+    """`[(mounting node, brick, item, {receiving node: entry})]`: every
+    `companion.mounted` item of the topology, its receiving nodes those its
+    node-map parameter lists in `params` (node_parameters), in topology
+    order (capture W1, item 4)."""
+    names = [n["name"] for n in scenario.nodes]
+    out = []
+    for name in names:
+        brick = scenario.bricks[name]
+        for item in mounted_items(brick.data):
+            pname = item.get("parameter")
+            spec = (brick.data.get("parameters") or {}).get(pname) or {}
+            value = params[name].get(pname, spec.get("default"))
+            value = value if isinstance(value, dict) else {}
+            out.append((name, brick, item, {r: value[r] for r in names if r in value}))
+    return out
+
+
+def node_config_file(playground, item, node):
+    """A receiving node's own config of a mounted item, relative to the
+    scenario folder (written by render)."""
+    return f"local/{playground}/{MOUNTED_DIR}/{item}/{node}.conf"
+
+
+def _scenario_relative(scenario, path):
+    return Path(os.path.relpath(Path(path).resolve(), Path(scenario.dir).resolve())).as_posix()
+
+
+def mounted_configs(scenario, params, playground, game_id):
+    """`{node: [config]}` for every node of the topology: the mounted items'
+    files (one config each, shared by the receiving nodes, its `file` the
+    brick's source relative to the scenario folder) and the node's own
+    config, for every item whose map lists the node; root-owned at the
+    declared targets and modes (capture W1, item 4; W1-D). GmError when a
+    file is missing or empty (Swarm refuses an empty config)."""
+    configs = {n["name"]: [] for n in scenario.nodes}
+    for mnode, brick, item, entries in mounted_material(scenario, params):
+        iname = item.get("name")
+        files = []
+        for k, entry in enumerate(item.get("files") or [], 1):
+            source = brick.dir / entry["source"]
+            if not source.is_file():
+                raise GmError(f"brick {brick.id}: {entry['source']} does not exist "
+                              f"(companion.mounted {iname})")
+            if source.stat().st_size == 0:
+                raise GmError(f"brick {brick.id}: {entry['source']} is empty (companion.mounted "
+                              f"{iname}): Swarm refuses an empty config")
+            files.append({"kind": MOUNTED_CONFIG, "item": iname,
+                          "name": f"{game_id}_{mnode}_{iname}-{k}",
+                          "file": _scenario_relative(scenario, source),
+                          "path": entry["target"], "uid": MOUNTED_UID, "gid": MOUNTED_GID,
+                          "mode": entry["mode"]})
+        node_config = item.get("node_config") or {}
+        for rnode in entries:
+            configs[rnode] += copy.deepcopy(files)
+            configs[rnode].append({
+                "kind": NODE_CONFIG, "item": iname, "name": f"{game_id}_{rnode}_{iname}.conf",
+                "file": node_config_file(playground, iname, rnode),
+                "path": node_config["target"], "uid": MOUNTED_UID, "gid": MOUNTED_GID,
+                "mode": node_config["mode"]})
+    return configs
+
+
+def node_config_text(scenario, impl, node_name, entry):
+    """A receiving node's own config (capture W1, item 4; W1-D): `node`,
+    `services` (the entry, `default` expanded to the brick's processes),
+    `disk_reservation` (the node's reserved disk, in bytes) and `volumes`
+    (the in-container paths of its volumes); never empty."""
+    inode = impl["nodes"][node_name]
+    disk = parse_size(inode["resources"]["reservations"]["disk"])
+    return (f"node={node_name}\n"
+            f"services={' '.join(entry_services(scenario, node_name, entry))}\n"
+            f"disk_reservation={disk}\n"
+            f"volumes={' '.join(v['path'] for v in inode['volumes'])}\n")
+
+
 def build_implementation(scenario, playground, game_id, created_at):
     """implementation.yaml's content (capture W2-A; v0.2: the network named
-    after the scenario's, the secrets by kind)."""
+    after the scenario's, the secrets by kind, the mounted material and the
+    parameter faults applied before it is derived)."""
     gid = game_id
     local_rel = f"local/{playground}"
+    mounted = mounted_configs(scenario, node_parameters(scenario), playground, gid)
     nodes = {}
     for node in scenario.nodes:
         name = node["name"]
@@ -441,6 +654,7 @@ def build_implementation(scenario, playground, game_id, created_at):
                 "file": f"{local_rel}/{ENVELOPES_DIR}/{name}.conf",
                 "path": pc["path"], "uid": pc["uid"], "gid": pc["gid"], "mode": pc["mode"],
             })
+        configs += mounted[name]
         node_secrets = []
         for sec in b.get("secrets") or []:
             sname = f"{gid}_{sec['name']}"
@@ -469,12 +683,14 @@ def build_implementation(scenario, playground, game_id, created_at):
         "labels": labels(gid),
         "nodes": nodes,
         "secrets": implementation_secrets(scenario, playground, gid),
+        "parameter_faults": parameter_faults(scenario),
     }
     _check_names(impl)
     return impl
 
 
 def _check_names(impl):
+    seen = {}
     for node in impl["nodes"].values():
         if len(node["service"]) > SERVICE_NAME_MAX:
             raise GmError(f"service name {node['service']} is longer than {SERVICE_NAME_MAX}")
@@ -482,3 +698,7 @@ def _check_names(impl):
             if len(obj["name"]) > OBJECT_NAME_MAX or not OBJECT_NAME_RE.match(obj["name"]):
                 raise GmError(f"config or secret name {obj['name']} is not a valid Swarm name")
             parse_mode(obj["mode"])
+        for obj in node["configs"]:
+            # one name, one config: a mounted file is shared, never two files
+            if seen.setdefault(obj["name"], obj) != obj:
+                raise GmError(f"config name {obj['name']} is derived for two different files")
