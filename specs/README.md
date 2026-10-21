@@ -8,7 +8,7 @@ intent (D1). To resume cold: read this page, then
 Phase: **v0.1 released** on 2026-10-21 and merged into `main`
 (3c852e1); its working record is archived in
 [archive/v0.1/](archive/v0.1/README.md) (master spec approved under the
-owner's delegation to the lead, D44). v0.2's master spec and access model approved by the owner on 2026-10-21 (D98), its [build plan](versions/v0.2/build-plan.md) v1 awaiting approval; v0.3 to v0.6 and v1.0 in drafting. Conventions:
+owner's delegation to the lead, D44). v0.2's master spec and access model approved by the owner on 2026-10-21 (D98), its [build plan](versions/v0.2/build-plan.md) approved the same day (D99), wave 1 next; v0.3 to v0.6 and v1.0 in drafting. Conventions:
 settled items are stated as fact, tentative ones are tagged `(proposed)`,
 and every open point cites an `O` ID. Every `(proposed)` item awaits the
 owner's confirmation; the register lists the ones with real alternatives.
@@ -18,15 +18,15 @@ owner's confirmation; the register lists the ones with real alternatives.
 | Document | Purpose | Status |
 |---|---|---|
 | [concept.md](concept.md) | Purpose, actors, vocabulary, scope, versions, prior art | draft v8 |
-| [versions/](versions/README.md) | The roadmap: v0.1 to v0.6, v1.0 and beyond, one page per version; v0.1's [master spec](versions/v0.1/master-spec.md), [access model](versions/v0.1/access-model.md) and [wave log](versions/v0.1/wave-log.md) | v0.1 released and archived; v0.2's [master spec](versions/v0.2/master-spec.md) and [access model](versions/v0.2/access-model.md) approved 2026-10-21, its [build plan](versions/v0.2/build-plan.md) v1 awaiting approval; v0.3–v0.6 and v1.0 draft |
+| [versions/](versions/README.md) | The roadmap: v0.1 to v0.6, v1.0 and beyond, one page per version; v0.1's [master spec](versions/v0.1/master-spec.md), [access model](versions/v0.1/access-model.md) and [wave log](versions/v0.1/wave-log.md) | v0.1 released and archived; v0.2's [master spec](versions/v0.2/master-spec.md) and [access model](versions/v0.2/access-model.md) approved 2026-10-21, its [build plan](versions/v0.2/build-plan.md) approved 2026-10-21 (D99); v0.3–v0.6 and v1.0 draft |
 | [gm-stance.md](gm-stance.md) | How the GM behaves and speaks: setup questions, issues, report-only interaction, no reveals, stop only, final answer, feedback tone, future ideas | draft v7 |
 | [scenario-lifecycle.md](scenario-lifecycle.md) | The game from setup to teardown: setup inputs, scenario, local implementation, deploy, aging, hand-over, end of the game | draft v10 |
-| [formats.md](formats.md) | What a scenario folder, a brick (with its companion material and GM documentation) and a fault definition must contain; versions and pins; the local implementation; the skills and templates | draft v14 |
+| [formats.md](formats.md) | What a scenario folder, a brick (with its companion material and GM documentation) and a fault definition must contain; versions and pins; the local implementation; the skills and templates | draft v15 |
 | [bricks-and-faults.md](bricks-and-faults.md) | Catalog, v0.2's monitoring bricks, per-brick checks, proportionate tooling, solvability probe, fault interactions and families, future backup-tooling faults | draft v8 |
-| [planes-and-access.md](planes-and-access.md) | Bastion-only rule (the bastion publishes the web interfaces), planes, the GM session, trust, write policies, hardening, validators | draft v10 |
-| [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls | draft v12 |
-| [open-questions.md](open-questions.md) | Open-questions register; O72–O77 raised by the v0.2 build plan | live |
-| [decisions.md](decisions.md) | Decisions log, D55 onward (D98 last); D1–D54 archived with v0.1 | live |
+| [planes-and-access.md](planes-and-access.md) | Bastion-only rule (the bastion publishes the web interfaces), planes, the GM session, trust, write policies, hardening, validators | draft v11 |
+| [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls | draft v13 |
+| [open-questions.md](open-questions.md) | Open-questions register | live |
+| [decisions.md](decisions.md) | Decisions log, D55 onward (D106 last); D1–D54 archived with v0.1 | live |
 | [archive/](archive/README.md) | Closed milestones' working records, kept verbatim: v0.1's build plan, decisions D1–D54, resolved questions | archive |
 
 History: the tree was seeded on 2026-10-20 from the owner's pre-spec notes,
@@ -126,10 +126,15 @@ access model.
   through a parameter, no default-password fault, Grafana's write policy
   a known gap, players running pgBadger, per-node disk, the node-health
   map explicit (D91–D97). The master spec and access model are approved
-  (D98). Planning the build raised O72–O77, gates G4–G9 of the
-  [build plan](versions/v0.2/build-plan.md): brick versions across wave
-  merges, the v0.1 evidence `where`, image sizes in `fit`, the web front
-  without interfaces, Grafana's dashboards, the `laptop` playground.
+  (D98), and so is the [build plan](versions/v0.2/build-plan.md) (D99).
+  The owner's rulings on the plan amend the spec: a brick version is
+  released by its version's release gate, not by a wave's merge (D100);
+  v0.1's evidence text moves to `source` (D101); `fit` reads image sizes
+  from the engine (D102); no web front or tools password without a web
+  interface (D103); `grafana` ships reference dashboards, the node-health
+  view among them (D104); the `laptop` playground is declared on the
+  build host (D105); one network enforced, unused bricks measured on the
+  integration fixture, Prometheus' retention in a seed file (D106).
 - Small project: scripts and small apps, no ATD, no UI/UX tree (D2).
 - v0.1 build: seven artifacts (three skills, a Python/POSIX-shell script
   set, PostgreSQL 18 on Debian 13 and bastion bricks, one scenario), one
@@ -140,7 +145,7 @@ access model.
 
 ## Next steps
 
-1. v0.2: the owner rules on O72–O77 (O72 before wave 1) and approves
-   the [build plan](versions/v0.2/build-plan.md) (G1); then wave 1.
+1. v0.2: wave 1 of the [build plan](versions/v0.2/build-plan.md), once
+   the wave driver's hand checks G2 and G3 pass.
 2. The other "soon" question, O49 (backup tooling's version; it does not
    hold up v0.2), then v1.0's from the "later" ones.

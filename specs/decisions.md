@@ -261,3 +261,41 @@ continues from D55; no ID is reused.
   users and administrator password) and D97. The known gaps stay gaps.
   Now in: [versions/v0.2/master-spec.md](versions/v0.2/master-spec.md),
   [versions/v0.2/access-model.md](versions/v0.2/access-model.md).
+- **D99 (2026-10-21, owner ruling, relayed by the coordinator; clears
+  G1): The v0.2 build plan is approved** (v1, 65f701a). Now in:
+  [versions/v0.2/build-plan.md](versions/v0.2/build-plan.md) header.
+- **D100 (2026-10-21, owner ruling; resolves O72, amends D61): A brick
+  version is released when its version's release gate passes.** A wave
+  merging into `main` releases nothing; v0.2's changes keep folding into
+  0.2.0 (and 0.1.0 for new bricks) until the v0.2 release gate. Now in:
+  [formats.md](formats.md) "Versions and pins", master spec 6.5.
+- **D101 (2026-10-21, owner ruling; resolves O73): Evidence keeps its v0.1
+  text under `source`.** v0.1's free-text `where` (the file, view or
+  output looked at) moves to a new required key `source`; `where` is the
+  location from the fixed set. Now in: [formats.md](formats.md) "What a
+  scenario must contain", master spec 6.3.
+- **D102 (2026-10-21, owner ruling; resolves O74): `fit` reads image sizes
+  from the engine.** Each image layer counted once; a missing image is
+  refused with its build command; `fit` now needs the engine reachable.
+  Now in: master spec 8, [platform.md](platform.md) "Resources and
+  nerfing".
+- **D103 (2026-10-21, owner ruling; resolves O75): The web front runs only
+  with something to publish.** With no web interface in the topology the
+  bastion publishes no second port and no tools password is handed over.
+  Now in: master spec 7.6,
+  [versions/v0.2/access-model.md](versions/v0.2/access-model.md) 3 and 12,
+  [planes-and-access.md](planes-and-access.md) "Credentials and the way in".
+- **D104 (2026-10-21, owner ruling; resolves O76): `grafana` ships
+  reference dashboards and alert rules** in its `companion/` folder,
+  copied by scenarios into their seed files, not mounted; the node-health
+  view is its node-health dashboard; the v0.2 scenario has Grafana and
+  leaves another need uncovered. Now in: master spec 7.4, 11.1, 14.
+- **D105 (2026-10-21, owner ruling; resolves O77): The `laptop` playground
+  is declared on the build host** at 2 CPU / 4G / 8G, figures recorded with
+  machine and date; CPU contention is not tested. Now in: master spec 14.
+- **D106 (2026-10-21, owner ruling on the plan's readings): Three build
+  readings.** The scripts keep refusing a second network (D83); a brick
+  the v0.2 scenario does not use is measured on the integration fixture's
+  game; Prometheus' retention is read from a seed file, so a retention
+  fault is a seed-file fault, fixable on a fixable node. Now in: master
+  spec 6.3, 7.2, 14.

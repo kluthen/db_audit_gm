@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v14
+Status: draft v15
 
 What a scenario, a brick and a fault definition must contain, and how they
 are laid out, so that every scenario the GM designs or generates stays
@@ -75,9 +75,10 @@ The owner's requirements (D23), with the earlier rulings that apply:
 - **The answer key**, for every fault instance: what is wrong and why, the
   evidence as the player user and where it is run (a required `where`
   from v0.2: `bastion`, `node:<name>`, `ui:<name>`, `report:<tool>`;
-  D81), what counts as an acceptable diagnosis, fix,
-  improvement or recommendation, the sealed check, interactions with other
-  faults, any validator the player cannot make green (D10), and, once
+  D81), with the file, view or output looked at under a required
+  `source`, which held v0.1's free-text `where` (D101), what counts as an
+  acceptable diagnosis, fix, improvement or recommendation, the sealed
+  check, interactions with other faults, any validator the player cannot make green (D10), and, once
   solvability probes exist, their results. The GM's silent tooling
   expectations (D65) are a list of their own, outside the fault
   instances: each says what is expected and what is acceptable (any of
@@ -404,7 +405,7 @@ faults/<fault-id>/
 *Known* or *hidden* is not part of the definition: it is chosen per
 instance, in the scenario.
 
-## Versions and pins (D57–D62, D72, D75, D86)
+## Versions and pins (D57–D62, D72, D75, D86, D100)
 
 A scenario pins every brick and fault it uses by id and version: each
 node's brick, each fault instance's fault definition. The scripts refuse a
@@ -415,8 +416,10 @@ pin that does not match the definition's `version`.
   `brick.yaml`, the validator, the documentation (`docs/player.md`,
   `docs/gm.md`) or the companion material. That includes a change that
   leaves the image byte-identical (D57, D58). A change made while a
-  brick's new version is still unreleased (its branch not yet merged into
-  `main`) folds into that version with no further bump (D61). New bricks
+  brick's new version is still unreleased folds into that version with no
+  further bump (D61). A brick version is released when the release gate
+  of the version that builds it passes; a build wave merging into `main`
+  releases nothing (D100). New bricks
   start at 0.1.0; v0.2's changes to a v0.1 brick take 0.2.0, since 0.1.1
   was released with `main` at 5c16d06 (D72).
 - **Faults never bump** (D60). A fault keeps its version whatever changes

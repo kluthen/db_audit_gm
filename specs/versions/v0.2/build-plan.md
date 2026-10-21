@@ -1,10 +1,12 @@
 # db_audit_gm v0.2 — Build plan
 
-Status: v1 (2026-10-21): first plan, written from the approved master
-spec (spec D98); it raises O72 to O77 as gates G4 to G9.
-Approval: not approved yet (G1).
+Status: v2 (2026-10-21): the owner's rulings on G4 to G9 and the plan's
+readings written in (spec D100 to D106); chunks 1, 2, 4, 7, 8, 10, 11,
+12 and 14 and the release gate revised.
+Approval: approved 2026-10-21 by the owner (G1, spec D99).
 Written from: [master-spec.md](master-spec.md) and
-[access-model.md](access-model.md), both approved 2026-10-21 (spec D98).
+[access-model.md](access-model.md), approved 2026-10-21 (spec D98) and
+amended the same day by spec D100 to D106.
 No design set (no interface to design, D2).
 
 The model is `~/.local/share/dev_team/references/build-plan-model.md`; this
@@ -32,7 +34,9 @@ plan states only its deltas.
   bumps a brick re-pins `scenarios/bookshop-new-server/` and
   `tools/tests/fixtures/fixture-audit/` in the same commit. Chunk 1 bumps
   `postgres` and `bastion` to 0.2.0; every later v0.2 change to a brick
-  folds into the version it already has (D61, read as G4 rules).
+  folds into the version it already has, since a brick version is
+  released only when the v0.2 release gate passes, not when a wave
+  merges into `main` (spec D61, D100).
 - **Templates are the loader's schema.** `tools/gm/model.py` checks every
   brick, fault and scenario against the format skill's templates
   (`template_schema`), and the unit suite loads every folder under
@@ -59,31 +63,30 @@ plan states only its deltas.
 
 | Gate | What | Cleared by | Blocks | Status |
 |---|---|---|---|---|
-| G1 | Plan approval | The owner | Wave 1 | open |
+| G1 | Plan approval | The owner | Wave 1 | done (2026-10-21, spec D99) |
 | G2 | Network access at image build time: Debian's apt repositories (pgBadger, Perl, the proxy), the PostgreSQL apt repository, the s6-overlay, Prometheus and `postgres_exporter` release downloads, Grafana's package source | Hand check by the wave driver | Chunks 1, 4, 6, 7, 9, 10 (every image build) | open |
 | G3 | A Docker host in swarm mode (swarm active on the build host, 2026-10-21) | Hand check by the wave driver | Every stack test and smoke run, every wave gate, the release gate | open |
-| G4 | O72: brick versions across wave merges | The owner | Wave 1's merge into `main`; the plan's shape | open |
-| G5 | O73: what happens to v0.1's free-text evidence `where` | The owner | Chunk 1 | open |
-| G6 | O74: where `gmctl fit` takes image sizes from | The owner | Chunk 8 | open |
-| G7 | O75: the web front in a game with no monitoring interface | The owner | Chunk 7 | open |
-| G8 | O76: where Grafana's dashboards and the node-health view come from | The owner | Chunks 10, 14 | open |
-| G9 | O77: the `laptop` playground, declared on the build host or a real 2 CPU / 4G / 8G machine | The owner | Chunk 14b, release gate items 2 and 3 | open |
+| G4 | O72: brick versions across wave merges | The owner | Wave 1's merge into `main`; the plan's shape | done (2026-10-21, spec D100: released at the release gate) |
+| G5 | O73: what happens to v0.1's free-text evidence `where` | The owner | Chunk 1 | done (2026-10-21, spec D101: moved to `source`) |
+| G6 | O74: where `gmctl fit` takes image sizes from | The owner | Chunk 8 | done (2026-10-21, spec D102: from the engine) |
+| G7 | O75: the web front in a game with no monitoring interface | The owner | Chunk 7 | done (2026-10-21, spec D103: only with an interface) |
+| G8 | O76: where Grafana's dashboards and the node-health view come from | The owner | Chunks 10, 14 | done (2026-10-21, spec D104: `grafana`'s reference dashboards) |
+| G9 | O77: the `laptop` playground, declared on the build host or a real 2 CPU / 4G / 8G machine | The owner | Chunk 14b, release gate items 2 and 3 | done (2026-10-21, spec D105: declared on the build host) |
 | G10 | Review of the v0.2 scenario: its faults (chunk 13's among them), issues, tooling expectation and answer key (master spec 11.1) | The owner | Chunk 14's merge | open |
 | G11 | The tooling's usefulness and the feedback's tone (master spec 14, item 12) | The owner | Release close | open |
 
-G4 to G9 are questions in [../../open-questions.md](../../open-questions.md),
-each with a proposed default. G4 decides whether a wave may merge into
-`main` before the release gate; it should be ruled before wave 1 starts,
-since option (c) would re-cut the waves.
+G4 to G9 were questions O72 to O77, ruled by the owner as proposed
+(spec D100 to D105). Waves merge into `main` after their gates as the
+model says (D100).
 
 ## Waves
 
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
-| 1 | 1, 2, 3, 4 | G1; G5 (chunk 1); G2 (chunks 1, 4); G3 (chunks 1, 3, 4); G4 before its merge into `main` | planned |
-| 2 | 5, 6, 7 | wave 1; G2, G3; G7 (chunk 7) | planned |
-| 3 | 8, 9, 10, 11 | wave 2; G6 (chunk 8); G8 (chunk 10) | planned |
-| 4 | 12, 13, 14 | wave 3; G8 (chunk 14); G9 (chunk 14b); G10 (chunk 14's merge) | planned |
+| 1 | 1, 2, 3, 4 | G2 (chunks 1, 4); G3 (chunks 1, 3, 4) | planned |
+| 2 | 5, 6, 7 | wave 1; G2, G3 | planned |
+| 3 | 8, 9, 10, 11 | wave 2 | planned |
+| 4 | 12, 13, 14 | wave 3; G10 (chunk 14's merge) | planned |
 
 ```
 1 ──> 2, 3, 4          (in-wave: the v0.2 template keys captured at wave 1 start, W1)
@@ -100,8 +103,7 @@ since option (c) would re-cut the waves.
 4, 5, 6, 7, 9, 10, 11 ──> 14
 ```
 
-Chunk 8 has slack (only chunk 12 needs it); it sits in wave 3 to fill it
-and to leave G6 time.
+Chunk 8 has slack (only chunk 12 needs it); it sits in wave 3 to fill it.
 
 ## Workflow deltas
 
@@ -109,9 +111,7 @@ and to leave G6 time.
 - **Branches and worktrees**: waves `v0.2-w<n>` in
   `/home/bastien/work/db_audit_gm-wt/v0.2-w<n>`; chunks
   `v0.2-c<id>-<slug>` in `/home/bastien/work/db_audit_gm-wt/v0.2-c<id>-<slug>`.
-  Never in the main checkout. If G4 rules option (b), each wave branches
-  from the previous gated wave branch and only the last one merges into
-  `main`, after the release gate.
+  Never in the main checkout.
 - **Chunk checks**, in addition to the model's:
   - Python: `python3 -m unittest discover -s tools/tests -t .` (the
     related tests, or all of them: the suite is small);
@@ -181,7 +181,7 @@ that each is recorded.
 Status: planned
 Record: (after merge)
 Wave: 1
-Depends on: G1, G5; G2, G3
+Depends on: G2, G3 (G1, G5 done)
 Architecture capture: recorded by the wave driver at wave 1 start (W1),
 for chunks 2, 3 and 4, which build on the keys before chunk 1 merges:
 the `brick.yaml` footprint shape (limits and reservations); the mounted
@@ -193,7 +193,8 @@ commands provided) and the command vocabulary both sides use; the secret
 how a brick declares a web interface, and the bastion parameter that
 lists the web front's routes, whose keys `ui:<name>` names; the
 `parameter` injection kind; the node-health map parameter (name, shape,
-`default`); the answer key's `where` values and G5's key; the
+`default`); the answer key's `where` values and the `source` key (spec
+D101); the
 `tooling_expectations` list and how an issue covers one.
 
 - Goal: the v0.2 formats in the format and scenario-document skills, and
@@ -203,24 +204,29 @@ lists the web front's routes, whose keys `ui:<name>` names; the
     footprint shape; no fault list; mounted companion material and
     receiving bricks; the node-health map required with a `prometheus`
     node, every node listed; parameter faults; faults about mounted
-    material; `where` and tooling expectations; `applies_to` version
-    lists; the version rules, faults and scenarios never bumping). The
+    material; `where`, `source` and tooling expectations; `applies_to`
+    version lists; the version rules, with a version released only by
+    its version's release gate (D100), faults and scenarios never
+    bumping). The
     pending fix of D62: the refusal rule reads "a **catalog** fault whose
     `applies_to` does that is not listed", and the stale "(footprint:
     O57)" points at D84;
   - the templates `brick.yaml`, `brick-gm.md`, `fault.yaml`,
     `scenario.yaml`, `answer-key.yaml` and `layouts.md`, to master spec
     6.1 to 6.5 and the W1 capture;
-  - `scenario-document`: the template renders `where` with its v0.2
-    meaning (and G5's key) and the tooling expectations;
+  - `scenario-document`: the template renders `source` (the column v0.1
+    called `where`), `where` with its v0.2 meaning, and the tooling
+    expectations;
   - migration: `postgres` and `bastion` to 0.2.0 (`brick.yaml` in the new
     shapes, their v0.1 figures as their own footprint, secrets with their
     kind, the receiving declaration; `docs/gm.md` to match, including the
     image tag and Connections saying the image accepts mounted material;
     their stack tests' image tags); the six catalog faults add `"0.2.0"`
     to `applies_to`; `bookshop-new-server` and `fixture-audit` re-pinned
-    (keeping their own versions), their answer keys given `where` per G5
-    and an empty `tooling_expectations`, the fixture's scenario-local
+    (keeping their own versions), their answer keys' v0.1 `where` text
+    moved to `source` and a `where` location added to every evidence
+    entry (D101), and an empty `tooling_expectations`, the fixture's
+    scenario-local
     faults' `applies_to` extended, both READMEs regenerated.
   - Out: any loader, renderer or image change; the bricks' v0.2 features
     (chunks 6, 7).
@@ -235,7 +241,7 @@ lists the web front's routes, whose keys `ui:<name>` names; the
   `tools/tests/fixtures/fixture-audit/` (`scenario.yaml`, answer key,
   faults' `fault.yaml`, `README.md`).
 - Spec sections: master spec 6, 11.2; [../../formats.md](../../formats.md);
-  spec D62, D84.
+  spec D62, D84, D100, D101.
 - Atoms: none (no intent register).
 - Done when: every template carries every item master spec 6 requires
   and loads as YAML; the format skill states the "catalog fault" rule;
@@ -282,15 +288,17 @@ Architecture capture: none of its own; it implements W1.
     exact version strings, never ranges;
   - answer keys: `where` required on every evidence entry, one of
     `bastion`, `node:<name>` (a node), `ui:<name>` (a route of the
-    bastion's web front), `report:<tool>`; `tooling_expectations` in the
+    bastion's web front), `report:<tool>`, and `source` required beside
+    it (spec D101); `tooling_expectations` in the
     W1 shape; an issue may cover a tooling expectation;
   - unit tests with a fixture using scenario-local bricks that mount and
     receive material.
   - Out: rendering and deploying any of it (chunk 5); `fit` (chunk 8);
-    the single-network refusal stays as it is (D83).
+    the single-network refusal stays as it is (D83, spec D106).
 - Files: `tools/gm/model.py`, `tools/tests/test_model.py`,
   `tools/tests/fixtures/fixture-mounted/` (new).
-- Spec sections: master spec 6.1, 6.3, 6.4, 7.1 ("Configuration").
+- Spec sections: master spec 6.1, 6.3, 6.4, 7.1 ("Configuration");
+  spec D101, D106.
 - Atoms: none.
 - Done when: unit tests show each refusal above with its message, and
   acceptance of the fixture; every catalog brick, fault and scenario
@@ -348,7 +356,9 @@ it settles are recorded in its Record line and `docs/gm.md`.
   - **the node** (`prometheus` 0.1.0): `debian:13-slim`, s6-overlay v3,
     `sshd` and `player`, read-only root, seed-once entrypoint, Prometheus
     pinned with its checksum; scrape targets in the seed configuration;
-    retention bounded by time and by size, about a day; admin and
+    retention bounded by time and by size, about a day, its flags read
+    from a seed file, so a retention fault is a seed-file fault, fixable
+    on a fixable node (spec D106); admin and
     lifecycle endpoints disabled; served under the web front's sub-path;
     a reload wrapper and `gm-validate` with a restricted `sudoers`; the
     validator; `brick.yaml` with the footprint estimate (master spec 12,
@@ -373,11 +383,12 @@ it settles are recorded in its Record line and `docs/gm.md`.
   service files), `bricks/prometheus/docs/{gm,player}.md`,
   `bricks/prometheus/tests/{stack.test.yml,run-stack-test.sh}`.
 - Spec sections: master spec 7, 7.1, 7.2, 12, 15; access model 5
-  ("Nodes", "Monitoring interfaces"), 7.
+  ("Nodes", "Monitoring interfaces"), 7; spec D106.
 - Atoms: none.
 - Done when: the image builds; the stack test shows the node healthy,
   SSH as `player` with exactly its wrappers, edits to the seed copy
-  surviving a reload, the admin and lifecycle endpoints refused, the UI
+  surviving a reload, a retention change in its seed file taking effect
+  through the wrapper, the admin and lifecycle endpoints refused, the UI
   answering under its sub-path, the validator 0 then 1; and, with the
   script mounted, each node's endpoint readable from the other node,
   showing CPU, memory, disk against the reservation, the host's free
@@ -472,7 +483,7 @@ Architecture capture: none (chunk 9 reads the merged brick).
 Status: planned
 Record: (after merge)
 Wave: 2
-Depends on: chunks 1, 3; G7; G2, G3
+Depends on: chunks 1, 3; G2, G3 (G7 done)
 Architecture capture: none (chunk 10 reads the merged brick); the
 routes parameter is W1's.
 
@@ -483,56 +494,59 @@ routes parameter is W1's.
   mode, published as the scenario's `published_ports` state; one path
   per route of the routes parameter; HTTP basic authentication on the
   tools password (a per-game secret, kind password), plain HTTP, 401
-  without it; the `Authorization` header not passed on to Grafana; the
-  behaviour G7 rules for a topology with no interface; `brick.yaml`
-  (interface, secret, parameter, footprint) and docs (Access: the web
-  interfaces and their paths; the player's documentation on reaching
-  them); the stack test with a stub upstream; the two scenarios'
-  `published_ports` and READMEs if G7 rules the front always on. Out:
-  the upstreams themselves (chunks 4, 10).
+  without it; the `Authorization` header not passed on to Grafana; with
+  no route (no web interface in the topology) the front does not run,
+  the second port is not published and the tools password is not handed
+  over, so a `bookshop-new-server` game looks as in v0.1 (spec D103);
+  `brick.yaml` (interface, secret, parameter, footprint) and docs
+  (Access: the web interfaces and their paths, and the case without
+  any; the player's documentation on reaching them); the stack test with
+  a stub upstream. Out: the upstreams themselves (chunks 4, 10); any
+  change to the two v0.1-shaped scenarios.
 - Files: `bricks/bastion/Dockerfile`, `bricks/bastion/rootfs/` (s6
   service, start-up), `bricks/bastion/brick.yaml`,
   `bricks/bastion/docs/{gm,player}.md`,
-  `bricks/bastion/tests/{stack.test.yml,run-stack-test.sh}`; per G7,
-  `scenarios/bookshop-new-server/{scenario.yaml,README.md}` and
-  `tools/tests/fixtures/fixture-audit/{scenario.yaml,README.md}`.
-- Spec sections: master spec 7.6, 15; access model 5 ("Bastion and web
-  front"), 6, 7.
+  `bricks/bastion/tests/{stack.test.yml,run-stack-test.sh}`.
+- Spec sections: master spec 7.6, 15; access model 3, 5 ("Bastion and
+  web front"), 6, 7, 12; spec D103.
 - Atoms: none.
 - Done when: the image builds; the stack test shows a request without
   the password refused with 401 and a challenge, a request with it
   reaching the stub under its path, the `Authorization` header absent
-  upstream, SSH unchanged; the version stays 0.2.0; `smoke.sh` passes
-  (the fixture-audit game, with the ports G7 rules); `test_brick_docs`
-  passes.
+  upstream, SSH unchanged; with an empty routes parameter the front does
+  not run and only SSH answers; the version stays 0.2.0; `smoke.sh`
+  passes (the fixture-audit game, SSH only); `test_brick_docs` passes.
 - Verification: chunk checks, plus the stack test and `smoke.sh` (need
   G3).
 - Split rule: 7a the proxy (image, s6 service, configuration from the
-  routes parameter, the password file at start-up); 7b `brick.yaml`,
-  docs, stack test, the scenarios' port lines.
+  routes parameter, the password file at start-up, the case without
+  routes); 7b `brick.yaml`, docs, stack test.
 
 ### Chunk 8 — `gmctl fit` counts the images
 
 Status: planned
 Record: (after merge)
 Wave: 3
-Depends on: chunk 1; G6
+Depends on: chunk 1 (G6 done)
 Architecture capture: none.
 
 - Goal: the capacity check counts the images' sizes against the declared
   disk (master spec 8).
-- Scope: in: image sizes as G6 rules (from the engine, shared layers
-  once, a missing image refused with its build command; or declared in
-  `brick.yaml`); the report line for images; `gmctl.md`'s `fit` line;
-  tests. Out: any other capacity rule.
-- Files: `tools/gm/fit.py`, `tools/gm/docker.py` (if from the engine),
+- Scope: in: image sizes read from the playground's engine (`docker
+  image inspect` through the endpoint), each image layer counted once
+  (the shared `debian:13-slim` layer once), a missing image refused with
+  its build command (spec D102); `fit` now needs the engine reachable;
+  the report line for images; `gmctl.md`'s `fit` line; tests. Out: any
+  other capacity rule.
+- Files: `tools/gm/fit.py`, `tools/gm/docker.py`,
   `tools/tests/test_fit.py`, `.claude/skills/game-master/gmctl.md`.
-- Spec sections: master spec 8, 12; spec D83.
+- Spec sections: master spec 8, 12; spec D83, D102.
 - Atoms: none.
-- Done when: unit tests (engine stubbed if it is used) show fit passing
-  with images counted, refusing when reservations plus images plus
-  headroom exceed the declared disk, and (per G6) a shared layer counted
-  once and a missing image refused; `smoke.sh` passes.
+- Done when: unit tests (engine stubbed) show fit passing with images
+  counted, refusing when reservations plus images plus headroom exceed
+  the declared disk, a shared layer counted once, a missing image refused
+  with its build command and an unreachable engine reported; `smoke.sh`
+  passes.
 - Verification: chunk checks, plus `sh tools/tests/smoke.sh` (needs G3).
 
 ### Chunk 9 — `postgres-exporter` brick
@@ -573,7 +587,7 @@ parameters, metrics port, secret name and wrapper names.
 Status: planned
 Record: (after merge)
 Wave: 3
-Depends on: chunks 3, 7; G8; G2, G3
+Depends on: chunks 3, 7; G2, G3 (G8 done)
 Architecture capture: at wave 3 start, for chunk 11: its seed files
 (provisioning), parameters, port and sub-path, the secret it reads, how
 a check reads its live state through its API, and wrapper names.
@@ -586,20 +600,24 @@ a check reads its live state through its API, and wrapper names.
   configured, alerts read in the alerting view; default time zone UTC;
   the administrator's password from the tools password secret, always;
   served under the web front's sub-path (master spec 15); a reload or
-  restart wrapper and validator as the chunk settles; the reference
-  dashboards G8 rules for (the node-health view among them);
+  restart wrapper and validator as the chunk settles; reference
+  dashboards and alert rules (node health, PostgreSQL) in `companion/`,
+  which scenarios copy into their seed files, never mounted; the
+  node-health dashboard is the node-health view (spec D104);
   `docs/player.md` with the DO NOT TAMPER rule on users and the
   administrator's password; `docs/gm.md` (Checks: sealed checks judge the
   live state through the API); a stack test. Out: faults (chunk 13).
 - Files: `bricks/grafana/{Dockerfile,brick.yaml}`,
   `bricks/grafana/rootfs/`, `bricks/grafana/validator/validate.sh`,
-  `bricks/grafana/docs/{gm,player}.md`, `bricks/grafana/companion/`
-  (per G8), `bricks/grafana/tests/{stack.test.yml,run-stack-test.sh}`.
+  `bricks/grafana/docs/{gm,player}.md`, `bricks/grafana/companion/`,
+  `bricks/grafana/tests/{stack.test.yml,run-stack-test.sh}`.
 - Spec sections: master spec 7, 7.4, 15; access model 5 ("Monitoring
-  interfaces"), 7, 8, 11.
+  interfaces"), 7, 8, 11; spec D104.
 - Atoms: none.
-- Done when: the image builds; the stack test shows the provisioned data
-  source, dashboards and alert rules present through the API, the
+- Done when: the image builds; the stack test, with the reference
+  dashboards and alert rules copied in as seed files, shows the
+  provisioned data source, dashboards and alert rules present through
+  the API, the
   administrator logging in with the secret's password, the time zone
   UTC, the UI answering under its sub-path, an edited seed file taking
   effect through the wrapper, the validator 0 then 1; the loader accepts
@@ -622,8 +640,9 @@ captured interfaces.
   gate from here on.
 - Scope: in: a fixture scenario with `bastion`, `postgres`,
   `prometheus`, `postgres-exporter` and `grafana` at their v0.2
-  versions, the node-health map, scrape targets, provisioning and web
-  front routes; `smoke-monitoring.sh` running `fit`, `render`, `deploy`,
+  versions, the node-health map, scrape targets, Grafana provisioning
+  copied from `grafana`'s reference dashboards and alert rules (spec
+  D104), and web front routes; `smoke-monitoring.sh` running `fit`, `render`, `deploy`,
   `load-data`, then checking: every scrape target up and the exporter
   connected (Prometheus' API, through `exec`); every node's health
   endpoint with CPU, memory, disk and services, a service stopped by the
@@ -635,7 +654,7 @@ captured interfaces.
 - Files: `tools/tests/fixtures/fixture-monitoring/` (new),
   `tools/tests/smoke-monitoring.sh` (new), `tools/tests/test_model.py`
   (the fixture loads).
-- Spec sections: master spec 7, 9, 14 (items 5, 7).
+- Spec sections: master spec 7, 9, 14 (items 5, 7); spec D104.
 - Atoms: none.
 - Done when: `smoke-monitoring.sh` passes on the build host; the fixture
   passes the loader and `fit` on a playground declared at
@@ -656,7 +675,8 @@ Architecture capture: none.
   `docs/gm.md`; `fit` counting images; deployment mounting the
   node-health script when there is a `prometheus` node; hand-over adding
   the tools password and the web front's address and port (from the
-  local implementation); every time stated in UTC; the file log read
+  local implementation) when the topology has a web interface, and
+  neither otherwise (spec D103); every time stated in UTC; the file log read
   through `exec`, since `gmctl logs` shows only PostgreSQL's start-up;
   operating the monitoring tools from inside their nodes through `exec`
   (Grafana's API with the administrator's password, Prometheus' API);
@@ -666,10 +686,12 @@ Architecture capture: none.
   the lines chunks 3, 5 and 8 did not change. Out: new scripts; the
   stance itself, unchanged.
 - Files: `.claude/skills/game-master/{SKILL,gmctl,feedback}.md`.
-- Spec sections: master spec 8, 9, 10; access model 3, 7, 8, 9.
+- Spec sections: master spec 8, 9, 10; access model 3, 7, 8, 9; spec
+  D102, D103.
 - Atoms: none.
-- Done when: the skill covers each item of master spec 9 and the
-  hand-over of both passwords; every `gmctl` invocation in the three
+- Done when: the skill covers each item of master spec 9, the
+  hand-over of the tools password only with a web interface, and `fit`
+  needing the engine and the images built; every `gmctl` invocation in the three
   files parses with `gmctl`'s own parser; the stance check-list items
   are unchanged.
 - Verification: chunk checks; the stance check-list runs at the release
@@ -711,7 +733,7 @@ Status: planned
 Record: (after merge)
 Wave: 4
 Depends on: chunk 13 (in-wave, wave 4 capture); chunks 4, 5, 6, 7, 9,
-10, 11; G8; G9 (14b); G10 before merge
+10, 11; G10 before merge (G8, G9 done)
 Architecture capture: none of its own; it uses wave 4's fault capture.
 
 - Goal: the partly tooled v0.2 scenario, complete, and the footprint
@@ -719,19 +741,23 @@ Architecture capture: none of its own; it uses wave 4's fault capture.
 - Scope: in:
   - **14a, the scenario**: one database, a small or mid-size customer,
     some monitoring present and ill-configured, one need left uncovered
-    as an under-tooling issue or tooling expectation (master spec 11.1,
-    within G8's ruling); chunk 13's faults mixed with v0.1 database
+    as an under-tooling issue or tooling expectation; it has Grafana, so
+    the node-health view exists, and the uncovered need is another one
+    (master spec 11.1, spec D104); its Grafana seed files start from
+    `grafana`'s reference dashboards and alert rules; chunk 13's faults mixed with v0.1 database
     faults; `scenario.yaml` (the node-health map, the web front routes,
     per-node `resources` including the script), `gm/answer-key.yaml`
-    with `where` everywhere and the tooling expectation, `gm/notes.md`,
+    with `where` and `source` on every evidence entry and the tooling
+    expectation, `gm/notes.md`,
     `brief.md`, the starter pack (DO NOT TAMPER on Grafana's users and
     password), node seed files, `data/db.sql`, `README.md` regenerated;
-  - **14b, the footprint**: a full game on the `laptop` playground (as
-    G9 rules), `docker stats` at rest after hand-over, during a Grafana
+  - **14b, the footprint**: a full game on the `laptop` playground,
+    declared at 2 CPU / 4G / 8G on the build host (spec D105), `docker
+    stats` at rest after hand-over, during a Grafana
     dashboard load and during a pgBadger run, `docker system df -v` for
     images and volumes, figures in the wave log with machine and date; a
     brick the scenario does not use measured on the integration
-    fixture's game; reservations raised where a node at rest exceeds
+    fixture's game (spec D106); reservations raised where a node at rest exceeds
     its reservation; the bricks' `brick.yaml` and `docs/gm.md` footprints
     and the scenario's `resources` carrying the measured figures; `fit`
     re-run, passing on `laptop`.
@@ -740,7 +766,7 @@ Architecture capture: none of its own; it uses wave 4's fault capture.
   `bricks/*/brick.yaml`, `bricks/*/docs/gm.md` ("Footprint"),
   `scenarios/<new-id>/{scenario.yaml,README.md}`.
 - Spec sections: master spec 11.1, 12, 14 (items 1–3); access model 7,
-  11.
+  11; spec D101, D104, D105, D106.
 - Atoms: none.
 - Done when: the format skill finds nothing missing; `fit` (images
   counted) and `render` accept it on `laptop`; on its smoke deployment
@@ -761,8 +787,9 @@ single-node swarm, with v0.1's checks still applying:
    the format skill's `docs/gm.md` check, `prometheus`'s covering the
    node-health script.
 2. Item 2: a full game of the v0.2 scenario in a GM session, on the
-   `laptop` playground (2 CPU / 4G / 8G, as G9 rules), from setup through
-   hand-over, with `gmctl fit` passing, images counted.
+   `laptop` playground, declared at 2 CPU / 4G / 8G on the build host
+   (spec D105), from setup through hand-over, with `gmctl fit` passing,
+   images counted.
 3. Item 3, the footprint check against 2 CPU / 4G / 8G: during that game,
    `docker stats` on every node at rest after hand-over, during a Grafana
    dashboard load and during a pgBadger run; `docker system df -v` for
@@ -772,15 +799,17 @@ single-node swarm, with v0.1's checks still applying:
    re-run, still passing on `laptop`); the reservations, with `fit`'s
    10 % headroom, within 2 CPU and 4G; images plus volumes in use within
    the declared 8G; the bricks' footprints carrying the measured figures
-   in place of the estimates. The figures go next to the estimate in
+   in place of the estimates, a brick the scenario does not use measured
+   on a game of the integration fixture (spec D106). The figures go next to the estimate in
    [README.md](README.md) "Footprint", with machine and date.
 4. Item 4: the play-through as `player`, through the bastion only: each
    fault's evidence where the answer key says, interface evidence through
    the web front, checked through the interfaces' HTTP APIs, report
    evidence by generating the report.
-5. Item 5: the node-health view shows every node's CPU, memory, disk (its
-   volumes' use against its reservation) and services, with the host's
-   free space once, and a service the GM stops shows as down.
+5. Item 5: the node-health view (`grafana`'s reference dashboard, spec
+   D104) shows every node's CPU, memory, disk (its volumes' use against
+   its reservation) and services, with the host's free space once, and a
+   service the GM stops shows as down.
 6. Item 6: each *fix* issue on a monitoring tool fixed, its sealed check
    going from 1 to 0.
 7. Item 7: the web front refuses a request without the tools password
@@ -788,7 +817,8 @@ single-node swarm, with v0.1's checks still applying:
    front ports; nodes and PostgreSQL's logs carry UTC times.
 8. Item 8: the tooling expectation judged in the feedback.
 9. Item 9: `bookshop-new-server`, re-pinned, passes its v0.1 checks: a
-   full game, the write policy, `sudo gm-validate`, each fault's
+   full game publishing SSH only, with no tools password handed over
+   (spec D103), the write policy, `sudo gm-validate`, each fault's
    evidence, each *fix* issue fixed with its sealed check from 1 to 0.
 10. Item 10: the stance check-list, item by item; and v0.1's other
     checks: a fresh GM session resuming the game in progress, and a

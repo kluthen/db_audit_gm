@@ -1,6 +1,6 @@
 # Platform
 
-Status: draft v12
+Status: draft v13
 
 The swarm the games run on, the resource budget scenarios must fit, how
 scenario content reaches the nodes, and the Swarm behaviours that shape the
@@ -63,7 +63,9 @@ and the node-health script inside every node count in the budget, and
 footprint is a main criterion in choosing the tools (D64, D66, D69).
 v0.2 runs on one host, its scenario fitting 2 CPU / 4G / 8G, and `gmctl
 fit` also counts the images' sizes against the declared disk, since on a
-laptop the images grow, not the volumes (D83). The v0.2 estimate is in
+laptop the images grow, not the volumes (D83). It reads them from the
+playground's engine, each image layer counted once, and refuses a
+missing image with its build command (D102). The v0.2 estimate is in
 [versions/v0.2/README.md](versions/v0.2/README.md), "Footprint".
 
 Proposed:

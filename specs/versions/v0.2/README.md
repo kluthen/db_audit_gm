@@ -1,9 +1,9 @@
 # v0.2 — monitoring and usual tooling
 
-Status: draft v5. Consolidated into the [master spec](master-spec.md) and its [access model](access-model.md), both approved by the owner on 2026-10-21 (D98). Build plan: [build-plan.md](build-plan.md), v1, awaiting approval.
+Status: draft v5. Consolidated into the [master spec](master-spec.md) and its [access model](access-model.md), both approved by the owner on 2026-10-21 (D98). Build plan: [build-plan.md](build-plan.md), approved 2026-10-21 (D99). The owner's rulings on the plan (D100–D106) amend the master spec and are written into this page.
 
 Every item is settled and stated as fact with its decision. Planning
-the build raised O72 to O77 ("Questions due in this version"). The owner accepted the draft v2 defaults on 2026-10-21
+the build raised O72 to O77, all ruled on 2026-10-21 (D100–D105). The owner accepted the draft v2 defaults on 2026-10-21
 (D72–D87), changing one: the node-health script is mounted into each
 node at deploy rather than carried by a shared base image (D73). After
 draft v3 the owner made the script companion material of `prometheus`
@@ -36,11 +36,11 @@ One brick per need ([bricks-and-faults.md](../../bricks-and-faults.md),
 | Brick | Need | Shape |
 |---|---|---|
 | node-health script, companion material of `prometheus` (D88) | Per-node health | A daemon script that reports the node's CPU, RAM, disk and the status of its important services, read from inside the node, no Docker socket (D66). The GM installs it at deploy: the script and its s6 service are mounted into each node as configs, with the node's list of services; images only have to accept a mounted service (D73). On every node whenever the topology has a metrics store; a node left out is a monitoring fault (D73). Scraped by Prometheus. Versioned with `prometheus`, which a change to the script bumps; its GM documentation is `prometheus`'s (D88) |
-| `prometheus` | Metrics store | A node of its own (D74). Scrape targets in its seed configuration, so a node left out is a plantable fault. Retention bounded by time and by size, about a day |
+| `prometheus` | Metrics store | A node of its own (D74). Scrape targets in its seed configuration, so a node left out is a plantable fault. Retention bounded by time and by size, about a day, read from a seed file, so a retention fault is a seed-file fault (D106) |
 | `postgres-exporter` | PostgreSQL metrics | `postgres_exporter`, a node of its own (D74), connecting to the database with a monitoring role that holds `pg_monitor`; the role's password is a generated secret (D79) |
-| `grafana` | Dashboards and alerting | Grafana with its own alerting, no separate alerting brick (D69). Data sources, dashboards and alert rules provisioned from seed files the player can edit on a fixable node. No notification channel in v0.2: firing alerts are read in Grafana's alerting view. Default time zone UTC (D81) |
+| `grafana` | Dashboards and alerting | Grafana with its own alerting, no separate alerting brick (D69). Data sources, dashboards and alert rules provisioned from seed files the player can edit on a fixable node. No notification channel in v0.2: firing alerts are read in Grafana's alerting view. Default time zone UTC (D81). Reference dashboards and alert rules (node health, PostgreSQL) shipped in its `companion/` folder, copied by scenarios into their seed files; the node-health view is its node-health dashboard (D104) |
 | `postgres` (changed) | Log analysis | PostgreSQL logs to files on a log volume, rotated by size, with a `log_line_prefix` pgBadger parses; the logging settings live in the seed `postgresql.conf`, so faults can live there (D69). pgBadger installed in the image; the players run it themselves, as `player`, as a one-shot job against the log files, which are readable by their group, no wrapper (D95); its HTML report lands in their home there and is copied out with `scp` and `sftp`. `pg_stat_statements` available, its preloading set in the seed configuration so its absence can be a fault |
-| `bastion` (changed) | Reaching the UIs | Publishes every monitoring web interface (D68) through a web front on a second published port (D77) |
+| `bastion` (changed) | Reaching the UIs | Publishes every monitoring web interface (D68) through a web front on a second published port (D77), only when the topology has a web interface to publish (D103) |
 
 No log aggregator, no cAdvisor, no Docker socket or host mount (D66,
 D69). pgwatch and pgCluu, both in the reference setup, are v0.5
@@ -128,7 +128,9 @@ customer's tooling, and do not count (D87).
 
 One new, partly tooled scenario with one database, for a small or
 mid-size customer: some monitoring present and ill-configured, one need
-left uncovered as an under-tooling issue or expectation. An HA customer
+left uncovered as an under-tooling issue or expectation. It has Grafana,
+so the node-health view exists, and the need left uncovered is another
+one (D104). An HA customer
 is out (it implies a standby), and so is a second, reporting database
 (it brings in O45). `bookshop-new-server` stays as the v0.1 regression,
 re-pinned to the changed bricks, keeping its version (D75).
@@ -169,7 +171,9 @@ brick versions it applies to one by one (D59, D86) and never bumps
 - The players reach every web interface through the bastion (D68): a web
   front, a reverse proxy on the bastion's second published port, in host
   mode, every UI under its own path, behind HTTP basic authentication on
-  the tools password, plain HTTP in v0.2 (D77). Reports leave the
+  the tools password, plain HTTP in v0.2 (D77). With no web interface
+  in the topology there is no web front: the bastion publishes SSH only
+  and no tools password is handed over (D103). Reports leave the
   database node by `scp` to the bastion and `sftp` from it, as files do
   in v0.1; publishing them on the bastion is v0.6's (D71).
 - One per-game **tools password** opens the web front and Grafana's
@@ -177,7 +181,8 @@ brick versions it applies to one by one (D59, D86) and never bumps
   in `local/<playground>/secrets/` (D45); secret generation becomes "the
   secrets the bricks declare, generated by kind" (password, key pair),
   which also gives the monitoring role its password (D79).
-- **One network**, as in v0.1; network faults stay out (D83). Each
+- **One network**, as in v0.1, the scripts refusing a second (D106);
+  network faults stay out (D83). Each
   declared network renders as `<game_id>_<network name>` (D85).
 - The access model is revised for v0.2 ([access-model.md](access-model.md)):
   the web front and the interfaces behind it, the tools password, the
@@ -189,7 +194,9 @@ brick versions it applies to one by one (D59, D86) and never bumps
 
 - **One host**, with the budget "the v0.2 scenario fits 2 CPU / 4G /
   8G", and `gmctl fit` also counting image sizes against the declared
-  disk (D83). Estimate: "Footprint" below.
+  disk (D83), read from the playground's engine, each layer once, a
+  missing image refused with its build command (D102). Estimate:
+  "Footprint" below.
 - **A brick's footprint** in `brick.yaml` takes the shape of the
   scenario's `resources`: limits for CPU and memory, reservations for
   CPU, memory and disk, as the default the GM starts from (D84). The
@@ -201,8 +208,9 @@ brick versions it applies to one by one (D59, D86) and never bumps
 
 v0.1's known issues RG-3 and RG-4 are settled here. Each evidence entry in
 an answer key gains a required `where`: `bastion`, `node:<name>`,
-`ui:<name>` or `report:<tool>`; `bookshop-new-server`'s key gains it at
-its re-pin. All times are UTC: the GM states times in UTC, nodes run with
+`ui:<name>` or `report:<tool>`; v0.1's free-text `where` (the file, view
+or output looked at) becomes a required `source` (D101).
+`bookshop-new-server`'s key changes so at its re-pin. All times are UTC: the GM states times in UTC, nodes run with
 `TZ=UTC`, PostgreSQL logs with `log_timezone = UTC`, Grafana's default
 time zone is UTC.
 
@@ -215,7 +223,9 @@ time zone is UTC.
   lists catalog faults only (D62).
 - Versions ([formats.md](../../formats.md), "Versions and pins"): any
   change to a brick bumps it (D57, D58); changes to an unreleased version
-  fold into it (D61); faults and scenarios never bump (D60, D75); a
+  fold into it (D61), and a version is released only when the release
+  gate of the version that builds it passes, not when a build wave
+  merges into `main` (D100); faults and scenarios never bump (D60, D75); a
   fault's `applies_to` is the only statement of which faults a brick
   hosts (D59), listing versions one by one (D86). 0.1.1 is released
   (`main` at 5c16d06), so `postgres` and `bastion` take 0.2.0 for their
@@ -297,7 +307,9 @@ v0.1's checks (D38), extended:
   uses passes the format skill's `docs/gm.md` check (D56), `prometheus`'s
   covering the node-health script (D88).
 - A full game runs on the `laptop` playground (2 CPU / 4G / 8G) from
-  setup through hand-over, with `gmctl fit` passing.
+  setup through hand-over, with `gmctl fit` passing. The playground is
+  declared at that capacity on the build host, figures recorded with
+  machine and date (D105).
 - **Footprint, measured**: `docker stats` samples every node at rest
   after hand-over, during a Grafana dashboard load and during a pgBadger
   run; `docker system df -v` gives the images' sizes and each volume's
@@ -307,12 +319,13 @@ v0.1's checks (D38), extended:
   `brick.yaml` and `docs/gm.md` and `fit` re-run, still passing on
   `laptop`; images plus volumes in use within the declared 8G; and the
   bricks' footprints carrying the measured figures in place of the
-  estimates.
+  estimates. A brick the scenario does not use is measured on a game of
+  the build's integration fixture (D106).
 - A play-through as `player`, through the bastion only, confirms each
   fault's evidence where the answer key says (D81): UI evidence through
   the interfaces the bastion publishes, checked through their HTTP APIs;
   report evidence by generating the report.
-- The node-health view shows every node's CPU, RAM, disk (its volumes'
+- The node-health view (D104) shows every node's CPU, RAM, disk (its volumes'
   use against its reservation) and services, with the host's free space
   once, and a service the GM stops shows as down.
 - A request to the web front without the tools password is refused
@@ -370,9 +383,9 @@ nodes (D91), node-health fault targets (D92), no default-password fault
 (D93), Grafana's write-policy gap (D94), players running pgBadger (D95),
 per-node disk (D96), mounted material made explicit (D97).
 
-Raised while planning the build, gates of the [build plan](build-plan.md):
-O72 (brick versions across wave merges), O73 (v0.1's free-text evidence
-`where`), O74 (image sizes in `fit`), O75 (the web front without
-interfaces), O76 (Grafana's dashboards and the node-health view), O77
-(the `laptop` playground). O49 (backup tooling's version) is a roadmap
+Raised while planning the build and ruled the same day: brick versions
+across wave merges (D100, O72), v0.1's evidence text under `source`
+(D101, O73), image sizes in `fit` (D102, O74), the web front without
+interfaces (D103, O75), Grafana's reference dashboards (D104, O76), the
+`laptop` playground (D105, O77); the plan's three readings (D106). O49 (backup tooling's version) is a roadmap
 question v0.2 does not wait on.

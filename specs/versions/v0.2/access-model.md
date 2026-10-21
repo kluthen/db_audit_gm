@@ -1,7 +1,8 @@
 # db_audit_gm v0.2 — Access model
 
 Status: **approved by the owner on 2026-10-21** with the
-[master spec](master-spec.md) it accompanies (spec D98). Revises the
+[master spec](master-spec.md) it accompanies (spec D98); amended the
+same day for a game with no web interface (spec D103). Revises the
 [v0.1 access model](../v0.1/access-model.md), which it replaces for v0.2
 games; "Changes from v0.1" at the end lists what moved.
 
@@ -23,7 +24,7 @@ the reason).
 | Actor | Definition | How acquired | Stacks? |
 |---|---|---|---|
 | `initiator` | Whoever starts the game with the GM: a teacher, or a student playing alone | Invokes the GM skill in an agent session | Yes: a student playing alone is also a `player` |
-| `player` | A student taking part in the game; one or many sit behind one report | Receives the bastion password and the tools password from the GM at hand-over | Yes, with `initiator` (solo play) |
+| `player` | A student taking part in the game; one or many sit behind one report | Receives the bastion password, and the tools password when the game has a web interface, from the GM at hand-over | Yes, with `initiator` (solo play) |
 | `session-participant` | Anyone typing in the GM session, whatever their other role | Has the session in front of them | Yes |
 | `gm` | The agent running the GM skill (non-human) | Started by the initiator invoking the GM skill | No: exclusive |
 | `network-visitor` | Anyone who can reach the host's network, unauthenticated | Default state | No: exclusive |
@@ -42,8 +43,10 @@ they act only as configured, and their credentials are resources below.
 - The `initiator` role ends at hand-over. After that the initiator acts
   only as a `session-participant`, or as a `player` in solo play.
 - The `player` role is granted by handing over the per-game bastion
-  password and tools password together; neither can be revoked or
-  rotated during a game.
+  password and, when the topology has a web interface to publish, the
+  tools password with it; neither can be revoked or rotated during a
+  game. Without a web interface the web front does not run and its rows
+  below do not apply (D103).
 - Every role ends at teardown: the game's services, secrets (every
   password included) and volumes are removed, so the credentials stop
   working immediately.
@@ -265,7 +268,9 @@ on each node. Repeated denials have no effect.
 - **New conditions**: `holds-tools-password`, `in-game-network`,
   `through-web-front`, `fixable-grafana`.
 - **Published ports**: two on the bastion (SSH and the web front)
-  instead of one; the network visitor's denial row changes accordingly.
+  instead of one when the topology has a web interface; one, as in v0.1,
+  when it has none (D103). The network visitor's denial row changes
+  accordingly.
 - **Denial behaviour**: HTTP 401 at the web front; Prometheus' admin
   endpoints disabled; Grafana editing on a report-only node not refused;
   Grafana administration forbidden by rule.

@@ -2,7 +2,8 @@
 
 Status: **approved by the owner on 2026-10-21** (spec D98), as
 consolidated after an independent review of the drafts (verdict: no
-blocking issue). Build plan: [build-plan.md](build-plan.md).
+blocking issue); amended the same day by the owner's rulings on the
+build plan (D100–D106). Build plan: [build-plan.md](build-plan.md).
 Companion: [access-model.md](access-model.md).
 Baseline: the released [v0.1 master spec](../v0.1/master-spec.md) and its
 [access model](../v0.1/access-model.md). Everything v0.1 specifies stays
@@ -204,7 +205,10 @@ syntax.
 - **Where evidence is run.** Each evidence entry in an answer key has a
   required `where`: `bastion`, `node:<name>`, `ui:<name>` (an interface
   the web front publishes) or `report:<tool>` (a generated report, such
-  as pgBadger's). `bookshop-new-server`'s key gains it at its re-pin.
+  as pgBadger's), and a required `source`: the file, view or output
+  looked at, which v0.1's free-text `where` held (D101).
+  `bookshop-new-server`'s key moves its v0.1 text to `source` and gains
+  `where` at its re-pin.
 - **Tooling expectations.** The answer key holds a list of the GM's
   silent tooling expectations, apart from the fault instances: each says
   what is expected and what is acceptable (any of the top three tools for
@@ -216,7 +220,8 @@ syntax.
   customer's tooling.
 - **Networks.** Each network a scenario declares renders as one network
   named `<game_id>_<network name>` (v0.1 rendered a single
-  `<game_id>_net`). v0.2 scenarios declare one network.
+  `<game_id>_net`). v0.2 scenarios declare one network, and the scripts
+  still refuse a second (D83, D106).
 
 ### 6.4 Fault definition
 
@@ -238,7 +243,10 @@ syntax.
 - Any change to a brick bumps its version, whatever part of its folder
   changes (image, `brick.yaml`, validator, documentation, companion
   material), even with a byte-identical image. Changes made while a new
-  version is unreleased (its branch not merged into `main`) fold into it.
+  version is unreleased fold into it. A brick version is released when
+  the release gate of the version that builds it passes; a build wave
+  merging into `main` releases nothing (D100). So every v0.2 change to a
+  brick, up to the measured footprints, folds into its v0.2 version.
 - `postgres` and `bastion` were released at 0.1.1; v0.2's changes to
   them take **0.2.0**. New bricks start at **0.1.0**.
 - **Faults and scenarios never bump.** They keep their version whatever
@@ -306,7 +314,9 @@ publishes a port.
 - Prometheus on its own node. Its scrape targets (the exporter, every
   node's health endpoint) live in its seed configuration, so a node left
   out of the targets is a plantable fault. Retention is bounded both by
-  time and by size, about a day.
+  time and by size, about a day, and is read from a seed file, so a
+  retention fault is a seed-file fault, fixable on a fixable node
+  (D106).
 - Configuration is reloaded through a `sudo` wrapper on a fixable node;
   Prometheus' admin and lifecycle HTTP endpoints stay disabled.
   Prometheus has no login of its own; its UI is reached through the web
@@ -323,7 +333,11 @@ publishes a port.
 
 - Grafana with its own alerting; there is no separate alerting brick.
   Data sources, dashboards and alert rules are provisioned from seed
-  files the player can edit on a fixable node. There is no notification
+  files the player can edit on a fixable node. The brick ships reference
+  dashboards and alert rules (node health, PostgreSQL) in its
+  `companion/` folder, which a scenario copies into its own seed files;
+  they are not mounted. The node-health view is the reference node-health
+  dashboard (D104). There is no notification
   channel: firing alerts are read in Grafana's alerting view. Grafana's
   default time zone is UTC.
 - The administrator account's password is the per-game tools password,
@@ -360,20 +374,26 @@ publishes a port.
   interface behind it under its own path, HTTP basic authentication on
   the tools password, plain HTTP. A request without the password is
   refused with HTTP 401.
-- The game publishes exactly two ports, both on the bastion: SSH and the
-  web front.
+- The web front runs only when the topology has a web interface to
+  publish. Then the game publishes exactly two ports, both on the
+  bastion: SSH and the web front. Without one, the bastion publishes SSH
+  only, as in v0.1, and no tools password is handed over (D103).
 
 ## 8. Content delivery, the local implementation and the scripts
 
 - **Capacity check.** `gmctl fit` also counts the images' sizes against
   the declared disk, since on a laptop the images grow, not the volumes.
-  One host remains the only playground shape.
+  It reads them from the playground's engine, counting each image layer
+  once (the shared `debian:13-slim` layer once), and refuses a missing
+  image with its build command, so `fit` now needs the engine reachable
+  (D102). One host remains the only playground shape.
 - **Networks** render as section 6.3 says.
 - **Secrets.** `gmctl deploy` generates the secrets the bricks declare,
   by kind (password, key pair), instead of its fixed four. New per-game
-  secrets: the tools password and the monitoring role's password. Both
-  are kept in the local implementation's `secrets/` folder (mode 0600)
-  with the others, so a restarted GM can hand them over again.
+  secrets: the tools password (handed over only when the web front
+  runs, D103) and the monitoring role's password. Both are kept in the
+  local implementation's `secrets/` folder (mode 0600) with the others,
+  so a restarted GM can hand them over again.
 - **Mounted material.** The renderer adds the mounting brick's configs to
   every receiving node's service, from the parameter's per-node entries.
 - **Parameter faults** are applied by the renderer when it writes the
@@ -389,7 +409,7 @@ The stages of v0.1 stand, with these changes:
 - **No aging**: with no load, history builds during the game, and the
   dashboards' first 10 to 15 minutes are thin.
 - **Hand-over** adds the tools password and the web front's address and
-  port to the bastion's.
+  port to the bastion's, when the topology has a web interface (D103).
 - **Times**: the GM states every time in UTC, as the nodes, PostgreSQL's
   logs and Grafana do.
 - **Feedback** also covers the GM's tooling expectations, where the
@@ -413,7 +433,9 @@ content on a report-only Grafana node.
 
 - One new, partly tooled scenario with one database, for a small or
   mid-size customer: some monitoring present and ill-configured, one need
-  left uncovered as an under-tooling issue or tooling expectation. Not an
+  left uncovered as an under-tooling issue or tooling expectation. It has
+  Grafana, so the node-health view exists; the uncovered need is another
+  one (D104). Not an
   HA customer (that implies a standby), and no second, reporting
   database.
 - **Faults**: four to six monitoring faults, all visible without load, at
@@ -540,6 +562,9 @@ v0.1's checks still apply, extended:
    check, `prometheus`'s covering the node-health script.
 2. A full game runs on the `laptop` playground (2 CPU / 4G / 8G) from
    setup through hand-over, with `gmctl fit` passing, images counted.
+   The playground is declared at that capacity on the build host, and
+   the figures are recorded with machine and date; CPU contention is not
+   tested (D105).
 3. **Footprint, measured.** `docker stats` samples every node at rest
    after hand-over, during a Grafana dashboard load and during a pgBadger
    run; `docker system df -v` gives the images' sizes and each volume's
@@ -548,14 +573,17 @@ v0.1's checks still apply, extended:
    within its reservation, or the reservation raised in `brick.yaml` and
    `docs/gm.md` and `fit` re-run, still passing on `laptop`; images plus
    volumes in use within the declared 8G; the bricks' footprints carrying
-   the measured figures in place of the estimates.
+   the measured figures in place of the estimates. A brick the v0.2
+   scenario does not use is measured on a game of the build's
+   integration fixture, which uses every v0.2 brick (D106).
 4. A play-through as `player`, through the bastion only, confirms each
    fault's evidence where the answer key says: interface evidence through
    the web front, checked through the interfaces' HTTP APIs; report
    evidence by generating the report.
-5. The node-health view shows every node's CPU, memory, disk (its
-   volumes' use against its reservation) and services, with the host's
-   free space once, and a service the GM stops shows as down.
+5. The node-health view (the reference dashboard, D104) shows every
+   node's CPU, memory, disk (its volumes' use against its reservation)
+   and services, with the host's free space once, and a service the GM
+   stops shows as down.
 6. Each *fix* issue on a monitoring tool is fixed, its sealed check going
    from 1 to 0.
 7. A request to the web front without the tools password is refused
