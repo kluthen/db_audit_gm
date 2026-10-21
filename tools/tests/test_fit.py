@@ -89,6 +89,7 @@ class TestFit(ScenarioCopyTest):
         self.assertEqual(state["game_id"], gid)
         self.assertEqual(state["stage"], "fitted")
         self.assertIsNone(state["failure"])
+        self.assertNotIn("teardown", state)
         self.assertEqual([h["stage"] for h in state["history"]], ["fitted"])
 
     def test_derived_names(self):

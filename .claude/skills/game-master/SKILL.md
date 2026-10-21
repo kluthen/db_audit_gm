@@ -216,14 +216,16 @@ The initiator, or anyone, may ask to stop at any point of the setup: see
   that playground: start again on a new playground slug (`laptop-2`),
   from step 5, and keep the failed one as the record.
 - **A stop request during setup** is obeyed at once, without asking for
-  confirmation. If anything was deployed (stage `deployed`, `data-loaded`
-  or `injected`), run `tools/gmctl teardown <dir> --playground <pg>`; then
-  report to the initiator the stage reached and that the setup was
-  stopped on request. `state.yaml` keeps the stage reached in its history,
-  followed by `torn-down`; `gmctl` has no way to record the reason of a
-  stop between steps, so state it in the session. If a `gmctl` command was
-  interrupted while running, it records `failed` with "stopped on
-  request" itself: run `teardown` to confirm, as above.
+  confirmation. At whatever setup stage the game is, run `tools/gmctl
+  teardown <dir> --playground <pg> --reason "stopped on request"` (add
+  who asked and why, if said, on the same line); it removes nothing when
+  nothing was deployed. Then report to the initiator the stage reached
+  and that the setup was stopped on request. `state.yaml` records the
+  teardown with the stage reached and the reason, which `gmctl status`
+  prints (`torn down: at ..., from stage <stage>: <reason>`). If a
+  `gmctl` command was interrupted while running, it records `failed`
+  with "stopped on request" itself: run the same `teardown --reason` to
+  confirm and record it, as above.
 
 ## Hand-over
 
