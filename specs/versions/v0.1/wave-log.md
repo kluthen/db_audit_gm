@@ -748,3 +748,11 @@ gate also checks a stop during setup with its reason (master spec 17
 item 7 checks the stage only). Branches kept until the wave closes:
 `v0.1-c7-eval`, `v0.1-c8-scenario`, `v0.1-c9-gm-skill`,
 `v0.1-c10-teardown-reason`.
+
+- Report to the owner 2026-10-21; the owner said to merge wave 3 into
+  `main` and then run the release gate (the plan's release gate reads "on
+  the merged code"). The release gate runs on branch `v0.1-release`, cut
+  from `main` after the merge, so its commits (release notes, any fix)
+  land there and `main` takes them at release close. The stop-reason
+  question got no answer: the driver adds it to release-gate item 5 as an
+  extra check (spec D50), reported apart from master spec 17 item 7.
