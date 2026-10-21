@@ -1,7 +1,7 @@
 # PostgreSQL node — player notes
 
 What you may know about a PostgreSQL 18 database node in a db_audit_gm
-game. Initial version (v0.1), expected to evolve.
+game. Version 0.2: server log in files, pgBadger, `pg_stat_statements`.
 
 ## Getting there
 
@@ -20,6 +20,40 @@ too.
 - **The database** itself, through `psql` as `dba`.
 
 Changes to `/etc/postgresql` stay in place when PostgreSQL restarts.
+
+## The server log and pgBadger
+
+PostgreSQL writes its log to files in `/var/log/postgresql/`, if the
+configuration says so (`logging_collector`, `log_directory`). You can read
+them (your account is in the `pgconf` group) but not change them.
+
+pgBadger is installed. Run it yourself, as `player`, no `sudo` needed;
+write the report in your home:
+
+```
+pgbadger -o ~/pgbadger.html /var/log/postgresql/postgresql-*.log
+```
+
+What it can report depends on what PostgreSQL logs and how
+(`log_line_prefix`, `log_min_duration_statement`, `lc_messages`, ...): that
+is part of what you audit. A run on a large log uses this node's memory
+and CPU, shared with PostgreSQL; `pgbadger --help` lists the options to
+restrict it (`--begin`, `--end`, one file at a time).
+
+To read the report on your own machine, copy it out in two hops. From the
+bastion:
+
+```
+scp <node>:pgbadger.html .
+```
+
+then, from your machine, `sftp` to the bastion and `get pgbadger.html`.
+
+## Query statistics
+
+If the configuration preloads it (`shared_preload_libraries`), the view
+`pg_stat_statements` in the database `postgres` lists the statements run
+on the server and what they cost.
 
 ## Applying changes
 
@@ -63,7 +97,8 @@ around these rules.
 ## Good to know
 
 - No ports of this node are published outside the game's network.
-- The server log goes to the container's output, which you do not see.
-  If PostgreSQL does not come back after a restart, `gm-restart-db` says
+- If PostgreSQL does not come back after a restart, `gm-restart-db` says
   so; look at your last changes.
+- A role named `monitoring` exists: the game's monitoring tools connect
+  with it. Its password is not yours to read.
 - Most of the system is read-only; `/tmp` is available.

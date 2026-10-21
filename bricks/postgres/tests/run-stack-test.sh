@@ -1,5 +1,6 @@
 #!/bin/sh
-# Stack test of the PostgreSQL brick (build plan v0.1, chunk 2, Done when).
+# Stack test of the PostgreSQL brick (build plan v0.1 chunk 2 and v0.2
+# chunk 6, Done when).
 #
 # Deploys the brick as a one-service Swarm stack (stack.test.yml) with the
 # seed files, the envelope file and the secrets as external configs and
@@ -10,7 +11,11 @@
 #   - edits to /etc/postgresql survive gm-restart-db and a new container;
 #   - the seed marker (/var/lib/gm-state) is out of player's and postgres's reach;
 #   - the validator exits 0 in-envelope and 1 out-of-envelope;
-#   - read-only root, capabilities, peer access for postgres.
+#   - read-only root, capabilities, peer access for postgres;
+#   - v0.2: the file log on the log volume (UTC, readable by player, not
+#     in the service logs), pgBadger run as player into its home,
+#     pg_stat_statements preloaded, the monitoring role (pg_monitor, the
+#     secret's password), the secret out of player's reach.
 # Everything it creates is removed on exit, volumes included.
 #
 # Needs: a swarm manager (docker swarm init), the image built locally:
@@ -26,8 +31,8 @@ NET=${STACK}_net
 CLIENT=${STACK}-client
 LABEL=dbagm.test=chunk2-postgres
 CONFIGS="seed_postgresql_conf seed_pg_hba_conf envelopes"
-SECRETS="player_ssh_pubkey dba_password"
-VOLUMES="pgdata pgconf home gmstate run"
+SECRETS="player_ssh_pubkey dba_password monitoring_password"
+VOLUMES="pgdata pgconf home gmstate pglog run"
 SSH_OPTS="-i /root/id -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o LogLevel=ERROR -o ConnectTimeout=10"
 
 failures=0
@@ -86,12 +91,15 @@ ssh-keygen -q -t ed25519 -N '' -C gmtest-player -f "$tmp/id"
 # A password with the characters .pgpass and SQL must escape.
 DBA_PASSWORD="T:$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')'q\\z"
 printf '%s' "$DBA_PASSWORD" > "$tmp/dba_password"
+MON_PASSWORD="M:$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')'q\\z"
+printf '%s' "$MON_PASSWORD" > "$tmp/monitoring_password"
 
 docker config create -l "$LABEL" "${STACK}_seed_postgresql_conf" "$HERE/fixtures/postgresql.conf" >/dev/null
 docker config create -l "$LABEL" "${STACK}_seed_pg_hba_conf" "$HERE/fixtures/pg_hba.conf" >/dev/null
 docker config create -l "$LABEL" "${STACK}_envelopes" "$HERE/fixtures/envelopes.conf" >/dev/null
 docker secret create -l "$LABEL" "${STACK}_player_ssh_pubkey" "$tmp/id.pub" >/dev/null
 docker secret create -l "$LABEL" "${STACK}_dba_password" "$tmp/dba_password" >/dev/null
+docker secret create -l "$LABEL" "${STACK}_monitoring_password" "$tmp/monitoring_password" >/dev/null
 
 info "deploying stack $STACK"
 docker stack deploy --resolve-image never -c "$HERE/stack.test.yml" "$STACK" >/dev/null 2>&1
@@ -182,6 +190,59 @@ denied "dba's COPY TO PROGRAM (as postgres) cannot remove the marker" \
 check "postgres cannot remove the marker" sh -c "! docker exec -u postgres $C rm -f $MARKER"
 [ "$(gm cat "$MARKER")" = "$marker0" ] && pass "marker unchanged after the attempts" || fail "marker changed or gone"
 
+# --- v0.2: file log on the log volume (master spec 7.5) ------------------------
+LOGDIR=/var/log/postgresql
+mnt=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/var/log/postgresql"}}{{.Type}} {{.Name}}{{end}}{{end}}' "$C")
+[ "$mnt" = "volume ${STACK}_pglog" ] && pass "$LOGDIR is the volume pglog" || fail "$LOGDIR mount: $mnt"
+w=$(pssh "psql -XAtc \"select current_setting('logging_collector') || ' ' || current_setting('log_directory') || ' ' || current_setting('log_timezone') || ' ' || current_setting('log_rotation_size') || ' ' || current_setting('log_rotation_age')\"" 2>&1 || true)
+[ "$w" = "on $LOGDIR UTC 10MB 0" ] && pass "logging collector on, log_directory, log_timezone UTC, rotated by size ($w)" \
+    || fail "logging settings: $w"
+LOGFILE=$(gm sh -c "ls -1 $LOGDIR/postgresql-*.log | head -n 1")
+first=$(gm head -n 1 "$LOGFILE" 2>&1)
+if printf '%s' "$first" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} UTC \[[0-9]+\]: user=[^,]*,db=[^,]*,app=[^,]*,client=[^ ]* '; then
+    pass "log file $LOGFILE written in UTC with the pgBadger prefix ($first)"
+else
+    fail "log file ${LOGFILE:-none}: first line [$first]"
+fi
+m=$(gm stat -c '%a %U:%G' "$LOGDIR" "$LOGFILE" | tr '\n' ' ')
+[ "$m" = "2750 postgres:pgconf 640 postgres:pgconf " ] && pass "log directory and file modes ($m)" || fail "log modes: $m"
+w=$(pssh "grep -c 'connection authorized: user=dba' $LOGFILE" 2>&1 || true)
+case $w in ''|0|*[!0-9]*) fail "player reads the log file: $w" ;; *) pass "player reads the log file ($w dba connections logged)" ;; esac
+denied "player cannot write the log file" "echo x >> $LOGFILE"
+denied "player cannot create a file in the log directory" touch "$LOGDIR/x"
+n=$(docker service logs --raw "$SERVICE" 2>&1 | grep -c 'connection authorized')
+[ "$n" = 0 ] && pass "the server log has left the service logs (no connection line in them)" \
+    || fail "service logs still carry $n connection lines"
+
+# --- v0.2: pgBadger run by player, report in its home --------------------------
+pssh "psql -XAtc 'select pg_sleep(0.2) as gm_stack_test_slow'" >/dev/null 2>&1
+sleep 1
+out=$(pssh "pgbadger -q -o ~/pgbadger.html $LOGDIR/postgresql-*.log" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && pass "pgbadger runs as player, no sudo (exit 0)" || fail "pgbadger: exit $rc: $out"
+m=$(gm stat -c '%U %s' /home/player/pgbadger.html 2>&1)
+case $m in "player "[1-9]*) pass "HTML report in player's home ($m bytes)" ;; *) fail "report: $m" ;; esac
+check "the report holds the slow query (prefix parsed)" gm grep -q gm_stack_test_slow /home/player/pgbadger.html
+check "the report is HTML" gm grep -qi '<html' /home/player/pgbadger.html
+
+# --- v0.2: pg_stat_statements ----------------------------------------------------
+w=$(pssh "psql -XAtc 'show shared_preload_libraries'" 2>&1 || true)
+[ "$w" = pg_stat_statements ] && pass "pg_stat_statements preloaded by the seed" || fail "shared_preload_libraries: $w"
+w=$(pssh "psql -XAtc \"select count(*) > 0 from pg_stat_statements where query like '%gm_stack_test_slow%'\"" 2>&1 || true)
+[ "$w" = t ] && pass "pg_stat_statements queryable, holds the slow query" || fail "pg_stat_statements: $w"
+
+# --- v0.2: the monitoring role and its secret ----------------------------------
+mon_psql() { docker exec -e PGPASSWORD="$1" "$CLIENT" psql -h db -U monitoring -d postgres -XAtc "$2"; }
+w=$(mon_psql "$MON_PASSWORD" "select pg_has_role(current_user, 'pg_monitor', 'member') || ' ' || (select rolsuper from pg_roles where rolname = current_user)" 2>&1 || true)
+[ "$w" = "true false" ] && pass "monitoring logs in over TCP with the secret's password, holds pg_monitor, not superuser" \
+    || fail "monitoring role: $w"
+w=$(mon_psql "$MON_PASSWORD" "select count(*) > 0 from pg_stat_statements" 2>&1 || true)
+[ "$w" = t ] && pass "monitoring reads pg_stat_statements" || fail "monitoring on pg_stat_statements: $w"
+check "monitoring refused with another password" sh -c "! docker exec -e PGPASSWORD=wrong $CLIENT psql -h db -U monitoring -d postgres -XAtc 'select 1'"
+m=$(gm stat -c '%a %u:%g' /opt/gm/secrets/monitoring_password)
+[ "$m" = "440 0:102" ] && pass "monitoring_password mounted root:postgres 0440" || fail "secret mode: $m"
+check "postgres reads the monitoring_password secret" docker exec -u postgres "$C" test -r /opt/gm/secrets/monitoring_password
+check "player cannot read the monitoring_password secret file" sh -c "! docker exec $CLIENT ssh $SSH_OPTS player@db cat /opt/gm/secrets/monitoring_password"
+
 # --- reload path: out-of-envelope sighup knob ------------------------------------
 pssh "echo 'work_mem = 128MB   # stack test' >> /etc/postgresql/postgresql.conf" \
     && pass "player edits /etc/postgresql/postgresql.conf" || fail "player cannot edit postgresql.conf"
@@ -266,6 +327,9 @@ w=$(pssh cat report.md 2>&1 || true)
 [ "$w" = "audit notes" ] && pass "player's home kept in a new container" || fail "home after new container: $w"
 out=$(pssh sudo -n gm-validate 2>&1); rc=$?
 [ "$rc" -eq 0 ] && pass "validator green in the new container" || fail "validator in new container: exit $rc: $out"
+check "log file kept in a new container (volume pglog)" gm test -s "$LOGFILE"
+w=$(mon_psql "$MON_PASSWORD" "select 1" 2>&1 || true)
+[ "$w" = 1 ] && pass "monitoring role kept in a new container" || fail "monitoring after new container: $w"
 
 # --- hardening ---------------------------------------------------------------------
 check "root filesystem is read-only" sh -c "[ \"\$(docker inspect -f '{{.HostConfig.ReadonlyRootfs}}' $C)\" = true ]"
