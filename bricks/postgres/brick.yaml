@@ -70,6 +70,7 @@ protected_files:
   - /opt/gm/protected/envelopes.conf
   - /etc/s6-overlay/s6-rc.d
   - /etc/s6-overlay/user-bundles.d
+  - /var/lib/gm-state               # seed marker .gm-seeded (volume gmstate)
 player_access:
   ssh_account: player
   group: pgconf
@@ -126,6 +127,8 @@ volumes:
     path: /etc/postgresql
   - name: home
     path: /home/player
+  - name: gmstate                   # seed marker /var/lib/gm-state/.gm-seeded, root-owned:
+    path: /var/lib/gm-state         #   kept out of the group-writable /etc/postgresql
   - name: run                       # /run: a stack file's tmpfs is noexec and s6-overlay
     path: /run                      # needs exec; emptied by the entrypoint at each start
 processes:
