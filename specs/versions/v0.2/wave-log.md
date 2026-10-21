@@ -674,3 +674,69 @@ Chunks: 5, 6, 7 (chain 5 → 7). Branch `v0.2-w2`, worktree
   capture.
 - **Risk accepted by the access model**: `dba` (superuser) can read the
   secret through `COPY … TO PROGRAM`.
+- Chunk 7 merged 2026-10-21: 3925d13 (7a), eb7fed9 and 893d472 (7b),
+  merge 5c50c71 (after 4e69641 merged `v0.2-w2` into the chunk branch);
+  stack test 67 PASS, 0 FAIL (with both postgres images); `smoke.sh` 48
+  PASS on the chunk branch before chunk 6 came in (two new checks: only
+  port 22 published, front not running); 277 unit tests pass on
+  `v0.2-w2` after the merge. `bastion:0.2.0` rebuilt from 7a
+  (7b9336873f01, 185MB, was 179MB). The merged counts add both chunks'
+  objects: `test_teardown.py` 6 secrets; `smoke.sh` 12 configs and
+  secrets, 6 status secret lines (Git alone would have taken one 5 for
+  both). 893d472 (outside one commit per half): the bastion stack test's
+  db node gets `monitoring_password` and `pglog`, which chunk 6's
+  entrypoint needs.
+
+### Capture W2-C — chunk 7 outcomes (read by 10, 11, 12, 14)
+
+- **Proxy**: nginx 1.26.3 (Debian 13 package `1.26.3-3+deb13u9`), s6
+  service `web-front`, run as `www-data` through `s6-setuidgid`, no
+  capability added. Without a configuration the service runs
+  `s6-svc -O .` and exits. Image 185MB.
+- **Start-up** (`gm-entrypoint` step 7): checks each `GM_WEB_ROUTES`
+  token (`name=node:port`, lowercase name, port 1–65535, no duplicate)
+  and fails the container otherwise; writes `/run/web-front/`
+  (root:www-data 0750) with `htpasswd` (`player:<openssl passwd -6>`,
+  root:www-data 0440) and `nginx.conf` (root 0444): `listen 8080`, per
+  route `location /<name>/` proxying to `<node>:<port>`, resolved per
+  request through `127.0.0.11`; then `nginx -t` as `www-data`. No token:
+  nothing written and `tools_password` not read (it is still generated
+  and mounted, W1 item 7).
+- **Behaviour**: basic auth on every path, user name **`player`**,
+  realm `db_audit_gm web front`; 401 with the challenge otherwise. `/`
+  lists the routes as plain text; `/<route>` redirects to `/<route>/`;
+  other paths 404; an upstream down 502. Forwarded: path and query
+  unchanged, `Host $http_host`, `X-Real-IP`, `X-Forwarded-For`,
+  `X-Forwarded-Proto`, WebSocket `Upgrade`/`Connection`; `Authorization`
+  cleared, an upstream's `WWW-Authenticate` hidden; bodies up to 16M,
+  read timeout 300 s; no access log, errors to the container output.
+- **Health check**: also requires `web-front` up and listening on 8080
+  when `/run/web-front/nginx.conf` exists.
+- **`brick.yaml`**: parameter `web_routes` (`shape: web-routes`,
+  `default: {}`, `required: false`); provides `{web-front, http, 8080}`;
+  consumes `{ui, http, 9090}` and `{ui, http, 3000}` (Grafana's port
+  taken from W1's example: chunk 10 confirms it); secret
+  `tools_password` (`kind: password`, `handed_over: true`,
+  `/opt/gm/secrets/tools_password`, 0:0, `"0400"`); `processes: [sshd,
+  web-front]` (node-health on the bastion expects `web-front` up, which
+  holds whenever `prometheus` is present, since the loader then
+  requires a route); `protected_files` gains `/run/web-front`;
+  `extra.web_front_port_default: 8080`.
+- **Footprint** unchanged (limits 0.5 / 256M, reservations 0.25 / 128M
+  / 256M); idle 5.0 MiB with the front, 2.8 MiB without.
+- **For chunk 10**: `player.md` says Grafana asks for its administrator
+  login with the tools password, without naming the user (chunk 10's).
+- **For chunk 12**: the hand-over is user `player` with the tools
+  password, at `http://<host>:8080/<route>/`.
+- **Stack test**: `STACK=gmtest-bastion`, `GMTEST_BASTION_PORT`
+  (22222), `GMTEST_BASTION_WEB_PORT` (28080); stub
+  `tests/fixtures/stub-upstream.pl` in `debian:13-slim` on 9090; routes
+  `other=stub:9091 stub=stub:9090`; needs `curl` on the host.
+- No root `README.md` change (no row describes the bastion's ports).
+
+### Wave gate — started 2026-10-21
+
+Every chunk merged (5, 6, 7), none moved. The gate runs on `v0.2-w2`
+with the wave 1 gate's commands; `postgres:0.2.0` is rebuilt from the
+wave branch first (chunk 6's tag note) and `postgres:0.2.0-c6` removed
+at the end.

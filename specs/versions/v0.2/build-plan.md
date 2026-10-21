@@ -83,7 +83,7 @@ model says (D100).
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
 | 1 | 1, 2, 3, 4 | G2 (chunks 1, 4); G3 (chunks 1, 3, 4) | merged (2026-10-21, 6467fb5) |
-| 2 | 5, 6, 7 | wave 1; G2, G3 | in progress |
+| 2 | 5, 6, 7 | wave 1; G2, G3 | built; wave gate running |
 | 3 | 8, 9, 10, 11 | wave 2 | planned |
 | 4 | 12, 13, 14 | wave 3; G10 (chunk 14's merge) | planned |
 
@@ -526,8 +526,15 @@ Architecture capture: none (chunk 9 reads the merged brick).
 
 ### Chunk 7 — `bastion` 0.2.0: the web front
 
-Status: in progress
-Record: (after merge)
+Status: merged (w2, 5c50c71)
+Record: 3925d13 (7a), eb7fed9 and 893d472 (7b), merge 5c50c71 (with
+4e69641 bringing chunk 6 in first); no deviation; outcomes in capture
+W2-C (wave log). Master spec 15: the reverse proxy is nginx 1.26.3
+(Debian 13); `Authorization` is cleared on every forwarded request.
+893d472 gives the bastion stack test's db node postgres 0.2.0's
+`monitoring_password` and `pglog` (chunk 6 broke it); the expected
+lists in `tools/tests/test_{deploy,fit,state,teardown}.py` and
+`smoke.sh`'s counts combine chunks 6 and 7.
 Wave: 2
 Depends on: chunks 1, 3, 5 (in wave 2: the routes parameter rendered
 as `GM_WEB_ROUTES`); G2, G3 (G7 done)
