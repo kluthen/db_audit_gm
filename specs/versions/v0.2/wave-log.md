@@ -442,3 +442,67 @@ reference for chunks 12 and 13; two replace v0.1 messages:
 expectation`, and `injection.kind: <k> is not seed-file, state or
 parameter`. `fault.yaml`'s own `evidence[].where` stays free text (O78),
 pinned by a test.
+- Chunk 4 merged 2026-10-21: 54279f8 (4a), d05bb10 (4b), merge 4c47239;
+  stack test 101 PASS, 0 FAIL; 253 unit tests pass on `v0.2-w1` after
+  the merge (chunk 2's loader accepts `brick.yaml`).
+
+### Capture W1-D — chunk 4 outcomes (read by 5, 9, 10, 11, 13, 14)
+
+- **`companion.mounted` as built** (all files uid and gid 0):
+
+```yaml
+companion:
+  path: companion/
+  when: at every deployment of a scenario with a prometheus node: the GM mounts companion/node-health into every node the node_health map lists
+  mounted:
+    - name: node-health
+      parameter: node_health          # shape: node-map, required: true, default: null
+      files:
+        - {source: companion/node-health/node-health.pl, target: /usr/local/lib/gm/node-health/node-health.pl, mode: "0444"}
+        - {source: companion/node-health/s6-rc.d/gm-node-health/type, target: /etc/s6-overlay/s6-rc.d/gm-node-health/type, mode: "0444"}
+        - {source: companion/node-health/s6-rc.d/gm-node-health/run, target: /etc/s6-overlay/s6-rc.d/gm-node-health/run, mode: "0555"}
+        - {source: companion/node-health/s6-rc.d/gm-node-health/dependencies.d/base, target: /etc/s6-overlay/s6-rc.d/gm-node-health/dependencies.d/base, mode: "0444"}
+        - {source: companion/node-health/user-bundles.d/user/contents.d/gm-node-health, target: /etc/s6-overlay/user-bundles.d/user/contents.d/gm-node-health, mode: "0444"}
+      node_config: {target: /opt/gm/node-health/node.conf, mode: "0444"}
+      footprint:
+        limits:       {cpu: 0.005, memory: 6M}
+        reservations: {cpu: 0.005, memory: 6M, disk: 0}
+      requires: {s6_overlay: "3", commands: [sh, perl, du, df, s6-svstat]}
+```
+
+- **Per-node config**: W1's format; `node`, `services`
+  (space-separated), `disk_reservation` (bytes), `volumes`
+  (space-separated absolute paths) all required; `#` and blank lines
+  ignored; a missing or malformed file logs `gm-node-health: fatal: …`
+  and retries every 30 s. Hand-written examples:
+  `bricks/prometheus/tests/fixtures/node-health/{db,prometheus}.conf`;
+  `tests/stack.test.yml` shows the config mounts (chunk 5's model).
+- **Endpoint**: port 9110, `GET /metrics`, one request at a time, 5 s
+  header timeout; CPU time and limit, memory used, working set and
+  limit, disk used against the reservation, per-volume use, host free
+  space, `service_up` per listed service, `node_health_sample_age_seconds`
+  (disk up to 30 s old, services up to 5 s).
+- **Accounts**: a root sampler running only `s6-svstat`, `du` and `df`,
+  holding no socket; a forked listener dropping to `nobody:nogroup`
+  (65534) before opening 9110. Each `supervise/` is root 0700, and the
+  volumes (PGDATA `postgres` 0700) are unreadable to another account.
+- **Prometheus node**: Prometheus 3.13.5 (checksummed), `:9090` under
+  `/prometheus/` (only a redirect from `/` outside it); `POST /-/reload`
+  and `PUT /-/quit` 403, admin APIs 500 "admin APIs disabled".
+  Retention in the seed `prometheus.yml`
+  (`storage.tsdb.retention.{time,size}`, fixture 1d / 256MB): a
+  retention fault (chunk 13) is a `prometheus.yml` seed-file fault.
+  `gm-reload-prometheus` checks with `promtool` as `prometheus`, sends
+  `s6-svc -h`, waits for a new reload timestamp and prints the
+  retention in effect. Validator rules: `config`, `server`, `reload`,
+  `pending`, `retention` (bounded by time and size). Write policy
+  `fixable` only; `consumes: []` (targets from the seed file);
+  `knobs: []`.
+- **Footprint**: the brick's own, master spec 12's figures less the
+  script: limits 0.495 CPU / 378M, reservations 0.095 CPU / 154M /
+  512M disk. Image about 488MB (`prometheus` 131M and `promtool` 109M
+  binaries) against spec 12's 150M estimate: for chunk 8's `fit` and
+  chunk 14b's footprint.
+- **Known**: no scenario can use `prometheus` before chunk 7 (route for
+  its `ui`); the root `README.md` row for `bricks/` does not list
+  `prometheus` (fixed at the wave gate).

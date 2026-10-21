@@ -348,8 +348,20 @@ Architecture capture: none of its own; it implements W1's secret kinds.
 
 ### Chunk 4 — `prometheus` brick and the node-health script
 
-Status: in progress
-Record: (after merge)
+Status: merged (w1, 4c47239)
+Record: 54279f8 (4a), d05bb10 (4b), merge 4c47239. Prometheus 3.13.5;
+sub-path `--web.external-url=/prometheus/ --web.route-prefix=/prometheus/`
+on :9090, admin and lifecycle flags not passed; retention as
+`storage.tsdb.retention.{time,size}` in the seed `prometheus.yml` (3.13
+deprecates the flags), applied by SIGHUP; wrappers `gm-reload-prometheus`,
+`gm-validate` (`/etc/sudoers.d/gm-player`); validator
+`/opt/gm/validator/validate.sh`. Node-health: port 9110 (`GET /metrics`);
+listener as `nobody:nogroup`, sampler as root (`s6-svstat` and `du` cannot
+read as an unprivileged account; reported to the owner, wave 1 report);
+cgroup v2 files readable in the container's own namespace; empty s6 files
+carry a comment line; configs mount into folders the image lacks. Image
+about 488MB against master spec 12's 150M estimate; script 6M per node.
+Details: wave log, capture W1-D.
 Wave: 1
 Depends on: chunk 1 (W1 capture), G2, G3
 Architecture capture: none beyond W1. The commands the node-health
