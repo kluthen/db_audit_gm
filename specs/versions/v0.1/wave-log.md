@@ -826,3 +826,8 @@ players.
 7. **G5:** the feedback of game `bookshop-new-server-pwbho8` sent to the
    owner for judgement; open.
 8. **Release notes:** to `spec-writer`, on `v0.1-release`.
+- `spec-writer` wrote the release notes in `specs/versions/v0.1/README.md`
+  (8206c04), recorded D53 (clarification of master spec 17 item 4 for
+  RG-2, overturnable) with plan v6, and logged RG-1 as O55 (owner's
+  decision). Open at this point: G5, O55, the owner's word to merge
+  `v0.1-release` into `main`, then the milestone archive.
