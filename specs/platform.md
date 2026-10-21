@@ -1,6 +1,6 @@
 # Platform
 
-Status: draft v10
+Status: draft v11
 
 The swarm the games run on, the resource budget scenarios must fit, how
 scenario content reaches the nodes, and the Swarm behaviours that shape the
@@ -64,7 +64,10 @@ Proposed:
   within capacity minus headroom. Monitoring is not free: v0.2's
   Prometheus, Grafana, `postgres_exporter` and the node-health script
   inside every node count in the budget, and footprint is a main
-  criterion in choosing the tools (D64, D66, D69). The v0.2 estimate is in
+  criterion in choosing the tools (D64, D66, D69). v0.2 runs on one host,
+  its scenario fitting 2 CPU / 4G / 8G, and `gmctl fit` also counts the
+  images' sizes against the declared disk, since on a laptop the images
+  grow, not the volumes (D83). The v0.2 estimate is in
   [versions/v0.2/README.md](versions/v0.2/README.md), "Footprint".
 - Producer load is calibrated against the nerfed databases: enough to show
   contention and symptoms, not enough to saturate the host.

@@ -1,6 +1,6 @@
 # Bricks and faults
 
-Status: draft v5
+Status: draft v6
 
 The catalog of reusable bricks and fault definitions, and the rules that
 keep scenarios fair. What a brick or fault definition must contain is in
@@ -50,7 +50,7 @@ on a 2 CPU / 4G / 8G laptop) is a main criterion in choosing it (D64):
 
 | Need | v0.2 brick (D66, D69) |
 |---|---|
-| Per-node health | the node-health script, a daemon on every node, configured by the GM at initialisation: the node's CPU, RAM, disk and the status of its important services; scraped by Prometheus |
+| Per-node health | the node-health script, a daemon on every node, configured by the GM at initialisation: the node's CPU, RAM, disk and the status of its important services; scraped by Prometheus. The GM mounts the script and its s6 service into each node as configs at deploy (D73) |
 | PostgreSQL metrics | `postgres_exporter` |
 | Metrics store | Prometheus |
 | Dashboards and alerting | Grafana, with its own alerting; no separate alerting brick |
@@ -60,9 +60,21 @@ on a 2 CPU / 4G / 8G laptop) is a main criterion in choosing it (D64):
 No cAdvisor and no Docker socket or host mount: each node reports on
 itself from inside (D66). pgwatch and pgCluu, both in the reference, are
 not v0.2 bricks. Every monitoring brick, the node-health script included,
-has its GM documentation like any brick (D56). How the node-health brick
-is packaged and reaches each node: O64. Other tools, other health
-solutions (Nagios or others) and hand-made scripts come in v0.5 (D70).
+has its GM documentation like any brick (D56).
+
+The node-health script (D73) runs on every node whenever the topology has
+a metrics store; a node left out is a monitoring fault. The GM installs
+it at deploy: the script and its s6 service are mounted into each node as
+configs, with the node's list of services, so a brick image only has to
+accept a mounted service and none carries the script. It reads CPU and
+memory from the node's cgroup v2 files, disk with `df` on the node's
+volumes and services with `s6-svstat`, and serves them in Prometheus'
+text format on a fixed port; its default services are the brick's s6
+`processes`, which the GM may adjust. Being configs, the script and its
+list are read-only on the node: their faults can be reported or a fix
+proposed, never fixed by the player. How the brick, which has no node of its own, is
+declared in the format: O64. Other tools, other health solutions (Nagios
+or others) and hand-made scripts come in v0.5 (D70).
 
 Monitoring bricks are optional in a topology (D65), and may carry faults
 of their own (D63; "Example families" below).
@@ -87,8 +99,12 @@ tools is fine, but tooling that needs about three times the compute and
 disk of what it watches is overkill, and that is a finding too.
 
 Under-tooling (and overkill) is no fault kind of its own. It is an issue
-the customer raises, a silent expectation of the GM, or both. How a silent
-expectation is written in the scenario and judged in feedback: O62.
+the customer raises, a silent expectation of the GM, or both. A silent
+expectation is an item of the answer key's list of tooling expectations,
+outside the fault instances, judged in feedback; an issue may cover one
+(D76; [formats.md](formats.md), "What a scenario must contain"). The
+bastion and its tools are the players' kit, not the customer's tooling,
+and do not count (D87).
 
 ### Solvability probe (proposed)
 
@@ -112,7 +128,7 @@ declare such dependencies explicitly (proposed).
 |---|---|
 | Backups | stanza mismatch; `archive_command` failing but returning 0; retention purging too early; restore never tested |
 | Scheduled jobs | unescaped `%` in crontab; missing final newline; wrong `PATH`; wrong time zone; script not executable |
-| Monitoring that lies | collector pointed at the standby; alert threshold in the wrong unit; one host not collected; a monitoring brick ill-configured, missing nodes, or starved of information, such as no slow-query log for pgBadger to read (D63) |
+| Monitoring that lies | collector pointed at the standby; alert threshold in the wrong unit; one host not collected; a node left without the node-health script (D73); a monitoring brick ill-configured, missing nodes, or starved of information, such as no slow-query log for pgBadger to read (D63) |
 | Security | `trust` in `pg_hba.conf`; application role with superuser; secrets readable by everyone |
 | Performance | missing index; autovacuum disabled on a hot table; bloat; bad memory settings |
 | Replication | lag; abandoned replication slot filling the disk |

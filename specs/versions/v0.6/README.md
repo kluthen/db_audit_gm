@@ -35,17 +35,15 @@ from.
   [planes-and-access.md](../../planes-and-access.md)).
 - The bastion's tooling as the customer's: it is the players' kit, and
   does not count when judging whether the customer's tooling is
-  proportionate (D65) (proposed).
+  proportionate (D65, D87).
 
 ## Depends on
 
-- v0.2: the bastion publishing the UIs (D68) and how it does so (O63); if
-  v0.2 settles on SSH forwarding, v0.6 still needs a web front for the
-  documentation website.
+- v0.2: the bastion publishing the UIs (D68) through its web front (D77),
+  which the documentation website and the published reports build on.
 
 ## Questions due in this version
 
-- O63: how the bastion publishes, if v0.2 leaves anything open.
 - O21: whether the starter documentation, now a website, may itself carry
   faults.
 - O32: the language of player-facing material, the website included.

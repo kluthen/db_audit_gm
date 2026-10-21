@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v11
+Status: draft v12
 
 What a scenario, a brick and a fault definition must contain, and how they
 are laid out, so that every scenario the GM designs or generates stays
@@ -70,16 +70,19 @@ The owner's requirements (D23), with the earlier rulings that apply:
   and the issues given to the players, zero or more, each with its expected
   resolution (*report*, *propose*, *fix*, *improve*) and the faults it
   covers (D9);
-  the aging plan (none in v0.1). Whether an issue may also cover a
-  tooling expectation that is not a fault (D65): O62.
+  the aging plan (none in v0.1 or v0.2). An issue may also cover a
+  tooling expectation, which is not a fault (D65, D76).
 - **The answer key**, for every fault instance: what is wrong and why, the
   evidence as the player user and where it is run (a required `where`
   from v0.2: `bastion`, `node:<name>`, `ui:<name>`, `report:<tool>`;
-  proposed, O70), what counts as an acceptable diagnosis, fix,
+  D81), what counts as an acceptable diagnosis, fix,
   improvement or recommendation, the sealed check, interactions with other
   faults, any validator the player cannot make green (D10), and, once
-  solvability probes exist, their results. Any silent tooling expectation
-  of the GM (D65) is recorded too; how: O62.
+  solvability probes exist, their results. The GM's silent tooling
+  expectations (D65) are a list of their own, outside the fault
+  instances: each says what is expected and what is acceptable (any of
+  the research's top three tools for a need, say), has no sealed check,
+  and is judged in feedback (D76).
 - **The host topology it was designed for**: the platform (Swarm,
   Kubernetes…), the hosts, their capacity (CPU, RAM, disk), and the
   resource limits, reservations and placement the scenario was sized with.
@@ -131,8 +134,9 @@ what the scenario expects:
 - resource limits and reservations per node, placement and pinning, and the
   number of hosts used (one in v0.1, D35);
 - the game id, which names every volume, config, secret and network of the
-  game, so a redeploy never reuses a player-edited volume (D36); how a
-  network the scenario names maps to the rendered one: O58;
+  game, so a redeploy never reuses a player-edited volume (D36); each
+  network the scenario declares renders as one network named
+  `<game_id>_<network name>` (D85; v0.1 rendered one `<game_id>_net`);
 - the rendered platform files: the Swarm stack file today, Kubernetes
   manifests later. They are always rendered, never written by hand (D22).
 
@@ -174,9 +178,12 @@ Fields marked *optional in v0.1* have no use yet and may be left out
 
 - **Identity**: id, version ("Versions and pins" below), role(s),
   technology and engine version(s), image name(s).
-- **Footprint**: CPU, memory and disk needs (limits and reservations) as a
-  default. v0.1's bricks give one figure per dimension, and nothing in the
-  scripts reads it: O57. The allowed range is *optional in v0.1*.
+- **Footprint** (D84): the shape of a scenario's `resources`, limits for
+  CPU and memory and reservations for CPU, memory and disk, as the
+  default the GM starts from when it sizes a scenario; `gmctl fit` and
+  the renderer read the scenario's own `resources`. The v0.1 bricks' one
+  figure per dimension takes this shape at their 0.2.0 (D72). The allowed
+  range is *optional in v0.1*.
 - **Interfaces**: what the brick *provides* (e.g. a PostgreSQL SQL endpoint
   on a port) and what it *consumes* (e.g. an upstream SQL endpoint, a
   queue). Flows in a scenario connect a consumer interface to a matching
@@ -243,7 +250,7 @@ Rules for the whole file:
   Connections).
 - It agrees with `brick.yaml`: every parameter, knob, interface or
   footprint figure it mentions matches the declaration, and it introduces
-  none that `brick.yaml` lacks (footprint: O57).
+  none that `brick.yaml` lacks.
 - It agrees with the catalog faults' `applies_to` (D59, D62): every fault
   it lists as supported names this brick and version in its `applies_to`,
   and every catalog fault that does is listed.
@@ -259,7 +266,8 @@ The required sections:
    picks it.
 2. **Placement**: what gets installed (a node of its own from the brick's
    image, or material the GM installs into another brick's node, such as
-   the node-health script, D66; how such a brick is declared: O64), how to
+   the node-health script, which the GM mounts into each node as configs
+   at deploy, D73; how such a brick is declared: O64), how to
    build it, how many per scenario (one per scenario, one per node, one per
    node of a given brick), next to which node (same host as a given node,
    or any host), whether it is stateful, and which networks it joins.
@@ -281,7 +289,7 @@ The required sections:
    adds back and why each is needed, and what the GM itself uses to operate
    it.
 6. **Footprint**: the default CPU, memory and disk, limits and
-   reservations (against `brick.yaml`'s one figure per dimension: O57);
+   reservations, as `brick.yaml` declares them (D84);
    what makes it grow (nodes watched, scrape targets, retention, log
    volume, data size) and how the GM sizes it for the capacity check; and
    the levers that shrink it.
@@ -321,8 +329,8 @@ faults/<fault-id>/
 - **Applies to**: brick ids and, for each, the brick versions the fault
   applies to, plus topology preconditions (e.g. needs a standby, needs a
   scheduled job). This is the only statement of which faults a brick
-  hosts (D59). v0.1 lists the versions one by one; whether ranges are
-  allowed: O60.
+  hosts (D59). Versions are listed one by one, never as ranges (D86), so
+  each brick bump adds its version to every fault that still applies.
 - **Parameters** the scenario sets (which table, which job…).
 - **Injection**: how it is planted (a change to a node's seed
   configuration, a state change run in the node by the GM, an aging step)
@@ -346,7 +354,7 @@ faults/<fault-id>/
 *Known* or *hidden* is not part of the definition: it is chosen per
 instance, in the scenario.
 
-## Versions and pins (D57–D62)
+## Versions and pins (D57–D62, D72, D75, D86)
 
 A scenario pins every brick and fault it uses by id and version: each
 node's brick, each fault instance's fault definition. The scripts refuse a
@@ -358,14 +366,16 @@ pin that does not match the definition's `version`.
   `docs/gm.md`) or the companion material. That includes a change that
   leaves the image byte-identical (D57, D58). A change made while a
   brick's new version is still unreleased (its branch not yet merged into
-  `main`) folds into that version with no further bump (D61). Which
-  number a v0.2 change takes: O65.
+  `main`) folds into that version with no further bump (D61). New bricks
+  start at 0.1.0; v0.2's changes to a v0.1 brick take 0.2.0, since 0.1.1
+  was released with `main` at 5c16d06 (D72).
 - **Faults never bump** (D60). A fault keeps its version whatever changes
   in its folder (injection, sealed check, acceptance criteria,
   `applies_to`); git history is the record. A fault pin therefore names
   the fault, not a state of it.
-- **Scenarios** keep their version when they only re-pin a brick (D58).
-  Whether any other change to a scenario bumps it: O61.
+- **Scenarios never bump** (D58, D75). A scenario keeps its version
+  whatever changes (pins, answer key, issues, story, topology); git
+  history is the record, and nothing pins a scenario.
 - **Which faults a brick hosts** is stated only by each fault's
   `applies_to` (D59); `brick.yaml` lists no faults. A new brick version
   hosts no fault until the faults that still apply to it add that version
