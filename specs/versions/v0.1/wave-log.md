@@ -756,3 +756,73 @@ item 7 checks the stage only). Branches kept until the wave closes:
   land there and `main` takes them at release close. The stop-reason
   question got no answer: the driver adds it to release-gate item 5 as an
   extra check (spec D50), reported apart from master spec 17 item 7.
+
+## Release gate — 2026-10-21
+
+Run by the driver on `v0.1-release` (cut from `main` at 763694c, after
+wave 3 merged on the owner's word), on the build host (Debian 13, Docker
+Engine 29.9.1, single-node swarm). GM sessions were fresh agents reading
+`.claude/skills/game-master/` as their instructions (the skill is
+explicit-invocation only); the driver played the initiator and the
+players.
+
+1. **Full game: PASS.** Game `bookshop-new-server-pwbho8`, playground
+   `laptop`, declared CPU 2, memory 4G, disk 8G (the host has about 10G
+   free; `fit` accepted it). Setup questions, completeness check, fit,
+   render, deploy, load-data, inject (5 scripts), `status --set
+   handed-over`, hand-over with issues and expected resolutions: all
+   exit 0.
+2. **Bastion, write policy, validator, play-through: PASS.** By a
+   verifier agent as `player` through the bastion only. db publishes no
+   port; the write policy holds on both nodes; `sudo gm-validate` red on
+   `work_mem` at hand-over, as the answer key says. Evidence of f1 to f6
+   reachable as the answer key states. I1 fixed by file and reload, put
+   back, fixed by `ALTER SYSTEM`; I3 fixed by `CREATE INDEX CONCURRENTLY`,
+   dropped, fixed by plain `CREATE INDEX`; each sealed check 1 → 0 → 1 → 0.
+   Findings, none blocking:
+   - **RG-1 (low–medium):** `/etc/postgresql` on db is `drwxrwsr-x
+     postgres:pgconf` without the sticky bit, so `player` (group pgconf)
+     can unlink or replace the root-owned `.gm-seeded` marker. The access
+     model (5, protected files `edit`: deny; 7, "enforced by the
+     system") says this cannot happen; only the starter pack's DO NOT
+     TAMPER note protects it. Owner's call: change the brick or the
+     access model's wording.
+   - **RG-2 (low):** master spec 17 item 4 says each *fix* issue is fixed
+     "by file and reload or restart, and by `ALTER SYSTEM`"; it cannot
+     apply to I3 (DDL). The answer key is right; the spec wording needs
+     narrowing to configuration faults.
+   - **RG-3 (cosmetic):** the answer key's bare `psql -c` evidence commands
+     work on db, not on the bastion (no PGHOST there); it does not say
+     where to run them.
+3. **Stance check-list: PASS, item by item.** Hint refused; reveal
+   (yes/no on a cause, number of faults) refused; restart/reset refused —
+   each in the skill's wording. A report "so far" made the GM ask whether
+   it was final, with no comment on content. The final answer was
+   evaluated against the live system (`validate` 0, `check` 1: f2, f3
+   fixed) and feedback covered the issues found against the faults
+   present (I1, I2, I3 acceptable, f4 found, f5 and f6 missed and
+   explained), each answer's acceptability, and what could be done
+   better; then teardown, nothing labelled left. A stop request after the
+   hand-over (game `bookshop-new-server-z3wxde`) was obeyed at once:
+   teardown with `--reason`, recorded from stage handed-over.
+   - **RG-4 (cosmetic):** GM sessions state times in different zones (the
+     setup session in CEST, the resuming one in UTC).
+4. **Fresh GM session: PASS.** A second session found the game at
+   `handed-over` from `state.yaml`, asked before picking it up, and took
+   the report.
+5. **Forced setup failure: PASS.** A temporary `SELECT 1/0;` appended to
+   `data/db.sql` (restored afterwards, never committed): game
+   `bookshop-new-server-1pwuhn` failed at load-data (`psql exit 3:
+   ERROR: division by zero`), gmctl tore down, stage `failed` recorded
+   with the failure before `data-loaded`, teardown recorded, nothing
+   labelled left. **Extra (spec D50, D51):** after restoring the file,
+   `fit` started a new game (`bookshop-new-server-syio2l`) after the
+   torn-down failed one; a stop sent during its setup was obeyed at stage
+   `fitted` with the reason recorded.
+6. **Wave-gate quality command: PASS.** 165 unit tests OK (13.7 s); `sh
+   -n` OK on 32 files; images postgres `sha256:a55e764b…`, bastion
+   `sha256:314de9c7…`, unchanged; `smoke.sh` all checks passed (game
+   `fixture-audit-h16h8c`); 0 objects labelled `dbagm.game` left.
+7. **G5:** the feedback of game `bookshop-new-server-pwbho8` sent to the
+   owner for judgement; open.
+8. **Release notes:** to `spec-writer`, on `v0.1-release`.
