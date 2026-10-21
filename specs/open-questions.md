@@ -2,10 +2,14 @@
 
 Every unresolved decision, with a stable ID. A question leaves this list
 only when it is resolved and logged in [decisions.md](decisions.md); IDs
-are never reused. Resolved IDs are listed at the bottom.
+are never reused. Questions resolved by the close of v0.1 (O1, O3, O4,
+O6–O9, O14, O15, O17–O19, O26–O28, O33–O37, O39–O44 and O55) are listed
+in [archive/v0.1/open-questions-resolved.md](archive/v0.1/open-questions-resolved.md);
+their IDs keep their meaning. Numbering continues from O56.
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
-for v0.1; **later** = can wait for v1.0 or beyond. Open for v0.1: none.
+for the next version (v0.1 until it closed, with none left open);
+**later** = can wait for v1.0 or beyond.
 
 ## Project and scope
 
@@ -150,33 +154,3 @@ the question concerns.
   time, licensing, and reproducibility against the self-sufficient
   scenario folder (D23). Pin by address and checksum and cache locally?
   Refs: [versions/v0.5/README.md](versions/v0.5/README.md).
-
-## Resolved
-
-| ID | Resolved by |
-|---|---|
-| O1 | D4 |
-| O4 | D6 |
-| O6 | D7 |
-| O7 | D8 |
-| O17, O18 | D10 |
-| O26, O27 | D9 |
-| O8 | D11 |
-| O36 | D13 |
-| O33 | D14, D15 |
-| O41 | D17 |
-| O42 | D18 |
-| O28 | D19 |
-| O39 | D20 |
-| O40 | D22 |
-| O43 | D23 |
-| O44 | D24 |
-| O15 | D25 |
-| O34 | D26 |
-| O35 | D27 |
-| O37 | D28 |
-| O3 | D29 |
-| O9 | D30 |
-| O14 | D31 |
-| O19 | D32 |
-| O55 | D54 |

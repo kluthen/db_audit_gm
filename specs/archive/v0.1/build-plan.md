@@ -1,3 +1,5 @@
+> **Archived 2026-10-21.** v0.1 was released and merged into `main` (3c852e1); every chunk of this plan is built. Live summary: [v0.1 README](../../versions/v0.1/README.md). Relative links were written from `specs/versions/v0.1/`: `master-spec.md` and `access-model.md` are in `../../versions/v0.1/`.
+
 # db_audit_gm v0.1 — Build plan
 
 Status: v6 (2026-10-21): release-gate item 2 worded as the clarified

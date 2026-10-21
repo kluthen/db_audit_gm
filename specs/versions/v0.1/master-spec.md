@@ -3,7 +3,7 @@
 Status: approved on 2026-10-20 by the project lead, under the owner's
 delegation (the owner may revisit any point).
 Companion: [access-model.md](access-model.md).
-Build plan: [build-plan.md](build-plan.md).
+Build plan (archived): [build-plan.md](../../archive/v0.1/build-plan.md).
 
 ---
 
@@ -297,12 +297,15 @@ the GM skill agree; the lead may revisit them.
 - PostgreSQL 18 on Debian 13 (trixie), server and client tools in the same
   image.
 - **s6-overlay** supervises PostgreSQL and `sshd`, with
-  `S6_READ_ONLY_ROOT` set and a tmpfs on `/run`, so the database can be
-  restarted without killing the container.
+  `S6_READ_ONLY_ROOT` set, so the database can be restarted without
+  killing the container. `/run` is a named volume that the entrypoint
+  empties at each start: a stack file's tmpfs is `noexec`, and s6-overlay
+  must execute from `/run`.
 - **Read-only root filesystem.** Writable: a named volume for PGDATA, a
-  named volume for `/etc/postgresql`, a named volume for
-  `/var/lib/gm-state` (the seed marker, root-owned), the tmpfs `/run`, and
-  a writable target for `sudo`'s log.
+  named volume for `/etc/postgresql`, a named volume for the player's home
+  `/home/player`, a named volume for `/var/lib/gm-state` (the seed marker,
+  root-owned), and the named volume for `/run`, which also holds `sudo`'s
+  log and `/tmp`.
 - **Configuration outside PGDATA**: `postgresql.conf` and `pg_hba.conf` in
   `/etc/postgresql/`, used through `config_file` and `hba_file`, owned by
   `postgres` with a group the `player` account belongs to, group-writable
@@ -348,8 +351,12 @@ the GM skill agree; the lead may revisit them.
 
 ### 9.2 Bastion brick
 
-- Debian 13, `sshd` under s6-overlay, read-only root with the same tmpfs
-  and log targets, capabilities dropped and added back as listed.
+- Debian 13, `sshd` under s6-overlay, read-only root, capabilities
+  dropped and added back as listed. Writable: a named volume for the
+  player's home `/home/player`, a named volume for `/run` as on the
+  PostgreSQL node, and a named volume for the `sshd` host key, so that it
+  survives a container replacement and the players' SSH clients see no
+  changed key.
 - PostgreSQL 18 client tools and a plain SSH client.
 - Account `player`, logging in with the per-game password from a Swarm
   secret. Its home holds the private key for the inner hop (from a Swarm
