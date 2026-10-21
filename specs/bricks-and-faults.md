@@ -1,6 +1,6 @@
 # Bricks and faults
 
-Status: draft v4
+Status: draft v5
 
 The catalog of reusable bricks and fault definitions, and the rules that
 keep scenarios fair. What a brick or fault definition must contain is in
@@ -21,7 +21,8 @@ made solely for one scenario may live in that scenario's folder; shared
 ones live in the catalog (D24). Whether and how a scenario-only brick or
 fault is promoted into the catalog, and through which review: O25.
 
-First technologies and versions per role: O11.
+v0.2's monitoring tools are settled (D69, "Monitoring bricks" below);
+the technologies and versions of the other roles: O11.
 
 Brick documentation is split: player-facing and GM-facing, kept apart so
 spoilers never ship to the player side.
@@ -36,6 +37,36 @@ lint would have checked still hold for every brick, and the format skill
 asks for them: footprint declared, validator present, no privileges, no
 Docker socket, protected files listed, documentation present.
 
+## Monitoring bricks (v0.2)
+
+The reference setup is the owner's `~/audits/bluebox-lab`; the gap v0.2
+fills is a general per-node health view: each node's CPU, RAM, disk and
+running services (D63). Free tools only; where the usual tool is paid, a
+free tool or a script replaces it (D63).
+
+v0.2 ships about one brick per need. Research may list the top three
+candidates for a need, but one is built, and footprint (CPU, memory, disk
+on a 2 CPU / 4G / 8G laptop) is a main criterion in choosing it (D64):
+
+| Need | v0.2 brick (D66, D69) |
+|---|---|
+| Per-node health | the node-health script, a daemon on every node, configured by the GM at initialisation: the node's CPU, RAM, disk and the status of its important services; scraped by Prometheus |
+| PostgreSQL metrics | `postgres_exporter` |
+| Metrics store | Prometheus |
+| Dashboards and alerting | Grafana, with its own alerting; no separate alerting brick |
+| Log analysis | PostgreSQL logging to files, read by pgBadger run as a one-shot job |
+| Log aggregation | none in v0.2 |
+
+No cAdvisor and no Docker socket or host mount: each node reports on
+itself from inside (D66). pgwatch and pgCluu, both in the reference, are
+not v0.2 bricks. Every monitoring brick, the node-health script included,
+has its GM documentation like any brick (D56). How the node-health brick
+is packaged and reaches each node: O64. Other tools, other health
+solutions (Nagios or others) and hand-made scripts come in v0.5 (D70).
+
+Monitoring bricks are optional in a topology (D65), and may carry faults
+of their own (D63; "Example families" below).
+
 ## Faults
 
 The GM builds the full topology, plants faults, and gives the player zero
@@ -46,6 +77,18 @@ runs (badly configured cron job or similar).
 The initiator's brief may impose a list of incidents and say whether the GM may
 add more. How many faults of each kind a scenario has, what "difficulty"
 means, and whether an issue may be a false alarm: O23.
+
+### Tooling proportionate to the topology (D65)
+
+How well the customer is tooled is itself something to audit. The
+expectation is tooling proportionate to the topology's complexity: a very
+small company (a producer, a database, a consumer) with a wide array of
+tools is fine, but tooling that needs about three times the compute and
+disk of what it watches is overkill, and that is a finding too.
+
+Under-tooling (and overkill) is no fault kind of its own. It is an issue
+the customer raises, a silent expectation of the GM, or both. How a silent
+expectation is written in the scenario and judged in feedback: O62.
 
 ### Solvability probe (proposed)
 
@@ -69,7 +112,7 @@ declare such dependencies explicitly (proposed).
 |---|---|
 | Backups | stanza mismatch; `archive_command` failing but returning 0; retention purging too early; restore never tested |
 | Scheduled jobs | unescaped `%` in crontab; missing final newline; wrong `PATH`; wrong time zone; script not executable |
-| Monitoring that lies | collector pointed at the standby; alert threshold in the wrong unit; one host not collected |
+| Monitoring that lies | collector pointed at the standby; alert threshold in the wrong unit; one host not collected; a monitoring brick ill-configured, missing nodes, or starved of information, such as no slow-query log for pgBadger to read (D63) |
 | Security | `trust` in `pg_hba.conf`; application role with superuser; secrets readable by everyone |
 | Performance | missing index; autovacuum disabled on a hot table; bloat; bad memory settings |
 | Replication | lag; abandoned replication slot filling the disk |

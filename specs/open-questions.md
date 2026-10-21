@@ -5,8 +5,8 @@ only when it is resolved and logged in [decisions.md](decisions.md); IDs
 are never reused. Questions resolved by the close of v0.1 (O1, O3, O4,
 O6–O9, O14, O15, O17–O19, O26–O28, O33–O37, O39–O44 and O55) are listed
 in [archive/v0.1/open-questions-resolved.md](archive/v0.1/open-questions-resolved.md);
-their IDs keep their meaning. Resolved since: O56 (D57), O59 (D60). Numbering
-continues from O62.
+their IDs keep their meaning. Resolved since: O56 (D57), O59 (D60), O51
+(D66), O50 (D67), O13 (D68). Numbering continues from O65.
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -32,10 +32,11 @@ for the next version (v0.1 until it closed, with none left open);
   config mounts, the cross-host `127.0.0.1:5000` registry pattern, SSH
   Docker contexts into Windows or macOS machines. To test when v0.1 is
   built.
-- **O11** (later) — Which technology fills each v1.0 role (producer, the two
-  databases, transformation, consumer, monitoring), which engine versions
-  first, and how upgrade scenarios (both binaries, disk space) fit the
-  budget. Refs: [versions/v1.0/README.md](versions/v1.0/README.md).
+- **O11** (later) — Which technology fills each v1.0 role beyond v0.2's
+  monitoring (settled: D69): producer, the two databases, transformation,
+  consumer; which engine versions first; and how upgrade scenarios (both
+  binaries, disk space) fit the budget. Refs:
+  [versions/v1.0/README.md](versions/v1.0/README.md).
 - **O12** (later) — Are network-level faults (segmentation, routing-mesh
   exposure) in scope? And the network layout itself (management network,
   zones, dual-homed nodes). Refs: [platform.md](platform.md).
@@ -62,13 +63,41 @@ for the next version (v0.1 until it closed, with none left open);
   a monitoring network (O12) needs a rule. Default (proposed): one
   rendered network per declared one, named `<game_id>_<network name>`.
   Refs: [formats.md](formats.md), "Local implementation".
+- **O64** (soon, v0.2) — The node-health brick: packaging and delivery
+  (D66). The format allows a brick that is material installed into other
+  bricks' nodes ([formats.md](formats.md), "Placement"), but the template
+  and the scripts know only full nodes (an image, an SSH account, s6
+  processes). To settle: (1) a brick kind with no node of its own, its
+  GM documentation still required (D56); (2) how the script reaches each
+  node: delivered at deploy as a protected config with the node's list of
+  services, started by a generic s6 service every image carries (a change
+  to every brick image: a shared base), or baked into each image;
+  (3) how it measures and exposes: the node's own cgroup v2 files for CPU
+  and memory (readable inside a Swarm container: to verify), `df` on its
+  volumes, `s6-svstat` for services, written in Prometheus text format
+  and served on a fixed port by a minimal listener; (4) the default
+  services per node: the brick's s6 `processes`, the GM adjusting;
+  (5) whether a topology with monitoring has it on every node, or may
+  leave one out. Default (proposed): (1) yes; (2) a config, started by a
+  generic s6 service in the shared base; (3) and (4) as stated; (5) on
+  every node whenever the topology has a metrics store, a node left out
+  being a fault. Refs: [bricks-and-faults.md](bricks-and-faults.md),
+  "Monitoring bricks (v0.2)".
+
 ## Player access and rules
 
-- **O13** (later) — How does the player reach monitoring web UIs (Grafana,
-  pgwatch) while only ever going through the bastion: SSH tunnel / SOCKS, a
-  browser on the bastion, or ports exposed on the local network (which the
-  routing mesh opens on every host)? Refs:
-  [planes-and-access.md](planes-and-access.md).
+- **O63** (soon, v0.2) — How the bastion publishes the UIs (D68).
+  Options: (a) a web front on the bastion, a reverse proxy (~10–20M) on a
+  second published port in host mode, every UI behind it under its own
+  path, with HTTP basic authentication on the per-game tools password
+  since Prometheus has no login of its own, plain HTTP in v0.2;
+  (b) SSH local forwarding through the bastion, `PermitOpen` limited to
+  the UI endpoints and rendered per game: no new port and no footprint,
+  but each player sets up tunnels. Reports leave by `scp` and `sftp` either
+  way. Default (proposed): (a): the ruling's "publishes" and the plans for
+  the bastion as a web-serving activity point both point there, and it
+  spares players with little programming experience the tunnels. Refs:
+  [planes-and-access.md](planes-and-access.md), "Bastion only".
 
 ## Faults and aging
 
@@ -111,6 +140,20 @@ for the next version (v0.1 until it closed, with none left open);
   if RG-3 is settled (O70). Default (proposed): as for faults, never bump;
   git history is the record. Refs: [formats.md](formats.md), "Versions and
   pins".
+- **O62** (soon, v0.2) — How a silent tooling expectation is written
+  and judged. Under-tooling and overkill are no fault kind (D65), yet
+  feedback compares what the players found with the fault instances
+  present, and an issue covers faults (D9): an expectation outside the
+  faults gives feedback a second kind of item, and an issue about
+  under-tooling covers no fault. Options: (a) an answer-key list of
+  tooling expectations, outside the fault instances, each saying what is
+  expected and what is acceptable (any of the research's top three for a
+  need, say), with no sealed check, judged in feedback, and an issue may
+  cover one; (b) the GM's notes only (`gm/notes.md`), judged freely;
+  (c) issues only, no silent expectation. Default (proposed): (a). Refs:
+  [formats.md](formats.md), "What a scenario must contain";
+  [bricks-and-faults.md](bricks-and-faults.md), "Tooling proportionate to
+  the topology".
 - **O60** (later) — `applies_to` lists brick versions one by one (the v0.1
   template and faults), where [formats.md](formats.md) used to say
   "version ranges". Since every brick change bumps the brick (D58) and a
@@ -163,21 +206,6 @@ the question concerns.
   backup". Which version? Refs:
   [bricks-and-faults.md](bricks-and-faults.md), "Future ideas: backup
   tooling".
-- **O50** (soon, v0.2) — Monitoring arrives in v0.2, before any load
-  (v0.3): dashboards over a static database show almost nothing, and
-  monitoring faults ("monitoring that lies") are hard to observe without
-  activity. Add a minimal load generator to v0.2, give the monitoring a
-  forged history, swap v0.2 and v0.3, or accept thin monitoring in v0.2?
-  Refs: [versions/v0.2/README.md](versions/v0.2/README.md).
-- **O51** (soon, v0.2) — Container and host monitoring ("docker up and
-  down, load") usually needs the Docker socket or host mounts (cAdvisor,
-  node exporters), which amounts to root on the host. That collides with
-  the rule that the player side never gets a Docker socket, if players can
-  reach the collector's node. Collect from the infrastructure plane, put
-  the collector behind a no-access write policy, use a read-only socket
-  proxy, or limit system monitoring to what needs no socket? Refs:
-  [planes-and-access.md](planes-and-access.md),
-  [versions/v0.2/README.md](versions/v0.2/README.md).
 - **O52** (later, v0.4) — dbt adds a Python toolchain and adapters to a
   node image: image size and build time, one image per adapter (Postgres,
   DuckDB), versions to pin. One transformer brick per technology? Refs:

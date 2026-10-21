@@ -16,6 +16,11 @@ In the owner's words, three things (D47):
 
 ## In scope
 
+- Other tools and hand-made scripts beyond v0.2's one default brick per
+  need (D70): other monitoring tools (among them the research's other
+  top-three picks and the reference setup's pgwatch and pgCluu), other
+  open-source health solutions such as Nagios (D66), and hand-made scripts
+  as the customer's own tooling.
 - More fault definitions in the catalog, across the families already
   listed.
 - Reusable topology fragments for the most common arrangements.
@@ -28,7 +33,8 @@ In the owner's words, three things (D47):
 
 ## Depends on
 
-- v0.2 to v0.4: the bricks the topology fragments are made of.
+- v0.2 to v0.4: the bricks the topology fragments are made of; v0.2's
+  monitoring bricks, which v0.5's other tools extend.
 
 ## Questions due in this version
 

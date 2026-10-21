@@ -17,7 +17,7 @@ aggregators." (D47)
 - Their place in the scenario format: monitoring nodes and *monitors*
   flows, their footprint in the capacity check.
 - The players reaching the monitoring interfaces while keeping the
-  bastion-only rule (O13).
+  bastion-only rule: the bastion publishes them (D68; how: O63).
 - GM documentation for every brick (D56): each brick's `docs/gm.md`
   has the required sections of [formats.md](../../formats.md),
   "`docs/gm.md` must contain" (placement, configuration, connections,
@@ -41,7 +41,8 @@ aggregators." (D47)
 
 ## Out of scope
 
-- Producers, consumers and load (v0.3); transformers (v0.4).
+- Producers, consumers and any load: monitoring is thin in v0.2 (D67);
+  load is v0.3's. Transformers (v0.4).
 - Monitoring faults that only show under load, until v0.3.
 
 ## Depends on
@@ -50,14 +51,16 @@ aggregators." (D47)
 
 ## Questions due in this version
 
-- O13: how players reach the monitoring web interfaces through the bastion.
-- O11: which monitoring tools.
+Settled on 2026-10-21: the tools (D63–D66, D69, D70; O11 narrowed), no
+load (D67, O50), the bastion publishing the UIs (D68, O13), per-node
+health without the Docker socket (D66, O51). The page is redrafted with
+those rulings in the next pass.
+
+- O62: how a silent tooling expectation is written and judged.
+- O63: how the bastion publishes the UIs.
+- O64: how the node-health brick is packaged and reaches each node.
 - O12: network layout (a monitoring network, which nodes see which).
 - O22: aging, since dashboards need history to show anything.
-- O50: monitoring arriving before there is any load to show.
-- O51: container and host monitoring usually needs the Docker socket or
-  host mounts, which collides with the rule that the player side never
-  gets a Docker socket.
 - O46: whether the monitoring stack still fits one host.
 - O57: what a brick's footprint states (one figure, or limits and
   reservations), before the monitoring bricks enter the capacity check.

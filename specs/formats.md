@@ -70,12 +70,14 @@ The owner's requirements (D23), with the earlier rulings that apply:
   and the issues given to the players, zero or more, each with its expected
   resolution (*report*, *propose*, *fix*, *improve*) and the faults it
   covers (D9);
-  the aging plan (none in v0.1).
+  the aging plan (none in v0.1). Whether an issue may also cover a
+  tooling expectation that is not a fault (D65): O62.
 - **The answer key**, for every fault instance: what is wrong and why, the
   evidence as the player user, what counts as an acceptable diagnosis, fix,
   improvement or recommendation, the sealed check, interactions with other
   faults, any validator the player cannot make green (D10), and, once
-  solvability probes exist, their results.
+  solvability probes exist, their results. Any silent tooling expectation
+  of the GM (D65) is recorded too; how: O62.
 - **The host topology it was designed for**: the platform (Swarm,
   Kubernetes…), the hosts, their capacity (CPU, RAM, disk), and the
   resource limits, reservations and placement the scenario was sized with.
@@ -254,7 +256,8 @@ The required sections:
    image), the role or roles it fills in a scenario, and when the GM
    picks it.
 2. **Placement**: what gets installed (a node of its own from the brick's
-   image, or material the GM installs into another brick's node), how to
+   image, or material the GM installs into another brick's node, such as
+   the node-health script, D66; how such a brick is declared: O64), how to
    build it, how many per scenario (one per scenario, one per node, one per
    node of a given brick), next to which node (same host as a given node,
    or any host), whether it is stateful, and which networks it joins.
@@ -394,7 +397,7 @@ A node's role names its place in the topology (proposed list): `bastion`,
 
 ## Expressing the v1.0 pipeline
 
-Illustration only; technologies per role are O11.
+Illustration only; v0.2's monitoring tools are D69, the other roles' O11.
 
 | Node | Role | Consumes | Provides |
 |---|---|---|---|
@@ -404,9 +407,10 @@ Illustration only; technologies per role are O11.
 | `transform` | transformer | SQL on `db-src`, SQL on `db-dwh` | — |
 | `db-dwh` | database | — | SQL |
 | `consumer` | consumer | SQL on `db-dwh` | — |
-| `pgwatch` (+ its own database) | monitoring | metrics from `db-src`, `db-dwh` | dashboards |
+| `prometheus`, `pg-exporter`, `grafana` | monitoring | metrics from `db-src`, `db-dwh`, and every node's health script | dashboards, alerts |
 
 Flows: `producer` -> `db-src` (rows, continuously), `db-src` ->
 `transform` -> `db-dwh` (batch, time-compressed "daily"), `db-dwh` ->
-`consumer` (reads), `pgwatch` *monitors* both databases. v0.1 uses the same
+`consumer` (reads), the monitoring nodes *monitor* both databases and
+every node. v0.1 uses the same
 format with `bastion` and one database node.

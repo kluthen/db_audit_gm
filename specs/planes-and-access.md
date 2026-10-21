@@ -1,6 +1,6 @@
 # Planes, access and rules
 
-Status: draft v7
+Status: draft v8
 
 Who may reach what, what the player may change, how the rules are checked,
 and what is left to trust. At consolidation this document feeds the access
@@ -17,11 +17,14 @@ The bastion is itself a node of the topology (a Swarm service). In v0.1 it
 shares one overlay network with the database node, and its SSH port is the
 only port published (D35); the network layout of later versions is O12.
 
-Credentials: see "Credentials and the way in" below. How the player reaches the monitoring web UIs (Grafana, pgwatch)
-without leaving the bastion-only rule (SSH tunnel, a browser on the
-bastion, ports published on a classroom network): O13. Ports published
-through the routing mesh are open on every host, so publishing a UI port
-would bypass the bastion.
+Credentials: see "Credentials and the way in" below.
+
+**The bastion publishes the web interfaces** (D68): the monitoring UIs
+(Grafana, Prometheus) are reached through the bastion, and no other node
+publishes a port. Ports published through the routing mesh are open on
+every host, so a UI port published by its own node would bypass the
+bastion. How the bastion publishes them (a web front as its second
+published port, or SSH forwarding through it): O63.
 
 ## Planes (D42)
 
@@ -29,7 +32,7 @@ would bypass the bastion.
 |---|---|---|
 | Infrastructure | The GM, in its agent session | Swarm managers or host access given at setup, Docker API, stack files, images, the scenario folder including the answer key |
 | Scenario | The scenario folder and its local implementation | Topology, host topology and resources, fault instances, issues, aging plan, answer key |
-| Player | Student(s) | Bastion, SSH to nodes with restricted rights, monitoring UIs |
+| Player | Student(s) | Bastion, SSH to nodes with restricted rights, monitoring UIs published by the bastion (D68) |
 
 The teacher acts only at setup, through the GM session (D6).
 
@@ -187,7 +190,9 @@ permissive and so need the Pod Security "baseline" profile rather than
   it into account (D10).
 - Health information is fair game: the player cannot and must not reach the
   swarm itself, but a monitoring tool or validator reporting "not healthy"
-  is legitimate information.
+  is legitimate information. The node-health script reports each node's
+  CPU, RAM, disk and services from inside the node, with no Docker socket
+  or host mount, so the player side stays socket-free (D66).
 
 **Sealed checks** are the GM's side (D33): run through the exec verb, they
 check the answer key (fault fixed or not) against the effective live state.

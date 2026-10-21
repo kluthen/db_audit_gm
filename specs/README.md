@@ -112,4 +112,4 @@ access model.
 ## Next steps
 
 1. Resume scoping after v0.1: the "soon" questions first (O46, O49 to
-   O51, O57, O58, O60 and O61, mostly v0.2's), then v1.0's from the "later" ones.
+   O57, O58 and O60 to O64, mostly v0.2's), then v1.0's from the "later" ones.

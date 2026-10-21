@@ -67,3 +67,48 @@ continues from D55; no ID is reused.
   folder is the scenario's, not the brick's, and is not listed. Both v0.1
   bricks' `docs/gm.md` already say so. Now in: [formats.md](formats.md)
   "`docs/gm.md` must contain", section 7.
+- **D63 (2026-10-21, owner rulings): v0.2's reference, gap and limits.**
+  `~/audits/bluebox-lab` is the reference setup; a general per-node health
+  view (CPU, RAM, disk, services) is the gap v0.2 fills; monitoring bricks
+  may carry faults of their own (ill-configured, missing nodes, starved of
+  information); free tools only, a free tool or a script replacing a paid
+  one. Now in: [bricks-and-faults.md](bricks-and-faults.md) "Monitoring
+  bricks (v0.2)", "Example families".
+- **D64 (2026-10-21, owner ruling): One brick per need, chosen by
+  footprint.** Research may list the top three per need; v0.2 ships about
+  one, and footprint on a 2 CPU / 4G / 8G laptop is a main criterion. Now
+  in: [bricks-and-faults.md](bricks-and-faults.md) "Monitoring bricks
+  (v0.2)", [platform.md](platform.md) "Resources and nerfing".
+- **D65 (2026-10-21, owner ruling): Optional, proportionate tooling;
+  under-tooling is no fault kind.** Monitoring bricks are optional in a
+  topology. Under-tooling is an issue the customer raises, a silent
+  expectation of the GM, or both; tooling about three times the compute
+  and disk of what it watches is overkill, also a finding. Rejected: a
+  fault kind `absent`. How an expectation is written: O62. Now in:
+  [bricks-and-faults.md](bricks-and-faults.md) "Tooling proportionate to
+  the topology".
+- **D66 (2026-10-21, owner ruling; resolves O51): Per-node health is a
+  daemon script on every node.** Provided at initialisation, it reports the
+  node's CPU, RAM, disk and the status of the services the GM names for
+  that node, and feeds Prometheus; no cAdvisor, no Docker socket. Other
+  open-source health tools (Nagios or others) are for v0.5. Packaging:
+  O64. Now in: [bricks-and-faults.md](bricks-and-faults.md) "Monitoring
+  bricks (v0.2)", [planes-and-access.md](planes-and-access.md) "Rules and
+  validators".
+- **D67 (2026-10-21, owner ruling; resolves O50): Thin monitoring, no load
+  in v0.2.** Dashboards watch a static database; load stays v0.3's. Now in:
+  [versions/v0.2/README.md](versions/v0.2/README.md) "Out of scope".
+- **D68 (2026-10-21, owner ruling; resolves O13): The bastion publishes
+  the UIs.** Every monitoring web interface is reached through the
+  bastion; no other node publishes a port. The mechanism: O63. Now in:
+  [planes-and-access.md](planes-and-access.md) "Bastion only",
+  [scenario-lifecycle.md](scenario-lifecycle.md) "Hand-over".
+- **D69 (2026-10-21, owner ruling after the tooling research; narrows
+  O11): v0.2's tools.** `postgres_exporter`, Prometheus, PostgreSQL logs
+  to files with pgBadger as a one-shot job and no log aggregator, Grafana
+  with its own alerting; the health script feeds Prometheus. The ruling
+  names neither pgwatch nor pgCluu, so neither is a v0.2 brick. Now in:
+  [bricks-and-faults.md](bricks-and-faults.md) "Monitoring bricks (v0.2)".
+- **D70 (2026-10-21, owner ruling): v0.5 extends the tooling.** Other
+  tools and hand-made scripts come in v0.5, beyond v0.2's basic defaults.
+  Now in: [versions/v0.5/README.md](versions/v0.5/README.md) "In scope".
