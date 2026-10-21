@@ -116,10 +116,10 @@ same "secrets/ is mode 700" 700 "$(stat -c %a "$LDIR/secrets")"
 same "credential files are mode 600" "600 600 600 600" \
     "$(stat -c %a "$LDIR/secrets/player_password" "$LDIR/secrets/player_ssh_key" \
         "$LDIR/secrets/player_ssh_key.pub" "$LDIR/secrets/dba_password" | tr '\n' ' ' | sed 's/ $//')"
-same "configs and secrets carry both labels" "10" \
+same "configs and secrets carry both labels" "11" \
     "$(for k in config secret; do docker "$k" ls --filter "label=dbagm.game=$GAME" \
         --filter "label=com.docker.stack.namespace=$GAME" -q; done | wc -l | tr -d ' ')"
-same "volumes carry dbagm.game" "8" \
+same "volumes carry dbagm.game" "9" \
     "$(docker volume ls -q --filter "label=dbagm.game=$GAME" | wc -l | tr -d ' ')"
 bastion=$(docker ps -q --filter "label=com.docker.swarm.service.name=${GAME}_bastion")
 check "bastion publishes port 2222" sh -c "docker port $bastion 22/tcp | grep -q ':2222\$'"
@@ -128,7 +128,7 @@ same "network named after the scenario's network" "${GAME}_backend" \
     "$(docker network ls --filter "label=com.docker.stack.namespace=$GAME" --format '{{.Name}}')"
 same "status: network line" "  network: ${GAME}_backend" \
     "$($GMCTL status "$SCN" --playground "$PG" | grep '^  network:')"
-same "status: lists the 4 secret files" 4 \
+same "status: lists the 5 secret files" 5 \
     "$($GMCTL status "$SCN" --playground "$PG" | sed -n '/^  secrets: /,$p' | grep -c '^    ')"
 for node in db bastion; do
     out=$(printf 'printf "%%s %%s" "$TZ" "$(date +%%Z)"\n' \

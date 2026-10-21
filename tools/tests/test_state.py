@@ -86,6 +86,7 @@ class TestStatus(FittedGame):
             "    player_ssh_key: private key of pair player_ssh_key",
             "    player_ssh_key.pub: public key of pair player_ssh_key",
             "    dba_password: password",
+            "    monitoring_password: password",
         ])
 
 

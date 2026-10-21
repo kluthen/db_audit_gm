@@ -386,7 +386,8 @@ class TestRender(RenderedFixture):
         self.assertEqual(db["hostname"], "db")
         self.assertEqual([(v["type"], v["target"]) for v in db["volumes"]], [
             ("volume", "/var/lib/postgresql/18/data"), ("volume", "/etc/postgresql"),
-            ("volume", "/home/player"), ("volume", "/var/lib/gm-state"), ("volume", "/run")])
+            ("volume", "/home/player"), ("volume", "/var/lib/gm-state"),
+            ("volume", "/var/log/postgresql"), ("volume", "/run")])
         configs = {c["target"]: c for c in db["configs"]}
         self.assertEqual(configs["/opt/gm/seed/postgresql.conf"]["mode"], 0o444)
         self.assertEqual(configs["/opt/gm/protected/envelopes.conf"]["source"],
@@ -395,6 +396,8 @@ class TestRender(RenderedFixture):
         secrets = {c["target"]: c for c in db["secrets"]}
         self.assertEqual(secrets["/opt/gm/secrets/dba_password"]["mode"], 0o400)
         self.assertEqual(secrets["/opt/gm/secrets/player_ssh_pubkey"]["mode"], 0o444)
+        self.assertEqual((secrets["/opt/gm/secrets/monitoring_password"]["gid"],
+                          secrets["/opt/gm/secrets/monitoring_password"]["mode"]), ("102", 0o440))
         self.assertEqual(db["healthcheck"]["test"],
                          ["CMD", "/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"])
         self.assertEqual(db["healthcheck"]["start_period"], "60s")

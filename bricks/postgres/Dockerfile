@@ -2,7 +2,7 @@
 #
 # Generic image: no scenario content. Seed files, the envelope file and the
 # secrets arrive at run time at the fixed paths declared in brick.yaml.
-# Build:  docker build -t 127.0.0.1:5000/dbagm/postgres:0.1.1 bricks/postgres
+# Build:  docker build -t 127.0.0.1:5000/dbagm/postgres:0.2.0 bricks/postgres
 # Architecture: x86_64 only in v0.1 (the s6-overlay archive below).
 FROM debian:13-slim
 
@@ -15,9 +15,10 @@ ADD --checksum=sha256:5379750ed30a84bbd2e2dd74847ba6b5bd29cd0b2e3ea2ec58049b57eb
 ADD --checksum=sha256:e6befcc96a437a3831386ecfc51808c5d3e939dc5fe3c02ae9284599e8aa2408 \
     https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /tmp/
 
-# PostgreSQL ${PG_MAJOR} (server and client) from the PGDG repository, whose
-# signing key Debian ships in postgresql-common. No cluster is created at
-# install time: the entrypoint initialises PGDATA on first start.
+# PostgreSQL ${PG_MAJOR} (server and client, pg_stat_statements included)
+# and pgBadger from the PGDG repository, whose signing key Debian ships in
+# postgresql-common (packages verified by apt against it). No cluster is
+# created at install time: the entrypoint initialises PGDATA on first start.
 RUN set -eux; \
     export DEBIAN_FRONTEND=noninteractive; \
     apt-get update; \
@@ -27,7 +28,7 @@ RUN set -eux; \
         > /etc/apt/sources.list.d/pgdg.list; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-        "postgresql-${PG_MAJOR}" "postgresql-client-${PG_MAJOR}" \
+        "postgresql-${PG_MAJOR}" "postgresql-client-${PG_MAJOR}" pgbadger \
         openssh-server openssh-client sudo procps less nano vim-tiny; \
     tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz; \
     tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz; \
@@ -37,7 +38,11 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/*; \
     # host keys are generated per container start (gm-entrypoint), never baked
     rm -f /etc/ssh/ssh_host_*; \
-    test -x "/usr/lib/postgresql/${PG_MAJOR}/bin/postgres"
+    test -x "/usr/lib/postgresql/${PG_MAJOR}/bin/postgres"; \
+    test -f "/usr/lib/postgresql/${PG_MAJOR}/lib/pg_stat_statements.so"; \
+    pgbadger --version; \
+    # brick.yaml mounts the secret monitoring_password with postgres' gid
+    test "$(id -u postgres):$(id -g postgres)" = "100:102"
 
 # Accounts: `player` (SSH by key only, member of `pgconf`, which owns the
 # configuration with `postgres`); `postgres` comes from the package.
@@ -51,6 +56,9 @@ RUN set -eux; \
     install -d -o postgres -g pgconf -m 2775 /etc/postgresql; \
     # seed marker directory (volume `gmstate`), root-owned, out of pgconf's reach
     install -d -o root -g root -m 0755 /var/lib/gm-state; \
+    # log directory (volume `pglog`): files readable by the players' group
+    rm -rf /var/log/postgresql; \
+    install -d -o postgres -g pgconf -m 2750 /var/log/postgresql; \
     # PGDATA (volume `pgdata`)
     install -d -o postgres -g postgres -m 0700 "/var/lib/postgresql/${PG_MAJOR}/data"; \
     # fixed in-container paths for seeds, secrets, protected configs, validator
