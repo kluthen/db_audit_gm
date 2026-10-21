@@ -1845,3 +1845,15 @@ Chunk 12 merged 2026-10-21: 5b36f01, merge d0e9c53. Files:
   deployment" passed the tools password in `curl -u` (visible in the
   host's process list), against the owner's standing rule. Fixed on
   the wave branch by a coding-executor (below).
+
+### Wave-branch fixes and spec alignments (2026-10-21)
+
+- **59186df** (coding-executor): `bricks/bastion/docs/gm.md` "After
+  deployment" now hands the tools password to `curl -K -` through
+  `printf`, never in an argument (found by chunk 12, W4-A). No other
+  brick's `docs/gm.md` passes a credential in an argument or `--env`.
+  Version unchanged (D100); docs only, no rebuild. Unit suite 298 OK.
+- **b7f6c4c, 4e8bf6c, 84b9e2b** (spec-writer), after W4 ruling 1: build
+  plan v5 (chunk 13's `inject/` "when it has material"); `specs/formats.md`
+  v16 (the fault layout's `inject/` conditional); `specs/platform.md` v14
+  (parameter faults, planted at rendering, as a third level, D92).
