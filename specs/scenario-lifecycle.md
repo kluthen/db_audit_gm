@@ -1,6 +1,6 @@
 # Game lifecycle
 
-Status: draft v7
+Status: draft v8
 
 From setup to teardown, as run by the GM in its agent session: the
 scenario, its local implementation, checks, deployment, aging, hand-over,
@@ -33,7 +33,9 @@ outside the project's concern.
    and does not deploy (D16, D23).
 4. **Pre-deployment checks** — the GM runs the checks each brick ships, if
    any (D28).
-5. **Deployment** on the playground, from the local implementation.
+5. **Deployment** on the playground, from the local implementation. When
+   the topology has monitoring, the GM configures each node's health
+   script at initialisation, with the services it watches there (D66).
 6. **Data and aging** — restored-backup data is loaded, then state faults
    are planted; the system runs, or is given a history, so that faults
    leave traces (see "Aging"). v0.1 has no aging: it loads the data and
@@ -115,9 +117,10 @@ The player gets:
 - access to the bastion (credentials: D31);
 - legal access to every node of the topology, but not write access
   everywhere (see [planes-and-access.md](planes-and-access.md));
-- access to every monitoring tool in the stack (pgwatch, Grafana, …), which
-  may or may not be correctly configured (how web UIs are reached through
-  the bastion: O13);
+- access to every monitoring tool in the stack (Grafana, Prometheus, …),
+  which may or may not be correctly configured, with the web interfaces
+  published by the bastion (D68; how: O63). A topology may have no
+  monitoring at all, and how well it is tooled can be a finding (D65);
 - at the very least, a list of all node names;
 - ideally, a short documentation of the topology and a rough description of
   what is going on in the system;

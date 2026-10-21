@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v8
+Status: draft v11
 
 What a scenario, a brick and a fault definition must contain, and how they
 are laid out, so that every scenario the GM designs or generates stays
@@ -26,8 +26,11 @@ Initial versions of both are in v0.1's scope, and both are expected to
 evolve as games are played (D21). This document states what the format
 skill must encode. Machine checks are per brick, not project-wide (D28);
 whether the format skill itself also runs a schema check is part of the
-reading to confirm under O20. The skills live in `.claude/skills/`, which
-both Claude Code and opencode read (D29). A third skill, the GM skill,
+reading to confirm under O20. As built in v0.1, the scripts check a
+scenario, and the bricks and faults it uses, against the templates
+whenever they load it, and refuse an incomplete one (D40); the format
+skill's own check is by reading. The skills live in `.claude/skills/`,
+which both Claude Code and opencode read (D29). A third skill, the GM skill,
 runs the game itself ([gm-stance.md](gm-stance.md), D33).
 
 The file names and layouts below are settled (D42). YAML for structured
@@ -43,8 +46,9 @@ bulk (D13).
 
 The folder does not contain the shared bricks (D24). Bricks and fault
 definitions shared across scenarios live in the catalog, and the scenario
-references them by id and pinned version. A brick or fault made solely for
-one scenario may live inside that scenario's folder.
+references them by id and pinned version ("Versions and pins" below). A
+brick or fault made solely for one scenario may live inside that
+scenario's folder.
 
 ### What a scenario must contain
 
@@ -66,12 +70,16 @@ The owner's requirements (D23), with the earlier rulings that apply:
   and the issues given to the players, zero or more, each with its expected
   resolution (*report*, *propose*, *fix*, *improve*) and the faults it
   covers (D9);
-  the aging plan (none in v0.1).
+  the aging plan (none in v0.1). Whether an issue may also cover a
+  tooling expectation that is not a fault (D65): O62.
 - **The answer key**, for every fault instance: what is wrong and why, the
-  evidence as the player user, what counts as an acceptable diagnosis, fix,
+  evidence as the player user and where it is run (a required `where`
+  from v0.2: `bastion`, `node:<name>`, `ui:<name>`, `report:<tool>`;
+  proposed, O70), what counts as an acceptable diagnosis, fix,
   improvement or recommendation, the sealed check, interactions with other
   faults, any validator the player cannot make green (D10), and, once
-  solvability probes exist, their results.
+  solvability probes exist, their results. Any silent tooling expectation
+  of the GM (D65) is recorded too; how: O62.
 - **The host topology it was designed for**: the platform (Swarm,
   Kubernetes…), the hosts, their capacity (CPU, RAM, disk), and the
   resource limits, reservations and placement the scenario was sized with.
@@ -123,7 +131,8 @@ what the scenario expects:
 - resource limits and reservations per node, placement and pinning, and the
   number of hosts used (one in v0.1, D35);
 - the game id, which names every volume, config, secret and network of the
-  game, so a redeploy never reuses a player-edited volume (D36);
+  game, so a redeploy never reuses a player-edited volume (D36); how a
+  network the scenario names maps to the rendered one: O58;
 - the rendered platform files: the Swarm stack file today, Kubernetes
   manifests later. They are always rendered, never written by hand (D22).
 
@@ -154,7 +163,7 @@ bricks/<brick-id>/
   Dockerfile         and its build context
   validator/         the public validator
   docs/player.md     what the player may read about this kind of node
-  docs/gm.md         spoilers and operating notes, never shipped
+  docs/gm.md         the GM documentation (required sections below), never shipped
   companion/         optional: the brick's own checks, scripts and tools (D28)
 ```
 
@@ -163,10 +172,11 @@ bricks/<brick-id>/
 Fields marked *optional in v0.1* have no use yet and may be left out
 (D35).
 
-- **Identity**: id, version, role(s), technology and engine version(s),
-  image name(s).
+- **Identity**: id, version ("Versions and pins" below), role(s),
+  technology and engine version(s), image name(s).
 - **Footprint**: CPU, memory and disk needs (limits and reservations) as a
-  default. The allowed range is *optional in v0.1*.
+  default. v0.1's bricks give one figure per dimension, and nothing in the
+  scripts reads it: O57. The allowed range is *optional in v0.1*.
 - **Interfaces**: what the brick *provides* (e.g. a PostgreSQL SQL endpoint
   on a port) and what it *consumes* (e.g. an upstream SQL endpoint, a
   queue). Flows in a scenario connect a consumer interface to a matching
@@ -184,7 +194,6 @@ Fields marked *optional in v0.1* have no use yet and may be left out
 - **Secrets** it needs, and the fixed paths where it reads them and its
   seed files.
 - **Processes** run under s6-overlay (D30).
-- **Compatible faults**: the fault definitions known to apply to it.
 - **Companion material**, if any (see below).
 
 **Companion material** (D28, D42). A brick may ship extra information,
@@ -210,6 +219,88 @@ Swarm-only feature, so the same brick runs under Kubernetes:
   declared in the brick and mapped by the renderer to each platform's
   settings.
 
+### `docs/gm.md` must contain (D56)
+
+The GM documentation tells the GM how to use the brick in a scenario: what
+to install where, how to configure it and wire it to the other bricks, what
+it costs, which faults it can host and how to check it. `brick.yaml`
+declares; `docs/gm.md` explains. It holds spoilers and is never shipped to
+the player side.
+
+The rule applies from v0.2. Every brick added from v0.2 on meets it, and
+the two v0.1 bricks (`postgres`, `bastion`) are brought up to it within
+v0.2; that change bumps their version, to 0.1.1 (D57). The format skill
+refuses a brick whose `docs/gm.md` lacks one of the required
+sections, so the GM refuses to deploy a scenario that uses it (D40).
+
+Rules for the whole file:
+
+- One level-2 heading per required section, with the exact names below,
+  in this order. A brick may add its own sections, as subsections of a
+  required one or after the last.
+- No required section is empty. One that does not apply says so in a
+  sentence, with the reason (a brick that consumes nothing says so under
+  Connections).
+- It agrees with `brick.yaml`: every parameter, knob, interface or
+  footprint figure it mentions matches the declaration, and it introduces
+  none that `brick.yaml` lacks (footprint: O57).
+- It agrees with the catalog faults' `applies_to` (D59, D62): every fault
+  it lists as supported names this brick and version in its `applies_to`,
+  and every catalog fault that does is listed.
+- A disagreement with either is a defect of the brick.
+- Placement and connections are stated as requirements (one per node,
+  on the same host as a given node, sharing a network with it), never in a
+  platform's own syntax ("Platform-neutral bricks" above).
+
+The required sections:
+
+1. **Purpose**: what the brick is (technology, engine or tool version,
+   image), the role or roles it fills in a scenario, and when the GM
+   picks it.
+2. **Placement**: what gets installed (a node of its own from the brick's
+   image, or material the GM installs into another brick's node, such as
+   the node-health script, D66; how such a brick is declared: O64), how to
+   build it, how many per scenario (one per scenario, one per node, one per
+   node of a given brick), next to which node (same host as a given node,
+   or any host), whether it is stateful, and which networks it joins.
+3. **Configuration**: every parameter the scenario sets and every value
+   the GM sets per scenario or per node at initialisation, each with its
+   meaning, default, valid values and where it lands (seed file, secret,
+   fixed path); the knobs and their default envelopes; the secrets and seed
+   files and what they must contain; and what start-up does (what is seeded
+   once, what is rewritten at each start).
+4. **Connections**: for each interface it provides or consumes, the bricks
+   on the other side, the port and protocol, what the GM wires and where (a
+   scrape target, an exporter's connection, a datasource, a dashboard), the
+   account or role the other side must provide and which parameter supplies
+   it, and what must exist before the wiring works; and what it exposes to
+   monitoring bricks (metrics endpoints, logs).
+5. **Access**: how the player reaches it (account, group, `sudo` wrappers,
+   any web interface and the path to it through the bastion), its writable
+   and protected paths, the write policies it supports, the capabilities it
+   adds back and why each is needed, and what the GM itself uses to operate
+   it.
+6. **Footprint**: the default CPU, memory and disk, limits and
+   reservations (against `brick.yaml`'s one figure per dimension: O57);
+   what makes it grow (nodes watched, scrape targets, retention, log
+   volume, data size) and how the GM sizes it for the capacity check; and
+   the levers that shrink it.
+7. **Supported faults**: the catalog fault definitions (`faults/`) whose
+   `applies_to` names this brick and version (D59), and what each needs
+   from it (a parameter, a peer, aging). Catalog faults only: a fault
+   defined in a scenario's own `faults/` folder belongs to that scenario
+   and is not listed (D62). Then the faults it lends itself to that have no
+   definition yet; its known interactions (a monitoring brick that can
+   mask a fault elsewhere, a fault elsewhere it would reveal); and, where
+   not obvious, the faults it cannot host and why.
+8. **Checks**: its validator (what it checks; it may be red from the
+   start), its health check, its companion checks and when the GM runs
+   them, how the GM confirms after deployment that it works and is wired
+   (every scrape target up, the exporter connected), and its stack test if
+   it has one.
+9. **Known limits**: what it does not do, or does surprisingly, in this
+   version; "none known" when so.
+
 ## Fault definition
 
 Faults live beside the bricks rather than inside one, because a fault can
@@ -227,8 +318,11 @@ faults/<fault-id>/
 ### `fault.yaml` must contain
 
 - **Identity**: id, version, title, family, severity.
-- **Applies to**: brick ids and version ranges, plus topology preconditions
-  (e.g. needs a standby, needs a scheduled job).
+- **Applies to**: brick ids and, for each, the brick versions the fault
+  applies to, plus topology preconditions (e.g. needs a standby, needs a
+  scheduled job). This is the only statement of which faults a brick
+  hosts (D59). v0.1 lists the versions one by one; whether ranges are
+  allowed: O60.
 - **Parameters** the scenario sets (which table, which job…).
 - **Injection**: how it is planted (a change to a node's seed
   configuration, a state change run in the node by the GM, an aging step)
@@ -251,6 +345,31 @@ faults/<fault-id>/
 
 *Known* or *hidden* is not part of the definition: it is chosen per
 instance, in the scenario.
+
+## Versions and pins (D57–D62)
+
+A scenario pins every brick and fault it uses by id and version: each
+node's brick, each fault instance's fault definition. The scripts refuse a
+pin that does not match the definition's `version`.
+
+- **Bricks.** Any change to a brick bumps its version, whatever part of
+  its folder the change touches: the image and its build context,
+  `brick.yaml`, the validator, the documentation (`docs/player.md`,
+  `docs/gm.md`) or the companion material. That includes a change that
+  leaves the image byte-identical (D57, D58). A change made while a
+  brick's new version is still unreleased (its branch not yet merged into
+  `main`) folds into that version with no further bump (D61). Which
+  number a v0.2 change takes: O65.
+- **Faults never bump** (D60). A fault keeps its version whatever changes
+  in its folder (injection, sealed check, acceptance criteria,
+  `applies_to`); git history is the record. A fault pin therefore names
+  the fault, not a state of it.
+- **Scenarios** keep their version when they only re-pin a brick (D58).
+  Whether any other change to a scenario bumps it: O61.
+- **Which faults a brick hosts** is stated only by each fault's
+  `applies_to` (D59); `brick.yaml` lists no faults. A new brick version
+  hosts no fault until the faults that still apply to it add that version
+  to their `applies_to`.
 
 ## Script contracts (D43)
 
@@ -280,7 +399,7 @@ A node's role names its place in the topology (proposed list): `bastion`,
 
 ## Expressing the v1.0 pipeline
 
-Illustration only; technologies per role are O11.
+Illustration only; v0.2's monitoring tools are D69, the other roles' O11.
 
 | Node | Role | Consumes | Provides |
 |---|---|---|---|
@@ -290,9 +409,10 @@ Illustration only; technologies per role are O11.
 | `transform` | transformer | SQL on `db-src`, SQL on `db-dwh` | — |
 | `db-dwh` | database | — | SQL |
 | `consumer` | consumer | SQL on `db-dwh` | — |
-| `pgwatch` (+ its own database) | monitoring | metrics from `db-src`, `db-dwh` | dashboards |
+| `prometheus`, `pg-exporter`, `grafana` | monitoring | metrics from `db-src`, `db-dwh`, and every node's health script | dashboards, alerts |
 
 Flows: `producer` -> `db-src` (rows, continuously), `db-src` ->
 `transform` -> `db-dwh` (batch, time-compressed "daily"), `db-dwh` ->
-`consumer` (reads), `pgwatch` *monitors* both databases. v0.1 uses the same
+`consumer` (reads), the monitoring nodes *monitor* both databases and
+every node. v0.1 uses the same
 format with `bastion` and one database node.

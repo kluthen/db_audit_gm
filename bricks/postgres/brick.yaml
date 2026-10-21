@@ -7,13 +7,13 @@
 
 # --- Identity ---------------------------------------------------------
 id: postgres
-version: 0.1.0
+version: 0.1.1
 roles:
   - database
 technology:
   name: postgresql
   version: "18"
-image: 127.0.0.1:5000/dbagm/postgres:0.1.0
+image: 127.0.0.1:5000/dbagm/postgres:0.1.1
 
 # --- Footprint --------------------------------------------------------
 footprint:
@@ -136,7 +136,6 @@ processes:
   - sshd
 
 # --- Catalog links ----------------------------------------------------
-compatible_faults: []
 interfaces:
   provides:
     - {name: sql, protocol: postgresql, port: 5432}

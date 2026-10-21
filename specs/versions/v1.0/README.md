@@ -18,7 +18,7 @@ How the scenario format and brick model express this topology is in
 ## How it is reached
 
 The owner believes v0.2 to v0.5 "should be sufficient to achieve v1.0"
-(D47):
+(D47); v0.6 has since been added (D71):
 
 | Pipeline part | Arrives in |
 |---|---|
@@ -26,11 +26,12 @@ The owner believes v0.2 to v0.5 "should be sufficient to achieve v1.0"
 | Monitoring tools | [v0.2](../v0.2/README.md) |
 | Producer, consumer | [v0.3](../v0.3/README.md) |
 | Transformation, second database | [v0.4](../v0.4/README.md) |
-| Catalog breadth, topology fragments, schemas and datasets | [v0.5](../v0.5/README.md) |
+| Catalog breadth, topology fragments, schemas and datasets; other tools | [v0.5](../v0.5/README.md) |
+| The bastion as the players' main activity point | [v0.6](../v0.6/README.md) |
 
 Which technology fills each role is decided version by version (O11).
 
-## Gaps between "v0.2–v0.5 is sufficient" and v1.0
+## Gaps between "v0.2–v0.6 is sufficient" and v1.0
 
 Every part of the pipeline has a version. What has no version yet, and may
 be needed for v1.0, is put to the owner:

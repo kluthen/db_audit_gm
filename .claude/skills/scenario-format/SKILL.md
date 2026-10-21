@@ -6,7 +6,7 @@ description: Use whenever a db_audit_gm scenario, brick or fault definition is d
 # Scenario format
 
 Every scenario, brick and fault is written to one shape. This skill holds
-that shape: four templates and the folder layouts. It is the **initial
+that shape: five templates and the folder layouts. It is the **initial
 version (v0.1)** and is expected to evolve as games are played; when a
 game shows the format is missing something, change the template and this
 skill together.
@@ -23,6 +23,7 @@ sections 6, 7, 8 and 8.1). The top-level keys of `brick.yaml` are fixed
 | [templates/answer-key.yaml](templates/answer-key.yaml) | `scenarios/<id>/gm/answer-key.yaml` | the answer key (authoritative, sealed) |
 | [templates/brick.yaml](templates/brick.yaml) | `bricks/<id>/brick.yaml` | a brick definition |
 | [templates/fault.yaml](templates/fault.yaml) | `faults/<id>/fault.yaml` | a fault definition |
+| [templates/brick-gm.md](templates/brick-gm.md) | `bricks/<id>/docs/gm.md` | a brick's GM documentation (D56): the nine required sections |
 | [templates/layouts.md](templates/layouts.md) | — | the scenario, brick and fault folders, and the script contracts |
 
 Markers used in every template:
@@ -46,9 +47,15 @@ Markers used in every template:
 3. **Fill the folder**, not only the YAML: every file the layout requires
    (starter pack, `gm/notes.md`, node seed files, data files, `inject/`,
    `checks/`, docs).
-4. **Check completeness** against the checklists below, by reading. There
-   is no schema-check script; machine checks are per brick (a brick's
-   `companion/`), run by the GM before deploying a scenario that uses it.
+4. **Check completeness** against the checklists below, by reading. The
+   scripts check too: whenever a `gmctl` command loads a scenario, it
+   checks the scenario, and every brick and fault it uses, against these
+   templates (`model.check_scenario`, `check_brick_dir`,
+   `check_fault_dir`), and refuses an incomplete one with the list of its
+   missing items (D40). Whether this skill must also run a check of its
+   own is open (O20). Beyond that, machine checks are per brick (a
+   brick's `companion/`), run by the GM before deploying a scenario that
+   uses it.
 5. **Flag every missing item** (next section). Do not guess a value to make
    an item disappear.
 6. Generate `README.md` with the scenario-document skill once
@@ -129,6 +136,28 @@ commented-out ones; and the folder: `Dockerfile`, `validator/`,
 `docs/player.md`, `docs/gm.md`, and `companion/` when `companion` is set.
 The image name is registry-qualified; the brick names no Swarm-only
 feature.
+
+`docs/gm.md` (D56; `specs/formats.md`, "`docs/gm.md` must contain";
+template [templates/brick-gm.md](templates/brick-gm.md)) has one level-2
+heading per required section, with these exact names, in this order:
+`## Purpose`, `## Placement`, `## Configuration`, `## Connections`,
+`## Access`, `## Footprint`, `## Supported faults`, `## Checks`,
+`## Known limits`. A brick may add its own sections, as subsections of a
+required one or after `## Known limits`. Refuse the brick, and so every
+scenario that uses it, when:
+
+- one of the nine headings is missing, renamed or out of order;
+- one of them is empty (a section that does not apply says so in a
+  sentence, with the reason);
+- it disagrees with `brick.yaml`: a parameter, knob, interface or
+  footprint figure that does not match the declaration, or one that
+  `brick.yaml` lacks (footprint: O57);
+- it disagrees with the faults' `applies_to` (D59): a fault listed as
+  supported whose `applies_to` does not name this brick and version, or a
+  fault whose `applies_to` does that is not listed;
+- it states placement or connections in a platform's own syntax rather
+  than as requirements (one per node, on the same host as a given node,
+  sharing a network with it).
 
 ### Fault (master spec 8)
 

@@ -1,6 +1,6 @@
 # Concept
 
-Status: draft v6
+Status: draft v8
 
 What the project is, who it is for, the words we use, and what is in and out
 of scope. Mechanics live in the other topic documents (see
@@ -59,9 +59,9 @@ hence the host/node split.
 |---|---|
 | **Host** | A Swarm node: a machine or VM running a Docker engine that is part of the swarm |
 | **Node** | An element of the scenario topology (a database, a producer, the bastion…), i.e. a Swarm service, usually one container |
-| **Brick** | A reusable, catalogued node definition: image, configuration, documentation, validator, compatible faults |
+| **Brick** | A reusable, catalogued node definition: image, configuration, documentation, validator. Versioned: any change bumps its version, and scenarios pin it (D57, D58) |
 | **Catalog** | The bricks and fault definitions kept in the repository |
-| **Fault** | An issue planted in a scenario. A *fault definition* is reusable; a *fault instance* is one fault applied in one scenario |
+| **Fault** | An issue planted in a scenario. A *fault definition* is reusable, names the brick versions it applies to (D59) and keeps its version whatever changes (D60); a *fault instance* is one fault applied in one scenario |
 | **Known / hidden** | A fault instance is *known* when an issue given to the player covers it, *hidden* otherwise |
 | **Issue** | What the GM gives the player at hand-over: a complaint plus its expected resolution. A game may have none |
 | **Expected resolution** | What an issue asks of the player: *report* (diagnose and report), *propose* (diagnose and recommend a concrete fix without applying it), *fix* (alter the system so it works), *improve* (alter it so it works better) (D9) |
@@ -123,8 +123,9 @@ Scoped separately, each in its own page (D4):
   producer, no monitoring. Its goal is to settle the GM stance
   ([gm-stance.md](gm-stance.md)). See
   [versions/v0.1/README.md](versions/v0.1/README.md).
-- **v0.2 to v0.5**: monitoring, then producers and consumers, then
-  transformers, then research and broadening (D47).
+- **v0.2 to v0.6**: monitoring, then producers and consumers, then
+  transformers, then research and broadening (D47), then the bastion as
+  the players' main activity point (D71).
 - **v1.0, the first release**: the full pipeline, producer -> database ->
   transformation -> database -> consumer, plus monitoring tools and the
   bastion. See [versions/v1.0/README.md](versions/v1.0/README.md).

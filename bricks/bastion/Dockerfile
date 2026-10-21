@@ -4,7 +4,7 @@
 # PostgreSQL 18 client tools and an SSH client for the inner hop.
 # Generic image: no scenario content. The starter pack and the secrets
 # arrive at run time at the fixed paths declared in brick.yaml.
-# Build:  docker build -t 127.0.0.1:5000/dbagm/bastion:0.1.0 bricks/bastion
+# Build:  docker build -t 127.0.0.1:5000/dbagm/bastion:0.1.1 bricks/bastion
 # Architecture: x86_64 only in v0.1 (the s6-overlay archive below).
 FROM debian:13-slim
 

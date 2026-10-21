@@ -237,6 +237,8 @@ Found by the release gate; none blocked it.
 - **RG-4 (cosmetic), known issue, kept open by the owner.** GM sessions state times in different time
   zones (one in CEST, another in UTC).
 
+RG-3 and RG-4 are proposed for settling in v0.2: O70.
+
 ### Feedback tone (G5)
 
 The feedback of game `bookshop-new-server-pwbho8` was sent to the owner

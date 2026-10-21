@@ -52,7 +52,8 @@ Rules:
   Dockerfile            and its build context; the image carries no scenario content
   validator/            the public validator, POSIX shell
   docs/player.md        what the player may read about this kind of node
-  docs/gm.md            spoilers and operating notes; never shipped
+  docs/gm.md            the GM documentation, never shipped: the nine required
+                        sections of D56, in order               (template: brick-gm.md)
   companion/            optional: the brick's own checks, scripts and tools;
                         brick.yaml `companion` says what it provides and when to use it
 ```

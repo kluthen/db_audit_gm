@@ -1,6 +1,6 @@
 # Platform
 
-Status: draft v9
+Status: draft v10
 
 The swarm the games run on, the resource budget scenarios must fit, how
 scenario content reaches the nodes, and the Swarm behaviours that shape the
@@ -61,8 +61,11 @@ Docker Swarm is the starting platform; the project must stay adaptable
 Proposed:
 
 - Choosing bricks is a knapsack problem: the sum of reservations stays
-  within capacity minus headroom. Monitoring is not free: Grafana, pgwatch
-  and its own database count in the budget.
+  within capacity minus headroom. Monitoring is not free: v0.2's
+  Prometheus, Grafana, `postgres_exporter` and the node-health script
+  inside every node count in the budget, and footprint is a main
+  criterion in choosing the tools (D64, D66, D69). The v0.2 estimate is in
+  [versions/v0.2/README.md](versions/v0.2/README.md), "Footprint".
 - Producer load is calibrated against the nerfed databases: enough to show
   contention and symptoms, not enough to saturate the host.
 - **Hard limits** are the cgroup limits set by Swarm (`deploy.resources`).
@@ -275,7 +278,7 @@ hedges, still without redesigning anything.
   Docker context per host, or the equivalent (D27).
 - **Routing mesh**: a published port is open on every host, even those not
   running the service. Usable deliberately as an exposure fault if network
-  faults are in scope (O12); a hazard for reaching monitoring UIs (O13).
+  faults are in scope (O12); a hazard for monitoring UIs, which only the bastion publishes (D68).
 - **Overlay overhead**: VXLAN adds latency and jitter; performance numbers
   measured in the game are not comparable with bare-metal measurements.
 
