@@ -1,7 +1,8 @@
 # db_audit_gm v0.2 — Master specification
 
-Status: consolidated on 2026-10-21 after an independent review of the
-drafts (verdict: no blocking issue); **awaiting the owner's approval**.
+Status: **approved by the owner on 2026-10-21** (spec D98), as
+consolidated after an independent review of the drafts (verdict: no
+blocking issue). Build plan: [build-plan.md](build-plan.md).
 Companion: [access-model.md](access-model.md).
 Baseline: the released [v0.1 master spec](../v0.1/master-spec.md) and its
 [access model](../v0.1/access-model.md). Everything v0.1 specifies stays
@@ -620,8 +621,8 @@ Consciously left open; none blocks v0.2.
   owner ids in config mounts, the cross-host registry pattern, SSH Docker
   endpoints on Windows or macOS); the technologies of the first
   release's other roles.
-- Fixed at consolidation by the spec writer, for the owner to revisit:
-  the web front's default port (8080); Prometheus' admin and lifecycle
-  endpoints left disabled, reloads going through the `sudo` wrapper; and
-  the rule that players must not change Grafana's users or the
-  administrator's password (access model).
+- Fixed at consolidation by the spec writer and approved by the owner
+  with this spec (D98): the web front's default port (8080); Prometheus'
+  admin and lifecycle endpoints left disabled, reloads going through the
+  `sudo` wrapper; and the rule that players must not change Grafana's
+  users or the administrator's password (access model).

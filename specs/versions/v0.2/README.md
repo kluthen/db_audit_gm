@@ -1,9 +1,9 @@
 # v0.2 — monitoring and usual tooling
 
-Status: draft v5. Consolidated into the [master spec](master-spec.md) and its [access model](access-model.md), awaiting the owner's approval.
+Status: draft v5. Consolidated into the [master spec](master-spec.md) and its [access model](access-model.md), both approved by the owner on 2026-10-21 (D98). Build plan: [build-plan.md](build-plan.md), v1, awaiting approval.
 
-Every item is settled and stated as fact with its decision; no v0.2
-question is open. The owner accepted the draft v2 defaults on 2026-10-21
+Every item is settled and stated as fact with its decision. Planning
+the build raised O72 to O77 ("Questions due in this version"). The owner accepted the draft v2 defaults on 2026-10-21
 (D72–D87), changing one: the node-health script is mounted into each
 node at deploy rather than carried by a shared base image (D73). After
 draft v3 the owner made the script companion material of `prometheus`
@@ -370,5 +370,9 @@ nodes (D91), node-health fault targets (D92), no default-password fault
 (D93), Grafana's write-policy gap (D94), players running pgBadger (D95),
 per-node disk (D96), mounted material made explicit (D97).
 
-None open. O49 (backup tooling's version) is a roadmap question v0.2
-does not wait on.
+Raised while planning the build, gates of the [build plan](build-plan.md):
+O72 (brick versions across wave merges), O73 (v0.1's free-text evidence
+`where`), O74 (image sizes in `fit`), O75 (the web front without
+interfaces), O76 (Grafana's dashboards and the node-health view), O77
+(the `laptop` playground). O49 (backup tooling's version) is a roadmap
+question v0.2 does not wait on.

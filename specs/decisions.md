@@ -253,3 +253,11 @@ continues from D55; no ID is reused.
   against `prometheus`'s requirements; bricks' own footprints exclude
   mounted material. Now in: [formats.md](formats.md) "Companion material
   mounted into other nodes".
+- **D98 (2026-10-21, owner approval, relayed by the lead session): The
+  v0.2 master spec and access model are approved as written** (commit
+  9f8ddc3), with the three consolidation choices (the web front's default
+  port 8080; Prometheus' admin and lifecycle endpoints disabled, reloads
+  through the node's `sudo` wrapper; the DO NOT TAMPER rule on Grafana's
+  users and administrator password) and D97. The known gaps stay gaps.
+  Now in: [versions/v0.2/master-spec.md](versions/v0.2/master-spec.md),
+  [versions/v0.2/access-model.md](versions/v0.2/access-model.md).

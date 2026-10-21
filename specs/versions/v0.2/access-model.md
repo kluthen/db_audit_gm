@@ -1,7 +1,7 @@
 # db_audit_gm v0.2 — Access model
 
-Status: final draft, companion to [master-spec.md](master-spec.md);
-**awaiting the owner's approval** with it. Revises the
+Status: **approved by the owner on 2026-10-21** with the
+[master spec](master-spec.md) it accompanies (spec D98). Revises the
 [v0.1 access model](../v0.1/access-model.md), which it replaces for v0.2
 games; "Changes from v0.1" at the end lists what moved.
 
