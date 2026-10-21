@@ -1,0 +1,3 @@
+# gm-node-health is in s6-overlay's `user` bundle, started at boot. s6-rc
+# reads only this file's name; it has content because Swarm refuses an empty
+# config.

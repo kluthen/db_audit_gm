@@ -1,0 +1,21 @@
+# Seed prometheus.yml of the stack test (not a scenario's).
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Retention, bounded by time and by size (v0.2 master spec 7.2, D106);
+# applied at start and at each reload (sudo gm-reload-prometheus).
+storage:
+  tsdb:
+    retention:
+      time: 1d
+      size: 256MB
+
+scrape_configs:
+  - job_name: prometheus
+    metrics_path: /prometheus/metrics
+    static_configs:
+      - targets: ['localhost:9090']
+  - job_name: node-health
+    static_configs:
+      - targets: ['db:9110', 'prometheus:9110']
