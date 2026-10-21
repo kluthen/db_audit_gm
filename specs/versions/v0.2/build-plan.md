@@ -1,8 +1,7 @@
 # db_audit_gm v0.2 — Build plan
 
-Status: v2 (2026-10-21): the owner's rulings on G4 to G9 and the plan's
-readings written in (spec D100 to D106); chunks 1, 2, 4, 7, 8, 10, 11,
-12 and 14 and the release gate revised.
+Status: v3 (2026-10-21): capture W1's shaped parameters written in
+(chunk 5 renders them; chunk 7 now waits for chunk 5 in wave 2).
 Approval: approved 2026-10-21 by the owner (G1, spec D99).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-10-21 (spec D98) and
@@ -92,6 +91,7 @@ model says (D100).
 1 ──> 2, 3, 4          (in-wave: the v0.2 template keys captured at wave 1 start, W1)
 2, 3 ──> 5
 1, 3 ──> 6, 7
+5 ──> 7                (in-wave: `GM_WEB_ROUTES`'s encoding, fixed by capture W1 item 2)
 1 ──> 8
 3, 6 ──> 9
 3, 7 ──> 10
@@ -408,10 +408,13 @@ Status: planned
 Record: (after merge)
 Wave: 2
 Depends on: chunks 2, 3
-Architecture capture: none; it reads the merged loader.
+Architecture capture: none of its own; it implements capture W1 items 2
+(shaped parameters) and 4 (the per-node config) and reads the merged
+loader.
 
 - Goal: `gmctl` renders mounted companion material into every receiving
-  node and plants parameter faults at rendering.
+  node, passes shaped parameters as W1 says, and plants parameter faults
+  at rendering.
 - Scope: in: `implementation.yaml` gains, for each receiving node, the
   mounting brick's files as root-owned read-only configs at their target
   paths and modes, plus that node's own config with its map entry and its
@@ -420,19 +423,32 @@ Architecture capture: none; it reads the merged loader.
   parameters before the mounted material is derived, so a node left out
   of the map gets no script; `gmctl inject` reports a parameter fault as
   planted at rendering, as it does a seed-file fault; `gmctl.md`'s
-  render and inject lines; tests on the chunk 2 fixture. Out: any brick.
+  render and inject lines; tests on the chunk 2 fixture;
+  `render.service_environment` (as chunk 3 leaves it, with `TZ=UTC`)
+  following the parameter's `shape` (W1 item 2): a `node-map` parameter
+  is never passed as `GM_*`, a `web-routes` parameter is passed as
+  `GM_<NAME>` holding `name=node:port` tokens, space-separated, sorted by
+  name, `""` when the map is empty, and a scalar parameter as in v0.1;
+  its unit tests. Out: any brick.
 - Files: `tools/gm/{localimpl,render,inject}.py`,
   `tools/tests/test_{render,inject,fit}.py`,
   `tools/tests/fixtures/fixture-mounted/`,
   `.claude/skills/game-master/gmctl.md`.
-- Spec sections: master spec 6.1, 6.4, 7.1 ("Delivery", "Where"), 8.
+- Spec sections: master spec 6.1, 6.4, 7.1 ("Delivery", "Where"), 8;
+  capture W1 items 2 and 4 ([wave-log.md](wave-log.md)).
 - Atoms: none.
 - Done when: unit tests show the configs added to every node of the map
   and only to them, the per-node config carrying the entry and the disk
   reservation, a parameter fault removing a node (no configs on it) or a
   service (its entry without it), no config empty, `inject` reporting a
-  parameter fault without running anything; `docker stack config`
-  accepts the rendered stack; `smoke.sh` passes unchanged.
+  parameter fault without running anything; unit tests on
+  `service_environment` show a `node-map` parameter absent from the
+  environment, a `web-routes` map written out of order passed as its
+  tokens sorted by name (`{prometheus: "prometheus:9090", grafana:
+  "grafana:3000"}` gives `GM_WEB_ROUTES` =
+  `grafana=grafana:3000 prometheus=prometheus:9090`), an empty map
+  passed as `""`, and scalar parameters unchanged; `docker stack config` accepts the rendered stack;
+  `smoke.sh` passes unchanged.
 - Verification: chunk checks, plus `sh tools/tests/smoke.sh` (needs G3).
 
 ### Chunk 6 — `postgres` 0.2.0
@@ -483,9 +499,10 @@ Architecture capture: none (chunk 9 reads the merged brick).
 Status: planned
 Record: (after merge)
 Wave: 2
-Depends on: chunks 1, 3; G2, G3 (G7 done)
+Depends on: chunks 1, 3, 5 (in wave 2: the routes parameter rendered
+as `GM_WEB_ROUTES`); G2, G3 (G7 done)
 Architecture capture: none (chunk 10 reads the merged brick); the
-routes parameter is W1's.
+routes parameter and its `GM_WEB_ROUTES` encoding are W1's (items 2, 3).
 
 - Goal: every monitoring web interface published through the bastion,
   behind the tools password.

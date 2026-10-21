@@ -10,7 +10,7 @@ their IDs keep their meaning. Resolved since: O56 (D57), O59 (D60), O51
 (D77), O66 (D78), O68 (D79), O69 (D80), O70 (D81), O71 (D82), O57 (D84),
 O58 (D85), O60 (D86), O64 (D88), O67 (D90), O72 (D100), O73 (D101),
 O74 (D102), O75 (D103), O76 (D104), O77 (D105). Numbering continues
-from O78.
+from O79.
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -79,6 +79,21 @@ for the next version (v0.1 until it closed, with none left open);
 - **O25** (later) — Scenario-only bricks and faults may live in the
   scenario's folder (D24). Can they be promoted into the catalog, and
   through which review?
+- **O78** (soon, v0.3) — `where` means two things in v0.2. D101 makes the
+  answer key's evidence `where` a location from a fixed set and moves
+  v0.1's free text to `source`; `fault.yaml`'s `evidence[]` keeps v0.1's
+  free-text `where` (the wave driver's resolution of capture W1). Options:
+  (a) leave it; (b) move `fault.yaml`'s text to `source` and give its
+  `where` the location set, with `node` meaning the fault's target node
+  (a fault knows no topology), in a later chunk or version. Recommended:
+  (b) in v0.3's first format change: a GM copying a fault's
+  evidence into an answer key copies a free-text `where` the loader then
+  refuses; the loader catches it, so it blocks nothing in v0.2, and a
+  v0.2 chunk for it would reopen chunks 1 and 2 mid-wave. Still to settle
+  under (b): which of `ui:<name>` and `report:<tool>` a fault may name,
+  since it cannot know the routes. Refs: [formats.md](formats.md),
+  [versions/v0.2/wave-log.md](versions/v0.2/wave-log.md) capture W1 item
+  9, `.claude/skills/scenario-format/templates/fault.yaml`.
 
 ## Game and feedback
 
