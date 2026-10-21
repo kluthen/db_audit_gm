@@ -30,8 +30,10 @@ aggregators." (D47)
   `applies_to` keeps its own (D57, D58), and a fault's `applies_to` is
   the only statement of which faults a brick hosts, so `compatible_faults`
   leaves `brick.yaml` within 0.1.1 (D59). See
-  [formats.md](../../formats.md), "Versions and pins". Still open: other
-  changes to faults and scenarios (O59), version lists or ranges in
+  [formats.md](../../formats.md), "Versions and pins". Faults never bump
+  (D60), changes to an unreleased brick version fold into it (D61), and a
+  brick's GM documentation lists catalog faults only (D62). Still open:
+  other changes to scenarios (O61), version lists or ranges in
   `applies_to` (O60).
 - Monitoring-related fault families as far as a static or near-static
   database allows (a collector pointed at the wrong node, a host not
@@ -60,4 +62,4 @@ aggregators." (D47)
 - O57: what a brick's footprint states (one figure, or limits and
   reservations), before the monitoring bricks enter the capacity check.
 - O58: rendered network names, once a scenario has more than one network.
-- O59: when a fault's or a scenario's version changes, beyond D58.
+- O61: when a scenario's version changes, beyond D58.

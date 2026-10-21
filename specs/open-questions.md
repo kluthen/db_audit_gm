@@ -5,8 +5,8 @@ only when it is resolved and logged in [decisions.md](decisions.md); IDs
 are never reused. Questions resolved by the close of v0.1 (O1, O3, O4,
 O6–O9, O14, O15, O17–O19, O26–O28, O33–O37, O39–O44 and O55) are listed
 in [archive/v0.1/open-questions-resolved.md](archive/v0.1/open-questions-resolved.md);
-their IDs keep their meaning. Resolved since: O56 (D57). Numbering
-continues from O61.
+their IDs keep their meaning. Resolved since: O56 (D57), O59 (D60). Numbering
+continues from O62.
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -103,15 +103,14 @@ for the next version (v0.1 until it closed, with none left open);
 - **O25** (later) — Scenario-only bricks and faults may live in the
   scenario's folder (D24). Can they be promoted into the catalog, and
   through which review?
-- **O59** (soon, v0.2) — Versions of faults and scenarios beyond D58. D58
-  keeps a fault's or a scenario's version when it only re-pins a brick or
-  widens `applies_to`, and says nothing of other changes. A scenario pins
-  each fault by version, so a fault whose injection, sealed check or
-  acceptance criteria change under the same version leaves the pin
-  pointing at different behaviour. Does any other change bump a fault,
-  and when does a scenario's own version change (nothing pins a
-  scenario)? No default proposed: D58 deliberately limits the bump rule to
-  bricks. Refs: [formats.md](formats.md), "Versions and pins".
+- **O61** (soon, v0.2) — Scenario versions beyond D58. A scenario keeps
+  its version when it only re-pins a brick (D58), and faults never bump
+  (D60). Does any other change bump a scenario (its answer key, issues,
+  story, topology)? Nothing pins a scenario, so its version only informs.
+  v0.2 meets the case at once: `bookshop-new-server`'s answer key changes
+  if RG-3 is settled (O70). Default (proposed): as for faults, never bump;
+  git history is the record. Refs: [formats.md](formats.md), "Versions and
+  pins".
 - **O60** (later) — `applies_to` lists brick versions one by one (the v0.1
   template and faults), where [formats.md](formats.md) used to say
   "version ranges". Since every brick change bumps the brick (D58) and a

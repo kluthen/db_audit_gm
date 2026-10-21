@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v10
+Status: draft v11
 
 What a scenario, a brick and a fault definition must contain, and how they
 are laid out, so that every scenario the GM designs or generates stays
@@ -240,9 +240,9 @@ Rules for the whole file:
 - It agrees with `brick.yaml`: every parameter, knob, interface or
   footprint figure it mentions matches the declaration, and it introduces
   none that `brick.yaml` lacks (footprint: O57).
-- It agrees with the faults' `applies_to` (D59): every fault it lists as
-  supported names this brick and version in its `applies_to`, and every
-  fault that does is listed.
+- It agrees with the catalog faults' `applies_to` (D59, D62): every fault
+  it lists as supported names this brick and version in its `applies_to`,
+  and every catalog fault that does is listed.
 - A disagreement with either is a defect of the brick.
 - Placement and connections are stated as requirements (one per node,
   on the same host as a given node, sharing a network with it), never in a
@@ -280,9 +280,11 @@ The required sections:
    what makes it grow (nodes watched, scrape targets, retention, log
    volume, data size) and how the GM sizes it for the capacity check; and
    the levers that shrink it.
-7. **Supported faults**: the fault definitions whose `applies_to` names
-   this brick and version (D59), and what each needs from it (a
-   parameter, a peer, aging); the faults it lends itself to that have no
+7. **Supported faults**: the catalog fault definitions (`faults/`) whose
+   `applies_to` names this brick and version (D59), and what each needs
+   from it (a parameter, a peer, aging). Catalog faults only: a fault
+   defined in a scenario's own `faults/` folder belongs to that scenario
+   and is not listed (D62). Then the faults it lends itself to that have no
    definition yet; its known interactions (a monitoring brick that can
    mask a fault elsewhere, a fault elsewhere it would reveal); and, where
    not obvious, the faults it cannot host and why.
@@ -339,7 +341,7 @@ faults/<fault-id>/
 *Known* or *hidden* is not part of the definition: it is chosen per
 instance, in the scenario.
 
-## Versions and pins (D57–D59)
+## Versions and pins (D57–D62)
 
 A scenario pins every brick and fault it uses by id and version: each
 node's brick, each fault instance's fault definition. The scripts refuse a
@@ -351,15 +353,18 @@ pin that does not match the definition's `version`.
   `docs/gm.md`) or the companion material. That includes a change that
   leaves the image byte-identical (D57, D58). A change made while a
   brick's new version is still unreleased (its branch not yet merged into
-  `main`) folds into that version with no further bump. D59 rules so for
-  0.1.1; as a general rule it is (proposed).
-- **Faults and scenarios** keep their version when they only re-pin a
-  brick or, for a fault, widen its `applies_to` (D58). Whether other
-  changes to a fault or a scenario bump its version: O59.
+  `main`) folds into that version with no further bump (D61). Which
+  number a v0.2 change takes: O65.
+- **Faults never bump** (D60). A fault keeps its version whatever changes
+  in its folder (injection, sealed check, acceptance criteria,
+  `applies_to`); git history is the record. A fault pin therefore names
+  the fault, not a state of it.
+- **Scenarios** keep their version when they only re-pin a brick (D58).
+  Whether any other change to a scenario bumps it: O61.
 - **Which faults a brick hosts** is stated only by each fault's
   `applies_to` (D59); `brick.yaml` lists no faults. A new brick version
   hosts no fault until the faults that still apply to it add that version
-  to their `applies_to`, which does not bump them.
+  to their `applies_to`.
 
 ## Script contracts (D43)
 

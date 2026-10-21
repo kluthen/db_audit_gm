@@ -53,3 +53,17 @@ continues from D55; no ID is reused.
   yet released (`v0.2-draft` is unmerged), so the removal folds into it
   with no further bump. Now in: [formats.md](formats.md) "`brick.yaml`
   must contain", "`docs/gm.md` must contain", "Versions and pins".
+- **D60 (2026-10-21, owner ruling; resolves O59 for faults): Faults never
+  bump.** A fault keeps its version whatever changes; git history is the
+  record. A scenario's fault pin then names the fault, not a state of it.
+  Scenarios' own versions beyond D58 stay open as O61. Now in:
+  [formats.md](formats.md) "Versions and pins".
+- **D61 (2026-10-21, owner ruling): The fold rule is general.** While a
+  brick's new version is unreleased (its branch not merged into `main`),
+  further changes fold into it with no extra bump; D59 had applied it to
+  0.1.1 only. Now in: [formats.md](formats.md) "Versions and pins".
+- **D62 (2026-10-21, owner ruling): A brick's "Supported faults" lists
+  catalog faults only.** A fault defined in a scenario's own `faults/`
+  folder is the scenario's, not the brick's, and is not listed. Both v0.1
+  bricks' `docs/gm.md` already say so. Now in: [formats.md](formats.md)
+  "`docs/gm.md` must contain", section 7.

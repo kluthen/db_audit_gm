@@ -17,11 +17,11 @@ owner's confirmation; the register lists the ones with real alternatives.
 
 | Document | Purpose | Status |
 |---|---|---|
-| [concept.md](concept.md) | Purpose, actors, vocabulary, scope, versions, prior art | draft v7 |
+| [concept.md](concept.md) | Purpose, actors, vocabulary, scope, versions, prior art | draft v8 |
 | [versions/](versions/README.md) | The roadmap: v0.1 to v1.0 and beyond, one page per version; v0.1's [master spec](versions/v0.1/master-spec.md), [access model](versions/v0.1/access-model.md) and [wave log](versions/v0.1/wave-log.md) | v0.1 released and archived; v0.2–v1.0 draft |
 | [gm-stance.md](gm-stance.md) | How the GM behaves and speaks: setup questions, issues, report-only interaction, no reveals, stop only, final answer, feedback tone, future ideas | draft v5 |
 | [scenario-lifecycle.md](scenario-lifecycle.md) | The game from setup to teardown: setup inputs, scenario, local implementation, deploy, aging, hand-over, end of the game | draft v7 |
-| [formats.md](formats.md) | What a scenario folder, a brick (with its companion material and GM documentation) and a fault definition must contain; versions and pins; the local implementation; the skills and templates | draft v10 |
+| [formats.md](formats.md) | What a scenario folder, a brick (with its companion material and GM documentation) and a fault definition must contain; versions and pins; the local implementation; the skills and templates | draft v11 |
 | [bricks-and-faults.md](bricks-and-faults.md) | Catalog, per-brick checks, solvability probe, fault interactions and families, future backup-tooling faults | draft v4 |
 | [planes-and-access.md](planes-and-access.md) | Bastion-only rule, planes, the GM session, trust, write policies, hardening, validators | draft v7 |
 | [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls | draft v9 |
@@ -83,8 +83,9 @@ access model.
 - Versions: any change to a brick bumps its version, documentation
   included (`postgres` and `bastion` are at 0.1.1); a fault or scenario
   that only re-pins a brick or widens `applies_to` keeps its own; a
-  fault's `applies_to` alone says which faults a brick hosts (D57–D59;
-  open: O59, O60).
+  fault's `applies_to` alone says which faults a brick hosts, catalog
+  faults only in its GM documentation; faults never bump; changes to an
+  unreleased brick version fold into it (D57–D62; open: O60, O61).
 - Players reach everything through the bastion only; read access to every
   node, write access on some; limited `sudo` wrappers, so no
   `no-new-privileges` where they are needed (D25).
@@ -111,4 +112,4 @@ access model.
 ## Next steps
 
 1. Resume scoping after v0.1: the "soon" questions first (O46, O49 to
-   O51 and O57 to O59, mostly v0.2's), then v1.0's from the "later" ones.
+   O51, O57, O58, O60 and O61, mostly v0.2's), then v1.0's from the "later" ones.
