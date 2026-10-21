@@ -451,12 +451,13 @@ players will.
 
 With routes, check the web front from outside, as the players' browsers
 will (`<web port>` is the port recorded for container port 8080; read the
-tools password from `local/<pg>/secrets/tools_password`, never pass it to
-`gmctl exec --env`):
+tools password from `local/<pg>/secrets/tools_password` and hand it to
+`curl -K -` on its standard input through `printf`, a shell builtin; never
+pass it to `gmctl exec --env` nor on a command line):
 
 ```sh
 curl -s -o /dev/null -w '%{http_code}\n' http://<host>:<web port>/<route>/      # 401
-curl -s -u "player:$(cat local/<pg>/secrets/tools_password)" http://<host>:<web port>/   # the routes
+printf 'user = "player:%s"\n' "$(cat local/<pg>/secrets/tools_password)" | curl -s -K - http://<host>:<web port>/   # the routes
 ```
 
 Then open each `/<route>/` with the password: a `502` means the upstream
