@@ -734,9 +734,49 @@ Chunks: 5, 6, 7 (chain 5 → 7). Branch `v0.2-w2`, worktree
   `other=stub:9091 stub=stub:9090`; needs `curl` on the host.
 - No root `README.md` change (no row describes the bastion's ports).
 
-### Wave gate — started 2026-10-21
+### Wave gate — 2026-10-21
 
-Every chunk merged (5, 6, 7), none moved. The gate runs on `v0.2-w2`
-with the wave 1 gate's commands; `postgres:0.2.0` is rebuilt from the
-wave branch first (chunk 6's tag note) and `postgres:0.2.0-c6` removed
-at the end.
+Every chunk merged (5, 6, 7), none moved. On `v0.2-w2` at 6d7ceed,
+build host `armenelos` (Debian 13, Docker 29.9.1, 12 CPUs, 11G), idle
+(no other stack), 2026-10-21T15:31Z, with the wave 1 gate's commands;
+`postgres:0.2.0` rebuilt from the wave branch first (chunk 6's tag
+note), `postgres:0.2.0-c6` removed at the end.
+
+| Check | Result |
+|---|---|
+| Unit suite | 277 tests OK (22 s) |
+| `sh -n`, every shell file | 50 files OK |
+| `perl -c`, every Perl file | `node-health.pl`, `stub-upstream.pl` OK |
+| Image builds | `postgres:0.2.0` 262MB, `bastion:0.2.0` 185MB, `prometheus:0.1.0` 488MB |
+| Stack tests | postgres 73 PASS, bastion 67 PASS, prometheus 101 PASS (after the fix) |
+| `smoke.sh` (fixture-audit) | 48 PASS, nothing left behind |
+
+- **One failure, fixed.** The prometheus stack test failed ("db node
+  did not become healthy": `monitoring_password is missing or empty`).
+  Traced to chunk 6: its entrypoint requires the secret and its log
+  volume, which that test's db node lacked (chunk 7 had fixed the same
+  in the bastion test, 893d472). Fixed on the wave branch by a
+  `coding-executor`, test files only, a1ceac5; rerun 101 PASS, 0 FAIL,
+  nothing left behind.
+- **Figures.** No bundle or performance figure applies. Images: the
+  postgres image is 2MB larger (262MB) and the bastion image 6MB larger
+  (185MB) than at wave 1; prometheus unchanged. 10G free on `/`.
+  `postgres` and `bastion` 0.1.0 and 0.1.1 tags still built (prunable).
+- No wave sync: no intent register.
+
+### Report to the owner — 2026-10-21
+
+Chunks 5, 6, 7 merged, none moved; gate green after one test-file fix
+(a1ceac5, chunk 6's secret missing in the prometheus stack test). For
+the owner: the web front's basic-auth user is `player` (with the tools
+password); `tools_password` is generated and mounted even without a
+front, never read or handed over then (D103 holds); postgres' disk
+reservation is now 2.25G (master spec 12); the mounted node-health
+footprint goes into the scenario's own `resources` (chunk 14), not
+added by `fit`. Left for later chunks: chunk 10 confirms Grafana's port
+3000 and names its administrator; chunks 11 and 14 carry postgres'
+logging and preload settings in their seeds (W2-B); chunk 11 fixes
+`fixture-mounted`'s header and adds the map rule. Open gates: G10 and
+G11. Plan at v4. Branches left: `v0.2-w2` only. Next: wave 3 (chunks
+8, 9, 10, 11; chain 9, 10 → 11, captures at wave start), from `main`
+once wave 2 merges.
