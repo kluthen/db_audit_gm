@@ -1,7 +1,7 @@
 # db_audit_gm v0.2 — Build plan
 
-Status: v4 (2026-10-21): the scenario document's rule for map-valued
-parameters placed in chunk 11 (gap found by chunk 1, wave log).
+Status: v5 (2026-10-21): chunk 13's fault folder aligned with the
+format, `inject/` only when the fault has material (capture W4, ruling 1).
 Approval: approved 2026-10-21 by the owner (G1, spec D99).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-10-21 (spec D98) and
@@ -824,10 +824,11 @@ their ids, kinds, target bricks, parameters and resolutions.
   node-health ones as parameter faults on the `prometheus` node, naming
   only `prometheus` in `applies_to`, with the affected node as a
   parameter, *report* or *propose* only; each with `fault.yaml`,
-  `inject/`, `checks/fixed.sh` (Grafana's through its API, on its live
-  state), `checks/probe.md`, `gm.md`; the "Supported faults" sections of
-  every brick they name, folding into the brick's version. Out: the
-  scenario (chunk 14); a default-password fault (D93); a masking pair.
+  `inject/` when it has material, `checks/fixed.sh` (Grafana's through
+  its API, on its live state), `checks/probe.md`, `gm.md`; the
+  "Supported faults" sections of every brick they name, folding into the
+  brick's version. Out: the scenario (chunk 14); a default-password
+  fault (D93); a masking pair.
 - Files: `faults/<fault-id>/` for each, `bricks/{prometheus,grafana,postgres,postgres-exporter}/docs/gm.md`
   ("Supported faults" only).
 - Spec sections: master spec 6.4, 11.1; spec D92, D93.
