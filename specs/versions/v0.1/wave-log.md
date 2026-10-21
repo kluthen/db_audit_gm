@@ -842,3 +842,18 @@ players.
 - D53 accepted.
 - Merge `v0.1-release` into `main` once the RG-1 fix has passed the
   quality command. RG-3 and RG-4 stay known issues.
+- RG-1 fixed by a `coding-executor` (fd1c8a9, merged 1969011): marker
+  moved to `/var/lib/gm-state/.gm-seeded` (root:root 0755 directory,
+  0444 marker) on a new volume `gmstate`; `/etc/postgresql` unchanged
+  (2775, no sticky bit). The postgres stack test now checks `player`,
+  `postgres` and `COPY ... TO PROGRAM` cannot remove it; hand check on a
+  live node as `player`, `sed -i` edit surviving restart and a new
+  container. The marker bullet was dropped from the starter packs' DO
+  NOT TAMPER lists. Capture W1-B's marker path is superseded by this.
+- Quality command re-run on `v0.1-release` at 1969011: 165 tests OK
+  (14.8 s), `sh -n` OK on 32 files, postgres image now
+  `sha256:a4c91c7f…`, bastion `sha256:314de9c7…` unchanged, `smoke.sh`
+  all passed (8 volumes per game). `bookshop-new-server` on the new
+  image (playground `rgcheck`): fit, render, deploy, load-data, inject 0;
+  validate 1 (db red on `work_mem`, as the answer key says); check 1
+  (faults present); teardown with reason, 0 labelled objects left.
