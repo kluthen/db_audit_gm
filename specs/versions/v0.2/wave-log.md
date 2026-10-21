@@ -342,3 +342,53 @@ the owner; it blocks nothing in v0.2.
   map-valued parameters placed in chunk 11 (wave 3; brief it there);
   chunk 5 keeps `fixture-mounted`'s inline-YAML rendering. Chunks 1 to 4
   unchanged.
+- Chunk 3 merged 2026-10-21: 9e5c8b3, merge 8688c7e; 188 unit tests
+  pass on `v0.2-w1` after the merge; `smoke.sh` 46 PASS, 0 FAIL (five
+  new checks: network name, status network line, status secret files,
+  UTC on db and bastion).
+
+### Capture W1-B — chunk 3 outcomes (read by 5, 6, 7, 9, 10; changes v0.1 W2-A, W3-A)
+
+- **`secrets/`** (`local/<pg>/secrets/`, dir 0700, files 0600): a
+  password writes `<name>` (16 characters, player alphabet, when
+  `handed_over: true`; else 32, dba alphabet); a key pair writes `<pair>`
+  and `<pair>.pub` once, however many halves are declared. Written fresh
+  at each deploy attempt, as in v0.1; kept for the game.
+- **To the node.** `implementation.yaml` `secrets[]`, one entry per
+  declared name in topology order: `{name: <gid>_<name>, secret: <name>,
+  kind: password, handed_over: bool, file: local/<pg>/secrets/<name>}`
+  or `{name, secret, kind: key-pair, pair, half, file: …/<pair>[.pub]}`.
+  `nodes.<n>.secrets[]` unchanged (`name`, `path`, `uid`, `gid`, `mode`).
+  Deploy runs `docker secret create <gid>_<name> <file>`; the stack
+  mounts it at the brick's `path`.
+- **Refusals** (`fit`, checked again at `render`): a name two bricks
+  declare differently (`kind`, `handed_over`, `pair`, `half`); a
+  password whose file is a pair's file (`<pair>` or `<pair>.pub`); an
+  unknown `kind`; a key pair without `pair` or `half`; `pair`/`half` on
+  a password; a non-boolean `handed_over`; `handed_over` on a key pair.
+  `render` refuses with "fit again" when the bricks' secrets or the
+  network changed since `fit`, and re-runs `check_supported`.
+- **Network.** Stack key `<network name>`, deployed as
+  `<gid>_<network name>`; `implementation.yaml` `network:
+  <gid>_<network name>`; every service joins it. Brick stack tests keep
+  their own `${STACK}_net`.
+- **`gmctl status`.** The v0.1 `credentials:` line is gone; after the
+  history, `network: <gid>_<network name>` (whenever
+  `implementation.yaml` exists), then for a deployed, not failed game:
+  `secrets: <ldir>/secrets/ (mode 0600, not printed)` and one line per
+  file (`<name>: password`, `<name>: password, handed over`, `<pair>:
+  private key of pair <pair>`, `<pair>.pub: public key of pair <pair>`).
+  Deploy's own `credentials:` line is unchanged.
+- **Python.** `deploy.generate_credentials(ldir, impl,
+  keygen=ssh_keygen)` (was `(ldir, game_id, keygen)`);
+  `render.service_environment(brick, node)` returns `TZ` first
+  (`render.NODE_TIMEZONE = "UTC"`), `build_stack` always sets
+  `environment`. New in `localimpl`: `network_name(scenario)`,
+  `secret_file(sec)`, `game_secrets(scenario) -> (secrets, problems)`,
+  `implementation_secrets(scenario, playground, game_id)`, constants
+  `PASSWORD`, `KEY_PAIR`, `SECRET_KINDS`, `KEY_HALVES`,
+  `PUBLIC_KEY_SUFFIX`. New in `state`: `secret_files(impl)`. Removed:
+  `localimpl.SECRET_FILES`, `localimpl.NETWORK_KEY`.
+- **Known.** An `implementation.yaml` from before this chunk is refused
+  at render ("fit again"); stale files in `secrets/` a new game no
+  longer declares stay, as in v0.1.

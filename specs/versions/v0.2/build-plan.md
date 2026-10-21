@@ -314,8 +314,10 @@ Architecture capture: none of its own; it implements W1.
 
 ### Chunk 3 — Secrets by kind, network names and UTC
 
-Status: in progress
-Record: (after merge)
+Status: merged (w1, 8688c7e)
+Record: 9e5c8b3, merge 8688c7e. Changes v0.1 captures W2-A and W3-A (secrets
+layout, network, `gmctl status`): wave log, capture W1-B. Tests outside
+Files: `test_state`, `test_teardown`. Key comment now `<gid>-<pair>`.
 Wave: 1
 Depends on: chunk 1 (W1 capture: secret kinds); G3
 Architecture capture: none of its own; it implements W1's secret kinds.
