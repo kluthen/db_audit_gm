@@ -1920,3 +1920,38 @@ after the merge.
   (the scenario folder) dispatched first, built and kept on its branch,
   for the owner's G10 review; 14b (the footprint measurement) follows on
   the same branch once 14a is built, with any G10 changes.
+
+### Capture W4-C — chunk 14a outcomes (read by 14b, G10, the wave gate and the release gate)
+
+14a built 2026-10-21: 5c2be8d on `v0.2-c14-scenario` (worktree
+`/home/bastien/work/db_audit_gm-wt/v0.2-c14-scenario`), not merged
+(G10). Scenario `fernway-clinics-monitoring`: Fernway, four veterinary
+clinics, one PostgreSQL database `clinic`; monitoring set up by a
+freelancer who left.
+- **Instances**: f1–f5 exactly W4's block (f1, f3, f4, f5 known; f2
+  hidden); f6 `pg-hba-trust-remote` (hidden), f7 `pg-role-superuser`
+  on `clinic_app` (hidden), f8 `pg-table-autovacuum-off` on
+  `clinic.appointments` (hidden). `pg-memory-over-envelope` left out so
+  no validator starts red.
+- **Issues**: I1 fix (f1; release gate item 6's monitoring fix); I2
+  propose (f3 and f5, each alone explains the silent "service down"
+  alert); I3 fix (f4). Tooling expectation t1, silent: PostgreSQL log
+  analysis (alternative weighed: backups). Session 240 minutes.
+- **Checks**: `check_scenario` `[]`; unit suite 298 OK. `fit` on
+  `laptop`: CPU 1.05 of 2, memory 1.4G of 4G, images 1.53G (31 layers, 3
+  shared), disk 5.65G of 8G. Smoke deployment (game
+  `fernway-clinics-monitoring-day72b`): 5 services healthy, only 2222
+  and 8080 published; inject ok (f7, f8 scripts; the rest "nothing to
+  run"); `validate` green; all eight checks 1, three runs; teardown left
+  nothing labelled. "Scrape target down" for `exporter:9110` alerting
+  about 1 min 41 s after deploy.
+- **Resources**: master spec 12's rows (script included); grafana
+  estimated at 0.1 CPU / 208M / 256M, limit 0.5 / 384M (brick says
+  154M): 14b replaces it with the measured figure.
+- **For the release gate**: players get `PGUSER=dba PGDATABASE=postgres`
+  from sshd's `SetEnv`; `gmctl exec` does not, so a scripted
+  play-through (item 4) exports them itself. The README generator is a
+  scratch script
+  (`/tmp/claude-1001/-home-bastien-work-db-audit-gm/c63cb38e-ef2d-4974-87de-962eb6ea7fea/scratchpad/gen_readme.py`).
+- G10 put to the owner 2026-10-21; 14b dispatched in parallel on the
+  same branch (G10 changes land after it).
