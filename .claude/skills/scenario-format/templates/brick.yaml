@@ -2,8 +2,9 @@
 #
 # Initial version (v0.1), expected to evolve as games are played.
 # Shape: master spec section 7; top-level keys fixed by capture W1-A
-# (specs/versions/v0.1/wave-log.md). Do not add, rename or drop a
-# top-level key here; brick-specific extras go under `extra`.
+# (specs/versions/v0.1/wave-log.md); D59 dropped `compatible_faults`. Do
+# not add, rename or drop a top-level key here; brick-specific extras go
+# under `extra`.
 #
 # Markers:
 #   every key is REQUIRED unless marked otherwise;
@@ -98,7 +99,8 @@ processes:                          # s6-overlay service names
   - <sshd>
 
 # --- Catalog links ----------------------------------------------------
-compatible_faults: []               # fault ids known to apply; may be empty at first
+# No fault list: which faults a brick hosts is stated only by each fault's
+# applies_to (D59).
 # companion:                        # optional: only when the brick ships companion/ material
 #   path: companion/
 #   when: <when the GM runs or uses it, e.g. "before deploying a scenario that uses this brick">

@@ -136,7 +136,6 @@ processes:
   - sshd
 
 # --- Catalog links ----------------------------------------------------
-compatible_faults: []
 interfaces:
   provides:
     - {name: sql, protocol: postgresql, port: 5432}

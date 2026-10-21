@@ -47,9 +47,15 @@ Markers used in every template:
 3. **Fill the folder**, not only the YAML: every file the layout requires
    (starter pack, `gm/notes.md`, node seed files, data files, `inject/`,
    `checks/`, docs).
-4. **Check completeness** against the checklists below, by reading. There
-   is no schema-check script; machine checks are per brick (a brick's
-   `companion/`), run by the GM before deploying a scenario that uses it.
+4. **Check completeness** against the checklists below, by reading. The
+   scripts check too: whenever a `gmctl` command loads a scenario, it
+   checks the scenario, and every brick and fault it uses, against these
+   templates (`model.check_scenario`, `check_brick_dir`,
+   `check_fault_dir`), and refuses an incomplete one with the list of its
+   missing items (D40). Whether this skill must also run a check of its
+   own is open (O20). Beyond that, machine checks are per brick (a
+   brick's `companion/`), run by the GM before deploying a scenario that
+   uses it.
 5. **Flag every missing item** (next section). Do not guess a value to make
    an item disappear.
 6. Generate `README.md` with the scenario-document skill once
@@ -143,9 +149,12 @@ scenario that uses it, when:
 - one of the nine headings is missing, renamed or out of order;
 - one of them is empty (a section that does not apply says so in a
   sentence, with the reason);
-- it disagrees with `brick.yaml`: a parameter, knob, interface, footprint
-  figure or compatible fault that does not match the declaration, or one
-  that `brick.yaml` lacks;
+- it disagrees with `brick.yaml`: a parameter, knob, interface or
+  footprint figure that does not match the declaration, or one that
+  `brick.yaml` lacks (footprint: O57);
+- it disagrees with the faults' `applies_to` (D59): a fault listed as
+  supported whose `applies_to` does not name this brick and version, or a
+  fault whose `applies_to` does that is not listed;
 - it states placement or connections in a platform's own syntax rather
   than as requirements (one per node, on the same host as a given node,
   sharing a network with it).

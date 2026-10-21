@@ -98,7 +98,6 @@ processes:
   - sshd
 
 # --- Catalog links ----------------------------------------------------
-compatible_faults: []
 interfaces:
   provides:
     - {name: ssh, protocol: ssh, port: 22}   # the only port a game publishes (default 2222)

@@ -250,12 +250,13 @@ limit for a single-player game.
 
 ## Supported faults
 
-`brick.yaml` declares `compatible_faults: []`, and no catalog fault names
-`bastion` in its `applies_to` (the code accepts a fault instance on a node
-only when it does: `tools/gm/model.py`). The bastion hosts no fault, and
-none should be written for it: nothing on it is part of the game (master
-spec 9.2), its write policy is `report-only`, and a fault there would cut
-the players off from the system they audit.
+Which faults the brick hosts is stated only by each fault's `applies_to`
+(D59), and no catalog fault (`faults/`) names `bastion` there (the code
+accepts a fault instance on a node only when it does:
+`tools/gm/model.py`). The bastion hosts no fault, and none should be
+written for it: nothing on it is part of the game (master spec 9.2), its
+write policy is `report-only`, and a fault there would cut the players off
+from the system they audit.
 
 Faults it lends itself to with no definition yet: none, for the same
 reason.

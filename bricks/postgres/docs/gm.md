@@ -289,10 +289,14 @@ envelope tightened to match, and a smaller data file.
 
 ## Supported faults
 
-`brick.yaml` declares `compatible_faults: []`. The code does not read that
-key: a fault instance is accepted on a node when the fault's own
+Which faults the brick hosts is stated only by each fault's `applies_to`
+(D59): a fault instance is accepted on a node when the fault's
 `applies_to` names the node's brick and version (`tools/gm/model.py`).
-Six catalog faults name `postgres` `0.1.0` and `0.1.1` there:
+This list is every catalog fault (`faults/`) whose `applies_to` names
+`postgres` `0.1.1`, and no other; all six also name `0.1.0`. A scenario's
+own `faults/` folder may define more for itself (the test fixture
+`tools/tests/fixtures/fixture-audit` defines two); those are the
+scenario's, not the brick's, and are not listed here.
 
 | Fault | Kind | What it needs from the brick |
 |---|---|---|

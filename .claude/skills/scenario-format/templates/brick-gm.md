@@ -38,7 +38,7 @@ to players.
 
 ## Supported faults
 
-<Its compatible faults and what each needs from it; faults it lends itself to without a definition yet; known interactions; where not obvious, faults it cannot host and why.>
+<The catalog faults whose `applies_to` names this brick and version, all of them and no other (D59), in a table whose first column is the fault id, with what each needs from it; faults it lends itself to without a definition yet; known interactions; where not obvious, faults it cannot host and why.>
 
 ## Checks
 
