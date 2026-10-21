@@ -13,7 +13,7 @@ severity: high
 applies_to:
   bricks:
     - id: postgres
-      versions: ["0.1.0"]
+      versions: ["0.1.0", "0.1.1"]
   preconditions: []                 # the slot is abandoned: no standby in the topology
 
 # --- Parameters the scenario sets -------------------------------------

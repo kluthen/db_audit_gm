@@ -8,7 +8,7 @@ version (v0.1), expected to evolve as games are played.
 
 An SSH bastion on Debian 13 (trixie): OpenSSH 10.0 with the PostgreSQL 18
 client tools alongside, in the image
-`127.0.0.1:5000/dbagm/bastion:0.1.0`. It fills the role `bastion`: the
+`127.0.0.1:5000/dbagm/bastion:0.1.1`. It fills the role `bastion`: the
 players' only way into the game. They log in with a per-game password,
 find the starter pack in their home, and reach the in-game nodes from
 there by SSH and `psql`. The GM picks it for every scenario; nothing on
@@ -29,7 +29,7 @@ The image:
 - **What gets installed**: a node of its own, from the brick's image. The
   image must be on the engine that runs the game: deployment never pulls
   it (`gmctl deploy` deploys with `--resolve-image never`).
-- **Build**: `docker build -t 127.0.0.1:5000/dbagm/bastion:0.1.0 bricks/bastion`.
+- **Build**: `docker build -t 127.0.0.1:5000/dbagm/bastion:0.1.1 bricks/bastion`.
 - **How many**: one per scenario (master spec: the players reach the
   system through a single bastion).
 - **Next to which node**: any host. Its SSH port is published on the host

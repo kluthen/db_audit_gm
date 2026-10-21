@@ -7,7 +7,7 @@ required sections: spec D56). Never shipped to players. Initial version
 ## Purpose
 
 A PostgreSQL 18 database server on Debian 13 (trixie), with an SSH server
-for the players, in the image `127.0.0.1:5000/dbagm/postgres:0.1.0`. It
+for the players, in the image `127.0.0.1:5000/dbagm/postgres:0.1.1`. It
 fills the role `database`: the node the players audit, holding the
 scenario's data and its planted faults. The GM picks it for every
 database node of a scenario; in v0.1 it is the only database brick, and
@@ -26,7 +26,7 @@ The image:
 - **What gets installed**: a node of its own, from the brick's image. The
   image must be on the engine that runs the game: deployment never pulls
   it (`gmctl deploy` deploys with `--resolve-image never`).
-- **Build**: `docker build -t 127.0.0.1:5000/dbagm/postgres:0.1.0 bricks/postgres`.
+- **Build**: `docker build -t 127.0.0.1:5000/dbagm/postgres:0.1.1 bricks/postgres`.
 - **How many**: one per database node of the scenario. Each is its own
   container with its own volumes; the per-game secrets (`dba_password`,
   `player_ssh_pubkey`) are generated once per game, so every database
@@ -292,7 +292,7 @@ envelope tightened to match, and a smaller data file.
 `brick.yaml` declares `compatible_faults: []`. The code does not read that
 key: a fault instance is accepted on a node when the fault's own
 `applies_to` names the node's brick and version (`tools/gm/model.py`).
-Six catalog faults name `postgres` `0.1.0` there:
+Six catalog faults name `postgres` `0.1.0` and `0.1.1` there:
 
 | Fault | Kind | What it needs from the brick |
 |---|---|---|

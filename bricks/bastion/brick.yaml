@@ -8,13 +8,13 @@
 
 # --- Identity ---------------------------------------------------------
 id: bastion
-version: 0.1.0
+version: 0.1.1
 roles:
   - bastion
 technology:
   name: openssh
   version: "10.0"                   # Debian 13's OpenSSH; PostgreSQL 18 client tools alongside
-image: 127.0.0.1:5000/dbagm/bastion:0.1.0
+image: 127.0.0.1:5000/dbagm/bastion:0.1.1
 
 # --- Footprint --------------------------------------------------------
 footprint:
