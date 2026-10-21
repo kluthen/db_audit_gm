@@ -1,0 +1,102 @@
+# Catalog fault: an alert rule whose pending period is longer than any
+# incident, so it never fires in time (v0.2 master spec 11.1; capture W4,
+# fault 5). A seed-file fault: the scenario's alert-rules.yaml gives the
+# rule a `for` of 2h; nothing is run at injection.
+
+# --- Identity ---------------------------------------------------------
+id: grafana-alert-for-too-long
+version: 0.1.0
+title: an alert rule waits hours before firing (pending period too long)
+family: monitoring
+severity: high
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: grafana
+      versions: ["0.1.0"]
+  preconditions:
+    - the scenario's alert-rules.yaml holds the rule named by `rule`
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  rule:
+    description: >-
+      the uid of the alert rule given a pending period far too long
+      (gm-service-down); never gm-target-down, whose firing is the evidence
+      of prometheus-node-health-node-missing (gm.md, placement)
+    default: null
+    required: true
+  max-for:
+    description: >-
+      the longest pending period that counts as fixed, as Grafana writes
+      durations (5m); the rule's `for` in effect must not exceed it
+    default: null
+    required: true
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: alert-rules.yaml
+      change: >-
+        rule {RULE} has `for: 2h` (the companion's is 1m), the rest of the
+        file as the brick's companion/alert-rules.yaml; the other four
+        Grafana seed files byte for byte as the companion's
+      material: inject/alert-rules.yaml.snippet
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: Grafana's alerting view (web front, route grafana, /grafana/alerting/list)
+    how: open the rule (folder db_audit_gm, group db_audit_gm) and read its details
+    shows: the rule's pending period is 2h, against 1m for every other rule
+  - where: /etc/grafana/provisioning/alerting/alert-rules.yaml on the grafana node
+    how: ssh grafana, then grep -n -e 'uid:' -e 'for:' /etc/grafana/provisioning/alerting/alert-rules.yaml
+    shows: "for: 2h under uid {RULE}"
+  - where: Grafana's provisioning API (web front, route grafana)
+    how: through the web front, GET /grafana/api/v1/provisioning/alert-rules/{RULE}
+    shows: '"for": "2h"'
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names rule {RULE}'s pending period (2h) as longer than any incident it is
+    meant to catch: the condition must hold for two hours before the alert
+    fires, so a service down for an hour is never alerted on.
+  proposal: >-
+    a pending period of a few minutes (at most `max-for`), long enough to
+    ride out a restart, set in alert-rules.yaml and applied with sudo
+    gm-reload-grafana (provisioned rules are not editable in the UI).
+  fix: >-
+    rule {RULE} exists in Grafana's live state, is not paused, and its
+    pending period is at most `max-for`, whichever path was taken (the file
+    and gm-reload-grafana, or Grafana's API).
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  Our database stopped for forty minutes last Tuesday and Grafana never
+  sent an alert, although we have a rule for exactly that.

@@ -20,6 +20,14 @@ no password must now fail.
 **Fix paths.** Edit `/etc/postgresql/pg_hba.conf`, then reload. There is
 no `ALTER SYSTEM` path: pg_hba.conf is a file, not a setting.
 
+**With a `postgres-exporter` node (v0.2).** The scenario's `pg_hba.conf`
+also lets the role `monitoring` in by `samenet` (or an address range),
+for the exporter. A fix must keep that line: removing it, or narrowing
+the addresses so that it no longer matches, disconnects the exporter
+(`pg_up` 0, every PostgreSQL panel empty, "Exporter disconnected from
+PostgreSQL" firing). Judge such a fix as breaking the monitoring, even
+though the sealed check reads *fixed*.
+
 **Sealed check.** Present while a password-less TCP login to the node's
 own address succeeds (the rules in effect), or while the file still holds
 a non-local `trust` rule other than loopback (the bastion's address cannot

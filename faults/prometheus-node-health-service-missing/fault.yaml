@@ -1,0 +1,105 @@
+# Catalog fault: a node's main service left out of its node-health service
+# list (v0.2 master spec 11.1; capture W4, fault 3). A parameter fault on the
+# prometheus node's node_health map: the renderer removes the service from
+# the node's entry, so the node shows healthy while that service is down;
+# nothing is run at injection. Report or propose only: the script's
+# configuration is read-only on every node (D92).
+
+# --- Identity ---------------------------------------------------------
+id: prometheus-node-health-service-missing
+version: 0.1.0
+title: a node's main service is missing from its node-health service list
+family: monitoring
+severity: high
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: prometheus
+      versions: ["0.1.0"]
+  preconditions:
+    - the node is in the prometheus node's node_health map, and its entry (or default, its brick's processes) holds the service and at least one other
+    - Prometheus scrapes the node's port 9110 target
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  node:
+    description: >-
+      the node whose service list loses its main service (the database node
+      for postgres); never the node of prometheus-scrape-target-missing or of
+      prometheus-node-health-node-missing (gm.md, placement)
+    default: null
+    required: true
+  service:
+    description: >-
+      the node's main service, removed from its node-health list (postgres on
+      a postgres node); never the entry's only item, which would leave the
+      list empty
+    default: null
+    required: true
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: parameter
+  stage: seed
+  parameter_changes:
+    - parameter: node_health
+      op: remove-from-entry
+      entry: "{NODE}"
+      item: "{SERVICE}"
+      change: >-
+        {SERVICE} is removed from {NODE}'s service list (a default entry is
+        first expanded to the brick's processes), so the node-health script
+        on {NODE} never reports it: node.conf's services line lacks it and
+        no node_health_service_up series exists for it
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: /opt/gm/node-health/node.conf on the node
+    how: ssh {NODE}, then cat /opt/gm/node-health/node.conf
+    shows: the services line lists the node's other services but not {SERVICE}
+  - where: 'Grafana''s node-health dashboard, panel "Services: up or down, per node" (web front, route grafana, /grafana/d/node-health)'
+    how: 'open the dashboard and read the panel "Services: up or down, per node"'
+    shows: "{NODE} shows only its other services, while every other node shows its main service"
+  - where: Prometheus (web front, route prometheus, /prometheus/query)
+    how: query node_health_service_up{node="{NODE}"}
+    shows: no series with service="{SERVICE}"
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+acceptance:
+  diagnosis: >-
+    names {SERVICE} as missing from {NODE}'s node-health service list, so
+    the node shows healthy and "Service down on a node" cannot fire when
+    {SERVICE} stops; the most important service of the node is the one not
+    watched.
+  proposal: >-
+    add {SERVICE} to {NODE}'s node-health service list (the monitoring
+    configuration, redeployed by whoever runs the platform); optionally an
+    application-level check of the service as well (for postgres, the
+    exporter's pg_up).
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  Last month the database was down for an hour and our health dashboard
+  stayed green the whole time. We only found out when customers called.

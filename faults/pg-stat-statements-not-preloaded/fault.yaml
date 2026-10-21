@@ -1,0 +1,98 @@
+# Catalog fault: pg_stat_statements not preloaded, so query statistics are
+# never collected (v0.2 master spec 11.1; capture W4, fault 4). A seed-file
+# fault: the scenario's postgresql.conf leaves the library out of
+# shared_preload_libraries; nothing is run at injection. A tool starved of
+# information: the extension exists, the exporter asks, the server has
+# nothing to give.
+
+# --- Identity ---------------------------------------------------------
+id: pg-stat-statements-not-preloaded
+version: 0.1.0
+title: pg_stat_statements is not preloaded, so no query statistics are collected
+family: monitoring
+severity: medium
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: postgres
+      versions: ["0.2.0"]
+  preconditions:
+    - for the dashboard and Prometheus evidence, a postgres-exporter node whose exporter.conf enables --collector.stat_statements, and its target scraped by Prometheus
+
+# --- Parameters the scenario sets -------------------------------------
+parameters: {}
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: postgresql.conf
+      change: >-
+        shared_preload_libraries does not name pg_stat_statements (the line
+        absent, or commented out as in the material); the rest of the file
+        keeps postgres 0.2.0's logging block. The extension itself is
+        created at initdb in database postgres by the brick: only the
+        preload is missing
+      material: inject/postgresql.conf.snippet
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: Grafana's PostgreSQL dashboard (web front, route grafana, /grafana/d/postgresql)
+    how: open the dashboard
+    shows: the four statement panels show "No data" while "Exporter connected to PostgreSQL" is at 1
+  - where: Prometheus (web front, route prometheus, /prometheus/query)
+    how: query pg_scrape_collector_success{collector="stat_statements"}, then pg_stat_statements_calls_total
+    shows: the collector at 0 and no pg_stat_statements_calls_total series
+  - where: psql from the bastion
+    how: psql -h {database node} -d postgres -c 'SELECT * FROM pg_stat_statements LIMIT 1'; psql -h {database node} -c 'SHOW shared_preload_libraries'
+    shows: 'the query fails with "pg_stat_statements must be loaded via shared_preload_libraries"; the setting does not name it'
+  - where: /etc/postgresql/postgresql.conf on the database node
+    how: on the database node, grep -n shared_preload_libraries /etc/postgresql/postgresql.conf
+    shows: the line is absent or commented out
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names pg_stat_statements as installed but not loaded: it is missing from
+    shared_preload_libraries, so the server collects no query statistics,
+    the exporter's stat_statements collector fails and the statement panels
+    stay empty; there is no way to find the costly queries.
+  proposal: >-
+    add pg_stat_statements to shared_preload_libraries (postgresql.conf, or
+    ALTER SYSTEM) and restart the server (sudo gm-restart-db): a reload is
+    not enough; plan the restart, since it drops every connection.
+  fix: >-
+    pg_stat_statements is in the shared_preload_libraries in effect (the
+    server was restarted) and SELECT count(*) FROM pg_stat_statements
+    succeeds in database postgres, whichever path set it (the file, or
+    ALTER SYSTEM).
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  We set up Grafana to find our slow queries, but the query panels have
+  been empty since day one. The rest of the dashboard works.
