@@ -92,8 +92,10 @@ ls scenarios/*/local/*/state.yaml
 ```
 
 For each one, run `tools/gmctl status <dir> --playground <pg>`. A game is
-**in progress** when its stage is anything but `torn-down` (`failed`
-included: it needs a look). If there is one, say which (scenario,
+**in progress** when its stage is anything but `torn-down`, or `failed`
+with its teardown recorded (`status` prints a `torn down:` line): those
+are over. A `failed` game without that line is in progress: it needs a
+look. If there is one, say which (scenario,
 playground, stage) and offer to pick it up; with several, list them and
 ask which. A new game on a playground whose game is in progress is not
 started: explain that a game is in progress and offer to resume it. If
@@ -128,7 +130,7 @@ the initiator declines and wants that game gone, tear it down
 | `handed-over` | the game is being played | [During the game](#during-the-game); repeat the hand-over if asked |
 | `final-answer` | final answer given, not evaluated | ask the players to hand the final answer in again (or fetch `~/report.md`), then [Evaluation](#evaluation) |
 | `feedback-given` | feedback given | [Teardown](#teardown) |
-| `failed` | a setup step failed and was torn down | report the stage and reason that `status` prints, then [Setup failures](#setup-failures) |
+| `failed` | a setup step failed and was torn down | report the stage and reason that `status` prints, then [Setup failures](#setup-failures); with its teardown recorded (a `torn down:` line), it is over, like `torn-down`: a new game may be fitted on this playground |
 | `torn-down` | over | nothing; a new game may be fitted on this playground |
 
 The credentials of a deployed game are in `local/<pg>/secrets/`, so you
@@ -206,15 +208,17 @@ The initiator, or anyone, may ask to stop at any point of the setup: see
   records stage `failed` with the reason (its output ends "Recorded in
   state.yaml"). Report the step and the reason to the initiator. Then run
   `tools/gmctl teardown <dir> --playground <pg>` to confirm nothing
-  carrying the game's label is left (it keeps the failure record), and
+  carrying the game's label is left (it keeps the failure record and
+  also records the teardown), and
   `tools/gmctl status <dir> --playground <pg>` to show what is recorded.
   For a node that did not come up, read its logs:
   `tools/gmctl logs <dir> --playground <pg> --node <node> --tail 50`.
 - **Trying again.** After a failed `deploy`, fix the cause and run
   `deploy` again: it is allowed from that failure. After a failed
-  `load-data` or `inject`, `gmctl` accepts no new `fit` or `deploy` on
-  that playground: start again on a new playground slug (`laptop-2`),
-  from step 5, and keep the failed one as the record.
+  `load-data` or `inject`, once the confirming teardown above has run,
+  fit a new game on the same playground (`fit` gives it a new game id)
+  and go on from step 5; `fit` refuses until that teardown is recorded.
+  The same works after a failed `deploy`, instead of retrying it.
 - **A stop request during setup** is obeyed at once, without asking for
   confirmation. At whatever setup stage the game is, run `tools/gmctl
   teardown <dir> --playground <pg> --reason "stopped on request"` (add
@@ -366,7 +370,9 @@ tools/gmctl teardown <dir> --playground <pg>
 
 It removes every service, network, config, secret and volume carrying the
 game's label, and records `torn-down` (a failed game keeps its failure
-record). Images and the swarm stay. The credentials stop working at once.
+record) and the teardown record. The game is then over: `torn-down`,
+or `failed` with its teardown recorded; a new game may be fitted on the
+playground. Images and the swarm stay. The credentials stop working at once.
 Report its result: "nothing carrying its label is left" (or "was left",
 when there was nothing to remove). If it exits 1
 listing leftovers, run it again once; if objects remain, give the

@@ -71,12 +71,17 @@ Rules:
 
 ## Script contracts (master spec 8.1)
 
-- **Injection scripts** (`inject/*.sh`, and the data load): POSIX shell,
-  fed on stdin to `sh -s` inside the target container, run as root unless
-  the fault says otherwise, with parameters as environment variables
-  (`FAULT_<NAME>`). Idempotent. Exit 0 on success; any other code fails
-  the setup.
-- **Sealed checks** (`checks/fixed.sh`): same delivery. Exit 0: the fault
+- **Injection scripts** (`inject/*.sh`): POSIX shell, fed on stdin to
+  `sh -s` inside the target container, run as root unless the fault says
+  otherwise, with parameters as environment variables (`FAULT_<NAME>`).
+  Idempotent. Exit 0 on success; any other code fails the setup.
+- **The data load** (`data/<node>.sql`): SQL, not shell, streamed on stdin
+  into `psql -X -q -v ON_ERROR_STOP=1 -d postgres` run as `postgres`
+  inside the node's container (local peer authentication); the file
+  creates its own databases and roles. It runs once per game: loading
+  again once the data is in changes nothing. Any error fails the setup.
+- **Sealed checks** (`checks/fixed.sh`): same delivery as injection
+  scripts. Exit 0: the fault
   is no longer present in the effective live state; 1: still present; any
   other code: error. First output line: why, in one sentence the GM can
   reuse. A fix counts whichever path the player took. A check that queries

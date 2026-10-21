@@ -27,7 +27,7 @@ The teardown a failed step runs itself writes none.
 | Command | Allowed at | Records | Exit |
 |---|---|---|---|
 | `tools/gmctl status <dir> --playground <pg>` | any game | nothing | 0; 1 no game |
-| `tools/gmctl fit <dir> --playground <pg> [--endpoint ssh://user@host] [--cpu N --memory SIZE --disk SIZE]` | no game, `fitted`, `rendered`, `torn-down`, or `failed` before deployment | `fitted` | 0 fits; 1 does not fit, or refused |
+| `tools/gmctl fit <dir> --playground <pg> [--endpoint ssh://user@host] [--cpu N --memory SIZE --disk SIZE]` | no game, `fitted`, `rendered`, `failed` before deployment (same game id); `torn-down`, or `failed` after deployment with its teardown recorded (a new game id) | `fitted` | 0 fits; 1 does not fit, or refused (a deployed stage, or a failure after deployment not torn down: the message names the game, its stage and `gmctl teardown`, or `gmctl deploy` for a failed deploy) |
 | `tools/gmctl render <dir> --playground <pg>` | `fitted`, `rendered` | `rendered` | 0; 1 refused |
 | `tools/gmctl deploy <dir> --playground <pg> [--init-swarm] [--timeout SECONDS]` | `rendered`, or `failed` in deploy | `deployed` | 0; 1 refused or failed |
 | `tools/gmctl load-data <dir> --playground <pg> [--timeout SECONDS]` | `deployed` (later deployed stages: no-op, exit 0) | `data-loaded` | 0; 1 refused or failed |

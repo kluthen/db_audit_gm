@@ -126,9 +126,34 @@ def declare_playground(ldir, name, endpoint=None, cpu=None, memory=None, disk=No
     return updated
 
 
+# Failure stages of a failed game that had been deployed (deploy, load-data, inject).
+AFTER_DEPLOYMENT = ("deployed", "data-loaded", "injected")
+
+
+def _refusal(state):
+    """Why `fit` refuses a game that may have resources on the platform,
+    and what unblocks it."""
+    gid = state.get("game_id")
+    stage = state.get("stage")
+    failed_before = (state.get("failure") or {}).get("stage")
+    if stage == localimpl.FAILED:
+        text = (f"game {gid} on this playground failed before stage {failed_before} and its "
+                "teardown is not recorded: run gmctl teardown, then gmctl fit again")
+        if failed_before == "deployed":
+            text += ", or run gmctl deploy to retry the deploy"
+    else:
+        text = (f"game {gid} on this playground is at stage {stage}: run gmctl teardown, "
+                "then gmctl fit again")
+    return text + "; nothing written"
+
+
 def _game_to_keep(ldir, scenario_id):
     """The game id to keep on a refit, None for a new one; GmError if the
-    game may have resources on the platform."""
+    game may have resources on the platform.
+
+    A new game after `torn-down`, or after a failed game whose failure came
+    after deployment and whose teardown is recorded (nothing labelled with
+    its id is left; spec D51)."""
     state = localimpl.read_state(ldir)
     if state is None:
         return None
@@ -136,11 +161,13 @@ def _game_to_keep(ldir, scenario_id):
     failure = state.get("failure") or {}
     before_deploy = stage in ("fitted", "rendered") or (
         stage == localimpl.FAILED and failure.get("stage") in ("fitted", "rendered"))
-    if stage == "torn-down":
+    if stage == localimpl.TORN_DOWN:
+        return None
+    if (stage == localimpl.FAILED and failure.get("stage") in AFTER_DEPLOYMENT
+            and localimpl.teardown_record(state) is not None):
         return None
     if not before_deploy:
-        raise GmError(f"game {state.get('game_id')} on this playground is at stage {stage}; "
-                      "tear it down before fitting again")
+        raise GmError(_refusal(state))
     impl = localimpl.read_yaml(ldir / localimpl.IMPLEMENTATION_FILE) or {}
     if (impl.get("scenario") or {}).get("id") != scenario_id:
         return None

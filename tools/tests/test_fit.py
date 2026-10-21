@@ -4,8 +4,11 @@ import unittest
 
 import yaml
 
-from tools.gm import fit, localimpl, model
-from tools.tests import INSUFFICIENT, SUFFICIENT, ScenarioCopyTest, run_gmctl
+from tools.gm import deploy, fit, localimpl, model, state, teardown
+from tools.tests import INSUFFICIENT, SUFFICIENT, FakeDocker, ScenarioCopyTest, run_gmctl
+from tools.tests.test_deploy import RenderedGame
+from tools.tests.test_inject import FRAGMENTS
+from tools.tests.test_inject import DeployedGame as InjectableGame
 
 
 class TestGameId(unittest.TestCase):
@@ -157,11 +160,26 @@ class TestFit(ScenarioCopyTest):
         self.assertEqual(first, second)
 
     def test_refuses_refit_of_a_deployed_game(self):
-        fit.fit(self.scenario, "laptop", **SUFFICIENT)
+        gid = fit.fit(self.scenario, "laptop", **SUFFICIENT).game_id
         localimpl.set_stage(self.ldir(), "rendered")
         localimpl.set_stage(self.ldir(), "deployed")
-        with self.assertRaises(model.GmError):
+        with self.assertRaisesRegex(model.GmError,
+                                    f"^game {gid} on this playground is at stage deployed: "
+                                    "run gmctl teardown, then gmctl fit again; nothing "
+                                    "written$"):
             fit.fit(self.scenario, "laptop")
+
+    def test_refit_after_a_torn_down_failure_before_deploy_keeps_the_game_id(self):
+        first = fit.fit(self.scenario, "laptop", **SUFFICIENT).game_id
+        fit.fit(self.scenario, "laptop", **INSUFFICIENT)
+        teardown.teardown(self.scenario, "laptop", reason="too small", docker=FakeDocker())
+        st = localimpl.read_state(self.ldir())
+        self.assertEqual((st["stage"], st["teardown"]["stage"]), ("failed", "fitted"))
+        result = fit.fit(self.scenario, "laptop", **SUFFICIENT)
+        self.assertEqual(result.game_id, first)
+        st = localimpl.read_state(self.ldir())
+        self.assertEqual(st["stage"], "fitted")
+        self.assertNotIn("teardown", st)        # the game went on: the record is cleared
 
     def test_failed_capacity_marks_an_existing_game_failed(self):
         fit.fit(self.scenario, "laptop", **SUFFICIENT)
@@ -170,6 +188,101 @@ class TestFit(ScenarioCopyTest):
         state = localimpl.read_state(self.ldir())
         self.assertEqual(state["stage"], "failed")
         self.assertEqual(state["failure"]["stage"], "fitted")
+
+
+class NewGameChecks:
+    """`fit` on a playground whose game failed after deployment (spec D51)."""
+
+    FILES = ("playground.yaml", "implementation.yaml", "state.yaml")
+
+    def files(self):
+        return {name: (self.ldir / name).read_bytes() for name in self.FILES}
+
+    def teardown_game(self, **kwargs):
+        return teardown.teardown(self.scenario, "laptop", docker=self.fake, sleep=self.sleep,
+                                 clock=lambda: self.clock[0], **kwargs)
+
+    def assert_new_game(self):
+        proc = run_gmctl("fit", self.scenario, "--playground", "laptop")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        impl = localimpl.read_implementation(self.ldir)
+        self.assertNotEqual(impl["game_id"], self.gid)
+        self.assertRegex(impl["game_id"], r"^fixture-audit-[a-z0-9]{6}$")
+        self.assertIn(f"Result: fits. Game id {impl['game_id']}.", proc.stdout)
+        st = localimpl.read_state(self.ldir)
+        self.assertEqual(st["game_id"], impl["game_id"])
+        self.assertEqual(st["stage"], "fitted")
+        self.assertEqual([h["stage"] for h in st["history"]], ["fitted"])
+        self.assertIsNone(st["failure"])
+        self.assertNotIn("teardown", st)
+
+    def assert_refused(self, message):
+        before = self.files()
+        proc = run_gmctl("fit", self.scenario, "--playground", "laptop")
+        self.assertEqual(proc.returncode, 1, proc.stdout)
+        self.assertEqual(proc.stderr.strip(), f"gmctl fit: {message}")
+        self.assertEqual(self.files(), before)
+
+
+class TestFitAfterAFailedSetup(NewGameChecks, InjectableGame):
+
+    def fail_load_data(self):
+        self.replies["CREATE DATABASE shop"] = (3, "", "ERROR:  boom\n")
+        with self.assertRaises(state.SetupFailed):
+            self.load_data()
+
+    def fail_inject(self):
+        self.load_data()
+        self.replies[FRAGMENTS["10-drop-index"]] = (4, "", "psql: error: boom\n")
+        with self.assertRaises(state.SetupFailed):
+            self.inject()
+
+    def test_new_game_after_a_failed_load_data_torn_down(self):
+        self.fail_load_data()
+        self.teardown_game(reason="setup failed in load-data")
+        self.assertEqual(localimpl.read_state(self.ldir)["teardown"]["stage"], "deployed")
+        self.assert_new_game()
+
+    def test_new_game_after_a_failed_inject_torn_down(self):
+        self.fail_inject()
+        self.teardown_game()
+        self.assertEqual(localimpl.read_state(self.ldir)["teardown"]["stage"], "data-loaded")
+        self.assert_new_game()
+
+    def test_refuses_a_failed_inject_without_teardown_record(self):
+        self.fail_inject()
+        self.assert_refused(f"game {self.gid} on this playground failed before stage injected "
+                            "and its teardown is not recorded: run gmctl teardown, then gmctl "
+                            "fit again; nothing written")
+
+    def test_refuses_a_game_at_a_deployed_stage(self):
+        for stage in ("deployed", "data-loaded"):
+            with self.subTest(stage=stage):
+                if stage == "data-loaded":
+                    self.load_data()
+                self.assert_refused(f"game {self.gid} on this playground is at stage {stage}: "
+                                    "run gmctl teardown, then gmctl fit again; nothing "
+                                    "written")
+
+
+class TestFitAfterAFailedDeploy(NewGameChecks, RenderedGame):
+
+    def setUp(self):
+        super().setUp()
+        self.fake = FakeDocker(health="unhealthy")
+        with self.assertRaises(state.SetupFailed):
+            self.deploy(self.fake, timeout=10)
+
+    def test_refused_until_torn_down_and_names_the_retry(self):
+        self.assert_refused(f"game {self.gid} on this playground failed before stage deployed "
+                            "and its teardown is not recorded: run gmctl teardown, then gmctl "
+                            "fit again, or run gmctl deploy to retry the deploy; nothing "
+                            "written")
+
+    def test_new_game_once_torn_down_and_deploy_still_retries(self):
+        self.teardown_game()
+        self.assertTrue(deploy.deployable(localimpl.read_state(self.ldir)))
+        self.assert_new_game()
 
 
 class TestGmctlFit(ScenarioCopyTest):
