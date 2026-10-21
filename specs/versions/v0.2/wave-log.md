@@ -1493,3 +1493,36 @@ a v0.2 known limit, or have `spec-writer` record or plan the mechanism;
 estimates (exporter 165MB, grafana 866MB) and grafana's memory at rest
 (180–195M) over its 154M reservation, both for chunk 14b's footprint
 measurement and the release gate.
+
+### Owner answers after wave 3 — 2026-10-21
+
+- **Fixable only accepted.** The owner agreed that `prometheus`,
+  `postgres-exporter` and `grafana` are fixable only in v0.2, a known
+  limit (W3 ruling 1), against master spec 7's "fixable or report-only
+  per scenario". Sent to `spec-writer` to record (decision and the
+  spec's known limits), committed on `v0.2-w4`.
+- **Images pruned.** The owner asked for the untagged images to be
+  pruned: `docker image prune -f` removed every dangling image (none
+  left); free space on `/` stays 10G, their layers being shared with
+  the tagged images. The superseded `dbagm` 0.1.0 and 0.1.1 tags and the
+  build cache were not touched.
+- **Merged.** `v0.2-w3` merged into `main` as 8e17795; its worktree and
+  branches (`v0.2-w3`, `v0.2-c9-exporter`, `v0.2-c10-grafana`,
+  `v0.2-c11-monitoring`) removed.
+
+## Wave 4 — started 2026-10-21
+
+Chunks: 12, 13, 14 (chain 13 → 14). Branch `v0.2-w4`, worktree
+`/home/bastien/work/db_audit_gm-wt/v0.2-w4`, cut from `main` at 8e17795
+(wave 3 merged).
+
+- **Concurrency.** The owner's allowance for this session holds: 12
+  and 13 run side by side (no path between them, no shared source
+  file); 14 starts once 13 merges, and merges only once G10 clears.
+- **Gates.** G2, G3, G8, G9 done; G10 (the owner's review of the v0.2
+  scenario) blocks chunk 14's merge; G11 at release close.
+- **Preflight.** None (no intent register, no data register).
+- **Captures.** W4 (the chosen monitoring faults: ids, kinds, target
+  bricks, parameters, resolutions) is drafted before chunk 13 starts.
+  Chunk 12 needs none and starts now.
+- Chunk 12 dispatched 2026-10-21.
