@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v12
+Status: draft v13
 
 What a scenario, a brick and a fault definition must contain, and how they
 are laid out, so that every scenario the GM designs or generates stays
@@ -168,7 +168,8 @@ bricks/<brick-id>/
   validator/         the public validator
   docs/player.md     what the player may read about this kind of node
   docs/gm.md         the GM documentation (required sections below), never shipped
-  companion/         optional: the brick's own checks, scripts and tools (D28)
+  companion/         optional: the brick's own checks, scripts and tools (D28),
+                     and material the GM mounts into other nodes (D89)
 ```
 
 ### `brick.yaml` must contain
@@ -210,6 +211,32 @@ combining it with other bricks. Machine checks are per brick: whether a
 brick has any depends on the brick. Such material lives in the brick's
 `companion/` folder, and `brick.yaml` says what it provides and when the GM
 should use it.
+
+**Companion material mounted into other nodes** (D88, D89). Some
+companion material does not stay with the brick's own node: the GM
+mounts it into other nodes of the topology at deploy, as configs, as
+`prometheus` does with the node-health script. For each such item,
+`brick.yaml`'s companion declaration states:
+
+- the files, and for each its target path and mode in the receiving
+  node (root-owned and read-only there, so a protected file);
+- which nodes receive it: those the brick's parameter for it lists (for
+  the node-health script, every node of the topology, the brick's own
+  included);
+- the parameter that configures it per node, set on the brick's own
+  node in the scenario (for the node-health script, a map from each
+  node's name to the services it watches, defaulting to that node's
+  brick's s6 `processes`);
+- what it adds to each receiving node's footprint, which the GM counts in
+  that node's `resources`;
+- what a receiving image must provide (for the node-health script:
+  s6-overlay v3 and the commands the script uses).
+
+The renderer adds the configs to every receiving node's service, so the
+material changes no image and no other brick's folder, and bumps only the
+brick that ships it (D57). A fault about it names that brick in
+`applies_to`, and may be planted through the parameter (a node left out
+of the node-health map, D73).
 
 **Platform-neutral bricks** (D22, D42). A brick definition names no
 Swarm-only feature, so the same brick runs under Kubernetes:
@@ -265,14 +292,14 @@ The required sections:
    image), the role or roles it fills in a scenario, and when the GM
    picks it.
 2. **Placement**: what gets installed (a node of its own from the brick's
-   image, or material the GM installs into another brick's node, such as
-   the node-health script, which the GM mounts into each node as configs
-   at deploy, D73; how such a brick is declared: O64), how to
+   image, and any companion material the GM mounts into other nodes at
+   deploy, such as `prometheus`'s node-health script, D88, D89), how to
    build it, how many per scenario (one per scenario, one per node, one per
    node of a given brick), next to which node (same host as a given node,
    or any host), whether it is stateful, and which networks it joins.
 3. **Configuration**: every parameter the scenario sets and every value
-   the GM sets per scenario or per node at initialisation, each with its
+   the GM sets per scenario or per node at initialisation (the per-node
+   values of mounted companion material included, D89), each with its
    meaning, default, valid values and where it lands (seed file, secret,
    fixed path); the knobs and their default envelopes; the secrets and seed
    files and what they must contain; and what start-up does (what is seeded
@@ -281,8 +308,10 @@ The required sections:
    on the other side, the port and protocol, what the GM wires and where (a
    scrape target, an exporter's connection, a datasource, a dashboard), the
    account or role the other side must provide and which parameter supplies
-   it, and what must exist before the wiring works; and what it exposes to
-   monitoring bricks (metrics endpoints, logs).
+   it, and what must exist before the wiring works; what it exposes to
+   monitoring bricks (metrics endpoints, logs); and whether its image
+   accepts another brick's mounted companion material, such as the
+   node-health script (D89).
 5. **Access**: how the player reaches it (account, group, `sudo` wrappers,
    any web interface and the path to it through the bastion), its writable
    and protected paths, the write policies it supports, the capabilities it
@@ -291,8 +320,9 @@ The required sections:
 6. **Footprint**: the default CPU, memory and disk, limits and
    reservations, as `brick.yaml` declares them (D84);
    what makes it grow (nodes watched, scrape targets, retention, log
-   volume, data size) and how the GM sizes it for the capacity check; and
-   the levers that shrink it.
+   volume, data size) and how the GM sizes it for the capacity check;
+   what its mounted companion material adds to each node it lands on
+   (D89); and the levers that shrink it.
 7. **Supported faults**: the catalog fault definitions (`faults/`) whose
    `applies_to` names this brick and version (D59), and what each needs
    from it (a parameter, a peer, aging). Catalog faults only: a fault
@@ -333,7 +363,7 @@ faults/<fault-id>/
   each brick bump adds its version to every fault that still applies.
 - **Parameters** the scenario sets (which table, which job…).
 - **Injection**: how it is planted (a change to a node's seed
-  configuration, a state change run in the node by the GM, an aging step)
+  configuration or parameters, a state change run in the node by the GM, an aging step)
   and at which stage. State changes are idempotent POSIX shell scripts
   streamed over stdin, so they run the same through `docker exec` or
   `kubectl exec` (D22). Their interface is in "Script contracts" below.

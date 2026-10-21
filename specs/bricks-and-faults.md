@@ -1,6 +1,6 @@
 # Bricks and faults
 
-Status: draft v6
+Status: draft v7
 
 The catalog of reusable bricks and fault definitions, and the rules that
 keep scenarios fair. What a brick or fault definition must contain is in
@@ -50,7 +50,7 @@ on a 2 CPU / 4G / 8G laptop) is a main criterion in choosing it (D64):
 
 | Need | v0.2 brick (D66, D69) |
 |---|---|
-| Per-node health | the node-health script, a daemon on every node, configured by the GM at initialisation: the node's CPU, RAM, disk and the status of its important services; scraped by Prometheus. The GM mounts the script and its s6 service into each node as configs at deploy (D73) |
+| Per-node health | the node-health script, a daemon on every node, configured by the GM at initialisation: the node's CPU, RAM, disk and the status of its important services; scraped by Prometheus. Companion material of the `prometheus` brick, which the GM mounts into each node as configs at deploy (D73, D88) |
 | PostgreSQL metrics | `postgres_exporter` |
 | Metrics store | Prometheus |
 | Dashboards and alerting | Grafana, with its own alerting; no separate alerting brick |
@@ -59,22 +59,26 @@ on a 2 CPU / 4G / 8G laptop) is a main criterion in choosing it (D64):
 
 No cAdvisor and no Docker socket or host mount: each node reports on
 itself from inside (D66). pgwatch and pgCluu, both in the reference, are
-not v0.2 bricks. Every monitoring brick, the node-health script included,
-has its GM documentation like any brick (D56).
+not v0.2 bricks. Every monitoring brick has its GM documentation like any
+brick (D56); the node-health script's is `prometheus`'s (D88).
 
-The node-health script (D73) runs on every node whenever the topology has
-a metrics store; a node left out is a monitoring fault. The GM installs
-it at deploy: the script and its s6 service are mounted into each node as
-configs, with the node's list of services, so a brick image only has to
-accept a mounted service and none carries the script. It reads CPU and
+The node-health script (D73, D88) runs on every node whenever the
+topology has a metrics store; a node left out is a monitoring fault. It
+is companion material of the `prometheus` brick, versioned with it: a
+change to the script bumps `prometheus`, and faults about it name
+`prometheus` in `applies_to`. The GM installs it at deploy: the script
+and its s6 service are mounted into each node as configs, with the
+node's list of services, so a brick image only has to accept a mounted
+service and none carries the script ([formats.md](formats.md),
+"Companion material mounted into other nodes", D89). It reads CPU and
 memory from the node's cgroup v2 files, disk with `df` on the node's
 volumes and services with `s6-svstat`, and serves them in Prometheus'
 text format on a fixed port; its default services are the brick's s6
 `processes`, which the GM may adjust. Being configs, the script and its
 list are read-only on the node: their faults can be reported or a fix
-proposed, never fixed by the player. How the brick, which has no node of its own, is
-declared in the format: O64. Other tools, other health solutions (Nagios
-or others) and hand-made scripts come in v0.5 (D70).
+proposed, never fixed by the player. A v0.5 metrics store other than
+Prometheus would need its own copy. Other tools, other health solutions
+(Nagios or others) and hand-made scripts come in v0.5 (D70).
 
 Monitoring bricks are optional in a topology (D65), and may carry faults
 of their own (D63; "Example families" below).

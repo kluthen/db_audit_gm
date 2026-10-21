@@ -8,7 +8,8 @@ in [archive/v0.1/open-questions-resolved.md](archive/v0.1/open-questions-resolve
 their IDs keep their meaning. Resolved since: O56 (D57), O59 (D60), O51
 (D66), O50 (D67), O13 (D68), O65 (D72), O61 (D75), O62 (D76), O63
 (D77), O66 (D78), O68 (D79), O69 (D80), O70 (D81), O71 (D82), O57 (D84),
-O58 (D85), O60 (D86). Numbering continues from O72.
+O58 (D85), O60 (D86), O64 (D88), O67 (D90). Numbering continues from
+O72.
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -77,51 +78,6 @@ for the next version (v0.1 until it closed, with none left open);
 - **O25** (later) — Scenario-only bricks and faults may live in the
   scenario's folder (D24). Can they be promoted into the catalog, and
   through which review?
-
-## v0.2 shape
-
-Narrowed on 2026-10-21 by the owner's rulings on the v0.2 draft v2
-(D73, D74); each default is the v0.2 page's `(proposed)` text
-([versions/v0.2/README.md](versions/v0.2/README.md)).
-
-- **O64** (soon, v0.2) — How the node-health brick is declared. Its
-  delivery is settled (D73): the GM mounts the script and its s6 service
-  into each node as configs at deploy, on every node whenever the
-  topology has a metrics store. Left: the format knows bricks only as
-  nodes. `brick.yaml` requires an image, a validator, an SSH account and
-  processes, and a scenario pins a brick only through a node of its
-  topology; node-health has no node, yet needs a version that scenarios
-  pin and faults name in `applies_to` (D59), and its own GM
-  documentation (D56, D66). Options: (a) a brick kind with no node of
-  its own (`mounted`): no image, validator, player access or volumes;
-  it declares the files it mounts and their paths, each node's services,
-  its port, the footprint it adds to each node, and what a host image
-  must provide; the scenario pins it once in its topology; the
-  templates, the format skill and the scripts accept it; (b) companion
-  material of the `prometheus` brick: no new kind, but the script's
-  version and GM documentation become Prometheus's, a v0.5 metrics store
-  needs its own copy, and the renderer must still mount one brick's
-  material into every other node; (c) GM tooling beside `gmctl`, no
-  brick: no version for a fault to name, and no brick GM documentation.
-  Default (proposed): (a). The format needs it: (b) needs the same
-  cross-node mounting without a pin of its own, and (c) breaks D59.
-  Refs: [formats.md](formats.md), "`docs/gm.md` must contain" item 2;
-  [bricks-and-faults.md](bricks-and-faults.md), "Monitoring bricks
-  (v0.2)".
-- **O67** (soon, v0.2) — A shared base image. The node shape is settled
-  (D74), and the owner accepted the drafted default, a shared base
-  included; but the base's reason was carrying the node-health service,
-  which D73 mounts instead, so it was re-examined. For it: one copy of
-  the common setup (s6-overlay, `sshd`, the `player` account, the
-  seed-once entrypoint) and of a mounted service's host requirements
-  (O64). Against: a base image sits outside the brick format (no
-  `brick.yaml`, version or pin), a change to it rebuilds and bumps every
-  brick built on it (D57), it adds a build order, and it saves little
-  disk, since bricks built from `debian:13-slim` already share that
-  layer (about 40M of system layer per new image). Default (proposed):
-  no shared base in v0.2; each brick builds from `debian:13-slim` as the
-  v0.1 bricks do, and those are not rebased. Alternative: the base as
-  drafted, the v0.1 bricks rebased at 0.2.0 (D72).
 
 ## Game and feedback
 

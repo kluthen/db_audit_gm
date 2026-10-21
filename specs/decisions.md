@@ -196,3 +196,23 @@ continues from D55; no ID is reused.
   bastion's tools not counting as the customer's tooling. Now in:
   [versions/v0.2/README.md](versions/v0.2/README.md) "Monitoring
   bricks", "Tooling proportionate to the topology".
+- **D88 (2026-10-21, owner ruling; resolves O64): The node-health script
+  is companion material of the `prometheus` brick.** It has no version of
+  its own: a change to it bumps `prometheus` (D57), and faults about it
+  name `prometheus` in `applies_to`. Its GM documentation is
+  `prometheus`'s `docs/gm.md`: Placement covers mounting it into the other
+  nodes, Configuration the per-node service list. The `mounted` brick kind
+  proposed under O64 is not adopted. Now in:
+  [formats.md](formats.md) "Brick definition",
+  [bricks-and-faults.md](bricks-and-faults.md) "Monitoring bricks (v0.2)".
+- **D89 (2026-10-21, set by spec-writer working out D88): Companion
+  material the GM mounts into other nodes.** A brick's companion material
+  may include files the renderer mounts as configs into other nodes at
+  deploy; `brick.yaml` declares them. For the node-health script, the
+  service list is a parameter of the `prometheus` node, and a node left
+  out of it is D73's fault. Now in: [formats.md](formats.md) "`brick.yaml`
+  must contain", "`docs/gm.md` must contain".
+- **D90 (2026-10-21, owner ruling; resolves O67): No shared base image in
+  v0.2.** Every brick builds from `debian:13-slim`, and the v0.1 bricks
+  are not rebased. Now in: [versions/v0.2/README.md](versions/v0.2/README.md)
+  "Node shape".

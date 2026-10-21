@@ -1,12 +1,13 @@
 # v0.2 — monitoring and usual tooling
 
-Status: draft v3. No master spec.
+Status: draft v4. No master spec.
 
-Settled items are stated as fact with their decision; the two items still
-open are tagged `(proposed)` and cite their question (O64, O67). The
-owner accepted the draft v2 defaults on 2026-10-21 (D72–D87), changing one:
-the node-health script is mounted into each node at deploy rather than
-carried by a shared base image (D73).
+Every item is settled and stated as fact with its decision; no v0.2
+question is open. The owner accepted the draft v2 defaults on 2026-10-21
+(D72–D87), changing one: the node-health script is mounted into each
+node at deploy rather than carried by a shared base image (D73). After
+draft v3 the owner made the script companion material of `prometheus`
+(D88, D89) and ruled out a shared base image (D90).
 
 ## Goal
 
@@ -32,7 +33,7 @@ One brick per need ([bricks-and-faults.md](../../bricks-and-faults.md),
 
 | Brick | Need | Shape |
 |---|---|---|
-| `node-health` | Per-node health | A daemon script that reports the node's CPU, RAM, disk and the status of its important services, read from inside the node, no Docker socket (D66). The GM installs it at deploy: the script and its s6 service are mounted into each node as configs, with the node's list of services; images only have to accept a mounted service (D73). On every node whenever the topology has a metrics store; a node left out is a monitoring fault (D73). Scraped by Prometheus. How the brick is declared in the format: O64 |
+| node-health script, companion material of `prometheus` (D88) | Per-node health | A daemon script that reports the node's CPU, RAM, disk and the status of its important services, read from inside the node, no Docker socket (D66). The GM installs it at deploy: the script and its s6 service are mounted into each node as configs, with the node's list of services; images only have to accept a mounted service (D73). On every node whenever the topology has a metrics store; a node left out is a monitoring fault (D73). Scraped by Prometheus. Versioned with `prometheus`, which a change to the script bumps; its GM documentation is `prometheus`'s (D88) |
 | `prometheus` | Metrics store | A node of its own (D74). Scrape targets in its seed configuration, so a node left out is a plantable fault. Retention bounded by time and by size, about a day |
 | `postgres-exporter` | PostgreSQL metrics | `postgres_exporter`, a node of its own (D74), connecting to the database with a monitoring role that holds `pg_monitor`; the role's password is a generated secret (D79) |
 | `grafana` | Dashboards and alerting | Grafana with its own alerting, no separate alerting brick (D69). Data sources, dashboards and alert rules provisioned from seed files the player can edit on a fixable node. No notification channel in v0.2: firing alerts are read in Grafana's alerting view. Default time zone UTC (D81) |
@@ -49,22 +50,32 @@ services with `s6-svstat`, and serves them in Prometheus' text format on
 a fixed port through a minimal listener. Its default services are the
 node's brick's s6 `processes`, which the GM may adjust per node. What an
 image must provide to accept it: s6-overlay v3, which both v0.1 bricks
-run, and the commands the script uses, which the node-health brick names
-(proposed, O64). Every `debian:13-slim` image has `perl-base` and its
+run, and the commands the script uses, which `prometheus`'s GM
+documentation names (D89). Every `debian:13-slim` image has `perl-base` and its
 socket module, enough for the listener (checked on 2026-10-21). To verify
 in the build: that the node's cgroup v2 files are readable inside a Swarm
 container, and that configs can be mounted into an s6 service directory
 the read-only image does not have.
 
-How the brick is declared (proposed, O64): as a brick with no node of
-its own, a `mounted` kind of brick. Its `brick.yaml` has no image,
-validator, player access or volumes, and declares instead the files it
-mounts and their paths, the services each node lists, the port it
-serves, the footprint it adds to each node, and what a host image must
-provide. The scenario pins it once in its topology, with each node's
-services. The templates, the format skill and the scripts (loading,
-rendering) accept that kind, and its `docs/gm.md` keeps the nine
-sections (D56).
+How it is declared (D88, D89; [formats.md](../../formats.md),
+"Companion material mounted into other nodes"): the script and its s6
+service are companion material of the `prometheus` brick, and
+`prometheus`'s `brick.yaml` declares them as material mounted into other
+nodes: the files and their target paths, the nodes that receive them,
+the per-node parameter, the footprint added to each node and what a
+receiving image must provide. The service list is a parameter of the
+`prometheus` node in the scenario, a map from each node's name to the
+services it watches, defaulting to that node's brick's s6 `processes`.
+The script is mounted on every node the map lists, `prometheus`'s own
+included; a node left out of the map is D73's fault, planted through
+that parameter. `prometheus`'s `docs/gm.md` covers the script: Placement
+the mounting into the other nodes, Configuration the service list,
+Footprint what it adds per node, Supported faults the faults about it.
+Each other brick's `docs/gm.md` says under Connections whether its image
+accepts it. Changes this makes to the build: the brick template's
+companion declaration, the format skill and the scripts (loading and
+rendering: configs added to other nodes' services) learn mounted
+material; no new brick kind.
 
 Consequences to carry into the build:
 
@@ -87,10 +98,9 @@ entrypoint. Grafana, Prometheus and `postgres_exporter` are each a node
 of their own, *fixable* or *report-only* per scenario, with configuration
 they reload through `sudo` wrappers. pgBadger and `pg_stat_statements`
 live inside the `postgres` brick. If measured footprint is tight,
-Prometheus and Grafana share one node. A shared base image is no longer
-needed for the node-health service (D73); whether the new bricks share
-one at all: O67, default none, each brick building from `debian:13-slim`
-as v0.1's do, and the v0.1 bricks not rebased (proposed).
+Prometheus and Grafana share one node. No shared base image (D90): every
+brick builds from `debian:13-slim`, as the v0.1 bricks do, and those are
+not rebased.
 
 ### Tooling proportionate to the topology (D65)
 
@@ -184,8 +194,8 @@ time zone is UTC.
 
 - Every brick ships GM documentation with the nine required sections of
   [formats.md](../../formats.md), "`docs/gm.md` must contain" (D56): the
-  new monitoring bricks, the node-health script included, and the v0.1
-  bricks, already brought up to it at 0.1.1 (D57). "Supported faults"
+  new monitoring bricks, `prometheus`'s covering the node-health script
+  (D88), and the v0.1 bricks, already brought up to it at 0.1.1 (D57). "Supported faults"
   lists catalog faults only (D62).
 - Versions ([formats.md](../../formats.md), "Versions and pins"): any
   change to a brick bumps it (D57, D58); changes to an unreleased version
@@ -195,7 +205,10 @@ time zone is UTC.
   (`main` at 5c16d06), so `postgres` and `bastion` take 0.2.0 for their
   v0.2 changes, and the new bricks start at 0.1.0 (D72). Each catalog
   fault that still applies to a changed brick adds 0.2.0 to its
-  `applies_to`.
+  `applies_to`. The node-health script has no version of its own: a
+  change to it bumps `prometheus`, and faults about it, such as the two
+  node-health candidates above, name `prometheus` in `applies_to`, with
+  the target node's brick where the fault touches it too (D88).
 
 ## Footprint
 
@@ -225,8 +238,7 @@ reservations. CPU stays the tightest dimension.
   (Grafana ~450M, Prometheus ~150M, the exporter ~25M, pgBadger and its
   Perl modules ~30M in `postgres`, and about 40M of `sshd`, s6-overlay
   and tools in each new image over the `debian:13-slim` layer they all
-  share), so about 1.25G with v0.1's 0.44G. A shared base image (O67)
-  would change this little. Volumes plus images: about 4.5G of 8G.
+  share), so about 1.25G with v0.1's 0.44G. Volumes plus images: about 4.5G of 8G.
 - **Expected at rest** (estimate): Prometheus 80–150M, Grafana
   100–150M, the exporter 15–30M. **Peaks**: a pgBadger run inside the
   database node's 1G limit (tens of MB on v0.2's small logs, up to
@@ -263,8 +275,8 @@ How done measures it: "Definition of done" below.
 v0.1's checks (D38), extended:
 
 - The v0.2 scenario exists as a complete scenario folder; every brick it
-  uses, the node-health script included, passes the format skill's
-  `docs/gm.md` check (D56).
+  uses passes the format skill's `docs/gm.md` check (D56), `prometheus`'s
+  covering the node-health script (D88).
 - A full game runs on the `laptop` playground (2 CPU / 4G / 8G) from
   setup through hand-over, with `gmctl fit` passing.
 - **Footprint, measured**: `docker stats` samples every node at rest
@@ -307,10 +319,9 @@ the scenario (D78, O66), the tools password and secrets (D79, O68), the
 fault set (D80, O69), evidence and UTC (D81, O70), the definition of done
 (D82, O71), the platform limits (D83; v0.2 parts of O12, O22, O46), the
 footprint shape (D84, O57), network names (D85, O58), version lists
-(D86, O60), the other defaults (D87).
+(D86, O60), the other defaults (D87). After draft v3: the node-health
+script as `prometheus`'s companion material (D88, D89, O64), no shared
+base image (D90, O67).
 
-Open, each with a proposed default above:
-
-- O64 (narrowed by D73): how the node-health brick, which has no node of
-  its own, is declared in the format and pinned by a scenario.
-- O67 (narrowed by D74): whether the new bricks share a base image.
+None open. O49 (backup tooling's version) is a roadmap question v0.2
+does not wait on.
