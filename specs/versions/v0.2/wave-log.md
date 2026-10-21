@@ -338,3 +338,7 @@ the owner; it blocks nothing in v0.2.
   map-valued node parameter (`node_health`, `web_routes`); sent to
   `spec-writer` to place in a chunk.
 - Chunks 2, 3 and 4 dispatched 2026-10-21, side by side, from fa8e62d+.
+- Plan v4 (8a46e0d, `spec-writer`): the scenario document's rule for
+  map-valued parameters placed in chunk 11 (wave 3; brief it there);
+  chunk 5 keeps `fixture-mounted`'s inline-YAML rendering. Chunks 1 to 4
+  unchanged.
