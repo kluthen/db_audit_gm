@@ -81,24 +81,29 @@ A scenario is complete or it is not deployed.
 
 ## Completeness checklists
 
-### Scenario (master spec 6.2)
+### Scenario (v0.1 master spec 6.2, v0.2 master spec 6.3)
 
 - **Scenario information**: `id`, `version`, `title`, `date`, `origin`,
   `session_length_minutes` (at most 240), `brief` and `brief.md`.
-- **Topology**: `networks`; for every node: `name`, `brick` (id, pinned
-  version), `role`, `stateful`, `networks`, `write_policy`, `parameters`,
-  `resources` (limits and reservations, disk included), `published_ports`,
+- **Topology**: `networks` (one in v0.2); for every node: `name`, `brick`
+  (id, pinned version), `role`, `stateful`, `networks`, `write_policy`,
+  `parameters`, `resources` (limits and reservations, disk included, and
+  what mounted companion material adds to the node), `published_ports`,
   `seed_files`, `knobs` (initial value and envelope for every knob the
   brick declares), and `data` (file and schema) for a node holding data;
-  `flows` (every flow between nodes).
+  `flows` (every flow between nodes). With a `prometheus` node, its
+  `node_health` map.
 - **Background**: `background`, and `player/story.md`.
 - **Incidents, flaws and defects**: `fault_instances` (fault id and pinned
   version, `node`, `parameters`, `visibility`); `issues` (zero or more,
-  each with `id`, `complaint`, `expected_resolution`, `covers`).
+  each with `id`, `complaint`, `expected_resolution`, `covers`: fault
+  instances and tooling expectations).
 - **Answer key** (`gm/answer-key.yaml`), for every fault instance: `what`,
-  `why`, `evidence` as `player`, `acceptable` (diagnosis, and proposal,
-  fix or improvement as they apply), `sealed_check`, `interactions`,
-  `validators_left_red`; and `gm/notes.md`.
+  `why`, `evidence` as `player` (each entry with `where`, `source`, `how`,
+  `shows`), `acceptable` (diagnosis, and proposal, fix or improvement as
+  they apply), `sealed_check`, `interactions`, `validators_left_red`;
+  `tooling_expectations` (may be `[]`: each with `id`, `need`,
+  `expected`, `acceptable`, optional `notes`); and `gm/notes.md`.
 - **Host topology it was designed for**: `designed_for` (platform, hosts
   with CPU, memory, disk, placement of every node).
 - **Starter pack** (`player/README.md`, `story.md`, `issues.md`), **node
@@ -122,10 +127,33 @@ Consistency rules (a failure is a missing item):
 - each fault instance's `node` runs a brick in the fault's `applies_to`;
   every required fault parameter is set;
 - an instance is `known` exactly when an issue `covers` it; every `covers`
-  id exists;
+  id is a fault instance or a tooling expectation; an issue covering only
+  expectations expects `report` or `propose`; expectation ids are unique
+  across fault instance ids and expectation ids;
 - an issue's `expected_resolution` is one the covered faults list, under a
   write policy the target node has;
 - `gm/answer-key.yaml` has exactly one entry per fault instance;
+- every evidence `where` is `bastion` (a shell on the bastion, `psql`
+  from there included), `node:<name>` (a node of the topology other than
+  the bastion), `ui:<name>` (`<name>` a route of the bastion's
+  `web_routes`) or `report:<tool>` (a generated report, `<tool>`
+  lowercase, such as `report:pgbadger`); `source` names the file, view or
+  output looked at (v0.1's free-text `where`, D101);
+- **the node-health map** (D97): whenever the topology has a `prometheus`
+  node, its `node_health` parameter is set and lists every node of the
+  topology by name, `prometheus`'s own included; each entry is `default`
+  (that node's brick's `processes`) or a non-empty list of names from
+  them. A missing map, or a node missing from it, is a missing item; a
+  node left out exists only as a parameter fault planted through the map;
+- **mounted material**: every node a mounting brick's map lists runs a
+  brick that declares `receives` meeting the item's `requires` (the
+  s6-overlay version begins with the required prefix; every required
+  command is listed), checked against the mounting brick's pinned version;
+- **web routes**: each route of the bastion's `web_routes` names a node
+  whose brick provides a web interface on that port with `web_path:
+  /<route>/`; every web interface of the topology has exactly one route;
+  the bastion publishes `{port: 8080, default: 8080}` exactly when
+  `web_routes` is non-empty (an empty map: the web front does not run);
 - `player/issues.md` states the same issues as `issues`; nothing under
   `player/` names a hidden fault or an answer;
 - `designed_for.placement` places every node, and the summed reservations
