@@ -374,6 +374,18 @@ proxied response buffered in memory or, above nginx's buffers, under
 `/run/web-front/tmp/` (the `run` volume). CPU: a password check (SHA-512
 crypt) per request, a few milliseconds each.
 
+Measured in the v0.2 game (`fernway-clinics-monitoring` on the `laptop`
+playground, declared at 2 CPU / 4G / 8G on armenelos: AMD Ryzen 5 PRO
+8640HS, 11.3 GiB, Docker 29.9.1; 2026-10-21; `docker stats`, the highest
+of its samples, the node-health script included), with that scenario's
+own `resources` (limits 0.5 CPU / 256M, reservation 96M): at rest 11 to
+15 minutes after the deployment 10M and 0.06 CPU; during dashboard loads
+(three browsers at a time through the web front, both dashboards, every
+panel's query, about 500 requests in 14 s) 18M and 0.20 CPU; during a
+pgBadger run on `db` 11M; at rest again after them 18M. Never OOM-killed
+nor restarted, never at its limit (`memory.peak`, page cache included,
+22M). Its volumes: about 40K.
+
 ## Supported faults
 
 Which faults the brick hosts is stated only by each fault's `applies_to`

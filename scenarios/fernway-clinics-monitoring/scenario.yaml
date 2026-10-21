@@ -45,7 +45,8 @@ nodes:
     write_policy: report-only
     parameters:
       web_routes: {grafana: "grafana:3000", prometheus: "prometheus:9090"}
-    resources:                      # master spec 12's row, node-health script included
+    resources:                      # master spec 12's row, node-health script included;
+                                    # measured within it (bricks/bastion/docs/gm.md, Footprint)
       limits:
         cpu: 0.5
         memory: 256M
@@ -69,7 +70,8 @@ nodes:
     networks: [backend]
     write_policy: fixable
     parameters: {}
-    resources:                      # master spec 12's row, log volume and script included
+    resources:                      # master spec 12's row, log volume and script included;
+                                    # measured within it (bricks/postgres/docs/gm.md, Footprint)
       limits:
         cpu: 1
         memory: 1G
@@ -139,7 +141,8 @@ nodes:
     parameters:
       node_health: {bastion: default, db: default, prometheus: default, exporter: default,
                     grafana: default}
-    resources:                      # master spec 12's row, node-health script included
+    resources:                      # master spec 12's row, node-health script included;
+                                    # measured within it (bricks/prometheus/docs/gm.md, Footprint)
       limits:
         cpu: 0.5
         memory: 384M
@@ -161,7 +164,8 @@ nodes:
     networks: [backend]
     write_policy: fixable
     parameters: {}
-    resources:                      # master spec 12's row (the script is not mounted here: f2)
+    resources:                      # master spec 12's row (the script is not mounted here: f2);
+                                    # measured within it (bricks/postgres-exporter/docs/gm.md)
       limits:
         cpu: 0.25
         memory: 128M
@@ -183,14 +187,15 @@ nodes:
     networks: [backend]
     write_policy: fixable
     parameters: {}
-    resources:                      # memory reservation from capture W3-C's measurement at
-                                    # rest (180-195M) plus the script's 6M, until chunk 14b
+    resources:                      # master spec 12's row, but the memory reservation: the
+                                    # brick's measured 266M plus the script's 6M (195M at rest
+                                    # after hand-over, 258M after dashboard use; brick docs)
       limits:
         cpu: 0.5
         memory: 384M
       reservations:
         cpu: 0.1
-        memory: 208M
+        memory: 272M
         disk: 256M
     published_ports: []
     seed_files:                     # bricks/grafana/companion/ byte for byte, except

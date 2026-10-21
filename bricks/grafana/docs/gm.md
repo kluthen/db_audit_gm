@@ -389,17 +389,37 @@ locks `admin` out for 5 minutes after 5 failures.
 
 Default footprint in `brick.yaml`, in the shape of a scenario node's
 `resources`: limits CPU `0.495` and memory `378M`; reservations CPU
-`0.095`, memory `154M` and disk `256M`. That is master spec 12's estimate
-for a Grafana node (limits 0.5 / 384M, reservations 0.1 / 160M, 256M of
-volumes), which includes the node-health script, less the script's own
-cost (0.005 CPU / 6M, see the `prometheus` brick), since a brick's
-footprint excludes mounted material. An estimate, not a measurement: at
-rest in its stack test, after the reload checks, the container used 180M
-to 195M of memory (cgroup `memory.current`, page cache included, two runs)
-under a 384M limit, more than the 154M reservation; the database volume
-about 2M. The game's footprint measurement (master spec 14 item 3) decides
-whether the reservation is raised. The scenario sets each node's
-own `resources`, and `gmctl` uses those.
+`0.095`, memory `266M` and disk `256M`. The limits, the CPU and the disk
+are master spec 12's figures for a Grafana node (limits 0.5 / 384M,
+reservations 0.1 CPU, 256M of volumes), which include the node-health
+script, less the script's own cost (0.005 CPU / 6M, see the `prometheus`
+brick), since a brick's footprint excludes mounted material. The memory
+reservation is measured: a node of `272M` (this figure plus the script's
+6M) in place of the spec's estimate of 160M, which the node exceeded at
+rest. The scenario sets each node's own `resources`, and `gmctl` uses
+those.
+
+Measured in the v0.2 game (`fernway-clinics-monitoring` on the `laptop`
+playground, declared at 2 CPU / 4G / 8G on armenelos: AMD Ryzen 5 PRO
+8640HS, 11.3 GiB, Docker 29.9.1; 2026-10-21; `docker stats`, the highest
+of its samples, the node-health script included), under a 384M limit:
+
+| Moment | Memory | CPU |
+|---|---|---|
+| At rest, 11 to 15 minutes after the deployment | 195M | 0.07 |
+| During dashboard loads (three browsers at a time through the web front, both dashboards, every panel's query) | 304M | 0.26 |
+| During a pgBadger run on `db` | 301M | 0.07 |
+| At rest again, 9 to 13 minutes after the dashboard loads | 258M | 0.05 |
+
+The node was never OOM-killed nor restarted, and never reached its limit
+(cgroup `memory.events` `max 0`; `memory.peak`, page cache included,
+332M). Grafana keeps much of what a dashboard load takes for minutes
+after it, so the reservation covers the reading at rest after use, not
+only the one after hand-over (the stack test's 180M to 195M,
+`memory.current`, agrees with the latter). Over half-second windows
+a dashboard load reaches 0.47 CPU, close to the 0.5 limit: a player sees
+slower panels, not a failure. The database volume: about 2M (1.7M after
+35 minutes).
 
 What makes it grow:
 

@@ -20,7 +20,8 @@ image: 127.0.0.1:5000/dbagm/bastion:0.2.0
 
 # --- Footprint --------------------------------------------------------
 footprint:                          # v0.1's figures as reservations, limits twice CPU and memory;
-                                    # the web front (nginx, about 13M resident) fits within them
+                                    # the web front (nginx, about 13M resident) fits within them;
+                                    # the v0.2 game's measurement too (docs/gm.md, Footprint)
   limits:       {cpu: 0.5, memory: 256M}
   reservations: {cpu: 0.25, memory: 128M, disk: 256M}
 stateful: true                      # the player's home (~/report.md) and the sshd host key

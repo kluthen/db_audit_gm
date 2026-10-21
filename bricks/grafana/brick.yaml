@@ -19,10 +19,12 @@ technology:
 image: 127.0.0.1:5000/dbagm/grafana:0.1.0
 
 # --- Footprint --------------------------------------------------------
-footprint:                          # master spec 12's estimate for the node, less what the
-                                    # node-health script adds to it (docs/gm.md, Footprint)
+footprint:                          # master spec 12's limits and disk for the node; memory
+                                    # reservation raised to the v0.2 game's measurement at rest
+                                    # (195M after hand-over, 258M after dashboard use); each
+                                    # less what the node-health script adds (docs/gm.md, Footprint)
   limits:       {cpu: 0.495, memory: 378M}
-  reservations: {cpu: 0.095, memory: 154M, disk: 256M}
+  reservations: {cpu: 0.095, memory: 266M, disk: 256M}
 stateful: true
 
 # --- What the scenario sets -------------------------------------------

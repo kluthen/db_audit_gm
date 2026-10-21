@@ -236,7 +236,7 @@ Resources (absolute, never recomputed per playground):
 | | CPU | Memory | Disk |
 |---|---|---|---|
 | Limits | 0.5 | 384M | — |
-| Reservations | 0.1 | 208M | 256M |
+| Reservations | 0.1 | 272M | 256M |
 
 No knobs.
 
@@ -270,8 +270,8 @@ Placement and the reservations it was sized with:
 | `db` | `laptop` | 0.5 | 512M | 2.25G |
 | `prometheus` | `laptop` | 0.1 | 160M | 512M |
 | `exporter` | `laptop` | 0.05 | 48M | 64M |
-| `grafana` | `laptop` | 0.1 | 208M | 256M |
-| **Total on `laptop`** | | 0.85 of 2 | 1024M of 4G | 3392M of 8G |
+| `grafana` | `laptop` | 0.1 | 272M | 256M |
+| **Total on `laptop`** | | 0.85 of 2 | 1088M of 4G | 3392M of 8G |
 
 ## 5. Incidents, flaws and defects
 

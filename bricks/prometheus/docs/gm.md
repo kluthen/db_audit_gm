@@ -384,14 +384,27 @@ shows Prometheus' log.
 
 Default footprint in `brick.yaml`, in the shape of a scenario node's
 `resources`: limits CPU `0.495` and memory `378M`; reservations CPU
-`0.095`, memory `154M` and disk `512M`. That is master spec 12's estimate
-for a Prometheus node (limits 0.5 / 384M, reservations 0.1 / 160M, 512M of
-volumes), which includes the node-health script, less the script's own
-cost (below), since a brick's footprint excludes mounted material. An estimate,
-not a measurement: at rest, in its stack test, the node used about 40M of
-memory without the node-health script and 52M with it. The scenario sets each node's own `resources`, and `gmctl` uses
-those, never the brick's footprint; disk is only counted by the capacity
-check.
+`0.095`, memory `154M` and disk `512M`. These are master spec 12's
+figures for a Prometheus node (limits 0.5 / 384M, reservations 0.1 /
+160M, 512M of volumes), which include the node-health script, less the script's own
+cost (below), since a brick's footprint excludes mounted material. The
+scenario sets each node's own `resources`, and `gmctl` uses those, never
+the brick's footprint; disk is only counted by the capacity check.
+
+Measured in the v0.2 game (`fernway-clinics-monitoring` on the `laptop`
+playground, declared at 2 CPU / 4G / 8G on armenelos: AMD Ryzen 5 PRO
+8640HS, 11.3 GiB, Docker 29.9.1; 2026-10-21; `docker stats`, the highest
+of its samples; the node-health script included; six scrape targets
+every 15 s, fault f1 leaving grafana's out; about 35 minutes of
+samples), under a 384M limit: at rest 11 to 15 minutes after the
+deployment 56M and 0.03 CPU; during dashboard
+loads (Grafana's panel queries) 66M and 0.07 CPU; during a pgBadger run on
+`db` 60M; at rest again after them 64M. Never OOM-killed nor restarted,
+never at its limit (`memory.peak`, page cache included, 85M). The TSDB
+volume held 0.9M after 35 minutes. The figures stay well within the
+reservation (master spec 12 estimated 80M to 150M at rest); in its stack
+test the node used about 40M without the node-health script and 52M with
+it.
 
 What makes it grow:
 

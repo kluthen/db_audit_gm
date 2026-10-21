@@ -18,8 +18,9 @@ technology:
 image: 127.0.0.1:5000/dbagm/prometheus:0.1.0
 
 # --- Footprint --------------------------------------------------------
-footprint:                          # master spec 12's estimate for the node, less what the
-                                    # node-health script adds to it (docs/gm.md, Footprint)
+footprint:                          # master spec 12's figures for the node, less what the
+                                    # node-health script adds to it; the v0.2 game's measurement
+                                    # stays within them (docs/gm.md, Footprint)
   limits:       {cpu: 0.495, memory: 378M}
   reservations: {cpu: 0.095, memory: 154M, disk: 512M}
 stateful: true
