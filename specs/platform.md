@@ -1,6 +1,6 @@
 # Platform
 
-Status: draft v11
+Status: draft v12
 
 The swarm the games run on, the resource budget scenarios must fit, how
 scenario content reaches the nodes, and the Swarm behaviours that shape the
@@ -136,8 +136,9 @@ from one laptop to a classroom swarm.
 
 Trade-offs accepted with C:
 
-- Every brick needs the seed-once entrypoint, which goes in the shared node
-  base (s6-overlay, D30).
+- Every brick needs the seed-once entrypoint: a convention each brick's
+  own entrypoint follows, under s6-overlay (D30), since there is no shared
+  base image (D90).
 - Pinned stateful nodes: a node whose host dies loses its state.
 - The GM needs to reach each host's engine, over SSH (D27), which it also
   needs for sealed checks and official validator runs.

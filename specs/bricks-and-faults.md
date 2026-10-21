@@ -1,6 +1,6 @@
 # Bricks and faults
 
-Status: draft v7
+Status: draft v8
 
 The catalog of reusable bricks and fault definitions, and the rules that
 keep scenarios fair. What a brick or fault definition must contain is in
@@ -71,12 +71,16 @@ and its s6 service are mounted into each node as configs, with the
 node's list of services, so a brick image only has to accept a mounted
 service and none carries the script ([formats.md](formats.md),
 "Companion material mounted into other nodes", D89). It reads CPU and
-memory from the node's cgroup v2 files, disk with `df` on the node's
-volumes and services with `s6-svstat`, and serves them in Prometheus'
-text format on a fixed port; its default services are the brick's s6
-`processes`, which the GM may adjust. Being configs, the script and its
-list are read-only on the node: their faults can be reported or a fix
-proposed, never fixed by the player. A v0.5 metrics store other than
+memory from the node's cgroup v2 files, disk as the use of the node's
+own volumes (`du`) against its declared disk reservation, and services
+with `s6-svstat`, and serves them in Prometheus' text format on a fixed
+port. On one host every node sees the same host-wide free space, so the
+view shows the host's free space once, not per node (D96). Its default
+services are the brick's s6 `processes`, which the GM may adjust. Being
+configs, the script and its list are read-only on the node: their faults
+can be reported or a fix proposed, never fixed by the player. Such a
+fault targets the `prometheus` node, takes the affected node as a
+parameter and is planted through the node-health map (D92). A v0.5 metrics store other than
 Prometheus would need its own copy. Other tools, other health solutions
 (Nagios or others) and hand-made scripts come in v0.5 (D70).
 

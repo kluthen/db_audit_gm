@@ -1,6 +1,6 @@
 # Planes, access and rules
 
-Status: draft v9
+Status: draft v10
 
 Who may reach what, what the player may change, how the rules are checked,
 and what is left to trust. At consolidation this document feeds the access
@@ -96,6 +96,21 @@ information needed but does not allow the system's behaviour to be altered
 beyond what is acceptable. Changing a database's configuration files is
 expected; changing SSH behaviour is not.
 
+### The monitoring nodes (v0.2)
+
+- Prometheus, Grafana and `postgres_exporter` are full nodes: the player
+  reaches each by SSH as `player` from the bastion, reads everything, and
+  on a *fixable* node edits its seed-once configuration and reloads it
+  through a `sudo` wrapper (D74).
+- Grafana's write policy is a known gap (D94): the tools password makes
+  the players Grafana administrators, so on a *report-only* Grafana node
+  they can still change dashboards, data sources and alert rules through
+  the UI. Accepted under light enforcement, like the superuser gap on
+  report-only databases (O45). Sealed checks judge Grafana's effective
+  live state (through its API), not only its provisioned files.
+- The node-health script and its service list are configs, read-only on
+  every node (D73); its endpoint is readable from every node.
+
 ### Credentials and the way in (D31)
 
 - The players log in to the bastion with a per-game password the GM hands
@@ -126,6 +141,9 @@ expected; changing SSH behaviour is not.
   `postgres` with a group `player` belongs to, group-writable on a fixable
   node.
 - Reload and restart go through `sudo` wrappers.
+- From v0.2 the PostgreSQL log files are readable by the players' group,
+  so players run pgBadger themselves, as `player`, with no wrapper; its
+  report lands in their home (D95).
 - `ALTER SYSTEM` is a legitimate fix path too. Sealed checks judge the
   effective live setting, not which file changed.
 - A superuser can run `ALTER SYSTEM` whatever the node's write policy, so

@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v13
+Status: draft v14
 
 What a scenario, a brick and a fault definition must contain, and how they
 are laid out, so that every scenario the GM designs or generates stays
@@ -212,7 +212,7 @@ brick has any depends on the brick. Such material lives in the brick's
 `companion/` folder, and `brick.yaml` says what it provides and when the GM
 should use it.
 
-**Companion material mounted into other nodes** (D88, D89). Some
+**Companion material mounted into other nodes** (D88, D89, D97). Some
 companion material does not stay with the brick's own node: the GM
 mounts it into other nodes of the topology at deploy, as configs, as
 `prometheus` does with the node-health script. For each such item,
@@ -220,23 +220,40 @@ mounts it into other nodes of the topology at deploy, as configs, as
 
 - the files, and for each its target path and mode in the receiving
   node (root-owned and read-only there, so a protected file);
-- which nodes receive it: those the brick's parameter for it lists (for
-  the node-health script, every node of the topology, the brick's own
-  included);
+- which nodes receive it: those the brick's parameter for it lists;
 - the parameter that configures it per node, set on the brick's own
-  node in the scenario (for the node-health script, a map from each
-  node's name to the services it watches, defaulting to that node's
-  brick's s6 `processes`);
-- what it adds to each receiving node's footprint, which the GM counts in
-  that node's `resources`;
+  node in the scenario;
+- what it adds to each receiving node's footprint;
 - what a receiving image must provide (for the node-health script:
-  s6-overlay v3 and the commands the script uses).
+  s6-overlay v3 and the commands the script uses, by name).
+
+For the node-health script the parameter is a map from node name to that
+node's entry, and it is explicit (D97): whenever the topology has a
+`prometheus` node, the map is required and lists every node of the
+topology, `prometheus`'s own included; an entry is either a list of
+services or `default`, which stands for that node's brick's s6
+`processes`. The format skill and the loader refuse a missing map or a
+node missing from it. In the scenario the map is always complete: a node
+left out exists only as a fault planted through the parameter (D92).
+The renderer writes each node's entry, with the node's declared disk
+reservation (D96), into that node's own config.
+
+A receiving brick declares in `brick.yaml` what it provides to mounted
+material (its s6-overlay version, the commands available), and its
+`docs/gm.md` says so under Connections (D97). The loader checks each
+receiving node's declaration against the requirements of the mounting
+brick's pinned version and refuses a topology where one is not met.
+
+Footprints do not double count (D97): a brick's own `brick.yaml`
+footprint excludes material other bricks mount into it; the mounting
+brick's `docs/gm.md` states what that material adds per node, and the
+GM adds it to each receiving node's `resources` in the scenario.
 
 The renderer adds the configs to every receiving node's service, so the
 material changes no image and no other brick's folder, and bumps only the
-brick that ships it (D57). A fault about it names that brick in
-`applies_to`, and may be planted through the parameter (a node left out
-of the node-health map, D73).
+brick that ships it (D57). A fault about it targets the mounting brick's
+node, names only that brick in `applies_to`, and takes the affected node
+as a parameter (D92).
 
 **Platform-neutral bricks** (D22, D42). A brick definition names no
 Swarm-only feature, so the same brick runs under Kubernetes:
@@ -362,9 +379,12 @@ faults/<fault-id>/
   hosts (D59). Versions are listed one by one, never as ranges (D86), so
   each brick bump adds its version to every fault that still applies.
 - **Parameters** the scenario sets (which table, which job…).
-- **Injection**: how it is planted (a change to a node's seed
-  configuration or parameters, a state change run in the node by the GM, an aging step)
-  and at which stage. State changes are idempotent POSIX shell scripts
+- **Injection**: how it is planted, and at which stage. Kinds: a change
+  to a node's seed configuration; a change to a parameter of the target
+  node, applied when the local implementation is rendered (D92: for
+  example leaving the affected node out of the node-health map, or a
+  service out of its entry); a state change run in the node by the GM;
+  an aging step. State changes are idempotent POSIX shell scripts
   streamed over stdin, so they run the same through `docker exec` or
   `kubectl exec` (D22). Their interface is in "Script contracts" below.
 - **Evidence paths** as the player user, and the **aging** technique and

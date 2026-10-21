@@ -1,6 +1,6 @@
 # Game lifecycle
 
-Status: draft v9
+Status: draft v10
 
 From setup to teardown, as run by the GM in its agent session: the
 scenario, its local implementation, checks, deployment, aging, hand-over,
@@ -34,8 +34,10 @@ outside the project's concern.
 4. **Pre-deployment checks** — the GM runs the checks each brick ships, if
    any (D28).
 5. **Deployment** on the playground, from the local implementation. When
-   the topology has monitoring, the GM configures each node's health
-   script at initialisation, with the services it watches there (D66).
+   the topology has a metrics store, the node-health script and its s6
+   service are mounted into every node as configs, each with that node's
+   entry of the `prometheus` node's service map, rendered at deploy (D66,
+   D89, D97).
 6. **Data and aging** — restored-backup data is loaded, then state faults
    are planted; the system runs, or is given a history, so that faults
    leave traces (see "Aging"). v0.1 has no aging: it loads the data and

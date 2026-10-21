@@ -216,3 +216,40 @@ continues from D55; no ID is reused.
   v0.2.** Every brick builds from `debian:13-slim`, and the v0.1 bricks
   are not rebased. Now in: [versions/v0.2/README.md](versions/v0.2/README.md)
   "Node shape".
+- **D91 (2026-10-21, owner ruling after the v0.2 review): Prometheus and
+  Grafana keep separate nodes.** Sharing one node is dropped as a
+  footprint lever, as D64 and D74 imply. Now in:
+  [versions/v0.2/README.md](versions/v0.2/README.md) "Node shape".
+- **D92 (2026-10-21, owner ruling after the v0.2 review): Node-health
+  faults target the `prometheus` node.** The affected node is a fault
+  parameter and `applies_to` names `prometheus` only; such a fault is
+  planted through a parameter, a new injection kind. Now in:
+  [formats.md](formats.md) "`fault.yaml` must contain".
+- **D93 (2026-10-21, owner ruling after the v0.2 review): The tools
+  password always opens Grafana.** The candidate fault "Grafana's
+  administrator left on its default password" is dropped, since D79 sets
+  that password per game. Now in:
+  [versions/v0.2/README.md](versions/v0.2/README.md) "Faults".
+- **D94 (2026-10-21, owner ruling after the v0.2 review): Grafana's write
+  policy is a known gap.** Players are Grafana administrators through the
+  tools password, so on a report-only Grafana node they can still change
+  dashboards, data sources and alert rules in the UI. Accepted under light
+  enforcement, like the superuser gap on report-only databases; sealed
+  checks judge Grafana's effective live state, not only its provisioned
+  files. Now in: [planes-and-access.md](planes-and-access.md) "Player
+  access to nodes".
+- **D95 (2026-10-21, owner ruling after the v0.2 review): Players run
+  pgBadger themselves.** The PostgreSQL log files are readable by the
+  players' group; no wrapper. Now in:
+  [planes-and-access.md](planes-and-access.md) "The database node".
+- **D96 (2026-10-21, owner ruling after the v0.2 review): Node-health disk
+  is per node.** Each node reports the use of its own volumes (`du`)
+  against its declared disk reservation; the host's free space is shown
+  once in the view, not per node. Now in:
+  [bricks-and-faults.md](bricks-and-faults.md) "Monitoring bricks (v0.2)".
+- **D97 (2026-10-21, set by spec-writer after the v0.2 review): Mounted
+  material, explicit.** The node-health map lists every node explicitly;
+  receiving bricks declare what they provide and the loader checks it
+  against `prometheus`'s requirements; bricks' own footprints exclude
+  mounted material. Now in: [formats.md](formats.md) "Companion material
+  mounted into other nodes".
