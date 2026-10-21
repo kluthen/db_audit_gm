@@ -1,0 +1,71 @@
+# brick.yaml: fixture bastion with a web front (tools/tests, v0.2 chunk 2).
+# Not a catalog brick: loaded, never built. It declares the web-routes
+# parameter and receives mounted material (capture W1 of
+# specs/versions/v0.2/wave-log.md, items 2, 3 and 5).
+
+# --- Identity ---------------------------------------------------------
+id: fixture-front
+version: 0.1.0
+roles:
+  - bastion
+technology:
+  name: openssh
+  version: "10.0"
+image: 127.0.0.1:5000/dbagm/fixture-front:0.1.0
+
+# --- Footprint --------------------------------------------------------
+footprint:
+  limits:       {cpu: 0.5, memory: 256M}
+  reservations: {cpu: 0.25, memory: 128M, disk: 256M}
+stateful: false
+
+# --- What the scenario sets -------------------------------------------
+parameters:
+  web_routes:
+    description: the routes the web front publishes
+    default: {}
+    required: false
+    shape: web-routes
+knobs: []
+
+# --- Player plane -----------------------------------------------------
+write_policies:
+  - report-only
+writable_paths: []
+protected_files:
+  - /etc/ssh/sshd_config
+player_access:
+  ssh_account: player
+  group: player
+  sudo_wrappers: []
+capabilities:
+  - SETUID
+  - SETGID
+
+# --- Runtime ----------------------------------------------------------
+healthcheck:
+  command: ["/bin/sh", "-c", "true"]
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 30s
+secrets: []
+seed:
+  dir: /opt/gm/starter/
+  files: []
+protected_configs: []
+volumes: []
+processes:
+  - sshd
+  - web-front
+
+# --- Catalog links ----------------------------------------------------
+interfaces:
+  provides:
+    - {name: ssh, protocol: ssh, port: 22}
+    - {name: web-front, protocol: http, port: 8080}
+  consumes:
+    - {name: ui, protocol: http, port: 9090}
+receives:
+  s6_overlay: "3.2.3.2"
+  commands: [sh, cat, du, df, awk, sed, grep, sleep, perl, s6-svstat, s6-setuidgid]

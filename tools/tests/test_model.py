@@ -1,12 +1,16 @@
 """Scenario loading and completeness (tools/gm/model.py)."""
 
 import shutil
+import tempfile
 import unittest
+from pathlib import Path
 
 import yaml
 
 from tools.gm import model
-from tools.tests import REPO_ROOT, FIXTURE_SCENARIO, ScenarioCopyTest
+from tools.tests import REPO_ROOT, FIXTURES, FIXTURE_SCENARIO, ScenarioCopyTest
+
+FIXTURE_MOUNTED = FIXTURES / "fixture-mounted"
 
 
 def repo_yaml_files():
@@ -95,7 +99,7 @@ class TestLoadFixture(unittest.TestCase):
         self.assertEqual(sc.node("db")["data"]["file"], "data/db.sql")
 
 
-class TestRefusals(ScenarioCopyTest):
+class RefusalAsserts:
 
     def assertRefused(self, *fragments):
         with self.assertRaises(model.IncompleteScenario) as cm:
@@ -104,6 +108,9 @@ class TestRefusals(ScenarioCopyTest):
         for fragment in fragments:
             self.assertIn(fragment, text)
         return cm.exception.missing
+
+
+class TestRefusals(RefusalAsserts, ScenarioCopyTest):
 
     def test_every_missing_item_is_listed(self):
         def change(d):
@@ -227,6 +234,525 @@ class TestRefusals(ScenarioCopyTest):
     def test_yaml_syntax_error_is_reported(self):
         (self.scenario / "scenario.yaml").write_text("id: [unclosed\n")
         self.assertRefused("scenario.yaml")
+
+
+class MountedCopyTest(RefusalAsserts, ScenarioCopyTest):
+    """Each test works on a fresh copy of the fixture-mounted scenario:
+    scenario-local bricks that mount and receive material, and a web front
+    (v0.2 capture W1, items 3 to 6)."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory(prefix="gmctl-test-")
+        self.addCleanup(self._tmp.cleanup)
+        self.tmp = Path(self._tmp.name)
+        self.scenario = self.tmp / "fixture-mounted"
+        shutil.copytree(FIXTURE_MOUNTED, self.scenario)
+
+    def brick(self, brick_id, change):
+        self.edit_yaml(f"bricks/{brick_id}/brick.yaml", change)
+
+    def monitor_item(self, d):
+        return d["companion"]["mounted"][0]
+
+    def node_health(self, change):
+        self.edit_yaml("scenario.yaml",
+                       lambda d: change(self.node(d, "monitor")["parameters"]["node_health"]))
+
+    def web_routes(self, routes):
+        self.edit_yaml("scenario.yaml", lambda d: self.node(d, "bastion")["parameters"]
+                       .update(web_routes=routes))
+
+
+class TestMountedFixture(MountedCopyTest):
+
+    def test_fixture_loads(self):
+        sc = model.load_scenario(FIXTURE_MOUNTED)
+        self.assertEqual(sc.id, "fixture-mounted")
+        self.assertEqual({n: b.source for n, b in sc.bricks.items()},
+                         {"bastion": "scenario", "app": "scenario", "monitor": "scenario"})
+        self.assertEqual(sc.node("monitor")["parameters"]["node_health"],
+                         {"bastion": "default", "app": ["app", "sshd"], "monitor": "default"})
+        self.assertEqual(model.mounted_items(sc.bricks["monitor"].data)[0]["name"],
+                         "node-health")
+
+    def test_fixture_bricks_are_complete(self):
+        for brick_dir in sorted((FIXTURE_MOUNTED / "bricks").iterdir()):
+            with self.subTest(brick=brick_dir.name):
+                self.assertEqual(model.check_brick_dir(brick_dir), [])
+
+
+class TestMountedBrickRefusals(MountedCopyTest):
+
+    def test_mounted_file_missing_from_companion(self):
+        (self.scenario / "bricks/fixture-monitor/companion/node-health/s6/run").unlink()
+        self.assertRefused("bricks/fixture-monitor/companion/node-health/s6/run: missing file "
+                           "(companion.mounted[node-health].files)")
+
+    def test_mounted_source_outside_companion(self):
+        def change(d):
+            self.monitor_item(d)["files"][0]["source"] = "docs/gm.md"
+            self.monitor_item(d)["files"][1]["source"] = "companion/../../x"
+        self.brick("fixture-monitor", change)
+        self.assertRefused("companion.mounted[node-health].files[docs/gm.md].source: docs/gm.md "
+                           "is not under companion/",
+                           "files[companion/../../x].source: companion/../../x is not under "
+                           "companion/")
+
+    def test_mounted_target_not_absolute(self):
+        def change(d):
+            self.monitor_item(d)["files"][0]["target"] = "usr/local/lib/node-health.sh"
+            self.monitor_item(d)["node_config"]["target"] = "node.conf"
+        self.brick("fixture-monitor", change)
+        self.assertRefused("files[companion/node-health/node-health.sh].target: "
+                           "usr/local/lib/node-health.sh is not an absolute path",
+                           "companion.mounted[node-health].node_config.target: node.conf is "
+                           "not an absolute path")
+
+    def test_mounted_mode_has_no_write_bit(self):
+        def change(d):
+            self.monitor_item(d)["files"][0]["mode"] = "0755"
+            self.monitor_item(d)["node_config"]["mode"] = "0644"
+        self.brick("fixture-monitor", change)
+        self.assertRefused("files[companion/node-health/node-health.sh].mode: 0755 has a write "
+                           "bit (mounted material is read-only)",
+                           "node_config.mode: 0644 has a write bit")
+
+    def test_mounted_parameter_not_declared(self):
+        self.brick("fixture-monitor",
+                   lambda d: self.monitor_item(d).update(parameter="health_map"))
+        self.assertRefused("companion.mounted[node-health].parameter: health_map is not a "
+                           "parameter of the brick")
+
+    def test_mounted_parameter_not_a_node_map(self):
+        self.brick("fixture-monitor", lambda d: d["parameters"]["node_health"].pop("shape"))
+        self.assertRefused("companion.mounted[node-health].parameter: node_health is not a "
+                           "node-map parameter (shape: node-map)")
+
+    def test_unknown_shape(self):
+        self.brick("fixture-monitor",
+                   lambda d: d["parameters"]["node_health"].update(shape="list"))
+        self.assertRefused("parameters.node_health.shape: list is not node-map or web-routes")
+
+    def test_mounted_requirements_well_formed(self):
+        def change(d):
+            self.monitor_item(d)["requires"] = {"s6_overlay": 3, "commands": ["sh", "curl"]}
+        self.brick("fixture-monitor", change)
+        self.assertRefused("companion.mounted[node-health].requires.s6_overlay: 3 is not a "
+                           "quoted version string",
+                           "requires.commands: curl is not in the command vocabulary")
+
+    def test_receives_well_formed(self):
+        self.brick("fixture-app", lambda d: d.update(
+            receives={"s6_overlay": "v3", "commands": ["sh", "bash"]}))
+        self.assertRefused("fixture-app/brick.yaml: receives.s6_overlay: v3 is not a version "
+                           "(digits and dots)",
+                           "receives.commands: bash is not in the command vocabulary")
+
+    def test_receives_needs_its_keys(self):
+        self.brick("fixture-app", lambda d: d.update(receives={"commands": ["sh"]}))
+        self.assertRefused("fixture-app/brick.yaml: receives.s6_overlay: missing")
+
+    def test_footprint_units(self):
+        def change(d):
+            d["footprint"]["limits"]["memory"] = "lots"
+            self.monitor_item(d)["footprint"]["reservations"]["cpu"] = "some"
+        self.brick("fixture-monitor", change)
+        self.assertRefused("fixture-monitor/brick.yaml: footprint.limits.memory: not a size",
+                           "companion.mounted[node-health].footprint.reservations.cpu: not a "
+                           "CPU count")
+
+    def test_web_path_shape(self):
+        self.brick("fixture-monitor",
+                   lambda d: d["interfaces"]["provides"][0].update(web_path="/a/b/"))
+        self.assertRefused("interfaces.provides[ui].web_path: /a/b/ is not /<route>/")
+
+
+class TestNodeMapRefusals(MountedCopyTest):
+
+    def test_map_required_with_a_mounting_brick(self):
+        self.edit_yaml("scenario.yaml",
+                       lambda d: self.node(d, "monitor")["parameters"].pop("node_health"))
+        self.assertRefused("nodes[monitor].parameters.node_health: missing (required by brick "
+                           "fixture-monitor)")
+
+    def test_map_required_even_when_the_brick_says_optional(self):
+        self.brick("fixture-monitor",
+                   lambda d: d["parameters"]["node_health"].update(required=False))
+        self.edit_yaml("scenario.yaml",
+                       lambda d: self.node(d, "monitor")["parameters"].pop("node_health"))
+        self.assertRefused("nodes[monitor].parameters.node_health: missing (brick "
+                           "fixture-monitor mounts node-health into the nodes it lists)")
+
+    def test_map_lists_every_node(self):
+        self.node_health(lambda m: m.pop("app"))
+        self.assertRefused("nodes[monitor].parameters.node_health: node app is missing (the map "
+                           "lists every node of the topology)")
+
+    def test_map_lists_its_own_node(self):
+        self.node_health(lambda m: m.pop("monitor"))
+        self.assertRefused("node_health: node monitor is missing")
+
+    def test_map_key_not_a_node(self):
+        self.node_health(lambda m: m.update(ghost="default"))
+        self.assertRefused("nodes[monitor].parameters.node_health.ghost: not a node of the "
+                           "topology")
+
+    def test_map_entries(self):
+        self.node_health(lambda m: m.update(app=["app", "nginx"], bastion=[], monitor="all"))
+        self.assertRefused("node_health.app: nginx is not a process of brick fixture-app "
+                           "(app, sshd)",
+                           "node_health.bastion: [] is not default or a non-empty list",
+                           "node_health.monitor: 'all' is not default or a non-empty list")
+
+    def test_map_not_a_map(self):
+        self.edit_yaml("scenario.yaml", lambda d: self.node(d, "monitor")["parameters"]
+                       .update(node_health="default"))
+        self.assertRefused("nodes[monitor].parameters.node_health: not a map (shape node-map "
+                           "of brick fixture-monitor)")
+
+    def test_scalar_parameter_given_a_map(self):
+        self.edit_yaml("scenario.yaml", lambda d: self.node(d, "app")["parameters"]
+                       .update(listen_port={"port": 8000}))
+        self.assertRefused("nodes[app].parameters.listen_port: a list or map, but brick "
+                           "fixture-app declares it a scalar (no shape)")
+
+
+class TestReceivingRefusals(MountedCopyTest):
+
+    def test_receiver_without_receives(self):
+        self.brick("fixture-app", lambda d: d.pop("receives"))
+        self.assertRefused("scenario.yaml: nodes[app]: brick fixture-app 0.1.0 declares no "
+                           "receives, but brick fixture-monitor 0.1.0's node-health is mounted "
+                           "into it")
+
+    def test_mounting_node_receives_too(self):
+        self.brick("fixture-monitor", lambda d: d.pop("receives"))
+        self.assertRefused("nodes[monitor]: brick fixture-monitor 0.1.0 declares no receives")
+
+    def test_s6_overlay_version_prefix(self):
+        for have in ("2.2.0.3", "30.1", "3x"):
+            with self.subTest(have=have):
+                self.setUp()
+                self.brick("fixture-app", lambda d: d["receives"].update(s6_overlay=have))
+                self.assertRefused(f"nodes[app]: brick fixture-app 0.1.0 receives s6-overlay "
+                                   f"{have}, but brick fixture-monitor 0.1.0's node-health "
+                                   "requires 3")
+
+    def test_s6_overlay_prefix_accepted(self):
+        for need in ("3", "3.2", "3.2.3.2"):
+            with self.subTest(need=need):
+                self.setUp()
+                self.brick("fixture-monitor",
+                           lambda d: self.monitor_item(d)["requires"].update(s6_overlay=need))
+                model.load_scenario(self.scenario)
+
+    def test_missing_commands(self):
+        self.brick("fixture-app", lambda d: d["receives"].update(commands=["sh", "cat"]))
+        self.assertRefused("nodes[app]: brick fixture-app 0.1.0 lacks command(s) du, "
+                           "s6-svstat, s6-setuidgid, which brick fixture-monitor 0.1.0's "
+                           "node-health requires")
+
+    def test_unlisted_node_is_not_checked(self):
+        # Leaving a node out exists only as a parameter fault; the map is
+        # refused for it, not the node's receiving declaration.
+        self.brick("fixture-app", lambda d: d.pop("receives"))
+        self.node_health(lambda m: m.pop("app"))
+        missing = self.assertRefused("node app is missing")
+        self.assertNotIn("declares no receives", "\n".join(missing))
+
+
+class TestWebRouteRefusals(MountedCopyTest):
+
+    def test_route_to_an_unknown_node(self):
+        self.web_routes({"monitor": "ghost:9090"})
+        self.assertRefused("nodes[bastion].parameters.web_routes.monitor: ghost is not a node",
+                           "nodes[monitor]: web interface ui (port 9090, /monitor/) has no "
+                           "route in a web-routes parameter")
+
+    def test_route_target_shape(self):
+        self.web_routes({"monitor": "monitor"})
+        self.assertRefused("web_routes.monitor: 'monitor' is not \"<node>:<port>\"")
+
+    def test_route_to_a_port_without_web_interface(self):
+        self.web_routes({"monitor": "monitor:9091", "app": "app:8000"})
+        self.assertRefused("web_routes.monitor: brick fixture-monitor of node monitor provides "
+                           "no web interface on port 9091",
+                           "web_routes.app: brick fixture-app of node app provides no web "
+                           "interface on port 8000")
+
+    def test_route_name_is_the_web_path(self):
+        self.web_routes({"grafana": "monitor:9090"})
+        self.assertRefused("web_routes.grafana: monitor:9090 is served under /monitor/, not "
+                           "/grafana/")
+
+    def test_one_route_per_web_interface(self):
+        self.web_routes({"monitor": "monitor:9090", "mon": "monitor:9090"})
+        self.assertRefused("nodes[monitor]: web interface ui (port 9090, /monitor/) has 2 "
+                           "routes (mon, monitor); one route per web interface")
+
+    def test_front_port_when_routes(self):
+        self.edit_yaml("scenario.yaml", lambda d: self.node(d, "bastion")
+                       .update(published_ports=[{"port": 22, "default": 2222},
+                                                {"port": 8080, "default": 8081}]))
+        self.assertRefused("nodes[bastion].published_ports: no {port: 8080, default: 8080}, "
+                           "which the web front needs (web_routes is non-empty)")
+
+    def drop_ui_evidence(self):
+        self.edit_yaml("gm/answer-key.yaml", lambda d: d["instances"][1]["evidence"][0]
+                       .update(where="node:monitor"))
+
+    def test_no_front_port_without_routes(self):
+        self.brick("fixture-monitor", lambda d: d["interfaces"]["provides"][0].pop("web_path"))
+        self.drop_ui_evidence()
+        self.web_routes({})
+        missing = self.assertRefused("nodes[bastion].published_ports: port 8080 is published, "
+                                     "but web_routes is empty (the web front does not run)")
+        self.assertEqual(len(missing), 1, missing)
+
+    def test_empty_routes_by_default(self):
+        self.brick("fixture-monitor", lambda d: d["interfaces"]["provides"][0].pop("web_path"))
+        self.drop_ui_evidence()
+        def change(d):
+            self.node(d, "bastion")["parameters"].pop("web_routes")
+            self.node(d, "bastion")["published_ports"] = [{"port": 22, "default": 2222}]
+        self.edit_yaml("scenario.yaml", change)
+        model.load_scenario(self.scenario)
+
+
+class TestParameterFaultRefusals(MountedCopyTest):
+    """The `parameter` injection kind and faults about mounted material
+    (v0.2 capture W1, item 8; master spec 6.4)."""
+
+    FAULT = "faults/fixture-node-left-out/fault.yaml"
+
+    def fault(self, change):
+        self.edit_yaml(self.FAULT, change)
+
+    def first_change(self, d):
+        return d["injection"]["parameter_changes"][0]
+
+    def test_parameter_fault_accepted(self):
+        sc = model.load_scenario(self.scenario)
+        self.assertEqual(sc.faults["f2"].data["injection"]["kind"], "parameter")
+
+    def test_unknown_kind(self):
+        self.fault(lambda d: d["injection"].update(kind="script"))
+        self.assertRefused("fault.yaml: injection.kind: script is not seed-file, state or "
+                           "parameter")
+
+    def test_changes_required(self):
+        self.fault(lambda d: d["injection"].pop("parameter_changes"))
+        self.assertRefused("fixture-node-left-out/fault.yaml: injection.parameter_changes: "
+                           "missing (kind parameter)")
+
+    def test_planted_at_render(self):
+        self.fault(lambda d: d["injection"].update(stage="after-data-load"))
+        self.assertRefused("fault.yaml: injection.stage: after-data-load, but a parameter fault "
+                           "is planted at render (seed)")
+
+    def test_unknown_op(self):
+        self.fault(lambda d: self.first_change(d).update(op="rename"))
+        self.assertRefused("injection.parameter_changes[0].op: rename is not one of set, "
+                           "remove-entry, remove-from-entry")
+
+    def test_op_keys(self):
+        def change(d):
+            d["injection"]["parameter_changes"] = [
+                {"parameter": "node_health", "op": "remove-entry", "change": "x"},
+                {"parameter": "node_health", "op": "set", "entry": "{NODE}", "change": "x"},
+                {"parameter": "node_health", "op": "remove-from-entry", "entry": "{NODE}",
+                 "item": ["sshd"], "change": "x"}]
+        self.fault(change)
+        self.assertRefused("parameter_changes[0].entry: missing (op remove-entry)",
+                           "parameter_changes[1].value: missing (op set)",
+                           "parameter_changes[1].entry: not used by op set",
+                           "parameter_changes[2].item: a list or map; use a scalar")
+
+    def test_substitution_names_a_fault_parameter(self):
+        self.fault(lambda d: self.first_change(d).update(entry="{HOST}"))
+        self.assertRefused("injection.parameter_changes[0].entry: {HOST} names no parameter of "
+                           "the fault")
+
+    def test_versions_one_by_one(self):
+        self.fault(lambda d: d["applies_to"]["bricks"][0].update(
+            versions=["0.1.0", ">=0.1.0", "0.1.x", 0.1]))
+        missing = self.assertRefused(
+            "applies_to.bricks[fixture-monitor].versions: '>=0.1.0' is not an exact version "
+            "string (one by one, never a range)",
+            "versions: '0.1.x' is not an exact version string",
+            "versions: 0.1 is not an exact version string")
+        self.assertNotIn("'0.1.0' is not", "\n".join(missing))
+
+    def test_changed_parameter_belongs_to_the_target_brick(self):
+        self.fault(lambda d: self.first_change(d).update(parameter="node_map"))
+        self.assertRefused("scenario.yaml: fault_instances[f2]: fault fixture-node-left-out "
+                           "changes parameter node_map, not a parameter of brick "
+                           "fixture-monitor")
+
+    def test_mounted_material_fault_targets_the_mounting_node(self):
+        self.edit_yaml("scenario.yaml",
+                       lambda d: d["fault_instances"][1].update(node="app"))
+        self.assertRefused("fault_instances[f2].node: app runs fixture-app 0.1.0, which fault "
+                           "fixture-node-left-out does not apply to",
+                           "fault_instances[f2]: fault fixture-node-left-out changes parameter "
+                           "node_health, not a parameter of brick fixture-app")
+
+    def test_op_matches_the_parameter_shape(self):
+        def fault(d):
+            d["applies_to"]["bricks"] = [{"id": "fixture-app", "versions": ["0.1.0"]}]
+            d["injection"]["parameter_changes"] = [
+                {"parameter": "listen_port", "op": "remove-entry", "entry": "x", "change": "x"},
+                {"parameter": "listen_port", "op": "remove-from-entry", "entry": "x",
+                 "item": "y", "change": "x"}]
+        self.fault(fault)
+        self.edit_yaml("scenario.yaml",
+                       lambda d: d["fault_instances"][1].update(node="app"))
+        self.assertRefused("fault fixture-node-left-out removes an entry of listen_port, a "
+                           "scalar parameter of brick fixture-app",
+                           "removes an item from an entry of listen_port, not a node-map "
+                           "parameter of brick fixture-app")
+
+    def test_set_takes_a_scalar_parameter(self):
+        self.fault(lambda d: d["injection"].update(parameter_changes=[
+            {"parameter": "node_health", "op": "set", "value": "x", "change": "x"}]))
+        self.assertRefused("fault fixture-node-left-out sets node_health, a node-map parameter "
+                           "of brick fixture-monitor (set takes a scalar parameter)")
+
+    def test_set_on_a_scalar_parameter_accepted(self):
+        def fault(d):
+            d["applies_to"]["bricks"] = [{"id": "fixture-app", "versions": ["0.1.0"]}]
+            d["injection"]["parameter_changes"] = [
+                {"parameter": "listen_port", "op": "set", "value": 9000, "change": "x"}]
+        self.fault(fault)
+        self.edit_yaml("scenario.yaml",
+                       lambda d: d["fault_instances"][1].update(node="app"))
+        model.load_scenario(self.scenario)
+
+    def test_mounted_material_fault_names_only_the_mounting_brick(self):
+        self.fault(lambda d: d["applies_to"]["bricks"].append(
+            {"id": "fixture-app", "versions": ["0.1.0"]}))
+        self.assertRefused("fault_instances[f2]: fault fixture-node-left-out is about material "
+                           "brick fixture-monitor mounts, so its applies_to names only "
+                           "fixture-monitor (it names fixture-monitor, fixture-app)")
+
+    def test_mounted_material_fault_needs_the_node_parameter(self):
+        def fault(d):
+            d["parameters"] = {"host": d["parameters"].pop("node")}
+            self.first_change(d)["entry"] = "{HOST}"
+        self.fault(fault)
+        self.edit_yaml("scenario.yaml", lambda d: d["fault_instances"][1].update(
+            parameters={"host": "app"}))
+        self.assertRefused("fault_instances[f2]: fault fixture-node-left-out is about mounted "
+                           "material, so it needs a required parameter node, the affected node")
+
+    def test_node_parameter_must_be_required(self):
+        self.fault(lambda d: d["parameters"]["node"].update(required=False))
+        self.assertRefused("so it needs a required parameter node")
+
+    def test_node_parameter_names_a_node(self):
+        self.edit_yaml("scenario.yaml", lambda d: d["fault_instances"][1].update(
+            parameters={"node": "ghost"}))
+        self.assertRefused("scenario.yaml: fault_instances[f2].parameters.node: ghost is not a "
+                           "node of the topology")
+
+    def test_map_checked_before_the_fault_applies(self):
+        # f2 leaves app out at render; the map as scenario.yaml states it
+        # still lists every node.
+        self.node_health(lambda m: m.pop("app"))
+        self.assertRefused("nodes[monitor].parameters.node_health: node app is missing")
+
+
+class TestAnswerKeyRefusals(MountedCopyTest):
+    """Evidence `where` and `source` (spec D101) and tooling expectations
+    (v0.2 capture W1, items 9 and 10)."""
+
+    KEY = "gm/answer-key.yaml"
+
+    def evidence(self, index, change):
+        self.edit_yaml(self.KEY, lambda d: change(d["instances"][index]["evidence"][0]))
+
+    def test_where_and_source_required(self):
+        def change(d):
+            d["instances"][0]["evidence"][0].pop("where")
+            d["instances"][1]["evidence"][0].pop("source")
+        self.edit_yaml(self.KEY, change)
+        self.assertRefused("gm/answer-key.yaml: instances[f1].evidence[0].where: missing",
+                           "gm/answer-key.yaml: instances[f2].evidence[0].source: missing")
+
+    def test_where_forms(self):
+        cases = {
+            "the database node": "instances[f1].evidence[0].where: 'the database node' is not "
+                                 "bastion, node:<name>, ui:<name> or report:<tool>",
+            "node:ghost": "instances[f1].evidence[0].where: node:ghost: ghost is not a node of "
+                          "the topology",
+            "node:bastion": "instances[f1].evidence[0].where: node:bastion is the bastion; "
+                            "write bastion",
+            "ui:grafana": "instances[f1].evidence[0].where: ui:grafana: grafana is not a route "
+                          "of the topology's web-routes parameter",
+            "report:PgBadger": "instances[f1].evidence[0].where: report:PgBadger: the tool is "
+                               "written in lowercase",
+            "node:": "'node:' is not bastion",
+        }
+        for where, message in cases.items():
+            with self.subTest(where=where):
+                self.setUp()
+                self.evidence(0, lambda e: e.update(where=where))
+                self.assertRefused(message)
+
+    def test_where_accepted(self):
+        for where in ("bastion", "node:app", "node:monitor", "ui:monitor", "report:pgbadger"):
+            with self.subTest(where=where):
+                self.setUp()
+                self.evidence(0, lambda e: e.update(where=where))
+                model.load_scenario(self.scenario)
+
+    def test_fault_evidence_where_stays_free_text(self):
+        # O78: fault.yaml's evidence keeps v0.1's free-text where in v0.2.
+        sc = model.load_scenario(self.scenario)
+        self.assertEqual(sc.faults["f2"].data["evidence"][0]["where"],
+                         "the monitor's node-health view")
+
+    def test_tooling_expectations_required(self):
+        self.edit_yaml(self.KEY, lambda d: d.pop("tooling_expectations"))
+        self.assertRefused("gm/answer-key.yaml: tooling_expectations: missing")
+
+    def test_tooling_expectation_keys(self):
+        self.edit_yaml(self.KEY, lambda d: d["tooling_expectations"][0].pop("acceptable"))
+        self.assertRefused("gm/answer-key.yaml: tooling_expectations[t1].acceptable: missing")
+
+    def test_expectation_ids_unique_across_instances(self):
+        def change(d):
+            t1 = d["tooling_expectations"][0]
+            d["tooling_expectations"] += [dict(t1), dict(t1, id="f1")]
+        self.edit_yaml(self.KEY, change)
+        self.assertRefused("tooling_expectations[t1].id: duplicate expectation id",
+                           "tooling_expectations[f1].id: f1 is also a fault instance id")
+
+    def test_expectation_has_no_visibility_nor_sealed_check(self):
+        self.edit_yaml(self.KEY, lambda d: d["tooling_expectations"][0].update(
+            visibility="known", sealed_check={"script": "x"}))
+        self.assertRefused("tooling_expectations[t1].visibility: a tooling expectation has no "
+                           "visibility",
+                           "tooling_expectations[t1].sealed_check: a tooling expectation has "
+                           "no sealed check")
+
+    def test_issue_covers_unknown_id(self):
+        self.edit_yaml("scenario.yaml", lambda d: d["issues"][0].update(covers=["t9"]))
+        self.assertRefused("scenario.yaml: issues[I1].covers: t9 is not a fault instance or a "
+                           "tooling expectation")
+
+    def test_issue_covering_only_expectations(self):
+        self.edit_yaml("scenario.yaml",
+                       lambda d: d["issues"][0].update(expected_resolution="fix"))
+        self.assertRefused("scenario.yaml: issues[I1].expected_resolution: fix, but the issue "
+                           "covers only tooling expectations (report or propose)")
+
+    def test_issue_covering_an_expectation_and_a_fault(self):
+        def change(d):
+            d["issues"][0].update(covers=["f2", "t1"], expected_resolution="propose")
+            d["fault_instances"][1]["visibility"] = "known"
+        self.edit_yaml("scenario.yaml", change)
+        model.load_scenario(self.scenario)
 
 
 class TestUnits(unittest.TestCase):

@@ -1,0 +1,52 @@
+# Answer key of the fixture-mounted scenario (tools/tests, v0.2 chunk 2).
+scenario:
+  id: fixture-mounted
+  version: 0.1.0
+notes: gm/notes.md
+
+instances:
+  - instance: f1
+    what: the application's service is down on app.
+    why: the application does not answer.
+    evidence:
+      - where: node:app
+        source: the application's service status
+        how: ssh app, then s6-svstat /run/service/app
+        shows: the service is down
+    acceptable:
+      diagnosis: names the application's service as down.
+    sealed_check:
+      script: faults/fixture-app-stopped/checks/fixed.sh
+      at_handover: 1
+      notes: the scenario's own fault (faults/ in the fixture folder).
+    interactions: []
+    validators_left_red: []
+
+  - instance: f2
+    what: app is left out of the node_health map, so it has no node-health script.
+    why: nothing reports app's resources or services; a failure there goes unseen.
+    evidence:
+      - where: ui:monitor
+        source: the monitor's node-health view
+        how: open /monitor/ on the web front
+        shows: app is not listed
+      - where: node:app
+        source: /opt/gm/node-health/node.conf
+        how: ssh app, then cat /opt/gm/node-health/node.conf
+        shows: no such file
+    acceptable:
+      diagnosis: names app as missing from the node-health view.
+      proposal: add app to the node_health map.
+    sealed_check:
+      script: faults/fixture-node-left-out/checks/fixed.sh
+      at_handover: 1
+      notes: the scenario's own fault (faults/ in the fixture folder).
+    interactions: []
+    validators_left_red: []
+
+tooling_expectations:
+  - id: t1
+    need: service monitoring
+    expected: every node's services watched, with an alert when one stops
+    acceptable: any of the top three tools for the need
+    notes: the fixture's monitor covers it once app is back in the map
