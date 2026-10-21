@@ -723,3 +723,28 @@ Recorded after chunk 10 merged; accepted by the wave driver.
 - API: `localimpl.record_teardown(ldir, reason=None, now=None)`;
   `teardown.teardown(scenario_dir, playground, reason=None, docker=None,
   ...)`.
+
+### Wave gate — 2026-10-21
+
+Run by the driver on `v0.1-w3` at 0955dda, on the build host (Debian 13,
+Docker Engine 29.8.2, single-node swarm), machine otherwise idle.
+
+- Unit suite: 165 tests OK (13.5 s).
+- `sh -n` on every shell script (32 files, `*.sh` plus `#!/bin/sh`): OK.
+- Image builds: postgres `sha256:a55e764b…`, bastion `sha256:314de9c7…`,
+  unchanged since wave 1.
+- `tools/tests/smoke.sh`: 41 checks passed (game `fixture-audit-4emjvt`),
+  now including `load-data`, `inject` twice, `status --set`, `check`
+  1 → 0, `validate` green then red, the teardown record. Driver's check
+  after: 0 services, networks, volumes, configs, secrets, containers
+  labelled `dbagm.game`.
+- No bundle or performance figures apply. No intent or data register: no
+  sync.
+
+Open after wave 3: G5 (the owner, release close). Per the model the
+release gate runs on `v0.1-w3` before it merges into `main`; its commits
+(release notes) land there. Owner's call pending: whether the release
+gate also checks a stop during setup with its reason (master spec 17
+item 7 checks the stage only). Branches kept until the wave closes:
+`v0.1-c7-eval`, `v0.1-c8-scenario`, `v0.1-c9-gm-skill`,
+`v0.1-c10-teardown-reason`.
