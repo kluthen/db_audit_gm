@@ -1,0 +1,10 @@
+
+  db_audit_gm -- postgres-exporter node (PostgreSQL metrics for Prometheus)
+
+  Settings:       /etc/postgres-exporter/exporter.conf  (database address, user, collectors)
+  Metrics:        http://localhost:9187/metrics  (curl; pg_up 1 = connected)
+  Apply changes:  sudo gm-restart-exporter   check, then restart the exporter
+  Check:          sudo gm-validate           public validator
+
+  DO NOT TAMPER with SSH, sudo, the gm-* wrappers or the validator.
+

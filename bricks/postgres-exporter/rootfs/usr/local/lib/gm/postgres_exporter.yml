@@ -1,0 +1,5 @@
+# postgres_exporter's --config.file (DO NOT TAMPER): no auth modules, so
+# /probe holds no credential and reaches no database the GM did not set.
+# The database's address and user are in /etc/postgres-exporter/exporter.conf;
+# the password is the secret /opt/gm/secrets/monitoring_password.
+auth_modules: {}

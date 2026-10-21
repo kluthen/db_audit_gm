@@ -1,0 +1,172 @@
+#!/bin/sh
+# exporter-conf: reads /etc/postgres-exporter/exporter.conf, the one place
+# the postgres_exporter settings players may change live.
+# DO NOT TAMPER. Root-owned, read-only (v0.2 master spec 7.3).
+#
+# Usage:
+#   exporter-conf check   print one problem per line, exit 0 if the file is
+#                         valid, 1 if not (the validator, as exporter; the
+#                         wrapper gm-restart-exporter, as root)
+#   exporter-conf run     the s6 service `postgres-exporter`, as root: exit 3
+#                         without starting anything if the file is not
+#                         valid; otherwise record the modification time of
+#                         the file it read in /run/postgres-exporter/loaded
+#                         (the validator's `pending` rule), then exec
+#                         postgres_exporter as exporter
+#
+# The file is parsed, never sourced or evaluated: UTF-8, one KEY=value per
+# line; blank lines and lines starting with # are ignored, and so is
+# whitespace followed by # to the end of a line. Keys:
+#   DATA_SOURCE_URI   required: <db node>:5432/postgres?sslmode=disable
+#   DATA_SOURCE_USER  required: the role to connect as (monitoring)
+#   COLLECTORS        optional: --collector.<name> and --no-collector.<name>
+#                     words, space-separated, <name> one of this release's
+#                     collectors (/usr/local/lib/gm/exporter-collectors)
+# An unknown key, a key set twice, a missing or empty required key, or a
+# value with spaces or quotes makes the file invalid. Problems name line
+# numbers and keys, never values: whatever file the path leads to, nothing
+# of its content is printed.
+# The password never comes from this file: postgres_exporter reads it from
+# the secret, DATA_SOURCE_PASS_FILE=/opt/gm/secrets/monitoring_password.
+set -u
+PATH=/command:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+export PATH
+LC_ALL=C.UTF-8
+export LC_ALL
+
+CONF=/etc/postgres-exporter/exporter.conf
+COLLECTORS_LIST=/usr/local/lib/gm/exporter-collectors
+PASS_FILE=/opt/gm/secrets/monitoring_password
+LISTEN=:9187
+TELEMETRY=/metrics
+STAMP=/run/postgres-exporter/loaded
+
+# parse: one line per result, `ERR <problem>` or `URI <v>`, `USER <v>`,
+# `COLLECTORS <words>`; the values only when there is no ERR line.
+parse() {
+    if [ -L "$CONF" ]; then
+        echo "ERR $CONF is a symbolic link; it must be a regular file"; return
+    elif [ ! -e "$CONF" ]; then
+        echo "ERR $CONF is missing"; return
+    elif [ ! -f "$CONF" ]; then
+        echo "ERR $CONF is not a regular file"; return
+    elif [ ! -r "$CONF" ]; then
+        echo "ERR $CONF is not readable"; return
+    fi
+    awk -v known="$(cat "$COLLECTORS_LIST")" '
+        function err(m) { errs[++nerr] = m }
+        BEGIN {
+            n = split(known, k, /[ \t\n]+/)
+            for (i = 1; i <= n; i++) if (k[i] != "") collector[k[i]] = 1
+            allowed["DATA_SOURCE_URI"] = 1
+            allowed["DATA_SOURCE_USER"] = 1
+            allowed["COLLECTORS"] = 1
+        }
+        {
+            line = $0
+            sub(/\r$/, "", line)
+            sub(/^[ \t]+/, "", line)
+            if (line == "" || substr(line, 1, 1) == "#") next
+            sub(/[ \t]+#.*$/, "", line)
+            sub(/[ \t]+$/, "", line)
+            eq = index(line, "=")
+            key = eq ? substr(line, 1, eq - 1) : ""
+            if (key !~ /^[A-Z_][A-Z0-9_]*$/) {
+                err("line " NR ": not KEY=value (a key is upper-case letters, digits and _, then =)")
+                next
+            }
+            if (!(key in allowed)) {
+                err("line " NR ": unknown key " (length(key) <= 40 ? key : substr(key, 1, 40) "...") \
+                    " (known: DATA_SOURCE_URI, DATA_SOURCE_USER, COLLECTORS)")
+                next
+            }
+            if (key in seen) {
+                err("line " NR ": " key " is set twice (first on line " seen[key] ")")
+                next
+            }
+            seen[key] = NR
+            value[key] = substr(line, eq + 1)
+        }
+        END {
+            for (r = 1; r <= 2; r++) {
+                key = (r == 1) ? "DATA_SOURCE_URI" : "DATA_SOURCE_USER"
+                if (!(key in seen)) err(key " is missing (required)")
+                else if (value[key] == "") err("line " seen[key] ": " key " is empty (required)")
+                else if (value[key] ~ /[ \t"\047\\`$;]/)
+                    err("line " seen[key] ": " key " holds a space, a quote or one of \\ ` $ ;")
+            }
+            words = ""
+            if ("COLLECTORS" in seen) {
+                n = split(value["COLLECTORS"], w, /[ \t]+/)
+                for (i = 1; i <= n; i++) {
+                    if (w[i] == "") continue
+                    name = w[i]
+                    if (sub(/^--no-collector\./, "", name) || sub(/^--collector\./, "", name)) {
+                        if (name ~ /^[a-z0-9_]+$/ && (name in collector)) {
+                            words = words (words == "" ? "" : " ") w[i]
+                            continue
+                        }
+                        err("line " seen["COLLECTORS"] ": COLLECTORS: word " i " names no collector of this postgres_exporter (see " "/usr/local/lib/gm/exporter-collectors)")
+                    } else {
+                        err("line " seen["COLLECTORS"] ": COLLECTORS: word " i " is not --collector.<name> or --no-collector.<name>")
+                    }
+                }
+            }
+            if (nerr) { for (i = 1; i <= nerr; i++) print "ERR " errs[i]; exit }
+            print "URI " value["DATA_SOURCE_URI"]
+            print "USER " value["DATA_SOURCE_USER"]
+            print "COLLECTORS " words
+        }
+    ' "$CONF" || echo "ERR $CONF could not be read"
+}
+
+# the file's modification time before it is read: an edit made while it is
+# being read shows as pending
+mtime=$(stat -c %.9Y "$CONF" 2>/dev/null)
+out=$(parse)
+problems=$(printf '%s\n' "$out" | sed -n 's/^ERR //p')
+
+case ${1:-} in
+check)
+    [ "$#" -eq 1 ] || { echo "usage: exporter-conf check" >&2; exit 2; }
+    if [ -n "$problems" ]; then
+        printf '%s\n' "$problems"
+        exit 1
+    fi
+    exit 0
+    ;;
+run)
+    [ "$#" -eq 1 ] || { echo "usage: exporter-conf run" >&2; exit 2; }
+    if [ -n "$problems" ]; then
+        printf '%s\n' "$problems" | sed 's/^/postgres-exporter: NOT started: /' >&2
+        rm -f "$STAMP"
+        exit 3
+    fi
+    uri=$(printf '%s\n' "$out" | sed -n 's/^URI //p')
+    user=$(printf '%s\n' "$out" | sed -n 's/^USER //p')
+    collectors=$(printf '%s\n' "$out" | sed -n 's/^COLLECTORS //p')
+    { printf 'mtime=%s\nstarted=%s\n' "$mtime" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" > "$STAMP.new" \
+        && chmod 0644 "$STAMP.new" && mv -f "$STAMP.new" "$STAMP"; } \
+        || echo "postgres-exporter: warning: could not write $STAMP" >&2
+    echo "postgres-exporter: starting: DATA_SOURCE_URI=$uri DATA_SOURCE_USER=$user collectors: ${collectors:-defaults}" >&2
+    set -f
+    # A clean environment: only what the exporter is meant to read, so no
+    # PG_EXPORTER_* variable reaches it. The listening address and path are
+    # fixed here, not in the file; the --config.file holds no auth module.
+    # shellcheck disable=SC2086  # validated words, no globbing (set -f)
+    exec s6-setuidgid exporter /usr/bin/env -i \
+        PATH=/usr/bin:/bin \
+        DATA_SOURCE_URI="$uri" \
+        DATA_SOURCE_USER="$user" \
+        DATA_SOURCE_PASS_FILE="$PASS_FILE" \
+        /usr/local/bin/postgres_exporter \
+        --web.listen-address="$LISTEN" \
+        --web.telemetry-path="$TELEMETRY" \
+        --config.file=/usr/local/lib/gm/postgres_exporter.yml \
+        $collectors
+    ;;
+*)
+    echo "usage: exporter-conf check | run" >&2
+    exit 2
+    ;;
+esac

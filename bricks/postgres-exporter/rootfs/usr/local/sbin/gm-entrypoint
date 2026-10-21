@@ -1,0 +1,84 @@
+#!/bin/sh
+# gm-entrypoint: container entrypoint of the db_audit_gm postgres-exporter
+# brick. DO NOT TAMPER. Root-owned and read-only (v0.2 master spec 7.3).
+#
+# Runs as root at every container start, then execs s6-overlay's /init:
+#   1. empties /run (a named volume: a stack file's tmpfs is noexec, and
+#      s6-overlay needs an executable /run) and creates the runtime dirs;
+#   2. generates this container's sshd host key under /run;
+#   3. checks the secrets: the monitoring password must be one non-empty
+#      line, as the postgres brick requires of the same secret;
+#   4. seeds /etc/postgres-exporter from /opt/gm/seed once (marker
+#      /var/lib/gm-state/.gm-seeded, outside the group-writable directory);
+#   5. sets the ownership of the player's home.
+set -eu
+
+CONF_DIR=/etc/postgres-exporter
+STATE_DIR=/var/lib/gm-state
+MARKER=$STATE_DIR/.gm-seeded
+SEED_DIR=/opt/gm/seed
+SECRETS_DIR=/opt/gm/secrets
+SEED_FILES="exporter.conf"
+PLAYER_HOME=/home/player
+
+log() { printf 'gm-entrypoint: %s\n' "$*" >&2; }
+die() { log "fatal: $*"; exit 1; }
+# chmod_setgid <dir> <group> <mode>: chmod run with <group> as gid, so the
+# kernel keeps the setgid bit without CAP_FSETID (root is not in <group>).
+chmod_setgid() { setpriv --regid="$2" --clear-groups -- chmod "$3" "$1"; }
+
+# --- 1. /run ------------------------------------------------------------
+# Leftovers of a previous container (s6 state, sockets, pid files) must
+# not survive into this one.
+cd /run
+find . -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+cd /
+chown root:root /run
+chmod 0755 /run
+install -d -o root -g root -m 0755 /run/sshd
+install -d -o root -g root -m 0700 /run/sshd-keys
+install -d -o root -g root -m 0700 /run/gm
+install -d -o root -g root -m 1777 /run/tmp
+# what the s6 service last loaded (exporter-conf run), for the validator
+install -d -o root -g exporter -m 0750 /run/postgres-exporter
+
+# --- 2. sshd host key ---------------------------------------------------
+ssh-keygen -q -t ed25519 -N '' -C '' -f /run/sshd-keys/ssh_host_ed25519_key
+
+# --- 3. secrets ---------------------------------------------------------
+for s in player_ssh_pubkey monitoring_password; do
+    [ -s "$SECRETS_DIR/$s" ] || die "secret $SECRETS_DIR/$s is missing or empty"
+done
+monitoring_password=$(cat "$SECRETS_DIR/monitoring_password")
+case $monitoring_password in
+    '') die "secret monitoring_password is empty" ;;
+    *'
+'*) die "secret monitoring_password must be a single line" ;;
+esac
+unset monitoring_password
+
+# --- 4. configuration, seeded once ---------------------------------------
+chown exporter:expconf "$CONF_DIR"
+chmod_setgid "$CONF_DIR" expconf 2775
+# The marker lives on its own volume (gmstate), root-owned: neither player
+# (group expconf) nor exporter can remove, rename or replace it.
+chown root:root "$STATE_DIR"
+chmod 0755 "$STATE_DIR"
+if [ ! -e "$MARKER" ]; then
+    for f in $SEED_FILES; do
+        [ -f "$SEED_DIR/$f" ] || die "seed file $SEED_DIR/$f is missing"
+    done
+    for f in $SEED_FILES; do
+        install -o exporter -g expconf -m 0664 "$SEED_DIR/$f" "$CONF_DIR/$f"
+    done
+    date -u '+seeded %Y-%m-%dT%H:%M:%SZ from /opt/gm/seed (DO NOT TAMPER)' > "$MARKER"
+    chown root:root "$MARKER"
+    chmod 0444 "$MARKER"
+    log "seeded $CONF_DIR from $SEED_DIR"
+fi
+
+# --- 5. the player's home -------------------------------------------------
+chown player:player "$PLAYER_HOME"
+chmod 0750 "$PLAYER_HOME"
+
+exec /init "$@"

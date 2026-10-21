@@ -1,0 +1,56 @@
+#!/bin/sh
+# gm-restart-exporter: check, then restart postgres_exporter.
+# Usage: sudo gm-restart-exporter
+# DO NOT TAMPER. Root-owned, read-only; allowed by /etc/sudoers.d/gm-player.
+#
+# postgres_exporter reads its settings only at start. The wrapper checks
+# /etc/postgres-exporter/exporter.conf as the s6 service does and refuses
+# to restart if it is not valid, so the running exporter is left alone.
+# Otherwise it restarts the service through s6 (and starts it if it was
+# down), waits up to 30 s for a new postgres_exporter to serve /metrics,
+# and prints pg_up: 1 when it reached the database, 0 when it did not.
+set -u
+PATH=/command:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+CONF=/etc/postgres-exporter/exporter.conf
+SERVICE=/run/service/postgres-exporter
+URL=http://127.0.0.1:9187
+WAIT=30
+
+if [ "$#" -ne 0 ]; then
+    echo "usage: sudo gm-restart-exporter (no arguments)" >&2
+    exit 2
+fi
+
+exporter_pid() { ps -u exporter -o pid=,args= | awk '$2 == "/usr/local/bin/postgres_exporter" { print $1; exit }'; }
+
+# 1. The file is valid (keys, values, collectors).
+if ! problems=$(/usr/local/lib/gm/exporter-conf check); then
+    echo "gm-restart-exporter: $CONF is not valid; postgres_exporter was NOT restarted:"
+    printf '%s\n' "$problems" | sed 's/^/  /'
+    exit 1
+fi
+
+# 2. Restart through s6: -r restarts a running exporter, -u starts one that
+#    is down. Then wait for a new process to serve /metrics.
+old=$(exporter_pid)
+s6-svc -r -u "$SERVICE" || { echo "gm-restart-exporter: could not signal the postgres-exporter service" >&2; exit 1; }
+i=0
+while [ "$i" -lt "$((WAIT * 2))" ]; do
+    sleep 0.5
+    i=$((i + 1))
+    new=$(exporter_pid)
+    [ -n "$new" ] && [ "$new" != "$old" ] || continue
+    if metrics=$(curl -fsS -m 20 "$URL/metrics" 2>/dev/null); then
+        up=$(printf '%s\n' "$metrics" | sed -n 's/^pg_up \([0-9.e+-]*\)$/\1/p')
+        echo "gm-restart-exporter: postgres_exporter restarted with $CONF."
+        case $up in
+            1) echo "gm-restart-exporter: pg_up 1: connected to the database." ;;
+            0) echo "gm-restart-exporter: pg_up 0: NOT connected to the database (address, user, or the database's own access rules)." ;;
+            *) echo "gm-restart-exporter: pg_up not reported." ;;
+        esac
+        exit 0
+    fi
+done
+echo "gm-restart-exporter: postgres_exporter did not serve /metrics within ${WAIT}s; run sudo gm-validate." >&2
+exit 1
