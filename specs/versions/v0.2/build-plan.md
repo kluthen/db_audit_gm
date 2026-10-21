@@ -1,7 +1,7 @@
 # db_audit_gm v0.2 — Build plan
 
-Status: v3 (2026-10-21): capture W1's shaped parameters written in
-(chunk 5 renders them; chunk 7 now waits for chunk 5 in wave 2).
+Status: v4 (2026-10-21): the scenario document's rule for map-valued
+parameters placed in chunk 11 (gap found by chunk 1, wave log).
 Approval: approved 2026-10-21 by the owner (G1, spec D99).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-10-21 (spec D98) and
@@ -432,7 +432,9 @@ loader.
   is never passed as `GM_*`, a `web-routes` parameter is passed as
   `GM_<NAME>` holding `name=node:port` tokens, space-separated, sorted by
   name, `""` when the map is empty, and a scalar parameter as in v0.1;
-  its unit tests. Out: any brick.
+  its unit tests; `fixture-mounted`'s `README.md`, when regenerated,
+  keeps chunk 2's rendering of a map-valued parameter (inline YAML;
+  the template's rule is chunk 11's). Out: any brick.
 - Files: `tools/gm/{localimpl,render,inject}.py`,
   `tools/tests/test_{render,inject,fit}.py`,
   `tools/tests/fixtures/fixture-mounted/`,
@@ -657,28 +659,62 @@ Architecture capture: none of its own; it uses chunks 9 and 10's
 captured interfaces.
 
 - Goal: one `gmctl`-driven game with all five bricks, run at every wave
-  gate from here on.
-- Scope: in: a fixture scenario with `bastion`, `postgres`,
-  `prometheus`, `postgres-exporter` and `grafana` at their v0.2
-  versions, the node-health map, scrape targets, Grafana provisioning
-  copied from `grafana`'s reference dashboards and alert rules (spec
-  D104), and web front routes; `smoke-monitoring.sh` running `fit`, `render`, `deploy`,
-  `load-data`, then checking: every scrape target up and the exporter
-  connected (Prometheus' API, through `exec`); every node's health
-  endpoint with CPU, memory, disk and services, a service stopped by the
-  script shown as down; the web front refusing without the password
-  (401) and reaching Prometheus and Grafana under their paths with it,
-  `Authorization` not reaching Grafana; only the bastion's two ports
-  published; `TZ=UTC` on the nodes and UTC in PostgreSQL's log; then
-  teardown leaving nothing labelled with the game id. Out: faults.
+  gate from here on; the scenario document's rule for map-valued
+  parameters, first needed by this fixture.
+- Scope: in:
+  - a fixture scenario with `bastion`, `postgres`, `prometheus`,
+    `postgres-exporter` and `grafana` at their v0.2 versions, the
+    node-health map, scrape targets, Grafana provisioning copied from
+    `grafana`'s reference dashboards and alert rules (spec D104), and
+    web front routes; `smoke-monitoring.sh` running `fit`, `render`,
+    `deploy`, `load-data`, then checking: every scrape target up and the
+    exporter connected (Prometheus' API, through `exec`); every node's
+    health endpoint with CPU, memory, disk and services, a service
+    stopped by the script shown as down; the web front refusing without
+    the password (401) and reaching Prometheus and Grafana under their
+    paths with it, `Authorization` not reaching Grafana; only the
+    bastion's two ports published; `TZ=UTC` on the nodes and UTC in
+    PostgreSQL's log; then teardown leaving nothing labelled with the
+    game id;
+  - the scenario-document skill and template: a rule for a map-valued
+    node parameter, keyed on the parameter's `shape` in the pinned
+    brick's `brick.yaml` (the one catalog file the skill reads, for this
+    alone, so a scenario-local brick's map is covered too), rendered
+    under the node's **Parameters**:
+    - `node-map` (`prometheus`'s `node_health`): one item per entry, in
+      YAML order, the node and its services, `default` kept as written
+      and glossed as the brick's s6 processes; then one line in master
+      spec 7.1's and the access model's wording: the node-health script
+      is mounted into every node listed, read-only for players, its
+      endpoint readable from every node of the game. The map is shown
+      as `scenario.yaml` states it, before any parameter fault; a fault
+      leaving a node or a service out is listed in section 5;
+    - `web-routes` (the bastion's `web_routes`): one row per route, in
+      YAML order: the route as `ui:<name>` (the name the answer key's
+      evidence uses), its path `/<name>/` on the web front, the upstream
+      node and port; then one line in master spec 7.6's and access model
+      5 and 7's wording: published on the bastion's web front port,
+      behind the tools password, HTTP 401 without it. An empty map: the
+      web front does not run, the bastion publishes SSH only and no
+      tools password is handed over;
+    - the skill's step 6 check lists every map entry; the template's
+      version line; every README with a map-valued parameter regenerated
+      with the rule: the fixture's and `fixture-mounted`'s (inline YAML
+      until now, chunks 2 and 5).
+  - Out: faults.
 - Files: `tools/tests/fixtures/fixture-monitoring/` (new),
   `tools/tests/smoke-monitoring.sh` (new), `tools/tests/test_model.py`
-  (the fixture loads).
-- Spec sections: master spec 7, 9, 14 (items 5, 7); spec D104.
+  (the fixture loads), `.claude/skills/scenario-document/{SKILL,template}.md`,
+  `tools/tests/fixtures/fixture-mounted/README.md`.
+- Spec sections: master spec 6.3, 7, 7.1, 7.6, 9, 14 (items 5, 7);
+  access model 5 ("Bastion and web front", "Nodes"), 7; spec D103,
+  D104; capture W1 items 2, 3, 6 ([wave-log.md](wave-log.md)).
 - Atoms: none.
 - Done when: `smoke-monitoring.sh` passes on the build host; the fixture
   passes the loader and `fit` on a playground declared at
-  2 CPU / 4G / 8G.
+  2 CPU / 4G / 8G; the fixture's README lists every `node_health` entry
+  and every route as the rule says, and it and `fixture-mounted`'s match
+  a fresh regeneration.
 - Verification: chunk checks, plus `sh tools/tests/smoke-monitoring.sh`
   (needs G3).
 
