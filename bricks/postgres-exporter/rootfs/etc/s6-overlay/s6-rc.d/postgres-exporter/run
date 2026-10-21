@@ -1,0 +1,10 @@
+#!/bin/sh
+# s6 service `postgres-exporter` (DO NOT TAMPER). Settings:
+# /etc/postgres-exporter/exporter.conf, read at start only (sudo
+# gm-restart-exporter). The file is parsed as root by exporter-conf, never
+# sourced; a file that is not valid leaves the service down (exit 3, see
+# ./finish). postgres_exporter runs as `exporter`, listens on :9187, serves
+# /metrics, and reads the password from the secret
+# (DATA_SOURCE_PASS_FILE=/opt/gm/secrets/monitoring_password).
+exec 2>&1
+exec /usr/local/lib/gm/exporter-conf run
