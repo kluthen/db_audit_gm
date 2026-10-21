@@ -5,7 +5,7 @@ only when it is resolved and logged in [decisions.md](decisions.md); IDs
 are never reused. Questions resolved by the close of v0.1 (O1, O3, O4,
 O6–O9, O14, O15, O17–O19, O26–O28, O33–O37, O39–O44 and O55) are listed
 in [archive/v0.1/open-questions-resolved.md](archive/v0.1/open-questions-resolved.md);
-their IDs keep their meaning. Numbering continues from O56.
+their IDs keep their meaning. Numbering continues from O57.
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -75,6 +75,12 @@ for the next version (v0.1 until it closed, with none left open);
 - **O25** (later) — Scenario-only bricks and faults may live in the
   scenario's folder (D24). Can they be promoted into the catalog, and
   through which review?
+- **O56** (soon, v0.2) — Bringing the v0.1 bricks' `docs/gm.md` up to the
+  required sections (D56) changes no image and no `brick.yaml`. Does a
+  documentation-only change bump a brick's version, which scenarios pin?
+  Default (proposed): no, since `docs/gm.md` is never shipped and nothing
+  a scenario pins changes. Refs: [formats.md](formats.md), "`docs/gm.md`
+  must contain".
 
 ## Game and feedback
 

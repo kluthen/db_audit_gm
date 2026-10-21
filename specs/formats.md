@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v8
+Status: draft v9
 
 What a scenario, a brick and a fault definition must contain, and how they
 are laid out, so that every scenario the GM designs or generates stays
@@ -154,7 +154,7 @@ bricks/<brick-id>/
   Dockerfile         and its build context
   validator/         the public validator
   docs/player.md     what the player may read about this kind of node
-  docs/gm.md         spoilers and operating notes, never shipped
+  docs/gm.md         the GM documentation (required sections below), never shipped
   companion/         optional: the brick's own checks, scripts and tools (D28)
 ```
 
@@ -209,6 +209,81 @@ Swarm-only feature, so the same brick runs under Kubernetes:
 - hardening needs (read-only root, capabilities, `sudo` wrappers) are
   declared in the brick and mapped by the renderer to each platform's
   settings.
+
+### `docs/gm.md` must contain (D56)
+
+The GM documentation tells the GM how to use the brick in a scenario: what
+to install where, how to configure it and wire it to the other bricks, what
+it costs, which faults it can host and how to check it. `brick.yaml`
+declares; `docs/gm.md` explains. It holds spoilers and is never shipped to
+the player side.
+
+The rule applies from v0.2. Every brick added from v0.2 on meets it, and
+the two v0.1 bricks (`postgres`, `bastion`) are brought up to it within
+v0.2. Whether that documentation-only change bumps their version: O56. The
+format skill refuses a brick whose `docs/gm.md` lacks one of the required
+sections, so the GM refuses to deploy a scenario that uses it (D40).
+
+Rules for the whole file:
+
+- One level-2 heading per required section, with the exact names below,
+  in this order. A brick may add its own sections, as subsections of a
+  required one or after the last.
+- No required section is empty. One that does not apply says so in a
+  sentence, with the reason (a brick that consumes nothing says so under
+  Connections).
+- It agrees with `brick.yaml`: every parameter, knob, interface, footprint
+  figure or compatible fault it mentions matches the declaration, and it
+  introduces none that `brick.yaml` lacks. A disagreement is a defect of
+  the brick.
+- Placement and connections are stated as requirements (one per node,
+  on the same host as a given node, sharing a network with it), never in a
+  platform's own syntax ("Platform-neutral bricks" above).
+
+The required sections:
+
+1. **Purpose**: what the brick is (technology, engine or tool version,
+   image), the role or roles it fills in a scenario, and when the GM
+   picks it.
+2. **Placement**: what gets installed (a node of its own from the brick's
+   image, or material the GM installs into another brick's node), how to
+   build it, how many per scenario (one per scenario, one per node, one per
+   node of a given brick), next to which node (same host as a given node,
+   or any host), whether it is stateful, and which networks it joins.
+3. **Configuration**: every parameter the scenario sets and every value
+   the GM sets per scenario or per node at initialisation, each with its
+   meaning, default, valid values and where it lands (seed file, secret,
+   fixed path); the knobs and their default envelopes; the secrets and seed
+   files and what they must contain; and what start-up does (what is seeded
+   once, what is rewritten at each start).
+4. **Connections**: for each interface it provides or consumes, the bricks
+   on the other side, the port and protocol, what the GM wires and where (a
+   scrape target, an exporter's connection, a datasource, a dashboard), the
+   account or role the other side must provide and which parameter supplies
+   it, and what must exist before the wiring works; and what it exposes to
+   monitoring bricks (metrics endpoints, logs).
+5. **Access**: how the player reaches it (account, group, `sudo` wrappers,
+   any web interface and the path to it through the bastion), its writable
+   and protected paths, the write policies it supports, the capabilities it
+   adds back and why each is needed, and what the GM itself uses to operate
+   it.
+6. **Footprint**: the default CPU, memory and disk, limits and
+   reservations; what makes it grow (nodes watched, scrape targets,
+   retention, log volume, data size) and how the GM sizes it for the
+   capacity check; and the levers that shrink it.
+7. **Supported faults**: the fault definitions known to apply (its
+   compatible faults) and what each needs from it (a parameter, a peer,
+   aging); the faults it lends itself to that have no definition yet; its
+   known interactions (a monitoring brick that can mask a fault elsewhere,
+   a fault elsewhere it would reveal); and, where not obvious, the faults
+   it cannot host and why.
+8. **Checks**: its validator (what it checks; it may be red from the
+   start), its health check, its companion checks and when the GM runs
+   them, how the GM confirms after deployment that it works and is wired
+   (every scrape target up, the exporter connected), and its stack test if
+   it has one.
+9. **Known limits**: what it does not do, or does surprisingly, in this
+   version; "none known" when so.
 
 ## Fault definition
 

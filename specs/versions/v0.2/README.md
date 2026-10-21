@@ -18,6 +18,12 @@ aggregators." (D47)
   flows, their footprint in the capacity check.
 - The players reaching the monitoring interfaces while keeping the
   bastion-only rule (O13).
+- GM documentation for every brick (D56): each brick's `docs/gm.md`
+  has the required sections of [formats.md](../../formats.md),
+  "`docs/gm.md` must contain" (placement, configuration, connections,
+  footprint, supported faults and the rest), from the new monitoring
+  bricks on; the v0.1 bricks (`postgres`, `bastion`) are brought up to
+  it, and the format skill's brick check refuses a brick without them.
 - Monitoring-related fault families as far as a static or near-static
   database allows (a collector pointed at the wrong node, a host not
   collected, a threshold in the wrong unit).
@@ -42,3 +48,4 @@ aggregators." (D47)
   host mounts, which collides with the rule that the player side never
   gets a Docker socket.
 - O46: whether the monitoring stack still fits one host.
+- O56: whether the v0.1 bricks' documentation update bumps their version.

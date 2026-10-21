@@ -10,7 +10,8 @@ where each one now lives is in
 Archived IDs keep their meaning and are cited as they are. Numbering
 continues from D55; no ID is reused.
 
-- **D55 (2026-10-21, set by spec-writer at the v0.1 archive, as built):
+- **D55 (2026-10-21, set by spec-writer at the v0.1 archive, as built;
+  acknowledged by the owner the same day):
   `/run` is a named volume, not a tmpfs.** A stack file's tmpfs is
   `noexec` and s6-overlay must execute from `/run`, so chunk 2 took the
   build plan's fallback (a): a named volume the entrypoint empties at each
@@ -21,3 +22,12 @@ continues from D55; no ID is reused.
   [versions/v0.1/master-spec.md](versions/v0.1/master-spec.md) sections
   9.1 and 9.2, [planes-and-access.md](planes-and-access.md) "Node
   hardening".
+- **D56 (2026-10-21, owner ruling): Every brick ships GM documentation
+  with required sections.** `docs/gm.md` must have nine: purpose,
+  placement, configuration, connections, access, footprint, supported
+  faults, checks, known limits, so the GM knows what to install where and
+  how to configure and wire it; the format skill refuses a brick that
+  lacks one. Applies from v0.2; the v0.1 bricks are brought up to it.
+  Access and known limits were added by spec-writer to the owner's seven,
+  under the ruling's leave to refine. Now in: [formats.md](formats.md)
+  "`docs/gm.md` must contain", [versions/v0.2/README.md](versions/v0.2/README.md).

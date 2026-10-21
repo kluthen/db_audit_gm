@@ -21,7 +21,7 @@ owner's confirmation; the register lists the ones with real alternatives.
 | [versions/](versions/README.md) | The roadmap: v0.1 to v1.0 and beyond, one page per version; v0.1's [master spec](versions/v0.1/master-spec.md), [access model](versions/v0.1/access-model.md) and [wave log](versions/v0.1/wave-log.md) | v0.1 released and archived; v0.2–v1.0 draft |
 | [gm-stance.md](gm-stance.md) | How the GM behaves and speaks: setup questions, issues, report-only interaction, no reveals, stop only, final answer, feedback tone, future ideas | draft v5 |
 | [scenario-lifecycle.md](scenario-lifecycle.md) | The game from setup to teardown: setup inputs, scenario, local implementation, deploy, aging, hand-over, end of the game | draft v7 |
-| [formats.md](formats.md) | What a scenario folder, a brick (with its companion material) and a fault definition must contain; the local implementation; the skills and templates | draft v8 |
+| [formats.md](formats.md) | What a scenario folder, a brick (with its companion material and GM documentation) and a fault definition must contain; the local implementation; the skills and templates | draft v9 |
 | [bricks-and-faults.md](bricks-and-faults.md) | Catalog, per-brick checks, solvability probe, fault interactions and families, future backup-tooling faults | draft v4 |
 | [planes-and-access.md](planes-and-access.md) | Bastion-only rule, planes, the GM session, trust, write policies, hardening, validators | draft v7 |
 | [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls | draft v9 |
@@ -77,7 +77,9 @@ access model.
   heavier (D13, D20, D23). To deploy, the GM generates a local
   implementation fitting the scenario to the real playground, or says the
   capacity is insufficient (D23). Initial versions of the skills and
-  templates are in v0.1 and expected to evolve (D21).
+  templates are in v0.1 and expected to evolve (D21). From v0.2 every
+  brick's GM documentation has required sections, placement and wiring
+  among them, and the format skill refuses a brick without them (D56).
 - Players reach everything through the bastion only; read access to every
   node, write access on some; limited `sudo` wrappers, so no
   `no-new-privileges` where they are needed (D25).
@@ -104,6 +106,4 @@ access model.
 ## Next steps
 
 1. Resume scoping after v0.1: the "soon" questions first (O46, O49 to
-   O51, mostly v0.2's), then v1.0's from the "later" ones.
-2. For the owner: `precursor.md`, the pre-spec notes, is still at the
-   repository root, although D1 says it is to be removed.
+   O51 and O56, mostly v0.2's), then v1.0's from the "later" ones.
