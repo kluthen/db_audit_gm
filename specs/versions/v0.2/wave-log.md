@@ -315,3 +315,26 @@ the owner; it blocks nothing in v0.2.
 - Chunk 1 dispatched 2026-10-21, branch `v0.2-c1-formats` cut from
   f8be8ce (the plan correction does not touch it). Chunks 2, 3 and 4
   start side by side once chunk 1 merges.
+- Chunk 1 merged 2026-10-21: 9b1c4d7 (1a), e01b06c (1b), merge fa8e62d;
+  169 unit tests pass; both images build as 0.2.0 and both stack tests
+  pass; s6-overlay 3.2.3.2 and every `receives` command checked inside
+  both images. `smoke.sh` (tags now 0.2.0) left for the wave gate.
+
+### W1 addenda — choices chunk 1 made where W1 was silent (read by 2, 3, 4)
+
+- `interfaces.consumes` entries have `provides`' shape (`name`,
+  `protocol`, `port`) and may be `[]`; `provides` may not be empty.
+- `companion` is an active optional key in the template: its `path` and
+  `when` are checked whenever a brick sets it.
+- In `parameter_changes`, `entry`, `item` and `value` are each optional.
+- Answer-key `where` in the migrated keys: a bare `psql` (no `-h`) runs
+  on the database node (`node:db`); the password-less login
+  `psql -w -h db` is `bastion`.
+- Both bricks' `docs/gm.md` state under Connections that the image
+  accepts mounted material (s6-overlay version, command list).
+- Known until chunk 2: the unchanged loader refuses an expectation id in
+  `covers` and the `parameter` injection kind; nothing uses either yet.
+- Gap: the scenario-document template has no rule for rendering a
+  map-valued node parameter (`node_health`, `web_routes`); sent to
+  `spec-writer` to place in a chunk.
+- Chunks 2, 3 and 4 dispatched 2026-10-21, side by side, from fa8e62d+.

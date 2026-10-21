@@ -178,8 +178,11 @@ that each is recorded.
 
 ### Chunk 1 — Format skill, templates and the v0.1 definitions migrated
 
-Status: in progress
-Record: (after merge)
+Status: merged (w1, fa8e62d)
+Record: 9b1c4d7 (1a), e01b06c (1b), merge fa8e62d. Tests outside Files kept
+green after the bump (`test_model`, `test_fit`, `test_deploy`, `smoke.sh`
+tags); Dockerfiles' build comments still say 0.1.1 (chunks 6, 7). Choices
+where W1 was silent: wave log, "W1 addenda".
 Wave: 1
 Depends on: G2, G3 (G1, G5 done)
 Architecture capture: recorded by the wave driver at wave 1 start (W1),
@@ -260,7 +263,7 @@ D101); the
 
 ### Chunk 2 — Loader checks for v0.2
 
-Status: planned
+Status: in progress
 Record: (after merge)
 Wave: 1
 Depends on: chunk 1 (W1 capture)
@@ -311,7 +314,7 @@ Architecture capture: none of its own; it implements W1.
 
 ### Chunk 3 — Secrets by kind, network names and UTC
 
-Status: planned
+Status: in progress
 Record: (after merge)
 Wave: 1
 Depends on: chunk 1 (W1 capture: secret kinds); G3
@@ -342,7 +345,7 @@ Architecture capture: none of its own; it implements W1's secret kinds.
 
 ### Chunk 4 — `prometheus` brick and the node-health script
 
-Status: planned
+Status: in progress
 Record: (after merge)
 Wave: 1
 Depends on: chunk 1 (W1 capture), G2, G3
