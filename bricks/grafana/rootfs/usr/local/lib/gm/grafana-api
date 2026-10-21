@@ -1,0 +1,56 @@
+#!/bin/sh
+# grafana-api: call Grafana's HTTP API as its administrator.
+# Usage: grafana-api <METHOD> <path>    e.g. grafana-api GET /api/health
+# DO NOT TAMPER. root:grafana 0750: root (the GM's exec, the sudo wrapper)
+# and grafana (the validator) only; not a sudo wrapper.
+#
+# Reads the tools password from its secret and sends `admin:<password>` to
+# http://127.0.0.1:3000/grafana<path> through `curl -K -` (stdin), so the
+# password never appears in an argument or the environment. No request
+# body. Prints the response body on stdout; on an HTTP status other than
+# 2xx, also `grafana-api: HTTP <status>` on stderr.
+# Exit: 0 on 2xx; 1 on any other HTTP status (401: the administrator's
+# login was refused); 2 when Grafana does not answer, or on a usage error.
+# Never retries: a refused password counts against Grafana's brute-force
+# protection, which locks the account after 5 failures.
+set -u
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+SECRET=/opt/gm/secrets/tools_password
+BASE=http://127.0.0.1:3000/grafana
+
+usage() { echo "usage: grafana-api <GET|POST|PUT|PATCH|DELETE> </api/...>" >&2; exit 2; }
+[ "$#" -eq 2 ] || usage
+case $1 in GET|POST|PUT|PATCH|DELETE) ;; *) usage ;; esac
+case $2 in
+    /*) ;;
+    *) usage ;;
+esac
+# no whitespace, quote, backslash or control character in the path
+if printf '%s' "$2" | LC_ALL=C grep -q '[[:space:][:cntrl:]"\\]'; then usage; fi
+
+[ -r "$SECRET" ] || { echo "grafana-api: cannot read $SECRET" >&2; exit 2; }
+pw=$(cat "$SECRET") || exit 2
+case $pw in
+    '') echo "grafana-api: $SECRET is empty" >&2; exit 2 ;;
+esac
+# curl's config syntax: a quoted value, backslash and quote escaped
+pw=$(printf '%s' "$pw" | sed 's/[\\"]/\\&/g')
+
+body=$(mktemp) || exit 2
+trap 'rm -f "$body"' EXIT
+code=$(printf 'user = "admin:%s"\n' "$pw" |
+    curl -sS -m 30 -K - -X "$1" -H 'Accept: application/json' \
+        -o "$body" -w '%{http_code}' "$BASE$2" 2>/dev/null)
+rc=$?
+unset pw
+cat "$body"
+if [ "$rc" -ne 0 ] || [ -z "$code" ] || [ "$code" = 000 ]; then
+    echo "grafana-api: Grafana does not answer on 127.0.0.1:3000" >&2
+    exit 2
+fi
+case $code in
+    2??) exit 0 ;;
+esac
+echo "grafana-api: HTTP $code" >&2
+exit 1

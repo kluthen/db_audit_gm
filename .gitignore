@@ -2,6 +2,8 @@
 
 # Local implementations inside scenario folders (master spec 5, 10.3)
 local/
+# ...but not a brick image's /usr/local (bricks/<brick>/rootfs/usr/local)
+!bricks/*/rootfs/usr/local/
 
 # Python bytecode (tools/)
 __pycache__/

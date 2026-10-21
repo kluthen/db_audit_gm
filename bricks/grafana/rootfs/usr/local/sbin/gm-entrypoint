@@ -1,0 +1,107 @@
+#!/bin/sh
+# gm-entrypoint: container entrypoint of the db_audit_gm Grafana brick.
+# DO NOT TAMPER. Root-owned and read-only (v0.2 master spec 7.4).
+#
+# Runs as root at every container start, then execs s6-overlay's /init:
+#   1. empties /run (a named volume: a stack file's tmpfs is noexec, and
+#      s6-overlay needs an executable /run) and creates the runtime dirs;
+#   2. generates this container's sshd host key under /run;
+#   3. checks the secrets;
+#   4. seeds /etc/grafana/provisioning from /opt/gm/seed once (marker
+#      /var/lib/gm-state/.gm-seeded, outside the group-writable directory);
+#   5. sets the ownership of the database directory and the player's home;
+#   6. applies the tools password to the administrator's account when the
+#      database already exists (on the first start Grafana creates the
+#      account with it, from grafana.ini).
+set -eu
+
+PROV=/etc/grafana/provisioning
+DATA_DIR=/var/lib/grafana
+STATE_DIR=/var/lib/gm-state
+MARKER=$STATE_DIR/.gm-seeded
+SEED_DIR=/opt/gm/seed
+SECRETS_DIR=/opt/gm/secrets
+PLAYER_HOME=/home/player
+GRAFANA_HOME=/usr/share/grafana
+
+. /usr/local/lib/gm/grafana-files
+
+log() { printf 'gm-entrypoint: %s\n' "$*" >&2; }
+die() { log "fatal: $*"; exit 1; }
+# chmod_setgid <dir> <group> <mode>: chmod run with <group> as gid, so the
+# kernel keeps the setgid bit without CAP_FSETID (root is not in <group>).
+chmod_setgid() { setpriv --regid="$2" --clear-groups -- chmod "$3" "$1"; }
+
+# --- 1. /run ------------------------------------------------------------
+# Leftovers of a previous container (s6 state, sockets, pid files) must
+# not survive into this one.
+cd /run
+find . -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+cd /
+chown root:root /run
+chmod 0755 /run
+install -d -o root -g root -m 0755 /run/sshd
+install -d -o root -g root -m 0700 /run/sshd-keys
+install -d -o root -g root -m 0700 /run/gm
+install -d -o root -g root -m 1777 /run/tmp
+# the record of the last start or reload: written by root, read by grafana
+install -d -o root -g grafana -m 0750 "$APPLIED_DIR"
+
+# --- 2. sshd host key ---------------------------------------------------
+ssh-keygen -q -t ed25519 -N '' -C '' -f /run/sshd-keys/ssh_host_ed25519_key
+
+# --- 3. secrets -----------------------------------------------------------
+[ -s "$SECRETS_DIR/player_ssh_pubkey" ] || die "secret $SECRETS_DIR/player_ssh_pubkey is missing or empty"
+[ -s "$SECRETS_DIR/tools_password" ] || die "secret $SECRETS_DIR/tools_password is missing or empty"
+[ "$(wc -l < "$SECRETS_DIR/tools_password")" -le 1 ] \
+    && [ "$(sed -n '$=' "$SECRETS_DIR/tools_password")" = 1 ] \
+    || die "secret $SECRETS_DIR/tools_password must be a single line"
+runuser -u grafana -- test -r "$SECRETS_DIR/tools_password" \
+    || die "secret $SECRETS_DIR/tools_password is not readable by grafana (gid 472, mode 0440)"
+
+# --- 4. provisioning files, seeded once -----------------------------------
+chown grafana:grafconf "$PROV"
+chmod_setgid "$PROV" grafconf 2775
+# The marker lives on its own volume (gmstate), root-owned: neither player
+# (group grafconf) nor grafana can remove, rename or replace it.
+chown root:root "$STATE_DIR"
+chmod 0755 "$STATE_DIR"
+if [ ! -e "$MARKER" ]; then
+    printf '%s\n' "$PROV_FILES" | while read -r seed _live; do
+        [ -f "$SEED_DIR/$seed" ] || die "seed file $SEED_DIR/$seed is missing"
+    done
+    for d in datasources dashboards alerting plugins; do
+        install -d -o grafana -g grafconf "$PROV/$d"
+        chmod_setgid "$PROV/$d" grafconf 2775
+    done
+    printf '%s\n' "$PROV_FILES" | while read -r seed live; do
+        install -o grafana -g grafconf -m 0664 "$SEED_DIR/$seed" "$PROV/$live"
+    done
+    date -u '+seeded %Y-%m-%dT%H:%M:%SZ from /opt/gm/seed (DO NOT TAMPER)' > "$MARKER"
+    chown root:root "$MARKER"
+    chmod 0444 "$MARKER"
+    log "seeded $PROV from $SEED_DIR"
+fi
+
+# --- 5. database directory and the player's home ----------------------------
+chown grafana:grafana "$DATA_DIR"
+chmod 0750 "$DATA_DIR"
+chown player:player "$PLAYER_HOME"
+chmod 0750 "$PLAYER_HOME"
+
+# --- 6. the administrator's password --------------------------------------------
+# grafana.ini's admin_password only applies when Grafana creates the
+# account. On every later start, set it again from the secret, so a restart
+# undoes a changed password (DO NOT TAMPER) and the GM's checks work again.
+# The password reaches the CLI on stdin only. A failure is logged, not fatal.
+if [ -s "$DATA_DIR/grafana.db" ]; then
+    if out=$(runuser -u grafana -- env HOME="$DATA_DIR" \
+            "$GRAFANA_HOME/bin/grafana" cli --homepath "$GRAFANA_HOME" --config /etc/grafana/grafana.ini \
+            admin reset-admin-password --password-from-stdin < "$SECRETS_DIR/tools_password" 2>&1); then
+        log "administrator's password set from the tools password"
+    else
+        log "warning: could not set the administrator's password: $(printf '%s' "$out" | tail -n 3 | tr '\n' ' ')"
+    fi
+fi
+
+exec /init "$@"

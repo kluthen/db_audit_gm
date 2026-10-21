@@ -1,0 +1,74 @@
+# grafana-files: shell functions shared by the Grafana node's s6 run script,
+# gm-reload-grafana and the validator. Sourced, never run.
+# DO NOT TAMPER. Root-owned, read-only.
+#
+# The provisioning files: the five seed files at their live paths, and any
+# other YAML or JSON file players add under /etc/grafana/provisioning.
+# The record of the last start or reload (/run/gm-grafana/applied, written
+# by root only, readable by grafana): what Grafana last provisioned from.
+
+PROV=/etc/grafana/provisioning
+APPLIED_DIR=/run/gm-grafana
+APPLIED=$APPLIED_DIR/applied
+# "<seed file> <live path under $PROV>", one pair a line (capture W3)
+PROV_FILES='datasources.yaml datasources/datasources.yaml
+dashboards.yaml dashboards/dashboards.yaml
+node-health.json dashboards/node-health.json
+postgresql.json dashboards/postgresql.json
+alert-rules.yaml alerting/alert-rules.yaml'
+
+# prov_fingerprint: one line identifying the provisioning files as they are
+# now: every *.yaml, *.yml and *.json under $PROV, with its size and time of
+# last change. Editors' swap and backup files do not count.
+prov_fingerprint() {
+    find "$PROV" -mindepth 1 \( -type f -o -type l \) \
+        \( -name '*.yaml' -o -name '*.yml' -o -name '*.json' \) \
+        -printf '%P\t%s\t%T@\n' 2>/dev/null | LC_ALL=C sort | sha256sum | cut -d' ' -f1
+}
+
+# prov_check_files: one line per problem on stdout, nothing when the files
+# are fine. Run it as grafana: a file grafana cannot read is a problem.
+prov_check_files() {
+    printf '%s\n' "$PROV_FILES" | while read -r _seed live; do
+        if [ ! -e "$PROV/$live" ]; then
+            echo "$PROV/$live is missing"
+        elif [ ! -f "$PROV/$live" ]; then
+            echo "$PROV/$live is not a regular file"
+        fi
+    done
+    find "$PROV" -mindepth 1 \( -type f -o -type l \) \
+        \( -name '*.yaml' -o -name '*.yml' -o -name '*.json' \) -print 2>/dev/null |
+        LC_ALL=C sort | while read -r f; do
+            if [ ! -r "$f" ]; then
+                echo "$f is not readable by grafana"
+                continue
+            fi
+            case $f in
+                "$PROV"/dashboards/*.json)
+                    if ! err=$(jq empty "$f" 2>&1); then
+                        echo "$f is not valid JSON: $(printf '%s' "$err" | tr '\n' ' ' | cut -c1-200)"
+                    fi ;;
+            esac
+        done
+    find "$PROV" -mindepth 1 -type d ! -readable -printf '%p is not readable by grafana\n' 2>/dev/null
+}
+
+# applied_get <key>: a value of the record of the last start or reload.
+applied_get() {
+    sed -n "s/^$1=//p" "$APPLIED" 2>/dev/null | head -n 1
+}
+
+# applied_write <start|reload> <ok|failed> <fingerprint> [detail]: as root.
+applied_write() {
+    tmp=$APPLIED.$$
+    {
+        echo "how=$1"
+        echo "at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+        echo "result=$2"
+        echo "files=$3"
+        echo "detail=$(printf '%s' "${4:-}" | tr '\n' ' ' | cut -c1-500)"
+    } > "$tmp"
+    chown root:grafana "$tmp"
+    chmod 0440 "$tmp"
+    mv -f "$tmp" "$APPLIED"
+}
