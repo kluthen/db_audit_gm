@@ -26,6 +26,16 @@ In the owner's words, three things (D47):
 - Reusable topology fragments for the most common arrangements.
 - A library of common schemas and datasets the GM can draw on, including
   Bluebox and selected external sources.
+- Brick options (D107): optional elements a brick offers and a scenario
+  chooses, each documented in the brick's GM documentation and added to
+  a scenario when appropriate, `postgres` first: for that brick in
+  particular, the owner expects "many 'optional' elements".
+  First candidates: pgBadger, file logging, `pg_stat_statements` and the
+  monitoring role (all present in every game in `postgres` 0.2.0), then
+  PostGIS, TimescaleDB and the replication modules. The model (where an
+  option's software comes from, how a scenario chooses, what start-up
+  does, faults that need an option, documentation) is O79; whether it is
+  meant for every brick or only `postgres`, O80.
 
 ## Out of scope
 
@@ -35,9 +45,16 @@ In the owner's words, three things (D47):
 
 - v0.2 to v0.4: the bricks the topology fragments are made of; v0.2's
   monitoring bricks, which v0.5's other tools extend.
+- v0.2's `postgres` 0.2.0, whose built-in pgBadger, file logging,
+  `pg_stat_statements` and monitoring role are the first candidate
+  options, and v0.2's declare/choose/check pattern for mounted material
+  and `receives` (D97), which the options model is akin to.
 
 ## Questions due in this version
 
+- O79: the brick options model (images, choice, start-up, faults,
+  documentation).
+- O80: options for every brick, or `postgres` only.
 - O53: Bluebox's requirements (PostGIS and other extensions, an 88 MB
   compressed dump, `pg_cron` for ongoing data, data licensing).
 - O54: internet-sourced data (availability at setup, licensing,
