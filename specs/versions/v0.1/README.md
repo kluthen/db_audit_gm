@@ -1,9 +1,12 @@
 # v0.1 — first milestone
 
-Status: released 2026-10-21, pending the merge of `v0.1-release` into
-`main`. Master spec approved (D44); build plan approved (G1), now v6;
-built (waves 1 to 3 merged); release gate passed, G5 cleared and RG-1
-fixed (see "Release notes").
+Status: released 2026-10-21 and merged into `main` (3c852e1); archived
+2026-10-21. Master spec approved (D44); built from build plan v6 in three
+waves; release gate passed, G5 cleared and RG-1 fixed (see "Release
+notes"). The build plan, decisions D1–D54 and the resolved questions are
+in [archive/v0.1/](../../archive/v0.1/README.md). This page, the master
+spec, its access model and the wave log stay here: they are what the
+skills, bricks and `gmctl` cite as the contract for what v0.1 built.
 
 ## Goal
 
@@ -126,17 +129,17 @@ Deferred, not removed from the spec:
 
 Master spec consolidated and approved under the owner's delegation to the
 lead (D44): [master-spec.md](master-spec.md), with
-[access-model.md](access-model.md). Build plan:
-[build-plan.md](build-plan.md). Built in three waves, merged into `main`
-at 763694c; the release gate's run is in
+[access-model.md](access-model.md). Build plan (archived):
+[build-plan.md](../../archive/v0.1/build-plan.md). Built in three waves,
+merged into `main` at 763694c; the release gate's run is in
 [wave-log.md](wave-log.md), "Release gate — 2026-10-21", and the owner's
 release-close rulings after it. The release gate's commits, the RG-1 fix
-included, are on branch `v0.1-release`, to merge into `main`.
+included, were merged from `v0.1-release` into `main` at 3c852e1.
 
 ## Release notes
 
 v0.1, released on 2026-10-21: release gate passed, G5 cleared by the
-owner, RG-1 fixed. Pending: the merge of `v0.1-release` into `main`.
+owner, RG-1 fixed; merged into `main` at 3c852e1.
 
 ### What v0.1 delivers
 

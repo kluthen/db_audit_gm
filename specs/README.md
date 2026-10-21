@@ -5,9 +5,10 @@ intent (D1). To resume cold: read this page, then
 [open-questions.md](open-questions.md); look up decisions in
 [decisions.md](decisions.md) by ID only.
 
-Phase: **v0.1 released** on 2026-10-21, pending the merge of
-`v0.1-release` into `main` (master spec approved under the owner's
-delegation to the lead, D44); v0.2 to v1.0 in drafting. Conventions:
+Phase: **v0.1 released** on 2026-10-21 and merged into `main`
+(3c852e1); its working record is archived in
+[archive/v0.1/](archive/v0.1/README.md) (master spec approved under the
+owner's delegation to the lead, D44). v0.2 to v1.0 in drafting. Conventions:
 settled items are stated as fact, tentative ones are tagged `(proposed)`,
 and every open point cites an `O` ID. Every `(proposed)` item awaits the
 owner's confirmation; the register lists the ones with real alternatives.
@@ -16,19 +17,26 @@ owner's confirmation; the register lists the ones with real alternatives.
 
 | Document | Purpose | Status |
 |---|---|---|
-| [concept.md](concept.md) | Purpose, actors, vocabulary, scope, versions, prior art | draft v5 |
-| [versions/](versions/README.md) | The roadmap: v0.1 to v1.0 and beyond, one page per version; v0.1's [master spec](versions/v0.1/master-spec.md), [access model](versions/v0.1/access-model.md) and [build plan](versions/v0.1/build-plan.md) | v0.1 released, pending merge; v0.2–v1.0 draft |
-| [gm-stance.md](gm-stance.md) | How the GM behaves and speaks: setup questions, issues, report-only interaction, no reveals, stop only, final answer, feedback tone, future ideas | draft v4 |
-| [scenario-lifecycle.md](scenario-lifecycle.md) | The game from setup to teardown: setup inputs, scenario, local implementation, deploy, aging, hand-over, end of the game | draft v6 |
+| [concept.md](concept.md) | Purpose, actors, vocabulary, scope, versions, prior art | draft v6 |
+| [versions/](versions/README.md) | The roadmap: v0.1 to v1.0 and beyond, one page per version; v0.1's [master spec](versions/v0.1/master-spec.md), [access model](versions/v0.1/access-model.md) and [wave log](versions/v0.1/wave-log.md) | v0.1 released and archived; v0.2–v1.0 draft |
+| [gm-stance.md](gm-stance.md) | How the GM behaves and speaks: setup questions, issues, report-only interaction, no reveals, stop only, final answer, feedback tone, future ideas | draft v5 |
+| [scenario-lifecycle.md](scenario-lifecycle.md) | The game from setup to teardown: setup inputs, scenario, local implementation, deploy, aging, hand-over, end of the game | draft v7 |
 | [formats.md](formats.md) | What a scenario folder, a brick (with its companion material) and a fault definition must contain; the local implementation; the skills and templates | draft v8 |
 | [bricks-and-faults.md](bricks-and-faults.md) | Catalog, per-brick checks, solvability probe, fault interactions and families, future backup-tooling faults | draft v4 |
-| [planes-and-access.md](planes-and-access.md) | Bastion-only rule, planes, the GM session, trust, write policies, hardening, validators | draft v6 |
+| [planes-and-access.md](planes-and-access.md) | Bastion-only rule, planes, the GM session, trust, write policies, hardening, validators | draft v7 |
 | [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls | draft v9 |
 | [open-questions.md](open-questions.md) | Open-questions register | live |
-| [decisions.md](decisions.md) | Decisions log, D1–D54 | live |
+| [decisions.md](decisions.md) | Decisions log, D55 onward; D1–D54 archived with v0.1 | live |
+| [archive/](archive/README.md) | Closed milestones' working records, kept verbatim: v0.1's build plan, decisions D1–D54, resolved questions | archive |
 
 History: the tree was seeded on 2026-10-20 from the owner's pre-spec notes,
 which are no longer a reference (D1).
+
+Tree shape (D3): actors are a section of [concept.md](concept.md)
+("Actors") rather than a personas document, since there is no interface
+to design; who reaches what is a game mechanic, stated in
+[planes-and-access.md](planes-and-access.md), which feeds each version's
+access model.
 
 ## Status snapshot — what is settled
 
@@ -95,8 +103,7 @@ which are no longer a reference (D1).
 
 ## Next steps
 
-1. Merge `v0.1-release` into `main` (the owner's word, after the RG-1
-   fix passed the quality command).
-2. After v0.1 closes: archive its working record (skill
-   `milestone-archive`), then resume v1.0 scoping from the "later"
-   questions.
+1. Resume scoping after v0.1: the "soon" questions first (O46, O49 to
+   O51, mostly v0.2's), then v1.0's from the "later" ones.
+2. For the owner: `precursor.md`, the pre-spec notes, is still at the
+   repository root, although D1 says it is to be removed.

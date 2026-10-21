@@ -1,6 +1,6 @@
 # Planes, access and rules
 
-Status: draft v6
+Status: draft v7
 
 Who may reach what, what the player may change, how the rules are checked,
 and what is left to trust. At consolidation this document feeds the access
@@ -125,8 +125,10 @@ Every item is decided; what `docker stack deploy` honours is in
 - Read-only root filesystem (`read_only`, honoured); writable volumes only
   where changes are legitimate (database configuration and data, a
   crontab, backup tool configuration). "What may change = what is
-  writable." A read-only root also needs a tmpfs `/run` and a writable
-  target for `sudo`'s log (D41). A brick's own state, such as the
+  writable." A read-only root also needs a writable `/run` and a writable
+  target for `sudo`'s log (D41): `/run` is a named volume the entrypoint
+  empties at each start, since a stack file's tmpfs is `noexec` and
+  s6-overlay must execute from it (D55). A brick's own state, such as the
   seeding marker, sits on a root-owned volume of its own, never in a
   directory the player can write (D54).
 - A non-root player account.
@@ -141,9 +143,9 @@ Every item is decided; what `docker stack deploy` honours is in
   `sudo`, `no-new-privileges` is not set on such nodes; in v0.1 it is not
   set at all (D41).
 - **Supervisor**: s6-overlay runs the service and `sshd`, with
-  `S6_READ_ONLY_ROOT` and a tmpfs `/run` (D30). Settings that need a
-  restart (e.g. PostgreSQL `shared_buffers`) would otherwise kill the
-  container, since Swarm has no pods or sidecars.
+  `S6_READ_ONLY_ROOT` and `/run` on that named volume (D30, D55).
+  Settings that need a restart (e.g. PostgreSQL `shared_buffers`) would
+  otherwise kill the container, since Swarm has no pods or sidecars.
 - **Protected files** (`sshd_config`, `sudoers`, wrappers, validators, the
   game's own scripts) are root-owned and mounted read-only (image files on
   the read-only root, or Swarm configs, D11). Hash-checking files that are
