@@ -1446,3 +1446,50 @@ brick change).
 
 All four chunks merged (8, 9, 10, 11). Gate started on `v0.2-w3` at the
 commit recording chunk 11, host idle (no other stack).
+
+| Step | Run 1 (0ad7a93, 17:31Z) | Run 2 (79144c2, 17:47Z) |
+|---|---|---|
+| unit suite | 298 OK | 298 OK |
+| `sh -n` / `perl -c` | ok (66 files) / ok | ok (71 files) / ok |
+| image builds | 4 ok; **grafana FAIL** | all 5 ok |
+| stack postgres / bastion / prometheus | 73 / 67 / 101 PASS | 73 / 67 / 101 PASS |
+| stack postgres-exporter / grafana | 76 / 88 PASS (grafana on chunk 10's image) | 76 / 88 PASS |
+| `smoke.sh` | pass | pass |
+| `smoke-monitoring.sh` | 43 passed, 46 s | 43 passed, 46 s |
+
+- **Failure, run 1.** `docker build bricks/grafana` failed: `chmod: cannot
+  access '/usr/local/lib/gm/healthcheck'`. Traced to chunk 10: the
+  repo's `.gitignore` rule `local/` (local implementations in scenario
+  folders) also matches `bricks/*/rootfs/usr/local/`; the other bricks'
+  files there were added with `git add -f`, chunk 10's six never were,
+  and its worktree had been removed. Its stack test and the run-1 smoke
+  passed on the image chunk 10 built from its worktree.
+- **Fix 79144c2** (coding-executor, on `v0.2-w3`): the six files
+  (`usr/local/sbin/{gm-entrypoint,gm-reload-grafana,gm-validate}`,
+  `usr/local/lib/gm/{grafana-api,grafana-files,healthcheck}`) restored
+  from the `COPY rootfs/ /` layer of chunk 10's image (byte-identical to
+  `docker cp`); the rest of that layer matches the committed `rootfs/`;
+  nothing else ignored in `postgres-exporter` or `fixture-monitoring`.
+  `.gitignore` gains `!bricks/*/rootfs/usr/local/`, so a brick's
+  `/usr/local` is no longer ignored while scenario `local/` folders
+  still are. The rebuilt image holds the same six files (checksums).
+  No behaviour change.
+- **Figures** (armenelos, 2026-10-21): images postgres 0.2.0 262MB,
+  bastion 0.2.0 185MB, prometheus 0.1.0 488MB, postgres-exporter 0.1.0
+  165MB, grafana 0.1.0 866MB; full five-brick game `fit`: images 1.53G
+  after layer sharing, disk 5.65G of 8G. 10G free on `/`, 5.0G memory
+  available after the gate. Untagged images from rebuilds (about 4.4G
+  listed, sharing layers) left in place; prune when the disk runs short.
+- **Sync.** None: no intent register, no data register.
+
+### Report to the owner — 2026-10-21
+
+Chunks 8, 9, 10, 11 merged; none moved. Gate passed on its second run
+after one fix (grafana's uncommitted `rootfs/usr/local`, 79144c2). Asked
+of the owner: (1) the monitoring bricks are fixable only (W3 ruling 1),
+against master spec 7's "fixable or report-only per scenario": accept as
+a v0.2 known limit, or have `spec-writer` record or plan the mechanism;
+(2) the merge into `main`. Noted: images well over master spec 12's
+estimates (exporter 165MB, grafana 866MB) and grafana's memory at rest
+(180–195M) over its 154M reservation, both for chunk 14b's footprint
+measurement and the release gate.
