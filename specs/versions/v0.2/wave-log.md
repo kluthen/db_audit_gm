@@ -616,3 +616,60 @@ Chunks: 5, 6, 7 (chain 5 → 7). Branch `v0.2-w2`, worktree
   rendered nor deployed" though tests now render it (chunk 11 fixes it
   when it regenerates that README).
 - Chunk 7 dispatched 2026-10-21 (chunk 6 still running).
+- Chunk 6 merged 2026-10-21: 60f32d4 (6a), 787bf1d (6b), merge
+  f3f6e19; stack test "all checks passed", nothing left behind; 277
+  unit tests pass on `v0.2-w2` after the merge. `smoke.sh` not run by
+  the chunk (swarm busy); its new counts run at the wave gate.
+- **Image tag.** Chunk 6 put the previous image back on
+  `127.0.0.1:5000/dbagm/postgres:0.2.0` after its stack test, so
+  worktrees without its `brick.yaml` (chunk 7's, cut at d509d65) keep
+  working; its image is `postgres:0.2.0-c6` (1ff1b9da83bc). The gate
+  rebuilds `postgres:0.2.0` from `v0.2-w2` and removes the `-c6` tag.
+  Between 14:58:02Z and 14:59:19Z the new image was on `0.2.0`; chunk 5's
+  first smoke run (the one that failed) overlapped that window, and its
+  passing rerun came after it. The gate's smoke run is the one that
+  counts.
+- Chunk 7 told (message): leave the postgres tag alone; chunk 6's
+  `smoke.sh` counts (configs+secrets 11, volumes 9, status secret lines
+  5) must be combined with its own at the merge.
+
+### Capture W2-B — chunk 6 outcomes (read by 9, 11, 13, 14)
+
+- **Monitoring role**: `monitoring`, `LOGIN`, member of `pg_monitor`,
+  not superuser; created once by `gm-entrypoint` when it initialises a
+  fresh `pgdata` (single-user mode, before the first listen), never
+  re-applied; a cluster from an older image has none. Password from the
+  secret `monitoring_password` (kind password, not handed over, 32
+  characters) at `/opt/gm/secrets/monitoring_password`, uid 0, gid 102
+  (`postgres`), mode 0440; the entrypoint refuses a missing, empty or
+  multi-line secret and stops the container. The Dockerfile fails the
+  build if `postgres` is not `100:102`.
+- **For chunk 9**: connect as `monitoring` to the database `postgres`
+  over TCP `<db node>:5432`, `scram-sha-256` through the seed
+  `pg_hba.conf` `host` line; declare `monitoring_password` `kind:
+  password`, no `handed_over`, at `/opt/gm/secrets/monitoring_password`
+  with the exporter's own uid, gid and mode. A scenario restricting
+  `pg_hba.conf` must let `monitoring` in from the exporter's node.
+- **Logs**: volume `pglog` at `/var/log/postgresql`, `postgres:pgconf`
+  2750 (setgid); files 0640 (`log_file_mode`); `player` reads them,
+  cannot write. Seed settings (brick test seed and `docs/gm.md`):
+  `logging_collector = on`, `log_directory = '/var/log/postgresql'`,
+  `log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log'`,
+  `log_line_prefix = '%t [%p]: user=%u,db=%d,app=%a,client=%h '`
+  (pgBadger's default, no `--prefix`), `log_timezone = 'UTC'`,
+  `log_rotation_size = 10MB`, `log_rotation_age = 0`; never pruned (1G
+  of the disk reservation). `gmctl logs` shows only the start-up.
+- **`pg_stat_statements`**: `CREATE EXTENSION` at initdb in `postgres`;
+  `shared_preload_libraries = 'pg_stat_statements'` in the seed.
+  Without the preload the view errors: the fault chunk 13 plants.
+- **pgBadger** 13.2 (PGDG `13.2-1.pgdg13+1`), run by `player` without
+  `sudo`, report `~/pgbadger.html`. Peak memory unmeasured (release
+  gate).
+- **Image** 262MB (was 260MB). **Footprint**: reservation disk 1G →
+  2.25G (master spec 12); CPU and memory unchanged.
+- **Left**: `bookshop-new-server`'s and `fixture-audit`'s seeds carry
+  neither the logging nor the preload settings (outside the chunk's
+  files); they load and log to Docker as in v0.1. The v0.2 scenario's
+  seed (chunk 14) and chunk 11's fixture carry them.
+- **Risk accepted by the access model**: `dba` (superuser) can read the
+  secret through `COPY … TO PROGRAM`.
