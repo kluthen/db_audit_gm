@@ -66,8 +66,6 @@ On `db`:
 
 - the line `local all postgres peer` in `/etc/postgresql/pg_hba.conf`: it
   is the game master's access to the node;
-- the file `/etc/postgresql/.gm-seeded`: removing it makes a restarted
-  node overwrite your changes;
 - SSH, `sudo`, the `gm-*` commands and the validator (read-only anyway).
 
 Being a database superuser also gives you access to the operating system

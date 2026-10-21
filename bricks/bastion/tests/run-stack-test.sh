@@ -38,7 +38,7 @@ export GMTEST_BASTION_PORT=$PORT
 LABEL=dbagm.test=chunk3-bastion
 CONFIGS="starter_readme starter_story starter_issues seed_postgresql_conf seed_pg_hba_conf envelopes"
 SECRETS="player_password player_ssh_key player_ssh_pubkey dba_password"
-VOLUMES="bastion_home bastion_hostkeys bastion_run db_pgdata db_pgconf db_home db_run"
+VOLUMES="bastion_home bastion_hostkeys bastion_run db_pgdata db_pgconf db_home db_gmstate db_run"
 
 failures=0
 pass() { printf 'PASS  %s\n' "$*"; }

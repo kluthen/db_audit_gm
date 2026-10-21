@@ -8,6 +8,7 @@
 #   - the image serves PostgreSQL 18 and the container becomes healthy;
 #   - SSH as `player` works, and `player` may sudo exactly the 3 wrappers;
 #   - edits to /etc/postgresql survive gm-restart-db and a new container;
+#   - the seed marker (/var/lib/gm-state) is out of player's and postgres's reach;
 #   - the validator exits 0 in-envelope and 1 out-of-envelope;
 #   - read-only root, capabilities, peer access for postgres.
 # Everything it creates is removed on exit, volumes included.
@@ -26,7 +27,7 @@ CLIENT=${STACK}-client
 LABEL=dbagm.test=chunk2-postgres
 CONFIGS="seed_postgresql_conf seed_pg_hba_conf envelopes"
 SECRETS="player_ssh_pubkey dba_password"
-VOLUMES="pgdata pgconf home run"
+VOLUMES="pgdata pgconf home gmstate run"
 SSH_OPTS="-i /root/id -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o LogLevel=ERROR -o ConnectTimeout=10"
 
 failures=0
@@ -157,11 +158,29 @@ out=$(pssh sudo -n gm-validate 2>&1); rc=$?
 [ "$rc" -eq 0 ] && [ "$out" = "${out#*sudo:}" ] && pass "gm-validate green on the seed, no sudo warning (exit 0: $out)" \
     || fail "gm-validate on seed: exit $rc: $out"
 check "sudo logs to /run/gm/sudo.log" docker exec "$C" grep -q 'COMMAND=/usr/local/sbin/gm-validate' /run/gm/sudo.log
-m=$(gm stat -c '%a %U:%G' /etc/postgresql /etc/postgresql/postgresql.conf /etc/postgresql/.gm-seeded /home/player /home/player/.pgpass /run/postgresql | tr '\n' ' ')
-[ "$m" = "2775 postgres:pgconf 664 postgres:pgconf 444 root:root 750 player:player 600 player:player 2775 postgres:postgres " ] \
+m=$(gm stat -c '%a %U:%G' /etc/postgresql /etc/postgresql/postgresql.conf /var/lib/gm-state /var/lib/gm-state/.gm-seeded /home/player /home/player/.pgpass /run/postgresql | tr '\n' ' ')
+[ "$m" = "2775 postgres:pgconf 664 postgres:pgconf 755 root:root 444 root:root 750 player:player 600 player:player 2775 postgres:postgres " ] \
     && pass "ownership and modes set by the entrypoint ($m)" || fail "ownership and modes: $m"
 out=$(gm_pg /opt/gm/validator/validate.sh 2>&1); rc=$?
 [ "$rc" -eq 0 ] && pass "GM run of the validator as postgres green (exit 0)" || fail "GM validator: exit $rc: $out"
+
+# --- seed marker out of the players' reach (release gate RG-1) ----------------
+MARKER=/var/lib/gm-state/.gm-seeded
+denied() {  # denied <description> <remote command>: pass if player's command fails
+    d=$1; shift
+    if pssh "$@" >/dev/null 2>&1; then fail "$d"; else pass "$d"; fi
+}
+marker0=$(gm cat "$MARKER")
+check "no marker in the group-writable /etc/postgresql" gm test ! -e /etc/postgresql/.gm-seeded
+denied "player cannot remove the marker" rm -f "$MARKER"
+denied "player cannot rename the marker" mv -f "$MARKER" "$MARKER.x"
+denied "player cannot move the marker to /etc/postgresql" mv -f "$MARKER" /etc/postgresql/x
+denied "player cannot overwrite the marker" "echo x > $MARKER"
+denied "player cannot create a file next to the marker" touch /var/lib/gm-state/x
+denied "dba's COPY TO PROGRAM (as postgres) cannot remove the marker" \
+    "psql -X -v ON_ERROR_STOP=1 -c \"copy (select 1) to program 'rm -f $MARKER'\""
+check "postgres cannot remove the marker" sh -c "! docker exec -u postgres $C rm -f $MARKER"
+[ "$(gm cat "$MARKER")" = "$marker0" ] && pass "marker unchanged after the attempts" || fail "marker changed or gone"
 
 # --- reload path: out-of-envelope sighup knob ------------------------------------
 pssh "echo 'work_mem = 128MB   # stack test' >> /etc/postgresql/postgresql.conf" \
@@ -240,6 +259,7 @@ else
 fi
 w=$(pssh "grep -c '^work_mem = 8MB   # stack test edit' /etc/postgresql/postgresql.conf" 2>&1 || true)
 [ "$w" = 1 ] && pass "/etc/postgresql edits kept in a new container (not re-seeded)" || fail "edits after new container: $w"
+[ "$(gm cat "$MARKER")" = "$marker0" ] && pass "seed marker kept in a new container (volume gmstate)" || fail "marker after new container"
 w=$(pssh "psql -XAtc 'select i from stack_test'" 2>&1 || true)
 [ "$w" = 42 ] && pass "data kept in a new container" || fail "data after new container: $w"
 w=$(pssh cat report.md 2>&1 || true)

@@ -21,6 +21,7 @@ services:
       - {type: volume, source: pgdata, target: /var/lib/postgresql/18/data}
       - {type: volume, source: pgconf, target: /etc/postgresql}
       - {type: volume, source: home, target: /home/player}
+      - {type: volume, source: gmstate, target: /var/lib/gm-state}
       - {type: volume, source: run, target: /run}
     configs:
       - {source: seed_postgresql_conf, target: /opt/gm/seed/postgresql.conf, uid: "0", gid: "0", mode: 0444}
@@ -44,6 +45,7 @@ volumes:
   pgdata: {}
   pgconf: {}
   home: {}
+  gmstate: {}
   run: {}
 
 configs:

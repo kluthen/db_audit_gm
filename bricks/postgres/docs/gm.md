@@ -20,7 +20,7 @@ expected to evolve as games are played.
 |---|---|---|
 | Seed directory | `/opt/gm/seed/` | configs `postgresql.conf`, `pg_hba.conf`, read-only |
 | Configuration | `/etc/postgresql/` | volume `pgconf`; `postgres:pgconf`, dir `2775`, seeded files `0664` |
-| Seed marker | `/etc/postgresql/.gm-seeded` | root, `0444`; present means never seed again |
+| Seed marker | `/var/lib/gm-state/.gm-seeded` | volume `gmstate`; dir root `0755`, marker root `0444`; present means never seed again |
 | PGDATA | `/var/lib/postgresql/18/data` | volume `pgdata` |
 | Player home | `/home/player` | volume `home` |
 | Runtime | `/run` | volume `run`, emptied at each start (see below) |
@@ -42,9 +42,13 @@ Container ports 5432 and 22; nothing is published.
    `/var/tmp` are symlinks to it).
 2. Generates an ed25519 sshd host key in `/run/sshd-keys`.
 3. Fails the container if a secret is missing or empty.
-4. If `/etc/postgresql/.gm-seeded` is absent: copies the seed files into
+4. If `/var/lib/gm-state/.gm-seeded` is absent: copies the seed files into
    `/etc/postgresql/` and writes the marker. A missing seed file fails the
-   container. Never overwrites afterwards.
+   container. Never overwrites afterwards. The marker is on its own
+   root-owned volume, out of reach of `player` and `postgres`: the
+   configuration directory is group-writable without the sticky bit, so
+   that editors saving by rename (`sed -i`) work, and a marker there could
+   be removed.
 5. If PGDATA is empty: `initdb` (UTF8, `C.UTF-8`, data checksums on by
    default in 18), then creates the role `dba` (`LOGIN SUPERUSER`, password
    from the secret) in single-user mode, and removes initdb's own
@@ -186,9 +190,6 @@ off: `sudo` is setuid.
   container start. If the container is replaced, players see a changed
   host key on the inner hop.
 - **`.pgpass` is rewritten** at each container start from the secret.
-- **Marker**: deleting `/etc/postgresql/.gm-seeded` (the directory is
-  group-writable) makes the next container start re-seed, overwriting the
-  players' edits. Documented as DO NOT TAMPER.
 - **Server log** only in the container output; players see it only if a
   scenario turns `logging_collector` on.
 - **Write policy**: only `fixable` in v0.1. A `report-only` node would need

@@ -43,7 +43,7 @@ class TestTeardown(DeployedGame):
         self.assertEqual(teardown.leftovers(self.fake, self.gid), {})
         self.assertEqual(self.fake.objects, self.untouched)
         self.assertEqual(len(report.removed["service"]), 2)
-        self.assertEqual(len(report.removed["volume"]), 7)
+        self.assertEqual(len(report.removed["volume"]), 8)    # db 5, bastion 3
         self.assertEqual(len(report.removed["config"]), 6)
         self.assertEqual(len(report.removed["secret"]), 4)
         self.assertEqual(report.removed["network"], [f"{self.gid}_net"])

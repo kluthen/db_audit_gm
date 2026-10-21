@@ -49,6 +49,8 @@ RUN set -eux; \
     # configuration directory (volume `pgconf`), outside PGDATA
     rm -rf /etc/postgresql; \
     install -d -o postgres -g pgconf -m 2775 /etc/postgresql; \
+    # seed marker directory (volume `gmstate`), root-owned, out of pgconf's reach
+    install -d -o root -g root -m 0755 /var/lib/gm-state; \
     # PGDATA (volume `pgdata`)
     install -d -o postgres -g postgres -m 0700 "/var/lib/postgresql/${PG_MAJOR}/data"; \
     # fixed in-container paths for seeds, secrets, protected configs, validator
