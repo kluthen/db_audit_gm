@@ -1955,3 +1955,71 @@ freelancer who left.
   (`/tmp/claude-1001/-home-bastien-work-db-audit-gm/c63cb38e-ef2d-4974-87de-962eb6ea7fea/scratchpad/gen_readme.py`).
 - G10 put to the owner 2026-10-21; 14b dispatched in parallel on the
   same branch (G10 changes land after it).
+
+### Capture W4-D — chunk 14b outcomes, the measured footprint (read by the release gate)
+
+14b built 2026-10-21: 3a4aae1 on `v0.2-c14-scenario`, over 14a's
+5c2be8d; not merged (G10).
+- **Machine**: armenelos, AMD Ryzen 5 PRO 8640HS (12 threads), 11.3 GiB,
+  Docker 29.9.1, kernel 6.12.113, cgroup v2; 2026-10-21. Other
+  projects' containers running, idle or light (recorded, not stopped);
+  nothing else on the swarm.
+- **Game**: `fernway-clinics-monitoring-4jsdev` on `laptop` (2 CPU / 4G
+  / 8G declared, D105); deployed 19:06:31Z, handed over 19:06:47Z,
+  `validate` green, 8 faults present; torn down 19:41:06Z leaving
+  nothing labelled.
+- **Method**: `docker stats --no-stream` back to back, cgroup files every
+  0.5 s as a cross-check, maxima reported. At rest 11.5–15.5 min after
+  deploy; dashboard load 6 runs × 3 browser sessions through the web
+  front (504 requests a run, 0 errors); pgBadger 5 runs as `player` on
+  `db` (log about 190K, report 858K); at rest again 9–13 min after the
+  loads.
+- **Memory (max) per node**, at rest / dashboard load / pgBadger / at
+  rest after use; CPU max rest / load / pgBadger; reservation, limit:
+
+  | Node | Memory | CPU | Reservation | Limit |
+  |---|---|---|---|---|
+  | bastion | 10.5 / 17.7 / 11.2 / 18.1M | 0.06 / 0.20 / 0.01 | 0.1 / 96M | 0.5 / 256M |
+  | db | 59.0 / 52.2 / 81.1 / 54.2M | 0.05 / 0.06 / 0.18 (data load 0.35) | 0.5 / 512M | 1 / 1G |
+  | prometheus | 56.0 / 66.4 / 59.9 / 64.0M | 0.03 / 0.07 / 0.04 | 0.1 / 160M | 0.5 / 384M |
+  | exporter (no script, f2) | 24.3 / 20.1 / 19.5 / 22.2M | 0.07 / 0.01 / 0.04 | 0.05 / 48M | 0.25 / 128M |
+  | grafana | 194.7 / 304.4 / 301.2 / 258.2M | 0.07 / 0.26 / 0.07 | 0.1 / 208M → 272M | 0.5 / 384M |
+
+  No OOM kill or restart (`OOMKilled=false`, `RestartCount=0`,
+  `memory.events` oom 0 everywhere). `memory.peak` with page cache:
+  bastion 22M, db 134M, prometheus 85M, exporter 38M, grafana 332M.
+- **Images** (`docker system df -v`, unique): grafana 786.6MB,
+  prometheus 408.6MB, postgres 182.3MB, bastion 105.5MB,
+  postgres-exporter 85MB, shared `debian:13-slim` 79.6MB; 1.65GB
+  (1.53GiB, `fit`'s figure). **Volumes** 77.4MB after 35 minutes (db
+  74.7MB, grafana 1.74MB, prometheus 0.88MB, bastion and exporter under
+  0.1MB).
+- **Totals**: CPU 1.05 of 2; memory 1.46G of 4G; images plus volumes
+  about 1.73GB of 8G (`fit`'s accounting 5.65G of 8G). Master spec 14
+  item 3 passes.
+- **Reservation raised**: grafana `brick.yaml` memory 154M → 266M (272M
+  as a node with the script; limit unchanged), the scenario's grafana
+  node 208M → 272M. Sized for the reading after dashboard use (258M),
+  not only the one after hand-over (195M): players use the dashboards
+  from the start. No other reservation changed; none lowered. All five
+  bricks' `docs/gm.md` "Footprint" carry the measured figures. No
+  version bump (D100). D106: the scenario uses all five bricks, so no
+  extra fixture game.
+- **Checks**: `fit` passes for the scenario and `fixture-monitoring` on
+  `laptop`, `fixture-audit` and `bookshop-new-server` on `host-1`;
+  stack tests postgres 73, bastion 67, prometheus 101, exporter 76,
+  grafana 88, all pass; unit suite 298 OK; README regenerated (diff:
+  grafana's reservation and the memory total, 1024M → 1088M).
+- **Left over, routed**:
+  - Master spec 12's estimates (Grafana 160M) now differ from the
+    measurement: for the release notes (release gate item 14).
+  - `fixture-monitoring` keeps Grafana at 160M (it copies spec 12's
+    row), below what it measures at rest: fixed on the wave branch.
+  - Image builds copy `rootfs` with the checkout's directory modes
+    (umask 002 gives 775 on `/usr/local/lib/gm` in the rebuilt grafana
+    image): fixed on the wave branch, every brick's build normalised.
+  - Grafana reaches 0.47 CPU over 0.5 s windows during a dashboard load
+    (limit 0.5): slower panels, not failures. The exporter peaks at
+    0.07 CPU against a 0.05 reservation (limit 0.25).
+  - Scratch evidence in
+    `/tmp/claude-1001/-home-bastien-work-db-audit-gm/c63cb38e-ef2d-4974-87de-962eb6ea7fea/scratchpad/c14b/`.

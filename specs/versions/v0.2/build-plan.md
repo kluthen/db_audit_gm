@@ -854,7 +854,7 @@ their ids, kinds, target bricks, parameters and resolutions.
 
 ### Chunk 14 — The v0.2 scenario and the measured footprint
 
-Status: built (14a, 5c2be8d; waiting on G10; 14b next)
+Status: built (5c2be8d, 3a4aae1; waiting on G10)
 Record: (after merge)
 Wave: 4
 Depends on: chunk 13 (in-wave, wave 4 capture); chunks 4, 5, 6, 7, 9,
