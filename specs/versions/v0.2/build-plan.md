@@ -605,7 +605,7 @@ Architecture capture: none.
 
 ### Chunk 9 — `postgres-exporter` brick
 
-Status: planned
+Status: in progress
 Record: (after merge)
 Wave: 3
 Depends on: chunks 3, 6; G2, G3
@@ -638,7 +638,7 @@ parameters, metrics port, secret name and wrapper names.
 
 ### Chunk 10 — `grafana` brick
 
-Status: planned
+Status: in progress
 Record: (after merge)
 Wave: 3
 Depends on: chunks 3, 7; G2, G3 (G8 done)
