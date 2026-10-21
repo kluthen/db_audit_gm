@@ -102,14 +102,16 @@ class TestFit(ScenarioCopyTest):
         gid = impl["game_id"]
         db = impl["nodes"]["db"]
         self.assertEqual([v["name"] for v in db["volumes"]],
-                         [f"{gid}_db_{v}" for v in ("pgdata", "pgconf", "home", "gmstate", "run")])
+                         [f"{gid}_db_{v}" for v in ("pgdata", "pgconf", "home", "gmstate", "pglog",
+                                                     "run")])
         self.assertEqual(
             [c["name"] for c in db["configs"]],
             [gid + "_db_postgresql.conf", gid + "_db_pg_hba.conf", gid + "_db_envelopes"])
         self.assertEqual(db["configs"][0]["file"], "nodes/db/postgresql.conf")
         self.assertEqual(db["configs"][2]["file"], "local/laptop/envelopes/db.conf")
         self.assertEqual([s["name"] for s in db["secrets"]],
-                         [gid + "_player_ssh_pubkey", gid + "_dba_password"])
+                         [gid + "_player_ssh_pubkey", gid + "_dba_password",
+                          gid + "_monitoring_password"])
         bastion = impl["nodes"]["bastion"]
         self.assertEqual([v["name"] for v in bastion["volumes"]],
                          [f"{gid}_bastion_{v}" for v in ("home", "hostkeys", "run")])
@@ -120,6 +122,7 @@ class TestFit(ScenarioCopyTest):
             gid + "_player_ssh_key": "local/laptop/secrets/player_ssh_key",
             gid + "_dba_password": "local/laptop/secrets/dba_password",
             gid + "_player_ssh_pubkey": "local/laptop/secrets/player_ssh_key.pub",
+            gid + "_monitoring_password": "local/laptop/secrets/monitoring_password",
             gid + "_tools_password": "local/laptop/secrets/tools_password",
         })
         self.assertEqual(impl["labels"], {"com.docker.stack.namespace": gid,

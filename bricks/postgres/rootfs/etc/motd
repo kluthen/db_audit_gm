@@ -6,6 +6,8 @@
   Apply changes:  sudo gm-reload-db     reload the configuration
                   sudo gm-restart-db    restart PostgreSQL (checks the files first)
   Check:          sudo gm-validate      public validator (envelopes, GM line, server)
+  Logs:           /var/log/postgresql/  (readable; analyse them with pgbadger,
+                  e.g. pgbadger /var/log/postgresql/*.log -o ~/pgbadger.html)
 
   DO NOT TAMPER with SSH, sudo, the gm-* wrappers, the validator, or the
   line `local all postgres peer` in pg_hba.conf (the GM's access).

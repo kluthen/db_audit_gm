@@ -87,6 +87,7 @@ class TestStatus(FittedGame):
             "    player_ssh_key.pub: public key of pair player_ssh_key",
             "    dba_password: password",
             "    tools_password: password, handed over",
+            "    monitoring_password: password",
         ])
 
 

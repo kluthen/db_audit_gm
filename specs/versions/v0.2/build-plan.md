@@ -476,8 +476,15 @@ loader.
 
 ### Chunk 6 — `postgres` 0.2.0
 
-Status: in progress
-Record: (after merge)
+Status: merged (w2, f3f6e19)
+Record: 60f32d4 (6a), 787bf1d (6b), merge f3f6e19; no deviation;
+outcomes in capture W2-B (wave log). Master spec 15: the monitoring role
+is created by `gm-entrypoint` at initdb (single-user mode, before the
+first listen) from the `monitoring_password` secret, not by the data
+load. Outside its Files line: the expected secret and volume lists in
+`tools/tests/test_{deploy,fit,render,state,teardown}.py` and three
+counts in `tools/tests/smoke.sh`, which the new secret and volume
+broke.
 Wave: 2
 Depends on: chunks 1, 3; G2, G3
 Architecture capture: none (chunk 9 reads the merged brick).
