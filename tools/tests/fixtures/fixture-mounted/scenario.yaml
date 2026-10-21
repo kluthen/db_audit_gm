@@ -1,8 +1,10 @@
 # Fixture scenario for tools/tests (v0.2 chunk 2). Not a game: loaded,
 # never rendered nor deployed. Scenario-local bricks that mount and
 # receive material (fixture-monitor mounts node-health into every node,
-# itself included) and a web front routing to the monitor's interface
-# (capture W1 of specs/versions/v0.2/wave-log.md, items 3 to 6).
+# itself included), a web front routing to the monitor's interface, a
+# parameter fault about the mounted material (f2) and an issue covering a
+# tooling expectation (capture W1 of specs/versions/v0.2/wave-log.md,
+# items 3 to 10).
 
 # --- Scenario information --------------------------------------------
 id: fixture-mounted
@@ -113,8 +115,22 @@ fault_instances:
     node: app
     parameters: {}
     visibility: hidden
+  - id: f2
+    fault:
+      id: fixture-node-left-out
+      version: 0.1.0
+    node: monitor
+    parameters:
+      node: app
+    visibility: hidden
 
-issues: []
+issues:
+  - id: I1
+    complaint: >-
+      We have no idea whether our monitoring would tell us when something
+      goes wrong.
+    expected_resolution: report
+    covers: [t1]
 
 # --- Host topology it was designed for -------------------------------
 designed_for:

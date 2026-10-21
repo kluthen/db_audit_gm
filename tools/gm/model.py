@@ -43,6 +43,16 @@ WEB_PATH_RE = re.compile(r"^/([a-z]([a-z0-9-]{0,61}[a-z0-9])?)/$")
 ROUTE_TARGET_RE = re.compile(r"^([a-z]([a-z0-9-]{0,61}[a-z0-9])?):(\d+)$")
 WEB_FRONT_PORT = 8080
 
+# The `parameter` injection kind (capture W1, item 8): each op and the keys
+# it takes; `{NAME}` is replaced by the instance's fault parameter NAME.
+PARAMETER_OPS = {"set": ("value",), "remove-entry": ("entry",),
+                 "remove-from-entry": ("entry", "item")}
+SUBSTITUTION_RE = re.compile(r"\{([^{}]*)\}")
+REPORT_TOOL_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+# An issue covering only tooling expectations (capture W1, item 10).
+EXPECTATION_RESOLUTIONS = ("report", "propose")
+EXACT_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$")
+
 # Fault parameters reach inject/ and checks/ scripts as FAULT_<NAME>
 # (captures W1-D, W3-A): the name upper-cased, `-` replaced by `_`.
 FAULT_ENV_PREFIX = "FAULT_"
@@ -628,8 +638,8 @@ def check_fault_dir(fault_dir, label_base=None):
         for script in injection.get("scripts") or []:
             if not (fault_dir / str(script)).is_file():
                 out.append(f"{_rel(fault_dir / str(script), base)}: missing file")
-    elif kind is not None:
-        out.append(f"{label}: injection.kind: {kind} is not seed-file or state")
+    elif kind is not None and kind != "parameter":
+        out.append(f"{label}: injection.kind: {kind} is not seed-file, state or parameter")
     params = data.get("parameters")
     env_names = {}
     for pname, spec in params.items() if isinstance(params, dict) else ():
@@ -644,6 +654,9 @@ def check_fault_dir(fault_dir, label_base=None):
             env_names[env] = pname
         if isinstance(spec, dict):
             _check_param_value(spec.get("default"), f"parameters.{pname}.default", label, out)
+    if kind == "parameter":
+        _check_parameter_changes(injection, env_names, label, out)
+    _check_applies_to_versions(data.get("applies_to"), label, out)
     script = (data.get("sealed_check") or {}).get("script")
     if script and not (fault_dir / str(script)).is_file():
         out.append(f"{_rel(fault_dir / str(script), base)}: missing file (sealed_check.script)")
@@ -657,6 +670,53 @@ def check_fault_dir(fault_dir, label_base=None):
             out.append(f"{label}: resolutions[{i}].kind: {res.get('kind')} is not one of "
                        f"{', '.join(RESOLUTION_KINDS)}")
     return out
+
+
+def _check_parameter_changes(injection, env_names, label, out):
+    """A `parameter` injection (capture W1, item 8): well-formed changes,
+    planted at render, `{NAME}` naming a parameter of the fault."""
+    if injection.get("stage") not in (None, "seed"):
+        out.append(f"{label}: injection.stage: {injection['stage']}, but a parameter fault is "
+                   "planted at render (seed)")
+    changes = injection.get("parameter_changes")
+    if not changes:
+        out.append(f"{label}: injection.parameter_changes: missing (kind parameter)")
+        return
+    for i, change in enumerate(changes if isinstance(changes, list) else []):
+        if not isinstance(change, dict):
+            continue
+        p = f"injection.parameter_changes[{i}]"
+        op = change.get("op")
+        if op not in PARAMETER_OPS:
+            if op is not None:
+                out.append(f"{label}: {p}.op: {op} is not one of {', '.join(PARAMETER_OPS)}")
+        else:
+            for key in ("entry", "item", "value"):
+                if key in PARAMETER_OPS.get(op, ()) and key not in change:
+                    out.append(f"{label}: {p}.{key}: missing (op {op})")
+                elif key in change and key not in PARAMETER_OPS.get(op, ()):
+                    out.append(f"{label}: {p}.{key}: not used by op {op}")
+        for key in ("entry", "item", "value"):
+            value = change.get(key)
+            if isinstance(value, (list, dict)):
+                out.append(f"{label}: {p}.{key}: a list or map; use a scalar")
+            for name in SUBSTITUTION_RE.findall(value) if isinstance(value, str) else ():
+                if FAULT_ENV_PREFIX + name not in env_names:
+                    out.append(f"{label}: {p}.{key}: {{{name}}} names no parameter of the "
+                               "fault")
+
+
+def _check_applies_to_versions(applies_to, label, out):
+    """Brick versions one by one, exact strings, never ranges (capture W1,
+    item 8; master spec 6.4)."""
+    bricks = _dict(applies_to).get("bricks")
+    for i, entry in enumerate(bricks if isinstance(bricks, list) else []):
+        versions = _dict(entry).get("versions")
+        for version in versions if isinstance(versions, list) else []:
+            if not (isinstance(version, str) and EXACT_VERSION_RE.match(version)):
+                out.append(f"{label}: applies_to.bricks[{_item_label(entry, i)}].versions: "
+                           f"{version!r} is not an exact version string (one by one, never "
+                           "a range)")
 
 
 def _resolution_kinds(fault_data):
@@ -718,7 +778,7 @@ def check_scenario(scenario_dir, catalog_root=REPO_ROOT):
             bricks[node.get("name")] = brick
 
     _check_node_maps(nodes, bricks, out)
-    _check_web_routes(nodes, bricks, out)
+    routes = _check_web_routes(nodes, bricks, out)
 
     for i, flow in enumerate(data.get("flows") or []):
         if isinstance(flow, dict):
@@ -727,8 +787,8 @@ def check_scenario(scenario_dir, catalog_root=REPO_ROOT):
                     out.append(f"{label}: flows[{i}].{end}: {flow[end]} is not a node")
 
     faults = _check_faults(data, nodes, bricks, sdir, catalog_root, out)
-    _check_issues(data, nodes, faults, out)
-    answer_key = _check_answer_key(data, nodes, faults, sdir, out)
+    answer_key = _check_answer_key(data, nodes, faults, routes, sdir, out)
+    _check_issues(data, nodes, faults, expectation_ids(answer_key), out)
     _check_designed_for(data, nodes, out)
 
     if out:
@@ -1196,6 +1256,7 @@ def _check_faults(data, nodes, bricks, sdir, catalog_root, out):
                 if isinstance(change, dict) and change.get("file") not in seeds:
                     out.append(f"{label}: {p}: fault {fault.id} changes {change.get('file')}, "
                                f"not a seed file of brick {brick.id}")
+            _check_parameter_fault(inst, fault, brick, by_name, p, out)
         params = inst.get("parameters") or {}
         fparams = fault.data.get("parameters") or {}
         if isinstance(params, dict):
@@ -1211,7 +1272,51 @@ def _check_faults(data, nodes, bricks, sdir, catalog_root, out):
     return faults
 
 
-def _check_issues(data, nodes, faults, out):
+def _check_parameter_fault(inst, fault, brick, by_name, p, out):
+    """A parameter fault against its target node's brick, as seed changes are
+    checked, and a fault about mounted material (capture W1, item 8; master
+    spec 6.4)."""
+    label = "scenario.yaml"
+    injection = _dict(fault.data.get("injection"))
+    changes = injection.get("parameter_changes")
+    if injection.get("kind") != "parameter" or not isinstance(changes, list):
+        return
+    changes = [c for c in changes if isinstance(c, dict)]
+    bparams = _dict(brick.data.get("parameters"))
+    for change in changes:
+        pname, op = change.get("parameter"), change.get("op")
+        if pname not in bparams:
+            out.append(f"{label}: {p}: fault {fault.id} changes parameter {pname}, not a "
+                       f"parameter of brick {brick.id}")
+            continue
+        shape = _dict(bparams[pname]).get("shape")
+        if op == "set" and shape is not None:
+            out.append(f"{label}: {p}: fault {fault.id} sets {pname}, a {shape} parameter of "
+                       f"brick {brick.id} (set takes a scalar parameter)")
+        elif op == "remove-entry" and shape is None:
+            out.append(f"{label}: {p}: fault {fault.id} removes an entry of {pname}, a scalar "
+                       f"parameter of brick {brick.id}")
+        elif op == "remove-from-entry" and shape != "node-map":
+            out.append(f"{label}: {p}: fault {fault.id} removes an item from an entry of "
+                       f"{pname}, not a node-map parameter of brick {brick.id}")
+    mounted = {item.get("parameter") for item in mounted_items(brick.data)}
+    if not any(c.get("parameter") in mounted for c in changes):
+        return
+    applies = _dict(fault.data.get("applies_to")).get("bricks")
+    ids = [str(_dict(a).get("id")) for a in applies] if isinstance(applies, list) else []
+    if ids != [brick.id]:
+        out.append(f"{label}: {p}: fault {fault.id} is about material brick {brick.id} mounts, "
+                   f"so its applies_to names only {brick.id} (it names {', '.join(ids)})")
+    spec = _dict(fault.data.get("parameters")).get("node")
+    if not (isinstance(spec, dict) and spec.get("required")):
+        out.append(f"{label}: {p}: fault {fault.id} is about mounted material, so it needs a "
+                   "required parameter node, the affected node")
+    node = _dict(inst.get("parameters")).get("node", _dict(spec).get("default"))
+    if node is not None and node not in by_name:
+        out.append(f"{label}: {p}.parameters.node: {node} is not a node of the topology")
+
+
+def _check_issues(data, nodes, faults, expectations, out):
     label = "scenario.yaml"
     by_name = {n.get("name"): n for n in nodes}
     instances = {i.get("id"): i for i in data.get("fault_instances") or []
@@ -1225,10 +1330,18 @@ def _check_issues(data, nodes, faults, out):
         if expected is not None and expected not in RESOLUTION_KINDS:
             out.append(f"{label}: {p}.expected_resolution: {expected} is not one of "
                        f"{', '.join(RESOLUTION_KINDS)}")
-        for iid in issue.get("covers") or []:
+        covers = issue.get("covers") if isinstance(issue.get("covers"), list) else []
+        if covers and all(iid in expectations for iid in covers) \
+                and expected in RESOLUTION_KINDS and expected not in EXPECTATION_RESOLUTIONS:
+            out.append(f"{label}: {p}.expected_resolution: {expected}, but the issue covers "
+                       f"only tooling expectations ({' or '.join(EXPECTATION_RESOLUTIONS)})")
+        for iid in covers:
             covered.add(iid)
+            if iid in expectations:
+                continue
             if iid not in instances:
-                out.append(f"{label}: {p}.covers: {iid} is not a fault instance")
+                out.append(f"{label}: {p}.covers: {iid} is not a fault instance or a tooling "
+                           "expectation")
                 continue
             fault = faults.get(iid)
             node = by_name.get(instances[iid].get("node")) or {}
@@ -1253,7 +1366,7 @@ def _check_issues(data, nodes, faults, out):
                        "covers it")
 
 
-def _check_answer_key(data, nodes, faults, sdir, out):
+def _check_answer_key(data, nodes, faults, routes, sdir, out):
     label = "gm/answer-key.yaml"
     if not (sdir / label).is_file():
         return None                  # listed with the missing files
@@ -1303,7 +1416,68 @@ def _check_answer_key(data, nodes, faults, sdir, out):
         for name, needed in needs.items():
             if needed and not acceptable.get(name):
                 out.append(f"{label}: instances[{iid}].acceptable.{name}: missing")
+    for entry in entries:
+        evidence = entry.get("evidence")
+        for i, item in enumerate(evidence if isinstance(evidence, list) else []):
+            if isinstance(item, dict) and "where" in item:
+                _check_where(item["where"], nodes, routes,
+                             f"instances[{entry.get('instance')}].evidence[{i}].where", out)
+    _check_expectations(key.get("tooling_expectations"), instances, out)
     return key
+
+
+def _check_where(where, nodes, routes, p, out):
+    """Where answer-key evidence is run (capture W1, item 9; spec D101)."""
+    label = "gm/answer-key.yaml"
+    names = {n.get("name") for n in nodes}
+    bastions = {n.get("name") for n in nodes if n.get("role") == "bastion"}
+    kind, _, name = where.partition(":") if isinstance(where, str) else (None, "", "")
+    if where == "bastion":
+        return
+    if kind == "node" and name:
+        if name in bastions:
+            out.append(f"{label}: {p}: {where} is the bastion; write bastion")
+        elif name not in names:
+            out.append(f"{label}: {p}: {where}: {name} is not a node of the topology")
+    elif kind == "ui" and name:
+        if name not in routes:
+            out.append(f"{label}: {p}: {where}: {name} is not a route of the topology's "
+                       "web-routes parameter")
+    elif kind == "report" and name:
+        if not REPORT_TOOL_RE.match(name):
+            out.append(f"{label}: {p}: {where}: the tool is written in lowercase "
+                       "(report:pgbadger)")
+    else:
+        out.append(f"{label}: {p}: {where!r} is not bastion, node:<name>, ui:<name> or "
+                   "report:<tool>")
+
+
+def _check_expectations(expectations, instances, out):
+    """Tooling expectations (capture W1, item 10): ids unique across fault
+    instance ids and expectation ids; no visibility, no sealed check."""
+    label = "gm/answer-key.yaml"
+    seen = set()
+    for item in expectations if isinstance(expectations, list) else []:
+        if not isinstance(item, dict):
+            continue
+        tid = item.get("id")
+        p = f"tooling_expectations[{tid}]"
+        if tid in instances:
+            out.append(f"{label}: {p}.id: {tid} is also a fault instance id")
+        elif tid in seen:
+            out.append(f"{label}: {p}.id: duplicate expectation id")
+        seen.add(tid)
+        for key in ("visibility", "sealed_check"):
+            if key in item:
+                out.append(f"{label}: {p}.{key}: a tooling expectation has no "
+                           f"{key.replace('_', ' ')}")
+
+
+def expectation_ids(answer_key):
+    """The ids of an answer key's tooling expectations."""
+    items = _dict(answer_key).get("tooling_expectations")
+    return {i.get("id") for i in items if isinstance(i, dict)} \
+        if isinstance(items, list) else set()
 
 
 def _check_designed_for(data, nodes, out):

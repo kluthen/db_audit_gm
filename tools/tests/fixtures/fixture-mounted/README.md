@@ -150,10 +150,16 @@ Placement and the reservations it was sized with:
 | Instance | Fault | Node | Parameters | Visibility |
 |---|---|---|---|---|
 | `f1` | `fixture-app-stopped` 0.1.0, scenario-only | `app` | none | hidden |
+| `f2` | `fixture-node-left-out` 0.1.0, scenario-only | `monitor` | node = app | hidden |
 
 ### Issues given to the players
 
-No issues given: every fault instance is hidden.
+#### Issue `I1`: expected resolution report
+
+> We have no idea whether our monitoring would tell us when something goes
+> wrong.
+
+Covers: t1.
 
 ## 6. Answer key
 
@@ -183,9 +189,39 @@ Interactions: none.
 Public validators the players cannot make green (reporting each is part of
 the expected answer): none.
 
+### `f2`: `fixture-node-left-out` on `monitor`, hidden
+
+- **What is wrong**: app is left out of the node_health map, so it has no
+  node-health script.
+- **Why it matters**: nothing reports app's resources or services; a
+  failure there goes unseen.
+
+Evidence, as the `player` user (and `dba` in psql):
+
+| Where | Source | How | Shows |
+|---|---|---|---|
+| `ui:monitor` | the monitor's node-health view | `open /monitor/ on the web front` | app is not listed |
+| `node:app` | /opt/gm/node-health/node.conf | `ssh app, then cat /opt/gm/node-health/node.conf` | no such file |
+
+Acceptable answers:
+
+- **Diagnosis**: names app as missing from the node-health view.
+- **Proposal**: add app to the node_health map.
+
+Sealed check: `faults/fixture-node-left-out/checks/fixed.sh`, exit 1 at
+hand-over (0: fixed, 1: present). the scenario's own fault (faults/ in the
+fixture folder).
+
+Interactions: none.
+
+Public validators the players cannot make green (reporting each is part of
+the expected answer): none.
+
 ### Tooling expectations
 
-None.
+| Expectation | Need | Expected | Acceptable | Covered by | Notes |
+|---|---|---|---|---|---|
+| `t1` | service monitoring | every node's services watched, with an alert when one stops | any of the top three tools for the need | I1 | the fixture's monitor covers it once app is back in the map |
 
 ## 7. Starter pack, node files and data
 
@@ -199,4 +235,4 @@ None.
   `gm/notes.md`.
 - **Scenario-only bricks and faults**: `bricks/fixture-front/`,
   `bricks/fixture-app/`, `bricks/fixture-monitor/`,
-  `faults/fixture-app-stopped/`
+  `faults/fixture-app-stopped/`, `faults/fixture-node-left-out/`

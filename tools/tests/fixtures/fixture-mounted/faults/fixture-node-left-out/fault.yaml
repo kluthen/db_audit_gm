@@ -1,0 +1,61 @@
+# Scenario-local parameter fault of the fixture-mounted scenario
+# (tools/tests, v0.2 chunk 2): a fault about mounted material, planted
+# through the monitor's node_health map (capture W1 of
+# specs/versions/v0.2/wave-log.md, item 8). Loaded, never planted.
+id: fixture-node-left-out
+version: 0.1.0
+title: a node is left out of the node-health map
+family: monitoring
+severity: medium
+
+applies_to:
+  bricks:
+    - id: fixture-monitor
+      versions: ["0.1.0"]
+  preconditions: []
+
+parameters:
+  node:
+    description: the node left out of the map
+    default: null
+    required: true
+
+injection:
+  kind: parameter
+  stage: seed
+  parameter_changes:
+    - parameter: node_health
+      op: remove-entry
+      entry: "{NODE}"
+      change: the node's entry is removed, so it gets no node-health script
+  run_as: root
+
+evidence:
+  - where: the monitor's node-health view
+    how: open the monitoring interface through the web front
+    shows: the node is not listed
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+acceptance:
+  diagnosis: names the node missing from the node-health view.
+  proposal: add the node to the node-health map.
+
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+complaint_template: >-
+  We cannot see how {NODE} is doing.
