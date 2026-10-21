@@ -422,8 +422,11 @@ it settles are recorded in its Record line and `docs/gm.md`.
 
 ### Chunk 5 — Mounted material and parameter faults in the local implementation
 
-Status: in progress
-Record: (after merge)
+Status: merged (w2, 6248ad0)
+Record: 2ad4c21, merge 6248ad0; no deviation; outcomes in capture W2-A
+(wave log). The mounted footprint is not added to receiving nodes'
+`resources` by `fit`: master spec 7.1 puts it in the scenario's own
+`resources` (chunk 14 writes them).
 Wave: 2
 Depends on: chunks 2, 3
 Architecture capture: none of its own; it implements capture W1 items 2
@@ -516,7 +519,7 @@ Architecture capture: none (chunk 9 reads the merged brick).
 
 ### Chunk 7 — `bastion` 0.2.0: the web front
 
-Status: planned
+Status: in progress
 Record: (after merge)
 Wave: 2
 Depends on: chunks 1, 3, 5 (in wave 2: the routes parameter rendered

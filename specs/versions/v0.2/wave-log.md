@@ -559,3 +559,60 @@ Chunks: 5, 6, 7 (chain 5 → 7). Branch `v0.2-w2`, worktree
   (`monitoring_password`) and W1-B; chunk 7 reads W1 items 2, 3 and 7
   (`tools_password`), W1-B and W1-C.
 - Chunks 5 and 6 dispatched 2026-10-21.
+- Chunk 5 merged 2026-10-21: 2ad4c21, merge 6248ad0; 277 unit tests
+  pass on `v0.2-w2` after the merge (253 before); `docker stack config`
+  accepts the rendered fixture-mounted stack; `smoke.sh` 46 PASS (one
+  rerun: chunk 6's `gmtest-pg` stack test started during the first and
+  tripped "objects not belonging to the game are unchanged"). Every
+  Done when item shown by a named test.
+
+### Capture W2-A — chunk 5 outcomes (read by 7, 11, 12, 13, 14)
+
+- **`implementation.yaml`, per receiving node**, appended to
+  `nodes.<n>.configs[]` after the seed and envelope entries: one entry
+  per mounted file,
+  `{kind: mounted, item, name: <gid>_<mounting node>_<item>-<k>, file, path, uid: 0, gid: 0, mode}`
+  (`k` from 1 in `files` order; for a catalog brick `file` is relative to
+  the scenario folder, climbing out to `../../bricks/<brick>/…`), then
+  the node's own
+  `{kind: node-config, item, name: <gid>_<node>_<item>.conf, file: local/<pg>/mounted/<item>/<node>.conf, path: <node_config.target>, uid: 0, gid: 0, mode}`.
+- **Swarm names**: each mounted file is one config shared by every
+  receiving node (deploy's name dedupe creates it once); the per-node
+  config is `<gid>_<node>_<item>.conf`. `max_game_id_length` reserves
+  room for these names (fixture-mounted's game id: at most 39
+  characters); `_check_names` refuses one name derived for two files.
+- **`parameter_faults`**: a new top-level key of `implementation.yaml`,
+  always present (`[]` when none):
+  `[{instance, fault, node, changes: [{parameter, op, entry|item|value}]}]`,
+  `{NAME}` already substituted. A file written before chunk 5 lacks it,
+  so `render` refuses it with "fit again".
+- **Parameters**: `service_environment` uses the fault-applied
+  parameters, so a parameter fault now reaches `GM_*` values (changes
+  v0.1 behaviour, where none existed). `GM_WEB_ROUTES` as W1 item 2:
+  sorted `name=node:port` tokens, space-separated, `""` when empty; a
+  `node-map` parameter is never in the environment.
+- **`render`** writes `local/<pg>/mounted/<item>/<node>.conf` (clearing
+  `mounted/` first) and prints those paths after the envelope files;
+  refuses "the mounted material changed since gmctl fit: fit again" when
+  its recomputation differs from `implementation.yaml`.
+- **`inject`**: a parameter fault prints
+  `  <iid>: parameter fault, planted at rendering; nothing to run` after
+  the seed-file lines; `InjectResult.rendered` lists them, `seeded`
+  still only seed-file faults.
+- **Refusals** (`fit` and `render`): a change that plants nothing,
+  `fault instance <iid> (<fault>): <op> <param>: <param> has no entry <e>`
+  or `…: entry <e> of <param> has no item <i>`; a missing or empty
+  mounted source file ("Swarm refuses an empty config").
+- **Python**: `localimpl.parameter_faults`, `node_parameters`,
+  `entry_services`, `mounted_material`, `mounted_configs`,
+  `node_config_file`, `node_config_text`, constants `MOUNTED_CONFIG`,
+  `NODE_CONFIG`, `MOUNTED_DIR`, `MOUNTED_UID`/`MOUNTED_GID`,
+  `DEFAULT_ENTRY`, `PARAMETER_KIND`; `render.web_routes_value`,
+  `NODE_MAP`, `WEB_ROUTES`, `RenderResult.node_config_files`;
+  `inject.InjectResult.rendered`.
+- **Left**: the mounted footprint is not added to receiving nodes'
+  `resources` (spec 7.1: the scenario's `resources` include it, chunk
+  14); `fixture-mounted/scenario.yaml`'s header still says "never
+  rendered nor deployed" though tests now render it (chunk 11 fixes it
+  when it regenerates that README).
+- Chunk 7 dispatched 2026-10-21 (chunk 6 still running).
