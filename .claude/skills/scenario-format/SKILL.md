@@ -6,14 +6,16 @@ description: Use whenever a db_audit_gm scenario, brick or fault definition is d
 # Scenario format
 
 Every scenario, brick and fault is written to one shape. This skill holds
-that shape: five templates and the folder layouts. It is the **initial
-version (v0.1)** and is expected to evolve as games are played; when a
-game shows the format is missing something, change the template and this
-skill together.
+that shape: five templates and the folder layouts. This is its **v0.2
+version**, expected to evolve as games are played; when a game shows the
+format is missing something, change the template and this skill together.
 
-Source of the shape: the master spec (`specs/versions/v0.1/master-spec.md`,
-sections 6, 7, 8 and 8.1). The top-level keys of `brick.yaml` are fixed
-(capture W1-A in `specs/versions/v0.1/wave-log.md`).
+Source of the shape: v0.1's master spec (`specs/versions/v0.1/master-spec.md`,
+sections 6, 7, 8 and 8.1) and v0.2's format changes
+(`specs/versions/v0.2/master-spec.md`, section 6), with `specs/formats.md`.
+The top-level keys of `brick.yaml` are fixed (capture W1-A in
+`specs/versions/v0.1/wave-log.md`); v0.2's keys are capture W1 in
+`specs/versions/v0.2/wave-log.md`.
 
 ## Templates
 
@@ -79,24 +81,29 @@ A scenario is complete or it is not deployed.
 
 ## Completeness checklists
 
-### Scenario (master spec 6.2)
+### Scenario (v0.1 master spec 6.2, v0.2 master spec 6.3)
 
 - **Scenario information**: `id`, `version`, `title`, `date`, `origin`,
   `session_length_minutes` (at most 240), `brief` and `brief.md`.
-- **Topology**: `networks`; for every node: `name`, `brick` (id, pinned
-  version), `role`, `stateful`, `networks`, `write_policy`, `parameters`,
-  `resources` (limits and reservations, disk included), `published_ports`,
+- **Topology**: `networks` (one in v0.2); for every node: `name`, `brick`
+  (id, pinned version), `role`, `stateful`, `networks`, `write_policy`,
+  `parameters`, `resources` (limits and reservations, disk included, and
+  what mounted companion material adds to the node), `published_ports`,
   `seed_files`, `knobs` (initial value and envelope for every knob the
   brick declares), and `data` (file and schema) for a node holding data;
-  `flows` (every flow between nodes).
+  `flows` (every flow between nodes). With a `prometheus` node, its
+  `node_health` map.
 - **Background**: `background`, and `player/story.md`.
 - **Incidents, flaws and defects**: `fault_instances` (fault id and pinned
   version, `node`, `parameters`, `visibility`); `issues` (zero or more,
-  each with `id`, `complaint`, `expected_resolution`, `covers`).
+  each with `id`, `complaint`, `expected_resolution`, `covers`: fault
+  instances and tooling expectations).
 - **Answer key** (`gm/answer-key.yaml`), for every fault instance: `what`,
-  `why`, `evidence` as `player`, `acceptable` (diagnosis, and proposal,
-  fix or improvement as they apply), `sealed_check`, `interactions`,
-  `validators_left_red`; and `gm/notes.md`.
+  `why`, `evidence` as `player` (each entry with `where`, `source`, `how`,
+  `shows`), `acceptable` (diagnosis, and proposal, fix or improvement as
+  they apply), `sealed_check`, `interactions`, `validators_left_red`;
+  `tooling_expectations` (may be `[]`: each with `id`, `need`,
+  `expected`, `acceptable`, optional `notes`); and `gm/notes.md`.
 - **Host topology it was designed for**: `designed_for` (platform, hosts
   with CPU, memory, disk, placement of every node).
 - **Starter pack** (`player/README.md`, `story.md`, `issues.md`), **node
@@ -120,10 +127,33 @@ Consistency rules (a failure is a missing item):
 - each fault instance's `node` runs a brick in the fault's `applies_to`;
   every required fault parameter is set;
 - an instance is `known` exactly when an issue `covers` it; every `covers`
-  id exists;
+  id is a fault instance or a tooling expectation; an issue covering only
+  expectations expects `report` or `propose`; expectation ids are unique
+  across fault instance ids and expectation ids;
 - an issue's `expected_resolution` is one the covered faults list, under a
   write policy the target node has;
 - `gm/answer-key.yaml` has exactly one entry per fault instance;
+- every evidence `where` is `bastion` (a shell on the bastion, `psql`
+  from there included), `node:<name>` (a node of the topology other than
+  the bastion), `ui:<name>` (`<name>` a route of the bastion's
+  `web_routes`) or `report:<tool>` (a generated report, `<tool>`
+  lowercase, such as `report:pgbadger`); `source` names the file, view or
+  output looked at (v0.1's free-text `where`, D101);
+- **the node-health map** (D97): whenever the topology has a `prometheus`
+  node, its `node_health` parameter is set and lists every node of the
+  topology by name, `prometheus`'s own included; each entry is `default`
+  (that node's brick's `processes`) or a non-empty list of names from
+  them. A missing map, or a node missing from it, is a missing item; a
+  node left out exists only as a parameter fault planted through the map;
+- **mounted material**: every node a mounting brick's map lists runs a
+  brick that declares `receives` meeting the item's `requires` (the
+  s6-overlay version begins with the required prefix; every required
+  command is listed), checked against the mounting brick's pinned version;
+- **web routes**: each route of the bastion's `web_routes` names a node
+  whose brick provides a web interface on that port with `web_path:
+  /<route>/`; every web interface of the topology has exactly one route;
+  the bastion publishes `{port: 8080, default: 8080}` exactly when
+  `web_routes` is non-empty (an empty map: the web front does not run);
 - `player/issues.md` states the same issues as `issues`; nothing under
   `player/` names a hidden fault or an answer;
 - `designed_for.placement` places every node, and the summed reservations
@@ -135,7 +165,39 @@ Every key of [templates/brick.yaml](templates/brick.yaml) except the
 commented-out ones; and the folder: `Dockerfile`, `validator/`,
 `docs/player.md`, `docs/gm.md`, and `companion/` when `companion` is set.
 The image name is registry-qualified; the brick names no Swarm-only
-feature.
+feature. In particular (v0.2 master spec 6.1):
+
+- **Footprint**: the shape of a scenario node's `resources`, `limits`
+  (`cpu`, `memory`) and `reservations` (`cpu`, `memory`, `disk`), the
+  default the GM starts from when it sizes a scenario. It excludes any
+  material other bricks mount into this one.
+- **No fault list**: `brick.yaml` names no fault; which faults a brick
+  hosts is stated only by each fault's `applies_to` (D59).
+- **Interfaces**: `provides` and `consumes`, each entry with `name`,
+  `protocol` and `port`. A provided interface with `web_path` is a web
+  interface the bastion's web front publishes, at `/<route>/`, its fixed
+  path.
+- **Parameters**: a scalar unless `shape` says `node-map` (node name to
+  `default` or a list of the node's brick's `processes`) or `web-routes`
+  (route name to `"node:port"`).
+- **Secrets**: each with its `kind`, `password` (with `handed_over: true`
+  for one players type) or `key-pair` (with its `pair` and the `half`,
+  `private` or `public`, mounted). A name two bricks declare is one
+  secret and both declare it alike.
+- **Mounted companion material** (`companion.mounted`), for each item: its
+  `files` (each `source` under `companion/`, an absolute `target` in the
+  receiving node, a `mode` with no write bit: root-owned, read-only); the
+  `parameter` listing the receiving nodes (a `node-map` parameter of this
+  brick, set on its own node in the scenario); the `node_config` the
+  renderer writes per node; the `footprint` it adds to each receiving
+  node; what a receiving image must provide (`requires`: an s6-overlay
+  version prefix and the commands used, by name).
+- **Receiving bricks** (`receives`): an image that accepts mounted
+  material declares the s6-overlay version its Dockerfile installs and
+  the commands available, from the vocabulary in the template; its
+  `docs/gm.md` says so under Connections. A topology is refused when a
+  receiving node's brick does not meet the `requires` of the mounting
+  brick's pinned version.
 
 `docs/gm.md` (D56; `specs/formats.md`, "`docs/gm.md` must contain";
 template [templates/brick-gm.md](templates/brick-gm.md)) has one level-2
@@ -151,10 +213,11 @@ scenario that uses it, when:
   sentence, with the reason);
 - it disagrees with `brick.yaml`: a parameter, knob, interface or
   footprint figure that does not match the declaration, or one that
-  `brick.yaml` lacks (footprint: O57);
-- it disagrees with the faults' `applies_to` (D59): a fault listed as
+  `brick.yaml` lacks (footprint: limits and reservations, D84);
+- it disagrees with the faults' `applies_to` (D59, D62): a fault listed as
   supported whose `applies_to` does not name this brick and version, or a
-  fault whose `applies_to` does that is not listed;
+  **catalog** fault whose `applies_to` does that is not listed (a fault
+  in a scenario's own `faults/` is the scenario's and is not listed);
 - it states placement or connections in a platform's own syntax rather
   than as requirements (one per node, on the same host as a given node,
   sharing a network with it).
@@ -162,10 +225,52 @@ scenario that uses it, when:
 ### Fault (master spec 8)
 
 Every key of [templates/fault.yaml](templates/fault.yaml), with
-`seed_changes` for a seed-file fault and `scripts` for a state fault, and
-an `acceptance` entry for each kind in `resolutions`; and the folder:
-`inject/` (when it has material), `checks/fixed.sh`, `checks/probe.md`,
-`gm.md`. Scripts follow the contracts in
-[templates/layouts.md](templates/layouts.md); in particular a sealed check
-run as root queries PostgreSQL as `postgres` (`runuser -u postgres`, or
-exec as `postgres`) so that peer authentication applies.
+`seed_changes` for a seed-file fault, `scripts` for a state fault and
+`parameter_changes` for a parameter fault, and an `acceptance` entry for
+each kind in `resolutions`; and the folder: `inject/` (when it has
+material), `checks/fixed.sh`, `checks/probe.md`, `gm.md`. Scripts follow
+the contracts in [templates/layouts.md](templates/layouts.md); in
+particular a sealed check run as root queries PostgreSQL as `postgres`
+(`runuser -u postgres`, or exec as `postgres`) so that peer
+authentication applies. In particular (v0.2 master spec 6.4):
+
+- **`applies_to`** lists each brick's versions one by one, as exact
+  strings (`["0.1.0", "0.1.1", "0.2.0"]`), never a range: a fault never
+  claims a brick version nobody tried it on.
+- **Parameter faults** (`injection.kind: parameter`, `stage: seed`): a
+  change to a parameter of the target node, applied by the renderer when
+  it writes the local implementation. Each `parameter_changes` entry names
+  a parameter of the target node's brick and an `op`: `set` (with
+  `value`), `remove-entry` (with `entry`, the map key) or
+  `remove-from-entry` (with `entry` and `item`; a `default` entry is first
+  expanded to the brick's `processes`). `{NAME}` in `entry`, `item` or
+  `value` is replaced by the instance's fault parameter `NAME`.
+- **Faults about mounted material** (a `parameter_changes` entry naming a
+  `companion.mounted` item's `parameter`) target the node of the brick
+  that ships the material, name only that brick in `applies_to`, and have
+  a required parameter `node` naming the affected node. For the
+  node-health script: the `prometheus` node, through its `node_health`
+  map (a node left out, or a service left out of a node's entry).
+- A fault's own `evidence[].where` stays v0.1's free text; the answer
+  key's evidence is the one split into `where` and `source`.
+
+## Versions and pins (v0.2 master spec 6.5)
+
+- **Bricks.** Any change to a brick bumps its version, whatever part of
+  its folder changes (image, `brick.yaml`, validator, documentation,
+  companion material), even with a byte-identical image. A change made
+  while the new version is unreleased folds into it. A brick version is
+  released only when the release gate of the version that builds it
+  passes; a build wave merging into `main` releases nothing (D100). New
+  bricks start at 0.1.0.
+- **One version per brick in the catalog.** The scripts refuse a pin that
+  does not match the brick's `version`, so bumping a brick re-pins every
+  scenario and fixture that uses it in the same change, adds the new
+  version to the `applies_to` of every fault that still applies, and
+  brings its `docs/gm.md` (image tag, Supported faults) to the new
+  version.
+- **Faults and scenarios never bump.** They keep their version whatever
+  changes; git history is the record. A pin to a fault names the fault,
+  not a state of it; nothing pins a scenario.
+- **Companion material** has no version of its own: it is versioned with
+  the brick that ships it (the node-health script with `prometheus`).

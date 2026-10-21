@@ -22,13 +22,16 @@ instances:
       never applies. The insurer's answer today is "yes, anyone on the
       network can".
     evidence:
-      - where: /etc/postgresql/pg_hba.conf on db
+      - where: node:db
+        source: /etc/postgresql/pg_hba.conf on db
         how: ssh db, then cat /etc/postgresql/pg_hba.conf
         shows: the `host all all 0.0.0.0/0 trust` line, above the scram-sha-256 host line
-      - where: pg_hba_file_rules
+      - where: node:db
+        source: pg_hba_file_rules
         how: psql -c "SELECT line_number, type, address, auth_method FROM pg_hba_file_rules"
         shows: "line 12: host, address 0.0.0.0 (netmask 0.0.0.0), trust; then line 14: the same address, scram-sha-256"
-      - where: a password-less login from the bastion
+      - where: bastion
+        source: a password-less login from the bastion
         how: PGPASSFILE=/nonexistent psql -w -h db -U dba -c 'SELECT 1'
         shows: "1: the login succeeds with no password (it fails once trust is gone)"
     acceptable:
@@ -70,13 +73,16 @@ instances:
       every connection. That is issue I1. The validator is red from the
       start because of it.
     evidence:
-      - where: the public validator on db
+      - where: node:db
+        source: the public validator on db
         how: ssh db, then sudo gm-validate
         shows: "RED work_mem: in effect 256MB; pending 256MB (/etc/postgresql/postgresql.conf:11); envelope 1MB..64MB"
-      - where: the setting and the node's memory
+      - where: node:db
+        source: the setting and the node's memory
         how: psql -c 'SHOW work_mem' -c 'SHOW max_connections'; cat /sys/fs/cgroup/memory.max on db
         shows: 256MB, 100 connections, a memory limit of 1073741824 bytes (1 GB)
-      - where: postgresql.conf
+      - where: node:db
+        source: postgresql.conf
         how: grep -n work_mem /etc/postgresql/postgresql.conf on db
         shows: "work_mem = 256MB with the comment about the month-end reports"
     acceptable:
@@ -116,10 +122,12 @@ instances:
       cost grows with the table, hence "worse as orders pile up" (issue
       I3). Deleting an order also scans order_lines to check the key.
     evidence:
-      - where: the table's definition
+      - where: node:db
+        source: the table's definition
         how: psql -d bookshop -c '\d order_lines'
         shows: the foreign key on order_id, indexes on id (primary key) and book_id only
-      - where: the plan of an order's lines
+      - where: node:db
+        source: the plan of an order's lines
         how: psql -d bookshop -c 'EXPLAIN ANALYZE SELECT * FROM order_lines WHERE order_id = 42'
         shows: "Seq Scan on order_lines, Filter: (order_id = 42), Rows Removed by Filter: 89997"
     acceptable:
@@ -156,10 +164,12 @@ instances:
       commands as postgres (COPY ... TO PROGRAM). Least privilege: the
       application should hold data rights on its own database only.
     evidence:
-      - where: the cluster's roles
+      - where: node:db
+        source: the cluster's roles
         how: psql -c '\du'
         shows: shop_app with the Superuser attribute, next to dba and postgres
-      - where: the role's own rights
+      - where: node:db
+        source: the role's own rights
         how: psql -d bookshop -c '\dp' (or \z)
         shows: shop_app already has arwd on every table, so it needs no superuser attribute
     acceptable:
@@ -196,10 +206,12 @@ instances:
       plans), and only the forced anti-wraparound vacuum would ever process
       it. The year-end season makes it worse.
     evidence:
-      - where: the table's options
+      - where: node:db
+        source: the table's options
         how: psql -d bookshop -c '\d+ orders'
         shows: "Options: autovacuum_enabled=off"
-      - where: every table with storage parameters
+      - where: node:db
+        source: every table with storage parameters
         how: psql -d bookshop -c "SELECT relname, reloptions FROM pg_class WHERE relkind = 'r' AND reloptions IS NOT NULL"
         shows: "orders | {autovacuum_enabled=off}"
     acceptable:
@@ -233,10 +245,12 @@ instances:
       stops, likely during the year-end season. In the quiet game it holds
       back little; the risk is in production.
     evidence:
-      - where: pg_replication_slots
+      - where: node:db
+        source: pg_replication_slots
         how: psql -c 'SELECT slot_name, slot_type, active, restart_lsn, wal_status FROM pg_replication_slots'
         shows: "standby1 | physical | f | (an LSN) | reserved"
-      - where: replication and its limit
+      - where: node:db
+        source: replication and its limit
         how: psql -c 'SELECT count(*) FROM pg_stat_replication' -c 'SHOW max_slot_wal_keep_size'
         shows: no standby connected; -1 (no limit on the WAL a slot may hold)
     acceptable:
@@ -258,3 +272,5 @@ instances:
         1): an improvement, worth crediting, not the fix.
     interactions: []
     validators_left_red: []
+
+tooling_expectations: []           # none in this scenario

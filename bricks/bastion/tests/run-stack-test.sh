@@ -18,8 +18,8 @@
 # Everything it creates is removed on exit, volumes included.
 #
 # Needs: a swarm manager (docker swarm init), both images built locally:
-#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.1.1 bricks/bastion
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.1.1 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.2.0 bricks/bastion
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.2.0 bricks/postgres
 # an OpenSSH client (8.4 or later) on this host, and a free TCP port
 # GMTEST_BASTION_PORT (default 22222).
 # Usage: sh bricks/bastion/tests/run-stack-test.sh
@@ -28,8 +28,8 @@ set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 PG_FIXTURES=$HERE/../../postgres/tests/fixtures
 STACK=gmtest-bastion
-IMAGE=127.0.0.1:5000/dbagm/bastion:0.1.1
-PG_IMAGE=127.0.0.1:5000/dbagm/postgres:0.1.1
+IMAGE=127.0.0.1:5000/dbagm/bastion:0.2.0
+PG_IMAGE=127.0.0.1:5000/dbagm/postgres:0.2.0
 BASTION=${STACK}_bastion
 DB=${STACK}_db
 NET=${STACK}_net

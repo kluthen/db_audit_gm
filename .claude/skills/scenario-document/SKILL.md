@@ -8,14 +8,16 @@ description: Use whenever a db_audit_gm scenario's README.md (the scenario docum
 A scenario's `README.md` is its **scenario document**: the readable whole
 of the scenario, for the GM and the lead. It is **generated** from the two
 authoritative files, `scenario.yaml` and `gm/answer-key.yaml`, with this
-skill's [template](template.md). It is the **initial version (v0.1)** and
-is expected to evolve as games are played; when a game shows the document
+skill's [template](template.md). This is its **v0.2 version**, expected
+to evolve as games are played; when a game shows the document
 is missing something, change the template and this skill together, and
 the [format skill](../scenario-format/SKILL.md)'s templates first if the
 missing thing is not in the authoritative files yet.
 
-Source of the shape: the master spec (`specs/versions/v0.1/master-spec.md`,
-section 6, and 6.2 for the content). The template's sections follow the
+Source of the shape: v0.1's master spec (`specs/versions/v0.1/master-spec.md`,
+section 6, and 6.2 for the content) and v0.2's
+(`specs/versions/v0.2/master-spec.md`, 6.3: evidence `where` and `source`,
+tooling expectations). The template's sections follow the
 keys of the format skill's
 [scenario.yaml](../scenario-format/templates/scenario.yaml) and
 [answer-key.yaml](../scenario-format/templates/answer-key.yaml) templates,
@@ -74,7 +76,9 @@ reconcile by hand. A hand-written note that belongs to the GM goes to
 6. **Check by reading**:
    - the warning is the first thing in the file;
    - every node, flow, fault instance and issue of `scenario.yaml`
-     appears, and every answer-key entry, one per fault instance;
+     appears, and every answer-key entry, one per fault instance, with
+     each evidence entry's `where` and `source`, and every tooling
+     expectation;
    - every value matches its key (versions pinned, knobs' initial values
      and envelopes, reservations, placement);
    - each file path it names exists in the folder (`local/` excepted: it

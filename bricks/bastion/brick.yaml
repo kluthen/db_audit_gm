@@ -1,26 +1,26 @@
 # brick.yaml: bastion node (master spec 7, 9.2 and 14).
 #
-# Initial version (v0.1), expected to evolve as games are played.
+# Version 0.2.0 (unreleased until the v0.2 release gate, D100).
 # Top-level keys: capture W1-A; secrets and starter pack: capture W1-C;
 # quoted octal modes and seed_files mapping: capture W1-D; /run as a named
-# volume: capture W1-E (specs/versions/v0.1/wave-log.md).
+# volume: capture W1-E (specs/versions/v0.1/wave-log.md); footprint shape,
+# secret kinds and `receives`: capture W1 (specs/versions/v0.2/wave-log.md).
 # Operating notes: docs/gm.md.
 
 # --- Identity ---------------------------------------------------------
 id: bastion
-version: 0.1.1
+version: 0.2.0
 roles:
   - bastion
 technology:
   name: openssh
   version: "10.0"                   # Debian 13's OpenSSH; PostgreSQL 18 client tools alongside
-image: 127.0.0.1:5000/dbagm/bastion:0.1.1
+image: 127.0.0.1:5000/dbagm/bastion:0.2.0
 
 # --- Footprint --------------------------------------------------------
-footprint:
-  cpu: 0.25
-  memory: 128M
-  disk: 256M
+footprint:                          # v0.1's figures as reservations, limits twice CPU and memory
+  limits:       {cpu: 0.5, memory: 256M}
+  reservations: {cpu: 0.25, memory: 128M, disk: 256M}
 stateful: true                      # the player's home (~/report.md) and the sshd host key
 
 # --- What the scenario sets -------------------------------------------
@@ -66,17 +66,23 @@ healthcheck:                        # healthy while sshd is up and listening on 
   start_period: 30s
 secrets:
   - name: player_password           # the players' login password, handed over by the GM
+    kind: password
+    handed_over: true
     path: /opt/gm/secrets/player_password
     uid: 0
     gid: 0
     mode: "0400"
   - name: player_ssh_key            # inner-hop private key (ed25519); its public half is
-    path: /opt/gm/secrets/player_ssh_key   # the database node's player_ssh_pubkey
+    kind: key-pair                  # the database node's player_ssh_pubkey
+    pair: player_ssh_key
+    half: private
+    path: /opt/gm/secrets/player_ssh_key
     uid: 0
     gid: 0
     mode: "0400"
   - name: dba_password              # password of the dba role; the same Swarm secret as the
-    path: /opt/gm/secrets/dba_password     # database node's
+    kind: password                  # database node's
+    path: /opt/gm/secrets/dba_password
     uid: 0
     gid: 0
     mode: "0400"
@@ -104,6 +110,9 @@ interfaces:
   consumes:
     - {name: ssh, protocol: ssh, port: 22}   # in-game nodes, by node name
     - {name: sql, protocol: postgresql, port: 5432}
+receives:                           # the image accepts another brick's mounted material
+  s6_overlay: "3.2.3.2"             # the version the Dockerfile installs
+  commands: [sh, cat, du, df, awk, sed, grep, sleep, perl, s6-svstat, s6-setuidgid]
 extra:
   read_only_root: true              # read_only: true in the stack file
   published_port_default: 2222      # scenario.yaml: published_ports: [{port: 22, default: 2222}]

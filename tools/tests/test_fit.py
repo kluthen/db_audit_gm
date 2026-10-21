@@ -80,8 +80,8 @@ class TestFit(ScenarioCopyTest):
         self.assertEqual(impl["stack"], gid)
         self.assertEqual(impl["network"], gid + "_net")
         db = impl["nodes"]["db"]
-        self.assertEqual(db["brick"], {"id": "postgres", "version": "0.1.1"})
-        self.assertEqual(db["image"], "127.0.0.1:5000/dbagm/postgres:0.1.1")
+        self.assertEqual(db["brick"], {"id": "postgres", "version": "0.2.0"})
+        self.assertEqual(db["image"], "127.0.0.1:5000/dbagm/postgres:0.2.0")
         self.assertEqual(db["resources"]["limits"], {"cpu": 1, "memory": "1G"})
         self.assertEqual(db["service"], gid + "_db")
         self.assertEqual(db["published_ports"], [])

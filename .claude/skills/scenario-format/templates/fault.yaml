@@ -1,8 +1,9 @@
 # fault.yaml — template for faults/<fault-id>/fault.yaml
 #   (or scenarios/<scenario-id>/faults/<fault-id>/ for a scenario-only fault)
 #
-# Initial version (v0.1), expected to evolve as games are played.
-# Shape: master spec sections 8 and 8.1.
+# Version v0.2, expected to evolve as games are played.
+# Shape: v0.1 master spec sections 8 and 8.1, v0.2 master spec 6.4 and 6.5;
+# keys of v0.2's capture W1 (specs/versions/v0.2/wave-log.md, item 8).
 #
 # Markers:
 #   every key is REQUIRED unless marked otherwise;
@@ -16,20 +17,25 @@
 
 # --- Identity ---------------------------------------------------------
 id: <fault-id>                      # lowercase, hyphens (pg-hba-trust)
-version: <0.1.0>                    # semver string
+version: <0.1.0>                    # semver string; a fault never bumps (D60): it keeps its
+                                    # version whatever changes in its folder
 title: <one line>
 family: <security>                  # security, performance, replication, backups, rules, ...
 severity: <medium>                  # low | medium | high | critical
 
 # --- Where it applies -------------------------------------------------
 applies_to:
-  bricks:                           # every brick this fault touches
+  bricks:                           # every brick this fault touches; a fault about mounted
+                                    # material names only the brick that ships it
     - id: <postgres>
-      versions: [<"0.1.0">]         # brick versions it is known to work on
+      versions: [<"0.1.0">]         # brick versions it is known to work on, one by one, exact
+                                    # strings (["0.1.0", "0.1.1", "0.2.0"]), never a range; each
+                                    # brick bump adds its version to every fault still applying
   preconditions: []                 # topology preconditions ("needs a standby"); may be []
 
 # --- Parameters the scenario sets -------------------------------------
-parameters:                         # map; may be {}
+parameters:                         # map; may be {}. A fault about mounted material has a
+                                    # required parameter `node`, naming the affected node
   <name>:                           # given to inject/ and checks/ scripts as FAULT_<NAME>
     description: <what it selects (which table, which setting)>
     default: <value or null>
@@ -39,8 +45,11 @@ parameters:                         # map; may be {}
 injection:
   kind: <seed-file>                 # seed-file: the change is part of a node's seed files,
                                     #   written into scenarios/<id>/nodes/<node>/ at authoring;
-                                    # state: the GM streams inject/ scripts into the node
-  stage: <seed>                     # seed (present from first start)
+                                    # state: the GM streams inject/ scripts into the node;
+                                    # parameter: a change to a parameter of the target node,
+                                    #   applied by the renderer when it writes the local
+                                    #   implementation (seed-file | state | parameter)
+  stage: <seed>                     # seed (present from first start: seed-file, parameter)
                                     # | after-data-load (state faults, before hand-over)
   seed_changes:                     # optional: kind seed-file only
     - file: <pg_hba.conf>           # a seed file name the target brick declares in seed.files
@@ -48,6 +57,18 @@ injection:
       material: <inject/pg_hba.conf.snippet>   # optional: a snippet to paste
   scripts:                          # optional: kind state only; run in this order
     - <inject/10-plant.sh>
+  parameter_changes:                # optional: kind parameter only; applied in this order
+    - parameter: <node_health>      # a parameter of the target node's brick
+      op: <remove-entry>            # set | remove-entry | remove-from-entry
+      entry: "<{NODE}>"             # optional: remove-entry, remove-from-entry; the map key
+      item: "<{SERVICE}>"           # optional: remove-from-entry; the list item removed (a
+                                    # `default` entry is first expanded to the brick's processes)
+      value: <scalar>               # optional: set; the new value
+      change: <what the change does to the node, e.g. "the node gets no node-health script">
+  # {NAME} in entry, item or value is replaced by the instance's fault
+  # parameter NAME (the name upper-cased, - as _, as for FAULT_<NAME>). A
+  # fault is about mounted material when a parameter_changes[].parameter is
+  # the `parameter` of a companion.mounted item of the target brick.
   run_as: root                      # injection scripts run as root unless stated here
   # Contract (master spec 8.1): POSIX shell, fed on stdin to `sh -s` inside
   # the target container, parameters as FAULT_<NAME> environment variables.
@@ -56,7 +77,8 @@ injection:
 
 # --- What the players can see ------------------------------------------
 evidence:                           # as the `player` OS user (and `dba` in psql)
-  - where: <file, view or command output>
+  - where: <file, view or command output>   # free text, v0.1's meaning (kept in v0.2); an answer
+                                    # key's evidence splits it into `where` and `source`
     how: <command run as player, e.g. "cat /etc/postgresql/pg_hba.conf">
     shows: <what in the output reveals the fault>
 

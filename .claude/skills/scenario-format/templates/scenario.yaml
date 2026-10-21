@@ -1,8 +1,10 @@
 # scenario.yaml — template for scenarios/<scenario-id>/scenario.yaml
 #
-# Initial version (v0.1), expected to evolve as games are played.
-# Shape: master spec section 6. This file and gm/answer-key.yaml are
+# Version v0.2, expected to evolve as games are played.
+# Shape: v0.1 master spec section 6 and v0.2 master spec 6.3 (capture W1 of
+# specs/versions/v0.2/wave-log.md). This file and gm/answer-key.yaml are
 # AUTHORITATIVE; README.md (the scenario document) is generated from them.
+# A scenario never bumps its version (D58, D75); git history is the record.
 #
 # Markers:
 #   every key is REQUIRED unless marked otherwise;
@@ -18,7 +20,7 @@
 
 # --- Scenario information --------------------------------------------
 id: <scenario-id>
-version: <0.1.0>                    # semver string
+version: <0.1.0>                    # semver string; kept whatever changes
 title: <one line>
 date: <YYYY-MM-DD>                  # date of this version
 origin: <hand-written>              # hand-written | from-brief | gm-designed
@@ -30,7 +32,8 @@ background: >-
   story the players read is player/story.md.>
 
 # --- Topology ---------------------------------------------------------
-networks:
+networks:                           # each renders as <game_id>_<name>; v0.2 scenarios declare
+                                    # one network, and the scripts refuse a second (D85, D106)
   - name: <backend>
     description: <what travels on it>
 
@@ -38,15 +41,22 @@ nodes:                              # one entry per node (one service, one conta
   - name: <db>                      # node name; peers reach it by this name only
     brick:
       id: <postgres>                # looked up in the scenario's bricks/ first, then the catalog
-      version: <0.1.0>              # pinned
+      version: <0.1.0>              # pinned: the brick's current version (one per brick)
     role: <database>                # one of the brick's roles
     stateful: <true>                # as the brick declares
     networks: [<backend>]
     write_policy: <fixable>         # fixable | report-only | no-access
                                     # (fixable and report-only only when the brick supports them)
     parameters: {}                  # map NAME -> value for the brick's parameters; every
-                                    # required brick parameter is set; may be {}
-    resources:                      # absolute in v0.1: never recomputed per playground
+                                    # required brick parameter is set; may be {}. A shaped
+                                    # parameter takes a map: node-map, e.g. prometheus's
+                                    # node_health {bastion: default, db: [postgres, sshd],
+                                    # prometheus: default}, required with a prometheus node and
+                                    # listing every node of the topology, its own included;
+                                    # web-routes, e.g. the bastion's web_routes
+                                    # {prometheus: "prometheus:9090"}, one route per web interface
+    resources:                      # absolute: never recomputed per playground; includes what
+                                    # mounted companion material adds to the node
       limits:
         cpu: <1>
         memory: <1G>
@@ -54,8 +64,10 @@ nodes:                              # one entry per node (one service, one conta
         cpu: <0.5>
         memory: <512M>
         disk: <2G>
-    published_ports: []             # bastion only in v0.1: [{port: 22, default: 2222}];
-                                    # the local implementation records the port actually used
+    published_ports: []             # bastion only: [{port: 22, default: 2222}], and
+                                    # {port: 8080, default: 8080} (the web front) exactly when
+                                    # its web_routes is non-empty; the local implementation
+                                    # records the port actually used
     seed_files:                     # one entry per file in the brick's seed.files; may be {}
       <postgresql.conf>: nodes/<db>/postgresql.conf
                                     # bastion: README.md: player/README.md, story.md:
@@ -97,11 +109,13 @@ issues:                             # given to the players at hand-over; may be 
     complaint: >-
       <The complaint as the players read it (also in player/issues.md).>
     expected_resolution: <fix>      # report | propose | fix | improve
-    covers: [<f1>]                  # fault instance ids
+    covers: [<f1>]                  # fault instance ids, and tooling expectation ids of
+                                    # gm/answer-key.yaml (an issue covering only expectations
+                                    # expects report or propose)
 
 # --- Host topology it was designed for -------------------------------
 designed_for:
-  platform: <swarm>                 # swarm in v0.1
+  platform: <swarm>                 # swarm (v0.1, v0.2)
   hosts:
     - name: <host-1>
       cpu: <4>

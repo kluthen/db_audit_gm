@@ -1,14 +1,14 @@
 # Bastion brick — GM notes
 
 GM documentation of the `bastion` brick (`brick.yaml`, master spec 9.2
-and 14; required sections: spec D56). Never shipped to players. Initial
-version (v0.1), expected to evolve as games are played.
+and 14; required sections: spec D56). Never shipped to players. Brick
+version 0.2.0, expected to evolve as games are played.
 
 ## Purpose
 
 An SSH bastion on Debian 13 (trixie): OpenSSH 10.0 with the PostgreSQL 18
 client tools alongside, in the image
-`127.0.0.1:5000/dbagm/bastion:0.1.1`. It fills the role `bastion`: the
+`127.0.0.1:5000/dbagm/bastion:0.2.0`. It fills the role `bastion`: the
 players' only way into the game. They log in with a per-game password,
 find the starter pack in their home, and reach the in-game nodes from
 there by SSH and `psql`. The GM picks it for every scenario; nothing on
@@ -29,7 +29,7 @@ The image:
 - **What gets installed**: a node of its own, from the brick's image. The
   image must be on the engine that runs the game: deployment never pulls
   it (`gmctl deploy` deploys with `--resolve-image never`).
-- **Build**: `docker build -t 127.0.0.1:5000/dbagm/bastion:0.1.1 bricks/bastion`.
+- **Build**: `docker build -t 127.0.0.1:5000/dbagm/bastion:0.2.0 bricks/bastion`.
 - **How many**: one per scenario (master spec: the players reach the
   system through a single bastion).
 - **Next to which node**: any host. Its SSH port is published on the host
@@ -53,9 +53,9 @@ per-game secrets.
 | What | Where it lands | Set by |
 |---|---|---|
 | Starter pack `README.md`, `story.md`, `issues.md` (`seed.files`) | `/opt/gm/starter/`, root `0444`, copied once into `/home/player` | the scenario's `seed_files`: `{README.md: player/README.md, story.md: player/story.md, issues.md: player/issues.md}` (capture W1-D) |
-| Secret `player_password` | `/opt/gm/secrets/player_password`, root `0400` | `gmctl deploy`; the GM hands it to the players |
-| Secret `player_ssh_key` | `/opt/gm/secrets/player_ssh_key`, root `0400` | `gmctl deploy`: an ed25519 key pair whose public half is the database node's `player_ssh_pubkey` |
-| Secret `dba_password` | `/opt/gm/secrets/dba_password`, root `0400` | `gmctl deploy`: the same secret as the database node's |
+| Secret `player_password` (kind `password`, handed over) | `/opt/gm/secrets/player_password`, root `0400` | `gmctl deploy`; the GM hands it to the players |
+| Secret `player_ssh_key` (kind `key-pair`, pair `player_ssh_key`, half `private`) | `/opt/gm/secrets/player_ssh_key`, root `0400` | `gmctl deploy`: an ed25519 key pair whose public half is the database node's `player_ssh_pubkey` |
+| Secret `dba_password` (kind `password`, not handed over) | `/opt/gm/secrets/dba_password`, root `0400` | `gmctl deploy`: the same secret as the database node's |
 | Published port | the host's port for container port 22 | the scenario's `published_ports: [{port: 22, default: 2222}]` |
 
 `dba_password` is the same Swarm secret as the database node's.
@@ -149,6 +149,14 @@ The bastion provides one interface and consumes two (`interfaces` in
 bastion has no metrics endpoint. The sshd log goes to the container's
 output only (`gmctl logs`). It has no web interface to relay in v0.1.
 
+**Mounted material**: the image accepts another brick's mounted companion
+material (`brick.yaml` `receives`): it runs s6-overlay `3.2.3.2`, and the
+commands `sh`, `cat`, `du`, `df`, `awk`, `sed`, `grep`, `sleep`, `perl`,
+`s6-svstat` and `s6-setuidgid` are on an s6 service's PATH. A brick whose
+mounted material requires no more than that (such as `prometheus`'s
+node-health script) can be mounted into this node; the cost of that
+material is stated by the brick that ships it, not here.
+
 ### Inner hop and host keys
 
 Capture W1-E. The database node's sshd host key is created anew whenever
@@ -230,9 +238,13 @@ shows the sshd log.
 
 ## Footprint
 
-Default footprint in `brick.yaml`: CPU `0.25`, memory `128M`, disk
-`256M`. `brick.yaml` gives one figure per dimension, not separate limits
-and reservations, and no allowed range. The scenario sets the node's own
+Default footprint in `brick.yaml`, in the shape of a scenario node's
+`resources`: limits CPU `0.5` and memory `256M`; reservations CPU `0.25`,
+memory `128M` and disk `256M` (v0.1's single figures became the
+reservations, the limits twice the CPU and memory). No allowed range. It
+excludes any material other bricks mount into the node: what that adds
+per node is stated by the brick that ships it, and the GM adds it to the
+node's `resources` in the scenario. The scenario sets the node's own
 `resources` (limits for CPU and memory, reservations for CPU, memory and
 disk), and `gmctl` uses those, never the brick's footprint. The renderer
 applies the CPU and memory limits and reservations; disk is only counted

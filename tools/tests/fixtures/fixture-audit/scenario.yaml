@@ -24,7 +24,7 @@ nodes:
   - name: bastion
     brick:
       id: bastion
-      version: 0.1.1
+      version: 0.2.0
     role: bastion
     stateful: true
     networks: [backend]
@@ -48,7 +48,7 @@ nodes:
   - name: db
     brick:
       id: postgres
-      version: 0.1.1
+      version: 0.2.0
     role: database
     stateful: true
     networks: [backend]

@@ -9,7 +9,8 @@ instances:
     what: random_page_cost is 4.0, the spinning-disk default, on SSD storage.
     why: the planner overprices index scans and favours sequential scans.
     evidence:
-      - where: postgresql.conf and SHOW random_page_cost
+      - where: node:db
+        source: postgresql.conf and SHOW random_page_cost
         how: ssh db, then psql -c 'SHOW random_page_cost'
         shows: "4"
     acceptable:
@@ -25,7 +26,8 @@ instances:
     what: the index on orders (customer_id) is gone.
     why: every lookup of a customer's orders reads the whole orders table.
     evidence:
-      - where: the indexes of orders, and the plan of a lookup by customer
+      - where: node:db
+        source: the indexes of orders, and the plan of a lookup by customer
         how: ssh db, then psql -d shop -c '\d orders'
         shows: no index on customer_id; EXPLAIN shows a sequential scan
     acceptable:
@@ -37,3 +39,5 @@ instances:
       notes: planted after the data load by gmctl inject (a state fault).
     interactions: []
     validators_left_red: []
+
+tooling_expectations: []           # none in this scenario
