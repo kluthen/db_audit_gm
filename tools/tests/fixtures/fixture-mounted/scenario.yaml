@@ -1,0 +1,146 @@
+# Fixture scenario for tools/tests (v0.2 chunk 2). Not a game: loaded,
+# never rendered nor deployed. Scenario-local bricks that mount and
+# receive material (fixture-monitor mounts node-health into every node,
+# itself included), a web front routing to the monitor's interface, a
+# parameter fault about the mounted material (f2) and an issue covering a
+# tooling expectation (capture W1 of specs/versions/v0.2/wave-log.md,
+# items 3 to 10).
+
+# --- Scenario information --------------------------------------------
+id: fixture-mounted
+version: 0.1.0
+title: Fixture scenario for the loader's mounted-material checks
+date: 2026-10-21
+origin: hand-written
+session_length_minutes: 60
+brief: brief.md
+background: >-
+  A small team runs one application and a monitoring node, reached through
+  a bastion whose web front publishes the monitoring interface.
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: backend
+    description: players' sessions, the web front's routes and the monitor's scrapes
+
+nodes:
+  - name: bastion
+    brick:
+      id: fixture-front
+      version: 0.1.0
+    role: bastion
+    stateful: false
+    networks: [backend]
+    write_policy: report-only
+    parameters:
+      web_routes: {monitor: "monitor:9090"}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.25
+        memory: 128M
+        disk: 256M
+    published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
+    seed_files: {}
+    knobs: []
+
+  - name: app
+    brick:
+      id: fixture-app
+      version: 0.1.0
+    role: application
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.25
+        memory: 128M
+        disk: 512M
+    published_ports: []
+    seed_files: {}
+    knobs: []
+
+  - name: monitor
+    brick:
+      id: fixture-monitor
+      version: 0.1.0
+    role: monitoring
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters:
+      node_health: {bastion: default, app: [app, sshd], monitor: default}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.25
+        memory: 128M
+        disk: 512M
+    published_ports: []
+    seed_files: {}
+    knobs: []
+
+flows:
+  - from: bastion
+    to: app
+    what: players' SSH sessions
+    how: ssh 22
+    cadence: interactive
+  - from: bastion
+    to: monitor
+    what: the web front's route to the monitoring interface
+    how: http 9090
+    cadence: interactive
+  - from: monitor
+    to: app
+    what: node-health scrapes
+    how: http
+    cadence: continuous
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:
+  - id: f1
+    fault:
+      id: fixture-app-stopped
+      version: 0.1.0
+    node: app
+    parameters: {}
+    visibility: hidden
+  - id: f2
+    fault:
+      id: fixture-node-left-out
+      version: 0.1.0
+    node: monitor
+    parameters:
+      node: app
+    visibility: hidden
+
+issues:
+  - id: I1
+    complaint: >-
+      We have no idea whether our monitoring would tell us when something
+      goes wrong.
+    expected_resolution: report
+    covers: [t1]
+
+# --- Host topology it was designed for -------------------------------
+designed_for:
+  platform: swarm
+  hosts:
+    - name: host-1
+      cpu: 2
+      memory: 4G
+      disk: 20G
+  placement:
+    bastion: host-1
+    app: host-1
+    monitor: host-1

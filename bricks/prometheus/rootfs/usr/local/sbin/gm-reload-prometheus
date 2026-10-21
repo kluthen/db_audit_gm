@@ -1,0 +1,90 @@
+#!/bin/sh
+# gm-reload-prometheus: check, then reload Prometheus' configuration.
+# Usage: sudo gm-reload-prometheus
+# DO NOT TAMPER. Root-owned, read-only; allowed by /etc/sudoers.d/gm-player.
+#
+# Checks /etc/prometheus/prometheus.yml with promtool, as `prometheus`, and
+# refuses to reload if it does not load, so a typo does not reach the
+# server. Otherwise sends SIGHUP through s6 (the HTTP lifecycle endpoint is
+# disabled) and reports what Prometheus says: whether the reload succeeded
+# and the retention now in effect (storage.tsdb.retention in the file).
+# If Prometheus is not running, s6 keeps restarting it: the wrapper waits
+# for it to come back with the checked file.
+set -u
+PATH=/command:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+CONF=/etc/prometheus/prometheus.yml
+SERVICE=/run/service/prometheus
+URL=http://127.0.0.1:9090/prometheus
+WAIT=30
+
+if [ "$#" -ne 0 ]; then
+    echo "usage: sudo gm-reload-prometheus (no arguments)" >&2
+    exit 2
+fi
+
+as_prometheus() { runuser -u prometheus -- env HOME=/var/lib/prometheus "$@"; }
+ready() { curl -fsS -o /dev/null -m 3 "$URL/-/ready" 2>/dev/null; }
+runtimeinfo() { curl -fsS -m 3 "$URL/api/v1/status/runtimeinfo" 2>/dev/null; }
+# json_str <key> / json_bool <key>: a top-level value of runtimeinfo's flat JSON.
+json_str() { sed -n "s/.*\"$1\":\"\([^\"]*\)\".*/\1/p"; }
+json_bool() { sed -n "s/.*\"$1\":\([a-z]*\).*/\1/p"; }
+reload_stamp() {
+    curl -fsS -m 3 "$URL/metrics" 2>/dev/null |
+        sed -n 's/^prometheus_config_last_reload_success_timestamp_seconds \(.*\)$/\1/p'
+}
+report() {
+    info=$(runtimeinfo)
+    echo "gm-reload-prometheus: retention in effect: $(printf '%s' "$info" | json_str storageRetention)"
+}
+
+# 1. The file loads (syntax, values, rule files it names).
+if ! out=$(as_prometheus promtool check config "$CONF" 2>&1); then
+    echo "gm-reload-prometheus: $CONF does not load; Prometheus was NOT reloaded:"
+    printf '%s\n' "$out" | sed 's/^/  /'
+    exit 1
+fi
+
+# 2. Not running (a file that did not load when the container started, for
+#    example): s6 restarts it on its own; wait for it with the checked file.
+if ! ready; then
+    i=0
+    while [ "$i" -lt "$WAIT" ]; do
+        sleep 1
+        i=$((i + 1))
+        if ready; then
+            echo "gm-reload-prometheus: Prometheus was not running; it is back with $CONF."
+            report
+            exit 0
+        fi
+    done
+    echo "gm-reload-prometheus: Prometheus is not running and did not come back within ${WAIT}s." >&2
+    echo "  Check your last changes (sudo gm-validate), fix them, then run sudo gm-reload-prometheus again." >&2
+    exit 1
+fi
+
+# 3. Reload through s6 (SIGHUP) and wait for Prometheus to record it. The
+#    success timestamp has a one-second resolution: wait a second first, so
+#    a reload just after the previous one still shows as a new one.
+before=$(reload_stamp)
+sleep 1
+s6-svc -h "$SERVICE" || { echo "gm-reload-prometheus: could not signal the prometheus service" >&2; exit 1; }
+i=0
+while [ "$i" -lt 20 ]; do
+    sleep 0.5
+    i=$((i + 1))
+    info=$(runtimeinfo)
+    if [ "$(printf '%s' "$info" | json_bool reloadConfigSuccess)" = false ]; then
+        echo "gm-reload-prometheus: Prometheus refused the configuration and keeps running the previous one."
+        echo "  Run sudo gm-validate; the reason is in Prometheus' log, which the game master can read."
+        exit 1
+    fi
+    after=$(reload_stamp)
+    if [ -n "$after" ] && [ "$after" != "$before" ]; then
+        echo "gm-reload-prometheus: configuration reloaded."
+        report
+        exit 0
+    fi
+done
+echo "gm-reload-prometheus: Prometheus did not confirm the reload within 10s; run sudo gm-validate." >&2
+exit 1

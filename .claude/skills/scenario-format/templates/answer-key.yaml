@@ -1,7 +1,8 @@
 # answer-key.yaml — template for scenarios/<scenario-id>/gm/answer-key.yaml
 #
-# Initial version (v0.1), expected to evolve as games are played.
-# Shape: master spec section 6.2 ("The answer key"). This file and
+# Version v0.2, expected to evolve as games are played.
+# Shape: v0.1 master spec section 6.2 ("The answer key") and v0.2 master
+# spec 6.3 (capture W1 of specs/versions/v0.2/wave-log.md). This file and
 # scenario.yaml are AUTHORITATIVE. It lives under gm/, which is sealed:
 # never shipped to any node, never shown to the players before their
 # final answer.
@@ -23,7 +24,12 @@ instances:                          # exactly one entry per fault instance in sc
     what: <what is wrong, concretely, on this node>
     why: <why it is wrong, the risk or the cost>
     evidence:                       # as the `player` OS user (and `dba` in psql)
-      - where: <file, view or command output>
+      - where: <node:db>            # where it is run: bastion (a shell on the bastion, psql
+                                    # from there included) | node:<name> (a node other than the
+                                    # bastion) | ui:<name> (a route of the bastion's web_routes)
+                                    # | report:<tool> (a generated report; <tool> lowercase,
+                                    # e.g. report:pgbadger)
+        source: <file, view or command output>   # what is looked at (v0.1's free-text where, D101)
         how: <command run as player>
         shows: <what in the output reveals it>
     acceptable:                     # what counts as an acceptable answer
@@ -48,3 +54,15 @@ instances:                          # exactly one entry per fault instance in sc
                                     # Reporting each is part of the expected answer:
                                     # [{node: <db>, rule: <validator output line>,
                                     #   why: <why it cannot be made green>}]
+
+tooling_expectations:               # the GM's silent tooling expectations, apart from the fault
+                                    # instances; may be []. No visibility, no sealed check:
+                                    # judged in feedback. An issue covers one through its covers
+                                    # list. Under-tooling and overkill are findings, never faults;
+                                    # the bastion and its tools are the players' kit, not the
+                                    # customer's tooling.
+  - id: <t1>                        # unique across fault instance ids and expectation ids
+    need: <log analysis>            # the need, in a few words
+    expected: <what monitoring the GM silently expects of the customer>
+    acceptable: <what is acceptable, e.g. any of the top three tools for the need>
+    notes: <for feedback>           # optional

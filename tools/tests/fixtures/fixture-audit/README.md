@@ -57,12 +57,12 @@ The story as the players read it: `player/story.md`.
 
 | Node | Brick | Role | Stateful | Networks | Write policy |
 |---|---|---|---|---|---|
-| `bastion` | `bastion` 0.1.1 | bastion | yes | backend | report-only |
-| `db` | `postgres` 0.1.1 | database | yes | backend | fixable |
+| `bastion` | `bastion` 0.2.0 | bastion | yes | backend | report-only |
+| `db` | `postgres` 0.2.0 | database | yes | backend | fixable |
 
 #### Node `bastion`
 
-- **Brick**: `bastion`, version 0.1.1 (pinned).
+- **Brick**: `bastion`, version 0.2.0 (pinned).
 - **Role**: bastion. **Stateful**: yes. **Write policy**:
   report-only.
 - **Networks**: backend.
@@ -84,7 +84,7 @@ No knobs.
 
 #### Node `db`
 
-- **Brick**: `postgres`, version 0.1.1 (pinned).
+- **Brick**: `postgres`, version 0.2.0 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -166,9 +166,9 @@ Longer explanations for feedback: `gm/notes.md`.
 
 Evidence, as the `player` user (and `dba` in psql):
 
-| Where | How | Shows |
-|---|---|---|
-| postgresql.conf and SHOW random_page_cost | `ssh db, then psql -c 'SHOW random_page_cost'` | 4 |
+| Where | Source | How | Shows |
+|---|---|---|---|
+| `node:db` | postgresql.conf and SHOW random_page_cost | `ssh db, then psql -c 'SHOW random_page_cost'` | 4 |
 
 Acceptable answers:
 
@@ -191,9 +191,9 @@ the expected answer): none.
 
 Evidence, as the `player` user (and `dba` in psql):
 
-| Where | How | Shows |
-|---|---|---|
-| the indexes of orders, and the plan of a lookup by customer | `ssh db, then psql -d shop -c '\d orders'` | no index on customer_id; EXPLAIN shows a sequential scan |
+| Where | Source | How | Shows |
+|---|---|---|---|
+| `node:db` | the indexes of orders, and the plan of a lookup by customer | `ssh db, then psql -d shop -c '\d orders'` | no index on customer_id; EXPLAIN shows a sequential scan |
 
 Acceptable answers:
 
@@ -208,6 +208,10 @@ Interactions: none.
 
 Public validators the players cannot make green (reporting each is part of
 the expected answer): none.
+
+### Tooling expectations
+
+None.
 
 ## 7. Starter pack, node files and data
 

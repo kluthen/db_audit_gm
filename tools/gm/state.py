@@ -6,7 +6,8 @@ written by `localimpl`; this
 module adds what a setup step needs: if the step fails, or anyone stops it,
 what it deployed is torn down and the failure is recorded with its reason.
 It also records the stages no script reaches, which only the GM can tell
-(`gmctl status --set`; spec D49, capture W3-A).
+(`gmctl status --set`; spec D49, capture W3-A). `gmctl status` lists the
+game's network and, once deployed, its secret files (v0.2 chunk 3).
 """
 
 import contextlib
@@ -117,7 +118,31 @@ def status_text(ldir):
     lines.append("  history:")
     for entry in state.get("history") or []:
         lines.append(f"    {entry.get('at')}  {entry.get('stage')}")
+    impl = localimpl.read_yaml(ldir / localimpl.IMPLEMENTATION_FILE) or {}
+    if impl.get("network"):
+        lines.append(f"  network: {impl['network']}")
     if localimpl.effective_stage(state) in DEPLOYED_STAGES \
             and state.get("stage") != localimpl.FAILED:
-        lines.append(f"  credentials: {localimpl.secrets_dir(ldir)}/ (not printed)")
+        lines.append(f"  secrets: {localimpl.secrets_dir(ldir)}/ (mode 0600, not printed)")
+        lines += [f"    {name}: {what}" for name, what in secret_files(impl)]
     return "\n".join(lines)
+
+
+def secret_files(impl):
+    """`[(file in secrets/, what it holds)]` for an implementation, in its
+    order: a password (`handed over` when players type it), or one half of
+    a key pair; a pair's two files are listed once, together."""
+    out, seen = [], set()
+    for sec in impl.get("secrets") or []:
+        if sec.get("kind") == localimpl.KEY_PAIR:
+            pair = sec.get("pair")
+            files = [(pair, f"private key of pair {pair}"),
+                     (pair + localimpl.PUBLIC_KEY_SUFFIX, f"public key of pair {pair}")]
+        else:
+            files = [(sec.get("secret"),
+                      "password, handed over" if sec.get("handed_over") else "password")]
+        for name, what in files:
+            if name not in seen:
+                seen.add(name)
+                out.append((name, what))
+    return out

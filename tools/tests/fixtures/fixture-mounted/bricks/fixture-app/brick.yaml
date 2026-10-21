@@ -1,0 +1,69 @@
+# brick.yaml: fixture application node (tools/tests, v0.2 chunk 2). Not a
+# catalog brick: loaded, never built. It receives mounted material
+# (capture W1 of specs/versions/v0.2/wave-log.md, item 5).
+
+# --- Identity ---------------------------------------------------------
+id: fixture-app
+version: 0.1.0
+roles:
+  - application
+technology:
+  name: busybox
+  version: "1.37"
+image: 127.0.0.1:5000/dbagm/fixture-app:0.1.0
+
+# --- Footprint --------------------------------------------------------
+footprint:
+  limits:       {cpu: 0.5, memory: 256M}
+  reservations: {cpu: 0.25, memory: 128M, disk: 512M}
+stateful: true
+
+# --- What the scenario sets -------------------------------------------
+parameters:
+  listen_port:
+    description: the port the application listens on
+    default: 8000
+    required: false
+knobs: []
+
+# --- Player plane -----------------------------------------------------
+write_policies:
+  - report-only
+writable_paths: []
+protected_files:
+  - /etc/app.conf
+player_access:
+  ssh_account: player
+  group: player
+  sudo_wrappers: []
+capabilities:
+  - SETUID
+  - SETGID
+
+# --- Runtime ----------------------------------------------------------
+healthcheck:
+  command: ["/bin/sh", "-c", "true"]
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 30s
+secrets: []
+seed:
+  dir: /opt/gm/seed/
+  files: []
+protected_configs: []
+volumes:
+  - name: data
+    path: /var/lib/app
+processes:
+  - app
+  - sshd
+
+# --- Catalog links ----------------------------------------------------
+interfaces:
+  provides:
+    - {name: http, protocol: http, port: 8000}
+  consumes: []
+receives:
+  s6_overlay: "3.2.3.2"
+  commands: [sh, cat, du, df, awk, sed, grep, sleep, perl, s6-svstat, s6-setuidgid]

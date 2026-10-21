@@ -33,6 +33,26 @@ ORIGINS = ("hand-written", "from-brief", "gm-designed")
 RESOLUTION_KINDS = ("report", "propose", "fix", "improve")
 MAX_SESSION_MINUTES = 240
 
+# Parameter shapes, mounted companion material, receiving declarations and
+# the web front (v0.2's capture W1, items 2 to 6).
+SHAPES = ("node-map", "web-routes")
+COMMAND_VOCABULARY = ("sh", "cat", "du", "df", "awk", "sed", "grep", "sleep", "perl",
+                      "s6-svstat", "s6-setuidgid")
+VERSION_PREFIX_RE = re.compile(r"^\d+(\.\d+)*$")
+WEB_PATH_RE = re.compile(r"^/([a-z]([a-z0-9-]{0,61}[a-z0-9])?)/$")
+ROUTE_TARGET_RE = re.compile(r"^([a-z]([a-z0-9-]{0,61}[a-z0-9])?):(\d+)$")
+WEB_FRONT_PORT = 8080
+
+# The `parameter` injection kind (capture W1, item 8): each op and the keys
+# it takes; `{NAME}` is replaced by the instance's fault parameter NAME.
+PARAMETER_OPS = {"set": ("value",), "remove-entry": ("entry",),
+                 "remove-from-entry": ("entry", "item")}
+SUBSTITUTION_RE = re.compile(r"\{([^{}]*)\}")
+REPORT_TOOL_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+# An issue covering only tooling expectations (capture W1, item 10).
+EXPECTATION_RESOLUTIONS = ("report", "propose")
+EXACT_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$")
+
 # Fault parameters reach inject/ and checks/ scripts as FAULT_<NAME>
 # (captures W1-D, W3-A): the name upper-cased, `-` replaced by `_`.
 FAULT_ENV_PREFIX = "FAULT_"
@@ -463,7 +483,126 @@ def check_brick_dir(brick_dir, label_base=None):
     _check_modes(data.get("protected_configs"), label, "protected_configs", out)
     if not isinstance(data.get("stateful"), bool):
         out.append(f"{label}: stateful: not a boolean")
+    _check_resources(data.get("footprint"), "footprint", out, label)
+    params = data.get("parameters")
+    for pname, spec in params.items() if isinstance(params, dict) else ():
+        if isinstance(spec, dict) and "shape" in spec and spec["shape"] not in SHAPES:
+            out.append(f"{label}: parameters.{pname}.shape: {spec['shape']} is not "
+                       f"{' or '.join(SHAPES)}")
+    provides = _dict(data.get("interfaces")).get("provides")
+    for i, iface in enumerate(provides if isinstance(provides, list) else []):
+        if isinstance(iface, dict) and "web_path" in iface \
+                and not WEB_PATH_RE.match(str(iface["web_path"])):
+            out.append(f"{label}: interfaces.provides[{_item_label(iface, i)}].web_path: "
+                       f"{iface['web_path']} is not /<route>/ (one lowercase name between "
+                       "slashes)")
+    _check_mounted(data, brick_dir, base, label, out)
+    _check_receives(data.get("receives"), label, out)
     return out
+
+
+def _version_prefix_problem(value):
+    if not isinstance(value, str):
+        return f"{value!r} is not a quoted version string"
+    if not VERSION_PREFIX_RE.match(value):
+        return f"{value} is not a version (digits and dots)"
+    return None
+
+
+def _unknown_commands(commands):
+    return [c for c in commands if c not in COMMAND_VOCABULARY] \
+        if isinstance(commands, list) else []
+
+
+def _check_read_only_mode(entry, p, label, out):
+    if not isinstance(entry, dict) or "mode" not in entry:
+        return
+    try:
+        mode = parse_mode(entry["mode"])
+    except ValueError as exc:
+        out.append(f"{label}: {p}.mode: {exc}")
+        return
+    if mode & 0o222:
+        out.append(f"{label}: {p}.mode: {entry['mode']} has a write bit (mounted material "
+                   "is read-only)")
+
+
+def _check_target(entry, p, label, out):
+    if isinstance(entry, dict) and "target" in entry \
+            and not (isinstance(entry["target"], str) and entry["target"].startswith("/")):
+        out.append(f"{label}: {p}.target: {entry['target']} is not an absolute path")
+
+
+def mounted_items(brick_data):
+    """The brick's `companion.mounted` items (mappings only)."""
+    companion = brick_data.get("companion")
+    mounted = companion.get("mounted") if isinstance(companion, dict) else None
+    return [m for m in mounted or [] if isinstance(m, dict)] \
+        if isinstance(mounted, list) else []
+
+
+def _check_mounted(data, brick_dir, base, label, out):
+    """Mounted companion material (capture W1, item 4)."""
+    params = data.get("parameters") if isinstance(data.get("parameters"), dict) else {}
+    seen = set()
+    for item in mounted_items(data):
+        name = item.get("name")
+        p = f"companion.mounted[{name}]"
+        if name is not None and not (isinstance(name, str) and NAME_RE.match(name)):
+            out.append(f"{label}: {p}.name: {name!r} is not lowercase letters, digits and "
+                       "hyphens starting with a letter")
+        if name in seen:
+            out.append(f"{label}: {p}: duplicate item name")
+        seen.add(name)
+        pname = item.get("parameter")
+        if pname is not None:
+            spec = params.get(pname)
+            if spec is None:
+                out.append(f"{label}: {p}.parameter: {pname} is not a parameter of the brick")
+            elif not isinstance(spec, dict) or spec.get("shape") != "node-map":
+                out.append(f"{label}: {p}.parameter: {pname} is not a node-map parameter "
+                           "(shape: node-map)")
+        files = item.get("files")
+        for entry in files if isinstance(files, list) else []:
+            if not isinstance(entry, dict):
+                continue
+            source = entry.get("source")
+            fp = f"{p}.files[{source}]"
+            if source is not None:
+                path = _inside(brick_dir, source)
+                if not (isinstance(source, str) and source.startswith("companion/")
+                        and path is not None):
+                    out.append(f"{label}: {fp}.source: {source} is not under companion/")
+                elif not path.is_file():
+                    out.append(f"{_rel(brick_dir / source, base)}: missing file ({p}.files)")
+            _check_target(entry, fp, label, out)
+            _check_read_only_mode(entry, fp, label, out)
+        node_config = item.get("node_config")
+        _check_target(node_config, f"{p}.node_config", label, out)
+        _check_read_only_mode(node_config, f"{p}.node_config", label, out)
+        _check_resources(item.get("footprint"), f"{p}.footprint", out, label)
+        requires = item.get("requires")
+        if isinstance(requires, dict):
+            if "s6_overlay" in requires:
+                problem = _version_prefix_problem(requires["s6_overlay"])
+                if problem:
+                    out.append(f"{label}: {p}.requires.s6_overlay: {problem}")
+            for command in _unknown_commands(requires.get("commands")):
+                out.append(f"{label}: {p}.requires.commands: {command} is not in the command "
+                           f"vocabulary ({' '.join(COMMAND_VOCABULARY)})")
+
+
+def _check_receives(receives, label, out):
+    """A receiving declaration (capture W1, item 5)."""
+    if not isinstance(receives, dict):
+        return
+    if "s6_overlay" in receives:
+        problem = _version_prefix_problem(receives["s6_overlay"])
+        if problem:
+            out.append(f"{label}: receives.s6_overlay: {problem}")
+    for command in _unknown_commands(receives.get("commands")):
+        out.append(f"{label}: receives.commands: {command} is not in the command vocabulary "
+                   f"({' '.join(COMMAND_VOCABULARY)})")
 
 
 def check_fault_dir(fault_dir, label_base=None):
@@ -499,8 +638,8 @@ def check_fault_dir(fault_dir, label_base=None):
         for script in injection.get("scripts") or []:
             if not (fault_dir / str(script)).is_file():
                 out.append(f"{_rel(fault_dir / str(script), base)}: missing file")
-    elif kind is not None:
-        out.append(f"{label}: injection.kind: {kind} is not seed-file or state")
+    elif kind is not None and kind != "parameter":
+        out.append(f"{label}: injection.kind: {kind} is not seed-file, state or parameter")
     params = data.get("parameters")
     env_names = {}
     for pname, spec in params.items() if isinstance(params, dict) else ():
@@ -515,6 +654,9 @@ def check_fault_dir(fault_dir, label_base=None):
             env_names[env] = pname
         if isinstance(spec, dict):
             _check_param_value(spec.get("default"), f"parameters.{pname}.default", label, out)
+    if kind == "parameter":
+        _check_parameter_changes(injection, env_names, label, out)
+    _check_applies_to_versions(data.get("applies_to"), label, out)
     script = (data.get("sealed_check") or {}).get("script")
     if script and not (fault_dir / str(script)).is_file():
         out.append(f"{_rel(fault_dir / str(script), base)}: missing file (sealed_check.script)")
@@ -528,6 +670,53 @@ def check_fault_dir(fault_dir, label_base=None):
             out.append(f"{label}: resolutions[{i}].kind: {res.get('kind')} is not one of "
                        f"{', '.join(RESOLUTION_KINDS)}")
     return out
+
+
+def _check_parameter_changes(injection, env_names, label, out):
+    """A `parameter` injection (capture W1, item 8): well-formed changes,
+    planted at render, `{NAME}` naming a parameter of the fault."""
+    if injection.get("stage") not in (None, "seed"):
+        out.append(f"{label}: injection.stage: {injection['stage']}, but a parameter fault is "
+                   "planted at render (seed)")
+    changes = injection.get("parameter_changes")
+    if not changes:
+        out.append(f"{label}: injection.parameter_changes: missing (kind parameter)")
+        return
+    for i, change in enumerate(changes if isinstance(changes, list) else []):
+        if not isinstance(change, dict):
+            continue
+        p = f"injection.parameter_changes[{i}]"
+        op = change.get("op")
+        if op not in PARAMETER_OPS:
+            if op is not None:
+                out.append(f"{label}: {p}.op: {op} is not one of {', '.join(PARAMETER_OPS)}")
+        else:
+            for key in ("entry", "item", "value"):
+                if key in PARAMETER_OPS.get(op, ()) and key not in change:
+                    out.append(f"{label}: {p}.{key}: missing (op {op})")
+                elif key in change and key not in PARAMETER_OPS.get(op, ()):
+                    out.append(f"{label}: {p}.{key}: not used by op {op}")
+        for key in ("entry", "item", "value"):
+            value = change.get(key)
+            if isinstance(value, (list, dict)):
+                out.append(f"{label}: {p}.{key}: a list or map; use a scalar")
+            for name in SUBSTITUTION_RE.findall(value) if isinstance(value, str) else ():
+                if FAULT_ENV_PREFIX + name not in env_names:
+                    out.append(f"{label}: {p}.{key}: {{{name}}} names no parameter of the "
+                               "fault")
+
+
+def _check_applies_to_versions(applies_to, label, out):
+    """Brick versions one by one, exact strings, never ranges (capture W1,
+    item 8; master spec 6.4)."""
+    bricks = _dict(applies_to).get("bricks")
+    for i, entry in enumerate(bricks if isinstance(bricks, list) else []):
+        versions = _dict(entry).get("versions")
+        for version in versions if isinstance(versions, list) else []:
+            if not (isinstance(version, str) and EXACT_VERSION_RE.match(version)):
+                out.append(f"{label}: applies_to.bricks[{_item_label(entry, i)}].versions: "
+                           f"{version!r} is not an exact version string (one by one, never "
+                           "a range)")
 
 
 def _resolution_kinds(fault_data):
@@ -588,6 +777,9 @@ def check_scenario(scenario_dir, catalog_root=REPO_ROOT):
         if brick is not None:
             bricks[node.get("name")] = brick
 
+    _check_node_maps(nodes, bricks, out)
+    routes = _check_web_routes(nodes, bricks, out)
+
     for i, flow in enumerate(data.get("flows") or []):
         if isinstance(flow, dict):
             for end in ("from", "to"):
@@ -595,8 +787,8 @@ def check_scenario(scenario_dir, catalog_root=REPO_ROOT):
                     out.append(f"{label}: flows[{i}].{end}: {flow[end]} is not a node")
 
     faults = _check_faults(data, nodes, bricks, sdir, catalog_root, out)
-    _check_issues(data, nodes, faults, out)
-    answer_key = _check_answer_key(data, nodes, faults, sdir, out)
+    answer_key = _check_answer_key(data, nodes, faults, routes, sdir, out)
+    _check_issues(data, nodes, faults, expectation_ids(answer_key), out)
     _check_designed_for(data, nodes, out)
 
     if out:
@@ -685,10 +877,19 @@ def _check_node(node, sdir, catalog_root, network_names, out):
             if isinstance(spec, dict) and spec.get("required") and pname not in params:
                 out.append(f"{label}: {p}.parameters.{pname}: missing (required by brick "
                            f"{brick.id})")
-        for pname in params:
+        for pname, value in params.items():
             if pname not in brick_params:
                 out.append(f"{label}: {p}.parameters.{pname}: not a parameter of brick "
                            f"{brick.id}")
+                continue
+            spec = brick_params[pname] if isinstance(brick_params[pname], dict) else {}
+            shape = spec.get("shape")
+            if shape is None and isinstance(value, (list, dict)):
+                out.append(f"{label}: {p}.parameters.{pname}: a list or map, but brick "
+                           f"{brick.id} declares it a scalar (no shape)")
+            elif shape is not None and not isinstance(value, dict):
+                out.append(f"{label}: {p}.parameters.{pname}: not a map (shape {shape} of "
+                           f"brick {brick.id})")
 
     _check_resources(node.get("resources"), f"{p}.resources", out)
 
@@ -730,7 +931,7 @@ def _is_port(value):
     return isinstance(value, int) and not isinstance(value, bool) and 0 < value < 65536
 
 
-def _check_resources(resources, p, out):
+def _check_resources(resources, p, out, label="scenario.yaml"):
     if not isinstance(resources, dict):
         return
     for section, keys in (("limits", ("cpu", "memory")),
@@ -744,7 +945,173 @@ def _check_resources(resources, p, out):
             try:
                 (parse_cpu if key == "cpu" else parse_size)(values[key])
             except ValueError as exc:
-                out.append(f"scenario.yaml: {p}.{section}.{key}: {exc}")
+                out.append(f"{label}: {p}.{section}.{key}: {exc}")
+
+
+def _dict(value):
+    return value if isinstance(value, dict) else {}
+
+
+def _node_parameter(node, brick_data, pname):
+    """A node's value for a brick parameter: as scenario.yaml states it, else
+    the brick's default."""
+    params = _dict(node.get("parameters"))
+    if pname in params:
+        return params[pname]
+    return _dict(_dict(brick_data.get("parameters")).get(pname)).get("default")
+
+
+def _shaped(brick_data, shape):
+    return [name for name, spec in _dict(brick_data.get("parameters")).items()
+            if _dict(spec).get("shape") == shape]
+
+
+def _check_node_maps(nodes, bricks, out):
+    """node-map parameters as scenario.yaml states them, before any parameter
+    fault applies, and what each receiving node provides to the material
+    mounted into it (capture W1, items 4 to 6; master spec 6.1, 7.1)."""
+    label = "scenario.yaml"
+    by_name = {n.get("name"): n for n in nodes}
+    for node in nodes:
+        name = node.get("name")
+        brick = bricks.get(name)
+        if brick is None:
+            continue
+        mounted = {item.get("parameter"): item for item in mounted_items(brick.data)}
+        params = _dict(node.get("parameters"))
+        for pname in _shaped(brick.data, "node-map"):
+            p = f"nodes[{name}].parameters.{pname}"
+            item = mounted.get(pname)
+            if pname not in params:
+                spec = _dict(brick.data["parameters"][pname])
+                if item is not None and not spec.get("required"):
+                    out.append(f"{label}: {p}: missing (brick {brick.id} mounts "
+                               f"{item.get('name')} into the nodes it lists)")
+                continue
+            value = params[pname]
+            if not isinstance(value, dict):
+                continue                  # reported with the node's parameters
+            if item is not None:
+                for other in by_name:
+                    if other not in value:
+                        out.append(f"{label}: {p}: node {other} is missing (the map lists "
+                                   "every node of the topology)")
+            for key, entry in value.items():
+                ep = f"{p}.{key}"
+                if key not in by_name:
+                    out.append(f"{label}: {ep}: not a node of the topology")
+                    continue
+                target = bricks.get(key)
+                if entry != "default":
+                    if not (isinstance(entry, list) and entry
+                            and all(isinstance(s, str) for s in entry)):
+                        out.append(f"{label}: {ep}: {entry!r} is not default or a non-empty "
+                                   "list of the node's brick's processes")
+                    elif target is not None:
+                        processes = [str(s) for s in target.data.get("processes") or []]
+                        for service in entry:
+                            if service not in processes:
+                                out.append(f"{label}: {ep}: {service} is not a process of "
+                                           f"brick {target.id} ({', '.join(processes)})")
+                if item is not None and target is not None:
+                    _check_receiver(key, target, brick, item, out)
+
+
+def _check_receiver(node_name, target, mounting, item, out):
+    """The receiving node's `receives` against the requirements of the
+    mounting brick, at its pinned version (capture W1, item 5)."""
+    label = "scenario.yaml"
+    p = f"nodes[{node_name}]"
+    what = f"brick {mounting.id} {mounting.version}'s {item.get('name')}"
+    receives = target.data.get("receives")
+    if not isinstance(receives, dict):
+        out.append(f"{label}: {p}: brick {target.id} {target.version} declares no receives, "
+                   f"but {what} is mounted into it")
+        return
+    requires = _dict(item.get("requires"))
+    need, have = requires.get("s6_overlay"), receives.get("s6_overlay")
+    if isinstance(need, str) and need and not (
+            isinstance(have, str) and (have == need or have.startswith(need + "."))):
+        out.append(f"{label}: {p}: brick {target.id} {target.version} receives s6-overlay "
+                   f"{have}, but {what} requires {need}")
+    commands = receives.get("commands") if isinstance(receives.get("commands"), list) else []
+    needed = requires.get("commands") if isinstance(requires.get("commands"), list) else []
+    lacking = [c for c in needed if c not in commands]
+    if lacking:
+        out.append(f"{label}: {p}: brick {target.id} {target.version} lacks command(s) "
+                   f"{', '.join(map(str, lacking))}, which {what} requires")
+
+
+def _check_web_routes(nodes, bricks, out):
+    """web-routes parameters against the topology's web interfaces, and the
+    web front's published port (capture W1, item 3). Returns the route names."""
+    label = "scenario.yaml"
+    by_name = {n.get("name"): n for n in nodes}
+    interfaces = {}                   # (node, port) -> provides entry with a web_path
+    for node in nodes:
+        brick = bricks.get(node.get("name"))
+        provides = _dict((brick.data if brick else {}).get("interfaces")).get("provides")
+        for iface in provides if isinstance(provides, list) else []:
+            if isinstance(iface, dict) and "web_path" in iface and _is_port(iface.get("port")):
+                interfaces[(node.get("name"), iface["port"])] = iface
+    routed = {key: [] for key in interfaces}
+    routes = set()
+    for node in nodes:
+        name = node.get("name")
+        brick = bricks.get(name)
+        if brick is None:
+            continue
+        for pname in _shaped(brick.data, "web-routes"):
+            p = f"nodes[{name}].parameters.{pname}"
+            value = _node_parameter(node, brick.data, pname)
+            if not isinstance(value, dict):
+                continue                  # reported with the node's parameters
+            for route, target in value.items():
+                rp = f"{p}.{route}"
+                routes.add(route)
+                if not (isinstance(route, str) and NAME_RE.match(route)):
+                    out.append(f"{label}: {rp}: {route!r} is not a valid route name "
+                               "(lowercase letters, digits and hyphens)")
+                m = ROUTE_TARGET_RE.match(target) if isinstance(target, str) else None
+                if m is None:
+                    out.append(f'{label}: {rp}: {target!r} is not "<node>:<port>"')
+                    continue
+                tnode, port = m.group(1), int(m.group(3))
+                if tnode not in by_name:
+                    out.append(f"{label}: {rp}: {tnode} is not a node")
+                    continue
+                if bricks.get(tnode) is None:
+                    continue
+                iface = interfaces.get((tnode, port))
+                if iface is None:
+                    out.append(f"{label}: {rp}: brick {bricks[tnode].id} of node {tnode} "
+                               f"provides no web interface on port {port}")
+                    continue
+                routed[(tnode, port)].append(str(route))
+                if iface.get("web_path") != f"/{route}/":
+                    out.append(f"{label}: {rp}: {tnode}:{port} is served under "
+                               f"{iface.get('web_path')}, not /{route}/")
+            ports = node.get("published_ports")
+            ports = [x for x in ports if isinstance(x, dict)] if isinstance(ports, list) else []
+            pp = f"nodes[{name}].published_ports"
+            if value and not any(x.get("port") == WEB_FRONT_PORT
+                                 and x.get("default") == WEB_FRONT_PORT for x in ports):
+                out.append(f"{label}: {pp}: no {{port: {WEB_FRONT_PORT}, default: "
+                           f"{WEB_FRONT_PORT}}}, which the web front needs ({pname} is "
+                           "non-empty)")
+            elif not value and any(x.get("port") == WEB_FRONT_PORT for x in ports):
+                out.append(f"{label}: {pp}: port {WEB_FRONT_PORT} is published, but {pname} "
+                           "is empty (the web front does not run)")
+    for (tnode, port), names in routed.items():
+        iface = interfaces[(tnode, port)]
+        what = f"web interface {iface.get('name')} (port {port}, {iface.get('web_path')})"
+        if not names:
+            out.append(f"{label}: nodes[{tnode}]: {what} has no route in a web-routes "
+                       "parameter")
+        elif len(names) > 1:
+            out.append(f"{label}: nodes[{tnode}]: {what} has {len(names)} routes "
+                       f"({', '.join(sorted(names))}); one route per web interface")
+    return routes
 
 
 def _check_knobs(node, brick, sdir, out):
@@ -889,6 +1256,7 @@ def _check_faults(data, nodes, bricks, sdir, catalog_root, out):
                 if isinstance(change, dict) and change.get("file") not in seeds:
                     out.append(f"{label}: {p}: fault {fault.id} changes {change.get('file')}, "
                                f"not a seed file of brick {brick.id}")
+            _check_parameter_fault(inst, fault, brick, by_name, p, out)
         params = inst.get("parameters") or {}
         fparams = fault.data.get("parameters") or {}
         if isinstance(params, dict):
@@ -904,7 +1272,51 @@ def _check_faults(data, nodes, bricks, sdir, catalog_root, out):
     return faults
 
 
-def _check_issues(data, nodes, faults, out):
+def _check_parameter_fault(inst, fault, brick, by_name, p, out):
+    """A parameter fault against its target node's brick, as seed changes are
+    checked, and a fault about mounted material (capture W1, item 8; master
+    spec 6.4)."""
+    label = "scenario.yaml"
+    injection = _dict(fault.data.get("injection"))
+    changes = injection.get("parameter_changes")
+    if injection.get("kind") != "parameter" or not isinstance(changes, list):
+        return
+    changes = [c for c in changes if isinstance(c, dict)]
+    bparams = _dict(brick.data.get("parameters"))
+    for change in changes:
+        pname, op = change.get("parameter"), change.get("op")
+        if pname not in bparams:
+            out.append(f"{label}: {p}: fault {fault.id} changes parameter {pname}, not a "
+                       f"parameter of brick {brick.id}")
+            continue
+        shape = _dict(bparams[pname]).get("shape")
+        if op == "set" and shape is not None:
+            out.append(f"{label}: {p}: fault {fault.id} sets {pname}, a {shape} parameter of "
+                       f"brick {brick.id} (set takes a scalar parameter)")
+        elif op == "remove-entry" and shape is None:
+            out.append(f"{label}: {p}: fault {fault.id} removes an entry of {pname}, a scalar "
+                       f"parameter of brick {brick.id}")
+        elif op == "remove-from-entry" and shape != "node-map":
+            out.append(f"{label}: {p}: fault {fault.id} removes an item from an entry of "
+                       f"{pname}, not a node-map parameter of brick {brick.id}")
+    mounted = {item.get("parameter") for item in mounted_items(brick.data)}
+    if not any(c.get("parameter") in mounted for c in changes):
+        return
+    applies = _dict(fault.data.get("applies_to")).get("bricks")
+    ids = [str(_dict(a).get("id")) for a in applies] if isinstance(applies, list) else []
+    if ids != [brick.id]:
+        out.append(f"{label}: {p}: fault {fault.id} is about material brick {brick.id} mounts, "
+                   f"so its applies_to names only {brick.id} (it names {', '.join(ids)})")
+    spec = _dict(fault.data.get("parameters")).get("node")
+    if not (isinstance(spec, dict) and spec.get("required")):
+        out.append(f"{label}: {p}: fault {fault.id} is about mounted material, so it needs a "
+                   "required parameter node, the affected node")
+    node = _dict(inst.get("parameters")).get("node", _dict(spec).get("default"))
+    if node is not None and node not in by_name:
+        out.append(f"{label}: {p}.parameters.node: {node} is not a node of the topology")
+
+
+def _check_issues(data, nodes, faults, expectations, out):
     label = "scenario.yaml"
     by_name = {n.get("name"): n for n in nodes}
     instances = {i.get("id"): i for i in data.get("fault_instances") or []
@@ -918,10 +1330,18 @@ def _check_issues(data, nodes, faults, out):
         if expected is not None and expected not in RESOLUTION_KINDS:
             out.append(f"{label}: {p}.expected_resolution: {expected} is not one of "
                        f"{', '.join(RESOLUTION_KINDS)}")
-        for iid in issue.get("covers") or []:
+        covers = issue.get("covers") if isinstance(issue.get("covers"), list) else []
+        if covers and all(iid in expectations for iid in covers) \
+                and expected in RESOLUTION_KINDS and expected not in EXPECTATION_RESOLUTIONS:
+            out.append(f"{label}: {p}.expected_resolution: {expected}, but the issue covers "
+                       f"only tooling expectations ({' or '.join(EXPECTATION_RESOLUTIONS)})")
+        for iid in covers:
             covered.add(iid)
+            if iid in expectations:
+                continue
             if iid not in instances:
-                out.append(f"{label}: {p}.covers: {iid} is not a fault instance")
+                out.append(f"{label}: {p}.covers: {iid} is not a fault instance or a tooling "
+                           "expectation")
                 continue
             fault = faults.get(iid)
             node = by_name.get(instances[iid].get("node")) or {}
@@ -946,7 +1366,7 @@ def _check_issues(data, nodes, faults, out):
                        "covers it")
 
 
-def _check_answer_key(data, nodes, faults, sdir, out):
+def _check_answer_key(data, nodes, faults, routes, sdir, out):
     label = "gm/answer-key.yaml"
     if not (sdir / label).is_file():
         return None                  # listed with the missing files
@@ -996,7 +1416,68 @@ def _check_answer_key(data, nodes, faults, sdir, out):
         for name, needed in needs.items():
             if needed and not acceptable.get(name):
                 out.append(f"{label}: instances[{iid}].acceptable.{name}: missing")
+    for entry in entries:
+        evidence = entry.get("evidence")
+        for i, item in enumerate(evidence if isinstance(evidence, list) else []):
+            if isinstance(item, dict) and "where" in item:
+                _check_where(item["where"], nodes, routes,
+                             f"instances[{entry.get('instance')}].evidence[{i}].where", out)
+    _check_expectations(key.get("tooling_expectations"), instances, out)
     return key
+
+
+def _check_where(where, nodes, routes, p, out):
+    """Where answer-key evidence is run (capture W1, item 9; spec D101)."""
+    label = "gm/answer-key.yaml"
+    names = {n.get("name") for n in nodes}
+    bastions = {n.get("name") for n in nodes if n.get("role") == "bastion"}
+    kind, _, name = where.partition(":") if isinstance(where, str) else (None, "", "")
+    if where == "bastion":
+        return
+    if kind == "node" and name:
+        if name in bastions:
+            out.append(f"{label}: {p}: {where} is the bastion; write bastion")
+        elif name not in names:
+            out.append(f"{label}: {p}: {where}: {name} is not a node of the topology")
+    elif kind == "ui" and name:
+        if name not in routes:
+            out.append(f"{label}: {p}: {where}: {name} is not a route of the topology's "
+                       "web-routes parameter")
+    elif kind == "report" and name:
+        if not REPORT_TOOL_RE.match(name):
+            out.append(f"{label}: {p}: {where}: the tool is written in lowercase "
+                       "(report:pgbadger)")
+    else:
+        out.append(f"{label}: {p}: {where!r} is not bastion, node:<name>, ui:<name> or "
+                   "report:<tool>")
+
+
+def _check_expectations(expectations, instances, out):
+    """Tooling expectations (capture W1, item 10): ids unique across fault
+    instance ids and expectation ids; no visibility, no sealed check."""
+    label = "gm/answer-key.yaml"
+    seen = set()
+    for item in expectations if isinstance(expectations, list) else []:
+        if not isinstance(item, dict):
+            continue
+        tid = item.get("id")
+        p = f"tooling_expectations[{tid}]"
+        if tid in instances:
+            out.append(f"{label}: {p}.id: {tid} is also a fault instance id")
+        elif tid in seen:
+            out.append(f"{label}: {p}.id: duplicate expectation id")
+        seen.add(tid)
+        for key in ("visibility", "sealed_check"):
+            if key in item:
+                out.append(f"{label}: {p}.{key}: a tooling expectation has no "
+                           f"{key.replace('_', ' ')}")
+
+
+def expectation_ids(answer_key):
+    """The ids of an answer key's tooling expectations."""
+    items = _dict(answer_key).get("tooling_expectations")
+    return {i.get("id") for i in items if isinstance(i, dict)} \
+        if isinstance(items, list) else set()
 
 
 def _check_designed_for(data, nodes, out):

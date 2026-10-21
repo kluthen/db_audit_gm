@@ -1,13 +1,13 @@
 # PostgreSQL brick — GM notes
 
 GM documentation of the `postgres` brick (`brick.yaml`, master spec 9.1;
-required sections: spec D56). Never shipped to players. Initial version
-(v0.1), expected to evolve as games are played.
+required sections: spec D56). Never shipped to players. Brick version
+0.2.0, expected to evolve as games are played.
 
 ## Purpose
 
 A PostgreSQL 18 database server on Debian 13 (trixie), with an SSH server
-for the players, in the image `127.0.0.1:5000/dbagm/postgres:0.1.1`. It
+for the players, in the image `127.0.0.1:5000/dbagm/postgres:0.2.0`. It
 fills the role `database`: the node the players audit, holding the
 scenario's data and its planted faults. The GM picks it for every
 database node of a scenario; in v0.1 it is the only database brick, and
@@ -26,7 +26,7 @@ The image:
 - **What gets installed**: a node of its own, from the brick's image. The
   image must be on the engine that runs the game: deployment never pulls
   it (`gmctl deploy` deploys with `--resolve-image never`).
-- **Build**: `docker build -t 127.0.0.1:5000/dbagm/postgres:0.1.1 bricks/postgres`.
+- **Build**: `docker build -t 127.0.0.1:5000/dbagm/postgres:0.2.0 bricks/postgres`.
 - **How many**: one per database node of the scenario. Each is its own
   container with its own volumes; the per-game secrets (`dba_password`,
   `player_ssh_pubkey`) are generated once per game, so every database
@@ -53,8 +53,8 @@ secrets, the envelope file and the data load.
 |---|---|---|
 | Seed files `postgresql.conf`, `pg_hba.conf` (`seed.files`) | `/opt/gm/seed/`, root `0444`, copied into `/etc/postgresql/` at first start | the scenario's `seed_files` (`nodes/<node>/...`) |
 | Envelope file (protected config `envelopes`) | `/opt/gm/protected/envelopes.conf`, root `0444` | `gmctl render`, from the node's `knobs` envelopes |
-| Secret `player_ssh_pubkey` | `/opt/gm/secrets/player_ssh_pubkey`, root `0444` | `gmctl deploy`: the public half of the bastion's `player_ssh_key` |
-| Secret `dba_password` | `/opt/gm/secrets/dba_password`, root `0400` | `gmctl deploy`: the same secret as the bastion's |
+| Secret `player_ssh_pubkey` (kind `key-pair`, pair `player_ssh_key`, half `public`) | `/opt/gm/secrets/player_ssh_pubkey`, root `0444` | `gmctl deploy`: the public half of the bastion's `player_ssh_key` |
+| Secret `dba_password` (kind `password`, not handed over) | `/opt/gm/secrets/dba_password`, root `0400` | `gmctl deploy`: the same secret as the bastion's |
 | Data | streamed in once, after deployment | `gmctl load-data`, from `data/<node>.sql` |
 
 ### Knobs and their default envelopes
@@ -184,6 +184,14 @@ reachable only from nodes sharing a network with it, by its node name.
 has no metrics endpoint or exporter. The server log and the sshd log go to
 the container's output only (`gmctl logs`).
 
+**Mounted material**: the image accepts another brick's mounted companion
+material (`brick.yaml` `receives`): it runs s6-overlay `3.2.3.2`, and the
+commands `sh`, `cat`, `du`, `df`, `awk`, `sed`, `grep`, `sleep`, `perl`,
+`s6-svstat` and `s6-setuidgid` are on an s6 service's PATH. A brick whose
+mounted material requires no more than that (such as `prometheus`'s
+node-health script) can be mounted into this node; the cost of that
+material is stated by the brick that ships it, not here.
+
 The GM's own operations (data load, injection, sealed checks, validator)
 do not use these interfaces: they run inside the container through `gmctl
 exec` (see "Access").
@@ -258,9 +266,13 @@ server log.
 
 ## Footprint
 
-Default footprint in `brick.yaml`: CPU `0.5`, memory `512M`, disk `1G`.
-`brick.yaml` gives one figure per dimension, not separate limits and
-reservations, and no allowed range. The scenario sets each node's own
+Default footprint in `brick.yaml`, in the shape of a scenario node's
+`resources`: limits CPU `1` and memory `1G`; reservations CPU `0.5`,
+memory `512M` and disk `1G` (v0.1's single figures became the
+reservations, the limits twice the CPU and memory). No allowed range. It
+excludes any material other bricks mount into the node: what that adds
+per node is stated by the brick that ships it, and the GM adds it to the
+node's `resources` in the scenario. The scenario sets each node's own
 `resources` (limits for CPU and memory, reservations for CPU, memory and
 disk), and `gmctl` uses those, never the brick's footprint. The renderer
 applies the CPU and memory limits and reservations; disk is only counted
@@ -272,7 +284,7 @@ What makes it grow:
 - **Memory**: `shared_buffers`, plus `work_mem` for every sort or hash of
   every connection (up to `max_connections`), plus
   `maintenance_work_mem` for maintenance work. The default envelopes are
-  sized for the default 512M; shared memory too large for the memory
+  sized for the default 512M reservation; shared memory too large for the memory
   limit keeps the server from starting.
 - **Disk**: the restored data (`data/<node>.sql`) and its indexes in
   `pgdata`; WAL, up to `max_wal_size` (at most `1GB` in the default
@@ -293,7 +305,7 @@ Which faults the brick hosts is stated only by each fault's `applies_to`
 (D59): a fault instance is accepted on a node when the fault's
 `applies_to` names the node's brick and version (`tools/gm/model.py`).
 This list is every catalog fault (`faults/`) whose `applies_to` names
-`postgres` `0.1.1`, and no other; all six also name `0.1.0`. A scenario's
+`postgres` `0.2.0`, and no other; all six also name `0.1.0` and `0.1.1`. A scenario's
 own `faults/` folder may define more for itself (the test fixture
 `tools/tests/fixtures/fixture-audit` defines two); those are the
 scenario's, not the brick's, and are not listed here.

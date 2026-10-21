@@ -1,8 +1,7 @@
 # db_audit_gm v0.2 — Build plan
 
-Status: v2 (2026-10-21): the owner's rulings on G4 to G9 and the plan's
-readings written in (spec D100 to D106); chunks 1, 2, 4, 7, 8, 10, 11,
-12 and 14 and the release gate revised.
+Status: v4 (2026-10-21): the scenario document's rule for map-valued
+parameters placed in chunk 11 (gap found by chunk 1, wave log).
 Approval: approved 2026-10-21 by the owner (G1, spec D99).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-10-21 (spec D98) and
@@ -64,8 +63,8 @@ plan states only its deltas.
 | Gate | What | Cleared by | Blocks | Status |
 |---|---|---|---|---|
 | G1 | Plan approval | The owner | Wave 1 | done (2026-10-21, spec D99) |
-| G2 | Network access at image build time: Debian's apt repositories (pgBadger, Perl, the proxy), the PostgreSQL apt repository, the s6-overlay, Prometheus and `postgres_exporter` release downloads, Grafana's package source | Hand check by the wave driver | Chunks 1, 4, 6, 7, 9, 10 (every image build) | open |
-| G3 | A Docker host in swarm mode (swarm active on the build host, 2026-10-21) | Hand check by the wave driver | Every stack test and smoke run, every wave gate, the release gate | open |
+| G2 | Network access at image build time: Debian's apt repositories (pgBadger, Perl, the proxy), the PostgreSQL apt repository, the s6-overlay, Prometheus and `postgres_exporter` release downloads, Grafana's package source | Hand check by the wave driver | Chunks 1, 4, 6, 7, 9, 10 (every image build) | done (2026-10-21, hand check, wave log) |
+| G3 | A Docker host in swarm mode (swarm active on the build host, 2026-10-21) | Hand check by the wave driver | Every stack test and smoke run, every wave gate, the release gate | done (2026-10-21, hand check, wave log) |
 | G4 | O72: brick versions across wave merges | The owner | Wave 1's merge into `main`; the plan's shape | done (2026-10-21, spec D100: released at the release gate) |
 | G5 | O73: what happens to v0.1's free-text evidence `where` | The owner | Chunk 1 | done (2026-10-21, spec D101: moved to `source`) |
 | G6 | O74: where `gmctl fit` takes image sizes from | The owner | Chunk 8 | done (2026-10-21, spec D102: from the engine) |
@@ -83,7 +82,7 @@ model says (D100).
 
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
-| 1 | 1, 2, 3, 4 | G2 (chunks 1, 4); G3 (chunks 1, 3, 4) | planned |
+| 1 | 1, 2, 3, 4 | G2 (chunks 1, 4); G3 (chunks 1, 3, 4) | gated (2026-10-21), awaiting merge |
 | 2 | 5, 6, 7 | wave 1; G2, G3 | planned |
 | 3 | 8, 9, 10, 11 | wave 2 | planned |
 | 4 | 12, 13, 14 | wave 3; G10 (chunk 14's merge) | planned |
@@ -92,6 +91,7 @@ model says (D100).
 1 ──> 2, 3, 4          (in-wave: the v0.2 template keys captured at wave 1 start, W1)
 2, 3 ──> 5
 1, 3 ──> 6, 7
+5 ──> 7                (in-wave: `GM_WEB_ROUTES`'s encoding, fixed by capture W1 item 2)
 1 ──> 8
 3, 6 ──> 9
 3, 7 ──> 10
@@ -178,8 +178,11 @@ that each is recorded.
 
 ### Chunk 1 — Format skill, templates and the v0.1 definitions migrated
 
-Status: planned
-Record: (after merge)
+Status: merged (w1, fa8e62d)
+Record: 9b1c4d7 (1a), e01b06c (1b), merge fa8e62d. Tests outside Files kept
+green after the bump (`test_model`, `test_fit`, `test_deploy`, `smoke.sh`
+tags); Dockerfiles' build comments still say 0.1.1 (chunks 6, 7). Choices
+where W1 was silent: wave log, "W1 addenda".
 Wave: 1
 Depends on: G2, G3 (G1, G5 done)
 Architecture capture: recorded by the wave driver at wave 1 start (W1),
@@ -260,8 +263,9 @@ D101); the
 
 ### Chunk 2 — Loader checks for v0.2
 
-Status: planned
-Record: (after merge)
+Status: merged (w1, ff86571)
+Record: cd3b33f (2a), bdc7547 (2b), merge ff86571. Choices where W1 was
+silent and the refusal messages: wave log, capture W1-C. No deviation.
 Wave: 1
 Depends on: chunk 1 (W1 capture)
 Architecture capture: none of its own; it implements W1.
@@ -311,8 +315,10 @@ Architecture capture: none of its own; it implements W1.
 
 ### Chunk 3 — Secrets by kind, network names and UTC
 
-Status: planned
-Record: (after merge)
+Status: merged (w1, 8688c7e)
+Record: 9e5c8b3, merge 8688c7e. Changes v0.1 captures W2-A and W3-A (secrets
+layout, network, `gmctl status`): wave log, capture W1-B. Tests outside
+Files: `test_state`, `test_teardown`. Key comment now `<gid>-<pair>`.
 Wave: 1
 Depends on: chunk 1 (W1 capture: secret kinds); G3
 Architecture capture: none of its own; it implements W1's secret kinds.
@@ -342,8 +348,20 @@ Architecture capture: none of its own; it implements W1's secret kinds.
 
 ### Chunk 4 — `prometheus` brick and the node-health script
 
-Status: planned
-Record: (after merge)
+Status: merged (w1, 4c47239)
+Record: 54279f8 (4a), d05bb10 (4b), merge 4c47239. Prometheus 3.13.5;
+sub-path `--web.external-url=/prometheus/ --web.route-prefix=/prometheus/`
+on :9090, admin and lifecycle flags not passed; retention as
+`storage.tsdb.retention.{time,size}` in the seed `prometheus.yml` (3.13
+deprecates the flags), applied by SIGHUP; wrappers `gm-reload-prometheus`,
+`gm-validate` (`/etc/sudoers.d/gm-player`); validator
+`/opt/gm/validator/validate.sh`. Node-health: port 9110 (`GET /metrics`);
+listener as `nobody:nogroup`, sampler as root (`s6-svstat` and `du` cannot
+read as an unprivileged account; reported to the owner, wave 1 report);
+cgroup v2 files readable in the container's own namespace; empty s6 files
+carry a comment line; configs mount into folders the image lacks. Image
+about 488MB against master spec 12's 150M estimate; script 6M per node.
+Details: wave log, capture W1-D.
 Wave: 1
 Depends on: chunk 1 (W1 capture), G2, G3
 Architecture capture: none beyond W1. The commands the node-health
@@ -408,10 +426,13 @@ Status: planned
 Record: (after merge)
 Wave: 2
 Depends on: chunks 2, 3
-Architecture capture: none; it reads the merged loader.
+Architecture capture: none of its own; it implements capture W1 items 2
+(shaped parameters) and 4 (the per-node config) and reads the merged
+loader.
 
 - Goal: `gmctl` renders mounted companion material into every receiving
-  node and plants parameter faults at rendering.
+  node, passes shaped parameters as W1 says, and plants parameter faults
+  at rendering.
 - Scope: in: `implementation.yaml` gains, for each receiving node, the
   mounting brick's files as root-owned read-only configs at their target
   paths and modes, plus that node's own config with its map entry and its
@@ -420,19 +441,34 @@ Architecture capture: none; it reads the merged loader.
   parameters before the mounted material is derived, so a node left out
   of the map gets no script; `gmctl inject` reports a parameter fault as
   planted at rendering, as it does a seed-file fault; `gmctl.md`'s
-  render and inject lines; tests on the chunk 2 fixture. Out: any brick.
+  render and inject lines; tests on the chunk 2 fixture;
+  `render.service_environment` (as chunk 3 leaves it, with `TZ=UTC`)
+  following the parameter's `shape` (W1 item 2): a `node-map` parameter
+  is never passed as `GM_*`, a `web-routes` parameter is passed as
+  `GM_<NAME>` holding `name=node:port` tokens, space-separated, sorted by
+  name, `""` when the map is empty, and a scalar parameter as in v0.1;
+  its unit tests; `fixture-mounted`'s `README.md`, when regenerated,
+  keeps chunk 2's rendering of a map-valued parameter (inline YAML;
+  the template's rule is chunk 11's). Out: any brick.
 - Files: `tools/gm/{localimpl,render,inject}.py`,
   `tools/tests/test_{render,inject,fit}.py`,
   `tools/tests/fixtures/fixture-mounted/`,
   `.claude/skills/game-master/gmctl.md`.
-- Spec sections: master spec 6.1, 6.4, 7.1 ("Delivery", "Where"), 8.
+- Spec sections: master spec 6.1, 6.4, 7.1 ("Delivery", "Where"), 8;
+  capture W1 items 2 and 4 ([wave-log.md](wave-log.md)).
 - Atoms: none.
 - Done when: unit tests show the configs added to every node of the map
   and only to them, the per-node config carrying the entry and the disk
   reservation, a parameter fault removing a node (no configs on it) or a
   service (its entry without it), no config empty, `inject` reporting a
-  parameter fault without running anything; `docker stack config`
-  accepts the rendered stack; `smoke.sh` passes unchanged.
+  parameter fault without running anything; unit tests on
+  `service_environment` show a `node-map` parameter absent from the
+  environment, a `web-routes` map written out of order passed as its
+  tokens sorted by name (`{prometheus: "prometheus:9090", grafana:
+  "grafana:3000"}` gives `GM_WEB_ROUTES` =
+  `grafana=grafana:3000 prometheus=prometheus:9090`), an empty map
+  passed as `""`, and scalar parameters unchanged; `docker stack config` accepts the rendered stack;
+  `smoke.sh` passes unchanged.
 - Verification: chunk checks, plus `sh tools/tests/smoke.sh` (needs G3).
 
 ### Chunk 6 — `postgres` 0.2.0
@@ -483,9 +519,10 @@ Architecture capture: none (chunk 9 reads the merged brick).
 Status: planned
 Record: (after merge)
 Wave: 2
-Depends on: chunks 1, 3; G2, G3 (G7 done)
+Depends on: chunks 1, 3, 5 (in wave 2: the routes parameter rendered
+as `GM_WEB_ROUTES`); G2, G3 (G7 done)
 Architecture capture: none (chunk 10 reads the merged brick); the
-routes parameter is W1's.
+routes parameter and its `GM_WEB_ROUTES` encoding are W1's (items 2, 3).
 
 - Goal: every monitoring web interface published through the bastion,
   behind the tools password.
@@ -637,28 +674,62 @@ Architecture capture: none of its own; it uses chunks 9 and 10's
 captured interfaces.
 
 - Goal: one `gmctl`-driven game with all five bricks, run at every wave
-  gate from here on.
-- Scope: in: a fixture scenario with `bastion`, `postgres`,
-  `prometheus`, `postgres-exporter` and `grafana` at their v0.2
-  versions, the node-health map, scrape targets, Grafana provisioning
-  copied from `grafana`'s reference dashboards and alert rules (spec
-  D104), and web front routes; `smoke-monitoring.sh` running `fit`, `render`, `deploy`,
-  `load-data`, then checking: every scrape target up and the exporter
-  connected (Prometheus' API, through `exec`); every node's health
-  endpoint with CPU, memory, disk and services, a service stopped by the
-  script shown as down; the web front refusing without the password
-  (401) and reaching Prometheus and Grafana under their paths with it,
-  `Authorization` not reaching Grafana; only the bastion's two ports
-  published; `TZ=UTC` on the nodes and UTC in PostgreSQL's log; then
-  teardown leaving nothing labelled with the game id. Out: faults.
+  gate from here on; the scenario document's rule for map-valued
+  parameters, first needed by this fixture.
+- Scope: in:
+  - a fixture scenario with `bastion`, `postgres`, `prometheus`,
+    `postgres-exporter` and `grafana` at their v0.2 versions, the
+    node-health map, scrape targets, Grafana provisioning copied from
+    `grafana`'s reference dashboards and alert rules (spec D104), and
+    web front routes; `smoke-monitoring.sh` running `fit`, `render`,
+    `deploy`, `load-data`, then checking: every scrape target up and the
+    exporter connected (Prometheus' API, through `exec`); every node's
+    health endpoint with CPU, memory, disk and services, a service
+    stopped by the script shown as down; the web front refusing without
+    the password (401) and reaching Prometheus and Grafana under their
+    paths with it, `Authorization` not reaching Grafana; only the
+    bastion's two ports published; `TZ=UTC` on the nodes and UTC in
+    PostgreSQL's log; then teardown leaving nothing labelled with the
+    game id;
+  - the scenario-document skill and template: a rule for a map-valued
+    node parameter, keyed on the parameter's `shape` in the pinned
+    brick's `brick.yaml` (the one catalog file the skill reads, for this
+    alone, so a scenario-local brick's map is covered too), rendered
+    under the node's **Parameters**:
+    - `node-map` (`prometheus`'s `node_health`): one item per entry, in
+      YAML order, the node and its services, `default` kept as written
+      and glossed as the brick's s6 processes; then one line in master
+      spec 7.1's and the access model's wording: the node-health script
+      is mounted into every node listed, read-only for players, its
+      endpoint readable from every node of the game. The map is shown
+      as `scenario.yaml` states it, before any parameter fault; a fault
+      leaving a node or a service out is listed in section 5;
+    - `web-routes` (the bastion's `web_routes`): one row per route, in
+      YAML order: the route as `ui:<name>` (the name the answer key's
+      evidence uses), its path `/<name>/` on the web front, the upstream
+      node and port; then one line in master spec 7.6's and access model
+      5 and 7's wording: published on the bastion's web front port,
+      behind the tools password, HTTP 401 without it. An empty map: the
+      web front does not run, the bastion publishes SSH only and no
+      tools password is handed over;
+    - the skill's step 6 check lists every map entry; the template's
+      version line; every README with a map-valued parameter regenerated
+      with the rule: the fixture's and `fixture-mounted`'s (inline YAML
+      until now, chunks 2 and 5).
+  - Out: faults.
 - Files: `tools/tests/fixtures/fixture-monitoring/` (new),
   `tools/tests/smoke-monitoring.sh` (new), `tools/tests/test_model.py`
-  (the fixture loads).
-- Spec sections: master spec 7, 9, 14 (items 5, 7); spec D104.
+  (the fixture loads), `.claude/skills/scenario-document/{SKILL,template}.md`,
+  `tools/tests/fixtures/fixture-mounted/README.md`.
+- Spec sections: master spec 6.3, 7, 7.1, 7.6, 9, 14 (items 5, 7);
+  access model 5 ("Bastion and web front", "Nodes"), 7; spec D103,
+  D104; capture W1 items 2, 3, 6 ([wave-log.md](wave-log.md)).
 - Atoms: none.
 - Done when: `smoke-monitoring.sh` passes on the build host; the fixture
   passes the loader and `fit` on a playground declared at
-  2 CPU / 4G / 8G.
+  2 CPU / 4G / 8G; the fixture's README lists every `node_health` entry
+  and every route as the rule says, and it and `fixture-mounted`'s match
+  a fresh regeneration.
 - Verification: chunk checks, plus `sh tools/tests/smoke-monitoring.sh`
   (needs G3).
 

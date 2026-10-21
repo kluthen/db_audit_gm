@@ -4,7 +4,8 @@
 #
 # On a copy of the fixture scenario (tools/tests/fixtures/fixture-audit):
 #   fit -> render -> deploy (credentials, labelled configs and secrets, stack,
-#   health checks) -> exec on both nodes -> logs, status
+#   health checks; the network's name, UTC on every node) -> exec on both
+#   nodes -> logs, status
 #   -> load-data -> inject twice (same result) -> status --set handed-over
 #   -> check (1) -> the fix through exec -> check (0)
 #   -> validate green, then red after an out-of-envelope change -> teardown,
@@ -14,8 +15,8 @@
 #
 # Needs: a swarm manager on the local engine (docker swarm init), and the
 # bricks' images built locally:
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.1.1 bricks/postgres
-#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.1.1 bricks/bastion
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.2.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.2.0 bricks/bastion
 # Host port 2222 must be free (the bastion's published port).
 # Usage: sh tools/tests/smoke.sh        (from anywhere)
 set -eu
@@ -24,7 +25,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/../.." && pwd)
 GMCTL="python3 $REPO/tools/gmctl"
 PG=smoke
-IMAGES="127.0.0.1:5000/dbagm/postgres:0.1.1 127.0.0.1:5000/dbagm/bastion:0.1.1"
+IMAGES="127.0.0.1:5000/dbagm/postgres:0.2.0 127.0.0.1:5000/dbagm/bastion:0.2.0"
 LABELS="com.docker.stack.namespace dbagm.game"
 KINDS="service network volume config secret"
 
@@ -122,6 +123,18 @@ same "volumes carry dbagm.game" "8" \
     "$(docker volume ls -q --filter "label=dbagm.game=$GAME" | wc -l | tr -d ' ')"
 bastion=$(docker ps -q --filter "label=com.docker.swarm.service.name=${GAME}_bastion")
 check "bastion publishes port 2222" sh -c "docker port $bastion 22/tcp | grep -q ':2222\$'"
+# v0.2: the network carries the scenario's network name; every node runs in UTC.
+same "network named after the scenario's network" "${GAME}_backend" \
+    "$(docker network ls --filter "label=com.docker.stack.namespace=$GAME" --format '{{.Name}}')"
+same "status: network line" "  network: ${GAME}_backend" \
+    "$($GMCTL status "$SCN" --playground "$PG" | grep '^  network:')"
+same "status: lists the 4 secret files" 4 \
+    "$($GMCTL status "$SCN" --playground "$PG" | sed -n '/^  secrets: /,$p' | grep -c '^    ')"
+for node in db bastion; do
+    out=$(printf 'printf "%%s %%s" "$TZ" "$(date +%%Z)"\n' \
+        | $GMCTL exec "$SCN" --playground "$PG" --node "$node" --user root)
+    same "node $node runs in UTC" "UTC UTC" "$out"
+done
 
 # --- exec -----------------------------------------------------------------
 out=$(printf 'id -un\npsql -tAc "select 40 + 2"\n' \

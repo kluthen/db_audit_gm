@@ -1,0 +1,94 @@
+# brick.yaml: fixture monitoring node (tools/tests, v0.2 chunk 2). Not a
+# catalog brick: loaded, never built. It mounts companion material into
+# the nodes its node-map parameter lists, itself included, receives it,
+# and serves a web interface behind the bastion's web front (capture W1
+# of specs/versions/v0.2/wave-log.md, items 3 to 6).
+
+# --- Identity ---------------------------------------------------------
+id: fixture-monitor
+version: 0.1.0
+roles:
+  - monitoring
+technology:
+  name: busybox
+  version: "1.37"
+image: 127.0.0.1:5000/dbagm/fixture-monitor:0.1.0
+
+# --- Footprint --------------------------------------------------------
+footprint:
+  limits:       {cpu: 0.5, memory: 256M}
+  reservations: {cpu: 0.25, memory: 128M, disk: 512M}
+stateful: true
+
+# --- What the scenario sets -------------------------------------------
+parameters:
+  node_health:
+    description: the services watched on each node of the topology
+    default: null
+    required: true
+    shape: node-map
+knobs: []
+
+# --- Player plane -----------------------------------------------------
+write_policies:
+  - report-only
+writable_paths: []
+protected_files:
+  - /etc/monitor.conf
+player_access:
+  ssh_account: player
+  group: player
+  sudo_wrappers: []
+capabilities:
+  - SETUID
+  - SETGID
+
+# --- Runtime ----------------------------------------------------------
+healthcheck:
+  command: ["/bin/sh", "-c", "true"]
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 30s
+secrets: []
+seed:
+  dir: /opt/gm/seed/
+  files: []
+protected_configs: []
+volumes:
+  - name: data
+    path: /var/lib/monitor
+processes:
+  - monitor
+
+# --- Catalog links ----------------------------------------------------
+interfaces:
+  provides:
+    - {name: ui, protocol: http, port: 9090, web_path: /monitor/}
+  consumes:
+    - {name: http, protocol: http, port: 8000}
+companion:
+  path: companion/
+  when: at deploy, mounted into every node the node_health map lists
+  mounted:
+    - name: node-health
+      parameter: node_health
+      files:
+        - source: companion/node-health/node-health.sh
+          target: /usr/local/lib/gm/node-health/node-health.sh
+          mode: "0555"
+        - source: companion/node-health/s6/run
+          target: /etc/s6-overlay/s6-rc.d/gm-node-health/run
+          mode: "0555"
+      node_config:
+        target: /opt/gm/node-health/node.conf
+        mode: "0444"
+      footprint:
+        limits:       {cpu: 0.005, memory: 5M}
+        reservations: {cpu: 0.005, memory: 5M, disk: 0}
+      requires:
+        s6_overlay: "3"
+        commands: [sh, cat, du, s6-svstat, s6-setuidgid]
+receives:
+  s6_overlay: "3.2.3.2"
+  commands: [sh, cat, du, df, awk, sed, grep, sleep, perl, s6-svstat, s6-setuidgid]

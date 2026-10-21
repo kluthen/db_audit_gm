@@ -6,7 +6,7 @@ version: "3.8"
 
 services:
   db:
-    image: 127.0.0.1:5000/dbagm/postgres:0.1.1
+    image: 127.0.0.1:5000/dbagm/postgres:0.2.0
     hostname: db
     read_only: true
     cap_drop: [ALL]

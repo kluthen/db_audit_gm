@@ -1,0 +1,2 @@
+# gm-node-health starts once s6-overlay's `base` bundle is up. s6-rc reads
+# only this file's name; it has content because Swarm refuses an empty config.

@@ -4,7 +4,9 @@ Master spec 10.1, 10.3 and 11; stack-file rules fixed by capture W2-A.
 Mounts, capabilities and `read_only` mirror the bricks' proven stack tests
 (`bricks/*/tests/stack.test.yml`). `/run` is a named volume, never a tmpfs
 (capture W1-E). Configs and secrets are external: `gmctl deploy` creates
-and labels them (spec D46).
+and labels them (spec D46). The scenario's one network renders under its
+own name, so stack `<game_id>` names it `<game_id>_<network name>` (v0.2
+master spec 6.3); every node runs with `TZ=UTC` (v0.2 master spec 8).
 """
 
 import re
@@ -18,6 +20,7 @@ from .model import REPO_ROOT, GmError, load_scenario, parse_cpu, parse_mode
 
 COMPOSE_VERSION = "3.8"
 RENDERABLE_STAGES = ("fitted", "rendered")
+NODE_TIMEZONE = "UTC"
 
 
 def _envelope_value(value):
@@ -48,9 +51,10 @@ def envelope_text(node_name, knobs):
 
 
 def service_environment(brick, node):
-    """Brick parameters as GM_<NAME> variables: the scenario's value, else
-    the brick's default; unset parameters are left out."""
-    env = {}
+    """`TZ=UTC`, then the brick parameters as GM_<NAME> variables: the
+    scenario's value, else the brick's default; unset parameters are left
+    out."""
+    env = {"TZ": NODE_TIMEZONE}
     values = node.get("parameters") or {}
     for name, spec in (brick.get("parameters") or {}).items():
         value = values.get(name, (spec or {}).get("default"))
@@ -84,6 +88,7 @@ def _healthcheck(spec):
 def build_stack(scenario, impl):
     """The stack file's content, as a dict (Compose file format 3.8)."""
     gid = impl["game_id"]
+    network = localimpl.network_name(scenario)
     services, volumes, configs, secrets = {}, {}, {}, {}
     for node in scenario.nodes:
         name = node["name"]
@@ -96,9 +101,7 @@ def build_stack(scenario, impl):
             "cap_drop": ["ALL"],
             "cap_add": list(brick.get("capabilities") or []),
         }
-        env = service_environment(brick, node)
-        if env:
-            svc["environment"] = env
+        svc["environment"] = service_environment(brick, node)
         svc["healthcheck"] = _healthcheck(brick["healthcheck"])
         if inode["published_ports"]:
             svc["ports"] = [{"target": p["target"], "published": p["published"],
@@ -108,7 +111,7 @@ def build_stack(scenario, impl):
                           for v in inode["volumes"]]
         svc["configs"] = [_mount(c) for c in inode["configs"]]
         svc["secrets"] = [_mount(s) for s in inode["secrets"]]
-        svc["networks"] = [localimpl.NETWORK_KEY]
+        svc["networks"] = [network]
         limits = inode["resources"]["limits"]
         reservations = inode["resources"]["reservations"]
         svc["deploy"] = {
@@ -131,7 +134,7 @@ def build_stack(scenario, impl):
     return {
         "version": COMPOSE_VERSION,
         "services": services,
-        "networks": {localimpl.NETWORK_KEY: {"driver": "overlay", "attachable": False}},
+        "networks": {network: {"driver": "overlay", "attachable": False}},
         "volumes": volumes,
         "configs": configs,
         "secrets": secrets,
@@ -178,6 +181,14 @@ def render(scenario_dir, playground, catalog_root=REPO_ROOT):
         recorded = impl["nodes"][node["name"]]["brick"]
         if recorded != {"id": brick.id, "version": brick.version}:
             raise GmError(f"node {node['name']}'s brick changed since gmctl fit: fit again")
+    unsupported = localimpl.check_supported(scenario)
+    if unsupported:
+        raise GmError("cannot render this scenario: " + "; ".join(unsupported))
+    if impl.get("network") != f"{impl['game_id']}_{localimpl.network_name(scenario)}":
+        raise GmError("the scenario's network changed since gmctl fit: fit again")
+    if impl.get("secrets") != localimpl.implementation_secrets(scenario, playground,
+                                                               impl["game_id"]):
+        raise GmError("the bricks' secrets changed since gmctl fit: fit again")
 
     envelope_files = []
     for node in scenario.nodes:

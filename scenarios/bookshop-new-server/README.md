@@ -73,12 +73,12 @@ The story as the players read it: `player/story.md`.
 
 | Node | Brick | Role | Stateful | Networks | Write policy |
 |---|---|---|---|---|---|
-| `bastion` | `bastion` 0.1.1 | bastion | yes | backend | report-only |
-| `db` | `postgres` 0.1.1 | database | yes | backend | fixable |
+| `bastion` | `bastion` 0.2.0 | bastion | yes | backend | report-only |
+| `db` | `postgres` 0.2.0 | database | yes | backend | fixable |
 
 #### Node `bastion`
 
-- **Brick**: `bastion`, version 0.1.1 (pinned).
+- **Brick**: `bastion`, version 0.2.0 (pinned).
 - **Role**: bastion. **Stateful**: yes. **Write policy**:
   report-only.
 - **Networks**: backend.
@@ -100,7 +100,7 @@ No knobs.
 
 #### Node `db`
 
-- **Brick**: `postgres`, version 0.1.1 (pinned).
+- **Brick**: `postgres`, version 0.2.0 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -217,11 +217,11 @@ Longer explanations for feedback: `gm/notes.md`.
 
 Evidence, as the `player` user (and `dba` in psql):
 
-| Where | How | Shows |
-|---|---|---|
-| /etc/postgresql/pg_hba.conf on db | `ssh db, then cat /etc/postgresql/pg_hba.conf` | the `host all all 0.0.0.0/0 trust` line, above the scram-sha-256 host line |
-| pg_hba_file_rules | `psql -c "SELECT line_number, type, address, auth_method FROM pg_hba_file_rules"` | line 12: host, address 0.0.0.0 (netmask 0.0.0.0), trust; then line 14: the same address, scram-sha-256 |
-| a password-less login from the bastion | `PGPASSFILE=/nonexistent psql -w -h db -U dba -c 'SELECT 1'` | 1: the login succeeds with no password (it fails once trust is gone) |
+| Where | Source | How | Shows |
+|---|---|---|---|
+| `node:db` | /etc/postgresql/pg_hba.conf on db | `ssh db, then cat /etc/postgresql/pg_hba.conf` | the `host all all 0.0.0.0/0 trust` line, above the scram-sha-256 host line |
+| `node:db` | pg_hba_file_rules | `psql -c "SELECT line_number, type, address, auth_method FROM pg_hba_file_rules"` | line 12: host, address 0.0.0.0 (netmask 0.0.0.0), trust; then line 14: the same address, scram-sha-256 |
+| `bastion` | a password-less login from the bastion | `PGPASSFILE=/nonexistent psql -w -h db -U dba -c 'SELECT 1'` | 1: the login succeeds with no password (it fails once trust is gone) |
 
 Acceptable answers:
 
@@ -263,11 +263,11 @@ of the expected answer): none.
 
 Evidence, as the `player` user (and `dba` in psql):
 
-| Where | How | Shows |
-|---|---|---|
-| the public validator on db | `ssh db, then sudo gm-validate` | RED work_mem: in effect 256MB; pending 256MB (/etc/postgresql/postgresql.conf:11); envelope 1MB..64MB |
-| the setting and the node's memory | `psql -c 'SHOW work_mem' -c 'SHOW max_connections'; cat /sys/fs/cgroup/memory.max on db` | 256MB, 100 connections, a memory limit of 1073741824 bytes (1 GB) |
-| postgresql.conf | `grep -n work_mem /etc/postgresql/postgresql.conf on db` | work_mem = 256MB with the comment about the month-end reports |
+| Where | Source | How | Shows |
+|---|---|---|---|
+| `node:db` | the public validator on db | `ssh db, then sudo gm-validate` | RED work_mem: in effect 256MB; pending 256MB (/etc/postgresql/postgresql.conf:11); envelope 1MB..64MB |
+| `node:db` | the setting and the node's memory | `psql -c 'SHOW work_mem' -c 'SHOW max_connections'; cat /sys/fs/cgroup/memory.max on db` | 256MB, 100 connections, a memory limit of 1073741824 bytes (1 GB) |
+| `node:db` | postgresql.conf | `grep -n work_mem /etc/postgresql/postgresql.conf on db` | work_mem = 256MB with the comment about the month-end reports |
 
 Acceptable answers:
 
@@ -307,10 +307,10 @@ of the expected answer): none.
 
 Evidence, as the `player` user (and `dba` in psql):
 
-| Where | How | Shows |
-|---|---|---|
-| the table's definition | `psql -d bookshop -c '\d order_lines'` | the foreign key on order_id, indexes on id (primary key) and book_id only |
-| the plan of an order's lines | `psql -d bookshop -c 'EXPLAIN ANALYZE SELECT * FROM order_lines WHERE order_id = 42'` | Seq Scan on order_lines, Filter: (order_id = 42), Rows Removed by Filter: 89997 |
+| Where | Source | How | Shows |
+|---|---|---|---|
+| `node:db` | the table's definition | `psql -d bookshop -c '\d order_lines'` | the foreign key on order_id, indexes on id (primary key) and book_id only |
+| `node:db` | the plan of an order's lines | `psql -d bookshop -c 'EXPLAIN ANALYZE SELECT * FROM order_lines WHERE order_id = 42'` | Seq Scan on order_lines, Filter: (order_id = 42), Rows Removed by Filter: 89997 |
 
 Acceptable answers:
 
@@ -347,10 +347,10 @@ of the expected answer): none.
 
 Evidence, as the `player` user (and `dba` in psql):
 
-| Where | How | Shows |
-|---|---|---|
-| the cluster's roles | `psql -c '\du'` | shop_app with the Superuser attribute, next to dba and postgres |
-| the role's own rights | `psql -d bookshop -c '\dp' (or \z)` | shop_app already has arwd on every table, so it needs no superuser attribute |
+| Where | Source | How | Shows |
+|---|---|---|---|
+| `node:db` | the cluster's roles | `psql -c '\du'` | shop_app with the Superuser attribute, next to dba and postgres |
+| `node:db` | the role's own rights | `psql -d bookshop -c '\dp' (or \z)` | shop_app already has arwd on every table, so it needs no superuser attribute |
 
 Acceptable answers:
 
@@ -386,10 +386,10 @@ of the expected answer): none.
 
 Evidence, as the `player` user (and `dba` in psql):
 
-| Where | How | Shows |
-|---|---|---|
-| the table's options | `psql -d bookshop -c '\d+ orders'` | Options: autovacuum_enabled=off |
-| every table with storage parameters | `psql -d bookshop -c "SELECT relname, reloptions FROM pg_class WHERE relkind = 'r' AND reloptions IS NOT NULL"` | orders \| {autovacuum_enabled=off} |
+| Where | Source | How | Shows |
+|---|---|---|---|
+| `node:db` | the table's options | `psql -d bookshop -c '\d+ orders'` | Options: autovacuum_enabled=off |
+| `node:db` | every table with storage parameters | `psql -d bookshop -c "SELECT relname, reloptions FROM pg_class WHERE relkind = 'r' AND reloptions IS NOT NULL"` | orders \| {autovacuum_enabled=off} |
 
 Acceptable answers:
 
@@ -424,10 +424,10 @@ of the expected answer): none.
 
 Evidence, as the `player` user (and `dba` in psql):
 
-| Where | How | Shows |
-|---|---|---|
-| pg_replication_slots | `psql -c 'SELECT slot_name, slot_type, active, restart_lsn, wal_status FROM pg_replication_slots'` | standby1 \| physical \| f \| (an LSN) \| reserved |
-| replication and its limit | `psql -c 'SELECT count(*) FROM pg_stat_replication' -c 'SHOW max_slot_wal_keep_size'` | no standby connected; -1 (no limit on the WAL a slot may hold) |
+| Where | Source | How | Shows |
+|---|---|---|---|
+| `node:db` | pg_replication_slots | `psql -c 'SELECT slot_name, slot_type, active, restart_lsn, wal_status FROM pg_replication_slots'` | standby1 \| physical \| f \| (an LSN) \| reserved |
+| `node:db` | replication and its limit | `psql -c 'SELECT count(*) FROM pg_stat_replication' -c 'SHOW max_slot_wal_keep_size'` | no standby connected; -1 (no limit on the WAL a slot may hold) |
 
 Acceptable answers:
 
@@ -448,6 +448,10 @@ Interactions: none.
 
 Public validators the players cannot make green (reporting each is part
 of the expected answer): none.
+
+### Tooling expectations
+
+None.
 
 ## 7. Starter pack, node files and data
 

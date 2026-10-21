@@ -1,0 +1,49 @@
+# Scenario-local state fault of the fixture-mounted scenario (tools/tests,
+# v0.2 chunk 2): loaded, never planted.
+id: fixture-app-stopped
+version: 0.1.0
+title: the application's service is down
+family: availability
+severity: medium
+
+applies_to:
+  bricks:
+    - id: fixture-app
+      versions: ["0.1.0"]
+  preconditions: []
+
+parameters: {}
+
+injection:
+  kind: state
+  stage: after-data-load
+  scripts:
+    - inject/10-stop.sh
+  run_as: root
+
+evidence:
+  - where: the application's service status
+    how: s6-svstat /run/service/app
+    shows: the service is down
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+resolutions:
+  - kind: report
+    write_policies: [report-only]
+acceptance:
+  diagnosis: names the application's service as down.
+
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+complaint_template: >-
+  The application does not answer.

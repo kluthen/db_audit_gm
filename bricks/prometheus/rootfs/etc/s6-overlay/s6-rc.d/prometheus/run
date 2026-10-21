@@ -1,0 +1,13 @@
+#!/bin/sh
+# s6 service `prometheus` (DO NOT TAMPER). Configuration, scrape targets and
+# retention included: /etc/prometheus/prometheus.yml, reloaded on SIGHUP
+# (sudo gm-reload-prometheus). Served under /prometheus/, the path the
+# bastion's web front forwards unchanged. The admin and lifecycle HTTP
+# endpoints stay disabled: no --web.enable-admin-api, no --web.enable-lifecycle.
+exec 2>&1
+exec /command/s6-setuidgid prometheus /usr/local/bin/prometheus \
+    --config.file=/etc/prometheus/prometheus.yml \
+    --storage.tsdb.path=/var/lib/prometheus \
+    --web.listen-address=:9090 \
+    --web.external-url=/prometheus/ \
+    --web.route-prefix=/prometheus/

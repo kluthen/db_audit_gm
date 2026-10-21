@@ -45,7 +45,10 @@ class TestEnvironment(unittest.TestCase):
         }}
         node = {"parameters": {"port": 6543}}
         self.assertEqual(render.service_environment(brick, node),
-                         {"GM_DB_NAME": "shop", "GM_PORT": "6543"})
+                         {"TZ": "UTC", "GM_DB_NAME": "shop", "GM_PORT": "6543"})
+
+    def test_utc_without_parameters(self):
+        self.assertEqual(render.service_environment({}, {}), {"TZ": "UTC"})
 
 
 class RenderedFixture(ScenarioCopyTest):
@@ -94,7 +97,8 @@ class TestRender(RenderedFixture):
                 with self.subTest(section=section, key=key):
                     self.assertTrue(decl["name"].startswith(self.gid + "_"))
                     self.assertTrue(key.startswith(self.gid + "_"))
-        self.assertEqual(list(s["networks"]), ["net"])  # <game_id>_net once deployed as <game_id>
+        # the scenario's network: <game_id>_backend once deployed as stack <game_id>
+        self.assertEqual(list(s["networks"]), ["backend"])
         for svc in s["services"].values():
             for v in svc["volumes"]:
                 self.assertIn(v["source"], s["volumes"])
@@ -142,7 +146,7 @@ class TestRender(RenderedFixture):
                          ["CMD", "/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"])
         self.assertEqual(db["healthcheck"]["start_period"], "60s")
         self.assertNotIn("ports", db)
-        self.assertEqual(db["networks"], ["net"])
+        self.assertEqual(db["networks"], ["backend"])
         bastion = self.stack["services"]["bastion"]
         self.assertEqual([v["target"] for v in bastion["volumes"]],
                          ["/home/player", "/var/lib/gm-sshd-keys", "/run"])
@@ -161,8 +165,14 @@ class TestRender(RenderedFixture):
             "reservations": {"cpus": "0.5", "memory": "512M"}})
 
     def test_network(self):
-        self.assertEqual(self.stack["networks"]["net"],
-                         {"driver": "overlay", "attachable": False})
+        self.assertEqual(self.stack["networks"],
+                         {"backend": {"driver": "overlay", "attachable": False}})
+        for svc in self.stack["services"].values():
+            self.assertEqual(svc["networks"], ["backend"])
+
+    def test_every_service_runs_in_utc(self):
+        for name, svc in self.stack["services"].items():
+            self.assertEqual(svc["environment"]["TZ"], "UTC", name)
 
     @unittest.skipUnless(shutil.which("docker"), "docker not installed")
     def test_docker_stack_config_accepts(self):

@@ -1,0 +1,11 @@
+
+  db_audit_gm -- Prometheus metrics store node
+
+  Configuration:  /etc/prometheus/prometheus.yml  (scrape targets, retention)
+  Prometheus:     http://localhost:9090/prometheus/  (curl, promtool query ...)
+                  from your browser: the bastion's web front, /prometheus/
+  Apply changes:  sudo gm-reload-prometheus   check, then reload the configuration
+  Check:          sudo gm-validate            public validator
+
+  DO NOT TAMPER with SSH, sudo, the gm-* wrappers or the validator.
+
