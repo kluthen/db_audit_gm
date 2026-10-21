@@ -1,4 +1,6 @@
-# Stack test fixture for the Prometheus brick (v0.2 build plan, chunk 4).
+# Stack test fixture for the Prometheus brick (v0.2 build plan, chunk 4): the
+# prometheus node and a postgres 0.2.0 node `db`, both receiving the
+# node-health script as configs, as the GM mounts it.
 # Uses only what a rendered Compose 3.8 stack file can express: no tmpfs
 # `mode` or `exec` option. Configs and secrets are external, created and
 # removed by run-stack-test.sh (mirroring gmctl deploy).
@@ -25,6 +27,13 @@ services:
       - {type: volume, source: prom_run, target: /run}
     configs:
       - {source: seed_prometheus_yml, target: /opt/gm/seed/prometheus.yml, uid: "0", gid: "0", mode: 0444}
+      # node-health script, mounted as the GM would (companion.mounted in brick.yaml)
+      - {source: nh_script, target: /usr/local/lib/gm/node-health/node-health.pl, uid: "0", gid: "0", mode: 0444}
+      - {source: nh_type, target: /etc/s6-overlay/s6-rc.d/gm-node-health/type, uid: "0", gid: "0", mode: 0444}
+      - {source: nh_run, target: /etc/s6-overlay/s6-rc.d/gm-node-health/run, uid: "0", gid: "0", mode: 0555}
+      - {source: nh_dep_base, target: /etc/s6-overlay/s6-rc.d/gm-node-health/dependencies.d/base, uid: "0", gid: "0", mode: 0444}
+      - {source: nh_bundle, target: /etc/s6-overlay/user-bundles.d/user/contents.d/gm-node-health, uid: "0", gid: "0", mode: 0444}
+      - {source: nh_conf_prometheus, target: /opt/gm/node-health/node.conf, uid: "0", gid: "0", mode: 0444}
     secrets:
       - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
     networks: [net]
@@ -32,6 +41,44 @@ services:
       replicas: 1
       resources:
         limits: {cpus: "0.5", memory: 384M}
+
+  db:
+    image: 127.0.0.1:5000/dbagm/postgres:0.2.0
+    hostname: db
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [AUDIT_WRITE, CHOWN, DAC_OVERRIDE, FOWNER, KILL, NET_BIND_SERVICE, SETGID, SETUID, SYS_CHROOT]
+    healthcheck:
+      test: ["CMD", "/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - {type: volume, source: db_pgdata, target: /var/lib/postgresql/18/data}
+      - {type: volume, source: db_pgconf, target: /etc/postgresql}
+      - {type: volume, source: db_home, target: /home/player}
+      - {type: volume, source: db_gmstate, target: /var/lib/gm-state}
+      - {type: volume, source: db_run, target: /run}
+    configs:
+      - {source: seed_postgresql_conf, target: /opt/gm/seed/postgresql.conf, uid: "0", gid: "0", mode: 0444}
+      - {source: seed_pg_hba_conf, target: /opt/gm/seed/pg_hba.conf, uid: "0", gid: "0", mode: 0444}
+      - {source: envelopes, target: /opt/gm/protected/envelopes.conf, uid: "0", gid: "0", mode: 0444}
+      # node-health script, mounted as the GM would (companion.mounted in brick.yaml)
+      - {source: nh_script, target: /usr/local/lib/gm/node-health/node-health.pl, uid: "0", gid: "0", mode: 0444}
+      - {source: nh_type, target: /etc/s6-overlay/s6-rc.d/gm-node-health/type, uid: "0", gid: "0", mode: 0444}
+      - {source: nh_run, target: /etc/s6-overlay/s6-rc.d/gm-node-health/run, uid: "0", gid: "0", mode: 0555}
+      - {source: nh_dep_base, target: /etc/s6-overlay/s6-rc.d/gm-node-health/dependencies.d/base, uid: "0", gid: "0", mode: 0444}
+      - {source: nh_bundle, target: /etc/s6-overlay/user-bundles.d/user/contents.d/gm-node-health, uid: "0", gid: "0", mode: 0444}
+      - {source: nh_conf_db, target: /opt/gm/node-health/node.conf, uid: "0", gid: "0", mode: 0444}
+    secrets:
+      - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
+      - {source: dba_password, target: /opt/gm/secrets/dba_password, uid: "0", gid: "0", mode: 0400}
+    networks: [net]
+    deploy:
+      replicas: 1
+      resources:
+        limits: {cpus: "0.5", memory: 512M}
 
 networks:
   net:
@@ -44,9 +91,25 @@ volumes:
   prom_home: {}
   prom_gmstate: {}
   prom_run: {}
+  db_pgdata: {}
+  db_pgconf: {}
+  db_home: {}
+  db_gmstate: {}
+  db_run: {}
 
 configs:
   seed_prometheus_yml: {external: true, name: gmtest-prom_seed_prometheus_yml}
+  seed_postgresql_conf: {external: true, name: gmtest-prom_seed_postgresql_conf}
+  seed_pg_hba_conf: {external: true, name: gmtest-prom_seed_pg_hba_conf}
+  envelopes: {external: true, name: gmtest-prom_envelopes}
+  nh_script: {external: true, name: gmtest-prom_nh_script}
+  nh_type: {external: true, name: gmtest-prom_nh_type}
+  nh_run: {external: true, name: gmtest-prom_nh_run}
+  nh_dep_base: {external: true, name: gmtest-prom_nh_dep_base}
+  nh_bundle: {external: true, name: gmtest-prom_nh_bundle}
+  nh_conf_db: {external: true, name: gmtest-prom_nh_conf_db}
+  nh_conf_prometheus: {external: true, name: gmtest-prom_nh_conf_prometheus}
 
 secrets:
   player_ssh_pubkey: {external: true, name: gmtest-prom_player_ssh_pubkey}
+  dba_password: {external: true, name: gmtest-prom_dba_password}

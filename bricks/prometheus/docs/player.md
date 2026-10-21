@@ -54,6 +54,16 @@ something is wrong it prints one `RED ...` line per broken rule and exits
 The validator does not tell you whether Prometheus watches the right
 things: that is part of your audit.
 
+## Node health
+
+Every node of the game, this one included, reports its own health at
+`http://<node>:9110/metrics`, in Prometheus' text format: CPU and memory
+against the node's limits, the space its volumes use against its disk
+reservation, the host's free space, and the status of the services in its
+list. The list is in `/opt/gm/node-health/node.conf` on each node. The
+script and its list are read-only on every node: if they are wrong, report
+it, or propose a fix.
+
 ## Do not tamper
 
 Changing Prometheus' configuration is expected. Do not change SSH, `sudo`,

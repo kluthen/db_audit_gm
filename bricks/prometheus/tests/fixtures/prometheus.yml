@@ -16,3 +16,6 @@ scrape_configs:
     metrics_path: /prometheus/metrics
     static_configs:
       - targets: ['localhost:9090']
+  - job_name: node-health
+    static_configs:
+      - targets: ['db:9110', 'prometheus:9110']

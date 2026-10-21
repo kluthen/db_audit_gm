@@ -1,0 +1,7 @@
+#!/bin/sh
+# s6 service `gm-node-health`: the node-health script (v0.2 master spec 7.1).
+# Mounted by the GM from the prometheus brick's companion/ (DO NOT TAMPER:
+# root-owned, read-only). Starts as root; the script keeps root for its
+# sampler only and serves port 9110 as nobody.
+exec 2>&1
+exec perl /usr/local/lib/gm/node-health/node-health.pl

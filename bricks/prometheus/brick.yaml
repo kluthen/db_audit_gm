@@ -20,12 +20,21 @@ image: 127.0.0.1:5000/dbagm/prometheus:0.1.0
 # --- Footprint --------------------------------------------------------
 footprint:                          # master spec 12's estimate for the node, less what the
                                     # node-health script adds to it (docs/gm.md, Footprint)
-  limits:       {cpu: 0.495, memory: 379M}
-  reservations: {cpu: 0.095, memory: 155M, disk: 512M}
+  limits:       {cpu: 0.495, memory: 378M}
+  reservations: {cpu: 0.095, memory: 154M, disk: 512M}
 stateful: true
 
 # --- What the scenario sets -------------------------------------------
-parameters: {}                      # scrape targets and retention are in the seed file
+parameters:                         # scrape targets and retention are in the seed file
+  node_health:
+    description: >-
+      the nodes that receive the node-health script and the services each
+      one reports (companion.mounted node-health): every node of the
+      topology, this one included, mapped to `default` (its brick's
+      processes) or a list of them
+    default: null
+    required: true
+    shape: node-map
 knobs: []                           # retention is bounded by the validator, not an envelope
 
 # --- Player plane -----------------------------------------------------
@@ -107,6 +116,40 @@ interfaces:
     - {name: ssh, protocol: ssh, port: 22}
     - {name: ui, protocol: http, port: 9090, web_path: /prometheus/}
   consumes: []                      # scrape targets are the seed file's, not wired interfaces
+companion:
+  path: companion/
+  when: >-
+    at every deployment of a scenario with a prometheus node: the GM mounts
+    companion/node-health into every node the node_health map lists
+  mounted:
+    - name: node-health             # the node-health script (master spec 7.1)
+      parameter: node_health
+      files:                        # an s6 longrun `gm-node-health`; Swarm refuses an empty
+                                    # config, so the s6 marker files carry a comment
+        - source: companion/node-health/node-health.pl
+          target: /usr/local/lib/gm/node-health/node-health.pl
+          mode: "0444"              # run as `perl <file>`
+        - source: companion/node-health/s6-rc.d/gm-node-health/type
+          target: /etc/s6-overlay/s6-rc.d/gm-node-health/type
+          mode: "0444"
+        - source: companion/node-health/s6-rc.d/gm-node-health/run
+          target: /etc/s6-overlay/s6-rc.d/gm-node-health/run
+          mode: "0555"
+        - source: companion/node-health/s6-rc.d/gm-node-health/dependencies.d/base
+          target: /etc/s6-overlay/s6-rc.d/gm-node-health/dependencies.d/base
+          mode: "0444"
+        - source: companion/node-health/user-bundles.d/user/contents.d/gm-node-health
+          target: /etc/s6-overlay/user-bundles.d/user/contents.d/gm-node-health
+          mode: "0444"
+      node_config:                  # node, services, disk_reservation, volumes (capture W1, item 4)
+        target: /opt/gm/node-health/node.conf
+        mode: "0444"
+      footprint:                    # added to each receiving node's resources (docs/gm.md, Footprint)
+        limits:       {cpu: 0.005, memory: 6M}
+        reservations: {cpu: 0.005, memory: 6M, disk: 0}
+      requires:
+        s6_overlay: "3"
+        commands: [sh, perl, du, df, s6-svstat]
 receives:                           # the image accepts another brick's mounted material
   s6_overlay: "3.2.3.2"             # the version the Dockerfile installs
   commands: [sh, cat, du, df, awk, sed, grep, sleep, perl, s6-svstat, s6-setuidgid]

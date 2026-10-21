@@ -11,7 +11,12 @@
 #   - edits to /etc/prometheus survive a reload and a new container, and a
 #     retention change in prometheus.yml takes effect through the wrapper;
 #   - the validator exits 0, then 1 on a broken or pending file;
-#   - the seed marker is out of player's reach; read-only root, capabilities.
+#   - the seed marker is out of player's reach; read-only root, capabilities;
+#   - the node-health script, mounted as configs into the prometheus node and
+#     a postgres 0.2.0 node `db`: each node's endpoint readable from the
+#     other, with CPU, memory, disk against the reservation, the host's free
+#     space and each listed service; a service stopped with s6-svc -d shown
+#     as down; Prometheus scraping both; the files read-only for player.
 # Everything it creates is removed on exit, volumes included.
 #
 # Needs: a swarm manager (docker swarm init), the images built locally (the
@@ -26,12 +31,15 @@ STACK=gmtest-prom
 IMAGE=127.0.0.1:5000/dbagm/prometheus:0.1.0
 CLIENT_IMAGE=127.0.0.1:5000/dbagm/postgres:0.2.0
 SERVICE=${STACK}_prometheus
+DB_SERVICE=${STACK}_db
 NET=${STACK}_net
 CLIENT=${STACK}-client
 LABEL=dbagm.test=chunk4-prometheus
-CONFIGS="seed_prometheus_yml"
-SECRETS="player_ssh_pubkey"
-VOLUMES="prom_data prom_conf prom_home prom_gmstate prom_run"
+CONFIGS="seed_prometheus_yml seed_postgresql_conf seed_pg_hba_conf envelopes nh_script nh_type nh_run nh_dep_base nh_bundle nh_conf_db nh_conf_prometheus"
+SECRETS="player_ssh_pubkey dba_password"
+VOLUMES="prom_data prom_conf prom_home prom_gmstate prom_run db_pgdata db_pgconf db_home db_gmstate db_run"
+PG_FIXTURES=$HERE/../../postgres/tests/fixtures
+NH=$HERE/../companion/node-health
 SSH_OPTS="-i /root/id -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o LogLevel=ERROR -o ConnectTimeout=10"
 CONF=/etc/prometheus/prometheus.yml
 
@@ -90,8 +98,23 @@ fi
 
 # --- per-game material, as gmctl deploy would create it ---------------------
 ssh-keygen -q -t ed25519 -N '' -C gmtest-player -f "$tmp/id"
-docker config create -l "$LABEL" "${STACK}_seed_prometheus_yml" "$HERE/fixtures/prometheus.yml" >/dev/null
+head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$tmp/dba_password"
+cfg() { docker config create -l "$LABEL" "${STACK}_$1" "$2" >/dev/null; }
+cfg seed_prometheus_yml "$HERE/fixtures/prometheus.yml"
+cfg seed_postgresql_conf "$PG_FIXTURES/postgresql.conf"
+cfg seed_pg_hba_conf "$PG_FIXTURES/pg_hba.conf"
+cfg envelopes "$PG_FIXTURES/envelopes.conf"
+# the node-health script and its s6 service, and each node's own config,
+# written by hand in the renderer's format (capture W1, item 4)
+cfg nh_script "$NH/node-health.pl"
+cfg nh_type "$NH/s6-rc.d/gm-node-health/type"
+cfg nh_run "$NH/s6-rc.d/gm-node-health/run"
+cfg nh_dep_base "$NH/s6-rc.d/gm-node-health/dependencies.d/base"
+cfg nh_bundle "$NH/user-bundles.d/user/contents.d/gm-node-health"
+cfg nh_conf_db "$HERE/fixtures/node-health/db.conf"
+cfg nh_conf_prometheus "$HERE/fixtures/node-health/prometheus.conf"
 docker secret create -l "$LABEL" "${STACK}_player_ssh_pubkey" "$tmp/id.pub" >/dev/null
+docker secret create -l "$LABEL" "${STACK}_dba_password" "$tmp/dba_password" >/dev/null
 
 info "deploying stack $STACK"
 docker stack deploy --resolve-image never -c "$HERE/stack.test.yml" "$STACK" >/dev/null 2>&1
@@ -120,6 +143,14 @@ else
     fail "container did not become healthy"
     docker service ps --no-trunc "$SERVICE" || true
     docker service logs --tail 60 "$SERVICE" 2>&1 || true
+    exit 1
+fi
+if DB=$(wait_healthy "$DB_SERVICE"); then
+    pass "db node (postgres 0.2.0, receiving node-health) healthy ($DB)"
+else
+    fail "db node did not become healthy"
+    docker service ps --no-trunc "$DB_SERVICE" || true
+    docker service logs --tail 60 "$DB_SERVICE" 2>&1 || true
     exit 1
 fi
 
@@ -296,6 +327,110 @@ w=$(pssh cat report.md 2>&1 || true)
 [ "$w" = "audit notes" ] && pass "player's home kept in a new container" || fail "home after new container: $w"
 out=$(pssh sudo -n gm-validate 2>&1); rc=$?
 [ "$rc" -eq 0 ] && pass "validator green in the new container" || fail "validator in new container: exit $rc: $out"
+
+# --- node-health script (mounted material) ---------------------------------------------
+NHFILES="/usr/local/lib/gm/node-health/node-health.pl /etc/s6-overlay/s6-rc.d/gm-node-health/run /etc/s6-overlay/s6-rc.d/gm-node-health/type /etc/s6-overlay/s6-rc.d/gm-node-health/dependencies.d/base /etc/s6-overlay/user-bundles.d/user/contents.d/gm-node-health /opt/gm/node-health/node.conf"
+dbx() { docker exec -i "$DB" "$@"; }
+nodex() {  # nodex <prometheus|db> <command...>: run in that node's container (GM side)
+    n=$1; shift
+    if [ "$n" = db ]; then docker exec -i "$DB" "$@"; else docker exec -i "$C" "$@"; fi
+}
+for n in prometheus db; do
+    s=$(nodex $n /command/s6-svstat -o up /run/service/gm-node-health 2>&1)
+    [ "$s" = true ] && pass "$n: s6 runs the mounted gm-node-health service" || fail "$n: gm-node-health: $s"
+    who=$(nodex $n ps -o user=,args= -C perl | sed 's/  */ /g' | sort | tr '\n' ';')
+    [ "$who" = "nobody perl /usr/local/lib/gm/node-health/node-health.pl;root perl /usr/local/lib/gm/node-health/node-health.pl;" ] \
+        && pass "$n: listener runs as nobody, sampler as root ($who)" || fail "$n: node-health processes: $who"
+    m=$(nodex $n stat -c '%U:%G %a' $NHFILES | sort -u | tr '\n' ' ')
+    [ "$m" = "root:root 444 root:root 555 " ] && pass "$n: mounted files root-owned, no write bit ($m)" || fail "$n: modes: $m"
+done
+# from the prometheus node, as player: the db node's endpoint
+mdb=$(pssh curl -fsS -m 5 http://db:9110/metrics 2>&1); rc=$?
+[ "$rc" -eq 0 ] && pass "prometheus node (player, curl): db:9110/metrics readable" || fail "db endpoint from prometheus: $mdb"
+# from the db node, as player (perl, no curl there): the prometheus node's endpoint
+mprom=$(docker exec -u player "$DB" perl -e "$PERL_HTTP" GET prometheus 9110 /metrics 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && [ "$(printf '%s' "$mprom" | status_of)" = 200 ]; then
+    pass "db node (player, perl): prometheus:9110/metrics readable"
+else
+    fail "prometheus endpoint from db: $(printf '%s' "$mprom" | head -n 2)"
+fi
+has() {  # has <node> <text> <regex> <what>
+    if printf '%s\n' "$2" | grep -Eq "$3"; then pass "$1 endpoint shows $4"; else fail "$1 endpoint lacks $4 ($3)"; fi
+}
+for n in db prometheus; do
+    if [ "$n" = db ]; then t=$mdb; res=1073741824; svcs="postgres sshd"; mem=536870912
+    else t=$mprom; res=536870912; svcs="prometheus sshd"; mem=402653184; fi
+    has $n "$t" "^node_health_cpu_seconds_total\{node=\"$n\"\} [0-9.e+-]+$" "CPU time"
+    has $n "$t" "^node_health_cpu_limit_cores\{node=\"$n\"\} 0\.5$" "the CPU limit (0.5)"
+    has $n "$t" "^node_health_memory_used_bytes\{node=\"$n\"\} [1-9][0-9]+$" "memory used"
+    has $n "$t" "^node_health_memory_working_set_bytes\{node=\"$n\"\} [0-9]+$" "the memory working set"
+    has $n "$t" "^node_health_memory_limit_bytes\{node=\"$n\"\} $mem$" "the memory limit ($mem)"
+    has $n "$t" "^node_health_disk_used_bytes\{node=\"$n\"\} [1-9][0-9]+$" "disk used by its volumes"
+    has $n "$t" "^node_health_disk_reservation_bytes\{node=\"$n\"\} $res$" "the disk reservation ($res)"
+    has $n "$t" "^node_health_volume_used_bytes\{node=\"$n\",path=\"/run\"\} [0-9]+$" "per-volume use"
+    has $n "$t" "^node_health_host_free_bytes\{node=\"$n\"\} [1-9][0-9]+$" "the host's free space"
+    for s in $svcs; do
+        has $n "$t" "^node_health_service_up\{node=\"$n\",service=\"$s\"\} 1$" "service $s up"
+    done
+done
+info "db endpoint, disk lines: $(printf '%s\n' "$mdb" | grep -E '^node_health_(disk|volume|host)' | tr '\n' ' ')"
+r=$(nhttp GET db 9110 /nothing-here)
+[ "$(printf '%s' "$r" | status_of)" = 404 ] && pass "node-health answers 404 off /metrics" || fail "GET /nothing-here: $(printf '%s' "$r" | head -n 1)"
+# a service stopped with s6-svc -d shows as down, then up again
+dbx /command/s6-svc -d /run/service/postgres
+i=0; down=
+while [ "$i" -lt 20 ]; do
+    sleep 1; i=$((i + 1))
+    m=$(nhttp GET db 9110 /metrics)
+    if printf '%s\n' "$m" | grep -q '^node_health_service_up{node="db",service="postgres"} 0' \
+       && printf '%s\n' "$m" | grep -q '^node_health_service_wanted_up{node="db",service="postgres"} 0'; then
+        down=$i; break
+    fi
+done
+[ -n "$down" ] && pass "postgres stopped with s6-svc -d shown as down (up 0, wanted_up 0) within ${down}s" \
+    || fail "postgres stopped with s6-svc -d not shown as down"
+dbx /command/s6-svc -u /run/service/postgres
+i=0; up=
+while [ "$i" -lt 30 ]; do
+    sleep 1; i=$((i + 1))
+    if nhttp GET db 9110 /metrics | grep -q '^node_health_service_up{node="db",service="postgres"} 1'; then up=$i; break; fi
+done
+[ -n "$up" ] && pass "postgres back up shown as up within ${up}s" || fail "postgres not shown up again"
+# Prometheus scrapes both endpoints
+i=0; ok=
+while [ "$i" -lt 60 ]; do
+    q=$(gm curl -fsS -m 5 -G --data-urlencode 'query=up{job="node-health"} == 1' http://127.0.0.1:9090/prometheus/api/v1/query)
+    if printf '%s' "$q" | grep -q '"instance":"db:9110"' && printf '%s' "$q" | grep -q '"instance":"prometheus:9110"'; then ok=1; break; fi
+    sleep 3; i=$((i + 3))
+done
+[ -n "$ok" ] && pass "Prometheus scrapes both node-health endpoints (up == 1 for db:9110 and prometheus:9110)" \
+    || fail "Prometheus scrape of node-health: $q"
+q=$(gm curl -fsS -m 5 -G --data-urlencode 'query=node_health_disk_used_bytes / node_health_disk_reservation_bytes' http://127.0.0.1:9090/prometheus/api/v1/query)
+printf '%s' "$q" | grep -q '"node":"db"' && pass "disk against the reservation queryable in Prometheus ($(printf '%s' "$q" | grep -o '"node":"[a-z]*"[^]]*\]' | tr '\n' ' '))" \
+    || fail "disk ratio query: $q"
+# read-only for player, on both nodes
+for f in /usr/local/lib/gm/node-health/node-health.pl /opt/gm/node-health/node.conf /etc/s6-overlay/s6-rc.d/gm-node-health/run; do
+    check "player cannot write $f on db" sh -c "! docker exec $CLIENT ssh $SSH_OPTS player@db 'echo x >> $f'"
+    check "player cannot write $f on prometheus" sh -c "! docker exec $CLIENT ssh $SSH_OPTS player@prometheus 'echo x >> $f'"
+done
+check "player cannot remove the service list on db" sh -c "! docker exec $CLIENT ssh $SSH_OPTS player@db 'rm -f /opt/gm/node-health/node.conf'"
+check "player can read the service list on db" docker exec "$CLIENT" ssh $SSH_OPTS player@db "grep -qx 'services=postgres sshd' /opt/gm/node-health/node.conf"
+# cost of the script, for brick.yaml's companion footprint. The listener's
+# smaps are unreadable (a process that dropped root is not dumpable, and
+# root here lacks CAP_SYS_PTRACE): its RSS only.
+for n in prometheus db; do
+    for p in $(nodex $n ps -o pid= -C perl); do
+        u=$(nodex $n ps -o user= -p "$p" | tr -d ' ')
+        if [ "$n" = db ]; then x=$DB; else x=$C; fi
+        if [ "$u" = root ]; then
+            mem=$(docker exec "$x" sh -c "grep -E '^(Rss|Pss|Private_Clean|Private_Dirty):' /proc/$p/smaps_rollup" | tr -s ' ' | tr '\n' ' ')
+        else
+            mem="Rss: $(nodex $n ps -o rss= -p "$p" | tr -d ' ') kB"
+        fi
+        cpu=$(docker exec "$x" sh -c "awk '{print \$14 + \$15}' /proc/$p/stat")
+        info "$n: node-health pid $p ($u): $mem; CPU ${cpu} ticks in $(nodex $n ps -o etimes= -p "$p" | tr -d ' ') s"
+    done
+done
 
 # --- hardening ---------------------------------------------------------------------
 check "root filesystem is read-only" sh -c "[ \"\$(docker inspect -f '{{.HostConfig.ReadonlyRootfs}}' $C)\" = true ]"
