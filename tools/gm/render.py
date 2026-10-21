@@ -7,9 +7,16 @@ Mounts, capabilities and `read_only` mirror the bricks' proven stack tests
 and labels them (spec D46). The scenario's one network renders under its
 own name, so stack `<game_id>` names it `<game_id>_<network name>` (v0.2
 master spec 6.3); every node runs with `TZ=UTC` (v0.2 master spec 8).
+
+v0.2 master spec 8 and capture W1, items 2, 4 and 8: the parameter faults
+are applied to their target nodes' parameters before anything is derived
+from them; a shaped parameter reaches the container as its `shape` says;
+every receiving node mounts the mounted items' files and its own config,
+written here into `mounted/<item>/<node>.conf`.
 """
 
 import re
+import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -21,6 +28,7 @@ from .model import REPO_ROOT, GmError, load_scenario, parse_cpu, parse_mode
 COMPOSE_VERSION = "3.8"
 RENDERABLE_STAGES = ("fitted", "rendered")
 NODE_TIMEZONE = "UTC"
+NODE_MAP, WEB_ROUTES = "node-map", "web-routes"    # parameter shapes (capture W1, item 2)
 
 
 def _envelope_value(value):
@@ -50,17 +58,33 @@ def envelope_text(node_name, knobs):
     return "\n".join(lines) + "\n"
 
 
+def web_routes_value(routes):
+    """A web-routes map as `name=node:port` tokens, space-separated, sorted
+    by name; `""` for an empty map (capture W1, item 2)."""
+    if not isinstance(routes, dict):
+        raise GmError(f"a web-routes parameter is a map of routes, not {routes!r}")
+    return " ".join(f"{name}={routes[name]}" for name in sorted(routes))
+
+
 def service_environment(brick, node):
     """`TZ=UTC`, then the brick parameters as GM_<NAME> variables: the
     scenario's value, else the brick's default; unset parameters are left
-    out."""
+    out. By `shape` (capture W1, item 2): a node-map parameter is never
+    passed (the mounted material carries it), a web-routes one is passed
+    as its tokens, a scalar as in v0.1."""
     env = {"TZ": NODE_TIMEZONE}
     values = node.get("parameters") or {}
     for name, spec in (brick.get("parameters") or {}).items():
-        value = values.get(name, (spec or {}).get("default"))
+        spec = spec or {}
+        shape = spec.get("shape")
+        if shape == NODE_MAP:
+            continue
+        value = values.get(name, spec.get("default"))
         if value is None:
             continue
-        if isinstance(value, bool):
+        if shape == WEB_ROUTES:
+            value = web_routes_value(value)
+        elif isinstance(value, bool):
             value = "true" if value else "false"
         env["GM_" + re.sub(r"[^A-Za-z0-9]", "_", str(name)).upper()] = str(value)
     return env
@@ -89,6 +113,7 @@ def build_stack(scenario, impl):
     """The stack file's content, as a dict (Compose file format 3.8)."""
     gid = impl["game_id"]
     network = localimpl.network_name(scenario)
+    params = localimpl.node_parameters(scenario)
     services, volumes, configs, secrets = {}, {}, {}, {}
     for node in scenario.nodes:
         name = node["name"]
@@ -101,7 +126,7 @@ def build_stack(scenario, impl):
             "cap_drop": ["ALL"],
             "cap_add": list(brick.get("capabilities") or []),
         }
-        svc["environment"] = service_environment(brick, node)
+        svc["environment"] = service_environment(brick, {"parameters": params[name]})
         svc["healthcheck"] = _healthcheck(brick["healthcheck"])
         if inode["published_ports"]:
             svc["ports"] = [{"target": p["target"], "published": p["published"],
@@ -156,11 +181,13 @@ class RenderResult:
     local_dir: Path
     stack_file: Path
     envelope_files: list = field(default_factory=list)
+    node_config_files: list = field(default_factory=list)
 
     def text(self):
         out = [f"Game {self.game_id}: rendered.",
                f"  {self.stack_file}"]
         out += [f"  {p}" for p in self.envelope_files]
+        out += [f"  {p}" for p in self.node_config_files]
         out.append("Stage rendered.")
         return "\n".join(out)
 
@@ -189,6 +216,13 @@ def render(scenario_dir, playground, catalog_root=REPO_ROOT):
     if impl.get("secrets") != localimpl.implementation_secrets(scenario, playground,
                                                                impl["game_id"]):
         raise GmError("the bricks' secrets changed since gmctl fit: fit again")
+    params = localimpl.node_parameters(scenario)
+    mounted = localimpl.mounted_configs(scenario, params, playground, impl["game_id"])
+    kinds = (localimpl.MOUNTED_CONFIG, localimpl.NODE_CONFIG)
+    if impl.get("parameter_faults") != localimpl.parameter_faults(scenario) or any(
+            [c for c in impl["nodes"][name]["configs"] if c.get("kind") in kinds]
+            != mounted[name] for name in mounted):
+        raise GmError("the mounted material changed since gmctl fit: fit again")
 
     envelope_files = []
     for node in scenario.nodes:
@@ -199,7 +233,15 @@ def render(scenario_dir, playground, catalog_root=REPO_ROOT):
                 localimpl.write_text(path, envelope_text(name, node.get("knobs") or []))
                 envelope_files.append(path)
 
+    node_config_files = []
+    shutil.rmtree(ldir / localimpl.MOUNTED_DIR, ignore_errors=True)   # a node left out keeps none
+    for _, _, item, entries in localimpl.mounted_material(scenario, params):
+        for name, entry in entries.items():
+            path = scenario.dir / localimpl.node_config_file(playground, item["name"], name)
+            localimpl.write_text(path, localimpl.node_config_text(scenario, impl, name, entry))
+            node_config_files.append(path)
+
     stack_file = ldir / localimpl.STACK_FILE
     localimpl.write_text(stack_file, dump_stack(build_stack(scenario, impl), impl["game_id"]))
     localimpl.set_stage(ldir, "rendered")
-    return RenderResult(impl["game_id"], ldir, stack_file, envelope_files)
+    return RenderResult(impl["game_id"], ldir, stack_file, envelope_files, node_config_files)

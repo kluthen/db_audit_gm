@@ -2,11 +2,13 @@
 and exec_node's `argv`; Docker stubbed."""
 
 import subprocess
+from pathlib import Path
 
-from tools.gm import execnode, inject, localimpl, model, state, teardown
+from tools.gm import deploy, execnode, fit, inject, localimpl, model, render, state, teardown
 from tools.gm.model import GmError
-from tools.tests import FakeDocker, run_gmctl
+from tools.tests import SUFFICIENT, FakeDocker, run_gmctl
 from tools.tests.test_deploy import RenderedGame
+from tools.tests.test_render import MountedCopyTest
 
 F2_ENV = {"FAULT_DATABASE": "shop", "FAULT_TABLE_NAME": "orders",
           "FAULT_COLUMN": "customer_id"}
@@ -300,3 +302,43 @@ class TestCommandLine(RenderedGame):
             self.assertIn(f"gmctl {command}: game {self.gid} is at stage rendered",
                           proc.stderr)
         self.assertEqual(localimpl.read_state(self.ldir)["stage"], "rendered")
+
+
+class TestMountedGame(MountedCopyTest):
+    """fixture-mounted deployed on a ScriptedDocker: f1 a state fault, f2 a
+    parameter fault (app left out of the node-health map)."""
+
+    def setUp(self):
+        super().setUp()
+        fit.fit(self.scenario, "laptop", **SUFFICIENT)
+        render.render(self.scenario, "laptop")
+        self.ldir = self.scenario / "local" / "laptop"
+        self.impl = localimpl.read_implementation(self.ldir)
+        self.gid = self.impl["game_id"]
+        self.fake = ScriptedDocker()
+        self.printed = []
+        deploy.deploy(self.scenario, "laptop", docker=self.fake, timeout=30,
+                      sleep=lambda s: None, clock=lambda: 0.0)
+
+    def test_deploy_creates_the_mounted_configs_once(self):
+        gid = self.gid
+        self.assertEqual(self.fake.names("config"), sorted([
+            f"{gid}_monitor_node-health-1", f"{gid}_monitor_node-health-2",
+            f"{gid}_bastion_node-health.conf", f"{gid}_monitor_node-health.conf"]))
+        creates = [c[-2] for c in self.fake.called("config", "create")]
+        self.assertEqual(len(creates), len(set(creates)))
+        for call in self.fake.called("config", "create"):
+            self.assertGreater(Path(call[-1]).stat().st_size, 0, call[-2])
+
+    def test_a_parameter_fault_is_reported_as_planted_at_rendering(self):
+        inject.load_data(self.scenario, "laptop", docker=self.fake, out=self.printed.append)
+        result = inject.inject(self.scenario, "laptop", docker=self.fake,
+                               out=self.printed.append)
+        self.assertEqual([r["stdin"] for r in self.fake.runs], [
+            (self.scenario / "faults/fixture-app-stopped/inject/10-stop.sh").read_text()])
+        self.assertEqual(result.scripts, [("f1", "inject/10-stop.sh")])
+        self.assertEqual(result.seeded, [])
+        self.assertEqual(result.rendered, ["f2"])
+        self.assertIn("  f2: parameter fault, planted at rendering; nothing to run",
+                      result.text())
+        self.assertEqual(localimpl.read_state(self.ldir)["stage"], "injected")
