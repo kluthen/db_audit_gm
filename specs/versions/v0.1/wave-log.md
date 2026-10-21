@@ -675,3 +675,16 @@ Branch `v0.1-c7-eval` kept until the wave closes; its worktree is removed.
   torn down; its message corrected).
 - Sent to `spec-writer`: record both rulings, insert chunk 10 (plan v5),
   and the master spec 8.1 wording (data load streamed into `psql`).
+- `spec-writer`: plan v5 (5113a95). D50 (`teardown --reason`), D51 (`fit`
+  after a torn-down failed game), owner rulings; D52, master spec 8.1 and
+  `formats.md` "Script contracts" clarified (the data load is SQL streamed
+  into `psql`); master spec 11's `teardown` row names the reason. Chunk 10
+  inserted in wave 3 (split 10a/10b); the 7 → 9 → 10 chain is over the
+  two-chunk in-wave limit, accepted because 7 and 9 were merged before
+  10 was inserted. `compatible_faults: []` in the postgres brick: nothing
+  requires it filled; left as is. Not changed: master spec 17 item 7 and
+  release-gate item 5 check the stage recorded, not the reason (owner's
+  call whether the release gate also checks a stop with reason).
+- Chunk 10 peek: no intent register, no data register; it adds no data.
+  Nothing to check beyond the plan.
+- Chunk 10: dispatched 2026-10-21, halves in order (10a then 10b).
