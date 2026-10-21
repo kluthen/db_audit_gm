@@ -1186,3 +1186,62 @@ Chunk 8 merged 2026-10-21: 044b882, merge 100b5a9. Unit suite 294 OK;
 - **`gmctl.md`.** No command line changed; the `fit` row's Exit column
   lists the two new refusals, and "What the output looks like" shows the
   image line, the disk line and both refusals.
+
+### Capture W3-B — chunk 9 outcomes (read by 11, 13, 14)
+
+Chunk 9 merged 2026-10-21: 2fc4c54 (9a), ad102d8 (9b), merge f20ff5e.
+Unit suite 294 OK after the merge; stack test 76 PASS, 0 FAIL; image
+`postgres-exporter:0.1.0` 165MB (164,559,951 bytes, about 86MB over
+`debian:13-slim`). No deviation from capture W3; its API exception was
+not needed.
+
+- **Release.** `postgres_exporter` 0.20.1 linux-amd64, sha256
+  `89d4f7e7920cad48fdc3133f789556ef5253c330a9f5fdace3bdb6344c0a8b5a`
+  (the release's `sha256sums.txt`); carries the PostgreSQL 17+
+  `pg_stat_statements` query. Checked against PostgreSQL 18.6.
+- **Accounts.** `exporter` 990:990, group `expconf` 991; the build
+  fails if they differ or if `player` is in `exporter`. The secret is
+  `monitoring_password` 0:990 `0440`; the server's environment holds
+  only `DATA_SOURCE_PASS_FILE=/opt/gm/secrets/monitoring_password`.
+- **Metrics.** `pg_up`; `pg_stat_statements_calls_total`,
+  `pg_stat_statements_seconds_total`, `pg_stat_statements_rows_total`
+  (labels `datname`, `queryid`, `user`); `pg_scrape_collector_success
+  {collector=…}`, 1 for all 15 default collectors (database, locks,
+  replication, replication_slots, roles, settings, stat_activity,
+  stat_archiver, stat_bgwriter, stat_database, stat_progress_vacuum,
+  stat_replication, stat_user_tables, statio_user_tables, wal) plus
+  `stat_statements`.
+- **Wrappers.** `gm-restart-exporter` (prints `pg_up 1: connected…` or
+  `pg_up 0: NOT connected…`, exit 0 either way; refuses a bad file with
+  "NOT restarted", exit 1, the old exporter running on) and
+  `gm-validate`. Validator rules `config`, `server`, `pending`;
+  `run_as: exporter`.
+- **`exporter.conf` as built** (beyond W3): a comment may follow a
+  value (whitespace then `#`); refused: a key set twice, a value with
+  spaces, quotes or `` \ ` $ ; ``, a collector the release does not
+  offer (list in `/usr/local/lib/gm/exporter-collectors`), a symbolic
+  link. Messages give line numbers and keys, never values. One
+  root-owned reader, `/usr/local/lib/gm/exporter-conf`, checks for the
+  s6 `run`, the wrapper and the validator. A refused file: the service
+  exits 3, a `finish` script holds it down 4 s.
+- **`pending`** compares the file's mtime with the one recorded at start
+  in `/run/postgres-exporter/loaded`; a file rewritten with its old
+  content shows pending until the next restart (documented).
+- **Health check and `server` rule** use the landing page `/`, which
+  asks nothing of the database: a wrong address gives `pg_up 0` with the
+  validator green and the node healthy.
+- `--config.file` is a protected YAML with no auth module, so `/probe`
+  holds no credential. Upstream also serves `/debug/pprof` on the game
+  network (Known limits).
+- **Stack test.** Stack `gmtest-pgexp`, label
+  `dbagm.test=chunk9-postgres-exporter`, no published port; the db node
+  reuses `bricks/postgres/tests/fixtures/{postgresql.conf,envelopes.conf}`.
+- **Outside the Files line:** `bricks/postgres-exporter/tests/fixtures/
+  {exporter.conf,pg_hba.conf}`; under `rootfs/`,
+  `usr/local/lib/gm/postgres_exporter.yml` and the s6 `finish` file
+  (added with `git add -f`: the repo's `local/` ignore rule matches
+  `rootfs/usr/local/`).
+- **Left for the wave:** the root `README.md` row for `bricks/` lists
+  only postgres, bastion and prometheus (left to avoid a clash with
+  chunk 10; chunk 11 adds both new bricks). Branch `v0.2-c9-exporter`
+  kept; removed with the wave's branches.

@@ -610,8 +610,13 @@ Architecture capture: none.
 
 ### Chunk 9 — `postgres-exporter` brick
 
-Status: in progress
-Record: (after merge)
+Status: merged (w3, f20ff5e)
+Record: 2fc4c54 (9a), ad102d8 (9b). No deviation from the spec or
+capture W3; fixable only, as `prometheus` (W3 ruling 1, in the wave 3
+report). `postgres_exporter` 0.20.1; image 165MB (master spec 12
+estimated about 25M over the shared layers). Outside its Files line:
+test fixtures under `bricks/postgres-exporter/tests/fixtures/`
+(capture W3-B).
 Wave: 3
 Depends on: chunks 3, 6; G2, G3
 Architecture capture: at wave 3 start, for chunk 11: its seed files,
