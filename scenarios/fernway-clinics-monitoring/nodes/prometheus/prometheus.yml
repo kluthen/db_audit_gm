@@ -1,0 +1,26 @@
+# prometheus.yml -- Fernway monitoring.
+# Set up in April: Prometheus itself, the PostgreSQL exporter, and the
+# node-health endpoint of the servers.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Retention, bounded by time and by size; applied at start and at each
+# reload (sudo gm-reload-prometheus).
+storage:
+  tsdb:
+    retention:
+      time: 1d
+      size: 256MB
+
+scrape_configs:
+  - job_name: prometheus
+    metrics_path: /prometheus/metrics
+    static_configs:
+      - targets: ['localhost:9090']
+  - job_name: postgres
+    static_configs:
+      - targets: ['exporter:9187']
+  - job_name: node-health
+    static_configs:
+      - targets: ['bastion:9110', 'db:9110', 'prometheus:9110', 'exporter:9110']

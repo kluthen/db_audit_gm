@@ -1,0 +1,365 @@
+# scenario.yaml — the v0.2 scenario (master spec 11.1), built from
+# .claude/skills/scenario-format/templates/scenario.yaml. Authoritative,
+# with gm/answer-key.yaml; README.md is generated from both by the
+# scenario-document skill. Monitoring side: capture W4 of
+# specs/versions/v0.2/wave-log.md ("What chunk 14's scenario declares").
+
+# --- Scenario information --------------------------------------------
+id: fernway-clinics-monitoring
+version: 0.1.0
+title: Four veterinary clinics, one database, and monitoring nobody has checked since it was set up
+date: 2026-10-21
+origin: hand-written
+session_length_minutes: 240
+brief: brief.md
+background: >-
+  Fernway runs four veterinary clinics and an online booking site on one
+  PostgreSQL database. After an outage nobody noticed for a morning, a
+  freelancer set up Prometheus, a PostgreSQL exporter and Grafana in April
+  (dashboards, alert rules, the alert list on the reception screen) and
+  left in June. Since then a Grafana restart went unseen, a 90-minute
+  database outage raised no service alert, and the query statistics panels
+  have been empty since May. Beatriz Lund, the practice manager who
+  handles IT, asks for an audit of the monitoring and of the database
+  before the winter vaccination campaign. The data file creates the roles
+  fernway (owner of the database, no login) and clinic_app (the booking
+  site's login, with data rights on every table; made superuser after the
+  load, f7); the brick creates dba, the players' superuser, and
+  monitoring, the exporter's role.
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: backend
+    description: >-
+      the players' sessions from the bastion, the web front's routes, the
+      scrapes, the exporter's queries and Grafana's queries to Prometheus
+
+nodes:
+  - name: bastion
+    brick:
+      id: bastion
+      version: 0.2.0
+    role: bastion
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters:
+      web_routes: {grafana: "grafana:3000", prometheus: "prometheus:9090"}
+    resources:                      # master spec 12's row, node-health script included
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.1
+        memory: 96M
+        disk: 256M
+    published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
+    seed_files:
+      README.md: player/README.md
+      story.md: player/story.md
+      issues.md: player/issues.md
+    knobs: []
+
+  - name: db
+    brick:
+      id: postgres
+      version: 0.2.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:                      # master spec 12's row, log volume and script included
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.5
+        memory: 512M
+        disk: 2.25G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/db/postgresql.conf
+      pg_hba.conf: nodes/db/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 32MB, max: 256MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 10, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+    data:
+      file: data/db.sql
+      databases:
+        - name: clinic
+          owner: fernway
+          tables:
+            - name: clinics
+              description: 4 clinics (id, name, town); primary key on id, unique name.
+            - name: vets
+              description: 14 vets (id, clinic_id, full_name); primary key on id, foreign key to clinics.
+            - name: owners
+              description: >-
+                3 000 pet owners (id, email, full_name, phone, created_at);
+                primary key on id, unique email.
+            - name: pets
+              description: >-
+                4 200 pets (id, owner_id, name, species, born_on); primary key
+                on id, foreign key to owners, index pets_owner_id_idx.
+            - name: appointments
+              description: >-
+                40 000 appointments, May 2024 to November 2026 (id, pet_id,
+                vet_id, clinic_id, starts_at, minutes, status, reason);
+                primary key on id, foreign keys to pets, vets and clinics;
+                indexes appointments_pet_id_idx,
+                appointments_vet_id_starts_at_idx and
+                appointments_clinic_id_starts_at_idx. Autovacuum turned off
+                on it after the load (f8).
+
+  - name: prometheus
+    brick:
+      id: prometheus
+      version: 0.1.0
+    role: metrics-store
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters:
+      node_health: {bastion: default, db: default, prometheus: default, exporter: default,
+                    grafana: default}
+    resources:                      # master spec 12's row, node-health script included
+      limits:
+        cpu: 0.5
+        memory: 384M
+      reservations:
+        cpu: 0.1
+        memory: 160M
+        disk: 512M
+    published_ports: []
+    seed_files:
+      prometheus.yml: nodes/prometheus/prometheus.yml
+    knobs: []
+
+  - name: exporter
+    brick:
+      id: postgres-exporter
+      version: 0.1.0
+    role: metrics-exporter
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:                      # master spec 12's row (the script is not mounted here: f2)
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.05
+        memory: 48M
+        disk: 64M
+    published_ports: []
+    seed_files:
+      exporter.conf: nodes/exporter/exporter.conf
+    knobs: []
+
+  - name: grafana
+    brick:
+      id: grafana
+      version: 0.1.0
+    role: dashboards
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:                      # memory reservation from capture W3-C's measurement at
+                                    # rest (180-195M) plus the script's 6M, until chunk 14b
+      limits:
+        cpu: 0.5
+        memory: 384M
+      reservations:
+        cpu: 0.1
+        memory: 208M
+        disk: 256M
+    published_ports: []
+    seed_files:                     # bricks/grafana/companion/ byte for byte, except
+                                    # alert-rules.yaml (gm-service-down for 2h: f5)
+      datasources.yaml: nodes/grafana/datasources.yaml
+      dashboards.yaml: nodes/grafana/dashboards.yaml
+      node-health.json: nodes/grafana/node-health.json
+      postgresql.json: nodes/grafana/postgresql.json
+      alert-rules.yaml: nodes/grafana/alert-rules.yaml
+    knobs: []
+
+flows:
+  - from: bastion
+    to: db
+    what: the players' SSH sessions (as player) and SQL sessions (as dba)
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: prometheus
+    what: the players' SSH sessions, and the web front's route prometheus
+    how: ssh 22, http 9090
+    cadence: interactive
+  - from: bastion
+    to: exporter
+    what: the players' SSH sessions
+    how: ssh 22
+    cadence: interactive
+  - from: bastion
+    to: grafana
+    what: the players' SSH sessions, and the web front's route grafana
+    how: ssh 22, http 3000
+    cadence: interactive
+  - from: prometheus
+    to: exporter
+    what: >-
+      the PostgreSQL metrics scrape, and the node-health scrape (refused:
+      no node-health script on the node, f2)
+    how: http 9187, http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: bastion
+    what: the node-health scrape
+    how: http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: db
+    what: the node-health scrape
+    how: http 9110
+    cadence: every 15 s
+  - from: exporter
+    to: db
+    what: the exporter's statistics queries, as the monitoring role
+    how: postgresql 5432
+    cadence: every 15 s (at each scrape)
+  - from: grafana
+    to: prometheus
+    what: dashboard queries and alert rule evaluation
+    how: http 9090
+    cadence: every 1 min, and interactive
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:
+  - id: f1
+    fault:
+      id: prometheus-scrape-target-missing
+      version: 0.1.0
+    node: prometheus
+    parameters:
+      node: grafana
+    visibility: known
+  - id: f2
+    fault:
+      id: prometheus-node-health-node-missing
+      version: 0.1.0
+    node: prometheus
+    parameters:
+      node: exporter
+    visibility: hidden
+  - id: f3
+    fault:
+      id: prometheus-node-health-service-missing
+      version: 0.1.0
+    node: prometheus
+    parameters:
+      node: db
+      service: postgres
+    visibility: known
+  - id: f4
+    fault:
+      id: pg-stat-statements-not-preloaded
+      version: 0.1.0
+    node: db
+    parameters: {}
+    visibility: known
+  - id: f5
+    fault:
+      id: grafana-alert-for-too-long
+      version: 0.1.0
+    node: grafana
+    parameters:
+      rule: gm-service-down
+      max-for: 5m
+    visibility: known
+  - id: f6
+    fault:
+      id: pg-hba-trust-remote
+      version: 0.1.0
+    node: db
+    parameters: {}
+    visibility: hidden
+  - id: f7
+    fault:
+      id: pg-role-superuser
+      version: 0.1.0
+    node: db
+    parameters:
+      role: clinic_app
+    visibility: hidden
+  - id: f8
+    fault:
+      id: pg-table-autovacuum-off
+      version: 0.1.0
+    node: db
+    parameters:
+      database: clinic
+      table-name: appointments
+    visibility: hidden
+
+issues:
+  - id: I1
+    complaint: >-
+      In September the machine that runs Grafana restarted by itself, twice
+      in one week; we only knew because the dashboards went blank for a
+      minute. The node-health dashboard, which we were told shows every
+      machine, never showed anything about it. Please find out why, and
+      fix it.
+    expected_resolution: fix
+    covers: [f1]
+  - id: I2
+    complaint: >-
+      On a Tuesday afternoon in October the database stopped for about an
+      hour and a half and nobody could book. On the reception screen,
+      "Service down on a node", which is there for exactly that, never
+      fired; only "Exporter disconnected from PostgreSQL" came up, and we
+      took it for a problem with the monitoring. Tell us why the service
+      alert stayed silent, and propose what to change so that the next
+      outage is caught.
+    expected_resolution: propose
+    covers: [f3, f5]
+  - id: I3
+    complaint: >-
+      On Monday mornings booking gets slow. The PostgreSQL dashboard has
+      panels for the costliest queries, but they have said "No data" since
+      May. We would like to see which queries cost the most. Please
+      make those panels work.
+    expected_resolution: fix
+    covers: [f4]
+
+# --- Host topology it was designed for -------------------------------
+designed_for:
+  platform: swarm
+  hosts:
+    - name: laptop
+      cpu: 2
+      memory: 4G
+      disk: 8G
+  placement:
+    bastion: laptop
+    db: laptop
+    prometheus: laptop
+    exporter: laptop
+    grafana: laptop
