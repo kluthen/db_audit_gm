@@ -1335,3 +1335,114 @@ W3 lists work as stated (`$__file{}` trims the value).
   the root `README.md` bricks row; read Grafana's zone from
   `/api/frontend/settings` (W3-C); the fixture's unit-level `fit` runs on
   the fake engine (W3-A).
+
+### Capture W3-D — chunk 11 outcomes (read by 12, 13, 14 and every later gate)
+
+Chunk 11 merged 2026-10-21: 47ff165, merge 141e952. Unit suite 298 OK
+after the merge. `smoke-monitoring.sh`: "all 43 checks passed in 46s
+(game fixture-monitoring-um24a9)", armenelos, swarm idle (a first run
+failed 3 checks on the script's own `jq` use; fixed in the script, no
+brick change).
+
+- **Real `fit` on the full five-brick game** (2 CPU / 4G / 8G):
+  `cpu: reservations 0.85 + headroom 0.2 = 1.05 of 2: ok`;
+  `memory: reservations 976M + headroom 409.6M = 1.35G of 4G: ok`;
+  `images on local engine: bastion:0.2.0 176.51M, postgres:0.2.0 249.71M,
+  prometheus:0.1.0 465.57M, postgres-exporter:0.1.0 156.94M,
+  grafana:0.1.0 826.05M; 31 layers, 3 shared, each counted once: 1.53G`;
+  `disk: reservations 3.31G + images 1.53G + headroom 819.2M = 5.65G of
+  8G: ok`.
+- **Differences from W3's chunk-11 notes** (no brick change):
+  1. The fixture carries one harmless scenario-local seed-file fault,
+     `fixture-random-page-cost` (copied from `fixture-audit`), because
+     the loader refuses an empty `fault_instances`; never injected or
+     checked.
+  2. The bastion has no `curl`: node-health endpoints are read as
+     `player` on the bastion with a Perl `IO::Socket::INET` GET.
+  3. `prometheus` 0.1.0 has `curl` but no `jq` (W3's `jq` covered only
+     the two new bricks): Prometheus' API answers come back through
+     `gmctl exec` and are parsed on the host with python3.
+  4. `pg_hba.conf`: `host postgres monitoring samenet scram-sha-256` (a
+     host name `exporter` does not match Swarm's reverse DNS), then the
+     `fixture-audit` line `host all all 0.0.0.0/0 scram-sha-256`.
+     **Chunk 14's seeds**: let `monitoring` in by `samenet` or an
+     address range, never by the exporter's host name.
+- **Fixture** `tools/tests/fixtures/fixture-monitoring/`: `scenario.yaml`,
+  `README.md`, `brief.md`, `gm/{answer-key.yaml,notes.md}`,
+  `player/{README,story,issues}.md`, `data/db.sql` (fixture-audit's
+  data), `faults/fixture-random-page-cost/`; `nodes/db/{postgresql.conf,
+  pg_hba.conf}` (W2-B's logging block plus the preload);
+  `nodes/prometheus/prometheus.yml` (W3's scrape config, retention 1d /
+  256MB); `nodes/exporter/exporter.conf` (with
+  `--collector.stat_statements`); `nodes/grafana/` (the five companion
+  files byte for byte). Nodes `bastion`, `db`, `prometheus`, `exporter`,
+  `grafana` on network `backend`, all `default` in `node_health`;
+  `web_routes: {grafana: "grafana:3000", prometheus: "prometheus:9090"}`;
+  ports 22→2222, 8080→8080; resources master spec 12's rows;
+  `designed_for` host `laptop`, 2 / 4G / 8G.
+- **Unit tests.** `TestMonitoringFixture` in `test_model.py` (4): loads
+  with its pins, map, routes, ports; fits at 2 / 4G / 8G on the fake
+  engine and renders one node-health config per node; Grafana seeds
+  equal the companion files; scrape targets cover every node.
+- **Smoke checks (43):** fit; deploy; load-data exit 0; data counts;
+  Prometheus 7 targets up (polls up to 120 s), `pg_up` 1,
+  `count(pg_stat_statements_calls_total) > 0` (up to 60 s); node health
+  per node (CPU, memory, disk, every listed service up; 10 checks); the
+  exporter's `postgres-exporter` service stopped with `s6-svc -d` shows
+  `node_health_service_up{node="exporter",service="postgres-exporter"} 0`,
+  then `-u` brings it back to 1; Grafana data source health OK,
+  dashboards exactly `node-health` and `postgresql`, 5 alert rules,
+  zone in effect `UTC`; web front on 8080: 401 without the password on
+  `/prometheus/` and `/grafana/`, 200 on `/prometheus/-/ready` and
+  `/grafana/api/health`, `POST /grafana/login` as admin (with an
+  `Origin` header) 200; `Authorization` stripped (`/grafana/api/user`
+  through the front equals an in-node request without credentials, and
+  differs from `player:<tools>` sent straight to 3000); only `bastion:
+  22/tcp 8080/tcp` published; SSH on 2222; `TZ=UTC` on all 5 nodes;
+  every timestamped line of `/var/log/postgresql/postgresql-*.log` UTC;
+  teardown, stage torn down, nothing labelled, objects outside the game
+  unchanged.
+- **Reading state.** Prometheus: `gmctl exec --node prometheus --user
+  prometheus` running `curl` on `localhost:9090/prometheus/api/v1/...`,
+  the PromQL in `--env QUERY` (not a secret). Grafana: `gmctl exec
+  --node grafana --user root` running `/usr/local/lib/gm/grafana-api
+  GET`, path and jq filter in `--env`. The tools password: read from
+  `local/<pg>/secrets/tools_password` into a shell variable, given only
+  to `curl -K -` through `printf` (a builtin), unset after use.
+- **Scenario-document rule as written.** A map-valued parameter is
+  rendered by its `shape` from the pinned brick's `brick.yaml` (the
+  scenario's `bricks/<id>/` first, then the catalog's; the one catalog
+  file the skill reads, for this alone). The Parameters line says "NAME:
+  the node-health map, below" or "NAME: the web front's routes, below".
+  - `node-map`: "Node-health map (`NAME`), as `scenario.yaml` states
+    it:", one item per entry in YAML order, services comma-separated or
+    "`default` (its brick's s6 processes)"; then "The node-health script
+    is mounted into every node listed, read-only for players; its
+    endpoint is readable from every node of the game, the bastion
+    included." Shown before any parameter fault; such faults in section
+    5 only.
+  - `web-routes`: table "Route | Path on the web front | Upstream node |
+    Port", one row per route in YAML order (`ui:<name>`, `/<name>/`,
+    node, port); then "Published on the bastion's web front port, behind
+    HTTP basic authentication on the tools password; a request without
+    it is refused with HTTP 401." Empty `{}`: "Web front routes
+    (`NAME`): none. The web front does not run, the bastion publishes
+    SSH only and no tools password is handed over." A parameter left out
+    of the scenario is not rendered.
+  - Step 6 checks every map entry; template version line "Version v0.2,
+    with map-valued parameters (v0.2 build plan chunk 11)".
+    `fixture-mounted`'s README regenerated with the rule.
+- **Outside the Files line:** `fixture-mounted/scenario.yaml` header
+  comment ("loaded, fitted and rendered by the unit tests, deployed only
+  on a fake engine"; 6 lines re-wrapped); root `README.md` `bricks/` row
+  lists `postgres-exporter` and `grafana`.
+- **Risks.** Waits of 120 s (targets) and 60 s (query statistics) are
+  margins a slower host leans on. The `Authorization` check compares raw
+  401 bodies; a Grafana build putting a trace id there would fail it
+  falsely (empty today). Branch `v0.2-c11-monitoring` kept; removed with
+  the wave's branches.
+
+### Wave gate — 2026-10-21
+
+All four chunks merged (8, 9, 10, 11). Gate started on `v0.2-w3` at the
+commit recording chunk 11, host idle (no other stack).

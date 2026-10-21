@@ -699,8 +699,15 @@ a check reads its live state through its API, and wrapper names.
 
 ### Chunk 11 — Monitoring integration fixture and smoke run
 
-Status: in progress
-Record: (after merge)
+Status: merged (w3, 141e952)
+Record: 47ff165. No deviation from the spec. The fixture carries one
+harmless scenario-local seed-file fault (the loader refuses an empty
+`fault_instances`), never injected. The smoke run reads node-health
+endpoints from the bastion with Perl, not `curl`, and parses
+Prometheus' JSON on the host (neither image has the tool W3 assumed).
+The `monitoring` line in `pg_hba.conf` uses `samenet`. Outside its Files
+line: `fixture-mounted/scenario.yaml`'s header comment, the root
+`README.md` bricks row (capture W3-D).
 Wave: 3
 Depends on: chunks 4, 5, 6, 7 (merged); chunks 9, 10 (in-wave, wave 3
 capture)
