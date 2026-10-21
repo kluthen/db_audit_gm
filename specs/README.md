@@ -18,15 +18,15 @@ owner's confirmation; the register lists the ones with real alternatives.
 | Document | Purpose | Status |
 |---|---|---|
 | [concept.md](concept.md) | Purpose, actors, vocabulary, scope, versions, prior art | draft v8 |
-| [versions/](versions/README.md) | The roadmap: v0.1 to v1.0 and beyond, one page per version; v0.1's [master spec](versions/v0.1/master-spec.md), [access model](versions/v0.1/access-model.md) and [wave log](versions/v0.1/wave-log.md) | v0.1 released and archived; v0.2–v0.6 and v1.0 draft |
-| [gm-stance.md](gm-stance.md) | How the GM behaves and speaks: setup questions, issues, report-only interaction, no reveals, stop only, final answer, feedback tone, future ideas | draft v5 |
-| [scenario-lifecycle.md](scenario-lifecycle.md) | The game from setup to teardown: setup inputs, scenario, local implementation, deploy, aging, hand-over, end of the game | draft v7 |
+| [versions/](versions/README.md) | The roadmap: v0.1 to v0.6, v1.0 and beyond, one page per version; v0.1's [master spec](versions/v0.1/master-spec.md), [access model](versions/v0.1/access-model.md) and [wave log](versions/v0.1/wave-log.md) | v0.1 released and archived; v0.2–v0.6 and v1.0 draft |
+| [gm-stance.md](gm-stance.md) | How the GM behaves and speaks: setup questions, issues, report-only interaction, no reveals, stop only, final answer, feedback tone, future ideas | draft v6 |
+| [scenario-lifecycle.md](scenario-lifecycle.md) | The game from setup to teardown: setup inputs, scenario, local implementation, deploy, aging, hand-over, end of the game | draft v8 |
 | [formats.md](formats.md) | What a scenario folder, a brick (with its companion material and GM documentation) and a fault definition must contain; versions and pins; the local implementation; the skills and templates | draft v11 |
-| [bricks-and-faults.md](bricks-and-faults.md) | Catalog, per-brick checks, solvability probe, fault interactions and families, future backup-tooling faults | draft v4 |
-| [planes-and-access.md](planes-and-access.md) | Bastion-only rule, planes, the GM session, trust, write policies, hardening, validators | draft v7 |
-| [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls | draft v9 |
+| [bricks-and-faults.md](bricks-and-faults.md) | Catalog, v0.2's monitoring bricks, per-brick checks, proportionate tooling, solvability probe, fault interactions and families, future backup-tooling faults | draft v5 |
+| [planes-and-access.md](planes-and-access.md) | Bastion-only rule (the bastion publishes the web interfaces), planes, the GM session, trust, write policies, hardening, validators | draft v8 |
+| [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls | draft v10 |
 | [open-questions.md](open-questions.md) | Open-questions register | live |
-| [decisions.md](decisions.md) | Decisions log, D55 onward; D1–D54 archived with v0.1 | live |
+| [decisions.md](decisions.md) | Decisions log, D55 onward (D71 last); D1–D54 archived with v0.1 | live |
 | [archive/](archive/README.md) | Closed milestones' working records, kept verbatim: v0.1's build plan, decisions D1–D54, resolved questions | archive |
 
 History: the tree was seeded on 2026-10-20 from the owner's pre-spec notes,
@@ -101,7 +101,15 @@ access model.
   v0.4 transformers, v0.5 research and broadening, v0.6 the bastion as
   the players' main activity point, then v1.0; beyond v1.0,
   other databases and tools, customer role-play and hints (D48). Gaps and
-  risks: O46–O54.
+  risks: O46–O49, O52–O54.
+- v0.2, ruled on 2026-10-21 (D63–D70): the owner's `bluebox-lab` is the
+  reference and per-node health the gap; free tools, one brick per need,
+  chosen by footprint; monitoring optional and tooling proportionate, with
+  under-tooling or overkill a finding but no fault kind; a health daemon
+  script on every node, no Docker socket; Prometheus, `postgres_exporter`,
+  Grafana with its alerting, PostgreSQL file logs read by pgBadger, no log
+  aggregator; no load; the bastion publishes the web interfaces. Other
+  tools and hand-made scripts in v0.5 (D70).
 - Small project: scripts and small apps, no ATD, no UI/UX tree (D2).
 - v0.1 build: seven artifacts (three skills, a Python/POSIX-shell script
   set, PostgreSQL 18 on Debian 13 and bastion bricks, one scenario), one
@@ -112,5 +120,9 @@ access model.
 
 ## Next steps
 
-1. Resume scoping after v0.1: the "soon" questions first (O46, O49 to
-   O57, O58 and O60 to O64, mostly v0.2's), then v1.0's from the "later" ones.
+1. v0.2 (draft v2 of its [page](versions/v0.2/README.md)): the owner
+   confirms or changes its `(proposed)` defaults, O62 to O71 and the v0.2
+   parts of O12, O22, O46, O57, O58, O60 and O61; then, on the owner's
+   word, the master spec and its revised access model.
+2. The other "soon" question, O49 (backup tooling's version), then v1.0's
+   from the "later" ones.

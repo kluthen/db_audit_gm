@@ -1,6 +1,6 @@
 # GM stance
 
-Status: draft v5
+Status: draft v6
 
 How the game master behaves and speaks with the people in its session, from
 setup to feedback. Settling this stance is v0.1's main goal (D15). The
@@ -74,6 +74,9 @@ If setup fails (deployment, injection, a health check that never passes),
 or someone asks to stop during setup, the GM says so, tears down what it
 deployed, and records the stage reached (D36).
 
+From v0.2 the GM states every time in UTC, as the nodes and tools do
+(proposed, O70; v0.1's known issue RG-4).
+
 ## The final answer
 
 1. The players investigate and report to the GM in its session: pasted in
@@ -89,7 +92,9 @@ deployed, and records the stage reached (D36).
 
 The GM gives feedback (D9):
 
-- the issues found against the faults actually present;
+- the issues found against the faults actually present, and against the
+  GM's silent tooling expectation where the scenario holds one (D65; how
+  it is written: O62);
 - for each answer, whether it is acceptable against the issue's expected
   resolution and the answer key's acceptance criteria.
 

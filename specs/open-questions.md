@@ -6,7 +6,7 @@ are never reused. Questions resolved by the close of v0.1 (O1, O3, O4,
 O6–O9, O14, O15, O17–O19, O26–O28, O33–O37, O39–O44 and O55) are listed
 in [archive/v0.1/open-questions-resolved.md](archive/v0.1/open-questions-resolved.md);
 their IDs keep their meaning. Resolved since: O56 (D57), O59 (D60), O51
-(D66), O50 (D67), O13 (D68). Numbering continues from O65.
+(D66), O50 (D67), O13 (D68). Numbering continues from O72.
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -39,7 +39,10 @@ for the next version (v0.1 until it closed, with none left open);
   [versions/v1.0/README.md](versions/v1.0/README.md).
 - **O12** (later) — Are network-level faults (segmentation, routing-mesh
   exposure) in scope? And the network layout itself (management network,
-  zones, dual-homed nodes). Refs: [platform.md](platform.md).
+  zones, dual-homed nodes). v0.2 part (proposed): one network, network
+  faults out; a second network would matter only for a collector on the
+  infrastructure plane, which D66 rules out. Refs: [platform.md](platform.md),
+  [versions/v0.2/README.md](versions/v0.2/README.md).
 - **O57** (soon, v0.2) — A brick's footprint. `brick.yaml` gives one
   figure per dimension (CPU, memory, disk), while
   [formats.md](formats.md) and D56's Footprint section speak of limits and
@@ -52,7 +55,8 @@ for the next version (v0.1 until it closed, with none left open);
   dimension, with its meaning stated (the reservation, say); (c) no
   footprint in `brick.yaml`, the sizing guidance only in `docs/gm.md`.
   Default (proposed): (a), which matters for v0.2's monitoring bricks in
-  the capacity check. Refs: [formats.md](formats.md), "`brick.yaml` must
+  the capacity check; the v0.2 footprint estimate is written in that
+  shape ([versions/v0.2/README.md](versions/v0.2/README.md), "Footprint"). Refs: [formats.md](formats.md), "`brick.yaml` must
   contain", "`docs/gm.md` must contain".
 
 - **O58** (soon, v0.2) — Rendered network names. A scenario names its
@@ -71,7 +75,7 @@ for the next version (v0.1 until it closed, with none left open);
   GM documentation still required (D56); (2) how the script reaches each
   node: delivered at deploy as a protected config with the node's list of
   services, started by a generic s6 service every image carries (a change
-  to every brick image: a shared base), or baked into each image;
+  to every brick image: the shared base, O67), or baked into each image;
   (3) how it measures and exposes: the node's own cgroup v2 files for CPU
   and memory (readable inside a Swarm container: to verify), `df` on its
   volumes, `s6-svstat` for services, written in Prometheus text format
@@ -90,7 +94,7 @@ for the next version (v0.1 until it closed, with none left open);
   Options: (a) a web front on the bastion, a reverse proxy (~10–20M) on a
   second published port in host mode, every UI behind it under its own
   path, with HTTP basic authentication on the per-game tools password
-  since Prometheus has no login of its own, plain HTTP in v0.2;
+  (O68) since Prometheus has no login of its own, plain HTTP in v0.2;
   (b) SSH local forwarding through the bastion, `PermitOpen` limited to
   the UI endpoints and rendered per game: no new port and no footprint,
   but each player sets up tunnels. Reports leave by `scp` and `sftp` either
@@ -116,7 +120,8 @@ for the next version (v0.1 until it closed, with none left open);
 - **O22** (later) — Default aging technique per fault (pre-aging, forged
   history, time compression). Time compression is visible to the auditor
   (`*/5` on a "daily" job), collides with schedule faults, and must stay
-  consistent with forged timestamps. Refs:
+  consistent with forged timestamps. v0.2 part (proposed): no aging,
+  since there is no load (D67); history builds during the game. Refs:
   [scenario-lifecycle.md](scenario-lifecycle.md).
 - **O23** (later) — How many faults per scenario, how many covered by
   issues, what "difficulty" means concretely, and may an issue be a false
@@ -163,6 +168,72 @@ for the next version (v0.1 until it closed, with none left open);
   Default (proposed): keep lists. Refs: [formats.md](formats.md), "Versions
   and pins".
 
+## v0.2 shape
+
+Drafted on 2026-10-21 from the v0.2 decision set; each default is the
+v0.2 page's `(proposed)` text
+([versions/v0.2/README.md](versions/v0.2/README.md)).
+
+- **O65** (soon, v0.2) — Which version numbers v0.2's brick changes take.
+  Under the fold rule (D61), every v0.2 change to `postgres` and
+  `bastion` folds into 0.1.1 while `v0.2-draft` stays unmerged; if it is
+  merged into `main` before the build (to land these pages and the D56
+  documentation), 0.1.1 is released and the build's changes need a new
+  number. The scheme (patch or minor) and where new bricks start are not
+  ruled. Default (proposed): new bricks start at 0.1.0; a v0.1 brick
+  changed by the v0.2 build takes 0.2.0 if 0.1.1 is released by then, and
+  folds into 0.1.1 otherwise. Refs: [formats.md](formats.md), "Versions
+  and pins".
+- **O66** (soon, v0.2) — The v0.2 scenario. Default (proposed): one new,
+  partly tooled scenario with one database, for a small or mid-size
+  customer, one need left uncovered as an under-tooling issue or
+  expectation (D65); `bookshop-new-server` kept as the v0.1 regression,
+  re-pinned. Alternatives: two scenarios (well tooled but lying;
+  under-tooled), at twice the scenario work; a second, reporting database
+  (about +0.25–0.5 CPU, 256–512M, 1–2G, and O45); an under-tooling issue
+  added to the released `bookshop-new-server`.
+- **O67** (soon, v0.2) — Node shape and a shared base image. Default
+  (proposed): every new brick a full node (`sshd`, s6, `player`,
+  validator, seed-once entrypoint) on a new shared base image (Debian 13,
+  s6-overlay, `sshd`, ~150 MB once) carrying the node-health service
+  (O64); Prometheus, Grafana and `postgres_exporter` each a node of its
+  own; pgBadger and `pg_stat_statements` inside `postgres`; the v0.1
+  bricks rebased on it (a brick change: O65). Alternatives: thin wrappers
+  of upstream images, no shell (about 40M less memory, but no player
+  access, validator or sealed check on those nodes, and their faults
+  *report*-only); Prometheus and Grafana in one node, the lever if the
+  measured footprint is tight.
+- **O68** (soon, v0.2) — Web credentials and generated secrets. Grafana
+  needs an account with more than Viewer rights for fixes, the web front
+  (O63) a login, `postgres_exporter` a monitoring role's password, and
+  gmctl generates only its fixed four secrets, refusing any other
+  (`tools/gm/localimpl.py`). Default (proposed): one per-game tools
+  password (the web front, Grafana's administrator), handed over with the
+  bastion password and kept in `local/<playground>/secrets/` (D45); secret
+  generation becomes "the secrets the bricks declare, generated by kind"
+  (password, key pair). Alternatives: reuse the bastion password (one leak
+  opens everything); anonymous Viewer plus a separate admin password.
+- **O69** (soon, v0.2) — The v0.2 fault set. Default (proposed): four to
+  six monitoring faults, all visible without load (D67), at least one a
+  tool starved of information, mixed with v0.1 faults; the under-tooling
+  item is not a fault (D65); a masking pair waits for O23. The candidates
+  are on the v0.2 page, "Faults". Alternatives: monitoring faults only, on
+  a clean database; a deliberate masking pair now.
+- **O70** (soon, v0.2) — Where evidence is run (RG-3) and which time zone
+  (RG-4), v0.1 known issues that worsen in v0.2: evidence also lives in
+  web interfaces and reports, and Grafana shows the browser's local time.
+  Default (proposed): each answer-key evidence entry gains a required
+  `where` (`bastion`, `node:<name>`, `ui:<name>`, `report:<tool>`),
+  `bookshop-new-server`'s key updated at its re-pin (its version: O61);
+  all times UTC (the GM, the nodes' `TZ`, PostgreSQL's `log_timezone`,
+  Grafana's default time zone). Alternative: RG-3 only. Refs:
+  [versions/v0.1/README.md](versions/v0.1/README.md), "Known issues".
+- **O71** (soon, v0.2) — v0.2's definition of done. Default (proposed):
+  v0.1's checks extended to web and report evidence, the measured
+  footprint against the estimate, and the v0.1 scenario still passing
+  (the v0.2 page, "Definition of done"). Alternatives: a human checking
+  the web evidence; a scripted probe for the monitoring faults (O20).
+
 ## Game and feedback
 
 - **O29** (later) — Brief format: free text in the GM session, or a
@@ -187,10 +258,15 @@ the question concerns.
 
 - **O46** (soon, v0.2 → v1.0) — Multi-host and the registry were deferred
   from v0.1. Does v1.0 still run on one host, or does the full pipeline
-  with monitoring need a multi-host swarm and a registry? The question
-  starts mattering in v0.2: Grafana, a metrics store and possibly a log
-  aggregator all count against one laptop's capacity. Refs:
+  with monitoring need a multi-host swarm and a registry? v0.2 part
+  (proposed): one host, the budget "the v0.2 scenario fits 2 CPU / 4G /
+  8G" (estimate on the v0.2 page, "Footprint"), and `gmctl fit` also
+  counting image sizes against the declared disk, or warning about them,
+  since on a laptop the images grow, not the volumes. Alternatives:
+  multi-host and the registry in v0.2 (doubles the platform work); one
+  host with `fit` unchanged. Refs:
   [versions/v1.0/README.md](versions/v1.0/README.md),
+  [versions/v0.2/README.md](versions/v0.2/README.md),
   [platform.md](platform.md).
 - **O47** (later, v1.0) — Which version brings scenario generation: the GM
   designing from a partial or empty brief and filling the blanks (D16)?

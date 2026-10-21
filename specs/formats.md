@@ -73,7 +73,9 @@ The owner's requirements (D23), with the earlier rulings that apply:
   the aging plan (none in v0.1). Whether an issue may also cover a
   tooling expectation that is not a fault (D65): O62.
 - **The answer key**, for every fault instance: what is wrong and why, the
-  evidence as the player user, what counts as an acceptable diagnosis, fix,
+  evidence as the player user and where it is run (a required `where`
+  from v0.2: `bastion`, `node:<name>`, `ui:<name>`, `report:<tool>`;
+  proposed, O70), what counts as an acceptable diagnosis, fix,
   improvement or recommendation, the sealed check, interactions with other
   faults, any validator the player cannot make green (D10), and, once
   solvability probes exist, their results. Any silent tooling expectation
