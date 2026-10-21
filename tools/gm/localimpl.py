@@ -8,7 +8,8 @@ Master spec 10.3; files, names and labels fixed by capture W2-A
                          resources (copied, never recomputed), published
                          ports, and every derived name;
 - `stack.yml`, `envelopes/<node>.conf`  written by `render`;
-- `state.yaml`           the stage reached, its history, any failure;
+- `state.yaml`           the stage reached, its history, any failure, and
+                         the teardown record (spec D50);
 - `secrets/`             written by `deploy` (directory 0700, files 0600).
 
 Every path an implementation records (`file:`) is relative to the scenario
@@ -32,6 +33,7 @@ PLATFORM = "swarm"
 STAGES = ("fitted", "rendered", "deployed", "data-loaded", "injected", "handed-over",
           "final-answer", "feedback-given", "torn-down")
 FAILED = "failed"
+TORN_DOWN = "torn-down"
 
 PLAYGROUND_FILE = "playground.yaml"
 IMPLEMENTATION_FILE = "implementation.yaml"
@@ -161,7 +163,8 @@ def new_state(ldir, game_id, stage, now=None):
 
 
 def set_stage(ldir, stage, now=None):
-    """Record that the game reached `stage`; clears any failure."""
+    """Record that the game reached `stage`; clears any failure, and any
+    teardown record (the game went on after it)."""
     if stage not in STAGES:
         raise ValueError(stage)
     state = read_state(ldir)
@@ -171,12 +174,14 @@ def set_stage(ldir, stage, now=None):
     state["stage"] = stage
     state.setdefault("history", []).append({"stage": stage, "at": at})
     state["failure"] = None
+    state.pop("teardown", None)
     write_state(ldir, state)
     return state
 
 
 def set_failed(ldir, stage, reason, now=None):
-    """Record a failure while working towards `stage` (stage becomes `failed`)."""
+    """Record a failure while working towards `stage` (stage becomes `failed`);
+    clears any teardown record (a new failure needs a new teardown)."""
     state = read_state(ldir)
     if state is None:
         raise GmError(f"no game state in {ldir}")
@@ -184,8 +189,42 @@ def set_failed(ldir, stage, reason, now=None):
     state["stage"] = FAILED
     state.setdefault("history", []).append({"stage": FAILED, "at": at})
     state["failure"] = {"stage": stage, "reason": reason, "at": at}
+    state.pop("teardown", None)
     write_state(ldir, state)
     return state
+
+
+def teardown_record(state):
+    """The state's teardown record `{stage, reason, at}`, or None; a state
+    without the key has none (spec D50)."""
+    return (state or {}).get("teardown") or None
+
+
+def record_teardown(ldir, reason=None, now=None):
+    """Record that `gmctl teardown` left nothing labelled with the game id.
+
+    Stage `torn-down` with its history entry, except for a failed game,
+    which stays `failed` with its failure. The teardown record `{stage,
+    reason, at}` (`stage`: the last stage reached) is written when the
+    state has none and the game is not already at `torn-down`. Returns
+    the record written, or None when it was left unchanged."""
+    state = read_state(ldir)
+    if state is None:
+        raise GmError(f"no game state in {ldir}")
+    at = now or now_iso()
+    current = state.get("stage")
+    record = None
+    if teardown_record(state) is None and current != TORN_DOWN:
+        record = {"stage": effective_stage(state), "reason": reason, "at": at}
+    if current not in (FAILED, TORN_DOWN):
+        state["stage"] = TORN_DOWN
+        state.setdefault("history", []).append({"stage": TORN_DOWN, "at": at})
+        state["failure"] = None
+    if record is not None:
+        state["teardown"] = record
+    if record is not None or current not in (FAILED, TORN_DOWN):
+        write_state(ldir, state)
+    return record
 
 
 def effective_stage(state):

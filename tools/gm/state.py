@@ -1,7 +1,8 @@
 """The game's recorded state: `gmctl status`, setup failures, GM stages.
 
 Master spec 11 (`status`) and 12 ("Failures"). `state.yaml` itself (stage,
-history, failure; capture W2-A) is read and written by `localimpl`; this
+history, failure, teardown record; capture W2-A, spec D50) is read and
+written by `localimpl`; this
 module adds what a setup step needs: if the step fails, or anyone stops it,
 what it deployed is torn down and the failure is recorded with its reason.
 It also records the stages no script reaches, which only the GM can tell
@@ -88,6 +89,12 @@ def set_gm_stage(ldir, stage):
     return True
 
 
+def record_text(record):
+    """A teardown record, readable (`status`, `teardown`)."""
+    return (f"at {record.get('at')}, from stage {record.get('stage')}: "
+            f"{record.get('reason') or 'no reason given'}")
+
+
 def status_text(ldir):
     """`gmctl status`: the game's recorded state, readable."""
     state = localimpl.read_state(ldir)
@@ -104,6 +111,9 @@ def status_text(ldir):
     if failure:
         lines.append(f"  failure: before stage {failure.get('stage')}, at {failure.get('at')}: "
                      f"{failure.get('reason')}")
+    record = localimpl.teardown_record(state)
+    if record:
+        lines.append(f"  torn down: {record_text(record)}")
     lines.append("  history:")
     for entry in state.get("history") or []:
         lines.append(f"    {entry.get('at')}  {entry.get('stage')}")

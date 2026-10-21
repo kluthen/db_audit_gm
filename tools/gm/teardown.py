@@ -7,6 +7,11 @@ and the stack's volumes carry `com.docker.stack.namespace=<game_id>`
 Teardown lists every object by either label and removes those, and only
 those: nothing else on the host (other stacks, the local registry,
 unrelated volumes), never images, never the swarm.
+
+When nothing labelled is left, `gmctl teardown` records it: stage
+`torn-down` and the teardown record `{stage, reason, at}` in `state.yaml`
+(`--reason`; spec D50). The teardown a failed setup step runs itself
+(`state.setup_step`) records none.
 """
 
 import re
@@ -16,6 +21,7 @@ from dataclasses import dataclass, field
 from . import localimpl
 from .docker import for_local_dir, label_filter
 from .model import GmError
+from .state import record_text
 
 LABEL_KEYS = (localimpl.LABEL_NAMESPACE, localimpl.LABEL_GAME)
 # Removal order: services first (their tasks hold the rest), volumes last.
@@ -59,16 +65,40 @@ def leftovers(docker, game_id):
 class TeardownReport:
     game_id: str
     removed: dict = field(default_factory=dict)
+    recorded: dict = None       # the teardown record written, if any
+    reason_dropped: bool = False    # a reason was given, the record left unchanged
+    previous: dict = None       # the record already there, if any
 
     def count(self):
         return sum(len(v) for v in self.removed.values())
 
     def text(self):
         if not self.count():
-            return f"Teardown of game {self.game_id}: nothing carrying its label was left."
-        parts = [f"{len(self.removed[k])} {k}s" for k in KINDS if self.removed.get(k)]
-        return (f"Teardown of game {self.game_id}: removed {', '.join(parts)}; "
-                "nothing carrying its label is left.")
+            out = [f"Teardown of game {self.game_id}: nothing carrying its label was left."]
+        else:
+            parts = [f"{len(self.removed[k])} {k}s" for k in KINDS if self.removed.get(k)]
+            out = [f"Teardown of game {self.game_id}: removed {', '.join(parts)}; "
+                   "nothing carrying its label is left."]
+        if self.recorded:
+            out.append(f"Recorded in state.yaml: torn down "
+                       f"{record_text(self.recorded).rstrip('.')}.")
+        elif self.reason_dropped:
+            already = (f" (torn down {record_text(self.previous)})" if self.previous else "")
+            out.append(f"The teardown was already recorded{already}: left unchanged, "
+                       "the reason given is not recorded.")
+        return "\n".join(out)
+
+
+def clean_reason(reason):
+    """`--reason`, whitespace collapsed to one line; None when not given.
+    An empty reason is refused."""
+    if reason is None:
+        return None
+    text = " ".join(str(reason).split())
+    if not text:
+        raise GmError("--reason is empty: give the reason in words, or leave the option "
+                      "out; nothing removed")
+    return text
 
 
 def remove_game_objects(docker, game_id, timeout=TEARDOWN_TIMEOUT, sleep=time.sleep,
@@ -106,10 +136,14 @@ def remove_game_objects(docker, game_id, timeout=TEARDOWN_TIMEOUT, sleep=time.sl
         sleep(1)
 
 
-def teardown(scenario_dir, playground, docker=None, timeout=TEARDOWN_TIMEOUT, sleep=time.sleep,
-             clock=time.monotonic):
-    """`gmctl teardown`. Records stage `torn-down`, except for a failed game,
-    whose failure record is kept (its setup already tore it down)."""
+def teardown(scenario_dir, playground, reason=None, docker=None, timeout=TEARDOWN_TIMEOUT,
+             sleep=time.sleep, clock=time.monotonic):
+    """`gmctl teardown [--reason TEXT]`. Once nothing labelled is left,
+    records stage `torn-down` (a failed game stays `failed` with its
+    failure) and, when the state has none, the teardown record with the
+    reason (`localimpl.record_teardown`). Leftovers: GmError, nothing
+    recorded."""
+    reason = clean_reason(reason)
     ldir = localimpl.local_dir(scenario_dir, playground)
     st = localimpl.read_state(ldir)
     if st is None:
@@ -121,6 +155,7 @@ def teardown(scenario_dir, playground, docker=None, timeout=TEARDOWN_TIMEOUT, sl
                       f"(game {game_id}) disagree: nothing removed")
     docker = docker or for_local_dir(ldir)
     report = remove_game_objects(docker, game_id, timeout=timeout, sleep=sleep, clock=clock)
-    if st.get("stage") not in (localimpl.FAILED, "torn-down"):
-        localimpl.set_stage(ldir, "torn-down")
+    report.previous = localimpl.teardown_record(st)
+    report.recorded = localimpl.record_teardown(ldir, reason)
+    report.reason_dropped = reason is not None and report.recorded is None
     return report

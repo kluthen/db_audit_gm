@@ -122,7 +122,7 @@ def _cmd_logs(args):
 
 def _cmd_teardown(args):
     from . import teardown
-    print(teardown.teardown(args.scenario_dir, args.playground).text())
+    print(teardown.teardown(args.scenario_dir, args.playground, reason=args.reason).text())
     return 0
 
 
@@ -210,6 +210,8 @@ def build_parser():
     p = sub.add_parser("teardown", help="remove everything carrying the game's label, "
                                         "volumes included (never images or the swarm)")
     _scenario_args(p)
+    p.add_argument("--reason", metavar="TEXT",
+                   help="why the game was stopped, recorded with the teardown (one line)")
     p.set_defaults(func=_cmd_teardown)
     return parser
 

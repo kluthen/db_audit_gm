@@ -14,14 +14,20 @@ disagree. Fixed by captures W2-A, W2-C, W3-A and W3-B in
 `feedback-given`, `torn-down`; or `failed`, with `failure: {stage,
 reason, at}` (the stage it was working towards). `gmctl` records every
 stage up to `injected`, and `torn-down`; the GM records the other three
-with `status --set`.
+with `status --set`. A `teardown` that leaves nothing labelled also
+writes the teardown record, `teardown: {stage, reason, at}`: the last
+stage reached, the `--reason` text (or `null`) and the time. Only the
+first one writes it (a later teardown leaves it as it is); a failed game
+keeps stage `failed` and its failure beside it. A new game has no record,
+and a stage or failure recorded after it (a retried `deploy`) clears it.
+The teardown a failed step runs itself writes none.
 
 ## Commands
 
 | Command | Allowed at | Records | Exit |
 |---|---|---|---|
 | `tools/gmctl status <dir> --playground <pg>` | any game | nothing | 0; 1 no game |
-| `tools/gmctl fit <dir> --playground <pg> [--endpoint ssh://user@host] [--cpu N --memory SIZE --disk SIZE]` | no game, `fitted`, `rendered`, `torn-down`, or `failed` before deployment | `fitted` | 0 fits; 1 does not fit, or refused |
+| `tools/gmctl fit <dir> --playground <pg> [--endpoint ssh://user@host] [--cpu N --memory SIZE --disk SIZE]` | no game, `fitted`, `rendered`, `failed` before deployment (same game id); `torn-down`, or `failed` after deployment with its teardown recorded (a new game id) | `fitted` | 0 fits; 1 does not fit, or refused (a deployed stage, or a failure after deployment not torn down: the message names the game, its stage and `gmctl teardown`, or `gmctl deploy` for a failed deploy) |
 | `tools/gmctl render <dir> --playground <pg>` | `fitted`, `rendered` | `rendered` | 0; 1 refused |
 | `tools/gmctl deploy <dir> --playground <pg> [--init-swarm] [--timeout SECONDS]` | `rendered`, or `failed` in deploy | `deployed` | 0; 1 refused or failed |
 | `tools/gmctl load-data <dir> --playground <pg> [--timeout SECONDS]` | `deployed` (later deployed stages: no-op, exit 0) | `data-loaded` | 0; 1 refused or failed |
@@ -33,7 +39,7 @@ with `status --set`.
 | `tools/gmctl check <dir> --playground <pg>` | `injected` and later deployed stages | nothing | 0 all fixed; 1 any present; 2 any error or refused |
 | `tools/gmctl logs <dir> --playground <pg> --node <node> [--tail N]` | any game (useful while its services exist) | nothing | Docker's (`docker service logs`); 1 no game |
 | `tools/gmctl status <dir> --playground <pg> --set feedback-given` | `final-answer` | `feedback-given` | 0; 1 refused |
-| `tools/gmctl teardown <dir> --playground <pg>` | any game (idempotent) | `torn-down` (a failed game stays `failed`) | 0; 1 leftovers |
+| `tools/gmctl teardown <dir> --playground <pg> [--reason TEXT]` | any game (idempotent) | `torn-down` (a failed game stays `failed`), and the first time the teardown record, with the reason | 0; 1 leftovers (nothing recorded), or an empty reason (nothing removed) |
 
 The deployed stages are `deployed` to `feedback-given`. `status --set` on
 the stage the game is already at prints `Already at stage <stage>:
@@ -61,12 +67,16 @@ does not use it.
 - **`check`**: one line per fault instance, `<instance> <fault-id>:
   fixed|present|error — <reason>`; no summary line.
 - **`status`**: game id, playground and endpoint, stage (for a failed
-  game, the last stage reached), the failure if any, the history, and for
-  a deployed game the credentials directory (`local/<pg>/secrets/`, not
-  printed).
+  game, the last stage reached), the failure if any, the teardown record
+  if any (`torn down: at <at>, from stage <stage>: <reason>`, or `no
+  reason given`), the history, and for a deployed game the credentials
+  directory (`local/<pg>/secrets/`, not printed).
 - **`teardown`**: `Teardown of game <id>: removed ...; nothing carrying
   its label is left.` (`... nothing carrying its label was left.` when
-  there was nothing to remove), or the leftovers and exit 1.
+  there was nothing to remove), then, the first time, `Recorded in
+  state.yaml: torn down at <at>, from stage <stage>: <reason>.`; a later
+  teardown given a reason says the record was left unchanged. Leftovers:
+  the list and exit 1, nothing recorded.
 
 ## Files of the local implementation the GM reads
 
