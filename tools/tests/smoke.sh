@@ -113,22 +113,29 @@ set +e
 
 same "status: stage deployed" "  stage: deployed" "$($GMCTL status "$SCN" --playground "$PG" | grep '^  stage:')"
 same "secrets/ is mode 700" 700 "$(stat -c %a "$LDIR/secrets")"
-same "credential files are mode 600" "600 600 600 600" \
+same "credential files are mode 600" "600 600 600 600 600" \
     "$(stat -c %a "$LDIR/secrets/player_password" "$LDIR/secrets/player_ssh_key" \
-        "$LDIR/secrets/player_ssh_key.pub" "$LDIR/secrets/dba_password" | tr '\n' ' ' | sed 's/ $//')"
-same "configs and secrets carry both labels" "11" \
+        "$LDIR/secrets/player_ssh_key.pub" "$LDIR/secrets/dba_password" \
+        "$LDIR/secrets/tools_password" | tr '\n' ' ' | sed 's/ $//')"
+same "configs and secrets carry both labels" "12" \
     "$(for k in config secret; do docker "$k" ls --filter "label=dbagm.game=$GAME" \
         --filter "label=com.docker.stack.namespace=$GAME" -q; done | wc -l | tr -d ' ')"
 same "volumes carry dbagm.game" "9" \
     "$(docker volume ls -q --filter "label=dbagm.game=$GAME" | wc -l | tr -d ' ')"
 bastion=$(docker ps -q --filter "label=com.docker.swarm.service.name=${GAME}_bastion")
 check "bastion publishes port 2222" sh -c "docker port $bastion 22/tcp | grep -q ':2222\$'"
+# v0.2, no web interface in fixture-audit: only SSH is published and the web
+# front does not run (spec D103).
+same "bastion publishes port 22 only" "22/tcp " \
+    "$(docker inspect -f '{{range $p, $b := .NetworkSettings.Ports}}{{if $b}}{{$p}} {{end}}{{end}}' "$bastion")"
+same "bastion's web front not running" "false" \
+    "$(docker exec "$bastion" /command/s6-svstat -o up /run/service/web-front 2>&1)"
 # v0.2: the network carries the scenario's network name; every node runs in UTC.
 same "network named after the scenario's network" "${GAME}_backend" \
     "$(docker network ls --filter "label=com.docker.stack.namespace=$GAME" --format '{{.Name}}')"
 same "status: network line" "  network: ${GAME}_backend" \
     "$($GMCTL status "$SCN" --playground "$PG" | grep '^  network:')"
-same "status: lists the 5 secret files" 5 \
+same "status: lists the 6 secret files" 6 \
     "$($GMCTL status "$SCN" --playground "$PG" | sed -n '/^  secrets: /,$p' | grep -c '^    ')"
 for node in db bastion; do
     out=$(printf 'printf "%%s %%s" "$TZ" "$(date +%%Z)"\n' \

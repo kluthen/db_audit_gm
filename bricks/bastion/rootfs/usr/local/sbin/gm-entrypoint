@@ -11,7 +11,10 @@
 #      the per-game password;
 #   5. copies the starter pack from /opt/gm/starter into the player's home,
 #      once, never over an existing file;
-#   6. writes the player's ~/.ssh/id_ed25519 and ~/.pgpass from the secrets.
+#   6. writes the player's ~/.ssh/id_ed25519 and ~/.pgpass from the secrets;
+#   7. with at least one route in GM_WEB_ROUTES, writes the web front's
+#      nginx configuration and password file under /run/web-front; with
+#      none, writes nothing, and the s6 service `web-front` stays down.
 set -eu
 
 SECRETS_DIR=/opt/gm/secrets
@@ -20,6 +23,10 @@ STARTER_FILES="README.md story.md issues.md"
 HOSTKEY_DIR=/var/lib/gm-sshd-keys
 SHADOW_BASE=/usr/local/lib/gm/shadow.base
 PLAYER_HOME=/home/player
+WEB_DIR=/run/web-front
+WEB_PORT=8080
+WEB_USER=player                     # the basic-authentication user name
+WEB_ACCOUNT=www-data                # nginx runs as this account
 
 log() { printf 'gm-entrypoint: %s\n' "$*" >&2; }
 die() { log "fatal: $*"; exit 1; }
@@ -118,5 +125,104 @@ printf '%s\n' "$(cat "$SECRETS_DIR/player_ssh_key")" | put_file "$PLAYER_HOME/.s
 pw_pgpass=$(printf '%s' "$dba_password" | sed 's/[\\:]/\\&/g')
 printf '*:*:*:dba:%s\n' "$pw_pgpass" | put_file "$PLAYER_HOME/.pgpass" 0600
 unset dba_password pw_pgpass
+
+# --- 7. web front -----------------------------------------------------------
+# GM_WEB_ROUTES: the brick parameter web_routes as `name=node:port` tokens,
+# space-separated (capture W2-A). Route <name> is served at /<name>/ and
+# the path is forwarded unchanged: the upstream serves under its own
+# /<name>/. No token: nothing is written, so the s6 service `web-front`
+# marks itself down and exits, and nothing listens on the port (D103).
+web_names=
+web_locations=
+web_index=
+set -f
+for token in ${GM_WEB_ROUTES:-}; do
+    printf '%s\n' "$token" \
+        | grep -Eqx '[a-z]([a-z0-9-]{0,61}[a-z0-9])?=[a-z]([a-z0-9-]{0,61}[a-z0-9])?:[0-9]{1,5}' \
+        || die "GM_WEB_ROUTES: '$token' is not name=node:port"
+    name=${token%%=*}
+    target=${token#*=}
+    port=${target##*:}
+    { [ "$port" -ge 1 ] && [ "$port" -le 65535 ]; } || die "GM_WEB_ROUTES: '$token': port out of range"
+    case " $web_names " in *" $name "*) die "GM_WEB_ROUTES: route $name given twice" ;; esac
+    web_names="$web_names $name"
+    var=gm_upstream_$(printf '%s' "$name" | tr - _)
+    web_locations="$web_locations
+        location = /$name { return 301 /$name/; }
+        location /$name/ {
+            set \$$var $target;
+            proxy_pass http://\$$var;
+        }"
+    web_index="$web_index/$name/\\n"
+done
+set +f
+
+if [ -n "$web_names" ]; then
+    install -d -o root -g "$WEB_ACCOUNT" -m 0750 "$WEB_DIR"
+    install -d -o "$WEB_ACCOUNT" -g "$WEB_ACCOUNT" -m 0700 "$WEB_DIR/tmp"
+    # Password file: user `player`, SHA-512 crypt of the tools password,
+    # readable by nginx's account only.
+    tools_password=$(read_secret tools_password)
+    hash=$(printf '%s\n' "$tools_password" | openssl passwd -6 -stdin)
+    case $hash in '$6$'*) ;; *) die "could not hash the tools password" ;; esac
+    printf '%s:%s\n' "$WEB_USER" "$hash" > "$WEB_DIR/htpasswd"
+    chown root:"$WEB_ACCOUNT" "$WEB_DIR/htpasswd"
+    chmod 0440 "$WEB_DIR/htpasswd"
+    unset tools_password hash
+    cat > "$WEB_DIR/nginx.conf" <<EOF
+# nginx configuration of the db_audit_gm web front (DO NOT TAMPER).
+# Written by gm-entrypoint at each start; routes:$web_names
+worker_processes 1;
+pid $WEB_DIR/tmp/nginx.pid;
+error_log stderr error;
+events { worker_connections 256; }
+http {
+    access_log off;
+    server_tokens off;
+    default_type text/plain;
+    client_body_temp_path $WEB_DIR/tmp/client_body;
+    proxy_temp_path $WEB_DIR/tmp/proxy;
+    fastcgi_temp_path $WEB_DIR/tmp/fastcgi;
+    uwsgi_temp_path $WEB_DIR/tmp/uwsgi;
+    scgi_temp_path $WEB_DIR/tmp/scgi;
+    client_max_body_size 16m;
+    # Docker's embedded DNS, asked at request time: an upstream that is
+    # down or replaced does not stop the front (502 until it is back).
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    resolver_timeout 5s;
+    map \$http_upgrade \$connection_upgrade { default upgrade; '' close; }
+    server {
+        listen $WEB_PORT;
+        absolute_redirect off;
+        auth_basic "db_audit_gm web front";
+        auth_basic_user_file $WEB_DIR/htpasswd;
+        proxy_http_version 1.1;
+        proxy_read_timeout 300s;
+        proxy_set_header Host \$http_host;
+        # The front's credentials stop here: Grafana would read them.
+        proxy_set_header Authorization "";
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \$connection_upgrade;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        # An upstream's own challenge would make the browser drop the
+        # front's credentials.
+        proxy_hide_header WWW-Authenticate;
+        location = / { return 200 "Web interfaces of this game:\\n$web_index"; }
+        location / { return 404 "No web interface at this path; see /\\n"; }$web_locations
+    }
+}
+EOF
+    chown root:root "$WEB_DIR/nginx.conf"
+    chmod 0444 "$WEB_DIR/nginx.conf"
+    /command/s6-setuidgid "$WEB_ACCOUNT" /usr/sbin/nginx -q -t -e stderr \
+        -p "$WEB_DIR/" -c "$WEB_DIR/nginx.conf" \
+        || die "the web front's configuration does not load"
+    log "web front on port $WEB_PORT, routes:$web_names"
+else
+    log "web front: no route in GM_WEB_ROUTES, not started"
+fi
+unset web_names web_locations web_index
 
 exec /init "$@"

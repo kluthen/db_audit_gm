@@ -1,6 +1,9 @@
-# Stack test fixture for the bastion brick (chunk 3 Done-when).
-# Two services: the bastion and a PostgreSQL node (chunk 2's image), on one
-# overlay network, as in the v0.1 topology. Uses only what a rendered
+# Stack test fixture for the bastion brick (v0.1 chunk 3, v0.2 chunk 7).
+# Three services: the bastion, a PostgreSQL node (the postgres image) and a
+# stub web interface (tests/fixtures/stub-upstream.pl in debian:13-slim),
+# on one overlay network. The bastion's web front routes `stub` to the stub
+# and `other` to a port where nothing listens; run-stack-test.sh later
+# empties the routes to check the front does not run. Uses only what a rendered
 # Compose 3.8 stack file can express: no tmpfs `mode` or `exec` option.
 # Configs and secrets are external, created and removed by
 # run-stack-test.sh (mirroring gmctl deploy, master spec 10.1). Volume
@@ -20,8 +23,11 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    environment:                    # as the renderer passes web_routes (capture W2-A)
+      GM_WEB_ROUTES: "other=stub:9091 stub=stub:9090"
     ports:
       - {target: 22, published: "${GMTEST_BASTION_PORT:-22222}", protocol: tcp, mode: host}
+      - {target: 8080, published: "${GMTEST_BASTION_WEB_PORT:-28080}", protocol: tcp, mode: host}
     volumes:
       - {type: volume, source: bastion_home, target: /home/player}
       - {type: volume, source: bastion_hostkeys, target: /var/lib/gm-sshd-keys}
@@ -34,11 +40,27 @@ services:
       - {source: player_password, target: /opt/gm/secrets/player_password, uid: "0", gid: "0", mode: 0400}
       - {source: player_ssh_key, target: /opt/gm/secrets/player_ssh_key, uid: "0", gid: "0", mode: 0400}
       - {source: dba_password, target: /opt/gm/secrets/dba_password, uid: "0", gid: "0", mode: 0400}
+      - {source: tools_password, target: /opt/gm/secrets/tools_password, uid: "0", gid: "0", mode: 0400}
     networks: [net]
     deploy:
       replicas: 1
       resources:
         limits: {cpus: "0.25", memory: 128M}
+
+  stub:
+    image: debian:13-slim
+    hostname: stub
+    user: "65534:65534"
+    read_only: true
+    cap_drop: [ALL]
+    command: ["perl", "/stub-upstream.pl"]
+    configs:
+      - {source: stub_upstream, target: /stub-upstream.pl, uid: "0", gid: "0", mode: 0444}
+    networks: [net]
+    deploy:
+      replicas: 1
+      resources:
+        limits: {cpus: "0.1", memory: 32M}
 
   db:
     image: 127.0.0.1:5000/dbagm/postgres:0.2.0
@@ -57,6 +79,7 @@ services:
       - {type: volume, source: db_pgconf, target: /etc/postgresql}
       - {type: volume, source: db_home, target: /home/player}
       - {type: volume, source: db_gmstate, target: /var/lib/gm-state}
+      - {type: volume, source: db_pglog, target: /var/log/postgresql}
       - {type: volume, source: db_run, target: /run}
     configs:
       - {source: seed_postgresql_conf, target: /opt/gm/seed/postgresql.conf, uid: "0", gid: "0", mode: 0444}
@@ -65,6 +88,7 @@ services:
     secrets:
       - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
       - {source: dba_password, target: /opt/gm/secrets/dba_password, uid: "0", gid: "0", mode: 0400}
+      - {source: monitoring_password, target: /opt/gm/secrets/monitoring_password, uid: "0", gid: "102", mode: 0440}
     networks: [net]
     deploy:
       replicas: 1
@@ -83,6 +107,7 @@ volumes:
   db_pgconf: {}
   db_home: {}
   db_gmstate: {}
+  db_pglog: {}
   db_run: {}
 
 configs:
@@ -92,9 +117,12 @@ configs:
   seed_postgresql_conf: {external: true, name: gmtest-bastion_seed_postgresql_conf}
   seed_pg_hba_conf: {external: true, name: gmtest-bastion_seed_pg_hba_conf}
   envelopes: {external: true, name: gmtest-bastion_envelopes}
+  stub_upstream: {external: true, name: gmtest-bastion_stub_upstream}
 
 secrets:
   player_password: {external: true, name: gmtest-bastion_player_password}
   player_ssh_key: {external: true, name: gmtest-bastion_player_ssh_key}
   player_ssh_pubkey: {external: true, name: gmtest-bastion_player_ssh_pubkey}
   dba_password: {external: true, name: gmtest-bastion_dba_password}
+  tools_password: {external: true, name: gmtest-bastion_tools_password}
+  monitoring_password: {external: true, name: gmtest-bastion_monitoring_password}

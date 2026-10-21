@@ -87,7 +87,7 @@ class TestCredentials(RenderedGame):
         self.assertEqual(mode(sdir), 0o700)
         self.assertEqual(sorted(p.name for p in sdir.iterdir()),
                          ["dba_password", "monitoring_password", "player_password",
-                          "player_ssh_key", "player_ssh_key.pub"])
+                          "player_ssh_key", "player_ssh_key.pub", "tools_password"])
         self.assertEqual(sorted(paths), sorted(sdir.iterdir()))
         for path in sdir.iterdir():
             self.assertEqual(mode(path), 0o600, path.name)
@@ -125,7 +125,7 @@ class TestDeploy(RenderedGame):
             f"{gid}_db_postgresql.conf", f"{gid}_db_pg_hba.conf", f"{gid}_db_envelopes"]))
         self.assertEqual(fake.names("secret"), sorted(
             f"{gid}_{s}" for s in ("player_password", "player_ssh_key", "player_ssh_pubkey",
-                                   "dba_password", "monitoring_password")))
+                                   "dba_password", "monitoring_password", "tools_password")))
         for kind in ("config", "secret"):
             for name, objlabels in fake.objects[kind].items():
                 self.assertEqual(objlabels, labels, name)
