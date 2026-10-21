@@ -263,8 +263,9 @@ D101); the
 
 ### Chunk 2 — Loader checks for v0.2
 
-Status: in progress
-Record: (after merge)
+Status: merged (w1, ff86571)
+Record: cd3b33f (2a), bdc7547 (2b), merge ff86571. Choices where W1 was
+silent and the refusal messages: wave log, capture W1-C. No deviation.
 Wave: 1
 Depends on: chunk 1 (W1 capture)
 Architecture capture: none of its own; it implements W1.

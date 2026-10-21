@@ -392,3 +392,53 @@ the owner; it blocks nothing in v0.2.
 - **Known.** An `implementation.yaml` from before this chunk is refused
   at render ("fit again"); stale files in `secrets/` a new game no
   longer declares stay, as in v0.1.
+- Chunk 2 merged 2026-10-21: cd3b33f (2a), bdc7547 (2b), merge ff86571;
+  253 unit tests pass on `v0.2-w1` after the merge (chunk 3 in). New
+  fixture `tools/tests/fixtures/fixture-mounted/` (scenario-local
+  `fixture-front` with `web_routes`, `fixture-app`, `fixture-monitor`
+  mounting `node-health` into every node; a state fault and a
+  parameter fault `remove-entry {NODE}`; `ui:monitor` and `node:app`
+  evidence; expectation t1 covered by a report issue). Its README shows
+  the maps as inline YAML until chunk 11.
+
+### Capture W1-C — chunk 2 outcomes (read by 4, 5, 7, 11, 12, 13)
+
+Loader choices where W1 was silent (no deviation from W1 or the spec):
+
+1. The command vocabulary is closed: a `receives.commands` or
+   `requires.commands` name outside W1's eleven is refused.
+2. A `web_path` is `/<name>/`, one lowercase name between slashes.
+3. A `parameter` fault has `stage: seed`.
+4. Ops and shapes: `set` takes a scalar (unshaped) parameter,
+   `remove-entry` a shaped one, `remove-from-entry` a `node-map`; a
+   missing or extra `entry`/`item`/`value` is refused; `{NAME}` names a
+   parameter of the fault.
+5. `node:<name>` evidence never names the bastion ("write bastion").
+6. `report:<tool>` matches `[a-z0-9][a-z0-9._-]*`.
+7. A tooling expectation with `visibility` or `sealed_check` is refused.
+8. "Every node of the topology" applies to a node-map that a
+   `companion.mounted` item names; the entry rule (`default` or a
+   non-empty list of the brick's processes) applies to every node-map.
+   A node left out is refused by the map check, so its `receives` is not
+   checked.
+9. Exact versions are semver strings (pre-release or build suffix
+   allowed); ranges, wildcards and non-strings are refused.
+10. Brick footprints and `companion.mounted[].footprint` are
+    unit-checked.
+11. The answer key is checked before the issues, so expectation ids are
+    known in `covers`.
+
+Consequence until chunk 7: a web interface without a route is refused,
+and `bastion` 0.2.0 has no `web_routes` yet, so a scenario putting
+`prometheus` next to `bastion` does not load before chunk 7 merges. No
+wave 1 or wave 2 scenario does.
+
+The refusal messages, each asserted in `tools/tests/test_model.py`
+(classes `TestMountedBrickRefusals`, `TestNodeMapRefusals`,
+`TestReceivingRefusals`, `TestWebRouteRefusals`,
+`TestParameterFaultRefusals`, `TestAnswerKeyRefusals`), are the
+reference for chunks 12 and 13; two replace v0.1 messages:
+`issues[<I>].covers: <id> is not a fault instance or a tooling
+expectation`, and `injection.kind: <k> is not seed-file, state or
+parameter`. `fault.yaml`'s own `evidence[].where` stays free text (O78),
+pinned by a test.
