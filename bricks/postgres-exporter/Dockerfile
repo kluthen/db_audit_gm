@@ -5,6 +5,18 @@
 # fixed paths declared in brick.yaml.
 # Build:  docker build -t 127.0.0.1:5000/dbagm/postgres-exporter:0.1.0 bricks/postgres-exporter
 # Architecture: x86_64 only (the s6-overlay and postgres_exporter archives below).
+
+# --- rootfs/, its modes independent of the checkout --------------------------
+# COPY keeps the modes files have in the checkout, which follow the umask it
+# was made with (umask 002 gives 775 directories and 664 files, and COPY
+# rootfs/ / would apply them to /etc, /usr, /usr/local...). Normalised here:
+# directories and executables 0755, other files 0644. The files given other
+# modes on purpose get them in the node stage, after the copy.
+FROM debian:13-slim AS rootfs-modes
+COPY rootfs/ /rootfs/
+RUN chmod -R u=rwX,go=rX /rootfs
+
+# --- the node ----------------------------------------------------------------
 FROM debian:13-slim
 
 ARG S6_OVERLAY_VERSION=3.2.3.2
@@ -72,7 +84,7 @@ RUN set -eux; \
     ln -s /run/tmp /tmp; \
     ln -s /run/tmp /var/tmp
 
-COPY rootfs/ /
+COPY --from=rootfs-modes /rootfs/ /
 COPY validator/validate.sh /opt/gm/validator/validate.sh
 
 # Protected files: root-owned, read-only for everyone else.
