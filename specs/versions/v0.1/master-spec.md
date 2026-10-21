@@ -300,8 +300,9 @@ the GM skill agree; the lead may revisit them.
   `S6_READ_ONLY_ROOT` set and a tmpfs on `/run`, so the database can be
   restarted without killing the container.
 - **Read-only root filesystem.** Writable: a named volume for PGDATA, a
-  named volume for `/etc/postgresql`, the tmpfs `/run`, and a writable
-  target for `sudo`'s log.
+  named volume for `/etc/postgresql`, a named volume for
+  `/var/lib/gm-state` (the seed marker, root-owned), the tmpfs `/run`, and
+  a writable target for `sudo`'s log.
 - **Configuration outside PGDATA**: `postgresql.conf` and `pg_hba.conf` in
   `/etc/postgresql/`, used through `config_file` and `hba_file`, owned by
   `postgres` with a group the `player` account belongs to, group-writable
@@ -309,7 +310,10 @@ the GM skill agree; the lead may revisit them.
 - **Seed once**: on first start the entrypoint copies the scenario's seed
   files (delivered as Swarm configs to a fixed seed directory) into
   `/etc/postgresql/`, and initialises the cluster if PGDATA is empty. It
-  marks the volume as seeded and never overwrites it afterwards.
+  marks the node as seeded with the marker `/var/lib/gm-state/.gm-seeded`
+  (directory root-owned, mode 0755; marker root-owned, mode 0444), kept
+  out of the group-writable `/etc/postgresql`, and never overwrites the
+  seeded files afterwards.
 - **Accounts**: OS account `player` (SSH, public key from a Swarm secret);
   PostgreSQL superuser role `dba` for the players, with a per-game
   password from a Swarm secret written to the player's `.pgpass`. The GM
@@ -338,7 +342,8 @@ the GM skill agree; the lead may revisit them.
   for the official result.
 - **Protected files**: `sshd_config`, `sudoers`, the wrappers, the
   validator, the entrypoint and s6 service definitions, root-owned and
-  read-only (on the image's read-only root, or mounted from Swarm configs).
+  read-only (on the image's read-only root, or mounted from Swarm configs),
+  and the seed marker, root-owned on its own volume.
 - No port is published.
 
 ### 9.2 Bastion brick
@@ -593,8 +598,10 @@ players' sight and exercises the restart path.
    gm-validate`.
 4. A manual play-through as `player` confirms that each fault's evidence is
    reachable as the answer key states, and that each *fix* issue can be
-   fixed (by file and reload or restart, and by `ALTER SYSTEM`) with the
-   sealed check turning from 1 to 0.
+   fixed with the sealed check turning from 1 to 0: a *fix* issue on a
+   configuration setting both by file and reload or restart and by `ALTER
+   SYSTEM`, one on the schema or its indexes by the DDL statement that
+   repairs it.
 5. The stance passes this check-list:
    - a hint request is refused;
    - a reveal request is refused;

@@ -129,7 +129,7 @@ class TestRender(RenderedFixture):
         self.assertEqual(db["hostname"], "db")
         self.assertEqual([(v["type"], v["target"]) for v in db["volumes"]], [
             ("volume", "/var/lib/postgresql/18/data"), ("volume", "/etc/postgresql"),
-            ("volume", "/home/player"), ("volume", "/run")])
+            ("volume", "/home/player"), ("volume", "/var/lib/gm-state"), ("volume", "/run")])
         configs = {c["target"]: c for c in db["configs"]}
         self.assertEqual(configs["/opt/gm/seed/postgresql.conf"]["mode"], 0o444)
         self.assertEqual(configs["/opt/gm/protected/envelopes.conf"]["source"],

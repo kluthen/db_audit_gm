@@ -5,7 +5,7 @@ only when it is resolved and logged in [decisions.md](decisions.md); IDs
 are never reused. Resolved IDs are listed at the bottom.
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
-for v0.1; **later** = can wait for v1.0 or beyond. None is open for v0.1.
+for v0.1; **later** = can wait for v1.0 or beyond. Open for v0.1: none.
 
 ## Project and scope
 
@@ -179,3 +179,4 @@ the question concerns.
 | O9 | D30 |
 | O14 | D31 |
 | O19 | D32 |
+| O55 | D54 |

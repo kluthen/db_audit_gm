@@ -5,7 +5,8 @@ intent (D1). To resume cold: read this page, then
 [open-questions.md](open-questions.md); look up decisions in
 [decisions.md](decisions.md) by ID only.
 
-Phase: **v0.1 approved for build** (master spec approved under the owner's
+Phase: **v0.1 released** on 2026-10-21, pending the merge of
+`v0.1-release` into `main` (master spec approved under the owner's
 delegation to the lead, D44); v0.2 to v1.0 in drafting. Conventions:
 settled items are stated as fact, tentative ones are tagged `(proposed)`,
 and every open point cites an `O` ID. Every `(proposed)` item awaits the
@@ -16,15 +17,15 @@ owner's confirmation; the register lists the ones with real alternatives.
 | Document | Purpose | Status |
 |---|---|---|
 | [concept.md](concept.md) | Purpose, actors, vocabulary, scope, versions, prior art | draft v5 |
-| [versions/](versions/README.md) | The roadmap: v0.1 to v1.0 and beyond, one page per version; v0.1's [master spec](versions/v0.1/master-spec.md), [access model](versions/v0.1/access-model.md) and [build plan](versions/v0.1/build-plan.md) | v0.1 approved; v0.2–v1.0 draft |
+| [versions/](versions/README.md) | The roadmap: v0.1 to v1.0 and beyond, one page per version; v0.1's [master spec](versions/v0.1/master-spec.md), [access model](versions/v0.1/access-model.md) and [build plan](versions/v0.1/build-plan.md) | v0.1 released, pending merge; v0.2–v1.0 draft |
 | [gm-stance.md](gm-stance.md) | How the GM behaves and speaks: setup questions, issues, report-only interaction, no reveals, stop only, final answer, feedback tone, future ideas | draft v4 |
 | [scenario-lifecycle.md](scenario-lifecycle.md) | The game from setup to teardown: setup inputs, scenario, local implementation, deploy, aging, hand-over, end of the game | draft v6 |
 | [formats.md](formats.md) | What a scenario folder, a brick (with its companion material) and a fault definition must contain; the local implementation; the skills and templates | draft v8 |
 | [bricks-and-faults.md](bricks-and-faults.md) | Catalog, per-brick checks, solvability probe, fault interactions and families, future backup-tooling faults | draft v4 |
-| [planes-and-access.md](planes-and-access.md) | Bastion-only rule, planes, the GM session, trust, write policies, hardening, validators | draft v4 |
-| [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls | draft v7 |
+| [planes-and-access.md](planes-and-access.md) | Bastion-only rule, planes, the GM session, trust, write policies, hardening, validators | draft v6 |
+| [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls | draft v9 |
 | [open-questions.md](open-questions.md) | Open-questions register | live |
-| [decisions.md](decisions.md) | Decisions log, D1–D52 | live |
+| [decisions.md](decisions.md) | Decisions log, D1–D54 | live |
 
 History: the tree was seeded on 2026-10-20 from the owner's pre-spec notes,
 which are no longer a reference (D1).
@@ -94,10 +95,8 @@ which are no longer a reference (D1).
 
 ## Next steps
 
-1. The lead approves the v0.1 build plan (gate G1), then the wave driver
-   runs it.
-2. During the build: plan revisions and rulings come back here; the topic
-   docs change only when a ruling changes them.
-3. After v0.1 closes: archive its working record (skill
+1. Merge `v0.1-release` into `main` (the owner's word, after the RG-1
+   fix passed the quality command).
+2. After v0.1 closes: archive its working record (skill
    `milestone-archive`), then resume v1.0 scoping from the "later"
    questions.

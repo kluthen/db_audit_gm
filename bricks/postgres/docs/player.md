@@ -54,8 +54,7 @@ Changing the database configuration is expected. Do not change:
 - the line `local all postgres peer` in `pg_hba.conf`: it is the game
   master's access to the node;
 - SSH, `sudo`, the `gm-*` commands and the validator (they are read-only
-  anyway);
-- the file `/etc/postgresql/.gm-seeded`.
+  anyway).
 
 Being a database superuser also gives you access to the operating system
 as `postgres` (for example `COPY ... TO PROGRAM`). Do not use it to get

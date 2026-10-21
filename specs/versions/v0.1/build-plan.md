@@ -1,7 +1,8 @@
 # db_audit_gm v0.1 — Build plan
 
-Status: v5 (2026-10-21): chunk 10 inserted in wave 3 for the teardown
-reason and a new game after a failed setup (spec D50, D51, D52).
+Status: v6 (2026-10-21): release-gate item 2 worded as the clarified
+master spec 17 item 4 (spec D53). v5: chunk 10 inserted in wave 3 for the
+teardown reason and a new game after a failed setup (spec D50, D51, D52).
 Approval: approved 2026-10-20 by the lead under the owner's delegation (G1).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), both approved 2026-10-20. No design set
@@ -41,7 +42,7 @@ plan states only its deltas.
 | G2 | Network access at image build time (Debian and PostgreSQL apt repositories, the s6-overlay release download) | Hand check by the wave driver | Chunks 2, 3 | done (2026-10-20, wave driver's hand check: registry pull succeeded) |
 | G3 | A Docker host in swarm mode (`docker swarm init` on the build host is enough) | Hand check by the wave driver | Chunk 2, wave 2 gate, wave 3 gate, release gate | done (2026-10-20, `docker swarm init` on the build host, owner-approved) |
 | G4 | Review of the v0.1 scenario's defects, issues and answer key | The lead | Chunk 8's merge | done (2026-10-21, the owner after an independent review, OKAY) |
-| G5 | Feedback tone judged acceptable | The owner | Release close | open |
+| G5 | Feedback tone judged acceptable | The owner | Release close | done (2026-10-21, the owner, on the feedback of game `bookshop-new-server-pwbho8`) |
 
 ## Waves
 
@@ -49,7 +50,7 @@ plan states only its deltas.
 |---|---|---|---|
 | 1 | 1, 2, 3 | G1, G2, G3 (chunk 2) | merged (80e9048) |
 | 2 | 4, 5, 6 | wave 1 | merged (d3547c3) |
-| 3 | 7, 8, 9, 10 | wave 2, G4 (for chunk 8's merge) | gated (0955dda) |
+| 3 | 7, 8, 9, 10 | wave 2, G4 (for chunk 8's merge) | merged (763694c) |
 
 ```
 1 ──> 2, 3            (in-wave: brick.yaml keys captured at wave start)
@@ -550,9 +551,10 @@ Against master spec section 17, on the merged code, on a single-node swarm:
 2. Master spec section 17, item 3: the players reach the database node only
    through the bastion, the write policy holds, and `sudo gm-validate`
    runs. Then the manual play-through as `player`: each fault's evidence
-   reachable as the answer key states; each *fix* issue fixed both by file
-   and reload or restart and by `ALTER SYSTEM`, with its sealed check
-   turning from 1 to 0.
+   reachable as the answer key states; each *fix* issue fixed with its
+   sealed check turning from 1 to 0, a configuration setting both by file
+   and reload or restart and by `ALTER SYSTEM`, a schema or index fault by
+   its DDL (master spec 17 item 4, spec D53).
 3. The stance check-list, item by item.
 4. A fresh GM session resuming the game in progress.
 5. A forced setup failure: reported, torn down, stage recorded; teardown

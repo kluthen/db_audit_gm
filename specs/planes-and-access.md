@@ -1,6 +1,6 @@
 # Planes, access and rules
 
-Status: draft v5
+Status: draft v6
 
 Who may reach what, what the player may change, how the rules are checked,
 and what is left to trust. At consolidation this document feeds the access
@@ -126,7 +126,9 @@ Every item is decided; what `docker stack deploy` honours is in
   where changes are legitimate (database configuration and data, a
   crontab, backup tool configuration). "What may change = what is
   writable." A read-only root also needs a tmpfs `/run` and a writable
-  target for `sudo`'s log (D41).
+  target for `sudo`'s log (D41). A brick's own state, such as the
+  seeding marker, sits on a root-owned volume of its own, never in a
+  directory the player can write (D54).
 - A non-root player account.
 - **Capabilities**: drop all, add back per brick what it needs, listed in
   `brick.yaml` (D41). `sshd`, s6 and the entrypoint's `chown` need more

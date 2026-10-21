@@ -7,7 +7,8 @@
 #      s6-overlay needs an executable /run) and creates the runtime dirs;
 #   2. generates this container's sshd host key under /run;
 #   3. checks the secrets;
-#   4. seeds /etc/postgresql from /opt/gm/seed once (marker .gm-seeded);
+#   4. seeds /etc/postgresql from /opt/gm/seed once (marker
+#      /var/lib/gm-state/.gm-seeded, outside the group-writable directory);
 #   5. initialises PGDATA if it is empty and creates the `dba` role;
 #   6. writes the player's ~/.pgpass.
 set -eu
@@ -16,6 +17,8 @@ PG_MAJOR=18
 PGBIN=/usr/lib/postgresql/$PG_MAJOR/bin
 PGDATA=/var/lib/postgresql/$PG_MAJOR/data
 CONF_DIR=/etc/postgresql
+STATE_DIR=/var/lib/gm-state
+MARKER=$STATE_DIR/.gm-seeded
 SEED_DIR=/opt/gm/seed
 SECRETS_DIR=/opt/gm/secrets
 SEED_FILES="postgresql.conf pg_hba.conf"
@@ -58,16 +61,20 @@ esac
 # --- 4. configuration, seeded once ---------------------------------------
 chown postgres:pgconf "$CONF_DIR"
 chmod_setgid "$CONF_DIR" pgconf 2775
-if [ ! -e "$CONF_DIR/.gm-seeded" ]; then
+# The marker lives on its own volume (gmstate), root-owned: neither player
+# (group pgconf) nor postgres can remove, rename or replace it.
+chown root:root "$STATE_DIR"
+chmod 0755 "$STATE_DIR"
+if [ ! -e "$MARKER" ]; then
     for f in $SEED_FILES; do
         [ -f "$SEED_DIR/$f" ] || die "seed file $SEED_DIR/$f is missing"
     done
     for f in $SEED_FILES; do
         install -o postgres -g pgconf -m 0664 "$SEED_DIR/$f" "$CONF_DIR/$f"
     done
-    date -u '+seeded %Y-%m-%dT%H:%M:%SZ from /opt/gm/seed (DO NOT TAMPER)' > "$CONF_DIR/.gm-seeded"
-    chown root:root "$CONF_DIR/.gm-seeded"
-    chmod 0444 "$CONF_DIR/.gm-seeded"
+    date -u '+seeded %Y-%m-%dT%H:%M:%SZ from /opt/gm/seed (DO NOT TAMPER)' > "$MARKER"
+    chown root:root "$MARKER"
+    chmod 0444 "$MARKER"
     log "seeded $CONF_DIR from $SEED_DIR"
 fi
 
