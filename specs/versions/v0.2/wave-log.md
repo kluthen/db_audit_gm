@@ -780,3 +780,31 @@ logging and preload settings in their seeds (W2-B); chunk 11 fixes
 G11. Plan at v4. Branches left: `v0.2-w2` only. Next: wave 3 (chunks
 8, 9, 10, 11; chain 9, 10 → 11, captures at wave start), from `main`
 once wave 2 merges.
+- Merged into `main` 2026-10-21 on the owner's word: 351de59. Branch
+  and worktree `v0.2-w2` removed.
+
+### Owner direction after wave 2 — 2026-10-21
+
+The owner expects the `postgres` brick to grow many optional elements
+(PostGIS, TimescaleDB, pgBadger, replication modules, …), each
+documented and added to a scenario when appropriate. Ruled: brick
+options go to v0.5 (bricks improved and extended); v0.2 stays as built
+(pgBadger, the `pglog` volume, the `monitoring` role and secret in every
+game; the logging and preload settings already the scenario's, in its
+seed). Sent to `spec-writer` to record in `versions/v0.5/` and the
+registers, committed on `v0.2-w3`.
+
+## Wave 3 — started 2026-10-21
+
+Chunks: 8, 9, 10, 11 (chain 9, 10 → 11). Branch `v0.2-w3`, worktree
+`/home/bastien/work/db_audit_gm-wt/v0.2-w3`, cut from `main` at
+351de59 (wave 2 merged).
+
+- **Concurrency.** The owner's allowance for this session holds: 8, 9
+  and 10 run side by side (no path between them, no shared source
+  file); 11 starts once 9 and 10 merge.
+- **Gates.** G2, G3 done; G8 done (spec D104). Swarm active, host idle.
+- **Preflight.** None (no intent register, no data register).
+- **Captures.** W3 (chunks 9 and 10's interfaces, for chunk 11) is
+  drafted before 9 and 10 start. Chunk 8 needs none and starts now.
+- Chunk 8 dispatched 2026-10-21.
