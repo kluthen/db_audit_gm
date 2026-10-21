@@ -1,6 +1,6 @@
 # Platform
 
-Status: draft v10
+Status: draft v13
 
 The swarm the games run on, the resource budget scenarios must fit, how
 scenario content reaches the nodes, and the Swarm behaviours that shape the
@@ -58,14 +58,20 @@ Docker Swarm is the starting platform; the project must stay adaptable
 - From v1.0, each scenario includes a few producers and consumers
   generating activity. v0.1 has none: its database is static (D14, D35).
 
+Monitoring is not free: v0.2's Prometheus, Grafana, `postgres_exporter`
+and the node-health script inside every node count in the budget, and
+footprint is a main criterion in choosing the tools (D64, D66, D69).
+v0.2 runs on one host, its scenario fitting 2 CPU / 4G / 8G, and `gmctl
+fit` also counts the images' sizes against the declared disk, since on a
+laptop the images grow, not the volumes (D83). It reads them from the
+playground's engine, each image layer counted once, and refuses a
+missing image with its build command (D102). The v0.2 estimate is in
+[versions/v0.2/README.md](versions/v0.2/README.md), "Footprint".
+
 Proposed:
 
 - Choosing bricks is a knapsack problem: the sum of reservations stays
-  within capacity minus headroom. Monitoring is not free: v0.2's
-  Prometheus, Grafana, `postgres_exporter` and the node-health script
-  inside every node count in the budget, and footprint is a main
-  criterion in choosing the tools (D64, D66, D69). The v0.2 estimate is in
-  [versions/v0.2/README.md](versions/v0.2/README.md), "Footprint".
+  within capacity minus headroom.
 - Producer load is calibrated against the nerfed databases: enough to show
   contention and symptoms, not enough to saturate the host.
 - **Hard limits** are the cgroup limits set by Swarm (`deploy.resources`).
@@ -132,8 +138,9 @@ from one laptop to a classroom swarm.
 
 Trade-offs accepted with C:
 
-- Every brick needs the seed-once entrypoint, which goes in the shared node
-  base (s6-overlay, D30).
+- Every brick needs the seed-once entrypoint: a convention each brick's
+  own entrypoint follows, under s6-overlay (D30), since there is no shared
+  base image (D90).
 - Pinned stateful nodes: a node whose host dies loses its state.
 - The GM needs to reach each host's engine, over SSH (D27), which it also
   needs for sealed checks and official validator runs.

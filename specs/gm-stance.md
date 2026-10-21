@@ -1,6 +1,6 @@
 # GM stance
 
-Status: draft v6
+Status: draft v7
 
 How the game master behaves and speaks with the people in its session, from
 setup to feedback. Settling this stance is v0.1's main goal (D15). The
@@ -75,7 +75,7 @@ or someone asks to stop during setup, the GM says so, tears down what it
 deployed, and records the stage reached (D36).
 
 From v0.2 the GM states every time in UTC, as the nodes and tools do
-(proposed, O70; v0.1's known issue RG-4).
+(D81; v0.1's known issue RG-4).
 
 ## The final answer
 
@@ -93,8 +93,8 @@ From v0.2 the GM states every time in UTC, as the nodes and tools do
 The GM gives feedback (D9):
 
 - the issues found against the faults actually present, and against the
-  GM's silent tooling expectation where the scenario holds one (D65; how
-  it is written: O62);
+  GM's silent tooling expectations where the answer key lists any (D65,
+  D76);
 - for each answer, whether it is acceptable against the issue's expected
   resolution and the answer key's acceptance criteria.
 

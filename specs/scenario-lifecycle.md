@@ -1,6 +1,6 @@
 # Game lifecycle
 
-Status: draft v8
+Status: draft v10
 
 From setup to teardown, as run by the GM in its agent session: the
 scenario, its local implementation, checks, deployment, aging, hand-over,
@@ -34,8 +34,10 @@ outside the project's concern.
 4. **Pre-deployment checks** — the GM runs the checks each brick ships, if
    any (D28).
 5. **Deployment** on the playground, from the local implementation. When
-   the topology has monitoring, the GM configures each node's health
-   script at initialisation, with the services it watches there (D66).
+   the topology has a metrics store, the node-health script and its s6
+   service are mounted into every node as configs, each with that node's
+   entry of the `prometheus` node's service map, rendered at deploy (D66,
+   D89, D97).
 6. **Data and aging** — restored-backup data is loaded, then state faults
    are planted; the system runs, or is given a history, so that faults
    leave traces (see "Aging"). v0.1 has no aging: it loads the data and
@@ -102,7 +104,8 @@ Techniques (proposed), complementary:
   session.
 
 Each fault instance states which technique makes its evidence visible
-([formats.md](formats.md)). The default technique: O22.
+([formats.md](formats.md)). v0.2 has no aging: with no load, history
+builds during the game (D83). The default technique: O22.
 
 Consequence to settle with O22: time compression is visible. A crontab
 reading `*/5` for a "daily" backup is itself something an auditor would
@@ -119,7 +122,8 @@ The player gets:
   everywhere (see [planes-and-access.md](planes-and-access.md));
 - access to every monitoring tool in the stack (Grafana, Prometheus, …),
   which may or may not be correctly configured, with the web interfaces
-  published by the bastion (D68; how: O63). A topology may have no
+  published by the bastion's web front and opened with the per-game tools
+  password (D68, D77, D79). A topology may have no
   monitoring at all, and how well it is tooled can be a finding (D65);
 - at the very least, a list of all node names;
 - ideally, a short documentation of the topology and a rough description of

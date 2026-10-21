@@ -1,6 +1,6 @@
 # Planes, access and rules
 
-Status: draft v8
+Status: draft v11
 
 Who may reach what, what the player may change, how the rules are checked,
 and what is left to trust. At consolidation this document feeds the access
@@ -15,7 +15,8 @@ player side never gets a Docker socket or manager credentials.
 
 The bastion is itself a node of the topology (a Swarm service). In v0.1 it
 shares one overlay network with the database node, and its SSH port is the
-only port published (D35); the network layout of later versions is O12.
+only port published (D35). v0.2 keeps one network and adds the web front's
+port (D77, D83); the network layout of later versions is O12.
 
 Credentials: see "Credentials and the way in" below.
 
@@ -23,10 +24,13 @@ Credentials: see "Credentials and the way in" below.
 (Grafana, Prometheus) are reached through the bastion, and no other node
 publishes a port. Ports published through the routing mesh are open on
 every host, so a UI port published by its own node would bypass the
-bastion. How the bastion publishes them (a web front as its second
-published port, or SSH forwarding through it): O63. From v0.6 the bastion
-becomes the players' main activity point: web interfaces, a documentation
-website, general-use tooling (D71).
+bastion. It publishes them through a web front (D77): a reverse proxy on
+the bastion's second published port, in host mode, every UI behind it
+under its own path, with HTTP basic authentication on the per-game tools
+password (D79), since Prometheus has no login of its own; plain HTTP in
+v0.2. Files and reports still leave through `scp` and `sftp`. From v0.6
+the bastion becomes the players' main activity point: web interfaces, a
+documentation website, general-use tooling (D71).
 
 ## Planes (D42)
 
@@ -92,16 +96,39 @@ information needed but does not allow the system's behaviour to be altered
 beyond what is acceptable. Changing a database's configuration files is
 expected; changing SSH behaviour is not.
 
+### The monitoring nodes (v0.2)
+
+- Prometheus, Grafana and `postgres_exporter` are full nodes: the player
+  reaches each by SSH as `player` from the bastion, reads everything, and
+  on a *fixable* node edits its seed-once configuration and reloads it
+  through a `sudo` wrapper (D74).
+- Grafana's write policy is a known gap (D94): the tools password makes
+  the players Grafana administrators, so on a *report-only* Grafana node
+  they can still change dashboards, data sources and alert rules through
+  the UI. Accepted under light enforcement, like the superuser gap on
+  report-only databases (O45). Sealed checks judge Grafana's effective
+  live state (through its API), not only its provisioned files.
+- The node-health script and its service list are configs, read-only on
+  every node (D73); its endpoint is readable from every node.
+
 ### Credentials and the way in (D31)
 
 - The players log in to the bastion with a per-game password the GM hands
-  over. The bastion's SSH port is the only port published.
+  over. The bastion's SSH port is the only port published, and from v0.2
+  its web front's port (D77).
+- From v0.2, a second per-game password, the **tools password**, opens
+  the web front and Grafana's administrator account; the GM hands it over
+  with the bastion password (D79). A topology with no web interface has
+  no web front: the bastion publishes SSH only and no tools password is
+  handed over (D103).
 - From the bastion they reach other nodes as user `player`, with a per-game
   key pair: the private key sits in the player's home on the bastion, the
   public key in the node's authorized keys. Both halves travel as Swarm
   secrets.
 - Nothing about credentials is committed: they live only in the game's
-  secrets and in the git-ignored local implementation (D45).
+  secrets and in the git-ignored local implementation (D45). From v0.2
+  gmctl generates the secrets the bricks declare, by kind (password, key
+  pair), among them the password of the exporter's monitoring role (D79).
 
 ### The database node (D34)
 
@@ -116,6 +143,9 @@ expected; changing SSH behaviour is not.
   `postgres` with a group `player` belongs to, group-writable on a fixable
   node.
 - Reload and restart go through `sudo` wrappers.
+- From v0.2 the PostgreSQL log files are readable by the players' group,
+  so players run pgBadger themselves, as `player`, with no wrapper; its
+  report lands in their home (D95).
 - `ALTER SYSTEM` is a legitimate fix path too. Sealed checks judge the
   effective live setting, not which file changed.
 - A superuser can run `ALTER SYSTEM` whatever the node's write policy, so
@@ -194,7 +224,8 @@ permissive and so need the Pod Security "baseline" profile rather than
   swarm itself, but a monitoring tool or validator reporting "not healthy"
   is legitimate information. The node-health script reports each node's
   CPU, RAM, disk and services from inside the node, with no Docker socket
-  or host mount, so the player side stays socket-free (D66).
+  or host mount, so the player side stays socket-free (D66). The GM mounts
+  it into each node as configs, read-only there (D73).
 
 **Sealed checks** are the GM's side (D33): run through the exec verb, they
 check the answer key (fault fixed or not) against the effective live state.
