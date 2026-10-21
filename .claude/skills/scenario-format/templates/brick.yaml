@@ -1,10 +1,13 @@
 # brick.yaml — template for bricks/<brick-id>/brick.yaml
 #
-# Initial version (v0.1), expected to evolve as games are played.
-# Shape: master spec section 7; top-level keys fixed by capture W1-A
-# (specs/versions/v0.1/wave-log.md); D59 dropped `compatible_faults`. Do
-# not add, rename or drop a top-level key here; brick-specific extras go
-# under `extra`.
+# Version v0.2, expected to evolve as games are played.
+# Shape: v0.1 master spec section 7 and v0.2 master spec 6.1; top-level
+# keys fixed by v0.1's capture W1-A (specs/versions/v0.1/wave-log.md),
+# amended by v0.2's capture W1 (specs/versions/v0.2/wave-log.md: the
+# footprint's shape, `interfaces` required, `companion.mounted`, `receives`,
+# secret kinds, parameter shapes); D59 dropped `compatible_faults`. Do not
+# add, rename or drop a top-level key here; brick-specific extras go under
+# `extra`.
 #
 # Markers:
 #   every key is REQUIRED unless marked otherwise;
@@ -15,14 +18,16 @@
 # comment says so; an absent key is not.
 # Replace every <placeholder>. A filled file keeps no <placeholder>.
 #
-# Platform-neutral rules (master spec 7): seeds and secrets come from the
+# Platform-neutral rules (v0.1 master spec 7): seeds and secrets come from the
 # fixed paths declared here, never Swarm's default mount locations; the
 # health check is a command; interfaces are container ports; peers are
 # reached by node name only; nothing here names a Swarm-only feature.
 
 # --- Identity ---------------------------------------------------------
 id: <brick-id>                      # lowercase, hyphens (postgres, bastion)
-version: <0.1.0>                    # semver string
+version: <0.1.0>                    # semver string; any change to the brick's folder bumps it,
+                                    # a change made while the new version is unreleased folds
+                                    # into it (released by its version's release gate, D100)
 roles:                              # role names (database, bastion)
   - <role>
 technology:
@@ -31,10 +36,12 @@ technology:
 image: 127.0.0.1:5000/dbagm/<brick-id>:<version>   # registry-qualified, never Docker Hub
 
 # --- Footprint --------------------------------------------------------
-footprint:                          # defaults; a scenario sets its own resources per node
-  cpu: <0.5>                        # CPUs
-  memory: <512M>
-  disk: <1G>
+footprint:                          # the default the GM starts from when it sizes a scenario,
+                                    # in the shape of a node's `resources` (D84); a scenario sets
+                                    # its own resources per node. Excludes any material other
+                                    # bricks mount into this one (their docs/gm.md state its cost)
+  limits:       {cpu: <1>, memory: <1G>}                  # CPUs; memory as 512M, 1G
+  reservations: {cpu: <0.5>, memory: <512M>, disk: <1G>}
 # footprint_ranges:                 # optional in v0.1 (shape to settle when first used)
 #   cpu: {min: <0.25>, max: <2>}
 #   memory: {min: <256M>, max: <4G>}
@@ -43,10 +50,17 @@ stateful: <true>                    # boolean; pinning is the renderer's busines
 
 # --- What the scenario sets -------------------------------------------
 parameters:                         # map; may be {} when the scenario sets nothing
-  <name>:                           # passed to the container as GM_<NAME> (upper case)
+  <name>:                           # a scalar is passed to the container as GM_<NAME> (upper case)
     description: <what it sets>
-    default: <value or null>
+    default: <value or null>        # may be {} (a web-routes map with no route)
     required: <false>
+    shape: <node-map>               # optional: a map-valued parameter; absent for a scalar.
+                                    # node-map: node name -> `default` (that node's brick's
+                                    #   processes) or a non-empty list of names from them; never
+                                    #   passed as GM_*, the renderer writes per-node configs
+                                    # web-routes: route name -> "node:port"; passed as GM_<NAME>,
+                                    #   "name=node:port" tokens sorted by name, space-separated
+                                    #   ("" when the map is empty)
 knobs:                              # settings the player may change; may be [] (bastion)
   - setting: <shared_buffers>
     file: <in-container path of the file holding it, /etc/postgresql/postgresql.conf>
@@ -77,7 +91,15 @@ healthcheck:
   retries: <5>
   start_period: <30s>
 secrets:                            # per-game secrets gmctl deploy creates; may be []
-  - name: <logical-name>            # Swarm name is <game-id>_<name>
+  - name: <logical-name>            # Swarm name is <game-id>_<name>; a name two bricks declare
+                                    # is one secret, declared alike by both
+    kind: <password>                # password | key-pair
+    handed_over: <true>             # optional: kind password; true for a password players type
+                                    # (16 characters, the player alphabet); absent or false: 32
+                                    # characters, the dba alphabet
+    pair: <player_ssh_key>          # optional: kind key-pair; the pair's name (ed25519, no
+                                    # passphrase; files <pair> and <pair>.pub)
+    half: <private>                 # optional: kind key-pair; private | public, the file mounted
     path: </opt/gm/secrets/<logical-name>>   # fixed in-container path
     uid: <0>
     gid: <0>
@@ -101,12 +123,45 @@ processes:                          # s6-overlay service names
 # --- Catalog links ----------------------------------------------------
 # No fault list: which faults a brick hosts is stated only by each fault's
 # applies_to (D59).
-# companion:                        # optional: only when the brick ships companion/ material
-#   path: companion/
-#   when: <when the GM runs or uses it, e.g. "before deploying a scenario that uses this brick">
-# interfaces:                       # optional in v0.1 (provided and consumed endpoints)
-#   provides: [{name: <sql>, protocol: <postgresql>, port: <5432>}]
-#   consumes: []
+interfaces:                         # container ports; a scenario's flows connect a consumer to
+                                    # a matching provider
+  provides:                         # what the brick serves
+    - name: <sql>
+      protocol: <postgresql>        # postgresql, ssh, http
+      port: <5432>
+      web_path: </prometheus/>      # optional: a web interface the bastion's web front publishes:
+                                    # /<route>/, the fixed path the upstream serves under, and
+                                    # the key of the bastion's web_routes route that names it
+  consumes:                         # what it reaches on other nodes, by node name; may be []
+    - name: <sql>
+      protocol: <postgresql>
+      port: <5432>
+companion:                          # optional: only when the brick ships companion/ material
+  path: companion/
+  when: <when the GM runs or uses it, e.g. "before deploying a scenario that uses this brick">
+  mounted:                          # optional: material the GM mounts into other nodes at deploy
+    - name: <node-health>           # item name, lowercase, hyphens
+      parameter: <node_health>      # this brick's node-map parameter, set on its own node in the
+                                    # scenario; its keys are the receiving nodes
+      files:                        # root-owned (0:0), read-only configs in each receiving node
+        - source: <companion/node-health/node-health.pl>   # relative to the brick folder, under companion/
+          target: </usr/local/lib/gm/node-health/node-health.pl>   # absolute, in the receiving node
+          mode: "<0555>"            # quoted octal string; no write bit
+      node_config:                  # the per-node config the renderer writes from the map entry
+        target: </opt/gm/node-health/node.conf>   # absolute, in the receiving node
+        mode: "<0444>"              # quoted octal string; no write bit
+      footprint:                    # added to each receiving node's resources by the GM
+        limits:       {cpu: <0.005>, memory: <5M>}
+        reservations: {cpu: <0.005>, memory: <5M>, disk: <0>}
+      requires:                     # what a receiving image must declare under `receives`
+        s6_overlay: "<3>"           # a version prefix: the receiver's version begins with it,
+                                    # followed by "." or the end
+        commands: [<sh>, <perl>]    # a subset of the command vocabulary (receives below)
+receives:                           # optional: when the image accepts another brick's mounted material
+  s6_overlay: "<3.2.3.2>"           # the s6-overlay version the Dockerfile installs
+  commands: [<sh>, <cat>]           # executables `command -v` finds on an s6 service's PATH,
+                                    # by basename. The v0.2 vocabulary: sh cat du df awk sed
+                                    # grep sleep perl s6-svstat s6-setuidgid
 # monitoring:                       # optional in v0.1 (metrics endpoints, logs)
 #   metrics: []
 #   logs: []

@@ -127,8 +127,8 @@ class TestRefusals(ScenarioCopyTest):
 
     def test_pinned_version_mismatch(self):
         self.edit_yaml("scenario.yaml",
-                       lambda d: self.node(d, "db")["brick"].update(version="0.2.0"))
-        self.assertRefused("nodes[db].brick", "0.2.0", "0.1.1")
+                       lambda d: self.node(d, "db")["brick"].update(version="0.3.0"))
+        self.assertRefused("nodes[db].brick", "0.3.0", "0.2.0")
 
     def test_unknown_brick(self):
         self.edit_yaml("scenario.yaml",

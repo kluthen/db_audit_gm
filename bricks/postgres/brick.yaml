@@ -1,25 +1,26 @@
 # brick.yaml: PostgreSQL 18 node (master spec 7 and 9.1).
 #
-# Initial version (v0.1), expected to evolve as games are played.
+# Version 0.2.0 (unreleased until the v0.2 release gate, D100).
 # Top-level keys: capture W1-A; fixed paths, secrets, envelope file and
 # wrappers: capture W1-B; quoted octal modes: capture W1-D
-# (specs/versions/v0.1/wave-log.md). Operating notes: docs/gm.md.
+# (specs/versions/v0.1/wave-log.md); footprint shape, secret kinds and
+# `receives`: capture W1 (specs/versions/v0.2/wave-log.md). Operating
+# notes: docs/gm.md.
 
 # --- Identity ---------------------------------------------------------
 id: postgres
-version: 0.1.1
+version: 0.2.0
 roles:
   - database
 technology:
   name: postgresql
   version: "18"
-image: 127.0.0.1:5000/dbagm/postgres:0.1.1
+image: 127.0.0.1:5000/dbagm/postgres:0.2.0
 
 # --- Footprint --------------------------------------------------------
-footprint:
-  cpu: 0.5
-  memory: 512M
-  disk: 1G
+footprint:                          # v0.1's figures as reservations, limits twice CPU and memory
+  limits:       {cpu: 1, memory: 1G}
+  reservations: {cpu: 0.5, memory: 512M, disk: 1G}
 stateful: true
 
 # --- What the scenario sets -------------------------------------------
@@ -100,11 +101,15 @@ healthcheck:                        # healthy once PostgreSQL has accepted conne
   start_period: 60s
 secrets:
   - name: player_ssh_pubkey         # inner-hop public key, for SSH as player
+    kind: key-pair
+    pair: player_ssh_key            # the bastion mounts the private half
+    half: public
     path: /opt/gm/secrets/player_ssh_pubkey
     uid: 0
     gid: 0
     mode: "0444"                    # sshd reads it as player
   - name: dba_password              # password of the dba role; also on the bastion
+    kind: password
     path: /opt/gm/secrets/dba_password
     uid: 0
     gid: 0
@@ -141,6 +146,9 @@ interfaces:
     - {name: sql, protocol: postgresql, port: 5432}
     - {name: ssh, protocol: ssh, port: 22}
   consumes: []
+receives:                           # the image accepts another brick's mounted material
+  s6_overlay: "3.2.3.2"             # the version the Dockerfile installs
+  commands: [sh, cat, du, df, awk, sed, grep, sleep, perl, s6-svstat, s6-setuidgid]
 extra:
   read_only_root: true              # read_only: true in the stack file
   validator:                        # the GM's official run (gmctl validate, capture W3-A)

@@ -14,8 +14,8 @@
 #
 # Needs: a swarm manager on the local engine (docker swarm init), and the
 # bricks' images built locally:
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.1.1 bricks/postgres
-#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.1.1 bricks/bastion
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.2.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.2.0 bricks/bastion
 # Host port 2222 must be free (the bastion's published port).
 # Usage: sh tools/tests/smoke.sh        (from anywhere)
 set -eu
@@ -24,7 +24,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/../.." && pwd)
 GMCTL="python3 $REPO/tools/gmctl"
 PG=smoke
-IMAGES="127.0.0.1:5000/dbagm/postgres:0.1.1 127.0.0.1:5000/dbagm/bastion:0.1.1"
+IMAGES="127.0.0.1:5000/dbagm/postgres:0.2.0 127.0.0.1:5000/dbagm/bastion:0.2.0"
 LABELS="com.docker.stack.namespace dbagm.game"
 KINDS="service network volume config secret"
 

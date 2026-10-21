@@ -1,7 +1,8 @@
 # Folder layouts — scenario, brick, fault
 
-Initial version (v0.1), expected to evolve as games are played. Source:
-master spec sections 6.1, 7 and 8. Every entry is required unless it says
+Version v0.2, expected to evolve as games are played. Source: v0.1
+master spec sections 6.1, 7 and 8, and v0.2 master spec 6 (capture W1 of
+`specs/versions/v0.2/wave-log.md`). Every entry is required unless it says
 *optional*. YAML for structured content, Markdown for prose.
 
 ## Scenario folder — `scenarios/<scenario-id>/`
@@ -54,9 +55,39 @@ Rules:
   docs/player.md        what the player may read about this kind of node
   docs/gm.md            the GM documentation, never shipped: the nine required
                         sections of D56, in order               (template: brick-gm.md)
-  companion/            optional: the brick's own checks, scripts and tools;
-                        brick.yaml `companion` says what it provides and when to use it
+  companion/            optional: the brick's own checks, scripts and tools, and
+                        material the GM mounts into other nodes; brick.yaml
+                        `companion` says what it provides and when to use it, and
+                        `companion.mounted` lists the mounted items
 ```
+
+Rules:
+
+- A brick's folder holds one version, the `version` of its `brick.yaml`;
+  any change in the folder bumps it, unless the new version is still
+  unreleased (it folds in). Bumping it re-pins every scenario and fixture
+  that pins the brick, in the same change.
+- **Mounted material** (`companion.mounted`): every file's `source` is
+  under `companion/`; in each receiving node its `target` is an absolute
+  path, root-owned (0:0) and read-only (no write bit), so a protected
+  file. The material changes no image and no other brick's folder. The
+  receiving nodes are the keys of the item's `parameter` (a `node-map`
+  parameter set on the mounting brick's node), and each one's brick
+  declares `receives`, meeting the item's `requires`.
+- **The per-node config** (`node_config`) the renderer writes for each
+  receiving node is UTF-8 text, one `key=value` per line, never empty:
+
+  ```
+  node=db
+  services=postgres sshd
+  disk_reservation=2147483648
+  volumes=/var/lib/postgresql/18/data /etc/postgresql /home/player /var/lib/gm-state /run
+  ```
+
+  `services`: the node's map entry, `default` expanded to its brick's
+  `processes`; `disk_reservation`: the node's
+  `resources.reservations.disk` in bytes; `volumes`: the in-container
+  paths of its brick's `volumes`.
 
 ## Fault folder — `faults/<fault-id>/`
 
@@ -64,7 +95,8 @@ Rules:
 <fault-id>/
   fault.yaml            definition                       (template: fault.yaml)
   inject/               material that plants the fault: *.sh scripts (state faults),
-                        snippets for seed files (seed-file faults)
+                        snippets for seed files (seed-file faults); none for a
+                        parameter fault, whose fault.yaml holds its parameter_changes
   checks/fixed.sh       the sealed check
   checks/probe.md       the solvability probe description (descriptive only in v0.1)
   gm.md                 explanation the GM uses for feedback
