@@ -1,0 +1,13 @@
+#!/bin/sh
+# s6 service `web-front` (DO NOT TAMPER): the bastion's web front, nginx
+# as www-data. Configuration: /run/web-front/nginx.conf, written by
+# gm-entrypoint at each start from GM_WEB_ROUTES. Without it (no route,
+# spec D103) the service asks s6 not to restart it and exits: it stays
+# down and nothing listens on port 8080.
+exec 2>&1
+if [ ! -f /run/web-front/nginx.conf ]; then
+    s6-svc -O .
+    exit 0
+fi
+exec s6-setuidgid www-data /usr/sbin/nginx -e stderr -p /run/web-front/ \
+    -c /run/web-front/nginx.conf -g 'daemon off;'
