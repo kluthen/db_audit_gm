@@ -1,0 +1,100 @@
+# Stack test fixture for the Grafana brick (v0.2 build plan, chunk 10): the
+# grafana node, its five seed files copied from companion/ as a scenario
+# would, and a prometheus 0.1.0 node for its data source to reach.
+# Uses only what a rendered Compose 3.8 stack file can express: no tmpfs
+# `mode` or `exec` option. Configs and secrets are external, created and
+# removed by run-stack-test.sh (mirroring gmctl deploy).
+version: "3.8"
+
+services:
+  grafana:
+    image: 127.0.0.1:5000/dbagm/grafana:0.1.0
+    hostname: grafana
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [AUDIT_WRITE, CHOWN, DAC_OVERRIDE, FOWNER, KILL, NET_BIND_SERVICE, SETGID, SETUID, SYS_CHROOT]
+    environment:
+      TZ: UTC
+    healthcheck:
+      test: ["CMD", "/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+    volumes:
+      - {type: volume, source: graf_data, target: /var/lib/grafana}
+      - {type: volume, source: graf_conf, target: /etc/grafana/provisioning}
+      - {type: volume, source: graf_home, target: /home/player}
+      - {type: volume, source: graf_gmstate, target: /var/lib/gm-state}
+      - {type: volume, source: graf_run, target: /run}
+    configs:
+      - {source: seed_datasources_yaml, target: /opt/gm/seed/datasources.yaml, uid: "0", gid: "0", mode: 0444}
+      - {source: seed_dashboards_yaml, target: /opt/gm/seed/dashboards.yaml, uid: "0", gid: "0", mode: 0444}
+      - {source: seed_node_health_json, target: /opt/gm/seed/node-health.json, uid: "0", gid: "0", mode: 0444}
+      - {source: seed_postgresql_json, target: /opt/gm/seed/postgresql.json, uid: "0", gid: "0", mode: 0444}
+      - {source: seed_alert_rules_yaml, target: /opt/gm/seed/alert-rules.yaml, uid: "0", gid: "0", mode: 0444}
+    secrets:
+      - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
+      - {source: tools_password, target: /opt/gm/secrets/tools_password, uid: "0", gid: "472", mode: 0440}
+    networks: [net]
+    deploy:
+      replicas: 1
+      resources:
+        limits: {cpus: "0.5", memory: 384M}
+
+  prometheus:
+    image: 127.0.0.1:5000/dbagm/prometheus:0.1.0
+    hostname: prometheus
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [AUDIT_WRITE, CHOWN, DAC_OVERRIDE, FOWNER, KILL, NET_BIND_SERVICE, SETGID, SETUID, SYS_CHROOT]
+    healthcheck:
+      test: ["CMD", "/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - {type: volume, source: prom_data, target: /var/lib/prometheus}
+      - {type: volume, source: prom_conf, target: /etc/prometheus}
+      - {type: volume, source: prom_home, target: /home/player}
+      - {type: volume, source: prom_gmstate, target: /var/lib/gm-state}
+      - {type: volume, source: prom_run, target: /run}
+    configs:
+      - {source: seed_prometheus_yml, target: /opt/gm/seed/prometheus.yml, uid: "0", gid: "0", mode: 0444}
+    secrets:
+      - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
+    networks: [net]
+    deploy:
+      replicas: 1
+      resources:
+        limits: {cpus: "0.5", memory: 384M}
+
+networks:
+  net:
+    driver: overlay
+    attachable: true   # test only: lets the test client container join
+
+volumes:
+  graf_data: {}
+  graf_conf: {}
+  graf_home: {}
+  graf_gmstate: {}
+  graf_run: {}
+  prom_data: {}
+  prom_conf: {}
+  prom_home: {}
+  prom_gmstate: {}
+  prom_run: {}
+
+configs:
+  seed_datasources_yaml: {external: true, name: gmtest-grafana_seed_datasources_yaml}
+  seed_dashboards_yaml: {external: true, name: gmtest-grafana_seed_dashboards_yaml}
+  seed_node_health_json: {external: true, name: gmtest-grafana_seed_node_health_json}
+  seed_postgresql_json: {external: true, name: gmtest-grafana_seed_postgresql_json}
+  seed_alert_rules_yaml: {external: true, name: gmtest-grafana_seed_alert_rules_yaml}
+  seed_prometheus_yml: {external: true, name: gmtest-grafana_seed_prometheus_yml}
+
+secrets:
+  player_ssh_pubkey: {external: true, name: gmtest-grafana_player_ssh_pubkey}
+  tools_password: {external: true, name: gmtest-grafana_tools_password}
