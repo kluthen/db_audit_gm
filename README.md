@@ -13,9 +13,22 @@ they are allowed to fix, and write an audit report.
 
 ## Status
 
-**Pre-specification.** Nothing is built yet. The ideas, decisions and open
-questions gathered so far are in [`precursor.md`](precursor.md), which is the
-input for the specification work.
+**v0.1 released** (2026-10-21): one static PostgreSQL scenario, played end
+to end with a GM session. v0.2 (monitoring and the usual tooling) is in
+drafting. The specification is in [`specs/`](specs/README.md), the roadmap
+in [`specs/versions/`](specs/versions/README.md), and v0.1's release notes
+in [`specs/versions/v0.1/README.md`](specs/versions/v0.1/README.md).
+
+| Path | What |
+|---|---|
+| [`tools/gmctl`](tools/gmctl) | The GM's command line: fit, render, deploy, load data, inject, validate, check, status, teardown |
+| [`bricks/`](bricks/) | Node definitions: `postgres` and `bastion` |
+| [`faults/`](faults/) | The fault catalog |
+| [`scenarios/`](scenarios/) | Scenario folders (`bookshop-new-server`) |
+| [`.claude/skills/`](.claude/skills/) | The `game-master`, `scenario-format` and `scenario-document` skills |
+
+To play, open a Claude Code session at the repository root and run
+`/game-master`.
 
 ## Core ideas
 
