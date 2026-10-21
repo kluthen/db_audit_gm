@@ -857,3 +857,11 @@ players.
   image (playground `rgcheck`): fit, render, deploy, load-data, inject 0;
   validate 1 (db red on `work_mem`, as the answer key says); check 1
   (faults present); teardown with reason, 0 labelled objects left.
+- `spec-writer` closed the release notes (ce670ca): D54 records the RG-1
+  ruling and closes O55; D53 marked accepted; master spec 9.1, platform
+  and planes-and-access updated for the marker; G5 line filled. Left for
+  the archive: master spec 9.1 still calls `/run` a tmpfs and omits the
+  `home` volume (chunk 2 built `/run` as a named volume).
+- Merged into `main` on the owner's word of 2026-10-21 ("merge", once the
+  RG-1 fix passed the quality command). Next: milestone archive by
+  `spec-writer` (skill `milestone-archive`).
