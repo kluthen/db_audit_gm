@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v7
+Status: draft v8
 
 What a scenario, a brick and a fault definition must contain, and how they
 are laid out, so that every scenario the GM designs or generates stays
@@ -256,15 +256,18 @@ instance, in the scenario.
 
 Fixed at consolidation so the scripts, the faults and the GM skill agree.
 
-- **Injection scripts** (`inject/*.sh`, and the data load): POSIX shell,
-  read from stdin by `sh -s` inside the target container, run as root
-  unless the fault says otherwise, with fault parameters passed as
-  environment variables. Idempotent: running one twice leaves the same
-  state. Exit 0 on success; anything else is a failed setup (D36).
+- **Injection scripts** (`inject/*.sh`): POSIX shell, read from stdin by
+  `sh -s` inside the target container, run as root unless the fault says
+  otherwise, with fault parameters passed as environment variables.
+  Idempotent: running one twice leaves the same state. Exit 0 on success;
+  anything else is a failed setup (D36).
 - **Sealed checks** (`checks/fixed.sh`): same delivery. Exit 0 means the
   fault is no longer present in the effective live state, 1 means it is
   still present, any other code is an error. The first line of output
   says why, in one sentence the GM can use in feedback.
+- **The data load** (`data/<node>.sql`): SQL, streamed into `psql` run as
+  `postgres` inside the node's container; once per game, a second load
+  changes nothing; any error is a failed setup (D52).
 - **Public validator**: exit 0 green, 1 red with one line per broken rule,
   any other code an error. On the database node the player runs it through
   `sudo gm-validate`; the GM's official run goes through the exec verb.

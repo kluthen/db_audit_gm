@@ -266,11 +266,11 @@ template for when the fault is known.
 
 ### 8.1 Script contracts
 
-- **Injection scripts** (each `inject/*.sh`, and the data load): POSIX
-  shell, fed on stdin to `sh -s` inside the target container, run as root
-  unless the fault says otherwise, with parameters as environment
-  variables. Idempotent: running one twice leaves the same state. Exit 0 on
-  success; any other code fails the setup.
+- **Injection scripts** (each `inject/*.sh`): POSIX shell, fed on stdin
+  to `sh -s` inside the target container, run as root unless the fault
+  says otherwise, with parameters as environment variables. Idempotent:
+  running one twice leaves the same state. Exit 0 on success; any other
+  code fails the setup.
 - **Sealed checks** (`checks/fixed.sh`): same delivery. Exit 0 means the
   fault is no longer present in the **effective live state**, 1 means it is
   still present, any other code is an error. The first output line says
@@ -279,6 +279,11 @@ template for when the fault is known.
   reloading, or `ALTER SYSTEM`). A check that queries PostgreSQL runs its
   query as `postgres` (through `runuser -u postgres`, or by being executed
   as `postgres`), so that local peer authentication applies.
+- **The data load** (`data/<node>.sql`): SQL, not shell, streamed on
+  stdin into `psql -X -q -v ON_ERROR_STOP=1 -d postgres` run as `postgres`
+  inside the node's container (local peer authentication); the file
+  creates its own databases and roles. It runs once per game: loading
+  again once the data is in changes nothing. Any error fails the setup.
 - **Public validator**: exit 0 green; 1 red, with one line per broken
   rule; any other code is an error.
 
@@ -426,7 +431,7 @@ the GM skill calls:
 | `check` | Runs every sealed check and prints one line per fault instance |
 | `logs` | A node's service logs |
 | `status` | The game's recorded state |
-| `teardown` | Removes everything carrying the game's stack label, volumes included; leaves images and the swarm |
+| `teardown` | Removes everything carrying the game's stack label, volumes included; leaves images and the swarm; records the reason of a stop when given one (section 12, "Failures") |
 
 Every subcommand prints a readable result and exits non-zero on failure.
 `exec` finds the node's container on the targeted engine by its Swarm

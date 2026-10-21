@@ -1,7 +1,7 @@
 # db_audit_gm v0.1 — Build plan
 
-Status: v4 (2026-10-20): chunk 7 widened to capture W3-A (files, `status
---set`, split 7a/7b), chunk 9 records the GM stages with it (spec D49).
+Status: v5 (2026-10-21): chunk 10 inserted in wave 3 for the teardown
+reason and a new game after a failed setup (spec D50, D51, D52).
 Approval: approved 2026-10-20 by the lead under the owner's delegation (G1).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), both approved 2026-10-20. No design set
@@ -49,7 +49,7 @@ plan states only its deltas.
 |---|---|---|---|
 | 1 | 1, 2, 3 | G1, G2, G3 (chunk 2) | merged (80e9048) |
 | 2 | 4, 5, 6 | wave 1 | merged (d3547c3) |
-| 3 | 7, 8, 9 | wave 2, G4 (for chunk 8's merge) | in progress |
+| 3 | 7, 8, 9, 10 | wave 2, G4 (for chunk 8's merge) | in progress |
 
 ```
 1 ──> 2, 3            (in-wave: brick.yaml keys captured at wave start)
@@ -58,6 +58,7 @@ plan states only its deltas.
 2, 3, 4, 5 ──> 7
 1, 2, 6, 7 ──> 8      (in-wave 7 -> 8: injection rules captured at wave 3 start; exit codes fixed by master spec 8.1)
 5, 6, 7 ──> 9         (in-wave 7 -> 9: gmctl signatures captured at wave 3 start)
+5, 7, 9 ──> 10        (in-wave 7, 9 -> 10: inserted after both merged; it builds on merged code)
 ```
 
 ## Workflow deltas
@@ -436,6 +437,105 @@ spec 11).
   `status --set` at the step that reaches it.
 - Verification: chunk checks; the stance check-list itself runs at the
   release gate.
+
+### Chunk 10 — Teardown reason, and a new game after a failed setup
+
+Status: planned
+Wave: 3
+Depends on: chunks 5, 7, 9 (all merged)
+Architecture capture: none; the `teardown` record's shape in `state.yaml`
+is fixed below, and only this chunk's code and the GM skill read it.
+
+- Goal: a stop during setup records its reason (spec D50), and a
+  playground whose failed game was torn down takes a new game (spec D51).
+- Scope: in:
+  - **The teardown record.** `state.yaml` gains a top-level key
+    `teardown: {stage, reason, at}`: `stage` is the last stage reached
+    (`localimpl.effective_stage`), `reason` the text given or `null`, `at`
+    the time. A `gmctl teardown` that leaves nothing labelled with the game
+    id writes it when the state has none and the game is not already at
+    `torn-down`; a teardown that leaves objects (exit 1) writes nothing; a
+    later teardown leaves the record unchanged (and says so when given a
+    reason). Stages are recorded as now (W2-C): `torn-down` with its
+    history entry; for a failed game, stage `failed` and its `failure`
+    kept, no history entry. A new game's `state.yaml` has no record; a
+    state file without the key reads as having none.
+  - **`gmctl teardown [--reason TEXT]`.** The reason, whitespace collapsed
+    to one line, goes into the record; an empty reason is refused (exit 1)
+    before anything is removed. Without `--reason` the record carries
+    `reason: null`.
+  - **`status`** prints the record when there is one: `  torn down: at
+    <at>, from stage <stage>: <reason>` (`no reason given` when `null`).
+  - **`fit` after a torn-down failed game.** On a `failed` game whose
+    failure came after deployment (failure stage `deployed`, `data-loaded`
+    or `injected`) and that has a teardown record, `fit` starts a new game
+    (new game id, `implementation.yaml` and `state.yaml` written afresh,
+    stage `fitted`), as it does after `torn-down`. Unchanged: a refit
+    before deployment keeps the game id; `deploy` still retries a failed
+    deploy (W2-C).
+  - **`fit`'s remaining refusals** (exit 1, nothing written): a game at a
+    deployed stage, and a game failed after deployment with no teardown
+    record. The message names the game id and its stage (for a failed
+    game, the stage it failed before) and what unblocks it: `gmctl
+    teardown`, then `fit` again; for a failed deploy, also `gmctl deploy`
+    to retry it.
+  - **GM skill.** `SKILL.md` "Setup failures": the stop bullet runs
+    `teardown --reason` at whatever setup stage the game is (it removes
+    nothing when nothing was deployed) and no longer says `gmctl` cannot
+    record the reason; the "Trying again" bullet fits a new game on the
+    same playground after the confirming teardown, instead of a new
+    playground slug; the bullet on a failed `deploy`, `load-data` or
+    `inject` says the confirming teardown also records the teardown. The
+    in-progress rule in "Start: is a game in progress?", the restart
+    table's `failed` row and the "Teardown" section say that a failed game
+    with its teardown recorded is over, like `torn-down`. `gmctl.md`: the
+    "Stages" paragraph (the record), the `fit` and `teardown` rows, and
+    the `status` and `teardown` output lines.
+  - **Format skill.** `templates/layouts.md` "Script contracts" states the
+    data load as master spec 8.1 now does (spec D52).
+  - Out: the teardown a failed step runs itself (`state.setup_step`)
+    writes no record, the GM's confirming `gmctl teardown` does; `deploy`;
+    `smoke.sh` (unchanged).
+- Files: `tools/gm/teardown.py` (the record, `--reason`),
+  `tools/gm/localimpl.py` (the record's writer beside `set_stage` and
+  `set_failed`, if it goes there), `tools/gm/state.py` (`status` line),
+  `tools/gm/fit.py` (`_game_to_keep`, messages), `tools/gm/__init__.py`
+  (`--reason`), `tools/tests/test_{teardown,fit,state}.py`,
+  `.claude/skills/game-master/{SKILL,gmctl}.md`,
+  `.claude/skills/scenario-format/templates/layouts.md`.
+- Spec sections: master spec 8.1 (the data load), 11 (`teardown`), 12
+  ("Failures"); spec D50, D51, D52; wave-log captures W2-A (`state.yaml`),
+  W2-C (teardown, deploy retry), W3-B.
+- Atoms: none.
+- Done when:
+  - (D50) a unit test: on a game at `injected` (Docker stubbed), `teardown
+    --reason "stopped on request"` leaves nothing labelled, records
+    `torn-down`, and `state.yaml` holds `teardown: {stage: injected,
+    reason: stopped on request, at: ...}`, which `status` prints; the same
+    at `fitted`, with nothing to remove, gives `stage: fitted`;
+  - unit tests: without `--reason` the record has `reason: null`; an empty
+    reason is refused with exit 1, nothing removed, `state.yaml`
+    unchanged; a teardown that leaves objects writes no record; a second
+    teardown leaves the record unchanged; on a failed game, stage `failed`
+    and its `failure` stay and the record's `stage` is the last stage
+    reached;
+  - (D51) a unit test: a game failed in `load-data`, then torn down: `fit`
+    exits 0 with a new game id at stage `fitted`; the same after a failure
+    in `inject`;
+  - unit tests: `fit` refuses with exit 1, nothing written and the
+    corrected message, a game at a deployed stage and a game failed in
+    `inject` without a teardown record; the existing `fit` tests (a refit
+    before deployment keeps the game id) pass;
+  - the two GM skill files keep no new-slug workaround, the stop bullet
+    uses `--reason`, and every `gmctl` invocation in them parses with
+    `gmctl`'s own parser;
+  - the unit suite passes, and `tools/tests/smoke.sh` passes unchanged.
+- Verification: chunk checks, plus the smoke run `tools/tests/smoke.sh`
+  (it runs `fit` and `teardown`; needs G3).
+- Split rule: 10a the teardown record, `--reason`, the `status` line,
+  their tests, the skill's stop bullet and `gmctl.md`'s teardown lines;
+  10b `fit` after a torn-down failed game and its messages, their tests,
+  the other skill lines and `layouts.md`. 10b reads 10a's record.
 
 ## Release gate
 
