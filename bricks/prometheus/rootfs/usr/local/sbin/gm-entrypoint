@@ -1,0 +1,75 @@
+#!/bin/sh
+# gm-entrypoint: container entrypoint of the db_audit_gm Prometheus brick.
+# DO NOT TAMPER. Root-owned and read-only (v0.2 master spec 7.2).
+#
+# Runs as root at every container start, then execs s6-overlay's /init:
+#   1. empties /run (a named volume: a stack file's tmpfs is noexec, and
+#      s6-overlay needs an executable /run) and creates the runtime dirs;
+#   2. generates this container's sshd host key under /run;
+#   3. checks the secret;
+#   4. seeds /etc/prometheus from /opt/gm/seed once (marker
+#      /var/lib/gm-state/.gm-seeded, outside the group-writable directory);
+#   5. sets the ownership of the TSDB and the player's home.
+set -eu
+
+CONF_DIR=/etc/prometheus
+DATA_DIR=/var/lib/prometheus
+STATE_DIR=/var/lib/gm-state
+MARKER=$STATE_DIR/.gm-seeded
+SEED_DIR=/opt/gm/seed
+SECRETS_DIR=/opt/gm/secrets
+SEED_FILES="prometheus.yml"
+PLAYER_HOME=/home/player
+
+log() { printf 'gm-entrypoint: %s\n' "$*" >&2; }
+die() { log "fatal: $*"; exit 1; }
+# chmod_setgid <dir> <group> <mode>: chmod run with <group> as gid, so the
+# kernel keeps the setgid bit without CAP_FSETID (root is not in <group>).
+chmod_setgid() { setpriv --regid="$2" --clear-groups -- chmod "$3" "$1"; }
+
+# --- 1. /run ------------------------------------------------------------
+# Leftovers of a previous container (s6 state, sockets, pid files) must
+# not survive into this one.
+cd /run
+find . -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+cd /
+chown root:root /run
+chmod 0755 /run
+install -d -o root -g root -m 0755 /run/sshd
+install -d -o root -g root -m 0700 /run/sshd-keys
+install -d -o root -g root -m 0700 /run/gm
+install -d -o root -g root -m 1777 /run/tmp
+
+# --- 2. sshd host key ---------------------------------------------------
+ssh-keygen -q -t ed25519 -N '' -C '' -f /run/sshd-keys/ssh_host_ed25519_key
+
+# --- 3. secret ----------------------------------------------------------
+[ -s "$SECRETS_DIR/player_ssh_pubkey" ] || die "secret $SECRETS_DIR/player_ssh_pubkey is missing or empty"
+
+# --- 4. configuration, seeded once ---------------------------------------
+chown prometheus:promconf "$CONF_DIR"
+chmod_setgid "$CONF_DIR" promconf 2775
+# The marker lives on its own volume (gmstate), root-owned: neither player
+# (group promconf) nor prometheus can remove, rename or replace it.
+chown root:root "$STATE_DIR"
+chmod 0755 "$STATE_DIR"
+if [ ! -e "$MARKER" ]; then
+    for f in $SEED_FILES; do
+        [ -f "$SEED_DIR/$f" ] || die "seed file $SEED_DIR/$f is missing"
+    done
+    for f in $SEED_FILES; do
+        install -o prometheus -g promconf -m 0664 "$SEED_DIR/$f" "$CONF_DIR/$f"
+    done
+    date -u '+seeded %Y-%m-%dT%H:%M:%SZ from /opt/gm/seed (DO NOT TAMPER)' > "$MARKER"
+    chown root:root "$MARKER"
+    chmod 0444 "$MARKER"
+    log "seeded $CONF_DIR from $SEED_DIR"
+fi
+
+# --- 5. TSDB and the player's home ----------------------------------------
+chown prometheus:prometheus "$DATA_DIR"
+chmod 0750 "$DATA_DIR"
+chown player:player "$PLAYER_HOME"
+chmod 0750 "$PLAYER_HOME"
+
+exec /init "$@"

@@ -1,0 +1,117 @@
+# brick.yaml: Prometheus node, the game's metrics store (v0.2 master spec 7
+# and 7.2).
+#
+# Version 0.1.0 (unreleased until the v0.2 release gate, D100).
+# Top-level keys: capture W1-A; fixed paths, secrets and wrappers: capture
+# W1-B; quoted octal modes: capture W1-D (specs/versions/v0.1/wave-log.md);
+# footprint shape, interfaces with `web_path`, secret kinds and `receives`:
+# capture W1 (specs/versions/v0.2/wave-log.md). Operating notes: docs/gm.md.
+
+# --- Identity ---------------------------------------------------------
+id: prometheus
+version: 0.1.0
+roles:
+  - metrics-store
+technology:
+  name: prometheus
+  version: "3.13.5"
+image: 127.0.0.1:5000/dbagm/prometheus:0.1.0
+
+# --- Footprint --------------------------------------------------------
+footprint:                          # master spec 12's estimate for the node, less what the
+                                    # node-health script adds to it (docs/gm.md, Footprint)
+  limits:       {cpu: 0.495, memory: 379M}
+  reservations: {cpu: 0.095, memory: 155M, disk: 512M}
+stateful: true
+
+# --- What the scenario sets -------------------------------------------
+parameters: {}                      # scrape targets and retention are in the seed file
+knobs: []                           # retention is bounded by the validator, not an envelope
+
+# --- Player plane -----------------------------------------------------
+write_policies:                     # fixable only (docs/gm.md, Known limits)
+  - fixable
+writable_paths:
+  - /etc/prometheus                 # prometheus:promconf, 2775; seeded prometheus.yml 0664
+  - /home/player                    # ~/report.md, the player's notes
+protected_files:
+  - /etc/ssh/sshd_config
+  - /etc/sudoers
+  - /etc/sudoers.d/gm-player
+  - /usr/local/sbin/gm-entrypoint
+  - /usr/local/sbin/gm-reload-prometheus
+  - /usr/local/sbin/gm-validate
+  - /usr/local/lib/gm/healthcheck
+  - /opt/gm/validator/validate.sh
+  - /etc/s6-overlay/s6-rc.d
+  - /etc/s6-overlay/user-bundles.d
+  - /var/lib/gm-state               # seed marker .gm-seeded (volume gmstate)
+player_access:
+  ssh_account: player
+  group: promconf
+  sudo_wrappers:
+    - /usr/local/sbin/gm-reload-prometheus
+    - /usr/local/sbin/gm-validate
+capabilities:                       # added back after cap_drop: ALL; no-new-privileges stays off (sudo)
+  - AUDIT_WRITE                     # sudo: audit message (else a warning on every sudo)
+  - CHOWN                           # entrypoint: ownership of volumes and seeded files
+  - DAC_OVERRIDE                    # entrypoint: emptying /run, writing into player/prometheus dirs
+  - FOWNER                          # entrypoint: modes on files it does not own
+  - KILL                            # s6: signals (SIGHUP on reload) to the prometheus-owned server
+  - NET_BIND_SERVICE                # sshd on port 22 (Docker sets ip_unprivileged_port_start=0,
+                                    # other platforms may not)
+  - SETGID                          # sshd, sudo, runuser, s6-setuidgid
+  - SETUID                          # sshd, sudo, runuser, s6-setuidgid
+  - SYS_CHROOT                      # sshd privilege separation
+
+# --- Runtime ----------------------------------------------------------
+healthcheck:                        # healthy once Prometheus has been ready in this container
+                                    # and while sshd is up (docs/gm.md)
+  command: ["/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 60s
+secrets:
+  - name: player_ssh_pubkey         # inner-hop public key, for SSH as player
+    kind: key-pair
+    pair: player_ssh_key            # the bastion mounts the private half
+    half: public
+    path: /opt/gm/secrets/player_ssh_pubkey
+    uid: 0
+    gid: 0
+    mode: "0444"                    # sshd reads it as player
+seed:
+  dir: /opt/gm/seed/
+  files:
+    - prometheus.yml                # scrape targets and retention (storage.tsdb.retention)
+protected_configs: []
+volumes:
+  - name: promdata                  # the TSDB, bounded by the retention
+    path: /var/lib/prometheus
+  - name: promconf
+    path: /etc/prometheus
+  - name: home
+    path: /home/player
+  - name: gmstate                   # seed marker /var/lib/gm-state/.gm-seeded, root-owned:
+    path: /var/lib/gm-state         #   kept out of the group-writable /etc/prometheus
+  - name: run                       # /run: a stack file's tmpfs is noexec and s6-overlay
+    path: /run                      # needs exec; emptied by the entrypoint at each start
+processes:
+  - prometheus
+  - sshd
+
+# --- Catalog links ----------------------------------------------------
+interfaces:
+  provides:
+    - {name: ssh, protocol: ssh, port: 22}
+    - {name: ui, protocol: http, port: 9090, web_path: /prometheus/}
+  consumes: []                      # scrape targets are the seed file's, not wired interfaces
+receives:                           # the image accepts another brick's mounted material
+  s6_overlay: "3.2.3.2"             # the version the Dockerfile installs
+  commands: [sh, cat, du, df, awk, sed, grep, sleep, perl, s6-svstat, s6-setuidgid]
+extra:
+  read_only_root: true              # read_only: true in the stack file
+  validator:                        # the GM's official run (gmctl validate, capture W3-A)
+    path: /opt/gm/validator/validate.sh
+    run_as: prometheus              # docker exec -u prometheus; gm-validate uses runuser
