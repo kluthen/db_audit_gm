@@ -1,0 +1,15 @@
+
+  db_audit_gm -- Grafana node (dashboards and alerting)
+
+  Provisioning:   /etc/grafana/provisioning/  (data source, dashboards, alert rules)
+                    datasources/datasources.yaml
+                    dashboards/dashboards.yaml, node-health.json, postgresql.json
+                    alerting/alert-rules.yaml
+  Grafana:        http://localhost:3000/grafana/
+                  from your browser: the bastion's web front, /grafana/
+                  (user admin, the tools password)
+  Apply changes:  sudo gm-reload-grafana   reload the provisioning files
+  Check:          sudo gm-validate         public validator
+
+  DO NOT TAMPER with Grafana's users or the administrator's password, SSH,
+  sudo, the gm-* wrappers or the validator.
