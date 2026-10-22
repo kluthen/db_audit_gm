@@ -2060,3 +2060,44 @@ freelancer who left.
   the plan's last wave, so next comes the wave 4 gate, then the release
   gate on `v0.2-w4` before it merges (the model's release end). Merging
   into `main` still waits for the owner's word.
+
+### Wave 4 gate — 2026-10-22: PASS (first run)
+
+Run by a `coding-executor` (verification level: wave gate) on `v0.2-w4`
+at 0ca6dd7, 2026-10-22T06:12:17Z, armenelos (Debian 13, Docker 29.9.1,
+single-node swarm), machine otherwise idle.
+
+- **0ca6dd7** (coding-executor): `tools/tests/smoke-scenario.sh
+  <scenario>`, the plan's "smoke deployment" of a scenario. On a copy of
+  the scenario, the playground taken from its single `designed_for` host
+  (fernway on `laptop` 2 / 4G / 8G, bookshop on `host-1` 2 / 4G / 20G):
+  fit, render, deploy, load-data, inject; `check` exits 1 with every
+  instance `present`, in order (polled up to 120 s); `validate` matches
+  what the answer key implies at hand-over (a node red only where an
+  instance's evidence is "the public validator on <node>" with a `RED
+  <rule>` line, or `validators_left_red` names it); teardown, nothing
+  labelled with the game id, other objects unchanged. No credential read
+  or passed. Fernway 17 checks, bookshop 18 (db red on `work_mem`, f2).
+- **Steps**, all PASS: unit 298 OK (27 s); `sh -n` 77 files; `perl -c`;
+  five image builds (cached: identical IDs to the engine's); stack tests
+  postgres 50 s, bastion 62 s, prometheus 50 s, exporter 71 s, grafana
+  163 s; `smoke.sh` 23 s; `smoke-monitoring.sh` 43 checks 51 s;
+  `smoke-scenario.sh fernway-clinics-monitoring` 17 checks 29 s;
+  `smoke-scenario.sh bookshop-new-server` 18 checks 20 s. No fix needed.
+- **Figures**: images grafana 0.1.0 866MB, prometheus 0.1.0 488MB,
+  postgres 0.2.0 262MB, bastion 0.2.0 185MB, postgres-exporter 0.1.0
+  165MB (v0.1's postgres 0.1.0/0.1.1 and bastion 0.1.0/0.1.1 tags still
+  on the engine, about 880MB); `/` 28G, 16G used, 10G free. No bundle or
+  performance figures apply.
+- No intent or data register: no wave sync.
+- **For the release gate**: fernway f1's check (`prometheus-scrape-target-missing`)
+  reads present right after deploy also because nothing is scraped yet,
+  so the play-through re-checks a fix only after a scrape interval; the
+  script's expected-validate rule depends on the answer key's evidence
+  wording (a differently worded scenario fails loudly, never passes
+  silently).
+- Logs: `/tmp/claude-1001/-home-bastien-work-db-audit-gm/c63cb38e-ef2d-4974-87de-962eb6ea7fea/scratchpad/gate-w4/`.
+
+Next: the release gate, on `v0.2-w4` before it merges (the model's
+release end; the owner's "proceed"). Merging into `main` waits for the
+owner's word.
