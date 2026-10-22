@@ -2235,3 +2235,19 @@ postgres, bastion and prometheus docs (scratch space `/tmp` and
   conditional moves to **v0.5** (the brick-improvement version).
 - **Merge granted**: `v0.2-w4` into `main` once the RG-4 changes pass the
   quality command and the release notes are written.
+- **RG-4 fixed** (coding-executor): e7c2c3e, bookshop's seed
+  `postgresql.conf` gains the brick's logging and preload block
+  (appended, lines 39–58, so `postgresql.conf:11` stays `work_mem`), with
+  `log_line_prefix` and `log_min_duration_statement` (2s → 100ms, the
+  brick's reference value) edited in place; starter pack names the log
+  and pgBadger; `scenario.yaml` and the answer key unchanged (version
+  0.1.0, README still current). 412f5a2: the GM skill says the server log
+  is in files when the seed sets `logging_collector = on` (every v0.2
+  seed) and otherwise `gmctl logs`; `gmctl.md`'s `logs` row likewise.
+  Checked: a bookshop game writes `/var/log/postgresql/postgresql-*.log`,
+  pgBadger runs as `player`, the six sealed checks unchanged.
+- **Quality command** at 412f5a2 (2026-10-22T07:39:26Z, armenelos): every
+  step PASS (unit 298 OK; stack tests postgres 54 s, bastion 64 s,
+  prometheus 50 s, exporter 71 s, grafana 149 s; `smoke.sh`,
+  `smoke-monitoring.sh`, both scenario smoke deployments). Logs of the
+  earlier runs in `gate-w4/run1/` and `run2/`.
