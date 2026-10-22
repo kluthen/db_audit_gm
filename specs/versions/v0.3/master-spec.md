@@ -1,9 +1,10 @@
 # db_audit_gm v0.3 — Master specification
 
-Status: **consolidated on 2026-10-22, revised the same day after an
-independent review and the owner's answers to it, awaiting the owner's
-approval.** Items tagged `(proposed)` are the spec writer's choices on
-points the review left open; section 20 lists them. Companion:
+Status: **approved by the owner on 2026-10-22** (spec D154), as
+consolidated the same day and revised after an independent review, the
+owner's answers to it and its re-review's corrections; the spec writer's
+choices on the points the review left open are accepted with it.
+Companion:
 [access-model.md](access-model.md). Baseline: the released
 [v0.2 master spec](../v0.2/master-spec.md) and its
 [access model](../v0.2/access-model.md). Everything v0.2 specifies stays
@@ -88,7 +89,7 @@ transactions taking too long, BI queries, etc." Concretely:
   (section 9).
 - A PgBouncer metrics exporter.
 - A report-only database node: `postgres` stays fixable-only in v0.3
-  (section 7.3) `(proposed)`.
+  (section 7.3).
 - An image registry: images are copied from host to host (section 10.2).
 - A scoring system for the players: after v1.0, unless research finds
   one quick to implement (not researched).
@@ -126,9 +127,9 @@ the access model.
 | Customer's time zone | The fixed UTC offset scenario time stands at in one game, derived from the shift (section 8.3) |
 | T0 | The moment the load starts; the aging counts from it |
 | Aging minimum | How long the system must run before hand-over: for a scenario, what it declares, at least eight hours; per fault, how long its evidence takes |
-| Running time | The aging's time with the load running; an outage does not count (section 8.7) |
-| Outage | A stretch of the aging when a node of the game was not running or a scheduler ran none of its streams |
-| Earliest hand-over | The moment the scenario's aging minimum, counted in running time from T0, and every fault instance's own minimum after its planting are all reached |
+| Lost time | The minutes of the aging in outage, in all |
+| Outage | A minute of the aging when a node of the game was not running, or a scheduler wrote no per-minute summary (its process down or idle); a running scheduler writes one every minute, even with no call |
+| Earliest hand-over | The moment the scenario's aging minimum has passed since T0, moved later by the lost time beyond thirty minutes, and every fault instance's own minimum has passed since its planting (section 8.7) |
 | Hand-over snapshot | A consistent copy of every volume of the game taken at hand-over, from which a restart starts |
 | Brief stop | A brick's service stopped inside its running container through s6 while its volumes are copied, then started again; never a Swarm scale to zero |
 | Difficulty score | A scenario's number of fault instances |
@@ -278,9 +279,11 @@ aging:
 difficulty:
   score: 10                     # the loader checks it equals the fault instances
   level: normal                 # optional: easy, normal, hard
-nodes:
-  producer:
-    brick: {id: scheduler, version: 0.1.0}
+nodes:                          # a list, one item per node, as today
+  - name: producer
+    brick:
+      id: scheduler
+      version: 0.1.0
     role: producer
     write_policy: report-only
     write_overrides:            # among the brick's writable_paths
@@ -289,7 +292,9 @@ nodes:
       - /srv/scheduler/jobs.yaml
 fault_instances:
   - id: f7
-    fault: {id: pg-join-index-missing, version: 0.1.0}
+    fault:
+      id: pg-join-index-missing
+      version: 0.1.0
     node: db
     plant_at: handover-6h       # T0 by default; other moments for state faults only
     aging_minimum: 4h           # optional, above the definition's
@@ -345,7 +350,7 @@ running as root, reads `schedule.yaml` and passes it to the program on
 standard input, then drops to the service account with `s6-setuidgid`.
 The program never opens the file, and the service account cannot read
 it. Every start of the service, an s6 restart included, reads it again;
-the file never changes during a game. `(proposed)`
+the file never changes during a game.
 
 **Idle or running.** The program starts idle. `gmctl start-load` writes
 a load-started marker holding T0 on the node's root-owned state volume,
@@ -354,7 +359,6 @@ service; a program that finds the marker at start runs its schedule.
 If the program dies, or the container or its host restarts, it comes
 back running: it resumes at the current time, applies every timeline
 change whose moment has passed, and never replays what it missed.
-`(proposed)`
 
 **The query repository.** A key maps to one of four things:
 
@@ -459,7 +463,9 @@ jobs:
   change sets a zone offset from the customer's zone by a whole number of
   hours (its parameter, never 0), and render writes that zone as a fixed
   offset (`Etc/GMT±N`) beside the job's time as designed, unshifted
-  (8.3).
+  (8.3). An offset outside the range `Etc/GMT` names (UTC−12 to
+  UTC+14) wraps modulo 24 into it: a daily job runs at the same hour
+  either way.
 - A player's change takes effect when the scheduler reloads `jobs.yaml`
   through its `sudo` wrapper (`gm-reload-scheduler`).
 - There is no "run now". Moving a job's time is how a player verifies a
@@ -469,8 +475,9 @@ jobs:
 
 **The log** records every fixed-time run (start, end, rows, error),
 every error (key, SQLSTATE, message), and a per-key summary every minute
-(calls, errors, latency percentiles). It names keys, never rates or
-shapes.
+(calls, errors, latency percentiles), written every minute while the
+program runs its schedule, even when no call ran, since the outages of
+8.7 are read from it. It names keys, never rates or shapes.
 
 **Metrics.** Per-key counters (calls, errors, a latency histogram) on an
 HTTP endpoint the topology's Prometheus may scrape, as an application
@@ -514,7 +521,7 @@ reservations 0.1 CPU / 64M, disk for its log.
   extra password, and the lookup function returns superusers too.
   `admin_users`, which can change settings and reload from the console,
   names only the GM's account: PgBouncer's own service account over the
-  local socket, which the exec verb reaches. `(proposed)`
+  local socket, which the exec verb reaches.
 - No metrics exporter: the players read PgBouncer through its console
   and its log; the node-health script covers the node.
 - Snapshot: every volume by `copy` (seeded files and logs).
@@ -525,7 +532,7 @@ reservations 0.1 CPU / 64M, disk for its log.
 
 - **Write policy** stays `fixable` only. No v0.3 scenario needs a
   report-only database, and offering one untested would ship a policy no
-  game exercises. `(proposed)`
+  game exercises.
 - **The GM's connection reserve.** `reserved_connections` is set on the
   server's command line by the brick's run script, where neither a
   configuration file nor `ALTER SYSTEM` overrides it, and a GM check
@@ -535,8 +542,10 @@ reservations 0.1 CPU / 64M, disk for its log.
 - **The GM check role's privileges**: a login role, not a superuser,
   member of `pg_use_reserved_connections`, `pg_monitor` (settings,
   statistics, activity) and `pg_read_all_data` (the duplicates and other
-  data checks), with `SELECT` on `pg_hba_file_rules` granted. A check
-  needing more says so in its fault and is a build finding. `(proposed)`
+  data checks), with `SELECT` on the `pg_hba_file_rules` view and
+  `EXECUTE` on the `pg_hba_file_rules()` function behind it granted (the
+  view alone is not enough). A check needing more says so in its fault
+  and is a build finding.
 - **The default `max_connections` stays 100**, its envelope 10 to 200;
   a scenario wanting a connection bottleneck sets a low value in its
   seed.
@@ -637,7 +646,8 @@ shifted. The shift is recorded in the local implementation.
   in UTC, shifted. A job given a `timezone:` by the wrong-time-zone fault
   keeps its designed time in a zone offset from the customer's by the
   fault's parameter, so it is wrong by that offset whatever the shift
-  (7.1).
+  (7.1); an offset beyond UTC−12 or UTC+14 wraps modulo 24, which
+  leaves a daily job's hour unchanged.
 - **Timeline moments** (`handover-<N>h`) are rendered as UTC times from
   the planned hand-over. A moment that falls before T0, because the load
   started late, takes effect at T0.
@@ -663,7 +673,7 @@ shifted. The shift is recorded in the local implementation.
 | Teardown | As in v0.2, the hand-over snapshot included |
 
 The local implementation records T0, the shift, the planned hand-over,
-the aging minimum, the running time and the outages, the earliest
+the aging minimum, the outages and the lost time, the earliest
 hand-over, the hand-over, the seed, the scheduled setup actions and their
 results, the snapshot and each restart, so a fresh GM session finds
 where the game is.
@@ -682,18 +692,19 @@ neither ever falls at or after hand-over.
   the earliest hand-over. A scheduled `gmctl` run checks that every
   fault planted so far reads present, that every scheduler key is
   running, that no node is unhealthy, and the outages so far, and
-  records the result. `(proposed)`
+  records the result.
 - **Who is told.** Nobody is notified: the result is in the local
   implementation and heads `gmctl status`. A GM session resuming a game
   during the aging runs `status` first and tells the initiator of any
   failure or outage before anything else; the GM advises the initiator
-  to resume a session after the early check when it can. `(proposed)`
+  to resume a session after the early check when it can.
 - **The hand-over check**: at hand-over the GM runs the same checks
   again, every planted fault included, before the snapshot. It does not
-  hand over a game whose check fails: it re-plants by hand a fault whose
-  scheduled planting failed, when the fault's aging minimum can still be
-  reached in the time the initiator has, and otherwise tells the
-  initiator and offers to set the game up again (8.7). `(proposed)`
+  hand over a game whose check fails: it re-plants a fault whose
+  scheduled planting failed (`inject --at now --instance <id>`, 8.7),
+  when the fault's aging minimum can still be reached in the time the
+  initiator has, and otherwise tells the
+  initiator and offers to set the game up again (8.7).
 
 ### 8.6 Disk and retention
 
@@ -705,9 +716,6 @@ Prometheus keeps at least the aging minimum plus four hours (6.1).
 
 ### 8.7 Failures during the aging
 
-`(proposed)` throughout; the owner confirms the threshold and the
-policy.
-
 - **Scheduled actions never tear down.** A scheduled `inject --at`, the
   early check, or any other setup action during the aging that fails
   records its failure and reason in the local implementation and leaves
@@ -716,25 +724,33 @@ policy.
   game down as in v0.2, since nothing has aged yet. A `start-load` that
   fails on one scheduler tears nothing down either: the GM sees which,
   fixes it or stops the game.
-- **A failed planting** is re-planted by the GM with `gmctl inject`
-  before hand-over; the earliest hand-over is recomputed from the actual
-  planting time.
+- **One instance at a time.** `gmctl inject --at <moment> --instance
+  <id>` acts on one `state` fault instance only, never replaying the
+  others: with a UTC time it schedules that instance's planting on the
+  manager; with `now` it plants it at once. The scheduled run is itself
+  `inject --at now --instance <id>`. Both need the stage `load-started`.
+- **A failed planting** is re-planted by the GM with `gmctl inject --at
+  now --instance <id>` before hand-over; the earliest hand-over is
+  recomputed from the actual planting time.
 - **Restarts resume.** The load-started marker (7.1) persists on the
   schedulers' volumes, so after a container, Swarm task or host restart
   every scheduler comes back running at the current time. Missed
   fixed-time runs are not replayed.
-- **Outages.** A minute of the aging is lost when any node of the game
-  was not running, or any scheduler ran none of its streams (a host
-  down, a Tailscale partition, a crashed node). `gmctl` reads it from the
-  schedulers' per-minute summaries and the nodes' task history, at the
-  early check, at the hand-over check and on `status`. The aging counts
-  running time: the earliest hand-over moves later by every lost minute.
+- **Outages.** A minute of the aging is in outage when any node of the
+  game was not running, or any scheduler wrote no per-minute summary,
+  its process down or idle (a host down, a Tailscale partition, a
+  crashed node). A running scheduler writes its summary every minute,
+  even when no call ran, so a low-rate stream never reads as an outage.
+  `gmctl` reads the outages from the schedulers' summaries and the
+  nodes' task history, at the early check, at the hand-over check and on
+  `status`, and records the lost time: the outage minutes in all.
 - **The threshold: thirty minutes.** Lost time up to thirty minutes in
-  all is recorded and needs nothing more: a real system has blips. Beyond
-  thirty minutes, the GM judges at hand-over whether the evidence the
-  issues rely on survived (a fault whose evidence fell in the gap, a
-  fixed-time run missed): either it hands over, the story telling the gap
-  as an incident, or it sets the game up again.
+  all is recorded and does not move the earliest hand-over: a real system
+  has blips. Lost time beyond thirty minutes moves the earliest hand-over
+  later by the excess, and the GM judges at hand-over whether the
+  evidence the issues rely on survived (a fault whose evidence fell in
+  the gap, a fixed-time run missed): either it hands over, the story
+  telling the gap as an incident, or it sets the game up again.
 - **Setting the game up again before hand-over** is a stop then a start,
   asked or agreed by the initiator: a new game, its aging starting from
   zero. `restart` is a players' operation after hand-over and is never
@@ -776,7 +792,7 @@ have available, not their total.
   whether it is the manager, and its capacity (CPU, memory available,
   disk). It also maps each host the scenario's `designed_for` names onto
   one of them. A one-host declaration keeps today's form, read as a list
-  of one. `(proposed)`
+  of one.
 - **Placement per node.** The scenario format already places every node
   on a declared host and sums each host's placed nodes against its
   capacity. The local implementation now places nodes on the real
@@ -838,15 +854,17 @@ In a smoke run, faults due during the aging are planted at once; this is
 a test harness, never a game. They run on one host and on armenelos plus
 the VPS.
 
-**The rehearsal** `(proposed)`: before the release gate's aged run, a
+**The rehearsal**: before the release gate's aged run, a
 short unattended run of about two hours on armenelos plus the VPS,
 exercising what the smoke tests skip: `start-load`, a scheduled
 `inject --at` and the early check fired by the host's timer, a scheduler
 container killed and resuming, an outage of a few minutes recorded, the
 hand-over check, the snapshot with its brief stops, and a restart from
 it. The memory footprint of the whole game is measured during it, before
-the gate. The aging's length adds nothing to these, so the rehearsal
-stays short.
+the gate. Its planned hand-over (`render --handover`) is chosen so the
+traffic shapes' peak hours fall inside the two hours, since the memory
+measured means something only under peak load. The aging's length adds
+nothing to these, so the rehearsal stays short.
 
 **The release gate** includes one full aged run of the v0.3 scenario at
 its declared aging minimum, then a play-through as `player` (section
@@ -859,8 +877,10 @@ game's data destroyed, fresh nodes started under a new game id, the game
 set up again. Every generated secret of the game is kept, the players'
 credentials and the service ones alike (application roles, PgBouncer's
 lookup role, the GM check role, Grafana's administrator), so the players
-log in as before and the restored databases and Grafana match them. The
-replay may differ (a new seed).
+log in as before and the restored databases and Grafana match them: the
+new game id gets new Swarm secret objects carrying the same values. The
+replay may differ (a new seed). The rebuilt game enters the stage
+`handed-over`, its four hours still counting from the first hand-over.
 
 - **Confirmation.** Any player in the GM session may ask. The GM first
   states that the game's state and the players' changes will be lost
@@ -869,14 +889,15 @@ replay may differ (a new seed).
   mention, or a question about restarting, never restarts a game. A stop
   still needs no confirmation. The GM records the confirmation with
   `gmctl restart --confirmation "<the player's words>"`, which refuses
-  to run without it. `(proposed)`
+  to run without it.
 - **From the hand-over snapshot, where the disk allows.** At hand-over
   the GM copies every volume of the game, each brick by its declared
   method (section 6.4). A restart starts the fresh nodes on fresh copies
   of it; the schedulers find their load-started marker and resume, every
   timeline change already past. The history then has a gap from
   hand-over to the restart, which the story tells as a maintenance
-  window.
+  window. A restart copies the snapshot and leaves it as it was, so a
+  second restart starts from it again; it is removed only at teardown.
 - **Otherwise, no history.** When the copies do not fit the disk, the
   game has no snapshot, and a restart starts from nothing: the data
   loaded, every fault planted at once (those due at T0 and those due
@@ -884,12 +905,11 @@ replay may differ (a new seed).
   already applied. Only the history since the restart exists. The GM
   names the evidence lost (the faults whose aging minimum the new game
   will not reach) before the players confirm, and judges the final answer
-  accordingly. `(proposed)`
+  accordingly.
 - **The restart's own setup** runs inside `gmctl restart`: the refusals
   of `start-load` and `inject --at` after hand-over do not apply to it.
 - **No extra time.** A restart does not extend the game's four hours,
   which still count from the hand-over; extra time stays beyond v1.0.
-  `(proposed)`
 - **Record.** The local implementation records each restart: the old and
   new game ids, the time, from the snapshot or not, and the player's
   confirmation.
@@ -906,7 +926,7 @@ the scheduled setup actions and their results; the early check's and
 the hand-over check's results; the hand-over snapshot's location; each
 restart with its confirmation.
 
-**Stages** `(proposed)`: `fitted`, `rendered`, `deployed`,
+**Stages**: `fitted`, `rendered`, `deployed`,
 `data-loaded`, `injected`, `load-started`, `handed-over`,
 `final-answer`, `feedback-given`, `torn-down`. The aging is the span from
 `load-started` to `handed-over`; whether it is done is computed from the
@@ -914,7 +934,8 @@ earliest hand-over, never recorded as a stage. `start-load` requires
 `injected`; `inject --at` and `snapshot` require `load-started`;
 `status --set handed-over` requires the earliest hand-over reached, the
 hand-over check passed, and the snapshot taken or recorded as not
-fitting.
+fitting. A restart's rebuilt game enters `handed-over` directly, under its
+new game id (section 12).
 
 **`gmctl`**:
 
@@ -924,11 +945,11 @@ fitting.
 | `render` | takes the planned hand-over (`--handover <UTC date and hour>`); per-node placement as hostname constraints, the shift, the customer's time zone filled in, write policies and overrides passed to the containers |
 | `deploy` | copies the images to each host that lacks them before deploying |
 | `start-load` | new: writes each scheduler's load-started marker and starts its schedule; records T0; refused once the game is handed over |
-| `inject --at` | new option: plants a `state` fault at its moment during the aging, scheduled on the manager; refused at or after hand-over; a failure is recorded, never a teardown |
+| `inject --at` | new option, with `--instance <id>`: one `state` fault instance, its planting scheduled on the manager at a UTC time, or planted at once with `now` (the scheduled run, and a re-planting); refused at or after hand-over; a failure is recorded, never a teardown (8.7) |
 | `snapshot` | new: takes the hand-over snapshot by each brick's method; refused before the earliest hand-over and once the game is handed over |
-| `restart` | new: the rebuild of section 12, from the snapshot or from nothing; refused without `--confirmation` |
+| `restart` | new: the rebuild of section 12, from the snapshot or from nothing, the rebuilt game at `handed-over`, the snapshot kept for a later restart; refused without `--confirmation` |
 | `check` | reads exit 3 as "too soon to tell"; connects as the GM check role; runs the early check and the hand-over check |
-| `status` | heads with any failure or outage; the aging's progress in running time, the earliest hand-over, the shift, the snapshot, restarts; no tools-password line in a game without a web front |
+| `status` | heads with any failure or outage; the aging's progress, the lost time, the earliest hand-over, the shift, the snapshot, restarts; no tools-password line in a game without a web front |
 
 No verb pauses, speeds up or triggers the load.
 
@@ -986,7 +1007,7 @@ One new scenario of normal difficulty:
   early afternoon, so the aging covers the night (the nightly batch, the
   export) and the morning ramp, and the time-of-day faults run within
   it: deployed the evening before, played after lunch. Prometheus'
-  retention at least 20 hours. `(proposed)`
+  retention at least 20 hours.
 
 ### 15.3 New catalog faults
 
@@ -1016,7 +1037,7 @@ declares the eight-hour floor as its aging: their faults are visible at
 once, and the aging only gives the monitoring some history.
 `fernway-clinics-monitoring`'s retention of one day covers an eight-hour
 aging plus four hours, so it stays; its 256 MB size bound is checked
-against the measured TSDB growth. `(proposed)`
+against the measured TSDB growth.
 
 ## 16. Carried fixes
 
@@ -1156,7 +1177,7 @@ review:
 - **Write policy per file**: a scheduler's repository can be fixable
   while its node stays report-only, the realistic split.
 
-## 20. Deferred items, points left to the build, proposals
+## 20. Deferred items and points left to the build
 
 Deferred (section 2 lists the scope): v0.5 adjusts every default above
 after use; a later version brings classroom swarms by copying aged
@@ -1179,6 +1200,8 @@ Left to the build, to settle without changing behaviour:
 - how `gmctl` reads outages from the schedulers' summaries and the
   nodes' task history;
 - the loader's check that a seed allows `pg_basebackup` locally;
+- the GM check role's grants on `pg_hba_file_rules`: `SELECT` on the
+  view and `EXECUTE` on the function (7.3);
 - `pg_basebackup`'s form on a read-only root: in tar format to standard
   output it needs `-X fetch`, and the WAL written during the copy must
   stay until it ends, by a temporary physical replication slot reserving
@@ -1191,23 +1214,3 @@ ignores report-only; a player editing a fixable builder runs code as the
 scheduler's account, and can make it print the schedule; the traffic can
 be inferred from the schedulers' logs and the database's own; the scrape
 gap at hand-over, told as maintenance.
-
-Proposals awaiting the owner's confirmation, tagged `(proposed)` above:
-
-- failures during the aging: the thirty-minute threshold, running time,
-  the GM's judgement at hand-over, never a teardown (8.7);
-- the new scenario's sixteen-hour aging and early-afternoon hand-over
-  (15.2), and the gate's aged run at that length;
-- the two-hour rehearsal before the gate, with the memory measured
-  (11);
-- the existing scenarios at the eight-hour floor, fernway's retention
-  kept (15.4);
-- the early check's timing, who is told, and the hand-over check (8.5);
-- the no-history restart's setup and no extra time (12);
-- the GM check role's privileges (7.3);
-- PgBouncer's console role `dba` and the GM's admin account (7.2);
-- `postgres` fixable-only (7.3);
-- the multi-host playground declaration (10.2);
-- the stages, `restart --confirmation` and `render --handover` (12, 13);
-- the schedule passed on standard input and the load-started marker
-  (7.1).

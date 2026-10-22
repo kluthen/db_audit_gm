@@ -1,6 +1,6 @@
 # Concept
 
-Status: draft v10
+Status: draft v11
 
 What the project is, who it is for, the words we use, and what is in and out
 of scope. Mechanics live in the other topic documents (see
@@ -89,9 +89,9 @@ hence the host/node split.
 | **Hand-over snapshot** | A consistent copy of every volume of a game taken at hand-over, from which a restart starts (D126, D142) |
 | **Brief stop** | A brick's service stopped inside its running container through s6 while its volumes are copied for the hand-over snapshot, then started again; never a Swarm scale to zero (D147) |
 | **T0** | The moment a game's load starts; its aging counts from it |
-| **Running time** | The aging's time with the load running; an outage does not count (D151) |
-| **Outage** | A stretch of the aging when a node of the game was not running or a scheduler ran none of its streams (D151) |
-| **Earliest hand-over** | When the scenario's aging minimum, in running time from T0, and every fault instance's own minimum after its planting are all reached |
+| **Lost time** | The minutes of the aging in outage, in all; up to thirty do not move the earliest hand-over (D152) |
+| **Outage** | A minute of the aging when a node of the game was not running, or a scheduler wrote no per-minute summary (its process down or idle); a running scheduler writes one every minute, even with no call (D151, D152) |
+| **Earliest hand-over** | When the scenario's aging minimum has passed since T0, moved later by the lost time beyond thirty minutes, and every fault instance's own minimum has passed since its planting (D152) |
 | **Customer's time zone** | The fixed UTC offset scenario time stands at in one game, derived from the shift and filled into the story by render (D129, D151) |
 | **Scheduler** | The brick running producer and consumer nodes; a node of it is a producer or a consumer by its role (D115) |
 | **Query repository** | A scheduler node's file of queries written by the GM at design time: a key maps to a query, a pool, a sequence or a builder (D115, D133) |

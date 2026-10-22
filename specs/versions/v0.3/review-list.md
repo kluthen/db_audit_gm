@@ -1,10 +1,12 @@
 # v0.3 — review list
 
-Status: first round closed 2026-10-22, every item accepted as proposed
-(D146), v0.5 adjusting them after use; R6 and R4's example amended by the
-eight-hour floor (D150). **Second round open** (R47–R62, below): the
-spec writer's choices made while applying the independent review (D151),
-for the owner's approval with the master spec
+Status: **closed 2026-10-22.** First round: every item accepted as
+proposed (D146), v0.5 adjusting them after use; R6 and R4's example
+amended by the eight-hour floor (D150). Second round (R47–R62, below),
+the spec writer's choices made while applying the independent review
+(D151): R47 ruled as option (a), lost time up to thirty minutes not
+moving the earliest hand-over (D152); R48–R62 accepted as proposed
+(D153); approved with the master spec (D154).
 
 Every item still marked `(proposed)` in the v0.3 drafts and on the v0.3
 page, for the owner to review in one pass. Everything else in the drafts
@@ -106,17 +108,18 @@ Ids, protocols and roles other parts depend on.
 | R45 | Vocabulary | The terms table (scheduler, query repository, query, pool, builder, schedule, stream, fixed-time operation, timeline change, intensity, traffic shape, driver), moving into `concept.md` at consolidation | [scheduler.md](scheduler.md) "Terms" |
 | R46 | Shapes of the carried fixes | RG-2: the reload wrappers restore owner and mode; RG-3: no tools-password line without a web front | [carried-items.md](carried-items.md) |
 
-## Second round: after the independent review (open)
+## Second round: after the independent review (closed)
 
 The independent review of the consolidated master spec (REJECT, seven
 blocking issues) and the owner's answers to it (D147–D149) and his
 eight-hour floor (D150) left choices nobody had made. Each is written into
 the [master spec](master-spec.md) or the [access model](access-model.md)
-tagged `(proposed)`. Ranked from the most consequential.
+tagged `(proposed)` until the owner's answers (D152, D153), which
+dropped the tags. Ranked from the most consequential.
 
 | # | Item | Proposal | Where | Alternative |
 |---|---|---|---|---|
-| R47 | Failures during the aging | Scheduled actions record failures, never tear down; the aging counts running time, every lost minute moving the earliest hand-over; up to 30 minutes lost in all needs nothing more; beyond, the GM judges at hand-over whether the evidence survived, then hands over (the gap told as an incident) or sets the game up again (stop, then start) | master spec 8.7 | restart the aging on any outage; or a threshold of one hour |
+| R47 | Failures during the aging | **Ruled as option (a) (D152): lost time up to thirty minutes does not move the earliest hand-over, only the excess beyond it does.** As proposed: scheduled actions record failures, never tear down; the aging counts running time, every lost minute moving the earliest hand-over; up to 30 minutes lost in all needs nothing more; beyond, the GM judges at hand-over whether the evidence survived, then hands over (the gap told as an incident) or sets the game up again (stop, then start) | master spec 8.7 | restart the aging on any outage; or a threshold of one hour |
 | R48 | The new scenario's aging | 16 hours, the hand-over in the customer's early afternoon: deployed the evening before, played after lunch; retention at least 20 hours | master spec 15.2 | the 8-hour floor (fixed-time faults all placed in the morning); or 24 hours |
 | R49 | The rehearsal before the gate | About two hours, unattended, on armenelos plus the VPS: `start-load`, a scheduled `inject --at` and the early check, a scheduler killed and resuming, an outage recorded, the hand-over check, the snapshot, a restart; the game's memory measured | master spec 11 | the review's 12–24 h rehearsal, which the shorter aging makes less useful |
 | R50 | The existing scenarios' aging | Both declare the 8-hour floor; fernway's one-day retention kept (it covers 12 hours), its 256 MB bound checked against measured growth | master spec 15.4 | no aging for them (an exception to the required `aging:`) |

@@ -1,21 +1,21 @@
 # v0.3 — producers and consumers
 
-Status: **consolidated on 2026-10-22** into the [master spec](master-spec.md)
-and its [access model](access-model.md), revised the same day after the
-independent review (REJECT, seven blocking issues, all fixed: D151) and
-the owner's answers to it (D147–D149) and his eight-hour aging floor
-(D150); awaiting the owner's approval (page draft v6). The owner's
-rulings of 2026-10-22 are D114–D123, his answers to two rounds of
-questions D124–D145, his acceptance of the review list D146; the review
-list's second round (R47–R62) awaits him with the master spec. No v0.3
-question is open. No build plan yet: it follows the owner's approval.
+Status: **spec approved on 2026-10-22** (D154): the [master spec](master-spec.md)
+and its [access model](access-model.md), consolidated the same day,
+revised after the independent review (REJECT, seven blocking issues, all
+fixed: D151), the owner's answers to it (D147–D149), his eight-hour aging
+floor (D150) and the re-review's corrections (OKAY, D155) (page draft
+v7). The owner's rulings of 2026-10-22 are D114–D123, his answers to two
+rounds of questions D124–D145, his acceptance of the review list D146,
+D152 and D153. No v0.3 question is open. The build plan
+follows.
 
 ## Documents
 
 | Document | Purpose | Status |
 |---|---|---|
-| [master-spec.md](master-spec.md) | The consolidated v0.3 specification | consolidated, reviewed and revised, awaiting approval |
-| [access-model.md](access-model.md) | Who may do what in a v0.3 game | consolidated, reviewed and revised, awaiting approval |
+| [master-spec.md](master-spec.md) | The consolidated v0.3 specification | approved 2026-10-22 (D154) |
+| [access-model.md](access-model.md) | Who may do what in a v0.3 game | approved 2026-10-22 (D154) |
 | [scheduler.md](scheduler.md) | The scheduler brick, the query repository, the schedule, fixed-time operations, what the players reach, drivers | draft v3, consolidated |
 | [aging-and-timeline.md](aging-and-timeline.md) | Real-time aging, "meaningful" days, time of day, the timeline from deployment to teardown, the restart | draft v3, consolidated |
 | [load-and-capacity.md](load-and-capacity.md) | Calibrating load, `max_connections`, load control, always-on hosts, several hosts, the hosts at hand | draft v3, consolidated |
@@ -24,7 +24,7 @@ question is open. No build plan yet: it follows the owner's approval.
 | [pgbouncer.md](pgbouncer.md) | The PgBouncer brick | draft v2, consolidated |
 | [carried-items.md](carried-items.md) | Earlier rulings and known issues landing in v0.3 | draft v3, consolidated |
 | [format-changes.md](format-changes.md) | Every change to the formats, script contracts, local implementation and `gmctl` | draft v2, consolidated |
-| [review-list.md](review-list.md) | Every `(proposed)` item, for the owner's review in one pass | first round accepted (D146); second round open (R47–R62) |
+| [review-list.md](review-list.md) | Every `(proposed)` item, for the owner's review in one pass | closed: first round accepted (D146); second round ruled (D152, D153) |
 
 ## Goal
 
@@ -170,7 +170,8 @@ In the owner's words (D47):
 ## Questions due in this version
 
 None open: O82–O101 are answered (D124–D145). The owner's review of the
-`(proposed)` items is [review-list.md](review-list.md). Narrowed by the
+`(proposed)` items, [review-list.md](review-list.md), is closed (D146,
+D152, D153). Narrowed by the
 rulings and left for later versions: O11 (D118), O22 (D114, D125, D132),
 O23 (D120, D134), O30 (D114), O38 (D120), O48 (D114).
 

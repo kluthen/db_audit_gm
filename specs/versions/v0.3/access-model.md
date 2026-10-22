@@ -1,9 +1,9 @@
 # db_audit_gm v0.3 — Access model
 
-Status: **consolidated on 2026-10-22 with the [master spec](master-spec.md)
-it accompanies, revised the same day after an independent review and the
-owner's answers to it, awaiting the owner's approval.** Rules resting on a
-master-spec point still `(proposed)` say so. Revises the [v0.2 access model](../v0.2/access-model.md),
+Status: **approved by the owner on 2026-10-22** with the
+[master spec](master-spec.md) it accompanies (spec D154), as consolidated
+the same day and revised after an independent review, the owner's
+answers to it and its re-review's corrections. Revises the [v0.2 access model](../v0.2/access-model.md),
 which it replaces for v0.3 games; "Changes from v0.2" at the end lists
 what moved.
 
@@ -57,9 +57,12 @@ source connections, and the GM check role (which acts only for the
   below do not apply.
 - **A restart keeps the `player` role**: the rebuilt game keeps every
   generated secret, the players' credentials included, under a new game
-  id.
+  id, whose new Swarm secret objects carry the same values. It enters the
+  stage `handed-over`, and the hand-over snapshot stays, so a second
+  restart starts from it again.
 - Every role ends at teardown: the game's services, secrets (every
-  password included), volumes and hand-over snapshot are removed, so the
+  password included), volumes and hand-over snapshot are removed (the
+  snapshot only then, never by a restart), so the
   credentials stop working immediately.
 - A stop request mid-game takes effect immediately; work in progress on
   the nodes and in the interfaces is lost.
@@ -196,14 +199,14 @@ scheduler nodes, Prometheus, Grafana, the exporter)
 |---|---|
 | `in-session` | The answer is handed in within the GM session (pasted, by discussion, or by pointing the GM at `~/report.md` on the bastion) |
 | `confirmed-in-session` | A player in the GM session confirms the restart in so many words, after the GM has stated that the game's state and the players' changes are lost and, when the game has no hand-over snapshot, which evidence goes with them. A passing mention or a question about restarting is not a confirmation |
-| `players-confirmed` | A player's confirmation under `confirmed-in-session` has been given and recorded by the GM in the local implementation, with the player's words (`gmctl restart --confirmation`, proposed) |
+| `players-confirmed` | A player's confirmation under `confirmed-in-session` has been given and recorded by the GM in the local implementation, with the player's words (`gmctl restart --confirmation`) |
 | `before-hand-over` | The game has not been handed over yet: from deployment to the end of the aging |
-| `aging-done` | The earliest hand-over is reached: the scenario's aging minimum, counted in running time from T0 (outages excluded), and every fault instance's own minimum since its planting |
+| `aging-done` | The earliest hand-over is reached: the scenario's aging minimum since T0, moved later by the lost time beyond thirty minutes (outage minutes up to thirty in all do not move it), and every fault instance's own minimum since its planting |
 | `at-hand-over` | `aging-done` holds and the starter pack is not yet handed over |
 | `has-repository` | The actor has a copy of the repository. Not enforced: students are asked not to read scenarios, and a warning heads each scenario document |
 | `holds-password` | The actor knows the game's bastion password (a teacher who also plays, for example) |
 | `holds-tools-password` | The actor knows the game's tools password and reaches the bastion's web front port with it |
-| `from-bastion` | The connection comes from the bastion, as user `player`, with the game's key (SSH) or the `dba` password (PostgreSQL, and the PgBouncer console, where `dba` is the players' console role, proposed) |
+| `from-bastion` | The connection comes from the bastion, as user `player`, with the game's key (SSH) or the `dba` password (PostgreSQL, and the PgBouncer console, where `dba` is the players' console role) |
 | `fixable-node` | `from-bastion` holds and the node's write policy is *fixable* |
 | `fixable-file` | `from-bastion` holds and the file is fixable: the node's write policy is *fixable*, or the scenario's write overrides make that path fixable on a report-only node |
 | `in-game-network` | The request comes from a node of the game (the bastion or any other node), where only players and the GM have a shell |
@@ -235,13 +238,13 @@ listings, a denied action is refused where it is attempted.
 | Web front without the tools password | HTTP 401 with a basic-authentication challenge | Standard behaviour |
 | Editing protected files, the node-health script or its service list | Ordinary filesystem "permission denied" (read-only, root-owned) | Enforced by the system |
 | Editing a configuration file, repository or `jobs.yaml` that is not fixable | Ordinary "permission denied"; the reload wrapper of a report-only node refuses with a one-line reason | Enforced by the system |
-| Reading `schedule.yaml` | Ordinary "permission denied" (root-owned, mode 0400); the file is visible in listings. The scheduler's root run script passes it to the program on standard input (proposed), so the service account cannot read it either | Visible but blocked, as a real customer's traffic would be |
+| Reading `schedule.yaml` | Ordinary "permission denied" (root-owned, mode 0400); the file is visible in listings. The scheduler's root run script passes it to the program on standard input, so the service account cannot read it either | Visible but blocked, as a real customer's traffic would be |
 | `connect-reserved` and service credentials | Ordinary "permission denied" on the secret files (root or the service's account only); without the check role's password the reserve is out of reach | Enforced by the system |
 | PgBouncer console `admin` | Refused by PgBouncer: the players' console role is not in `admin_users` | Enforced by the system |
 | Prometheus `admin`, through the web front or from inside the game network | Refused by Prometheus: its admin and lifecycle endpoints are disabled, as in v0.2; the hand-over snapshot stops it briefly instead | Reloads go through the node's `sudo` wrapper, under the write policy |
 | Grafana `edit-content` on a report-only Grafana node | Not refused: Grafana lets an administrator edit | Known gap, accepted |
 | Grafana `administer` | Not refused by Grafana; forbidden by the rules and marked DO NOT TAMPER, since changing the administrator's password would lock the GM's checks out | Trust where it cannot be enforced |
-| `alter-system` on a report-only database node | Would not be refused, the `dba` role being a superuser; does not arise in v0.3, where `postgres` is fixable only (proposed) | Accepted on the trust line |
+| `alter-system` on a report-only database node | Would not be refused, the `dba` role being a superuser; does not arise in v0.3, where `postgres` is fixable only | Accepted on the trust line |
 | `network-visitor` reaching anything but the bastion's ports | Nothing listens: no other port is published, on a multi-host playground the bastion publishes on its own host only, and no registry runs (images are copied between hosts over SSH) | Bastion-only rule |
 | Docker engine use by players | Not reachable from the bastion or nodes; on a host the players own, documented as forbidden | Trust where it cannot be enforced |
 
@@ -290,8 +293,8 @@ logs on each node. Repeated denials have no effect.
 - The final answer needs an explicit statement that it is final; the GM
   asks if it was not given.
 - `sudo` wrapper use is logged on each node.
-- The GM records the game's stage, the aging's start and progress in
-  running time, the outages, the scheduled setup actions and their
+- The GM records the game's stage, the aging's start and progress, the
+  outages and the lost time, the scheduled setup actions and their
   results, the early check's and the hand-over check's results, and any
   failure, in the local implementation. A failure during the aging is
   recorded and never tears the game down; `gmctl status` shows it
@@ -320,7 +323,7 @@ logs on each node. Repeated denials have no effect.
   during a game, a restart included.
 - **`ALTER SYSTEM` on a report-only database node** could not be
   prevented for the superuser `dba`; accepted on the trust line. It does
-  not arise in v0.3, where `postgres` is fixable only (proposed). Sealed
+  not arise in v0.3, where `postgres` is fixable only. Sealed
   checks judge the effective state, whatever changed it.
 - **The GM's connection reserve** can be used up by `dba`, a superuser;
   accepted on the trust line.

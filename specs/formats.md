@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v18
+Status: draft v19
 
 What a scenario, a brick and a fault definition must contain, and how they
 are laid out, so that every scenario the GM designs or generates stays
@@ -166,8 +166,8 @@ what the scenario expects:
   constraints, the bastion pinned to its own host, and the images copied
   to each host over SSH, with no registry, D128, D149);
 - from v0.3, the planned hand-over and the shift in whole hours mapping
-  scenario time onto UTC, T0, the aging minimum, the running time and the
-  outages, the earliest hand-over and the hand-over, the game's seed, the
+  scenario time onto UTC, T0, the aging minimum, the outages and the
+  lost time (D152), the earliest hand-over and the hand-over, the game's seed, the
   scheduled setup actions and their results, the early and hand-over
   checks' results, the hand-over snapshot's location, and each restart
   (old and new game ids, time, from the snapshot or not, the player's

@@ -16,7 +16,7 @@ README:
 Archived IDs keep their meaning and are cited as they are. D107 onward
 stay live: rulings still to be applied in a later version (D107, D108,
 D110, D113), the v0.2 release close, and v0.3's drafting from D114.
-Numbering continues from D152; no ID is reused.
+Numbering continues from D156; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -260,3 +260,35 @@ Numbering continues from D152; no ID is reused.
   tagged `(proposed)` and listed for his approval in
   [versions/v0.3/review-list.md](versions/v0.3/review-list.md) "Second
   round", awaiting him with the master spec.
+- **D152 (2026-10-22, owner's answer on R47, option (a), relayed by the
+  wave driver): Lost time up to thirty minutes does not move the earliest
+  hand-over; only the lost time beyond it does, and the GM judges those
+  outages at hand-over.** An outage is a minute with a node down or a
+  scheduler writing no per-minute summary, which it writes every minute,
+  even with no call (the re-review's first correction). The earliest
+  hand-over moves later by the excess beyond thirty minutes. Amends the
+  running-time rule of D151. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 4, 7.1, 8.7;
+  [versions/v0.3/access-model.md](versions/v0.3/access-model.md) 6;
+  [concept.md](concept.md) "Vocabulary".
+- **D153 (2026-10-22, owner's answer, relayed by the wave driver): The
+  review list's second round, R48–R62, is accepted as proposed**; their
+  `(proposed)` tags are dropped. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md),
+  [versions/v0.3/access-model.md](versions/v0.3/access-model.md),
+  [versions/v0.3/review-list.md](versions/v0.3/review-list.md).
+- **D154 (2026-10-22, owner approval, relayed by the wave driver): The
+  v0.3 master spec and access model are approved** (d3a3dc5), with the
+  re-review's nine corrections folded in (D155), D152 and D153. The known
+  gaps stay gaps. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md),
+  [versions/v0.3/access-model.md](versions/v0.3/access-model.md).
+- **D155 (2026-10-22, spec-writer, process): The re-review's nine
+  corrections are applied**: outages read from the per-minute summaries
+  (D152); one instance re-planted by `inject --at now --instance <id>`; a
+  restart's game at `handed-over`, the snapshot kept until teardown, new
+  Swarm secret objects with the same values; 6.7's nodes as a list; a
+  wrong-time-zone offset wrapping modulo 24; the rehearsal's `--handover`
+  placing the peak inside it; `EXECUTE` on `pg_hba_file_rules()`; the
+  index's D114 line. Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md)
+  6.7, 7.1, 7.3, 8.3, 8.7, 11–13, 20; [versions/v0.3/access-model.md](versions/v0.3/access-model.md) 3.
