@@ -1,6 +1,6 @@
 # Game lifecycle
 
-Status: draft v10
+Status: draft v11
 
 From setup to teardown, as run by the GM in its agent session: the
 scenario, its local implementation, checks, deployment, aging, hand-over,
@@ -39,9 +39,10 @@ outside the project's concern.
    entry of the `prometheus` node's service map, rendered at deploy (D66,
    D89, D97).
 6. **Data and aging** — restored-backup data is loaded, then state faults
-   are planted; the system runs, or is given a history, so that faults
-   leave traces (see "Aging"). v0.1 has no aging: it loads the data and
-   plants its state faults right after deployment (D39).
+   are planted; the system runs so that faults leave traces (see
+   "Aging"). v0.1 and v0.2 have no aging: they load the data and plant
+   their state faults right after deployment (D39, D83). From v0.3 the
+   system runs in real time for at least two full days (D114).
 7. **Solvability probes** — every hidden fault's evidence is confirmed
    reachable as the player user (proposed for generated scenarios; not in
    v0.1, where a manual play-through stands in, D38; see
@@ -62,7 +63,8 @@ GM then tears the game down. If setup fails (deployment, data load or
 injection, a health check that never passes) or is stopped, the GM reports
 it, tears down what it deployed, and records the stage reached in the
 local implementation (D36). How long stages 2 to 7 may take before a
-class: O30. Which stages are scripts and which agent judgment: O2.
+class: O30 (aging alone takes two days from v0.3, D114). Which stages
+are scripts and which agent judgment: O2.
 
 ## Setup inputs and the brief
 
@@ -94,24 +96,26 @@ capacity is sufficient. See [formats.md](formats.md). Whether variation
 Some aging is required: many faults (e.g. "a daily script never runs") have
 no visible symptom on a freshly deployed system.
 
-Techniques (proposed), complementary:
+**From v0.3, aging is real time** (D114): after deployment the stack runs
+in the background, its producers and consumers following their schedules,
+for at least two full, meaningful days, until hand-over. Every timestamp,
+log line and metric the players see was produced by the system at the
+time it says. No sped-up clock and no forged history in v0.3; the aging
+research weighed them and found their caveats real: query durations
+inflated by the speed-up, Go binaries that cannot be faked, a Prometheus
+history that would have to be forged. The v0.3 timeline, what
+"meaningful" means and the consequences (hosts up for two days, disk
+growth, Prometheus retention, restarts) are in
+[versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md).
 
-- **Pre-aging** — run the system for a while before hand-over, and/or forge
-  a history: logs, a last successful backup dated days ago, accumulated
-  bloat, a replication slot retaining WAL, timestamps.
-- **Time compression** — schedule "daily" jobs every few minutes during the
-  game, so the player can observe a fault and verify a fix within the
-  session.
+Each fault instance states how long its evidence takes to appear: its
+aging minimum ([formats.md](formats.md)). v0.1 and v0.2 have no aging:
+with no load, history builds during the game (D83).
 
-Each fault instance states which technique makes its evidence visible
-([formats.md](formats.md)). v0.2 has no aging: with no load, history
-builds during the game (D83). The default technique: O22.
-
-Consequence to settle with O22: time compression is visible. A crontab
-reading `*/5` for a "daily" backup is itself something an auditor would
-flag, it collides with schedule faults (wrong time zone, job that never
-runs), and a forged history dated "days ago" must stay consistent with a
-compressed clock.
+Still open beyond v0.3 (O22): whether forged history or a sped-up clock
+ever return, and time compression during the game, which is visible (a
+crontab reading `*/5` for a "daily" backup is itself something an auditor
+would flag) and collides with schedule faults (O89 for v0.3).
 
 ## Hand-over: the starter pack
 

@@ -1,6 +1,6 @@
 # GM stance
 
-Status: draft v8
+Status: draft v9
 
 How the game master behaves and speaks with the people in its session, from
 setup to feedback. Settling this stance is v0.1's main goal (D15). The
@@ -62,10 +62,16 @@ holds ([scenario-lifecycle.md](scenario-lifecycle.md), "Hand-over").
   report (D18). The GM does not converse with them mid-game.
 - **No hints, no node resets, no extra time** for now (D19).
 - **No game restarts** in v0.2: a request to restart or reset is refused,
-  as in v0.1. From v0.3 the GM may restart a game, tearing down and
-  rebuilding the whole stack, on the players' explicit confirmation only,
-  never on a passing comment (D110; O81;
-  [v0.3](versions/v0.3/README.md)).
+  as in v0.1. From v0.3 the GM may restart a game, on the players'
+  explicit confirmation only, never on a passing comment (D110). A
+  restart rebuilds the game from scratch: every node shut down, the game
+  data destroyed, fresh nodes started, the game set up again, and the
+  replayed game may differ (D123). What it does with the aged history
+  and the rest of the mechanics: O81, O84
+  ([v0.3](versions/v0.3/aging-and-timeline.md), "Restart").
+- **No events outside the schedule** (D117, from v0.3): the GM plants no
+  random events and never touches the load; producers and consumers
+  follow their schedules. Whether anyone may pause or trigger load: O88.
 
 ## Sessions and restarts
 

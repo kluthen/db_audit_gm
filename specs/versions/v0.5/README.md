@@ -23,6 +23,10 @@ In the owner's words, three things (D47):
   as the customer's own tooling.
 - More fault definitions in the catalog, across the families already
   listed.
+- The scheduler's other targets (D118): other database types, message
+  queues, APIs, and tools that trigger transformation layers, as drivers
+  of v0.3's scheduler brick
+  ([v0.3/scheduler.md](../v0.3/scheduler.md), "Drivers").
 - Reusable topology fragments for the most common arrangements.
 - A library of common schemas and datasets the GM can draw on, including
   Bluebox and selected external sources.

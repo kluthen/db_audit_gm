@@ -1,6 +1,6 @@
 # Platform
 
-Status: draft v14
+Status: draft v15
 
 The swarm the games run on, the resource budget scenarios must fit, how
 scenario content reaches the nodes, and the Swarm behaviours that shape the
@@ -27,7 +27,15 @@ to. Multi-host swarms, the registry, per-host SSH contexts and remote swarm
 creation below apply from later versions.
 
 Docker Swarm is the starting platform; the project must stay adaptable
-(D12; see "Portability" below).
+(D12; see "Portability" below). Swarm is the selected platform; Kubernetes
+is future work (D122).
+
+What a game may use is for the GM and the initiator to discuss; a game
+lasts at most four hours, and the minimum capacity may rise as versions
+add load, which is what a multi-host swarm is for (D122). Armenelos and
+the VPS (`ssh vps`) share a Tailscale network, so a two-host swarm is
+available to test multi-host (O46). From v0.3 the playground's hosts must
+also stay up through two days of aging (D114; O83).
 
 - **Multi-host swarms use Linux hosts only** (D12). Docker Desktop's engine
   runs in a NAT'd VM, and Docker documents swarm mode on Docker Desktop as
@@ -55,8 +63,10 @@ Docker Swarm is the starting platform; the project must stay adaptable
 - Databases are deliberately nerfed: limited CPU, low memory, small
   `work_mem`/buffers, etc.
 - The data schema stays simple and the tables small.
-- From v1.0, each scenario includes a few producers and consumers
-  generating activity. v0.1 has none: its database is static (D14, D35).
+- From v0.3, scenarios may include producers and consumers generating
+  activity, scheduler nodes running the GM's queries (D115); from v1.0
+  each scenario includes a few. v0.1 and v0.2 have none: their databases
+  are static (D14, D35, D67).
 
 Monitoring is not free: v0.2's Prometheus, Grafana, `postgres_exporter`
 and the node-health script inside every node count in the budget, and

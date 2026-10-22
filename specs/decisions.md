@@ -15,8 +15,8 @@ README:
 
 Archived IDs keep their meaning and are cited as they are. D107 onward
 stay live: rulings still to be applied in a later version (D107, D108,
-D110, D113) and the v0.2 release close. Numbering continues from D114;
-no ID is reused.
+D110, D113), the v0.2 release close, and v0.3's drafting from D114.
+Numbering continues from D124; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -66,3 +66,60 @@ no ID is reused.
   brick improvement, with O79. Now in:
   [versions/v0.5/README.md](versions/v0.5/README.md) "In scope",
   [versions/v0.2/README.md](versions/v0.2/README.md) "Known issues".
+- **D114 (2026-10-22, owner ruling after the aging research, relayed by
+  the wave driver): Aging is real time in v0.3.** The stack runs in the
+  background, at least two full, meaningful days, until hand-over; no
+  sped-up clock and no forged history in v0.3. The owner preferred the
+  sped-up clock but accepted its caveats (query durations inflated by the
+  speed-up, Go binaries not fakeable, Prometheus history to forge); he
+  does not trust forging. Narrows O22, O30, O48. Now in:
+  [versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md),
+  [scenario-lifecycle.md](scenario-lifecycle.md) "Aging".
+- **D115 (2026-10-22, owner design, relayed by the wave driver): Producers
+  and consumers are scheduler nodes running a GM-written query
+  repository.** A key maps to a query, a list of queries, or a builder of
+  the intensity and options; schedules set intensity, pool selection,
+  fixed-time queries, randomisation, traffic shapes, transactions or not.
+  Now in: [versions/v0.3/scheduler.md](versions/v0.3/scheduler.md).
+- **D116 (2026-10-22, owner ruling, relayed): Players read the query
+  repository and may edit it where the scenario allows; of the scheduling
+  they read and change only the batch and fixed-time operations.** Now
+  in: [versions/v0.3/scheduler.md](versions/v0.3/scheduler.md) "What the
+  players reach", [planes-and-access.md](planes-and-access.md).
+- **D117 (2026-10-22, owner ruling, relayed): No events outside the
+  schedule.** No random GM events; producers and consumers follow their
+  schedules from the start of aging. Now in:
+  [versions/v0.3/scheduler.md](versions/v0.3/scheduler.md),
+  [gm-stance.md](gm-stance.md) "During the game".
+- **D118 (2026-10-22, owner ruling, relayed): v0.3 is SQL against
+  PostgreSQL.** Other database types, message queues, APIs and
+  transformation triggers from v0.5 on; the scheduler is designed for
+  extension. Narrows O11. Now in:
+  [versions/v0.3/scheduler.md](versions/v0.3/scheduler.md) "Drivers",
+  [versions/v0.5/README.md](versions/v0.5/README.md).
+- **D119 (2026-10-22, owner ruling, relayed): A PgBouncer brick in v0.3,
+  optional in any scenario.** Now in:
+  [versions/v0.3/pgbouncer.md](versions/v0.3/pgbouncer.md).
+- **D120 (2026-10-22, owner ruling, relayed): Difficulty is a fault
+  count.** Each fault is worth 1: easy 5, normal 10, hard 20. A scoring
+  system is post-v1.0; scoring research is allowed, added only if quick
+  to implement. Narrows O23 and O38. Now in:
+  [versions/v0.3/faults-with-activity.md](versions/v0.3/faults-with-activity.md),
+  [bricks-and-faults.md](bricks-and-faults.md) "Faults".
+- **D121 (2026-10-22, owner ruling, relayed): `ALTER SYSTEM` on a
+  report-only database node is accepted on the trust line** (light
+  enforcement, D13). Closes O45. Now in:
+  [planes-and-access.md](planes-and-access.md) "The database node".
+- **D122 (2026-10-22, owner ruling, relayed): Capacity is for the GM and
+  the initiator to discuss; Swarm is the platform.** A game lasts at most
+  four hours; the minimum capacity may rise; Kubernetes is future work;
+  Tailscale links armenelos and the VPS, so multi-host is available. Bears
+  on O46. Now in: [platform.md](platform.md) "Hosting",
+  [versions/v0.3/load-and-capacity.md](versions/v0.3/load-and-capacity.md).
+- **D123 (2026-10-22, owner ruling, relayed): A restart rebuilds the game
+  from scratch.** Every node shut down, the game data destroyed, fresh
+  nodes started, the game set up again; the replayed game may differ. The
+  explicit confirmation of D110 stays. Narrows O81. Now in:
+  [gm-stance.md](gm-stance.md) "During the game",
+  [versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md)
+  "Restart".

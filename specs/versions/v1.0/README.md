@@ -38,13 +38,15 @@ be needed for v1.0, is put to the owner:
 
 - **Multi-host and the registry** (O46). v0.1 runs on one host and
   deferred both. A full pipeline with monitoring may not fit one laptop,
-  and classroom swarms were a hosting target from the start.
+  and classroom swarms were a hosting target from the start. Proposed
+  for v0.3 (D122).
 - **Generating scenarios** (O47). The GM designing a scenario from a
   partial or empty brief and filling the blanks is settled as a capability
   (D16) but placed in no version; v0.5 prepares for it (topology fragments,
   schemas) without naming it.
 - **Aging and the solvability probe** (O48). Both were deferred from v0.1;
-  load (v0.3) and generated scenarios need them.
+  load (v0.3) and generated scenarios need them. Aging enters in v0.3, in
+  real time (D114); the probe as a gate is still unplaced.
 - **Backup tooling** (O49). Backup tools and the backup-tooling fault
   families (D17) are in no version, although backups were a founding
   example of the project and the v0.1 goal speaks of "investigating a
@@ -63,4 +65,4 @@ be needed for v1.0, is put to the owner:
 - O2 (scripts versus agent judgment for generated scenarios), O20 (the
   solvability probe as a gate), O29 (brief format), O30 (preparation time
   before a class), O32 (language of player-facing material), O38 (feedback
-  score), O5 (a lighter record of intent).
+  file; scoring is post-v1.0, D120), O5 (a lighter record of intent).

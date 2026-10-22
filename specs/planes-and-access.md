@@ -1,6 +1,6 @@
 # Planes, access and rules
 
-Status: draft v12
+Status: draft v13
 
 Who may reach what, what the player may change, how the rules are checked,
 and what is left to trust. At consolidation this document feeds the access
@@ -106,11 +106,20 @@ expected; changing SSH behaviour is not.
   the players Grafana administrators, so on a *report-only* Grafana node
   they can still change dashboards, data sources and alert rules through
   the UI. Accepted under light enforcement, like the superuser gap on
-  report-only databases (O45). Sealed checks judge Grafana's effective
+  report-only databases (D121). Sealed checks judge Grafana's effective
   live state (through its API), not only its provisioned files. The gap
   cannot arise in v0.2: its monitoring bricks are fixable only (D108).
 - The node-health script and its service list are configs, read-only on
   every node (D73); its endpoint is readable from every node.
+
+### The scheduler nodes (v0.3, draft)
+
+Producers and consumers are scheduler nodes
+([versions/v0.3/scheduler.md](versions/v0.3/scheduler.md)). The players
+read the node's query repository and may edit it where the scenario
+allows; of the scheduling they read and change only the batch and
+fixed-time operations, never the continuous traffic (D116). What else
+they see there, and whether write policy becomes per file: O87.
 
 ### Credentials and the way in (D31)
 
@@ -151,7 +160,9 @@ expected; changing SSH behaviour is not.
   effective live setting, not which file changed.
 - A superuser can run `ALTER SYSTEM` whatever the node's write policy, so
   "no configuration changes" cannot be enforced on a report-only database
-  node. Irrelevant in v0.1 (its database node is fixable): O45.
+  node. Accepted on the trust line (D121): nothing prevents it, the access
+  model lists it as a known gap, and sealed checks judge the effective
+  live state as everywhere else.
 
 ### Node hardening
 
