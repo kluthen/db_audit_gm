@@ -72,7 +72,7 @@ plan states only its deltas.
 | G8 | O76: where Grafana's dashboards and the node-health view come from | The owner | Chunks 10, 14 | done (2026-10-21, spec D104: `grafana`'s reference dashboards) |
 | G9 | O77: the `laptop` playground, declared on the build host or a real 2 CPU / 4G / 8G machine | The owner | Chunk 14b, release gate items 2 and 3 | done (2026-10-21, spec D105: declared on the build host) |
 | G10 | Review of the v0.2 scenario: its faults (chunk 13's among them), issues, tooling expectation and answer key (master spec 11.1) | The owner | Chunk 14's merge | done (2026-10-22, the owner: approved as built; no pgBadger fault; `pg-memory-over-envelope` left out) |
-| G11 | The tooling's usefulness and the feedback's tone (master spec 14, item 12) | The owner | Release close | open |
+| G11 | The tooling's usefulness and the feedback's tone (master spec 14, item 12) | The owner | Release close | done (2026-10-22, the owner: "the feedback is good") |
 
 G4 to G9 were questions O72 to O77, ruled by the owner as proposed
 (spec D100 to D105). Waves merge into `main` after their gates as the

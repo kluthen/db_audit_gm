@@ -2210,3 +2210,28 @@ postgres, bastion and prometheus docs (scratch space `/tmp` and
   `monitoring` (`pg_monitor`), exporter or not; bookshop's answer key and
   notes don't mention it.
 - The restart/reset stance check (item 10) is untested.
+- 2672181 (coding-executor): the follow-up on the bricks' docs. postgres's
+  "fixable only" now says v0.2 (D108); prometheus, postgres-exporter and
+  grafana list the scratch space `/tmp` and `/var/tmp` (checked on running
+  containers).
+
+### Owner rulings — 2026-10-22 (release close)
+
+- **G11 cleared**: "the feedback is good" (fernway's feedback, item 12).
+- **The restart stance check (item 10)**: not tested. The owner rules
+  that the GM may restart a game in the **next version**, tearing down
+  and rebuilding the whole stack, but **only on the player's explicit
+  confirmation**: a passing comment must never restart a game, because a
+  restart breaks the game. For `spec-writer`: a v0.3 entry. v0.2 keeps
+  the current stance (no restarts); the untested refusal is a known gap.
+- **RG-4**: update both bookshop's seed `postgresql.conf` (logging and
+  preload settings, as `bricks/postgres/docs/gm.md` requires) and the GM
+  skill's wording on the server log. On `v0.2-w4`, before the merge.
+- **RG-3** (the `gmctl status` label) and **RG-2** (`sed -i` ownership):
+  accepted as known issues.
+- **RG-5**: "monitoring isn't mandatory in any game (highly suspect if
+  there isn't any of course, but it remains a valid game)". The role
+  `monitoring` stays in every postgres game for now. Making it
+  conditional moves to **v0.5** (the brick-improvement version).
+- **Merge granted**: `v0.2-w4` into `main` once the RG-4 changes pass the
+  quality command and the release notes are written.
