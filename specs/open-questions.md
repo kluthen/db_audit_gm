@@ -5,12 +5,10 @@ only when it is resolved and logged in [decisions.md](decisions.md); IDs
 are never reused. Questions resolved by the close of v0.1 (O1, O3, O4,
 O6–O9, O14, O15, O17–O19, O26–O28, O33–O37, O39–O44 and O55) are listed
 in [archive/v0.1/open-questions-resolved.md](archive/v0.1/open-questions-resolved.md);
-their IDs keep their meaning. Resolved since: O56 (D57), O59 (D60), O51
-(D66), O50 (D67), O13 (D68), O65 (D72), O61 (D75), O62 (D76), O63
-(D77), O66 (D78), O68 (D79), O69 (D80), O70 (D81), O71 (D82), O57 (D84),
-O58 (D85), O60 (D86), O64 (D88), O67 (D90), O72 (D100), O73 (D101),
-O74 (D102), O75 (D103), O76 (D104), O77 (D105). Numbering continues
-from O82.
+their IDs keep their meaning. Questions resolved by the close of v0.2
+(O13, O50, O51 and O56–O77) are listed in
+[archive/v0.2/open-questions-resolved.md](archive/v0.2/open-questions-resolved.md).
+Numbering continues from O82.
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);

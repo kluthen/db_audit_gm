@@ -1,6 +1,6 @@
 # v0.2 — monitoring and usual tooling
 
-Status: **released 2026-10-22** (release gate passed; G10 and G11 cleared; see "Release notes"); draft v7 of this page. Consolidated into the [master spec](master-spec.md) and its [access model](access-model.md), both approved by the owner on 2026-10-21 (D98). Build plan: [build-plan.md](build-plan.md), approved 2026-10-21 (D99). The owner's rulings on the plan (D100–D106), after wave 3 (D108) and at the release close (D109–D113) amend the master spec or this page and are written into it.
+Status: **released 2026-10-22** (release gate passed; G10 and G11 cleared; see "Release notes"); archived 2026-10-22: the build plan, decisions D55–D106 and the questions resolved in v0.2 are in [archive/v0.2/](../../archive/v0.2/README.md), while this page, the master spec, its access model and the wave log stay here as the contract for what v0.2 built. Page draft v8. Consolidated into the [master spec](master-spec.md) and its [access model](access-model.md), both approved by the owner on 2026-10-21 (D98). Build plan: [build-plan.md](../../archive/v0.2/build-plan.md), approved 2026-10-21 (D99). The owner's rulings on the plan (D100–D106), after wave 3 (D108) and at the release close (D109–D113) amend the master spec or this page and are written into it.
 
 Every item is settled and stated as fact with its decision. Planning
 the build raised O72 to O77, all ruled on 2026-10-21 (D100–D105). The owner accepted the draft v2 defaults on 2026-10-21
@@ -453,7 +453,7 @@ question v0.2 does not wait on.
 
 Master spec and access model approved by the owner (D98):
 [master-spec.md](master-spec.md), with [access-model.md](access-model.md).
-Build plan: [build-plan.md](build-plan.md), approved (D99). Built in four
+Build plan (archived): [build-plan.md](../../archive/v0.2/build-plan.md), approved (D99). Built in four
 waves on 2026-10-21 and 2026-10-22; waves 1 to 3 merged into `main`
 (6467fb5, 351de59, 8e17795). The wave 4 gate and the release gate ran on
 `v0.2-w4`, before its merge; their runs are in [wave-log.md](wave-log.md),

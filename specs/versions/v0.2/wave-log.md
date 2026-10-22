@@ -1,6 +1,6 @@
 # db_audit_gm v0.2 — Wave log
 
-Execution record for [build-plan.md](build-plan.md). Kept by the wave
+Execution record for [build-plan.md](../../archive/v0.2/build-plan.md). Kept by the wave
 driver (the owner's top-level session).
 
 ## Wave 1 — started 2026-10-21

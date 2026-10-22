@@ -1,3 +1,5 @@
+> **Archived 2026-10-22.** v0.2 was released at its release gate on 2026-10-22, and the owner granted the merge of `v0.2-w4` into `main`; every chunk of this plan is built. Live summary: [v0.2 README](../../versions/v0.2/README.md), "Release notes". Relative links were written from `specs/versions/v0.2/`: `master-spec.md`, `access-model.md`, `README.md` and `wave-log.md` are in `../../versions/v0.2/`.
+
 # db_audit_gm v0.2 — Build plan
 
 Status: v6 (2026-10-22): every wave built; the wave 4 gate and the

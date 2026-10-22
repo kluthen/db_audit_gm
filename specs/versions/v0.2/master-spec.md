@@ -5,7 +5,7 @@ consolidated after an independent review of the drafts (verdict: no
 blocking issue); amended the same day by the owner's rulings on the
 build plan (D100–D106), after wave 3 (D108: the monitoring bricks
 fixable only) and at the release close (D111: `bookshop-new-server`'s
-seed). Build plan: [build-plan.md](build-plan.md).
+seed). Build plan (archived): [build-plan.md](../../archive/v0.2/build-plan.md).
 Companion: [access-model.md](access-model.md).
 Baseline: the released [v0.1 master spec](../v0.1/master-spec.md) and its
 [access model](../v0.1/access-model.md). Everything v0.1 specifies stays
