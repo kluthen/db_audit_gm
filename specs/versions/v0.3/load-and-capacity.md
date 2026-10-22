@@ -1,12 +1,13 @@
 # v0.3 — load and capacity
 
-Status: draft v1
+Status: draft v2
 
-How much load a v0.3 game runs, what carries it, and when it spreads
-over several hosts. Settled: capacity is for the GM and the initiator to
+How much load a v0.3 game runs, what carries it, and how it spreads over
+several hosts. Settled: capacity is for the GM and the initiator to
 discuss, a game lasts at most four hours, the minimum capacity may rise,
-Swarm is the platform, and Tailscale links armenelos and the VPS (D122).
-Everything else is (proposed).
+Swarm is the platform, Tailscale links armenelos and the VPS (D122);
+always-on hosts (D125); multi-host in v0.3 (D128); load control (D131);
+`max_connections` (D138). Figures are (proposed) until measured.
 
 ## Calibrating the load
 
@@ -23,39 +24,40 @@ symptoms, never enough to saturate the host
   `max_connections` in its seed and a consumer that holds or leaks
   connections.
 - The intensity is the scenario's and absolute, like its resource limits
-  (D32): a different playground never rescales it ([scheduler.md](scheduler.md)).
+  (D32): a different playground never rescales it (proposed;
+  [scheduler.md](scheduler.md)).
 - Over two days, rows accumulate: a producer inserting one row a second
   adds about 170,000 rows. Rates are chosen so tables stay small
   ([concept.md](../../concept.md), "Out of scope": large volumes).
 
-### `max_connections` (driver's proposal; O95)
+### `max_connections` (D138)
 
-The owner asked whether lowering the brick's default from 100 to about 20
-helps simulate bottlenecks. Proposal: keep the brick default at 100 and
-let scenarios set low values; the brick's envelope already allows 10 to
-200 (`bricks/postgres/brick.yaml`). A low default would make every game
-exhaust connections whether its story wants it or not, and exhaustion
-shows as refused sessions rather than slowness. With a low value the
+The `postgres` brick's default stays 100; a scenario that wants a
+bottleneck sets a low value in its seed, within the brick's 10–200
+envelope (`bricks/postgres/brick.yaml`). A low default would make every
+game exhaust connections whether its story wants it or not. Producers
+and consumers connect as ordinary roles, so
 `superuser_reserved_connections` (3 by default) still let the `dba` role
-and the GM's checks in, provided producers and consumers connect as
-ordinary roles ([checks-under-load.md](checks-under-load.md)).
+and the GM's checks in ([checks-under-load.md](checks-under-load.md);
+a reserve of the GM's own: O100).
 
-## Load control
+## Load control (D131)
 
 With no events outside the schedule (D117), nobody pauses, speeds up or
-triggers the load during a game: not the GM, not the players. The
-players' one lever is a fixed-time operation's schedule (D116), which
-moves a job, never adds traffic. To confirm: O88.
+triggers the load during a game: not the GM, not the players, not even
+for the final checks. The players' one lever is moving a fixed-time
+operation (D116), with no "run now"; it moves a job, never adds traffic.
 
-## One host or several (O46)
+## Hosts (D125)
 
-D122 makes multi-host available; whether v0.3 builds it is O46. The
-driver's proposal:
+v0.3 games run on always-on hosts: the hosts must stay up from
+deployment through two days of aging to the end of the game. Classroom
+swarms of student laptops wait for a later version (O22).
 
-- **Multi-host moves into v0.3**: placement per node, a registry every
-  host reaches, `fit` per host; tested with armenelos and the VPS over
-  Tailscale.
-- **The default game stays single-host** while its load fits one host.
+## Several hosts (D128)
+
+Multi-host is in v0.3, tested with armenelos and the VPS over Tailscale.
+The default game stays single-host while its load fits one host.
 
 What the code already has, and what it lacks (read at 824e1d5):
 
@@ -69,54 +71,53 @@ What the code already has, and what it lacks (read at 824e1d5):
   host.
 - Images are tagged `127.0.0.1:5000/dbagm/...` but built locally; no
   registry runs. The cross-host `127.0.0.1:5000` pattern (a registry
-  service published on the routing mesh, so every host's loopback reaches
-  it) is unverified (O10).
+  service published on the routing mesh, so every host's loopback
+  reaches it) is unverified (O10), to verify in this build.
 
-To build if O46 says v0.3:
+To build:
 
-- per-node placement rendered from the local implementation (hostname or
-  label constraints), stateful nodes pinned with their volumes;
-- a registry reachable from every host, and the images pushed to it
-  before deploy;
+- per-node placement in the local implementation, rendered as hostname
+  or label constraints; stateful nodes pinned with their volumes;
+- a registry every host reaches, and the images pushed to it before
+  deploy;
 - `fit` per host: each host's limits, reservations and disk against its
   placed nodes, each host's images counted once on that host;
 - per-host SSH Docker contexts for the exec verb (D27), already in the
   platform's design.
 
-Risks to check on the Tailscale pair (unverified):
+Risks to check on the Tailscale pair (D128):
 
-- the overlay's VXLAN over Tailscale's 1280-byte MTU (the overlay MTU
-  must leave room for both encapsulations);
+- the overlay's VXLAN over Tailscale's 1280-byte MTU: the overlay
+  network's MTU must leave room for both encapsulations;
 - Swarm advertising the Tailscale addresses, not the public ones;
 - **the routing mesh opens every published port on every host**: the
   bastion's SSH and web front would listen on the VPS's public address.
-  The bastion should publish in host mode on its own pinned host, or the
-  VPS firewall the ports ([platform.md](../../platform.md), "Constraints
-  and pitfalls");
-- both hosts up for the whole aging (D114).
+  The bastion publishes in host mode on its own pinned host, or the VPS
+  firewalls the ports (proposed: host mode, which needs no host
+  configuration; [platform.md](../../platform.md), "Constraints and
+  pitfalls").
 
 ## The hosts at hand
 
 - **armenelos**: 11 GB of memory, about 5.4 GB available on 2026-10-22.
   v0.2's `fernway-clinics-monitoring` was sized for 2 CPU / 4G / 8G.
-- **the VPS** (`ssh vps`), on the same tailnet: capacity to declare at
+- **the VPS** (`ssh vps`), on the same tailnet: capacity declared at
   setup.
 
 v0.3 adds to a v0.2-sized game: two or three scheduler nodes (about 128M
-each, proposed), PgBouncer when used (small, [pgbouncer.md](pgbouncer.md)),
-and a busier database. A single-host v0.3 game is expected to fit in
-about 5G (to measure). Two days of aging occupy the host the whole
-time.
+each), PgBouncer (small, [pgbouncer.md](pgbouncer.md)), and a busier
+database. A single-host v0.3 game is expected to fit in about 5G (to
+measure). Two days of aging occupy the host the whole time.
 
 ## Footprint to measure
 
 As v0.2 did (D82): the v0.3 scenario's footprint measured on a running
-game, plus, new, its volumes' growth over a full aging and a four-hour
-game (logs, WAL, TSDB, tables), declared in the bricks' footprints and
-counted by `fit` ([aging-and-timeline.md](aging-and-timeline.md),
-"Disk over the aging").
+game, plus its volumes' growth over the full aged run of the release
+gate (D135) and a four-hour game (logs, WAL, TSDB, tables), and the
+hand-over snapshot's size, declared in the bricks' footprints and counted
+by `fit` ([aging-and-timeline.md](aging-and-timeline.md), "Disk over
+the aging").
 
 ## Open points
 
-O46 (multi-host in v0.3), O10 (registry pattern), O88 (load control),
-O95 (`max_connections`), O83 (playgrounds not up for two days).
+O10 (registry pattern, to verify), O100 (the GM's connection reserve).

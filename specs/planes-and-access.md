@@ -1,6 +1,6 @@
 # Planes, access and rules
 
-Status: draft v13
+Status: draft v14
 
 Who may reach what, what the player may change, how the rules are checked,
 and what is left to trust. At consolidation this document feeds the access
@@ -118,8 +118,14 @@ Producers and consumers are scheduler nodes
 ([versions/v0.3/scheduler.md](versions/v0.3/scheduler.md)). The players
 read the node's query repository and may edit it where the scenario
 allows; of the scheduling they read and change only the batch and
-fixed-time operations, never the continuous traffic (D116). What else
-they see there, and whether write policy becomes per file: O87.
+fixed-time operations, never the continuous traffic (D116). They also
+read the scheduler's log and its configuration, except `schedule.yaml`,
+which is root-only (D130).
+
+From v0.3 a write policy may be set per file: the node's policy is the
+default, and a scenario may make some of its writable files fixable, a
+scheduler's repository on an otherwise report-only node for example
+(D130; format: O99).
 
 ### Credentials and the way in (D31)
 

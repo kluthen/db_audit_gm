@@ -66,12 +66,17 @@ holds ([scenario-lifecycle.md](scenario-lifecycle.md), "Hand-over").
   explicit confirmation only, never on a passing comment (D110). A
   restart rebuilds the game from scratch: every node shut down, the game
   data destroyed, fresh nodes started, the game set up again, and the
-  replayed game may differ (D123). What it does with the aged history
-  and the rest of the mechanics: O81, O84
+  replayed game may differ (D123). It starts from the hand-over
+  snapshot where the disk allows; otherwise the restarted game has no
+  history, and the GM names the evidence lost before the players
+  confirm. The players' credentials are kept, the game id renewed
+  (D126). The rest of the mechanics: O81
   ([v0.3](versions/v0.3/aging-and-timeline.md), "Restart").
 - **No events outside the schedule** (D117, from v0.3): the GM plants no
   random events and never touches the load; producers and consumers
-  follow their schedules. Whether anyone may pause or trigger load: O88.
+  follow their schedules. Nobody, GM or player, pauses, speeds up or
+  triggers the load during a game, not even for the final checks
+  (D131).
 
 ## Sessions and restarts
 

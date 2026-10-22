@@ -36,10 +36,11 @@ Which technology fills each role is decided version by version (O11).
 Every part of the pipeline has a version. What has no version yet, and may
 be needed for v1.0, is put to the owner:
 
-- **Multi-host and the registry** (O46). v0.1 runs on one host and
+- **Multi-host and the registry** (O46, resolved by D128). v0.1 runs on one host and
   deferred both. A full pipeline with monitoring may not fit one laptop,
-  and classroom swarms were a hosting target from the start. Proposed
-  for v0.3 (D122).
+  and classroom swarms were a hosting target from the start. v0.3 brings
+  multi-host (D128); classroom swarms of student laptops wait for aged
+  volumes to be copied to them (D125, O22).
 - **Generating scenarios** (O47). The GM designing a scenario from a
   partial or empty brief and filling the blanks is settled as a capability
   (D16) but placed in no version; v0.5 prepares for it (topology fragments,

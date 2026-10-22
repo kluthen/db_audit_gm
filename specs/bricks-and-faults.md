@@ -97,7 +97,8 @@ runs (badly configured cron job or similar).
 The initiator's brief may impose a list of incidents and say whether the GM may
 add more. Difficulty is a fault count: each fault is worth 1, an easy
 game scores 5, a normal one 10, a hard one 20; a scoring system for the
-players is post-v1.0 (D120; reading for v0.3: O91). The mix of faults,
+players is post-v1.0 (D120); a score is the number of fault instances, the levels
+targets (D134). The mix of faults,
 and whether an issue may be a false alarm: O23.
 
 ### Tooling proportionate to the topology (D65)

@@ -23,8 +23,8 @@ Never use an existing production swarm to host or test games (proposed).
 **v0.1 runs on one host** (D35): every node on the manager the GM targets
 (local, or reached over SSH), local images, no registry. If that host is
 not yet a swarm, the GM runs `docker swarm init` there, or guides the user
-to. Multi-host swarms, the registry, per-host SSH contexts and remote swarm
-creation below apply from later versions.
+to. Multi-host swarms, the registry and per-host SSH contexts below apply
+from v0.3 (D128); remote swarm creation from a later version.
 
 Docker Swarm is the starting platform; the project must stay adaptable
 (D12; see "Portability" below). Swarm is the selected platform; Kubernetes
@@ -33,9 +33,11 @@ is future work (D122).
 What a game may use is for the GM and the initiator to discuss; a game
 lasts at most four hours, and the minimum capacity may rise as versions
 add load, which is what a multi-host swarm is for (D122). Armenelos and
-the VPS (`ssh vps`) share a Tailscale network, so a two-host swarm is
-available to test multi-host (O46). From v0.3 the playground's hosts must
-also stay up through two days of aging (D114; O83).
+the VPS (`ssh vps`) share a Tailscale network: v0.3 brings multi-host
+and tests it on that pair, the default game staying single-host (D128).
+From v0.3 the playground's hosts must also stay up through two days of
+aging, so v0.3 games run on always-on hosts; a classroom swarm of
+student laptops waits for a later version (D114, D125).
 
 - **Multi-host swarms use Linux hosts only** (D12). Docker Desktop's engine
   runs in a NAT'd VM, and Docker documents swarm mode on Docker Desktop as

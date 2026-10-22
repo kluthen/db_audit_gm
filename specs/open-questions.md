@@ -8,9 +8,12 @@ in [archive/v0.1/open-questions-resolved.md](archive/v0.1/open-questions-resolve
 their IDs keep their meaning. Questions resolved by the close of v0.2
 (O13, O50, O51 and O56–O77) are listed in
 [archive/v0.2/open-questions-resolved.md](archive/v0.2/open-questions-resolved.md).
-Numbering continues from O98.
+Numbering continues from O102.
 
-Resolved since v0.2 closed: O45 (D121).
+Resolved since v0.2 closed: O45 (D121), O46 (D128), O78 (D140), O82
+(D124), O83 (D125), O84 (D126), O85 (D127), O86 (D129), O87 (D130), O88
+(D131), O89 (D132), O90 (D133), O91 (D134), O92 (D135), O93 (D136), O94
+(D137), O95 (D138), O96 (D139), O97 (D140).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -33,7 +36,8 @@ for the next version (v0.1 until it closed, with none left open);
 
 - **O10** (later, research) — Mostly answered in
   [platform.md](platform.md). Still unverified: numeric-only uid/gid in
-  config mounts, the cross-host `127.0.0.1:5000` registry pattern, SSH
+  config mounts, the cross-host `127.0.0.1:5000` registry pattern (to
+  verify in v0.3's build, D128), SSH
   Docker contexts into Windows or macOS machines. To test when v0.1 is
   built.
 - **O11** (later) — Which technology fills each v1.0 role beyond v0.2's
@@ -62,14 +66,16 @@ for the next version (v0.1 until it closed, with none left open);
 - **O21** (later) — Can the starter documentation contain deliberate
   inaccuracies as faults, decided per scenario?
 - **O22** (later, beyond v0.3) — Aging technique. v0.3 ages in real time
-  only, with no sped-up clock and no forged history (D114). Still open:
-  whether a later version brings back forged history or a sped-up clock
-  (generated scenarios, restarts, playgrounds that cannot stay up two
-  days; O83, O84), and time compression during the game (O89 for v0.3).
+  only, with no sped-up clock, no forged history and no time compression
+  (D114, D132), on always-on hosts (D125). Still open: which version
+  copies aged volumes to a class's hosts (D125), and whether a later
+  version brings back forged history, a sped-up clock or time
+  compression (generated scenarios, restarts).
   Refs: [scenario-lifecycle.md](scenario-lifecycle.md),
   [versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md).
 - **O23** (later) — Difficulty is a fault count, each fault worth 1 (easy
-  5, normal 10, hard 20; D120); its reading for v0.3 is O91. Still open:
+  5, normal 10, hard 20; D120), read for v0.3 as the number of fault
+  instances, the levels being targets (D134). Still open:
   how many faults issues cover, the mix of families, and may an issue be
   a false alarm (a complaint with no fault behind it)? Refs:
   [bricks-and-faults.md](bricks-and-faults.md).
@@ -78,21 +84,6 @@ for the next version (v0.1 until it closed, with none left open);
 - **O25** (later) — Scenario-only bricks and faults may live in the
   scenario's folder (D24). Can they be promoted into the catalog, and
   through which review?
-- **O78** (soon, v0.3) — `where` means two things in v0.2. D101 makes the
-  answer key's evidence `where` a location from a fixed set and moves
-  v0.1's free text to `source`; `fault.yaml`'s `evidence[]` keeps v0.1's
-  free-text `where` (the wave driver's resolution of capture W1). Options:
-  (a) leave it; (b) move `fault.yaml`'s text to `source` and give its
-  `where` the location set, with `node` meaning the fault's target node
-  (a fault knows no topology), in a later chunk or version. Recommended:
-  (b) in v0.3's first format change: a GM copying a fault's
-  evidence into an answer key copies a free-text `where` the loader then
-  refuses; the loader catches it, so it blocks nothing in v0.2, and a
-  v0.2 chunk for it would reopen chunks 1 and 2 mid-wave. Still to settle
-  under (b): which of `ui:<name>` and `report:<tool>` a fault may name,
-  since it cannot know the routes. Refs: [formats.md](formats.md),
-  [versions/v0.2/wave-log.md](versions/v0.2/wave-log.md) capture W1 item
-  9, `.claude/skills/scenario-format/templates/fault.yaml`.
 
 ## Game and feedback
 
@@ -104,7 +95,7 @@ for the next version (v0.1 until it closed, with none left open);
 - **O30** (later) — How long may design, deployment and probes take
   before a class? Aging alone takes at least two full days (D114), so it
   starts two days before the class at the latest; playgrounds that cannot
-  stay up that long are O83.
+  stay up that long wait for a later version (D125).
 - **O31** (later) — Are player actions on nodes recorded (shell history,
   audit trail) to help the GM's feedback?
 - **O32** (later) — Language of player-facing material (story, starter
@@ -125,112 +116,60 @@ for the next version (v0.1 until it closed, with none left open);
   the node resets D19 and D48 leave beyond v1.0, which stay there.
   Settled since (D123): every node shut down, the game data destroyed,
   fresh nodes, the game set up again, the replay possibly different; so
-  the data load and the faults are redone. Recommended for the rest: the
-  players' credentials kept, the game id renewed (D36). What a restart
-  does to the aged history: O84. Refs:
+  the data load and the faults are redone; the hand-over snapshot
+  restored where the disk allows, else no history; the players'
+  credentials kept, the game id renewed (D126). Still open: who may
+  confirm, what the GM restates first, how the restart is recorded,
+  and its place in the access model. Recommended: any player in the GM
+  session may confirm, in so many words, after the GM states that the
+  game's state and the players' changes are lost and, without a
+  snapshot, which evidence is lost; the local implementation records
+  each restart (old and new game id, time, snapshot or not); the access
+  model lists it as a confirmed operation beside `stop`. Refs:
   [versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md)
   "Restart", [gm-stance.md](gm-stance.md).
 
 ## v0.3: producers, consumers and aging
 
-Raised when v0.3's drafting opened (2026-10-22). Refs are in
+Raised while v0.3 is drafted. O82 to O97, raised when the drafting
+opened, were all answered on 2026-10-22 (D124–D140). Refs are in
 [versions/v0.3/](versions/v0.3/README.md).
 
-- **O82** (next, v0.3) — How sealed checks, validators and the smoke
-  tests judge "present" and "fixed" while the load runs (drift, jitter,
-  lagging counters, checks refused under connection exhaustion).
-  Proposed: judge the cause, not the symptom, where it is checkable;
-  behavioural checks over a stated trailing window from stable counters;
-  a new exit code for "too soon to tell"; the GM's checks never pause the
-  load and always get a connection. Refs: checks-under-load.md.
-- **O83** (next, v0.3) — Real-time aging needs the hosts up for two days
-  before the game. A classroom swarm of the students' laptops is not
-  there, and a stateful node's volumes live on one host. Options: (a)
-  v0.3 games run on always-on hosts only, classroom swarms wait; (b) age
-  on always-on hosts, then move the volumes to the class's hosts at
-  hand-over (a stop and a copy, the restart snapshot's machinery); (c)
-  the class's hosts join two days early. Refs: aging-and-timeline.md,
-  [platform.md](platform.md) "Hosting".
-- **O84** (next, v0.3) — What a restart (D123) does with the aged
-  history: (a) the restarted game has only the history since the
-  restart, the GM naming the evidence lost before confirmation; (b) it
-  re-ages, a postponement; (c) a hand-over snapshot of every volume,
-  restored on restart, with a gap the story calls maintenance (disk
-  cost; a short stop or per-brick online copies at hand-over). Refs:
-  aging-and-timeline.md "Restart".
-- **O85** (next, v0.3) — May a scenario's timeline change something at a
-  fixed moment during aging (plant a fault, switch a key to a faulty
-  query, raise a rate), written at design time, or is everything set at
-  the start of aging? Never during the game (D117). Refs: scheduler.md
-  "The schedule", aging-and-timeline.md "Faults during aging".
-- **O86** (soon, v0.3) — Traffic shapes and fixed-time operations follow
-  the UTC wall clock (D81), so a scenario designed for a morning class
-  shows night-time load to an evening one. Options: (a) the wall clock
-  as written, the GM designing for the class's hour; (b) the local
-  implementation shifts the whole schedule by whole hours so the game
-  window gets the designed load, every clock staying real UTC and the
-  story naming the customer's time zone. Refs: scheduler.md.
-- **O87** (soon, v0.3) — What players see on a scheduler node beyond the
-  repository and `jobs.yaml` (D116): its log (runs, errors, per-key
-  summaries), its configuration other than the schedule, its metrics;
-  and whether write policy becomes per file (repository fixable, node
-  report-only). For the access model. Refs: scheduler.md "What the
-  players reach".
-- **O88** (soon, v0.3) — Confirm: during the game nobody, GM or player,
-  pauses, speeds up or triggers the load, not even for the final checks;
-  the players' only lever is moving a fixed-time operation, with no
-  "run now". Refs: load-and-capacity.md "Load control".
-- **O89** (soon, v0.3) — Time compression (a "daily" job every few
-  minutes during the game) in v0.3? Proposed: none; the aging gives every
-  daily job two runs, and players verify a fix to a job by moving its
-  time (D116). Refs: scheduler.md "Fixed-time operations".
-- **O90** (soon, v0.3) — The repository's semantics: is `key -> [queries]`
-  a pool (one picked per call; proposed) or a sequence; and a builder the
-  players may edit is code run by the scheduler's account (accepted on
-  the trust line, proposed)? Refs: scheduler.md "The query repository".
-- **O91** (soon, v0.3) — v0.3's scenario and faults: one new scenario
-  (proposed: normal difficulty, ten faults, producers, consumers,
-  monitoring, PgBouncer); which candidate faults join the catalog; the
-  difficulty reading (score = fault instances, tooling expectations not
-  counted, levels as targets: `bookshop-new-server` scores 6, `fernway`
-  8). Refs: faults-with-activity.md.
-- **O92** (soon, v0.3) — Does the release gate need one full aged run
-  (two days of host time) of the v0.3 scenario, played as `player`?
-  Proposed: yes, once; smoke tests run short. Refs: checks-under-load.md.
-- **O93** (soon, v0.3) — Randomness seeded, the seed recorded per game in
-  the local implementation; a restart takes a new one (the replay may
-  differ, D123). Proposed. Refs: scheduler.md.
-- **O94** (soon, v0.3) — A pluggable driver in the scheduler, SQL on
-  PostgreSQL first, so v0.5's targets (D118) add a driver, not a format.
-  Proposed. Refs: scheduler.md "Drivers".
-- **O95** (soon, v0.3) — `max_connections`: keep the `postgres` brick's
-  default at 100, scenarios setting low values within the 10–200
-  envelope (the driver's proposal), or lower the default? Refs:
-  load-and-capacity.md.
-- **O96** (soon, v0.3) — PgBouncer: metrics through a
-  `pgbouncer_exporter` brick or none in v0.3; the players' console role
-  (`stats_users` only, proposed); write policy per scenario. Refs:
-  pgbouncer.md.
-- **O97** (soon, v0.3) — Which carried items v0.3 takes: report-only
-  monitoring nodes (D108), O78's option (b), RG-2, RG-3, Prometheus
-  retention covering the aged history, the format's aging items.
-  Proposed: all. Refs: carried-items.md.
+- **O98** (soon, v0.3) — How the hand-over snapshot (D126) is taken.
+  Options: (a) every node stopped briefly at hand-over and its volumes
+  copied: simple, but a second visible gap, just before the game; (b)
+  per-brick online copies: `pg_basebackup` for `postgres`, Prometheus'
+  TSDB snapshot (its admin API on, reachable from the node's own shell),
+  a plain copy for seed-only volumes; one gap only, at the restart.
+  Recommended: (b), each brick declaring how its volumes are copied, (a)
+  for a brick that declares nothing; `fit` counting the copies' disk, and
+  the GM falling back to D126's no-history restart when they do not fit.
+  Refs: aging-and-timeline.md "Restart".
+- **O99** (soon, v0.3) — The per-file write policy (D130) in the format.
+  Recommended: the node's `write_policy` stays its default, and a
+  scenario may set `fixable` on paths the brick lists as writable
+  (`write_overrides: [queries.yaml, builders/, jobs.yaml]`); a fault's
+  `fix` resolution then needs the policy of the file the fault lives in,
+  which the loader checks. Applies to every brick, the scheduler first.
+  Alternative: a scheduler-only parameter. Refs: format-changes.md.
+- **O100** (later, v0.3) — A connection reserve of the GM's own
+  (D124): PostgreSQL's `reserved_connections` with a check role holding
+  `pg_use_reserved_connections`, pinned on the server's command line by
+  the brick so no configuration file overrides it. Without it the GM
+  shares `superuser_reserved_connections` with the players' `dba`.
+  Recommended: yes, in `postgres`'s v0.3 bump; the players can still
+  exhaust it as `dba`, on the trust line. Refs: checks-under-load.md.
+- **O101** (later, v0.3) — Under O78's option (b) (D140), which locations
+  a `fault.yaml` evidence may name. Recommended: `node` (its target node)
+  and `report:<tool>` for a tool the target's brick ships; `bastion`; no
+  `ui:<name>`, whose routes only the scenario knows, so the answer key
+  adds those. Refs: carried-items.md.
 
 ## Roadmap: gaps and cross-version risks
 
 Raised with the roadmap (D47). The tag after the priority is the version
 the question concerns.
 
-- **O46** (soon, v0.3) — Multi-host and the registry were deferred from
-  v0.1; v0.2 runs on one host (D83). Multi-host is available (D122:
-  Swarm, Tailscale on armenelos and the VPS). The driver's proposal:
-  multi-host moves into v0.3, with per-node placement, a registry every
-  host reaches, `fit` per host, tested on armenelos and the VPS; the
-  default game stays single-host while its load fits. Risks: VXLAN over
-  Tailscale's MTU, the routing mesh publishing the bastion on the VPS's
-  public address. Refs:
-  [versions/v0.3/load-and-capacity.md](versions/v0.3/load-and-capacity.md),
-  [platform.md](platform.md).
 - **O47** (later, v1.0) — Which version brings scenario generation: the GM
   designing from a partial or empty brief and filling the blanks (D16)?
   v0.5 prepares for it without naming it. Refs:

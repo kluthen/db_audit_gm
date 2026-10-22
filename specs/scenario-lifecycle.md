@@ -107,15 +107,20 @@ history that would have to be forged. The v0.3 timeline, what
 "meaningful" means and the consequences (hosts up for two days, disk
 growth, Prometheus retention, restarts) are in
 [versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md).
+v0.3 games run on always-on hosts, which stay up for the whole aging
+(D125); the schedule is shifted by whole hours so the game window gets
+the load it was designed for (D129).
 
 Each fault instance states how long its evidence takes to appear: its
 aging minimum ([formats.md](formats.md)). v0.1 and v0.2 have no aging:
 with no load, history builds during the game (D83).
 
-Still open beyond v0.3 (O22): whether forged history or a sped-up clock
-ever return, and time compression during the game, which is visible (a
-crontab reading `*/5` for a "daily" backup is itself something an auditor
-would flag) and collides with schedule faults (O89 for v0.3).
+v0.3 has no time compression either (D132): players verify a fix to a
+daily job by moving its time. Time compression is visible (a crontab
+reading `*/5` for a "daily" backup is itself something an auditor would
+flag) and collides with schedule faults. Still open beyond v0.3 (O22):
+whether forged history, a sped-up clock or time compression ever return,
+and which version copies aged volumes to a class's hosts (D125).
 
 ## Hand-over: the starter pack
 

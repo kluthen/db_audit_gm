@@ -8,7 +8,7 @@ intent (D1). To resume cold: read this page, then
 Phase: **v0.1 released** on 2026-10-21 and merged into `main`
 (3c852e1); its working record is archived in
 [archive/v0.1/](archive/v0.1/README.md) (master spec approved under the
-owner's delegation to the lead, D44). **v0.2 released** on 2026-10-22: built from its [build plan](archive/v0.2/build-plan.md) (D99) in four waves, release gate passed, G10 and G11 cleared (D109), release notes in [versions/v0.2/README.md](versions/v0.2/README.md); merging into `main` on the owner's word; its working record is archived in [archive/v0.2/](archive/v0.2/README.md). **v0.3's drafting opened** on 2026-10-22 on branch `v0.3-spec`: seven draft documents in [versions/v0.3/](versions/v0.3/README.md), the owner's rulings D114–D123, questions O82–O97; no master spec until the owner says the drafts are ready. v0.4 to v0.6 and v1.0 in drafting. Conventions:
+owner's delegation to the lead, D44). **v0.2 released** on 2026-10-22: built from its [build plan](archive/v0.2/build-plan.md) (D99) in four waves, release gate passed, G10 and G11 cleared (D109), release notes in [versions/v0.2/README.md](versions/v0.2/README.md); merging into `main` on the owner's word; its working record is archived in [archive/v0.2/](archive/v0.2/README.md). **v0.3's drafting opened** on 2026-10-22 on branch `v0.3-spec`: eight draft documents in [versions/v0.3/](versions/v0.3/README.md), the owner's rulings D114–D140 (O82–O97 answered), questions O81 and O98–O101 open; no master spec until the owner says the drafts are ready. v0.4 to v0.6 and v1.0 in drafting. Conventions:
 settled items are stated as fact, tentative ones are tagged `(proposed)`,
 and every open point cites an `O` ID. Every `(proposed)` item awaits the
 owner's confirmation; the register lists the ones with real alternatives.
@@ -19,15 +19,15 @@ owner's confirmation; the register lists the ones with real alternatives.
 |---|---|---|
 | [concept.md](concept.md) | Purpose, actors, vocabulary, scope, versions, prior art | draft v8 |
 | [versions/](versions/README.md) | The roadmap: v0.1 to v0.6, v1.0 and beyond, one page per version; v0.1's [master spec](versions/v0.1/master-spec.md), [access model](versions/v0.1/access-model.md) and [wave log](versions/v0.1/wave-log.md) | v0.1 released and archived; v0.2 released 2026-10-22 and archived: [master spec](versions/v0.2/master-spec.md), [access model](versions/v0.2/access-model.md), [wave log](versions/v0.2/wave-log.md), build plan archived; v0.3 drafting (below); v0.4–v0.6 and v1.0 draft |
-| [versions/v0.3/](versions/v0.3/README.md) | v0.3's drafts: [scheduler](versions/v0.3/scheduler.md), [aging and timeline](versions/v0.3/aging-and-timeline.md), [load and capacity](versions/v0.3/load-and-capacity.md), [faults with activity](versions/v0.3/faults-with-activity.md), [checks under load](versions/v0.3/checks-under-load.md), [PgBouncer](versions/v0.3/pgbouncer.md), [carried items](versions/v0.3/carried-items.md) | drafts v1; page draft v2 |
+| [versions/v0.3/](versions/v0.3/README.md) | v0.3's drafts: [scheduler](versions/v0.3/scheduler.md), [aging and timeline](versions/v0.3/aging-and-timeline.md), [load and capacity](versions/v0.3/load-and-capacity.md), [faults with activity](versions/v0.3/faults-with-activity.md), [checks under load](versions/v0.3/checks-under-load.md), [PgBouncer](versions/v0.3/pgbouncer.md), [carried items](versions/v0.3/carried-items.md), [format changes](versions/v0.3/format-changes.md) | drafts v1–v2; page draft v3 |
 | [gm-stance.md](gm-stance.md) | How the GM behaves and speaks: setup questions, issues, report-only interaction, no reveals, stop only, restarts, no events outside the schedule, final answer, feedback tone, future ideas | draft v9 |
 | [scenario-lifecycle.md](scenario-lifecycle.md) | The game from setup to teardown: setup inputs, scenario, local implementation, deploy, aging (real time from v0.3), hand-over, end of the game | draft v11 |
 | [formats.md](formats.md) | What a scenario folder, a brick (with its companion material and GM documentation) and a fault definition must contain; versions and pins; the local implementation; the skills and templates | draft v16 |
 | [bricks-and-faults.md](bricks-and-faults.md) | Catalog, v0.2's monitoring bricks, per-brick checks, proportionate tooling, solvability probe, fault interactions and families, difficulty, future backup-tooling faults | draft v9 |
-| [planes-and-access.md](planes-and-access.md) | Bastion-only rule (the bastion publishes the web interfaces), planes, the GM session, trust, write policies, the scheduler nodes, hardening, validators | draft v13 |
+| [planes-and-access.md](planes-and-access.md) | Bastion-only rule (the bastion publishes the web interfaces), planes, the GM session, trust, write policies, the scheduler nodes, hardening, validators | draft v14 |
 | [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls | draft v15 |
 | [open-questions.md](open-questions.md) | Open-questions register | live |
-| [decisions.md](decisions.md) | Decisions log, D107 onward (D123 last); D1–D54 archived with v0.1, D55–D106 with v0.2 | live |
+| [decisions.md](decisions.md) | Decisions log, D107 onward (D140 last); D1–D54 archived with v0.1, D55–D106 with v0.2 | live |
 | [archive/](archive/README.md) | Closed milestones' working records, kept verbatim: v0.1's and v0.2's build plans, decisions D1–D54 and D55–D106, resolved questions | archive |
 
 History: the tree was seeded on 2026-10-20 from the owner's pre-spec notes,
@@ -103,7 +103,7 @@ access model.
   v0.4 transformers, v0.5 research and broadening, v0.6 the bastion as
   the players' main activity point, then v1.0; beyond v1.0,
   other databases and tools, customer role-play and hints (D48). Gaps and
-  risks: O46–O49, O52–O54. Brick options, `postgres` first, are a v0.5
+  risks: O47–O49, O52–O54 (O46 resolved by D128). Brick options, `postgres` first, are a v0.5
   topic; v0.2 stays as built (D107; O79, O80).
 - v0.2, ruled on 2026-10-21 (D63–D70): the owner's `bluebox-lab` is the
   reference and per-node health the gap; free tools, one brick per need,
@@ -157,7 +157,16 @@ access model.
   `ALTER SYSTEM` on report-only databases on the trust line (D121, closes
   O45); capacity discussed with the initiator, Swarm the platform,
   Tailscale between armenelos and the VPS (D122); a restart rebuilds the
-  game from scratch (D123).
+  game from scratch (D123). The owner's answers to O82–O97 (D124–D140):
+  checks judge the cause first, a window otherwise, never pause the load
+  (D124); always-on hosts (D125); a hand-over snapshot for restarts
+  (D126); timeline changes during aging only (D127); multi-host in v0.3
+  (D128); the schedule shifted by whole hours (D129); scheduler log
+  visible, write policy per file (D130); nobody touches the load (D131);
+  no time compression (D132); repository semantics (D133); one new normal
+  scenario and six to eight faults (D134); a full aged run at the release
+  gate (D135); seed, driver, `max_connections` (D136–D138); no PgBouncer
+  metrics brick (D139); every carried item (D140).
 - Small project: scripts and small apps, no ATD, no UI/UX tree (D2).
 - v0.1 build: seven artifacts (three skills, a Python/POSIX-shell script
   set, PostgreSQL 18 on Debian 13 and bastion bricks, one scenario), one
@@ -168,8 +177,8 @@ access model.
 
 ## Next steps
 
-1. v0.3: the owner's answers to O82–O97 (the "next" ones first: O82
-   to O85), with O46, O81 and the narrowed questions; then the drafts'
-   next versions. Consolidation only on the owner's word.
+1. v0.3: the owner's review of the drafts' remaining `(proposed)`
+   items, and answers to O81 and O98–O101; then consolidation into the
+   master spec and its access model, on the owner's word only.
 2. The other "soon" question, O49 (backup tooling's version), then
    v1.0's from the "later" ones.
