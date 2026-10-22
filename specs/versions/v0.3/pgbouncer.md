@@ -1,6 +1,11 @@
 # v0.3 — the PgBouncer brick
 
-Status: draft v2
+Status: draft v2, consolidated
+
+Consolidated into the [master spec](master-spec.md) and its [access
+model](access-model.md) on 2026-10-22; its `(proposed)` items were accepted
+as proposed (D146). Kept as v0.3's working record until the milestone is
+archived; where it and the master spec differ, the master spec wins.
 
 A PgBouncer brick joins the catalog in v0.3, optional in any scenario,
 used when the GM's design needs it (D119), with no metrics brick and the

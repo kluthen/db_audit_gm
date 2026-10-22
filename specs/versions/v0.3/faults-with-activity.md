@@ -1,6 +1,11 @@
 # v0.3 — faults that need activity, and difficulty
 
-Status: draft v3
+Status: draft v3, consolidated
+
+Consolidated into the [master spec](master-spec.md) and its [access
+model](access-model.md) on 2026-10-22; its `(proposed)` items were accepted
+as proposed (D146). Kept as v0.3's working record until the milestone is
+archived; where it and the master spec differ, the master spec wins.
 
 The fault families a running load makes possible, the faults the
 scheduler and PgBouncer bring, what difficulty means, and v0.3's

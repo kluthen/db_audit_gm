@@ -1,6 +1,11 @@
 # v0.3 — the scheduler and the query repository
 
-Status: draft v3
+Status: draft v3, consolidated
+
+Consolidated into the [master spec](master-spec.md) and its [access
+model](access-model.md) on 2026-10-22; its `(proposed)` items were accepted
+as proposed (D146). Kept as v0.3's working record until the milestone is
+archived; where it and the master spec differ, the master spec wins.
 
 How producers and consumers work in v0.3: one brick that is mostly a
 scheduler, running queries the GM wrote at design time. Settled: the

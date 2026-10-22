@@ -1,24 +1,27 @@
 # v0.3 — producers and consumers
 
-Status: drafting (page draft v4). No master spec: it is consolidated only
-when the owner says the drafts are ready. The owner's rulings of
-2026-10-22 are D114–D123, and his answers to two rounds of questions
-D124–D145; no v0.3 question is open. What remains is the owner's review
-of the `(proposed)` items, gathered in [review-list.md](review-list.md).
+Status: **consolidated on 2026-10-22** into the [master spec](master-spec.md)
+and its [access model](access-model.md), awaiting an independent review
+and the owner's approval (page draft v5). The owner's rulings of
+2026-10-22 are D114–D123, his answers to two rounds of questions
+D124–D145, and his acceptance of the review list D146; no v0.3 question
+is open. No build plan yet: it follows the owner's approval.
 
-## Drafts
+## Documents
 
 | Document | Purpose | Status |
 |---|---|---|
-| [scheduler.md](scheduler.md) | The scheduler brick, the query repository, the schedule, fixed-time operations, what the players reach, drivers | draft v3 |
-| [aging-and-timeline.md](aging-and-timeline.md) | Real-time aging, "meaningful" days, time of day, the timeline from deployment to teardown, the restart | draft v3 |
-| [load-and-capacity.md](load-and-capacity.md) | Calibrating load, `max_connections`, load control, always-on hosts, several hosts, the hosts at hand | draft v3 |
-| [faults-with-activity.md](faults-with-activity.md) | Difficulty, v0.3's scenario, fault families that need activity, candidate faults | draft v3 |
-| [checks-under-load.md](checks-under-load.md) | Sealed checks, validators and smoke tests on a living system | draft v3 |
-| [pgbouncer.md](pgbouncer.md) | The PgBouncer brick | draft v2 |
-| [carried-items.md](carried-items.md) | Earlier rulings and known issues landing in v0.3 | draft v3 |
-| [format-changes.md](format-changes.md) | Every change to the formats, script contracts, local implementation and `gmctl` | draft v2 |
-| [review-list.md](review-list.md) | Every `(proposed)` item, for the owner's review in one pass | live |
+| [master-spec.md](master-spec.md) | The consolidated v0.3 specification | consolidated, awaiting review and approval |
+| [access-model.md](access-model.md) | Who may do what in a v0.3 game | consolidated, awaiting review and approval |
+| [scheduler.md](scheduler.md) | The scheduler brick, the query repository, the schedule, fixed-time operations, what the players reach, drivers | draft v3, consolidated |
+| [aging-and-timeline.md](aging-and-timeline.md) | Real-time aging, "meaningful" days, time of day, the timeline from deployment to teardown, the restart | draft v3, consolidated |
+| [load-and-capacity.md](load-and-capacity.md) | Calibrating load, `max_connections`, load control, always-on hosts, several hosts, the hosts at hand | draft v3, consolidated |
+| [faults-with-activity.md](faults-with-activity.md) | Difficulty, v0.3's scenario, fault families that need activity, candidate faults | draft v3, consolidated |
+| [checks-under-load.md](checks-under-load.md) | Sealed checks, validators and smoke tests on a living system | draft v3, consolidated |
+| [pgbouncer.md](pgbouncer.md) | The PgBouncer brick | draft v2, consolidated |
+| [carried-items.md](carried-items.md) | Earlier rulings and known issues landing in v0.3 | draft v3, consolidated |
+| [format-changes.md](format-changes.md) | Every change to the formats, script contracts, local implementation and `gmctl` | draft v2, consolidated |
+| [review-list.md](review-list.md) | Every `(proposed)` item, for the owner's review in one pass | closed: all accepted (D146) |
 
 ## Goal
 
@@ -121,7 +124,7 @@ In the owner's words (D47):
 - A scoring system (post-v1.0, D120).
 - Kubernetes (future work; portability stays a requirement, D22, D122).
 
-## Definition of done (proposed)
+## Definition of done (accepted, D146; master spec section 17)
 
 1. The `scheduler` and `pgbouncer` bricks at 0.1.0, with their GM
    documentation, validators and footprints measured; the bricks that

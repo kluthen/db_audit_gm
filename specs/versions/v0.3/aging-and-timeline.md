@@ -1,6 +1,11 @@
 # v0.3 — aging in real time, and the game timeline
 
-Status: draft v3
+Status: draft v3, consolidated
+
+Consolidated into the [master spec](master-spec.md) and its [access
+model](access-model.md) on 2026-10-22; its `(proposed)` items were accepted
+as proposed (D146). Kept as v0.3's working record until the milestone is
+archived; where it and the master spec differ, the master spec wins.
 
 How a v0.3 game gets its history, and the moments from deployment to
 teardown. Settled: real-time aging (D114), always-on hosts (D125), the

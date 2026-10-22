@@ -16,7 +16,7 @@ README:
 Archived IDs keep their meaning and are cited as they are. D107 onward
 stay live: rulings still to be applied in a later version (D107, D108,
 D110, D113), the v0.2 release close, and v0.3's drafting from D114.
-Numbering continues from D146; no ID is reused.
+Numbering continues from D147; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -222,3 +222,10 @@ Numbering continues from D146; no ID is reused.
   `ui:<name>`, the answer key adds routes. Closes O101. Now in:
   [versions/v0.3/format-changes.md](versions/v0.3/format-changes.md),
   [versions/v0.3/carried-items.md](versions/v0.3/carried-items.md).
+- **D146 (2026-10-22, owner ruling on the v0.3 review list, relayed by
+  the wave driver): Every item of the review list, R1–R46, is accepted as
+  proposed; v0.5 adjusts them after use.** The owner: "globally i'm okay
+  with what's proposed, we shall see in v0.5 if adjustment need to be
+  made". Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md),
+  [versions/v0.3/review-list.md](versions/v0.3/review-list.md),
+  [versions/v0.5/README.md](versions/v0.5/README.md).

@@ -1,6 +1,6 @@
 # Concept
 
-Status: draft v8
+Status: draft v9
 
 What the project is, who it is for, the words we use, and what is in and out
 of scope. Mechanics live in the other topic documents (see
@@ -78,12 +78,29 @@ hence the host/node split.
 | **Player** | Whoever plays one game and hands in its report |
 | **Plane** | One of the infrastructure, scenario and player planes |
 | **Knob** | A setting the player may change, with its bounds (the *envelope*) |
-| **Write policy** | Per node: *fixable*, *report-only* or *no access* |
+| **Write policy** | Per node: *fixable*, *report-only* or *no access*; from v0.3 refined per file by write overrides |
 | **Public validator** | A per-node check the player can run: are the rules respected |
 | **Sealed check** | A GM-side check of the answer key (fault fixed or not) |
 | **Evidence path** | Where a player, with their own rights, can see a fault |
 | **Solvability probe** | A check, run as the player user, that a hidden fault's evidence is reachable |
-| **Aging** | Making faults leave traces: pre-aging, forged history, time compression |
+| **Aging** | Making faults leave traces. From v0.3: running the system in real time before hand-over, at least two full days, nothing else (D114, D132) |
+| **Aging minimum** | How long the system must run before hand-over: at least 48 hours for a scenario; per fault, how long its evidence takes |
+| **Scenario time** | The clock a scenario's schedules are written in; the local implementation maps it onto real UTC by a whole number of hours (D129) |
+| **Hand-over snapshot** | A consistent copy of every volume of a game taken at hand-over, from which a restart starts (D126, D142) |
+| **Scheduler** | The brick running producer and consumer nodes; a node of it is a producer or a consumer by its role (D115) |
+| **Query repository** | A scheduler node's file of queries written by the GM at design time: a key maps to a query, a pool, a sequence or a builder (D115, D133) |
+| **Query** | One operation sent through a driver; in v0.3 always SQL against PostgreSQL (D118) |
+| **Pool** | A key mapped to a list of queries: each call picks one, by weight when given (D133) |
+| **Builder** | Code in the query repository returning the statements to run, given the intensity and its options (D115) |
+| **Schedule** | A scheduler node's hidden scheduling script: streams, intensity, connections, timeline changes (D116, D130) |
+| **Stream** | A schedule entry generating continuous traffic: a key, a rate, a traffic shape |
+| **Fixed-time operation** | A batch, daily or nightly job running a key at a fixed time; the only scheduling players read and may change (D116) |
+| **Timeline change** | A change to a stream, or a fault planted, at a fixed moment during the aging, written at design time (D127) |
+| **Intensity** | A multiplier on a scheduler node's load, the scenario's, never rescaled to the playground |
+| **Traffic shape** | How a stream's rate varies over the day: hourly multipliers, optionally per weekday |
+| **Driver** | The pluggable part of the scheduler that turns a query into a call on a target (D137) |
+| **Difficulty score** | A scenario's number of fault instances; easy 5, normal 10, hard 20 as targets (D120, D134) |
+| **Write override** | A scenario setting making one of a node's writable paths fixable on an otherwise report-only node (D143) |
 | **Starter pack** | What the player receives at hand-over |
 
 ## Scope

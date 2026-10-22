@@ -1,6 +1,11 @@
 # v0.3 — format and tooling changes
 
-Status: draft v2
+Status: draft v2, consolidated
+
+Consolidated into the [master spec](master-spec.md) and its [access
+model](access-model.md) on 2026-10-22; its `(proposed)` items were accepted
+as proposed (D146). Kept as v0.3's working record until the milestone is
+archived; where it and the master spec differ, the master spec wins.
 
 Every change v0.3 makes to the scenario format, the brick and fault
 definitions, the script contracts, the local implementation and

@@ -1,6 +1,7 @@
 # v0.3 — review list
 
-Status: live, opened 2026-10-22
+Status: closed 2026-10-22: every item accepted as proposed (D146); v0.5
+adjusts them after use
 
 Every item still marked `(proposed)` in the v0.3 drafts and on the v0.3
 page, for the owner to review in one pass. Everything else in the drafts
