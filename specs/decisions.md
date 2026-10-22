@@ -16,7 +16,7 @@ README:
 Archived IDs keep their meaning and are cited as they are. D107 onward
 stay live: rulings still to be applied in a later version (D107, D108,
 D110, D113), the v0.2 release close, and v0.3's drafting from D114.
-Numbering continues from D156; no ID is reused.
+Numbering continues from D160; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -292,3 +292,27 @@ Numbering continues from D156; no ID is reused.
   placing the peak inside it; `EXECUTE` on `pg_hba_file_rules()`; the
   index's D114 line. Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md)
   6.7, 7.1, 7.3, 8.3, 8.7, 11–13, 20; [versions/v0.3/access-model.md](versions/v0.3/access-model.md) 3.
+- **D156 (2026-10-22, owner approval, relayed by the wave driver; clears
+  G1): The v0.3 build plan is approved** (v1, ff92e85), its nine
+  recommendations accepted as given (G4, G5, G6, G8, G9, κ = 3, the
+  rehearsal re-run on the merged code, the plan's reading of R47 (a)).
+  The owner: "agreed [...] otherwise everything is approved". Wave 1
+  opens on 2026-10-23. Now in: [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md).
+- **D157 (2026-10-22, owner ruling, relayed by the wave driver): Only a
+  scenario with scheduler nodes ages.** A scenario with no producer or
+  consumer (a static database investigated as a restored backup) has no
+  aging; the eight-hour floor and `aging:` apply only with scheduler
+  nodes. The owner: "aging is mostly required when there are producers".
+  Amends D150. Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 8, 15.4.
+- **D158 (2026-10-22, spec-writer, format; follows D157): A scenario with
+  no scheduler node omits `aging:`, which the loader refuses there,** with
+  `{{customer_timezone}}`, a `plant_at` other than T0 and an instance's
+  `aging_minimum`; `render --handover` is optional and the game skips
+  `load-started`. The topology already says it; `none` or 0 would be a
+  second way to say it. Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 6.1, 8, 13.
+- **D159 (2026-10-22, owner direction, relayed by the wave driver): The
+  driver may work on the VPS but never disturbs its existing apps:**
+  filetstudio.com stays up, and a change that needs it down (a Docker
+  upgrade) waits for a downtime scheduled with the owner beforehand; the
+  VPS's Caddy may change if filetstudio.com stays up; the VPS's own
+  documentation is read before any change. Now in: [platform.md](platform.md) "Hosting".

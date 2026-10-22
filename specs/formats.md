@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v19
+Status: draft v20
 
 What a scenario, a brick and a fault definition must contain, and how they
 are laid out, so that every scenario the GM designs or generates stays
@@ -85,10 +85,17 @@ The owner's requirements (D23), with the earlier rulings that apply:
   and the issues given to the players, zero or more, each with its expected
   resolution (*report*, *propose*, *fix*, *improve*) and the faults it
   covers (D9);
-  the aging plan: none in v0.1 or v0.2; from v0.3 a required `aging:`
-  block with the aging minimum, at least eight hours and as long as the
-  scenario's evidence needs, and the hand-over time of day the scenario
-  was designed for, in scenario time (D114, D129, D150); and its
+  the aging plan: none in v0.1 or v0.2; from v0.3, in a scenario with
+  scheduler nodes, a required `aging:` block with the aging minimum, at
+  least eight hours and as long as the scenario's evidence needs, and the
+  hand-over time of day the scenario was designed for, in scenario time
+  (D114, D129, D150). A scenario with no scheduler node has no aging
+  (D157) and omits `aging:`, which the loader refuses there, as it
+  refuses a planting moment other than T0, an instance's aging minimum
+  and the customer's time zone placeholder, none of which means anything
+  without an aging or a shift; its fault definitions' aging minima,
+  times under the load, are not counted, and `render --handover` is
+  optional for it (D158); and its
   difficulty score, the number of fault instances, checked by the
   loader, with optionally the level it targets (D120, D134). An issue may also cover a
   tooling expectation, which is not a fault (D65, D76).
@@ -114,8 +121,10 @@ The owner's requirements (D23), with the earlier rulings that apply:
   node names, rules and DO NOT TAMPER list, the story, the issues. From
   v0.3 the story and the starter pack name the customer's time zone
   through a placeholder render fills from the shift, never a fixed zone
-  (D129, D151), and a scenario's Prometheus retention covers its aging
-  minimum plus four hours by time unless a planted fault is about
+  (D129, D151), a scenario with no scheduler node having neither shift
+  nor placeholder, its times UTC (D158); and a scenario's Prometheus
+  retention covers its aging minimum (none without an aging) plus four
+  hours by time unless a planted fault is about
   retention, which the loader checks, a size bound staying above the
   measured growth (D140, D151).
 - **The files each node needs**, delivered as Swarm configs (D11).

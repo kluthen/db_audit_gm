@@ -1,6 +1,6 @@
 # Platform
 
-Status: draft v16
+Status: draft v17
 
 The swarm the games run on, the resource budget scenarios must fit, how
 scenario content reaches the nodes, and the Swarm behaviours that shape the
@@ -36,10 +36,18 @@ lasts at most four hours, and the minimum capacity may rise as versions
 add load, which is what a multi-host swarm is for (D122). Armenelos and
 the VPS (`ssh vps`) share a Tailscale network: v0.3 brings multi-host
 and tests it on that pair, the default game staying single-host (D128).
-From v0.3 the playground's hosts must also stay up through the aging, at
-least eight hours and as long as the scenario declares (D150), so v0.3
-games run on always-on hosts; a classroom swarm of student laptops waits
-for a later version (D114, D125).
+From v0.3 the playground's hosts must also stay up through the aging of
+a scenario with scheduler nodes, at least eight hours and as long as the
+scenario declares (D150, D157), so v0.3 games run on always-on hosts; a
+classroom swarm of student laptops waits for a later version (D114,
+D125).
+
+**The VPS is shared** (D159): it hosts other applications, filetstudio.com
+among them, which must stay up. Work on the VPS never disturbs them; a
+change that needs filetstudio.com down (a Docker upgrade, say) waits for
+a downtime scheduled with the owner beforehand. Its Caddy may be altered
+so long as filetstudio.com stays up. The documentation kept on the VPS
+itself describes its set-up and is read before any change there.
 
 - **Multi-host swarms use Linux hosts only** (D12). Docker Desktop's engine
   runs in a NAT'd VM, and Docker documents swarm mode on Docker Desktop as

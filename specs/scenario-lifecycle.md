@@ -1,6 +1,6 @@
 # Game lifecycle
 
-Status: draft v12
+Status: draft v13
 
 From setup to teardown, as run by the GM in its agent session: the
 scenario, its local implementation, checks, deployment, aging, hand-over,
@@ -41,9 +41,10 @@ outside the project's concern.
 6. **Data and aging** — restored-backup data is loaded, then state faults
    are planted; the system runs so that faults leave traces (see
    "Aging"). v0.1 and v0.2 have no aging: they load the data and plant
-   their state faults right after deployment (D39, D83). From v0.3 the
-   system runs in real time for as long as the scenario declares, at
-   least eight hours (D114, D150).
+   their state faults right after deployment (D39, D83). From v0.3 a
+   scenario with scheduler nodes runs in real time for as long as it
+   declares, at least eight hours (D114, D150); a scenario with none has
+   no aging, as in v0.2 (D157).
 7. **Solvability probes** — every hidden fault's evidence is confirmed
    reachable as the player user (proposed for generated scenarios; not in
    v0.1, where a manual play-through stands in, D38; see
@@ -65,7 +66,8 @@ injection, a health check that never passes) or is stopped, the GM reports
 it, tears down what it deployed, and records the stage reached in the
 local implementation (D36). How long stages 2 to 7 may take before a
 class: O30 (from v0.3 the aging alone takes at least eight hours, as long
-as the scenario declares, D150). Which stages
+as the scenario declares, D150, for a scenario with scheduler nodes,
+D157). Which stages
 are scripts and which agent judgment: O2.
 
 ## Setup inputs and the brief
@@ -119,7 +121,10 @@ the load it was designed for (D129).
 
 Each fault instance states how long its evidence takes to appear: its
 aging minimum ([formats.md](formats.md)). v0.1 and v0.2 have no aging:
-with no load, history builds during the game (D83).
+with no load, history builds during the game (D83). From v0.3 the same
+holds for any scenario with no scheduler node, a static database
+investigated as a restored backup: no aging, its faults' minima not
+counted, hand-over once the faults are planted (D157, D158).
 
 v0.3 has no time compression either (D132): players verify a fix to a
 daily job by moving its time. Time compression is visible (a crontab

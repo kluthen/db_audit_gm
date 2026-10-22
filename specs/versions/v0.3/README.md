@@ -4,19 +4,21 @@ Status: **spec approved on 2026-10-22** (D154): the [master spec](master-spec.md
 and its [access model](access-model.md), consolidated the same day,
 revised after the independent review (REJECT, seven blocking issues, all
 fixed: D151), the owner's answers to it (D147–D149), his eight-hour aging
-floor (D150) and the re-review's corrections (OKAY, D155) (page draft
-v7). The owner's rulings of 2026-10-22 are D114–D123, his answers to two
-rounds of questions D124–D145, his acceptance of the review list D146,
-D152 and D153. No v0.3 question is open. The [build plan](build-plan.md)
-is a draft awaiting the owner's approval.
+floor (D150) and the re-review's corrections (OKAY, D155); amended the
+same day by the ruling that only a scenario with scheduler nodes ages
+(D157, D158) (page draft v8). The owner's rulings of 2026-10-22 are
+D114–D123, his answers to two rounds of questions D124–D145, his
+acceptance of the review list D146, D152 and D153. No v0.3 question is
+open. The [build plan](build-plan.md) is **approved** (D156), with the
+VPS rule (D159); wave 1 starts on 2026-10-23 in a fresh driver session.
 
 ## Documents
 
 | Document | Purpose | Status |
 |---|---|---|
-| [master-spec.md](master-spec.md) | The consolidated v0.3 specification | approved 2026-10-22 (D154) |
-| [access-model.md](access-model.md) | Who may do what in a v0.3 game | approved 2026-10-22 (D154) |
-| [build-plan.md](build-plan.md) | The v0.3 build: chunks, waves, gates, release gate | draft v1, awaiting the owner's approval |
+| [master-spec.md](master-spec.md) | The consolidated v0.3 specification | approved 2026-10-22 (D154), amended by D157 and D158 |
+| [access-model.md](access-model.md) | Who may do what in a v0.3 game | approved 2026-10-22 (D154), amended by D157 and D158 |
+| [build-plan.md](build-plan.md) | The v0.3 build: chunks, waves, gates, release gate | v2, approved 2026-10-22 (D156); wave 1 ready |
 | [scheduler.md](scheduler.md) | The scheduler brick, the query repository, the schedule, fixed-time operations, what the players reach, drivers | draft v3, consolidated |
 | [aging-and-timeline.md](aging-and-timeline.md) | Real-time aging, "meaningful" days, time of day, the timeline from deployment to teardown, the restart | draft v3, consolidated |
 | [load-and-capacity.md](load-and-capacity.md) | Calibrating load, `max_connections`, load control, always-on hosts, several hosts, the hosts at hand | draft v3, consolidated |
@@ -46,6 +48,14 @@ In the owner's words (D47):
   sped-up clock, no forged history, no time compression (D132); on
   always-on hosts only (D125) ([aging-and-timeline.md](aging-and-timeline.md),
   superseded on the length by the master spec).
+- **Only a scenario with scheduler nodes ages** (D157): a scenario with
+  no producer or consumer, a static database investigated as a restored
+  backup like `bookshop-new-server` and `fernway-clinics-monitoring`, has
+  no aging and is handed over once its faults are planted, as in v0.2.
+  It omits `aging:` (refused there), with no `plant_at` other than T0,
+  no instance `aging_minimum`, no `{{customer_timezone}}`, its faults'
+  minima not counted, and `render --handover` optional (D158; master
+  spec 6.1, 8, 13, 15.4).
 - **Time of day**: the local implementation shifts the schedule by whole
   hours so the game window gets the designed load; clocks stay real UTC;
   the story names the customer's time zone (D129).
@@ -99,6 +109,18 @@ In the owner's words (D47):
   `report:<tool>`, never `ui:<name>` (D145).
 - **Every carried item is taken** (D140; [carried-items.md](carried-items.md)).
 - **The release gate includes one full aged run** (D135).
+- **The build plan is approved** (D156) with its nine recommendations:
+  a test-harness-only override of the aging minimum (G6), the aged
+  run's hosts decided from chunk 15b's measurement (G5), the driver
+  joining the VPS (G4), κ = 3 under the plan's conditions, the owner
+  typing the restart confirmation (G9), the aged run deployed in an
+  evening and handed over the next early afternoon (G8), the rehearsal
+  re-run on the merged code.
+- **The VPS is shared** (D159): the driver may work on it but never
+  disturbs its existing applications; filetstudio.com stays up, a change
+  needing it down waits for a downtime scheduled with the owner, its
+  Caddy may change while filetstudio.com stays up, and the VPS's own
+  documentation is read first ([platform.md](../../platform.md)).
 
 ## In scope
 
@@ -134,7 +156,7 @@ In the owner's words (D47):
 - A scoring system (post-v1.0, D120).
 - Kubernetes (future work; portability stays a requirement, D22, D122).
 
-## Definition of done (accepted, D146; revised by D150 and D151: master spec section 17 wins)
+## Definition of done (accepted, D146; revised by D150, D151 and D157: master spec section 17 wins)
 
 1. The `scheduler` and `pgbouncer` bricks at 0.1.0, with their GM
    documentation, validators and footprints measured; the bricks that
@@ -162,7 +184,7 @@ In the owner's words (D47):
    restart's confirmation and statement, the shift and the time zone in
    the starter pack.
 9. Both existing scenarios still deploy (re-pinned where their bricks
-   bumped), each with its aging declared.
+   bumped), with no aging, having no scheduler node (D157).
 
 ## Depends on
 

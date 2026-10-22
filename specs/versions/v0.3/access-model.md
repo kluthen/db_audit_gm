@@ -3,7 +3,9 @@
 Status: **approved by the owner on 2026-10-22** with the
 [master spec](master-spec.md) it accompanies (spec D154), as consolidated
 the same day and revised after an independent review, the owner's
-answers to it and its re-review's corrections. Revises the [v0.2 access model](../v0.2/access-model.md),
+answers to it and its re-review's corrections; amended the same day by
+the ruling that only a scenario with scheduler nodes ages (spec D157,
+D158: section 6, `aging-done`). Revises the [v0.2 access model](../v0.2/access-model.md),
 which it replaces for v0.3 games; "Changes from v0.2" at the end lists
 what moved.
 
@@ -200,8 +202,8 @@ scheduler nodes, Prometheus, Grafana, the exporter)
 | `in-session` | The answer is handed in within the GM session (pasted, by discussion, or by pointing the GM at `~/report.md` on the bastion) |
 | `confirmed-in-session` | A player in the GM session confirms the restart in so many words, after the GM has stated that the game's state and the players' changes are lost and, when the game has no hand-over snapshot, which evidence goes with them. A passing mention or a question about restarting is not a confirmation |
 | `players-confirmed` | A player's confirmation under `confirmed-in-session` has been given and recorded by the GM in the local implementation, with the player's words (`gmctl restart --confirmation`) |
-| `before-hand-over` | The game has not been handed over yet: from deployment to the end of the aging |
-| `aging-done` | The earliest hand-over is reached: the scenario's aging minimum since T0, moved later by the lost time beyond thirty minutes (outage minutes up to thirty in all do not move it), and every fault instance's own minimum since its planting |
+| `before-hand-over` | The game has not been handed over yet: from deployment to the end of the aging, or to the hand-over in a game with no aging |
+| `aging-done` | The earliest hand-over is reached: the scenario's aging minimum since T0, moved later by the lost time beyond thirty minutes (outage minutes up to thirty in all do not move it), and every fault instance's own minimum since its planting. In a game with no scheduler node, which has no aging (spec D157), it holds once the faults are planted |
 | `at-hand-over` | `aging-done` holds and the starter pack is not yet handed over |
 | `has-repository` | The actor has a copy of the repository. Not enforced: students are asked not to read scenarios, and a warning heads each scenario document |
 | `holds-password` | The actor knows the game's bastion password (a teacher who also plays, for example) |

@@ -1,6 +1,6 @@
 # Concept
 
-Status: draft v11
+Status: draft v12
 
 What the project is, who it is for, the words we use, and what is in and out
 of scope. Mechanics live in the other topic documents (see
@@ -83,8 +83,8 @@ hence the host/node split.
 | **Sealed check** | A GM-side check of the answer key (fault fixed or not) |
 | **Evidence path** | Where a player, with their own rights, can see a fault |
 | **Solvability probe** | A check, run as the player user, that a hidden fault's evidence is reachable |
-| **Aging** | Making faults leave traces. From v0.3: running the system in real time before hand-over, as long as the scenario declares and at least eight hours, nothing else (D114, D132, D150) |
-| **Aging minimum** | How long the system must run before hand-over: for a scenario, what it declares, at least eight hours (D150); per fault, how long its evidence takes |
+| **Aging** | Making faults leave traces. From v0.3: running the system in real time before hand-over, as long as the scenario declares and at least eight hours, nothing else (D114, D132, D150); only in a scenario with scheduler nodes, a static scenario having none (D157) |
+| **Aging minimum** | How long the system must run before hand-over: for a scenario with scheduler nodes, what it declares, at least eight hours (D150, D157); per fault, how long its evidence takes under the load |
 | **Scenario time** | The clock a scenario's schedules are written in; the local implementation maps it onto real UTC by a whole number of hours (D129) |
 | **Hand-over snapshot** | A consistent copy of every volume of a game taken at hand-over, from which a restart starts (D126, D142) |
 | **Brief stop** | A brick's service stopped inside its running container through s6 while its volumes are copied for the hand-over snapshot, then started again; never a Swarm scale to zero (D147) |

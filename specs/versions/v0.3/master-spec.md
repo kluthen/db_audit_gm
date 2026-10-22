@@ -3,8 +3,11 @@
 Status: **approved by the owner on 2026-10-22** (spec D154), as
 consolidated the same day and revised after an independent review, the
 owner's answers to it and its re-review's corrections; the spec writer's
-choices on the points the review left open are accepted with it. Build
-plan: [build-plan.md](build-plan.md). Companion:
+choices on the points the review left open are accepted with it;
+amended the same day, at the build plan's approval (D156), by the
+owner's ruling that only a scenario with scheduler nodes ages (D157) and
+the format choices that carry it (D158). Build plan:
+[build-plan.md](build-plan.md), approved (D156). Companion:
 [access-model.md](access-model.md). Baseline: the released
 [v0.2 master spec](../v0.2/master-spec.md) and its
 [access model](../v0.2/access-model.md). Everything v0.2 specifies stays
@@ -31,9 +34,10 @@ transactions taking too long, BI queries, etc." Concretely:
 
 - producers and consumers are nodes of one new brick, the **scheduler**,
   which runs queries the GM writes at design time, on a schedule;
-- the system **ages in real time**: it runs unattended before the
-  players arrive, for as long as the scenario declares and at least
-  eight hours, so the faults have a history;
+- a scenario with producers or consumers **ages in real time**: it
+  runs unattended before the players arrive, for as long as the scenario
+  declares and at least eight hours, so the faults have a history; a
+  scenario with neither, a static database, has no aging (section 8);
 - a **PgBouncer** brick, optional in any scenario;
 - **checks that hold on a living system**, since the load never stops;
 - **multi-host** swarms, tested on two hosts over Tailscale;
@@ -54,8 +58,8 @@ transactions taking too long, BI queries, etc." Concretely:
   (report-only write policy honoured, snapshot methods); `bastion` 0.3.0
   (its GM documentation: the bastion pinned to its host on multi-host)
   (sections 7.3 to 7.5).
-- Real-time aging and the game timeline: the aging each scenario
-  declares, scenario time and the shift by whole hours, changes at fixed
+- Real-time aging and the game timeline: the aging each scenario with
+  scheduler nodes declares, none for a scenario without, scenario time and the shift by whole hours, changes at fixed
   moments during aging, the early check, failures during the aging, the
   hand-over snapshot (section 8).
 - Load calibration and load control (section 9).
@@ -126,7 +130,7 @@ the access model.
 | Scenario time | The clock a scenario's schedules are written in, the customer's own; the local implementation maps it onto real UTC by a whole number of hours |
 | Customer's time zone | The fixed UTC offset scenario time stands at in one game, derived from the shift (section 8.3) |
 | T0 | The moment the load starts; the aging counts from it |
-| Aging minimum | How long the system must run before hand-over: for a scenario, what it declares, at least eight hours; per fault, how long its evidence takes |
+| Aging minimum | How long the system must run before hand-over: for a scenario with scheduler nodes, what it declares, at least eight hours; a scenario without has none; per fault, how long its evidence takes under the load |
 | Lost time | The minutes of the aging in outage, in all |
 | Outage | A minute of the aging when a node of the game was not running, or a scheduler wrote no per-minute summary (its process down or idle); a running scheduler writes one every minute, even with no call |
 | Earliest hand-over | The moment the scenario's aging minimum has passed since T0, moved later by the lost time beyond thirty minutes, and every fault instance's own minimum has passed since its planting (section 8.7) |
@@ -135,7 +139,7 @@ the access model.
 | Difficulty score | A scenario's number of fault instances |
 | Write override | A scenario setting that makes one of a node's writable paths fixable on an otherwise report-only node |
 | GM check role | The PostgreSQL role the GM's sealed checks connect as, inside a connection reserve of its own |
-| Aging (changed) | Making faults leave traces. In v0.3: running the system in real time before hand-over, nothing else |
+| Aging (changed) | Making faults leave traces. In v0.3: running the system in real time before hand-over, nothing else, in a scenario with scheduler nodes only |
 
 ## 5. Repository changes
 
@@ -152,7 +156,7 @@ faults/<fault-id>/      eight new faults; every existing fault moves to the
                         new evidence locations and adds the bumped versions
 scenarios/<new-id>/     the v0.3 scenario
 scenarios/bookshop-new-server/, scenarios/fernway-clinics-monitoring/
-                        re-pinned, with an aging declared
+                        re-pinned, no aging (no scheduler node)
 .claude/skills/scenario-format/   templates and checks for section 6
 .claude/skills/game-master/       aging and its feasibility, failures during the
                                   aging, the restart, load control, scenario time
@@ -177,8 +181,11 @@ are normative until the format skill's templates carry them.
   (section 7.1).
 - **`aging:`**: the scenario's aging minimum, at least eight hours and
   as long as its evidence needs (section 8.2), and the hand-over time of
-  day it was designed for, in scenario time. Required from v0.3, in
-  every scenario.
+  day it was designed for, in scenario time. Required from v0.3 in every
+  scenario with a scheduler node. A scenario with none has no aging
+  (section 8) and omits `aging:`, which the loader refuses there; it
+  then has no `plant_at` other than T0, no instance `aging_minimum` and
+  no `{{customer_timezone}}`, since it has no shift.
 - **`difficulty:`**: the score, which the loader checks equals the
   number of fault instances, and optionally the level it targets (easy,
   normal, hard).
@@ -203,10 +210,12 @@ are normative until the format skill's templates carry them.
   loader checks it. This applies to every brick.
 - **The customer's time zone** appears in the story and the starter pack
   through the placeholder `{{customer_timezone}}`, which render fills
-  (section 8.3). A scenario never names a fixed zone.
+  (section 8.3). A scenario never names a fixed zone. A scenario with no
+  scheduler node has no shift and no customer's time zone: its times stay
+  UTC, as in v0.2.
 - **Prometheus' retention**: its time bound covers the aging minimum plus
-  four hours, unless a planted fault is about retention; the loader
-  checks it against `aging:`. A size bound, when the seed sets one, must
+  four hours (four hours with no aging), unless a planted fault is about
+  retention; the loader checks it against `aging:`. A size bound, when the seed sets one, must
   stay above the TSDB's measured growth over the same span, which the
   scenario's design checks against the brick's measured footprint.
 
@@ -273,7 +282,7 @@ passes. The new and bumped versions are those of section 5.
 
 ```yaml
 # scenario.yaml
-aging:
+aging:                          # with scheduler nodes only; omitted otherwise
   minimum: 16h                  # at least 8h
   handover_at: "14:00"          # the hand-over time of day designed for, scenario time
 difficulty:
@@ -585,6 +594,24 @@ reservations 0.1 CPU / 64M, disk for its log.
   snapshot gives the players back the bastion as it was handed over.
 
 ## 8. Aging and the game timeline
+
+**Only a scenario with scheduler nodes ages** (D157): aging is what lets
+the producers' and consumers' load leave its traces. A scenario with no
+producer or consumer, a static database investigated as a restored
+backup, as `bookshop-new-server` and `fernway-clinics-monitoring` are,
+has no aging and keeps v0.2's timeline, with v0.3's checks before the
+hand-over: deployment, the data load, the faults planted, the hand-over
+check (8.5, its scheduler and outage items empty) and the hand-over
+snapshot (section 12), then the hand-over. It has no `start-load` and no
+T0 (its faults are planted right after the data load), no early check,
+no outages and no earliest hand-over; the GM makes
+no feasibility judgement on aging for it; its monitoring history builds
+during the game, as in v0.2. A fault definition's aging minimum is the
+time its evidence takes under the load, so it is not counted in a
+static scenario, whose faults the GM chooses for evidence the restored
+state shows at once. A setup failure tears such a game down, as in v0.2.
+The rest of this section, and every mention of the aging elsewhere,
+concerns scenarios with scheduler nodes.
 
 ### 8.1 Real time
 
@@ -901,8 +928,8 @@ replay may differ (a new seed). The rebuilt game enters the stage
 - **Otherwise, no history.** When the copies do not fit the disk, the
   game has no snapshot, and a restart starts from nothing: the data
   loaded, every fault planted at once (those due at T0 and those due
-  during the aging), the load started at once with every timeline change
-  already applied. Only the history since the restart exists. The GM
+  during the aging), the load, when the game has scheduler nodes, started
+  at once with every timeline change already applied. Only the history since the restart exists. The GM
   names the evidence lost (the faults whose aging minimum the new game
   will not reach) before the players confirm, and judges the final answer
   accordingly.
@@ -935,14 +962,18 @@ earliest hand-over, never recorded as a stage. `start-load` requires
 `status --set handed-over` requires the earliest hand-over reached, the
 hand-over check passed, and the snapshot taken or recorded as not
 fitting. A restart's rebuilt game enters `handed-over` directly, under its
-new game id (section 12).
+new game id (section 12). A game with no scheduler node has no aging
+(section 8) and never reaches `load-started`: `start-load` refuses it
+with a one-line reason, `snapshot` requires `injected`, and `status --set
+handed-over` requires only the hand-over check passed and the snapshot
+taken or recorded as not fitting.
 
 **`gmctl`**:
 
 | Verb | Change |
 |---|---|
 | `fit` | the playground's hosts; per host; counts aged growth over the scenario's aging and the snapshot's copies; says when the snapshot does not fit |
-| `render` | takes the planned hand-over (`--handover <UTC date and hour>`); per-node placement as hostname constraints, the shift, the customer's time zone filled in, write policies and overrides passed to the containers |
+| `render` | takes the planned hand-over (`--handover <UTC date and hour>`), optional for a scenario with no scheduler node, where it shifts nothing; per-node placement as hostname constraints, the shift, the customer's time zone filled in, write policies and overrides passed to the containers |
 | `deploy` | copies the images to each host that lacks them before deploying |
 | `start-load` | new: writes each scheduler's load-started marker and starts its schedule; records T0; refused once the game is handed over |
 | `inject --at` | new option, with `--instance <id>`: one `state` fault instance, its planting scheduled on the manager at a UTC time, or planted at once with `now` (the scheduled run, and a re-planting); refused at or after hand-over; a failure is recorded, never a teardown (8.7) |
@@ -1032,12 +1063,12 @@ players never change streams.
 ### 15.4 Existing scenarios
 
 `bookshop-new-server` and `fernway-clinics-monitoring` are re-pinned to
-the bumped bricks and still deploy. Neither gains producers. Each
-declares the eight-hour floor as its aging: their faults are visible at
-once, and the aging only gives the monitoring some history.
-`fernway-clinics-monitoring`'s retention of one day covers an eight-hour
-aging plus four hours, so it stays; its 256 MB size bound is checked
-against the measured TSDB growth.
+the bumped bricks and still deploy. Neither gains producers, so neither
+ages (section 8, D157): no `aging:`, their faults visible at once, the
+game handed over once they are planted, as in v0.2.
+`fernway-clinics-monitoring`'s retention of one day covers the four-hour
+game, so it stays; its 256 MB size bound is checked against the measured
+TSDB growth.
 
 ## 16. Carried fixes
 
@@ -1071,8 +1102,8 @@ against the measured TSDB growth.
    after fixes; one restart from the hand-over snapshot; the measured
    footprint and aged growth within the declared figures.
 8. The GM skill updated as in section 13.
-9. Both existing scenarios deploy re-pinned, each with its aging
-   declared.
+9. Both existing scenarios deploy re-pinned, with no aging, having no
+   scheduler node (D157).
 
 ## 18. Grounding: what exists and what is at risk
 
@@ -1133,7 +1164,8 @@ review:
   binaries and file times included (section 8.1).
 - **An eight-hour floor, each scenario declaring its own aging**: short
   agings keep games affordable; the GM judges whether a scenario's
-  evidence can grow in the time a class allows.
+  evidence can grow in the time a class allows. A scenario with no
+  scheduler node has nothing to age and no aging (D157).
 - **One scheduler brick with GM-written queries**, rather than one brick
   per kind of client: the behaviour is the scenario's, so the brick stays
   generic and the faults live in data the GM writes and the players can
