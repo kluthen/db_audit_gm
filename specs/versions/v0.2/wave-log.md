@@ -2101,3 +2101,112 @@ single-node swarm), machine otherwise idle.
 Next: the release gate, on `v0.2-w4` before it merges (the model's
 release end; the owner's "proceed"). Merging into `main` waits for the
 owner's word.
+
+## Release gate — 2026-10-22
+
+Run by the driver on `v0.2-w4` (the model's release end: on the last
+wave's branch before it merges; the owner's "proceed"), on armenelos
+(Debian 13, Docker 29.9.1, single-node swarm). GM sessions were fresh
+agents reading `.claude/skills/game-master/` as their instructions; the
+driver played the initiator and the player; verifier agents worked as
+`player` through the bastion and the web front only, GM-side checks from
+the host. Scratch evidence:
+`/tmp/claude-1001/-home-bastien-work-db-audit-gm/c63cb38e-ef2d-4974-87de-962eb6ea7fea/scratchpad/rg-*`.
+
+1. **Item 1: PASS.** `fernway-clinics-monitoring` complete (loader's
+   `check_scenario` empty; every required file; pins resolve; README
+   current, "DO NOT READ" first); G10 cleared. Every brick's `docs/gm.md`
+   passes the format check, `prometheus`'s covering the node-health
+   script. Stale v0.1 wording found in the postgres, bastion and
+   prometheus docs: fixed (5e582e0, and a follow-up).
+2. **Item 2: PASS.** Game `fernway-clinics-monitoring-xk7d0d`, playground
+   `laptop` declared 2 CPU / 4G / 8G (D105): `fit` 1.05 of 2 CPU, 1.46G of
+   4G, 5.65G of 8G (images 1.53G); fitted 06:25:18Z, handed over
+   06:28:12Z, final answer 06:48:22Z, feedback 06:49:52Z, torn down
+   06:50:03Z; nothing labelled left.
+3. **Item 3: PASS.** No restart, no OOM (RestartCount 0, `memory.events`
+   oom 0 on every node). Memory (MiB) at rest / dashboard load / pgBadger
+   run, against the reservation: bastion 10 / 11 / 15 of 96; db 59 / 61 /
+   88 of 512; prometheus 50 / 51 / 51 of 160; exporter 16 / 19 / 19 of 48;
+   grafana 188–197 / 218 / 200 of 272 (cgroup peak 230). CPU peaks: db
+   0.19 (pgBadger), grafana 0.16 (dashboard load). Disk: images' union
+   1647.6MB, the game's 23 volumes about 77MB, writable layers 0: about
+   1.72GB of 8G. Footprints already carry the measured figures (chunk
+   14b).
+4. **Item 4: PASS.** f1–f8 evidence reachable as `player` where the answer
+   key says, interface evidence checked through Prometheus' and
+   Grafana's HTTP APIs, report evidence by running pgBadger.
+5. **Item 5: PASS.** The node-health dashboard shows CPU, memory, disk
+   against reservation and services for bastion, db and prometheus, host
+   free space once; grafana, exporter and postgres-on-db missing as f1,
+   f2, f3 plant; prometheus's sshd stopped by the GM shown down within
+   6 s, up again within 12 s; grafana in every panel after I1's fix.
+6. **Item 6: PASS.** I1 (f1) 1 → 0 at 06:39:28, I3 (f4) 1 → 0 at
+   06:40:19; the others still present; validators green.
+7. **Item 7: PASS on the requirement, with RG-1.** 401 with the challenge
+   on `/prometheus/` and `/grafana/` without the password; only the
+   bastion's 2222 and 8080 published; TZ=UTC on every node; PostgreSQL's
+   419 log lines in UTC. **RG-1**: `/`, unknown paths and `/<route>` (no
+   slash) answered 200 / 404 / 301 without the password, against capture
+   W2-C: fixed (1fc8ded).
+8. **Item 8: PASS.** The resuming GM's feedback judged t1 (log analysis)
+   met, with the player's weekly-pgBadger proposal.
+9. **Item 9: PASS.** Game `bookshop-new-server-b8mhk3` on `host-1`
+   (2 / 4G / 20G): only 2222 → 22 published, no 8080, no tools password
+   handed over (D103); the write policy holds on both nodes; `sudo
+   gm-validate` red on `work_mem` at hand-over, bastion green; f1–f6
+   evidence; I1 1 → 0 → 1 → 0 (file and reload, restored, `ALTER
+   SYSTEM`, D53); I3 by `CREATE INDEX CONCURRENTLY` 1 → 0; feedback given,
+   torn down 07:02:14Z, nothing labelled left.
+10. **Item 10: PASS, one check not run.** A fresh GM session found
+    fernway at `handed-over` from `local/` state and asked before picking
+    it up. Stance: a hint (which file for I2) refused; a reveal (is the
+    trust line planted, how many faults) refused; a report "so far" met
+    with "Is this your final answer?" and no comment on content. **The
+    restart/reset request was not sent**: this session's auto-mode
+    permission classifier denied the driver's message ("Interfere With
+    Workloads"); for the owner. Forced setup failure: a scratch copy of
+    bookshop (never in the repo) with `SELECT 1/0;` appended, game
+    `bookshop-new-server-k2n7ia` on `rgfail`: failed at load-data
+    (`psql exit 3: ERROR: division by zero`) recorded before
+    `data-loaded`, gmctl's teardown, confirming teardown recorded, nothing
+    labelled left.
+11. **Item 11: PASS.** The quality command (`gate-w4/gate.sh`) at 5e582e0,
+    2026-10-22T07:17:39Z: unit 298 OK, `sh -n`, `perl -c`, five builds,
+    stack tests (bastion now 71 PASS), `smoke.sh`, `smoke-monitoring.sh`,
+    both scenario smoke deployments, all PASS.
+12. **Item 12, G11: open.** Fernway's feedback is in
+    `scratchpad/rg-fernway/feedback.md` for the owner.
+13. **Item 13: PASS** after the driver completed the Record lines of
+    chunks 5, 9, 10 and 11 (6a9a209); every finding was already in the
+    bricks' `docs/gm.md`.
+14. **Item 14:** release notes to `spec-writer`.
+
+**Fixes on `v0.2-w4`** (coding-executor): 1fc8ded, RG-1, the web front
+serves `/`, the 404 and `/<route>`'s redirect from static files under
+`/run/web-front/www/` in the content phase, after `auth_basic` (nginx's
+own prefix-location redirect also ran before auth; an exact-match
+location per route replaces it); stack test asserts 401 on all three
+without the password and the stated answers with it. Side effects: POST
+to `/` gets 405; the 301 keeps the query string. Capture W2-C's file list
+for `/run/web-front/` gains `www/`. 5e582e0, stale wording in the
+postgres, bastion and prometheus docs (scratch space `/tmp` and
+`/var/tmp` → `/run/tmp` now listed as writable).
+
+**Findings for the owner** (none blocking):
+- **RG-2** (low): a player's `sed -i` on a group-writable config leaves the
+  file owned by `player` (group and mode kept; services and validators
+  fine).
+- **RG-3** (low): `gmctl status` prints `tools_password: password, handed
+  over` in a game without a web front (the label comes from the
+  bastion's static `handed_over: true`, `tools/gm/state.py:143`,
+  `localimpl.py:408`); the skill tells the GM not to hand it over.
+- **RG-4** (low–medium): `bookshop-new-server`'s seed `postgresql.conf`
+  lacks the logging and preload settings `bricks/postgres/docs/gm.md`
+  ("What the seed files must contain") requires (left at chunk 6), so
+  that game logs to Docker, players can't run pgBadger, and the GM
+  skill's "the server log is in files" does not hold there.
+- **RG-5** (low): every postgres 0.2.0 game has the login role
+  `monitoring` (`pg_monitor`), exporter or not; bookshop's answer key and
+  notes don't mention it.
+- The restart/reset stance check (item 10) is untested.
