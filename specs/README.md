@@ -8,7 +8,7 @@ intent (D1). To resume cold: read this page, then
 Phase: **v0.1 released** on 2026-10-21 and merged into `main`
 (3c852e1); its working record is archived in
 [archive/v0.1/](archive/v0.1/README.md) (master spec approved under the
-owner's delegation to the lead, D44). **v0.2 released** on 2026-10-22: built from its [build plan](archive/v0.2/build-plan.md) (D99) in four waves, release gate passed, G10 and G11 cleared (D109), release notes in [versions/v0.2/README.md](versions/v0.2/README.md); merging into `main` on the owner's word; its working record is archived in [archive/v0.2/](archive/v0.2/README.md). **v0.3's drafting opened** on 2026-10-22 on branch `v0.3-spec`: the owner's rulings D114–D146, every question answered and the [review list](versions/v0.3/review-list.md) accepted; **consolidated** the same day into the [v0.3 master spec](versions/v0.3/master-spec.md) and its [access model](versions/v0.3/access-model.md), awaiting an independent review and the owner's approval; the eight drafts kept as the working record. v0.4 to v0.6 and v1.0 in drafting. Conventions:
+owner's delegation to the lead, D44). **v0.2 released** on 2026-10-22: built from its [build plan](archive/v0.2/build-plan.md) (D99) in four waves, release gate passed, G10 and G11 cleared (D109), release notes in [versions/v0.2/README.md](versions/v0.2/README.md); merging into `main` on the owner's word; its working record is archived in [archive/v0.2/](archive/v0.2/README.md). **v0.3's drafting opened** on 2026-10-22 on branch `v0.3-spec`: the owner's rulings D114–D146, every question answered and the [review list](versions/v0.3/review-list.md) accepted; **consolidated** the same day into the [v0.3 master spec](versions/v0.3/master-spec.md) and its [access model](versions/v0.3/access-model.md), then revised after the independent review (REJECT, all seven blocking issues fixed, D151) and the owner's answers (D147–D150); awaiting the owner's approval with the review list's second round (R47–R62); the eight drafts kept as the working record. v0.4 to v0.6 and v1.0 in drafting. Conventions:
 settled items are stated as fact, tentative ones are tagged `(proposed)`,
 and every open point cites an `O` ID. Every `(proposed)` item awaits the
 owner's confirmation; the register lists the ones with real alternatives.
@@ -172,6 +172,12 @@ access model.
   (D143); a GM connection reserve (D144); a fault's evidence locations
   (D145). The review list's 46 items accepted as proposed, v0.5 to adjust
   them after use (D146); the master spec and access model consolidated.
+  After the independent review: Prometheus snapshotted by a brief stop,
+  its admin API off (D147); a fixable builder's schedule leak on the
+  trust line (D148); images copied between hosts, no registry (D149);
+  the aging minimum an eight-hour floor, each scenario declaring its own
+  and the GM judging feasibility per game, amending D114's two days
+  (D150); the review applied, the open choices proposed (D151).
 - Small project: scripts and small apps, no ATD, no UI/UX tree (D2).
 - v0.1 build: seven artifacts (three skills, a Python/POSIX-shell script
   set, PostgreSQL 18 on Debian 13 and bastion bricks, one scenario), one
@@ -182,7 +188,8 @@ access model.
 
 ## Next steps
 
-1. v0.3: the independent review of the master spec and access model
-   (the wave driver's), then the owner's approval, then the build plan.
+1. v0.3: the owner's approval of the revised master spec and access
+   model, with the review list's second round (R47–R62), then the build
+   plan.
 2. The other "soon" question, O49 (backup tooling's version), then
    v1.0's from the "later" ones.

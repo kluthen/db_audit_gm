@@ -37,8 +37,7 @@ for the next version (v0.1 until it closed, with none left open);
 
 - **O10** (later, research) — Mostly answered in
   [platform.md](platform.md). Still unverified: numeric-only uid/gid in
-  config mounts, the cross-host `127.0.0.1:5000` registry pattern (to
-  verify in v0.3's build, D128), SSH
+  config mounts, SSH
   Docker contexts into Windows or macOS machines. To test when v0.1 is
   built.
 - **O11** (later) — Which technology fills each v1.0 role beyond v0.2's
@@ -71,7 +70,10 @@ for the next version (v0.1 until it closed, with none left open);
   (D114, D132), on always-on hosts (D125). Still open: which version
   copies aged volumes to a class's hosts (D125), and whether a later
   version brings back forged history, a sped-up clock or time
-  compression (generated scenarios, restarts).
+  compression (generated scenarios, restarts). With the eight-hour floor
+  (D150), a classroom swarm staying up for a school day may become
+  enough for short-aging scenarios, which may change how much the
+  volume copy is needed; noted, not reopened (D125 stands).
   Refs: [scenario-lifecycle.md](scenario-lifecycle.md),
   [versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md).
 - **O23** (later) — Difficulty is a fault count, each fault worth 1 (easy
@@ -94,9 +96,10 @@ for the next version (v0.1 until it closed, with none left open);
   difficulty, length)? Refs: [formats.md](formats.md)
   (`brief.md`).
 - **O30** (later) — How long may design, deployment and probes take
-  before a class? Aging alone takes at least two full days (D114), so it
-  starts two days before the class at the latest; playgrounds that cannot
-  stay up that long wait for a later version (D125).
+  before a class? Aging alone takes at least eight hours, as long as the
+  scenario declares (D114, D150), so it starts that long before the class
+  at the latest; playgrounds that cannot stay up that long wait for a
+  later version (D125).
 - **O31** (later) — Are player actions on nodes recorded (shell history,
   audit trail) to help the GM's feedback?
 - **O32** (later) — Language of player-facing material (story, starter
@@ -124,8 +127,9 @@ the question concerns.
   [versions/v1.0/README.md](versions/v1.0/README.md).
 - **O48** (later, v0.3 → v1.0) — Aging enters in v0.3, in real time
   (D114). Where does the solvability probe as a gate (O20) enter the
-  roadmap? With two days of aging, a probe failing at hand-over costs the
-  class; v0.3's draft proposes an early check during aging. Refs:
+  roadmap? With an aging of eight hours or more (D150), a probe failing at
+  hand-over costs the class; v0.3's master spec has an early check during
+  aging and a hand-over check. Refs:
   [versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md),
   [versions/v1.0/README.md](versions/v1.0/README.md).
 - **O49** (soon, roadmap) — Backup tools (pgBackRest and the like) and the

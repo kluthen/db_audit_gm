@@ -1,7 +1,10 @@
 # v0.3 — review list
 
-Status: closed 2026-10-22: every item accepted as proposed (D146); v0.5
-adjusts them after use
+Status: first round closed 2026-10-22, every item accepted as proposed
+(D146), v0.5 adjusting them after use; R6 and R4's example amended by the
+eight-hour floor (D150). **Second round open** (R47–R62, below): the
+spec writer's choices made while applying the independent review (D151),
+for the owner's approval with the master spec
 
 Every item still marked `(proposed)` in the v0.3 drafts and on the v0.3
 page, for the owner to review in one pass. Everything else in the drafts
@@ -102,3 +105,30 @@ Ids, protocols and roles other parts depend on.
 | R44 | Definition of done | The nine points of the v0.3 page | [README.md](README.md) "Definition of done" |
 | R45 | Vocabulary | The terms table (scheduler, query repository, query, pool, builder, schedule, stream, fixed-time operation, timeline change, intensity, traffic shape, driver), moving into `concept.md` at consolidation | [scheduler.md](scheduler.md) "Terms" |
 | R46 | Shapes of the carried fixes | RG-2: the reload wrappers restore owner and mode; RG-3: no tools-password line without a web front | [carried-items.md](carried-items.md) |
+
+## Second round: after the independent review (open)
+
+The independent review of the consolidated master spec (REJECT, seven
+blocking issues) and the owner's answers to it (D147–D149) and his
+eight-hour floor (D150) left choices nobody had made. Each is written into
+the [master spec](master-spec.md) or the [access model](access-model.md)
+tagged `(proposed)`. Ranked from the most consequential.
+
+| # | Item | Proposal | Where | Alternative |
+|---|---|---|---|---|
+| R47 | Failures during the aging | Scheduled actions record failures, never tear down; the aging counts running time, every lost minute moving the earliest hand-over; up to 30 minutes lost in all needs nothing more; beyond, the GM judges at hand-over whether the evidence survived, then hands over (the gap told as an incident) or sets the game up again (stop, then start) | master spec 8.7 | restart the aging on any outage; or a threshold of one hour |
+| R48 | The new scenario's aging | 16 hours, the hand-over in the customer's early afternoon: deployed the evening before, played after lunch; retention at least 20 hours | master spec 15.2 | the 8-hour floor (fixed-time faults all placed in the morning); or 24 hours |
+| R49 | The rehearsal before the gate | About two hours, unattended, on armenelos plus the VPS: `start-load`, a scheduled `inject --at` and the early check, a scheduler killed and resuming, an outage recorded, the hand-over check, the snapshot, a restart; the game's memory measured | master spec 11 | the review's 12–24 h rehearsal, which the shorter aging makes less useful |
+| R50 | The existing scenarios' aging | Both declare the 8-hour floor; fernway's one-day retention kept (it covers 12 hours), its 256 MB bound checked against measured growth | master spec 15.4 | no aging for them (an exception to the required `aging:`) |
+| R51 | The early check and the hand-over check | The early check halfway through the aging minimum, or after each job due before the earliest hand-over has run once, never later than an hour before it; nobody notified, the result heading `gmctl status`; the same checks again at hand-over, the GM not handing over a failing game | master spec 8.5 | a notification channel (out of scope so far) |
+| R52 | The no-history restart | Data loaded, every fault planted at once, the load started at once with the timeline applied; the four hours not extended | master spec 12 | extend the game by the restart's setup time |
+| R53 | Secrets on a restart | Every generated secret kept, service ones included, so the restored databases and Grafana match | master spec 12 | regenerate service secrets and rewrite them into the restored data |
+| R54 | The GM check role | Not a superuser: `pg_use_reserved_connections`, `pg_monitor`, `pg_read_all_data`, `SELECT` on `pg_hba_file_rules` | master spec 7.3 | a superuser check role |
+| R55 | PgBouncer's console | The players' console role is `dba`, through `auth_query` with `auth_dbname`, in `stats_users` only, no extra password; the GM's admin account is PgBouncer's service account over the local socket | master spec 7.2 | a dedicated console role with its own password in the players' `~/.pgpass` |
+| R56 | `postgres` write policy | Fixable only in v0.3; no scenario needs report-only, and an untested policy would ship unexercised | master spec 7.3 | add report-only in 0.3.0 |
+| R57 | The multi-host playground declaration | A list of hosts (swarm node name, Docker endpoint, manager or not, capacity at available memory), plus a mapping from the scenario's `designed_for` hosts; one host keeps today's form | master spec 10.2 | — |
+| R58 | Stages | `load-started` added after `injected`; the aging computed, not a stage; `status --set handed-over` requires the earliest hand-over, the hand-over check and the snapshot (or its not fitting) | master spec 13 | an `aging` stage recorded by the early check |
+| R59 | Recording a restart's confirmation | `gmctl restart --confirmation "<the player's words>"`, refused without it | master spec 12, 13 | a separate `gmctl confirm-restart` verb |
+| R60 | The planned hand-over | `gmctl render --handover <UTC date and hour>`; a later real hand-over keeps the rendered schedule; re-planning the hour is a new game | master spec 8.3 | re-render the schedulers' files when the hand-over moves before T0 |
+| R61 | The schedule's delivery | The root run script passes `schedule.yaml` on standard input before dropping privileges; the program never opens it | master spec 7.1 | `root:<service group>` mode 0440, `player` not in the group |
+| R62 | The load-started marker | `start-load` writes a root-owned marker holding T0 on each scheduler's state volume and restarts the service; a scheduler finding it comes back running | master spec 7.1 | the GM re-running `start-load` after every restart |

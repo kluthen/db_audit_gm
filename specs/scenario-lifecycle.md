@@ -1,6 +1,6 @@
 # Game lifecycle
 
-Status: draft v11
+Status: draft v12
 
 From setup to teardown, as run by the GM in its agent session: the
 scenario, its local implementation, checks, deployment, aging, hand-over,
@@ -42,7 +42,8 @@ outside the project's concern.
    are planted; the system runs so that faults leave traces (see
    "Aging"). v0.1 and v0.2 have no aging: they load the data and plant
    their state faults right after deployment (D39, D83). From v0.3 the
-   system runs in real time for at least two full days (D114).
+   system runs in real time for as long as the scenario declares, at
+   least eight hours (D114, D150).
 7. **Solvability probes** — every hidden fault's evidence is confirmed
    reachable as the player user (proposed for generated scenarios; not in
    v0.1, where a manual play-through stands in, D38; see
@@ -63,7 +64,8 @@ GM then tears the game down. If setup fails (deployment, data load or
 injection, a health check that never passes) or is stopped, the GM reports
 it, tears down what it deployed, and records the stage reached in the
 local implementation (D36). How long stages 2 to 7 may take before a
-class: O30 (aging alone takes two days from v0.3, D114). Which stages
+class: O30 (from v0.3 the aging alone takes at least eight hours, as long
+as the scenario declares, D150). Which stages
 are scripts and which agent judgment: O2.
 
 ## Setup inputs and the brief
@@ -98,15 +100,19 @@ no visible symptom on a freshly deployed system.
 
 **From v0.3, aging is real time** (D114): after deployment the stack runs
 in the background, its producers and consumers following their schedules,
-for at least two full, meaningful days, until hand-over. Every timestamp,
+for as long as the scenario declares, at least eight hours, until
+hand-over (D150): eight hours is a floor, and the GM judges per game
+whether the aging the initiator can afford is enough for the scenario.
+Every timestamp,
 log line and metric the players see was produced by the system at the
 time it says. No sped-up clock and no forged history in v0.3; the aging
 research weighed them and found their caveats real: query durations
 inflated by the speed-up, Go binaries that cannot be faked, a Prometheus
 history that would have to be forged. The v0.3 timeline, what
-"meaningful" means and the consequences (hosts up for two days, disk
-growth, Prometheus retention, restarts) are in
-[versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md).
+what the aging must cover and the consequences (hosts up for the
+aging, disk growth, Prometheus retention, failures during the aging,
+restarts) are in the
+[v0.3 master spec](versions/v0.3/master-spec.md), section 8.
 v0.3 games run on always-on hosts, which stay up for the whole aging
 (D125); the schedule is shifted by whole hours so the game window gets
 the load it was designed for (D129).

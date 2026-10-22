@@ -1,18 +1,21 @@
 # v0.3 — producers and consumers
 
 Status: **consolidated on 2026-10-22** into the [master spec](master-spec.md)
-and its [access model](access-model.md), awaiting an independent review
-and the owner's approval (page draft v5). The owner's rulings of
-2026-10-22 are D114–D123, his answers to two rounds of questions
-D124–D145, and his acceptance of the review list D146; no v0.3 question
-is open. No build plan yet: it follows the owner's approval.
+and its [access model](access-model.md), revised the same day after the
+independent review (REJECT, seven blocking issues, all fixed: D151) and
+the owner's answers to it (D147–D149) and his eight-hour aging floor
+(D150); awaiting the owner's approval (page draft v6). The owner's
+rulings of 2026-10-22 are D114–D123, his answers to two rounds of
+questions D124–D145, his acceptance of the review list D146; the review
+list's second round (R47–R62) awaits him with the master spec. No v0.3
+question is open. No build plan yet: it follows the owner's approval.
 
 ## Documents
 
 | Document | Purpose | Status |
 |---|---|---|
-| [master-spec.md](master-spec.md) | The consolidated v0.3 specification | consolidated, awaiting review and approval |
-| [access-model.md](access-model.md) | Who may do what in a v0.3 game | consolidated, awaiting review and approval |
+| [master-spec.md](master-spec.md) | The consolidated v0.3 specification | consolidated, reviewed and revised, awaiting approval |
+| [access-model.md](access-model.md) | Who may do what in a v0.3 game | consolidated, reviewed and revised, awaiting approval |
 | [scheduler.md](scheduler.md) | The scheduler brick, the query repository, the schedule, fixed-time operations, what the players reach, drivers | draft v3, consolidated |
 | [aging-and-timeline.md](aging-and-timeline.md) | Real-time aging, "meaningful" days, time of day, the timeline from deployment to teardown, the restart | draft v3, consolidated |
 | [load-and-capacity.md](load-and-capacity.md) | Calibrating load, `max_connections`, load control, always-on hosts, several hosts, the hosts at hand | draft v3, consolidated |
@@ -21,7 +24,7 @@ is open. No build plan yet: it follows the owner's approval.
 | [pgbouncer.md](pgbouncer.md) | The PgBouncer brick | draft v2, consolidated |
 | [carried-items.md](carried-items.md) | Earlier rulings and known issues landing in v0.3 | draft v3, consolidated |
 | [format-changes.md](format-changes.md) | Every change to the formats, script contracts, local implementation and `gmctl` | draft v2, consolidated |
-| [review-list.md](review-list.md) | Every `(proposed)` item, for the owner's review in one pass | closed: all accepted (D146) |
+| [review-list.md](review-list.md) | Every `(proposed)` item, for the owner's review in one pass | first round accepted (D146); second round open (R47–R62) |
 
 ## Goal
 
@@ -36,10 +39,12 @@ In the owner's words (D47):
 
 ## Settled (2026-10-22)
 
-- **Aging is real time** (D114): the stack runs in the background for at
-  least two full, meaningful days before hand-over; no sped-up clock, no
-  forged history, no time compression (D132); on always-on hosts only
-  (D125) ([aging-and-timeline.md](aging-and-timeline.md)).
+- **Aging is real time** (D114): the stack runs in the background before
+  hand-over for as long as the scenario declares, at least eight hours, a
+  floor the GM judges against the time available per game (D150); no
+  sped-up clock, no forged history, no time compression (D132); on
+  always-on hosts only (D125) ([aging-and-timeline.md](aging-and-timeline.md),
+  superseded on the length by the master spec).
 - **Time of day**: the local implementation shifts the schedule by whole
   hours so the game window gets the designed load; clocks stay real UTC;
   the story names the customer's time zone (D129).
@@ -72,7 +77,8 @@ In the owner's words (D47):
 - **Capacity** is for the GM and the initiator to discuss; Swarm is the
   platform (D122); **multi-host is in v0.3**, tested on armenelos and the
   VPS over Tailscale, the default game single-host (D128;
-  [load-and-capacity.md](load-and-capacity.md)).
+  [load-and-capacity.md](load-and-capacity.md)); images are copied
+  between hosts over SSH, no registry (D149).
 - **A restart rebuilds the game from scratch** on the players' explicit
   confirmation (D110, D123), from a hand-over snapshot where the disk
   allows, otherwise with no history and the lost evidence named first;
@@ -80,8 +86,10 @@ In the owner's words (D47):
   confirms, in so many words, once the GM has stated what is lost; each
   restart is recorded; the access model lists it beside `stop` (D141).
   The snapshot is taken online, per brick, a brief stop for a brick with
-  no method; a restart falls back to no history when the copies do not
-  fit (D142).
+  no method, Prometheus included (D147); a restart falls back to no
+  history when the copies do not fit (D142).
+- **A fixable builder can leak the schedule**, accepted on the trust line
+  (D148).
 - **Write policy per file** through the scenario's `write_overrides`, for
   every brick (D143).
 - **The GM's checks have a connection reserve of their own**
@@ -103,7 +111,8 @@ In the owner's words (D47):
   new normal scenario.
 - The PgBouncer brick.
 - Checks that hold on a living system.
-- Multi-host: per-node placement, a registry, `fit` per host.
+- Multi-host: per-node placement, images copied to each host, `fit` per
+  host.
 - Restarting a game (D110, D123, D126), only on the players' **explicit
   confirmation**: "we can't have a passing comment just restart the
   game, as it's highly breaking change". A passing mention, or a question
@@ -124,7 +133,7 @@ In the owner's words (D47):
 - A scoring system (post-v1.0, D120).
 - Kubernetes (future work; portability stays a requirement, D22, D122).
 
-## Definition of done (accepted, D146; master spec section 17)
+## Definition of done (accepted, D146; revised by D150 and D151: master spec section 17 wins)
 
 1. The `scheduler` and `pgbouncer` bricks at 0.1.0, with their GM
    documentation, validators and footprints measured; the bricks that
@@ -138,12 +147,13 @@ In the owner's words (D47):
    minimum, sealed check (cause first) and solvability description.
 4. The new normal scenario, complete by the format skill, its scenario
    document generated.
-5. `gmctl`: placement per host, the registry, `fit` per host, the shift,
+5. `gmctl`: placement per host, images copied, `fit` per host, the shift,
    `start-load`, scheduled planting, the hand-over snapshot, `restart`,
    the extended `status`.
 6. Short smoke tests green on one host and on armenelos plus the VPS.
-7. The release gate's full aged run (D135): at least 48 hours of aging,
-   then a play-through as `player`; every fault's evidence reachable; the
+7. The release gate's full aged run (D135, D150): the scenario aged for
+   its declared minimum, after a short rehearsal, then a play-through as
+   `player`; every fault's evidence reachable; the
    sealed checks right under load before and after fixes; one restart
    from the hand-over snapshot; the measured footprint and aged growth
    within the declared figures.
@@ -151,7 +161,7 @@ In the owner's words (D47):
    restart's confirmation and statement, the shift and the time zone in
    the starter pack.
 9. Both existing scenarios still deploy (re-pinned where their bricks
-   bumped), `fernway-clinics-monitoring` with its retention raised.
+   bumped), each with its aging declared.
 
 ## Depends on
 

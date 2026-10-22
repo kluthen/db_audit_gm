@@ -1,6 +1,6 @@
 # Concept
 
-Status: draft v9
+Status: draft v10
 
 What the project is, who it is for, the words we use, and what is in and out
 of scope. Mechanics live in the other topic documents (see
@@ -83,17 +83,23 @@ hence the host/node split.
 | **Sealed check** | A GM-side check of the answer key (fault fixed or not) |
 | **Evidence path** | Where a player, with their own rights, can see a fault |
 | **Solvability probe** | A check, run as the player user, that a hidden fault's evidence is reachable |
-| **Aging** | Making faults leave traces. From v0.3: running the system in real time before hand-over, at least two full days, nothing else (D114, D132) |
-| **Aging minimum** | How long the system must run before hand-over: at least 48 hours for a scenario; per fault, how long its evidence takes |
+| **Aging** | Making faults leave traces. From v0.3: running the system in real time before hand-over, as long as the scenario declares and at least eight hours, nothing else (D114, D132, D150) |
+| **Aging minimum** | How long the system must run before hand-over: for a scenario, what it declares, at least eight hours (D150); per fault, how long its evidence takes |
 | **Scenario time** | The clock a scenario's schedules are written in; the local implementation maps it onto real UTC by a whole number of hours (D129) |
 | **Hand-over snapshot** | A consistent copy of every volume of a game taken at hand-over, from which a restart starts (D126, D142) |
+| **Brief stop** | A brick's service stopped inside its running container through s6 while its volumes are copied for the hand-over snapshot, then started again; never a Swarm scale to zero (D147) |
+| **T0** | The moment a game's load starts; its aging counts from it |
+| **Running time** | The aging's time with the load running; an outage does not count (D151) |
+| **Outage** | A stretch of the aging when a node of the game was not running or a scheduler ran none of its streams (D151) |
+| **Earliest hand-over** | When the scenario's aging minimum, in running time from T0, and every fault instance's own minimum after its planting are all reached |
+| **Customer's time zone** | The fixed UTC offset scenario time stands at in one game, derived from the shift and filled into the story by render (D129, D151) |
 | **Scheduler** | The brick running producer and consumer nodes; a node of it is a producer or a consumer by its role (D115) |
 | **Query repository** | A scheduler node's file of queries written by the GM at design time: a key maps to a query, a pool, a sequence or a builder (D115, D133) |
 | **Query** | One operation sent through a driver; in v0.3 always SQL against PostgreSQL (D118) |
 | **Pool** | A key mapped to a list of queries: each call picks one, by weight when given (D133) |
 | **Builder** | Code in the query repository returning the statements to run, given the intensity and its options (D115) |
 | **Schedule** | A scheduler node's hidden scheduling script: streams, intensity, connections, timeline changes (D116, D130) |
-| **Stream** | A schedule entry generating continuous traffic: a key, a rate, a traffic shape |
+| **Stream** | A schedule entry generating continuous traffic: a key, a rate, a traffic shape, arrivals, concurrency |
 | **Fixed-time operation** | A batch, daily or nightly job running a key at a fixed time; the only scheduling players read and may change (D116) |
 | **Timeline change** | A change to a stream, or a fault planted, at a fixed moment during the aging, written at design time (D127) |
 | **Intensity** | A multiplier on a scheduler node's load, the scenario's, never rescaled to the playground |

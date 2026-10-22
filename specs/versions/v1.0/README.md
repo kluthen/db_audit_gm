@@ -36,7 +36,8 @@ Which technology fills each role is decided version by version (O11).
 Every part of the pipeline has a version. What has no version yet, and may
 be needed for v1.0, is put to the owner:
 
-- **Multi-host and the registry** (O46, resolved by D128). v0.1 runs on one host and
+- **Multi-host and the registry** (O46, resolved by D128; images copied
+  between hosts, no registry, D149). v0.1 runs on one host and
   deferred both. A full pipeline with monitoring may not fit one laptop,
   and classroom swarms were a hosting target from the start. v0.3 brings
   multi-host (D128); classroom swarms of student laptops wait for aged

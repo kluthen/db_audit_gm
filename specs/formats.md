@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v17
+Status: draft v18
 
 What a scenario, a brick and a fault definition must contain, and how they
 are laid out, so that every scenario the GM designs or generates stays
@@ -8,6 +8,13 @@ within known boundaries. The rules these formats carry (the solvability
 probe, per-brick checks, fault families) are in
 [bricks-and-faults.md](bricks-and-faults.md); access and validator rules
 in [planes-and-access.md](planes-and-access.md).
+
+This page states what each format must contain. The YAML shapes of the
+fields v0.3 adds (`aging:`, `difficulty:`, `plant_at`, `write_overrides`,
+`snapshot:`, and a scheduler's `queries.yaml`, `schedule.yaml` and
+`jobs.yaml`) are in the
+[v0.3 master spec](versions/v0.3/master-spec.md), sections 6.7 and 7.1,
+normative until the format skill's templates carry them (D151).
 
 ## Enforcement
 
@@ -71,15 +78,17 @@ The owner's requirements (D23), with the earlier rulings that apply:
 - **Background information**: the customer's story and context.
 - **Incidents, flaws and defects**: every fault instance (fault definition
   and version, target nodes, parameters, known or hidden; from v0.3 its
-  planting moment, `T0` by default or a moment before hand-over written
-  relative to it, never at or after hand-over (D127), and its aging
+  planting moment, `T0` by default or, for a `state` fault only, a moment
+  before hand-over written relative to it, within the scenario's aging
+  minimum and never at or after hand-over (D127, D151), and its aging
   minimum when it needs more than its definition's),
   and the issues given to the players, zero or more, each with its expected
   resolution (*report*, *propose*, *fix*, *improve*) and the faults it
   covers (D9);
-  the aging plan: none in v0.1 or v0.2; from v0.3 an `aging:` block with
-  the aging minimum (at least 48 hours) and the hand-over time of day the
-  scenario was designed for, in scenario time (D114, D129); and its
+  the aging plan: none in v0.1 or v0.2; from v0.3 a required `aging:`
+  block with the aging minimum, at least eight hours and as long as the
+  scenario's evidence needs, and the hand-over time of day the scenario
+  was designed for, in scenario time (D114, D129, D150); and its
   difficulty score, the number of fault instances, checked by the
   loader, with optionally the level it targets (D120, D134). An issue may also cover a
   tooling expectation, which is not a fault (D65, D76).
@@ -103,9 +112,12 @@ The owner's requirements (D23), with the earlier rulings that apply:
   This is the reference the local implementation adapts from.
 - **The starter pack** shipped to the bastion: topology documentation,
   node names, rules and DO NOT TAMPER list, the story, the issues. From
-  v0.3 the story names the customer's time zone (D129), and a scenario's
-  Prometheus retention covers its aging minimum plus four hours unless a
-  planted fault is about retention, which the loader checks (D140).
+  v0.3 the story and the starter pack name the customer's time zone
+  through a placeholder render fills from the shift, never a fixed zone
+  (D129, D151), and a scenario's Prometheus retention covers its aging
+  minimum plus four hours by time unless a planted fault is about
+  retention, which the loader checks, a size bound staying above the
+  measured growth (D140, D151).
 - **The files each node needs**, delivered as Swarm configs (D11).
 - **The scenario document**, generated with the GM's scenario-document
   skill (D20), opening with a prominent warning that students and players
@@ -150,14 +162,16 @@ what the scenario expects:
 
 - resource limits and reservations per node, placement and pinning, and the
   number of hosts used (one in v0.1 and v0.2, D35; from v0.3 nodes are
-  placed on the playground's hosts and rendered as constraints, the
-  images pushed to a registry every host reaches, and the bastion
-  published in host mode on its own host, D128);
-- from v0.3, the shift in whole hours mapping scenario time onto UTC, T0,
-  the aging minimum, the earliest hand-over and the hand-over, the game's
-  seed, the scheduled setup actions and their results, the hand-over
-  snapshot's location, and each restart (old and new game ids, time,
-  from the snapshot or not) (D126, D129, D136, D141);
+  placed on the playground's declared hosts and rendered as hostname
+  constraints, the bastion pinned to its own host, and the images copied
+  to each host over SSH, with no registry, D128, D149);
+- from v0.3, the planned hand-over and the shift in whole hours mapping
+  scenario time onto UTC, T0, the aging minimum, the running time and the
+  outages, the earliest hand-over and the hand-over, the game's seed, the
+  scheduled setup actions and their results, the early and hand-over
+  checks' results, the hand-over snapshot's location, and each restart
+  (old and new game ids, time, from the snapshot or not, the player's
+  confirmation) (D126, D129, D136, D141, D151);
 - the game id, which names every volume, config, secret and network of the
   game, so a redeploy never reuses a player-edited volume (D36); each
   network the scenario declares renders as one network named
@@ -221,12 +235,15 @@ Fields marked *optional in v0.1* have no use yet and may be left out
 - **Writable paths** (what the player may change; from v0.3 also the
   paths a scenario's write overrides may name, D143) and **protected
   files**.
-- **Snapshot** (from v0.3, D142): per volume, how it is copied online at
-  hand-over: a command run in the node (`pg_basebackup`, Prometheus' TSDB
-  snapshot API) or a plain copy for a volume holding only seeded or
-  append-only files. A brick that declares nothing is stopped briefly
-  while its volumes are copied. The footprint's disk includes the
-  volumes' growth over an aging and a four-hour game, as measured.
+- **Snapshot** (from v0.3, D142, D147): per volume, how it is copied at
+  hand-over: `pg_basebackup` for a database's data, `copy` (a plain copy
+  while the node runs) for a volume holding only seeded, append-only or
+  whole-file-rewritten files, or `stop`, a brief stop of the brick's
+  service inside its running container (s6, never a Swarm scale to zero)
+  while the volume is copied. Prometheus and Grafana use `stop`. A volume
+  the brick empties at every start is not copied; a brick that declares
+  nothing gets `stop`. The footprint's disk includes the volumes' growth
+  over an aging and a four-hour game, as measured, per hour.
 - **Player access**: the SSH account, its group, its `sudo` wrappers.
 - **Capabilities** it adds back after dropping all (D41).
 - **Monitoring exposure**: metrics endpoints, logs, what monitoring bricks
@@ -420,6 +437,9 @@ faults/<fault-id>/
   an aging step. State changes are idempotent POSIX shell scripts
   streamed over stdin, so they run the same through `docker exec` or
   `kubectl exec` (D22). Their interface is in "Script contracts" below.
+  In the format these kinds are `seed-file` (with `seed_changes`),
+  `parameter` and `state`; from v0.3 only a `state` fault may be planted
+  later than T0, the other two being planted at render (D151).
 - **Evidence paths** as the player user. From v0.3 each evidence's
   free text is its `source`, and its `where` is `node` (the fault's
   target node), `bastion`, or `report:<tool>` for a tool the target's

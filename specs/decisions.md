@@ -16,7 +16,7 @@ README:
 Archived IDs keep their meaning and are cited as they are. D107 onward
 stay live: rulings still to be applied in a later version (D107, D108,
 D110, D113), the v0.2 release close, and v0.3's drafting from D114.
-Numbering continues from D147; no ID is reused.
+Numbering continues from D152; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -229,3 +229,34 @@ Numbering continues from D147; no ID is reused.
   made". Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md),
   [versions/v0.3/review-list.md](versions/v0.3/review-list.md),
   [versions/v0.5/README.md](versions/v0.5/README.md).
+- **D147 (2026-10-22, owner's answer to the independent review, relayed
+  by the wave driver): Prometheus is snapshotted by a brief stop.** Its
+  admin API stays off and the bastion image unchanged; the scrape gap at
+  hand-over is told as maintenance. Replaces D142's Prometheus method.
+  Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md)
+  7.4, 6.4; [formats.md](formats.md) "Brick definition".
+- **D148 (2026-10-22, owner's answer to the review, relayed): A fixable
+  builder can leak the schedule; accepted on the trust line**, like
+  editable builders (D133), with no isolation; a known gap. Now in:
+  [versions/v0.3/access-model.md](versions/v0.3/access-model.md) 8, 11;
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 7.1, 20.
+- **D149 (2026-10-22, owner's answer to the review, relayed): Multi-host
+  copies images, no registry.** `docker save | ssh <host> docker load`
+  over Tailscale, deployed with `--resolve-image never`; nothing listens.
+  Amends D128's registry; narrows O10. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 10.2;
+  [platform.md](platform.md) "Image distribution".
+- **D150 (2026-10-22, owner ruling, relayed): The aging minimum is eight
+  hours, a floor; each scenario declares the aging it needs** and the GM
+  judges per game whether the time available is enough, declining or
+  replacing a scenario otherwise. Amends D114's two days; D135's run is at
+  the scenario's declared aging. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 8.2, 11;
+  [gm-stance.md](gm-stance.md).
+- **D151 (2026-10-22, spec-writer, process): The independent review's
+  REJECT is applied to the consolidation.** Its seven blocking issues and
+  its findings are fixed in the master spec, the access model and
+  formats.md; where a fix needed a choice the owner had not made, it is
+  tagged `(proposed)` and listed for his approval in
+  [versions/v0.3/review-list.md](versions/v0.3/review-list.md) "Second
+  round", awaiting him with the master spec.
