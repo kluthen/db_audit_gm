@@ -7,8 +7,8 @@ fixed: D151), the owner's answers to it (D147–D149), his eight-hour aging
 floor (D150) and the re-review's corrections (OKAY, D155) (page draft
 v7). The owner's rulings of 2026-10-22 are D114–D123, his answers to two
 rounds of questions D124–D145, his acceptance of the review list D146,
-D152 and D153. No v0.3 question is open. The build plan
-follows.
+D152 and D153. No v0.3 question is open. The [build plan](build-plan.md)
+is a draft awaiting the owner's approval.
 
 ## Documents
 
@@ -16,6 +16,7 @@ follows.
 |---|---|---|
 | [master-spec.md](master-spec.md) | The consolidated v0.3 specification | approved 2026-10-22 (D154) |
 | [access-model.md](access-model.md) | Who may do what in a v0.3 game | approved 2026-10-22 (D154) |
+| [build-plan.md](build-plan.md) | The v0.3 build: chunks, waves, gates, release gate | draft v1, awaiting the owner's approval |
 | [scheduler.md](scheduler.md) | The scheduler brick, the query repository, the schedule, fixed-time operations, what the players reach, drivers | draft v3, consolidated |
 | [aging-and-timeline.md](aging-and-timeline.md) | Real-time aging, "meaningful" days, time of day, the timeline from deployment to teardown, the restart | draft v3, consolidated |
 | [load-and-capacity.md](load-and-capacity.md) | Calibrating load, `max_connections`, load control, always-on hosts, several hosts, the hosts at hand | draft v3, consolidated |

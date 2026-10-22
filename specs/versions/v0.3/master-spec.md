@@ -3,8 +3,8 @@
 Status: **approved by the owner on 2026-10-22** (spec D154), as
 consolidated the same day and revised after an independent review, the
 owner's answers to it and its re-review's corrections; the spec writer's
-choices on the points the review left open are accepted with it.
-Companion:
+choices on the points the review left open are accepted with it. Build
+plan: [build-plan.md](build-plan.md). Companion:
 [access-model.md](access-model.md). Baseline: the released
 [v0.2 master spec](../v0.2/master-spec.md) and its
 [access model](../v0.2/access-model.md). Everything v0.2 specifies stays
