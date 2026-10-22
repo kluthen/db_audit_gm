@@ -2041,3 +2041,22 @@ freelancer who left.
   grafana (was 160M, spec 12's row), README regenerated; `fit` on
   `laptop` 1.46G of 4G; unit suite 298 OK; `smoke-monitoring.sh` 43
   checks pass in 51 s on the rebuilt images.
+
+### G10 cleared; chunk 14 merged (2026-10-22)
+
+- **G10** (the owner, 2026-10-22): "i approve the scenario. don't add a
+  pgbadger fault, leave out the memory fault." So `fernway-clinics-monitoring`
+  stands as built (5c2be8d, 3a4aae1): eight fault instances, issues
+  I1–I3, tooling expectation t1 (log analysis, silent), 240 minutes;
+  Grafana's reservation stays 266M (272M on the node). No sixth
+  (pgBadger) fault; `pg-memory-over-envelope` stays out of the
+  scenario. Capture W4 ruling 2 is closed by this answer.
+- **Chunk 14 merged** by the wave driver: 76c249c (`--no-ff`, no
+  conflict with the wave-branch fixes 37507f1 and d2c8429). Status and
+  Record set; G10 marked done in the gates table. Worktree
+  `v0.2-c14-scenario` removed; the branch is kept until the wave closes,
+  with `v0.2-c12-gm-skill` and `v0.2-c13-faults`.
+- The owner's word was "commit and proceed to the next wave". Wave 4 is
+  the plan's last wave, so next comes the wave 4 gate, then the release
+  gate on `v0.2-w4` before it merges (the model's release end). Merging
+  into `main` still waits for the owner's word.

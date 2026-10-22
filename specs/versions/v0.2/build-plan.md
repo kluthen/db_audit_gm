@@ -71,7 +71,7 @@ plan states only its deltas.
 | G7 | O75: the web front in a game with no monitoring interface | The owner | Chunk 7 | done (2026-10-21, spec D103: only with an interface) |
 | G8 | O76: where Grafana's dashboards and the node-health view come from | The owner | Chunks 10, 14 | done (2026-10-21, spec D104: `grafana`'s reference dashboards) |
 | G9 | O77: the `laptop` playground, declared on the build host or a real 2 CPU / 4G / 8G machine | The owner | Chunk 14b, release gate items 2 and 3 | done (2026-10-21, spec D105: declared on the build host) |
-| G10 | Review of the v0.2 scenario: its faults (chunk 13's among them), issues, tooling expectation and answer key (master spec 11.1) | The owner | Chunk 14's merge | open |
+| G10 | Review of the v0.2 scenario: its faults (chunk 13's among them), issues, tooling expectation and answer key (master spec 11.1) | The owner | Chunk 14's merge | done (2026-10-22, the owner: approved as built; no pgBadger fault; `pg-memory-over-envelope` left out) |
 | G11 | The tooling's usefulness and the feedback's tone (master spec 14, item 12) | The owner | Release close | open |
 
 G4 to G9 were questions O72 to O77, ruled by the owner as proposed
@@ -854,8 +854,8 @@ their ids, kinds, target bricks, parameters and resolutions.
 
 ### Chunk 14 — The v0.2 scenario and the measured footprint
 
-Status: built (5c2be8d, 3a4aae1; waiting on G10)
-Record: (after merge)
+Status: merged (w4, 76c249c)
+Record: 5c2be8d (14a, the scenario), 3a4aae1 (14b, the measured footprint); merged after G10, 2026-10-22
 Wave: 4
 Depends on: chunk 13 (in-wave, wave 4 capture); chunks 4, 5, 6, 7, 9,
 10, 11; G10 before merge (G8, G9 done)
