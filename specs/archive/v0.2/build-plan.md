@@ -89,7 +89,7 @@ model says (D100).
 | 1 | 1, 2, 3, 4 | G2 (chunks 1, 4); G3 (chunks 1, 3, 4) | merged (2026-10-21, 6467fb5) |
 | 2 | 5, 6, 7 | wave 1; G2, G3 | merged (2026-10-21, 351de59) |
 | 3 | 8, 9, 10, 11 | wave 2 | merged (2026-10-21, 8e17795) |
-| 4 | 12, 13, 14 | wave 3; G10 (chunk 14's merge) | release gate passed (2026-10-22), merging |
+| 4 | 12, 13, 14 | wave 3; G10 (chunk 14's merge) | merged (2026-10-22, eedaa0d; release gate passed) |
 
 ```
 1 ──> 2, 3, 4          (in-wave: the v0.2 template keys captured at wave 1 start, W1)

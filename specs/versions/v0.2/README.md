@@ -460,8 +460,8 @@ waves on 2026-10-21 and 2026-10-22; waves 1 to 3 merged into `main`
 "Wave 4 gate — 2026-10-22" and "Release gate — 2026-10-22", with the
 owner's release-close rulings after them. G10 and G11 are cleared. The
 owner granted the merge of `v0.2-w4` into `main` once the RG-4 changes
-passed the quality command and these notes were written; the merge
-commit is recorded by the wave driver.
+passed the quality command and these notes were written; merged into
+`main` on 2026-10-22 as eedaa0d.
 
 ## Release notes
 

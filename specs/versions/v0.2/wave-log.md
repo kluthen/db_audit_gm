@@ -2251,3 +2251,19 @@ postgres, bastion and prometheus docs (scratch space `/tmp` and
   prometheus 50 s, exporter 71 s, grafana 149 s; `smoke.sh`,
   `smoke-monitoring.sh`, both scenario smoke deployments). Logs of the
   earlier runs in `gate-w4/run1/` and `run2/`.
+
+### Merge — 2026-10-22
+
+- `spec-writer`: release notes and rulings D109–D113, O81 (76aae3a);
+  milestone archive `specs/archive/v0.2/` (8c09430: the build plan moved,
+  D55–D106 and the resolved questions archived; the v0.2 page, master spec,
+  access model and this log stay in place, cited by skills and bricks).
+- Merged `v0.2-w4` into `main` on the owner's word ("granted") as eedaa0d,
+  with the figures in the merge message. Worktree `v0.2-w4` and branches
+  `v0.2-w4`, `v0.2-c12-gm-skill`, `v0.2-c13-faults`, `v0.2-c14-scenario`
+  removed. v0.2 is closed.
+- Left for the owner from spec-writer's close: O81 (how a v0.3 restart
+  works, and whether a whole-game restart differs from the node resets
+  D19 and D48 defer); whether the v0.3 restart entry stays tagged
+  "(proposed)"; the archive range ends at D106 (D107–D113 still to be
+  applied in v0.3 and v0.5).
