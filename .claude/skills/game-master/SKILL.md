@@ -471,13 +471,15 @@ teardown:
 7. **Errors.** A `check` line `error`, or a validator `error`, means the
    result is unknown. Read the reason, and the node's logs:
    `tools/gmctl logs <dir> --playground <pg> --node <node> --tail 50`
-   (for a PostgreSQL node, read its server log files through `exec`
-   instead: `gmctl logs` shows only its start-up). On a Grafana node, an
-   `error` because Grafana refused the administrator's login (HTTP 401
-   from the helper, or the validator's `ERROR: Grafana refused the
-   administrator's login`) means its password is no longer the tools
-   password: the DO NOT TAMPER rule was broken. Call Grafana's API no
-   more: each call is one more failed login towards the lockout. A
+   (for a PostgreSQL node whose server log is in files, read them through
+   `exec` instead: `gmctl logs` shows only its start-up; see
+   [Operating the nodes](#operating-the-nodes-and-the-monitoring-tools)).
+   On a Grafana node, an `error` because Grafana refused the
+   administrator's login (HTTP 401 from the helper, or the validator's
+   `ERROR: Grafana refused the administrator's login`) means its password
+   is no longer the tools password: the DO NOT TAMPER rule was broken.
+   Call Grafana's API no more: each call is one more failed login towards
+   the lockout. A
    restart would set the password back, but restarting a node is not a
    `gmctl` operation: do not. If the players broke something marked DO
    NOT TAMPER, or left the server down, say so in the feedback, and judge
@@ -532,14 +534,22 @@ deployment") has the details; the [command reference](gmctl.md) has the
 command line. No credential in `--env` or on a command line (see
 [What you may do](#what-you-may-do)).
 
-- **PostgreSQL's server log** is in files on the node, not in Docker's
-  log: `gmctl logs` shows only sshd and the server's start-up. The files
-  are `/var/log/postgresql/postgresql-<YYYY-MM-DD_HHMMSS>.log` (volume
+- **PostgreSQL's server log** is in files on the node when the
+  scenario's seed `postgresql.conf` sets `logging_collector = on`, as
+  every v0.2 seed must (the postgres brick's `docs/gm.md`, "What the seed
+  files must contain"): `gmctl logs` then shows only sshd and the
+  server's start-up. The files are
+  `/var/log/postgresql/postgresql-<YYYY-MM-DD_HHMMSS>.log` (volume
   `pglog`), with UTC times; read them as `postgres`:
 
   ```sh
   printf '%s\n' 'ls -l /var/log/postgresql/' 'tail -n 50 "$(ls /var/log/postgresql/postgresql-*.log | tail -n 1)"' | tools/gmctl exec <dir> --playground <pg> --node <db> --user postgres
   ```
+
+  Otherwise (a seed without the collector, a planted logging fault, or
+  the players turned it off and restarted; `SHOW logging_collector` as
+  `postgres` tells), the server log is in Docker's: `tools/gmctl logs
+  <dir> --playground <pg> --node <db> --tail 50`.
 
 - **Prometheus**, inside its node as `prometheus`, on
   `http://127.0.0.1:9090/prometheus/api/v1/...`. The node has `curl` but
