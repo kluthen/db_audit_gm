@@ -132,9 +132,12 @@ unset dba_password pw_pgpass
 # the path is forwarded unchanged: the upstream serves under its own
 # /<name>/. No token: nothing is written, so the s6 service `web-front`
 # marks itself down and exits, and nothing listens on the port (D103).
+# The front's own answers (the route list at /, the redirect of /<name>
+# to /<name>/, 404 elsewhere) are static files under $WEB_DIR/www, served
+# in nginx's content phase: a `return` would answer in the rewrite phase,
+# before auth_basic in the access phase, so without the password.
 web_names=
 web_locations=
-web_index=
 set -f
 for token in ${GM_WEB_ROUTES:-}; do
     printf '%s\n' "$token" \
@@ -147,13 +150,15 @@ for token in ${GM_WEB_ROUTES:-}; do
     case " $web_names " in *" $name "*) die "GM_WEB_ROUTES: route $name given twice" ;; esac
     web_names="$web_names $name"
     var=gm_upstream_$(printf '%s' "$name" | tr - _)
+    # = /<name>: without it, nginx's own 301 of /<name> to the proxy_pass
+    # location /<name>/ would answer before auth_basic (find-config
+    # phase); the static directory www/routes/<name>/ answers instead.
     web_locations="$web_locations
-        location = /$name { return 301 /$name/; }
+        location = /$name { root $WEB_DIR/www/routes; }
         location /$name/ {
             set \$$var $target;
             proxy_pass http://\$$var;
         }"
-    web_index="$web_index/$name/\\n"
 done
 set +f
 
@@ -169,6 +174,20 @@ if [ -n "$web_names" ]; then
     chown root:"$WEB_ACCOUNT" "$WEB_DIR/htpasswd"
     chmod 0440 "$WEB_DIR/htpasswd"
     unset tools_password hash
+    # Static answers: www/index.txt (the route list), www/not-found.txt,
+    # and www/routes/<name>/, one empty directory per route, for which
+    # nginx's static module answers /<name> with a 301 to /<name>/.
+    install -d -o root -g "$WEB_ACCOUNT" -m 0750 "$WEB_DIR/www" "$WEB_DIR/www/routes"
+    {
+        printf 'Web interfaces of this game:\n'
+        for name in $web_names; do
+            printf '/%s/\n' "$name"
+            install -d -o root -g "$WEB_ACCOUNT" -m 0750 "$WEB_DIR/www/routes/$name"
+        done
+    } > "$WEB_DIR/www/index.txt"
+    printf 'No web interface at this path; see /\n' > "$WEB_DIR/www/not-found.txt"
+    chown root:"$WEB_ACCOUNT" "$WEB_DIR/www/index.txt" "$WEB_DIR/www/not-found.txt"
+    chmod 0440 "$WEB_DIR/www/index.txt" "$WEB_DIR/www/not-found.txt"
     cat > "$WEB_DIR/nginx.conf" <<EOF
 # nginx configuration of the db_audit_gm web front (DO NOT TAMPER).
 # Written by gm-entrypoint at each start; routes:$web_names
@@ -209,8 +228,22 @@ http {
         # An upstream's own challenge would make the browser drop the
         # front's credentials.
         proxy_hide_header WWW-Authenticate;
-        location = / { return 200 "Web interfaces of this game:\\n$web_index"; }
-        location / { return 404 "No web interface at this path; see /\\n"; }$web_locations
+        # Every answer below comes from the content phase, after
+        # auth_basic; a return directive would answer before it.
+        location = / {
+            root $WEB_DIR/www;
+            try_files /index.txt =404;
+        }
+        location = /.gm-not-found {
+            internal;
+            alias $WEB_DIR/www/not-found.txt;
+        }
+        # Any other path: 404. /<name>, a directory of www/routes, has
+        # its own location below: 301 to /<name>/.
+        location / {
+            root $WEB_DIR/www/routes;
+            error_page 404 /.gm-not-found;
+        }$web_locations
     }
 }
 EOF
@@ -223,6 +256,6 @@ EOF
 else
     log "web front: no route in GM_WEB_ROUTES, not started"
 fi
-unset web_names web_locations web_index
+unset web_names web_locations
 
 exec /init "$@"

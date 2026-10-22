@@ -121,6 +121,7 @@ published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
 | Web front directory | `/run/web-front/` | only with routes; root:www-data, `0750`, rewritten at each start; `tmp/` (www-data, `0700`) holds nginx's pid and temporary files |
 | Web front configuration | `/run/web-front/nginx.conf` | root, `0444` |
 | Web front password file | `/run/web-front/htpasswd` | `player:<SHA-512 crypt>`, root:www-data, `0440` |
+| Web front's own answers | `/run/web-front/www/` | root:www-data, `0750`: `index.txt` (the route list at `/`) and `not-found.txt` (the 404 body), `0440`; `routes/<name>/`, one empty directory per route, from which nginx answers `/<name>` with the redirect to `/<name>/` |
 | Web front service | `/etc/s6-overlay/s6-rc.d/web-front/run` | nginx as `www-data` |
 
 ### Start-up (`gm-entrypoint`, every container start)
@@ -150,8 +151,10 @@ published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
    a token that is not `name=node:port` (lowercase names, as the loader
    checks them) or on a route given twice; reads `tools_password` (same
    rules as the other passwords); writes `/run/web-front/htpasswd` (user
-   `player`, `openssl passwd -6` hash) and `/run/web-front/nginx.conf`
-   (one `location /<name>/` per route, see "Web front" under "Access");
+   `player`, `openssl passwd -6` hash), `/run/web-front/www/` (the
+   front's own answers, served as static files so that they come after
+   the password check) and `/run/web-front/nginx.conf` (one
+   `location /<name>/` per route, see "Web front" under "Access");
    fails the container if nginx (`nginx -t`, as `www-data`) refuses the
    configuration. With none: writes nothing and does not read
    `tools_password`, which may then be absent.

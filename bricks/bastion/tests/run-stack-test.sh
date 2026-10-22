@@ -17,7 +17,9 @@
 #   - after the bastion is replaced, its host key, the home and the
 #     player's edits are kept, and the starter pack is not copied again;
 #   - the web front (port GMTEST_BASTION_WEB_PORT): 401 and a challenge
-#     without the tools password, the stub reached under /stub/ with it,
+#     without the tools password on every path (/, /stub, /nothing/ too),
+#     with it the route list at /, /stub redirected, 404 elsewhere, and
+#     the stub reached under /stub/,
 #     the path unchanged, no Authorization header upstream, the stub's own
 #     challenge not passed on, 502 for a route whose upstream is down;
 #   - read-only root, capabilities, `/run` volume, secrets unreadable;
@@ -287,6 +289,16 @@ if [ "$code" = 401 ] && grep -qi '^WWW-Authenticate: Basic realm="db_audit_gm we
 else
     fail "web front without the password: $code $(tr -d '\r' < "$tmp/h" | grep -i '^www-auth')"
 fi
+# The front's own answers too: the route list, a path outside the routes,
+# a route without its trailing slash.
+for p in / /nothing/ /stub; do
+    code=$(web "$URL$p")
+    if [ "$code" = 401 ] && grep -qi '^WWW-Authenticate: Basic realm="db_audit_gm web front"' "$tmp/h"; then
+        pass "web front without the tools password, $p: 401 and the challenge"
+    else
+        fail "web front without the password, $p: $code $(tr -d '\r' < "$tmp/h" | grep -i -e '^www-auth' -e '^location')"
+    fi
+done
 code=$(web -u "player:wrong password" "$URL/stub/")
 [ "$code" = 401 ] && pass "web front with a wrong password: 401" || fail "wrong tools password: $code"
 code=$(web -u "admin:$TOOLS_PASSWORD" "$URL/stub/")
@@ -306,9 +318,13 @@ code=$(web -u "player:$TOOLS_PASSWORD" "$URL/stub")
     && pass "/stub redirects to /stub/" || fail "/stub: $code $(grep -i '^location' "$tmp/h")"
 code=$(web -u "player:$TOOLS_PASSWORD" "$URL/")
 [ "$code" = 200 ] && grep -qx '/other/' "$tmp/b" && grep -qx '/stub/' "$tmp/b" \
-    && pass "/ lists the routes (/other/, /stub/)" || fail "/: $code $(cat "$tmp/b")"
+    && grep -qi '^Content-Type: text/plain' "$tmp/h" \
+    && pass "/ lists the routes as plain text (/other/, /stub/)" || fail "/: $code $(cat "$tmp/b")"
 code=$(web -u "player:$TOOLS_PASSWORD" "$URL/nothing/")
-[ "$code" = 404 ] && pass "a path outside the routes: 404" || fail "/nothing/: $code"
+[ "$code" = 404 ] && grep -qx 'No web interface at this path; see /' "$tmp/b" \
+    && pass "a path outside the routes: 404" || fail "/nothing/: $code $(head -n 2 "$tmp/b")"
+code=$(web -u "player:$TOOLS_PASSWORD" "$URL/nothing")
+[ "$code" = 404 ] && pass "a path outside the routes, no trailing slash: 404" || fail "/nothing: $code"
 code=$(web -u "player:$TOOLS_PASSWORD" "$URL/other/")
 [ "$code" = 502 ] && pass "a route whose upstream is down: 502" || fail "/other/: $code"
 code=$(web -u "player:$TOOLS_PASSWORD" "$URL/stub/")
