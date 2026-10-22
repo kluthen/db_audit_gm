@@ -15,8 +15,8 @@ README:
 
 Archived IDs keep their meaning and are cited as they are. D107 onward
 stay live: rulings still to be applied in a later version (D107, D108,
-D110, D113) and the v0.2 release close. Numbering continues from D114;
-no ID is reused.
+D110, D113), the v0.2 release close, and v0.3's drafting from D114.
+Numbering continues from D160; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -66,3 +66,253 @@ no ID is reused.
   brick improvement, with O79. Now in:
   [versions/v0.5/README.md](versions/v0.5/README.md) "In scope",
   [versions/v0.2/README.md](versions/v0.2/README.md) "Known issues".
+- **D114 (2026-10-22, owner ruling after the aging research, relayed by
+  the wave driver): Aging is real time in v0.3.** The stack runs in the
+  background, at least two full, meaningful days, until hand-over; no
+  sped-up clock and no forged history in v0.3. The owner preferred the
+  sped-up clock but accepted its caveats (query durations inflated by the
+  speed-up, Go binaries not fakeable, Prometheus history to forge); he
+  does not trust forging. Narrows O22, O30, O48. Now in:
+  [versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md),
+  [scenario-lifecycle.md](scenario-lifecycle.md) "Aging".
+- **D115 (2026-10-22, owner design, relayed by the wave driver): Producers
+  and consumers are scheduler nodes running a GM-written query
+  repository.** A key maps to a query, a list of queries, or a builder of
+  the intensity and options; schedules set intensity, pool selection,
+  fixed-time queries, randomisation, traffic shapes, transactions or not.
+  Now in: [versions/v0.3/scheduler.md](versions/v0.3/scheduler.md).
+- **D116 (2026-10-22, owner ruling, relayed): Players read the query
+  repository and may edit it where the scenario allows; of the scheduling
+  they read and change only the batch and fixed-time operations.** Now
+  in: [versions/v0.3/scheduler.md](versions/v0.3/scheduler.md) "What the
+  players reach", [planes-and-access.md](planes-and-access.md).
+- **D117 (2026-10-22, owner ruling, relayed): No events outside the
+  schedule.** No random GM events; producers and consumers follow their
+  schedules from the start of aging. Now in:
+  [versions/v0.3/scheduler.md](versions/v0.3/scheduler.md),
+  [gm-stance.md](gm-stance.md) "During the game".
+- **D118 (2026-10-22, owner ruling, relayed): v0.3 is SQL against
+  PostgreSQL.** Other database types, message queues, APIs and
+  transformation triggers from v0.5 on; the scheduler is designed for
+  extension. Narrows O11. Now in:
+  [versions/v0.3/scheduler.md](versions/v0.3/scheduler.md) "Drivers",
+  [versions/v0.5/README.md](versions/v0.5/README.md).
+- **D119 (2026-10-22, owner ruling, relayed): A PgBouncer brick in v0.3,
+  optional in any scenario.** Now in:
+  [versions/v0.3/pgbouncer.md](versions/v0.3/pgbouncer.md).
+- **D120 (2026-10-22, owner ruling, relayed): Difficulty is a fault
+  count.** Each fault is worth 1: easy 5, normal 10, hard 20. A scoring
+  system is post-v1.0; scoring research is allowed, added only if quick
+  to implement. Narrows O23 and O38. Now in:
+  [versions/v0.3/faults-with-activity.md](versions/v0.3/faults-with-activity.md),
+  [bricks-and-faults.md](bricks-and-faults.md) "Faults".
+- **D121 (2026-10-22, owner ruling, relayed): `ALTER SYSTEM` on a
+  report-only database node is accepted on the trust line** (light
+  enforcement, D13). Closes O45. Now in:
+  [planes-and-access.md](planes-and-access.md) "The database node".
+- **D122 (2026-10-22, owner ruling, relayed): Capacity is for the GM and
+  the initiator to discuss; Swarm is the platform.** A game lasts at most
+  four hours; the minimum capacity may rise; Kubernetes is future work;
+  Tailscale links armenelos and the VPS, so multi-host is available. Bears
+  on O46. Now in: [platform.md](platform.md) "Hosting",
+  [versions/v0.3/load-and-capacity.md](versions/v0.3/load-and-capacity.md).
+- **D123 (2026-10-22, owner ruling, relayed): A restart rebuilds the game
+  from scratch.** Every node shut down, the game data destroyed, fresh
+  nodes started, the game set up again; the replayed game may differ. The
+  explicit confirmation of D110 stays. Narrows O81. Now in:
+  [gm-stance.md](gm-stance.md) "During the game",
+  [versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md)
+  "Restart".
+- **D124 (2026-10-22, owner's answer "agreed" to spec-writer's recommendation, relayed by the wave driver): Checks judge a living system by its cause first.** The
+  cause where it is checkable; otherwise a trailing window from stable
+  counters, the scheduler's per-key counters among them; a new
+  "too soon to tell" exit code; the GM's checks never pause the load and
+  keep a connection (clients as ordinary roles). Closes O82. Now in:
+  [versions/v0.3/checks-under-load.md](versions/v0.3/checks-under-load.md).
+- **D125 (2026-10-22, owner's answer "agreed" to spec-writer's recommendation, relayed by the wave driver): v0.3 games run on always-on hosts only.** Classroom
+  swarms of student laptops wait for a later version that copies aged
+  volumes to the class's hosts (O22). Closes O83. Now in:
+  [versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md) "Playgrounds that are not up for two days",
+  [platform.md](platform.md) "Hosting".
+- **D126 (2026-10-22, owner's answer "agreed" to spec-writer's recommendation, relayed by the wave driver): A restart restores a hand-over snapshot where the disk
+  allows.** Otherwise the restarted game has only the history since the
+  restart, the GM naming the lost evidence before confirmation. The
+  players' credentials are kept; the game id is renewed. Closes O84;
+  narrows O81. Now in: [versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md) "Restart".
+- **D127 (2026-10-22, owner's answer "agreed" to spec-writer's recommendation, relayed by the wave driver): A timeline may change things at fixed moments during
+  aging only.** Planting a fault, switching a key, changing a rate,
+  written at design time; never during the game (D117). Closes O85. Now
+  in: [versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md) "Faults and changes during aging",
+  [versions/v0.3/scheduler.md](versions/v0.3/scheduler.md) "The schedule".
+- **D128 (2026-10-22, owner's answer "agreed" to spec-writer's recommendation, relayed by the wave driver): Multi-host is in v0.3.** Per-node placement, a
+  registry every host reaches, `fit` per host, tested on armenelos and
+  the VPS over Tailscale; the default game stays single-host; the MTU and
+  routing-mesh risks checked. Closes O46. Now in:
+  [versions/v0.3/load-and-capacity.md](versions/v0.3/load-and-capacity.md) "Several hosts".
+- **D129 (2026-10-22, owner's answer "agreed" to spec-writer's recommendation, relayed by the wave driver): The local implementation shifts the schedule by whole
+  hours.** The game window gets the designed load; every clock stays real
+  UTC; the story names the customer's time zone. Closes O86. Now in:
+  [versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md) "Time of day".
+- **D130 (2026-10-22, owner's answer "agreed" to spec-writer's recommendation, relayed by the wave driver): Players see the scheduler's log and configuration,
+  except `schedule.yaml`; write policy becomes per file.** Closes O87. Now
+  in: [versions/v0.3/scheduler.md](versions/v0.3/scheduler.md) "What the players reach",
+  [planes-and-access.md](planes-and-access.md).
+- **D131 (2026-10-22, owner's answer "agreed" to spec-writer's recommendation, relayed by the wave driver): Nobody pauses, speeds up or triggers the load during a
+  game**, not even for the final checks; moving a fixed-time job is the
+  players' only lever; no "run now". Closes O88. Now in:
+  [versions/v0.3/load-and-capacity.md](versions/v0.3/load-and-capacity.md) "Load control".
+- **D132 (2026-10-22, owner's answer "agreed" to spec-writer's recommendation, relayed by the wave driver): No time compression in v0.3.** Players verify a fix to a
+  job by moving its time. Closes O89; narrows O22. Now in:
+  [versions/v0.3/scheduler.md](versions/v0.3/scheduler.md) "Fixed-time operations".
+- **D133 (2026-10-22, owner's answer "agreed" to spec-writer's recommendation, relayed by the wave driver): A repository list is a pool.** One query per call,
+  optional weights; `steps:` for sequences, with `transaction:`;
+  player-editable builders accepted on the trust line. Closes O90. Now
+  in: [versions/v0.3/scheduler.md](versions/v0.3/scheduler.md) "The query repository".
+- **D134 (2026-10-22, owner's answer "agreed" to spec-writer's recommendation, relayed by the wave driver): v0.3 ships one new normal scenario and six to eight new
+  catalog faults.** Ten faults, with producers, consumers, monitoring and
+  PgBouncer; a score is the number of fault instances, tooling
+  expectations not counted, the named levels targets. Closes O91. Now in:
+  [versions/v0.3/faults-with-activity.md](versions/v0.3/faults-with-activity.md).
+- **D135 (2026-10-22, owner's answer "agreed" to spec-writer's recommendation, relayed by the wave driver): The release gate includes one full aged run** (at least
+  48 h) of the v0.3 scenario, played as `player`; smoke tests stay short.
+  Closes O92. Now in: [versions/v0.3/checks-under-load.md](versions/v0.3/checks-under-load.md) "The smoke tests",
+  [versions/v0.3/README.md](versions/v0.3/README.md) "Definition of done".
+- **D136 (2026-10-22, owner's answer "agreed" to spec-writer's recommendation, relayed by the wave driver): Randomness is seeded per game.** The seed is recorded
+  in the local implementation; a restart takes a new one. Closes O93. Now
+  in: [versions/v0.3/scheduler.md](versions/v0.3/scheduler.md) "The schedule".
+- **D137 (2026-10-22, owner's answer "agreed" to spec-writer's recommendation, relayed by the wave driver): The scheduler's driver is pluggable, SQL on PostgreSQL
+  first.** Closes O94. Now in: [versions/v0.3/scheduler.md](versions/v0.3/scheduler.md) "Drivers".
+- **D138 (2026-10-22, owner's answer "agreed" to spec-writer's recommendation, relayed by the wave driver): `max_connections` keeps its brick default of 100;
+  scenarios set low values.** Closes O95. Now in:
+  [versions/v0.3/load-and-capacity.md](versions/v0.3/load-and-capacity.md).
+- **D139 (2026-10-22, owner's answer "agreed" to spec-writer's recommendation, relayed by the wave driver): No PgBouncer metrics brick in v0.3.** Players use the
+  admin console, their role in `stats_users` only. Closes O96. Now in:
+  [versions/v0.3/pgbouncer.md](versions/v0.3/pgbouncer.md).
+- **D140 (2026-10-22, owner's answer "agreed" to spec-writer's recommendation, relayed by the wave driver): v0.3 takes every carried item.** Report-only
+  monitoring nodes (D108), O78's option (b), RG-2, RG-3, Prometheus
+  retention of at least the aging plus four hours, the format's aging
+  items. Closes O97 and O78 (its `ui:`/`report:` detail: O101). Now in:
+  [versions/v0.3/carried-items.md](versions/v0.3/carried-items.md).
+- **D141 (2026-10-22, owner's answer "agreed with your propositions", relayed by the wave driver): Any player in the GM session confirms a restart, in so
+  many words, once the GM has stated what is lost.** The game's state, the
+  players' changes and, without a snapshot, the evidence named. The local
+  implementation records each restart; the access model lists it as a
+  confirmed operation beside `stop`. Closes O81. Now in:
+  [versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md) "Restart",
+  [gm-stance.md](gm-stance.md) "During the game".
+- **D142 (2026-10-22, owner's answer "agreed with your propositions", relayed by the wave driver): The hand-over snapshot is taken online, per brick.** Each
+  brick declares a `snapshot:` method (`pg_basebackup`, Prometheus'
+  snapshot API, a plain copy for seed-only volumes); a brief stop for a
+  brick that declares none; `fit` counts the copies, and a restart falls
+  back to no history when they do not fit. Closes O98. Now in:
+  [versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md) "Restart",
+  [versions/v0.3/format-changes.md](versions/v0.3/format-changes.md).
+- **D143 (2026-10-22, owner's answer "agreed with your propositions", relayed by the wave driver): Write policy per file through `write_overrides`.** The node's
+  `write_policy` is the default; overrides make brick-listed writable
+  paths fixable; a `fix` resolution needs its file's policy, checked by
+  the loader; every brick. Closes O99. Now in:
+  [versions/v0.3/format-changes.md](versions/v0.3/format-changes.md),
+  [planes-and-access.md](planes-and-access.md).
+- **D144 (2026-10-22, owner's answer "agreed with your propositions", relayed by the wave driver): The GM has a connection reserve of its own.** `postgres`'s
+  v0.3 bump sets `reserved_connections` on the server command line, with
+  a GM check role holding `pg_use_reserved_connections`. Closes O100. Now
+  in: [versions/v0.3/checks-under-load.md](versions/v0.3/checks-under-load.md) "Principles".
+- **D145 (2026-10-22, owner's answer "agreed with your propositions", relayed by the wave driver): A fault definition's evidence names `node`, `report:<tool>`
+  or `bastion`.** `report:` only for a tool the target's brick ships; no
+  `ui:<name>`, the answer key adds routes. Closes O101. Now in:
+  [versions/v0.3/format-changes.md](versions/v0.3/format-changes.md),
+  [versions/v0.3/carried-items.md](versions/v0.3/carried-items.md).
+- **D146 (2026-10-22, owner ruling on the v0.3 review list, relayed by
+  the wave driver): Every item of the review list, R1–R46, is accepted as
+  proposed; v0.5 adjusts them after use.** The owner: "globally i'm okay
+  with what's proposed, we shall see in v0.5 if adjustment need to be
+  made". Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md),
+  [versions/v0.3/review-list.md](versions/v0.3/review-list.md),
+  [versions/v0.5/README.md](versions/v0.5/README.md).
+- **D147 (2026-10-22, owner's answer to the independent review, relayed
+  by the wave driver): Prometheus is snapshotted by a brief stop.** Its
+  admin API stays off and the bastion image unchanged; the scrape gap at
+  hand-over is told as maintenance. Replaces D142's Prometheus method.
+  Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md)
+  7.4, 6.4; [formats.md](formats.md) "Brick definition".
+- **D148 (2026-10-22, owner's answer to the review, relayed): A fixable
+  builder can leak the schedule; accepted on the trust line**, like
+  editable builders (D133), with no isolation; a known gap. Now in:
+  [versions/v0.3/access-model.md](versions/v0.3/access-model.md) 8, 11;
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 7.1, 20.
+- **D149 (2026-10-22, owner's answer to the review, relayed): Multi-host
+  copies images, no registry.** `docker save | ssh <host> docker load`
+  over Tailscale, deployed with `--resolve-image never`; nothing listens.
+  Amends D128's registry; narrows O10. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 10.2;
+  [platform.md](platform.md) "Image distribution".
+- **D150 (2026-10-22, owner ruling, relayed): The aging minimum is eight
+  hours, a floor; each scenario declares the aging it needs** and the GM
+  judges per game whether the time available is enough, declining or
+  replacing a scenario otherwise. Amends D114's two days; D135's run is at
+  the scenario's declared aging. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 8.2, 11;
+  [gm-stance.md](gm-stance.md).
+- **D151 (2026-10-22, spec-writer, process): The independent review's
+  REJECT is applied to the consolidation.** Its seven blocking issues and
+  its findings are fixed in the master spec, the access model and
+  formats.md; where a fix needed a choice the owner had not made, it is
+  tagged `(proposed)` and listed for his approval in
+  [versions/v0.3/review-list.md](versions/v0.3/review-list.md) "Second
+  round", awaiting him with the master spec.
+- **D152 (2026-10-22, owner's answer on R47, option (a), relayed by the
+  wave driver): Lost time up to thirty minutes does not move the earliest
+  hand-over; only the lost time beyond it does, and the GM judges those
+  outages at hand-over.** An outage is a minute with a node down or a
+  scheduler writing no per-minute summary, which it writes every minute,
+  even with no call (the re-review's first correction). The earliest
+  hand-over moves later by the excess beyond thirty minutes. Amends the
+  running-time rule of D151. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 4, 7.1, 8.7;
+  [versions/v0.3/access-model.md](versions/v0.3/access-model.md) 6;
+  [concept.md](concept.md) "Vocabulary".
+- **D153 (2026-10-22, owner's answer, relayed by the wave driver): The
+  review list's second round, R48–R62, is accepted as proposed**; their
+  `(proposed)` tags are dropped. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md),
+  [versions/v0.3/access-model.md](versions/v0.3/access-model.md),
+  [versions/v0.3/review-list.md](versions/v0.3/review-list.md).
+- **D154 (2026-10-22, owner approval, relayed by the wave driver): The
+  v0.3 master spec and access model are approved** (d3a3dc5), with the
+  re-review's nine corrections folded in (D155), D152 and D153. The known
+  gaps stay gaps. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md),
+  [versions/v0.3/access-model.md](versions/v0.3/access-model.md).
+- **D155 (2026-10-22, spec-writer, process): The re-review's nine
+  corrections are applied**: outages read from the per-minute summaries
+  (D152); one instance re-planted by `inject --at now --instance <id>`; a
+  restart's game at `handed-over`, the snapshot kept until teardown, new
+  Swarm secret objects with the same values; 6.7's nodes as a list; a
+  wrong-time-zone offset wrapping modulo 24; the rehearsal's `--handover`
+  placing the peak inside it; `EXECUTE` on `pg_hba_file_rules()`; the
+  index's D114 line. Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md)
+  6.7, 7.1, 7.3, 8.3, 8.7, 11–13, 20; [versions/v0.3/access-model.md](versions/v0.3/access-model.md) 3.
+- **D156 (2026-10-22, owner approval, relayed by the wave driver; clears
+  G1): The v0.3 build plan is approved** (v1, ff92e85), its nine
+  recommendations accepted as given (G4, G5, G6, G8, G9, κ = 3, the
+  rehearsal re-run on the merged code, the plan's reading of R47 (a)).
+  The owner: "agreed [...] otherwise everything is approved". Wave 1
+  opens on 2026-10-23. Now in: [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md).
+- **D157 (2026-10-22, owner ruling, relayed by the wave driver): Only a
+  scenario with scheduler nodes ages.** A scenario with no producer or
+  consumer (a static database investigated as a restored backup) has no
+  aging; the eight-hour floor and `aging:` apply only with scheduler
+  nodes. The owner: "aging is mostly required when there are producers".
+  Amends D150. Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 8, 15.4.
+- **D158 (2026-10-22, spec-writer, format; follows D157): A scenario with
+  no scheduler node omits `aging:`, which the loader refuses there,** with
+  `{{customer_timezone}}`, a `plant_at` other than T0 and an instance's
+  `aging_minimum`; `render --handover` is optional and the game skips
+  `load-started`. The topology already says it; `none` or 0 would be a
+  second way to say it. Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 6.1, 8, 13.
+- **D159 (2026-10-22, owner direction, relayed by the wave driver): The
+  driver may work on the VPS but never disturbs its existing apps:**
+  filetstudio.com stays up, and a change that needs it down (a Docker
+  upgrade) waits for a downtime scheduled with the owner beforehand; the
+  VPS's Caddy may change if filetstudio.com stays up; the VPS's own
+  documentation is read before any change. Now in: [platform.md](platform.md) "Hosting".

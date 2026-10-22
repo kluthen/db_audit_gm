@@ -1,6 +1,6 @@
 # Bricks and faults
 
-Status: draft v8
+Status: draft v9
 
 The catalog of reusable bricks and fault definitions, and the rules that
 keep scenarios fair. What a brick or fault definition must contain is in
@@ -95,8 +95,11 @@ pgBackRest stanza that doesn't actually work; a daily script that never
 runs (badly configured cron job or similar).
 
 The initiator's brief may impose a list of incidents and say whether the GM may
-add more. How many faults of each kind a scenario has, what "difficulty"
-means, and whether an issue may be a false alarm: O23.
+add more. Difficulty is a fault count: each fault is worth 1, an easy
+game scores 5, a normal one 10, a hard one 20; a scoring system for the
+players is post-v1.0 (D120); a score is the number of fault instances, the levels
+targets (D134). The mix of faults,
+and whether an issue may be a false alarm: O23.
 
 ### Tooling proportionate to the topology (D65)
 

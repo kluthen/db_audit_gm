@@ -1,6 +1,6 @@
 # Platform
 
-Status: draft v14
+Status: draft v17
 
 The swarm the games run on, the resource budget scenarios must fit, how
 scenario content reaches the nodes, and the Swarm behaviours that shape the
@@ -23,11 +23,31 @@ Never use an existing production swarm to host or test games (proposed).
 **v0.1 runs on one host** (D35): every node on the manager the GM targets
 (local, or reached over SSH), local images, no registry. If that host is
 not yet a swarm, the GM runs `docker swarm init` there, or guides the user
-to. Multi-host swarms, the registry, per-host SSH contexts and remote swarm
-creation below apply from later versions.
+to. Multi-host swarms, images copied to each host and per-host SSH
+contexts apply from v0.3 (D128, D149); remote swarm creation from a later
+version.
 
 Docker Swarm is the starting platform; the project must stay adaptable
-(D12; see "Portability" below).
+(D12; see "Portability" below). Swarm is the selected platform; Kubernetes
+is future work (D122).
+
+What a game may use is for the GM and the initiator to discuss; a game
+lasts at most four hours, and the minimum capacity may rise as versions
+add load, which is what a multi-host swarm is for (D122). Armenelos and
+the VPS (`ssh vps`) share a Tailscale network: v0.3 brings multi-host
+and tests it on that pair, the default game staying single-host (D128).
+From v0.3 the playground's hosts must also stay up through the aging of
+a scenario with scheduler nodes, at least eight hours and as long as the
+scenario declares (D150, D157), so v0.3 games run on always-on hosts; a
+classroom swarm of student laptops waits for a later version (D114,
+D125).
+
+**The VPS is shared** (D159): it hosts other applications, filetstudio.com
+among them, which must stay up. Work on the VPS never disturbs them; a
+change that needs filetstudio.com down (a Docker upgrade, say) waits for
+a downtime scheduled with the owner beforehand. Its Caddy may be altered
+so long as filetstudio.com stays up. The documentation kept on the VPS
+itself describes its set-up and is read before any change there.
 
 - **Multi-host swarms use Linux hosts only** (D12). Docker Desktop's engine
   runs in a NAT'd VM, and Docker documents swarm mode on Docker Desktop as
@@ -55,8 +75,10 @@ Docker Swarm is the starting platform; the project must stay adaptable
 - Databases are deliberately nerfed: limited CPU, low memory, small
   `work_mem`/buffers, etc.
 - The data schema stays simple and the tables small.
-- From v1.0, each scenario includes a few producers and consumers
-  generating activity. v0.1 has none: its database is static (D14, D35).
+- From v0.3, scenarios may include producers and consumers generating
+  activity, scheduler nodes running the GM's queries (D115); from v1.0
+  each scenario includes a few. v0.1 and v0.2 have none: their databases
+  are static (D14, D35, D67).
 
 Monitoring is not free: v0.2's Prometheus, Grafana, `postgres_exporter`
 and the node-health script inside every node count in the budget, and
@@ -133,13 +155,14 @@ from one laptop to a classroom swarm.
    - Fallback if per-host engine access is not available: deliver the
      injection material as a root-only Swarm secret run once at first start.
 6. **Passwords** travel as Swarm secrets.
-7. **Image distribution.** On one host, use local images (built or loaded),
-   named so they cannot resolve on Docker Hub. On several hosts, run a
-   `registry:2` service on the infrastructure plane, with its volume pinned,
-   and reference images as `127.0.0.1:5000/...`. Docker documents this
-   pattern, and treats 127.0.0.0/8 as an insecure registry by default; that
-   it works across hosts is documented but unverified here. The registry
-   holds no spoilers, so being reachable from the network leaks nothing.
+7. **Image distribution.** Use local images (built or loaded), named so
+   they cannot resolve on Docker Hub (`127.0.0.1:5000/...`); deployment
+   never pulls (`--resolve-image never`). On several hosts, from v0.3, the
+   GM copies to each host the images of the nodes placed there with
+   `docker save | ssh <host> docker load` over Tailscale, once per build
+   (D149). No registry runs: one on the routing mesh would listen,
+   unauthenticated, on every host's addresses, and anyone reaching it
+   could push images the swarm would run.
 
 Trade-offs accepted with C:
 
@@ -273,8 +296,8 @@ hedges, still without redesigning anything.
 ## Constraints and pitfalls
 
 - **Stack files** use the legacy Compose v3 format. `build:` is ignored, so
-  images come from the local engine (one host) or a registry every host can
-  reach. `depends_on` is ignored. Named volumes are per host, so stateful
+  images come from each host's local engine, copied there on several
+  hosts (D149). `depends_on` is ignored. Named volumes are per host, so stateful
   nodes are pinned with placement constraints.
 - **Hardening options under `docker stack deploy`** (see D25):
   - Honoured: `read_only`, `cap_drop`/`cap_add` (Engine 20.10+), `init`,
@@ -295,5 +318,4 @@ hedges, still without redesigning anything.
   measured in the game are not comparable with bare-metal measurements.
 
 Unverified (O10): numeric-only uid/gid in config and secret mounts (read
-in the source, not tested); the cross-host `127.0.0.1:5000` registry
-pattern; SSH Docker contexts into Windows or macOS machines.
+in the source, not tested); SSH Docker contexts into Windows or macOS machines.

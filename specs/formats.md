@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v16
+Status: draft v20
 
 What a scenario, a brick and a fault definition must contain, and how they
 are laid out, so that every scenario the GM designs or generates stays
@@ -8,6 +8,13 @@ within known boundaries. The rules these formats carry (the solvability
 probe, per-brick checks, fault families) are in
 [bricks-and-faults.md](bricks-and-faults.md); access and validator rules
 in [planes-and-access.md](planes-and-access.md).
+
+This page states what each format must contain. The YAML shapes of the
+fields v0.3 adds (`aging:`, `difficulty:`, `plant_at`, `write_overrides`,
+`snapshot:`, and a scheduler's `queries.yaml`, `schedule.yaml` and
+`jobs.yaml`) are in the
+[v0.3 master spec](versions/v0.3/master-spec.md), sections 6.7 and 7.1,
+normative until the format skill's templates carry them (D151).
 
 ## Enforcement
 
@@ -61,16 +68,36 @@ The owner's requirements (D23), with the earlier rulings that apply:
   parameters it is given, whether it is stateful, its networks and write
   policy, and its knobs' initial values (which may lie outside the
   envelope) with the envelope, tightened from the brick's default if
-  needed (D32); every flow between nodes (what moves, how, cadence;
+  needed (D32); from v0.3, its write overrides: paths among the brick's
+  writable paths made fixable on a report-only node, a fault's *fix*
+  resolution then needing the policy of the file it lives in (D130,
+  D143); a scheduler node's seed files (`queries.yaml`, `builders/`,
+  `jobs.yaml`, `schedule.yaml`; D115); every flow between nodes (what moves, how, cadence;
   monitoring and backup relations included); the data schema each database
   holds, or what produces it.
 - **Background information**: the customer's story and context.
 - **Incidents, flaws and defects**: every fault instance (fault definition
-  and version, target nodes, parameters, known or hidden, aging technique),
+  and version, target nodes, parameters, known or hidden; from v0.3 its
+  planting moment, `T0` by default or, for a `state` fault only, a moment
+  before hand-over written relative to it, within the scenario's aging
+  minimum and never at or after hand-over (D127, D151), and its aging
+  minimum when it needs more than its definition's),
   and the issues given to the players, zero or more, each with its expected
   resolution (*report*, *propose*, *fix*, *improve*) and the faults it
   covers (D9);
-  the aging plan (none in v0.1 or v0.2). An issue may also cover a
+  the aging plan: none in v0.1 or v0.2; from v0.3, in a scenario with
+  scheduler nodes, a required `aging:` block with the aging minimum, at
+  least eight hours and as long as the scenario's evidence needs, and the
+  hand-over time of day the scenario was designed for, in scenario time
+  (D114, D129, D150). A scenario with no scheduler node has no aging
+  (D157) and omits `aging:`, which the loader refuses there, as it
+  refuses a planting moment other than T0, an instance's aging minimum
+  and the customer's time zone placeholder, none of which means anything
+  without an aging or a shift; its fault definitions' aging minima,
+  times under the load, are not counted, and `render --handover` is
+  optional for it (D158); and its
+  difficulty score, the number of fault instances, checked by the
+  loader, with optionally the level it targets (D120, D134). An issue may also cover a
   tooling expectation, which is not a fault (D65, D76).
 - **The answer key**, for every fault instance: what is wrong and why, the
   evidence as the player user and where it is run (a required `where`
@@ -79,7 +106,9 @@ The owner's requirements (D23), with the earlier rulings that apply:
   `source`, which held v0.1's free-text `where` (D101), what counts as an
   acceptable diagnosis, fix, improvement or recommendation, the sealed
   check, interactions with other faults, any validator the player cannot make green (D10), and, once
-  solvability probes exist, their results. The GM's silent tooling
+  solvability probes exist, their results. From v0.3 a behavioural
+  sealed check (one judging behaviour over time, not a cause) states its
+  window and threshold (D124). The GM's silent tooling
   expectations (D65) are a list of their own, outside the fault
   instances: each says what is expected and what is acceptable (any of
   the research's top three tools for a need, say), has no sealed check,
@@ -89,7 +118,15 @@ The owner's requirements (D23), with the earlier rulings that apply:
   resource limits, reservations and placement the scenario was sized with.
   This is the reference the local implementation adapts from.
 - **The starter pack** shipped to the bastion: topology documentation,
-  node names, rules and DO NOT TAMPER list, the story, the issues.
+  node names, rules and DO NOT TAMPER list, the story, the issues. From
+  v0.3 the story and the starter pack name the customer's time zone
+  through a placeholder render fills from the shift, never a fixed zone
+  (D129, D151), a scenario with no scheduler node having neither shift
+  nor placeholder, its times UTC (D158); and a scenario's Prometheus
+  retention covers its aging minimum (none without an aging) plus four
+  hours by time unless a planted fault is about
+  retention, which the loader checks, a size bound staying above the
+  measured growth (D140, D151).
 - **The files each node needs**, delivered as Swarm configs (D11).
 - **The scenario document**, generated with the GM's scenario-document
   skill (D20), opening with a prominent warning that students and players
@@ -133,7 +170,17 @@ for the real playground (D23). It maps the playground's true resources onto
 what the scenario expects:
 
 - resource limits and reservations per node, placement and pinning, and the
-  number of hosts used (one in v0.1, D35);
+  number of hosts used (one in v0.1 and v0.2, D35; from v0.3 nodes are
+  placed on the playground's declared hosts and rendered as hostname
+  constraints, the bastion pinned to its own host, and the images copied
+  to each host over SSH, with no registry, D128, D149);
+- from v0.3, the planned hand-over and the shift in whole hours mapping
+  scenario time onto UTC, T0, the aging minimum, the outages and the
+  lost time (D152), the earliest hand-over and the hand-over, the game's seed, the
+  scheduled setup actions and their results, the early and hand-over
+  checks' results, the hand-over snapshot's location, and each restart
+  (old and new game ids, time, from the snapshot or not, the player's
+  confirmation) (D126, D129, D136, D141, D151);
 - the game id, which names every volume, config, secret and network of the
   game, so a redeploy never reuses a player-edited volume (D36); each
   network the scenario declares renders as one network named
@@ -194,7 +241,18 @@ Fields marked *optional in v0.1* have no use yet and may be left out
 - **Knobs**: setting, file, default, and default envelope; a scenario may
   tighten the envelope (D32).
 - **Write policy options** it supports (*fixable*, *report-only*).
-- **Writable paths** (what the player may change) and **protected files**.
+- **Writable paths** (what the player may change; from v0.3 also the
+  paths a scenario's write overrides may name, D143) and **protected
+  files**.
+- **Snapshot** (from v0.3, D142, D147): per volume, how it is copied at
+  hand-over: `pg_basebackup` for a database's data, `copy` (a plain copy
+  while the node runs) for a volume holding only seeded, append-only or
+  whole-file-rewritten files, or `stop`, a brief stop of the brick's
+  service inside its running container (s6, never a Swarm scale to zero)
+  while the volume is copied. Prometheus and Grafana use `stop`. A volume
+  the brick empties at every start is not copied; a brick that declares
+  nothing gets `stop`. The footprint's disk includes the volumes' growth
+  over an aging and a four-hour game, as measured, per hour.
 - **Player access**: the SSH account, its group, its `sudo` wrappers.
 - **Capabilities** it adds back after dropping all (D41).
 - **Monitoring exposure**: metrics endpoints, logs, what monitoring bricks
@@ -388,7 +446,15 @@ faults/<fault-id>/
   an aging step. State changes are idempotent POSIX shell scripts
   streamed over stdin, so they run the same through `docker exec` or
   `kubectl exec` (D22). Their interface is in "Script contracts" below.
-- **Evidence paths** as the player user, and the **aging** technique and
+  In the format these kinds are `seed-file` (with `seed_changes`),
+  `parameter` and `state`; from v0.3 only a `state` fault may be planted
+  later than T0, the other two being planted at render (D151).
+- **Evidence paths** as the player user. From v0.3 each evidence's
+  free text is its `source`, and its `where` is `node` (the fault's
+  target node), `bastion`, or `report:<tool>` for a tool the target's
+  brick ships; never `ui:<name>`, whose routes only the scenario knows
+  and which the answer key adds (D140, D145). And the **aging** technique
+  (`real-time`, the only one from v0.3, D114) and
   minimum duration that make them visible.
 - **Solvability probe**: what it runs as the player user and what it
   expects. Descriptive only in v0.1; a manual play-through checks it
@@ -420,7 +486,9 @@ pin that does not match the definition's `version`.
   further bump (D61). A brick version is released when the release gate
   of the version that builds it passes; a build wave merging into `main`
   releases nothing (D100). New bricks
-  start at 0.1.0; v0.2's changes to a v0.1 brick take 0.2.0, since 0.1.1
+  start at 0.1.0 (from v0.3, `scheduler` and `pgbouncer`; `postgres` and
+  `bastion` then take 0.3.0, the monitoring bricks 0.2.0); v0.2's changes
+  to a v0.1 brick take 0.2.0, since 0.1.1
   was released with `main` at 5c16d06 (D72).
 - **Faults never bump** (D60). A fault keeps its version whatever changes
   in its folder (injection, sealed check, acceptance criteria,
@@ -445,8 +513,11 @@ Fixed at consolidation so the scripts, the faults and the GM skill agree.
   anything else is a failed setup (D36).
 - **Sealed checks** (`checks/fixed.sh`): same delivery. Exit 0 means the
   fault is no longer present in the effective live state, 1 means it is
-  still present, any other code is an error. The first line of output
-  says why, in one sentence the GM can use in feedback.
+  still present, from v0.3 3 means "too soon to tell", with the remaining
+  window on the first output line (D124); any other code is an error. The
+  first line of output says why, in one sentence the GM can use in
+  feedback. From v0.3 a sealed check on a database connects as the GM
+  check role, inside the GM's connection reserve (D144).
 - **The data load** (`data/<node>.sql`): SQL, streamed into `psql` run as
   `postgres` inside the node's container; once per game, a second load
   changes nothing; any error is a failed setup (D52).
@@ -457,7 +528,8 @@ Fixed at consolidation so the scripts, the faults and the GM skill agree.
 ## Roles
 
 A node's role names its place in the topology (proposed list): `bastion`,
-`producer`, `queue`, `database`, `transformer`, `consumer`, `monitoring`,
+`producer`, `queue`, `database`, `pooler` (from v0.3, PgBouncer),
+`transformer`, `consumer`, `monitoring`,
 `backup`. A brick may serve several roles.
 
 ## Expressing the v1.0 pipeline
@@ -475,7 +547,7 @@ Illustration only; v0.2's monitoring tools are D69, the other roles' O11.
 | `prometheus`, `pg-exporter`, `grafana` | monitoring | metrics from `db-src`, `db-dwh`, and every node's health script | dashboards, alerts |
 
 Flows: `producer` -> `db-src` (rows, continuously), `db-src` ->
-`transform` -> `db-dwh` (batch, time-compressed "daily"), `db-dwh` ->
+`transform` -> `db-dwh` (batch, nightly), `db-dwh` ->
 `consumer` (reads), the monitoring nodes *monitor* both databases and
 every node. v0.1 uses the same
 format with `bastion` and one database node.
