@@ -23,6 +23,9 @@ reachable from outside.
   in `/etc/postgresql/postgresql.conf` and `/etc/postgresql/pg_hba.conf`.
   You may edit them (your account is in the `pgconf` group), and `ALTER
   SYSTEM` works too.
+- On `db`, the server log is in `/var/log/postgresql/` (read-only for
+  you). pgBadger is installed: `pgbadger -o ~/pgbadger.html
+  /var/log/postgresql/postgresql-*.log`, run as `player`.
 
 ## Applying changes on `db`
 
