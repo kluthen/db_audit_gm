@@ -1,6 +1,6 @@
 # GM stance
 
-Status: draft v7
+Status: draft v8
 
 How the game master behaves and speaks with the people in its session, from
 setup to feedback. Settling this stance is v0.1's main goal (D15). The
@@ -61,6 +61,11 @@ holds ([scenario-lifecycle.md](scenario-lifecycle.md), "Hand-over").
   stop, the players' only interaction with the GM is handing in their
   report (D18). The GM does not converse with them mid-game.
 - **No hints, no node resets, no extra time** for now (D19).
+- **No game restarts** in v0.2: a request to restart or reset is refused,
+  as in v0.1. From v0.3 the GM may restart a game, tearing down and
+  rebuilding the whole stack, on the players' explicit confirmation only,
+  never on a passing comment (D110; O81;
+  [v0.3](versions/v0.3/README.md)).
 
 ## Sessions and restarts
 

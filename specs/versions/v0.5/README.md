@@ -36,6 +36,13 @@ In the owner's words, three things (D47):
   option's software comes from, how a scenario chooses, what start-up
   does, faults that need an option, documentation) is O79; whether it is
   meant for every brick or only `postgres`, O80.
+- The `monitoring` role made conditional on the game having monitoring
+  (D113; v0.2's RG-5). In `postgres` 0.2.0 every game has the login role
+  `monitoring` (`pg_monitor`), exporter or not. The owner: "monitoring
+  isn't mandatory in any game (highly suspect if there isn't any of
+  course, but it remains a valid game)". Until then the role stays in
+  every postgres game. The role is among the first candidate options
+  above (O79).
 
 ## Out of scope
 

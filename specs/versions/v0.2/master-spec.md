@@ -3,8 +3,9 @@
 Status: **approved by the owner on 2026-10-21** (spec D98), as
 consolidated after an independent review of the drafts (verdict: no
 blocking issue); amended the same day by the owner's rulings on the
-build plan (D100–D106) and after wave 3 (D108: the monitoring bricks
-fixable only). Build plan: [build-plan.md](build-plan.md).
+build plan (D100–D106), after wave 3 (D108: the monitoring bricks
+fixable only) and at the release close (D111: `bookshop-new-server`'s
+seed). Build plan: [build-plan.md](build-plan.md).
 Companion: [access-model.md](access-model.md).
 Baseline: the released [v0.1 master spec](../v0.1/master-spec.md) and its
 [access model](../v0.1/access-model.md). Everything v0.1 specifies stays
@@ -475,8 +476,10 @@ its database nodes are fixable, and so are its monitoring nodes
 ### 11.2 `bookshop-new-server`
 
 Re-pinned to `postgres` and `bastion` 0.2.0, keeping its version; its
-answer key gains `where` on every evidence entry. It must still pass its
-v0.1 checks.
+answer key gains `where` on every evidence entry. Its seed
+`postgresql.conf` carries the `postgres` brick's logging and preload
+settings (section 7.5), so its PostgreSQL log is in files and the players
+can run pgBadger there too (D111). It must still pass its v0.1 checks.
 
 ## 12. Footprint and capacity
 

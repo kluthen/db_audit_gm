@@ -10,7 +10,7 @@ their IDs keep their meaning. Resolved since: O56 (D57), O59 (D60), O51
 (D77), O66 (D78), O68 (D79), O69 (D80), O70 (D81), O71 (D82), O57 (D84),
 O58 (D85), O60 (D86), O64 (D88), O67 (D90), O72 (D100), O73 (D101),
 O74 (D102), O75 (D103), O76 (D104), O77 (D105). Numbering continues
-from O81.
+from O82.
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -111,6 +111,18 @@ for the next version (v0.1 until it closed, with none left open);
 - **O38** (later) — Does the GM's feedback include a score? Is it written
   to a file (the teacher is out of the game by then)? Refs:
   [scenario-lifecycle.md](scenario-lifecycle.md).
+- **O81** (soon, v0.3) — How a game restart works (D110: allowed from
+  v0.3, on the players' explicit confirmation only). To settle: what
+  counts as explicit (who may confirm, the GM restating that the game's
+  state and the players' work are lost, a passing comment never enough);
+  what the rebuild keeps (the game id, the per-game credentials, the
+  session's clock) and redoes (data load, faults planted again); how it
+  is recorded in the local implementation; whether the access model
+  lists it with the confirmed operations, beside `stop`, which needs no
+  confirmation. Also to confirm: a whole-game restart is distinct from
+  the node resets D19 and D48 leave beyond v1.0, which stay there.
+  Refs: [versions/v0.3/README.md](versions/v0.3/README.md),
+  [gm-stance.md](gm-stance.md).
 
 ## Roadmap: gaps and cross-version risks
 

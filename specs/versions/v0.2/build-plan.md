@@ -1,7 +1,9 @@
 # db_audit_gm v0.2 — Build plan
 
-Status: v5 (2026-10-21): chunk 13's fault folder aligned with the
-format, `inject/` only when the fault has material (capture W4, ruling 1).
+Status: v6 (2026-10-22): every wave built; the wave 4 gate and the
+release gate passed on `v0.2-w4`, G10 and G11 cleared; release notes in
+[README.md](README.md); the merge into `main`, granted by the owner, is
+the driver's.
 Approval: approved 2026-10-21 by the owner (G1, spec D99).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-10-21 (spec D98) and
@@ -85,7 +87,7 @@ model says (D100).
 | 1 | 1, 2, 3, 4 | G2 (chunks 1, 4); G3 (chunks 1, 3, 4) | merged (2026-10-21, 6467fb5) |
 | 2 | 5, 6, 7 | wave 1; G2, G3 | merged (2026-10-21, 351de59) |
 | 3 | 8, 9, 10, 11 | wave 2 | merged (2026-10-21, 8e17795) |
-| 4 | 12, 13, 14 | wave 3; G10 (chunk 14's merge) | in progress |
+| 4 | 12, 13, 14 | wave 3; G10 (chunk 14's merge) | release gate passed (2026-10-22), merging |
 
 ```
 1 ──> 2, 3, 4          (in-wave: the v0.2 template keys captured at wave 1 start, W1)
