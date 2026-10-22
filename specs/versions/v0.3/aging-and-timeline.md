@@ -1,10 +1,10 @@
 # v0.3 — aging in real time, and the game timeline
 
-Status: draft v2
+Status: draft v3
 
 How a v0.3 game gets its history, and the moments from deployment to
 teardown. Settled: real-time aging (D114), always-on hosts (D125), the
-restart (D123, D126), timeline changes during aging (D127), the shift by
+restart (D123, D126, D141, D142), timeline changes during aging (D127), the shift by
 whole hours (D129), no time compression (D132), Prometheus retention
 (D140). Everything else is (proposed) until the owner reviews this
 draft. The general lifecycle is
@@ -134,16 +134,30 @@ What the restarted game starts from (D126):
   keeps a consistent copy of every volume of the game. A restart starts
   fresh nodes on fresh copies of it. The history then has a gap from
   hand-over to the restart, which the story tells as a maintenance
-  window. How the copy is taken: O98.
+  window. The copy is taken online, per brick (D142): each brick
+  declares a `snapshot:` method in its definition, `pg_basebackup` for
+  `postgres`, Prometheus' TSDB snapshot API for `prometheus` (its admin
+  API on, reachable from the node's own shell: a trust-line exposure), a
+  plain copy for volumes that hold only seeded files; a brick that
+  declares none is stopped briefly while its volumes are copied. `fit`
+  counts the copies' disk; when they do not fit, the game has no
+  snapshot and a restart falls back to no history.
 - **Otherwise, no history.** The restarted game has only the history
   since the restart. Before the players confirm, the GM names the
   evidence that is lost (the faults whose aging minimum the new game
   will not reach), and judges the final answer accordingly.
 
 The players' credentials are kept, so they log in as before; the game id
-is renewed, since a redeploy never reuses a volume (D36, D126). Still
-open (O81): who may confirm, what the GM states first, how the restart
-is recorded, and its place in the access model.
+is renewed, since a redeploy never reuses a volume (D36, D126).
+
+The confirmation (D141): any player in the GM session may confirm, in so
+many words, and only after the GM has stated that the game's state and
+the players' changes are lost and, when there is no snapshot, which
+evidence goes with them. A passing mention or a question never counts
+(D110). The local implementation records each restart: the old and new
+game ids, the time, from the snapshot or not. The access model lists
+restart as a confirmed operation, beside `stop`, which needs no
+confirmation.
 
 ## Playgrounds that are not up for two days (D125)
 
@@ -152,9 +166,8 @@ the game, and a stateful node's volumes live on one host. v0.3 games run
 on always-on hosts only. A classroom swarm of the students' own laptops,
 which is not there two days before the class, waits for a later version
 that copies the aged volumes to the class's hosts at hand-over (O22),
-the hand-over snapshot's machinery (O98) being its first half.
+the hand-over snapshot's machinery (D142) being its first half.
 
 ## Open points
 
-O20, O48 (probes as a gate), O81 (the rest of the restart), O98 (how the
-snapshot is taken).
+O20, O48 (probes as a gate).

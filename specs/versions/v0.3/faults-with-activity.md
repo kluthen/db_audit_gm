@@ -1,6 +1,6 @@
 # v0.3 — faults that need activity, and difficulty
 
-Status: draft v2
+Status: draft v3
 
 The fault families a running load makes possible, the faults the
 scheduler and PgBouncer bring, what difficulty means, and v0.3's
@@ -104,4 +104,5 @@ the behavioural ones, judged over a window.
 
 ## Open points
 
-None of its own; the format items are O99 and the format draft.
+None; the format items are in [format-changes.md](format-changes.md), the
+`(proposed)` items in [review-list.md](review-list.md).

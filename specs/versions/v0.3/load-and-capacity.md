@@ -1,6 +1,6 @@
 # v0.3 — load and capacity
 
-Status: draft v2
+Status: draft v3
 
 How much load a v0.3 game runs, what carries it, and how it spreads over
 several hosts. Settled: capacity is for the GM and the initiator to
@@ -38,8 +38,8 @@ envelope (`bricks/postgres/brick.yaml`). A low default would make every
 game exhaust connections whether its story wants it or not. Producers
 and consumers connect as ordinary roles, so
 `superuser_reserved_connections` (3 by default) still let the `dba` role
-and the GM's checks in ([checks-under-load.md](checks-under-load.md);
-a reserve of the GM's own: O100).
+and the GM's checks in, and the GM has a reserve of its own (D144;
+[checks-under-load.md](checks-under-load.md)).
 
 ## Load control (D131)
 
@@ -120,4 +120,4 @@ the aging").
 
 ## Open points
 
-O10 (registry pattern, to verify), O100 (the GM's connection reserve).
+O10 (registry pattern, to verify in the build).

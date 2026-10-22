@@ -1,6 +1,6 @@
 # v0.3 — the scheduler and the query repository
 
-Status: draft v2
+Status: draft v3
 
 How producers and consumers work in v0.3: one brick that is mostly a
 scheduler, running queries the GM wrote at design time. Settled: the
@@ -223,7 +223,7 @@ the load, not even for the final checks (D131).
 - **Edit**, where the scenario allows it: the repository (fixing a faulty
   query) and the fixed-time operations' schedules. Write policy is per
   file (D130): the repository may be fixable while the rest of the node
-  is report-only. How the format says it: O99.
+  is report-only, through the scenario's `write_overrides` (D143).
 - **Never**: `schedule.yaml` (the streams, the intensity, the
   connections, the timeline), root-only (D130).
 - **The log** (proposed contents): every fixed-time run (start, end, rows,
@@ -257,4 +257,4 @@ whether Prometheus scrapes them or not.
 
 ## Open points
 
-O99 (per-file write policy in the format).
+None; the `(proposed)` items are in [review-list.md](review-list.md).

@@ -1,6 +1,6 @@
 # Planes, access and rules
 
-Status: draft v14
+Status: draft v15
 
 Who may reach what, what the player may change, how the rules are checked,
 and what is left to trust. At consolidation this document feeds the access
@@ -125,7 +125,9 @@ which is root-only (D130).
 From v0.3 a write policy may be set per file: the node's policy is the
 default, and a scenario may make some of its writable files fixable, a
 scheduler's repository on an otherwise report-only node for example
-(D130; format: O99).
+(D130). The scenario's `write_overrides` make brick-listed writable
+paths fixable; a fault's `fix` resolution needs the policy of the file it
+lives in, and the loader checks it (D143).
 
 ### Credentials and the way in (D31)
 

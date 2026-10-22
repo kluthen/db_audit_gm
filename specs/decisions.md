@@ -16,7 +16,7 @@ README:
 Archived IDs keep their meaning and are cited as they are. D107 onward
 stay live: rulings still to be applied in a later version (D107, D108,
 D110, D113), the v0.2 release close, and v0.3's drafting from D114.
-Numbering continues from D141; no ID is reused.
+Numbering continues from D146; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -192,4 +192,33 @@ Numbering continues from D141; no ID is reused.
   monitoring nodes (D108), O78's option (b), RG-2, RG-3, Prometheus
   retention of at least the aging plus four hours, the format's aging
   items. Closes O97 and O78 (its `ui:`/`report:` detail: O101). Now in:
+  [versions/v0.3/carried-items.md](versions/v0.3/carried-items.md).
+- **D141 (2026-10-22, owner's answer "agreed with your propositions", relayed by the wave driver): Any player in the GM session confirms a restart, in so
+  many words, once the GM has stated what is lost.** The game's state, the
+  players' changes and, without a snapshot, the evidence named. The local
+  implementation records each restart; the access model lists it as a
+  confirmed operation beside `stop`. Closes O81. Now in:
+  [versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md) "Restart",
+  [gm-stance.md](gm-stance.md) "During the game".
+- **D142 (2026-10-22, owner's answer "agreed with your propositions", relayed by the wave driver): The hand-over snapshot is taken online, per brick.** Each
+  brick declares a `snapshot:` method (`pg_basebackup`, Prometheus'
+  snapshot API, a plain copy for seed-only volumes); a brief stop for a
+  brick that declares none; `fit` counts the copies, and a restart falls
+  back to no history when they do not fit. Closes O98. Now in:
+  [versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md) "Restart",
+  [versions/v0.3/format-changes.md](versions/v0.3/format-changes.md).
+- **D143 (2026-10-22, owner's answer "agreed with your propositions", relayed by the wave driver): Write policy per file through `write_overrides`.** The node's
+  `write_policy` is the default; overrides make brick-listed writable
+  paths fixable; a `fix` resolution needs its file's policy, checked by
+  the loader; every brick. Closes O99. Now in:
+  [versions/v0.3/format-changes.md](versions/v0.3/format-changes.md),
+  [planes-and-access.md](planes-and-access.md).
+- **D144 (2026-10-22, owner's answer "agreed with your propositions", relayed by the wave driver): The GM has a connection reserve of its own.** `postgres`'s
+  v0.3 bump sets `reserved_connections` on the server command line, with
+  a GM check role holding `pg_use_reserved_connections`. Closes O100. Now
+  in: [versions/v0.3/checks-under-load.md](versions/v0.3/checks-under-load.md) "Principles".
+- **D145 (2026-10-22, owner's answer "agreed with your propositions", relayed by the wave driver): A fault definition's evidence names `node`, `report:<tool>`
+  or `bastion`.** `report:` only for a tool the target's brick ships; no
+  `ui:<name>`, the answer key adds routes. Closes O101. Now in:
+  [versions/v0.3/format-changes.md](versions/v0.3/format-changes.md),
   [versions/v0.3/carried-items.md](versions/v0.3/carried-items.md).

@@ -1,14 +1,14 @@
 # v0.3 — checks on a living system
 
-Status: draft v2
+Status: draft v3
 
 Sealed checks, public validators and the smoke tests were built for a
 still system: in v0.2 nothing ran between hand-over and the final answer
 but the players. In v0.3 the load never stops (D117, D131), so a reading
 drifts and jitters between two runs. This is v0.3's biggest technical
 risk. Settled: the principles (D124) and the smoke tests with one full
-aged run (D135); the exit code's value and the GM's own reserve are
-(proposed).
+aged run (D135), the GM's own connection reserve (D144); the exit
+code's value is (proposed).
 
 ## What changes
 
@@ -49,7 +49,12 @@ aged run (D135); the exit code's value and the GM's own reserve are
    as ordinary roles, so PostgreSQL's `superuser_reserved_connections`
    keep slots for superusers; the GM's checks connect as `postgres` over
    the local socket. The players' `dba` is a superuser too and shares
-   those slots; a reserve of the GM's own is O100.
+   those slots, so the GM has a reserve of its own (D144): `postgres`'s
+   v0.3 bump sets `reserved_connections` on the server's command line,
+   where no configuration file or `ALTER SYSTEM` overrides it, and the
+   checks connect as a GM check role holding
+   `pg_use_reserved_connections`. A player as `dba` could still use the
+   reserve up; that is on the trust line.
 6. **Validators judge state.** Envelopes are state, unaffected. The
    "service healthy" rule must tolerate load: a refused connection under
    an exhaustion fault reads "unhealthy", which is then a red validator
@@ -70,4 +75,4 @@ aged run (D135); the exit code's value and the GM's own reserve are
 
 ## Open points
 
-O100 (the GM's connection reserve).
+None; the `(proposed)` items are in [review-list.md](review-list.md).

@@ -8,7 +8,7 @@ intent (D1). To resume cold: read this page, then
 Phase: **v0.1 released** on 2026-10-21 and merged into `main`
 (3c852e1); its working record is archived in
 [archive/v0.1/](archive/v0.1/README.md) (master spec approved under the
-owner's delegation to the lead, D44). **v0.2 released** on 2026-10-22: built from its [build plan](archive/v0.2/build-plan.md) (D99) in four waves, release gate passed, G10 and G11 cleared (D109), release notes in [versions/v0.2/README.md](versions/v0.2/README.md); merging into `main` on the owner's word; its working record is archived in [archive/v0.2/](archive/v0.2/README.md). **v0.3's drafting opened** on 2026-10-22 on branch `v0.3-spec`: eight draft documents in [versions/v0.3/](versions/v0.3/README.md), the owner's rulings D114–D140 (O82–O97 answered), questions O81 and O98–O101 open; no master spec until the owner says the drafts are ready. v0.4 to v0.6 and v1.0 in drafting. Conventions:
+owner's delegation to the lead, D44). **v0.2 released** on 2026-10-22: built from its [build plan](archive/v0.2/build-plan.md) (D99) in four waves, release gate passed, G10 and G11 cleared (D109), release notes in [versions/v0.2/README.md](versions/v0.2/README.md); merging into `main` on the owner's word; its working record is archived in [archive/v0.2/](archive/v0.2/README.md). **v0.3's drafting opened** on 2026-10-22 on branch `v0.3-spec`: eight draft documents and a [review list](versions/v0.3/review-list.md) in [versions/v0.3/](versions/v0.3/README.md), the owner's rulings D114–D145, no v0.3 question open; the drafts' `(proposed)` items await the owner's review; no master spec until the owner says the drafts are ready. v0.4 to v0.6 and v1.0 in drafting. Conventions:
 settled items are stated as fact, tentative ones are tagged `(proposed)`,
 and every open point cites an `O` ID. Every `(proposed)` item awaits the
 owner's confirmation; the register lists the ones with real alternatives.
@@ -27,7 +27,7 @@ owner's confirmation; the register lists the ones with real alternatives.
 | [planes-and-access.md](planes-and-access.md) | Bastion-only rule (the bastion publishes the web interfaces), planes, the GM session, trust, write policies, the scheduler nodes, hardening, validators | draft v14 |
 | [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls | draft v15 |
 | [open-questions.md](open-questions.md) | Open-questions register | live |
-| [decisions.md](decisions.md) | Decisions log, D107 onward (D140 last); D1–D54 archived with v0.1, D55–D106 with v0.2 | live |
+| [decisions.md](decisions.md) | Decisions log, D107 onward (D145 last); D1–D54 archived with v0.1, D55–D106 with v0.2 | live |
 | [archive/](archive/README.md) | Closed milestones' working records, kept verbatim: v0.1's and v0.2's build plans, decisions D1–D54 and D55–D106, resolved questions | archive |
 
 History: the tree was seeded on 2026-10-20 from the owner's pre-spec notes,
@@ -166,7 +166,11 @@ access model.
   no time compression (D132); repository semantics (D133); one new normal
   scenario and six to eight faults (D134); a full aged run at the release
   gate (D135); seed, driver, `max_connections` (D136–D138); no PgBouncer
-  metrics brick (D139); every carried item (D140).
+  metrics brick (D139); every carried item (D140). And on O81, O98–O101:
+  any player confirms a restart once the GM has stated what is lost
+  (D141); the snapshot taken online per brick (D142); `write_overrides`
+  (D143); a GM connection reserve (D144); a fault's evidence locations
+  (D145).
 - Small project: scripts and small apps, no ATD, no UI/UX tree (D2).
 - v0.1 build: seven artifacts (three skills, a Python/POSIX-shell script
   set, PostgreSQL 18 on Debian 13 and bastion bricks, one scenario), one
@@ -177,8 +181,9 @@ access model.
 
 ## Next steps
 
-1. v0.3: the owner's review of the drafts' remaining `(proposed)`
-   items, and answers to O81 and O98–O101; then consolidation into the
-   master spec and its access model, on the owner's word only.
+1. v0.3: the owner's review of the drafts' `(proposed)` items, in one
+   pass from [versions/v0.3/review-list.md](versions/v0.3/review-list.md);
+   then consolidation into the master spec and its access model, on the
+   owner's word only.
 2. The other "soon" question, O49 (backup tooling's version), then
    v1.0's from the "later" ones.

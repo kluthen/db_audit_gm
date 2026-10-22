@@ -1,22 +1,24 @@
 # v0.3 — producers and consumers
 
-Status: drafting (page draft v3). No master spec: it is consolidated only
+Status: drafting (page draft v4). No master spec: it is consolidated only
 when the owner says the drafts are ready. The owner's rulings of
-2026-10-22 are D114–D123, and his answers to the first round of
-questions D124–D140; the questions still due are listed below.
+2026-10-22 are D114–D123, and his answers to two rounds of questions
+D124–D145; no v0.3 question is open. What remains is the owner's review
+of the `(proposed)` items, gathered in [review-list.md](review-list.md).
 
 ## Drafts
 
 | Document | Purpose | Status |
 |---|---|---|
-| [scheduler.md](scheduler.md) | The scheduler brick, the query repository, the schedule, fixed-time operations, what the players reach, drivers | draft v2 |
-| [aging-and-timeline.md](aging-and-timeline.md) | Real-time aging, "meaningful" days, time of day, the timeline from deployment to teardown, the restart | draft v2 |
-| [load-and-capacity.md](load-and-capacity.md) | Calibrating load, `max_connections`, load control, always-on hosts, several hosts, the hosts at hand | draft v2 |
-| [faults-with-activity.md](faults-with-activity.md) | Difficulty, v0.3's scenario, fault families that need activity, candidate faults | draft v2 |
-| [checks-under-load.md](checks-under-load.md) | Sealed checks, validators and smoke tests on a living system | draft v2 |
+| [scheduler.md](scheduler.md) | The scheduler brick, the query repository, the schedule, fixed-time operations, what the players reach, drivers | draft v3 |
+| [aging-and-timeline.md](aging-and-timeline.md) | Real-time aging, "meaningful" days, time of day, the timeline from deployment to teardown, the restart | draft v3 |
+| [load-and-capacity.md](load-and-capacity.md) | Calibrating load, `max_connections`, load control, always-on hosts, several hosts, the hosts at hand | draft v3 |
+| [faults-with-activity.md](faults-with-activity.md) | Difficulty, v0.3's scenario, fault families that need activity, candidate faults | draft v3 |
+| [checks-under-load.md](checks-under-load.md) | Sealed checks, validators and smoke tests on a living system | draft v3 |
 | [pgbouncer.md](pgbouncer.md) | The PgBouncer brick | draft v2 |
-| [carried-items.md](carried-items.md) | Earlier rulings and known issues landing in v0.3 | draft v2 |
-| [format-changes.md](format-changes.md) | Every change to the formats, script contracts, local implementation and `gmctl` | draft v1 |
+| [carried-items.md](carried-items.md) | Earlier rulings and known issues landing in v0.3 | draft v3 |
+| [format-changes.md](format-changes.md) | Every change to the formats, script contracts, local implementation and `gmctl` | draft v2 |
+| [review-list.md](review-list.md) | Every `(proposed)` item, for the owner's review in one pass | live |
 
 ## Goal
 
@@ -71,7 +73,18 @@ In the owner's words (D47):
 - **A restart rebuilds the game from scratch** on the players' explicit
   confirmation (D110, D123), from a hand-over snapshot where the disk
   allows, otherwise with no history and the lost evidence named first;
-  credentials kept, game id renewed (D126).
+  credentials kept, game id renewed (D126). Any player in the GM session
+  confirms, in so many words, once the GM has stated what is lost; each
+  restart is recorded; the access model lists it beside `stop` (D141).
+  The snapshot is taken online, per brick, a brief stop for a brick with
+  no method; a restart falls back to no history when the copies do not
+  fit (D142).
+- **Write policy per file** through the scenario's `write_overrides`, for
+  every brick (D143).
+- **The GM's checks have a connection reserve of their own**
+  (`reserved_connections`, pinned on the server's command line, D144).
+- **A fault definition's evidence** names `node`, `bastion` or
+  `report:<tool>`, never `ui:<name>` (D145).
 - **Every carried item is taken** (D140; [carried-items.md](carried-items.md)).
 - **The release gate includes one full aged run** (D135).
 
@@ -112,8 +125,9 @@ In the owner's words (D47):
 
 1. The `scheduler` and `pgbouncer` bricks at 0.1.0, with their GM
    documentation, validators and footprints measured; the bricks that
-   change bumped (`postgres`, the monitoring bricks for report-only, the
-   bastion if it publishes in host mode).
+   change bumped (`postgres` with the GM's connection reserve and its
+   snapshot method, the monitoring bricks for report-only, the bastion if
+   it publishes in host mode).
 2. The format changes of [format-changes.md](format-changes.md) in the
    templates, the loader and the format skill; the eleven catalog faults
    moved to the new evidence `where`.
@@ -142,16 +156,10 @@ In the owner's words (D47):
 
 ## Questions due in this version
 
-Ranked, most important first:
-
-- O81: the rest of the restart: who may confirm, what the GM states
-  first, how it is recorded, its place in the access model.
-- O98: how the hand-over snapshot is taken.
-- O99: the per-file write policy in the format.
-- O100: a connection reserve of the GM's own.
-- O101: which evidence locations a fault definition may name.
-- Narrowed by the rulings: O11 (D118), O22 (D114, D125, D132), O23
-  (D120, D134), O30 (D114), O38 (D120), O48 (D114).
+None open: O82–O101 are answered (D124–D145). The owner's review of the
+`(proposed)` items is [review-list.md](review-list.md). Narrowed by the
+rulings and left for later versions: O11 (D118), O22 (D114, D125, D132),
+O23 (D120, D134), O30 (D114), O38 (D120), O48 (D114).
 
 Possible input: Bluebox ships its own load generator (Python,
 realistic web-traffic patterns), but Bluebox itself is planned for v0.5

@@ -1,6 +1,6 @@
 # GM stance
 
-Status: draft v9
+Status: draft v10
 
 How the game master behaves and speaks with the people in its session, from
 setup to feedback. Settling this stance is v0.1's main goal (D15). The
@@ -70,8 +70,11 @@ holds ([scenario-lifecycle.md](scenario-lifecycle.md), "Hand-over").
   snapshot where the disk allows; otherwise the restarted game has no
   history, and the GM names the evidence lost before the players
   confirm. The players' credentials are kept, the game id renewed
-  (D126). The rest of the mechanics: O81
-  ([v0.3](versions/v0.3/aging-and-timeline.md), "Restart").
+  (D126). Any player in the session may confirm, in so many words, once
+  the GM has stated that the game's state and the players' changes are
+  lost and, without a snapshot, which evidence goes; the restart is
+  recorded in the local implementation (D141;
+  [v0.3](versions/v0.3/aging-and-timeline.md), "Restart").
 - **No events outside the schedule** (D117, from v0.3): the GM plants no
   random events and never touches the load; producers and consumers
   follow their schedules. Nobody, GM or player, pauses, speeds up or
