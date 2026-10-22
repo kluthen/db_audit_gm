@@ -40,7 +40,8 @@ The image:
   script" below. No image carries it; a receiving node's brick must
   declare `receives` meeting the item's `requires` (s6-overlay `3`, the
   commands `sh`, `perl`, `du`, `df`, `s6-svstat`), which `postgres` and
-  `bastion` 0.2.0 and this brick do.
+  `bastion` 0.2.0, `postgres-exporter` and `grafana` 0.1.0, and this brick
+  do.
 - **Build**: `docker build -t 127.0.0.1:5000/dbagm/prometheus:0.1.0 bricks/prometheus`.
 - **How many**: one per scenario. Prometheus and Grafana always keep
   separate nodes.

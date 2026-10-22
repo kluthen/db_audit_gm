@@ -10,8 +10,10 @@ A PostgreSQL 18 database server on Debian 13 (trixie), with an SSH server
 for the players, in the image `127.0.0.1:5000/dbagm/postgres:0.2.0`. It
 fills the role `database`: the node the players audit, holding the
 scenario's data and its planted faults. The GM picks it for every
-database node of a scenario; in v0.1 it is the only database brick, and
-every catalog fault applies to it (see "Supported faults").
+database node of a scenario; in v0.2 it is still the only database
+brick. The catalog faults are no longer all its own: those that do not
+name it in `applies_to` apply to the monitoring bricks `prometheus` and
+`grafana` (see "Supported faults" for the ones it hosts).
 
 The image:
 
@@ -34,14 +36,17 @@ The image:
   `monitoring_password`, `player_ssh_pubkey`) are generated once per
   game, so every database node of a game gets the same values.
 - **Next to which node**: any host. The node needs no other node on its
-  host; in v0.1 the renderer runs the whole game on one host.
+  host; in v0.2 the renderer still runs the whole game on one host (one
+  host remains the only playground shape, master spec 8).
 - **Stateful**: yes (`stateful: true`). Its volumes `pgdata`, `pgconf`,
   `home`, `gmstate`, `pglog` and `run` (see "Configuration") must follow
   the node if it is replaced; otherwise the data, the players' changes,
   the seed marker and the server log are lost.
 - **Networks**: it must share a network with the bastion, which is the
-  players' only way in (see "Connections"). v0.1 renders a single network
-  for the whole game, so it shares it with every node.
+  players' only way in (see "Connections"). Each network a scenario
+  declares renders as `<game_id>_<network name>`; v0.2 scenarios declare
+  one network, and the scripts refuse a second (master spec 6.3), so it
+  shares it with every node.
 
 ## Configuration
 
@@ -257,8 +262,9 @@ the database (master spec 15, settled by the build of this brick):
 
 The brick provides two interfaces and consumes none (`interfaces.consumes:
 []`): it reaches no other node. Container ports 5432 and 22; nothing is
-published (in v0.1 only the bastion publishes a port), so both are
-reachable only from nodes sharing a network with it, by its node name.
+published (no node other than the bastion publishes a port, master spec
+7), so both are reachable only from nodes sharing a network with it, by
+its node name.
 
 - **`sql`, PostgreSQL protocol, port 5432.** The other side is the
   bastion, where the players run `psql -h <node>`. They log in as the role
@@ -333,8 +339,10 @@ The node has no web interface.
 ### Writable and protected paths, write policies
 
 - Writable by the player: `/etc/postgresql` (`postgres:pgconf`, `2775`;
-  seeded files `0664`) and `/home/player` (`~/.pgpass`, rewritten at each
-  start; `~/report.md`; pgBadger reports).
+  seeded files `0664`), `/home/player` (`~/.pgpass`, rewritten at each
+  start; `~/report.md`; pgBadger reports), and the scratch space `/tmp`
+  and `/var/tmp`, both links to `/run/tmp` (root, `1777`, emptied at each
+  start, see "Start-up").
 - Readable, not writable, by the player: `/var/log/postgresql` (volume
   `pglog`, `postgres:pgconf`).
 - Protected (root-owned, read-only to the player): `/etc/ssh/sshd_config`,
