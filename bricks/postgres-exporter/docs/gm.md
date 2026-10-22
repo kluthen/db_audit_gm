@@ -305,10 +305,10 @@ read inside the node.
 
 Default footprint in `brick.yaml`, in the shape of a scenario node's
 `resources`: limits CPU `0.245` and memory `122M`; reservations CPU
-`0.045`, memory `42M` and disk `64M`. That is master spec 12's estimate
-for an exporter node (limits 0.25 / 128M, reservations 0.05 / 48M, 64M of
-volumes), which includes the node-health script, less the script's own
-cost (0.005 CPU, 6M; see the `prometheus` brick's
+`0.045`, memory `42M` and disk `64M`. These are master spec 12's
+figures for an exporter node (limits 0.25 / 128M, reservations 0.05 /
+48M, 64M of volumes), which include the node-health script, less the
+script's own cost (0.005 CPU, 6M; see the `prometheus` brick's
 [GM notes](../../prometheus/docs/gm.md#what-the-node-health-script-adds-to-each-node)),
 since a brick's footprint excludes mounted material. The scenario's
 `resources` take the full row. Measured in the stack test (Docker
@@ -317,6 +317,21 @@ the container about 10–13M of memory, `postgres_exporter` about 17–19M of
 RSS. The scenario sets each node's own `resources`, and `gmctl` uses
 those, never the brick's footprint; disk is only counted by the capacity
 check.
+
+Measured in the v0.2 game (`fernway-clinics-monitoring` on the `laptop`
+playground, declared at 2 CPU / 4G / 8G on armenelos: AMD Ryzen 5 PRO
+8640HS, 11.3 GiB, Docker 29.9.1; 2026-10-21; `docker stats`, the highest
+of its samples; without the node-health script, which that scenario's
+fault f2 leaves off this node; scraped every 15 s, `pg_stat_statements`
+not loaded on the database by fault f4), under a 128M limit: at rest 11
+to 15 minutes after the deployment 24M; during dashboard loads 20M; during
+a pgBadger run on `db` 20M; at rest again after them 22M; 31M at most
+over the whole game.
+CPU: up to 0.07 at rest over a docker stats sample, as each scrape runs
+the collectors (above the 0.045 reservation, which only reserves, well
+within the 0.245 limit). Never OOM-killed nor restarted, never at its
+limit (`memory.peak`, page cache included, 38M). Its volumes: about 20K.
+With the script mounted, add its 6M: still within the reservation.
 
 What makes it grow:
 

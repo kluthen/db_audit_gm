@@ -20,7 +20,8 @@ image: 127.0.0.1:5000/dbagm/postgres:0.2.0
 # --- Footprint --------------------------------------------------------
 footprint:                          # CPU and memory: v0.1's figures as reservations, limits
                                     # twice; disk: master spec 12's db node (data and WAL 1G,
-                                    # log volume pglog 1G, home and pgBadger reports 256M)
+                                    # log volume pglog 1G, home and pgBadger reports 256M); the
+                                    # v0.2 game's measurement stays within them (docs/gm.md)
   limits:       {cpu: 1, memory: 1G}
   reservations: {cpu: 0.5, memory: 512M, disk: 2.25G}
 stateful: true

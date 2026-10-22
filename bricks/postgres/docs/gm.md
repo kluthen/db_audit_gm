@@ -415,8 +415,7 @@ What makes it grow:
   configuration, and about 1MB per pgBadger report in the player's home
   (810KB for the stack test's small log).
 - **Memory**: a pgBadger run, within the node's own limits: a large run
-  takes memory from PostgreSQL (master spec 7.5; measured at the release,
-  master spec 14).
+  takes memory from PostgreSQL (master spec 7.5; measured below).
 - **CPU**: the data load, the players' own queries and their pgBadger
   runs.
 
@@ -428,6 +427,22 @@ smaller knob values within their envelopes (a lower `shared_buffers`,
 `max_connections` or `max_wal_size`), a scenario envelope tightened to
 match, a smaller data file, and fewer logged lines (a higher
 `log_min_duration_statement`, `log_connections` off).
+
+Measured in the v0.2 game (`fernway-clinics-monitoring` on the `laptop`
+playground, declared at 2 CPU / 4G / 8G on armenelos: AMD Ryzen 5 PRO
+8640HS, 11.3 GiB, Docker 29.9.1; 2026-10-21; `docker stats`, the highest
+of its samples, the node-health script included; the `clinic`
+database, about 47 000 rows; the knobs at their initial values,
+`shared_buffers` 128MB), under a 1G limit: at rest 11 to 15 minutes
+after the deployment 59M and 0.05 CPU; during dashboard loads 52M; during a pgBadger run (`pgbadger -o
+~/pgbadger.html /var/log/postgresql/postgresql-*.log` as `player`, a
+190K log after 23 minutes of game, five runs, an 858K report each) 81M
+and 0.18 CPU; at rest again after them 54M. The data load: 0.35 CPU over a
+docker stats sample. Never OOM-killed nor restarted, never at its limit
+(`memory.peak`, page cache included, 134M, most likely at the data load). Its
+volumes after 35 minutes: `pgdata` 74M, `pglog` 0.2M, `home` 0.9M (the
+report). A static database is far within the reservation; the levers above
+matter when the data file or the log grows.
 
 ## Supported faults
 

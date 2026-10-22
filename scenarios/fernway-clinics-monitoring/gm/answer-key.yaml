@@ -1,0 +1,435 @@
+# Answer key of fernway-clinics-monitoring, built from
+# .claude/skills/scenario-format/templates/answer-key.yaml. AUTHORITATIVE,
+# with scenario.yaml. SEALED: never shipped to a node, never shown to the
+# players before their final answer.
+#
+# Evidence is as the player OS user (and dba in psql). ui: entries are read
+# in a browser through the bastion's web front (user player, the tools
+# password; Grafana's own login admin, the same password). The bastion has
+# no curl; the prometheus, exporter and grafana nodes have it.
+
+scenario:
+  id: fernway-clinics-monitoring
+  version: 0.1.0
+notes: gm/notes.md
+
+instances:
+  - instance: f1
+    what: >-
+      Prometheus never scrapes the grafana node's node-health endpoint: the
+      node-health job in /etc/prometheus/prometheus.yml lists bastion, db,
+      prometheus and exporter on port 9110, not grafana:9110. The grafana
+      node runs the node-health script and answers on its endpoint; only the
+      scrape is missing.
+    why: >-
+      grafana's CPU, memory, disk and services are monitored nowhere: it is
+      in no panel of the node-health dashboard and no alert can fire for it
+      ("Scrape target down" only covers targets Prometheus knows). That is
+      why its two restarts in September left no trace (issue I1). The
+      dashboard looks complete because nothing on it says a node is missing.
+    evidence:
+      - where: ui:prometheus
+        source: Prometheus' targets page, /prometheus/targets
+        how: open Status, Target health, and read the node-health job
+        shows: >-
+          four node-health targets (bastion, db, prometheus, exporter) for
+          five nodes in the topology; grafana:9110 is absent, not down
+      - where: ui:grafana
+        source: the node-health dashboard, /grafana/d/node-health
+        how: open the dashboard and read every panel's legend
+        shows: grafana appears in no panel, while bastion, db and prometheus do
+      - where: node:prometheus
+        source: /etc/prometheus/prometheus.yml
+        how: ssh prometheus, then cat /etc/prometheus/prometheus.yml
+        shows: "the node-health job's targets: 'bastion:9110', 'db:9110', 'prometheus:9110', 'exporter:9110'; no grafana"
+      - where: node:prometheus
+        source: grafana's node-health endpoint, read from the prometheus node
+        how: ssh prometheus, then curl -s grafana:9110/metrics | grep sample_age
+        shows: 'node_health_sample_age_seconds lines labelled node="grafana": the endpoint answers, only the scrape is missing'
+    acceptable:
+      diagnosis: >-
+        names grafana as never scraped for node health (its grafana:9110
+        target missing from the node-health job), tells a target absent
+        (silence) from a target down, shows the endpoint answers, and notes
+        that no alert can fire for the node; links it to the unseen
+        restarts of I1.
+      proposal: >-
+        add grafana:9110 to the node-health job and reload Prometheus (sudo
+        gm-reload-prometheus); keep the target list in step with the
+        topology and check the targets page after each change.
+      fix: >-
+        Prometheus, in its live state after a reload, holds node-health
+        samples for grafana (node_health_sample_age_seconds{node="grafana"}
+        answers an instant query); the targets page shows grafana:9110 up
+        and the other targets still scraped; grafana now appears on the
+        node-health dashboard.
+    sealed_check:
+      script: faults/prometheus-scrape-target-missing/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        Reads Prometheus' live state, not the file: a file edited but not
+        reloaded reads 1, and so does a target added in the last few
+        seconds, before its first scrape (15 s); run the check again a
+        little after the reload. Fixing it does not touch f2 (the exporter's
+        target stays down).
+    interactions: []
+    validators_left_red: []
+
+  - instance: f2
+    what: >-
+      the exporter node has no node-health script: its entry was left out
+      of the node_health map, so nothing was mounted into it
+      (/opt/gm/node-health/ and /usr/local/lib/gm/node-health/ are absent)
+      and its port 9110 refuses connections. Prometheus still lists
+      exporter:9110 among its node-health targets.
+    why: >-
+      the exporter node's CPU, memory, disk and services (the exporter
+      itself included) are monitored nowhere: if the exporter stopped, only
+      the PostgreSQL panels going empty would show it. The target has been
+      down since April and "Scrape target down" has fired ever since; the
+      customer learned to ignore it ("a leftover", story.md). An alert that
+      always fires is still an alert.
+    evidence:
+      - where: ui:prometheus
+        source: Prometheus' targets page, /prometheus/targets
+        how: open Status, Target health, and read the node-health job
+        shows: "exporter:9110 down, with an error saying the connection was refused"
+      - where: ui:grafana
+        source: Grafana's alerting view, /grafana/alerting/list
+        how: open Alerting, Alert rules, and read "Scrape target down"
+        shows: the rule firing for instance exporter:9110 (from about 2 minutes after the start)
+      - where: ui:grafana
+        source: the node-health dashboard, /grafana/d/node-health
+        how: open the dashboard and read every panel's legend
+        shows: exporter appears in no panel
+      - where: node:exporter
+        source: the node's file system
+        how: ssh exporter, then ls /opt/gm/node-health /usr/local/lib/gm/node-health
+        shows: "No such file or directory for both, while every other node has them (ssh db, same command)"
+    acceptable:
+      diagnosis: >-
+        names the exporter node as running without the node-health script
+        (target known and down, connection refused, nothing on the node),
+        tells it apart from a node Prometheus does not scrape (f1), and
+        says the firing alert is real, not noise to live with.
+      proposal: >-
+        deploy the node-health script on the exporter node as on the others
+        (its entry in the monitoring configuration, then a redeploy by
+        whoever runs the platform); keep the target-down alert, which caught
+        it, and act on alerts rather than learning to ignore them.
+    sealed_check:
+      script: faults/prometheus-node-health-node-missing/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        Hidden; report or propose only (the script and its configuration are
+        mounted read-only by the platform): it reads 1 for the whole game.
+        Removing exporter:9110 from prometheus.yml silences the alert but
+        is not a fix: judge it as hiding the problem.
+    interactions: []
+    validators_left_red: []
+
+  - instance: f3
+    what: >-
+      the node-health script on db watches sshd only: postgres was left out
+      of db's service list (/opt/gm/node-health/node.conf has
+      services=sshd), so no node_health_service_up series exists for
+      postgres on db.
+    why: >-
+      db shows healthy while PostgreSQL is down: "Service down on a node"
+      evaluates node_health_service_up and has no postgres series to see go
+      to 0. This alone explains why the October outage raised no service alert
+      (issue I2); f5 explains it a second time. The one service that
+      matters most is the one not watched.
+    evidence:
+      - where: node:db
+        source: /opt/gm/node-health/node.conf
+        how: ssh db, then cat /opt/gm/node-health/node.conf
+        shows: services=sshd (on prometheus, the same file lists prometheus and sshd)
+      - where: ui:grafana
+        source: 'the node-health dashboard, panel "Services: up or down, per node"'
+        how: open /grafana/d/node-health and read the Services row
+        shows: db shows sshd only, while every other node shows its main service and sshd
+      - where: ui:prometheus
+        source: an instant query, /prometheus/query
+        how: query node_health_service_up{node="db"}
+        shows: one series, service="sshd"; none for postgres
+    acceptable:
+      diagnosis: >-
+        names postgres as missing from db's node-health service list, so
+        PostgreSQL stopping changes nothing in node health and "Service
+        down on a node" cannot fire for it; one of the two reasons for I2.
+      proposal: >-
+        add postgres to db's node-health service list (the monitoring
+        configuration, redeployed by whoever runs the platform); a strong
+        answer adds an application-level alert as well, such as the
+        reference rule on the exporter's pg_up ("Exporter disconnected
+        from PostgreSQL"), which would have fired during the outage.
+    sealed_check:
+      script: faults/prometheus-node-health-service-missing/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        Report or propose only (read-only material): it reads 1 for the
+        whole game. I2 expects a proposal, so 1 is the expected outcome.
+    interactions: []
+    validators_left_red: []
+
+  - instance: f4
+    what: >-
+      pg_stat_statements is not preloaded: in /etc/postgresql/postgresql.conf
+      the shared_preload_libraries line is commented out ("off while chasing
+      the May crash; to put back"). The extension exists in database
+      postgres, but the server collects no statement statistics.
+    why: >-
+      the exporter's stat_statements collector fails, so the PostgreSQL
+      dashboard's four statement panels stay empty while the exporter is
+      connected (issue I3); without query statistics nobody can tell which
+      queries make Monday mornings slow, and performance work turns into
+      guessing.
+    evidence:
+      - where: ui:grafana
+        source: the PostgreSQL dashboard, /grafana/d/postgresql
+        how: open the dashboard
+        shows: the four statement panels say No data, while "Exporter connected to PostgreSQL" is at 1
+      - where: ui:prometheus
+        source: an instant query, /prometheus/query
+        how: query pg_scrape_collector_success{collector="stat_statements"}, then pg_stat_statements_calls_total
+        shows: the collector at 0, and no pg_stat_statements_calls_total series
+      - where: bastion
+        source: psql from the bastion, database postgres
+        how: psql -h db -d postgres -c 'SELECT * FROM pg_stat_statements LIMIT 1' -c 'SHOW shared_preload_libraries'
+        shows: '"pg_stat_statements must be loaded via shared_preload_libraries"; the setting is empty'
+      - where: node:db
+        source: /etc/postgresql/postgresql.conf
+        how: ssh db, then grep -n shared_preload_libraries /etc/postgresql/postgresql.conf
+        shows: the line commented out, with the comment about the May crash
+    acceptable:
+      diagnosis: >-
+        names pg_stat_statements as installed but not loaded (missing from
+        shared_preload_libraries), connects it to the empty panels and the
+        failing collector, and says a reload is not enough.
+      proposal: >-
+        put pg_stat_statements back into shared_preload_libraries
+        (postgresql.conf, or ALTER SYSTEM) and restart PostgreSQL (sudo
+        gm-restart-db), planned since it drops every connection; then read
+        the costliest statements in the panels or the view.
+      fix: >-
+        pg_stat_statements is in the shared_preload_libraries in effect
+        (the server was restarted) and SELECT count(*) FROM
+        pg_stat_statements succeeds in database postgres, by either path;
+        the statement panels fill within about a minute and a half; the
+        validator on db is still green.
+    sealed_check:
+      script: faults/pg-stat-statements-not-preloaded/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        A file edited (or ALTER SYSTEM run) but not restarted reads 1. After
+        gm-restart-db it reads 0 at once; the panels lag by about 70 s.
+    interactions: []
+    validators_left_red: []
+
+  - instance: f5
+    what: >-
+      the alert rule "Service down on a node" (uid gm-service-down) has a
+      pending period (for) of 2h in
+      /etc/grafana/provisioning/alerting/alert-rules.yaml; the other four
+      rules wait 1m or 5m.
+    why: >-
+      a service must stay down for two hours before the alert fires: the
+      90-minute outage of I2 could never have raised it, even if the
+      service were watched (f3), and any longer one is reported two hours
+      late. A rule that cannot fire in time is no rule; on the reception
+      screen it looks perfectly normal.
+    evidence:
+      - where: ui:grafana
+        source: Grafana's alerting view, /grafana/alerting/list
+        how: open the rule "Service down on a node" (folder db_audit_gm) and read its details
+        shows: pending period 2h, against 1m or 5m for every other rule
+      - where: node:grafana
+        source: /etc/grafana/provisioning/alerting/alert-rules.yaml
+        how: ssh grafana, then grep -n -e 'uid:' -e 'for:' /etc/grafana/provisioning/alerting/alert-rules.yaml
+        shows: "for: 2h under uid gm-service-down"
+    acceptable:
+      diagnosis: >-
+        names the 2h pending period of "Service down on a node" as longer
+        than the outages it is meant to catch, the second reason for I2,
+        independent of f3 (each alone keeps the alert silent).
+      proposal: >-
+        a pending period of a few minutes (at most 5m), long enough to ride
+        out a restart, set in alert-rules.yaml and applied with sudo
+        gm-reload-grafana (provisioned rules are not editable in the UI).
+      fix: >-
+        the rule exists in Grafana's live state, is not paused, and its
+        pending period is at most 5m, whichever path (the file and
+        gm-reload-grafana, or Grafana's API); the validator on grafana is
+        green.
+    sealed_check:
+      script: faults/grafana-alert-for-too-long/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        I2 expects a proposal: 1 is the expected outcome; a team that also
+        fixes it reads 0, and both are acceptable. A fix made only through
+        the API reads 0 but leaves the validator's pending rule red and is
+        lost at the next reload or restart: credit the file path more.
+    interactions: []
+    validators_left_red: []
+
+  - instance: f6
+    what: >-
+      pg_hba.conf on db has `host all all 0.0.0.0/0 trust` (commented
+      "temporary, while setting up the monitoring (April)") before the
+      monitoring role's line and the scram-sha-256 host line, so every TCP
+      connection from any address is accepted without a password, for any
+      role.
+    why: >-
+      anyone who reaches port 5432 logs in as any role (dba, postgres,
+      clinic_app) without a password: full control of the
+      clinics' data (owners' names, e-mails and phone numbers) and
+      operating-system access as postgres. The lines after it never apply.
+    evidence:
+      - where: node:db
+        source: /etc/postgresql/pg_hba.conf
+        how: ssh db, then cat /etc/postgresql/pg_hba.conf
+        shows: the trust line and its comment, above the monitoring line and the scram-sha-256 host line
+      - where: bastion
+        source: the pg_hba_file_rules view
+        how: psql -h db -c 'SELECT line_number, type, database, user_name, address, auth_method FROM pg_hba_file_rules'
+        shows: a host rule for 0.0.0.0 with auth_method trust, matched before the scram-sha-256 rules
+      - where: bastion
+        source: a password-less login from the bastion
+        how: PGPASSFILE=/nonexistent psql -w -h db -U dba -c 'SELECT 1'
+        shows: "1: the login succeeds with no password"
+    acceptable:
+      diagnosis: >-
+        names the trust line as letting anyone on the network log in as any
+        role, superusers included, without a password (first match wins),
+        and links it to the monitoring set-up it was meant to be temporary
+        for.
+      proposal: >-
+        remove the trust line (the monitoring role already has its own
+        scram-sha-256 line), keep `local all postgres peer` and the
+        monitoring line, reload, and test that a password-less login now
+        fails while the exporter stays connected (pg_up 1).
+      fix: >-
+        no non-local, non-loopback rule uses trust and the change is in
+        effect (reloaded); dba still logs in from the bastion with its
+        password; the exporter still connects (pg_up 1, "Exporter
+        connected to PostgreSQL" at 1); the validator on db is green.
+    sealed_check:
+      script: faults/pg-hba-trust-remote/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        Hidden. A file fixed but not reloaded reads 1. A fix that also drops
+        or narrows the monitoring line reads 0 but disconnects the exporter
+        (pg_up 0, every PostgreSQL panel empty, "Exporter disconnected from
+        PostgreSQL" firing): judge it as breaking the monitoring.
+    interactions: []
+    validators_left_red: []
+
+  - instance: f7
+    what: >-
+      the booking site's login role clinic_app is a superuser. It already
+      holds the data rights it needs (SELECT, INSERT, UPDATE, DELETE on
+      every table of clinic, USAGE on its sequences), so the attribute adds
+      nothing the site uses.
+    why: >-
+      an SQL injection in the booking site or a leaked application password
+      gives full control: every database, every setting, and
+      operating-system commands as postgres (COPY ... TO PROGRAM). The data
+      is personal (owners' contact details). Least privilege: data rights
+      on its own database only.
+    evidence:
+      - where: bastion
+        source: the cluster's roles
+        how: psql -h db -c '\du'
+        shows: clinic_app with the Superuser attribute, next to dba and postgres
+      - where: bastion
+        source: the role's own rights on clinic
+        how: psql -h db -d clinic -c '\dp'
+        shows: clinic_app already has arwd on every table, so it needs no superuser attribute
+    acceptable:
+      diagnosis: >-
+        names clinic_app as a superuser it need not be, and the risk (a
+        compromised site or password owns the whole server).
+      proposal: >-
+        ALTER ROLE clinic_app NOSUPERUSER, keeping its grants on clinic;
+        check that it can still read and write the tables (SET ROLE
+        clinic_app; SELECT ...; RESET ROLE).
+      fix: >-
+        clinic_app still exists, can log in, and is no longer a superuser;
+        its data rights on clinic are intact. Dropping the role or revoking
+        its grants breaks the booking site and is not acceptable.
+    sealed_check:
+      script: faults/pg-role-superuser/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        Hidden. The check does not test the grants: when it reads 0, run
+        \dp on clinic through gmctl exec before accepting the fix.
+    interactions: []
+    validators_left_red: []
+
+  - instance: f8
+    what: >-
+      autovacuum is disabled on the appointments table (storage parameter
+      autovacuum_enabled=off), while the server-wide autovacuum setting is
+      on and the validator is green on it.
+    why: >-
+      appointments changes all day (bookings, moves, cancellations, status
+      updates): dead rows pile up (bloat, slower scans), statistics go
+      stale (bad plans for the agenda's queries), and only the forced
+      anti-wraparound vacuum would ever process it. The winter vaccination
+      campaign makes it worse.
+    evidence:
+      - where: bastion
+        source: the table's options
+        how: psql -h db -d clinic -c '\d+ appointments'
+        shows: "Options: autovacuum_enabled=off"
+      - where: bastion
+        source: every table with storage parameters
+        how: psql -h db -d clinic -c "SELECT relname, reloptions FROM pg_class WHERE relkind = 'r' AND reloptions IS NOT NULL"
+        shows: "appointments | {autovacuum_enabled=off}"
+    acceptable:
+      diagnosis: >-
+        names the table-level autovacuum_enabled=off on appointments and its
+        consequences (bloat, stale statistics, wraparound protection left to
+        the forced vacuum), noting that SHOW autovacuum says on.
+      proposal: >-
+        ALTER TABLE appointments RESET (autovacuum_enabled), then VACUUM
+        (ANALYZE) appointments; per-table thresholds if the table were too
+        busy for the defaults, never off.
+      fix: >-
+        appointments no longer has autovacuum_enabled set to false (reset,
+        or set to on).
+    sealed_check:
+      script: faults/pg-table-autovacuum-off/checks/fixed.sh
+      at_handover: 1
+      notes: Hidden; a manual VACUUM alone does not change the check (the option stays off).
+    interactions: []
+    validators_left_red: []
+
+tooling_expectations:
+  - id: t1
+    need: PostgreSQL log analysis
+    expected: >-
+      something that reads PostgreSQL's server log regularly: errors and
+      crashes, slow statements, lock waits, connection storms, checkpoints
+      and autovacuum. Fernway logs all of it to files on db
+      (/var/log/postgresql, slow statements over 100ms, UTC) and nothing
+      and nobody ever reads them; the monitoring covers metrics only.
+    acceptable: >-
+      any proportionate log analysis: a pgBadger report generated on a
+      schedule (daily or weekly) and read by someone, log shipping into the
+      Grafana they already run (Loki with an agent on db), or a hosted log
+      service; for a single-database customer a scheduled pgBadger report
+      is enough. Each answer says who reads it and when.
+    notes: >-
+      Not covered by an issue: a silent expectation, judged in feedback
+      (master spec 11.1, D104: Grafana's node-health view exists, the
+      uncovered need is another). story.md hints at it (the log files
+      nobody opens; the May crash nobody could explain). pgBadger on db is
+      part of the players' kit, never run by the customer: a team that
+      runs it during the game shows the need well (a report from the
+      game's own log) but meets the expectation only by proposing a
+      recurring analysis. Distinct from f4: query statistics answer "which
+      statements cost the most"; the log answers "what happened" (the May
+      crash, the October outage's start-up and shutdown lines). Do not
+      credit fixing f4 as covering t1, nor t1 as covering f4.
