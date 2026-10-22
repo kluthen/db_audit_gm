@@ -1,6 +1,6 @@
 # db_audit_gm v0.2 — Wave log
 
-Execution record for [build-plan.md](build-plan.md). Kept by the wave
+Execution record for [build-plan.md](../../archive/v0.2/build-plan.md). Kept by the wave
 driver (the owner's top-level session).
 
 ## Wave 1 — started 2026-10-21
@@ -1493,3 +1493,761 @@ a v0.2 known limit, or have `spec-writer` record or plan the mechanism;
 estimates (exporter 165MB, grafana 866MB) and grafana's memory at rest
 (180–195M) over its 154M reservation, both for chunk 14b's footprint
 measurement and the release gate.
+
+### Owner answers after wave 3 — 2026-10-21
+
+- **Fixable only accepted.** The owner agreed that `prometheus`,
+  `postgres-exporter` and `grafana` are fixable only in v0.2, a known
+  limit (W3 ruling 1), against master spec 7's "fixable or report-only
+  per scenario". Sent to `spec-writer` to record (decision and the
+  spec's known limits), committed on `v0.2-w4`.
+- **Images pruned.** The owner asked for the untagged images to be
+  pruned: `docker image prune -f` removed every dangling image (none
+  left); free space on `/` stays 10G, their layers being shared with
+  the tagged images. The superseded `dbagm` 0.1.0 and 0.1.1 tags and the
+  build cache were not touched.
+- **Merged.** `v0.2-w3` merged into `main` as 8e17795; its worktree and
+  branches (`v0.2-w3`, `v0.2-c9-exporter`, `v0.2-c10-grafana`,
+  `v0.2-c11-monitoring`) removed.
+
+## Wave 4 — started 2026-10-21
+
+Chunks: 12, 13, 14 (chain 13 → 14). Branch `v0.2-w4`, worktree
+`/home/bastien/work/db_audit_gm-wt/v0.2-w4`, cut from `main` at 8e17795
+(wave 3 merged).
+
+- **Concurrency.** The owner's allowance for this session holds: 12
+  and 13 run side by side (no path between them, no shared source
+  file); 14 starts once 13 merges, and merges only once G10 clears.
+- **Gates.** G2, G3, G8, G9 done; G10 (the owner's review of the v0.2
+  scenario) blocks chunk 14's merge; G11 at release close.
+- **Preflight.** None (no intent register, no data register).
+- **Captures.** W4 (the chosen monitoring faults: ids, kinds, target
+  bricks, parameters, resolutions) is drafted before chunk 13 starts.
+  Chunk 12 needs none and starts now.
+- Chunk 12 dispatched 2026-10-21.
+- **D108** recorded by spec-writer in bed965d: the monitoring bricks
+  are fixable only in v0.2 (master spec section 7, access model 6, 7,
+  11, 12); report-only monitoring nodes proposed for v0.3. The build
+  plan needed no change.
+
+### Capture W4 — the v0.2 monitoring faults (chunk 13; read by 14)
+
+Drafted 2026-10-21 by a read-only planning agent from: build plan
+chunks 13 and 14; master spec 6.4 and 11.1; D92, D93, D94, D104, D106;
+captures W1, W1-C, W1-D, W2-A, W2-B, W3, W3-B, W3-C, W3-D; the bricks
+as built; `tools/gm/model.py` and `localimpl.py`; the six v0.1 faults.
+Reviewed by the wave driver the same day; its rulings on the draft's
+open points are at the end. "(choice)" marks a point the sources left
+open and this capture settles. The owner sees the set at G10 (chunk
+14's merge) and was told of it when chunk 13 started.
+
+**The set: five faults, none a state fault.**
+
+| # | Fault id | Kind | `applies_to` | Lives in | Parameters (scenario value) | Resolutions |
+|---|---|---|---|---|---|---|
+| 1 | `prometheus-scrape-target-missing` | seed-file | `prometheus` `["0.1.0"]` | seed `prometheus.yml`, the node-health job's `static_configs` | `node`: the node whose `<node>:9110` target is left out (`grafana`) | report, propose `[report-only, fixable]`; fix `[fixable]` |
+| 2 | `prometheus-node-health-node-missing` | parameter | `prometheus` `["0.1.0"]` | `node_health` map, `remove-entry` `"{NODE}"` | `node`, required (`exporter`) | report, propose `[report-only, fixable]`; no fix |
+| 3 | `prometheus-node-health-service-missing` | parameter | `prometheus` `["0.1.0"]` | `node_health` map, `remove-from-entry` entry `"{NODE}"`, item `"{SERVICE}"` | `node`, required (`db`); `service`, required: the node's main service (`postgres`) | report, propose `[report-only, fixable]`; no fix |
+| 4 | `pg-stat-statements-not-preloaded` | seed-file | `postgres` `["0.2.0"]` | seed `postgresql.conf`, `shared_preload_libraries` | none (`{}`) | report, propose `[report-only, fixable]`; fix `[fixable]` |
+| 5 | `grafana-alert-for-too-long` | seed-file | `grafana` `["0.1.0"]` | seed `alert-rules.yaml`, one rule's `for` | `rule`: the rule uid (`gm-service-down`); `max-for`: the longest wait that counts as fixed (`5m`) | report, propose `[report-only, fixable]`; fix `[fixable]` |
+
+Across the set:
+- **Ids**: the catalog's `<brick prefix>-<defect>`; `pg-` kept for
+  postgres, the other bricks by full id (choice). Parameter names
+  hyphenated, as the catalog's (`table-name`).
+- **Family**: a new free-text `monitoring` (the field is free text);
+  severity is chunk 13's (choice).
+- **Resolutions**: report and propose under both write policies, fix
+  under `fixable`, as v0.1's faults. The monitoring bricks are fixable
+  only (D108), so every *fix* on 1 and 5 is possible.
+- **Faults 2 and 3** are report or propose only, even on the fixable
+  `prometheus` node: their material is read-only on every node (master
+  spec 11.1, D92).
+- **Injection** plants nothing at run time: `gmctl inject` prints
+  "nothing to run" for 1, 4, 5 and "planted at rendering" for 2, 3, so
+  a second run gives the same result.
+- **`inject/`**: the seed-file faults carry their snippet there as
+  `material`; the parameter faults have no `inject/` folder (ruling 1).
+- **Validators**: none of the five turns one red (Prometheus' never
+  judges targets, Grafana's only that its files load, postgres' only
+  the knob envelopes): `validators_left_red: []` for each.
+- **`interactions`**: `{masks: [], masked_by: [], conflicts_with: []}`
+  for each. The placement rules (below) go in each fault's `gm.md`,
+  since `interactions` names fault ids, not nodes (choice).
+
+**1. `prometheus-scrape-target-missing`.** A node's node-health
+endpoint missing from the scrape targets.
+- Plant: the scenario's `prometheus.yml` node-health job lists every
+  node's `<node>:9110` except `{NODE}`; every other job, `exporter:9187`
+  included, stays.
+- "With no alert on a target down" (master spec 11.1) is read as the
+  consequence, not a second defect (ruling 5): `gm-target-down` stays
+  in the scenario, but cannot fire for a target Prometheus does not
+  know. Fault 2 needs that rule for its evidence.
+- A tool starved of information: Prometheus never asks, while the node
+  serves its endpoint.
+- Evidence: `ui:prometheus` `/prometheus/targets` (the node-health job
+  has one target fewer than the topology has nodes; `{NODE}:9110`
+  absent); `ui:grafana` node-health dashboard (`/grafana/d/node-health`,
+  the node absent from every panel); `ui:grafana` alerting view ("Scrape
+  target down" stays Normal); `node:prometheus`
+  `/etc/prometheus/prometheus.yml`; `node:prometheus` `curl -s
+  {NODE}:9110/metrics` answers (the bastion has no `curl`, W3-D).
+- Fix: add the target, then `sudo gm-reload-prometheus`.
+- Sealed check: on `prometheus` as `root`, on Prometheus' live state,
+  not the file: fixed when an instant query returns
+  `node_health_sample_age_seconds{node="{NODE}"}`, through `promtool
+  query instant http://127.0.0.1:9090/prometheus …` (the image has
+  `curl` and `promtool`, no `jq`) (choice). Exit 2 if Prometheus is not
+  ready. Chunk 13 confirms the metric and label names against the
+  script as built.
+
+**2. `prometheus-node-health-node-missing`.** A node left without the
+node-health script.
+- Plant: `parameter_changes: [{parameter: node_health, op:
+  remove-entry, entry: "{NODE}"}]`; the renderer mounts nothing into
+  that node.
+- The scenario still scrapes the node: its `prometheus.yml` keeps
+  `{NODE}:9110`; otherwise the fault shows only by comparing nodes.
+- Evidence: `ui:prometheus` targets (`{NODE}:9110` down, connection
+  refused); `ui:grafana` alerting view ("Scrape target down" fires for
+  `{NODE}:9110` after about 2 minutes: `for: 1m` plus the 1-minute
+  interval); `ui:grafana` node-health dashboard (no row for the node);
+  `node:{NODE}` (no `/opt/gm/node-health/`).
+- Sealed check: on `prometheus` as `root`, `curl -s -m 5
+  http://{NODE}:9110/metrics`, on the endpoint, not Prometheus, so it
+  does not depend on fault 1. Present while there is no answer or no
+  sample for `node="{NODE}"`; fixed when the endpoint answers for the
+  node. Exit 2 if the name does not resolve.
+
+**3. `prometheus-node-health-service-missing`.** The node's main
+service left out of its service list.
+- Plant: `parameter_changes: [{parameter: node_health, op:
+  remove-from-entry, entry: "{NODE}", item: "{SERVICE}"}]`. The
+  scenario's `db` entry is `default`, expanding to `[postgres, sshd]`;
+  the planted list is `[sshd]`.
+- Constraint: `service` is never the entry's only item (the list would
+  be empty); the parameter's description says so (choice).
+- Effect: the node shows healthy while its database is down; at rest
+  the evidence is the service missing, not down.
+- Evidence: `node:db` `cat /opt/gm/node-health/node.conf` (`services=sshd`);
+  `ui:grafana` node-health dashboard, "Services" panel (`db` shows
+  `sshd` only, every other node its main service); `ui:prometheus`
+  (`node_health_service_up{node="db"}` has no `postgres` series).
+- Sealed check: on `prometheus` as `root`, `curl
+  http://{NODE}:9110/metrics`: present while the endpoint answers
+  without `node_health_service_up{…service="{SERVICE}"}`, fixed when
+  the series is there. Exit 2 if the endpoint does not answer.
+
+**4. `pg-stat-statements-not-preloaded`.** Query statistics never
+collected.
+- Plant: the scenario's `postgresql.conf` leaves `pg_stat_statements`
+  out of `shared_preload_libraries` (line absent or commented out);
+  the rest follows W2-B's logging block.
+- The scenario's `exporter.conf` keeps
+  `COLLECTORS=--collector.stat_statements`, so the collector error
+  shows. The extension already exists in database `postgres` (W2-B):
+  only the preload is missing.
+- Visible without load: with the preload, the exporter's own queries
+  fill the panels within about 60 seconds (W3-D).
+- A tool starved of information.
+- Evidence: `ui:grafana` PostgreSQL dashboard (the four statement
+  panels "No data", "Exporter connected" at 1); `ui:prometheus`
+  (`pg_scrape_collector_success{collector="stat_statements"}` 0,
+  `pg_stat_statements_calls_total` empty); `bastion` (`psql -h db -c
+  'SELECT * FROM pg_stat_statements LIMIT 1'` errors with "must be
+  loaded via shared_preload_libraries"; `SHOW
+  shared_preload_libraries` lacks it); `node:db`
+  `/etc/postgresql/postgresql.conf`.
+- Fix: edit the file or `ALTER SYSTEM`, then `sudo gm-restart-db`; a
+  reload is not enough.
+- Sealed check: on the db node as `root`, through `runuser -u postgres
+  -- psql -d postgres`: fixed when the library is in effect and `SELECT
+  count(*) FROM pg_stat_statements` succeeds. A file edited but not
+  restarted reads present.
+
+**5. `grafana-alert-for-too-long`.** An alert rule's pending period
+longer than any incident.
+- Plant: the scenario's `alert-rules.yaml` gives rule `{RULE}` a `for`
+  of `2h` (the companion's is `1m`).
+- The rule is `gm-service-down`, never `gm-target-down`, which would
+  hide fault 2's firing alert (choice).
+- The master spec's other variant, a threshold in the wrong unit, is
+  set aside: a player could fix it by the threshold or by rescaling the
+  expression, which a sealed check cannot judge reliably (choice).
+- Evidence: `ui:grafana` `/grafana/alerting/list` ("Service down on a
+  node", pending period 2h); `node:grafana`
+  `/etc/grafana/provisioning/alerting/alert-rules.yaml`.
+- Fix: edit the file, then `sudo gm-reload-grafana`. Provisioned rules
+  are not editable in the UI; D94's API path also counts.
+- Sealed check: on the grafana node as `root`,
+  `/usr/local/lib/gm/grafana-api GET
+  /api/v1/provisioning/alert-rules/{RULE}` and `jq`, on the live state:
+  present while the rule is missing, paused, or its `for` exceeds
+  `max-for`; fixed when it exists, is not paused and its `for` is at
+  most `max-for`. Exit 2 when the helper exits 2. Chunk 13 confirms
+  Grafana 13.2.4's duration format (`2h` or `2h0m0s`).
+
+**The set's properties.**
+- Visible without load: every fault shows in configuration, the targets
+  page, dashboards or the alerting view. History is thin for the first
+  10 to 15 minutes; fault 2's alert takes about 2 minutes.
+- Starved tools: faults 1 and 4 (2 and 3 arguably).
+- Node-health faults: only 2 and 3, parameter faults on the
+  `prometheus` node naming only `prometheus`, with required `node`
+  (W1-C checks this).
+- No masking (placement rules, in each fault's `gm.md`):
+  - faults 1, 2 and 3 sit on three different nodes; fault 1 on the db
+    node would hide fault 3, faults 1 and 2 on one node would hide
+    fault 2's alert;
+  - fault 1 never removes `exporter:9187`, which would hide fault 4;
+  - fault 5 avoids `gm-target-down`;
+  - out: a data source at a wrong address (empties every panel and
+    alert, hiding 1–4) and the role without `pg_monitor` (overlaps 4);
+  - faults 3 and 5 both weaken "an alert when db's postgres stops"
+    without hiding each other's evidence; `gm.md` says so, and one
+    issue may cover both.
+- Brick changes: none beyond the "Supported faults" sections:
+  `prometheus` rows for 1, 2, 3 (`test_brick_docs` matches `` | `id` |
+  `` rows); `grafana` a row for 5; `postgres` a row for 4 and its "all
+  six also name 0.1.0 and 0.1.1" sentence updated; `postgres-exporter`
+  prose only (fault 4 names `postgres`). They fold into each brick's
+  version, no bump (D100).
+
+**Chunk 13's verification.** The node names are the fixture's
+(`bastion`, `db`, `prometheus`, `exporter`, `grafana`), so the values
+above serve. The committed `fixture-monitoring` must carry no planted
+fault (`tools/tests/test_model.py:322,331` pin its Grafana seeds and
+scrape targets; `tools/tests/smoke-monitoring.sh:202,288` expect 7
+targets up and 5 rules). Chunk 13 plants all five together on an
+uncommitted copy of the fixture (the five instances added, the three
+seed files changed per each fault's `seed_changes`; `catalog_root`
+defaults to the repo) (ruling 4): fit, render, deploy, inject; every
+check returns 1; fix 1, 4 and 5 as a player would; those three return
+0, 2 and 3 still 1. This also shows the set does not mask itself.
+
+**What chunk 14's scenario declares.**
+- `node_health: {bastion: default, db: default, prometheus: default,
+  exporter: default, grafana: default}`: every node; `db`'s entry
+  contains `postgres`; `exporter` is present.
+- Seed files: `prometheus.yml` (the node-health job lists `bastion`,
+  `db`, `prometheus`, `exporter` on 9110, not `grafana`; the
+  `prometheus` and `postgres` (`exporter:9187`) jobs and the retention
+  as in the fixture); `alert-rules.yaml` (the companion's with
+  `gm-service-down` `for: 2h`; the other four Grafana files byte for
+  byte); `postgresql.conf` (W2-B's logging block, without the preload);
+  `exporter.conf` (with `--collector.stat_statements`); `pg_hba.conf`
+  (`monitoring` by `samenet`, W3-D).
+- `fault_instances` (instance ids and visibility are chunk 14's,
+  reviewed at G10):
+
+  ```yaml
+  - {id: f1, fault: {id: prometheus-scrape-target-missing, version: 0.1.0}, node: prometheus, parameters: {node: grafana}}
+  - {id: f2, fault: {id: prometheus-node-health-node-missing, version: 0.1.0}, node: prometheus, parameters: {node: exporter}}
+  - {id: f3, fault: {id: prometheus-node-health-service-missing, version: 0.1.0}, node: prometheus, parameters: {node: db, service: postgres}}
+  - {id: f4, fault: {id: pg-stat-statements-not-preloaded, version: 0.1.0}, node: db, parameters: {}}
+  - {id: f5, fault: {id: grafana-alert-for-too-long, version: 0.1.0}, node: grafana, parameters: {rule: gm-service-down, max-for: 5m}}
+  ```
+
+- Issues: one covering f2 or f3 expects `report` or `propose`; a *fix*
+  issue on f4 needs `db` `fixable`; release gate item 6 needs at least
+  one *fix* issue on a monitoring tool (f1 or f5).
+- Tooling expectation: not node health (D104), and none of these five
+  faults' subjects.
+- Answer key: each entry's `interactions` per the notes above;
+  `validators_left_red: []` except for the v0.1 fault below.
+- Mixing with v0.1's faults (all on `postgres` 0.2.0, all visible
+  without load):
+  - suit well: `pg-hba-trust-remote` (its fix must keep the
+    `monitoring` `samenet` line or the exporter disconnects; its
+    `gm.md` says so, a note chunk 13 adds), `pg-memory-over-envelope`
+    (shares `postgresql.conf` with f4; validator red but fixable),
+    `pg-role-superuser`, `pg-table-autovacuum-off`;
+  - with care: `pg-join-index-missing`, its evidence EXPLAIN and the
+    index catalogue, never `pg_stat_statements` or the PostgreSQL
+    dashboard, which f4 hides;
+  - weak: `pg-abandoned-replication-slot` (retained WAL grows only
+    with writes);
+  - suggested (choice, for G10): two or three of the "suit well" ones,
+    seven or eight instances in all.
+- Candidates not chosen (choice): the data source at a wrong address
+  (masks the others); the role without `pg_monitor` (overlaps f4);
+  retention shorter than the window (the dashboards' window is 1 hour
+  and Prometheus holds 2–3 hours in memory: a config-only finding with
+  no symptom in a session); no slow-query log (the report looks the
+  same at rest); non-English `lc_messages` (no locales in
+  `debian:13-slim`); a `log_line_prefix` pgBadger cannot parse (ruling
+  2).
+
+**The wave driver's rulings on the draft's open points (2026-10-21).**
+1. **No `inject/` for the parameter faults.** The format makes
+   `inject/` conditional ("when it has material") and the loader
+   requires it only for referenced material; git keeps no empty folder.
+   Chunk 13's scope line ("each with … `inject/`") is read that way;
+   spec-writer aligns its wording.
+2. **No pgBadger fault.** Release gate item 4's "report evidence by
+   generating the report" applies where the answer key has report
+   evidence; master spec 11.1 asks for none. pgBadger is still run in
+   the game (footprint, item 3). The `log_line_prefix` fault stays a
+   candidate the owner can ask for at G10 (it would need pgBadger 13.2's
+   at-rest behaviour confirmed first).
+3. **The owner is told the set when chunk 13 starts**; G10 stays at
+   chunk 14's merge as planned.
+4. **The uncommitted fixture copy is accepted** for chunk 13's
+   verification. From the wave 4 gate on, the smoke deployment of the
+   v0.2 scenario covers the five faults at 1; release gate item 6
+   covers the fixes at 0.
+5. **"With no alert on a target down"** is the consequence of fault 1,
+   not a second defect: the scenario keeps `gm-target-down`.
+
+### Dispatch (chunk 13)
+
+- Chunk 13 dispatched 2026-10-21 on branch `v0.2-c13-faults`, with
+  capture W4 and its rulings, W1, W1-C, W2-A, W2-B and W3-B/C/D's
+  fault-relevant items in its brief. spec-writer asked to align chunk
+  13's `inject/` wording (ruling 1).
+
+### Capture W4-A — chunk 12 outcomes (read by 14 and the release gate)
+
+Chunk 12 merged 2026-10-21: 5b36f01, merge d0e9c53. Files:
+`.claude/skills/game-master/{SKILL,gmctl,feedback}.md` only.
+- **Done when**: master spec 9's items mapped to `SKILL.md` sections
+  (Setup steps 2, 4–7, 9; Hand-over; "Times"; "What you may do";
+  "Operating the nodes and the monitoring tools"; Evaluation steps 1,
+  3, 5, 7; Setup failures); the tools password and the web address
+  handed over only when the bastion's `web_routes` is not empty (D103),
+  the web port being the published one whose `target` is 8080, the SSH
+  port the one whose `target` is 22; `fit` needing a reachable engine
+  and the images built first (Setup steps 4, 5; its two refusals write
+  nothing); 39 `gmctl` invocations and 18 short mentions parse with
+  `tools.gm.build_parser()`, abbreviated options refused (scratch
+  script, not committed); the stance sections byte-identical. Unit
+  suite 298 OK.
+- **Skill shapes later work relies on**: on the host, credentials go
+  through `printf 'user = "player:%s"\n' "$(cat …)" | curl -s -K -`,
+  never in `--env` or an argument; the GM only reads the monitoring
+  tools, never reloads or changes them; after a Grafana 401 the GM
+  stops calling its API (lockout) and does not restart the node; a
+  tooling expectation an issue covers is judged inside that issue's
+  feedback block; at hand-over the players are told the history starts
+  at deployment (dashboards thin for 10–15 minutes); the monitoring
+  bricks are fixable only (D108, Setup step 2); the file log is found
+  by sorting names, right for `postgresql-%Y-%m-%d_%H%M%S.log` (a
+  scenario changing `log_filename` would break it: chunk 14 keeps
+  W2-B's).
+- **Left for the release gate**: a live run of the in-node commands
+  (the Prometheus, Grafana and web-front lines mirror
+  `smoke-monitoring.sh`; the log `tail` and the exporter and
+  node-health `curl` lines are unrun), the stance check-list, the
+  resume and the owner's judgement (items 8, 10, 12).
+- **Found outside its files**: `bricks/bastion/docs/gm.md` "After
+  deployment" passed the tools password in `curl -u` (visible in the
+  host's process list), against the owner's standing rule. Fixed on
+  the wave branch by a coding-executor (below).
+
+### Wave-branch fixes and spec alignments (2026-10-21)
+
+- **59186df** (coding-executor): `bricks/bastion/docs/gm.md` "After
+  deployment" now hands the tools password to `curl -K -` through
+  `printf`, never in an argument (found by chunk 12, W4-A). No other
+  brick's `docs/gm.md` passes a credential in an argument or `--env`.
+  Version unchanged (D100); docs only, no rebuild. Unit suite 298 OK.
+- **b7f6c4c, 4e8bf6c, 84b9e2b** (spec-writer), after W4 ruling 1: build
+  plan v5 (chunk 13's `inject/` "when it has material"); `specs/formats.md`
+  v16 (the fault layout's `inject/` conditional); `specs/platform.md` v14
+  (parameter faults, planted at rendering, as a third level, D92).
+
+### Capture W4-B — chunk 13 outcomes (read by 14, the wave gate and the release gate)
+
+Chunk 13 merged 2026-10-21: e7e5dd0, merge c698a28. Unit suite 298 OK
+after the merge.
+- **Files**: `faults/{prometheus-scrape-target-missing,
+  prometheus-node-health-node-missing,
+  prometheus-node-health-service-missing,
+  pg-stat-statements-not-preloaded, grafana-alert-for-too-long}/`
+  (`fault.yaml`, `checks/fixed.sh`, `checks/probe.md`, `gm.md` with
+  placement rules; `inject/*.snippet` only for 1, 4, 5); "Supported
+  faults" in `prometheus` (1, 2, 3), `grafana` (5), `postgres` (4; "all
+  but `pg-stat-statements-not-preloaded` also name 0.1.0 and 0.1.1";
+  the `samenet` note), `postgres-exporter` (prose);
+  `faults/pg-hba-trust-remote/gm.md` (its fix keeps the `monitoring`
+  `samenet` line). No brick version change; `fixture-monitoring`
+  unchanged.
+- **Versions and parameters**: every fault 0.1.0. `applies_to`: 1–3
+  `prometheus` `["0.1.0"]`, 4 `postgres` `["0.2.0"]`, 5 `grafana`
+  `["0.1.0"]`. Parameters, all required, default null: 1 and 2 `node`;
+  3 `node`, `service`; 4 none; 5 `rule`, `max-for` (`FAULT_MAX_FOR`).
+  W4's `fault_instances` block is usable as written. Severities: 1
+  medium, 2 medium, 3 high, 4 medium, 5 high.
+- **Names confirmed**: `node_health_sample_age_seconds{instance, job,
+  node}` (e.g. `{instance="db:9110", job="node-health", node="db"}`);
+  `node_health_service_up{node, service}`;
+  `pg_scrape_collector_success{collector="stat_statements"}` 0 planted,
+  1 fixed; `pg_stat_statements_calls_total` about 20 series 70 s after
+  the restart. Grafana 13.2.4's provisioning API returns `for` as
+  written (`"2h"`, `"1m"`); the check also reads `2h0m0s`. Fault 3's
+  panel is "Services: up or down, per node" (the row is "Services").
+- **Inject messages**: `<iid>: seed-file fault, planted by the seed
+  files; nothing to run` (1, 4, 5); `<iid>: parameter fault, planted at
+  rendering; nothing to run` (2, 3); a second run ends "run again
+  (replay)" and "Stage injected (unchanged)".
+- **Timings** from deploy's end: the exporter's node-health target down
+  at the first scrape (under 30 s); "Scrape target down" pending at
+  about 53 s, firing at about 1 min 54 s; the collector at 0 and `db`'s
+  services `sshd` only at the first scrape. After a fix: 4 and 5 read
+  fixed at once, 1 after the next scrape (15–30 s; the GM checks a
+  little after the reload); statement panels fill within about 70 s of
+  `gm-restart-db`.
+- **Verification** (uncommitted fixture copy, game `c13-faults-9sscf7`,
+  playground 2 CPU / 4G / 8G, disk 5.65G of 8G): render left
+  `exporter` without a node-health config and `db.conf` at
+  `services=sshd`; 5 services healthy; every check 1 before; after the
+  player fixes 1, 4, 5 at 0, 2 and 3 at 1; teardown left nothing
+  labelled. Error paths run by hand: unknown node 2; fault 3 on a node
+  without endpoint 2; fault 5 with a missing rule 1, a bad `max-for` 2.
+- **Wording rule found**: the loader reads any `<…>` in `fault.yaml` as
+  an unfilled placeholder, so evidence `where` text avoids angle
+  brackets.
+- **Risks**: fault 5 fixed through Grafana's API is lost at the next
+  restart or wrapper reload (`gm.md` says so); a fault-2/3 instance on a
+  node without the endpoint makes the check exit 2 (W4's placement
+  avoids it).
+
+### Dispatch (chunk 14a)
+
+- Chunk 14 set in progress 2026-10-21. Split per its split rule: 14a
+  (the scenario folder) dispatched first, built and kept on its branch,
+  for the owner's G10 review; 14b (the footprint measurement) follows on
+  the same branch once 14a is built, with any G10 changes.
+
+### Capture W4-C — chunk 14a outcomes (read by 14b, G10, the wave gate and the release gate)
+
+14a built 2026-10-21: 5c2be8d on `v0.2-c14-scenario` (worktree
+`/home/bastien/work/db_audit_gm-wt/v0.2-c14-scenario`), not merged
+(G10). Scenario `fernway-clinics-monitoring`: Fernway, four veterinary
+clinics, one PostgreSQL database `clinic`; monitoring set up by a
+freelancer who left.
+- **Instances**: f1–f5 exactly W4's block (f1, f3, f4, f5 known; f2
+  hidden); f6 `pg-hba-trust-remote` (hidden), f7 `pg-role-superuser`
+  on `clinic_app` (hidden), f8 `pg-table-autovacuum-off` on
+  `clinic.appointments` (hidden). `pg-memory-over-envelope` left out so
+  no validator starts red.
+- **Issues**: I1 fix (f1; release gate item 6's monitoring fix); I2
+  propose (f3 and f5, each alone explains the silent "service down"
+  alert); I3 fix (f4). Tooling expectation t1, silent: PostgreSQL log
+  analysis (alternative weighed: backups). Session 240 minutes.
+- **Checks**: `check_scenario` `[]`; unit suite 298 OK. `fit` on
+  `laptop`: CPU 1.05 of 2, memory 1.4G of 4G, images 1.53G (31 layers, 3
+  shared), disk 5.65G of 8G. Smoke deployment (game
+  `fernway-clinics-monitoring-day72b`): 5 services healthy, only 2222
+  and 8080 published; inject ok (f7, f8 scripts; the rest "nothing to
+  run"); `validate` green; all eight checks 1, three runs; teardown left
+  nothing labelled. "Scrape target down" for `exporter:9110` alerting
+  about 1 min 41 s after deploy.
+- **Resources**: master spec 12's rows (script included); grafana
+  estimated at 0.1 CPU / 208M / 256M, limit 0.5 / 384M (brick says
+  154M): 14b replaces it with the measured figure.
+- **For the release gate**: players get `PGUSER=dba PGDATABASE=postgres`
+  from sshd's `SetEnv`; `gmctl exec` does not, so a scripted
+  play-through (item 4) exports them itself. The README generator is a
+  scratch script
+  (`/tmp/claude-1001/-home-bastien-work-db-audit-gm/c63cb38e-ef2d-4974-87de-962eb6ea7fea/scratchpad/gen_readme.py`).
+- G10 put to the owner 2026-10-21; 14b dispatched in parallel on the
+  same branch (G10 changes land after it).
+
+### Capture W4-D — chunk 14b outcomes, the measured footprint (read by the release gate)
+
+14b built 2026-10-21: 3a4aae1 on `v0.2-c14-scenario`, over 14a's
+5c2be8d; not merged (G10).
+- **Machine**: armenelos, AMD Ryzen 5 PRO 8640HS (12 threads), 11.3 GiB,
+  Docker 29.9.1, kernel 6.12.113, cgroup v2; 2026-10-21. Other
+  projects' containers running, idle or light (recorded, not stopped);
+  nothing else on the swarm.
+- **Game**: `fernway-clinics-monitoring-4jsdev` on `laptop` (2 CPU / 4G
+  / 8G declared, D105); deployed 19:06:31Z, handed over 19:06:47Z,
+  `validate` green, 8 faults present; torn down 19:41:06Z leaving
+  nothing labelled.
+- **Method**: `docker stats --no-stream` back to back, cgroup files every
+  0.5 s as a cross-check, maxima reported. At rest 11.5–15.5 min after
+  deploy; dashboard load 6 runs × 3 browser sessions through the web
+  front (504 requests a run, 0 errors); pgBadger 5 runs as `player` on
+  `db` (log about 190K, report 858K); at rest again 9–13 min after the
+  loads.
+- **Memory (max) per node**, at rest / dashboard load / pgBadger / at
+  rest after use; CPU max rest / load / pgBadger; reservation, limit:
+
+  | Node | Memory | CPU | Reservation | Limit |
+  |---|---|---|---|---|
+  | bastion | 10.5 / 17.7 / 11.2 / 18.1M | 0.06 / 0.20 / 0.01 | 0.1 / 96M | 0.5 / 256M |
+  | db | 59.0 / 52.2 / 81.1 / 54.2M | 0.05 / 0.06 / 0.18 (data load 0.35) | 0.5 / 512M | 1 / 1G |
+  | prometheus | 56.0 / 66.4 / 59.9 / 64.0M | 0.03 / 0.07 / 0.04 | 0.1 / 160M | 0.5 / 384M |
+  | exporter (no script, f2) | 24.3 / 20.1 / 19.5 / 22.2M | 0.07 / 0.01 / 0.04 | 0.05 / 48M | 0.25 / 128M |
+  | grafana | 194.7 / 304.4 / 301.2 / 258.2M | 0.07 / 0.26 / 0.07 | 0.1 / 208M → 272M | 0.5 / 384M |
+
+  No OOM kill or restart (`OOMKilled=false`, `RestartCount=0`,
+  `memory.events` oom 0 everywhere). `memory.peak` with page cache:
+  bastion 22M, db 134M, prometheus 85M, exporter 38M, grafana 332M.
+- **Images** (`docker system df -v`, unique): grafana 786.6MB,
+  prometheus 408.6MB, postgres 182.3MB, bastion 105.5MB,
+  postgres-exporter 85MB, shared `debian:13-slim` 79.6MB; 1.65GB
+  (1.53GiB, `fit`'s figure). **Volumes** 77.4MB after 35 minutes (db
+  74.7MB, grafana 1.74MB, prometheus 0.88MB, bastion and exporter under
+  0.1MB).
+- **Totals**: CPU 1.05 of 2; memory 1.46G of 4G; images plus volumes
+  about 1.73GB of 8G (`fit`'s accounting 5.65G of 8G). Master spec 14
+  item 3 passes.
+- **Reservation raised**: grafana `brick.yaml` memory 154M → 266M (272M
+  as a node with the script; limit unchanged), the scenario's grafana
+  node 208M → 272M. Sized for the reading after dashboard use (258M),
+  not only the one after hand-over (195M): players use the dashboards
+  from the start. No other reservation changed; none lowered. All five
+  bricks' `docs/gm.md` "Footprint" carry the measured figures. No
+  version bump (D100). D106: the scenario uses all five bricks, so no
+  extra fixture game.
+- **Checks**: `fit` passes for the scenario and `fixture-monitoring` on
+  `laptop`, `fixture-audit` and `bookshop-new-server` on `host-1`;
+  stack tests postgres 73, bastion 67, prometheus 101, exporter 76,
+  grafana 88, all pass; unit suite 298 OK; README regenerated (diff:
+  grafana's reservation and the memory total, 1024M → 1088M).
+- **Left over, routed**:
+  - Master spec 12's estimates (Grafana 160M) now differ from the
+    measurement: for the release notes (release gate item 14).
+  - `fixture-monitoring` keeps Grafana at 160M (it copies spec 12's
+    row), below what it measures at rest: fixed on the wave branch.
+  - Image builds copy `rootfs` with the checkout's directory modes
+    (umask 002 gives 775 on `/usr/local/lib/gm` in the rebuilt grafana
+    image): fixed on the wave branch, every brick's build normalised.
+  - Grafana reaches 0.47 CPU over 0.5 s windows during a dashboard load
+    (limit 0.5): slower panels, not failures. The exporter peaks at
+    0.07 CPU against a 0.05 reservation (limit 0.25).
+  - Scratch evidence in
+    `/tmp/claude-1001/-home-bastien-work-db-audit-gm/c63cb38e-ef2d-4974-87de-962eb6ea7fea/scratchpad/c14b/`.
+
+### Wave-branch fixes after 14b (2026-10-21)
+
+- **37507f1** (coding-executor): every brick's Dockerfile copies
+  `rootfs/` through a `rootfs-modes` stage (`chmod -R u=rwX,go=rX`), so
+  the images ship 755/644 whatever the checkout's umask; the deliberate
+  modes set after the copy (sudoers 0440, `grafana.ini` and
+  `grafana-files` 0444, `grafana-api` 0750, the 2775 configuration
+  directories) are unchanged. Before: `/etc`, `/usr/local/**`,
+  `/etc/s6-overlay/**`, `/etc/ssh`, `/etc/sudoers.d` at 775 and s6 entry
+  files at 664 in every image. Builds under umask 002, 022 and 077 give
+  identical mode listings. All five images rebuilt (now the local tags);
+  stack tests postgres 73, bastion 67, prometheus 101, exporter 76,
+  grafana 88, all pass. No version bump (D100).
+- **d2c8429** (coding-executor): `fixture-monitoring` reserves 272M for
+  grafana (was 160M, spec 12's row), README regenerated; `fit` on
+  `laptop` 1.46G of 4G; unit suite 298 OK; `smoke-monitoring.sh` 43
+  checks pass in 51 s on the rebuilt images.
+
+### G10 cleared; chunk 14 merged (2026-10-22)
+
+- **G10** (the owner, 2026-10-22): "i approve the scenario. don't add a
+  pgbadger fault, leave out the memory fault." So `fernway-clinics-monitoring`
+  stands as built (5c2be8d, 3a4aae1): eight fault instances, issues
+  I1–I3, tooling expectation t1 (log analysis, silent), 240 minutes;
+  Grafana's reservation stays 266M (272M on the node). No sixth
+  (pgBadger) fault; `pg-memory-over-envelope` stays out of the
+  scenario. Capture W4 ruling 2 is closed by this answer.
+- **Chunk 14 merged** by the wave driver: 76c249c (`--no-ff`, no
+  conflict with the wave-branch fixes 37507f1 and d2c8429). Status and
+  Record set; G10 marked done in the gates table. Worktree
+  `v0.2-c14-scenario` removed; the branch is kept until the wave closes,
+  with `v0.2-c12-gm-skill` and `v0.2-c13-faults`.
+- The owner's word was "commit and proceed to the next wave". Wave 4 is
+  the plan's last wave, so next comes the wave 4 gate, then the release
+  gate on `v0.2-w4` before it merges (the model's release end). Merging
+  into `main` still waits for the owner's word.
+
+### Wave 4 gate — 2026-10-22: PASS (first run)
+
+Run by a `coding-executor` (verification level: wave gate) on `v0.2-w4`
+at 0ca6dd7, 2026-10-22T06:12:17Z, armenelos (Debian 13, Docker 29.9.1,
+single-node swarm), machine otherwise idle.
+
+- **0ca6dd7** (coding-executor): `tools/tests/smoke-scenario.sh
+  <scenario>`, the plan's "smoke deployment" of a scenario. On a copy of
+  the scenario, the playground taken from its single `designed_for` host
+  (fernway on `laptop` 2 / 4G / 8G, bookshop on `host-1` 2 / 4G / 20G):
+  fit, render, deploy, load-data, inject; `check` exits 1 with every
+  instance `present`, in order (polled up to 120 s); `validate` matches
+  what the answer key implies at hand-over (a node red only where an
+  instance's evidence is "the public validator on <node>" with a `RED
+  <rule>` line, or `validators_left_red` names it); teardown, nothing
+  labelled with the game id, other objects unchanged. No credential read
+  or passed. Fernway 17 checks, bookshop 18 (db red on `work_mem`, f2).
+- **Steps**, all PASS: unit 298 OK (27 s); `sh -n` 77 files; `perl -c`;
+  five image builds (cached: identical IDs to the engine's); stack tests
+  postgres 50 s, bastion 62 s, prometheus 50 s, exporter 71 s, grafana
+  163 s; `smoke.sh` 23 s; `smoke-monitoring.sh` 43 checks 51 s;
+  `smoke-scenario.sh fernway-clinics-monitoring` 17 checks 29 s;
+  `smoke-scenario.sh bookshop-new-server` 18 checks 20 s. No fix needed.
+- **Figures**: images grafana 0.1.0 866MB, prometheus 0.1.0 488MB,
+  postgres 0.2.0 262MB, bastion 0.2.0 185MB, postgres-exporter 0.1.0
+  165MB (v0.1's postgres 0.1.0/0.1.1 and bastion 0.1.0/0.1.1 tags still
+  on the engine, about 880MB); `/` 28G, 16G used, 10G free. No bundle or
+  performance figures apply.
+- No intent or data register: no wave sync.
+- **For the release gate**: fernway f1's check (`prometheus-scrape-target-missing`)
+  reads present right after deploy also because nothing is scraped yet,
+  so the play-through re-checks a fix only after a scrape interval; the
+  script's expected-validate rule depends on the answer key's evidence
+  wording (a differently worded scenario fails loudly, never passes
+  silently).
+- Logs: `/tmp/claude-1001/-home-bastien-work-db-audit-gm/c63cb38e-ef2d-4974-87de-962eb6ea7fea/scratchpad/gate-w4/`.
+
+Next: the release gate, on `v0.2-w4` before it merges (the model's
+release end; the owner's "proceed"). Merging into `main` waits for the
+owner's word.
+
+## Release gate — 2026-10-22
+
+Run by the driver on `v0.2-w4` (the model's release end: on the last
+wave's branch before it merges; the owner's "proceed"), on armenelos
+(Debian 13, Docker 29.9.1, single-node swarm). GM sessions were fresh
+agents reading `.claude/skills/game-master/` as their instructions; the
+driver played the initiator and the player; verifier agents worked as
+`player` through the bastion and the web front only, GM-side checks from
+the host. Scratch evidence:
+`/tmp/claude-1001/-home-bastien-work-db-audit-gm/c63cb38e-ef2d-4974-87de-962eb6ea7fea/scratchpad/rg-*`.
+
+1. **Item 1: PASS.** `fernway-clinics-monitoring` complete (loader's
+   `check_scenario` empty; every required file; pins resolve; README
+   current, "DO NOT READ" first); G10 cleared. Every brick's `docs/gm.md`
+   passes the format check, `prometheus`'s covering the node-health
+   script. Stale v0.1 wording found in the postgres, bastion and
+   prometheus docs: fixed (5e582e0, and a follow-up).
+2. **Item 2: PASS.** Game `fernway-clinics-monitoring-xk7d0d`, playground
+   `laptop` declared 2 CPU / 4G / 8G (D105): `fit` 1.05 of 2 CPU, 1.46G of
+   4G, 5.65G of 8G (images 1.53G); fitted 06:25:18Z, handed over
+   06:28:12Z, final answer 06:48:22Z, feedback 06:49:52Z, torn down
+   06:50:03Z; nothing labelled left.
+3. **Item 3: PASS.** No restart, no OOM (RestartCount 0, `memory.events`
+   oom 0 on every node). Memory (MiB) at rest / dashboard load / pgBadger
+   run, against the reservation: bastion 10 / 11 / 15 of 96; db 59 / 61 /
+   88 of 512; prometheus 50 / 51 / 51 of 160; exporter 16 / 19 / 19 of 48;
+   grafana 188–197 / 218 / 200 of 272 (cgroup peak 230). CPU peaks: db
+   0.19 (pgBadger), grafana 0.16 (dashboard load). Disk: images' union
+   1647.6MB, the game's 23 volumes about 77MB, writable layers 0: about
+   1.72GB of 8G. Footprints already carry the measured figures (chunk
+   14b).
+4. **Item 4: PASS.** f1–f8 evidence reachable as `player` where the answer
+   key says, interface evidence checked through Prometheus' and
+   Grafana's HTTP APIs, report evidence by running pgBadger.
+5. **Item 5: PASS.** The node-health dashboard shows CPU, memory, disk
+   against reservation and services for bastion, db and prometheus, host
+   free space once; grafana, exporter and postgres-on-db missing as f1,
+   f2, f3 plant; prometheus's sshd stopped by the GM shown down within
+   6 s, up again within 12 s; grafana in every panel after I1's fix.
+6. **Item 6: PASS.** I1 (f1) 1 → 0 at 06:39:28, I3 (f4) 1 → 0 at
+   06:40:19; the others still present; validators green.
+7. **Item 7: PASS on the requirement, with RG-1.** 401 with the challenge
+   on `/prometheus/` and `/grafana/` without the password; only the
+   bastion's 2222 and 8080 published; TZ=UTC on every node; PostgreSQL's
+   419 log lines in UTC. **RG-1**: `/`, unknown paths and `/<route>` (no
+   slash) answered 200 / 404 / 301 without the password, against capture
+   W2-C: fixed (1fc8ded).
+8. **Item 8: PASS.** The resuming GM's feedback judged t1 (log analysis)
+   met, with the player's weekly-pgBadger proposal.
+9. **Item 9: PASS.** Game `bookshop-new-server-b8mhk3` on `host-1`
+   (2 / 4G / 20G): only 2222 → 22 published, no 8080, no tools password
+   handed over (D103); the write policy holds on both nodes; `sudo
+   gm-validate` red on `work_mem` at hand-over, bastion green; f1–f6
+   evidence; I1 1 → 0 → 1 → 0 (file and reload, restored, `ALTER
+   SYSTEM`, D53); I3 by `CREATE INDEX CONCURRENTLY` 1 → 0; feedback given,
+   torn down 07:02:14Z, nothing labelled left.
+10. **Item 10: PASS, one check not run.** A fresh GM session found
+    fernway at `handed-over` from `local/` state and asked before picking
+    it up. Stance: a hint (which file for I2) refused; a reveal (is the
+    trust line planted, how many faults) refused; a report "so far" met
+    with "Is this your final answer?" and no comment on content. **The
+    restart/reset request was not sent**: this session's auto-mode
+    permission classifier denied the driver's message ("Interfere With
+    Workloads"); for the owner. Forced setup failure: a scratch copy of
+    bookshop (never in the repo) with `SELECT 1/0;` appended, game
+    `bookshop-new-server-k2n7ia` on `rgfail`: failed at load-data
+    (`psql exit 3: ERROR: division by zero`) recorded before
+    `data-loaded`, gmctl's teardown, confirming teardown recorded, nothing
+    labelled left.
+11. **Item 11: PASS.** The quality command (`gate-w4/gate.sh`) at 5e582e0,
+    2026-10-22T07:17:39Z: unit 298 OK, `sh -n`, `perl -c`, five builds,
+    stack tests (bastion now 71 PASS), `smoke.sh`, `smoke-monitoring.sh`,
+    both scenario smoke deployments, all PASS.
+12. **Item 12, G11: open.** Fernway's feedback is in
+    `scratchpad/rg-fernway/feedback.md` for the owner.
+13. **Item 13: PASS** after the driver completed the Record lines of
+    chunks 5, 9, 10 and 11 (6a9a209); every finding was already in the
+    bricks' `docs/gm.md`.
+14. **Item 14:** release notes to `spec-writer`.
+
+**Fixes on `v0.2-w4`** (coding-executor): 1fc8ded, RG-1, the web front
+serves `/`, the 404 and `/<route>`'s redirect from static files under
+`/run/web-front/www/` in the content phase, after `auth_basic` (nginx's
+own prefix-location redirect also ran before auth; an exact-match
+location per route replaces it); stack test asserts 401 on all three
+without the password and the stated answers with it. Side effects: POST
+to `/` gets 405; the 301 keeps the query string. Capture W2-C's file list
+for `/run/web-front/` gains `www/`. 5e582e0, stale wording in the
+postgres, bastion and prometheus docs (scratch space `/tmp` and
+`/var/tmp` → `/run/tmp` now listed as writable).
+
+**Findings for the owner** (none blocking):
+- **RG-2** (low): a player's `sed -i` on a group-writable config leaves the
+  file owned by `player` (group and mode kept; services and validators
+  fine).
+- **RG-3** (low): `gmctl status` prints `tools_password: password, handed
+  over` in a game without a web front (the label comes from the
+  bastion's static `handed_over: true`, `tools/gm/state.py:143`,
+  `localimpl.py:408`); the skill tells the GM not to hand it over.
+- **RG-4** (low–medium): `bookshop-new-server`'s seed `postgresql.conf`
+  lacks the logging and preload settings `bricks/postgres/docs/gm.md`
+  ("What the seed files must contain") requires (left at chunk 6), so
+  that game logs to Docker, players can't run pgBadger, and the GM
+  skill's "the server log is in files" does not hold there.
+- **RG-5** (low): every postgres 0.2.0 game has the login role
+  `monitoring` (`pg_monitor`), exporter or not; bookshop's answer key and
+  notes don't mention it.
+- The restart/reset stance check (item 10) is untested.
+- 2672181 (coding-executor): the follow-up on the bricks' docs. postgres's
+  "fixable only" now says v0.2 (D108); prometheus, postgres-exporter and
+  grafana list the scratch space `/tmp` and `/var/tmp` (checked on running
+  containers).
+
+### Owner rulings — 2026-10-22 (release close)
+
+- **G11 cleared**: "the feedback is good" (fernway's feedback, item 12).
+- **The restart stance check (item 10)**: not tested. The owner rules
+  that the GM may restart a game in the **next version**, tearing down
+  and rebuilding the whole stack, but **only on the player's explicit
+  confirmation**: a passing comment must never restart a game, because a
+  restart breaks the game. For `spec-writer`: a v0.3 entry. v0.2 keeps
+  the current stance (no restarts); the untested refusal is a known gap.
+- **RG-4**: update both bookshop's seed `postgresql.conf` (logging and
+  preload settings, as `bricks/postgres/docs/gm.md` requires) and the GM
+  skill's wording on the server log. On `v0.2-w4`, before the merge.
+- **RG-3** (the `gmctl status` label) and **RG-2** (`sed -i` ownership):
+  accepted as known issues.
+- **RG-5**: "monitoring isn't mandatory in any game (highly suspect if
+  there isn't any of course, but it remains a valid game)". The role
+  `monitoring` stays in every postgres game for now. Making it
+  conditional moves to **v0.5** (the brick-improvement version).
+- **Merge granted**: `v0.2-w4` into `main` once the RG-4 changes pass the
+  quality command and the release notes are written.
+- **RG-4 fixed** (coding-executor): e7c2c3e, bookshop's seed
+  `postgresql.conf` gains the brick's logging and preload block
+  (appended, lines 39–58, so `postgresql.conf:11` stays `work_mem`), with
+  `log_line_prefix` and `log_min_duration_statement` (2s → 100ms, the
+  brick's reference value) edited in place; starter pack names the log
+  and pgBadger; `scenario.yaml` and the answer key unchanged (version
+  0.1.0, README still current). 412f5a2: the GM skill says the server log
+  is in files when the seed sets `logging_collector = on` (every v0.2
+  seed) and otherwise `gmctl logs`; `gmctl.md`'s `logs` row likewise.
+  Checked: a bookshop game writes `/var/log/postgresql/postgresql-*.log`,
+  pgBadger runs as `player`, the six sealed checks unchanged.
+- **Quality command** at 412f5a2 (2026-10-22T07:39:26Z, armenelos): every
+  step PASS (unit 298 OK; stack tests postgres 54 s, bastion 64 s,
+  prometheus 50 s, exporter 71 s, grafana 149 s; `smoke.sh`,
+  `smoke-monitoring.sh`, both scenario smoke deployments). Logs of the
+  earlier runs in `gate-w4/run1/` and `run2/`.

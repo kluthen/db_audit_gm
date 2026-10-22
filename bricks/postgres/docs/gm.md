@@ -10,8 +10,10 @@ A PostgreSQL 18 database server on Debian 13 (trixie), with an SSH server
 for the players, in the image `127.0.0.1:5000/dbagm/postgres:0.2.0`. It
 fills the role `database`: the node the players audit, holding the
 scenario's data and its planted faults. The GM picks it for every
-database node of a scenario; in v0.1 it is the only database brick, and
-every catalog fault applies to it (see "Supported faults").
+database node of a scenario; in v0.2 it is still the only database
+brick. The catalog faults are no longer all its own: those that do not
+name it in `applies_to` apply to the monitoring bricks `prometheus` and
+`grafana` (see "Supported faults" for the ones it hosts).
 
 The image:
 
@@ -34,14 +36,17 @@ The image:
   `monitoring_password`, `player_ssh_pubkey`) are generated once per
   game, so every database node of a game gets the same values.
 - **Next to which node**: any host. The node needs no other node on its
-  host; in v0.1 the renderer runs the whole game on one host.
+  host; in v0.2 the renderer still runs the whole game on one host (one
+  host remains the only playground shape, master spec 8).
 - **Stateful**: yes (`stateful: true`). Its volumes `pgdata`, `pgconf`,
   `home`, `gmstate`, `pglog` and `run` (see "Configuration") must follow
   the node if it is replaced; otherwise the data, the players' changes,
   the seed marker and the server log are lost.
 - **Networks**: it must share a network with the bastion, which is the
-  players' only way in (see "Connections"). v0.1 renders a single network
-  for the whole game, so it shares it with every node.
+  players' only way in (see "Connections"). Each network a scenario
+  declares renders as `<game_id>_<network name>`; v0.2 scenarios declare
+  one network, and the scripts refuse a second (master spec 6.3), so it
+  shares it with every node.
 
 ## Configuration
 
@@ -257,8 +262,9 @@ the database (master spec 15, settled by the build of this brick):
 
 The brick provides two interfaces and consumes none (`interfaces.consumes:
 []`): it reaches no other node. Container ports 5432 and 22; nothing is
-published (in v0.1 only the bastion publishes a port), so both are
-reachable only from nodes sharing a network with it, by its node name.
+published (no node other than the bastion publishes a port, master spec
+7), so both are reachable only from nodes sharing a network with it, by
+its node name.
 
 - **`sql`, PostgreSQL protocol, port 5432.** The other side is the
   bastion, where the players run `psql -h <node>`. They log in as the role
@@ -333,8 +339,10 @@ The node has no web interface.
 ### Writable and protected paths, write policies
 
 - Writable by the player: `/etc/postgresql` (`postgres:pgconf`, `2775`;
-  seeded files `0664`) and `/home/player` (`~/.pgpass`, rewritten at each
-  start; `~/report.md`; pgBadger reports).
+  seeded files `0664`), `/home/player` (`~/.pgpass`, rewritten at each
+  start; `~/report.md`; pgBadger reports), and the scratch space `/tmp`
+  and `/var/tmp`, both links to `/run/tmp` (root, `1777`, emptied at each
+  start, see "Start-up").
 - Readable, not writable, by the player: `/var/log/postgresql` (volume
   `pglog`, `postgres:pgconf`).
 - Protected (root-owned, read-only to the player): `/etc/ssh/sshd_config`,
@@ -343,7 +351,7 @@ The node has no web interface.
   s6-overlay service definitions (`/etc/s6-overlay/s6-rc.d`,
   `/etc/s6-overlay/user-bundles.d`) and the seed marker's directory
   `/var/lib/gm-state`.
-- Write policies: `fixable` only, in v0.1 (see "Known limits").
+- Write policies: `fixable` only, in v0.2 (see "Known limits").
 
 ### Wrappers
 
@@ -415,8 +423,7 @@ What makes it grow:
   configuration, and about 1MB per pgBadger report in the player's home
   (810KB for the stack test's small log).
 - **Memory**: a pgBadger run, within the node's own limits: a large run
-  takes memory from PostgreSQL (master spec 7.5; measured at the release,
-  master spec 14).
+  takes memory from PostgreSQL (master spec 7.5; measured below).
 - **CPU**: the data load, the players' own queries and their pgBadger
   runs.
 
@@ -429,13 +436,30 @@ smaller knob values within their envelopes (a lower `shared_buffers`,
 match, a smaller data file, and fewer logged lines (a higher
 `log_min_duration_statement`, `log_connections` off).
 
+Measured in the v0.2 game (`fernway-clinics-monitoring` on the `laptop`
+playground, declared at 2 CPU / 4G / 8G on armenelos: AMD Ryzen 5 PRO
+8640HS, 11.3 GiB, Docker 29.9.1; 2026-10-21; `docker stats`, the highest
+of its samples, the node-health script included; the `clinic`
+database, about 47 000 rows; the knobs at their initial values,
+`shared_buffers` 128MB), under a 1G limit: at rest 11 to 15 minutes
+after the deployment 59M and 0.05 CPU; during dashboard loads 52M; during a pgBadger run (`pgbadger -o
+~/pgbadger.html /var/log/postgresql/postgresql-*.log` as `player`, a
+190K log after 23 minutes of game, five runs, an 858K report each) 81M
+and 0.18 CPU; at rest again after them 54M. The data load: 0.35 CPU over a
+docker stats sample. Never OOM-killed nor restarted, never at its limit
+(`memory.peak`, page cache included, 134M, most likely at the data load). Its
+volumes after 35 minutes: `pgdata` 74M, `pglog` 0.2M, `home` 0.9M (the
+report). A static database is far within the reservation; the levers above
+matter when the data file or the log grows.
+
 ## Supported faults
 
 Which faults the brick hosts is stated only by each fault's `applies_to`
 (D59): a fault instance is accepted on a node when the fault's
 `applies_to` names the node's brick and version (`tools/gm/model.py`).
 This list is every catalog fault (`faults/`) whose `applies_to` names
-`postgres` `0.2.0`, and no other; all six also name `0.1.0` and `0.1.1`. A scenario's
+`postgres` `0.2.0`, and no other; all but `pg-stat-statements-not-preloaded`
+also name `0.1.0` and `0.1.1`. A scenario's
 own `faults/` folder may define more for itself (the test fixture
 `tools/tests/fixtures/fixture-audit` defines two); those are the
 scenario's, not the brick's, and are not listed here.
@@ -448,6 +472,7 @@ scenario's, not the brick's, and are not listed here.
 | `pg-join-index-missing` | state, after the data load | parameters `database`, `table-name`, `column`: a table the data file creates, with a foreign key and an index leading with that column; the scripts drop the index and run `ANALYZE` |
 | `pg-table-autovacuum-off` | state, after the data load | parameters `database`, `table-name`: a table the data file creates; the server-wide `autovacuum` stays `on`, so the validator stays green |
 | `pg-abandoned-replication-slot` | state, after the data load | parameter `slot-name`; no standby in the topology; a seed `postgresql.conf` that allows a physical slot (`wal_level` `replica` or above, `max_replication_slots` above 0: PostgreSQL's defaults); writes, for the retained WAL to grow |
+| `pg-stat-statements-not-preloaded` | seed file | the seed `postgresql.conf` (material `inject/postgresql.conf.snippet`) without `pg_stat_statements` in `shared_preload_libraries`, the logging settings above kept; the extension this version creates at initdb in database `postgres`; `gm-restart-db` for the fix (a reload is not enough); for its dashboard evidence, a `postgres-exporter` node with `--collector.stat_statements` |
 
 Every state fault's scripts run as root and query as `postgres` over the
 local socket, so they need the GM's `local all postgres peer` line in
@@ -455,12 +480,12 @@ local socket, so they need the GM's `local all postgres peer` line in
 
 Faults it lends itself to with no definition yet: a bloated table, and
 other configuration, schema, role or state defects visible without
-activity; and, from v0.2, the monitoring faults of master spec 11 this
-brick hosts (chunk 13): no slow-query log (`log_min_duration_statement =
--1`), a `log_line_prefix` pgBadger cannot parse or a non-English
-`lc_messages` (seed `postgresql.conf`), `pg_stat_statements` not
-preloaded (seed), and the role `monitoring` without `pg_monitor` (state,
-after the data load).
+activity; and, from v0.2, monitoring faults of master spec 11.1 not chosen for
+the v0.2 set: no slow-query log (`log_min_duration_statement = -1`), a
+`log_line_prefix` pgBadger cannot parse or a non-English `lc_messages`
+(seed `postgresql.conf`), and the role `monitoring` without `pg_monitor`
+(state, after the data load; it overlaps
+`pg-stat-statements-not-preloaded`).
 
 Known interactions:
 
@@ -472,7 +497,13 @@ Known interactions:
   `pg-table-autovacuum-off` leaves it green.
 - A `postgres-exporter` node reveals from outside what the node's
   statistics show (`pg_stat_statements` included); a fault on the
-  `monitoring` role or on preloading hides it. pgBadger shows only what
+  `monitoring` role or on preloading (`pg-stat-statements-not-preloaded`)
+  hides it, so a fault found through `pg_stat_statements` or the
+  PostgreSQL dashboard (`pg-join-index-missing`'s evidence is `EXPLAIN`
+  and the index catalogue) never goes with it.
+- A scenario with a `postgres-exporter` node lets `monitoring` in by
+  `samenet` (or an address range) in `pg_hba.conf`; the fix of
+  `pg-hba-trust-remote` must keep that line, or the exporter disconnects. pgBadger shows only what
   the logging settings let through.
 
 Faults it cannot host: anything needing a standby or a replication peer
@@ -574,7 +605,7 @@ the `postgres-exporter` brick's check.
 - **The monitoring role is created once**, with a fresh `pgdata` volume:
   a cluster from an older image has no `monitoring` role, and a password
   changed in the secret is not applied to an existing cluster.
-- **Write policy**: only `fixable` in v0.1. A `report-only` node would need
+- **Write policy**: only `fixable` in v0.2. A `report-only` node would need
   the configuration files not group-writable, decided at start from a
   value the renderer passes; not built.
 - **Stop timing**: s6 gives services 8 s to stop, inside Docker's default

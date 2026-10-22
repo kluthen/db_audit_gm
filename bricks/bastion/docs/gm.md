@@ -46,8 +46,10 @@ The image:
   notes) and the sshd host key. Its volumes `home` and `hostkeys` must
   follow the node if it is replaced; `run` is emptied at each start.
 - **Networks**: it must share a network with every node the players reach
-  (see "Connections"). v0.1 renders a single network for the whole game,
-  so it shares it with every node.
+  (see "Connections"). Each network a scenario declares renders as
+  `<game_id>_<network name>`; v0.2 scenarios declare one network, and the
+  scripts refuse a second (master spec 6.3), so it shares it with every
+  node.
 
 ## Configuration
 
@@ -121,6 +123,7 @@ published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
 | Web front directory | `/run/web-front/` | only with routes; root:www-data, `0750`, rewritten at each start; `tmp/` (www-data, `0700`) holds nginx's pid and temporary files |
 | Web front configuration | `/run/web-front/nginx.conf` | root, `0444` |
 | Web front password file | `/run/web-front/htpasswd` | `player:<SHA-512 crypt>`, root:www-data, `0440` |
+| Web front's own answers | `/run/web-front/www/` | root:www-data, `0750`: `index.txt` (the route list at `/`) and `not-found.txt` (the 404 body), `0440`; `routes/<name>/`, one empty directory per route, from which nginx answers `/<name>` with the redirect to `/<name>/` |
 | Web front service | `/etc/s6-overlay/s6-rc.d/web-front/run` | nginx as `www-data` |
 
 ### Start-up (`gm-entrypoint`, every container start)
@@ -150,8 +153,10 @@ published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
    a token that is not `name=node:port` (lowercase names, as the loader
    checks them) or on a route given twice; reads `tools_password` (same
    rules as the other passwords); writes `/run/web-front/htpasswd` (user
-   `player`, `openssl passwd -6` hash) and `/run/web-front/nginx.conf`
-   (one `location /<name>/` per route, see "Web front" under "Access");
+   `player`, `openssl passwd -6` hash), `/run/web-front/www/` (the
+   front's own answers, served as static files so that they come after
+   the password check) and `/run/web-front/nginx.conf` (one
+   `location /<name>/` per route, see "Web front" under "Access");
    fails the container if nginx (`nginx -t`, as `www-data`) refuses the
    configuration. With none: writes nothing and does not read
    `tools_password`, which may then be absent.
@@ -175,8 +180,9 @@ the one the GM handed over for the whole game.
 
 ## Connections
 
-The bastion provides two interfaces and consumes three (`interfaces` in
-`brick.yaml`).
+The bastion provides two interfaces and consumes four, of three kinds
+(`interfaces` in `brick.yaml`): `ssh` on port 22, `sql` on port 5432, and
+`ui` twice, on ports 9090 and 3000.
 
 - **Provides `ssh`, SSH protocol, port 22**: the players, from outside
   the game. The scenario's `published_ports: [{port: 22, default: 2222}]`
@@ -193,9 +199,10 @@ The bastion provides two interfaces and consumes three (`interfaces` in
 - **Consumes `ssh`, SSH protocol, port 22**, on the in-game nodes, by node
   name: the inner hop, `ssh <node>` as `player`, with the key
   `~/.ssh/id_ed25519` written from the secret `player_ssh_key`. The other
-  side is every node whose brick provides `ssh` (in v0.1, the database
-  node), which must carry the matching public key (`player_ssh_pubkey`)
-  and share a network with the bastion. `gmctl deploy` generates the pair;
+  side is every node whose brick provides `ssh` (in v0.2, every node but
+  the bastion: `postgres`, `prometheus`, `postgres-exporter` and
+  `grafana` all provide it), which must carry the matching public key
+  (`player_ssh_pubkey`) and share a network with the bastion. `gmctl deploy` generates the pair;
   no brick parameter supplies it.
 - **Consumes `sql`, PostgreSQL protocol, port 5432**, on the database
   nodes, by node name: `psql -h <node>` as the role `dba`, with the
@@ -206,10 +213,10 @@ The bastion provides two interfaces and consumes three (`interfaces` in
   node's seed files listen on port 5432 and let `dba` in from the game's
   network (PostgreSQL brick, [GM notes](../../postgres/docs/gm.md#what-the-seed-files-must-contain)).
 
-- **Consumes `ui`, HTTP**, on the nodes the routes name, by node name:
-  the topology's web interfaces (`prometheus` on port 9090, `grafana` on
-  port 3000), each declaring `web_path: /<route>/` and serving under that
-  path itself. The front resolves the node name through Docker's DNS at
+- **Consumes `ui`, HTTP, ports 9090 and 3000**, on the nodes the routes
+  name, by node name: the topology's web interfaces (`prometheus` on
+  port 9090, `grafana` on port 3000), each declaring `web_path:
+  /<route>/` and serving under that path itself. The front resolves the node name through Docker's DNS at
   request time, so an upstream that is down answers 502 until it is back,
   and never stops the front or the bastion.
 
@@ -274,15 +281,17 @@ override it in `~/.ssh/config`; nothing in the game depends on it.
 
 - `player`, group `player`, no `sudo` and no wrappers (`sudo_wrappers:
   []`; master spec 9.2). The players run the validator as `gm-validate`.
-- Writable: `/home/player` only (`~/report.md`, notes; `~/.ssh/id_ed25519`
-  and `~/.pgpass` are rewritten at each start).
+- Writable: `/home/player` (`~/report.md`, notes; `~/.ssh/id_ed25519`
+  and `~/.pgpass` are rewritten at each start), and the scratch space
+  `/tmp` and `/var/tmp`, both links to `/run/tmp` (root, `1777`, emptied
+  at each start, see "Start-up").
 - Protected (root-owned, read-only): `/etc/ssh/sshd_config`,
   `/etc/ssh/ssh_config.d/gm-game.conf`, the entrypoint, the health check,
   `/usr/local/lib/gm/shadow.base`, the validator, and the s6-overlay
   service definitions (`/etc/s6-overlay/s6-rc.d`,
   `/etc/s6-overlay/user-bundles.d`).
 - Write policy: `report-only`. Nothing on the bastion is part of the game:
-  players write only their home.
+  players write only their home and the scratch space.
 - The web front's files under `/run/web-front/` are root-owned; `player`
   cannot read the password file.
 
@@ -374,6 +383,18 @@ proxied response buffered in memory or, above nginx's buffers, under
 `/run/web-front/tmp/` (the `run` volume). CPU: a password check (SHA-512
 crypt) per request, a few milliseconds each.
 
+Measured in the v0.2 game (`fernway-clinics-monitoring` on the `laptop`
+playground, declared at 2 CPU / 4G / 8G on armenelos: AMD Ryzen 5 PRO
+8640HS, 11.3 GiB, Docker 29.9.1; 2026-10-21; `docker stats`, the highest
+of its samples, the node-health script included), with that scenario's
+own `resources` (limits 0.5 CPU / 256M, reservation 96M): at rest 11 to
+15 minutes after the deployment 10M and 0.06 CPU; during dashboard loads
+(three browsers at a time through the web front, both dashboards, every
+panel's query, about 500 requests in 14 s) 18M and 0.20 CPU; during a
+pgBadger run on `db` 11M; at rest again after them 18M. Never OOM-killed
+nor restarted, never at its limit (`memory.peak`, page cache included,
+22M). Its volumes: about 40K.
+
 ## Supported faults
 
 Which faults the brick hosts is stated only by each fault's `applies_to`
@@ -451,12 +472,13 @@ players will.
 
 With routes, check the web front from outside, as the players' browsers
 will (`<web port>` is the port recorded for container port 8080; read the
-tools password from `local/<pg>/secrets/tools_password`, never pass it to
-`gmctl exec --env`):
+tools password from `local/<pg>/secrets/tools_password` and hand it to
+`curl -K -` on its standard input through `printf`, a shell builtin; never
+pass it to `gmctl exec --env` nor on a command line):
 
 ```sh
 curl -s -o /dev/null -w '%{http_code}\n' http://<host>:<web port>/<route>/      # 401
-curl -s -u "player:$(cat local/<pg>/secrets/tools_password)" http://<host>:<web port>/   # the routes
+printf 'user = "player:%s"\n' "$(cat local/<pg>/secrets/tools_password)" | curl -s -K - http://<host>:<web port>/   # the routes
 ```
 
 Then open each `/<route>/` with the password: a `502` means the upstream

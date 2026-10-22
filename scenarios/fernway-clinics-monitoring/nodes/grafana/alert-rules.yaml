@@ -1,0 +1,156 @@
+# Reference alert rules of the grafana brick (companion/; capture W3).
+# A scenario copies this file into nodes/<grafana node>/alert-rules.yaml as
+# its seed file `alert-rules.yaml`; Grafana reads it from
+# /etc/grafana/provisioning/alerting/ at start and on
+# `sudo gm-reload-grafana`. Grafana's file format for alert rules; no
+# contact point and no notification policy: firing alerts are read in
+# Grafana's alerting view. Rules select by metric name and the `node`
+# label, never by job. Data source uid `prometheus` (datasources.yaml).
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: db_audit_gm
+    folder: db_audit_gm
+    interval: 1m
+    rules:
+      - uid: gm-target-down
+        title: Scrape target down
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: 'up'
+              instant: true
+              range: false
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: {type: lt, params: [1]}
+        noDataState: OK
+        execErrState: Error
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: "Prometheus cannot scrape {{ $labels.instance }} (job {{ $labels.job }})."
+          description: "A target listed in Prometheus' configuration does not answer its scrape."
+        isPaused: false
+      - uid: gm-service-down
+        title: Service down on a node
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: 'node_health_service_up'
+              instant: true
+              range: false
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: {type: lt, params: [1]}
+        noDataState: OK
+        execErrState: Error
+        for: 2h
+        labels: {severity: critical}
+        annotations:
+          summary: "Service {{ $labels.service }} is down on node {{ $labels.node }}."
+          description: "A service in a node's node-health list is not up (s6-svstat)."
+        isPaused: false
+      - uid: gm-exporter-disconnected
+        title: Exporter disconnected from PostgreSQL
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: 'pg_up'
+              instant: true
+              range: false
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: {type: lt, params: [1]}
+        noDataState: OK
+        execErrState: Error
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: "postgres_exporter ({{ $labels.instance }}) cannot connect to the database."
+          description: "pg_up is 0: the exporter answers, but its last connection to PostgreSQL failed."
+        isPaused: false
+      - uid: gm-disk-near-reservation
+        title: Disk near the node's reservation
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: 'node_health_disk_used_bytes / on(node) node_health_disk_reservation_bytes'
+              instant: true
+              range: false
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: {type: gt, params: [0.9]}
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "Node {{ $labels.node }}'s volumes use more than 90% of its disk reservation."
+          description: "The space used by the node's volumes, against the node's disk reservation."
+        isPaused: false
+      - uid: gm-memory-near-limit
+        title: Memory near the node's limit
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: 'node_health_memory_working_set_bytes / on(node) node_health_memory_limit_bytes'
+              instant: true
+              range: false
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: {type: gt, params: [0.9]}
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "Node {{ $labels.node }}'s memory working set is above 90% of its limit."
+          description: "The node's working set (memory in use less inactive page cache), against its memory limit."
+        isPaused: false

@@ -1,6 +1,6 @@
 # v0.2 — monitoring and usual tooling
 
-Status: draft v5. Consolidated into the [master spec](master-spec.md) and its [access model](access-model.md), both approved by the owner on 2026-10-21 (D98). Build plan: [build-plan.md](build-plan.md), approved 2026-10-21 (D99). The owner's rulings on the plan (D100–D106) amend the master spec and are written into this page.
+Status: **released 2026-10-22** (release gate passed; G10 and G11 cleared; see "Release notes"); archived 2026-10-22: the build plan, decisions D55–D106 and the questions resolved in v0.2 are in [archive/v0.2/](../../archive/v0.2/README.md), while this page, the master spec, its access model and the wave log stay here as the contract for what v0.2 built. Page draft v8. Consolidated into the [master spec](master-spec.md) and its [access model](access-model.md), both approved by the owner on 2026-10-21 (D98). Build plan: [build-plan.md](../../archive/v0.2/build-plan.md), approved 2026-10-21 (D99). The owner's rulings on the plan (D100–D106), after wave 3 (D108) and at the release close (D109–D113) amend the master spec or this page and are written into it.
 
 Every item is settled and stated as fact with its decision. Planning
 the build raised O72 to O77, all ruled on 2026-10-21 (D100–D105). The owner accepted the draft v2 defaults on 2026-10-21
@@ -106,8 +106,9 @@ Consequences to carry into the build:
 **Node shape** (D74): every new brick is a full node, with `sshd`,
 s6-overlay, the `player` account, a validator and the seed-once
 entrypoint. Grafana, Prometheus and `postgres_exporter` are each a node
-of their own, *fixable* or *report-only* per scenario, with configuration
-they reload through `sudo` wrappers. pgBadger and `pg_stat_statements`
+of their own, with configuration they reload through `sudo` wrappers;
+in v0.2 all three are *fixable* only, a known limit, report-only
+monitoring nodes being later work (D108). pgBadger and `pg_stat_statements`
 live inside the `postgres` brick. Prometheus and Grafana keep separate
 nodes, whatever the measured footprint (D91). No shared base image (D90): every
 brick builds from `debian:13-slim`, as the v0.1 bricks do, and those are
@@ -238,7 +239,8 @@ time zone is UTC.
 
 ## Footprint
 
-Estimates, not measurements: nothing in v0.1 or the reference setup sizes
+The estimate as drafted before the build ("Measured" below has the
+figures): nothing in v0.1 or the reference setup sizes
 these services. Figures are per node, in the shape of D84, from the
 tooling research's order-of-magnitude figures scaled to about five
 nodes, a few thousand series and a static database. The figures are a
@@ -282,6 +284,63 @@ reservations. CPU stays the tightest dimension.
   (D70).
 
 How done measures it: "Definition of done" below.
+
+### Measured (2026-10-21 and 2026-10-22)
+
+Measured on the build host **armenelos** (AMD Ryzen 5 PRO 8640HS, 12
+threads, 11.3 GiB; Debian 13, kernel 6.12.113, cgroup v2, Docker Engine
+29.9.1, single-node swarm), with the `laptop` playground declared at
+2 CPU / 4G / 8G (D105). Two games of `fernway-clinics-monitoring`, which
+uses all five bricks (D106): chunk 14b's on 2026-10-21
+(`fernway-clinics-monitoring-4jsdev`) and the release gate's on
+2026-10-22 (`fernway-clinics-monitoring-xk7d0d`, item 3). Method:
+`docker stats --no-stream`, cgroup files every 0.5 s as a cross-check,
+maxima reported; a dashboard load is 6 runs of 3 browser sessions
+through the web front; a pgBadger run is the players' own, as `player`
+on `db`.
+
+Memory per node, maxima in MiB, chunk 14b / release gate:
+
+| Node | Estimated at rest | At rest | Dashboard load | pgBadger run | Reservation | Limit |
+|---|---|---|---|---|---|---|
+| `bastion` | — | 10.5 / 10 | 17.7 / 11 | 11.2 / 15 | 96M | 256M |
+| `db` | — | 59.0 / 59 | 52.2 / 61 | 81.1 / 88 | 512M | 1G |
+| `prometheus` | 80–150M | 56.0 / 50 | 66.4 / 51 | 59.9 / 51 | 160M | 384M |
+| `exporter` | 15–30M | 24.3 / 16 | 20.1 / 19 | 19.5 / 19 | 48M | 128M |
+| `grafana` | 100–150M | 194.7 / 188–197 | 304.4 / 218 | 301.2 / 200 | 160M estimated, **272M** as built | 384M |
+
+- **Grafana** is the one estimate that missed: about 195M at rest after
+  hand-over and 258M at rest after dashboard use, against 100–150M
+  estimated and 160M reserved. Its reservation was raised at chunk 14b:
+  the `grafana` brick's `brick.yaml` from 154M to 266M, the scenario's
+  node, script included, from 208M to 272M, sized for the reading after
+  dashboard use, since players use the dashboards from the start. Its
+  limit stays 384M. No other reservation changed and none was lowered.
+- **No OOM kill, no restart** in either game (`RestartCount` 0,
+  `memory.events` oom 0 on every node). Peaks with page cache
+  (`memory.peak`, chunk 14b): bastion 22M, db 134M, prometheus 85M,
+  exporter 38M, grafana 332M.
+- **CPU peaks**: db 0.18–0.19 during pgBadger (0.35 during the data
+  load); grafana 0.26 (chunk 14b) and 0.16 (release gate) during a
+  dashboard load, with 0.47 over 0.5 s windows against its 0.5 limit:
+  slower panels, not failures. The exporter peaks at 0.07 against a 0.05
+  reservation (limit 0.25).
+- **Reserved** by the scenario: 0.85 CPU, 1088M, 3392M of volumes,
+  against the estimate's 0.85, 976M and 3.3G. `fit` on `laptop`, images
+  counted: 1.05 of 2 CPU, 1.46G of 4G, 5.65G of 8G.
+- **Images** (`docker system df -v`, each layer once): 1.65GB, `fit`'s
+  1.53GiB, against about 1.25G estimated. Unique to each image: grafana
+  786.6MB (estimated about 450M), prometheus 408.6MB (about 150M),
+  postgres 182.3MB, bastion 105.5MB, postgres-exporter 85MB (about 25M),
+  and the shared `debian:13-slim` 79.6MB. The release gate's union:
+  1647.6MB.
+- **Volumes in use**: 77.4MB after 35 minutes (db 74.7MB, grafana
+  1.74MB, prometheus 0.88MB, bastion and exporter under 0.1MB); about
+  77MB for the release gate's 23 volumes. Images plus volumes in use:
+  about 1.72GB of the declared 8G, against about 4.5G estimated for
+  images plus reserved volumes.
+- Every brick's `docs/gm.md` "Footprint" carries these figures in place
+  of the estimates. Master spec 14 item 3 passes.
 
 ## Out of scope
 
@@ -389,3 +448,241 @@ across wave merges (D100, O72), v0.1's evidence text under `source`
 interfaces (D103, O75), Grafana's reference dashboards (D104, O76), the
 `laptop` playground (D105, O77); the plan's three readings (D106). O49 (backup tooling's version) is a roadmap
 question v0.2 does not wait on.
+
+## Status
+
+Master spec and access model approved by the owner (D98):
+[master-spec.md](master-spec.md), with [access-model.md](access-model.md).
+Build plan (archived): [build-plan.md](../../archive/v0.2/build-plan.md), approved (D99). Built in four
+waves on 2026-10-21 and 2026-10-22; waves 1 to 3 merged into `main`
+(6467fb5, 351de59, 8e17795). The wave 4 gate and the release gate ran on
+`v0.2-w4`, before its merge; their runs are in [wave-log.md](wave-log.md),
+"Wave 4 gate — 2026-10-22" and "Release gate — 2026-10-22", with the
+owner's release-close rulings after them. G10 and G11 are cleared. The
+owner granted the merge of `v0.2-w4` into `main` once the RG-4 changes
+passed the quality command and these notes were written; the merge
+commit is recorded by the wave driver.
+
+## Release notes
+
+v0.2, released on 2026-10-22: release gate passed, G10 and G11 cleared
+by the owner, RG-1 and RG-4 fixed at the gate. Released with it (D100):
+`postgres` 0.2.0, `bastion` 0.2.0, and the new `prometheus` 0.1.0,
+`postgres-exporter` 0.1.0 and `grafana` 0.1.0.
+
+### What v0.2 delivers
+
+- **Three monitoring bricks**, each a full node (D74), fixable only in
+  v0.2 (D108):
+  - `bricks/prometheus` (Prometheus 3.13.5, served under `/prometheus/`,
+    admin and lifecycle endpoints off, retention in the seed
+    `prometheus.yml`), with the **node-health script** as its companion
+    material, mounted into every node of the node-health map at deploy:
+    CPU and memory from the node's cgroup files, disk as its volumes' use
+    against its reservation, services through `s6-svstat`, served on port
+    9110;
+  - `bricks/postgres-exporter` (`postgres_exporter` 0.20.1, connecting
+    with the `monitoring` role);
+  - `bricks/grafana` (Grafana OSS 13.2.4, served under `/grafana/`, time
+    zone UTC, provisioned from seed files), with reference dashboards
+    (node health, PostgreSQL) and alert rules in its `companion/` folder
+    (D104).
+- **`postgres` 0.2.0**: PostgreSQL logs to files on the `pglog` volume,
+  rotated by size, in a format pgBadger parses; pgBadger in the image,
+  run by the players as `player`; `pg_stat_statements` available, its
+  preload in the seed; the `monitoring` role (`pg_monitor`) created at
+  initdb from the generated `monitoring_password`.
+- **`bastion` 0.2.0**: the web front (nginx 1.26.3) on the second
+  published port, default 8080, every interface under its own path,
+  basic authentication on the per-game tools password, only when the
+  topology has a web interface (D103).
+- **`gmctl`**: secrets generated by kind as the bricks declare them,
+  the tools password and the monitoring role's password among them;
+  networks rendered as `<game_id>_<name>`, one network only; `TZ=UTC` on
+  every node; mounted companion material and parameter faults rendered
+  into the local implementation; `fit` counting the images from the
+  engine, each layer once, a missing image refused with its build command
+  (D102).
+- **Five monitoring faults** in `faults/`:
+  `prometheus-scrape-target-missing`,
+  `prometheus-node-health-node-missing`,
+  `prometheus-node-health-service-missing` (the two node-health faults
+  report or propose only, D92), `pg-stat-statements-not-preloaded`,
+  `grafana-alert-for-too-long`. The v0.1 faults that still apply list
+  `postgres` 0.2.0.
+- **The scenario `fernway-clinics-monitoring`**: four veterinary
+  clinics, one database, monitoring present and ill-configured; eight
+  fault instances (the five monitoring faults and three v0.1 database
+  faults, four of them hidden), issues I1 (fix), I2 (propose) and I3
+  (fix), the silent tooling expectation t1 (log analysis), 240 minutes,
+  designed for `laptop`. Reviewed and approved as built under G10 (no
+  pgBadger fault; `pg-memory-over-envelope` left out).
+- **`bookshop-new-server`**, re-pinned to the 0.2.0 bricks, keeping its
+  version, its seed now meeting `postgres` 0.2.0's (D111).
+- **The skills** updated for v0.2: `game-master` (building the images,
+  `fit` with images, the web front and tools password at hand-over, UTC,
+  the file log), `scenario-format` with its v0.2 templates (`where` and
+  `source`, tooling expectations, footprints, mounted material,
+  `receives`), `scenario-document`.
+- **Tests**: unit tests (298), each brick's stack test, the
+  `fixture-monitoring` integration game with `smoke-monitoring.sh`, and
+  `smoke-scenario.sh` for a smoke deployment of any scenario.
+
+### Release gate results
+
+Run on `v0.2-w4` on 2026-10-22 on the build host (armenelos, Debian 13,
+Docker Engine 29.9.1, single-node swarm). GM sessions were fresh agents
+reading the `game-master` skill; the driver played the initiator and the
+player; verifiers worked as `player` through the bastion and the web
+front only. Every item passed but item 10's restart check, not run.
+
+1. **Scenario complete: PASS.** `fernway-clinics-monitoring` complete;
+   every brick's `docs/gm.md` passes the format check, `prometheus`'s
+   covering the node-health script. Stale v0.1 wording in three bricks'
+   docs fixed.
+2. **Full game on `laptop`: PASS.** `fernway-clinics-monitoring-xk7d0d`,
+   `laptop` declared 2 CPU / 4G / 8G: `fit` 1.05 of 2 CPU, 1.46G of 4G,
+   5.65G of 8G (images 1.53G); fitted to hand-over in about 3 minutes,
+   then the final answer, feedback and teardown, nothing labelled left.
+3. **Footprint: PASS.** No restart, no OOM; every node at rest within
+   its reservation; about 1.72GB of 8G in use ("Measured" above).
+4. **Play-through as `player`: PASS.** f1 to f8 evidence reachable where
+   the answer key says; interface evidence through Prometheus' and
+   Grafana's HTTP APIs, report evidence by running pgBadger.
+5. **Node-health view: PASS.** CPU, memory, disk against reservation and
+   services for bastion, db and prometheus, the host's free space once;
+   grafana, the exporter and PostgreSQL on db missing, as f1, f2 and f3
+   plant them, and grafana in every panel after I1's fix; prometheus's
+   `sshd`, stopped by the GM, shown down within 6 s and up again within
+   12 s.
+6. **Fix issues: PASS.** I1 (f1) and I3 (f4), sealed checks 1 → 0.
+7. **Web front and times: PASS, with RG-1** (fixed, below). 401 with the
+   challenge without the tools password; only the bastion's 2222 and 8080
+   published; `TZ=UTC` on every node; PostgreSQL's log in UTC.
+8. **Tooling expectation: PASS.** The resuming GM judged t1 met in its
+   feedback.
+9. **`bookshop-new-server`: PASS.** `bookshop-new-server-b8mhk3` on
+   `host-1`: SSH only, no tools password handed over (D103); the write
+   policy on both nodes; `sudo gm-validate` red on `work_mem`, bastion
+   green; f1 to f6 evidence; I1 fixed by file and reload and by `ALTER
+   SYSTEM` (D53), I3 by `CREATE INDEX CONCURRENTLY`, sealed checks 1 → 0.
+10. **Stance and v0.1's other checks: PASS, one check not run.** A fresh
+    GM session resumed fernway at `handed-over` and asked before picking
+    it up; a hint and a reveal refused; a report "so far" met with "Is
+    this your final answer?". The restart or reset request was not sent:
+    the session's permission classifier refused the driver's message. A
+    forced setup failure (a scratch copy of bookshop failing at
+    `load-data`) was reported, torn down and recorded, nothing labelled
+    left.
+11. **Quality command: PASS**, and again after the RG-4 fixes, at
+    412f5a2 (2026-10-22T07:39:26Z): 298 unit tests OK, `sh -n`, `perl
+    -c`, five image builds, the five stack tests, `smoke.sh`,
+    `smoke-monitoring.sh`, both scenario smoke deployments.
+12. **G11: cleared** (D109), below.
+13. **Left for the build: PASS.** Every finding recorded in its chunk's
+    Record line and its brick's `docs/gm.md` (below).
+
+### Left for the build (master spec 15), as found
+
+- **Empty configs**: Swarm refuses one; the s6 files that are empty in
+  an image carry a comment line when mounted, and `fit` and `render`
+  refuse a missing or empty mounted source file.
+- **Configs mounted into an s6 service folder the image lacks**: they
+  mount; no image change needed.
+- **cgroup v2 files**: readable inside a Swarm container, in its own
+  namespace.
+- **The node-health script's account**: the listener runs as
+  `nobody:nogroup`; the sampler runs as root, since `s6-svstat` and `du`
+  cannot read as an unprivileged account (the spec's "root only if it
+  cannot"; reported to the owner after wave 1).
+- **The node-health listener's port**: 9110, `GET /metrics`.
+- **The web front's reverse proxy**: nginx 1.26.3 (Debian 13), as
+  `www-data`; `Authorization` cleared on every forwarded request, checked
+  end to end against Grafana.
+- **Sub-paths**: Prometheus with `--web.external-url=/prometheus/
+  --web.route-prefix=/prometheus/`; Grafana with a `root_url` ending
+  `/grafana/` and `serve_from_sub_path = true`.
+- **The monitoring role**: created by `postgres`'s entrypoint at initdb,
+  before the first listen, from the `monitoring_password` secret, not by
+  the data load.
+- **Validators and wrappers**: each brick's validator at
+  `/opt/gm/validator/validate.sh`, run through `sudo gm-validate`;
+  `gm-reload-prometheus`, `gm-restart-exporter`, `gm-reload-grafana`.
+
+### Known gaps of the access model
+
+All stand as [access-model.md](access-model.md) section 11 states them:
+
+- when the players own the host, the bastion-only rule and the answer
+  key's secrecy rest on trust;
+- a player in the GM session can see the setup dialogue;
+- credentials are shared by all players and cannot be rotated during a
+  game;
+- `ALTER SYSTEM` by the superuser `dba` on a report-only database node
+  (O45), not reachable in v0.2;
+- Grafana's write policy cannot be enforced on a report-only Grafana
+  node, not reachable in v0.2 (D108);
+- Grafana administration is forbidden by rule, not prevented;
+- the web front uses plain HTTP;
+- Prometheus has no login of its own, reachable from every node.
+
+### Fixes made at the release gate
+
+- **RG-1 (fixed, 1fc8ded): the web front asks for the tools password on
+  every path.** `/`, unknown paths and `/<route>` (no slash) answered
+  200, 404 and 301 without the password, since nginx answered them before
+  authentication. They are now static files under `/run/web-front/www/`
+  (the route list, the not-found page, and an empty directory per route
+  for the redirect), served after authentication; the stack test asserts
+  401 on all three without the password. Side effects: a POST to `/` gets
+  405, and the redirect to `/<route>/` keeps the query string. The access
+  model already required 401 on every request without the password; no
+  spec text changed.
+- **RG-4 (fixed, e7c2c3e and 412f5a2, D111): `bookshop-new-server`'s
+  seed `postgresql.conf`** gains the `postgres` brick's logging and
+  preload block (appended, so `postgresql.conf:11` stays `work_mem`),
+  with `log_line_prefix` and `log_min_duration_statement` (2s → 100ms)
+  edited in place; its starter pack names the log and pgBadger; scenario
+  and answer key unchanged. The GM skill says the server log is in files
+  when the seed sets `logging_collector = on`, and in `gmctl logs`
+  otherwise. Master spec 11.2 states it.
+- **Bricks' documentation** (5e582e0, 2672181): stale v0.1 wording in the
+  `postgres`, `bastion` and `prometheus` docs brought to v0.2;
+  `postgres`'s "fixable only" now says v0.2 (D108); the monitoring
+  bricks' docs list their writable scratch space, `/tmp` and `/var/tmp`
+  (links to `/run/tmp`), checked on running containers.
+- **Record lines** of chunks 5, 9, 10 and 11 completed (6a9a209).
+
+### Known issues
+
+Found by the release gate; none blocked it.
+
+- **RG-2 (low), known issue, accepted by the owner (D112).** A player's
+  `sed -i` on a group-writable configuration file leaves the file owned
+  by `player`, its group and mode kept; services and validators are
+  unaffected.
+- **RG-3 (low), known issue, accepted by the owner (D112).** `gmctl
+  status` prints `tools_password: password, handed over` in a game
+  without a web front: the label comes from the bastion's static
+  `handed_over: true`. The skill tells the GM not to hand it over.
+- **The restart refusal is untested (D110).** v0.2 keeps the v0.1
+  stance, no restarts, but the release gate could not send the request.
+  From v0.3 the GM may restart a game on the players' explicit
+  confirmation ([v0.3](../v0.3/README.md); O81).
+- **RG-5 (low), kept until v0.5 (D113).** Every `postgres` 0.2.0 game
+  has the login role `monitoring` (`pg_monitor`), exporter or not;
+  `bookshop-new-server`'s answer key and notes do not mention it.
+  Monitoring is not mandatory in a game; making the role conditional is
+  a v0.5 brick improvement ([v0.5](../v0.5/README.md)).
+- Also measured, not failures: Grafana reaches 0.47 CPU over 0.5 s
+  windows during a dashboard load (limit 0.5), so panels slow down; f1's
+  sealed check reads present right after deploy also because nothing is
+  scraped yet, so a fix is re-checked only after a scrape interval.
+
+### The tooling and the feedback (G10, G11)
+
+- G10: the scenario approved as built, 2026-10-22, the owner: "i approve
+  the scenario. don't add a pgbadger fault, leave out the memory fault."
+- G11: the tooling's usefulness and the feedback's tone, judged on the
+  feedback of game `fernway-clinics-monitoring-xk7d0d`: "the feedback is
+  good", 2026-10-22, the owner (D109).

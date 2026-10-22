@@ -167,7 +167,7 @@ nodes:
         memory: 384M
       reservations:
         cpu: 0.1
-        memory: 160M
+        memory: 272M                # measured (wave log capture W4-D), node-health script included
         disk: 256M
     published_ports: []
     seed_files:                     # copied byte for byte from bricks/grafana/companion/

@@ -40,7 +40,8 @@ The image:
   script" below. No image carries it; a receiving node's brick must
   declare `receives` meeting the item's `requires` (s6-overlay `3`, the
   commands `sh`, `perl`, `du`, `df`, `s6-svstat`), which `postgres` and
-  `bastion` 0.2.0 and this brick do.
+  `bastion` 0.2.0, `postgres-exporter` and `grafana` 0.1.0, and this brick
+  do.
 - **Build**: `docker build -t 127.0.0.1:5000/dbagm/prometheus:0.1.0 bricks/prometheus`.
 - **How many**: one per scenario. Prometheus and Grafana always keep
   separate nodes.
@@ -332,7 +333,9 @@ policy.
 ### Writable and protected paths, write policies
 
 - Writable by the player: `/etc/prometheus` (`prometheus:promconf`,
-  `2775`; the seeded `prometheus.yml` `0664`) and `/home/player`.
+  `2775`; the seeded `prometheus.yml` `0664`), `/home/player`, and the
+  scratch space `/tmp` and `/var/tmp`, both links to `/run/tmp` (root,
+  `1777`, emptied at each start, see "Start-up").
 - Protected (root-owned, read-only to the player): `/etc/ssh/sshd_config`,
   `/etc/sudoers`, `/etc/sudoers.d/gm-player`, the entrypoint, the two
   wrappers, the health check, the validator, the s6-overlay service
@@ -384,14 +387,27 @@ shows Prometheus' log.
 
 Default footprint in `brick.yaml`, in the shape of a scenario node's
 `resources`: limits CPU `0.495` and memory `378M`; reservations CPU
-`0.095`, memory `154M` and disk `512M`. That is master spec 12's estimate
-for a Prometheus node (limits 0.5 / 384M, reservations 0.1 / 160M, 512M of
-volumes), which includes the node-health script, less the script's own
-cost (below), since a brick's footprint excludes mounted material. An estimate,
-not a measurement: at rest, in its stack test, the node used about 40M of
-memory without the node-health script and 52M with it. The scenario sets each node's own `resources`, and `gmctl` uses
-those, never the brick's footprint; disk is only counted by the capacity
-check.
+`0.095`, memory `154M` and disk `512M`. These are master spec 12's
+figures for a Prometheus node (limits 0.5 / 384M, reservations 0.1 /
+160M, 512M of volumes), which include the node-health script, less the script's own
+cost (below), since a brick's footprint excludes mounted material. The
+scenario sets each node's own `resources`, and `gmctl` uses those, never
+the brick's footprint; disk is only counted by the capacity check.
+
+Measured in the v0.2 game (`fernway-clinics-monitoring` on the `laptop`
+playground, declared at 2 CPU / 4G / 8G on armenelos: AMD Ryzen 5 PRO
+8640HS, 11.3 GiB, Docker 29.9.1; 2026-10-21; `docker stats`, the highest
+of its samples; the node-health script included; six scrape targets
+every 15 s, fault f1 leaving grafana's out; about 35 minutes of
+samples), under a 384M limit: at rest 11 to 15 minutes after the
+deployment 56M and 0.03 CPU; during dashboard
+loads (Grafana's panel queries) 66M and 0.07 CPU; during a pgBadger run on
+`db` 60M; at rest again after them 64M. Never OOM-killed nor restarted,
+never at its limit (`memory.peak`, page cache included, 85M). The TSDB
+volume held 0.9M after 35 minutes. The figures stay well within the
+reservation (master spec 12 estimated 80M to 150M at rest); in its stack
+test the node used about 40M without the node-health script and 52M with
+it.
 
 What makes it grow:
 
@@ -427,25 +443,35 @@ few hundred bytes in `/run`.
 ## Supported faults
 
 Which faults the brick hosts is stated only by each fault's `applies_to`
-(D59). No catalog fault (`faults/`) names `prometheus` `0.1.0` yet, so it
-supports none.
+(D59). This list is every catalog fault (`faults/`) whose `applies_to`
+names `prometheus` `0.1.0`, and no other.
+
+| Fault | Kind | What it needs from the brick |
+|---|---|---|
+| `prometheus-scrape-target-missing` | seed file | the seed `prometheus.yml` (material `inject/prometheus.yml.snippet`): the `node-health` job lists every node's `<node>:9110` but the parameter `node`'s, every other job (the exporter's `:9187`) kept; the left-out node still in the `node_health` map, so it serves its endpoint; `promtool` and `curl` for the sealed check |
+| `prometheus-node-health-node-missing` | parameter | `node_health`, `remove-entry` on the parameter `node`'s entry: nothing mounted into that node; the seed `prometheus.yml` still lists its `:9110` target, so the target is down and "Scrape target down" fires; `curl` for the sealed check |
+| `prometheus-node-health-service-missing` | parameter | `node_health`, `remove-from-entry` of the parameter `service` (the node's main service) from the parameter `node`'s entry, never its only item; `curl` for the sealed check |
+
+The two node-health faults are *report* or *propose* only, never *fix*:
+the script and its configuration are read-only on every node (D92). Each
+names only this brick in `applies_to` and has a required parameter `node`,
+the affected node. `prometheus-scrape-target-missing` is fixable on this
+fixable node (edit the file, `sudo gm-reload-prometheus`). Every sealed
+check runs as root on this node.
 
 Faults it lends itself to with no definition yet (master spec 11.1's
-candidates): a node missing from the scrape targets, with no alert on a
-target down; retention shorter than the dashboards' or alerts' window
-(both seed-file faults on `prometheus.yml`); and two faults about the
-node-health script, parameter faults on `node_health` (injection kind
-`parameter`, `parameter_changes` on this node): a node left without the
-script (`remove-entry`), and a node's service list leaving out its main
-service (`remove-from-entry`), so the node shows healthy while its
-database is down. A fault about the script targets this brick's node,
-names only this brick in `applies_to`, and has a required parameter
-`node`. Both are *report* or *propose* issues, never *fix*: the material
-is read-only on every node.
+candidates): retention shorter than the dashboards' or alerts' window (a
+seed-file fault on `prometheus.yml`; not chosen for v0.2: Prometheus
+holds the dashboards' hour in memory, so it shows in no session).
 
 Known interactions: a scrape target left out hides that node from every
-Grafana panel built on Prometheus, the node-health ones included, while
-the node still serves its endpoint (readable with `curl <node>:9110/metrics`); a retention change applies at the next
+Grafana panel built on Prometheus, the node-health ones included, and no
+target-down alert can fire for it, while the node still serves its
+endpoint (readable with `curl <node>:9110/metrics` from this node; the
+bastion has no `curl`). So `prometheus-scrape-target-missing` never goes
+on the node of either node-health fault, and never removes the exporter's
+target (which would hide `pg-stat-statements-not-preloaded`); placement
+rules in each fault's `gm.md`. A retention change applies at the next
 reload, and data already dropped does not come back.
 
 Faults it cannot host: anything needing the admin or lifecycle HTTP API

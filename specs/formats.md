@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v15
+Status: draft v16
 
 What a scenario, a brick and a fault definition must contain, and how they
 are laid out, so that every scenario the GM designs or generates stays
@@ -366,7 +366,7 @@ monitoring brick and the database brick).
 ```
 faults/<fault-id>/
   fault.yaml
-  inject/            material that plants the fault
+  inject/            material that plants the fault, when it has any
   checks/            solvability probe and sealed fix check
   gm.md              explanation the GM uses for feedback
 ```

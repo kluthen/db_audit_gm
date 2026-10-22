@@ -302,7 +302,9 @@ and the wrapper, so a fix lives in the file and survives a restart.
 ### Writable and protected paths, write policies
 
 - Writable by the player: `/etc/grafana/provisioning` (`grafana:grafconf`,
-  `2775`; seeded files `0664`) and `/home/player`.
+  `2775`; seeded files `0664`), `/home/player`, and the scratch space `/tmp`
+  and `/var/tmp`, both links to `/run/tmp` (root, `1777`, emptied at each
+  start, see "Start-up").
 - Protected (root-owned, read-only to the player): `grafana.ini`,
   `/etc/ssh/sshd_config`, `/etc/sudoers`, `/etc/sudoers.d/gm-player`, the
   entrypoint, the two wrappers, the health check, the API helper (also not
@@ -389,17 +391,37 @@ locks `admin` out for 5 minutes after 5 failures.
 
 Default footprint in `brick.yaml`, in the shape of a scenario node's
 `resources`: limits CPU `0.495` and memory `378M`; reservations CPU
-`0.095`, memory `154M` and disk `256M`. That is master spec 12's estimate
-for a Grafana node (limits 0.5 / 384M, reservations 0.1 / 160M, 256M of
-volumes), which includes the node-health script, less the script's own
-cost (0.005 CPU / 6M, see the `prometheus` brick), since a brick's
-footprint excludes mounted material. An estimate, not a measurement: at
-rest in its stack test, after the reload checks, the container used 180M
-to 195M of memory (cgroup `memory.current`, page cache included, two runs)
-under a 384M limit, more than the 154M reservation; the database volume
-about 2M. The game's footprint measurement (master spec 14 item 3) decides
-whether the reservation is raised. The scenario sets each node's
-own `resources`, and `gmctl` uses those.
+`0.095`, memory `266M` and disk `256M`. The limits, the CPU and the disk
+are master spec 12's figures for a Grafana node (limits 0.5 / 384M,
+reservations 0.1 CPU, 256M of volumes), which include the node-health
+script, less the script's own cost (0.005 CPU / 6M, see the `prometheus`
+brick), since a brick's footprint excludes mounted material. The memory
+reservation is measured: a node of `272M` (this figure plus the script's
+6M) in place of the spec's estimate of 160M, which the node exceeded at
+rest. The scenario sets each node's own `resources`, and `gmctl` uses
+those.
+
+Measured in the v0.2 game (`fernway-clinics-monitoring` on the `laptop`
+playground, declared at 2 CPU / 4G / 8G on armenelos: AMD Ryzen 5 PRO
+8640HS, 11.3 GiB, Docker 29.9.1; 2026-10-21; `docker stats`, the highest
+of its samples, the node-health script included), under a 384M limit:
+
+| Moment | Memory | CPU |
+|---|---|---|
+| At rest, 11 to 15 minutes after the deployment | 195M | 0.07 |
+| During dashboard loads (three browsers at a time through the web front, both dashboards, every panel's query) | 304M | 0.26 |
+| During a pgBadger run on `db` | 301M | 0.07 |
+| At rest again, 9 to 13 minutes after the dashboard loads | 258M | 0.05 |
+
+The node was never OOM-killed nor restarted, and never reached its limit
+(cgroup `memory.events` `max 0`; `memory.peak`, page cache included,
+332M). Grafana keeps much of what a dashboard load takes for minutes
+after it, so the reservation covers the reading at rest after use, not
+only the one after hand-over (the stack test's 180M to 195M,
+`memory.current`, agrees with the latter). Over half-second windows
+a dashboard load reaches 0.47 CPU, close to the 0.5 limit: a player sees
+slower panels, not a failure. The database volume: about 2M (1.7M after
+35 minutes).
 
 What makes it grow:
 
@@ -421,24 +443,36 @@ source maps, the Prometheus data source plugin 54M.
 ## Supported faults
 
 Which faults the brick hosts is stated only by each fault's `applies_to`
-(D59). No catalog fault (`faults/`) names `grafana` `0.1.0` yet, so it
-supports none.
+(D59). This list is every catalog fault (`faults/`) whose `applies_to`
+names `grafana` `0.1.0`, and no other.
+
+| Fault | Kind | What it needs from the brick |
+|---|---|---|
+| `grafana-alert-for-too-long` | seed file | the seed `alert-rules.yaml` (material `inject/alert-rules.yaml.snippet`): rule `rule` (a uid, `gm-service-down` in the v0.2 scenario, never `gm-target-down`) with `for: 2h`, the other four seed files as the companion's; `gm-reload-grafana` for the fix; the helper `/usr/local/lib/gm/grafana-api` and `jq` for the sealed check, which reads the rule through `/api/v1/provisioning/alert-rules/<uid>` |
+
+It is fixable on this fixable node through the file and
+`gm-reload-grafana` (provisioned rules are not editable in the UI); the
+sealed check judges the live state through the API, so a change made
+through the API also counts.
 
 Faults it lends itself to with no definition yet (master spec 11.1's
-candidates, chunk 13), all seed-file faults on the scenario's copies of
-the companion files: the data source pointed at the wrong address
-(`datasources.yaml`); an alert left out, for example no alert on a target
-down (`alert-rules.yaml`); a misleading dashboard, for example a panel
-reading the wrong metric or a threshold set too high (`node-health.json`,
-`postgresql.json`); an alert rule with a threshold or `for` that never
-fires. All are fixable on a fixable node through the files and
-`gm-reload-grafana`; sealed checks judge the result through the API.
+candidates), all seed-file faults on the scenario's copies of the
+companion files: the data source pointed at the wrong address
+(`datasources.yaml`; not chosen for v0.2: it hides every other monitoring
+fault); an alert left out (`alert-rules.yaml`); a misleading dashboard,
+for example a panel reading the wrong metric or a threshold set too high
+(`node-health.json`, `postgresql.json`); an alert rule with a threshold
+in the wrong unit. All would be fixable on a fixable node through the
+files and `gm-reload-grafana`; sealed checks judge the result through the
+API.
 
 Known interactions: a data source at the wrong address empties every panel
 and makes every rule's evaluation fail (rule `health` `error`); a scrape
 target left out of Prometheus' configuration hides that node from the
 node-health view and fires no target-down alert, since Prometheus does not
-know the target.
+know the target. `gm-target-down` firing is the evidence of
+`prometheus-node-health-node-missing`, so `grafana-alert-for-too-long`
+never targets it.
 
 Faults it cannot host: anything needing a notification channel (none),
 and a default administrator's password: there is none (master spec 7.4).

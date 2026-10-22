@@ -1,7 +1,11 @@
+> **Archived 2026-10-22.** v0.2 was released at its release gate on 2026-10-22, and the owner granted the merge of `v0.2-w4` into `main`; every chunk of this plan is built. Live summary: [v0.2 README](../../versions/v0.2/README.md), "Release notes". Relative links were written from `specs/versions/v0.2/`: `master-spec.md`, `access-model.md`, `README.md` and `wave-log.md` are in `../../versions/v0.2/`.
+
 # db_audit_gm v0.2 — Build plan
 
-Status: v4 (2026-10-21): the scenario document's rule for map-valued
-parameters placed in chunk 11 (gap found by chunk 1, wave log).
+Status: v6 (2026-10-22): every wave built; the wave 4 gate and the
+release gate passed on `v0.2-w4`, G10 and G11 cleared; release notes in
+[README.md](README.md); the merge into `main`, granted by the owner, is
+the driver's.
 Approval: approved 2026-10-21 by the owner (G1, spec D99).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-10-21 (spec D98) and
@@ -71,8 +75,8 @@ plan states only its deltas.
 | G7 | O75: the web front in a game with no monitoring interface | The owner | Chunk 7 | done (2026-10-21, spec D103: only with an interface) |
 | G8 | O76: where Grafana's dashboards and the node-health view come from | The owner | Chunks 10, 14 | done (2026-10-21, spec D104: `grafana`'s reference dashboards) |
 | G9 | O77: the `laptop` playground, declared on the build host or a real 2 CPU / 4G / 8G machine | The owner | Chunk 14b, release gate items 2 and 3 | done (2026-10-21, spec D105: declared on the build host) |
-| G10 | Review of the v0.2 scenario: its faults (chunk 13's among them), issues, tooling expectation and answer key (master spec 11.1) | The owner | Chunk 14's merge | open |
-| G11 | The tooling's usefulness and the feedback's tone (master spec 14, item 12) | The owner | Release close | open |
+| G10 | Review of the v0.2 scenario: its faults (chunk 13's among them), issues, tooling expectation and answer key (master spec 11.1) | The owner | Chunk 14's merge | done (2026-10-22, the owner: approved as built; no pgBadger fault; `pg-memory-over-envelope` left out) |
+| G11 | The tooling's usefulness and the feedback's tone (master spec 14, item 12) | The owner | Release close | done (2026-10-22, the owner: "the feedback is good") |
 
 G4 to G9 were questions O72 to O77, ruled by the owner as proposed
 (spec D100 to D105). Waves merge into `main` after their gates as the
@@ -84,8 +88,8 @@ model says (D100).
 |---|---|---|---|
 | 1 | 1, 2, 3, 4 | G2 (chunks 1, 4); G3 (chunks 1, 3, 4) | merged (2026-10-21, 6467fb5) |
 | 2 | 5, 6, 7 | wave 1; G2, G3 | merged (2026-10-21, 351de59) |
-| 3 | 8, 9, 10, 11 | wave 2 | gated (2026-10-21, 79144c2); merge on the owner's word |
-| 4 | 12, 13, 14 | wave 3; G10 (chunk 14's merge) | planned |
+| 3 | 8, 9, 10, 11 | wave 2 | merged (2026-10-21, 8e17795) |
+| 4 | 12, 13, 14 | wave 3; G10 (chunk 14's merge) | release gate passed (2026-10-22), merging |
 
 ```
 1 ──> 2, 3, 4          (in-wave: the v0.2 template keys captured at wave 1 start, W1)
@@ -423,7 +427,10 @@ it settles are recorded in its Record line and `docs/gm.md`.
 ### Chunk 5 — Mounted material and parameter faults in the local implementation
 
 Status: merged (w2, 6248ad0)
-Record: 2ad4c21, merge 6248ad0; no deviation; outcomes in capture W2-A
+Record: 2ad4c21, merge 6248ad0; no deviation; outcomes in capture W2-A.
+Empty configs: `fit` and `render` refuse a missing or empty mounted
+source file ("Swarm refuses an empty config"), so the renderer never
+writes one.
 (wave log). The mounted footprint is not added to receiving nodes'
 `resources` by `fit`: master spec 7.1 puts it in the scenario's own
 `resources` (chunk 14 writes them).
@@ -616,7 +623,8 @@ capture W3; fixable only, as `prometheus` (W3 ruling 1, in the wave 3
 report). `postgres_exporter` 0.20.1; image 165MB (master spec 12
 estimated about 25M over the shared layers). Outside its Files line:
 test fixtures under `bricks/postgres-exporter/tests/fixtures/`
-(capture W3-B).
+(capture W3-B). Validator `/opt/gm/validator/validate.sh`; `sudo`
+wrappers `gm-restart-exporter` and `gm-validate`.
 Wave: 3
 Depends on: chunks 3, 6; G2, G3
 Architecture capture: at wave 3 start, for chunk 11: its seed files,
@@ -656,7 +664,9 @@ Record: 0d56092 (10a), 8e01f9a (10b). Grafana OSS 13.2.4; image 866MB
 `default_timezone = UTC`, since 13.2.4 refuses `utc`; the
 `companion.when` wording uses `NODE`, since the loader reads `<node>` as
 a placeholder; an extra `provisioning/plugins/` directory. Fixable only
-(W3 ruling 1, in the wave 3 report). Capture W3-C.
+(W3 ruling 1, in the wave 3 report). Capture W3-C. Validator
+`/opt/gm/validator/validate.sh`; `sudo` wrappers `gm-reload-grafana`
+and `gm-validate`.
 Wave: 3
 Depends on: chunks 3, 7; G2, G3 (G8 done)
 Architecture capture: at wave 3 start, for chunk 11: its seed files
@@ -707,7 +717,8 @@ endpoints from the bastion with Perl, not `curl`, and parses
 Prometheus' JSON on the host (neither image has the tool W3 assumed).
 The `monitoring` line in `pg_hba.conf` uses `samenet`. Outside its Files
 line: `fixture-mounted/scenario.yaml`'s header comment, the root
-`README.md` bricks row (capture W3-D).
+`README.md` bricks row (capture W3-D). End to end, the smoke run checks
+that the web front does not pass `Authorization` on to Grafana.
 Wave: 3
 Depends on: chunks 4, 5, 6, 7 (merged); chunks 9, 10 (in-wave, wave 3
 capture)
@@ -776,8 +787,15 @@ captured interfaces.
 
 ### Chunk 12 — GM skill for v0.2
 
-Status: planned
-Record: (after merge)
+Status: merged (w4, d0e9c53)
+Record: 5b36f01. No deviation from the spec. Every `gmctl` invocation in
+the three files parses with `gmctl`'s own parser (39 full invocations, 18
+short mentions, a scratch check, not committed); the stance and "During
+the game" through "Report and final answer" sections are byte-identical.
+No in-node command was run against a live game: that is the release
+gate's play-through. Found outside its files: `bricks/bastion/docs/gm.md`
+put the tools password in `curl`'s arguments (fixed on the wave branch,
+see the wave log).
 Wave: 4
 Depends on: chunks 3, 5, 7, 8, 10
 Architecture capture: none.
@@ -811,8 +829,13 @@ Architecture capture: none.
 
 ### Chunk 13 — Monitoring faults
 
-Status: planned
-Record: (after merge)
+Status: merged (w4, c698a28)
+Record: e7e5dd0. No deviation from capture W4 or the spec: the five
+faults of W4 (family `monitoring`, all 0.1.0), `inject/` only on the
+three seed-file faults (W4 ruling 1). Verified on an uncommitted copy
+of `fixture-monitoring` with all five planted (W4 ruling 4): inject
+twice, same result; every check 1; faults 1, 4, 5 fixed by `player`
+through the sudo wrappers read 0 within 30 s, 2 and 3 stay 1.
 Wave: 4
 Depends on: chunks 2, 4, 5, 6, 9, 10, 11
 Architecture capture: at wave 4 start, for chunk 14: the chosen faults,
@@ -824,10 +847,11 @@ their ids, kinds, target bricks, parameters and resolutions.
   node-health ones as parameter faults on the `prometheus` node, naming
   only `prometheus` in `applies_to`, with the affected node as a
   parameter, *report* or *propose* only; each with `fault.yaml`,
-  `inject/`, `checks/fixed.sh` (Grafana's through its API, on its live
-  state), `checks/probe.md`, `gm.md`; the "Supported faults" sections of
-  every brick they name, folding into the brick's version. Out: the
-  scenario (chunk 14); a default-password fault (D93); a masking pair.
+  `inject/` when it has material, `checks/fixed.sh` (Grafana's through
+  its API, on its live state), `checks/probe.md`, `gm.md`; the
+  "Supported faults" sections of every brick they name, folding into the
+  brick's version. Out: the scenario (chunk 14); a default-password
+  fault (D93); a masking pair.
 - Files: `faults/<fault-id>/` for each, `bricks/{prometheus,grafana,postgres,postgres-exporter}/docs/gm.md`
   ("Supported faults" only).
 - Spec sections: master spec 6.4, 11.1; spec D92, D93.
@@ -841,8 +865,8 @@ their ids, kinds, target bricks, parameters and resolutions.
 
 ### Chunk 14 — The v0.2 scenario and the measured footprint
 
-Status: planned
-Record: (after merge)
+Status: merged (w4, 76c249c)
+Record: 5c2be8d (14a, the scenario), 3a4aae1 (14b, the measured footprint); merged after G10, 2026-10-22
 Wave: 4
 Depends on: chunk 13 (in-wave, wave 4 capture); chunks 4, 5, 6, 7, 9,
 10, 11; G10 before merge (G8, G9 done)

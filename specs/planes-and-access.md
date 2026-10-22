@@ -1,6 +1,6 @@
 # Planes, access and rules
 
-Status: draft v11
+Status: draft v12
 
 Who may reach what, what the player may change, how the rules are checked,
 and what is left to trust. At consolidation this document feeds the access
@@ -107,7 +107,8 @@ expected; changing SSH behaviour is not.
   they can still change dashboards, data sources and alert rules through
   the UI. Accepted under light enforcement, like the superuser gap on
   report-only databases (O45). Sealed checks judge Grafana's effective
-  live state (through its API), not only its provisioned files.
+  live state (through its API), not only its provisioned files. The gap
+  cannot arise in v0.2: its monitoring bricks are fixable only (D108).
 - The node-health script and its service list are configs, read-only on
   every node (D73); its endpoint is readable from every node.
 

@@ -1,0 +1,107 @@
+# Catalog fault: a node's node-health endpoint missing from Prometheus'
+# scrape targets (v0.2 master spec 11.1; capture W4, fault 1). A seed-file
+# fault: the scenario's prometheus.yml leaves the target out; nothing is run
+# at injection. A tool starved of information: the node serves its
+# endpoint, Prometheus never asks.
+
+# --- Identity ---------------------------------------------------------
+id: prometheus-scrape-target-missing
+version: 0.1.0
+title: a node's node-health endpoint is missing from Prometheus' scrape targets
+family: monitoring
+severity: medium
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: prometheus
+      versions: ["0.1.0"]
+  preconditions:
+    - every node of the topology is in the prometheus node's node_health map, so the left-out node serves its endpoint on port 9110
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  node:
+    description: >-
+      the node whose node-health target (port 9110) is left out of the
+      scrape targets; never the database node when
+      prometheus-node-health-service-missing targets it, never the node of
+      prometheus-node-health-node-missing (gm.md, placement)
+    default: null
+    required: true
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: prometheus.yml
+      change: >-
+        the node-health job's static_configs list every node's port 9110
+        target except {NODE}'s; every other job stays, the PostgreSQL
+        exporter's port 9187 target included; the retention is
+        unchanged
+      material: inject/prometheus.yml.snippet
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: Prometheus' targets page (web front, route prometheus, /prometheus/targets)
+    how: open /prometheus/targets through the web front with the tools password
+    shows: the node-health job has one target fewer than the topology has nodes; {NODE}:9110 is absent, not down
+  - where: Grafana's node-health dashboard (web front, route grafana, /grafana/d/node-health)
+    how: open the dashboard and read every panel's legend
+    shows: "{NODE} appears in no panel, while every other node does"
+  - where: Grafana's alerting view (web front, /grafana/alerting/list)
+    how: read the state of "Scrape target down"
+    shows: the rule stays Normal although {NODE} is never scraped; it cannot fire for a target Prometheus does not know
+  - where: /etc/prometheus/prometheus.yml on the prometheus node
+    how: on the prometheus node, cat /etc/prometheus/prometheus.yml
+    shows: the node-health job's targets leave out {NODE}:9110
+  - where: the left-out node's endpoint, read from the prometheus node
+    how: on the prometheus node, curl -s {NODE}:9110/metrics
+    shows: the endpoint answers with node_health_* metrics for node {NODE}; only the scrape is missing
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names {NODE} as never scraped for node health: its {NODE}:9110 target is
+    missing from the node-health job in prometheus.yml, so its CPU, memory,
+    disk and services appear nowhere and no alert can fire for it, although
+    the node serves its endpoint.
+  proposal: >-
+    add {NODE}:9110 to the node-health job's targets and reload Prometheus
+    (sudo gm-reload-prometheus); better, keep the target list in step with
+    the topology (every node listed) and check the targets page after each
+    change.
+  fix: >-
+    Prometheus, in its live state after a reload, holds node-health samples
+    for {NODE} (node_health_sample_age_seconds{node="{NODE}"} answers an
+    instant query); the other targets are still scraped.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  Our health dashboard looks fine, but last week the {NODE} server had a
+  problem and nothing on the dashboard or in the alerts ever showed it.

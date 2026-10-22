@@ -255,8 +255,9 @@ these interfaces: they run inside the container through `gmctl exec`.
 ### Writable and protected paths, write policies
 
 - Writable by the player: `/etc/postgres-exporter`
-  (`exporter:expconf`, `2775`; the seeded `exporter.conf` `0664`) and
-  `/home/player`.
+  (`exporter:expconf`, `2775`; the seeded `exporter.conf` `0664`),
+  `/home/player`, and the scratch space `/tmp` and `/var/tmp`, both links
+  to `/run/tmp` (root, `1777`, emptied at each start, see "Start-up").
 - Protected (root-owned, read-only to the player): `/etc/ssh/sshd_config`,
   `/etc/sudoers`, `/etc/sudoers.d/gm-player`, the entrypoint, the two
   wrappers, the health check, `exporter-conf`, the collector list,
@@ -305,10 +306,10 @@ read inside the node.
 
 Default footprint in `brick.yaml`, in the shape of a scenario node's
 `resources`: limits CPU `0.245` and memory `122M`; reservations CPU
-`0.045`, memory `42M` and disk `64M`. That is master spec 12's estimate
-for an exporter node (limits 0.25 / 128M, reservations 0.05 / 48M, 64M of
-volumes), which includes the node-health script, less the script's own
-cost (0.005 CPU, 6M; see the `prometheus` brick's
+`0.045`, memory `42M` and disk `64M`. These are master spec 12's
+figures for an exporter node (limits 0.25 / 128M, reservations 0.05 /
+48M, 64M of volumes), which include the node-health script, less the
+script's own cost (0.005 CPU, 6M; see the `prometheus` brick's
 [GM notes](../../prometheus/docs/gm.md#what-the-node-health-script-adds-to-each-node)),
 since a brick's footprint excludes mounted material. The scenario's
 `resources` take the full row. Measured in the stack test (Docker
@@ -317,6 +318,21 @@ the container about 10–13M of memory, `postgres_exporter` about 17–19M of
 RSS. The scenario sets each node's own `resources`, and `gmctl` uses
 those, never the brick's footprint; disk is only counted by the capacity
 check.
+
+Measured in the v0.2 game (`fernway-clinics-monitoring` on the `laptop`
+playground, declared at 2 CPU / 4G / 8G on armenelos: AMD Ryzen 5 PRO
+8640HS, 11.3 GiB, Docker 29.9.1; 2026-10-21; `docker stats`, the highest
+of its samples; without the node-health script, which that scenario's
+fault f2 leaves off this node; scraped every 15 s, `pg_stat_statements`
+not loaded on the database by fault f4), under a 128M limit: at rest 11
+to 15 minutes after the deployment 24M; during dashboard loads 20M; during
+a pgBadger run on `db` 20M; at rest again after them 22M; 31M at most
+over the whole game.
+CPU: up to 0.07 at rest over a docker stats sample, as each scrape runs
+the collectors (above the 0.045 reservation, which only reserves, well
+within the 0.245 limit). Never OOM-killed nor restarted, never at its
+limit (`memory.peak`, page cache included, 38M). Its volumes: about 20K.
+With the script mounted, add its 6M: still within the reservation.
 
 What makes it grow:
 
@@ -334,14 +350,22 @@ The levers that shrink it: a longer scrape interval, fewer collectors
 ## Supported faults
 
 Which faults the brick hosts is stated only by each fault's `applies_to`
-(D59). No catalog fault (`faults/`) names `postgres-exporter` `0.1.0`
-yet, so it supports none.
+(D59). No catalog fault (`faults/`) names `postgres-exporter` `0.1.0`,
+so it supports none.
+
+It shows one catalog fault of another brick: `pg-stat-statements-not-preloaded`
+(on the `postgres` node, which its `applies_to` names). With
+`--collector.stat_statements` in `exporter.conf`, the collector fails
+(`pg_scrape_collector_success{collector="stat_statements"}` 0) and the
+statement panels stay empty while `pg_up` is 1; a scenario planting that
+fault keeps the collector on, and keeps the exporter's target in
+Prometheus' configuration.
 
 Faults it lends itself to with no definition yet: the exporter pointed at
 the wrong database or host (`DATA_SOURCE_URI` in `exporter.conf`: a
-seed-file fault, `pg_up 0`); query statistics off (no
-`--collector.stat_statements`, or the database without the preload: a
-seed-file fault on either node); the database's `pg_hba.conf` not letting
+seed-file fault, `pg_up 0`); query statistics off on this node (no
+`--collector.stat_statements`; the database without the preload is
+`pg-stat-statements-not-preloaded`, above); the database's `pg_hba.conf` not letting
 `monitoring` in from this node (a seed-file fault on the database node).
 Each is fixable on a fixable node by editing `exporter.conf` and running
 `sudo gm-restart-exporter`, or on the database node.

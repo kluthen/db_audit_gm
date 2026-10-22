@@ -1,0 +1,99 @@
+# Catalog fault: a node left without the node-health script (v0.2 master
+# spec 11.1; capture W4, fault 2). A parameter fault on the prometheus
+# node's node_health map: the renderer drops the node's entry, so nothing
+# is mounted into that node; nothing is run at injection. Report or
+# propose only: the script and its configuration are read-only on every
+# node (D92).
+
+# --- Identity ---------------------------------------------------------
+id: prometheus-node-health-node-missing
+version: 0.1.0
+title: a node runs without the node-health script
+family: monitoring
+severity: medium
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: prometheus
+      versions: ["0.1.0"]
+  preconditions:
+    - the node is in the prometheus node's node_health map
+    - the scenario's prometheus.yml still lists the node's port 9110 target in the node-health job, so the gap shows as a target down rather than only by comparing nodes
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  node:
+    description: >-
+      the node left without the node-health script (its entry is removed
+      from the node_health map); never the node of
+      prometheus-scrape-target-missing (gm.md, placement)
+    default: null
+    required: true
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: parameter
+  stage: seed
+  parameter_changes:
+    - parameter: node_health
+      op: remove-entry
+      entry: "{NODE}"
+      change: >-
+        the node's entry is removed from the node_health map, so the GM
+        mounts no node-health script and no node.conf into {NODE}; its
+        port 9110 answers nothing
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: Prometheus' targets page (web front, route prometheus, /prometheus/targets)
+    how: open /prometheus/targets through the web front with the tools password
+    shows: "{NODE}:9110 in the node-health job is down: connection refused"
+  - where: Grafana's alerting view (web front, route grafana, /grafana/alerting/list)
+    how: read the state of "Scrape target down"
+    shows: the rule fires for instance {NODE}:9110, about 2 minutes after the start (for 1m, evaluated every minute)
+  - where: Grafana's node-health dashboard (web front, /grafana/d/node-health)
+    how: open the dashboard and read every panel's legend
+    shows: "{NODE} appears in no panel, while every other node does"
+  - where: the node itself
+    how: ssh {NODE}, then ls /opt/gm/node-health /usr/local/lib/gm/node-health
+    shows: neither exists on {NODE}, while every other node has both
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+acceptance:
+  diagnosis: >-
+    names {NODE} as running without the node-health script: its 9110
+    endpoint refuses connections, so Prometheus reports the target down and
+    the node's CPU, memory, disk and services are monitored nowhere; tells
+    it apart from a node Prometheus does not scrape (here the target is
+    known and down).
+  proposal: >-
+    deploy the node-health script on {NODE} as on the other nodes (its
+    entry in the monitoring configuration, then a redeploy by whoever runs
+    the platform), and keep the target-down alert, which caught it.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  There is a red alert in Grafana about {NODE} that never goes away. We
+  were told it is harmless, but we would like to know what it means.

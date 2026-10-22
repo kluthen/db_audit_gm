@@ -36,6 +36,16 @@ RUN set -eux; \
     chown -R root:root /dist; \
     chmod -R go-w /dist
 
+# --- rootfs/, its modes independent of the checkout --------------------------
+# COPY keeps the modes files have in the checkout, which follow the umask it
+# was made with (umask 002 gives 775 directories and 664 files, and COPY
+# rootfs/ / would apply them to /etc, /usr, /usr/local...). Normalised here:
+# directories and executables 0755, other files 0644. The files given other
+# modes on purpose get them in the node stage, after the copy.
+FROM debian:13-slim AS rootfs-modes
+COPY rootfs/ /rootfs/
+RUN chmod -R u=rwX,go=rX /rootfs
+
 # --- the node ----------------------------------------------------------------
 FROM debian:13-slim
 
@@ -94,7 +104,7 @@ RUN set -eux; \
     ln -s /run/tmp /tmp; \
     ln -s /run/tmp /var/tmp
 
-COPY rootfs/ /
+COPY --from=rootfs-modes /rootfs/ /
 COPY validator/validate.sh /opt/gm/validator/validate.sh
 
 # Protected files: root-owned, read-only for everyone else. The API helper
