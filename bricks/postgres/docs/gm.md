@@ -351,7 +351,7 @@ The node has no web interface.
   s6-overlay service definitions (`/etc/s6-overlay/s6-rc.d`,
   `/etc/s6-overlay/user-bundles.d`) and the seed marker's directory
   `/var/lib/gm-state`.
-- Write policies: `fixable` only, in v0.1 (see "Known limits").
+- Write policies: `fixable` only, in v0.2 (see "Known limits").
 
 ### Wrappers
 
@@ -605,7 +605,7 @@ the `postgres-exporter` brick's check.
 - **The monitoring role is created once**, with a fresh `pgdata` volume:
   a cluster from an older image has no `monitoring` role, and a password
   changed in the secret is not applied to an existing cluster.
-- **Write policy**: only `fixable` in v0.1. A `report-only` node would need
+- **Write policy**: only `fixable` in v0.2. A `report-only` node would need
   the configuration files not group-writable, decided at start from a
   value the renderer passes; not built.
 - **Stop timing**: s6 gives services 8 s to stop, inside Docker's default

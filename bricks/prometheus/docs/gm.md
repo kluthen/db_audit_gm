@@ -333,7 +333,9 @@ policy.
 ### Writable and protected paths, write policies
 
 - Writable by the player: `/etc/prometheus` (`prometheus:promconf`,
-  `2775`; the seeded `prometheus.yml` `0664`) and `/home/player`.
+  `2775`; the seeded `prometheus.yml` `0664`), `/home/player`, and the
+  scratch space `/tmp` and `/var/tmp`, both links to `/run/tmp` (root,
+  `1777`, emptied at each start, see "Start-up").
 - Protected (root-owned, read-only to the player): `/etc/ssh/sshd_config`,
   `/etc/sudoers`, `/etc/sudoers.d/gm-player`, the entrypoint, the two
   wrappers, the health check, the validator, the s6-overlay service

@@ -302,7 +302,9 @@ and the wrapper, so a fix lives in the file and survives a restart.
 ### Writable and protected paths, write policies
 
 - Writable by the player: `/etc/grafana/provisioning` (`grafana:grafconf`,
-  `2775`; seeded files `0664`) and `/home/player`.
+  `2775`; seeded files `0664`), `/home/player`, and the scratch space `/tmp`
+  and `/var/tmp`, both links to `/run/tmp` (root, `1777`, emptied at each
+  start, see "Start-up").
 - Protected (root-owned, read-only to the player): `grafana.ini`,
   `/etc/ssh/sshd_config`, `/etc/sudoers`, `/etc/sudoers.d/gm-player`, the
   entrypoint, the two wrappers, the health check, the API helper (also not
