@@ -568,7 +568,7 @@ PostgreSQL 17, not the `postgres` brick's 18.
 
 ### Chunk 4 — `postgres` 0.3.0
 
-Status: in progress
+Status: merged (w1, 913c13e)
 Wave: 1
 Depends on: chunk 1 (1a at least), merged into `v0.3-w1` before this
 chunk's branch is cut (spec D166); W1; G2, G3
@@ -626,6 +626,11 @@ reserve and the PgBouncer lookup role as built as W1-x (read by chunks
 - Verification: chunk checks, plus the stack test (needs G3).
 - Split rule: 4a reserve, check role, lookup role; 4b the snapshot helper
   and the ownership restore.
+
+Record: 4a a91689b, 4b 190b374 (merge 913c13e). No deviation from the
+spec or W1 (`-X fetch` with a temporary slot held, no snapshot volume);
+its choices are in Capture W1-x. Outside its Files line:
+`tools/tests/test_{deploy,fit,state,teardown}.py` (the two new secrets).
 
 ### Chunk 5 — The monitoring bricks 0.2.0: report-only and snapshots
 

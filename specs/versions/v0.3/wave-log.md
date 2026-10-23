@@ -1168,3 +1168,15 @@ Where W1 was silent, recorded by chunk 1 (`v0.3-c1-formats`), 2026-10-23.
   chunk 1 made", and merged cleanly. Risk carried forward: the
   `pg_hba.conf` check ignores `+group`, `@file` and `include`.
 - In flight: chunks 4 and 5.
+- Chunk 4 merged 2026-10-23: 4a a91689b, 4b 190b374, merge 913c13e. Stack
+  test 131 checks passed (armenelos); unit suite 415 OK; loader clean on the
+  brick and both scenarios. Reserve 2 (measured); at rest 27–31 MiB of 512M;
+  a test cluster's snapshot 41 MB. Capture W1-x recorded (placed before
+  "Preflight corrections"). Its merge met an additions-only conflict in this
+  log with W1-y; it kept both, and the driver checked that nothing was
+  removed (accepted: the wave log is append-only). Carried forward: until
+  chunk 7 honours `only_with_role`, render mounts `pgbouncer_lookup_password`
+  on every postgres node (chunk 7 changes the test secret lists again);
+  `pgbouncer_lookup` holds no reserve (chunk 6); a dropped `gm_check` comes
+  back only at the next container start.
+- In flight: chunk 5.
