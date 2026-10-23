@@ -7,7 +7,10 @@ choices on the points the review left open are accepted with it;
 amended the same day, at the build plan's approval (D156), by the
 owner's ruling that only a scenario with scheduler nodes ages (D157) and
 the format choices that carry it (D158); three readings of them
-confirmed by the owner on 2026-10-23, at wave 1's start (D160–D162).
+confirmed by the owner on 2026-10-23, at wave 1's start (D160–D162);
+two of wave 1's preflight settlements written in the same day: where
+`schedule.yaml` lives (7.1, D163) and the scheduler's writable paths in
+the 6.7 example (D170).
 Build plan:
 [build-plan.md](build-plan.md), approved (D156). Companion:
 [access-model.md](access-model.md). Baseline: the released
@@ -298,9 +301,8 @@ nodes:                          # a list, one item per node, as today
     role: producer
     write_policy: report-only
     write_overrides:            # among the brick's writable_paths
-      - /srv/scheduler/queries.yaml
-      - /srv/scheduler/builders
-      - /srv/scheduler/jobs.yaml
+      - /srv/scheduler/repository   # queries.yaml and builders/ (D170)
+      - /srv/scheduler/jobs         # jobs.yaml
 fault_instances:
   - id: f7
     fault:
@@ -346,7 +348,10 @@ and per fixed-time operation, each with its own connections, running as
 the scheduler's service account. Write policies `fixable` and
 `report-only`.
 
-**Files**, all seed-once on the node's volumes:
+**Files**, seed-once on the node's volumes, except `schedule.yaml`,
+which is read in place from the game's own seed at every start and is
+never on a volume, so it is not in the hand-over snapshot and a restart's
+new game brings its new seed (section 12; D163):
 
 | File | Holds | Players |
 |---|---|---|

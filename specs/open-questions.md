@@ -8,7 +8,7 @@ in [archive/v0.1/open-questions-resolved.md](archive/v0.1/open-questions-resolve
 their IDs keep their meaning. Questions resolved by the close of v0.2
 (O13, O50, O51 and O56–O77) are listed in
 [archive/v0.2/open-questions-resolved.md](archive/v0.2/open-questions-resolved.md).
-Numbering continues from O102.
+Numbering continues from O103.
 
 Resolved since v0.2 closed: O45 (D121), O46 (D128), O78 (D140), O82
 (D124), O83 (D125), O84 (D126), O85 (D127), O86 (D129), O87 (D130), O88
@@ -112,9 +112,19 @@ for the next version (v0.1 until it closed, with none left open);
 
 Raised while v0.3 is drafted. O82 to O97, raised when the drafting
 opened, and O98 to O101, raised by their answers, were all answered on
-2026-10-22 (D124–D145). None is open; the drafts' `(proposed)` items
+2026-10-22 (D124–D145). The drafts' `(proposed)` items
 await the owner's review in
-[versions/v0.3/review-list.md](versions/v0.3/review-list.md).
+[versions/v0.3/review-list.md](versions/v0.3/review-list.md). Raised at
+wave 1's preflight:
+
+- **O102** (soon, wave 1) — Should every `postgres` seed name the GM check
+  role's access under its DO NOT TAMPER comment (`local all gm_check
+  scram-sha-256`), so a player who tightens the general `local all all`
+  line (to `peer`, say) does not lock every database sealed check out?
+  Today it rests on that general line (capture W1 item 8). Recommended:
+  yes, added by chunk 1b beside the replication line (D164); it is one
+  more line the players see. Refs: [versions/v0.3/wave-log.md](versions/v0.3/wave-log.md)
+  "Capture W1".
 
 ## Roadmap: gaps and cross-version risks
 

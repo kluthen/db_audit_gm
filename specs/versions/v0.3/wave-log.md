@@ -89,7 +89,7 @@ nodes:
   - name: producer
     write_policy: report-only
     write_overrides:         # optional: report-only node only; non-empty; each an entry of the
-      - /srv/scheduler/jobs.yaml   # brick's writable_paths, exactly as written there
+      - /srv/scheduler/jobs  # brick's writable_paths, exactly as written there (amended by spec D170)
 fault_instances:
   - id: f7
     plant_at: handover-6h    # optional: T0 (the default) | handover-<N>h; other than T0 only
@@ -205,7 +205,8 @@ snapshot:                    # optional: volume name -> pg_basebackup | copy | s
   subfolder. Each file becomes one seed config at
   `<seed.dir><entry><file>` (`/opt/gm/seed/builders/revenue.py`), its
   Swarm name through `config_file_part` (chunk 7); `seed.paths` maps the
-  entry to a directory (`builders/: /srv/scheduler/builders`).
+  entry to a directory (`builders/: /srv/scheduler/repository/builders`,
+  amended by spec D170).
 - **`only_with_role`** (choice): the lookup role exists only "when the
   scenario has a pooler node" (7.3) while `postgres` declares its secrets
   statically; the condition lets render (chunk 7) leave the secret out
@@ -215,7 +216,9 @@ snapshot:                    # optional: volume name -> pg_basebackup | copy | s
   condition holds or a declaration has none.
 - **Snapshot**: at most one `pg_basebackup` volume per brick, and a brick
   declaring one ships `gm-snapshot-db` (item 6); `/run`'s volume is never
-  named (chunk 2).
+  named (chunk 2). Chunk 2 checks the first and the last; that the helper
+  ships is chunk 4's stack test's, since chunk 1 declares `pg_basebackup`
+  before chunk 4 builds it (amended by spec D167).
 - **Values** (chunk 1 writes them; chunks 4 and 5 rely on them unchanged):
 
   | Brick | `snapshot:` | `writable_paths` | `seed.paths` | other |
@@ -225,7 +228,7 @@ snapshot:                    # optional: volume name -> pg_basebackup | copy | s
   | `prometheus` 0.2.0 | `promdata: stop`; `promconf`, `home`, `gmstate`: `copy` | unchanged | `prometheus.yml` → `/etc/prometheus/prometheus.yml` | |
   | `postgres-exporter` 0.2.0 | `expconf`, `home`, `gmstate`: `copy` | unchanged | `exporter.conf` → `/etc/postgres-exporter/exporter.conf` | |
   | `grafana` 0.2.0 | `grafdata: stop`; `grafconf`, `home`, `gmstate`: `copy` | `/etc/grafana/provisioning` and its `alerting`, `dashboards`, `datasources` subdirectories, `/home/player` | the five files at their W3 live paths | |
-  | `scheduler` 0.1.0 (chunk 3) | every volume but `run`: `copy` | `/srv/scheduler/queries.yaml`, `/srv/scheduler/builders`, `/srv/scheduler/jobs.yaml`, `/home/player` | `queries.yaml`, `builders/`, `jobs.yaml` under `/srv/scheduler/`; `schedule.yaml` → `/opt/gm/seed/schedule.yaml` | `seed.modes: {schedule.yaml: "0400"}` |
+  | `scheduler` 0.1.0 (chunk 3) | every volume but `run`: `copy` | `/srv/scheduler/repository`, `/srv/scheduler/jobs`, `/home/player` (amended by spec D170) | `queries.yaml`, `builders/` under `/srv/scheduler/repository/`, `jobs.yaml` under `/srv/scheduler/jobs/` (amended by spec D170); `schedule.yaml` → `/opt/gm/seed/schedule.yaml` | `seed.modes: {schedule.yaml: "0400"}` |
   | `pgbouncer` 0.1.0 (chunk 6) | every volume but `run`: `copy` | chunk 6's | chunk 6's | |
 
   `disk_growth_per_hour`: chunk 1 writes a provisional estimate, said so
@@ -249,7 +252,8 @@ instances:
 
 Chunk 9 passes them to the check script as `CHECK_WINDOW_SECONDS` (an
 integer) and `CHECK_THRESHOLD` (as written) beside its `FAULT_*`
-variables (choice: `FAULT_` names the fault's parameters); see "Needs".
+variables (choice: `FAULT_` names the fault's parameters); written into
+chunk 9 (amended by spec D165).
 
 **5. The write-policy contract** (renderer: chunk 7; bricks: chunks 3, 5,
 6; read by 11, 12, 14, 15). Spec 6.1, 7.1 to 7.4, access model 5, 7;
@@ -293,7 +297,9 @@ D108, D143.
   is edited in place (an editor, `cat >`); `sed -i`, which needs to
   create a file beside it, fails there, and the brick's `docs/player.md`
   says so (choice: a writable directory would let `player` replace or
-  remove its other files).
+  remove its other files). No v0.3 brick has such a path: every
+  `writable_paths` entry is a directory, the scheduler's included, so
+  `sed -i` works on every fixable path (amended by spec D170).
 - **Reload and restart wrappers** (`gm-reload-db`, `gm-restart-db`,
   `gm-reload-prometheus`, `gm-restart-exporter`, `gm-reload-grafana`,
   `gm-reload-scheduler`, `gm-reload-pgbouncer`): first restore every
@@ -425,8 +431,9 @@ shapes), 8.3, 8.7, access model 5 ("Scheduler nodes"), 7, 8.
   `/opt/gm/seed/schedule.yaml` (0:0 `"0400"`) and the connection
   passwords as root at every start of the service and passes them on
   standard input before `s6-setuidgid scheduler` (7.1); the stdin framing
-  is chunk 3's. Provisional (see "Needs"): the file is read in place, not
-  copied onto a volume.
+  is chunk 3's. The file is read in place, never copied onto a volume, so
+  it is not in the snapshot and a restart's re-render brings the new seed
+  (amended by spec D163, which settles it).
 - **Connection secrets** (choice): for each role a scheduler node's
   `schedule.yaml` names, a password secret `role_<role>_password` (kind
   `password`, not handed over), generated by render (chunk 7) from the
@@ -506,9 +513,13 @@ shapes), 8.3, 8.7, access model 5 ("Scheduler nodes"), 7, 8.
   `check-psql -d <db> -Atq -v ON_ERROR_STOP=1 <<'SQL' … SQL`. The seeds'
   `local all all scram-sha-256` line lets `gm_check` in; chunk 2a's seed
   check (7.3) also confirms a `local` line admits `gm_check` by password
-  before any `reject` (choice, the same check as the replication line).
+  or `trust` before any `reject` (choice, the same check as the
+  replication line; `trust` added, amended by spec D164).
   The file is outside chunk 4's Files line; `git add -f` it (the
-  `local/` ignore rule matches `rootfs/usr/local/`, W3-B).
+  `local/` ignore rule matches `rootfs/usr/local/`, W3-B). Now in chunk
+  4's Files line; `.gitignore`'s `!bricks/*/rootfs/usr/local/` keeps it
+  tracked, so no `-f` is needed (`git check-ignore` is silent on it,
+  2026-10-23) (amended by spec D169).
 - **Lookup role** `pgbouncer_lookup`: `LOGIN`, not superuser, no
   membership, `EXECUTE` on the lookup function only; created when
   `/opt/gm/secrets/pgbouncer_lookup_password` is mounted. The function,
@@ -537,17 +548,19 @@ shapes), 8.3, 8.7, access model 5 ("Scheduler nodes"), 7, 8.
   `roles`, `disk_growth_per_hour`, `writable_paths`, `seed.paths`,
   `report_tools` and `snapshot:`; chunks 4 and 5 own every other line
   their scopes name (secrets, `protected_files`, `write_policies`,
-  wrappers, footprint at rest, test bodies). Chunks 4 and 5 take chunk 1
-  in (merging `v0.3-w1` into their branch) once it has merged, before
-  their own merge; see "For the driver".
+  wrappers, footprint at rest, test bodies). Chunks 2, 4 and 5 are cut
+  from `v0.3-w1` once chunk 1 has merged (4 and 5 once 1a has, at least),
+  so they hold it from their start; only chunk 3 runs beside chunk 1
+  (amended by spec D166).
 - **Images** (choice, from v0.2's tag lesson): a plain v0.3 tag
   (`postgres:0.3.0`, `bastion:0.3.0`, `prometheus:0.2.0`,
   `postgres-exporter:0.2.0`, `grafana:0.2.0`, `scheduler:0.1.0`) is built
   only from a branch holding chunk 1 (the scheduler's from chunk 3's).
   Every stack test is one host-locked command that first builds, from
   its own worktree, every image it uses; nothing relies on what a tag
-  held before the lock. Before taking chunk 1 in, chunks 4 and 5 build
-  only under `<tag>-c4`, `-c5a`, `-c5b` and run no stack test.
+  held before the lock. (The `-c4`, `-c5a`, `-c5b` tags for chunks 4 and
+  5 before they take chunk 1 in are moot: they start holding it, amended
+  by spec D166.)
 - **Chunk 2's fixtures** with scheduler nodes use a scenario-local
   `bricks/scheduler/` (id `scheduler`, version 0.1.0) carrying item 3's
   and item 7's facts, since chunk 3's brick is not merged.
@@ -581,7 +594,8 @@ file ownership split and the image rule of item 9.
    in place from its per-game seed config (item 7), which delivers a
    restart's new seed and changes nothing else (the file never changes
    in a game). To confirm, or rule that a restart from the snapshot keeps
-   its seed.
+   its seed. Settled: read in place, master spec 7.1 amended (amended by
+   spec D163).
 2. **The replication line in the scenarios' seeds** (spec-writer, plan
    correction). Chunk 2a's check (7.3) needs a `local replication
    postgres` line; `local all postgres peer` does not match replication
@@ -589,15 +603,20 @@ file ownership split and the image rule of item 9.
    `fixture-audit` and `fixture-monitoring` fail it. W1 gives the addition of
    `local replication postgres peer` to chunk 1 (and to the postgres
    stack test's fixture, chunk 4); the scenarios' `nodes/db/pg_hba.conf`
-   are in no chunk's Files line.
+   are in no chunk's Files line. Settled: chunk 1b adds it, the two files
+   in chunk 1's Files line, under the DO NOT TAMPER comment (amended by
+   spec D164).
 3. **Window and threshold reaching a check** (spec-writer, plan
    correction): no chunk passes them; W1 gives it to chunk 9 (item 4).
+   Settled: written into chunk 9 (amended by spec D165).
 4. **Overlapping files in wave 1** (spec-writer, plan correction):
    item 9's files are not shared lists, so under chunk mode a merge
    conflict in them stops the chunk; the plan should list them as shared
-   for wave 1, or order chunk 1 first.
+   for wave 1, or order chunk 1 first. Settled: chunk 1 first, chunks 2,
+   4 and 5 after its merge, no shared list (amended by spec D166).
 
 **For the driver**: merge chunk 1 as early as it is green (1a carries the
 bricks' bumps, so 1a's merge ahead of 1b would unblock chunks 4 and 5
-soonest); brief chunks 4 and 5 to take `v0.3-w1` in before their first
-plain-tag build; brief chunk 2 with item 9's fixture note.
+soonest); brief chunk 2 with item 9's fixture note. (Briefing chunks 4
+and 5 to take `v0.3-w1` in is moot: they are cut after chunk 1's merge,
+amended by spec D166.)
