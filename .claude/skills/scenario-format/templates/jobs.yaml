@@ -1,0 +1,29 @@
+# jobs.yaml — template for scenarios/<scenario-id>/nodes/<node>/jobs.yaml,
+# a scheduler node's fixed-time operations (brick `scheduler`)
+#
+# Version v0.3, expected to evolve as games are played.
+# Shape: v0.3 master spec 7.1 ("Fixed-time operations"), with the forms
+# capture W1 of specs/versions/v0.3/wave-log.md (item 7) and spec D168
+# settle. Written in SCENARIO TIME. Seed-once on the node at
+# /srv/scheduler/jobs/jobs.yaml; players read it, and edit it where the
+# scenario makes /srv/scheduler/jobs fixable. Render writes every job's time
+# shifted into UTC.
+#
+# Markers:
+#   every key is REQUIRED unless marked otherwise;
+#   "# optional: <when>"  the key is present only when <when> holds.
+# Replace every <placeholder>. A filled file keeps no <placeholder>.
+
+jobs:                               # may be []: a node with no fixed-time operation
+  - name: <close-day>               # unique on the node
+    key: <invoices.close-day>       # a key of the node's queries.yaml
+    connection: <app>               # a connection of the node's schedule.yaml
+    at: <"30 1 * * *">              # 5-field cron, scenario time, quoted. Minute: any numeric
+                                    # form (*, 5, 0-30, */15, 1,31, 0-30/10); hour: *, a number
+                                    # or a list of numbers (0-23); day of month and month: *;
+                                    # day of week: * or a number or list 0-6 (0 Sunday), the
+                                    # latter only with a single-number hour
+    timezone_offset: <-2>           # optional: only the job a fault instance's seed change sets
+                                    # (the wrong-time-zone fault, spec D168): a non-zero whole
+                                    # number of hours from the customer's zone. Never timezone:
+                                    # render writes the zone (Etc/GMT-M) from it

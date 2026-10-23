@@ -1459,5 +1459,322 @@ class TestPostgresSeedRefusals(RefusalAsserts, ScenarioCopyTest):
                            "pg_basebackup")
 
 
+class SchedulerFilesTest(V03CopyTest):
+    """The scheduler's files of fixture-v03-refusals' producer node (master
+    spec 7.1; W1 item 7; D168)."""
+
+    Q = "nodes/producer/queries.yaml"
+    S = "nodes/producer/schedule.yaml"
+    J = "nodes/producer/jobs.yaml"
+
+    def queries(self, change):
+        self.edit_yaml(self.Q, lambda d: change(d["queries"]))
+
+    def schedule(self, change):
+        self.edit_yaml(self.S, change)
+
+    def jobs(self, change):
+        self.edit_yaml(self.J, lambda d: change(d["jobs"]))
+
+
+class TestSchedulerTemplates(unittest.TestCase):
+    """The format skill's templates for the scheduler's files are the
+    loader's schema (master spec 7.1)."""
+
+    def test_required_keys(self):
+        schedule = model.template_schema("schedule.yaml")
+        self.assertFalse(schedule.fields["streams"].optional)
+        self.assertTrue(schedule.fields["timeline"].optional)
+        self.assertTrue(schedule.fields["shapes"].optional)
+        stream = schedule.fields["streams"].child.item
+        self.assertTrue(stream.fields["shape"].optional)
+        self.assertFalse(stream.fields["rate"].optional)
+        job = model.template_schema("jobs.yaml").fields["jobs"]
+        self.assertTrue(job.allow_empty)
+        self.assertTrue(job.child.item.fields["timezone_offset"].optional)
+        self.assertIsNone(model.template_schema("queries.yaml").fields["queries"].child)
+
+
+class TestQueryRefusals(SchedulerFilesTest):
+
+    def test_key_shape(self):
+        self.queries(lambda q: q.update({"Orders Insert": q["orders.insert"]}))
+        self.assertRefused(f"{self.Q}: queries.Orders Insert: 'Orders Insert' is not a key "
+                           "([a-z0-9][a-z0-9._-]*)")
+
+    def test_entry_forms(self):
+        self.queries(lambda q: q.update({"orders.odd": {"statement": "SELECT 1"},
+                                         "orders.empty": []}))
+        self.assertRefused(f"{self.Q}: queries.orders.odd: not a query (sql), a pool (a list of "
+                           "queries), a sequence (steps) or a builder (builder)",
+                           f"{self.Q}: queries.orders.empty: a pool lists at least one query")
+
+    def test_query_keys(self):
+        self.queries(lambda q: q["orders.insert"].update(retries=3, sql=""))
+        self.assertRefused(f"{self.Q}: queries.orders.insert.retries: not a key of a query (sql, "
+                           "params, transaction)",
+                           f"{self.Q}: queries.orders.insert.sql: not a statement")
+
+    def test_generators(self):
+        cases = {
+            "{'between': [1, 5]}": {"between": [1, 5]},
+            "int: [5, 1] is not [lo, hi], integers, lo <= hi": {"int": [5, 1]},
+            "decimal: [5, 500] is not [lo, hi, places]": {"decimal": [5, 500]},
+            "choice: [] is not a non-empty list of values": {"choice": []},
+            "sequence: [1, 0] is not [start, step], integers, step not 0": {"sequence": [1, 0]},
+            "now: 'local' is not utc": {"now": "local"},
+        }
+        for message, generator in cases.items():
+            with self.subTest(generator=generator):
+                self.setUp()
+                self.queries(lambda q: q["orders.insert"]["params"].update(customer_id=generator))
+                self.assertRefused(f"{self.Q}: queries.orders.insert.params.customer_id",
+                                   message)
+
+    def test_transaction(self):
+        self.queries(lambda q: q["orders.insert-v2"].update(
+            transaction={"isolation": "snapshot", "hold": "2 seconds"}))
+        self.assertRefused(f"{self.Q}: queries.orders.insert-v2.transaction.isolation: 'snapshot' "
+                           "is not one of read committed, repeatable read, serializable",
+                           f"{self.Q}: queries.orders.insert-v2.transaction.hold: '2 seconds' is "
+                           "not a duration")
+
+    def test_pool_weight(self):
+        self.queries(lambda q: q["orders.lookup"][0].update(weight=0))
+        self.assertRefused(f"{self.Q}: queries.orders.lookup[0].weight: 0 is not a positive "
+                           "integer")
+
+    def test_sequence_steps(self):
+        self.queries(lambda q: q["orders.close-day"].update(steps=[]))
+        self.assertRefused(f"{self.Q}: queries.orders.close-day.steps: not a non-empty list")
+        self.setUp()
+        self.queries(lambda q: q["orders.close-day"]["steps"][0].update(
+            transaction={"isolation": "serializable"}))
+        self.assertRefused(f"{self.Q}: queries.orders.close-day.steps[0].transaction: not a key "
+                           "of a step (sql, params)")
+
+    def test_builder_reference(self):
+        self.queries(lambda q: q["reports.revenue"].update(builder="revenue.py:build"))
+        self.assertRefused(f"{self.Q}: queries.reports.revenue.builder: 'revenue.py:build' is not "
+                           "builders/<file>:<function>")
+
+    def test_builder_file_exists(self):
+        self.queries(lambda q: q["reports.revenue"].update(builder="builders/sales.py:build"))
+        self.assertRefused(f"{self.Q}: queries.reports.revenue.builder: builders/sales.py:build: "
+                           "nodes/producer/builders/sales.py does not exist")
+
+    def test_builder_function_exists(self):
+        self.queries(lambda q: q["reports.revenue"].update(builder="builders/revenue.py:report"))
+        self.assertRefused(f"{self.Q}: queries.reports.revenue.builder: builders/revenue.py:"
+                           "report: nodes/producer/builders/revenue.py defines no function report "
+                           "at its top level")
+
+    def test_builder_file_parses(self):
+        (self.scenario / "nodes/producer/builders/revenue.py").write_text("def build(:\n")
+        self.assertRefused("nodes/producer/builders/revenue.py: cannot be parsed as Python")
+
+    def test_builder_needs_the_folder(self):
+        self.edit_yaml("scenario.yaml",
+                       lambda d: self.node(d, "producer")["seed_files"].pop("builders/"))
+        self.assertRefused(f"{self.Q}: queries.reports.revenue.builder: builders/revenue.py:build, "
+                           "but the node has no builders/ seed folder")
+
+    def test_sql_is_not_a_placeholder(self):
+        self.queries(lambda q: q["orders.insert"].update(
+            sql="SELECT 1 WHERE %(a)s <> 0 AND <b> > 1"))
+        problems = "\n".join(model.check_scenario(self.scenario)[1])
+        self.assertNotIn("placeholder", problems)
+
+    def test_placeholder_left(self):
+        self.queries(lambda q: q["reports.revenue"].update(options={"months": "<3>"}))
+        self.assertRefused(f"{self.Q}: queries.reports.revenue.options.months: placeholder <3> "
+                           "left")
+
+
+class TestScheduleRefusals(SchedulerFilesTest):
+
+    def test_required_keys(self):
+        self.schedule(lambda d: [d.pop("intensity"), d["streams"][0].pop("rate")])
+        self.assertRefused(f"{self.S}: intensity: missing",
+                           f"{self.S}: streams[orders.insert].rate: missing")
+
+    def test_no_other_key(self):
+        self.schedule(lambda d: d.update(seed=42))
+        self.assertRefused(f"{self.S}: seed: not a key of a schedule (intensity, connections, "
+                           "streams, shapes, timeline); the game's seed is render's")
+
+    def test_intensity_positive(self):
+        self.schedule(lambda d: d.update(intensity=0))
+        self.assertRefused(f"{self.S}: intensity: 0 is not a positive number")
+
+    def test_connection(self):
+        self.schedule(lambda d: d["connections"]["app"].update(
+            driver="sql/mysql", target="cache:5432/shop", role="gm_check",
+            pool={"size": 0}))
+        self.assertRefused(f"{self.S}: connections.app.driver: sql/mysql is not a known driver "
+                           "(sql/postgresql)",
+                           f"{self.S}: connections.app.target: cache:5432/shop: cache is not a "
+                           "node of the topology",
+                           f"{self.S}: connections.app.role: gm_check is reserved",
+                           f"{self.S}: connections.app.pool: {{'size': 0}} is not {{size: N}}")
+
+    def test_connection_target_and_role_shapes(self):
+        self.schedule(lambda d: d["connections"]["app"].update(
+            target="db/shop", role="pg_monitor", pool={"size": 2, "per-call": True}))
+        self.assertRefused(f"{self.S}: connections.app.target: 'db/shop' is not "
+                           "<node>:<port>/<database>",
+                           f"{self.S}: connections.app.role: pg_monitor is reserved",
+                           f"{self.S}: connections.app.pool:")
+
+    def test_stream_references(self):
+        self.schedule(lambda d: d["streams"][0].update(
+            key="orders.delete", connection="batch", shape="night"))
+        self.assertRefused(f"{self.S}: streams[orders.delete].key: orders.delete is not a key of "
+                           "the node's queries.yaml",
+                           f"{self.S}: streams[orders.delete].connection: batch is not a "
+                           "connection of the schedule",
+                           f"{self.S}: streams[orders.delete].shape: night is not a shape of the "
+                           "schedule")
+
+    def test_stream_values(self):
+        self.schedule(lambda d: d["streams"][0].update(
+            rate="40 per minute", arrivals="burst", concurrency=0))
+        self.assertRefused(f"{self.S}: streams[orders.insert].rate: '40 per minute' is not a rate",
+                           f"{self.S}: streams[orders.insert].arrivals: burst is not poisson or "
+                           "even",
+                           f"{self.S}: streams[orders.insert].concurrency: 0 is not a positive "
+                           "integer")
+
+    def test_stream_identity(self):
+        self.schedule(lambda d: d["streams"].append(dict(d["streams"][0])))
+        self.assertRefused(f"{self.S}: streams[orders.insert]: another stream starts with key "
+                           "orders.insert; a stream is known by its initial key")
+
+    def test_hours_cover_the_day_once(self):
+        self.schedule(lambda d: d["shapes"]["business-hours"].update(
+            hours={"00-06": 0.1, "06-11": 1.0, "13-23": 1.0}))
+        self.assertRefused(f"{self.S}: shapes.business-hours.hours: hour(s) 12 not covered",
+                           f"{self.S}: shapes.business-hours.hours: hour(s) 06 covered more than "
+                           "once")
+
+    def test_hours_forms(self):
+        self.schedule(lambda d: d["shapes"]["business-hours"].update(
+            hours={12: 1.0, "22-02": 0.1, "00-23": -1}))
+        self.assertRefused(f"{self.S}: shapes.business-hours.hours: 12: hours are quoted strings",
+                           f"{self.S}: shapes.business-hours.hours: '22-02' is not an hour or a "
+                           "range of hours (00 to 23, never wrapping)",
+                           f"{self.S}: shapes.business-hours.hours.00-23: -1 is not a multiplier")
+
+    def test_days_cover_the_week_once(self):
+        self.schedule(lambda d: d["shapes"]["weekly"]["days"].update(
+            {"sat-sun": {"hours": {"00-23": 0.3}}, "fri-sat": {"hours": {"00-23": 0.5}},
+             "sun-mon": {"hours": {"00-23": 0.1}}}))
+        self.assertRefused(f"{self.S}: shapes.weekly.days: 'sun-mon' is not a day or a range of "
+                           "days",
+                           f"{self.S}: shapes.weekly.days: day(s) fri, sat covered more than once")
+
+    def test_shape_form(self):
+        self.schedule(lambda d: d["shapes"].update(night={"minutes": {}}))
+        self.assertRefused(f"{self.S}: shapes.night: a shape is {{hours: ...}} or {{days: ...}}")
+
+    def test_timeline_before_hand_over_within_the_aging(self):
+        for at, message in (("handover-20h", "handover-20h is further before hand-over than "
+                                             "aging.minimum 16h"),
+                            ("handover-0h", "'handover-0h' is not T0 or handover-<N>h"),
+                            ("handover+1h", "'handover+1h' is not T0 or handover-<N>h")):
+            with self.subTest(at=at):
+                self.setUp()
+                self.schedule(lambda d: d["timeline"][0].update(at=at))
+                self.assertRefused(f"{self.S}: timeline[0].at: {message}")
+
+    def test_timeline_at_t0_accepted(self):
+        self.schedule(lambda d: d["timeline"][0].update(at="T0"))
+        model.load_scenario(self.scenario)
+
+    def test_timeline_references(self):
+        self.schedule(lambda d: d["timeline"][0].update(
+            stream="orders.insert-v2", set={"key": "orders.nope", "rate": "fast",
+                                            "connection": "batch", "shape": "x"}))
+        self.assertRefused(f"{self.S}: timeline[0].stream: orders.insert-v2 is not a stream of the "
+                           "schedule (a stream is named by its initial key)",
+                           f"{self.S}: timeline[0].set.key: orders.nope is not a key of the "
+                           "node's queries.yaml",
+                           f"{self.S}: timeline[0].set.rate: 'fast' is not a rate",
+                           f"{self.S}: timeline[0].set.connection: batch is not a connection",
+                           f"{self.S}: timeline[0].set.shape: not a key of a change (key, rate, "
+                           "connection)")
+
+    def test_timeline_set_not_empty(self):
+        self.schedule(lambda d: d["timeline"][0].update(set={}))
+        self.assertRefused(f"{self.S}: timeline[0].set: empty")
+
+
+class TestJobsRefusals(SchedulerFilesTest):
+
+    def test_references(self):
+        self.jobs(lambda j: j[1].update(key="reports.daily", connection="batch"))
+        self.assertRefused(f"{self.J}: jobs[weekly-report].key: reports.daily is not a key of the "
+                           "node's queries.yaml",
+                           f"{self.J}: jobs[weekly-report].connection: batch is not a connection "
+                           "of the node's schedule.yaml")
+
+    def test_no_timezone(self):
+        self.jobs(lambda j: j[1].update(timezone="Europe/Paris"))
+        self.assertRefused(f"{self.J}: jobs[weekly-report].timezone: a scenario's job carries no "
+                           "timezone:")
+
+    def test_unknown_key_and_duplicate_name(self):
+        self.jobs(lambda j: j.append(dict(j[1], retries=2)))
+        self.assertRefused(f"{self.J}: jobs[weekly-report].retries: not a key of a job",
+                           f"{self.J}: jobs[weekly-report]: duplicate job name")
+
+    def test_cron_subset(self):
+        cases = {
+            "30 1 * *": "is not a 5-field cron expression",
+            "61 1 * * *": "minute 61 is not a numeric cron form",
+            "30 */2 * * *": "hour */2 is not *, a number or a list of numbers (0-23)",
+            "30 1-3 * * *": "hour 1-3 is not *",
+            "30 1 1 * *": "day of month and month are *",
+            "30 1 * 6 *": "day of month and month are *",
+            "30 1 * * 7": "day of week 7 is not *, a number or a list of numbers (0-6)",
+            "30 1,13 * * 1": "a day of week needs a single-number hour (it is 1,13)",
+        }
+        for at, message in cases.items():
+            with self.subTest(at=at):
+                self.setUp()
+                self.jobs(lambda j: j[1].update(at=at))
+                self.assertRefused(f"{self.J}: jobs[weekly-report].at: {at!r}", message)
+
+    def test_cron_accepted(self):
+        for at in ("*/15 * * * *", "0-30/10 8,12 * * *", "5 6 * * 0,6", "1,31 23 * * *"):
+            with self.subTest(at=at):
+                self.setUp()
+                self.jobs(lambda j: j[1].update(at=at))
+                model.load_scenario(self.scenario)
+
+    def test_timezone_offset_needs_a_jobs_fault_on_the_node(self):
+        def drop(d):
+            d["fault_instances"].pop()
+            d["issues"] = []
+            d["difficulty"]["score"] = 2
+        self.edit_yaml("scenario.yaml", drop)
+        self.edit_yaml("gm/answer-key.yaml", lambda d: d["instances"].pop())
+        self.assertRefused(f"{self.J}: jobs[close-day].timezone_offset: only on a node where a "
+                           "fault instance's seed change edits jobs.yaml (the wrong-time-zone "
+                           "fault, spec D168)")
+
+    def test_timezone_offset_non_zero_whole_hours(self):
+        for offset in (0, 1.5, "-2"):
+            with self.subTest(offset=offset):
+                self.setUp()
+                self.jobs(lambda j: j[0].update(timezone_offset=offset))
+                self.assertRefused(f"{self.J}: jobs[close-day].timezone_offset: {offset!r} is not "
+                                   "a non-zero whole number of hours")
+
+    def test_no_job_accepted(self):
+        self.jobs(lambda j: j.clear())
+        model.load_scenario(self.scenario)
+
+
 if __name__ == "__main__":
     unittest.main()

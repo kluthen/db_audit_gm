@@ -651,6 +651,64 @@ amended by spec D166.)
 - Chunk 1 (`v0.3-c1-formats`): dispatched 2026-10-23, after D171; 1a to
   merge into `v0.3-w1` as soon as it is green, so chunks 4 and 5 can start.
 
+### W1 addenda — choices chunk 2 made
+
+Where W1 was silent, recorded by chunk 2 (`v0.3-c2-loader`), 2026-10-23.
+
+- **Retention**: the exception counts a `family: retention` fault planted on
+  that `prometheus` node, not elsewhere; a seed with no
+  `storage.tsdb.retention.time` is refused (the brick's validator wants a
+  time bound anyway); Prometheus' own duration grammar (`1d`, `1h30m`, `2w`).
+- **`pg_hba.conf`**, read with PostgreSQL's first-match rule: the first
+  `local` line whose databases hold `replication` and whose users hold
+  `postgres` or `all` decides pg_basebackup's access, by `peer` or `trust`
+  only; for `gm_check`, `local` lines whose users hold `gm_check` or `all`
+  (not `replication` alone) are read in order, and any method other than
+  `scram-sha-256`, `md5`, `password` or `trust` (`reject`, `peer`, `ident`)
+  before a line admitting it for `all` databases is refused. `+group` and
+  `@file` entries are not expanded. `max_wal_senders = 0` and
+  `wal_level = minimal` in the seed's `postgresql.conf` are refused (7.3's
+  "and settings").
+- **`{{customer_timezone}}`** is looked for in the seed files of the node
+  whose `role` is `bastion`.
+- **Per-file fix** also decides when an answer key needs `acceptable.fix`
+  for a fault no issue covers: when the fault lists `fix` and its files are
+  fixable on the node (overrides included).
+- **`write_overrides`** on a `no-access` node is refused, as on a `fixable`
+  one (W1 item 1: report-only only).
+- **Folder seed entries** (W1 item 3) are checked by the loader: optional
+  in `seed_files`, a folder of the scenario, at least one file, no
+  subfolder, file names `[A-Za-z0-9_][A-Za-z0-9_.-]*`. Every `seed.files`
+  entry needs a `seed.paths` entry; `seed.paths` values are absolute paths.
+- **The scheduler's files**: unknown keys are refused in every form (a
+  query, a pool's query, a step, a sequence, a builder, a transaction, a
+  connection, a stream, a timeline change and its `set`, a job), and a
+  top-level key other than `intensity`, `connections`, `streams`, `shapes`
+  and `timeline` in `schedule.yaml` (so no `seed:`); `shapes` and `timeline`
+  are optional, `jobs` may be `[]`. Parameters are generators only (a
+  constant is `{choice: [v]}`): `int` and `sequence` take integers, `int`
+  lo ≤ hi, `sequence` step ≠ 0, `decimal` lo ≤ hi and places ≥ 0, `choice`
+  a non-empty list of scalars. A shape's hours are quoted strings (an
+  unquoted `12` is refused). A timeline change at `T0` is accepted (exactly
+  the aging minimum before hand-over). A job's `connection` names one of the
+  node's `schedule.yaml` connections; job names are unique on the node; a
+  `timezone_offset` is any non-zero integer (render wraps it). The
+  connection target's database name is `[A-Za-z_][A-Za-z0-9_$-]*` and its
+  port a port number. Cron minute forms are `*`, `n`, `a-b`, `*/n`, `a-b/n`
+  and lists of them (`a/n` refused). A builder file is parsed with `ast`,
+  never imported, and must define the function at its top level.
+- **Templates**: `queries.yaml`, `schedule.yaml` and `jobs.yaml` join the
+  format skill's templates and are the loader's schema for their required
+  keys; `queries`, `pool` and `shapes` are checked by code (their forms vary
+  per entry). `sql` values are not searched for placeholders (`<` and `>`
+  are operators). List items are labelled by `key` when they have no
+  `name`, `id`, `setting` or `instance` (`streams[orders.insert]`).
+- **Fixture**: `tools/tests/fixtures/fixture-v03-refusals` (with a
+  scheduler node, a scenario-local `scheduler` brick copied from chunk 3a's
+  `brick.yaml` with its image renamed) is the valid one with scheduler
+  nodes; `fixture-audit` the valid one without.
+- Chunk 2a merged 2026-10-23: c278786, merge ff60cce.
+
 ### W1 addenda — choices chunk 1 made
 
 Where W1 was silent, recorded by chunk 1 (`v0.3-c1-formats`), 2026-10-23.

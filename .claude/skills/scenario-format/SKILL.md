@@ -6,7 +6,7 @@ description: Use whenever a db_audit_gm scenario, brick or fault definition is d
 # Scenario format
 
 Every scenario, brick and fault is written to one shape. This skill holds
-that shape: five templates and the folder layouts. This is its **v0.3
+that shape: eight templates and the folder layouts. This is its **v0.3
 version**, expected to evolve as games are played; when a game shows the
 format is missing something, change the template and this skill together.
 
@@ -27,6 +27,9 @@ capture W1 in `specs/versions/v0.3/wave-log.md`.
 | [templates/answer-key.yaml](templates/answer-key.yaml) | `scenarios/<id>/gm/answer-key.yaml` | the answer key (authoritative, sealed) |
 | [templates/brick.yaml](templates/brick.yaml) | `bricks/<id>/brick.yaml` | a brick definition |
 | [templates/fault.yaml](templates/fault.yaml) | `faults/<id>/fault.yaml` | a fault definition |
+| [templates/queries.yaml](templates/queries.yaml) | `scenarios/<id>/nodes/<node>/queries.yaml` | a scheduler node's query repository |
+| [templates/schedule.yaml](templates/schedule.yaml) | `scenarios/<id>/nodes/<node>/schedule.yaml` | a scheduler node's schedule (scenario time) |
+| [templates/jobs.yaml](templates/jobs.yaml) | `scenarios/<id>/nodes/<node>/jobs.yaml` | a scheduler node's fixed-time operations (scenario time) |
 | [templates/brick-gm.md](templates/brick-gm.md) | `bricks/<id>/docs/gm.md` | a brick's GM documentation (D56): the nine required sections |
 | [templates/layouts.md](templates/layouts.md) | — | the scenario, brick and fault folders, and the script contracts |
 
@@ -122,15 +125,15 @@ A scenario is complete or it is not deployed.
   read" warning.
 
 Consistency rules (a failure is a missing item). Those v0.3 adds (master
-spec 6.1, 6.2, 8; capture W1 items 0, 1, 4) are checked by the loader from
-v0.3's chunk 2; until then, by reading:
+spec 6.1, 6.2, 7.3, 8; capture W1 items 0 to 4 and 8) are checked by the
+loader too:
 
 - **Scheduler nodes**: a node whose brick id is `scheduler` (capture W1
   item 0), role `producer` or `consumer`. Its seed files are under
   `nodes/<node>/`: `queries.yaml`, an optional `builders/` folder of
-  files, `jobs.yaml` and `schedule.yaml`, in scenario time. Their shapes
-  are master spec 7.1's, normative until the scheduler's templates carry
-  them.
+  files, `jobs.yaml` and `schedule.yaml`, in scenario time, written from
+  the scheduler's templates (master spec 7.1); their rules are under
+  "The scheduler's files" below.
 - **Aging** (D157, D158): `aging:` is present exactly when the scenario
   has a scheduler node. `minimum` is a duration (`<integer><s|m|h|d>`)
   of at least `8h` and as long as the evidence needs (master spec 8.2);
@@ -232,6 +235,57 @@ The rules from v0.2:
   `player/` names a hidden fault or an answer;
 - `designed_for.placement` places every node, and the summed reservations
   fit the hosts.
+
+### The scheduler's files (v0.3 master spec 7.1)
+
+A scheduler node's `queries.yaml`, `builders/`, `schedule.yaml` and
+`jobs.yaml`, under `nodes/<node>/`, in scenario time. Start from
+[templates/queries.yaml](templates/queries.yaml),
+[templates/schedule.yaml](templates/schedule.yaml) and
+[templates/jobs.yaml](templates/jobs.yaml); the forms 7.1 leaves open are
+capture W1's (item 7) and spec D168. The loader checks, and a failure is a
+missing item:
+
+- **Every key named exists**: each stream's `key`, each job's `key` and
+  each timeline change's `set.key` is a key of the node's `queries.yaml`.
+- **The repository**: a key is `[a-z0-9][a-z0-9._-]*` and maps to one
+  form: a query (`sql`, optional `params`, optional `transaction`), a pool
+  (a non-empty list of queries, each with an optional positive `weight`),
+  a sequence (`steps`, a non-empty list of `{sql, params}`, optional
+  `transaction`) or a builder (`builder: builders/<file>:<function>`,
+  optional `options` map). Parameters come from generators, one key each:
+  `{int: [lo, hi]}`, `{decimal: [lo, hi, places]}`, `{choice: [..]}`,
+  `{sequence: [start, step]}`, `{now: utc}`. A `transaction` has an
+  `isolation` (`read committed`, `repeatable read`, `serializable`) and an
+  optional `hold` (a duration).
+- **Builders**: the file is in the node's `builders/` seed folder (files
+  only, named `[A-Za-z0-9_][A-Za-z0-9_.-]*`) and defines the function at
+  its top level; the loader parses it, never runs it.
+- **Connections**: the driver is a known one (`sql/postgresql`); the
+  target is `<node>:<port>/<database>` on a node of the topology; the role
+  is an application role (`[a-z_][a-z0-9_]{0,40}`, never `postgres`,
+  `dba`, `monitoring`, `gm_check`, `pgbouncer_lookup` or `pg_*`); the pool
+  is `{size: N}` or `{per-call: true}`. No password is ever written: render
+  generates one secret per role.
+- **Streams**: a `rate` `<number>/s|min|h`, `arrivals` `poisson` or
+  `even`, an optional `shape` of the schedule, an optional `concurrency`;
+  a stream is known by its initial key, unique on the node.
+- **Shapes cover the 24 hours**: `hours` maps quoted `"HH"` or `"HH-HH"`
+  (never wrapping) to a multiplier at least 0, covering 00 to 23 exactly
+  once; a weekly shape's `days` (`mon` to `sun`, alone or as ranges, never
+  wrapping) cover the week exactly once, each with its `hours`.
+- **Timeline changes**: `at` is `T0` or `handover-<N>h`, before hand-over
+  and no further before it than `aging.minimum`; `stream` names a stream
+  by its initial key; `set` changes its `key`, `rate` or `connection`.
+- **Jobs**: a unique `name`, a `key`, a `connection` of the node's
+  schedule, and `at`, a quoted 5-field cron in the subset render can shift
+  (minute any numeric form; hour `*`, a number or a list; day of month and
+  month `*`; day of week `*` or a number or list 0-6, only with a
+  single-number hour). Never `timezone:`. A `timezone_offset: <N>`, a
+  non-zero whole number of hours from the customer's zone, only on a node
+  where a fault instance's seed change edits `jobs.yaml` (the
+  wrong-time-zone fault, D168).
+- No other key in `schedule.yaml`: the game's seed is render's.
 
 ### Brick (master spec 7)
 
