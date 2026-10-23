@@ -1,0 +1,46 @@
+# Schedule of the fixture's producer node, in scenario time (master spec
+# 7.1; template: .claude/skills/scenario-format/templates/schedule.yaml).
+intensity: 1.0
+connections:
+  app:
+    driver: sql/postgresql
+    target: db:5432/shop
+    role: shop_app
+    pool: {size: 2}
+  reports:
+    driver: sql/postgresql
+    target: db:5432/shop
+    role: shop_reports
+    pool: {per-call: true}
+streams:
+  - key: orders.insert
+    connection: app
+    rate: 40/min
+    arrivals: poisson
+    shape: business-hours
+    concurrency: 2
+  - key: orders.lookup
+    connection: app
+    rate: 2/s
+    arrivals: even
+    shape: weekly
+  - key: reports.revenue
+    connection: reports
+    rate: 6/h
+    arrivals: even
+shapes:
+  business-hours:
+    hours: {"00-06": 0.1, "07-08": 0.6, "09-11": 1.0, "12": 1.6, "13-17": 1.0, "18-23": 0.3}
+  weekly:
+    days:
+      mon-fri:
+        hours: {"00-07": 0.2, "08-19": 1.0, "20-23": 0.4}
+      sat-sun:
+        hours: {"00-23": 0.3}
+timeline:
+  - at: handover-6h
+    stream: orders.insert
+    set: {key: orders.insert-v2}
+  - at: handover-2h
+    stream: orders.lookup
+    set: {rate: 4/s, connection: reports}

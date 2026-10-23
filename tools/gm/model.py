@@ -58,6 +58,29 @@ EXACT_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]
 FAULT_ENV_PREFIX = "FAULT_"
 FAULT_ENV_NAME_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
 
+# v0.3's format (master spec 6.1 to 6.4, 6.7; capture W1 of
+# specs/versions/v0.3/wave-log.md, items 0 to 4).
+SCHEDULER_BRICK = "scheduler"       # a scheduler node: a node whose brick id is this (W1 item 0)
+ROLES = ("bastion", "producer", "queue", "database", "pooler", "transformer", "consumer",
+         "monitoring", "backup")
+DIFFICULTY_LEVELS = ("easy", "normal", "hard")
+SNAPSHOT_METHODS = ("pg_basebackup", "copy", "stop")
+AGING_TECHNIQUES = ("real-time",)
+MIN_AGING_SECONDS = 8 * 3600        # D150, D157
+RETENTION_MARGIN_SECONDS = 4 * 3600  # the game's four hours (master spec 6.1)
+RETENTION_FAMILY = "retention"      # a fault about retention (W1 item 2)
+HANDOVER_MOMENT_RE = re.compile(r"^handover-([1-9][0-9]*)h$")
+HANDOVER_AT_RE = re.compile(r"^([01][0-9]|2[0-3]):00$")
+CUSTOMER_TIMEZONE = "{{customer_timezone}}"
+# Render passes a node's write policy as GM_WRITE_POLICY and GM_WRITE_OVERRIDES
+# (W1 item 5), so no brick parameter may take these names (GM_<NAME>).
+RESERVED_PARAMETERS = ("write_policy", "write_overrides")
+SEED_ENTRY_FILE_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]*$")
+# pg_hba methods admitting the GM check role (W1 item 8, D164), and those
+# admitting pg_basebackup's replication connection as postgres (7.3).
+HBA_PASSWORD_METHODS = ("scram-sha-256", "md5", "password", "trust")
+HBA_REPLICATION_METHODS = ("peer", "trust")
+
 
 def fault_env_name(param_name):
     """`FAULT_<NAME>` for a fault parameter, or None when the upper-cased
@@ -286,6 +309,40 @@ def parse_cpu(value):
     return cpu
 
 
+_DURATION_RE = re.compile(r"^([0-9]+)([smhd])$")
+_DURATION_UNITS = {"s": 1, "m": 60, "h": 3600, "d": 86400}
+
+
+def parse_duration(value):
+    """Seconds in a duration `<integer><s|m|h|d>` (`16h`, `30m`, `0m`;
+    capture W1 of v0.3, item 0)."""
+    m = _DURATION_RE.match(value) if isinstance(value, str) else None
+    if m is None:
+        raise ValueError(f"{value!r} is not a duration (<integer><s|m|h|d>: 30m, 16h, 2d, 0m)")
+    return int(m.group(1)) * _DURATION_UNITS[m.group(2)]
+
+
+_PROM_DURATION_RE = re.compile(r"^(?:([0-9]+)y)?(?:([0-9]+)w)?(?:([0-9]+)d)?(?:([0-9]+)h)?"
+                               r"(?:([0-9]+)m)?(?:([0-9]+)s)?(?:([0-9]+)ms)?$")
+_PROM_DURATION_UNITS = (365 * 86400, 7 * 86400, 86400, 3600, 60, 1, 0.001)
+
+
+def parse_prometheus_duration(value):
+    """Seconds in a Prometheus duration (`1d`, `12h`, `1h30m`, `2w`)."""
+    m = _PROM_DURATION_RE.match(value) if isinstance(value, str) and value else None
+    if m is None:
+        raise ValueError(f"{value!r} is not a Prometheus duration (1d, 12h, 1h30m)")
+    return sum(int(n) * unit for n, unit in zip(m.groups(), _PROM_DURATION_UNITS) if n)
+
+
+def _is_int(value):
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _is_number(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
 def format_size(nbytes):
     for unit, factor in (("G", 1024 ** 3), ("M", 1024 ** 2), ("K", 1024)):
         if nbytes >= factor:
@@ -498,7 +555,115 @@ def check_brick_dir(brick_dir, label_base=None):
                        "slashes)")
     _check_mounted(data, brick_dir, base, label, out)
     _check_receives(data.get("receives"), label, out)
+    _check_brick_v03(data, label, out)
     return out
+
+
+def _path_problem(path):
+    """Why an in-container path is not absolute, whitespace-free and without a
+    trailing / (capture W1 of v0.3, item 0), or None."""
+    if not isinstance(path, str) or not path.startswith("/"):
+        return f"{path!r} is not an absolute path"
+    if re.search(r"\s", path):
+        return f"{path!r} contains whitespace"
+    if len(path) > 1 and path.endswith("/"):
+        return f"{path} ends with /"
+    return None
+
+
+def _check_brick_v03(data, label, out):
+    """v0.3's brick keys (master spec 6.4; capture W1 of v0.3, items 3 and 5):
+    the roles list, the growth per hour, writable_paths, seed.paths and
+    seed.modes, only_with_role, report_tools, snapshot, reserved parameters."""
+    roles = data.get("roles")
+    for role in roles if isinstance(roles, list) else []:
+        if role not in ROLES:
+            out.append(f"{label}: roles: {role} is not in the roles list ({' '.join(ROLES)}; "
+                       "master spec 6.4)")
+    growth = _dict(data.get("footprint")).get("disk_growth_per_hour")
+    if growth is not None:
+        try:
+            parse_size(growth)
+        except ValueError as exc:
+            out.append(f"{label}: footprint.disk_growth_per_hour: {exc}")
+    writable = data.get("writable_paths")
+    for path in writable if isinstance(writable, list) else []:
+        problem = _path_problem(path)
+        if problem:
+            out.append(f"{label}: writable_paths: {problem}")
+    for pname in _dict(data.get("parameters")):
+        if pname in RESERVED_PARAMETERS:
+            out.append(f"{label}: parameters.{pname}: a reserved name: render passes the node's "
+                       "write policy and overrides as GM_WRITE_POLICY and GM_WRITE_OVERRIDES")
+    seed = _dict(data.get("seed"))
+    files = [f for f in seed.get("files") or [] if isinstance(f, str)] \
+        if isinstance(seed.get("files"), list) else []
+    paths = seed.get("paths")
+    if isinstance(paths, dict):
+        for fname in files:
+            if fname not in paths:
+                out.append(f"{label}: seed.paths: no entry for the seed file {fname}")
+        for fname, path in paths.items():
+            if fname not in files:
+                out.append(f"{label}: seed.paths.{fname}: not a seed file of the brick "
+                           "(seed.files)")
+            problem = _path_problem(path)
+            if problem:
+                out.append(f"{label}: seed.paths.{fname}: {problem}")
+    modes = seed.get("modes")
+    for fname, mode in modes.items() if isinstance(modes, dict) else ():
+        if fname not in files:
+            out.append(f"{label}: seed.modes.{fname}: not a seed file of the brick (seed.files)")
+        try:
+            parse_mode(mode)
+        except ValueError as exc:
+            out.append(f"{label}: seed.modes.{fname}: {exc}")
+    secrets = data.get("secrets")
+    for i, secret in enumerate(secrets if isinstance(secrets, list) else []):
+        role = _dict(secret).get("only_with_role")
+        if role is not None and role not in ROLES:
+            out.append(f"{label}: secrets[{_item_label(secret, i)}].only_with_role: {role} is not "
+                       f"in the roles list ({' '.join(ROLES)})")
+    tools = data.get("report_tools")
+    if "report_tools" in data and not isinstance(tools, list):
+        out.append(f"{label}: report_tools: not a list")
+    for tool in tools if isinstance(tools, list) else []:
+        if not (isinstance(tool, str) and REPORT_TOOL_RE.match(tool)):
+            out.append(f"{label}: report_tools: {tool!r} is not a tool name in lowercase "
+                       "(pgbadger)")
+    if "snapshot" in data:
+        _check_snapshot(data, label, out)
+
+
+def _check_snapshot(data, label, out):
+    """`snapshot:` (master spec 6.4, 7.3 "Snapshot"; W1 item 3, D167): every
+    volume but the one at /run, once, by pg_basebackup, copy or stop; at most
+    one pg_basebackup volume. Whether the brick ships gm-snapshot-db is its
+    stack test's, not the loader's."""
+    snapshot = data.get("snapshot")
+    if not isinstance(snapshot, dict) or not snapshot:
+        out.append(f"{label}: snapshot: not a map of volume name -> "
+                   f"{' | '.join(SNAPSHOT_METHODS)}")
+        return
+    volumes = {v.get("name"): v.get("path") for v in data.get("volumes") or []
+               if isinstance(v, dict)} if isinstance(data.get("volumes"), list) else {}
+    for volume, method in snapshot.items():
+        if volume not in volumes:
+            out.append(f"{label}: snapshot.{volume}: not a volume of the brick")
+        elif volumes[volume] == "/run":
+            out.append(f"{label}: snapshot.{volume}: the volume at /run is never copied (emptied "
+                       "at every start; master spec 6.4)")
+        if method not in SNAPSHOT_METHODS:
+            out.append(f"{label}: snapshot.{volume}: {method} is not one of "
+                       f"{', '.join(SNAPSHOT_METHODS)}")
+    for volume, path in volumes.items():
+        if path != "/run" and volume not in snapshot:
+            out.append(f"{label}: snapshot: volume {volume} is not named (snapshot names every "
+                       "volume but the one at /run)")
+    online = [str(v) for v, m in snapshot.items() if m == "pg_basebackup"]
+    if len(online) > 1:
+        out.append(f"{label}: snapshot: {', '.join(online)}: at most one pg_basebackup volume "
+                   "per brick")
 
 
 def _version_prefix_problem(value):
@@ -669,7 +834,60 @@ def check_fault_dir(fault_dir, label_base=None):
         if isinstance(res, dict) and res.get("kind") not in RESOLUTION_KINDS:
             out.append(f"{label}: resolutions[{i}].kind: {res.get('kind')} is not one of "
                        f"{', '.join(RESOLUTION_KINDS)}")
+    _check_fault_v03(data, label, out)
     return out
+
+
+def _check_fault_v03(data, label, out):
+    """v0.3's fault keys (master spec 6.3, 6.7; capture W1 of v0.3, item 2):
+    aging, evidence locations, the behavioural flag."""
+    aging = data.get("aging")
+    if isinstance(aging, dict):
+        if "technique" in aging and aging["technique"] not in AGING_TECHNIQUES:
+            out.append(f"{label}: aging.technique: {aging['technique']} is not "
+                       f"{' or '.join(AGING_TECHNIQUES)} (the only technique in v0.3)")
+        if "minimum" in aging:
+            try:
+                parse_duration(aging["minimum"])
+            except ValueError as exc:
+                out.append(f"{label}: aging.minimum: {exc}")
+    evidence = data.get("evidence")
+    for i, item in enumerate(evidence if isinstance(evidence, list) else []):
+        where = _dict(item).get("where")
+        if where is None:
+            continue                     # reported as missing
+        p = f"{label}: evidence[{i}].where"
+        kind, _, name = where.partition(":") if isinstance(where, str) else ("", "", "")
+        if where in ("node", "bastion"):
+            continue
+        if kind == "report" and REPORT_TOOL_RE.match(name):
+            continue
+        if kind == "ui":
+            out.append(f"{p}: {where}: a fault never reads through a web interface, whose routes "
+                       "only the scenario knows; the answer key carries that reading (D145)")
+        elif kind == "node" and name:
+            out.append(f"{p}: {where}: a fault reads at node (its target node); a reading on "
+                       "another node is the scenario's, in its answer key (D167)")
+        else:
+            out.append(f"{p}: {where!r} is not node, bastion or report:<tool> (the tool in "
+                       "lowercase)")
+    sealed = _dict(data.get("sealed_check"))
+    if "behavioural" in sealed and not isinstance(sealed["behavioural"], bool):
+        out.append(f"{label}: sealed_check.behavioural: {sealed['behavioural']!r} is not a "
+                   "boolean")
+
+
+def fault_aging_minimum(fault_data):
+    """Seconds of a fault definition's aging.minimum, or None when it is not
+    a duration (reported with the fault)."""
+    try:
+        return parse_duration(_dict(fault_data.get("aging")).get("minimum"))
+    except ValueError:
+        return None
+
+
+def is_behavioural(fault_data):
+    return _dict(fault_data.get("sealed_check")).get("behavioural") is True
 
 
 def _check_parameter_changes(injection, env_names, label, out):
@@ -786,10 +1004,17 @@ def check_scenario(scenario_dir, catalog_root=REPO_ROOT):
                 if end in flow and flow[end] not in node_names:
                     out.append(f"{label}: flows[{i}].{end}: {flow[end]} is not a node")
 
+    scheduled = has_scheduler_nodes(data)
+    minimum = _check_aging(data, nodes, out)
+    _check_difficulty(data, out)
     faults = _check_faults(data, nodes, bricks, sdir, catalog_root, out)
-    answer_key = _check_answer_key(data, nodes, faults, routes, sdir, out)
-    _check_issues(data, nodes, faults, expectation_ids(answer_key), out)
+    _check_planting(data, faults, scheduled, minimum, out)
+    answer_key = _check_answer_key(data, nodes, bricks, faults, routes, sdir, out)
+    _check_issues(data, nodes, bricks, faults, expectation_ids(answer_key), out)
     _check_designed_for(data, nodes, out)
+    _check_customer_timezone(nodes, scheduled, sdir, out)
+    _check_retention(data, nodes, bricks, faults, scheduled, minimum, sdir, out)
+    _check_postgres_seeds(nodes, bricks, sdir, out)
 
     if out:
         return None, out
@@ -863,6 +1088,8 @@ def _check_node(node, sdir, catalog_root, network_names, out):
         elif policy != "no-access" and policy not in (b.get("write_policies") or []):
             out.append(f"{label}: {p}.write_policy: {policy} is not supported by brick "
                        f"{brick.id} ({', '.join(b.get('write_policies') or [])})")
+    if "write_overrides" in node:
+        _check_write_overrides(node, brick, p, out)
     if "stateful" in node and node["stateful"] != b.get("stateful"):
         out.append(f"{label}: {p}.stateful: {node['stateful']} differs from the brick's "
                    f"{b.get('stateful')}")
@@ -906,13 +1133,16 @@ def _check_node(node, sdir, catalog_root, network_names, out):
     declared = list((b.get("seed") or {}).get("files") or [])
     if isinstance(seed_files, dict):
         for fname in declared:
-            if fname not in seed_files:
+            if fname not in seed_files and not is_seed_folder_entry(fname):
                 out.append(f"{label}: {p}.seed_files: no entry for the brick's seed file "
                            f"{fname}")
         for fname, rel in seed_files.items():
             if fname not in declared:
                 out.append(f"{label}: {p}.seed_files.{fname}: not a seed file of brick "
                            f"{brick.id}")
+            if is_seed_folder_entry(fname):
+                _check_seed_folder(sdir, rel, f"{p}.seed_files.{fname}", out)
+                continue
             path = _inside(sdir, rel)
             if path is None or not path.is_file():
                 out.append(f"{rel}: missing file ({p}.seed_files.{fname})")
@@ -929,6 +1159,92 @@ def _check_node(node, sdir, catalog_root, network_names, out):
 
 def _is_port(value):
     return isinstance(value, int) and not isinstance(value, bool) and 0 < value < 65536
+
+
+def is_seed_folder_entry(fname):
+    """A brick's seed entry ending in / (builders/): a folder of files the
+    scenario names, optional in its seed_files (capture W1 of v0.3, item 3)."""
+    return isinstance(fname, str) and fname.endswith("/")
+
+
+def _check_seed_folder(sdir, rel, p, out):
+    path = _inside(sdir, rel)
+    if path is None or not path.is_dir():
+        out.append(f"{rel}: missing folder ({p})")
+        return
+    files = 0
+    for entry in sorted(path.iterdir()):
+        shown = f"{str(rel).rstrip('/')}/{entry.name}"
+        if entry.is_dir():
+            out.append(f"{shown}: a subfolder; a folder seed entry holds files only ({p})")
+        elif not SEED_ENTRY_FILE_RE.match(entry.name):
+            out.append(f"{shown}: not a seed file name ([A-Za-z0-9_][A-Za-z0-9_.-]*) ({p})")
+        elif entry.is_file():
+            files += 1
+    if not files:
+        out.append(f"{rel}: holds no file ({p})")
+
+
+def _check_write_overrides(node, brick, p, out):
+    """write_overrides (master spec 6.1; W1 items 1 and 3, D170): on a
+    report-only node only, each entry one of the brick's writable_paths."""
+    label = "scenario.yaml"
+    overrides = node.get("write_overrides")
+    policy = node.get("write_policy")
+    if policy != "report-only":
+        out.append(f"{label}: {p}.write_overrides: only a report-only node has overrides (its "
+                   f"write_policy is {policy})")
+    writable = [str(w) for w in brick.data.get("writable_paths") or []] \
+        if isinstance(brick.data.get("writable_paths"), list) else []
+    for path in overrides if isinstance(overrides, list) else []:
+        if isinstance(path, str) and re.search(r"\s", path):
+            out.append(f"{label}: {p}.write_overrides: {path!r} contains whitespace")
+        elif path not in writable:
+            out.append(f"{label}: {p}.write_overrides: {path} is not one of brick {brick.id}'s "
+                       f"writable_paths ({', '.join(writable) or 'none'})")
+
+
+def is_scheduler_node(node):
+    return isinstance(node, dict) and _dict(node.get("brick")).get("id") == SCHEDULER_BRICK
+
+
+def has_scheduler_nodes(data):
+    """Whether the scenario has a scheduler node, and so ages (D157, D158)."""
+    nodes = data.get("nodes")
+    return any(is_scheduler_node(n) for n in nodes) if isinstance(nodes, list) else False
+
+
+def _under(path, base):
+    return path == base or path.startswith(base.rstrip("/") + "/")
+
+
+def fixable_path(node, path):
+    """Whether players may change `path` on the node: its policy is fixable,
+    or the path is an override or lies under one (W1 item 3)."""
+    if node.get("write_policy") == "fixable":
+        return True
+    overrides = node.get("write_overrides")
+    return isinstance(path, str) and any(
+        isinstance(o, str) and _under(path, o)
+        for o in (overrides if isinstance(overrides, list) else []))
+
+
+def fix_policy(node, brick_data, fault_data):
+    """The write policy a fix of the fault meets on the node (master spec 6.1,
+    D143): fixable when every file a seed-file fault changes lands, by the
+    brick's seed.paths, on a fixable path; the node's own policy otherwise
+    (a state or parameter fault keeps the node's)."""
+    policy = node.get("write_policy")
+    injection = _dict(fault_data.get("injection"))
+    if policy == "fixable" or injection.get("kind") != "seed-file":
+        return policy
+    paths = _dict(_dict(brick_data.get("seed")).get("paths"))
+    changes = injection.get("seed_changes")
+    files = [c.get("file") for c in changes if isinstance(c, dict)] \
+        if isinstance(changes, list) else []
+    if files and all(fixable_path(node, paths.get(f)) for f in files):
+        return "fixable"
+    return policy
 
 
 def _check_resources(resources, p, out, label="scenario.yaml"):
@@ -1257,6 +1573,7 @@ def _check_faults(data, nodes, bricks, sdir, catalog_root, out):
                     out.append(f"{label}: {p}: fault {fault.id} changes {change.get('file')}, "
                                f"not a seed file of brick {brick.id}")
             _check_parameter_fault(inst, fault, brick, by_name, p, out)
+            _check_report_evidence(fault, brick, p, out)
         params = inst.get("parameters") or {}
         fparams = fault.data.get("parameters") or {}
         if isinstance(params, dict):
@@ -1270,6 +1587,21 @@ def _check_faults(data, nodes, bricks, sdir, catalog_root, out):
                                f"{fault.id}")
                 _check_param_value(value, f"{p}.parameters.{pname}", label, out)
     return faults
+
+
+def _check_report_evidence(fault, brick, p, out):
+    """A fault's report:<tool> evidence names a tool its target node's brick
+    ships, at its pinned version (master spec 6.3, D145; W1 item 2)."""
+    tools = brick.data.get("report_tools")
+    tools = [str(t) for t in tools] if isinstance(tools, list) else []
+    evidence = fault.data.get("evidence")
+    for i, item in enumerate(evidence if isinstance(evidence, list) else []):
+        where = _dict(item).get("where")
+        kind, _, tool = where.partition(":") if isinstance(where, str) else ("", "", "")
+        if kind == "report" and REPORT_TOOL_RE.match(tool) and tool not in tools:
+            out.append(f"scenario.yaml: {p}: fault {fault.id}'s evidence[{i}] reads {where}, but "
+                       f"brick {brick.id} {brick.version} ships no {tool} (report_tools: "
+                       f"{', '.join(tools) or 'none'})")
 
 
 def _check_parameter_fault(inst, fault, brick, by_name, p, out):
@@ -1316,7 +1648,7 @@ def _check_parameter_fault(inst, fault, brick, by_name, p, out):
         out.append(f"{label}: {p}.parameters.node: {node} is not a node of the topology")
 
 
-def _check_issues(data, nodes, faults, expectations, out):
+def _check_issues(data, nodes, bricks, faults, expectations, out):
     label = "scenario.yaml"
     by_name = {n.get("name"): n for n in nodes}
     instances = {i.get("id"): i for i in data.get("fault_instances") or []
@@ -1349,13 +1681,22 @@ def _check_issues(data, nodes, faults, expectations, out):
                 continue
             policies = [r.get("write_policies") or [] for r in fault.data.get("resolutions") or []
                         if isinstance(r, dict) and r.get("kind") == expected]
+            policy = node.get("write_policy")
+            brick = bricks.get(node.get("name"))
+            if expected == "fix" and brick is not None:
+                policy = fix_policy(node, brick.data, fault.data)
             if not policies:
                 out.append(f"{label}: {p}.expected_resolution: {expected} is not a resolution "
                            f"fault {fault.id} lists ({iid})")
-            elif not any(node.get("write_policy") in pol for pol in policies):
+            elif not any(policy in pol for pol in policies):
+                where = ""
+                if expected == "fix" and policy != "fixable" and \
+                        _dict(fault.data.get("injection")).get("kind") == "seed-file":
+                    where = (" for the file(s) the fault changes (no write_overrides entry "
+                             "makes them fixable)")
                 out.append(f"{label}: {p}.expected_resolution: {expected} is not possible "
                            f"under node {node.get('name')}'s write policy "
-                           f"{node.get('write_policy')} ({iid})")
+                           f"{policy}{where} ({iid})")
     for iid, inst in instances.items():
         visibility = inst.get("visibility")
         if visibility == "known" and iid not in covered:
@@ -1366,7 +1707,7 @@ def _check_issues(data, nodes, faults, expectations, out):
                        "covers it")
 
 
-def _check_answer_key(data, nodes, faults, routes, sdir, out):
+def _check_answer_key(data, nodes, bricks, faults, routes, sdir, out):
     label = "gm/answer-key.yaml"
     if not (sdir / label).is_file():
         return None                  # listed with the missing files
@@ -1408,14 +1749,19 @@ def _check_answer_key(data, nodes, faults, routes, sdir, out):
         expected = {i.get("expected_resolution") for i in data.get("issues") or []
                     if isinstance(i, dict) and iid in (i.get("covers") or [])}
         kinds = _resolution_kinds(fault.data)
-        fixable = (by_name.get(instances[iid].get("node")) or {}).get("write_policy") == "fixable"
+        node = by_name.get(instances[iid].get("node")) or {}
+        fixable = node.get("write_policy") == "fixable"
+        brick = bricks.get(node.get("name"))
+        file_fixable = fixable or (brick is not None
+                                   and fix_policy(node, brick.data, fault.data) == "fixable")
         acceptable = entry.get("acceptable") or {}
         needs = {"proposal": "propose" in expected or "propose" in kinds,
-                 "fix": "fix" in expected or ("fix" in kinds and fixable),
+                 "fix": "fix" in expected or ("fix" in kinds and file_fixable),
                  "improvement": "improve" in expected or ("improve" in kinds and fixable)}
         for name, needed in needs.items():
             if needed and not acceptable.get(name):
                 out.append(f"{label}: instances[{iid}].acceptable.{name}: missing")
+        _check_behavioural(entry, fault, label, out)
     for entry in entries:
         evidence = entry.get("evidence")
         for i, item in enumerate(evidence if isinstance(evidence, list) else []):
@@ -1424,6 +1770,28 @@ def _check_answer_key(data, nodes, faults, routes, sdir, out):
                              f"instances[{entry.get('instance')}].evidence[{i}].where", out)
     _check_expectations(key.get("tooling_expectations"), instances, out)
     return key
+
+
+def _check_behavioural(entry, fault, label, out):
+    """A behavioural check's window and threshold (master spec 6.2, 11; W1
+    item 4): present exactly when the fault's sealed_check.behavioural is
+    true; the window a duration, the threshold a number."""
+    p = f"{label}: instances[{entry.get('instance')}].sealed_check"
+    sealed = _dict(entry.get("sealed_check"))
+    behavioural = is_behavioural(fault.data)
+    for key in ("window", "threshold"):
+        if behavioural and key not in sealed:
+            out.append(f"{p}.{key}: missing (fault {fault.id}'s sealed check is behavioural)")
+        elif not behavioural and key in sealed:
+            out.append(f"{p}.{key}: fault {fault.id}'s sealed check is not behavioural (no "
+                       "sealed_check.behavioural: true), so it takes no window or threshold")
+    if "window" in sealed:
+        try:
+            parse_duration(sealed["window"])
+        except ValueError as exc:
+            out.append(f"{p}.window: {exc}")
+    if "threshold" in sealed and not _is_number(sealed["threshold"]):
+        out.append(f"{p}.threshold: {sealed['threshold']!r} is not a number")
 
 
 def _check_where(where, nodes, routes, p, out):
@@ -1478,6 +1846,252 @@ def expectation_ids(answer_key):
     items = _dict(answer_key).get("tooling_expectations")
     return {i.get("id") for i in items if isinstance(i, dict)} \
         if isinstance(items, list) else set()
+
+
+def _check_aging(data, nodes, out):
+    """`aging:` (master spec 6.1, 8; D150, D157, D158): required with a
+    scheduler node, refused without one. Returns aging.minimum in seconds,
+    or None when absent or not a duration."""
+    label = "scenario.yaml"
+    scheduler = [str(n.get("name")) for n in nodes if is_scheduler_node(n)]
+    if not scheduler:
+        if "aging" in data:
+            out.append(f"{label}: aging: a scenario with no scheduler node does not age, so it "
+                       "has no aging: (master spec 6.1, D157, D158)")
+        return None
+    if "aging" not in data:
+        out.append(f"{label}: aging: missing (required with scheduler node(s) "
+                   f"{', '.join(scheduler)}; master spec 6.1, D157)")
+        return None
+    aging = _dict(data.get("aging"))
+    minimum = None
+    if "minimum" in aging:
+        try:
+            minimum = parse_duration(aging["minimum"])
+        except ValueError as exc:
+            out.append(f"{label}: aging.minimum: {exc}")
+        else:
+            if minimum < MIN_AGING_SECONDS:
+                out.append(f"{label}: aging.minimum: {aging['minimum']} is less than 8h (master "
+                           "spec 6.1, D150)")
+    at = aging.get("handover_at")
+    if "handover_at" in aging and not (isinstance(at, str) and HANDOVER_AT_RE.match(at)):
+        hint = " (unquoted, YAML reads HH:MM as a number)" if _is_int(at) else ""
+        out.append(f'{label}: aging.handover_at: {at!r} is not a quoted "HH:00", 24-hour, '
+                   f"minutes 00{hint}")
+    return minimum
+
+
+def _check_difficulty(data, out):
+    """`difficulty:` (master spec 6.1, 15.1): the score equals the number of
+    fault instances; the level, when given, is easy, normal or hard."""
+    label = "scenario.yaml"
+    difficulty = data.get("difficulty")
+    if not isinstance(difficulty, dict):
+        return                           # reported against the template
+    instances = data.get("fault_instances")
+    count = len(instances) if isinstance(instances, list) else 0
+    score = difficulty.get("score")
+    if "score" in difficulty and score is not None:
+        if not _is_int(score):
+            out.append(f"{label}: difficulty.score: {score!r} is not an integer")
+        elif score != count:
+            out.append(f"{label}: difficulty.score: {score}, but the scenario has {count} fault "
+                       "instance(s), each worth 1")
+    if "level" in difficulty and difficulty["level"] not in DIFFICULTY_LEVELS:
+        out.append(f"{label}: difficulty.level: {difficulty['level']} is not one of "
+                   f"{', '.join(DIFFICULTY_LEVELS)}")
+
+
+def _check_planting(data, faults, scheduled, minimum, out):
+    """Each fault instance's planting moment and aging minimum (master spec
+    6.1; W1 item 1; D158, D160). Without scheduler nodes every instance is
+    planted at T0 and the definitions' minima are not counted."""
+    label = "scenario.yaml"
+    for inst in data.get("fault_instances") or []:
+        if not isinstance(inst, dict):
+            continue
+        iid = inst.get("id")
+        p = f"{label}: fault_instances[{iid}]"
+        fault = faults.get(iid)
+        hours = None
+        if "plant_at" in inst:
+            plant_at = inst["plant_at"]
+            m = HANDOVER_MOMENT_RE.match(plant_at) if isinstance(plant_at, str) else None
+            if m is not None:
+                hours = int(m.group(1))
+            elif plant_at != "T0":
+                out.append(f"{p}.plant_at: {plant_at!r} is not T0 or handover-<N>h (N a whole "
+                           "number of hours, at least 1: never at or after hand-over)")
+        if not scheduled:
+            if hours is not None:
+                out.append(f"{p}.plant_at: {inst['plant_at']}, but a scenario with no scheduler "
+                           "node plants every fault at T0 (D158)")
+            if "aging_minimum" in inst:
+                out.append(f"{p}.aging_minimum: a scenario with no scheduler node does not age, "
+                           "so an instance has no aging minimum (D158)")
+            continue
+        own = fault_aging_minimum(fault.data) if fault is not None else None
+        if "aging_minimum" in inst:
+            try:
+                raised = parse_duration(inst["aging_minimum"])
+            except ValueError as exc:
+                out.append(f"{p}.aging_minimum: {exc}")
+                own = None
+            else:
+                if own is not None and raised < own:
+                    out.append(f"{p}.aging_minimum: {inst['aging_minimum']} is less than fault "
+                               f"{fault.id}'s aging.minimum {fault.data['aging']['minimum']}")
+                own = raised
+        if hours is not None:
+            kind = _dict(fault.data.get("injection")).get("kind") if fault is not None else None
+            if fault is not None and kind != "state":
+                out.append(f"{p}.plant_at: {inst['plant_at']}, but fault {fault.id} is a {kind} "
+                           "fault, planted at render: only a state fault is planted after T0 "
+                           "(master spec 6.1)")
+            if minimum is not None and hours * 3600 > minimum:
+                out.append(f"{p}.plant_at: {inst['plant_at']} is further before hand-over than "
+                           f"aging.minimum {data['aging']['minimum']}")
+            if own is not None and own > hours * 3600:
+                out.append(f"{p}.plant_at: {inst['plant_at']} leaves less than the instance's own "
+                           f"aging minimum {_own_minimum_text(inst, fault)} before hand-over")
+        elif minimum is not None and own is not None and own > minimum:
+            out.append(f"{p}: aging.minimum {data['aging']['minimum']} does not cover it: planted "
+                       f"at T0, its own aging minimum is {_own_minimum_text(inst, fault)}")
+
+
+def _own_minimum_text(inst, fault):
+    if "aging_minimum" in inst:
+        return str(inst["aging_minimum"])
+    return str(_dict(fault.data.get("aging")).get("minimum"))
+
+
+def _seed_path(node, sdir, fname):
+    """The scenario file a node's seed_files maps `fname` to, when it exists."""
+    rel = _dict(node.get("seed_files")).get(fname)
+    path = _inside(sdir, rel) if isinstance(rel, str) else None
+    return (rel, path) if path is not None and path.is_file() else (rel, None)
+
+
+def _check_customer_timezone(nodes, scheduled, sdir, out):
+    """{{customer_timezone}} in the bastion's seed files (the starter pack,
+    the story included): refused with no scheduler node (master spec 6.1,
+    D158; W1 item 1)."""
+    if scheduled:
+        return
+    for node in nodes:
+        if node.get("role") != "bastion":
+            continue
+        for fname in _dict(node.get("seed_files")):
+            rel, path = _seed_path(node, sdir, fname)
+            if path is None:
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            if CUSTOMER_TIMEZONE in text:
+                out.append(f"{rel}: {CUSTOMER_TIMEZONE}: a scenario with no scheduler node has "
+                           "no customer's time zone; its times stay UTC (master spec 6.1, D158)")
+
+
+def _check_retention(data, nodes, bricks, faults, scheduled, minimum, sdir, out):
+    """A prometheus node's retention by time covers aging.minimum plus four
+    hours (four hours with no aging), unless a fault planted on it is about
+    retention (master spec 6.1; W1 item 2, family: retention)."""
+    if scheduled and minimum is None:
+        return                           # aging reported missing or wrong
+    need = (minimum or 0) + RETENTION_MARGIN_SECONDS
+    what = (f"aging.minimum {data['aging']['minimum']} plus 4h" if scheduled
+            else "4h (the game, with no aging)")
+    for node in nodes:
+        brick = bricks.get(node.get("name"))
+        if brick is None or brick.id != "prometheus":
+            continue
+        about_retention = any(
+            isinstance(i, dict) and i.get("node") == node.get("name") and i.get("id") in faults
+            and faults[i.get("id")].data.get("family") == RETENTION_FAMILY
+            for i in data.get("fault_instances") or [])
+        rel, path = _seed_path(node, sdir, "prometheus.yml")
+        if path is None or about_retention:
+            continue
+        conf = _load_yaml(path, rel, out)
+        retention = _dict(_dict(_dict(_dict(conf).get("storage")).get("tsdb")).get("retention"))
+        p = f"{rel}: storage.tsdb.retention.time"
+        if "time" not in retention:
+            out.append(f"{p}: missing (node {node.get('name')}'s retention by time covers {what}; "
+                       "master spec 6.1)")
+            continue
+        try:
+            seconds = parse_prometheus_duration(retention["time"])
+        except ValueError as exc:
+            out.append(f"{p}: {exc}")
+            continue
+        if seconds < need:
+            out.append(f"{p}: {retention['time']} is less than {what} (node {node.get('name')}; "
+                       "master spec 6.1), and no fault planted there is about retention")
+
+
+def _hba_lines(text):
+    """(line number, fields) of each pg_hba.conf rule."""
+    for number, line in enumerate(text.splitlines(), 1):
+        fields = line.split("#", 1)[0].split()
+        if fields:
+            yield number, fields
+
+
+def _check_postgres_seeds(nodes, bricks, sdir, out):
+    """A postgres node's seed (master spec 7.3; W1 item 8; D164, D171): a
+    local replication connection for postgres by peer or trust (the
+    hand-over snapshot's pg_basebackup), replication left on in the
+    settings, and a local line admitting gm_check by password or trust
+    before any line refusing it."""
+    for node in nodes:
+        brick = bricks.get(node.get("name"))
+        if brick is None or brick.id != "postgres":
+            continue
+        rel, path = _seed_path(node, sdir, "pg_hba.conf")
+        if path is not None:
+            _check_hba(rel, list(_hba_lines(path.read_text(encoding="utf-8"))), out)
+        rel, path = _seed_path(node, sdir, "postgresql.conf")
+        if path is not None:
+            settings = read_conf_settings(path.read_text(encoding="utf-8"))
+            senders = settings.get("max_wal_senders")
+            if senders is not None and pg_value(senders) == ("num", 0.0):
+                out.append(f"{rel}: max_wal_senders: 0 refuses the hand-over snapshot's "
+                           "pg_basebackup (master spec 7.3)")
+            level = settings.get("wal_level")
+            if level is not None and pg_value(level) == ("text", "minimal"):
+                out.append(f"{rel}: wal_level: minimal refuses the hand-over snapshot's "
+                           "pg_basebackup (master spec 7.3)")
+
+
+def _check_hba(rel, lines, out):
+    local = [(n, f) for n, f in lines if f[0] == "local" and len(f) >= 4]
+    replication = next(((n, f) for n, f in local if "replication" in f[1].split(",")
+                        and {"postgres", "all"} & set(f[2].split(","))), None)
+    if replication is None:
+        out.append(f"{rel}: no local line allows a replication connection for postgres (local "
+                   "replication postgres peer, under the DO NOT TAMPER comment; master spec "
+                   "7.3, D164)")
+    elif replication[1][3] not in HBA_REPLICATION_METHODS:
+        n, f = replication
+        out.append(f"{rel}: line {n}: {' '.join(f)}: the hand-over snapshot's pg_basebackup "
+                   "connects as postgres over the local socket by peer or trust (master spec "
+                   "7.3, D164)")
+    for n, f in local:
+        databases, users, method = f[1].split(","), f[2].split(","), f[3]
+        if databases == ["replication"] or not {"gm_check", "all"} & set(users):
+            continue
+        if method not in HBA_PASSWORD_METHODS:
+            out.append(f"{rel}: line {n}: {' '.join(f)}: comes before any local line admitting "
+                       "gm_check by password or trust (local all gm_check scram-sha-256, under "
+                       "the DO NOT TAMPER comment; D164, D171)")
+            return
+        if "all" in databases:
+            return
+    out.append(f"{rel}: no local line admits gm_check by password or trust (local all gm_check "
+               "scram-sha-256, under the DO NOT TAMPER comment; D164, D171)")
 
 
 def _check_designed_for(data, nodes, out):

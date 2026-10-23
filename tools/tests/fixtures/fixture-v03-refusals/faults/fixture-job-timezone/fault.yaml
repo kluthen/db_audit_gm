@@ -1,0 +1,60 @@
+# Scenario-local fault of fixture-v03-refusals (tools/tests, v0.3 chunk 2):
+# a seed-file fault in a scheduler's jobs.yaml, the wrong-time-zone shape
+# (capture W1 of specs/versions/v0.3/wave-log.md, item 7; spec D168).
+id: fixture-job-timezone
+version: 0.1.0
+title: the nightly close runs two hours off the customer's time
+family: rules
+severity: medium
+
+applies_to:
+  bricks:
+    - id: scheduler
+      versions: ["0.1.0"]
+  preconditions: []
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 1h                       # one run of the job, logged, before it shows
+
+parameters: {}
+
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: jobs.yaml
+      change: the close-day job carries timezone_offset -2
+  run_as: root
+
+evidence:
+  - where: node
+    source: /srv/scheduler/jobs/jobs.yaml and the scheduler's log
+    how: ssh producer, then grep close-day /var/log/scheduler/scheduler.log
+    shows: the job ran at 23:30 customer time, not 01:30
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: names the close-day job's time zone as two hours off the customer's.
+  fix: the close-day job runs at 01:30 customer time.
+
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+complaint_template: >-
+  Yesterday's invoices are sometimes missing from the morning ledger.
