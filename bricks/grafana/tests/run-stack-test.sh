@@ -1,5 +1,6 @@
 #!/bin/sh
-# Stack test of the Grafana brick (v0.2 build plan, chunk 10, Done when).
+# Stack test of the Grafana brick (v0.2 build plan, chunk 10, Done when;
+# v0.3 build plan, chunk 5b: the write policies and the snapshot's stop).
 #
 # Deploys the brick as a Swarm stack (stack.test.yml), its five seed files
 # copied from companion/ as a scenario would, with a prometheus 0.2.0 node
@@ -20,7 +21,15 @@
 #   - edits, the marker and the player's home survive a new container, and a
 #     changed administrator's password is set back from the secret at start;
 #   - the secret, the database and the API helper are out of player's
-#     reach; read-only root, capabilities, /run a named volume.
+#     reach; read-only root, capabilities, /run a named volume;
+#   - the wrapper gives a file `sed -i` left owned by player its owner back;
+#   - the snapshot's brief stop (s6, never Swarm): grafana.db copied while
+#     Grafana is down, the node healthy throughout, Grafana back;
+#   - report-only (GM_WRITE_POLICY): the seeded files and the provisioning
+#     directories not writable by player, gm-reload-grafana refusing in one
+#     line with nothing reloaded, gm-validate still run; an override of
+#     provisioning/alerting on that node making the rule file fixable, the
+#     edit taking effect through the wrapper; the entrypoint's refusals.
 # Never sends a wrong administrator's password: Grafana's brute-force
 # protection would lock the account. Credentials go to curl on stdin
 # (curl -K -), never as an argument.
@@ -65,7 +74,7 @@ chmod 0700 "$tmp"
 cleanup() {
     set +e
     info "teardown"
-    docker rm -f "$CLIENT" >/dev/null 2>&1
+    docker rm -f "$CLIENT" "${STACK}-refuse-policy" "${STACK}-refuse-override" >/dev/null 2>&1
     docker stack rm "$STACK" >/dev/null 2>&1
     i=0
     while [ "$i" -lt 60 ] && [ -n "$(docker ps -aq -f "label=com.docker.stack.namespace=$STACK")" ]; do
@@ -297,6 +306,8 @@ m=$(gm stat -c '%a %U:%G' $PROV $PROV/datasources $PROV/dashboards/node-health.j
     /usr/local/lib/gm/grafana-api /etc/grafana/grafana.ini | tr '\n' ' ')
 [ "$m" = "2775 grafana:grafconf 2775 grafana:grafconf 664 grafana:grafconf 664 grafana:grafconf 755 root:root 444 root:root 750 player:player 750 grafana:grafana 440 root:grafana 750 root:grafana 444 root:root " ] \
     && pass "ownership and modes ($m)" || fail "ownership and modes: $m"
+check "/run/gm/write-policy says fixable (no policy in the environment)" \
+    sh -c "docker exec $C cat /run/gm/write-policy | grep -qx policy=fixable"
 for f in datasources.yaml:datasources/datasources.yaml dashboards.yaml:dashboards/dashboards.yaml \
          node-health.json:dashboards/node-health.json postgresql.json:dashboards/postgresql.json \
          alert-rules.yaml:alerting/alert-rules.yaml; do
@@ -316,6 +327,7 @@ denied "player cannot write grafana.ini" "echo x >> /etc/grafana/grafana.ini"
 denied "player cannot write the validator" "echo x >> /opt/gm/validator/validate.sh"
 denied "player cannot write a wrapper" "echo x >> /usr/local/sbin/gm-reload-grafana"
 denied "player cannot read the record of the last reload" cat /run/gm-grafana/applied
+denied "player cannot read /run/gm/write-policy" cat /run/gm/write-policy
 MARKER=/var/lib/gm-state/.gm-seeded
 marker0=$(gm cat "$MARKER")
 denied "player cannot remove the marker" rm -f "$MARKER"
@@ -354,8 +366,13 @@ pssh "cp $DSY ~/datasources.yaml.good && cp $ARY ~/alert-rules.yaml.good && \
       sed -i 's|url: http://prometheus:9090/prometheus|url: http://nowhere:9090/prometheus|' $DSY && \
       sed -i 's|title: Scrape target down|title: Scrape target down (edited)|' $ARY" \
     && pass "player points the data source elsewhere and renames an alert rule" || fail "edits to $DSY, $ARY"
+m=$(gm stat -c '%U:%G' "$DSY" "$ARY" | tr '\n' ' ')
+[ "$m" = "player:grafconf player:grafconf " ] && pass "sed -i left both files owned by player ($m)" || fail "owner after sed -i: $m"
 out=$(pssh sudo -n gm-reload-grafana 2>&1); rc=$?
 [ "$rc" -eq 0 ] && pass "gm-reload-grafana applies them (exit 0)" || fail "reload: exit $rc: $out"
+m=$(gm stat -c '%a %U:%G' "$DSY" "$ARY" | tr '\n' ' ')
+[ "$m" = "664 grafana:grafconf 664 grafana:grafconf " ] && pass "the wrapper restored the owner sed -i changed ($m)" \
+    || fail "owner after reload: $m"
 r=$(api GET /api/datasources/uid/prometheus | jq -r '.url')
 [ "$r" = http://nowhere:9090/prometheus ] && pass "the data source's new address is live ($r)" || fail "data source url: $r"
 r=$(api GET /api/v1/provisioning/alert-rules/gm-target-down | jq -r '.title')
@@ -437,6 +454,124 @@ out=$(pssh sudo -n gm-validate 2>&1); rc=$?
 [ "$rc" -eq 0 ] && pass "validator green in the new container ($out)" || fail "validator in new container: exit $rc: $out"
 n=$(api GET '/api/users/search?perpage=100' | jq -r '.totalCount')
 [ "$n" = 1 ] && pass "still one Grafana user" || fail "user count after restart: $n"
+
+# --- the snapshot's brief stop (W1 item 6: grafdata by stop) ----------------------------
+# As gmctl snapshot runs it through the exec verb: a POSIX script on sh -s,
+# as root. The copy volumes are taken first, while the node runs; then s6
+# stops every service but sshd (grafana), the stop volume (its SQLite
+# database) is copied, and the service is started again.
+snap=$(docker exec -i -u root "$C" sh -s 2>&1 <<'SNAPSHOT'
+ms() { echo $(( $(date +%s%N) / 1000000 )); }
+for v in /etc/grafana/provisioning /home/player /var/lib/gm-state; do
+    tar --create --file=- --numeric-owner --directory="$v" . > /run/tmp/copy.tar
+    echo "copy $v rc=$?"
+done
+s=$(ms)
+/command/s6-svc -wD -T 60000 -d /run/service/grafana || echo "stop failed"
+a=$(ms)
+tar --create --file=- --numeric-owner --directory=/var/lib/grafana . > /run/tmp/grafdata.tar
+echo "tar_rc=$?"
+b=$(ms)
+/command/s6-svc -wu -T 60000 -u /run/service/grafana || echo "start failed"
+e=$(ms)
+echo "grafdata_bytes=$(wc -c < /run/tmp/grafdata.tar) has_db=$(tar -tf /run/tmp/grafdata.tar | grep -c '^\./grafana\.db$')"
+echo "stop_ms=$((a - s)) copy_ms=$((b - a)) down_ms=$((e - s))"
+rm -f /run/tmp/copy.tar /run/tmp/grafdata.tar
+SNAPSHOT
+)
+info "snapshot: $(printf '%s' "$snap" | tr '\n' ' ')"
+if [ "$(printf '%s\n' "$snap" | grep -c '^copy .* rc=0$')" -eq 3 ] && printf '%s\n' "$snap" | grep -qx 'tar_rc=0' \
+   && printf '%s\n' "$snap" | grep -q ' has_db=1$' && ! printf '%s' "$snap" | grep -q 'failed'; then
+    pass "snapshot: the copy volumes copied, Grafana stopped by s6, grafana.db copied, Grafana started again"
+else
+    fail "snapshot stop: $snap"
+fi
+[ "$(docker inspect -f '{{.State.Health.Status}}' "$C")" = healthy ] && [ "$(container "$SERVICE")" = "$C" ] \
+    && pass "the node stayed healthy, same container, through the stop" \
+    || fail "node after the stop: $(docker inspect -f '{{.State.Health.Status}}' "$C")"
+i=0
+while [ "$i" -lt 60 ] && ! gm curl -fsS -o /dev/null -m 3 http://127.0.0.1:3000/grafana/api/health 2>/dev/null; do
+    sleep 1; i=$((i + 1))
+done
+t=$(api GET /api/dashboards/uid/node-health | jq -r '.dashboard.title')
+[ "$t" = "Node health (edited)" ] && pass "Grafana back after the stop (waited ${i}s more), its content kept" \
+    || fail "after the stop: title [$t], waited ${i}s"
+
+# --- report-only ---------------------------------------------------------------------------
+REFUSAL='gm-reload-grafana: this node is report-only: its files cannot be changed, so nothing was reloaded.'
+modes() { gm stat -c '%a %U:%G' $PROV $PROV/datasources $PROV/dashboards $PROV/alerting $PROV/plugins \
+    "$DSY" "$NHJ" "$ARY" | tr '\n' ' '; }
+# sed -i on the fixable node, content unchanged: the new container's
+# entrypoint gives the file sed -i left to player back
+pssh "sed -i 's/^//' $DSY" && [ "$(gm stat -c '%U' "$DSY")" = player ] \
+    && pass "fixable: player rewrites $DSY with sed -i (now owned by player)" || fail "fixable: sed -i before report-only"
+info "redeploying the node report-only (GM_WRITE_POLICY=report-only)"
+docker service update --detach --env-add GM_WRITE_POLICY=report-only "$SERVICE" >/dev/null 2>&1
+if C2=$(wait_healthy "$SERVICE" "$C"); then C=$C2; pass "report-only container healthy ($C)"; else fail "report-only container"; fi
+w=$(gm cat /run/gm/write-policy | tr '\n' ' ')
+[ "$w" = "policy=report-only overrides= " ] && pass "/run/gm/write-policy says report-only, no override" || fail "write-policy: [$w]"
+m=$(modes)
+want="2755 grafana:grafconf 2755 grafana:grafconf 2755 grafana:grafconf 2755 grafana:grafconf 2755 grafana:grafconf 644 grafana:grafconf 644 grafana:grafconf 644 grafana:grafconf "
+[ "$m" = "$want" ] && pass "report-only: owners and modes, the file sed -i left to player given back at start ($m)" \
+    || fail "report-only modes: $m"
+denied "report-only: player cannot sed -i $ARY" "sed -i 's/title: Scrape target down/title: x/' $ARY"
+denied "report-only: player cannot append to $NHJ" "echo x >> $NHJ"
+denied "report-only: player cannot add a dashboard file" "echo '{}' > $PROV/dashboards/x.json"
+denied "report-only: player cannot add a directory to $PROV" mkdir $PROV/x
+denied "report-only: player cannot remove a seeded file" rm -f "$DSY"
+check "report-only: the seeded files unchanged by the attempts" gm grep -q 'title: Scrape target down$' "$ARY"
+applied0=$(gm cat /run/gm-grafana/applied | tr '\n' ' ')
+out=$(pssh sudo -n gm-reload-grafana 2>&1); rc=$?
+[ "$rc" -eq 1 ] && [ "$out" = "$REFUSAL" ] && pass "gm-reload-grafana refuses (exit 1): $out" \
+    || fail "report-only reload: exit $rc: $out"
+[ "$(gm cat /run/gm-grafana/applied | tr '\n' ' ')" = "$applied0" ] \
+    && pass "report-only: nothing reloaded (the record still the start's: $(printf '%s' "$applied0" | cut -c1-60))" \
+    || fail "report-only: reloaded anyway"
+out=$(pssh sudo -n gm-validate 2>&1); rc=$?
+[ "$rc" -eq 0 ] && pass "gm-validate is never refused (green, exit 0)" || fail "validate report-only: exit $rc: $out"
+check "report-only: the home is still writable" pssh "echo notes >> ~/report.md"
+
+# --- an override of the alerting directory on the report-only node -----------------------------
+info "redeploying with GM_WRITE_OVERRIDES=$PROV/alerting"
+docker service update --detach --env-add "GM_WRITE_OVERRIDES=$PROV/alerting" "$SERVICE" >/dev/null 2>&1
+if C2=$(wait_healthy "$SERVICE" "$C"); then C=$C2; pass "override container healthy ($C)"; else fail "override container"; fi
+w=$(gm cat /run/gm/write-policy | tr '\n' ' ')
+[ "$w" = "policy=report-only overrides=$PROV/alerting " ] && pass "/run/gm/write-policy names the override" \
+    || fail "write-policy: [$w]"
+m=$(modes)
+want="2755 grafana:grafconf 2755 grafana:grafconf 2755 grafana:grafconf 2775 grafana:grafconf 2755 grafana:grafconf 644 grafana:grafconf 644 grafana:grafconf 664 grafana:grafconf "
+[ "$m" = "$want" ] && pass "override: alerting/ and its rule file fixable, the rest not ($m)" || fail "override modes: $m"
+pssh "sed -i 's|title: Scrape target down$|title: Scrape target down (override)|' $ARY" \
+    && pass "override: player edits $ARY with sed -i" || fail "override: sed -i on $ARY"
+denied "override: the data source file still not writable" "echo x >> $DSY"
+out=$(pssh sudo -n gm-reload-grafana 2>&1); rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'provisioning reloaded' \
+    && pass "override: gm-reload-grafana reloads ($(printf '%s' "$out" | tr '\n' ' ' | cut -c1-200))" \
+    || fail "override reload: exit $rc: $out"
+r=$(api GET /api/v1/provisioning/alert-rules/gm-target-down | jq -r '.title')
+[ "$r" = "Scrape target down (override)" ] && pass "override: the edited alert rule is live ($r)" || fail "override: rule title $r"
+m=$(gm stat -c '%a %U:%G' "$ARY")
+[ "$m" = "664 grafana:grafconf" ] && pass "override: owner and mode restored by the wrapper ($m)" \
+    || fail "override after reload: $m"
+
+# --- the entrypoint's write-policy refusals ----------------------------------------------------
+head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$tmp/refuse_pw"
+chmod 0444 "$tmp/refuse_pw"
+refuse() {  # refuse <name> <expected text> <docker run args...>
+    k=$1; want=$2; shift 2
+    out=$(docker run --name "${STACK}-refuse-$k" --rm \
+        -v "$tmp/id.pub:/opt/gm/secrets/player_ssh_pubkey:ro" \
+        -v "$tmp/refuse_pw:/opt/gm/secrets/tools_password:ro" "$@" "$IMAGE" 2>&1); rc=$?
+    if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF "$want"; then
+        pass "the entrypoint refuses: $want (exit $rc)"
+    else
+        fail "entrypoint $k: exit $rc: $(printf '%s' "$out" | tail -n 3)"
+    fi
+}
+refuse policy "gm-entrypoint: fatal: GM_WRITE_POLICY='read-only' is not one of fixable, report-only, no-access" \
+    -e GM_WRITE_POLICY=read-only
+refuse override "gm-entrypoint: fatal: GM_WRITE_OVERRIDES: '$PROV/plugins' is not one of this brick's writable_paths ($PROV, $PROV/alerting, $PROV/dashboards, $PROV/datasources, /home/player)" \
+    -e GM_WRITE_POLICY=report-only -e "GM_WRITE_OVERRIDES=$PROV/alerting $PROV/plugins"
 
 # --- hardening ---------------------------------------------------------------------
 check "root filesystem is read-only" sh -c "[ \"\$(docker inspect -f '{{.HostConfig.ReadonlyRootfs}}' $C)\" = true ]"

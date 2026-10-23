@@ -1,16 +1,22 @@
 #!/bin/sh
 # gm-entrypoint: container entrypoint of the db_audit_gm Grafana brick.
-# DO NOT TAMPER. Root-owned and read-only (v0.2 master spec 7.4).
+# DO NOT TAMPER. Root-owned and read-only (v0.2 master spec 7.4, v0.3
+# master spec 7.4; capture W1 item 5).
 #
 # Runs as root at every container start, then execs s6-overlay's /init:
 #   1. empties /run (a named volume: a stack file's tmpfs is noexec, and
 #      s6-overlay needs an executable /run) and creates the runtime dirs;
 #   2. generates this container's sshd host key under /run;
 #   3. checks the secrets;
-#   4. seeds /etc/grafana/provisioning from /opt/gm/seed once (marker
+#   4. checks GM_WRITE_POLICY and GM_WRITE_OVERRIDES and writes
+#      /run/gm/write-policy, read by gm-reload-grafana (sudo resets the
+#      environment);
+#   5. seeds /etc/grafana/provisioning from /opt/gm/seed once (marker
 #      /var/lib/gm-state/.gm-seeded, outside the group-writable directory);
-#   5. sets the ownership of the database directory and the player's home;
-#   6. applies the tools password to the administrator's account when the
+#   6. applies the write policy's owner and modes to the seeded files and
+#      the provisioning directories, seeding or not (contents untouched);
+#   7. sets the ownership of the database directory and the player's home;
+#   8. applies the tools password to the administrator's account when the
 #      database already exists (on the first start Grafana creates the
 #      account with it, from grafana.ini).
 set -eu
@@ -31,6 +37,7 @@ die() { log "fatal: $*"; exit 1; }
 # chmod_setgid <dir> <group> <mode>: chmod run with <group> as gid, so the
 # kernel keeps the setgid bit without CAP_FSETID (root is not in <group>).
 chmod_setgid() { setpriv --regid="$2" --clear-groups -- chmod "$3" "$1"; }
+policy() { /usr/local/sbin/gm-write-policy "$@"; }
 
 # --- 1. /run ------------------------------------------------------------
 # Leftovers of a previous container (s6 state, sockets, pid files) must
@@ -59,9 +66,12 @@ ssh-keygen -q -t ed25519 -N '' -C '' -f /run/sshd-keys/ssh_host_ed25519_key
 runuser -u grafana -- test -r "$SECRETS_DIR/tools_password" \
     || die "secret $SECRETS_DIR/tools_password is not readable by grafana (gid 472, mode 0440)"
 
-# --- 4. provisioning files, seeded once -----------------------------------
-chown grafana:grafconf "$PROV"
-chmod_setgid "$PROV" grafconf 2775
+# --- 4. the write policy --------------------------------------------------
+if ! problem=$(policy write 2>&1); then
+    die "${problem:-the write policy could not be written}"
+fi
+
+# --- 5. provisioning files, seeded once -----------------------------------
 # The marker lives on its own volume (gmstate), root-owned: neither player
 # (group grafconf) nor grafana can remove, rename or replace it.
 chown root:root "$STATE_DIR"
@@ -83,13 +93,20 @@ if [ ! -e "$MARKER" ]; then
     log "seeded $PROV from $SEED_DIR"
 fi
 
-# --- 5. database directory and the player's home ----------------------------
+# --- 6. the write policy's owner and modes ------------------------------------
+if ! notes=$(policy restore 2>&1); then
+    die "the owner and modes of the seeded files could not be set: $notes"
+fi
+[ -z "$notes" ] || log "left alone: $(printf '%s' "$notes" | tr '\n' ';')"
+log "write policy: $(tr '\n' ' ' < /run/gm/write-policy)"
+
+# --- 7. database directory and the player's home ----------------------------
 chown grafana:grafana "$DATA_DIR"
 chmod 0750 "$DATA_DIR"
 chown player:player "$PLAYER_HOME"
 chmod 0750 "$PLAYER_HOME"
 
-# --- 6. the administrator's password --------------------------------------------
+# --- 8. the administrator's password --------------------------------------------
 # grafana.ini's admin_password only applies when Grafana creates the
 # account. On every later start, set it again from the secret, so a restart
 # undoes a changed password (DO NOT TAMPER) and the GM's checks work again.

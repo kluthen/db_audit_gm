@@ -2,6 +2,14 @@
 # gm-reload-grafana: reload Grafana's provisioning files.
 # Usage: sudo gm-reload-grafana
 # DO NOT TAMPER. Root-owned, read-only; allowed by /etc/sudoers.d/gm-player.
+# (v0.2 master spec 7.4, v0.3 master spec 7.4; capture W1 item 5.)
+#
+# First restores the seeded files' owner and mode (grafana:grafconf, 0664
+# or 0644, the provisioning directories 2775 or 2755, by the write policy
+# in /run/gm/write-policy), contents untouched, never through a link: a
+# file `sed -i` left owned by player gets its owner back. On a node where
+# none of datasources/, dashboards/ and alerting/ is fixable (report-only,
+# no override), refuses with one line and exit 1, nothing reloaded.
 #
 # Checks the files as the validator does (as grafana: present, readable,
 # every dashboard file valid JSON) and refuses to reload if they fail, so a
@@ -23,6 +31,25 @@ if [ "$#" -ne 0 ]; then
     echo "usage: sudo gm-reload-grafana (no arguments)" >&2
     exit 2
 fi
+
+ME=gm-reload-grafana
+cd /
+
+# 0. Owner and mode, then the write policy.
+if ! notes=$(/usr/local/sbin/gm-write-policy restore 2>&1); then
+    echo "$ME: could not restore the files' owner and mode; nothing was reloaded:" >&2
+    printf '%s\n' "$notes" | sed 's/^/  /' >&2
+    exit 2
+fi
+[ -z "$notes" ] || { echo "$ME: left alone:"; printf '%s\n' "$notes" | sed 's/^/  /'; }
+/usr/local/sbin/gm-write-policy reloadable >/dev/null 2>&1
+case $? in
+    0) ;;
+    1) echo "$ME: this node is report-only: its files cannot be changed, so nothing was reloaded."
+       exit 1 ;;
+    *) echo "$ME: cannot read the node's write policy; nothing was reloaded." >&2
+       exit 2 ;;
+esac
 
 answers() { curl -fsS -o /dev/null -m 3 "$HEALTH" 2>/dev/null; }
 
