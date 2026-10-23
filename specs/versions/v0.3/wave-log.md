@@ -949,3 +949,18 @@ Where W1 was silent, recorded by chunk 1 (`v0.3-c1-formats`), 2026-10-23.
   them on the wave branch at the gate.
 - Chunk 2 (`v0.3-c2-loader`): dispatched 2026-10-23 after chunk 1's merge.
   Chunk 5 waits for a free slot (in flight: 2, 3, 4).
+- Chunk 2a merged on `v0.3-w1` (ff60cce) while chunk 3 finished; chunk 2b
+  still building.
+- Chunk 3 merged 2026-10-23: 3a f2e5781, 3b 10faa0b, merge 3b54bee. Program
+  unit tests 60 OK (in the image, Debian PostgreSQL 17.11, psycopg 3.2.6,
+  Python 3.13.5); stack test 95 PASS, 0 FAIL (about 17 minutes); loader
+  accepts the brick after chunk 2a's checks; unit suite 376 OK on
+  `v0.3-w1`. Image `scheduler:0.1.0` 172MB. Footprint at rest (armenelos,
+  2026-10-23): 17–26M idle, 27–41M at 30 calls a minute; disk about 56K,
+  log about 20K an hour at two keys; `disk_growth_per_hour: 2M`
+  provisional. Capture W1-y recorded right after Capture W1. Risks carried
+  forward: error lines are not rate-limited (a long target outage fills the
+  log at the streams' rates; for chunk 12 or 15b to measure); a blocking
+  builder stalls the node (one process); the stack test uses PostgreSQL 17,
+  not the brick's 18.
+- Chunk 5 (`v0.3-c5-monitoring`): dispatched 2026-10-23 (in flight: 2b, 4, 5).
