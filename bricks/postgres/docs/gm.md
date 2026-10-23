@@ -33,8 +33,9 @@ The image:
 - **Build**: `docker build -t 127.0.0.1:5000/dbagm/postgres:0.3.0 bricks/postgres`.
 - **How many**: one per database node of the scenario. Each is its own
   container with its own volumes; the per-game secrets (`dba_password`,
-  `monitoring_password`, `player_ssh_pubkey`) are generated once per
-  game, so every database node of a game gets the same values.
+  `monitoring_password`, `gm_check_password`, `pgbouncer_lookup_password`
+  in a scenario with a pooler node, `player_ssh_pubkey`) are generated
+  once per game, so every database node of a game gets the same values.
 - **Next to which node**: any host. The node needs no other node on its
   host; in v0.2 the renderer still runs the whole game on one host (one
   host remains the only playground shape, master spec 8).
@@ -63,6 +64,8 @@ secrets, the envelope file and the data load.
 | Secret `player_ssh_pubkey` (kind `key-pair`, pair `player_ssh_key`, half `public`) | `/opt/gm/secrets/player_ssh_pubkey`, root `0444` | `gmctl deploy`: the public half of the bastion's `player_ssh_key` |
 | Secret `dba_password` (kind `password`, not handed over) | `/opt/gm/secrets/dba_password`, root `0400` | `gmctl deploy`: the same secret as the bastion's |
 | Secret `monitoring_password` (kind `password`, not handed over) | `/opt/gm/secrets/monitoring_password`, uid `0`, gid `102` (`postgres`), `0440`: root and `postgres` only | `gmctl deploy`: the same secret as the `postgres-exporter` node's (see "The monitoring role") |
+| Secret `gm_check_password` (kind `password`, not handed over) | `/opt/gm/secrets/gm_check_password`, root `0400`: root only | `gmctl deploy`; declared by this brick only (see "The GM check role and the reserve") |
+| Secret `pgbouncer_lookup_password` (kind `password`, not handed over, `only_with_role: pooler`) | `/opt/gm/secrets/pgbouncer_lookup_password`, root `0400`: root only | `gmctl deploy`, only in a scenario with a `pooler` node: the same secret as the `pgbouncer` node's (see "The PgBouncer lookup role") |
 | Data | streamed in once, after deployment | `gmctl load-data`, from `data/<node>.sql` |
 
 ### Knobs and their default envelopes
@@ -90,12 +93,13 @@ for the default footprint; a scenario may tighten them, never widen them.
 | Player home | `/home/player` | volume `home`; pgBadger reports land here |
 | Server log | `/var/log/postgresql/` | volume `pglog`; `postgres:pgconf`, dir `2750` (setgid), files `0640` |
 | Runtime | `/run` | volume `run`, emptied at each start (see below) |
-| Secrets | `/opt/gm/secrets/player_ssh_pubkey`, `/opt/gm/secrets/dba_password`, `/opt/gm/secrets/monitoring_password` | |
+| Secrets | `/opt/gm/secrets/player_ssh_pubkey`, `/opt/gm/secrets/dba_password`, `/opt/gm/secrets/monitoring_password`, `/opt/gm/secrets/gm_check_password`, `/opt/gm/secrets/pgbouncer_lookup_password` | the last one only with a pooler node |
 | Envelope file | `/opt/gm/protected/envelopes.conf` | protected config `envelopes`, root, `0444` |
 | Validator | `/opt/gm/validator/validate.sh` | |
 | Wrappers | `/usr/local/sbin/gm-reload-db`, `gm-restart-db`, `gm-validate` | |
 | Entrypoint | `/usr/local/sbin/gm-entrypoint` | |
 | Health check | `/usr/local/lib/gm/healthcheck` | |
+| Check role's `psql` | `/usr/local/lib/gm/check-psql` | root `0700`; the sealed checks connect through it (see "The GM check role and the reserve") |
 | `sudo` log | `/run/gm/sudo.log` | root, lost when the container is replaced |
 | Socket | `/run/postgresql/.s.PGSQL.5432` | |
 
@@ -105,8 +109,12 @@ for the default footprint; a scenario may tighten them, never widen them.
    `/run/sshd`, `/run/sshd-keys`, `/run/gm`, `/run/tmp` (`/tmp` and
    `/var/tmp` are symlinks to it).
 2. Generates an ed25519 sshd host key in `/run/sshd-keys`.
-3. Fails the container if a secret is missing or empty, or if
-   `dba_password` or `monitoring_password` is not a single line.
+3. Fails the container if `player_ssh_pubkey`, `dba_password` or
+   `monitoring_password` is missing or empty, or if a password secret is
+   not a single line. `gm_check_password` missing only logs a warning
+   (another brick's test stack runs without it; a game always mounts
+   it), and the check role is then neither created nor updated.
+   `pgbouncer_lookup_password` is optional: mounted means a pooler node.
 4. If `/var/lib/gm-state/.gm-seeded` is absent: copies the seed files into
    `/etc/postgresql/` and writes the marker. A missing seed file fails the
    container. Never overwrites afterwards. The marker is on its own
@@ -125,16 +133,30 @@ for the default footprint; a scenario may tighten them, never widen them.
    then removes initdb's own `postgresql.conf` and `pg_hba.conf` from
    PGDATA, so the live files are only in `/etc/postgresql`.
    `pg_ident.conf` stays in PGDATA.
-7. Writes `/home/player/.pgpass` (`*:*:*:dba:<password>`, `0600`).
-8. Execs s6-overlay's `/init`, which supervises `postgres` and `sshd`.
+7. Creates or updates the GM's roles, at every start, in single-user
+   mode before the server listens: the check role `gm_check` and, when
+   `pgbouncer_lookup_password` is mounted, the lookup role
+   `pgbouncer_lookup` with its schema and function (see the two sections
+   below). Single-user mode runs on PostgreSQL's defaults
+   (`config_file=/dev/null`), so a player's broken `postgresql.conf`
+   does not stop it, with no preload library and no statement logged
+   (the passwords). On a fresh cluster a failure fails the container;
+   on an existing one it logs a warning and the roles stay as they were,
+   rather than lock the players out of the node. Success logs
+   `gm-entrypoint: GM roles up to date: gm_check pgbouncer_lookup`
+   (`gmctl logs`).
+8. Writes `/home/player/.pgpass` (`*:*:*:dba:<password>`, `0600`).
+9. Execs s6-overlay's `/init`, which supervises `postgres` and `sshd`.
 
 Seeded once: the configuration files (first start on a fresh `gmstate`
 volume) and the cluster with its roles `dba` and `monitoring` and the
-extension (first start on a fresh `pgdata` volume). Rewritten at each start: `/run`, the sshd host key and
-`~/.pgpass`.
+extension (first start on a fresh `pgdata` volume). Rewritten at each
+start: `/run`, the sshd host key, `~/.pgpass`, and the GM's roles'
+attributes, memberships, grants and passwords.
 
 PostgreSQL runs as
-`postgres -D /var/lib/postgresql/18/data -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf`.
+`postgres -D /var/lib/postgresql/18/data -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf -c reserved_connections=2`
+(the GM's reserve, see "The GM check role and the reserve").
 With the seed's `logging_collector = on`, it writes its log to files in
 `/var/log/postgresql` (see "What the seed files must contain"); only the
 lines before the collector starts reach the container's output (`gmctl
@@ -167,10 +189,17 @@ The scenario's seed files replace PostgreSQL's defaults entirely:
   Do not set `config_file`, `hba_file` or `data_directory`. Plus the
   logging and preload settings below.
 - `pg_hba.conf`: the line `local all postgres peer`, before any other line
-  matching `postgres` on the local socket, with a comment marking it
-  DO NOT TAMPER; plus the players' access for `dba`, for example
+  matching `postgres` on the local socket, and the check role's line
+  `local all gm_check scram-sha-256`, before any other line matching
+  `gm_check` (v0.3 spec D171), both under a comment marking them DO NOT
+  TAMPER, so a player tightening the general `local` line keeps the
+  sealed checks working; plus the players' access for `dba`, for example
   `local all all scram-sha-256` and `host all all 0.0.0.0/0 scram-sha-256`
   (the password is SCRAM-hashed).
+- `max_connections` above 5: the server does not start unless it is
+  more than `superuser_reserved_connections` (3) plus the GM's
+  `reserved_connections` (2). The envelope's minimum, 10, leaves five
+  ordinary slots.
 - Every knob should be inside its envelope unless an out-of-envelope value
   is a planted finding. A knob the seed does not set takes PostgreSQL's
   default, which the validator checks too.
@@ -258,6 +287,94 @@ the database (master spec 15, settled by the build of this brick):
   monitoring (access model 8); a fault taking `pg_monitor` away is a state
   change after the data load.
 
+### The GM check role and the reserve
+
+The sealed checks' connection (v0.3 master spec 6.5, 7.3 and 11, rule 5;
+capture W1 item 8), so that a check always gets in, even when the load or
+a planted exhaustion fault holds every ordinary slot:
+
+- **The reserve**: `reserved_connections = 2`, on the server's command
+  line in the run script (`s6-rc.d/postgres/run`), which overrides
+  `postgresql.conf` and `ALTER SYSTEM` alike (`pg_settings.source` reads
+  `command line`). `superuser_reserved_connections` keeps its default 3.
+  With `max_connections = N`, ordinary roles get `N - 5` slots, the
+  members of `pg_use_reserved_connections` two more, superusers (`dba`,
+  `postgres`) the last three. Two: the GM runs its checks one at a time,
+  and a timer-fired early check may overlap one the GM runs by hand. The
+  stack test shows it with `max_connections = 10`: five sessions of an
+  ordinary role take the five ordinary slots and a sixth is refused
+  ("reserved for roles with privileges of the pg_use_reserved_connections
+  role"), two `gm_check` sessions get in, a third is refused (the
+  superuser slots), and `dba` still connects.
+- **The role** `gm_check`: `LOGIN`, not superuser, no `CREATEDB`,
+  `CREATEROLE`, `REPLICATION` or `BYPASSRLS`; member, with `INHERIT`, of
+  `pg_use_reserved_connections`, `pg_monitor` (settings, statistics,
+  activity) and `pg_read_all_data` (the data checks); `SELECT` on
+  `pg_catalog.pg_hba_file_rules` and `EXECUTE` on the function
+  `pg_catalog.pg_hba_file_rules()` behind it (the view alone is not
+  enough). A check needing more says so in its fault and is a build
+  finding.
+- **When**: created at the first start and brought back at every
+  container start (start-up step 7): its attributes, memberships, grants
+  and password are re-applied, so a cluster restored from the hand-over
+  snapshot carries it and a `dba` who altered or dropped it is undone at
+  the next new container. `gm-restart-db` does not re-apply it.
+- **Its password**: the per-game secret `gm_check_password` (kind
+  `password`, 32 characters, not handed over), declared by this brick
+  only, mounted root `0400`. Never in a player's file, nor in the
+  server's log.
+- **How a check connects**: as root inside the node (`gmctl exec --node
+  <node> --user root`), through `/usr/local/lib/gm/check-psql`, root
+  `0700`, protected:
+
+  ```
+  /usr/local/lib/gm/check-psql -d <db> -Atq -v ON_ERROR_STOP=1 <<'SQL'
+  select ...;
+  SQL
+  ```
+
+  It runs `psql -X -w -h /run/postgresql -p 5432 -U gm_check "$@"`,
+  standard input and output passed through, with the password in a
+  `0600` `PGPASSFILE` under the root-only `/run/gm`, removed on every
+  exit, and the caller's `PG*` connection variables cleared. Exit status:
+  psql's (0 done, 1 a psql error, 2 the connection failed or was lost,
+  3 a script error under `ON_ERROR_STOP`), and 2 with one `check-psql:
+  ...` line on standard error when the helper cannot run (not root, the
+  secret missing). It connects over the local socket through the seed's
+  `local all gm_check scram-sha-256` line.
+- **Players see it**: with `log_connections = on` the server log, and so
+  pgBadger, records the `gm_check` sessions, as `pg_stat_activity` shows
+  them while they run.
+
+### The PgBouncer lookup role
+
+PgBouncer's `auth_query` on the database side (v0.3 master spec 7.2;
+capture W1 item 8), present only in a scenario with a `pooler` node:
+
+- **The role** `pgbouncer_lookup`: `LOGIN`, not superuser, `NOINHERIT`,
+  no membership; its only right is `EXECUTE` on the lookup function and
+  `USAGE` on its schema.
+- **The function**, in the database `postgres`:
+  `gm_pgbouncer.lookup(p_usename text) RETURNS TABLE (usename name,
+  passwd text)`, `LANGUAGE sql STABLE SECURITY DEFINER`, owned by
+  `postgres`, `SET search_path = pg_catalog, pg_temp`. It returns
+  `rolname` and `rolpassword` from `pg_authid` for the login role named,
+  when its password has not expired (`rolvaliduntil` null or in the
+  future), superusers included (`dba`, the players' console role). The
+  schema `gm_pgbouncer` and the function have every right revoked from
+  `PUBLIC`.
+- **PgBouncer's side** (the `pgbouncer` brick): `auth_user =
+  pgbouncer_lookup`, `auth_dbname = postgres`, `auth_query = SELECT
+  usename, passwd FROM gm_pgbouncer.lookup($1)`. It connects over TCP,
+  so the seed `pg_hba.conf` must let `pgbouncer_lookup` in from the
+  pooler's node by password.
+- **When**: created and brought back at every container start (start-up
+  step 7) when `/opt/gm/secrets/pgbouncer_lookup_password` is mounted,
+  which `gmctl render` does only for a scenario with a node of role
+  `pooler` (`only_with_role: pooler`). Its password is that per-game
+  secret (kind `password`, not handed over), root `0400` here, the same
+  secret as the `pgbouncer` node's.
+
 ## Connections
 
 The brick provides two interfaces and consumes none (`interfaces.consumes:
@@ -282,6 +399,11 @@ its node name.
   created anew at each container start; how the bastion copes with that
   is in the bastion brick's
   [GM notes](../../bastion/docs/gm.md#inner-hop-and-host-keys).
+
+**Pooler**: in a scenario with a `pgbouncer` node, PgBouncer reaches the
+`sql` interface over TCP for its clients, and for `auth_query` as
+`pgbouncer_lookup` (see "The PgBouncer lookup role"); the seed
+`pg_hba.conf` must let both in from the pooler's node.
 
 **Monitoring**: the node has no metrics endpoint of its own. What it
 exposes to monitoring is the `sql` interface itself: the `postgres-exporter`
@@ -317,8 +439,13 @@ exec` (see "Access").
   `postgres`; protected files are root-owned and read-only, so it cannot
   alter them.
 - `postgres`: the GM's account, over the local socket with peer
-  authentication (`gmctl exec` as `postgres`, or `runuser -u postgres`).
-  Sealed checks query as `postgres`.
+  authentication (`gmctl exec` as `postgres`, or `runuser -u postgres`):
+  data load, injection, validator.
+- `gm_check`: the GM check role, for the sealed checks, inside the GM's
+  reserve, through the root-only `check-psql` (see "The GM check role and
+  the reserve"); its password is readable by root only.
+- `pgbouncer_lookup`: PgBouncer's lookup role, with a pooler node only
+  (see "The PgBouncer lookup role").
 - `sudo`: `player` may run the three wrappers as root, with no arguments
   (`/etc/sudoers.d/gm-player`): `env_reset`, fixed `secure_path`, no
   syslog, log in `/run/gm/sudo.log`.
@@ -347,11 +474,12 @@ The node has no web interface.
   `pglog`, `postgres:pgconf`).
 - Protected (root-owned, read-only to the player): `/etc/ssh/sshd_config`,
   `/etc/sudoers`, `/etc/sudoers.d/gm-player`, the entrypoint, the three
-  wrappers, the health check, the validator, the envelope file, the
+  wrappers, the health check, `check-psql` (root only), the validator, the envelope file, the
   s6-overlay service definitions (`/etc/s6-overlay/s6-rc.d`,
   `/etc/s6-overlay/user-bundles.d`) and the seed marker's directory
   `/var/lib/gm-state`.
-- Write policies: `fixable` only, in v0.2 (see "Known limits").
+- Write policies: `fixable` only (v0.3 master spec 7.3; see "Known
+  limits"); the node ignores `GM_WRITE_POLICY` and `GM_WRITE_OVERRIDES`.
 
 ### Wrappers
 
@@ -359,7 +487,9 @@ The node has no web interface.
   `pg_file_settings` and `pg_hba_file_rules` errors (including "needs a
   restart"). Exit 1 only if PostgreSQL is not running.
 - `gm-restart-db`: checks `postgres -C data_directory` with the live files
-  and `pg_hba_file_rules`; refuses (exit 1) if either fails. Otherwise
+  and `pg_hba_file_rules`, and that `max_connections` is more than
+  `superuser_reserved_connections` plus the reserve's 2; refuses (exit 1)
+  if any fails. Otherwise
   `s6-svc -r` (down signal `SIGINT`, fast shutdown) and waits up to 60 s
   for a new postmaster to accept connections. The container and SSH
   sessions survive. Failures that only show at start (shared memory too
@@ -385,7 +515,9 @@ off: `sudo` is setuid.
 `gmctl exec --node <node> --user postgres` (or `--user root`, then
 `runuser -u postgres`) for SQL over the local socket with peer
 authentication; `gmctl load-data`, `gmctl inject`, `gmctl check` and
-`gmctl validate` go the same way. `gmctl logs --node <node>` shows sshd and
+`gmctl validate` go the same way. Sealed checks connect as `gm_check`
+through `check-psql`, as root (`gmctl exec --node <node> --user root`).
+`gmctl logs --node <node>` shows sshd and
 the server's start-up only; the GM reads the server log through the exec
 operation, for example `gmctl exec --node <node> --user postgres` running
 `tail -n 50 /var/log/postgresql/postgresql-*.log`.
@@ -592,7 +724,13 @@ one-service stack (`tests/stack.test.yml`, test fixtures in
 (the file log in UTC on `pglog` readable by `player`, a pgBadger run as
 `player` into its home, `pg_stat_statements`, the role `monitoring` with
 `pg_monitor` and the secret's password, the secret out of `player`'s
-reach), and removes everything it created, volumes included. Needs a
+reach; v0.3 chunk 4a's: the reserve on the command line and out of
+`ALTER SYSTEM`'s reach, `gm_check` and `check-psql` with every ordinary
+slot taken reading `pg_hba_file_rules`, two check sessions fitting and a
+third refused, `gm-restart-db` refusing a `max_connections` that leaves
+no room, the lookup role and its function, the roles brought back in a
+new container), and removes everything it created, volumes included.
+Its seed has `max_connections = 10`, the envelope's minimum. Needs a
 swarm manager and the image built.
 
 The monitoring role, by hand, from the GM side: `gmctl exec --node <node>
@@ -618,7 +756,12 @@ the `postgres-exporter` brick's check.
 - **The monitoring role is created once**, with a fresh `pgdata` volume:
   a cluster from an older image has no `monitoring` role, and a password
   changed in the secret is not applied to an existing cluster.
-- **Write policy**: only `fixable` in v0.2. A `report-only` node would need
+- **The reserve is not the GM's alone.** `dba`, a superuser, can take
+  the superuser slots and use the reserve too (access model 11); and
+  `gm_check` is put back only at a container start, so a `dba` who
+  dropped it locks the sealed checks out until then (the GM's checks
+  report an error, never "fixed").
+- **Write policy**: only `fixable` (v0.3 master spec 7.3). A `report-only` node would need
   the configuration files not group-writable, decided at start from a
   value the renderer passes; not built.
 - **Stop timing**: s6 gives services 8 s to stop, inside Docker's default

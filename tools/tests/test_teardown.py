@@ -45,7 +45,7 @@ class TestTeardown(DeployedGame):
         self.assertEqual(len(report.removed["service"]), 2)
         self.assertEqual(len(report.removed["volume"]), 9)    # db 6, bastion 3
         self.assertEqual(len(report.removed["config"]), 6)
-        self.assertEqual(len(report.removed["secret"]), 6)
+        self.assertEqual(len(report.removed["secret"]), 8)
         self.assertEqual(report.removed["network"], [f"{self.gid}_backend"])
         self.assertIn("nothing carrying its label is left", report.text())
         # Every rm names an object listed by one of the game's labels.
@@ -257,7 +257,7 @@ class TestFailedSetupIsTornDown(RenderedGame):
         with self.assertRaises(state.SetupFailed):
             self.deploy(fake)
         self.assertEqual(len(fake.called("config", "rm")), 6)
-        self.assertEqual(len(fake.called("secret", "rm")), 6)
+        self.assertEqual(len(fake.called("secret", "rm")), 8)
         self.assertEqual(teardown.leftovers(fake, self.gid), {})
 
 

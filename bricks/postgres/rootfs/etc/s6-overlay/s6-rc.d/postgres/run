@@ -1,8 +1,13 @@
 #!/bin/sh
 # s6 service `postgres` (DO NOT TAMPER). The configuration lives outside
 # PGDATA, in /etc/postgresql; `down-signal` is SIGINT (fast shutdown).
+# reserved_connections is the GM's connection reserve (v0.3 master spec
+# 7.3): set here, on the command line, which neither postgresql.conf nor
+# ALTER SYSTEM overrides; the GM check role gm_check holds
+# pg_use_reserved_connections (gm-entrypoint, docs/gm.md).
 exec 2>&1
 exec /command/s6-setuidgid postgres /usr/lib/postgresql/18/bin/postgres \
     -D /var/lib/postgresql/18/data \
     -c config_file=/etc/postgresql/postgresql.conf \
-    -c hba_file=/etc/postgresql/pg_hba.conf
+    -c hba_file=/etc/postgresql/pg_hba.conf \
+    -c reserved_connections=2

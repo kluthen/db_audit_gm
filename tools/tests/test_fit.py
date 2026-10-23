@@ -231,7 +231,8 @@ class TestFit(ScenarioCopyTest):
         self.assertEqual(db["configs"][2]["file"], "local/laptop/envelopes/db.conf")
         self.assertEqual([s["name"] for s in db["secrets"]],
                          [gid + "_player_ssh_pubkey", gid + "_dba_password",
-                          gid + "_monitoring_password"])
+                          gid + "_monitoring_password", gid + "_gm_check_password",
+                          gid + "_pgbouncer_lookup_password"])
         bastion = impl["nodes"]["bastion"]
         self.assertEqual([v["name"] for v in bastion["volumes"]],
                          [f"{gid}_bastion_{v}" for v in ("home", "hostkeys", "run")])
@@ -243,6 +244,8 @@ class TestFit(ScenarioCopyTest):
             gid + "_dba_password": "local/laptop/secrets/dba_password",
             gid + "_player_ssh_pubkey": "local/laptop/secrets/player_ssh_key.pub",
             gid + "_monitoring_password": "local/laptop/secrets/monitoring_password",
+            gid + "_gm_check_password": "local/laptop/secrets/gm_check_password",
+            gid + "_pgbouncer_lookup_password": "local/laptop/secrets/pgbouncer_lookup_password",
             gid + "_tools_password": "local/laptop/secrets/tools_password",
         })
         self.assertEqual(impl["labels"], {"com.docker.stack.namespace": gid,

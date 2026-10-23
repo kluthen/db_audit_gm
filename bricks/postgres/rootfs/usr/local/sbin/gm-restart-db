@@ -1,9 +1,10 @@
 #!/bin/sh
 # gm-restart-db: restart PostgreSQL. Usage: sudo gm-restart-db
 # DO NOT TAMPER. Root-owned, read-only; allowed by /etc/sudoers.d/gm-player.
-# Checks that the configuration loads first and refuses to restart if it
-# does not, so a typo does not take the server down. The restart goes
-# through s6 (fast shutdown, then start); the container keeps running.
+# Checks that the configuration loads and leaves room for the reserved
+# connections, and refuses to restart if not, so a typo does not take the
+# server down. The restart goes through s6 (fast shutdown, then start);
+# the container keeps running.
 set -u
 PATH=/command:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
@@ -11,6 +12,7 @@ PGBIN=/usr/lib/postgresql/18/bin
 PGDATA=/var/lib/postgresql/18/data
 SERVICE=/run/service/postgres
 WAIT=60
+RESERVED=2    # reserved_connections, as in s6-rc.d/postgres/run
 
 if [ "$#" -ne 0 ]; then
     echo "usage: sudo gm-restart-db (no arguments)" >&2
@@ -18,15 +20,32 @@ if [ "$#" -ne 0 ]; then
 fi
 
 as_postgres() { runuser -u postgres -- env HOME=/var/lib/postgresql "$@"; }
-
-# 1. postgresql.conf loads (syntax, names, values).
-if ! out=$(as_postgres "$PGBIN/postgres" -D "$PGDATA" \
+# setting <name>: the value the live files give it, with the run script's
+# command line (s6-rc.d/postgres/run).
+setting() {
+    as_postgres "$PGBIN/postgres" -D "$PGDATA" \
         -c config_file=/etc/postgresql/postgresql.conf \
-        -c hba_file=/etc/postgresql/pg_hba.conf -C data_directory 2>&1); then
+        -c hba_file=/etc/postgresql/pg_hba.conf \
+        -c reserved_connections=$RESERVED -C "$1" 2>&1
+}
+
+# 1. postgresql.conf loads (syntax, names, values), and max_connections
+#    exceeds the two reserves, without which the server does not start.
+if ! out=$(setting data_directory); then
     echo "gm-restart-db: postgresql.conf does not load; PostgreSQL was NOT restarted:"
     printf '%s\n' "$out" | sed 's/^/  /'
     exit 1
 fi
+sup=
+maxc=$(setting max_connections) && sup=$(setting superuser_reserved_connections) || maxc=
+case $maxc$sup in
+    *[!0-9]*|'') ;;     # not read: the start itself reports it
+    *)
+        if [ "$maxc" -le $((sup + RESERVED)) ]; then
+            echo "gm-restart-db: max_connections ($maxc) must be more than superuser_reserved_connections ($sup) plus the GM's reserved_connections ($RESERVED); PostgreSQL was NOT restarted."
+            exit 1
+        fi ;;
+esac
 # 2. pg_hba.conf parses (checked through the running server, if any).
 if hba=$(as_postgres psql -X -w -q -A -t -h /run/postgresql -p 5432 -d postgres -c \
         "SELECT file_name || ':' || line_number || ': ' || error FROM pg_hba_file_rules WHERE error IS NOT NULL" 2>/dev/null) \

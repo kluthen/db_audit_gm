@@ -76,6 +76,7 @@ protected_files:
   - /usr/local/sbin/gm-restart-db
   - /usr/local/sbin/gm-validate
   - /usr/local/lib/gm/healthcheck
+  - /usr/local/lib/gm/check-psql    # root only (0700): the sealed checks' psql as gm_check
   - /opt/gm/validator/validate.sh
   - /opt/gm/protected/envelopes.conf
   - /etc/s6-overlay/s6-rc.d
@@ -129,6 +130,19 @@ secrets:
     uid: 0
     gid: 102                        # postgres' group (the Dockerfile checks 100:102)
     mode: "0440"                    # root and postgres only
+  - name: gm_check_password         # password of the GM check role gm_check (v0.3 master
+    kind: password                  #   spec 7.3), the GM's connection reserve; read by root
+    path: /opt/gm/secrets/gm_check_password   # only, through /usr/local/lib/gm/check-psql
+    uid: 0
+    gid: 0
+    mode: "0400"
+  - name: pgbouncer_lookup_password # password of PgBouncer's auth_user pgbouncer_lookup;
+    kind: password                  #   also on the pgbouncer node
+    only_with_role: pooler          # the role exists only in a scenario with a pooler node
+    path: /opt/gm/secrets/pgbouncer_lookup_password
+    uid: 0
+    gid: 0
+    mode: "0400"
 seed:
   dir: /opt/gm/seed/
   files:

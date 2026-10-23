@@ -2,7 +2,7 @@
 #
 # Generic image: no scenario content. Seed files, the envelope file and the
 # secrets arrive at run time at the fixed paths declared in brick.yaml.
-# Build:  docker build -t 127.0.0.1:5000/dbagm/postgres:0.2.0 bricks/postgres
+# Build:  docker build -t 127.0.0.1:5000/dbagm/postgres:0.3.0 bricks/postgres
 # Architecture: x86_64 only in v0.1 (the s6-overlay archive below).
 
 # --- rootfs/, its modes independent of the checkout --------------------------
@@ -90,6 +90,8 @@ RUN set -eux; \
     chmod 0755 /usr/local/sbin/gm-entrypoint /usr/local/sbin/gm-reload-db /usr/local/sbin/gm-restart-db \
         /usr/local/sbin/gm-validate /usr/local/lib/gm/healthcheck /opt/gm/validator/validate.sh \
         /etc/s6-overlay/s6-rc.d/postgres/run /etc/s6-overlay/s6-rc.d/sshd/run; \
+    # root only: the GM check role's psql (its secret is root's alone)
+    chmod 0700 /usr/local/lib/gm/check-psql; \
     chmod 0644 /etc/ssh/sshd_config /etc/motd /etc/profile.d/gm-postgres.sh; \
     chmod 0440 /etc/sudoers.d/gm-player; \
     visudo -c
