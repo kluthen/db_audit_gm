@@ -1,0 +1,149 @@
+# brick.yaml: scheduler node, the producers and consumers of a game
+# (v0.3 master spec 7.1).
+#
+# Version 0.1.0 (unreleased until the v0.3 release gate).
+# Keys of v0.3's shape (seed.paths, seed.modes, disk_growth_per_hour,
+# snapshot) and the runtime interface: capture W1 items 3, 5, 6 and 7
+# (specs/versions/v0.3/wave-log.md); what the brick fixed itself: W1-y.
+# Operating notes: docs/gm.md.
+
+# --- Identity ---------------------------------------------------------
+id: scheduler
+version: 0.1.0
+roles:
+  - producer
+  - consumer
+technology:
+  name: gm-scheduler                # the program in program/gm_scheduler, Python 3.13, psycopg 3
+  version: "0.1.0"
+image: 127.0.0.1:5000/dbagm/scheduler:0.1.0
+
+# --- Footprint --------------------------------------------------------
+footprint:                          # master spec 7.1's figures; at rest measured within them
+                                    # (docs/gm.md, Footprint)
+  limits:       {cpu: 0.25, memory: 128M}
+  reservations: {cpu: 0.1, memory: 64M, disk: 64M}
+  disk_growth_per_hour: 2M          # provisional: the log at a few keys and a few errors a minute;
+                                    # chunk 15b's measurement replaces it (docs/gm.md, Footprint)
+stateful: true
+
+# --- What the scenario sets -------------------------------------------
+parameters: {}                      # everything is in the seed files
+knobs: []                           # no envelope: the schedule is the scenario's
+
+# --- Player plane -----------------------------------------------------
+write_policies:
+  - fixable
+  - report-only
+writable_paths:                     # directories, so sed -i works where they are fixable (spec D170)
+  - /srv/scheduler/repository       # queries.yaml, builders/ (volume repository)
+  - /srv/scheduler/jobs             # jobs.yaml (volume jobs)
+  - /home/player                    # ~/report.md, the player's notes
+protected_files:
+  - /etc/ssh/sshd_config
+  - /etc/sudoers
+  - /etc/sudoers.d/gm-player
+  - /etc/scheduler/scheduler.yaml   # the program's other configuration: log, status, endpoint
+  - /usr/local/sbin/gm-entrypoint
+  - /usr/local/sbin/gm-reload-scheduler
+  - /usr/local/sbin/gm-validate
+  - /usr/local/lib/gm/healthcheck
+  - /usr/local/lib/python3.13/dist-packages/gm_scheduler   # the program
+  - /opt/gm/validator/validate.sh
+  - /etc/s6-overlay/s6-rc.d
+  - /etc/s6-overlay/user-bundles.d
+  - /var/lib/gm-state               # seed marker .gm-seeded, load-started marker (volume gmstate)
+player_access:
+  ssh_account: player
+  group: schedconf                  # the configuration group; never the service account's group
+  sudo_wrappers:
+    - /usr/local/sbin/gm-reload-scheduler
+    - /usr/local/sbin/gm-validate
+capabilities:                       # added back after cap_drop: ALL; no-new-privileges stays off (sudo)
+  - AUDIT_WRITE                     # sudo: audit message (else a warning on every sudo)
+  - CHOWN                           # entrypoint, wrapper: owner of volumes and seeded files
+  - DAC_OVERRIDE                    # entrypoint: emptying /run; snapshot copies as root (W1 item 6)
+  - FOWNER                          # entrypoint, wrapper: modes on files they do not own
+  - KILL                            # s6: signals (SIGHUP on reload) to the scheduler-owned program
+  - NET_BIND_SERVICE                # sshd on port 22 (Docker sets ip_unprivileged_port_start=0,
+                                    # other platforms may not)
+  - SETGID                          # sshd, sudo, runuser, s6-setuidgid; setgid directory modes
+  - SETUID                          # sshd, sudo, runuser, s6-setuidgid
+  - SYS_CHROOT                      # sshd privilege separation
+
+# --- Runtime ----------------------------------------------------------
+healthcheck:                        # healthy once the program has answered on :9120 in this
+                                    # container and while sshd is up; never asks a database
+  command: ["/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 60s
+secrets:                            # no connection secret here: render derives one per role the
+                                    # schedule names, role_<role>_password, 0:0 "0400" (spec D167)
+  - name: player_ssh_pubkey         # inner-hop public key, for SSH as player
+    kind: key-pair
+    pair: player_ssh_key            # the bastion mounts the private half
+    half: public
+    path: /opt/gm/secrets/player_ssh_pubkey
+    uid: 0
+    gid: 0
+    mode: "0444"                    # sshd reads it as player
+seed:
+  dir: /opt/gm/seed/
+  files:
+    - schedule.yaml                 # streams, intensity, connections, timeline: read in place, never
+                                    # copied (spec D163); its run script passes it on standard input
+    - queries.yaml                  # the query repository
+    - builders/                     # optional: the repository's builders, one file each
+    - jobs.yaml                     # the fixed-time operations
+  paths:                            # seed file -> its live path in the node
+    schedule.yaml: /opt/gm/seed/schedule.yaml
+    queries.yaml: /srv/scheduler/repository/queries.yaml
+    builders/: /srv/scheduler/repository/builders
+    jobs.yaml: /srv/scheduler/jobs/jobs.yaml
+  modes:                            # seed config modes other than "0444", owner 0:0
+    schedule.yaml: "0400"           # root only: neither player nor the service account reads it
+protected_configs: []
+volumes:
+  - name: repository                # queries.yaml, builders/: scheduler:schedconf, seeded once
+    path: /srv/scheduler/repository
+  - name: jobs                      # jobs.yaml: scheduler:schedconf, seeded once
+    path: /srv/scheduler/jobs
+  - name: schedlog                  # scheduler.log, append-only, never rotated in a game
+    path: /var/log/scheduler
+  - name: schedstate                # the program's own state (sequence positions)
+    path: /var/lib/scheduler
+  - name: home
+    path: /home/player
+  - name: gmstate                   # seed marker .gm-seeded and load-started marker, root-owned
+    path: /var/lib/gm-state
+  - name: run                       # /run: a stack file's tmpfs is noexec and s6-overlay
+    path: /run                      # needs exec; emptied by the entrypoint at each start
+processes:
+  - scheduler
+  - sshd
+snapshot:                           # every volume but run, by copy (master spec 7.1): seeded files,
+  repository: copy                  # the markers, an append-only log, a small state file rewritten
+  jobs: copy                        # whole
+  schedlog: copy
+  schedstate: copy
+  home: copy
+  gmstate: copy
+
+# --- Catalog links ----------------------------------------------------
+interfaces:
+  provides:
+    - {name: metrics, protocol: http, port: 9120}   # GET /metrics; not routed through the web front
+    - {name: ssh, protocol: ssh, port: 22}
+  consumes:                         # the targets the schedule's connections name
+    - {name: sql, protocol: postgresql, port: 5432} # a postgres node
+    - {name: sql, protocol: postgresql, port: 6432} # or a pgbouncer node
+receives:                           # the image accepts another brick's mounted material
+  s6_overlay: "3.2.3.2"             # the version the Dockerfile installs
+  commands: [sh, cat, du, df, awk, sed, grep, sleep, perl, s6-svstat, s6-setuidgid]
+extra:
+  read_only_root: true              # read_only: true in the stack file
+  validator:                        # the GM's official run (gmctl validate)
+    path: /opt/gm/validator/validate.sh
+    run_as: scheduler               # docker exec -u scheduler; gm-validate uses runuser

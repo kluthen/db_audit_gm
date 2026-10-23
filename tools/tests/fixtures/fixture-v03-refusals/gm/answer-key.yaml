@@ -1,0 +1,61 @@
+# Answer key of fixture-v03-refusals (tools/tests, v0.3 chunk 2).
+scenario:
+  id: fixture-v03-refusals
+  version: 0.1.0
+notes: gm/notes.md
+
+instances:
+  - instance: f1
+    what: random_page_cost is 4.0, the spinning-disk default, on SSD storage.
+    why: the planner overprices index scans and favours sequential scans.
+    evidence:
+      - where: node:db
+        source: postgresql.conf and SHOW random_page_cost
+        how: ssh db, then psql -c 'SHOW random_page_cost'
+        shows: "4"
+    acceptable:
+      diagnosis: names random_page_cost as too high for SSD storage.
+      proposal: lower random_page_cost to about 1.1.
+    sealed_check:
+      script: faults/fixture-random-page-cost/checks/fixed.sh
+      at_handover: 1
+      notes: the scenario's own fault (faults/ in the fixture folder).
+    interactions: []
+    validators_left_red: []
+  - instance: f2
+    what: the index on orders (customer_id) is gone.
+    why: every lookup of a customer's orders reads the whole orders table.
+    evidence:
+      - where: node:db
+        source: the indexes of orders, and the plan of a lookup by customer
+        how: ssh db, then psql -d shop -c '\d orders'
+        shows: no index on customer_id; EXPLAIN shows a sequential scan
+    acceptable:
+      diagnosis: names the missing index on orders (customer_id).
+      fix: a valid index leading with customer_id exists on orders, whatever its name.
+    sealed_check:
+      script: faults/fixture-dropped-index/checks/fixed.sh
+      at_handover: 1
+      notes: planted after the data load by gmctl inject (a state fault).
+    interactions: []
+    validators_left_red: []
+
+  - instance: f3
+    what: the close-day job carries timezone_offset -2, so it runs two hours early.
+    why: the day is closed before the last orders of the day are in.
+    evidence:
+      - where: node:producer
+        source: /srv/scheduler/jobs/jobs.yaml and the scheduler's log
+        how: ssh producer, then grep close-day /var/log/scheduler/scheduler.log
+        shows: the job ran at 23:30 customer time, not 01:30
+    acceptable:
+      diagnosis: names the close-day job's time zone as two hours off the customer's.
+      fix: the close-day job runs at 01:30 customer time.
+    sealed_check:
+      script: faults/fixture-job-timezone/checks/fixed.sh
+      at_handover: 1
+      notes: fixable through the producer's override of /srv/scheduler/jobs.
+    interactions: []
+    validators_left_red: []
+
+tooling_expectations: []           # none in this scenario

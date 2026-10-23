@@ -1,0 +1,8 @@
+#!/bin/sh
+# s6 finish script of `scheduler` (DO NOT TAMPER). After an input that is
+# not valid (exit 2) or a repository or jobs.yaml that is not valid (exit
+# 3), keep the service down a few seconds before s6 tries again, so the
+# log gets one `fatal` line every few seconds, not every second. Under
+# s6's 5 s finish timeout.
+case ${1:-} in 2|3) sleep 4 ;; esac
+exit 0

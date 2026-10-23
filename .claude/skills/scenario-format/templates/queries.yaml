@@ -1,0 +1,49 @@
+# queries.yaml — template for scenarios/<scenario-id>/nodes/<node>/queries.yaml,
+# a scheduler node's query repository (brick `scheduler`)
+#
+# Version v0.3, expected to evolve as games are played.
+# Shape: v0.3 master spec 7.1 ("The query repository"), with the forms
+# capture W1 of specs/versions/v0.3/wave-log.md (item 7) settles. Seed-once
+# on the node at /srv/scheduler/repository/queries.yaml; players read it, and
+# edit it where the scenario makes /srv/scheduler/repository fixable. Render
+# copies it unchanged (no time in it).
+#
+# Markers:
+#   every key is REQUIRED unless marked otherwise;
+#   "# optional: <when>"  the key is present only when <when> holds.
+# Replace every <placeholder>. A filled file keeps no <placeholder> (SQL text
+# is not looked at: its < and > are operators).
+#
+# A key is [a-z0-9][a-z0-9._-]* (orders.insert, catalog.lookup); streams, jobs
+# and timeline changes in schedule.yaml and jobs.yaml name keys of this file.
+# Each key maps to exactly one of four forms: a query, a pool, a sequence or
+# a builder. The loader checks every form (model.py, the scheduler's files).
+
+queries:
+  <orders.insert>:                  # a query: one statement
+    sql: <INSERT INTO orders (customer_id, amount) VALUES (%(customer_id)s, %(amount)s)>
+    params:                         # optional: name -> generator, for each %(name)s
+      <customer_id>: {int: [<1>, <5000>]}
+      # generators (exactly one key each):
+      #   {int: [lo, hi]}               an integer, lo <= hi
+      #   {decimal: [lo, hi, places]}   a decimal, lo <= hi, places >= 0 digits
+      #   {choice: [v1, v2, ...]}       one of a non-empty list
+      #   {sequence: [start, step]}     start, start + step, ... (integers, step != 0)
+      #   {now: utc}                    the current time
+    transaction:                    # optional: absent, the entry runs in autocommit
+      isolation: <read committed>   # read committed | repeatable read | serializable
+      hold: <2s>                    # optional: a duration the client keeps the transaction
+                                    # open before committing (<integer><s|m|h|d>)
+  <catalog.lookup>:                 # a pool: a non-empty list of queries, one picked per call
+    - sql: <SELECT * FROM products WHERE id = %(id)s>
+      params: {<id>: {int: [<1>, <20000>]}}   # optional, as for a query
+      weight: <8>                   # optional: a positive integer, default 1
+  <invoices.close-day>:             # a sequence: its steps in order
+    transaction: {isolation: <read committed>}   # optional, as for a query: one transaction
+    steps:                          # non-empty; each step a sql and its optional params
+      - sql: <UPDATE invoices SET closed = true WHERE day = current_date - 1>
+  <reports.revenue>:                # a builder: a Python function of the node's builders/
+    builder: <builders/revenue.py:build>   # builders/<file>:<function>; the file is in the
+                                    # node's builders/ seed folder and defines the function at
+                                    # its top level, called with (intensity, options)
+    options: {<months>: <3>}        # optional: a map passed to the function

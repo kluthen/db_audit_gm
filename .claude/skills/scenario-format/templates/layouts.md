@@ -26,9 +26,9 @@ master spec sections 6.1, 7 and 8, v0.2 master spec 6 (capture W1 of
                         as Swarm configs; one folder per node with seed files.
                         A scheduler node's (brick `scheduler`): queries.yaml,
                         jobs.yaml, schedule.yaml, and optionally builders/, a
-                        folder of files (no subfolder), in scenario time; their
-                        shapes are master spec 7.1's (normative until the
-                        scheduler's templates exist) and capture W1 item 7
+                        folder of files (no subfolder), in scenario time
+                        (templates: queries.yaml, schedule.yaml, jobs.yaml;
+                        master spec 7.1, capture W1 item 7)
   data/<node>.sql       restored-backup data, streamed into the node;
                         one per node that holds data
   bricks/<brick-id>/    optional: bricks made solely for this scenario

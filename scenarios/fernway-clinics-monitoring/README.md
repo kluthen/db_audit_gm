@@ -30,6 +30,8 @@ for, not any one playground.
 | Origin | hand-written |
 | Session length | 240 minutes |
 | Brief | `brief.md` |
+| Difficulty | score 8 (8 fault instances) |
+| Aging | none: no scheduler node, so the scenario does not age; its faults show once planted, its times stay UTC |
 
 ### Initiator's inputs, as given
 
@@ -277,16 +279,18 @@ Placement and the reservations it was sized with:
 
 ### Fault instances
 
-| Instance | Fault | Node | Parameters | Visibility |
-|---|---|---|---|---|
-| `f1` | `prometheus-scrape-target-missing` 0.1.0 | `prometheus` | node = grafana | known |
-| `f2` | `prometheus-node-health-node-missing` 0.1.0 | `prometheus` | node = exporter | hidden |
-| `f3` | `prometheus-node-health-service-missing` 0.1.0 | `prometheus` | node = db, service = postgres | known |
-| `f4` | `pg-stat-statements-not-preloaded` 0.1.0 | `db` | none | known |
-| `f5` | `grafana-alert-for-too-long` 0.1.0 | `grafana` | rule = gm-service-down, max-for = 5m | known |
-| `f6` | `pg-hba-trust-remote` 0.1.0 | `db` | none | hidden |
-| `f7` | `pg-role-superuser` 0.1.0 | `db` | role = clinic_app | hidden |
-| `f8` | `pg-table-autovacuum-off` 0.1.0 | `db` | database = clinic, table-name = appointments | hidden |
+| Instance | Fault | Node | Parameters | Visibility | Planted at |
+|---|---|---|---|---|---|
+| `f1` | `prometheus-scrape-target-missing` 0.1.0 | `prometheus` | node = grafana | known | `T0` |
+| `f2` | `prometheus-node-health-node-missing` 0.1.0 | `prometheus` | node = exporter | hidden | `T0` |
+| `f3` | `prometheus-node-health-service-missing` 0.1.0 | `prometheus` | node = db, service = postgres | known | `T0` |
+| `f4` | `pg-stat-statements-not-preloaded` 0.1.0 | `db` | none | known | `T0` |
+| `f5` | `grafana-alert-for-too-long` 0.1.0 | `grafana` | rule = gm-service-down, max-for = 5m | known | `T0` |
+| `f6` | `pg-hba-trust-remote` 0.1.0 | `db` | none | hidden | `T0` |
+| `f7` | `pg-role-superuser` 0.1.0 | `db` | role = clinic_app | hidden | `T0` |
+| `f8` | `pg-table-autovacuum-off` 0.1.0 | `db` | database = clinic, table-name = appointments | hidden | `T0` |
+
+`T0`: right after the data load.
 
 ### Issues given to the players
 
@@ -363,11 +367,11 @@ Acceptable answers:
   dashboard.
 
 Sealed check: `faults/prometheus-scrape-target-missing/checks/fixed.sh`,
-exit 1 at hand-over (0: fixed, 1: present). Reads Prometheus' live state,
-not the file: a file edited but not reloaded reads 1, and so does a target
-added in the last few seconds, before its first scrape (15 s); run the check
-again a little after the reload. Fixing it does not touch f2 (the exporter's
-target stays down).
+exit 1 at hand-over (0: fixed, 1: present, 3: too soon to tell). Reads
+Prometheus' live state, not the file: a file edited but not reloaded reads
+1, and so does a target added in the last few seconds, before its first
+scrape (15 s); run the check again a little after the reload. Fixing it
+does not touch f2 (the exporter's target stays down).
 
 Interactions: none.
 
@@ -408,11 +412,13 @@ Acceptable answers:
   whoever runs the platform); keep the target-down alert, which caught it,
   and act on alerts rather than learning to ignore them.
 
-Sealed check: `faults/prometheus-node-health-node-missing/checks/fixed.sh`,
-exit 1 at hand-over (0: fixed, 1: present). Hidden; report or propose only
-(the script and its configuration are mounted read-only by the platform): it
-reads 1 for the whole game. Removing exporter:9110 from prometheus.yml
-silences the alert but is not a fix: judge it as hiding the problem.
+Sealed check:
+`faults/prometheus-node-health-node-missing/checks/fixed.sh`, exit 1 at
+hand-over (0: fixed, 1: present, 3: too soon to tell). Hidden; report or
+propose only (the script and its configuration are mounted read-only by
+the platform): it reads 1 for the whole game. Removing exporter:9110 from
+prometheus.yml silences the alert but is not a fix: judge it as hiding the
+problem.
 
 Interactions: none.
 
@@ -452,9 +458,9 @@ Acceptable answers:
 
 Sealed check:
 `faults/prometheus-node-health-service-missing/checks/fixed.sh`, exit 1 at
-hand-over (0: fixed, 1: present). Report or propose only (read-only
-material): it reads 1 for the whole game. I2 expects a proposal, so 1 is the
-expected outcome.
+hand-over (0: fixed, 1: present, 3: too soon to tell). Report or propose
+only (read-only material): it reads 1 for the whole game. I2 expects a
+proposal, so 1 is the expected outcome.
 
 Interactions: none.
 
@@ -498,9 +504,9 @@ Acceptable answers:
   within about a minute and a half; the validator on db is still green.
 
 Sealed check: `faults/pg-stat-statements-not-preloaded/checks/fixed.sh`,
-exit 1 at hand-over (0: fixed, 1: present). A file edited (or ALTER SYSTEM
-run) but not restarted reads 1. After gm-restart-db it reads 0 at once; the
-panels lag by about 70 s.
+exit 1 at hand-over (0: fixed, 1: present, 3: too soon to tell). A file
+edited (or ALTER SYSTEM run) but not restarted reads 1. After
+gm-restart-db it reads 0 at once; the panels lag by about 70 s.
 
 Interactions: none.
 
@@ -539,11 +545,12 @@ Acceptable answers:
   pending period is at most 5m, whichever path (the file and
   gm-reload-grafana, or Grafana's API); the validator on grafana is green.
 
-Sealed check: `faults/grafana-alert-for-too-long/checks/fixed.sh`, exit 1 at
-hand-over (0: fixed, 1: present). I2 expects a proposal: 1 is the expected
-outcome; a team that also fixes it reads 0, and both are acceptable. A fix
-made only through the API reads 0 but leaves the validator's pending rule
-red and is lost at the next reload or restart: credit the file path more.
+Sealed check: `faults/grafana-alert-for-too-long/checks/fixed.sh`, exit 1
+at hand-over (0: fixed, 1: present, 3: too soon to tell). I2 expects a
+proposal: 1 is the expected outcome; a team that also fixes it reads 0,
+and both are acceptable. A fix made only through the API reads 0 but
+leaves the validator's pending rule red and is lost at the next reload or
+restart: credit the file path more.
 
 Interactions: none.
 
@@ -585,10 +592,11 @@ Acceptable answers:
   at 1); the validator on db is green.
 
 Sealed check: `faults/pg-hba-trust-remote/checks/fixed.sh`, exit 1 at
-hand-over (0: fixed, 1: present). Hidden. A file fixed but not reloaded
-reads 1. A fix that also drops or narrows the monitoring line reads 0 but
-disconnects the exporter (pg_up 0, every PostgreSQL panel empty, "Exporter
-disconnected from PostgreSQL" firing): judge it as breaking the monitoring.
+hand-over (0: fixed, 1: present, 3: too soon to tell). Hidden. A file
+fixed but not reloaded reads 1. A fix that also drops or narrows the
+monitoring line reads 0 but disconnects the exporter (pg_up 0, every
+PostgreSQL panel empty, "Exporter disconnected from PostgreSQL" firing):
+judge it as breaking the monitoring.
 
 Interactions: none.
 
@@ -626,9 +634,9 @@ Acceptable answers:
   revoking its grants breaks the booking site and is not acceptable.
 
 Sealed check: `faults/pg-role-superuser/checks/fixed.sh`, exit 1 at
-hand-over (0: fixed, 1: present). Hidden. The check does not test the
-grants: when it reads 0, run \dp on clinic through gmctl exec before
-accepting the fix.
+hand-over (0: fixed, 1: present, 3: too soon to tell). Hidden. The check
+does not test the grants: when it reads 0, run \dp on clinic through gmctl
+exec before accepting the fix.
 
 Interactions: none.
 
@@ -666,8 +674,8 @@ Acceptable answers:
   (reset, or set to on).
 
 Sealed check: `faults/pg-table-autovacuum-off/checks/fixed.sh`, exit 1 at
-hand-over (0: fixed, 1: present). Hidden; a manual VACUUM alone does not
-change the check (the option stays off).
+hand-over (0: fixed, 1: present, 3: too soon to tell). Hidden; a manual
+VACUUM alone does not change the check (the option stays off).
 
 Interactions: none.
 

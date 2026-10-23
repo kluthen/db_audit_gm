@@ -27,6 +27,12 @@ background: >-
   load, f7); the brick creates dba, the players' superuser, and
   monitoring, the exporter's role.
 
+# --- Aging and difficulty ---------------------------------------------
+# No aging: no scheduler node, so the scenario does not age and has no
+# `aging:` (v0.3 master spec 8, 15.4; D157, D158).
+difficulty:
+  score: 8                          # its eight fault instances (master spec 15.1)
+
 # --- Topology ---------------------------------------------------------
 networks:
   - name: backend
