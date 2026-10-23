@@ -1192,3 +1192,75 @@ Where W1 was silent, recorded by chunk 1 (`v0.3-c1-formats`), 2026-10-23.
   word on report-only; their Dockerfiles' "Build:" comments still name the
   old tags.
 - Every chunk of wave 1 merged; wave gate next.
+
+### Wave gate — 2026-10-23
+
+Run on `v0.3-w1` on armenelos (Debian 13, Docker 29.9.1, single-node swarm),
+idle apart from other projects' long-running containers (`llmward-*`,
+`ollama`, an exited `magical_jones` dev container: none of the game's). A
+`coding-executor` ran most of it and was cut off by a session limit before
+reporting; its step logs survived and the driver finished the gate itself.
+
+Fixes on the wave branch, one commit each (findings outside the chunks' Files
+lines):
+- 0628c4b: both scenarios' starter packs list all three DO NOT TAMPER
+  `pg_hba` lines (D164, D171).
+- 1e89cfb: the monitoring bricks' `docs/player.md` say the files can be
+  read-only (chunk 5's finding).
+- fd6b2fc: the five Dockerfiles' "Build:" comments name the v0.3 tags.
+- 0d81f5a: `tools/tests/smoke.sh` counts postgres' two new secrets (14
+  labelled configs and secrets, 8 secret files; traced to chunk 4). The
+  lookup secret will drop off non-pooler games when chunk 7 honours
+  `only_with_role`, so chunk 7 changes these counts again.
+
+| Step | Result | Duration |
+|---|---|---|
+| Unit suite | 415 OK | 38 s |
+| Scheduler unit tests (in its image) | 60 OK | 47 s |
+| `sh -n` on every shell file | 97 files, 0 failed | — |
+| `perl -c` on every Perl file | 5 files, 0 failed | — |
+| Loader: every brick, fault, scenario and fixture | 23 definitions, 0 with problems | — |
+| Stack test `postgres` 0.3.0 | all checks passed | 74 s |
+| Stack test `bastion` 0.3.0 | all checks passed | 63 s |
+| Stack test `prometheus` 0.2.0 | all checks passed | 88 s |
+| Stack test `postgres-exporter` 0.2.0 | all checks passed | 99 s |
+| Stack test `grafana` 0.2.0 | all checks passed | 170 s |
+| Stack test `scheduler` 0.1.0 | all checks passed | 752 s |
+| `smoke.sh` | 2 failed, then all passed after 0d81f5a | 24 s |
+| `smoke-monitoring.sh` | 43 passed | 46 s |
+| `smoke-scenario.sh bookshop-new-server` | 18 passed | 21 s |
+| `smoke-scenario.sh fernway-clinics-monitoring` | 17 passed | 29 s |
+
+`pgbouncer` is not built yet (chunk 6, wave 2), so six bricks, not seven.
+Every stack and smoke run tore down with nothing left. Image sizes
+(armenelos, 2026-10-23): postgres 0.3.0 262MB, bastion 0.3.0 185MB,
+prometheus 0.2.0 488MB, postgres-exporter 0.2.0 165MB, grafana 0.2.0 866MB,
+scheduler 0.1.0 172MB. No intent register, so there is no wave sync.
+
+### State at the end of 2026-10-23 (for the next driver)
+
+- **Wave 1 is gated** and waits only for the owner's word to merge
+  `v0.3-w1` into `main` (`--no-ff`, with the gate's figures in the message).
+  Not merged yet.
+- After the merge, remove the wave worktree
+  `/home/bastien/work/db_audit_gm-wt/v0.3-w1` and the branches `v0.3-w1`,
+  `v0.3-c1-formats`, `v0.3-c2-loader`, `v0.3-c3-scheduler`,
+  `v0.3-c4-postgres` and `v0.3-c5-monitoring` (all merged; no chunk
+  worktree is left).
+- Owner decisions taken in wave 1: D160–D162 (three confirmations) and D171
+  (O102). Nothing is pending with the owner except the merge.
+- Gates: G2 and G3 cleared for wave 1 (re-check at wave 2's start: the
+  memory available was about 3–4G). G4 (VPS) is untouched; wave 3 needs it,
+  under the VPS rule.
+- Carried into wave 2:
+  - chunk 6: `pgbouncer_lookup` holds no reserve (W1-x);
+  - chunk 7: honour `only_with_role` (the lookup secret on pooler games only)
+    and update the secret counts in `smoke.sh` and
+    `tools/tests/test_{deploy,fit,state,teardown}.py`;
+  - chunk 12 or 15b: the scheduler's error lines are not rate-limited.
+- Lesson for briefs: append-only conflicts in this log between chunk merges
+  are expected; a chunk owner keeps both sides and checks that nothing was
+  removed.
+- Next: wave 2 (chunks 6, 7, 8, 9), from `main` once wave 1 has merged.
+  The wave 2 start needs capture W2 (the stages and records, and the "too
+  soon to tell" verdict) before chunks 8 and 9.

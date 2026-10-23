@@ -138,7 +138,7 @@ test harness's only and changes no spec behaviour for a game.
 
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
-| 1 | 1, 2, 3, 4, 5 | G1 (cleared); G2 (chunks 1, 3, 4, 5); G3 (stack tests) | in progress (started 2026-10-23) |
+| 1 | 1, 2, 3, 4, 5 | G1 (cleared); G2 (chunks 1, 3, 4, 5); G3 (stack tests) | gated 2026-10-23; merge into `main` awaits the owner |
 | 2 | 6, 7, 8, 9 | wave 1 | planned |
 | 3 | 10, 11, 12 | wave 2; G4 (chunk 10b's two-host try) | planned |
 | 4 | 13, 14, 15 | wave 3; G4 (chunk 15b); G7 (chunk 15's merge) | planned |
