@@ -98,6 +98,7 @@ for the default footprint; a scenario may tighten them, never widen them.
 | Validator | `/opt/gm/validator/validate.sh` | |
 | Wrappers | `/usr/local/sbin/gm-reload-db`, `gm-restart-db`, `gm-validate` | |
 | Entrypoint | `/usr/local/sbin/gm-entrypoint` | |
+| Snapshot helper | `/usr/local/sbin/gm-snapshot-db` | root `0700`, not a `sudo` wrapper (see "Snapshot") |
 | Health check | `/usr/local/lib/gm/healthcheck` | |
 | Check role's `psql` | `/usr/local/lib/gm/check-psql` | root `0700`; the sealed checks connect through it (see "The GM check role and the reserve") |
 | `sudo` log | `/run/gm/sudo.log` | root, lost when the container is replaced |
@@ -121,7 +122,9 @@ for the default footprint; a scenario may tighten them, never widen them.
    root-owned volume, out of reach of `player` and `postgres`: the
    configuration directory is group-writable without the sticky bit, so
    that editors saving by rename (`sed -i`) work, and a marker there could
-   be removed.
+   be removed. At every start, seeded or not, gives `postgresql.conf` and
+   `pg_hba.conf` their seeded owner and mode back (`postgres:pgconf`,
+   `0664`), as the wrappers do (see "Wrappers").
 5. Sets `/var/log/postgresql` to `postgres:pgconf`, `2750` with the
    setgid bit, so every log file PostgreSQL writes there gets the group
    `pgconf` (the players' group).
@@ -193,9 +196,15 @@ The scenario's seed files replace PostgreSQL's defaults entirely:
   `local all gm_check scram-sha-256`, before any other line matching
   `gm_check` (v0.3 spec D171), both under a comment marking them DO NOT
   TAMPER, so a player tightening the general `local` line keeps the
-  sealed checks working; plus the players' access for `dba`, for example
+  sealed checks working; and `local replication postgres peer` beside
+  them (v0.3 spec D164), the hand-over snapshot's connection (see
+  "Snapshot"); plus the players' access for `dba`, for example
   `local all all scram-sha-256` and `host all all 0.0.0.0/0 scram-sha-256`
   (the password is SCRAM-hashed).
+- `wal_level` `replica` or `logical` (the default is `replica`), and
+  `max_wal_senders` and `max_replication_slots` left at 1 or more (their
+  defaults are 10): the snapshot needs a replication connection and a
+  slot.
 - `max_connections` above 5: the server does not start unless it is
   more than `superuser_reserved_connections` (3) plus the GM's
   `reserved_connections` (2). The envelope's minimum, 10, leaves five
@@ -466,7 +475,10 @@ The node has no web interface.
 ### Writable and protected paths, write policies
 
 - Writable by the player: `/etc/postgresql` (`postgres:pgconf`, `2775`;
-  seeded files `0664`), `/home/player` (`~/.pgpass`, rewritten at each
+  seeded files `0664`; an in-place edit by renaming, such as `sed -i`,
+  leaves a seeded file owned by `player` until the next reload, restart
+  or container start puts `postgres:pgconf` `0664` back; files players
+  add there are left as they made them), `/home/player` (`~/.pgpass`, rewritten at each
   start; `~/report.md`; pgBadger reports), and the scratch space `/tmp`
   and `/var/tmp`, both links to `/run/tmp` (root, `1777`, emptied at each
   start, see "Start-up").
@@ -474,7 +486,8 @@ The node has no web interface.
   `pglog`, `postgres:pgconf`).
 - Protected (root-owned, read-only to the player): `/etc/ssh/sshd_config`,
   `/etc/sudoers`, `/etc/sudoers.d/gm-player`, the entrypoint, the three
-  wrappers, the health check, `check-psql` (root only), the validator, the envelope file, the
+  wrappers, the snapshot helper and `check-psql` (both root only), the
+  health check, the validator, the envelope file, the
   s6-overlay service definitions (`/etc/s6-overlay/s6-rc.d`,
   `/etc/s6-overlay/user-bundles.d`) and the seed marker's directory
   `/var/lib/gm-state`.
@@ -483,6 +496,16 @@ The node has no web interface.
 
 ### Wrappers
 
+- Both `gm-reload-db` and `gm-restart-db` first give the seeded files
+  (`postgresql.conf`, `pg_hba.conf`) their owner and mode back,
+  `postgres:pgconf` `0664`, content untouched (v0.3 master spec 7.3 and
+  16, release gate RG-2): a file a player's `sed -i` left owned by
+  `player` is owned by `postgres` again. The file is opened without
+  following a symlink and changed through the open file, so a symlink a
+  player put in its place is never followed by root, and anything but a
+  regular file is left alone. Other files in `/etc/postgresql` are not
+  touched. The node is fixable only, so neither ever refuses as
+  report-only.
 - `gm-reload-db`: `pg_ctl reload` as `postgres`, then lists
   `pg_file_settings` and `pg_hba_file_rules` errors (including "needs a
   restart"). Exit 1 only if PostgreSQL is not running.
@@ -588,14 +611,52 @@ matter when the data file or the log grows.
 
 ### Snapshot
 
-How each volume is copied at hand-over (`snapshot:` in `brick.yaml`):
+How each volume is copied at hand-over (`snapshot:` in `brick.yaml`; v0.3
+master spec 6.4 and 7.3, capture W1 item 6):
 
-- `pgdata`: `pg_basebackup`, an online base backup taken through the
-  root-only helper `gm-snapshot-db` (built in v0.3 chunk 4); the server
-  keeps running.
+- `pgdata`: `pg_basebackup`, an online base backup through the root-only
+  helper `/usr/local/sbin/gm-snapshot-db` (no arguments, run as root
+  through the exec verb: `gmctl exec --node <node> --user root`, a script
+  running `/usr/local/sbin/gm-snapshot-db`); the server keeps running and
+  the load goes on.
+  - **Standard output**: a tar stream of the data directory, rooted at
+    it (`PG_VERSION`, `backup_label`, `base/`, ...), holding the WAL the
+    backup needs under `pg_wal/`. Restored as a `copy` is, by extracting
+    it into an empty data volume (`tar --extract --numeric-owner
+    --same-permissions`); the server completes the recovery at its next
+    start, and the entrypoint's role sync runs first. Diagnostics, one
+    `gm-snapshot-db: ...` line each, on standard error.
+  - **Exit status**: 0 on success; pg_basebackup's own status when the
+    backup fails (a broken connection, a reader that stops early); 1
+    when the helper fails before or after it (no slot, the slot still
+    there after the backup); 2 for arguments or a caller other than root.
+  - **How**: `pg_basebackup -h /run/postgresql -U postgres -w -D - -F tar
+    -X fetch --checkpoint=fast --no-manifest` as `postgres`, through the
+    seed's `local replication postgres peer` line. `-X fetch` copies the
+    WAL at the end of the backup, so a **temporary physical replication
+    slot**, `gm_snapshot`, reserves the WAL from just before the backup
+    starts: created with `pg_create_physical_replication_slot('gm_snapshot',
+    true, true)` by a `psql` session of its own, which holds it and reads
+    its commands from a FIFO in a work directory under `/run/gm`. Being
+    temporary, the slot goes with that session, which ends when the
+    helper closes the FIFO or exits in any way, a failure or a `SIGKILL`
+    included (no child of the helper holds the FIFO open); on success the
+    helper checks it is gone before exiting 0. A `SIGKILL` leaves only
+    the helper's work directory in `/run/gm`, emptied at the next
+    container start.
+    `--checkpoint=fast` starts the backup at once instead of waiting for
+    a spread checkpoint.
+  - **What players may notice afterwards**: the server log records the
+    checkpoint and the replication connection. Nothing stays: no slot,
+    no file in `/run/gm`.
 - `pgconf`, `home`, `gmstate`, `pglog`: `copy`, a tar of the volume while
-  the node runs.
+  the node runs (`tar --create --file=- --numeric-owner --directory=<volume
+  path> .`; exit 1, a file such as the log changing while read, is a copy).
 - `run` (`/run`) is never copied.
+
+Size of a snapshot: the data directory and the WAL segments written
+during the backup, 16MB each, plus the other volumes' copies. The stack
+test's small cluster gives a 41MB tar (one WAL segment), 2026-10-23.
 
 ## Supported faults
 
@@ -729,7 +790,14 @@ reach; v0.3 chunk 4a's: the reserve on the command line and out of
 slot taken reading `pg_hba_file_rules`, two check sessions fitting and a
 third refused, `gm-restart-db` refusing a `max_connections` that leaves
 no room, the lookup role and its function, the roles brought back in a
-new container), and removes everything it created, volumes included.
+new container; v0.3 chunk 4b's: a player's `sed -i` leaving
+`postgresql.conf` owned by `player` and `gm-reload-db`, `gm-restart-db`
+and a new container's start giving it its owner back, a symlink in
+place of `pg_hba.conf` never followed, `gm-snapshot-db`'s tar with its
+WAL, no slot left after it nor after a snapshot cut short, the tar
+restored with the other volumes' copies into a fresh container of a
+second stack, `gmtest-pgr`, that starts with the data and no slot), and
+removes everything it created, volumes included.
 Its seed has `max_connections = 10`, the envelope's minimum. Needs a
 swarm manager and the image built.
 

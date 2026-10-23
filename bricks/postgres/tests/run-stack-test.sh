@@ -20,7 +20,12 @@
 #     the check role gm_check connecting through check-psql with every
 #     ordinary slot taken and reading pg_hba_file_rules, two such sessions
 #     fitting and a third refused, the PgBouncer lookup role and
-#     gm_pgbouncer.lookup, the roles re-applied at a new container's start.
+#     gm_pgbouncer.lookup, the roles re-applied at a new container's start;
+#     the seeded files' owner and mode restored by gm-reload-db,
+#     gm-restart-db and a new container after a player's `sed -i`, never
+#     through a symlink; gm-snapshot-db's tar restored into a fresh
+#     container of a second stack (gmtest-pgr), with its data, the slot
+#     gone, and the slot gone after a failed snapshot.
 # Everything it creates is removed on exit, volumes included.
 #
 # Needs: a swarm manager (docker swarm init), the image built locally:
@@ -38,6 +43,8 @@ LABEL=dbagm.test=chunk2-postgres
 CONFIGS="seed_postgresql_conf seed_pg_hba_conf envelopes"
 SECRETS="player_ssh_pubkey dba_password monitoring_password gm_check_password pgbouncer_lookup_password"
 VOLUMES="pgdata pgconf home gmstate pglog run"
+RSTACK=gmtest-pgr                 # the snapshot restored (chunk 4b)
+RSERVICE=${RSTACK}_db
 SSH_OPTS="-i /root/id -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o LogLevel=ERROR -o ConnectTimeout=10"
 
 failures=0
@@ -55,27 +62,31 @@ cleanup() {
     set +e
     info "teardown"
     docker rm -f "$CLIENT" >/dev/null 2>&1
-    docker stack rm "$STACK" >/dev/null 2>&1
-    i=0
-    while [ "$i" -lt 60 ] && [ -n "$(docker ps -aq -f "label=com.docker.stack.namespace=$STACK")" ]; do
-        sleep 1; i=$((i + 1))
+    for st in "$STACK" "$RSTACK"; do
+        docker stack rm "$st" >/dev/null 2>&1
     done
-    i=0
-    while [ "$i" -lt 30 ] && docker network inspect "$NET" >/dev/null 2>&1; do
-        sleep 1; i=$((i + 1))
-    done
-    for v in $VOLUMES; do
-        j=0
-        while docker volume inspect "${STACK}_$v" >/dev/null 2>&1 && [ "$j" -lt 20 ]; do
-            docker volume rm "${STACK}_$v" >/dev/null 2>&1 || sleep 1
-            j=$((j + 1))
+    for st in "$STACK" "$RSTACK"; do
+        i=0
+        while [ "$i" -lt 60 ] && [ -n "$(docker ps -aq -f "label=com.docker.stack.namespace=$st")" ]; do
+            sleep 1; i=$((i + 1))
+        done
+        i=0
+        while [ "$i" -lt 30 ] && docker network inspect "${st}_net" >/dev/null 2>&1; do
+            sleep 1; i=$((i + 1))
+        done
+        for v in $VOLUMES; do
+            j=0
+            while docker volume inspect "${st}_$v" >/dev/null 2>&1 && [ "$j" -lt 20 ]; do
+                docker volume rm "${st}_$v" >/dev/null 2>&1 || sleep 1
+                j=$((j + 1))
+            done
         done
     done
     for c in $CONFIGS; do docker config rm "${STACK}_$c" >/dev/null 2>&1; done
     for s in $SECRETS; do docker secret rm "${STACK}_$s" >/dev/null 2>&1; done
     rm -rf "${tmp:?}"
-    left=$(docker ps -aq -f "label=com.docker.stack.namespace=$STACK")
-    left="$left$(docker volume ls -q -f "name=${STACK}_")$(docker config ls -q -f "name=${STACK}_")$(docker secret ls -q -f "name=${STACK}_")"
+    left=$(docker ps -aq -f "label=com.docker.stack.namespace=$STACK")$(docker ps -aq -f "label=com.docker.stack.namespace=$RSTACK")
+    left="$left$(docker volume ls -q -f "name=${STACK}_")$(docker volume ls -q -f "name=${RSTACK}_")$(docker config ls -q -f "name=${STACK}_")$(docker secret ls -q -f "name=${STACK}_")"
     if [ -n "$left" ]; then
         echo "WARNING: teardown left objects behind: $left"
     else
@@ -86,10 +97,12 @@ trap cleanup EXIT
 trap 'exit 130' INT TERM
 
 docker image inspect "$IMAGE" >/dev/null 2>&1 || { echo "image $IMAGE not built" >&2; exit 2; }
-if [ -n "$(docker stack ls --format '{{.Name}}' | grep -x "$STACK" || true)" ]; then
-    echo "stack $STACK already exists; remove it first" >&2
-    exit 2
-fi
+for st in "$STACK" "$RSTACK"; do
+    if [ -n "$(docker stack ls --format '{{.Name}}' | grep -x "$st" || true)" ]; then
+        echo "stack $st already exists; remove it first" >&2
+        exit 2
+    fi
+done
 
 # --- per-game material, as gmctl deploy would create it ---------------------
 ssh-keygen -q -t ed25519 -N '' -C gmtest-player -f "$tmp/id"
@@ -119,11 +132,11 @@ docker stack deploy --resolve-image never -c "$HERE/stack.test.yml" "$STACK" >/d
 # From here on, every check records its own result; keep going on failure.
 set +e
 
-db_container() { docker ps -q -f "label=com.docker.swarm.service.name=$SERVICE" -f status=running | head -n 1; }
-wait_healthy() {  # wait_healthy [old-container-id]: prints the healthy container id
+db_container() { docker ps -q -f "label=com.docker.swarm.service.name=${1:-$SERVICE}" -f status=running | head -n 1; }
+wait_healthy() {  # wait_healthy [old-container-id [service]]: prints the healthy container id
     i=0
     while [ "$i" -lt 180 ]; do
-        c=$(db_container)
+        c=$(db_container "${2:-}")
         if [ -n "$c" ] && [ "$c" != "${1:-}" ] \
            && [ "$(docker inspect -f '{{.State.Health.Status}}' "$c" 2>/dev/null)" = healthy ]; then
             echo "$c"
@@ -383,7 +396,28 @@ fi
 # --- restart path: postmaster knob, pending then in effect ----------------------
 pssh "sed -i -e 's/^work_mem = 128MB.*/work_mem = 8MB   # stack test edit/' -e 's/^max_connections = .*/max_connections = 300/' /etc/postgresql/postgresql.conf" \
     || fail "sed -i as player"
+CONF=/etc/postgresql/postgresql.conf
+HBA=/etc/postgresql/pg_hba.conf
+owner() { gm stat -c '%U:%G %a' "$@" | tr '\n' ' '; }
+m=$(owner "$CONF")
+[ "$m" = "player:pgconf 664 " ] && pass "sed -i by player leaves postgresql.conf owned by player ($m)" || fail "after sed -i: $m"
 pssh sudo -n gm-reload-db >/dev/null 2>&1 || true
+m=$(owner "$CONF")
+[ "$m" = "postgres:pgconf 664 " ] && pass "gm-reload-db gives postgresql.conf its seeded owner and mode back ($m)" \
+    || fail "owner after gm-reload-db: $m"
+# A symlink in place of a seeded file: root's chown and chmod never follow it.
+s0=$(gm stat -c '%a %U:%G' /run/gm/sudo.log)
+pssh "cp $HBA ~/hba.keep && ln -sf /run/gm/sudo.log $HBA" || fail "player replaces pg_hba.conf with a symlink"
+pssh sudo -n gm-reload-db >/dev/null 2>&1 || true
+s1=$(gm stat -c '%a %U:%G' /run/gm/sudo.log)
+[ "$s1" = "$s0" ] && [ "$(gm stat -c %F "$HBA")" = "symbolic link" ] \
+    && pass "gm-reload-db does not follow a symlinked seeded file (its target stays $s1)" \
+    || fail "symlinked seeded file: target $s0 -> $s1"
+pssh "rm -f $HBA && cp ~/hba.keep $HBA && rm -f ~/hba.keep" || fail "player puts pg_hba.conf back"
+pssh sudo -n gm-reload-db >/dev/null 2>&1 || true
+m=$(owner "$HBA")
+[ "$m" = "postgres:pgconf 664 " ] && pass "a seeded file a player recreated gets its seeded owner back ($m)" \
+    || fail "pg_hba.conf owner after recreation and reload: $m"
 out=$(pssh sudo -n gm-validate 2>&1); rc=$?
 if [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q '^RED max_connections: pending 300 (/etc/postgresql/postgresql.conf:' \
    && ! printf '%s' "$out" | grep -q 'in effect'; then
@@ -426,7 +460,12 @@ else
     fail "max_connections 5 restart: exit $rc: $out"
 fi
 pssh "sed -i -e 's/^max_connections = .*/max_connections = 50/' /etc/postgresql/postgresql.conf"
+m=$(owner "$CONF")
+[ "$m" = "player:pgconf 664 " ] || fail "precondition, postgresql.conf owned by player before gm-restart-db: $m"
 pssh sudo -n gm-restart-db >/dev/null 2>&1 || fail "restart back to the in-envelope configuration"
+m=$(owner "$CONF")
+[ "$m" = "postgres:pgconf 664 " ] && pass "gm-restart-db gives postgresql.conf its seeded owner and mode back ($m)" \
+    || fail "owner after gm-restart-db: $m"
 out=$(pssh sudo -n gm-validate 2>&1); rc=$?
 [ "$rc" -eq 0 ] && pass "validator green again after fixing (exit 0)" || fail "after fix: exit $rc: $out"
 
@@ -453,6 +492,9 @@ v=$(pg_q "$GMC_ROLES" 2>&1)
 [ "$w" = locked-out ] && [ "$v" = "pg_read_all_data,pg_use_reserved_connections" ] \
     && pass "dba locked gm_check out (NOLOGIN, another password) and took pg_monitor away" || fail "dba's changes to gm_check: [$w] [$v]"
 pssh "echo 'audit notes' > ~/report.md" && pass "player's home is writable (~/report.md)" || fail "home not writable"
+pssh "sed -i 's/^port = 5432$/port = 5432/' $CONF" || fail "sed -i before the new container"
+m=$(owner "$CONF")
+[ "$m" = "player:pgconf 664 " ] || fail "precondition, postgresql.conf owned by player before the new container: $m"
 info "forcing a new container (docker service update --force)"
 docker service update --force --detach "$SERVICE" >/dev/null 2>&1
 if C2=$(wait_healthy "$C"); then
@@ -463,6 +505,9 @@ else
 fi
 w=$(pssh "grep -c '^work_mem = 8MB   # stack test edit' /etc/postgresql/postgresql.conf" 2>&1 || true)
 [ "$w" = 1 ] && pass "/etc/postgresql edits kept in a new container (not re-seeded)" || fail "edits after new container: $w"
+m=$(owner "$CONF" /etc/postgresql)
+[ "$m" = "postgres:pgconf 664 postgres:pgconf 2775 " ] && pass "a new container's start gives the seeded files their owner and mode back ($m)" \
+    || fail "owner after a new container: $m"
 [ "$(gm cat "$MARKER")" = "$marker0" ] && pass "seed marker kept in a new container (volume gmstate)" || fail "marker after new container"
 w=$(pssh "psql -XAtc 'select i from stack_test'" 2>&1 || true)
 [ "$w" = 42 ] && pass "data kept in a new container" || fail "data after new container: $w"
@@ -481,6 +526,92 @@ w=$(pg_q "$GMC_ROLES" 2>&1)
     || fail "gm_check memberships after new container: $w"
 w=$(lookup_psql "$LOOKUP_PASSWORD" "select usename from gm_pgbouncer.lookup('dba')" 2>&1)
 [ "$w" = dba ] && pass "pgbouncer_lookup's password restored in the new container" || fail "lookup after new container: $w"
+
+# --- v0.3: the hand-over snapshot of pgdata (chunk 4b) ------------------------------
+m=$(gm stat -c '%a %U:%G' /usr/local/sbin/gm-snapshot-db)
+[ "$m" = "700 root:root" ] && pass "gm-snapshot-db root only ($m)" || fail "gm-snapshot-db mode: $m"
+denied "player cannot run gm-snapshot-db" /usr/local/sbin/gm-snapshot-db
+denied "player cannot sudo gm-snapshot-db" sudo -n /usr/local/sbin/gm-snapshot-db
+pssh "psql -Xqc 'create table snap_test(i int); insert into snap_test values (7)'" || fail "create snap_test"
+docker exec "$C" /usr/local/sbin/gm-snapshot-db > "$tmp/pgdata.tar" 2> "$tmp/snapshot.err"; rc=$?
+[ "$rc" -eq 0 ] && pass "gm-snapshot-db exit 0, $(wc -c < "$tmp/pgdata.tar") bytes on standard output" \
+    || fail "gm-snapshot-db: exit $rc: $(cat "$tmp/snapshot.err")"
+grep -q 'temporary replication slot gm_snapshot reserving WAL from ' "$tmp/snapshot.err" \
+    && pass "the snapshot reserved WAL with a temporary slot ($(grep -o 'from .*' "$tmp/snapshot.err"))" \
+    || fail "no slot line: $(cat "$tmp/snapshot.err")"
+list=$(tar -tf "$tmp/pgdata.tar" 2>&1)
+if printf '%s\n' "$list" | grep -qx 'PG_VERSION' && printf '%s\n' "$list" | grep -qx 'backup_label' \
+   && printf '%s\n' "$list" | grep -Eq '^pg_wal/[0-9A-F]{24}$' && ! printf '%s\n' "$list" | grep -q '^\.\./\|^/'; then
+    pass "the tar is rooted at the data directory and holds backup_label and its WAL ($(printf '%s\n' "$list" | grep -Ec '^pg_wal/[0-9A-F]{24}$') segment(s))"
+else
+    fail "tar contents: $(printf '%s\n' "$list" | head -n 5)"
+fi
+w=$(pg_q "select count(*) from pg_replication_slots" 2>&1)
+[ "$w" = 0 ] && pass "no replication slot left after the snapshot" || fail "slots after the snapshot: $w"
+out=$(docker exec "$C" sh -c '{ /usr/local/sbin/gm-snapshot-db; echo "status=$?" >&2; } | head -c 65536 >/dev/null' 2>&1)
+st=$(printf '%s\n' "$out" | grep -o '^status=[0-9]*$')
+case $st in
+    status=0|'') fail "a snapshot cut short did not fail: $out" ;;
+    *) pass "a snapshot whose reader stops early fails ($st: $(printf '%s\n' "$out" | grep 'gm-snapshot-db: pg_basebackup' | head -n 1))" ;;
+esac
+i=0
+while [ "$i" -lt 10 ] && [ "$(pg_q "select count(*) from pg_replication_slots" 2>/dev/null)" != 0 ]; do sleep 1; i=$((i + 1)); done
+w=$(pg_q "select count(*) from pg_replication_slots" 2>&1)
+[ "$w" = 0 ] && pass "the slot is dropped after a failed snapshot too" || fail "slots after a failed snapshot: $w"
+w=$(gm sh -c 'ls /run/gm | grep -c "^snapshot-db" || true')
+[ "$w" = 0 ] && pass "gm-snapshot-db leaves nothing in /run/gm" || fail "work directories left: $w"
+# SIGKILL of the helper mid-backup (its reader stalled, so the backup is in
+# flight): the holding session sees its FIFO close and the slot goes.
+docker exec -d "$C" sh -c '/usr/local/sbin/gm-snapshot-db 2>/dev/null | { sleep 15; cat >/dev/null; }'
+n=0; i=0
+while [ "$i" -lt 20 ]; do
+    n=$(pg_q "select count(*) from pg_replication_slots where slot_name = 'gm_snapshot' and temporary" 2>/dev/null)
+    [ "$n" = 1 ] && break
+    sleep 1; i=$((i + 1))
+done
+[ "$n" = 1 ] && pass "the temporary slot gm_snapshot exists while a backup runs" || fail "slot during a backup: $n"
+gm pkill -KILL -f '^/bin/sh /usr/local/sbin/gm-snapshot-db' || fail "kill -9 of gm-snapshot-db"
+i=0
+while [ "$i" -lt 10 ] && [ "$(pg_q "select count(*) from pg_replication_slots" 2>/dev/null)" != 0 ]; do sleep 1; i=$((i + 1)); done
+w=$(pg_q "select count(*) from pg_replication_slots" 2>&1)
+[ "$w" = 0 ] && pass "the slot is dropped when gm-snapshot-db is killed with SIGKILL (in ${i}s)" || fail "slots after a SIGKILL: $w"
+i=0
+while [ "$i" -lt 40 ] && gm pgrep -f pg_basebackup >/dev/null 2>&1; do sleep 1; i=$((i + 1)); done
+gm sh -c 'rm -rf /run/gm/snapshot-db.*'    # a SIGKILL leaves its work directory
+
+info "restoring the snapshot into a fresh container (stack $RSTACK)"
+for v in pgconf home gmstate pglog; do
+    case $v in
+        pgconf) path=/etc/postgresql ;; home) path=/home/player ;;
+        gmstate) path=/var/lib/gm-state ;; pglog) path=/var/log/postgresql ;;
+    esac
+    docker exec "$C" tar --create --file=- --numeric-owner --directory="$path" . > "$tmp/$v.tar"; rc=$?
+    [ "$rc" -le 1 ] || fail "copy of $v: exit $rc"
+done
+for v in pgdata pgconf home gmstate pglog; do
+    docker volume create --label "$LABEL" "${RSTACK}_$v" >/dev/null
+    docker run --rm -i --network none -v "${RSTACK}_$v:/v" --entrypoint tar "$IMAGE" \
+        --extract --file=- --numeric-owner --same-permissions --directory=/v < "$tmp/$v.tar" \
+        || fail "extract $v into ${RSTACK}_$v"
+done
+docker stack deploy --resolve-image never -c "$HERE/stack.test.yml" "$RSTACK" >/dev/null 2>&1
+if R=$(wait_healthy "" "$RSERVICE"); then
+    pass "a fresh container on the restored volumes is healthy ($R)"
+    rq() { docker exec -u postgres "$R" psql -XAtc "$1"; }
+    w=$(rq "select i from snap_test" 2>&1)
+    [ "$w" = 7 ] && pass "the restored cluster holds the data written before the snapshot" || fail "restored data: $w"
+    w=$(rq "select count(*) from pg_replication_slots" 2>&1)
+    [ "$w" = 0 ] && pass "the restored cluster has no replication slot" || fail "restored slots: $w"
+    check "the restored cluster finished its recovery (no backup_label left)" docker exec "$R" test ! -e /var/lib/postgresql/18/data/backup_label
+    w=$(docker exec -i "$R" /usr/local/lib/gm/check-psql -d postgres -XAtc 'select current_user' 2>&1)
+    [ "$w" = gm_check ] && pass "gm_check connects through check-psql in the restored cluster" || fail "gm_check restored: $w"
+    w=$(docker exec "$R" grep -c '^work_mem = 8MB   # stack test edit' /etc/postgresql/postgresql.conf 2>&1)
+    [ "$w" = 1 ] && pass "the restored configuration is the copied one, not re-seeded" || fail "restored configuration: $w"
+else
+    fail "a fresh container on the restored volumes did not become healthy"
+    docker service logs --tail 40 "$RSERVICE" 2>&1 || true
+fi
+docker stack rm "$RSTACK" >/dev/null 2>&1
 
 # --- hardening ---------------------------------------------------------------------
 check "root filesystem is read-only" sh -c "[ \"\$(docker inspect -f '{{.HostConfig.ReadonlyRootfs}}' $C)\" = true ]"

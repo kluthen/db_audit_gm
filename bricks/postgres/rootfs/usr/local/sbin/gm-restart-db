@@ -1,7 +1,9 @@
 #!/bin/sh
 # gm-restart-db: restart PostgreSQL. Usage: sudo gm-restart-db
 # DO NOT TAMPER. Root-owned, read-only; allowed by /etc/sudoers.d/gm-player.
-# Checks that the configuration loads and leaves room for the reserved
+# First gives the seeded files (postgresql.conf, pg_hba.conf) their owner
+# and mode back (postgres:pgconf, 0664; v0.3 master spec 7.3). Checks
+# that the configuration loads and leaves room for the reserved
 # connections, and refuses to restart if not, so a typo does not take the
 # server down. The restart goes through s6 (fast shutdown, then start);
 # the container keeps running.
@@ -28,6 +30,29 @@ setting() {
         -c hba_file=/etc/postgresql/pg_hba.conf \
         -c reserved_connections=$RESERVED -C "$1" 2>&1
 }
+# restore_seeded <file>...: owner postgres:pgconf, mode 0664 (the database
+# node is fixable only), content untouched. Opened without following a
+# symlink and changed through the open file, so a player's symlink or a
+# swap during the change never redirects root's chown or chmod; anything
+# but a regular file is left alone. Same code in gm-entrypoint.
+restore_seeded() {
+    perl -e '
+        use strict; use warnings; use Fcntl qw(O_RDONLY O_NOFOLLOW O_NONBLOCK);
+        my $uid = getpwnam("postgres"); my $gid = getgrnam("pgconf");
+        defined $uid && defined $gid or die "no postgres or pgconf\n";
+        for my $p (@ARGV) {
+            sysopen(my $fh, $p, O_RDONLY | O_NOFOLLOW | O_NONBLOCK) or next;
+            if (-f $fh) {
+                chown($uid, $gid, $fh) or warn "chown $p: $!\n";
+                chmod(0664, $fh) or warn "chmod $p: $!\n";
+            }
+            close($fh);
+        }' "$@"
+}
+
+# 0. The seeded files' owner and mode as seeded, before anything reads
+# them (an in-place edit such as `sed -i` leaves a file owned by player).
+restore_seeded /etc/postgresql/postgresql.conf /etc/postgresql/pg_hba.conf
 
 # 1. postgresql.conf loads (syntax, names, values), and max_connections
 #    exceeds the two reserves, without which the server does not start.

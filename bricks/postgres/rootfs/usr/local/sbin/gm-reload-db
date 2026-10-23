@@ -1,8 +1,10 @@
 #!/bin/sh
 # gm-reload-db: reload PostgreSQL's configuration. Usage: sudo gm-reload-db
 # DO NOT TAMPER. Root-owned, read-only; allowed by /etc/sudoers.d/gm-player.
-# Runs the reload as `postgres`, then lists what PostgreSQL found wrong in
-# the configuration files (bad values, settings that need a restart).
+# First gives the seeded files (postgresql.conf, pg_hba.conf) their owner
+# and mode back (postgres:pgconf, 0664; v0.3 master spec 7.3), then runs
+# the reload as `postgres`, then lists what PostgreSQL found wrong in the
+# configuration files (bad values, settings that need a restart).
 set -u
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
@@ -15,6 +17,29 @@ if [ "$#" -ne 0 ]; then
 fi
 
 as_postgres() { runuser -u postgres -- env HOME=/var/lib/postgresql "$@"; }
+# restore_seeded <file>...: owner postgres:pgconf, mode 0664 (the database
+# node is fixable only), content untouched. Opened without following a
+# symlink and changed through the open file, so a player's symlink or a
+# swap during the change never redirects root's chown or chmod; anything
+# but a regular file is left alone. Same code in gm-entrypoint.
+restore_seeded() {
+    perl -e '
+        use strict; use warnings; use Fcntl qw(O_RDONLY O_NOFOLLOW O_NONBLOCK);
+        my $uid = getpwnam("postgres"); my $gid = getgrnam("pgconf");
+        defined $uid && defined $gid or die "no postgres or pgconf\n";
+        for my $p (@ARGV) {
+            sysopen(my $fh, $p, O_RDONLY | O_NOFOLLOW | O_NONBLOCK) or next;
+            if (-f $fh) {
+                chown($uid, $gid, $fh) or warn "chown $p: $!\n";
+                chmod(0664, $fh) or warn "chmod $p: $!\n";
+            }
+            close($fh);
+        }' "$@"
+}
+
+# 0. The seeded files' owner and mode as seeded, before anything reads
+# them (an in-place edit such as `sed -i` leaves a file owned by player).
+restore_seeded /etc/postgresql/postgresql.conf /etc/postgresql/pg_hba.conf
 
 if ! as_postgres "$PGBIN/pg_ctl" reload -s -D "$PGDATA"; then
     echo "gm-reload-db: PostgreSQL is not running; nothing reloaded (use: sudo gm-restart-db)" >&2

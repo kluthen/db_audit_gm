@@ -18,6 +18,8 @@
 #      scenario with a pooler node), PgBouncer's lookup role
 #      pgbouncer_lookup and its function gm_pgbouncer.lookup;
 #   8. writes the player's ~/.pgpass.
+# Every start also gives the seeded files their owner and mode back
+# (step 4), as gm-reload-db and gm-restart-db do.
 set -eu
 
 PG_MAJOR=18
@@ -38,6 +40,26 @@ die() { log "fatal: $*"; exit 1; }
 # chmod_setgid <dir> <group> <mode>: chmod run with <group> as gid, so the
 # kernel keeps the setgid bit without CAP_FSETID (root is not in <group>).
 chmod_setgid() { setpriv --regid="$2" --clear-groups -- chmod "$3" "$1"; }
+# restore_seeded <file>...: owner postgres:pgconf, mode 0664 (the database
+# node is fixable only), content untouched. Opened without following a
+# symlink and changed through the open file, so a player's symlink or a
+# swap during the change never redirects root's chown or chmod; anything
+# but a regular file is left alone. Same code in gm-reload-db and
+# gm-restart-db.
+restore_seeded() {
+    perl -e '
+        use strict; use warnings; use Fcntl qw(O_RDONLY O_NOFOLLOW O_NONBLOCK);
+        my $uid = getpwnam("postgres"); my $gid = getgrnam("pgconf");
+        defined $uid && defined $gid or die "no postgres or pgconf\n";
+        for my $p (@ARGV) {
+            sysopen(my $fh, $p, O_RDONLY | O_NOFOLLOW | O_NONBLOCK) or next;
+            if (-f $fh) {
+                chown($uid, $gid, $fh) or warn "chown $p: $!\n";
+                chmod(0664, $fh) or warn "chmod $p: $!\n";
+            }
+            close($fh);
+        }' "$@"
+}
 # sql_quote <value>: the value as the inside of a SQL string literal.
 sql_quote() { printf '%s' "$1" | sed "s/'/''/g"; }
 # read_secret <name>: the secret's single-line value, or a fatal error.
@@ -109,6 +131,11 @@ if [ ! -e "$MARKER" ]; then
     chmod 0444 "$MARKER"
     log "seeded $CONF_DIR from $SEED_DIR"
 fi
+# Every start: the seeded files' owner and mode as seeded (a file a
+# player's `sed -i` left owned by `player` gets its owner back).
+for f in $SEED_FILES; do
+    restore_seeded "$CONF_DIR/$f"
+done
 
 # --- 5. log directory ---------------------------------------------------
 # The seed postgresql.conf points log_directory here (volume pglog); with

@@ -75,6 +75,7 @@ protected_files:
   - /usr/local/sbin/gm-reload-db
   - /usr/local/sbin/gm-restart-db
   - /usr/local/sbin/gm-validate
+  - /usr/local/sbin/gm-snapshot-db  # root only (0700): the pgdata snapshot (snapshot: below)
   - /usr/local/lib/gm/healthcheck
   - /usr/local/lib/gm/check-psql    # root only (0700): the sealed checks' psql as gm_check
   - /opt/gm/validator/validate.sh

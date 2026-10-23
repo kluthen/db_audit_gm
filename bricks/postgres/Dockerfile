@@ -90,8 +90,9 @@ RUN set -eux; \
     chmod 0755 /usr/local/sbin/gm-entrypoint /usr/local/sbin/gm-reload-db /usr/local/sbin/gm-restart-db \
         /usr/local/sbin/gm-validate /usr/local/lib/gm/healthcheck /opt/gm/validator/validate.sh \
         /etc/s6-overlay/s6-rc.d/postgres/run /etc/s6-overlay/s6-rc.d/sshd/run; \
-    # root only: the GM check role's psql (its secret is root's alone)
-    chmod 0700 /usr/local/lib/gm/check-psql; \
+    # root only: the GM check role's psql (its secret is root's alone) and
+    # the hand-over snapshot of pgdata (not a sudo wrapper)
+    chmod 0700 /usr/local/lib/gm/check-psql /usr/local/sbin/gm-snapshot-db; \
     chmod 0644 /etc/ssh/sshd_config /etc/motd /etc/profile.d/gm-postgres.sh; \
     chmod 0440 /etc/sudoers.d/gm-player; \
     visudo -c
