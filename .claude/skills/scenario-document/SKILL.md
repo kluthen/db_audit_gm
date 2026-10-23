@@ -8,7 +8,7 @@ description: Use whenever a db_audit_gm scenario's README.md (the scenario docum
 A scenario's `README.md` is its **scenario document**: the readable whole
 of the scenario, for the GM and the lead. It is **generated** from the two
 authoritative files, `scenario.yaml` and `gm/answer-key.yaml`, with this
-skill's [template](template.md). This is its **v0.2 version**, expected
+skill's [template](template.md). This is its **v0.3 version**, expected
 to evolve as games are played; when a game shows the document
 is missing something, change the template and this skill together, and
 the [format skill](../scenario-format/SKILL.md)'s templates first if the
@@ -18,8 +18,12 @@ Source of the shape: v0.1's master spec (`specs/versions/v0.1/master-spec.md`,
 section 6, and 6.2 for the content) and v0.2's
 (`specs/versions/v0.2/master-spec.md`, 6.3: evidence `where` and `source`,
 tooling expectations; 7.1 and 7.6: the node-health map and the web front's
-routes, rendered as "Map-valued parameters" below). The template's sections follow the
-keys of the format skill's
+routes, rendered as "Map-valued parameters" below) and v0.3's
+(`specs/versions/v0.3/master-spec.md`, 6.1 and 6.2: the aging, the
+difficulty, a fault instance's planting moment and aging minimum, a
+node's write overrides, a behavioural check's window and threshold; see
+"The v0.3 items" below). The template's sections follow the keys of the
+format skill's
 [scenario.yaml](../scenario-format/templates/scenario.yaml) and
 [answer-key.yaml](../scenario-format/templates/answer-key.yaml) templates,
 so the document is filled field by field.
@@ -83,6 +87,11 @@ reconcile by hand. A hand-written note that belongs to the GM goes to
      appears, and every answer-key entry, one per fault instance, with
      each evidence entry's `where` and `source`, and every tooling
      expectation;
+   - the difficulty score and level, the aging (or the line saying the
+     scenario does not age), every instance's planting moment (and aging
+     minimum, in a scenario that ages), every node's write overrides and
+     every behavioural check's window and threshold appear as the files
+     write them;
    - every entry of a map-valued parameter appears, in the order of the
      YAML and as `scenario.yaml` writes it: each `node-map` entry with
      its node and its services (or `default`), each `web-routes` route
@@ -133,6 +142,28 @@ node's bullets, before its resources (see the template).
 
 A shape not listed here is a change to this skill and its template
 first; never invent its rendering.
+
+## The v0.3 items
+
+- **Aging**: in a scenario with scheduler nodes, its minimum and the
+  hand-over time of day it was designed for, in scenario time. In one
+  with none, which does not age (v0.3 master spec 8, D157), the row says
+  so; there is then no aging-minimum column and every instance is
+  planted at `T0`. The shift and the customer's time zone are a game's,
+  computed at render: the document names neither.
+- **Difficulty**: the score, with the number of fault instances beside it,
+  which it equals, and the level when the file gives one.
+- **Planting moment**: `plant_at` as written, `T0` when absent; the
+  instance's `aging_minimum`, or "the definition's", only in a scenario
+  that ages. The document never reads the fault definitions for it.
+- **Write overrides**: a bullet under the node, after its write policy,
+  only for a node that has them.
+- **Behavioural check**: its window and threshold under the sealed check,
+  as the answer key writes them.
+- **Evidence locations**: the answer key's `where` as written (`bastion`,
+  `node:<name>`, `ui:<name>`, `report:<tool>`). The readings a fault
+  definition cannot carry (a web interface, another node) are the answer
+  key's, so the document shows them all.
 
 ## What it does not describe
 

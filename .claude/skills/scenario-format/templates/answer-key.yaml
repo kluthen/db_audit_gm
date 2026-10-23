@@ -1,8 +1,10 @@
 # answer-key.yaml — template for scenarios/<scenario-id>/gm/answer-key.yaml
 #
-# Version v0.2, expected to evolve as games are played.
-# Shape: v0.1 master spec section 6.2 ("The answer key") and v0.2 master
-# spec 6.3 (capture W1 of specs/versions/v0.2/wave-log.md). This file and
+# Version v0.3, expected to evolve as games are played.
+# Shape: v0.1 master spec section 6.2 ("The answer key"), v0.2 master
+# spec 6.3 (capture W1 of specs/versions/v0.2/wave-log.md) and v0.3 master
+# spec 6.2 and 11 (capture W1 of specs/versions/v0.3/wave-log.md, item 4:
+# a behavioural check's window and threshold). This file and
 # scenario.yaml are AUTHORITATIVE. It lives under gm/, which is sealed:
 # never shipped to any node, never shown to the players before their
 # final answer.
@@ -28,7 +30,11 @@ instances:                          # exactly one entry per fault instance in sc
                                     # from there included) | node:<name> (a node other than the
                                     # bastion) | ui:<name> (a route of the bastion's web_routes)
                                     # | report:<tool> (a generated report; <tool> lowercase,
-                                    # e.g. report:pgbadger)
+                                    # e.g. report:pgbadger). A fault definition reads only at
+                                    # node, bastion or report:<tool> (v0.3 master spec 6.3): a
+                                    # reading through a web interface, or on a node other than
+                                    # the target, is the scenario's and lives here only (D167);
+                                    # the fault's node is written node:<its target node>
         source: <file, view or command output>   # what is looked at (v0.1's free-text where, D101)
         how: <command run as player>
         shows: <what in the output reveals it>
@@ -45,7 +51,15 @@ instances:                          # exactly one entry per fault instance in sc
                                     # or the fault lists improve and the node is fixable
     sealed_check:
       script: <faults/pg-hba-trust/checks/fixed.sh>   # the fault definition's check
-      at_handover: 1                # expected exit code once planted (1: present)
+      at_handover: 1                # expected exit code once planted (1: present); a check may
+                                    # also exit 0 (fixed), 3 (too soon to tell, the remaining
+                                    # window on its first line) or another code (error)
+      window: <30m>                 # optional: required exactly when the fault's
+                                    # sealed_check.behavioural is true (v0.3 master spec 6.2, 11);
+                                    # a duration, the trailing window the check judges
+      threshold: <0>                # optional: required exactly with window; a number, as
+                                    # written, the limit the window is judged against (with a
+                                    # margin, master spec 11 rule 2)
       notes: <anything scenario-specific about reading its result>
     interactions: []                # with other instances; may be []:
                                     # [{instance: <f2>, kind: masks | masked-by | conflicts-with,

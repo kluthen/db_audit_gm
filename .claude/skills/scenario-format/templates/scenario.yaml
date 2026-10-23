@@ -1,9 +1,11 @@
 # scenario.yaml — template for scenarios/<scenario-id>/scenario.yaml
 #
-# Version v0.2, expected to evolve as games are played.
-# Shape: v0.1 master spec section 6 and v0.2 master spec 6.3 (capture W1 of
-# specs/versions/v0.2/wave-log.md). This file and gm/answer-key.yaml are
-# AUTHORITATIVE; README.md (the scenario document) is generated from them.
+# Version v0.3, expected to evolve as games are played.
+# Shape: v0.1 master spec section 6, v0.2 master spec 6.3 (capture W1 of
+# specs/versions/v0.2/wave-log.md) and v0.3 master spec 6.1 and 6.7, with
+# 7.1 for a scheduler's files (capture W1 of specs/versions/v0.3/wave-log.md,
+# items 0 and 1). This file and gm/answer-key.yaml are AUTHORITATIVE;
+# README.md (the scenario document) is generated from them.
 # A scenario never bumps its version (D58, D75); git history is the record.
 #
 # Markers:
@@ -17,6 +19,14 @@
 # Units: cpu as a number of CPUs (0.5); memory and disk as 512M, 1G.
 # Names (nodes, networks) are valid Kubernetes names: lowercase letters,
 # digits and hyphens, starting with a letter, at most 63 characters.
+# Durations: <integer><unit>, one unit of s, m, h, d (30m, 16h, 2d, 0m).
+# Moments: T0, or handover-<N>h with <N> a whole number of hours, at least 1.
+#
+# A scheduler node is a node whose brick id is `scheduler`. Only a scenario
+# with at least one scheduler node ages (v0.3 master spec 8, D157). One with
+# none omits `aging:`, and has no plant_at other than T0, no instance
+# aging_minimum and no {{customer_timezone}}; its fault definitions' aging
+# minima are not counted (D158, D160): its times stay UTC, as in v0.2.
 
 # --- Scenario information --------------------------------------------
 id: <scenario-id>
@@ -30,6 +40,19 @@ brief: brief.md                     # the initiator's inputs as given
 background: >-
   <Short GM-facing summary of the customer and their context. The full
   story the players read is player/story.md.>
+
+# --- Aging and difficulty (v0.3 master spec 6.1, 8, 15.1) ----------------
+aging:                              # optional: with a scheduler node only, required there and
+                                    # refused in a scenario with none (D157, D158)
+  minimum: <16h>                    # a duration, at least 8h and as long as the evidence needs
+                                    # (master spec 8.2): it covers every fault instance, its
+                                    # planting offset plus its own aging minimum
+  handover_at: <"14:00">            # the hand-over time of day designed for, in scenario time:
+                                    # quoted "HH:00", 24-hour, minutes always 00
+difficulty:
+  score: <10>                       # an integer, equal to the number of fault_instances (each
+                                    # fault is worth 1; tooling expectations do not count)
+  level: <normal>                   # optional: easy | normal | hard, the level it targets
 
 # --- Topology ---------------------------------------------------------
 networks:                           # each renders as <game_id>_<name>; v0.2 scenarios declare
@@ -47,6 +70,10 @@ nodes:                              # one entry per node (one service, one conta
     networks: [<backend>]
     write_policy: <fixable>         # fixable | report-only | no-access
                                     # (fixable and report-only only when the brick supports them)
+    write_overrides:                # optional: on a report-only node only; non-empty. Each entry
+      - </srv/scheduler/jobs>       # is one of the brick's writable_paths, exactly as written
+                                    # there, made fixable with what lies under it; the node's
+                                    # write_policy stays as written. Any brick (master spec 6.1)
     parameters: {}                  # map NAME -> value for the brick's parameters; every
                                     # required brick parameter is set; may be {}. A shaped
                                     # parameter takes a map: node-map, e.g. prometheus's
@@ -71,7 +98,20 @@ nodes:                              # one entry per node (one service, one conta
     seed_files:                     # one entry per file in the brick's seed.files; may be {}
       <postgresql.conf>: nodes/<db>/postgresql.conf
                                     # bastion: README.md: player/README.md, story.md:
-                                    # player/story.md, issues.md: player/issues.md
+                                    # player/story.md, issues.md: player/issues.md; they write
+                                    # the customer's zone {{customer_timezone}} (render fills
+                                    # it), never a fixed zone, and only with scheduler nodes.
+                                    # A scheduler node: queries.yaml, jobs.yaml, schedule.yaml
+                                    # and optionally builders/ (an entry ending in /: a folder
+                                    # of files), in scenario time, shaped as master spec 7.1.
+                                    # A postgres node's pg_hba.conf keeps, under its DO NOT
+                                    # TAMPER comment: local all postgres peer, local
+                                    # replication postgres peer, local all gm_check
+                                    # scram-sha-256 (D164, D171).
+                                    # A prometheus node's prometheus.yml keeps a retention time
+                                    # of at least aging.minimum plus 4h (4h with no aging) unless
+                                    # a planted fault is about retention (family: retention); a
+                                    # size bound stays above the TSDB's growth over that span
     knobs:                          # one entry per knob the brick declares; may be []
       - setting: <shared_buffers>
         initial: <2GB>              # the value in the seed file; may lie outside the envelope
@@ -103,19 +143,27 @@ fault_instances:                    # every fault planted in this scenario
     node: <db>                      # target node; its brick is in the fault's applies_to
     parameters: {}                  # map NAME -> value for the fault's parameters; may be {}
     visibility: <known>             # known | hidden; known exactly when an issue covers it
+    plant_at: <T0>                  # optional: T0 (the default: right after the data load, before
+                                    # the load starts) | handover-<N>h. Other than T0 only for a
+                                    # fault whose injection.kind is state, in a scenario with
+                                    # scheduler nodes; N at most aging.minimum and at least the
+                                    # instance's own aging minimum
+    aging_minimum: <4h>             # optional: with scheduler nodes only; a duration, at least the
+                                    # fault definition's aging.minimum, when it needs more here
 
 issues:                             # given to the players at hand-over; may be []
   - id: <I1>
     complaint: >-
       <The complaint as the players read it (also in player/issues.md).>
-    expected_resolution: <fix>      # report | propose | fix | improve
+    expected_resolution: <fix>      # report | propose | fix | improve; fix needs the policy of the
+                                    # file the fault lives in to be fixable (write_overrides)
     covers: [<f1>]                  # fault instance ids, and tooling expectation ids of
                                     # gm/answer-key.yaml (an issue covering only expectations
                                     # expects report or propose)
 
 # --- Host topology it was designed for -------------------------------
 designed_for:
-  platform: <swarm>                 # swarm (v0.1, v0.2)
+  platform: <swarm>                 # swarm (v0.1 to v0.3)
   hosts:
     - name: <host-1>
       cpu: <4>

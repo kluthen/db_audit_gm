@@ -30,6 +30,8 @@ for, not any one playground.
 | Origin | hand-written |
 | Session length | 60 minutes |
 | Brief | `brief.md` |
+| Difficulty | score 2 (2 fault instances) |
+| Aging | none: no scheduler node, so the scenario does not age; its faults show once planted, its times stay UTC |
 
 ### Initiator's inputs, as given
 
@@ -146,10 +148,12 @@ Placement and the reservations it was sized with:
 
 ### Fault instances
 
-| Instance | Fault | Node | Parameters | Visibility |
-|---|---|---|---|---|
-| `f1` | `fixture-random-page-cost` 0.1.0, scenario-only | `db` | none | hidden |
-| `f2` | `fixture-dropped-index` 0.1.0, scenario-only | `db` | column = customer_id, database = shop | hidden |
+| Instance | Fault | Node | Parameters | Visibility | Planted at |
+|---|---|---|---|---|---|
+| `f1` | `fixture-random-page-cost` 0.1.0, scenario-only | `db` | none | hidden | `T0` |
+| `f2` | `fixture-dropped-index` 0.1.0, scenario-only | `db` | column = customer_id, database = shop | hidden | `T0` |
+
+`T0`: right after the data load.
 
 ### Issues given to the players
 
@@ -176,8 +180,8 @@ Acceptable answers:
 - **Proposal**: lower random_page_cost to about 1.1.
 
 Sealed check: `faults/fixture-random-page-cost/checks/fixed.sh`, exit 1 at
-hand-over (0: fixed, 1: present). the scenario's own fault (faults/ in the
-fixture folder).
+hand-over (0: fixed, 1: present, 3: too soon to tell). the scenario's own
+fault (faults/ in the fixture folder).
 
 Interactions: none.
 
@@ -201,8 +205,8 @@ Acceptable answers:
 - **Fix**: a valid index leading with customer_id exists on orders, whatever its name.
 
 Sealed check: `faults/fixture-dropped-index/checks/fixed.sh`, exit 1 at
-hand-over (0: fixed, 1: present). planted after the data load by gmctl
-inject (a state fault).
+hand-over (0: fixed, 1: present, 3: too soon to tell). planted after the
+data load by gmctl inject (a state fault).
 
 Interactions: none.
 

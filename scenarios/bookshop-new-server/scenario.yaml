@@ -23,6 +23,12 @@ background: >-
   data rights on every table; made superuser after the load, f4); the
   brick creates dba, the players' superuser.
 
+# --- Aging and difficulty ---------------------------------------------
+# No aging: no scheduler node, so the scenario does not age and has no
+# `aging:` (v0.3 master spec 8, 15.4; D157, D158).
+difficulty:
+  score: 6                          # its six fault instances (master spec 15.1)
+
 # --- Topology ---------------------------------------------------------
 networks:
   - name: backend

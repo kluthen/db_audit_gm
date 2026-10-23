@@ -30,6 +30,8 @@ for, not any one playground.
 | Origin | hand-written |
 | Session length | 180 minutes |
 | Brief | `brief.md` |
+| Difficulty | score 6 (6 fault instances) |
+| Aging | none: no scheduler node, so the scenario does not age; its faults show once planted, its times stay UTC |
 
 ### Initiator's inputs, as given
 
@@ -164,14 +166,16 @@ Placement and the reservations it was sized with:
 
 ### Fault instances
 
-| Instance | Fault | Node | Parameters | Visibility |
-|---|---|---|---|---|
-| `f1` | `pg-hba-trust-remote` 0.1.0 | `db` | none | known |
-| `f2` | `pg-memory-over-envelope` 0.1.0 | `db` | setting = work_mem, max = 64MB | known |
-| `f3` | `pg-join-index-missing` 0.1.0 | `db` | database = bookshop, table-name = order_lines, column = order_id | known |
-| `f4` | `pg-role-superuser` 0.1.0 | `db` | role = shop_app | hidden |
-| `f5` | `pg-table-autovacuum-off` 0.1.0 | `db` | database = bookshop, table-name = orders | hidden |
-| `f6` | `pg-abandoned-replication-slot` 0.1.0 | `db` | slot-name = standby1 | hidden |
+| Instance | Fault | Node | Parameters | Visibility | Planted at |
+|---|---|---|---|---|---|
+| `f1` | `pg-hba-trust-remote` 0.1.0 | `db` | none | known | `T0` |
+| `f2` | `pg-memory-over-envelope` 0.1.0 | `db` | setting = work_mem, max = 64MB | known | `T0` |
+| `f3` | `pg-join-index-missing` 0.1.0 | `db` | database = bookshop, table-name = order_lines, column = order_id | known | `T0` |
+| `f4` | `pg-role-superuser` 0.1.0 | `db` | role = shop_app | hidden | `T0` |
+| `f5` | `pg-table-autovacuum-off` 0.1.0 | `db` | database = bookshop, table-name = orders | hidden | `T0` |
+| `f6` | `pg-abandoned-replication-slot` 0.1.0 | `db` | slot-name = standby1 | hidden | `T0` |
+
+`T0`: right after the data load.
 
 ### Issues given to the players
 
@@ -220,7 +224,7 @@ Evidence, as the `player` user (and `dba` in psql):
 | Where | Source | How | Shows |
 |---|---|---|---|
 | `node:db` | /etc/postgresql/pg_hba.conf on db | `ssh db, then cat /etc/postgresql/pg_hba.conf` | the `host all all 0.0.0.0/0 trust` line, above the scram-sha-256 host line |
-| `node:db` | pg_hba_file_rules | `psql -c "SELECT line_number, type, address, auth_method FROM pg_hba_file_rules"` | line 12: host, address 0.0.0.0 (netmask 0.0.0.0), trust; then line 14: the same address, scram-sha-256 |
+| `node:db` | pg_hba_file_rules | `psql -c "SELECT line_number, type, address, auth_method FROM pg_hba_file_rules"` | line 14: host, address 0.0.0.0 (netmask 0.0.0.0), trust; then line 16: the same address, scram-sha-256 |
 | `bastion` | a password-less login from the bastion | `PGPASSFILE=/nonexistent psql -w -h db -U dba -c 'SELECT 1'` | 1: the login succeeds with no password (it fails once trust is gone) |
 
 Acceptable answers:
@@ -239,10 +243,10 @@ Acceptable answers:
   password; the GM's peer line is intact (the validator says so).
 
 Sealed check: `faults/pg-hba-trust-remote/checks/fixed.sh`, exit 1 at
-hand-over (0: fixed, 1: present). The issue (I2) expects a proposal: a
-sealed check still at 1 is the expected outcome when the players only
-propose. If they also fixed it, it reads 0; both are acceptable. A file
-edited but not reloaded reads 1.
+hand-over (0: fixed, 1: present, 3: too soon to tell). The issue (I2)
+expects a proposal: a sealed check still at 1 is the expected outcome when
+the players only propose. If they also fixed it, it reads 0; both are
+acceptable. A file edited but not reloaded reads 1.
 
 Interactions: none.
 
@@ -284,10 +288,10 @@ Acceptable answers:
   pg_reload_conf()), or ALTER SYSTEM SET work_mem then a reload; the
   validator is green on work_mem (in effect and pending).
 
-Sealed check: `faults/pg-memory-over-envelope/checks/fixed.sh`, exit 1
-at hand-over (0: fixed, 1: present). Reads the value in effect. A file
-edit without a reload reads 1. A value under 1MB reads 0 but leaves the
-validator red: read the official validator run too.
+Sealed check: `faults/pg-memory-over-envelope/checks/fixed.sh`, exit 1 at
+hand-over (0: fixed, 1: present, 3: too soon to tell). Reads the value in
+effect. A file edit without a reload reads 1. A value under 1MB reads 0
+but leaves the validator red: read the official validator run too.
 
 Interactions: none.
 
@@ -324,9 +328,9 @@ Acceptable answers:
   foreign keys (all indexed here).
 
 Sealed check: `faults/pg-join-index-missing/checks/fixed.sh`, exit 1 at
-hand-over (0: fixed, 1: present). A multi-column index leading with
-order_id counts; one with order_id second does not. An invalid index
-(failed CONCURRENTLY build) does not count.
+hand-over (0: fixed, 1: present, 3: too soon to tell). A multi-column
+index leading with order_id counts; one with order_id second does not. An
+invalid index (failed CONCURRENTLY build) does not count.
 
 Interactions: none.
 
@@ -364,10 +368,10 @@ Acceptable answers:
   or revoking its grants, breaks the website and is not acceptable.
 
 Sealed check: `faults/pg-role-superuser/checks/fixed.sh`, exit 1 at
-hand-over (0: fixed, 1: present). A dropped role reads 0 with a line
-saying the application lost its login: judge it as not acceptable. The
-check does not test the grants; when it reads 0, run \dp on bookshop
-through gmctl exec before accepting the fix.
+hand-over (0: fixed, 1: present, 3: too soon to tell). A dropped role
+reads 0 with a line saying the application lost its login: judge it as not
+acceptable. The check does not test the grants; when it reads 0, run \dp
+on bookshop through gmctl exec before accepting the fix.
 
 Interactions: none.
 
@@ -402,9 +406,9 @@ Acceptable answers:
 - **Fix**: orders no longer has autovacuum_enabled set to false (reset,
   or set to on).
 
-Sealed check: `faults/pg-table-autovacuum-off/checks/fixed.sh`, exit 1
-at hand-over (0: fixed, 1: present). Hidden; a manual VACUUM alone does
-not change the check (the option stays off).
+Sealed check: `faults/pg-table-autovacuum-off/checks/fixed.sh`, exit 1 at
+hand-over (0: fixed, 1: present, 3: too soon to tell). Hidden; a manual
+VACUUM alone does not change the check (the option stays off).
 
 Interactions: none.
 
@@ -439,10 +443,10 @@ Acceptable answers:
   with a new standby.
 - **Fix**: the slot standby1 no longer exists.
 
-Sealed check: `faults/pg-abandoned-replication-slot/checks/fixed.sh`,
-exit 1 at hand-over (0: fixed, 1: present). Hidden. Setting
-max_slot_wal_keep_size alone leaves the slot (reads 1): an improvement,
-worth crediting, not the fix.
+Sealed check: `faults/pg-abandoned-replication-slot/checks/fixed.sh`, exit
+1 at hand-over (0: fixed, 1: present, 3: too soon to tell). Hidden.
+Setting max_slot_wal_keep_size alone leaves the slot (reads 1): an
+improvement, worth crediting, not the fix.
 
 Interactions: none.
 
