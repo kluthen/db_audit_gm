@@ -184,7 +184,7 @@ class TestDeploy(RenderedGame):
 
     def test_missing_image_is_refused(self):
         fake = FakeDocker(images=False)
-        with self.assertRaisesRegex(GmError, "127.0.0.1:5000/dbagm/postgres:0.2.0"):
+        with self.assertRaisesRegex(GmError, "127.0.0.1:5000/dbagm/postgres:0.3.0"):
             self.deploy(fake)
         self.assertFalse(fake.called("stack", "deploy"))
         self.assertEqual(localimpl.read_state(self.ldir)["stage"], "rendered")

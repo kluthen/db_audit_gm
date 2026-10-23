@@ -13,8 +13,13 @@ severity: high
 applies_to:
   bricks:
     - id: postgres
-      versions: ["0.1.0", "0.1.1", "0.2.0"]
+      versions: ["0.1.0", "0.1.1", "0.2.0", "0.3.0"]
   preconditions: []
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 0m                       # the evidence shows at once (a restored state, D160)
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:
@@ -44,13 +49,16 @@ injection:
 
 # --- What the players can see ------------------------------------------
 evidence:
-  - where: the public validator
-    how: on the database node, sudo gm-validate
+  - where: node
+    source: the public validator
+    how: sudo gm-validate
     shows: a RED line for the setting, in effect and pending above the envelope's maximum
-  - where: postgresql.conf and the value in effect
+  - where: node
+    source: postgresql.conf and the value in effect
     how: grep the setting in /etc/postgresql/postgresql.conf; psql -c 'SHOW {SETTING}'
     shows: the value, far above the envelope and out of proportion with the node's memory
-  - where: the node's memory limit and max_connections
+  - where: node
+    source: the node's memory limit and max_connections
     how: cat /sys/fs/cgroup/memory.max; psql -c 'SHOW max_connections'
     shows: that a few concurrent sorts or hashes at that size exceed the memory the node has
 

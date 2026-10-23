@@ -2,14 +2,14 @@
 
 GM documentation of the `postgres-exporter` brick (`brick.yaml`, v0.2
 master spec 7 and 7.3; required sections: v0.2 master spec 6.2). Never
-shipped to players. Brick version 0.1.0, expected to evolve as games are
+shipped to players. Brick version 0.2.0, expected to evolve as games are
 played.
 
 ## Purpose
 
 `postgres_exporter` 0.20.1 on Debian 13 (trixie), with an SSH server for
-the players, in the image `127.0.0.1:5000/dbagm/postgres-exporter:0.1.0`.
-It fills the role `metrics-exporter`: the node that reads PostgreSQL's
+the players, in the image `127.0.0.1:5000/dbagm/postgres-exporter:0.2.0`.
+It fills the role `monitoring`: the node that reads PostgreSQL's
 statistics with a monitoring role and serves them as Prometheus metrics
 (`pg_up`, the default collectors' metrics, and the query statistics of
 `pg_stat_statements` when the scenario asks for them), which a
@@ -37,12 +37,12 @@ The image:
 - **What gets installed**: a node of its own, from the brick's image. The
   image must be on the engine that runs the game: deployment never pulls
   it (`gmctl deploy` deploys with `--resolve-image never`).
-- **Build**: `docker build -t 127.0.0.1:5000/dbagm/postgres-exporter:0.1.0 bricks/postgres-exporter`.
+- **Build**: `docker build -t 127.0.0.1:5000/dbagm/postgres-exporter:0.2.0 bricks/postgres-exporter`.
 - **How many**: one per watched database; it watches the one database
   its seed file names.
 - **Next to which node**: any host; it reaches the database by node name
   over the game's network, and Prometheus reaches it the same way.
-- **What it needs**: a `postgres` 0.2.0 node (or later) in the same game:
+- **What it needs**: a `postgres` 0.3.0 node (or later) in the same game:
   that brick creates the role `monitoring` (member of `pg_monitor`) when
   it initialises its cluster, with the password from the same secret,
   `monitoring_password`. A cluster initialised by an older image has no
@@ -89,8 +89,8 @@ COLLECTORS=--collector.stat_statements
 
 | Key | Required | Value |
 |---|---|---|
-| `DATA_SOURCE_URI` | yes | `<db node>:5432/postgres?sslmode=disable`: host, port, database, options, without user or password. `sslmode=disable` because `postgres` 0.2.0 runs without SSL. |
-| `DATA_SOURCE_USER` | yes | `monitoring`, the role `postgres` 0.2.0 creates. |
+| `DATA_SOURCE_URI` | yes | `<db node>:5432/postgres?sslmode=disable`: host, port, database, options, without user or password. `sslmode=disable` because `postgres` 0.3.0 runs without SSL. |
+| `DATA_SOURCE_USER` | yes | `monitoring`, the role `postgres` 0.3.0 creates. |
 | `COLLECTORS` | no | space-separated `--collector.<name>` and `--no-collector.<name>` words, `<name>` one of the release's collectors (`/usr/local/lib/gm/exporter-collectors`). `--collector.stat_statements` turns the query statistics on; it is off by default. Absent or empty: the default collectors. |
 
 The file is not valid, and the service does not start, when it has an
@@ -317,7 +317,8 @@ since a brick's footprint excludes mounted material. The scenario's
 the container about 10–13M of memory, `postgres_exporter` about 17–19M of
 RSS. The scenario sets each node's own `resources`, and `gmctl` uses
 those, never the brick's footprint; disk is only counted by the capacity
-check.
+check. Disk growth per hour (`disk_growth_per_hour`): `1M`, a provisional
+estimate, to be replaced by v0.3 chunk 15b's measurement.
 
 Measured in the v0.2 game (`fernway-clinics-monitoring` on the `laptop`
 playground, declared at 2 CPU / 4G / 8G on armenelos: AMD Ryzen 5 PRO
@@ -347,10 +348,18 @@ What makes it grow:
 The levers that shrink it: a longer scrape interval, fewer collectors
 (`--no-collector.<name>` in `COLLECTORS`).
 
+### Snapshot
+
+How each volume is copied at hand-over (`snapshot:` in `brick.yaml`):
+
+- `expconf`, `home`, `gmstate`: `copy`, a tar of the volume while the
+  node runs.
+- `run` (`/run`) is never copied.
+
 ## Supported faults
 
 Which faults the brick hosts is stated only by each fault's `applies_to`
-(D59). No catalog fault (`faults/`) names `postgres-exporter` `0.1.0`,
+(D59). No catalog fault (`faults/`) names `postgres-exporter` `0.2.0`,
 so it supports none.
 
 It shows one catalog fault of another brick: `pg-stat-statements-not-preloaded`
@@ -431,7 +440,7 @@ series (unless a planted fault says otherwise); in Prometheus,
 
 `sh bricks/postgres-exporter/tests/run-stack-test.sh` deploys the brick as
 the stack `gmtest-pgexp` (`tests/stack.test.yml`, fixtures in
-`tests/fixtures/`, no published port) next to a `postgres` 0.2.0 node
+`tests/fixtures/`, no published port) next to a `postgres` 0.3.0 node
 `db` (its seed `postgresql.conf` from the postgres brick's fixtures, with
 the preload; a `pg_hba.conf` `host` line for `monitoring`), both reading
 the same `monitoring_password`, checks the chunk's Done-when and removes
@@ -441,7 +450,7 @@ secret out of `player`'s reach and out of the server's arguments, the
 wrappers, the validator green and red, a wrong address, the database
 down, a file not valid at start, a new container, the hardening, and the
 entrypoint refusing a missing, empty or multi-line password. Needs a swarm
-manager, this image and the `postgres` 0.2.0 image (the `db` node and the
+manager, this image and the `postgres` 0.3.0 image (the `db` node and the
 test client) built.
 
 ## Known limits

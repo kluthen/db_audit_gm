@@ -10,8 +10,13 @@ severity: medium
 applies_to:
   bricks:
     - id: postgres
-      versions: ["0.1.0", "0.1.1", "0.2.0"]
+      versions: ["0.1.0", "0.1.1", "0.2.0", "0.3.0"]
   preconditions: []
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 0m                       # the evidence shows at once (a restored state, D160)
 
 parameters:
   database:
@@ -36,7 +41,8 @@ injection:
   run_as: root
 
 evidence:
-  - where: the table's indexes, and the plan of a lookup by customer
+  - where: node
+    source: the table's indexes, and the plan of a lookup by customer
     how: psql -c '\d orders', then EXPLAIN SELECT * FROM orders WHERE customer_id = 42
     shows: no index on customer_id; the lookup is a sequential scan of orders
 

@@ -3,13 +3,13 @@
 GM documentation of the `grafana` brick (`brick.yaml`, v0.2 master spec 7
 and 7.4; required sections: v0.2 master spec 6.2; interface: capture W3 in
 `specs/versions/v0.2/wave-log.md`). Never shipped to players. Brick
-version 0.1.0, expected to evolve as games are played.
+version 0.2.0, expected to evolve as games are played.
 
 ## Purpose
 
 Grafana OSS 13.2.4 on Debian 13 (trixie), with an SSH server for the
-players, in the image `127.0.0.1:5000/dbagm/grafana:0.1.0`. It fills the
-role `dashboards`: the customer's dashboards and alerting, built on the
+players, in the image `127.0.0.1:5000/dbagm/grafana:0.2.0`. It fills the
+role `monitoring`: the customer's dashboards and alerting, built on the
 game's Prometheus, which the players audit and read through its UI. There
 is no separate alerting brick: Grafana's own alerting evaluates the alert
 rules, and there is no notification channel, so firing alerts are read in
@@ -43,12 +43,12 @@ The image:
 - **What gets installed**: a node of its own, from the brick's image. The
   image must be on the engine that runs the game: deployment never pulls
   it (`gmctl deploy` deploys with `--resolve-image never`).
-- **Build**: `docker build -t 127.0.0.1:5000/dbagm/grafana:0.1.0 bricks/grafana`.
+- **Build**: `docker build -t 127.0.0.1:5000/dbagm/grafana:0.2.0 bricks/grafana`.
 - **How many**: one per scenario. Prometheus and Grafana always keep
   separate nodes.
 - **Next to which node**: any host; it reaches Prometheus by node name over
   the game's network, and the bastion's web front reaches it the same way.
-- **What it needs**: the bastion at 0.2.0 or later with the route
+- **What it needs**: the bastion at 0.3.0 or later with the route
   `grafana` in its `web_routes` (the loader refuses a web interface without
   a route), and a `prometheus` node for the data source. The bastion's
   `tools_password` is the same secret as this node's (see "Configuration").
@@ -304,7 +304,11 @@ and the wrapper, so a fix lives in the file and survives a restart.
 - Writable by the player: `/etc/grafana/provisioning` (`grafana:grafconf`,
   `2775`; seeded files `0664`), `/home/player`, and the scratch space `/tmp`
   and `/var/tmp`, both links to `/run/tmp` (root, `1777`, emptied at each
-  start, see "Start-up").
+  start, see "Start-up"). `brick.yaml`'s `writable_paths` also declares the
+  three provisioning subdirectories `/etc/grafana/provisioning/alerting`,
+  `/etc/grafana/provisioning/dashboards` and
+  `/etc/grafana/provisioning/datasources`, each a possible
+  `write_overrides` entry.
 - Protected (root-owned, read-only to the player): `grafana.ini`,
   `/etc/ssh/sshd_config`, `/etc/sudoers`, `/etc/sudoers.d/gm-player`, the
   entrypoint, the two wrappers, the health check, the API helper (also not
@@ -399,7 +403,8 @@ brick), since a brick's footprint excludes mounted material. The memory
 reservation is measured: a node of `272M` (this figure plus the script's
 6M) in place of the spec's estimate of 160M, which the node exceeded at
 rest. The scenario sets each node's own `resources`, and `gmctl` uses
-those.
+those. Disk growth per hour (`disk_growth_per_hour`): `2M`, a provisional
+estimate, to be replaced by v0.3 chunk 15b's measurement.
 
 Measured in the v0.2 game (`fernway-clinics-monitoring` on the `laptop`
 playground, declared at 2 CPU / 4G / 8G on armenelos: AMD Ryzen 5 PRO
@@ -440,11 +445,24 @@ estimate of about 450M: the Grafana binary alone is 499M (Go, with debug
 information, kept as published), the front end about 130M without its
 source maps, the Prometheus data source plugin 54M.
 
+### Snapshot
+
+How each volume is copied at hand-over (`snapshot:` in `brick.yaml`):
+
+- `grafdata`: `stop`. The brick's services other than `sshd` (here
+  `grafana`) are stopped through s6, never by a Swarm scale to zero,
+  while the volume is copied, then started again: Grafana is briefly
+  down at hand-over (the health checks stay green; the players are told
+  it is maintenance).
+- `grafconf`, `home`, `gmstate`: `copy`, a tar of the volume while the
+  node runs.
+- `run` (`/run`) is never copied.
+
 ## Supported faults
 
 Which faults the brick hosts is stated only by each fault's `applies_to`
 (D59). This list is every catalog fault (`faults/`) whose `applies_to`
-names `grafana` `0.1.0`, and no other.
+names `grafana` `0.2.0`, and no other.
 
 | Fault | Kind | What it needs from the brick |
 |---|---|---|
@@ -546,7 +564,7 @@ answering at `/grafana/` through the bastion's web front.
 
 `sh bricks/grafana/tests/run-stack-test.sh` deploys the brick as stack
 `gmtest-grafana` (`tests/stack.test.yml`, no published port) with its five
-seed files copied from `companion/` and a `prometheus` 0.1.0 node seeded
+seed files copied from `companion/` and a `prometheus` 0.2.0 node seeded
 with that brick's test fixture, checks the chunk's Done-when and removes
 everything it created, volumes included. It reads the API with the helper,
 the UI from a client container on the stack's network (this image, entry

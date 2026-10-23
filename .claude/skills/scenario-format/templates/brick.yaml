@@ -1,11 +1,15 @@
 # brick.yaml — template for bricks/<brick-id>/brick.yaml
 #
-# Version v0.2, expected to evolve as games are played.
-# Shape: v0.1 master spec section 7 and v0.2 master spec 6.1; top-level
-# keys fixed by v0.1's capture W1-A (specs/versions/v0.1/wave-log.md),
-# amended by v0.2's capture W1 (specs/versions/v0.2/wave-log.md: the
-# footprint's shape, `interfaces` required, `companion.mounted`, `receives`,
-# secret kinds, parameter shapes); D59 dropped `compatible_faults`. Do not
+# Version v0.3, expected to evolve as games are played.
+# Shape: v0.1 master spec section 7, v0.2 master spec 6.1 and v0.3 master
+# spec 6.4 and 6.7; top-level keys fixed by v0.1's capture W1-A
+# (specs/versions/v0.1/wave-log.md), amended by v0.2's capture W1
+# (specs/versions/v0.2/wave-log.md: the footprint's shape, `interfaces`
+# required, `companion.mounted`, `receives`, secret kinds, parameter shapes)
+# and v0.3's capture W1 (specs/versions/v0.3/wave-log.md, item 3: the roles
+# list, the growth per hour, `writable_paths`, `seed.paths`, `seed.modes`,
+# directory seed entries, `only_with_role`, `report_tools`, `snapshot`);
+# D59 dropped `compatible_faults`. Do not
 # add, rename or drop a top-level key here; brick-specific extras go under
 # `extra`.
 #
@@ -28,8 +32,9 @@ id: <brick-id>                      # lowercase, hyphens (postgres, bastion)
 version: <0.1.0>                    # semver string; any change to the brick's folder bumps it,
                                     # a change made while the new version is unreleased folds
                                     # into it (released by its version's release gate, D100)
-roles:                              # role names (database, bastion)
-  - <role>
+roles:                              # each one of the closed list (v0.3 master spec 6.4): bastion
+  - <role>                          #   producer queue database pooler transformer consumer
+                                    #   monitoring backup
 technology:
   name: <technology>                # postgresql, openssh
   version: "<engine-version>"       # quoted ("18")
@@ -41,7 +46,10 @@ footprint:                          # the default the GM starts from when it siz
                                     # its own resources per node. Excludes any material other
                                     # bricks mount into this one (their docs/gm.md state its cost)
   limits:       {cpu: <1>, memory: <1G>}                  # CPUs; memory as 512M, 1G
-  reservations: {cpu: <0.5>, memory: <512M>, disk: <1G>}
+  reservations: {cpu: <0.5>, memory: <512M>, disk: <1G>}   # at rest
+  disk_growth_per_hour: <40M>       # a size: the volumes' growth per hour of aging and of game,
+                                    # as measured, so `fit` scales it to the scenario's aging;
+                                    # 0 when nothing grows (v0.3 master spec 6.4)
 # footprint_ranges:                 # optional in v0.1 (shape to settle when first used)
 #   cpu: {min: <0.25>, max: <2>}
 #   memory: {min: <256M>, max: <4G>}
@@ -71,8 +79,10 @@ knobs:                              # settings the player may change; may be [] 
 # --- Player plane -----------------------------------------------------
 write_policies:                     # policies this brick supports
   - <fixable>                       # fixable | report-only
-writable_paths:                     # in-container paths the player may change; may be []
-  - <path>
+writable_paths:                     # may be []: in-container paths the player may change on a
+  - <path>                          # fixable node, and the only paths a report-only node's
+                                    # write_overrides may name (v0.3 master spec 6.4); a file or a
+                                    # directory, absolute, no whitespace, no trailing /
 protected_files:                    # in-container paths, root-owned, read-only
   - <path>
 player_access:
@@ -100,6 +110,8 @@ secrets:                            # per-game secrets gmctl deploy creates; may
     pair: <player_ssh_key>          # optional: kind key-pair; the pair's name (ed25519, no
                                     # passphrase; files <pair> and <pair>.pub)
     half: <private>                 # optional: kind key-pair; private | public, the file mounted
+    only_with_role: <pooler>        # optional: generated and mounted only when a node of the
+                                    # topology has this role; absent: always
     path: </opt/gm/secrets/<logical-name>>   # fixed in-container path
     uid: <0>
     gid: <0>
@@ -107,7 +119,13 @@ secrets:                            # per-game secrets gmctl deploy creates; may
 seed:                               # where the scenario's seed files land (read-only configs)
   dir: </opt/gm/seed/>              # fixed in-container directory
   files:                            # seed file names the scenario must provide; may be []
-    - <postgresql.conf>
+    - <postgresql.conf>             # an entry ending in / is a directory of files the scenario
+                                    # names (builders/), optional in seed_files; each file becomes
+                                    # one seed config at <dir><entry><file>
+  paths:                            # may be {} (no seed file): each seed file -> its live
+    <postgresql.conf>: </etc/postgresql/postgresql.conf>   # in-container path; a directory for a / entry
+  modes:                            # optional: a seed file whose config mode is not "0444" (0:0)
+    <schedule.yaml>: "<0400>"       # quoted octal string
 protected_configs:                  # read-only configs rendered per game; may be []
   - name: <logical-name>            # e.g. envelopes
     path: </opt/gm/protected/<file>>
@@ -119,6 +137,14 @@ volumes:                            # named volumes; may be [] for a stateless b
     path: <in-container path>
 processes:                          # s6-overlay service names
   - <sshd>
+snapshot:                           # optional: how each volume is copied at hand-over (v0.3 master
+  <volume>: <copy>                  # spec 6.4, 12): pg_basebackup (the database's data, online; at
+                                    # most one per brick, which ships gm-snapshot-db) | copy (a
+                                    # plain copy while the node runs: seeded, append-only or
+                                    # whole-file-rewritten files) | stop (a brief s6 stop of the
+                                    # brick's services while the volume is copied). When present,
+                                    # names every volume but the one at /run, once; absent: every
+                                    # volume but /run by stop. /run is never copied
 
 # --- Catalog links ----------------------------------------------------
 # No fault list: which faults a brick hosts is stated only by each fault's
@@ -136,6 +162,8 @@ interfaces:                         # container ports; a scenario's flows connec
     - name: <sql>
       protocol: <postgresql>
       port: <5432>
+report_tools: [<pgbadger>]          # optional: report generators players run on this node; a
+                                    # fault's evidence may name report:<tool> for one of them
 companion:                          # optional: only when the brick ships companion/ material
   path: companion/
   when: <when the GM runs or uses it, e.g. "before deploying a scenario that uses this brick">

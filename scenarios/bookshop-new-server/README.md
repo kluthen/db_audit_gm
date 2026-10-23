@@ -73,12 +73,12 @@ The story as the players read it: `player/story.md`.
 
 | Node | Brick | Role | Stateful | Networks | Write policy |
 |---|---|---|---|---|---|
-| `bastion` | `bastion` 0.2.0 | bastion | yes | backend | report-only |
-| `db` | `postgres` 0.2.0 | database | yes | backend | fixable |
+| `bastion` | `bastion` 0.3.0 | bastion | yes | backend | report-only |
+| `db` | `postgres` 0.3.0 | database | yes | backend | fixable |
 
 #### Node `bastion`
 
-- **Brick**: `bastion`, version 0.2.0 (pinned).
+- **Brick**: `bastion`, version 0.3.0 (pinned).
 - **Role**: bastion. **Stateful**: yes. **Write policy**:
   report-only.
 - **Networks**: backend.
@@ -100,7 +100,7 @@ No knobs.
 
 #### Node `db`
 
-- **Brick**: `postgres`, version 0.2.0 (pinned).
+- **Brick**: `postgres`, version 0.3.0 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.

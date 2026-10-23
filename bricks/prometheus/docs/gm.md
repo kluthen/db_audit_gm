@@ -2,13 +2,13 @@
 
 GM documentation of the `prometheus` brick (`brick.yaml`, v0.2 master
 spec 7 and 7.2; required sections: v0.2 master spec 6.2). Never shipped
-to players. Brick version 0.1.0, expected to evolve as games are played.
+to players. Brick version 0.2.0, expected to evolve as games are played.
 
 ## Purpose
 
 Prometheus 3.13.5 on Debian 13 (trixie), with an SSH server for the
-players, in the image `127.0.0.1:5000/dbagm/prometheus:0.1.0`. It fills
-the role `metrics-store`: the node that scrapes and keeps the game's
+players, in the image `127.0.0.1:5000/dbagm/prometheus:0.2.0`. It fills
+the role `monitoring`: the node that scrapes and keeps the game's
 metrics, which the players audit as the customer's monitoring and read
 through its UI, and which a Grafana node queries. The GM picks it for
 every scenario with monitoring; one per scenario. It ships the
@@ -40,9 +40,9 @@ The image:
   script" below. No image carries it; a receiving node's brick must
   declare `receives` meeting the item's `requires` (s6-overlay `3`, the
   commands `sh`, `perl`, `du`, `df`, `s6-svstat`), which `postgres` and
-  `bastion` 0.2.0, `postgres-exporter` and `grafana` 0.1.0, and this brick
+  `bastion` 0.3.0, `postgres-exporter` and `grafana` 0.2.0, and this brick
   do.
-- **Build**: `docker build -t 127.0.0.1:5000/dbagm/prometheus:0.1.0 bricks/prometheus`.
+- **Build**: `docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.0 bricks/prometheus`.
 - **How many**: one per scenario. Prometheus and Grafana always keep
   separate nodes.
 - **Next to which node**: any host; it reaches its scrape targets by node
@@ -393,6 +393,8 @@ figures for a Prometheus node (limits 0.5 / 384M, reservations 0.1 /
 cost (below), since a brick's footprint excludes mounted material. The
 scenario sets each node's own `resources`, and `gmctl` uses those, never
 the brick's footprint; disk is only counted by the capacity check.
+Disk growth per hour (`disk_growth_per_hour`): `4M`, a provisional
+estimate, to be replaced by v0.3 chunk 15b's measurement.
 
 Measured in the v0.2 game (`fernway-clinics-monitoring` on the `laptop`
 playground, declared at 2 CPU / 4G / 8G on armenelos: AMD Ryzen 5 PRO
@@ -440,11 +442,24 @@ well under 0.005 CPU. What makes it grow: more services (one `s6-svstat`
 every 5 s each), and volumes with many files (`du` every 30 s). Disk: a
 few hundred bytes in `/run`.
 
+### Snapshot
+
+How each volume is copied at hand-over (`snapshot:` in `brick.yaml`):
+
+- `promdata`: `stop`. The brick's services other than `sshd` (here
+  `prometheus`) are stopped through s6, never by a Swarm scale to zero,
+  while the volume is copied, then started again: Prometheus is briefly
+  down at hand-over (the health checks stay green; the players are told
+  it is maintenance).
+- `promconf`, `home`, `gmstate`: `copy`, a tar of the volume while the
+  node runs.
+- `run` (`/run`) is never copied.
+
 ## Supported faults
 
 Which faults the brick hosts is stated only by each fault's `applies_to`
 (D59). This list is every catalog fault (`faults/`) whose `applies_to`
-names `prometheus` `0.1.0`, and no other.
+names `prometheus` `0.2.0`, and no other.
 
 | Fault | Kind | What it needs from the brick |
 |---|---|---|
@@ -537,12 +552,12 @@ answering at `/prometheus/` through the bastion's web front.
 `sh bricks/prometheus/tests/run-stack-test.sh` deploys the brick as a
 stack (`tests/stack.test.yml`, fixtures in `tests/fixtures/`), checks the
 chunk's Done-when and removes everything it created, volumes included.
-It also runs a `postgres` 0.2.0 node `db`, mounts the node-health script
+It also runs a `postgres` 0.3.0 node `db`, mounts the node-health script
 as configs into both nodes (per-node configs written by hand in
 `tests/fixtures/node-health/`, in the renderer's format), and checks each
 endpoint from the other node, a service stopped with `s6-svc -d`, the
 scrape, and the files read-only for `player`. Needs a swarm manager, this
-image and the `postgres` 0.2.0 image (the `db` node and the test client)
+image and the `postgres` 0.3.0 image (the `db` node and the test client)
 built.
 
 ## Known limits

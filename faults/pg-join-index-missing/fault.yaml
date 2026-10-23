@@ -13,8 +13,13 @@ severity: medium
 applies_to:
   bricks:
     - id: postgres
-      versions: ["0.1.0", "0.1.1", "0.2.0"]
+      versions: ["0.1.0", "0.1.1", "0.2.0", "0.3.0"]
   preconditions: []
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 0m                       # the evidence shows at once (a restored state, D160)
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:
@@ -42,13 +47,16 @@ injection:
 
 # --- What the players can see ------------------------------------------
 evidence:
-  - where: the table's definition
+  - where: node
+    source: the table's definition
     how: psql -d {DATABASE} -c '\d {TABLE_NAME}'
     shows: a foreign key on the column, but no index leading with it
-  - where: the plan of a join or lookup through that column
+  - where: node
+    source: the plan of a join or lookup through that column
     how: psql -d {DATABASE} -c 'EXPLAIN SELECT ... WHERE {COLUMN} = 42'
     shows: a sequential scan of the whole table where an index scan was expected
-  - where: index catalogue
+  - where: node
+    source: index catalogue
     how: SELECT indexdef FROM pg_indexes WHERE tablename = '{TABLE_NAME}'
     shows: no index whose first column is the joined column
 

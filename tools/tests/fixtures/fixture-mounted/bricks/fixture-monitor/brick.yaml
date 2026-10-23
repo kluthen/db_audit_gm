@@ -18,6 +18,7 @@ image: 127.0.0.1:5000/dbagm/fixture-monitor:0.1.0
 footprint:
   limits:       {cpu: 0.5, memory: 256M}
   reservations: {cpu: 0.25, memory: 128M, disk: 512M}
+  disk_growth_per_hour: 0           # a fixture, nothing measured
 stateful: true
 
 # --- What the scenario sets -------------------------------------------
@@ -54,6 +55,7 @@ secrets: []
 seed:
   dir: /opt/gm/seed/
   files: []
+  paths: {}
 protected_configs: []
 volumes:
   - name: data

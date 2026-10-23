@@ -12,7 +12,7 @@ version: "3.8"
 
 services:
   bastion:
-    image: 127.0.0.1:5000/dbagm/bastion:0.2.0
+    image: 127.0.0.1:5000/dbagm/bastion:0.3.0
     hostname: bastion
     read_only: true
     cap_drop: [ALL]
@@ -63,7 +63,7 @@ services:
         limits: {cpus: "0.1", memory: 32M}
 
   db:
-    image: 127.0.0.1:5000/dbagm/postgres:0.2.0
+    image: 127.0.0.1:5000/dbagm/postgres:0.3.0
     hostname: db
     read_only: true
     cap_drop: [ALL]

@@ -13,8 +13,13 @@ severity: critical
 applies_to:
   bricks:
     - id: postgres
-      versions: ["0.1.0", "0.1.1", "0.2.0"]
+      versions: ["0.1.0", "0.1.1", "0.2.0", "0.3.0"]
   preconditions: []
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 0m                       # the evidence shows at once (a restored state, D160)
 
 # --- Parameters the scenario sets -------------------------------------
 parameters: {}
@@ -35,13 +40,16 @@ injection:
 
 # --- What the players can see ------------------------------------------
 evidence:
-  - where: /etc/postgresql/pg_hba.conf on the database node
-    how: on the database node, cat /etc/postgresql/pg_hba.conf
+  - where: node
+    source: /etc/postgresql/pg_hba.conf
+    how: cat /etc/postgresql/pg_hba.conf
     shows: a `host ... trust` line for a remote address range (0.0.0.0/0), matched before the scram-sha-256 line
-  - where: the pg_hba_file_rules view
+  - where: node
+    source: the pg_hba_file_rules view
     how: psql -c "SELECT line_number, type, database, user_name, address, auth_method FROM pg_hba_file_rules"
     shows: a `host` rule with auth_method `trust` and a non-loopback address
-  - where: a connection with no password
+  - where: bastion
+    source: a connection with no password from the bastion
     how: from the bastion, PGPASSFILE=/nonexistent psql -w -h {database node} -U dba -c 'SELECT 1'
     shows: the connection succeeds although no password was given
 
