@@ -117,7 +117,9 @@ same "credential files are mode 600" "600 600 600 600 600" \
     "$(stat -c %a "$LDIR/secrets/player_password" "$LDIR/secrets/player_ssh_key" \
         "$LDIR/secrets/player_ssh_key.pub" "$LDIR/secrets/dba_password" \
         "$LDIR/secrets/tools_password" | tr '\n' ' ' | sed 's/ $//')"
-same "configs and secrets carry both labels" "12" \
+# v0.3: postgres adds gm_check_password and pgbouncer_lookup_password (W1-x);
+# the lookup one goes once render honours only_with_role (chunk 7).
+same "configs and secrets carry both labels" "14" \
     "$(for k in config secret; do docker "$k" ls --filter "label=dbagm.game=$GAME" \
         --filter "label=com.docker.stack.namespace=$GAME" -q; done | wc -l | tr -d ' ')"
 same "volumes carry dbagm.game" "9" \
@@ -135,7 +137,7 @@ same "network named after the scenario's network" "${GAME}_backend" \
     "$(docker network ls --filter "label=com.docker.stack.namespace=$GAME" --format '{{.Name}}')"
 same "status: network line" "  network: ${GAME}_backend" \
     "$($GMCTL status "$SCN" --playground "$PG" | grep '^  network:')"
-same "status: lists the 6 secret files" 6 \
+same "status: lists the 8 secret files" 8 \
     "$($GMCTL status "$SCN" --playground "$PG" | sed -n '/^  secrets: /,$p' | grep -c '^    ')"
 for node in db bastion; do
     out=$(printf 'printf "%%s %%s" "$TZ" "$(date +%%Z)"\n' \
