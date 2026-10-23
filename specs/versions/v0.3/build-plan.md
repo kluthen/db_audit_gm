@@ -279,7 +279,7 @@ the release gate checks that each is recorded.
 
 ### Chunk 1 — Format skill, templates, the v0.3 versions and the definitions migrated
 
-Status: in progress
+Status: in progress (1a merged bd008a7; 1b building)
 Wave: 1
 Depends on: G2, G3
 Architecture capture: recorded by the wave driver at wave 1 start (W1),
@@ -554,7 +554,7 @@ interface and write-policy contract, and records what it built as W1-y
 
 ### Chunk 4 — `postgres` 0.3.0
 
-Status: planned
+Status: in progress
 Wave: 1
 Depends on: chunk 1 (1a at least), merged into `v0.3-w1` before this
 chunk's branch is cut (spec D166); W1; G2, G3
