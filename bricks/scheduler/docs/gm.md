@@ -29,6 +29,7 @@ The image:
   variable, user site or current directory reaches its import path).
 - Generic: no scenario content, no credential and no host keys in the
   image.
+- Size: 172MB.
 
 ## Placement
 
@@ -160,6 +161,7 @@ the service down 4 s before s6 tries again.
 
 ### Idle, running, resuming
 
+The run script removes the previous program's status before each start.
 The program starts idle (`/run/scheduler/status`: `idle <instant>`, log
 `state state=idle`, no call) until `/var/lib/gm-state/load-started`
 exists. `gmctl start-load` (chunk 8) writes it atomically (T0, one line,
@@ -248,10 +250,15 @@ Container ports 9120 and 22; nothing is published.
 ## Footprint
 
 `brick.yaml`'s `footprint`: limits 0.25 CPU and 128M, reservations 0.1
-CPU, 64M and 64M of disk, master spec 7.1's figures. What grows is the
-log: a `summary` line and one `key` line per key every minute (about
-120 bytes each), plus every fixed-time run and every error; a stream
-failing at 40 calls a minute adds 40 `error` lines a minute.
+CPU, 64M and 64M of disk, master spec 7.1's figures. Measured in the stack
+test (armenelos, 2026-10-23, two runs): at rest and idle, 17M to 26M of
+memory in the node's cgroup, page cache included (the program's RSS 24M
+to 25M, shared library pages included); running two streams at 30 calls
+a minute and 2 an hour, 27M to 41M (RSS 35M); the volumes at rest hold
+about 56K. What grows is the log: a `summary` line and one `key` line per key every minute (about
+120 bytes each), plus every fixed-time run and every error (measured: 4K
+in 12 minutes at two keys, about 20K an hour); a stream failing at 40
+calls a minute adds 40 `error` lines a minute.
 `disk_growth_per_hour: 2M` is provisional, for a few keys and a few
 errors a minute; chunk 15b's measurement replaces it. The CPU follows the
 rates: tens of calls a second fit in 0.25 CPU. The levers: lower rates

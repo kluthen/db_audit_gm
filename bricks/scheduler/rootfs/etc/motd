@@ -1,0 +1,12 @@
+
+  db_audit_gm -- scheduler node (one of the customer's applications)
+
+  Queries:        /srv/scheduler/repository/queries.yaml, builders/
+  Fixed-time ops: /srv/scheduler/jobs/jobs.yaml  (times in UTC)
+  Log:            /var/log/scheduler/scheduler.log
+  Metrics:        http://localhost:9120/metrics
+  Apply changes:  sudo gm-reload-scheduler   check, then reload queries and jobs
+  Check:          sudo gm-validate           public validator
+
+  DO NOT TAMPER with SSH, sudo, the gm-* wrappers, the validator or the program.
+

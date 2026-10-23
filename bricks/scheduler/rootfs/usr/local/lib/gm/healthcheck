@@ -1,0 +1,18 @@
+#!/bin/sh
+# Health check of the db_audit_gm scheduler node (DO NOT TAMPER).
+# Healthy once the scheduler program has answered on :9120 at least once in
+# this container and while sshd is up. Never asks a database: a target that
+# refuses is the game's business. After that first time, the program being
+# down is a finding (outage minutes, the validator), not a reason for Swarm
+# to replace the container and cut the players' SSH sessions.
+PATH=/command:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+MARK=/run/gm/scheduler-was-ready
+
+[ "$(s6-svstat -o up /run/service/sshd 2>/dev/null)" = true ] || { echo "sshd is not up"; exit 1; }
+if curl -fsS -o /dev/null -m 3 http://127.0.0.1:9120/metrics 2>/dev/null; then
+    [ -e "$MARK" ] || : > "$MARK"
+    exit 0
+fi
+[ -e "$MARK" ] && exit 0
+echo "the scheduler has not answered yet"
+exit 1
