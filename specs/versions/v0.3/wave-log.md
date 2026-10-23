@@ -690,3 +690,19 @@ Where W1 was silent, recorded by chunk 1 (`v0.3-c1-formats`), 2026-10-23.
   loads every definition; `writable_paths` keeps "may be []".
   `brick-gm.md` carries the level-3 `### Snapshot` under Footprint (W1
   item 5).
+- Chunk 1a merged 2026-10-23: e73a7b4, merge bd008a7. Unit suite 298 OK;
+  the five images built at their v0.3 tags and their stack tests passed.
+  Outside chunk 1's Files line, needed to keep the suite and smoke runs on
+  the new pins: `tools/tests/test_{fit,deploy,render,model}.py` (tags and
+  pins; v0.2's free-text `where` test rewritten as
+  `test_fault_evidence_where_is_a_location`), and the `IMAGES=` lists of
+  `tools/tests/smoke{,-scenario,-monitoring}.sh` (not run: wave gate). Two
+  readings dropped from fernway's faults were missing from its answer key
+  (f1's Grafana alert state, f5's provisioning API) and were added there as
+  `ui:grafana`. The five Dockerfiles' "Build:" comments still name the old
+  tags (chunks 4 and 5 touch those files). Its owner paused at its context
+  threshold before 1b; its addenda are in "W1 addenda" above.
+- Chunk 1b: a fresh owner dispatched 2026-10-23 on `v0.3-c1-formats` from
+  e73a7b4.
+- Chunk 4 (`v0.3-c4-postgres`): dispatched 2026-10-23, cut after 1a's merge.
+  Chunk 5 waits for a free slot (κ = 3: chunks 1b, 3, 4 in flight).
