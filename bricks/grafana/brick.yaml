@@ -36,10 +36,11 @@ parameters: {}                      # Prometheus' address is in the data source 
 knobs: []
 
 # --- Player plane -----------------------------------------------------
-write_policies:                     # fixable only (docs/gm.md, Known limits)
-  - fixable
+write_policies:                     # GM_WRITE_POLICY, gm-write-policy (docs/gm.md, Access); the
+  - fixable                         # interface stays editable by its administrators (known gap)
+  - report-only
 writable_paths:
-  - /etc/grafana/provisioning       # grafana:grafconf, 2775; seeded files 0664
+  - /etc/grafana/provisioning       # grafana:grafconf, 2775 (2755 report-only); seeded files 0664 (0644)
   - /etc/grafana/provisioning/alerting      # the three subdirectories, each one a
   - /etc/grafana/provisioning/dashboards    #   possible write_overrides entry
   - /etc/grafana/provisioning/datasources
@@ -52,6 +53,7 @@ protected_files:
   - /usr/local/sbin/gm-entrypoint
   - /usr/local/sbin/gm-reload-grafana
   - /usr/local/sbin/gm-validate
+  - /usr/local/sbin/gm-write-policy  # the owner and modes, run as root by the two above
   - /usr/local/lib/gm/healthcheck
   - /usr/local/lib/gm/grafana-api   # root:grafana 0750, not runnable by player
   - /usr/local/lib/gm/grafana-files
