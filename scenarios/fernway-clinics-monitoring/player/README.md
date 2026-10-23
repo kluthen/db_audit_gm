@@ -118,9 +118,10 @@ report that too.
   password. Grafana lets you do it, so nothing stops you: the rule is
   yours to keep. Several failed logins in a row lock `admin` for a few
   minutes.
-- On `db`: the line `local all postgres peer` in
-  `/etc/postgresql/pg_hba.conf`: it is the game master's access to the
-  node.
+- On `db`: the lines `local all postgres peer`, `local replication
+  postgres peer` and `local all gm_check scram-sha-256` in
+  `/etc/postgresql/pg_hba.conf`: they are the game master's access to
+  the node.
 - On every node: SSH, `sudo`, the `gm-*` commands, the validator, and
   the node-health script and its list (read-only anyway).
 - On the bastion: `~/.ssh/id_ed25519`, `~/.pgpass` and
