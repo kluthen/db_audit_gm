@@ -625,6 +625,207 @@ soonest); brief chunk 2 with item 9's fixture note. (Briefing chunks 4
 and 5 to take `v0.3-w1` in is moot: they are cut after chunk 1's merge,
 amended by spec D166.)
 
+### Capture W1-y — chunk 3 outcomes (the `scheduler` brick 0.1.0; read by 7, 8, 11, 12, 14)
+
+Recorded 2026-10-23 by chunk 3's owner, from the code on
+`v0.3-c3-scheduler` (`bricks/scheduler/`). What W1 item 7 left to the
+brick, as built and tested (unit tests in the image, the stack test).
+Nothing in it differs from W1; the points W1 did not fix are below, with
+the choices made.
+
+**Image, accounts, paths**
+
+- Image `127.0.0.1:5000/dbagm/scheduler:0.1.0` from `debian:13-slim`,
+  172MB; Python 3.13.5, psycopg 3.2.6, s6-overlay 3.2.3.2. The program is
+  the package `gm_scheduler` in `/usr/local/lib/python3.13/dist-packages`,
+  always run as `python3 -I -m gm_scheduler <command>`.
+- Accounts (fixed in the Dockerfile): `scheduler` uid/gid 993:993 (the
+  service account, not in `schedconf`), group `schedconf` gid 994
+  (`player` is in it).
+- Volumes and paths (`brick.yaml` `volumes`):
+
+  | Volume | Path | Holds |
+  |---|---|---|
+  | `repository` | `/srv/scheduler/repository` | `queries.yaml`, `builders/` |
+  | `jobs` | `/srv/scheduler/jobs` | `jobs.yaml` |
+  | `schedlog` | `/var/log/scheduler` | `scheduler.log` |
+  | `schedstate` | `/var/lib/scheduler` | `sequences.json` (below) |
+  | `home` | `/home/player` | |
+  | `gmstate` | `/var/lib/gm-state` | `.gm-seeded`, `load-started` |
+  | `run` | `/run` | emptied at every start; `/run/scheduler/{status,loaded}`, `/run/gm/write-policy` |
+
+  `snapshot:` names the six first, all `copy`. The program's own
+  configuration is `/etc/scheduler/scheduler.yaml` (protected, players
+  read it: log, status, marker, paths, the endpoint).
+
+**The schedule's delivery** (W1 item 7 left the framing to chunk 3). The
+s6 run script reads, as root, `/opt/gm/seed/schedule.yaml` and every
+`/opt/gm/secrets/role_<role>_password` mounted, and passes on standard
+input, through a dash here-document (a pipe, never a file):
+
+```
+gm-scheduler-input 1
+password <role> <password>          one line per mounted role secret
+schedule
+<schedule.yaml to the end of input>
+```
+
+then `exec /command/s6-setuidgid scheduler /usr/bin/python3 -I -m
+gm_scheduler run`. A role the schedule names with no password line is
+refused at start (exit 2). The entrypoint fails the container on a role
+secret that is empty, holds a space or more than one line, and on a
+missing `schedule.yaml`. Rendered `schedule.yaml` (chunk 7) is W1 item
+7's shape exactly; the shapes must give all seven weekdays (`mon`..`sun`)
+under `utc:`, 24 numbers each; unknown keys are refused.
+
+**Exit codes**
+
+- `run` (the s6 service): 0 stopped (SIGTERM); 2 the input, the schedule
+  or the load-started marker is not valid (the reason on the container's
+  output only, a value-free `fatal` line in the log); 3 `queries.yaml`,
+  a builder or `jobs.yaml` is not valid, or a key or connection they or
+  the schedule name is missing (`fatal message="not started: ..."`). The
+  `finish` script sleeps 4 s after 2 and 3.
+- The checks (`check`, `check-keys`, `pending`, `reloadable`): 0 fine, 1
+  problems (one line each), 2 error. `gm-reload-scheduler`: 0 reloaded
+  (or the program down and s6 restarting it), 1 refused (report-only, or
+  "NOT reloaded"), 2 usage or the policy unreadable.
+
+**Status and what was loaded** (root reads them; the directory is
+`scheduler:scheduler 0750`, the files `0640` and `0644`):
+
+- `/run/scheduler/status`: `idle <UTC instant>` or `running <UTC
+  instant>`, the instant being when the program entered the state;
+  rewritten atomically; the run script removes it before each start, so
+  it never shows a stopped program's state. `start-load` (chunk 8a) polls
+  it for `running `.
+- `/run/scheduler/loaded`, rewritten at start and at each successful
+  reload: `generation=<n>` (1 at start, +1 per reload),
+  `loaded=<instant>`, one `file <sha256 or a reason> <path>` per file
+  read, one `job <name> next=<instant or never>` per job.
+
+**The load-started marker** (W1 item 7, as written there): the program
+reads it at start only; the entrypoint re-asserts root:scheduler `0440`
+when it exists. Its T0 appears in the log's `state state=running
+t0=<T0>` line.
+
+**The log** (`/var/log/scheduler/scheduler.log`, W1's line grammar; a
+quoted value is always the last field). The `summary` and `key` lines
+are W1's; latencies are milliseconds with one decimal (`81.0`, not `81`),
+`-` when `calls=0`; a call counts in the minute it ends in; the lines are
+written about one second after the boundary. The other events:
+
+```
+<t> state state=idle
+<t> state state=running t0=<T0>
+<t> state state=stopping
+<t> run job=<name> key=<k> phase=start
+<t> run job=<name> key=<k> phase=end status=ok rows=<n> ms=<x>
+<t> run job=<name> key=<k> phase=end status=error sqlstate=<S> ms=<x>
+<t> skip job=<name> key=<k> at=<due instant> reason=still-running|connection-refused
+<t> error key=<k> [job=<name>] sqlstate=<S or -> message="<text>"
+<t> reload status=ok keys=<n> jobs=<n>
+<t> reload status=refused message="<problems; joined>"
+<t> job job=<name> key=<k> next=never
+<t> fatal message="<text>"
+```
+
+`sqlstate=-` for a builder's failure (`message="builder: <Type>:
+<text>"`). A refused connection has no SQLSTATE from libpq: the driver
+takes it from the server's message (`53300` too many clients or too many
+connections for a role, `28P01` password, `28000` pg_hba or unknown role,
+`3D000` unknown database, `57P03` starting or shutting down), `08001`
+otherwise; a session lost mid-call is `08006`. A job whose connection is
+refused logs its `error` line and a `skip`, never a `run`.
+
+**Metrics** (port 9120, `GET /metrics`, text format 0.0.4):
+
+| Name | Labels | |
+|---|---|---|
+| `scheduler_calls_total` | `key` | calls ended, failed ones included |
+| `scheduler_errors_total` | `key` | |
+| `scheduler_call_duration_seconds` | `key` (`le`) | histogram, buckets 0.001 to 60 s |
+| `scheduler_job_runs_total` | `key`, `job` | runs started |
+| `scheduler_job_skips_total` | `key`, `job`, `reason` | |
+| `scheduler_running` | | 1 running, 0 idle |
+| `scheduler_start_time_seconds` | | |
+
+Every key the schedule or `jobs.yaml` names has its `calls`, `errors`
+and histogram series from the start, at 0. A call's latency runs from
+its arrival to its end: waiting for a pool slot, connecting and a
+transaction's hold included.
+
+**Behaviour W1 left open**
+
+- Randomness: each task's generator is seeded from
+  `sha256("gm-scheduler|<seed>|<hostname>|<task>|<second it started running>")`,
+  the task `stream:<index>:<initial key>` or `job:<name>:<due second>`:
+  the same inputs draw alike; a resumed program does not repeat its
+  draws.
+- `{sequence: [start, step]}` never reuses a value: positions are
+  reserved in blocks of 1000 in `/var/lib/scheduler/sequences.json`; a
+  restart starts at the next block.
+- A stream whose concurrency slots are all busy delays its next call
+  until one frees; no backlog is kept.
+- Pools are per task and per connection: `pool: {size: N}` opens up to N
+  sessions when first needed and keeps them; `per-call` opens one per
+  call. Sessions run in autocommit, transactions as explicit `BEGIN
+  ISOLATION LEVEL ...`, no server-side prepared statements
+  (`prepare_threshold=None`: any PgBouncer pool mode works, chunk 6);
+  `application_name` is the node's hostname.
+- Builders: `<function>(intensity, options)`, plus `rng=` when the
+  signature names it; returns `(statements, transaction)` or
+  `{"statements", "transaction"}`, a statement `(sql, params)` or
+  `{"sql", "params"}`, `transaction` false, true (read committed) or
+  `{isolation, hold}`. Only the files `queries.yaml` names are imported.
+- `jobs.yaml`'s zone key, as the program reads it: `timezone:`, any zone
+  tzdata names (render writes `Etc/GMT-M`, `Etc/GMT+M`, `Etc/GMT`,
+  chunk 7a; chunk 14's checks read the same key).
+- Rendered timeline changes apply at their instant; at a (re)start every
+  change at or before the current time is applied before the first call.
+
+**The write policy on the node** (W1 item 5, as built): the entrypoint
+runs `python3 -I -m gm_scheduler write-policy` (refusal text
+`GM_WRITE_POLICY='<v>' is not one of fixable, report-only, no-access` or
+`GM_WRITE_OVERRIDES: '<p>' is not one of this brick's writable_paths
+(...)`, after `gm-entrypoint: fatal: `), then `restore`. `restore` (root)
+opens every directory and file with `O_NOFOLLOW` and changes it through
+its descriptor; a symbolic link, a non-regular file or a file with other
+hard links is left alone and named. Files players add in a fixable
+directory get the seeded files' owner and mode at the next restore; the
+program ignores them unless `queries.yaml` names them as a builder.
+
+**For chunks 8, 11, 12, 14**
+
+- `start-load` (8a): the marker as W1 item 7 says, then `s6-svc -r
+  /run/service/scheduler`, then `/run/scheduler/status` until `running `
+  (the stack test does exactly this; under a second here).
+- Outages (8b): a minute with no `summary` line; the program writes none
+  while stopped, the first summary after a start covers the partial
+  minute it started in.
+- Sealed checks (14): read the counters with `curl -s
+  localhost:9120/metrics` inside the node, the log at its path, the files
+  at their paths; `jobs.yaml`'s `at` and `timezone`.
+- Snapshot (11): every volume but `run` by `copy` while running; tar sees
+  the log grow (exit 1 accepted, W1 item 6).
+
+**Footprint at rest** (stack test, armenelos, 2026-10-23): idle (no marker), cgroup memory 17M to 26M of the 128M limit over two
+runs (page cache included), the program's RSS 24M to 25M (shared library
+pages included); running two streams at 30 calls a minute and 2 an hour,
+27M to 41M, RSS 35M. Disk at rest 56K across the
+volumes; the log grew 3966 bytes (45 lines) in 12 minutes at two keys,
+about 20K an hour; `disk_growth_per_hour: 2M` stays provisional for
+error floods until chunk 15b measures a game. Within master spec 7.1's
+figures (limits 0.25 CPU / 128M, reservations 0.1 CPU / 64M), kept in
+`brick.yaml` unchanged.
+
+**Tests**: `sh bricks/scheduler/tests/run-unit-tests.sh` (the Dockerfile's
+`unit-test` stage: the program as installed, Debian's PostgreSQL 17 in
+the same container; 60 tests, none skipped, a skip fails the run) and
+`sh bricks/scheduler/tests/run-stack-test.sh` (about 15 minutes; its
+database is the same unit-test stage, so it does not depend on the
+`postgres` brick chunks 1 and 4 change). Both under the host lock.
+
 ### Preflight corrections sent to `spec-writer` (before any chunk starts)
 
 - The owner's three confirmations recorded as spec D160–D162 (3b03db2; plan
@@ -806,3 +1007,18 @@ Where W1 was silent, recorded by chunk 1 (`v0.3-c1-formats`), 2026-10-23.
   them on the wave branch at the gate.
 - Chunk 2 (`v0.3-c2-loader`): dispatched 2026-10-23 after chunk 1's merge.
   Chunk 5 waits for a free slot (in flight: 2, 3, 4).
+- Chunk 2a merged on `v0.3-w1` (ff60cce) while chunk 3 finished; chunk 2b
+  still building.
+- Chunk 3 merged 2026-10-23: 3a f2e5781, 3b 10faa0b, merge 3b54bee. Program
+  unit tests 60 OK (in the image, Debian PostgreSQL 17.11, psycopg 3.2.6,
+  Python 3.13.5); stack test 95 PASS, 0 FAIL (about 17 minutes); loader
+  accepts the brick after chunk 2a's checks; unit suite 376 OK on
+  `v0.3-w1`. Image `scheduler:0.1.0` 172MB. Footprint at rest (armenelos,
+  2026-10-23): 17–26M idle, 27–41M at 30 calls a minute; disk about 56K,
+  log about 20K an hour at two keys; `disk_growth_per_hour: 2M`
+  provisional. Capture W1-y recorded right after Capture W1. Risks carried
+  forward: error lines are not rate-limited (a long target outage fills the
+  log at the streams' rates; for chunk 12 or 15b to measure); a blocking
+  builder stalls the node (one process); the stack test uses PostgreSQL 17,
+  not the brick's 18.
+- Chunk 5 (`v0.3-c5-monitoring`): dispatched 2026-10-23 (in flight: 2b, 4, 5).

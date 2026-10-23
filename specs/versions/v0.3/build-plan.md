@@ -478,7 +478,7 @@ Architecture capture: none of its own; it implements W1.
 
 ### Chunk 3 — The `scheduler` brick 0.1.0
 
-Status: in progress
+Status: merged (w1, 3b54bee)
 Wave: 1
 Depends on: chunk 1 (in-wave, W1: runs alongside chunk 1, its files all
 under `bricks/scheduler/`, spec D166); G2, G3
@@ -557,6 +557,10 @@ interface and write-policy contract, and records what it built as W1-y
   `brick.yaml` and `docs/gm.md` from its first commit so the suite stays
   green; 3b the image, s6, wrappers, validator, docs and stack test.
 
+Record: 3a f2e5781, 3b 10faa0b (merge 3b54bee). No deviation from the
+spec or W1; what W1 left to it is in Capture W1-y. Its tests use Debian's
+PostgreSQL 17, not the `postgres` brick's 18.
+
 ### Chunk 4 — `postgres` 0.3.0
 
 Status: in progress
@@ -620,7 +624,7 @@ reserve and the PgBouncer lookup role as built as W1-x (read by chunks
 
 ### Chunk 5 — The monitoring bricks 0.2.0: report-only and snapshots
 
-Status: planned
+Status: in progress
 Wave: 1
 Depends on: chunk 1 (1a at least), merged into `v0.3-w1` before this
 chunk's branch is cut (spec D166); W1; G2, G3

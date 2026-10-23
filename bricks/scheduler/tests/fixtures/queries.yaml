@@ -1,0 +1,24 @@
+# Stack test fixture of the scheduler brick: the query repository.
+queries:
+  orders.insert:                       # the stream at 2 per hour
+    sql: INSERT INTO orders (order_no, amount, at) VALUES (%(order_no)s, %(amount)s, %(at)s)
+    params:
+      order_no: {sequence: [1, 1]}
+      amount: {decimal: [5, 500, 2]}
+      at: {now: utc}
+  orders.lookup:                       # a pool; its inserts show the sequence goes on after a kill
+    - sql: INSERT INTO orders (order_no, amount, at) VALUES (%(order_no)s, %(amount)s, %(at)s)
+      params:
+        order_no: {sequence: [1000000, 1]}
+        amount: {int: [1, 900]}
+        at: {now: utc}
+      weight: 3
+    - sql: SELECT * FROM products WHERE name ILIKE %(pattern)s
+      params: {pattern: {choice: ['%lamp%', '%desk%']}}
+      weight: 1
+  orders.lookup-v2:                    # the key the timeline switches to
+    sql: SELECT count(*) FROM orders WHERE amount > %(min)s
+    params: {min: {int: [1, 100]}}
+  reports.daily:                       # a builder, run by the jobs
+    builder: builders/report.py:build
+    options: {days: 2}

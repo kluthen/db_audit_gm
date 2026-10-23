@@ -1,0 +1,91 @@
+#!/bin/sh
+# gm-reload-scheduler: check, then reload the scheduler's query repository
+# and fixed-time operations. Usage: sudo gm-reload-scheduler
+# DO NOT TAMPER. Root-owned, read-only; allowed by /etc/sudoers.d/gm-player.
+# (v0.3 master spec 7.1; capture W1 items 5 and 7.)
+#
+#   1. restores every seeded file's owner and mode (scheduler:schedconf,
+#      0664 or 0644, directories 2775 or 2755, by the write policy in
+#      /run/gm/write-policy), contents untouched, never through a link;
+#   2. on a node where neither /srv/scheduler/repository nor
+#      /srv/scheduler/jobs is fixable: refuses, nothing signalled;
+#   3. checks queries.yaml, builders/ and jobs.yaml as `scheduler` (they
+#      load; the builders queries.yaml names import), then, as root, that
+#      every key the schedule names is still in queries.yaml and every
+#      job's connection is the schedule's (the messages name only keys);
+#      refuses when either fails;
+#   4. sends SIGHUP through s6: the program reloads both, keeping its
+#      schedule, connections and counters; waits for it and prints when
+#      each job runs next (UTC).
+set -u
+PATH=/command:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+SERVICE=/run/service/scheduler
+LOADED=/run/scheduler/loaded
+WAIT=15
+ME=gm-reload-scheduler
+
+if [ "$#" -ne 0 ]; then
+    echo "usage: sudo gm-reload-scheduler (no arguments)" >&2
+    exit 2
+fi
+cd /
+prog() { python3 -I -m gm_scheduler "$@"; }
+indent() { sed 's/^/  /'; }
+generation() { sed -n 's/^generation=//p' "$LOADED" 2>/dev/null; }
+
+# 1. owner and modes
+if ! notes=$(prog restore 2>&1); then
+    echo "$ME: could not restore the files' owner and mode; nothing was reloaded:" >&2
+    printf '%s\n' "$notes" | indent >&2
+    exit 2
+fi
+[ -z "$notes" ] || { echo "$ME: left alone:"; printf '%s\n' "$notes" | indent; }
+
+# 2. report-only
+prog reloadable
+case $? in
+    0) ;;
+    1) echo "$ME: this node is report-only: its files cannot be changed, so nothing was reloaded."
+       exit 1 ;;
+    *) echo "$ME: cannot read the node's write policy; nothing was reloaded." >&2
+       exit 2 ;;
+esac
+
+# 3. the checks
+if ! out=$(runuser -u scheduler -- env HOME=/var/lib/scheduler python3 -I -m gm_scheduler check 2>&1); then
+    echo "$ME: the files do not load; the scheduler was NOT reloaded:"
+    printf '%s\n' "$out" | indent
+    exit 1
+fi
+if ! out=$(prog check-keys 2>&1); then
+    echo "$ME: the files do not fit the schedule; the scheduler was NOT reloaded:"
+    printf '%s\n' "$out" | indent
+    exit 1
+fi
+
+# 4. reload
+if [ "$(s6-svstat -o up "$SERVICE" 2>/dev/null)" != true ]; then
+    echo "$ME: the scheduler is not running; s6 starts it again with the checked files."
+    exit 0
+fi
+before=$(generation)
+s6-svc -h "$SERVICE" || { echo "$ME: could not signal the scheduler service" >&2; exit 1; }
+i=0
+while [ "$i" -lt "$((WAIT * 4))" ]; do
+    sleep 0.25
+    i=$((i + 1))
+    now=$(generation)
+    if [ -n "$now" ] && [ "$now" != "$before" ]; then
+        echo "$ME: reloaded queries.yaml, builders/ and jobs.yaml."
+        jobs=$(sed -n 's/^job \([^ ]*\) next=\(.*\)$/  \1: next run \2/p' "$LOADED")
+        if [ -n "$jobs" ]; then
+            echo "$ME: fixed-time operations (UTC):"
+            printf '%s\n' "$jobs"
+        fi
+        exit 0
+    fi
+done
+echo "$ME: the scheduler did not confirm the reload within ${WAIT}s; it keeps the files it had." >&2
+echo "  Run sudo gm-validate; the reason is the log's last reload line." >&2
+exit 1
