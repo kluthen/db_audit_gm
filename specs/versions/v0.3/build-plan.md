@@ -1,14 +1,11 @@
 # db_audit_gm v0.3 — Build plan
 
-Status: v2 (2026-10-22): approved; the owner's answers to its questions
-(spec D156), his ruling that only a scenario with scheduler nodes ages
-(spec D157, D158) and the VPS rule (spec D159) written in. Wave 1 is
-ready, to start on 2026-10-23 in a fresh driver session.
+Status: v3 (2026-10-23): v2 with the owner's three confirmations at wave 1's start written in (spec D160–D162).
 Approval: **approved 2026-10-22 by the owner** (G1, spec D156).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-10-22 (spec D154), with
 spec D152, D153 and D155 folded in, and amended the same day by spec
-D157 and D158.
+D157 and D158; confirmed at wave 1's start by spec D160 to D162.
 No design set (no interface to design, D2).
 
 The model is `~/.local/share/dev_team/references/build-plan-model.md`; this
@@ -72,9 +69,10 @@ plan states only its deltas. Its conventions follow v0.2's
   8, 13, 15.4): only a scenario with scheduler nodes ages. A scenario
   with none omits `aging:` (refused there), has no `plant_at` other than
   T0, no instance `aging_minimum` and no `{{customer_timezone}}`; its
-  faults' own aging minima are not counted; `render --handover` is
-  optional for it; its game goes from `injected` to the hand-over check,
-  the snapshot and `handed-over` with no `load-started`, no T0 beyond the
+  faults' own aging minima are not counted (spec D160); `render
+  --handover` is optional for it; its game goes from `injected` to the
+  hand-over check, the snapshot with its brief stops (spec D162) and
+  `handed-over` with no `load-started`, no T0 beyond the
   planting, no early check, no outages and no earliest hand-over, and a
   setup failure tears it down, as in v0.2.
 - **No fake time anywhere.** No chunk or test may speed up, freeze or
@@ -82,7 +80,8 @@ plan states only its deltas. Its conventions follow v0.2's
   during the aging at once with `inject --at now` (a test harness, never a
   game); the rehearsal, and chunk 11's snapshot and restart run, reach
   their hand-over early through the test-harness override of the aging
-  minimum (chunk 8a, G6): it shortens the wait, never a clock.
+  minimum, which caps each instance's own minimum too (chunk 8a, G6,
+  spec D161): it shortens the wait, never a clock.
 - **Build host** (observed 2026-10-22): armenelos, Debian 13, Docker
   Engine 29.9.1, swarm active with one node (armenelos, leader), cgroup
   v2, 12 CPUs, 11G of memory with about 5G available and swap in use,
@@ -121,7 +120,7 @@ plan states only its deltas. Its conventions follow v0.2's
 | G3 | A Docker host in swarm mode: armenelos, single-node swarm (active 2026-10-22) | Hand check by the wave driver | Every stack test and smoke run, every wave gate, the release gate | cleared 2026-10-23 (hand check, wave log) |
 | G4 | The VPS ready, under the VPS rule (spec D159; "Workflow deltas"): first, Tailscale logged in on both hosts (`tailscale status`); the VPS's own documentation read before any change there; Docker Engine on the VPS (28.5.1 there, 29.9.1 on armenelos, 2026-10-22): the join checks that a 28.5.1 worker runs the game's services, and an upgrade, if one is needed, waits for a filetstudio.com downtime scheduled with the owner beforehand; the VPS joined to armenelos' swarm as a worker with `--advertise-addr` and `--data-path-addr` on its Tailscale interface (armenelos' own swarm bound likewise), and if the VPS's engine is already in a swarm or runs filetstudio.com as swarm services the driver stops and asks the owner; the swarm's ingress network recreated with an MTU leaving room for VXLAN inside Tailscale's 1280 bytes, with no game running; no game port published on the VPS (the bastion pinned to armenelos); SSH from armenelos to the VPS over Tailscale with a key (Docker context, image copy); at least 5G free on the VPS | The wave driver joins the VPS (spec D156); the owner's part, Tailscale and Docker on the VPS, is in place | Chunk 10b's two-host try; the two-host smoke run (from the wave 3 gate); chunk 15b; the release gate | open: Tailscale up on both hosts and `ssh vps` working (2026-10-22) |
 | G5 | Where the release gate's aged run runs, memory on armenelos being short (about 5G available, swap in use, a single-host game expected at about 5G): on armenelos alone if the game's peak memory measured by chunk 15b plus about 1G fits armenelos' available memory, otherwise on armenelos plus the VPS (spec D156) | Chunk 15b's measured figures, applied by the wave driver and recorded in the wave log | The release gate's aged run | ruled (spec D156); applied after chunk 15b |
-| G6 | How the rehearsal reaches its hand-over in about two hours while the v0.3 scenario declares sixteen hours and the loader's floor is eight: a test-harness-only override of the aging minimum, in chunk 8a (spec D156) | The owner | Chunk 8a builds it; chunks 11 and 15b use it | cleared 2026-10-22 (spec D156) |
+| G6 | How the rehearsal reaches its hand-over in about two hours while the v0.3 scenario declares sixteen hours and the loader's floor is eight: a test-harness-only override of the aging minimum, capping each fault instance's own aging minimum too, in chunk 8a (spec D156, D161) | The owner | Chunk 8a builds it; chunks 11 and 15b use it | cleared 2026-10-22 (spec D156) |
 | G7 | Review of the v0.3 scenario: its faults (chunk 14's among them), issues, aging, write policies and answer key (master spec 15.2) | The owner | Chunk 15's merge | open |
 | G8 | The release gate's aged run window: the hosts G5 settles up and otherwise quiet for about twenty hours, deployed in an evening and handed over the next early afternoon (spec D156) | The owner, who sets the date with the driver | Release gate items 7 to 9 | ruled (spec D156); the date to set |
 | G9 | The restart's confirmation at the release gate: the owner types the players' confirmation in the GM session himself (spec D156) | The owner, at the release gate | Release gate item 8 | ruled (spec D156); typed at the release gate |
@@ -419,7 +418,7 @@ Architecture capture: none of its own; it implements W1.
   (new), `.claude/skills/scenario-format/SKILL.md` (the scheduler's
   files section), `.claude/skills/scenario-format/templates/layouts.md`.
 - Spec sections: master spec 6.1 to 6.4, 6.7, 7.1, 7.3 ("Snapshot"), 8
-  (its opening); spec D127, D143, D145, D150, D157, D158.
+  (its opening); spec D127, D143, D145, D150, D157, D158, D160.
 - Done when: unit tests show each refusal above with its message and the
   acceptance of a valid fixture, one with scheduler nodes and one
   without; every catalog brick, fault and scenario still loads; the unit
@@ -703,7 +702,9 @@ chunk 9); the test-harness override's form (G6).
     scheduler node, which has no aging (spec D157);
     **the test-harness override of the aging minimum** (G6, spec D156):
     for one game, a shorter aging minimum that the earliest hand-over
-    counts from, the instances' own minima capped at it, so a test run
+    counts from, each instance's own aging minimum capped at it wherever
+    the earliest hand-over or the hand-over check counts it (spec D161),
+    so a test run
     reaches its hand-over check, snapshot and restart in about two hours;
     set only by the harness scripts (`tools/tests/rehearsal.sh`, chunk
     11's run), in a form the chunk chooses and records in W2; recorded
@@ -734,15 +735,16 @@ chunk 9); the test-harness override's form (G6).
   `.claude/skills/game-master/gmctl.md` (the rows it changes).
 - Spec sections: master spec 8 (its opening), 8.4, 8.5, 8.7, 9, 13, 16;
   access model 3, 5 ("The load and the setup actions"), 6 (`aging-done`),
-  7, 9; spec D117, D131, D152, D156, D157, D158.
+  7, 9; spec D117, D131, D152, D156, D157, D158, D161.
 - Done when: unit tests (a fake engine and a fake timer, never a fake
   clock in a running game) show each refusal; `start-load` recording T0;
   a scheduled planting and its failure recorded without teardown; the
   lost time and the earliest hand-over for no outage, twenty minutes and
   fifty minutes of outage; a low-rate stream not read as an outage;
   `status`'s head; `status --set handed-over` refused and accepted;
-  the harness override recorded, shortening the earliest hand-over and
-  heading `status`; a game with no scheduler node refusing `start-load`
+  the harness override recorded, shortening the earliest hand-over, an
+  instance whose own minimum exceeds it capped at it, and heading
+  `status`; a game with no scheduler node refusing `start-load`
   and handed over after `injected` with no aging; `gmctl` offers no verb
   that pauses, speeds up or triggers the load.
 - Verification: chunk checks, plus `sh tools/tests/smoke.sh` (needs G3).
@@ -843,8 +845,9 @@ W3.
 - Goal: `gmctl snapshot` and `gmctl restart`, as master spec 12 says.
 - Scope: in:
   - **11a**: `gmctl snapshot` (needs `load-started`, or `injected` in a
-    game with no scheduler node; refused before the earliest hand-over
-    and once handed over): every volume of the game
+    game with no scheduler node, which keeps its snapshot and the brief
+    stops it takes, spec D162; refused before the earliest hand-over and
+    once handed over): every volume of the game
     copied by its brick's method (`pg_basebackup` through `postgres`'
     helper, `copy`, a brief stop through s6 for `stop`), stored on the
     volume's own host, labelled with the game id, its location recorded;
@@ -869,16 +872,18 @@ W3.
   `.claude/skills/game-master/gmctl.md` (rows).
 - Spec sections: master spec 6.4, 7.1 to 7.5 ("Snapshot"), 12, 13;
   access model 3, 5 ("The load and the setup actions", "Game control"),
-  6, 7, 9; spec D123, D126, D141, D142, D147, D156, D157.
+  6, 7, 9; spec D123, D126, D141, D142, D147, D156, D157, D161, D162.
 - Done when: unit tests show each refusal, the secrets' values equal
   under new objects, the stage after a restart, two restarts in a row,
   teardown removing the snapshot; on a deployment of a load fixture
   (chunk 12's, or a scratch one until it merges), its hand-over reached
-  early through chunk 8a's harness override (G6), a snapshot taken under
-  load with the brief stops, then a restart from it with the players'
+  early through chunk 8a's harness override (G6, spec D161), a snapshot
+  taken under load with the brief stops, then a restart from it with the players'
   password still valid and the schedulers running, then a no-history
   restart; a snapshot and a restart of `fixture-monitoring`, which has
-  no scheduler node; nothing labelled left after teardown.
+  no scheduler node, its Prometheus and Grafana stopped briefly and
+  started again for the snapshot (spec D162); nothing labelled left
+  after teardown.
 - Verification: chunk checks, plus the snapshot and restart run (needs
   G3).
 - Split rule: 11a snapshot; 11b restart.
@@ -930,11 +935,13 @@ Architecture capture: none.
 - Scope: in: `SKILL.md`: the feasibility judgement for a scenario with
   scheduler nodes (its declared aging against the time the initiator
   has, declining or proposing another); a scenario with none, which has
-  no aging, handed over once its faults are planted, the hand-over check
-  passed and the snapshot taken, as in v0.2, with no planned hand-over
-  needed (spec D157, D158); the deployment with the planned hand-over and the
-  shift; the playground's hosts; `start-load`, the scheduled plantings
-  and the early check; a resumed session running `status` first and
+  no aging, handed over once its faults are planted, as in v0.2, but
+  after the hand-over check and the snapshot, its brief stops and the
+  scrape gap told as maintenance included, with no planned hand-over
+  needed and its faults' own aging minima not counted (spec D157, D158,
+  D160, D162); the deployment with the planned hand-over and the shift;
+  the playground's hosts; `start-load`, the scheduled plantings and the
+  early check; a resumed session running `status` first and
   telling the initiator of failures or outages; the thirty-minute
   threshold and the judgement beyond it; setting a game up again (stop,
   then start); the refusal of an early hand-over; the hand-over check,
@@ -948,7 +955,7 @@ Architecture capture: none.
   11 left. Out: new scripts; the stance itself, unchanged.
 - Files: `.claude/skills/game-master/{SKILL,gmctl,feedback}.md`.
 - Spec sections: master spec 8, 9, 10, 11, 12, 13; access model 3, 5, 7,
-  8, 9; spec D141, D150, D152, D157, D158.
+  8, 9; spec D141, D150, D152, D157, D158, D160, D162.
 - Done when: the skill covers each item of master spec 13's "The GM
   skill"; every `gmctl` invocation in the three files parses with
   `gmctl`'s own parser; the stance check-list items v0.2 had are
@@ -1025,7 +1032,8 @@ Architecture capture: none of its own; it uses W4.
   - **15b, the rehearsal and the figures**: `tools/tests/rehearsal.sh`,
     the unattended rehearsal of master spec 11 on the scenario, its
     hand-over brought to about two hours after T0 by chunk 8a's harness
-    override (G6, spec D156), on armenelos plus the VPS: `render --handover`
+    override, which caps the instances' own minima too (G6, spec D156,
+    D161), on armenelos plus the VPS: `render --handover`
     chosen so the traffic shapes' peak hours fall inside its two hours,
     `start-load`, a scheduled `inject --at` and the early check fired by
     the host timer, a scheduler container killed and resuming, an outage
@@ -1045,7 +1053,7 @@ Architecture capture: none of its own; it uses W4.
   `scenarios/<new-id>/{scenario.yaml,README.md}`, and
   `scenarios/fernway-clinics-monitoring/` if its bound must change.
 - Spec sections: master spec 8.6, 10.1, 11, 15.2, 15.4, 17 (items 4, 6);
-  access model 7, 11; spec D134, D150, D153, D156, D157.
+  access model 7, 11; spec D134, D150, D153, D156, D157, D161.
 - Done when: the format skill finds nothing missing; `fit` and `render`
   accept it on armenelos alone and on armenelos plus the VPS; its smoke
   deployment (`smoke-scenario.sh`) has every instance present; the

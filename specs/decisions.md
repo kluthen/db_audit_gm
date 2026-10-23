@@ -16,7 +16,7 @@ README:
 Archived IDs keep their meaning and are cited as they are. D107 onward
 stay live: rulings still to be applied in a later version (D107, D108,
 D110, D113), the v0.2 release close, and v0.3's drafting from D114.
-Numbering continues from D160; no ID is reused.
+Numbering continues from D163; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -316,3 +316,24 @@ Numbering continues from D160; no ID is reused.
   upgrade) waits for a downtime scheduled with the owner beforehand; the
   VPS's Caddy may change if filetstudio.com stays up; the VPS's own
   documentation is read before any change. Now in: [platform.md](platform.md) "Hosting".
+- **D160 (2026-10-23, owner confirmation at wave 1's start, relayed by
+  the wave driver): In a scenario with no scheduler node, the fault
+  definitions' own aging minima are not counted,** as in v0.2:
+  `bookshop-new-server`'s `pg-join-index-missing` does not hold up its
+  hand-over. Confirms the reading of D157 the spec states. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 8, 15.4;
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunk 2.
+- **D161 (2026-10-23, owner confirmation at wave 1's start, relayed by
+  the wave driver; settles D156's override): The test-harness override
+  of the aging minimum (G6) also caps each fault instance's own aging
+  minimum,** so the two-hour rehearsal reaches its hand-over. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 11;
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) G6, chunks
+  8a, 11, 15b.
+- **D162 (2026-10-23, owner confirmation at wave 1's start, relayed by
+  the wave driver): A game with no scheduler node keeps the hand-over
+  check and the hand-over snapshot,** so Prometheus and Grafana stop
+  briefly at `fernway-clinics-monitoring`'s hand-over. Declined: skipping
+  both in such games. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 8, 15.4;
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunks 11, 13.
