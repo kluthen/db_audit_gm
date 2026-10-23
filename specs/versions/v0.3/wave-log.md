@@ -738,3 +738,13 @@ Where W1 was silent, recorded by chunk 1 (`v0.3-c1-formats`), 2026-10-23.
   e73a7b4.
 - Chunk 4 (`v0.3-c4-postgres`): dispatched 2026-10-23, cut after 1a's merge.
   Chunk 5 waits for a free slot (κ = 3: chunks 1b, 3, 4 in flight).
+- Chunk 1b merged 2026-10-23: d27af79, merge 541a5a6; chunk 1 complete.
+  Unit suite 298 OK on `v0.3-w1`. `difficulty.score` 6, 8 and 2, 2, 1 for the
+  fixtures; the two `pg_hba` lines in the four seeds; bookshop's answer key
+  cites lines 14 and 16; five READMEs regenerated. **For the wave gate**
+  (outside every wave-1 chunk's Files line): the two scenarios'
+  `player/README.md` DO NOT TAMPER lists still name only `local all postgres
+  peer`, not the replication and `gm_check` lines; a `coding-executor` fixes
+  them on the wave branch at the gate.
+- Chunk 2 (`v0.3-c2-loader`): dispatched 2026-10-23 after chunk 1's merge.
+  Chunk 5 waits for a free slot (in flight: 2, 3, 4).
