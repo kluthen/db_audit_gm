@@ -2,7 +2,7 @@
 # Stack test of the Grafana brick (v0.2 build plan, chunk 10, Done when).
 #
 # Deploys the brick as a Swarm stack (stack.test.yml), its five seed files
-# copied from companion/ as a scenario would, with a prometheus 0.1.0 node
+# copied from companion/ as a scenario would, with a prometheus 0.2.0 node
 # for the data source; seed files and secrets are external configs and
 # secrets created here. Checks, from a client container on the stack's
 # network and from the GM side (docker exec, the API helper):
@@ -28,15 +28,15 @@
 #
 # Needs: a swarm manager (docker swarm init), the images built locally (the
 # grafana image is also the test client: it has ssh, curl and jq):
-#   docker build -t 127.0.0.1:5000/dbagm/grafana:0.1.0 bricks/grafana
-#   docker build -t 127.0.0.1:5000/dbagm/prometheus:0.1.0 bricks/prometheus
+#   docker build -t 127.0.0.1:5000/dbagm/grafana:0.2.0 bricks/grafana
+#   docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.0 bricks/prometheus
 # Usage: sh bricks/grafana/tests/run-stack-test.sh
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 STACK=gmtest-grafana
-IMAGE=127.0.0.1:5000/dbagm/grafana:0.1.0
-PROM_IMAGE=127.0.0.1:5000/dbagm/prometheus:0.1.0
+IMAGE=127.0.0.1:5000/dbagm/grafana:0.2.0
+PROM_IMAGE=127.0.0.1:5000/dbagm/prometheus:0.2.0
 SERVICE=${STACK}_grafana
 PROM_SERVICE=${STACK}_prometheus
 NET=${STACK}_net
@@ -154,7 +154,7 @@ else
     exit 1
 fi
 if P=$(wait_healthy "$PROM_SERVICE"); then
-    pass "prometheus node (prometheus 0.1.0) healthy ($P)"
+    pass "prometheus node (prometheus 0.2.0) healthy ($P)"
 else
     fail "prometheus node did not become healthy"
     exit 1

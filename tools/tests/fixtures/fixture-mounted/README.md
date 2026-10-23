@@ -57,7 +57,7 @@ The story as the players read it: `player/story.md`.
 | Node | Brick | Role | Stateful | Networks | Write policy |
 |---|---|---|---|---|---|
 | `bastion` | `fixture-front` 0.1.0 | bastion | no | backend | report-only |
-| `app` | `fixture-app` 0.1.0 | application | yes | backend | report-only |
+| `app` | `fixture-app` 0.1.0 | consumer | yes | backend | report-only |
 | `monitor` | `fixture-monitor` 0.1.0 | monitoring | yes | backend | report-only |
 
 #### Node `bastion`
@@ -94,7 +94,7 @@ No knobs.
 
 - **Brick**: `fixture-app`, version 0.1.0 (pinned), scenario-only, in
   bricks/.
-- **Role**: application. **Stateful**: yes. **Write policy**: report-only.
+- **Role**: consumer. **Stateful**: yes. **Write policy**: report-only.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.

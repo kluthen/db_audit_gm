@@ -280,7 +280,7 @@ class TestMountedMaterial(RenderedMounted):
     def test_catalog_brick_files_relative_to_the_scenario(self):
         sc = model.load_scenario(self.scenario)
         sc.bricks["monitor"] = model.find_definition(
-            "brick", "prometheus", "0.1.0", sc.dir, model.REPO_ROOT)[0]
+            "brick", "prometheus", "0.2.0", sc.dir, model.REPO_ROOT)[0]
         configs = localimpl.mounted_configs(sc, localimpl.node_parameters(sc), "laptop", "g")
         files = [c for c in configs["bastion"] if c["kind"] == "mounted"]
         self.assertEqual(len(files), 5)

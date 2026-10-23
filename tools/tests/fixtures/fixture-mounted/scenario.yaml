@@ -50,7 +50,7 @@ nodes:
     brick:
       id: fixture-app
       version: 0.1.0
-    role: application
+    role: consumer
     stateful: true
     networks: [backend]
     write_policy: report-only

@@ -14,8 +14,13 @@ severity: medium
 applies_to:
   bricks:
     - id: postgres
-      versions: ["0.1.0", "0.1.1", "0.2.0"]
+      versions: ["0.1.0", "0.1.1", "0.2.0", "0.3.0"]
   preconditions: []
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 0m                       # the evidence shows at once (a restored state, D160)
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:
@@ -38,10 +43,12 @@ injection:
 
 # --- What the players can see ------------------------------------------
 evidence:
-  - where: the table's storage parameters
+  - where: node
+    source: the table's storage parameters
     how: psql -d {DATABASE} -c '\d+ {TABLE_NAME}'
     shows: "Options: autovacuum_enabled=off"
-  - where: pg_class.reloptions
+  - where: node
+    source: pg_class.reloptions
     how: SELECT relname, reloptions FROM pg_class WHERE relkind = 'r' AND reloptions IS NOT NULL
     shows: autovacuum_enabled=off on the table, while SHOW autovacuum says on
 

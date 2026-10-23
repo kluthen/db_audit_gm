@@ -13,8 +13,13 @@ severity: high
 applies_to:
   bricks:
     - id: postgres
-      versions: ["0.1.0", "0.1.1", "0.2.0"]
+      versions: ["0.1.0", "0.1.1", "0.2.0", "0.3.0"]
   preconditions: []                 # the slot is abandoned: no standby in the topology
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 0m                       # the evidence shows at once (a restored state, D160)
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:
@@ -33,15 +38,18 @@ injection:
 
 # --- What the players can see ------------------------------------------
 evidence:
-  - where: the pg_replication_slots view
+  - where: node
+    source: the pg_replication_slots view
     how: psql -c 'SELECT slot_name, slot_type, active, restart_lsn, wal_status FROM pg_replication_slots'
     shows: a physical slot, active = false, with a restart_lsn (WAL from that point on is kept)
-  - where: the replication state and the WAL retained
+  - where: node
+    source: the replication state and the WAL retained
     how: >-
       psql -c 'SELECT * FROM pg_stat_replication'; psql -c 'SELECT slot_name,
       pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)) FROM pg_replication_slots'
     shows: no standby connected; the WAL held back by the slot, growing with every write
-  - where: the limit on slot retention
+  - where: node
+    source: the limit on slot retention
     how: psql -c 'SHOW max_slot_wal_keep_size'
     shows: -1 (unlimited), so nothing stops the slot from filling the disk
 

@@ -88,15 +88,15 @@ The story as the players read it: `player/story.md`.
 
 | Node | Brick | Role | Stateful | Networks | Write policy |
 |---|---|---|---|---|---|
-| `bastion` | `bastion` 0.2.0 | bastion | yes | backend | report-only |
-| `db` | `postgres` 0.2.0 | database | yes | backend | fixable |
-| `prometheus` | `prometheus` 0.1.0 | metrics-store | yes | backend | fixable |
-| `exporter` | `postgres-exporter` 0.1.0 | metrics-exporter | yes | backend | fixable |
-| `grafana` | `grafana` 0.1.0 | dashboards | yes | backend | fixable |
+| `bastion` | `bastion` 0.3.0 | bastion | yes | backend | report-only |
+| `db` | `postgres` 0.3.0 | database | yes | backend | fixable |
+| `prometheus` | `prometheus` 0.2.0 | monitoring | yes | backend | fixable |
+| `exporter` | `postgres-exporter` 0.2.0 | monitoring | yes | backend | fixable |
+| `grafana` | `grafana` 0.2.0 | monitoring | yes | backend | fixable |
 
 #### Node `bastion`
 
-- **Brick**: `bastion`, version 0.2.0 (pinned).
+- **Brick**: `bastion`, version 0.3.0 (pinned).
 - **Role**: bastion. **Stateful**: yes. **Write policy**:
   report-only.
 - **Networks**: backend.
@@ -128,7 +128,7 @@ No knobs.
 
 #### Node `db`
 
-- **Brick**: `postgres`, version 0.2.0 (pinned).
+- **Brick**: `postgres`, version 0.3.0 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -169,8 +169,8 @@ Data, restored from `data/db.sql`:
 
 #### Node `prometheus`
 
-- **Brick**: `prometheus`, version 0.1.0 (pinned).
-- **Role**: metrics-store. **Stateful**: yes. **Write policy**:
+- **Brick**: `prometheus`, version 0.2.0 (pinned).
+- **Role**: monitoring. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
 - **Parameters**: node_health: the node-health map, below.
@@ -200,8 +200,8 @@ No knobs.
 
 #### Node `exporter`
 
-- **Brick**: `postgres-exporter`, version 0.1.0 (pinned).
-- **Role**: metrics-exporter. **Stateful**: yes. **Write policy**:
+- **Brick**: `postgres-exporter`, version 0.2.0 (pinned).
+- **Role**: monitoring. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
 - **Parameters**: none.
@@ -219,8 +219,8 @@ No knobs.
 
 #### Node `grafana`
 
-- **Brick**: `grafana`, version 0.1.0 (pinned).
-- **Role**: dashboards. **Stateful**: yes. **Write policy**:
+- **Brick**: `grafana`, version 0.2.0 (pinned).
+- **Role**: monitoring. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
 - **Parameters**: none.
@@ -342,6 +342,7 @@ Evidence, as the `player` user (and `dba` in psql):
 |---|---|---|---|
 | `ui:prometheus` | Prometheus' targets page, /prometheus/targets | `open Status, Target health, and read the node-health job` | four node-health targets (bastion, db, prometheus, exporter) for five nodes in the topology; grafana:9110 is absent, not down |
 | `ui:grafana` | the node-health dashboard, /grafana/d/node-health | `open the dashboard and read every panel's legend` | grafana appears in no panel, while bastion, db and prometheus do |
+| `ui:grafana` | Grafana's alerting view, /grafana/alerting/list | `read the state of "Scrape target down"` | the rule stays Normal although grafana is never scraped; it cannot fire for a target Prometheus does not know |
 | `node:prometheus` | /etc/prometheus/prometheus.yml | `ssh prometheus, then cat /etc/prometheus/prometheus.yml` | the node-health job's targets: 'bastion:9110', 'db:9110', 'prometheus:9110', 'exporter:9110'; no grafana |
 | `node:prometheus` | grafana's node-health endpoint, read from the prometheus node | `ssh prometheus, then curl -s grafana:9110/metrics \| grep sample_age` | node_health_sample_age_seconds lines labelled node="grafana": the endpoint answers, only the scrape is missing |
 
@@ -523,6 +524,7 @@ Evidence, as the `player` user (and `dba` in psql):
 | Where | Source | How | Shows |
 |---|---|---|---|
 | `ui:grafana` | Grafana's alerting view, /grafana/alerting/list | `open the rule "Service down on a node" (folder db_audit_gm) and read its details` | pending period 2h, against 1m or 5m for every other rule |
+| `ui:grafana` | Grafana's provisioning API, /grafana/api/v1/provisioning/alert-rules/gm-service-down | `through the web front with the tools password, GET /grafana/api/v1/provisioning/alert-rules/gm-service-down` | "for": "2h" |
 | `node:grafana` | /etc/grafana/provisioning/alerting/alert-rules.yaml | `ssh grafana, then grep -n -e 'uid:' -e 'for:' /etc/grafana/provisioning/alerting/alert-rules.yaml` | for: 2h under uid gm-service-down |
 
 Acceptable answers:

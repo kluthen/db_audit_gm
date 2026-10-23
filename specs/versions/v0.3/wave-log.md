@@ -650,3 +650,43 @@ amended by spec D166.)
   final loader check, or else report as waiting on chunk 1.
 - Chunk 1 (`v0.3-c1-formats`): dispatched 2026-10-23, after D171; 1a to
   merge into `v0.3-w1` as soon as it is green, so chunks 4 and 5 can start.
+
+### W1 addenda — choices chunk 1 made
+
+Where W1 was silent, recorded by chunk 1 (`v0.3-c1-formats`), 2026-10-23.
+
+- **The existing faults' aging minimum**: every catalog fault and every
+  fixture fault takes `aging: {technique: real-time, minimum: 0m}`: their
+  evidence was written for a restored state and shows at once. A v0.3
+  scenario that needs more for an instance sets its `aging_minimum`.
+- **Evidence without a stated place**: a `psql` or SQL reading whose v0.2
+  text names no place reads `where: node`; one the text reads "from the
+  bastion" reads `bastion`.
+- **Readings rewritten rather than dropped** (W1 item 2's rule): where a
+  `prometheus-*` fault would keep no reading of a fact once its web
+  readings left, the fact is read on the prometheus node itself, through
+  Prometheus' API (`curl -s http://127.0.0.1:9090/prometheus/api/v1/targets`)
+  or `promtool query instant http://127.0.0.1:9090/prometheus '<expr>'`:
+  the target down (`node-missing`), the node's absent series
+  (`node-missing`, `service-missing`), the absent target
+  (`scrape-target-missing`). Grafana's alert state and its provisioning
+  API are dropped (no node reading of them on the target but the rule
+  file, kept). `fixture-node-left-out`'s web reading becomes the same view
+  read with `curl` on the monitor node.
+- **Answer keys keeping the dropped readings**: two dropped readings were
+  in no answer key; `fernway-clinics-monitoring`'s answer key gains them
+  in 1a, beside the fault change: f1's Grafana alert staying Normal and
+  f5's provisioning API reading, both `ui:grafana`.
+- **Provisional growth per hour**: `postgres` 32M, `bastion` 1M,
+  `prometheus` 4M, `postgres-exporter` 1M, `grafana` 2M, each marked
+  provisional in `brick.yaml` and `docs/gm.md` until chunk 15b measures
+  it; the fixtures' local bricks `0`.
+- **Fixture-local bricks** keep their version (scenario-local, pinned
+  only by their fixture); they gain the required keys
+  (`disk_growth_per_hour`, `seed.paths`) and closed-list roles.
+- **Template markers**: `seed.paths` is required and "may be {}";
+  `seed.modes`, `snapshot:`, `report_tools`, `only_with_role` and
+  `sealed_check.behavioural` are `# optional`, so the unchanged loader
+  loads every definition; `writable_paths` keeps "may be []".
+  `brick-gm.md` carries the level-3 `### Snapshot` under Footprint (W1
+  item 5).

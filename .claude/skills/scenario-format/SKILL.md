@@ -6,16 +6,18 @@ description: Use whenever a db_audit_gm scenario, brick or fault definition is d
 # Scenario format
 
 Every scenario, brick and fault is written to one shape. This skill holds
-that shape: five templates and the folder layouts. This is its **v0.2
+that shape: five templates and the folder layouts. This is its **v0.3
 version**, expected to evolve as games are played; when a game shows the
 format is missing something, change the template and this skill together.
 
 Source of the shape: v0.1's master spec (`specs/versions/v0.1/master-spec.md`,
-sections 6, 7, 8 and 8.1) and v0.2's format changes
-(`specs/versions/v0.2/master-spec.md`, section 6), with `specs/formats.md`.
-The top-level keys of `brick.yaml` are fixed (capture W1-A in
-`specs/versions/v0.1/wave-log.md`); v0.2's keys are capture W1 in
-`specs/versions/v0.2/wave-log.md`.
+sections 6, 7, 8 and 8.1), v0.2's format changes
+(`specs/versions/v0.2/master-spec.md`, section 6) and v0.3's
+(`specs/versions/v0.3/master-spec.md`, section 6, with 7.1 for a
+scheduler's files), with `specs/formats.md`. The top-level keys of
+`brick.yaml` are fixed (capture W1-A in `specs/versions/v0.1/wave-log.md`);
+v0.2's keys are capture W1 in `specs/versions/v0.2/wave-log.md`, v0.3's
+capture W1 in `specs/versions/v0.3/wave-log.md`.
 
 ## Templates
 
@@ -165,12 +167,43 @@ Every key of [templates/brick.yaml](templates/brick.yaml) except the
 commented-out ones; and the folder: `Dockerfile`, `validator/`,
 `docs/player.md`, `docs/gm.md`, and `companion/` when `companion` is set.
 The image name is registry-qualified; the brick names no Swarm-only
-feature. In particular (v0.2 master spec 6.1):
+feature. In particular (v0.2 master spec 6.1, v0.3 master spec 6.4):
 
+- **Roles**: each one of the closed list `bastion`, `producer`, `queue`,
+  `database`, `pooler` (PgBouncer), `transformer`, `consumer`,
+  `monitoring`, `backup`. A scenario node's `role` is one of its brick's.
 - **Footprint**: the shape of a scenario node's `resources`, `limits`
-  (`cpu`, `memory`) and `reservations` (`cpu`, `memory`, `disk`), the
-  default the GM starts from when it sizes a scenario. It excludes any
-  material other bricks mount into this one.
+  (`cpu`, `memory`) and `reservations` (`cpu`, `memory`, `disk`, at rest),
+  the default the GM starts from when it sizes a scenario, plus
+  `disk_growth_per_hour`: the volumes' growth per hour of aging and of
+  game, as measured (a provisional estimate says so in a comment until it
+  is measured), `0` when nothing grows, so `fit` scales the disk to the
+  scenario's aging. It excludes any material other bricks mount into this
+  one.
+- **Writable paths** (`writable_paths`): the paths `player` may change on
+  a fixable node, and the only paths a report-only node's
+  `write_overrides` may name, each written exactly as there. A path is
+  fixable on a node when the node's policy is `fixable`, or it equals an
+  override, or it lies under an overridden directory. `/home/player`
+  stays writable under every policy.
+- **Seed paths** (`seed.paths`): every `seed.files` entry mapped to its
+  live in-container path, so a *fix* resolution of a seed-file fault can
+  be checked against the policy of the file it changes. An entry ending
+  in `/` (`builders/`) is a directory: optional in a scenario's
+  `seed_files`, mapped to a folder of files there, and to a directory in
+  `seed.paths`. `seed.modes` gives a seed file a config mode other than
+  `"0444"` (the scheduler's `schedule.yaml`, `"0400"`).
+- **Report tools** (`report_tools`, optional): the report generators
+  players run on the node (`pgbadger` on `postgres`); a fault's evidence
+  may name `report:<tool>` only for one of the target brick's.
+- **Snapshot** (`snapshot:`, optional): per volume, how the hand-over
+  snapshot copies it: `pg_basebackup` (the database's data, online; at
+  most one per brick, which then ships `gm-snapshot-db`), `copy` (a plain
+  copy while the node runs, for seeded, append-only or whole-file-rewritten
+  files) or `stop` (a brief s6 stop of the brick's services, never a
+  Swarm scale to zero). When present it names every volume but the one at
+  `/run`, once; absent, every volume but `/run` is copied by `stop`. `/run`
+  is never copied.
 - **No fault list**: `brick.yaml` names no fault; which faults a brick
   hosts is stated only by each fault's `applies_to` (D59).
 - **Interfaces**: `provides` and `consumes`, each entry with `name`,
@@ -182,8 +215,10 @@ feature. In particular (v0.2 master spec 6.1):
   (route name to `"node:port"`).
 - **Secrets**: each with its `kind`, `password` (with `handed_over: true`
   for one players type) or `key-pair` (with its `pair` and the `half`,
-  `private` or `public`, mounted). A name two bricks declare is one
-  secret and both declare it alike.
+  `private` or `public`, mounted), and optionally `only_with_role`
+  (generated and mounted only when a node of the topology has that role).
+  A name two bricks declare is one secret and both declare it alike
+  (`kind`, `handed_over`, `pair`, `half`).
 - **Mounted companion material** (`companion.mounted`), for each item: its
   `files` (each `source` under `companion/`, an absolute `target` in the
   receiving node, a `mode` with no write bit: root-owned, read-only); the
@@ -213,7 +248,11 @@ scenario that uses it, when:
   sentence, with the reason);
 - it disagrees with `brick.yaml`: a parameter, knob, interface or
   footprint figure that does not match the declaration, or one that
-  `brick.yaml` lacks (footprint: limits and reservations, D84);
+  `brick.yaml` lacks (footprint: limits and reservations, D84, and the
+  growth per hour); the write policies (and, under report-only, what
+  `write_overrides` may make fixable) belong under Access, and the
+  snapshot methods, with the brief stop where the brick has one, in a
+  level-3 `### Snapshot` under Footprint (capture W1 item 5);
 - it disagrees with the faults' `applies_to` (D59, D62): a fault listed as
   supported whose `applies_to` does not name this brick and version, or a
   **catalog** fault whose `applies_to` does that is not listed (a fault
@@ -229,10 +268,32 @@ Every key of [templates/fault.yaml](templates/fault.yaml), with
 `parameter_changes` for a parameter fault, and an `acceptance` entry for
 each kind in `resolutions`; and the folder: `inject/` (when it has
 material), `checks/fixed.sh`, `checks/probe.md`, `gm.md`. Scripts follow
-the contracts in [templates/layouts.md](templates/layouts.md); in
-particular a sealed check run as root queries PostgreSQL as `postgres`
-(`runuser -u postgres`, or exec as `postgres`) so that peer
-authentication applies. In particular (v0.2 master spec 6.4):
+the contracts in [templates/layouts.md](templates/layouts.md). In
+particular (v0.2 master spec 6.4, v0.3 master spec 6.3 and 6.5):
+
+- **Aging** (`aging:`): the technique, `real-time` (the only one in
+  v0.3), and the minimum duration before the evidence shows under the
+  load (`0m` when it shows at once), a duration `<integer><s|m|h|d>`. It
+  is counted only in a scenario with scheduler nodes (master spec 8,
+  D160).
+- **Evidence locations**: each entry's `where` is `node` (a shell on the
+  fault's target node), `bastion` (a shell on the bastion, `psql` from
+  there included) or `report:<tool>` (`<tool>` one of the target brick's
+  `report_tools`), and its `source` names the file, view or output looked
+  at (v0.2's free text). A fault never names `ui:<name>` nor
+  `node:<name>`: a reading through a web interface, or on a node other
+  than the target, is the scenario's, and its answer key carries it.
+- **Sealed checks** exit 0 (fixed), 1 (present), 3 (too soon to tell, the
+  remaining window on the first output line) or any other code (error).
+  A check judging behaviour over a window sets
+  `sealed_check.behavioural: true`; the answer key then gives each
+  instance's `window` and `threshold`. A check that queries PostgreSQL
+  connects as the GM check role `gm_check`, inside the GM's reserve,
+  through `postgres`' root-only `check-psql` helper (master spec 6.5,
+  capture W1 item 8); never as `dba` or an application role.
+- **Faults in a scheduler's files** are `seed-file` faults whose
+  `seed_changes` edit `queries.yaml`, `jobs.yaml` or `schedule.yaml`, at
+  render.
 
 - **`applies_to`** lists each brick's versions one by one, as exact
   strings (`["0.1.0", "0.1.1", "0.2.0"]`), never a range: a fault never
@@ -251,10 +312,8 @@ authentication applies. In particular (v0.2 master spec 6.4):
   a required parameter `node` naming the affected node. For the
   node-health script: the `prometheus` node, through its `node_health`
   map (a node left out, or a service left out of a node's entry).
-- A fault's own `evidence[].where` stays v0.1's free text; the answer
-  key's evidence is the one split into `where` and `source`.
 
-## Versions and pins (v0.2 master spec 6.5)
+## Versions and pins (v0.2 master spec 6.5, v0.3 master spec 6.6)
 
 - **Bricks.** Any change to a brick bumps its version, whatever part of
   its folder changes (image, `brick.yaml`, validator, documentation,

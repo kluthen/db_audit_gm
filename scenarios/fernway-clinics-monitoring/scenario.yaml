@@ -38,7 +38,7 @@ nodes:
   - name: bastion
     brick:
       id: bastion
-      version: 0.2.0
+      version: 0.3.0
     role: bastion
     stateful: true
     networks: [backend]
@@ -64,7 +64,7 @@ nodes:
   - name: db
     brick:
       id: postgres
-      version: 0.2.0
+      version: 0.3.0
     role: database
     stateful: true
     networks: [backend]
@@ -133,8 +133,8 @@ nodes:
   - name: prometheus
     brick:
       id: prometheus
-      version: 0.1.0
-    role: metrics-store
+      version: 0.2.0
+    role: monitoring
     stateful: true
     networks: [backend]
     write_policy: fixable
@@ -158,8 +158,8 @@ nodes:
   - name: exporter
     brick:
       id: postgres-exporter
-      version: 0.1.0
-    role: metrics-exporter
+      version: 0.2.0
+    role: monitoring
     stateful: true
     networks: [backend]
     write_policy: fixable
@@ -181,8 +181,8 @@ nodes:
   - name: grafana
     brick:
       id: grafana
-      version: 0.1.0
-    role: dashboards
+      version: 0.2.0
+    role: monitoring
     stateful: true
     networks: [backend]
     write_policy: fixable

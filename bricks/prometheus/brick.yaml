@@ -1,7 +1,9 @@
 # brick.yaml: Prometheus node, the game's metrics store (v0.2 master spec 7
 # and 7.2).
 #
-# Version 0.1.0 (unreleased until the v0.2 release gate, D100).
+# Version 0.2.0 (unreleased until the v0.3 release gate, D100). Roles, growth
+# per hour, writable and seed paths, report tools and snapshot methods:
+# capture W1 item 3 (specs/versions/v0.3/wave-log.md).
 # Top-level keys: capture W1-A; fixed paths, secrets and wrappers: capture
 # W1-B; quoted octal modes: capture W1-D (specs/versions/v0.1/wave-log.md);
 # footprint shape, interfaces with `web_path`, secret kinds and `receives`:
@@ -9,13 +11,13 @@
 
 # --- Identity ---------------------------------------------------------
 id: prometheus
-version: 0.1.0
+version: 0.2.0
 roles:
-  - metrics-store
+  - monitoring                      # v0.3 master spec 6.4's closed list
 technology:
   name: prometheus
   version: "3.13.5"
-image: 127.0.0.1:5000/dbagm/prometheus:0.1.0
+image: 127.0.0.1:5000/dbagm/prometheus:0.2.0
 
 # --- Footprint --------------------------------------------------------
 footprint:                          # master spec 12's figures for the node, less what the
@@ -23,6 +25,9 @@ footprint:                          # master spec 12's figures for the node, les
                                     # stays within them (docs/gm.md, Footprint)
   limits:       {cpu: 0.495, memory: 378M}
   reservations: {cpu: 0.095, memory: 154M, disk: 512M}
+  disk_growth_per_hour: 4M          # provisional estimate (capture W1 item 3), until
+                                    # v0.3 chunk 15b measures it: the TSDB; the v0.2 static game: 0.9M in 35 minutes,
+                                    # more targets and series under load
 stateful: true
 
 # --- What the scenario sets -------------------------------------------
@@ -95,6 +100,8 @@ seed:
   dir: /opt/gm/seed/
   files:
     - prometheus.yml                # scrape targets and retention (storage.tsdb.retention)
+  paths:                            # seed file -> its live in-container path
+    prometheus.yml: /etc/prometheus/prometheus.yml
 protected_configs: []
 volumes:
   - name: promdata                  # the TSDB, bounded by the retention
@@ -110,6 +117,12 @@ volumes:
 processes:
   - prometheus
   - sshd
+snapshot:                           # per volume, the hand-over copy (v0.3 master spec 6.4,
+                                    # 7.3 to 7.5); run, emptied at every start, is never copied
+  promdata: stop
+  promconf: copy
+  home: copy
+  gmstate: copy
 
 # --- Catalog links ----------------------------------------------------
 interfaces:

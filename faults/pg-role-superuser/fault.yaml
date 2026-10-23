@@ -13,8 +13,13 @@ severity: high
 applies_to:
   bricks:
     - id: postgres
-      versions: ["0.1.0", "0.1.1", "0.2.0"]
+      versions: ["0.1.0", "0.1.1", "0.2.0", "0.3.0"]
   preconditions: []
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 0m                       # the evidence shows at once (a restored state, D160)
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:
@@ -33,7 +38,8 @@ injection:
 
 # --- What the players can see ------------------------------------------
 evidence:
-  - where: the roles of the cluster
+  - where: node
+    source: the roles of the cluster
     how: psql -c '\du', or SELECT rolname, rolsuper FROM pg_roles WHERE rolsuper
     shows: the application role listed with the Superuser attribute, next to dba and postgres
 
