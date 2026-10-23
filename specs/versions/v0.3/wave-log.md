@@ -624,3 +624,29 @@ bricks' bumps, so 1a's merge ahead of 1b would unblock chunks 4 and 5
 soonest); brief chunk 2 with item 9's fixture note. (Briefing chunks 4
 and 5 to take `v0.3-w1` in is moot: they are cut after chunk 1's merge,
 amended by spec D166.)
+
+### Preflight corrections sent to `spec-writer` (before any chunk starts)
+
+- The owner's three confirmations recorded as spec D160–D162 (3b03db2; plan
+  v3): chunks 8a, 11, 13 and 15b revised.
+- Capture W1's open points and contradictions settled as spec D163–D170
+  (55bf028; plan v4): `schedule.yaml` read in place (D163); the replication
+  line added by chunk 1b (D164); window and threshold passed by chunk 9
+  (D165); wave 1's order, chunk 1 first with chunk 3 beside it, chunks 2, 4
+  and 5 cut after chunk 1's merge (4 and 5 after 1a's at least) (D166);
+  W1's readings on roles, `seed.paths`, `seed.modes`, secrets, `snapshot:`
+  and the five faults' evidence kept (D167); `timezone_offset` (D168);
+  `check-psql` in chunk 4a (D169); the scheduler's writable paths made
+  directories (D170). W1's text amended in place, each change marked.
+- O102, asked of the owner 2026-10-23: every `postgres` seed carries its own
+  DO NOT TAMPER line `local all gm_check scram-sha-256`. **Yes**, as
+  recommended; recorded as spec D171 (d124b42), chunks 1 and 4 and W1 item
+  8 revised.
+
+### Dispatch
+
+- Chunk 3 (`v0.3-c3-scheduler`): dispatched 2026-10-23, beside chunk 1
+  (D166). Told to take `v0.3-w1` in once chunk 1 has merged, before its
+  final loader check, or else report as waiting on chunk 1.
+- Chunk 1 (`v0.3-c1-formats`): dispatched 2026-10-23, after D171; 1a to
+  merge into `v0.3-w1` as soon as it is green, so chunks 4 and 5 can start.

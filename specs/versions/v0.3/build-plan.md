@@ -279,7 +279,7 @@ the release gate checks that each is recorded.
 
 ### Chunk 1 — Format skill, templates, the v0.3 versions and the definitions migrated
 
-Status: planned
+Status: in progress
 Wave: 1
 Depends on: G2, G3
 Architecture capture: recorded by the wave driver at wave 1 start (W1),
@@ -473,7 +473,7 @@ Architecture capture: none of its own; it implements W1.
 
 ### Chunk 3 — The `scheduler` brick 0.1.0
 
-Status: planned
+Status: in progress
 Wave: 1
 Depends on: chunk 1 (in-wave, W1: runs alongside chunk 1, its files all
 under `bricks/scheduler/`, spec D166); G2, G3
