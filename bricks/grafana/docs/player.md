@@ -43,6 +43,9 @@ in a row also lock the `admin` account for a few minutes.
   | `dashboards/postgresql.json` | the PostgreSQL dashboard |
   | `alerting/alert-rules.yaml` | the alert rules |
 
+  On some games these files are read-only: an edit gets "permission
+  denied", and `gm-reload-grafana` says the node is report-only.
+
 - **Your home**, `/home/player`: notes, scripts, `~/report.md`.
 
 Changes to `/etc/grafana/provisioning` stay in place when Grafana
