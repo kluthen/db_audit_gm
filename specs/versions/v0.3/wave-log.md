@@ -1022,3 +1022,12 @@ Where W1 was silent, recorded by chunk 1 (`v0.3-c1-formats`), 2026-10-23.
   builder stalls the node (one process); the stack test uses PostgreSQL 17,
   not the brick's 18.
 - Chunk 5 (`v0.3-c5-monitoring`): dispatched 2026-10-23 (in flight: 2b, 4, 5).
+- Chunk 2 merged 2026-10-23: 2a c278786 (merge ff60cce), 2b 34aade5 (merge
+  ecb7278). 117 refusal tests added; unit suite 415 OK on `v0.3-w1`. It
+  loaded chunk 4's `postgres` brick as committed on its branch (a91689b)
+  with no problems; chunk 4's final `brick.yaml` is loaded again at the
+  gate. Its first 2b merge conflicted with the driver's lines at the end of
+  this log: it aborted, moved its addenda before "W1 addenda — choices
+  chunk 1 made", and merged cleanly. Risk carried forward: the
+  `pg_hba.conf` check ignores `+group`, `@file` and `include`.
+- In flight: chunks 4 and 5.

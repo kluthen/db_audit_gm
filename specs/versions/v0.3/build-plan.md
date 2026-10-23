@@ -412,7 +412,7 @@ scripts' `IMAGES=` lists, for the new tags (wave log).
 
 ### Chunk 2 — Loader checks for v0.3
 
-Status: in progress
+Status: merged (w1, ecb7278)
 Wave: 1
 Depends on: chunk 1, merged into `v0.3-w1` before this chunk's branch is
 cut (spec D166); W1
@@ -475,6 +475,11 @@ Architecture capture: none of its own; it implements W1.
 - Verification: chunk checks.
 - Split rule: 2a scenario, fault, brick and answer-key checks; 2b the
   scheduler's file templates and their checks.
+
+Record: 2a c278786 (merge ff60cce), 2b 34aade5 (merge ecb7278). No
+deviation from the spec or W1; its choices are in "W1 addenda — choices
+chunk 2 made". Its `pg_hba.conf` reading ignores `+group`, `@file` and
+`include`.
 
 ### Chunk 3 — The `scheduler` brick 0.1.0
 
