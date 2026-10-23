@@ -34,10 +34,11 @@ parameters: {}                      # the database's address and user are in the
 knobs: []                           # no envelope: the settings are checked by the validator
 
 # --- Player plane -----------------------------------------------------
-write_policies:                     # fixable only (docs/gm.md, Known limits)
+write_policies:                     # GM_WRITE_POLICY, gm-write-policy (docs/gm.md, Access)
   - fixable
+  - report-only
 writable_paths:
-  - /etc/postgres-exporter          # exporter:expconf, 2775; seeded exporter.conf 0664
+  - /etc/postgres-exporter          # exporter:expconf, 2775 (2755 report-only); exporter.conf 0664 (0644)
   - /home/player                    # ~/report.md, the player's notes
 protected_files:
   - /etc/ssh/sshd_config
@@ -46,6 +47,7 @@ protected_files:
   - /usr/local/sbin/gm-entrypoint
   - /usr/local/sbin/gm-restart-exporter
   - /usr/local/sbin/gm-validate
+  - /usr/local/sbin/gm-write-policy  # the owner and modes, run as root by the two above
   - /usr/local/lib/gm/healthcheck
   - /usr/local/lib/gm/exporter-conf         # reads exporter.conf for the service, wrapper, validator
   - /usr/local/lib/gm/exporter-collectors   # the collectors this postgres_exporter offers
