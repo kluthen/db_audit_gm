@@ -15,6 +15,7 @@ script can decide are checked here too. Every failure is a missing item,
 and all of them are listed, not just the first.
 """
 
+import ast
 import datetime
 import re
 from dataclasses import dataclass, field
@@ -136,7 +137,8 @@ class ListSchema:
 
 
 # Keys whose shape the template states in a comment, checked by code instead.
-_CHECKED_BY_CODE = {"envelope"}
+# (queries, pool, shapes: the scheduler's files, whose forms vary per entry.)
+_CHECKED_BY_CODE = {"envelope", "queries", "pool", "shapes"}
 
 
 def _inline_comment(line):
@@ -207,7 +209,7 @@ def template_schema(template_name, templates_dir=TEMPLATES_DIR):
 
 def _item_label(item, index):
     if isinstance(item, dict):
-        for key in ("name", "id", "setting", "instance"):
+        for key in ("name", "id", "setting", "instance", "key"):
             if isinstance(item.get(key), (str, int)):
                 return str(item[key])
     return str(index)
@@ -1015,6 +1017,7 @@ def check_scenario(scenario_dir, catalog_root=REPO_ROOT):
     _check_customer_timezone(nodes, scheduled, sdir, out)
     _check_retention(data, nodes, bricks, faults, scheduled, minimum, sdir, out)
     _check_postgres_seeds(nodes, bricks, sdir, out)
+    _check_scheduler_files(data, nodes, faults, minimum, sdir, out)
 
     if out:
         return None, out
@@ -2128,3 +2131,488 @@ def _check_designed_for(data, nodes, out):
             if total > capacity:
                 out.append(f"{label}: designed_for.hosts[{host_name}].{key}: the nodes placed "
                            "there reserve more than it has")
+
+
+# --- The scheduler's files (master spec 7.1; capture W1 of v0.3, item 7) ---
+
+SCHEDULER_FILES = ("queries.yaml", "schedule.yaml", "jobs.yaml")
+QUERY_KEY_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+ISOLATION_LEVELS = ("read committed", "repeatable read", "serializable")
+GENERATORS = ("int", "decimal", "choice", "sequence", "now")
+DRIVERS = ("sql/postgresql",)
+TARGET_RE = re.compile(r"^([a-z]([a-z0-9-]{0,61}[a-z0-9])?):([0-9]+)/([A-Za-z_][A-Za-z0-9_$-]*)$")
+DB_ROLE_RE = re.compile(r"^[a-z_][a-z0-9_]{0,40}$")
+RESERVED_DB_ROLES = ("postgres", "dba", "monitoring", "gm_check", "pgbouncer_lookup")
+RATE_RE = re.compile(r"^([0-9]+(?:\.[0-9]+)?)/(s|min|h)$")
+ARRIVALS = ("poisson", "even")
+BUILDER_RE = re.compile(r"^builders/([A-Za-z0-9_][A-Za-z0-9_.-]*):([A-Za-z_][A-Za-z0-9_]*)$")
+WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+HOURS_RE = re.compile(r"^([0-9]{2})(?:-([0-9]{2}))?$")
+DAYS_RE = re.compile(r"^([a-z]{3})(?:-([a-z]{3}))?$")
+SCHEDULE_KEYS = ("intensity", "connections", "streams", "shapes", "timeline")
+CONNECTION_KEYS = ("driver", "target", "role", "pool")
+STREAM_KEYS = ("key", "connection", "rate", "arrivals", "shape", "concurrency")
+CHANGE_KEYS = ("at", "stream", "set")
+SET_KEYS = ("key", "rate", "connection")
+JOB_KEYS = ("name", "key", "connection", "at", "timezone_offset")
+
+
+def _check_scheduler_files(data, nodes, faults, minimum, sdir, out):
+    """A scheduler node's queries.yaml, builders/, schedule.yaml and
+    jobs.yaml, in scenario time (master spec 7.1, normative; W1 item 7;
+    D168); their templates are the format skill's."""
+    names = {n.get("name") for n in nodes}
+    for node in nodes:
+        if not is_scheduler_node(node):
+            continue
+        loaded = {}
+        for fname in SCHEDULER_FILES:
+            rel, path = _seed_path(node, sdir, fname)
+            if path is not None:            # a missing file is reported with the seed files
+                loaded[fname] = (rel, _load_yaml(path, rel, out))
+        builders = _dict(node.get("seed_files")).get("builders/")
+        folder = _inside(sdir, builders) if isinstance(builders, str) else None
+        builders = (str(builders).rstrip("/"), folder) if folder is not None and folder.is_dir() \
+            else None
+        keys = None
+        if loaded.get("queries.yaml", (None, None))[1] is not None:
+            keys = _check_queries(*loaded["queries.yaml"], builders, out)
+        connections = None
+        if loaded.get("schedule.yaml", (None, None))[1] is not None:
+            connections = _check_schedule(*loaded["schedule.yaml"], keys, names, data, minimum,
+                                          out)
+        if loaded.get("jobs.yaml", (None, None))[1] is not None:
+            _check_jobs(*loaded["jobs.yaml"], keys, connections, node, data, faults, out)
+
+
+def _unknown_keys(value, allowed, p, what, out):
+    for key in value:
+        if key not in allowed:
+            out.append(f"{p}.{key}: not a key of {what} ({', '.join(allowed)})")
+
+
+def _without_sql(value):
+    """A copy without `sql` values, whose < and > are operators, not
+    placeholders."""
+    if isinstance(value, dict):
+        return {k: _without_sql(v) for k, v in value.items() if k != "sql"}
+    if isinstance(value, list):
+        return [_without_sql(v) for v in value]
+    return value
+
+
+def _check_queries(rel, content, builders, out):
+    """The query repository; returns its keys, or None when unusable."""
+    check_against_schema(content, template_schema("queries.yaml"), rel, out=out)
+    placeholders(_without_sql(content), rel, out=out)
+    queries = _dict(content).get("queries")
+    if not isinstance(queries, dict):
+        if isinstance(content, dict) and queries is not None:
+            out.append(f"{rel}: queries: not a map of key -> query, pool, sequence or builder")
+        return None
+    for key, value in queries.items():
+        p = f"{rel}: queries.{key}"
+        if not (isinstance(key, str) and QUERY_KEY_RE.match(key)):
+            out.append(f"{p}: {key!r} is not a key ([a-z0-9][a-z0-9._-]*)")
+        if isinstance(value, list):
+            if not value:
+                out.append(f"{p}: a pool lists at least one query")
+            for i, item in enumerate(value):
+                _check_query(item, f"{p}[{i}]", ("sql", "params", "transaction", "weight"), out)
+        elif isinstance(value, dict) and "builder" in value:
+            _check_builder(value, p, builders, out)
+        elif isinstance(value, dict) and "steps" in value:
+            _unknown_keys(value, ("steps", "transaction"), p, "a sequence", out)
+            steps = value["steps"]
+            if not (isinstance(steps, list) and steps):
+                out.append(f"{p}.steps: not a non-empty list of steps")
+            for i, step in enumerate(steps if isinstance(steps, list) else []):
+                _check_query(step, f"{p}.steps[{i}]", ("sql", "params"), out)
+            if "transaction" in value:
+                _check_transaction(value["transaction"], f"{p}.transaction", out)
+        elif isinstance(value, dict) and "sql" in value:
+            _check_query(value, p, ("sql", "params", "transaction"), out)
+        else:
+            out.append(f"{p}: not a query (sql), a pool (a list of queries), a sequence (steps) "
+                       "or a builder (builder)")
+    return set(queries)
+
+
+def _check_query(query, p, allowed, out):
+    if not isinstance(query, dict):
+        out.append(f"{p}: not a query (sql, optional params)")
+        return
+    what = "a pool's query" if "weight" in allowed else \
+        "a step" if "transaction" not in allowed else "a query"
+    _unknown_keys(query, allowed, p, what, out)
+    sql = query.get("sql")
+    if "sql" not in query:
+        out.append(f"{p}.sql: missing")
+    elif not (isinstance(sql, str) and sql.strip()):
+        out.append(f"{p}.sql: not a statement")
+    if "params" in query:
+        params = query["params"]
+        if not isinstance(params, dict):
+            out.append(f"{p}.params: not a map of name -> generator")
+        for name, generator in params.items() if isinstance(params, dict) else ():
+            _check_generator(generator, f"{p}.params.{name}", out)
+    if "transaction" in query and "transaction" in allowed:
+        _check_transaction(query["transaction"], f"{p}.transaction", out)
+    if "weight" in query and not (_is_int(query["weight"]) and query["weight"] > 0):
+        out.append(f"{p}.weight: {query['weight']!r} is not a positive integer")
+
+
+def _check_generator(generator, p, out):
+    """{int: [lo, hi]}, {decimal: [lo, hi, places]}, {choice: [..]},
+    {sequence: [start, step]}, {now: utc} (W1 item 7)."""
+    if not (isinstance(generator, dict) and len(generator) == 1
+            and next(iter(generator)) in GENERATORS):
+        out.append(f"{p}: {generator!r} is not a generator ({{int: [lo, hi]}}, {{decimal: [lo, "
+                   "hi, places]}}, {choice: [..]}, {sequence: [start, step]}, {now: utc})")
+        return
+    kind, args = next(iter(generator.items()))
+    ok = True
+    if kind == "int":
+        ok = isinstance(args, list) and len(args) == 2 and all(map(_is_int, args)) \
+            and args[0] <= args[1]
+        form = "[lo, hi], integers, lo <= hi"
+    elif kind == "decimal":
+        ok = isinstance(args, list) and len(args) == 3 and all(map(_is_number, args[:2])) \
+            and args[0] <= args[1] and _is_int(args[2]) and args[2] >= 0
+        form = "[lo, hi, places], lo <= hi, places a whole number of digits"
+    elif kind == "choice":
+        ok = isinstance(args, list) and bool(args) \
+            and not any(isinstance(a, (list, dict)) for a in args)
+        form = "a non-empty list of values"
+    elif kind == "sequence":
+        ok = isinstance(args, list) and len(args) == 2 and all(map(_is_int, args)) \
+            and args[1] != 0
+        form = "[start, step], integers, step not 0"
+    else:
+        ok = args == "utc"
+        form = "utc"
+    if not ok:
+        out.append(f"{p}.{kind}: {args!r} is not {form}")
+
+
+def _check_transaction(transaction, p, out):
+    if not isinstance(transaction, dict):
+        out.append(f"{p}: not {{isolation, hold}}")
+        return
+    _unknown_keys(transaction, ("isolation", "hold"), p, "a transaction", out)
+    if transaction.get("isolation") not in ISOLATION_LEVELS:
+        out.append(f"{p}.isolation: {transaction.get('isolation')!r} is not one of "
+                   f"{', '.join(ISOLATION_LEVELS)}")
+    if "hold" in transaction:
+        try:
+            parse_duration(transaction["hold"])
+        except ValueError as exc:
+            out.append(f"{p}.hold: {exc}")
+
+
+def _check_builder(value, p, builders, out):
+    """builders/<file>:<function>: a file of the node's builders/ folder
+    defining the function at its top level."""
+    _unknown_keys(value, ("builder", "options"), p, "a builder", out)
+    if "options" in value and not isinstance(value["options"], dict):
+        out.append(f"{p}.options: not a map")
+    ref = value.get("builder")
+    m = BUILDER_RE.match(ref) if isinstance(ref, str) else None
+    if m is None:
+        out.append(f"{p}.builder: {ref!r} is not builders/<file>:<function>")
+        return
+    fname, function = m.groups()
+    if builders is None:
+        out.append(f"{p}.builder: {ref}, but the node has no builders/ seed folder")
+        return
+    rel, folder = builders
+    path = folder / fname
+    if not path.is_file():
+        out.append(f"{p}.builder: {ref}: {rel}/{fname} does not exist")
+        return
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    except (SyntaxError, UnicodeDecodeError, ValueError) as exc:
+        out.append(f"{rel}/{fname}: cannot be parsed as Python: {' '.join(str(exc).split())}")
+        return
+    if not any(isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == function
+               for n in tree.body):
+        out.append(f"{p}.builder: {ref}: {rel}/{fname} defines no function {function} at its "
+                   "top level")
+
+
+def _check_rate(rate, p, out):
+    m = RATE_RE.match(rate) if isinstance(rate, str) else None
+    if m is None or float(m.group(1)) <= 0:
+        out.append(f"{p}: {rate!r} is not a rate (<number>/s, /min or /h, positive)")
+
+
+def _check_schedule(rel, content, keys, names, data, minimum, out):
+    """schedule.yaml in scenario time; returns its connection names, or None
+    when unusable."""
+    check_against_schema(content, template_schema("schedule.yaml"), rel, out=out)
+    placeholders(content, rel, out=out)
+    if not isinstance(content, dict):
+        return None
+    for key in content:
+        if key not in SCHEDULE_KEYS:
+            out.append(f"{rel}: {key}: not a key of a schedule ({', '.join(SCHEDULE_KEYS)}); "
+                       "the game's seed is render's")
+    if "intensity" in content and not (_is_number(content["intensity"])
+                                       and content["intensity"] > 0):
+        out.append(f"{rel}: intensity: {content['intensity']!r} is not a positive number")
+    connections = _dict(content.get("connections"))
+    for name, conn in connections.items():
+        _check_connection(conn, f"{rel}: connections.{name}", names, out)
+    shapes = content.get("shapes")
+    if "shapes" in content and not isinstance(shapes, dict):
+        out.append(f"{rel}: shapes: not a map of name -> shape")
+    for name, shape in _dict(shapes).items():
+        _check_shape(shape, f"{rel}: shapes.{name}", out)
+    streams = content.get("streams")
+    initial = []
+    for i, stream in enumerate(streams if isinstance(streams, list) else []):
+        if not isinstance(stream, dict):
+            continue                         # reported against the template
+        p = f"{rel}: streams[{stream.get('key', i)}]"
+        _unknown_keys(stream, STREAM_KEYS, p, "a stream", out)
+        key = stream.get("key")
+        if key in initial:
+            out.append(f"{p}: another stream starts with key {key}; a stream is known by its "
+                       "initial key, unique on the node")
+        initial.append(key)
+        _check_key_ref(key, keys, f"{p}.key", out)
+        if "connection" in stream and stream["connection"] not in connections:
+            out.append(f"{p}.connection: {stream['connection']} is not a connection of the "
+                       "schedule")
+        if "rate" in stream:
+            _check_rate(stream["rate"], f"{p}.rate", out)
+        if "arrivals" in stream and stream["arrivals"] not in ARRIVALS:
+            out.append(f"{p}.arrivals: {stream['arrivals']} is not {' or '.join(ARRIVALS)}")
+        if "shape" in stream and stream["shape"] not in _dict(shapes):
+            out.append(f"{p}.shape: {stream['shape']} is not a shape of the schedule")
+        if "concurrency" in stream and not (_is_int(stream["concurrency"])
+                                            and stream["concurrency"] > 0):
+            out.append(f"{p}.concurrency: {stream['concurrency']!r} is not a positive integer")
+    timeline = content.get("timeline")
+    for i, change in enumerate(timeline if isinstance(timeline, list) else []):
+        if isinstance(change, dict):
+            _check_change(change, f"{rel}: timeline[{i}]", keys, connections, initial, data,
+                          minimum, out)
+    return set(connections)
+
+
+def _check_key_ref(key, keys, p, out):
+    if keys is not None and key is not None and key not in keys:
+        out.append(f"{p}: {key} is not a key of the node's queries.yaml")
+
+
+def _check_connection(conn, p, names, out):
+    if not isinstance(conn, dict):
+        return                               # reported against the template
+    _unknown_keys(conn, CONNECTION_KEYS, p, "a connection", out)
+    if "driver" in conn and conn["driver"] not in DRIVERS:
+        out.append(f"{p}.driver: {conn['driver']} is not a known driver ({', '.join(DRIVERS)})")
+    target = conn.get("target")
+    m = TARGET_RE.match(target) if isinstance(target, str) else None
+    if "target" in conn and m is None:
+        out.append(f"{p}.target: {target!r} is not <node>:<port>/<database>")
+    elif m is not None:
+        if m.group(1) not in names:
+            out.append(f"{p}.target: {target}: {m.group(1)} is not a node of the topology")
+        if not _is_port(int(m.group(3))):
+            out.append(f"{p}.target: {target}: {m.group(3)} is not a port")
+    role = conn.get("role")
+    if "role" in conn:
+        if not (isinstance(role, str) and DB_ROLE_RE.match(role)):
+            out.append(f"{p}.role: {role!r} is not a role name ([a-z_][a-z0-9_]{{0,40}})")
+        elif role in RESERVED_DB_ROLES or role.startswith("pg_"):
+            out.append(f"{p}.role: {role} is reserved ({', '.join(RESERVED_DB_ROLES)}, pg_*); "
+                       "the scheduler connects as an application role")
+    pool = conn.get("pool")
+    if "pool" in conn and not (
+            isinstance(pool, dict) and len(pool) == 1
+            and (_is_int(pool.get("size")) and pool["size"] > 0
+                 or pool.get("per-call") is True)):
+        out.append(f"{p}.pool: {pool!r} is not {{size: N}} (N a positive integer) or "
+                   "{per-call: true}")
+
+
+def _check_hours(hours, p, out):
+    """"HH" or "HH-HH" -> multiplier, covering 00 to 23 exactly once."""
+    if not (isinstance(hours, dict) and hours):
+        out.append(f"{p}: not a map of hours -> multiplier")
+        return
+    counts = [0] * 24
+    for span, multiplier in hours.items():
+        m = HOURS_RE.match(span) if isinstance(span, str) else None
+        lo, hi = (int(m.group(1)), int(m.group(2) or m.group(1))) if m else (None, None)
+        if not isinstance(span, str):
+            out.append(f"{p}: {span!r}: hours are quoted strings, \"HH\" or \"HH-HH\" (unquoted, "
+                       "YAML reads them as numbers)")
+            continue
+        if m is None or not lo <= hi <= 23:
+            out.append(f"{p}: {span!r} is not an hour or a range of hours (00 to 23, never "
+                       "wrapping)")
+            continue
+        if not (_is_number(multiplier) and multiplier >= 0):
+            out.append(f"{p}.{span}: {multiplier!r} is not a multiplier (a number, at least 0)")
+        for hour in range(lo, hi + 1):
+            counts[hour] += 1
+    _coverage([f"{h:02d}" for h in range(24)], counts, "hour", p,
+              "a shape covers 00 to 23 exactly once", out)
+
+
+def _coverage(names, counts, what, p, rule, out):
+    missing = [n for n, c in zip(names, counts) if c == 0]
+    twice = [n for n, c in zip(names, counts) if c > 1]
+    if missing:
+        out.append(f"{p}: {what}(s) {', '.join(missing)} not covered ({rule})")
+    if twice:
+        out.append(f"{p}: {what}(s) {', '.join(twice)} covered more than once ({rule})")
+
+
+def _check_shape(shape, p, out):
+    if not (isinstance(shape, dict) and len(shape) == 1 and next(iter(shape)) in ("hours",
+                                                                                 "days")):
+        out.append(f"{p}: a shape is {{hours: ...}} or {{days: ...}}")
+        return
+    if "hours" in shape:
+        _check_hours(shape["hours"], f"{p}.hours", out)
+        return
+    days = shape["days"]
+    if not (isinstance(days, dict) and days):
+        out.append(f"{p}.days: not a map of days -> {{hours: ...}}")
+        return
+    counts = [0] * 7
+    for span, value in days.items():
+        m = DAYS_RE.match(span) if isinstance(span, str) else None
+        ends = [m.group(1), m.group(2) or m.group(1)] if m else []
+        if not ends or not all(d in WEEKDAYS for d in ends) \
+                or WEEKDAYS.index(ends[0]) > WEEKDAYS.index(ends[1]):
+            out.append(f"{p}.days: {span!r} is not a day or a range of days ({' '.join(WEEKDAYS)}"
+                       ", never wrapping)")
+            continue
+        for day in range(WEEKDAYS.index(ends[0]), WEEKDAYS.index(ends[1]) + 1):
+            counts[day] += 1
+        if not (isinstance(value, dict) and set(value) == {"hours"}):
+            out.append(f"{p}.days.{span}: not {{hours: ...}}")
+            continue
+        _check_hours(value["hours"], f"{p}.days.{span}.hours", out)
+    _coverage(list(WEEKDAYS), counts, "day", f"{p}.days",
+              "a weekly shape covers mon to sun exactly once", out)
+
+
+def _check_change(change, p, keys, connections, streams, data, minimum, out):
+    """A timeline change: before hand-over, no further before it than the
+    aging minimum (master spec 7.1)."""
+    _unknown_keys(change, CHANGE_KEYS, p, "a timeline change", out)
+    at = change.get("at")
+    m = HANDOVER_MOMENT_RE.match(at) if isinstance(at, str) else None
+    if "at" in change and at != "T0" and m is None:
+        out.append(f"{p}.at: {at!r} is not T0 or handover-<N>h (N a whole number of hours, at "
+                   "least 1: before hand-over, never at or after it)")
+    elif m is not None and minimum is not None and int(m.group(1)) * 3600 > minimum:
+        out.append(f"{p}.at: {at} is further before hand-over than aging.minimum "
+                   f"{data['aging']['minimum']}")
+    if "stream" in change and change["stream"] not in streams:
+        out.append(f"{p}.stream: {change['stream']} is not a stream of the schedule (a stream "
+                   "is named by its initial key)")
+    values = change.get("set")
+    if not isinstance(values, dict):
+        return                               # reported against the template
+    _unknown_keys(values, SET_KEYS, f"{p}.set", "a change", out)
+    _check_key_ref(values.get("key"), keys, f"{p}.set.key", out)
+    if "rate" in values:
+        _check_rate(values["rate"], f"{p}.set.rate", out)
+    if "connection" in values and values["connection"] not in connections:
+        out.append(f"{p}.set.connection: {values['connection']} is not a connection of the "
+                   "schedule")
+
+
+def _cron_values(field_text, lo, hi, steps):
+    """Whether a cron field is a comma list of numbers in lo..hi (and, with
+    steps, *, */n, a-b and a-b/n)."""
+    for item in field_text.split(","):
+        m = re.fullmatch(r"(\*|([0-9]+)(?:-([0-9]+))?)(?:/([0-9]+))?", item)
+        if m is None:
+            return False
+        if not steps and (m.group(1) == "*" or m.group(3) is not None or m.group(4)):
+            return False
+        if m.group(4) is not None and int(m.group(4)) < 1:
+            return False
+        if m.group(2) is not None:
+            a, b = int(m.group(2)), int(m.group(3) or m.group(2))
+            if not lo <= a <= b <= hi:
+                return False
+    return True
+
+
+def _cron_problem(at):
+    """Why a job's `at` is outside the cron subset render can shift (W1
+    item 7), or None."""
+    if not isinstance(at, str):
+        return f"{at!r} is not a quoted cron expression"
+    fields = at.split()
+    if len(fields) != 5:
+        return f"{at!r} is not a 5-field cron expression"
+    minute, hour, dom, month, dow = fields
+    if not _cron_values(minute, 0, 59, True):
+        return (f"{at!r}: minute {minute} is not a numeric cron form (*, 5, 0-30, */15, 1,31, "
+                "0-30/10) within 0-59")
+    if hour != "*" and not _cron_values(hour, 0, 23, False):
+        return f"{at!r}: hour {hour} is not *, a number or a list of numbers (0-23)"
+    if dom != "*" or month != "*":
+        return f"{at!r}: day of month and month are * (render shifts the hour only)"
+    if dow != "*":
+        if not _cron_values(dow, 0, 6, False):
+            return f"{at!r}: day of week {dow} is not *, a number or a list of numbers (0-6)"
+        if not re.fullmatch(r"[0-9]+", hour):
+            return f"{at!r}: a day of week needs a single-number hour (it is {hour})"
+    return None
+
+
+def _check_jobs(rel, content, keys, connections, node, data, faults, out):
+    """jobs.yaml in scenario time: no timezone:, a timezone_offset only where
+    a fault instance's seed change edits jobs.yaml (spec D168)."""
+    check_against_schema(content, template_schema("jobs.yaml"), rel, out=out)
+    placeholders(content, rel, out=out)
+    jobs = _dict(content).get("jobs")
+    offset_fault = any(
+        isinstance(i, dict) and i.get("node") == node.get("name") and i.get("id") in faults
+        and _dict(faults[i["id"]].data.get("injection")).get("kind") == "seed-file"
+        and any(_dict(c).get("file") == "jobs.yaml"
+                for c in _dict(faults[i["id"]].data.get("injection")).get("seed_changes") or [])
+        for i in data.get("fault_instances") or [])
+    seen = set()
+    for i, job in enumerate(jobs if isinstance(jobs, list) else []):
+        if not isinstance(job, dict):
+            continue                         # reported against the template
+        p = f"{rel}: jobs[{_item_label(job, i)}]"
+        for key in job:
+            if key == "timezone":
+                out.append(f"{p}.timezone: a scenario's job carries no timezone: (its at is "
+                           "scenario time; the wrong-time-zone fault writes timezone_offset, "
+                           "spec D168)")
+            elif key not in JOB_KEYS:
+                out.append(f"{p}.{key}: not a key of a job ({', '.join(JOB_KEYS)})")
+        if job.get("name") in seen:
+            out.append(f"{p}: duplicate job name")
+        seen.add(job.get("name"))
+        _check_key_ref(job.get("key"), keys, f"{p}.key", out)
+        if connections is not None and "connection" in job \
+                and job["connection"] not in connections:
+            out.append(f"{p}.connection: {job['connection']} is not a connection of the node's "
+                       "schedule.yaml")
+        if "at" in job:
+            problem = _cron_problem(job["at"])
+            if problem:
+                out.append(f"{p}.at: {problem}")
+        if "timezone_offset" in job:
+            offset = job["timezone_offset"]
+            if not (_is_int(offset) and offset != 0):
+                out.append(f"{p}.timezone_offset: {offset!r} is not a non-zero whole number of "
+                           "hours")
+            elif not offset_fault:
+                out.append(f"{p}.timezone_offset: only on a node where a fault instance's seed "
+                           "change edits jobs.yaml (the wrong-time-zone fault, spec D168)")

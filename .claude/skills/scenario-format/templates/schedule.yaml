@@ -1,0 +1,51 @@
+# schedule.yaml — template for scenarios/<scenario-id>/nodes/<node>/schedule.yaml,
+# a scheduler node's schedule (brick `scheduler`)
+#
+# Version v0.3, expected to evolve as games are played.
+# Shape: v0.3 master spec 7.1 ("The schedule"), with the forms capture W1 of
+# specs/versions/v0.3/wave-log.md (item 7) settles. Written in SCENARIO
+# TIME. Never seen by players: render writes the game's copy (UTC shapes and
+# timeline instants, the game's seed), read in place, root only ("0400").
+#
+# Markers:
+#   every key is REQUIRED unless marked otherwise;
+#   "# optional: <when>"  the key is present only when <when> holds.
+# Replace every <placeholder>. A filled file keeps no <placeholder>.
+# No other key: the game's seed is render's, never the scenario's.
+
+intensity: <1.0>                    # a positive number; multiplies every stream's rate and is
+                                    # passed to the builders; never rescaled by the GM
+connections:                        # name -> connection; streams and jobs name them
+  <app>:
+    driver: sql/postgresql          # the only driver in v0.3
+    target: <db:5432/shop>          # <node>:<port>/<database>, a node of the topology (the
+                                    # database, or a pooler)
+    role: <shop_app>                # [a-z_][a-z0-9_]{0,40}; never postgres, dba, monitoring,
+                                    # gm_check, pgbouncer_lookup or pg_*; its password is a
+                                    # generated secret, never in this file
+    pool: {size: <5>}               # {size: N}, N a positive integer, or {per-call: true}
+streams:                            # non-empty
+  - key: <orders.insert>            # a key of the node's queries.yaml; a stream is known by
+                                    # this initial key, unique among the node's streams
+    connection: <app>               # a connection above
+    rate: <40/min>                  # <number>/s | /min | /h, positive, at intensity 1.0,
+                                    # before the shape
+    arrivals: <poisson>             # poisson | even
+    shape: <business-hours>         # optional: a shape below; absent, multiplier 1
+    concurrency: <2>                # optional: a positive integer, default 1
+shapes:                             # optional: when a stream names a shape; name -> shape
+  <business-hours>:                 # scenario time, either
+    hours: {<"00-06">: <0.1>, <"07-23">: <1.0>}
+                                    # hours: "HH" or "HH-HH" (quoted, 00 to 23, never wrapping)
+                                    # -> a multiplier >= 0, covering 00 to 23 exactly once; or
+                                    # days: {mon-fri: {hours: ...}, sat-sun: {hours: ...}}, the
+                                    # days mon tue wed thu fri sat sun alone or as ranges (never
+                                    # wrapping), covering the week exactly once
+timeline:                           # optional: changes at fixed moments during aging
+  - at: <handover-6h>               # T0 or handover-<N>h, N at most aging.minimum: before
+                                    # hand-over, never at or after it
+    stream: <orders.insert>         # a stream, by its initial key
+    set:                            # at least one of:
+      key: <orders.insert-v2>       # optional: a key of the node's queries.yaml
+      rate: <80/min>                # optional: as a stream's rate
+      connection: <app>             # optional: a connection above
