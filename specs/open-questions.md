@@ -14,7 +14,7 @@ Resolved since v0.2 closed: O45 (D121), O46 (D128), O78 (D140), O82
 (D124), O83 (D125), O84 (D126), O85 (D127), O86 (D129), O87 (D130), O88
 (D131), O89 (D132), O90 (D133), O91 (D134), O92 (D135), O93 (D136), O94
 (D137), O95 (D138), O96 (D139), O97 (D140), O81 (D141), O98 (D142), O99
-(D143), O100 (D144), O101 (D145).
+(D143), O100 (D144), O101 (D145), O102 (D171).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -114,17 +114,9 @@ Raised while v0.3 is drafted. O82 to O97, raised when the drafting
 opened, and O98 to O101, raised by their answers, were all answered on
 2026-10-22 (D124–D145). The drafts' `(proposed)` items
 await the owner's review in
-[versions/v0.3/review-list.md](versions/v0.3/review-list.md). Raised at
-wave 1's preflight:
-
-- **O102** (soon, wave 1) — Should every `postgres` seed name the GM check
-  role's access under its DO NOT TAMPER comment (`local all gm_check
-  scram-sha-256`), so a player who tightens the general `local all all`
-  line (to `peer`, say) does not lock every database sealed check out?
-  Today it rests on that general line (capture W1 item 8). Recommended:
-  yes, added by chunk 1b beside the replication line (D164); it is one
-  more line the players see. Refs: [versions/v0.3/wave-log.md](versions/v0.3/wave-log.md)
-  "Capture W1".
+[versions/v0.3/review-list.md](versions/v0.3/review-list.md). O102,
+raised at wave 1's preflight, was answered the same day (D171). None is
+open.
 
 ## Roadmap: gaps and cross-version risks
 

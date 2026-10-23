@@ -19,7 +19,7 @@ owner's confirmation; the register lists the ones with real alternatives.
 |---|---|---|
 | [concept.md](concept.md) | Purpose, actors, vocabulary, scope, versions, prior art | draft v12 |
 | [versions/](versions/README.md) | The roadmap: v0.1 to v0.6, v1.0 and beyond, one page per version; v0.1's [master spec](versions/v0.1/master-spec.md), [access model](versions/v0.1/access-model.md) and [wave log](versions/v0.1/wave-log.md) | v0.1 released and archived; v0.2 released 2026-10-22 and archived: [master spec](versions/v0.2/master-spec.md), [access model](versions/v0.2/access-model.md), [wave log](versions/v0.2/wave-log.md), build plan archived; v0.3 drafting (below); v0.4–v0.6 and v1.0 draft |
-| [versions/v0.3/](versions/v0.3/README.md) | v0.3's drafts: [scheduler](versions/v0.3/scheduler.md), [aging and timeline](versions/v0.3/aging-and-timeline.md), [load and capacity](versions/v0.3/load-and-capacity.md), [faults with activity](versions/v0.3/faults-with-activity.md), [checks under load](versions/v0.3/checks-under-load.md), [PgBouncer](versions/v0.3/pgbouncer.md), [carried items](versions/v0.3/carried-items.md), [format changes](versions/v0.3/format-changes.md); [master spec](versions/v0.3/master-spec.md), [access model](versions/v0.3/access-model.md) | spec approved 2026-10-22 (D154), amended by D157 and D158; [build plan](versions/v0.3/build-plan.md) v4, approved 2026-10-22 (D156), confirmations D160–D162 and wave 1's preflight corrections D163–D170 written in, wave 1 under way; page draft v8 |
+| [versions/v0.3/](versions/v0.3/README.md) | v0.3's drafts: [scheduler](versions/v0.3/scheduler.md), [aging and timeline](versions/v0.3/aging-and-timeline.md), [load and capacity](versions/v0.3/load-and-capacity.md), [faults with activity](versions/v0.3/faults-with-activity.md), [checks under load](versions/v0.3/checks-under-load.md), [PgBouncer](versions/v0.3/pgbouncer.md), [carried items](versions/v0.3/carried-items.md), [format changes](versions/v0.3/format-changes.md); [master spec](versions/v0.3/master-spec.md), [access model](versions/v0.3/access-model.md) | spec approved 2026-10-22 (D154), amended by D157 and D158; [build plan](versions/v0.3/build-plan.md) v5, approved 2026-10-22 (D156), confirmations D160–D162, wave 1's preflight corrections D163–D170 and the ruling D171 written in, wave 1 under way; page draft v8 |
 | [gm-stance.md](gm-stance.md) | How the GM behaves and speaks: setup questions, issues, report-only interaction, no reveals, stop only, restarts, no events outside the schedule, final answer, feedback tone, future ideas | draft v12 |
 | [scenario-lifecycle.md](scenario-lifecycle.md) | The game from setup to teardown: setup inputs, scenario, local implementation, deploy, aging (real time from v0.3), hand-over, end of the game | draft v13 |
 | [formats.md](formats.md) | What a scenario folder, a brick (with its companion material and GM documentation) and a fault definition must contain; versions and pins; the local implementation; the skills and templates | draft v20 |
@@ -27,7 +27,7 @@ owner's confirmation; the register lists the ones with real alternatives.
 | [planes-and-access.md](planes-and-access.md) | Bastion-only rule (the bastion publishes the web interfaces), planes, the GM session, trust, write policies, the scheduler nodes, hardening, validators | draft v15 |
 | [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls, the shared VPS | draft v17 |
 | [open-questions.md](open-questions.md) | Open-questions register | live |
-| [decisions.md](decisions.md) | Decisions log, D107 onward (D170 last); D1–D54 archived with v0.1, D55–D106 with v0.2 | live |
+| [decisions.md](decisions.md) | Decisions log, D107 onward (D171 last); D1–D54 archived with v0.1, D55–D106 with v0.2 | live |
 | [archive/](archive/README.md) | Closed milestones' working records, kept verbatim: v0.1's and v0.2's build plans, decisions D1–D54 and D55–D106, resolved questions | archive |
 
 History: the tree was seeded on 2026-10-20 from the owner's pre-spec notes,
@@ -192,7 +192,9 @@ access model.
   in every `postgres` seed (D164); chunk 9 passes windows (D165); chunk
   1 first, 2, 4, 5 after its merge (D166); chunk 1 writes W1's brick
   values (D167); `timezone_offset` (D168); `check-psql` in chunk 4
-  (D169); the scheduler's writable paths as directories (D170).
+  (D169); the scheduler's writable paths as directories (D170); the
+  GM check role's own DO NOT TAMPER seed line, the owner's ruling on
+  O102 (D171).
 - Small project: scripts and small apps, no ATD, no UI/UX tree (D2).
 - v0.1 build: seven artifacts (three skills, a Python/POSIX-shell script
   set, PostgreSQL 18 on Debian 13 and bastion bricks, one scenario), one
@@ -204,9 +206,7 @@ access model.
 ## Next steps
 
 1. v0.3: wave 1 of the [build plan](versions/v0.3/build-plan.md), under
-   way since 2026-10-23; the owner's answer to O102 (the GM check
-   role's own DO NOT TAMPER line), best before chunk 1b; the plan's
-   remaining owner gates (G7, G8's date, G9 and G10) as their waves
-   reach them.
+   way since 2026-10-23; the plan's remaining owner gates (G7, G8's
+   date, G9 and G10) as their waves reach them.
 2. The other "soon" question, O49 (backup tooling's version), then
    v1.0's from the "later" ones.

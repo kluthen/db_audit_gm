@@ -1,12 +1,13 @@
 # db_audit_gm v0.3 — Build plan
 
-Status: v4 (2026-10-23): v3 with wave 1's preflight corrections from capture W1 written in (spec D163–D170).
+Status: v5 (2026-10-23): v4 with the owner's ruling on O102, the GM check role's own seed line, written in (spec D171).
 Approval: **approved 2026-10-22 by the owner** (G1, spec D156).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-10-22 (spec D154), with
 spec D152, D153 and D155 folded in, and amended the same day by spec
 D157 and D158; confirmed at wave 1's start by spec D160 to D162; corrected
-before wave 1's first chunk by spec D163 to D170 (capture W1).
+before wave 1's first chunk by spec D163 to D170 (capture W1) and the
+owner's ruling D171.
 No design set (no interface to design, D2).
 
 The model is `~/.local/share/dev_team/references/build-plan-model.md`; this
@@ -332,8 +333,9 @@ for chunks 2 to 5, which build on it before chunk 1 merges:
     checks with a window; the scheduler's files, pointing at master spec
     7.1 until chunk 2b's templates carry them; the third exit code of a
     sealed check, and database checks on the GM check role; a `postgres`
-    seed's `local replication postgres peer` line under its DO NOT
-    TAMPER comment, spec D164);
+    seed's `local replication postgres peer` and `local all gm_check
+    scram-sha-256` lines under its DO NOT TAMPER comment, spec D164,
+    D171);
   - the templates `brick.yaml`, `brick-gm.md`, `fault.yaml`,
     `scenario.yaml`, `answer-key.yaml` and `layouts.md`, to master spec
     6.1 to 6.7 and W1;
@@ -358,11 +360,14 @@ for chunks 2 to 5, which build on it before chunk 1 merges:
     D157), each with its difficulty score (6 and 8), fernway's one-day
     retention kept, its node roles `monitoring` (spec D167); the three
     fixtures likewise, with no `aging:`, `fixture-mounted`'s local brick
-    role `consumer`; the `local replication postgres peer` line added to
-    every `postgres` seed `pg_hba.conf` (both scenarios, `fixture-audit`,
-    `fixture-monitoring`), under the DO NOT TAMPER comment beside `local
+    role `consumer`; the lines `local replication postgres peer` and
+    `local all gm_check scram-sha-256` added to every `postgres` seed
+    `pg_hba.conf` (both scenarios, `fixture-audit`,
+    `fixture-monitoring`), under the DO NOT TAMPER comment after `local
     all postgres peer`, and the line numbers `bookshop-new-server`'s
-    answer key cites moved with it (spec D164); every README regenerated.
+    answer key cites moved two down with them (its trust line 12 to 14,
+    the scram-sha-256 host line 14 to 16; spec D164, D171); every README
+    regenerated.
   - Out: any loader, renderer or image change; the bricks' v0.3 features
     (chunks 4, 5); the scheduler's file templates (chunk 2b); anything
     under `bricks/scheduler/` (chunk 3).
@@ -378,7 +383,7 @@ for chunks 2 to 5, which build on it before chunk 1 merges:
   `tools/tests/fixtures/fixture-{audit,mounted,monitoring}/`.
 - Spec sections: master spec 5, 6, 8 (its opening), 15.4, 16;
   [../../formats.md](../../formats.md); spec D100, D140, D145, D150,
-  D157, D158, D164, D166, D167.
+  D157, D158, D164, D166, D167, D171.
 - Done when: every template carries every item master spec 6 requires and
   loads as YAML; the loader, unchanged, loads every brick at its v0.3
   version, the eleven faults, both scenarios and the three fixtures; the
@@ -386,7 +391,9 @@ for chunks 2 to 5, which build on it before chunk 1 merges:
   their new tags and their stack tests pass; every README matches a
   fresh regeneration; every evidence reading dropped from a fault is in
   the answer key of each scenario and fixture planting that fault; every
-  `postgres` seed carries the replication line.
+  `postgres` seed carries the replication line and the `gm_check` line
+  under its DO NOT TAMPER comment, and the answer keys' cited `pg_hba`
+  line numbers match the seeds.
 - Verification: chunk checks.
 - Split rule: 1a brick and fault formats: the `brick.yaml`,
   `brick-gm.md`, `fault.yaml` and `layouts.md` templates, the skill's
@@ -394,8 +401,8 @@ for chunks 2 to 5, which build on it before chunk 1 merges:
   migration, with the scenarios' and fixtures' pins. 1b scenario
   formats: the `scenario.yaml` and `answer-key.yaml` templates, the
   skill's scenario rules, the scenario-document skill, the scenarios' and
-  fixtures' `difficulty:`, the replication line in their seeds, their
-  answer keys and READMEs.
+  fixtures' `difficulty:`, the replication and `gm_check` lines in
+  their seeds, their answer keys and READMEs.
   Each half leaves the suite green.
 
 ### Chunk 2 — Loader checks for v0.3
@@ -594,12 +601,14 @@ reserve and the PgBouncer lookup role as built as W1-x (read by chunks
   `bricks/postgres/tests/{run-stack-test.sh,stack.test.yml,fixtures/}`.
 - Spec sections: master spec 7.3, 11 (item 5), 16; access model 5
   ("Database, its logs and PgBouncer"), 7, 8, 11; spec D138, D142,
-  D144, D164, D166, D167, D169.
+  D144, D164, D166, D167, D169, D171.
 - Done when: the stack test shows each item of 4a and 4b; the loader
   accepts the brick; `test_brick_docs` passes; `docs/gm.md` states the
   reserve, the check role and `check-psql`, the lookup role and the
-  snapshot helper; the stack test's seed carries the replication line
-  (spec D164).
+  snapshot helper; the stack test's seed (`tests/fixtures/pg_hba.conf`)
+  carries the replication line and the `gm_check` line under its DO NOT
+  TAMPER comment, and the check role connects through it (spec D164,
+  D171).
 - Verification: chunk checks, plus the stack test (needs G3).
 - Split rule: 4a reserve, check role, lookup role; 4b the snapshot helper
   and the ownership restore.

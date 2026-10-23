@@ -16,7 +16,7 @@ README:
 Archived IDs keep their meaning and are cited as they are. D107 onward
 stay live: rulings still to be applied in a later version (D107, D108,
 D110, D113), the v0.2 release close, and v0.3's drafting from D114.
-Numbering continues from D171; no ID is reused.
+Numbering continues from D172; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -386,3 +386,9 @@ Numbering continues from D171; no ID is reused.
   on the v0.3 scenario's report-only scheduler nodes. Now in:
   [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 6.7;
   [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunk 3b.
+- **D171 (2026-10-23, owner ruling, relayed by the coordinator; resolves
+  O102): Every `postgres` seed names the GM check role's access under its
+  DO NOT TAMPER comment, `local all gm_check scram-sha-256`,** beside the
+  replication line (D164), added by chunk 1b, so a player tightening the
+  general `local all all` line does not lock the sealed checks out. Now
+  in: [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunks 1, 4.

@@ -511,7 +511,11 @@ shapes), 8.3, 8.7, access model 5 ("Scheduler nodes"), 7, 8.
   5432 -U gm_check "$@"` with the password in a `0600` `PGPASSFILE`
   under `/run/gm`, removed on exit; its status is psql's. A check reads
   `check-psql -d <db> -Atq -v ON_ERROR_STOP=1 <<'SQL' … SQL`. The seeds'
-  `local all all scram-sha-256` line lets `gm_check` in; chunk 2a's seed
+  `local all all scram-sha-256` line lets `gm_check` in; every `postgres`
+  seed also names it on its own line, `local all gm_check scram-sha-256`,
+  under the DO NOT TAMPER comment beside the replication line, so a
+  player tightening the general line keeps the checks working (amended
+  by spec D171); chunk 2a's seed
   check (7.3) also confirms a `local` line admits `gm_check` by password
   or `trust` before any `reject` (choice, the same check as the
   replication line; `trust` added, amended by spec D164).
