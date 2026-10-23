@@ -3,7 +3,7 @@
 # Generic image: no scenario content. The seed files (data source,
 # dashboards, alert rules) and the secrets arrive at run time at the fixed
 # paths declared in brick.yaml.
-# Build:  docker build -t 127.0.0.1:5000/dbagm/grafana:0.1.0 bricks/grafana
+# Build:  docker build -t 127.0.0.1:5000/dbagm/grafana:0.2.0 bricks/grafana
 # Architecture: x86_64 only (the s6-overlay and Grafana archives below).
 
 # --- Grafana OSS, pinned, unpacked and trimmed in a stage of its own -------

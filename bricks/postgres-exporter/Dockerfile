@@ -3,7 +3,7 @@
 # Generic image: no scenario content. The seed file (the database's address,
 # the user, the extra collectors) and the secrets arrive at run time at the
 # fixed paths declared in brick.yaml.
-# Build:  docker build -t 127.0.0.1:5000/dbagm/postgres-exporter:0.1.0 bricks/postgres-exporter
+# Build:  docker build -t 127.0.0.1:5000/dbagm/postgres-exporter:0.2.0 bricks/postgres-exporter
 # Architecture: x86_64 only (the s6-overlay and postgres_exporter archives below).
 
 # --- rootfs/, its modes independent of the checkout --------------------------
