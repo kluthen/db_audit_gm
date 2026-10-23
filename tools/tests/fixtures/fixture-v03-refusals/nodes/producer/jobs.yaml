@@ -1,0 +1,16 @@
+# Fixed-time operations of the fixture's producer node, in scenario time
+# (master spec 7.1; template: .claude/skills/scenario-format/templates/jobs.yaml).
+jobs:
+  - name: close-day
+    key: orders.close-day
+    connection: app
+    at: "30 1 * * *"
+    timezone_offset: -2              # fault instance f3 (fixture-job-timezone), spec D168
+  - name: weekly-report
+    key: reports.revenue
+    connection: reports
+    at: "0 6 * * 1"
+  - name: sweep
+    key: orders.lookup
+    connection: app
+    at: "*/15 8,12,18 * * *"
