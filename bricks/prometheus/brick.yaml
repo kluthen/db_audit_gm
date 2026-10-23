@@ -44,10 +44,11 @@ parameters:                         # scrape targets and retention are in the se
 knobs: []                           # retention is bounded by the validator, not an envelope
 
 # --- Player plane -----------------------------------------------------
-write_policies:                     # fixable only (docs/gm.md, Known limits)
+write_policies:                     # GM_WRITE_POLICY, gm-write-policy (docs/gm.md, Access)
   - fixable
+  - report-only
 writable_paths:
-  - /etc/prometheus                 # prometheus:promconf, 2775; seeded prometheus.yml 0664
+  - /etc/prometheus                 # prometheus:promconf, 2775 (2755 report-only); prometheus.yml 0664 (0644)
   - /home/player                    # ~/report.md, the player's notes
 protected_files:
   - /etc/ssh/sshd_config
@@ -56,6 +57,7 @@ protected_files:
   - /usr/local/sbin/gm-entrypoint
   - /usr/local/sbin/gm-reload-prometheus
   - /usr/local/sbin/gm-validate
+  - /usr/local/sbin/gm-write-policy  # the owner and modes, run as root by the two above
   - /usr/local/lib/gm/healthcheck
   - /opt/gm/validator/validate.sh
   - /etc/s6-overlay/s6-rc.d

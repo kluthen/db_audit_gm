@@ -115,7 +115,8 @@ seed file can plant, and a finding for the players.
 | What | Path | Notes |
 |---|---|---|
 | Seed directory | `/opt/gm/seed/` | config `exporter.conf`, read-only |
-| Configuration | `/etc/postgres-exporter/` | volume `expconf`; `exporter:expconf`, dir `2775`, seeded file `0664` |
+| Configuration | `/etc/postgres-exporter/` | volume `expconf`; `exporter:expconf`, dir `2775` and seeded file `0664` when fixable, `2755` and `0644` otherwise (see "Access") |
+| Write policy | `/run/gm/write-policy` | root `0444` in the root-only `/run/gm`; written at each start from `GM_WRITE_POLICY` and `GM_WRITE_OVERRIDES` |
 | Seed marker | `/var/lib/gm-state/.gm-seeded` | volume `gmstate`; dir root `0755`, marker root `0444`; present means never seed again |
 | Player home | `/home/player` | volume `home` |
 | Runtime | `/run` | volume `run`, emptied at each start (see below) |
@@ -123,6 +124,7 @@ seed file can plant, and a finding for the players.
 | What the service last read | `/run/postgres-exporter/loaded` | root `0644` in a root:exporter `0750` directory: the modification time of the `exporter.conf` it started with, and when |
 | Validator | `/opt/gm/validator/validate.sh` | |
 | Wrappers | `/usr/local/sbin/gm-restart-exporter`, `gm-validate` | |
+| Write-policy helper | `/usr/local/sbin/gm-write-policy` | run as root by the entrypoint and `gm-restart-exporter`; not a `sudo` wrapper |
 | File reader | `/usr/local/lib/gm/exporter-conf` | `check` (validator, wrapper) and `run` (the s6 service) |
 | Entrypoint | `/usr/local/sbin/gm-entrypoint` | |
 | Health check | `/usr/local/lib/gm/healthcheck` | |
@@ -137,12 +139,23 @@ seed file can plant, and a finding for the players.
 3. Fails the container if `player_ssh_pubkey` is missing or empty, or if
    `monitoring_password` is missing, empty or more than one line (as the
    `postgres` brick does with the same secret).
-4. If `/var/lib/gm-state/.gm-seeded` is absent: copies `exporter.conf`
+4. Reads the write policy from `GM_WRITE_POLICY` and `GM_WRITE_OVERRIDES`
+   (both unset or empty: `fixable`, no override) and writes
+   `/run/gm/write-policy`. An unknown policy, or an override that is not
+   one of `writable_paths`, fails the container with one line
+   (`gm-entrypoint: fatal: GM_WRITE_POLICY='read-only' is not one of
+   fixable, report-only, no-access`, `gm-entrypoint: fatal:
+   GM_WRITE_OVERRIDES: '<path>' is not one of this brick's writable_paths
+   (/etc/postgres-exporter, /home/player)`).
+5. If `/var/lib/gm-state/.gm-seeded` is absent: copies `exporter.conf`
    into `/etc/postgres-exporter/` and writes the marker. A missing seed
    file fails the container. Never overwrites afterwards. The marker is on
    its own root-owned volume, out of reach of `player` and `exporter`.
-5. Sets the ownership of the player's home.
-6. Execs s6-overlay's `/init`, which supervises `postgres-exporter` and
+6. Applies the write policy's owner and modes to `exporter.conf` and
+   `/etc/postgres-exporter` (see "Access"), seeding or not, contents
+   untouched; logs `write policy: policy=... overrides=...`.
+7. Sets the ownership of the player's home.
+8. Execs s6-overlay's `/init`, which supervises `postgres-exporter` and
    `sshd`.
 
 The s6 service `postgres-exporter` runs `exporter-conf run` as root: it
@@ -254,23 +267,55 @@ these interfaces: they run inside the container through `gmctl exec`.
 
 ### Writable and protected paths, write policies
 
-- Writable by the player: `/etc/postgres-exporter`
-  (`exporter:expconf`, `2775`; the seeded `exporter.conf` `0664`),
-  `/home/player`, and the scratch space `/tmp` and `/var/tmp`, both links
-  to `/run/tmp` (root, `1777`, emptied at each start, see "Start-up").
+- Writable by the player: `/etc/postgres-exporter` when it is fixable
+  (below: `exporter:expconf`, `2775`; the seeded `exporter.conf`
+  `0664`), `/home/player` under every policy, and the scratch space
+  `/tmp` and `/var/tmp`, both links to `/run/tmp` (root, `1777`, emptied
+  at each start, see "Start-up").
 - Protected (root-owned, read-only to the player): `/etc/ssh/sshd_config`,
   `/etc/sudoers`, `/etc/sudoers.d/gm-player`, the entrypoint, the two
-  wrappers, the health check, `exporter-conf`, the collector list,
+  wrappers and their helper `gm-write-policy`, the health check, `exporter-conf`, the collector list,
   `postgres_exporter.yml`, the validator, the s6-overlay service
   definitions (`/etc/s6-overlay/s6-rc.d`,
   `/etc/s6-overlay/user-bundles.d`) and the seed marker's directory
   `/var/lib/gm-state`.
-- Write policies: `fixable` only (see "Known limits").
+- **Write policies** (`write_policies`): `fixable` and `report-only`
+  (v0.3 master spec 7.4), as on the `prometheus` brick. The renderer
+  passes the node's policy as `GM_WRITE_POLICY` and its `write_overrides`
+  as `GM_WRITE_OVERRIDES` (sorted, space-separated); `no-access` is read
+  as `report-only` for the files. A path is *fixable* when the policy is
+  `fixable`, or it is an override or lies under one. The only useful
+  override here is `/etc/postgres-exporter` (`/home/player` is writable
+  anyway):
+
+  | | `/etc/postgres-exporter` | `exporter.conf` | `gm-restart-exporter` |
+  |---|---|---|---|
+  | `fixable`, or `report-only` with the override | `2775` | `0664` | restarts |
+  | `report-only` | `2755` | `0644` | refuses |
+
+  Owner `exporter:expconf` throughout. On a report-only node `player` (in
+  `expconf`) can read the file but not change, replace or add anything
+  there: an edit gets an ordinary "permission denied". The policy is set
+  at each container start (entrypoint) and enforced again by the wrapper
+  before every restart; it changes only with a new deployment.
+- **Owner restored**: `sed -i` replaces the file with one owned by
+  `player`. The entrypoint at every start, and `gm-restart-exporter`
+  before it restarts, give `exporter.conf` and its directory their owner
+  and mode back, contents untouched. Nothing is changed through a
+  symbolic link or on a file with other hard links: such an entry is
+  left alone and named (`left alone: ...`). Files players add in a
+  fixable `/etc/postgres-exporter` stay as they made them; the exporter
+  reads only `exporter.conf`.
 
 ### Wrappers
 
-- `gm-restart-exporter`: `postgres_exporter` reads its settings only at
-  start. The wrapper checks `exporter.conf` as the s6 service does
+- `gm-restart-exporter`: first restores the owner and mode (above);
+  then, when `exporter.conf` is not fixable (report-only, no override),
+  prints one line and exits 1, restarting nothing:
+  `gm-restart-exporter: this node is report-only: its files cannot be
+  changed, so nothing was reloaded.` (exit 2 if the policy cannot be read
+  or the owner not restored). `postgres_exporter` reads its settings only
+  at start. The wrapper then checks `exporter.conf` as the s6 service does
   (`exporter-conf check`, as root) and refuses (exit 1, "NOT restarted",
   one line per problem) if it is not valid, leaving the running exporter
   alone. Otherwise it restarts the service through s6 (`s6-svc -r -u`:
@@ -280,7 +325,8 @@ these interfaces: they run inside the container through `gmctl exec`.
   (exit 0 either way: the restart worked). Exit 1 if nothing answers
   within 30 s.
 - `gm-validate`: runs the validator as `exporter`
-  (`runuser -u exporter`), exit code passed through.
+  (`runuser -u exporter`), exit code passed through. Never refused,
+  whatever the policy.
 
 ### Capabilities
 
@@ -353,7 +399,9 @@ The levers that shrink it: a longer scrape interval, fewer collectors
 How each volume is copied at hand-over (`snapshot:` in `brick.yaml`):
 
 - `expconf`, `home`, `gmstate`: `copy`, a tar of the volume while the
-  node runs.
+  node runs. The exporter keeps no data of its own (its metrics are read
+  live from the database), so nothing is stopped: the node is never down
+  for the snapshot. The stack test copies the three volumes this way.
 - `run` (`/run`) is never copied.
 
 ## Supported faults
@@ -449,15 +497,20 @@ everything it created, volumes included. It covers `pg_up`, the
 secret out of `player`'s reach and out of the server's arguments, the
 wrappers, the validator green and red, a wrong address, the database
 down, a file not valid at start, a new container, the hardening, and the
-entrypoint refusing a missing, empty or multi-line password. Needs a swarm
+entrypoint refusing a missing, empty or multi-line password. Then the
+snapshot's copies, the node redeployed `report-only` (`docker service
+update --env-add GM_WRITE_POLICY=report-only`: modes, denied edits, the
+wrapper's refusal, nothing restarted), then with the override
+`/etc/postgres-exporter` (the edit through the wrapper, the owner
+restored), and the entrypoint's two write-policy refusals. Needs a swarm
 manager, this image and the `postgres` 0.3.0 image (the `db` node and the
 test client) built.
 
 ## Known limits
 
-- **Write policy**: only `fixable`, as `prometheus`. A `report-only` node
-  would need the configuration directory not group-writable, decided at
-  start from a value the renderer passes; not built.
+- **Write policy**: only the files are guarded. On a report-only node
+  `/metrics` still answers every reader of the game's network, as on a
+  fixable one.
 - **Host key per container.** The sshd host key is generated at each
   container start. If the container is replaced, players see a changed
   host key on the inner hop.

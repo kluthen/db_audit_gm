@@ -2,10 +2,16 @@
 # gm-reload-prometheus: check, then reload Prometheus' configuration.
 # Usage: sudo gm-reload-prometheus
 # DO NOT TAMPER. Root-owned, read-only; allowed by /etc/sudoers.d/gm-player.
+# (v0.2 master spec 7.2, v0.3 master spec 7.4; capture W1 item 5.)
 #
-# Checks /etc/prometheus/prometheus.yml with promtool, as `prometheus`, and
-# refuses to reload if it does not load, so a typo does not reach the
-# server. Otherwise sends SIGHUP through s6 (the HTTP lifecycle endpoint is
+# First restores the seeded file's owner and mode (prometheus:promconf,
+# 0664 or 0644, the directory 2775 or 2755, by the write policy in
+# /run/gm/write-policy), contents untouched, never through a link: a file
+# `sed -i` left owned by player gets its owner back. On a node where
+# prometheus.yml is not fixable (report-only), refuses with one line and
+# exit 1, nothing signalled. Then checks /etc/prometheus/prometheus.yml
+# with promtool, as `prometheus`, and refuses to reload if it does not
+# load, so a typo does not reach the server. Otherwise sends SIGHUP through s6 (the HTTP lifecycle endpoint is
 # disabled) and reports what Prometheus says: whether the reload succeeded
 # and the retention now in effect (storage.tsdb.retention in the file).
 # If Prometheus is not running, s6 keeps restarting it: the wrapper waits
@@ -22,6 +28,25 @@ if [ "$#" -ne 0 ]; then
     echo "usage: sudo gm-reload-prometheus (no arguments)" >&2
     exit 2
 fi
+
+ME=gm-reload-prometheus
+cd /
+
+# 0. Owner and mode, then the write policy.
+if ! notes=$(/usr/local/sbin/gm-write-policy restore 2>&1); then
+    echo "$ME: could not restore the files' owner and mode; nothing was reloaded:" >&2
+    printf '%s\n' "$notes" | sed 's/^/  /' >&2
+    exit 2
+fi
+[ -z "$notes" ] || { echo "$ME: left alone:"; printf '%s\n' "$notes" | sed 's/^/  /'; }
+/usr/local/sbin/gm-write-policy reloadable >/dev/null 2>&1
+case $? in
+    0) ;;
+    1) echo "$ME: this node is report-only: its files cannot be changed, so nothing was reloaded."
+       exit 1 ;;
+    *) echo "$ME: cannot read the node's write policy; nothing was reloaded." >&2
+       exit 2 ;;
+esac
 
 as_prometheus() { runuser -u prometheus -- env HOME=/var/lib/prometheus "$@"; }
 ready() { curl -fsS -o /dev/null -m 3 "$URL/-/ready" 2>/dev/null; }
