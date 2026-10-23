@@ -1,0 +1,4 @@
+#!/bin/sh
+# s6 service `sshd` (DO NOT TAMPER). Configuration: /etc/ssh/sshd_config.
+exec 2>&1
+exec /usr/sbin/sshd -D -e -f /etc/ssh/sshd_config
