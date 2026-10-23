@@ -83,12 +83,17 @@ A scenario is complete or it is not deployed.
 
 ## Completeness checklists
 
-### Scenario (v0.1 master spec 6.2, v0.2 master spec 6.3)
+### Scenario (v0.1 master spec 6.2, v0.2 master spec 6.3, v0.3 master spec 6.1, 6.2)
 
 - **Scenario information**: `id`, `version`, `title`, `date`, `origin`,
   `session_length_minutes` (at most 240), `brief` and `brief.md`.
+- **Difficulty** (`difficulty`): its `score`, and optionally the `level`
+  it targets (`easy`, `normal`, `hard`; master spec 15.1).
+- **Aging** (`aging`), in a scenario with scheduler nodes only: its
+  `minimum` and its `handover_at`.
 - **Topology**: `networks` (one in v0.2); for every node: `name`, `brick`
-  (id, pinned version), `role`, `stateful`, `networks`, `write_policy`,
+  (id, pinned version), `role`, `stateful`, `networks`, `write_policy`
+  (and `write_overrides` where a report-only node needs fixable paths),
   `parameters`, `resources` (limits and reservations, disk included, and
   what mounted companion material adds to the node), `published_ports`,
   `seed_files`, `knobs` (initial value and envelope for every knob the
@@ -97,13 +102,16 @@ A scenario is complete or it is not deployed.
   `node_health` map.
 - **Background**: `background`, and `player/story.md`.
 - **Incidents, flaws and defects**: `fault_instances` (fault id and pinned
-  version, `node`, `parameters`, `visibility`); `issues` (zero or more,
-  each with `id`, `complaint`, `expected_resolution`, `covers`: fault
-  instances and tooling expectations).
+  version, `node`, `parameters`, `visibility`, and with scheduler nodes
+  `plant_at` and `aging_minimum` where they differ from the defaults);
+  `issues` (zero or more, each with `id`, `complaint`,
+  `expected_resolution`, `covers`: fault instances and tooling
+  expectations).
 - **Answer key** (`gm/answer-key.yaml`), for every fault instance: `what`,
   `why`, `evidence` as `player` (each entry with `where`, `source`, `how`,
   `shows`), `acceptable` (diagnosis, and proposal, fix or improvement as
-  they apply), `sealed_check`, `interactions`, `validators_left_red`;
+  they apply), `sealed_check` (with its `window` and `threshold` for a
+  behavioural check), `interactions`, `validators_left_red`;
   `tooling_expectations` (may be `[]`: each with `id`, `need`,
   `expected`, `acceptable`, optional `notes`); and `gm/notes.md`.
 - **Host topology it was designed for**: `designed_for` (platform, hosts
@@ -113,7 +121,68 @@ A scenario is complete or it is not deployed.
 - **Scenario document** (`README.md`), generated, opening with the "do not
   read" warning.
 
-Consistency rules (a failure is a missing item):
+Consistency rules (a failure is a missing item). Those v0.3 adds (master
+spec 6.1, 6.2, 8; capture W1 items 0, 1, 4) are checked by the loader from
+v0.3's chunk 2; until then, by reading:
+
+- **Scheduler nodes**: a node whose brick id is `scheduler` (capture W1
+  item 0), role `producer` or `consumer`. Its seed files are under
+  `nodes/<node>/`: `queries.yaml`, an optional `builders/` folder of
+  files, `jobs.yaml` and `schedule.yaml`, in scenario time. Their shapes
+  are master spec 7.1's, normative until the scheduler's templates carry
+  them.
+- **Aging** (D157, D158): `aging:` is present exactly when the scenario
+  has a scheduler node. `minimum` is a duration (`<integer><s|m|h|d>`)
+  of at least `8h` and as long as the evidence needs (master spec 8.2);
+  `handover_at` is a quoted `"HH:00"`, 24-hour, in scenario time. A
+  scenario with no scheduler node does not age: it omits `aging:`, has no
+  `plant_at` other than `T0`, no instance `aging_minimum` and no
+  `{{customer_timezone}}`, and its fault definitions' aging minima are not
+  counted (D160); its times stay UTC, as in v0.2.
+- **Difficulty**: `score` equals the number of fault instances (each
+  fault is worth 1; tooling expectations do not count); `level`, when
+  given, is `easy`, `normal` or `hard`.
+- **Planting moment** (`plant_at`): `T0` (the default: right after the
+  data load, before the load starts) or `handover-<N>h`, N a whole number
+  of hours, at least 1, so never at or after hand-over. A moment other
+  than `T0` only for a fault whose `injection.kind` is `state`
+  (`seed-file` and `parameter` faults are planted at render), and N is at
+  most `aging.minimum` and at least the instance's own aging minimum.
+- **Instance aging minimum**: the instance's own minimum is its
+  `aging_minimum` when set, at least its definition's `aging.minimum`,
+  else the definition's. `aging.minimum` covers every instance: its
+  planting offset (`aging.minimum` − N, or 0 at `T0`) plus its own
+  minimum.
+- **Write overrides** (`write_overrides`): on a `report-only` node only,
+  non-empty, each entry one of its brick's `writable_paths` exactly as
+  written there; the node's `write_policy` stays as written. A path is
+  fixable on a node when the policy is `fixable`, or it equals an
+  override, or it lies under an overridden directory.
+- **A *fix* resolution's per-file policy**: an issue expecting `fix` of a
+  `seed-file` fault needs every file its `seed_changes` edit to land (by
+  the brick's `seed.paths`) on a fixable path of the target node; a
+  `state` or `parameter` fault needs the node's policy to be `fixable`.
+- **The customer's time zone**: the story and the starter pack (the
+  bastion's seed files) write it as `{{customer_timezone}}`, which render
+  fills from the shift (master spec 8.3), and never name a fixed zone;
+  only a scenario with scheduler nodes has one.
+- **Prometheus' retention**: the time bound of a `prometheus` node's seed
+  (`storage.tsdb.retention.time`) covers `aging.minimum` plus four hours
+  (four hours with no aging), unless a planted fault is about retention
+  (`family: retention`); a size bound, when set, stays above the TSDB's
+  measured growth over the same span, against the brick's footprint.
+- **A `postgres` seed's `pg_hba.conf`** keeps, under its DO NOT TAMPER
+  comment, right after `local all postgres peer`, the lines `local
+  replication postgres peer` (the hand-over snapshot's `pg_basebackup`,
+  master spec 7.3, D164) and `local all gm_check scram-sha-256` (the GM
+  check role's access, so tightening the general `local` line keeps the
+  sealed checks working, D171). An answer key citing the seed's line
+  numbers counts them.
+- **Behavioural checks**: an answer-key instance has `window` (a
+  duration) and `threshold` (a number) exactly when its fault's
+  `sealed_check.behavioural` is true.
+
+The rules from v0.2:
 
 - every referenced brick and fault exists at the pinned version (the
   scenario's own `bricks/`, `faults/` first, then the catalog);
@@ -133,14 +202,17 @@ Consistency rules (a failure is a missing item):
   expectations expects `report` or `propose`; expectation ids are unique
   across fault instance ids and expectation ids;
 - an issue's `expected_resolution` is one the covered faults list, under a
-  write policy the target node has;
+  write policy the target node has (for *fix*, the per-file policy above);
 - `gm/answer-key.yaml` has exactly one entry per fault instance;
-- every evidence `where` is `bastion` (a shell on the bastion, `psql`
-  from there included), `node:<name>` (a node of the topology other than
-  the bastion), `ui:<name>` (`<name>` a route of the bastion's
+- every answer-key evidence `where` is `bastion` (a shell on the bastion,
+  `psql` from there included), `node:<name>` (a node of the topology
+  other than the bastion), `ui:<name>` (`<name>` a route of the bastion's
   `web_routes`) or `report:<tool>` (a generated report, `<tool>`
   lowercase, such as `report:pgbadger`); `source` names the file, view or
-  output looked at (v0.1's free-text `where`, D101);
+  output looked at (v0.1's free-text `where`, D101). The readings a fault
+  definition cannot carry (through a web interface, or on a node other
+  than its target, D167) live here; every reading dropped from a fault
+  stays in the answer key of each scenario planting it;
 - **the node-health map** (D97): whenever the topology has a `prometheus`
   node, its `node_health` parameter is set and lists every node of the
   topology by name, `prometheus`'s own included; each entry is `default`

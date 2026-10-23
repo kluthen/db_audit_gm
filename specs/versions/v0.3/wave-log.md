@@ -690,6 +690,38 @@ Where W1 was silent, recorded by chunk 1 (`v0.3-c1-formats`), 2026-10-23.
   loads every definition; `writable_paths` keeps "may be []".
   `brick-gm.md` carries the level-3 `### Snapshot` under Footprint (W1
   item 5).
+- **1b, scenario template**: `aging:` and `difficulty:` sit in their own
+  section between `background` and the topology; `aging:` itself,
+  `difficulty.level`, `write_overrides`, `plant_at`, `aging_minimum`,
+  `window` and `threshold` are `# optional`, so the unchanged loader
+  requires only `difficulty.score` and checks the others' shapes when
+  present (a present `aging:` needs both its keys; a present
+  `write_overrides` is non-empty). The `{{customer_timezone}}`, scheduler
+  seed-file, `pg_hba` and retention rules are comments on `seed_files`,
+  the skill's consistency rules stating them in full.
+- **1b, difficulty levels**: the two scenarios and the three fixtures
+  carry `difficulty.score` only (6, 8; 2, 2, 1): master spec 15.1 gives
+  the scores, not the levels, so none is written.
+- **1b, the seed lines**: in the order `local all postgres peer`, `local
+  replication postgres peer`, `local all gm_check scram-sha-256`, right
+  under the DO NOT TAMPER comment, whose wording is kept. The fixtures'
+  starter packs (`fixture-audit`, `fixture-monitoring`) name the three
+  lines in their DO NOT TAMPER line; the two scenarios' `player/README.md`
+  are outside chunk 1's Files line and still name only the peer line
+  (reported to the driver).
+- **1b, answer-key evidence**: the grammar is unchanged (`bastion`,
+  `node:<name>`, `ui:<name>`, `report:<tool>`); a fault definition's
+  `node` reading is written `node:<its target>` there, as the existing
+  keys do. `threshold` is required exactly with `window`.
+- **1b, scenario document**: section 1 gains a Difficulty row (the score,
+  the instance count beside it, the level when given) and an Aging row
+  (the minimum and the designed hand-over, or "none: no scheduler
+  node ..."); the fault-instance table gains a "Planted at" column (`T0`
+  when absent) with a gloss line under it, and an "Aging minimum" column
+  only in a scenario that ages; a node with overrides gets a "Write
+  overrides" bullet; the sealed-check line reads "(0: fixed, 1: present,
+  3: too soon to tell)", and a behavioural check adds its window and
+  threshold. The document never reads a fault definition for these.
 - Chunk 1a merged 2026-10-23: e73a7b4, merge bd008a7. Unit suite 298 OK;
   the five images built at their v0.3 tags and their stack tests passed.
   Outside chunk 1's Files line, needed to keep the suite and smoke runs on
