@@ -15,6 +15,12 @@ background: >-
   A small shop restored its database onto a new SSD-backed server and asks
   for a configuration review.
 
+# --- Aging and difficulty ---------------------------------------------
+# No aging: no scheduler node, so the fixture does not age and has no
+# `aging:` (v0.3 master spec 8; D157, D158).
+difficulty:
+  score: 2                          # its two fault instances (master spec 15.1)
+
 # --- Topology ---------------------------------------------------------
 networks:
   - name: backend
@@ -24,7 +30,7 @@ nodes:
   - name: bastion
     brick:
       id: bastion
-      version: 0.2.0
+      version: 0.3.0
     role: bastion
     stateful: true
     networks: [backend]
@@ -48,7 +54,7 @@ nodes:
   - name: db
     brick:
       id: postgres
-      version: 0.2.0
+      version: 0.3.0
     role: database
     stateful: true
     networks: [backend]

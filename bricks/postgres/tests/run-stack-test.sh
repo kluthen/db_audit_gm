@@ -19,13 +19,13 @@
 # Everything it creates is removed on exit, volumes included.
 #
 # Needs: a swarm manager (docker swarm init), the image built locally:
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.2.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.3.0 bricks/postgres
 # Usage: sh bricks/postgres/tests/run-stack-test.sh
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 STACK=gmtest-pg
-IMAGE=127.0.0.1:5000/dbagm/postgres:0.2.0
+IMAGE=127.0.0.1:5000/dbagm/postgres:0.3.0
 SERVICE=${STACK}_db
 NET=${STACK}_net
 CLIENT=${STACK}-client

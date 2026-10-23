@@ -15,9 +15,14 @@ severity: medium
 applies_to:
   bricks:
     - id: prometheus
-      versions: ["0.1.0"]
+      versions: ["0.1.0", "0.2.0"]
   preconditions:
     - every node of the topology is in the prometheus node's node_health map, so the left-out node serves its endpoint on port 9110
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 0m                       # the evidence shows at once (a restored state, D160)
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:
@@ -46,20 +51,17 @@ injection:
 
 # --- What the players can see ------------------------------------------
 evidence:
-  - where: Prometheus' targets page (web front, route prometheus, /prometheus/targets)
-    how: open /prometheus/targets through the web front with the tools password
+  - where: node
+    source: Prometheus' targets API on the prometheus node
+    how: curl -s http://127.0.0.1:9090/prometheus/api/v1/targets
     shows: the node-health job has one target fewer than the topology has nodes; {NODE}:9110 is absent, not down
-  - where: Grafana's node-health dashboard (web front, route grafana, /grafana/d/node-health)
-    how: open the dashboard and read every panel's legend
-    shows: "{NODE} appears in no panel, while every other node does"
-  - where: Grafana's alerting view (web front, /grafana/alerting/list)
-    how: read the state of "Scrape target down"
-    shows: the rule stays Normal although {NODE} is never scraped; it cannot fire for a target Prometheus does not know
-  - where: /etc/prometheus/prometheus.yml on the prometheus node
-    how: on the prometheus node, cat /etc/prometheus/prometheus.yml
+  - where: node
+    source: /etc/prometheus/prometheus.yml
+    how: cat /etc/prometheus/prometheus.yml
     shows: the node-health job's targets leave out {NODE}:9110
-  - where: the left-out node's endpoint, read from the prometheus node
-    how: on the prometheus node, curl -s {NODE}:9110/metrics
+  - where: node
+    source: the left-out node's endpoint, read from the prometheus node
+    how: curl -s {NODE}:9110/metrics
     shows: the endpoint answers with node_health_* metrics for node {NODE}; only the scrape is missing
 
 probe:

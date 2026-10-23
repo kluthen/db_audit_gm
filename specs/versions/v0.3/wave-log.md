@@ -624,3 +624,127 @@ bricks' bumps, so 1a's merge ahead of 1b would unblock chunks 4 and 5
 soonest); brief chunk 2 with item 9's fixture note. (Briefing chunks 4
 and 5 to take `v0.3-w1` in is moot: they are cut after chunk 1's merge,
 amended by spec D166.)
+
+### Preflight corrections sent to `spec-writer` (before any chunk starts)
+
+- The owner's three confirmations recorded as spec D160–D162 (3b03db2; plan
+  v3): chunks 8a, 11, 13 and 15b revised.
+- Capture W1's open points and contradictions settled as spec D163–D170
+  (55bf028; plan v4): `schedule.yaml` read in place (D163); the replication
+  line added by chunk 1b (D164); window and threshold passed by chunk 9
+  (D165); wave 1's order, chunk 1 first with chunk 3 beside it, chunks 2, 4
+  and 5 cut after chunk 1's merge (4 and 5 after 1a's at least) (D166);
+  W1's readings on roles, `seed.paths`, `seed.modes`, secrets, `snapshot:`
+  and the five faults' evidence kept (D167); `timezone_offset` (D168);
+  `check-psql` in chunk 4a (D169); the scheduler's writable paths made
+  directories (D170). W1's text amended in place, each change marked.
+- O102, asked of the owner 2026-10-23: every `postgres` seed carries its own
+  DO NOT TAMPER line `local all gm_check scram-sha-256`. **Yes**, as
+  recommended; recorded as spec D171 (d124b42), chunks 1 and 4 and W1 item
+  8 revised.
+
+### Dispatch
+
+- Chunk 3 (`v0.3-c3-scheduler`): dispatched 2026-10-23, beside chunk 1
+  (D166). Told to take `v0.3-w1` in once chunk 1 has merged, before its
+  final loader check, or else report as waiting on chunk 1.
+- Chunk 1 (`v0.3-c1-formats`): dispatched 2026-10-23, after D171; 1a to
+  merge into `v0.3-w1` as soon as it is green, so chunks 4 and 5 can start.
+
+### W1 addenda — choices chunk 1 made
+
+Where W1 was silent, recorded by chunk 1 (`v0.3-c1-formats`), 2026-10-23.
+
+- **The existing faults' aging minimum**: every catalog fault and every
+  fixture fault takes `aging: {technique: real-time, minimum: 0m}`: their
+  evidence was written for a restored state and shows at once. A v0.3
+  scenario that needs more for an instance sets its `aging_minimum`.
+- **Evidence without a stated place**: a `psql` or SQL reading whose v0.2
+  text names no place reads `where: node`; one the text reads "from the
+  bastion" reads `bastion`.
+- **Readings rewritten rather than dropped** (W1 item 2's rule): where a
+  `prometheus-*` fault would keep no reading of a fact once its web
+  readings left, the fact is read on the prometheus node itself, through
+  Prometheus' API (`curl -s http://127.0.0.1:9090/prometheus/api/v1/targets`)
+  or `promtool query instant http://127.0.0.1:9090/prometheus '<expr>'`:
+  the target down (`node-missing`), the node's absent series
+  (`node-missing`, `service-missing`), the absent target
+  (`scrape-target-missing`). Grafana's alert state and its provisioning
+  API are dropped (no node reading of them on the target but the rule
+  file, kept). `fixture-node-left-out`'s web reading becomes the same view
+  read with `curl` on the monitor node.
+- **Answer keys keeping the dropped readings**: two dropped readings were
+  in no answer key; `fernway-clinics-monitoring`'s answer key gains them
+  in 1a, beside the fault change: f1's Grafana alert staying Normal and
+  f5's provisioning API reading, both `ui:grafana`.
+- **Provisional growth per hour**: `postgres` 32M, `bastion` 1M,
+  `prometheus` 4M, `postgres-exporter` 1M, `grafana` 2M, each marked
+  provisional in `brick.yaml` and `docs/gm.md` until chunk 15b measures
+  it; the fixtures' local bricks `0`.
+- **Fixture-local bricks** keep their version (scenario-local, pinned
+  only by their fixture); they gain the required keys
+  (`disk_growth_per_hour`, `seed.paths`) and closed-list roles.
+- **Template markers**: `seed.paths` is required and "may be {}";
+  `seed.modes`, `snapshot:`, `report_tools`, `only_with_role` and
+  `sealed_check.behavioural` are `# optional`, so the unchanged loader
+  loads every definition; `writable_paths` keeps "may be []".
+  `brick-gm.md` carries the level-3 `### Snapshot` under Footprint (W1
+  item 5).
+- **1b, scenario template**: `aging:` and `difficulty:` sit in their own
+  section between `background` and the topology; `aging:` itself,
+  `difficulty.level`, `write_overrides`, `plant_at`, `aging_minimum`,
+  `window` and `threshold` are `# optional`, so the unchanged loader
+  requires only `difficulty.score` and checks the others' shapes when
+  present (a present `aging:` needs both its keys; a present
+  `write_overrides` is non-empty). The `{{customer_timezone}}`, scheduler
+  seed-file, `pg_hba` and retention rules are comments on `seed_files`,
+  the skill's consistency rules stating them in full.
+- **1b, difficulty levels**: the two scenarios and the three fixtures
+  carry `difficulty.score` only (6, 8; 2, 2, 1): master spec 15.1 gives
+  the scores, not the levels, so none is written.
+- **1b, the seed lines**: in the order `local all postgres peer`, `local
+  replication postgres peer`, `local all gm_check scram-sha-256`, right
+  under the DO NOT TAMPER comment, whose wording is kept. The fixtures'
+  starter packs (`fixture-audit`, `fixture-monitoring`) name the three
+  lines in their DO NOT TAMPER line; the two scenarios' `player/README.md`
+  are outside chunk 1's Files line and still name only the peer line
+  (reported to the driver).
+- **1b, answer-key evidence**: the grammar is unchanged (`bastion`,
+  `node:<name>`, `ui:<name>`, `report:<tool>`); a fault definition's
+  `node` reading is written `node:<its target>` there, as the existing
+  keys do. `threshold` is required exactly with `window`.
+- **1b, scenario document**: section 1 gains a Difficulty row (the score,
+  the instance count beside it, the level when given) and an Aging row
+  (the minimum and the designed hand-over, or "none: no scheduler
+  node ..."); the fault-instance table gains a "Planted at" column (`T0`
+  when absent) with a gloss line under it, and an "Aging minimum" column
+  only in a scenario that ages; a node with overrides gets a "Write
+  overrides" bullet; the sealed-check line reads "(0: fixed, 1: present,
+  3: too soon to tell)", and a behavioural check adds its window and
+  threshold. The document never reads a fault definition for these.
+- Chunk 1a merged 2026-10-23: e73a7b4, merge bd008a7. Unit suite 298 OK;
+  the five images built at their v0.3 tags and their stack tests passed.
+  Outside chunk 1's Files line, needed to keep the suite and smoke runs on
+  the new pins: `tools/tests/test_{fit,deploy,render,model}.py` (tags and
+  pins; v0.2's free-text `where` test rewritten as
+  `test_fault_evidence_where_is_a_location`), and the `IMAGES=` lists of
+  `tools/tests/smoke{,-scenario,-monitoring}.sh` (not run: wave gate). Two
+  readings dropped from fernway's faults were missing from its answer key
+  (f1's Grafana alert state, f5's provisioning API) and were added there as
+  `ui:grafana`. The five Dockerfiles' "Build:" comments still name the old
+  tags (chunks 4 and 5 touch those files). Its owner paused at its context
+  threshold before 1b; its addenda are in "W1 addenda" above.
+- Chunk 1b: a fresh owner dispatched 2026-10-23 on `v0.3-c1-formats` from
+  e73a7b4.
+- Chunk 4 (`v0.3-c4-postgres`): dispatched 2026-10-23, cut after 1a's merge.
+  Chunk 5 waits for a free slot (κ = 3: chunks 1b, 3, 4 in flight).
+- Chunk 1b merged 2026-10-23: d27af79, merge 541a5a6; chunk 1 complete.
+  Unit suite 298 OK on `v0.3-w1`. `difficulty.score` 6, 8 and 2, 2, 1 for the
+  fixtures; the two `pg_hba` lines in the four seeds; bookshop's answer key
+  cites lines 14 and 16; five READMEs regenerated. **For the wave gate**
+  (outside every wave-1 chunk's Files line): the two scenarios'
+  `player/README.md` DO NOT TAMPER lists still name only `local all postgres
+  peer`, not the replication and `gm_check` lines; a `coding-executor` fixes
+  them on the wave branch at the gate.
+- Chunk 2 (`v0.3-c2-loader`): dispatched 2026-10-23 after chunk 1's merge.
+  Chunk 5 waits for a free slot (in flight: 2, 3, 4).

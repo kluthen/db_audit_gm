@@ -279,7 +279,7 @@ the release gate checks that each is recorded.
 
 ### Chunk 1 — Format skill, templates, the v0.3 versions and the definitions migrated
 
-Status: planned
+Status: merged (w1, 541a5a6)
 Wave: 1
 Depends on: G2, G3
 Architecture capture: recorded by the wave driver at wave 1 start (W1),
@@ -405,9 +405,14 @@ for chunks 2 to 5, which build on it before chunk 1 merges:
   their seeds, their answer keys and READMEs.
   Each half leaves the suite green.
 
+Record: 1a e73a7b4 (merge bd008a7), 1b d27af79 (merge 541a5a6). No
+deviation from the spec or W1; W1 addenda in the wave log. Outside its
+Files line: `tools/tests/test_{fit,deploy,render,model}.py` and the smoke
+scripts' `IMAGES=` lists, for the new tags (wave log).
+
 ### Chunk 2 — Loader checks for v0.3
 
-Status: planned
+Status: in progress
 Wave: 1
 Depends on: chunk 1, merged into `v0.3-w1` before this chunk's branch is
 cut (spec D166); W1
@@ -473,7 +478,7 @@ Architecture capture: none of its own; it implements W1.
 
 ### Chunk 3 — The `scheduler` brick 0.1.0
 
-Status: planned
+Status: in progress
 Wave: 1
 Depends on: chunk 1 (in-wave, W1: runs alongside chunk 1, its files all
 under `bricks/scheduler/`, spec D166); G2, G3
@@ -554,7 +559,7 @@ interface and write-policy contract, and records what it built as W1-y
 
 ### Chunk 4 — `postgres` 0.3.0
 
-Status: planned
+Status: in progress
 Wave: 1
 Depends on: chunk 1 (1a at least), merged into `v0.3-w1` before this
 chunk's branch is cut (spec D166); W1; G2, G3

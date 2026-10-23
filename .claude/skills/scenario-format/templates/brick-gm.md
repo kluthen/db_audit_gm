@@ -1,7 +1,8 @@
 # <Brick name> brick — GM notes
 
 <!-- Template: bricks/<brick-id>/docs/gm.md (spec D56, specs/formats.md,
-"`docs/gm.md` must contain"; v0.2 master spec 6.2). Keep the nine level-2 headings, with these
+"`docs/gm.md` must contain"; v0.2 master spec 6.2; v0.3 master spec 6.4
+and capture W1 item 5). Keep the nine level-2 headings, with these
 exact names, in this order. Add your own sections as subsections of a
 required one, or after Known limits. No required section stays empty: one
 that does not apply says so in a sentence, with the reason. Everything
@@ -31,11 +32,15 @@ to players.
 
 ## Access
 
-<How the player reaches it (account, group, sudo wrappers, any web interface and its path through the bastion's web front); writable and protected paths; write policies; capabilities added back and why; what the GM itself uses.>
+<How the player reaches it (account, group, sudo wrappers, any web interface and its path through the bastion's web front); writable and protected paths; write policies, and under report-only what `write_overrides` may make fixable (only `writable_paths`) and what the reload and restart wrappers refuse; capabilities added back and why; what the GM itself uses.>
 
 ## Footprint
 
-<Default limits (CPU, memory) and reservations (CPU, memory, disk) as brick.yaml's `footprint` declares them; what makes it grow and how to size it for the capacity check; what its mounted companion material adds to each node it lands on; the levers that shrink it.>
+<Default limits (CPU, memory) and reservations (CPU, memory, disk) as brick.yaml's `footprint` declares them, at rest, and its disk growth per hour (`disk_growth_per_hour`, measured or marked provisional); what makes it grow and how to size it for the capacity check; what its mounted companion material adds to each node it lands on; the levers that shrink it.>
+
+### Snapshot
+
+<How each volume is copied at hand-over, as brick.yaml's `snapshot:` declares it (every volume but /run: `pg_basebackup`, `copy` or `stop`; every volume by `stop` when the key is absent); for `stop`, which services stop, for how long, and what players see meanwhile; how the copy is restored.>
 
 ## Supported faults
 

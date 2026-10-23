@@ -12,6 +12,11 @@ applies_to:
       versions: ["0.1.0"]
   preconditions: []
 
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 0m                       # the evidence shows at once (a restored state, D160)
+
 parameters: {}
 
 injection:
@@ -22,7 +27,8 @@ injection:
   run_as: root
 
 evidence:
-  - where: the application's service status
+  - where: node
+    source: the application's service status
     how: s6-svstat /run/service/app
     shows: the service is down
 

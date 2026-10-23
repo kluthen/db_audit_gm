@@ -16,10 +16,15 @@ severity: high
 applies_to:
   bricks:
     - id: prometheus
-      versions: ["0.1.0"]
+      versions: ["0.1.0", "0.2.0"]
   preconditions:
     - the node is in the prometheus node's node_health map, and its entry (or default, its brick's processes) holds the service and at least one other
     - Prometheus scrapes the node's port 9110 target
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 0m                       # the evidence shows at once (a restored state, D160)
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:
@@ -56,14 +61,9 @@ injection:
 
 # --- What the players can see ------------------------------------------
 evidence:
-  - where: /opt/gm/node-health/node.conf on the node
-    how: ssh {NODE}, then cat /opt/gm/node-health/node.conf
-    shows: the services line lists the node's other services but not {SERVICE}
-  - where: 'Grafana''s node-health dashboard, panel "Services: up or down, per node" (web front, route grafana, /grafana/d/node-health)'
-    how: 'open the dashboard and read the panel "Services: up or down, per node"'
-    shows: "{NODE} shows only its other services, while every other node shows its main service"
-  - where: Prometheus (web front, route prometheus, /prometheus/query)
-    how: query node_health_service_up{node="{NODE}"}
+  - where: node
+    source: Prometheus' node_health_service_up series, queried on the prometheus node
+    how: promtool query instant http://127.0.0.1:9090/prometheus 'node_health_service_up{node="{NODE}"}'
     shows: no series with service="{SERVICE}"
 
 probe:

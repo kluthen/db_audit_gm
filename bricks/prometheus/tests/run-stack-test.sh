@@ -13,7 +13,7 @@
 #   - the validator exits 0, then 1 on a broken or pending file;
 #   - the seed marker is out of player's reach; read-only root, capabilities;
 #   - the node-health script, mounted as configs into the prometheus node and
-#     a postgres 0.2.0 node `db`: each node's endpoint readable from the
+#     a postgres 0.3.0 node `db`: each node's endpoint readable from the
 #     other, with CPU, memory, disk against the reservation, the host's free
 #     space and each listed service; a service stopped with s6-svc -d shown
 #     as down; Prometheus scraping both; the files read-only for player.
@@ -21,15 +21,15 @@
 #
 # Needs: a swarm manager (docker swarm init), the images built locally (the
 # postgres image is the test client: it has ssh and perl):
-#   docker build -t 127.0.0.1:5000/dbagm/prometheus:0.1.0 bricks/prometheus
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.2.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.0 bricks/prometheus
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.3.0 bricks/postgres
 # Usage: sh bricks/prometheus/tests/run-stack-test.sh
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 STACK=gmtest-prom
-IMAGE=127.0.0.1:5000/dbagm/prometheus:0.1.0
-CLIENT_IMAGE=127.0.0.1:5000/dbagm/postgres:0.2.0
+IMAGE=127.0.0.1:5000/dbagm/prometheus:0.2.0
+CLIENT_IMAGE=127.0.0.1:5000/dbagm/postgres:0.3.0
 SERVICE=${STACK}_prometheus
 DB_SERVICE=${STACK}_db
 NET=${STACK}_net
@@ -99,7 +99,7 @@ fi
 # --- per-game material, as gmctl deploy would create it ---------------------
 ssh-keygen -q -t ed25519 -N '' -C gmtest-player -f "$tmp/id"
 head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$tmp/dba_password"
-# The database node's monitoring role password (postgres 0.2.0); unused here.
+# The database node's monitoring role password (postgres 0.3.0); unused here.
 printf 'mon%s' "$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')" > "$tmp/monitoring_password"
 cfg() { docker config create -l "$LABEL" "${STACK}_$1" "$2" >/dev/null; }
 cfg seed_prometheus_yml "$HERE/fixtures/prometheus.yml"
@@ -149,7 +149,7 @@ else
     exit 1
 fi
 if DB=$(wait_healthy "$DB_SERVICE"); then
-    pass "db node (postgres 0.2.0, receiving node-health) healthy ($DB)"
+    pass "db node (postgres 0.3.0, receiving node-health) healthy ($DB)"
 else
     fail "db node did not become healthy"
     docker service ps --no-trunc "$DB_SERVICE" || true

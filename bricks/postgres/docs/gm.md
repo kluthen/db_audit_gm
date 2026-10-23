@@ -2,12 +2,12 @@
 
 GM documentation of the `postgres` brick (`brick.yaml`, master spec 9.1;
 required sections: spec D56). Never shipped to players. Brick version
-0.2.0, expected to evolve as games are played.
+0.3.0, expected to evolve as games are played.
 
 ## Purpose
 
 A PostgreSQL 18 database server on Debian 13 (trixie), with an SSH server
-for the players, in the image `127.0.0.1:5000/dbagm/postgres:0.2.0`. It
+for the players, in the image `127.0.0.1:5000/dbagm/postgres:0.3.0`. It
 fills the role `database`: the node the players audit, holding the
 scenario's data and its planted faults. The GM picks it for every
 database node of a scenario; in v0.2 it is still the only database
@@ -30,7 +30,7 @@ The image:
 - **What gets installed**: a node of its own, from the brick's image. The
   image must be on the engine that runs the game: deployment never pulls
   it (`gmctl deploy` deploys with `--resolve-image never`).
-- **Build**: `docker build -t 127.0.0.1:5000/dbagm/postgres:0.2.0 bricks/postgres`.
+- **Build**: `docker build -t 127.0.0.1:5000/dbagm/postgres:0.3.0 bricks/postgres`.
 - **How many**: one per database node of the scenario. Each is its own
   container with its own volumes; the per-game secrets (`dba_password`,
   `monitoring_password`, `player_ssh_pubkey`) are generated once per
@@ -406,6 +406,8 @@ disk), and `gmctl` uses those, never the brick's footprint. The renderer
 applies the CPU and memory limits and reservations; disk is only counted
 by the capacity check (`gmctl fit`: reservations plus 10 % headroom
 against the playground); the volumes themselves have no size limit.
+Disk growth per hour (`disk_growth_per_hour`): `32M`, a provisional
+estimate, to be replaced by v0.3 chunk 15b's measurement.
 
 What makes it grow:
 
@@ -452,14 +454,25 @@ volumes after 35 minutes: `pgdata` 74M, `pglog` 0.2M, `home` 0.9M (the
 report). A static database is far within the reservation; the levers above
 matter when the data file or the log grows.
 
+### Snapshot
+
+How each volume is copied at hand-over (`snapshot:` in `brick.yaml`):
+
+- `pgdata`: `pg_basebackup`, an online base backup taken through the
+  root-only helper `gm-snapshot-db` (built in v0.3 chunk 4); the server
+  keeps running.
+- `pgconf`, `home`, `gmstate`, `pglog`: `copy`, a tar of the volume while
+  the node runs.
+- `run` (`/run`) is never copied.
+
 ## Supported faults
 
 Which faults the brick hosts is stated only by each fault's `applies_to`
 (D59): a fault instance is accepted on a node when the fault's
 `applies_to` names the node's brick and version (`tools/gm/model.py`).
 This list is every catalog fault (`faults/`) whose `applies_to` names
-`postgres` `0.2.0`, and no other; all but `pg-stat-statements-not-preloaded`
-also name `0.1.0` and `0.1.1`. A scenario's
+`postgres` `0.3.0`, and no other; all also name `0.2.0`, and all but
+`pg-stat-statements-not-preloaded` also name `0.1.0` and `0.1.1`. A scenario's
 own `faults/` folder may define more for itself (the test fixture
 `tools/tests/fixtures/fixture-audit` defines two); those are the
 scenario's, not the brick's, and are not listed here.

@@ -1,6 +1,6 @@
 # Integration fixture of v0.2 (build plan chunk 11). Not a game: every v0.2
-# brick at its v0.2 version (bastion and postgres 0.2.0, prometheus,
-# postgres-exporter and grafana 0.1.0), deployed by
+# brick at its v0.3 version (bastion and postgres 0.3.0, prometheus,
+# postgres-exporter and grafana 0.2.0), deployed by
 # tools/tests/smoke-monitoring.sh at every wave gate from wave 3 on, and
 # loaded and fitted by tools/tests/test_model.py. Node names, pins, seeds and
 # resources: capture W3 of specs/versions/v0.2/wave-log.md ("For chunk 11");
@@ -20,6 +20,12 @@ background: >-
   PostgreSQL exporter and Grafana, reached through a bastion whose web
   front publishes Prometheus and Grafana.
 
+# --- Aging and difficulty ---------------------------------------------
+# No aging: no scheduler node, so the fixture does not age and has no
+# `aging:` (v0.3 master spec 8; D157, D158).
+difficulty:
+  score: 1                          # its one fault instance (master spec 15.1)
+
 # --- Topology ---------------------------------------------------------
 networks:
   - name: backend
@@ -31,7 +37,7 @@ nodes:
   - name: bastion
     brick:
       id: bastion
-      version: 0.2.0
+      version: 0.3.0
     role: bastion
     stateful: true
     networks: [backend]
@@ -56,7 +62,7 @@ nodes:
   - name: db
     brick:
       id: postgres
-      version: 0.2.0
+      version: 0.3.0
     role: database
     stateful: true
     networks: [backend]
@@ -109,8 +115,8 @@ nodes:
   - name: prometheus
     brick:
       id: prometheus
-      version: 0.1.0
-    role: metrics-store
+      version: 0.2.0
+    role: monitoring
     stateful: true
     networks: [backend]
     write_policy: fixable
@@ -133,8 +139,8 @@ nodes:
   - name: exporter
     brick:
       id: postgres-exporter
-      version: 0.1.0
-    role: metrics-exporter
+      version: 0.2.0
+    role: monitoring
     stateful: true
     networks: [backend]
     write_policy: fixable
@@ -155,8 +161,8 @@ nodes:
   - name: grafana
     brick:
       id: grafana
-      version: 0.1.0
-    role: dashboards
+      version: 0.2.0
+    role: monitoring
     stateful: true
     networks: [backend]
     write_policy: fixable

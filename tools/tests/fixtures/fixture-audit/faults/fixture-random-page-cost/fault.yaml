@@ -8,8 +8,13 @@ severity: low
 applies_to:
   bricks:
     - id: postgres
-      versions: ["0.1.0", "0.1.1", "0.2.0"]
+      versions: ["0.1.0", "0.1.1", "0.2.0", "0.3.0"]
   preconditions: []
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 0m                       # the evidence shows at once (a restored state, D160)
 
 parameters: {}
 
@@ -22,7 +27,8 @@ injection:
   run_as: root
 
 evidence:
-  - where: postgresql.conf and SHOW random_page_cost
+  - where: node
+    source: postgresql.conf and SHOW random_page_cost
     how: ssh db, then psql -c 'SHOW random_page_cost'
     shows: "4"
 

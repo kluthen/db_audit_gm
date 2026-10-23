@@ -2,13 +2,13 @@
 
 GM documentation of the `bastion` brick (`brick.yaml`, master spec 9.2
 and 14; required sections: spec D56). Never shipped to players. Brick
-version 0.2.0, expected to evolve as games are played.
+version 0.3.0, expected to evolve as games are played.
 
 ## Purpose
 
 An SSH bastion on Debian 13 (trixie): OpenSSH 10.0 with the PostgreSQL 18
 client tools alongside, in the image
-`127.0.0.1:5000/dbagm/bastion:0.2.0`. It fills the role `bastion`: the
+`127.0.0.1:5000/dbagm/bastion:0.3.0`. It fills the role `bastion`: the
 players' only way into the game. They log in with a per-game password,
 find the starter pack in their home, and reach the in-game nodes from
 there by SSH and `psql`. When the topology has monitoring web interfaces
@@ -35,7 +35,7 @@ The image:
 - **What gets installed**: a node of its own, from the brick's image. The
   image must be on the engine that runs the game: deployment never pulls
   it (`gmctl deploy` deploys with `--resolve-image never`).
-- **Build**: `docker build -t 127.0.0.1:5000/dbagm/bastion:0.2.0 bricks/bastion`.
+- **Build**: `docker build -t 127.0.0.1:5000/dbagm/bastion:0.3.0 bricks/bastion`.
 - **How many**: one per scenario (master spec: the players reach the
   system through a single bastion).
 - **Next to which node**: any host. Its SSH port, and the web front's port
@@ -94,7 +94,7 @@ published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
 | Secret `player_password` (kind `password`, handed over) | `/opt/gm/secrets/player_password`, root `0400` | `gmctl deploy`; the GM hands it to the players |
 | Secret `player_ssh_key` (kind `key-pair`, pair `player_ssh_key`, half `private`) | `/opt/gm/secrets/player_ssh_key`, root `0400` | `gmctl deploy`: an ed25519 key pair whose public half is the database node's `player_ssh_pubkey` |
 | Secret `dba_password` (kind `password`, not handed over) | `/opt/gm/secrets/dba_password`, root `0400` | `gmctl deploy`: the same secret as the database node's |
-| Secret `tools_password` (kind `password`, handed over) | `/opt/gm/secrets/tools_password`, root `0400`; read only when there are routes | `gmctl deploy`, whenever `bastion` 0.2.0 is in the topology; the GM hands it to the players only when the front runs (D103). The same secret as Grafana's administrator password |
+| Secret `tools_password` (kind `password`, handed over) | `/opt/gm/secrets/tools_password`, root `0400`; read only when there are routes | `gmctl deploy`, whenever `bastion` 0.3.0 is in the topology; the GM hands it to the players only when the front runs (D103). The same secret as Grafana's administrator password |
 | Routes `web_routes` | `GM_WEB_ROUTES`, turned into `/run/web-front/nginx.conf` at start-up | the scenario's node `parameters` (above) |
 | Published ports | the host's ports for container port 22 and, with routes, 8080 | the scenario's `published_ports: [{port: 22, default: 2222}]`, plus `{port: 8080, default: 8080}` with routes |
 
@@ -322,7 +322,7 @@ Master spec 7.6; access model 5 ("Bastion and web front"), 6 and 7.
 - **Without routes** (no web interface in the topology): nothing listens
   on port 8080, the scenario publishes SSH only, and the GM hands over no
   tools password (D103). `tools_password` is still generated and mounted
-  (it always is with `bastion` 0.2.0, capture W1 item 7), but unused.
+  (it always is with `bastion` 0.3.0, as it was with 0.2.0, capture W1 item 7), but unused.
 - **Process**: nginx (master and one worker) as `www-data` under s6
   (`web-front`); 256 connections at most; request bodies up to 16M
   (Grafana dashboard imports).
@@ -363,6 +363,8 @@ disk), and `gmctl` uses those, never the brick's footprint. The renderer
 applies the CPU and memory limits and reservations; disk is only counted
 by the capacity check (`gmctl fit`: reservations plus 10 % headroom
 against the playground); the volumes themselves have no size limit.
+Disk growth per hour (`disk_growth_per_hour`): `1M`, a provisional
+estimate, to be replaced by v0.3 chunk 15b's measurement.
 
 What makes it grow: the number of players logged in at once (an sshd
 process, a shell and a `psql` or `ssh` client each), and what they keep
@@ -394,6 +396,13 @@ panel's query, about 500 requests in 14 s) 18M and 0.20 CPU; during a
 pgBadger run on `db` 11M; at rest again after them 18M. Never OOM-killed
 nor restarted, never at its limit (`memory.peak`, page cache included,
 22M). Its volumes: about 40K.
+
+### Snapshot
+
+How each volume is copied at hand-over (`snapshot:` in `brick.yaml`):
+
+- `home`, `hostkeys`: `copy`, a tar of the volume while the node runs.
+- `run` (`/run`) is never copied.
 
 ## Supported faults
 

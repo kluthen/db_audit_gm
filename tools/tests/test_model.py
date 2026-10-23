@@ -135,8 +135,8 @@ class TestRefusals(RefusalAsserts, ScenarioCopyTest):
 
     def test_pinned_version_mismatch(self):
         self.edit_yaml("scenario.yaml",
-                       lambda d: self.node(d, "db")["brick"].update(version="0.3.0"))
-        self.assertRefused("nodes[db].brick", "0.3.0", "0.2.0")
+                       lambda d: self.node(d, "db")["brick"].update(version="0.4.0"))
+        self.assertRefused("nodes[db].brick", "0.4.0", "0.3.0")
 
     def test_unknown_brick(self):
         self.edit_yaml("scenario.yaml",
@@ -300,11 +300,11 @@ class TestMonitoringFixture(ScenarioCopyTest):
         self.assertEqual(sc.id, "fixture-monitoring")
         self.assertEqual([n["name"] for n in sc.nodes], self.NODES)
         self.assertEqual({n: (b.id, b.version, b.source) for n, b in sc.bricks.items()}, {
-            "bastion": ("bastion", "0.2.0", "catalog"),
-            "db": ("postgres", "0.2.0", "catalog"),
-            "prometheus": ("prometheus", "0.1.0", "catalog"),
-            "exporter": ("postgres-exporter", "0.1.0", "catalog"),
-            "grafana": ("grafana", "0.1.0", "catalog")})
+            "bastion": ("bastion", "0.3.0", "catalog"),
+            "db": ("postgres", "0.3.0", "catalog"),
+            "prometheus": ("prometheus", "0.2.0", "catalog"),
+            "exporter": ("postgres-exporter", "0.2.0", "catalog"),
+            "grafana": ("grafana", "0.2.0", "catalog")})
         self.assertEqual(sc.node("prometheus")["parameters"]["node_health"],
                          {n: "default" for n in self.NODES})
         self.assertEqual(sc.node("bastion")["parameters"]["web_routes"],
@@ -762,11 +762,14 @@ class TestAnswerKeyRefusals(MountedCopyTest):
                 self.evidence(0, lambda e: e.update(where=where))
                 model.load_scenario(self.scenario)
 
-    def test_fault_evidence_where_stays_free_text(self):
-        # O78: fault.yaml's evidence keeps v0.1's free-text where in v0.2.
+    def test_fault_evidence_where_is_a_location(self):
+        # O78 option (b), v0.3 master spec 6.3: fault.yaml's evidence names a
+        # location in `where`, v0.2's free text moving to `source`.
         sc = model.load_scenario(self.scenario)
-        self.assertEqual(sc.faults["f2"].data["evidence"][0]["where"],
-                         "the monitor's node-health view")
+        evidence = sc.faults["f2"].data["evidence"][0]
+        self.assertEqual(evidence["where"], "node")
+        self.assertEqual(evidence["source"],
+                         "the monitor's node-health view, read on the monitor node")
 
     def test_tooling_expectations_required(self):
         self.edit_yaml(self.KEY, lambda d: d.pop("tooling_expectations"))

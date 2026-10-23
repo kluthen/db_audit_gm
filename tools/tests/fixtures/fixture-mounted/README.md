@@ -30,6 +30,8 @@ for, not any one playground.
 | Origin | hand-written |
 | Session length | 60 minutes |
 | Brief | `brief.md` |
+| Difficulty | score 2 (2 fault instances) |
+| Aging | none: no scheduler node, so the scenario does not age; its faults show once planted, its times stay UTC |
 
 ### Initiator's inputs, as given
 
@@ -57,7 +59,7 @@ The story as the players read it: `player/story.md`.
 | Node | Brick | Role | Stateful | Networks | Write policy |
 |---|---|---|---|---|---|
 | `bastion` | `fixture-front` 0.1.0 | bastion | no | backend | report-only |
-| `app` | `fixture-app` 0.1.0 | application | yes | backend | report-only |
+| `app` | `fixture-app` 0.1.0 | consumer | yes | backend | report-only |
 | `monitor` | `fixture-monitor` 0.1.0 | monitoring | yes | backend | report-only |
 
 #### Node `bastion`
@@ -94,7 +96,7 @@ No knobs.
 
 - **Brick**: `fixture-app`, version 0.1.0 (pinned), scenario-only, in
   bricks/.
-- **Role**: application. **Stateful**: yes. **Write policy**: report-only.
+- **Role**: consumer. **Stateful**: yes. **Write policy**: report-only.
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
@@ -167,10 +169,12 @@ Placement and the reservations it was sized with:
 
 ### Fault instances
 
-| Instance | Fault | Node | Parameters | Visibility |
-|---|---|---|---|---|
-| `f1` | `fixture-app-stopped` 0.1.0, scenario-only | `app` | none | hidden |
-| `f2` | `fixture-node-left-out` 0.1.0, scenario-only | `monitor` | node = app | hidden |
+| Instance | Fault | Node | Parameters | Visibility | Planted at |
+|---|---|---|---|---|---|
+| `f1` | `fixture-app-stopped` 0.1.0, scenario-only | `app` | none | hidden | `T0` |
+| `f2` | `fixture-node-left-out` 0.1.0, scenario-only | `monitor` | node = app | hidden | `T0` |
+
+`T0`: right after the data load.
 
 ### Issues given to the players
 
@@ -201,8 +205,8 @@ Acceptable answers:
 - **Diagnosis**: names the application's service as down.
 
 Sealed check: `faults/fixture-app-stopped/checks/fixed.sh`, exit 1 at
-hand-over (0: fixed, 1: present). the scenario's own fault (faults/ in the
-fixture folder).
+hand-over (0: fixed, 1: present, 3: too soon to tell). the scenario's own
+fault (faults/ in the fixture folder).
 
 Interactions: none.
 
@@ -229,8 +233,8 @@ Acceptable answers:
 - **Proposal**: add app to the node_health map.
 
 Sealed check: `faults/fixture-node-left-out/checks/fixed.sh`, exit 1 at
-hand-over (0: fixed, 1: present). the scenario's own fault (faults/ in the
-fixture folder).
+hand-over (0: fixed, 1: present, 3: too soon to tell). the scenario's own
+fault (faults/ in the fixture folder).
 
 Interactions: none.
 
