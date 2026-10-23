@@ -1180,3 +1180,15 @@ Where W1 was silent, recorded by chunk 1 (`v0.3-c1-formats`), 2026-10-23.
   `pgbouncer_lookup` holds no reserve (chunk 6); a dropped `gm_check` comes
   back only at the next container start.
 - In flight: chunk 5.
+- Chunk 5 merged 2026-10-23: 5a d009cb9 (merge 66b926f), 5b 5b3303f (merge
+  21258a0). Stack tests: prometheus 131, postgres-exporter 103 (twice, the
+  second against postgres 0.3.0), grafana 119, all PASS; unit suite 415 OK.
+  `snapshot:` values from chunk 1 held. Brief stop measured in the stack
+  tests (armenelos, 2026-10-23): Prometheus (90K TSDB) down 11 ms, ready
+  about 1 s later; Grafana (1.6M) down 30 ms, API about 2 s later; an aged
+  TSDB is chunk 15b's to measure. `GM_WRITE_POLICY=no-access` not run
+  (treated as report-only). **For the wave gate** (outside its Files line):
+  the three monitoring bricks' `docs/player.md` say "you can edit" with no
+  word on report-only; their Dockerfiles' "Build:" comments still name the
+  old tags.
+- Every chunk of wave 1 merged; wave gate next.

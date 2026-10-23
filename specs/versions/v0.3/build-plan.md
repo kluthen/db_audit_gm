@@ -634,7 +634,7 @@ its choices are in Capture W1-x. Outside its Files line:
 
 ### Chunk 5 — The monitoring bricks 0.2.0: report-only and snapshots
 
-Status: in progress
+Status: merged (w1, 21258a0)
 Wave: 1
 Depends on: chunk 1 (1a at least), merged into `v0.3-w1` before this
 chunk's branch is cut (spec D166); W1; G2, G3
@@ -670,6 +670,12 @@ and snapshot contracts.
   `test_brick_docs` passes.
 - Verification: chunk checks, plus the three stack tests (needs G3).
 - Split rule: 5a `prometheus` and `postgres-exporter`; 5b `grafana`.
+
+Record: 5a d009cb9 (merge 66b926f), 5b 5b3303f (merge 21258a0). No
+deviation from the spec or W1; chunk 1's `snapshot:` values held
+unchanged. The write policy is applied by a root-only Perl helper
+`gm-write-policy` per brick (no Python in these images), matching the
+scheduler's commands and refusal lines.
 
 ### Chunk 6 — The `pgbouncer` brick 0.1.0
 
