@@ -625,6 +625,143 @@ soonest); brief chunk 2 with item 9's fixture note. (Briefing chunks 4
 and 5 to take `v0.3-w1` in is moot: they are cut after chunk 1's merge,
 amended by spec D166.)
 
+### Capture W1-x — chunk 4 outcomes
+
+Recorded by chunk 4 (`v0.3-c4-postgres`), 2026-10-23, from the code as
+built and its stack test (`bricks/postgres/tests/run-stack-test.sh`, all
+checks passed on armenelos, Docker 29.9.1). Read by chunks 6, 7, 9, 11
+and 14. W1 items 6 and 8 hold as written; what follows is what they left
+to the build, and the additions.
+
+- **Reserve**: `-c reserved_connections=2` in
+  `s6-rc.d/postgres/run`; `superuser_reserved_connections` stays 3.
+  `pg_settings.source` reads `command line`, and an `ALTER SYSTEM SET
+  reserved_connections = 0` followed by a restart leaves it at 2.
+  Measured with `max_connections = 10`: an ordinary role gets five
+  sessions and a sixth is refused ("reserved for roles with privileges
+  of the pg_use_reserved_connections role"); two `gm_check` sessions get
+  in beside them, a third is refused ("reserved for roles with the
+  SUPERUSER attribute"); `dba` still connects. Kept at 2: `gmctl` runs
+  checks one at a time, and a timer-fired early check may overlap one
+  run by hand. The server does not start with `max_connections` ≤ 5;
+  `gm-restart-db` now refuses such a value ("max_connections (N) must
+  be more than superuser_reserved_connections (3) plus the GM's
+  reserved_connections (2); PostgreSQL was NOT restarted.", exit 1).
+- **`gm_check`**: as item 8, plus `NOBYPASSRLS`, `INHERIT`, `CONNECTION
+  LIMIT -1`, `VALID UNTIL 'infinity'`; the three memberships granted
+  `WITH INHERIT TRUE`. Created at the first start and re-applied at
+  **every container start** (attributes, memberships, the two grants,
+  the password) by `gm-entrypoint` in single-user mode before `/init`,
+  so it exists with its secret's password whenever the server accepts
+  connections, a restored cluster and a `dba` who altered it included.
+  Single-user mode runs with `config_file=/dev/null`, no preload
+  library and `log_min_error_statement=panic` (no password in a log). A
+  failure is fatal on a fresh cluster, a warning otherwise (the roles
+  stay as they were, the node still starts). `gm-restart-db` does not
+  re-apply it. Without `gm_check_password` mounted the entrypoint only
+  warns and creates no check role (choice: the bastion, prometheus and
+  postgres-exporter stack tests deploy this image without it; a game
+  always mounts it). Log line: `gm-entrypoint: GM roles up to date:
+  gm_check[ pgbouncer_lookup]`.
+- **`gm_check_password`**: kind `password`, not handed over,
+  `/opt/gm/secrets/gm_check_password`, 0:0 `"0400"`, declared by
+  `postgres` only.
+- **`check-psql`**: `/usr/local/lib/gm/check-psql`, root:root `0700`,
+  in `protected_files`. Usage, as root in the node: `check-psql -d <db>
+  -Atq -v ON_ERROR_STOP=1 <<'SQL' … SQL` (any psql arguments). It runs
+  `/usr/lib/postgresql/18/bin/psql -X -w -h /run/postgresql -p 5432 -U
+  gm_check "$@"`, standard streams passed through, `PGHOST`, `PGPORT`,
+  `PGUSER`, `PGPASSWORD`, `PGSERVICE` and the other connection variables
+  cleared, the password in `/run/gm/check-psql.XXXXXX` (`0600`), removed
+  on exit (also on INT, TERM, HUP). Exit codes: psql's (0 done, 1 psql
+  error, 2 connection failed or lost, 3 script error under
+  `ON_ERROR_STOP`); 2 with one `check-psql: …` line on standard error
+  when it cannot run (not root, secret missing or empty, no password
+  file). It needs the seed's `local all gm_check scram-sha-256` line.
+  Players see `gm_check` connections in the server log
+  (`log_connections`) and in `pg_stat_activity` while they run.
+- **`pgbouncer_lookup`**: `LOGIN`, `NOSUPERUSER`, `NOINHERIT`, no
+  `CREATEDB`, `CREATEROLE`, `REPLICATION`, `BYPASSRLS`, `VALID UNTIL
+  'infinity'`, no membership. Created and re-applied at every container
+  start, as `gm_check`, when `/opt/gm/secrets/pgbouncer_lookup_password`
+  exists (present but empty is fatal). The function, in database
+  `postgres`, exactly:
+  `gm_pgbouncer.lookup(p_usename text) RETURNS TABLE (usename name,
+  passwd text) LANGUAGE sql STABLE SECURITY DEFINER SET search_path =
+  pg_catalog, pg_temp`, body `SELECT a.rolname, a.rolpassword FROM
+  pg_catalog.pg_authid a WHERE a.rolname = p_usename AND a.rolcanlogin
+  AND (a.rolvaliduntil IS NULL OR a.rolvaliduntil > now())`, owned by
+  `postgres`; schema `gm_pgbouncer` owned by `postgres`; every right
+  revoked from `PUBLIC` on both; `USAGE` on the schema and `EXECUTE` on
+  the function granted to `pgbouncer_lookup` only. Shown: `dba`
+  (superuser) returned with its `SCRAM-SHA-256$…` verifier, an ordinary
+  role returned, an expired one and an unknown name not, `monitoring`
+  refused, `pgbouncer_lookup` unable to read `pg_authid`. For chunk 6:
+  the role connects over TCP, so the scenario's `pg_hba.conf` must admit
+  it from the pooler node by password; it holds no reserve
+  (`pg_use_reserved_connections` is not granted, item 8's "no
+  membership"), so under an exhaustion fault PgBouncer's lookups compete
+  for the ordinary slots. Until chunk 7 honours `only_with_role`, render
+  mounts `pgbouncer_lookup_password` on every `postgres` node, so the
+  role exists in every game; `tools/tests/test_{deploy,fit,state,teardown}.py`
+  list both new secrets for the catalog `postgres` (chunk 7 drops the
+  lookup one where no pooler node exists).
+- **`gm-snapshot-db`** (item 6 kept as written: `-X fetch` with a
+  temporary slot works; no snapshot volume): `/usr/local/sbin/gm-snapshot-db`,
+  root:root `0700`, in `protected_files`, no arguments, standard input
+  ignored. Steps: a `psql` session as `postgres`, reading commands from a
+  FIFO in `/run/gm/snapshot-db.XXXXXX/`, runs
+  `pg_create_physical_replication_slot('gm_snapshot', true, true)` and
+  holds the temporary slot; then `pg_basebackup -h /run/postgresql -p
+  5432 -U postgres -w -D - -F tar -X fetch --checkpoint=fast
+  --no-manifest -l "gm-snapshot-db <UTC instant>"` as `postgres` writes
+  the tar on standard output; closing the FIFO ends the session and
+  drops the slot. No child holds the FIFO's write end, so the slot goes
+  on any exit, SIGKILL included (shown: the slot present during a stalled
+  backup, gone 1 s after a `kill -9`). Standard error: `gm-snapshot-db:
+  temporary replication slot gm_snapshot reserving WAL from <lsn>`, then
+  `gm-snapshot-db: snapshot written; slot gm_snapshot dropped`, or the
+  failure. Exit: 0; pg_basebackup's status on its failure (141 when the
+  reader stops early, shown); 1 when the slot cannot be created or does
+  not appear within 30 s, or is still there 10 s after the backup; 2 for
+  arguments or a non-root caller. One run at a time (the slot name is
+  fixed; a second concurrent run exits 1). The tar is rooted at the data
+  directory (`PG_VERSION`, `backup_label`, `pg_wal/<segment>`, owners
+  `100:102`), no manifest. **Restore** (chunk 11): extract into an empty
+  `pgdata` volume with `tar --extract --numeric-owner --same-permissions`,
+  beside the other volumes' `copy` tars; the next start runs the role
+  sync (single-user mode completes the recovery), then the server; shown
+  in a fresh container of a second stack: the data there, no slot, no
+  `backup_label` left, `gm_check` connecting, the copied configuration
+  not re-seeded. Needs `local replication postgres peer`, `wal_level`
+  `replica` or `logical`, `max_wal_senders` and `max_replication_slots`
+  ≥ 1. Size: 41MB for the stack test's small cluster (one 16MB WAL
+  segment). A SIGKILL leaves the helper's work directory in `/run/gm`
+  (emptied at the next container start).
+- **Ownership restore** (RG-2): `gm-reload-db`, `gm-restart-db` (first
+  thing, before any check, so also when they refuse) and `gm-entrypoint`
+  (every start) give `postgresql.conf` and `pg_hba.conf`
+  `postgres:pgconf` `0664`; the file is opened `O_NOFOLLOW|O_NONBLOCK`
+  and changed with `fchown`/`fchmod` (Perl), so a symlink a player put in
+  its place is never followed (shown with a symlink to
+  `/run/gm/sudo.log`) and a non-regular file is skipped. Files players
+  add to `/etc/postgresql` are left as they made them. The directory's
+  `2775` is put back at a container start only. `postgres` stays
+  fixable only, so neither wrapper ever refuses as report-only.
+- **Footprint**: unchanged in `brick.yaml`. At rest in the stack test,
+  under a 512M limit: 27 to 31MiB, CPU 0.03 % (`docker stats`, after the
+  test's checks). The reserve costs nothing until used.
+- **Stack-test seed**: `max_connections = 10` (the envelope's minimum);
+  `pg_hba.conf` carries `local replication postgres peer` and `local all
+  gm_check scram-sha-256` under its DO NOT TAMPER comment (D164, D171);
+  the lookup secret is mounted, as with a pooler node.
+- **Different from W1**: nothing in its contracts. Additions where it
+  was silent: the per-start role sync and its failure rule, the
+  entrypoint tolerating a missing `gm_check_password`, `gm-restart-db`'s
+  `max_connections` refusal, the per-start owner restore in the
+  entrypoint, `check-psql`'s exit 2 for its own failures,
+  `gm-snapshot-db`'s exit 1 and 2.
+
 ### Capture W1-y — chunk 3 outcomes (the `scheduler` brick 0.1.0; read by 7, 8, 11, 12, 14)
 
 Recorded 2026-10-23 by chunk 3's owner, from the code on

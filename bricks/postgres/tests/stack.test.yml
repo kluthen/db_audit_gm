@@ -1,4 +1,5 @@
-# Stack test fixture for the PostgreSQL brick (v0.1 chunk 2, v0.2 chunk 6 Done-when).
+# Stack test fixture for the PostgreSQL brick (v0.1 chunk 2, v0.2 chunk 6, v0.3 chunk 4
+# Done-when); the lookup role's secret is mounted, as in a scenario with a pooler node.
 # Uses only what a rendered Compose 3.8 stack file can express: no tmpfs
 # `mode` or `exec` option. Configs and secrets are external, created and
 # removed by run-stack-test.sh (mirroring gmctl deploy, master spec 10.1).
@@ -32,6 +33,8 @@ services:
       - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
       - {source: dba_password, target: /opt/gm/secrets/dba_password, uid: "0", gid: "0", mode: 0400}
       - {source: monitoring_password, target: /opt/gm/secrets/monitoring_password, uid: "0", gid: "102", mode: 0440}
+      - {source: gm_check_password, target: /opt/gm/secrets/gm_check_password, uid: "0", gid: "0", mode: 0400}
+      - {source: pgbouncer_lookup_password, target: /opt/gm/secrets/pgbouncer_lookup_password, uid: "0", gid: "0", mode: 0400}
     networks: [net]
     deploy:
       replicas: 1
@@ -60,3 +63,5 @@ secrets:
   player_ssh_pubkey: {external: true, name: gmtest-pg_player_ssh_pubkey}
   dba_password: {external: true, name: gmtest-pg_dba_password}
   monitoring_password: {external: true, name: gmtest-pg_monitoring_password}
+  gm_check_password: {external: true, name: gmtest-pg_gm_check_password}
+  pgbouncer_lookup_password: {external: true, name: gmtest-pg_pgbouncer_lookup_password}

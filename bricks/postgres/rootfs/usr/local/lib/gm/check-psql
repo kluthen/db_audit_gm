@@ -1,0 +1,49 @@
+#!/bin/sh
+# check-psql: psql as the GM check role gm_check, for the sealed checks.
+# DO NOT TAMPER. Root-owned, mode 0700: root only (v0.3 master spec 7.3,
+# capture W1 item 8; docs/gm.md).
+#
+# Usage, as root inside the database node (gmctl exec --user root):
+#   /usr/local/lib/gm/check-psql [psql options and arguments]
+#   /usr/local/lib/gm/check-psql -d <db> -Atq -v ON_ERROR_STOP=1 <<'SQL'
+#   ...
+#   SQL
+# Runs `psql -X -w -h /run/postgresql -p 5432 -U gm_check "$@"`, standard
+# input, output and error passed through, with the password from the
+# root-only secret /opt/gm/secrets/gm_check_password in a 0600 PGPASSFILE
+# under the root-only /run/gm, removed on every exit. gm_check holds
+# pg_use_reserved_connections, so it connects inside the GM's reserve
+# when ordinary roles have taken every other slot.
+#
+# Exit status: psql's (0 done, 1 psql error, 2 connection failed or
+# lost, 3 script error under ON_ERROR_STOP); 2 too when the helper cannot
+# run (not root, the secret missing, no password file), with one
+# `check-psql: ...` line on standard error.
+set -u
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+SECRET=/opt/gm/secrets/gm_check_password
+PSQL=/usr/lib/postgresql/18/bin/psql
+
+fail() { printf 'check-psql: %s\n' "$*" >&2; exit 2; }
+
+[ "$(id -u)" = 0 ] || fail "run as root"
+[ -s "$SECRET" ] || fail "secret $SECRET is missing or empty"
+umask 077
+passfile=$(mktemp /run/gm/check-psql.XXXXXX) || fail "cannot create a password file in /run/gm"
+trap 'rm -f "$passfile"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+# .pgpass format: backslash and colon escaped.
+pw=$(sed 's/[\\:]/\\&/g' "$SECRET") || fail "cannot read $SECRET"
+printf '*:*:*:gm_check:%s\n' "$pw" > "$passfile" || fail "cannot write the password file"
+unset pw
+
+# Nothing from the caller's environment chooses the server, the role or
+# the password.
+unset PGHOST PGHOSTADDR PGPORT PGUSER PGPASSWORD PGSERVICE PGSERVICEFILE \
+      PGSYSCONFDIR PGOPTIONS PGREQUIRESSL PGSSLMODE PGTARGETSESSIONATTRS
+PGPASSFILE=$passfile
+export PGPASSFILE
+"$PSQL" -X -w -h /run/postgresql -p 5432 -U gm_check "$@"

@@ -1,0 +1,107 @@
+#!/bin/sh
+# gm-snapshot-db: the hand-over snapshot of the data volume (pgdata).
+# DO NOT TAMPER. Root-owned, mode 0700: root only, not a sudo wrapper
+# (v0.3 master spec 6.4 and 7.3, capture W1 item 6; docs/gm.md).
+#
+# Usage, as root inside the node, no arguments (gmctl exec --user root):
+#   /usr/local/sbin/gm-snapshot-db > pgdata.tar
+# Standard output: a tar stream of the data directory, rooted at it,
+# holding the WAL it needs, restorable by extracting it into an empty
+# data volume (`tar --extract --numeric-owner`), as a `copy` is; the
+# server finishes the recovery at its next start. Diagnostics on
+# standard error. Exit 0 on success; otherwise pg_basebackup's status,
+# or 1 (2 for a usage error) when the helper itself fails.
+#
+# How: an online base backup, `pg_basebackup -F tar -X fetch -D -` as
+# `postgres` over the local socket (the seed's `local replication
+# postgres peer` line). -X fetch takes the WAL at the end of the backup,
+# so a temporary physical replication slot, gm_snapshot, reserves the
+# WAL from before the backup starts until it ends: created, reserving at
+# once, by a psql session that holds it and reads its commands from a
+# FIFO only this script writes. Temporary, the slot goes with that
+# session, which ends when the FIFO closes: on every exit of this script,
+# a failure, a signal or a SIGKILL included, the slot is dropped.
+set -u
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+PGBIN=/usr/lib/postgresql/18/bin
+SLOT=gm_snapshot
+WAIT=30
+
+log() { printf 'gm-snapshot-db: %s\n' "$*" >&2; }
+
+if [ "$#" -ne 0 ]; then
+    echo "usage: gm-snapshot-db (no arguments)" >&2
+    exit 2
+fi
+[ "$(id -u)" = 0 ] || { log "run as root"; exit 2; }
+# Nothing here reads the caller's standard input (the exec verb's script).
+exec </dev/null
+
+# Every child runs without fd 3, the FIFO's only write end: once this
+# script is gone, nothing keeps the holding session's input open.
+as_postgres() { runuser -u postgres -- env HOME=/var/lib/postgresql "$@" 3>&-; }
+pg_q() {
+    as_postgres "$PGBIN/psql" -X -w -q -A -t -h /run/postgresql -p 5432 -d postgres \
+        -v ON_ERROR_STOP=1 -c "$1"
+}
+slot_rows() { pg_q "SELECT count(*) FROM pg_catalog.pg_replication_slots WHERE slot_name = '$SLOT'"; }
+
+work=$(mktemp -d /run/gm/snapshot-db.XXXXXX) || { log "cannot create a work directory in /run/gm"; exit 1; }
+holder=
+cleanup() {
+    # Closing the FIFO ends the holding session, and the slot with it.
+    exec 3>&-
+    [ -n "$holder" ] && wait "$holder" 2>/dev/null
+    rm -rf "$work"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+
+# 1. The slot, held by its own session.
+mkfifo -m 0600 "$work/session" || { log "cannot create the FIFO"; exit 1; }
+as_postgres "$PGBIN/psql" -X -w -q -A -t -h /run/postgresql -p 5432 -d postgres \
+    -v ON_ERROR_STOP=1 < "$work/session" > "$work/session.log" 2>&1 &
+holder=$!
+exec 3> "$work/session"
+printf "SELECT pg_catalog.pg_create_physical_replication_slot('%s', true, true);\n" "$SLOT" >&3
+i=0
+lsn=
+while [ "$i" -lt "$WAIT" ]; do
+    lsn=$(pg_q "SELECT restart_lsn FROM pg_catalog.pg_replication_slots WHERE slot_name = '$SLOT' AND temporary AND active AND restart_lsn IS NOT NULL" 2>/dev/null)
+    [ -n "$lsn" ] && break
+    if ! kill -0 "$holder" 2>/dev/null; then
+        log "could not create the replication slot $SLOT:"
+        sed 's/^/  /' "$work/session.log" >&2
+        exit 1
+    fi
+    sleep 1
+    i=$((i + 1))
+done
+[ -n "$lsn" ] || { log "the replication slot $SLOT did not appear within ${WAIT}s"; exit 1; }
+log "temporary replication slot $SLOT reserving WAL from $lsn"
+
+# 2. The base backup, to standard output.
+as_postgres "$PGBIN/pg_basebackup" -h /run/postgresql -p 5432 -U postgres -w \
+    -D - -F tar -X fetch --checkpoint=fast --no-manifest \
+    -l "gm-snapshot-db $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+rc=$?
+if [ "$rc" -ne 0 ]; then
+    log "pg_basebackup failed (exit $rc); no snapshot"
+    exit "$rc"
+fi
+
+# 3. The slot dropped before reporting success.
+exec 3>&-
+wait "$holder" 2>/dev/null
+holder=
+i=0
+while [ "$(slot_rows 2>/dev/null)" != 0 ]; do
+    i=$((i + 1))
+    [ "$i" -lt 10 ] || { log "the replication slot $SLOT is still there after the backup"; exit 1; }
+    sleep 1
+done
+log "snapshot written; slot $SLOT dropped"
+exit 0

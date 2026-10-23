@@ -88,6 +88,8 @@ class TestStatus(FittedGame):
             "    dba_password: password",
             "    tools_password: password, handed over",
             "    monitoring_password: password",
+            "    gm_check_password: password",
+            "    pgbouncer_lookup_password: password",
         ])
 
 
