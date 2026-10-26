@@ -10,7 +10,8 @@ the format choices that carry it (D158); three readings of them
 confirmed by the owner on 2026-10-23, at wave 1's start (D160–D162);
 two of wave 1's preflight settlements written in the same day: where
 `schedule.yaml` lives (7.1, D163) and the scheduler's writable paths in
-the 6.7 example (D170).
+the 6.7 example (D170); amended on 2026-10-26 by the owner's ruling on
+the GM check role's `CONNECT` privilege (7.3, D176).
 Build plan:
 [build-plan.md](build-plan.md), approved (D156). Companion:
 [access-model.md](access-model.md). Baseline: the released
@@ -560,7 +561,10 @@ reservations 0.1 CPU / 64M, disk for its log.
   statistics, activity) and `pg_read_all_data` (the duplicates and other
   data checks), with `SELECT` on the `pg_hba_file_rules` view and
   `EXECUTE` on the `pg_hba_file_rules()` function behind it granted (the
-  view alone is not enough). A check needing more says so in its fault
+  view alone is not enough), and `CONNECT` on every database the data
+  creates, granted by `gmctl load-data` as `postgres` after the data load,
+  since a scenario's data may revoke it from `PUBLIC` (amended by D176).
+  A check needing more says so in its fault
   and is a build finding.
 - **The default `max_connections` stays 100**, its envelope 10 to 200;
   a scenario wanting a connection bottleneck sets a low value in its

@@ -16,7 +16,7 @@ README:
 Archived IDs keep their meaning and are cited as they are. D107 onward
 stay live: rulings still to be applied in a later version (D107, D108,
 D110, D113), the v0.2 release close, and v0.3's drafting from D114.
-Numbering continues from D176; no ID is reused.
+Numbering continues from D177; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -425,3 +425,11 @@ Numbering continues from D176; no ID is reused.
   [versions/v0.3/access-model.md](versions/v0.3/access-model.md) 6
   (`aging-done`); [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md)
   G11, chunk 8.
+- **D176 (2026-10-26, owner ruling at wave 2's gate, relayed by the
+  coordinator): `gmctl load-data` grants the GM check role `CONNECT` on
+  every non-template database after the data load,** since both catalog
+  scenarios' data revoke it from `PUBLIC` and chunk 9's checks connecting
+  to `$FAULT_DATABASE` read `error`. Declined: the scenarios' data
+  granting it; those checks staying on `postgres`. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 7.3;
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunks 11, 14.

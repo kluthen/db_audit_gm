@@ -1,6 +1,6 @@
 # db_audit_gm v0.3 — Build plan
 
-Status: v7 (2026-10-26): v6 with the owner's ruling on O103, the lost time moving the whole earliest hand-over, written in (spec D175; G11 cleared).
+Status: v8 (2026-10-26): v7 with the owner's ruling on wave 2's gate finding, the GM check role's `CONNECT` granted by `load-data`, written in (spec D176).
 Approval: **approved 2026-10-22 by the owner** (G1, spec D156).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-10-22 (spec D154), with
@@ -1008,8 +1008,10 @@ W3.
     every secret's value kept under new Swarm secret objects; a new
     game seed in each scheduler's `schedule.yaml`, which is not on a
     volume and so not in the snapshot (spec D163); fresh
-    nodes deployed on fresh copies of the snapshot, the schedulers
-    resuming from their marker; or, with no snapshot, the data loaded,
+    nodes deployed on fresh copies of the snapshot, which carry the
+    check role's `CONNECT` grants with the data, the schedulers
+    resuming from their marker; or, with no snapshot, the data loaded
+    with `load-data`'s grants (spec D176),
     every fault planted at once, the load, when the game has scheduler
     nodes, started with the timeline applied, inside `restart` (the after-hand-over refusals not
     applying); the rebuilt game at `handed-over`, its four hours
@@ -1026,7 +1028,7 @@ W3.
 - Spec sections: master spec 6.4, 7.1 to 7.5 ("Snapshot"), 12, 13;
   access model 3, 5 ("The load and the setup actions", "Game control"),
   6, 7, 9; spec D123, D126, D141, D142, D147, D156, D157, D161, D162,
-  D163, D172.
+  D163, D172, D176.
 - Done when: unit tests show each refusal, `status --set handed-over`
   refused without the snapshot taken or recorded as not fitting, in both
   kinds of game, `smoke.sh` passing with its snapshot before the
@@ -1142,14 +1144,16 @@ faults.
   Each a `seed-file` fault planted at render, with `fault.yaml` (its
   `aging:`, evidence locations), `checks/fixed.sh` judging the cause (the
   query's text, the job's time and zone, the pool's size, the
-  schedule's hold) as the GM check role or on the node's files,
+  schedule's hold) as the GM check role (its `CONNECT` on the
+  scenario's databases granted by `load-data`, spec D176) or on the
+  node's files,
   `checks/probe.md`, `gm.md`; the "Supported faults" sections of the
   bricks they name, folding into their versions.
   Out: the scenario (chunk 15).
 - Files: `faults/<fault-id>/` for each (new),
   `bricks/{scheduler,pgbouncer,postgres}/docs/gm.md` ("Supported
   faults" only).
-- Spec sections: master spec 6.3, 11, 15.3; spec D134, D145, D168.
+- Spec sections: master spec 6.3, 7.3, 11, 15.3; spec D134, D145, D168, D176.
 - Done when: the loader accepts each fault; `test_brick_docs` passes; on
   a deployment of `fixture-load` with each planted, its evidence shows
   within its aging minimum, its sealed check returns 1, and 0 after its
