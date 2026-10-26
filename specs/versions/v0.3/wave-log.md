@@ -2130,3 +2130,36 @@ master spec 7.3 amended; the scenarios' data granting it, and those
 checks staying on `postgres`, declined). Fix 44227a3 (`tools/gm/inject.py`,
 `tools/tests/test_inject.py`; chunk 7's step), then the four smoke runs
 re-run green. No intent register, so there is no wave sync.
+
+### Dependency check and PgBouncer's source — 2026-10-26
+
+`security-advisor`'s post-change check over the wave's diff (only
+`bricks/pgbouncer/Dockerfile` changed among the Dockerfiles): Debian 13's
+`pgbouncer` 1.24.1-1+deb13u2 has six open CVEs with no trixie fix
+(CVE-2026-6668, -19888, -6669, -107349, -107348, -107350; Debian bug
+1148946), fixed upstream in 1.26.0/1.26.1; as configured, reachable only
+as a player's denial of service on their own pooler (port 6432 never
+published, CPU capped at 0.25), CVE-2026-107350 not reachable (the lookup
+secret is root-only). s6-overlay 3.2.3.2 clean; openssh and sudo are the
+same versions as in bastion and postgres (their `no-dsa` items go to a
+later triage). No `.tech` existed, so nothing checked the platforms.
+
+Owner's rulings, 2026-10-26:
+- **PgBouncer from the PostgreSQL apt repository, `1.26.1-1.pgdg13+1`**
+  (spec D177, 85848ed; plan v9; master spec 7.2 amended). Declined:
+  keeping 1.24.1 with an accepted risk. Fix c43fbc9 by a
+  `coding-executor` (chunk 6's brick, still 0.1.0): PGDG source as in
+  the postgres and bastion bricks, the build asserting the upstream and
+  package versions and no PostgreSQL server; `postgresql-client` now
+  PGDG's 18; accounts unchanged (pgbouncer 991:991, pgbconf 992).
+  1.25/1.26's changes checked against the brick: `RELOAD` now reports
+  failure on the console, so `gm-reload-pgbouncer` prints PgBouncer's
+  logged reasons on that path; SIGQUIT is still the immediate shutdown;
+  `KILL_CLIENT` admin-only (gm.md's `admin_users` row); nothing uses
+  `-R`, `SUSPEND`, `SHOW FDS` or a leaking `search_path`. Re-run under the
+  host lock: build, stack test 103 passed (98 s), unit suite 537 OK,
+  `smoke.sh` 52 passed, nothing left. Image 182 MB; at rest 11.1 MiB of
+  64M (was 4.7 MiB; 1.26 or run-to-run, not established).
+- **A `.tech` written now**, on the wave branch, covering the seven
+  bricks' platforms (`security-advisor`, cold start).
+- **Merge wave 2 into `main`** once both are in.
