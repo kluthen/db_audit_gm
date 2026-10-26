@@ -782,7 +782,7 @@ W2 addenda in the wave log. Outside its Files line: `smoke.sh` and
 
 ### Chunk 8 — The aging: `start-load`, `inject --at`, outages, the early and hand-over checks, `status`
 
-Status: in progress
+Status: merged (w2, 4b1f85f)
 Wave: 2
 Depends on: chunks 3 (W1-y: marker, summaries), 7 (in-wave, W2), 9
 (in-wave, W2: the "too soon to tell" verdict)
@@ -878,6 +878,11 @@ chunk 9); the test-harness override's form (G6).
 - Verification: chunk checks, plus `sh tools/tests/smoke.sh` (needs G3).
 - Split rule: 8a stage, `start-load`, `inject --at`, the timers; 8b
   outages, lost time, earliest hand-over, the two checks, `status`.
+
+Record: 8a 7b20533, 8b c9ddfe5 (merge 4b1f85f). No deviation from the
+spec or W2; W2 addenda in the wave log (the override's form, the late
+run's bound). Outside its Files line: `tools/tests/test_{checks,deploy}.py`
+and a new `tools/tests/fakebin/systemctl`.
 
 ### Chunk 9 — Checks under load: exit 3 and the GM check role
 

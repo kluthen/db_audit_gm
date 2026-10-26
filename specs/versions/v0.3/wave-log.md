@@ -2013,3 +2013,73 @@ Where W2 item 1 was silent, recorded by chunk 7 (`v0.3-c7-render`; 7a
   15; `fixture-v03-refusals`' `data/db.sql` creates neither `shop_app`
   nor `shop_reports` (unit tests only); the GM skill's `SKILL.md` step 6
   still shows `render` without `--handover` (chunk 13).
+
+### W2 addenda — choices chunk 8 made
+
+Where W2 was silent, recorded by chunk 8 (`v0.3-c8-aging`; 8a 7b20533,
+8b c9ddfe5, merge 4b1f85f), 2026-10-26. Accepted by the driver.
+
+- **The override's form (item 10, G6):** `gmctl start-load <dir>
+  --playground <pg> --test-aging-minimum <duration>`, hidden from
+  `--help`, accepted from 1m up to (not including) the scenario's aging
+  minimum; recorded in `state.yaml` as `test_harness_override:
+  {aging_minimum, set_at}` (a later `start-load` before T0 replaces it
+  when given the option, keeps it otherwise); every `earliest_handover`
+  and check record carries `override: <duration>`; `status`'s first line
+  reads `TEST HARNESS OVERRIDE: this game's aging minimum is shortened to
+  <d> (a test run of the tools, never a game for players)`.
+- **The late run's bound (item 5, D173):** 600 s (`aging.LATE_RUN_WAIT`),
+  polled every 10 s until every node has a running container (running,
+  not healthy: an exhaustion fault may read unhealthy); applied to every
+  timer run (an on-time run returns at once); past the bound it acts and
+  records the outcome. `gmctl.md` says "up to 10 minutes".
+- `start-load`'s in-node script waits up to 60 s for `running <instant>`
+  at or after T0 (a re-run does not read the old process's status); exec
+  timeout 150 s.
+- Task history: `docker service ps -q --no-trunc`, `docker inspect --type
+  task`, then the container's StartedAt/FinishedAt; a task whose
+  container is gone counts from its creation, a dead one ends at its
+  status timestamp; minutes before a node's oldest kept task are not
+  judged by its history (lower bound, D174); `incomplete` is sticky.
+- A reading that cannot reach a node leaves the record unchanged and adds
+  `outages.unread: {at, reason}`; `status` heads `OUTAGES NOT READ`.
+- The early check's timer not created: `early_check.scheduling_failed`
+  recorded, T0 kept, `start-load` exits 1, `status` heads it.
+- Moving the early check: the new due is the latest of (the current due
+  capped at the earliest hand-over minus 1 h), T0 + 5 min and now + 1 min;
+  it moves only before its first result, and also after an `--at now`
+  planting. An early-check timer run refused at hand-over records
+  nothing (refused attempts are kept for plantings only).
+- An `inject` replay at `injected` does not rewrite `plantings` (a T0
+  `planted_at` is the first `inject`).
+- A stale timer's run exits 1 for `inject` and `check` (item 5); other
+  `check` refusals exit 2.
+- Units: the `.service` has `[Unit] Description=`; replacing a live timer
+  rewrites both units, then `daemon-reload`, `enable --now`, `restart`;
+  ExecStart doubles `%` and `$` and double-quotes a word with a space.
+  Teardown runs `reset-failed` and `daemon-reload` only when the game has
+  units; `list-unit-files` exiting 1 with no match reads as none; unit
+  files in the unit directory count too.
+- An unscheduled planting (no timer, planned instant past) heads `status`
+  and fails both checks at once; a missed one (timer due) after 15 min.
+- Checks: `at_handover` defaults to 1; a stream's current key is its
+  initial key changed by every timeline `set: {key}` at or before the
+  minute's start; a job has "run" once a `run … phase=start` or `skip`
+  line is stamped at or after its first due instant.
+- `status`: the aging lines follow the secrets block; the hand-over check
+  line shows in every game; snapshot and restart lines only once chunk
+  11's records exist; `smoke.sh`'s secrets count stops at the next
+  two-space line.
+- The state lock (item 0) is `localimpl.state_lock`, `update_state`,
+  `enter_stage`; every `state.yaml` writer takes it.
+- Outside its Files: `tools/tests/test_checks.py` (one regex:
+  `load-started` joins `CHECK_STAGES`, item 12), `tools/tests/test_deploy.py`
+  (no `tools_password` in fixture-audit's status, RG-3), a new
+  `tools/tests/fakebin/systemctl`.
+- Left: no real systemd timer created yet (real unit semantics and
+  `restart` re-arming a changed `OnCalendar`: chunk 12's
+  `smoke-load.sh`); the start script, the scheduler log reading and real
+  Swarm task JSON have met only the fake engine (first real scheduler
+  game: chunk 12 or 15); a task on another host falls back to its
+  creation time (wave 3); `status` at `load-started` runs one exec per
+  scheduler plus inspects; the GM skill's `SKILL.md` (chunk 13).
