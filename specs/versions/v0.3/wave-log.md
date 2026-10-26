@@ -1426,7 +1426,7 @@ reaches `failed` from `load-started` on (item 0).
 | `check` | `injected` and every later deployed stage | nothing |
 | `check --early-check` | `load-started` | `early_check.result` (item 8) |
 | `check --handover-check` | `load-started`; `injected` in a static game | `handover_checks` (item 8) |
-| `status --set handed-over` | `load-started`; `injected` in a static game; item 11's conditions | `handed-over` |
+| `status --set handed-over` | `load-started`; `injected` in a static game; item 11's conditions (the snapshot's from chunk 11a on, amended by spec D172) | `handed-over` |
 | `snapshot` (chunk 11) | `load-started`; `injected` in a static game | `snapshot` (item 11) |
 
 - `inject` without `--at` plants only the T0 instances; at
@@ -1500,9 +1500,12 @@ plantings:                             # every fault instance, fault_instances o
   future (the hint says `--at now`) or at or after the planned hand-over
   (choice: the loader's "never at or after hand-over" is measured from
   the planned hand-over, 6.1); an instant for an instance already
-  planted (re-planting is `--at now`). Allowed for a T0 `state` instance
-  too (choice: the hand-over check's remedy, 8.5, fits any planted fault
-  that reads absent).
+  planted (re-planting is `--at now`); a T0 instance, the refusal naming
+  master spec 8.5: the GM re-plants only a fault whose planting failed,
+  and a T0 planting never fails without a teardown (amended 2026-10-26,
+  spec-writer's review of W2). `--at now` is bounded only by the
+  stage, and the planned-hand-over refusal's hint names it (amended
+  2026-10-26, spec-writer's review of W2).
 - With an instant: creates the instance's timer (item 5), replacing a
   live one, and records `timer`. With `now`: stops a live timer, runs the
   instance's scripts as `inject` does, records the attempt (`by: timer`
@@ -1510,8 +1513,8 @@ plantings:                             # every fault instance, fault_instances o
   `planted_at`. A failing attempt is recorded with the first line of the
   failing output, exits 1, tears nothing down and leaves the stage (8.7;
   the plan's "record-only mode" of `setup_step`).
-- **A missed planting** (choice: a timer can be lost, see the open
-  points, and nothing else would tell): an instance whose `timer.due`
+- **A missed planting** (choice: a safety net beside the persistent
+  timers of item 5, D173, should a run still not happen): an instance whose `timer.due`
   (or, with no timer, `planned_at`) is more than 15 minutes past with no
   attempt since is read as missed by `status` and by the checks (items 8,
   11).
@@ -1520,19 +1523,35 @@ plantings:                             # every fault instance, fault_instances o
 11, 12, 13, 15). Master spec 8.4, 8.7, 20; access model 3, 8; the plan's
 build-host note (lingering on).
 
-- **Form**: one transient systemd user unit pair per scheduled action,
-  created on the host where `gmctl` runs (the manager):
+- **Form** (amended by spec D173): one persistent systemd user unit
+  pair per scheduled action, written on the host where `gmctl` runs (the
+  manager) as `~/.config/systemd/user/dbagm-<game_id>_<action>.timer` and
+  `.service`, then `systemctl --user daemon-reload` and `systemctl --user
+  enable --now <unit>.timer`:
 
   ```
-  systemd-run --user --unit=dbagm-<game_id>_<action> \
-    --description='db_audit_gm game <game_id>: <action>' \
-    --on-calendar='YYYY-MM-DD HH:MM:SS UTC' \
-    --timer-property=AccuracySec=1s --timer-property=RemainAfterElapse=no \
-    --setenv=DBAGM_GAME=<game_id> \
-    -- <python3> <repo>/tools/gmctl <verb> <absolute scenario dir> --playground <pg> <options>
+  # dbagm-<game_id>_<action>.timer
+  [Unit]
+  Description=db_audit_gm game <game_id>: <action>
+  [Timer]
+  OnCalendar=YYYY-MM-DD HH:MM:SS UTC
+  Persistent=true
+  AccuracySec=1s
+  [Install]
+  WantedBy=timers.target
+
+  # dbagm-<game_id>_<action>.service
+  [Service]
+  Type=oneshot
+  Environment=DBAGM_GAME=<game_id>
+  ExecStart=<python3> <repo>/tools/gmctl <verb> <absolute scenario dir> --playground <pg> <options>
   ```
 
-  `<action>` is `plant-<instance>` (run: `inject … --at now --instance
+  `inject --at` replacing a live timer rewrites its two units. A late
+  run (`Persistent=true` firing at boot for an action due while the host
+  was down) first waits for the game's nodes to run, up to a limit chunk
+  8a chooses, then acts or records its failure (D173); a run reaching
+  another host's node is chunk 10b's. `<action>` is `plant-<instance>` (run: `inject … --at now --instance
   <id>`) or `early-check` (run: `check … --early-check`). `<python3>`
   and `<repo>` are those of the `gmctl` that created the timer (choice:
   the run must be the same code, from any working directory).
@@ -1546,11 +1565,13 @@ build-host note (lingering on).
   records an attempt `outcome: refused`.
 - **Recorded** in `plantings.<id>.timer` and `early_check` (items 4, 8):
   unit, due instant, creation instant.
-- **Teardown** (chunk 8a in `teardown.py`), before any Docker object:
-  `systemctl --user stop 'dbagm-<game_id>_*.timer' 'dbagm-<game_id>_*.service'`,
-  `systemctl --user reset-failed 'dbagm-<game_id>_*'`, then
-  `systemctl --user list-units --all --plain --no-legend 'dbagm-<game_id>_*'`
-  must list nothing; a unit left fails the teardown as a labelled object
+- **Teardown** (chunk 8a in `teardown.py`), before any Docker object
+  (amended by spec D173): stops and disables every
+  `dbagm-<game_id>_*` timer and service, removes their unit files and
+  their `stamp-` files (`~/.local/share/systemd/timers/stamp-dbagm-<game_id>_*`),
+  `systemctl --user reset-failed 'dbagm-<game_id>_*'`, `systemctl --user
+  daemon-reload`, then neither `systemctl --user list-units --all` nor
+  `systemctl --user list-unit-files` lists `dbagm-<game_id>_*`; a unit left fails the teardown as a labelled object
   does (exit 1, nothing recorded, W3-C) (choice: "nothing of the game
   left" covers its timers, as chunk 12's "nothing labelled (timers
   included)" reads). Without a reachable user manager, a game whose state
@@ -1570,7 +1591,7 @@ outages:
   periods:                             # runs of outage minutes, merged, oldest first
     - {from: "2026-10-27T03:02Z", to: "2026-10-27T03:21Z", minutes: 20,
        causes: ["producer: no summary", "db: no running task"]}
-  incomplete: []                       # nodes whose task history may be pruned (open points)
+  incomplete: []                       # nodes whose task history may be pruned (D174)
 ```
 
 - **Span** (choice: the minute T0 falls in is partial on every node, and
@@ -1588,6 +1609,9 @@ outages:
   union with the recorded `periods` (choice: a minute once seen is never
   forgotten, the task history being pruned by Swarm). A reading that
   cannot reach a node leaves the record as it was, and `status` says so.
+  `incomplete` lists the nodes whose oldest kept task started after the
+  previous reading; `status` reads "at least" for their outages (amended
+  by spec D174).
 - **Lost time**: `lost_minutes`, the outage minutes in all. It moves the
   earliest hand-over by `max(0, lost_minutes − 30)` minutes (8.7, D152).
   The running time `status` shows is computed (elapsed since T0 less the
@@ -1595,12 +1619,16 @@ outages:
 
 **7. The earliest hand-over** (writes: chunk 8b; read by 8b's refusals,
 11's `snapshot` refusal, 13). Master spec 8.4, 8.7, 13; access model 6
-(`aging-done`, `at-hand-over`); D152, D161.
+(`aging-done`, `at-hand-over`); D152, D161, D175.
 
 ```
-earliest = max( T0 + M + max(0, lost − 30 min),
+earliest = max( T0 + M,
                 max over instances i of ( max(P_i, T0) + m_i ) )
+           + max(0, lost − 30 min)
 ```
+
+The lost time's excess moves the whole maximum (amended by spec D175,
+O103 (a), owner ruling 2026-10-26).
 
 M is `timeline.aging_minimum`, m_i an instance's `aging_minimum`, P_i
 its `planted_at`; under the harness override (item 10) M and every m_i
@@ -1609,7 +1637,7 @@ its `timer.due`, else its `planned_at`, and is listed in `waiting_for`;
 while `waiting_for` is not empty the earliest hand-over is provisional
 and not reached (choice: `aging-done` needs every instance's own minimum
 since its actual planting, access model 6). A T0 instance counts from T0
-(choice: its evidence needs the load, and the first term covers it).
+(its evidence needs the load; kept by D175).
 
 ```yaml
 earliest_handover:
@@ -1643,8 +1671,12 @@ early check's scheduling chunk 8a; read by 11, 12, 13). Master spec 8.5,
   most the earliest hand-over minus one hour, and at least T0 + 5
   minutes. M and the earliest hand-over are as item 7 computes them at
   `start-load` (the override's cap included); E is not moved later
-  (choices: 10 minutes lets a job's run start and log; the 5-minute
-  floor only matters under a short override).
+  (choices: 10 minutes lets a job's run start and log). When an `inject
+  --at` brings the earliest hand-over earlier, the early check's timer
+  moves earlier so E stays no later than the earliest hand-over minus one
+  hour; the T0 + 5 min floor may beat that bound only under the
+  test-harness override (amended 2026-10-26, spec-writer's review of
+  W2).
 - **What both judge** (8.5): (a) every planted instance (`planted_at`
   set) by its sealed check (item 9): it passes when the exit equals the
   answer key's `at_handover` (1, present) (choice: the answer key states
@@ -1763,13 +1795,16 @@ by 11, 13). Master spec 8.5, 13, 16; access model 7, 9.
   hand-over reached (not provisional, now at or after `at`); the last
   `handover_checks` entry passed and was run at or after the earliest
   hand-over (choice: a check before it judges a younger system than the
-  one handed over); `snapshot.status` is `taken` or `not-fitting`. In a
-  static game: the last hand-over check passed, and the snapshot. Each
+  one handed over); from chunk 11a on, `snapshot.status` is `taken` or
+  `not-fitting`. In a static game: the last hand-over check passed, and,
+  from chunk 11a on, the snapshot. Until chunk 11a, chunk 8b enforces the
+  first two conditions only (amended by spec D172). Each
   refusal says which condition and, for the first, when (access model 7).
 - **The snapshot record** (choice: chunk 8b reads it before chunk 11
   writes it): `state.yaml` `snapshot: {status: taken | not-fitting, at:
   <instant>, …}`; chunk 8b reads `status` only, chunk 11 owns the rest.
-  When the snapshot condition takes effect is an open point below.
+  The snapshot condition takes effect with chunk 11a (amended by spec
+  D172).
 
 **12. Wave 2 coordination** (for the driver and chunks 7, 8, 9)
 
@@ -1782,8 +1817,13 @@ by 11, 13). Master spec 8.5, 13, 16; access model 7, 9.
   follows `state.DEPLOYED_STAGES` once 8 adds `load-started`.
 - Chunk 8's tests use a fake timer (the plan's); no smoke run creates a
   real one before chunk 12's `smoke-load.sh`.
+- Chunk 8's Files gain `tools/tests/smoke.sh`: it runs `check
+  --handover-check` before `status --set handed-over`; chunk 11a adds the
+  snapshot before it (amended by spec D172).
 
-**Open points for spec-writer**
+**Open points for spec-writer** (settled 2026-10-26: 1 by D172, 2 by
+D173, 3 by D174; the owner's O103 ruling on item 7 by D175; the text
+below kept as sent)
 
 1. **`smoke.sh`'s hand-over across waves 2 and 3.** `smoke.sh` runs
    `status --set handed-over` straight after `inject` (line 198). After
@@ -1809,7 +1849,7 @@ by 11, 13). Master spec 8.5, 13, 16; access model 7, 9.
    `Persistent=true`, enabled; teardown disables and removes them), so a
    missed action runs at boot. Master spec 20 leaves the timer's form to
    the build, so (b) changes only the plan's line. Recommend (b), keeping
-   (a)'s reading as the safety net; until ruled, chunk 8a builds item 5.
+   (a)'s reading as the safety net.
 3. **Swarm keeps five tasks per slot.** The task history outages are read
    from (8.7) is pruned to `task-history-limit` (5 by default) per slot,
    so a node restarting more than five times between two readings loses
@@ -1833,3 +1873,94 @@ by 11, 13). Master spec 8.5, 13, 16; access model 7, 9.
 - Chunks 7 (`v0.3-c7-render`) and 9 (`v0.3-c9-checks`): dispatched
   2026-10-26, side by side, after W2's commit; a `spec-writer` revision
   touching W2 items 0, 1 or 9 is passed to them while they run.
+
+### W2 addenda — choices chunk 9 made
+
+Where W2 item 9 was silent, recorded from chunk 9 (`v0.3-c9-checks`,
+merged as 829d1c8), 2026-10-26.
+
+- **Too-soon line with no free text**: `<instance> <fault-id>: too-soon —
+  <N> s of the window remain`, with no trailing `: `.
+- **"First output line"** is the first non-empty line, standard output
+  first, then standard error, as v0.1 W3-A's reason line; the text after
+  `remaining=<N> ` is what the line shows.
+- **Exit 3 without a valid `remaining=` line** is an error, reason
+  `exit status 3 (too soon) without a first line remaining=<N> (N
+  seconds, at least 1): <first line>` (or `, no output`).
+- **`checks.check(..., instances=)`**: an id that is not a fault instance
+  is refused as a `GmError` `not a fault instance of the scenario: <ids>`
+  before anything runs; an empty list runs nothing and exits 0.
+- **`CHECK_THRESHOLD` "as written"** is the text of the loaded YAML
+  number (`0.50` passes as `0.5`); an invalid window duration is refused
+  (the loader rejects it already).
+- **Bricks without the check role** (`postgres` before 0.3.0, still in
+  the `pg-*` faults' `applies_to`): when `/usr/local/lib/gm/check-psql` is
+  absent the scripts connect as `postgres` over the local socket, as in
+  v0.2 (faults never bump, master spec 6.6); on 0.3.0 that path is never
+  taken.
+- **`pg-hba-trust-remote`'s live probe** stays a TCP login as `dba` with
+  no password (the probe is what is judged), using
+  `superuser_reserved_connections`; if players' superuser sessions fill
+  those, the probe fails and the `pg_hba_file_rules` read as `gm_check`
+  decides (the script's header says so). Accepted by the driver.
+- **`checks.CHECK_STAGES`** is unchanged; it must follow
+  `state.DEPLOYED_STAGES` once chunk 8 adds `load-started` (W2 item 12).
+- **Outside its Files**: the `check` help string in `tools/gm/__init__.py`
+  mentions exit 3.
+- **Left**: the fixtures' own `fixed.sh` scripts under
+  `tools/tests/fixtures/` still connect as `postgres` (outside chunk 9's
+  scope).
+
+### Capture W2-a — chunk 6 outcomes (the `pgbouncer` brick 0.1.0; read by 11, 12, 14, 15)
+
+Recorded 2026-10-26 from chunk 6 (`v0.3-c6-pgbouncer`, merged as
+a7c9efb: 9916b2b 6a, 6f0b0d0 6b), `bricks/pgbouncer/brick.yaml` and
+`docs/gm.md`. W1 items 3, 5, 6, 8 and W1-x hold; what they left open:
+
+- **The GM's settings win.** PgBouncer reads
+  `/run/pgbouncer-conf/pgbouncer.ini`, written by
+  `/usr/local/lib/gm/pgbouncer-conf` (as `pgbouncer`) at every start and
+  reload: the players' `/etc/pgbouncer/pgbouncer.ini` line for line, plus
+  `%include /usr/local/lib/gm/pgbouncer-gm.ini` at the end of each
+  `[pgbouncer]` section (listener `*:6432`, socket `/run/pgbouncer`,
+  `logfile`, `auth_*`, `admin_users = pgbouncer`, `stats_users = dba`).
+  `%include` lines in the players' file are commented out (line count
+  kept) and the validator is red on them. Seeds (scenario authors, chunk
+  15) must not carry these settings: they never take effect.
+- **Reload**: `gm-reload-pgbouncer` tries the files on a throwaway
+  PgBouncer (`/usr/local/lib/gm/pgbouncer-check`, no TCP listener, a
+  private socket) before `RELOAD`, and refuses, "NOT reloaded", exit 1,
+  with PgBouncer's errors at the players' line numbers (a `RELOAD` of a
+  broken file resets every setting, the GM's included); the validator
+  runs the same check.
+- **Authentication**: `auth_type = hba` with the protected
+  `/usr/local/lib/gm/pgbouncer_hba.conf`: `pgbouncer` by `peer` over the
+  local socket to the console only, every other role by
+  `scram-sha-256`. So a database node's `pg_hba.conf` must admit the
+  roles coming through the pooler (and `pgbouncer_lookup` to `postgres`)
+  by `scram-sha-256`, never `md5` or `password` (scenario and fault
+  authors, chunks 12, 14, 15).
+- **Log** `/var/log/pgbouncer/pgbouncer.log` on volume `pgblog`
+  (`pgbouncer:pgbconf` `2750`, the file `0640`), readable by players
+  through group `pgbconf`. The health check stops connecting once
+  PgBouncer has answered once in the container, so the log carries no
+  probe lines.
+- **Envelopes** (chunk's choice): `max_db_connections` default 0 (no
+  limit of PgBouncer's own), envelope 0..200; `default_pool_size` 1..50,
+  `max_client_conn` 10..500, `reserve_pool_size` 0..20, `pool_mode`
+  `session` or `transaction` (`brick.yaml`). Disk reservation 256M,
+  growth 4M an hour, provisional until chunk 15b.
+- **No `dba_password` on the pooler node**: players use `dba`'s password
+  from the bastion's `~/.pgpass`.
+- **Stop signal** SIGQUIT (s6 `down-signal`): 1.24's SIGTERM waits for
+  every client.
+- **Image and footprint**: 182 MB; at rest 4.7 MiB of its 64M limit, CPU
+  0.01 %; Debian's PgBouncer 1.24.1-1+deb13u2, s6-overlay 3.2.3.2; runs
+  as `pgbouncer` 991:991, group `pgbconf` 992.
+- **Known limits** (`docs/gm.md`): `pgbouncer_lookup` holds no reserve,
+  so a pooled login needing a lookup fails when the server's ordinary
+  slots are full, `dba`'s console included (sessions already open carry
+  on; the sealed checks, as `gm_check` on the database node, are not
+  affected); `[users]` settings are not held to an envelope; no TLS; a
+  small race between the wrapper's check and `RELOAD`. No catalog fault
+  names `pgbouncer` yet (chunk 14).
