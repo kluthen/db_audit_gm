@@ -16,7 +16,7 @@ README:
 Archived IDs keep their meaning and are cited as they are. D107 onward
 stay live: rulings still to be applied in a later version (D107, D108,
 D110, D113), the v0.2 release close, and v0.3's drafting from D114.
-Numbering continues from D172; no ID is reused.
+Numbering continues from D175; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -392,3 +392,28 @@ Numbering continues from D172; no ID is reused.
   replication line (D164), added by chunk 1b, so a player tightening the
   general `local all all` line does not lock the sealed checks out. Now
   in: [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunks 1, 4.
+- **D172 (2026-10-26, spec-writer, wave 2 preflight, capture W2 open point
+  1): `status --set handed-over`'s snapshot condition arrives with
+  `snapshot`, in chunk 11a;** chunk 8b enforces the earliest hand-over and
+  the hand-over check, and `smoke.sh` gains the hand-over check (chunk 8)
+  then the snapshot (11a) before it hands over, so each condition comes
+  with what satisfies it and every wave gate still tests the hand-over.
+  Rejected: wave 2's `smoke.sh` without the hand-over; a provisional
+  snapshot record. Now in:
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunks 8, 11.
+- **D173 (2026-10-26, spec-writer, wave 2 preflight, capture W2 open point
+  2): The host timers are persistent systemd user units,** enabled and
+  removed by teardown, so a setup action due while the host was down runs
+  when it is back, as 8.7's resume after a host restart needs; a late run
+  waits for the game's nodes first; a run reaching another host's node is
+  chunk 10b's. Rejected: transient `systemd-run --user` units, lost at a
+  reboot. Now in: [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md)
+  "Read first" (build host), chunks 8, 10.
+- **D174 (2026-10-26, spec-writer, wave 2 preflight, capture W2 open point
+  3): Outages read from Swarm's pruned task history are a lower bound,
+  flagged,** `status` reading "at least" for a node whose kept tasks may
+  have lost some since the previous reading; the schedulers' summaries
+  stay exact, and a node restarting that often reads unhealthy at the
+  next check. Rejected: raising the swarm-wide `--task-history-limit`
+  (the hosts' other stacks, the VPS); a per-minute sampling timer. Now in:
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunk 8.

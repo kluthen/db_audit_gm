@@ -1,6 +1,6 @@
 # db_audit_gm v0.3 — Build plan
 
-Status: v5 (2026-10-23): v4 with the owner's ruling on O102, the GM check role's own seed line, written in (spec D171).
+Status: v6 (2026-10-26): v5 with capture W2's three open points ruled (spec D172 to D174) and the owner's question O103 raised as gate G11.
 Approval: **approved 2026-10-22 by the owner** (G1, spec D156).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-10-22 (spec D154), with
@@ -88,8 +88,8 @@ plan states only its deltas. Its conventions follow v0.2's
   Engine 29.9.1, swarm active with one node (armenelos, leader), cgroup
   v2, 12 CPUs, 11G of memory with about 5G available and swap in use,
   10G free on `/`; the user's systemd manager runs with lingering on, so
-  `systemd-run --user` timers outlive a session (the host timer of
-  master spec 8.4). Tailscale, reported logged out earlier that day, was
+  the game's persistent user timers outlive a session and start again at
+  boot (the host timer of master spec 8.4, spec D173). Tailscale, reported logged out earlier that day, was
   up on both hosts when checked again on 2026-10-22: armenelos at
   100.78.85.1, the VPS `vps-5718ad52` at 100.126.172.117, `ssh vps`
   working; the VPS runs Docker Engine 28.5.1 (G4). v0.3 adds two images (scheduler, PgBouncer), five
@@ -127,6 +127,7 @@ plan states only its deltas. Its conventions follow v0.2's
 | G8 | The release gate's aged run window: the hosts G5 settles up and otherwise quiet for about twenty hours, deployed in an evening and handed over the next early afternoon (spec D156) | The owner, who sets the date with the driver | Release gate items 7 to 9 | ruled (spec D156); the date to set |
 | G9 | The restart's confirmation at the release gate: the owner types the players' confirmation in the GM session himself (spec D156) | The owner, at the release gate | Release gate item 8 | ruled (spec D156); typed at the release gate |
 | G10 | The owner's judgement at release close: the aged game, the feedback under load, the findings | The owner | Release close | open |
+| G11 | O103: whether the lost time beyond thirty minutes moves the whole earliest hand-over (master spec 8.7, spec D152) or only the aging minimum's term (access model 6), when a fault instance's own minimum since its planting is the later term | The owner | Chunk 8's merge (8b's earliest hand-over) | open |
 
 G6 was a question the plan raised on the approved spec (master spec 11
 asks for a hand-over check, a snapshot and a restart within the
@@ -139,7 +140,7 @@ test harness's only and changes no spec behaviour for a game.
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
 | 1 | 1, 2, 3, 4, 5 | G1 (cleared); G2 (chunks 1, 3, 4, 5); G3 (stack tests) | merged 2026-10-26 (5faff6c) |
-| 2 | 6, 7, 8, 9 | wave 1 | in progress (from 2026-10-26) |
+| 2 | 6, 7, 8, 9 | wave 1; G11 (chunk 8's merge) | in progress (from 2026-10-26) |
 | 3 | 10, 11, 12 | wave 2; G4 (chunk 10b's two-host try) | planned |
 | 4 | 13, 14, 15 | wave 3; G4 (chunk 15b); G7 (chunk 15's merge) | planned |
 
@@ -269,8 +270,8 @@ the release gate checks that each is recorded.
 | The image copy (`docker save \| ssh <host> docker load`) | 10b |
 | `auth_query`'s exact set-up in PgBouncer, `auth_dbname` for the console included | 6 (the database side from 4a) |
 | The size of the GM's connection reserve (two expected) | 4a |
-| How `gmctl` schedules setup actions on the manager (a host timer) | 8a |
-| How `gmctl` reads outages from the summaries and the task history | 8b |
+| How `gmctl` schedules setup actions on the manager (a host timer: persistent systemd user units, spec D173) | 8a |
+| How `gmctl` reads outages from the summaries and the task history (a pruned history flagged, spec D174) | 8b |
 | The loader's check that a seed allows `pg_basebackup` locally | 2a |
 | The GM check role's grants on `pg_hba_file_rules` (view and function) | 4a |
 | `pg_basebackup`'s form on a read-only root (`-X fetch` with a temporary physical slot, or a snapshot volume) | 4b (the helper), 11a (its use) |
@@ -776,8 +777,8 @@ Depends on: chunks 3 (W1-y: marker, summaries), 7 (in-wave, W2), 9
 Architecture capture: at wave 2 start (W2): the stage list with
 `load-started`; the records of T0, the scheduled actions and their
 results, the outages, the lost time, the earliest hand-over, the early
-and hand-over checks; the host timer's form (`systemd-run --user`, its
-unit named after the game id) and how teardown removes it; how a check
+and hand-over checks; the host timer's form (persistent systemd user
+units named after the game id, spec D173) and how teardown removes it; how a check
 verdict reports "too soon to tell" with its remaining window (from
 chunk 9); the test-harness override's form (G6).
 
@@ -797,7 +798,12 @@ chunk 9); the test-harness override's form (G6).
     teardown (the setup step's record-only mode); the early check
     scheduled at `start-load` (halfway through the aging minimum, or once
     every job due before the earliest hand-over has run once, and no
-    later than an hour before it); teardown removing the game's timers;
+    later than an hour before it); the host timers persistent systemd
+    user units, one pair per scheduled action, enabled, so an action due
+    while the host or its user manager was down runs when it is back, a
+    late run first waiting, up to a bound the chunk chooses, for the
+    game's nodes to run (spec D173); teardown disabling and removing the
+    game's timer units;
     `start-load` refused, with a one-line reason, in a game with no
     scheduler node, which has no aging (spec D157);
     **the test-harness override of the aging minimum** (G6, spec D156):
@@ -812,36 +818,47 @@ chunk 9); the test-harness override's form (G6).
     everything else; never named in the GM skill or `gmctl.md`, and never
     used by a GM; it shortens the wait, never a clock;
   - **8b**: outages read from the schedulers' per-minute summaries and
-    the nodes' task history; the lost time; the earliest hand-over (the
+    the nodes' task history, a node whose kept history may have lost
+    tasks since the previous reading flagged, its lost time then a
+    lower bound (spec D174); the lost time; the earliest hand-over (the
     aging minimum since T0, moved by the lost time beyond thirty
     minutes, and every instance's own minimum since its actual
-    planting); the early check and the hand-over check (every planted
+    planting; G11 settles which term the lost time moves); the early
+    check and the hand-over check (every planted
     fault present, every scheduler key running, no node unhealthy, the
     outages), recorded; `status` heading with any failure or outage,
     then the aging's progress, the lost time, the earliest hand-over,
     the shift, the snapshot and restarts; no tools-password line without
     a web front (RG-3); `status --set handed-over` refused before the
-    earliest hand-over, without a passed hand-over check, or without the
-    snapshot taken or recorded as not fitting. A game with no scheduler
-    node (spec D157, D158) has no T0 beyond the planting, no early
+    earliest hand-over or without a passed hand-over check (its third
+    condition, the snapshot, arrives with `snapshot` in chunk 11a, spec
+    D172); `smoke.sh` running `check --handover-check` before it hands
+    over. A game with no scheduler node (spec D157, D158) has no T0 beyond the planting, no early
     check, no outages and no earliest hand-over: its hand-over check
     reads the faults and the nodes only, `status` shows no aging lines,
-    and `status --set handed-over` needs the hand-over check and the
-    snapshot only; a setup failure tears it down, as in v0.2.
-  - Out: `snapshot` and `restart` (chunk 11); the check role and exit 3
+    and `status --set handed-over` needs the hand-over check (and, from
+    chunk 11a, the snapshot) only; a setup failure tears it down, as in v0.2.
+  - Out: `snapshot` and `restart`, and `status --set handed-over`'s
+    snapshot condition (chunk 11); the check role and exit 3
     themselves (chunk 9).
 - Files: `tools/gm/aging.py` (new), `tools/gm/{state,inject,localimpl,teardown}.py`,
   `tools/gm/__init__.py` (verbs and options), `tools/tests/test_{aging,state,inject,teardown}.py`,
+  `tools/tests/smoke.sh` (the hand-over check before the hand-over),
   `.claude/skills/game-master/gmctl.md` (the rows it changes).
-- Spec sections: master spec 8 (its opening), 8.4, 8.5, 8.7, 9, 13, 16;
+- Spec sections: master spec 8 (its opening), 8.4, 8.5, 8.7, 9, 13, 16, 20;
   access model 3, 5 ("The load and the setup actions"), 6 (`aging-done`),
-  7, 9; spec D117, D131, D152, D156, D157, D158, D161.
+  7, 9; spec D117, D131, D152, D156, D157, D158, D161, D172 to D174;
+  G11 when ruled.
 - Done when: unit tests (a fake engine and a fake timer, never a fake
   clock in a running game) show each refusal; `start-load` recording T0;
   a scheduled planting and its failure recorded without teardown; the
   lost time and the earliest hand-over for no outage, twenty minutes and
-  fifty minutes of outage; a low-rate stream not read as an outage;
-  `status`'s head; `status --set handed-over` refused and accepted;
+  fifty minutes of outage; a low-rate stream not read as an outage; a
+  pruned task history flagged and read as "at least"; a timer's units
+  written, enabled and removed by teardown (a fake `systemctl`), and a
+  late run waiting for the nodes;
+  `status`'s head; `status --set handed-over` refused and accepted on
+  its two conditions; `smoke.sh` passing with its hand-over check;
   the harness override recorded, shortening the earliest hand-over, an
   instance whose own minimum exceeds it capped at it, and heading
   `status`; a game with no scheduler node refusing `start-load`
@@ -914,11 +931,14 @@ a node's volumes live on its placed host.
   - **10b**: `deploy` copying to each other host the images of its
     nodes with `docker save | ssh <host> docker load`, skipping an image
     the host holds under the same id, never pulling; per-host SSH Docker
-    contexts for the exec verb; the game's overlay network MTU set for
+    contexts for the exec verb, reached as well by a host timer's run
+    (chunk 8a), which has only the user manager's environment (spec
+    D173); the game's overlay network MTU set for
     VXLAN inside Tailscale; `bastion` 0.3.0's `docs/gm.md` stating the
     placement rule; the try on armenelos plus the VPS (needs G4): a
     two-host `fixture-monitoring` game deployed, the bastion's ports open
-    on its host only, the exec verb reaching a VPS node, the images
+    on its host only, the exec verb reaching a VPS node, from a shell
+    and from a run in the user manager's environment, the images
     copied once.
   - Out: a registry (none); Kubernetes.
 - Files: `tools/gm/{fit,localimpl,render,deploy,docker,execnode}.py`,
@@ -926,7 +946,7 @@ a node's volumes live on its placed host.
   `bricks/bastion/docs/gm.md`, `.claude/skills/game-master/gmctl.md`
   (`fit` and `deploy` rows).
 - Spec sections: master spec 6.4 (footprint), 7.5, 8.6, 10; access model
-  7 (`network-visitor`); spec D125, D128, D149.
+  7 (`network-visitor`); spec D125, D128, D149, D173.
 - Done when: unit tests show a two-host declaration, the mapping, the
   hostname constraints, the bastion pinned, `fit` refusing a host short
   of memory or disk and saying the snapshot does not fit, the image copy
@@ -957,7 +977,10 @@ W3.
     helper, `copy`, a brief stop through s6 for `stop`), stored on the
     volume's own host, labelled with the game id, its location recorded;
     when `fit` said it does not fit, recorded as not fitting; teardown
-    removing it;
+    removing it; `status --set handed-over`'s third condition, the
+    snapshot taken or recorded as not fitting, in both kinds of game,
+    added to chunk 8b's two, and `smoke.sh` taking the snapshot before
+    it hands over (spec D172);
   - **11b**: `gmctl restart --confirmation "<words>"` (refused without
     them, and before hand-over): the confirmation recorded; every node
     and volume of the game removed but the snapshot; a new game id;
@@ -975,13 +998,18 @@ W3.
   - Out: the GM's statement and the confirmation dialogue (chunk 13).
 - Files: `tools/gm/{snapshot,restart}.py` (new),
   `tools/gm/{teardown,deploy,localimpl,state}.py`, `tools/gm/__init__.py`,
-  `tools/tests/test_{snapshot,restart,teardown}.py`,
+  `tools/gm/aging.py` (the hand-over's snapshot condition),
+  `tools/tests/test_{snapshot,restart,teardown,aging}.py`,
+  `tools/tests/smoke.sh` (the snapshot before the hand-over),
   `.claude/skills/game-master/gmctl.md` (rows).
 - Spec sections: master spec 6.4, 7.1 to 7.5 ("Snapshot"), 12, 13;
   access model 3, 5 ("The load and the setup actions", "Game control"),
   6, 7, 9; spec D123, D126, D141, D142, D147, D156, D157, D161, D162,
-  D163.
-- Done when: unit tests show each refusal, the secrets' values equal
+  D163, D172.
+- Done when: unit tests show each refusal, `status --set handed-over`
+  refused without the snapshot taken or recorded as not fitting, in both
+  kinds of game, `smoke.sh` passing with its snapshot before the
+  hand-over, the secrets' values equal
   under new objects, the stage after a restart, two restarts in a row,
   teardown removing the snapshot; on a deployment of a load fixture
   (chunk 12's, or a scratch one until it merges), its hand-over reached
@@ -992,8 +1020,8 @@ W3.
   no scheduler node, its Prometheus and Grafana stopped briefly and
   started again for the snapshot (spec D162); nothing labelled left
   after teardown.
-- Verification: chunk checks, plus the snapshot and restart run (needs
-  G3).
+- Verification: chunk checks, plus `sh tools/tests/smoke.sh` and the
+  snapshot and restart run (needs G3).
 - Split rule: 11a snapshot; 11b restart.
 
 ### Chunk 12 — The load fixture and the smoke tests under load
