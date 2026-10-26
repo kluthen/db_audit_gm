@@ -1,0 +1,91 @@
+#!/usr/bin/perl
+# pgbouncer-conf: writes the configuration PgBouncer reads, from the
+# scenario's /etc/pgbouncer/pgbouncer.ini and the GM's settings
+# (v0.3 master spec 7.2). DO NOT TAMPER. Root-owned, read-only. Run as
+# `pgbouncer` by gm-entrypoint, gm-reload-pgbouncer and pgbouncer-check;
+# not a sudo wrapper.
+#
+# Usage: pgbouncer-conf <dir> [<gm settings file>]
+#   writes <dir>/pgbouncer.ini and <dir>/inserted (the numbers of the lines
+#   added, one a line), each through a new file renamed into place.
+#
+# The output is pgbouncer.ini line for line, with one line added at the end
+# of every [pgbouncer] section (before the next section, or at the end):
+#   %include <gm settings file>     (default /usr/local/lib/gm/pgbouncer-gm.ini)
+# and, when the file has no [pgbouncer] section, that section added at the
+# end. PgBouncer resets a section's settings to their defaults at each of
+# its headers, and within a section the last value wins: so the GM's
+# settings (the ports, the socket, the log, the authentication, the
+# console's users) win over the same settings written in pgbouncer.ini,
+# and every other setting there is kept. An `%include` line of
+# pgbouncer.ini is left out (commented out, the line count kept): an
+# included file could hold a [pgbouncer] header that would undo the GM's
+# settings.
+#
+# Exit and output (notes and reasons on standard output):
+#   0  written; one line per %include left out
+#   1  pgbouncer.ini cannot be used (missing, a link, not a regular file,
+#      other hard links, unreadable): nothing written
+#   2  an error writing (reason printed)
+# The file is opened without following a link and read through the handle.
+use strict;
+use warnings;
+use Fcntl qw(O_RDONLY O_WRONLY O_CREAT O_EXCL O_NOFOLLOW O_NONBLOCK O_NOCTTY S_ISREG);
+
+my $CONF = '/etc/pgbouncer/pgbouncer.ini';
+my $GM = '/usr/local/lib/gm/pgbouncer-gm.ini';
+
+my ($dir, $gm) = @ARGV;
+if (!defined $dir || @ARGV > 2) {
+    print STDERR "usage: pgbouncer-conf <dir> [<gm settings file>]\n";
+    exit 2;
+}
+$gm //= $GM;
+
+sub unusable { print "$CONF: $_[0]\n"; exit 1; }
+
+sysopen(my $in, $CONF, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_NOCTTY)
+    or unusable($!{ELOOP} ? 'a symbolic link, not used' : "cannot be opened ($!)");
+my @st = stat($in) or unusable("cannot be read ($!)");
+S_ISREG($st[2]) or unusable('not a regular file, not used');
+$st[3] == 1 or unusable('has other hard links, not used');
+my @lines = <$in>;
+close $in;
+
+my (@out, @inserted, @notes);
+my $section = '';
+my $seen = 0;
+my $add = sub { push @out, "%include $gm\n"; push @inserted, scalar @out; };
+for my $i (0 .. $#lines) {
+    my $line = $lines[$i];
+    $line .= "\n" unless $line =~ /\n\z/;
+    if ($line =~ /^\s*\[\s*([^\]]*?)\s*\]/) {
+        $add->() if $section eq 'pgbouncer';
+        $section = lc $1;
+        $seen = 1 if $section eq 'pgbouncer';
+    } elsif ($line =~ /^\s*%include\b/i) {
+        push @notes, "$CONF line " . ($i + 1) . ": %include left out (not followed on this node)";
+        $line = "; (left out by pgbouncer-conf) $line";
+    }
+    push @out, $line;
+}
+$add->() if $section eq 'pgbouncer';
+if (!$seen) {
+    push @out, "[pgbouncer]\n";
+    $add->();
+}
+
+sub put {
+    my ($name, $text) = @_;
+    my $tmp = "$dir/.$name.$$";
+    unlink $tmp;
+    sysopen(my $fh, $tmp, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0644) or do { print "$tmp: $!\n"; exit 2; };
+    print $fh $text or do { print "$tmp: $!\n"; exit 2; };
+    close $fh or do { print "$tmp: $!\n"; exit 2; };
+    chmod(0644, $tmp);
+    rename($tmp, "$dir/$name") or do { print "$dir/$name: $!\n"; exit 2; };
+}
+put('inserted', join('', map { "$_\n" } @inserted));
+put('pgbouncer.ini', join('', @out));
+print "$_\n" for @notes;
+exit 0;
