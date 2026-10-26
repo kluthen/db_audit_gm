@@ -1298,3 +1298,526 @@ from D172).
   writes W2's records, 9 its verdict) and before chunk 8.
 - Then chunks 7 and 9 side by side (no path between them; shared lists
   only: `gmctl.md`'s rows); chunk 8 once 7 and 9 have merged.
+
+### Capture W2 — the aging's records and stages (chunks 7, 8, 9; read by 11, 13 and later)
+
+Recorded 2026-10-26, before any code; drafted for the wave driver from
+the plan's "Read first" and chunks 7 to 9 (their capture lines), master
+spec 6.1, 7.1, 7.4, 8 (its opening, 8.1, 8.3, 8.4, 8.5, 8.7), 9, 11, 12,
+13, 16 and 20, access model 3, 5, 6, 7, 9, D117, D124, D129, D131, D136,
+D143, D144, D152, D156 to D158, D160 to D163, D165, D168, D169, v0.1's
+captures W2-A, W3-A and W3-C (the local implementation's files,
+`state.yaml`, the teardown record), W1 items 0, 1, 4, 7 and 8, W1-x
+(the check role) and W1-y (the scheduler's marker, status file and log),
+and the code on `v0.3-w2` at 301063f (`tools/gm/{localimpl,state,inject,
+teardown,checks,render,deploy}.py`, `tools/gm/__init__.py`,
+`tools/tests/smoke.sh`). W1's method holds: where a source fixes a point
+it is cited, not restated; **(choice)** marks a point the sources left
+open, settled here with its reason; each item names the chunk that
+writes it and the chunks that read it; a chunk's internals stay out and
+go into its outcome capture. Points not mine to settle are at the end.
+
+**0. Conventions used below** (read by 7, 8, 9, 11, 12, 13)
+
+- **Where the records live** (choice: by writer and lifetime): what
+  render fixes for the game, in `implementation.yaml` under one new
+  top-level key, `timeline` (item 1); what changes during the game, in
+  `state.yaml` under new top-level keys (items 3 to 8, 11). v0.1 W2-A's
+  files and W3-C's record are otherwise unchanged; an absent key reads as
+  none (as W3-C's `teardown`), so v0.2 states and static games read as
+  before.
+- **One writer at a time** (choice: timer runs and the GM's commands
+  write `state.yaml` at the same moments): every read-modify-write of it
+  holds an exclusive `flock` on `local/<playground>/.state.lock`, only
+  around the read and the write, never across a Docker call or a script;
+  `localimpl`'s existing writers take it too.
+- **Instants** `YYYY-MM-DDTHH:MM:SSZ` (`localimpl.now_iso`); **minutes**
+  `YYYY-MM-DDTHH:MMZ`, the scheduler's `minute=` form (W1 item 7);
+  **durations** W1 item 0's strings (`16h`) for minima; seconds as
+  integers for a check's remaining window; minutes as integers for lost
+  time.
+- **Failures from `start-load` on never set `failed`** (8.7).
+  `failure:` and `failed` stay the record of a setup step before T0 that
+  tore the game down (v0.1 W3-A). A failing `start-load`, planting or
+  early check is recorded in its own record (items 3, 4, 8) and leaves
+  the stage; `status` computes its head from those records (item 11)
+  (choice: a re-planting that succeeds must stop the earlier failure
+  heading `status`).
+- **Scheduler game** and **static game**: a game whose scenario has, or
+  has not, a scheduler node (W1 item 0; D157, D158).
+
+**1. Render's records: the planned hand-over, the shift, the customer's
+time zone, the seed** (writes: chunk 7a; read by 8, 11, 12, 13). Master
+spec 6.1, 7.1, 8.3, 13; D129, D136, D163, D168; W1 items 1 and 7.
+
+```yaml
+# implementation.yaml, written by render, rewritten by a re-render at `rendered`
+timeline:
+  planned_handover: "2026-10-27T14:00:00Z"    # render --handover, UTC
+  designed_handover: "16:00"                  # the scenario's aging.handover_at
+  shift: 2                                    # integer hours, -11..+12 (8.3)
+  customer_timezone: {zone: Etc/GMT-2, reading: UTC+2}
+  seed: 4815162342                            # 0 <= seed < 2**63 (W1 item 7)
+  aging_minimum: 16h                          # the scenario's aging.minimum
+  instances:                                  # every fault instance, fault_instances order
+    f1: {plant_at: T0, planned_at: null, aging_minimum: 2h}
+    f7: {plant_at: handover-6h, planned_at: "2026-10-27T08:00:00Z", aging_minimum: 4h}
+  rendered_at: "2026-10-26T19:40:12Z"
+```
+
+- **`--handover`** (choice: one form, the instant form the records use):
+  `render <dir> --playground <pg> --handover 2026-10-27T14:00Z` (or
+  `…T14:00:00Z`); minutes and seconds must be 0 (W1 item 1). Required in
+  a scheduler game. Refused when not in the future. A planned hand-over
+  earlier than now plus the aging minimum is not refused: render prints
+  one warning line with the earliest hand-over the game could have if
+  the load started at once (choice: the feasibility judgement is the
+  GM's, 8.2, and the test harness renders before its override applies,
+  item 10).
+- **Shift**: `((designed hour − planned hour + 11) mod 24) − 11`, so
+  −12 reads +12 (8.3). **Zone**: UTC plus the shift; `zone` is
+  `Etc/GMT-N` for UTC+N, `Etc/GMT+N` for UTC−N, `Etc/GMT` for 0;
+  `reading` is `UTC+N`, `UTC-N` or `UTC+0`. `{{customer_timezone}}` is
+  replaced by `<reading> (<zone>)`, `UTC+2 (Etc/GMT-2)` (choice: the
+  prose reads the offset, a player's tool takes the zone, and 8.3 asks
+  for both).
+- **`instances`**: `aging_minimum` is the instance's own minimum (its
+  `aging_minimum`, else its definition's `aging.minimum`, W1 item 1);
+  `planned_at` is the planned hand-over minus N hours for
+  `handover-<N>h`, `null` for T0. Recorded so the earliest hand-over
+  (item 7) is reproducible from the records alone.
+- **The seed** is drawn once per game id (`secrets.randbelow(2**63)`) and
+  kept by a re-render of the same game (choice: re-rendering before
+  deploy changes the planned hand-over, not the game); it is written
+  into every scheduler node's rendered `schedule.yaml` (W1 item 7).
+  A restart's new game id takes a new one (12).
+- **Rendered files** (choice: deploy creates configs from `file:` paths,
+  so render's output needs a place): every seed file render rewrites (a
+  scheduler node's `schedule.yaml` and `jobs.yaml`, a bastion seed file
+  holding `{{customer_timezone}}`) is written to
+  `local/<playground>/rendered/<node>/<seed file name>`, and that node's
+  config in `implementation.yaml` names it as its `file:` from fit on;
+  other seed files keep naming the scenario's. Chunk 8 reads the
+  rendered `jobs.yaml` for the early check's time (item 8).
+- **A static game** has no `timeline` (render without `--handover`). With
+  `--handover`, which 13 allows, `timeline` holds `planned_handover`
+  alone, and nothing is shifted (choice: an accepted option is recorded,
+  and only `status` reads it there).
+- **Read by 11**: the restart's re-render keeps `planned_handover`,
+  `shift` and `customer_timezone` and takes a new seed (12, D136)
+  (choice: the players were told that zone at hand-over).
+
+**2. Stages** (writes: chunk 8a, `localimpl.STAGES` and
+`state.DEPLOYED_STAGES`; read by 9, 11, 12, 13). Master spec 13; access
+model 3, 5, 6, 7.
+
+`fitted`, `rendered`, `deployed`, `data-loaded`, `injected`,
+`load-started`, `handed-over`, `final-answer`, `feedback-given`,
+`torn-down`; or `failed`. `load-started` joins `DEPLOYED_STAGES` (so
+`check`'s and `validate`'s stages include it). A scheduler game never
+reaches `failed` from `load-started` on (item 0).
+
+| Verb | Allowed at | Records |
+|---|---|---|
+| `render [--handover <instant>]` | `fitted`, `rendered` | `rendered`, `timeline` |
+| `inject` | `data-loaded`, `injected` (a replay) | `injected`; the T0 instances' plantings (item 4) |
+| `start-load` | `injected`, scheduler game | `load` (item 3); `load-started` once every scheduler runs |
+| `inject --at <instant>\|now --instance <id>` | `load-started` | `plantings.<id>` (item 4) |
+| `check` | `injected` and every later deployed stage | nothing |
+| `check --early-check` | `load-started` | `early_check.result` (item 8) |
+| `check --handover-check` | `load-started`; `injected` in a static game | `handover_checks` (item 8) |
+| `status --set handed-over` | `load-started`; `injected` in a static game; item 11's conditions | `handed-over` |
+| `snapshot` (chunk 11) | `load-started`; `injected` in a static game | `snapshot` (item 11) |
+
+- `inject` without `--at` plants only the T0 instances; at
+  `load-started` it is refused (choice: replaying under the load would
+  re-plant into a running system; `--at now --instance` re-plants one).
+- `start-load` in a static game: refused with one line,
+  `start-load: game <id> has no scheduler node, so it has no aging and no
+  load to start (D157)`. At `load-started`: refused, T0 named. At
+  `handed-over` and later: refused, "once handed over" (13; access model
+  7). A restart's own setup (chunk 11) calls the steps beneath the verbs,
+  so these refusals do not reach it (choice: 12 exempts it).
+- The `load-started` history entry is written when T0 is recorded, its
+  `at` that moment; T0 itself is `load.t0` (item 3).
+
+**3. `start-load` and T0** (writes: chunk 8a; read by 8b, 11, 13).
+Master spec 7.1, 8.4, 8.7; W1 item 7 and W1-y (the marker, `s6-svc -r`,
+the status file polled for `running ` within 60 s).
+
+```yaml
+# state.yaml
+load:
+  t0: "2026-10-26T20:00:07Z"          # null until every scheduler node runs
+  attempts:                            # one per start-load run, last last
+    - began: "2026-10-26T20:00:07Z"    # the T0 its markers hold
+      nodes:
+        producer: {outcome: ok, running_at: "2026-10-26T20:00:08Z"}
+        consumer: {outcome: failed, reason: "status did not read running within 60 s"}
+```
+
+- Every scheduler node is started in one run, each marker holding that
+  run's `began`. `t0` is set to `began`, and the stage to
+  `load-started`, only when every node reads running (8.4). A node that
+  fails is recorded, nothing is torn down, the exit is 1 and the stage
+  stays `injected`; the GM fixes it or stops the game (8.7). A later run
+  writes every marker again with its own `began` and restarts every
+  scheduler (choice: one T0 for all, as W1 item 7 says; a restart of a
+  running scheduler before T0 costs nothing, since outages count from T0).
+- Once T0 is recorded, `start-load` schedules the early check (item 5)
+  and prints, for each instance with a `planned_at`, the `inject --at`
+  command that plants it (`--at now` when `planned_at` is already
+  past) (choice: 8.7 and 13 make plantings the GM's own `inject --at`
+  calls, not `start-load`'s; printing them, and item 11's head, keep one
+  from being forgotten).
+
+**4. Plantings and `inject --at`** (writes: chunk 8a; `inject` for T0;
+read by 8b, 11, 12, 13). Master spec 8.4, 8.5, 8.7, 13; access model 5,
+7.
+
+```yaml
+plantings:                             # every fault instance, fault_instances order
+  f1: {plant_at: T0, planted_at: "2026-10-26T19:58:40Z", by: inject}
+  f7:
+    plant_at: handover-6h
+    planned_at: "2026-10-27T08:00:00Z" # from timeline.instances
+    timer: {unit: dbagm-fernway-k3x9qa_plant-f7, due: "2026-10-27T08:00:00Z",
+            created_at: "2026-10-26T20:01:30Z"}   # null: not scheduled, or replaced by now
+    attempts:                          # every run that tried, last last
+      - {at: "2026-10-27T08:00:03Z", by: timer, outcome: failed, reason: "<first line>"}
+      - {at: "2026-10-27T09:12:44Z", by: gmctl, outcome: ok}
+    planted_at: "2026-10-27T09:12:44Z" # the last successful attempt; null until then
+```
+
+- `inject` writes every instance's entry when it records `injected`; a
+  T0 instance's `planted_at` is that moment, `by: inject` (seed-file and
+  parameter instances too: their faults are in place by then).
+- `inject <dir> --playground <pg> --at <instant>|now --instance <id>`:
+  `--at` and `--instance` go together; `<instant>` as in item 0, or
+  `…THH:MMZ`. Refused (exit 1, nothing recorded): a stage other than
+  `load-started`; an instance whose fault is not `state` (seed-file and
+  parameter faults are planted at render, 6.1); an instant not in the
+  future (the hint says `--at now`) or at or after the planned hand-over
+  (choice: the loader's "never at or after hand-over" is measured from
+  the planned hand-over, 6.1); an instant for an instance already
+  planted (re-planting is `--at now`). Allowed for a T0 `state` instance
+  too (choice: the hand-over check's remedy, 8.5, fits any planted fault
+  that reads absent).
+- With an instant: creates the instance's timer (item 5), replacing a
+  live one, and records `timer`. With `now`: stops a live timer, runs the
+  instance's scripts as `inject` does, records the attempt (`by: timer`
+  when run by its timer, item 5; `by: gmctl` otherwise) and, on success,
+  `planted_at`. A failing attempt is recorded with the first line of the
+  failing output, exits 1, tears nothing down and leaves the stage (8.7;
+  the plan's "record-only mode" of `setup_step`).
+- **A missed planting** (choice: a timer can be lost, see the open
+  points, and nothing else would tell): an instance whose `timer.due`
+  (or, with no timer, `planned_at`) is more than 15 minutes past with no
+  attempt since is read as missed by `status` and by the checks (items 8,
+  11).
+
+**5. The host timer** (writes: chunk 8a, with teardown's removal; read by
+11, 12, 13, 15). Master spec 8.4, 8.7, 20; access model 3, 8; the plan's
+build-host note (lingering on).
+
+- **Form**: one transient systemd user unit pair per scheduled action,
+  created on the host where `gmctl` runs (the manager):
+
+  ```
+  systemd-run --user --unit=dbagm-<game_id>_<action> \
+    --description='db_audit_gm game <game_id>: <action>' \
+    --on-calendar='YYYY-MM-DD HH:MM:SS UTC' \
+    --timer-property=AccuracySec=1s --timer-property=RemainAfterElapse=no \
+    --setenv=DBAGM_GAME=<game_id> \
+    -- <python3> <repo>/tools/gmctl <verb> <absolute scenario dir> --playground <pg> <options>
+  ```
+
+  `<action>` is `plant-<instance>` (run: `inject … --at now --instance
+  <id>`) or `early-check` (run: `check … --early-check`). `<python3>`
+  and `<repo>` are those of the `gmctl` that created the timer (choice:
+  the run must be the same code, from any working directory).
+- **Names** (choice): `dbagm-<game_id>_` prefixes every unit of a game;
+  game ids never hold `_` (v0.1 W2-A), so `dbagm-<game_id>_*` matches
+  that game's units and no other's.
+- **The guard** (choice: a stale timer must never act on another game):
+  a run with `DBAGM_GAME` set refuses, exit 1, recording nothing, when
+  the playground's game id differs or the game is torn down; otherwise
+  it records `by: timer`. A timer run refused by the stage (handed over)
+  records an attempt `outcome: refused`.
+- **Recorded** in `plantings.<id>.timer` and `early_check` (items 4, 8):
+  unit, due instant, creation instant.
+- **Teardown** (chunk 8a in `teardown.py`), before any Docker object:
+  `systemctl --user stop 'dbagm-<game_id>_*.timer' 'dbagm-<game_id>_*.service'`,
+  `systemctl --user reset-failed 'dbagm-<game_id>_*'`, then
+  `systemctl --user list-units --all --plain --no-legend 'dbagm-<game_id>_*'`
+  must list nothing; a unit left fails the teardown as a labelled object
+  does (exit 1, nothing recorded, W3-C) (choice: "nothing of the game
+  left" covers its timers, as chunk 12's "nothing labelled (timers
+  included)" reads). Without a reachable user manager, a game whose state
+  records no timer is torn down with a note; one that records any fails.
+- The environment of a run is the user manager's plus `DBAGM_GAME`; a
+  playground whose Docker endpoint needs an SSH agent is not supported
+  for timer runs in wave 2 (chunk 10 settles the hosts, W3).
+
+**6. Outages and the lost time** (writes: chunk 8b; read by 11, 13).
+Master spec 7.1, 8.7, 20; D152; W1 item 7, W1-y ("For chunks 8…").
+
+```yaml
+outages:
+  read_at: "2026-10-27T09:15:20Z"
+  through: "2026-10-27T09:13Z"         # the last minute judged
+  lost_minutes: 23
+  periods:                             # runs of outage minutes, merged, oldest first
+    - {from: "2026-10-27T03:02Z", to: "2026-10-27T03:21Z", minutes: 20,
+       causes: ["producer: no summary", "db: no running task"]}
+  incomplete: []                       # nodes whose task history may be pruned (open points)
+```
+
+- **Span** (choice: the minute T0 falls in is partial on every node, and
+  a summary is written within about a second of the boundary, W1-y):
+  from the first whole minute after T0 to the last minute M with
+  M + 1 min + 15 s at or before the reading, and never past the
+  hand-over: the aging ends at `handed-over` (13), so the last hand-over
+  check's reading is the last.
+- **Outage minute** (8.7): any scheduler node has no `summary
+  minute=<M>` line in its log, or any node of the game had no running
+  task during part of M by its Swarm task history (how the task history
+  is read is chunk 8b's, master spec 20).
+- **Readings**: at the early check, at each hand-over check and on
+  `status` (8.7). Each reading recomputes from the sources and keeps the
+  union with the recorded `periods` (choice: a minute once seen is never
+  forgotten, the task history being pruned by Swarm). A reading that
+  cannot reach a node leaves the record as it was, and `status` says so.
+- **Lost time**: `lost_minutes`, the outage minutes in all. It moves the
+  earliest hand-over by `max(0, lost_minutes − 30)` minutes (8.7, D152).
+  The running time `status` shows is computed (elapsed since T0 less the
+  lost time), never stored.
+
+**7. The earliest hand-over** (writes: chunk 8b; read by 8b's refusals,
+11's `snapshot` refusal, 13). Master spec 8.4, 8.7, 13; access model 6
+(`aging-done`, `at-hand-over`); D152, D161.
+
+```
+earliest = max( T0 + M + max(0, lost − 30 min),
+                max over instances i of ( max(P_i, T0) + m_i ) )
+```
+
+M is `timeline.aging_minimum`, m_i an instance's `aging_minimum`, P_i
+its `planted_at`; under the harness override (item 10) M and every m_i
+are capped at the override (D161). An instance not yet planted counts
+its `timer.due`, else its `planned_at`, and is listed in `waiting_for`;
+while `waiting_for` is not empty the earliest hand-over is provisional
+and not reached (choice: `aging-done` needs every instance's own minimum
+since its actual planting, access model 6). A T0 instance counts from T0
+(choice: its evidence needs the load, and the first term covers it).
+
+```yaml
+earliest_handover:
+  at: "2026-10-27T12:00:07Z"
+  waiting_for: [f7]
+  computed_at: "2026-10-27T09:15:20Z"
+```
+
+Recomputed from the records at every `status`, check, `inject --at`
+and `status --set handed-over`, and written back (13 lists it as
+recorded); a stored value is never trusted over a recomputation. A
+static game has none: `aging-done` holds from `injected` on (access
+model 6).
+
+**8. The early check and the hand-over check** (writes: chunk 8b, the
+early check's scheduling chunk 8a; read by 11, 12, 13). Master spec 8.5,
+8.7, 11, 13; access model 3, 7.
+
+- **Verbs** (choice: 13 gives both to `check`; chunk 9 owns
+  `checks.py` and chunk 8 its own module, so the options are parsed in
+  `__init__.py` and run by chunk 8's code, which calls chunk 9's
+  `checks.check`, item 9): `gmctl check <dir> --playground <pg>
+  --early-check` (the timer's run, which the GM may repeat) and `--handover-check`
+  (the GM's, at hand-over). Exit 0 passed, 1 failed, 2 could not run or
+  refused; `--handover-check` exits 3 when it failed only on "too soon"
+  readings (wait the longest remaining window and run it again).
+- **When the early check runs** (scheduled by `start-load` once T0 is
+  recorded; 8.5): E = the later of T0 + M/2 and, for every job of the
+  rendered `jobs.yaml` files whose first due instant after T0 falls
+  before the earliest hand-over, that instant plus 10 minutes; then at
+  most the earliest hand-over minus one hour, and at least T0 + 5
+  minutes. M and the earliest hand-over are as item 7 computes them at
+  `start-load` (the override's cap included); E is not moved later
+  (choices: 10 minutes lets a job's run start and log; the 5-minute
+  floor only matters under a short override).
+- **What both judge** (8.5): (a) every planted instance (`planted_at`
+  set) by its sealed check (item 9): it passes when the exit equals the
+  answer key's `at_handover` (1, present) (choice: the answer key states
+  what "present" exits); (b) in a scheduler game, every scheduler node's
+  `/run/scheduler/status` reads `running `, every stream key current in
+  its schedule has a `key` line in the scheduler's last complete minute
+  (W1 item 7: one per current stream key, zeros included), and every job
+  whose first due instant since T0 is more than 10 minutes past has a
+  `run … phase=start` or `skip` line at or after it and no `job …
+  next=never` line (choice: "running" means the program runs the key,
+  not that its calls succeed, since errors, refused connections and low
+  rates can be the evidence); (c) every node healthy as
+  `deploy.service_health` reads it (choice: the validators judge
+  envelopes, and under an exhaustion fault one may read red, 11 rule 6);
+  (d) the outages so far (item 6), recorded, never a failure on their
+  own: the GM judges them (8.7). A static game's hand-over check judges
+  (a) and (c) only.
+- **Failures**: a planted instance not passing, a missed planting (item
+  4), a scheduler or key not running, a node not healthy. At the early
+  check a "too soon" reading is recorded and is not a failure; at the
+  hand-over check it fails the check (choice: 8.5 hands over only a game
+  whose planted faults read present; 11 rule 3, the GM waits the window).
+- **Record**, both kinds alike:
+
+  ```yaml
+  early_check:
+    timer: {unit: dbagm-fernway-k3x9qa_early-check, due: "2026-10-27T04:00:07Z",
+            created_at: "2026-10-26T20:00:09Z"}
+    result: <check record>              # the last run's; null until it runs
+  handover_checks: [<check record>, …]  # every run, last last; static games too
+  # <check record>:
+  at: "2026-10-27T12:05:00Z"
+  passed: false
+  faults:                               # planted instances, fault_instances order
+    - {instance: f3, fault: <id>, verdict: too-soon, exit: 3, remaining: 600, line: "<first line>"}
+  not_planted: [f7]                     # due later (early check only)
+  schedulers: [{node: producer, running: true, keys: {orders.insert: true}, jobs: {close-day: not-due}}]
+  nodes: {db: healthy, producer: healthy}
+  lost_minutes: 23
+  failures: ["f3 <id>: too soon to tell, 600 s of its window remain"]
+  ```
+
+  A check run under the harness override carries `override: <duration>`
+  (item 10).
+
+**9. "Too soon to tell"** (writes: chunk 9; read by 8b, 12, 13, 14).
+Master spec 11 (rule 3), 13; D124, D165; W1 item 4; the answer-key
+template's `at_handover` comment.
+
+- **Script contract** (choice: one parseable form for chunk 9 to read
+  and chunk 14's scripts to print): exit 3, the first output line
+  `remaining=<N>` then optionally a space and free text, N an integer
+  number of seconds, at least 1. An exit 3 whose first line does not
+  match is read as an error (choice: a wait with no length gives the GM
+  nothing to act on).
+- **`gmctl check`'s line**: `<instance> <fault-id>: too-soon — <N> s of
+  the window remain: <free text>` beside the `fixed`, `present` and
+  `error` lines of v0.1 W3-A.
+- **`gmctl check`'s exit** (choice: a definite answer outranks an
+  undetermined one): 2 when any errored, else 1 when any is present, else
+  3 when any is too soon, else 0. A refusal still exits 2.
+- **What chunk 8 calls** (choice: chunk 8 judges a subset against
+  `at_handover`, so it needs the raw exit): `checks.check(scenario_dir,
+  playground, docker=None, instances=None)`, `instances` a list of
+  instance ids to run (in `fault_instances` order; `None` all);
+  `CheckLine` gains `returncode` (int, `None` when the check could not
+  start) and `remaining` (int seconds, for `too-soon` only); its
+  `verdict` is one of `fixed`, `present`, `too-soon`, `error`;
+  `checks.TOO_SOON = 3`.
+- The checks connect as the GM check role through `check-psql` (W1 item
+  8, W1-x), one at a time; the reserve of two leaves room for a timer's
+  early check beside a run by hand (W1-x).
+
+**10. The test-harness override of the aging minimum** (G6; writes:
+chunk 8a; read by 8b, 11, 15b). Master spec 11 ("The rehearsal"); spec
+D156, D161; plan "Read first" ("No fake time anywhere") and chunk 8a.
+
+Fixed by the sources:
+
+- It is for one game, set only by the harness scripts
+  (`tools/tests/rehearsal.sh`, chunk 11's snapshot and restart run),
+  never by a GM, and never named in the GM skill or `gmctl.md`.
+- It gives a shorter aging minimum that the earliest hand-over counts
+  from, and caps each instance's own aging minimum at it wherever the
+  earliest hand-over or the hand-over check counts it (D161; item 7).
+- It is recorded in the local implementation and shown first by
+  `status`, above everything else, the failure head included.
+- It shortens the wait, never a clock: no timestamp, marker, rendered
+  instant or planting time changes.
+
+Following from those (choices, so the form can be checked against them):
+it is in place before `start-load`, which computes the early check's time
+from the capped minimum (item 8); `gmctl --help` and the verbs' help do
+not show it, since a GM reads them; every record computed under it
+(`earliest_handover`, each check record) carries `override: <duration>`,
+so a record read later is never mistaken for a game's.
+
+**The form** — how the harness sets it, where it is recorded, its key —
+is **chunk 8a's choice, recorded as a W2 addendum** before chunk 11
+starts.
+
+**11. `status` and `status --set handed-over`** (writes: chunk 8b; read
+by 11, 13). Master spec 8.5, 13, 16; access model 7, 9.
+
+- **Order**: the override line (item 10); then the head, every
+  unresolved failure and the outages: a `start-load` attempt failed with
+  T0 unrecorded; an instance with its last attempt failed, missed, or
+  `planned_at` past with no timer and no planting; the early check
+  failed (until a hand-over check passes); the last hand-over check
+  failed; `lost_minutes` above 0; then the game's lines as today, and
+  the aging's progress, the lost time, the earliest hand-over (with
+  `waiting_for`), the planned hand-over, the shift and the customer's
+  zone, the plantings and timers, the snapshot and the restarts (13). A
+  static game shows no aging lines. Its words are chunk 8b's.
+- **`status --set handed-over`** (13), in a scheduler game: the earliest
+  hand-over reached (not provisional, now at or after `at`); the last
+  `handover_checks` entry passed and was run at or after the earliest
+  hand-over (choice: a check before it judges a younger system than the
+  one handed over); `snapshot.status` is `taken` or `not-fitting`. In a
+  static game: the last hand-over check passed, and the snapshot. Each
+  refusal says which condition and, for the first, when (access model 7).
+- **The snapshot record** (choice: chunk 8b reads it before chunk 11
+  writes it): `state.yaml` `snapshot: {status: taken | not-fitting, at:
+  <instant>, …}`; chunk 8b reads `status` only, chunk 11 owns the rest.
+  When the snapshot condition takes effect is an open point below.
+
+**12. Wave 2 coordination** (for the driver and chunks 7, 8, 9)
+
+- Chunks 7 and 9 side by side: 7 writes item 1 and the `render` row of
+  `gmctl.md`, 9 item 9 and the `check` row. Chunk 8, once both have
+  merged, owns items 2 to 8, 10, 11 and the rows of `start-load`,
+  `inject --at`, `check --early-check`, `check --handover-check` and
+  `status --set handed-over`. `localimpl.py` and `inject.py` pass from 7
+  to 8; `checks.py` stays 9's (8 calls it). `checks.CHECK_STAGES`
+  follows `state.DEPLOYED_STAGES` once 8 adds `load-started`.
+- Chunk 8's tests use a fake timer (the plan's); no smoke run creates a
+  real one before chunk 12's `smoke-load.sh`.
+
+**Open points for spec-writer**
+
+1. **`smoke.sh`'s hand-over across waves 2 and 3.** `smoke.sh` runs
+   `status --set handed-over` straight after `inject` (line 198). After
+   chunk 8b that needs a passed hand-over check and the snapshot taken or
+   recorded as not fitting (13), but nothing writes a snapshot record
+   before chunk 11 (wave 3), and `smoke.sh`, which chunk 8 must pass, is
+   outside chunk 8's Files. Options: (a) chunk 8b enforces the earliest
+   hand-over and the hand-over check, chunk 11a adds the snapshot
+   condition with its verb, and chunk 8's Files gain
+   `tools/tests/smoke.sh` to run `check --handover-check` before `--set
+   handed-over`; (b) chunk 8b enforces all three and wave 2's gate runs
+   `smoke.sh` without the hand-over; (c) chunk 8 writes a provisional
+   snapshot record. Recommend (a): each condition arrives with what
+   satisfies it, and the gate keeps testing the hand-over.
+2. **Transient timers do not survive a host reboot.** The plan fixes
+   `systemd-run --user`; its units live under `/run` and vanish when the
+   host or the user manager restarts, while 8.7 has the aging resume after
+   a host restart: a planting or early check due then never runs.
+   Options: (a) keep them and rely on item 4's "missed" reading, the GM
+   re-planting at hand-over when the instance's minimum can still be
+   reached (8.5); (b) persistent user units of the same names
+   (`~/.config/systemd/user/dbagm-<game_id>_*.{timer,service}`,
+   `Persistent=true`, enabled; teardown disables and removes them), so a
+   missed action runs at boot. Master spec 20 leaves the timer's form to
+   the build, so (b) changes only the plan's line. Recommend (b), keeping
+   (a)'s reading as the safety net; until ruled, chunk 8a builds item 5.
+3. **Swarm keeps five tasks per slot.** The task history outages are read
+   from (8.7) is pruned to `task-history-limit` (5 by default) per slot,
+   so a node restarting more than five times between two readings loses
+   outage minutes. Options: (a) accept: readings keep the union (item 6),
+   a node whose oldest kept task started after the previous reading is
+   listed in `incomplete`, and `status` reads "at least"; (b) raise the
+   swarm's `--task-history-limit`, a swarm-wide setting touching the
+   host's other stacks and the VPS, for the owner; (c) a per-minute host
+   timer sampling task states. Recommend (a): every aged game's
+   schedulers record their own outages exactly in their summaries, and a
+   node crash-looping that often fails the next check as unhealthy.
