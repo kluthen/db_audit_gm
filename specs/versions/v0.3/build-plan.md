@@ -1075,7 +1075,7 @@ W3.
 
 ### Chunk 12 — The load fixture and the smoke tests under load
 
-Status: planned
+Status: merged (w3, c0875f6)
 Wave: 3
 Depends on: chunks 2, 3, 6, 7, 8, 9; G3
 Architecture capture: none.
@@ -1109,6 +1109,14 @@ Architecture capture: none.
   regeneration.
 - Verification: chunk checks, plus both smoke scripts on one host
   (needs G3); the VPS stays drained.
+
+Record: 4f261d2 (merge c0875f6). No deviation from the spec. `smoke-load.sh`
+73/73 on armenelos (398 s); `smoke-scenario.sh` 19/19 and 18/18; unit suite 541.
+`fixture-load` designed for two hosts (bastion on the first);
+`smoke-load.sh <playground> [<gmctl fit option>…]` passes options to `fit`, and
+`SMOKE_LOAD_ENGINES` widens its leftovers check to other hosts; its two-host run
+is the wave 3 gate's. `smoke-scenario.sh` still refuses a several-host
+`designed_for`. The scheduler's unthrottled error lines did not bite (0 lines).
 
 ### Chunk 13 — The GM skill for v0.3
 
