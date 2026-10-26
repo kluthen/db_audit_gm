@@ -8,6 +8,11 @@ Teardown lists every object by either label and removes those, and only
 those: nothing else on the host (other stacks, the local registry,
 unrelated volumes), never images, never the swarm.
 
+Before any Docker object (v0.3 capture W2, item 5; spec D173), `gmctl
+teardown` stops, disables and removes the game's host timers, the
+persistent systemd user units `dbagm-<game_id>_*` (`aging`); a unit left
+fails the teardown as a labelled object does.
+
 When nothing labelled is left, `gmctl teardown` records it: stage
 `torn-down` and the teardown record `{stage, reason, at}` in `state.yaml`
 (`--reason`; spec D50). The teardown a failed setup step runs itself
@@ -18,7 +23,7 @@ import re
 import time
 from dataclasses import dataclass, field
 
-from . import localimpl
+from . import aging, localimpl
 from .docker import for_local_dir, label_filter
 from .model import GmError
 from .state import record_text
@@ -68,6 +73,8 @@ class TeardownReport:
     recorded: dict = None       # the teardown record written, if any
     reason_dropped: bool = False    # a reason was given, the record left unchanged
     previous: dict = None       # the record already there, if any
+    timers: list = field(default_factory=list)  # the game's systemd units removed
+    timer_note: str = None      # why no timer was looked for
 
     def count(self):
         return sum(len(v) for v in self.removed.values())
@@ -79,6 +86,11 @@ class TeardownReport:
             parts = [f"{len(self.removed[k])} {k}s" for k in KINDS if self.removed.get(k)]
             out = [f"Teardown of game {self.game_id}: removed {', '.join(parts)}; "
                    "nothing carrying its label is left."]
+        if self.timers:
+            out.append(f"Host timers removed: {', '.join(self.timers)}; none of the game's "
+                       "systemd units is left.")
+        elif self.timer_note:
+            out.append(f"Host timers: {self.timer_note}.")
         if self.recorded:
             out.append(f"Recorded in state.yaml: torn down "
                        f"{record_text(self.recorded).rstrip('.')}.")
@@ -137,8 +149,10 @@ def remove_game_objects(docker, game_id, timeout=TEARDOWN_TIMEOUT, sleep=time.sl
 
 
 def teardown(scenario_dir, playground, reason=None, docker=None, timeout=TEARDOWN_TIMEOUT,
-             sleep=time.sleep, clock=time.monotonic):
-    """`gmctl teardown [--reason TEXT]`. Once nothing labelled is left,
+             sleep=time.sleep, clock=time.monotonic, systemd=None):
+    """`gmctl teardown [--reason TEXT]`. First the game's host timers
+    (aging.remove_game_timers), then every labelled object. Once nothing
+    labelled is left,
     records stage `torn-down` (a failed game stays `failed` with its
     failure) and, when the state has none, the teardown record with the
     reason (`localimpl.record_teardown`). Leftovers: GmError, nothing
@@ -153,8 +167,11 @@ def teardown(scenario_dir, playground, reason=None, docker=None, timeout=TEARDOW
     if st.get("game_id") != game_id:
         raise GmError(f"state.yaml (game {st.get('game_id')}) and implementation.yaml "
                       f"(game {game_id}) disagree: nothing removed")
+    check_game_id(game_id)
     docker = docker or for_local_dir(ldir)
+    timers, note = aging.remove_game_timers(systemd or aging.Systemd(), game_id, st)
     report = remove_game_objects(docker, game_id, timeout=timeout, sleep=sleep, clock=clock)
+    report.timers, report.timer_note = timers, note
     report.previous = localimpl.teardown_record(st)
     report.recorded = localimpl.record_teardown(ldir, reason)
     report.reason_dropped = reason is not None and report.recorded is None

@@ -308,6 +308,19 @@ class TestCommandLine(RenderedGame):
                           proc.stderr)
         self.assertEqual(localimpl.read_state(self.ldir)["stage"], "rendered")
 
+    def test_at_and_instance_go_together(self):
+        for extra in (["--at", "now"], ["--instance", "f2"]):
+            proc = run_gmctl("inject", self.scenario, "--playground", "laptop", *extra)
+            self.assertEqual(proc.returncode, 1, proc.stderr)
+            self.assertIn("--at and --instance go together", proc.stderr)
+
+    def test_at_needs_the_load_started(self):
+        proc = run_gmctl("inject", self.scenario, "--playground", "laptop", "--at", "now",
+                         "--instance", "f2")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("inject --at needs stage load-started", proc.stderr)
+        self.assertEqual(localimpl.read_state(self.ldir)["stage"], "rendered")
+
 
 class TestMountedGame(MountedCopyTest):
     """fixture-mounted deployed on a ScriptedDocker: f1 a state fault, f2 a

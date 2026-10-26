@@ -16,8 +16,8 @@ from . import localimpl
 from .model import GmError
 
 # Stages at which the game holds objects on the swarm.
-DEPLOYED_STAGES = ("deployed", "data-loaded", "injected", "handed-over", "final-answer",
-                   "feedback-given")
+DEPLOYED_STAGES = ("deployed", "data-loaded", "injected", "load-started", "handed-over",
+                   "final-answer", "feedback-given")
 
 # Stages only the GM records (`status --set`), each with the stage it follows.
 GM_STAGES = {"handed-over": "injected", "final-answer": "handed-over",

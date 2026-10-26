@@ -19,7 +19,10 @@ Master spec 10.3; files, names and labels fixed by capture W2-A
                          filled; `implementation.yaml` names them from
                          `fit` on, and `render` adds its `timeline`;
 - `state.yaml`           the stage reached, its history, any failure, and
-                         the teardown record (spec D50);
+                         the teardown record (spec D50); from v0.3 the
+                         aging's records (capture W2, items 3 to 8, 10,
+                         11), every read-modify-write under an exclusive
+                         lock on `.state.lock` (W2, item 0);
 - `secrets/`             written by `deploy` (directory 0700, files 0600):
                          the secrets the bricks declare, by kind (v0.2
                          capture W1, item 7), those with `only_with_role`
@@ -31,8 +34,10 @@ Every path an implementation records (`file:`) is relative to the scenario
 folder.
 """
 
+import contextlib
 import copy
 import datetime
+import fcntl
 import os
 import posixpath
 import re
@@ -47,14 +52,15 @@ from .model import (CUSTOMER_TIMEZONE, SUBSTITUTION_RE, GmError, has_scheduler_n
                     parse_size)
 
 PLATFORM = "swarm"
-STAGES = ("fitted", "rendered", "deployed", "data-loaded", "injected", "handed-over",
-          "final-answer", "feedback-given", "torn-down")
+STAGES = ("fitted", "rendered", "deployed", "data-loaded", "injected", "load-started",
+          "handed-over", "final-answer", "feedback-given", "torn-down")
 FAILED = "failed"
 TORN_DOWN = "torn-down"
 
 PLAYGROUND_FILE = "playground.yaml"
 IMPLEMENTATION_FILE = "implementation.yaml"
 STATE_FILE = "state.yaml"
+STATE_LOCK = ".state.lock"          # flock'd around each read-modify-write of state.yaml
 STACK_FILE = "stack.yml"
 ENVELOPES_DIR = "envelopes"
 SECRETS_DIR = "secrets"
@@ -196,13 +202,55 @@ def write_state(ldir, state):
     write_yaml(Path(ldir) / STATE_FILE, state, _header("Game state."))
 
 
+@contextlib.contextmanager
+def state_lock(ldir):
+    """An exclusive `flock` on `<ldir>/.state.lock` (v0.3 capture W2, item
+    0): timer runs and the GM's commands write state.yaml at the same
+    moments. Held only around a read and its write, never across a Docker
+    call or a script, and never taken twice by one process (flock locks
+    by open file, so a nested take would wait for itself)."""
+    Path(ldir).mkdir(parents=True, exist_ok=True)
+    fd = os.open(Path(ldir) / STATE_LOCK, os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(fd)
+
+
+def update_state(ldir, change):
+    """Read state.yaml, `change(state)` it in place, write it back, under
+    the state lock; returns the state written. `change` returning False
+    leaves the file unwritten. GmError when there is no state."""
+    with state_lock(ldir):
+        state = read_state(ldir)
+        if state is None:
+            raise GmError(f"no game state in {ldir}: run gmctl fit first")
+        if change(state) is not False:
+            write_state(ldir, state)
+        return state
+
+
 def new_state(ldir, game_id, stage, now=None):
     if stage not in STAGES:
         raise ValueError(stage)
     at = now or now_iso()
     state = {"game_id": game_id, "stage": stage, "history": [{"stage": stage, "at": at}],
              "failure": None}
-    write_state(ldir, state)
+    with state_lock(ldir):
+        write_state(ldir, state)
+    return state
+
+
+def enter_stage(state, stage, at):
+    """`state` (a dict) at `stage` from `at`: the history entry, any failure
+    and teardown record cleared (the game went on after them)."""
+    if stage not in STAGES:
+        raise ValueError(stage)
+    state["stage"] = stage
+    state.setdefault("history", []).append({"stage": stage, "at": at})
+    state["failure"] = None
+    state.pop("teardown", None)
     return state
 
 
@@ -211,31 +259,21 @@ def set_stage(ldir, stage, now=None):
     teardown record (the game went on after it)."""
     if stage not in STAGES:
         raise ValueError(stage)
-    state = read_state(ldir)
-    if state is None:
-        raise GmError(f"no game state in {ldir}: run gmctl fit first")
     at = now or now_iso()
-    state["stage"] = stage
-    state.setdefault("history", []).append({"stage": stage, "at": at})
-    state["failure"] = None
-    state.pop("teardown", None)
-    write_state(ldir, state)
-    return state
+    return update_state(ldir, lambda state: enter_stage(state, stage, at) and None)
 
 
 def set_failed(ldir, stage, reason, now=None):
     """Record a failure while working towards `stage` (stage becomes `failed`);
     clears any teardown record (a new failure needs a new teardown)."""
-    state = read_state(ldir)
-    if state is None:
-        raise GmError(f"no game state in {ldir}")
     at = now or now_iso()
-    state["stage"] = FAILED
-    state.setdefault("history", []).append({"stage": FAILED, "at": at})
-    state["failure"] = {"stage": stage, "reason": reason, "at": at}
-    state.pop("teardown", None)
-    write_state(ldir, state)
-    return state
+
+    def change(state):
+        state["stage"] = FAILED
+        state.setdefault("history", []).append({"stage": FAILED, "at": at})
+        state["failure"] = {"stage": stage, "reason": reason, "at": at}
+        state.pop("teardown", None)
+    return update_state(ldir, change)
 
 
 def teardown_record(state):
@@ -252,23 +290,24 @@ def record_teardown(ldir, reason=None, now=None):
     reason, at}` (`stage`: the last stage reached) is written when the
     state has none and the game is not already at `torn-down`. Returns
     the record written, or None when it was left unchanged."""
-    state = read_state(ldir)
-    if state is None:
-        raise GmError(f"no game state in {ldir}")
     at = now or now_iso()
-    current = state.get("stage")
-    record = None
-    if teardown_record(state) is None and current != TORN_DOWN:
-        record = {"stage": effective_stage(state), "reason": reason, "at": at}
-    if current not in (FAILED, TORN_DOWN):
-        state["stage"] = TORN_DOWN
-        state.setdefault("history", []).append({"stage": TORN_DOWN, "at": at})
-        state["failure"] = None
-    if record is not None:
-        state["teardown"] = record
-    if record is not None or current not in (FAILED, TORN_DOWN):
-        write_state(ldir, state)
-    return record
+    written = []
+
+    def change(state):
+        current = state.get("stage")
+        record = None
+        if teardown_record(state) is None and current != TORN_DOWN:
+            record = {"stage": effective_stage(state), "reason": reason, "at": at}
+        if current not in (FAILED, TORN_DOWN):
+            state["stage"] = TORN_DOWN
+            state.setdefault("history", []).append({"stage": TORN_DOWN, "at": at})
+            state["failure"] = None
+        if record is not None:
+            state["teardown"] = record
+            written.append(record)
+        return record is not None or current not in (FAILED, TORN_DOWN)
+    update_state(ldir, change)
+    return written[0] if written else None
 
 
 def effective_stage(state):

@@ -12,6 +12,7 @@ Python 3, standard library plus PyYAML. Modules:
 - `deploy`     swarm check, credentials, labelled configs and secrets, the stack;
 - `execnode`   `exec` (a script into a node's `sh -s`) and `logs`;
 - `inject`     `load-data` and `inject`, the setup steps after deployment;
+- `aging`      `start-load`, `inject --at`, the host timers (v0.3);
 - `checks`     `validate` and `check`, the evaluation's live evidence;
 - `teardown`   removing everything carrying the game's label.
 
@@ -67,8 +68,26 @@ def _cmd_load_data(args):
 
 def _cmd_inject(args):
     from . import inject
+    from .model import GmError
+    if args.at is not None or args.instance is not None:
+        if args.at is None or args.instance is None:
+            raise GmError("--at and --instance go together: --at <UTC instant>|now "
+                          "--instance <id>")
+        from . import aging
+        result = aging.inject_at(args.scenario_dir, args.playground, args.at, args.instance,
+                                 timeout=args.timeout)
+        print(result.text())
+        return 0 if result.ok else 1
     print(inject.inject(args.scenario_dir, args.playground, timeout=args.timeout).text())
     return 0
+
+
+def _cmd_start_load(args):
+    from . import aging
+    result = aging.start_load(args.scenario_dir, args.playground,
+                              test_aging_minimum=args.test_aging_minimum)
+    print(result.text())
+    return 0 if result.ok else 1
 
 
 def _evaluation(args, run):
@@ -167,11 +186,25 @@ def build_parser():
     p.set_defaults(func=_cmd_load_data)
 
     p = sub.add_parser("inject", help="plant the state faults: run each one's inject/ "
-                                      "scripts on its node, after the data load")
+                                      "scripts on its node, after the data load (with "
+                                      "scheduler nodes, those due at T0); with --at and "
+                                      "--instance, one state fault during the aging")
     _scenario_args(p)
     p.add_argument("--timeout", type=int, metavar="SECONDS",
                    help="limit for each script (default: none)")
+    p.add_argument("--at", metavar="<UTC instant>|now",
+                   help="at stage load-started: schedule the instance's planting at "
+                        "YYYY-MM-DDTHH:MMZ (a host timer), or plant it now")
+    p.add_argument("--instance", metavar="<id>", help="the state fault instance --at plants")
     p.set_defaults(func=_cmd_inject)
+
+    p = sub.add_parser("start-load", help="start every scheduler's load and record T0 (needs "
+                                          "stage injected, and scheduler nodes)")
+    _scenario_args(p)
+    # The test harness's override of the aging minimum (v0.3 capture W2,
+    # item 10): passed only by the harness scripts, never shown in help.
+    p.add_argument("--test-aging-minimum", metavar="<duration>", help=argparse.SUPPRESS)
+    p.set_defaults(func=_cmd_start_load)
 
     p = sub.add_parser("validate", help="the official run of every node's public validator; "
                                         "exit 0 green, 1 red, 2 error")

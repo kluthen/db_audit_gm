@@ -18,11 +18,17 @@ monitoring tools and PostgreSQL's file logs are read through `exec`
 ## Stages
 
 `state.yaml` in `local/<pg>/` records, in order: `fitted`, `rendered`,
-`deployed`, `data-loaded`, `injected`, `handed-over`, `final-answer`,
-`feedback-given`, `torn-down`; or `failed`, with `failure: {stage,
-reason, at}` (the stage it was working towards). `gmctl` records every
-stage up to `injected`, and `torn-down`; the GM records the other three
-with `status --set`. A `teardown` that leaves nothing labelled also
+`deployed`, `data-loaded`, `injected`, `load-started`, `handed-over`,
+`final-answer`, `feedback-given`, `torn-down`; or `failed`, with
+`failure: {stage, reason, at}` (the stage it was working towards).
+`gmctl` records every stage up to `load-started`, and `torn-down`; the GM
+records the other three with `status --set`. Only a game with scheduler
+nodes reaches `load-started` (v0.3 master spec 8, D157); a game with none
+goes from `injected` to `handed-over`. From `start-load` on nothing sets
+`failed`: a scheduler that does not start, a failed planting or a failed
+early check is recorded in its own record (`load`, `plantings`,
+`early_check`), tears nothing down, and heads `status` (master spec 8.7;
+capture W2 in `specs/versions/v0.3/wave-log.md`). A `teardown` that leaves nothing labelled also
 writes the teardown record, `teardown: {stage, reason, at}`: the last
 stage reached, the `--reason` text (or `null`) and the time. Only the
 first one writes it (a later teardown leaves it as it is); a failed game
@@ -39,7 +45,9 @@ The teardown a failed step runs itself writes none.
 | `tools/gmctl render <dir> --playground <pg> [--handover <UTC date and hour>]` | `fitted`, `rendered` | `rendered`; the `timeline` in `implementation.yaml` | 0; 1 refused (no `--handover` with scheduler nodes, a hand-over not in the future or not a whole hour, the scenario changed since `fit`) |
 | `tools/gmctl deploy <dir> --playground <pg> [--init-swarm] [--timeout SECONDS]` | `rendered`, or `failed` in deploy | `deployed` | 0; 1 refused or failed |
 | `tools/gmctl load-data <dir> --playground <pg> [--timeout SECONDS]` | `deployed` (later deployed stages: no-op, exit 0) | `data-loaded` | 0; 1 refused or failed |
-| `tools/gmctl inject <dir> --playground <pg> [--timeout SECONDS]` | `data-loaded`, `injected` (a replay) | `injected` | 0; 1 refused or failed |
+| `tools/gmctl inject <dir> --playground <pg> [--timeout SECONDS]` | `data-loaded`, `injected` (a replay) | `injected`; every instance's planting (`plantings`); with scheduler nodes only the instances due at T0 are planted | 0; 1 refused (at `load-started`: re-plant one instance with `--at now`) or failed |
+| `tools/gmctl start-load <dir> --playground <pg>` | `injected`, with scheduler nodes | each attempt in `load`; T0 and `load-started` once every scheduler runs; the early check's host timer | 0 started; 1 refused (no scheduler node: `game <id> has no scheduler node, so it has no aging and no load to start (D157)`; the load already started; once handed over) or a scheduler did not start (recorded, nothing torn down, the stage stays `injected`: fix it and run it again, or tear the game down) |
+| `tools/gmctl inject <dir> --playground <pg> --at <YYYY-MM-DDTHH:MMZ>\|now --instance <id>` | `load-started` | `plantings.<id>`: its host timer, or its attempt and, on success, `planted_at` | 0 scheduled or planted; 1 refused (not a `state` instance, a T0 instance (master spec 8.5), an instant not in the future or at or after the planned hand-over, an instant for an instance already planted, at or after hand-over) or the planting failed (recorded, nothing torn down, the stage unchanged) |
 | `tools/gmctl status <dir> --playground <pg> --set handed-over` | `injected` | `handed-over` | 0; 1 refused |
 | `printf '%s\n' 'cat ~/report.md' \| tools/gmctl exec <dir> --playground <pg> --node <bastion> --user player` | any deployed stage | nothing | the script's own; 125 could not start |
 | `printf '%s\n' '<script>' \| tools/gmctl exec <dir> --playground <pg> --node <node> --user <user> [--env KEY=VALUE]` | any deployed stage | nothing | the script's own; 125 could not start |
@@ -151,6 +159,29 @@ password or key. The GM's reads, one per tool, are in the skill's
   fault, planted by the seed files; nothing to run` or `<instance>:
   parameter fault, planted at rendering; nothing to run`. Spoilers: keep
   it from the players.
+- **`start-load`**: `Game <id>: starting the load at <instant>.`, one
+  line per scheduler node (`running since <instant>` or `FAILED:
+  <reason>`), then `Load started: T0 <instant>. Stage load-started.`, the
+  early check's time and timer, and, for every instance planted later,
+  the `inject --at` command that plants it at its planned instant (`--at
+  now` once that instant has passed): run each one. On each scheduler it
+  writes the load-started marker holding T0, restarts the scheduler and
+  waits up to 60 s for it to read running; T0 is the moment `start-load`
+  began, the same on every node. The early check runs halfway through
+  the aging minimum, or once every fixed-time operation due before the
+  earliest hand-over has run once (plus 10 minutes), and no later than
+  an hour before the earliest hand-over (master spec 8.5).
+- **`inject --at`**: with an instant, `the planting of <id> is scheduled
+  at <instant> (timer <unit>)`; a new instant replaces the timer. With
+  `now`, the instance's scripts run as `inject` runs them, then `<id>
+  planted at <instant>.`, or `FAILED: <reason>` and how to re-plant. The
+  host timers are persistent systemd user units on the host running
+  `gmctl`, `~/.config/systemd/user/dbagm-<id>_<action>.{timer,service}`
+  (`plant-<instance>`, `early-check`): an action due while the host was
+  down runs when it is back, first waiting up to 10 minutes for the
+  game's nodes to run. A timer's run on a playground holding another
+  game, or a torn down one, does nothing. `teardown` removes the game's
+  timers before anything else.
 - **`validate`**: each validator's lines under `<node>:` (`GREEN: ...`,
   or `RED <rule>: ...` lines, or `ERROR: ...`), ending `Validators of game
   <id>: <node> green|red|error, ...`.
@@ -174,9 +205,11 @@ password or key. The GM's reads, one per tool, are in the skill's
   `<pair>.pub: public key of pair <pair>`.
 - **`teardown`**: `Teardown of game <id>: removed ...; nothing carrying
   its label is left.` (`... nothing carrying its label was left.` when
-  there was nothing to remove), then, the first time, `Recorded in
-  state.yaml: torn down at <at>, from stage <stage>: <reason>.`; a later
-  teardown given a reason says the record was left unchanged. Leftovers:
+  there was nothing to remove), then, when the game had host timers,
+  `Host timers removed: <units>; none of the game's systemd units is
+  left.`, then, the first time, `Recorded in state.yaml: torn down at
+  <at>, from stage <stage>: <reason>.`; a later teardown given a reason
+  says the record was left unchanged. Leftovers (a timer unit included):
   the list and exit 1, nothing recorded.
 
 ## Files of the local implementation the GM reads

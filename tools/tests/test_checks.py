@@ -241,7 +241,7 @@ class TestCheck(DeployedGame):
 
     def test_refused_before_injection(self):
         localimpl.set_stage(self.ldir, "data-loaded")
-        with self.assertRaisesRegex(GmError, "check needs stage injected or handed-over"):
+        with self.assertRaisesRegex(GmError, "check needs stage injected or load-started or handed-over"):
             self.check()
         self.assertEqual(self.fake.runs, [])
 
