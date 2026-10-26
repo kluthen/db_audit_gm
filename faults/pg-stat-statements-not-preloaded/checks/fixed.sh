@@ -8,19 +8,30 @@
 # file edited (or ALTER SYSTEM run) without a restart still reads present.
 set -u
 
-pg() { runuser -u postgres -- psql -XAtq -v ON_ERROR_STOP=1 -d postgres "$@"; }
+# Connects as the GM check role through check-psql, inside the GM's
+# reserve (v0.3 master spec 6.5, 11 rule 5); on a postgres brick before
+# 0.3.0, which has no check role, as postgres over the local socket.
+CHECK_PSQL=/usr/local/lib/gm/check-psql
+if [ -e "$CHECK_PSQL" ]; then as="the GM check role"; else as=postgres; fi
+pg() {
+    if [ -e "$CHECK_PSQL" ]; then
+        "$CHECK_PSQL" -Atq -v ON_ERROR_STOP=1 "$@"
+    else
+        runuser -u postgres -- psql -XAtq -v ON_ERROR_STOP=1 "$@"
+    fi
+}
 
-loaded=$(pg <<'SQL'
+loaded=$(pg -d postgres <<'SQL'
 SELECT EXISTS (
   SELECT 1
     FROM unnest(string_to_array(current_setting('shared_preload_libraries'), ',')) AS l
    WHERE btrim(l, ' "') = 'pg_stat_statements')
 SQL
-) || { echo "cannot query PostgreSQL as postgres over the local socket."; exit 2; }
+) || { echo "cannot query PostgreSQL as $as."; exit 2; }
 
 case $loaded in
     f)
-        libs=$(pg -c "SELECT current_setting('shared_preload_libraries')" 2>/dev/null)
+        libs=$(pg -d postgres -c "SELECT current_setting('shared_preload_libraries')" 2>/dev/null)
         echo "pg_stat_statements is not in the shared_preload_libraries in effect (\"$libs\"): no query statistics are collected."
         exit 1 ;;
     t) ;;
@@ -29,7 +40,7 @@ case $loaded in
         exit 2 ;;
 esac
 
-if err=$(pg -c 'SELECT count(*) FROM pg_stat_statements' 2>&1 >/dev/null); then
+if err=$(pg -d postgres -c 'SELECT count(*) FROM pg_stat_statements' 2>&1 >/dev/null); then
     echo "pg_stat_statements is preloaded and its view answers: query statistics are collected."
     exit 0
 fi

@@ -5,7 +5,20 @@
 # The option's value is read as PostgreSQL reads a boolean (off, false, no,
 # 0...), since reloptions keep it as written.
 set -u
-v=$(runuser -u postgres -- psql -XAtq -v ON_ERROR_STOP=1 -d "$FAULT_DATABASE" \
+# Connects as the GM check role through check-psql, inside the GM's
+# reserve (v0.3 master spec 6.5, 11 rule 5); on a postgres brick before
+# 0.3.0, which has no check role, as postgres over the local socket.
+CHECK_PSQL=/usr/local/lib/gm/check-psql
+if [ -e "$CHECK_PSQL" ]; then as="the GM check role"; else as=postgres; fi
+pg() {
+    if [ -e "$CHECK_PSQL" ]; then
+        "$CHECK_PSQL" -Atq -v ON_ERROR_STOP=1 "$@"
+    else
+        runuser -u postgres -- psql -XAtq -v ON_ERROR_STOP=1 "$@"
+    fi
+}
+
+v=$(pg -d "$FAULT_DATABASE" \
     -v tbl="$FAULT_TABLE_NAME" <<'SQL'
 SELECT coalesce(bool_or(NOT substr(o, length('autovacuum_enabled=') + 1)::boolean), false)
   FROM pg_class c, unnest(c.reloptions) AS o
