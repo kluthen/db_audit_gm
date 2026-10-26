@@ -680,7 +680,7 @@ scheduler's commands and refusal lines.
 
 ### Chunk 6 — The `pgbouncer` brick 0.1.0
 
-Status: in progress
+Status: merged (w2, a7c9efb)
 Wave: 2
 Depends on: chunks 1, 4 (W1-x: the lookup role); G2, G3
 Architecture capture: none.
@@ -714,6 +714,12 @@ Architecture capture: none.
 - Verification: chunk checks, plus the stack test (needs G3).
 - Split rule: 6a image, s6, authentication, wrapper, validator; 6b
   `brick.yaml`, docs, stack test.
+
+Record: 6a 9916b2b, 6b 6f0b0d0 (merge a7c9efb). No deviation from the
+spec; the chunk's own choices (the GM's settings included after the
+players' file, the reload's trial run, `auth_type = hba`, the envelopes)
+are capture W2-a in the wave log. Outside its Files line: the root
+`README.md`'s brick row (a shared list).
 
 ### Chunk 7 — Render for v0.3: the planned hand-over, the shift, write policies and secrets
 
@@ -869,7 +875,7 @@ chunk 9); the test-harness override's form (G6).
 
 ### Chunk 9 — Checks under load: exit 3 and the GM check role
 
-Status: in progress
+Status: merged (w2, 829d1c8)
 Wave: 2
 Depends on: chunks 1, 2, 4 (W1-x: the check role)
 Architecture capture: none of its own; it gives W2 its verdict.
@@ -902,6 +908,11 @@ Architecture capture: none of its own; it gives W2 its verdict.
   suite passes.
 - Verification: chunk checks, plus the exhaustion run on `fixture-audit`
   (needs G3).
+
+Record: f74b6b4 (merge 829d1c8). No deviation from the spec or W2;
+W2 addenda in the wave log (the pre-0.3.0 fallback to `postgres` among
+them). Outside its Files line: the `check` help text in
+`tools/gm/__init__.py`.
 
 ### Chunk 10 — Multi-host: hosts, placement, `fit` per host, the image copy
 
