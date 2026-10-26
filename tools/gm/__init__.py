@@ -34,7 +34,8 @@ def _scenario_args(parser):
 def _cmd_fit(args):
     from . import fit
     result = fit.fit(args.scenario_dir, args.playground, endpoint=args.endpoint,
-                     cpu=args.cpu, memory=args.memory, disk=args.disk)
+                     cpu=args.cpu, memory=args.memory, disk=args.disk, hosts=args.host,
+                     mapping=args.map)
     print(result.text())
     return 0 if result.ok else 1
 
@@ -171,6 +172,14 @@ def build_parser():
     p.add_argument("--cpu", metavar="N", help="playground CPUs")
     p.add_argument("--memory", metavar="SIZE", help="playground memory (8G)")
     p.add_argument("--disk", metavar="SIZE", help="playground disk (40G)")
+    p.add_argument("--host", action="append", default=[],
+                   metavar="<name>[,manager][,endpoint=<url>],cpu=N,memory=SIZE,disk=SIZE",
+                   help="a host of the playground, by its swarm node name, memory at what it "
+                        "has available (repeatable; replaces the whole host list; exactly one "
+                        "manager; no endpoint: the local engine)")
+    p.add_argument("--map", action="append", default=[], metavar="<designed host>=<host>",
+                   help="place the scenario's designed host on a declared host (repeatable; "
+                        "replaces the whole mapping; implied on one host)")
     p.set_defaults(func=_cmd_fit)
 
     p = sub.add_parser("render", help="write the stack file, the envelope files and the "

@@ -126,6 +126,26 @@ def server_version(docker):
     return lines[0] if lines else ""
 
 
+def engine_name(docker):
+    """The targeted engine's name (`docker info`), its swarm node name."""
+    lines = docker.lines(["info", "--format", "{{.Name}}"])
+    return lines[0] if lines else ""
+
+
+def swarm_nodes(docker):
+    """The swarm's nodes as the manager lists them, by hostname:
+    `{status, availability, manager_status}` (`docker node ls`; manager_status
+    is empty for a worker). DockerError when the engine is no manager."""
+    nodes = {}
+    for line in docker.lines(["node", "ls", "--format",
+                              "{{.Hostname}}\t{{.Status}}\t{{.Availability}}\t"
+                              "{{.ManagerStatus}}"]):
+        parts = (line.split("\t") + ["", "", ""])[:4]
+        nodes[parts[0]] = {"status": parts[1], "availability": parts[2],
+                           "manager_status": parts[3]}
+    return nodes
+
+
 @dataclass
 class Image:
     """An image as the engine holds it. `layers` lists `(chain id, size)`

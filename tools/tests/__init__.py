@@ -74,6 +74,8 @@ FAKE_UNREACHABLE_ENV = "DBAGM_FAKE_DOCKER_UNREACHABLE"
 UNREACHABLE = ("Cannot connect to the Docker daemon at unix:///var/run/docker.sock. "
                "Is the docker daemon running?")
 
+FAKE_ENGINE_NAME = "gm-host"        # what the fake engine's `docker info` names it
+
 # Every image of the fake engine sits on one shared base layer (as the brick
 # images on debian:13-slim) under one layer of its own.
 BASE_LAYER = ("sha256:" + "b" * 64, 78 * 1024 ** 2)
@@ -99,15 +101,20 @@ class FakeDocker:
     layer); False, none is; or a dict of the present images, each to its
     layers `[(diff id, size)]` bottom first. `missing` removes images;
     `reachable=False` makes every command fail as an engine that does not
-    answer."""
+    answer. `name` is the engine's (`docker info`), `nodes` what `docker
+    node ls` lists, `{hostname: (status, availability, manager status)}`
+    (by default the engine alone, the swarm's leader)."""
 
     KINDS = ("service", "network", "volume", "config", "secret")
 
     def __init__(self, swarm=("active", True), images=True, health="healthy", fail=None,
-                 endpoint=None, missing=(), reachable=True):
+                 endpoint=None, missing=(), reachable=True, name=None, nodes=None):
         from tools.gm.docker import Docker
         self._docker = Docker(endpoint)
         self.endpoint = endpoint
+        self.name = name or FAKE_ENGINE_NAME
+        self.nodes = (dict(nodes) if nodes is not None
+                      else {self.name: ("Ready", "Active", "Leader")})
         self.swarm = swarm
         self.images = images
         self.missing = set(missing)
@@ -207,6 +214,13 @@ class FakeDocker:
             return (1, UNREACHABLE)
         if cmd == "version":
             return "29.9.1\n"
+        if cmd == "info" and "{{.Name}}" in args:
+            return self.name + "\n"
+        if args[:2] == ["node", "ls"]:
+            if not self.swarm[1]:
+                return (1, "Error response from daemon: This node is not a swarm manager.")
+            return "".join(f"{host}\t{status}\t{avail}\t{mgr}\n"
+                           for host, (status, avail, mgr) in self.nodes.items())
         if cmd == "info":
             return json.dumps({"LocalNodeState": self.swarm[0], "ControlAvailable": self.swarm[1]})
         if cmd == "swarm" and args[1] == "init":

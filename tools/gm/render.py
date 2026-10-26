@@ -23,6 +23,10 @@ files it rewrites into `rendered/<node>/`: a scheduler's `schedule.yaml`
 and `jobs.yaml` in UTC, shifted, and the bastion's files holding
 `{{customer_timezone}}`, filled. A scenario with none has no aging and
 shifts nothing (D158).
+
+v0.3 master spec 7.5 and 10.2; capture W3, item 2: every node is pinned to
+the host `fit` placed it on (`nodes.<n>.host`), `node.hostname == <host>`,
+the bastion with its host-mode ports, a stateful node with its volumes.
 """
 
 import datetime
@@ -429,7 +433,7 @@ def build_stack(scenario, impl):
         reservations = inode["resources"]["reservations"]
         svc["deploy"] = {
             "replicas": 1,
-            "placement": {"constraints": [localimpl.PLACEMENT_CONSTRAINT]},
+            "placement": {"constraints": [localimpl.placement_constraint(inode["host"])]},
             "resources": {
                 "limits": {"cpus": _cpus(limits["cpu"]), "memory": str(limits["memory"])},
                 "reservations": {"cpus": _cpus(reservations["cpu"]),
@@ -499,6 +503,10 @@ def _check_fit(scenario, impl, playground):
     if impl["scenario"]["id"] != scenario.id \
             or list(impl["nodes"]) != [n["name"] for n in scenario.nodes]:
         raise GmError("the scenario changed since gmctl fit (id or nodes): fit again")
+    unplaced = [name for name, inode in impl["nodes"].items() if not inode.get("host")]
+    if unplaced:
+        raise GmError(f"node(s) {', '.join(unplaced)} have no host in implementation.yaml "
+                      "(fitted before placement per host): fit again")
     for node in scenario.nodes:
         brick = scenario.bricks[node["name"]]
         recorded = impl["nodes"][node["name"]]["brick"]
