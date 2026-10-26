@@ -1,0 +1,19 @@
+# Query repository of the load fixture's consumer node (master spec 7.1;
+# template: .claude/skills/scenario-format/templates/queries.yaml).
+queries:
+  reports.recent:                    # a query
+    sql: >-
+      SELECT id, customer_id, total FROM orders
+      WHERE placed_at > now() - interval '10 minutes' ORDER BY id DESC LIMIT 20
+  reports.top-customers:             # a query, read in one transaction
+    sql: >-
+      SELECT customer_id, count(*), sum(total) FROM orders
+      WHERE placed_at > %(since)s::timestamptz GROUP BY customer_id ORDER BY 3 DESC LIMIT 10
+    params:
+      since: {choice: ["2026-01-01", "2026-06-01"]}
+    transaction: {isolation: repeatable read}
+  reports.rollup:                    # a sequence: the nightly roll-up's steps
+    transaction: {isolation: read committed}
+    steps:
+      - sql: SELECT count(*) FROM orders WHERE placed_at::date = current_date - 1
+      - sql: SELECT sum(total) FROM orders WHERE placed_at::date = current_date - 1

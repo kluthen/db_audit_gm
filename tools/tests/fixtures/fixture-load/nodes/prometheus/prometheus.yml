@@ -1,0 +1,31 @@
+# Seed prometheus.yml of the load fixture (tools/tests, v0.3 chunk 12):
+# Prometheus itself, the PostgreSQL exporter, both schedulers' metrics, and
+# the node-health endpoint of every node of the topology. The node is
+# report-only: players read this file and cannot change it.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Retention, bounded by time to at least the aging minimum (8h) plus four
+# hours (v0.3 master spec 6.1, 7.4), and by size above the TSDB's growth.
+storage:
+  tsdb:
+    retention:
+      time: 1d
+      size: 256MB
+
+scrape_configs:
+  - job_name: prometheus
+    metrics_path: /prometheus/metrics
+    static_configs:
+      - targets: ['localhost:9090']
+  - job_name: postgres
+    static_configs:
+      - targets: ['exporter:9187']
+  - job_name: scheduler
+    static_configs:
+      - targets: ['producer:9120', 'consumer:9120']
+  - job_name: node-health
+    static_configs:
+      - targets: ['bastion:9110', 'db:9110', 'pooler:9110', 'producer:9110', 'consumer:9110',
+                  'prometheus:9110', 'exporter:9110', 'grafana:9110']

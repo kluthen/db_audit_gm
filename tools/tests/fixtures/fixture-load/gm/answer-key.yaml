@@ -1,0 +1,55 @@
+# Answer key of fixture-load (tools/tests, v0.3 chunk 12). Not a game.
+scenario:
+  id: fixture-load
+  version: 0.1.0
+notes: gm/notes.md
+
+instances:
+  - instance: f1
+    what: the producer's refresh-stats job is scheduled every minute instead of once an hour.
+    why: >-
+      the job reads an hour of orders, so one run an hour is enough; every
+      minute it adds sixty runs an hour to the database and the log.
+    evidence:
+      - where: node:producer
+        source: /srv/scheduler/jobs/jobs.yaml and the scheduler's log
+        how: ssh producer, then grep 'run job=refresh-stats ' /var/log/scheduler/scheduler.log | tail
+        shows: the job's at is "* * * * *", and a run starts every minute
+    acceptable:
+      diagnosis: names the refresh-stats job as scheduled every minute instead of hourly.
+      fix: >-
+        the refresh-stats job runs at most once an hour in the loaded jobs.yaml
+        (edited through the producer's write override, then sudo
+        gm-reload-scheduler), and at most one of its runs starts in the window.
+    sealed_check:
+      script: faults/fixture-job-every-minute/checks/fixed.sh
+      at_handover: 1
+      window: 2m
+      threshold: 1
+      notes: >-
+        the fixture's own behavioural fault; after a fix it reads too soon
+        (exit 3) for the window's two minutes since the reload.
+    interactions: []
+    validators_left_red: []
+  - instance: f2
+    what: autovacuum is turned off on shop's orders table.
+    why: >-
+      dead rows and stale statistics build up unchecked on the table the
+      order service writes all day.
+    evidence:
+      - where: node:db
+        source: the table's storage parameters
+        how: ssh db, then psql -d shop -c '\d+ orders'
+        shows: "Options: autovacuum_enabled=off"
+    acceptable:
+      diagnosis: names the table-level autovacuum_enabled=off on orders.
+      proposal: re-enable autovacuum on orders (ALTER TABLE orders RESET (autovacuum_enabled)).
+      fix: orders no longer has autovacuum_enabled set to false.
+    sealed_check:
+      script: faults/pg-table-autovacuum-off/checks/fixed.sh
+      at_handover: 1
+      notes: a catalog state fault planted during the aging (handover-4h).
+    interactions: []
+    validators_left_red: []
+
+tooling_expectations: []           # none in this fixture
