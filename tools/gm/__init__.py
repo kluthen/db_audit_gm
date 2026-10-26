@@ -12,7 +12,8 @@ Python 3, standard library plus PyYAML. Modules:
 - `deploy`     swarm check, credentials, labelled configs and secrets, the stack;
 - `execnode`   `exec` (a script into a node's `sh -s`) and `logs`;
 - `inject`     `load-data` and `inject`, the setup steps after deployment;
-- `aging`      `start-load`, `inject --at`, the host timers (v0.3);
+- `aging`      `start-load`, `inject --at`, the host timers, the outages, the
+               early and hand-over checks, `status`'s aging lines (v0.3);
 - `checks`     `validate` and `check`, the evaluation's live evidence;
 - `teardown`   removing everything carrying the game's label.
 
@@ -94,10 +95,13 @@ def _evaluation(args, run):
     """validate and check: exit 0/1/2 from the result; a refusal (nothing
     run, the result unknown) exits 2, not 1, which would read as red or
     present (capture W3-A)."""
+    from .aging import TimerRefused
     from .checks import ERROR
     from .model import GmError, IncompleteScenario
     try:
         result = run(args.scenario_dir, args.playground)
+    except TimerRefused:
+        raise
     except IncompleteScenario as exc:
         print(exc.report())
         print(f"gmctl {args.command}: refused: the scenario is incomplete "
@@ -117,7 +121,15 @@ def _cmd_validate(args):
 
 def _cmd_check(args):
     from . import checks
-    return _evaluation(args, checks.check)
+    if not (args.early_check or args.handover_check):
+        return _evaluation(args, checks.check)
+    from . import aging
+    kind = aging.EARLY_CHECK if args.early_check else aging.HANDOVER_CHECK
+    try:
+        return _evaluation(args, lambda d, pg: aging.run_check(d, pg, kind))
+    except aging.TimerRefused as exc:      # a stale timer: exit 1, nothing recorded (W2 item 5)
+        print(f"gmctl check: {exc}", file=sys.stderr)
+        return 1
 
 
 def _cmd_exec(args):
@@ -213,8 +225,16 @@ def build_parser():
 
     p = sub.add_parser("check", help="run every sealed check, one line per fault instance; "
                                      "exit 0 all fixed, 1 any present, 3 any too soon, "
-                                     "2 any error")
+                                     "2 any error. --early-check, --handover-check: the "
+                                     "aging's checks, recorded; exit 0 passed, 1 failed, "
+                                     "3 failed only on too-soon readings, 2 refused")
     _scenario_args(p)
+    which = p.add_mutually_exclusive_group()
+    which.add_argument("--early-check", action="store_true",
+                       help="the early check (the host timer runs it; stage load-started)")
+    which.add_argument("--handover-check", action="store_true",
+                       help="the hand-over check, before status --set handed-over (stage "
+                            "load-started; injected with no scheduler node)")
     p.set_defaults(func=_cmd_check)
 
     from .state import GM_STAGES
@@ -224,7 +244,8 @@ def build_parser():
     # Not argparse choices: any other stage is a refused transition (exit 1).
     p.add_argument("--set", metavar="<stage>",
                    help=f"record {', '.join(GM_STAGES)} (each follows the one before; "
-                        "handed-over follows injected)")
+                        "handed-over follows load-started, or injected with no scheduler "
+                        "node, once the hand-over check passed)")
     p.set_defaults(func=_cmd_status)
 
     p = sub.add_parser("exec", help="stream stdin into sh -s in a node's container, as a "

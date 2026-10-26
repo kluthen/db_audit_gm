@@ -48,7 +48,9 @@ The teardown a failed step runs itself writes none.
 | `tools/gmctl inject <dir> --playground <pg> [--timeout SECONDS]` | `data-loaded`, `injected` (a replay) | `injected`; every instance's planting (`plantings`); with scheduler nodes only the instances due at T0 are planted | 0; 1 refused (at `load-started`: re-plant one instance with `--at now`) or failed |
 | `tools/gmctl start-load <dir> --playground <pg>` | `injected`, with scheduler nodes | each attempt in `load`; T0 and `load-started` once every scheduler runs; the early check's host timer | 0 started; 1 refused (no scheduler node: `game <id> has no scheduler node, so it has no aging and no load to start (D157)`; the load already started; once handed over) or a scheduler did not start (recorded, nothing torn down, the stage stays `injected`: fix it and run it again, or tear the game down) |
 | `tools/gmctl inject <dir> --playground <pg> --at <YYYY-MM-DDTHH:MMZ>\|now --instance <id>` | `load-started` | `plantings.<id>`: its host timer, or its attempt and, on success, `planted_at` | 0 scheduled or planted; 1 refused (not a `state` instance, a T0 instance (master spec 8.5), an instant not in the future or at or after the planned hand-over, an instant for an instance already planted, at or after hand-over) or the planting failed (recorded, nothing torn down, the stage unchanged) |
-| `tools/gmctl status <dir> --playground <pg> --set handed-over` | `injected` | `handed-over` | 0; 1 refused |
+| `tools/gmctl check <dir> --playground <pg> --early-check` | `load-started` (the host timer runs it; the GM may run it again) | `early_check.result`; the outages; the earliest hand-over | 0 passed; 1 failed (recorded, nothing torn down); 2 refused (no scheduler node, another stage) |
+| `tools/gmctl check <dir> --playground <pg> --handover-check` | `load-started`; `injected` with no scheduler node | a record in `handover_checks`; the outages; the earliest hand-over | 0 passed; 1 failed; 3 failed only on too-soon readings (wait the longest remaining window, then run it again); 2 refused |
+| `tools/gmctl status <dir> --playground <pg> --set handed-over` | `load-started`, the earliest hand-over reached and the last hand-over check passed at or after it; with no scheduler node, `injected` and the last hand-over check passed | `handed-over` | 0; 1 refused (the condition not met, and for the earliest hand-over when it falls) |
 | `printf '%s\n' 'cat ~/report.md' \| tools/gmctl exec <dir> --playground <pg> --node <bastion> --user player` | any deployed stage | nothing | the script's own; 125 could not start |
 | `printf '%s\n' '<script>' \| tools/gmctl exec <dir> --playground <pg> --node <node> --user <user> [--env KEY=VALUE]` | any deployed stage | nothing | the script's own; 125 could not start |
 | `tools/gmctl status <dir> --playground <pg> --set final-answer` | `handed-over` | `final-answer` | 0; 1 refused |
@@ -195,14 +197,44 @@ password or key. The GM's reads, one per tool, are in the skill's
   connects as the GM check role `gm_check`, inside the GM's reserve, so an
   exhausted `max_connections` does not lock it out; players see its
   sessions in the server log and `pg_stat_activity`.
-- **`status`**: game id, playground and endpoint, stage (for a failed
+- **`check --early-check`, `check --handover-check`** (master spec 8.5):
+  the sealed check of every fault planted so far, passing when it exits
+  as the answer key's `at_handover` says (1, present); in a game with
+  scheduler nodes, every scheduler running, every current stream key with
+  a line in the last complete minute, and every fixed-time operation due
+  more than 10 minutes ago run once; every node healthy; the outages so
+  far, recorded (never a failure on their own: the GM judges them). At the
+  early check an instance due later is listed, not a failure, and a "too
+  soon to tell" reading is recorded; at the hand-over check both fail it.
+  A missed or failed planting fails both. A game with no scheduler node
+  has no early check, and its hand-over check judges the faults and the
+  nodes only. Lines per fault and per scheduler, then `<Early|Hand-over>
+  check of game <id>: passed.` or `FAILED, <n> failure(s):` and each one.
+- **`status`**: first, every unresolved failure and the outages:
+  `FAILED start-load ...` (T0 not recorded), `FAILED|MISSED|UNSCHEDULED
+  planting: ...` with the `inject --at now` that plants it, `FAILED early
+  check ...` (until a hand-over check passes), `FAILED hand-over check
+  ...`, `OUTAGES: <n> min lost in <k> period(s) ...` (`at least` when
+  Swarm's task history of a node may have been pruned) with one line per
+  period, `OUTAGES NOT READ ...`: tell the initiator of any before
+  anything else. Then game id, playground and endpoint, stage (for a failed
   game, the last stage reached), the failure if any, the teardown record
   if any (`torn down: at <at>, from stage <stage>: <reason>`, or `no
   reason given`), the history, `network: <id>_<network name>`, and for a
   deployed game `secrets: <dir>/ (mode 0600, not printed)` followed by
   one line per file, indented 4 spaces: `<file>: password`, `<file>:
   password, handed over`, `<pair>: private key of pair <pair>` or
-  `<pair>.pub: public key of pair <pair>`.
+  `<pair>.pub: public key of pair <pair>`; `tools_password` only when the
+  game has a web front (RG-3). In a game that ages, then: `aging: T0 <t0>;
+  ran <time> (elapsed less the lost time) of the <minimum> minimum`, `lost
+  time: <n> min`, `earliest hand-over: <instant> (reached | in <time> |
+  provisional, waiting for the planting of <id>)` (the later of T0 plus
+  the aging minimum and each fault's own minimum since its planting,
+  moved later by the lost time beyond 30 minutes), the planned hand-over
+  with the shift and the customer's time zone, each planting, and the
+  early check; in every game, the last hand-over check. At `load-started`
+  `status` reads the outages again from the schedulers' per-minute
+  summaries and the nodes' task history.
 - **`teardown`**: `Teardown of game <id>: removed ...; nothing carrying
   its label is left.` (`... nothing carrying its label was left.` when
   there was nothing to remove), then, when the game had host timers,

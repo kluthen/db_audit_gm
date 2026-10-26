@@ -1,4 +1,6 @@
-"""The aging: `gmctl start-load`, `gmctl inject --at`, the host timers.
+"""The aging: `gmctl start-load`, `gmctl inject --at`, the host timers, the
+outages, the earliest hand-over, the early and hand-over checks, and the
+aging's part of `gmctl status`.
 
 v0.3 master spec 8 (its opening), 8.4, 8.5, 8.7 and 13; the records and
 their forms are fixed by capture W2 in `specs/versions/v0.3/wave-log.md`
@@ -21,6 +23,17 @@ W1 item 7 and W1-y.
   `DBAGM_GAME`: it refuses a playground holding another game or a torn
   down one, and first waits, up to LATE_RUN_WAIT, for the game's nodes
   to run (a late run after a host restart).
+- Outages (W2 item 6, spec D152, D174): a minute after T0 in which a
+  scheduler wrote no per-minute summary, or a node had no running task
+  by Swarm's kept task history; read at each check and on `status`, the
+  union kept, a node whose history may be pruned listed `incomplete`.
+  The earliest hand-over is one function (W2 item 7, spec D175).
+- `check --early-check` and `--handover-check` (W2 item 8; master spec
+  8.5): every planted fault against the answer key's `at_handover`, the
+  schedulers' keys and jobs, the nodes' health, the outages; recorded,
+  never a teardown. `status --set handed-over` needs the earliest
+  hand-over reached and a passed hand-over check run at or after it
+  (W2 item 11; the snapshot's condition is chunk 11a's, spec D172).
 - The test-harness override of the aging minimum (G6, spec D156, D161)
   is set by `start-load`'s undocumented `--test-aging-minimum`, which only
   the harness scripts pass; it is recorded in `state.yaml` as
@@ -185,13 +198,16 @@ def cron_first_due(at, after, zone=None, days=400):
     return None
 
 
-def scheduler_nodes(scenario):
-    return [n["name"] for n in scenario.nodes if is_scheduler_node(n)]
+def scheduler_nodes(impl):
+    """The game's scheduler nodes, in topology order (W1 item 0)."""
+    return [name for name, node in impl["nodes"].items()
+            if (node.get("brick") or {}).get("id") == model.SCHEDULER_BRICK]
 
 
-def rendered_file(scenario, playground, node, fname):
-    """A scheduler node's rendered seed file, read (None when absent)."""
-    path = Path(scenario.dir) / localimpl.rendered_seed_file(playground, node, fname)
+def rendered_file(ldir, node, fname):
+    """A scheduler node's rendered seed file (W2 item 1), read; None when
+    absent."""
+    path = Path(ldir) / localimpl.RENDERED_DIR / node / fname
     try:
         return yaml.safe_load(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
@@ -200,11 +216,11 @@ def rendered_file(scenario, playground, node, fname):
         raise GmError(f"{path}: cannot be read: {' '.join(str(exc).split())}") from None
 
 
-def rendered_jobs(scenario, playground):
+def rendered_jobs(ldir, impl):
     """[(node, job)] of every scheduler node's rendered jobs.yaml."""
     out = []
-    for node in scheduler_nodes(scenario):
-        doc = rendered_file(scenario, playground, node, localimpl.JOBS_FILE) or {}
+    for node in scheduler_nodes(impl):
+        doc = rendered_file(ldir, node, localimpl.JOBS_FILE) or {}
         out += [(node, job) for job in doc.get("jobs") or [] if isinstance(job, dict)]
     return out
 
@@ -282,7 +298,7 @@ def game_earliest(impl, st):
     return earliest_handover(timeline, t0, st.get("plantings"), lost, override_seconds(st))
 
 
-def early_check_due(scenario, playground, impl, st, now=None):
+def early_check_due(ldir, impl, st):
     """When the early check runs (W2 item 8): the later of T0 + M/2 and,
     for every rendered job first due before the earliest hand-over, that
     instant plus 10 minutes; then at most the earliest hand-over minus
@@ -292,7 +308,7 @@ def early_check_due(scenario, playground, impl, st, now=None):
     minimum = _capped(parse_duration(impl[localimpl.TIMELINE]["aging_minimum"]),
                       override_seconds(st))
     due = t0 + datetime.timedelta(seconds=minimum // 2)
-    for _, job in rendered_jobs(scenario, playground):
+    for _, job in rendered_jobs(ldir, impl):
         first = job_first_due(job, t0)
         if first is not None and first < earliest:
             due = max(due, first + JOB_GRACE)
@@ -634,7 +650,7 @@ def start_load(scenario_dir, playground, docker=None, systemd=None, test_aging_m
     began = now or now_utc()
     result = StartLoadResult(gid, iso(began))
 
-    for node in scheduler_nodes(scenario):
+    for node in scheduler_nodes(impl):
         try:
             run = exec_node(ldir, node, "root", stdin=START_SCRIPT, env={"GM_T0": iso(began)},
                             timeout=START_TIMEOUT, docker=docker)
@@ -659,6 +675,7 @@ def start_load(scenario_dir, playground, docker=None, systemd=None, test_aging_m
         if started:
             load["t0"] = iso(began)
             localimpl.enter_stage(state, LOAD_STAGE, recorded_at)
+            write_earliest(state, impl, began)
     st = localimpl.update_state(ldir, record)
     result.override = override_text(st)
     if not started:
@@ -667,7 +684,7 @@ def start_load(scenario_dir, playground, docker=None, systemd=None, test_aging_m
 
     systemd = systemd or Systemd()
     try:
-        due = early_check_due(scenario, playground, impl, st)
+        due = early_check_due(ldir, impl, st)
         timer = create_timer(systemd, gid, EARLY_ACTION, due,
                              gmctl_argv("check", scenario_dir, playground, "--early-check"))
         result.early_check = timer
@@ -804,8 +821,10 @@ def inject_at(scenario_dir, playground, at, instance, timeout=None, docker=None,
             p["timer"] = timer
             p.setdefault("attempts", [])
             p.setdefault("planted_at", None)
+            write_earliest(state, impl, current)
         st = localimpl.update_state(ldir, record)
-        result.early_moved = move_early_check(scenario, playground, impl, st, systemd, current)
+        result.early_moved = move_early_check(ldir, scenario_dir, playground, impl, st, systemd,
+                                              current)
         return result
 
     from .inject import _print_run, inject_plan
@@ -841,11 +860,15 @@ def inject_at(scenario_dir, playground, at, instance, timeout=None, docker=None,
         if attempt["outcome"] == "ok":
             p["planted_at"] = attempt["at"]
         p.setdefault("planted_at", None)
-    localimpl.update_state(ldir, record)
+        write_earliest(state, impl, current)
+    st = localimpl.update_state(ldir, record)
+    if attempt["outcome"] == "ok":
+        result.early_moved = move_early_check(ldir, scenario_dir, playground, impl, st, systemd,
+                                              current)
     return result
 
 
-def move_early_check(scenario, playground, impl, st, systemd, now):
+def move_early_check(ldir, scenario_dir, playground, impl, st, systemd, now):
     """After an `inject --at` brings the earliest hand-over earlier, the
     early check's timer moves earlier so it stays no later than the
     earliest hand-over minus one hour, never before T0 + 5 minutes nor
@@ -863,13 +886,713 @@ def move_early_check(scenario, playground, impl, st, systemd, now):
     if new >= due:
         return None
     moved = create_timer(systemd, st["game_id"], EARLY_ACTION, new,
-                         gmctl_argv("check", scenario.dir, playground, "--early-check"), now=now)
+                         gmctl_argv("check", scenario_dir, playground, "--early-check"), now=now)
 
     def record(state):
         state.setdefault("early_check", {})["timer"] = moved
-    localimpl.update_state(ldir_of(scenario, playground), record)
+    localimpl.update_state(ldir, record)
     return moved
 
 
-def ldir_of(scenario, playground):
-    return localimpl.local_dir(scenario.dir, playground)
+# --- Reading the schedulers and the task history (W2 items 6, 8) -----------
+
+READ_SCRIPT = f"""printf 'status %s\\n' "$(cat {SCHEDULER_STATUS} 2>/dev/null)"
+[ -f {SCHEDULER_LOG} ] || exit 0
+grep -E '^[^ ]+ (summary|key|run|skip|job) ' {SCHEDULER_LOG}
+[ $? -le 1 ]
+"""
+_FIELD_RE = re.compile(r'([a-z_0-9]+)=("(?:[^"\\]|\\.)*"|\S+)')
+
+
+@dataclass
+class SchedulerReading:
+    """What one scheduler node's status file and log say (W1 item 7, W1-y)."""
+    node: str
+    status: str = ""
+    summaries: set = field(default_factory=set)     # minutes with a summary line
+    keys: dict = field(default_factory=dict)        # minute -> keys with a key line
+    runs: dict = field(default_factory=dict)        # job -> instants of run phase=start / skip
+    never: set = field(default_factory=set)         # jobs with a `job ... next=never` line
+
+    @property
+    def running(self):
+        return self.status.startswith("running ")
+
+    def last_minute(self):
+        return max(self.summaries) if self.summaries else None
+
+
+def parse_scheduler_output(node, text):
+    reading = SchedulerReading(node)
+    for line in (text or "").splitlines():
+        if line.startswith("status "):
+            reading.status = line[len("status "):].strip()
+            continue
+        parts = line.split(" ", 2)
+        if len(parts) < 3:
+            continue
+        stamp, event, rest = parts
+        fields = {k: v.strip('"') for k, v in _FIELD_RE.findall(rest)}
+        if event == "summary" and "minute" in fields:
+            reading.summaries.add(fields["minute"])
+        elif event == "key" and "minute" in fields:
+            reading.keys.setdefault(fields["minute"], set()).add(fields.get("key"))
+        elif (event == "run" and fields.get("phase") == "start") or event == "skip":
+            reading.runs.setdefault(fields.get("job"), []).append(stamp)
+        elif event == "job" and fields.get("next") == "never":
+            reading.never.add(fields.get("job"))
+    return reading
+
+
+def read_scheduler(ldir, node, docker):
+    """One scheduler node's reading; GmError when it cannot be read."""
+    run = exec_node(ldir, node, "root", stdin=READ_SCRIPT, docker=docker, timeout=120)
+    if not run.ok:
+        raise GmError(f"{node}: its log could not be read: {first_line(run)}")
+    return parse_scheduler_output(node, run.stdout if isinstance(run.stdout, str)
+                                  else (run.stdout or b"").decode("utf-8", "replace"))
+
+
+ZERO_TIME = "0001-01-01T00:00:00Z"
+
+
+def docker_instant(text):
+    """A Docker timestamp (`2026-10-26T20:00:07.123456789Z`) -> aware
+    datetime; None for an empty or zero one."""
+    if not text or str(text).startswith("0001-01-01"):
+        return None
+    m = re.match(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(\.\d+)?(Z|[+-]\d{2}:\d{2})$", str(text))
+    if m is None:
+        raise GmError(f"{text!r} is not a Docker timestamp")
+    moment = datetime.datetime.strptime(m.group(1), "%Y-%m-%dT%H:%M:%S")
+    if m.group(2):
+        moment = moment.replace(microsecond=int(m.group(2)[1:7].ljust(6, "0")))
+    zone = UTC if m.group(3) == "Z" else datetime.datetime.strptime(m.group(3), "%z").tzinfo
+    return moment.replace(tzinfo=zone).astimezone(UTC)
+
+
+@dataclass
+class TaskHistory:
+    periods: list = field(default_factory=list)     # [(start, end or None)] a task ran
+    oldest: datetime.datetime = None                # the oldest kept task's creation
+
+
+def task_history(docker, service):
+    """When the service's tasks ran, from Swarm's kept task history (master
+    spec 20): each task with a container counts from its container's start
+    (its creation when the container is gone) to its end (still running:
+    open). GmError when it cannot be read."""
+    import json
+    ids = docker.lines(["service", "ps", "-q", "--no-trunc", service])
+    history = TaskHistory()
+    if not ids:
+        return history
+    for line in docker.lines(["inspect", "--type", "task", "--format", "{{json .}}", *ids]):
+        try:
+            task = json.loads(line)
+        except ValueError:
+            raise GmError(f"service {service}: its task history could not be read") from None
+        created = docker_instant(task.get("CreatedAt"))
+        if created and (history.oldest is None or created < history.oldest):
+            history.oldest = created
+        status = task.get("Status") or {}
+        container = (status.get("ContainerStatus") or {}).get("ContainerID")
+        if not container:
+            continue                    # never started (pending, rejected)
+        state = status.get("State")
+        started = ended = None
+        proc = docker.run(["inspect", "--type", "container", "--format",
+                           "{{.State.StartedAt}} {{.State.FinishedAt}}", container], check=False)
+        if proc.returncode == 0 and (proc.stdout or "").split():
+            fields = proc.stdout.split()
+            started = docker_instant(fields[0])
+            ended = docker_instant(fields[1]) if len(fields) > 1 else None
+        if state == "running":
+            started, ended = started or docker_instant(status.get("Timestamp")), None
+        else:
+            started = started or created
+            ended = ended or docker_instant(status.get("Timestamp"))
+        if started:
+            history.periods.append((started, ended))
+    return history
+
+
+# --- Outages and the lost time (W2 item 6, spec D152, D174) -----------------
+
+MINUTE = datetime.timedelta(minutes=1)
+SUMMARY_DELAY = datetime.timedelta(seconds=15)
+
+
+def floor_minute(moment):
+    return moment.replace(second=0, microsecond=0)
+
+
+def outage_span(t0, now, end=None):
+    """(first, last) minutes judged: from the first whole minute after T0
+    to the last minute M with M + 1 min + 15 s at or before `now`, never
+    past `end` (the hand-over)."""
+    first = floor_minute(t0) + MINUTE
+    last = floor_minute(now - MINUTE - SUMMARY_DELAY)
+    if end is not None:
+        last = min(last, floor_minute(end) - MINUTE)
+    return first, last
+
+
+def covered(periods, start, end):
+    """Whether the periods cover [start, end) without a gap."""
+    reach = start
+    for p_start, p_end in sorted(periods, key=lambda p: p[0]):
+        if p_start > reach:
+            break
+        if p_end is None:
+            return True
+        reach = max(reach, p_end)
+        if reach >= end:
+            return True
+    return reach >= end
+
+
+def outage_minutes(first, last, summaries, histories, known_from=None):
+    """{minute: [causes]} for every outage minute from `first` to `last`
+    (8.7): a scheduler with no summary for it (`summaries`: node -> its
+    minutes), or a node with no running task during part of it
+    (`histories`: node -> [(start, end)]). A minute before `known_from`
+    (node -> the oldest kept task's creation) is not judged by that node's
+    history: Swarm pruned what it held, so the lost time is a lower bound
+    (D174)."""
+    out = {}
+    known_from = known_from or {}
+    minute = first
+    while minute <= last:
+        name = iso_minute(minute)
+        causes = [f"{node}: no summary" for node, minutes in summaries.items()
+                  if name not in minutes]
+        causes += [f"{node}: no running task" for node, periods in histories.items()
+                   if (known_from.get(node) is None or minute >= known_from[node])
+                   and not covered(periods, minute, minute + MINUTE)]
+        if causes:
+            out[name] = causes
+        minute += MINUTE
+    return out
+
+
+def period_minutes(periods):
+    """Recorded periods -> {minute: [causes]}."""
+    out = {}
+    for period in periods or []:
+        minute, to = parse_instant(period["from"]), parse_instant(period["to"])
+        while minute <= to:
+            out[iso_minute(minute)] = list(period.get("causes") or [])
+            minute += MINUTE
+    return out
+
+
+def merge_periods(minutes):
+    """{minute: [causes]} -> periods, runs of consecutive minutes, oldest
+    first, each with its minutes and the union of its causes."""
+    periods = []
+    for name in sorted(minutes):
+        moment = parse_instant(name)
+        if periods and parse_instant(periods[-1]["to"]) + MINUTE == moment:
+            period = periods[-1]
+            period["to"], period["minutes"] = name, period["minutes"] + 1
+        else:
+            period = {"from": name, "to": name, "minutes": 1, "causes": []}
+            periods.append(period)
+        period["causes"] += [c for c in minutes[name] if c not in period["causes"]]
+    return periods
+
+
+def handover_instant(st):
+    for entry in reversed((st or {}).get("history") or []):
+        if entry.get("stage") == HANDED_OVER:
+            return parse_instant(entry.get("at"))
+    return None
+
+
+def read_outages(ldir, impl, st, docker, now, readings=None):
+    """One reading of the outages (W2 item 6), recorded under `outages`,
+    keeping the union with the minutes already recorded. A node that
+    cannot be read leaves the record as it was, with `unread`. Returns
+    (record, {node: SchedulerReading or GmError})."""
+    t0 = parse_instant(st["load"]["t0"])
+    previous = st.get("outages") or {}
+    readings = dict(readings or {})
+    error = None
+    for node in scheduler_nodes(impl):
+        if node not in readings:
+            try:
+                readings[node] = read_scheduler(ldir, node, docker)
+            except GmError as exc:
+                readings[node] = exc
+        if isinstance(readings[node], GmError):
+            error = error or f"{node}: {readings[node]}"
+    histories = {}
+    for name, node in impl["nodes"].items():
+        try:
+            histories[name] = task_history(docker, node["service"])
+        except GmError as exc:
+            error = error or f"{name}: {exc}"
+    if error:
+        record = dict(previous, unread={"at": iso(now), "reason": " ".join(error.split())})
+        return record, readings
+    first, last = outage_span(t0, now, handover_instant(st))
+    seen = outage_minutes(first, last, {n: r.summaries for n, r in readings.items()},
+                          {n: h.periods for n, h in histories.items()},
+                          {n: h.oldest for n, h in histories.items()})
+    merged = period_minutes(previous.get("periods"))
+    for name, causes in seen.items():
+        merged[name] = list(dict.fromkeys(merged.get(name, []) + causes))
+    since = parse_instant(previous.get("read_at")) or t0
+    incomplete = list(previous.get("incomplete") or [])
+    for name, history in histories.items():
+        if history.oldest is not None and history.oldest > since and name not in incomplete:
+            incomplete.append(name)
+    record = {"read_at": iso(now),
+              "through": iso_minute(last) if last >= first else previous.get("through"),
+              "lost_minutes": len(merged), "periods": merge_periods(merged),
+              "incomplete": incomplete}
+    return record, readings
+
+
+def lost_text(outages):
+    lost = (outages or {}).get("lost_minutes") or 0
+    return f"{'at least ' if (outages or {}).get('incomplete') else ''}{lost} min"
+
+
+# --- The early check and the hand-over check (W2 item 8) -------------------
+
+EARLY_CHECK, HANDOVER_CHECK = "early-check", "handover-check"
+PASSED, FAILED_CHECK, CANNOT, TOO_SOON_ONLY = 0, 1, 2, 3
+
+
+def at_handover(scenario, iid):
+    for entry in (scenario.answer_key or {}).get("instances") or []:
+        if isinstance(entry, dict) and entry.get("instance") == iid:
+            value = (entry.get("sealed_check") or {}).get("at_handover")
+            return 1 if value is None else int(value)
+    return 1
+
+
+def planting_problem(iid, planting, now):
+    """`(kind, text)` of an instance planted later whose planting needs the
+    GM: its last attempt failed, its planting missed (W2 item 4: its
+    timer due more than 15 minutes ago with no attempt since), or its
+    planned instant past with no timer and no planting (W2 item 11); None
+    otherwise."""
+    if not planting or planting.get("plant_at", T0) == T0:
+        return None
+    attempts = planting.get("attempts") or []
+    last = attempts[-1] if attempts else None
+    if last and last.get("outcome") == "failed":
+        return "failed", (f"{iid}: its planting failed at {last.get('at')}: "
+                          f"{last.get('reason')}")
+    if planting.get("planted_at"):
+        return None
+    timer = planting.get("timer")
+    due = parse_instant((timer or {}).get("due") or planting.get("planned_at"))
+    if due is None:
+        return None
+    if not timer:
+        if now <= due:
+            return None
+        return "unscheduled", f"{iid}: planned at {iso(due)}, neither scheduled nor planted"
+    if now <= due + MISSED_AFTER or (last and parse_instant(last.get("at")) >= due):
+        return None
+    return "missed", f"{iid}: its planting due {iso(due)} has not run"
+
+
+def current_keys(ldir, node, minute):
+    """The stream keys of a scheduler current in `minute` (W1 item 7): each
+    stream's initial key, changed by every timeline `set: {key}` at or
+    before the minute's start."""
+    doc = rendered_file(ldir, node, localimpl.SCHEDULE_FILE) or {}
+    keys = {s.get("key"): s.get("key") for s in doc.get("streams") or [] if isinstance(s, dict)}
+    start = parse_instant(minute)
+    changes = sorted((c for c in doc.get("timeline") or [] if isinstance(c, dict)),
+                     key=lambda c: str(c.get("at")))
+    for change in changes:
+        try:
+            when = parse_instant(change.get("at"))
+        except GmError:
+            continue
+        new = (change.get("set") or {}).get("key")
+        if when <= start and new and change.get("stream") in keys:
+            keys[change["stream"]] = new
+    return sorted(set(keys.values()))
+
+
+def judge_scheduler(ldir, impl, node, reading, t0, now):
+    """(entry, failures) for one scheduler node (W2 item 8 (b))."""
+    if isinstance(reading, GmError):
+        return {"node": node, "running": None, "error": str(reading)}, \
+            [f"{node}: could not be read: {reading}"]
+    failures = []
+    entry = {"node": node, "running": reading.running, "keys": {}, "jobs": {}}
+    if not reading.running:
+        failures.append(f"{node}: the scheduler is not running (status: "
+                        f"{reading.status or 'none'})")
+    minute = reading.last_minute()
+    if minute is None:
+        failures.append(f"{node}: no per-minute summary yet")
+    else:
+        entry["minute"] = minute
+        lines = reading.keys.get(minute, set())
+        for key in current_keys(ldir, node, minute):
+            entry["keys"][key] = key in lines
+            if key not in lines:
+                failures.append(f"{node}: key {key} has no line in minute {minute}")
+    for job_node, job in rendered_jobs(ldir, impl):
+        if job_node != node:
+            continue
+        name = job.get("name")
+        first = job_first_due(job, t0)
+        if name in reading.never:
+            verdict = "never"
+            failures.append(f"{node}: job {name} will never run again (next=never)")
+        elif first is None or first + JOB_GRACE > now:
+            verdict = "not-due"
+        elif any(parse_instant(t) >= first for t in reading.runs.get(name, [])
+                 if INSTANT_RE.match(t)):
+            verdict = "ran"
+        else:
+            verdict = "missed"
+            failures.append(f"{node}: job {name}, due {iso(first)}, has not run")
+        entry["jobs"][name] = verdict
+    return entry, failures
+
+
+@dataclass
+class CheckRun:
+    kind: str
+    game_id: str
+    record: dict
+    lines: list = field(default_factory=list)
+    exit_code: int = PASSED
+    nodes_down: list = field(default_factory=list)
+
+    def text(self):
+        what = "Early check" if self.kind == EARLY_CHECK else "Hand-over check"
+        out = list(self.lines)
+        if self.nodes_down:
+            out.insert(0, f"Nodes not running after {LATE_RUN_WAIT} s: "
+                          f"{', '.join(self.nodes_down)}; checking anyway.")
+        if self.record.get("passed"):
+            out.append(f"{what} of game {self.game_id}: passed.")
+        else:
+            failures = self.record.get("failures") or []
+            out.append(f"{what} of game {self.game_id}: FAILED, {len(failures)} failure(s):")
+            out += [f"  {f}" for f in failures]
+            if self.exit_code == TOO_SOON_ONLY:
+                longest = max(f.get("remaining") or 0 for f in self.record.get("faults") or [])
+                out.append(f"Only too-soon readings: wait {longest} s, then run it again.")
+        out.append("Recorded in state.yaml.")
+        return "\n".join(out)
+
+
+def run_check(scenario_dir, playground, kind, docker=None, out=print, now=None,
+              sleep=time.sleep, clock=time.monotonic):
+    """`gmctl check --early-check` or `--handover-check`; returns a
+    CheckRun (its `exit_code` is the command's: 0 passed, 1 failed, 3 a
+    hand-over check failed only on too-soon readings). Raises GmError on
+    a refusal (nothing run, nothing recorded)."""
+    from . import checks
+    from .deploy import service_health
+    ldir, st = _game(scenario_dir, playground)
+    by_timer = timer_run(st)
+    gid, stage = st.get("game_id"), st.get("stage")
+    scenario = model.load_scenario(scenario_dir)
+    aged = has_scheduler_nodes(scenario.data)
+    if kind == EARLY_CHECK and not aged:
+        raise GmError(f"game {gid} has no scheduler node, so it has no aging and no early "
+                      "check (D157)")
+    allowed = LOAD_STAGE if aged else INJECT_STAGE
+    if stage != allowed:
+        raise GmError(f"game {gid} is at stage {stage}; check --{kind} needs stage {allowed}")
+    impl = localimpl.read_implementation(ldir)
+    docker = docker or for_local_dir(ldir)
+    run = CheckRun(kind, gid, {})
+    if by_timer:
+        run.nodes_down = wait_for_nodes(docker, impl, sleep=sleep, clock=clock)
+    current = now or now_utc()
+    record = {"at": iso(current), "passed": False}
+    if override_text(st):
+        record["override"] = override_text(st)
+    failures = []
+
+    plantings = st.get("plantings") or {}
+    instances = [inst["id"] for inst in scenario.data.get("fault_instances") or []]
+    if aged:
+        planted = [i for i in instances if (plantings.get(i) or {}).get("planted_at")
+                   or (plantings.get(i) or {}).get("plant_at", T0) == T0]
+    else:
+        planted = instances
+    record["faults"] = []
+    try:
+        result = checks.check(scenario_dir, playground, docker=docker, instances=planted)
+    except GmError as exc:
+        result = None
+        failures.append(f"the sealed checks could not run: {exc}")
+    for line in (result.lines if result else []):
+        expected = at_handover(scenario, line.instance)
+        entry = {"instance": line.instance, "fault": line.fault_id, "verdict": line.verdict,
+                 "exit": line.returncode, "line": line.reason}
+        if line.verdict == "too-soon":
+            entry["remaining"] = line.remaining
+            if kind == HANDOVER_CHECK:
+                failures.append(f"{line.instance} {line.fault_id}: too soon to tell, "
+                                f"{line.remaining} s of its window remain")
+        elif line.verdict == "error":
+            failures.append(f"{line.instance} {line.fault_id}: the check errored: {line.reason}")
+        elif line.returncode != expected:
+            failures.append(f"{line.instance} {line.fault_id}: reads {line.verdict} (exit "
+                            f"{line.returncode}), expected exit {expected} at hand-over")
+        entry["passed"] = line.verdict != "error" and line.verdict != "too-soon" \
+            and line.returncode == expected
+        record["faults"].append(entry)
+        run.lines.append(line.text())
+
+    if aged:
+        not_planted = []
+        for iid in instances:
+            if iid in planted:
+                continue
+            problem = planting_problem(iid, plantings.get(iid), current)
+            if problem:
+                failures.append(problem[1])
+            elif kind == HANDOVER_CHECK:
+                failures.append(f"{iid}: not planted")
+            else:
+                not_planted.append(iid)
+        if kind == EARLY_CHECK:
+            record["not_planted"] = not_planted
+        t0 = parse_instant(st["load"]["t0"])
+        outages, readings = read_outages(ldir, impl, st, docker, current)
+        record["schedulers"] = []
+        for node in scheduler_nodes(impl):
+            entry, bad = judge_scheduler(ldir, impl, node, readings.get(node), t0, current)
+            record["schedulers"].append(entry)
+            failures += bad
+            run.lines.append(f"{node}: scheduler "
+                             + ("running" if entry.get("running") else "NOT running")
+                             + (f", keys {', '.join(k + (' ok' if v else ' MISSING') for k, v in entry.get('keys', {}).items())}"
+                                if entry.get("keys") else "")
+                             + (f"; jobs {', '.join(f'{j} {v}' for j, v in entry.get('jobs', {}).items())}"
+                                if entry.get("jobs") else ""))
+        if outages.get("unread"):
+            run.lines.append(f"outages NOT read: {outages['unread']['reason']}")
+        record["lost_minutes"] = outages.get("lost_minutes") or 0
+        run.lines.append(f"outages so far: {lost_text(outages)} lost")
+    record["nodes"] = {}
+    for name, node in impl["nodes"].items():
+        try:
+            health, detail = service_health(docker, node["service"])
+        except GmError as exc:
+            health, detail = "unknown", str(exc)
+        record["nodes"][name] = health
+        if health != "healthy":
+            failures.append(f"node {name}: {health}" + (f" ({detail})" if detail else ""))
+    run.lines.append("nodes: " + ", ".join(f"{n} {h}" for n, h in record["nodes"].items()))
+    record["failures"] = failures
+    record["passed"] = not failures
+    too_soon = [f for f in record["faults"] if f["verdict"] == "too-soon"]
+    if record["passed"]:
+        run.exit_code = PASSED
+    elif kind == HANDOVER_CHECK and too_soon and len(too_soon) == len(failures):
+        run.exit_code = TOO_SOON_ONLY
+    else:
+        run.exit_code = FAILED_CHECK
+    run.record = record
+
+    def write(state):
+        if aged:
+            state["outages"] = outages
+        if kind == EARLY_CHECK:
+            state.setdefault("early_check", {"timer": None})["result"] = record
+        else:
+            state.setdefault("handover_checks", []).append(record)
+        if aged:
+            write_earliest(state, impl, current)
+    localimpl.update_state(ldir, write)
+    return run
+
+
+# --- The earliest hand-over's record and the hand-over (W2 items 7, 11) ----
+
+def write_earliest(state, impl, now):
+    """`earliest_handover` recomputed from the records and written into
+    `state` (a dict); None for a game with no T0."""
+    computed = game_earliest(impl, state)
+    if computed is None:
+        return None
+    earliest, waiting = computed
+    record = {"at": iso(earliest), "waiting_for": waiting, "computed_at": iso(now)}
+    if override_text(state):
+        record["override"] = override_text(state)
+    state["earliest_handover"] = record
+    return record
+
+
+def aged_game(impl):
+    """A game that ages: its timeline holds the aging minimum (render, W2
+    item 1); a game with no scheduler node has none (D157)."""
+    return bool((impl.get(localimpl.TIMELINE) or {}).get("aging_minimum"))
+
+
+def handover_refusal(impl, st, now):
+    """Why `status --set handed-over` is refused (W2 item 11; until chunk
+    11a the snapshot condition is not enforced, spec D172); None when it
+    may go on."""
+    checks_run = st.get("handover_checks") or []
+    last = checks_run[-1] if checks_run else None
+    if aged_game(impl):
+        earliest, waiting = game_earliest(impl, st)
+        if waiting:
+            return (f"the earliest hand-over is not reached: it waits for the planting of "
+                    f"{', '.join(waiting)} (provisionally {iso(earliest)})")
+        if now < earliest:
+            return (f"the earliest hand-over is {iso(earliest)}, in "
+                    f"{duration_text((earliest - now).total_seconds())}: not reached")
+    if last is None:
+        return ("no hand-over check has run: run gmctl check <dir> --playground <pg> "
+                "--handover-check")
+    if not last.get("passed"):
+        return (f"the last hand-over check, at {last.get('at')}, failed: "
+                + "; ".join(last.get("failures") or []))
+    if aged_game(impl) and parse_instant(last.get("at")) < earliest:
+        return (f"the last hand-over check ran at {last.get('at')}, before the earliest "
+                f"hand-over {iso(earliest)}: run it again")
+    return None
+
+
+# --- status (W2 item 11) ----------------------------------------------------
+
+def status_head(impl, st, now):
+    """The lines heading `gmctl status`: the override, then every
+    unresolved failure and the outages."""
+    out = []
+    if override_text(st):
+        out.append(f"TEST HARNESS OVERRIDE: this game's aging minimum is shortened to "
+                   f"{override_text(st)} (a test run of the tools, never a game for players)")
+    load = st.get("load") or {}
+    attempts = load.get("attempts") or []
+    if attempts and not load.get("t0"):
+        bad = [f"{n}: {r.get('reason')}" for n, r in (attempts[-1].get("nodes") or {}).items()
+               if r.get("outcome") != "ok"]
+        if bad:
+            out.append(f"FAILED start-load at {attempts[-1].get('began')}, T0 not recorded: "
+                       + "; ".join(bad))
+    for iid, planting in (st.get("plantings") or {}).items():
+        problem = planting_problem(iid, planting, now)
+        if problem:
+            out.append(f"{problem[0].upper()} planting: {problem[1]} (plant it: gmctl inject "
+                       f"<dir> --playground <pg> --at now --instance {iid})")
+    early = st.get("early_check") or {}
+    handover = st.get("handover_checks") or []
+    if early.get("scheduling_failed"):
+        out.append(f"FAILED to schedule the early check: {early['scheduling_failed']}")
+    result = early.get("result")
+    if result and not result.get("passed") and not any(c.get("passed") for c in handover):
+        out.append(f"FAILED early check at {result.get('at')}: "
+                   + "; ".join(result.get("failures") or []))
+    if handover and not handover[-1].get("passed"):
+        out.append(f"FAILED hand-over check at {handover[-1].get('at')}: "
+                   + "; ".join(handover[-1].get("failures") or []))
+    outages = st.get("outages") or {}
+    if outages.get("lost_minutes"):
+        excess = max(0, outages["lost_minutes"] - LOST_FREE_MINUTES)
+        out.append(f"OUTAGES: {lost_text(outages)} lost in {len(outages.get('periods') or [])} "
+                   "period(s)" + (f", the earliest hand-over {excess} min later" if excess else
+                                  " (up to 30 min does not move the earliest hand-over)")
+                   + (f"; task history may be incomplete for {', '.join(outages['incomplete'])}"
+                      if outages.get("incomplete") else ""))
+        out += [f"  {p['from']} to {p['to']} ({p['minutes']} min): {', '.join(p['causes'])}"
+                for p in outages.get("periods") or []]
+    if outages.get("unread"):
+        out.append(f"OUTAGES NOT READ at {outages['unread']['at']}: "
+                   f"{outages['unread']['reason']}")
+    return out
+
+
+def status_aging(impl, st, now):
+    """The aging's lines of `gmctl status` (a game that ages), and the
+    hand-over checks', the snapshot's and the restarts' (every game)."""
+    out = []
+    timeline = impl.get(localimpl.TIMELINE) or {}
+    if aged_game(impl):
+        load = st.get("load") or {}
+        minimum = override_text(st) or timeline["aging_minimum"]
+        if load.get("t0"):
+            t0 = parse_instant(load["t0"])
+            end = handover_instant(st) or now
+            lost = (st.get("outages") or {}).get("lost_minutes") or 0
+            ran = max(0, (end - t0).total_seconds() - 60 * lost)
+            out.append(f"  aging: T0 {load['t0']}; ran {duration_text(ran)} (elapsed less the "
+                       f"lost time) of the {minimum} minimum")
+            out.append(f"  lost time: {lost_text(st.get('outages'))}")
+            earliest, waiting = game_earliest(impl, st)
+            state_text = (f"provisional, waiting for the planting of {', '.join(waiting)}"
+                          if waiting else "reached" if now >= earliest else
+                          f"in {duration_text((earliest - now).total_seconds())}")
+            out.append(f"  earliest hand-over: {iso(earliest)} ({state_text})")
+        else:
+            out.append(f"  aging: not started (gmctl start-load); minimum {minimum}")
+        tz = timeline.get("customer_timezone") or {}
+        out.append(f"  planned hand-over: {timeline.get('planned_handover')}; shift "
+                   f"{int(timeline.get('shift') or 0):+d}; customer's time zone "
+                   f"{tz.get('reading')} ({tz.get('zone')})")
+        plantings = st.get("plantings") or {}
+        if plantings:
+            out.append("  plantings:")
+        for iid, p in plantings.items():
+            last = (p.get("attempts") or [None])[-1]
+            if p.get("plant_at", T0) == T0:
+                text = f"planted {p.get('planted_at')} (T0)"
+            elif p.get("planted_at"):
+                text = f"planted {p['planted_at']} ({p.get('plant_at')})"
+            elif p.get("timer"):
+                text = f"due {p['timer']['due']} ({p.get('plant_at')}), timer {p['timer']['unit']}"
+            else:
+                text = f"planned {p.get('planned_at')} ({p.get('plant_at')}), not scheduled"
+            if last and last.get("outcome") != "ok":
+                text += f"; last attempt {last.get('outcome')} at {last.get('at')}"
+            out.append(f"    {iid}: {text}")
+        early = st.get("early_check") or {}
+        if early.get("result"):
+            res = early["result"]
+            out.append(f"  early check: {'passed' if res.get('passed') else 'FAILED'} at "
+                       f"{res.get('at')}")
+        elif early.get("timer"):
+            out.append(f"  early check: due {early['timer']['due']}, timer "
+                       f"{early['timer']['unit']}")
+    checks_run = st.get("handover_checks") or []
+    if checks_run:
+        last = checks_run[-1]
+        out.append(f"  hand-over check: {'passed' if last.get('passed') else 'FAILED'} at "
+                   f"{last.get('at')} ({len(checks_run)} run(s))")
+    snapshot = st.get("snapshot")
+    if snapshot:
+        out.append(f"  snapshot: {snapshot.get('status')} at {snapshot.get('at')}")
+    restarts = st.get("restarts") or []
+    if restarts:
+        out.append(f"  restarts: {len(restarts)}")
+    return out
+
+
+def status_reading(ldir, impl, st, docker, now):
+    """On `status` at `load-started`: an outage reading (8.7) and the
+    earliest hand-over recomputed, both written back; returns the state."""
+    if st.get("stage") != LOAD_STAGE or not (st.get("load") or {}).get("t0") \
+            or not aged_game(impl):
+        return st
+    try:
+        docker = docker or for_local_dir(ldir)
+        outages, _ = read_outages(ldir, impl, st, docker, now)
+    except GmError as exc:
+        outages = dict(st.get("outages") or {},
+                       unread={"at": iso(now), "reason": " ".join(str(exc).split())})
+
+    def write(state):
+        state["outages"] = outages
+        write_earliest(state, impl, now)
+    return localimpl.update_state(ldir, write)

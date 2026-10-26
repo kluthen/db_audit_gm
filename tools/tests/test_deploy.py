@@ -331,7 +331,7 @@ class TestSecretsByKind(ScenarioCopyTest):
             "    player_ssh_key: private key of pair player_ssh_key",
             "    player_ssh_key.pub: public key of pair player_ssh_key",
             "    dba_password: password",
-            "    tools_password: password, handed over",
+            # no web front in fixture-audit: no tools-password line (RG-3, D103)
             "    backup_key: private key of pair backup_key",
             "    backup_key.pub: public key of pair backup_key",
             "    monitoring_password: password",

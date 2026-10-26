@@ -7,7 +7,16 @@ module adds what a setup step needs: if the step fails, or anyone stops it,
 what it deployed is torn down and the failure is recorded with its reason.
 It also records the stages no script reaches, which only the GM can tell
 (`gmctl status --set`; spec D49, capture W3-A). `gmctl status` lists the
-game's network and, once deployed, its secret files (v0.2 chunk 3).
+game's network and, once deployed, its secret files (v0.2 chunk 3), the
+tools password only with a web front (RG-3, D103).
+
+v0.3 (capture W2, item 11): `status` heads with the test-harness
+override, then every unresolved failure and the outages, and adds the
+aging's lines; at `load-started` it reads the outages and recomputes the
+earliest hand-over (`aging`). `--set handed-over` needs, in a game that
+ages, the earliest hand-over reached and a passed hand-over check run at
+or after it; in a game with no scheduler node, a passed hand-over check
+(the snapshot's condition arrives with chunk 11a, spec D172).
 """
 
 import contextlib
@@ -19,9 +28,12 @@ from .model import GmError
 DEPLOYED_STAGES = ("deployed", "data-loaded", "injected", "load-started", "handed-over",
                    "final-answer", "feedback-given")
 
-# Stages only the GM records (`status --set`), each with the stage it follows.
+# Stages only the GM records (`status --set`), each with the stage it follows
+# (`handed-over` follows `load-started` in a game that ages, v0.3 W2 item 2).
 GM_STAGES = {"handed-over": "injected", "final-answer": "handed-over",
              "feedback-given": "final-answer"}
+LOAD_STAGE = "load-started"
+TOOLS_PASSWORD = "tools_password"   # the web front's password (v0.2 W1 item 7; D103)
 
 
 class SetupFailed(GmError):
@@ -68,13 +80,16 @@ def setup_step(ldir, stage, undo=None):
         raise SetupFailed(stage, reason, undone) from exc
 
 
-def set_gm_stage(ldir, stage):
+def set_gm_stage(ldir, stage, now=None):
     """`gmctl status --set <stage>`: record a stage only the GM can tell.
 
-    `handed-over` follows `injected`, `final-answer` follows `handed-over`,
-    `feedback-given` follows `final-answer`. Returns True when the stage was
-    recorded, False when the game is already at it (nothing changed); raises
-    GmError, state.yaml unchanged, for any other transition."""
+    `handed-over` follows `injected` (`load-started` in a game that ages,
+    with its conditions: aging.handover_refusal), `final-answer` follows
+    `handed-over`, `feedback-given` follows `final-answer`. Returns True
+    when the stage was recorded, False when the game is already at it
+    (nothing changed); raises GmError, state.yaml unchanged, for any other
+    transition or a refused hand-over."""
+    from . import aging
     if stage not in GM_STAGES:
         raise GmError(f"--set {stage}: the GM records only {', '.join(GM_STAGES)}")
     st = localimpl.read_state(ldir)
@@ -83,10 +98,27 @@ def set_gm_stage(ldir, stage):
     current = st.get("stage")
     if current == stage:
         return False
-    if current != GM_STAGES[stage]:
+    follows = GM_STAGES[stage]
+    impl = None
+    if stage == "handed-over":
+        impl = localimpl.read_implementation(ldir)
+        if aging.aged_game(impl):
+            follows = LOAD_STAGE
+    if current != follows:
         raise GmError(f"game {st.get('game_id')} is at stage {current}: {stage} can only "
-                      f"follow {GM_STAGES[stage]}; nothing changed")
-    localimpl.set_stage(ldir, stage)
+                      f"follow {follows}; nothing changed")
+    if impl is None:
+        localimpl.set_stage(ldir, stage)
+        return True
+    moment = now or aging.now_utc()
+    refusal = aging.handover_refusal(impl, st, moment)
+    if refusal:
+        raise GmError(f"--set handed-over refused: {refusal}; nothing changed")
+
+    def change(state):
+        aging.write_earliest(state, impl, moment)
+        localimpl.enter_stage(state, stage, aging.iso(moment))
+    localimpl.update_state(ldir, change)
     return True
 
 
@@ -96,16 +128,23 @@ def record_text(record):
             f"{record.get('reason') or 'no reason given'}")
 
 
-def status_text(ldir):
-    """`gmctl status`: the game's recorded state, readable."""
+def status_text(ldir, docker=None, now=None):
+    """`gmctl status`: the game's recorded state, readable; the
+    override and the failures and outages first (v0.3 W2 item 11)."""
+    from . import aging
     state = localimpl.read_state(ldir)
     if state is None:
         raise GmError(f"no game in {ldir}: run gmctl fit first")
+    impl = localimpl.read_yaml(ldir / localimpl.IMPLEMENTATION_FILE) or {}
+    moment = now or aging.now_utc()
+    if impl.get("nodes"):
+        state = aging.status_reading(ldir, impl, state, docker, moment)
+    lines = aging.status_head(impl, state, moment)
     pg = localimpl.read_playground(ldir) or {}
-    lines = [f"Game {state.get('game_id')}",
-             f"  playground: {pg.get('name', ldir.name)} "
-             f"({pg.get('docker_endpoint') or 'local engine'})",
-             f"  stage: {state.get('stage')}"]
+    lines += [f"Game {state.get('game_id')}",
+              f"  playground: {pg.get('name', ldir.name)} "
+              f"({pg.get('docker_endpoint') or 'local engine'})",
+              f"  stage: {state.get('stage')}"]
     if state.get("stage") == localimpl.FAILED:
         lines[-1] += f" (last stage reached: {localimpl.effective_stage(state) or 'none'})"
     failure = state.get("failure")
@@ -118,14 +157,25 @@ def status_text(ldir):
     lines.append("  history:")
     for entry in state.get("history") or []:
         lines.append(f"    {entry.get('at')}  {entry.get('stage')}")
-    impl = localimpl.read_yaml(ldir / localimpl.IMPLEMENTATION_FILE) or {}
     if impl.get("network"):
         lines.append(f"  network: {impl['network']}")
     if localimpl.effective_stage(state) in DEPLOYED_STAGES \
             and state.get("stage") != localimpl.FAILED:
         lines.append(f"  secrets: {localimpl.secrets_dir(ldir)}/ (mode 0600, not printed)")
-        lines += [f"    {name}: {what}" for name, what in secret_files(impl)]
+        lines += [f"    {name}: {what}" for name, what in secret_files(impl)
+                  if name != TOOLS_PASSWORD or has_web_front(impl)]
+    if impl.get("nodes"):
+        lines += aging.status_aging(impl, state, moment)
     return "\n".join(lines)
+
+
+def has_web_front(impl):
+    """Whether a node publishes the web front's port (v0.2 W1 item 3): only
+    then is a tools password handed over (D103, RG-3)."""
+    from .model import WEB_FRONT_PORT
+    return any(port.get("target") == WEB_FRONT_PORT
+               for node in (impl.get("nodes") or {}).values()
+               for port in node.get("published_ports") or [])
 
 
 def secret_files(impl):
