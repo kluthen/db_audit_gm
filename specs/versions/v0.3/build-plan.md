@@ -723,7 +723,7 @@ are capture W2-a in the wave log. Outside its Files line: the root
 
 ### Chunk 7 — Render for v0.3: the planned hand-over, the shift, write policies and secrets
 
-Status: in progress
+Status: merged (w2, 386092b)
 Wave: 2
 Depends on: chunks 1, 2
 Architecture capture: at wave 2 start (W2), for chunk 8: the local
@@ -774,9 +774,15 @@ zone, seed) and their keys.
 - Split rule: 7a the hand-over, shift, time zone and scheduler files; 7b
   write policies, secrets and `load-data`.
 
+Record: 7a 9b2c945, 7b 590d225 (merge 386092b). No deviation from the
+spec or W2; directory seed entries and `seed.modes` moved from 7b to 7a;
+W2 addenda in the wave log. Outside its Files line: `smoke.sh` and
+`tools/tests/test_{fit,state,teardown}.py`, for the secret counts
+(`only_with_role`, carried from wave 1).
+
 ### Chunk 8 — The aging: `start-load`, `inject --at`, outages, the early and hand-over checks, `status`
 
-Status: planned
+Status: in progress
 Wave: 2
 Depends on: chunks 3 (W1-y: marker, summaries), 7 (in-wave, W2), 9
 (in-wave, W2: the "too soon to tell" verdict)

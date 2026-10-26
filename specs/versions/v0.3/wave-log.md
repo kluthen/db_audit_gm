@@ -1964,3 +1964,52 @@ a7c9efb: 9916b2b 6a, 6f0b0d0 6b), `bricks/pgbouncer/brick.yaml` and
   affected); `[users]` settings are not held to an envelope; no TLS; a
   small race between the wrapper's check and `RELOAD`. No catalog fault
   names `pgbouncer` yet (chunk 14).
+
+### W2 addenda — choices chunk 7 made
+
+Where W2 item 1 was silent, recorded by chunk 7 (`v0.3-c7-render`; 7a
+9b2c945, 7b 590d225, merge 386092b), 2026-10-26. Accepted by the driver.
+
+- A timeline change `at: T0` is rendered as the render's own instant
+  (`rendered_at`): the load starts only after render, and the program
+  applies at start every change at or before now.
+- The seed survives a re-render but not a refit: `fit` rewrites
+  `implementation.yaml` without `timeline:`, so the next render draws a
+  new seed. Accepted: nothing is deployed before render, so no player has
+  seen the old seed.
+- The bastion files render rewrites are the seed files of the `bastion`
+  node holding `{{customer_timezone}}`, found at fit from their content; a
+  file gaining the placeholder later makes render refuse ("seed files
+  changed since gmctl fit: fit again").
+- The rendered `jobs.yaml` has no header and no comments (players read
+  it); the rendered `schedule.yaml` has a two-line GM header, its lists in
+  flow style.
+- Render prints `planned hand-over <instant>, shift <+N>, customer's time
+  zone UTC+N (Etc/GMT-N)` (a static game: `… (no scheduler node: nothing
+  shifted)`), and `  warning: …` when the planned hand-over is earlier
+  than now plus item 7's formula with no time lost.
+- Directory seed entries and `seed.modes` landed in 7a, not 7b (the
+  fixture's scheduler cannot be fitted without its `builders/` entry).
+  A directory entry's files take that entry's `seed.modes` mode; render
+  refuses when the seed configs differ from what it would derive.
+- Write policy: every node gets `GM_WRITE_POLICY` and
+  `GM_WRITE_OVERRIDES` after `TZ`; a node with no `write_policy` is
+  `fixable`.
+- Role secrets come from each scheduler's `schedule.yaml`
+  `connections[].role`, in first-use order; a role named by two
+  schedulers is one secret, mounted on each. `only_with_role` honoured:
+  the lookup secret only on games with a `pooler` node (fixture-audit: 7
+  secret files, 13 configs and secrets; counts updated in `smoke.sh` and
+  `test_{deploy,fit,state,teardown}.py`).
+- `load-data` sets each role's password on the node its connection
+  targets when that node's role is `database`, otherwise (a pooler) on
+  every `database` node, as a SCRAM-SHA-256 verifier with
+  `log_statement`, `log_min_duration_statement` and
+  `log_min_error_statement` off for the session. It only sets the
+  password: the data must create the role (a missing role fails the step
+  and tears the game down); it never makes a role `LOGIN`.
+- Left: no catalog scenario has a scheduler node yet, so role secrets and
+  `load-data` on a real scheduler game are first exercised by chunk 12 or
+  15; `fixture-v03-refusals`' `data/db.sql` creates neither `shop_app`
+  nor `shop_reports` (unit tests only); the GM skill's `SKILL.md` step 6
+  still shows `render` without `--handover` (chunk 13).
