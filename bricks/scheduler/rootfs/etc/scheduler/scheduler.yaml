@@ -1,0 +1,16 @@
+# The scheduler program's configuration (DO NOT TAMPER; root-owned,
+# read-only). Where it logs, keeps its status and reads its files; the
+# metrics endpoint. The schedule itself is not here: the program receives
+# it on standard input (docs/player.md).
+log: /var/log/scheduler/scheduler.log
+status: /run/scheduler/status
+loaded: /run/scheduler/loaded
+marker: /var/lib/gm-state/load-started
+state: /var/lib/scheduler
+repository: /srv/scheduler/repository
+jobs: /srv/scheduler/jobs/jobs.yaml
+schedule_seed: /opt/gm/seed/schedule.yaml
+metrics:
+  listen: 0.0.0.0
+  port: 9120
+  path: /metrics

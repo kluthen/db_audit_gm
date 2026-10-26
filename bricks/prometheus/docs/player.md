@@ -19,7 +19,9 @@ version (v0.2), expected to evolve.
 - **Configuration**: `/etc/prometheus/prometheus.yml`: the scrape targets
   (`scrape_configs`) and the retention (`storage.tsdb.retention.time` and
   `.size`). You can edit it (your account is in the `promconf` group) and
-  create files next to it, such as rule files it names.
+  create files next to it, such as rule files it names. On some games the
+  file is read-only: an edit gets "permission denied", and
+  `gm-reload-prometheus` says the node is report-only.
 - **Your home**, `/home/player`: notes, scripts, `~/report.md`.
 
 Changes to `/etc/prometheus` stay in place when Prometheus restarts.

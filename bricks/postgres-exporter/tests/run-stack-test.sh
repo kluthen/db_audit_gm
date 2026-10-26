@@ -1,9 +1,9 @@
 #!/bin/sh
 # Stack test of the postgres-exporter brick (v0.2 build plan, chunk 9, Done
-# when).
+# when; v0.3 build plan, chunk 5a: the write policies and the snapshot).
 #
 # Deploys the brick as a Swarm stack (stack.test.yml) next to a postgres
-# 0.2.0 node `db` (pg_stat_statements preloaded, `monitoring` let in by a
+# 0.3.0 node `db` (pg_stat_statements preloaded, `monitoring` let in by a
 # pg_hba.conf `host` line with scram-sha-256), with seed files and secrets
 # as external configs and secrets created here, then checks, from a client
 # container on the stack's network and from the GM side (docker exec):
@@ -21,20 +21,28 @@
 #   - a file that is not valid at start leaves the service down;
 #   - edits survive a new container; the seed marker is out of player's
 #     reach; read-only root, capabilities, /run a volume;
-#   - the entrypoint refuses a missing, empty or multi-line password.
+#   - the entrypoint refuses a missing, empty or multi-line password;
+#   - the wrapper gives a file `sed -i` left owned by player its owner back;
+#   - the snapshot: every volume copied by tar while the exporter runs;
+#   - report-only (GM_WRITE_POLICY): the seeded file and its directory not
+#     writable by player, gm-restart-exporter refusing in one line with
+#     nothing restarted, gm-validate still run; an override of
+#     /etc/postgres-exporter on that node making the file fixable again,
+#     the edit taking effect through the wrapper; the entrypoint's
+#     write-policy refusals.
 # Everything it creates is removed on exit, volumes included.
 #
 # Needs: a swarm manager (docker swarm init), the images built locally (the
 # postgres image is the test client: it has ssh and perl):
-#   docker build -t 127.0.0.1:5000/dbagm/postgres-exporter:0.1.0 bricks/postgres-exporter
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.2.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/postgres-exporter:0.2.0 bricks/postgres-exporter
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.3.0 bricks/postgres
 # Usage: sh bricks/postgres-exporter/tests/run-stack-test.sh
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 STACK=gmtest-pgexp
-IMAGE=127.0.0.1:5000/dbagm/postgres-exporter:0.1.0
-CLIENT_IMAGE=127.0.0.1:5000/dbagm/postgres:0.2.0
+IMAGE=127.0.0.1:5000/dbagm/postgres-exporter:0.2.0
+CLIENT_IMAGE=127.0.0.1:5000/dbagm/postgres:0.3.0
 SERVICE=${STACK}_exporter
 DB_SERVICE=${STACK}_db
 NET=${STACK}_net
@@ -62,7 +70,8 @@ tmp=$(mktemp -d "${TMPDIR:-/tmp}/gmtest-pgexp.XXXXXX")
 cleanup() {
     set +e
     info "teardown"
-    docker rm -f "$CLIENT" "${STACK}-secret-missing" "${STACK}-secret-empty" "${STACK}-secret-lines" >/dev/null 2>&1
+    docker rm -f "$CLIENT" "${STACK}-secret-missing" "${STACK}-secret-empty" "${STACK}-secret-lines" \
+        "${STACK}-refuse-policy" "${STACK}-refuse-override" >/dev/null 2>&1
     docker stack rm "$STACK" >/dev/null 2>&1
     i=0
     while [ "$i" -lt 60 ] && [ -n "$(docker ps -aq -f "label=com.docker.stack.namespace=$STACK")" ]; do
@@ -138,7 +147,7 @@ wait_healthy() {  # wait_healthy <service> [old-container-id]: prints the health
 }
 
 if DB=$(wait_healthy "$DB_SERVICE"); then
-    pass "db node (postgres 0.2.0) healthy ($DB)"
+    pass "db node (postgres 0.3.0) healthy ($DB)"
 else
     fail "db node did not become healthy"
     docker service ps --no-trunc "$DB_SERVICE" || true
@@ -261,6 +270,9 @@ out=$(docker exec -u exporter "$C" /opt/gm/validator/validate.sh 2>&1); rc=$?
 m=$(gm stat -c '%a %U:%G' /etc/postgres-exporter $CONF /var/lib/gm-state /var/lib/gm-state/.gm-seeded /home/player | tr '\n' ' ')
 [ "$m" = "2775 exporter:expconf 664 exporter:expconf 755 root:root 444 root:root 750 player:player " ] \
     && pass "ownership and modes set by the entrypoint ($m)" || fail "ownership and modes: $m"
+check "/run/gm/write-policy says fixable (no policy in the environment)" \
+    sh -c "docker exec $C cat /run/gm/write-policy | grep -qx policy=fixable"
+denied "player cannot read /run/gm/write-policy" cat /run/gm/write-policy
 
 # --- seed marker out of the players' reach ---------------------------------------
 MARKER=/var/lib/gm-state/.gm-seeded
@@ -275,6 +287,8 @@ check "exporter cannot remove the marker" sh -c "! docker exec -u exporter $C rm
 # --- an edit: pending, then applied by the wrapper --------------------------------
 pssh "sed -i 's/^COLLECTORS=.*/COLLECTORS=--collector.stat_statements --no-collector.wal/' $CONF" \
     && pass "player edits $CONF (no wal collector)" || fail "player cannot edit $CONF"
+m=$(gm stat -c '%U:%G' "$CONF")
+[ "$m" = player:expconf ] && pass "sed -i left $CONF owned by player ($m)" || fail "owner after sed -i: $m"
 out=$(pssh sudo -n gm-validate 2>&1); rc=$?
 if [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q '^RED pending: ' && [ "$(printf '%s\n' "$out" | wc -l)" -eq 1 ]; then
     pass "validator red on an edit not yet applied (exit 1: $out)"
@@ -289,6 +303,8 @@ else
     fail "gm-restart-exporter: exit $rc: $out"
 fi
 [ -n "$(exporter_pid)" ] && [ "$(exporter_pid)" != "$pid0" ] && pass "a new postgres_exporter process runs" || fail "same process after restart"
+m=$(gm stat -c '%a %U:%G' "$CONF")
+[ "$m" = "664 exporter:expconf" ] && pass "the wrapper restored the owner sed -i changed ($m)" || fail "owner after restart: $m"
 m=$(metrics)
 if printf '%s\n' "$m" | grep -q '^pg_scrape_collector_success{collector="stat_statements"} 1' \
    && ! printf '%s\n' "$m" | grep -q '^pg_scrape_collector_success{collector="wal"}'; then
@@ -402,6 +418,91 @@ w=$(pssh cat report.md 2>&1 || true)
 out=$(pssh sudo -n gm-validate 2>&1); rc=$?
 [ "$rc" -eq 0 ] && pass "validator green in the new container" || fail "validator in new container: exit $rc: $out"
 [ "$(pg_up)" = 1 ] && pass "pg_up 1 in the new container" || fail "pg_up in new container: $(pg_up)"
+
+# --- the snapshot: every volume by copy (W1 item 6), the node running -----------------------
+snap=$(docker exec -i -u root "$C" sh -s 2>&1 <<'SNAPSHOT'
+for v in /etc/postgres-exporter /home/player /var/lib/gm-state; do
+    tar --create --file=- --numeric-owner --directory="$v" . > /run/tmp/copy.tar
+    echo "$v rc=$? bytes=$(wc -c < /run/tmp/copy.tar)"
+done
+rm -f /run/tmp/copy.tar
+SNAPSHOT
+)
+info "snapshot: $(printf '%s' "$snap" | tr '\n' ' ')"
+[ "$(printf '%s\n' "$snap" | grep -c ' rc=0 bytes=[1-9]')" -eq 3 ] && [ -n "$(exporter_pid)" ] \
+    && pass "snapshot: expconf, home, gmstate copied by tar while the exporter runs" || fail "snapshot copy: $snap"
+
+# --- report-only ---------------------------------------------------------------------------
+REFUSAL='gm-restart-exporter: this node is report-only: its files cannot be changed, so nothing was reloaded.'
+modes() { gm stat -c '%a %U:%G' /etc/postgres-exporter "$CONF" | tr '\n' ' '; }
+pssh "sed -i 's/ --no-collector.wal$//' $CONF" && pass "fixable: player edits $CONF with sed -i (wal back on, not applied)" \
+    || fail "fixable: sed -i before report-only"
+info "redeploying the node report-only (GM_WRITE_POLICY=report-only)"
+docker service update --detach --env-add GM_WRITE_POLICY=report-only "$SERVICE" >/dev/null 2>&1
+if C2=$(wait_healthy "$SERVICE" "$C"); then C=$C2; pass "report-only container healthy ($C)"; else fail "report-only container"; fi
+w=$(gm cat /run/gm/write-policy | tr '\n' ' ')
+[ "$w" = "policy=report-only overrides= " ] && pass "/run/gm/write-policy says report-only, no override" || fail "write-policy: [$w]"
+m=$(modes)
+[ "$m" = "2755 exporter:expconf 644 exporter:expconf " ] \
+    && pass "report-only: owners and modes, the file sed -i left to player given back at start ($m)" \
+    || fail "report-only modes: $m"
+denied "report-only: player cannot sed -i $CONF" "sed -i 's/^COLLECTORS=/#COLLECTORS=/' $CONF"
+denied "report-only: player cannot append to $CONF" "echo 'BOGUS=1' >> $CONF"
+denied "report-only: player cannot create a file in /etc/postgres-exporter" touch /etc/postgres-exporter/x.conf
+check "report-only: $CONF unchanged by the attempts" sh -c "! docker exec $C grep -q -e BOGUS -e '^#COLLECTORS' $CONF"
+pid0=$(exporter_pid)
+out=$(pssh sudo -n gm-restart-exporter 2>&1); rc=$?
+[ "$rc" -eq 1 ] && [ "$out" = "$REFUSAL" ] && pass "gm-restart-exporter refuses (exit 1): $out" \
+    || fail "report-only restart: exit $rc: $out"
+sleep 2
+[ -n "$pid0" ] && [ "$(exporter_pid)" = "$pid0" ] && pass "report-only: nothing restarted (same postgres_exporter, pid $pid0)" \
+    || fail "report-only: restarted anyway ($pid0 -> $(exporter_pid))"
+out=$(pssh sudo -n gm-validate 2>&1); rc=$?
+[ "$rc" -eq 0 ] && pass "gm-validate is never refused (green, exit 0)" || fail "validate report-only: exit $rc: $out"
+check "report-only: the home is still writable" pssh "echo notes >> ~/report.md"
+[ "$(pg_up)" = 1 ] && pass "report-only: pg_up 1" || fail "report-only: pg_up $(pg_up)"
+
+# --- an override of /etc/postgres-exporter on the report-only node ---------------------------
+info "redeploying with GM_WRITE_OVERRIDES=/etc/postgres-exporter"
+docker service update --detach --env-add GM_WRITE_OVERRIDES=/etc/postgres-exporter "$SERVICE" >/dev/null 2>&1
+if C2=$(wait_healthy "$SERVICE" "$C"); then C=$C2; pass "override container healthy ($C)"; else fail "override container"; fi
+w=$(gm cat /run/gm/write-policy | tr '\n' ' ')
+[ "$w" = "policy=report-only overrides=/etc/postgres-exporter " ] && pass "/run/gm/write-policy names the override" \
+    || fail "write-policy: [$w]"
+m=$(modes)
+[ "$m" = "2775 exporter:expconf 664 exporter:expconf " ] \
+    && pass "override: /etc/postgres-exporter fixable on the report-only node ($m)" || fail "override modes: $m"
+pssh "sed -i 's/^COLLECTORS=.*/COLLECTORS=--collector.stat_statements --no-collector.wal/' $CONF" \
+    && pass "override: player edits $CONF with sed -i (no wal collector)" || fail "override: sed -i on $CONF"
+pid0=$(exporter_pid)
+out=$(pssh sudo -n gm-restart-exporter 2>&1); rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'pg_up 1: connected' \
+    && pass "override: gm-restart-exporter applies it ($(printf '%s' "$out" | tr '\n' ' '))" \
+    || fail "override restart: exit $rc: $out"
+m=$(metrics)
+[ "$(exporter_pid)" != "$pid0" ] && ! printf '%s\n' "$m" | grep -q '^pg_scrape_collector_success{collector="wal"}' \
+    && pass "override: the edit is in effect (a new process, wal collector off)" || fail "override: edit not in effect"
+m=$(gm stat -c '%a %U:%G' "$CONF")
+[ "$m" = "664 exporter:expconf" ] && pass "override: owner and mode restored by the wrapper ($m)" \
+    || fail "override after restart: $m"
+
+# --- the entrypoint's write-policy refusals ----------------------------------------------------
+refuse() {  # refuse <name> <expected text> <docker run args...>
+    k=$1; want=$2; shift 2
+    out=$(docker run --name "${STACK}-refuse-$k" --rm \
+        -v "$tmp/id.pub:/opt/gm/secrets/player_ssh_pubkey:ro" \
+        -v "$tmp/monitoring_password:$SECRET:ro" \
+        -v "$HERE/fixtures/exporter.conf:/opt/gm/seed/exporter.conf:ro" "$@" "$IMAGE" 2>&1); rc=$?
+    if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF "$want"; then
+        pass "the entrypoint refuses: $want (exit $rc)"
+    else
+        fail "entrypoint $k: exit $rc: $(printf '%s' "$out" | tail -n 3)"
+    fi
+}
+refuse policy "gm-entrypoint: fatal: GM_WRITE_POLICY='read-only' is not one of fixable, report-only, no-access" \
+    -e GM_WRITE_POLICY=read-only
+refuse override "gm-entrypoint: fatal: GM_WRITE_OVERRIDES: '/etc/postgres-exporter/exporter.conf' is not one of this brick's writable_paths (/etc/postgres-exporter, /home/player)" \
+    -e GM_WRITE_POLICY=report-only -e GM_WRITE_OVERRIDES=/etc/postgres-exporter/exporter.conf
 
 # --- hardening ---------------------------------------------------------------------
 check "root filesystem is read-only" sh -c "[ \"\$(docker inspect -f '{{.HostConfig.ReadonlyRootfs}}' $C)\" = true ]"

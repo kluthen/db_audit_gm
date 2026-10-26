@@ -16,7 +16,7 @@ README:
 Archived IDs keep their meaning and are cited as they are. D107 onward
 stay live: rulings still to be applied in a later version (D107, D108,
 D110, D113), the v0.2 release close, and v0.3's drafting from D114.
-Numbering continues from D160; no ID is reused.
+Numbering continues from D172; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -316,3 +316,79 @@ Numbering continues from D160; no ID is reused.
   upgrade) waits for a downtime scheduled with the owner beforehand; the
   VPS's Caddy may change if filetstudio.com stays up; the VPS's own
   documentation is read before any change. Now in: [platform.md](platform.md) "Hosting".
+- **D160 (2026-10-23, owner confirmation at wave 1's start, relayed by
+  the wave driver): In a scenario with no scheduler node, the fault
+  definitions' own aging minima are not counted,** as in v0.2:
+  `bookshop-new-server`'s `pg-join-index-missing` does not hold up its
+  hand-over. Confirms the reading of D157 the spec states. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 8, 15.4;
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunk 2.
+- **D161 (2026-10-23, owner confirmation at wave 1's start, relayed by
+  the wave driver; settles D156's override): The test-harness override
+  of the aging minimum (G6) also caps each fault instance's own aging
+  minimum,** so the two-hour rehearsal reaches its hand-over. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 11;
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) G6, chunks
+  8a, 11, 15b.
+- **D162 (2026-10-23, owner confirmation at wave 1's start, relayed by
+  the wave driver): A game with no scheduler node keeps the hand-over
+  check and the hand-over snapshot,** so Prometheus and Grafana stop
+  briefly at `fernway-clinics-monitoring`'s hand-over. Declined: skipping
+  both in such games. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 8, 15.4;
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunks 11, 13.
+- **D163 (2026-10-23, spec-writer, wave 1 preflight, capture W1 "Needs" 1):
+  A scheduler's `schedule.yaml` is read in place from the game's seed
+  config, never copied onto a volume,** so a restart's new game brings
+  its new seed (12) instead of the snapshot's old one. Players never see
+  it; the file never changes in a game. Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 7.1;
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunks 3b, 7a, 11b.
+- **D164 (2026-10-23, spec-writer, wave 1 preflight, W1 "Needs" 2): Every
+  `postgres` seed `pg_hba.conf` carries `local replication postgres peer`
+  under its DO NOT TAMPER comment,** the GM's access that 7.3's snapshot
+  requires (and D162 keeps for static games); chunk 1b adds it to both
+  scenarios and two fixtures. Chunk 2a's `gm_check` check accepts `trust`
+  too. Now in: [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunks 1, 2a, 4.
+- **D165 (2026-10-23, spec-writer, wave 1 preflight, W1 "Needs" 3): Chunk 9
+  passes a behavioural check's window and threshold to its script** as
+  `CHECK_WINDOW_SECONDS` and `CHECK_THRESHOLD` (W1 item 4); no chunk did.
+  Now in: [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunk 9.
+- **D166 (2026-10-23, spec-writer, wave 1 preflight, W1 "Needs" 4): Wave 1
+  runs chunk 1 first, chunk 3 beside it, and cuts chunks 2, 4 and 5 after
+  chunk 1's merge** (4 and 5 after 1a's at least), so no two running
+  chunks share a file and no shared list is needed; chunk 1's Files name
+  the five existing bricks, never `bricks/scheduler/`. Now in:
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) "Waves", chunks 1 to 5.
+- **D167 (2026-10-23, spec-writer, wave 1 preflight, W1 items 2, 3 and 7):
+  Chunk 1 writes W1's brick keys and values for the five bricks**
+  (6.4's roles, `writable_paths`, `seed.paths`, `report_tools`,
+  `snapshot:`, a provisional growth), which chunks 4 and 5 keep; that
+  `postgres` ships `gm-snapshot-db` is chunk 4's stack test's, not the
+  loader's; the scheduler declares no connection secret, render deriving
+  one per role; fault evidence read through a web interface or on
+  another node leaves `fault.yaml`, the answer keys keeping it. Now in:
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunks 1, 2, 3b, 4b, 5.
+- **D168 (2026-10-23, spec-writer, wave 1 preflight, W1 item 7): A
+  scenario's job never carries `timezone:`; the wrong-time-zone fault's
+  seed change writes `timezone_offset: <N>`,** the customer's zone being
+  unknown at authoring (8.3); render turns it into `Etc/GMT∓M`. Now in:
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunks 2b, 7a, 14.
+- **D169 (2026-10-23, spec-writer, wave 1 preflight, W1 item 8): `postgres`'
+  root-only `check-psql` helper is chunk 4a's,** in its Files line, and
+  chunk 9's checks connect through it. Now in:
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunks 4, 9.
+- **D170 (2026-10-23, spec-writer, wave 1 preflight, W1 item 5): The
+  scheduler's configuration `writable_paths` are two directories,
+  `/srv/scheduler/repository` (`queries.yaml`, `builders/`) and
+  `/srv/scheduler/jobs` (`jobs.yaml`),** so an override makes its
+  directory fixable and `sed -i` works there, as on every other brick;
+  W1's file paths inside a read-only directory would have broken `sed -i`
+  on the v0.3 scenario's report-only scheduler nodes. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 6.7;
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunk 3b.
+- **D171 (2026-10-23, owner ruling, relayed by the coordinator; resolves
+  O102): Every `postgres` seed names the GM check role's access under its
+  DO NOT TAMPER comment, `local all gm_check scram-sha-256`,** beside the
+  replication line (D164), added by chunk 1b, so a player tightening the
+  general `local all all` line does not lock the sealed checks out. Now
+  in: [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunks 1, 4.

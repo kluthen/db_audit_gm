@@ -30,11 +30,11 @@
 # Needs: a swarm manager on the local engine (docker swarm init), python3
 # (with PyYAML, as gmctl) on the host, and the scenario's bricks' images
 # built locally (fit refuses a missing one and names its build command):
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.2.0 bricks/postgres
-#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.2.0 bricks/bastion
-#   docker build -t 127.0.0.1:5000/dbagm/prometheus:0.1.0 bricks/prometheus
-#   docker build -t 127.0.0.1:5000/dbagm/postgres-exporter:0.1.0 bricks/postgres-exporter
-#   docker build -t 127.0.0.1:5000/dbagm/grafana:0.1.0 bricks/grafana
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.3.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.3.0 bricks/bastion
+#   docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.0 bricks/prometheus
+#   docker build -t 127.0.0.1:5000/dbagm/postgres-exporter:0.2.0 bricks/postgres-exporter
+#   docker build -t 127.0.0.1:5000/dbagm/grafana:0.2.0 bricks/grafana
 # Host ports 2222 and 8080 must be free (the bastion's published ports).
 # Usage: sh tools/tests/smoke-scenario.sh <scenario>        (from anywhere)
 #   e.g. sh tools/tests/smoke-scenario.sh fernway-clinics-monitoring

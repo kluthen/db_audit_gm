@@ -16,9 +16,14 @@ severity: medium
 applies_to:
   bricks:
     - id: postgres
-      versions: ["0.2.0"]
+      versions: ["0.2.0", "0.3.0"]
   preconditions:
-    - for the dashboard and Prometheus evidence, a postgres-exporter node whose exporter.conf enables --collector.stat_statements, and its target scraped by Prometheus
+    - for the dashboard and Prometheus readings a scenario's answer key may add, a postgres-exporter node whose exporter.conf enables --collector.stat_statements, and its target scraped by Prometheus
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 0m                       # the evidence shows at once (a restored state, D160)
 
 # --- Parameters the scenario sets -------------------------------------
 parameters: {}
@@ -40,17 +45,13 @@ injection:
 
 # --- What the players can see ------------------------------------------
 evidence:
-  - where: Grafana's PostgreSQL dashboard (web front, route grafana, /grafana/d/postgresql)
-    how: open the dashboard
-    shows: the four statement panels show "No data" while "Exporter connected to PostgreSQL" is at 1
-  - where: Prometheus (web front, route prometheus, /prometheus/query)
-    how: query pg_scrape_collector_success{collector="stat_statements"}, then pg_stat_statements_calls_total
-    shows: the collector at 0 and no pg_stat_statements_calls_total series
-  - where: psql from the bastion
+  - where: bastion
+    source: psql from the bastion
     how: psql -h {database node} -d postgres -c 'SELECT * FROM pg_stat_statements LIMIT 1'; psql -h {database node} -c 'SHOW shared_preload_libraries'
     shows: 'the query fails with "pg_stat_statements must be loaded via shared_preload_libraries"; the setting does not name it'
-  - where: /etc/postgresql/postgresql.conf on the database node
-    how: on the database node, grep -n shared_preload_libraries /etc/postgresql/postgresql.conf
+  - where: node
+    source: /etc/postgresql/postgresql.conf
+    how: grep -n shared_preload_libraries /etc/postgresql/postgresql.conf
     shows: the line is absent or commented out
 
 probe:

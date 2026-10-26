@@ -16,10 +16,15 @@ severity: medium
 applies_to:
   bricks:
     - id: prometheus
-      versions: ["0.1.0"]
+      versions: ["0.1.0", "0.2.0"]
   preconditions:
     - the node is in the prometheus node's node_health map
     - the scenario's prometheus.yml still lists the node's port 9110 target in the node-health job, so the gap shows as a target down rather than only by comparing nodes
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 0m                       # the evidence shows at once (a restored state, D160)
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:
@@ -47,18 +52,14 @@ injection:
 
 # --- What the players can see ------------------------------------------
 evidence:
-  - where: Prometheus' targets page (web front, route prometheus, /prometheus/targets)
-    how: open /prometheus/targets through the web front with the tools password
-    shows: "{NODE}:9110 in the node-health job is down: connection refused"
-  - where: Grafana's alerting view (web front, route grafana, /grafana/alerting/list)
-    how: read the state of "Scrape target down"
-    shows: the rule fires for instance {NODE}:9110, about 2 minutes after the start (for 1m, evaluated every minute)
-  - where: Grafana's node-health dashboard (web front, /grafana/d/node-health)
-    how: open the dashboard and read every panel's legend
-    shows: "{NODE} appears in no panel, while every other node does"
-  - where: the node itself
-    how: ssh {NODE}, then ls /opt/gm/node-health /usr/local/lib/gm/node-health
-    shows: neither exists on {NODE}, while every other node has both
+  - where: node
+    source: Prometheus' targets API on the prometheus node
+    how: curl -s http://127.0.0.1:9090/prometheus/api/v1/targets
+    shows: "{NODE}:9110 in the node-health job has health down, lastError connection refused"
+  - where: node
+    source: Prometheus' node-health series, queried on the prometheus node
+    how: promtool query instant http://127.0.0.1:9090/prometheus 'count by (node) (node_health_sample_age_seconds)'
+    shows: "no series for {NODE}, while every other node has one"
 
 probe:
   description: checks/probe.md

@@ -30,6 +30,8 @@ for, not any one playground.
 | Origin | hand-written |
 | Session length | 60 minutes |
 | Brief | `brief.md` |
+| Difficulty | score 1 (1 fault instance) |
+| Aging | none: no scheduler node, so the scenario does not age; its faults show once planted, its times stay UTC |
 
 ### Initiator's inputs, as given
 
@@ -56,15 +58,15 @@ The story as the players read it: `player/story.md`.
 
 | Node | Brick | Role | Stateful | Networks | Write policy |
 |---|---|---|---|---|---|
-| `bastion` | `bastion` 0.2.0 | bastion | yes | backend | report-only |
-| `db` | `postgres` 0.2.0 | database | yes | backend | fixable |
-| `prometheus` | `prometheus` 0.1.0 | metrics-store | yes | backend | fixable |
-| `exporter` | `postgres-exporter` 0.1.0 | metrics-exporter | yes | backend | fixable |
-| `grafana` | `grafana` 0.1.0 | dashboards | yes | backend | fixable |
+| `bastion` | `bastion` 0.3.0 | bastion | yes | backend | report-only |
+| `db` | `postgres` 0.3.0 | database | yes | backend | fixable |
+| `prometheus` | `prometheus` 0.2.0 | monitoring | yes | backend | fixable |
+| `exporter` | `postgres-exporter` 0.2.0 | monitoring | yes | backend | fixable |
+| `grafana` | `grafana` 0.2.0 | monitoring | yes | backend | fixable |
 
 #### Node `bastion`
 
-- **Brick**: `bastion`, version 0.2.0 (pinned).
+- **Brick**: `bastion`, version 0.3.0 (pinned).
 - **Role**: bastion. **Stateful**: yes. **Write policy**:
   report-only.
 - **Networks**: backend.
@@ -96,7 +98,7 @@ No knobs.
 
 #### Node `db`
 
-- **Brick**: `postgres`, version 0.2.0 (pinned).
+- **Brick**: `postgres`, version 0.3.0 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
@@ -134,8 +136,8 @@ Data, restored from `data/db.sql`:
 
 #### Node `prometheus`
 
-- **Brick**: `prometheus`, version 0.1.0 (pinned).
-- **Role**: metrics-store. **Stateful**: yes. **Write policy**:
+- **Brick**: `prometheus`, version 0.2.0 (pinned).
+- **Role**: monitoring. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
 - **Parameters**: node_health: the node-health map, below.
@@ -165,8 +167,8 @@ No knobs.
 
 #### Node `exporter`
 
-- **Brick**: `postgres-exporter`, version 0.1.0 (pinned).
-- **Role**: metrics-exporter. **Stateful**: yes. **Write policy**:
+- **Brick**: `postgres-exporter`, version 0.2.0 (pinned).
+- **Role**: monitoring. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
 - **Parameters**: none.
@@ -184,8 +186,8 @@ No knobs.
 
 #### Node `grafana`
 
-- **Brick**: `grafana`, version 0.1.0 (pinned).
-- **Role**: dashboards. **Stateful**: yes. **Write policy**:
+- **Brick**: `grafana`, version 0.2.0 (pinned).
+- **Role**: monitoring. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.
 - **Parameters**: none.
@@ -243,9 +245,11 @@ Placement and the reservations it was sized with:
 
 ### Fault instances
 
-| Instance | Fault | Node | Parameters | Visibility |
-|---|---|---|---|---|
-| `f1` | `fixture-random-page-cost` 0.1.0, scenario-only | `db` | none | hidden |
+| Instance | Fault | Node | Parameters | Visibility | Planted at |
+|---|---|---|---|---|---|
+| `f1` | `fixture-random-page-cost` 0.1.0, scenario-only | `db` | none | hidden | `T0` |
+
+`T0`: right after the data load.
 
 ### Issues given to the players
 
@@ -274,8 +278,8 @@ Acceptable answers:
 - **Proposal**: lower random_page_cost to about 1.1.
 
 Sealed check: `faults/fixture-random-page-cost/checks/fixed.sh`, exit 1 at
-hand-over (0: fixed, 1: present). the scenario's own fault (faults/ in the
-fixture folder).
+hand-over (0: fixed, 1: present, 3: too soon to tell). the scenario's own
+fault (faults/ in the fixture folder).
 
 Interactions: none.
 

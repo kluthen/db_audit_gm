@@ -12,7 +12,14 @@
 #   5. sets the log directory's owner and mode (files readable by pgconf);
 #   6. initialises PGDATA if it is empty, creates the `dba` and
 #      `monitoring` roles and the pg_stat_statements extension;
-#   7. writes the player's ~/.pgpass.
+#   7. creates or updates the GM's roles, in single-user mode before the
+#      server listens: the check role gm_check (password from its secret,
+#      the GM's connection reserve) and, when its secret is mounted (a
+#      scenario with a pooler node), PgBouncer's lookup role
+#      pgbouncer_lookup and its function gm_pgbouncer.lookup;
+#   8. writes the player's ~/.pgpass.
+# Every start also gives the seeded files their owner and mode back
+# (step 4), as gm-reload-db and gm-restart-db do.
 set -eu
 
 PG_MAJOR=18
@@ -26,12 +33,44 @@ SEED_DIR=/opt/gm/seed
 SECRETS_DIR=/opt/gm/secrets
 SEED_FILES="postgresql.conf pg_hba.conf"
 PLAYER_HOME=/home/player
+LOOKUP_SECRET=$SECRETS_DIR/pgbouncer_lookup_password
 
 log() { printf 'gm-entrypoint: %s\n' "$*" >&2; }
 die() { log "fatal: $*"; exit 1; }
 # chmod_setgid <dir> <group> <mode>: chmod run with <group> as gid, so the
 # kernel keeps the setgid bit without CAP_FSETID (root is not in <group>).
 chmod_setgid() { setpriv --regid="$2" --clear-groups -- chmod "$3" "$1"; }
+# restore_seeded <file>...: owner postgres:pgconf, mode 0664 (the database
+# node is fixable only), content untouched. Opened without following a
+# symlink and changed through the open file, so a player's symlink or a
+# swap during the change never redirects root's chown or chmod; anything
+# but a regular file is left alone. Same code in gm-reload-db and
+# gm-restart-db.
+restore_seeded() {
+    perl -e '
+        use strict; use warnings; use Fcntl qw(O_RDONLY O_NOFOLLOW O_NONBLOCK);
+        my $uid = getpwnam("postgres"); my $gid = getgrnam("pgconf");
+        defined $uid && defined $gid or die "no postgres or pgconf\n";
+        for my $p (@ARGV) {
+            sysopen(my $fh, $p, O_RDONLY | O_NOFOLLOW | O_NONBLOCK) or next;
+            if (-f $fh) {
+                chown($uid, $gid, $fh) or warn "chown $p: $!\n";
+                chmod(0664, $fh) or warn "chmod $p: $!\n";
+            }
+            close($fh);
+        }' "$@"
+}
+# sql_quote <value>: the value as the inside of a SQL string literal.
+sql_quote() { printf '%s' "$1" | sed "s/'/''/g"; }
+# read_secret <name>: the secret's single-line value, or a fatal error.
+read_secret() {
+    v=$(cat "$SECRETS_DIR/$1")
+    case $v in
+        *'
+'*) die "secret $1 must be a single line" ;;
+    esac
+    printf '%s' "$v"
+}
 
 # --- 1. /run ------------------------------------------------------------
 # Leftovers of a previous container (s6 state, sockets, pid files) must
@@ -55,16 +94,23 @@ ssh-keygen -q -t ed25519 -N '' -C '' -f /run/sshd-keys/ssh_host_ed25519_key
 for s in player_ssh_pubkey dba_password monitoring_password; do
     [ -s "$SECRETS_DIR/$s" ] || die "secret $SECRETS_DIR/$s is missing or empty"
 done
-dba_password=$(cat "$SECRETS_DIR/dba_password")
-monitoring_password=$(cat "$SECRETS_DIR/monitoring_password")
-case $dba_password in
-    *'
-'*) die "secret dba_password must be a single line" ;;
-esac
-case $monitoring_password in
-    *'
-'*) die "secret monitoring_password must be a single line" ;;
-esac
+dba_password=$(read_secret dba_password)
+monitoring_password=$(read_secret monitoring_password)
+# The check role's secret: a game always mounts it (brick.yaml); a stack
+# without it (another brick's test stack) runs with no check role.
+gm_check_password=
+if [ -s "$SECRETS_DIR/gm_check_password" ]; then
+    gm_check_password=$(read_secret gm_check_password)
+else
+    log "warning: secret $SECRETS_DIR/gm_check_password is missing or empty: the GM check role is not created or updated"
+fi
+# PgBouncer's lookup role: only when the scenario has a pooler node
+# (brick.yaml only_with_role), which mounts its secret.
+lookup_password=
+if [ -e "$LOOKUP_SECRET" ]; then
+    [ -s "$LOOKUP_SECRET" ] || die "secret $LOOKUP_SECRET is empty"
+    lookup_password=$(read_secret pgbouncer_lookup_password)
+fi
 
 # --- 4. configuration, seeded once ---------------------------------------
 chown postgres:pgconf "$CONF_DIR"
@@ -85,6 +131,11 @@ if [ ! -e "$MARKER" ]; then
     chmod 0444 "$MARKER"
     log "seeded $CONF_DIR from $SEED_DIR"
 fi
+# Every start: the seeded files' owner and mode as seeded (a file a
+# player's `sed -i` left owned by `player` gets its owner back).
+for f in $SEED_FILES; do
+    restore_seeded "$CONF_DIR/$f"
+done
 
 # --- 5. log directory ---------------------------------------------------
 # The seed postgresql.conf points log_directory here (volume pglog); with
@@ -96,7 +147,9 @@ chmod_setgid "$LOG_DIR" pgconf 2750
 # --- 6. PGDATA ----------------------------------------------------------
 chown postgres:postgres "$PGDATA"
 chmod 0700 "$PGDATA"
+fresh_cluster=
 if [ ! -s "$PGDATA/PG_VERSION" ]; then
+    fresh_cluster=yes
     log "initialising $PGDATA"
     runuser -u postgres -- "$PGBIN/initdb" -D "$PGDATA" -U postgres \
         --encoding=UTF8 --locale=C.UTF-8 \
@@ -106,8 +159,8 @@ if [ ! -s "$PGDATA/PG_VERSION" ]; then
     # role; the monitoring role the postgres-exporter brick connects with;
     # pg_stat_statements' view in the database `postgres` (querying it
     # still needs the library preloaded by the seed postgresql.conf).
-    pw_sql=$(printf '%s' "$dba_password" | sed "s/'/''/g")
-    mon_sql=$(printf '%s' "$monitoring_password" | sed "s/'/''/g")
+    pw_sql=$(sql_quote "$dba_password")
+    mon_sql=$(sql_quote "$monitoring_password")
     {
         printf "CREATE ROLE dba LOGIN SUPERUSER PASSWORD '%s';\n" "$pw_sql"
         printf "CREATE ROLE monitoring LOGIN PASSWORD '%s';\n" "$mon_sql"
@@ -120,7 +173,59 @@ if [ ! -s "$PGDATA/PG_VERSION" ]; then
     log "cluster initialised: roles dba and monitoring, extension pg_stat_statements"
 fi
 
-# --- 7. player's home ---------------------------------------------------
+# --- 7. the GM's roles --------------------------------------------------
+# At every start, in single-user mode before the server listens, so the
+# roles exist with their secrets' passwords whenever it accepts
+# connections (a cluster restored from a snapshot or altered by `dba`
+# included). The configuration is PostgreSQL's defaults (config_file
+# /dev/null), so a player's broken postgresql.conf does not stop it; the
+# libraries a player's ALTER SYSTEM may name are not loaded. Statement
+# text is never logged (the passwords).
+#   gm_check: the GM check role (v0.3 master spec 7.3; docs/gm.md).
+#   pgbouncer_lookup: PgBouncer's auth_user; gm_pgbouncer.lookup($1) is
+#     its auth_query, returning login roles' passwords, superusers too.
+if [ -n "$gm_check_password" ] || [ -n "$lookup_password" ]; then
+    roles_sql=$(
+        if [ -n "$gm_check_password" ]; then
+            printf '%s\n' \
+                "DO \$\$BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'gm_check') THEN CREATE ROLE gm_check; END IF; END\$\$;" \
+                "ALTER ROLE gm_check LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS INHERIT CONNECTION LIMIT -1 VALID UNTIL 'infinity' PASSWORD '$(sql_quote "$gm_check_password")';" \
+                "GRANT pg_use_reserved_connections, pg_monitor, pg_read_all_data TO gm_check WITH INHERIT TRUE;" \
+                "GRANT SELECT ON pg_catalog.pg_hba_file_rules TO gm_check;" \
+                "GRANT EXECUTE ON FUNCTION pg_catalog.pg_hba_file_rules() TO gm_check;"
+        fi
+        if [ -n "$lookup_password" ]; then
+            printf '%s\n' \
+                "DO \$\$BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'pgbouncer_lookup') THEN CREATE ROLE pgbouncer_lookup; END IF; END\$\$;" \
+                "ALTER ROLE pgbouncer_lookup LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT CONNECTION LIMIT -1 VALID UNTIL 'infinity' PASSWORD '$(sql_quote "$lookup_password")';" \
+                "CREATE SCHEMA IF NOT EXISTS gm_pgbouncer AUTHORIZATION postgres;" \
+                "ALTER SCHEMA gm_pgbouncer OWNER TO postgres;" \
+                "REVOKE ALL ON SCHEMA gm_pgbouncer FROM PUBLIC;" \
+                "CREATE OR REPLACE FUNCTION gm_pgbouncer.lookup(p_usename text) RETURNS TABLE (usename name, passwd text) LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS \$f\$SELECT a.rolname, a.rolpassword FROM pg_catalog.pg_authid a WHERE a.rolname = p_usename AND a.rolcanlogin AND (a.rolvaliduntil IS NULL OR a.rolvaliduntil > pg_catalog.now())\$f\$;" \
+                "ALTER FUNCTION gm_pgbouncer.lookup(text) OWNER TO postgres;" \
+                "REVOKE ALL ON FUNCTION gm_pgbouncer.lookup(text) FROM PUBLIC;" \
+                "GRANT USAGE ON SCHEMA gm_pgbouncer TO pgbouncer_lookup;" \
+                "GRANT EXECUTE ON FUNCTION gm_pgbouncer.lookup(text) TO pgbouncer_lookup;"
+        fi
+    )
+    if roles_out=$(printf '%s\n' "$roles_sql" | runuser -u postgres -- "$PGBIN/postgres" --single \
+            -D "$PGDATA" -c config_file=/dev/null -c hba_file=/dev/null \
+            -c shared_preload_libraries= -c session_preload_libraries= -c local_preload_libraries= \
+            -c log_min_error_statement=panic -c log_min_messages=warning \
+            postgres 2>&1 >/dev/null) \
+       && ! printf '%s\n' "$roles_out" | grep -Eq '(ERROR|FATAL|PANIC): '; then
+        log "GM roles up to date:${gm_check_password:+ gm_check}${lookup_password:+ pgbouncer_lookup}"
+    else
+        printf '%s\n' "$roles_out" | grep -E '(ERROR|FATAL|PANIC): ' | sed 's/^/gm-entrypoint:   /' >&2
+        # A cluster initialised now must have them; otherwise go on with the
+        # roles as they were, rather than lock the players out of the node.
+        [ -n "$fresh_cluster" ] && die "could not create the GM's roles"
+        log "warning: could not update the GM's roles; they stay as they were"
+    fi
+    unset roles_sql roles_out
+fi
+
+# --- 8. player's home ---------------------------------------------------
 chown player:player "$PLAYER_HOME"
 chmod 0750 "$PLAYER_HOME"
 pw_pgpass=$(printf '%s' "$dba_password" | sed 's/[\\:]/\\&/g')
@@ -129,6 +234,6 @@ printf '*:*:*:dba:%s\n' "$pw_pgpass" > "$PLAYER_HOME/.pgpass"
 chown player:player "$PLAYER_HOME/.pgpass"
 chmod 0600 "$PLAYER_HOME/.pgpass"
 umask 022
-unset dba_password monitoring_password pw_sql mon_sql pw_pgpass
+unset dba_password monitoring_password gm_check_password lookup_password pw_sql mon_sql pw_pgpass
 
 exec /init "$@"

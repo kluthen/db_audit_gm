@@ -38,6 +38,10 @@ instances:
         source: the node-health dashboard, /grafana/d/node-health
         how: open the dashboard and read every panel's legend
         shows: grafana appears in no panel, while bastion, db and prometheus do
+      - where: ui:grafana
+        source: Grafana's alerting view, /grafana/alerting/list
+        how: read the state of "Scrape target down"
+        shows: the rule stays Normal although grafana is never scraped; it cannot fire for a target Prometheus does not know
       - where: node:prometheus
         source: /etc/prometheus/prometheus.yml
         how: ssh prometheus, then cat /etc/prometheus/prometheus.yml
@@ -244,6 +248,10 @@ instances:
         source: Grafana's alerting view, /grafana/alerting/list
         how: open the rule "Service down on a node" (folder db_audit_gm) and read its details
         shows: pending period 2h, against 1m or 5m for every other rule
+      - where: ui:grafana
+        source: Grafana's provisioning API, /grafana/api/v1/provisioning/alert-rules/gm-service-down
+        how: through the web front with the tools password, GET /grafana/api/v1/provisioning/alert-rules/gm-service-down
+        shows: '"for": "2h"'
       - where: node:grafana
         source: /etc/grafana/provisioning/alerting/alert-rules.yaml
         how: ssh grafana, then grep -n -e 'uid:' -e 'for:' /etc/grafana/provisioning/alerting/alert-rules.yaml

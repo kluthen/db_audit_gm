@@ -1,0 +1,128 @@
+#!/bin/sh
+# gm-entrypoint: container entrypoint of the db_audit_gm scheduler brick.
+# DO NOT TAMPER. Root-owned and read-only (v0.3 master spec 7.1; capture W1
+# items 5 and 7).
+#
+# Runs as root at every container start, then execs s6-overlay's /init:
+#   1. empties /run (a named volume: a stack file's tmpfs is noexec, and
+#      s6-overlay needs an executable /run) and creates the runtime dirs;
+#   2. generates this container's sshd host key under /run;
+#   3. checks the secrets and that the schedule's seed config is there
+#      (it is read in place by the s6 service, never copied);
+#   4. checks GM_WRITE_POLICY and GM_WRITE_OVERRIDES and writes
+#      /run/gm/write-policy, read by gm-reload-scheduler (sudo resets the
+#      environment);
+#   5. seeds the repository and jobs.yaml from /opt/gm/seed once (marker
+#      /var/lib/gm-state/.gm-seeded, on its own root-owned volume);
+#   6. applies the write policy's owner and modes to every seeded file and
+#      directory, seeding or not (contents untouched);
+#   7. sets the log, state, marker and home owners and modes.
+set -eu
+
+REPO=/srv/scheduler/repository
+JOBS=/srv/scheduler/jobs
+LOGDIR=/var/log/scheduler
+STATE=/var/lib/scheduler
+STATE_DIR=/var/lib/gm-state
+MARKER=$STATE_DIR/.gm-seeded
+LOAD_MARKER=$STATE_DIR/load-started
+SEED_DIR=/opt/gm/seed
+SECRETS_DIR=/opt/gm/secrets
+PLAYER_HOME=/home/player
+
+log() { printf 'gm-entrypoint: %s\n' "$*" >&2; }
+die() { log "fatal: $*"; exit 1; }
+# chmod_setgid <path> <group> <mode>: chmod run with <group> as gid, so the
+# kernel keeps the setgid bit without CAP_FSETID (root is not in <group>).
+chmod_setgid() { setpriv --regid="$2" --clear-groups -- chmod "$3" "$1"; }
+prog() { python3 -I -m gm_scheduler "$@"; }
+
+# --- 1. /run ------------------------------------------------------------
+cd /run
+find . -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+cd /
+chown root:root /run
+chmod 0755 /run
+install -d -o root -g root -m 0755 /run/sshd
+install -d -o root -g root -m 0700 /run/sshd-keys
+install -d -o root -g root -m 0700 /run/gm
+install -d -o root -g root -m 1777 /run/tmp
+# the program's status and what it loaded: root and the validator read them
+install -d -o scheduler -g scheduler -m 0750 /run/scheduler
+
+# --- 2. sshd host key ---------------------------------------------------
+ssh-keygen -q -t ed25519 -N '' -C '' -f /run/sshd-keys/ssh_host_ed25519_key
+
+# --- 3. secrets and the schedule -----------------------------------------
+[ -s "$SECRETS_DIR/player_ssh_pubkey" ] || die "secret $SECRETS_DIR/player_ssh_pubkey is missing or empty"
+for f in "$SECRETS_DIR"/role_*_password; do
+    [ -e "$f" ] || continue
+    name=${f#"$SECRETS_DIR"/}
+    case ${name#role_} in
+        *[!a-z0-9_]*|'') die "secret $name: the role in its name is not [a-z_][a-z0-9_]*" ;;
+    esac
+    value=$(cat "$f")
+    case $value in
+        '') die "secret $name is empty" ;;
+        *'
+'*) die "secret $name must be a single line" ;;
+        *' '*|*'	'*) die "secret $name must not hold a space" ;;
+    esac
+done
+unset value
+[ -f "$SEED_DIR/schedule.yaml" ] || die "seed file $SEED_DIR/schedule.yaml is missing"
+
+# --- 4. the write policy --------------------------------------------------
+if ! problem=$(prog write-policy 2>&1); then
+    die "${problem:-the write policy could not be written}"
+fi
+
+# --- 5. seed once -----------------------------------------------------------
+# The marker lives on its own volume (gmstate), root-owned: neither player
+# (group schedconf) nor scheduler can remove, rename or replace it.
+chown root:root "$STATE_DIR"
+chmod 0755 "$STATE_DIR"
+chown scheduler:schedconf "$REPO" "$JOBS"
+if [ ! -e "$MARKER" ]; then
+    for f in queries.yaml jobs.yaml; do
+        [ -f "$SEED_DIR/$f" ] || die "seed file $SEED_DIR/$f is missing"
+    done
+    install -o scheduler -g schedconf -m 0644 "$SEED_DIR/queries.yaml" "$REPO/queries.yaml"
+    install -d -o scheduler -g schedconf -m 0755 "$REPO/builders"
+    if [ -d "$SEED_DIR/builders" ]; then
+        for f in "$SEED_DIR"/builders/*; do
+            [ -f "$f" ] || continue
+            install -o scheduler -g schedconf -m 0644 "$f" "$REPO/builders/${f##*/}"
+        done
+    fi
+    install -o scheduler -g schedconf -m 0644 "$SEED_DIR/jobs.yaml" "$JOBS/jobs.yaml"
+    date -u '+seeded %Y-%m-%dT%H:%M:%SZ from /opt/gm/seed (DO NOT TAMPER)' > "$MARKER"
+    chown root:root "$MARKER"
+    chmod 0444 "$MARKER"
+    log "seeded $REPO and $JOBS from $SEED_DIR"
+fi
+
+# --- 6. the write policy's owner and modes ------------------------------------
+if ! notes=$(prog restore 2>&1); then
+    die "the owner and modes of the seeded files could not be set: $notes"
+fi
+[ -z "$notes" ] || log "left alone: $(printf '%s' "$notes" | tr '\n' ';')"
+log "write policy: $(tr '\n' ' ' < /run/gm/write-policy)"
+
+# --- 7. log, state, markers, home ---------------------------------------------
+chown scheduler:schedconf "$LOGDIR"
+chmod_setgid "$LOGDIR" schedconf 2750
+if [ -e "$LOGDIR/scheduler.log" ] && [ ! -L "$LOGDIR/scheduler.log" ]; then
+    chown scheduler:schedconf "$LOGDIR/scheduler.log"
+    chmod 0640 "$LOGDIR/scheduler.log"
+fi
+chown scheduler:scheduler "$STATE"
+chmod 0750 "$STATE"
+if [ -e "$LOAD_MARKER" ]; then
+    chown root:scheduler "$LOAD_MARKER"
+    chmod 0440 "$LOAD_MARKER"
+fi
+chown player:player "$PLAYER_HOME"
+chmod 0750 "$PLAYER_HOME"
+
+exec /init "$@"

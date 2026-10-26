@@ -1,0 +1,11 @@
+# sudo rules of the db_audit_gm scheduler node (v0.3 master spec 7.1).
+# DO NOT TAMPER. `player` may run exactly these two wrappers, as root,
+# with no arguments; nothing else.
+Defaults env_reset
+Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Defaults !syslog
+Defaults logfile=/run/gm/sudo.log
+Defaults lecture=never
+Defaults !mail_badpass
+
+player ALL=(root) NOPASSWD: /usr/local/sbin/gm-reload-scheduler "", /usr/local/sbin/gm-validate ""

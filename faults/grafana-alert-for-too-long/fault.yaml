@@ -14,9 +14,14 @@ severity: high
 applies_to:
   bricks:
     - id: grafana
-      versions: ["0.1.0"]
+      versions: ["0.1.0", "0.2.0"]
   preconditions:
     - the scenario's alert-rules.yaml holds the rule named by `rule`
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 0m                       # the evidence shows at once (a restored state, D160)
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:
@@ -49,15 +54,10 @@ injection:
 
 # --- What the players can see ------------------------------------------
 evidence:
-  - where: Grafana's alerting view (web front, route grafana, /grafana/alerting/list)
-    how: open the rule (folder db_audit_gm, group db_audit_gm) and read its details
-    shows: the rule's pending period is 2h, against 1m for every other rule
-  - where: /etc/grafana/provisioning/alerting/alert-rules.yaml on the grafana node
-    how: ssh grafana, then grep -n -e 'uid:' -e 'for:' /etc/grafana/provisioning/alerting/alert-rules.yaml
+  - where: node
+    source: /etc/grafana/provisioning/alerting/alert-rules.yaml
+    how: grep -n -e 'uid:' -e 'for:' /etc/grafana/provisioning/alerting/alert-rules.yaml
     shows: "for: 2h under uid {RULE}"
-  - where: Grafana's provisioning API (web front, route grafana)
-    how: through the web front, GET /grafana/api/v1/provisioning/alert-rules/{RULE}
-    shows: '"for": "2h"'
 
 probe:
   description: checks/probe.md

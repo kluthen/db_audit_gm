@@ -32,7 +32,9 @@ def declare_secrets(scenario, brick, *secrets):
 
 # Secrets no v0.1 brick declares: a key pair whose public half two bricks
 # mount, and a handed-over password (capture W1, item 7); the catalog
-# `postgres` 0.2.0 declares `monitoring_password` itself (chunk 6).
+# `postgres` declares `monitoring_password` itself (v0.2 chunk 6), and
+# `gm_check_password` and `pgbouncer_lookup_password` (v0.3 chunk 4a; the
+# latter `only_with_role: pooler`, generated here until render honours it).
 NEW_DB_SECRETS = (
     {"name": "backup_key", "kind": "key-pair", "pair": "backup_key", "half": "private"},
     {"name": "backup_pubkey", "kind": "key-pair", "pair": "backup_key", "half": "public",
@@ -86,7 +88,8 @@ class TestCredentials(RenderedGame):
         sdir = self.ldir / "secrets"
         self.assertEqual(mode(sdir), 0o700)
         self.assertEqual(sorted(p.name for p in sdir.iterdir()),
-                         ["dba_password", "monitoring_password", "player_password",
+                         ["dba_password", "gm_check_password", "monitoring_password",
+                          "pgbouncer_lookup_password", "player_password",
                           "player_ssh_key", "player_ssh_key.pub", "tools_password"])
         self.assertEqual(sorted(paths), sorted(sdir.iterdir()))
         for path in sdir.iterdir():
@@ -125,7 +128,8 @@ class TestDeploy(RenderedGame):
             f"{gid}_db_postgresql.conf", f"{gid}_db_pg_hba.conf", f"{gid}_db_envelopes"]))
         self.assertEqual(fake.names("secret"), sorted(
             f"{gid}_{s}" for s in ("player_password", "player_ssh_key", "player_ssh_pubkey",
-                                   "dba_password", "monitoring_password", "tools_password")))
+                                   "dba_password", "monitoring_password", "gm_check_password",
+                                   "pgbouncer_lookup_password", "tools_password")))
         for kind in ("config", "secret"):
             for name, objlabels in fake.objects[kind].items():
                 self.assertEqual(objlabels, labels, name)
@@ -184,7 +188,7 @@ class TestDeploy(RenderedGame):
 
     def test_missing_image_is_refused(self):
         fake = FakeDocker(images=False)
-        with self.assertRaisesRegex(GmError, "127.0.0.1:5000/dbagm/postgres:0.2.0"):
+        with self.assertRaisesRegex(GmError, "127.0.0.1:5000/dbagm/postgres:0.3.0"):
             self.deploy(fake)
         self.assertFalse(fake.called("stack", "deploy"))
         self.assertEqual(localimpl.read_state(self.ldir)["stage"], "rendered")
@@ -262,6 +266,11 @@ class TestSecretsByKind(ScenarioCopyTest):
              "file": rel + "player_ssh_key.pub"},
             {"name": f"{gid}_monitoring_password", "secret": "monitoring_password",
              "kind": "password", "handed_over": False, "file": rel + "monitoring_password"},
+            {"name": f"{gid}_gm_check_password", "secret": "gm_check_password",
+             "kind": "password", "handed_over": False, "file": rel + "gm_check_password"},
+            {"name": f"{gid}_pgbouncer_lookup_password", "secret": "pgbouncer_lookup_password",
+             "kind": "password", "handed_over": False,
+             "file": rel + "pgbouncer_lookup_password"},
             {"name": f"{gid}_backup_key", "secret": "backup_key", "kind": "key-pair",
              "pair": "backup_key", "half": "private", "file": rel + "backup_key"},
         ])
@@ -270,7 +279,8 @@ class TestSecretsByKind(ScenarioCopyTest):
         sdir = self.ldir / "secrets"
         self.assertEqual(mode(sdir), 0o700)
         self.assertEqual(sorted(p.name for p in sdir.iterdir()), [
-            "backup_key", "backup_key.pub", "dba_password", "monitoring_password",
+            "backup_key", "backup_key.pub", "dba_password", "gm_check_password",
+            "monitoring_password", "pgbouncer_lookup_password",
             "player_password", "player_ssh_key", "player_ssh_key.pub", "tools_password"])
         for path in sdir.iterdir():
             self.assertEqual(mode(path), 0o600, path.name)
@@ -328,6 +338,8 @@ class TestSecretsByKind(ScenarioCopyTest):
             "    backup_key: private key of pair backup_key",
             "    backup_key.pub: public key of pair backup_key",
             "    monitoring_password: password",
+            "    gm_check_password: password",
+            "    pgbouncer_lookup_password: password",
         ])
         text = "\n".join(lines)
         for path in (self.ldir / "secrets").iterdir():

@@ -1,8 +1,9 @@
 # Folder layouts — scenario, brick, fault
 
-Version v0.2, expected to evolve as games are played. Source: v0.1
-master spec sections 6.1, 7 and 8, and v0.2 master spec 6 (capture W1 of
-`specs/versions/v0.2/wave-log.md`). Every entry is required unless it says
+Version v0.3, expected to evolve as games are played. Source: v0.1
+master spec sections 6.1, 7 and 8, v0.2 master spec 6 (capture W1 of
+`specs/versions/v0.2/wave-log.md`) and v0.3 master spec 6 and 7.1
+(capture W1 of `specs/versions/v0.3/wave-log.md`). Every entry is required unless it says
 *optional*. YAML for structured content, Markdown for prose.
 
 ## Scenario folder — `scenarios/<scenario-id>/`
@@ -22,7 +23,12 @@ master spec sections 6.1, 7 and 8, and v0.2 master spec 6 (capture W1 of
     answer-key.yaml     authoritative answer key          (template: answer-key.yaml)
     notes.md            explanations the GM draws on for feedback
   nodes/<node>/         scenario-specific files per node (seed files), delivered
-                        as Swarm configs; one folder per node with seed files
+                        as Swarm configs; one folder per node with seed files.
+                        A scheduler node's (brick `scheduler`): queries.yaml,
+                        jobs.yaml, schedule.yaml, and optionally builders/, a
+                        folder of files (no subfolder), in scenario time
+                        (templates: queries.yaml, schedule.yaml, jobs.yaml;
+                        master spec 7.1, capture W1 item 7)
   data/<node>.sql       restored-backup data, streamed into the node;
                         one per node that holds data
   bricks/<brick-id>/    optional: bricks made solely for this scenario
@@ -44,12 +50,17 @@ Rules:
 - Every file a node's `seed_files` names exists; every `data.file` exists.
 - Catalog bricks and faults are referenced by id and pinned version, never
   copied in.
+- A seed entry ending in `/` (`builders/`) maps to a folder of the
+  scenario holding at least one regular file, named
+  `[A-Za-z0-9_][A-Za-z0-9_.-]*`, and no subfolder; each file is delivered
+  as its own seed config under the brick's `seed.dir`.
 
 ## Brick folder — `bricks/<brick-id>/`
 
 ```
 <brick-id>/
-  brick.yaml            identity, footprint, knobs, access, runtime  (template: brick.yaml)
+  brick.yaml            identity, footprint, knobs, access, runtime, snapshot
+                        methods                                     (template: brick.yaml)
   Dockerfile            and its build context; the image carries no scenario content
   validator/            the public validator, POSIX shell
   docs/player.md        what the player may read about this kind of node
@@ -114,12 +125,18 @@ Rules:
   creates its own databases and roles. It runs once per game: loading
   again once the data is in changes nothing. Any error fails the setup.
 - **Sealed checks** (`checks/fixed.sh`): same delivery as injection
-  scripts. Exit 0: the fault
-  is no longer present in the effective live state; 1: still present; any
-  other code: error. First output line: why, in one sentence the GM can
-  reuse. A fix counts whichever path the player took. A check that queries
-  PostgreSQL runs its query as `postgres` (`runuser -u postgres`, or by
-  being executed as `postgres`), so that local peer authentication
-  applies.
+  scripts. Exit 0: the fault is no longer present in the effective live
+  state; 1: still present; 3 (v0.3): too soon to tell, with the remaining
+  window on the first output line; any other code: error. First output
+  line: why, in one sentence the GM can reuse. A fix counts whichever path
+  the player took. A behavioural check (the fault's
+  `sealed_check.behavioural`) also gets its instance's window and
+  threshold as `CHECK_WINDOW_SECONDS` and `CHECK_THRESHOLD`.
+- **Database checks** (v0.3 master spec 6.5): a check that queries
+  PostgreSQL connects as the GM check role `gm_check`, inside the GM's
+  connection reserve, as root through the root-only helper
+  `/usr/local/lib/gm/check-psql -d <db> -Atq -v ON_ERROR_STOP=1`
+  (`postgres` 0.3.0, capture W1 item 8); never as `dba` or an
+  application role. Clients of the load connect as ordinary roles.
 - **Public validator** (`validator/`): exit 0 green; 1 red, with one line
   per broken rule; any other code is an error.

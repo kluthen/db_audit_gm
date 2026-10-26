@@ -1,0 +1,196 @@
+# Fixture scenario for tools/tests (v0.3 chunk 2): a scenario with a
+# scheduler node, so it ages (v0.3 master spec 6.1, 8; D157, D158). Not a
+# game: complete, so the loader accepts it, and the base the v0.3 refusal
+# tests change one item at a time. A seed-file fault planted at T0 (f1), a
+# state fault planted before hand-over (f2), and a fault in the scheduler's
+# jobs.yaml (f3) made fixable on a report-only node by an override.
+
+# --- Scenario information --------------------------------------------
+id: fixture-v03-refusals
+version: 0.1.0
+title: Fixture scenario with a scheduler node, for the v0.3 loader checks
+date: 2026-10-23
+origin: hand-written
+session_length_minutes: 60
+brief: brief.md
+background: >-
+  A small shop's order service writes into its database all day; the shop
+  asks why yesterday's figures are sometimes missing in the morning.
+
+# --- Aging and difficulty ---------------------------------------------
+aging:
+  minimum: 16h
+  handover_at: "14:00"
+difficulty:
+  score: 3                          # its three fault instances (master spec 15.1)
+  level: easy
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: backend
+    description: players' SSH and SQL sessions, the producer's SQL
+
+nodes:
+  - name: bastion
+    brick:
+      id: bastion
+      version: 0.3.0
+    role: bastion
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 256M
+    published_ports: [{port: 22, default: 2222}]
+    seed_files:
+      README.md: player/README.md
+      story.md: player/story.md
+      issues.md: player/issues.md
+    knobs: []
+
+  - name: db
+    brick:
+      id: postgres
+      version: 0.3.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.5
+        memory: 512M
+        disk: 2G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/db/postgresql.conf
+      pg_hba.conf: nodes/db/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 10, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+    data:
+      file: data/db.sql
+      databases:
+        - name: shop
+          owner: shop
+          tables:
+            - name: customers
+              description: 500 customers (id, name); primary key on id.
+            - name: orders
+              description: >-
+                20 000 orders (id, customer_id, placed_at, total); primary key
+                on id, index orders_customer_id_idx on customer_id.
+
+  - name: producer
+    brick:
+      id: scheduler
+      version: 0.1.0
+    role: producer
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    write_overrides:
+      - /srv/scheduler/jobs
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/producer/queries.yaml
+      builders/: nodes/producer/builders/
+      jobs.yaml: nodes/producer/jobs.yaml
+      schedule.yaml: nodes/producer/schedule.yaml
+    knobs: []
+
+flows:
+  - from: bastion
+    to: db
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: producer
+    to: db
+    what: the shop's orders, lookups and reports
+    how: postgresql 5432
+    cadence: continuous
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:
+  - id: f1
+    fault:
+      id: fixture-random-page-cost
+      version: 0.1.0
+    node: db
+    parameters: {}
+    visibility: hidden
+  - id: f2
+    fault:
+      id: fixture-dropped-index
+      version: 0.1.0
+    node: db
+    parameters:
+      column: customer_id
+      database: shop
+    visibility: hidden
+    plant_at: handover-6h
+    aging_minimum: 2h
+  - id: f3
+    fault:
+      id: fixture-job-timezone
+      version: 0.1.0
+    node: producer
+    parameters: {}
+    visibility: known
+
+issues:
+  - id: I1
+    complaint: >-
+      Yesterday's invoices are sometimes missing from the morning ledger.
+    expected_resolution: fix
+    covers: [f3]
+
+# --- Host topology it was designed for -------------------------------
+designed_for:
+  platform: swarm
+  hosts:
+    - name: host-1
+      cpu: 2
+      memory: 4G
+      disk: 20G
+  placement:
+    bastion: host-1
+    db: host-1
+    producer: host-1

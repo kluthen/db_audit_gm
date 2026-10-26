@@ -1,7 +1,9 @@
 # brick.yaml: Grafana node, the game's dashboards and alerting (v0.2 master
 # spec 7 and 7.4).
 #
-# Version 0.1.0 (unreleased until the v0.2 release gate, D100).
+# Version 0.2.0 (unreleased until the v0.3 release gate, D100). Roles, growth
+# per hour, writable and seed paths, report tools and snapshot methods:
+# capture W1 item 3 (specs/versions/v0.3/wave-log.md).
 # Top-level keys: capture W1-A; fixed paths, secrets and wrappers: capture
 # W1-B; quoted octal modes: capture W1-D (specs/versions/v0.1/wave-log.md);
 # footprint shape, interfaces with `web_path`, secret kinds and `receives`:
@@ -10,13 +12,13 @@
 
 # --- Identity ---------------------------------------------------------
 id: grafana
-version: 0.1.0
+version: 0.2.0
 roles:
-  - dashboards
+  - monitoring                      # v0.3 master spec 6.4's closed list
 technology:
   name: grafana
   version: "13.2.4"
-image: 127.0.0.1:5000/dbagm/grafana:0.1.0
+image: 127.0.0.1:5000/dbagm/grafana:0.2.0
 
 # --- Footprint --------------------------------------------------------
 footprint:                          # master spec 12's limits and disk for the node; memory
@@ -25,6 +27,8 @@ footprint:                          # master spec 12's limits and disk for the n
                                     # less what the node-health script adds (docs/gm.md, Footprint)
   limits:       {cpu: 0.495, memory: 378M}
   reservations: {cpu: 0.095, memory: 266M, disk: 256M}
+  disk_growth_per_hour: 2M          # provisional estimate (capture W1 item 3), until
+                                    # v0.3 chunk 15b measures it: grafana.db's alert state history and dashboard versions
 stateful: true
 
 # --- What the scenario sets -------------------------------------------
@@ -32,10 +36,14 @@ parameters: {}                      # Prometheus' address is in the data source 
 knobs: []
 
 # --- Player plane -----------------------------------------------------
-write_policies:                     # fixable only (docs/gm.md, Known limits)
-  - fixable
+write_policies:                     # GM_WRITE_POLICY, gm-write-policy (docs/gm.md, Access); the
+  - fixable                         # interface stays editable by its administrators (known gap)
+  - report-only
 writable_paths:
-  - /etc/grafana/provisioning       # grafana:grafconf, 2775; seeded files 0664
+  - /etc/grafana/provisioning       # grafana:grafconf, 2775 (2755 report-only); seeded files 0664 (0644)
+  - /etc/grafana/provisioning/alerting      # the three subdirectories, each one a
+  - /etc/grafana/provisioning/dashboards    #   possible write_overrides entry
+  - /etc/grafana/provisioning/datasources
   - /home/player                    # ~/report.md, the player's notes
 protected_files:
   - /etc/grafana/grafana.ini        # administrator, sub-path, authentication
@@ -45,6 +53,7 @@ protected_files:
   - /usr/local/sbin/gm-entrypoint
   - /usr/local/sbin/gm-reload-grafana
   - /usr/local/sbin/gm-validate
+  - /usr/local/sbin/gm-write-policy  # the owner and modes, run as root by the two above
   - /usr/local/lib/gm/healthcheck
   - /usr/local/lib/gm/grafana-api   # root:grafana 0750, not runnable by player
   - /usr/local/lib/gm/grafana-files
@@ -103,6 +112,12 @@ seed:
     - node-health.json              # -> /etc/grafana/provisioning/dashboards/node-health.json
     - postgresql.json               # -> /etc/grafana/provisioning/dashboards/postgresql.json
     - alert-rules.yaml              # -> /etc/grafana/provisioning/alerting/alert-rules.yaml
+  paths:                            # seed file -> its live in-container path
+    datasources.yaml: /etc/grafana/provisioning/datasources/datasources.yaml
+    dashboards.yaml: /etc/grafana/provisioning/dashboards/dashboards.yaml
+    node-health.json: /etc/grafana/provisioning/dashboards/node-health.json
+    postgresql.json: /etc/grafana/provisioning/dashboards/postgresql.json
+    alert-rules.yaml: /etc/grafana/provisioning/alerting/alert-rules.yaml
 protected_configs: []
 volumes:
   - name: grafdata                  # grafana.db and plugins; grafana:grafana 0750
@@ -118,6 +133,12 @@ volumes:
 processes:
   - grafana
   - sshd
+snapshot:                           # per volume, the hand-over copy (v0.3 master spec 6.4,
+                                    # 7.3 to 7.5); run, emptied at every start, is never copied
+  grafdata: stop
+  grafconf: copy
+  home: copy
+  gmstate: copy
 
 # --- Catalog links ----------------------------------------------------
 interfaces:

@@ -1,0 +1,15 @@
+#!/bin/sh
+# gm-validate: run the public validator. Usage: sudo gm-validate
+# DO NOT TAMPER. Root-owned, read-only; allowed by /etc/sudoers.d/gm-player.
+# The validator runs as `scheduler`; its exit code is passed through
+# (0 green, 1 red with one line per broken rule, anything else an error).
+set -u
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+
+if [ "$#" -ne 0 ]; then
+    echo "usage: sudo gm-validate (no arguments)" >&2
+    exit 2
+fi
+cd /
+exec runuser -u scheduler -- env HOME=/var/lib/scheduler /opt/gm/validator/validate.sh

@@ -29,7 +29,7 @@ instances:
       - where: node:db
         source: pg_hba_file_rules
         how: psql -c "SELECT line_number, type, address, auth_method FROM pg_hba_file_rules"
-        shows: "line 12: host, address 0.0.0.0 (netmask 0.0.0.0), trust; then line 14: the same address, scram-sha-256"
+        shows: "line 14: host, address 0.0.0.0 (netmask 0.0.0.0), trust; then line 16: the same address, scram-sha-256"
       - where: bastion
         source: a password-less login from the bastion
         how: PGPASSFILE=/nonexistent psql -w -h db -U dba -c 'SELECT 1'

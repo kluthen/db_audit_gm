@@ -18,6 +18,12 @@ background: >-
   A small team runs one application and a monitoring node, reached through
   a bastion whose web front publishes the monitoring interface.
 
+# --- Aging and difficulty ---------------------------------------------
+# No aging: no scheduler node, so the fixture does not age and has no
+# `aging:` (v0.3 master spec 8; D157, D158).
+difficulty:
+  score: 2                          # its two fault instances (master spec 15.1)
+
 # --- Topology ---------------------------------------------------------
 networks:
   - name: backend
@@ -50,7 +56,7 @@ nodes:
     brick:
       id: fixture-app
       version: 0.1.0
-    role: application
+    role: consumer
     stateful: true
     networks: [backend]
     write_policy: report-only

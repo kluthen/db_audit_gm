@@ -1,5 +1,6 @@
 #!/bin/sh
-# Stack test of the Prometheus brick (v0.2 build plan, chunk 4, Done when).
+# Stack test of the Prometheus brick (v0.2 build plan, chunk 4, Done when;
+# v0.3 build plan, chunk 5a: the write policies and the snapshot's stop).
 #
 # Deploys the brick as a Swarm stack (stack.test.yml) with its seed file and
 # secret as external configs and secrets created here, then checks, from a
@@ -11,9 +12,17 @@
 #   - edits to /etc/prometheus survive a reload and a new container, and a
 #     retention change in prometheus.yml takes effect through the wrapper;
 #   - the validator exits 0, then 1 on a broken or pending file;
+#   - the wrapper gives a file `sed -i` left owned by player its owner back;
+#   - the snapshot's brief stop (s6, never Swarm): the TSDB copied while
+#     Prometheus is down, the node healthy throughout, Prometheus back;
+#   - report-only (GM_WRITE_POLICY): the seeded file and its directory not
+#     writable by player, gm-reload-prometheus refusing in one line with
+#     nothing signalled, gm-validate still run; an override of
+#     /etc/prometheus on that node making the file fixable again, the edit
+#     taking effect through the wrapper; the entrypoint's refusals;
 #   - the seed marker is out of player's reach; read-only root, capabilities;
 #   - the node-health script, mounted as configs into the prometheus node and
-#     a postgres 0.2.0 node `db`: each node's endpoint readable from the
+#     a postgres 0.3.0 node `db`: each node's endpoint readable from the
 #     other, with CPU, memory, disk against the reservation, the host's free
 #     space and each listed service; a service stopped with s6-svc -d shown
 #     as down; Prometheus scraping both; the files read-only for player.
@@ -21,15 +30,15 @@
 #
 # Needs: a swarm manager (docker swarm init), the images built locally (the
 # postgres image is the test client: it has ssh and perl):
-#   docker build -t 127.0.0.1:5000/dbagm/prometheus:0.1.0 bricks/prometheus
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.2.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.0 bricks/prometheus
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.3.0 bricks/postgres
 # Usage: sh bricks/prometheus/tests/run-stack-test.sh
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 STACK=gmtest-prom
-IMAGE=127.0.0.1:5000/dbagm/prometheus:0.1.0
-CLIENT_IMAGE=127.0.0.1:5000/dbagm/postgres:0.2.0
+IMAGE=127.0.0.1:5000/dbagm/prometheus:0.2.0
+CLIENT_IMAGE=127.0.0.1:5000/dbagm/postgres:0.3.0
 SERVICE=${STACK}_prometheus
 DB_SERVICE=${STACK}_db
 NET=${STACK}_net
@@ -42,6 +51,8 @@ PG_FIXTURES=$HERE/../../postgres/tests/fixtures
 NH=$HERE/../companion/node-health
 SSH_OPTS="-i /root/id -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o LogLevel=ERROR -o ConnectTimeout=10"
 CONF=/etc/prometheus/prometheus.yml
+REFUSAL='gm-reload-prometheus: this node is report-only: its files cannot be changed, so nothing was reloaded.'
+REFUSE_NAMES="policy override"
 
 failures=0
 pass() { printf 'PASS  %s\n' "$*"; }
@@ -58,6 +69,7 @@ cleanup() {
     set +e
     info "teardown"
     docker rm -f "$CLIENT" >/dev/null 2>&1
+    for k in $REFUSE_NAMES; do docker rm -f "${STACK}-refuse-$k" >/dev/null 2>&1; done
     docker stack rm "$STACK" >/dev/null 2>&1
     i=0
     while [ "$i" -lt 60 ] && [ -n "$(docker ps -aq -f "label=com.docker.stack.namespace=$STACK")" ]; do
@@ -99,7 +111,7 @@ fi
 # --- per-game material, as gmctl deploy would create it ---------------------
 ssh-keygen -q -t ed25519 -N '' -C gmtest-player -f "$tmp/id"
 head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$tmp/dba_password"
-# The database node's monitoring role password (postgres 0.2.0); unused here.
+# The database node's monitoring role password (postgres 0.3.0); unused here.
 printf 'mon%s' "$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')" > "$tmp/monitoring_password"
 cfg() { docker config create -l "$LABEL" "${STACK}_$1" "$2" >/dev/null; }
 cfg seed_prometheus_yml "$HERE/fixtures/prometheus.yml"
@@ -149,7 +161,7 @@ else
     exit 1
 fi
 if DB=$(wait_healthy "$DB_SERVICE"); then
-    pass "db node (postgres 0.2.0, receiving node-health) healthy ($DB)"
+    pass "db node (postgres 0.3.0, receiving node-health) healthy ($DB)"
 else
     fail "db node did not become healthy"
     docker service ps --no-trunc "$DB_SERVICE" || true
@@ -201,6 +213,8 @@ out=$(docker exec -u prometheus "$C" /opt/gm/validator/validate.sh 2>&1); rc=$?
 m=$(gm stat -c '%a %U:%G' /etc/prometheus $CONF /var/lib/gm-state /var/lib/gm-state/.gm-seeded /home/player /var/lib/prometheus | tr '\n' ' ')
 [ "$m" = "2775 prometheus:promconf 664 prometheus:promconf 755 root:root 444 root:root 750 player:player 750 prometheus:prometheus " ] \
     && pass "ownership and modes set by the entrypoint ($m)" || fail "ownership and modes: $m"
+check "/run/gm/write-policy says fixable (no policy in the environment)" \
+    sh -c "docker exec $C cat /run/gm/write-policy | grep -qx policy=fixable"
 
 # --- seed marker out of the players' reach ---------------------------------------
 MARKER=/var/lib/gm-state/.gm-seeded
@@ -209,6 +223,7 @@ denied() {  # denied <description> <remote command>: pass if player's command fa
     if pssh "$@" >/dev/null 2>&1; then fail "$d"; else pass "$d"; fi
 }
 marker0=$(gm cat "$MARKER")
+denied "player cannot read /run/gm/write-policy" cat /run/gm/write-policy
 check "no marker in the group-writable /etc/prometheus" gm test ! -e /etc/prometheus/.gm-seeded
 denied "player cannot remove the marker" rm -f "$MARKER"
 denied "player cannot rename the marker" mv -f "$MARKER" "$MARKER.x"
@@ -264,6 +279,8 @@ pssh "sed -i -e 's/^      time: 1d$/      time: 12h/' $CONF && cat >> $CONF" <<'
     static_configs:
       - targets: ['127.0.0.1:9090']
 EOF
+m=$(gm stat -c '%U:%G' "$CONF")
+[ "$m" = player:promconf ] && pass "sed -i left $CONF owned by player ($m)" || fail "owner after sed -i: $m"
 out=$(pssh sudo -n gm-validate 2>&1); rc=$?
 if [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q '^RED pending: '; then
     pass "validator red on an edit not yet reloaded (exit 1: $out)"
@@ -278,6 +295,8 @@ else
 fi
 [ "$(retention)" = "12h or 256MiB" ] && pass "retention change in prometheus.yml in effect through the wrapper (12h or 256MiB)" \
     || fail "retention after reload: $(retention)"
+m=$(gm stat -c '%a %U:%G' "$CONF")
+[ "$m" = "664 prometheus:promconf" ] && pass "the wrapper restored the owner sed -i changed ($m)" || fail "owner after reload: $m"
 check "the new job is in the configuration Prometheus runs" sh -c \
     "docker exec $C curl -fsS -m 5 http://127.0.0.1:9090/prometheus/api/v1/status/config | grep -q 'job_name: stack-test-edit'"
 check "the edits are kept in $CONF after the reload" gm grep -q '^      time: 12h$' "$CONF"
@@ -434,6 +453,120 @@ for n in prometheus db; do
         info "$n: node-health pid $p ($u): $mem; CPU ${cpu} ticks in $(nodex $n ps -o etimes= -p "$p" | tr -d ' ') s"
     done
 done
+
+# --- the snapshot's brief stop (W1 item 6: promdata by stop) ---------------------------
+# As gmctl snapshot runs it through the exec verb: a POSIX script on sh -s,
+# as root. The copy volume (promconf) is taken first, while the node runs;
+# then s6 stops every service but sshd, the stop volume is copied, and the
+# services are started again (never a Swarm scale to zero).
+snap=$(docker exec -i -u root "$C" sh -s 2>&1 <<'SNAPSHOT'
+ms() { echo $(( $(date +%s%N) / 1000000 )); }
+tar --create --file=- --numeric-owner --directory=/etc/prometheus . > /run/tmp/conf.tar
+echo "copy_rc=$?"
+s=$(ms)
+/command/s6-svc -wD -T 60000 -d /run/service/prometheus || echo "stop failed"
+a=$(ms)
+tar --create --file=- --numeric-owner --directory=/var/lib/prometheus . > /run/tmp/tsdb.tar
+echo "tar_rc=$?"
+b=$(ms)
+/command/s6-svc -wu -T 60000 -u /run/service/prometheus || echo "start failed"
+e=$(ms)
+echo "tsdb_bytes=$(wc -c < /run/tmp/tsdb.tar) conf_bytes=$(wc -c < /run/tmp/conf.tar)"
+echo "stop_ms=$((a - s)) copy_ms=$((b - a)) down_ms=$((e - s))"
+rm -f /run/tmp/tsdb.tar /run/tmp/conf.tar
+SNAPSHOT
+)
+info "snapshot: $(printf '%s' "$snap" | tr '\n' ' ')"
+if printf '%s\n' "$snap" | grep -qx 'tar_rc=0' && printf '%s\n' "$snap" | grep -qx 'copy_rc=0' \
+   && ! printf '%s' "$snap" | grep -q 'failed'; then
+    pass "snapshot: promconf copied, Prometheus stopped by s6, the TSDB copied, Prometheus started again"
+else
+    fail "snapshot stop: $snap"
+fi
+b=$(printf '%s\n' "$snap" | sed -n 's/^tsdb_bytes=\([0-9]*\) .*/\1/p')
+[ "${b:-0}" -gt 10240 ] && pass "the TSDB copy is not empty ($b bytes)" || fail "TSDB copy: [$b] bytes"
+[ "$(docker inspect -f '{{.State.Health.Status}}' "$C")" = healthy ] && [ "$(container "$SERVICE")" = "$C" ] \
+    && pass "the node stayed healthy, same container, through the stop" \
+    || fail "node after the stop: $(docker inspect -f '{{.State.Health.Status}}' "$C")"
+i=0
+while [ "$i" -lt 30 ] && ! gm curl -fsS -o /dev/null -m 3 http://127.0.0.1:9090/prometheus/-/ready 2>/dev/null; do
+    sleep 1; i=$((i + 1))
+done
+check "Prometheus ready again after the stop (waited ${i}s more)" gm curl -fsS -o /dev/null -m 3 http://127.0.0.1:9090/prometheus/-/ready
+[ "$(retention)" = "12h or 256MiB" ] && pass "after the stop, the edited retention still in effect" || fail "retention after the stop: $(retention)"
+
+# --- report-only ---------------------------------------------------------------------------
+modes() { gm stat -c '%a %U:%G' /etc/prometheus "$CONF" | tr '\n' ' '; }
+reload_stamp() {
+    gm curl -fsS -m 5 http://127.0.0.1:9090/prometheus/metrics |
+        sed -n 's/^prometheus_config_last_reload_success_timestamp_seconds //p'
+}
+# an edit made on the fixable node, not reloaded: the new container starts
+# with it, and its entrypoint gives the file sed -i left to player back
+pssh "sed -i -e 's/^      time: 12h$/      time: 13h/' $CONF" && pass "fixable: player edits $CONF with sed -i (13h, not reloaded)" \
+    || fail "fixable: sed -i before report-only"
+info "redeploying the node report-only (GM_WRITE_POLICY=report-only)"
+docker service update --detach --env-add GM_WRITE_POLICY=report-only "$SERVICE" >/dev/null 2>&1
+if C2=$(wait_healthy "$SERVICE" "$C"); then C=$C2; pass "report-only container healthy ($C)"; else fail "report-only container"; fi
+w=$(gm cat /run/gm/write-policy | tr '\n' ' ')
+[ "$w" = "policy=report-only overrides= " ] && pass "/run/gm/write-policy says report-only, no override" || fail "write-policy: [$w]"
+m=$(modes)
+[ "$m" = "2755 prometheus:promconf 644 prometheus:promconf " ] \
+    && pass "report-only: owners and modes, the file sed -i left to player given back at start ($m)" \
+    || fail "report-only modes: $m"
+denied "report-only: player cannot sed -i $CONF" "sed -i 's/^      time: 13h$/      time: 2h/' $CONF"
+denied "report-only: player cannot append to $CONF" "echo '# x' >> $CONF"
+denied "report-only: player cannot create a file in /etc/prometheus" touch /etc/prometheus/rules.yml
+check "report-only: $CONF unchanged by the attempts" gm grep -q '^      time: 13h$' "$CONF"
+stamp0=$(reload_stamp)
+out=$(pssh sudo -n gm-reload-prometheus 2>&1); rc=$?
+[ "$rc" -eq 1 ] && [ "$out" = "$REFUSAL" ] && pass "gm-reload-prometheus refuses (exit 1): $out" \
+    || fail "report-only reload: exit $rc: $out"
+sleep 2
+[ -n "$stamp0" ] && [ "$(reload_stamp)" = "$stamp0" ] && [ "$(retention)" = "13h or 256MiB" ] \
+    && pass "report-only: nothing signalled (last reload $stamp0 unchanged, 13h from the start in effect)" \
+    || fail "report-only: reloaded anyway ($stamp0, $(retention))"
+out=$(pssh sudo -n gm-validate 2>&1); rc=$?
+[ "$rc" -eq 0 ] && pass "gm-validate is never refused (green, exit 0)" || fail "validate report-only: exit $rc: $out"
+check "report-only: the home is still writable" pssh "echo notes >> ~/report.md"
+
+# --- an override of /etc/prometheus on the report-only node ----------------------------------
+info "redeploying with GM_WRITE_OVERRIDES=/etc/prometheus"
+docker service update --detach --env-add GM_WRITE_OVERRIDES=/etc/prometheus "$SERVICE" >/dev/null 2>&1
+if C2=$(wait_healthy "$SERVICE" "$C"); then C=$C2; pass "override container healthy ($C)"; else fail "override container"; fi
+w=$(gm cat /run/gm/write-policy | tr '\n' ' ')
+[ "$w" = "policy=report-only overrides=/etc/prometheus " ] && pass "/run/gm/write-policy names the override" \
+    || fail "write-policy: [$w]"
+m=$(modes)
+[ "$m" = "2775 prometheus:promconf 664 prometheus:promconf " ] \
+    && pass "override: /etc/prometheus fixable on the report-only node ($m)" || fail "override modes: $m"
+pssh "sed -i -e 's/^      time: 13h$/      time: 6h/' $CONF" && pass "override: player edits $CONF with sed -i (retention 6h)" \
+    || fail "override: sed -i on $CONF"
+out=$(pssh sudo -n gm-reload-prometheus 2>&1); rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'retention in effect: 6h or 256MiB' \
+    && pass "override: gm-reload-prometheus reloads it ($(printf '%s' "$out" | tr '\n' ' '))" \
+    || fail "override reload: exit $rc: $out"
+[ "$(retention)" = "6h or 256MiB" ] && pass "override: the edit is in effect (6h or 256MiB)" || fail "override: retention $(retention)"
+m=$(gm stat -c '%a %U:%G' "$CONF")
+[ "$m" = "664 prometheus:promconf" ] && pass "override: owner and mode restored by the wrapper ($m)" \
+    || fail "override after reload: $m"
+
+# --- the entrypoint's refusals ---------------------------------------------------------------
+refuse() {  # refuse <name> <expected text> <docker run args...>
+    k=$1; want=$2; shift 2
+    out=$(docker run --name "${STACK}-refuse-$k" --rm \
+        -v "$tmp/id.pub:/opt/gm/secrets/player_ssh_pubkey:ro" \
+        -v "$HERE/fixtures/prometheus.yml:/opt/gm/seed/prometheus.yml:ro" "$@" "$IMAGE" 2>&1); rc=$?
+    if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qF "$want"; then
+        pass "the entrypoint refuses: $want (exit $rc)"
+    else
+        fail "entrypoint $k: exit $rc: $(printf '%s' "$out" | tail -n 3)"
+    fi
+}
+refuse policy "gm-entrypoint: fatal: GM_WRITE_POLICY='read-only' is not one of fixable, report-only, no-access" \
+    -e GM_WRITE_POLICY=read-only
+refuse override "gm-entrypoint: fatal: GM_WRITE_OVERRIDES: '/etc/prometheus/prometheus.yml' is not one of this brick's writable_paths (/etc/prometheus, /home/player)" \
+    -e GM_WRITE_POLICY=report-only -e GM_WRITE_OVERRIDES=/etc/prometheus/prometheus.yml
 
 # --- hardening ---------------------------------------------------------------------
 check "root filesystem is read-only" sh -c "[ \"\$(docker inspect -f '{{.HostConfig.ReadonlyRootfs}}' $C)\" = true ]"

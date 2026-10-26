@@ -15,8 +15,8 @@
 #
 # Needs: a swarm manager on the local engine (docker swarm init), and the
 # bricks' images built locally:
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.2.0 bricks/postgres
-#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.2.0 bricks/bastion
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.3.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.3.0 bricks/bastion
 # Host port 2222 must be free (the bastion's published port).
 # Usage: sh tools/tests/smoke.sh        (from anywhere)
 set -eu
@@ -25,7 +25,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/../.." && pwd)
 GMCTL="python3 $REPO/tools/gmctl"
 PG=smoke
-IMAGES="127.0.0.1:5000/dbagm/postgres:0.2.0 127.0.0.1:5000/dbagm/bastion:0.2.0"
+IMAGES="127.0.0.1:5000/dbagm/postgres:0.3.0 127.0.0.1:5000/dbagm/bastion:0.3.0"
 LABELS="com.docker.stack.namespace dbagm.game"
 KINDS="service network volume config secret"
 
@@ -117,7 +117,9 @@ same "credential files are mode 600" "600 600 600 600 600" \
     "$(stat -c %a "$LDIR/secrets/player_password" "$LDIR/secrets/player_ssh_key" \
         "$LDIR/secrets/player_ssh_key.pub" "$LDIR/secrets/dba_password" \
         "$LDIR/secrets/tools_password" | tr '\n' ' ' | sed 's/ $//')"
-same "configs and secrets carry both labels" "12" \
+# v0.3: postgres adds gm_check_password and pgbouncer_lookup_password (W1-x);
+# the lookup one goes once render honours only_with_role (chunk 7).
+same "configs and secrets carry both labels" "14" \
     "$(for k in config secret; do docker "$k" ls --filter "label=dbagm.game=$GAME" \
         --filter "label=com.docker.stack.namespace=$GAME" -q; done | wc -l | tr -d ' ')"
 same "volumes carry dbagm.game" "9" \
@@ -135,7 +137,7 @@ same "network named after the scenario's network" "${GAME}_backend" \
     "$(docker network ls --filter "label=com.docker.stack.namespace=$GAME" --format '{{.Name}}')"
 same "status: network line" "  network: ${GAME}_backend" \
     "$($GMCTL status "$SCN" --playground "$PG" | grep '^  network:')"
-same "status: lists the 6 secret files" 6 \
+same "status: lists the 8 secret files" 8 \
     "$($GMCTL status "$SCN" --playground "$PG" | sed -n '/^  secrets: /,$p' | grep -c '^    ')"
 for node in db bastion; do
     out=$(printf 'printf "%%s %%s" "$TZ" "$(date +%%Z)"\n' \

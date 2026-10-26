@@ -6,7 +6,12 @@ owner's answers to it and its re-review's corrections; the spec writer's
 choices on the points the review left open are accepted with it;
 amended the same day, at the build plan's approval (D156), by the
 owner's ruling that only a scenario with scheduler nodes ages (D157) and
-the format choices that carry it (D158). Build plan:
+the format choices that carry it (D158); three readings of them
+confirmed by the owner on 2026-10-23, at wave 1's start (D160–D162);
+two of wave 1's preflight settlements written in the same day: where
+`schedule.yaml` lives (7.1, D163) and the scheduler's writable paths in
+the 6.7 example (D170).
+Build plan:
 [build-plan.md](build-plan.md), approved (D156). Companion:
 [access-model.md](access-model.md). Baseline: the released
 [v0.2 master spec](../v0.2/master-spec.md) and its
@@ -296,9 +301,8 @@ nodes:                          # a list, one item per node, as today
     role: producer
     write_policy: report-only
     write_overrides:            # among the brick's writable_paths
-      - /srv/scheduler/queries.yaml
-      - /srv/scheduler/builders
-      - /srv/scheduler/jobs.yaml
+      - /srv/scheduler/repository   # queries.yaml and builders/ (D170)
+      - /srv/scheduler/jobs         # jobs.yaml
 fault_instances:
   - id: f7
     fault:
@@ -344,7 +348,10 @@ and per fixed-time operation, each with its own connections, running as
 the scheduler's service account. Write policies `fixable` and
 `report-only`.
 
-**Files**, all seed-once on the node's volumes:
+**Files**, seed-once on the node's volumes, except `schedule.yaml`,
+which is read in place from the game's own seed at every start and is
+never on a volume, so it is not in the hand-over snapshot and a restart's
+new game brings its new seed (section 12; D163):
 
 | File | Holds | Players |
 |---|---|---|
@@ -602,14 +609,15 @@ backup, as `bookshop-new-server` and `fernway-clinics-monitoring` are,
 has no aging and keeps v0.2's timeline, with v0.3's checks before the
 hand-over: deployment, the data load, the faults planted, the hand-over
 check (8.5, its scheduler and outage items empty) and the hand-over
-snapshot (section 12), then the hand-over. It has no `start-load` and no
-T0 (its faults are planted right after the data load), no early check,
+snapshot (section 12), Prometheus and Grafana stopped briefly for it
+where the scenario has them (D162), then the hand-over. It has no
+`start-load` and no T0 (its faults are planted right after the data load), no early check,
 no outages and no earliest hand-over; the GM makes
 no feasibility judgement on aging for it; its monitoring history builds
 during the game, as in v0.2. A fault definition's aging minimum is the
 time its evidence takes under the load, so it is not counted in a
-static scenario, whose faults the GM chooses for evidence the restored
-state shows at once. A setup failure tears such a game down, as in v0.2.
+static scenario (D160), whose faults the GM chooses for evidence the
+restored state shows at once. A setup failure tears such a game down, as in v0.2.
 The rest of this section, and every mention of the aging elsewhere,
 concerns scenarios with scheduler nodes.
 
@@ -891,7 +899,11 @@ it. The memory footprint of the whole game is measured during it, before
 the gate. Its planned hand-over (`render --handover`) is chosen so the
 traffic shapes' peak hours fall inside the two hours, since the memory
 measured means something only under peak load. The aging's length adds
-nothing to these, so the rehearsal stays short.
+nothing to these, so the rehearsal stays short. It reaches its hand-over
+within the two hours through a test-harness-only override of the aging
+minimum, which caps the scenario's aging minimum and each fault
+instance's own (D161); it shortens the wait, never a clock, and a game
+never uses it.
 
 **The release gate** includes one full aged run of the v0.3 scenario at
 its declared aging minimum, then a play-through as `player` (section
@@ -1064,8 +1076,12 @@ players never change streams.
 
 `bookshop-new-server` and `fernway-clinics-monitoring` are re-pinned to
 the bumped bricks and still deploy. Neither gains producers, so neither
-ages (section 8, D157): no `aging:`, their faults visible at once, the
-game handed over once they are planted, as in v0.2.
+ages (section 8, D157): no `aging:`, their faults visible at once and
+their definitions' own aging minima not counted (D160), the game handed
+over once they are planted, as in v0.2. Both keep the hand-over check
+and the hand-over snapshot (D162): at `fernway-clinics-monitoring`'s
+hand-over, Prometheus and Grafana stop briefly while their volumes are
+copied, the scrape gap told as maintenance (7.4).
 `fernway-clinics-monitoring`'s retention of one day covers the four-hour
 game, so it stays; its 256 MB size bound is checked against the measured
 TSDB growth.

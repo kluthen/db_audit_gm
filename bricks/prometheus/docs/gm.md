@@ -2,13 +2,13 @@
 
 GM documentation of the `prometheus` brick (`brick.yaml`, v0.2 master
 spec 7 and 7.2; required sections: v0.2 master spec 6.2). Never shipped
-to players. Brick version 0.1.0, expected to evolve as games are played.
+to players. Brick version 0.2.0, expected to evolve as games are played.
 
 ## Purpose
 
 Prometheus 3.13.5 on Debian 13 (trixie), with an SSH server for the
-players, in the image `127.0.0.1:5000/dbagm/prometheus:0.1.0`. It fills
-the role `metrics-store`: the node that scrapes and keeps the game's
+players, in the image `127.0.0.1:5000/dbagm/prometheus:0.2.0`. It fills
+the role `monitoring`: the node that scrapes and keeps the game's
 metrics, which the players audit as the customer's monitoring and read
 through its UI, and which a Grafana node queries. The GM picks it for
 every scenario with monitoring; one per scenario. It ships the
@@ -40,9 +40,9 @@ The image:
   script" below. No image carries it; a receiving node's brick must
   declare `receives` meeting the item's `requires` (s6-overlay `3`, the
   commands `sh`, `perl`, `du`, `df`, `s6-svstat`), which `postgres` and
-  `bastion` 0.2.0, `postgres-exporter` and `grafana` 0.1.0, and this brick
+  `bastion` 0.3.0, `postgres-exporter` and `grafana` 0.2.0, and this brick
   do.
-- **Build**: `docker build -t 127.0.0.1:5000/dbagm/prometheus:0.1.0 bricks/prometheus`.
+- **Build**: `docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.0 bricks/prometheus`.
 - **How many**: one per scenario. Prometheus and Grafana always keep
   separate nodes.
 - **Next to which node**: any host; it reaches its scrape targets by node
@@ -227,7 +227,8 @@ map.
 | What | Path | Notes |
 |---|---|---|
 | Seed directory | `/opt/gm/seed/` | config `prometheus.yml`, read-only |
-| Configuration | `/etc/prometheus/` | volume `promconf`; `prometheus:promconf`, dir `2775`, seeded file `0664` |
+| Configuration | `/etc/prometheus/` | volume `promconf`; `prometheus:promconf`, dir `2775` and seeded file `0664` when fixable, `2755` and `0644` otherwise (see "Access") |
+| Write policy | `/run/gm/write-policy` | root `0444` in the root-only `/run/gm`; written at each start from `GM_WRITE_POLICY` and `GM_WRITE_OVERRIDES` |
 | Seed marker | `/var/lib/gm-state/.gm-seeded` | volume `gmstate`; dir root `0755`, marker root `0444`; present means never seed again |
 | TSDB | `/var/lib/prometheus` | volume `promdata`; `prometheus:prometheus`, `0750` |
 | Player home | `/home/player` | volume `home` |
@@ -235,6 +236,7 @@ map.
 | Secret | `/opt/gm/secrets/player_ssh_pubkey` | |
 | Validator | `/opt/gm/validator/validate.sh` | |
 | Wrappers | `/usr/local/sbin/gm-reload-prometheus`, `gm-validate` | |
+| Write-policy helper | `/usr/local/sbin/gm-write-policy` | run as root by the entrypoint and `gm-reload-prometheus`; not a `sudo` wrapper |
 | Entrypoint | `/usr/local/sbin/gm-entrypoint` | |
 | Health check | `/usr/local/lib/gm/healthcheck` | |
 | `sudo` log | `/run/gm/sudo.log` | root, lost when the container is replaced |
@@ -246,12 +248,23 @@ map.
    `/run/tmp` (`/tmp` and `/var/tmp` are symlinks to it).
 2. Generates an ed25519 sshd host key in `/run/sshd-keys`.
 3. Fails the container if the secret is missing or empty.
-4. If `/var/lib/gm-state/.gm-seeded` is absent: copies `prometheus.yml`
+4. Reads the write policy from `GM_WRITE_POLICY` and `GM_WRITE_OVERRIDES`
+   (both unset or empty: `fixable`, no override) and writes
+   `/run/gm/write-policy`. An unknown policy, or an override that is not
+   one of `writable_paths`, fails the container with one line
+   (`gm-entrypoint: fatal: GM_WRITE_POLICY='read-only' is not one of
+   fixable, report-only, no-access`, `gm-entrypoint: fatal:
+   GM_WRITE_OVERRIDES: '<path>' is not one of this brick's writable_paths
+   (/etc/prometheus, /home/player)`).
+5. If `/var/lib/gm-state/.gm-seeded` is absent: copies `prometheus.yml`
    into `/etc/prometheus/` and writes the marker. A missing seed file
    fails the container. Never overwrites afterwards. The marker is on its
    own root-owned volume, out of reach of `player` and `prometheus`.
-5. Sets the ownership of the TSDB and the player's home.
-6. Execs s6-overlay's `/init`, which supervises `prometheus` and `sshd`.
+6. Applies the write policy's owner and modes to `prometheus.yml` and
+   `/etc/prometheus` (see "Access"), seeding or not, contents untouched;
+   logs `write policy: policy=... overrides=...`.
+7. Sets the ownership of the TSDB and the player's home.
+8. Execs s6-overlay's `/init`, which supervises `prometheus` and `sshd`.
 
 Prometheus runs as `prometheus` with
 `--config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/var/lib/prometheus --web.listen-address=:9090 --web.external-url=/prometheus/ --web.route-prefix=/prometheus/`,
@@ -332,13 +345,15 @@ policy.
 
 ### Writable and protected paths, write policies
 
-- Writable by the player: `/etc/prometheus` (`prometheus:promconf`,
-  `2775`; the seeded `prometheus.yml` `0664`), `/home/player`, and the
-  scratch space `/tmp` and `/var/tmp`, both links to `/run/tmp` (root,
-  `1777`, emptied at each start, see "Start-up").
+- Writable by the player: `/etc/prometheus` when it is fixable (below:
+  `prometheus:promconf`, `2775`; the seeded `prometheus.yml` `0664`),
+  `/home/player` under every policy, and the scratch space `/tmp` and
+  `/var/tmp`, both links to `/run/tmp` (root, `1777`, emptied at each
+  start, see "Start-up").
 - Protected (root-owned, read-only to the player): `/etc/ssh/sshd_config`,
   `/etc/sudoers`, `/etc/sudoers.d/gm-player`, the entrypoint, the two
-  wrappers, the health check, the validator, the s6-overlay service
+  wrappers and their helper `gm-write-policy`, the health check, the
+  validator, the s6-overlay service
   definitions (`/etc/s6-overlay/s6-rc.d`, `/etc/s6-overlay/user-bundles.d`)
   and the seed marker's directory `/var/lib/gm-state`. The TSDB is not
   readable by the player.
@@ -348,11 +363,43 @@ policy.
   (`/opt/gm/node-health/node.conf`) and the endpoint, and can report a
   wrong list or propose a fix, but not make it: an edit gets an ordinary
   "permission denied".
-- Write policies: `fixable` only (see "Known limits").
+- **Write policies** (`write_policies`): `fixable` and `report-only`
+  (v0.3 master spec 7.4). The renderer passes the node's policy as
+  `GM_WRITE_POLICY` and its `write_overrides` as `GM_WRITE_OVERRIDES`
+  (sorted, space-separated); `no-access` is read as `report-only` for the
+  files. A path is *fixable* when the policy is `fixable`, or it is an
+  override or lies under one. The only useful override here is
+  `/etc/prometheus` (`/home/player` is writable anyway):
+
+  | | `/etc/prometheus` | `prometheus.yml` | `gm-reload-prometheus` |
+  |---|---|---|---|
+  | `fixable`, or `report-only` with the override | `2775` | `0664` | reloads |
+  | `report-only` | `2755` | `0644` | refuses |
+
+  Owner `prometheus:promconf` throughout. On a report-only node `player`
+  (in `promconf`) can read the file but not change, replace or add
+  anything there: an edit gets an ordinary "permission denied". The
+  policy is set at each container start (entrypoint) and enforced again
+  by the wrapper before every reload; it changes only with a new
+  deployment.
+- **Owner restored**: `sed -i` replaces the file with one owned by
+  `player`. The entrypoint at every start, and `gm-reload-prometheus`
+  before it reloads, give `prometheus.yml` and its directory their owner
+  and mode back, contents untouched. Nothing is changed through a
+  symbolic link or on a file with other hard links: such an entry is
+  left alone and named (`left alone: ...`). Files players add in a
+  fixable `/etc/prometheus` (a rule file `prometheus.yml` names, for
+  example) stay as they made them, owned by `player`, group `promconf`,
+  readable by Prometheus.
 
 ### Wrappers
 
-- `gm-reload-prometheus`: runs `promtool check config` on
+- `gm-reload-prometheus`: first restores the owner and mode (above);
+  then, when `prometheus.yml` is not fixable (report-only, no override),
+  prints one line and exits 1, signalling nothing:
+  `gm-reload-prometheus: this node is report-only: its files cannot be
+  changed, so nothing was reloaded.` (exit 2 if the policy cannot be read
+  or the owner not restored). Otherwise it runs `promtool check config` on
   `/etc/prometheus/prometheus.yml` as `prometheus` and refuses (exit 1,
   "NOT reloaded") if it fails. Otherwise sends SIGHUP through s6
   (`s6-svc -h`), waits for Prometheus to record a new successful load
@@ -363,7 +410,7 @@ policy.
   it, and the wrapper waits up to 30 s for it to come back with the
   checked file.
 - `gm-validate`: runs the validator as `prometheus`, exit code passed
-  through.
+  through. Never refused, whatever the policy.
 
 ### Capabilities
 
@@ -393,6 +440,8 @@ figures for a Prometheus node (limits 0.5 / 384M, reservations 0.1 /
 cost (below), since a brick's footprint excludes mounted material. The
 scenario sets each node's own `resources`, and `gmctl` uses those, never
 the brick's footprint; disk is only counted by the capacity check.
+Disk growth per hour (`disk_growth_per_hour`): `4M`, a provisional
+estimate, to be replaced by v0.3 chunk 15b's measurement.
 
 Measured in the v0.2 game (`fernway-clinics-monitoring` on the `laptop`
 playground, declared at 2 CPU / 4G / 8G on armenelos: AMD Ryzen 5 PRO
@@ -440,11 +489,30 @@ well under 0.005 CPU. What makes it grow: more services (one `s6-svstat`
 every 5 s each), and volumes with many files (`du` every 30 s). Disk: a
 few hundred bytes in `/run`.
 
+### Snapshot
+
+How each volume is copied at hand-over (`snapshot:` in `brick.yaml`):
+
+- `promdata`: `stop`. The brick's services other than `sshd` (here
+  `prometheus`) are stopped through s6, never by a Swarm scale to zero,
+  while the volume is copied, then started again: Prometheus is briefly
+  down at hand-over (the health checks stay green; the players are told
+  it is maintenance, and the TSDB shows a scrape gap of that length). Its
+  admin API stays off, so its own TSDB snapshot is not used. The brief
+  stop, measured by the stack test (armenelos, 2026-10-23, a TSDB of 90K):
+  the stop 11 ms, the copy 2 ms, back up 15 ms after the stop began, ready
+  (`/-/ready`) about a second later. The copy grows with the TSDB, which
+  the retention bounds (an aged game's TSDB: chunk 15b measures it); s6
+  waits up to 60 s for each step.
+- `promconf`, `home`, `gmstate`: `copy`, a tar of the volume while the
+  node runs.
+- `run` (`/run`) is never copied.
+
 ## Supported faults
 
 Which faults the brick hosts is stated only by each fault's `applies_to`
 (D59). This list is every catalog fault (`faults/`) whose `applies_to`
-names `prometheus` `0.1.0`, and no other.
+names `prometheus` `0.2.0`, and no other.
 
 | Fault | Kind | What it needs from the brick |
 |---|---|---|
@@ -537,19 +605,25 @@ answering at `/prometheus/` through the bastion's web front.
 `sh bricks/prometheus/tests/run-stack-test.sh` deploys the brick as a
 stack (`tests/stack.test.yml`, fixtures in `tests/fixtures/`), checks the
 chunk's Done-when and removes everything it created, volumes included.
-It also runs a `postgres` 0.2.0 node `db`, mounts the node-health script
+It also runs a `postgres` 0.3.0 node `db`, mounts the node-health script
 as configs into both nodes (per-node configs written by hand in
 `tests/fixtures/node-health/`, in the renderer's format), and checks each
 endpoint from the other node, a service stopped with `s6-svc -d`, the
-scrape, and the files read-only for `player`. Needs a swarm manager, this
-image and the `postgres` 0.2.0 image (the `db` node and the test client)
-built.
+scrape, and the files read-only for `player`. Then the snapshot's brief
+stop, the node redeployed `report-only` (`docker service update
+--env-add GM_WRITE_POLICY=report-only`: modes, denied edits, the
+wrapper's refusal, nothing signalled), then with the override
+`/etc/prometheus` (the edit through the wrapper, the owner restored), and
+the entrypoint's two refusals. Needs a swarm manager, this image and the
+`postgres` 0.3.0 image (the `db` node and the test client) built.
 
 ## Known limits
 
-- **Write policy**: only `fixable`. A `report-only` node would need the
-  configuration directory not group-writable, decided at start from a
-  value the renderer passes; not built.
+- **Write policy**: only the files are guarded. A report-only node's
+  Prometheus still answers every read of its UI and API (it has no
+  login, see the access model's known gaps); its admin and lifecycle
+  endpoints stay off under every policy, so nothing but the wrapper
+  reloads it.
 - **Host key per container.** The sshd host key is generated at each
   container start. If the container is replaced, players see a changed
   host key on the inner hop.

@@ -3,13 +3,13 @@
 GM documentation of the `grafana` brick (`brick.yaml`, v0.2 master spec 7
 and 7.4; required sections: v0.2 master spec 6.2; interface: capture W3 in
 `specs/versions/v0.2/wave-log.md`). Never shipped to players. Brick
-version 0.1.0, expected to evolve as games are played.
+version 0.2.0, expected to evolve as games are played.
 
 ## Purpose
 
 Grafana OSS 13.2.4 on Debian 13 (trixie), with an SSH server for the
-players, in the image `127.0.0.1:5000/dbagm/grafana:0.1.0`. It fills the
-role `dashboards`: the customer's dashboards and alerting, built on the
+players, in the image `127.0.0.1:5000/dbagm/grafana:0.2.0`. It fills the
+role `monitoring`: the customer's dashboards and alerting, built on the
 game's Prometheus, which the players audit and read through its UI. There
 is no separate alerting brick: Grafana's own alerting evaluates the alert
 rules, and there is no notification channel, so firing alerts are read in
@@ -43,12 +43,12 @@ The image:
 - **What gets installed**: a node of its own, from the brick's image. The
   image must be on the engine that runs the game: deployment never pulls
   it (`gmctl deploy` deploys with `--resolve-image never`).
-- **Build**: `docker build -t 127.0.0.1:5000/dbagm/grafana:0.1.0 bricks/grafana`.
+- **Build**: `docker build -t 127.0.0.1:5000/dbagm/grafana:0.2.0 bricks/grafana`.
 - **How many**: one per scenario. Prometheus and Grafana always keep
   separate nodes.
 - **Next to which node**: any host; it reaches Prometheus by node name over
   the game's network, and the bastion's web front reaches it the same way.
-- **What it needs**: the bastion at 0.2.0 or later with the route
+- **What it needs**: the bastion at 0.3.0 or later with the route
   `grafana` in its `web_routes` (the loader refuses a web interface without
   a route), and a `prometheus` node for the data source. The bastion's
   `tools_password` is the same secret as this node's (see "Configuration").
@@ -179,7 +179,8 @@ authentication settings. Everything else keeps Grafana's defaults.
 | What | Path | Notes |
 |---|---|---|
 | Seed directory | `/opt/gm/seed/` | configs, read-only |
-| Provisioning | `/etc/grafana/provisioning/` | volume `grafconf`; `grafana:grafconf`, dirs `2775`, seeded files `0664` |
+| Provisioning | `/etc/grafana/provisioning/` | volume `grafconf`; `grafana:grafconf`, each dir `2775` and seeded file `0664` when fixable, `2755` and `0644` otherwise (see "Access") |
+| Write policy | `/run/gm/write-policy` | root `0444` in the root-only `/run/gm`; written at each start from `GM_WRITE_POLICY` and `GM_WRITE_OVERRIDES` |
 | Settings | `/etc/grafana/grafana.ini` | in the image, root `0444` |
 | Database, plugins | `/var/lib/grafana` | volume `grafdata`; `grafana:grafana` `0750`, unreadable to `player` |
 | Grafana itself | `/usr/share/grafana` | in the image (`bin/grafana`, `conf/defaults.ini`, `public/`) |
@@ -190,6 +191,7 @@ authentication settings. Everything else keeps Grafana's defaults.
 | Secrets | `/opt/gm/secrets/tools_password`, `/opt/gm/secrets/player_ssh_pubkey` | |
 | Validator | `/opt/gm/validator/validate.sh` | |
 | Wrappers | `/usr/local/sbin/gm-reload-grafana`, `gm-validate` | |
+| Write-policy helper | `/usr/local/sbin/gm-write-policy` | run as root by the entrypoint and `gm-reload-grafana`; not a `sudo` wrapper |
 | API helper | `/usr/local/lib/gm/grafana-api` | root:grafana `0750` (see "Access") |
 | Shared shell functions | `/usr/local/lib/gm/grafana-files` | root `0444`, sourced by the run script, the wrapper and the validator |
 | Entrypoint, health check | `/usr/local/sbin/gm-entrypoint`, `/usr/local/lib/gm/healthcheck` | |
@@ -204,13 +206,24 @@ authentication settings. Everything else keeps Grafana's defaults.
 3. Fails the container if `player_ssh_pubkey` is missing or empty, or
    `tools_password` is missing, empty, more than one line, or unreadable
    by `grafana`.
-4. If `/var/lib/gm-state/.gm-seeded` is absent: creates `datasources/`,
+4. Reads the write policy from `GM_WRITE_POLICY` and `GM_WRITE_OVERRIDES`
+   (both unset or empty: `fixable`, no override) and writes
+   `/run/gm/write-policy`. An unknown policy, or an override that is not
+   one of `writable_paths`, fails the container with one line
+   (`gm-entrypoint: fatal: GM_WRITE_POLICY='read-only' is not one of
+   fixable, report-only, no-access`, `gm-entrypoint: fatal:
+   GM_WRITE_OVERRIDES: '<path>' is not one of this brick's writable_paths
+   (...)`).
+5. If `/var/lib/gm-state/.gm-seeded` is absent: creates `datasources/`,
    `dashboards/`, `alerting/` and `plugins/`, copies the five seed files to
    their live paths and writes the marker. A missing seed file fails the
    container. Never overwrites afterwards. The marker is on its own
    root-owned volume, out of reach of `player` and `grafana`.
-5. Sets the ownership of the database directory and the player's home.
-6. **The administrator's password** (ruling 8 of capture W3): when the
+6. Applies the write policy's owner and modes to the seeded files and the
+   provisioning directories (see "Access"), seeding or not, contents
+   untouched; logs `write policy: policy=... overrides=...`.
+7. Sets the ownership of the database directory and the player's home.
+8. **The administrator's password** (ruling 8 of capture W3): when the
    database already exists, sets the `admin` account's password from the
    secret (`grafana cli admin reset-admin-password --password-from-stdin`
    as `grafana`, the password on stdin). On the first start Grafana creates
@@ -220,7 +233,7 @@ authentication settings. Everything else keeps Grafana's defaults.
    any new container) undoes a changed password and lets the GM's checks
    in again. A failure here is logged as a warning, not fatal. Brute-force
    lockouts are not cleared by it (see "Known limits").
-7. Execs s6-overlay's `/init`, which supervises `grafana` and `sshd`.
+9. Execs s6-overlay's `/init`, which supervises `grafana` and `sshd`.
 
 Grafana runs as `grafana` (`s6-setuidgid`) with
 `grafana server --homepath=/usr/share/grafana --config=/etc/grafana/grafana.ini`;
@@ -301,22 +314,79 @@ and the wrapper, so a fix lives in the file and survives a restart.
 
 ### Writable and protected paths, write policies
 
-- Writable by the player: `/etc/grafana/provisioning` (`grafana:grafconf`,
-  `2775`; seeded files `0664`), `/home/player`, and the scratch space `/tmp`
-  and `/var/tmp`, both links to `/run/tmp` (root, `1777`, emptied at each
-  start, see "Start-up").
+- Writable by the player: `/etc/grafana/provisioning` and its
+  subdirectories where they are fixable (below: `grafana:grafconf`,
+  `2775`; seeded files `0664`), `/home/player` under every policy, and the
+  scratch space `/tmp` and `/var/tmp`, both links to `/run/tmp` (root,
+  `1777`, emptied at each start, see "Start-up"). `brick.yaml`'s
+  `writable_paths` also declares the three provisioning subdirectories
+  `/etc/grafana/provisioning/alerting`,
+  `/etc/grafana/provisioning/dashboards` and
+  `/etc/grafana/provisioning/datasources`, each a possible
+  `write_overrides` entry.
 - Protected (root-owned, read-only to the player): `grafana.ini`,
   `/etc/ssh/sshd_config`, `/etc/sudoers`, `/etc/sudoers.d/gm-player`, the
-  entrypoint, the two wrappers, the health check, the API helper (also not
+  entrypoint, the two wrappers and their helper `gm-write-policy`, the
+  health check, the API helper (also not
   runnable by `player`), the shared functions, the validator, the s6
   service definitions, the seed marker's directory `/var/lib/gm-state` and
   `/run/gm-grafana`. The database directory and the secret are not
   readable by the player.
-- Write policies: `fixable` only (see "Known limits").
+- **Write policies** (`write_policies`): `fixable` and `report-only`
+  (v0.3 master spec 7.4), as on the `prometheus` brick, **for the files
+  only** (the interface gap below). The renderer passes the node's policy
+  as `GM_WRITE_POLICY` and its `write_overrides` as `GM_WRITE_OVERRIDES`
+  (sorted, space-separated); `no-access` is read as `report-only` for the
+  files. A path is *fixable* when the policy is `fixable`, or it is an
+  override or lies under one, so an override of
+  `/etc/grafana/provisioning` makes the whole tree fixable and one of a
+  subdirectory only that one. Each directory and seeded file takes its
+  mode from its own path:
+
+  | | a fixable directory | a seeded file in it | otherwise |
+  |---|---|---|---|
+  | mode | `2775` | `0664` | `2755`, `0644` |
+
+  The directories are `provisioning/` itself, `datasources/`,
+  `dashboards/`, `alerting/` and `plugins/` (the last holds no seeded file
+  and follows its own path the same way). Owner `grafana:grafconf`
+  throughout. On a report-only node, with no override, `player` (in
+  `grafconf`) can read every file but not change, replace, remove or add
+  one, nor add a directory: an ordinary "permission denied". With the
+  override `/etc/grafana/provisioning/alerting`, only `alert-rules.yaml`
+  and its directory are fixable. The policy is set at each container
+  start (entrypoint) and enforced again by the wrapper before every
+  reload; it changes only with a new deployment.
+- **Owner restored**: `sed -i` replaces a file with one owned by
+  `player`. The entrypoint at every start, and `gm-reload-grafana` before
+  it reloads, give the five seeded files and the provisioning directories
+  their owner and mode back, contents untouched. Nothing is changed
+  through a symbolic link or on a file with other hard links: such an
+  entry is left alone and named (`left alone: ...`); a directory a player
+  removed on a fixable node is not recreated. Files players add on a
+  fixable path (a dashboard of their own, a second rules file) stay as
+  they made them, owned by `player`, group `grafconf`, readable by
+  Grafana, which provisions them with the rest.
+- **The interface gap** (v0.3 master spec 7.4, access model 11, accepted):
+  the write policy guards the files on the node, not Grafana's interface.
+  On a report-only Grafana node the players, administrators through the
+  tools password, can still create and edit dashboards, data sources,
+  alert rules and contact points in the UI or the API; what came from the
+  seed files stays locked there as on a fixable node (see "Web
+  interface"). Nothing in the brick refuses it. A scenario that makes a
+  Grafana node report-only expects the fix in the report, and its sealed
+  checks judge the live state, whatever changed it.
 
 ### Wrappers
 
-- `gm-reload-grafana`: checks the provisioning files as the validator's
+- `gm-reload-grafana`: first restores the owner and mode (above); then,
+  when none of `datasources/`, `dashboards/` and `alerting/` is fixable
+  (report-only, no override), prints one line and exits 1, reloading
+  nothing: `gm-reload-grafana: this node is report-only: its files cannot
+  be changed, so nothing was reloaded.` (exit 2 if the policy cannot be
+  read or the owner not restored). An override of one subdirectory is
+  enough for it to reload all three kinds. It then checks the
+  provisioning files as the validator's
   `files` rule does, as `grafana`, and refuses (exit 1, "NOT reloaded") if
   a dashboard file is not valid JSON or a file is unreadable to `grafana`
   (a missing seed file is only a warning). Otherwise POSTs
@@ -331,6 +401,7 @@ and the wrapper, so a fix lives in the file and survives a restart.
   restarting it; the wrapper waits up to 30 s for it to answer, then
   reloads.
 - `gm-validate`: runs the validator as `grafana`, exit code passed through.
+  Never refused, whatever the policy.
 
 **Edits and Grafana's own polling** (ruling 6 of capture W3): the
 reference provider polls the dashboard files once a day
@@ -399,7 +470,8 @@ brick), since a brick's footprint excludes mounted material. The memory
 reservation is measured: a node of `272M` (this figure plus the script's
 6M) in place of the spec's estimate of 160M, which the node exceeded at
 rest. The scenario sets each node's own `resources`, and `gmctl` uses
-those.
+those. Disk growth per hour (`disk_growth_per_hour`): `2M`, a provisional
+estimate, to be replaced by v0.3 chunk 15b's measurement.
 
 Measured in the v0.2 game (`fernway-clinics-monitoring` on the `laptop`
 playground, declared at 2 CPU / 4G / 8G on armenelos: AMD Ryzen 5 PRO
@@ -440,11 +512,29 @@ estimate of about 450M: the Grafana binary alone is 499M (Go, with debug
 information, kept as published), the front end about 130M without its
 source maps, the Prometheus data source plugin 54M.
 
+### Snapshot
+
+How each volume is copied at hand-over (`snapshot:` in `brick.yaml`):
+
+- `grafdata`: `stop`. The brick's services other than `sshd` (here
+  `grafana`) are stopped through s6, never by a Swarm scale to zero,
+  while the volume is copied, then started again: Grafana is briefly
+  down at hand-over (the health checks stay green; the players are told
+  it is maintenance). A stop, not a copy, because `grafana.db` is SQLite,
+  written while Grafana runs (alert state, sessions). The brief stop,
+  measured by the stack test (armenelos, 2026-10-23, a `grafdata` of
+  1.6M): the stop 30 ms, the copy 3 ms, back up 35 ms after the stop
+  began, answering its API about 2 s later. s6 waits up to 60 s for each
+  step.
+- `grafconf`, `home`, `gmstate`: `copy`, a tar of the volume while the
+  node runs, taken before the stop to keep it short.
+- `run` (`/run`) is never copied.
+
 ## Supported faults
 
 Which faults the brick hosts is stated only by each fault's `applies_to`
 (D59). This list is every catalog fault (`faults/`) whose `applies_to`
-names `grafana` `0.1.0`, and no other.
+names `grafana` `0.2.0`, and no other.
 
 | Fault | Kind | What it needs from the brick |
 |---|---|---|
@@ -546,22 +636,26 @@ answering at `/grafana/` through the bastion's web front.
 
 `sh bricks/grafana/tests/run-stack-test.sh` deploys the brick as stack
 `gmtest-grafana` (`tests/stack.test.yml`, no published port) with its five
-seed files copied from `companion/` and a `prometheus` 0.1.0 node seeded
+seed files copied from `companion/` and a `prometheus` 0.2.0 node seeded
 with that brick's test fixture, checks the chunk's Done-when and removes
 everything it created, volumes included. It reads the API with the helper,
 the UI from a client container on the stack's network (this image, entry
 point replaced), and SSHes in as `player`; every credential goes to `curl`
 on stdin. It never sends a wrong administrator's password, so the
-validator's `ERROR` on a refused login is not exercised there. Needs a
-swarm manager and both images built.
+validator's `ERROR` on a refused login is not exercised there. Then the
+snapshot's brief stop, the node redeployed `report-only` (`docker service
+update --env-add GM_WRITE_POLICY=report-only`: modes, denied edits, the
+wrapper's refusal, nothing reloaded), then with the override
+`/etc/grafana/provisioning/alerting` (the rule file's edit through the
+wrapper, the owner restored, the data source file still locked), and the
+entrypoint's two write-policy refusals. Needs a swarm manager and both
+images built.
 
 ## Known limits
 
-- **Write policy**: only `fixable`. A `report-only` node would need the
-  provisioning directory not group-writable, decided at start from a value
-  the renderer passes; not built (ruling 1 of capture W3, as for
-  `prometheus`). On any Grafana node the players, as administrators, can
-  change content in the UI anyway (access model 11).
+- **Write policy, files only**: on a report-only node the players, as
+  administrators, can still change content in the UI or the API (the
+  interface gap, see "Access"; access model 11, accepted).
 - **DO NOT TAMPER, not enforced**: players can change Grafana's users or
   the administrator's password through the UI or the API. The GM's checks
   then get `ERROR` (validator) or HTTP 401 (helper) until a restart sets

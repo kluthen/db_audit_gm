@@ -1,15 +1,21 @@
 #!/bin/sh
 # gm-entrypoint: container entrypoint of the db_audit_gm Prometheus brick.
-# DO NOT TAMPER. Root-owned and read-only (v0.2 master spec 7.2).
+# DO NOT TAMPER. Root-owned and read-only (v0.2 master spec 7.2, v0.3
+# master spec 7.4; capture W1 item 5).
 #
 # Runs as root at every container start, then execs s6-overlay's /init:
 #   1. empties /run (a named volume: a stack file's tmpfs is noexec, and
 #      s6-overlay needs an executable /run) and creates the runtime dirs;
 #   2. generates this container's sshd host key under /run;
 #   3. checks the secret;
-#   4. seeds /etc/prometheus from /opt/gm/seed once (marker
+#   4. checks GM_WRITE_POLICY and GM_WRITE_OVERRIDES and writes
+#      /run/gm/write-policy, read by gm-reload-prometheus (sudo resets the
+#      environment);
+#   5. seeds /etc/prometheus from /opt/gm/seed once (marker
 #      /var/lib/gm-state/.gm-seeded, outside the group-writable directory);
-#   5. sets the ownership of the TSDB and the player's home.
+#   6. applies the write policy's owner and modes to the seeded file and
+#      its directory, seeding or not (contents untouched);
+#   7. sets the ownership of the TSDB and the player's home.
 set -eu
 
 CONF_DIR=/etc/prometheus
@@ -23,9 +29,7 @@ PLAYER_HOME=/home/player
 
 log() { printf 'gm-entrypoint: %s\n' "$*" >&2; }
 die() { log "fatal: $*"; exit 1; }
-# chmod_setgid <dir> <group> <mode>: chmod run with <group> as gid, so the
-# kernel keeps the setgid bit without CAP_FSETID (root is not in <group>).
-chmod_setgid() { setpriv --regid="$2" --clear-groups -- chmod "$3" "$1"; }
+policy() { /usr/local/sbin/gm-write-policy "$@"; }
 
 # --- 1. /run ------------------------------------------------------------
 # Leftovers of a previous container (s6 state, sockets, pid files) must
@@ -46,9 +50,12 @@ ssh-keygen -q -t ed25519 -N '' -C '' -f /run/sshd-keys/ssh_host_ed25519_key
 # --- 3. secret ----------------------------------------------------------
 [ -s "$SECRETS_DIR/player_ssh_pubkey" ] || die "secret $SECRETS_DIR/player_ssh_pubkey is missing or empty"
 
-# --- 4. configuration, seeded once ---------------------------------------
-chown prometheus:promconf "$CONF_DIR"
-chmod_setgid "$CONF_DIR" promconf 2775
+# --- 4. the write policy --------------------------------------------------
+if ! problem=$(policy write 2>&1); then
+    die "${problem:-the write policy could not be written}"
+fi
+
+# --- 5. configuration, seeded once ---------------------------------------
 # The marker lives on its own volume (gmstate), root-owned: neither player
 # (group promconf) nor prometheus can remove, rename or replace it.
 chown root:root "$STATE_DIR"
@@ -66,7 +73,14 @@ if [ ! -e "$MARKER" ]; then
     log "seeded $CONF_DIR from $SEED_DIR"
 fi
 
-# --- 5. TSDB and the player's home ----------------------------------------
+# --- 6. the write policy's owner and modes ------------------------------------
+if ! notes=$(policy restore 2>&1); then
+    die "the owner and modes of the seeded files could not be set: $notes"
+fi
+[ -z "$notes" ] || log "left alone: $(printf '%s' "$notes" | tr '\n' ';')"
+log "write policy: $(tr '\n' ' ' < /run/gm/write-policy)"
+
+# --- 7. TSDB and the player's home ----------------------------------------
 chown prometheus:prometheus "$DATA_DIR"
 chmod 0750 "$DATA_DIR"
 chown player:player "$PLAYER_HOME"

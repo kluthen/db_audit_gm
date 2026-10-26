@@ -1,7 +1,9 @@
 # brick.yaml: postgres-exporter node, PostgreSQL's metrics for Prometheus
 # (v0.2 master spec 7 and 7.3).
 #
-# Version 0.1.0 (unreleased until the v0.2 release gate, D100).
+# Version 0.2.0 (unreleased until the v0.3 release gate, D100). Roles, growth
+# per hour, writable and seed paths, report tools and snapshot methods:
+# capture W1 item 3 (specs/versions/v0.3/wave-log.md).
 # Interfaces, accounts, seed file, secret, wrappers and footprint: capture W3
 # (specs/versions/v0.2/wave-log.md); footprint shape, secret kinds and
 # `receives`: capture W1; the monitoring role it connects as: capture W2-B.
@@ -9,13 +11,13 @@
 
 # --- Identity ---------------------------------------------------------
 id: postgres-exporter
-version: 0.1.0
+version: 0.2.0
 roles:
-  - metrics-exporter
+  - monitoring                      # v0.3 master spec 6.4's closed list
 technology:
   name: postgres_exporter
   version: "0.20.1"
-image: 127.0.0.1:5000/dbagm/postgres-exporter:0.1.0
+image: 127.0.0.1:5000/dbagm/postgres-exporter:0.2.0
 
 # --- Footprint --------------------------------------------------------
 footprint:                          # master spec 12's figures for the node, less what the
@@ -23,6 +25,8 @@ footprint:                          # master spec 12's figures for the node, les
                                     # stays within them (docs/gm.md, Footprint)
   limits:       {cpu: 0.245, memory: 122M}
   reservations: {cpu: 0.045, memory: 42M, disk: 64M}
+  disk_growth_per_hour: 1M          # provisional estimate (capture W1 item 3), until
+                                    # v0.3 chunk 15b measures it: the players' notes only
 stateful: true
 
 # --- What the scenario sets -------------------------------------------
@@ -30,10 +34,11 @@ parameters: {}                      # the database's address and user are in the
 knobs: []                           # no envelope: the settings are checked by the validator
 
 # --- Player plane -----------------------------------------------------
-write_policies:                     # fixable only (docs/gm.md, Known limits)
+write_policies:                     # GM_WRITE_POLICY, gm-write-policy (docs/gm.md, Access)
   - fixable
+  - report-only
 writable_paths:
-  - /etc/postgres-exporter          # exporter:expconf, 2775; seeded exporter.conf 0664
+  - /etc/postgres-exporter          # exporter:expconf, 2775 (2755 report-only); exporter.conf 0664 (0644)
   - /home/player                    # ~/report.md, the player's notes
 protected_files:
   - /etc/ssh/sshd_config
@@ -42,6 +47,7 @@ protected_files:
   - /usr/local/sbin/gm-entrypoint
   - /usr/local/sbin/gm-restart-exporter
   - /usr/local/sbin/gm-validate
+  - /usr/local/sbin/gm-write-policy  # the owner and modes, run as root by the two above
   - /usr/local/lib/gm/healthcheck
   - /usr/local/lib/gm/exporter-conf         # reads exporter.conf for the service, wrapper, validator
   - /usr/local/lib/gm/exporter-collectors   # the collectors this postgres_exporter offers
@@ -96,6 +102,8 @@ seed:
   dir: /opt/gm/seed/
   files:
     - exporter.conf                 # DATA_SOURCE_URI, DATA_SOURCE_USER, COLLECTORS
+  paths:                            # seed file -> its live in-container path
+    exporter.conf: /etc/postgres-exporter/exporter.conf
 protected_configs: []
 volumes:
   - name: expconf                   # exporter.conf, edited by players
@@ -109,6 +117,11 @@ volumes:
 processes:
   - postgres-exporter
   - sshd
+snapshot:                           # per volume, the hand-over copy (v0.3 master spec 6.4,
+                                    # 7.3 to 7.5); run, emptied at every start, is never copied
+  expconf: copy
+  home: copy
+  gmstate: copy
 
 # --- Catalog links ----------------------------------------------------
 interfaces:

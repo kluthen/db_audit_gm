@@ -1,0 +1,38 @@
+# Query repository of the fixture's producer node (master spec 7.1;
+# template: .claude/skills/scenario-format/templates/queries.yaml).
+queries:
+  orders.insert:                     # a query
+    sql: >-
+      INSERT INTO orders (customer_id, placed_at, total)
+      VALUES (%(customer_id)s, %(placed_at)s, %(total)s)
+    params:
+      customer_id: {int: [1, 500]}
+      placed_at: {now: utc}
+      total: {decimal: [5, 500, 2]}
+  orders.insert-v2:                  # the release of handover-6h: a slower insert
+    sql: >-
+      INSERT INTO orders (customer_id, placed_at, total)
+      SELECT %(customer_id)s, %(placed_at)s, %(total)s
+      WHERE NOT EXISTS (SELECT 1 FROM orders WHERE customer_id = %(customer_id)s
+                        AND total < %(total)s)
+    params:
+      customer_id: {int: [1, 500]}
+      placed_at: {now: utc}
+      total: {decimal: [5, 500, 2]}
+    transaction: {isolation: read committed, hold: 2s}
+  orders.lookup:                     # a pool
+    - sql: SELECT * FROM orders WHERE customer_id = %(customer_id)s
+      params: {customer_id: {int: [1, 500]}}
+      weight: 8
+    - sql: SELECT * FROM customers WHERE name = %(name)s
+      params: {name: {choice: [Ada, Grace, Edsger]}}
+      weight: 2
+  orders.close-day:                  # a sequence, one transaction
+    transaction: {isolation: repeatable read}
+    steps:
+      - sql: SELECT count(*) FROM orders WHERE placed_at::date = current_date - 1
+      - sql: SELECT sum(total) FROM orders WHERE id > %(from)s
+        params: {from: {sequence: [1, 100]}}
+  reports.revenue:                   # a builder
+    builder: builders/revenue.py:build
+    options: {months: 3}

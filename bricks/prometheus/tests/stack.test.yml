@@ -1,5 +1,5 @@
 # Stack test fixture for the Prometheus brick (v0.2 build plan, chunk 4): the
-# prometheus node and a postgres 0.2.0 node `db`, both receiving the
+# prometheus node and a postgres 0.3.0 node `db`, both receiving the
 # node-health script as configs, as the GM mounts it.
 # Uses only what a rendered Compose 3.8 stack file can express: no tmpfs
 # `mode` or `exec` option. Configs and secrets are external, created and
@@ -8,7 +8,7 @@ version: "3.8"
 
 services:
   prometheus:
-    image: 127.0.0.1:5000/dbagm/prometheus:0.1.0
+    image: 127.0.0.1:5000/dbagm/prometheus:0.2.0
     hostname: prometheus
     read_only: true
     cap_drop: [ALL]
@@ -43,7 +43,7 @@ services:
         limits: {cpus: "0.5", memory: 384M}
 
   db:
-    image: 127.0.0.1:5000/dbagm/postgres:0.2.0
+    image: 127.0.0.1:5000/dbagm/postgres:0.3.0
     hostname: db
     read_only: true
     cap_drop: [ALL]

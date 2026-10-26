@@ -22,7 +22,7 @@ in [`specs/versions/v0.1/README.md`](specs/versions/v0.1/README.md).
 | Path | What |
 |---|---|
 | [`tools/gmctl`](tools/gmctl) | The GM's command line: fit, render, deploy, load data, inject, validate, check, status, teardown |
-| [`bricks/`](bricks/) | Node definitions: `postgres`, `bastion`, `prometheus`, `postgres-exporter` and `grafana` |
+| [`bricks/`](bricks/) | Node definitions: `postgres`, `bastion`, `prometheus`, `postgres-exporter`, `grafana` and `scheduler` |
 | [`faults/`](faults/) | The fault catalog |
 | [`scenarios/`](scenarios/) | Scenario folders (`bookshop-new-server`) |
 | [`.claude/skills/`](.claude/skills/) | The `game-master`, `scenario-format` and `scenario-document` skills |

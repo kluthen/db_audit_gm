@@ -21,7 +21,9 @@ and serves them as metrics for Prometheus.
 ## What you can change
 
 - **Settings**: `/etc/postgres-exporter/exporter.conf`. You can edit it
-  (your account is in the `expconf` group). One `KEY=value` per line;
+  (your account is in the `expconf` group). On some games the file is
+  read-only: an edit gets "permission denied", and `gm-restart-exporter`
+  says the node is report-only. One `KEY=value` per line;
   lines starting with `#` are comments:
 
   | Key | Holds |

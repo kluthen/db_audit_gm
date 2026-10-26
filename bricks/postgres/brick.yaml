@@ -1,6 +1,8 @@
 # brick.yaml: PostgreSQL 18 node (master spec 7 and 9.1).
 #
-# Version 0.2.0 (unreleased until the v0.2 release gate, D100).
+# Version 0.3.0 (unreleased until the v0.3 release gate, D100). Roles, growth
+# per hour, writable and seed paths, report tools and snapshot methods:
+# capture W1 item 3 (specs/versions/v0.3/wave-log.md).
 # Top-level keys: capture W1-A; fixed paths, secrets, envelope file and
 # wrappers: capture W1-B; quoted octal modes: capture W1-D
 # (specs/versions/v0.1/wave-log.md); footprint shape, secret kinds and
@@ -9,13 +11,13 @@
 
 # --- Identity ---------------------------------------------------------
 id: postgres
-version: 0.2.0
+version: 0.3.0
 roles:
   - database
 technology:
   name: postgresql
   version: "18"
-image: 127.0.0.1:5000/dbagm/postgres:0.2.0
+image: 127.0.0.1:5000/dbagm/postgres:0.3.0
 
 # --- Footprint --------------------------------------------------------
 footprint:                          # CPU and memory: v0.1's figures as reservations, limits
@@ -24,6 +26,9 @@ footprint:                          # CPU and memory: v0.1's figures as reservat
                                     # v0.2 game's measurement stays within them (docs/gm.md)
   limits:       {cpu: 1, memory: 1G}
   reservations: {cpu: 0.5, memory: 512M, disk: 2.25G}
+  disk_growth_per_hour: 32M         # provisional estimate (capture W1 item 3), until
+                                    # v0.3 chunk 15b measures it: the data and WAL the load writes and the file log;
+                                    # the v0.2 static game wrote about 0.5M/h of log
 stateful: true
 
 # --- What the scenario sets -------------------------------------------
@@ -70,7 +75,9 @@ protected_files:
   - /usr/local/sbin/gm-reload-db
   - /usr/local/sbin/gm-restart-db
   - /usr/local/sbin/gm-validate
+  - /usr/local/sbin/gm-snapshot-db  # root only (0700): the pgdata snapshot (snapshot: below)
   - /usr/local/lib/gm/healthcheck
+  - /usr/local/lib/gm/check-psql    # root only (0700): the sealed checks' psql as gm_check
   - /opt/gm/validator/validate.sh
   - /opt/gm/protected/envelopes.conf
   - /etc/s6-overlay/s6-rc.d
@@ -124,11 +131,27 @@ secrets:
     uid: 0
     gid: 102                        # postgres' group (the Dockerfile checks 100:102)
     mode: "0440"                    # root and postgres only
+  - name: gm_check_password         # password of the GM check role gm_check (v0.3 master
+    kind: password                  #   spec 7.3), the GM's connection reserve; read by root
+    path: /opt/gm/secrets/gm_check_password   # only, through /usr/local/lib/gm/check-psql
+    uid: 0
+    gid: 0
+    mode: "0400"
+  - name: pgbouncer_lookup_password # password of PgBouncer's auth_user pgbouncer_lookup;
+    kind: password                  #   also on the pgbouncer node
+    only_with_role: pooler          # the role exists only in a scenario with a pooler node
+    path: /opt/gm/secrets/pgbouncer_lookup_password
+    uid: 0
+    gid: 0
+    mode: "0400"
 seed:
   dir: /opt/gm/seed/
   files:
     - postgresql.conf
     - pg_hba.conf
+  paths:                            # seed file -> its live in-container path
+    postgresql.conf: /etc/postgresql/postgresql.conf
+    pg_hba.conf: /etc/postgresql/pg_hba.conf
 protected_configs:
   - name: envelopes                 # per-game envelope file, read by the validator
     path: /opt/gm/protected/envelopes.conf
@@ -151,6 +174,13 @@ volumes:
 processes:
   - postgres
   - sshd
+snapshot:                           # per volume, the hand-over copy (v0.3 master spec 6.4,
+                                    # 7.3 to 7.5); run, emptied at every start, is never copied
+  pgdata: pg_basebackup
+  pgconf: copy
+  home: copy
+  gmstate: copy
+  pglog: copy
 
 # --- Catalog links ----------------------------------------------------
 interfaces:
@@ -158,6 +188,7 @@ interfaces:
     - {name: sql, protocol: postgresql, port: 5432}
     - {name: ssh, protocol: ssh, port: 22}
   consumes: []
+report_tools: [pgbadger]            # players run pgBadger on the file log (report:pgbadger)
 receives:                           # the image accepts another brick's mounted material
   s6_overlay: "3.2.3.2"             # the version the Dockerfile installs
   commands: [sh, cat, du, df, awk, sed, grep, sleep, perl, s6-svstat, s6-setuidgid]

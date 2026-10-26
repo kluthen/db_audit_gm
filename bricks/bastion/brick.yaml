@@ -1,6 +1,8 @@
 # brick.yaml: bastion node (master spec 7, 9.2 and 14).
 #
-# Version 0.2.0 (unreleased until the v0.2 release gate, D100).
+# Version 0.3.0 (unreleased until the v0.3 release gate, D100). Roles, growth
+# per hour, writable and seed paths, report tools and snapshot methods:
+# capture W1 item 3 (specs/versions/v0.3/wave-log.md).
 # Top-level keys: capture W1-A; secrets and starter pack: capture W1-C;
 # quoted octal modes and seed_files mapping: capture W1-D; /run as a named
 # volume: capture W1-E (specs/versions/v0.1/wave-log.md); footprint shape,
@@ -10,13 +12,13 @@
 
 # --- Identity ---------------------------------------------------------
 id: bastion
-version: 0.2.0
+version: 0.3.0
 roles:
   - bastion
 technology:
   name: openssh
   version: "10.0"                   # Debian 13's OpenSSH; PostgreSQL 18 client tools alongside
-image: 127.0.0.1:5000/dbagm/bastion:0.2.0
+image: 127.0.0.1:5000/dbagm/bastion:0.3.0
 
 # --- Footprint --------------------------------------------------------
 footprint:                          # v0.1's figures as reservations, limits twice CPU and memory;
@@ -24,6 +26,8 @@ footprint:                          # v0.1's figures as reservations, limits twi
                                     # the v0.2 game's measurement too (docs/gm.md, Footprint)
   limits:       {cpu: 0.5, memory: 256M}
   reservations: {cpu: 0.25, memory: 128M, disk: 256M}
+  disk_growth_per_hour: 1M          # provisional estimate (capture W1 item 3), until
+                                    # v0.3 chunk 15b measures it: the players' notes and reports only
 stateful: true                      # the player's home (~/report.md) and the sshd host key
 
 # --- What the scenario sets -------------------------------------------
@@ -112,6 +116,10 @@ seed:                               # the starter pack: copied once into /home/p
     - README.md                     # README.md: player/README.md
     - story.md                      # story.md: player/story.md
     - issues.md                     # issues.md: player/issues.md
+  paths:                            # seed file -> its live in-container path
+    README.md: /home/player/README.md
+    story.md: /home/player/story.md
+    issues.md: /home/player/issues.md
 protected_configs: []
 volumes:
   - name: home
@@ -123,6 +131,10 @@ volumes:
 processes:
   - sshd
   - web-front                       # down by design when web_routes is empty
+snapshot:                           # per volume, the hand-over copy (v0.3 master spec 6.4,
+                                    # 7.3 to 7.5); run, emptied at every start, is never copied
+  home: copy
+  hostkeys: copy
 
 # --- Catalog links ----------------------------------------------------
 interfaces:

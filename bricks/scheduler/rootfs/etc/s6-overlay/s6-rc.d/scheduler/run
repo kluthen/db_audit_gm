@@ -1,0 +1,43 @@
+#!/bin/sh
+# s6 service `scheduler` (DO NOT TAMPER; v0.3 master spec 7.1, capture W1
+# item 7, W1-y). Runs as root only to read what the service account must
+# not: the schedule, read in place from its seed config (0:0 0400, never
+# copied onto a volume, spec D163), and the role passwords render mounted
+# (/opt/gm/secrets/role_<role>_password, 0:0 0400). It passes them on
+# standard input, then drops to `scheduler` with s6-setuidgid; the program
+# never opens the schedule. Framing of standard input:
+#   gm-scheduler-input 1
+#   password <role> <password>      one line per mounted role secret
+#   schedule
+#   <schedule.yaml to the end>
+# The here-document goes through a pipe (/bin/sh is dash), never a file.
+# Every start of the service reads the schedule again, and removes the
+# previous program's status (/run/scheduler/status), so a poller never
+# reads a stale `running`.
+exec 2>&1
+PATH=/command:/usr/bin:/bin
+SCHEDULE=/opt/gm/seed/schedule.yaml
+
+if [ ! -f "$SCHEDULE" ]; then
+    echo "scheduler: NOT started: $SCHEDULE is missing"
+    exit 2
+fi
+input="gm-scheduler-input 1"
+for f in /opt/gm/secrets/role_*_password; do
+    [ -f "$f" ] || continue
+    role=${f#/opt/gm/secrets/role_}
+    role=${role%_password}
+    password=$(cat "$f") || exit 2
+    input="$input
+password $role $password"
+done
+schedule=$(cat "$SCHEDULE") || exit 2
+unset password
+# the status is the new program's to write: none until it says idle or running
+rm -f /run/scheduler/status /run/scheduler/status.tmp
+cd /var/lib/scheduler || exit 2
+exec /command/s6-setuidgid scheduler /usr/bin/python3 -I -m gm_scheduler run <<GM_INPUT
+$input
+schedule
+$schedule
+GM_INPUT
