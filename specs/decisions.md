@@ -16,7 +16,7 @@ README:
 Archived IDs keep their meaning and are cited as they are. D107 onward
 stay live: rulings still to be applied in a later version (D107, D108,
 D110, D113), the v0.2 release close, and v0.3's drafting from D114.
-Numbering continues from D175; no ID is reused.
+Numbering continues from D176; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -417,3 +417,11 @@ Numbering continues from D175; no ID is reused.
   next check. Rejected: raising the swarm-wide `--task-history-limit`
   (the hosts' other stacks, the VPS); a per-minute sampling timer. Now in:
   [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunk 8.
+- **D175 (2026-10-26, owner ruling, relayed by the coordinator; resolves
+  O103, clears G11): The lost time beyond thirty minutes moves the whole
+  earliest hand-over,** the later of the aging minimum since T0 and every
+  fault instance's own minimum since its planting, as master spec 8.7 and
+  D152 say. Now in:
+  [versions/v0.3/access-model.md](versions/v0.3/access-model.md) 6
+  (`aging-done`); [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md)
+  G11, chunk 8.

@@ -14,7 +14,7 @@ Resolved since v0.2 closed: O45 (D121), O46 (D128), O78 (D140), O82
 (D124), O83 (D125), O84 (D126), O85 (D127), O86 (D129), O87 (D130), O88
 (D131), O89 (D132), O90 (D133), O91 (D134), O92 (D135), O93 (D136), O94
 (D137), O95 (D138), O96 (D139), O97 (D140), O81 (D141), O98 (D142), O99
-(D143), O100 (D144), O101 (D145), O102 (D171).
+(D143), O100 (D144), O101 (D145), O102 (D171), O103 (D175).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -115,18 +115,8 @@ opened, and O98 to O101, raised by their answers, were all answered on
 2026-10-22 (D124–D145). The drafts' `(proposed)` items
 await the owner's review in
 [versions/v0.3/review-list.md](versions/v0.3/review-list.md). O102,
-raised at wave 1's preflight, was answered the same day (D171). O103,
-raised at wave 2's preflight, is open.
-
-- **O103** (soon, v0.3) — When a fault instance's own aging minimum since
-  its planting ends later than the aging minimum since T0, does the lost
-  time beyond thirty minutes still move the earliest hand-over? Master
-  spec 8.7 and D152 say the earliest hand-over moves by the excess;
-  access model 6 attaches the move to the aging minimum's term only.
-  Options: (a) the whole earliest hand-over moves (amends access model
-  6); (b) only the aging minimum's term (amends master spec 8.7's
-  wording). Recommended (a). Gate G11 of
-  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md).
+raised at wave 1's preflight, was answered the same day (D171), and
+O103, raised at wave 2's preflight, on 2026-10-26 (D175). None is open.
 
 ## Roadmap: gaps and cross-version risks
 

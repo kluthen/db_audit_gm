@@ -1,6 +1,6 @@
 # db_audit_gm v0.3 — Build plan
 
-Status: v6 (2026-10-26): v5 with capture W2's three open points ruled (spec D172 to D174) and the owner's question O103 raised as gate G11.
+Status: v7 (2026-10-26): v6 with the owner's ruling on O103, the lost time moving the whole earliest hand-over, written in (spec D175; G11 cleared).
 Approval: **approved 2026-10-22 by the owner** (G1, spec D156).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-10-22 (spec D154), with
@@ -127,7 +127,7 @@ plan states only its deltas. Its conventions follow v0.2's
 | G8 | The release gate's aged run window: the hosts G5 settles up and otherwise quiet for about twenty hours, deployed in an evening and handed over the next early afternoon (spec D156) | The owner, who sets the date with the driver | Release gate items 7 to 9 | ruled (spec D156); the date to set |
 | G9 | The restart's confirmation at the release gate: the owner types the players' confirmation in the GM session himself (spec D156) | The owner, at the release gate | Release gate item 8 | ruled (spec D156); typed at the release gate |
 | G10 | The owner's judgement at release close: the aged game, the feedback under load, the findings | The owner | Release close | open |
-| G11 | O103: whether the lost time beyond thirty minutes moves the whole earliest hand-over (master spec 8.7, spec D152) or only the aging minimum's term (access model 6), when a fault instance's own minimum since its planting is the later term | The owner | Chunk 8's merge (8b's earliest hand-over) | open |
+| G11 | O103: whether the lost time beyond thirty minutes moves the whole earliest hand-over (master spec 8.7, spec D152) or only the aging minimum's term (access model 6), when a fault instance's own minimum since its planting is the later term | The owner | Chunk 8's merge (8b's earliest hand-over) | cleared 2026-10-26 (spec D175) |
 
 G6 was a question the plan raised on the approved spec (master spec 11
 asks for a hand-over check, a snapshot and a restart within the
@@ -140,7 +140,7 @@ test harness's only and changes no spec behaviour for a game.
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
 | 1 | 1, 2, 3, 4, 5 | G1 (cleared); G2 (chunks 1, 3, 4, 5); G3 (stack tests) | merged 2026-10-26 (5faff6c) |
-| 2 | 6, 7, 8, 9 | wave 1; G11 (chunk 8's merge) | in progress (from 2026-10-26) |
+| 2 | 6, 7, 8, 9 | wave 1 | in progress (from 2026-10-26) |
 | 3 | 10, 11, 12 | wave 2; G4 (chunk 10b's two-host try) | planned |
 | 4 | 13, 14, 15 | wave 3; G4 (chunk 15b); G7 (chunk 15's merge) | planned |
 
@@ -820,11 +820,11 @@ chunk 9); the test-harness override's form (G6).
   - **8b**: outages read from the schedulers' per-minute summaries and
     the nodes' task history, a node whose kept history may have lost
     tasks since the previous reading flagged, its lost time then a
-    lower bound (spec D174); the lost time; the earliest hand-over (the
-    aging minimum since T0, moved by the lost time beyond thirty
-    minutes, and every instance's own minimum since its actual
-    planting; G11 settles which term the lost time moves); the early
-    check and the hand-over check (every planted
+    lower bound (spec D174); the lost time; the earliest hand-over,
+    computed by one function: the later of the aging minimum since T0
+    and every instance's own minimum since its actual planting, the
+    whole moved later by the lost time beyond thirty minutes (spec
+    D175); the early check and the hand-over check (every planted
     fault present, every scheduler key running, no node unhealthy, the
     outages), recorded; `status` heading with any failure or outage,
     then the aging's progress, the lost time, the earliest hand-over,
@@ -847,8 +847,7 @@ chunk 9); the test-harness override's form (G6).
   `.claude/skills/game-master/gmctl.md` (the rows it changes).
 - Spec sections: master spec 8 (its opening), 8.4, 8.5, 8.7, 9, 13, 16, 20;
   access model 3, 5 ("The load and the setup actions"), 6 (`aging-done`),
-  7, 9; spec D117, D131, D152, D156, D157, D158, D161, D172 to D174;
-  G11 when ruled.
+  7, 9; spec D117, D131, D152, D156, D157, D158, D161, D172 to D175.
 - Done when: unit tests (a fake engine and a fake timer, never a fake
   clock in a running game) show each refusal; `start-load` recording T0;
   a scheduled planting and its failure recorded without teardown; the
