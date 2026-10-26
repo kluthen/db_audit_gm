@@ -17,12 +17,12 @@ roles:
   - pooler
 technology:
   name: pgbouncer
-  version: "1.24"                   # Debian 13's package, 1.24.1 (the Dockerfile checks it)
+  version: "1.26"                   # PGDG's package, 1.26.1-1.pgdg13+1 (D177; the Dockerfile checks it)
 image: 127.0.0.1:5000/dbagm/pgbouncer:0.1.0
 
 # --- Footprint --------------------------------------------------------
 footprint:                          # master spec 7.2's figures; at rest in the stack test, under
-                                    # the 64M limit: 4.7MiB, CPU 0.01 % (docs/gm.md, Footprint)
+                                    # the 64M limit: 11.1MiB, CPU 0.01 % (docs/gm.md, Footprint)
   limits:       {cpu: 0.25, memory: 64M}
   reservations: {cpu: 0.05, memory: 32M, disk: 256M}
   disk_growth_per_hour: 4M          # provisional estimate (capture W1 item 3), until

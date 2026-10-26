@@ -6,9 +6,11 @@ to players.
 ## Purpose
 
 A PgBouncer connection pooler node (v0.3 master spec 7.2): PgBouncer
-1.24.1 from Debian 13's package, on `debian:13-slim`, with s6-overlay
-3.2.3.2, `sshd`, the `player` account and a public validator, like every
-node. Image `127.0.0.1:5000/dbagm/pgbouncer:0.1.0`. Role `pooler`.
+1.26.1 from the PostgreSQL apt repository (PGDG, `trixie-pgdg`, package
+`1.26.1-1.pgdg13+1`, D177; psql 18 from there too), on `debian:13-slim`,
+with s6-overlay 3.2.3.2, `sshd`, the `player` account and a public
+validator, like every node. Image `127.0.0.1:5000/dbagm/pgbouncer:0.1.0`.
+Role `pooler`.
 
 It is optional in any scenario (D119): the GM picks it when the design
 needs a pooler between the clients and the database, for faults about
@@ -22,8 +24,8 @@ CLIENTS`) and its log, and the node-health script covers the node.
 - A node of its own, one per pooler the design needs (one is the usual
   case); it mounts no material into other nodes.
 - Build: `docker build -t 127.0.0.1:5000/dbagm/pgbouncer:0.1.0
-  bricks/pgbouncer` (x86_64; the build fails if Debian's package is not
-  PgBouncer 1.24.1).
+  bricks/pgbouncer` (x86_64; the build fails if the package is not
+  PgBouncer 1.26.1, `1.26.1-1.pgdg13+1`).
 - Stateful (`stateful: true`): its configuration, its log and the
   players' home are on named volumes, so a new container keeps the
   players' edits. Requirements: it shares a network with every database
@@ -209,7 +211,7 @@ lookup function.
 | Console | Who | Can |
 |---|---|---|
 | `stats_users` | `dba` | every `SHOW` (`POOLS`, `STATS`, `CLIENTS`, `SERVERS`, `CONFIG`, `DATABASES`, `LISTS`) |
-| `admin_users` | `pgbouncer`, local socket only | also `RELOAD`, `SET`, `PAUSE`, `RESUME`, `KILL`, `SHUTDOWN` |
+| `admin_users` | `pgbouncer`, local socket only | also `RELOAD`, `SET`, `PAUSE`, `RESUME`, `KILL`, `KILL_CLIENT`, `SHUTDOWN` |
 
 `dba`'s `RELOAD`, `SET`, `PAUSE` or `SHUTDOWN` is refused by PgBouncer
 ("admin access needed", access model 7). `admin_users = dba` written in
@@ -290,8 +292,8 @@ file opens (a file that did not load at start); its own log is
 
 Default footprint in `brick.yaml` (master spec 7.2's figures): limits
 CPU `0.25` and memory `64M`; reservations CPU `0.05`, memory `32M` and
-disk `256M`. At rest in the stack test, under the 64M limit: 4.7 MiB
-(`docker stats`; `memory.current` 5.8 MB), CPU 0.01 %. PgBouncer's memory
+disk `256M`. At rest in the stack test, under the 64M limit: 11.1 MiB
+(`docker stats`; `memory.current` 12.6 MB), CPU 0.01 %. PgBouncer's memory
 grows with clients and pools (a few kilobytes each, `pkt_buf` buffers),
 far below the limit within the envelopes. Disk growth per hour
 (`disk_growth_per_hour`): `4M`, a provisional estimate, to be replaced by

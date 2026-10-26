@@ -203,7 +203,7 @@ reloads_logged() { gm grep -c 'RELOAD command issued' "$LOG"; }
 u=$(gm ps -o user= -C pgbouncer | sort -u | tr -d ' ')
 [ "$u" = pgbouncer ] && pass "PgBouncer runs as pgbouncer" || fail "PgBouncer process user: [$u]"
 v=$(adm 'SHOW VERSION')
-case $v in "PgBouncer 1.24.1"*) pass "Debian 13's PgBouncer ($v)" ;; *) fail "version: $v" ;; esac
+case $v in "PgBouncer 1.26.1"*) pass "PGDG's PgBouncer ($v)" ;; *) fail "version: $v" ;; esac
 
 # --- SSH and sudo ------------------------------------------------------------
 u=$(pssh id -un 2>&1 || true)

@@ -104,13 +104,11 @@ if ! up; then
     exit 1
 fi
 
-# 6. reload, and what PgBouncer said about it
+# 6. reload, and what PgBouncer said about it (since 1.25 a RELOAD that
+#    fails is also an error on the console: its reasons are in the log)
 size=$(stat -c %s "$LOG" 2>/dev/null || echo 0)
-if ! out=$(console RELOAD 2>&1); then
-    echo "$ME: the console refused the reload:" >&2
-    printf '%s\n' "$out" | indent >&2
-    exit 1
-fi
+out=$(console RELOAD 2>&1)
+rc=$?
 sleep 0.5
 said=$(tail -c "+$((size + 1))" "$LOG" 2>/dev/null | sed -n 's/^[0-9-]* [0-9:.]* [^ ]* \[[0-9]*\] \(WARNING\|ERROR\|FATAL\) /\1 /p')
 if [ -n "$said" ]; then
@@ -119,6 +117,11 @@ if [ -n "$said" ]; then
 fi
 if printf '%s\n' "$said" | grep -q 'config file loading failed'; then
     echo "$ME: PgBouncer did not load the files; run sudo gm-validate." >&2
+    exit 1
+fi
+if [ "$rc" -ne 0 ]; then
+    echo "$ME: the console refused the reload:" >&2
+    printf '%s\n' "$out" | indent >&2
     exit 1
 fi
 echo "$ME: configuration reloaded."

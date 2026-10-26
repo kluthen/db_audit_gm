@@ -20,8 +20,10 @@ RUN chmod -R u=rwX,go=rX /rootfs
 FROM debian:13-slim
 
 ARG S6_OVERLAY_VERSION=3.2.3.2
-# Debian 13's package (master spec 7.2); the build fails on another version.
-ARG PGBOUNCER_VERSION=1.24.1
+# PGDG's package, pinned (D177: Debian 13's 1.24.1 has open CVEs with no
+# trixie fix); the build fails on another upstream version.
+ARG PGBOUNCER_VERSION=1.26.1
+ARG PGBOUNCER_PACKAGE=1.26.1-1.pgdg13+1
 
 # s6-overlay v3, pinned, verified against the release's published SHA-256.
 ADD --checksum=sha256:5379750ed30a84bbd2e2dd74847ba6b5bd29cd0b2e3ea2ec58049b57eb2eda12 \
@@ -29,15 +31,22 @@ ADD --checksum=sha256:5379750ed30a84bbd2e2dd74847ba6b5bd29cd0b2e3ea2ec58049b57eb
 ADD --checksum=sha256:e6befcc96a437a3831386ecfc51808c5d3e939dc5fe3c02ae9284599e8aa2408 \
     https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /tmp/
 
-# PgBouncer and psql (the console, for players, the GM and the validator).
+# PgBouncer and psql (the console, for players, the GM and the validator)
+# from the PGDG repository, whose signing key Debian ships in
+# postgresql-common (packages verified by apt against it), as in the
+# PostgreSQL brick. No server: only the client is installed (checked).
 # The package's own files (a sample pgbouncer.ini and userlist.txt, the
 # systemd unit, logrotate) are not used: the configuration is the seed's
 # and the GM's (gm-entrypoint), the service s6's.
 RUN set -eux; \
     export DEBIAN_FRONTEND=noninteractive; \
     apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates postgresql-common xz-utils; \
+    echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt trixie-pgdg main" \
+        > /etc/apt/sources.list.d/pgdg.list; \
+    apt-get update; \
     apt-get install -y --no-install-recommends \
-        xz-utils openssh-server sudo procps less nano vim-tiny pgbouncer postgresql-client; \
+        openssh-server sudo procps less nano vim-tiny "pgbouncer=${PGBOUNCER_PACKAGE}" postgresql-client; \
     tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz; \
     tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz; \
     rm -f /tmp/s6-overlay-noarch.tar.xz /tmp/s6-overlay-x86_64.tar.xz; \
@@ -48,7 +57,9 @@ RUN set -eux; \
     # no package-made key either (ssl-cert's snakeoil pair is unused)
     rm -f /etc/ssh/ssh_host_* /etc/ssl/private/ssl-cert-snakeoil.key /etc/ssl/certs/ssl-cert-snakeoil.pem; \
     rm -rf /etc/pgbouncer /var/log/postgresql /etc/logrotate.d/pgbouncer; \
-    /usr/sbin/pgbouncer --version | grep -q "^PgBouncer ${PGBOUNCER_VERSION}\$"
+    /usr/sbin/pgbouncer --version | grep -q "^PgBouncer ${PGBOUNCER_VERSION}\$"; \
+    test "$(dpkg-query -W -f '${Version}' pgbouncer)" = "${PGBOUNCER_PACKAGE}"; \
+    if ls /usr/lib/postgresql/*/bin/postgres 2>/dev/null; then exit 1; fi
 
 # Accounts: `pgbouncer` runs PgBouncer and is its console's admin over the
 # local socket (peer); `player` (SSH by key only) is in `pgbconf`, which owns
