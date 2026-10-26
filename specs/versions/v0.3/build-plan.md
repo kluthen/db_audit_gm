@@ -1,6 +1,6 @@
 # db_audit_gm v0.3 — Build plan
 
-Status: v8 (2026-10-26): v7 with the owner's ruling on wave 2's gate finding, the GM check role's `CONNECT` granted by `load-data`, written in (spec D176).
+Status: v9 (2026-10-26): v8 with the owner's ruling on PgBouncer's source, the PostgreSQL apt repository's 1.26.1 instead of Debian 13's 1.24.1, written in (spec D177).
 Approval: **approved 2026-10-22 by the owner** (G1, spec D156).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-10-22 (spec D154), with
@@ -118,7 +118,7 @@ plan states only its deltas. Its conventions follow v0.2's
 | Gate | What | Cleared by | Blocks | Status |
 |---|---|---|---|---|
 | G1 | Plan approval | The owner | Wave 1 | cleared 2026-10-22 (spec D156) |
-| G2 | Network access at image build time: Debian 13's repositories (`pgbouncer`, `python3-psycopg`, Python 3.13), the PostgreSQL apt repository, the s6-overlay, Prometheus, `postgres_exporter` and Grafana sources, as in v0.2 | Hand check by the wave driver | Chunks 1, 3, 4, 5, 6 (every image build) | cleared 2026-10-23 for wave 1, 2026-10-26 for wave 2 (hand checks, wave log) |
+| G2 | Network access at image build time: Debian 13's repositories (`python3-psycopg`, Python 3.13), the PostgreSQL apt repository (PostgreSQL, and `pgbouncer` from wave 2's gate, spec D177), the s6-overlay, Prometheus, `postgres_exporter` and Grafana sources, as in v0.2 | Hand check by the wave driver | Chunks 1, 3, 4, 5, 6 (every image build) | cleared 2026-10-23 for wave 1, 2026-10-26 for wave 2 (hand checks, wave log) |
 | G3 | A Docker host in swarm mode: armenelos, single-node swarm (active 2026-10-22) | Hand check by the wave driver | Every stack test and smoke run, every wave gate, the release gate | cleared 2026-10-23, re-checked 2026-10-26 (hand checks, wave log) |
 | G4 | The VPS ready, under the VPS rule (spec D159; "Workflow deltas"): first, Tailscale logged in on both hosts (`tailscale status`); the VPS's own documentation read before any change there; Docker Engine on the VPS (28.5.1 there, 29.9.1 on armenelos, 2026-10-22): the join checks that a 28.5.1 worker runs the game's services, and an upgrade, if one is needed, waits for a filetstudio.com downtime scheduled with the owner beforehand; the VPS joined to armenelos' swarm as a worker with `--advertise-addr` and `--data-path-addr` on its Tailscale interface (armenelos' own swarm bound likewise), and if the VPS's engine is already in a swarm or runs filetstudio.com as swarm services the driver stops and asks the owner; the swarm's ingress network recreated with an MTU leaving room for VXLAN inside Tailscale's 1280 bytes, with no game running; no game port published on the VPS (the bastion pinned to armenelos); SSH from armenelos to the VPS over Tailscale with a key (Docker context, image copy); at least 5G free on the VPS | The wave driver joins the VPS (spec D156); the owner's part, Tailscale and Docker on the VPS, is in place | Chunk 10b's two-host try; the two-host smoke run (from the wave 3 gate); chunk 15b; the release gate | open: Tailscale up on both hosts and `ssh vps` working (2026-10-22) |
 | G5 | Where the release gate's aged run runs, memory on armenelos being short (about 5G available, swap in use, a single-host game expected at about 5G): on armenelos alone if the game's peak memory measured by chunk 15b plus about 1G fits armenelos' available memory, otherwise on armenelos plus the VPS (spec D156) | Chunk 15b's measured figures, applied by the wave driver and recorded in the wave log | The release gate's aged run | ruled (spec D156); applied after chunk 15b |
@@ -686,8 +686,9 @@ Depends on: chunks 1, 4 (W1-x: the lookup role); G2, G3
 Architecture capture: none.
 
 - Goal: the optional pooler node of master spec 7.2.
-- Scope: in: the image from `debian:13-slim` with Debian 13's
-  `pgbouncer`, s6, `sshd`, `player`; seed-once `pgbouncer.ini`, writable
+- Scope: in: the image from `debian:13-slim` with `pgbouncer`
+  `1.26.1-1.pgdg13+1` from the PostgreSQL apt repository (`trixie-pgdg`;
+  amended by spec D177, Debian 13's 1.24.1 having open CVEs), s6, `sshd`, `player`; seed-once `pgbouncer.ini`, writable
   by `player` on a fixable node; `gm-reload-pgbouncer` (restores owner
   and mode; refuses on report-only); `auth_query` against the database
   with the lookup role's secret, `auth_dbname` set so the console
@@ -708,7 +709,7 @@ Architecture capture: none.
   `validator/validate.sh`, `brick.yaml`, `docs/{gm,player}.md`,
   `tests/{run-stack-test.sh,stack.test.yml}`.
 - Spec sections: master spec 7.2; access model 5 ("Database, its logs and
-  PgBouncer"), 7; spec D119, D139.
+  PgBouncer"), 7; spec D119, D139, D177.
 - Done when: the stack test shows each item above; the loader accepts
   the brick; `test_brick_docs` passes.
 - Verification: chunk checks, plus the stack test (needs G3).

@@ -16,7 +16,7 @@ README:
 Archived IDs keep their meaning and are cited as they are. D107 onward
 stay live: rulings still to be applied in a later version (D107, D108,
 D110, D113), the v0.2 release close, and v0.3's drafting from D114.
-Numbering continues from D177; no ID is reused.
+Numbering continues from D178; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -433,3 +433,14 @@ Numbering continues from D177; no ID is reused.
   granting it; those checks staying on `postgres`. Now in:
   [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 7.3;
   [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunks 11, 14.
+- **D177 (2026-10-26, owner ruling on security-advisor's post-change
+  check of wave 2): The `pgbouncer` brick takes PgBouncer from the
+  PostgreSQL apt repository (`trixie-pgdg`), pinned at
+  `1.26.1-1.pgdg13+1`,** since Debian 13's 1.24.1-1+deb13u2 has six open
+  CVEs with no trixie fix (CVE-2026-6668, -19888, -6669, -107348, -107349,
+  -107350; Debian bug 1148946). Declined: Debian's 1.24.1 with an accepted
+  risk. 1.25/1.26's behaviour changes touch no brick, fault or scenario;
+  tracking `search_path` by default matters only to a future
+  transaction-pooling fault relying on leaked session settings. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 7.2;
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) G2, chunk 6.

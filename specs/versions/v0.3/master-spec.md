@@ -11,7 +11,9 @@ confirmed by the owner on 2026-10-23, at wave 1's start (D160–D162);
 two of wave 1's preflight settlements written in the same day: where
 `schedule.yaml` lives (7.1, D163) and the scheduler's writable paths in
 the 6.7 example (D170); amended on 2026-10-26 by the owner's ruling on
-the GM check role's `CONNECT` privilege (7.3, D176).
+the GM check role's `CONNECT` privilege (7.3, D176), and the same day
+by the ruling taking PgBouncer from the PostgreSQL apt repository (7.2,
+D177).
 Build plan:
 [build-plan.md](build-plan.md), approved (D156). Companion:
 [access-model.md](access-model.md). Baseline: the released
@@ -521,7 +523,9 @@ reservations 0.1 CPU / 64M, disk for its log.
 
 ### 7.2 `pgbouncer` 0.1.0
 
-- Role `pooler`; PgBouncer from Debian 13's package; optional in any
+- Role `pooler`; PgBouncer from the PostgreSQL apt repository
+  (`trixie-pgdg`), pinned at `1.26.1-1.pgdg13+1` (amended by D177:
+  Debian 13's 1.24.1 had open CVEs with no fix); optional in any
   scenario; write policies `fixable` and `report-only`.
 - Seed-once `pgbouncer.ini`, owned so that a fixable node's players edit
   it; reload through `gm-reload-pgbouncer`.
