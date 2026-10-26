@@ -22,7 +22,12 @@ behaviour is fixed by capture W3-A (`specs/versions/v0.1/wave-log.md`):
   -s` on the instance's node, as `injection.run_as` (default root), with
   its `FAULT_*` variables; a `seed-file` fault runs nothing. The first
   non-zero exit stops the run. A `parameter` fault (v0.2 capture W1, item
-  8) runs nothing either: render planted it.
+  8) runs nothing either: render planted it. In a game with scheduler
+  nodes (v0.3 capture W2, items 2 and 4) only the instances due at T0 are
+  planted; the others are planted once the load runs, by `inject --at`
+  (`aging`). Recording `injected` writes every instance's `plantings`
+  entry. At `load-started` it is refused: re-planting one instance is
+  `inject --at now --instance <id>`.
 
 Each step is one `state.setup_step`: any failure, or Ctrl-C, tears the game
 down and records `failed` with the reason.
@@ -42,6 +47,8 @@ from .model import GmError
 DEPLOY_STAGE = "deployed"
 DATA_STAGE = "data-loaded"
 INJECT_STAGE = "injected"
+LOAD_STAGE = "load-started"
+T0 = "T0"
 DATA_USER = "postgres"
 PSQL_ARGV = ("psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-d", "postgres")
 DEFAULT_RUN_AS = "root"
@@ -281,6 +288,7 @@ class InjectResult:
     scripts: list = field(default_factory=list)    # [(instance, script)]
     seeded: list = field(default_factory=list)     # instances planted by their seed files
     rendered: list = field(default_factory=list)   # parameter faults, planted at rendering
+    later: list = field(default_factory=list)      # [(instance, plant_at)] planted by inject --at
 
     def text(self):
         out = [f"Game {self.game_id}: {len(self.scripts)} injection script(s) run"
@@ -289,6 +297,9 @@ class InjectResult:
             out.append(f"  {iid}: seed-file fault, planted by the seed files; nothing to run")
         for iid in self.rendered:
             out.append(f"  {iid}: parameter fault, planted at rendering; nothing to run")
+        for iid, plant_at in self.later:
+            out.append(f"  {iid}: planted at {plant_at}, once the load runs (gmctl inject --at "
+                       f"after gmctl start-load); nothing run now")
         out.append(f"Stage {INJECT_STAGE}" + (" (unchanged)." if self.replay else "."))
         return "\n".join(out)
 
@@ -315,22 +326,57 @@ def inject_plan(scenario, impl):
     return plan
 
 
+def plant_at_of(scenario, impl, inst):
+    """An instance's planting moment: `T0` in a game with no scheduler node
+    (D157, D158); otherwise the timeline's (render's), else the scenario's."""
+    if not model.has_scheduler_nodes(scenario.data):
+        return T0
+    entry = ((impl.get(localimpl.TIMELINE) or {}).get("instances") or {}).get(inst["id"]) or {}
+    return entry.get("plant_at") or inst.get("plant_at") or T0
+
+
+def initial_plantings(scenario, impl, at):
+    """`plantings` as `inject` records it with `injected` (W2 item 4): a T0
+    instance planted at `at`, by inject; any other waiting for its
+    `inject --at`, its planned instant from the timeline."""
+    timeline = (impl.get(localimpl.TIMELINE) or {}).get("instances") or {}
+    out = {}
+    for inst, _ in fault_instances(scenario):
+        plant_at = plant_at_of(scenario, impl, inst)
+        if plant_at == T0:
+            out[inst["id"]] = {"plant_at": T0, "planted_at": at, "by": "inject"}
+        else:
+            out[inst["id"]] = {"plant_at": plant_at,
+                               "planned_at": (timeline.get(inst["id"]) or {}).get("planned_at"),
+                               "timer": None, "attempts": [], "planted_at": None}
+    return out
+
+
 def inject(scenario_dir, playground, timeout=None, docker=None, out=print):
     """`gmctl inject`; returns an InjectResult. Raises GmError on a refusal
     (nothing run) or state.SetupFailed on a failure (torn down, recorded)."""
     ldir, st = _game(scenario_dir, playground)
     stage = st.get("stage")
+    if stage == LOAD_STAGE:
+        raise GmError(f"game {st.get('game_id')} is at stage {stage}: inject replays the "
+                      "plantings only before the load starts; plant one instance with gmctl "
+                      "inject --at now --instance <id>")
     if stage not in (DATA_STAGE, INJECT_STAGE):
         raise GmError(f"game {st.get('game_id')} is at stage {stage}; inject needs stage "
                       f"{DATA_STAGE} (run gmctl load-data), or {INJECT_STAGE} to replay")
     scenario = model.load_scenario(scenario_dir)
     impl = localimpl.read_implementation(ldir)
     plan = inject_plan(scenario, impl)
+    insts = {inst["id"]: inst for inst, _ in fault_instances(scenario)}
     docker = docker or for_local_dir(ldir)
     result = InjectResult(impl["game_id"], replay=stage == INJECT_STAGE)
 
     with state.setup_step(ldir, INJECT_STAGE, undo=_undo(docker, impl["game_id"])):
         for iid, fault, node, run_as, env, scripts in plan:
+            plant_at = plant_at_of(scenario, impl, insts[iid])
+            if plant_at != T0:
+                result.later.append((iid, plant_at))
+                continue
             if not scripts:
                 kind = (fault.data.get("injection") or {}).get("kind")
                 (result.rendered if kind == PARAMETER_KIND else result.seeded).append(iid)
@@ -344,5 +390,10 @@ def inject(scenario_dir, playground, timeout=None, docker=None, out=print):
                                   f"{run.returncode}: {_first_line(run)}")
                 result.scripts.append((iid, script))
     if stage != INJECT_STAGE:
-        localimpl.set_stage(ldir, INJECT_STAGE)
+        at = localimpl.now_iso()
+
+        def record(st):
+            localimpl.enter_stage(st, INJECT_STAGE, at)
+            st["plantings"] = initial_plantings(scenario, impl, at)
+        localimpl.update_state(ldir, record)
     return result

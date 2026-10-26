@@ -1,0 +1,8 @@
+#!/bin/sh
+# A `systemctl` stand-in for the unit tests, put first on PATH by run_gmctl:
+# a user manager that answers and holds no unit, so gmctl run as a process
+# never reaches the host's real one (teardown lists the game's timers).
+case " $* " in
+    *" list-unit-files "*) exit 1 ;;     # systemd 257: no unit file matched
+    *) exit 0 ;;
+esac
