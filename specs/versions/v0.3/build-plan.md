@@ -1,6 +1,6 @@
 # db_audit_gm v0.3 — Build plan
 
-Status: v10 (2026-10-26): v9 with G4 cleared at wave 3's start, the owner's ruling that the VPS may leave its own swarm, the VPS's Docker Engine 29.9.2 (spec D178), and wave 3's rule keeping the VPS drained but for two-host runs (wave log) written in.
+Status: v11 (2026-10-26): v10 with wave 3's preflight settlements from capture W3 written in: teardown per host in chunk 10 (spec D179), published ports on the manager only (spec D180), the image copy through the host's SSH Docker context (spec D181).
 Approval: **approved 2026-10-22 by the owner** (G1, spec D156).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-10-22 (spec D154), with
@@ -155,7 +155,7 @@ test harness's only and changes no spec behaviour for a game.
 1, 2, 4 ──> 9
 7 ──> 10
 3, 4, 5, 6, 8 ──> 11
-10 ──> 11              (in-wave: hosts, contexts and where volumes live, W3)
+10 ──> 11              (in-wave: hosts, contexts, where volumes live and teardown per host, W3; `teardown.py` and `test_teardown.py` pass to 11 at 10's merge)
 2, 3, 6, 7, 8, 9 ──> 12
 7, 8, 9, 10, 11 ──> 13
 2, 3, 6, 9, 12 ──> 14
@@ -281,7 +281,7 @@ the release gate checks that each is recorded.
 |---|---|
 | The footprints of every new or bumped brick, and the aged growth per hour | 3b, 4, 5, 6 (at rest); 15b (under load, growth) |
 | The overlay and ingress MTU over Tailscale; Swarm bound to the Tailscale addresses | 10b (with G4) |
-| The image copy (`docker save \| ssh <host> docker load`) | 10b |
+| The image copy (`docker save \| docker --context dbagm-<host> load`, through the host's SSH Docker context, spec D181) | 10b |
 | `auth_query`'s exact set-up in PgBouncer, `auth_dbname` for the console included | 6 (the database side from 4a) |
 | The size of the GM's connection reserve (two expected) | 4a |
 | How `gmctl` schedules setup actions on the manager (a host timer: persistent systemd user units, spec D173) | 8a |
@@ -959,17 +959,22 @@ a node's volumes live on its placed host.
     one-host declaration in today's form read as a list of one;
     per-node placement through the mapping, rendered as hostname
     constraints instead of `PLACEMENT_CONSTRAINT`, stateful nodes pinned
-    with their volumes, the bastion pinned to its host; `fit` per host
+    with their volumes, the bastion pinned to its host, `fit` refusing
+    a node with published ports placed on any host but the manager
+    (spec D180); `fit` per host
     (limits, reservations, disk, each host's images once), counting the
     footprints' growth per hour over the scenario's aging and a
     four-hour game, and the hand-over snapshot's copies, saying when the
     snapshot does not fit;
   - **10b**: `deploy` copying to each other host the images of its
-    nodes with `docker save | ssh <host> docker load`, skipping an image
+    nodes with `docker save | docker --context dbagm-<host> load`
+    through the host's SSH Docker context (spec D181), skipping an image
     the host holds under the same id, never pulling; per-host SSH Docker
-    contexts for the exec verb, reached as well by a host timer's run
-    (chunk 8a), which has only the user manager's environment (spec
-    D173); the game's overlay network MTU set for
+    contexts for the exec verb and the image copy, reached as well by a
+    host timer's run (chunk 8a), which has only the user manager's
+    environment (spec D173); teardown per host: the game's Swarm objects
+    on the manager, its containers and volumes on every declared host
+    (spec D179); the game's overlay network MTU set for
     VXLAN inside Tailscale; `bastion` 0.3.0's `docs/gm.md` stating the
     placement rule; the try on armenelos plus the VPS (needs G4): a
     two-host `fixture-monitoring` game deployed, the bastion's ports open
@@ -978,23 +983,28 @@ a node's volumes live on its placed host.
     copied once; the VPS node `active` for the try only, drained again
     after ("Workflow deltas").
   - Out: a registry (none); Kubernetes.
-- Files: `tools/gm/{fit,localimpl,render,deploy,docker,execnode}.py`,
-  `tools/gm/__init__.py`, `tools/tests/test_{fit,render,deploy}.py`,
+- Files: `tools/gm/{fit,localimpl,render,deploy,docker,execnode,teardown}.py`,
+  `tools/gm/__init__.py`,
+  `tools/tests/test_{fit,render,deploy,teardown}.py`,
+  `tools/tests/__init__.py` and `tools/tests/fakebin/docker` (the fake
+  engine answering for several hosts, W3 item 3),
   `bricks/bastion/docs/gm.md`, `.claude/skills/game-master/gmctl.md`
-  (`fit` and `deploy` rows).
+  (`fit`, `deploy` and `teardown` rows).
 - Spec sections: master spec 6.4 (footprint), 7.5, 8.6, 10; access model
-  7 (`network-visitor`); spec D125, D128, D149, D173.
+  7 (`network-visitor`); spec D125, D128, D149, D173, D179, D180, D181.
 - Done when: unit tests show a two-host declaration, the mapping, the
   hostname constraints, the bastion pinned, `fit` refusing a host short
-  of memory or disk and saying the snapshot does not fit, the image copy
-  skipped for a present id; every existing scenario renders unchanged
+  of memory or disk and saying the snapshot does not fit, `fit` refusing
+  published ports off the manager, the image copy skipped for a present
+  id, teardown reaching every declared host and failing on one that does
+  not answer; every existing scenario renders unchanged
   but for its constraint line on one host; `smoke.sh` and
   `smoke-monitoring.sh` pass on one host; the two-host try passes, its
   MTU and Swarm findings recorded.
 - Verification: chunk checks, plus `smoke.sh`, `smoke-monitoring.sh`
   (needs G3) and the two-host try (needs G4).
 - Split rule: 10a declaration, placement, `fit`; 10b image copy,
-  contexts, MTU, the try.
+  contexts, teardown per host, MTU, the try.
 
 ### Chunk 11 — The hand-over snapshot and the restart
 

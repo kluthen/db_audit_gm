@@ -16,7 +16,7 @@ README:
 Archived IDs keep their meaning and are cited as they are. D107 onward
 stay live: rulings still to be applied in a later version (D107, D108,
 D110, D113), the v0.2 release close, and v0.3's drafting from D114.
-Numbering continues from D178; no ID is reused.
+Numbering continues from D181; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -452,3 +452,25 @@ Numbering continues from D178; no ID is reused.
   downtime, like a Docker upgrade. Now in:
   [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) G4,
   "Workflow deltas" (the VPS).
+- **D179 (2026-10-26, spec-writer, wave 3 preflight, capture W3 item 4
+  and its closing point 3): Teardown per host is chunk 10b's,** the
+  game's Swarm objects on the manager, its containers and volumes on
+  every declared host; chunk 10 gains `teardown.py`, `test_teardown.py`
+  and the fake engine's files, which pass to chunk 11 at 10's merge (the
+  in-wave edge 10 ──> 11, still two chunks). Now in:
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunk 10, the waves' edges.
+- **D180 (2026-10-26, spec-writer, wave 3 preflight, W3 item 2): A node
+  that publishes ports is placed on the manager only, `gmctl fit`
+  refusing a mapping that puts one elsewhere,** since a host-mode port
+  opens on every address of its host and the VPS has a public one; G4's
+  "no game port published on the VPS" made a rule of the product, not of
+  this build's hosts. The plan alone was not enough: it is a refusal the
+  GM meets. Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md)
+  7.5, 10.2; [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunk 10a.
+- **D181 (2026-10-26, spec-writer, wave 3 preflight, W3 item 6): The image
+  copy is `docker save | docker --context dbagm-<host> load`, through the
+  host's SSH Docker context,** the same SSH as `ssh <host> docker load`
+  with no second destination to declare; master spec 20 left the form to
+  the build. Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md)
+  10.2, 20; [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md)
+  chunk 10b, "Left for the build"; [platform.md](platform.md) "Image distribution".

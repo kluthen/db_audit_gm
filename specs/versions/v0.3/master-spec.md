@@ -13,7 +13,9 @@ two of wave 1's preflight settlements written in the same day: where
 the 6.7 example (D170); amended on 2026-10-26 by the owner's ruling on
 the GM check role's `CONNECT` privilege (7.3, D176), and the same day
 by the ruling taking PgBouncer from the PostgreSQL apt repository (7.2,
-D177).
+D177); two of wave 3's preflight settlements written in the same day:
+published ports on the manager only (7.5, 10.2, D180) and the image copy
+through the host's SSH Docker context (10.2, 20, D181).
 Build plan:
 [build-plan.md](build-plan.md), approved (D156). Companion:
 [access-model.md](access-model.md). Baseline: the released
@@ -603,8 +605,8 @@ reservations 0.1 CPU / 64M, disk for its log.
   the routing mesh. On a multi-host playground the bastion is pinned to
   its declared host, so its ports open on that host only; the routing
   mesh would have opened them on every host, a VPS's public address
-  included. The bastion's GM documentation states this placement rule;
-  its image is unchanged.
+  included. Its host must be the manager (10.2). The bastion's GM
+  documentation states this placement rule; its image is unchanged.
 - Snapshot: every volume by `copy`, except `/run`. A restart from the
   snapshot gives the players back the bastion as it was handed over.
 
@@ -842,18 +844,22 @@ have available, not their total.
   playground's hosts through that mapping, and the renderer writes them
   as hostname constraints, replacing the single "manager" constraint;
   stateful nodes are pinned with their volumes, the bastion to its host
-  (7.5).
+  (7.5). A node that publishes ports is placed on the manager only:
+  `gmctl fit` refuses a mapping that puts one on another host, naming
+  the mapping to change, since a host-mode port opens on every address
+  of its host, and a worker such as the VPS has a public one.
 - **Images are copied, no registry.** The GM builds the images on the
   manager and copies to each other host the images of the nodes placed
-  there, with `docker save | ssh <host> docker load` over Tailscale,
-  skipping an image the host already holds under the same id. Deployment
-  never pulls (`--resolve-image never`, as today), image names stay as
-  they are, and nothing listens on any host for images. The cost, about
+  there, with `docker save | docker --context dbagm-<host> load`
+  through the host's SSH Docker context over Tailscale, skipping an
+  image the host already holds under the same id. Deployment never
+  pulls (`--resolve-image never`, as today), image names stay as they
+  are, and nothing listens on any host for images. The cost, about
   1.7 GB per new host, is paid once per build. Single-host games copy
   nothing.
 - **`fit` per host**: each host's limits, reservations and disk against
   the nodes placed on it, each host's images counted once on that host.
-- **Per-host SSH Docker contexts** for the exec verb.
+- **Per-host SSH Docker contexts** for the exec verb and the image copy.
 - **The default game stays single-host** while its load fits one host.
 
 Risks the build checks on armenelos plus the VPS:
@@ -1246,8 +1252,8 @@ Left to the build, to settle without changing behaviour:
   hour, by measurement;
 - the overlay and ingress MTU over Tailscale, and Swarm bound to the
   Tailscale addresses, tried on armenelos and the VPS;
-- the image copy (`docker save | ssh <host> docker load`), tried on the
-  same pair;
+- the image copy (`docker save | docker --context dbagm-<host> load`,
+  through the host's SSH Docker context), tried on the same pair;
 - `auth_query`'s exact set-up in PgBouncer, `auth_dbname` for the console
   included;
 - the size of the GM's connection reserve (two connections expected);

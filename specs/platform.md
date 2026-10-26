@@ -1,6 +1,6 @@
 # Platform
 
-Status: draft v17
+Status: draft v18
 
 The swarm the games run on, the resource budget scenarios must fit, how
 scenario content reaches the nodes, and the Swarm behaviours that shape the
@@ -159,10 +159,11 @@ from one laptop to a classroom swarm.
    they cannot resolve on Docker Hub (`127.0.0.1:5000/...`); deployment
    never pulls (`--resolve-image never`). On several hosts, from v0.3, the
    GM copies to each host the images of the nodes placed there with
-   `docker save | ssh <host> docker load` over Tailscale, once per build
-   (D149). No registry runs: one on the routing mesh would listen,
-   unauthenticated, on every host's addresses, and anyone reaching it
-   could push images the swarm would run.
+   `docker save | docker --context dbagm-<host> load` through the host's
+   SSH Docker context over Tailscale, once per build (D149, D181). No
+   registry runs: one on the routing mesh would listen, unauthenticated,
+   on every host's addresses, and anyone reaching it could push images
+   the swarm would run.
 
 Trade-offs accepted with C:
 
