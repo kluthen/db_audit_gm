@@ -2551,3 +2551,47 @@ W1 item 3 (`disk_growth_per_hour`).
    published ports off the manager, if master spec 7.5 or 10.2 should
    state it; item 6's copy through the context, if 10.2's literal command
    should follow.
+
+### Dispatch and settlements
+
+- `spec-writer`: plan v10 (c0f8abc, D178: G4 cleared, the VPS's
+  swarm membership change a downtime, the drain rule made standing,
+  through wave 4); plan v11 (f355502, D179 teardown per host in chunk
+  10, D180 published ports on the manager only, D181 the image copy
+  through the host's SSH Docker context; W3's other (choice)s change no
+  stated behaviour).
+- `security-advisor`: `.tech` e9631bc. The VPS's Docker Engine 29.9.2 is
+  clear (past CVE-2026-34040, -33997, -42306, -41568, -41567, -92542,
+  -92543 and GO-2026-6809). Optional, for the owner: armenelos' 29.9.1
+  is built with Go 1.26.9 (GO-2026-6809, low risk here); upgrading it to
+  29.9.2 at the next maintenance would align the two nodes.
+- Capture W3 committed 4c53cf1 (drafted for the driver). Its closing
+  list found G4's "SSH over Tailscale with a key" not met: `ssh vps`
+  went to the public address, and its key was reachable only through the
+  desktop keyring's agent, which a timer run after a reboot lacks.
+- Chunk 12 (`v0.3-c12-load`): dispatched at the wave's start; merged
+  c0875f6 (chunk commit 4f261d2). Chunk 10 (`v0.3-c10-multihost`):
+  dispatched after W3; built (768bc36 10a, 530b3e1 10b), waiting on its
+  merge gate, the two-host try.
+
+### The SSH route and key to the VPS — owner's ruling, 2026-10-26
+
+The owner followed the driver's recommendation, **for testing and private
+runs only; no secret in git**:
+- a new alias `dbagm-vps` in `~/.ssh/config` on armenelos (backup
+  `~/.ssh/config.bak_20261026`): HostName 100.126.172.117 (Tailscale),
+  User `debian`, `HostKeyAlias 51.210.178.153` (the VPS shows the same
+  ed25519 host key on both addresses, SHA256:LBwBb7KT…, already in
+  `known_hosts`), `IdentitiesOnly yes`; `ssh vps` unchanged for the
+  owner's other projects;
+- a dedicated passphrase-less key `~/.ssh/dbagm_vps_ed25519` (mode 600,
+  outside every repository), authorised on the VPS's `debian` account
+  with `from="100.78.85.1",no-agent-forwarding,no-X11-forwarding,
+  no-port-forwarding` (backup `~/.ssh/authorized_keys.bak_20261026`
+  there). The owner accepted that this key gives root on the VPS to
+  whoever can read it on armenelos;
+- checked: with `SSH_AUTH_SOCK` unset, `ssh -o BatchMode=yes dbagm-vps
+  docker version` answers 29.9.2; the same key on the public address is
+  refused; filetstudio.com 200.
+- A playground names the VPS with endpoint `ssh://dbagm-vps`. G4's SSH
+  item is met from here.
