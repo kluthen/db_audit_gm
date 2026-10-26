@@ -16,6 +16,10 @@ behaviour is fixed by capture W3-A (`specs/versions/v0.1/wave-log.md`):
   `database` node when it targets another node, a pooler), as a SCRAM
   verifier, with statement logging off for the session, so the password
   is never in a log, a process list or the server's statistics.
+  Then (spec D176) on every `database` node whose brick has the GM check
+  role (it mounts `gm_check_password`: the role exists), `gm_check` is
+  granted `CONNECT` on every database but the templates, the same way, a
+  scenario's data possibly having revoked it from `PUBLIC`.
 - `inject`, at `data-loaded` (or `injected`, to replay the idempotent
   scripts): for every fault instance in `fault_instances` order, a `state`
   fault's `injection.scripts` are streamed in their listed order into `sh
@@ -57,6 +61,8 @@ DATABASE_ROLE = "database"
 SCRAM_ITERATIONS = 4096             # PostgreSQL's scram_iterations default
 SCRAM_SALT_BYTES = 16
 PARAMETER_KIND = localimpl.PARAMETER_KIND
+CHECK_ROLE = "gm_check"             # the GM check role (v0.3 capture W1-x)
+CHECK_SECRET = "gm_check_password"  # mounted on a node: its check role exists
 
 
 # --- Fault parameters --------------------------------------------------------
@@ -155,6 +161,7 @@ class LoadResult:
     already: str = None             # the stage, when the data was already loaded
     loaded: list = field(default_factory=list)     # [(node, file)]
     passwords: list = field(default_factory=list)  # [(database node, [role])]
+    grants: list = field(default_factory=list)     # database nodes: CHECK_ROLE's CONNECT
 
     def text(self):
         if self.already:
@@ -166,6 +173,8 @@ class LoadResult:
             out.append("  no node holds data")
         out += [f"  {node}: password set from its secret for role(s) {', '.join(roles)}"
                 for node, roles in self.passwords]
+        out += [f"  {node}: {CHECK_ROLE} granted CONNECT on every database"
+                for node in self.grants]
         out.append(f"Stage {DATA_STAGE}.")
         return "\n".join(out)
 
@@ -224,6 +233,32 @@ def password_sql(ldir, roles):
     return "\n".join(lines) + "\n"
 
 
+def grant_plan(scenario, impl):
+    """The `database` nodes whose check role exists (they mount
+    CHECK_SECRET), topology order."""
+    plan = []
+    for node in scenario.nodes:
+        if node.get("role") != DATABASE_ROLE or not any(
+                sec.get("name") == CHECK_SECRET
+                for sec in localimpl.node_secret_declarations(scenario, node)):
+            continue
+        if node["name"] not in impl["nodes"]:
+            raise GmError(f"node {node['name']} is not a node of game {impl['game_id']}")
+        plan.append(node["name"])
+    return plan
+
+
+def grant_sql():
+    """The SQL granting CHECK_ROLE `CONNECT` on every database but the
+    templates, each name quoted as an identifier."""
+    return ("DO $gm$\nDECLARE\n  db name;\nBEGIN\n"
+            "  FOR db IN SELECT datname FROM pg_catalog.pg_database\n"
+            "            WHERE NOT datistemplate AND datname NOT IN ('template0', 'template1')\n"
+            "            ORDER BY datname LOOP\n"
+            f"    EXECUTE format('GRANT CONNECT ON DATABASE %I TO %I', db, '{CHECK_ROLE}');\n"
+            "  END LOOP;\nEND\n$gm$;\n")
+
+
 def data_plan(scenario, impl):
     """[(node, relative file, path)] of every node with a `data` entry, in
     `nodes` order."""
@@ -252,6 +287,7 @@ def load_data(scenario_dir, playground, timeout=None, docker=None, out=print):
     impl = localimpl.read_implementation(ldir)
     plan = data_plan(scenario, impl)
     passwords = password_plan(scenario, impl)
+    grants = grant_plan(scenario, impl)
     docker = docker or for_local_dir(ldir)
     result = LoadResult(impl["game_id"])
 
@@ -275,6 +311,14 @@ def load_data(scenario_dir, playground, timeout=None, docker=None, out=print):
                               f"create these roles): psql exit {run.returncode}: "
                               f"{_first_line(run)}")
             result.passwords.append((node, [r for r, _ in roles]))
+        for node in grants:
+            run = exec_node(ldir, node, DATA_USER, stdin=grant_sql(), timeout=timeout,
+                            docker=docker, argv=PSQL_ARGV)
+            _print_run(out, f"{node} CONNECT for {CHECK_ROLE} (psql as {DATA_USER})", run)
+            if not run.ok:
+                raise GmError(f"granting {CHECK_ROLE} CONNECT on the databases of {node}: "
+                              f"psql exit {run.returncode}: {_first_line(run)}")
+            result.grants.append(node)
     localimpl.set_stage(ldir, DATA_STAGE)
     return result
 

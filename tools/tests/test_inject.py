@@ -8,6 +8,7 @@ import re
 import subprocess
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from tools.gm import deploy, execnode, fit, inject, localimpl, model, render, state, teardown
 from tools.gm.model import GmError
@@ -153,7 +154,7 @@ class TestLoadData(DeployedGame):
 
     def test_streams_the_sql_into_psql_as_postgres(self):
         result = self.load_data()
-        self.assertEqual(len(self.fake.runs), 1)
+        self.assertEqual(len(self.fake.runs), 2)        # the data, the check role's grant
         run = self.fake.runs[0]
         self.assertEqual(run["container"], f"{self.gid}_db.1.ctr")
         self.assertEqual(run["user"], "postgres")
@@ -175,7 +176,7 @@ class TestLoadData(DeployedGame):
             result = self.load_data()
             self.assertIn(f"at stage {stage}: the data is already loaded", result.text())
             self.assertEqual((self.ldir / "state.yaml").read_bytes(), before)
-        self.assertEqual(len(self.fake.runs), 1)
+        self.assertEqual(len(self.fake.runs), 2)
 
     def test_needs_a_deployed_game(self):
         teardown.teardown(self.scenario, "laptop", docker=self.fake)
@@ -186,7 +187,7 @@ class TestLoadData(DeployedGame):
     def test_no_data_entry_loads_nothing(self):
         self.edit_yaml("scenario.yaml", lambda d: self.node(d, "db").pop("data"))
         result = self.load_data()
-        self.assertEqual(self.fake.runs, [])
+        self.assertEqual([r["stdin"] for r in self.fake.runs], [inject.grant_sql()])
         self.assertEqual(self.stage(), "data-loaded")
         self.assertIn("no node holds data", result.text())
 
@@ -428,8 +429,9 @@ class TestLoadDataPasswords(V03DeployedGame):
 
     def test_the_roles_passwords_set_after_the_data_load(self):
         result = self.load_data()
-        self.assertEqual(len(self.fake.runs), 2)
-        data, passwords = self.fake.runs
+        self.assertEqual(len(self.fake.runs), 3)
+        data, passwords, grant = self.fake.runs
+        self.assertEqual(grant["stdin"], inject.grant_sql())
         self.assertEqual(data["stdin"], (self.scenario / "data/db.sql").read_text())
         self.assertEqual(passwords["container"], f"{self.gid}_db.1.ctr")
         self.assertEqual(passwords["user"], "postgres")
@@ -477,6 +479,66 @@ class TestLoadDataStatic(DeployedGame):
 
     def test_no_password_step(self):
         result = self.load_data()
-        self.assertEqual(len(self.fake.runs), 1)
+        self.assertEqual(len(self.fake.runs), 2)        # the data, the check role's grant
         self.assertEqual(result.passwords, [])
         self.assertNotIn("password", result.text())
+
+
+# --- v0.3: the GM check role's CONNECT at load-data (spec D176) -------------
+
+class TestLoadDataCheckRoleGrant(DeployedGame):
+
+    def test_granted_after_the_load_on_every_database_but_the_templates(self):
+        result = self.load_data()
+        data, grant = self.fake.runs
+        self.assertEqual(data["stdin"], (self.scenario / "data" / "db.sql").read_text())
+        self.assertEqual(grant["container"], f"{self.gid}_db.1.ctr")
+        self.assertEqual(grant["user"], "postgres")
+        self.assertEqual(grant["argv"], list(inject.PSQL_ARGV))
+        sql = grant["stdin"]
+        self.assertEqual(sql, inject.grant_sql())
+        self.assertIn("FOR db IN SELECT datname FROM pg_catalog.pg_database", sql)
+        self.assertIn("WHERE NOT datistemplate AND datname NOT IN ('template0', 'template1')",
+                      sql)
+        # each name quoted as an identifier, by the server (format's %I)
+        self.assertIn("EXECUTE format('GRANT CONNECT ON DATABASE %I TO %I', db, 'gm_check');",
+                      sql)
+        self.assertEqual(result.grants, ["db"])
+        self.assertIn("  db: gm_check granted CONNECT on every database", result.text())
+        self.assertIn("db CONNECT for gm_check (psql as postgres): ok", self.printed)
+        self.assertEqual(self.stage(), "data-loaded")
+
+    def test_not_issued_on_a_node_without_the_check_role(self):
+        declarations = localimpl.node_secret_declarations
+
+        def without_check_role(scenario, node):
+            return [sec for sec in declarations(scenario, node)
+                    if sec.get("name") != inject.CHECK_SECRET]
+        with mock.patch.object(localimpl, "node_secret_declarations", without_check_role):
+            result = self.load_data()
+        self.assertEqual([r["stdin"] for r in self.fake.runs],
+                         [(self.scenario / "data" / "db.sql").read_text()])
+        self.assertEqual(result.grants, [])
+        self.assertNotIn("gm_check", result.text())
+        self.assertEqual(self.stage(), "data-loaded")
+
+    def test_only_database_nodes(self):
+        sc = model.load_scenario(self.scenario)
+        self.assertEqual(inject.grant_plan(sc, self.impl), ["db"])
+        everywhere = [{"name": inject.CHECK_SECRET}]
+        with mock.patch.object(localimpl, "node_secret_declarations", lambda s, n: everywhere):
+            self.assertEqual(inject.grant_plan(sc, self.impl), ["db"])
+        self.assertGreater(len(sc.nodes), 1)
+
+    def test_a_failure_fails_the_step(self):
+        self.replies["GRANT CONNECT"] = (3, "", "psql:<stdin>:11: ERROR:  role \"gm_check\" "
+                                                "does not exist\n")
+        with self.assertRaises(state.SetupFailed) as cm:
+            self.load_data()
+        self.assertIn("granting gm_check CONNECT on the databases of db: psql exit 3",
+                      str(cm.exception))
+        st = localimpl.read_state(self.ldir)
+        self.assertEqual((st["stage"], st["failure"]["stage"]), ("failed", "data-loaded"))
+        self.assertIn("does not exist", st["failure"]["reason"])
+        self.assertEqual(teardown.leftovers(self.fake, self.gid), {})
+        self.assertIn("db CONNECT for gm_check (psql as postgres): exit 3", self.printed)
