@@ -1,6 +1,6 @@
 # db_audit_gm v0.3 — Build plan
 
-Status: v9 (2026-10-26): v8 with the owner's ruling on PgBouncer's source, the PostgreSQL apt repository's 1.26.1 instead of Debian 13's 1.24.1, written in (spec D177).
+Status: v10 (2026-10-26): v9 with G4 cleared at wave 3's start, the owner's ruling that the VPS may leave its own swarm, the VPS's Docker Engine 29.9.2 (spec D178), and wave 3's rule keeping the VPS drained but for two-host runs (wave log) written in.
 Approval: **approved 2026-10-22 by the owner** (G1, spec D156).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-10-22 (spec D154), with
@@ -85,14 +85,15 @@ plan states only its deltas. Its conventions follow v0.2's
   minimum, which caps each instance's own minimum too (chunk 8a, G6,
   spec D161): it shortens the wait, never a clock.
 - **Build host** (observed 2026-10-22): armenelos, Debian 13, Docker
-  Engine 29.9.1, swarm active with one node (armenelos, leader), cgroup
+  Engine 29.9.1, swarm active (armenelos, leader; two nodes from 2026-10-26, G4), cgroup
   v2, 12 CPUs, 11G of memory with about 5G available and swap in use,
   10G free on `/`; the user's systemd manager runs with lingering on, so
   the game's persistent user timers outlive a session and start again at
   boot (the host timer of master spec 8.4, spec D173). Tailscale, reported logged out earlier that day, was
   up on both hosts when checked again on 2026-10-22: armenelos at
   100.78.85.1, the VPS `vps-5718ad52` at 100.126.172.117, `ssh vps`
-  working; the VPS runs Docker Engine 28.5.1 (G4). v0.3 adds two images (scheduler, PgBouncer), five
+  working; since 2026-10-26 the VPS runs Docker Engine 29.9.2 and is a
+  worker in armenelos' swarm, re-created bound to Tailscale (G4). v0.3 adds two images (scheduler, PgBouncer), five
   rebuilt ones and the hand-over snapshots' copies: prune superseded
   `dbagm` tags after a wave gate when the disk runs short.
 - **What v0.2's build taught** ([../v0.2/wave-log.md](../v0.2/wave-log.md)):
@@ -119,8 +120,8 @@ plan states only its deltas. Its conventions follow v0.2's
 |---|---|---|---|---|
 | G1 | Plan approval | The owner | Wave 1 | cleared 2026-10-22 (spec D156) |
 | G2 | Network access at image build time: Debian 13's repositories (`python3-psycopg`, Python 3.13), the PostgreSQL apt repository (PostgreSQL, and `pgbouncer` from wave 2's gate, spec D177), the s6-overlay, Prometheus, `postgres_exporter` and Grafana sources, as in v0.2 | Hand check by the wave driver | Chunks 1, 3, 4, 5, 6 (every image build) | cleared 2026-10-23 for wave 1, 2026-10-26 for wave 2 (hand checks, wave log) |
-| G3 | A Docker host in swarm mode: armenelos, single-node swarm (active 2026-10-22) | Hand check by the wave driver | Every stack test and smoke run, every wave gate, the release gate | cleared 2026-10-23, re-checked 2026-10-26 (hand checks, wave log) |
-| G4 | The VPS ready, under the VPS rule (spec D159; "Workflow deltas"): first, Tailscale logged in on both hosts (`tailscale status`); the VPS's own documentation read before any change there; Docker Engine on the VPS (28.5.1 there, 29.9.1 on armenelos, 2026-10-22): the join checks that a 28.5.1 worker runs the game's services, and an upgrade, if one is needed, waits for a filetstudio.com downtime scheduled with the owner beforehand; the VPS joined to armenelos' swarm as a worker with `--advertise-addr` and `--data-path-addr` on its Tailscale interface (armenelos' own swarm bound likewise), and if the VPS's engine is already in a swarm or runs filetstudio.com as swarm services the driver stops and asks the owner; the swarm's ingress network recreated with an MTU leaving room for VXLAN inside Tailscale's 1280 bytes, with no game running; no game port published on the VPS (the bastion pinned to armenelos); SSH from armenelos to the VPS over Tailscale with a key (Docker context, image copy); at least 5G free on the VPS | The wave driver joins the VPS (spec D156); the owner's part, Tailscale and Docker on the VPS, is in place | Chunk 10b's two-host try; the two-host smoke run (from the wave 3 gate); chunk 15b; the release gate | open: Tailscale up on both hosts and `ssh vps` working (2026-10-22) |
+| G3 | A Docker host in swarm mode: armenelos' swarm (active 2026-10-22; the VPS a drained worker in it from 2026-10-26, G4) | Hand check by the wave driver | Every stack test and smoke run, every wave gate, the release gate | cleared 2026-10-23, re-checked 2026-10-26 (hand checks, wave log) |
+| G4 | The VPS ready, under the VPS rule (spec D159; "Workflow deltas"): first, Tailscale logged in on both hosts (`tailscale status`); the VPS's own documentation read before any change there; Docker Engine on the VPS (29.9.2 there, 29.9.1 on armenelos, 2026-10-26); the VPS joined to armenelos' swarm as a worker with `--advertise-addr` and `--data-path-addr` on its Tailscale interface (armenelos' own swarm bound likewise), and if the VPS's engine is already in a swarm or runs filetstudio.com as swarm services the driver stops and asks the owner; the swarm's ingress network recreated with an MTU leaving room for VXLAN inside Tailscale's 1280 bytes, with no game running; no game port published on the VPS (the bastion pinned to armenelos); SSH from armenelos to the VPS over Tailscale with a key (Docker context, image copy); at least 5G free on the VPS | The wave driver joins the VPS (spec D156); the owner's part, Tailscale and Docker on the VPS, is in place | Chunk 10b's two-host try; the two-host smoke run (from the wave 3 gate); chunk 15b; the release gate | cleared 2026-10-26 (spec D178; hand check, wave log) |
 | G5 | Where the release gate's aged run runs, memory on armenelos being short (about 5G available, swap in use, a single-host game expected at about 5G): on armenelos alone if the game's peak memory measured by chunk 15b plus about 1G fits armenelos' available memory, otherwise on armenelos plus the VPS (spec D156) | Chunk 15b's measured figures, applied by the wave driver and recorded in the wave log | The release gate's aged run | ruled (spec D156); applied after chunk 15b |
 | G6 | How the rehearsal reaches its hand-over in about two hours while the v0.3 scenario declares sixteen hours and the loader's floor is eight: a test-harness-only override of the aging minimum, capping each fault instance's own aging minimum too, in chunk 8a (spec D156, D161) | The owner | Chunk 8a builds it; chunks 11 and 15b use it | cleared 2026-10-22 (spec D156) |
 | G7 | Review of the v0.3 scenario: its faults (chunk 14's among them), issues, aging, write policies and answer key (master spec 15.2) | The owner | Chunk 15's merge | open |
@@ -190,7 +191,19 @@ fills wave 3.
   may be altered so long as filetstudio.com stays up. The documentation
   kept on the VPS itself describes its set-up: read it before any change
   there. Tailscale and the VPS are meant to be always up; each session
-  touching the VPS checks `tailscale status` on both hosts first.
+  touching the VPS checks `tailscale status` on both hosts first. A
+  swarm membership change on the VPS (leaving, joining, re-creating the
+  swarm) is a downtime too: it wiped the VPS containers' embedded DNS at
+  G4 (spec D178), so it waits for a downtime scheduled with the owner,
+  and is followed by restarting every container there and checking each
+  app reaches its database. The VPS node stays `drain`, since the
+  bricks' stack tests carry no placement constraint and would open a
+  host-mode port on its public address; only a two-host run (chunk
+  10b's try, a wave gate's two-host smoke run, and from wave 4 chunk
+  15b's rehearsal and the release gate's two-host runs) sets it
+  `active`, inside that run's host lock, and drains it again after,
+  pass or fail (`docker node update --availability active|drain
+  vps-5718ad52`, run by the owner if the auto-mode classifier refuses).
 - **Branches and worktrees**: waves `v0.3-w<n>` in
   `/home/bastien/work/db_audit_gm-wt/v0.3-w<n>`; chunks
   `v0.3-c<id>-<slug>` in `/home/bastien/work/db_audit_gm-wt/v0.3-c<id>-<slug>`.
@@ -227,7 +240,8 @@ fills wave 3.
   `sh tools/tests/smoke-scenario.sh bookshop-new-server` and
   `fernway-clinics-monitoring` (as they are until chunk 12 rewrites the
   script for load); from wave 3, `sh tools/tests/smoke-load.sh` on one
-  host, and on armenelos plus the VPS once G4 is cleared; from wave 4,
+  host, and on armenelos plus the VPS once G4 is cleared and chunk 10
+  has merged (the VPS `active` for that run only, "Workflow deltas"); from wave 4,
   `smoke-scenario.sh` on the v0.3 scenario. Every step under the host
   lock, at κ = 1 for the gate itself.
 - No link checker is configured; Markdown links are checked by reading.
@@ -961,7 +975,8 @@ a node's volumes live on its placed host.
     two-host `fixture-monitoring` game deployed, the bastion's ports open
     on its host only, the exec verb reaching a VPS node, from a shell
     and from a run in the user manager's environment, the images
-    copied once.
+    copied once; the VPS node `active` for the try only, drained again
+    after ("Workflow deltas").
   - Out: a registry (none); Kubernetes.
 - Files: `tools/gm/{fit,localimpl,render,deploy,docker,execnode}.py`,
   `tools/gm/__init__.py`, `tools/tests/test_{fit,render,deploy}.py`,
@@ -1076,13 +1091,14 @@ Architecture capture: none.
   `tools/tests/smoke-load.sh` (new), `tools/tests/smoke-scenario.sh`,
   `tools/tests/test_model.py` (the fixture loads).
 - Spec sections: master spec 9, 11; access model 5, 7.
-- Done when: `smoke-load.sh` passes on armenelos alone, and on armenelos
-  plus the VPS once G4 is cleared (else at the wave 3 gate);
+- Done when: `smoke-load.sh` passes on armenelos alone (its two-host
+  run is the wave 3 gate's: a game reaches the VPS only through chunk
+  10's placement and image copy);
   `smoke-scenario.sh` passes on `bookshop-new-server` and
   `fernway-clinics-monitoring`; the fixture's README matches a fresh
   regeneration.
-- Verification: chunk checks, plus both smoke scripts (needs G3; the
-  two-host run needs G4).
+- Verification: chunk checks, plus both smoke scripts on one host
+  (needs G3); the VPS stays drained.
 
 ### Chunk 13 — The GM skill for v0.3
 

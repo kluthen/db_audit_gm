@@ -444,3 +444,11 @@ Numbering continues from D178; no ID is reused.
   transaction-pooling fault relying on leaked session settings. Now in:
   [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 7.2;
   [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) G2, chunk 6.
+- **D178 (2026-10-26, owner ruling at wave 3's start, relayed by the wave
+  driver; clears G4's stop): The VPS's engine may leave its own empty
+  single-node swarm and join armenelos' as a worker.** Lesson of the
+  join: a swarm membership change on the VPS wiped its containers'
+  embedded DNS (filetstudio.com 502 for about six minutes), so it is a
+  downtime, like a Docker upgrade. Now in:
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) G4,
+  "Workflow deltas" (the VPS).
