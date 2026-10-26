@@ -2293,3 +2293,261 @@ D178.
 - Capture W3 (hosts, per-host contexts, where volumes live) is drafted
   and committed before chunk 10 starts; chunk 11 once chunk 10 has
   merged (in-wave edge 10 ──> 11).
+
+### Capture W3 — hosts, placement and per-host contexts (chunk 10; read by 11, 12, 13, 15)
+
+Recorded 2026-10-26, before any code; drafted for the wave driver from
+the plan's (v10) chunks 10 and 11, "Read first", G4, G5 and "Workflow
+deltas", master spec 6.4, 7.5, 8.6, 10, 12, 13, access model 7, D125,
+D128, D149, D156, D159, D173, v0.1's W2-A, W2-B and W3-C
+(`playground.yaml`, `implementation.yaml`, the names and labels,
+`docker.for_local_dir`, the teardown record), v0.2's W3-A (`fit` reading
+the images from the engine, D102), this version's W1 items 3 and 6 (the
+growth per hour, the snapshot contract inside a node) and W2 items 0
+and 5 (the records' homes, the host timer), G4's facts (wave 3's start,
+above), and the code on `v0.3-w3` at 4e0b01b
+(`tools/gm/{localimpl,render,deploy,docker,execnode,fit,state,teardown,
+aging}.py`, `tools/gm/__init__.py`). Checked on armenelos the same day:
+`docker info` names each engine as its swarm node (`armenelos`,
+`vps-5718ad52`), both on `overlay2`; `DOCKER_CONFIG` is unset in the
+shell and the user manager; `ssh vps` reaches the VPS only through the
+desktop session's SSH agent, and at its public address (closing list).
+W1's method holds: a source that fixes a point is cited, not restated;
+**(choice)** marks a point the sources left open, settled with its
+reason; each item names the chunk that writes it and those that read
+it; a chunk's internals stay out.
+
+**0. Conventions** (read by 10, 11, 12, 13, 15)
+
+- A **host** is one entry of the playground's declaration, named by its
+  swarm node name; the **manager** is the host flagged so, where `gmctl`
+  and the host timers run (W2 item 5); a **designed host** is a name in
+  the scenario's `designed_for.hosts`.
+- **Two kinds of Docker call** (choice: Swarm answers the first kind
+  from its manager for every node, the second only on the engine that
+  holds the object): Swarm-scoped calls (`stack`, `service`, `service
+  ps`, `service logs`, `node`, `network`, `config`, `secret`, `inspect
+  --type task`) go to the manager; node-local calls (`ps`, `exec`,
+  `inspect` of a container, `volume`, `image`, `save`/`load`, a helper
+  `run`) go to the host the node is placed on. On one host both are the
+  same engine, as today.
+
+**1. The playground declaration** (writes: chunk 10a; read by 10b, 11,
+12, 13, 15). Master spec 10.1, 10.2; W2-A.
+
+```yaml
+# playground.yaml, written by gmctl fit
+name: duo
+platform: swarm
+hosts:                                  # exactly one with manager: true
+  - name: armenelos                     # the swarm node name
+    docker_endpoint: null               # null: the local engine
+    manager: true
+    capacity: {cpu: 4, memory: 5G, disk: 10G}    # memory available (10.1)
+  - name: vps-5718ad52
+    docker_endpoint: ssh://<user>@<its Tailscale address>
+    manager: false
+    capacity: {cpu: 2, memory: 4G, disk: 20G}
+mapping:                                # designed host -> host
+  host-1: armenelos
+  host-2: vps-5718ad52
+```
+
+- **Today's form** (`docker_endpoint` and `capacity` at the top, no
+  `hosts`) reads as a list of one, its `name` the engine's (`docker info
+  --format '{{.Name}}'`, read by `fit`, which already reaches it), its
+  `manager` true; it is never rewritten into the list form (choice:
+  existing local implementations and `fit --cpu …` stay as they are).
+- **The mapping**: on one host, implied (every designed host onto it);
+  on several, required for every designed host, onto a declared host;
+  several designed hosts may share a host, and a host may get none
+  (master spec 10.2: the default game stays single-host).
+- **Command line** (choice: written by `gmctl`, as W2-A has it, never
+  by hand): `gmctl fit <dir> --playground <pg> --host
+  armenelos,manager,cpu=4,memory=5G,disk=10G --host
+  vps-5718ad52,endpoint=ssh://…,cpu=2,memory=4G,disk=20G --map
+  host-1=armenelos --map host-2=vps-5718ad52`. `--host` (repeatable)
+  replaces the whole host list, `--map` the whole mapping; a host with no
+  `endpoint=` is the local engine. `--endpoint`, `--cpu`, `--memory` and
+  `--disk` stay the one-host form's, refused with `--host` or on a
+  playground of several hosts.
+- **`fit` refuses** (exit 1, nothing written): no or two managers, an
+  unmapped or unknown designed host, a mapping onto an undeclared host;
+  on several hosts, a host the manager's `docker node ls` does not list
+  under that name, or the manager not listed as a manager.
+- A remote host's endpoint is an SSH destination reaching its Tailscale
+  address (master spec 10.2); `gmctl` does not check the route (choice:
+  the route is the host's SSH configuration, which `gmctl` does not own).
+
+**2. Placement** (writes: chunk 10a in `implementation.yaml` and the
+stack file; read by 10b, 11, 13). Master spec 7.5, 10.2; access model 7
+(`network-visitor`).
+
+- Each node of `implementation.yaml` gains `host: <host>`, its designed
+  host through the mapping. `render` writes one constraint per service,
+  `node.hostname == <host>`, in place of `PLACEMENT_CONSTRAINT`, every
+  node pinned, stateful or not (choice: a node is given its image only on
+  its host, item 5, so it can run nowhere else; on one host the
+  constraint line is the only change). A one-host game is thereby kept
+  off the VPS even while the VPS is `active`.
+- **Published ports only on the manager** (choice, from G4's "no game
+  port published on the VPS"): `fit` refuses a node with
+  `published_ports` placed on any other host, naming the mapping to
+  change. A host-mode port on a worker opens on every address it has, a
+  public one included, ahead of its firewall.
+- **A restart keeps every node's host**: it reads the same
+  `playground.yaml`, which `fit` cannot change while a game is deployed
+  (`fit._game_to_keep` refuses), so a snapshot taken on a host is
+  restored on it.
+
+**3. Per-host Docker contexts and how `gmctl` reaches a host** (writes:
+chunk 10b in `docker.py`, `execnode.py`, `deploy.py`; read by 11, 12, 13,
+15). Master spec 10.2; D173; W2 item 5.
+
+- Each host with an endpoint has a context `dbagm-<host>` (choice: named
+  by the swarm node, unique in the swarm, shared by every playground
+  declaring it), in the default store of the host where `gmctl` runs
+  (`$HOME/.docker`, which a timer run's environment has). Every `gmctl`
+  run that reaches a host first ensures its context from
+  `playground.yaml`: created when missing, refused when one of that name
+  names another endpoint (the command to update it in the message). Each
+  call names it (`docker --context dbagm-<host> …`); `gmctl` never runs
+  `docker context use` (choice: the GM's own `docker` commands stay
+  aimed where they were). Contexts are client-side and outlive a game;
+  teardown leaves them (choice: the next game on the same hosts reuses
+  them; nothing is created on the remote host).
+- **API**: `docker.for_local_dir(ldir)` keeps returning the manager's
+  `Docker`; it reaches any host with `.on_host(<host>)` (itself for the
+  manager, and on one host). `running_containers`, `exec_node` and its
+  `node_container`, and deploy's health poll find the node's host
+  themselves, so their callers in `aging.py`, `checks.py` and
+  `inject.py`, which pass the manager's `Docker`, stay unchanged
+  (choice: those files are not in chunk 10's). `aging.task_history`'s
+  container inspect on another host fails and falls back, as coded, to
+  the task's own timestamps (choice: an outage's edge read a few seconds
+  off, against touching chunk 8's file). The tests' `FakeDocker` models
+  several hosts behind `.on_host`.
+- **A timer run reaches the hosts as the shell does** (D173): the
+  context store under `$HOME` and the SSH client configuration are the
+  same for both; the session's SSH agent is not (it is gone after a
+  reboot under lingering). `deploy` therefore probes each remote host as
+  a timer run would, with no SSH agent and no terminal, and refuses,
+  before creating anything, when it does not answer (choice: in every
+  game, one rule, since `snapshot` and `restart` may run from anywhere
+  too). W2 item 5's "not supported for timer runs" is thereby closed.
+- **`deploy` refuses** a host that the manager's `docker node ls` shows
+  not `Ready` or not `active`, naming `docker node update --availability
+  active <host>`; on several hosts it refuses `--init-swarm`. `gmctl`
+  never changes a node's availability or the swarm's membership (choice:
+  on the VPS a membership change is a downtime, G4's incident; both stay
+  the owner's and the driver's).
+
+**4. Where a node's volumes, and everything else of the game, live on a
+host** (writes: chunk 10b, teardown included; chunk 11 the snapshot's;
+read by 11, 13, 15). Master spec 6.4, 12; W2-A's names and labels; W1
+item 6 ("where the copies live, how they are restored and labelled").
+
+- A node's volumes keep W2-A's names and labels; Swarm creates them on
+  the node's host when its task first starts there, with the stack
+  file's labels, so they live on `nodes.<n>.host` for the whole game.
+  The game's overlay network reaches a worker the same way (the stack's
+  own, labelled).
+- **Nothing else of the game is created on a remote host but these and
+  what follows, each labelled `dbagm.game=<game_id>` or by its snapshot
+  label** (the VPS rule, D159): no context, network, file or directory
+  there (choice: everything `gmctl` leaves on a host is then a Docker
+  object its label finds). Helper containers (chunk 11's copies and
+  restores) run with `--rm`, `--pull never`, the label, and an image of
+  the game the host already holds (choice: no registry, nothing pulled).
+- **The snapshot's copies** (chunk 11): one Docker volume per copied
+  volume, on that volume's host, holding the tar stream of W1 item 6
+  (choice: the stream as produced, restored by extraction as W1 item 6
+  says), labelled `dbagm.snapshot=<id of the game that took it>` and not
+  `dbagm.game` (choice: so a restart's removal of the game's objects
+  leaves it, and the restarted game's teardown removes it by the id
+  recorded with the snapshot's location). A stream from a node on
+  another host crosses the link twice (back to `gmctl`, then into the
+  volume) (choice: W1 item 6's exec path kept; a restore runs on the
+  host, from volume to volume). A restart's fresh volumes are created on
+  the node's host under the new game id, labelled as Swarm would label
+  them, before the stack is deployed (choice: a volume is node-local, so
+  only one made on that host is found there; Swarm uses an existing
+  volume of the stack's name, which chunk 11's run confirms).
+- **Teardown per host** (chunk 10b; amends v0.1 W2-B's
+  `remove_game_objects` and `leftovers`): Swarm-scoped objects on the
+  manager, then containers and volumes on every declared host; a host
+  that does not answer fails the teardown as a labelled object left
+  (exit 1, nothing recorded, W3-C). Images stay (as today), copied ones
+  included.
+
+**5. `fit` per host and the snapshot's verdict** (writes: chunk 10a in
+`implementation.yaml`; read by 11, 13). Master spec 6.4, 8.6, 10.2, 12;
+W1 item 3 (`disk_growth_per_hour`).
+
+- Per host, the nodes placed there against its capacity (limits,
+  reservations, disk with each of its images counted once and the
+  growth over the scenario's aging plus four hours); the game fits only
+  when every host does.
+- The snapshot's copies are counted on each volume's host, after the
+  game's own disk; the verdict is one for the game (choice: a restart
+  needs every volume, so a snapshot short on one host is no snapshot):
+  `implementation.yaml` top-level `snapshot_fit: {fits: true|false, why:
+  <the line of the host short of disk, or null>}`. A game that fits
+  with no room for the snapshot is fitted, and says so (master spec 12,
+  "Otherwise, no history"); chunk 11 records "not fitting" from `fits:
+  false` and takes nothing.
+
+**6. The image copy** (writes: chunk 10b; read by 11, 15). Master spec
+10.2; D149.
+
+- The manager holds every image of the game (`fit` reads them there, as
+  today, and `deploy` refuses one missing there); each other host gets
+  the images of the nodes placed on it, skipped when it holds the same
+  name under the same id (`docker image inspect --format '{{.Id}}'`;
+  both engines on `overlay2`, where the id survives a save and load).
+- Form (choice: one route per host, its context): `docker save <image>
+  | docker --context dbagm-<host> load`, the same SSH as `docker save |
+  ssh <host> docker load`, with no second destination to declare.
+- Recorded by `deploy` in `state.yaml` (W2 item 0), top-level
+  `images: {<host>: [{image, id, copied: true|false, at}]}`, the last
+  deployment's; a restart's deployment finds every image present.
+
+**7. Wave 3 coordination** (for the driver and chunks 10, 11, 12)
+
+- Chunk 10's Files gain `tools/gm/teardown.py` (item 4) and
+  `tools/tests/test_teardown.py`; both pass to chunk 11 at chunk 10's
+  merge (in-wave edge 10 ──> 11).
+- Chunk 10b's try runs on a scratch copy of `fixture-monitoring` whose
+  `designed_for` names two hosts, `bastion` and `db` on one and
+  `prometheus`, `exporter` and `grafana` on the other, mapped onto
+  armenelos and the VPS (choice: the fixture's own declaration, and so
+  its one-host rendering, stays unchanged; the split puts a database
+  connection, a scrape and the web front across the link).
+- **To relay to chunk 12** (running): `fixture-load`'s `designed_for`
+  names two hosts with the bastion's on the first, both mapped onto one
+  host for the one-host run; `smoke-load.sh <playground>` passes any
+  further arguments to `gmctl fit`, so the wave gate's two-host run gives
+  item 1's `--host` and `--map` there.
+- The VPS's `active` window ("Workflow deltas", D178) opens before a
+  two-host run's `deploy` (item 3 refuses a drained host) and closes
+  after its teardown, never before it (choice: draining stops the VPS's
+  tasks but leaves their volumes, which teardown must still reach).
+
+**Points not mine to settle**
+
+1. **SSH to the VPS for a timer run** (owner): `ssh vps` succeeds only
+   with the session's agent (refused with `SSH_AUTH_SOCK` unset; no key
+   at a default path), so item 3's probe refuses today. A key that works
+   without an agent, held on armenelos and authorised on the VPS for
+   `debian`, is a credential decision.
+2. **G4's "SSH over Tailscale"** (driver, then `spec-writer` for G4's
+   text): `ssh vps` is `debian@51.210.178.153`, the VPS's public
+   address, so `docker -H ssh://vps` and an image copy through it cross
+   the internet; `ssh debian@100.126.172.117` fails host-key
+   verification (that address is not in `known_hosts`). Needed before
+   chunk 10b's try: an SSH destination at the Tailscale address with a
+   verified host key.
+3. **For `spec-writer`**: chunk 10's Files (item 7); item 2's refusal of
+   published ports off the manager, if master spec 7.5 or 10.2 should
+   state it; item 6's copy through the context, if 10.2's literal command
+   should follow.
