@@ -1,0 +1,24 @@
+# Schedule of the load fixture's producer node, in scenario time (master
+# spec 7.1; template: .claude/skills/scenario-format/templates/schedule.yaml).
+# The shop's order service, through the pooler. Rates keep every key busy in
+# a smoke run of a few minutes; no multiplier falls below 0.5.
+intensity: 1.0
+connections:
+  app:
+    driver: sql/postgresql
+    target: pooler:6432/shop
+    role: shop_app
+    pool: {size: 2}
+streams:
+  - key: orders.insert
+    connection: app
+    rate: 20/min
+    arrivals: poisson
+    shape: business-hours
+  - key: orders.lookup
+    connection: app
+    rate: 1/s
+    arrivals: even
+shapes:
+  business-hours:
+    hours: {"00-06": 0.5, "07-19": 1.0, "20-23": 0.7}

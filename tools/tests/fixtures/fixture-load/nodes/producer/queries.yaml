@@ -1,0 +1,22 @@
+# Query repository of the load fixture's producer node (master spec 7.1;
+# template: .claude/skills/scenario-format/templates/queries.yaml).
+queries:
+  orders.insert:                     # a query; orders.id is an identity column
+    sql: >-
+      INSERT INTO orders (customer_id, placed_at, total)
+      VALUES (%(customer_id)s, %(placed_at)s, %(total)s)
+    params:
+      customer_id: {int: [1, 500]}
+      placed_at: {now: utc}
+      total: {decimal: [5, 500, 2]}
+  orders.lookup:                     # a pool
+    - sql: SELECT id, placed_at, total FROM orders WHERE customer_id = %(customer_id)s
+      params: {customer_id: {int: [1, 500]}}
+      weight: 8
+    - sql: SELECT id, name FROM customers WHERE id = %(id)s
+      params: {id: {int: [1, 500]}}
+      weight: 2
+  stats.refresh:                     # the stats refresh job's key (jobs.yaml)
+    sql: >-
+      SELECT count(*), coalesce(sum(total), 0) FROM orders
+      WHERE placed_at > now() - interval '1 hour'

@@ -1,0 +1,8 @@
+# Fixed-time operations of the load fixture's producer node, in scenario
+# time (master spec 7.1; template:
+# .claude/skills/scenario-format/templates/jobs.yaml).
+jobs:
+  - name: refresh-stats
+    key: stats.refresh
+    connection: app
+    at: "* * * * *"                  # fault instance f1 (fixture-job-every-minute): "5 * * * *"

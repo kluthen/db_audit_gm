@@ -1,0 +1,63 @@
+# Scenario-local fault of fixture-load (tools/tests, v0.3 chunk 12). Not a
+# catalog fault: the load fixture's harmless behavioural fault. A job meant
+# to run hourly is scheduled every minute in the producer's jobs.yaml; its
+# query is cheap, so it only shows in the scheduler's log and counters. The
+# sealed check judges the cause first (the job's time in the live file, and
+# whether the program loaded it), then, once a fix is loaded, the job's runs
+# over the answer key's trailing window: "too soon to tell" (exit 3) until
+# the window since the reload has passed (v0.3 master spec 11, rules 1 to 3).
+id: fixture-job-every-minute
+version: 0.1.0
+title: an hourly job is scheduled every minute
+family: rules
+severity: low
+applies_to:
+  bricks:
+    - id: scheduler
+      versions: ["0.1.0"]
+  preconditions: []
+aging:
+  technique: real-time
+  minimum: 5m                       # a few of its runs logged and counted
+parameters:
+  job:
+    description: the job of jobs.yaml scheduled every minute
+    default: null
+    required: true
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: jobs.yaml
+      change: the {JOB} job's at is "* * * * *" (every minute) instead of once an hour
+  run_as: root
+evidence:
+  - where: node
+    source: /srv/scheduler/jobs/jobs.yaml and the scheduler's log
+    how: ssh producer, then grep 'run job={JOB} ' /var/log/scheduler/scheduler.log | tail
+    shows: the job's at is "* * * * *", and a run of it starts every minute
+probe:
+  description: checks/probe.md
+  runs_as: player
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: names the {JOB} job as scheduled every minute instead of once an hour.
+  fix: >-
+    the {JOB} job runs at most once an hour in the program's loaded jobs.yaml
+    (the file changed and reloaded with sudo gm-reload-scheduler), and no
+    more than the threshold of its runs start in the trailing window.
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+  behavioural: true
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+complaint_template: >-
+  The order service's log fills with the {JOB} job, which should run once
+  an hour.
