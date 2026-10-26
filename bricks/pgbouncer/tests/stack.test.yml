@@ -1,0 +1,109 @@
+# Stack test fixture for the PgBouncer brick (v0.3 build plan, chunk 6):
+# the pooler node and a postgres 0.3.0 node `db` holding the lookup role,
+# both reading the lookup role's password secret. Uses only what a rendered
+# Compose 3.8 stack file can express. Configs and secrets are external,
+# created and removed by run-stack-test.sh (mirroring gmctl deploy). No
+# published port.
+version: "3.8"
+
+services:
+  pooler:
+    image: 127.0.0.1:5000/dbagm/pgbouncer:0.1.0
+    hostname: pooler
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [AUDIT_WRITE, CHOWN, DAC_OVERRIDE, FOWNER, KILL, NET_BIND_SERVICE, SETGID, SETUID, SYS_CHROOT]
+    environment:
+      TZ: UTC
+    healthcheck:
+      test: ["CMD", "/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - {type: volume, source: pgb_conf, target: /etc/pgbouncer}
+      - {type: volume, source: pgb_log, target: /var/log/pgbouncer}
+      - {type: volume, source: pgb_home, target: /home/player}
+      - {type: volume, source: pgb_gmstate, target: /var/lib/gm-state}
+      - {type: volume, source: pgb_run, target: /run}
+    configs:
+      - {source: seed_pgbouncer_ini, target: /opt/gm/seed/pgbouncer.ini, uid: "0", gid: "0", mode: 0444}
+      - {source: pgb_envelopes, target: /opt/gm/protected/envelopes.conf, uid: "0", gid: "0", mode: 0444}
+    secrets:
+      - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
+      - {source: pgbouncer_lookup_password, target: /opt/gm/secrets/pgbouncer_lookup_password, uid: "0", gid: "0", mode: 0400}
+    networks: [net]
+    deploy:
+      replicas: 1
+      resources:
+        limits: {cpus: "0.25", memory: 64M}
+
+  db:
+    image: 127.0.0.1:5000/dbagm/postgres:0.3.0
+    hostname: db
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [AUDIT_WRITE, CHOWN, DAC_OVERRIDE, FOWNER, KILL, NET_BIND_SERVICE, SETGID, SETUID, SYS_CHROOT]
+    environment:
+      TZ: UTC
+    healthcheck:
+      test: ["CMD", "/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - {type: volume, source: db_pgdata, target: /var/lib/postgresql/18/data}
+      - {type: volume, source: db_pgconf, target: /etc/postgresql}
+      - {type: volume, source: db_home, target: /home/player}
+      - {type: volume, source: db_gmstate, target: /var/lib/gm-state}
+      - {type: volume, source: db_pglog, target: /var/log/postgresql}
+      - {type: volume, source: db_run, target: /run}
+    configs:
+      - {source: seed_postgresql_conf, target: /opt/gm/seed/postgresql.conf, uid: "0", gid: "0", mode: 0444}
+      - {source: seed_pg_hba_conf, target: /opt/gm/seed/pg_hba.conf, uid: "0", gid: "0", mode: 0444}
+      - {source: db_envelopes, target: /opt/gm/protected/envelopes.conf, uid: "0", gid: "0", mode: 0444}
+    secrets:
+      - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
+      - {source: dba_password, target: /opt/gm/secrets/dba_password, uid: "0", gid: "0", mode: 0400}
+      - {source: monitoring_password, target: /opt/gm/secrets/monitoring_password, uid: "0", gid: "102", mode: 0440}
+      - {source: gm_check_password, target: /opt/gm/secrets/gm_check_password, uid: "0", gid: "0", mode: 0400}
+      - {source: pgbouncer_lookup_password, target: /opt/gm/secrets/pgbouncer_lookup_password, uid: "0", gid: "0", mode: 0400}
+    networks: [net]
+    deploy:
+      replicas: 1
+      resources:
+        limits: {cpus: "0.5", memory: 512M}
+
+networks:
+  net:
+    driver: overlay
+    attachable: true   # test only: lets the test client container join
+
+volumes:
+  pgb_conf: {}
+  pgb_log: {}
+  pgb_home: {}
+  pgb_gmstate: {}
+  pgb_run: {}
+  db_pgdata: {}
+  db_pgconf: {}
+  db_home: {}
+  db_gmstate: {}
+  db_pglog: {}
+  db_run: {}
+
+configs:
+  seed_pgbouncer_ini: {external: true, name: gmtest-pgb_seed_pgbouncer_ini}
+  pgb_envelopes: {external: true, name: gmtest-pgb_pgb_envelopes}
+  seed_postgresql_conf: {external: true, name: gmtest-pgb_seed_postgresql_conf}
+  seed_pg_hba_conf: {external: true, name: gmtest-pgb_seed_pg_hba_conf}
+  db_envelopes: {external: true, name: gmtest-pgb_db_envelopes}
+
+secrets:
+  player_ssh_pubkey: {external: true, name: gmtest-pgb_player_ssh_pubkey}
+  pgbouncer_lookup_password: {external: true, name: gmtest-pgb_pgbouncer_lookup_password}
+  dba_password: {external: true, name: gmtest-pgb_dba_password}
+  monitoring_password: {external: true, name: gmtest-pgb_monitoring_password}
+  gm_check_password: {external: true, name: gmtest-pgb_gm_check_password}
