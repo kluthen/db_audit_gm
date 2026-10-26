@@ -2163,3 +2163,55 @@ Owner's rulings, 2026-10-26:
 - **A `.tech` written now**, on the wave branch, covering the seven
   bricks' platforms (`security-advisor`, cold start).
 - **Merge wave 2 into `main`** once both are in.
+- `.tech` written ff01696 (`security-advisor`, cold start): Docker
+  Engine (armenelos 29.9.1, the VPS 28.5.1), debian:13-slim 13.7,
+  s6-overlay 3.2.3.2, OpenSSH 10.0, sudo 1.9.16p2, PostgreSQL 18.6 (PGDG;
+  the minor floats), libpq 17.11 (scheduler), PgBouncer 1.26.1, nginx
+  1.26.3, Prometheus 3.13.5, postgres_exporter 0.20.1, Grafana 13.2.4,
+  Python 3.13.5; no lockfiles. `cve-watch check`: PgBouncer 1.26.1,
+  PostgreSQL, Prometheus, Grafana, Docker 29.9.1 clean; 46 findings at or
+  above medium on Debian's OpenSSH, sudo, nginx and Python (mostly fixed
+  by Debian's backports, which NVD cannot see; a few `no-dsa`) and on the
+  VPS's Docker 28.5.1 (real: CVE-2026-34040 8.8, CVE-2026-42306,
+  CVE-2026-33997, CVE-2026-41568; fixed by 29.9.1). Nothing accepted, no
+  `SECURITY_TODO.md`.
+
+### State at the end of 2026-10-26 (for the next driver)
+
+- **Wave 2 gated and merged into `main`** on the owner's word (merge
+  commit named in the waves table's next update). Chunks 6, 7, 8, 9
+  merged; gate fixes 44227a3 (D176) and c43fbc9 (D177); `.tech` ff01696.
+  After the merge: worktree `/home/bastien/work/db_audit_gm-wt/v0.3-w2`
+  and branches `v0.3-w2`, `v0.3-c6-pgbouncer`, `v0.3-c7-render`,
+  `v0.3-c8-aging`, `v0.3-c9-checks` removed.
+- Owner decisions taken in wave 2: D175 (O103, the lost time moving the
+  whole maximum), D176 (the check role's `CONNECT`, granted by
+  `load-data`), D177 (PgBouncer 1.26.1 from PGDG); the `.tech` written.
+  D172–D174 (spec-writer, W2's open points). Plan v9. Nothing pending with
+  the owner except what wave 3 needs below.
+- **For wave 3** (chunks 10, 11, 12): G4 (the VPS) is open. Before the
+  VPS joins the swarm, its Docker Engine 28.5.1 has real CVEs (above):
+  `security-advisor` recommends upgrading it to 29.9.1, which per G4 and
+  the VPS rule waits for a filetstudio.com downtime scheduled with the
+  owner beforehand. Ask the owner at wave 3's start. Re-check G2 and G3
+  then too.
+- Carried into wave 3 and later:
+  - chunk 12's `smoke-load.sh` is the first real systemd timer and the
+    first real scheduler game: it exercises chunk 8's units on the real
+    user manager, `restart` re-arming a changed `OnCalendar`, the start
+    script, the scheduler log reading and real Swarm task JSON, and chunk
+    7's role secrets and `load-data` on a scheduler game;
+  - chunk 10: a task on another host falls back to its creation time in
+    the outage reading (chunk 8); a timer's run must reach the exec
+    verb's per-host contexts (D173, in its plan text);
+  - chunk 11a: the snapshot condition of `status --set handed-over`, and
+    `smoke.sh` taking the snapshot before it hands over (D172);
+  - chunk 12 or 15b: the scheduler's error lines are not rate-limited
+    (from wave 1);
+  - chunk 13: the GM skill's `SKILL.md` step 6 shows `render` without
+    `--handover`; the test-harness override is never named there;
+  - chunk 14: new faults' checks may rely on the check role's `CONNECT`
+    (D176); no PgBouncer fault may rely on a leaking `search_path` (D177);
+  - a later triage of the `.tech` findings on Debian's packages.
+- Next: wave 3 from `main`, in a fresh session (the log's last section
+  is what it needs).
