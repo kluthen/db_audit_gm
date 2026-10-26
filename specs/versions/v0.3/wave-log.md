@@ -2215,3 +2215,81 @@ Owner's rulings, 2026-10-26:
   - a later triage of the `.tech` findings on Debian's packages.
 - Next: wave 3 from `main`, in a fresh session (the log's last section
   is what it needs).
+
+## Wave 2 — merged 2026-10-26
+
+Merged into `main` on the owner's word, `--no-ff`, as 22ff556, with the
+gate's figures in the message. The wave worktree and the branches
+`v0.3-w2`, `v0.3-c6-pgbouncer` to `v0.3-c9-checks` removed.
+
+## Wave 3 — started 2026-10-26
+
+Chunks 10, 11, 12 (κ = 3). Branch `v0.3-w3`, worktree
+`/home/bastien/work/db_audit_gm-wt/v0.3-w3`, cut from `main` at 22ff556.
+Rulings since the plan's v9: none from the spec (D177 is the last); the
+owner's word on the VPS's own swarm (below) goes to `spec-writer` as
+D178.
+
+### Gates checked at the start
+
+- G2 (network at build time), hand check 2026-10-26: Debian's trixie
+  `Release`, the PostgreSQL apt repository's `trixie-pgdg` `Release`,
+  GitHub's s6-overlay, Prometheus and `postgres_exporter` releases and
+  `dl.grafana.com` answer 200. Cleared for wave 3.
+- G3 (Docker host in swarm mode), hand check 2026-10-26: armenelos,
+  Docker Engine 29.9.1, swarm active. Cleared for wave 3.
+- Host resources on 2026-10-26: 5.5G of memory available on armenelos,
+  10G free on `/`; 26G free on the VPS.
+- G4 (the VPS), done by the driver on 2026-10-26, under the VPS rule:
+  - the owner upgraded the VPS's Docker Engine to 29.9.2 beforehand
+    (28.5.1 until then; `security-advisor`'s CVEs, wave 2's `.tech`), and
+    made its Caddy a service shared by every app on the VPS
+    (`~/README_SHARED_CADDY.md` there, read before any change: one site
+    file per app, validate then graceful reload, never a restart);
+  - `tailscale status` logged in on both hosts (armenelos 100.78.85.1,
+    the VPS `vps-5718ad52` 100.126.172.117); the VPS's ufw allows all of
+    `tailscale0`;
+  - the VPS's engine was in its own single-node swarm (bound to
+    127.0.0.1; no services, secrets or configs; overlay networks
+    `ingress` and `easypanel`, an Easypanel leftover). G4 says to stop and
+    ask: the owner allowed it to leave (2026-10-26);
+  - armenelos' swarm, bound to its Wi-Fi address 192.168.1.32 and empty,
+    re-created on Tailscale (`--advertise-addr`, `--listen-addr`,
+    `--data-path-addr` 100.78.85.1); the ingress network re-created with
+    MTU 1230 (1280 less VXLAN's 50 bytes), no game running;
+  - the VPS left its swarm and joined armenelos' as a worker, bound to
+    100.126.172.117: `docker node ls` shows armenelos (leader, 29.9.1)
+    and `vps-5718ad52` (worker, 29.9.2); `docker -H ssh://vps version`
+    answers (29.9.2); 26G free there;
+  - **incident**: the swarm leave and join wiped Docker's embedded DNS
+    records for every running container on the VPS. Caddy could no longer
+    resolve `crochethub-filetstudio`, and filetstudio.com answered 502
+    from about 15:28 to 15:34 UTC. The auto-mode classifier refused the
+    driver's container restarts, so the owner restarted `caddy`,
+    `crochethub-filetstudio` and `infinite-flow-web` (the sites back),
+    then `crochethub-mongodb` and the app again (its compose alias
+    `mongodb` unresolved until then); checked afterwards: both names
+    answer 200, the app logs no MongoDB error. Lesson (in the driver's
+    memory, offered for the VPS's host notes): a swarm membership change on
+    the VPS is a downtime, like a Docker upgrade, followed by restarting
+    every container and checking the app reaches its database;
+  - the VPS node set to `drain` by the owner (the classifier refused the
+    driver): the bricks' stack tests carry no placement constraint and
+    would otherwise schedule tasks there, opening a host-mode port on the
+    VPS's public address. **Rule for this wave**: the VPS stays drained;
+    only chunk 10b's two-host try and the wave gate's two-host smoke run
+    set it `active`, for their run only, and drain it again after
+    (`docker node update --availability active|drain vps-5718ad52`, run
+    by the owner if the classifier refuses it);
+  - G4 cleared 2026-10-26.
+- Out of date in the plan and `.tech`: the VPS's engine version (28.5.1
+  there, 29.9.2 now). Sent to `spec-writer` (G4's text, D178) and
+  `security-advisor` (`.tech`).
+
+### Order
+
+- Chunk 12 reads no W3 item and depends only on merged chunks: dispatched
+  at once.
+- Capture W3 (hosts, per-host contexts, where volumes live) is drafted
+  and committed before chunk 10 starts; chunk 11 once chunk 10 has
+  merged (in-wave edge 10 ──> 11).
