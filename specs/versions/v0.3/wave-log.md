@@ -2595,3 +2595,69 @@ runs only; no secret in git**:
   refused; filetstudio.com 200.
 - A playground names the VPS with endpoint `ssh://dbagm-vps`. G4's SSH
   item is met from here.
+
+### Chunk 10's two-host try, first attempt — 2026-10-26 evening
+
+The owner set the VPS `active` for the try. Run with
+`VPS_SSH=ssh://dbagm-vps` (scratch `fixture-monitoring` over two designed
+hosts: bastion and db on armenelos; Prometheus, the exporter and Grafana
+on the VPS).
+- **Failed at deploy**: Swarm rejected the exporter's task on the VPS,
+  `invalid pool request: Pool overlaps with other one on this address
+  space`. Swarm's default pool (10.0.0.0/8 in /24s; the ingress has
+  10.0.0.0/24) hands the game's overlay 10.0.1.0/24 and up, which the
+  VPS's local networks already hold (10.0.0.0/24 to 10.0.5.0/24:
+  `bridge`, `maintenant_default`, `crochethub_net`, `caddy_filetstudio`,
+  `docker_gwbridge`, `caddy_infinite-flow`). Every game spanning both
+  hosts hits it; one-host games don't. Setup rolled back and teardown
+  left nothing of the game on either host.
+- **Proved**: `deploy`'s agent-less probe through `ssh://dbagm-vps`; the
+  image copy (three images loaded on the VPS under the manager's ids,
+  recorded `copied: true`, a second pass copying none); teardown per host
+  through context `dbagm-vps-5718ad52`; Swarm on Tailscale (VPS
+  100.126.172.117, manager 100.78.85.1, direct over IPv6).
+- **Not reached**: the bastion's ports on armenelos only, `gmctl exec`
+  on a VPS node (shell and user-manager run), traffic across the link,
+  the MTU inside a node.
+- filetstudio.com 200 before, after the failed deploy and after
+  teardown; the app logged no MongoDB line.
+- **An architectural decision nobody captured** (chunk 10 stopped per
+  its brief). Options from chunk 10's owner:
+  - **A (recommended by the chunk owner and the driver)**: gmctl gives a
+    multi-host game's overlay an explicit subnet, the first free /24 in a
+    range reserved for gmctl (e.g. 10.20.0.0/16), avoiding every swarm
+    network and every local network on the placed hosts; code in render
+    and deploy only, nothing changed on the VPS. To capture as W3-a:
+    where it is chosen, the range, recorded in `implementation.yaml` so a
+    restart reuses it;
+  - B: the VPS daemon's `default-address-pools` (a dockerd restart, a
+    filetstudio.com downtime);
+  - C: Swarm's default address pool (only at `swarm init`, a membership
+    change): ruled out.
+
+### State at the end of 2026-10-26 (for the next driver)
+
+- Wave 3 on `v0.3-w3` (worktree `/home/bastien/work/db_audit_gm-wt/v0.3-w3`).
+  Plan v11. G4 cleared (D178), with the SSH route `dbagm-vps` and its
+  dedicated key (owner's ruling above: testing and private runs only, no
+  secret in git).
+- Chunk 12 merged (c0875f6). Chunk 10 built, not merged: branch
+  `v0.3-c10-multihost` at 530b3e1 (10a 768bc36), worktree
+  `/home/bastien/work/db_audit_gm-wt/v0.3-c10-multihost` kept; the try
+  script and logs in the driver's scratchpad (`two-host-try.sh`,
+  `try.log`, `try2.log`). Chunk 11 not started (needs 10).
+- The VPS: the owner drains it at the day's close (nothing of a game on
+  it, only the three copied images, about 1.45 GB). Context
+  `dbagm-vps-5718ad52` on armenelos.
+- Next:
+  1. The owner's word on option A (above), then capture W3-a and
+     `spec-writer` if master spec 10.2 needs a line;
+  2. a fresh `coding-leader` resumes chunk 10 from 530b3e1 with W3-a:
+     the subnet fix, then the try again (the owner sets the VPS
+     `active`, and drains it after);
+  3. chunk 11 once 10 has merged; then the wave gate, its two-host
+     `smoke-load.sh` run included.
+- Gate-fix list so far: `tools/gm/state.py` `status` shows a several-host
+  playground as "local engine" (cosmetic, chunk 10's report).
+- For the owner, optional: armenelos' Docker 29.9.1 → 29.9.2 at the next
+  maintenance (security-advisor).
