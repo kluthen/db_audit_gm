@@ -275,9 +275,11 @@ class TestMountedMaterial(RenderedMounted):
     def test_shaped_parameters_in_the_stack(self):
         self.fit_render()
         env = {name: s["environment"] for name, s in self.stack["services"].items()}
-        self.assertEqual(env["bastion"], {"TZ": "UTC", "GM_WEB_ROUTES": "monitor=monitor:9090"})
-        self.assertEqual(env["monitor"], {"TZ": "UTC"})
-        self.assertEqual(env["app"], {"TZ": "UTC", "GM_LISTEN_PORT": "8000"})
+        policy = {"GM_WRITE_POLICY": "report-only", "GM_WRITE_OVERRIDES": ""}
+        self.assertEqual(env["bastion"], {"TZ": "UTC", **policy,
+                                          "GM_WEB_ROUTES": "monitor=monitor:9090"})
+        self.assertEqual(env["monitor"], {"TZ": "UTC", **policy})
+        self.assertEqual(env["app"], {"TZ": "UTC", **policy, "GM_LISTEN_PORT": "8000"})
 
     def test_catalog_brick_files_relative_to_the_scenario(self):
         sc = model.load_scenario(self.scenario)
@@ -799,6 +801,74 @@ class TestRenderV03(V03Rendered):
                       "--handover", handover_at(16))
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("customer's time zone UTC-2 (Etc/GMT+2)", r.stdout)
+
+
+class TestWritePolicyAndSecrets(V03Rendered):
+    """Chunk 7b: the write policy in the environment (W1 item 5), the
+    connection secrets (W1 item 7) and `only_with_role` (W1 item 3)."""
+
+    def test_a_report_only_nodes_environment_with_an_override(self):
+        self.render(handover_at(16))
+        env = self.stack["services"]["producer"]["environment"]
+        self.assertEqual(env, {"TZ": "UTC", "GM_WRITE_POLICY": "report-only",
+                               "GM_WRITE_OVERRIDES": "/srv/scheduler/jobs"})
+        self.assertEqual(list(env)[:3], ["TZ", "GM_WRITE_POLICY", "GM_WRITE_OVERRIDES"])
+        db = self.stack["services"]["db"]["environment"]
+        self.assertEqual((db["GM_WRITE_POLICY"], db["GM_WRITE_OVERRIDES"]), ("fixable", ""))
+        self.assertEqual(self.stack["services"]["bastion"]["environment"]["GM_WRITE_POLICY"],
+                         "report-only")
+
+    def test_overrides_unique_sorted_space_separated(self):
+        node = {"write_policy": "report-only",
+                "write_overrides": ["/srv/b", "/etc/a", "/srv/b"]}
+        self.assertEqual(render.write_policy_environment(node),
+                         {"GM_WRITE_POLICY": "report-only", "GM_WRITE_OVERRIDES": "/etc/a /srv/b"})
+        self.assertEqual(render.write_policy_environment({"write_policy": "no-access"}),
+                         {"GM_WRITE_POLICY": "no-access", "GM_WRITE_OVERRIDES": ""})
+
+    def test_connection_secrets_mounted_in_the_scheduler(self):
+        self.render(handover_at(16))
+        rel = "local/laptop/secrets/"
+        names = [s["secret"] for s in self.impl["secrets"]]
+        for role in ("shop_app", "shop_reports"):
+            secret = f"role_{role}_password"
+            entry = next(s for s in self.impl["secrets"] if s["secret"] == secret)
+            self.assertEqual(entry, {"name": f"{self.gid}_{secret}", "secret": secret,
+                                     "kind": "password", "handed_over": False,
+                                     "file": rel + secret})
+        self.assertEqual(names.count("role_shop_app_password"), 1)
+        mounts = {m["source"]: m for m in self.stack["services"]["producer"]["secrets"]}
+        for role in ("shop_app", "shop_reports"):
+            m = mounts[f"{self.gid}_role_{role}_password"]
+            self.assertEqual((m["target"], m["uid"], m["gid"], m["mode"]),
+                             (f"/opt/gm/secrets/role_{role}_password", "0", "0", 0o400))
+        for node in ("db", "bastion"):
+            self.assertFalse([m for m in self.stack["services"][node]["secrets"]
+                              if "_role_" in m["source"]], node)
+        self.assertIn(f"{self.gid}_role_shop_app_password", self.stack["secrets"])
+
+    def test_the_lookup_secret_only_with_a_pooler_node(self):
+        sc = model.load_scenario(self.scenario)
+        db = sc.node("db")
+        declared = [s["name"] for s in localimpl.node_secret_declarations(sc, db)]
+        self.assertIn("gm_check_password", declared)
+        self.assertNotIn("pgbouncer_lookup_password", declared)
+        self.assertNotIn("pgbouncer_lookup_password",
+                         [s["secret"] for s in localimpl.game_secrets(sc)[0]])
+        self.assertNotIn(f"{localimpl.read_implementation(self.ldir)['game_id']}"
+                         "_pgbouncer_lookup_password",
+                         [s["name"] for s in localimpl.read_implementation(self.ldir)["secrets"]])
+        sc.node("bastion")["role"] = "pooler"        # a node with the pooler role
+        declared = [s["name"] for s in localimpl.node_secret_declarations(sc, db)]
+        self.assertIn("pgbouncer_lookup_password", declared)
+        self.assertIn("pgbouncer_lookup_password",
+                      [s["secret"] for s in localimpl.game_secrets(sc)[0]])
+
+    def test_refit_needed_when_the_schedule_names_another_role(self):
+        self.edit_yaml("nodes/producer/schedule.yaml",
+                       lambda d: d["connections"]["reports"].update(role="shop_audit"))
+        with self.assertRaisesRegex(model.GmError, "secrets changed since gmctl fit"):
+            render.render(self.scenario, "laptop", handover=handover_at(16))
 
 
 class TestRenderStatic(RenderedFixture):

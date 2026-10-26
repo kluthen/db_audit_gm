@@ -42,6 +42,7 @@ from .model import (CUSTOMER_TIMEZONE, HANDOVER_MOMENT_RE, REPO_ROOT, WEEKDAYS, 
 COMPOSE_VERSION = "3.8"
 RENDERABLE_STAGES = ("fitted", "rendered")
 NODE_TIMEZONE = "UTC"
+DEFAULT_WRITE_POLICY = "fixable"        # both variables unset mean fixable (W1 item 5)
 NODE_MAP, WEB_ROUTES = "node-map", "web-routes"    # parameter shapes (capture W1, item 2)
 
 # --- The planned hand-over, the shift and the customer's time zone --------
@@ -339,13 +340,25 @@ def web_routes_value(routes):
     return " ".join(f"{name}={routes[name]}" for name in sorted(routes))
 
 
+def write_policy_environment(node):
+    """`GM_WRITE_POLICY` (the node's `write_policy`) and `GM_WRITE_OVERRIDES`
+    (its `write_overrides`, unique, sorted, space-separated, `""` when
+    none); v0.3 capture W1, item 5."""
+    overrides = sorted({str(o) for o in node.get("write_overrides") or []})
+    return {"GM_WRITE_POLICY": str(node.get("write_policy") or DEFAULT_WRITE_POLICY),
+            "GM_WRITE_OVERRIDES": " ".join(overrides)}
+
+
 def service_environment(brick, node):
-    """`TZ=UTC`, then the brick parameters as GM_<NAME> variables: the
-    scenario's value, else the brick's default; unset parameters are left
-    out. By `shape` (capture W1, item 2): a node-map parameter is never
-    passed (the mounted material carries it), a web-routes one is passed
-    as its tokens, a scalar as in v0.1."""
+    """`TZ=UTC`, the node's write policy (write_policy_environment, when
+    the node gives one), then the brick parameters as GM_<NAME> variables:
+    the scenario's value, else the brick's default; unset parameters are
+    left out. By `shape` (capture W1, item 2): a node-map parameter is
+    never passed (the mounted material carries it), a web-routes one is
+    passed as its tokens, a scalar as in v0.1."""
     env = {"TZ": NODE_TIMEZONE}
+    if "write_policy" in node:
+        env.update(write_policy_environment(node))
     values = node.get("parameters") or {}
     for name, spec in (brick.get("parameters") or {}).items():
         spec = spec or {}
@@ -399,7 +412,9 @@ def build_stack(scenario, impl):
             "cap_drop": ["ALL"],
             "cap_add": list(brick.get("capabilities") or []),
         }
-        svc["environment"] = service_environment(brick, {"parameters": params[name]})
+        svc["environment"] = service_environment(brick, {
+            "write_policy": node.get("write_policy") or DEFAULT_WRITE_POLICY,
+            "write_overrides": node.get("write_overrides") or [], "parameters": params[name]})
         svc["healthcheck"] = _healthcheck(brick["healthcheck"])
         if inode["published_ports"]:
             svc["ports"] = [{"target": p["target"], "published": p["published"],

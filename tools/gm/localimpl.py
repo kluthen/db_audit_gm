@@ -22,7 +22,10 @@ Master spec 10.3; files, names and labels fixed by capture W2-A
                          the teardown record (spec D50);
 - `secrets/`             written by `deploy` (directory 0700, files 0600):
                          the secrets the bricks declare, by kind (v0.2
-                         capture W1, item 7).
+                         capture W1, item 7), those with `only_with_role`
+                         only when a node has the role, and a password
+                         `role_<role>_password` per role a scheduler's
+                         schedule names (v0.3 capture W1, items 3, 7).
 
 Every path an implementation records (`file:`) is relative to the scenario
 folder.
@@ -92,6 +95,12 @@ KEY_PAIR = "key-pair"
 SECRET_KINDS = (PASSWORD, KEY_PAIR)
 KEY_HALVES = ("private", "public")
 PUBLIC_KEY_SUFFIX = ".pub"
+# A scheduler's connection secrets (v0.3 capture W1, item 7): one password
+# per role its schedule.yaml names, derived here, never declared in
+# brick.yaml; mounted root-only in each scheduler node naming the role.
+ROLE_SECRET_PREFIX, ROLE_SECRET_SUFFIX = "role_", "_password"
+ROLE_SECRET_DIR = "/opt/gm/secrets"
+ROLE_SECRET_UID, ROLE_SECRET_GID, ROLE_SECRET_MODE = 0, 0, "0400"
 
 GAME_ID_MAX = 63                    # master spec 10.3
 SERVICE_NAME_MAX = 63               # Swarm service names
@@ -382,7 +391,7 @@ def _derived_lengths(scenario):
             parts.append((f"_{name}_{config_file_part(seed_name)}", OBJECT_NAME_MAX))
         for pc in brick.get("protected_configs") or []:
             parts.append((f"_{name}_{pc['name']}", OBJECT_NAME_MAX))
-        for sec in brick.get("secrets") or []:
+        for sec in node_secret_declarations(scenario, node):
             parts.append((f"_{sec['name']}", OBJECT_NAME_MAX))
         # mounted material: any node of the topology may receive it
         for item in mounted_items(brick):
@@ -458,16 +467,65 @@ def _secret_problems(brick, sec):
     return out
 
 
+def role_secret_name(role):
+    return f"{ROLE_SECRET_PREFIX}{role}{ROLE_SECRET_SUFFIX}"
+
+
+def schedule_connections(scenario, node):
+    """A scheduler node's schedule.yaml `connections` (`{}` for another
+    node, or when the file cannot be read: the loader reports it)."""
+    if not is_scheduler_node(node):
+        return {}
+    rel = (node.get("seed_files") or {}).get(SCHEDULE_FILE)
+    if rel is None:
+        return {}
+    try:
+        doc = yaml.safe_load((Path(scenario.dir) / rel).read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, yaml.YAMLError):
+        return {}
+    connections = (doc or {}).get("connections") if isinstance(doc, dict) else None
+    return connections if isinstance(connections, dict) else {}
+
+
+def connection_roles(scenario, node):
+    """The roles a scheduler node's schedule names, in first-use order."""
+    roles = []
+    for conn in schedule_connections(scenario, node).values():
+        role = conn.get("role") if isinstance(conn, dict) else None
+        if isinstance(role, str) and role not in roles:
+            roles.append(role)
+    return roles
+
+
+def topology_roles(scenario):
+    return {n.get("role") for n in scenario.nodes}
+
+
+def node_secret_declarations(scenario, node):
+    """The secrets a node mounts, as declarations: its brick's whose
+    `only_with_role` condition holds (a node of the topology has that role;
+    v0.3 capture W1, item 3), then, on a scheduler node, one password
+    `role_<role>_password` per role its schedule names (W1 item 7)."""
+    roles = topology_roles(scenario)
+    out = [sec for sec in scenario.bricks[node["name"]].data.get("secrets") or []
+           if sec.get("only_with_role") is None or sec.get("only_with_role") in roles]
+    for role in connection_roles(scenario, node):
+        name = role_secret_name(role)
+        out.append({"name": name, "kind": PASSWORD, "path": posixpath.join(ROLE_SECRET_DIR, name),
+                    "uid": ROLE_SECRET_UID, "gid": ROLE_SECRET_GID, "mode": ROLE_SECRET_MODE})
+    return out
+
+
 def game_secrets(scenario):
-    """`(secrets, problems)`: the game's secrets, one per declared name in
-    topology order, each `{"secret": name, **identity, "file": file in
-    secrets/}`, and what refuses the topology (capture W1, item 7): a
-    malformed declaration, a name two bricks declare differently, or a
-    password whose file is a key pair's."""
+    """`(secrets, problems)`: the game's secrets, one per name a node
+    mounts (node_secret_declarations) in topology order, each `{"secret":
+    name, **identity, "file": file in secrets/}`, and what refuses the
+    topology (capture W1, item 7): a malformed declaration, a name two
+    bricks declare differently, or a password whose file is a key pair's."""
     found, problems = {}, []
     for node in scenario.nodes:
         brick = scenario.bricks[node["name"]]
-        for sec in brick.data.get("secrets") or []:
+        for sec in node_secret_declarations(scenario, node):
             name = sec.get("name")
             shape = _secret_problems(brick, sec)
             if shape:
@@ -739,7 +797,7 @@ def build_implementation(scenario, playground, game_id, created_at):
             })
         configs += mounted[name]
         node_secrets = []
-        for sec in b.get("secrets") or []:
+        for sec in node_secret_declarations(scenario, node):
             sname = f"{gid}_{sec['name']}"
             node_secrets.append({"name": sname, "path": sec["path"], "uid": sec["uid"],
                                  "gid": sec["gid"], "mode": sec["mode"]})

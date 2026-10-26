@@ -34,7 +34,8 @@ def declare_secrets(scenario, brick, *secrets):
 # mount, and a handed-over password (capture W1, item 7); the catalog
 # `postgres` declares `monitoring_password` itself (v0.2 chunk 6), and
 # `gm_check_password` and `pgbouncer_lookup_password` (v0.3 chunk 4a; the
-# latter `only_with_role: pooler`, generated here until render honours it).
+# latter `only_with_role: pooler`, so left out here: fixture-audit has no
+# pooler node, chunk 7b).
 NEW_DB_SECRETS = (
     {"name": "backup_key", "kind": "key-pair", "pair": "backup_key", "half": "private"},
     {"name": "backup_pubkey", "kind": "key-pair", "pair": "backup_key", "half": "public",
@@ -89,8 +90,8 @@ class TestCredentials(RenderedGame):
         self.assertEqual(mode(sdir), 0o700)
         self.assertEqual(sorted(p.name for p in sdir.iterdir()),
                          ["dba_password", "gm_check_password", "monitoring_password",
-                          "pgbouncer_lookup_password", "player_password",
-                          "player_ssh_key", "player_ssh_key.pub", "tools_password"])
+                          "player_password", "player_ssh_key", "player_ssh_key.pub",
+                          "tools_password"])
         self.assertEqual(sorted(paths), sorted(sdir.iterdir()))
         for path in sdir.iterdir():
             self.assertEqual(mode(path), 0o600, path.name)
@@ -129,7 +130,7 @@ class TestDeploy(RenderedGame):
         self.assertEqual(fake.names("secret"), sorted(
             f"{gid}_{s}" for s in ("player_password", "player_ssh_key", "player_ssh_pubkey",
                                    "dba_password", "monitoring_password", "gm_check_password",
-                                   "pgbouncer_lookup_password", "tools_password")))
+                                   "tools_password")))
         for kind in ("config", "secret"):
             for name, objlabels in fake.objects[kind].items():
                 self.assertEqual(objlabels, labels, name)
@@ -268,9 +269,6 @@ class TestSecretsByKind(ScenarioCopyTest):
              "kind": "password", "handed_over": False, "file": rel + "monitoring_password"},
             {"name": f"{gid}_gm_check_password", "secret": "gm_check_password",
              "kind": "password", "handed_over": False, "file": rel + "gm_check_password"},
-            {"name": f"{gid}_pgbouncer_lookup_password", "secret": "pgbouncer_lookup_password",
-             "kind": "password", "handed_over": False,
-             "file": rel + "pgbouncer_lookup_password"},
             {"name": f"{gid}_backup_key", "secret": "backup_key", "kind": "key-pair",
              "pair": "backup_key", "half": "private", "file": rel + "backup_key"},
         ])
@@ -280,8 +278,7 @@ class TestSecretsByKind(ScenarioCopyTest):
         self.assertEqual(mode(sdir), 0o700)
         self.assertEqual(sorted(p.name for p in sdir.iterdir()), [
             "backup_key", "backup_key.pub", "dba_password", "gm_check_password",
-            "monitoring_password", "pgbouncer_lookup_password",
-            "player_password", "player_ssh_key", "player_ssh_key.pub", "tools_password"])
+            "monitoring_password", "player_password", "player_ssh_key", "player_ssh_key.pub", "tools_password"])
         for path in sdir.iterdir():
             self.assertEqual(mode(path), 0o600, path.name)
         tools = (sdir / "tools_password").read_text()
@@ -339,7 +336,6 @@ class TestSecretsByKind(ScenarioCopyTest):
             "    backup_key.pub: public key of pair backup_key",
             "    monitoring_password: password",
             "    gm_check_password: password",
-            "    pgbouncer_lookup_password: password",
         ])
         text = "\n".join(lines)
         for path in (self.ldir / "secrets").iterdir():

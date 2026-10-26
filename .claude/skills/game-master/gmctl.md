@@ -104,7 +104,15 @@ password or key. The GM's reads, one per tool, are in the skill's
   `--handover` and shifts nothing; given one, only the planned hand-over
   is recorded. Each seed config is mounted with its brick's `seed.modes`
   mode (`schedule.yaml` `0400`), `0444` otherwise, and a directory seed
-  entry (`builders/`) as one config per file. Parameter faults
+  entry (`builders/`) as one config per file. Every node gets, after
+  `TZ=UTC`, `GM_WRITE_POLICY` (its `write_policy`) and
+  `GM_WRITE_OVERRIDES` (its `write_overrides`, sorted, space-separated,
+  `""` when none; W1 item 5). Each role a scheduler's `schedule.yaml`
+  names gets a password secret `role_<role>_password`, mounted root-only
+  (`0400`) at `/opt/gm/secrets/` in each scheduler node naming it; a
+  brick secret with `only_with_role` (the lookup role's
+  `pgbouncer_lookup_password`, `pooler`) exists only when a node of the
+  topology has that role. Parameter faults
   are planted here, before anything is derived from the parameters:
   each one's changes apply to its target node's parameters, so a node a
   fault leaves out of a node-map (the `prometheus` node's `node_health`)
@@ -125,6 +133,15 @@ password or key. The GM's reads, one per tool, are in the skill's
   characters when players type it, `handed_over`, else 32); a key pair
   (ed25519, no passphrase) writes `<pair>` and `<pair>.pub`. Every node
   runs with `TZ=UTC`, on the one network `<id>_<network name>`.
+- **`load-data`**: one line per node's data file, `<node> <file> (psql as
+  postgres): ok|exit N`, then, in a game with scheduler nodes, one per
+  database node, `<node> passwords of <roles> (psql as postgres)`: each
+  application role a schedule names gets its password from its secret
+  (`role_<role>_password`) once the data has created it, on the database
+  node the connection targets (every database node for a pooler target),
+  sent as a SCRAM verifier with statement logging off, so no log holds
+  it; a role the data did not create fails the step. The summary lists
+  the files and `<node>: password set from its secret for role(s) ...`.
 - **A failed setup step** (`deploy`, `load-data`, `inject`): `setup failed
   before stage <stage>: <reason>`, the teardown it ran, then `Recorded in
   state.yaml (stage failed).`
