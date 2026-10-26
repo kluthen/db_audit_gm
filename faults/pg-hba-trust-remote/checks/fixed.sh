@@ -10,14 +10,31 @@
 #   - in the file: pg_hba.conf (pg_hba_file_rules) still has a non-local
 #     rule with method trust for an address other than loopback, which
 #     would trust remote clients the node cannot impersonate (the bastion).
+#
+# The rules are read as the GM check role; the probe is dba's own login,
+# the very thing judged. dba is a superuser, so the probe draws on
+# superuser_reserved_connections, which ordinary roles cannot take; if the
+# players' superuser sessions fill them, the probe fails and the file's
+# rules still decide.
 set -u
 
-pg() { runuser -u postgres -- psql -XAtq -v ON_ERROR_STOP=1 -d postgres "$@"; }
+# Connects as the GM check role through check-psql, inside the GM's
+# reserve (v0.3 master spec 6.5, 11 rule 5); on a postgres brick before
+# 0.3.0, which has no check role, as postgres over the local socket.
+CHECK_PSQL=/usr/local/lib/gm/check-psql
+if [ -e "$CHECK_PSQL" ]; then as="the GM check role"; else as=postgres; fi
+pg() {
+    if [ -e "$CHECK_PSQL" ]; then
+        "$CHECK_PSQL" -Atq -v ON_ERROR_STOP=1 "$@"
+    else
+        runuser -u postgres -- psql -XAtq -v ON_ERROR_STOP=1 "$@"
+    fi
+}
 
-pg -c 'SELECT 1' >/dev/null 2>&1 \
-    || { echo "cannot query PostgreSQL as postgres over the local socket."; exit 2; }
+pg -d postgres -c 'SELECT 1' >/dev/null 2>&1 \
+    || { echo "cannot query PostgreSQL as $as."; exit 2; }
 
-rules=$(pg <<'SQL'
+rules=$(pg -d postgres <<'SQL'
 SELECT string_agg(format('line %s (%s %s)', line_number, type,
                          coalesce(address, '')), ', ' ORDER BY line_number)
   FROM pg_hba_file_rules

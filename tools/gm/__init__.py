@@ -175,7 +175,8 @@ def build_parser():
     p.set_defaults(func=_cmd_validate)
 
     p = sub.add_parser("check", help="run every sealed check, one line per fault instance; "
-                                     "exit 0 all fixed, 1 any present, 2 any error")
+                                     "exit 0 all fixed, 1 any present, 3 any too soon, "
+                                     "2 any error")
     _scenario_args(p)
     p.set_defaults(func=_cmd_check)
 

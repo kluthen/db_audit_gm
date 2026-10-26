@@ -45,7 +45,7 @@ The teardown a failed step runs itself writes none.
 | `printf '%s\n' '<script>' \| tools/gmctl exec <dir> --playground <pg> --node <node> --user <user> [--env KEY=VALUE]` | any deployed stage | nothing | the script's own; 125 could not start |
 | `tools/gmctl status <dir> --playground <pg> --set final-answer` | `handed-over` | `final-answer` | 0; 1 refused |
 | `tools/gmctl validate <dir> --playground <pg>` | any deployed stage | nothing | 0 green; 1 red; 2 error or refused |
-| `tools/gmctl check <dir> --playground <pg>` | `injected` and later deployed stages | nothing | 0 all fixed; 1 any present; 2 any error or refused |
+| `tools/gmctl check <dir> --playground <pg>` | `injected` and later deployed stages | nothing | 0 all fixed; 1 any present (none errored); 3 any too soon to tell (none errored or present: wait the longest remaining window, then run it again); 2 any error or refused |
 | `tools/gmctl logs <dir> --playground <pg> --node <node> [--tail N]` | any game (useful while its services exist) | nothing | Docker's (`docker service logs`); 1 no game. A PostgreSQL node's shows sshd and the server's start-up only when its seed sets `logging_collector = on` (every v0.2 seed): its server log is then in files, read through `exec`; without the collector, the whole server log is here |
 | `tools/gmctl status <dir> --playground <pg> --set feedback-given` | `final-answer` | `feedback-given` | 0; 1 refused |
 | `tools/gmctl teardown <dir> --playground <pg> [--reason TEXT]` | any game (idempotent) | `torn-down` (a failed game stays `failed`), and the first time the teardown record, with the reason | 0; 1 leftovers (nothing recorded), or an empty reason (nothing removed) |
@@ -115,8 +115,15 @@ password or key. The GM's reads, one per tool, are in the skill's
   or `RED <rule>: ...` lines, or `ERROR: ...`), ending `Validators of game
   <id>: <node> green|red|error, ...`.
 - **`check`**: one line per fault instance, `<instance> <fault-id>:
-  fixed|present|error — <reason>`; no summary line. A check on a Grafana
-  node judges Grafana's live state through its API, not only the files.
+  fixed|present|error — <reason>`, or, for a check that cannot tell yet,
+  `<instance> <fault-id>: too-soon — <N> s of the window remain: <reason>`
+  (the check judges a window that has not elapsed since the last change;
+  wait N seconds, or report the fault as undetermined in the feedback);
+  no summary line. A check on a Grafana node judges Grafana's live state
+  through its API, not only the files. A check on a PostgreSQL node
+  connects as the GM check role `gm_check`, inside the GM's reserve, so an
+  exhausted `max_connections` does not lock it out; players see its
+  sessions in the server log and `pg_stat_activity`.
 - **`status`**: game id, playground and endpoint, stage (for a failed
   game, the last stage reached), the failure if any, the teardown record
   if any (`torn down: at <at>, from stage <stage>: <reason>`, or `no
