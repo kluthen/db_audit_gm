@@ -43,7 +43,7 @@ The teardown a failed step runs itself writes none.
 | `tools/gmctl status <dir> --playground <pg>` | any game | nothing | 0; 1 no game |
 | `tools/gmctl fit <dir> --playground <pg> [--endpoint ssh://user@host] [--cpu N --memory SIZE --disk SIZE]`, or on several hosts `[--host <name>[,manager][,endpoint=ssh://user@host],cpu=N,memory=SIZE,disk=SIZE ...] [--map <designed host>=<host> ...]` | no game, `fitted`, `rendered`, `failed` before deployment (same game id); `torn-down`, or `failed` after deployment with its teardown recorded (a new game id) | `fitted` | 0 fits; 1 does not fit, or refused (a deployed stage, or a failure after deployment not torn down: the message names the game, its stage and `gmctl teardown`, or `gmctl deploy` for a failed deploy; the playground's engine not reachable; an image missing on it, with its build command; a declaration it cannot place the scenario on: no or two managers, a designed host unmapped or unknown, a mapping onto an undeclared host, a host the manager's `docker node ls` does not list or a manager listed as a worker, a node publishing ports placed off the manager, `--endpoint`, `--cpu`, `--memory` or `--disk` with `--host` or on several hosts; these last write nothing) |
 | `tools/gmctl render <dir> --playground <pg> [--handover <UTC date and hour>]` | `fitted`, `rendered` | `rendered`; the `timeline` in `implementation.yaml` | 0; 1 refused (no `--handover` with scheduler nodes, a hand-over not in the future or not a whole hour, the scenario changed since `fit`) |
-| `tools/gmctl deploy <dir> --playground <pg> [--init-swarm] [--timeout SECONDS]` | `rendered`, or `failed` in deploy | `deployed` | 0; 1 refused or failed |
+| `tools/gmctl deploy <dir> --playground <pg> [--init-swarm] [--timeout SECONDS]` | `rendered`, or `failed` in deploy | `deployed`; `images` in `state.yaml` on several hosts | 0; 1 refused (an image missing on the manager; on several hosts: `--init-swarm`, a host with nodes not `Ready` and `active` in the swarm, naming `docker node update --availability active <host>`, which the owner runs, or a host that does not answer without an SSH agent and a terminal, as a host timer's run reaches it; a Docker context `dbagm-<host>` aimed elsewhere; nothing created) or failed |
 | `tools/gmctl load-data <dir> --playground <pg> [--timeout SECONDS]` | `deployed` (later deployed stages: no-op, exit 0) | `data-loaded` | 0; 1 refused or failed |
 | `tools/gmctl inject <dir> --playground <pg> [--timeout SECONDS]` | `data-loaded`, `injected` (a replay) | `injected`; every instance's planting (`plantings`); with scheduler nodes only the instances due at T0 are planted | 0; 1 refused (at `load-started`: re-plant one instance with `--at now`) or failed |
 | `tools/gmctl start-load <dir> --playground <pg>` | `injected`, with scheduler nodes | each attempt in `load`; T0 and `load-started` once every scheduler runs; the early check's host timer | 0 started; 1 refused (no scheduler node: `game <id> has no scheduler node, so it has no aging and no load to start (D157)`; the load already started; once handed over) or a scheduler did not start (recorded, nothing torn down, the stage stays `injected`: fix it and run it again, or tear the game down) |
@@ -152,7 +152,20 @@ password or key. The GM's reads, one per tool, are in the skill's
   directory (never printed), the services healthy, then one line per
   published port: `node <bastion>: port <port> on the swarm host
   (container port <target>)`, target 22 for SSH and, with a web
-  interface, 8080 for the web front; `Stage deployed.` It generates the secrets the
+  interface, 8080 for the web front; `Stage deployed.` On several hosts
+  (v0.3 master spec 10.2; capture W3 of v0.3, items 3 and 6) the port
+  lines name the host (`on host <name>`, the manager), and before the
+  credentials come one line per other host with nodes, `host <name>:
+  Docker <version>, reached without an SSH agent`, and its images,
+  `images on <host>: <n> copied (<images>), <k> already held under the
+  same id`: each other host gets the images of its nodes, `docker save
+  <image> | docker --context dbagm-<host> load`, skipped when it holds
+  the same id, never pulled; `state.yaml`'s `images: {<host>: [{image,
+  id, copied, at}]}` records them. gmctl reaches a remote host through
+  its Docker context `dbagm-<host>`, created from `playground.yaml` when
+  missing, never `docker context use`; contexts outlive the game. The
+  game's network gets MTU 1230 when its nodes span several hosts (VXLAN
+  inside Tailscale's 1280). It generates the secrets the
   bricks declare, fresh at each deploy: a password writes `<name>` (16
   characters when players type it, `handed_over`, else 32); a key pair
   (ed25519, no passphrase) writes `<pair>` and `<pair>.pub`. Every node
@@ -256,7 +269,11 @@ password or key. The GM's reads, one per tool, are in the skill's
   left.`, then, the first time, `Recorded in state.yaml: torn down at
   <at>, from stage <stage>: <reason>.`; a later teardown given a reason
   says the record was left unchanged. Leftovers (a timer unit included):
-  the list and exit 1, nothing recorded.
+  the list and exit 1, nothing recorded. On several hosts (D179) the
+  Swarm objects go on the manager, the containers and volumes on every
+  declared host, listed `<host>:<name>`; a host that does not answer is
+  a leftover (`hosts: <host> (not reachable: ...)`). Images and the
+  hosts' Docker contexts stay.
 
 ## Files of the local implementation the GM reads
 

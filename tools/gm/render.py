@@ -27,6 +27,10 @@ shifts nothing (D158).
 v0.3 master spec 7.5 and 10.2; capture W3, item 2: every node is pinned to
 the host `fit` placed it on (`nodes.<n>.host`), `node.hostname == <host>`,
 the bastion with its host-mode ports, a stateful node with its volumes.
+When the nodes span several hosts, the overlay's VXLAN runs inside
+Tailscale's 1280-byte MTU: the game's network gets an MTU leaving room for
+VXLAN's 50 bytes (master spec 10.2, "Risks"). A game on one host keeps the
+engine's default.
 """
 
 import datetime
@@ -58,6 +62,11 @@ ZONE_MIN, ZONE_MAX = -12, 14            # the offsets Etc/GMT names
 SEED_LIMIT = 2 ** 63                    # 0 <= seed < 2**63 (W1 item 7)
 T0 = "T0"
 UTC = datetime.timezone.utc
+# Tailscale's MTU less VXLAN's encapsulation (outer IPv4 20, UDP 8, VXLAN 8,
+# inner Ethernet 14): the game's overlay network across hosts (master spec 10.2).
+TAILSCALE_MTU, VXLAN_OVERHEAD = 1280, 50
+OVERLAY_MTU = TAILSCALE_MTU - VXLAN_OVERHEAD
+MTU_OPTION = "com.docker.network.driver.mtu"
 
 
 def parse_handover(text):
@@ -448,10 +457,13 @@ def build_stack(scenario, impl):
             configs[c["name"]] = {"external": True, "name": c["name"]}
         for s in inode["secrets"]:
             secrets[s["name"]] = {"external": True, "name": s["name"]}
+    overlay = {"driver": "overlay", "attachable": False}
+    if len({inode.get("host") for inode in impl["nodes"].values()}) > 1:
+        overlay["driver_opts"] = {MTU_OPTION: str(OVERLAY_MTU)}
     return {
         "version": COMPOSE_VERSION,
         "services": services,
-        "networks": {network: {"driver": "overlay", "attachable": False}},
+        "networks": {network: overlay},
         "volumes": volumes,
         "configs": configs,
         "secrets": secrets,

@@ -7,9 +7,10 @@ import unittest
 
 import yaml
 
-from tools.gm import deploy, docker, fit, localimpl, render, state
+from tools.gm import deploy, docker, execnode, fit, localimpl, render, state
 from tools.gm.model import GmError
 from tools.tests import REPO_ROOT, SUFFICIENT, FakeDocker, ScenarioCopyTest, run_gmctl
+from tools.tests.test_render import MANAGER, VPS_ENDPOINT, WORKER, TwoHostScenario
 
 
 def mode(path):
@@ -453,3 +454,171 @@ class TestCommandLine(ScenarioCopyTest):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# --- Several hosts (v0.3 capture W3, items 3 and 6; D173, D181) -------------
+
+POSTGRES = "127.0.0.1:5000/dbagm/postgres:0.3.0"
+BASTION = "127.0.0.1:5000/dbagm/bastion:0.3.0"
+
+
+class TestHostDockers(TwoHostScenario):
+    """for_local_dir on a playground of several hosts, and the contexts."""
+
+    def setUp(self):
+        super().setUp()
+        self.fit()
+
+    def test_the_manager_reaches_each_host_through_its_context(self):
+        mgr = docker.for_local_dir(self.ldir)
+        self.assertEqual(mgr.command(["ps"]), ["docker", "ps"])        # the local engine
+        vps = mgr.on_host(WORKER)
+        self.assertIs(mgr.on_host(MANAGER), mgr)
+        self.assertEqual(vps.command(["ps"]), ["docker", "--context", f"dbagm-{WORKER}", "ps"])
+        self.assertEqual(vps.endpoint, VPS_ENDPOINT)
+        gid = localimpl.read_implementation(self.ldir)["game_id"]
+        self.assertIs(mgr.for_service(f"{gid}_db"), vps)
+        self.assertIs(mgr.for_service(f"{gid}_bastion"), mgr)
+        self.assertEqual(mgr.every_host(), [mgr, vps])
+        with self.assertRaisesRegex(GmError, "host elsewhere is not declared"):
+            mgr.on_host("elsewhere")
+
+    def test_a_context_is_created_once_and_never_redirected(self):
+        client = FakeDocker()
+        vps = docker.ContextDocker(VPS_ENDPOINT, WORKER, client=client)
+        self.assertTrue(docker.ensure_context(client, vps.context, VPS_ENDPOINT))
+        self.assertEqual(client.contexts, {f"dbagm-{WORKER}": VPS_ENDPOINT})
+        self.assertFalse(docker.ensure_context(client, vps.context, VPS_ENDPOINT))
+        self.assertEqual(len(client.called("context", "create")), 1)
+        with self.assertRaisesRegex(GmError, rf"names {VPS_ENDPOINT}, not ssh://other@host .*"
+                                             rf"docker context update dbagm-{WORKER} --docker "
+                                             r"host=ssh://other@host"):
+            docker.ensure_context(client, vps.context, "ssh://other@host")
+        self.assertFalse(client.called("context", "use"))
+
+    def test_todays_form_keeps_its_endpoint(self):
+        ldir = self.scenario / "local" / "solo"
+        localimpl.write_playground(ldir, {"name": "solo", "platform": "swarm",
+                                          "docker_endpoint": "ssh://gm@host", "capacity": {}})
+        d = docker.for_local_dir(ldir)
+        self.assertEqual(d.command(["ps"]), ["docker", "-H", "ssh://gm@host", "ps"])
+        self.assertIs(d.on_host("any-name"), d)
+
+
+class TwoHostRendered(TwoHostScenario):
+
+    def setUp(self):
+        super().setUp()
+        self.fit()
+        render.render(self.scenario, "duo")
+        self.impl = localimpl.read_implementation(self.ldir)
+        self.gid = self.impl["game_id"]
+        self.clock = [0.0]
+
+    def sleep(self, seconds):
+        self.clock[0] += seconds
+
+    def cluster(self, availability="Active", **worker):
+        return FakeDocker.cluster(MANAGER, {WORKER: worker}, availability=availability)
+
+    def deploy(self, fake, **kwargs):
+        kwargs.setdefault("timeout", 30)
+        return deploy.deploy(self.scenario, "duo", docker=fake, sleep=self.sleep,
+                             clock=lambda: self.clock[0], **kwargs)
+
+
+class TestTwoHostDeploy(TwoHostRendered):
+
+    def test_the_images_of_the_vps_nodes_are_copied_once(self):
+        fake = self.cluster()
+        vps = fake.on_host(WORKER)
+        result = self.deploy(fake)
+        self.assertEqual(fake.called("save"), [["save", POSTGRES]])     # db's, not the bastion's
+        self.assertEqual(vps.called("load"), [["load", "--quiet"]])
+        self.assertIn(POSTGRES, vps.loaded)
+        st = localimpl.read_state(self.ldir)
+        [entry] = st["images"][WORKER]
+        self.assertEqual({k: entry[k] for k in ("image", "id", "copied")},
+                         {"image": POSTGRES, "id": vps.loaded[POSTGRES], "copied": True})
+        self.assertNotIn(MANAGER, st["images"])
+        self.assertIn(f"  images on {WORKER}: 1 copied ({POSTGRES}), 0 already held under the "
+                      "same id", result.text())
+        self.assertIn(f"  node bastion: port 2222 on host {MANAGER}", result.text())
+        # never pulled
+        self.assertFalse(fake.called("pull") or vps.called("pull"))
+
+    def test_an_image_held_under_the_same_id_is_skipped(self):
+        fake = self.cluster(images=True)            # the VPS already holds both images
+        result = self.deploy(fake)
+        self.assertFalse(fake.called("save"))
+        self.assertFalse(fake.on_host(WORKER).called("load"))
+        self.assertFalse(localimpl.read_state(self.ldir)["images"][WORKER][0]["copied"])
+        self.assertIn("0 copied, 1 already held under the same id", result.text())
+
+    def test_an_image_held_under_another_id_is_copied(self):
+        fake = self.cluster(images=True, ids={POSTGRES: "sha256:" + "0" * 64})
+        self.deploy(fake)
+        self.assertEqual(fake.called("save"), [["save", POSTGRES]])
+        self.assertTrue(localimpl.read_state(self.ldir)["images"][WORKER][0]["copied"])
+
+    def test_each_node_runs_and_is_polled_on_its_host(self):
+        fake = self.cluster()
+        vps = fake.on_host(WORKER)
+        self.deploy(fake)
+        self.assertEqual(vps.names("volume"),
+                         sorted(v["name"] for v in self.impl["nodes"]["db"]["volumes"]))
+        self.assertEqual(fake.names("volume"),
+                         sorted(v["name"] for v in self.impl["nodes"]["bastion"]["volumes"]))
+        self.assertEqual([c[-1] for c in vps.called("inspect")], [f"{self.gid}_db.1.ctr"])
+        self.assertEqual([c[-1] for c in fake.called("inspect")],
+                         [f"{self.gid}_bastion.1.ctr"])
+        self.assertFalse(vps.called("stack") or vps.called("config") or vps.called("service"))
+
+    def test_the_exec_verb_reaches_a_node_on_the_vps(self):
+        fake = self.cluster()
+        self.deploy(fake)
+        vps = fake.on_host(WORKER)
+        result = execnode.exec_node(self.ldir, "db", "postgres", stdin="true\n", docker=fake)
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.container, f"{self.gid}_db.1.ctr")
+        self.assertTrue(vps.called("exec", "-i", "-u", "postgres"))
+        self.assertFalse(fake.called("exec"))
+
+    def test_a_drained_host_is_refused_before_anything_is_created(self):
+        fake = self.cluster(availability="Drain")
+        with self.assertRaisesRegex(GmError, rf"host {WORKER} is Ready, Drain in the swarm: .*"
+                                             rf"docker node update --availability active "
+                                             rf"{WORKER}\); nothing deployed"):
+            self.deploy(fake)
+        self.assertFalse(fake.called("config", "create"))
+        self.assertFalse(fake.called("save"))
+        self.assertEqual(localimpl.read_state(self.ldir)["stage"], "rendered")
+
+    def test_a_host_a_timer_run_cannot_reach_is_refused(self):
+        fake = self.cluster(unattended=False)
+        with self.assertRaisesRegex(GmError, rf"host {WORKER} does not answer as a host timer's "
+                                             r"run would reach it, with no SSH agent and no "
+                                             r"terminal \(.*Permission denied"):
+            self.deploy(fake)
+        self.assertFalse(fake.called("config", "create"))
+        [probe] = fake.on_host(WORKER).called("version")
+        self.assertEqual(probe, ["version", "--format", "{{.Server.Version}}"])
+
+    def test_init_swarm_is_refused_on_several_hosts(self):
+        with self.assertRaisesRegex(GmError, "--init-swarm on a playground of several hosts"):
+            self.deploy(self.cluster(), init_swarm=True)
+
+    def test_the_overlay_leaves_room_for_vxlan_inside_tailscale(self):
+        stack = yaml.safe_load((self.ldir / "stack.yml").read_text())
+        self.assertEqual(stack["networks"]["backend"]["driver_opts"],
+                         {"com.docker.network.driver.mtu": "1230"})
+
+    def test_a_game_on_one_of_the_hosts_keeps_the_default_mtu_and_copies_nothing(self):
+        self.fit(mapping=("host-1=" + MANAGER, "host-2=" + MANAGER))
+        render.render(self.scenario, "duo")
+        stack = yaml.safe_load((self.ldir / "stack.yml").read_text())
+        self.assertNotIn("driver_opts", stack["networks"]["backend"])
+        fake = self.cluster(availability="Drain")         # the VPS drained: no node there
+        self.deploy(fake)
+        self.assertFalse(fake.called("save"))
+        self.assertNotIn("images", localimpl.read_state(self.ldir))

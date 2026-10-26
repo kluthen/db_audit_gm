@@ -1,6 +1,8 @@
 """Unit tests of gmctl (tools/gm), and the helpers they share."""
 
+import contextlib
 import hashlib
+import io
 import json
 import os
 import shutil
@@ -103,18 +105,34 @@ class FakeDocker:
     `reachable=False` makes every command fail as an engine that does not
     answer. `name` is the engine's (`docker info`), `nodes` what `docker
     node ls` lists, `{hostname: (status, availability, manager status)}`
-    (by default the engine alone, the swarm's leader)."""
+    (by default the engine alone, the swarm's leader).
+
+    Several hosts (`FakeDocker.cluster`): the manager's fake reaches each
+    other host's behind `.on_host`, as tools.gm.docker.Docker does; a
+    service runs, and its volumes live, on the host its stack-file
+    constraint names. `unattended=False` fails the probe a host timer's run
+    would make (no SSH agent); `ids` gives images other ids; `docker save`
+    streams an image and `docker load` adds it."""
 
     KINDS = ("service", "network", "volume", "config", "secret")
 
     def __init__(self, swarm=("active", True), images=True, health="healthy", fail=None,
-                 endpoint=None, missing=(), reachable=True, name=None, nodes=None):
+                 endpoint=None, missing=(), reachable=True, name=None, nodes=None,
+                 unattended=True, ids=None):
         from tools.gm.docker import Docker
         self._docker = Docker(endpoint)
         self.endpoint = endpoint
         self.name = name or FAKE_ENGINE_NAME
         self.nodes = (dict(nodes) if nodes is not None
                       else {self.name: ("Ready", "Active", "Leader")})
+        self.unattended = unattended
+        self.ids = dict(ids or {})
+        self.loaded = {}                # images `docker load` added: name -> id
+        self.contexts = {}              # the client's Docker contexts: name -> endpoint
+        self.hosts = {}                 # on the manager's: host name -> FakeDocker
+        self.placement = {}             # on the manager's: service -> host name
+        self.manager = None             # on another host's: the manager's FakeDocker
+        self.service_hosts = {}         # on the manager's: service -> the host it runs on
         self.swarm = swarm
         self.images = images
         self.missing = set(missing)
@@ -123,6 +141,46 @@ class FakeDocker:
         self.fail = dict(fail or {})
         self.calls = []
         self.objects = {kind: {} for kind in self.KINDS}
+
+    @classmethod
+    def cluster(cls, manager, workers, availability="Active", **kwargs):
+        """The manager's fake engine, each worker's behind `.on_host`; every
+        node Ready and the workers `availability`. `workers` maps each
+        worker's name to the keyword arguments of its fake."""
+        nodes = {manager: ("Ready", "Active", "Leader")}
+        nodes.update({w: ("Ready", availability, "") for w in workers})
+        mgr = cls(name=manager, nodes=nodes, **kwargs)
+        for worker, options in workers.items():
+            fake = cls(name=worker, swarm=("active", False),
+                       **dict({"images": False}, **(options or {})))
+            fake.manager = mgr
+            mgr.hosts[worker] = fake
+        return mgr
+
+    # Docker's host navigation (tools.gm.docker.Docker), on the fakes
+    def on_host(self, host):
+        if host is None or host == self.name or not self.hosts:
+            return self
+        return self.hosts[host]
+
+    def for_service(self, service):
+        return self.on_host(self.placement.get(service) or self.service_hosts.get(service))
+
+    def every_host(self):
+        return [self] + [self.hosts[name] for name in sorted(self.hosts)]
+
+    @contextlib.contextmanager
+    def stream(self, args):
+        args = [str(a) for a in args]
+        self.calls.append(args)
+        assert args[0] == "save", args
+        if self.layers(args[1]) is None:
+            from tools.gm.docker import DockerError
+            raise DockerError(args, 1, f"Error response from daemon: No such image: {args[1]}")
+        yield io.BytesIO(f"{args[1]}\n{self._image_id(args[1])}".encode())
+
+    def _image_id(self, name):
+        return self.loaded.get(name) or self.ids.get(name) or image_id(name)
 
     @classmethod
     def from_environment(cls, endpoint=None):
@@ -134,6 +192,8 @@ class FakeDocker:
 
     def layers(self, image):
         """The image's layers `[(diff id, size)]`, None when it is absent."""
+        if image in self.loaded:
+            return [BASE_LAYER, own_layer(image)]
         if image in self.missing or self.images is False:
             return None
         if self.images is True:
@@ -160,10 +220,17 @@ class FakeDocker:
     def called(self, *prefix):
         return [c for c in self.calls if tuple(c[:len(prefix)]) == prefix]
 
-    def run(self, args, input=None, stdin=None, capture=True, check=True, timeout=None):
+    def run(self, args, input=None, stdin=None, capture=True, check=True, timeout=None,
+            env=None, new_session=False):
         from tools.gm.docker import DockerError
         args = [str(a) for a in args]
         self.calls.append(args)
+        if new_session and env is not None and "SSH_AUTH_SOCK" not in env \
+                and not self.unattended:
+            stderr = f"{self.name}: Permission denied (publickey)."
+            if check:
+                raise DockerError(args, 255, stderr)
+            return subprocess.CompletedProcess(args, 255, "", stderr)
         for prefix, stderr in self.fail.items():
             if tuple(args[:len(prefix)]) == tuple(prefix):
                 if check:
@@ -232,8 +299,8 @@ class FakeDocker:
             if layers is None:
                 return (1, f"Error response from daemon: No such image: {name}")
             if "{{json .}}" not in args:
-                return "sha256:x"
-            return json.dumps({"Id": image_id(name), "RepoTags": [name],
+                return self._image_id(name) + "\n"
+            return json.dumps({"Id": self._image_id(name), "RepoTags": [name],
                                "Size": sum(size for _, size in layers),
                                "RootFS": {"Type": "layers",
                                           "Layers": [diff for diff, _ in layers]}})
@@ -256,16 +323,39 @@ class FakeDocker:
             stack_file, gid = args[args.index("-c") + 1], args[-1]
             stack = yaml.safe_load(Path(stack_file).read_text())
             ns = {"com.docker.stack.namespace": gid}
-            for svc in stack["services"]:
+            where = {}
+            for svc, spec in stack["services"].items():
                 self.add("service", f"{gid}_{svc}", ns)
+                for constraint in ((spec.get("deploy") or {}).get("placement") or {}) \
+                        .get("constraints") or []:
+                    if constraint.startswith("node.hostname == "):
+                        self.service_hosts[f"{gid}_{svc}"] = constraint.split("== ", 1)[1]
+                for vol in spec.get("volumes") or []:
+                    where[vol["source"]] = self.on_host(self.service_hosts.get(f"{gid}_{svc}"))
             for net in stack.get("networks") or {}:
                 self.add("network", f"{gid}_{net}", ns)
             for vol in (stack.get("volumes") or {}).values():
-                self.add("volume", vol["name"], {**ns, **(vol.get("labels") or {})})
+                where.get(vol["name"], self).add("volume", vol["name"],
+                                                 {**ns, **(vol.get("labels") or {})})
             return ""
+        if cmd == "load":
+            name, ident = stdin.read().decode().split("\n")
+            self.loaded[name] = ident
+            return f"Loaded image: {name}\n"
+        if args[:2] == ["context", "inspect"]:
+            if args[-1] not in self.contexts:
+                return (1, f"context \"{args[-1]}\" does not exist")
+            return self.contexts[args[-1]] + "\n"
+        if args[:2] == ["context", "create"]:
+            host = args[args.index("--docker") + 1].split("=", 1)[1]
+            self.contexts[args[2]] = host
+            return args[2] + "\n"
         if cmd == "ps":
             ids = []
-            for svc, labels in sorted(self.objects["service"].items()):
+            swarm = self.manager or self
+            for svc, labels in sorted(swarm.objects["service"].items()):
+                if swarm.hosts and swarm.service_hosts.get(svc, swarm.name) != self.name:
+                    continue        # the service's task runs on another host
                 ctr = {"com.docker.swarm.service.name": svc, **labels}
                 ok = True
                 for flt in self._filters(args):

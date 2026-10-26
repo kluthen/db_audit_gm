@@ -6,7 +6,8 @@ Python 3, standard library plus PyYAML. Modules:
 - `localimpl`  the local implementation's files, names, labels and state (capture W2-A);
 - `fit`        the capacity check and `implementation.yaml`;
 - `render`     the stack file, the envelope files, the shift and the scheduler's files;
-- `docker`     the Docker command line, aimed at the playground's engine;
+- `docker`     the Docker command line, aimed at the playground's hosts (v0.3: per-host
+               contexts, the image copy);
 - `state`      `gmctl status` (and `--set`, the GM-recorded stages), and
                recording a failed setup step;
 - `deploy`     swarm check, credentials, labelled configs and secrets, the stack;

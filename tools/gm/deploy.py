@@ -18,6 +18,18 @@ capture W2-A, the Python interface by capture W2-B. In order:
 Steps 2 to 5 form one setup step: if one fails, or the GM stops it, what
 was deployed is torn down (label-based, `teardown.remove_game_objects`)
 and the failure recorded in `state.yaml`.
+
+v0.3 (master spec 10.2; capture W3, items 3 and 6; D173, D181): before
+anything is created, every host a node is placed on must be `Ready` and
+`active` in the manager's `docker node ls` (gmctl never changes a node's
+availability, nor the swarm's membership: `--init-swarm` is refused on
+several hosts), and every other such host must answer as a host timer's
+run reaches it, with no SSH agent and no terminal. In the setup step,
+each other host is given the images of its nodes, `docker save | docker
+--context dbagm-<host> load`, skipped when it holds the same name under
+the same id, never pulled; `state.yaml`'s `images` records them. The
+overlay network is the stack's own, its MTU set by `render` on several
+hosts.
 """
 
 import os
@@ -30,7 +42,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import localimpl, state, teardown
-from .docker import for_local_dir, running_containers
+from .docker import (copy_image, for_local_dir, image_id, probe_unattended, running_containers,
+                     swarm_nodes)
 from .model import GmError
 
 DEPLOY_STAGE = "deployed"
@@ -70,6 +83,91 @@ def ensure_swarm(docker, init=False):
     if node_state != "active" or not manager:
         raise GmError(f"docker swarm init on {docker.describe()} left the node {node_state}")
     return f"swarm: initialised on {docker.describe()} (docker swarm init)"
+
+
+def placed_hosts(impl):
+    """The hosts the game's nodes are placed on, in node order."""
+    hosts = []
+    for node in impl["nodes"].values():
+        if node.get("host") and node["host"] not in hosts:
+            hosts.append(node["host"])
+    return hosts
+
+
+def check_hosts(docker, impl):
+    """Every host a node is placed on, on a playground of several hosts:
+    `Ready` and `active` in the manager's `docker node ls`, and, for each
+    other than the manager, answering as a timer run reaches it (D173).
+    Returns report lines; GmError before anything is created."""
+    if not docker.hosts:
+        return []
+    nodes = swarm_nodes(docker)
+    problems, lines = [], []
+    for host in placed_hosts(impl):
+        node = nodes.get(host)
+        if node is None:
+            problems.append(f"host {host} is not a node of the swarm")
+            continue
+        if node["status"].lower() != "ready" or node["availability"].lower() != "active":
+            problems.append(f"host {host} is {node['status']}, {node['availability']} in the "
+                            "swarm: its nodes' tasks cannot start there (the owner makes it "
+                            f"active: docker node update --availability active {host})")
+            continue
+        if host == docker.name:
+            continue
+        target = docker.on_host(host)
+        ok, detail = probe_unattended(target)
+        if not ok:
+            problems.append(f"host {host} does not answer as a host timer's run would reach "
+                            f"it, with no SSH agent and no terminal ({detail}): the game's "
+                            "timers, snapshot and restart need it; give its SSH destination a "
+                            "key usable without an agent")
+        else:
+            lines.append(f"host {host}: Docker {detail}, reached without an SSH agent")
+    if problems:
+        raise GmError("; ".join(problems) + "; nothing deployed")
+    return lines
+
+
+def copy_images(docker, impl, now=localimpl.now_iso):
+    """Give each host other than the manager the images of its nodes
+    (W3 item 6): copied when absent or held under another id, skipped
+    otherwise. Returns `{host: [{image, id, copied, at}]}`."""
+    record = {}
+    ids = {}
+    for node in impl["nodes"].values():
+        host = node.get("host")
+        if not docker.hosts or host in (None, docker.name):
+            continue
+        target = docker.on_host(host)
+        entries = record.setdefault(host, [])
+        image = node["image"]
+        if any(e["image"] == image for e in entries):
+            continue
+        if image not in ids:
+            ids[image] = image_id(docker, image)
+        held = image_id(target, image)
+        copied = held != ids[image]
+        if copied:
+            copy_image(docker, target, image)
+            held = image_id(target, image)
+            if held != ids[image]:
+                raise GmError(f"image {image} loaded on {host} under {held}, not {ids[image]} "
+                              "as on the manager")
+        entries.append({"image": image, "id": ids[image], "copied": copied, "at": now()})
+    return record
+
+
+def record_images(ldir, record):
+    """`state.yaml`'s `images`, the last deployment's copies."""
+    def change(st):
+        if record:
+            st["images"] = record
+        elif "images" in st:
+            del st["images"]
+        else:
+            return False
+    localimpl.update_state(ldir, change)
 
 
 def missing_images(docker, impl):
@@ -199,8 +297,9 @@ def service_health(docker, service):
     `pending` (no running container yet) or `rejected` (Swarm refused the
     task: it will never start)."""
     statuses = []
+    host = docker.for_service(service)
     for container in running_containers(docker, service):
-        out = docker.run(["inspect", "--format",
+        out = host.run(["inspect", "--format",
                           "{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}",
                           container], check=False).stdout or ""
         statuses.append(out.strip())
@@ -247,24 +346,36 @@ class DeployResult:
     game_id: str
     endpoint: str
     swarm: str
+    hosts: list = field(default_factory=list)       # check_hosts's lines
+    images: dict = field(default_factory=dict)      # copy_images's record
     credentials: list = field(default_factory=list)
     configs: list = field(default_factory=list)
     secrets: list = field(default_factory=list)
     services: list = field(default_factory=list)
     ports: list = field(default_factory=list)
+    several_hosts: bool = False
 
     def text(self):
-        out = [f"Game {self.game_id}: deployed on {self.endpoint}.",
-               f"  {self.swarm}",
-               (f"  credentials: {len(self.credentials)} files in "
-                f"{self.credentials[0].parent}/ (mode 0600, not printed)"
-                if self.credentials else "  credentials: none (the bricks declare no secret)"),
-               f"  {len(self.configs)} configs and {len(self.secrets)} secrets created, "
-               f"labelled {localimpl.LABEL_GAME}={self.game_id}",
-               f"  stack {self.game_id}: {len(self.services)} services healthy "
-               f"({', '.join(self.services)})"]
-        for node, port in self.ports:
-            out.append(f"  node {node}: port {port['published']} on the swarm host "
+        out = [f"Game {self.game_id}: deployed on {self.endpoint}.", f"  {self.swarm}"]
+        out += [f"  {line}" for line in self.hosts]
+        for host, entries in self.images.items():
+            copied = [e["image"] for e in entries if e["copied"]]
+            held = len(entries) - len(copied)
+            out.append(f"  images on {host}: {len(copied)} copied"
+                       + (f" ({', '.join(copied)})" if copied else "")
+                       + f", {held} already held under the same id")
+        if self.credentials:
+            out.append(f"  credentials: {len(self.credentials)} files in "
+                       f"{self.credentials[0].parent}/ (mode 0600, not printed)")
+        else:
+            out.append("  credentials: none (the bricks declare no secret)")
+        out.append(f"  {len(self.configs)} configs and {len(self.secrets)} secrets created, "
+                   f"labelled {localimpl.LABEL_GAME}={self.game_id}")
+        out.append(f"  stack {self.game_id}: {len(self.services)} services healthy "
+                   f"({', '.join(self.services)})")
+        for node, port, host in self.ports:
+            where = f"host {host}" if self.several_hosts else "the swarm host"
+            out.append(f"  node {node}: port {port['published']} on {where} "
                        f"(container port {port['target']})")
         out.append("Stage deployed.")
         return "\n".join(out)
@@ -297,24 +408,31 @@ def deploy(scenario_dir, playground, init_swarm=False, timeout=HEALTH_TIMEOUT, d
         raise GmError(f"{stack_file} is missing: run gmctl render")
     docker = docker or for_local_dir(ldir)
 
+    if init_swarm and docker.hosts:
+        raise GmError("--init-swarm on a playground of several hosts: the swarm's membership is "
+                      "the owner's (docker swarm init and join on each host); nothing deployed")
     swarm = ensure_swarm(docker, init=init_swarm)
+    hosts = check_hosts(docker, impl)
     missing = missing_images(docker, impl)
     if missing:
         raise GmError(f"image(s) not present on {docker.describe()}: {', '.join(missing)}. "
                       "Build each brick there first (docker build -t <image> bricks/<id>); "
                       "deployment never pulls")
 
-    result = DeployResult(gid, docker.describe(), swarm)
+    result = DeployResult(gid, docker.describe(), swarm, hosts,
+                          several_hosts=bool(docker.hosts))
     def undo():
         return teardown.remove_game_objects(docker, gid, sleep=sleep, clock=clock).text()
 
     with state.setup_step(ldir, DEPLOY_STAGE, undo=undo):
+        result.images = copy_images(docker, impl)
+        record_images(ldir, result.images)
         result.credentials = generate_credentials(ldir, impl, keygen)
         result.configs, result.secrets = create_objects(docker, scenario_dir, impl)
         stack_deploy(docker, stack_file, gid)
         wait_healthy(docker, impl, timeout, sleep=sleep, clock=clock)
     localimpl.set_stage(ldir, DEPLOY_STAGE)
     result.services = [node["service"] for node in impl["nodes"].values()]
-    result.ports = [(name, port) for name, node in impl["nodes"].items()
+    result.ports = [(name, port, node.get("host")) for name, node in impl["nodes"].items()
                     for port in node.get("published_ports") or []]
     return result

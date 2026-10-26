@@ -17,6 +17,13 @@ When nothing labelled is left, `gmctl teardown` records it: stage
 `torn-down` and the teardown record `{stage, reason, at}` in `state.yaml`
 (`--reason`; spec D50). The teardown a failed setup step runs itself
 (`state.setup_step`) records none.
+
+v0.3, several hosts (capture W3, item 4; D179): the game's Swarm-scoped
+objects (services, networks, configs, secrets) are listed and removed on
+the manager, its containers and volumes on every declared host, each
+through its own Docker (`docker.every_host`). A host that does not answer
+fails the teardown as a labelled object left, nothing recorded. Images
+stay, copied ones included, and so do the hosts' Docker contexts.
 """
 
 import re
@@ -31,6 +38,9 @@ from .state import record_text
 LABEL_KEYS = (localimpl.LABEL_NAMESPACE, localimpl.LABEL_GAME)
 # Removal order: services first (their tasks hold the rest), volumes last.
 KINDS = ("service", "network", "config", "secret", "volume")
+SWARM_KINDS = ("service", "network", "config", "secret")     # on the manager
+LOCAL_KINDS = ("volume",)                                     # on every host, as containers
+UNREACHABLE = "host"            # leftovers' kind for a host that does not answer
 TEARDOWN_TIMEOUT = 120          # seconds to wait for Swarm to stop the tasks
 GAME_ID_RE = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
 
@@ -59,10 +69,28 @@ def labelled_containers(docker, game_id):
     return sorted(ids)
 
 
+def _where(docker, host, name):
+    """An object's name, with its host's when the playground has several."""
+    return name if host is docker or not docker.hosts else f"{host.name}:{name}"
+
+
 def leftovers(docker, game_id):
-    """{kind: [names]} still carrying the game's labels (containers included)."""
-    left = {kind: labelled(docker, kind, game_id) for kind in KINDS}
-    left["container"] = labelled_containers(docker, game_id)
+    """{kind: [names]} still carrying the game's labels (containers
+    included): Swarm-scoped kinds on the manager, containers and volumes on
+    every declared host (`<host>:<name>` on several hosts); a host that does
+    not answer is listed under `host`."""
+    left = {kind: labelled(docker, kind, game_id) for kind in SWARM_KINDS}
+    for kind in LOCAL_KINDS + ("container",):
+        left.setdefault(kind, [])
+    for host in docker.every_host():
+        try:
+            for kind in LOCAL_KINDS:
+                left[kind] += [_where(docker, host, n) for n in labelled(host, kind, game_id)]
+            left["container"] += [_where(docker, host, c)
+                                  for c in labelled_containers(host, game_id)]
+        except GmError as exc:
+            left.setdefault(UNREACHABLE, []).append(
+                f"{host.name or host.describe()} (not reachable: {exc})")
     return {kind: names for kind, names in left.items() if names}
 
 
@@ -125,25 +153,37 @@ def remove_game_objects(docker, game_id, timeout=TEARDOWN_TIMEOUT, sleep=time.sl
         report.removed["service"].append(name)
     deadline = clock() + timeout
     errors = {}
+
+    def remove(host, kind, name):
+        proc = host.run([kind, "rm", name], check=False)
+        shown = _where(docker, host, name)
+        if proc.returncode == 0:
+            report.removed[kind].append(shown)
+            errors.pop((kind, shown), None)
+        else:
+            errors[(kind, shown)] = " ".join((proc.stderr or "").split())
+
     while True:
-        containers = labelled_containers(docker, game_id)
-        for kind in KINDS[1:]:
-            if kind == "volume" and containers:
-                continue        # a task's volumes stay in use until its container is gone
+        for kind in SWARM_KINDS[1:]:
             for name in labelled(docker, kind, game_id):
-                proc = docker.run([kind, "rm", name], check=False)
-                if proc.returncode == 0:
-                    report.removed[kind].append(name)
-                    errors.pop((kind, name), None)
-                else:
-                    errors[(kind, name)] = " ".join((proc.stderr or "").split())
+                remove(docker, kind, name)
+        for host in docker.every_host():
+            try:
+                if labelled_containers(host, game_id):
+                    continue    # a task's volumes stay in use until its container is gone
+                for name in labelled(host, "volume", game_id):
+                    remove(host, "volume", name)
+            except GmError:
+                continue        # listed by leftovers under `host`
         left = leftovers(docker, game_id)
         if not left:
             return report
-        if clock() >= deadline:
+        unreachable = set(left) == {UNREACHABLE}
+        if unreachable or clock() >= deadline:
             what = "; ".join(f"{kind}s: {', '.join(names)}" for kind, names in left.items())
             last = "; ".join(f"{k} {n}: {e}" for (k, n), e in errors.items() if e)
-            raise GmError(f"teardown of game {game_id} left objects after {timeout} s: {what}"
+            when = "" if unreachable else f" after {timeout} s"
+            raise GmError(f"teardown of game {game_id} left objects{when}: {what}"
                           + (f" (last errors: {last})" if last else ""))
         sleep(1)
 

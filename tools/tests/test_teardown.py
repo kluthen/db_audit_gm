@@ -4,7 +4,8 @@ and the teardown of a failed setup; Docker stubbed."""
 from tools.gm import build_parser, execnode, fit, localimpl, state, teardown
 from tools.gm.model import GmError
 from tools.tests import SUFFICIENT, FakeDocker, ScenarioCopyTest, run_gmctl
-from tools.tests.test_deploy import RenderedGame
+from tools.tests.test_deploy import POSTGRES, RenderedGame, TwoHostRendered
+from tools.tests.test_render import WORKER
 
 
 class DeployedGame(RenderedGame):
@@ -316,3 +317,62 @@ class TestExec(DeployedGame):
                          "--user", "root")
         self.assertEqual(proc.returncode, execnode.CANNOT_RUN)
         self.assertIn("no node 'web'", proc.stderr)
+
+
+# --- Teardown per host (v0.3 capture W3, item 4; D179) ----------------------
+
+
+class TestTeardownPerHost(TwoHostRendered):
+
+    def setUp(self):
+        super().setUp()
+        self.fake = self.cluster()
+        self.vps = self.fake.on_host(WORKER)
+        self.vps.add("volume", "filetstudio-data")           # the VPS's own: never touched
+        self.deploy(self.fake)
+
+    def teardown(self, **kwargs):
+        return teardown.teardown(self.scenario, "duo", docker=self.fake, sleep=self.sleep,
+                                 clock=lambda: self.clock[0], **kwargs)
+
+    def test_swarm_objects_on_the_manager_volumes_on_their_host(self):
+        db_volumes = sorted(v["name"] for v in self.impl["nodes"]["db"]["volumes"])
+        self.assertEqual(teardown.leftovers(self.fake, self.gid)["volume"],
+                         sorted(v["name"] for v in self.impl["nodes"]["bastion"]["volumes"])
+                         + [f"{WORKER}:{v}" for v in db_volumes])
+        report = self.teardown()
+        self.assertIn(f"{WORKER}:{db_volumes[0]}", report.removed["volume"])
+        self.assertEqual(self.vps.names("volume"), ["filetstudio-data"])
+        self.assertEqual(self.fake.names("volume"), [])
+        self.assertEqual(teardown.leftovers(self.fake, self.gid), {})
+        self.assertEqual([c[:2] for c in self.vps.calls if c[1:2] == ["rm"]],
+                         [["volume", "rm"]] * len(db_volumes))      # nothing Swarm-scoped there
+        self.assertEqual(localimpl.read_state(self.ldir)["stage"], "torn-down")
+        # images stay, the copied one included; the context is client-side and stays
+        self.assertIn(POSTGRES, self.vps.loaded)
+        self.assertFalse(self.vps.called("image", "rm") or self.vps.called("rmi"))
+
+    def test_a_host_that_does_not_answer_fails_the_teardown(self):
+        self.vps.reachable = False
+        before = localimpl.read_state(self.ldir)
+        with self.assertRaisesRegex(GmError, rf"left objects: hosts: {WORKER} \(not reachable: "):
+            self.teardown()
+        self.assertEqual(localimpl.read_state(self.ldir), before)        # nothing recorded
+        self.assertEqual(self.fake.names("service"), [])                 # the rest removed
+        self.vps.reachable = True
+        self.teardown()
+        self.assertEqual(self.vps.names("volume"), ["filetstudio-data"])
+        self.assertEqual(localimpl.read_state(self.ldir)["stage"], "torn-down")
+
+
+
+class TestFailedDeployPerHost(TwoHostRendered):
+
+    def test_a_failed_deploy_is_torn_down_on_every_host(self):
+        fake = self.cluster(health="unhealthy")
+        with self.assertRaises(state.SetupFailed):
+            self.deploy(fake, timeout=6)
+        self.assertEqual(teardown.leftovers(fake, self.gid), {})
+        self.assertEqual(fake.on_host(WORKER).names("volume"), [])
+        self.assertEqual(fake.names("volume"), [])
+        self.assertEqual(localimpl.read_state(self.ldir)["failure"]["stage"], "deployed")
