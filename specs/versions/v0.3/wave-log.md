@@ -1821,3 +1821,15 @@ by 11, 13). Master spec 8.5, 13, 16; access model 7, 9.
    timer sampling task states. Recommend (a): every aged game's
    schedulers record their own outages exactly in their summaries, and a
    node crash-looping that often fails the next check as unhealthy.
+
+### Dispatch
+
+- Chunk 6 (`v0.3-c6-pgbouncer`): dispatched 2026-10-26, before W2 (reads
+  only W1 items 3, 5, 6, 8 and W1-x).
+- Capture W2 committed 2026-10-26 (43d8ecd), drafted for the driver.
+- W2's three open points sent to `spec-writer` 2026-10-26 (all three
+  touch chunk 8 only, which waits on 7 and 9), with a review of W2's
+  (choice)s for any that changes stated behaviour.
+- Chunks 7 (`v0.3-c7-render`) and 9 (`v0.3-c9-checks`): dispatched
+  2026-10-26, side by side, after W2's commit; a `spec-writer` revision
+  touching W2 items 0, 1 or 9 is passed to them while they run.

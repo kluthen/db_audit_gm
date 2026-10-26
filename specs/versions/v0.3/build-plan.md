@@ -716,7 +716,7 @@ Architecture capture: none.
 
 ### Chunk 7 — Render for v0.3: the planned hand-over, the shift, write policies and secrets
 
-Status: planned
+Status: in progress
 Wave: 2
 Depends on: chunks 1, 2
 Architecture capture: at wave 2 start (W2), for chunk 8: the local
@@ -853,7 +853,7 @@ chunk 9); the test-harness override's form (G6).
 
 ### Chunk 9 — Checks under load: exit 3 and the GM check role
 
-Status: planned
+Status: in progress
 Wave: 2
 Depends on: chunks 1, 2, 4 (W1-x: the check role)
 Architecture capture: none of its own; it gives W2 its verdict.
