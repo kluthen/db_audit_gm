@@ -1,0 +1,17 @@
+
+  db_audit_gm -- PgBouncer connection pooler node
+
+  Configuration:  /etc/pgbouncer/pgbouncer.ini  (databases, pool sizes, pool mode)
+                  the GM's settings, which win over it (read-only):
+                  /usr/local/lib/gm/pgbouncer-gm.ini
+                  what PgBouncer reads: /run/pgbouncer-conf/pgbouncer.ini
+  Console:        psql            (database pgbouncer as role dba, dba's password;
+                                   SHOW POOLS; SHOW STATS; SHOW CLIENTS; SHOW CONFIG;)
+                  from the bastion: psql -h <this node> -p 6432 -U dba pgbouncer
+  Logs:           /var/log/pgbouncer/pgbouncer.log
+  Apply changes:  sudo gm-reload-pgbouncer   reload the configuration
+  Check:          sudo gm-validate           public validator (envelopes, server)
+
+  DO NOT TAMPER with SSH, sudo, the gm-* wrappers, the validator or the
+  GM's files under /usr/local/lib/gm.
+

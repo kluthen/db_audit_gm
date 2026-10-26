@@ -1,0 +1,195 @@
+#!/usr/bin/perl
+# gm-write-policy: the write policy on a PgBouncer node (v0.3 master spec
+# 7.2; capture W1 item 5). DO NOT TAMPER. Root-owned, read-only. Run as
+# root by gm-entrypoint and gm-reload-pgbouncer; not a sudo wrapper.
+#
+# Usage:
+#   gm-write-policy write       gm-entrypoint: checks GM_WRITE_POLICY and
+#                               GM_WRITE_OVERRIDES (both unset or empty:
+#                               fixable, no override) and writes
+#                               /run/gm/write-policy (root 0444), read by the
+#                               wrapper since sudo resets the environment.
+#                               Exit 1 with the reason on stdout when the
+#                               policy is unknown or an override is not one
+#                               of this brick's writable_paths.
+#   gm-write-policy restore     applies the owner and modes to every seeded
+#                               file and the directory holding it, contents
+#                               untouched; prints one line per entry left
+#                               alone (a link, a file with other hard links).
+#                               Exit 0, or 2 on an error (reason printed).
+#   gm-write-policy reloadable  exit 0 when a file the wrapper applies is
+#                               fixable, 1 when none is, 2 when the policy
+#                               cannot be read.
+#
+# A path is fixable when the policy is `fixable`, or it is an override or
+# lies under one (`no-access` is read as `report-only`). Every seeded file
+# is owned pgbouncer:pgbconf, 0664 when fixable, 0644 otherwise; the
+# directory holding it 2775 or 2755. Nothing is done through a symbolic
+# link: each entry is opened with O_NOFOLLOW, its path checked through
+# /proc/self/fd (a link above it shows), and changed through the handle.
+# Files players add stay as they made them.
+use strict;
+use warnings;
+use Fcntl qw(O_RDONLY O_WRONLY O_CREAT O_TRUNC O_NOFOLLOW O_NONBLOCK O_NOCTTY S_ISREG S_ISDIR S_IMODE);
+use POSIX qw(ENOENT ELOOP);
+
+# --- this brick (brick.yaml) -------------------------------------------------
+my $OWNER = 'pgbouncer';
+my $GROUP = 'pgbconf';
+my @WRITABLE_PATHS = ('/etc/pgbouncer', '/home/player');
+# [directory, must exist, [the seeded files in it]], in this order
+my @SEEDED = (['/etc/pgbouncer', 1, ['pgbouncer.ini']]);
+# the paths whose files gm-reload-pgbouncer applies
+my @RELOADS = ('/etc/pgbouncer/pgbouncer.ini');
+
+# --- the policy --------------------------------------------------------------
+my $POLICY_FILE = '/run/gm/write-policy';
+my @POLICIES = ('fixable', 'report-only', 'no-access');
+
+sub read_policy {
+    open(my $fh, '<', $POLICY_FILE) or fail("$POLICY_FILE: cannot be read ($!)");
+    my %v;
+    while (my $line = <$fh>) {
+        chomp $line;
+        $v{$1} = $2 if $line =~ /^([a-z]+)=(.*)$/;
+    }
+    close $fh;
+    my $policy = $v{policy} // '';
+    fail("$POLICY_FILE: no valid policy line") unless grep { $_ eq $policy } @POLICIES;
+    return ($policy, [split ' ', $v{overrides} // '']);
+}
+
+sub is_fixable {
+    my ($path, $policy, $overrides) = @_;
+    return 1 if $policy eq 'fixable';
+    for my $o (@$overrides) {
+        (my $d = $o) =~ s{/+$}{};
+        return 1 if $path eq $o || index($path, "$d/") == 0;
+    }
+    return 0;
+}
+
+sub fail { print "$_[0]\n"; exit 2; }
+
+# --- write ---------------------------------------------------------------------
+sub cmd_write {
+    my $policy = $ENV{GM_WRITE_POLICY};
+    $policy = 'fixable' if !defined $policy || $policy eq '';
+    my %seen;
+    my @overrides = sort grep { !$seen{$_}++ } split ' ', ($ENV{GM_WRITE_OVERRIDES} // '');
+    unless (grep { $_ eq $policy } @POLICIES) {
+        print "GM_WRITE_POLICY='$policy' is not one of ", join(', ', @POLICIES), "\n";
+        return 1;
+    }
+    for my $o (@overrides) {
+        next if grep { $_ eq $o } @WRITABLE_PATHS;
+        print "GM_WRITE_OVERRIDES: '$o' is not one of this brick's writable_paths (",
+            join(', ', @WRITABLE_PATHS), ")\n";
+        return 1;
+    }
+    my $tmp = "$POLICY_FILE.$$";
+    sysopen(my $fh, $tmp, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW, 0444) or fail("$tmp: $!");
+    print $fh "policy=$policy\noverrides=", join(' ', @overrides), "\n" or fail("$tmp: $!");
+    close $fh or fail("$tmp: $!");
+    chown(0, 0, $tmp) && chmod(0444, $tmp) or fail("$tmp: $!");
+    rename($tmp, $POLICY_FILE) or fail("$POLICY_FILE: $!");
+    return 0;
+}
+
+# --- restore -------------------------------------------------------------------
+# fix <handle> <uid> <gid> <mode>: owner and mode through the handle. A
+# setgid mode is set with <gid> as the effective group: without CAP_FSETID
+# the kernel drops the bit unless the caller is in the file's group.
+sub fix {
+    my ($fh, $uid, $gid, $mode) = @_;
+    my @st = stat($fh) or return "fstat: $!";
+    if ($st[4] != $uid || $st[5] != $gid) {
+        chown($uid, $gid, $fh) or return "chown: $!";
+    }
+    return '' if S_IMODE((stat($fh))[2]) == $mode;
+    if ($mode & 02000) {
+        my $saved = $);
+        $) = "$gid $gid";
+        my $ok = chmod($mode, $fh);
+        my $err = $!;
+        $) = $saved;
+        return "chmod: $err" unless $ok;
+    } else {
+        chmod($mode, $fh) or return "chmod: $!";
+    }
+    return '';
+}
+
+# open_entry <path>: (handle) or (undef, errno); never through a link.
+sub open_entry {
+    my ($path) = @_;
+    sysopen(my $fh, $path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_NOCTTY) or return (undef, $! + 0, "$!");
+    return ($fh);
+}
+
+sub at_its_path {
+    my ($fh, $path) = @_;
+    my $real = readlink('/proc/self/fd/' . fileno($fh));
+    return defined $real && $real eq $path;
+}
+
+sub cmd_restore {
+    my ($policy, $overrides) = read_policy();
+    my $uid = getpwnam($OWNER);
+    my $gid = getgrnam($GROUP);
+    fail("no account $OWNER or group $GROUP") unless defined $uid && defined $gid;
+    my @notes;
+    for my $entry (@SEEDED) {
+        my ($dir, $required, $names) = @$entry;
+        my ($dfh, $errno, $err) = open_entry($dir);
+        if (!$dfh) {
+            next if $errno == ENOENT && !$required;
+            fail("$dir: cannot be opened ($err)") if $required || $errno != ELOOP;
+            push @notes, "$dir: a symbolic link, left alone";
+            next;
+        }
+        my @st = stat($dfh);
+        if (!S_ISDIR($st[2]) || !at_its_path($dfh, $dir)) {
+            fail("$dir: not a directory at its path") if $required;
+            push @notes, "$dir: not a directory at its path, left alone";
+            next;
+        }
+        my $problem = fix($dfh, $uid, $gid, is_fixable($dir, $policy, $overrides) ? 02775 : 02755);
+        fail("$dir: $problem") if $problem;
+        for my $name (@$names) {
+            my $path = "$dir/$name";
+            my ($fh, $ferrno, $ferr) = open_entry($path);
+            if (!$fh) {
+                next if $ferrno == ENOENT;
+                if ($ferrno == ELOOP) { push @notes, "$path: a symbolic link, left alone"; next; }
+                fail("$path: cannot be opened ($ferr)");
+            }
+            my @fst = stat($fh);
+            if (!S_ISREG($fst[2])) {
+                push @notes, "$path: not a regular file, left alone" unless S_ISDIR($fst[2]);
+                next;
+            }
+            if ($fst[3] != 1) { push @notes, "$path: has other hard links, left alone"; next; }
+            if (!at_its_path($fh, $path)) { push @notes, "$path: moved while read, left alone"; next; }
+            $problem = fix($fh, $uid, $gid, is_fixable($path, $policy, $overrides) ? 0664 : 0644);
+            fail("$path: $problem") if $problem;
+            close $fh;
+        }
+        close $dfh;
+    }
+    print "$_\n" for @notes;
+    return 0;
+}
+
+# --- reloadable ------------------------------------------------------------------
+sub cmd_reloadable {
+    my ($policy, $overrides) = read_policy();
+    return (grep { is_fixable($_, $policy, $overrides) } @RELOADS) ? 0 : 1;
+}
+
+my $cmd = $ARGV[0] // '';
+if (@ARGV != 1 || $cmd !~ /^(write|restore|reloadable)$/) {
+    print STDERR "usage: gm-write-policy write|restore|reloadable\n";
+    exit 2;
+}
+exit($cmd eq 'write' ? cmd_write() : $cmd eq 'restore' ? cmd_restore() : cmd_reloadable());

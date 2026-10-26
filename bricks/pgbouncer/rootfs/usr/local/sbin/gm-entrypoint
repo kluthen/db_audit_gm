@@ -1,0 +1,138 @@
+#!/bin/sh
+# gm-entrypoint: container entrypoint of the db_audit_gm PgBouncer brick.
+# DO NOT TAMPER. Root-owned and read-only (v0.3 master spec 7.2; capture W1
+# items 5 and 8).
+#
+# Runs as root at every container start, then execs s6-overlay's /init:
+#   1. empties /run (a named volume: a stack file's tmpfs is noexec, and
+#      s6-overlay needs an executable /run) and creates the runtime dirs;
+#   2. generates this container's sshd host key under /run;
+#   3. checks the secrets and writes PgBouncer's auth_file from the lookup
+#      role's: the only password PgBouncer holds (root:pgbouncer 0440,
+#      under /run, on no other volume);
+#   4. checks GM_WRITE_POLICY and GM_WRITE_OVERRIDES and writes
+#      /run/gm/write-policy, read by gm-reload-pgbouncer (sudo resets the
+#      environment);
+#   5. seeds /etc/pgbouncer/pgbouncer.ini from /opt/gm/seed once (marker
+#      /var/lib/gm-state/.gm-seeded, outside the group-writable directory);
+#   6. applies the write policy's owner and modes to the seeded file and
+#      its directory, seeding or not (contents untouched);
+#   7. writes the configuration PgBouncer reads, /run/pgbouncer-conf/
+#      (pgbouncer-conf: pgbouncer.ini with the GM's settings);
+#   8. sets the owners and modes of the log and the player's home.
+set -eu
+
+CONF_DIR=/etc/pgbouncer
+LOG_DIR=/var/log/pgbouncer
+STATE_DIR=/var/lib/gm-state
+MARKER=$STATE_DIR/.gm-seeded
+SEED_DIR=/opt/gm/seed
+SECRETS_DIR=/opt/gm/secrets
+SEED_FILES="pgbouncer.ini"
+AUTH_DIR=/run/pgbouncer-auth
+RUN_CONF=/run/pgbouncer-conf
+GM_SETTINGS=/usr/local/lib/gm/pgbouncer-gm.ini
+PLAYER_HOME=/home/player
+
+log() { printf 'gm-entrypoint: %s\n' "$*" >&2; }
+die() { log "fatal: $*"; exit 1; }
+policy() { /usr/local/sbin/gm-write-policy "$@"; }
+# chmod_setgid <path> <group> <mode>: chmod run with <group> as gid, so the
+# kernel keeps the setgid bit without CAP_FSETID (root is not in <group>).
+chmod_setgid() { setpriv --regid="$2" --clear-groups -- chmod "$3" "$1"; }
+
+# --- 1. /run ------------------------------------------------------------
+# Leftovers of a previous container (s6 state, sockets, pid files) must
+# not survive into this one.
+cd /run
+find . -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+cd /
+chown root:root /run
+chmod 0755 /run
+install -d -o root -g root -m 0755 /run/sshd
+install -d -o root -g root -m 0700 /run/sshd-keys
+install -d -o root -g root -m 0700 /run/gm
+install -d -o root -g root -m 1777 /run/tmp
+# PgBouncer's local socket: the console and the databases, for everyone on the node
+install -d -o pgbouncer -g pgbouncer -m 0755 /run/pgbouncer
+install -d -o root -g pgbouncer -m 0750 "$AUTH_DIR"
+install -d -o pgbouncer -g pgbouncer -m 0755 "$RUN_CONF"
+
+# --- 2. sshd host key ---------------------------------------------------
+ssh-keygen -q -t ed25519 -N '' -C '' -f /run/sshd-keys/ssh_host_ed25519_key
+
+# --- 3. secrets, and PgBouncer's auth_file ------------------------------
+[ -s "$SECRETS_DIR/player_ssh_pubkey" ] || die "secret $SECRETS_DIR/player_ssh_pubkey is missing or empty"
+f=$SECRETS_DIR/pgbouncer_lookup_password
+[ -s "$f" ] || die "secret $f is missing or empty"
+[ "$(wc -l < "$f")" -le 1 ] && [ -n "$(head -n 1 "$f")" ] || die "secret $f must be a single line"
+case $(cat "$f") in
+    *'"'*|*' '*|*'	'*) die "secret $f must not hold a quote, a space or a tab" ;;
+esac
+umask 077
+{ printf '"pgbouncer_lookup" "'; head -n 1 "$f" | tr -d '\n'; printf '"\n'; } > "$AUTH_DIR/userlist.txt.new"
+umask 022
+chown root:pgbouncer "$AUTH_DIR/userlist.txt.new"
+chmod 0440 "$AUTH_DIR/userlist.txt.new"
+mv -f "$AUTH_DIR/userlist.txt.new" "$AUTH_DIR/userlist.txt"
+
+# --- 4. the write policy --------------------------------------------------
+if ! problem=$(policy write 2>&1); then
+    die "${problem:-the write policy could not be written}"
+fi
+
+# --- 5. configuration, seeded once ---------------------------------------
+# The marker lives on its own volume (gmstate), root-owned: neither player
+# (group pgbconf) nor pgbouncer can remove, rename or replace it.
+chown root:root "$STATE_DIR"
+chmod 0755 "$STATE_DIR"
+if [ ! -e "$MARKER" ]; then
+    for f in $SEED_FILES; do
+        [ -f "$SEED_DIR/$f" ] || die "seed file $SEED_DIR/$f is missing"
+    done
+    for f in $SEED_FILES; do
+        install -o pgbouncer -g pgbconf -m 0664 "$SEED_DIR/$f" "$CONF_DIR/$f"
+    done
+    date -u '+seeded %Y-%m-%dT%H:%M:%SZ from /opt/gm/seed (DO NOT TAMPER)' > "$MARKER"
+    chown root:root "$MARKER"
+    chmod 0444 "$MARKER"
+    log "seeded $CONF_DIR from $SEED_DIR"
+fi
+
+# --- 6. the write policy's owner and modes ------------------------------------
+if ! notes=$(policy restore 2>&1); then
+    die "the owner and modes of the seeded files could not be set: $notes"
+fi
+[ -z "$notes" ] || log "left alone: $(printf '%s' "$notes" | tr '\n' ';')"
+log "write policy: $(tr '\n' ' ' < /run/gm/write-policy)"
+
+# --- 7. the configuration PgBouncer reads ------------------------------------------
+# A pgbouncer.ini that cannot be used (a player's link in its place, say)
+# does not keep the node down: PgBouncer starts with the GM's settings and
+# no database, the validator says why, and a fixed file is reloaded.
+notes=$(runuser -u pgbouncer -- /usr/local/lib/gm/pgbouncer-conf "$RUN_CONF" 2>&1)
+case $? in
+    0) [ -z "$notes" ] || log "$(printf '%s' "$notes" | tr '\n' ';')" ;;
+    1) log "warning: $notes; PgBouncer starts with the GM's settings only"
+       printf '[pgbouncer]\n%%include %s\n' "$GM_SETTINGS" > "$RUN_CONF/pgbouncer.ini"
+       printf '2\n' > "$RUN_CONF/inserted"
+       chown pgbouncer:pgbouncer "$RUN_CONF/pgbouncer.ini" "$RUN_CONF/inserted"
+       chmod 0644 "$RUN_CONF/pgbouncer.ini" "$RUN_CONF/inserted" ;;
+    *) die "the configuration PgBouncer reads could not be written: $notes" ;;
+esac
+
+# --- 8. the log and the player's home ------------------------------------------
+# The log is PgBouncer's (logfile in the GM's pgbouncer.ini); players read
+# it through pgbconf, no one but pgbouncer writes it.
+chown pgbouncer:pgbconf "$LOG_DIR"
+chmod_setgid "$LOG_DIR" pgbconf 2750
+if [ ! -e "$LOG_DIR/pgbouncer.log" ] && [ ! -L "$LOG_DIR/pgbouncer.log" ]; then
+    install -o pgbouncer -g pgbconf -m 0640 /dev/null "$LOG_DIR/pgbouncer.log"
+elif [ -f "$LOG_DIR/pgbouncer.log" ] && [ ! -L "$LOG_DIR/pgbouncer.log" ]; then
+    chown pgbouncer:pgbconf "$LOG_DIR/pgbouncer.log"
+    chmod 0640 "$LOG_DIR/pgbouncer.log"
+fi
+chown player:player "$PLAYER_HOME"
+chmod 0750 "$PLAYER_HOME"
+
+exec /init "$@"

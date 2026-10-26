@@ -1,0 +1,19 @@
+#!/bin/sh
+# Health check of the db_audit_gm PgBouncer node (DO NOT TAMPER).
+# Healthy once PgBouncer has answered on its local socket at least once in
+# this container and while sshd is up. After that first time, PgBouncer
+# being down is the game's business (the validator reports it), not a
+# reason for Swarm to replace the container and cut the players' SSH
+# sessions; nor does the check connect again, so PgBouncer's log is not
+# filled with its probes.
+PATH=/command:/usr/sbin:/usr/bin:/sbin:/bin
+MARK=/run/gm/pgbouncer-was-ready
+
+[ "$(s6-svstat -o up /run/service/sshd 2>/dev/null)" = true ] || { echo "sshd is not up"; exit 1; }
+[ -e "$MARK" ] && exit 0
+if pg_isready -q -h /run/pgbouncer -p 6432 -U pgbouncer -d pgbouncer -t 3; then
+    : > "$MARK"
+    exit 0
+fi
+echo "PgBouncer is not accepting connections yet"
+exit 1
