@@ -1,7 +1,9 @@
 """Stack file and envelope file rendering (tools/gm/render.py)."""
 
+import datetime
 import shutil
 import subprocess
+import sys
 import unittest
 
 import yaml
@@ -469,6 +471,355 @@ class TestGmctlRender(ScenarioCopyTest):
         self.assertIn("stack.yml", r.stdout)
         r = run_gmctl("render", self.scenario, "--playground", "nowhere")
         self.assertEqual(r.returncode, 1)
+
+
+# --- v0.3: the planned hand-over, the shift, the time zone (W2 item 1) -----
+
+UTC = datetime.timezone.utc
+V03_FIXTURE = FIXTURES / "fixture-v03-refusals"
+SCHEDULER_PROGRAM = FIXTURES.parents[2] / "bricks" / "scheduler" / "program"
+
+
+def handover_at(hour, days=2):
+    """`--handover` for `hour` UTC, `days` from today (always in the future)."""
+    day = datetime.datetime.now(UTC).date() + datetime.timedelta(days=days)
+    return f"{day.isoformat()}T{hour:02d}:00Z"
+
+
+def scheduler_parsers():
+    """The scheduler program's own parsers of its rendered files, or None."""
+    sys.path.insert(0, str(SCHEDULER_PROGRAM))
+    try:
+        from gm_scheduler import jobs, schedule
+        return schedule.parse_schedule, jobs.parse_jobs
+    except ImportError:
+        return None
+    finally:
+        sys.path.remove(str(SCHEDULER_PROGRAM))
+
+
+class TestShift(unittest.TestCase):
+    """The shift and the customer's time zone (master spec 8.3)."""
+
+    def test_several_planned_hours(self):
+        # designed hand-over 14:00 (fixture-v03-refusals)
+        for planned, shift in ((14, 0), (16, -2), (12, 2), (9, 5), (1, -11), (3, 11),
+                               (2, 12), (0, -10), (23, -9)):
+            self.assertEqual(render.compute_shift(14, planned), shift, planned)
+        self.assertEqual(render.compute_shift(2, 14), 12)       # -12 reads +12
+        self.assertEqual(render.compute_shift(0, 23), 1)
+        for designed in range(24):
+            for planned in range(24):
+                shift = render.compute_shift(designed, planned)
+                self.assertTrue(-11 <= shift <= 12)
+                self.assertEqual((planned + shift) % 24, designed)
+
+    def test_customer_timezone(self):
+        self.assertEqual(render.customer_timezone(2), {"zone": "Etc/GMT-2", "reading": "UTC+2"})
+        self.assertEqual(render.customer_timezone(-5), {"zone": "Etc/GMT+5", "reading": "UTC-5"})
+        self.assertEqual(render.customer_timezone(0), {"zone": "Etc/GMT", "reading": "UTC+0"})
+        self.assertEqual(render.customer_timezone(12), {"zone": "Etc/GMT-12", "reading": "UTC+12"})
+        self.assertEqual(render.customer_timezone_text(render.customer_timezone(2)),
+                         "UTC+2 (Etc/GMT-2)")
+
+    def test_handover_forms(self):
+        self.assertEqual(render.parse_handover("2026-10-27T14:00Z"),
+                         datetime.datetime(2026, 10, 27, 14, tzinfo=UTC))
+        self.assertEqual(render.parse_handover("2026-10-27T14:00:00Z"),
+                         datetime.datetime(2026, 10, 27, 14, tzinfo=UTC))
+        for bad in ("2026-10-27T14:30Z", "2026-10-27T14:00:05Z", "2026-10-27 14:00",
+                    "2026-10-27T14:00", "2026-02-30T14:00Z", "14:00", ""):
+            with self.assertRaises(model.GmError, msg=bad):
+                render.parse_handover(bad)
+
+
+class TestRenderedJobs(unittest.TestCase):
+    """jobs.yaml in UTC (W1 item 7; D168)."""
+
+    def test_a_jobs_utc_time(self):
+        self.assertEqual(render.shift_cron("30 1 * * *", -2), "30 3 * * *")
+        self.assertEqual(render.shift_cron("30 1 * * *", 2), "30 23 * * *")
+        self.assertEqual(render.shift_cron("*/15 8,12,18 * * *", -2), "*/15 10,14,20 * * *")
+        self.assertEqual(render.shift_cron("0 22,23 * * *", -3), "0 1,2 * * *")
+        self.assertEqual(render.shift_cron("5,35 * * * *", 4), "5,35 * * * *")
+
+    def test_the_day_of_week_follows_a_wrapping_hour(self):
+        self.assertEqual(render.shift_cron("0 1 * * 1", 2), "0 23 * * 0")       # Mon -> Sun
+        self.assertEqual(render.shift_cron("0 23 * * 6", -2), "0 1 * * 0")      # Sat -> Sun
+        self.assertEqual(render.shift_cron("0 6 * * 1,5", -2), "0 8 * * 1,5")
+        self.assertEqual(render.shift_cron("0 0 * * 0", 12), "0 12 * * 6")
+
+    def test_a_wrong_zone_job_keeps_its_time(self):
+        doc = {"jobs": [{"name": "close-day", "key": "k", "connection": "app",
+                         "at": "30 1 * * *", "timezone_offset": -2},
+                        {"name": "sweep", "key": "k", "connection": "app", "at": "0 8 * * *"}]}
+        self.assertEqual(render.render_jobs(doc, 3), {"jobs": [
+            {"name": "close-day", "key": "k", "connection": "app", "at": "30 1 * * *",
+             "timezone": "Etc/GMT-1"},
+            {"name": "sweep", "key": "k", "connection": "app", "at": "0 5 * * *"}]})
+
+    def test_a_wrong_zone_job_wrapped_across_utc_plus_14(self):
+        def zone(shift, offset):
+            doc = {"jobs": [{"name": "j", "key": "k", "connection": "c", "at": "30 1 * * *",
+                             "timezone_offset": offset}]}
+            return render.render_jobs(doc, shift)["jobs"][0]["timezone"]
+        self.assertEqual(zone(12, 2), "Etc/GMT-14")        # UTC+14: inside, kept
+        self.assertEqual(zone(12, 3), "Etc/GMT+9")         # UTC+15 wraps to UTC-9
+        self.assertEqual(zone(11, 5), "Etc/GMT+8")         # UTC+16 wraps to UTC-8
+        self.assertEqual(zone(-11, -1), "Etc/GMT+12")      # UTC-12: inside, kept
+        self.assertEqual(zone(-11, -2), "Etc/GMT-11")      # UTC-13 wraps to UTC+11
+        self.assertEqual(zone(2, -2), "Etc/GMT")           # the customer's zone minus 2: UTC+0
+        self.assertEqual(render.wrap_offset(15), -9)
+
+
+class TestRenderedShapes(unittest.TestCase):
+
+    def test_hours_shift_into_the_previous_utc_day(self):
+        hours = {"00-06": 0.1, "07-08": 0.6, "09-11": 1.0, "12": 1.6, "13-17": 1.0,
+                 "18-23": 0.3}
+        utc = render.render_shape({"hours": hours}, 2)["utc"]
+        self.assertEqual(list(utc), ["mon", "tue", "wed", "thu", "fri", "sat", "sun"])
+        # UTC 10:00 is 12:00 at UTC+2; UTC 22:00 is 00:00 the next day
+        self.assertEqual(utc["mon"][10], 1.6)
+        self.assertEqual(utc["mon"][22], 0.1)
+        self.assertEqual(utc["mon"][21], 0.3)
+        self.assertTrue(all(len(day) == 24 for day in utc.values()))
+
+    def test_weekdays_wrap_with_the_hour(self):
+        shape = {"days": {"mon-fri": {"hours": {"00-23": 1.0}},
+                          "sat-sun": {"hours": {"00-23": 0.2}}}}
+        utc = render.render_shape(shape, -2)["utc"]       # customer at UTC-2
+        # UTC Monday 01:00 is Sunday 23:00 there; Monday 02:00 is Monday 00:00
+        self.assertEqual(utc["mon"][:3], [0.2, 0.2, 1.0])
+        self.assertEqual(utc["sat"][:3], [1.0, 1.0, 0.2])
+        utc = render.render_shape(shape, 3)["utc"]        # UTC+3
+        # UTC Friday 21:00 is Saturday 00:00 there
+        self.assertEqual(utc["fri"][20:], [1.0, 0.2, 0.2, 0.2])
+        self.assertEqual(utc["sun"][20:], [0.2, 1.0, 1.0, 1.0])
+
+
+class TestTimelineMoments(unittest.TestCase):
+
+    def test_moments_from_the_planned_handover(self):
+        planned = datetime.datetime(2026, 10, 27, 14, tzinfo=UTC)
+        rendered_at = "2026-10-26T19:40:12Z"
+        self.assertEqual(render.moment_instant("handover-6h", planned, rendered_at),
+                         "2026-10-27T08:00:00Z")
+        self.assertEqual(render.moment_instant("handover-16h", planned, rendered_at),
+                         "2026-10-26T22:00:00Z")
+        # T0 is not known at render; the render time precedes any load start
+        self.assertEqual(render.moment_instant("T0", planned, rendered_at), rendered_at)
+
+
+class V03Rendered(ScenarioCopyTest):
+    """A fresh copy of fixture-v03-refusals (a scheduler node, aging 16h,
+    hand-over designed at 14:00), fitted."""
+
+    def setUp(self):
+        super().setUp()
+        self.scenario = self.tmp / "fixture-v03-refusals"
+        shutil.copytree(V03_FIXTURE, self.scenario)
+        fit.fit(self.scenario, "laptop", **SUFFICIENT)
+        self.ldir = self.scenario / "local" / "laptop"
+
+    def render(self, handover=None):
+        self.result = render.render(self.scenario, "laptop", handover=handover)
+        self.impl = localimpl.read_implementation(self.ldir)
+        self.gid = self.impl["game_id"]
+        self.stack = yaml.safe_load((self.ldir / "stack.yml").read_text())
+        return self.result
+
+    def rendered(self, node, fname):
+        return self.ldir / "rendered" / node / fname
+
+    def config(self, node, suffix):
+        return next(c for c in self.impl["nodes"][node]["configs"]
+                    if c["name"] == f"{self.gid}_{node}_{suffix}")
+
+
+class TestRenderV03(V03Rendered):
+
+    def test_handover_is_required_with_scheduler_nodes(self):
+        with self.assertRaisesRegex(model.GmError, "--handover"):
+            render.render(self.scenario, "laptop")
+        self.assertEqual(localimpl.read_state(self.ldir)["stage"], "fitted")
+
+    def test_a_past_handover_is_refused(self):
+        past = (datetime.datetime.now(UTC) - datetime.timedelta(hours=1)).strftime(
+            "%Y-%m-%dT%H:00Z")
+        with self.assertRaisesRegex(model.GmError, "not in the future"):
+            render.render(self.scenario, "laptop", handover=past)
+        self.assertFalse((self.ldir / "stack.yml").exists())
+
+    def test_timeline_records(self):
+        handover = handover_at(16)
+        self.render(handover)
+        tl = self.impl["timeline"]
+        self.assertEqual(list(tl), ["planned_handover", "designed_handover", "shift",
+                                    "customer_timezone", "seed", "aging_minimum", "instances",
+                                    "rendered_at"])
+        planned = render.parse_handover(handover)
+        self.assertEqual(tl["planned_handover"], render.iso(planned))
+        self.assertEqual(tl["designed_handover"], "14:00")
+        self.assertEqual(tl["shift"], -2)
+        self.assertEqual(tl["customer_timezone"], {"zone": "Etc/GMT+2", "reading": "UTC-2"})
+        self.assertTrue(0 <= tl["seed"] < 2 ** 63)
+        self.assertEqual(tl["aging_minimum"], "16h")
+        six_before = render.iso(planned - datetime.timedelta(hours=6))
+        self.assertEqual(tl["instances"], {
+            "f1": {"plant_at": "T0", "planned_at": None, "aging_minimum": "0m"},
+            "f2": {"plant_at": "handover-6h", "planned_at": six_before, "aging_minimum": "2h"},
+            "f3": {"plant_at": "T0", "planned_at": None, "aging_minimum": "1h"},
+        })
+        self.assertRegex(tl["rendered_at"], r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+        self.assertIn("shift -2, customer's time zone UTC-2 (Etc/GMT+2)", self.result.text())
+        self.assertIsNone(self.result.warning)
+
+    def test_the_seed_is_kept_by_a_re_render(self):
+        self.render(handover_at(16))
+        seed = self.impl["timeline"]["seed"]
+        self.render(handover_at(9, days=3))
+        self.assertEqual(self.impl["timeline"]["seed"], seed)
+        self.assertEqual(self.impl["timeline"]["shift"], 5)
+        schedule = yaml.safe_load(self.rendered("producer", "schedule.yaml").read_text())
+        self.assertEqual(schedule["seed"], seed)
+
+    def test_rendered_files_named_from_fit_on(self):
+        rel = "local/laptop/rendered/"
+        fitted = localimpl.read_implementation(self.ldir)["nodes"]
+        self.assertEqual(
+            [c["file"] for c in fitted["producer"]["configs"]],
+            [rel + "producer/schedule.yaml", "nodes/producer/queries.yaml",
+             "nodes/producer/builders/revenue.py", rel + "producer/jobs.yaml"])
+        self.assertEqual([c["file"] for c in fitted["bastion"]["configs"]],
+                         [rel + "bastion/README.md", rel + "bastion/story.md",
+                          "player/issues.md"])
+        self.render(handover_at(16))
+        for node, fname in (("producer", "schedule.yaml"), ("producer", "jobs.yaml"),
+                            ("bastion", "README.md"), ("bastion", "story.md")):
+            self.assertTrue(self.rendered(node, fname).is_file(), fname)
+        self.assertFalse(self.rendered("bastion", "issues.md").exists())
+        self.assertEqual(sorted(p.name for p in (self.ldir / "rendered").iterdir()),
+                         ["bastion", "producer"])
+
+    def test_the_time_zone_filled_in_the_story(self):
+        self.render(handover_at(12))                     # shift +2
+        story = self.rendered("bastion", "story.md").read_text()
+        self.assertNotIn("{{customer_timezone}}", story)
+        self.assertIn("A small shop in UTC+2 (Etc/GMT-2) takes orders", story)
+        readme = self.rendered("bastion", "README.md").read_text()
+        self.assertIn("are the customer's, UTC+2 (Etc/GMT-2).", readme)
+        # the scenario's own files are left as written
+        self.assertIn("{{customer_timezone}}", (self.scenario / "player/story.md").read_text())
+
+    def test_rendered_jobs_and_schedule(self):
+        handover = handover_at(16)                       # shift -2: the customer at UTC-2
+        self.render(handover)
+        jobs = yaml.safe_load(self.rendered("producer", "jobs.yaml").read_text())
+        self.assertEqual(jobs, {"jobs": [
+            {"name": "close-day", "key": "orders.close-day", "connection": "app",
+             "at": "30 1 * * *", "timezone": "Etc/GMT+4"},
+            {"name": "weekly-report", "key": "reports.revenue", "connection": "reports",
+             "at": "0 8 * * 1"},
+            {"name": "sweep", "key": "orders.lookup", "connection": "app",
+             "at": "*/15 10,14,20 * * *"}]})
+        text = self.rendered("producer", "jobs.yaml").read_text()
+        self.assertNotIn("timezone_offset", text)
+        self.assertNotIn("#", text)                      # the players' file: no spoiler
+        schedule = yaml.safe_load(self.rendered("producer", "schedule.yaml").read_text())
+        self.assertEqual(list(schedule), ["seed", "intensity", "connections", "streams",
+                                          "shapes", "timeline"])
+        self.assertEqual(schedule["seed"], self.impl["timeline"]["seed"])
+        self.assertEqual(schedule["shapes"]["business-hours"]["utc"]["mon"][14], 1.6)
+        planned = render.parse_handover(handover)
+        self.assertEqual([c["at"] for c in schedule["timeline"]],
+                         [render.iso(planned - datetime.timedelta(hours=h)) for h in (6, 2)])
+        self.assertEqual(schedule["timeline"][0]["set"], {"key": "orders.insert-v2"})
+
+    def test_the_program_reads_the_rendered_files(self):
+        parsers = scheduler_parsers()
+        if parsers is None:
+            self.skipTest("the scheduler program's modules do not import here")
+        parse_schedule, parse_jobs = parsers
+        self.render(handover_at(5))
+        schedule = parse_schedule(yaml.safe_load(
+            self.rendered("producer", "schedule.yaml").read_text()))
+        self.assertEqual(schedule.seed, self.impl["timeline"]["seed"])
+        jobs = parse_jobs(yaml.safe_load(self.rendered("producer", "jobs.yaml").read_text()))
+        self.assertEqual([j.name for j in jobs], ["close-day", "weekly-report", "sweep"])
+
+    def test_a_timeline_moment_falling_before_t0(self):
+        # A hand-over one to two hours away: handover-6h and handover-2h are
+        # already past, so before any T0; they are rendered as such and take
+        # effect at T0 (8.3). The hand-over is too soon for the aging: warned.
+        now = datetime.datetime.now(UTC)
+        planned = now.replace(minute=0, second=0, microsecond=0) + datetime.timedelta(hours=2)
+        self.render(render.iso(planned))
+        schedule = yaml.safe_load(self.rendered("producer", "schedule.yaml").read_text())
+        moments = [render.from_iso(c["at"]) for c in schedule["timeline"]]
+        self.assertEqual(moments, [planned - datetime.timedelta(hours=6),
+                                   planned - datetime.timedelta(hours=2)])
+        self.assertTrue(all(m < now for m in moments))
+        self.assertIn("is before", self.result.warning)
+        self.assertIn("earliest hand-over", self.result.warning)
+        warnings = [l for l in self.result.text().splitlines() if "warning:" in l]
+        self.assertEqual(len(warnings), 1)
+        self.assertEqual(localimpl.read_state(self.ldir)["stage"], "rendered")
+
+    def test_seed_modes_and_a_directory_entry_in_the_stack(self):
+        self.render(handover_at(16))
+        mounts = {m["source"]: m for m in self.stack["services"]["producer"]["configs"]}
+        self.assertEqual(mounts[f"{self.gid}_producer_schedule.yaml"]["mode"], 0o400)
+        self.assertEqual(mounts[f"{self.gid}_producer_schedule.yaml"]["target"],
+                         "/opt/gm/seed/schedule.yaml")
+        self.assertEqual(mounts[f"{self.gid}_producer_jobs.yaml"]["mode"], 0o444)
+        builder = mounts[f"{self.gid}_producer_builders-revenue.py"]
+        self.assertEqual((builder["target"], builder["mode"], builder["uid"], builder["gid"]),
+                         ("/opt/gm/seed/builders/revenue.py", 0o444, "0", "0"))
+        self.assertEqual(self.config("producer", "builders-revenue.py")["file"],
+                         "nodes/producer/builders/revenue.py")
+
+    def test_refit_needed_when_a_builder_is_added(self):
+        (self.scenario / "nodes/producer/builders/extra.py").write_text("x = 1\n")
+        with self.assertRaisesRegex(model.GmError, "seed files changed since gmctl fit"):
+            render.render(self.scenario, "laptop", handover=handover_at(16))
+
+    @unittest.skipUnless(shutil.which("docker"), "docker not installed")
+    def test_docker_stack_config_accepts(self):
+        self.render(handover_at(16))
+        r = subprocess.run(["docker", "stack", "config", "-c", str(self.ldir / "stack.yml")],
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_cli(self):
+        r = run_gmctl("render", self.scenario, "--playground", "laptop")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("--handover", r.stderr)
+        r = run_gmctl("render", self.scenario, "--playground", "laptop",
+                      "--handover", handover_at(16))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("customer's time zone UTC-2 (Etc/GMT+2)", r.stdout)
+
+
+class TestRenderStatic(RenderedFixture):
+    """A scenario with no scheduler node: rendered without --handover, it
+    has no timeline and nothing is shifted (D158)."""
+
+    def test_rendered_without_handover(self):
+        self.assertNotIn("timeline", self.impl)
+        self.assertFalse((self.ldir / "rendered").exists())
+        self.assertNotIn("hand-over", self.result.text())
+
+    def test_with_handover_only_the_planned_handover(self):
+        handover = handover_at(9)
+        result = render.render(self.scenario, "laptop", handover=handover)
+        impl = localimpl.read_implementation(self.ldir)
+        self.assertEqual(impl["timeline"],
+                         {"planned_handover": render.iso(render.parse_handover(handover))})
+        self.assertIn("nothing shifted", result.text())
+        self.assertFalse((self.ldir / "rendered").exists())
+        render.render(self.scenario, "laptop")
+        self.assertNotIn("timeline", localimpl.read_implementation(self.ldir))
 
 
 if __name__ == "__main__":

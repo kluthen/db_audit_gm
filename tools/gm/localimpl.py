@@ -11,6 +11,13 @@ Master spec 10.3; files, names and labels fixed by capture W2-A
                          written by `render` (the last: each receiving
                          node's own config of a mounted item, v0.2 capture
                          W1, item 4);
+- `rendered/<node>/<seed file>`
+                         written by `render` (v0.3 capture W2, item 1):
+                         the seed files it rewrites, a scheduler node's
+                         `schedule.yaml` and `jobs.yaml` in UTC and a
+                         bastion seed file with `{{customer_timezone}}`
+                         filled; `implementation.yaml` names them from
+                         `fit` on, and `render` adds its `timeline`;
 - `state.yaml`           the stage reached, its history, any failure, and
                          the teardown record (spec D50);
 - `secrets/`             written by `deploy` (directory 0700, files 0600):
@@ -32,7 +39,9 @@ from pathlib import Path
 
 import yaml
 
-from .model import SUBSTITUTION_RE, GmError, mounted_items, parse_mode, parse_size
+from .model import (CUSTOMER_TIMEZONE, SUBSTITUTION_RE, GmError, has_scheduler_nodes,
+                    is_scheduler_node, is_seed_folder_entry, mounted_items, parse_mode,
+                    parse_size)
 
 PLATFORM = "swarm"
 STAGES = ("fitted", "rendered", "deployed", "data-loaded", "injected", "handed-over",
@@ -47,12 +56,20 @@ STACK_FILE = "stack.yml"
 ENVELOPES_DIR = "envelopes"
 SECRETS_DIR = "secrets"
 MOUNTED_DIR = "mounted"
+RENDERED_DIR = "rendered"
+TIMELINE = "timeline"               # implementation.yaml's key render writes (v0.3 W2, item 1)
 
 LABEL_NAMESPACE = "com.docker.stack.namespace"
 LABEL_GAME = "dbagm.game"
 PLACEMENT_CONSTRAINT = "node.role == manager"   # single host in v0.1
 ENVELOPES_CONFIG = "envelopes"      # the brick's protected config holding the envelope file
-SEED_CONFIG_UID, SEED_CONFIG_GID, SEED_CONFIG_MODE = 0, 0, "0444"
+SEED_CONFIG_UID, SEED_CONFIG_GID, SEED_CONFIG_MODE = 0, 0, "0444"   # unless seed.modes says
+SEED_KIND = "seed"
+# A scheduler node's seed files render rewrites in UTC (v0.3 capture W1,
+# item 7); the others are copied unchanged.
+SCHEDULE_FILE, JOBS_FILE = "schedule.yaml", "jobs.yaml"
+RENDERED_SCHEDULER_FILES = (SCHEDULE_FILE, JOBS_FILE)
+BASTION_ROLE = "bastion"
 
 # Mounted companion material (v0.2 capture W1, item 4; W1-D): each file of
 # an item is one config `<game_id>_<mounting node>_<item>-<k>` (k from 1, in
@@ -268,6 +285,81 @@ def require_stage(ldir, *allowed):
     return state
 
 
+# --- Seed files ------------------------------------------------------------
+
+def seed_entries(scenario, node):
+    """`[(brick seed file, seed name, scenario file)]` of a node, in the
+    brick's `seed.files` order: a file entry as itself; a directory entry
+    (`builders/`, v0.3 capture W1, item 3) as one entry per regular file of
+    the scenario's folder, by name, its seed name `<entry><file>`; a
+    directory entry the scenario leaves out gives none."""
+    seed = scenario.bricks[node["name"]].data.get("seed") or {}
+    given = node.get("seed_files") or {}
+    out = []
+    for fname in seed.get("files") or []:
+        if not is_seed_folder_entry(fname):
+            out.append((fname, fname, given[fname]))
+            continue
+        rel = given.get(fname)
+        if rel is None:
+            continue
+        folder = Path(scenario.dir) / rel
+        for entry in sorted(folder.iterdir()) if folder.is_dir() else []:
+            if entry.is_file():
+                out.append((fname, fname + entry.name,
+                            posixpath.join(str(rel).rstrip("/"), entry.name)))
+    return out
+
+
+def rendered_seed_file(playground, node, fname):
+    """A seed file render rewrites, relative to the scenario folder."""
+    return f"local/{playground}/{RENDERED_DIR}/{node}/{fname}"
+
+
+def rendered_seed_names(scenario, node):
+    """The seed files of `node` render rewrites (v0.3 capture W2, item 1):
+    a scheduler node's `schedule.yaml` and `jobs.yaml`; in a scenario with
+    scheduler nodes, a bastion seed file holding `{{customer_timezone}}`
+    (where the loader looks for it, W1 item 1)."""
+    if is_scheduler_node(node):
+        return [f for f in RENDERED_SCHEDULER_FILES if f in (node.get("seed_files") or {})]
+    if node.get("role") != BASTION_ROLE or not has_scheduler_nodes(scenario.data):
+        return []
+    names = []
+    for _, seed_name, rel in seed_entries(scenario, node):
+        try:
+            text = (Path(scenario.dir) / rel).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        if CUSTOMER_TIMEZONE in text:
+            names.append(seed_name)
+    return names
+
+
+def seed_configs(scenario, node, playground, game_id):
+    """A node's seed configs: one per seed entry (seed_entries), at
+    `<seed.dir><seed name>`, root-owned, with its brick's `seed.modes`
+    mode, `"0444"` otherwise (a directory entry's mode for each of its
+    files); `file` the scenario's, or the rendered one for a file render
+    rewrites (v0.3 capture W1, item 3; W2, item 1)."""
+    name = node["name"]
+    seed = scenario.bricks[name].data.get("seed") or {}
+    modes = seed.get("modes") or {}
+    rendered = rendered_seed_names(scenario, node)
+    configs = []
+    for fname, seed_name, rel in seed_entries(scenario, node):
+        configs.append({
+            "kind": SEED_KIND,
+            "name": f"{game_id}_{name}_{config_file_part(seed_name)}",
+            "file": rendered_seed_file(playground, name, seed_name)
+                    if seed_name in rendered else rel,
+            "path": posixpath.join(seed["dir"], seed_name),
+            "uid": SEED_CONFIG_UID, "gid": SEED_CONFIG_GID,
+            "mode": str(modes.get(fname, SEED_CONFIG_MODE)),
+        })
+    return configs
+
+
 # --- Names -----------------------------------------------------------------
 
 def labels(game_id):
@@ -286,8 +378,8 @@ def _derived_lengths(scenario):
         name = node["name"]
         brick = scenario.bricks[name].data
         parts.append((f"_{name}", SERVICE_NAME_MAX))
-        for fname in (brick.get("seed") or {}).get("files") or []:
-            parts.append((f"_{name}_{config_file_part(fname)}", OBJECT_NAME_MAX))
+        for _, seed_name, _ in seed_entries(scenario, node):
+            parts.append((f"_{name}_{config_file_part(seed_name)}", OBJECT_NAME_MAX))
         for pc in brick.get("protected_configs") or []:
             parts.append((f"_{name}_{pc['name']}", OBJECT_NAME_MAX))
         for sec in brick.get("secrets") or []:
@@ -637,16 +729,7 @@ def build_implementation(scenario, playground, game_id, created_at):
         name = node["name"]
         brick = scenario.bricks[name]
         b = brick.data
-        seed = b.get("seed") or {}
-        configs = []
-        for fname in seed.get("files") or []:
-            configs.append({
-                "kind": "seed",
-                "name": f"{gid}_{name}_{config_file_part(fname)}",
-                "file": node["seed_files"][fname],
-                "path": posixpath.join(seed["dir"], fname),
-                "uid": SEED_CONFIG_UID, "gid": SEED_CONFIG_GID, "mode": SEED_CONFIG_MODE,
-            })
+        configs = seed_configs(scenario, node, playground, gid)
         for pc in b.get("protected_configs") or []:
             configs.append({
                 "kind": pc["name"],
