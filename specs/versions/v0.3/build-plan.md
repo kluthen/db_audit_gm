@@ -118,8 +118,8 @@ plan states only its deltas. Its conventions follow v0.2's
 | Gate | What | Cleared by | Blocks | Status |
 |---|---|---|---|---|
 | G1 | Plan approval | The owner | Wave 1 | cleared 2026-10-22 (spec D156) |
-| G2 | Network access at image build time: Debian 13's repositories (`pgbouncer`, `python3-psycopg`, Python 3.13), the PostgreSQL apt repository, the s6-overlay, Prometheus, `postgres_exporter` and Grafana sources, as in v0.2 | Hand check by the wave driver | Chunks 1, 3, 4, 5, 6 (every image build) | cleared 2026-10-23 for wave 1 (hand check, wave log) |
-| G3 | A Docker host in swarm mode: armenelos, single-node swarm (active 2026-10-22) | Hand check by the wave driver | Every stack test and smoke run, every wave gate, the release gate | cleared 2026-10-23 (hand check, wave log) |
+| G2 | Network access at image build time: Debian 13's repositories (`pgbouncer`, `python3-psycopg`, Python 3.13), the PostgreSQL apt repository, the s6-overlay, Prometheus, `postgres_exporter` and Grafana sources, as in v0.2 | Hand check by the wave driver | Chunks 1, 3, 4, 5, 6 (every image build) | cleared 2026-10-23 for wave 1, 2026-10-26 for wave 2 (hand checks, wave log) |
+| G3 | A Docker host in swarm mode: armenelos, single-node swarm (active 2026-10-22) | Hand check by the wave driver | Every stack test and smoke run, every wave gate, the release gate | cleared 2026-10-23, re-checked 2026-10-26 (hand checks, wave log) |
 | G4 | The VPS ready, under the VPS rule (spec D159; "Workflow deltas"): first, Tailscale logged in on both hosts (`tailscale status`); the VPS's own documentation read before any change there; Docker Engine on the VPS (28.5.1 there, 29.9.1 on armenelos, 2026-10-22): the join checks that a 28.5.1 worker runs the game's services, and an upgrade, if one is needed, waits for a filetstudio.com downtime scheduled with the owner beforehand; the VPS joined to armenelos' swarm as a worker with `--advertise-addr` and `--data-path-addr` on its Tailscale interface (armenelos' own swarm bound likewise), and if the VPS's engine is already in a swarm or runs filetstudio.com as swarm services the driver stops and asks the owner; the swarm's ingress network recreated with an MTU leaving room for VXLAN inside Tailscale's 1280 bytes, with no game running; no game port published on the VPS (the bastion pinned to armenelos); SSH from armenelos to the VPS over Tailscale with a key (Docker context, image copy); at least 5G free on the VPS | The wave driver joins the VPS (spec D156); the owner's part, Tailscale and Docker on the VPS, is in place | Chunk 10b's two-host try; the two-host smoke run (from the wave 3 gate); chunk 15b; the release gate | open: Tailscale up on both hosts and `ssh vps` working (2026-10-22) |
 | G5 | Where the release gate's aged run runs, memory on armenelos being short (about 5G available, swap in use, a single-host game expected at about 5G): on armenelos alone if the game's peak memory measured by chunk 15b plus about 1G fits armenelos' available memory, otherwise on armenelos plus the VPS (spec D156) | Chunk 15b's measured figures, applied by the wave driver and recorded in the wave log | The release gate's aged run | ruled (spec D156); applied after chunk 15b |
 | G6 | How the rehearsal reaches its hand-over in about two hours while the v0.3 scenario declares sixteen hours and the loader's floor is eight: a test-harness-only override of the aging minimum, capping each fault instance's own aging minimum too, in chunk 8a (spec D156, D161) | The owner | Chunk 8a builds it; chunks 11 and 15b use it | cleared 2026-10-22 (spec D156) |
@@ -138,8 +138,8 @@ test harness's only and changes no spec behaviour for a game.
 
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
-| 1 | 1, 2, 3, 4, 5 | G1 (cleared); G2 (chunks 1, 3, 4, 5); G3 (stack tests) | gated 2026-10-23; merge into `main` awaits the owner |
-| 2 | 6, 7, 8, 9 | wave 1 | planned |
+| 1 | 1, 2, 3, 4, 5 | G1 (cleared); G2 (chunks 1, 3, 4, 5); G3 (stack tests) | merged 2026-10-26 (5faff6c) |
+| 2 | 6, 7, 8, 9 | wave 1 | in progress (from 2026-10-26) |
 | 3 | 10, 11, 12 | wave 2; G4 (chunk 10b's two-host try) | planned |
 | 4 | 13, 14, 15 | wave 3; G4 (chunk 15b); G7 (chunk 15's merge) | planned |
 
@@ -679,7 +679,7 @@ scheduler's commands and refusal lines.
 
 ### Chunk 6 — The `pgbouncer` brick 0.1.0
 
-Status: planned
+Status: in progress
 Wave: 2
 Depends on: chunks 1, 4 (W1-x: the lookup role); G2, G3
 Architecture capture: none.
