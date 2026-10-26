@@ -18,7 +18,8 @@ players' console role in `stats_users` only (D139). The rest is
   role `pooler` (a new role for [formats.md](../../formats.md)'s list).
 - A full node of its own (D74): s6, `sshd`, the `player` account, a
   public validator, the node-health script when the topology has a
-  metrics store. PgBouncer from Debian 13's package.
+  metrics store. PgBouncer from Debian 13's package (amended by D177:
+  from the PostgreSQL apt repository, 1.26.1; see master spec 7.2).
 - Footprint (to measure): limits 0.25 CPU / 64M, reservations 0.05 CPU /
   32M.
 - Seed-once configuration (D11): `pgbouncer.ini` and the user list,

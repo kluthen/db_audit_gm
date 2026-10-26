@@ -86,11 +86,21 @@ class TestStatus(FittedGame):
             "    player_ssh_key: private key of pair player_ssh_key",
             "    player_ssh_key.pub: public key of pair player_ssh_key",
             "    dba_password: password",
-            "    tools_password: password, handed over",
             "    monitoring_password: password",
             "    gm_check_password: password",
-            "    pgbouncer_lookup_password: password",
         ])
+
+    def test_no_tools_password_line_without_a_web_front(self):
+        """RG-3 (D103): the tools password is listed only when a node
+        publishes the web front's port."""
+        localimpl.set_stage(self.ldir, "rendered")
+        localimpl.set_stage(self.ldir, "deployed")
+        self.assertNotIn("tools_password", state.status_text(self.ldir))
+        impl = localimpl.read_implementation(self.ldir)
+        impl["nodes"]["bastion"]["published_ports"].append(
+            {"target": 8080, "published": 8080, "mode": "host"})
+        localimpl.write_implementation(self.ldir, impl)
+        self.assertIn("    tools_password: password, handed over", state.status_text(self.ldir))
 
 
 class TestGmStages(FittedGame):
@@ -100,6 +110,16 @@ class TestGmStages(FittedGame):
         super().setUp()
         for stage in ("rendered", "deployed", "data-loaded", "injected"):
             localimpl.set_stage(self.ldir, stage)
+        self.record_handover_check(True)
+
+    def record_handover_check(self, passed):
+        """What `check --handover-check` records (W2 item 8): fixture-audit
+        has no scheduler node, so the hand-over needs only a passed one."""
+        def change(st):
+            st.setdefault("handover_checks", []).append(
+                {"at": localimpl.now_iso(), "passed": passed,
+                 "failures": [] if passed else ["f1 fixture-random-page-cost: reads fixed"]})
+        localimpl.update_state(self.ldir, change)
 
     def state_bytes(self):
         return (self.ldir / "state.yaml").read_bytes()
@@ -143,6 +163,24 @@ class TestGmStages(FittedGame):
                     self.assertEqual(proc.returncode, 1, proc.stdout)
                     self.assertIn("gmctl status:", proc.stderr)
                     self.assertEqual(self.state_bytes(), before)
+
+    def test_hand_over_needs_a_passed_hand_over_check(self):
+        """A game with no scheduler node (D157, D158): from injected, once the
+        last hand-over check passed (the snapshot's condition: chunk 11a)."""
+        self.record_handover_check(False)
+        before = self.state_bytes()
+        proc = self.set("handed-over")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("refused: the last hand-over check, at ", proc.stderr)
+        self.assertIn("failed: f1 fixture-random-page-cost: reads fixed", proc.stderr)
+        self.assertEqual(self.state_bytes(), before)
+        localimpl.update_state(self.ldir, lambda st: st.pop("handover_checks") and None)
+        with self.assertRaisesRegex(GmError, "no hand-over check has run"):
+            state.set_gm_stage(self.ldir, "handed-over")
+        self.record_handover_check(True)
+        self.assertTrue(state.set_gm_stage(self.ldir, "handed-over"))
+        self.assertNotIn("load-started", [h["stage"] for h in
+                                          localimpl.read_state(self.ldir)["history"]])
 
     def test_refused_from_a_failed_or_earlier_game(self):
         localimpl.set_failed(self.ldir, "injected", "boom")

@@ -1,0 +1,12 @@
+#!/bin/sh
+# s6 service `pgbouncer` (DO NOT TAMPER). Configuration:
+# /run/pgbouncer-conf/pgbouncer.ini, written by pgbouncer-conf at every
+# container start and every reload: the scenario's /etc/pgbouncer/pgbouncer.ini
+# with the GM's settings (/usr/local/lib/gm/pgbouncer-gm.ini: the socket,
+# the log, authentication, the console's users) at the end of its
+# [pgbouncer] section. Reloaded through the console (sudo
+# gm-reload-pgbouncer). Its log: /var/log/pgbouncer/.
+# Stopped with SIGQUIT (down-signal): an immediate shutdown, since SIGTERM
+# makes PgBouncer wait for every client to leave.
+exec 2>&1
+exec /command/s6-setuidgid pgbouncer /usr/sbin/pgbouncer /run/pgbouncer-conf/pgbouncer.ini

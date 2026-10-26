@@ -1,0 +1,108 @@
+# Technologies this project depends on. Kept by security-advisor (dev_team),
+# read by cve-watch. Package dependencies come from the lockfiles; list here
+# only what they don't cover.
+#
+# db_audit_gm has no lockfile: what it runs is seven Docker bricks (bricks/*,
+# images 127.0.0.1:5000/dbagm/<brick>:<version>) on debian:13-slim, plus the
+# GM's host tool (tools/gmctl, Debian's python3 and python3-yaml). Versions
+# below are those in the images built from this branch (dpkg-query inside
+# each image, 2026-10-26); Debian package versions carry backported fixes,
+# so an NVD match on one is settled by the Debian security tracker.
+schema = 1
+updated = 2026-10-26
+
+[stack]
+languages = ["Python 3.13", "POSIX shell"]
+runtime = ["Docker Engine 29 (swarm mode)", "s6-overlay 3.2"]
+base_image = ["debian:13-slim (Debian 13.7 trixie)"]
+data = ["PostgreSQL 18 (PGDG)", "PgBouncer 1.26 (PGDG)"]
+monitoring = ["Prometheus 3.13", "postgres_exporter 0.20", "Grafana 13.2"]
+bricks = ["postgres 0.3.0", "bastion 0.3.0", "prometheus 0.2.0", "postgres-exporter 0.2.0", "grafana 0.2.0", "scheduler 0.1.0", "pgbouncer 0.1.0"]
+lockfiles = []                 # none: the GM tool uses only Debian's python3-yaml
+
+# --- the game's host ----------------------------------------------------------
+
+[[platform]]
+name = "Docker Engine (armenelos, swarm manager)"
+version = "29.9.1"
+cpe = "cpe:2.3:a:docker:engine"
+source = "host: docker version on armenelos, 2026-10-26"
+
+[[platform]]
+name = "Docker Engine (VPS, swarm node from v0.3 wave 3)"
+version = "28.5.1"
+cpe = "cpe:2.3:a:docker:engine"
+source = "host: the VPS, per the owner (2026-10-26); joins the swarm in wave 3"
+
+# --- the shared base of every brick -------------------------------------------
+
+[[platform]]
+name = "Debian (base image debian:13-slim)"
+version = "13.7"
+source = "bricks/*/Dockerfile FROM debian:13-slim (floating tag; 13.7 in the images built 2026-10-26). No cpe: debian:debian_linux matches distribution-wide CVEs, not this image's packages; the packages that matter are listed below"
+
+[[platform]]
+name = "s6-overlay"
+version = "3.2.3.2"
+source = "bricks/*/Dockerfile ARG S6_OVERLAY_VERSION, sha256-pinned release archive. No CPE exists on NVD (checked 2026-10-26); watch github.com/just-containers/s6-overlay"
+
+[[platform]]
+name = "OpenSSH server and client"
+version = "10.0"
+cpe = "cpe:2.3:a:openbsd:openssh"
+source = "Debian openssh-server 1:10.0p1-7+deb13u4, every brick (apt, unpinned; upstream 10.0p1)"
+
+[[platform]]
+name = "sudo"
+version = "1.9.16p2"
+cpe = "cpe:2.3:a:sudo_project:sudo"
+source = "Debian sudo 1.9.16p2-3+deb13u2, every brick but bastion (apt, unpinned)"
+
+# --- per brick ------------------------------------------------------------------
+
+[[platform]]
+name = "PostgreSQL (server and client tools)"
+version = "18.6"
+cpe = "cpe:2.3:a:postgresql:postgresql"
+source = "PGDG postgresql-18 / postgresql-client-18 / libpq5 18.6-1.pgdg13+2: postgres 0.3.0 (server), bastion 0.3.0 and pgbouncer 0.1.0 (client); Dockerfile pins the major (ARG PG_MAJOR=18), the minor follows PGDG at build time"
+
+[[platform]]
+name = "PostgreSQL client library (libpq, scheduler)"
+version = "17.11"
+cpe = "cpe:2.3:a:postgresql:postgresql"
+source = "Debian libpq5 17.11-0+deb13u1 in scheduler 0.1.0, pulled by python3-psycopg (apt, unpinned); library only, no server"
+
+[[platform]]
+name = "PgBouncer"
+version = "1.26.1"
+cpe = "cpe:2.3:a:pgbouncer:pgbouncer"
+source = "bricks/pgbouncer/Dockerfile ARG PGBOUNCER_PACKAGE=1.26.1-1.pgdg13+1 (PGDG, owner ruling D177)"
+
+[[platform]]
+name = "nginx (bastion web front)"
+version = "1.26.3"
+cpe = "cpe:2.3:a:f5:nginx_open_source"
+source = "Debian nginx 1.26.3-3+deb13u10 in bastion 0.3.0 (apt, unpinned)"
+
+[[platform]]
+name = "Prometheus"
+version = "3.13.5"
+cpe = "cpe:2.3:a:prometheus:prometheus"
+source = "bricks/prometheus/Dockerfile ARG PROMETHEUS_VERSION, sha256-pinned release tarball"
+
+[[platform]]
+name = "postgres_exporter"
+version = "0.20.1"
+source = "bricks/postgres-exporter/Dockerfile ARG PG_EXPORTER_VERSION, sha256-pinned release tarball. No CPE exists on NVD (checked 2026-10-26); OSV Go module github.com/prometheus-community/postgres_exporter has no advisory"
+
+[[platform]]
+name = "Grafana"
+version = "13.2.4"
+cpe = "cpe:2.3:a:grafana:grafana"
+source = "bricks/grafana/Dockerfile ARG GRAFANA_VERSION, sha256-pinned release tarball"
+
+[[platform]]
+name = "Python"
+version = "3.13.5"
+cpe = "cpe:2.3:a:python:python"
+source = "Debian python3.13 3.13.5-2+deb13u5: scheduler 0.1.0 (with python3-psycopg 3.2.6, python3-yaml 6.0.2) and the GM host's python3 running tools/gmctl (apt, unpinned)"

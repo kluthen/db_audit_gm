@@ -1,0 +1,80 @@
+#!/bin/sh
+# pgbouncer-check: does PgBouncer load its configuration as the files are
+# now? DO NOT TAMPER. Root-owned, read-only. Run as `pgbouncer`, by
+# gm-reload-pgbouncer before it reloads and by the validator; not a sudo
+# wrapper. No arguments.
+#
+# PgBouncer has no check mode, and a RELOAD of a file that does not load
+# resets every setting to its default (the GM's included: the log, the
+# authentication, the console's users) and keeps only the lines read
+# before the error. So the files are tried by a throwaway PgBouncer: the
+# configuration pgbouncer-conf writes from /etc/pgbouncer/pgbouncer.ini,
+# into a private temporary directory, with the GM's settings but no TCP
+# listener, its socket in that directory and its log on standard error. It
+# stops at once on a file that does not load; once it says it is up, it is
+# stopped.
+#
+# Exit and output:
+#   0  the configuration loads; pgbouncer-conf's notes (an %include left
+#      out), if any, on standard output
+#   1  it does not: the reason, or PgBouncer's ERROR and FATAL lines, on
+#      standard output, with pgbouncer.ini's own line numbers
+#   2  the check could not run (reason on standard output)
+set -u
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+GM=/usr/local/lib/gm/pgbouncer-gm.ini
+CONF=/etc/pgbouncer/pgbouncer.ini
+WAIT_TENTHS=100
+
+[ "$#" -eq 0 ] || { echo "usage: pgbouncer-check (no arguments)"; exit 2; }
+[ "$(id -un)" = pgbouncer ] || { echo "pgbouncer-check: run it as pgbouncer"; exit 2; }
+dir=$(mktemp -d /run/tmp/pgbouncer-check.XXXXXX) || { echo "pgbouncer-check: no temporary directory"; exit 2; }
+pid=
+cleanup() {
+    [ -z "$pid" ] || { kill -QUIT "$pid" 2>/dev/null; wait "$pid" 2>/dev/null; }
+    rm -rf -- "$dir"
+}
+trap cleanup EXIT
+trap 'exit 2' INT TERM HUP
+
+sed -e 's|^listen_addr = .*|listen_addr =|' \
+    -e "s|^unix_socket_dir = .*|unix_socket_dir = $dir|" \
+    -e 's|^logfile = .*|logfile =|' "$GM" > "$dir/gm.ini" \
+    || { echo "pgbouncer-check: cannot read $GM"; exit 2; }
+mkdir "$dir/conf"
+notes=$(/usr/local/lib/gm/pgbouncer-conf "$dir/conf" "$dir/gm.ini" 2>&1)
+case $? in
+    0) ;;
+    1) printf '%s\n' "$notes"; exit 1 ;;
+    *) printf 'pgbouncer-check: %s\n' "$notes"; exit 2 ;;
+esac
+
+/usr/sbin/pgbouncer "$dir/conf/pgbouncer.ini" > "$dir/out" 2>&1 &
+pid=$!
+i=0
+while [ "$i" -lt "$WAIT_TENTHS" ]; do
+    if grep -q ' LOG process up: ' "$dir/out"; then
+        [ -z "$notes" ] || printf '%s\n' "$notes"
+        exit 0
+    fi
+    if ! kill -0 "$pid" 2>/dev/null; then
+        wait "$pid" 2>/dev/null
+        pid=
+        # PgBouncer's lines, the files named as installed and the line
+        # numbers those of pgbouncer.ini (pgbouncer-conf's lines taken out)
+        lines=$(perl -ne '
+            BEGIN { ($d, $conf, $gm) = splice @ARGV, 0, 3;
+                    open my $f, "<", "$d/conf/inserted" or die; @ins = map { chomp; $_ } <$f>; }
+            next unless s/^\S+ \S+ \S+ \[\d+\] (ERROR|FATAL) /$1 /;
+            s{\Q$d\E/conf/pgbouncer\.ini:(\d+)}{ my $n = $1; "$conf:" . ($n - grep { $_ < $n } @ins) }ge;
+            s{\Q$d\E/gm\.ini}{$gm}g;
+            print;' "$dir" "$CONF" "$GM" "$dir/out")
+        printf '%s\n' "${lines:-PgBouncer stopped without saying why}"
+        exit 1
+    fi
+    sleep 0.1
+    i=$((i + 1))
+done
+echo "pgbouncer-check: PgBouncer neither started nor stopped within $((WAIT_TENTHS / 10))s"
+exit 2

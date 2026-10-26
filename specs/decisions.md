@@ -16,7 +16,7 @@ README:
 Archived IDs keep their meaning and are cited as they are. D107 onward
 stay live: rulings still to be applied in a later version (D107, D108,
 D110, D113), the v0.2 release close, and v0.3's drafting from D114.
-Numbering continues from D172; no ID is reused.
+Numbering continues from D178; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -392,3 +392,55 @@ Numbering continues from D172; no ID is reused.
   replication line (D164), added by chunk 1b, so a player tightening the
   general `local all all` line does not lock the sealed checks out. Now
   in: [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunks 1, 4.
+- **D172 (2026-10-26, spec-writer, wave 2 preflight, capture W2 open point
+  1): `status --set handed-over`'s snapshot condition arrives with
+  `snapshot`, in chunk 11a;** chunk 8b enforces the earliest hand-over and
+  the hand-over check, and `smoke.sh` gains the hand-over check (chunk 8)
+  then the snapshot (11a) before it hands over, so each condition comes
+  with what satisfies it and every wave gate still tests the hand-over.
+  Rejected: wave 2's `smoke.sh` without the hand-over; a provisional
+  snapshot record. Now in:
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunks 8, 11.
+- **D173 (2026-10-26, spec-writer, wave 2 preflight, capture W2 open point
+  2): The host timers are persistent systemd user units,** enabled and
+  removed by teardown, so a setup action due while the host was down runs
+  when it is back, as 8.7's resume after a host restart needs; a late run
+  waits for the game's nodes first; a run reaching another host's node is
+  chunk 10b's. Rejected: transient `systemd-run --user` units, lost at a
+  reboot. Now in: [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md)
+  "Read first" (build host), chunks 8, 10.
+- **D174 (2026-10-26, spec-writer, wave 2 preflight, capture W2 open point
+  3): Outages read from Swarm's pruned task history are a lower bound,
+  flagged,** `status` reading "at least" for a node whose kept tasks may
+  have lost some since the previous reading; the schedulers' summaries
+  stay exact, and a node restarting that often reads unhealthy at the
+  next check. Rejected: raising the swarm-wide `--task-history-limit`
+  (the hosts' other stacks, the VPS); a per-minute sampling timer. Now in:
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunk 8.
+- **D175 (2026-10-26, owner ruling, relayed by the coordinator; resolves
+  O103, clears G11): The lost time beyond thirty minutes moves the whole
+  earliest hand-over,** the later of the aging minimum since T0 and every
+  fault instance's own minimum since its planting, as master spec 8.7 and
+  D152 say. Now in:
+  [versions/v0.3/access-model.md](versions/v0.3/access-model.md) 6
+  (`aging-done`); [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md)
+  G11, chunk 8.
+- **D176 (2026-10-26, owner ruling at wave 2's gate, relayed by the
+  coordinator): `gmctl load-data` grants the GM check role `CONNECT` on
+  every non-template database after the data load,** since both catalog
+  scenarios' data revoke it from `PUBLIC` and chunk 9's checks connecting
+  to `$FAULT_DATABASE` read `error`. Declined: the scenarios' data
+  granting it; those checks staying on `postgres`. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 7.3;
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunks 11, 14.
+- **D177 (2026-10-26, owner ruling on security-advisor's post-change
+  check of wave 2): The `pgbouncer` brick takes PgBouncer from the
+  PostgreSQL apt repository (`trixie-pgdg`), pinned at
+  `1.26.1-1.pgdg13+1`,** since Debian 13's 1.24.1-1+deb13u2 has six open
+  CVEs with no trixie fix (CVE-2026-6668, -19888, -6669, -107348, -107349,
+  -107350; Debian bug 1148946). Declined: Debian's 1.24.1 with an accepted
+  risk. 1.25/1.26's behaviour changes touch no brick, fault or scenario;
+  tracking `search_path` by default matters only to a future
+  transaction-pooling fault relying on leaked session settings. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 7.2;
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) G2, chunk 6.

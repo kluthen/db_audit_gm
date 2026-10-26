@@ -14,16 +14,25 @@ the game's stage.
 - `check`, at `injected` and every later deployed stage: each fault
   instance, in `fault_instances` order, runs its fault's
   `sealed_check.script` on its node as `sealed_check.run_as` (default
-  root) with its `FAULT_*` variables, and prints one line,
-  `<instance> <fault-id>: fixed|present|error — <first output line>`.
-  Exit 0 when every instance is fixed, 1 when any is present and none
-  errored, 2 when any errored.
+  root) with its `FAULT_*` variables, and, for a behavioural check, the
+  answer key's `window` in seconds as `CHECK_WINDOW_SECONDS` and its
+  `threshold` as `CHECK_THRESHOLD` (v0.3 W1 item 4, spec D165). It prints
+  one line, `<instance> <fault-id>: fixed|present|error — <first output
+  line>`, or `<instance> <fault-id>: too-soon — <N> s of the window
+  remain: <free text>` for an exit 3 whose first output line reads
+  `remaining=<N>[ <free text>]` (v0.3 capture W2, item 9; master spec 11,
+  rule 3); an exit 3 without that line is an error. Exit 2 when any
+  errored, else 1 when any is present, else 3 when any is too soon, else
+  0. A database check connects as the GM check role through its node's
+  `check-psql` (W1 item 8, W1-x); `check` itself runs the scripts one at
+  a time.
 
 A refusal (no game, a stage that does not allow the run, a required
 parameter without a value) runs nothing; the command line exits 2 for it,
 the result being unknown.
 """
 
+import re
 import shlex
 from dataclasses import dataclass, field
 
@@ -35,7 +44,8 @@ from .inject import DEFAULT_RUN_AS, INJECT_STAGE, fault_env, fault_instances, no
 from .model import GmError
 
 GREEN, RED, ERROR = 0, 1, 2
-FIXED, PRESENT = 0, 1
+FIXED, PRESENT, TOO_SOON = 0, 1, 3
+_REMAINING_RE = re.compile(r"^remaining=([0-9]+)(?: (.*))?$")
 CHECK_STAGES = state.DEPLOYED_STAGES[state.DEPLOYED_STAGES.index(INJECT_STAGE):]
 
 
@@ -130,10 +140,16 @@ def validate(scenario_dir, playground, docker=None):
 class CheckLine:
     instance: str
     fault_id: str
-    verdict: str                    # fixed | present | error
-    reason: str
+    verdict: str                    # fixed | present | too-soon | error
+    reason: str                     # too-soon: the free text after remaining=<N>
+    returncode: int = None          # the script's exit; None when it could not start
+    remaining: int = None           # too-soon only: seconds of the window left
 
     def text(self):
+        if self.verdict == "too-soon":
+            head = f"{self.instance} {self.fault_id}: too-soon — {self.remaining} s of the " \
+                   "window remain"
+            return f"{head}: {self.reason}" if self.reason else head
         return f"{self.instance} {self.fault_id}: {self.verdict} — {self.reason}"
 
 
@@ -144,7 +160,15 @@ class CheckResult:
 
     @property
     def exit_code(self):
-        return _exit_code([line.verdict for line in self.lines], "present")
+        """2 when any errored, else 1 when any is present, else 3 when any
+        is too soon, else 0 (W2 item 9: a definite answer outranks an
+        undetermined one)."""
+        verdicts = [line.verdict for line in self.lines]
+        if "error" in verdicts:
+            return ERROR
+        if "present" in verdicts:
+            return RED
+        return TOO_SOON if "too-soon" in verdicts else GREEN
 
     def text(self):
         if not self.lines:
@@ -152,14 +176,43 @@ class CheckResult:
         return "\n".join(line.text() for line in self.lines)
 
 
-def check_plan(scenario, impl):
-    """[(instance, fault, node, run_as, env, script text)], every instance in
-    order; refuses (GmError) before anything runs."""
+def check_env(scenario, fault, instance):
+    """The check's environment: the instance's `FAULT_*` variables, and for
+    a behavioural check (the answer key's entry has them) its `window` in
+    seconds as `CHECK_WINDOW_SECONDS` and its `threshold` as written as
+    `CHECK_THRESHOLD` (W1 item 4, spec D165)."""
+    env = fault_env(fault, instance)
+    entries = (scenario.answer_key or {}).get("instances") or []
+    entry = next((e for e in entries
+                  if isinstance(e, dict) and e.get("instance") == instance.get("id")), {})
+    sealed = entry.get("sealed_check") or {}
+    if sealed.get("window") is not None:
+        try:
+            env["CHECK_WINDOW_SECONDS"] = str(model.parse_duration(sealed["window"]))
+        except ValueError as exc:
+            raise GmError(f"fault instance {instance.get('id')}: gm/answer-key.yaml "
+                          f"sealed_check.window: {exc}") from None
+    if sealed.get("threshold") is not None:
+        env["CHECK_THRESHOLD"] = str(sealed["threshold"])
+    return env
+
+
+def check_plan(scenario, impl, instances=None):
+    """[(instance, fault, node, run_as, env, script text)], in
+    `fault_instances` order, every instance or those listed in `instances`;
+    refuses (GmError) before anything runs."""
+    pairs = fault_instances(scenario)
+    if instances is not None:
+        known = {inst["id"] for inst, _ in pairs}
+        unknown = [iid for iid in instances if iid not in known]
+        if unknown:
+            raise GmError(f"not a fault instance of the scenario: {', '.join(unknown)}")
+        pairs = [(inst, fault) for inst, fault in pairs if inst["id"] in instances]
     plan = []
-    for inst, fault in fault_instances(scenario):
+    for inst, fault in pairs:
         sealed = fault.data.get("sealed_check") or {}
         node = node_of(inst, impl)
-        env = fault_env(fault, inst)
+        env = check_env(scenario, fault, inst)
         try:
             text = (fault.dir / str(sealed.get("script"))).read_text(encoding="utf-8")
         except OSError as exc:
@@ -170,15 +223,37 @@ def check_plan(scenario, impl):
     return plan
 
 
-def check(scenario_dir, playground, docker=None):
+def read_check(iid, fault_id, returncode, lines):
+    """One run's CheckLine: exit 0 fixed, 1 present, 3 with a first line
+    `remaining=<N>[ <free text>]` (N >= 1) too soon, anything else an error
+    (W2 item 9)."""
+    first = lines[0] if lines else None
+    if returncode == TOO_SOON:
+        m = _REMAINING_RE.match(first or "")
+        if m and int(m.group(1)) >= 1:
+            return CheckLine(iid, fault_id, "too-soon", (m.group(2) or "").strip(),
+                             returncode, int(m.group(1)))
+        said = f": {first}" if first else ", no output"
+        return CheckLine(iid, fault_id, "error",
+                         f"exit status 3 (too soon) without a first line remaining=<N> "
+                         f"(N seconds, at least 1){said}", returncode)
+    verdict = _verdict(returncode, {FIXED: "fixed", PRESENT: "present"})
+    reason = first or "no output"
+    if verdict == "error" and first is None:
+        reason = f"exit status {returncode}, no output"
+    return CheckLine(iid, fault_id, verdict, reason, returncode)
+
+
+def check(scenario_dir, playground, docker=None, instances=None):
     """`gmctl check`; returns a CheckResult (its `exit_code` is the
-    command's). Raises GmError on a refusal (nothing run)."""
+    command's). `instances`: the instance ids to run (in `fault_instances`
+    order whatever their order here), None for all. Raises GmError on a
+    refusal (nothing run)."""
     ldir, impl = _deployed_game(scenario_dir, playground, CHECK_STAGES, "check")
     scenario = model.load_scenario(scenario_dir)
-    plan = check_plan(scenario, impl)
+    plan = check_plan(scenario, impl, instances)
     docker = docker or for_local_dir(ldir)
     result = CheckResult(impl["game_id"])
-    labels = {FIXED: "fixed", PRESENT: "present"}
     for iid, fault, node, run_as, env, text in plan:
         try:
             run = exec_node(ldir, node, run_as, stdin=text, env=env, docker=docker)
@@ -186,10 +261,5 @@ def check(scenario_dir, playground, docker=None):
             result.lines.append(CheckLine(iid, fault.id, "error",
                                           f"the check could not be started: {exc}"))
             continue
-        lines = output_lines(run)
-        verdict = _verdict(run.returncode, labels)
-        reason = lines[0] if lines else "no output"
-        if verdict == "error" and not lines:
-            reason = f"exit status {run.returncode}, no output"
-        result.lines.append(CheckLine(iid, fault.id, verdict, reason))
+        result.lines.append(read_check(iid, fault.id, run.returncode, output_lines(run)))
     return result

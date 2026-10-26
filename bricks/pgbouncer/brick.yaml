@@ -1,0 +1,175 @@
+# brick.yaml: PgBouncer node, the game's optional connection pooler (v0.3
+# master spec 7.2).
+#
+# Version 0.1.0 (unreleased until the v0.3 release gate, D100). Roles, growth
+# per hour, writable and seed paths, snapshot methods, the lookup role's
+# secret: capture W1 items 3, 5, 6 and 8 (specs/versions/v0.3/wave-log.md).
+# Top-level keys: capture W1-A; fixed paths, secrets, envelope file and
+# wrappers: capture W1-B; quoted octal modes: capture W1-D
+# (specs/versions/v0.1/wave-log.md); footprint shape, secret kinds and
+# `receives`: capture W1 (specs/versions/v0.2/wave-log.md). Operating
+# notes: docs/gm.md.
+
+# --- Identity ---------------------------------------------------------
+id: pgbouncer
+version: 0.1.0
+roles:
+  - pooler
+technology:
+  name: pgbouncer
+  version: "1.26"                   # PGDG's package, 1.26.1-1.pgdg13+1 (D177; the Dockerfile checks it)
+image: 127.0.0.1:5000/dbagm/pgbouncer:0.1.0
+
+# --- Footprint --------------------------------------------------------
+footprint:                          # master spec 7.2's figures; at rest in the stack test, under
+                                    # the 64M limit: 11.1MiB, CPU 0.01 % (docs/gm.md, Footprint)
+  limits:       {cpu: 0.25, memory: 64M}
+  reservations: {cpu: 0.05, memory: 32M, disk: 256M}
+  disk_growth_per_hour: 4M          # provisional estimate (capture W1 item 3), until
+                                    # v0.3 chunk 15b measures it: PgBouncer's log (a stats line per
+                                    # database a minute, a line per login and logout)
+stateful: true                      # its configuration, the log and the players' home
+
+# --- What the scenario sets -------------------------------------------
+parameters: {}                      # databases, pool sizes and pool mode are in the seed file
+knobs:                              # default envelopes, sized for the default footprint;
+                                    # a scenario may tighten them, never widen them
+  - setting: default_pool_size
+    file: /etc/pgbouncer/pgbouncer.ini
+    default: 20
+    envelope: {min: 1, max: 50}
+  - setting: max_client_conn
+    file: /etc/pgbouncer/pgbouncer.ini
+    default: 100
+    envelope: {min: 10, max: 500}
+  - setting: max_db_connections
+    file: /etc/pgbouncer/pgbouncer.ini
+    default: 0                      # 0: no limit of PgBouncer's own (the server's max_connections holds)
+    envelope: {min: 0, max: 200}
+  - setting: reserve_pool_size
+    file: /etc/pgbouncer/pgbouncer.ini
+    default: 0
+    envelope: {min: 0, max: 20}
+  - setting: pool_mode
+    file: /etc/pgbouncer/pgbouncer.ini
+    default: session
+    envelope: {allowed: [session, transaction]}
+
+# --- Player plane -----------------------------------------------------
+write_policies:                     # GM_WRITE_POLICY, gm-write-policy (docs/gm.md, Access)
+  - fixable
+  - report-only
+writable_paths:
+  - /etc/pgbouncer                  # pgbouncer:pgbconf, 2775 (2755 report-only); pgbouncer.ini 0664 (0644)
+  - /home/player                    # ~/report.md, the player's notes
+protected_files:
+  - /etc/ssh/sshd_config
+  - /etc/sudoers
+  - /etc/sudoers.d/gm-player
+  - /usr/local/sbin/gm-entrypoint
+  - /usr/local/sbin/gm-reload-pgbouncer
+  - /usr/local/sbin/gm-validate
+  - /usr/local/sbin/gm-write-policy # the owner and modes, run as root by the two above
+  - /usr/local/lib/gm/healthcheck
+  - /usr/local/lib/gm/pgbouncer-gm.ini      # the GM's settings, winning over pgbouncer.ini's
+  - /usr/local/lib/gm/pgbouncer_hba.conf    # who logs in, and how
+  - /usr/local/lib/gm/pgbouncer-conf        # writes the configuration PgBouncer reads
+  - /usr/local/lib/gm/pgbouncer-check       # tries the files on a throwaway PgBouncer
+  - /run/pgbouncer-conf             # the configuration PgBouncer reads (pgbouncer's, 0755)
+  - /run/pgbouncer-auth             # auth_file: the lookup role's password (root:pgbouncer 0750)
+  - /opt/gm/validator/validate.sh
+  - /opt/gm/protected/envelopes.conf
+  - /etc/s6-overlay/s6-rc.d
+  - /etc/s6-overlay/user-bundles.d
+  - /var/lib/gm-state               # seed marker .gm-seeded (volume gmstate)
+player_access:
+  ssh_account: player
+  group: pgbconf
+  sudo_wrappers:
+    - /usr/local/sbin/gm-reload-pgbouncer
+    - /usr/local/sbin/gm-validate
+capabilities:                       # added back after cap_drop: ALL; no-new-privileges stays off (sudo)
+  - AUDIT_WRITE                     # sudo: audit message (else a warning on every sudo)
+  - CHOWN                           # entrypoint: ownership of volumes and seeded files
+  - DAC_OVERRIDE                    # entrypoint: emptying /run, writing into player/pgbouncer dirs
+  - FOWNER                          # entrypoint: modes on files it does not own
+  - KILL                            # s6: signals to the pgbouncer-owned server
+  - NET_BIND_SERVICE                # sshd on port 22 (Docker sets ip_unprivileged_port_start=0,
+                                    # other platforms may not)
+  - SETGID                          # sshd, sudo, runuser, s6-setuidgid
+  - SETUID                          # sshd, sudo, runuser, s6-setuidgid
+  - SYS_CHROOT                      # sshd privilege separation
+
+# --- Runtime ----------------------------------------------------------
+healthcheck:                        # healthy once PgBouncer has answered in this container and
+                                    # while sshd is up (docs/gm.md)
+  command: ["/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 60s
+secrets:
+  - name: player_ssh_pubkey         # inner-hop public key, for SSH as player
+    kind: key-pair
+    pair: player_ssh_key            # the bastion mounts the private half
+    half: public
+    path: /opt/gm/secrets/player_ssh_pubkey
+    uid: 0
+    gid: 0
+    mode: "0444"                    # sshd reads it as player
+  - name: pgbouncer_lookup_password # password of auth_user pgbouncer_lookup; also on the
+    kind: password                  #   database node, which creates the role (capture W1 item 8)
+    only_with_role: pooler          # the role exists only in a scenario with a pooler node
+    path: /opt/gm/secrets/pgbouncer_lookup_password
+    uid: 0
+    gid: 0
+    mode: "0400"                    # root only; the entrypoint writes auth_file from it
+seed:
+  dir: /opt/gm/seed/
+  files:
+    - pgbouncer.ini                 # [databases] (postgres, for the lookups, included), [users],
+                                    # [pgbouncer]: pool sizes, pool mode, limits, timeouts
+  paths:                            # seed file -> its live in-container path
+    pgbouncer.ini: /etc/pgbouncer/pgbouncer.ini
+protected_configs:
+  - name: envelopes                 # per-game envelope file, read by the validator
+    path: /opt/gm/protected/envelopes.conf
+    uid: 0
+    gid: 0
+    mode: "0444"
+volumes:
+  - name: pgbconf
+    path: /etc/pgbouncer
+  - name: pgblog                    # PgBouncer's log (logfile in the GM's settings);
+    path: /var/log/pgbouncer        #   pgbouncer:pgbconf 2750, pgbouncer.log 0640
+  - name: home
+    path: /home/player
+  - name: gmstate                   # seed marker /var/lib/gm-state/.gm-seeded, root-owned:
+    path: /var/lib/gm-state         #   kept out of the group-writable /etc/pgbouncer
+  - name: run                       # /run: a stack file's tmpfs is noexec and s6-overlay
+    path: /run                      # needs exec; emptied by the entrypoint at each start
+processes:
+  - pgbouncer
+  - sshd
+snapshot:                           # per volume, the hand-over copy (v0.3 master spec 6.4,
+                                    # 7.2); run, emptied at every start, is never copied
+  pgbconf: copy
+  pgblog: copy
+  home: copy
+  gmstate: copy
+
+# --- Catalog links ----------------------------------------------------
+interfaces:
+  provides:
+    - {name: sql, protocol: postgresql, port: 6432}   # the pooled databases and the console
+    - {name: ssh, protocol: ssh, port: 22}
+  consumes:
+    - {name: sql, protocol: postgresql, port: 5432}   # the database node(s) [databases] names
+receives:                           # the image accepts another brick's mounted material
+  s6_overlay: "3.2.3.2"             # the version the Dockerfile installs
+  commands: [sh, cat, du, df, awk, sed, grep, sleep, perl, s6-svstat, s6-setuidgid]
+extra:
+  read_only_root: true              # read_only: true in the stack file
+  validator:                        # the GM's official run (gmctl validate, capture W3-A)
+    path: /opt/gm/validator/validate.sh
+    run_as: pgbouncer               # docker exec -u pgbouncer; gm-validate uses runuser

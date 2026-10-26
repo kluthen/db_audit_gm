@@ -1,0 +1,129 @@
+#!/bin/sh
+# gm-reload-pgbouncer: check, then reload PgBouncer's configuration.
+# Usage: sudo gm-reload-pgbouncer
+# DO NOT TAMPER. Root-owned, read-only; allowed by /etc/sudoers.d/gm-player.
+# (v0.3 master spec 7.2; capture W1 item 5.)
+#
+#   1. restores the seeded file's owner and mode (pgbouncer:pgbconf, 0664
+#      or 0644, the directory 2775 or 2755, by the write policy in
+#      /run/gm/write-policy), contents untouched, never through a link: a
+#      file `sed -i` left owned by player gets its owner back;
+#   2. on a node where pgbouncer.ini is not fixable (report-only): refuses
+#      in one line, exit 1, nothing reloaded;
+#   3. checks that PgBouncer loads the files as they are now
+#      (/usr/local/lib/gm/pgbouncer-check, as pgbouncer), and refuses to
+#      reload when they do not: a RELOAD of such a file would reset every
+#      setting, the GM's included;
+#   4. writes the configuration PgBouncer reads (pgbouncer-conf, as
+#      pgbouncer: pgbouncer.ini with the GM's settings), then sends RELOAD
+#      on the console, as PgBouncer's own account over the local socket,
+#      prints what PgBouncer logged about it (warnings and errors), and the
+#      pool settings now in effect.
+# If PgBouncer is not running, s6 keeps restarting it: the wrapper waits
+# for it to come back with the checked files.
+set -u
+PATH=/command:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+CONF=/etc/pgbouncer/pgbouncer.ini
+LOG=/var/log/pgbouncer/pgbouncer.log
+WAIT=15
+ME=gm-reload-pgbouncer
+KNOBS="pool_mode default_pool_size max_client_conn max_db_connections reserve_pool_size"
+
+if [ "$#" -ne 0 ]; then
+    echo "usage: sudo gm-reload-pgbouncer (no arguments)" >&2
+    exit 2
+fi
+cd /
+indent() { sed 's/^/  /'; }
+as_pgbouncer() { runuser -u pgbouncer -- env HOME=/var/lib/pgbouncer "$@"; }
+console() {  # console <command>: unaligned, no header, `|`-separated
+    as_pgbouncer psql -X -w -q -A -t -F '|' -h /run/pgbouncer -p 6432 -U pgbouncer -d pgbouncer -c "$1"
+}
+up() { console 'SHOW VERSION' >/dev/null 2>&1; }
+report() {
+    cfg=$(console 'SHOW CONFIG' 2>/dev/null) || return 0
+    line=
+    for k in $KNOBS; do
+        line="$line $k=$(printf '%s\n' "$cfg" | sed -n "s/^$k|\([^|]*\)|.*/\1/p")"
+    done
+    echo "$ME: in effect:$line"
+}
+
+# 1. owner and mode
+if ! notes=$(/usr/local/sbin/gm-write-policy restore 2>&1); then
+    echo "$ME: could not restore the files' owner and mode; nothing was reloaded:" >&2
+    printf '%s\n' "$notes" | indent >&2
+    exit 2
+fi
+[ -z "$notes" ] || { echo "$ME: left alone:"; printf '%s\n' "$notes" | indent; }
+
+# 2. report-only
+/usr/local/sbin/gm-write-policy reloadable >/dev/null 2>&1
+case $? in
+    0) ;;
+    1) echo "$ME: this node is report-only: its files cannot be changed, so nothing was reloaded."
+       exit 1 ;;
+    *) echo "$ME: cannot read the node's write policy; nothing was reloaded." >&2
+       exit 2 ;;
+esac
+
+# 3. the files load
+out=$(as_pgbouncer /usr/local/lib/gm/pgbouncer-check 2>&1)
+case $? in
+    0) [ -z "$out" ] || { echo "$ME: note:"; printf '%s\n' "$out" | indent; } ;;
+    1) echo "$ME: $CONF does not load; PgBouncer was NOT reloaded:"
+       printf '%s\n' "$out" | indent
+       exit 1 ;;
+    *) echo "$ME: could not check $CONF; PgBouncer was NOT reloaded:" >&2
+       printf '%s\n' "$out" | indent >&2
+       exit 2 ;;
+esac
+
+# 4. the configuration PgBouncer reads, from the checked files
+if ! out=$(as_pgbouncer /usr/local/lib/gm/pgbouncer-conf /run/pgbouncer-conf 2>&1); then
+    echo "$ME: could not write PgBouncer's configuration; PgBouncer was NOT reloaded:" >&2
+    printf '%s\n' "$out" | indent >&2
+    exit 2
+fi
+
+# 5. not running: s6 restarts it on its own; wait for it with the checked files
+if ! up; then
+    i=0
+    while [ "$i" -lt "$WAIT" ]; do
+        sleep 1
+        i=$((i + 1))
+        if up; then
+            echo "$ME: PgBouncer was not running; it is back with $CONF."
+            report
+            exit 0
+        fi
+    done
+    echo "$ME: PgBouncer is not running and did not come back within ${WAIT}s." >&2
+    echo "  Run sudo gm-validate; the reason is at the end of $LOG." >&2
+    exit 1
+fi
+
+# 6. reload, and what PgBouncer said about it (since 1.25 a RELOAD that
+#    fails is also an error on the console: its reasons are in the log)
+size=$(stat -c %s "$LOG" 2>/dev/null || echo 0)
+out=$(console RELOAD 2>&1)
+rc=$?
+sleep 0.5
+said=$(tail -c "+$((size + 1))" "$LOG" 2>/dev/null | sed -n 's/^[0-9-]* [0-9:.]* [^ ]* \[[0-9]*\] \(WARNING\|ERROR\|FATAL\) /\1 /p')
+if [ -n "$said" ]; then
+    echo "$ME: PgBouncer reports:"
+    printf '%s\n' "$said" | indent
+fi
+if printf '%s\n' "$said" | grep -q 'config file loading failed'; then
+    echo "$ME: PgBouncer did not load the files; run sudo gm-validate." >&2
+    exit 1
+fi
+if [ "$rc" -ne 0 ]; then
+    echo "$ME: the console refused the reload:" >&2
+    printf '%s\n' "$out" | indent >&2
+    exit 1
+fi
+echo "$ME: configuration reloaded."
+report
+exit 0

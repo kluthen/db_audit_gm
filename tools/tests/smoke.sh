@@ -7,6 +7,7 @@
 #   health checks; the network's name, UTC on every node) -> exec on both
 #   nodes -> logs, status
 #   -> load-data -> inject twice (same result) -> status --set handed-over
+#   refused, check --handover-check, status --set handed-over
 #   -> check (1) -> the fix through exec -> check (0)
 #   -> validate green, then red after an out-of-envelope change -> teardown,
 # then asserts that nothing carrying the game's labels is left (services,
@@ -117,9 +118,9 @@ same "credential files are mode 600" "600 600 600 600 600" \
     "$(stat -c %a "$LDIR/secrets/player_password" "$LDIR/secrets/player_ssh_key" \
         "$LDIR/secrets/player_ssh_key.pub" "$LDIR/secrets/dba_password" \
         "$LDIR/secrets/tools_password" | tr '\n' ' ' | sed 's/ $//')"
-# v0.3: postgres adds gm_check_password and pgbouncer_lookup_password (W1-x);
-# the lookup one goes once render honours only_with_role (chunk 7).
-same "configs and secrets carry both labels" "14" \
+# v0.3: postgres adds gm_check_password (W1-x); pgbouncer_lookup_password is
+# only_with_role: pooler, and fixture-audit has no pooler node (chunk 7b).
+same "configs and secrets carry both labels" "13" \
     "$(for k in config secret; do docker "$k" ls --filter "label=dbagm.game=$GAME" \
         --filter "label=com.docker.stack.namespace=$GAME" -q; done | wc -l | tr -d ' ')"
 same "volumes carry dbagm.game" "9" \
@@ -137,8 +138,11 @@ same "network named after the scenario's network" "${GAME}_backend" \
     "$(docker network ls --filter "label=com.docker.stack.namespace=$GAME" --format '{{.Name}}')"
 same "status: network line" "  network: ${GAME}_backend" \
     "$($GMCTL status "$SCN" --playground "$PG" | grep '^  network:')"
-same "status: lists the 8 secret files" 8 \
-    "$($GMCTL status "$SCN" --playground "$PG" | sed -n '/^  secrets: /,$p' | grep -c '^    ')"
+# v0.3 (chunk 8b, RG-3): no web front in fixture-audit, so no tools_password line.
+same "status: lists the 6 secret files" 6 \
+    "$($GMCTL status "$SCN" --playground "$PG" | sed -n '/^  secrets: /,/^  [^ ]/p' | grep -c '^    ')"
+same "status: no tools-password line without a web front" "" \
+    "$($GMCTL status "$SCN" --playground "$PG" | grep 'tools_password')"
 for node in db bastion; do
     out=$(printf 'printf "%%s %%s" "$TZ" "$(date +%%Z)"\n' \
         | $GMCTL exec "$SCN" --playground "$PG" --node "$node" --user root)
@@ -195,6 +199,15 @@ same "the test fault is planted (index dropped)" "orders_pkey" "$first"
 check "inject again (replay)" $GMCTL inject "$SCN" --playground "$PG"
 same "second inject: same result" "$first" "$(indexes)"
 same "second inject: stage stays injected" injected "$(stage)"
+# v0.3 (chunk 8b; capture W2 item 11, spec D172): a game with no scheduler node
+# is handed over once its hand-over check passed (the snapshot: chunk 11a).
+$GMCTL status "$SCN" --playground "$PG" --set handed-over >/dev/null 2>&1
+same "status --set handed-over refused before the hand-over check" 1 "$?"
+out=$($GMCTL check "$SCN" --playground "$PG" --handover-check); rc=$?
+printf '%s\n' "$out"
+same "check --handover-check: exit 0 (faults present, nodes healthy)" 0 "$rc"
+same "check --handover-check: no scheduler line (no aging)" "" \
+    "$(printf '%s\n' "$out" | grep 'scheduler')"
 check "status --set handed-over" $GMCTL status "$SCN" --playground "$PG" --set handed-over
 same "status: stage handed-over" handed-over "$(stage)"
 

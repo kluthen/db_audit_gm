@@ -1,9 +1,13 @@
 """gmctl validate and check (tools/gm/checks.py); Docker stubbed."""
 
+import argparse
+import contextlib
+import io
 import unittest
 
 import yaml
 
+import tools.gm as gm
 from tools.gm import checks, localimpl, model
 from tools.gm.model import GmError
 from tools.tests import REPO_ROOT, run_gmctl
@@ -136,13 +140,79 @@ class TestCheck(DeployedGame):
                       result.text())
 
     def test_any_error_exits_2(self):
-        self.replies[FRAGMENTS["f2-check"]] = (3, "", "psql: could not connect\n")
+        self.replies[FRAGMENTS["f2-check"]] = (2, "", "psql: could not connect\n")
         result = self.check()
         self.assertEqual(result.exit_code, 2)
         self.assertIn("f2 fixture-dropped-index: error — psql: could not connect",
                       result.text())
         self.replies[FRAGMENTS["f2-check"]] = (127, "", "")
         self.assertIn("error — exit status 127, no output", self.check().text())
+
+    def test_too_soon(self):
+        self.replies[FRAGMENTS["f1-check"]] = (0, "random_page_cost is 1.1.\n", "")
+        self.replies[FRAGMENTS["f2-check"]] = (3, "remaining=600 duplicates: 0 in 4 min\n",
+                                               "")
+        result = self.check()
+        self.assertEqual(result.exit_code, checks.TOO_SOON)
+        self.assertEqual(checks.TOO_SOON, 3)
+        self.assertEqual(result.text().splitlines(), [
+            "f1 fixture-random-page-cost: fixed — random_page_cost is 1.1.",
+            "f2 fixture-dropped-index: too-soon — 600 s of the window remain: "
+            "duplicates: 0 in 4 min"])
+        f1, f2 = result.lines
+        self.assertEqual((f1.verdict, f1.returncode, f1.remaining), ("fixed", 0, None))
+        self.assertEqual((f2.verdict, f2.returncode, f2.remaining), ("too-soon", 3, 600))
+        self.replies[FRAGMENTS["f1-check"]] = (1, "random_page_cost is still 4.\n", "")
+        self.assertEqual(self.check().exit_code, 1)
+
+    def test_exit_3_without_remaining_line_is_an_error(self):
+        self.replies[FRAGMENTS["f2-check"]] = (3, "", "psql: script error\n")
+        result = self.check()
+        self.assertEqual(result.exit_code, 2)
+        self.assertEqual(result.lines[1].text(),
+                         "f2 fixture-dropped-index: error — exit status 3 (too soon) without "
+                         "a first line remaining=<N> (N seconds, at least 1): psql: script "
+                         "error")
+        self.assertEqual((result.lines[1].returncode, result.lines[1].remaining), (3, None))
+
+    def test_only_the_instances_asked_in_scenario_order(self):
+        result = checks.check(self.scenario, "laptop", docker=self.fake, instances=["f2"])
+        self.assertEqual([script_name(r) for r in self.fake.runs], ["f2-check"])
+        self.assertEqual([line.instance for line in result.lines], ["f2"])
+        self.fake.runs.clear()
+        result = checks.check(self.scenario, "laptop", docker=self.fake,
+                              instances=["f2", "f1"])
+        self.assertEqual([script_name(r) for r in self.fake.runs], ["f1-check", "f2-check"])
+        self.fake.runs.clear()
+        result = checks.check(self.scenario, "laptop", docker=self.fake, instances=[])
+        self.assertEqual((result.lines, self.fake.runs, result.exit_code), ([], [], 0))
+
+    def test_unknown_instance_refused_before_running(self):
+        with self.assertRaisesRegex(GmError, "not a fault instance of the scenario: f9"):
+            checks.check(self.scenario, "laptop", docker=self.fake, instances=["f1", "f9"])
+        self.assertEqual(self.fake.runs, [])
+
+    def test_behavioural_window_and_threshold_reach_the_script(self):
+        self.edit_yaml("faults/fixture-dropped-index/fault.yaml",
+                       lambda d: d["sealed_check"].update(behavioural=True))
+
+        def key(d):
+            d["instances"][1]["sealed_check"].update(window="10m", threshold=0.5)
+        self.edit_yaml("gm/answer-key.yaml", key)
+        self.check()
+        f1, f2 = self.fake.runs
+        self.assertEqual(f1["env"], {})
+        self.assertEqual(f2["env"], dict(F2_ENV, CHECK_WINDOW_SECONDS="600",
+                                         CHECK_THRESHOLD="0.5"))
+
+        def integer_key(d):
+            d["instances"][1]["sealed_check"].update(window="2h", threshold=3)
+        self.edit_yaml("gm/answer-key.yaml", integer_key)
+        self.fake.runs.clear()
+        self.check()
+        self.assertEqual({k: v for k, v in self.fake.runs[1]["env"].items()
+                          if k.startswith("CHECK_")},
+                         {"CHECK_WINDOW_SECONDS": "7200", "CHECK_THRESHOLD": "3"})
 
     def test_check_that_cannot_start_is_an_error(self):
         self.edit_yaml("faults/fixture-dropped-index/fault.yaml",
@@ -152,6 +222,7 @@ class TestCheck(DeployedGame):
         self.assertEqual(result.exit_code, 2)
         self.assertIn("f2 fixture-dropped-index: error — the check could not be started",
                       result.text())
+        self.assertEqual(result.lines[1].returncode, None)
         self.assertIn("f1 fixture-random-page-cost: present", result.text())
 
     def test_required_parameter_without_value_refused_before_running(self):
@@ -170,9 +241,62 @@ class TestCheck(DeployedGame):
 
     def test_refused_before_injection(self):
         localimpl.set_stage(self.ldir, "data-loaded")
-        with self.assertRaisesRegex(GmError, "check needs stage injected or handed-over"):
+        with self.assertRaisesRegex(GmError, "check needs stage injected or load-started or handed-over"):
             self.check()
         self.assertEqual(self.fake.runs, [])
+
+
+class TestReadCheck(unittest.TestCase):
+
+    def read(self, returncode, *lines):
+        line = checks.read_check("f3", "x-fault", returncode, list(lines))
+        return line.verdict, line.returncode, line.remaining, line.text()
+
+    def test_fixed_present_error(self):
+        self.assertEqual(self.read(0, "gone."), ("fixed", 0, None, "f3 x-fault: fixed — gone."))
+        self.assertEqual(self.read(1, "still there.", "more"),
+                         ("present", 1, None, "f3 x-fault: present — still there."))
+        self.assertEqual(self.read(2, "cannot query."),
+                         ("error", 2, None, "f3 x-fault: error — cannot query."))
+        self.assertEqual(self.read(127),
+                         ("error", 127, None, "f3 x-fault: error — exit status 127, no output"))
+
+    def test_too_soon(self):
+        self.assertEqual(self.read(3, "remaining=600 3 duplicates in 6 min"),
+                         ("too-soon", 3, 600, "f3 x-fault: too-soon — 600 s of the window "
+                                              "remain: 3 duplicates in 6 min"))
+        self.assertEqual(self.read(3, "remaining=1"),
+                         ("too-soon", 3, 1, "f3 x-fault: too-soon — 1 s of the window remain"))
+
+    def test_exit_3_without_a_valid_remaining_line(self):
+        for lines in ([], ["remaining=0"], ["remaining=10s"], ["remaining= 10"],
+                      ["remaining=-5"], ["wait 10 minutes"], ["x", "remaining=60"]):
+            with self.subTest(lines=lines):
+                verdict, returncode, remaining, text = self.read(3, *lines)
+                self.assertEqual((verdict, returncode, remaining), ("error", 3, None))
+                self.assertIn("without a first line remaining=<N>", text)
+
+    def test_exit_order(self):
+        def result(*verdicts):
+            return checks.CheckResult("g", [checks.CheckLine(f"f{i}", "x", v, "r")
+                                            for i, v in enumerate(verdicts)]).exit_code
+        self.assertEqual(result(), 0)
+        self.assertEqual(result("fixed", "fixed"), 0)
+        self.assertEqual(result("fixed", "too-soon"), 3)
+        self.assertEqual(result("too-soon", "present"), 1)
+        self.assertEqual(result("present", "too-soon", "error"), 2)
+
+
+class TestEvaluationExit(unittest.TestCase):
+
+    def test_check_command_exits_3_when_only_too_soon(self):
+        line = checks.CheckLine("f3", "x-fault", "too-soon", "", 3, 120)
+        args = argparse.Namespace(command="check", scenario_dir="s", playground="p")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = gm._evaluation(args, lambda d, p: checks.CheckResult("g", [line]))
+        self.assertEqual(code, 3)
+        self.assertEqual(out.getvalue(), "f3 x-fault: too-soon — 120 s of the window remain\n")
 
 
 class TestCommandLine(RenderedGame):
