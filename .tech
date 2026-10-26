@@ -26,13 +26,13 @@ lockfiles = []                 # none: the GM tool uses only Debian's python3-ya
 name = "Docker Engine (armenelos, swarm manager)"
 version = "29.9.1"
 cpe = "cpe:2.3:a:docker:engine"
-source = "host: docker version on armenelos, 2026-10-26"
+source = "host: docker version on armenelos, 2026-10-26 (Go 1.26.9, containerd v2.4.2, runc 1.5.2)"
 
 [[platform]]
-name = "Docker Engine (VPS, swarm node from v0.3 wave 3)"
-version = "28.5.1"
+name = "Docker Engine (VPS vps-5718ad52, swarm worker from v0.3 wave 3)"
+version = "29.9.2"
 cpe = "cpe:2.3:a:docker:engine"
-source = "host: the VPS, per the owner (2026-10-26); joins the swarm in wave 3"
+source = "host: ssh vps docker version, 2026-10-26 (client and server 29.9.2, Go 1.26.10, containerd v2.4.2, runc 1.5.2); upgraded by the owner from 28.5.1 the same day"
 
 # --- the shared base of every brick -------------------------------------------
 
