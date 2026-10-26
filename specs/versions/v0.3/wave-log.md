@@ -2083,3 +2083,50 @@ Where W2 was silent, recorded by chunk 8 (`v0.3-c8-aging`; 8a 7b20533,
   game: chunk 12 or 15); a task on another host falls back to its
   creation time (wave 3); `status` at `load-started` runs one exec per
   scheduler plus inspects; the GM skill's `SKILL.md` (chunk 13).
+
+### Wave gate — 2026-10-26
+
+Run on `v0.3-w2` (head e896697, then 44227a3) on armenelos (Debian 13,
+Docker 29.9.1, single-node swarm), idle apart from other projects'
+long-running containers (`llmward-*`, `ollama`: none of the game's), by
+a `coding-executor`; every docker step under the host lock, one at a
+time. Step logs: the driver's scratchpad, `gate-w2/`.
+
+| Step | Result | Duration |
+|---|---|---|
+| Unit suite | 533 OK; 537 OK after 44227a3 | 71 s |
+| Scheduler unit tests (in its image) | 60 OK | 75 s |
+| `sh -n` on every shell file | 108 files, 0 failed | — |
+| `perl -c` on every Perl file | 7 files, 0 failed | — |
+| Loader: every brick, fault, scenario and fixture | 24 definitions (the new one: `pgbouncer`), plus 12 inside fixtures; 0 with problems | 1 s |
+| Stack test `postgres` 0.3.0 | all checks passed (131) | 74 s |
+| Stack test `bastion` 0.3.0 | all checks passed (71) | 62 s |
+| Stack test `prometheus` 0.2.0 | all checks passed (131) | 78 s |
+| Stack test `postgres-exporter` 0.2.0 | all checks passed (103) | 99 s |
+| Stack test `grafana` 0.2.0 | all checks passed (119) | 140 s |
+| Stack test `scheduler` 0.1.0 | all checks passed (95) | 778 s |
+| Stack test `pgbouncer` 0.1.0 | all checks passed (103) | 97 s |
+| `smoke.sh` | 52 passed (and after 44227a3) | 25 s |
+| `smoke-monitoring.sh` | 43 passed (and after 44227a3) | 47 s |
+| `smoke-scenario.sh bookshop-new-server` | 16 passed, 2 failed; 18 passed after 44227a3 | 21 s |
+| `smoke-scenario.sh fernway-clinics-monitoring` | 15 passed, 2 failed; 17 passed after 44227a3 | 29 s |
+
+`sh -n` counted 97 files in wave 1: the new ones are chunk 6's and chunk
+8's (`fakebin/systemctl`), plus `grafana-files`, a sourced file without a
+shebang now counted. Every stack and smoke run tore down with nothing
+left, and no `dbagm-*` user unit or unit file. Image sizes (armenelos,
+2026-10-26): postgres 0.3.0 262MB, bastion 0.3.0 185MB, prometheus 0.2.0
+488MB, postgres-exporter 0.2.0 165MB, grafana 0.2.0 866MB, scheduler 0.1.0
+172MB, pgbouncer 0.1.0 182MB (new).
+
+Finding, traced to chunk 9: `pg-join-index-missing` and
+`pg-table-autovacuum-off` connect to the scenario's database as
+`gm_check`, which had no `CONNECT` there (both scenarios' data revoke it
+from `PUBLIC`); the checks read `error`. A check needing more than the
+role's privileges is a build finding (master spec 7.3), so it went to the
+owner: **`gmctl load-data` grants the check role `CONNECT` on every
+non-template database after the load** (spec D176, 58063a0; plan v8;
+master spec 7.3 amended; the scenarios' data granting it, and those
+checks staying on `postgres`, declined). Fix 44227a3 (`tools/gm/inject.py`,
+`tools/tests/test_inject.py`; chunk 7's step), then the four smoke runs
+re-run green. No intent register, so there is no wave sync.
