@@ -1264,3 +1264,37 @@ scheduler 0.1.0 172MB. No intent register, so there is no wave sync.
 - Next: wave 2 (chunks 6, 7, 8, 9), from `main` once wave 1 has merged.
   The wave 2 start needs capture W2 (the stages and records, and the "too
   soon to tell" verdict) before chunks 8 and 9.
+
+## Wave 1 — merged 2026-10-26
+
+Merged into `main` on the owner's word, `--no-ff`, as 5faff6c, with the
+gate's figures in the message. The wave worktree and the branches
+`v0.3-w1`, `v0.3-c1-formats` to `v0.3-c5-monitoring` removed.
+
+## Wave 2 — started 2026-10-26
+
+Chunks 6, 7, 8, 9 (κ = 3). Branch `v0.3-w2`, worktree
+`/home/bastien/work/db_audit_gm-wt/v0.3-w2`, cut from `main` at 5faff6c.
+No rulings since the plan's v5 (D171 is the last; numbering continues
+from D172).
+
+### Gates checked at the start
+
+- G2 (network at build time), hand check 2026-10-26: Debian's trixie
+  `Release`, the PostgreSQL apt repository's `trixie-pgdg` `Release`,
+  GitHub's s6-overlay releases and the pinned Grafana 13.2.4 tarball
+  answer 200. Cleared for wave 2.
+- G3 (Docker host in swarm mode), hand check 2026-10-26: armenelos, Docker
+  Engine 29.9.1, swarm active, one node. Cleared for wave 2.
+- Host resources on 2026-10-26: 4.9G of memory available (3G of swap in
+  use), 10G free on `/`; other projects' containers running (`llmward-*`,
+  `ollama`). Docker checks stay serialized under the host lock.
+
+### Order
+
+- Chunk 6 reads nothing W2 records (its interface is W1 item 8 and
+  W1-x): dispatched at once, beside W2's drafting.
+- Capture W2 is drafted and committed before chunks 7 and 9 start (7
+  writes W2's records, 9 its verdict) and before chunk 8.
+- Then chunks 7 and 9 side by side (no path between them; shared lists
+  only: `gmctl.md`'s rows); chunk 8 once 7 and 9 have merged.
