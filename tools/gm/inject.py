@@ -9,6 +9,13 @@ behaviour is fixed by capture W3-A (`specs/versions/v0.1/wave-log.md`):
   ON_ERROR_STOP=1 -d postgres`, run as OS user `postgres` in the node's
   container (local peer authentication). At `data-loaded` or a later
   deployed stage it changes nothing: idempotency is the stage, not the SQL.
+  Then (v0.3 chunk 7b; capture W1, item 7) every application role a
+  scheduler's schedule names gets its password from its secret
+  `role_<role>_password`, the data having created the role: streamed the
+  same way into the database node the connection targets (every
+  `database` node when it targets another node, a pooler), as a SCRAM
+  verifier, with statement logging off for the session, so the password
+  is never in a log, a process list or the server's statistics.
 - `inject`, at `data-loaded` (or `injected`, to replay the idempotent
   scripts): for every fault instance in `fault_instances` order, a `state`
   fault's `injection.scripts` are streamed in their listed order into `sh
@@ -21,6 +28,10 @@ Each step is one `state.setup_step`: any failure, or Ctrl-C, tears the game
 down and records `failed` with the reason.
 """
 
+import base64
+import hashlib
+import hmac
+import os
 from dataclasses import dataclass, field
 
 from . import localimpl, model, state, teardown
@@ -35,6 +46,9 @@ DATA_USER = "postgres"
 PSQL_ARGV = ("psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-d", "postgres")
 DEFAULT_RUN_AS = "root"
 STATE_KIND = "state"
+DATABASE_ROLE = "database"
+SCRAM_ITERATIONS = 4096             # PostgreSQL's scram_iterations default
+SCRAM_SALT_BYTES = 16
 PARAMETER_KIND = localimpl.PARAMETER_KIND
 
 
@@ -133,6 +147,7 @@ class LoadResult:
     game_id: str
     already: str = None             # the stage, when the data was already loaded
     loaded: list = field(default_factory=list)     # [(node, file)]
+    passwords: list = field(default_factory=list)  # [(database node, [role])]
 
     def text(self):
         if self.already:
@@ -142,8 +157,64 @@ class LoadResult:
         out += [f"  {node}: {rel}" for node, rel in self.loaded]
         if not self.loaded:
             out.append("  no node holds data")
+        out += [f"  {node}: password set from its secret for role(s) {', '.join(roles)}"
+                for node, roles in self.passwords]
         out.append(f"Stage {DATA_STAGE}.")
         return "\n".join(out)
+
+
+def scram_verifier(password, salt=None, iterations=SCRAM_ITERATIONS):
+    """PostgreSQL's stored form of a SCRAM-SHA-256 password (RFC 5802,
+    7677): `SCRAM-SHA-256$<iterations>:<salt>$<StoredKey>:<ServerKey>`,
+    base64. The server stores it as given and authenticates the password
+    against it."""
+    salt = os.urandom(SCRAM_SALT_BYTES) if salt is None else salt
+    salted = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
+    stored = hashlib.sha256(hmac.new(salted, b"Client Key", hashlib.sha256).digest()).digest()
+    server = hmac.new(salted, b"Server Key", hashlib.sha256).digest()
+
+    def b64(raw):
+        return base64.b64encode(raw).decode("ascii")
+    return f"SCRAM-SHA-256${iterations}:{b64(salt)}${b64(stored)}:{b64(server)}"
+
+
+def password_plan(scenario, impl):
+    """[(database node, [(role, secret)])]: every role a scheduler node's
+    schedule names, on the node its connection targets when that node is a
+    `database` node, else on every `database` node; topology order, each
+    role once per node."""
+    databases = [n["name"] for n in scenario.nodes if n.get("role") == DATABASE_ROLE]
+    roles_of = {}
+    for node in scenario.nodes:
+        for conn in localimpl.schedule_connections(scenario, node).values():
+            role = conn.get("role")
+            m = model.TARGET_RE.match(str(conn.get("target")))
+            target = m.group(1) if m else None
+            for db in [target] if target in databases else databases:
+                if db not in impl["nodes"]:
+                    raise GmError(f"node {db} is not a node of game {impl['game_id']}")
+                roles = roles_of.setdefault(db, [])
+                if role not in roles:
+                    roles.append(role)
+    return [(db, [(r, localimpl.role_secret_name(r)) for r in roles_of[db]])
+            for db in databases if db in roles_of]
+
+
+def password_sql(ldir, roles):
+    """The SQL setting each role's password from its secret file in
+    `secrets/`, statement logging off for the session."""
+    lines = ["SET log_statement = 'none';", "SET log_min_duration_statement = -1;",
+             "SET log_min_error_statement = 'panic';"]
+    for role, secret in roles:
+        path = localimpl.secrets_dir(ldir) / secret
+        try:
+            password = path.read_text(encoding="utf-8").strip()
+        except OSError:
+            raise GmError(f"secret file {path} cannot be read: deploy writes it") from None
+        if not password:
+            raise GmError(f"secret file {path} is empty")
+        lines.append(f'ALTER ROLE "{role}" PASSWORD \'{scram_verifier(password)}\';')
+    return "\n".join(lines) + "\n"
 
 
 def data_plan(scenario, impl):
@@ -173,6 +244,7 @@ def load_data(scenario_dir, playground, timeout=None, docker=None, out=print):
     scenario = model.load_scenario(scenario_dir)
     impl = localimpl.read_implementation(ldir)
     plan = data_plan(scenario, impl)
+    passwords = password_plan(scenario, impl)
     docker = docker or for_local_dir(ldir)
     result = LoadResult(impl["game_id"])
 
@@ -186,6 +258,16 @@ def load_data(scenario_dir, playground, timeout=None, docker=None, out=print):
                 raise GmError(f"data load of {node} ({rel}): psql exit {run.returncode}: "
                               f"{_first_line(run)}")
             result.loaded.append((node, rel))
+        for node, roles in passwords:
+            names = ", ".join(r for r, _ in roles)
+            run = exec_node(ldir, node, DATA_USER, stdin=password_sql(ldir, roles),
+                            timeout=timeout, docker=docker, argv=PSQL_ARGV)
+            _print_run(out, f"{node} passwords of {names} (psql as {DATA_USER})", run)
+            if not run.ok:
+                raise GmError(f"setting the passwords of {names} on {node} (the data must "
+                              f"create these roles): psql exit {run.returncode}: "
+                              f"{_first_line(run)}")
+            result.passwords.append((node, [r for r, _ in roles]))
     localimpl.set_stage(ldir, DATA_STAGE)
     return result
 

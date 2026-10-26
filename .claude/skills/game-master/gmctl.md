@@ -36,7 +36,7 @@ The teardown a failed step runs itself writes none.
 |---|---|---|---|
 | `tools/gmctl status <dir> --playground <pg>` | any game | nothing | 0; 1 no game |
 | `tools/gmctl fit <dir> --playground <pg> [--endpoint ssh://user@host] [--cpu N --memory SIZE --disk SIZE]` | no game, `fitted`, `rendered`, `failed` before deployment (same game id); `torn-down`, or `failed` after deployment with its teardown recorded (a new game id) | `fitted` | 0 fits; 1 does not fit, or refused (a deployed stage, or a failure after deployment not torn down: the message names the game, its stage and `gmctl teardown`, or `gmctl deploy` for a failed deploy; the playground's engine not reachable; an image missing on it, with its build command; these last two write nothing) |
-| `tools/gmctl render <dir> --playground <pg>` | `fitted`, `rendered` | `rendered` | 0; 1 refused |
+| `tools/gmctl render <dir> --playground <pg> [--handover <UTC date and hour>]` | `fitted`, `rendered` | `rendered`; the `timeline` in `implementation.yaml` | 0; 1 refused (no `--handover` with scheduler nodes, a hand-over not in the future or not a whole hour, the scenario changed since `fit`) |
 | `tools/gmctl deploy <dir> --playground <pg> [--init-swarm] [--timeout SECONDS]` | `rendered`, or `failed` in deploy | `deployed` | 0; 1 refused or failed |
 | `tools/gmctl load-data <dir> --playground <pg> [--timeout SECONDS]` | `deployed` (later deployed stages: no-op, exit 0) | `data-loaded` | 0; 1 refused or failed |
 | `tools/gmctl inject <dir> --playground <pg> [--timeout SECONDS]` | `data-loaded`, `injected` (a replay) | `injected` | 0; 1 refused or failed |
@@ -81,7 +81,38 @@ password or key. The GM's reads, one per tool, are in the skill's
   then `refused`.
 - **`render`**: `Game <id>: rendered.`, the stack file, each node's
   envelope file, then each node's own config of a mounted item
-  (`mounted/<item>/<node>.conf`), and `Stage rendered.` Parameter faults
+  (`mounted/<item>/<node>.conf`), then each seed file it rewrites
+  (`rendered/<node>/<file>`), and `Stage rendered.` With scheduler nodes
+  (v0.3 master spec 8.3; capture W2 item 1 in
+  `specs/versions/v0.3/wave-log.md`) `--handover 2026-10-27T14:00Z` (or
+  `...T14:00:00Z`, a whole UTC hour, in the future) is required: render
+  prints `planned hand-over <instant>, shift <+N>, customer's time zone
+  UTC+N (Etc/GMT-N)`, and records under `implementation.yaml`'s
+  `timeline` the planned and designed hand-overs, the shift (between -11
+  and +12), the customer's time zone, the game's seed (kept by a
+  re-render, new after a refit), the aging minimum and every fault
+  instance's planting moment and minimum. A planned hand-over too soon
+  for the aging is not refused: one `warning:` line gives the earliest
+  hand-over the game could have if the load started now. Each
+  scheduler's `schedule.yaml` (with the seed; shapes per UTC weekday;
+  timeline moments as UTC instants, `T0` as the render time) and
+  `jobs.yaml` (every job's time shifted into UTC; a job with
+  `timezone_offset: N` keeps its time in the zone `Etc/GMT∓M`, M the
+  shift plus N wrapped into UTC-12..UTC+14) are rendered there, as are
+  the bastion's files holding `{{customer_timezone}}`, filled with
+  `UTC+2 (Etc/GMT-2)`. A scenario with no scheduler node renders without
+  `--handover` and shifts nothing; given one, only the planned hand-over
+  is recorded. Each seed config is mounted with its brick's `seed.modes`
+  mode (`schedule.yaml` `0400`), `0444` otherwise, and a directory seed
+  entry (`builders/`) as one config per file. Every node gets, after
+  `TZ=UTC`, `GM_WRITE_POLICY` (its `write_policy`) and
+  `GM_WRITE_OVERRIDES` (its `write_overrides`, sorted, space-separated,
+  `""` when none; W1 item 5). Each role a scheduler's `schedule.yaml`
+  names gets a password secret `role_<role>_password`, mounted root-only
+  (`0400`) at `/opt/gm/secrets/` in each scheduler node naming it; a
+  brick secret with `only_with_role` (the lookup role's
+  `pgbouncer_lookup_password`, `pooler`) exists only when a node of the
+  topology has that role. Parameter faults
   are planted here, before anything is derived from the parameters:
   each one's changes apply to its target node's parameters, so a node a
   fault leaves out of a node-map (the `prometheus` node's `node_health`)
@@ -102,6 +133,15 @@ password or key. The GM's reads, one per tool, are in the skill's
   characters when players type it, `handed_over`, else 32); a key pair
   (ed25519, no passphrase) writes `<pair>` and `<pair>.pub`. Every node
   runs with `TZ=UTC`, on the one network `<id>_<network name>`.
+- **`load-data`**: one line per node's data file, `<node> <file> (psql as
+  postgres): ok|exit N`, then, in a game with scheduler nodes, one per
+  database node, `<node> passwords of <roles> (psql as postgres)`: each
+  application role a schedule names gets its password from its secret
+  (`role_<role>_password`) once the data has created it, on the database
+  node the connection targets (every database node for a pooler target),
+  sent as a SCRAM verifier with statement logging off, so no log holds
+  it; a role the data did not create fails the step. The summary lists
+  the files and `<node>: password set from its secret for role(s) ...`.
 - **A failed setup step** (`deploy`, `load-data`, `inject`): `setup failed
   before stage <stage>: <reason>`, the teardown it ran, then `Recorded in
   state.yaml (stage failed).`

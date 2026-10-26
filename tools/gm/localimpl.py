@@ -11,11 +11,21 @@ Master spec 10.3; files, names and labels fixed by capture W2-A
                          written by `render` (the last: each receiving
                          node's own config of a mounted item, v0.2 capture
                          W1, item 4);
+- `rendered/<node>/<seed file>`
+                         written by `render` (v0.3 capture W2, item 1):
+                         the seed files it rewrites, a scheduler node's
+                         `schedule.yaml` and `jobs.yaml` in UTC and a
+                         bastion seed file with `{{customer_timezone}}`
+                         filled; `implementation.yaml` names them from
+                         `fit` on, and `render` adds its `timeline`;
 - `state.yaml`           the stage reached, its history, any failure, and
                          the teardown record (spec D50);
 - `secrets/`             written by `deploy` (directory 0700, files 0600):
                          the secrets the bricks declare, by kind (v0.2
-                         capture W1, item 7).
+                         capture W1, item 7), those with `only_with_role`
+                         only when a node has the role, and a password
+                         `role_<role>_password` per role a scheduler's
+                         schedule names (v0.3 capture W1, items 3, 7).
 
 Every path an implementation records (`file:`) is relative to the scenario
 folder.
@@ -32,7 +42,9 @@ from pathlib import Path
 
 import yaml
 
-from .model import SUBSTITUTION_RE, GmError, mounted_items, parse_mode, parse_size
+from .model import (CUSTOMER_TIMEZONE, SUBSTITUTION_RE, GmError, has_scheduler_nodes,
+                    is_scheduler_node, is_seed_folder_entry, mounted_items, parse_mode,
+                    parse_size)
 
 PLATFORM = "swarm"
 STAGES = ("fitted", "rendered", "deployed", "data-loaded", "injected", "handed-over",
@@ -47,12 +59,20 @@ STACK_FILE = "stack.yml"
 ENVELOPES_DIR = "envelopes"
 SECRETS_DIR = "secrets"
 MOUNTED_DIR = "mounted"
+RENDERED_DIR = "rendered"
+TIMELINE = "timeline"               # implementation.yaml's key render writes (v0.3 W2, item 1)
 
 LABEL_NAMESPACE = "com.docker.stack.namespace"
 LABEL_GAME = "dbagm.game"
 PLACEMENT_CONSTRAINT = "node.role == manager"   # single host in v0.1
 ENVELOPES_CONFIG = "envelopes"      # the brick's protected config holding the envelope file
-SEED_CONFIG_UID, SEED_CONFIG_GID, SEED_CONFIG_MODE = 0, 0, "0444"
+SEED_CONFIG_UID, SEED_CONFIG_GID, SEED_CONFIG_MODE = 0, 0, "0444"   # unless seed.modes says
+SEED_KIND = "seed"
+# A scheduler node's seed files render rewrites in UTC (v0.3 capture W1,
+# item 7); the others are copied unchanged.
+SCHEDULE_FILE, JOBS_FILE = "schedule.yaml", "jobs.yaml"
+RENDERED_SCHEDULER_FILES = (SCHEDULE_FILE, JOBS_FILE)
+BASTION_ROLE = "bastion"
 
 # Mounted companion material (v0.2 capture W1, item 4; W1-D): each file of
 # an item is one config `<game_id>_<mounting node>_<item>-<k>` (k from 1, in
@@ -75,6 +95,12 @@ KEY_PAIR = "key-pair"
 SECRET_KINDS = (PASSWORD, KEY_PAIR)
 KEY_HALVES = ("private", "public")
 PUBLIC_KEY_SUFFIX = ".pub"
+# A scheduler's connection secrets (v0.3 capture W1, item 7): one password
+# per role its schedule.yaml names, derived here, never declared in
+# brick.yaml; mounted root-only in each scheduler node naming the role.
+ROLE_SECRET_PREFIX, ROLE_SECRET_SUFFIX = "role_", "_password"
+ROLE_SECRET_DIR = "/opt/gm/secrets"
+ROLE_SECRET_UID, ROLE_SECRET_GID, ROLE_SECRET_MODE = 0, 0, "0400"
 
 GAME_ID_MAX = 63                    # master spec 10.3
 SERVICE_NAME_MAX = 63               # Swarm service names
@@ -268,6 +294,81 @@ def require_stage(ldir, *allowed):
     return state
 
 
+# --- Seed files ------------------------------------------------------------
+
+def seed_entries(scenario, node):
+    """`[(brick seed file, seed name, scenario file)]` of a node, in the
+    brick's `seed.files` order: a file entry as itself; a directory entry
+    (`builders/`, v0.3 capture W1, item 3) as one entry per regular file of
+    the scenario's folder, by name, its seed name `<entry><file>`; a
+    directory entry the scenario leaves out gives none."""
+    seed = scenario.bricks[node["name"]].data.get("seed") or {}
+    given = node.get("seed_files") or {}
+    out = []
+    for fname in seed.get("files") or []:
+        if not is_seed_folder_entry(fname):
+            out.append((fname, fname, given[fname]))
+            continue
+        rel = given.get(fname)
+        if rel is None:
+            continue
+        folder = Path(scenario.dir) / rel
+        for entry in sorted(folder.iterdir()) if folder.is_dir() else []:
+            if entry.is_file():
+                out.append((fname, fname + entry.name,
+                            posixpath.join(str(rel).rstrip("/"), entry.name)))
+    return out
+
+
+def rendered_seed_file(playground, node, fname):
+    """A seed file render rewrites, relative to the scenario folder."""
+    return f"local/{playground}/{RENDERED_DIR}/{node}/{fname}"
+
+
+def rendered_seed_names(scenario, node):
+    """The seed files of `node` render rewrites (v0.3 capture W2, item 1):
+    a scheduler node's `schedule.yaml` and `jobs.yaml`; in a scenario with
+    scheduler nodes, a bastion seed file holding `{{customer_timezone}}`
+    (where the loader looks for it, W1 item 1)."""
+    if is_scheduler_node(node):
+        return [f for f in RENDERED_SCHEDULER_FILES if f in (node.get("seed_files") or {})]
+    if node.get("role") != BASTION_ROLE or not has_scheduler_nodes(scenario.data):
+        return []
+    names = []
+    for _, seed_name, rel in seed_entries(scenario, node):
+        try:
+            text = (Path(scenario.dir) / rel).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        if CUSTOMER_TIMEZONE in text:
+            names.append(seed_name)
+    return names
+
+
+def seed_configs(scenario, node, playground, game_id):
+    """A node's seed configs: one per seed entry (seed_entries), at
+    `<seed.dir><seed name>`, root-owned, with its brick's `seed.modes`
+    mode, `"0444"` otherwise (a directory entry's mode for each of its
+    files); `file` the scenario's, or the rendered one for a file render
+    rewrites (v0.3 capture W1, item 3; W2, item 1)."""
+    name = node["name"]
+    seed = scenario.bricks[name].data.get("seed") or {}
+    modes = seed.get("modes") or {}
+    rendered = rendered_seed_names(scenario, node)
+    configs = []
+    for fname, seed_name, rel in seed_entries(scenario, node):
+        configs.append({
+            "kind": SEED_KIND,
+            "name": f"{game_id}_{name}_{config_file_part(seed_name)}",
+            "file": rendered_seed_file(playground, name, seed_name)
+                    if seed_name in rendered else rel,
+            "path": posixpath.join(seed["dir"], seed_name),
+            "uid": SEED_CONFIG_UID, "gid": SEED_CONFIG_GID,
+            "mode": str(modes.get(fname, SEED_CONFIG_MODE)),
+        })
+    return configs
+
+
 # --- Names -----------------------------------------------------------------
 
 def labels(game_id):
@@ -286,11 +387,11 @@ def _derived_lengths(scenario):
         name = node["name"]
         brick = scenario.bricks[name].data
         parts.append((f"_{name}", SERVICE_NAME_MAX))
-        for fname in (brick.get("seed") or {}).get("files") or []:
-            parts.append((f"_{name}_{config_file_part(fname)}", OBJECT_NAME_MAX))
+        for _, seed_name, _ in seed_entries(scenario, node):
+            parts.append((f"_{name}_{config_file_part(seed_name)}", OBJECT_NAME_MAX))
         for pc in brick.get("protected_configs") or []:
             parts.append((f"_{name}_{pc['name']}", OBJECT_NAME_MAX))
-        for sec in brick.get("secrets") or []:
+        for sec in node_secret_declarations(scenario, node):
             parts.append((f"_{sec['name']}", OBJECT_NAME_MAX))
         # mounted material: any node of the topology may receive it
         for item in mounted_items(brick):
@@ -366,16 +467,65 @@ def _secret_problems(brick, sec):
     return out
 
 
+def role_secret_name(role):
+    return f"{ROLE_SECRET_PREFIX}{role}{ROLE_SECRET_SUFFIX}"
+
+
+def schedule_connections(scenario, node):
+    """A scheduler node's schedule.yaml `connections` (`{}` for another
+    node, or when the file cannot be read: the loader reports it)."""
+    if not is_scheduler_node(node):
+        return {}
+    rel = (node.get("seed_files") or {}).get(SCHEDULE_FILE)
+    if rel is None:
+        return {}
+    try:
+        doc = yaml.safe_load((Path(scenario.dir) / rel).read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, yaml.YAMLError):
+        return {}
+    connections = (doc or {}).get("connections") if isinstance(doc, dict) else None
+    return connections if isinstance(connections, dict) else {}
+
+
+def connection_roles(scenario, node):
+    """The roles a scheduler node's schedule names, in first-use order."""
+    roles = []
+    for conn in schedule_connections(scenario, node).values():
+        role = conn.get("role") if isinstance(conn, dict) else None
+        if isinstance(role, str) and role not in roles:
+            roles.append(role)
+    return roles
+
+
+def topology_roles(scenario):
+    return {n.get("role") for n in scenario.nodes}
+
+
+def node_secret_declarations(scenario, node):
+    """The secrets a node mounts, as declarations: its brick's whose
+    `only_with_role` condition holds (a node of the topology has that role;
+    v0.3 capture W1, item 3), then, on a scheduler node, one password
+    `role_<role>_password` per role its schedule names (W1 item 7)."""
+    roles = topology_roles(scenario)
+    out = [sec for sec in scenario.bricks[node["name"]].data.get("secrets") or []
+           if sec.get("only_with_role") is None or sec.get("only_with_role") in roles]
+    for role in connection_roles(scenario, node):
+        name = role_secret_name(role)
+        out.append({"name": name, "kind": PASSWORD, "path": posixpath.join(ROLE_SECRET_DIR, name),
+                    "uid": ROLE_SECRET_UID, "gid": ROLE_SECRET_GID, "mode": ROLE_SECRET_MODE})
+    return out
+
+
 def game_secrets(scenario):
-    """`(secrets, problems)`: the game's secrets, one per declared name in
-    topology order, each `{"secret": name, **identity, "file": file in
-    secrets/}`, and what refuses the topology (capture W1, item 7): a
-    malformed declaration, a name two bricks declare differently, or a
-    password whose file is a key pair's."""
+    """`(secrets, problems)`: the game's secrets, one per name a node
+    mounts (node_secret_declarations) in topology order, each `{"secret":
+    name, **identity, "file": file in secrets/}`, and what refuses the
+    topology (capture W1, item 7): a malformed declaration, a name two
+    bricks declare differently, or a password whose file is a key pair's."""
     found, problems = {}, []
     for node in scenario.nodes:
         brick = scenario.bricks[node["name"]]
-        for sec in brick.data.get("secrets") or []:
+        for sec in node_secret_declarations(scenario, node):
             name = sec.get("name")
             shape = _secret_problems(brick, sec)
             if shape:
@@ -637,16 +787,7 @@ def build_implementation(scenario, playground, game_id, created_at):
         name = node["name"]
         brick = scenario.bricks[name]
         b = brick.data
-        seed = b.get("seed") or {}
-        configs = []
-        for fname in seed.get("files") or []:
-            configs.append({
-                "kind": "seed",
-                "name": f"{gid}_{name}_{config_file_part(fname)}",
-                "file": node["seed_files"][fname],
-                "path": posixpath.join(seed["dir"], fname),
-                "uid": SEED_CONFIG_UID, "gid": SEED_CONFIG_GID, "mode": SEED_CONFIG_MODE,
-            })
+        configs = seed_configs(scenario, node, playground, gid)
         for pc in b.get("protected_configs") or []:
             configs.append({
                 "kind": pc["name"],
@@ -656,7 +797,7 @@ def build_implementation(scenario, playground, game_id, created_at):
             })
         configs += mounted[name]
         node_secrets = []
-        for sec in b.get("secrets") or []:
+        for sec in node_secret_declarations(scenario, node):
             sname = f"{gid}_{sec['name']}"
             node_secrets.append({"name": sname, "path": sec["path"], "uid": sec["uid"],
                                  "gid": sec["gid"], "mode": sec["mode"]})

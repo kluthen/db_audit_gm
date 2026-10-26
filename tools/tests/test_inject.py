@@ -1,14 +1,19 @@
 """gmctl load-data and inject (tools/gm/inject.py), the FAULT_* environment,
 and exec_node's `argv`; Docker stubbed."""
 
+import base64
+import hashlib
+import hmac
+import re
 import subprocess
+import unittest
 from pathlib import Path
 
 from tools.gm import deploy, execnode, fit, inject, localimpl, model, render, state, teardown
 from tools.gm.model import GmError
 from tools.tests import SUFFICIENT, FakeDocker, run_gmctl
 from tools.tests.test_deploy import RenderedGame
-from tools.tests.test_render import MountedCopyTest
+from tools.tests.test_render import MountedCopyTest, V03Rendered, handover_at
 
 F2_ENV = {"FAULT_DATABASE": "shop", "FAULT_TABLE_NAME": "orders",
           "FAULT_COLUMN": "customer_id"}
@@ -342,3 +347,123 @@ class TestMountedGame(MountedCopyTest):
         self.assertIn("  f2: parameter fault, planted at rendering; nothing to run",
                       result.text())
         self.assertEqual(localimpl.read_state(self.ldir)["stage"], "injected")
+
+
+# --- v0.3: the application roles' passwords at load-data (chunk 7b) ---------
+
+VERIFIER_RE = re.compile(r"PASSWORD 'SCRAM-SHA-256\$4096:([A-Za-z0-9+/=]+)\$"
+                         r"([A-Za-z0-9+/=]+):([A-Za-z0-9+/=]+)'")
+
+
+class TestScramVerifier(unittest.TestCase):
+
+    def test_rfc_7677_vector(self):
+        # RFC 7677, section 3: user "user", password "pencil"; the server's
+        # signature and the client's proof check against the verifier's keys.
+        salt = base64.b64decode("W22ZaJ0SNY7soEsUEjb6gQ==")
+        verifier = inject.scram_verifier("pencil", salt=salt)
+        m = re.fullmatch(r"SCRAM-SHA-256\$4096:(.+)\$(.+):(.+)", verifier)
+        self.assertEqual(base64.b64decode(m.group(1)), salt)
+        stored, server = base64.b64decode(m.group(2)), base64.b64decode(m.group(3))
+        nonce = "rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0"
+        auth = (f"n=user,r=rOprNGfwEbeRWgbNEkqO,r={nonce},s=W22ZaJ0SNY7soEsUEjb6gQ==,"
+                f"i=4096,c=biws,r={nonce}").encode()
+        self.assertEqual(base64.b64encode(hmac.new(server, auth, hashlib.sha256).digest()),
+                         b"6rriTRBi23WpRR/wtup+mMhUZUn/dB5nLTJRsjl95G4=")
+        proof = base64.b64decode("dHzbZapWIk4jUhN+Ute9ytag9zjfMHgsqmmiz7AndVQ=")
+        signature = hmac.new(stored, auth, hashlib.sha256).digest()
+        client_key = bytes(a ^ b for a, b in zip(proof, signature))
+        self.assertEqual(hashlib.sha256(client_key).digest(), stored)
+
+    def test_a_fresh_salt_each_time(self):
+        self.assertNotEqual(inject.scram_verifier("x"), inject.scram_verifier("x"))
+
+
+def matches(verifier_match, password):
+    """Whether a verifier (VERIFIER_RE's groups) is `password`'s."""
+    salt, stored = base64.b64decode(verifier_match.group(1)), verifier_match.group(2)
+    again = inject.scram_verifier(password, salt=salt)
+    return again.split("$")[2].split(":")[0] == stored
+
+
+class V03DeployedGame(V03Rendered):
+    """fixture-v03-refusals rendered and deployed on a ScriptedDocker."""
+
+    def setUp(self):
+        super().setUp()
+        self.render(handover_at(16))
+        self.replies = {}
+        self.fake = ScriptedDocker(reply=self.reply)
+        self.clock = [0.0]
+        deploy.deploy(self.scenario, "laptop", docker=self.fake, timeout=30,
+                      sleep=lambda s: self.clock.__setitem__(0, self.clock[0] + s),
+                      clock=lambda: self.clock[0])
+        self.printed = []
+
+    def reply(self, run):
+        for fragment, answer in self.replies.items():
+            if fragment in run["stdin"]:
+                return answer
+        return (0, "", "")
+
+    def load_data(self):
+        return inject.load_data(self.scenario, "laptop", docker=self.fake,
+                                out=self.printed.append)
+
+
+class TestLoadDataPasswords(V03DeployedGame):
+
+    def test_the_roles_passwords_set_after_the_data_load(self):
+        result = self.load_data()
+        self.assertEqual(len(self.fake.runs), 2)
+        data, passwords = self.fake.runs
+        self.assertEqual(data["stdin"], (self.scenario / "data/db.sql").read_text())
+        self.assertEqual(passwords["container"], f"{self.gid}_db.1.ctr")
+        self.assertEqual(passwords["user"], "postgres")
+        self.assertEqual(passwords["argv"], list(inject.PSQL_ARGV))
+        lines = passwords["stdin"].splitlines()
+        self.assertEqual(lines[:3], ["SET log_statement = 'none';",
+                                     "SET log_min_duration_statement = -1;",
+                                     "SET log_min_error_statement = 'panic';"])
+        sdir = self.ldir / "secrets"
+        for line, role in zip(lines[3:], ("shop_app", "shop_reports")):
+            self.assertTrue(line.startswith(f'ALTER ROLE "{role}" PASSWORD '), line)
+            secret = (sdir / f"role_{role}_password").read_text()
+            self.assertEqual(len(secret), deploy.DBA_PASSWORD_LENGTH)
+            self.assertNotIn(secret, passwords["stdin"])       # only its verifier
+            self.assertTrue(matches(VERIFIER_RE.search(line), secret), role)
+        self.assertEqual(len(lines), 5)
+        self.assertEqual(result.passwords, [("db", ["shop_app", "shop_reports"])])
+        self.assertIn("  db: password set from its secret for role(s) shop_app, shop_reports",
+                      result.text())
+        self.assertEqual(localimpl.read_state(self.ldir)["stage"], "data-loaded")
+        for secret in sdir.iterdir():
+            self.assertNotIn(secret.read_text().strip(), "\n".join(self.printed))
+
+    def test_a_missing_role_fails_the_step(self):
+        self.replies["ALTER ROLE"] = (3, "", 'psql:<stdin>:4: ERROR:  role "shop_app" does '
+                                             "not exist\n")
+        with self.assertRaises(state.SetupFailed) as cm:
+            self.load_data()
+        self.assertIn("setting the passwords of shop_app, shop_reports on db", str(cm.exception))
+        st = localimpl.read_state(self.ldir)
+        self.assertEqual((st["stage"], st["failure"]["stage"]), ("failed", "data-loaded"))
+
+    def test_a_pooler_target_sets_them_on_the_database_nodes(self):
+        self.edit_yaml("nodes/producer/schedule.yaml",
+                       lambda d: d["connections"]["reports"].update(target="bastion:6432/shop"))
+        sc = model.load_scenario(self.scenario)
+        impl = localimpl.read_implementation(self.ldir)
+        self.assertEqual(inject.password_plan(sc, impl), [
+            ("db", [("shop_app", "role_shop_app_password"),
+                    ("shop_reports", "role_shop_reports_password")])])
+
+
+class TestLoadDataStatic(DeployedGame):
+    """A game with no scheduler node sets no password."""
+
+    def test_no_password_step(self):
+        result = self.load_data()
+        self.assertEqual(len(self.fake.runs), 1)
+        self.assertEqual(result.passwords, [])
+        self.assertNotIn("password", result.text())

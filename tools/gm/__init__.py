@@ -5,7 +5,7 @@ Python 3, standard library plus PyYAML. Modules:
 - `model`      loading and checking a scenario (completeness, catalog references);
 - `localimpl`  the local implementation's files, names, labels and state (capture W2-A);
 - `fit`        the capacity check and `implementation.yaml`;
-- `render`     the stack file and the envelope files;
+- `render`     the stack file, the envelope files, the shift and the scheduler's files;
 - `docker`     the Docker command line, aimed at the playground's engine;
 - `state`      `gmctl status` (and `--set`, the GM-recorded stages), and
                recording a failed setup step;
@@ -39,7 +39,7 @@ def _cmd_fit(args):
 
 def _cmd_render(args):
     from . import render
-    print(render.render(args.scenario_dir, args.playground).text())
+    print(render.render(args.scenario_dir, args.playground, handover=args.handover).text())
     return 0
 
 
@@ -142,8 +142,12 @@ def build_parser():
     p.add_argument("--disk", metavar="SIZE", help="playground disk (40G)")
     p.set_defaults(func=_cmd_fit)
 
-    p = sub.add_parser("render", help="write the stack file and the envelope files")
+    p = sub.add_parser("render", help="write the stack file, the envelope files and the "
+                                      "scheduler's files, shifted for the planned hand-over")
     _scenario_args(p)
+    p.add_argument("--handover", metavar="<UTC date and hour>",
+                   help="the planned hand-over, YYYY-MM-DDTHH:00Z (2026-10-27T14:00Z); "
+                        "required with scheduler nodes")
     p.set_defaults(func=_cmd_render)
 
     p = sub.add_parser("deploy", help="create the game's credentials, configs and secrets, "
