@@ -2834,3 +2834,57 @@ another." W3-a holds, but for:
   edited by hand into `playground.yaml` is checked on read. Left as
   chunk 11 wrote it: after a no-history restart, the "earliest
   hand-over" line counts from the new T0.
+
+### Wave gate — 2026-10-27
+
+Run on `v0.3-w3` (head d2dab75) on armenelos (Debian 13, Docker 29.9.1,
+swarm leader; `vps-5718ad52`, Docker 29.9.2, drained but for the last
+step), 10:58–11:43 CET, by a `coding-executor`; every docker step under
+the host lock, one at a time. Step logs: the driver's scratchpad,
+`gate-w3/` (`summary.txt`, `two-host-wrapper.sh`, `leftovers.sh`). All
+passed; no fix needed.
+
+| Step | Result | Duration |
+|---|---|---|
+| Unit suite | 651 OK | 104 s |
+| Scheduler unit tests (in its image) | 60 OK | 66 s |
+| `sh -n` on every shell file | 110 files, 0 failed | — |
+| `perl -c` on every Perl file | 7 files, 0 failed | — |
+| Loader: every brick, fault, scenario and fixture | 25 definitions (new: `fixture-load`), plus 13 inside fixtures; 0 with problems | <1 s |
+| Stack test `postgres` 0.3.0 | all checks passed (131) | 73 s |
+| Stack test `bastion` 0.3.0 | all checks passed (71) | 62 s |
+| Stack test `prometheus` 0.2.0 | all checks passed (131) | 78 s |
+| Stack test `postgres-exporter` 0.2.0 | all checks passed (103) | 98 s |
+| Stack test `grafana` 0.2.0 | all checks passed (119) | 165 s |
+| Stack test `scheduler` 0.1.0 | all checks passed (95) | 728 s |
+| Stack test `pgbouncer` 0.1.0 | all checks passed (103) | 98 s |
+| `smoke.sh` | 60 passed (with the snapshot) | 30 s |
+| `smoke-monitoring.sh` | 43 passed | 47 s |
+| `smoke-scenario.sh bookshop-new-server` | 19 passed | 22 s |
+| `smoke-scenario.sh fernway-clinics-monitoring` | 18 passed | 30 s |
+| `smoke-load.sh armenelos` (one host) | 73 passed | 399 s |
+| `smoke-load.sh duo` (armenelos + the VPS) | 73 passed | 499 s |
+
+- Image sizes unchanged from wave 2 (postgres 262MB, bastion 185MB,
+  prometheus 488MB, postgres-exporter 165MB, grafana 866MB, scheduler
+  172MB, pgbouncer 182MB).
+- Two-host run: `--host armenelos,manager,cpu=4,memory=4G,disk=20G
+  --host vps-5718ad52,endpoint=ssh://dbagm-vps,cpu=2,memory=4G,disk=10G
+  --map host-1=armenelos --map host-2=vps-5718ad52`, no SSH agent.
+  bastion, db, pooler, producer on armenelos; consumer, Prometheus,
+  exporter, Grafana on the VPS. Overlay 10.20.0.0/24 (the default
+  range), MTU option 1230; images: scheduler 0.1.0 copied, 3 held; ports
+  on armenelos only; Prometheus's 12 targets up across the link; 316
+  transactions through PgBouncer. VPS `active` inside the lock, `Drain`
+  after (trap). filetstudio.com 200 before, 16/16 during, after; no
+  MongoDB line. Nothing of a game left on either host; no `dbagm-*`
+  unit.
+- The VPS holds four game images (~1.69 GB): scheduler, grafana,
+  prometheus 0.2.0, postgres-exporter 0.2.0. `infinite-flow-web` there
+  had restarted around 10:09 CET, before the gate touched the VPS
+  (drained, nothing of the game's running there); healthy throughout.
+- Carried to wave 4 (cosmetic): `deploy`'s first line reads "deployed on
+  local engine" on a several-host game (`tools/gm/deploy.py`
+  `DeployResult.text`), as `status` did before 2a7f54a.
+- No dependency changed in wave 3 (no `security-advisor` check); no
+  intent register (no wave sync).
