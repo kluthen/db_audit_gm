@@ -12,6 +12,10 @@ ExecError (a GmError) when the script cannot be started at all (no game, no
 running container, unknown user, Docker error). Docker 29 returns 1 for its
 own errors, the same code a script can return, so the user and container
 are probed first (`docker exec -u <user> <container> true`).
+
+v0.3 (master spec 10.2; capture W3, item 3): the node's container is found
+and run on the host the node is placed on, through that host's Docker
+(`docker.for_service`), so callers keep passing the manager's.
 """
 
 import re
@@ -74,17 +78,24 @@ def _service(impl, node):
     return nodes[node]["service"]
 
 
+def node_docker(docker, impl, node):
+    """The Docker of the host `node` is placed on (the manager's on one host)."""
+    _service(impl, node)
+    return docker.on_host(impl["nodes"][node].get("host"))
+
+
 def node_container(docker, impl, node):
-    """The running container of `node`, found by its Swarm service label;
-    the healthy one if Swarm is replacing it."""
+    """The running container of `node` on its host, found by its Swarm
+    service label; the healthy one if Swarm is replacing it."""
     service = _service(impl, node)
-    containers = running_containers(docker, service)
+    host = node_docker(docker, impl, node)
+    containers = running_containers(host, service)
     if not containers:
         raise ExecError(f"node {node}: no running container of service {service} on "
-                        f"{docker.describe()}")
+                        f"{host.describe()}")
     if len(containers) > 1:
         for container in containers:
-            health = docker.run(["inspect", "--format",
+            health = host.run(["inspect", "--format",
                                  "{{if .State.Health}}{{.State.Health.Status}}{{end}}",
                                  container], check=False).stdout or ""
             if health.strip() == "healthy":
@@ -111,7 +122,7 @@ def exec_node(ldir, node, user, stdin=None, env=None, capture=True, timeout=None
         if not ENV_NAME_RE.match(key):
             raise ExecError(f"environment variable {key!r}: not a shell variable name")
     _, impl = _game(ldir)
-    docker = docker or for_local_dir(ldir)
+    docker = node_docker(docker or for_local_dir(ldir), impl, node)
     container = node_container(docker, impl, node)
 
     probe = docker.run(["exec", "-u", user, container, "true"], check=False, timeout=60)

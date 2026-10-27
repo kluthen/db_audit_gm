@@ -9,7 +9,48 @@ import unittest
 import yaml
 
 from tools.gm import fit, localimpl, model, render
-from tools.tests import FIXTURES, SUFFICIENT, ScenarioCopyTest, run_gmctl
+from tools.tests import FIXTURES, SUFFICIENT, FakeDocker, ScenarioCopyTest, run_gmctl
+
+
+MANAGER, WORKER = "armenelos", "vps-5718ad52"
+VPS_ENDPOINT = "ssh://debian@100.126.172.117"
+
+
+def two_hosts(manager_memory="4G", worker_memory="4G", worker_disk="20G"):
+    """`--host` options for armenelos (the manager) and the VPS."""
+    return [f"{MANAGER},manager,cpu=2,memory={manager_memory},disk=20G",
+            f"{WORKER},endpoint={VPS_ENDPOINT},cpu=2,memory={worker_memory},disk={worker_disk}"]
+
+
+def two_host_engine(**kwargs):
+    """The manager's engine, the VPS listed as a drained worker."""
+    return FakeDocker(name=MANAGER, nodes={MANAGER: ("Ready", "Active", "Leader"),
+                                           WORKER: ("Ready", "Drain", "")}, **kwargs)
+
+
+class TwoHostScenario(ScenarioCopyTest):
+    """fixture-audit designed for two hosts: the bastion on host-1, db on host-2."""
+
+    def setUp(self):
+        super().setUp()
+
+        def two(data):
+            data["designed_for"]["hosts"].append({"name": "host-2", "cpu": 2, "memory": "4G",
+                                                  "disk": "20G"})
+            data["designed_for"]["placement"]["db"] = "host-2"
+        self.edit_yaml("scenario.yaml", two)
+        self.ldir = self.scenario / "local" / "duo"
+
+    def fit(self, hosts=None, mapping=("host-1=" + MANAGER, "host-2=" + WORKER), engine=None,
+            **kwargs):
+        return fit.fit(self.scenario, "duo", docker=engine or two_host_engine(),
+                       hosts=two_hosts() if hosts is None else hosts, mapping=list(mapping),
+                       **kwargs)
+
+    def refused(self, pattern, **kwargs):
+        with self.assertRaisesRegex(model.GmError, pattern):
+            self.fit(**kwargs)
+        self.assertFalse(self.ldir.exists())
 
 
 class TestEnvelopeText(unittest.TestCase):
@@ -419,7 +460,8 @@ class TestRender(RenderedFixture):
     def test_deploy_section(self):
         db = self.stack["services"]["db"]["deploy"]
         self.assertEqual(db["replicas"], 1)
-        self.assertEqual(db["placement"]["constraints"], ["node.role == manager"])
+        # every node pinned to the host fit placed it on: on one host, the engine's name
+        self.assertEqual(db["placement"]["constraints"], ["node.hostname == gm-host"])
         self.assertEqual(db["resources"], {
             "limits": {"cpus": "1", "memory": "1G"},
             "reservations": {"cpus": "0.5", "memory": "512M"}})
@@ -439,6 +481,27 @@ class TestRender(RenderedFixture):
         r = subprocess.run(["docker", "stack", "config", "-c", str(self.ldir / "stack.yml")],
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
+
+
+class TestPlacement(TwoHostScenario):
+
+    def test_every_node_pinned_to_its_host_the_bastion_with_its_ports(self):
+        self.fit()
+        render.render(self.scenario, "duo")
+        stack = yaml.safe_load((self.ldir / "stack.yml").read_text())
+        constraints = {name: svc["deploy"]["placement"]["constraints"]
+                       for name, svc in stack["services"].items()}
+        self.assertEqual(constraints, {"bastion": [f"node.hostname == {MANAGER}"],
+                                       "db": [f"node.hostname == {WORKER}"]})
+        self.assertEqual(stack["services"]["bastion"]["ports"][0]["mode"], "host")
+
+    def test_an_implementation_fitted_before_placement_is_refused(self):
+        self.fit()
+        impl = localimpl.read_implementation(self.ldir)
+        del impl["nodes"]["db"]["host"]
+        localimpl.write_implementation(self.ldir, impl)
+        with self.assertRaisesRegex(model.GmError, r"node\(s\) db have no host .*fit again"):
+            render.render(self.scenario, "duo")
 
 
 class TestRenderRefusals(ScenarioCopyTest):
