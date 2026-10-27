@@ -3,10 +3,16 @@
 Master spec 10.3; files, names and labels fixed by capture W2-A
 (`specs/versions/v0.1/wave-log.md`):
 
-- `playground.yaml`      the playground as declared (never keys);
+- `playground.yaml`      the playground as declared (never keys): from v0.3
+                         a list of hosts and the mapping of the scenario's
+                         designed hosts onto them, or today's one-host form,
+                         read as a list of one (capture W3 of v0.3, item 1),
+                         and the overlay's range when declared (W3-b, D183);
 - `implementation.yaml`  written by `fit`: game id, per-node brick, image,
                          resources (copied, never recomputed), published
-                         ports, and every derived name;
+                         ports, every derived name, and from v0.3 each
+                         node's `host` and the hand-over snapshot's verdict
+                         `snapshot_fit` (capture W3 of v0.3, items 2, 5);
 - `stack.yml`, `envelopes/<node>.conf`, `mounted/<item>/<node>.conf`
                          written by `render` (the last: each receiving
                          node's own config of a mounted item, v0.2 capture
@@ -38,6 +44,7 @@ import contextlib
 import copy
 import datetime
 import fcntl
+import ipaddress
 import os
 import posixpath
 import re
@@ -67,10 +74,23 @@ SECRETS_DIR = "secrets"
 MOUNTED_DIR = "mounted"
 RENDERED_DIR = "rendered"
 TIMELINE = "timeline"               # implementation.yaml's key render writes (v0.3 W2, item 1)
+OVERLAY = "overlay"                 # implementation.yaml's key deploy writes on several hosts
+                                    # ({subnet}, capture W3-a, item 4; D182)
+# The range a game on several hosts takes its overlay's /24 from (capture
+# W3-b, D183): playground.yaml's `overlay_range`, written by `fit
+# --overlay-range`, or one run's `--overlay-range` on deploy or restart;
+# absent, the default. From /8 to /24, inside the private ranges.
+OVERLAY_RANGE = "overlay_range"
+OVERLAY_RANGE_OPTION = "--overlay-range"
+DEFAULT_OVERLAY_RANGE = "10.20.0.0/16"
+OVERLAY_SUBNET_PREFIX = 24
+OVERLAY_RANGE_WIDEST = 8
+PRIVATE_RANGES = tuple(ipaddress.ip_network(r)
+                       for r in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))
 
 LABEL_NAMESPACE = "com.docker.stack.namespace"
 LABEL_GAME = "dbagm.game"
-PLACEMENT_CONSTRAINT = "node.role == manager"   # single host in v0.1
+HOSTNAME_CONSTRAINT = "node.hostname == {host}"  # every node pinned to its host (v0.3 W3, item 2)
 ENVELOPES_CONFIG = "envelopes"      # the brick's protected config holding the envelope file
 SEED_CONFIG_UID, SEED_CONFIG_GID, SEED_CONFIG_MODE = 0, 0, "0444"   # unless seed.modes says
 SEED_KIND = "seed"
@@ -174,6 +194,95 @@ def read_playground(ldir):
 
 def write_playground(ldir, data):
     write_yaml(Path(ldir) / PLAYGROUND_FILE, data, _header("Playground as declared."))
+
+
+# --- Hosts and placement (v0.3 capture W3, items 0 to 2) ------------------
+
+def is_list_form(pg):
+    """A declaration listing its hosts (`hosts:`), not today's one-host form."""
+    return isinstance(pg, dict) and "hosts" in pg
+
+
+def playground_hosts(pg):
+    """The declared hosts, `[{name, docker_endpoint, manager, capacity}]`.
+    Today's one-host form reads as a list of one, the manager, whose name is
+    None: the engine's own, which `fit` reads (W3 item 1)."""
+    if is_list_form(pg):
+        return [dict(h) for h in pg.get("hosts") or []]
+    return [{"name": None, "docker_endpoint": pg.get("docker_endpoint"), "manager": True,
+             "capacity": dict(pg.get("capacity") or {})}]
+
+
+def manager_host(pg):
+    """The host flagged manager (`fit` refuses a declaration without one)."""
+    for host in playground_hosts(pg):
+        if host.get("manager") is True:
+            return host
+    raise GmError("the playground declares no manager host: run gmctl fit --host ...,manager")
+
+
+def designed_hosts(scenario):
+    """The scenario's `designed_for.hosts` names, in order."""
+    designed = (scenario.data.get("designed_for") or {})
+    return [h.get("name") for h in designed.get("hosts") or [] if isinstance(h, dict)]
+
+
+def node_hosts(scenario, pg, manager_name):
+    """node name -> the host it is placed on (W3 item 2): on one host every
+    node on it (named `manager_name` in today's form), else the node's
+    designed host (`designed_for.placement`) through the mapping. Assumes
+    the declaration checked (`fit.check_declaration`)."""
+    hosts = playground_hosts(pg)
+    if len(hosts) == 1:
+        only = hosts[0].get("name") or manager_name
+        return {node["name"]: only for node in scenario.nodes}
+    placement = (scenario.data.get("designed_for") or {}).get("placement") or {}
+    mapping = pg.get("mapping") or {}
+    return {node["name"]: mapping[placement[node["name"]]] for node in scenario.nodes}
+
+
+def placement_constraint(host):
+    """The stack file's constraint pinning a node to its host."""
+    return HOSTNAME_CONSTRAINT.format(host=host)
+
+
+# --- The overlay's range (capture W3-b, D183) ------------------------------
+
+def parse_overlay_range(text, what=OVERLAY_RANGE_OPTION):
+    """`text` as the overlay's range, an IPv4Network from /8 to /24 inside
+    the private ranges; GmError naming `what` otherwise."""
+    hint = f"{what} {text!r}"
+    try:
+        net = ipaddress.ip_network(str(text).strip(), strict=False)
+    except ValueError:
+        raise GmError(f"{hint}: not an IPv4 CIDR range such as {DEFAULT_OVERLAY_RANGE}") \
+            from None
+    if net.version != 4:
+        raise GmError(f"{hint}: not IPv4; the game's overlay takes an IPv4 range such as "
+                      f"{DEFAULT_OVERLAY_RANGE}")
+    if net.prefixlen < OVERLAY_RANGE_WIDEST:
+        raise GmError(f"{hint}: wider than /{OVERLAY_RANGE_WIDEST}")
+    if net.prefixlen > OVERLAY_SUBNET_PREFIX:
+        raise GmError(f"{hint}: narrower than /{OVERLAY_SUBNET_PREFIX}, the size of a game's "
+                      "overlay subnet")
+    if net.with_prefixlen != str(text).strip():
+        raise GmError(f"{hint}: host bits set; the range is {net.with_prefixlen}")
+    if not any(net.subnet_of(private) for private in PRIVATE_RANGES):
+        raise GmError(f"{hint}: outside the private ranges "
+                      f"({', '.join(map(str, PRIVATE_RANGES))})")
+    return net
+
+
+def overlay_range(pg, override=None):
+    """`(range, where it comes from)`: `override` (the `--overlay-range` of
+    one run), else playground.yaml's `overlay_range`, else the default."""
+    if override is not None:
+        return parse_overlay_range(override), f"given with {OVERLAY_RANGE_OPTION}"
+    declared = (pg or {}).get(OVERLAY_RANGE) if isinstance(pg, dict) else None
+    if declared is not None:
+        return (parse_overlay_range(declared, f"{PLAYGROUND_FILE}'s {OVERLAY_RANGE}"),
+                f"playground {pg.get('name')}'s {OVERLAY_RANGE}")
+    return ipaddress.ip_network(DEFAULT_OVERLAY_RANGE), "the default range"
 
 
 def read_implementation(ldir):
@@ -814,10 +923,11 @@ def node_config_text(scenario, impl, node_name, entry):
             f"volumes={' '.join(v['path'] for v in inode['volumes'])}\n")
 
 
-def build_implementation(scenario, playground, game_id, created_at):
+def build_implementation(scenario, playground, game_id, created_at, hosts, snapshot_fit=None):
     """implementation.yaml's content (capture W2-A; v0.2: the network named
     after the scenario's, the secrets by kind, the mounted material and the
-    parameter faults applied before it is derived)."""
+    parameter faults applied before it is derived; v0.3 W3 items 2 and 5:
+    `hosts`, node name -> its host, and the snapshot's verdict)."""
     gid = game_id
     local_rel = f"local/{playground}"
     mounted = mounted_configs(scenario, node_parameters(scenario), playground, gid)
@@ -843,6 +953,7 @@ def build_implementation(scenario, playground, game_id, created_at):
         nodes[name] = {
             "brick": {"id": brick.id, "version": brick.version},
             "image": b["image"],
+            "host": hosts[name],
             "resources": copy.deepcopy(node["resources"]),
             "published_ports": [{"target": p["port"], "published": p["default"],
                                  "mode": "host"} for p in node.get("published_ports") or []],
@@ -865,6 +976,8 @@ def build_implementation(scenario, playground, game_id, created_at):
         "secrets": implementation_secrets(scenario, playground, gid),
         "parameter_faults": parameter_faults(scenario),
     }
+    if snapshot_fit is not None:
+        impl["snapshot_fit"] = dict(snapshot_fit)
     _check_names(impl)
     return impl
 

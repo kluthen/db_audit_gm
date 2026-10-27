@@ -18,8 +18,38 @@ capture W2-A, the Python interface by capture W2-B. In order:
 Steps 2 to 5 form one setup step: if one fails, or the GM stops it, what
 was deployed is torn down (label-based, `teardown.remove_game_objects`)
 and the failure recorded in `state.yaml`.
+
+v0.3 (master spec 10.2; capture W3, items 3 and 6; D173, D181): before
+anything is created, every host a node is placed on must be `Ready` and
+`active` in the manager's `docker node ls` (gmctl never changes a node's
+availability, nor the swarm's membership: `--init-swarm` is refused on
+several hosts), and every other such host must answer as a host timer's
+run reaches it, with no SSH agent and no terminal. In the setup step,
+each other host is given the images of its nodes, `docker save | docker
+--context dbagm-<host> load`, skipped when it holds the same name under
+the same id, never pulled; `state.yaml`'s `images` records them. The
+overlay network is the stack's own, its MTU set by `render` on several
+hosts.
+
+Capture W3-a (D182): a game whose nodes span several hosts gets its
+overlay's subnet from the range in force, the first /24 overlapping no network
+the manager lists (swarm-scoped ones included) nor any network of a host
+the game is placed on; Swarm's default pool would hand it a /24 a worker's
+local networks may already hold. Picked at the game's first deployment,
+before anything is created, recorded in `implementation.yaml`'s
+`overlay.subnet` and written into the rendered stack's network (render
+writes it too once recorded); a recorded subnet is kept and re-checked,
+the game's own network left out. A one-host game keeps Swarm's default.
+
+Capture W3-b (D183): the range in force is `--overlay-range <cidr>` for
+this run, else playground.yaml's `overlay_range` (`fit --overlay-range`),
+else `10.20.0.0/16`. A recorded subnet is kept while it lies inside that
+range and overlaps nothing; one outside it is picked again from it; one
+inside it that now overlaps is refused. Each refusal names what is taken
+and how to choose another range; the report names the subnet and its range.
 """
 
+import ipaddress
 import os
 import secrets as _random
 import shutil
@@ -29,8 +59,11 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import localimpl, state, teardown
-from .docker import for_local_dir, running_containers
+import yaml
+
+from . import localimpl, render, state, teardown
+from .docker import (copy_image, for_local_dir, image_id, network_subnets, probe_unattended,
+                     running_containers, swarm_nodes)
 from .model import GmError
 
 DEPLOY_STAGE = "deployed"
@@ -43,6 +76,13 @@ PLAYER_PASSWORD_LENGTH = 16
 DBA_PASSWORD_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 DBA_PASSWORD_LENGTH = 32
 SSH_KEYGEN = "ssh-keygen"
+# The overlays of gmctl's games on several hosts (capture W3-a, item 1): by
+# default 256 /24s that neither host's networks nor routes use; the range in
+# force is the playground's or one run's (capture W3-b, D183).
+GAME_SUBNETS = ipaddress.ip_network(localimpl.DEFAULT_OVERLAY_RANGE)
+GAME_SUBNET_PREFIX = localimpl.OVERLAY_SUBNET_PREFIX
+OPTION = localimpl.OVERLAY_RANGE_OPTION
+NOTHING_DONE = {"deploy": "nothing deployed", "restart": "nothing done"}
 
 
 # --- Swarm and images ----------------------------------------------------
@@ -72,6 +112,91 @@ def ensure_swarm(docker, init=False):
     return f"swarm: initialised on {docker.describe()} (docker swarm init)"
 
 
+def placed_hosts(impl):
+    """The hosts the game's nodes are placed on, in node order."""
+    hosts = []
+    for node in impl["nodes"].values():
+        if node.get("host") and node["host"] not in hosts:
+            hosts.append(node["host"])
+    return hosts
+
+
+def check_hosts(docker, impl):
+    """Every host a node is placed on, on a playground of several hosts:
+    `Ready` and `active` in the manager's `docker node ls`, and, for each
+    other than the manager, answering as a timer run reaches it (D173).
+    Returns report lines; GmError before anything is created."""
+    if not docker.hosts:
+        return []
+    nodes = swarm_nodes(docker)
+    problems, lines = [], []
+    for host in placed_hosts(impl):
+        node = nodes.get(host)
+        if node is None:
+            problems.append(f"host {host} is not a node of the swarm")
+            continue
+        if node["status"].lower() != "ready" or node["availability"].lower() != "active":
+            problems.append(f"host {host} is {node['status']}, {node['availability']} in the "
+                            "swarm: its nodes' tasks cannot start there (the owner makes it "
+                            f"active: docker node update --availability active {host})")
+            continue
+        if host == docker.name:
+            continue
+        target = docker.on_host(host)
+        ok, detail = probe_unattended(target)
+        if not ok:
+            problems.append(f"host {host} does not answer as a host timer's run would reach "
+                            f"it, with no SSH agent and no terminal ({detail}): the game's "
+                            "timers, snapshot and restart need it; give its SSH destination a "
+                            "key usable without an agent")
+        else:
+            lines.append(f"host {host}: Docker {detail}, reached without an SSH agent")
+    if problems:
+        raise GmError("; ".join(problems) + "; nothing deployed")
+    return lines
+
+
+def copy_images(docker, impl, now=localimpl.now_iso):
+    """Give each host other than the manager the images of its nodes
+    (W3 item 6): copied when absent or held under another id, skipped
+    otherwise. Returns `{host: [{image, id, copied, at}]}`."""
+    record = {}
+    ids = {}
+    for node in impl["nodes"].values():
+        host = node.get("host")
+        if not docker.hosts or host in (None, docker.name):
+            continue
+        target = docker.on_host(host)
+        entries = record.setdefault(host, [])
+        image = node["image"]
+        if any(e["image"] == image for e in entries):
+            continue
+        if image not in ids:
+            ids[image] = image_id(docker, image)
+        held = image_id(target, image)
+        copied = held != ids[image]
+        if copied:
+            copy_image(docker, target, image)
+            held = image_id(target, image)
+            if held != ids[image]:
+                raise GmError(f"image {image} loaded on {host} under {held}, not {ids[image]} "
+                              "as on the manager")
+        entries.append({"image": image, "id": ids[image], "copied": copied, "at": now()})
+    return record
+
+
+def record_images(ldir, record):
+    """`state.yaml`'s `images`, the last deployment's copies."""
+    def change(st):
+        if record:
+            st["images"] = record
+        elif "images" in st:
+            del st["images"]
+        else:
+            return False
+    localimpl.update_state(ldir, change)
+
+
 def missing_images(docker, impl):
     """Node images absent from the targeted engine (deploy never pulls)."""
     missing = []
@@ -83,6 +208,129 @@ def missing_images(docker, impl):
                       check=False).returncode != 0:
             missing.append(image)
     return missing
+
+
+# --- The overlay's subnet on several hosts (capture W3-a, D182) -----------
+
+def spans_hosts(impl):
+    return len({node.get("host") for node in impl["nodes"].values()}) > 1
+
+
+def taken_subnets(docker, impl):
+    """`[(where, network, subnet)]`: every network the manager lists (the
+    swarm-scoped ones with it) and every network of each other host a node
+    is placed on, the game's own network left out."""
+    own = impl.get("network")
+    taken = []
+    for host in [docker.name] + [h for h in placed_hosts(impl) if h != docker.name]:
+        target = docker.on_host(host)
+        for name, subnet in network_subnets(target):
+            if name != own:
+                taken.append((host or target.describe(), name, subnet))
+    return taken
+
+
+def overlaps(subnet, taken):
+    """The entries of `taken` whose subnet overlaps `subnet` (a prefix
+    overlap, either containing the other); an IPv6 one never does."""
+    net = ipaddress.ip_network(subnet)
+    found = []
+    for entry in taken:
+        try:
+            other = ipaddress.ip_network(entry[2], strict=False)
+        except ValueError:
+            continue
+        if other.version == net.version and net.overlaps(other):
+            found.append(entry)
+    return found
+
+
+def taken_text(taken):
+    return "; ".join(f"network {name} ({subnet}) on {host}" for host, name, subnet in taken)
+
+
+def way_out(verb, leaving=None):
+    """How the GM chooses another range (capture W3-b, item 4)."""
+    text = "choose another range" + (f", one that leaves {leaving} out" if leaving else "")
+    text += f": gmctl {verb} {OPTION} <cidr> for this run, or gmctl fit {OPTION} <cidr> for "
+    if verb == "restart":
+        return text + "the playground's next games (fit refuses while this one is deployed)"
+    return text + "the playground"
+
+
+def pick_subnet(taken, pool=GAME_SUBNETS, prefix=GAME_SUBNET_PREFIX, origin="the default range",
+                verb="deploy"):
+    """The first /24 of `pool` overlapping none of `taken`; GmError naming
+    the range, what holds it and the way out when every one does."""
+    for candidate in pool.subnets(new_prefix=prefix):
+        if not overlaps(str(candidate), taken):
+            return str(candidate)
+    held = taken_text(overlaps(str(pool), taken))
+    raise GmError(f"no free /{prefix} left in {pool} ({origin}), the range for the overlays of "
+                  f"gmctl's games on several hosts: taken by {held}; {way_out(verb)}; "
+                  f"{NOTHING_DONE[verb]}")
+
+
+def choose_subnet(taken, recorded=None, pool=GAME_SUBNETS, origin="the default range",
+                  verb="deploy"):
+    """`(subnet, how)`: the recorded subnet when it lies inside `pool` and
+    overlaps nothing (GmError naming what overlaps it and the way out when
+    it does), else a fresh pick from `pool`; `how` says which (W3-b, item 3)."""
+    inside = recorded and ipaddress.ip_network(recorded, strict=False).subnet_of(pool)
+    if inside:
+        clash = overlaps(recorded, taken)
+        if clash:
+            raise GmError(f"the game's recorded overlay subnet {recorded}, inside {pool} "
+                          f"({origin}), now overlaps {taken_text(clash)}: gmctl does not move a "
+                          f"game's addresses on its own; remove that network, or "
+                          f"{way_out(verb, recorded)}; {NOTHING_DONE[verb]}")
+        return recorded, f"as recorded, still free, inside {pool}, {origin}"
+    subnet = pick_subnet(taken, pool, origin=origin, verb=verb)
+    how = f"picked from {pool}, {origin}"
+    if recorded:
+        how += f"; the recorded {recorded} lies outside it"
+    return subnet, how
+
+
+def apply_subnet(ldir, impl, subnet):
+    """Record `subnet` in `implementation.yaml` and write it into the
+    rendered stack file's network, as `render` writes it."""
+    if (impl.get(localimpl.OVERLAY) or {}).get("subnet") != subnet:
+        impl[localimpl.OVERLAY] = {"subnet": subnet}
+        localimpl.write_implementation(ldir, impl)
+    stack_file = ldir / localimpl.STACK_FILE
+    stack = yaml.safe_load(stack_file.read_text(encoding="utf-8"))
+    for overlay in stack["networks"].values():
+        render.set_subnet(overlay, subnet)
+    localimpl.write_text(stack_file, render.dump_stack(stack, impl["game_id"]))
+
+
+def game_subnet(docker, impl, pg=None, override=None, verb="deploy"):
+    """`(subnet, line)` for a game spanning several hosts: its recorded
+    subnet re-checked, or a fresh pick (GmError before anything is
+    created); None on one host, nothing read. The range in force is
+    `override` (one run's `--overlay-range`), else the playground's `pg`
+    declares, else the default (W3-b, D183). `impl` is the game's
+    implementation, its own network (`impl["network"]`) left out by name:
+    `restart` passes the outgoing game's, whose overlay Swarm removes
+    asynchronously and whose subnet the new game keeps (D182). The one
+    place both verbs choose it."""
+    if not docker.hosts or not spans_hosts(impl):
+        return None
+    pool, origin = localimpl.overlay_range(pg, override)
+    recorded = (impl.get(localimpl.OVERLAY) or {}).get("subnet")
+    subnet, how = choose_subnet(taken_subnets(docker, impl), recorded, pool, origin, verb)
+    return subnet, f"overlay subnet: {subnet} ({how})"
+
+
+def overlay_subnet(docker, ldir, impl, override=None):
+    """On a game spanning several hosts, its overlay's subnet, picked or
+    re-checked and applied; a report line. None on one host."""
+    chosen = game_subnet(docker, impl, localimpl.read_playground(ldir), override)
+    if chosen is None:
+        return None
+    apply_subnet(ldir, impl, chosen[0])
+    return chosen[1]
 
 
 # --- Credentials ---------------------------------------------------------
@@ -199,8 +447,9 @@ def service_health(docker, service):
     `pending` (no running container yet) or `rejected` (Swarm refused the
     task: it will never start)."""
     statuses = []
+    host = docker.for_service(service)
     for container in running_containers(docker, service):
-        out = docker.run(["inspect", "--format",
+        out = host.run(["inspect", "--format",
                           "{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}",
                           container], check=False).stdout or ""
         statuses.append(out.strip())
@@ -247,24 +496,36 @@ class DeployResult:
     game_id: str
     endpoint: str
     swarm: str
+    hosts: list = field(default_factory=list)       # check_hosts's lines
+    images: dict = field(default_factory=dict)      # copy_images's record
     credentials: list = field(default_factory=list)
     configs: list = field(default_factory=list)
     secrets: list = field(default_factory=list)
     services: list = field(default_factory=list)
     ports: list = field(default_factory=list)
+    several_hosts: bool = False
 
     def text(self):
-        out = [f"Game {self.game_id}: deployed on {self.endpoint}.",
-               f"  {self.swarm}",
-               (f"  credentials: {len(self.credentials)} files in "
-                f"{self.credentials[0].parent}/ (mode 0600, not printed)"
-                if self.credentials else "  credentials: none (the bricks declare no secret)"),
-               f"  {len(self.configs)} configs and {len(self.secrets)} secrets created, "
-               f"labelled {localimpl.LABEL_GAME}={self.game_id}",
-               f"  stack {self.game_id}: {len(self.services)} services healthy "
-               f"({', '.join(self.services)})"]
-        for node, port in self.ports:
-            out.append(f"  node {node}: port {port['published']} on the swarm host "
+        out = [f"Game {self.game_id}: deployed on {self.endpoint}.", f"  {self.swarm}"]
+        out += [f"  {line}" for line in self.hosts]
+        for host, entries in self.images.items():
+            copied = [e["image"] for e in entries if e["copied"]]
+            held = len(entries) - len(copied)
+            out.append(f"  images on {host}: {len(copied)} copied"
+                       + (f" ({', '.join(copied)})" if copied else "")
+                       + f", {held} already held under the same id")
+        if self.credentials:
+            out.append(f"  credentials: {len(self.credentials)} files in "
+                       f"{self.credentials[0].parent}/ (mode 0600, not printed)")
+        else:
+            out.append("  credentials: none (the bricks declare no secret)")
+        out.append(f"  {len(self.configs)} configs and {len(self.secrets)} secrets created, "
+                   f"labelled {localimpl.LABEL_GAME}={self.game_id}")
+        out.append(f"  stack {self.game_id}: {len(self.services)} services healthy "
+                   f"({', '.join(self.services)})")
+        for node, port, host in self.ports:
+            where = f"host {host}" if self.several_hosts else "the swarm host"
+            out.append(f"  node {node}: port {port['published']} on {where} "
                        f"(container port {port['target']})")
         out.append("Stage deployed.")
         return "\n".join(out)
@@ -280,10 +541,14 @@ def deployable(st):
 
 
 def deploy(scenario_dir, playground, init_swarm=False, timeout=HEALTH_TIMEOUT, docker=None,
-           keygen=ssh_keygen, sleep=time.sleep, clock=time.monotonic):
+           keygen=ssh_keygen, sleep=time.sleep, clock=time.monotonic, overlay_range=None):
     """`gmctl deploy`; returns a DeployResult, raises GmError on a refusal
-    (nothing done) or state.SetupFailed on a failure (recorded)."""
+    (nothing done) or state.SetupFailed on a failure (recorded).
+    `overlay_range`: `--overlay-range`, this run's range in place of the
+    playground's (W3-b, item 2)."""
     ldir = localimpl.local_dir(scenario_dir, playground)
+    if overlay_range is not None:
+        localimpl.parse_overlay_range(overlay_range)
     st = localimpl.read_state(ldir)
     if st is None:
         raise GmError(f"no game on playground {playground}: run gmctl fit first")
@@ -297,24 +562,34 @@ def deploy(scenario_dir, playground, init_swarm=False, timeout=HEALTH_TIMEOUT, d
         raise GmError(f"{stack_file} is missing: run gmctl render")
     docker = docker or for_local_dir(ldir)
 
+    if init_swarm and docker.hosts:
+        raise GmError("--init-swarm on a playground of several hosts: the swarm's membership is "
+                      "the owner's (docker swarm init and join on each host); nothing deployed")
     swarm = ensure_swarm(docker, init=init_swarm)
+    hosts = check_hosts(docker, impl)
     missing = missing_images(docker, impl)
     if missing:
         raise GmError(f"image(s) not present on {docker.describe()}: {', '.join(missing)}. "
                       "Build each brick there first (docker build -t <image> bricks/<id>); "
                       "deployment never pulls")
+    subnet_line = overlay_subnet(docker, ldir, impl, overlay_range)
+    if subnet_line:
+        hosts.append(subnet_line)
 
-    result = DeployResult(gid, docker.describe(), swarm)
+    result = DeployResult(gid, docker.describe(), swarm, hosts,
+                          several_hosts=bool(docker.hosts))
     def undo():
         return teardown.remove_game_objects(docker, gid, sleep=sleep, clock=clock).text()
 
     with state.setup_step(ldir, DEPLOY_STAGE, undo=undo):
+        result.images = copy_images(docker, impl)
+        record_images(ldir, result.images)
         result.credentials = generate_credentials(ldir, impl, keygen)
         result.configs, result.secrets = create_objects(docker, scenario_dir, impl)
         stack_deploy(docker, stack_file, gid)
         wait_healthy(docker, impl, timeout, sleep=sleep, clock=clock)
     localimpl.set_stage(ldir, DEPLOY_STAGE)
     result.services = [node["service"] for node in impl["nodes"].values()]
-    result.ports = [(name, port) for name, node in impl["nodes"].items()
+    result.ports = [(name, port, node.get("host")) for name, node in impl["nodes"].items()
                     for port in node.get("published_ports") or []]
     return result

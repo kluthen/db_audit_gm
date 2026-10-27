@@ -93,7 +93,8 @@ To build:
 Risks to check on the Tailscale pair (D128):
 
 - the overlay's VXLAN over Tailscale's 1280-byte MTU: the overlay
-  network's MTU must leave room for both encapsulations;
+  network's MTU must leave room for both encapsulations (settled: option
+  1230, 1180 inside a node, master spec 10.2, D184);
 - Swarm advertising the Tailscale addresses, not the public ones;
 - **the routing mesh opens every published port on every host**: the
   bastion's SSH and web front would listen on the VPS's public address.

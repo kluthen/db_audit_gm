@@ -6,7 +6,8 @@ Python 3, standard library plus PyYAML. Modules:
 - `localimpl`  the local implementation's files, names, labels and state (capture W2-A);
 - `fit`        the capacity check and `implementation.yaml`;
 - `render`     the stack file, the envelope files, the shift and the scheduler's files;
-- `docker`     the Docker command line, aimed at the playground's engine;
+- `docker`     the Docker command line, aimed at the playground's hosts (v0.3: per-host
+               contexts, the image copy);
 - `state`      `gmctl status` (and `--set`, the GM-recorded stages), and
                recording a failed setup step;
 - `deploy`     swarm check, credentials, labelled configs and secrets, the stack;
@@ -15,6 +16,8 @@ Python 3, standard library plus PyYAML. Modules:
 - `aging`      `start-load`, `inject --at`, the host timers, the outages, the
                early and hand-over checks, `status`'s aging lines (v0.3);
 - `checks`     `validate` and `check`, the evaluation's live evidence;
+- `snapshot`   the hand-over snapshot, each volume by its brick's method (v0.3);
+- `restart`    the whole-game restart, from the snapshot or with no history (v0.3);
 - `teardown`   removing everything carrying the game's label.
 
 Every subcommand prints a readable result and exits non-zero on failure.
@@ -31,10 +34,25 @@ def _scenario_args(parser):
                         help="playground slug: local/<name>/ in the scenario folder")
 
 
+# Options shared by several subcommands (capture W3-b, D183).
+OVERLAY_RANGE_HELP = {
+    "fit": "the range a game on several hosts takes its overlay's /24 from, written to "
+           "playground.yaml (IPv4, /8 to /24, inside 10/8, 172.16/12 or 192.168/16; kept by a "
+           "re-fit without it; never declared: 10.20.0.0/16)",
+    "deploy": "this run's overlay range in place of the playground's (same rules as fit's)",
+    "restart": "this run's overlay range in place of the playground's (same rules as fit's)",
+}
+
+
+def _overlay_range_arg(parser, command):
+    parser.add_argument("--overlay-range", metavar="<cidr>", help=OVERLAY_RANGE_HELP[command])
+
+
 def _cmd_fit(args):
     from . import fit
     result = fit.fit(args.scenario_dir, args.playground, endpoint=args.endpoint,
-                     cpu=args.cpu, memory=args.memory, disk=args.disk)
+                     cpu=args.cpu, memory=args.memory, disk=args.disk, hosts=args.host,
+                     mapping=args.map, overlay_range=args.overlay_range)
     print(result.text())
     return 0 if result.ok else 1
 
@@ -48,7 +66,7 @@ def _cmd_render(args):
 def _cmd_deploy(args):
     from . import deploy
     print(deploy.deploy(args.scenario_dir, args.playground, init_swarm=args.init_swarm,
-                        timeout=args.timeout).text())
+                        timeout=args.timeout, overlay_range=args.overlay_range).text())
     return 0
 
 
@@ -89,6 +107,20 @@ def _cmd_start_load(args):
                               test_aging_minimum=args.test_aging_minimum)
     print(result.text())
     return 0 if result.ok else 1
+
+
+def _cmd_snapshot(args):
+    from . import snapshot
+    result = snapshot.take(args.scenario_dir, args.playground)
+    print(result.text())
+    return 0 if result.ok else 1
+
+
+def _cmd_restart(args):
+    from . import restart
+    print(restart.restart(args.scenario_dir, args.playground, args.confirmation,
+                          timeout=args.timeout, overlay_range=args.overlay_range).text())
+    return 0
 
 
 def _evaluation(args, run):
@@ -171,6 +203,15 @@ def build_parser():
     p.add_argument("--cpu", metavar="N", help="playground CPUs")
     p.add_argument("--memory", metavar="SIZE", help="playground memory (8G)")
     p.add_argument("--disk", metavar="SIZE", help="playground disk (40G)")
+    p.add_argument("--host", action="append", default=[],
+                   metavar="<name>[,manager][,endpoint=<url>],cpu=N,memory=SIZE,disk=SIZE",
+                   help="a host of the playground, by its swarm node name, memory at what it "
+                        "has available (repeatable; replaces the whole host list; exactly one "
+                        "manager; no endpoint: the local engine)")
+    p.add_argument("--map", action="append", default=[], metavar="<designed host>=<host>",
+                   help="place the scenario's designed host on a declared host (repeatable; "
+                        "replaces the whole mapping; implied on one host)")
+    _overlay_range_arg(p, "fit")
     p.set_defaults(func=_cmd_fit)
 
     p = sub.add_parser("render", help="write the stack file, the envelope files and the "
@@ -188,6 +229,7 @@ def build_parser():
                    help="run docker swarm init if the engine is not part of a swarm")
     p.add_argument("--timeout", type=int, default=300, metavar="SECONDS",
                    help="how long to wait for health checks (default 300)")
+    _overlay_range_arg(p, "deploy")
     p.set_defaults(func=_cmd_deploy)
 
     p = sub.add_parser("load-data", help="stream each node's data/<node>.sql into it "
@@ -237,6 +279,25 @@ def build_parser():
                             "load-started; injected with no scheduler node)")
     p.set_defaults(func=_cmd_check)
 
+    p = sub.add_parser("snapshot", help="take the hand-over snapshot: every volume copied by its "
+                                        "brick's method, on its own host (needs load-started "
+                                        "and the earliest hand-over reached; injected with no "
+                                        "scheduler node)")
+    _scenario_args(p)
+    p.set_defaults(func=_cmd_snapshot)
+
+    p = sub.add_parser("restart", help="rebuild a handed-over game under a new game id, from the "
+                                       "hand-over snapshot or with no history, every secret "
+                                       "kept; refused without --confirmation")
+    _scenario_args(p)
+    # Not argparse-required: restart refuses a missing or blank one itself (exit 1).
+    p.add_argument("--confirmation", metavar="<the player's words>",
+                   help="the player's confirmation, in their own words, recorded with the restart")
+    p.add_argument("--timeout", type=int, default=300, metavar="SECONDS",
+                   help="how long to wait for health checks (default 300)")
+    _overlay_range_arg(p, "restart")
+    p.set_defaults(func=_cmd_restart)
+
     from .state import GM_STAGES
     p = sub.add_parser("status", help="the game's recorded state; --set records a stage "
                                       "only the GM can tell")
@@ -245,7 +306,8 @@ def build_parser():
     p.add_argument("--set", metavar="<stage>",
                    help=f"record {', '.join(GM_STAGES)} (each follows the one before; "
                         "handed-over follows load-started, or injected with no scheduler "
-                        "node, once the hand-over check passed)")
+                        "node, once the hand-over check passed and the snapshot taken or "
+                        "recorded as not fitting)")
     p.set_defaults(func=_cmd_status)
 
     p = sub.add_parser("exec", help="stream stdin into sh -s in a node's container, as a "

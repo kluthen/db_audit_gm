@@ -2,7 +2,8 @@
 
 from tools.gm import fit, localimpl, state
 from tools.gm.model import GmError
-from tools.tests import SUFFICIENT, ScenarioCopyTest, run_gmctl
+from tools.tests import SUFFICIENT, FakeDocker, ScenarioCopyTest, run_gmctl
+from tools.tests.test_render import MANAGER, VPS_ENDPOINT, WORKER, TwoHostScenario
 
 
 class FittedGame(ScenarioCopyTest):
@@ -53,14 +54,30 @@ class TestSetupStep(FittedGame):
         self.assertEqual(reason, "boom; teardown after the failure also failed: volume in use")
 
 
+class TestStatusHosts(TwoHostScenario):
+    """`status` lists a several-host playground's hosts (wave 3 gate fix)."""
+
+    def test_each_host_manager_or_not_and_its_endpoint(self):
+        self.fit()
+        text = state.status_text(self.ldir)
+        self.assertIn(f"  playground: duo, 2 hosts\n    host {MANAGER} (manager): local engine\n"
+                      f"    host {WORKER}: {VPS_ENDPOINT}\n  stage: fitted", text)
+        self.assertNotIn("(local engine)", text)
+
+    def test_a_list_of_one_shows_its_endpoint(self):
+        self.fit(hosts=[f"{MANAGER},manager,endpoint=ssh://gm@armenelos,cpu=2,memory=4G,"
+                        "disk=20G"], mapping=("host-1=" + MANAGER, "host-2=" + MANAGER),
+                 engine=FakeDocker(name=MANAGER))
+        self.assertIn("  playground: duo (ssh://gm@armenelos)\n  stage: fitted",
+                      state.status_text(self.ldir))
+
+
 class TestStatus(FittedGame):
 
     def test_fitted(self):
         text = state.status_text(self.ldir)
         gid = localimpl.read_state(self.ldir)["game_id"]
-        self.assertIn(f"Game {gid}", text)
-        self.assertIn("stage: fitted", text)
-        self.assertIn("local engine", text)
+        self.assertIn(f"Game {gid}\n  playground: laptop (local engine)\n  stage: fitted", text)
         self.assertNotIn("failure", text)
 
     def test_failed(self):
@@ -111,6 +128,13 @@ class TestGmStages(FittedGame):
         for stage in ("rendered", "deployed", "data-loaded", "injected"):
             localimpl.set_stage(self.ldir, stage)
         self.record_handover_check(True)
+        self.record_snapshot("taken")
+
+    def record_snapshot(self, status):
+        """What `gmctl snapshot` records (chunk 11a; D172)."""
+        def change(st):
+            st["snapshot"] = {"status": status, "at": localimpl.now_iso()}
+        localimpl.update_state(self.ldir, change)
 
     def record_handover_check(self, passed):
         """What `check --handover-check` records (W2 item 8): fixture-audit
@@ -166,7 +190,7 @@ class TestGmStages(FittedGame):
 
     def test_hand_over_needs_a_passed_hand_over_check(self):
         """A game with no scheduler node (D157, D158): from injected, once the
-        last hand-over check passed (the snapshot's condition: chunk 11a)."""
+        last hand-over check passed and the snapshot taken (chunk 11a)."""
         self.record_handover_check(False)
         before = self.state_bytes()
         proc = self.set("handed-over")
@@ -181,6 +205,21 @@ class TestGmStages(FittedGame):
         self.assertTrue(state.set_gm_stage(self.ldir, "handed-over"))
         self.assertNotIn("load-started", [h["stage"] for h in
                                           localimpl.read_state(self.ldir)["history"]])
+
+    def test_hand_over_needs_the_snapshot_taken_or_not_fitting(self):
+        """Spec D172: the third condition, in a game with no scheduler node."""
+        localimpl.update_state(self.ldir, lambda st: st.pop("snapshot") and None)
+        before = self.state_bytes()
+        proc = self.set("handed-over")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("refused: the hand-over snapshot is neither taken nor recorded as not "
+                      "fitting", proc.stderr)
+        self.assertEqual(self.state_bytes(), before)
+        self.record_snapshot("failed")
+        with self.assertRaisesRegex(GmError, "neither taken .* it failed at "):
+            state.set_gm_stage(self.ldir, "handed-over")
+        self.record_snapshot("not-fitting")
+        self.assertTrue(state.set_gm_stage(self.ldir, "handed-over"))
 
     def test_refused_from_a_failed_or_earlier_game(self):
         localimpl.set_failed(self.ldir, "injected", "boom")

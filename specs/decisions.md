@@ -16,7 +16,7 @@ README:
 Archived IDs keep their meaning and are cited as they are. D107 onward
 stay live: rulings still to be applied in a later version (D107, D108,
 D110, D113), the v0.2 release close, and v0.3's drafting from D114.
-Numbering continues from D178; no ID is reused.
+Numbering continues from D183; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -444,3 +444,58 @@ Numbering continues from D178; no ID is reused.
   transaction-pooling fault relying on leaked session settings. Now in:
   [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 7.2;
   [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) G2, chunk 6.
+- **D178 (2026-10-26, owner ruling at wave 3's start, relayed by the wave
+  driver; clears G4's stop): The VPS's engine may leave its own empty
+  single-node swarm and join armenelos' as a worker.** Lesson of the
+  join: a swarm membership change on the VPS wiped its containers'
+  embedded DNS (filetstudio.com 502 for about six minutes), so it is a
+  downtime, like a Docker upgrade. Now in:
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) G4,
+  "Workflow deltas" (the VPS).
+- **D179 (2026-10-26, spec-writer, wave 3 preflight, capture W3 item 4
+  and its closing point 3): Teardown per host is chunk 10b's,** the
+  game's Swarm objects on the manager, its containers and volumes on
+  every declared host; chunk 10 gains `teardown.py`, `test_teardown.py`
+  and the fake engine's files, which pass to chunk 11 at 10's merge (the
+  in-wave edge 10 ──> 11, still two chunks). Now in:
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunk 10, the waves' edges.
+- **D180 (2026-10-26, spec-writer, wave 3 preflight, W3 item 2): A node
+  that publishes ports is placed on the manager only, `gmctl fit`
+  refusing a mapping that puts one elsewhere,** since a host-mode port
+  opens on every address of its host and the VPS has a public one; G4's
+  "no game port published on the VPS" made a rule of the product, not of
+  this build's hosts. The plan alone was not enough: it is a refusal the
+  GM meets. Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md)
+  7.5, 10.2; [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunk 10a.
+- **D181 (2026-10-26, spec-writer, wave 3 preflight, W3 item 6): The image
+  copy is `docker save | docker --context dbagm-<host> load`, through the
+  host's SSH Docker context,** the same SSH as `ssh <host> docker load`
+  with no second destination to declare; master spec 20 left the form to
+  the build. Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md)
+  10.2, 20; [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md)
+  chunk 10b, "Left for the build"; [platform.md](platform.md) "Image distribution".
+- **D182 (2026-10-27, owner ruling on chunk 10's first two-host try,
+  relayed by the wave driver; capture W3-a): A game spanning several
+  hosts gets its overlay's /24 from a range reserved for `gmctl`,
+  `10.20.0.0/16`,** the first free on the swarm and every placed host,
+  picked by `deploy` at the first deployment and kept on a restart,
+  since Swarm's default pool gave the overlay subnets the VPS's local
+  networks hold. Rejected: the VPS daemon's address pools (a
+  filetstudio.com downtime); Swarm's pool at `swarm init` (a membership
+  change). Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md)
+  10.2; [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunks 10b, 11, 15.
+- **D183 (2026-10-27, owner ruling, relayed by the wave driver; capture
+  W3-b): The overlay's range is the GM's to choose, per playground;
+  `10.20.0.0/16` is only the proposed default,** since which range is free
+  depends on the execution environment, and a refusal says how to choose
+  another. Amends D182's range reserved for `gmctl`; the rest of D182
+  holds. Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md)
+  10.2, 13; [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunks 13, 15.
+- **D184 (2026-10-27, spec-writer, on chunk 10's two-host try): The
+  game's overlay on several hosts and the swarm's ingress keep
+  `com.docker.network.driver.mtu=1230`,** which Docker reads as the outer
+  MTU: 1180 inside a node. Rejected: 1280 (1230 inside, Tailscale's 1280
+  filled exactly), which would need another two-host run and the ingress
+  re-created, for about 4% of a full packet. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 10.2, 20;
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) "Left for the build".

@@ -1,0 +1,8 @@
+# Fixed-time operations of the load fixture's consumer node, in scenario
+# time (master spec 7.1; template:
+# .claude/skills/scenario-format/templates/jobs.yaml).
+jobs:
+  - name: nightly-rollup
+    key: reports.rollup
+    connection: reports
+    at: "30 2 * * *"

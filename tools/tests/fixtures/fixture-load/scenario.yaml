@@ -1,0 +1,433 @@
+# Load fixture of v0.3 (build plan chunk 12). Not a game: a short game with
+# load, deployed by tools/tests/smoke-load.sh at every wave gate from v0.3
+# wave 3 on, on one host and on armenelos plus the VPS (master spec 11,
+# "Smoke tests"), and loaded and fitted by tools/tests/test_model.py.
+# Every v0.3 brick: the bastion, postgres, pgbouncer, a producer and a
+# consumer (scheduler), and the three monitoring bricks, prometheus the
+# report-only one. The producer is report-only with a write override on its
+# jobs; the aging is at its eight-hour floor (D157, D158). Two harmless
+# fault instances: f1, the fixture's own behavioural fault in the producer's
+# jobs.yaml (planted at T0, its check can read "too soon"), and f2, a
+# catalog state fault due during the aging (planted at once by the smoke
+# run with inject --at now). Node names, resources and pins follow
+# fixture-monitoring and fixture-v03-refusals.
+
+# --- Scenario information --------------------------------------------
+id: fixture-load
+version: 0.1.0
+title: Load fixture for the v0.3 smoke run, every brick under its schedules
+date: 2026-10-26
+origin: hand-written
+session_length_minutes: 60
+brief: brief.md
+background: >-
+  A small shop's order service writes into its database through a
+  connection pooler all day, and its reporting service reads from it; the
+  shop watches the whole with Prometheus and Grafana.
+
+# --- Aging and difficulty ---------------------------------------------
+aging:
+  minimum: 8h                       # the floor (master spec 8.2): f2 is planted 4h before
+  handover_at: "14:00"              # hand-over and shows at once; f1 needs minutes
+difficulty:
+  score: 2                          # its two fault instances (master spec 15.1)
+  level: easy
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: backend
+    description: >-
+      players' SSH and SQL sessions, the schedulers' SQL, the pooler's
+      server connections, the scrapes and the dashboards' queries
+
+nodes:
+  - name: bastion
+    brick:
+      id: bastion
+      version: 0.3.0
+    role: bastion
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters:
+      web_routes: {grafana: "grafana:3000", prometheus: "prometheus:9090"}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.1
+        memory: 96M
+        disk: 256M
+    published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
+    seed_files:
+      README.md: player/README.md
+      story.md: player/story.md
+      issues.md: player/issues.md
+    knobs: []
+
+  - name: db
+    brick:
+      id: postgres
+      version: 0.3.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.5
+        memory: 512M
+        disk: 2.25G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/db/postgresql.conf
+      pg_hba.conf: nodes/db/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 10, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+    data:
+      file: data/db.sql
+      databases:
+        - name: shop
+          owner: shop
+          tables:
+            - name: customers
+              description: 500 customers (id, name); primary key on id.
+            - name: orders
+              description: >-
+                20 000 orders at the backup, growing by about 20 a minute
+                under the producer (id, an identity column, customer_id,
+                placed_at, total); primary key on id, index
+                orders_customer_id_idx on customer_id.
+
+  - name: pooler
+    brick:
+      id: pgbouncer
+      version: 0.1.0
+    role: pooler
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 64M
+      reservations:
+        cpu: 0.05
+        memory: 32M
+        disk: 256M
+    published_ports: []
+    seed_files:
+      pgbouncer.ini: nodes/pooler/pgbouncer.ini
+    knobs:
+      - setting: default_pool_size
+        initial: 5
+        envelope: {min: 1, max: 50}
+      - setting: max_client_conn
+        initial: 50
+        envelope: {min: 10, max: 500}
+      - setting: max_db_connections
+        initial: 0
+        envelope: {min: 0, max: 200}
+      - setting: reserve_pool_size
+        initial: 0
+        envelope: {min: 0, max: 20}
+      - setting: pool_mode
+        initial: session
+        envelope: {allowed: [session, transaction]}
+
+  - name: producer
+    brick:
+      id: scheduler
+      version: 0.1.0
+    role: producer
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    write_overrides:
+      - /srv/scheduler/jobs
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/producer/queries.yaml
+      jobs.yaml: nodes/producer/jobs.yaml
+      schedule.yaml: nodes/producer/schedule.yaml
+    knobs: []
+
+  - name: consumer
+    brick:
+      id: scheduler
+      version: 0.1.0
+    role: consumer
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/consumer/queries.yaml
+      jobs.yaml: nodes/consumer/jobs.yaml
+      schedule.yaml: nodes/consumer/schedule.yaml
+    knobs: []
+
+  - name: prometheus
+    brick:
+      id: prometheus
+      version: 0.2.0
+    role: monitoring
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters:
+      node_health: {bastion: default, db: default, pooler: default, producer: default,
+                    consumer: default, prometheus: default, exporter: default,
+                    grafana: default}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 384M
+      reservations:
+        cpu: 0.1
+        memory: 160M
+        disk: 512M
+    published_ports: []
+    seed_files:
+      prometheus.yml: nodes/prometheus/prometheus.yml
+    knobs: []
+
+  - name: exporter
+    brick:
+      id: postgres-exporter
+      version: 0.2.0
+    role: monitoring
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.05
+        memory: 48M
+        disk: 64M
+    published_ports: []
+    seed_files:
+      exporter.conf: nodes/exporter/exporter.conf
+    knobs: []
+
+  - name: grafana
+    brick:
+      id: grafana
+      version: 0.2.0
+    role: monitoring
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 384M
+      reservations:
+        cpu: 0.1
+        memory: 272M                # as fixture-monitoring (v0.2 capture W4-D)
+        disk: 256M
+    published_ports: []
+    seed_files:                     # copied byte for byte from bricks/grafana/companion/
+      datasources.yaml: nodes/grafana/datasources.yaml
+      dashboards.yaml: nodes/grafana/dashboards.yaml
+      node-health.json: nodes/grafana/node-health.json
+      postgresql.json: nodes/grafana/postgresql.json
+      alert-rules.yaml: nodes/grafana/alert-rules.yaml
+    knobs: []
+
+flows:
+  - from: bastion
+    to: db
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: pooler
+    what: players' SSH sessions, and SQL and console sessions through the pooler
+    how: ssh 22, postgresql 6432
+    cadence: interactive
+  - from: bastion
+    to: producer
+    what: players' SSH sessions
+    how: ssh 22
+    cadence: interactive
+  - from: bastion
+    to: consumer
+    what: players' SSH sessions
+    how: ssh 22
+    cadence: interactive
+  - from: bastion
+    to: prometheus
+    what: players' SSH sessions, and the web front's route prometheus
+    how: ssh 22, http 9090
+    cadence: interactive
+  - from: bastion
+    to: exporter
+    what: players' SSH sessions
+    how: ssh 22
+    cadence: interactive
+  - from: bastion
+    to: grafana
+    what: players' SSH sessions, and the web front's route grafana
+    how: ssh 22, http 3000
+    cadence: interactive
+  - from: producer
+    to: pooler
+    what: the shop's orders and lookups, as shop_app
+    how: postgresql 6432
+    cadence: continuous, and the stats refresh job
+  - from: pooler
+    to: db
+    what: the pooled server sessions, and the logins' lookups as pgbouncer_lookup
+    how: postgresql 5432
+    cadence: continuous
+  - from: consumer
+    to: db
+    what: the shop's reports, as shop_reports
+    how: postgresql 5432
+    cadence: continuous, and the nightly roll-up
+  - from: prometheus
+    to: exporter
+    what: the PostgreSQL metrics scrape
+    how: http 9187
+    cadence: every 15 s
+  - from: prometheus
+    to: producer
+    what: the scheduler's metrics scrape
+    how: http 9120
+    cadence: every 15 s
+  - from: prometheus
+    to: consumer
+    what: the scheduler's metrics scrape
+    how: http 9120
+    cadence: every 15 s
+  - from: prometheus
+    to: bastion
+    what: the node-health scrape
+    how: http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: db
+    what: the node-health scrape
+    how: http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: pooler
+    what: the node-health scrape
+    how: http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: grafana
+    what: the node-health scrape
+    how: http 9110
+    cadence: every 15 s
+  - from: exporter
+    to: db
+    what: the exporter's statistics queries, as the monitoring role
+    how: postgresql 5432
+    cadence: every 15 s (at each scrape)
+  - from: grafana
+    to: prometheus
+    what: dashboard queries and alert rule evaluation
+    how: http 9090
+    cadence: every 1 min, and interactive
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:
+  - id: f1
+    fault:
+      id: fixture-job-every-minute
+      version: 0.1.0
+    node: producer
+    parameters:
+      job: refresh-stats
+    visibility: known
+  - id: f2
+    fault:
+      id: pg-table-autovacuum-off
+      version: 0.1.0
+    node: db
+    parameters:
+      database: shop
+      table-name: orders
+    visibility: hidden
+    plant_at: handover-4h
+
+issues:
+  - id: I1
+    complaint: >-
+      The order service's log fills with the stats refresh, and the
+      database works harder than it should between the hourly reports.
+    expected_resolution: fix
+    covers: [f1]
+
+# --- Host topology it was designed for -------------------------------
+# Two hosts, the bastion on the first (capture W3 item 1): on a one-host
+# playground both map onto that host; at the wave gate's two-host run,
+# host-1 is armenelos and host-2 the VPS.
+designed_for:
+  platform: swarm
+  hosts:
+    - name: host-1
+      cpu: 2
+      memory: 3G
+      disk: 8G
+    - name: host-2
+      cpu: 2
+      memory: 2G
+      disk: 6G
+  placement:
+    bastion: host-1
+    db: host-1
+    pooler: host-1
+    producer: host-1
+    consumer: host-2
+    prometheus: host-2
+    exporter: host-2
+    grafana: host-2

@@ -2215,3 +2215,676 @@ Owner's rulings, 2026-10-26:
   - a later triage of the `.tech` findings on Debian's packages.
 - Next: wave 3 from `main`, in a fresh session (the log's last section
   is what it needs).
+
+## Wave 2 — merged 2026-10-26
+
+Merged into `main` on the owner's word, `--no-ff`, as 22ff556, with the
+gate's figures in the message. The wave worktree and the branches
+`v0.3-w2`, `v0.3-c6-pgbouncer` to `v0.3-c9-checks` removed.
+
+## Wave 3 — started 2026-10-26
+
+Chunks 10, 11, 12 (κ = 3). Branch `v0.3-w3`, worktree
+`/home/bastien/work/db_audit_gm-wt/v0.3-w3`, cut from `main` at 22ff556.
+Rulings since the plan's v9: none from the spec (D177 is the last); the
+owner's word on the VPS's own swarm (below) goes to `spec-writer` as
+D178.
+
+### Gates checked at the start
+
+- G2 (network at build time), hand check 2026-10-26: Debian's trixie
+  `Release`, the PostgreSQL apt repository's `trixie-pgdg` `Release`,
+  GitHub's s6-overlay, Prometheus and `postgres_exporter` releases and
+  `dl.grafana.com` answer 200. Cleared for wave 3.
+- G3 (Docker host in swarm mode), hand check 2026-10-26: armenelos,
+  Docker Engine 29.9.1, swarm active. Cleared for wave 3.
+- Host resources on 2026-10-26: 5.5G of memory available on armenelos,
+  10G free on `/`; 26G free on the VPS.
+- G4 (the VPS), done by the driver on 2026-10-26, under the VPS rule:
+  - the owner upgraded the VPS's Docker Engine to 29.9.2 beforehand
+    (28.5.1 until then; `security-advisor`'s CVEs, wave 2's `.tech`), and
+    made its Caddy a service shared by every app on the VPS
+    (`~/README_SHARED_CADDY.md` there, read before any change: one site
+    file per app, validate then graceful reload, never a restart);
+  - `tailscale status` logged in on both hosts (armenelos 100.78.85.1,
+    the VPS `vps-5718ad52` 100.126.172.117); the VPS's ufw allows all of
+    `tailscale0`;
+  - the VPS's engine was in its own single-node swarm (bound to
+    127.0.0.1; no services, secrets or configs; overlay networks
+    `ingress` and `easypanel`, an Easypanel leftover). G4 says to stop and
+    ask: the owner allowed it to leave (2026-10-26);
+  - armenelos' swarm, bound to its Wi-Fi address 192.168.1.32 and empty,
+    re-created on Tailscale (`--advertise-addr`, `--listen-addr`,
+    `--data-path-addr` 100.78.85.1); the ingress network re-created with
+    MTU 1230 (1280 less VXLAN's 50 bytes), no game running;
+  - the VPS left its swarm and joined armenelos' as a worker, bound to
+    100.126.172.117: `docker node ls` shows armenelos (leader, 29.9.1)
+    and `vps-5718ad52` (worker, 29.9.2); `docker -H ssh://vps version`
+    answers (29.9.2); 26G free there;
+  - **incident**: the swarm leave and join wiped Docker's embedded DNS
+    records for every running container on the VPS. Caddy could no longer
+    resolve `crochethub-filetstudio`, and filetstudio.com answered 502
+    from about 15:28 to 15:34 UTC. The auto-mode classifier refused the
+    driver's container restarts, so the owner restarted `caddy`,
+    `crochethub-filetstudio` and `infinite-flow-web` (the sites back),
+    then `crochethub-mongodb` and the app again (its compose alias
+    `mongodb` unresolved until then); checked afterwards: both names
+    answer 200, the app logs no MongoDB error. Lesson (in the driver's
+    memory, offered for the VPS's host notes): a swarm membership change on
+    the VPS is a downtime, like a Docker upgrade, followed by restarting
+    every container and checking the app reaches its database;
+  - the VPS node set to `drain` by the owner (the classifier refused the
+    driver): the bricks' stack tests carry no placement constraint and
+    would otherwise schedule tasks there, opening a host-mode port on the
+    VPS's public address. **Rule for this wave**: the VPS stays drained;
+    only chunk 10b's two-host try and the wave gate's two-host smoke run
+    set it `active`, for their run only, and drain it again after
+    (`docker node update --availability active|drain vps-5718ad52`, run
+    by the owner if the classifier refuses it);
+  - G4 cleared 2026-10-26.
+- Out of date in the plan and `.tech`: the VPS's engine version (28.5.1
+  there, 29.9.2 now). Sent to `spec-writer` (G4's text, D178) and
+  `security-advisor` (`.tech`).
+
+### Order
+
+- Chunk 12 reads no W3 item and depends only on merged chunks: dispatched
+  at once.
+- Capture W3 (hosts, per-host contexts, where volumes live) is drafted
+  and committed before chunk 10 starts; chunk 11 once chunk 10 has
+  merged (in-wave edge 10 ──> 11).
+
+### Capture W3 — hosts, placement and per-host contexts (chunk 10; read by 11, 12, 13, 15)
+
+Recorded 2026-10-26, before any code; drafted for the wave driver from
+the plan's (v10) chunks 10 and 11, "Read first", G4, G5 and "Workflow
+deltas", master spec 6.4, 7.5, 8.6, 10, 12, 13, access model 7, D125,
+D128, D149, D156, D159, D173, v0.1's W2-A, W2-B and W3-C
+(`playground.yaml`, `implementation.yaml`, the names and labels,
+`docker.for_local_dir`, the teardown record), v0.2's W3-A (`fit` reading
+the images from the engine, D102), this version's W1 items 3 and 6 (the
+growth per hour, the snapshot contract inside a node) and W2 items 0
+and 5 (the records' homes, the host timer), G4's facts (wave 3's start,
+above), and the code on `v0.3-w3` at 4e0b01b
+(`tools/gm/{localimpl,render,deploy,docker,execnode,fit,state,teardown,
+aging}.py`, `tools/gm/__init__.py`). Checked on armenelos the same day:
+`docker info` names each engine as its swarm node (`armenelos`,
+`vps-5718ad52`), both on `overlay2`; `DOCKER_CONFIG` is unset in the
+shell and the user manager; `ssh vps` reaches the VPS only through the
+desktop session's SSH agent, and at its public address (closing list).
+W1's method holds: a source that fixes a point is cited, not restated;
+**(choice)** marks a point the sources left open, settled with its
+reason; each item names the chunk that writes it and those that read
+it; a chunk's internals stay out.
+
+**0. Conventions** (read by 10, 11, 12, 13, 15)
+
+- A **host** is one entry of the playground's declaration, named by its
+  swarm node name; the **manager** is the host flagged so, where `gmctl`
+  and the host timers run (W2 item 5); a **designed host** is a name in
+  the scenario's `designed_for.hosts`.
+- **Two kinds of Docker call** (choice: Swarm answers the first kind
+  from its manager for every node, the second only on the engine that
+  holds the object): Swarm-scoped calls (`stack`, `service`, `service
+  ps`, `service logs`, `node`, `network`, `config`, `secret`, `inspect
+  --type task`) go to the manager; node-local calls (`ps`, `exec`,
+  `inspect` of a container, `volume`, `image`, `save`/`load`, a helper
+  `run`) go to the host the node is placed on. On one host both are the
+  same engine, as today.
+
+**1. The playground declaration** (writes: chunk 10a; read by 10b, 11,
+12, 13, 15). Master spec 10.1, 10.2; W2-A.
+
+```yaml
+# playground.yaml, written by gmctl fit
+name: duo
+platform: swarm
+hosts:                                  # exactly one with manager: true
+  - name: armenelos                     # the swarm node name
+    docker_endpoint: null               # null: the local engine
+    manager: true
+    capacity: {cpu: 4, memory: 5G, disk: 10G}    # memory available (10.1)
+  - name: vps-5718ad52
+    docker_endpoint: ssh://<user>@<its Tailscale address>
+    manager: false
+    capacity: {cpu: 2, memory: 4G, disk: 20G}
+mapping:                                # designed host -> host
+  host-1: armenelos
+  host-2: vps-5718ad52
+```
+
+- **Today's form** (`docker_endpoint` and `capacity` at the top, no
+  `hosts`) reads as a list of one, its `name` the engine's (`docker info
+  --format '{{.Name}}'`, read by `fit`, which already reaches it), its
+  `manager` true; it is never rewritten into the list form (choice:
+  existing local implementations and `fit --cpu …` stay as they are).
+- **The mapping**: on one host, implied (every designed host onto it);
+  on several, required for every designed host, onto a declared host;
+  several designed hosts may share a host, and a host may get none
+  (master spec 10.2: the default game stays single-host).
+- **Command line** (choice: written by `gmctl`, as W2-A has it, never
+  by hand): `gmctl fit <dir> --playground <pg> --host
+  armenelos,manager,cpu=4,memory=5G,disk=10G --host
+  vps-5718ad52,endpoint=ssh://…,cpu=2,memory=4G,disk=20G --map
+  host-1=armenelos --map host-2=vps-5718ad52`. `--host` (repeatable)
+  replaces the whole host list, `--map` the whole mapping; a host with no
+  `endpoint=` is the local engine. `--endpoint`, `--cpu`, `--memory` and
+  `--disk` stay the one-host form's, refused with `--host` or on a
+  playground of several hosts.
+- **`fit` refuses** (exit 1, nothing written): no or two managers, an
+  unmapped or unknown designed host, a mapping onto an undeclared host;
+  on several hosts, a host the manager's `docker node ls` does not list
+  under that name, or the manager not listed as a manager.
+- A remote host's endpoint is an SSH destination reaching its Tailscale
+  address (master spec 10.2); `gmctl` does not check the route (choice:
+  the route is the host's SSH configuration, which `gmctl` does not own).
+
+**2. Placement** (writes: chunk 10a in `implementation.yaml` and the
+stack file; read by 10b, 11, 13). Master spec 7.5, 10.2; access model 7
+(`network-visitor`).
+
+- Each node of `implementation.yaml` gains `host: <host>`, its designed
+  host through the mapping. `render` writes one constraint per service,
+  `node.hostname == <host>`, in place of `PLACEMENT_CONSTRAINT`, every
+  node pinned, stateful or not (choice: a node is given its image only on
+  its host, item 5, so it can run nowhere else; on one host the
+  constraint line is the only change). A one-host game is thereby kept
+  off the VPS even while the VPS is `active`.
+- **Published ports only on the manager** (choice, from G4's "no game
+  port published on the VPS"): `fit` refuses a node with
+  `published_ports` placed on any other host, naming the mapping to
+  change. A host-mode port on a worker opens on every address it has, a
+  public one included, ahead of its firewall.
+- **A restart keeps every node's host**: it reads the same
+  `playground.yaml`, which `fit` cannot change while a game is deployed
+  (`fit._game_to_keep` refuses), so a snapshot taken on a host is
+  restored on it.
+
+**3. Per-host Docker contexts and how `gmctl` reaches a host** (writes:
+chunk 10b in `docker.py`, `execnode.py`, `deploy.py`; read by 11, 12, 13,
+15). Master spec 10.2; D173; W2 item 5.
+
+- Each host with an endpoint has a context `dbagm-<host>` (choice: named
+  by the swarm node, unique in the swarm, shared by every playground
+  declaring it), in the default store of the host where `gmctl` runs
+  (`$HOME/.docker`, which a timer run's environment has). Every `gmctl`
+  run that reaches a host first ensures its context from
+  `playground.yaml`: created when missing, refused when one of that name
+  names another endpoint (the command to update it in the message). Each
+  call names it (`docker --context dbagm-<host> …`); `gmctl` never runs
+  `docker context use` (choice: the GM's own `docker` commands stay
+  aimed where they were). Contexts are client-side and outlive a game;
+  teardown leaves them (choice: the next game on the same hosts reuses
+  them; nothing is created on the remote host).
+- **API**: `docker.for_local_dir(ldir)` keeps returning the manager's
+  `Docker`; it reaches any host with `.on_host(<host>)` (itself for the
+  manager, and on one host). `running_containers`, `exec_node` and its
+  `node_container`, and deploy's health poll find the node's host
+  themselves, so their callers in `aging.py`, `checks.py` and
+  `inject.py`, which pass the manager's `Docker`, stay unchanged
+  (choice: those files are not in chunk 10's). `aging.task_history`'s
+  container inspect on another host fails and falls back, as coded, to
+  the task's own timestamps (choice: an outage's edge read a few seconds
+  off, against touching chunk 8's file). The tests' `FakeDocker` models
+  several hosts behind `.on_host`.
+- **A timer run reaches the hosts as the shell does** (D173): the
+  context store under `$HOME` and the SSH client configuration are the
+  same for both; the session's SSH agent is not (it is gone after a
+  reboot under lingering). `deploy` therefore probes each remote host as
+  a timer run would, with no SSH agent and no terminal, and refuses,
+  before creating anything, when it does not answer (choice: in every
+  game, one rule, since `snapshot` and `restart` may run from anywhere
+  too). W2 item 5's "not supported for timer runs" is thereby closed.
+- **`deploy` refuses** a host that the manager's `docker node ls` shows
+  not `Ready` or not `active`, naming `docker node update --availability
+  active <host>`; on several hosts it refuses `--init-swarm`. `gmctl`
+  never changes a node's availability or the swarm's membership (choice:
+  on the VPS a membership change is a downtime, G4's incident; both stay
+  the owner's and the driver's).
+
+**4. Where a node's volumes, and everything else of the game, live on a
+host** (writes: chunk 10b, teardown included; chunk 11 the snapshot's;
+read by 11, 13, 15). Master spec 6.4, 12; W2-A's names and labels; W1
+item 6 ("where the copies live, how they are restored and labelled").
+
+- A node's volumes keep W2-A's names and labels; Swarm creates them on
+  the node's host when its task first starts there, with the stack
+  file's labels, so they live on `nodes.<n>.host` for the whole game.
+  The game's overlay network reaches a worker the same way (the stack's
+  own, labelled).
+- **Nothing else of the game is created on a remote host but these and
+  what follows, each labelled `dbagm.game=<game_id>` or by its snapshot
+  label** (the VPS rule, D159): no context, network, file or directory
+  there (choice: everything `gmctl` leaves on a host is then a Docker
+  object its label finds). Helper containers (chunk 11's copies and
+  restores) run with `--rm`, `--pull never`, the label, and an image of
+  the game the host already holds (choice: no registry, nothing pulled).
+- **The snapshot's copies** (chunk 11): one Docker volume per copied
+  volume, on that volume's host, holding the tar stream of W1 item 6
+  (choice: the stream as produced, restored by extraction as W1 item 6
+  says), labelled `dbagm.snapshot=<id of the game that took it>` and not
+  `dbagm.game` (choice: so a restart's removal of the game's objects
+  leaves it, and the restarted game's teardown removes it by the id
+  recorded with the snapshot's location). A stream from a node on
+  another host crosses the link twice (back to `gmctl`, then into the
+  volume) (choice: W1 item 6's exec path kept; a restore runs on the
+  host, from volume to volume). A restart's fresh volumes are created on
+  the node's host under the new game id, labelled as Swarm would label
+  them, before the stack is deployed (choice: a volume is node-local, so
+  only one made on that host is found there; Swarm uses an existing
+  volume of the stack's name, which chunk 11's run confirms).
+- **Teardown per host** (chunk 10b; amends v0.1 W2-B's
+  `remove_game_objects` and `leftovers`): Swarm-scoped objects on the
+  manager, then containers and volumes on every declared host; a host
+  that does not answer fails the teardown as a labelled object left
+  (exit 1, nothing recorded, W3-C). Images stay (as today), copied ones
+  included.
+
+**5. `fit` per host and the snapshot's verdict** (writes: chunk 10a in
+`implementation.yaml`; read by 11, 13). Master spec 6.4, 8.6, 10.2, 12;
+W1 item 3 (`disk_growth_per_hour`).
+
+- Per host, the nodes placed there against its capacity (limits,
+  reservations, disk with each of its images counted once and the
+  growth over the scenario's aging plus four hours); the game fits only
+  when every host does.
+- The snapshot's copies are counted on each volume's host, after the
+  game's own disk; the verdict is one for the game (choice: a restart
+  needs every volume, so a snapshot short on one host is no snapshot):
+  `implementation.yaml` top-level `snapshot_fit: {fits: true|false, why:
+  <the line of the host short of disk, or null>}`. A game that fits
+  with no room for the snapshot is fitted, and says so (master spec 12,
+  "Otherwise, no history"); chunk 11 records "not fitting" from `fits:
+  false` and takes nothing.
+
+**6. The image copy** (writes: chunk 10b; read by 11, 15). Master spec
+10.2; D149.
+
+- The manager holds every image of the game (`fit` reads them there, as
+  today, and `deploy` refuses one missing there); each other host gets
+  the images of the nodes placed on it, skipped when it holds the same
+  name under the same id (`docker image inspect --format '{{.Id}}'`;
+  both engines on `overlay2`, where the id survives a save and load).
+- Form (choice: one route per host, its context): `docker save <image>
+  | docker --context dbagm-<host> load`, the same SSH as `docker save |
+  ssh <host> docker load`, with no second destination to declare.
+- Recorded by `deploy` in `state.yaml` (W2 item 0), top-level
+  `images: {<host>: [{image, id, copied: true|false, at}]}`, the last
+  deployment's; a restart's deployment finds every image present.
+
+**7. Wave 3 coordination** (for the driver and chunks 10, 11, 12)
+
+- Chunk 10's Files gain `tools/gm/teardown.py` (item 4) and
+  `tools/tests/test_teardown.py`; both pass to chunk 11 at chunk 10's
+  merge (in-wave edge 10 ──> 11).
+- Chunk 10b's try runs on a scratch copy of `fixture-monitoring` whose
+  `designed_for` names two hosts, `bastion` and `db` on one and
+  `prometheus`, `exporter` and `grafana` on the other, mapped onto
+  armenelos and the VPS (choice: the fixture's own declaration, and so
+  its one-host rendering, stays unchanged; the split puts a database
+  connection, a scrape and the web front across the link).
+- **To relay to chunk 12** (running): `fixture-load`'s `designed_for`
+  names two hosts with the bastion's on the first, both mapped onto one
+  host for the one-host run; `smoke-load.sh <playground>` passes any
+  further arguments to `gmctl fit`, so the wave gate's two-host run gives
+  item 1's `--host` and `--map` there.
+- The VPS's `active` window ("Workflow deltas", D178) opens before a
+  two-host run's `deploy` (item 3 refuses a drained host) and closes
+  after its teardown, never before it (choice: draining stops the VPS's
+  tasks but leaves their volumes, which teardown must still reach).
+
+**Points not mine to settle**
+
+1. **SSH to the VPS for a timer run** (owner): `ssh vps` succeeds only
+   with the session's agent (refused with `SSH_AUTH_SOCK` unset; no key
+   at a default path), so item 3's probe refuses today. A key that works
+   without an agent, held on armenelos and authorised on the VPS for
+   `debian`, is a credential decision.
+2. **G4's "SSH over Tailscale"** (driver, then `spec-writer` for G4's
+   text): `ssh vps` is `debian@51.210.178.153`, the VPS's public
+   address, so `docker -H ssh://vps` and an image copy through it cross
+   the internet; `ssh debian@100.126.172.117` fails host-key
+   verification (that address is not in `known_hosts`). Needed before
+   chunk 10b's try: an SSH destination at the Tailscale address with a
+   verified host key.
+3. **For `spec-writer`**: chunk 10's Files (item 7); item 2's refusal of
+   published ports off the manager, if master spec 7.5 or 10.2 should
+   state it; item 6's copy through the context, if 10.2's literal command
+   should follow.
+
+### Dispatch and settlements
+
+- `spec-writer`: plan v10 (c0f8abc, D178: G4 cleared, the VPS's
+  swarm membership change a downtime, the drain rule made standing,
+  through wave 4); plan v11 (f355502, D179 teardown per host in chunk
+  10, D180 published ports on the manager only, D181 the image copy
+  through the host's SSH Docker context; W3's other (choice)s change no
+  stated behaviour).
+- `security-advisor`: `.tech` e9631bc. The VPS's Docker Engine 29.9.2 is
+  clear (past CVE-2026-34040, -33997, -42306, -41568, -41567, -92542,
+  -92543 and GO-2026-6809). Optional, for the owner: armenelos' 29.9.1
+  is built with Go 1.26.9 (GO-2026-6809, low risk here); upgrading it to
+  29.9.2 at the next maintenance would align the two nodes.
+- Capture W3 committed 4c53cf1 (drafted for the driver). Its closing
+  list found G4's "SSH over Tailscale with a key" not met: `ssh vps`
+  went to the public address, and its key was reachable only through the
+  desktop keyring's agent, which a timer run after a reboot lacks.
+- Chunk 12 (`v0.3-c12-load`): dispatched at the wave's start; merged
+  c0875f6 (chunk commit 4f261d2). Chunk 10 (`v0.3-c10-multihost`):
+  dispatched after W3; built (768bc36 10a, 530b3e1 10b), waiting on its
+  merge gate, the two-host try.
+
+### The SSH route and key to the VPS — owner's ruling, 2026-10-26
+
+The owner followed the driver's recommendation, **for testing and private
+runs only; no secret in git**:
+- a new alias `dbagm-vps` in `~/.ssh/config` on armenelos (backup
+  `~/.ssh/config.bak_20261026`): HostName 100.126.172.117 (Tailscale),
+  User `debian`, `HostKeyAlias 51.210.178.153` (the VPS shows the same
+  ed25519 host key on both addresses, SHA256:LBwBb7KT…, already in
+  `known_hosts`), `IdentitiesOnly yes`; `ssh vps` unchanged for the
+  owner's other projects;
+- a dedicated passphrase-less key `~/.ssh/dbagm_vps_ed25519` (mode 600,
+  outside every repository), authorised on the VPS's `debian` account
+  with `from="100.78.85.1",no-agent-forwarding,no-X11-forwarding,
+  no-port-forwarding` (backup `~/.ssh/authorized_keys.bak_20261026`
+  there). The owner accepted that this key gives root on the VPS to
+  whoever can read it on armenelos;
+- checked: with `SSH_AUTH_SOCK` unset, `ssh -o BatchMode=yes dbagm-vps
+  docker version` answers 29.9.2; the same key on the public address is
+  refused; filetstudio.com 200.
+- A playground names the VPS with endpoint `ssh://dbagm-vps`. G4's SSH
+  item is met from here.
+
+### Chunk 10's two-host try, first attempt — 2026-10-26 evening
+
+The owner set the VPS `active` for the try. Run with
+`VPS_SSH=ssh://dbagm-vps` (scratch `fixture-monitoring` over two designed
+hosts: bastion and db on armenelos; Prometheus, the exporter and Grafana
+on the VPS).
+- **Failed at deploy**: Swarm rejected the exporter's task on the VPS,
+  `invalid pool request: Pool overlaps with other one on this address
+  space`. Swarm's default pool (10.0.0.0/8 in /24s; the ingress has
+  10.0.0.0/24) hands the game's overlay 10.0.1.0/24 and up, which the
+  VPS's local networks already hold (10.0.0.0/24 to 10.0.5.0/24:
+  `bridge`, `maintenant_default`, `crochethub_net`, `caddy_filetstudio`,
+  `docker_gwbridge`, `caddy_infinite-flow`). Every game spanning both
+  hosts hits it; one-host games don't. Setup rolled back and teardown
+  left nothing of the game on either host.
+- **Proved**: `deploy`'s agent-less probe through `ssh://dbagm-vps`; the
+  image copy (three images loaded on the VPS under the manager's ids,
+  recorded `copied: true`, a second pass copying none); teardown per host
+  through context `dbagm-vps-5718ad52`; Swarm on Tailscale (VPS
+  100.126.172.117, manager 100.78.85.1, direct over IPv6).
+- **Not reached**: the bastion's ports on armenelos only, `gmctl exec`
+  on a VPS node (shell and user-manager run), traffic across the link,
+  the MTU inside a node.
+- filetstudio.com 200 before, after the failed deploy and after
+  teardown; the app logged no MongoDB line.
+- **An architectural decision nobody captured** (chunk 10 stopped per
+  its brief). Options from chunk 10's owner:
+  - **A (recommended by the chunk owner and the driver)**: gmctl gives a
+    multi-host game's overlay an explicit subnet, the first free /24 in a
+    range reserved for gmctl (e.g. 10.20.0.0/16), avoiding every swarm
+    network and every local network on the placed hosts; code in render
+    and deploy only, nothing changed on the VPS. To capture as W3-a:
+    where it is chosen, the range, recorded in `implementation.yaml` so a
+    restart reuses it;
+  - B: the VPS daemon's `default-address-pools` (a dockerd restart, a
+    filetstudio.com downtime);
+  - C: Swarm's default address pool (only at `swarm init`, a membership
+    change): ruled out.
+
+### State at the end of 2026-10-26 (for the next driver)
+
+- Wave 3 on `v0.3-w3` (worktree `/home/bastien/work/db_audit_gm-wt/v0.3-w3`).
+  Plan v11. G4 cleared (D178), with the SSH route `dbagm-vps` and its
+  dedicated key (owner's ruling above: testing and private runs only, no
+  secret in git).
+- Chunk 12 merged (c0875f6). Chunk 10 built, not merged: branch
+  `v0.3-c10-multihost` at 530b3e1 (10a 768bc36), worktree
+  `/home/bastien/work/db_audit_gm-wt/v0.3-c10-multihost` kept; the try
+  script and logs in the driver's scratchpad (`two-host-try.sh`,
+  `try.log`, `try2.log`). Chunk 11 not started (needs 10).
+- The VPS: the owner drains it at the day's close (nothing of a game on
+  it, only the three copied images, about 1.45 GB). Context
+  `dbagm-vps-5718ad52` on armenelos.
+- Next:
+  1. The owner's word on option A (above), then capture W3-a and
+     `spec-writer` if master spec 10.2 needs a line;
+  2. a fresh `coding-leader` resumes chunk 10 from 530b3e1 with W3-a:
+     the subnet fix, then the try again (the owner sets the VPS
+     `active`, and drains it after);
+  3. chunk 11 once 10 has merged; then the wave gate, its two-host
+     `smoke-load.sh` run included.
+- Gate-fix list so far: `tools/gm/state.py` `status` shows a several-host
+  playground as "local engine" (cosmetic, chunk 10's report).
+- For the owner, optional: armenelos' Docker 29.9.1 → 29.9.2 at the next
+  maintenance (security-advisor).
+
+### Capture W3-a — the game's overlay subnet on several hosts (chunk 10; read by 11, 15) — 2026-10-27
+
+Owner's word, 2026-10-27: option A of chunk 10's first try ("gmctl
+picks the subnet, from a range reserved for it, 10.x.0.0/16"). Recorded
+by the driver before chunk 10 resumes, from that try (above), capture W3
+items 2, 3 and 7, and the networks read the same day on both hosts:
+armenelos holds `ingress` 10.0.0.0/24 and local networks in
+172.17–172.23; the VPS holds local networks 10.0.0.0/24 to 10.0.5.0/24
+(`bridge`, `maintenant_default`, `crochethub_net`, `caddy_filetstudio`,
+`docker_gwbridge`, `caddy_infinite-flow`); neither has a route or a
+network in 10.20.0.0/16.
+
+1. **The range**: `10.20.0.0/16`, reserved for the overlays of `gmctl`'s
+   games (256 /24s), one constant in the code. Nothing changes on the
+   VPS or in either daemon's configuration (options B and C dropped).
+2. **Which games** (choice: one-host games work today and keep their
+   stack file unchanged, as with the MTU of W3 item 2): a game whose
+   nodes span more than one host gets an explicit subnet; a one-host
+   game keeps Swarm's default allocation.
+3. **The pick**: the first /24 of the range that overlaps no subnet of
+   (a) every swarm-scoped network the manager lists (the ingress, other
+   games' overlays) and (b) every network on each host the game is
+   placed on, the manager included, read through the host's context
+   (W3 item 3). A full range refuses the deployment, naming the range.
+   Overlap is a prefix overlap, not equality.
+4. **Where and when** (choice: only `deploy` reaches every placed host,
+   through the probe of W3 item 3; `fit` stays off the workers): at the
+   game's first deployment, before the stack is rendered for it.
+   Recorded in `implementation.yaml`, top-level `network: {subnet:
+   <10.20.N.0/24>}`, and rendered by `render` as the overlay's `ipam:
+   {config: [{subnet: ...}]}` beside its MTU option.
+5. **A restart reuses it**: a recorded subnet is kept, not picked again
+   (a restored game keeps its addresses); `deploy` re-checks it against
+   item 3's lists and refuses, naming the network that now overlaps,
+   rather than move the game silently. `fit` cannot rewrite
+   `implementation.yaml` while the game is deployed (W3 item 2); a new
+   `fit` after teardown drops the record and the next deployment picks
+   again.
+6. **Checks** (chunk 10): unit tests over given network lists (first
+   free /24, skipping both kinds of overlap, a full range, a recorded
+   subnet kept, a recorded one now taken); a one-host render unchanged;
+   then chunk 10b's two-host try again, with the VPS `active` for it
+   (the owner sets it, and drains it after teardown).
+
+### Chunk 10 resumed, the try passed, merged — 2026-10-27
+
+- `spec-writer`: D182 and plan v12 (efaa0aa): master spec 10.2's risks
+  list names the overlay's range; D182 in chunks 10, 11, 15. Its point
+  for chunk 11: on a restart, Swarm removes the old overlay
+  asynchronously, so the re-check must not count the game's own
+  network (relayed to chunk 10, which leaves it out by name; the
+  restart's ordering stays chunk 11's).
+- **W3-a item 4, amended by the driver** (chunk 10's stop, no stated
+  behaviour changed): `render` writes `stack.yml` before `deploy` runs,
+  so `deploy` picks or re-checks the subnet after its host checks,
+  before anything is created, and writes it into the rendered stack's
+  network `ipam` (`render.set_subnet`); `render` writes the same `ipam`
+  whenever a subnet is recorded. The record is `implementation.yaml`'s
+  top-level `overlay: {subnet: <10.20.N.0/24>}` (`localimpl.OVERLAY`),
+  since `network` already holds the network's name.
+- Chunk 10: 6146893 on 530b3e1, merged 6b6cceb; worktree removed,
+  branch kept. Unit suite 582 OK (rerun by the driver). The two-host try
+  (`two-host-try-w3a.sh` under `try-wrapper-w3a.sh`, log `try3.log`, the
+  driver's scratchpad; VPS active inside the lock, drained after) passed
+  with 0 failures, game `fixture-monitoring-6cwdd0`: bastion and db on
+  armenelos, exporter, Prometheus and Grafana on the VPS; overlay
+  10.20.0.0/24 recorded, in the stack and on both hosts (vxlanid 4106);
+  2222 and 8080 on armenelos only; `gmctl exec` on VPS nodes from a
+  shell and from `systemd-run --user` with no agent; `pg_up` 1 across
+  the link, a 26 kB Prometheus page through the web front; images 0
+  copied, 3 held under the same id; teardown left nothing of the game on
+  either host. filetstudio.com 200 throughout; VPS `Drain` after.
+- **Finding, for `spec-writer`** (not blocking): the overlay's MTU
+  option 1230 gives an interface of 1180 inside a node: Docker takes
+  VXLAN's 50 bytes off the option itself, so 1280 would give 1230.
+  Safe as it is; changing it needs another two-host run.
+- Gate-fix list: `tools/gm/state.py` `status` shows a several-host
+  playground as "local engine" (cosmetic).
+
+### Capture W3-b — the overlay's range is the GM's to choose (amends W3-a; chunk 10's follow-up, read by 11, 13, 15) — 2026-10-27
+
+Owner's word, 2026-10-27: "the network selection should probably remain
+in the GM agent hands (as it may need to be selected according to the
+execution environment). Meaning we propose 10.20... but if it isn't
+available, it shouldn't be too troublesome for the GM to select
+another." W3-a holds, but for:
+
+1. **The range is the playground's** (choice: the execution environment
+   is what the playground declares): `playground.yaml` gains
+   `overlay_range: <IPv4 CIDR>`, written by `gmctl fit --overlay-range
+   <cidr>`; absent, `10.20.0.0/16`, the proposed default. A prefix of
+   /24 or longer than /16 is fine; a /24 names that one subnet. `fit`
+   refuses a range that is not IPv4, is wider than /8 or narrower than
+   /24, or lies outside the private ranges (10/8, 172.16/12,
+   192.168/16).
+2. **One run's override**: `gmctl deploy` and `gmctl restart` take
+   `--overlay-range <cidr>` too, used for that run in place of the
+   playground's (choice: `fit` refuses while a game is deployed, and a
+   restart must not need a teardown to change the range).
+3. **A recorded subnet** (W3-a item 5) is kept while it lies inside the
+   range in force and overlaps nothing; one outside the range in force
+   is picked again from it (the GM changed the range: an explicit
+   word, not a silent move); one inside it that now overlaps is still
+   refused.
+4. **Every refusal says how to choose**: a full range, or a recorded
+   subnet now overlapping, names what is taken (the network and its
+   host) and the way out: `--overlay-range <cidr>` on `deploy` or
+   `restart`, or `gmctl fit --overlay-range <cidr>` for the playground.
+   `deploy` prints the subnet it uses and the range it came from.
+5. **Who builds it**: a `coding-executor` on the wave branch once chunk
+   11 has merged (chunk 11 is in `deploy.py` now), before the wave
+   gate: `tools/gm/{fit,localimpl,deploy,restart}.py`,
+   `tools/gm/__init__.py` (options, a shared list), the tests,
+   `.claude/skills/game-master/gmctl.md` (`fit`, `deploy`, `restart`
+   rows). Chunk 13's GM skill states the GM's choice. Unit tests: a
+   playground's range used, the default when absent, `fit`'s refusals,
+   the override, a record outside the range re-picked, the refusals'
+   wording. The wave gate's two-host `smoke-load.sh` run checks it on
+   both hosts.
+
+### Chunk 11, first owner paused after 11a — 2026-10-27
+
+- `spec-writer`: D183 and plan v13 (b1438df): the overlay's range is the
+  GM's (master spec 10.2, 13; chunks 13, 15). For W3-b's
+  `coding-executor`: `gmctl.md`'s `status` overlay line too, not only
+  the `fit`, `deploy`, `restart` rows. Still open for `spec-writer`:
+  chunk 10's MTU finding.
+- Chunk 11 (`v0.3-c11-snapshot`): 11a committed 998a4c3 (`gmctl
+  snapshot`, the hand-over's third condition, teardown of the copies,
+  `smoke.sh`'s snapshot); 607 unit tests OK; `smoke.sh` passed on
+  armenelos (7 copies); `fixture-monitoring`'s snapshot with Prometheus
+  and Grafana stopped briefly (18 copies, both up after). Paused at its
+  context threshold before 11b; worktree kept. Its 11b design is in its
+  report, relayed to the resuming owner; it leaves the outgoing game's
+  network out of `deploy`'s re-check by name (D182's point), with no
+  wait.
+
+### Chunk 11 merged — 2026-10-27
+
+- 11b f0ffff8 (merge dd9377f, by its second owner); worktree removed,
+  branch kept. Unit suite 628; `smoke.sh` passed with its snapshot;
+  `fixture-load` snapshot under load, two restarts from it and a
+  no-history restart (64/65, the one fail the run script's own count,
+  fixed); `fixture-monitoring` snapshot and restart 16/16; nothing
+  labelled left; VPS `Drain`, untouched.
+- Chunk's choices: `restart` from `failed` only after a failed restart
+  (the spec's refusals ask only for the confirmation and a handed-over
+  game); the outgoing network left out of the subnet re-check by name;
+  the subnet choice in one place, `deploy.game_subnet(docker, impl)`,
+  where W3-b threads `--overlay-range`.
+- For the wave gate: the restart not run across two hosts (unit tests
+  only); Swarm reusing a pre-created volume confirmed on one host.
+- Gate-fix list: `state.py` `status` shows a several-host playground as
+  "local engine"; after a no-history restart `status`'s aging line reads
+  "ran 0s" (cosmetic, both).
+
+### W3-b built; MTU settled; gate fixes — 2026-10-27
+
+- `spec-writer`: D184 (ac80c9e, plan v14): the overlay's and the
+  ingress's MTU option 1230 kept; Docker reads it as the outer MTU, so a
+  node's interface is 1180; 1280 declined (another two-host run and the
+  ingress re-created for 50 bytes). Master spec 10.2, 20; the plan's
+  "Left for the build" row.
+- `coding-executor` (branch `v0.3-w3-overlay-range`, kept): 37e0a48
+  W3-b, 2a7f54a the gate fixes (`status`'s hosts on several hosts, the
+  aging line after a no-history restart) and D184's wording in
+  `render.py` and `gmctl.md`; merged 4af0895. Unit suite 651 OK. W3-b
+  as captured, plus: a re-fit without `--overlay-range` keeps the
+  declared range; a range with host bits set is refused too; a range
+  edited by hand into `playground.yaml` is checked on read. Left as
+  chunk 11 wrote it: after a no-history restart, the "earliest
+  hand-over" line counts from the new T0.
+
+### Wave gate — 2026-10-27
+
+Run on `v0.3-w3` (head d2dab75) on armenelos (Debian 13, Docker 29.9.1,
+swarm leader; `vps-5718ad52`, Docker 29.9.2, drained but for the last
+step), 10:58–11:43 CET, by a `coding-executor`; every docker step under
+the host lock, one at a time. Step logs: the driver's scratchpad,
+`gate-w3/` (`summary.txt`, `two-host-wrapper.sh`, `leftovers.sh`). All
+passed; no fix needed.
+
+| Step | Result | Duration |
+|---|---|---|
+| Unit suite | 651 OK | 104 s |
+| Scheduler unit tests (in its image) | 60 OK | 66 s |
+| `sh -n` on every shell file | 110 files, 0 failed | — |
+| `perl -c` on every Perl file | 7 files, 0 failed | — |
+| Loader: every brick, fault, scenario and fixture | 25 definitions (new: `fixture-load`), plus 13 inside fixtures; 0 with problems | <1 s |
+| Stack test `postgres` 0.3.0 | all checks passed (131) | 73 s |
+| Stack test `bastion` 0.3.0 | all checks passed (71) | 62 s |
+| Stack test `prometheus` 0.2.0 | all checks passed (131) | 78 s |
+| Stack test `postgres-exporter` 0.2.0 | all checks passed (103) | 98 s |
+| Stack test `grafana` 0.2.0 | all checks passed (119) | 165 s |
+| Stack test `scheduler` 0.1.0 | all checks passed (95) | 728 s |
+| Stack test `pgbouncer` 0.1.0 | all checks passed (103) | 98 s |
+| `smoke.sh` | 60 passed (with the snapshot) | 30 s |
+| `smoke-monitoring.sh` | 43 passed | 47 s |
+| `smoke-scenario.sh bookshop-new-server` | 19 passed | 22 s |
+| `smoke-scenario.sh fernway-clinics-monitoring` | 18 passed | 30 s |
+| `smoke-load.sh armenelos` (one host) | 73 passed | 399 s |
+| `smoke-load.sh duo` (armenelos + the VPS) | 73 passed | 499 s |
+
+- Image sizes unchanged from wave 2 (postgres 262MB, bastion 185MB,
+  prometheus 488MB, postgres-exporter 165MB, grafana 866MB, scheduler
+  172MB, pgbouncer 182MB).
+- Two-host run: `--host armenelos,manager,cpu=4,memory=4G,disk=20G
+  --host vps-5718ad52,endpoint=ssh://dbagm-vps,cpu=2,memory=4G,disk=10G
+  --map host-1=armenelos --map host-2=vps-5718ad52`, no SSH agent.
+  bastion, db, pooler, producer on armenelos; consumer, Prometheus,
+  exporter, Grafana on the VPS. Overlay 10.20.0.0/24 (the default
+  range), MTU option 1230; images: scheduler 0.1.0 copied, 3 held; ports
+  on armenelos only; Prometheus's 12 targets up across the link; 316
+  transactions through PgBouncer. VPS `active` inside the lock, `Drain`
+  after (trap). filetstudio.com 200 before, 16/16 during, after; no
+  MongoDB line. Nothing of a game left on either host; no `dbagm-*`
+  unit.
+- The VPS holds four game images (~1.69 GB): scheduler, grafana,
+  prometheus 0.2.0, postgres-exporter 0.2.0. `infinite-flow-web` there
+  had restarted around 10:09 CET, before the gate touched the VPS
+  (drained, nothing of the game's running there); healthy throughout.
+- Carried to wave 4 (cosmetic): `deploy`'s first line reads "deployed on
+  local engine" on a several-host game (`tools/gm/deploy.py`
+  `DeployResult.text`), as `status` did before 2a7f54a.
+- No dependency changed in wave 3 (no `security-advisor` check); no
+  intent register (no wave sync).

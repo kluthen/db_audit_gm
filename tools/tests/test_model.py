@@ -1,5 +1,6 @@
 """Scenario loading and completeness (tools/gm/model.py)."""
 
+import datetime
 import shutil
 import tempfile
 import unittest
@@ -334,6 +335,94 @@ class TestMonitoringFixture(ScenarioCopyTest):
                    for job in conf["scrape_configs"]}
         self.assertEqual(targets, {"prometheus": ["localhost:9090"],
                                    "postgres": ["exporter:9187"],
+                                   "node-health": [f"{n}:9110" for n in self.NODES]})
+
+
+FIXTURE_LOAD = FIXTURES / "fixture-load"
+
+
+class TestLoadFixture(ScenarioCopyTest):
+    """The v0.3 load fixture (build plan chunk 12): every v0.3 brick, a
+    producer and a consumer, prometheus report-only, write overrides on the
+    producer, a scenario-local behavioural fault (f1) and a catalog state
+    fault due during the aging (f2), aging at its floor. smoke-load.sh
+    deploys it on the real engine; here it loads, and fits and renders on
+    the fake engine on a one-host playground, both designed hosts mapped
+    onto it (capture W3 item 1)."""
+
+    NODES = ["bastion", "db", "pooler", "producer", "consumer", "prometheus", "exporter",
+             "grafana"]
+
+    def setUp(self):
+        super().setUp()
+        self.scenario = self.tmp / "fixture-load"
+        shutil.copytree(FIXTURE_LOAD, self.scenario)
+
+    def test_fixture_loads(self):
+        sc = model.load_scenario(FIXTURE_LOAD)
+        self.assertEqual(sc.id, "fixture-load")
+        self.assertEqual([n["name"] for n in sc.nodes], self.NODES)
+        self.assertEqual({n: (b.id, b.version, b.source) for n, b in sc.bricks.items()}, {
+            "bastion": ("bastion", "0.3.0", "catalog"),
+            "db": ("postgres", "0.3.0", "catalog"),
+            "pooler": ("pgbouncer", "0.1.0", "catalog"),
+            "producer": ("scheduler", "0.1.0", "catalog"),
+            "consumer": ("scheduler", "0.1.0", "catalog"),
+            "prometheus": ("prometheus", "0.2.0", "catalog"),
+            "exporter": ("postgres-exporter", "0.2.0", "catalog"),
+            "grafana": ("grafana", "0.2.0", "catalog")})
+        self.assertTrue(model.has_scheduler_nodes(sc.data))
+        self.assertEqual(sc.data["aging"], {"minimum": "8h", "handover_at": "14:00"})
+        self.assertEqual([n["name"] for n in sc.nodes if n["write_policy"] == "report-only"],
+                         ["bastion", "producer", "consumer", "prometheus"])
+        self.assertEqual(sc.node("producer")["write_overrides"], ["/srv/scheduler/jobs"])
+        self.assertEqual(sc.node("prometheus")["parameters"]["node_health"],
+                         {n: "default" for n in self.NODES})
+        self.assertEqual([(i["id"], i["fault"]["id"], i.get("plant_at", "T0"))
+                          for i in sc.data["fault_instances"]],
+                         [("f1", "fixture-job-every-minute", "T0"),
+                          ("f2", "pg-table-autovacuum-off", "handover-4h")])
+        designed = sc.data["designed_for"]
+        self.assertEqual([h["name"] for h in designed["hosts"]], ["host-1", "host-2"])
+        self.assertEqual(designed["placement"]["bastion"], "host-1")
+
+    def test_the_fixture_fault_is_behavioural(self):
+        fault = yaml.safe_load((FIXTURE_LOAD / "faults/fixture-job-every-minute/fault.yaml")
+                               .read_text())
+        self.assertTrue(fault["sealed_check"]["behavioural"])
+        key = yaml.safe_load((FIXTURE_LOAD / "gm/answer-key.yaml").read_text())
+        f1 = next(i for i in key["instances"] if i["instance"] == "f1")
+        self.assertEqual((f1["sealed_check"]["window"], f1["sealed_check"]["threshold"]),
+                         ("2m", 1))
+
+    def test_fits_a_one_host_playground_and_renders_with_a_handover(self):
+        result = fit.fit(self.scenario, "host-1", cpu="2", memory="4G", disk="10G")
+        self.assertTrue(result.ok, result.text())
+        tomorrow = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)
+        rendered = render.render(self.scenario, "host-1",
+                                 handover=tomorrow.strftime("%Y-%m-%dT09:00Z"))
+        self.assertIn("shift +5", rendered.text())
+        out = self.scenario / "local" / "host-1" / "rendered"
+        self.assertEqual(sorted(str(p.relative_to(out)) for p in out.rglob("*") if p.is_file()),
+                         ["bastion/story.md", "consumer/jobs.yaml", "consumer/schedule.yaml",
+                          "producer/jobs.yaml", "producer/schedule.yaml"])
+
+    def test_grafana_seeds_are_the_companion_files(self):
+        companion = REPO_ROOT / "bricks" / "grafana" / "companion"
+        seeds = model.load_scenario(FIXTURE_LOAD).node("grafana")["seed_files"]
+        self.assertEqual(sorted(seeds), sorted(p.name for p in companion.iterdir()))
+        for name, path in seeds.items():
+            with self.subTest(seed=name):
+                self.assertEqual((FIXTURE_LOAD / path).read_bytes(),
+                                 (companion / name).read_bytes())
+
+    def test_prometheus_scrapes_every_node_the_exporter_and_the_schedulers(self):
+        conf = yaml.safe_load((FIXTURE_LOAD / "nodes/prometheus/prometheus.yml").read_text())
+        targets = {job["job_name"]: [t for sc in job["static_configs"] for t in sc["targets"]]
+                   for job in conf["scrape_configs"]}
+        self.assertEqual(targets, {"prometheus": ["localhost:9090"],
+                                   "postgres": ["exporter:9187"],
+                                   "scheduler": ["producer:9120", "consumer:9120"],
                                    "node-health": [f"{n}:9110" for n in self.NODES]})
 
 

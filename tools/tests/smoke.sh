@@ -7,11 +7,14 @@
 #   health checks; the network's name, UTC on every node) -> exec on both
 #   nodes -> logs, status
 #   -> load-data -> inject twice (same result) -> status --set handed-over
-#   refused, check --handover-check, status --set handed-over
+#   refused, check --handover-check, refused again without the snapshot,
+#   snapshot (every volume by its brick's method, copies labelled
+#   dbagm.snapshot), status --set handed-over, snapshot refused after it
 #   -> check (1) -> the fix through exec -> check (0)
 #   -> validate green, then red after an out-of-envelope change -> teardown,
 # then asserts that nothing carrying the game's labels is left (services,
-# containers, networks, volumes, configs, secrets) and that the objects not
+# containers, networks, volumes, configs, secrets, the snapshot's copies)
+# and that the objects not
 # belonging to the game are the same as before.
 #
 # Needs: a swarm manager on the local engine (docker swarm init), and the
@@ -27,7 +30,7 @@ REPO=$(cd "$HERE/../.." && pwd)
 GMCTL="python3 $REPO/tools/gmctl"
 PG=smoke
 IMAGES="127.0.0.1:5000/dbagm/postgres:0.3.0 127.0.0.1:5000/dbagm/bastion:0.3.0"
-LABELS="com.docker.stack.namespace dbagm.game"
+LABELS="com.docker.stack.namespace dbagm.game dbagm.snapshot"
 KINDS="service network volume config secret"
 
 failures=0
@@ -199,8 +202,9 @@ same "the test fault is planted (index dropped)" "orders_pkey" "$first"
 check "inject again (replay)" $GMCTL inject "$SCN" --playground "$PG"
 same "second inject: same result" "$first" "$(indexes)"
 same "second inject: stage stays injected" injected "$(stage)"
-# v0.3 (chunk 8b; capture W2 item 11, spec D172): a game with no scheduler node
-# is handed over once its hand-over check passed (the snapshot: chunk 11a).
+# v0.3 (chunks 8b, 11a; capture W2 item 11, spec D172): a game with no
+# scheduler node is handed over once its hand-over check passed and its
+# hand-over snapshot is taken (D162).
 $GMCTL status "$SCN" --playground "$PG" --set handed-over >/dev/null 2>&1
 same "status --set handed-over refused before the hand-over check" 1 "$?"
 out=$($GMCTL check "$SCN" --playground "$PG" --handover-check); rc=$?
@@ -208,8 +212,28 @@ printf '%s\n' "$out"
 same "check --handover-check: exit 0 (faults present, nodes healthy)" 0 "$rc"
 same "check --handover-check: no scheduler line (no aging)" "" \
     "$(printf '%s\n' "$out" | grep 'scheduler')"
+$GMCTL status "$SCN" --playground "$PG" --set handed-over >/dev/null 2>&1
+same "status --set handed-over refused before the snapshot" 1 "$?"
+info "gmctl snapshot"
+out=$($GMCTL snapshot "$SCN" --playground "$PG"); rc=$?
+printf '%s\n' "$out"
+same "snapshot: exit 0" 0 "$rc"
+same "snapshot: taken, 7 volumes (bastion 2, db 5; /run never)" yes \
+    "$(printf '%s\n' "$out" | grep -q 'hand-over snapshot taken, 7 volumes' && echo yes)"
+copies=$(docker volume ls -q --filter "label=dbagm.snapshot=$GAME" | sort)
+same "seven copies labelled dbagm.snapshot=$GAME" 7 "$(printf '%s\n' "$copies" | grep -c .)"
+same "no copy carries the game's own label" "" \
+    "$(docker volume ls -q --filter "label=dbagm.snapshot=$GAME" --filter "label=dbagm.game=$GAME")"
+same "the database's copy is a tar holding PG_VERSION and backup_label" 2 "$(docker run --rm \
+    --network none -v "dbagm-snapshot_${GAME}_db_pgdata:/s:ro" --entrypoint tar \
+    127.0.0.1:5000/dbagm/postgres:0.3.0 -tf /s/volume.tar 2>/dev/null \
+    | grep -c -E '^(\./)?(PG_VERSION|backup_label)$')"
+slots=$(printf '%s\n' 'psql -XAtq -c "SELECT count(*) FROM pg_replication_slots"' | exec_db postgres)
+same "no replication slot left on the database" 0 "$slots"
 check "status --set handed-over" $GMCTL status "$SCN" --playground "$PG" --set handed-over
 same "status: stage handed-over" handed-over "$(stage)"
+$GMCTL snapshot "$SCN" --playground "$PG" >/dev/null 2>&1
+same "snapshot refused once handed over" 1 "$?"
 
 # verdicts <output>: the instance lines of gmctl check, without their reasons.
 verdicts() { printf '%s\n' "$1" | sed 's/ — .*//'; }

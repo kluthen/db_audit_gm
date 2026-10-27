@@ -23,6 +23,18 @@ files it rewrites into `rendered/<node>/`: a scheduler's `schedule.yaml`
 and `jobs.yaml` in UTC, shifted, and the bastion's files holding
 `{{customer_timezone}}`, filled. A scenario with none has no aging and
 shifts nothing (D158).
+
+v0.3 master spec 7.5 and 10.2; capture W3, item 2: every node is pinned to
+the host `fit` placed it on (`nodes.<n>.host`), `node.hostname == <host>`,
+the bastion with its host-mode ports, a stateful node with its volumes.
+When the nodes span several hosts, the overlay's VXLAN runs inside
+Tailscale's 1280-byte MTU: the game's network gets the driver option
+`com.docker.network.driver.mtu=1230` (master spec 10.2, "Risks"). Docker
+reads the option as the outer MTU and takes VXLAN's 50 bytes off it again,
+so an interface inside a node has 1180 (D184: kept, safe). A game on one
+host keeps the engine's default. Capture W3-a (D182): once `deploy` has recorded the
+overlay's subnet (`implementation.yaml`'s `overlay.subnet`, several hosts
+only), the network carries it, `ipam: {config: [{subnet}]}`.
 """
 
 import datetime
@@ -54,6 +66,13 @@ ZONE_MIN, ZONE_MAX = -12, 14            # the offsets Etc/GMT names
 SEED_LIMIT = 2 ** 63                    # 0 <= seed < 2**63 (W1 item 7)
 T0 = "T0"
 UTC = datetime.timezone.utc
+# Tailscale's MTU less VXLAN's encapsulation (outer IPv4 20, UDP 8, VXLAN 8,
+# inner Ethernet 14): the value of the overlay's `com.docker.network.driver.mtu`
+# option across hosts (master spec 10.2). Docker reads the option as the outer
+# MTU and takes VXLAN's 50 bytes off it again: 1180 inside a node (D184, kept).
+TAILSCALE_MTU, VXLAN_OVERHEAD = 1280, 50
+OVERLAY_MTU = TAILSCALE_MTU - VXLAN_OVERHEAD
+MTU_OPTION = "com.docker.network.driver.mtu"
 
 
 def parse_handover(text):
@@ -395,6 +414,11 @@ def _healthcheck(spec):
     return hc
 
 
+def set_subnet(overlay, subnet):
+    """The overlay network's explicit subnet (capture W3-a, item 4)."""
+    overlay["ipam"] = {"config": [{"subnet": subnet}]}
+
+
 def build_stack(scenario, impl):
     """The stack file's content, as a dict (Compose file format 3.8)."""
     gid = impl["game_id"]
@@ -429,7 +453,7 @@ def build_stack(scenario, impl):
         reservations = inode["resources"]["reservations"]
         svc["deploy"] = {
             "replicas": 1,
-            "placement": {"constraints": [localimpl.PLACEMENT_CONSTRAINT]},
+            "placement": {"constraints": [localimpl.placement_constraint(inode["host"])]},
             "resources": {
                 "limits": {"cpus": _cpus(limits["cpu"]), "memory": str(limits["memory"])},
                 "reservations": {"cpus": _cpus(reservations["cpu"]),
@@ -444,10 +468,16 @@ def build_stack(scenario, impl):
             configs[c["name"]] = {"external": True, "name": c["name"]}
         for s in inode["secrets"]:
             secrets[s["name"]] = {"external": True, "name": s["name"]}
+    overlay = {"driver": "overlay", "attachable": False}
+    if len({inode.get("host") for inode in impl["nodes"].values()}) > 1:
+        overlay["driver_opts"] = {MTU_OPTION: str(OVERLAY_MTU)}
+    subnet = (impl.get(localimpl.OVERLAY) or {}).get("subnet")
+    if subnet:
+        set_subnet(overlay, subnet)
     return {
         "version": COMPOSE_VERSION,
         "services": services,
-        "networks": {network: {"driver": "overlay", "attachable": False}},
+        "networks": {network: overlay},
         "volumes": volumes,
         "configs": configs,
         "secrets": secrets,
@@ -499,6 +529,10 @@ def _check_fit(scenario, impl, playground):
     if impl["scenario"]["id"] != scenario.id \
             or list(impl["nodes"]) != [n["name"] for n in scenario.nodes]:
         raise GmError("the scenario changed since gmctl fit (id or nodes): fit again")
+    unplaced = [name for name, inode in impl["nodes"].items() if not inode.get("host")]
+    if unplaced:
+        raise GmError(f"node(s) {', '.join(unplaced)} have no host in implementation.yaml "
+                      "(fitted before placement per host): fit again")
     for node in scenario.nodes:
         brick = scenario.bricks[node["name"]]
         recorded = impl["nodes"][node["name"]]["brick"]
@@ -555,6 +589,20 @@ def render(scenario_dir, playground, handover=None, catalog_root=REPO_ROOT):
             warning = (f"the planned hand-over {iso(planned)} is before {iso(earliest)}, the "
                        "earliest hand-over this game could have if the load started now")
 
+    envelope_files, node_config_files, rendered_files, stack_file = write_rendered(
+        scenario, playground, ldir, impl, timeline)
+    localimpl.set_stage(ldir, "rendered")
+    return RenderResult(impl["game_id"], ldir, stack_file, envelope_files, node_config_files,
+                        rendered_files, timeline, warning)
+
+
+def write_rendered(scenario, playground, ldir, impl, timeline):
+    """Render's files for `impl` with `timeline` (None: none): the envelope
+    files, every receiving node's own config, the rendered seed files, the
+    timeline in `implementation.yaml` and the stack file. Returns
+    `(envelope files, node config files, rendered files, stack file)`.
+    Also a restart's (chunk 11): its new game id, the planned hand-over
+    kept, a new seed."""
     envelope_files = []
     for node in scenario.nodes:
         name = node["name"]
@@ -589,6 +637,4 @@ def render(scenario_dir, playground, handover=None, catalog_root=REPO_ROOT):
     localimpl.write_implementation(ldir, impl)
     stack_file = ldir / localimpl.STACK_FILE
     localimpl.write_text(stack_file, dump_stack(build_stack(scenario, impl), impl["game_id"]))
-    localimpl.set_stage(ldir, "rendered")
-    return RenderResult(impl["game_id"], ldir, stack_file, envelope_files, node_config_files,
-                        rendered_files, timeline, warning)
+    return envelope_files, node_config_files, rendered_files, stack_file

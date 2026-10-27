@@ -1,0 +1,27 @@
+# Schedule of the load fixture's consumer node, in scenario time (master
+# spec 7.1; template: .claude/skills/scenario-format/templates/schedule.yaml).
+# The shop's reporting service, straight to the database.
+intensity: 1.0
+connections:
+  reports:
+    driver: sql/postgresql
+    target: db:5432/shop
+    role: shop_reports
+    pool: {size: 1}
+streams:
+  - key: reports.recent
+    connection: reports
+    rate: 12/min
+    arrivals: even
+  - key: reports.top-customers
+    connection: reports
+    rate: 6/min
+    arrivals: even
+    shape: office-days
+shapes:
+  office-days:
+    days:
+      mon-fri:
+        hours: {"00-07": 0.5, "08-19": 1.0, "20-23": 0.5}
+      sat-sun:
+        hours: {"00-23": 0.5}

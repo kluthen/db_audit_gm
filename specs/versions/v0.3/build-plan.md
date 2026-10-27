@@ -1,6 +1,6 @@
 # db_audit_gm v0.3 — Build plan
 
-Status: v9 (2026-10-26): v8 with the owner's ruling on PgBouncer's source, the PostgreSQL apt repository's 1.26.1 instead of Debian 13's 1.24.1, written in (spec D177).
+Status: v14 (2026-10-27): v13 with chunk 10's two-host try's MTU finding (spec D184: option 1230 kept, 1180 inside a node) written into "Left for the build"; v13 wrote the owner's ruling leaving the overlay's range to the GM (spec D183, capture W3-b, amending D182) into chunks 13 and 15, its code the W3-b follow-up, built on the wave branch after chunk 11's merge and before the wave 3 gate, in no chunk.
 Approval: **approved 2026-10-22 by the owner** (G1, spec D156).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-10-22 (spec D154), with
@@ -85,14 +85,15 @@ plan states only its deltas. Its conventions follow v0.2's
   minimum, which caps each instance's own minimum too (chunk 8a, G6,
   spec D161): it shortens the wait, never a clock.
 - **Build host** (observed 2026-10-22): armenelos, Debian 13, Docker
-  Engine 29.9.1, swarm active with one node (armenelos, leader), cgroup
+  Engine 29.9.1, swarm active (armenelos, leader; two nodes from 2026-10-26, G4), cgroup
   v2, 12 CPUs, 11G of memory with about 5G available and swap in use,
   10G free on `/`; the user's systemd manager runs with lingering on, so
   the game's persistent user timers outlive a session and start again at
   boot (the host timer of master spec 8.4, spec D173). Tailscale, reported logged out earlier that day, was
   up on both hosts when checked again on 2026-10-22: armenelos at
   100.78.85.1, the VPS `vps-5718ad52` at 100.126.172.117, `ssh vps`
-  working; the VPS runs Docker Engine 28.5.1 (G4). v0.3 adds two images (scheduler, PgBouncer), five
+  working; since 2026-10-26 the VPS runs Docker Engine 29.9.2 and is a
+  worker in armenelos' swarm, re-created bound to Tailscale (G4). v0.3 adds two images (scheduler, PgBouncer), five
   rebuilt ones and the hand-over snapshots' copies: prune superseded
   `dbagm` tags after a wave gate when the disk runs short.
 - **What v0.2's build taught** ([../v0.2/wave-log.md](../v0.2/wave-log.md)):
@@ -119,8 +120,8 @@ plan states only its deltas. Its conventions follow v0.2's
 |---|---|---|---|---|
 | G1 | Plan approval | The owner | Wave 1 | cleared 2026-10-22 (spec D156) |
 | G2 | Network access at image build time: Debian 13's repositories (`python3-psycopg`, Python 3.13), the PostgreSQL apt repository (PostgreSQL, and `pgbouncer` from wave 2's gate, spec D177), the s6-overlay, Prometheus, `postgres_exporter` and Grafana sources, as in v0.2 | Hand check by the wave driver | Chunks 1, 3, 4, 5, 6 (every image build) | cleared 2026-10-23 for wave 1, 2026-10-26 for wave 2 (hand checks, wave log) |
-| G3 | A Docker host in swarm mode: armenelos, single-node swarm (active 2026-10-22) | Hand check by the wave driver | Every stack test and smoke run, every wave gate, the release gate | cleared 2026-10-23, re-checked 2026-10-26 (hand checks, wave log) |
-| G4 | The VPS ready, under the VPS rule (spec D159; "Workflow deltas"): first, Tailscale logged in on both hosts (`tailscale status`); the VPS's own documentation read before any change there; Docker Engine on the VPS (28.5.1 there, 29.9.1 on armenelos, 2026-10-22): the join checks that a 28.5.1 worker runs the game's services, and an upgrade, if one is needed, waits for a filetstudio.com downtime scheduled with the owner beforehand; the VPS joined to armenelos' swarm as a worker with `--advertise-addr` and `--data-path-addr` on its Tailscale interface (armenelos' own swarm bound likewise), and if the VPS's engine is already in a swarm or runs filetstudio.com as swarm services the driver stops and asks the owner; the swarm's ingress network recreated with an MTU leaving room for VXLAN inside Tailscale's 1280 bytes, with no game running; no game port published on the VPS (the bastion pinned to armenelos); SSH from armenelos to the VPS over Tailscale with a key (Docker context, image copy); at least 5G free on the VPS | The wave driver joins the VPS (spec D156); the owner's part, Tailscale and Docker on the VPS, is in place | Chunk 10b's two-host try; the two-host smoke run (from the wave 3 gate); chunk 15b; the release gate | open: Tailscale up on both hosts and `ssh vps` working (2026-10-22) |
+| G3 | A Docker host in swarm mode: armenelos' swarm (active 2026-10-22; the VPS a drained worker in it from 2026-10-26, G4) | Hand check by the wave driver | Every stack test and smoke run, every wave gate, the release gate | cleared 2026-10-23, re-checked 2026-10-26 (hand checks, wave log) |
+| G4 | The VPS ready, under the VPS rule (spec D159; "Workflow deltas"): first, Tailscale logged in on both hosts (`tailscale status`); the VPS's own documentation read before any change there; Docker Engine on the VPS (29.9.2 there, 29.9.1 on armenelos, 2026-10-26); the VPS joined to armenelos' swarm as a worker with `--advertise-addr` and `--data-path-addr` on its Tailscale interface (armenelos' own swarm bound likewise), and if the VPS's engine is already in a swarm or runs filetstudio.com as swarm services the driver stops and asks the owner; the swarm's ingress network recreated with an MTU leaving room for VXLAN inside Tailscale's 1280 bytes, with no game running; no game port published on the VPS (the bastion pinned to armenelos); SSH from armenelos to the VPS over Tailscale with a key (Docker context, image copy); at least 5G free on the VPS | The wave driver joins the VPS (spec D156); the owner's part, Tailscale and Docker on the VPS, is in place | Chunk 10b's two-host try; the two-host smoke run (from the wave 3 gate); chunk 15b; the release gate | cleared 2026-10-26 (spec D178; hand check, wave log) |
 | G5 | Where the release gate's aged run runs, memory on armenelos being short (about 5G available, swap in use, a single-host game expected at about 5G): on armenelos alone if the game's peak memory measured by chunk 15b plus about 1G fits armenelos' available memory, otherwise on armenelos plus the VPS (spec D156) | Chunk 15b's measured figures, applied by the wave driver and recorded in the wave log | The release gate's aged run | ruled (spec D156); applied after chunk 15b |
 | G6 | How the rehearsal reaches its hand-over in about two hours while the v0.3 scenario declares sixteen hours and the loader's floor is eight: a test-harness-only override of the aging minimum, capping each fault instance's own aging minimum too, in chunk 8a (spec D156, D161) | The owner | Chunk 8a builds it; chunks 11 and 15b use it | cleared 2026-10-22 (spec D156) |
 | G7 | Review of the v0.3 scenario: its faults (chunk 14's among them), issues, aging, write policies and answer key (master spec 15.2) | The owner | Chunk 15's merge | open |
@@ -141,7 +142,7 @@ test harness's only and changes no spec behaviour for a game.
 |---|---|---|---|
 | 1 | 1, 2, 3, 4, 5 | G1 (cleared); G2 (chunks 1, 3, 4, 5); G3 (stack tests) | merged 2026-10-26 (5faff6c) |
 | 2 | 6, 7, 8, 9 | wave 1 | gated 2026-10-26; merged into `main` the same day |
-| 3 | 10, 11, 12 | wave 2; G4 (chunk 10b's two-host try) | planned |
+| 3 | 10, 11, 12 | wave 2; G4 (chunk 10b's two-host try) | gate passed 2026-10-27 (d2dab75) |
 | 4 | 13, 14, 15 | wave 3; G4 (chunk 15b); G7 (chunk 15's merge) | planned |
 
 ```
@@ -154,7 +155,7 @@ test harness's only and changes no spec behaviour for a game.
 1, 2, 4 ──> 9
 7 ──> 10
 3, 4, 5, 6, 8 ──> 11
-10 ──> 11              (in-wave: hosts, contexts and where volumes live, W3)
+10 ──> 11              (in-wave: hosts, contexts, where volumes live and teardown per host, W3; `teardown.py` and `test_teardown.py` pass to 11 at 10's merge)
 2, 3, 6, 7, 8, 9 ──> 12
 7, 8, 9, 10, 11 ──> 13
 2, 3, 6, 9, 12 ──> 14
@@ -190,7 +191,19 @@ fills wave 3.
   may be altered so long as filetstudio.com stays up. The documentation
   kept on the VPS itself describes its set-up: read it before any change
   there. Tailscale and the VPS are meant to be always up; each session
-  touching the VPS checks `tailscale status` on both hosts first.
+  touching the VPS checks `tailscale status` on both hosts first. A
+  swarm membership change on the VPS (leaving, joining, re-creating the
+  swarm) is a downtime too: it wiped the VPS containers' embedded DNS at
+  G4 (spec D178), so it waits for a downtime scheduled with the owner,
+  and is followed by restarting every container there and checking each
+  app reaches its database. The VPS node stays `drain`, since the
+  bricks' stack tests carry no placement constraint and would open a
+  host-mode port on its public address; only a two-host run (chunk
+  10b's try, a wave gate's two-host smoke run, and from wave 4 chunk
+  15b's rehearsal and the release gate's two-host runs) sets it
+  `active`, inside that run's host lock, and drains it again after,
+  pass or fail (`docker node update --availability active|drain
+  vps-5718ad52`, run by the owner if the auto-mode classifier refuses).
 - **Branches and worktrees**: waves `v0.3-w<n>` in
   `/home/bastien/work/db_audit_gm-wt/v0.3-w<n>`; chunks
   `v0.3-c<id>-<slug>` in `/home/bastien/work/db_audit_gm-wt/v0.3-c<id>-<slug>`.
@@ -227,7 +240,8 @@ fills wave 3.
   `sh tools/tests/smoke-scenario.sh bookshop-new-server` and
   `fernway-clinics-monitoring` (as they are until chunk 12 rewrites the
   script for load); from wave 3, `sh tools/tests/smoke-load.sh` on one
-  host, and on armenelos plus the VPS once G4 is cleared; from wave 4,
+  host, and on armenelos plus the VPS once G4 is cleared and chunk 10
+  has merged (the VPS `active` for that run only, "Workflow deltas"); from wave 4,
   `smoke-scenario.sh` on the v0.3 scenario. Every step under the host
   lock, at κ = 1 for the gate itself.
 - No link checker is configured; Markdown links are checked by reading.
@@ -266,8 +280,8 @@ the release gate checks that each is recorded.
 | Item | Chunk |
 |---|---|
 | The footprints of every new or bumped brick, and the aged growth per hour | 3b, 4, 5, 6 (at rest); 15b (under load, growth) |
-| The overlay and ingress MTU over Tailscale; Swarm bound to the Tailscale addresses | 10b (with G4) |
-| The image copy (`docker save \| ssh <host> docker load`) | 10b |
+| The overlay and ingress MTU over Tailscale (option 1230, 1180 inside a node, spec D184); Swarm bound to the Tailscale addresses | 10b (with G4) |
+| The image copy (`docker save \| docker --context dbagm-<host> load`, through the host's SSH Docker context, spec D181) | 10b |
 | `auth_query`'s exact set-up in PgBouncer, `auth_dbname` for the console included | 6 (the database side from 4a) |
 | The size of the GM's connection reserve (two expected) | 4a |
 | How `gmctl` schedules setup actions on the manager (a host timer: persistent systemd user units, spec D173) | 8a |
@@ -928,7 +942,7 @@ them). Outside its Files line: the `check` help text in
 
 ### Chunk 10 — Multi-host: hosts, placement, `fit` per host, the image copy
 
-Status: planned
+Status: merged (w3, 6b6cceb)
 Wave: 3
 Depends on: chunk 7; G4 (10b's two-host try)
 Architecture capture: at wave 3 start (W3), for chunk 11: the
@@ -945,45 +959,70 @@ a node's volumes live on its placed host.
     one-host declaration in today's form read as a list of one;
     per-node placement through the mapping, rendered as hostname
     constraints instead of `PLACEMENT_CONSTRAINT`, stateful nodes pinned
-    with their volumes, the bastion pinned to its host; `fit` per host
+    with their volumes, the bastion pinned to its host, `fit` refusing
+    a node with published ports placed on any host but the manager
+    (spec D180); `fit` per host
     (limits, reservations, disk, each host's images once), counting the
     footprints' growth per hour over the scenario's aging and a
     four-hour game, and the hand-over snapshot's copies, saying when the
     snapshot does not fit;
   - **10b**: `deploy` copying to each other host the images of its
-    nodes with `docker save | ssh <host> docker load`, skipping an image
+    nodes with `docker save | docker --context dbagm-<host> load`
+    through the host's SSH Docker context (spec D181), skipping an image
     the host holds under the same id, never pulling; per-host SSH Docker
-    contexts for the exec verb, reached as well by a host timer's run
-    (chunk 8a), which has only the user manager's environment (spec
-    D173); the game's overlay network MTU set for
-    VXLAN inside Tailscale; `bastion` 0.3.0's `docs/gm.md` stating the
+    contexts for the exec verb and the image copy, reached as well by a
+    host timer's run (chunk 8a), which has only the user manager's
+    environment (spec D173); teardown per host: the game's Swarm objects
+    on the manager, its containers and volumes on every declared host
+    (spec D179); the game's overlay network MTU set for
+    VXLAN inside Tailscale, and on several hosts its subnet from
+    `gmctl`'s reserved range (spec D182, capture W3-a); `bastion`
+    0.3.0's `docs/gm.md` stating the
     placement rule; the try on armenelos plus the VPS (needs G4): a
     two-host `fixture-monitoring` game deployed, the bastion's ports open
     on its host only, the exec verb reaching a VPS node, from a shell
     and from a run in the user manager's environment, the images
-    copied once.
+    copied once; the VPS node `active` for the try only, drained again
+    after ("Workflow deltas").
   - Out: a registry (none); Kubernetes.
-- Files: `tools/gm/{fit,localimpl,render,deploy,docker,execnode}.py`,
-  `tools/gm/__init__.py`, `tools/tests/test_{fit,render,deploy}.py`,
+- Files: `tools/gm/{fit,localimpl,render,deploy,docker,execnode,teardown}.py`,
+  `tools/gm/__init__.py`,
+  `tools/tests/test_{fit,render,deploy,teardown}.py`,
+  `tools/tests/__init__.py` and `tools/tests/fakebin/docker` (the fake
+  engine answering for several hosts, W3 item 3),
   `bricks/bastion/docs/gm.md`, `.claude/skills/game-master/gmctl.md`
-  (`fit` and `deploy` rows).
+  (`fit`, `deploy` and `teardown` rows).
 - Spec sections: master spec 6.4 (footprint), 7.5, 8.6, 10; access model
-  7 (`network-visitor`); spec D125, D128, D149, D173.
+  7 (`network-visitor`); spec D125, D128, D149, D173, D179, D180, D181,
+  D182.
 - Done when: unit tests show a two-host declaration, the mapping, the
   hostname constraints, the bastion pinned, `fit` refusing a host short
-  of memory or disk and saying the snapshot does not fit, the image copy
-  skipped for a present id; every existing scenario renders unchanged
+  of memory or disk and saying the snapshot does not fit, `fit` refusing
+  published ports off the manager, the image copy skipped for a present
+  id, teardown reaching every declared host and failing on one that does
+  not answer, the overlay's subnet picked and kept (W3-a item 6);
+  every existing scenario renders unchanged
   but for its constraint line on one host; `smoke.sh` and
   `smoke-monitoring.sh` pass on one host; the two-host try passes, its
   MTU and Swarm findings recorded.
 - Verification: chunk checks, plus `smoke.sh`, `smoke-monitoring.sh`
   (needs G3) and the two-host try (needs G4).
 - Split rule: 10a declaration, placement, `fit`; 10b image copy,
-  contexts, MTU, the try.
+  contexts, teardown per host, MTU and subnet, the try.
+
+Record: 10a 768bc36, 10b 530b3e1 and 6146893 (merge 6b6cceb). No deviation
+from the spec; W3-a item 4 amended by the driver (`deploy` writes the subnet
+into the rendered stack, record `overlay: {subnet}`). Unit suite 582;
+`smoke.sh` and `smoke-monitoring.sh` 43/43 on one host (at 530b3e1). Two-host
+try passed on armenelos + vps-5718ad52: overlay 10.20.0.0/24, ports on
+armenelos only, `exec` on VPS nodes from a shell and the user manager, traffic
+across the link, images held under the same id, teardown clean on both hosts.
+MTU option 1230 gives 1180 inside a node (Docker takes VXLAN's 50 bytes off
+it): safe, for `spec-writer` to weigh.
 
 ### Chunk 11 — The hand-over snapshot and the restart
 
-Status: planned
+Status: merged (w3, dd9377f)
 Wave: 3
 Depends on: chunks 3, 4, 5, 6, 8; chunk 10 (in-wave, W3)
 Architecture capture: none of its own; it uses W1's snapshot contract and
@@ -1029,7 +1068,7 @@ W3.
 - Spec sections: master spec 6.4, 7.1 to 7.5 ("Snapshot"), 12, 13;
   access model 3, 5 ("The load and the setup actions", "Game control"),
   6, 7, 9; spec D123, D126, D141, D142, D147, D156, D157, D161, D162,
-  D163, D172, D176.
+  D163, D172, D176, D182 (the overlay's subnet kept across a restart).
 - Done when: unit tests show each refusal, `status --set handed-over`
   refused without the snapshot taken or recorded as not fitting, in both
   kinds of game, `smoke.sh` passing with its snapshot before the
@@ -1048,9 +1087,19 @@ W3.
   snapshot and restart run (needs G3).
 - Split rule: 11a snapshot; 11b restart.
 
+Record: 11a 998a4c3, 11b f0ffff8 (merge dd9377f). No deviation from the
+spec. Unit suite 628; `smoke.sh` 60/60 with its snapshot (7 copies).
+`fixture-load` (G6 override 2m): snapshot under load (34 volumes), two
+restarts from it (new id and seed, schedulers resumed, password valid,
+faults present), a no-history restart of a game whose snapshot did not
+fit; `fixture-monitoring` snapshot and restart, 16/16. Restart allowed
+again from `failed` only after a failed restart (chunk's choice). Outside
+Files: `render.write_rendered`, `inject.load_steps`, `fit`'s
+`AFTER_DEPLOYMENT`. Not run across two hosts (unit tests only).
+
 ### Chunk 12 — The load fixture and the smoke tests under load
 
-Status: planned
+Status: merged (w3, c0875f6)
 Wave: 3
 Depends on: chunks 2, 3, 6, 7, 8, 9; G3
 Architecture capture: none.
@@ -1076,13 +1125,22 @@ Architecture capture: none.
   `tools/tests/smoke-load.sh` (new), `tools/tests/smoke-scenario.sh`,
   `tools/tests/test_model.py` (the fixture loads).
 - Spec sections: master spec 9, 11; access model 5, 7.
-- Done when: `smoke-load.sh` passes on armenelos alone, and on armenelos
-  plus the VPS once G4 is cleared (else at the wave 3 gate);
+- Done when: `smoke-load.sh` passes on armenelos alone (its two-host
+  run is the wave 3 gate's: a game reaches the VPS only through chunk
+  10's placement and image copy);
   `smoke-scenario.sh` passes on `bookshop-new-server` and
   `fernway-clinics-monitoring`; the fixture's README matches a fresh
   regeneration.
-- Verification: chunk checks, plus both smoke scripts (needs G3; the
-  two-host run needs G4).
+- Verification: chunk checks, plus both smoke scripts on one host
+  (needs G3); the VPS stays drained.
+
+Record: 4f261d2 (merge c0875f6). No deviation from the spec. `smoke-load.sh`
+73/73 on armenelos (398 s); `smoke-scenario.sh` 19/19 and 18/18; unit suite 541.
+`fixture-load` designed for two hosts (bastion on the first);
+`smoke-load.sh <playground> [<gmctl fit option>…]` passes options to `fit`, and
+`SMOKE_LOAD_ENGINES` widens its leftovers check to other hosts; its two-host run
+is the wave 3 gate's. `smoke-scenario.sh` still refuses a several-host
+`designed_for`. The scheduler's unthrottled error lines did not bite (0 lines).
 
 ### Chunk 13 — The GM skill for v0.3
 
@@ -1100,7 +1158,9 @@ Architecture capture: none.
   scrape gap told as maintenance included, with no planned hand-over
   needed and its faults' own aging minima not counted (spec D157, D158,
   D160, D162); the deployment with the planned hand-over and the shift;
-  the playground's hosts; `start-load`, the scheduled plantings and the
+  the playground's hosts, and the overlay's range, the GM choosing
+  another when the proposed default is taken (spec D183); `start-load`,
+  the scheduled plantings and the
   early check; a resumed session running `status` first and
   telling the initiator of failures or outages; the thirty-minute
   threshold and the judgement beyond it; setting a game up again (stop,
@@ -1115,7 +1175,7 @@ Architecture capture: none.
   11 left. Out: new scripts; the stance itself, unchanged.
 - Files: `.claude/skills/game-master/{SKILL,gmctl,feedback}.md`.
 - Spec sections: master spec 8, 9, 10, 11, 12, 13; access model 3, 5, 7,
-  8, 9; spec D141, D150, D152, D157, D158, D160, D162.
+  8, 9; spec D141, D150, D152, D157, D158, D160, D162, D182, D183.
 - Done when: the skill covers each item of master spec 13's "The GM
   skill"; every `gmctl` invocation in the three files parses with
   `gmctl`'s own parser; the stance check-list items v0.2 had are
@@ -1216,7 +1276,8 @@ Architecture capture: none of its own; it uses W4.
   `scenarios/<new-id>/{scenario.yaml,README.md}`, and
   `scenarios/fernway-clinics-monitoring/` if its bound must change.
 - Spec sections: master spec 8.6, 10.1, 11, 15.2, 15.4, 17 (items 4, 6);
-  access model 7, 11; spec D134, D150, D153, D156, D157, D161.
+  access model 7, 11; spec D134, D150, D153, D156, D157, D161, D182,
+  D183.
 - Done when: the format skill finds nothing missing; `fit` and `render`
   accept it on armenelos alone and on armenelos plus the VPS; its smoke
   deployment (`smoke-scenario.sh`) has every instance present; the

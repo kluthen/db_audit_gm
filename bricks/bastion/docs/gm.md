@@ -38,10 +38,18 @@ The image:
 - **Build**: `docker build -t 127.0.0.1:5000/dbagm/bastion:0.3.0 bricks/bastion`.
 - **How many**: one per scenario (master spec: the players reach the
   system through a single bastion).
-- **Next to which node**: any host. Its SSH port, and the web front's port
-  when the front runs, are published in host mode on the host that runs
-  it, so the players connect to that host's address; the renderer runs the
-  whole game on one host.
+- **Next to which node**: on the manager. Its SSH port, and the web
+  front's port when the front runs, are published in host mode, never
+  through the routing mesh, on the host that runs it, so the players
+  connect to that host's address. On a playground of several hosts (master
+  spec 7.5 and 10.2, D180) `gmctl fit` places it through the mapping of
+  its designed host and `gmctl render` pins it there (`node.hostname ==
+  <host>` in the stack file), so its ports open on that host only, never
+  on another host's addresses; the routing mesh would have opened them on
+  every host, a VPS's public address included. That host must be the
+  manager: `gmctl fit` refuses a mapping that places the bastion, or any
+  node publishing ports, on another host, and names the `--map` to change.
+  The image is unchanged.
 - **Stateful**: yes (`stateful: true`): the player's home (`~/report.md`,
   notes) and the sshd host key. Its volumes `home` and `hostkeys` must
   follow the node if it is replaced; `run` is emptied at each start.

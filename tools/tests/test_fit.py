@@ -1,6 +1,8 @@
 """Capacity check, game id and the local implementation (tools/gm/fit.py)."""
 
+import re
 import unittest
+from unittest import mock
 
 import yaml
 
@@ -10,7 +12,8 @@ from tools.tests import (BASE_LAYER, INSUFFICIENT, OWN_LAYER_SIZE, SUFFICIENT, U
 from tools.tests.test_deploy import RenderedGame
 from tools.tests.test_inject import FRAGMENTS
 from tools.tests.test_inject import DeployedGame as InjectableGame
-from tools.tests.test_render import MountedCopyTest
+from tools.tests.test_render import (MANAGER, VPS_ENDPOINT, WORKER, MountedCopyTest,
+                                     TwoHostScenario, two_host_engine, two_hosts)
 
 
 class TestGameId(unittest.TestCase):
@@ -77,14 +80,16 @@ class TestCapacityCheck(unittest.TestCase):
         self.assertEqual(before, yaml.safe_dump(self.sc.data))
 
     def test_images_count_in_the_disk(self):
-        # 2.25G reserved: 2700M holds it with 10 % headroom (2574M), not with 278M of images
-        cap = {"cpu": 2, "memory": "4G", "disk": "2700M"}
+        # 2.25G reserved and 132M of growth (33M/h, four hours): 2850M holds them with 10 %
+        # headroom (2721M), not with 278M of images
+        cap = {"cpu": 2, "memory": "4G", "disk": "2850M"}
         self.assertTrue(self.capacity_check(cap).ok)
         report = self.capacity_check(cap, footprint(FIXTURE_IMAGES))
         self.assertFalse(report.ok)
-        self.assertEqual(report.problems, ["disk: reservations 2.25G + images 278M + headroom "
-                                           "270M = 2.79G of 2.64G: too much"])
-        cap["disk"] = "2900M"           # 2304M + 278M + 290M = 2872M
+        self.assertEqual(report.problems, ["disk: reservations 2.25G + images 278M + growth "
+                                           "132M (4h) + headroom 285M = 2.93G of 2.78G: too "
+                                           "much"])
+        cap["disk"] = "3100M"           # 2304M + 278M + 132M + 310M = 3024M
         self.assertTrue(self.capacity_check(cap, footprint(FIXTURE_IMAGES)).ok)
 
     def test_report_lines(self):
@@ -95,9 +100,12 @@ class TestCapacityCheck(unittest.TestCase):
             "memory: reservations 576M + headroom 409.6M = 985.6M of 4G: ok",
             f"images on local engine: {BASTION} 178M, {POSTGRES} 178M; 3 layers, 1 shared, "
             "each counted once: 278M",
-            "disk: reservations 2.25G + images 278M + headroom 2G = 4.52G of 20G: ok",
+            "disk: reservations 2.25G + images 278M + growth 132M (4h) + headroom 2G = 4.65G "
+            "of 20G: ok",
             "node bastion: limits cpu 0.25 ok, memory 128M ok",
             "node db: limits cpu 1 ok, memory 1G ok",
+            "snapshot: copies 2.25G (reservations 2.25G, no aging) after the game's 4.65G = "
+            "6.9G of 20G: fits",
         ])
 
 
@@ -258,15 +266,15 @@ class TestFit(ScenarioCopyTest):
         text = result.text()
         self.assertIn(f"  images on local engine: {BASTION} 178M, {POSTGRES} 178M; 3 layers, "
                       "1 shared, each counted once: 278M\n", text)
-        self.assertIn("  disk: reservations 2.25G + images 278M + headroom 2G = 4.52G of 20G: "
-                      "ok\n", text)
+        self.assertIn("  disk: reservations 2.25G + images 278M + growth 132M (4h) + headroom "
+                      "2G = 4.65G of 20G: ok\n", text)
 
     def test_fit_refuses_when_the_images_overflow_the_disk(self):
-        result = fit.fit(self.scenario, "laptop", cpu="2", memory="4G", disk="2700M")
+        result = fit.fit(self.scenario, "laptop", cpu="2", memory="4G", disk="2850M")
         self.assertFalse(result.ok)
         self.assertEqual(result.report.problems,
-                         ["disk: reservations 2.25G + images 278M + headroom 270M = 2.79G of "
-                          "2.64G: too much"])
+                         ["disk: reservations 2.25G + images 278M + growth 132M (4h) + headroom "
+                          "285M = 2.93G of 2.78G: too much"])
         self.assertIn("Result: does not fit; nothing deployed.", result.text())
         self.assertFalse((self.ldir() / "implementation.yaml").exists())
 
@@ -454,6 +462,230 @@ class TestFitAfterAFailedDeploy(NewGameChecks, RenderedGame):
         self.assert_new_game()
 
 
+class TestTwoHosts(TwoHostScenario):
+
+    def test_the_declaration_and_the_mapping(self):
+        result = self.fit()
+        self.assertTrue(result.ok, result.report.problems)
+        pg = yaml.safe_load((self.ldir / "playground.yaml").read_text())
+        self.assertEqual(pg, {
+            "name": "duo", "platform": "swarm",
+            "hosts": [{"name": MANAGER, "docker_endpoint": None, "manager": True,
+                       "capacity": {"cpu": 2, "memory": "4G", "disk": "20G"}},
+                      {"name": WORKER, "docker_endpoint": VPS_ENDPOINT, "manager": False,
+                       "capacity": {"cpu": 2, "memory": "4G", "disk": "20G"}}],
+            "mapping": {"host-1": MANAGER, "host-2": WORKER}})
+        impl = localimpl.read_implementation(self.ldir)
+        self.assertEqual({n: node["host"] for n, node in impl["nodes"].items()},
+                         {"bastion": MANAGER, "db": WORKER})
+        self.assertEqual(impl["snapshot_fit"], {"fits": True, "why": None})
+        text = result.text()
+        self.assertIn(f"  mapping: host-1 -> {MANAGER}, host-2 -> {WORKER}\n", text)
+        self.assertIn(f"  host {MANAGER} (manager, local engine): nodes bastion\n", text)
+        self.assertIn(f"  host {WORKER} ({VPS_ENDPOINT}): nodes db\n", text)
+
+    def test_a_refit_reuses_the_declaration_and_map_alone_replaces_the_mapping(self):
+        self.fit()
+        result = fit.fit(self.scenario, "duo", docker=two_host_engine())
+        self.assertTrue(result.ok)
+        result = fit.fit(self.scenario, "duo", docker=two_host_engine(),
+                         mapping=["host-1=" + MANAGER, "host-2=" + MANAGER])
+        impl = localimpl.read_implementation(self.ldir)
+        self.assertEqual({node["host"] for node in impl["nodes"].values()}, {MANAGER})
+        self.assertEqual(len(localimpl.read_playground(self.ldir)["hosts"]), 2)
+
+    def test_each_host_counts_only_its_nodes_and_their_images(self):
+        result = self.fit()
+        lines = result.report.lines
+        self.assertIn(f"  images on {MANAGER}: {BASTION} 178M; 2 layers, 0 shared, each counted "
+                      "once: 178M", lines)
+        self.assertIn(f"  images on {WORKER}: {POSTGRES} 178M; 2 layers, 0 shared, each counted "
+                      "once: 178M", lines)
+        # the bastion's 0.1 CPU on the manager, the database's 0.5 on the VPS
+        self.assertIn("  cpu: reservations 0.1 + headroom 0.2 = 0.3 of 2: ok", lines)
+        self.assertIn("  cpu: reservations 0.5 + headroom 0.2 = 0.7 of 2: ok", lines)
+
+    def test_a_host_short_of_memory_is_refused(self):
+        # db's limit is 1G and it reserves 512M: the VPS at 1000M holds neither
+        result = self.fit(hosts=two_hosts(worker_memory="1000M"))
+        self.assertFalse(result.ok)
+        self.assertTrue(result.report.problems)
+        self.assertTrue(all(p.startswith(f"host {WORKER}: ") for p in result.report.problems),
+                        result.report.problems)
+        self.assertIn(f"host {WORKER}: node db: memory limit 1G is more than the host's "
+                      "1000M", result.report.problems)
+        self.assertFalse((self.ldir / "implementation.yaml").exists())
+
+    def test_a_host_short_of_disk_is_refused(self):
+        # db: 2G reserved, 178M of images, 128M of growth (32M/h, four hours)
+        result = self.fit(hosts=two_hosts(worker_disk="2.5G"))
+        self.assertFalse(result.ok)
+        self.assertEqual(result.report.problems,
+                         [f"host {WORKER}: disk: reservations 2G + images 178M + growth 128M "
+                          "(4h) + headroom 256M = 2.55G of 2.5G: too much"])
+
+    def test_the_snapshot_that_does_not_fit_is_said_and_recorded(self):
+        # the game holds on 3G (2G + 178M + 128M + 307.2M) but not its 2G of copies too
+        result = self.fit(hosts=two_hosts(worker_disk="3G"))
+        self.assertTrue(result.ok, result.report.problems)
+        impl = localimpl.read_implementation(self.ldir)
+        self.assertEqual(impl["snapshot_fit"], {
+            "fits": False,
+            "why": f"host {WORKER}: snapshot: copies 2G (reservations 2G, no aging) after the "
+                   "game's 2.6G = 4.6G of 3G: does not fit"})
+        self.assertIn("The hand-over snapshot does not fit (host " + WORKER, result.text())
+        self.assertIn("this game will have no snapshot", result.text())
+
+    def test_refusals_write_nothing(self):
+        self.refused("2 hosts flagged manager", hosts=[
+            f"{MANAGER},manager,cpu=2,memory=4G,disk=20G",
+            f"{WORKER},manager,cpu=2,memory=4G,disk=20G"])
+        self.refused("0 hosts flagged manager", hosts=[
+            f"{MANAGER},cpu=2,memory=4G,disk=20G", f"{WORKER},cpu=2,memory=4G,disk=20G"])
+        self.refused("designed host host-2 is not mapped", mapping=["host-1=" + MANAGER])
+        self.refused("host-3 is not a designed host of scenario fixture-audit",
+                     mapping=["host-1=" + MANAGER, "host-2=" + WORKER, "host-3=" + WORKER])
+        self.refused("elsewhere is not a declared host",
+                     mapping=["host-1=" + MANAGER, "host-2=elsewhere"])
+        self.refused(f"host {WORKER} declared twice", hosts=two_hosts() + [two_hosts()[1]])
+        self.refused("give its disk=", hosts=[f"{MANAGER},manager,cpu=2,memory=4G"])
+        self.refused("expected manager or one of", hosts=[f"{MANAGER},manager,ram=4G"])
+
+    def test_published_ports_off_the_manager_are_refused(self):
+        # the bastion publishes 2222: on the VPS it would listen on its public address
+        self.refused(rf"node bastion publishes ports and would be placed on {WORKER}, not the "
+                     rf"manager {MANAGER}: .*map host-1 onto {MANAGER} \(--map "
+                     rf"host-1={MANAGER}\)",
+                     mapping=["host-1=" + WORKER, "host-2=" + MANAGER])
+
+    def test_hosts_checked_against_the_swarm(self):
+        self.refused(rf"host {WORKER} is not a node of the swarm \({MANAGER}\)",
+                     engine=FakeDocker(name=MANAGER))
+        workers = FakeDocker(name=MANAGER, nodes={MANAGER: ("Ready", "Active", ""),
+                                                  WORKER: ("Ready", "Active", "")})
+        self.refused(f"host {MANAGER} is flagged manager but is a worker", engine=workers)
+        self.refused("cannot list the swarm's nodes", engine=two_host_engine(swarm=("active",
+                                                                                     False)))
+
+    def test_the_one_host_options_are_refused_with_several(self):
+        self.refused("are the one-host form's: give each host's in its --host", cpu="2")
+        self.fit()
+        with self.assertRaisesRegex(model.GmError, "declares 2 hosts: --endpoint, --cpu"):
+            fit.fit(self.scenario, "duo", docker=two_host_engine(), memory="8G")
+
+    def test_several_designed_hosts_may_share_a_host_and_a_host_may_get_none(self):
+        result = self.fit(mapping=("host-1=" + MANAGER, "host-2=" + MANAGER))
+        self.assertTrue(result.ok, result.report.problems)
+        self.assertIn(f"host {WORKER} ({VPS_ENDPOINT}): nodes none", result.report.lines)
+        impl = localimpl.read_implementation(self.ldir)
+        self.assertEqual({node["host"] for node in impl["nodes"].values()}, {MANAGER})
+
+
+class TestOverlayRange(TwoHostScenario):
+    """`fit --overlay-range`: the playground's range for its games' overlays
+    (capture W3-b, item 1; D183)."""
+
+    def declared(self):
+        return localimpl.read_playground(self.ldir).get(localimpl.OVERLAY_RANGE)
+
+    def test_absent_the_default_is_used_and_nothing_written(self):
+        result = self.fit()
+        self.assertIsNone(self.declared())
+        self.assertIn("  overlay range: 10.20.0.0/16 (the default range; a game on several hosts "
+                      "takes its overlay's /24 from it at deploy)\n", result.text())
+
+    def test_the_option_writes_it_and_a_refit_without_it_keeps_it(self):
+        result = self.fit(overlay_range="172.30.0.0/16")
+        self.assertEqual(self.declared(), "172.30.0.0/16")
+        self.assertIn("  overlay range: 172.30.0.0/16 (playground duo's overlay_range;",
+                      result.text())
+        fit.fit(self.scenario, "duo", docker=two_host_engine())
+        self.assertEqual(self.declared(), "172.30.0.0/16")
+        self.fit()                                          # --host and --map given again
+        self.assertEqual(self.declared(), "172.30.0.0/16")
+        fit.fit(self.scenario, "duo", docker=two_host_engine(), overlay_range="192.168.77.0/24")
+        self.assertEqual(self.declared(), "192.168.77.0/24")
+
+    def test_ranges_fit_refuses_writing_nothing(self):
+        for given, pattern in (
+                ("nonsense", "not an IPv4 CIDR range such as 10.20.0.0/16"),
+                ("fd00:20::/48", "not IPv4"),
+                ("10.0.0.0/7", r"wider than /8"),
+                ("10.20.0.0/25", r"narrower than /24"),
+                ("10.20.1.0/16", r"host bits set; the range is 10\.20\.0\.0/16"),
+                ("11.0.0.0/16", r"outside the private ranges \(10\.0\.0\.0/8, 172\.16\.0\.0/12, "
+                                r"192\.168\.0\.0/16\)"),
+                ("172.32.0.0/16", "outside the private ranges"),
+                ("192.169.0.0/16", "outside the private ranges")):
+            with self.subTest(given=given):
+                self.refused(rf"--overlay-range '{re.escape(given)}': {pattern}",
+                             overlay_range=given)
+
+    def test_the_widest_and_narrowest_are_accepted(self):
+        self.fit(overlay_range="10.0.0.0/8")
+        self.assertEqual(self.declared(), "10.0.0.0/8")
+        fit.fit(self.scenario, "duo", docker=two_host_engine(), overlay_range="10.20.9.0/24")
+        self.assertEqual(self.declared(), "10.20.9.0/24")
+
+    def test_a_hand_edited_range_is_refused_on_a_refit(self):
+        self.fit()
+        pg = localimpl.read_playground(self.ldir)
+        localimpl.write_playground(self.ldir, dict(pg, overlay_range="8.8.0.0/16"))
+        with self.assertRaisesRegex(model.GmError, "playground.yaml's overlay_range "
+                                                   "'8.8.0.0/16': outside the private ranges"):
+            fit.fit(self.scenario, "duo", docker=two_host_engine())
+
+    def test_the_cli_option(self):
+        r = run_gmctl("fit", self.scenario, "--playground", "solo",
+                      "--host", "gm-host,manager,cpu=2,memory=4G,disk=20G", "--map",
+                      "host-1=gm-host", "--map", "host-2=gm-host", "--overlay-range",
+                      "10.99.0.0/16")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        pg = localimpl.read_playground(self.scenario / "local" / "solo")
+        self.assertEqual(pg[localimpl.OVERLAY_RANGE], "10.99.0.0/16")
+        r = run_gmctl("fit", self.scenario, "--playground", "solo", "--overlay-range",
+                      "10.99.0.0/28")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("gmctl fit: --overlay-range '10.99.0.0/28': narrower than /24", r.stderr)
+
+
+class TestOneHost(ScenarioCopyTest):
+
+    def test_todays_form_places_every_node_on_the_engine(self):
+        fit.fit(self.scenario, "laptop", docker=FakeDocker(name="laptop-host"), **SUFFICIENT)
+        ldir = self.scenario / "local" / "laptop"
+        impl = localimpl.read_implementation(ldir)
+        self.assertEqual({node["host"] for node in impl["nodes"].values()}, {"laptop-host"})
+        self.assertNotIn("hosts", localimpl.read_playground(ldir))      # never rewritten
+        self.assertEqual(impl["snapshot_fit"], {"fits": True, "why": None})
+
+    def test_a_list_of_one_must_name_the_engine(self):
+        hosts = ["laptop-host,manager,cpu=2,memory=4G,disk=20G"]
+        with self.assertRaisesRegex(model.GmError, "host laptop-host is declared, but the "
+                                                   "engine local engine is gm-host"):
+            fit.fit(self.scenario, "laptop", hosts=hosts)
+        result = fit.fit(self.scenario, "laptop", hosts=hosts,
+                         docker=FakeDocker(name="laptop-host"))
+        self.assertTrue(result.ok)
+        # one host: the mapping is implied, and --cpu updates it
+        result = fit.fit(self.scenario, "laptop", disk="30G",
+                         docker=FakeDocker(name="laptop-host"))
+        pg = localimpl.read_playground(self.scenario / "local" / "laptop")
+        self.assertEqual(pg["hosts"][0]["capacity"]["disk"], "30G")
+
+    def test_growth_counts_over_the_aging_and_the_game(self):
+        sc = model.load_scenario(self.scenario)
+        with mock.patch("tools.gm.fit.aging_seconds", return_value=8 * 3600):
+            report = fit.capacity_check(sc, {"cpu": 2, "memory": "4G", "disk": "20G"},
+                                        footprint())
+        # 33M an hour over 8h of aging and 4h of game; the copies hold the aging's 264M
+        self.assertIn("disk: reservations 2.25G + images 0B + growth 396M (12h) + headroom 2G "
+                      "= 4.64G of 20G: ok", report.lines)
+        self.assertEqual(report.lines[-1],
+                         "snapshot: copies 2.51G (reservations 2.25G + growth 264M over 8h of "
+                         "aging) after the game's 4.64G = 7.14G of 20G: fits")
+
+
 class TestGmctlFit(ScenarioCopyTest):
 
     def test_cli_accepts(self):
@@ -462,6 +694,18 @@ class TestGmctlFit(ScenarioCopyTest):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("fits", r.stdout)
         self.assertRegex(r.stdout, r"fixture-audit-[a-z0-9]{6}")
+
+    def test_cli_declares_hosts(self):
+        r = run_gmctl("fit", self.scenario, "--playground", "solo",
+                      "--host", "gm-host,manager,cpu=2,memory=4G,disk=20G", "--map",
+                      "host-1=gm-host")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("  host gm-host (manager): local engine, capacity cpu 2, memory 4G, "
+                      "disk 20G\n", r.stdout)
+        r = run_gmctl("fit", self.scenario, "--playground", "solo", "--host",
+                      "gm-host,manager,cpu=2,memory=4G,disk=20G", "--cpu", "4")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("are the one-host form's", r.stderr)
 
     def test_cli_refuses_insufficient(self):
         r = run_gmctl("fit", self.scenario, "--playground", "small",
