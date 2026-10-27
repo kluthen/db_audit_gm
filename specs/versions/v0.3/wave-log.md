@@ -2661,3 +2661,47 @@ on the VPS).
   playground as "local engine" (cosmetic, chunk 10's report).
 - For the owner, optional: armenelos' Docker 29.9.1 → 29.9.2 at the next
   maintenance (security-advisor).
+
+### Capture W3-a — the game's overlay subnet on several hosts (chunk 10; read by 11, 15) — 2026-10-27
+
+Owner's word, 2026-10-27: option A of chunk 10's first try ("gmctl
+picks the subnet, from a range reserved for it, 10.x.0.0/16"). Recorded
+by the driver before chunk 10 resumes, from that try (above), capture W3
+items 2, 3 and 7, and the networks read the same day on both hosts:
+armenelos holds `ingress` 10.0.0.0/24 and local networks in
+172.17–172.23; the VPS holds local networks 10.0.0.0/24 to 10.0.5.0/24
+(`bridge`, `maintenant_default`, `crochethub_net`, `caddy_filetstudio`,
+`docker_gwbridge`, `caddy_infinite-flow`); neither has a route or a
+network in 10.20.0.0/16.
+
+1. **The range**: `10.20.0.0/16`, reserved for the overlays of `gmctl`'s
+   games (256 /24s), one constant in the code. Nothing changes on the
+   VPS or in either daemon's configuration (options B and C dropped).
+2. **Which games** (choice: one-host games work today and keep their
+   stack file unchanged, as with the MTU of W3 item 2): a game whose
+   nodes span more than one host gets an explicit subnet; a one-host
+   game keeps Swarm's default allocation.
+3. **The pick**: the first /24 of the range that overlaps no subnet of
+   (a) every swarm-scoped network the manager lists (the ingress, other
+   games' overlays) and (b) every network on each host the game is
+   placed on, the manager included, read through the host's context
+   (W3 item 3). A full range refuses the deployment, naming the range.
+   Overlap is a prefix overlap, not equality.
+4. **Where and when** (choice: only `deploy` reaches every placed host,
+   through the probe of W3 item 3; `fit` stays off the workers): at the
+   game's first deployment, before the stack is rendered for it.
+   Recorded in `implementation.yaml`, top-level `network: {subnet:
+   <10.20.N.0/24>}`, and rendered by `render` as the overlay's `ipam:
+   {config: [{subnet: ...}]}` beside its MTU option.
+5. **A restart reuses it**: a recorded subnet is kept, not picked again
+   (a restored game keeps its addresses); `deploy` re-checks it against
+   item 3's lists and refuses, naming the network that now overlaps,
+   rather than move the game silently. `fit` cannot rewrite
+   `implementation.yaml` while the game is deployed (W3 item 2); a new
+   `fit` after teardown drops the record and the next deployment picks
+   again.
+6. **Checks** (chunk 10): unit tests over given network lists (first
+   free /24, skipping both kinds of overlap, a full range, a recorded
+   subnet kept, a recorded one now taken); a one-host render unchanged;
+   then chunk 10b's two-host try again, with the VPS `active` for it
+   (the owner sets it, and drains it after teardown).
