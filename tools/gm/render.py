@@ -28,9 +28,11 @@ v0.3 master spec 7.5 and 10.2; capture W3, item 2: every node is pinned to
 the host `fit` placed it on (`nodes.<n>.host`), `node.hostname == <host>`,
 the bastion with its host-mode ports, a stateful node with its volumes.
 When the nodes span several hosts, the overlay's VXLAN runs inside
-Tailscale's 1280-byte MTU: the game's network gets an MTU leaving room for
-VXLAN's 50 bytes (master spec 10.2, "Risks"). A game on one host keeps the
-engine's default. Capture W3-a (D182): once `deploy` has recorded the
+Tailscale's 1280-byte MTU: the game's network gets the driver option
+`com.docker.network.driver.mtu=1230` (master spec 10.2, "Risks"). Docker
+reads the option as the outer MTU and takes VXLAN's 50 bytes off it again,
+so an interface inside a node has 1180 (D184: kept, safe). A game on one
+host keeps the engine's default. Capture W3-a (D182): once `deploy` has recorded the
 overlay's subnet (`implementation.yaml`'s `overlay.subnet`, several hosts
 only), the network carries it, `ipam: {config: [{subnet}]}`.
 """
@@ -65,7 +67,9 @@ SEED_LIMIT = 2 ** 63                    # 0 <= seed < 2**63 (W1 item 7)
 T0 = "T0"
 UTC = datetime.timezone.utc
 # Tailscale's MTU less VXLAN's encapsulation (outer IPv4 20, UDP 8, VXLAN 8,
-# inner Ethernet 14): the game's overlay network across hosts (master spec 10.2).
+# inner Ethernet 14): the value of the overlay's `com.docker.network.driver.mtu`
+# option across hosts (master spec 10.2). Docker reads the option as the outer
+# MTU and takes VXLAN's 50 bytes off it again: 1180 inside a node (D184, kept).
 TAILSCALE_MTU, VXLAN_OVERHEAD = 1280, 50
 OVERLAY_MTU = TAILSCALE_MTU - VXLAN_OVERHEAD
 MTU_OPTION = "com.docker.network.driver.mtu"

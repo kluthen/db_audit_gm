@@ -1,5 +1,6 @@
 """Capacity check, game id and the local implementation (tools/gm/fit.py)."""
 
+import re
 import unittest
 from unittest import mock
 
@@ -578,6 +579,74 @@ class TestTwoHosts(TwoHostScenario):
         self.assertIn(f"host {WORKER} ({VPS_ENDPOINT}): nodes none", result.report.lines)
         impl = localimpl.read_implementation(self.ldir)
         self.assertEqual({node["host"] for node in impl["nodes"].values()}, {MANAGER})
+
+
+class TestOverlayRange(TwoHostScenario):
+    """`fit --overlay-range`: the playground's range for its games' overlays
+    (capture W3-b, item 1; D183)."""
+
+    def declared(self):
+        return localimpl.read_playground(self.ldir).get(localimpl.OVERLAY_RANGE)
+
+    def test_absent_the_default_is_used_and_nothing_written(self):
+        result = self.fit()
+        self.assertIsNone(self.declared())
+        self.assertIn("  overlay range: 10.20.0.0/16 (the default range; a game on several hosts "
+                      "takes its overlay's /24 from it at deploy)\n", result.text())
+
+    def test_the_option_writes_it_and_a_refit_without_it_keeps_it(self):
+        result = self.fit(overlay_range="172.30.0.0/16")
+        self.assertEqual(self.declared(), "172.30.0.0/16")
+        self.assertIn("  overlay range: 172.30.0.0/16 (playground duo's overlay_range;",
+                      result.text())
+        fit.fit(self.scenario, "duo", docker=two_host_engine())
+        self.assertEqual(self.declared(), "172.30.0.0/16")
+        self.fit()                                          # --host and --map given again
+        self.assertEqual(self.declared(), "172.30.0.0/16")
+        fit.fit(self.scenario, "duo", docker=two_host_engine(), overlay_range="192.168.77.0/24")
+        self.assertEqual(self.declared(), "192.168.77.0/24")
+
+    def test_ranges_fit_refuses_writing_nothing(self):
+        for given, pattern in (
+                ("nonsense", "not an IPv4 CIDR range such as 10.20.0.0/16"),
+                ("fd00:20::/48", "not IPv4"),
+                ("10.0.0.0/7", r"wider than /8"),
+                ("10.20.0.0/25", r"narrower than /24"),
+                ("10.20.1.0/16", r"host bits set; the range is 10\.20\.0\.0/16"),
+                ("11.0.0.0/16", r"outside the private ranges \(10\.0\.0\.0/8, 172\.16\.0\.0/12, "
+                                r"192\.168\.0\.0/16\)"),
+                ("172.32.0.0/16", "outside the private ranges"),
+                ("192.169.0.0/16", "outside the private ranges")):
+            with self.subTest(given=given):
+                self.refused(rf"--overlay-range '{re.escape(given)}': {pattern}",
+                             overlay_range=given)
+
+    def test_the_widest_and_narrowest_are_accepted(self):
+        self.fit(overlay_range="10.0.0.0/8")
+        self.assertEqual(self.declared(), "10.0.0.0/8")
+        fit.fit(self.scenario, "duo", docker=two_host_engine(), overlay_range="10.20.9.0/24")
+        self.assertEqual(self.declared(), "10.20.9.0/24")
+
+    def test_a_hand_edited_range_is_refused_on_a_refit(self):
+        self.fit()
+        pg = localimpl.read_playground(self.ldir)
+        localimpl.write_playground(self.ldir, dict(pg, overlay_range="8.8.0.0/16"))
+        with self.assertRaisesRegex(model.GmError, "playground.yaml's overlay_range "
+                                                   "'8.8.0.0/16': outside the private ranges"):
+            fit.fit(self.scenario, "duo", docker=two_host_engine())
+
+    def test_the_cli_option(self):
+        r = run_gmctl("fit", self.scenario, "--playground", "solo",
+                      "--host", "gm-host,manager,cpu=2,memory=4G,disk=20G", "--map",
+                      "host-1=gm-host", "--map", "host-2=gm-host", "--overlay-range",
+                      "10.99.0.0/16")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        pg = localimpl.read_playground(self.scenario / "local" / "solo")
+        self.assertEqual(pg[localimpl.OVERLAY_RANGE], "10.99.0.0/16")
+        r = run_gmctl("fit", self.scenario, "--playground", "solo", "--overlay-range",
+                      "10.99.0.0/28")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("gmctl fit: --overlay-range '10.99.0.0/28': narrower than /24", r.stderr)
 
 
 class TestOneHost(ScenarioCopyTest):

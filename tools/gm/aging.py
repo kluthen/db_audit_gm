@@ -1536,11 +1536,18 @@ def status_aging(impl, st, now):
         minimum = override_text(st) or timeline["aging_minimum"]
         if load.get("t0"):
             t0 = parse_instant(load["t0"])
-            end = handover_instant(st) or now
-            lost = (st.get("outages") or {}).get("lost_minutes") or 0
-            ran = max(0, (end - t0).total_seconds() - 60 * lost)
-            out.append(f"  aging: T0 {load['t0']}; ran {duration_text(ran)} (elapsed less the "
-                       f"lost time) of the {minimum} minimum")
+            handover = handover_instant(st)
+            if handover is not None and handover <= t0:
+                # a restart with no history started the load again after the hand-over
+                out.append(f"  aging: T0 {load['t0']}, the load restarted with no history after "
+                           f"the first hand-over at {iso(handover)} (the four hours count from "
+                           f"it); running {duration_text(max(0, (now - t0).total_seconds()))} "
+                           "since T0")
+            else:
+                lost = (st.get("outages") or {}).get("lost_minutes") or 0
+                ran = max(0, ((handover or now) - t0).total_seconds() - 60 * lost)
+                out.append(f"  aging: T0 {load['t0']}; ran {duration_text(ran)} (elapsed less "
+                           f"the lost time) of the {minimum} minimum")
             out.append(f"  lost time: {lost_text(st.get('outages'))}")
             earliest, waiting = game_earliest(impl, st)
             state_text = (f"provisional, waiting for the planting of {', '.join(waiting)}"

@@ -400,6 +400,17 @@ class TestAgedNoHistory(HandedOverAged):
         self.assertEqual(aging.handover_instant(st), self.first_handover)
         self.assertIn("load started at once", result.text())
 
+    def test_status_reads_the_load_since_the_restarts_t0(self):
+        result = self.restart()
+        st, impl = self.st(), self.impl_now()
+        later = aging.parse_instant(result.t0) + datetime.timedelta(minutes=25)
+        lines = aging.status_aging(impl, st, later)
+        self.assertIn(f"  aging: T0 {result.t0}, the load restarted with no history after the "
+                      f"first hand-over at {aging.iso(self.first_handover)} (the four hours "
+                      "count from it); running 25m since T0", lines)
+        self.assertFalse(any("ran 0m" in line for line in lines), lines)
+        self.assertEqual(aging.handover_instant(st), self.first_handover)
+
 
 class TestTwoHostRestart(RestartMixin, TwoHostScenario):
     """A game on two hosts: its overlay's subnet kept across the restart,
@@ -442,7 +453,8 @@ class TestTwoHostRestart(RestartMixin, TwoHostScenario):
         self.assertEqual(impl[localimpl.OVERLAY], {"subnet": subnet})
         stack = yaml.safe_load((self.ldir / "stack.yml").read_text())
         self.assertEqual(stack["networks"]["backend"]["ipam"], {"config": [{"subnet": subnet}]})
-        self.assertIn(f"overlay subnet: {subnet} (as recorded, still free)", result.text())
+        self.assertIn(f"overlay subnet: {subnet} (as recorded, still free, inside 10.20.0.0/16, "
+                      "the default range)", result.text())
         db_vols = [v for v in self.st()["snapshot"]["volumes"] if v["node"] == "db"]
         self.assertEqual({v["host"] for v in db_vols}, {WORKER})
         self.assertEqual(len(worker.helpers), len(db_vols))
@@ -462,11 +474,71 @@ class TestTwoHostRestart(RestartMixin, TwoHostScenario):
         self.assertFalse(self.fake.called("service", "rm"))
 
 
+    # --- The overlay's range in force (capture W3-b, D183) ----------------
+
+    def test_the_run_option_picks_again_outside_the_recorded_subnet(self):
+        old = self.old[localimpl.OVERLAY]["subnet"]
+        result = self.restart(overlay_range="10.40.0.0/16")
+        self.assertEqual(self.impl_now()[localimpl.OVERLAY], {"subnet": "10.40.0.0/24"})
+        stack = yaml.safe_load((self.ldir / "stack.yml").read_text())
+        self.assertEqual(stack["networks"]["backend"]["ipam"],
+                         {"config": [{"subnet": "10.40.0.0/24"}]})
+        self.assertIn(f"  overlay subnet: 10.40.0.0/24 (picked from 10.40.0.0/16, given with "
+                      f"--overlay-range; the recorded {old} lies outside it)\n", result.text())
+        self.assertNotIn(localimpl.OVERLAY_RANGE, localimpl.read_playground(self.ldir))
+
+    def test_the_playgrounds_range_is_the_one_in_force(self):
+        pg = localimpl.read_playground(self.ldir)
+        localimpl.write_playground(self.ldir, dict(pg, overlay_range="192.168.40.0/22"))
+        result = self.restart()
+        self.assertEqual(self.impl_now()[localimpl.OVERLAY], {"subnet": "192.168.40.0/24"})
+        self.assertIn("(picked from 192.168.40.0/22, playground duo's overlay_range; the "
+                      "recorded", result.text())
+
+    def test_a_record_now_overlapping_is_refused_naming_the_restarts_way_out(self):
+        subnet = self.old[localimpl.OVERLAY]["subnet"]
+        worker = self.fake.on_host(WORKER)
+        worker.add("network", "late")
+        worker.subnets["late"] = [subnet]
+        with self.assertRaises(GmError) as caught:
+            self.restart()
+        self.assertEqual(str(caught.exception),
+                         f"the game's recorded overlay subnet {subnet}, inside 10.20.0.0/16 (the "
+                         f"default range), now overlaps network late ({subnet}) on {WORKER}: "
+                         "gmctl does not move a game's addresses on its own; remove that "
+                         f"network, or choose another range, one that leaves {subnet} out: "
+                         "gmctl restart --overlay-range <cidr> for this run, or gmctl fit "
+                         "--overlay-range <cidr> for the playground's next games (fit refuses "
+                         "while this one is deployed); nothing done")
+        self.assertNotIn("restarts", self.st())
+        # the way out it names
+        result = self.restart(overlay_range="10.41.0.0/16")
+        self.assertEqual(self.impl_now()[localimpl.OVERLAY], {"subnet": "10.41.0.0/24"})
+        self.assertEqual(self.st()["restarts"][-1]["status"], restart.COMPLETED)
+        self.assertIn("overlay subnet: 10.41.0.0/24", result.text())
+
+    def test_a_bad_option_is_refused_before_anything(self):
+        with self.assertRaisesRegex(GmError, r"--overlay-range '10\.0\.0\.0/6': wider than /8"):
+            self.restart(overlay_range="10.0.0.0/6")
+        self.assertNotIn("restarts", self.st())
+        self.assertFalse(self.fake.called("service", "rm"))
+
+    def test_the_cli_option(self):
+        r = run_gmctl("restart", self.scenario, "--playground", "duo", "--confirmation", WORDS,
+                      "--overlay-range", "fd00::/48")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("gmctl restart: --overlay-range 'fd00::/48': not IPv4", r.stderr)
+
+
 class TestSubnetStep(unittest.TestCase):
     """deploy.game_subnet: the one place deploy and restart choose it."""
 
     def test_one_host_has_none(self):
         self.assertIsNone(deploy.game_subnet(FakeDocker(), {"nodes": {"a": {"host": "h"}}}))
+        # whatever the range, not even read
+        self.assertIsNone(deploy.game_subnet(FakeDocker(), {"nodes": {"a": {"host": "h"}}},
+                                             {"overlay_range": "nonsense"}, "nonsense",
+                                             verb="restart"))
 
 
 if __name__ == "__main__":

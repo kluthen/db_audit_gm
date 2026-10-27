@@ -651,12 +651,16 @@ class TestSubnetPick(unittest.TestCase):
 
     def test_a_recorded_subnet_is_kept(self):
         taken = [("vps", "net1", "10.20.0.0/24")]
-        self.assertEqual(deploy.choose_subnet(taken, "10.20.7.0/24"), ("10.20.7.0/24", False))
-        self.assertEqual(deploy.choose_subnet(taken), ("10.20.1.0/24", True))
+        self.assertEqual(deploy.choose_subnet(taken, "10.20.7.0/24"),
+                         ("10.20.7.0/24", "as recorded, still free, inside 10.20.0.0/16, the "
+                                          "default range"))
+        self.assertEqual(deploy.choose_subnet(taken),
+                         ("10.20.1.0/24", "picked from 10.20.0.0/16, the default range"))
 
     def test_a_recorded_subnet_now_taken_is_refused_naming_the_network(self):
         taken = [("vps-5718ad52", "late_net", "10.20.0.0/16")]
-        with self.assertRaisesRegex(GmError, r"recorded overlay subnet 10\.20\.7\.0/24 now "
+        with self.assertRaisesRegex(GmError, r"recorded overlay subnet 10\.20\.7\.0/24, inside "
+                                             r"10\.20\.0\.0/16 \(the default range\), now "
                                              r"overlaps network late_net \(10\.20\.0\.0/16\) on "
                                              r"vps-5718ad52.*nothing deployed"):
             deploy.choose_subnet(taken, "10.20.7.0/24")
@@ -687,7 +691,8 @@ class TestTwoHostSubnet(TwoHostRendered):
         self.assertEqual(backend["ipam"], {"config": [{"subnet": "10.20.1.0/24"}]})
         self.assertEqual(backend["driver_opts"], {"com.docker.network.driver.mtu": "1230"})
         self.assertEqual(fake.subnets[f"{self.gid}_backend"], ["10.20.1.0/24"])
-        self.assertIn("  overlay subnet: 10.20.1.0/24 (picked from 10.20.0.0/16)",
+        self.assertIn("  overlay subnet: 10.20.1.0/24 (picked from 10.20.0.0/16, the default "
+                      "range)",
                       result.text())
         # read on the manager and on the placed host, nothing created there
         self.assertTrue(fake.called("network", "inspect"))
@@ -708,13 +713,15 @@ class TestTwoHostSubnet(TwoHostRendered):
         result = self.deploy(fake)
         self.assertEqual(localimpl.read_implementation(self.ldir)[localimpl.OVERLAY],
                          {"subnet": first})
-        self.assertIn(f"overlay subnet: {first} (as recorded, still free)", result.text())
+        self.assertIn(f"overlay subnet: {first} (as recorded, still free, inside 10.20.0.0/16, "
+                      "the default range)", result.text())
 
     def test_a_recorded_subnet_now_overlapping_is_refused_before_anything_is_created(self):
         localimpl.write_implementation(self.ldir, {**self.impl,
                                                    localimpl.OVERLAY: {"subnet": "10.20.3.0/24"}})
         fake = self.cluster(vps_networks={"late": ["10.20.3.0/25"]})
-        with self.assertRaisesRegex(GmError, r"10\.20\.3\.0/24 now overlaps network late "
+        with self.assertRaisesRegex(GmError, r"10\.20\.3\.0/24, inside 10\.20\.0\.0/16 \(the "
+                                             r"default range\), now overlaps network late "
                                              rf"\(10\.20\.3\.0/25\) on {WORKER}"):
             self.deploy(fake)
         self.assertFalse(fake.called("config", "create") or fake.called("save"))
@@ -748,3 +755,119 @@ class TestTwoHostSubnet(TwoHostRendered):
         self.assertNotIn(localimpl.OVERLAY, localimpl.read_implementation(self.ldir))
         self.assertNotIn("ipam", self.stack()["networks"]["backend"])
         self.assertFalse(fake.called("network", "inspect"))
+
+
+# --- The overlay's range is the GM's (capture W3-b, D183) -------------------
+
+DEPLOY_WAY_OUT = ("choose another range: gmctl deploy --overlay-range <cidr> for this run, or "
+                  "gmctl fit --overlay-range <cidr> for the playground; nothing deployed")
+
+
+class TestOverlayRange(TwoHostRendered):
+
+    cluster = TestTwoHostSubnet.cluster
+    stack = TestTwoHostSubnet.stack
+
+    def declare(self, cidr):
+        pg = localimpl.read_playground(self.ldir)
+        localimpl.write_playground(self.ldir, dict(pg, overlay_range=cidr))
+
+    def record(self, subnet):
+        localimpl.write_implementation(self.ldir, {**self.impl,
+                                                   localimpl.OVERLAY: {"subnet": subnet}})
+
+    def recorded(self):
+        return localimpl.read_implementation(self.ldir)[localimpl.OVERLAY]["subnet"]
+
+    def assert_nothing_created(self, fake):
+        self.assertFalse(fake.called("config", "create") or fake.called("save"))
+        self.assertEqual(localimpl.read_state(self.ldir)["stage"], "rendered")
+
+    def test_the_playgrounds_range_is_used(self):
+        self.declare("172.30.0.0/16")
+        fake = self.cluster(vps_networks={"app": ["172.30.0.0/24"]})
+        result = self.deploy(fake)
+        self.assertEqual(self.recorded(), "172.30.1.0/24")
+        self.assertEqual(self.stack()["networks"]["backend"]["ipam"],
+                         {"config": [{"subnet": "172.30.1.0/24"}]})
+        self.assertIn("  overlay subnet: 172.30.1.0/24 (picked from 172.30.0.0/16, playground "
+                      "duo's overlay_range)\n", result.text())
+
+    def test_the_run_option_overrides_the_playgrounds(self):
+        self.declare("172.30.0.0/16")
+        result = self.deploy(self.cluster(), overlay_range="10.21.7.0/24")
+        self.assertEqual(self.recorded(), "10.21.7.0/24")
+        self.assertIn("  overlay subnet: 10.21.7.0/24 (picked from 10.21.7.0/24, given with "
+                      "--overlay-range)\n", result.text())
+        # the run's range is not the playground's
+        self.assertEqual(localimpl.read_playground(self.ldir)["overlay_range"], "172.30.0.0/16")
+
+    def test_a_record_outside_the_range_in_force_is_picked_again(self):
+        self.record("10.20.3.0/24")
+        result = self.deploy(self.cluster(), overlay_range="10.30.0.0/16")
+        self.assertEqual(self.recorded(), "10.30.0.0/24")
+        self.assertEqual(self.stack()["networks"]["backend"]["ipam"],
+                         {"config": [{"subnet": "10.30.0.0/24"}]})
+        self.assertIn("  overlay subnet: 10.30.0.0/24 (picked from 10.30.0.0/16, given with "
+                      "--overlay-range; the recorded 10.20.3.0/24 lies outside it)\n",
+                      result.text())
+
+    def test_a_record_inside_the_range_in_force_is_kept(self):
+        self.record("10.20.3.0/24")
+        result = self.deploy(self.cluster(), overlay_range="10.0.0.0/8")
+        self.assertEqual(self.recorded(), "10.20.3.0/24")
+        self.assertIn("(as recorded, still free, inside 10.0.0.0/8, given with --overlay-range)",
+                      result.text())
+
+    def test_a_record_inside_the_range_now_overlapping_is_refused_naming_the_way_out(self):
+        self.record("10.20.3.0/24")
+        fake = self.cluster(vps_networks={"late": ["10.20.3.0/25"]})
+        with self.assertRaises(GmError) as caught:
+            self.deploy(fake, overlay_range="10.20.0.0/20")
+        self.assertEqual(str(caught.exception),
+                         "the game's recorded overlay subnet 10.20.3.0/24, inside 10.20.0.0/20 "
+                         "(given with --overlay-range), now overlaps network late (10.20.3.0/25) "
+                         f"on {WORKER}: gmctl does not move a game's addresses on its own; remove "
+                         "that network, or choose another range, one that leaves 10.20.3.0/24 "
+                         "out: gmctl deploy --overlay-range <cidr> for this run, or gmctl fit "
+                         "--overlay-range <cidr> for the playground; nothing deployed")
+        self.assert_nothing_created(fake)
+
+    def test_a_full_range_is_refused_naming_what_holds_it_and_the_way_out(self):
+        self.declare("10.0.4.0/23")
+        fake = self.cluster()                   # the VPS holds 10.0.4.0/24 and 10.0.5.0/24
+        with self.assertRaises(GmError) as caught:
+            self.deploy(fake)
+        self.assertEqual(str(caught.exception),
+                         "no free /24 left in 10.0.4.0/23 (playground duo's overlay_range), the "
+                         "range for the overlays of gmctl's games on several hosts: taken by "
+                         f"network net4 (10.0.4.0/24) on {WORKER}; network net5 (10.0.5.0/24) on "
+                         f"{WORKER}; " + DEPLOY_WAY_OUT)
+        self.assert_nothing_created(fake)
+
+    def test_a_bad_option_is_refused_before_anything(self):
+        fake = self.cluster()
+        with self.assertRaisesRegex(GmError, r"--overlay-range '8\.8\.8\.0/24': outside the "
+                                             "private ranges"):
+            self.deploy(fake, overlay_range="8.8.8.0/24")
+        self.assertFalse(fake.calls)
+        self.assert_nothing_created(fake)
+
+    def test_a_game_on_one_host_reads_no_range_and_no_network(self):
+        self.fit(mapping=("host-1=" + MANAGER, "host-2=" + MANAGER))
+        render.render(self.scenario, "duo")
+        self.declare("10.0.0.0/8")
+        fake = self.cluster(availability="Drain")
+        result = self.deploy(fake, overlay_range="10.30.0.0/16")
+        self.assertNotIn(localimpl.OVERLAY, localimpl.read_implementation(self.ldir))
+        self.assertNotIn("ipam", self.stack()["networks"]["backend"])
+        self.assertFalse(fake.called("network", "inspect"))
+        self.assertNotIn("overlay subnet", result.text())
+
+    def test_the_cli_option(self):
+        proc = run_gmctl("deploy", self.scenario, "--playground", "duo", "--overlay-range",
+                         "10.20.0.0/25")
+        self.assertEqual(proc.returncode, 1)
+        self.assertEqual(proc.stderr.strip(), "gmctl deploy: --overlay-range '10.20.0.0/25': "
+                                              "narrower than /24, the size of a game's overlay "
+                                              "subnet")

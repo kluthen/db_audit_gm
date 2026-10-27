@@ -41,9 +41,9 @@ The teardown a failed step runs itself writes none.
 | Command | Allowed at | Records | Exit |
 |---|---|---|---|
 | `tools/gmctl status <dir> --playground <pg>` | any game | nothing | 0; 1 no game |
-| `tools/gmctl fit <dir> --playground <pg> [--endpoint ssh://user@host] [--cpu N --memory SIZE --disk SIZE]`, or on several hosts `[--host <name>[,manager][,endpoint=ssh://user@host],cpu=N,memory=SIZE,disk=SIZE ...] [--map <designed host>=<host> ...]` | no game, `fitted`, `rendered`, `failed` before deployment (same game id); `torn-down`, or `failed` after deployment with its teardown recorded (a new game id) | `fitted` | 0 fits; 1 does not fit, or refused (a deployed stage, or a failure after deployment not torn down: the message names the game, its stage and `gmctl teardown`, or `gmctl deploy` for a failed deploy; the playground's engine not reachable; an image missing on it, with its build command; a declaration it cannot place the scenario on: no or two managers, a designed host unmapped or unknown, a mapping onto an undeclared host, a host the manager's `docker node ls` does not list or a manager listed as a worker, a node publishing ports placed off the manager, `--endpoint`, `--cpu`, `--memory` or `--disk` with `--host` or on several hosts; these last write nothing) |
+| `tools/gmctl fit <dir> --playground <pg> [--endpoint ssh://user@host] [--cpu N --memory SIZE --disk SIZE]`, or on several hosts `[--host <name>[,manager][,endpoint=ssh://user@host],cpu=N,memory=SIZE,disk=SIZE ...] [--map <designed host>=<host> ...]`; either form `[--overlay-range <cidr>]` | no game, `fitted`, `rendered`, `failed` before deployment (same game id); `torn-down`, or `failed` after deployment with its teardown recorded (a new game id) | `fitted`; `overlay_range` in `playground.yaml` with `--overlay-range` (D183: the range a game on several hosts takes its overlay's /24 from; kept by a re-fit without the option; never declared: 10.20.0.0/16) | 0 fits; 1 does not fit, or refused (a deployed stage, or a failure after deployment not torn down: the message names the game, its stage and `gmctl teardown`, or `gmctl deploy` for a failed deploy; the playground's engine not reachable; an image missing on it, with its build command; a declaration it cannot place the scenario on: no or two managers, a designed host unmapped or unknown, a mapping onto an undeclared host, a host the manager's `docker node ls` does not list or a manager listed as a worker, a node publishing ports placed off the manager, `--endpoint`, `--cpu`, `--memory` or `--disk` with `--host` or on several hosts; an `--overlay-range` that is not IPv4, wider than /8, narrower than /24, with host bits set or outside 10/8, 172.16/12 and 192.168/16; these last write nothing) |
 | `tools/gmctl render <dir> --playground <pg> [--handover <UTC date and hour>]` | `fitted`, `rendered` | `rendered`; the `timeline` in `implementation.yaml` | 0; 1 refused (no `--handover` with scheduler nodes, a hand-over not in the future or not a whole hour, the scenario changed since `fit`) |
-| `tools/gmctl deploy <dir> --playground <pg> [--init-swarm] [--timeout SECONDS]` | `rendered`, or `failed` in deploy | `deployed`; `images` in `state.yaml` on several hosts | 0; 1 refused (an image missing on the manager; on several hosts: `--init-swarm`, a host with nodes not `Ready` and `active` in the swarm, naming `docker node update --availability active <host>`, which the owner runs, or a host that does not answer without an SSH agent and a terminal, as a host timer's run reaches it; a Docker context `dbagm-<host>` aimed elsewhere; no free /24 left in 10.20.0.0/16, or the recorded overlay subnet now overlapping a network; nothing created) or failed |
+| `tools/gmctl deploy <dir> --playground <pg> [--init-swarm] [--timeout SECONDS] [--overlay-range <cidr>]` | `rendered`, or `failed` in deploy | `deployed`; `images` in `state.yaml` on several hosts | 0; 1 refused (an image missing on the manager; on several hosts: `--init-swarm`, a host with nodes not `Ready` and `active` in the swarm, naming `docker node update --availability active <host>`, which the owner runs, or a host that does not answer without an SSH agent and a terminal, as a host timer's run reaches it; a Docker context `dbagm-<host>` aimed elsewhere; no free /24 left in the range in force, or the recorded overlay subnet, inside that range, now overlapping a network: each names the networks taken and their hosts, and the way out, `--overlay-range <cidr>` for this run or `gmctl fit --overlay-range <cidr>` for the playground (D183); an `--overlay-range` `fit` would refuse; nothing created) or failed. `--overlay-range`: this run's range in place of the playground's, not recorded in `playground.yaml` |
 | `tools/gmctl load-data <dir> --playground <pg> [--timeout SECONDS]` | `deployed` (later deployed stages: no-op, exit 0) | `data-loaded` | 0; 1 refused or failed |
 | `tools/gmctl inject <dir> --playground <pg> [--timeout SECONDS]` | `data-loaded`, `injected` (a replay) | `injected`; every instance's planting (`plantings`); with scheduler nodes only the instances due at T0 are planted | 0; 1 refused (at `load-started`: re-plant one instance with `--at now`) or failed |
 | `tools/gmctl start-load <dir> --playground <pg>` | `injected`, with scheduler nodes | each attempt in `load`; T0 and `load-started` once every scheduler runs; the early check's host timer | 0 started; 1 refused (no scheduler node: `game <id> has no scheduler node, so it has no aging and no load to start (D157)`; the load already started; once handed over) or a scheduler did not start (recorded, nothing torn down, the stage stays `injected`: fix it and run it again, or tear the game down) |
@@ -59,7 +59,7 @@ The teardown a failed step runs itself writes none.
 | `tools/gmctl check <dir> --playground <pg>` | `injected` and later deployed stages | nothing | 0 all fixed; 1 any present (none errored); 3 any too soon to tell (none errored or present: wait the longest remaining window, then run it again); 2 any error or refused |
 | `tools/gmctl logs <dir> --playground <pg> --node <node> [--tail N]` | any game (useful while its services exist) | nothing | Docker's (`docker service logs`); 1 no game. A PostgreSQL node's shows sshd and the server's start-up only when its seed sets `logging_collector = on` (every v0.2 seed): its server log is then in files, read through `exec`; without the collector, the whole server log is here |
 | `tools/gmctl status <dir> --playground <pg> --set feedback-given` | `final-answer` | `feedback-given` | 0; 1 refused |
-| `tools/gmctl restart <dir> --playground <pg> --confirmation "<the player's words>"` | `handed-over`, `final-answer` or `feedback-given`; `failed` after a failed restart (to retry it) | `restarts`: the old and new game ids, the time, from the snapshot or not, the player's words, `completed` or `failed` with its reason; the game under its new id at `handed-over` | 0 rebuilt; 1 refused (no or blank confirmation, before hand-over, torn down, a copy, image or secret file missing, the overlay's subnet now taken; nothing done) or failed (what it deployed torn down, stage `failed`, the snapshot kept: run it again, or tear down). Every node and volume removed but the snapshot; every secret's value kept under new objects, so the players' passwords still work; a new seed. From the snapshot: fresh copies of it, the schedulers resuming from their marker, T0 unchanged. Not fitting: the data loaded, every fault planted at once and, with scheduler nodes, the load started at once under a new T0. The four hours still count from the first hand-over; the snapshot stays for a second restart |
+| `tools/gmctl restart <dir> --playground <pg> --confirmation "<the player's words>" [--overlay-range <cidr>]` | `handed-over`, `final-answer` or `feedback-given`; `failed` after a failed restart (to retry it) | `restarts`: the old and new game ids, the time, from the snapshot or not, the player's words, `completed` or `failed` with its reason; the game under its new id at `handed-over` | 0 rebuilt; 1 refused (no or blank confirmation, before hand-over, torn down, a copy, image or secret file missing, an `--overlay-range` `fit` would refuse; on several hosts, the overlay's recorded subnet, inside the range in force, now taken, or no free /24 left in that range, each naming what is taken and the way out, `--overlay-range <cidr>` on `restart`, `gmctl fit --overlay-range <cidr>` only for the playground's next games; nothing done) or failed (what it deployed torn down, stage `failed`, the snapshot kept: run it again, or tear down). Every node and volume removed but the snapshot; every secret's value kept under new objects, so the players' passwords still work; a new seed. From the snapshot: fresh copies of it, the schedulers resuming from their marker, T0 unchanged. Not fitting: the data loaded, every fault planted at once and, with scheduler nodes, the load started at once under a new T0. The four hours still count from the first hand-over; the snapshot stays for a second restart. On several hosts the overlay's subnet is kept while it lies inside the range in force (`--overlay-range` for this run, else the playground's, D183); one outside it is picked again from it |
 | `tools/gmctl teardown <dir> --playground <pg> [--reason TEXT]` | any game (idempotent) | `torn-down` (a failed game stays `failed`), and the first time the teardown record, with the reason | 0; 1 leftovers (nothing recorded), or an empty reason (nothing removed) |
 
 The deployed stages are `deployed` to `feedback-given`. `status --set` on
@@ -97,8 +97,10 @@ password or key. The GM's reads, one per tool, are in the skill's
   its own lines, `host <name> (<manager, ><endpoint>): nodes <names>`
   then its capacity lines against the nodes placed there and their
   images, each counted once on it; the game fits when every host does,
-  and a problem reads `host <name>: <line>`. The images are read on the
-  manager, which must hold them all. A missing
+  and a problem reads `host <name>: <line>`; then `overlay range:
+  <range> (<origin>; a game on several hosts takes its overlay's /24 from
+  it at deploy)`, also on one host when a range is declared (D183). The
+  images are read on the manager, which must hold them all. A missing
   image is refused as `image(s) not on <engine>: <image> (build it:
   docker build -t <image> bricks/<id>); ...; then gmctl fit again`
   (`docker -H <endpoint> build ...` for a remote engine); an engine that
@@ -159,12 +161,20 @@ password or key. The GM's reads, one per tool, are in the skill's
   lines name the host (`on host <name>`, the manager), and before the
   credentials come one line per other host with nodes, `host <name>:
   Docker <version>, reached without an SSH agent`, then, when the nodes
-  span several hosts, `overlay subnet: <10.20.N.0/24> (picked from
-  10.20.0.0/16 | as recorded, still free)` (capture W3-a, D182: the first
-  /24 overlapping no network of the manager or a placed host, recorded in
-  `implementation.yaml`'s `overlay.subnet` and the stack's network; a
-  recorded one now overlapping is refused, naming that network; a new
-  `fit` drops it), and its images,
+  span several hosts, `overlay subnet: <subnet> (picked from <range>,
+  <origin> | as recorded, still free, inside <range>, <origin> | picked
+  from <range>, <origin>; the recorded <subnet> lies outside it)`, where
+  the range in force is `--overlay-range` for this run (`given with
+  --overlay-range`), else `playground.yaml`'s `overlay_range`
+  (`playground <pg>'s overlay_range`), else `the default range`,
+  10.20.0.0/16 (capture W3-a, D182; W3-b, D183: the first /24 of the
+  range overlapping no network of the manager or a placed host, recorded
+  in `implementation.yaml`'s `overlay.subnet` and the stack's network; a
+  recorded one is kept while it lies inside the range and overlaps
+  nothing; a recorded one inside it now overlapping is refused, naming
+  that network and its host and the way out, `--overlay-range <cidr>` or
+  `gmctl fit --overlay-range <cidr>`; a new `fit` drops it), and its
+  images,
   `images on <host>: <n> copied (<images>), <k> already held under the
   same id`: each other host gets the images of its nodes, `docker save
   <image> | docker --context dbagm-<host> load`, skipped when it holds
@@ -172,8 +182,8 @@ password or key. The GM's reads, one per tool, are in the skill's
   id, copied, at}]}` records them. gmctl reaches a remote host through
   its Docker context `dbagm-<host>`, created from `playground.yaml` when
   missing, never `docker context use`; contexts outlive the game. The
-  game's network gets MTU 1230 when its nodes span several hosts (VXLAN
-  inside Tailscale's 1280). It generates the secrets the
+  game's network gets the MTU option 1230 (1180 inside a node, D184)
+  when its nodes span several hosts (VXLAN inside Tailscale's 1280). It generates the secrets the
   bricks declare, fresh at each deploy: a password writes `<name>` (16
   characters when players type it, `handed_over`, else 32); a key pair
   (ed25519, no passphrase) writes `<pair>` and `<pair>.pub`. Every node
@@ -252,7 +262,10 @@ password or key. The GM's reads, one per tool, are in the skill's
   ...`, `OUTAGES: <n> min lost in <k> period(s) ...` (`at least` when
   Swarm's task history of a node may have been pruned) with one line per
   period, `OUTAGES NOT READ ...`: tell the initiator of any before
-  anything else. Then game id, playground and endpoint, stage (for a failed
+  anything else. Then game id, playground and endpoint (on several
+  hosts `playground: <pg>, <n> hosts`, then one line per host, `host
+  <name> (manager): <endpoint>`, `(manager)` only on the manager, `local
+  engine` with no endpoint), stage (for a failed
   game, the last stage reached), the failure if any, the teardown record
   if any (`torn down: at <at>, from stage <stage>: <reason>`, or `no
   reason given`), the history, `network: <id>_<network name>`, and for a
@@ -261,7 +274,10 @@ password or key. The GM's reads, one per tool, are in the skill's
   password, handed over`, `<pair>: private key of pair <pair>` or
   `<pair>.pub: public key of pair <pair>`; `tools_password` only when the
   game has a web front (RG-3). In a game that ages, then: `aging: T0 <t0>;
-  ran <time> (elapsed less the lost time) of the <minimum> minimum`, `lost
+  ran <time> (elapsed less the lost time) of the <minimum> minimum` (after
+  a restart with no history, `aging: T0 <t0>, the load restarted with no
+  history after the first hand-over at <instant> (the four hours count
+  from it); running <time> since T0`), `lost
   time: <n> min`, `earliest hand-over: <instant> (reached | in <time> |
   provisional, waiting for the planting of <id>)` (the later of T0 plus
   the aging minimum and each fault's own minimum since its planting,
@@ -291,7 +307,8 @@ In `scenarios/<id>/local/<pg>/` (git-ignored; never edit by hand):
   the declared capacity; on several hosts, `hosts` (`[{name,
   docker_endpoint, manager, capacity}]`, each by its swarm node name)
   and `mapping` (`<designed host>: <host>`), written by `fit --host
-  --map`, never by hand;
+  --map`, and `overlay_range` when declared (`fit --overlay-range`, D183;
+  absent: 10.20.0.0/16), never by hand;
 - `implementation.yaml`: `game_id`, `snapshot_fit` (`{fits, why}`),
   and per node `host` (the host it is pinned to) and `published_ports`
   (`[{target, published, mode}]`; only the bastion publishes ports: target

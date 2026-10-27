@@ -34,11 +34,25 @@ def _scenario_args(parser):
                         help="playground slug: local/<name>/ in the scenario folder")
 
 
+# Options shared by several subcommands (capture W3-b, D183).
+OVERLAY_RANGE_HELP = {
+    "fit": "the range a game on several hosts takes its overlay's /24 from, written to "
+           "playground.yaml (IPv4, /8 to /24, inside 10/8, 172.16/12 or 192.168/16; kept by a "
+           "re-fit without it; never declared: 10.20.0.0/16)",
+    "deploy": "this run's overlay range in place of the playground's (same rules as fit's)",
+    "restart": "this run's overlay range in place of the playground's (same rules as fit's)",
+}
+
+
+def _overlay_range_arg(parser, command):
+    parser.add_argument("--overlay-range", metavar="<cidr>", help=OVERLAY_RANGE_HELP[command])
+
+
 def _cmd_fit(args):
     from . import fit
     result = fit.fit(args.scenario_dir, args.playground, endpoint=args.endpoint,
                      cpu=args.cpu, memory=args.memory, disk=args.disk, hosts=args.host,
-                     mapping=args.map)
+                     mapping=args.map, overlay_range=args.overlay_range)
     print(result.text())
     return 0 if result.ok else 1
 
@@ -52,7 +66,7 @@ def _cmd_render(args):
 def _cmd_deploy(args):
     from . import deploy
     print(deploy.deploy(args.scenario_dir, args.playground, init_swarm=args.init_swarm,
-                        timeout=args.timeout).text())
+                        timeout=args.timeout, overlay_range=args.overlay_range).text())
     return 0
 
 
@@ -105,7 +119,7 @@ def _cmd_snapshot(args):
 def _cmd_restart(args):
     from . import restart
     print(restart.restart(args.scenario_dir, args.playground, args.confirmation,
-                          timeout=args.timeout).text())
+                          timeout=args.timeout, overlay_range=args.overlay_range).text())
     return 0
 
 
@@ -197,6 +211,7 @@ def build_parser():
     p.add_argument("--map", action="append", default=[], metavar="<designed host>=<host>",
                    help="place the scenario's designed host on a declared host (repeatable; "
                         "replaces the whole mapping; implied on one host)")
+    _overlay_range_arg(p, "fit")
     p.set_defaults(func=_cmd_fit)
 
     p = sub.add_parser("render", help="write the stack file, the envelope files and the "
@@ -214,6 +229,7 @@ def build_parser():
                    help="run docker swarm init if the engine is not part of a swarm")
     p.add_argument("--timeout", type=int, default=300, metavar="SECONDS",
                    help="how long to wait for health checks (default 300)")
+    _overlay_range_arg(p, "deploy")
     p.set_defaults(func=_cmd_deploy)
 
     p = sub.add_parser("load-data", help="stream each node's data/<node>.sql into it "
@@ -279,6 +295,7 @@ def build_parser():
                    help="the player's confirmation, in their own words, recorded with the restart")
     p.add_argument("--timeout", type=int, default=300, metavar="SECONDS",
                    help="how long to wait for health checks (default 300)")
+    _overlay_range_arg(p, "restart")
     p.set_defaults(func=_cmd_restart)
 
     from .state import GM_STAGES
