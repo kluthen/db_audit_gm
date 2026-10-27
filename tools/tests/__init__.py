@@ -142,6 +142,7 @@ class FakeDocker:
         self.health = health
         self.fail = dict(fail or {})
         self.calls = []
+        self.helpers = []               # `docker run` helper containers (snapshot, restore)
         self.objects = {kind: {} for kind in self.KINDS}
         self.subnets = {}               # network name -> its subnets
         for net, subnets in (networks or {}).items():
@@ -381,6 +382,16 @@ class FakeDocker:
             names = [a for a in args[args.index("--format") + 2:]]
             return "".join(f"{n}\t" + "".join(f"{sub} " for sub in self.subnets.get(n, []))
                            + "\n" for n in names)
+        if args[:2] == ["volume", "create"]:        # the snapshot's copies, a restart's volumes
+            self.add("volume", args[-1], self._labels(args))
+            return args[-1] + "\n"
+        if args[:2] == ["volume", "inspect"]:
+            if args[-1] not in self.objects["volume"]:
+                return (1, f"Error response from daemon: get {args[-1]}: no such volume")
+            return args[-1] + "\n"
+        if cmd == "run":                            # a helper container (--rm)
+            self.helpers.append(args)
+            return ""
         if cmd in self.KINDS and args[1] == "ls":
             return "".join(f"{n}\n" for n in self._matching(cmd, args))
         if cmd in self.KINDS and args[1] == "rm":

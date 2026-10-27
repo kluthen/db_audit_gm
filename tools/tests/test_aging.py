@@ -400,7 +400,7 @@ class TestNoLoadControl(unittest.TestCase):
         sub = next(a for a in build_parser()._actions if a.dest == "command")
         self.assertEqual(sorted(sub.choices), sorted([
             "fit", "render", "deploy", "load-data", "inject", "start-load", "validate", "check",
-            "status", "exec", "logs", "teardown"]))
+            "status", "exec", "logs", "teardown", "snapshot"]))
         for verb in sub.choices:
             for word in ("pause", "resume", "speed", "trigger", "stop-load", "faster"):
                 self.assertNotIn(word, verb)
@@ -1144,7 +1144,7 @@ class TestHandedOver(AgingGame):
         with self.assertRaisesRegex(GmError, "waits for the planting of f2"):
             self.set(self.t0 + datetime.timedelta(days=3))
 
-    def test_refused_then_accepted_on_its_two_conditions(self):
+    def test_refused_then_accepted_on_its_three_conditions(self):
         self.inject_at("now")
         earliest = at(self.st()["plantings"]["f2"]["planted_at"]) + datetime.timedelta(hours=1)
         earliest = max(earliest, self.t0 + datetime.timedelta(hours=1))
@@ -1163,6 +1163,11 @@ class TestHandedOver(AgingGame):
         self.assertNotEqual((self.ldir / "state.yaml").read_bytes(), before)  # checks only
         self.assertEqual(self.st()["stage"], "load-started")
         self.record_check(earliest)
+        with self.assertRaisesRegex(GmError, "the hand-over snapshot is neither taken nor "
+                                             "recorded as not fitting"):
+            self.set(earliest)          # the third condition (chunk 11a, spec D172)
+        localimpl.update_state(self.ldir, lambda st: st.update(
+            snapshot={"status": "taken", "at": aging.iso(earliest)}))
         self.assertTrue(self.set(earliest + datetime.timedelta(minutes=5)))
         st = self.st()
         self.assertEqual(st["stage"], "handed-over")
@@ -1199,6 +1204,10 @@ class TestStaticGameHandOver(DeployedGame):
         for word in ("aging:", "lost time", "earliest hand-over", "plantings:", "OUTAGES"):
             self.assertNotIn(word, text)
         self.assertIn("  hand-over check: passed at ", text)
+        with self.assertRaisesRegex(GmError, "the hand-over snapshot is neither taken"):
+            state.set_gm_stage(self.ldir, "handed-over")     # spec D172, in this kind too
+        localimpl.update_state(self.ldir, lambda st: st.update(
+            snapshot={"status": "not-fitting", "at": localimpl.now_iso()}))
         self.assertTrue(state.set_gm_stage(self.ldir, "handed-over"))
         stages = [h["stage"] for h in localimpl.read_state(self.ldir)["history"]]
         self.assertEqual(stages[-2:], ["injected", "handed-over"])
