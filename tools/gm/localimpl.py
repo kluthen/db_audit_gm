@@ -6,7 +6,8 @@ Master spec 10.3; files, names and labels fixed by capture W2-A
 - `playground.yaml`      the playground as declared (never keys): from v0.3
                          a list of hosts and the mapping of the scenario's
                          designed hosts onto them, or today's one-host form,
-                         read as a list of one (capture W3 of v0.3, item 1);
+                         read as a list of one (capture W3 of v0.3, item 1),
+                         and the overlay's range when declared (W3-b, D183);
 - `implementation.yaml`  written by `fit`: game id, per-node brick, image,
                          resources (copied, never recomputed), published
                          ports, every derived name, and from v0.3 each
@@ -43,6 +44,7 @@ import contextlib
 import copy
 import datetime
 import fcntl
+import ipaddress
 import os
 import posixpath
 import re
@@ -74,6 +76,17 @@ RENDERED_DIR = "rendered"
 TIMELINE = "timeline"               # implementation.yaml's key render writes (v0.3 W2, item 1)
 OVERLAY = "overlay"                 # implementation.yaml's key deploy writes on several hosts
                                     # ({subnet}, capture W3-a, item 4; D182)
+# The range a game on several hosts takes its overlay's /24 from (capture
+# W3-b, D183): playground.yaml's `overlay_range`, written by `fit
+# --overlay-range`, or one run's `--overlay-range` on deploy or restart;
+# absent, the default. From /8 to /24, inside the private ranges.
+OVERLAY_RANGE = "overlay_range"
+OVERLAY_RANGE_OPTION = "--overlay-range"
+DEFAULT_OVERLAY_RANGE = "10.20.0.0/16"
+OVERLAY_SUBNET_PREFIX = 24
+OVERLAY_RANGE_WIDEST = 8
+PRIVATE_RANGES = tuple(ipaddress.ip_network(r)
+                       for r in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))
 
 LABEL_NAMESPACE = "com.docker.stack.namespace"
 LABEL_GAME = "dbagm.game"
@@ -231,6 +244,45 @@ def node_hosts(scenario, pg, manager_name):
 def placement_constraint(host):
     """The stack file's constraint pinning a node to its host."""
     return HOSTNAME_CONSTRAINT.format(host=host)
+
+
+# --- The overlay's range (capture W3-b, D183) ------------------------------
+
+def parse_overlay_range(text, what=OVERLAY_RANGE_OPTION):
+    """`text` as the overlay's range, an IPv4Network from /8 to /24 inside
+    the private ranges; GmError naming `what` otherwise."""
+    hint = f"{what} {text!r}"
+    try:
+        net = ipaddress.ip_network(str(text).strip(), strict=False)
+    except ValueError:
+        raise GmError(f"{hint}: not an IPv4 CIDR range such as {DEFAULT_OVERLAY_RANGE}") \
+            from None
+    if net.version != 4:
+        raise GmError(f"{hint}: not IPv4; the game's overlay takes an IPv4 range such as "
+                      f"{DEFAULT_OVERLAY_RANGE}")
+    if net.prefixlen < OVERLAY_RANGE_WIDEST:
+        raise GmError(f"{hint}: wider than /{OVERLAY_RANGE_WIDEST}")
+    if net.prefixlen > OVERLAY_SUBNET_PREFIX:
+        raise GmError(f"{hint}: narrower than /{OVERLAY_SUBNET_PREFIX}, the size of a game's "
+                      "overlay subnet")
+    if net.with_prefixlen != str(text).strip():
+        raise GmError(f"{hint}: host bits set; the range is {net.with_prefixlen}")
+    if not any(net.subnet_of(private) for private in PRIVATE_RANGES):
+        raise GmError(f"{hint}: outside the private ranges "
+                      f"({', '.join(map(str, PRIVATE_RANGES))})")
+    return net
+
+
+def overlay_range(pg, override=None):
+    """`(range, where it comes from)`: `override` (the `--overlay-range` of
+    one run), else playground.yaml's `overlay_range`, else the default."""
+    if override is not None:
+        return parse_overlay_range(override), f"given with {OVERLAY_RANGE_OPTION}"
+    declared = (pg or {}).get(OVERLAY_RANGE) if isinstance(pg, dict) else None
+    if declared is not None:
+        return (parse_overlay_range(declared, f"{PLAYGROUND_FILE}'s {OVERLAY_RANGE}"),
+                f"playground {pg.get('name')}'s {OVERLAY_RANGE}")
+    return ipaddress.ip_network(DEFAULT_OVERLAY_RANGE), "the default range"
 
 
 def read_implementation(ldir):

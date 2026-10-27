@@ -32,7 +32,7 @@ overlay network is the stack's own, its MTU set by `render` on several
 hosts.
 
 Capture W3-a (D182): a game whose nodes span several hosts gets its
-overlay's subnet from `GAME_SUBNETS`, the first /24 overlapping no network
+overlay's subnet from the range in force, the first /24 overlapping no network
 the manager lists (swarm-scoped ones included) nor any network of a host
 the game is placed on; Swarm's default pool would hand it a /24 a worker's
 local networks may already hold. Picked at the game's first deployment,
@@ -40,6 +40,13 @@ before anything is created, recorded in `implementation.yaml`'s
 `overlay.subnet` and written into the rendered stack's network (render
 writes it too once recorded); a recorded subnet is kept and re-checked,
 the game's own network left out. A one-host game keeps Swarm's default.
+
+Capture W3-b (D183): the range in force is `--overlay-range <cidr>` for
+this run, else playground.yaml's `overlay_range` (`fit --overlay-range`),
+else `10.20.0.0/16`. A recorded subnet is kept while it lies inside that
+range and overlaps nothing; one outside it is picked again from it; one
+inside it that now overlaps is refused. Each refusal names what is taken
+and how to choose another range; the report names the subnet and its range.
 """
 
 import ipaddress
@@ -69,10 +76,13 @@ PLAYER_PASSWORD_LENGTH = 16
 DBA_PASSWORD_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 DBA_PASSWORD_LENGTH = 32
 SSH_KEYGEN = "ssh-keygen"
-# The overlays of gmctl's games on several hosts (capture W3-a, item 1): 256 /24s
-# that neither host's networks nor routes use.
-GAME_SUBNETS = ipaddress.ip_network("10.20.0.0/16")
-GAME_SUBNET_PREFIX = 24
+# The overlays of gmctl's games on several hosts (capture W3-a, item 1): by
+# default 256 /24s that neither host's networks nor routes use; the range in
+# force is the playground's or one run's (capture W3-b, D183).
+GAME_SUBNETS = ipaddress.ip_network(localimpl.DEFAULT_OVERLAY_RANGE)
+GAME_SUBNET_PREFIX = localimpl.OVERLAY_SUBNET_PREFIX
+OPTION = localimpl.OVERLAY_RANGE_OPTION
+NOTHING_DONE = {"deploy": "nothing deployed", "restart": "nothing done"}
 
 
 # --- Swarm and images ----------------------------------------------------
@@ -235,30 +245,51 @@ def overlaps(subnet, taken):
     return found
 
 
-def pick_subnet(taken, pool=GAME_SUBNETS, prefix=GAME_SUBNET_PREFIX):
+def taken_text(taken):
+    return "; ".join(f"network {name} ({subnet}) on {host}" for host, name, subnet in taken)
+
+
+def way_out(verb, leaving=None):
+    """How the GM chooses another range (capture W3-b, item 4)."""
+    text = "choose another range" + (f", one that leaves {leaving} out" if leaving else "")
+    text += f": gmctl {verb} {OPTION} <cidr> for this run, or gmctl fit {OPTION} <cidr> for "
+    if verb == "restart":
+        return text + "the playground's next games (fit refuses while this one is deployed)"
+    return text + "the playground"
+
+
+def pick_subnet(taken, pool=GAME_SUBNETS, prefix=GAME_SUBNET_PREFIX, origin="the default range",
+                verb="deploy"):
     """The first /24 of `pool` overlapping none of `taken`; GmError naming
-    the range when every one does."""
+    the range, what holds it and the way out when every one does."""
     for candidate in pool.subnets(new_prefix=prefix):
         if not overlaps(str(candidate), taken):
             return str(candidate)
-    raise GmError(f"no free /{prefix} left in {pool}, the range reserved for the overlays of "
-                  "gmctl's games on several hosts: every one overlaps a network of the swarm "
-                  "or of a placed host; nothing deployed")
+    held = taken_text(overlaps(str(pool), taken))
+    raise GmError(f"no free /{prefix} left in {pool} ({origin}), the range for the overlays of "
+                  f"gmctl's games on several hosts: taken by {held}; {way_out(verb)}; "
+                  f"{NOTHING_DONE[verb]}")
 
 
-def choose_subnet(taken, recorded=None):
-    """`(subnet, picked)`: the recorded subnet, re-checked (GmError naming
-    the network that now overlaps it), or a fresh pick."""
-    if recorded:
+def choose_subnet(taken, recorded=None, pool=GAME_SUBNETS, origin="the default range",
+                  verb="deploy"):
+    """`(subnet, how)`: the recorded subnet when it lies inside `pool` and
+    overlaps nothing (GmError naming what overlaps it and the way out when
+    it does), else a fresh pick from `pool`; `how` says which (W3-b, item 3)."""
+    inside = recorded and ipaddress.ip_network(recorded, strict=False).subnet_of(pool)
+    if inside:
         clash = overlaps(recorded, taken)
         if clash:
-            where = "; ".join(f"network {name} ({subnet}) on {host}"
-                              for host, name, subnet in clash)
-            raise GmError(f"the game's recorded overlay subnet {recorded} now overlaps {where}: "
-                          "gmctl does not move a game's addresses; remove that network, or "
-                          "tear down and fit again to pick another; nothing deployed")
-        return recorded, False
-    return pick_subnet(taken), True
+            raise GmError(f"the game's recorded overlay subnet {recorded}, inside {pool} "
+                          f"({origin}), now overlaps {taken_text(clash)}: gmctl does not move a "
+                          f"game's addresses on its own; remove that network, or "
+                          f"{way_out(verb, recorded)}; {NOTHING_DONE[verb]}")
+        return recorded, f"as recorded, still free, inside {pool}, {origin}"
+    subnet = pick_subnet(taken, pool, origin=origin, verb=verb)
+    how = f"picked from {pool}, {origin}"
+    if recorded:
+        how += f"; the recorded {recorded} lies outside it"
+    return subnet, how
 
 
 def apply_subnet(ldir, impl, subnet):
@@ -274,25 +305,28 @@ def apply_subnet(ldir, impl, subnet):
     localimpl.write_text(stack_file, render.dump_stack(stack, impl["game_id"]))
 
 
-def game_subnet(docker, impl):
+def game_subnet(docker, impl, pg=None, override=None, verb="deploy"):
     """`(subnet, line)` for a game spanning several hosts: its recorded
     subnet re-checked, or a fresh pick (GmError before anything is
-    created); None on one host. `impl` is the game's implementation, its
-    own network (`impl["network"]`) left out by name: `restart` passes the
-    outgoing game's, whose overlay Swarm removes asynchronously and whose
-    subnet the new game keeps (D182). The one place both verbs choose it."""
+    created); None on one host, nothing read. The range in force is
+    `override` (one run's `--overlay-range`), else the playground's `pg`
+    declares, else the default (W3-b, D183). `impl` is the game's
+    implementation, its own network (`impl["network"]`) left out by name:
+    `restart` passes the outgoing game's, whose overlay Swarm removes
+    asynchronously and whose subnet the new game keeps (D182). The one
+    place both verbs choose it."""
     if not docker.hosts or not spans_hosts(impl):
         return None
+    pool, origin = localimpl.overlay_range(pg, override)
     recorded = (impl.get(localimpl.OVERLAY) or {}).get("subnet")
-    subnet, picked = choose_subnet(taken_subnets(docker, impl), recorded)
-    how = f"picked from {GAME_SUBNETS}" if picked else "as recorded, still free"
+    subnet, how = choose_subnet(taken_subnets(docker, impl), recorded, pool, origin, verb)
     return subnet, f"overlay subnet: {subnet} ({how})"
 
 
-def overlay_subnet(docker, ldir, impl):
+def overlay_subnet(docker, ldir, impl, override=None):
     """On a game spanning several hosts, its overlay's subnet, picked or
     re-checked and applied; a report line. None on one host."""
-    chosen = game_subnet(docker, impl)
+    chosen = game_subnet(docker, impl, localimpl.read_playground(ldir), override)
     if chosen is None:
         return None
     apply_subnet(ldir, impl, chosen[0])
@@ -507,10 +541,14 @@ def deployable(st):
 
 
 def deploy(scenario_dir, playground, init_swarm=False, timeout=HEALTH_TIMEOUT, docker=None,
-           keygen=ssh_keygen, sleep=time.sleep, clock=time.monotonic):
+           keygen=ssh_keygen, sleep=time.sleep, clock=time.monotonic, overlay_range=None):
     """`gmctl deploy`; returns a DeployResult, raises GmError on a refusal
-    (nothing done) or state.SetupFailed on a failure (recorded)."""
+    (nothing done) or state.SetupFailed on a failure (recorded).
+    `overlay_range`: `--overlay-range`, this run's range in place of the
+    playground's (W3-b, item 2)."""
     ldir = localimpl.local_dir(scenario_dir, playground)
+    if overlay_range is not None:
+        localimpl.parse_overlay_range(overlay_range)
     st = localimpl.read_state(ldir)
     if st is None:
         raise GmError(f"no game on playground {playground}: run gmctl fit first")
@@ -534,7 +572,7 @@ def deploy(scenario_dir, playground, init_swarm=False, timeout=HEALTH_TIMEOUT, d
         raise GmError(f"image(s) not present on {docker.describe()}: {', '.join(missing)}. "
                       "Build each brick there first (docker build -t <image> bricks/<id>); "
                       "deployment never pulls")
-    subnet_line = overlay_subnet(docker, ldir, impl)
+    subnet_line = overlay_subnet(docker, ldir, impl, overlay_range)
     if subnet_line:
         hosts.append(subnet_line)
 

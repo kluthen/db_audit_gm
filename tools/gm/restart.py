@@ -15,7 +15,9 @@ The rebuild, in order:
    snapshot's copies on their hosts when it was taken, and the overlay's
    subnet re-checked as `deploy` does with the outgoing game's network
    left out by name (Swarm removes it asynchronously; the new game keeps
-   the subnet, D182).
+   the subnet, D182), against the range in force: `--overlay-range` for
+   this run, else the playground's (capture W3-b, D183); a recorded subnet
+   outside it is picked again from it.
 2. The restart recorded in `state.yaml` `restarts` with the player's
    words, `status: started`, before anything else.
 3. The old game's host timers and every object carrying its labels
@@ -374,11 +376,16 @@ class RestartResult:
 
 
 def restart(scenario_dir, playground, confirmation, docker=None, systemd=None,
-            timeout=deploy.HEALTH_TIMEOUT, out=print, sleep=time.sleep, clock=time.monotonic):
+            timeout=deploy.HEALTH_TIMEOUT, out=print, sleep=time.sleep, clock=time.monotonic,
+            overlay_range=None):
     """`gmctl restart --confirmation "<words>"`; returns a RestartResult.
     Raises GmError on a refusal (nothing done, nothing recorded) or
-    state.SetupFailed on a failure (what it deployed torn down, recorded)."""
+    state.SetupFailed on a failure (what it deployed torn down, recorded).
+    `overlay_range`: `--overlay-range`, this run's range in place of the
+    playground's (capture W3-b, item 2)."""
     ldir = localimpl.local_dir(scenario_dir, playground)
+    if overlay_range is not None:
+        localimpl.parse_overlay_range(overlay_range)
     st = localimpl.read_state(ldir)
     if st is None:
         raise GmError(f"no game on playground {playground}: run gmctl fit first")
@@ -409,7 +416,8 @@ def restart(scenario_dir, playground, confirmation, docker=None, systemd=None,
     if from_snapshot:
         check_snapshot_hosts(impl, record)
         snapshot.check_copies(docker, record)
-    chosen = deploy.game_subnet(docker, impl)
+    chosen = deploy.game_subnet(docker, impl, localimpl.read_playground(ldir), overlay_range,
+                                verb="restart")
     subnet = None
     if chosen:
         subnet, line = chosen

@@ -22,6 +22,12 @@ over the scenario's aging plus a four-hour game. The hand-over snapshot's
 copies are counted on each host after the game's own disk; the verdict,
 one for the game, is `implementation.yaml`'s `snapshot_fit`. The images
 are read on the manager, which holds every image of the game.
+
+Capture W3-b (D183): `--overlay-range <cidr>` declares the range a game on
+several hosts takes its overlay's /24 from, playground.yaml's
+`overlay_range` (from /8 to /24, inside 10/8, 172.16/12 or 192.168/16); a
+re-fit without it keeps the declared one, and none declared means
+10.20.0.0/16.
 """
 
 import re
@@ -292,6 +298,10 @@ class FitResult:
             mapping = pg.get("mapping") or {}
             if mapping:
                 out.append("  mapping: " + ", ".join(f"{d} -> {h}" for d, h in mapping.items()))
+            if len(hosts) > 1 or pg.get(localimpl.OVERLAY_RANGE):
+                net, origin = localimpl.overlay_range(pg)
+                out.append(f"  overlay range: {net} ({origin}; a game on several hosts takes "
+                           f"its overlay's /{localimpl.OVERLAY_SUBNET_PREFIX} from it at deploy)")
         else:
             cap = pg["capacity"]
             endpoint = pg.get("docker_endpoint") or "local engine"
@@ -385,13 +395,30 @@ def parse_mapping(specs):
 
 
 def playground_declaration(ldir, name, endpoint=None, cpu=None, memory=None, disk=None,
-                           hosts=None, mapping=None):
+                           hosts=None, mapping=None, overlay_range=None):
     """The playground's declaration, from playground.yaml and the options,
     checked but not written: `(declaration, what playground.yaml holds)`.
     `hosts` (the `--host` options) replaces the whole host list, `mapping`
     (the `--map` options) the whole mapping (W3 item 1); `endpoint`, `cpu`,
-    `memory` and `disk` are today's one-host form's."""
+    `memory` and `disk` are today's one-host form's. `overlay_range` (the
+    `--overlay-range` option) replaces the declared range; without it a
+    declared range is kept, and none declared means the default (W3-b, D183)."""
     existing = localimpl.read_playground(ldir)
+    if overlay_range is not None:
+        chosen = str(localimpl.parse_overlay_range(overlay_range))
+    else:
+        chosen = (existing or {}).get(localimpl.OVERLAY_RANGE)
+        if chosen is not None:
+            localimpl.overlay_range(existing)       # a hand-edited one refused here
+    declared, _ = _declaration(existing, name, endpoint, cpu, memory, disk, hosts, mapping)
+    declared = {k: v for k, v in declared.items() if k != localimpl.OVERLAY_RANGE}
+    if chosen is not None:
+        declared[localimpl.OVERLAY_RANGE] = chosen
+    return declared, existing
+
+
+def _declaration(existing, name, endpoint, cpu, memory, disk, hosts, mapping):
+    """playground_declaration's hosts, mapping and capacity."""
     given = {k: v for k, v in (("cpu", cpu), ("memory", memory), ("disk", disk))
              if v is not None}
     one_host = given or endpoint is not None
@@ -592,9 +619,10 @@ def _game_to_keep(ldir, scenario_id):
 
 
 def fit(scenario_dir, playground, endpoint=None, cpu=None, memory=None, disk=None,
-        catalog_root=REPO_ROOT, docker=None, hosts=None, mapping=None):
-    """Load and check the scenario, declare the playground (`hosts` and
-    `mapping`: the `--host` and `--map` options), read the images from the
+        catalog_root=REPO_ROOT, docker=None, hosts=None, mapping=None, overlay_range=None):
+    """Load and check the scenario, declare the playground (`hosts`,
+    `mapping` and `overlay_range`: the `--host`, `--map` and
+    `--overlay-range` options), read the images from the
     manager's engine (`docker`, by default the declared manager's), place
     each node on its host, run the capacity check per host, and write
     implementation.yaml and state.yaml (stage fitted).
@@ -611,7 +639,7 @@ def fit(scenario_dir, playground, endpoint=None, cpu=None, memory=None, disk=Non
         raise GmError("cannot fit this scenario: " + "; ".join(unsupported))
     keep = _game_to_keep(ldir, scenario.id)
     declared, existing = playground_declaration(ldir, playground, endpoint, cpu, memory, disk,
-                                                hosts, mapping)
+                                                hosts, mapping, overlay_range)
     check_declaration(scenario, declared)
     manager = localimpl.manager_host(declared)
     engine = docker or Docker(manager.get("docker_endpoint"))
