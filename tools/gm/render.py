@@ -30,7 +30,9 @@ the bastion with its host-mode ports, a stateful node with its volumes.
 When the nodes span several hosts, the overlay's VXLAN runs inside
 Tailscale's 1280-byte MTU: the game's network gets an MTU leaving room for
 VXLAN's 50 bytes (master spec 10.2, "Risks"). A game on one host keeps the
-engine's default.
+engine's default. Capture W3-a (D182): once `deploy` has recorded the
+overlay's subnet (`implementation.yaml`'s `overlay.subnet`, several hosts
+only), the network carries it, `ipam: {config: [{subnet}]}`.
 """
 
 import datetime
@@ -408,6 +410,11 @@ def _healthcheck(spec):
     return hc
 
 
+def set_subnet(overlay, subnet):
+    """The overlay network's explicit subnet (capture W3-a, item 4)."""
+    overlay["ipam"] = {"config": [{"subnet": subnet}]}
+
+
 def build_stack(scenario, impl):
     """The stack file's content, as a dict (Compose file format 3.8)."""
     gid = impl["game_id"]
@@ -460,6 +467,9 @@ def build_stack(scenario, impl):
     overlay = {"driver": "overlay", "attachable": False}
     if len({inode.get("host") for inode in impl["nodes"].values()}) > 1:
         overlay["driver_opts"] = {MTU_OPTION: str(OVERLAY_MTU)}
+    subnet = (impl.get(localimpl.OVERLAY) or {}).get("subnet")
+    if subnet:
+        set_subnet(overlay, subnet)
     return {
         "version": COMPOSE_VERSION,
         "services": services,

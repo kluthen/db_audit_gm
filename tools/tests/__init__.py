@@ -112,13 +112,15 @@ class FakeDocker:
     service runs, and its volumes live, on the host its stack-file
     constraint names. `unattended=False` fails the probe a host timer's run
     would make (no SSH agent); `ids` gives images other ids; `docker save`
-    streams an image and `docker load` adds it."""
+    streams an image and `docker load` adds it. `networks` gives the engine's
+    own networks, `{name: [subnet, ...]}`, unlabelled; `docker network
+    inspect` reports each network's subnets (a stack's overlay its `ipam`'s)."""
 
     KINDS = ("service", "network", "volume", "config", "secret")
 
     def __init__(self, swarm=("active", True), images=True, health="healthy", fail=None,
                  endpoint=None, missing=(), reachable=True, name=None, nodes=None,
-                 unattended=True, ids=None):
+                 unattended=True, ids=None, networks=None):
         from tools.gm.docker import Docker
         self._docker = Docker(endpoint)
         self.endpoint = endpoint
@@ -141,6 +143,10 @@ class FakeDocker:
         self.fail = dict(fail or {})
         self.calls = []
         self.objects = {kind: {} for kind in self.KINDS}
+        self.subnets = {}               # network name -> its subnets
+        for net, subnets in (networks or {}).items():
+            self.add("network", net)
+            self.subnets[net] = list(subnets)
 
     @classmethod
     def cluster(cls, manager, workers, availability="Active", **kwargs):
@@ -332,8 +338,10 @@ class FakeDocker:
                         self.service_hosts[f"{gid}_{svc}"] = constraint.split("== ", 1)[1]
                 for vol in spec.get("volumes") or []:
                     where[vol["source"]] = self.on_host(self.service_hosts.get(f"{gid}_{svc}"))
-            for net in stack.get("networks") or {}:
+            for net, spec in (stack.get("networks") or {}).items():
                 self.add("network", f"{gid}_{net}", ns)
+                self.subnets[f"{gid}_{net}"] = [c["subnet"] for c in
+                                               ((spec or {}).get("ipam") or {}).get("config") or []]
             for vol in (stack.get("volumes") or {}).values():
                 where.get(vol["name"], self).add("volume", vol["name"],
                                                  {**ns, **(vol.get("labels") or {})})
@@ -369,6 +377,10 @@ class FakeDocker:
             return self.health + "\n"
         if args[:2] == ["service", "ps"]:
             return "Running 5 seconds ago\t\n"
+        if args[:2] == ["network", "inspect"]:
+            names = [a for a in args[args.index("--format") + 2:]]
+            return "".join(f"{n}\t" + "".join(f"{sub} " for sub in self.subnets.get(n, []))
+                           + "\n" for n in names)
         if cmd in self.KINDS and args[1] == "ls":
             return "".join(f"{n}\n" for n in self._matching(cmd, args))
         if cmd in self.KINDS and args[1] == "rm":

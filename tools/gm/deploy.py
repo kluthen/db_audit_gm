@@ -30,8 +30,19 @@ each other host is given the images of its nodes, `docker save | docker
 the same id, never pulled; `state.yaml`'s `images` records them. The
 overlay network is the stack's own, its MTU set by `render` on several
 hosts.
+
+Capture W3-a (D182): a game whose nodes span several hosts gets its
+overlay's subnet from `GAME_SUBNETS`, the first /24 overlapping no network
+the manager lists (swarm-scoped ones included) nor any network of a host
+the game is placed on; Swarm's default pool would hand it a /24 a worker's
+local networks may already hold. Picked at the game's first deployment,
+before anything is created, recorded in `implementation.yaml`'s
+`overlay.subnet` and written into the rendered stack's network (render
+writes it too once recorded); a recorded subnet is kept and re-checked,
+the game's own network left out. A one-host game keeps Swarm's default.
 """
 
+import ipaddress
 import os
 import secrets as _random
 import shutil
@@ -41,9 +52,11 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import localimpl, state, teardown
-from .docker import (copy_image, for_local_dir, image_id, probe_unattended, running_containers,
-                     swarm_nodes)
+import yaml
+
+from . import localimpl, render, state, teardown
+from .docker import (copy_image, for_local_dir, image_id, network_subnets, probe_unattended,
+                     running_containers, swarm_nodes)
 from .model import GmError
 
 DEPLOY_STAGE = "deployed"
@@ -56,6 +69,10 @@ PLAYER_PASSWORD_LENGTH = 16
 DBA_PASSWORD_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 DBA_PASSWORD_LENGTH = 32
 SSH_KEYGEN = "ssh-keygen"
+# The overlays of gmctl's games on several hosts (capture W3-a, item 1): 256 /24s
+# that neither host's networks nor routes use.
+GAME_SUBNETS = ipaddress.ip_network("10.20.0.0/16")
+GAME_SUBNET_PREFIX = 24
 
 
 # --- Swarm and images ----------------------------------------------------
@@ -181,6 +198,92 @@ def missing_images(docker, impl):
                       check=False).returncode != 0:
             missing.append(image)
     return missing
+
+
+# --- The overlay's subnet on several hosts (capture W3-a, D182) -----------
+
+def spans_hosts(impl):
+    return len({node.get("host") for node in impl["nodes"].values()}) > 1
+
+
+def taken_subnets(docker, impl):
+    """`[(where, network, subnet)]`: every network the manager lists (the
+    swarm-scoped ones with it) and every network of each other host a node
+    is placed on, the game's own network left out."""
+    own = impl.get("network")
+    taken = []
+    for host in [docker.name] + [h for h in placed_hosts(impl) if h != docker.name]:
+        target = docker.on_host(host)
+        for name, subnet in network_subnets(target):
+            if name != own:
+                taken.append((host or target.describe(), name, subnet))
+    return taken
+
+
+def overlaps(subnet, taken):
+    """The entries of `taken` whose subnet overlaps `subnet` (a prefix
+    overlap, either containing the other); an IPv6 one never does."""
+    net = ipaddress.ip_network(subnet)
+    found = []
+    for entry in taken:
+        try:
+            other = ipaddress.ip_network(entry[2], strict=False)
+        except ValueError:
+            continue
+        if other.version == net.version and net.overlaps(other):
+            found.append(entry)
+    return found
+
+
+def pick_subnet(taken, pool=GAME_SUBNETS, prefix=GAME_SUBNET_PREFIX):
+    """The first /24 of `pool` overlapping none of `taken`; GmError naming
+    the range when every one does."""
+    for candidate in pool.subnets(new_prefix=prefix):
+        if not overlaps(str(candidate), taken):
+            return str(candidate)
+    raise GmError(f"no free /{prefix} left in {pool}, the range reserved for the overlays of "
+                  "gmctl's games on several hosts: every one overlaps a network of the swarm "
+                  "or of a placed host; nothing deployed")
+
+
+def choose_subnet(taken, recorded=None):
+    """`(subnet, picked)`: the recorded subnet, re-checked (GmError naming
+    the network that now overlaps it), or a fresh pick."""
+    if recorded:
+        clash = overlaps(recorded, taken)
+        if clash:
+            where = "; ".join(f"network {name} ({subnet}) on {host}"
+                              for host, name, subnet in clash)
+            raise GmError(f"the game's recorded overlay subnet {recorded} now overlaps {where}: "
+                          "gmctl does not move a game's addresses; remove that network, or "
+                          "tear down and fit again to pick another; nothing deployed")
+        return recorded, False
+    return pick_subnet(taken), True
+
+
+def apply_subnet(ldir, impl, subnet):
+    """Record `subnet` in `implementation.yaml` and write it into the
+    rendered stack file's network, as `render` writes it."""
+    if (impl.get(localimpl.OVERLAY) or {}).get("subnet") != subnet:
+        impl[localimpl.OVERLAY] = {"subnet": subnet}
+        localimpl.write_implementation(ldir, impl)
+    stack_file = ldir / localimpl.STACK_FILE
+    stack = yaml.safe_load(stack_file.read_text(encoding="utf-8"))
+    for overlay in stack["networks"].values():
+        render.set_subnet(overlay, subnet)
+    localimpl.write_text(stack_file, render.dump_stack(stack, impl["game_id"]))
+
+
+def overlay_subnet(docker, ldir, impl):
+    """On a game spanning several hosts, its overlay's subnet, picked or
+    re-checked and applied; a report line. None on one host."""
+    if not docker.hosts or not spans_hosts(impl):
+        return None
+    recorded = (impl.get(localimpl.OVERLAY) or {}).get("subnet")
+    subnet, picked = choose_subnet(taken_subnets(docker, impl), recorded)
+    apply_subnet(ldir, impl, subnet)
+    how = f"picked from {GAME_SUBNETS}" if picked else "as recorded, still free"
+    return f"overlay subnet: {subnet} ({how})"
 
 
 # --- Credentials ---------------------------------------------------------
@@ -418,6 +521,9 @@ def deploy(scenario_dir, playground, init_swarm=False, timeout=HEALTH_TIMEOUT, d
         raise GmError(f"image(s) not present on {docker.describe()}: {', '.join(missing)}. "
                       "Build each brick there first (docker build -t <image> bricks/<id>); "
                       "deployment never pulls")
+    subnet_line = overlay_subnet(docker, ldir, impl)
+    if subnet_line:
+        hosts.append(subnet_line)
 
     result = DeployResult(gid, docker.describe(), swarm, hosts,
                           several_hosts=bool(docker.hosts))

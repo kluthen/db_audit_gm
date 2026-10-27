@@ -7,7 +7,7 @@ import unittest
 
 import yaml
 
-from tools.gm import deploy, docker, execnode, fit, localimpl, render, state
+from tools.gm import deploy, docker, execnode, fit, localimpl, render, state, teardown
 from tools.gm.model import GmError
 from tools.tests import REPO_ROOT, SUFFICIENT, FakeDocker, ScenarioCopyTest, run_gmctl
 from tools.tests.test_render import MANAGER, VPS_ENDPOINT, WORKER, TwoHostScenario
@@ -622,3 +622,129 @@ class TestTwoHostDeploy(TwoHostRendered):
         self.deploy(fake)
         self.assertFalse(fake.called("save"))
         self.assertNotIn("images", localimpl.read_state(self.ldir))
+
+
+# --- The overlay's subnet on several hosts (capture W3-a, D182) -------------
+
+VPS_NETWORKS = {f"net{i}": [f"10.0.{i}.0/24"] for i in range(6)}       # the VPS's, G4
+MANAGER_NETWORKS = {"ingress": ["10.0.0.0/24"], "bridge": ["172.17.0.0/16"]}
+
+
+class TestSubnetPick(unittest.TestCase):
+    """deploy.pick_subnet and choose_subnet over given network lists."""
+
+    def test_the_first_free_slash_24_of_the_range(self):
+        taken = [("armenelos", "ingress", "10.0.0.0/24"), ("vps", "net1", "10.0.1.0/24"),
+                 ("vps", "v6", "fd00:20::/64")]
+        self.assertEqual(deploy.pick_subnet(taken), "10.20.0.0/24")
+
+    def test_both_kinds_of_overlap_are_skipped(self):
+        taken = [("armenelos", "otherGame_backend", "10.20.0.0/24"),   # a swarm overlay
+                 ("vps", "local_net", "10.20.1.128/25"),                # inside the next /24
+                 ("vps", "wide", "10.20.2.0/23")]                       # containing two more
+        self.assertEqual(deploy.pick_subnet(taken), "10.20.4.0/24")
+
+    def test_a_full_range_is_refused_naming_it(self):
+        with self.assertRaisesRegex(GmError, r"no free /24 left in 10\.20\.0\.0/16.*nothing "
+                                             "deployed"):
+            deploy.pick_subnet([("vps", "all", "10.0.0.0/8")])
+
+    def test_a_recorded_subnet_is_kept(self):
+        taken = [("vps", "net1", "10.20.0.0/24")]
+        self.assertEqual(deploy.choose_subnet(taken, "10.20.7.0/24"), ("10.20.7.0/24", False))
+        self.assertEqual(deploy.choose_subnet(taken), ("10.20.1.0/24", True))
+
+    def test_a_recorded_subnet_now_taken_is_refused_naming_the_network(self):
+        taken = [("vps-5718ad52", "late_net", "10.20.0.0/16")]
+        with self.assertRaisesRegex(GmError, r"recorded overlay subnet 10\.20\.7\.0/24 now "
+                                             r"overlaps network late_net \(10\.20\.0\.0/16\) on "
+                                             r"vps-5718ad52.*nothing deployed"):
+            deploy.choose_subnet(taken, "10.20.7.0/24")
+
+
+class TestTwoHostSubnet(TwoHostRendered):
+
+    def cluster(self, manager_networks=None, vps_networks=None, **kwargs):
+        return FakeDocker.cluster(
+            MANAGER, {WORKER: {"networks": VPS_NETWORKS if vps_networks is None
+                               else vps_networks}},
+            networks=MANAGER_NETWORKS if manager_networks is None else manager_networks,
+            **kwargs)
+
+    def stack(self):
+        return yaml.safe_load((self.ldir / "stack.yml").read_text())
+
+    def test_render_leaves_the_subnet_to_deploy(self):
+        self.assertNotIn("ipam", self.stack()["networks"]["backend"])
+        self.assertNotIn(localimpl.OVERLAY, self.impl)
+
+    def test_deploy_picks_records_and_renders_it(self):
+        fake = self.cluster(vps_networks={**VPS_NETWORKS, "app": ["10.20.0.0/24"]})
+        result = self.deploy(fake)
+        impl = localimpl.read_implementation(self.ldir)
+        self.assertEqual(impl[localimpl.OVERLAY], {"subnet": "10.20.1.0/24"})
+        backend = self.stack()["networks"]["backend"]
+        self.assertEqual(backend["ipam"], {"config": [{"subnet": "10.20.1.0/24"}]})
+        self.assertEqual(backend["driver_opts"], {"com.docker.network.driver.mtu": "1230"})
+        self.assertEqual(fake.subnets[f"{self.gid}_backend"], ["10.20.1.0/24"])
+        self.assertIn("  overlay subnet: 10.20.1.0/24 (picked from 10.20.0.0/16)",
+                      result.text())
+        # read on the manager and on the placed host, nothing created there
+        self.assertTrue(fake.called("network", "inspect"))
+        self.assertTrue(fake.on_host(WORKER).called("network", "inspect"))
+        self.assertFalse(fake.on_host(WORKER).called("network", "create"))
+        # what render writes from the record is what deploy wrote
+        localimpl.set_stage(self.ldir, "fitted")
+        render.render(self.scenario, "duo")
+        self.assertEqual(self.stack()["networks"]["backend"], backend)
+
+    def test_a_retry_keeps_the_recorded_subnet(self):
+        failing = self.cluster(fail={("stack", "deploy"): "boom"})
+        with self.assertRaises(state.SetupFailed):
+            self.deploy(failing)
+        first = localimpl.read_implementation(self.ldir)[localimpl.OVERLAY]["subnet"]
+        # another game took the first /24 since: the recorded one is kept anyway
+        fake = self.cluster(manager_networks={**MANAGER_NETWORKS, "g2_backend": ["10.20.5.0/24"]})
+        result = self.deploy(fake)
+        self.assertEqual(localimpl.read_implementation(self.ldir)[localimpl.OVERLAY],
+                         {"subnet": first})
+        self.assertIn(f"overlay subnet: {first} (as recorded, still free)", result.text())
+
+    def test_a_recorded_subnet_now_overlapping_is_refused_before_anything_is_created(self):
+        localimpl.write_implementation(self.ldir, {**self.impl,
+                                                   localimpl.OVERLAY: {"subnet": "10.20.3.0/24"}})
+        fake = self.cluster(vps_networks={"late": ["10.20.3.0/25"]})
+        with self.assertRaisesRegex(GmError, r"10\.20\.3\.0/24 now overlaps network late "
+                                             rf"\(10\.20\.3\.0/25\) on {WORKER}"):
+            self.deploy(fake)
+        self.assertFalse(fake.called("config", "create") or fake.called("save"))
+        self.assertEqual(localimpl.read_state(self.ldir)["stage"], "rendered")
+
+    def test_the_games_own_network_is_left_out(self):
+        # a redeploy or a restart while Swarm still holds the game's overlay (D182)
+        own = self.impl["network"]
+        localimpl.write_implementation(self.ldir, {**self.impl,
+                                                   localimpl.OVERLAY: {"subnet": "10.20.3.0/24"}})
+        fake = self.cluster(manager_networks={**MANAGER_NETWORKS, own: ["10.20.3.0/24"]},
+                            vps_networks={**VPS_NETWORKS, own: ["10.20.3.0/24"]})
+        taken = deploy.taken_subnets(fake, self.impl)
+        self.assertNotIn(own, [name for _, name, _ in taken])
+        self.assertIn((MANAGER, "ingress", "10.0.0.0/24"), taken)
+        self.assertIn((WORKER, "net5", "10.0.5.0/24"), taken)
+        self.assertIn("as recorded, still free", self.deploy(fake).text())
+
+    def test_a_new_fit_drops_the_record(self):
+        self.deploy(self.cluster())
+        teardown.teardown(self.scenario, "duo", docker=self.cluster(),
+                          sleep=self.sleep, clock=lambda: self.clock[0])
+        self.fit()
+        self.assertNotIn(localimpl.OVERLAY, localimpl.read_implementation(self.ldir))
+
+    def test_a_game_on_one_host_keeps_swarms_default(self):
+        self.fit(mapping=("host-1=" + MANAGER, "host-2=" + MANAGER))
+        render.render(self.scenario, "duo")
+        fake = self.cluster(availability="Drain")
+        self.deploy(fake)
+        self.assertNotIn(localimpl.OVERLAY, localimpl.read_implementation(self.ldir))
+        self.assertNotIn("ipam", self.stack()["networks"]["backend"])
+        self.assertFalse(fake.called("network", "inspect"))

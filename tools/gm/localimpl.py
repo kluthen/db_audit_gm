@@ -72,6 +72,8 @@ SECRETS_DIR = "secrets"
 MOUNTED_DIR = "mounted"
 RENDERED_DIR = "rendered"
 TIMELINE = "timeline"               # implementation.yaml's key render writes (v0.3 W2, item 1)
+OVERLAY = "overlay"                 # implementation.yaml's key deploy writes on several hosts
+                                    # ({subnet}, capture W3-a, item 4; D182)
 
 LABEL_NAMESPACE = "com.docker.stack.namespace"
 LABEL_GAME = "dbagm.game"

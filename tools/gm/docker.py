@@ -382,3 +382,20 @@ def copy_image(source, target, name):
     streamed from the manager's engine into the host's, never pulled."""
     with source.stream(["save", name]) as out:
         target.run(["load", "--quiet"], stdin=out)
+
+
+# --- The networks a host holds (capture W3-a, item 3) -----------------------
+
+def network_subnets(docker):
+    """Every network the targeted engine lists (local and swarm-scoped) with
+    its IPAM subnets: `[(name, subnet)]`, one pair per subnet, none for a
+    network without one (`host`, `none`)."""
+    ids = docker.lines(["network", "ls", "-q", "--no-trunc"])
+    if not ids:
+        return []
+    pairs = []
+    for line in docker.lines(["network", "inspect", "--format",
+                              "{{.Name}}\t{{range .IPAM.Config}}{{.Subnet}} {{end}}", *ids]):
+        name, _, subnets = line.partition("\t")
+        pairs += [(name, subnet) for subnet in subnets.split()]
+    return pairs
