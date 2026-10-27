@@ -141,11 +141,8 @@ def status_text(ldir, docker=None, now=None):
     if impl.get("nodes"):
         state = aging.status_reading(ldir, impl, state, docker, moment)
     lines = aging.status_head(impl, state, moment)
-    pg = localimpl.read_playground(ldir) or {}
-    lines += [f"Game {state.get('game_id')}",
-              f"  playground: {pg.get('name', ldir.name)} "
-              f"({pg.get('docker_endpoint') or 'local engine'})",
-              f"  stage: {state.get('stage')}"]
+    lines += [f"Game {state.get('game_id')}"] + playground_lines(ldir)
+    lines.append(f"  stage: {state.get('stage')}")
     if state.get("stage") == localimpl.FAILED:
         lines[-1] += f" (last stage reached: {localimpl.effective_stage(state) or 'none'})"
     failure = state.get("failure")
@@ -168,6 +165,21 @@ def status_text(ldir, docker=None, now=None):
     if impl.get("nodes"):
         lines += aging.status_aging(impl, state, moment)
     return "\n".join(lines)
+
+
+def playground_lines(ldir):
+    """The playground's lines: on one host its endpoint, on several each
+    host, manager or not, and its endpoint (as `fit` lists them)."""
+    pg = localimpl.read_playground(ldir) or {}
+    name = pg.get("name", ldir.name)
+    hosts = localimpl.playground_hosts(pg)
+    if len(hosts) == 1:
+        return [f"  playground: {name} ({hosts[0].get('docker_endpoint') or 'local engine'})"]
+    lines = [f"  playground: {name}, {len(hosts)} hosts"]
+    for host in hosts:
+        lines.append(f"    host {host.get('name')}{' (manager)' if host.get('manager') else ''}"
+                     f": {host.get('docker_endpoint') or 'local engine'}")
+    return lines
 
 
 def has_web_front(impl):

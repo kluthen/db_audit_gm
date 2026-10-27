@@ -2,7 +2,8 @@
 
 from tools.gm import fit, localimpl, state
 from tools.gm.model import GmError
-from tools.tests import SUFFICIENT, ScenarioCopyTest, run_gmctl
+from tools.tests import SUFFICIENT, FakeDocker, ScenarioCopyTest, run_gmctl
+from tools.tests.test_render import MANAGER, VPS_ENDPOINT, WORKER, TwoHostScenario
 
 
 class FittedGame(ScenarioCopyTest):
@@ -53,14 +54,30 @@ class TestSetupStep(FittedGame):
         self.assertEqual(reason, "boom; teardown after the failure also failed: volume in use")
 
 
+class TestStatusHosts(TwoHostScenario):
+    """`status` lists a several-host playground's hosts (wave 3 gate fix)."""
+
+    def test_each_host_manager_or_not_and_its_endpoint(self):
+        self.fit()
+        text = state.status_text(self.ldir)
+        self.assertIn(f"  playground: duo, 2 hosts\n    host {MANAGER} (manager): local engine\n"
+                      f"    host {WORKER}: {VPS_ENDPOINT}\n  stage: fitted", text)
+        self.assertNotIn("(local engine)", text)
+
+    def test_a_list_of_one_shows_its_endpoint(self):
+        self.fit(hosts=[f"{MANAGER},manager,endpoint=ssh://gm@armenelos,cpu=2,memory=4G,"
+                        "disk=20G"], mapping=("host-1=" + MANAGER, "host-2=" + MANAGER),
+                 engine=FakeDocker(name=MANAGER))
+        self.assertIn("  playground: duo (ssh://gm@armenelos)\n  stage: fitted",
+                      state.status_text(self.ldir))
+
+
 class TestStatus(FittedGame):
 
     def test_fitted(self):
         text = state.status_text(self.ldir)
         gid = localimpl.read_state(self.ldir)["game_id"]
-        self.assertIn(f"Game {gid}", text)
-        self.assertIn("stage: fitted", text)
-        self.assertIn("local engine", text)
+        self.assertIn(f"Game {gid}\n  playground: laptop (local engine)\n  stage: fitted", text)
         self.assertNotIn("failure", text)
 
     def test_failed(self):

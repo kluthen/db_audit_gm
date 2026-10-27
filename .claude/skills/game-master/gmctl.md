@@ -182,8 +182,8 @@ password or key. The GM's reads, one per tool, are in the skill's
   id, copied, at}]}` records them. gmctl reaches a remote host through
   its Docker context `dbagm-<host>`, created from `playground.yaml` when
   missing, never `docker context use`; contexts outlive the game. The
-  game's network gets MTU 1230 when its nodes span several hosts (VXLAN
-  inside Tailscale's 1280). It generates the secrets the
+  game's network gets the MTU option 1230 (1180 inside a node, D184)
+  when its nodes span several hosts (VXLAN inside Tailscale's 1280). It generates the secrets the
   bricks declare, fresh at each deploy: a password writes `<name>` (16
   characters when players type it, `handed_over`, else 32); a key pair
   (ed25519, no passphrase) writes `<pair>` and `<pair>.pub`. Every node
@@ -262,7 +262,10 @@ password or key. The GM's reads, one per tool, are in the skill's
   ...`, `OUTAGES: <n> min lost in <k> period(s) ...` (`at least` when
   Swarm's task history of a node may have been pruned) with one line per
   period, `OUTAGES NOT READ ...`: tell the initiator of any before
-  anything else. Then game id, playground and endpoint, stage (for a failed
+  anything else. Then game id, playground and endpoint (on several
+  hosts `playground: <pg>, <n> hosts`, then one line per host, `host
+  <name> (manager): <endpoint>`, `(manager)` only on the manager, `local
+  engine` with no endpoint), stage (for a failed
   game, the last stage reached), the failure if any, the teardown record
   if any (`torn down: at <at>, from stage <stage>: <reason>`, or `no
   reason given`), the history, `network: <id>_<network name>`, and for a
@@ -271,7 +274,10 @@ password or key. The GM's reads, one per tool, are in the skill's
   password, handed over`, `<pair>: private key of pair <pair>` or
   `<pair>.pub: public key of pair <pair>`; `tools_password` only when the
   game has a web front (RG-3). In a game that ages, then: `aging: T0 <t0>;
-  ran <time> (elapsed less the lost time) of the <minimum> minimum`, `lost
+  ran <time> (elapsed less the lost time) of the <minimum> minimum` (after
+  a restart with no history, `aging: T0 <t0>, the load restarted with no
+  history after the first hand-over at <instant> (the four hours count
+  from it); running <time> since T0`), `lost
   time: <n> min`, `earliest hand-over: <instant> (reached | in <time> |
   provisional, waiting for the planting of <id>)` (the later of T0 plus
   the aging minimum and each fault's own minimum since its planting,

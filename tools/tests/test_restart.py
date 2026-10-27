@@ -400,6 +400,17 @@ class TestAgedNoHistory(HandedOverAged):
         self.assertEqual(aging.handover_instant(st), self.first_handover)
         self.assertIn("load started at once", result.text())
 
+    def test_status_reads_the_load_since_the_restarts_t0(self):
+        result = self.restart()
+        st, impl = self.st(), self.impl_now()
+        later = aging.parse_instant(result.t0) + datetime.timedelta(minutes=25)
+        lines = aging.status_aging(impl, st, later)
+        self.assertIn(f"  aging: T0 {result.t0}, the load restarted with no history after the "
+                      f"first hand-over at {aging.iso(self.first_handover)} (the four hours "
+                      "count from it); running 25m since T0", lines)
+        self.assertFalse(any("ran 0m" in line for line in lines), lines)
+        self.assertEqual(aging.handover_instant(st), self.first_handover)
+
 
 class TestTwoHostRestart(RestartMixin, TwoHostScenario):
     """A game on two hosts: its overlay's subnet kept across the restart,
