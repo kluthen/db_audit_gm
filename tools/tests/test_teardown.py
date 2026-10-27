@@ -86,6 +86,52 @@ class TestTeardown(DeployedGame):
         self.assertFalse([c for c in self.fake.calls if len(c) > 1 and c[1] == "rm"])
 
 
+class TestTeardownSnapshot(DeployedGame):
+    """The hand-over snapshot's copies (chunk 11; capture W3, item 4):
+    labelled `dbagm.snapshot=<id that took it>`, left by a restart's removal
+    of the game's objects, removed by teardown, by the game's id and the one
+    recorded with the snapshot."""
+
+    def setUp(self):
+        super().setUp()
+        self.earlier = "fixture-audit-earlr1"
+        self.fake.add("volume", f"dbagm-snapshot_{self.gid}_db_pgdata",
+                      {"dbagm.snapshot": self.gid})
+        self.fake.add("volume", f"dbagm-snapshot_{self.earlier}_db_pgconf",
+                      {"dbagm.snapshot": self.earlier})
+        self.fake.add("volume", "dbagm-snapshot_other-game-abc123_db_pgdata",
+                      {"dbagm.snapshot": "other-game-abc123"})
+        localimpl.update_state(self.ldir, lambda st: st.update(
+            snapshot={"status": "taken", "at": localimpl.now_iso(), "game": self.earlier}))
+
+    def test_a_restarts_removal_leaves_the_copies(self):
+        teardown.remove_game_objects(self.fake, self.gid, sleep=self.sleep,
+                                     clock=lambda: self.clock[0])
+        self.assertEqual({n for n in self.fake.names("volume") if "snapshot" in n}, {
+            f"dbagm-snapshot_{self.earlier}_db_pgconf",
+            f"dbagm-snapshot_{self.gid}_db_pgdata",
+            "dbagm-snapshot_other-game-abc123_db_pgdata"})
+
+    def test_teardown_removes_them(self):
+        ids = [self.gid, self.earlier]
+        left = set(teardown.leftovers(self.fake, self.gid, ids)["volume"])
+        self.assertTrue({f"dbagm-snapshot_{self.earlier}_db_pgconf",
+                         f"dbagm-snapshot_{self.gid}_db_pgdata"} <= left)
+        self.assertNotIn("dbagm-snapshot_other-game-abc123_db_pgdata", left)
+        report = self.teardown()
+        self.assertEqual(len(report.removed["volume"]), 11)       # the game's 9 and 2 copies
+        self.assertEqual([n for n in self.fake.names("volume") if "snapshot" in n],
+                         ["dbagm-snapshot_other-game-abc123_db_pgdata"])
+        self.assertEqual(teardown.leftovers(self.fake, self.gid, ids), {})
+        self.assertEqual(localimpl.read_state(self.ldir)["stage"], "torn-down")
+
+    def test_a_copy_left_fails_the_teardown(self):
+        self.fake.fail[("volume", "rm", f"dbagm-snapshot_{self.earlier}_db_pgconf")] = "in use"
+        with self.assertRaisesRegex(GmError, f"volumes: .*dbagm-snapshot_{self.earlier}_db_pgconf"):
+            self.teardown(timeout=5)
+        self.assertNotEqual(localimpl.read_state(self.ldir)["stage"], "torn-down")
+
+
 class TestTeardownRecord(DeployedGame):
     """The teardown record and `--reason` (spec D50)."""
 
@@ -351,6 +397,13 @@ class TestTeardownPerHost(TwoHostRendered):
         # images stay, the copied one included; the context is client-side and stays
         self.assertIn(POSTGRES, self.vps.loaded)
         self.assertFalse(self.vps.called("image", "rm") or self.vps.called("rmi"))
+
+    def test_a_snapshot_copy_on_the_worker_is_removed(self):
+        self.vps.add("volume", f"dbagm-snapshot_{self.gid}_db_pgdata",
+                     {"dbagm.snapshot": self.gid})
+        report = self.teardown()
+        self.assertIn(f"{WORKER}:dbagm-snapshot_{self.gid}_db_pgdata", report.removed["volume"])
+        self.assertEqual(self.vps.names("volume"), ["filetstudio-data"])
 
     def test_a_host_that_does_not_answer_fails_the_teardown(self):
         self.vps.reachable = False

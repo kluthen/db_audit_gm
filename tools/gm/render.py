@@ -585,6 +585,20 @@ def render(scenario_dir, playground, handover=None, catalog_root=REPO_ROOT):
             warning = (f"the planned hand-over {iso(planned)} is before {iso(earliest)}, the "
                        "earliest hand-over this game could have if the load started now")
 
+    envelope_files, node_config_files, rendered_files, stack_file = write_rendered(
+        scenario, playground, ldir, impl, timeline)
+    localimpl.set_stage(ldir, "rendered")
+    return RenderResult(impl["game_id"], ldir, stack_file, envelope_files, node_config_files,
+                        rendered_files, timeline, warning)
+
+
+def write_rendered(scenario, playground, ldir, impl, timeline):
+    """Render's files for `impl` with `timeline` (None: none): the envelope
+    files, every receiving node's own config, the rendered seed files, the
+    timeline in `implementation.yaml` and the stack file. Returns
+    `(envelope files, node config files, rendered files, stack file)`.
+    Also a restart's (chunk 11): its new game id, the planned hand-over
+    kept, a new seed."""
     envelope_files = []
     for node in scenario.nodes:
         name = node["name"]
@@ -619,6 +633,4 @@ def render(scenario_dir, playground, handover=None, catalog_root=REPO_ROOT):
     localimpl.write_implementation(ldir, impl)
     stack_file = ldir / localimpl.STACK_FILE
     localimpl.write_text(stack_file, dump_stack(build_stack(scenario, impl), impl["game_id"]))
-    localimpl.set_stage(ldir, "rendered")
-    return RenderResult(impl["game_id"], ldir, stack_file, envelope_files, node_config_files,
-                        rendered_files, timeline, warning)
+    return envelope_files, node_config_files, rendered_files, stack_file

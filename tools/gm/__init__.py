@@ -16,6 +16,8 @@ Python 3, standard library plus PyYAML. Modules:
 - `aging`      `start-load`, `inject --at`, the host timers, the outages, the
                early and hand-over checks, `status`'s aging lines (v0.3);
 - `checks`     `validate` and `check`, the evaluation's live evidence;
+- `snapshot`   the hand-over snapshot, each volume by its brick's method (v0.3);
+- `restart`    the whole-game restart, from the snapshot or with no history (v0.3);
 - `teardown`   removing everything carrying the game's label.
 
 Every subcommand prints a readable result and exits non-zero on failure.
@@ -91,6 +93,20 @@ def _cmd_start_load(args):
                               test_aging_minimum=args.test_aging_minimum)
     print(result.text())
     return 0 if result.ok else 1
+
+
+def _cmd_snapshot(args):
+    from . import snapshot
+    result = snapshot.take(args.scenario_dir, args.playground)
+    print(result.text())
+    return 0 if result.ok else 1
+
+
+def _cmd_restart(args):
+    from . import restart
+    print(restart.restart(args.scenario_dir, args.playground, args.confirmation,
+                          timeout=args.timeout).text())
+    return 0
 
 
 def _evaluation(args, run):
@@ -247,6 +263,24 @@ def build_parser():
                             "load-started; injected with no scheduler node)")
     p.set_defaults(func=_cmd_check)
 
+    p = sub.add_parser("snapshot", help="take the hand-over snapshot: every volume copied by its "
+                                        "brick's method, on its own host (needs load-started "
+                                        "and the earliest hand-over reached; injected with no "
+                                        "scheduler node)")
+    _scenario_args(p)
+    p.set_defaults(func=_cmd_snapshot)
+
+    p = sub.add_parser("restart", help="rebuild a handed-over game under a new game id, from the "
+                                       "hand-over snapshot or with no history, every secret "
+                                       "kept; refused without --confirmation")
+    _scenario_args(p)
+    # Not argparse-required: restart refuses a missing or blank one itself (exit 1).
+    p.add_argument("--confirmation", metavar="<the player's words>",
+                   help="the player's confirmation, in their own words, recorded with the restart")
+    p.add_argument("--timeout", type=int, default=300, metavar="SECONDS",
+                   help="how long to wait for health checks (default 300)")
+    p.set_defaults(func=_cmd_restart)
+
     from .state import GM_STAGES
     p = sub.add_parser("status", help="the game's recorded state; --set records a stage "
                                       "only the GM can tell")
@@ -255,7 +289,8 @@ def build_parser():
     p.add_argument("--set", metavar="<stage>",
                    help=f"record {', '.join(GM_STAGES)} (each follows the one before; "
                         "handed-over follows load-started, or injected with no scheduler "
-                        "node, once the hand-over check passed)")
+                        "node, once the hand-over check passed and the snapshot taken or "
+                        "recorded as not fitting)")
     p.set_defaults(func=_cmd_status)
 
     p = sub.add_parser("exec", help="stream stdin into sh -s in a node's container, as a "

@@ -24,6 +24,13 @@ the manager, its containers and volumes on every declared host, each
 through its own Docker (`docker.every_host`). A host that does not answer
 fails the teardown as a labelled object left, nothing recorded. Images
 stay, copied ones included, and so do the hosts' Docker contexts.
+
+v0.3, the hand-over snapshot (master spec 12; capture W3, item 4; chunk
+11): its copies are volumes labelled `dbagm.snapshot=<id of the game that
+took it>`, never `dbagm.game`, so a restart's removal of the game's
+objects (`remove_game_objects` without `snapshot_ids`) leaves them; `gmctl
+teardown` removes them on every host, by the current game id and the one
+its state records with the snapshot, and counts any left as leftovers.
 """
 
 import re
@@ -41,6 +48,7 @@ KINDS = ("service", "network", "config", "secret", "volume")
 SWARM_KINDS = ("service", "network", "config", "secret")     # on the manager
 LOCAL_KINDS = ("volume",)                                     # on every host, as containers
 UNREACHABLE = "host"            # leftovers' kind for a host that does not answer
+SNAPSHOT_LABEL = "dbagm.snapshot"   # the hand-over snapshot's copies (chunk 11)
 TEARDOWN_TIMEOUT = 120          # seconds to wait for Swarm to stop the tasks
 GAME_ID_RE = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
 
@@ -74,20 +82,39 @@ def _where(docker, host, name):
     return name if host is docker or not docker.hosts else f"{host.name}:{name}"
 
 
-def leftovers(docker, game_id):
+def snapshot_labelled(docker, kind, snapshot_ids):
+    """Names of the `kind` objects (volumes, containers) labelled as the
+    snapshot of one of `snapshot_ids`."""
+    names = set()
+    for sid in snapshot_ids:
+        if kind == "container":
+            names.update(docker.lines(["ps", "-aq", "--no-trunc", "--filter",
+                                       label_filter(SNAPSHOT_LABEL, sid)]))
+        else:
+            names.update(docker.lines([kind, "ls", "--filter",
+                                       label_filter(SNAPSHOT_LABEL, sid),
+                                       "--format", "{{.Name}}"]))
+    return sorted(names)
+
+
+def leftovers(docker, game_id, snapshot_ids=()):
     """{kind: [names]} still carrying the game's labels (containers
-    included): Swarm-scoped kinds on the manager, containers and volumes on
-    every declared host (`<host>:<name>` on several hosts); a host that does
-    not answer is listed under `host`."""
+    included), or a snapshot label of `snapshot_ids`: Swarm-scoped kinds on
+    the manager, containers and volumes on every declared host
+    (`<host>:<name>` on several hosts); a host that does not answer is
+    listed under `host`."""
     left = {kind: labelled(docker, kind, game_id) for kind in SWARM_KINDS}
     for kind in LOCAL_KINDS + ("container",):
         left.setdefault(kind, [])
     for host in docker.every_host():
         try:
             for kind in LOCAL_KINDS:
-                left[kind] += [_where(docker, host, n) for n in labelled(host, kind, game_id)]
-            left["container"] += [_where(docker, host, c)
-                                  for c in labelled_containers(host, game_id)]
+                names = set(labelled(host, kind, game_id)) | \
+                    set(snapshot_labelled(host, kind, snapshot_ids))
+                left[kind] += [_where(docker, host, n) for n in sorted(names)]
+            ctrs = set(labelled_containers(host, game_id)) | \
+                set(snapshot_labelled(host, "container", snapshot_ids))
+            left["container"] += [_where(docker, host, c) for c in sorted(ctrs)]
         except GmError as exc:
             left.setdefault(UNREACHABLE, []).append(
                 f"{host.name or host.describe()} (not reachable: {exc})")
@@ -142,11 +169,14 @@ def clean_reason(reason):
 
 
 def remove_game_objects(docker, game_id, timeout=TEARDOWN_TIMEOUT, sleep=time.sleep,
-                        clock=time.monotonic):
+                        clock=time.monotonic, snapshot_ids=()):
     """Remove every service, network, config, secret and volume carrying the
-    game's labels; wait for Swarm to stop the tasks. Returns a
+    game's labels, and the snapshot copies of `snapshot_ids` (teardown's;
+    a restart passes none); wait for Swarm to stop the tasks. Returns a
     TeardownReport, or raises GmError listing what could not be removed."""
     check_game_id(game_id)
+    for sid in snapshot_ids:
+        check_game_id(sid)
     report = TeardownReport(game_id, {kind: [] for kind in KINDS})
     for name in labelled(docker, "service", game_id):
         docker.run(["service", "rm", name])
@@ -173,9 +203,13 @@ def remove_game_objects(docker, game_id, timeout=TEARDOWN_TIMEOUT, sleep=time.sl
                     continue    # a task's volumes stay in use until its container is gone
                 for name in labelled(host, "volume", game_id):
                     remove(host, "volume", name)
+                if snapshot_labelled(host, "container", snapshot_ids):
+                    continue    # a snapshot helper still holds its copy
+                for name in snapshot_labelled(host, "volume", snapshot_ids):
+                    remove(host, "volume", name)
             except GmError:
                 continue        # listed by leftovers under `host`
-        left = leftovers(docker, game_id)
+        left = leftovers(docker, game_id, snapshot_ids)
         if not left:
             return report
         unreachable = set(left) == {UNREACHABLE}
@@ -186,6 +220,17 @@ def remove_game_objects(docker, game_id, timeout=TEARDOWN_TIMEOUT, sleep=time.sl
             raise GmError(f"teardown of game {game_id} left objects{when}: {what}"
                           + (f" (last errors: {last})" if last else ""))
         sleep(1)
+
+
+def snapshot_ids(st, game_id):
+    """The game ids whose snapshot copies a teardown removes: the game's
+    own, and the one its state records with the snapshot (a restarted
+    game's snapshot was taken by an earlier id)."""
+    ids = [game_id]
+    taken_by = ((st or {}).get("snapshot") or {}).get("game")
+    if taken_by and taken_by not in ids:
+        ids.append(taken_by)
+    return ids
 
 
 def teardown(scenario_dir, playground, reason=None, docker=None, timeout=TEARDOWN_TIMEOUT,
@@ -210,7 +255,8 @@ def teardown(scenario_dir, playground, reason=None, docker=None, timeout=TEARDOW
     check_game_id(game_id)
     docker = docker or for_local_dir(ldir)
     timers, note = aging.remove_game_timers(systemd or aging.Systemd(), game_id, st)
-    report = remove_game_objects(docker, game_id, timeout=timeout, sleep=sleep, clock=clock)
+    report = remove_game_objects(docker, game_id, timeout=timeout, sleep=sleep, clock=clock,
+                                 snapshot_ids=snapshot_ids(st, game_id))
     report.timers, report.timer_note = timers, note
     report.previous = localimpl.teardown_record(st)
     report.recorded = localimpl.record_teardown(ldir, reason)

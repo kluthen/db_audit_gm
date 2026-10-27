@@ -32,8 +32,9 @@ W1 item 7 and W1-y.
   8.5): every planted fault against the answer key's `at_handover`, the
   schedulers' keys and jobs, the nodes' health, the outages; recorded,
   never a teardown. `status --set handed-over` needs the earliest
-  hand-over reached and a passed hand-over check run at or after it
-  (W2 item 11; the snapshot's condition is chunk 11a's, spec D172).
+  hand-over reached, a passed hand-over check run at or after it, and the
+  hand-over snapshot taken or recorded as not fitting (W2 item 11; spec
+  D172, chunk 11a: `snapshot`).
 - The test-harness override of the aging minimum (G6, spec D156, D161)
   is set by `start-load`'s undocumented `--test-aging-minimum`, which only
   the harness scripts pass; it is recorded in `state.yaml` as
@@ -1104,7 +1105,9 @@ def merge_periods(minutes):
 
 
 def handover_instant(st):
-    for entry in reversed((st or {}).get("history") or []):
+    """The first hand-over: a restart's rebuilt game enters `handed-over`
+    again, its four hours still counting from the first (master spec 12)."""
+    for entry in (st or {}).get("history") or []:
         if entry.get("stage") == HANDED_OVER:
             return parse_instant(entry.get("at"))
     return None
@@ -1440,9 +1443,8 @@ def aged_game(impl):
 
 
 def handover_refusal(impl, st, now):
-    """Why `status --set handed-over` is refused (W2 item 11; until chunk
-    11a the snapshot condition is not enforced, spec D172); None when it
-    may go on."""
+    """Why `status --set handed-over` is refused (W2 item 11; the snapshot
+    condition from chunk 11a on, spec D172); None when it may go on."""
     checks_run = st.get("handover_checks") or []
     last = checks_run[-1] if checks_run else None
     if aged_game(impl):
@@ -1462,6 +1464,12 @@ def handover_refusal(impl, st, now):
     if aged_game(impl) and parse_instant(last.get("at")) < earliest:
         return (f"the last hand-over check ran at {last.get('at')}, before the earliest "
                 f"hand-over {iso(earliest)}: run it again")
+    snap = st.get("snapshot") or {}
+    if snap.get("status") not in ("taken", "not-fitting"):
+        detail = (f"it failed at {snap.get('at')}: {snap.get('reason')}; "
+                  if snap.get("status") == "failed" else "")
+        return (f"the hand-over snapshot is neither taken nor recorded as not fitting: "
+                f"{detail}run gmctl snapshot <dir> --playground <pg>")
     return None
 
 
@@ -1511,6 +1519,10 @@ def status_head(impl, st, now):
     if outages.get("unread"):
         out.append(f"OUTAGES NOT READ at {outages['unread']['at']}: "
                    f"{outages['unread']['reason']}")
+    snapshot = st.get("snapshot") or {}
+    if snapshot.get("status") == "failed":
+        out.append(f"FAILED hand-over snapshot at {snapshot.get('at')}: {snapshot.get('reason')} "
+                   "(take it again: gmctl snapshot <dir> --playground <pg>)")
     return out
 
 
@@ -1572,10 +1584,21 @@ def status_aging(impl, st, now):
                    f"{last.get('at')} ({len(checks_run)} run(s))")
     snapshot = st.get("snapshot")
     if snapshot:
-        out.append(f"  snapshot: {snapshot.get('status')} at {snapshot.get('at')}")
-    restarts = st.get("restarts") or []
-    if restarts:
-        out.append(f"  restarts: {len(restarts)}")
+        text = f"  snapshot: {snapshot.get('status')} at {snapshot.get('at')}"
+        if snapshot.get("status") == "taken":
+            hosts = sorted({str(v.get("host")) for v in snapshot.get("volumes") or []})
+            text += (f", {len(snapshot.get('volumes') or [])} copies labelled "
+                     f"dbagm.snapshot={snapshot.get('game')} (on {', '.join(hosts)})")
+        elif snapshot.get("status") == "not-fitting":
+            text += f" ({snapshot.get('why') or 'fit said so'}): a restart has no history"
+        elif snapshot.get("status") == "failed":
+            text += f": {snapshot.get('reason')}"
+        out.append(text)
+    for n, entry in enumerate(st.get("restarts") or [], 1):
+        how = "from the snapshot" if entry.get("from_snapshot") else "with no history"
+        out.append(f"  restart {n}: {entry.get('at')}, game {entry.get('from_game')} -> "
+                   f"{entry.get('to_game')}, {how}, {entry.get('status')}; confirmed: "
+                   f"\"{entry.get('confirmation')}\"")
     return out
 
 

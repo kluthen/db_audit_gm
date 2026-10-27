@@ -15,8 +15,9 @@ override, then every unresolved failure and the outages, and adds the
 aging's lines; at `load-started` it reads the outages and recomputes the
 earliest hand-over (`aging`). `--set handed-over` needs, in a game that
 ages, the earliest hand-over reached and a passed hand-over check run at
-or after it; in a game with no scheduler node, a passed hand-over check
-(the snapshot's condition arrives with chunk 11a, spec D172).
+or after it; in a game with no scheduler node, a passed hand-over check;
+in both, the hand-over snapshot taken or recorded as not fitting (chunk
+11a, `snapshot`; spec D172).
 """
 
 import contextlib
