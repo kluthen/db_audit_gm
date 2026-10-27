@@ -540,8 +540,9 @@ def check_engine_hosts(docker, declared):
     return localimpl.manager_host(declared)["name"]
 
 
-# Failure stages of a failed game that had been deployed (deploy, load-data, inject).
-AFTER_DEPLOYMENT = ("deployed", "data-loaded", "injected")
+# Failure stages of a failed game that had been deployed (deploy, load-data, inject;
+# `handed-over`: a failed restart, chunk 11).
+AFTER_DEPLOYMENT = ("deployed", "data-loaded", "injected", "handed-over")
 
 
 def _refusal(state):
@@ -555,6 +556,8 @@ def _refusal(state):
                 "teardown is not recorded: run gmctl teardown, then gmctl fit again")
         if failed_before == "deployed":
             text += ", or run gmctl deploy to retry the deploy"
+        elif failed_before == "handed-over":
+            text += ", or run gmctl restart to retry the restart"
     else:
         text = (f"game {gid} on this playground is at stage {stage}: run gmctl teardown, "
                 "then gmctl fit again")

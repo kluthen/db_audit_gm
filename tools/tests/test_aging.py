@@ -400,7 +400,7 @@ class TestNoLoadControl(unittest.TestCase):
         sub = next(a for a in build_parser()._actions if a.dest == "command")
         self.assertEqual(sorted(sub.choices), sorted([
             "fit", "render", "deploy", "load-data", "inject", "start-load", "validate", "check",
-            "status", "exec", "logs", "teardown", "snapshot"]))
+            "status", "exec", "logs", "teardown", "snapshot", "restart"]))
         for verb in sub.choices:
             for word in ("pause", "resume", "speed", "trigger", "stop-load", "faster"):
                 self.assertNotIn(word, verb)

@@ -274,16 +274,29 @@ def apply_subnet(ldir, impl, subnet):
     localimpl.write_text(stack_file, render.dump_stack(stack, impl["game_id"]))
 
 
-def overlay_subnet(docker, ldir, impl):
-    """On a game spanning several hosts, its overlay's subnet, picked or
-    re-checked and applied; a report line. None on one host."""
+def game_subnet(docker, impl):
+    """`(subnet, line)` for a game spanning several hosts: its recorded
+    subnet re-checked, or a fresh pick (GmError before anything is
+    created); None on one host. `impl` is the game's implementation, its
+    own network (`impl["network"]`) left out by name: `restart` passes the
+    outgoing game's, whose overlay Swarm removes asynchronously and whose
+    subnet the new game keeps (D182). The one place both verbs choose it."""
     if not docker.hosts or not spans_hosts(impl):
         return None
     recorded = (impl.get(localimpl.OVERLAY) or {}).get("subnet")
     subnet, picked = choose_subnet(taken_subnets(docker, impl), recorded)
-    apply_subnet(ldir, impl, subnet)
     how = f"picked from {GAME_SUBNETS}" if picked else "as recorded, still free"
-    return f"overlay subnet: {subnet} ({how})"
+    return subnet, f"overlay subnet: {subnet} ({how})"
+
+
+def overlay_subnet(docker, ldir, impl):
+    """On a game spanning several hosts, its overlay's subnet, picked or
+    re-checked and applied; a report line. None on one host."""
+    chosen = game_subnet(docker, impl)
+    if chosen is None:
+        return None
+    apply_subnet(ldir, impl, chosen[0])
+    return chosen[1]
 
 
 # --- Credentials ---------------------------------------------------------

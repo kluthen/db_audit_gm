@@ -285,42 +285,55 @@ def load_data(scenario_dir, playground, timeout=None, docker=None, out=print):
                       f"{DEPLOY_STAGE} (run gmctl deploy)")
     scenario = model.load_scenario(scenario_dir)
     impl = localimpl.read_implementation(ldir)
-    plan = data_plan(scenario, impl)
-    passwords = password_plan(scenario, impl)
-    grants = grant_plan(scenario, impl)
+    steps = load_plans(scenario, impl)
     docker = docker or for_local_dir(ldir)
     result = LoadResult(impl["game_id"])
 
     with state.setup_step(ldir, DATA_STAGE, undo=_undo(docker, impl["game_id"])):
-        for node, rel, path in plan:
-            with open(path, "rb") as fh:
-                run = exec_node(ldir, node, DATA_USER, stdin=fh, timeout=timeout,
-                                docker=docker, argv=PSQL_ARGV)
-            _print_run(out, f"{node} {rel} (psql as {DATA_USER})", run)
-            if not run.ok:
-                raise GmError(f"data load of {node} ({rel}): psql exit {run.returncode}: "
-                              f"{_first_line(run)}")
-            result.loaded.append((node, rel))
-        for node, roles in passwords:
-            names = ", ".join(r for r, _ in roles)
-            run = exec_node(ldir, node, DATA_USER, stdin=password_sql(ldir, roles),
-                            timeout=timeout, docker=docker, argv=PSQL_ARGV)
-            _print_run(out, f"{node} passwords of {names} (psql as {DATA_USER})", run)
-            if not run.ok:
-                raise GmError(f"setting the passwords of {names} on {node} (the data must "
-                              f"create these roles): psql exit {run.returncode}: "
-                              f"{_first_line(run)}")
-            result.passwords.append((node, [r for r, _ in roles]))
-        for node in grants:
-            run = exec_node(ldir, node, DATA_USER, stdin=grant_sql(), timeout=timeout,
-                            docker=docker, argv=PSQL_ARGV)
-            _print_run(out, f"{node} CONNECT for {CHECK_ROLE} (psql as {DATA_USER})", run)
-            if not run.ok:
-                raise GmError(f"granting {CHECK_ROLE} CONNECT on the databases of {node}: "
-                              f"psql exit {run.returncode}: {_first_line(run)}")
-            result.grants.append(node)
+        load_steps(ldir, steps, docker, result, timeout=timeout, out=out)
     localimpl.set_stage(ldir, DATA_STAGE)
     return result
+
+
+def load_plans(scenario, impl):
+    """`(data, passwords, grants)` plans of `load-data`, read and checked
+    before anything runs."""
+    return data_plan(scenario, impl), password_plan(scenario, impl), grant_plan(scenario, impl)
+
+
+def load_steps(ldir, plans, docker, result, timeout=None, out=print):
+    """`load-data`'s steps, in order, into `result` (a LoadResult): each
+    node's data, the scheduler roles' passwords, the check role's
+    `CONNECT`; GmError at the first that fails. Also a restart's with no
+    snapshot (chunk 11, spec D176)."""
+    plan, passwords, grants = plans
+    for node, rel, path in plan:
+        with open(path, "rb") as fh:
+            run = exec_node(ldir, node, DATA_USER, stdin=fh, timeout=timeout,
+                            docker=docker, argv=PSQL_ARGV)
+        _print_run(out, f"{node} {rel} (psql as {DATA_USER})", run)
+        if not run.ok:
+            raise GmError(f"data load of {node} ({rel}): psql exit {run.returncode}: "
+                          f"{_first_line(run)}")
+        result.loaded.append((node, rel))
+    for node, roles in passwords:
+        names = ", ".join(r for r, _ in roles)
+        run = exec_node(ldir, node, DATA_USER, stdin=password_sql(ldir, roles),
+                        timeout=timeout, docker=docker, argv=PSQL_ARGV)
+        _print_run(out, f"{node} passwords of {names} (psql as {DATA_USER})", run)
+        if not run.ok:
+            raise GmError(f"setting the passwords of {names} on {node} (the data must "
+                          f"create these roles): psql exit {run.returncode}: "
+                          f"{_first_line(run)}")
+        result.passwords.append((node, [r for r, _ in roles]))
+    for node in grants:
+        run = exec_node(ldir, node, DATA_USER, stdin=grant_sql(), timeout=timeout,
+                        docker=docker, argv=PSQL_ARGV)
+        _print_run(out, f"{node} CONNECT for {CHECK_ROLE} (psql as {DATA_USER})", run)
+        if not run.ok:
+            raise GmError(f"granting {CHECK_ROLE} CONNECT on the databases of {node}: "
+                          f"psql exit {run.returncode}: {_first_line(run)}")
+        result.grants.append(node)
 
 
 # --- inject --------------------------------------------------------------------
