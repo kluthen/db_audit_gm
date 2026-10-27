@@ -1022,7 +1022,7 @@ it): safe, for `spec-writer` to weigh.
 
 ### Chunk 11 — The hand-over snapshot and the restart
 
-Status: planned
+Status: merged (w3, dd9377f)
 Wave: 3
 Depends on: chunks 3, 4, 5, 6, 8; chunk 10 (in-wave, W3)
 Architecture capture: none of its own; it uses W1's snapshot contract and
@@ -1086,6 +1086,16 @@ W3.
 - Verification: chunk checks, plus `sh tools/tests/smoke.sh` and the
   snapshot and restart run (needs G3).
 - Split rule: 11a snapshot; 11b restart.
+
+Record: 11a 998a4c3, 11b f0ffff8 (merge dd9377f). No deviation from the
+spec. Unit suite 628; `smoke.sh` 60/60 with its snapshot (7 copies).
+`fixture-load` (G6 override 2m): snapshot under load (34 volumes), two
+restarts from it (new id and seed, schedulers resumed, password valid,
+faults present), a no-history restart of a game whose snapshot did not
+fit; `fixture-monitoring` snapshot and restart, 16/16. Restart allowed
+again from `failed` only after a failed restart (chunk's choice). Outside
+Files: `render.write_rendered`, `inject.load_steps`, `fit`'s
+`AFTER_DEPLOYMENT`. Not run across two hosts (unit tests only).
 
 ### Chunk 12 — The load fixture and the smoke tests under load
 

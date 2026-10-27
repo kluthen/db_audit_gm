@@ -2798,3 +2798,22 @@ another." W3-a holds, but for:
   report, relayed to the resuming owner; it leaves the outgoing game's
   network out of `deploy`'s re-check by name (D182's point), with no
   wait.
+
+### Chunk 11 merged — 2026-10-27
+
+- 11b f0ffff8 (merge dd9377f, by its second owner); worktree removed,
+  branch kept. Unit suite 628; `smoke.sh` passed with its snapshot;
+  `fixture-load` snapshot under load, two restarts from it and a
+  no-history restart (64/65, the one fail the run script's own count,
+  fixed); `fixture-monitoring` snapshot and restart 16/16; nothing
+  labelled left; VPS `Drain`, untouched.
+- Chunk's choices: `restart` from `failed` only after a failed restart
+  (the spec's refusals ask only for the confirmation and a handed-over
+  game); the outgoing network left out of the subnet re-check by name;
+  the subnet choice in one place, `deploy.game_subnet(docker, impl)`,
+  where W3-b threads `--overlay-range`.
+- For the wave gate: the restart not run across two hosts (unit tests
+  only); Swarm reusing a pre-created volume confirmed on one host.
+- Gate-fix list: `state.py` `status` shows a several-host playground as
+  "local engine"; after a no-history restart `status`'s aging line reads
+  "ran 0s" (cosmetic, both).
