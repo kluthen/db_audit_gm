@@ -2781,3 +2781,20 @@ another." W3-a holds, but for:
    the override, a record outside the range re-picked, the refusals'
    wording. The wave gate's two-host `smoke-load.sh` run checks it on
    both hosts.
+
+### Chunk 11, first owner paused after 11a — 2026-10-27
+
+- `spec-writer`: D183 and plan v13 (b1438df): the overlay's range is the
+  GM's (master spec 10.2, 13; chunks 13, 15). For W3-b's
+  `coding-executor`: `gmctl.md`'s `status` overlay line too, not only
+  the `fit`, `deploy`, `restart` rows. Still open for `spec-writer`:
+  chunk 10's MTU finding.
+- Chunk 11 (`v0.3-c11-snapshot`): 11a committed 998a4c3 (`gmctl
+  snapshot`, the hand-over's third condition, teardown of the copies,
+  `smoke.sh`'s snapshot); 607 unit tests OK; `smoke.sh` passed on
+  armenelos (7 copies); `fixture-monitoring`'s snapshot with Prometheus
+  and Grafana stopped briefly (18 copies, both up after). Paused at its
+  context threshold before 11b; worktree kept. Its 11b design is in its
+  report, relayed to the resuming owner; it leaves the outgoing game's
+  network out of `deploy`'s re-check by name (D182's point), with no
+  wait.
