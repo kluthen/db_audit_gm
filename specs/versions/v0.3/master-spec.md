@@ -18,7 +18,8 @@ published ports on the manager only (7.5, 10.2, D180) and the image copy
 through the host's SSH Docker context (10.2, 20, D181); amended on
 2026-10-27 by the owner's ruling on the overlay's subnet on several
 hosts (10.2, D182), and the same day by the ruling leaving the overlay's
-range to the GM (10.2, 13, D183).
+range to the GM (10.2, 13, D183); chunk 10's two-host try's MTU
+finding written in the same day (10.2, 20, D184).
 Build plan:
 [build-plan.md](build-plan.md), approved (D156). Companion:
 [access-model.md](access-model.md). Baseline: the released
@@ -869,9 +870,13 @@ have available, not their total.
 
 Risks the build checks on armenelos plus the VPS:
 
-- the overlay's VXLAN inside Tailscale's 1280-byte MTU: the MTU of the
-  game's overlay network, and of the swarm's ingress network too, set to
-  leave room for both;
+- the overlay's VXLAN inside Tailscale's 1280-byte MTU: the game's
+  overlay network on several hosts, and the swarm's ingress network, are
+  created with `com.docker.network.driver.mtu=1230`. Docker reads that
+  option as the outer MTU and takes VXLAN's 50 bytes off it itself, so a
+  node's interface on the network is 1180, not 1230; an option of 1280
+  would give 1230 inside and fill Tailscale's 1280 exactly. 1230 stays,
+  as tried across both hosts (D184);
 - Swarm bound to the Tailscale addresses: `--advertise-addr` and
   `--data-path-addr` on the Tailscale interface, so the swarm's ports
   (2377, 7946, 4789) carry nothing over a public address;
@@ -1263,8 +1268,9 @@ Left to the build, to settle without changing behaviour:
 
 - the footprints of every new or bumped brick, and the aged growth per
   hour, by measurement;
-- the overlay and ingress MTU over Tailscale, and Swarm bound to the
-  Tailscale addresses, tried on armenelos and the VPS;
+- the overlay and ingress MTU over Tailscale (option 1230, 1180 inside a
+  node, 10.2, D184), and Swarm bound to the Tailscale addresses, tried on
+  armenelos and the VPS;
 - the image copy (`docker save | docker --context dbagm-<host> load`,
   through the host's SSH Docker context), tried on the same pair;
 - `auth_query`'s exact set-up in PgBouncer, `auth_dbname` for the console

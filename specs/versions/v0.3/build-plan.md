@@ -1,6 +1,6 @@
 # db_audit_gm v0.3 — Build plan
 
-Status: v13 (2026-10-27): v12 with the owner's ruling leaving the overlay's range to the GM (spec D183, capture W3-b, amending D182) written into chunks 13 and 15; its code is the W3-b follow-up, built on the wave branch after chunk 11's merge and before the wave 3 gate, in no chunk.
+Status: v14 (2026-10-27): v13 with chunk 10's two-host try's MTU finding (spec D184: option 1230 kept, 1180 inside a node) written into "Left for the build"; v13 wrote the owner's ruling leaving the overlay's range to the GM (spec D183, capture W3-b, amending D182) into chunks 13 and 15, its code the W3-b follow-up, built on the wave branch after chunk 11's merge and before the wave 3 gate, in no chunk.
 Approval: **approved 2026-10-22 by the owner** (G1, spec D156).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-10-22 (spec D154), with
@@ -280,7 +280,7 @@ the release gate checks that each is recorded.
 | Item | Chunk |
 |---|---|
 | The footprints of every new or bumped brick, and the aged growth per hour | 3b, 4, 5, 6 (at rest); 15b (under load, growth) |
-| The overlay and ingress MTU over Tailscale; Swarm bound to the Tailscale addresses | 10b (with G4) |
+| The overlay and ingress MTU over Tailscale (option 1230, 1180 inside a node, spec D184); Swarm bound to the Tailscale addresses | 10b (with G4) |
 | The image copy (`docker save \| docker --context dbagm-<host> load`, through the host's SSH Docker context, spec D181) | 10b |
 | `auth_query`'s exact set-up in PgBouncer, `auth_dbname` for the console included | 6 (the database side from 4a) |
 | The size of the GM's connection reserve (two expected) | 4a |

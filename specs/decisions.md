@@ -491,3 +491,11 @@ Numbering continues from D183; no ID is reused.
   another. Amends D182's range reserved for `gmctl`; the rest of D182
   holds. Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md)
   10.2, 13; [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunks 13, 15.
+- **D184 (2026-10-27, spec-writer, on chunk 10's two-host try): The
+  game's overlay on several hosts and the swarm's ingress keep
+  `com.docker.network.driver.mtu=1230`,** which Docker reads as the outer
+  MTU: 1180 inside a node. Rejected: 1280 (1230 inside, Tailscale's 1280
+  filled exactly), which would need another two-host run and the ingress
+  re-created, for about 4% of a full packet. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 10.2, 20;
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) "Left for the build".

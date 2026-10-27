@@ -27,7 +27,7 @@ owner's confirmation; the register lists the ones with real alternatives.
 | [planes-and-access.md](planes-and-access.md) | Bastion-only rule (the bastion publishes the web interfaces), planes, the GM session, trust, write policies, the scheduler nodes, hardening, validators | draft v15 |
 | [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls, the shared VPS | draft v18 |
 | [open-questions.md](open-questions.md) | Open-questions register | live |
-| [decisions.md](decisions.md) | Decisions log, D107 onward (D177 last); D1–D54 archived with v0.1, D55–D106 with v0.2 | live |
+| [decisions.md](decisions.md) | Decisions log, D107 onward (D184 last); D1–D54 archived with v0.1, D55–D106 with v0.2 | live |
 | [archive/](archive/README.md) | Closed milestones' working records, kept verbatim: v0.1's and v0.2's build plans, decisions D1–D54 and D55–D106, resolved questions | archive |
 
 History: the tree was seeded on 2026-10-20 from the owner's pre-spec notes,
