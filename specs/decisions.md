@@ -16,7 +16,7 @@ README:
 Archived IDs keep their meaning and are cited as they are. D107 onward
 stay live: rulings still to be applied in a later version (D107, D108,
 D110, D113), the v0.2 release close, and v0.3's drafting from D114.
-Numbering continues from D181; no ID is reused.
+Numbering continues from D183; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -484,3 +484,10 @@ Numbering continues from D181; no ID is reused.
   filetstudio.com downtime); Swarm's pool at `swarm init` (a membership
   change). Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md)
   10.2; [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunks 10b, 11, 15.
+- **D183 (2026-10-27, owner ruling, relayed by the wave driver; capture
+  W3-b): The overlay's range is the GM's to choose, per playground;
+  `10.20.0.0/16` is only the proposed default,** since which range is free
+  depends on the execution environment, and a refusal says how to choose
+  another. Amends D182's range reserved for `gmctl`; the rest of D182
+  holds. Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md)
+  10.2, 13; [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunks 13, 15.

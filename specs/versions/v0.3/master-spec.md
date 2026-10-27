@@ -17,7 +17,8 @@ D177); two of wave 3's preflight settlements written in the same day:
 published ports on the manager only (7.5, 10.2, D180) and the image copy
 through the host's SSH Docker context (10.2, 20, D181); amended on
 2026-10-27 by the owner's ruling on the overlay's subnet on several
-hosts (10.2, D182).
+hosts (10.2, D182), and the same day by the ruling leaving the overlay's
+range to the GM (10.2, 13, D183).
 Build plan:
 [build-plan.md](build-plan.md), approved (D156). Companion:
 [access-model.md](access-model.md). Baseline: the released
@@ -839,7 +840,9 @@ have available, not their total.
   whether it is the manager, and its capacity (CPU, memory available,
   disk). It also maps each host the scenario's `designed_for` names onto
   one of them. A one-host declaration keeps today's form, read as a list
-  of one.
+  of one. It may also name the private range its games' overlays take
+  their subnets from, which the GM chooses for the execution environment
+  (the risks below).
 - **Placement per node.** The scenario format already places every node
   on a declared host and sums each host's placed nodes against its
   capacity. The local implementation now places nodes on the real
@@ -874,9 +877,11 @@ Risks the build checks on armenelos plus the VPS:
   (2377, 7946, 4789) carry nothing over a public address;
 - the overlay's addresses: Swarm's default pool hands out subnets the
   VPS's local networks already hold, so a game spanning several hosts
-  takes its overlay's /24 from a range reserved for `gmctl`,
-  `10.20.0.0/16`, free on the swarm and on every placed host, kept
-  across a restart; `deploy` refuses rather than overlap (D182);
+  takes its overlay's /24 from a private range the GM chooses,
+  `10.20.0.0/16` proposed by default, free on the swarm and on every
+  placed host, kept across a restart unless the GM changes the range;
+  `deploy` refuses rather than overlap, naming what is taken and how to
+  choose another range (D182, D183);
 - both hosts up for the whole aging; a reboot or a partition is an
   outage (8.7).
 
@@ -1023,7 +1028,8 @@ short; the early check and the hand-over check; failures and outages
 during the aging and when to set the game up again; the refusal of an
 early hand-over; load control; the restart's confirmation and statement;
 scenario time, the planned hand-over and the customer's time zone in the
-starter pack; the maintenance window told at hand-over.
+starter pack; the maintenance window told at hand-over; choosing another
+range for a game's overlay when the proposed one is taken (10.2).
 
 ## 14. Player access and rules
 

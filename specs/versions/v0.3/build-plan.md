@@ -1,6 +1,6 @@
 # db_audit_gm v0.3 — Build plan
 
-Status: v12 (2026-10-27): v11 with the owner's ruling on the overlay's subnet on several hosts (spec D182, capture W3-a) written into chunks 10b, 11 and 15.
+Status: v13 (2026-10-27): v12 with the owner's ruling leaving the overlay's range to the GM (spec D183, capture W3-b, amending D182) written into chunks 13 and 15; its code is the W3-b follow-up, built on the wave branch after chunk 11's merge and before the wave 3 gate, in no chunk.
 Approval: **approved 2026-10-22 by the owner** (G1, spec D156).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-10-22 (spec D154), with
@@ -1148,7 +1148,9 @@ Architecture capture: none.
   scrape gap told as maintenance included, with no planned hand-over
   needed and its faults' own aging minima not counted (spec D157, D158,
   D160, D162); the deployment with the planned hand-over and the shift;
-  the playground's hosts; `start-load`, the scheduled plantings and the
+  the playground's hosts, and the overlay's range, the GM choosing
+  another when the proposed default is taken (spec D183); `start-load`,
+  the scheduled plantings and the
   early check; a resumed session running `status` first and
   telling the initiator of failures or outages; the thirty-minute
   threshold and the judgement beyond it; setting a game up again (stop,
@@ -1163,7 +1165,7 @@ Architecture capture: none.
   11 left. Out: new scripts; the stance itself, unchanged.
 - Files: `.claude/skills/game-master/{SKILL,gmctl,feedback}.md`.
 - Spec sections: master spec 8, 9, 10, 11, 12, 13; access model 3, 5, 7,
-  8, 9; spec D141, D150, D152, D157, D158, D160, D162.
+  8, 9; spec D141, D150, D152, D157, D158, D160, D162, D182, D183.
 - Done when: the skill covers each item of master spec 13's "The GM
   skill"; every `gmctl` invocation in the three files parses with
   `gmctl`'s own parser; the stance check-list items v0.2 had are
@@ -1264,7 +1266,8 @@ Architecture capture: none of its own; it uses W4.
   `scenarios/<new-id>/{scenario.yaml,README.md}`, and
   `scenarios/fernway-clinics-monitoring/` if its bound must change.
 - Spec sections: master spec 8.6, 10.1, 11, 15.2, 15.4, 17 (items 4, 6);
-  access model 7, 11; spec D134, D150, D153, D156, D157, D161, D182.
+  access model 7, 11; spec D134, D150, D153, D156, D157, D161, D182,
+  D183.
 - Done when: the format skill finds nothing missing; `fit` and `render`
   accept it on armenelos alone and on armenelos plus the VPS; its smoke
   deployment (`smoke-scenario.sh`) has every instance present; the
