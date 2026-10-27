@@ -2740,3 +2740,44 @@ network in 10.20.0.0/16.
   Safe as it is; changing it needs another two-host run.
 - Gate-fix list: `tools/gm/state.py` `status` shows a several-host
   playground as "local engine" (cosmetic).
+
+### Capture W3-b — the overlay's range is the GM's to choose (amends W3-a; chunk 10's follow-up, read by 11, 13, 15) — 2026-10-27
+
+Owner's word, 2026-10-27: "the network selection should probably remain
+in the GM agent hands (as it may need to be selected according to the
+execution environment). Meaning we propose 10.20... but if it isn't
+available, it shouldn't be too troublesome for the GM to select
+another." W3-a holds, but for:
+
+1. **The range is the playground's** (choice: the execution environment
+   is what the playground declares): `playground.yaml` gains
+   `overlay_range: <IPv4 CIDR>`, written by `gmctl fit --overlay-range
+   <cidr>`; absent, `10.20.0.0/16`, the proposed default. A prefix of
+   /24 or longer than /16 is fine; a /24 names that one subnet. `fit`
+   refuses a range that is not IPv4, is wider than /8 or narrower than
+   /24, or lies outside the private ranges (10/8, 172.16/12,
+   192.168/16).
+2. **One run's override**: `gmctl deploy` and `gmctl restart` take
+   `--overlay-range <cidr>` too, used for that run in place of the
+   playground's (choice: `fit` refuses while a game is deployed, and a
+   restart must not need a teardown to change the range).
+3. **A recorded subnet** (W3-a item 5) is kept while it lies inside the
+   range in force and overlaps nothing; one outside the range in force
+   is picked again from it (the GM changed the range: an explicit
+   word, not a silent move); one inside it that now overlaps is still
+   refused.
+4. **Every refusal says how to choose**: a full range, or a recorded
+   subnet now overlapping, names what is taken (the network and its
+   host) and the way out: `--overlay-range <cidr>` on `deploy` or
+   `restart`, or `gmctl fit --overlay-range <cidr>` for the playground.
+   `deploy` prints the subnet it uses and the range it came from.
+5. **Who builds it**: a `coding-executor` on the wave branch once chunk
+   11 has merged (chunk 11 is in `deploy.py` now), before the wave
+   gate: `tools/gm/{fit,localimpl,deploy,restart}.py`,
+   `tools/gm/__init__.py` (options, a shared list), the tests,
+   `.claude/skills/game-master/gmctl.md` (`fit`, `deploy`, `restart`
+   rows). Chunk 13's GM skill states the GM's choice. Unit tests: a
+   playground's range used, the default when absent, `fit`'s refusals,
+   the override, a record outside the range re-picked, the refusals'
+   wording. The wave gate's two-host `smoke-load.sh` run checks it on
+   both hosts.
