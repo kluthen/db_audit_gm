@@ -2817,3 +2817,20 @@ another." W3-a holds, but for:
 - Gate-fix list: `state.py` `status` shows a several-host playground as
   "local engine"; after a no-history restart `status`'s aging line reads
   "ran 0s" (cosmetic, both).
+
+### W3-b built; MTU settled; gate fixes — 2026-10-27
+
+- `spec-writer`: D184 (ac80c9e, plan v14): the overlay's and the
+  ingress's MTU option 1230 kept; Docker reads it as the outer MTU, so a
+  node's interface is 1180; 1280 declined (another two-host run and the
+  ingress re-created for 50 bytes). Master spec 10.2, 20; the plan's
+  "Left for the build" row.
+- `coding-executor` (branch `v0.3-w3-overlay-range`, kept): 37e0a48
+  W3-b, 2a7f54a the gate fixes (`status`'s hosts on several hosts, the
+  aging line after a no-history restart) and D184's wording in
+  `render.py` and `gmctl.md`; merged 4af0895. Unit suite 651 OK. W3-b
+  as captured, plus: a re-fit without `--overlay-range` keeps the
+  declared range; a range with host bits set is refused too; a range
+  edited by hand into `playground.yaml` is checked on read. Left as
+  chunk 11 wrote it: after a no-history restart, the "earliest
+  hand-over" line counts from the new T0.
