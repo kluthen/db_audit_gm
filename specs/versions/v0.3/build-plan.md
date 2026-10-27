@@ -942,7 +942,7 @@ them). Outside its Files line: the `check` help text in
 
 ### Chunk 10 — Multi-host: hosts, placement, `fit` per host, the image copy
 
-Status: planned
+Status: merged (w3, 6b6cceb)
 Wave: 3
 Depends on: chunk 7; G4 (10b's two-host try)
 Architecture capture: at wave 3 start (W3), for chunk 11: the
@@ -1009,6 +1009,16 @@ a node's volumes live on its placed host.
   (needs G3) and the two-host try (needs G4).
 - Split rule: 10a declaration, placement, `fit`; 10b image copy,
   contexts, teardown per host, MTU and subnet, the try.
+
+Record: 10a 768bc36, 10b 530b3e1 and 6146893 (merge 6b6cceb). No deviation
+from the spec; W3-a item 4 amended by the driver (`deploy` writes the subnet
+into the rendered stack, record `overlay: {subnet}`). Unit suite 582;
+`smoke.sh` and `smoke-monitoring.sh` 43/43 on one host (at 530b3e1). Two-host
+try passed on armenelos + vps-5718ad52: overlay 10.20.0.0/24, ports on
+armenelos only, `exec` on VPS nodes from a shell and the user manager, traffic
+across the link, images held under the same id, teardown clean on both hosts.
+MTU option 1230 gives 1180 inside a node (Docker takes VXLAN's 50 bytes off
+it): safe, for `spec-writer` to weigh.
 
 ### Chunk 11 — The hand-over snapshot and the restart
 

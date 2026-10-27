@@ -2705,3 +2705,38 @@ network in 10.20.0.0/16.
    subnet kept, a recorded one now taken); a one-host render unchanged;
    then chunk 10b's two-host try again, with the VPS `active` for it
    (the owner sets it, and drains it after teardown).
+
+### Chunk 10 resumed, the try passed, merged — 2026-10-27
+
+- `spec-writer`: D182 and plan v12 (efaa0aa): master spec 10.2's risks
+  list names the overlay's range; D182 in chunks 10, 11, 15. Its point
+  for chunk 11: on a restart, Swarm removes the old overlay
+  asynchronously, so the re-check must not count the game's own
+  network (relayed to chunk 10, which leaves it out by name; the
+  restart's ordering stays chunk 11's).
+- **W3-a item 4, amended by the driver** (chunk 10's stop, no stated
+  behaviour changed): `render` writes `stack.yml` before `deploy` runs,
+  so `deploy` picks or re-checks the subnet after its host checks,
+  before anything is created, and writes it into the rendered stack's
+  network `ipam` (`render.set_subnet`); `render` writes the same `ipam`
+  whenever a subnet is recorded. The record is `implementation.yaml`'s
+  top-level `overlay: {subnet: <10.20.N.0/24>}` (`localimpl.OVERLAY`),
+  since `network` already holds the network's name.
+- Chunk 10: 6146893 on 530b3e1, merged 6b6cceb; worktree removed,
+  branch kept. Unit suite 582 OK (rerun by the driver). The two-host try
+  (`two-host-try-w3a.sh` under `try-wrapper-w3a.sh`, log `try3.log`, the
+  driver's scratchpad; VPS active inside the lock, drained after) passed
+  with 0 failures, game `fixture-monitoring-6cwdd0`: bastion and db on
+  armenelos, exporter, Prometheus and Grafana on the VPS; overlay
+  10.20.0.0/24 recorded, in the stack and on both hosts (vxlanid 4106);
+  2222 and 8080 on armenelos only; `gmctl exec` on VPS nodes from a
+  shell and from `systemd-run --user` with no agent; `pg_up` 1 across
+  the link, a 26 kB Prometheus page through the web front; images 0
+  copied, 3 held under the same id; teardown left nothing of the game on
+  either host. filetstudio.com 200 throughout; VPS `Drain` after.
+- **Finding, for `spec-writer`** (not blocking): the overlay's MTU
+  option 1230 gives an interface of 1180 inside a node: Docker takes
+  VXLAN's 50 bytes off the option itself, so 1280 would give 1230.
+  Safe as it is; changing it needs another two-host run.
+- Gate-fix list: `tools/gm/state.py` `status` shows a several-host
+  playground as "local engine" (cosmetic).
