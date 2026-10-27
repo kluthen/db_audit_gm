@@ -1,6 +1,6 @@
 # db_audit_gm v0.3 — Build plan
 
-Status: v11 (2026-10-26): v10 with wave 3's preflight settlements from capture W3 written in: teardown per host in chunk 10 (spec D179), published ports on the manager only (spec D180), the image copy through the host's SSH Docker context (spec D181).
+Status: v12 (2026-10-27): v11 with the owner's ruling on the overlay's subnet on several hosts (spec D182, capture W3-a) written into chunks 10b, 11 and 15.
 Approval: **approved 2026-10-22 by the owner** (G1, spec D156).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-10-22 (spec D154), with
@@ -975,7 +975,9 @@ a node's volumes live on its placed host.
     environment (spec D173); teardown per host: the game's Swarm objects
     on the manager, its containers and volumes on every declared host
     (spec D179); the game's overlay network MTU set for
-    VXLAN inside Tailscale; `bastion` 0.3.0's `docs/gm.md` stating the
+    VXLAN inside Tailscale, and on several hosts its subnet from
+    `gmctl`'s reserved range (spec D182, capture W3-a); `bastion`
+    0.3.0's `docs/gm.md` stating the
     placement rule; the try on armenelos plus the VPS (needs G4): a
     two-host `fixture-monitoring` game deployed, the bastion's ports open
     on its host only, the exec verb reaching a VPS node, from a shell
@@ -991,20 +993,22 @@ a node's volumes live on its placed host.
   `bricks/bastion/docs/gm.md`, `.claude/skills/game-master/gmctl.md`
   (`fit`, `deploy` and `teardown` rows).
 - Spec sections: master spec 6.4 (footprint), 7.5, 8.6, 10; access model
-  7 (`network-visitor`); spec D125, D128, D149, D173, D179, D180, D181.
+  7 (`network-visitor`); spec D125, D128, D149, D173, D179, D180, D181,
+  D182.
 - Done when: unit tests show a two-host declaration, the mapping, the
   hostname constraints, the bastion pinned, `fit` refusing a host short
   of memory or disk and saying the snapshot does not fit, `fit` refusing
   published ports off the manager, the image copy skipped for a present
   id, teardown reaching every declared host and failing on one that does
-  not answer; every existing scenario renders unchanged
+  not answer, the overlay's subnet picked and kept (W3-a item 6);
+  every existing scenario renders unchanged
   but for its constraint line on one host; `smoke.sh` and
   `smoke-monitoring.sh` pass on one host; the two-host try passes, its
   MTU and Swarm findings recorded.
 - Verification: chunk checks, plus `smoke.sh`, `smoke-monitoring.sh`
   (needs G3) and the two-host try (needs G4).
 - Split rule: 10a declaration, placement, `fit`; 10b image copy,
-  contexts, teardown per host, MTU, the try.
+  contexts, teardown per host, MTU and subnet, the try.
 
 ### Chunk 11 — The hand-over snapshot and the restart
 
@@ -1054,7 +1058,7 @@ W3.
 - Spec sections: master spec 6.4, 7.1 to 7.5 ("Snapshot"), 12, 13;
   access model 3, 5 ("The load and the setup actions", "Game control"),
   6, 7, 9; spec D123, D126, D141, D142, D147, D156, D157, D161, D162,
-  D163, D172, D176.
+  D163, D172, D176, D182 (the overlay's subnet kept across a restart).
 - Done when: unit tests show each refusal, `status --set handed-over`
   refused without the snapshot taken or recorded as not fitting, in both
   kinds of game, `smoke.sh` passing with its snapshot before the
@@ -1250,7 +1254,7 @@ Architecture capture: none of its own; it uses W4.
   `scenarios/<new-id>/{scenario.yaml,README.md}`, and
   `scenarios/fernway-clinics-monitoring/` if its bound must change.
 - Spec sections: master spec 8.6, 10.1, 11, 15.2, 15.4, 17 (items 4, 6);
-  access model 7, 11; spec D134, D150, D153, D156, D157, D161.
+  access model 7, 11; spec D134, D150, D153, D156, D157, D161, D182.
 - Done when: the format skill finds nothing missing; `fit` and `render`
   accept it on armenelos alone and on armenelos plus the VPS; its smoke
   deployment (`smoke-scenario.sh`) has every instance present; the

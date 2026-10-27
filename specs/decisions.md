@@ -474,3 +474,13 @@ Numbering continues from D181; no ID is reused.
   the build. Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md)
   10.2, 20; [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md)
   chunk 10b, "Left for the build"; [platform.md](platform.md) "Image distribution".
+- **D182 (2026-10-27, owner ruling on chunk 10's first two-host try,
+  relayed by the wave driver; capture W3-a): A game spanning several
+  hosts gets its overlay's /24 from a range reserved for `gmctl`,
+  `10.20.0.0/16`,** the first free on the swarm and every placed host,
+  picked by `deploy` at the first deployment and kept on a restart,
+  since Swarm's default pool gave the overlay subnets the VPS's local
+  networks hold. Rejected: the VPS daemon's address pools (a
+  filetstudio.com downtime); Swarm's pool at `swarm init` (a membership
+  change). Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md)
+  10.2; [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunks 10b, 11, 15.

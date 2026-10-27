@@ -15,7 +15,9 @@ the GM check role's `CONNECT` privilege (7.3, D176), and the same day
 by the ruling taking PgBouncer from the PostgreSQL apt repository (7.2,
 D177); two of wave 3's preflight settlements written in the same day:
 published ports on the manager only (7.5, 10.2, D180) and the image copy
-through the host's SSH Docker context (10.2, 20, D181).
+through the host's SSH Docker context (10.2, 20, D181); amended on
+2026-10-27 by the owner's ruling on the overlay's subnet on several
+hosts (10.2, D182).
 Build plan:
 [build-plan.md](build-plan.md), approved (D156). Companion:
 [access-model.md](access-model.md). Baseline: the released
@@ -870,6 +872,11 @@ Risks the build checks on armenelos plus the VPS:
 - Swarm bound to the Tailscale addresses: `--advertise-addr` and
   `--data-path-addr` on the Tailscale interface, so the swarm's ports
   (2377, 7946, 4789) carry nothing over a public address;
+- the overlay's addresses: Swarm's default pool hands out subnets the
+  VPS's local networks already hold, so a game spanning several hosts
+  takes its overlay's /24 from a range reserved for `gmctl`,
+  `10.20.0.0/16`, free on the swarm and on every placed host, kept
+  across a restart; `deploy` refuses rather than overlap (D182);
 - both hosts up for the whole aging; a reboot or a partition is an
   outage (8.7).
 
