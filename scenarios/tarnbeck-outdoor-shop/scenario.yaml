@@ -1,0 +1,595 @@
+# scenario.yaml — the v0.3 scenario (master spec 15.2), built from
+# .claude/skills/scenario-format/templates/scenario.yaml as capture W4 item
+# 10 of specs/versions/v0.3/wave-log.md proposes (spec D188). Authoritative,
+# with gm/answer-key.yaml; README.md is generated from both by the
+# scenario-document skill.
+
+# --- Scenario information --------------------------------------------
+id: tarnbeck-outdoor-shop
+version: 0.1.0
+title: An outdoor gear web shop under its daily load, slow at lunchtime and wrong in its counts
+date: 2026-10-28
+origin: hand-written
+session_length_minutes: 240
+brief: brief.md
+background: >-
+  Tarnbeck Outdoor sells camping and hiking gear online. Its web shop
+  (checkout with a payment provider, the catalogue, the order pages, the
+  warehouse's packing and shipping, the carriers' delivery feed and a
+  close-of-day batch) writes into one PostgreSQL database through
+  PgBouncer; its back office (dashboards, a sales report, a nightly
+  roll-up and the accounting export) reads it directly. Prometheus, a
+  PostgreSQL exporter and Grafana were set up last year. The developer who
+  built it left in the summer; Ines Varga, the operations manager, asks
+  for an audit after weeks of lunchtime slowdowns, duplicated deliveries
+  and an export that arrives late. The data file creates the roles shop
+  (owner of the database, no login), shop_app (the web shop, through the
+  pooler) and shop_reports (the back office, straight to the database);
+  the brick creates dba, the players' superuser, monitoring, gm_check and
+  pgbouncer_lookup.
+
+# --- Aging and difficulty ---------------------------------------------
+aging:
+  minimum: 16h                      # T0 22:00 the evening before, hand-over 14:00 (master spec
+  handover_at: "14:00"              # 15.2): the night, the morning ramp, the noon peak; f5's
+                                    # first run at T0 + 14h needs 15h (instance minima below)
+difficulty:
+  score: 10                         # its ten fault instances (master spec 15.1)
+  level: normal
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: backend
+    description: >-
+      the players' SSH and SQL sessions, the web shop's SQL through the
+      pooler, the pooler's and the back office's SQL to the database, the
+      scrapes, the exporter's queries and Grafana's queries to Prometheus
+
+nodes:
+  - name: bastion
+    brick:
+      id: bastion
+      version: 0.3.0
+    role: bastion
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters:
+      web_routes: {grafana: "grafana:3000", prometheus: "prometheus:9090"}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.1
+        memory: 96M
+        disk: 256M
+    published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
+    seed_files:
+      README.md: player/README.md
+      story.md: player/story.md
+      issues.md: player/issues.md
+    knobs: []
+
+  - name: db
+    brick:
+      id: postgres
+      version: 0.3.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:                      # the data at the backup is 176 MB with its indexes;
+      limits:                       # the aging's growth is fit's (disk_growth_per_hour)
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.5
+        memory: 512M
+        disk: 2.25G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/db/postgresql.conf
+      pg_hba.conf: nodes/db/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 20, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+    data:
+      file: data/db.sql
+      databases:
+        - name: shop
+          owner: shop
+          tables:
+            - name: customers
+              description: >-
+                20 000 customers (id, name, email, created_at,
+                last_order_at, lifetime_value); primary key on id. The
+                checkout updates last_order_at; the close-of-day batch
+                rewrites lifetime_value for every customer.
+            - name: products
+              description: >-
+                2 000 products (id, sku TB-00001 to TB-02000, name,
+                category, price, stock, sold); primary key on id, unique
+                sku. The checkout updates stock and sold.
+            - name: orders
+              description: >-
+                300 000 orders over the fifteen days before the backup,
+                growing by about 30 000 a day under the checkout (id, an
+                identity column, customer_id, placed_at, status paid,
+                packed, shipped or invoiced, total, updated_at); primary
+                key on id, indexes orders_customer_id_idx and
+                orders_placed_at_idx. The hot table: the warehouse's
+                status updates and the batch's invoicing (f9).
+            - name: order_lines
+              description: >-
+                900 000 lines (id, order_id with a foreign key to orders,
+                product_id, sku, product_name, quantity, unit_price,
+                vat_rate, line_total, created_at), 121 MB; primary key on
+                id, index order_lines_order_id_idx (dropped by f8 during
+                the aging).
+            - name: delivery_events
+              description: >-
+                60 000 carrier events at the backup (id, event_id the
+                carrier's uuid with no unique constraint, order_id,
+                status, received_at), about 12 a minute more under the
+                feed; index delivery_events_received_at_idx.
+            - name: daily_sales
+              description: one row per day (day, orders, revenue); the nightly roll-up's.
+
+  - name: pooler
+    brick:
+      id: pgbouncer
+      version: 0.1.0
+    role: pooler
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 64M
+      reservations:
+        cpu: 0.05
+        memory: 32M
+        disk: 256M
+    published_ports: []
+    seed_files:
+      pgbouncer.ini: nodes/pooler/pgbouncer.ini
+    knobs:
+      - setting: default_pool_size
+        initial: 3                  # f7: below what the noon peak needs
+        envelope: {min: 1, max: 30}
+      - setting: max_client_conn
+        initial: 100
+        envelope: {min: 50, max: 500}
+      - setting: max_db_connections
+        initial: 0
+        envelope: {min: 0, max: 60}
+      - setting: reserve_pool_size
+        initial: 0
+        envelope: {min: 0, max: 10}
+      - setting: pool_mode
+        initial: transaction
+        envelope: {allowed: [session, transaction]}
+
+  - name: producer
+    brick:
+      id: scheduler
+      version: 0.1.0
+    role: producer
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    write_overrides:                # the web shop's code and its jobs are the customer's to fix
+      - /srv/scheduler/repository
+      - /srv/scheduler/jobs
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/producer/queries.yaml
+      builders/: nodes/producer/builders/
+      jobs.yaml: nodes/producer/jobs.yaml
+      schedule.yaml: nodes/producer/schedule.yaml
+    knobs: []
+
+  - name: consumer
+    brick:
+      id: scheduler
+      version: 0.1.0
+    role: consumer
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    write_overrides:                # the back office's jobs only; its code is an agency's
+      - /srv/scheduler/jobs
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/consumer/queries.yaml
+      jobs.yaml: nodes/consumer/jobs.yaml
+      schedule.yaml: nodes/consumer/schedule.yaml
+    knobs: []
+
+  - name: prometheus
+    brick:
+      id: prometheus
+      version: 0.2.0
+    role: monitoring
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters:
+      node_health: {bastion: default, db: default, pooler: default, producer: default,
+                    consumer: default, prometheus: default, exporter: default,
+                    grafana: default}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 384M
+      reservations:
+        cpu: 0.1
+        memory: 160M
+        disk: 512M
+    published_ports: []
+    seed_files:
+      prometheus.yml: nodes/prometheus/prometheus.yml
+    knobs: []
+
+  - name: exporter
+    brick:
+      id: postgres-exporter
+      version: 0.2.0
+    role: monitoring
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.05
+        memory: 48M
+        disk: 64M
+    published_ports: []
+    seed_files:
+      exporter.conf: nodes/exporter/exporter.conf
+    knobs: []
+
+  - name: grafana
+    brick:
+      id: grafana
+      version: 0.2.0
+    role: monitoring
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 384M
+      reservations:
+        cpu: 0.1
+        memory: 272M
+        disk: 256M
+    published_ports: []
+    seed_files:                     # copied byte for byte from bricks/grafana/companion/
+      datasources.yaml: nodes/grafana/datasources.yaml
+      dashboards.yaml: nodes/grafana/dashboards.yaml
+      node-health.json: nodes/grafana/node-health.json
+      postgresql.json: nodes/grafana/postgresql.json
+      alert-rules.yaml: nodes/grafana/alert-rules.yaml
+    knobs: []
+
+flows:
+  - from: bastion
+    to: db
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: pooler
+    what: players' SSH sessions, and SQL and console sessions through the pooler
+    how: ssh 22, postgresql 6432
+    cadence: interactive
+  - from: bastion
+    to: producer
+    what: players' SSH sessions
+    how: ssh 22
+    cadence: interactive
+  - from: bastion
+    to: consumer
+    what: players' SSH sessions
+    how: ssh 22
+    cadence: interactive
+  - from: bastion
+    to: prometheus
+    what: players' SSH sessions, and the web front's route prometheus
+    how: ssh 22, http 9090
+    cadence: interactive
+  - from: bastion
+    to: exporter
+    what: players' SSH sessions
+    how: ssh 22
+    cadence: interactive
+  - from: bastion
+    to: grafana
+    what: players' SSH sessions, and the web front's route grafana
+    how: ssh 22, http 3000
+    cadence: interactive
+  - from: producer
+    to: pooler
+    what: >-
+      the web shop's checkout, catalogue, order pages, warehouse updates
+      and carriers' feed, as shop_app, and the close-of-day batch
+    how: postgresql 6432
+    cadence: continuous (peak at noon), and daily at 12:00 (f5)
+  - from: pooler
+    to: db
+    what: the pooled server sessions, and the logins' lookups as pgbouncer_lookup
+    how: postgresql 5432
+    cadence: continuous
+  - from: producer
+    to: db
+    what: f3's sealed check, as gm_check (the game master's, never the shop's)
+    how: postgresql 5432
+    cadence: at each check
+  - from: consumer
+    to: db
+    what: the back office's dashboards and reports, as shop_reports
+    how: postgresql 5432
+    cadence: continuous (office hours), and nightly (roll-up, export)
+  - from: prometheus
+    to: exporter
+    what: the PostgreSQL metrics scrape
+    how: http 9187
+    cadence: every 15 s
+  - from: prometheus
+    to: producer
+    what: the scheduler's metrics scrape, and the node-health scrape
+    how: http 9120, http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: consumer
+    what: the scheduler's metrics scrape, and the node-health scrape
+    how: http 9120, http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: bastion
+    what: the node-health scrape
+    how: http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: db
+    what: the node-health scrape
+    how: http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: exporter
+    what: the node-health scrape
+    how: http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: grafana
+    what: the node-health scrape
+    how: http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: pooler
+    what: >-
+      the node-health scrape the design intends; never made (f10: pooler:9110
+      is missing from the node-health job)
+    how: http 9110
+    cadence: never
+  - from: exporter
+    to: db
+    what: the exporter's statistics queries, as the monitoring role
+    how: postgresql 5432
+    cadence: every 15 s (at each scrape)
+  - from: grafana
+    to: prometheus
+    what: dashboard queries and alert rule evaluation
+    how: http 9090
+    cadence: every 1 min, and interactive
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:
+  - id: f1
+    fault:
+      id: scheduler-query-error
+      version: 0.1.0
+    node: producer
+    parameters:
+      key: catalog.lookup           # its product-code search entry, one call in ten
+    visibility: hidden
+  - id: f2
+    fault:
+      id: scheduler-report-unbounded
+      version: 0.1.0
+    node: consumer
+    parameters:
+      key: reports.best-days
+      date-column: placed_at
+    visibility: known
+  - id: f3
+    fault:
+      id: scheduler-insert-retry-duplicates
+      version: 0.1.0
+    node: producer
+    parameters:
+      database: shop
+      table-name: delivery_events
+      id-column: event_id
+      time-column: received_at
+      db-node: db
+    visibility: known
+  - id: f4
+    fault:
+      id: scheduler-transaction-held-open
+      version: 0.1.0
+    node: consumer
+    parameters:
+      key: reports.dashboard
+    visibility: hidden
+  - id: f5
+    fault:
+      id: scheduler-batch-at-peak
+      version: 0.1.0
+    node: producer
+    parameters:
+      job: close-day
+      shape: business-hours
+      quiet-below: 0.5
+    visibility: known
+    aging_minimum: 15h              # its first run at 12:00, T0 + 14h, plus 1h (spec D189)
+  - id: f6
+    fault:
+      id: scheduler-job-wrong-timezone
+      version: 0.1.0
+    node: consumer
+    parameters:
+      job: accounting-export
+      offset: -8                    # equal to the job's timezone_offset in jobs.yaml
+    visibility: known
+    aging_minimum: 13h              # its first run at 10:00, T0 + 12h, plus 1h (spec D189)
+  - id: f7
+    fault:
+      id: pgbouncer-pool-too-small
+      version: 0.1.0
+    node: pooler
+    parameters:
+      database: shop
+      min-pool-size: 6              # proposed from the design (W4 item 10); chunk 15b measures
+    visibility: known
+    aging_minimum: 10h              # business hours from 07:00 (T0 + 9h), plus 30m (spec D189)
+  - id: f8
+    fault:
+      id: pg-join-index-missing
+      version: 0.1.0
+    node: db
+    parameters:
+      database: shop
+      table-name: order_lines
+      column: order_id
+    visibility: known
+    plant_at: handover-6h           # 08:00: the index dropped "this morning"
+    aging_minimum: 4h               # the morning's traffic on the order pages
+  - id: f9
+    fault:
+      id: pg-table-autovacuum-off
+      version: 0.1.0
+    node: db
+    parameters:
+      database: shop
+      table-name: orders
+    visibility: hidden
+    aging_minimum: 12h              # the day's updates on orders before the dead rows tell
+  - id: f10
+    fault:
+      id: prometheus-scrape-target-missing
+      version: 0.1.0
+    node: prometheus
+    parameters:
+      node: pooler
+    visibility: hidden
+
+issues:
+  - id: I1
+    complaint: >-
+      Every day around lunchtime checkout crawls: payments hang for
+      seconds, and for a moment around noon nothing goes through at all.
+      All through the busy hours the shop feels sluggish, yet the database
+      server does not look busy. Find out why and fix it.
+    expected_resolution: fix
+    covers: [f5, f7]
+  - id: I2
+    complaint: >-
+      Our delivery counts don't match the carriers' invoices: some
+      deliveries show up twice in our records, more of them every day.
+      Find out why and make it stop.
+    expected_resolution: fix
+    covers: [f3]
+  - id: I3
+    complaint: >-
+      The accounting export is meant to run every night at 2:00, so that
+      our accountant finds it when she starts. She says it only arrives in
+      the middle of the morning. Fix it.
+    expected_resolution: fix
+    covers: [f6]
+  - id: I4
+    complaint: >-
+      Since early this morning, opening an order (the customers' order
+      pages, and the shop's own order screens) has been slower than it
+      ever was. Find out what changed and fix it.
+    expected_resolution: fix
+    covers: [f8]
+  - id: I5
+    complaint: >-
+      The back office's "best days" sales report gets slower every week,
+      and the database works hard every time it runs. The back office is
+      maintained by an agency, so do not change it yourselves: tell us
+      what is wrong with the report and what the agency should change.
+    expected_resolution: propose
+    covers: [f2]
+
+# --- Host topology it was designed for -------------------------------
+# Two hosts, the bastion, the database, the pooler and the web shop on the
+# first (capture W3 item 1): on a one-host playground both map onto that
+# host (armenelos); across armenelos and the VPS, host-1 is armenelos and
+# host-2 the VPS (master spec 15.2).
+designed_for:
+  platform: swarm
+  hosts:
+    - name: host-1
+      cpu: 2
+      memory: 3G
+      disk: 10G
+    - name: host-2
+      cpu: 2
+      memory: 2G
+      disk: 8G
+  placement:
+    bastion: host-1
+    db: host-1
+    pooler: host-1
+    producer: host-1
+    consumer: host-2
+    prometheus: host-2
+    exporter: host-2
+    grafana: host-2
