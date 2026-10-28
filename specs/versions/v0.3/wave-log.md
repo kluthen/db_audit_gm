@@ -2932,3 +2932,12 @@ sync; capture W4 drafted for the driver, as W1 to W3 were.
 - Carried from wave 3 (cosmetic): `deploy`'s first line on a
   several-host game; fixed on the wave branch before the gate, in no
   chunk.
+
+### Carry-over fixed — 2026-10-28
+
+- `coding-executor` (branch `v0.3-w4-deploy-line`, removed): 53692ee,
+  merged ea3de4a. On a several-host game, `deploy`'s first line now reads
+  `Game <id>: deployed on <playground>, <n> hosts:` with one line per
+  host, through `state.host_lines`, which `status` shares; one host
+  unchanged. Unit suite 653 OK. `gmctl.md`'s deploy entry passed to
+  chunk 13's owner to match.
