@@ -314,11 +314,23 @@ empty volume; the next start rewrites `/run` (the socket,
 
 ## Supported faults
 
-No catalog fault names this brick yet. Faults it lends itself to (v0.3
-`faults-with-activity.md`): a pool too small for the peak
-(`default_pool_size`), a client bypassing the pooler, `pool_mode =
+Which faults the brick hosts is stated only by each fault's `applies_to`
+(D59). This list is every catalog fault (`faults/`) whose `applies_to`
+names `pgbouncer` `0.1.0`, and no other.
+
+| Fault | Kind | What it needs from the brick |
+|---|---|---|
+| `pgbouncer-pool-too-small` | seed file (`pgbouncer.ini`) | the database's pool (`default_pool_size`, or the `[databases]` entry's `pool_size`) below the peak's need, `pool_mode = transaction` in effect (a precondition: in session mode the schedulers' sessions pin the pool from the first minute), `stats_period` set; the knob `default_pool_size` with the seed's value as `initial` and an envelope reaching the fault's `min-pool-size`; its sealed check reads `SHOW DATABASES` on the console over the local socket as `pgbouncer`, so only the values in effect count |
+
+Its evidence is the console (`SHOW POOLS`, `SHOW DATABASES`, as `dba`),
+`pgbouncer.ini` and the log's `stats:` lines; the clients' latency is the
+scenario's, in its answer key. Its aging minimum counts business hours
+under load (spec D189): the scenario raises the instance's.
+
+Faults it lends itself to with no definition yet (v0.3
+`faults-with-activity.md`): a client bypassing the pooler, `pool_mode =
 transaction` with a client relying on session state, `max_client_conn`
-below the clients' total. Each is a `seed-file` fault on
+below the clients' total. Each would be a `seed-file` fault on
 `pgbouncer.ini`, fixable on a fixable node. A fault on the GM's settings
 cannot be planted through the seed (they win over it).
 

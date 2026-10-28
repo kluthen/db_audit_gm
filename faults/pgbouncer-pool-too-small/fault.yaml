@@ -1,0 +1,119 @@
+# Catalog fault: PgBouncer's pool is too small for the peak (v0.3 master
+# spec 15.3; capture W4 items 0, 1 and 9; spec D189). A seed-file fault
+# planted at render: the scenario's pgbouncer.ini sizes the database's pool
+# below what the clients need at the peak, in transaction mode. Its evidence
+# shows under business-hours load: its aging minimum counts business hours.
+
+# --- Identity ---------------------------------------------------------
+id: pgbouncer-pool-too-small
+version: 0.1.0
+title: the connection pooler's pool is too small for the peak
+family: performance
+severity: medium
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: pgbouncer
+      versions: ["0.1.0"]
+  preconditions:
+    - >-
+      pool_mode = transaction in effect: in session mode each scheduler
+      session pins a server connection for the whole game, so the shortfall
+      would be constant from the first minute, not the peak's
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 30m                      # thirty minutes of business-hours load (spec D189): the
+                                    # scenario's instance raises its aging_minimum
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  database:
+    description: the [databases] entry whose pool is too small
+    default: null
+    required: true
+  min-pool-size:
+    description: >-
+      an integer, the smallest pool that serves the peak, inside the
+      scenario's default_pool_size envelope and below the database's
+      max_connections less its other clients
+    default: null
+    required: true
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: pgbouncer.ini
+      change: >-
+        the pool for {DATABASE} (default_pool_size, or the [databases]
+        entry's pool_size) set below {MIN_POOL_SIZE}, what the clients'
+        peak needs, with pool_mode = transaction
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: node
+    source: PgBouncer's console
+    how: psql -h /run/pgbouncer -p 6432 -U dba pgbouncer -c 'SHOW POOLS'
+    shows: cl_waiting above 0 and maxwait in seconds for {DATABASE} in business hours, sv_active at the pool's size
+  - where: node
+    source: PgBouncer's console
+    how: psql -h /run/pgbouncer -p 6432 -U dba pgbouncer -c 'SHOW DATABASES'
+    shows: the pool_size of {DATABASE}, below what the clients need at the peak
+  - where: node
+    source: the pooler's configuration
+    how: cat /etc/pgbouncer/pgbouncer.ini
+    shows: the small default_pool_size (or the entry's pool_size) and pool_mode = transaction
+  - where: node
+    source: PgBouncer's log
+    how: grep 'stats:' /var/log/pgbouncer/pgbouncer.log | tail
+    shows: per-period stats lines whose wait time rises in business hours and at the peak
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names the {DATABASE} pool as too small for the peak: clients waiting
+    for a server connection (cl_waiting, maxwait, the stats lines' wait
+    time) in business hours, the pool's size against the clients'
+    concurrency, and the clients' latency that follows.
+  proposal: >-
+    raise the pool for {DATABASE} to at least {MIN_POOL_SIZE} (within the
+    envelope, and within the database's max_connections less its other
+    clients), or a reserve pool for the peak; check the database can take
+    the server connections.
+  fix: >-
+    the pool size of {DATABASE} in effect (SHOW DATABASES) at least
+    {MIN_POOL_SIZE}, and its max_db_connections in effect 0 or at least
+    {MIN_POOL_SIZE} (pgbouncer.ini edited and reloaded with sudo
+    gm-reload-pgbouncer). The pool mode is not judged.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  At the busiest hours the order service crawls: requests wait seconds
+  before anything happens, although the database itself does not look busy.

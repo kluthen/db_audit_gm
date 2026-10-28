@@ -43,7 +43,12 @@ aging:                              # v0.3 master spec 6.3 (D114)
                                     # evidence takes to show under the load once planted; 0m when
                                     # it shows at once. Counted only in a scenario with scheduler
                                     # nodes (master spec 8, D160); an instance may raise it
-                                    # (scenario.yaml aging_minimum)
+                                    # (scenario.yaml aging_minimum). A fault whose evidence shows
+                                    # only at a time of day (a job's run, business hours) counts it
+                                    # from that moment's first occurrence after planting; the
+                                    # scenario then raises the instance's aging_minimum to that
+                                    # moment's offset from its designed T0 plus this (spec D189;
+                                    # the loader cannot check it, the fault's gm.md says so)
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:                         # map; may be {}. A fault about mounted material has a
