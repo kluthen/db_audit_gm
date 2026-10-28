@@ -3419,3 +3419,45 @@ or G7; chunks 14 and 15 build on the proposals).
 5. **A reading for `spec-writer` to confirm**: the time-of-day faults'
    minima count from their first run (item 0), where 6.3 reads "once
    planted".
+
+### Chunk 13 merged — 2026-10-28
+
+- 3b9be51 (merge 5f51422), `coding-leader` in chunk mode. Every item of
+  master spec 13's "The GM skill" mapped to `SKILL.md`; 106 `gmctl`
+  invocations (variants included) parse with `gmctl`'s parser; unit
+  suite 653 OK; links checked by script. v0.2's stance items kept;
+  v0.3's three added. `gmctl.md`'s deploy entry matches ea3de4a.
+- Readings, beyond the spec's words: without a snapshot, the restart's
+  statement names the lost evidence by place and time span, never by
+  fault (master spec 12 against the no-reveals rule; ruled below);
+  v0.2's "restart or reset" refusal now reads "of a node or a service";
+  the bastion's new host key after a restart with no snapshot; at
+  hand-over in a game that ages, nobody touches the load; the rules at
+  hand-over include asking for a restart. `SKILL.md` grew from 628 to
+  1207 lines (a GM session loads about twice as much).
+
+### Capture W4's open items and chunk 13's reading — owner's rulings, 2026-10-28
+
+1. W4 item 12.1, the duplicates check's access: **(A)**. The scheduler
+   brick declares `gm_check_password`, shared as
+   `pgbouncer_lookup_password` is, and the scenario's `pg_hba.conf`
+   carries a do-not-tamper `host` line for `gm_check`; the check
+   connects to db:5432 as the GM check role (master spec 6.5). This
+   adds the scheduler brick's files to chunk 14 (its 0.1.0 version).
+2. W4 item 12.2, held transactions: the fault's seed changes name both
+   `queries.yaml` and `schedule.yaml`, so it is report or propose only on
+   every node; master spec 15.3's "lives in the schedule" to be
+   corrected.
+3. Chunk 13's reading of master spec 12: the restart's statement
+   without a snapshot names the lost evidence by place and time span,
+   never a fault; spec 12's wording to follow.
+4. W4 items 12.3 and 12.4: chunk 15a builds the scenario as W4 proposes
+   (`scheduler-update-without-where` left out; Prometheus report-only,
+   Grafana and the exporter fixable); the owner reviews it at G7, before
+   chunk 15 merges.
+5. W4 item 12.5 (the time-of-day faults' minima counted from the first
+   run) goes to `spec-writer` to confirm against master spec 6.3.
+
+Sent to `spec-writer`: record 1 to 3 (and 5) as decisions, revise
+master spec 6.5/15.2/15.3/12 as needed and the plan (chunk 14's Files
+and Scope), before chunk 14's branch is cut.
