@@ -26,9 +26,10 @@ footprint:                          # CPU and memory: v0.1's figures as reservat
                                     # v0.2 game's measurement stays within them (docs/gm.md)
   limits:       {cpu: 1, memory: 1G}
   reservations: {cpu: 0.5, memory: 512M, disk: 2.25G}
-  disk_growth_per_hour: 32M         # provisional estimate (capture W1 item 3), until
-                                    # v0.3 chunk 15b measures it: the data and WAL the load writes and the file log;
-                                    # the v0.2 static game wrote about 0.5M/h of log
+  disk_growth_per_hour: 8M          # the data the load writes (its bloat included) and the file
+                                    # log; v0.3 chunk 15b measured 4.6M and 0.7M an hour at the
+                                    # noon peak with its daily batch (2026-10-28; docs/gm.md,
+                                    # Footprint); WAL stays within max_wal_size, in the reservation
 stateful: true
 
 # --- What the scenario sets -------------------------------------------

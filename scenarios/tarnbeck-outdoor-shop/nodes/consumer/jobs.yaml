@@ -1,0 +1,11 @@
+# Fixed-time operations of Tarnbeck Outdoor's back office.
+jobs:
+  - name: nightly-rollup
+    key: reports.rollup
+    connection: reports
+    at: "30 1 * * *"
+  - name: accounting-export
+    key: reports.export
+    connection: reports
+    at: "0 2 * * *"
+    timezone_offset: -8

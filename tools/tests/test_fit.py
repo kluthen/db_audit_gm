@@ -80,16 +80,16 @@ class TestCapacityCheck(unittest.TestCase):
         self.assertEqual(before, yaml.safe_dump(self.sc.data))
 
     def test_images_count_in_the_disk(self):
-        # 2.25G reserved and 132M of growth (33M/h, four hours): 2850M holds them with 10 %
-        # headroom (2721M), not with 278M of images
+        # 2.25G reserved and 36M of growth (9M/h, four hours): 2850M holds them with 10 %
+        # headroom (2625M), not with 278M of images
         cap = {"cpu": 2, "memory": "4G", "disk": "2850M"}
         self.assertTrue(self.capacity_check(cap).ok)
         report = self.capacity_check(cap, footprint(FIXTURE_IMAGES))
         self.assertFalse(report.ok)
         self.assertEqual(report.problems, ["disk: reservations 2.25G + images 278M + growth "
-                                           "132M (4h) + headroom 285M = 2.93G of 2.78G: too "
+                                           "36M (4h) + headroom 285M = 2.83G of 2.78G: too "
                                            "much"])
-        cap["disk"] = "3100M"           # 2304M + 278M + 132M + 310M = 3024M
+        cap["disk"] = "3100M"           # 2304M + 278M + 36M + 310M = 2928M
         self.assertTrue(self.capacity_check(cap, footprint(FIXTURE_IMAGES)).ok)
 
     def test_report_lines(self):
@@ -100,12 +100,12 @@ class TestCapacityCheck(unittest.TestCase):
             "memory: reservations 576M + headroom 409.6M = 985.6M of 4G: ok",
             f"images on local engine: {BASTION} 178M, {POSTGRES} 178M; 3 layers, 1 shared, "
             "each counted once: 278M",
-            "disk: reservations 2.25G + images 278M + growth 132M (4h) + headroom 2G = 4.65G "
+            "disk: reservations 2.25G + images 278M + growth 36M (4h) + headroom 2G = 4.56G "
             "of 20G: ok",
             "node bastion: limits cpu 0.25 ok, memory 128M ok",
             "node db: limits cpu 1 ok, memory 1G ok",
-            "snapshot: copies 2.25G (reservations 2.25G, no aging) after the game's 4.65G = "
-            "6.9G of 20G: fits",
+            "snapshot: copies 2.25G (reservations 2.25G, no aging) after the game's 4.56G = "
+            "6.81G of 20G: fits",
         ])
 
 
@@ -266,15 +266,15 @@ class TestFit(ScenarioCopyTest):
         text = result.text()
         self.assertIn(f"  images on local engine: {BASTION} 178M, {POSTGRES} 178M; 3 layers, "
                       "1 shared, each counted once: 278M\n", text)
-        self.assertIn("  disk: reservations 2.25G + images 278M + growth 132M (4h) + headroom "
-                      "2G = 4.65G of 20G: ok\n", text)
+        self.assertIn("  disk: reservations 2.25G + images 278M + growth 36M (4h) + headroom "
+                      "2G = 4.56G of 20G: ok\n", text)
 
     def test_fit_refuses_when_the_images_overflow_the_disk(self):
         result = fit.fit(self.scenario, "laptop", cpu="2", memory="4G", disk="2850M")
         self.assertFalse(result.ok)
         self.assertEqual(result.report.problems,
-                         ["disk: reservations 2.25G + images 278M + growth 132M (4h) + headroom "
-                          "285M = 2.93G of 2.78G: too much"])
+                         ["disk: reservations 2.25G + images 278M + growth 36M (4h) + headroom "
+                          "285M = 2.83G of 2.78G: too much"])
         self.assertIn("Result: does not fit; nothing deployed.", result.text())
         self.assertFalse((self.ldir() / "implementation.yaml").exists())
 
@@ -517,22 +517,22 @@ class TestTwoHosts(TwoHostScenario):
         self.assertFalse((self.ldir / "implementation.yaml").exists())
 
     def test_a_host_short_of_disk_is_refused(self):
-        # db: 2G reserved, 178M of images, 128M of growth (32M/h, four hours)
-        result = self.fit(hosts=two_hosts(worker_disk="2.5G"))
+        # db: 2G reserved, 178M of images, 32M of growth (8M/h, four hours)
+        result = self.fit(hosts=two_hosts(worker_disk="2.4G"))
         self.assertFalse(result.ok)
         self.assertEqual(result.report.problems,
-                         [f"host {WORKER}: disk: reservations 2G + images 178M + growth 128M "
-                          "(4h) + headroom 256M = 2.55G of 2.5G: too much"])
+                         [f"host {WORKER}: disk: reservations 2G + images 178M + growth 32M "
+                          "(4h) + headroom 245.76M = 2.45G of 2.4G: too much"])
 
     def test_the_snapshot_that_does_not_fit_is_said_and_recorded(self):
-        # the game holds on 3G (2G + 178M + 128M + 307.2M) but not its 2G of copies too
+        # the game holds on 3G (2G + 178M + 32M + 307.2M) but not its 2G of copies too
         result = self.fit(hosts=two_hosts(worker_disk="3G"))
         self.assertTrue(result.ok, result.report.problems)
         impl = localimpl.read_implementation(self.ldir)
         self.assertEqual(impl["snapshot_fit"], {
             "fits": False,
             "why": f"host {WORKER}: snapshot: copies 2G (reservations 2G, no aging) after the "
-                   "game's 2.6G = 4.6G of 3G: does not fit"})
+                   "game's 2.51G = 4.51G of 3G: does not fit"})
         self.assertIn("The hand-over snapshot does not fit (host " + WORKER, result.text())
         self.assertIn("this game will have no snapshot", result.text())
 
@@ -678,12 +678,12 @@ class TestOneHost(ScenarioCopyTest):
         with mock.patch("tools.gm.fit.aging_seconds", return_value=8 * 3600):
             report = fit.capacity_check(sc, {"cpu": 2, "memory": "4G", "disk": "20G"},
                                         footprint())
-        # 33M an hour over 8h of aging and 4h of game; the copies hold the aging's 264M
-        self.assertIn("disk: reservations 2.25G + images 0B + growth 396M (12h) + headroom 2G "
-                      "= 4.64G of 20G: ok", report.lines)
+        # 9M an hour over 8h of aging and 4h of game; the copies hold the aging's 72M
+        self.assertIn("disk: reservations 2.25G + images 0B + growth 108M (12h) + headroom 2G "
+                      "= 4.36G of 20G: ok", report.lines)
         self.assertEqual(report.lines[-1],
-                         "snapshot: copies 2.51G (reservations 2.25G + growth 264M over 8h of "
-                         "aging) after the game's 4.64G = 7.14G of 20G: fits")
+                         "snapshot: copies 2.32G (reservations 2.25G + growth 72M over 8h of "
+                         "aging) after the game's 4.36G = 6.68G of 20G: fits")
 
 
 class TestGmctlFit(ScenarioCopyTest):

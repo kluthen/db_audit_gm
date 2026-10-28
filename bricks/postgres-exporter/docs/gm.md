@@ -363,8 +363,9 @@ since a brick's footprint excludes mounted material. The scenario's
 the container about 10–13M of memory, `postgres_exporter` about 17–19M of
 RSS. The scenario sets each node's own `resources`, and `gmctl` uses
 those, never the brick's footprint; disk is only counted by the capacity
-check. Disk growth per hour (`disk_growth_per_hour`): `1M`, a provisional
-estimate, to be replaced by v0.3 chunk 15b's measurement.
+check. Disk growth per hour (`disk_growth_per_hour`): `1M`, for the
+players' notes; the v0.3 rehearsal, with no player, measured none
+(below).
 
 Measured in the v0.2 game (`fernway-clinics-monitoring` on the `laptop`
 playground, declared at 2 CPU / 4G / 8G on armenelos: AMD Ryzen 5 PRO
@@ -380,6 +381,18 @@ the collectors (above the 0.045 reservation, which only reserves, well
 within the 0.245 limit). Never OOM-killed nor restarted, never at its
 limit (`memory.peak`, page cache included, 38M). Its volumes: about 20K.
 With the script mounted, add its 6M: still within the reservation.
+
+Measured in the v0.3 rehearsal (`tools/tests/rehearsal.sh`:
+`tarnbeck-outdoor-shop` on armenelos, AMD Ryzen 5 PRO 8640HS, 11.3 GiB,
+Debian 13, Docker 29.9.1, plus the VPS `vps-5718ad52`, 4 vCPU Intel
+Haswell, 7.6 GiB, Docker 29.9.2; 2026-10-28; 46 minutes of load from T0
+12:59Z to the hand-over check, the customer's noon peak from 13:00Z;
+`docker stats` every 20 s, the node-health script included), under
+`tarnbeck-outdoor-shop`'s 128M limit, `pg_stat_statements` loaded, a
+database of six tables under load, scraped every 15 s: 36M at most (28M
+typical), 0.14 CPU at most (0.105 at the 95th percentile, above the 0.05
+reservation, within the limit); 1 006 series a scrape; its volumes did not
+grow.
 
 What makes it grow:
 

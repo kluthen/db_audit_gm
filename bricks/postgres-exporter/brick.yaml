@@ -25,8 +25,8 @@ footprint:                          # master spec 12's figures for the node, les
                                     # stays within them (docs/gm.md, Footprint)
   limits:       {cpu: 0.245, memory: 122M}
   reservations: {cpu: 0.045, memory: 42M, disk: 64M}
-  disk_growth_per_hour: 1M          # provisional estimate (capture W1 item 3), until
-                                    # v0.3 chunk 15b measures it: the players' notes only
+  disk_growth_per_hour: 1M          # the players' notes only: the v0.3 rehearsal (no players,
+                                    # 2026-10-28) measured none (docs/gm.md, Footprint)
 stateful: true
 
 # --- What the scenario sets -------------------------------------------
