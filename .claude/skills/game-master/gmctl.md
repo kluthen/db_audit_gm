@@ -1,6 +1,6 @@
 # `gmctl` for the GM — command reference
 
-Every call the [GM skill](SKILL.md) makes, as built in v0.2. Run from the
+Every call the [GM skill](SKILL.md) makes, as built in v0.3. Run from the
 repository root. Each subcommand takes `<scenario-dir> --playground
 <name>`, prints a readable result, and exits non-zero on failure; `gmctl
 <subcommand> --help` is the authority when this page and the tool
@@ -13,7 +13,12 @@ time zone, the mounted companion material, the parameter faults and
 items 2, 4 and 8; spec D102), and the bastion's second published port, for
 the web front (capture W2-C; spec D103). v0.2 adds no subcommand: the
 monitoring tools and PostgreSQL's file logs are read through `exec`
-(captures W2-B, W3-C and W3-D).
+(captures W2-B, W3-C and W3-D). v0.3 (master spec 8, 10, 12 and 13)
+adds `start-load`, `inject --at`, `check --early-check` and
+`--handover-check`, `snapshot` and `restart`, the stage `load-started`,
+`render --handover`, several hosts on `fit` and `deploy`, and the
+overlay's range; fixed by captures W2, W3, W3-a and W3-b in
+`specs/versions/v0.3/wave-log.md`.
 
 ## Stages
 
@@ -59,7 +64,7 @@ The teardown a failed step runs itself writes none.
 | `tools/gmctl check <dir> --playground <pg>` | `injected` and later deployed stages | nothing | 0 all fixed; 1 any present (none errored); 3 any too soon to tell (none errored or present: wait the longest remaining window, then run it again); 2 any error or refused |
 | `tools/gmctl logs <dir> --playground <pg> --node <node> [--tail N]` | any game (useful while its services exist) | nothing | Docker's (`docker service logs`); 1 no game. A PostgreSQL node's shows sshd and the server's start-up only when its seed sets `logging_collector = on` (every v0.2 seed): its server log is then in files, read through `exec`; without the collector, the whole server log is here |
 | `tools/gmctl status <dir> --playground <pg> --set feedback-given` | `final-answer` | `feedback-given` | 0; 1 refused |
-| `tools/gmctl restart <dir> --playground <pg> --confirmation "<the player's words>" [--overlay-range <cidr>]` | `handed-over`, `final-answer` or `feedback-given`; `failed` after a failed restart (to retry it) | `restarts`: the old and new game ids, the time, from the snapshot or not, the player's words, `completed` or `failed` with its reason; the game under its new id at `handed-over` | 0 rebuilt; 1 refused (no or blank confirmation, before hand-over, torn down, a copy, image or secret file missing, an `--overlay-range` `fit` would refuse; on several hosts, the overlay's recorded subnet, inside the range in force, now taken, or no free /24 left in that range, each naming what is taken and the way out, `--overlay-range <cidr>` on `restart`, `gmctl fit --overlay-range <cidr>` only for the playground's next games; nothing done) or failed (what it deployed torn down, stage `failed`, the snapshot kept: run it again, or tear down). Every node and volume removed but the snapshot; every secret's value kept under new objects, so the players' passwords still work; a new seed. From the snapshot: fresh copies of it, the schedulers resuming from their marker, T0 unchanged. Not fitting: the data loaded, every fault planted at once and, with scheduler nodes, the load started at once under a new T0. The four hours still count from the first hand-over; the snapshot stays for a second restart. On several hosts the overlay's subnet is kept while it lies inside the range in force (`--overlay-range` for this run, else the playground's, D183); one outside it is picked again from it |
+| `tools/gmctl restart <dir> --playground <pg> --confirmation "<the player's words>" [--timeout SECONDS] [--overlay-range <cidr>]` | `handed-over`, `final-answer` or `feedback-given`; `failed` after a failed restart (to retry it) | `restarts`: the old and new game ids, the time, from the snapshot or not, the player's words, `completed` or `failed` with its reason; the game under its new id at `handed-over` | 0 rebuilt; 1 refused (no or blank confirmation, before hand-over, torn down, a copy, image or secret file missing, an `--overlay-range` `fit` would refuse; on several hosts, the overlay's recorded subnet, inside the range in force, now taken, or no free /24 left in that range, each naming what is taken and the way out, `--overlay-range <cidr>` on `restart`, `gmctl fit --overlay-range <cidr>` only for the playground's next games; nothing done) or failed (what it deployed torn down, stage `failed`, the snapshot kept: run it again, or tear down). Every node and volume removed but the snapshot; every secret's value kept under new objects, so the players' passwords still work; a new seed. From the snapshot: fresh copies of it, the schedulers resuming from their marker, T0 unchanged. Not fitting: the data loaded, every fault planted at once and, with scheduler nodes, the load started at once under a new T0. The four hours still count from the first hand-over; the snapshot stays for a second restart. On several hosts the overlay's subnet is kept while it lies inside the range in force (`--overlay-range` for this run, else the playground's, D183); one outside it is picked again from it |
 | `tools/gmctl teardown <dir> --playground <pg> [--reason TEXT]` | any game (idempotent) | `torn-down` (a failed game stays `failed`), and the first time the teardown record, with the reason | 0; 1 leftovers (nothing recorded), or an empty reason (nothing removed) |
 
 The deployed stages are `deployed` to `feedback-given`. `status --set` on
@@ -69,7 +74,7 @@ does not use it.
 
 `exec` streams its standard input into `sh -s` in the node's container,
 as `--user` (any account the node has: `root`, `postgres`, `player`,
-`prometheus`, `exporter`, `grafana`). `--env` (repeatable) sets a variable
+`prometheus`, `exporter`, `grafana`, `scheduler`, `pgbouncer`). `--env` (repeatable) sets a variable
 for the script; its values show in the host's process list, so it carries
 only values that are not secret (a PromQL query, an API path), never a
 password or key. The GM's reads, one per tool, are in the skill's
@@ -157,10 +162,14 @@ password or key. The GM's reads, one per tool, are in the skill's
   published port: `node <bastion>: port <port> on the swarm host
   (container port <target>)`, target 22 for SSH and, with a web
   interface, 8080 for the web front; `Stage deployed.` On several hosts
-  (v0.3 master spec 10.2; capture W3 of v0.3, items 3 and 6) the port
-  lines name the host (`on host <name>`, the manager), and before the
-  credentials come one line per other host with nodes, `host <name>:
-  Docker <version>, reached without an SSH agent`, then, when the nodes
+  (v0.3 master spec 10.2; capture W3 of v0.3, items 3 and 6) the first
+  line is `Game <id>: deployed on <pg>, <n> hosts:`, followed by one line
+  per declared host, `  host <name> (manager): <endpoint>` (`(manager)`
+  only on the manager, `local engine` with no endpoint), as `status`
+  lists them; the port lines name the host (`on host <name>`, the
+  manager), and after the swarm line come one line per other host with
+  nodes, `host <name>: Docker <version>, reached without an SSH agent`,
+  then, when the nodes
   span several hosts, `overlay subnet: <subnet> (picked from <range>,
   <origin> | as recorded, still free, inside <range>, <origin> | picked
   from <range>, <origin>; the recorded <subnet> lies outside it)`, where
@@ -260,9 +269,12 @@ password or key. The GM's reads, one per tool, are in the skill's
   planting: ...` with the `inject --at now` that plants it, `FAILED early
   check ...` (until a hand-over check passes), `FAILED hand-over check
   ...`, `OUTAGES: <n> min lost in <k> period(s) ...` (`at least` when
-  Swarm's task history of a node may have been pruned) with one line per
-  period, `OUTAGES NOT READ ...`: tell the initiator of any before
-  anything else. Then game id, playground and endpoint (on several
+  Swarm's task history of a node may have been pruned; then `, the
+  earliest hand-over <n> min later` beyond 30 minutes, or `(up to 30 min
+  does not move the earliest hand-over)`) with one line per
+  period and its causes, `OUTAGES NOT READ ...`, `FAILED hand-over
+  snapshot ...` (with `gmctl snapshot` to take it again): tell the
+  initiator of any before anything else. Then game id, playground and endpoint (on several
   hosts `playground: <pg>, <n> hosts`, then one line per host, `host
   <name> (manager): <endpoint>`, `(manager)` only on the manager, `local
   engine` with no endpoint), stage (for a failed
@@ -283,9 +295,40 @@ password or key. The GM's reads, one per tool, are in the skill's
   the aging minimum and each fault's own minimum since its planting,
   moved later by the lost time beyond 30 minutes), the planned hand-over
   with the shift and the customer's time zone, each planting, and the
-  early check; in every game, the last hand-over check. At `load-started`
+  early check; in every game, the last hand-over check (`hand-over check:
+  passed|FAILED at <at> (<n> run(s))`), the snapshot (`snapshot: taken at
+  <at>, <c> copies labelled dbagm.snapshot=<game id> (on <hosts>)`, or
+  `not-fitting at <at> (<why>): a restart has no history`, or `failed at
+  <at>: <reason>`) and each restart (`restart <n>: <at>, game <old id> ->
+  <new id>, from the snapshot|with no history, started|completed|failed;
+  confirmed: "<the player's words>"`). At `load-started`
   `status` reads the outages again from the schedulers' per-minute
   summaries and the nodes' task history.
+- **`snapshot`**: `Game <id>: hand-over snapshot taken, <c> volumes,
+  <size>, labelled dbagm.snapshot=<id>.`, then, for each node stopped for
+  its copy (a `stop` brick: Prometheus, Grafana), `<node>: <services>
+  stopped <instant>, started again <instant>` (the scrape gap the GM tells
+  as maintenance); `The earlier snapshot's <n> copies removed.` first when
+  it replaces one. Not fitting: `Game <id>: the hand-over snapshot does
+  not fit (<why>): recorded as not fitting, nothing copied. A restart will
+  start from nothing (no history).` Failed: `Game <id>: the hand-over
+  snapshot FAILED: <reason>`. A refusal: `snapshot refused: <why>;
+  nothing done` (the earliest hand-over and when, or the planting it
+  waits for).
+- **`restart`**: `Game <old id> restarted from the hand-over snapshot`
+  (or `with no history`) ` as game <new id> (confirmed: "<the player's
+  words>").`, the checks' lines, `game <old id> removed, its snapshot
+  kept; every secret's value kept under new objects named <new
+  id>_<name>`, `new seed <n> in every scheduler's schedule.yaml` (with
+  scheduler nodes); from the snapshot `<n> volumes restored from the
+  snapshot` and one `<scheduler>: resumed from its marker, running
+  <instant>` line per scheduler; with no history `data loaded: ...`,
+  `every fault planted at once: <n> script(s) run` and, with scheduler
+  nodes, `load started at once, T0 <instant>, every timeline change
+  already applied`; then `Stage handed-over; the four hours still count
+  from the first hand-over.` A refusal: `restart refused: <why>` (no
+  confirmation: it says a restart runs only once a player has confirmed
+  it).
 - **`teardown`**: `Teardown of game <id>: removed ...; nothing carrying
   its label is left.` (`... nothing carrying its label was left.` when
   there was nothing to remove), then, when the game had host timers,
