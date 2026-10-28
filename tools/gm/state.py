@@ -175,11 +175,14 @@ def playground_lines(ldir):
     hosts = localimpl.playground_hosts(pg)
     if len(hosts) == 1:
         return [f"  playground: {name} ({hosts[0].get('docker_endpoint') or 'local engine'})"]
-    lines = [f"  playground: {name}, {len(hosts)} hosts"]
-    for host in hosts:
-        lines.append(f"    host {host.get('name')}{' (manager)' if host.get('manager') else ''}"
-                     f": {host.get('docker_endpoint') or 'local engine'}")
-    return lines
+    return [f"  playground: {name}, {len(hosts)} hosts"] + host_lines(hosts, "    ")
+
+
+def host_lines(hosts, indent):
+    """One line per declared host, manager or not, and its endpoint: the
+    form `status` and `deploy` name a several-host playground's hosts in."""
+    return [f"{indent}host {host.get('name')}{' (manager)' if host.get('manager') else ''}"
+            f": {host.get('docker_endpoint') or 'local engine'}" for host in hosts]
 
 
 def has_web_front(impl):
