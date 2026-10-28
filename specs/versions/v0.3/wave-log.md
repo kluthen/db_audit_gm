@@ -3558,3 +3558,65 @@ and Scope), before chunk 14's branch is cut.
 - G7: the scenario is ready for the owner's review on the branch
   (`gm/notes.md`, `README.md`); 15b changes only its `resources` and
   README.
+
+### Chunk 15b built — 2026-10-28
+
+- 575fd7a on `v0.3-c15-scenario`, on 8c8b2ea (not merged, G7; worktree
+  kept), `coding-leader` in chunk mode. Logs and raw figures: the
+  driver's scratchpad, `r15b/`.
+- The rehearsal, once, on armenelos plus the VPS (UTC): `render
+  --handover 2026-10-28T15:00Z` (customer noon 13:00Z); deploy 28 s,
+  the scheduler image copied to the VPS; `start-load
+  --test-aging-minimum 42m`, T0 12:59:03Z; f8's `inject --at 13:03Z`
+  planted by its host timer; the producer killed, resumed in 15 s, T0
+  kept, one outage minute; the early check by its host timer at
+  13:04:05, 10/10 present; the consumer's program stopped 13:06:29 to
+  13:10:36, recorded as 4 minutes ("no summary"); the hand-over check at
+  13:45:53 (5 minutes lost, the earliest hand-over not moved); the
+  snapshot, 52 s, 34 copies, 215M, Prometheus and Grafana down 7 s
+  each; `handed-over`; the restart across both hosts, 92 s, both
+  schedulers resumed on their marker with T0 kept, every fault present,
+  validate 0; teardown, nothing left on either engine. Script count 52
+  passed, 1 failed: the harness's outage step called `s6-svc` without
+  `/command/`; the outage was then made by hand inside the script's
+  window.
+- armenelos suspended 12:17 to 12:59 UTC while the stack sat idle
+  before T0 (a laptop); nothing after T0 affected. A `systemd-inhibit`
+  held from 13:00; the committed script takes one itself. **For the
+  release gate (G8)**: armenelos kept awake for the whole aged run
+  (master spec 10.1 assumes always-on hosts).
+- The VPS `active` inside the lock, drained by the trap at 13:49:50;
+  filetstudio.com 200 before, 100/100 during, after.
+- Figures (armenelos, Ryzen 5 PRO 8640HS, 11.3 GiB; `vps-5718ad52`, 4
+  vCPU Haswell, 7.6 GiB; 2026-10-28, the peak hour from 13:00Z, `docker
+  stats` every 20 s): memory max bastion 11M, db 206M, pooler 20M,
+  producer 39M, consumer 37M, Prometheus 66M, exporter 36M, Grafana
+  182M; CPU max 0.03 to 0.20. **The game's peak: 577M (273M on
+  armenelos, 308M on the VPS).** Growth per hour: postgres data 4.6M
+  (an extra 30-minute run on armenelos alone, the rehearsal's WAL
+  recycling having hidden it), its log 0.7M, TSDB 3.1M, PgBouncer log
+  0.1M, scheduler logs 0.12M and 0.03M. `disk_growth_per_hour`: postgres
+  32M to 8M, pgbouncer 4M to 1M, scheduler 2M to 1M, grafana 2M to 1M;
+  the others kept. Snapshot 215M. Fernway's 256MB TSDB bound holds
+  (under 16M over four hours); tarnbeck's 384MB holds (about 80M over
+  twenty hours). Scenario reservations unchanged.
+- f7 at the peak, pool of 3: clients waiting in 39% of samples, up to
+  16, `maxwait` 8.8 s; offered load 1.9 Erlangs before f8, about 5
+  after (fixing I4 matters to I1); a pool of 6 queues about 1%:
+  `min-pool-size: 6` kept. Close-day 23.2 s at 13:00, checkout p95 23 s
+  that minute.
+- `fit` with the figures: one host fits (disk 7.88G of 20G, snapshot
+  11.98G); two hosts fit.
+- **G5 applied**: 577M plus about 1G fits armenelos' available memory
+  (3.77G at the run's lowest): the release gate's aged run on armenelos
+  alone.
+- Outside the Files line, for the owner: `tools/tests/test_fit.py`
+  (expected figures pinned to postgres's provisional 32M/h; 653 OK);
+  the "to be confirmed by 15b" notes in `gm/answer-key.yaml` and
+  `gm/notes.md` replaced by the measures.
+- Not exercised in a full run: the committed `rehearsal.sh`'s fixes
+  (`/command/s6-svc`, a `wait_running` requiring s6 up and a fresh
+  status, the kill and the outage kept clear of an early check, the
+  inhibitor, `pg_wal` measured apart). Grafana "Starting" in `docker
+  stack ps` just after deploy reported every service healthy (task
+  state lag?), unchecked.
