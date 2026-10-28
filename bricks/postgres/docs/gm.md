@@ -714,7 +714,27 @@ Known interactions:
 
 Faults it cannot host: anything needing a standby or a replication peer
 (the brick has the single role `database` and consumes nothing), and
-anything visible only under load (the brick has no load generator).
+anything visible only under load (the brick has no load generator): those
+live in the nodes that make the load, below.
+
+**Faults of other bricks read on this one** (v0.3 capture W4). Seven
+catalog faults apply to `scheduler` 0.1.0 (`scheduler-query-error`,
+`scheduler-update-without-where`, `scheduler-report-unbounded`,
+`scheduler-insert-retry-duplicates`, `scheduler-transaction-held-open`,
+`scheduler-batch-at-peak`, `scheduler-job-wrong-timezone`) and one to
+`pgbouncer` 0.1.0 (`pgbouncer-pool-too-small`); none applies to
+`postgres`, so none is listed above, but much of their evidence is read
+here. A scenario using them gives this node a seed `postgresql.conf` with
+the logging block above (`log_min_duration_statement`, `log_lock_waits =
+on`, `log_temp_files = 0`, `log_autovacuum_min_duration = 0`) and
+`pg_stat_statements` in `shared_preload_libraries` (players read it from
+the bastion: rows per call, temporary blocks, mean time); the PostgreSQL
+log and pgBadger readings are the scenario's, in its answer key.
+`scheduler-insert-retry-duplicates`' sealed check connects to this node's
+port 5432 as `gm_check` from the scheduler node (spec D185): the
+scenario's `pg_hba.conf` admits it from the game network under its DO NOT
+TAMPER comment (`host all gm_check samenet scram-sha-256`), beside the
+`local` line every `postgres` 0.3.0 seed carries.
 
 ## Checks
 

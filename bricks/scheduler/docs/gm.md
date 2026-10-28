@@ -312,6 +312,9 @@ write overrides `/srv/scheduler/repository` and `/srv/scheduler/jobs`
 | `scheduler-update-without-where` | `queries.yaml`: an `UPDATE` with no `WHERE` | the entry as loaded; the key's latencies in the log |
 | `scheduler-report-unbounded` | `queries.yaml`: a report with no bound on its date column | the entry as loaded; the key's latencies in the log |
 | `scheduler-insert-retry-duplicates` | `queries.yaml` and `builders/`: a builder resending a share of its inserts (material `inject/resend.py`) | `gm_check_password` and `check-sql`: its behavioural check reads the data as `gm_check` straight to the database node's port 5432 (spec D185); the scenario's `pg_hba.conf` admits `gm_check` from the game network |
+| `scheduler-transaction-held-open` | `queries.yaml`: a key's `transaction: {isolation: repeatable read, hold: ...}`; `schedule.yaml`: a stream keeping one always open (spec D186) | the hold as the program runs it (a call's latency includes it); report or propose only, `schedule.yaml` being never fixable |
+| `scheduler-batch-at-peak` | `jobs.yaml`: a nightly batch timed inside the peak | the rendered shapes per UTC weekday in `/opt/gm/seed/schedule.yaml` and the program's own cron (`gm_scheduler.cron`), read by its check; its aging minimum counts from the job's first run (spec D189) |
+| `scheduler-job-wrong-timezone` | `jobs.yaml`: a job with `timezone_offset` (spec D168), rendered as `timezone: Etc/GMT∓M` | the rendered `jobs.yaml` at `/opt/gm/seed/jobs.yaml` and the program's own cron, read by its check; its aging minimum counts from the first run at the wrong time (spec D189) |
 
 Their evidence is read on the node (the files, the log, the metrics
 endpoint) and from the bastion (`pg_stat_statements`,
