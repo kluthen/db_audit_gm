@@ -3461,3 +3461,21 @@ or G7; chunks 14 and 15 build on the proposals).
 Sent to `spec-writer`: record 1 to 3 (and 5) as decisions, revise
 master spec 6.5/15.2/15.3/12 as needed and the plan (chunk 14's Files
 and Scope), before chunk 14's branch is cut.
+
+### Rulings recorded; plan v15 — 2026-10-28
+
+- `spec-writer`, eea1e20: D185 (the duplicates check as `gm_check`,
+  straight to db:5432; the scheduler brick declares `gm_check_password`;
+  the scenario's `pg_hba.conf` `host` line), D186 (held transactions on
+  both files, report or propose only), D187 (the restart's statement by
+  place and time span), D188 (the scenario as W4 item 10, three
+  monitoring policies; G7), D189 (a reading of 6.3, not a change: the
+  instance's own minimum counts from planting, the scenario raising it
+  for time-of-day faults; nothing for the owner). Master spec 6.3, 6.5,
+  7.1, 12, 15.2, 15.3; plan v15 (chunk 14's Scope, Files, split rule;
+  15a's Scope; G7).
+- No loader check for D185's `pg_hba.conf` line or D189's raised
+  minima (both carried by the faults' `gm.md`); the owner may ask for
+  them later. The working records `aging-and-timeline.md` and
+  `faults-with-activity.md` keep the old wording (the master spec wins).
+- Chunk 14 dispatched from eea1e20 and this entry.
