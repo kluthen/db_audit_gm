@@ -8,7 +8,7 @@ in [archive/v0.1/open-questions-resolved.md](archive/v0.1/open-questions-resolve
 their IDs keep their meaning. Questions resolved by the close of v0.2
 (O13, O50, O51 and O56–O77) are listed in
 [archive/v0.2/open-questions-resolved.md](archive/v0.2/open-questions-resolved.md).
-Numbering continues from O111.
+Numbering continues from O121.
 
 Resolved since v0.2 closed: O45 (D121), O46 (D128), O78 (D140), O82
 (D124), O83 (D125), O84 (D126), O85 (D127), O86 (D129), O87 (D130), O88
@@ -163,11 +163,14 @@ on 2026-10-28 (D190). O11, O22, O25 and O52 are revised by it.
   Shapes O106, O108 and O109. Refs:
   [versions/v0.4/README.md](versions/v0.4/README.md).
 - **O108** (soon, v0.4) — The shared business data model (orders,
-  customers, payments, refunds, consent, time zones): what it holds,
-  where it lives (catalogue or per scenario), how the data load and the
-  producers write it, and how it relates to v0.5's library of common
-  schemas, which it partly brings forward. Probably v0.4's main
-  technical work. Refs: [versions/v0.4/README.md](versions/v0.4/README.md),
+  customers, payments, refunds, consent, time zones): what it holds, how
+  the data load and the producers write it, and how its invariants and
+  data classes are stated against it. Since D192 it is the first domain:
+  v0.4 ships one, the shop, starting from `tarnbeck-outdoor-shop`, which
+  already is one, structured so that more can be added; v0.5 adds the
+  others. It lives in the catalogue as a domain; the format it follows is
+  O111. Probably v0.4's main technical work. Refs:
+  [versions/v0.4/README.md](versions/v0.4/README.md),
   [versions/v0.5/README.md](versions/v0.5/README.md).
 - **O109** (soon, v0.4) — Daily, weekly or monthly purposes under real
   time, with no sped-up clock (D114, D132): v0.3's scenario ages sixteen
@@ -181,6 +184,98 @@ on 2026-10-28 (D190). O11, O22, O25 and O52 are revised by it.
   outbox always enough? Current view: the outbox is enough. Refs:
   [versions/v0.4/README.md](versions/v0.4/README.md).
 
+## v0.4: data governance
+
+Raised when the owner added a first cut of data governance to v0.4 on
+2026-10-28 (D191): data classes, their rules, a policy handed to the
+players, `gm_check` definition checks. The customer's governance, in the
+game's world, not the game's access model.
+
+- **O115** (soon, v0.4) — The governance format: where the policy lives
+  (a section of `scenario.yaml`, a file of its own, partly in the
+  domain); how classes attach to data (per table, per column); how
+  locations, flows, readers and settings are stated; what the loader
+  checks; whether governance faults are a family of their own or join
+  the Security family. Proposed: the domain classifies its data model,
+  the scenario states the rules. Refs:
+  [versions/v0.4/README.md](versions/v0.4/README.md).
+- **O116** (soon, v0.4) — Which rules are checked in v0.4? Proposed: a
+  class's columns present only in the databases it may live in (the
+  catalog), no purpose job moving it to a target it may not reach, and
+  read grants of the customer's roles (`has_table_privilege`,
+  `has_column_privilege`); required settings later, encryption at rest
+  stated only. The game's own roles (`dba`, `postgres`, the GM check
+  role, `monitoring`) stay outside every rule (proposed): each would
+  break a "who may read" rule. Refs:
+  [versions/v0.4/README.md](versions/v0.4/README.md).
+- **O117** (soon, v0.4) — How the player-facing policy is presented.
+  Proposed: a document in the starter pack, the company's data policy in
+  the story's voice. Does it list rules no check verifies? May the
+  policy itself be wrong or ambiguous, which is starter documentation
+  carrying a fault (O21)? Refs:
+  [versions/v0.4/README.md](versions/v0.4/README.md).
+- **O118** (soon, v0.4) — Are brick changes for governance in v0.4?
+  pgaudit is a preloaded library, so a `postgres` image change and a
+  dependency check; TLS needs certificates as generated secrets, and the
+  `postgres` brick configures none today; both could be options (O79).
+  Proposed: none in v0.4, they come with v0.5's regulated domains. Refs:
+  [versions/v0.4/README.md](versions/v0.4/README.md),
+  [versions/v0.5/README.md](versions/v0.5/README.md).
+- **O119** (soon, v0.4) — What "fixed" means for a governance fault. A
+  purpose is fixed when no new violation follows the fix, past ones
+  staying as evidence; a definition check fails until the live state
+  complies. Proposed: a definition (a classed column where it may not
+  be, a grant) is fixed when the live state complies, so removing what
+  was copied is part of the fix; content already sent (an outbox's
+  payloads) is judged as a purpose, no new violation since the fix.
+  Refs: [versions/v0.4/README.md](versions/v0.4/README.md).
+- **O120** (soon, v0.4) — "Distinct database": another database in the
+  same PostgreSQL instance, or an instance of its own? Instance-wide
+  settings (TLS, the logging collector, pgaudit) need an instance;
+  per-database and per-role settings do not. Each instance costs memory
+  against the playground. The same reading decides what D190's second
+  database is. Refs: [versions/v0.4/README.md](versions/v0.4/README.md).
+
+## v0.5: domains
+
+Raised when the owner set business domains for v0.5 on 2026-10-28
+(D192). v0.4 ships the first, the shop (O108).
+
+- **O111** (soon, v0.4 → v0.5) — The domain format: what a domain holds
+  (business data model and data load, producer profiles, common
+  scheduler scripts and input types, fitting purposes, data
+  classification), where it lives in the catalogue, whether it has a
+  version as bricks do, how a scenario names it, and whether a static
+  scenario needs one. The part v0.4 must settle is what keeps v0.5 from
+  restructuring the shop. Linked to O104 and O108. Refs:
+  [versions/v0.5/README.md](versions/v0.5/README.md#domains),
+  [versions/v0.4/README.md](versions/v0.4/README.md).
+- **O112** (later, v0.5) — Which domains come first after the shop? The
+  owner names a warehouse, a factory and a lab. A factory's
+  high-frequency time series presses on "schemas simple, tables small"
+  and the memory budget, and invites TimescaleDB, placed beyond v1.0 by
+  D47 yet listed as a `postgres` option candidate (O79). A lab's audit
+  trail needs governance beyond v0.4's cut (O118). v0.2's
+  `fernway-clinics-monitoring` is a veterinary clinic: its owners are
+  personal data, animal health is no special category. Refs:
+  [versions/v0.5/README.md](versions/v0.5/README.md#domains).
+- **O113** (later, v0.5) — Producer profiles against v0.3's query
+  repository and schedule: a template the GM instantiates into a
+  scenario's `queries.yaml` and `schedule.yaml` at design time (the
+  folder stays self-sufficient, D23), a library of builders, traffic
+  shapes and parameter generators the scenario references, or a layer
+  the scheduler reads? Richer input types (names, addresses, SKUs,
+  sensor readings) than v0.3's generators? A catalogue profile is
+  readable in the repository while `schedule.yaml` is hidden (D130):
+  accepted on the trust line (D13)? Refs:
+  [versions/v0.5/README.md](versions/v0.5/README.md#domains),
+  [versions/v0.3/scheduler.md](versions/v0.3/scheduler.md).
+- **O114** (later, v0.5) — What a scenario's size scales: data volume,
+  number of entities, intensity, or several? Intensity is absolute and
+  never rescaled to the playground (D32); size has to fit the
+  playground's budget and "schemas simple, tables small". Refs:
+  [versions/v0.5/README.md](versions/v0.5/README.md#domains).
+
 ## Roadmap: gaps and cross-version risks
 
 Raised with the roadmap (D47). The tag after the priority is the version
@@ -188,8 +283,9 @@ the question concerns.
 
 - **O47** (later, v1.0) — Which version brings scenario generation: the GM
   designing from a partial or empty brief and filling the blanks (D16)?
-  v0.5 prepares for it without naming it. Refs:
-  [versions/v1.0/README.md](versions/v1.0/README.md).
+  v0.5 prepares for it without naming it; its domains (D192) make a
+  brief naming a domain and a size most of a scenario's business side.
+  Refs: [versions/v1.0/README.md](versions/v1.0/README.md).
 - **O48** (later, v0.3 → v1.0) — Aging enters in v0.3, in real time
   (D114). Where does the solvability probe as a gate (O20) enter the
   roadmap? With an aging of eight hours or more (D150), a probe failing at

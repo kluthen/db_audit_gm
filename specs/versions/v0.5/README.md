@@ -1,6 +1,7 @@
 # v0.5 — research and broadening
 
-Status: draft. No master spec.
+Status: draft. No master spec. Business domains added on 2026-10-28
+(D192).
 
 ## Goal
 
@@ -13,6 +14,59 @@ In the owner's words, three things (D47):
   dataset: Bluebox, a PostgreSQL sample database (a Pagila-derived
   DVD-rental dataset), or truly external, internet-based open-source data
   sources.
+
+On 2026-10-28 the owner added business domains (D192), in the vein of
+v0.4's purposes: "we may see this for producers as well, this will
+mostly assist in having common scheduler scripts, input types etc. A
+shopping website will have specific data profile, whereas a warehouse
+management system will have another, a factory yet another than a bio
+lab." On placing them here: "v0.5 already is on expansion of
+capabilities so that's okay." Domains are how the third goal, common
+schemas, is delivered (below).
+
+## Domains
+
+A **domain** (D192; working name) is a reusable catalogue unit made of:
+
+- **a business data model**: the schema and the data load of a kind of
+  business;
+- **producer profiles**: how data arrives. A shop is bursty, with daily
+  peaks and promotions; a warehouse has scan events around shifts; a
+  factory has continuous, high-frequency time series; a lab has
+  instrument batch uploads and a strict audit trail;
+- **common scheduler scripts and input types**: the queries, builders,
+  traffic shapes and parameter generators the domain's producers and
+  consumers share;
+- **the purposes that fit the domain** ([v0.4](../v0.4/README.md)).
+
+A scenario then becomes a domain, a size, the bricks, the purposes in
+use, and the faults. What a domain holds and how a scenario names it is
+O111; what "size" scales, O114.
+
+How domains meet the rest of this version (proposed):
+
+- **Common schemas**: a domain's business data model is the common
+  schema D47 asks for, so the GM does not reinvent the data each time.
+- **Datasets**: Bluebox and internet sources fill a domain's data model,
+  or stand as a domain's model of their own (Bluebox is a rental shop);
+  their requirements stay O53 and O54.
+- **Topology fragments** are the technical arrangement (which bricks,
+  how they connect); a domain is the business side. A scenario combines
+  one domain with fragments.
+- **Producer profiles and v0.3's scheduler**: a profile's relation to
+  the query repository (`queries.yaml`, `builders/`) and the hidden
+  schedule (`schedule.yaml`) is O113. A factory's stream or a lab's
+  instrument uploads may want the scheduler's other targets (D118),
+  message queues and APIs, below.
+- **Governance**: each domain classifies its data (v0.4's first cut,
+  D191). The regulated domains, a lab's records or health data, bring
+  the richer rules: required settings, audit trails, retention, and the
+  brick changes they need (O118).
+- **Scenario generation** (O47): a brief naming a domain and a size is
+  most of a scenario's business side.
+
+v0.4 ships the first domain, the shop, structured so that more can be
+added (O108). v0.5 adds the others; which come first is O112.
 
 ## In scope
 
@@ -33,8 +87,12 @@ In the owner's words, three things (D47):
   ([v0.3/review-list.md](../v0.3/review-list.md)), revisited once games
   have run on them.
 - Reusable topology fragments for the most common arrangements.
-- A library of common schemas and datasets the GM can draw on, including
-  Bluebox and selected external sources.
+- Domains beyond v0.4's shop (D192; O112), each with its business data
+  model, producer profiles, common scheduler scripts and input types,
+  and fitting purposes: the library of common schemas, and the datasets
+  the GM can draw on, including Bluebox and selected external sources.
+- Governance rules beyond v0.4's first cut, with the regulated domains
+  (D191).
 - Brick options (D107): optional elements a brick offers and a scenario
   chooses, each documented in the brick's GM documentation and added to
   a scenario when appropriate, `postgres` first: for that brick in
@@ -61,6 +119,8 @@ In the owner's words, three things (D47):
 
 - v0.2 to v0.4: the bricks the topology fragments are made of; v0.2's
   monitoring bricks, which v0.5's other tools extend.
+- v0.4: the shop domain and the shape it gives domains, purposes, and
+  data governance's first cut (D190 to D192).
 - v0.2's `postgres` 0.2.0, whose built-in pgBadger, file logging,
   `pg_stat_statements` and monitoring role are the first candidate
   options, and v0.2's declare/choose/check pattern for mounted material
@@ -80,3 +140,7 @@ In the owner's words, three things (D47):
 - O21: whether starter documentation may itself carry faults.
 - O24: seeded variation per deployment.
 - O47: whether generating scenarios from a brief belongs here or in v1.0.
+- O111: the domain format (its v0.4 part settled with the shop).
+- O112: which domains come first.
+- O113: producer profiles against v0.3's query repository and schedule.
+- O114: what a scenario's size scales.

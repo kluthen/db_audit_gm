@@ -16,7 +16,7 @@ README:
 Archived IDs keep their meaning and are cited as they are. D107 onward
 stay live: rulings still to be applied in a later version (D107, D108,
 D110, D113), the v0.2 release close, and v0.3's drafting from D114.
-Numbering continues after D190, the last; no ID is reused.
+Numbering continues after D192, the last; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -549,4 +549,20 @@ Numbering continues after D190, the last; no ID is reused.
   PostgreSQL by default, another engine only if a purpose needs one
   (the owner: "We shall see"). Revises D47 for v0.4 only; the rest of
   D47 holds. Open: O104–O110; O11, O22, O25, O52 revised. Now in:
+  [versions/v0.4/README.md](versions/v0.4/README.md).
+- **D191 (2026-10-28, owner direction, relayed by the lead session): v0.4
+  brings a first cut of data governance, coupled to purposes:** data
+  classes with rules (location, settings, readers, flows), handed to the
+  players as the company's data policy and checked by `gm_check` as
+  definition checks; the first cut is classification plus allowed
+  locations and flows, richer rules growing with v0.5's regulated
+  domains. Extends D190. Open: O115–O120. Now in:
+  [versions/v0.4/README.md](versions/v0.4/README.md) "Data governance".
+- **D192 (2026-10-28, owner direction, relayed by the lead session): v0.5
+  brings business domains:** a reusable catalogue unit (working name) of
+  a business data model, producer profiles, common scheduler scripts and
+  input types, and fitting purposes; a scenario is a domain, a size,
+  bricks, purposes and faults. v0.4 ships one, the shop, structured so
+  more can be added. Open: O111–O114; O108, O47 revised. Now in:
+  [versions/v0.5/README.md](versions/v0.5/README.md#domains),
   [versions/v0.4/README.md](versions/v0.4/README.md).

@@ -25,8 +25,8 @@ The owner believes v0.2 to v0.5 "should be sufficient to achieve v1.0"
 | Bastion, one database, the GM stance, the formats | [v0.1](../v0.1/README.md) |
 | Monitoring tools | [v0.2](../v0.2/README.md) |
 | Producer, consumer | [v0.3](../v0.3/README.md) |
-| Transformation, second database | [v0.4](../v0.4/README.md) |
-| Catalog breadth, topology fragments, schemas and datasets; other tools | [v0.5](../v0.5/README.md) |
+| Transformation, second database; the shop domain, data governance's first cut | [v0.4](../v0.4/README.md) |
+| Catalog breadth, topology fragments, business domains (schemas and datasets); other tools | [v0.5](../v0.5/README.md) |
 | The bastion as the players' main activity point | [v0.6](../v0.6/README.md) |
 
 Which technology fills each role is decided version by version (O11).

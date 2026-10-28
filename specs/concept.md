@@ -1,6 +1,6 @@
 # Concept
 
-Status: draft v13
+Status: draft v14
 
 What the project is, who it is for, the words we use, and what is in and out
 of scope. Mechanics live in the other topic documents (see
@@ -147,8 +147,10 @@ Scoped separately, each in its own page (D4):
   ([gm-stance.md](gm-stance.md)). See
   [versions/v0.1/README.md](versions/v0.1/README.md).
 - **v0.2 to v0.6**: monitoring, then producers and consumers, then
-  purposes, side usage and transformations (D47, recast by D190), then
-  research and broadening (D47), then the bastion as the players' main
+  purposes, side usage and transformations, with a first cut of the
+  customer's data governance (D47, recast by D190; D191), then research
+  and broadening, with business domains such as a shop, a warehouse, a
+  factory or a lab (D47, D192), then the bastion as the players' main
   activity point (D71).
 - **v1.0, the first release**: the full pipeline, producer -> database ->
   transformation -> database -> consumer, plus monitoring tools and the
