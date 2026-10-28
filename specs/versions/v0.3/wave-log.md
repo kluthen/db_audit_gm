@@ -3627,3 +3627,63 @@ and Scope), before chunk 14's branch is cut.
   `tools/tests/test_fit.py` change, and asked for the committed
   `rehearsal.sh` to be re-run once on two hosts at the wave gate.
 - The driver merged `v0.3-c15-scenario` --no-ff into `v0.3-w4` as ecfaa06.
+
+### Wave 4 gate passed — 2026-10-28
+
+Run by a coding-executor on armenelos, 15:51–20:50 CET, at d7cdbd5
+(46e8589 plus step 0), κ = 1, every docker step under the host lock,
+an inhibitor held throughout. Logs in the session scratchpad
+(`gate-w4/`).
+
+- Step 0, d7cdbd5: `smoke-scenario.sh` smokes a several-host design on
+  one host (one-host `fit`, every designed host placed locally; tarnbeck
+  as `host-1-host-2`, 4 CPU / 5G / 18G, disk 7.68G, snapshot 11.78G);
+  `LOAD_MINUTES` defaults per scenario (12 for tarnbeck, 3 otherwise).
+  The only commit; no other fix.
+- Unit suite 653 OK; scheduler unit tests 60 OK; `sh -n`/`bash -n` 118
+  files and `perl -c` 7 files clean (shellcheck not installed); loader:
+  34 definitions plus 13 in fixtures, no problem; seven builds OK.
+- Stack tests all passed: postgres 131, bastion 71, prometheus 131,
+  postgres-exporter 103, grafana 119, scheduler 105, pgbouncer 103.
+- `smoke.sh` 60; `smoke-monitoring.sh` 43; `smoke-scenario.sh`:
+  bookshop 19, fernway 18, tarnbeck 26 (843 s).
+- `smoke-load.sh`: one host, first run 70 passed / 3 failed (first
+  judged minute 15:11Z: 18 producer errors, 16 `orders.lookup`, 2
+  `orders.insert`, and its every-minute job did not run; scheduler log
+  lost at teardown, no journal access; not traced to a chunk, nothing
+  on that path changed in wave 4); re-run 73/73 with a watcher, no
+  error line; duo 73/73. Treated as intermittent; open for the release
+  gate.
+- `rehearsal.sh duo` re-run (owner's request at G7): 53/53, no hand
+  intervention, 9644 s. Same placement as 15b. `/command/s6-svc`
+  outage 4 min, kill resumed in 15 s with T0 kept, early check by its
+  timer at 17:41:06, hand-over check passed, earliest hand-over
+  unmoved, snapshot 56 s (Prometheus down 7 s, Grafana 8 s), restart
+  87 s with every fault present, teardown clean. The script's inhibitor
+  held. Figures against 15b: peak 583M (280M / 311M) against 577M; db
+  213M, Grafana 192M; snapshot 218M; close-day 21.5 s; f7 waiting in
+  39% of samples, up to 14, `maxwait` 5.1 s; offered load p50 3.4, p90
+  6.1 Erlangs; armenelos' lowest available memory 3.82G; TSDB 3.0M/h.
+  G5's reading stands.
+- Grafana "Starting" after deploy: task-state lag of about a second
+  behind the container's own `healthy`; `deploy` reported after both.
+  No fix.
+- Image sizes unchanged from wave 3: postgres 262MB, bastion 185MB,
+  prometheus 488MB, postgres-exporter 165MB, grafana 866MB, scheduler
+  172MB, pgbouncer 182MB.
+- VPS: filetstudio.com 200 before, during (8/8, 160/160) and after;
+  node active only inside the lock, drained by the trap; now Drain with
+  its own containers only; four game images kept. No game object left
+  on either host.
+- No dependency changed in the wave (the scheduler Dockerfile's
+  change is a chmod and a parse check): no security-advisor check. No
+  intent or data register: no sync.
+- For the release gate: copy the schedulers' `error` lines before
+  teardown when a smoke-load check fails; G8 (armenelos kept awake for
+  the aged run) still applies, and the owner is weighing where the
+  aged run goes; release gate item 6's two-host `smoke-scenario.sh` on
+  tarnbeck is not covered by the wave gate.
+
+Side branch, outside the wave: `v0.4-readme` (287f6f6, 8ceb70c), cut
+from `v0.3-w4` for the owner's v0.4 direction (D190–D192, O104–O120);
+merges after this wave.
