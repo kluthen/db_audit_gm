@@ -3620,3 +3620,10 @@ and Scope), before chunk 14's branch is cut.
   inhibitor, `pg_wal` measured apart). Grafana "Starting" in `docker
   stack ps` just after deploy reported every service healthy (task
   state lag?), unchecked.
+
+### G7 cleared; chunk 15 merged — 2026-10-28
+
+- The owner approved `tarnbeck-outdoor-shop` (G7), kept 15b's
+  `tools/tests/test_fit.py` change, and asked for the committed
+  `rehearsal.sh` to be re-run once on two hosts at the wave gate.
+- The driver merged `v0.3-c15-scenario` --no-ff into `v0.3-w4` as ecfaa06.

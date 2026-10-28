@@ -124,7 +124,7 @@ plan states only its deltas. Its conventions follow v0.2's
 | G4 | The VPS ready, under the VPS rule (spec D159; "Workflow deltas"): first, Tailscale logged in on both hosts (`tailscale status`); the VPS's own documentation read before any change there; Docker Engine on the VPS (29.9.2 there, 29.9.1 on armenelos, 2026-10-26); the VPS joined to armenelos' swarm as a worker with `--advertise-addr` and `--data-path-addr` on its Tailscale interface (armenelos' own swarm bound likewise), and if the VPS's engine is already in a swarm or runs filetstudio.com as swarm services the driver stops and asks the owner; the swarm's ingress network recreated with an MTU leaving room for VXLAN inside Tailscale's 1280 bytes, with no game running; no game port published on the VPS (the bastion pinned to armenelos); SSH from armenelos to the VPS over Tailscale with a key (Docker context, image copy); at least 5G free on the VPS | The wave driver joins the VPS (spec D156); the owner's part, Tailscale and Docker on the VPS, is in place | Chunk 10b's two-host try; the two-host smoke run (from the wave 3 gate); chunk 15b; the release gate | cleared 2026-10-26 (spec D178; hand check, wave log) |
 | G5 | Where the release gate's aged run runs, memory on armenelos being short (about 5G available, swap in use, a single-host game expected at about 5G): on armenelos alone if the game's peak memory measured by chunk 15b plus about 1G fits armenelos' available memory, otherwise on armenelos plus the VPS (spec D156) | Chunk 15b's measured figures, applied by the wave driver and recorded in the wave log | The release gate's aged run | applied 2026-10-28: armenelos alone (the game's peak 577M plus 1G against 3.77G available at the rehearsal's lowest; wave log) |
 | G6 | How the rehearsal reaches its hand-over in about two hours while the v0.3 scenario declares sixteen hours and the loader's floor is eight: a test-harness-only override of the aging minimum, capping each fault instance's own aging minimum too, in chunk 8a (spec D156, D161) | The owner | Chunk 8a builds it; chunks 11 and 15b use it | cleared 2026-10-22 (spec D156) |
-| G7 | Review of the v0.3 scenario, built as capture W4 item 10 proposes (spec D188): its faults (chunk 14's among them), issues, aging, write policies and answer key (master spec 15.2) | The owner | Chunk 15's merge | open |
+| G7 | Review of the v0.3 scenario, built as capture W4 item 10 proposes (spec D188): its faults (chunk 14's among them), issues, aging, write policies and answer key (master spec 15.2) | The owner | Chunk 15's merge | cleared 2026-10-28 (owner, wave log) |
 | G8 | The release gate's aged run window: the hosts G5 settles up and otherwise quiet for about twenty hours, deployed in an evening and handed over the next early afternoon (spec D156) | The owner, who sets the date with the driver | Release gate items 7 to 9 | ruled (spec D156); the date to set |
 | G9 | The restart's confirmation at the release gate: the owner types the players' confirmation in the GM session himself (spec D156) | The owner, at the release gate | Release gate item 8 | ruled (spec D156); typed at the release gate |
 | G10 | The owner's judgement at release close: the aged game, the feedback under load, the findings | The owner | Release close | open |
@@ -1267,7 +1267,7 @@ exits 2; the held-open refusal comes from no `fix` resolution;
 
 ### Chunk 15 — The v0.3 scenario, the rehearsal and the measured figures
 
-Status: built (15a 8c8b2ea, 15b 575fd7a on `v0.3-c15-scenario`; waiting on G7)
+Status: merged (w4, ecfaa06)
 Wave: 4
 Depends on: chunk 14 (in-wave, W4); chunks 5, 8 (the harness override),
 10, 11, 12; G4 (15b); G7 before merge
@@ -1335,6 +1335,16 @@ Architecture capture: none of its own; it uses W4.
   the rehearsal (needs G4).
 - Split rule: 15a the scenario folder; 15b the rehearsal script, its run
   and the figures.
+
+Record: 15a 8c8b2ea, 15b 575fd7a (merge ecfaa06), after G7. Scenario
+`tarnbeck-outdoor-shop`. The rehearsal on armenelos plus the VPS passed
+every step (the outage made by hand after a harness path error; the
+committed script re-run at the wave gate). The game's peak memory 577M
+(273M armenelos, 308M the VPS): G5 applied, the aged run on armenelos
+alone. Outside the Files line, kept by the owner: `tools/tests/test_fit.py`
+(figures pinned to postgres's provisional growth), the "to be confirmed
+by 15b" notes in `gm/`. `smoke-scenario.sh` cannot smoke a several-host
+design and needs `LOAD_MINUTES=12` here: fixed at the wave gate.
 
 ## Release gate
 
