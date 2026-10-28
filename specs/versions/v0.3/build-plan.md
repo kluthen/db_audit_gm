@@ -1144,7 +1144,7 @@ is the wave 3 gate's. `smoke-scenario.sh` still refuses a several-host
 
 ### Chunk 13 — The GM skill for v0.3
 
-Status: planned
+Status: merged (w4, 5f51422)
 Wave: 4
 Depends on: chunks 7, 8, 9, 10, 11
 Architecture capture: none.
@@ -1183,6 +1183,14 @@ Architecture capture: none.
   confirmation) are added.
 - Verification: chunk checks; the stance check-list runs at the release
   gate.
+
+Record: 3b9be51 (merge 5f51422). 106 `gmctl` invocations parse; unit
+suite 653 OK. One reading put to the owner (wave log): without a
+snapshot, the restart's statement names the lost evidence by place and
+time span, never by fault (master spec 12 against the no-reveals rule).
+v0.2's "restart or reset" refusal now reads "of a node or a service",
+the whole-game restart going to the confirmation (D141). `SKILL.md`
+grew from 628 to 1207 lines.
 
 ### Chunk 14 — The eight new catalog faults
 
