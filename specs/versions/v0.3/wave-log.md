@@ -3687,3 +3687,18 @@ an inhibitor held throughout. Logs in the session scratchpad
 Side branch, outside the wave: `v0.4-readme` (287f6f6, 8ceb70c), cut
 from `v0.3-w4` for the owner's v0.4 direction (D190–D192, O104–O120);
 merges after this wave.
+
+## Release gate — started 2026-10-28
+
+- The owner asked to commit, push and run the release gate on armenelos,
+  leaving it open (G8 set: deployed this evening, hand-over 2026-10-29
+  early afternoon; G5: armenelos alone, the VPS stays Drain). The driver
+  holds a sleep inhibitor (`systemd-inhibit`, sleep, idle and lid switch)
+  for the run.
+- Already covered on this code by the wave 4 gate (d7cdbd5; c83e378
+  adds only the log): item 6's `smoke-load.sh` on armenelos alone and
+  on armenelos plus the VPS, `smoke-scenario.sh` on tarnbeck on one
+  host, the rehearsal re-run on two hosts; item 10's bookshop and
+  fernway smoke runs; item 12's quality command. Left for after the aged
+  run: `smoke-scenario.sh` on tarnbeck on armenelos plus the VPS, item
+  11's forced failures.
