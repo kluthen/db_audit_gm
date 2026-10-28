@@ -3521,3 +3521,40 @@ and Scope), before chunk 14's branch is cut.
   a node restarts query-error's wait; the batch and a small
   transaction-mode pool interact strongly; f6's `offset` equals the
   job's `timezone_offset` (unchecked by the loader).
+
+### Chunk 15a built — 2026-10-28
+
+- 8c8b2ea on `v0.3-c15-scenario` (worktree kept for 15b; not merged,
+  G7), `coding-leader` in chunk mode. Scenario `tarnbeck-outdoor-shop`
+  (Tarnbeck Outdoor, an online outdoor-gear shop), built as W4 item 10.
+- Done when (15a): the loader finds nothing missing; README generated
+  from the template. `fit` and `render` on armenelos alone (4 CPU, 4G,
+  20G): fits (CPU 1.5 of 4, memory 1.62G of 4G, disk 8.47G, 13.03G with
+  the snapshot copies). On armenelos plus the VPS (the wave 3 gate's
+  flags): fits (bastion, db, pooler, producer on armenelos; consumer and
+  the three monitoring nodes on the VPS); `fit` only ran `docker node
+  ls`; the VPS `Drain` throughout. Smoke deployment on armenelos: 26/26
+  in 807 s, f1 to f10 present on the first check, the eight validators
+  green; nothing left. Unit suite 653 OK.
+- Departures and choices, for the driver and G7:
+  - `smoke-scenario.sh` refuses a `designed_for` of several hosts, and
+    the scenario names two (for the two-host `fit`): the smoke ran on a
+    scratch copy designed for armenelos alone, nothing else changed. It
+    needs `LOAD_MINUTES=12` (f4's five-minute hold, f2's five-minute
+    stream). **Left for the wave gate**: the script taught to smoke a
+    several-host design on one host, or the gate passing a scratch
+    copy, and `LOAD_MINUTES=12`; fixed on the wave branch after
+    chunk 15 merges.
+  - load design W4 left open: checkout holds its transaction 3 s (the
+    payment provider), which makes the pool of 3 too small at noon
+    with the database idle; close-day holds 20 s after its work,
+    guaranteeing lock waits at noon; neither is a fault instance
+    (`gm/notes.md`).
+  - f7's `min-pool-size: 6` estimated; 15b measures it.
+  - the builder named `builders/carrier_feed.py` (not `resend.py`, which
+    would give the fault away); Prometheus retention 1d, 384MB.
+- Reservations 1.1 CPU, 1.22G, 3.81G disk; `designed_for` host-1 2 CPU
+  3G 10G, host-2 2 CPU 2G 8G; the data 176 MB, loaded in about 11 s.
+- G7: the scenario is ready for the owner's review on the branch
+  (`gm/notes.md`, `README.md`); 15b changes only its `resources` and
+  README.

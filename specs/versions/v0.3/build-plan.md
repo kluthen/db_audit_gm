@@ -1267,7 +1267,7 @@ exits 2; the held-open refusal comes from no `fix` resolution;
 
 ### Chunk 15 — The v0.3 scenario, the rehearsal and the measured figures
 
-Status: planned
+Status: in progress (15a built 8c8b2ea on `v0.3-c15-scenario`; 15b next; G7 open)
 Wave: 4
 Depends on: chunk 14 (in-wave, W4); chunks 5, 8 (the harness override),
 10, 11, 12; G4 (15b); G7 before merge
