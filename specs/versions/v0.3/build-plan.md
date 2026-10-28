@@ -1,6 +1,6 @@
 # db_audit_gm v0.3 — Build plan
 
-Status: v14 (2026-10-27): v13 with chunk 10's two-host try's MTU finding (spec D184: option 1230 kept, 1180 inside a node) written into "Left for the build"; v13 wrote the owner's ruling leaving the overlay's range to the GM (spec D183, capture W3-b, amending D182) into chunks 13 and 15, its code the W3-b follow-up, built on the wave branch after chunk 11's merge and before the wave 3 gate, in no chunk.
+Status: v15 (2026-10-28): v14 with the owner's rulings of 2026-10-28 on capture W4's open items and chunk 13's reading (spec D185 to D188) and the reading of the time-of-day faults' aging minima (spec D189) written into chunks 14 and 15 and G7, the scheduler brick's `gm_check_password` joining chunk 14a; v14 wrote chunk 10's two-host try's MTU finding (spec D184) into "Left for the build".
 Approval: **approved 2026-10-22 by the owner** (G1, spec D156).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-10-22 (spec D154), with
@@ -124,7 +124,7 @@ plan states only its deltas. Its conventions follow v0.2's
 | G4 | The VPS ready, under the VPS rule (spec D159; "Workflow deltas"): first, Tailscale logged in on both hosts (`tailscale status`); the VPS's own documentation read before any change there; Docker Engine on the VPS (29.9.2 there, 29.9.1 on armenelos, 2026-10-26); the VPS joined to armenelos' swarm as a worker with `--advertise-addr` and `--data-path-addr` on its Tailscale interface (armenelos' own swarm bound likewise), and if the VPS's engine is already in a swarm or runs filetstudio.com as swarm services the driver stops and asks the owner; the swarm's ingress network recreated with an MTU leaving room for VXLAN inside Tailscale's 1280 bytes, with no game running; no game port published on the VPS (the bastion pinned to armenelos); SSH from armenelos to the VPS over Tailscale with a key (Docker context, image copy); at least 5G free on the VPS | The wave driver joins the VPS (spec D156); the owner's part, Tailscale and Docker on the VPS, is in place | Chunk 10b's two-host try; the two-host smoke run (from the wave 3 gate); chunk 15b; the release gate | cleared 2026-10-26 (spec D178; hand check, wave log) |
 | G5 | Where the release gate's aged run runs, memory on armenelos being short (about 5G available, swap in use, a single-host game expected at about 5G): on armenelos alone if the game's peak memory measured by chunk 15b plus about 1G fits armenelos' available memory, otherwise on armenelos plus the VPS (spec D156) | Chunk 15b's measured figures, applied by the wave driver and recorded in the wave log | The release gate's aged run | ruled (spec D156); applied after chunk 15b |
 | G6 | How the rehearsal reaches its hand-over in about two hours while the v0.3 scenario declares sixteen hours and the loader's floor is eight: a test-harness-only override of the aging minimum, capping each fault instance's own aging minimum too, in chunk 8a (spec D156, D161) | The owner | Chunk 8a builds it; chunks 11 and 15b use it | cleared 2026-10-22 (spec D156) |
-| G7 | Review of the v0.3 scenario: its faults (chunk 14's among them), issues, aging, write policies and answer key (master spec 15.2) | The owner | Chunk 15's merge | open |
+| G7 | Review of the v0.3 scenario, built as capture W4 item 10 proposes (spec D188): its faults (chunk 14's among them), issues, aging, write policies and answer key (master spec 15.2) | The owner | Chunk 15's merge | open |
 | G8 | The release gate's aged run window: the hosts G5 settles up and otherwise quiet for about twenty hours, deployed in an evening and handed over the next early afternoon (spec D156) | The owner, who sets the date with the driver | Release gate items 7 to 9 | ruled (spec D156); the date to set |
 | G9 | The restart's confirmation at the release gate: the owner types the players' confirmation in the GM session himself (spec D156) | The owner, at the release gate | Release gate item 8 | ruled (spec D156); typed at the release gate |
 | G10 | The owner's judgement at release close: the aged game, the feedback under load, the findings | The owner | Release close | open |
@@ -1205,33 +1205,54 @@ faults.
 - Goal: the faults of master spec 15.3, each complete.
 - Scope: in: a query with a syntax or type error; a query missing its
   `WHERE`; a reporting query reading far too much; inserts retried
-  without idempotency (judged over a window, exit 3 when too soon); a
-  consumer holding transactions open (schedule, report or propose only);
-  a nightly batch at the daily peak; a job in the wrong time zone (its
-  offset parameter, never 0, its seed change writing `timezone_offset:
-  <N>` on the job, spec D168); a PgBouncer pool too small for the peak.
-  Each a `seed-file` fault planted at render, with `fault.yaml` (its
-  `aging:`, evidence locations), `checks/fixed.sh` judging the cause (the
-  query's text, the job's time and zone, the pool's size, the
-  schedule's hold) as the GM check role (its `CONNECT` on the
-  scenario's databases granted by `load-data`, spec D176) or on the
-  node's files,
+  without idempotency (judged over a window from the data, exit 3 when
+  too soon; its check on the producer connecting to the database node's
+  port 5432 as the GM check role, never through the pooler, spec D185);
+  a consumer holding transactions open (seed changes on `queries.yaml`
+  and `schedule.yaml`, report or propose only on every node, spec
+  D186); a nightly batch at the daily peak; a job in the wrong time zone
+  (its offset parameter, never 0, its seed change writing
+  `timezone_offset: <N>` on the job, spec D168); a PgBouncer pool too
+  small for the peak. Each a `seed-file` fault planted at render, with
+  `fault.yaml` (its `aging:`, evidence locations; the time-of-day faults'
+  minima counted from their moment's first occurrence, spec D189),
+  `checks/fixed.sh` judging the cause (the query's text, the job's time
+  and zone, the pool's size, the entry's hold) on the node's files or
+  the pool's console, or the data as the GM check role (its `CONNECT` on
+  the scenario's databases granted by `load-data`, spec D176),
   `checks/probe.md`, `gm.md`; the "Supported faults" sections of the
-  bricks they name, folding into their versions.
+  bricks they name, folding into their versions. The `scheduler`
+  brick's `gm_check_password`, folding into scheduler 0.1.0: declared in
+  its `brick.yaml` as `postgres` declares it (root-only, one secret for
+  the game), whatever the check needs on the node to use it, its
+  `docs/gm.md`, and its stack test mounting it and checking it root-only.
+  The copy of `fixture-load` the duplicates are planted on carries the
+  `pg_hba.conf` `host` line for `gm_check` (spec D185). The format
+  skill's fault template's `aging.minimum` comment says how a
+  time-of-day fault counts (spec D189).
   Out: the scenario (chunk 15).
 - Files: `faults/<fault-id>/` for each (new),
   `bricks/{scheduler,pgbouncer,postgres}/docs/gm.md` ("Supported
-  faults" only).
-- Spec sections: master spec 6.3, 7.3, 11, 15.3; spec D134, D145, D168, D176.
-- Done when: the loader accepts each fault; `test_brick_docs` passes; on
-  a deployment of `fixture-load` with each planted, its evidence shows
-  within its aging minimum, its sealed check returns 1, and 0 after its
-  fix for the fixable ones (the duplicates check after its window, 3
-  before it).
-- Verification: chunk checks, plus the faults planted on `fixture-load`
-  (needs G3).
-- Split rule: 14a the four repository faults; 14b the schedule, the two
-  `jobs.yaml` faults and the pool.
+  faults" only; the scheduler's secrets too),
+  `bricks/scheduler/brick.yaml` (`secrets:`),
+  `bricks/scheduler/tests/{run-stack-test.sh,stack.test.yml}`, a
+  root-only helper under `bricks/scheduler/rootfs/usr/local/lib/gm/` if
+  the check uses one, `.claude/skills/scenario-format/templates/fault.yaml`
+  (the `aging.minimum` comment only).
+- Spec sections: master spec 6.3, 6.5, 7.1, 7.3, 11, 15.3; spec D134,
+  D145, D168, D176, D185, D186, D189.
+- Done when: the loader accepts each fault; `test_brick_docs` passes;
+  the scheduler's image builds and its stack test passes with
+  `gm_check_password` mounted root-only; on a deployment of
+  `fixture-load` with each planted, its evidence shows within its aging
+  minimum, its sealed check returns 1, and 0 after its fix for the
+  fixable ones (the duplicates check, connecting as `gm_check`, after
+  its window, 3 before it).
+- Verification: chunk checks (the scheduler brick's build and stack test
+  among them), plus the faults planted on `fixture-load` (needs G3).
+- Split rule: 14a the scheduler brick's `gm_check_password` first, then
+  the four repository faults; 14b the held transactions, the two
+  `jobs.yaml` faults, the pool and the format template's comment.
 
 ### Chunk 15 — The v0.3 scenario, the rehearsal and the measured figures
 
@@ -1244,16 +1265,23 @@ Architecture capture: none of its own; it uses W4.
 - Goal: the normal-difficulty scenario of master spec 15.2, complete,
   and the figures an aged game needs, measured on it.
 - Scope: in:
-  - **15a, the scenario**: the topology (bastion, one `postgres`,
+  - **15a, the scenario**, built as capture W4 item 10 proposes (spec
+    D188): the topology (bastion, one `postgres`,
     PgBouncer in front of it, a producer for orders, ingestion and a
     nightly batch, a consumer for reports and an export job, the three
-    monitoring bricks); ten fault instances, six or seven of chunk 14's
-    plus three or four existing ones (the missing join index planted
+    monitoring bricks); ten fault instances, seven of chunk 14's
+    (`scheduler-update-without-where` left out) plus three existing ones
+    (the missing join index planted
     during the aging by `plant_at: handover-<N>h`, autovacuum off on a
-    hot table, one monitoring fault); write policies (database and
+    hot table, one monitoring fault), the time-of-day faults' instance
+    minima raised to cover their first occurrence (spec D189); write
+    policies (database and
     PgBouncer fixable, the scheduler nodes report-only with the
-    producer's repository and both `jobs.yaml` fixable by override, one
-    monitoring node fixable, one report-only); `aging:` sixteen hours,
+    producer's repository and both `jobs.yaml` fixable by override,
+    Prometheus report-only, Grafana and the exporter fixable); the seed
+    `pg_hba.conf`'s `host` line admitting `gm_check` from the game
+    network by `scram-sha-256` under its DO NOT TAMPER comment, for the
+    duplicates check (spec D185); `aging:` sixteen hours,
     hand-over at the customer's early afternoon; retention at least
     twenty hours; the story and starter pack naming
     `{{customer_timezone}}`; `scenario.yaml`, `gm/answer-key.yaml`
@@ -1285,7 +1313,7 @@ Architecture capture: none of its own; it uses W4.
   `scenarios/fernway-clinics-monitoring/` if its bound must change.
 - Spec sections: master spec 8.6, 10.1, 11, 15.2, 15.4, 17 (items 4, 6);
   access model 7, 11; spec D134, D150, D153, D156, D157, D161, D182,
-  D183.
+  D183, D185, D188, D189.
 - Done when: the format skill finds nothing missing; `fit` and `render`
   accept it on armenelos alone and on armenelos plus the VPS; its smoke
   deployment (`smoke-scenario.sh`) has every instance present; the

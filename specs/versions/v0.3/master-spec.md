@@ -19,7 +19,13 @@ through the host's SSH Docker context (10.2, 20, D181); amended on
 2026-10-27 by the owner's ruling on the overlay's subnet on several
 hosts (10.2, D182), and the same day by the ruling leaving the overlay's
 range to the GM (10.2, 13, D183); chunk 10's two-host try's MTU
-finding written in the same day (10.2, 20, D184).
+finding written in the same day (10.2, 20, D184); amended on
+2026-10-28 by the owner's rulings on wave 4's capture and chunk 13's
+reading: the duplicates check as the GM check role (6.5, 7.1, D185),
+the held transactions' seed changes (15.3, D186), the restart's
+statement without a snapshot (12, D187) and the new scenario's
+monitoring nodes (15.2, D188); the time-of-day faults' aging minima
+read the same day (6.3, D189).
 Build plan:
 [build-plan.md](build-plan.md), approved (D156). Companion:
 [access-model.md](access-model.md). Baseline: the released
@@ -242,7 +248,12 @@ are normative until the format skill's templates carry them.
 
 - **`aging:`**: the technique (`real-time`, the only one in v0.3) and the
   minimum duration before the evidence shows. The format required them
-  since v0.1; the templates and the loader now carry them.
+  since v0.1; the templates and the loader now carry them. For a fault
+  whose evidence shows only at a time of day (a job's run, a shape's
+  busy hours), which its definition cannot know, the minimum counts from
+  that moment's first occurrence after planting, and a scenario using
+  it raises the instance's aging minimum to that moment's offset from
+  T0 plus the definition's minimum (6.1, D189).
 - **Evidence**: the free text moves to `source`, and `where` takes a
   location: `node` (the fault's target node), `bastion`, or
   `report:<tool>` for a tool the target's brick ships. A fault never
@@ -285,6 +296,14 @@ are normative until the format skill's templates carry them.
   GM's reserve (section 7.3); clients of the load connect as ordinary
   roles. The existing catalog faults' database checks, which connect as
   `postgres` over the local socket today, move to the check role.
+- A sealed check runs on its fault instance's node only. A check on a
+  scheduler node that judges the database's data (the duplicates, 15.3)
+  connects as the GM check role too, straight to the database node's
+  port 5432, never through PgBouncer: the `scheduler` brick mounts the
+  check role's password, readable by root only, as `postgres` does, and
+  a scenario with such a fault admits `gm_check` from the game network
+  by `scram-sha-256` in its seed `pg_hba.conf`, under the DO NOT TAMPER
+  comment (D185).
 
 ### 6.6 Versions and pins
 
@@ -519,7 +538,9 @@ body changes.
 **Database roles.** The scheduler's roles are the scenario's, created by
 the data load, never superusers. Their passwords are generated secrets,
 mounted into the scheduler node and set in the database at the data
-load.
+load. The GM check role's password is mounted too, readable by root
+only, for the sealed checks that judge the data from the node (6.5,
+D185).
 
 **Snapshot**: every volume by `copy` (seeded files, the marker, an
 append-only log).
@@ -973,9 +994,13 @@ replay may differ (a new seed). The rebuilt game enters the stage
   loaded, every fault planted at once (those due at T0 and those due
   during the aging), the load, when the game has scheduler nodes, started
   at once with every timeline change already applied. Only the history since the restart exists. The GM
-  names the evidence lost (the faults whose aging minimum the new game
-  will not reach) before the players confirm, and judges the final answer
-  accordingly.
+  names the evidence lost before the players confirm, by place and time
+  span, never by fault, which would reveal the faults: the history the
+  aging built since T0 (the logs, the metrics, the job runs) is gone, and
+  evidence that takes longer to build up under the load than the time
+  left will be thin or missing (D187). It judges the final answer
+  accordingly, by each fault instance's own aging minimum against the
+  time the restarted game had.
 - **The restart's own setup** runs inside `gmctl restart`: the refusals
   of `start-load` and `inject --at` after hand-over do not apply to it.
 - **No extra time.** A restart does not extend the game's four hours,
@@ -1076,8 +1101,8 @@ One new scenario of normal difficulty:
   least one `state` fault planted during the aging.
 - **Write policies**: the database and PgBouncer fixable; the scheduler
   nodes report-only, with the producer's repository and both `jobs.yaml`
-  files fixable by override; one monitoring node fixable, one
-  report-only.
+  files fixable by override; of the three monitoring nodes, Prometheus
+  report-only, Grafana and the exporter fixable (D188).
 - **Aging minimum: 16 hours**, the hand-over designed for the customer's
   early afternoon, so the aging covers the night (the nightly batch, the
   export) and the morning ramp, and the time-of-day faults run within
@@ -1092,17 +1117,20 @@ One new scenario of normal difficulty:
 | A query missing its `WHERE` (updates every row) | repository | `pg_stat_statements` rows per call, bloat, lock waits | report, propose, fix |
 | A reporting query reading far too much (`SELECT *`, no date bound) | repository | temporary files, `work_mem` spills, slow-query log | report, propose, fix |
 | Inserts retried without idempotency: duplicates | repository | duplicate rows | report, propose, fix |
-| A consumer holding transactions open | schedule (hold) | `pg_stat_activity`, `idle in transaction`, vacuum held back | report, propose |
+| A consumer holding transactions open | repository (the entry's hold) and schedule (the stream keeping one open) | `pg_stat_activity`, `idle in transaction`, vacuum held back | report, propose |
 | A nightly batch at the daily peak | `jobs.yaml` | lock waits and latency at the peak, the job's time | report, propose, fix |
 | A job in the wrong time zone | `jobs.yaml` | run times in the log against the customer's time zone in the story; the job's zone offset from it | report, propose, fix |
 | A PgBouncer pool too small for the peak | PgBouncer seed | `SHOW POOLS` waiting clients, latency | report, propose, fix |
 
 Each has its injection, its aging minimum, its sealed check judging the
 cause (the query's text, the job's time and zone, the pool's size, the
-schedule's hold), and its solvability description; the duplicates fault
-is judged over a window. All eight are `seed-file` faults, planted at
-render. A fault living in the schedule is report or propose only, since
-players never change streams.
+entry's hold), and its solvability description; the duplicates fault
+is judged over a window, from the data (6.5). All eight are `seed-file`
+faults, planted at render. A fault whose seed changes touch the schedule
+is report or propose only, since players never change streams: the held
+transactions are one, their seed changes naming both `queries.yaml` and
+`schedule.yaml`, so no node's repository override makes them fixable
+(D186).
 
 ### 15.4 Existing scenarios
 
