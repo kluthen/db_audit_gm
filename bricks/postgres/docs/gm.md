@@ -561,8 +561,9 @@ disk), and `gmctl` uses those, never the brick's footprint. The renderer
 applies the CPU and memory limits and reservations; disk is only counted
 by the capacity check (`gmctl fit`: reservations plus 10 % headroom
 against the playground); the volumes themselves have no size limit.
-Disk growth per hour (`disk_growth_per_hour`): `32M`, a provisional
-estimate, to be replaced by v0.3 chunk 15b's measurement.
+Disk growth per hour (`disk_growth_per_hour`): `8M`, the data a load
+writes and the server log, measured (below); the WAL is not counted
+there, since it stays within `max_wal_size`, part of the reservation.
 
 What makes it grow:
 
@@ -608,6 +609,25 @@ docker stats sample. Never OOM-killed nor restarted, never at its limit
 volumes after 35 minutes: `pgdata` 74M, `pglog` 0.2M, `home` 0.9M (the
 report). A static database is far within the reservation; the levers above
 matter when the data file or the log grows.
+
+Measured in the v0.3 rehearsal (`tools/tests/rehearsal.sh`:
+`tarnbeck-outdoor-shop` on armenelos, AMD Ryzen 5 PRO 8640HS, 11.3 GiB,
+Debian 13, Docker 29.9.1, plus the VPS `vps-5718ad52`, 4 vCPU Intel
+Haswell, 7.6 GiB, Docker 29.9.2; 2026-10-28; 46 minutes of load from T0
+12:59Z to the hand-over check, the customer's noon peak from 13:00Z;
+`docker stats` every 20 s, the node-health script included), with
+`tarnbeck-outdoor-shop`'s `shop` database (176MB loaded, about 220 calls a
+minute at the peak through PgBouncer and a few a minute from the back
+office, autovacuum off on `orders` by fault f9) under a 1G limit and
+`shared_buffers` 128MB: 206M at most (202M typical), 0.20 CPU at most
+(0.12 at the 95th percentile). The `pglog` volume grew 0.7M an hour. The
+`pgdata` volume shrank (515M to 488M) as the WAL the data load wrote was
+recycled, which hides the data's own growth, so a second run measured it
+on armenelos alone (same day, 30 minutes from the customer's 11:54, the
+close-day batch's 20 000-row update at 12:00 included): the databases grew
+2.3M (4.6M an hour), `orders` gaining 10 000 dead rows; the WAL stayed at
+20 segments of 16MB. `8M` an hour covers both with a margin. The hand-over
+snapshot of `pgdata` (`pg_basebackup`) was 206M.
 
 ### Snapshot
 

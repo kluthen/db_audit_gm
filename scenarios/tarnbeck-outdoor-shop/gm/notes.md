@@ -98,8 +98,11 @@ one snapshot always open), jobs `nightly-rollup` 01:30 and
   pool of 3 (utilisation about 0.7: frequent queueing, waits of seconds);
   at 0.8 about 1.6 (waits still visible); at night 0.2 (none). The
   database's CPU stays low, which is the complaint's "the database does
-  not look busy". `min-pool-size: 6` is the design's figure (W4 item 10:
-  chunk 15b measures it). The hold itself is not a fault: a sharp team
+  not look busy". `min-pool-size: 6` is the design's figure, confirmed by
+  the rehearsal (chunk 15b): at the noon peak, f8 not yet planted, 3
+  transactions a second of 0.64 s on average, about 1.9 Erlangs, which a
+  pool of 6 serves with about 1 % of transactions queued (5: about 5 %,
+  4: 15 %). The hold itself is not a fault: a sharp team
   proposes authorising the payment before the transaction, which the
   answer key credits.
 - **f5 and f7 interact strongly** (chunk 14's warning): the batch locks
@@ -169,6 +172,11 @@ f4 and f10 cannot be fixed by the players and stay at 1.
   five minutes in the evening, so the smoke run needs `LOAD_MINUTES=12`
   for every stream key to have ended a call; f3 reads present only once
   the feed has run a few minutes.
-- The rehearsal (chunk 15b) should put the noon peak and the batch inside
-  its two hours, measure f7's waits (to confirm or change
-  `min-pool-size`), the batch's stall at noon, and the footprint.
+- The rehearsal (chunk 15b, 2026-10-28, armenelos plus the VPS) put the
+  noon peak and the batch inside its run: close-day ran 23 s at noon,
+  checkouts' p95 23 s in that minute (about 4 s otherwise); f7's pool of
+  3 held up to 16 clients waiting, `maxwait` up to 8.8 s. Once f8 is
+  planted the order pages' full scans hold the pool's connections for
+  seconds (transactions of 1.6 to 2.3 s on average, about 5 Erlangs):
+  I4's fix matters to I1's. The game's memory at its peak: 577M (273M
+  on the first host, 308M on the second).

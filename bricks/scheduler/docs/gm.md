@@ -274,10 +274,25 @@ about 56K. What grows is the log: a `summary` line and one `key` line per key ev
 120 bytes each), plus every fixed-time run and every error (measured: 4K
 in 12 minutes at two keys, about 20K an hour); a stream failing at 40
 calls a minute adds 40 `error` lines a minute.
-`disk_growth_per_hour: 2M` is provisional, for a few keys and a few
-errors a minute; chunk 15b's measurement replaces it. The CPU follows the
-rates: tens of calls a second fit in 0.25 CPU. The levers: lower rates
-or intensity, fewer keys, fewer failing calls.
+The CPU follows the rates: tens of calls a second fit in 0.25 CPU. The
+levers: lower rates or intensity, fewer keys, fewer failing calls.
+
+Measured in the v0.3 rehearsal (`tools/tests/rehearsal.sh`:
+`tarnbeck-outdoor-shop` on armenelos, AMD Ryzen 5 PRO 8640HS, 11.3 GiB,
+Debian 13, Docker 29.9.1, plus the VPS `vps-5718ad52`, 4 vCPU Intel
+Haswell, 7.6 GiB, Docker 29.9.2; 2026-10-28; 46 minutes of load from T0
+12:59Z to the hand-over check, the customer's noon peak from 13:00Z;
+`docker stats` every 20 s, the node-health script included), under limits
+of 0.25 CPU and 128M: the producer (five streams at 220 calls a minute at
+the peak, through PgBouncer, the close-day job, fault f1's error on one
+call in ten of its 120 lookups a minute) 39M at most (37M typical), 0.04
+CPU at most; the consumer (three streams straight to the database, one
+transaction held open five minutes) 37M at most, 0.13 CPU at most (0.08 at
+the 95th percentile). The log grew 0.12M an hour on the producer and 0.03M
+on the consumer; `disk_growth_per_hour: 1M` keeps a margin for more keys
+and more failing calls. Killed (`docker kill`), the producer's container
+was replaced by Swarm and its program running again at the current time
+within 15 s, its T0 unchanged; its other volumes stay under 20K.
 
 ### Snapshot
 

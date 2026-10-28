@@ -440,8 +440,8 @@ figures for a Prometheus node (limits 0.5 / 384M, reservations 0.1 /
 cost (below), since a brick's footprint excludes mounted material. The
 scenario sets each node's own `resources`, and `gmctl` uses those, never
 the brick's footprint; disk is only counted by the capacity check.
-Disk growth per hour (`disk_growth_per_hour`): `4M`, a provisional
-estimate, to be replaced by v0.3 chunk 15b's measurement.
+Disk growth per hour (`disk_growth_per_hour`): `4M`, the TSDB, measured
+(below).
 
 Measured in the v0.2 game (`fernway-clinics-monitoring` on the `laptop`
 playground, declared at 2 CPU / 4G / 8G on armenelos: AMD Ryzen 5 PRO
@@ -457,6 +457,23 @@ volume held 0.9M after 35 minutes. The figures stay well within the
 reservation (master spec 12 estimated 80M to 150M at rest); in its stack
 test the node used about 40M without the node-health script and 52M with
 it.
+
+Measured in the v0.3 rehearsal (`tools/tests/rehearsal.sh`:
+`tarnbeck-outdoor-shop` on armenelos, AMD Ryzen 5 PRO 8640HS, 11.3 GiB,
+Debian 13, Docker 29.9.1, plus the VPS `vps-5718ad52`, 4 vCPU Intel
+Haswell, 7.6 GiB, Docker 29.9.2; 2026-10-28; 46 minutes of load from T0
+12:59Z to the hand-over check, the customer's noon peak from 13:00Z;
+`docker stats` every 20 s, the node-health script included), under the
+384M limit, 12 scrape targets every 15 s (Prometheus, the exporter, two
+schedulers, eight node-health endpoints, one of them missing by fault
+f10), 2 253 series in the head block: 66M at most (58M typical), 0.13 CPU
+at most (0.11 at the 95th percentile). The TSDB grew 3.1M an hour, all of
+it write-ahead log before the first two-hour compaction (6.0M after 46
+minutes); compaction then writes the samples into smaller blocks, so `4M`
+an hour bounds the growth over a game's aging. Against a retention size
+bound: `tarnbeck-outdoor-shop`'s 384MB holds its 16-hour aging plus four
+hours (about 80M at 4M an hour), and `fernway-clinics-monitoring`'s 256MB
+its four-hour game (six targets, about 1 900 series, under 16M).
 
 What makes it grow:
 
@@ -502,8 +519,10 @@ How each volume is copied at hand-over (`snapshot:` in `brick.yaml`):
   stop, measured by the stack test (armenelos, 2026-10-23, a TSDB of 90K):
   the stop 11 ms, the copy 2 ms, back up 15 ms after the stop began, ready
   (`/-/ready`) about a second later. The copy grows with the TSDB, which
-  the retention bounds (an aged game's TSDB: chunk 15b measures it); s6
-  waits up to 60 s for each step.
+  the retention bounds; s6 waits up to 60 s for each step. In the v0.3
+  rehearsal (2026-10-28, a TSDB of 6.9M after 46 minutes of load, the
+  copy streamed on the VPS): `prometheus` down 7 s (13:46:37Z to
+  13:46:44Z).
 - `promconf`, `home`, `gmstate`: `copy`, a tar of the volume while the
   node runs.
 - `run` (`/run`) is never copied.

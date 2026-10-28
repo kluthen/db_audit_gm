@@ -23,8 +23,9 @@ footprint:                          # master spec 7.1's figures; at rest measure
                                     # (docs/gm.md, Footprint)
   limits:       {cpu: 0.25, memory: 128M}
   reservations: {cpu: 0.1, memory: 64M, disk: 64M}
-  disk_growth_per_hour: 2M          # provisional: the log at a few keys and a few errors a minute;
-                                    # chunk 15b's measurement replaces it (docs/gm.md, Footprint)
+  disk_growth_per_hour: 1M          # the log: the v0.3 rehearsal measured 0.12M an hour at five
+                                    # keys, a job and a dozen errors a minute (2026-10-28;
+                                    # docs/gm.md, Footprint)
 stateful: true
 
 # --- What the scenario sets -------------------------------------------

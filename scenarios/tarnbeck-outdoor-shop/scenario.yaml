@@ -60,7 +60,7 @@ nodes:
       limits:
         cpu: 0.5
         memory: 256M
-      reservations:
+      reservations:                 # the rehearsal's peak (2026-10-28): 11M, 0.03 CPU
         cpu: 0.1
         memory: 96M
         disk: 256M
@@ -84,7 +84,7 @@ nodes:
       limits:                       # the aging's growth is fit's (disk_growth_per_hour)
         cpu: 1
         memory: 1G
-      reservations:
+      reservations:                 # the rehearsal's peak (2026-10-28): 206M, 0.20 CPU
         cpu: 0.5
         memory: 512M
         disk: 2.25G
@@ -166,7 +166,7 @@ nodes:
       limits:
         cpu: 0.25
         memory: 64M
-      reservations:
+      reservations:                 # the rehearsal's peak (2026-10-28): 20M, 0.03 CPU
         cpu: 0.05
         memory: 32M
         disk: 256M
@@ -206,7 +206,7 @@ nodes:
       limits:
         cpu: 0.25
         memory: 128M
-      reservations:
+      reservations:                 # the rehearsal's peak (2026-10-28): 39M, 0.04 CPU
         cpu: 0.1
         memory: 64M
         disk: 128M
@@ -233,7 +233,7 @@ nodes:
       limits:
         cpu: 0.25
         memory: 128M
-      reservations:
+      reservations:                 # the rehearsal's peak (2026-10-28): 37M, 0.13 CPU
         cpu: 0.1
         memory: 64M
         disk: 128M
@@ -260,7 +260,7 @@ nodes:
       limits:
         cpu: 0.5
         memory: 384M
-      reservations:
+      reservations:                 # the rehearsal's peak (2026-10-28): 66M, 0.13 CPU
         cpu: 0.1
         memory: 160M
         disk: 512M
@@ -282,7 +282,7 @@ nodes:
       limits:
         cpu: 0.25
         memory: 128M
-      reservations:
+      reservations:                 # the rehearsal's peak (2026-10-28): 36M, 0.14 CPU
         cpu: 0.05
         memory: 48M
         disk: 64M
@@ -304,7 +304,7 @@ nodes:
       limits:
         cpu: 0.5
         memory: 384M
-      reservations:
+      reservations:                 # the rehearsal's peak (2026-10-28): 182M, 0.19 CPU
         cpu: 0.1
         memory: 272M
         disk: 256M
@@ -495,7 +495,8 @@ fault_instances:
     node: pooler
     parameters:
       database: shop
-      min-pool-size: 6              # proposed from the design (W4 item 10); chunk 15b measures
+      min-pool-size: 6              # measured (chunk 15b): 1.9 Erlangs at the noon peak, f8 not
+                                    # yet planted; a pool of 6 queues about 1 % of transactions
     visibility: known
     aging_minimum: 10h              # business hours from 07:00 (T0 + 9h), plus 30m (spec D189)
   - id: f8

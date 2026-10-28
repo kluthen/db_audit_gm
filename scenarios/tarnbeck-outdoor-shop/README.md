@@ -780,8 +780,9 @@ Acceptable answers:
 Sealed check: `faults/pgbouncer-pool-too-small/checks/fixed.sh`, exit 1 at
 hand-over (0: fixed, 1: present, 3: too soon to tell). Reads the values in
 effect on the console: a file edited but not reloaded reads 1. min-pool-size
-6 is the design's figure, to be confirmed by chunk 15b's measurement (W4
-item 10).
+6, the design's figure, confirmed by the rehearsal (chunk 15b, 2026-10-28):
+about 1.9 Erlangs at the noon peak with f8 not planted, where a pool of 5
+still queues about 5 % of transactions and 6 about 1 %.
 
 Interactions:
 
