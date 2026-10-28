@@ -2888,3 +2888,47 @@ passed; no fix needed.
   `DeployResult.text`), as `status` did before 2a7f54a.
 - No dependency changed in wave 3 (no `security-advisor` check); no
   intent register (no wave sync).
+
+## Wave 3 — merged 2026-10-27
+
+Merged into `main` on the owner's word, `--no-ff`, as be857ff, with the
+gate's figures in the message. The wave worktree and the branches
+`v0.3-w3`, `v0.3-w3-overlay-range` and the chunk branches removed.
+
+## Wave 4 — started 2026-10-28
+
+Chunks 13, 14, 15 (κ = 3; 15b at κ = 1, alone on the hosts). Branch
+`v0.3-w4`, worktree `/home/bastien/work/db_audit_gm-wt/v0.3-w4`, cut from
+`main` at be857ff. Rulings since the plan's v14: none (D184 is the last).
+No intent register and no data register: no `documentalist` preflight or
+sync; capture W4 drafted for the driver, as W1 to W3 were.
+
+### Gates checked at the start
+
+- G2 (network at build time), hand check 2026-10-28: Debian's trixie
+  `Release`, the PostgreSQL apt repository's `trixie-pgdg` `Release`,
+  GitHub's s6-overlay releases and the pinned Grafana 13.2.4 tarball
+  answer 200. Cleared for wave 4.
+- G3 (Docker host in swarm mode), hand check 2026-10-28: armenelos,
+  Docker Engine 29.9.1, swarm leader; `vps-5718ad52` (29.9.2) Ready,
+  `Drain`.
+- G4 still holds: `tailscale status` shows both hosts (the VPS active,
+  direct); `ssh dbagm-vps` answers with no agent (Docker 29.9.2, 24G
+  free on `/`). The VPS stays drained except inside chunk 15b's run and
+  the release gate's two-host runs.
+- Host resources on 2026-10-28: 4.4G of memory available on armenelos
+  (3.8G of swap in use), 10G free on `/`.
+- G7 (the owner's review of the v0.3 scenario) open: blocks chunk 15's
+  merge only.
+
+### Order
+
+- Chunk 13 reads no W4 item and depends only on merged chunks:
+  dispatched at once.
+- Capture W4 (the eight faults and the scenario's choice) is drafted and
+  committed before chunk 14 starts; chunk 15 once chunk 14 has merged
+  (in-wave edge 14 ──> 15). 15a may start once 14 has merged; 15b runs
+  alone on the hosts.
+- Carried from wave 3 (cosmetic): `deploy`'s first line on a
+  several-host game; fixed on the wave branch before the gate, in no
+  chunk.

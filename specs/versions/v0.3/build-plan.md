@@ -142,8 +142,8 @@ test harness's only and changes no spec behaviour for a game.
 |---|---|---|---|
 | 1 | 1, 2, 3, 4, 5 | G1 (cleared); G2 (chunks 1, 3, 4, 5); G3 (stack tests) | merged 2026-10-26 (5faff6c) |
 | 2 | 6, 7, 8, 9 | wave 1 | gated 2026-10-26; merged into `main` the same day |
-| 3 | 10, 11, 12 | wave 2; G4 (chunk 10b's two-host try) | gate passed 2026-10-27 (d2dab75) |
-| 4 | 13, 14, 15 | wave 3; G4 (chunk 15b); G7 (chunk 15's merge) | planned |
+| 3 | 10, 11, 12 | wave 2; G4 (chunk 10b's two-host try) | merged 2026-10-27 (be857ff) |
+| 4 | 13, 14, 15 | wave 3; G4 (chunk 15b); G7 (chunk 15's merge) | started 2026-10-28 |
 
 ```
 1 ──> 3                (in-wave: the v0.3 template keys and contracts captured at wave 1 start, W1)
