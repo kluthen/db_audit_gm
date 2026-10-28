@@ -3479,3 +3479,45 @@ and Scope), before chunk 14's branch is cut.
   them later. The working records `aging-and-timeline.md` and
   `faults-with-activity.md` keep the old wording (the master spec wins).
 - Chunk 14 dispatched from eea1e20 and this entry.
+
+### Chunk 14 merged — 2026-10-28
+
+- 974194e (14a: the scheduler's `gm_check_password` and root-only
+  `check-sql`; query-error, update-without-where, report-unbounded,
+  insert-retry-duplicates), 8344633 (14b: held-open, batch-at-peak,
+  job-wrong-timezone, pgbouncer-pool-too-small, the bricks' docs, the
+  template's comment), merge 75695f6; `coding-leader` in chunk mode.
+- Verification: the loader clean on all eight; unit suite 653 OK;
+  scheduler image rebuilt, stack test 105 checks (secret 0:0 0400,
+  `check-sql` 0:0 0700, neither readable nor runnable by `player` or the
+  service account, the program never given the password, `check-sql`
+  read-only and exit 2 on a refused connection). All eight planted on
+  one `fixture-load` copy on armenelos (T0 10:03:51Z), fixed as
+  `player`: each showed its evidence within its minimum; each check 1,
+  1 when edited but not reloaded, 0 after; the duplicates 0 before the
+  load, 1, 3 (274 s left), 0. Torn down; nothing left; the VPS
+  untouched.
+- The chunk owner's readings (none changes stated behaviour):
+  1. query-error's "too soon" lasts up to about 130 s right after a
+     reload (only a minute begun after it proves a call ended after
+     it), at most 70 s after; W4 said 70;
+  2. the duplicates fault takes a required `db-node` parameter (W4
+     12.1 A, not in W4's table or D185);
+  3. batch-at-peak and wrong-timezone: a job removed from the loaded
+     `jobs.yaml` reads present;
+  4. update-without-where and report-unbounded: an entry turned into a
+     builder exits 2;
+  5. held-open's refusal on a fixable node comes from the fault listing
+     no `fix` resolution (not `model.fix_policy`, as W4 item 0 said);
+     D186's effect holds;
+  6. `pg_stat_statements` evidence read with `psql -d postgres` (the
+     extension exists only there in postgres 0.3.0);
+  7. `bricks/scheduler/Dockerfile`, outside the Files line: `check-sql`
+     made 0700 with a parse check, and listed in `protected_files`.
+- For chunk 15a: f3's `db-node` and the `pg_hba.conf` line `host all
+  gm_check samenet scram-sha-256` (do not tamper), its answer-key
+  window at most 1h; the unbounded report returns few rows and no index
+  may serve its sort (an incremental sort never spills); any reload of
+  a node restarts query-error's wait; the batch and a small
+  transaction-mode pool interact strongly; f6's `offset` equals the
+  job's `timezone_offset` (unchecked by the loader).

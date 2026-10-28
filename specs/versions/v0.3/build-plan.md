@@ -1194,7 +1194,7 @@ grew from 628 to 1207 lines.
 
 ### Chunk 14 — The eight new catalog faults
 
-Status: planned
+Status: merged (w4, 75695f6)
 Wave: 4
 Depends on: chunks 2, 3, 6, 9, 12
 Architecture capture: at wave 4 start (W4), for chunk 15: the eight
@@ -1253,6 +1253,17 @@ faults.
 - Split rule: 14a the scheduler brick's `gm_check_password` first, then
   the four repository faults; 14b the held transactions, the two
   `jobs.yaml` faults, the pool and the format template's comment.
+
+Record: 14a 974194e, 14b 8344633 (merge 75695f6). All eight planted on
+one `fixture-load` copy on armenelos: evidence within each minimum,
+checks 1 then 0 after the fix (the duplicates 0, 1, 3, 0). Scheduler
+stack test 105 checks. Outside the Files line: `bricks/scheduler/Dockerfile`
+(`check-sql` 0700 and its parse check; `protected_files`). Readings
+logged in the wave log (chunk 14 merged): the query-error check's
+wait up to about 130 s after a reload; the duplicates fault's `db-node`
+parameter (W4 12.1 A); a removed job reads present; a builder entry
+exits 2; the held-open refusal comes from no `fix` resolution;
+`pg_stat_statements` read in `postgres`.
 
 ### Chunk 15 — The v0.3 scenario, the rehearsal and the measured figures
 
