@@ -48,6 +48,7 @@ protected_files:
   - /usr/local/sbin/gm-reload-scheduler
   - /usr/local/sbin/gm-validate
   - /usr/local/lib/gm/healthcheck
+  - /usr/local/lib/gm/check-sql     # root only (0700): the sealed checks' SQL as gm_check
   - /usr/local/lib/python3.13/dist-packages/gm_scheduler   # the program
   - /opt/gm/validator/validate.sh
   - /etc/s6-overlay/s6-rc.d
@@ -89,6 +90,12 @@ secrets:                            # no connection secret here: render derives 
     uid: 0
     gid: 0
     mode: "0444"                    # sshd reads it as player
+  - name: gm_check_password         # password of the GM check role gm_check, one secret with
+    kind: password                  #   the postgres brick's (v0.3 master spec 6.5, spec D185):
+    path: /opt/gm/secrets/gm_check_password   # a sealed check on this node reaches the
+    uid: 0                          #   database straight to its port 5432 through
+    gid: 0                          #   /usr/local/lib/gm/check-sql; never passed to the program
+    mode: "0400"                    # root only
 seed:
   dir: /opt/gm/seed/
   files:

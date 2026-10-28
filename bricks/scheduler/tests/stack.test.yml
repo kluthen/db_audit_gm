@@ -1,7 +1,8 @@
 # Stack test fixture for the scheduler brick (v0.3 build plan, chunk 3):
 # the scheduler node and a throwaway PostgreSQL `db` (the Dockerfile's
 # unit-test stage) holding the database its schedule targets, both
-# reading the role's password secret, each with its own owner and mode.
+# reading the role's password secret and the GM check role's, each with
+# its own owner and mode.
 # Uses only what a rendered Compose 3.8 stack file can express. Configs
 # and secrets are external, created and removed by run-stack-test.sh
 # (mirroring gmctl deploy); the schedule's config is 0:0 0400 (seed.modes).
@@ -39,6 +40,7 @@ services:
     secrets:
       - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
       - {source: role_shop_app_password, target: /opt/gm/secrets/role_shop_app_password, uid: "0", gid: "0", mode: 0400}
+      - {source: gm_check_password, target: /opt/gm/secrets/gm_check_password, uid: "0", gid: "0", mode: 0400}
     networks: [net]
     deploy:
       replicas: 1
@@ -59,6 +61,7 @@ services:
       - {source: db_init, target: /opt/gmtest/db.sh, uid: "0", gid: "0", mode: 0444}
     secrets:
       - {source: role_shop_app_password, target: /run/secrets/role_shop_app_password, uid: "0", gid: "0", mode: 0400}
+      - {source: gm_check_password, target: /run/secrets/gm_check_password, uid: "0", gid: "0", mode: 0400}
     networks: [net]
     deploy:
       replicas: 1
@@ -89,3 +92,4 @@ configs:
 secrets:
   player_ssh_pubkey: {external: true, name: gmtest-sched_player_ssh_pubkey}
   role_shop_app_password: {external: true, name: gmtest-sched_role_shop_app_password}
+  gm_check_password: {external: true, name: gmtest-sched_gm_check_password}

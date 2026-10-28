@@ -3,7 +3,9 @@
 # from the scheduler Dockerfile's unit-test stage), the database the
 # scheduler's schedule targets. Not a brick: the brick under test is the
 # scheduler. Creates the role shop_app with the password of the secret the
-# scheduler node also mounts, the database `shop` and its tables, then runs
+# scheduler node also mounts, the GM check role gm_check (as the postgres
+# brick creates it, reading all data) with the password of the GM's secret,
+# the database `shop` and its tables, then runs
 # the server in the foreground.
 set -eu
 PGBIN=$(ls -d /usr/lib/postgresql/*/bin | sort -V | tail -n 1)
@@ -14,8 +16,10 @@ runuser -u postgres -- "$PGBIN/initdb" -D "$PGDATA" -A scram-sha-256 --auth-loca
 echo "host all all 0.0.0.0/0 scram-sha-256" >> "$PGDATA/pg_hba.conf"
 runuser -u postgres -- "$PGBIN/pg_ctl" -D "$PGDATA" -w -o "-c listen_addresses=''" start >/dev/null
 runuser -u postgres -- "$PGBIN/psql" -X -q -d postgres -v ON_ERROR_STOP=1 \
-    -v pw="$(cat /run/secrets/role_shop_app_password)" <<'SQL'
+    -v pw="$(cat /run/secrets/role_shop_app_password)" \
+    -v gmc="$(cat /run/secrets/gm_check_password)" <<'SQL'
 CREATE ROLE shop_app LOGIN PASSWORD :'pw';
+CREATE ROLE gm_check LOGIN PASSWORD :'gmc' IN ROLE pg_read_all_data;
 CREATE DATABASE shop OWNER shop_app;
 \c shop
 SET ROLE shop_app;

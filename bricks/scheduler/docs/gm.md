@@ -109,6 +109,7 @@ UTC weekday and the timeline as UTC instants. The forms are W1 item 7's:
 |---|---|---|
 | `player_ssh_pubkey` (key-pair, public half of `player_ssh_key`) | `/opt/gm/secrets/player_ssh_pubkey`, root `0444` | `gmctl deploy` |
 | `role_<role>_password`, one per role the schedule names (password, not handed over) | `/opt/gm/secrets/role_<role>_password`, 0:0 `0400` | render derives them from the schedules (spec D167): not in `brick.yaml`; `load-data` sets them in the database |
+| `gm_check_password` (password, not handed over), one secret with the `postgres` brick's | `/opt/gm/secrets/gm_check_password`, 0:0 `0400` | `gmctl deploy`; the database node creates `gm_check` with it. Read only by `check-sql`, for a sealed check that reads the data (spec D185); never passed to the program |
 
 A role is `[a-z_][a-z0-9_]{0,40}`, never `postgres`, `dba`, `monitoring`,
 `gm_check`, `pgbouncer_lookup` or `pg_*`.
@@ -126,6 +127,7 @@ A role is `[a-z_][a-z0-9_]{0,40}`, never `postgres`, `dba`, `monitoring`,
 | Write policy | `/run/gm/write-policy` | root `0444` in the root-only `/run/gm` |
 | Program configuration | `/etc/scheduler/scheduler.yaml` | root `0644`, protected: log, status, marker, paths, the endpoint |
 | Wrappers | `/usr/local/sbin/gm-reload-scheduler`, `gm-validate` | root `0755` |
+| The sealed checks' SQL | `/usr/local/lib/gm/check-sql` | root `0700`: root only, as the secret it reads |
 | `sudo` log | `/run/gm/sudo.log` | root, lost when the container is replaced |
 
 ### Start-up (`gm-entrypoint`, every container start)
@@ -246,6 +248,19 @@ Container ports 9120 and 22; nothing is published.
   snapshot.
 - **The GM** uses `gmctl exec` as root: the marker, the status, the
   counters, the log.
+- **The GM check role** (`gm_check`, v0.3 master spec 6.5, spec D185): a
+  sealed check that judges the data runs on this node as root and reaches
+  the database through `/usr/local/lib/gm/check-sql -h <db node> [-p
+  5432] -d <database> [-i name=identifier]... [-v name=value]...`, the
+  statement on standard input (`{name}` an identifier, `%(name)s` a
+  value; rows printed `|`-separated, as `psql -At`). It connects straight
+  to the database node's port 5432 (never a pooler) as `gm_check`, with
+  `gm_check_password`, inside the GM's reserve, read-only, with a 60 s
+  statement timeout; exit 0 done, 1 the statement failed, 2 it cannot run
+  or connect. The database node's `pg_hba.conf` must admit `gm_check`
+  from the game network (`host all gm_check samenet scram-sha-256` under
+  its DO NOT TAMPER comment), which only a scenario with such a check
+  needs.
 
 ## Footprint
 
@@ -273,11 +288,36 @@ snapshot: a restart's re-render brings the new game's seed.
 
 ## Supported faults
 
-No catalog fault names `scheduler` 0.1.0 yet. The faults of master spec
-15.3 that live in its files (a query with an error, a missing `WHERE`, a
-report reading far too much, retried inserts, transactions held open, a
-batch at the daily peak, a job in the wrong time zone) arrive with chunk
-14, which adds them to this section.
+Which faults the brick hosts is stated only by each fault's `applies_to`
+(D59). This list is every catalog fault (`faults/`) whose `applies_to`
+names `scheduler` `0.1.0`, and no other: the faults of v0.3 master spec
+15.3 that live in a scheduler node's files (capture W4). A scenario's own
+`faults/` folder may define more for itself (`fixture-load`'s
+`fixture-job-every-minute`); those are not listed here.
+
+All are `seed-file` faults planted at render: the scenario writes the
+planted form into `nodes/<node>/` and nothing runs at injection. Every
+seed file also stays on the node as rendered, at `/opt/gm/seed/<file>`
+(root, `0444`; `schedule.yaml` `0400`), which the sealed checks read as
+the planted form. The checks run as root on the node; they judge what the
+program runs, so a live file whose sha256 differs from its `file` line in
+`/run/scheduler/loaded` reads *present* ("fixed but not reloaded"). They
+never run the repository's code. A fix is reachable only through the
+write overrides `/srv/scheduler/repository` and `/srv/scheduler/jobs`
+(D170); `schedule.yaml` is never fixable.
+
+| Fault | Seed change | What it needs from the brick |
+|---|---|---|
+| `scheduler-query-error` | `queries.yaml`: a key's SQL fails with a class 42 or 22 error | the log's `error` and `key` lines, `scheduler_errors_total`; its check reads the log after the last load and may answer *too soon* (exit 3) for about a minute after a reload |
+| `scheduler-update-without-where` | `queries.yaml`: an `UPDATE` with no `WHERE` | the entry as loaded; the key's latencies in the log |
+| `scheduler-report-unbounded` | `queries.yaml`: a report with no bound on its date column | the entry as loaded; the key's latencies in the log |
+| `scheduler-insert-retry-duplicates` | `queries.yaml` and `builders/`: a builder resending a share of its inserts (material `inject/resend.py`) | `gm_check_password` and `check-sql`: its behavioural check reads the data as `gm_check` straight to the database node's port 5432 (spec D185); the scenario's `pg_hba.conf` admits `gm_check` from the game network |
+
+Their evidence is read on the node (the files, the log, the metrics
+endpoint) and from the bastion (`pg_stat_statements`,
+`pg_stat_activity`, `pg_stat_user_tables`); the database's log, pgBadger
+and Grafana readings are the scenario's, in its answer key. Each fault's
+`gm.md` says what a scenario using it must provide.
 
 ## Checks
 

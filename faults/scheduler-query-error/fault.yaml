@@ -1,0 +1,111 @@
+# Catalog fault: a query of the application fails at every call on a syntax
+# or type error (v0.3 master spec 15.3; capture W4 items 0 to 2). A seed-file
+# fault planted at render: the scenario writes the broken SQL into the
+# scheduler node's queries.yaml; the program loads it (it never checks SQL),
+# so the key keeps running and failing.
+
+# --- Identity ---------------------------------------------------------
+id: scheduler-query-error
+version: 0.1.0
+title: a query of the application fails on a syntax or type error
+family: application
+severity: medium
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: scheduler
+      versions: ["0.1.0"]
+  preconditions: []
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 10m                      # errors from the first call: ten minutes give ten key
+                                    # lines with errors= above 0 and their error lines
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  key:
+    description: >-
+      the queries.yaml key whose entry (a query, one entry of a pool, or one
+      step of a sequence) carries the error; a key a stream runs, never one
+      whose calls another instance's evidence needs
+    default: null
+    required: true
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: queries.yaml
+      change: >-
+        the {KEY} entry (a query, one entry of a pool, or one step of a
+        sequence) carries an error PostgreSQL rejects at every call, of
+        SQLSTATE class 42 (a syntax error 42601, an operator or function
+        that does not exist for the types 42883, a datatype mismatch 42804)
+        or 22 (an invalid input, 22P02)
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: node
+    source: the scheduler's log
+    how: grep 'error key={KEY} ' /var/log/scheduler/scheduler.log | tail
+    shows: error lines for the key with a class 42 or 22 SQLSTATE and PostgreSQL's message
+  - where: node
+    source: the scheduler's per-minute key lines
+    how: grep 'key minute=.* key={KEY} ' /var/log/scheduler/scheduler.log | tail
+    shows: errors= above 0 in every minute the key runs
+  - where: node
+    source: the scheduler's metrics endpoint
+    how: curl -s localhost:9120/metrics | grep 'scheduler_errors_total{key="{KEY}"}'
+    shows: the key's error counter climbing with its calls
+  - where: node
+    source: the query repository
+    how: cat /srv/scheduler/repository/queries.yaml
+    shows: the {KEY} entry's SQL with the syntax or type error
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names the {KEY} query as failing at every call (or at every call of its
+    broken pool entry or step), the SQLSTATE and its cause in the SQL (the
+    syntax error, or the types that do not match), from the scheduler's log
+    or the database's.
+  proposal: >-
+    the corrected SQL for the {KEY} entry, deployed with the application
+    (on the node: the entry edited in queries.yaml and sudo
+    gm-reload-scheduler).
+  fix: >-
+    the {KEY} entry corrected in the loaded queries.yaml (edited and
+    reloaded with sudo gm-reload-scheduler), and the key's calls since that
+    reload ending without a class 42 or 22 error.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  Part of the application keeps failing: some screens never load and the
+  application's log is full of database errors.

@@ -23,6 +23,9 @@
 #   - report-only: edits denied, gm-reload-scheduler's refusal line;
 #   - an override of /srv/scheduler/jobs on the report-only node letting
 #     player edit jobs.yaml with sed -i and reload it;
+#   - the GM check role's secret root-only, and check-sql (root only)
+#     reaching the database as gm_check, straight to its port 5432,
+#     read-only (spec D185);
 #   - the entrypoint's refusals (policy, override, schedule, secrets);
 #     read-only root, capabilities, /run a volume; the footprint at rest.
 # Real time throughout (about 15 minutes); nothing moves a clock.
@@ -44,7 +47,7 @@ NET=${STACK}_net
 CLIENT=${STACK}-client
 LABEL=dbagm.test=chunk3-scheduler
 CONFIGS="seed_schedule seed_queries seed_builder_report seed_jobs db_init"
-SECRETS="player_ssh_pubkey role_shop_app_password"
+SECRETS="player_ssh_pubkey role_shop_app_password gm_check_password"
 VOLUMES="sch_repository sch_jobs sch_schedlog sch_schedstate sch_home sch_gmstate sch_run"
 SSH_OPTS="-i /root/id -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o LogLevel=ERROR -o ConnectTimeout=10"
 REPO=/srv/scheduler/repository
@@ -52,6 +55,8 @@ JOBS=/srv/scheduler/jobs/jobs.yaml
 LOG=/var/log/scheduler/scheduler.log
 SCHEDULE=/opt/gm/seed/schedule.yaml
 SECRET=/opt/gm/secrets/role_shop_app_password
+GMC_SECRET=/opt/gm/secrets/gm_check_password
+CHECK_SQL=/usr/local/lib/gm/check-sql
 REFUSAL='gm-reload-scheduler: this node is report-only: its files cannot be changed, so nothing was reloaded.'
 
 failures=0
@@ -118,6 +123,8 @@ minute_of() { date -u -d "@$1" +%Y-%m-%dT%H:%MZ; }
 ssh-keygen -q -t ed25519 -N '' -C gmtest-player -f "$tmp/id"
 printf 'app%s' "$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')" > "$tmp/role_shop_app_password"
 APPPW=$(cat "$tmp/role_shop_app_password")
+printf 'gmc%s' "$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')" > "$tmp/gm_check_password"
+GMCPW=$(cat "$tmp/gm_check_password")
 TOKEN="schedule-token-$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 # X: the moment of the timeline change and the minute of the job `nightly`,
 # about eight minutes after deployment; the test takes the scheduler down
@@ -180,6 +187,7 @@ cfg seed_jobs "$tmp/jobs.yaml"
 cfg db_init "$HERE/fixtures/db.sh"
 docker secret create -l "$LABEL" "${STACK}_player_ssh_pubkey" "$tmp/id.pub" >/dev/null
 docker secret create -l "$LABEL" "${STACK}_role_shop_app_password" "$tmp/role_shop_app_password" >/dev/null
+docker secret create -l "$LABEL" "${STACK}_gm_check_password" "$tmp/gm_check_password" >/dev/null
 
 info "deploying stack $STACK (timeline change and job nightly at $(utc "$X"))"
 docker stack deploy --resolve-image never -c "$HERE/stack.test.yml" "$STACK" >/dev/null 2>&1
@@ -277,6 +285,24 @@ fi
 denied "player cannot read the program's environment" cat "/proc/$pid/environ"
 denied "player cannot read the role's secret" cat "$SECRET"
 check "the service account cannot read the role's secret" sh -c "! docker exec -u scheduler $C cat $SECRET"
+
+# --- the GM check role's secret and check-sql (spec D185) ---------------------------
+st=$(gm stat -c '%u:%g %a' "$GMC_SECRET" "$CHECK_SQL" | tr '\n' ' ')
+[ "$st" = "0:0 400 0:0 700 " ] && pass "gm_check_password 0:0 0400, check-sql 0:0 0700" || fail "gm_check_password, check-sql: $st"
+denied "player cannot read gm_check_password" cat "$GMC_SECRET"
+denied "player cannot run check-sql" "$CHECK_SQL" -h db -d shop
+check "the service account cannot read gm_check_password" sh -c "! docker exec -u scheduler $C cat $GMC_SECRET"
+check "the service account cannot run check-sql" sh -c "! echo 'SELECT 1' | docker exec -i -u scheduler $C $CHECK_SQL -h db -d shop"
+check "the program got no gm_check password" sh -c "! docker exec $C grep -rqF -D skip '$GMCPW' /proc/$(prog_pid)/cmdline /srv /var/log/scheduler /var/lib/scheduler /run/scheduler /home/player"
+out=$(printf 'SELECT current_user, inet_server_port(), count(*) FROM products\n' | gm "$CHECK_SQL" -h db -d shop 2>&1)
+[ "$out" = "gm_check|5432|300" ] && pass "check-sql: as gm_check, straight to db:5432 ($out)" || fail "check-sql: [$out]"
+out=$(printf 'SELECT count(*) FROM {t} WHERE {c} <= %%(n)s::int\n' | gm "$CHECK_SQL" -h db -p 5432 -d shop -i t=public.products -i c=id -v n=10 2>&1)
+[ "$out" = 10 ] && pass "check-sql: -i identifiers and -v values bound ($out)" || fail "check-sql -i, -v: [$out]"
+out=$(printf 'INSERT INTO reports (n) VALUES (1)\n' | gm "$CHECK_SQL" -h db -d shop 2>&1); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q '^check-sql: 25006 ' \
+    && pass "check-sql: read-only, a write fails with exit 1 ($out)" || fail "check-sql write: exit $rc: $out"
+out=$(printf 'SELECT 1\n' | gm "$CHECK_SQL" -h db -d nosuchdb 2>&1); rc=$?
+[ "$rc" = 2 ] && pass "check-sql: a connection refused exits 2 ($out)" || fail "check-sql refused: exit $rc: $out"
 
 # --- SSH, sudo, validator, owners and modes ----------------------------------------
 u=$(pssh id -un 2>&1 || true)
