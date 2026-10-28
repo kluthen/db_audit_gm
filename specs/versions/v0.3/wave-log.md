@@ -3702,3 +3702,17 @@ merges after this wave.
   fernway smoke runs; item 12's quality command. Left for after the aged
   run: `smoke-scenario.sh` on tarnbeck on armenelos plus the VPS, item
   11's forced failures.
+- Item 7, setup: a fresh GM session set up `tarnbeck-outdoor-shop` on
+  armenelos alone (playground `laptop`, declared 4 CPU / 4G / 18G;
+  `fit`: disk 7.75G, snapshot 11.85G of 18G), the driver playing the
+  initiator. Game `tarnbeck-outdoor-shop-zcbdq5`; T0
+  2026-10-28T20:44:25Z; earliest hand-over 2026-10-29T12:44:25Z
+  (provisional until f8); planned hand-over 2026-10-29T14:00Z, customer's
+  time zone UTC+0. Every step exit 0, no warning. Host timers: f8's
+  planting at 08:00Z, the early check at 11:44:25Z. The images were the
+  wave gate's builds of the same code. At 20:45Z the producer's
+  per-minute summaries were flowing; its `catalog.lookup` errors are f1's
+  planted query error. The VPS stayed Drain.
+- Next, by the driver: a check after f8's planting (09:07 CET); a fresh
+  GM session resuming during the aging at 12:52 CET (`status` first, the
+  early check's result), then the hand-over check and the snapshot.
