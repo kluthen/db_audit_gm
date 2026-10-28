@@ -8,7 +8,7 @@ in [archive/v0.1/open-questions-resolved.md](archive/v0.1/open-questions-resolve
 their IDs keep their meaning. Questions resolved by the close of v0.2
 (O13, O50, O51 and O56–O77) are listed in
 [archive/v0.2/open-questions-resolved.md](archive/v0.2/open-questions-resolved.md).
-Numbering continues from O104.
+Numbering continues from O111.
 
 Resolved since v0.2 closed: O45 (D121), O46 (D128), O78 (D140), O82
 (D124), O83 (D125), O84 (D126), O85 (D127), O86 (D129), O87 (D130), O88
@@ -43,9 +43,13 @@ for the next version (v0.1 until it closed, with none left open);
 - **O11** (later) — Which technology fills each v1.0 role beyond v0.2's
   monitoring (settled: D69) and v0.3's producers and consumers (the
   scheduler brick sending SQL to PostgreSQL, D115, D118; other targets
-  from v0.5): the two databases, transformation; which engine versions
-  first; and how upgrade scenarios (both binaries, disk space) fit the
-  budget. Refs: [versions/v1.0/README.md](versions/v1.0/README.md).
+  from v0.5). Narrowed for v0.4 by D190: transformation is a generic
+  job runner started from the scheduler brick (O105), the second
+  database PostgreSQL by default, another engine only if a purpose
+  needs one (O106). Still open: which engine versions first, and how
+  upgrade scenarios (both binaries, disk space) fit the budget. Refs:
+  [versions/v1.0/README.md](versions/v1.0/README.md),
+  [versions/v0.4/README.md](versions/v0.4/README.md).
 - **O12** (later) — Are network-level faults (segmentation, routing-mesh
   exposure) in scope? And the network layout itself (management network,
   zones, dual-homed nodes). v0.2 has one network and no network faults
@@ -74,8 +78,11 @@ for the next version (v0.1 until it closed, with none left open);
   (D150), a classroom swarm staying up for a school day may become
   enough for short-aging scenarios, which may change how much the
   volume copy is needed; noted, not reopened (D125 stands).
+  Not moot: v0.4's purposes (D190) run daily, weekly or monthly jobs,
+  which real time alone barely exercises; that part is O109.
   Refs: [scenario-lifecycle.md](scenario-lifecycle.md),
-  [versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md).
+  [versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md),
+  [versions/v0.4/README.md](versions/v0.4/README.md).
 - **O23** (later) — Difficulty is a fault count, each fault worth 1 (easy
   5, normal 10, hard 20; D120), read for v0.3 as the number of fault
   instances, the levels being targets (D134). Still open:
@@ -86,7 +93,10 @@ for the next version (v0.1 until it closed, with none left open);
   scenario? Probably moot after D8; kept until the owner says so.
 - **O25** (later) — Scenario-only bricks and faults may live in the
   scenario's folder (D24). Can they be promoted into the catalog, and
-  through which review?
+  through which review? From v0.4 the question is mostly about purposes
+  (D190): a purpose built for one scenario, its jobs, invariants and
+  faults, promoted into the catalog, rather than a transformer brick.
+  Refs: [versions/v0.4/README.md](versions/v0.4/README.md).
 
 ## Game and feedback
 
@@ -118,6 +128,59 @@ await the owner's review in
 raised at wave 1's preflight, was answered the same day (D171), and
 O103, raised at wave 2's preflight, on 2026-10-26 (D175). None is open.
 
+## v0.4: purposes
+
+Raised when the owner recast v0.4 as "bricks of why and bits of hows"
+on 2026-10-28 (D190). O11, O22, O25 and O52 are revised by it.
+
+- **O104** (soon, v0.4) — The purpose format: its definition, template
+  and completeness rules in [formats.md](formats.md), then the
+  `scenario-format` skill and the scenario document. Includes the final
+  name ("purpose" is a working name); how a job states its source,
+  target, computation and timing; how a fault attaches to a purpose as
+  well as to a brick (`applies_to` names a brick and its versions
+  today); whether a purpose has a version, as a brick does, or never
+  bumps, as faults and scenarios; and how a check learns when a fix
+  happened, so it answers "too soon to tell" until the job has run since
+  (v0.3's behavioural checks judge a trailing window and are never
+  told). Refs: [versions/v0.4/README.md](versions/v0.4/README.md).
+- **O105** (soon, v0.4) — The job runner: extend v0.3's `scheduler`
+  brick (`queries.yaml`, `schedule.yaml`, `jobs.yaml`) or fork it into a
+  brick of its own? Either way, what the players read and change of a
+  job (v0.3: the fixed-time operations, D116), and how it meets v0.5's
+  plan for transformation triggers as scheduler drivers (D118). Refs:
+  [versions/v0.4/README.md](versions/v0.4/README.md),
+  [versions/v0.3/scheduler.md](versions/v0.3/scheduler.md).
+- **O106** (soon, v0.4) — Does any v0.4 purpose need an engine beyond
+  PostgreSQL (columnar or other)? The owner: "we may have to introduce
+  other database at this step despite what i've said. We shall see."
+  If one does, it brings an engine D47 placed beyond v1.0 into v0.4.
+  Refs: [versions/v0.4/README.md](versions/v0.4/README.md).
+- **O107** (next, v0.4) — Which purposes are in v0.4? Proposed: two or
+  three, for example a BI rollup into a reporting database, lead
+  extraction, and a mailing job to an outbox; reports, dashboards and
+  finance could follow, or one of them could replace one of these.
+  Shapes O106, O108 and O109. Refs:
+  [versions/v0.4/README.md](versions/v0.4/README.md).
+- **O108** (soon, v0.4) — The shared business data model (orders,
+  customers, payments, refunds, consent, time zones): what it holds,
+  where it lives (catalogue or per scenario), how the data load and the
+  producers write it, and how it relates to v0.5's library of common
+  schemas, which it partly brings forward. Probably v0.4's main
+  technical work. Refs: [versions/v0.4/README.md](versions/v0.4/README.md),
+  [versions/v0.5/README.md](versions/v0.5/README.md).
+- **O109** (soon, v0.4) — Daily, weekly or monthly purposes under real
+  time, with no sped-up clock (D114, D132): v0.3's scenario ages sixteen
+  hours, so a daily job runs once or twice per game, and nobody triggers
+  a job during a game (D131), so a fix may stay "too soon to tell" to
+  the session's end. Run the jobs more often than their story says, or
+  ship pre-aged derived history (past results already in the trace)?
+  The second may count as the forged history D114 and D132 rule out.
+  Linked to O22. Refs: [versions/v0.4/README.md](versions/v0.4/README.md).
+- **O110** (later, v0.4) — Is a real mail sink ever needed, or is the
+  outbox always enough? Current view: the outbox is enough. Refs:
+  [versions/v0.4/README.md](versions/v0.4/README.md).
+
 ## Roadmap: gaps and cross-version risks
 
 Raised with the roadmap (D47). The tag after the priority is the version
@@ -140,10 +203,12 @@ the question concerns.
   backup". Which version? Refs:
   [bricks-and-faults.md](bricks-and-faults.md), "Future ideas: backup
   tooling".
-- **O52** (later, v0.4) — dbt adds a Python toolchain and adapters to a
-  node image: image size and build time, one image per adapter (Postgres,
-  DuckDB), versions to pin. One transformer brick per technology? Refs:
-  [versions/v0.4/README.md](versions/v0.4/README.md).
+- **O52** (later, after v0.4) — dbt adds a Python toolchain and adapters
+  to a node image: image size and build time, one image per adapter
+  (Postgres, DuckDB), versions to pin. One transformer brick per
+  technology? v0.4 plans no dbt: its jobs run on one generic job runner
+  (D190, O105). Stands for whichever later version or purpose wants dbt.
+  Refs: [versions/v0.4/README.md](versions/v0.4/README.md).
 - **O53** (later, v0.5) — Bluebox as a dataset:
   - its schema needs PostGIS, `pg_stat_statements` (a preloaded library)
     and `pg_trgm`, so a PostgreSQL 18 brick with those extensions;

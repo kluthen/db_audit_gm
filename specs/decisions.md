@@ -16,7 +16,7 @@ README:
 Archived IDs keep their meaning and are cited as they are. D107 onward
 stay live: rulings still to be applied in a later version (D107, D108,
 D110, D113), the v0.2 release close, and v0.3's drafting from D114.
-Numbering continues after D189, the last; no ID is reused.
+Numbering continues after D190, the last; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -541,3 +541,12 @@ Numbering continues after D189, the last; no ID is reused.
   `gm.md` and the format template say it. Now in:
   [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 6.3;
   [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunks 14, 15.
+- **D190 (2026-10-28, owner direction, relayed by the lead session): v0.4
+  is "bricks of why and bits of hows", not technology bricks:** a new
+  catalogue artefact, the purpose (working name: its jobs, trace,
+  invariants and faults); consumers modelled by their trace, no mailer,
+  BI or finance software; a generic job runner and a second database,
+  PostgreSQL by default, another engine only if a purpose needs one
+  (the owner: "We shall see"). Revises D47 for v0.4 only; the rest of
+  D47 holds. Open: O104–O110; O11, O22, O25, O52 revised. Now in:
+  [versions/v0.4/README.md](versions/v0.4/README.md).
