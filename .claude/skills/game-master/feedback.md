@@ -2,16 +2,23 @@
 
 How the [GM skill](SKILL.md) gives feedback once the players have given
 their final answer and the evaluation has run (v0.1 master spec 13; v0.2
-master spec 6.3 and 9 add the tooling expectations). v0.2 version,
-expected to evolve as games are played: the owner judges the tone and the
-tooling's usefulness at acceptance. Scores and saved feedback are deferred
-(v0.2 master spec 16): v0.2 gives no score and saves nothing.
+master spec 6.3 and 9 add the tooling expectations; v0.3 master spec 11
+adds the fault undetermined at the final answer, and 12 the judgement
+after a restart with no history). v0.3 version, expected to evolve as
+games are played: the owner judges the tone and the tooling's usefulness
+at acceptance. A players' score is deferred (after v1.0, v0.3 master
+spec 2; a scenario's difficulty score is not the players'): v0.3 gives no
+score and saves nothing.
 
 ## Inputs
 
 - the final answer, as handed in;
 - the evaluation: `gmctl validate` and `gmctl check`, run before
-  teardown, and your judgement of each fault instance;
+  teardown, and your judgement of each fault instance (`fixed`,
+  `present`, or **undetermined**: a check still reading `too-soon` when
+  you could wait no longer);
+- whether the game was restarted, and from the hand-over snapshot or
+  with no history (`gmctl status`, its `restart` lines);
 - `gm/answer-key.yaml` (`what`, `why`, `evidence`, `acceptable`; and
   `tooling_expectations`: `need`, `expected`, `acceptable`, `notes`), the
   issues of `scenario.yaml`, and `gm/notes.md`, whose feedback points are
@@ -37,6 +44,15 @@ it.
      live state; a *propose* or *report*: the diagnosis and the
      proposal). Say what made it acceptable, or what was missing for it
      to be;
+   - **undetermined**, for a fault whose check still read "too soon to
+     tell" at the final answer: say so plainly, without a verdict. The
+     fix was made too recently for its effect to show over the window
+     the check judges, so the live system cannot say yet whether it
+     holds. Judge the diagnosis and what they did on the report; say what
+     to watch, and for how long, to confirm such a fix (the `evidence`),
+     and, where it helps, that checking a fix over time before calling it
+     done is part of the method. Never count the missing verdict against
+     them;
    - one improvement, if there is one worth making.
 3. **The other faults present** (the hidden ones, and any known one the
    issues did not lead to), one block each: found or missed. When found,
@@ -82,6 +98,8 @@ A teacher's, speaking to students:
   acceptable. Say what is missing, kindly, and how to get there.
 - **Proportionate.** Most words go to what helps them improve; no
   lecture, no wall of text. A short block per issue and per fault.
-- **Fair about the game.** A validator they could not make green, or a
-  check that errored because of the game itself, is never held against
-  them.
+- **Fair about the game.** A validator they could not make green, a
+  check that errored because of the game itself, a fault left undetermined
+  by a window that had not elapsed, or, after a restart with no history,
+  evidence the restarted game could not build up again in the time left,
+  is never held against them. Say which faults that restart affected.
