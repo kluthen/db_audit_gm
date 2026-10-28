@@ -8,17 +8,21 @@
 #
 # On a copy of a scenario as it is in the repository (scenarios/<scenario>,
 # or a scenario folder given by its path, without any local implementation):
-#   fit (the playground the scenario was designed for: its single
-#   designed_for host, by name, with that host's CPU, memory and disk;
-#   images read from the engine) -> render -> deploy -> load-data -> inject.
+#   fit (the playground the scenario was designed for, on the local engine:
+#   its designed_for host, by name, with that host's CPU, memory and disk;
+#   a scenario designed for several hosts on this one host alone, every
+#   designed host placed on it (fit's one-host form, the designed_for
+#   placement unused), the playground named after the designed hosts and
+#   declaring the sum of their CPU, memory and disk; images read from the
+#   engine) -> render -> deploy -> load-data -> inject.
 #   A scenario with scheduler nodes (spec D157, D158) is a short game with
 #   load: rendered with --handover (a whole hour past now plus its aging
 #   minimum), then start-load (T0; the early check's host timer armed), the
 #   faults due during the aging planted at once with inject --at now (a test
-#   harness, never a game), and a few minutes of schedules (LOAD_MINUTES, 3
-#   by default) after which every scheduler key is running: summarised every
-#   minute since T0 by its scheduler, with calls, and counted in its
-#   metrics. A scenario with none is rendered without --handover and has no
+#   harness, never a game), and a few minutes of schedules (LOAD_MINUTES:
+#   3 by default, 12 for tarnbeck-outdoor-shop, see below) after which every
+#   scheduler key is running: summarised every minute since T0 by its
+#   scheduler, with calls, and counted in its metrics. A scenario with none is rendered without --handover and has no
 #   start-load, as in v0.2. Then:
 #   - check: one line per fault instance, in fault_instances order, every
 #     sealed check at 1 (present) and the command exiting 1; polled for up
@@ -55,7 +59,9 @@
 # Usage: sh tools/tests/smoke-scenario.sh <scenario>        (from anywhere)
 #   e.g. sh tools/tests/smoke-scenario.sh fernway-clinics-monitoring
 #        sh tools/tests/smoke-scenario.sh bookshop-new-server
+#        sh tools/tests/smoke-scenario.sh tarnbeck-outdoor-shop
 #        sh tools/tests/smoke-scenario.sh path/to/a/scenario-folder
+# LOAD_MINUTES=<n> in the environment overrides the minutes of schedules.
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -63,7 +69,6 @@ REPO=$(cd "$HERE/../.." && pwd)
 GMCTL="python3 $REPO/tools/gmctl"
 LABELS="com.docker.stack.namespace dbagm.game"
 KINDS="service network volume config secret"
-LOAD_MINUTES=${LOAD_MINUTES:-3}
 CHECK_TIMEOUT=${CHECK_TIMEOUT:-180}    # seconds one gmctl check run may take
 started=$(date +%s)
 
@@ -75,6 +80,14 @@ esac
 NAME=$(basename "$SRC")
 [ -f "$SRC/scenario.yaml" ] && [ -f "$SRC/gm/answer-key.yaml" ] \
     || { echo "no scenario $1 (no scenario.yaml and gm/answer-key.yaml in $SRC)" >&2; exit 2; }
+# The minutes of schedules a scenario needs before every stream key has ended
+# a call: tarnbeck-outdoor-shop's f4 holds its first call five minutes after
+# the first arrival and its reports.best-days stream runs every five minutes
+# (20/h) at office hours' 0.6 in the evening, so 12 (gm/notes.md).
+case $NAME in
+    tarnbeck-outdoor-shop) LOAD_MINUTES=${LOAD_MINUTES:-12} ;;
+    *) LOAD_MINUTES=${LOAD_MINUTES:-3} ;;
+esac
 
 failures=0
 passes=0
@@ -123,7 +136,9 @@ units() {
 }
 
 # scn <what>: read from the scenario copy's scenario.yaml and answer key.
-#   playground  "<host> <cpu> <memory> <disk>" of its single designed_for host
+#   playground  "<name> <cpu> <memory> <disk>": its designed_for host's; for
+#               several, one playground named after them all, of their sum
+#   designed    its designed_for hosts' names, comma-separated
 #   aging       its aging minimum in seconds, empty with no scheduler node
 #   schedulers  "<node>" per scheduler node, in nodes order
 #   streams     "<node> <key>" per stream of every scheduler (initial keys)
@@ -132,9 +147,11 @@ units() {
 #   verdicts    "<node> green|red, ..." in nodes order, as validate's last line
 #   red         "<node> <rule>" per RED line the answer key expects
 scn() {
-    python3 - "$SCN" "$1" <<'EOF'
+    python3 - "$SCN" "$1" "$REPO" <<'EOF'
 import re, sys, yaml
 scn, what = sys.argv[1], sys.argv[2]
+sys.path.insert(0, sys.argv[3])
+from tools.gm.model import format_size, parse_cpu, parse_size
 s = yaml.safe_load(open(scn + "/scenario.yaml"))
 key = yaml.safe_load(open(scn + "/gm/answer-key.yaml"))
 sched = [n for n in s["nodes"] if n["brick"]["id"] == "scheduler"]
@@ -150,11 +167,16 @@ for inst in key.get("instances") or []:
         red.append((left["node"], r.group(1) if r else ""))
 if what == "playground":
     hosts = s["designed_for"]["hosts"]
-    if len(hosts) != 1:
-        sys.exit("designed for %d hosts: this smoke run needs a single one "
-                 "(smoke-load.sh takes a playground of several)" % len(hosts))
-    h = hosts[0]
-    print(h["name"], h["cpu"], h["memory"], h["disk"])
+    if len(hosts) == 1:
+        h = hosts[0]
+        print(h["name"], h["cpu"], h["memory"], h["disk"])
+    else:
+        cpu = sum(parse_cpu(h["cpu"]) for h in hosts)
+        print("-".join(str(h["name"]) for h in hosts), "%g" % cpu,
+              format_size(sum(parse_size(h["memory"]) for h in hosts)),
+              format_size(sum(parse_size(h["disk"]) for h in hosts)))
+elif what == "designed":
+    print(", ".join(str(h["name"]) for h in s["designed_for"]["hosts"]))
 elif what == "aging":
     if sched:
         m = re.match(r"^(\d+)([smhd])$", str(s["aging"]["minimum"]))
@@ -228,7 +250,12 @@ on() {     # on <node> <user> [gmctl exec options]: the script on stdin, run the
 
 # --- local implementation ---------------------------------------------------
 info "scenario $NAME"
-info "gmctl fit (the $PG playground: $CPU CPU / $MEMORY / $DISK)"
+DESIGNED=$(scn designed)
+if [ "$DESIGNED" = "$PG" ]; then
+    info "gmctl fit (the $PG playground: $CPU CPU / $MEMORY / $DISK)"
+else
+    info "gmctl fit (designed for $DESIGNED: all on this one host, playground $PG of their sum: $CPU CPU / $MEMORY / $DISK)"
+fi
 if $GMCTL fit "$SCN" --playground "$PG" --cpu "$CPU" --memory "$MEMORY" --disk "$DISK"; then
     pass "fit: the images and the reservations fit $CPU CPU / $MEMORY / $DISK"
 else
