@@ -127,7 +127,7 @@ plan states only its deltas. Its conventions follow v0.2's
 | G7 | Review of the v0.3 scenario, built as capture W4 item 10 proposes (spec D188): its faults (chunk 14's among them), issues, aging, write policies and answer key (master spec 15.2) | The owner | Chunk 15's merge | cleared 2026-10-28 (owner, wave log) |
 | G8 | The release gate's aged run window: the hosts G5 settles up and otherwise quiet for about twenty hours, deployed in an evening and handed over the next early afternoon (spec D156) | The owner, who sets the date with the driver | Release gate items 7 to 9 | set 2026-10-28: deployed that evening on armenelos, hand-over 2026-10-29 early afternoon (owner, wave log) |
 | G9 | The restart's confirmation at the release gate: the owner types the players' confirmation in the GM session himself (spec D156) | The owner, at the release gate | Release gate item 8 | ruled (spec D156); typed at the release gate |
-| G10 | The owner's judgement at release close: the aged game, the feedback under load, the findings | The owner | Release close | open |
+| G10 | The owner's judgement at release close: the aged game, the feedback under load, the findings | The owner | Release close | passed 2026-10-29 (owner, wave log) |
 | G11 | O103: whether the lost time beyond thirty minutes moves the whole earliest hand-over (master spec 8.7, spec D152) or only the aging minimum's term (access model 6), when a fault instance's own minimum since its planting is the later term | The owner | Chunk 8's merge (8b's earliest hand-over) | cleared 2026-10-26 (spec D175) |
 
 G6 was a question the plan raised on the approved spec (master spec 11

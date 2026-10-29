@@ -3807,3 +3807,19 @@ merges after this wave.
 - RG-8 confirmed by the GM: the f3 answer key says removing the old
   duplicates does not matter to the check; it does (the check counts
   the duplicates still in the table).
+- 2026-10-29, the owner: "you may teardown. i'll let you fix what need
+  to be fixed … you've done well." Taken as G10 (the owner's judgement
+  of the aged game and the feedback): passed. Teardown of
+  `tarnbeck-outdoor-shop-q8au6x` at 18:16:18Z under the host lock: 8
+  services, 1 network, 35 configs, 10 secrets, 76 volumes removed,
+  nothing labelled left, no host timer left.
+- Owner ruling the same day: no aged run before v1.0 (maybe not even
+  then); aged runs stay one-off, not a standing gate item, as they take
+  too long. Sent to spec-writer on `v0.4-readme` (later versions' gates).
+- RG-1, RG-2, RG-3, RG-5 and RG-8 to be fixed before release (owner);
+  sent to a coding-executor on `v0.3-rg-fixes`, merging into `v0.3-w4`,
+  with items 1–5 and 13's document checks. RG-4, RG-6, RG-7 go to the
+  release notes as known gaps. Left after the fixes: item 6's
+  `smoke-scenario.sh` on tarnbeck on armenelos plus the VPS, item 11's
+  forced failures with item 9's early hand-over refusal, the release
+  notes (item 15).
