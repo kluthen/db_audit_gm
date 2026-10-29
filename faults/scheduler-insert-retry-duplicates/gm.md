@@ -51,6 +51,13 @@ GM's reserve, read-only, straight to `{DB_NODE}:5432`. d = rows whose
 time lies in the trailing window W and whose id occurs more than once
 among them. *Fixed* when d ≤ T; *present* when the newest such row is
 younger than W/2; else *too soon*, `remaining=` W minus its age. Before
-the load starts the table has no recent rows: *fixed*. Smoke runs see
+the load starts the table has no recent rows: *fixed*. It counts the rows
+still in the table, so deleting the duplicates matters: a deletion reads
+*fixed* at once, cause fixed or not, and with the cause still there the
+next resend makes it *present* again. After a deletion, run it again a
+few resend intervals later, and judge the cause from the client's code
+and the table's definition. With the cause fixed and the duplicates
+left, it reads *present*, then *too soon*, then *fixed* W after the last
+duplicate. Smoke runs see
 *present* only once the ingestion has run a few minutes after
 `start-load`.

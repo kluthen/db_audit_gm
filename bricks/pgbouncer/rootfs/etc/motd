@@ -5,7 +5,7 @@
                   the GM's settings, which win over it (read-only):
                   /usr/local/lib/gm/pgbouncer-gm.ini
                   what PgBouncer reads: /run/pgbouncer-conf/pgbouncer.ini
-  Console:        psql            (database pgbouncer as role dba, dba's password;
+  Console:        psql            (database pgbouncer as role dba; password in ~/.pgpass;
                                    SHOW POOLS; SHOW STATS; SHOW CLIENTS; SHOW CONFIG;)
                   from the bastion: psql -h <this node> -p 6432 -U dba pgbouncer
   Logs:           /var/log/pgbouncer/pgbouncer.log

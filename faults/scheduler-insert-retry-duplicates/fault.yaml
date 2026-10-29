@@ -4,8 +4,9 @@
 # the scheduler node's queries.yaml to a builder (material: inject/resend.py)
 # that resends a share of its inserts with the same client id, into a table
 # with no unique constraint on that id. Behavioural: the sealed check judges
-# the duplicate rows inserted over the answer key's window, from the data,
-# connecting as the GM check role straight to the database node's port 5432.
+# the duplicate rows still in the table among those inserted over the answer
+# key's window, from the data, connecting as the GM check role straight to
+# the database node's port 5432.
 
 # --- Identity ---------------------------------------------------------
 id: scheduler-insert-retry-duplicates
@@ -117,12 +118,14 @@ acceptance:
     ({ID_COLUMN}) DO NOTHING in the client, so a resend is harmless; a
     constraint alone turns the resends into errors the client must handle.
   fix: >-
-    at most the answer key's threshold of duplicate rows inserted in its
-    trailing window: the producer fixed (ON CONFLICT DO NOTHING behind a
-    unique constraint, or the resend gone, reloaded with sudo
-    gm-reload-scheduler) or the database alone fixed (a unique constraint:
-    the resends then fail with 23505 in the producer's log, which the GM
-    weighs).
+    the cause fixed, and at most the answer key's threshold of duplicate
+    rows left in {TABLE_NAME} among those inserted in its trailing window:
+    the producer fixed (ON CONFLICT DO NOTHING behind a unique constraint,
+    or the resend gone, reloaded with sudo gm-reload-scheduler) or the
+    database alone fixed (a unique constraint: the resends then fail with
+    23505 in the producer's log, which the GM weighs). Deleting the
+    duplicates alone is not a fix, though the check reads it as one until
+    the next resend.
 
 # --- The sealed check ----------------------------------------------------
 sealed_check:

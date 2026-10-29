@@ -50,6 +50,16 @@ The image:
   manager: `gmctl fit` refuses a mapping that places the bastion, or any
   node publishing ports, on another host, and names the `--map` to change.
   The image is unchanged.
+- **Across hosts, as tried** (chunk 10b's two-host try, 2026-10-26,
+  armenelos plus the VPS; master spec 20): the swarm is bound to the
+  hosts' Tailscale addresses (`--advertise-addr`, `--listen-addr` and
+  `--data-path-addr` on `tailscale0`); the game's overlay and the
+  swarm's ingress carry the MTU option 1230, which Docker reads as the
+  outer MTU, so 1180 inside a node, within Tailscale's 1280 (D184); the
+  bastion's ports 2222 and 8080 opened on its own host only. `gmctl
+  deploy` copies each image a host lacks with `docker save <image> |
+  docker --context dbagm-<host> load`, through that host's SSH Docker
+  context, never pulled (D181), and skips one held under the same id.
 - **Stateful**: yes (`stateful: true`): the player's home (`~/report.md`,
   notes) and the sshd host key. Its volumes `home` and `hostkeys` must
   follow the node if it is replaced; `run` is emptied at each start.

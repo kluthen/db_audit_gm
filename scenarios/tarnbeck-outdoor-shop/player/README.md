@@ -21,14 +21,17 @@ last night and keeps running while you work.
 All eight nodes are on one private network. From outside, only the
 bastion's SSH port and its web front port are reachable.
 
-- `ssh <node>` logs you in to a node as `player` (the key is in
-  `~/.ssh/id_ed25519`).
+- You log in to the bastion as `player` with the bastion password the
+  game master gave you: the bastion takes no SSH key. The key in
+  `~/.ssh/id_ed25519` is only for the hops from the bastion to the nodes:
+  `ssh <node>` logs you in to a node as `player` with it.
 - `psql -h db` from the bastion, or `psql` on `db`, connects you as the
   superuser role `dba` (the password is in `~/.pgpass` on both
   machines). Add `-d shop` for the shop's database.
 - `psql -h pooler -p 6432 -U dba pgbouncer` from the bastion opens
   PgBouncer's console (`SHOW POOLS;`, `SHOW STATS;`, `SHOW DATABASES;`,
-  `SHOW HELP;`); on `pooler`, plain `psql` does.
+  `SHOW HELP;`); on `pooler`, plain `psql` does (`dba`'s password is in
+  `~/.pgpass` there too).
 - On a fixable node or path, changing the configuration is expected:
   explain every change in your report. On a report-only one, report what
   you find and propose what to change.

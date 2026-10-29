@@ -15,9 +15,9 @@ connection pooler between the clients and the database. Initial version
 - **The console**: the database `pgbouncer`, as role `dba` with `dba`'s
   password. From the bastion: `psql -h <node> -p 6432 -U dba pgbouncer`
   (your `~/.pgpass` there has the password). On the node itself, plain
-  `psql` opens it (you type `dba`'s password, or copy the bastion's
-  `~/.pgpass`). `SHOW POOLS;`, `SHOW STATS;`, `SHOW CLIENTS;`,
-  `SHOW SERVERS;`, `SHOW CONFIG;`, `SHOW DATABASES;`, `SHOW HELP;`.
+  `psql` opens it (your `~/.pgpass` on the node has the password too).
+  `SHOW POOLS;`, `SHOW STATS;`, `SHOW CLIENTS;`, `SHOW SERVERS;`,
+  `SHOW CONFIG;`, `SHOW DATABASES;`, `SHOW HELP;`.
   `dba` reads the console but cannot change it: `RELOAD`, `SET`, `PAUSE`
   and the like answer "admin access needed".
 

@@ -19,8 +19,11 @@ render; nothing runs at injection.
   or connect straight to the database (not through a transaction-mode
   pooler, where it would pin a server connection).
 - The answer key adds the PostgreSQL log's autovacuum lines naming dead
-  rows not yet removable and the oldest xmin (`node:<db>`, with
-  `log_autovacuum_min_duration = 0`).
+  rows not yet removable and the removable cutoff (`node:<db>`, with
+  `log_autovacuum_min_duration = 0`). PostgreSQL 18 prints `tuples: ...
+  are dead but not yet removable` and `removable cutoff: ..., which was
+  ... XIDs old when operation ended`; "oldest xmin" is the wording before
+  PostgreSQL 15.
 - Its seed changes name `queries.yaml` and `schedule.yaml`, which is never
   fixable, so the loader refuses an expected `fix` on any node (spec
   D186): report or propose.
