@@ -3857,3 +3857,31 @@ merges after this wave.
   Item 6 PASS. The rehearsal also forced failures during an aging (a
   scheduler killed, a 4-minute outage), recorded with the game left
   running: item 11's second half.
+- Item 11 and item 9's early hand-over, by a fresh GM session on
+  armenelos alone, the driver the initiator (2026-10-29):
+  - Forced setup failure: a scratch copy of tarnbeck (never in the
+    repo) with `SELECT 1/0;` appended to `data/db.sql`, playground
+    `rgfail`, game `tarnbeck-outdoor-shop-rv6jxu`: fit, render, deploy
+    and the wiring reads 0; `load-data` 1, gmctl tore the game down
+    itself, stage `failed` recorded before `data-loaded`; the GM's
+    confirming teardown found nothing left. Finding RG-9: the reason
+    recorded read `psql exit 3: setval` (psql's first output line), not
+    the error. Fixed (d2e3999, merge 3330648): the reason carries
+    psql's `ERROR:` line (then `FATAL:`, `psql:`), for the data load,
+    the schedulers' passwords and the CONNECT grant; unit 658.
+  - A real game, `tarnbeck-outdoor-shop-o6aw03` on `laptop`: every
+    step 0, T0 18:53:56Z, earliest hand-over 2026-10-30T12:00Z
+    (provisional until f8), both host timers set. Asked by the
+    initiator to hand over at once: refused, saying when (12:00Z at
+    the earliest, once f8 is planted and the hand-over check passes).
+  - Forced failure during the aging: the driver scaled the producer to
+    0 at 18:54:42Z and back at 18:58:02Z. Asked what it saw, the GM read
+    `status` (OUTAGES: 4 min lost in 1 period, under the 30 min, the
+    earliest hand-over not moved; task history may be incomplete),
+    traced it to the service spec changed outside gmctl, found no
+    fixed-time run in the gap and no evidence lost, and left the game
+    running, touching nothing (the load is not the GM's to restart).
+  - Torn down at the initiator's request, with its reason, at
+    19:00:00Z: nothing labelled left, both host timers removed. The
+    VPS stayed Drain throughout. Items 9 and 11: PASS.
+- The sleep inhibitor released; no docker work left in the gate.
