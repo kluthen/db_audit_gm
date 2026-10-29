@@ -28,7 +28,8 @@ bastion's SSH port and its web front port are reachable.
   machines). Add `-d shop` for the shop's database.
 - `psql -h pooler -p 6432 -U dba pgbouncer` from the bastion opens
   PgBouncer's console (`SHOW POOLS;`, `SHOW STATS;`, `SHOW DATABASES;`,
-  `SHOW HELP;`); on `pooler`, plain `psql` does.
+  `SHOW HELP;`); on `pooler`, plain `psql` does (`dba`'s password is in
+  `~/.pgpass` there too).
 - On a fixable node or path, changing the configuration is expected:
   explain every change in your report. On a report-only one, report what
   you find and propose what to change.
