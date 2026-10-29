@@ -3721,3 +3721,17 @@ merges after this wave.
   12:44:25Z; aged 11h22m, lost time 0; all 8 services 1/1; producer and
   consumer summaries current (08:06Z), no outage line; the inhibitor
   held. A Windows reboot overnight touched nothing (armenelos up 8 days).
+- Item 7, a fresh GM session resuming during the aging (11:52Z): ran
+  `status` first (stage `load-started`, aged 15h8m, lost time 0, f8
+  planted 08:00:00Z by its timer); the early check fired by its timer at
+  11:44:25Z and passed (every fault present, both schedulers' keys ok,
+  every node healthy, no lost time); 909 per-minute summaries on each
+  scheduler, no gap, no outage; the consumer's nightly-rollup (01:30Z)
+  and accounting-export (10:00Z) ran ok. It stopped before the earliest
+  hand-over (12:44:25Z), to resume for the hand-over check and snapshot.
+- Footprint around the noon peak (`docker stats` each minute,
+  11:52–12:39Z, armenelos): game total peak 632MiB; per node max: grafana
+  203M, db 192M (CPU 32%), prometheus 128M (aged TSDB; 65M in the
+  rehearsal), producer 43M, consumer 30M, exporter 25M, pooler 12M,
+  bastion 6M; armenelos' lowest available memory 3763MiB. No node
+  restarted.
