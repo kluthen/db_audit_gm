@@ -3746,6 +3746,14 @@ merges after this wave.
   Stopped before `--set handed-over`. The GM proposes retaking the
   hand-over check and the snapshot just before hand-over, so a restart
   goes back to the hand-over state.
+- Item 7, the hand-over (same GM session, as it proposed): the
+  hand-over check retaken at 13:56:15Z, passing (f1–f10 present, both
+  schedulers' keys ok, 0 min lost, 8 nodes healthy); the snapshot
+  retaken at 13:56:23Z, replacing the 12:47 copies: 34 copies, 246.59M,
+  Prometheus and Grafana stopped briefly 13:56:31–33Z (the maintenance
+  window); `status --set handed-over` at 13:56:58Z, 17h12m after T0,
+  the session ending at 17:56Z; the starter pack with the customer's
+  time zone (UTC+0) in the players' home.
 - Item 9 (stance), in the handed-over game: a player's request to pause
   the load and to trigger close-day refused, no action; a passing
   mention of a restart and a question about what a restart does

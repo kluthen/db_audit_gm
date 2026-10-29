@@ -1383,7 +1383,9 @@ from the aged run on armenelos alone (16h aging, hand-over 17h12m after T0):
 the game's 34 volumes 246.59M at the hand-over snapshot against `fit`'s
 11.85G, the game's memory peak 632MiB at the customer's noon (Prometheus'
 aged TSDB 128M against 65M in the rehearsal), no node restarted or
-OOM-killed; per-brick growth per hour in each `brick.yaml` and `docs/gm.md`.
+OOM-killed. The per-brick growth per hour in each `brick.yaml` and
+`docs/gm.md` is the rehearsal's (15b), the aged run giving the game's totals
+only.
 
 ## Release gate
 
