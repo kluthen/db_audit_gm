@@ -3716,3 +3716,8 @@ merges after this wave.
 - Next, by the driver: a check after f8's planting (09:07 CET); a fresh
   GM session resuming during the aging at 12:52 CET (`status` first, the
   early check's result), then the hand-over check and the snapshot.
+- Check at 08:07Z: f8 planted 2026-10-29T08:00:00Z by its host timer
+  (the unit exited 0 at 08:00:03Z); earliest hand-over now final,
+  12:44:25Z; aged 11h22m, lost time 0; all 8 services 1/1; producer and
+  consumer summaries current (08:06Z), no outage line; the inhibitor
+  held. A Windows reboot overnight touched nothing (armenelos up 8 days).
