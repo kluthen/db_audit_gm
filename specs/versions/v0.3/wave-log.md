@@ -3735,3 +3735,14 @@ merges after this wave.
   rehearsal), producer 43M, consumer 30M, exporter 25M, pooler 12M,
   bastion 6M; armenelos' lowest available memory 3763MiB. No node
   restarted.
+- Item 7, hand-over preparation by the same GM session: close-day ran
+  at 12:00:00–12:00:23Z (34,355 rows, 23.2 s; orders.place p95 22.6 s
+  that minute, the noon stall the story needs). The hand-over check at
+  12:47:13Z passed: f1–f10 present, both schedulers' keys ok and their
+  jobs run, 0 min lost, all 8 nodes healthy. Snapshot at 12:47:24Z:
+  34 copies, 259.09M, about 11 s; Prometheus and Grafana stopped about
+  1 s each inside their containers, no node down. Starter pack checked
+  against the render (sha256), customer's zone UTC+0, no secret in it.
+  Stopped before `--set handed-over`. The GM proposes retaking the
+  hand-over check and the snapshot just before hand-over, so a restart
+  goes back to the hand-over state.
