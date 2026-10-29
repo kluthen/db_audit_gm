@@ -535,14 +535,14 @@ the expected answer): none.
 ### `f3`: `scheduler-insert-retry-duplicates` on `producer`, known
 
 - **What is wrong**: The web shop's carriers' feed (deliveries.ingest, the
-  builder builders/carrier_feed.py) sends one call in five a second time with
-  the same event_id (its resend option, 0.2: the client resending when the
-  acknowledgement is late), and delivery_events has no unique constraint on
-  event_id, so each resend is a second row.
+  builder builders/carrier_feed.py) sends one call in five a second time
+  with the same event_id (its resend option, 0.2: the client resending when
+  the acknowledgement is late), and delivery_events has no unique constraint
+  on event_id, so each resend is a second row.
 - **Why it matters**: Deliveries are counted twice (issue I2): about 120
-  duplicate rows an hour, day and night, wrong counts and sums downstream (the
-  carriers' invoices); the table grows with copies. None in the backup's
-  history: they start with last night's feed.
+  duplicate rows an hour, day and night, wrong counts and sums downstream
+  (the carriers' invoices); the table grows with copies. None in the
+  backup's history: they start with last night's feed.
 
 Evidence, as the `player` user (and `dba` in psql):
 
@@ -556,34 +556,60 @@ Evidence, as the `player` user (and `dba` in psql):
 Acceptable answers:
 
 - **Diagnosis**: names the duplicate rows (the same event_id stored twice),
-  their cause (the feed client resends an event whose acknowledgement is late,
-  and nothing makes the insert idempotent: no unique constraint on event_id)
-  and what they cost (wrong delivery counts).
+  their cause (the feed client resends an event whose acknowledgement is
+  late, and nothing makes the insert idempotent: no unique constraint on
+  event_id) and what they cost (wrong delivery counts).
 - **Proposal**: make the insert idempotent: remove the existing duplicates,
   add a unique constraint on event_id, and INSERT ... ON CONFLICT (event_id)
   DO NOTHING in the builder, so a resend is harmless.
-- **Fix**: at most the threshold's duplicate rows inserted in the trailing
-  window: the builder fixed (ON CONFLICT DO NOTHING behind a unique
-  constraint, or the resend gone) and reloaded with sudo gm-reload-scheduler,
-  or the database alone fixed (a unique constraint, after the duplicates are
-  removed: the resends then fail with 23505 in the producer's log, about two a
-  minute, which the GM weighs: the data is right, the client is not). The best
-  answer does both and cleans the existing duplicates.
+- **Fix**: the cause fixed, and at most the threshold's duplicate rows left
+  in delivery_events among those inserted in the trailing window: the
+  builder fixed (ON CONFLICT DO NOTHING behind a unique constraint, or the
+  resend gone) and reloaded with sudo gm-reload-scheduler, or the database
+  alone fixed (a unique constraint, after the duplicates are removed: the
+  resends then fail with 23505 in the producer's log, about two a minute,
+  which the GM weighs: the data is right, the client is not). The best
+  answer does both and cleans the existing duplicates. Deleting the
+  duplicates alone is not a fix, though the check reads it as one for a
+  minute or so (see its notes). f4 slows the database side down (see
+  interactions): the constraint waits for the dashboard's open transactions,
+  up to about five minutes, and a concurrent index build about five minutes;
+  the wait is not held against a right fix.
 
 Sealed check: `faults/scheduler-insert-retry-duplicates/checks/fixed.sh`,
 exit 1 at hand-over (0: fixed, 1: present, 3: too soon to tell).
 Behavioural, from the data: it runs on the producer as root and connects as
 gm_check straight to db:5432 (the seed pg_hba.conf's host all gm_check
-samenet line, DO NOT TAMPER). After a fix it reads present while the newest
-duplicate is younger than 15 minutes, then too soon (exit 3, remaining= the
-rest of the 30 minutes), then 0 about 30 minutes after the last duplicate.
-Removing the old duplicates does not matter to it; the resend's share gives
-about 120 duplicate rows in any 30 minutes, so a present reading is never
-chance.
+samenet line, DO NOT TAMPER). It counts the rows still in delivery_events
+that were inserted in the trailing 30 minutes and whose event_id occurs more
+than once among them, so removing the duplicates matters to it: a deletion
+reads 0 at once, whether or not the cause is fixed. With the cause still
+there, the next resend (about two a minute, two rows each) puts it back to
+present within a minute or so: after a deletion, run it again a few minutes
+later, and judge the cause from the builder and the table's definition, not
+from one reading. With the cause fixed and the duplicates left in place, it
+reads present while the newest duplicate is younger than 15 minutes, then
+too soon (exit 3, remaining= the rest of the 30 minutes), then 0 about 30
+minutes after the last duplicate; with them removed as well, 0 at once. The
+resend's share gives about 120 duplicate rows in any 30 minutes, so a
+present reading is never chance.
 Behavioural: judged over a trailing window of 30m,
 against a threshold of 0.
 
-Interactions: none.
+Interactions:
+
+- `f4`, conflicts-with: f4's dashboard reads delivery_events in repeatable
+  read transactions held open five minutes, two at once, which gets in the
+  way of the database side of f3's fix. ALTER TABLE delivery_events ADD
+  CONSTRAINT ... UNIQUE needs an ACCESS EXCLUSIVE lock, not granted while a
+  dashboard transaction that has read the table is open: up to about five
+  minutes (the release gate's play-through reported it as never granted),
+  and while it waits the feed's inserts and every read of the table queue
+  behind it, the inserts holding the pooler's server connections (f7).
+  CREATE UNIQUE INDEX CONCURRENTLY waits for every transaction older than it
+  to end: about five minutes a build. A team that waits it out, or ends the
+  dashboard's sessions first (first aid for f4), gets the constraint in; the
+  GM credits a team that saw why it waited.
 
 Public validators the players cannot make green (reporting each is part of
 the expected answer): none.
@@ -594,12 +620,12 @@ the expected answer): none.
   (reports.dashboard) runs its three reads in a repeatable read transaction
   and keeps it open five minutes before committing (transaction: {isolation:
   repeatable read, hold: 5m}); a new one starts every five minutes, two at
-  once, so a snapshot is always open and its backend_xmin holds back vacuum on
-  every table of the cluster.
+  once, so a snapshot is always open and its backend_xmin holds back vacuum
+  on every table of the cluster.
 - **Why it matters**: Dead rows younger than the oldest open snapshot cannot
   be removed: autovacuum runs on customers and products (updated by every
-  checkout) again and again and leaves dead rows behind each time; tables and
-  indexes bloat and the work is wasted. A snapshot held for minutes by a
+  checkout) again and again and leaves dead rows behind each time; tables
+  and indexes bloat and the work is wasted. A snapshot held for minutes by a
   screen nobody watches is never needed.
 
 Evidence, as the `player` user (and `dba` in psql):
@@ -609,15 +635,16 @@ Evidence, as the `player` user (and `dba` in psql):
 | `bastion` | pg_stat_activity | `psql -c "SELECT application_name, state, now() - xact_start AS xact_age, backend_xmin FROM pg_stat_activity WHERE state LIKE 'idle in transaction%'"` | consumer sessions idle in transaction for up to five minutes, holding the oldest backend_xmin (the producer's checkouts show too, for under four seconds each: see f7) |
 | `node:consumer` | the query repository | `ssh consumer, then cat /srv/scheduler/repository/queries.yaml` | reports.dashboard: transaction: {isolation: repeatable read, hold: 5m} |
 | `node:consumer` | the scheduler's log, per-minute key lines | `grep 'key=reports.dashboard ' /var/log/scheduler/scheduler.log \| tail` | p50_ms about 300000, the hold |
-| `node:db` | the PostgreSQL log's autovacuum lines | `ssh db, then grep -A8 'automatic vacuum of table "shop.public.products"' /var/log/postgresql/postgresql-*.log \| tail -20` | tuples: ... are dead but not yet removable, oldest xmin: ... at every run, the oldest xmin minutes behind |
+| `node:db` | the PostgreSQL log's autovacuum lines | `ssh db, then grep -A8 'automatic vacuum of table "shop.public.products"' /var/log/postgresql/postgresql-*.log \| tail -20` | "tuples: ... are dead but not yet removable" and "removable cutoff: ..., which was ... XIDs old when operation ended" at every run, the cutoff held back by the oldest open snapshot (PostgreSQL 18's wording; "oldest xmin" before 15) |
 | `bastion` | the tables' statistics | `psql -d shop -c 'SELECT relname, n_dead_tup, autovacuum_count, last_autovacuum FROM pg_stat_user_tables ORDER BY n_dead_tup DESC'` | customers and products keeping dead rows although autovacuum ran on them many times |
 
 Acceptable answers:
 
 - **Diagnosis**: names the dashboard's transactions held open for minutes
-  (idle in transaction, their snapshot the oldest xmin) as what keeps vacuum
-  from removing dead rows, from pg_stat_activity and the autovacuum log lines,
-  and traces them to the consumer's reports.dashboard.
+  (idle in transaction, their snapshot the oldest backend_xmin, holding back
+  the autovacuum log's removable cutoff) as what keeps vacuum from removing
+  dead rows, from pg_stat_activity and the autovacuum log lines, and traces
+  them to the consumer's reports.dashboard.
 - **Proposal**: the dashboard commits as soon as its reads are done (no
   hold; read committed is enough for it), a change for the agency;
   idle_in_transaction_session_timeout on the database, or for the role
@@ -633,6 +660,10 @@ Interactions:
 
 - `f9`, masked-by: autovacuum never visits orders (f9), so the held snapshot
   shows no effect there: its evidence is on customers and products.
+- `f3`, conflicts-with: the dashboard's open transactions hold a lock on
+  delivery_events, so f3's ADD CONSTRAINT ... UNIQUE waits up to about five
+  minutes for its ACCESS EXCLUSIVE lock (the feed's inserts queued behind
+  it) and each CREATE INDEX CONCURRENTLY about five minutes; see f3.
 
 Public validators the players cannot make green (reporting each is part of
 the expected answer): none.

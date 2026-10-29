@@ -144,7 +144,12 @@ one snapshot always open), jobs `nightly-rollup` 01:30 and
 - **I2 (f3).** The fix has two sides; a unique constraint alone turns
   the resends into errors (23505 in the producer's log): data right,
   client wrong. Cleaning the existing duplicates first is needed for the
-  constraint and for the counts.
+  constraint and for the counts. f4's dashboard gets in the way: the
+  `ADD CONSTRAINT ... UNIQUE` waits up to about five minutes for its lock
+  (the feed's inserts queued behind it), each `CREATE INDEX
+  CONCURRENTLY` about five minutes; a team that sees why has read
+  `pg_locks` or `pg_stat_activity` well, and the wait is not held against
+  it (answer key, f3's interactions).
 - **I3 (f6).** Reading `timezone: Etc/GMT+7` the right way round (the
   sign is inverted) is the trap; `sudo gm-reload-scheduler` prints the
   next run in UTC, to compare with 02:00 the customer's time.
@@ -160,8 +165,11 @@ one snapshot always open), jobs `nightly-rollup` 01:30 and
 
 All read 1 at hand-over. f1 reads too soon for up to about 130 s after
 any reload of the producer (a fix of f3 or f5 included); f3 is
-behavioural (window 30m, threshold 0): present for 15 minutes after a
-fix, then too soon, then 0 about 30 minutes after the last duplicate. f2,
+behavioural (window 30m, threshold 0) and counts the duplicates still in
+the table: with them left in place, present for 15 minutes after a fix,
+then too soon, then 0 about 30 minutes after the last duplicate; with
+them deleted, 0 at once, cause fixed or not, and back to present within
+a minute or so if the cause is still there. f2,
 f4 and f10 cannot be fixed by the players and stay at 1.
 
 ## Smoke runs and the rehearsal (test harness only)
