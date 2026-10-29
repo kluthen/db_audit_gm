@@ -8,7 +8,7 @@ in [archive/v0.1/open-questions-resolved.md](archive/v0.1/open-questions-resolve
 their IDs keep their meaning. Questions resolved by the close of v0.2
 (O13, O50, O51 and O56–O77) are listed in
 [archive/v0.2/open-questions-resolved.md](archive/v0.2/open-questions-resolved.md).
-Numbering continues from O121.
+Numbering continues from O122.
 
 Resolved since v0.2 closed: O45 (D121), O46 (D128), O78 (D140), O82
 (D124), O83 (D125), O84 (D126), O85 (D127), O86 (D129), O87 (D130), O88
@@ -179,7 +179,10 @@ on 2026-10-28 (D190). O11, O22, O25 and O52 are revised by it.
   the session's end. Run the jobs more often than their story says, or
   ship pre-aged derived history (past results already in the trace)?
   The second may count as the forged history D114 and D132 rule out.
-  Linked to O22. Refs: [versions/v0.4/README.md](versions/v0.4/README.md).
+  Linked to O22. Release gates have no aged run before v1.0 (D193), so
+  a gate sees a daily job only if its run is placed inside the
+  rehearsal or moved in a smoke test: O121. Refs:
+  [versions/v0.4/README.md](versions/v0.4/README.md).
 - **O110** (later, v0.4) — Is a real mail sink ever needed, or is the
   outbox always enough? Current view: the outbox is enough. Refs:
   [versions/v0.4/README.md](versions/v0.4/README.md).
@@ -278,7 +281,8 @@ Raised when the owner set business domains for v0.5 on 2026-10-28
 
 ## Roadmap: gaps and cross-version risks
 
-Raised with the roadmap (D47). The tag after the priority is the version
+Raised with the roadmap (D47), O121 by the owner's ruling on release
+gates (D193). The tag after the priority is the version
 the question concerns.
 
 - **O47** (later, v1.0) — Which version brings scenario generation: the GM
@@ -293,6 +297,23 @@ the question concerns.
   aging and a hand-over check. Refs:
   [versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md),
   [versions/v1.0/README.md](versions/v1.0/README.md).
+- **O121** (soon, v0.4 → v1.0) — With no aged run at a release gate
+  before v1.0 (D193), what does a gate check in place of what v0.3's
+  aged run showed? The smoke tests run minutes with every fault planted
+  at once; the rehearsal runs about two hours with the aging minimum
+  capped (D161); the early check fires from the host's timer. None of
+  them shows: evidence building over hours under the load at a
+  scenario's real minimum; a purpose's daily job running at its story's
+  time, its trace, and a fix going from "too soon to tell" to fixed
+  (O109); the volumes' growth over a full aging, only extrapolated from
+  the rehearsal's per-hour figures; the hosts and timers holding through
+  a night unattended. Proposed: each later gate's definition of done
+  names these as known limits; the rehearsal's planned hand-over is
+  chosen so a purpose job's run falls inside its two hours, as the
+  traffic's peak hours already are; growth is extrapolated and stated
+  as such. Refs: [versions/README.md](versions/README.md#release-gates),
+  [versions/v0.4/README.md](versions/v0.4/README.md#release-gate),
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 11.
 - **O49** (soon, roadmap) — Backup tools (pgBackRest and the like) and the
   backup-tooling fault families (D17) are in no version, although backups
   were a founding example and the v0.1 goal speaks of "investigating a

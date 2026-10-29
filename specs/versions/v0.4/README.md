@@ -3,7 +3,8 @@
 Status: draft. No master spec. Direction recast on 2026-10-28 (D190),
 revising D47's "transformers" for this version; a first cut of data
 governance added the same day (D191), and the shared business data
-model made the first business domain (D192).
+model made the first business domain (D192). Its release gate has no
+aged run (D193).
 
 ## Goal
 
@@ -257,6 +258,20 @@ regulated domains of v0.5 ([v0.5](../v0.5/README.md#domains)).
 - v0.2: monitoring and the exporter, for the second database and the
   jobs.
 
+## Release gate
+
+v0.4's definition of done is written with its master spec. Its release
+gate has no aged run (D193): it relies on the smoke tests, the
+rehearsal and the early check fired by the host's timer
+([roadmap](../README.md#release-gates)). For purposes this means:
+
+- A daily job runs at its fixed time, so its trace, and a fix going
+  from "too soon to tell" to fixed, show at the gate only if a run falls
+  inside the rehearsal's two hours, or a smoke test moves the run as a
+  player may (D116) (proposed; O121).
+- The trace's growth over a full aging is extrapolated from the
+  rehearsal's per-hour figures, not observed (O121).
+
 ## Questions due in this version
 
 - O107 (next): which purposes are in v0.4.
@@ -273,6 +288,7 @@ regulated domains of v0.5 ([v0.5](../v0.5/README.md#domains)).
 - O118: brick changes for governance (pgaudit, TLS).
 - O119: what "fixed" means for a governance fault.
 - O120: a distinct database, or an instance of its own.
+- O121: what a release gate checks in place of an aged run.
 - O11: technologies and versions, narrowed by D190.
 - O22: scheduled jobs under real time; not moot, its v0.4 part is O109.
 - O52: the dbt toolchain, not planned for v0.4.

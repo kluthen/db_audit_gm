@@ -566,3 +566,14 @@ Numbering continues after D192, the last; no ID is reused.
   more can be added. Open: O111–O114; O108, O47 revised. Now in:
   [versions/v0.5/README.md](versions/v0.5/README.md#domains),
   [versions/v0.4/README.md](versions/v0.4/README.md).
+- **D193 (2026-10-29, owner ruling after v0.3's release-gate aged run,
+  relayed by the wave driver): An aged run, a full aging to the
+  hand-over then a play-through, is a one-off check, not a standing
+  item of every release gate;** none is planned before v1.0, and whether
+  v1.0's gate has one is decided when that gate is planned. The owner:
+  "it takes too much time." v0.3's gate ran one and it passed; D135
+  holds for v0.3 only. Later gates rely on the smoke tests, the
+  rehearsal and the timer-fired early check. Open: O121. Now in:
+  [versions/README.md](versions/README.md#release-gates),
+  [versions/v0.4/README.md](versions/v0.4/README.md#release-gate),
+  [versions/v1.0/README.md](versions/v1.0/README.md).

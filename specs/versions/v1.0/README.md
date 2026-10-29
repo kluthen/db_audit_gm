@@ -63,7 +63,9 @@ be needed for v1.0, is put to the owner:
 
 ## Open for this version
 
-- A definition of done, once the gaps above are placed.
+- A definition of done, once the gaps above are placed. Whether its
+  release gate has an aged run is decided when that gate is planned; it
+  may not (D193; [roadmap](../README.md#release-gates)).
 - O2 (scripts versus agent judgment for generated scenarios), O20 (the
   solvability probe as a gate), O29 (brief format), O30 (preparation time
   before a class), O32 (language of player-facing material), O38 (feedback

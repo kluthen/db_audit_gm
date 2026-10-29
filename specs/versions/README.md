@@ -24,4 +24,20 @@ v0.1 is draft.
 
 Questions about the roadmap as a whole (gaps between v0.5 and v1.0,
 risks across versions) are in [open-questions.md](../open-questions.md),
-O47 to O49 and O52 to O54 (O46, multi-host, resolved by D128 for v0.3).
+O47 to O49, O52 to O54 and O121 (O46, multi-host, resolved by D128 for v0.3).
+
+## Release gates
+
+An aged run (a scenario aged for its full declared minimum to the
+hand-over, then played through as `player`) is a one-off check, not a
+standing item of every release gate (D193). v0.3's gate ran one, and it
+passed. None is planned before v1.0; whether v1.0's gate has one is
+decided when that gate is planned. In the owner's words: "it need to
+stay ponctual and not a regular thing. it takes too much time."
+
+The gates of v0.4, v0.5 and v0.6 rely on the shorter checks, as v0.3
+defines them ([master spec](v0.3/master-spec.md) 11 and 8.5): the smoke
+tests, short deployments with every fault planted at once; the
+rehearsal, about two hours unattended with the aging minimum capped
+(D161); and the early check fired by the host's timer. What those
+checks cannot show that an aged run did is O121.
