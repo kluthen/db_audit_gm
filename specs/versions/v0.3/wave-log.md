@@ -3780,3 +3780,16 @@ merges after this wave.
     duplicates inserted in it was already 0. A deletion without the
     cause fixed would read "fixed" until the next duplicate (about four
     a minute).
+- Item 8, the restart (G9): a player asked for a restart; the GM gave
+  the statement (every change lost, back to hand-over, the gap a
+  maintenance window, same access, no extra time) and asked for a
+  confirmation in so many words. The owner typed "yes, we confirm:
+  restart the game", relayed verbatim. `gmctl restart --confirmation`
+  14:28:57–14:29:28Z (31 s): game `tarnbeck-outdoor-shop-q8au6x`, 34
+  volumes restored, a new seed, both schedulers resumed from their
+  marker, stage handed-over, the four hours still counted from the
+  first hand-over. Checked by the driver at 14:30:45Z: f1–f10 present
+  again (the fixes gone), the player password and the tools password
+  still valid, the starter pack back in `~`. The GM told the players
+  the maintenance window, 13:56–14:29 UTC. The producer's first minute
+  after the restart had 17 errors (about 6–11 before), reconnecting.
