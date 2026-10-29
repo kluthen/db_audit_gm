@@ -3746,3 +3746,37 @@ merges after this wave.
   Stopped before `--set handed-over`. The GM proposes retaking the
   hand-over check and the snapshot just before hand-over, so a restart
   goes back to the hand-over state.
+- Item 9 (stance), in the handed-over game: a player's request to pause
+  the load and to trigger close-day refused, no action; a passing
+  mention of a restart and a question about what a restart does
+  answered (whole game, every change lost, back to hand-over, no extra
+  time, only on an explicit confirmation), nothing restarted. The early
+  hand-over refusal is left for the item 11 game.
+- Item 8, play-through by a verifier as `player` (bastion and web front
+  only), 13:58–14:25Z: every evidence item of f1–f10 reachable where the
+  answer key says. Fixes 14:04–14:24Z: f8 (index), f9 (autovacuum),
+  f7 (pool 3 → 8), f1 (`sku`), f5 (close-day to 23:30), f3 (idempotent
+  insert, duplicates removed, unique index), f6 (timezone removed);
+  validators green. Not fixed by design: f2, f4 (agency), f10
+  (Prometheus report-only). Sealed checks from the host at 14:26:45Z:
+  f1, f3, f5–f9 fixed; f2, f4, f10 present.
+- Findings for the release notes (verifier):
+  - RG-1: the player's SSH key is refused on the bastion (password
+    only); the key works for the hops between nodes.
+  - RG-2: on `pooler`, plain `psql` fails (`SASL authentication failed`,
+    no `~/.pgpass`), so f7's "how" in the answer key fails as written;
+    `psql -h pooler -p 6432 -U dba pgbouncer` from the bastion works.
+  - RG-3: f4 blocks f3's proposed `ADD CONSTRAINT … UNIQUE` (a lock
+    never granted) and makes each `CREATE INDEX CONCURRENTLY` wait 5 min;
+    the answer key doesn't say so.
+  - RG-4: f5's Prometheus evidence is weak (p95 buckets 2.5/5/10/30 hide
+    the noon stall among other bumps); the logs are strong.
+  - RG-5: PostgreSQL 18's autovacuum log says "removable cutoff", not
+    the answer key's "oldest xmin" (f4).
+  - RG-6: Grafana's statement panels are labelled by queryid only (f2).
+  - RG-7: the db log's `client=` shows 10.0.1.18 for most connections.
+  - RG-8: f3's window check read 0 at once, not 3 then 0: the players
+    deleted the duplicates inside the 30-minute window, so the count of
+    duplicates inserted in it was already 0. A deletion without the
+    cause fixed would read "fixed" until the next duplicate (about four
+    a minute).
