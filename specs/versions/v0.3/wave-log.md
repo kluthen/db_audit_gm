@@ -3823,3 +3823,37 @@ merges after this wave.
   `smoke-scenario.sh` on tarnbeck on armenelos plus the VPS, item 11's
   forced failures with item 9's early hand-over refusal, the release
   notes (item 15).
+- Release gate fixes (coding-executor, `v0.3-rg-fixes`, merge f84258c):
+  - RG-2 fixed in the brick (3cde51c): pgbouncer 0.1.0 declares
+    `dba_password` and writes the player's `~/.pgpass` at each start, as
+    the spec, `docs/gm.md` and the starter pack promised; stack test
+    105/105; f7's "how" now right as written.
+  - RG-1 not a defect: the bastion is password-only by v0.1 master spec
+    9.2 and the access model; the key is for the hops. The tarnbeck
+    starter pack now says so (cfeebb9); bookshop and fernway keep the
+    older wording.
+  - RG-8, RG-3, RG-5 in the answer key, the faults and `gm/notes.md`
+    (e4dca09): f3's check counts the duplicates still in the table
+    (deleting them alone is not a fix); f3↔f4 `conflicts-with`. RG-3
+    corrected: on PG 18 the `ADD CONSTRAINT` lock is granted once the
+    open holders end (about five minutes at most), not never; inserts
+    queue behind it meanwhile. PG 18.6's wording "removable cutoff".
+  - The README regenerated; the loader's completeness check clean.
+    Unit 653, scheduler 60, bastion stack 71/71, `smoke-scenario.sh
+    tarnbeck-outdoor-shop` 26/26 on armenelos alone (795 s). No version
+    bump (pgbouncer 0.1.0 and bastion 0.3.0 unreleased, D100); the
+    pgbouncer image rebuilt.
+- Items 1–5: PASS (executor, evidence in its report: every brick's
+  `docs/gm.md` against its `brick.yaml`; the eleven faults in the new
+  evidence form on `gm_check`; the eight new faults complete; the
+  scenario complete, README current; `gmctl` against master spec 13 and
+  8.7). Item 13: the brick docs held every finding but the bastion's
+  (added, ca42bad); the driver wrote the missing findings into chunks 3,
+  4, 5, 6, 8, 10 and 15's Record lines. PASS.
+- Item 6 reread: `smoke-scenario.sh` is one-host by design (it places a
+  several-host design on one engine); the two-host deployment of
+  tarnbeck is the rehearsal, re-run on armenelos plus the VPS at the
+  wave 4 gate on this code (53/53), with `smoke-load.sh` duo 73/73.
+  Item 6 PASS. The rehearsal also forced failures during an aging (a
+  scheduler killed, a 4-minute outage), recorded with the game left
+  running: item 11's second half.

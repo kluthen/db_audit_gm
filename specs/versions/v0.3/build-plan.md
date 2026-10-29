@@ -580,6 +580,9 @@ interface and write-policy contract, and records what it built as W1-y
 Record: 3a f2e5781, 3b 10faa0b (merge 3b54bee). No deviation from the
 spec or W1; what W1 left to it is in Capture W1-y. Its tests use Debian's
 PostgreSQL 17, not the `postgres` brick's 18.
+Left for the build, recorded at the release gate (item 13): the scheduler's
+footprint at rest 17M to 26M (27M to 41M running two streams), volumes about
+56K, the log about 20K an hour at two keys (`docs/gm.md`, "Footprint").
 
 ### Chunk 4 — `postgres` 0.3.0
 
@@ -646,6 +649,13 @@ Record: 4a a91689b, 4b 190b374 (merge 913c13e). No deviation from the
 spec or W1 (`-X fetch` with a temporary slot held, no snapshot volume);
 its choices are in Capture W1-x. Outside its Files line:
 `tools/tests/test_{deploy,fit,state,teardown}.py` (the two new secrets).
+Left for the build, recorded at the release gate (item 13): the GM's reserve
+is two connections (`reserved_connections = 2` on the server's command line,
+`superuser_reserved_connections` kept at 3); the check role `gm_check` holds
+`pg_use_reserved_connections`, `pg_monitor`, `SELECT` on the view
+`pg_catalog.pg_hba_file_rules` and `EXECUTE` on the function behind it (the
+view alone is not enough); postgres at rest 59M, 206M at most under the
+rehearsal's load (`docs/gm.md`).
 
 ### Chunk 5 — The monitoring bricks 0.2.0: report-only and snapshots
 
@@ -691,6 +701,10 @@ deviation from the spec or W1; chunk 1's `snapshot:` values held
 unchanged. The write policy is applied by a root-only Perl helper
 `gm-write-policy` per brick (no Python in these images), matching the
 scheduler's commands and refusal lines.
+Left for the build, recorded at the release gate (item 13): the monitoring
+bricks' footprints at rest and under the rehearsal's load are in their
+`docs/gm.md` (Grafana's memory reservation measured at 266M, above the
+spec's 160M estimate; Prometheus' TSDB 3.1M an hour at twelve targets).
 
 ### Chunk 6 — The `pgbouncer` brick 0.1.0
 
@@ -735,6 +749,12 @@ spec; the chunk's own choices (the GM's settings included after the
 players' file, the reload's trial run, `auth_type = hba`, the envelopes)
 are capture W2-a in the wave log. Outside its Files line: the root
 `README.md`'s brick row (a shared list).
+Left for the build, recorded at the release gate (item 13): `auth_query` is
+`SELECT usename, passwd FROM gm_pgbouncer.lookup($1)` as `auth_user`
+`pgbouncer_lookup` with `auth_dbname` `postgres`, the console's logins
+included; at rest 11.1 MiB, the log about 1M an hour (`docs/gm.md`). Release
+gate RG-2: plain `psql` on the node now opens the console through the
+player's `~/.pgpass` (3cde51c).
 
 ### Chunk 7 — Render for v0.3: the planned hand-over, the shift, write policies and secrets
 
@@ -898,6 +918,13 @@ Record: 8a 7b20533, 8b c9ddfe5 (merge 4b1f85f). No deviation from the
 spec or W2; W2 addenda in the wave log (the override's form, the late
 run's bound). Outside its Files line: `tools/tests/test_{checks,deploy}.py`
 and a new `tools/tests/fakebin/systemctl`.
+Left for the build, recorded at the release gate (item 13): setup actions on
+the manager (each planting, the early check) run as host timers, persistent
+systemd user units, the timer named in `status` and replaced by a new
+instant (spec D173); outages are read from the schedulers' per-minute
+summaries and the nodes' task history, a pruned history flagged (spec D174);
+both held through the aged run (f8 planted by its timer at 08:00:00Z, the
+early check fired at 11:44:25Z, lost time 0).
 
 ### Chunk 9 — Checks under load: exit 3 and the GM check role
 
@@ -1019,6 +1046,12 @@ armenelos only, `exec` on VPS nodes from a shell and the user manager, traffic
 across the link, images held under the same id, teardown clean on both hosts.
 MTU option 1230 gives 1180 inside a node (Docker takes VXLAN's 50 bytes off
 it): safe, for `spec-writer` to weigh.
+Left for the build, recorded at the release gate (item 13): Swarm is bound
+to the hosts' Tailscale addresses (`--advertise-addr`, `--listen-addr`,
+`--data-path-addr` on `tailscale0`); `deploy` copies each image a host lacks
+with `docker save <image> | docker --context dbagm-<host> load` through that
+host's SSH Docker context, never pulled, skipping one held under the same id
+(spec D181); the bastion's `docs/gm.md`, "Placement".
 
 ### Chunk 11 — The hand-over snapshot and the restart
 
@@ -1345,6 +1378,12 @@ alone. Outside the Files line, kept by the owner: `tools/tests/test_fit.py`
 (figures pinned to postgres's provisional growth), the "to be confirmed
 by 15b" notes in `gm/`. `smoke-scenario.sh` cannot smoke a several-host
 design and needs `LOAD_MINUTES=12` here: fixed at the wave gate.
+Left for the build, recorded at the release gate (item 13): the aged growth,
+from the aged run on armenelos alone (16h aging, hand-over 17h12m after T0):
+the game's 34 volumes 246.59M at the hand-over snapshot against `fit`'s
+11.85G, the game's memory peak 632MiB at the customer's noon (Prometheus'
+aged TSDB 128M against 65M in the rehearsal), no node restarted or
+OOM-killed; per-brick growth per hour in each `brick.yaml` and `docs/gm.md`.
 
 ## Release gate
 
