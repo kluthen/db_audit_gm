@@ -3793,3 +3793,17 @@ merges after this wave.
   still valid, the starter pack back in `~`. The GM told the players
   the maintenance window, 13:56–14:29 UTC. The producer's first minute
   after the restart had 17 errors (about 6–11 before), reconnecting.
+- Item 8, after the restart: the verifier re-applied the seven fixes at
+  14:31:26–14:31:41Z (the index builds took under a second: f4's
+  dashboard had not run yet). Sealed checks from the host: at 14:32:47Z
+  f1 (a window check) read too soon, 22 s left; at 14:34:31Z fixed.
+  The players' report handed in as final answer (14:35:09Z); the GM ran
+  `validate` (all eight green) and `check` (f1, f3, f5–f9 fixed; f2, f4,
+  f10 present, report-only), checked the report on the live system,
+  and gave feedback (14:36:25Z): all ten found, every answer
+  acceptable, three improvements (watch a behavioural fix hold, check
+  figures, join related findings: autovacuum off and the held snapshot
+  on orders). Stage `feedback-given`; teardown waits for the owner.
+- RG-8 confirmed by the GM: the f3 answer key says removing the old
+  duplicates does not matter to the check; it does (the check counts
+  the duplicates still in the table).
