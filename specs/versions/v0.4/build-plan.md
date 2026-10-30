@@ -116,7 +116,7 @@ plan states only its deltas. Its conventions follow v0.3's
 | G2 | [formats.md](../../formats.md) carries master spec 6: the purpose and the domain, `governance:`, the new scenario, answer-key, fault and brick fields, the optional crontab and `crontab_roles` (section 19: the format skill is updated after it) | `spec-writer` | Chunk 1 | done (2026-10-30, cf484b9; formats.md v22) |
 | G3 | Network access at image build time: Debian 13's repositories (`cron`, `cmark-gfm`), the PostgreSQL apt repository (`postgresql-18`, `postgresql-18-cron`), the s6-overlay release, as in v0.3 | Hand check by the wave driver | Chunks 1, 3, 4, 19 (image builds); every wave gate's builds | open |
 | G4 | A Docker host in swarm mode: armenelos' swarm, the VPS a drained worker in it | Hand check by the wave driver | Every stack test, deployment and smoke run, chunk 9, every wave gate, the release gate | open |
-| G5 | **Dependency preflight** on `postgres` 0.4.0's new packages: the candidate versions of `postgresql-18-cron` (PGDG) and of Debian's `cron` with what it pulls in, installed without recommends (master spec 7.2, 19). A finding the owner must rule on becomes a gate of its own | `security-advisor` (skill `dependency-check`), called by the wave driver at wave 1's start | Chunk 4's branch | open |
+| G5 | **Dependency preflight** on `postgres` 0.4.0's new packages: the candidate versions of `postgresql-18-cron` (PGDG) and of Debian's `cron` with what it pulls in, installed without recommends (master spec 7.2, 19). A finding the owner must rule on becomes a gate of its own | `security-advisor` (skill `dependency-check`), called by the wave driver at wave 1's start | Chunk 4's branch | done (2026-10-30, wave log) |
 | G6 | **Dependency post-change check** on the versions chunks 4 and 19 resolved, and `.tech` updated (`postgres` 0.4.0, `scheduler` 0.2.0, `bastion` 0.4.0, the three packages), committed on `v0.4-w1` | `security-advisor`, called by the wave driver once chunks 4 and 19 have merged | Wave 1's gate | open |
 | G7 | The VPS ready for two-host runs, under the VPS rule ("Workflow deltas"): `tailscale status` on both hosts; the VPS still a worker of armenelos' swarm, drained; no game port published on it; at least 5G free; filetstudio.com answering before and after | Hand check by the wave driver | The two-host `smoke-load.sh` from wave 2's gate; chunk 17's two-host runs; the release gate's two-host runs | open |
 | G8 | **The judged moment before the hand-over** (master spec 12.1): before the hand-over (the early check, the hand-over check, the smoke runs), a purpose check judges from the fault instance's planting moment, raised to the runner's last reload, as after it | The owner | Chunk 8's merge; the "Done when" of chunks 10, 11, 14, 15 as far as they read a check before a hand-over | done (2026-10-30, spec D217) |
@@ -124,7 +124,7 @@ plan states only its deltas. Its conventions follow v0.3's
 | G10 | **f10's calibration outcome** (spec D213): the backfill needs more than twice `reporting`'s limit and a normal run less than half of it, after `shared_buffers`, within a window the restored history allows. If so, the window is set from chunk 9's figures; if not, the fault comes back to the owner before anything is reshaped, lowering `reporting`'s limit the likely lever, offered then | Chunk 9's figures, applied by the wave driver; the owner on a shortfall | Chunk 15's f10 half; chunk 16 | open |
 | G11 | The owner's judgement at release close: the smoke cycles, f10's run, the rehearsal, the feedback (overstepping and the incident report included), the named known limits | The owner | Release close | open |
 | G12 | **spec O134**: does the starter-pack page make the web front run in every game (master spec 7.3, 22)? Default, proposed: no, the front runs only with a web interface (v0.2's rule stands), and chunk 19 is written so; the other answer adds render, the loader's port check, the hand-over and the access model to the work, and the plan is revised | The owner | Chunk 19's branch | open |
-| G13 | **Dependency preflight** on `bastion` 0.4.0's new package: the candidate version of Debian 13's `cmark-gfm` with what it pulls in, installed without recommends (spec D222). A finding the owner must rule on becomes a gate of its own | `security-advisor` (skill `dependency-check`), called by the wave driver | Chunk 19's branch | open |
+| G13 | **Dependency preflight** on `bastion` 0.4.0's new package: the candidate version of Debian 13's `cmark-gfm` with what it pulls in, installed without recommends (spec D222). A finding the owner must rule on becomes a gate of its own | `security-advisor` (skill `dependency-check`), called by the wave driver | Chunk 19's branch | done (2026-10-30, wave log) |
 
 G8 and G9 were questions this plan raised on the approved spec; the
 owner ruled both at its approval (spec D217, D218). G12 and G13 came
@@ -134,7 +134,7 @@ with the owner's ruling of spec D221, during wave 1.
 
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
-| 1 | 1, 2, 3, 4, 5, 19 | G1 (done); G2 (chunk 1, done); G3, G4; G5 (chunk 4); G12, G13 (chunk 19); G6 before its gate | planned |
+| 1 | 1, 2, 3, 4, 5, 19 | G1 (done); G2 (chunk 1, done); G3, G4; G5 (chunk 4); G12, G13 (chunk 19); G6 before its gate | in progress (G3, G4 checked 2026-10-30) |
 | 2 | 6, 7, 8, 9, 10, 11 | wave 1; G8, G9 (done); G7 (the gate's two-host run) | planned |
 | 3 | 12, 13, 14, 15 | wave 2; G10 (chunk 15's f10 half) | planned |
 | 4 | 16, 17, 18 | wave 3; G7 (chunk 17's two-host runs) | planned |
@@ -319,7 +319,7 @@ checks that each is recorded.
 
 ### Chunk 1 — Format skill, templates, the v0.4 versions and the re-pins
 
-Status: planned
+Status: merged (w1, 48dc5c3)
 Wave: 1
 Depends on: G1, G2; G3, G4 (the two images at their new tags)
 Architecture capture: recorded by the wave driver at wave 1 start (W1),
@@ -413,6 +413,8 @@ for chunks 2 to 5:
 - Split rule: 1a versions, re-pins and the brick and fault formats; 1b
   the scenario, answer-key, purpose and domain formats and the
   scenario-document skill. Each half leaves the suite green.
+
+Record: 1a fb61d48, 1b 667ded1, merge 48dc5c3. No departure from the spec; choices logged as "W1 addenda — choices chunk 1 made" in the wave log. A purpose fault editing a data file (6.3) left open, sent to `spec-writer`.
 
 ### Chunk 2 — Loader checks for v0.4
 
@@ -591,7 +593,7 @@ form.
 
 ### Chunk 5 — The shop domain
 
-Status: planned
+Status: merged (w1, f172a0e)
 Wave: 1
 Depends on: chunk 1 (in-wave, W1: runs beside chunk 1, its files all
 under `domains/shop/`)
@@ -637,6 +639,8 @@ Architecture capture: none of its own; it uses W1.
 - Verification: chunk checks.
 - Split rule: 5a the data model and the classification; 5b the producer
   fragments and the notes.
+
+Record: 5a 5ff4cef, 5b 17a45d4, merge f172a0e. No departure from the spec; choices (tarnbeck's planted producer faults left out, `lifetime_value` added to, `producers/jobs.yaml` and `builders/`, classification and grant readings) logged as "W1 addenda — choices chunk 5 made"; the unit suite's load of the domain is left for the wave gate.
 
 ### Chunk 6 — Render for v0.4
 

@@ -732,3 +732,133 @@ before chunk 1a merges.
   run in every game, against D103) and **G13** (`security-advisor`
   preflight on `cmark-gfm`). Both block chunk 19's branch.
 - W1 item 9 amended: `bastion`'s line ownership (chunk 1a / chunk 19).
+
+### G13 — dependency preflight on `cmark-gfm` (security-advisor, 2026-10-30)
+
+**Clear; nothing for the owner.** Debian 13's `cmark-gfm`
+`0.29.0.gfm.13-4` (trixie/main, the only version; upstream's latest, July
+2023), with `libcmark-gfm0.29.0.gfm.13` and
+`libcmark-gfm-extensions0.29.0.gfm.13` (tables there), about 860 KiB, only
+`libc6` beyond. All ten known advisories (GHSA, CVE-2020-5238 to
+CVE-2023-37463) fixed at or below gfm.12; OSV, NVD, the Debian tracker
+show nothing open. **Unpinned**, on the Debian install line beside
+`nginx`. Build assertions advised: `command -v cmark-gfm`; a table renders
+`<table>` with `-e table`; `<b>x</b>` renders `raw HTML omitted` (safe
+mode is the default: never `--unsafe`). Watch item for `.tech` at G6:
+upstream silent since 2023 (CPE `cpe:2.3:a:github:cmark-gfm`). G13
+**done (2026-10-30)**.
+
+### Owner ruling on G12 (spec O134), 2026-10-30
+
+Owner's words: "i expect a front at every game, we may have a common
+caddy to handle multiple front and a homepage dedicated to the whole
+setup to dispatch the viewer toward the game rules(readmes, game
+informations, data policies, issues), tools and dashboards available.
+Keep it simple for now. Expect it to evolve both with v0.5 and v1.0+
+(with the fake aws, which will have its own entrypoint there). Keep the
+setup as minimal as possible for now, delegate larger stuff for v0.5 and
+later. I'll bow to your recomendations."
+
+Driver's recommendation, sent to `spec-writer` to record and plan: the
+bastion's web front runs in every game (D103 revised for v0.4); its home
+page is the starter-pack page, listing what the scenario provides (README,
+story, issues, data policy) and linking to the web routes it publishes
+(Grafana and the like) when there are any; nothing else. A common Caddy in
+front of several fronts, a setup-wide homepage, a reporting tool and the
+fictional provider's own entry point are v0.5 and later.
+
+### Chunk 1 — merged (48dc5c3), 2026-10-30
+
+1a fb61d48, 1b 667ded1, merge 48dc5c3 (after chunk 5's). Unit suite 658
+OK (with `test_brick_docs`), scheduler unit tests 60 OK; `postgres`
+0.4.0, `bastion` 0.4.0 and `scheduler` 0.2.0 build and pass their stack
+tests; prometheus, pgbouncer and postgres-exporter rebuilt and their
+stack tests pass on the new tags. READMEs: only the pins changed (the
+template's v0.4 blocks are all conditional and absent there). Smoke
+scripts' tags updated, not run: wave gate.
+
+**W1 addenda — choices chunk 1 made** (accepted):
+1. `fixture-v03-refusals` keeps its local `scheduler` 0.1.0 brick, its
+   pin and `fixture-job-timezone` at 0.1.0; its bastion and postgres
+   re-pinned.
+2. Fixture-local faults took the new versions so their fixtures load:
+   `fixture-dropped-index`, `fixture-random-page-cost` (postgres 0.4.0),
+   `fixture-job-every-minute` (scheduler 0.2.0).
+3. The scheduler program's `VERSION` is "0.2.0" with `technology.version`.
+4. The other bricks' stack tests and `docs/gm.md` prose naming the
+   postgres or bastion 0.3.0 image take 0.4.0; "0.3.0 (or later)" stays.
+5. `.tech` untouched (G6).
+6. `governance.classes.<class>.locations` is one scalar placeholder
+   `<[db/shop] | any>` in the template (the schema can't say "a list or a
+   word"); the class key a free placeholder `<personal>`; chunk 2a checks
+   both forms and the closed list.
+7. `purpose.yaml`: `parts.source`, `target`, `runner` required,
+   `consumer`, `receiver` optional; `jobs[].connections` keys free;
+   `data_moved[].writes` non-empty. `classification.columns` non-empty;
+   `domain.purposes` may be `[]`.
+8. Scenario-document skill: v0.4 items conditional, inside the existing
+   sections (a Domain row in 1; "Purposes" and "Data governance" in 3
+   after Flows; per database node a "Crontab roles" bullet and a "Jobs on
+   the node" table; a `judges` line under the sealed check; the policy
+   file and classification in 7). It reads a database node's seed
+   `crontab`, seed `postgresql.conf` and the data file's
+   `cron.schedule_in_database` calls: a second exception to "only
+   `scenario.yaml` and the answer key".
+9. `brick-gm.md`: a section per database-node job kind after Known limits
+   ("## pg_cron", "## The cron daemon"), mirrored in `docs/player.md`.
+10. `fault.yaml`: `needs_unshared_host` top-level after `applies_to`;
+    the family comment adds `data-flow`; `layouts.md` states the two
+    `psql` variables and W1 item 0's data-file reading.
+
+Risks carried: until chunk 2b merges, a job with neither `connection:`
+nor `connections:` loads (2b closes it). **Open point sent to
+`spec-writer`**: master spec 6.3 lets a purpose fault's seed-file change
+edit "a database node's data file", but `seed_changes.file` must name a
+seed file the brick declares, and the data file is not one; needed by
+the first such fault (wave 3). Old images `postgres:0.3.0`,
+`bastion:0.3.0`, `scheduler:0.1.0`, `dbagm-test/scheduler-unit:0.1.0`
+remain locally, removable by name.
+
+### Chunk 5 — merged (f172a0e), 2026-10-30
+
+5a 5ff4cef, 5b 17a45d4, merge f172a0e. Schema and load run into
+`postgres` (0.3.0 from its worktree) at shifts 0, +2, −5, −11, +12;
+grants diffed against 9.7 (70 expected, 70 actual), `shop_etl` refused
+`orders.customer_id`; 99 columns classed (17 personal, 5
+customer-linked, 77 internal); producer fragments pass the loader's
+`_check_queries`/`_check_schedule`/`_check_jobs` (only `intensity:
+missing`, left to the scenario) and all 144 statements run as
+`shop_app`. Sizes: 20 000 customers (6 580 lapsed, ~3 990 of them
+consenting: the win-back segment), 2 000 products, 300 000 orders,
+900 000 lines, 17 000 consent events; 10.0 % of orders export. Left for
+the wave gate: the unit suite loading the domain (after 2a), and the
+domain against 1b's templates.
+
+**W1 addenda — choices chunk 5 made** (accepted):
+1. Tarnbeck's planted producer faults are not in the domain (product
+   search on `sku`; `delivery_events.event_id` unique, builder `ON
+   CONFLICT DO NOTHING`); the 12:00 close of day stays (16.1, R1).
+2. The close of day adds the newly invoiced amount to `lifetime_value`
+   (older orders archived away, 9.5).
+3. `producers/` also holds a `jobs.yaml` fragment (close-day) and
+   `builders/carrier_feed.py`, beside W1 item 6's `queries.yaml` and
+   `schedule.yaml`: **chunk 2a accepts them** (told in its brief).
+4. Classification: `customers.id` and `mail_outbox.customer_id`
+   personal (beside a direct identifier, 11.2); `marketing_opt_in` and
+   all of `consent_events` personal; all of `leads` customer-linked;
+   `ship_country`, `created_at`, `last_order_at`, `lifetime_value`
+   internal (9.9).
+5. Grants: `shop_refresh` `MAINTAIN` only (a refresh runs as the view's
+   owner); `shop_customs` reads customers' `(id, name, address,
+   country)`; purpose roles' writes are `INSERT` only, no sequence
+   grants (identity columns); a purpose needing `UPDATE` (on `etl_runs`)
+   appends the grant in its own source material.
+
+For later chunks (also in `domains/shop/docs/gm.md`): the campaign is
+`segment = 'winback'`, code `winback-<yyyy-mm>`, 28 days from the load
+day; `leads`, `mail_outbox`, `customs_*`, `incidents`, `etl_runs` start
+empty (chunk 11's `mail-shipped` must not take "since the last run" as
+the ~290 000 historically shipped orders); the consent history is
+quieter in its last weeks than the producer's rates from T0 (a jump at
+T0, told as the campaign launch); export packing rate unmeasured until
+the rehearsal.
