@@ -1,0 +1,14 @@
+# Fixed-time operations of the marketing team's transformer, a fragment
+# (capture W1, item 5's rule), in scenario time (master spec 10.3): the
+# shipping notices every five minutes, day and night; the campaign every
+# quarter hour from 08:00 to 20:45, the company's sending day (each
+# recipient's own hours are the statement's).
+jobs:
+  - name: mail-shipped
+    key: mail.shipped
+    connection: shop_crm
+    at: "*/5 * * * *"
+  - name: mail-campaign
+    key: mail.campaign
+    connection: shop_crm
+    at: "*/15 8-20 * * *"

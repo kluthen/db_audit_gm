@@ -1,0 +1,133 @@
+# P3, customer mailing (v0.4 master spec 10.3; 6.7, 8, 9.3, 9.6, 9.7, 12): the
+# shop's shipping notices and the win-back campaign's mail. Pushed: mail is
+# "handed to the provider" by inserting into mail_outbox, owing nobody an
+# answer; the outbox is the whole trace.
+#
+# Material (material/) is written for the first v0.4 scenario's mapping:
+# source and target db/shop, runner crm. The GM adapts the names as it
+# copies (capture W1, item 5); gm.md says where each name lives.
+id: shop-customer-mailing
+title: Shipping notices and win-back campaign mail handed to the mail provider
+domains: [shop]
+kind: pushed
+
+parts:
+  source: the shop's database, its shipped orders, leads, customers and consent history
+  target: the same database, its mail_outbox (a row is a mail handed to the provider)
+  runner: the marketing team's transformer, running the notices and the campaign batches
+
+jobs:
+  - name: mail-shipped
+    key: mail.shipped
+    part: runner
+    source: source
+    target: target
+    method: sql
+    computes: >-
+      one order-shipped notice to its customer for each order shipped in the five minutes
+      ending at the last whole minute before the run (the orders shipped since the last run,
+      the cadence's window), no marketing consent needed.
+    cadence: "*/5 * * * *"
+    connections:
+      shop_crm: shop_crm
+  - name: mail-campaign
+    key: mail.campaign
+    part: runner
+    source: source
+    target: target
+    method: sql
+    computes: >-
+      up to 50 of the active campaign's leads not yet mailed, by score, with marketing consent
+      at sending time by their latest consent event and whose own local time is within
+      business_settings' sending hours: one campaign mail each.
+    cadence: "*/15 8-20 * * *"
+    connections:
+      shop_crm: shop_crm
+
+trace:
+  - kind: outbox-rows
+    part: target
+    table: mail_outbox
+    run_column: sent_at
+  - kind: run-ledger
+    part: runner
+    file: /var/log/scheduler/scheduler.log
+
+invariants:
+  - id: M1
+    statement: >-
+      At most one order-shipped mail per order, and at most one campaign mail per (campaign,
+      customer).
+    check: checks/m1-no-duplicate.sh
+    parameters:
+      job:
+        description: >-
+          the job whose runs the check judges, mail-shipped or mail-campaign; unset, both, each
+          needing a run with a witness
+        default: null
+        required: false
+    witness: >-
+      mail already sent before a run that the run could send again: order-shipped notices sent
+      in the half hour before a mail-shipped run (orders ship every few minutes), campaign mail
+      sent before a mail-campaign run.
+  - id: M2
+    statement: >-
+      Every marketing mail sent since the judged moment had marketing consent at its sent_at:
+      the recipient's latest marketing-email consent event at or before it was a grant.
+      Transactional mail is exempt.
+    check: checks/m2-consent.sh
+    parameters: {}
+    witness: >-
+      leads of the campaign not yet mailed whose latest consent event at a run's start is a
+      withdrawal: unsubscribes arrive every hour among the leads.
+  - id: M3
+    statement: >-
+      Every marketing mail's sent_at, in the recipient's local time (customers.timezone), falls
+      within business_settings' sending hours.
+    check: checks/m3-sending-hours.sh
+    parameters: {}
+    witness: >-
+      leads of the campaign not yet mailed, with consent, whose local time at a run's start is
+      outside the sending hours: one recipient in ten lives eight hours behind or five ahead of
+      the company (master spec 9.3), outside their hours before 16:00 or from 16:00.
+  - id: M4
+    statement: >-
+      Every mail's payload names its recipient only: its e-mail and name are the recipient's,
+      and any order in it is the recipient's.
+    check: checks/m4-own-data.sh
+    parameters:
+      job:
+        description: >-
+          the job whose runs the check judges, mail-shipped or mail-campaign; unset, both, each
+          needing a run with a witness
+        default: null
+        required: false
+    witness: a run since the judged moment that sent mail.
+  - id: M5
+    statement: >-
+      Every order shipped since the judged moment, more than fifteen minutes ago, has its
+      order-shipped mail.
+    check: checks/m5-truly-sent.sh
+    parameters: {}
+    witness: >-
+      an order shipped since the judged moment more than fifteen minutes ago: the warehouse
+      ships orders day and night.
+
+data_moved:
+  - job: mail-shipped
+    reads: [shop.customers.id, shop.customers.name, shop.customers.email,
+            shop.orders.customer_id]
+    writes: [target:mail_outbox]
+  - job: mail-campaign
+    reads: [shop.customers.id, shop.customers.name, shop.customers.email,
+            shop.customers.timezone, shop.consent_events.id, shop.consent_events.customer_id,
+            shop.consent_events.purpose, shop.consent_events.granted, shop.consent_events.at,
+            shop.leads.campaign_id, shop.leads.customer_id, shop.leads.score,
+            shop.mail_outbox.customer_id]
+    writes: [target:mail_outbox]
+
+roles:
+  - name: shop_crm
+    part: source
+    reads: [customers, consent_events, orders, campaigns, leads, mail_outbox, business_settings]
+    writes: [leads, mail_outbox, etl_runs]

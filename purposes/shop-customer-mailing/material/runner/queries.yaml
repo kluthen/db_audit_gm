@@ -1,0 +1,58 @@
+# Query repository of the marketing team's transformer, a fragment (capture
+# W1, items 5 and 7): the customer mailing purpose's two jobs, plain
+# statements on the shop's database as shop_crm (master spec 10.3). A row of
+# mail_outbox is a mail handed to the provider; its sent_at is the run's
+# now().
+#
+# Payloads (the provider's templates; gm.md, "Payload schemas"):
+#   order-shipped  {name, email, order_id, shipped_at, ship_country, total}
+#   a campaign's   {name, email, campaign}, the template the campaign's code
+queries:
+  # The orders shipped since the last run: the five minutes ending at the
+  # last whole minute before the run, the window matching the job's
+  # five-minute cadence, a minute behind so a warehouse update still
+  # committing is not missed. No consent needed: a shipping notice is
+  # transactional.
+  mail.shipped:
+    sql: >-
+      WITH slot AS (
+        SELECT date_trunc('minute', now()) - interval '1 minute' AS ends),
+      shipped AS (
+        SELECT o.id, o.customer_id, o.shipped_at, o.ship_country, o.total
+          FROM slot, orders o
+         WHERE o.shipped_at >= slot.ends - interval '5 minutes' AND o.shipped_at < slot.ends)
+      INSERT INTO mail_outbox (customer_id, email, template, order_id, payload, sent_at)
+      SELECT s.customer_id, c.email, 'order-shipped', s.id,
+             jsonb_build_object('name', c.name, 'email', c.email, 'order_id', s.id,
+                                'shipped_at', s.shipped_at, 'ship_country', s.ship_country,
+                                'total', s.total),
+             now()
+        FROM shipped s JOIN customers c ON c.id = s.customer_id
+  # A batch of the active campaign's leads not yet mailed, best score
+  # first, 50 a run (the provider's contract: 200 an hour): each with
+  # marketing consent now by their latest consent event, and now within the
+  # sending hours in their own zone.
+  mail.campaign:
+    sql: >-
+      WITH pending AS (
+        SELECT l.campaign_id, k.code, l.customer_id, c.name, c.email
+          FROM campaigns k
+          JOIN leads l ON l.campaign_id = k.id
+          JOIN customers c ON c.id = l.customer_id
+         CROSS JOIN business_settings s
+         CROSS JOIN LATERAL (
+               SELECT e.granted FROM consent_events e
+                WHERE e.customer_id = c.id AND e.purpose = 'marketing-email' AND e.at <= now()
+                ORDER BY e.at DESC, e.id DESC LIMIT 1) AS consent
+         WHERE k.active AND k.segment = 'winback'
+           AND consent.granted
+           AND (now() AT TIME ZONE c.timezone)::time >= s.mail_window_start
+           AND (now() AT TIME ZONE c.timezone)::time < s.mail_window_end
+           AND NOT EXISTS (SELECT 1 FROM mail_outbox m
+                            WHERE m.campaign_id = l.campaign_id AND m.customer_id = l.customer_id)
+         ORDER BY l.score DESC, l.customer_id
+         LIMIT 50)
+      INSERT INTO mail_outbox (customer_id, email, template, campaign_id, payload, sent_at)
+      SELECT customer_id, email, code, campaign_id,
+             jsonb_build_object('name', name, 'email', email, 'campaign', code), now()
+        FROM pending
