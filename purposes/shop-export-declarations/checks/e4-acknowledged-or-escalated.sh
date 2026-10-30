@@ -14,9 +14,11 @@
 #   (check-runs since), before and after the hand-over alike (spec D217).
 # - A trigger: a declaration sent since then. Handled: an acknowledgement
 #   received within 30 minutes of sending; else, or when it was rejected,
-#   an incident (source customs, ref its id) opened by the deadline: 30
-#   minutes after sending (or the rejection) plus one escalation cycle (15
-#   minutes, escalate-customs' cadence) and two minutes' grace.
+#   an incident (source customs, ref its id) opened by the deadline: for an
+#   unacknowledged one, 30 minutes after sending plus one escalation cycle
+#   (15 minutes, escalate-customs' cadence) and two minutes' grace; for a
+#   rejected one, the rejection plus one cycle and the grace, no 30-minute
+#   wait (spec D228).
 # - Exit 1 (12.4): a trigger past its deadline with no incident in time.
 #   Exit 0: every trigger older than two escalation cycles handled, at
 #   least one of them left unacknowledged or rejected (the witness: the
