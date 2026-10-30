@@ -56,7 +56,7 @@ CLIENT=${STACK}-client
 LABEL=dbagm.test=chunk6-pgbouncer
 CONFIGS="seed_pgbouncer_ini pgb_envelopes seed_postgresql_conf seed_pg_hba_conf db_envelopes"
 SECRETS="player_ssh_pubkey pgbouncer_lookup_password dba_password monitoring_password gm_check_password"
-VOLUMES="pgb_conf pgb_log pgb_home pgb_gmstate pgb_run db_pgdata db_pgconf db_home db_gmstate db_pglog db_run"
+VOLUMES="pgb_conf pgb_log pgb_home pgb_gmstate pgb_run db_pgdata db_pgconf db_home db_gmstate db_pglog db_run db_cronspool"
 PG_FIXTURES=$HERE/../../postgres/tests/fixtures
 SSH_OPTS="-i /root/id -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o LogLevel=ERROR -o ConnectTimeout=10"
 CONF=/etc/pgbouncer/pgbouncer.ini

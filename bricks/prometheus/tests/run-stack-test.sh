@@ -46,7 +46,7 @@ CLIENT=${STACK}-client
 LABEL=dbagm.test=chunk4-prometheus
 CONFIGS="seed_prometheus_yml seed_postgresql_conf seed_pg_hba_conf envelopes nh_script nh_type nh_run nh_dep_base nh_bundle nh_conf_db nh_conf_prometheus"
 SECRETS="player_ssh_pubkey dba_password monitoring_password"
-VOLUMES="prom_data prom_conf prom_home prom_gmstate prom_run db_pgdata db_pgconf db_home db_gmstate db_pglog db_run"
+VOLUMES="prom_data prom_conf prom_home prom_gmstate prom_run db_pgdata db_pgconf db_home db_gmstate db_pglog db_run db_cronspool"
 PG_FIXTURES=$HERE/../../postgres/tests/fixtures
 NH=$HERE/../companion/node-health
 SSH_OPTS="-i /root/id -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o LogLevel=ERROR -o ConnectTimeout=10"

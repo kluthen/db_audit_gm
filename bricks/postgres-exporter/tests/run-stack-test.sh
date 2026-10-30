@@ -50,7 +50,7 @@ CLIENT=${STACK}-client
 LABEL=dbagm.test=chunk9-postgres-exporter
 CONFIGS="seed_exporter_conf seed_postgresql_conf seed_pg_hba_conf envelopes"
 SECRETS="player_ssh_pubkey dba_password monitoring_password"
-VOLUMES="exp_conf exp_home exp_gmstate exp_run db_pgdata db_pgconf db_home db_gmstate db_pglog db_run"
+VOLUMES="exp_conf exp_home exp_gmstate exp_run db_pgdata db_pgconf db_home db_gmstate db_pglog db_run db_cronspool"
 PG_FIXTURES=$HERE/../../postgres/tests/fixtures
 SSH_OPTS="-i /root/id -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o LogLevel=ERROR -o ConnectTimeout=10"
 CONF=/etc/postgres-exporter/exporter.conf

@@ -61,6 +61,7 @@ services:
       - {type: volume, source: db_gmstate, target: /var/lib/gm-state}
       - {type: volume, source: db_pglog, target: /var/log/postgresql}
       - {type: volume, source: db_run, target: /run}
+      - {type: volume, source: db_cronspool, target: /var/spool/cron/crontabs}
     configs:
       - {source: seed_postgresql_conf, target: /opt/gm/seed/postgresql.conf, uid: "0", gid: "0", mode: 0444}
       - {source: seed_pg_hba_conf, target: /opt/gm/seed/pg_hba.conf, uid: "0", gid: "0", mode: 0444}
@@ -99,6 +100,7 @@ volumes:
   db_gmstate: {}
   db_pglog: {}
   db_run: {}
+  db_cronspool: {}
 
 configs:
   seed_prometheus_yml: {external: true, name: gmtest-prom_seed_prometheus_yml}
