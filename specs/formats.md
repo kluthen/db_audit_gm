@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v20
+Status: draft v21
 
 What a scenario, a brick and a fault definition must contain, and how they
 are laid out, so that every scenario the GM designs or generates stays
@@ -531,6 +531,26 @@ A node's role names its place in the topology (proposed list): `bastion`,
 `producer`, `queue`, `database`, `pooler` (from v0.3, PgBouncer),
 `transformer`, `consumer`, `monitoring`,
 `backup`. A brick may serve several roles.
+
+### Where a job runs (D207)
+
+Guidance for designing a scenario, from v0.4. A scheduled job may run on
+a scheduler node or, with `postgres` 0.4.0, on a database node, through
+`pg_cron` or the cron daemon (D206):
+
+- **Light, well-scheduled work may run on a database node**: creating
+  partitions, small cleanups, refreshing a small materialized view,
+  calling a set-based procedure off-peak.
+- **Heavy or row-by-row work goes to a transformer node** sized for it
+  (D204).
+- **Heavy work on the source instance is the worst placement**: it
+  competes with the customers.
+
+Where the computation runs matters more than where the scheduler lives:
+a database-node job calling a set-based procedure and a transformer's
+job running the same statement load the database alike. A scenario
+departs from this guidance only to plant a fault, which its answer key
+names.
 
 ## Expressing the v1.0 pipeline
 

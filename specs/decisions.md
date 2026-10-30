@@ -158,3 +158,23 @@ drafting. Numbering continues after D205, the last; no ID is reused.
   as pure cron, systemd timer, or pg_cron", then chose the two lighter
   forms in a container. Closes O129. Now in:
   [versions/v0.4/database-node-jobs.md](versions/v0.4/database-node-jobs.md).
+- **D207 (2026-10-30, owner ruling, relayed by the coordinator; O131
+  confirmed as written): Light, well-scheduled work may run on a
+  database node; heavy or row-by-row work goes to a transformer node;
+  heavy work on the source instance is the worst placement.** Closes
+  O131. Now in: [formats.md](formats.md) "Where a job runs";
+  [versions/v0.4/database-node-jobs.md](versions/v0.4/database-node-jobs.md) "Placement".
+- **D208 (2026-10-30, owner choice, relayed by the coordinator: "Add one
+  crontab fault"): The first v0.4 scenario runs the cron daemon on a
+  database node with one planted crontab fault,** so it is played, not
+  only smoke-tested. Spec-writer picked `security-crontab-superuser` on
+  `db`, a fixable node, replacing f6. Now in:
+  [versions/v0.4/scenario-sketch.md](versions/v0.4/scenario-sketch.md).
+- **D209 (2026-10-30, owner idea, relayed by the coordinator): An
+  out-of-memory incident on a database node is a fault, happening for
+  real once during the aging and recovered from by hand-over;** a
+  one-off backfill drives a heavy crontab job past the node's memory.
+  The players investigate and *report*, recommending the move to a
+  transformer node. It replaces f10. The owner: "it happened "once" in
+  the recent past". Now in:
+  [versions/v0.4/database-node-jobs.md](versions/v0.4/database-node-jobs.md) "The out-of-memory incident".

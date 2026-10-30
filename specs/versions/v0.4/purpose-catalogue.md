@@ -54,8 +54,7 @@ nightly procedure would (proposed):
 | `rollup-hourly` | `5 * * * *` | transformer script `scripts/rollup.py:hourly`, connections `source` (`shop` as `shop_etl`) and `target` (`reporting` as `bi_etl`) | the orders changed since the watermark (`updated_at`), read from the source; their hours and days recomputed in `rpt.sales_hourly` and `rpt.sales_daily` (delete and re-insert the affected hours, one target transaction holding the watermark too); one `rpt.etl_runs` row |
 | `rollup-close` | `30 1 * * *` | `CALL rpt.close_day()` on `reporting` as `bi_etl`: a stored procedure reading foreign tables `src.orders`, `src.order_lines`, `src.products` over `postgres_fdw` (user mapping to `shop_etl`) | yesterday, in the customer's time zone, recomputed whole and marked `closed`; one `rpt.etl_runs` row |
 
-**Where each computes** (against the placement guideline, proposed;
-O131): `rollup-hourly`'s row-by-row work runs on `bi`, a transformer
+**Where each computes** (against the placement guideline, D207): `rollup-hourly`'s row-by-row work runs on `bi`, a transformer
 node sized for it; `rollup-close` is scheduled on `bi` but computes on
 `reporting`, the receiving instance, as one set-based procedure at
 01:30, off-peak, the shop's instance serving only the remote scan. Both

@@ -214,7 +214,7 @@ flow (D202):
 | **A cron daemon's entry** on a database node (D206) | `postgres`'s crontab, beside PostgreSQL in the container | a job no runner lists; the role it connects as (`postgres` by peer is a superuser); credentials or a stale target in the entry; output lost with no mail and no syslog |
 
 Both jobs on a database node come with `postgres` 0.4.0, and what
-belongs there is light, well-scheduled work (proposed; O131):
+belongs there is light, well-scheduled work (D207):
 [database-node-jobs.md](database-node-jobs.md).
 
 `postgres_fdw` ships in the PGDG server package the `postgres` brick

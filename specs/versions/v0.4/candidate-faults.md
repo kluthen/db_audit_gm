@@ -1,6 +1,6 @@
 # v0.4 — candidate faults
 
-Status: draft v3
+Status: draft v4
 
 Faults that break the purposes' invariants
 ([purpose-catalogue.md](purpose-catalogue.md)) and the governance rules
@@ -41,7 +41,7 @@ Each method has its own (purposes.md, "Moving data between instances").
 | `security-definer-procedure-open` | stored procedure | G3 | `rpt.close_day()` is `SECURITY DEFINER`, owned by a role holding the mapping, with `EXECUTE` left to `PUBLIC` and no `SET search_path`: any `reporting` login runs it, or shadows the objects it names | seed-file, `reporting`'s data file | `\df+`; `proacl`; `proconfig` | `SECURITY INVOKER`, or `EXECUTE` revoked from `PUBLIC` and `SET search_path` |
 | `purpose-pg-cron-hidden-job` | `pg_cron` | G1, or a purpose's invariant, by what the job does | a job in `cron.job` that no runner lists and no document names: for example the agency's refresh of `rpt.customer_activity` through the foreign tables (the sketch's f9) | seed-file, the data file (`cron.schedule_in_database`) and the seed's preload | `cron.job`; `cron.job_run_details`; `cron.log_statement` lines in the log | `cron.unschedule`, and undo what it wrote (O119) |
 | `security-pg-cron-superuser-job` | `pg_cron` | G3 | the superuser scheduled the job with no `username`, so it runs as `postgres` and its SQL reaches every table and every user mapping; `cron.enable_superuser_jobs` left on | seed-file, the data file | `cron.job.username`; the setting | `cron.alter_job(…, username => <role>)` to a role holding the job's grants; `cron.enable_superuser_jobs = off` |
-| `security-crontab-superuser` | cron daemon | G3 | the entry runs `psql` as `postgres` by peer: a superuser moving data | seed-file, the crontab | `gm-crontab -l`; `pg_stat_activity` during a run | connect as the job's role, its password from the password file |
+| `security-crontab-superuser` | cron daemon | G3 | the entry runs `psql` with no user, so as `postgres` by peer: a superuser for a job a narrow role could run (the role, its grant and its password file exist, never switched to) | seed-file, the crontab | `gm-crontab -l`; `pg_stat_activity` during a run; the role prepared and unused | connect as the job's role (`-U`, the password file); its check reads the live crontab and requires the entry's role to be no superuser (exit 0 or 1) |
 | `security-crontab-credentials` | cron daemon | G3 (a credential exposed) | the entry carries the role's password (`PGPASSWORD=…`, or a connection URI holding it): in the crontab, and in `ps` while the job runs | seed-file, the crontab, `render` writing the role's password into it (new, below) | the entry; `ps -ef` during a run | the password file; the role's password rotated |
 | `purpose-crontab-stale-target` | cron daemon | R4, or the purpose's freshness invariant | the entry still names a database since renamed or moved, so every run fails | seed-file, the crontab | the job's log, if it keeps one; the target's rows stop | the right target |
 | `purpose-cron-output-lost` | cron daemon, or `pg_cron` | R4 | the entry redirects nothing, so a failing run leaves no trace: no mail, no syslog; for `pg_cron`, `cron.log_run = off` | seed-file, planted with a failure (the stale target), as `purpose-script-swallows-errors` is | no log; the trace stops | log to a file the team reads; fail loudly |
@@ -57,23 +57,22 @@ credentials written into a script, against the script's contract
 taking the runner down) is a later fault, in v0.5's catalogue and the
 capacity family after v1.0 (D204, D205).
 
-## Placement (O131)
+## Placement (D207)
 
-Faults of where a job runs, against the proposed guideline (light,
-well-scheduled work on a database node; heavy or procedural work on a
-transformer node; nothing heavy on the source;
+Faults of where a job runs, against the placement guideline (light,
+well-scheduled work on a database node; heavy or row-by-row work on a
+transformer node; heavy work on the source instance the worst;
 [database-node-jobs.md](database-node-jobs.md), "Placement"). They break
-no purpose invariant: they are performance findings, judged on the
-definition (where the job runs, when, what it computes).
+no purpose invariant.
 
-| Id | What is wrong | Planted | Evidence | Fix |
+| Id | What is wrong | Planted | Evidence | Resolution |
 |---|---|---|---|---|
-| `purpose-heavy-job-on-database-node` | a heavy roll-up, or row-by-row work, runs from a database node's cron, or on the source instance | seed-file, the data file or the crontab | `pg_stat_statements`; the node's CPU and memory in Grafana during its runs | move it to a transformer node, or its computation to the receiving instance |
-| `purpose-database-node-job-at-peak` | a database node's job is scheduled in the shop's peak hours | seed-file | latency and CPU at the peak; the job's statements in the log at those times | schedule it off-peak |
+| `purpose-heavy-job-on-database-node` | a heavy transformation runs from a database node's crontab; a one-off backfill makes it exhaust the node's memory **once, during the aging**: its backend OOM-killed, PostgreSQL recovering by itself (D209) | seed-file, the crontab, at T0; a `state` change, the backfill request, at a planned moment before its run | the kill and the recovery in the log; `oom_kill` in `memory.events`; the statistics' reset time; the job's log and ledger; the request | *report*: the incident, its cause, and moving the transformation to a transformer node (D207); its check judges the incident, not a live state ([database-node-jobs.md](database-node-jobs.md), "The out-of-memory incident") |
+| `purpose-database-node-job-at-peak` | a database node's job is scheduled in the shop's peak hours | seed-file | latency and CPU at the peak; the job's statements in the log at those times | *fix*: schedule it off-peak |
 
-Not a fault: a heavy job in the cron daemon getting PostgreSQL
-OOM-killed, which may wipe the evidence. It is a note in the brick's
-`docs/gm.md`.
+The heavy job's earlier form, a job that is merely heavy with no
+incident, is folded into the first: without the incident it is a
+performance finding with little evidence a player can tie to it.
 
 ## Win-back leads (P2)
 

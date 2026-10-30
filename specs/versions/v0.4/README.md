@@ -16,7 +16,9 @@ direction the same day: several PostgreSQL instances, data moved mainly
 by Python transformer scripts the scheduler runs, `postgres_fdw` one
 method among others (D202, D203), nodes sized by role (D204); then
 jobs on a database node, `pg_cron` and a cron daemon in `postgres`
-0.4.0, systemd timers later (D206).
+0.4.0, systemd timers later (D206); the placement guideline (D207); the
+first scenario given a crontab fault (D208) and an out-of-memory
+incident on a database node (D209).
 
 ## Documents
 
@@ -26,10 +28,10 @@ jobs on a database node, `pg_cron` and a cron daemon in `postgres`
 | [purpose-catalogue.md](purpose-catalogue.md) | The proposed purposes, each with its jobs, trace and invariants: sales reporting, win-back leads, customer mailing, export declarations (a pushed obligation); finance held; the clinic's reporting as a stress test | draft v4 |
 | [shop-domain.md](shop-domain.md) | The shop as the first domain: the format v0.4 settles, the data-model changes the invariants need, roles, producer changes | draft v2 |
 | [governance.md](governance.md) | Classes, where the rules are stated, the database-versus-instance boundary, checks G1 to G4 (G3 across instances, scripts and `pg_cron` jobs), "fixed", the policy, brick changes | draft v4 |
-| [database-node-jobs.md](database-node-jobs.md) | Jobs on a database node: `pg_cron` and a cron daemon in `postgres` 0.4.0, how each runs and is enabled, what players see, scenario pins, the placement guideline, the dependency check due | draft v1 |
-| [candidate-faults.md](candidate-faults.md) | Faults breaking each purpose's invariants, the movement methods (database-node jobs included), placement and the governance rules | draft v3 |
+| [database-node-jobs.md](database-node-jobs.md) | Jobs on a database node: `pg_cron` and a cron daemon in `postgres` 0.4.0, how each runs and is enabled, what players see, scenario pins, the placement guideline, the out-of-memory incident, the dependency check due | draft v2 |
+| [candidate-faults.md](candidate-faults.md) | Faults breaking each purpose's invariants, the movement methods (database-node jobs included), placement (the out-of-memory incident) and the governance rules | draft v4 |
 | [checks.md](checks.md) | Invariant checks judged by runs since a moment, witnesses, pushed obligations, runs of a database-node job, definition checks, `gmctl` changes, the release gate | draft v4 |
-| [scenario-sketch.md](scenario-sketch.md) | A first v0.4 scenario: story, topology and sizing, ten fault instances (one through a hidden `pg_cron` job), issues | draft v4 (sketch) |
+| [scenario-sketch.md](scenario-sketch.md) | A first v0.4 scenario: story, topology and sizing, ten fault instances (a hidden `pg_cron` job, a crontab fault, an out-of-memory incident), issues | draft v5 (sketch) |
 
 The sections below are the direction as set on 2026-10-28; where a
 draft refines them, the draft is current.
@@ -142,9 +144,12 @@ the script in there)."
 - **Jobs on a database node** (D206): `pg_cron`, and a cron daemon
   beside PostgreSQL in the container, both optional per node in
   `postgres` 0.4.0; systemd timers later, with the virtual-machine nodes
-  after v1.0 (D205). Light, well-scheduled work belongs there, heavy or
-  procedural work on a transformer node (proposed; O131;
-  [database-node-jobs.md](database-node-jobs.md)).
+  after v1.0 (D205). Light, well-scheduled work may run there; heavy or
+  row-by-row work goes to a transformer node; heavy work on the source
+  instance is the worst placement (D207;
+  [database-node-jobs.md](database-node-jobs.md)). An out-of-memory
+  incident on a database node, real and once during the aging, is a
+  fault (D209).
 - **Nodes sized by role**: each distinct producer on a node of its own,
   as small as it runs; transformer nodes larger where volume needs it
   (D204). An undersized transformer is a later fault (D204, D205).
@@ -347,8 +352,13 @@ arise:
   updated (D206; [database-node-jobs.md](database-node-jobs.md)).
 - Every scenario with a `postgres` node re-pinned to 0.4.0, and every
   fault applying to `postgres` given 0.4.0 in `applies_to` (D206).
-- The cron daemon's faults taken through their cycle in a smoke run,
-  since the first scenario uses none (proposed).
+- The placement guideline (D207) written into the `scenario-format`
+  skill, after formats.md.
+- `PG_OOM_ADJUST_*` in `postgres` 0.4.0's run script, and the
+  out-of-memory incident calibrated in a smoke run: the cgroup's
+  `memory.peak` around a normal run and around the backfill, on a host
+  with swap and one without, before the scenario's window is set
+  (D209).
 
 ## Questions due in this version
 
@@ -364,7 +374,6 @@ arise:
 - O122: the customer's time zone in the data and the jobs.
 - O124: the moment a purpose check judges from.
 - O125: monitoring the second database, and any further instance.
-- O131: the placement guideline for jobs on a database node.
 - O11: technologies and versions, narrowed by D190.
 - O22: scheduled jobs under real time; its v0.4 part settled by D199.
 - O52: the dbt toolchain, not planned for v0.4.
