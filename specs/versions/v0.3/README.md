@@ -6,13 +6,14 @@ revised after the independent review (REJECT, seven blocking issues, all
 fixed: D151), the owner's answers to it (D147–D149), his eight-hour aging
 floor (D150) and the re-review's corrections (OKAY, D155); amended the
 same day by the ruling that only a scenario with scheduler nodes ages
-(D157, D158) (page draft v9). The owner's rulings of 2026-10-22 are
+(D157, D158) (page draft v10). The owner's rulings of 2026-10-22 are
 D114–D123, his answers to two rounds of questions D124–D145, his
 acceptance of the review list D146, D152 and D153. No v0.3 question is
 open. The [build plan](build-plan.md) is **approved** (D156), with the
 VPS rule (D159). Built in four waves from 2026-10-23 to 2026-10-28;
-**release gate passed on 2026-10-29** on `v0.3-w4` (see "Status" and
-"Release notes" below); merging into `main` on the owner's word.
+**release gate complete on 2026-10-30** on `v0.3-w4`, items 1 to 15
+passed, G9 and G10 cleared (see "Status" and "Release notes" below);
+awaiting its merge into `main`, on the owner's word.
 
 ## Documents
 
@@ -20,7 +21,7 @@ VPS rule (D159). Built in four waves from 2026-10-23 to 2026-10-28;
 |---|---|---|
 | [master-spec.md](master-spec.md) | The consolidated v0.3 specification | approved 2026-10-22 (D154), amended by D157 and D158 |
 | [access-model.md](access-model.md) | Who may do what in a v0.3 game | approved 2026-10-22 (D154), amended by D157 and D158 |
-| [build-plan.md](build-plan.md) | The v0.3 build: chunks, waves, gates, release gate | v15, approved 2026-10-22 (D156); built, release gate passed 2026-10-29 |
+| [build-plan.md](build-plan.md) | The v0.3 build: chunks, waves, gates, release gate | v15, approved 2026-10-22 (D156); built, release gate passed 2026-10-30 |
 | [wave-log.md](wave-log.md) | The waves' and the release gate's runs, captures and findings | closed with the release gate |
 | [scheduler.md](scheduler.md) | The scheduler brick, the query repository, the schedule, fixed-time operations, what the players reach, drivers | draft v3, consolidated |
 | [aging-and-timeline.md](aging-and-timeline.md) | Real-time aging, "meaningful" days, time of day, the timeline from deployment to teardown, the restart | draft v3, consolidated |
@@ -211,15 +212,17 @@ Built in four waves from the [build plan](build-plan.md): waves 1 to 3
 merged into `main` (5faff6c, 22ff556, be857ff); the wave 4 gate (passed
 2026-10-28) and the release gate ran on `v0.3-w4`, before its merge.
 Their runs are in [wave-log.md](wave-log.md), "Wave 4 gate passed —
-2026-10-28" and "Release gate — started 2026-10-28". G9 confirmed and
-G10 passed by the owner on 2026-10-29. Merging `v0.3-w4` into `main`
-waits for the owner's word.
+2026-10-28" and "Release gate — started 2026-10-28". **The release gate
+is complete** (2026-10-30): items 1 to 15 passed; G9 confirmed and G10
+passed by the owner on 2026-10-29; item 12's re-run on the fixed code
+the last item, passed on 2026-10-30. `v0.3-w4` is not yet merged into
+`main`; the merge waits for the owner's word.
 
 ## Release notes
 
-v0.3, release gate passed on 2026-10-29: every item passed, G9 confirmed
-and G10 passed by the owner, RG-2, RG-3, RG-5, RG-8 and RG-9 fixed at the
-gate. Released with it (D100): `postgres` 0.3.0, `bastion` 0.3.0,
+v0.3, release gate complete on 2026-10-30: items 1 to 15 passed, G9
+confirmed and G10 passed by the owner, RG-2, RG-3, RG-5, RG-8 and RG-9
+fixed at the gate. Released with it (D100): `postgres` 0.3.0, `bastion` 0.3.0,
 `prometheus`, `postgres-exporter` and `grafana` 0.2.0, and the new
 `scheduler` 0.1.0 and `pgbouncer` 0.1.0.
 
@@ -281,7 +284,7 @@ gate. Released with it (D100): `postgres` 0.3.0, `bastion` 0.3.0,
 
 ### Release gate results
 
-Run on `v0.3-w4` on 2026-10-28 and 2026-10-29 on armenelos, at κ = 1.
+Run on `v0.3-w4` from 2026-10-28 to 2026-10-30 on armenelos, at κ = 1.
 GM sessions were fresh agents reading the `game-master` skill; the driver
 played the initiator; a verifier played as `player` through the bastion
 and the web front only. Every item passed.
@@ -312,16 +315,22 @@ and the web front only. Every item passed.
 11. **Forced failures: PASS.** A setup failure before T0 torn down and
     recorded (RG-9 found); a producer stopped for 4 minutes during the
     aging, recorded as lost time, the game left running.
-12. **Quality command: PASS** at the wave 4 gate (d7cdbd5): unit 653,
-    scheduler 60, seven builds, the seven stack tests, `smoke.sh` 60,
-    `smoke-monitoring.sh` 43, the three scenario smokes. After the gate
-    fixes: unit 658, scheduler 60, the bastion's and PgBouncer's stack
-    tests, tarnbeck's smoke 26/26.
+12. **Quality command: PASS**, re-run in full on the fixed code
+    (2026-10-29 and 2026-10-30, armenelos alone, the VPS Drain): unit
+    658, the schedulers' unit tests, syntax 118 shell and 7 Perl files,
+    the loader's 34 definitions (plus 13 in fixtures) with no problem;
+    every brick built and its stack test passed; `smoke.sh`,
+    `smoke-monitoring.sh` 43, `smoke-scenario.sh` bookshop 19, fernway
+    18 and tarnbeck 26, `smoke-load.sh` on armenelos 73. Prometheus's
+    stack test failed once, on a config left by the run's interrupted
+    first part, and passed on re-run. The intermittent `smoke-load.sh`
+    failure did not recur (see "Known issues"). First run at the wave 4
+    gate (d7cdbd5, unit 653), before the gate's fixes.
 13. **Left for the build: PASS.** Every finding in its chunk's Record
     line and its brick's `docs/gm.md` (below).
 14. **G10: passed** by the owner on 2026-10-29: "you may teardown. i'll
     let you fix what need to be fixed … you've done well."
-15. **Release notes**: these.
+15. **Release notes: PASS**: these.
 
 ### The aged run
 
@@ -335,18 +344,22 @@ snapshot, kept awake throughout (G8). Game
   timer at 08:00:00Z; the early check fired by its timer at 11:44:25Z and
   passed; earliest hand-over 12:44:25Z; close-day 12:00:00–12:00:23Z
   (checkout p95 22.6 s that minute, the noon stall the story needs); the
-  hand-over check passed at 12:47:13Z; handed over at 13:56:58Z, 17h12m
-  after T0. **Lost time 0**, no outage: at 11:52Z each scheduler had
-  909 per-minute summaries with no gap, and the nightly roll-up and the
-  export had run.
+  hand-over check passed at 12:47:13Z and the snapshot taken at
+  12:47:24Z; both retaken just before hand-over, so a restart goes back
+  to the hand-over state: the check passed at 13:56:15Z, the snapshot
+  at 13:56:23Z; handed over at 13:56:58Z, 17h12m after T0. **Lost time
+  0**, no outage: at 11:52Z each scheduler had 909 per-minute summaries
+  with no gap, and the nightly roll-up and the export had run.
 - **Memory at the customer's noon** (`docker stats` each minute): game
   peak **632MiB**; grafana 203M, db 192M (CPU 0.32), prometheus 128M (its
   aged TSDB; 65M in the rehearsal), producer 43M, consumer 30M, exporter
   25M, pooler 12M, bastion 6M, each within its reservation; armenelos'
-  lowest available memory 3763MiB. No node restarted or OOM-killed.
-- **Disk**: the game's 34 volumes **246.59M** at the hand-over snapshot,
-  against `fit`'s 11.85G; the snapshot 34 copies, about 11 s, Prometheus
-  and Grafana stopped about 1 s each.
+  lowest available memory 3763MiB. No node restarted.
+- **Disk**: the hand-over snapshot, retaken at 13:56:23Z, **34 copies,
+  246.59M**, against `fit`'s 11.85G with the snapshot; Prometheus and
+  Grafana stopped briefly (13:56:31–33Z). The first
+  snapshot, at 12:47:24Z, was 34 copies, 259.09M, in about 11 s, with
+  Prometheus and Grafana stopped about 1 s each; the retake replaced it.
 - **The players** found all ten faults, every answer acceptable; the
   feedback named three improvements.
 - **One restart** from the snapshot, confirmed by the owner in so many
@@ -459,6 +472,8 @@ Found by the release gate, kept as known gaps; none blocked it.
 - **`smoke-load.sh`, intermittent**: its first one-host run at the wave
   4 gate failed 3 of 73 checks (18 producer errors in the first judged
   minute, an every-minute job not run), not traced, the scheduler's log
-  lost at teardown; the re-run and the two-host run passed 73/73.
+  lost at teardown; the re-run and the two-host run passed 73/73. It did
+  not recur in the release gate's re-run of the quality command (item
+  12: 73 on armenelos, 2026-10-30). Still unexplained.
 - Also seen: the producer's first minute after a restart carries a few
   more errors while it reconnects.
