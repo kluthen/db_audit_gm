@@ -44,7 +44,7 @@ class TestTeardown(DeployedGame):
         self.assertEqual(teardown.leftovers(self.fake, self.gid), {})
         self.assertEqual(self.fake.objects, self.untouched)
         self.assertEqual(len(report.removed["service"]), 2)
-        self.assertEqual(len(report.removed["volume"]), 9)    # db 6, bastion 3
+        self.assertEqual(len(report.removed["volume"]), 10)   # db 7, bastion 3
         self.assertEqual(len(report.removed["config"]), 6)
         self.assertEqual(len(report.removed["secret"]), 7)
         self.assertEqual(report.removed["network"], [f"{self.gid}_backend"])
@@ -119,7 +119,7 @@ class TestTeardownSnapshot(DeployedGame):
                          f"dbagm-snapshot_{self.gid}_db_pgdata"} <= left)
         self.assertNotIn("dbagm-snapshot_other-game-abc123_db_pgdata", left)
         report = self.teardown()
-        self.assertEqual(len(report.removed["volume"]), 11)       # the game's 9 and 2 copies
+        self.assertEqual(len(report.removed["volume"]), 12)       # the game's 10 and 2 copies
         self.assertEqual([n for n in self.fake.names("volume") if "snapshot" in n],
                          ["dbagm-snapshot_other-game-abc123_db_pgdata"])
         self.assertEqual(teardown.leftovers(self.fake, self.gid, ids), {})

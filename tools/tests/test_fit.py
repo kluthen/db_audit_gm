@@ -231,7 +231,7 @@ class TestFit(ScenarioCopyTest):
         db = impl["nodes"]["db"]
         self.assertEqual([v["name"] for v in db["volumes"]],
                          [f"{gid}_db_{v}" for v in ("pgdata", "pgconf", "home", "gmstate", "pglog",
-                                                     "run")])
+                                                     "run", "cronspool")])
         self.assertEqual(
             [c["name"] for c in db["configs"]],
             [gid + "_db_postgresql.conf", gid + "_db_pg_hba.conf", gid + "_db_envelopes"])

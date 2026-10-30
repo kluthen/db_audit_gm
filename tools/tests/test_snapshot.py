@@ -14,7 +14,7 @@ from tools.tests import FIXTURE_SCENARIO, run_gmctl
 from tools.tests.test_aging import AgingGame
 from tools.tests.test_inject import DeployedGame
 
-DB_VOLUMES = ["pgdata", "pgconf", "home", "gmstate", "pglog"]
+DB_VOLUMES = ["pgdata", "pgconf", "home", "gmstate", "pglog", "cronspool"]
 
 
 class FakePipe:
@@ -124,7 +124,7 @@ class TestStaticSnapshot(StaticGame):
                      self.impl["nodes"]["db"]["image"]):
             self.assertIn(word, target)
         self.assertNotIn(localimpl.LABEL_GAME, " ".join(target))
-        self.assertIn("hand-over snapshot taken, 7 volumes", result.text())
+        self.assertIn("hand-over snapshot taken, 8 volumes", result.text())
 
     def test_a_copy_reading_a_changing_file_is_a_copy_a_failed_backup_is_not(self):
         self.pipe.status = {"pglog": 1}
@@ -154,7 +154,7 @@ class TestStaticSnapshot(StaticGame):
         result = self.take()
         self.assertTrue(result.ok)
         self.assertEqual(self.copies(), first)
-        self.assertIn("The earlier snapshot's 7 copies removed.", result.text())
+        self.assertIn("The earlier snapshot's 8 copies removed.", result.text())
 
     def test_not_fitting_copies_nothing(self):
         impl = localimpl.read_implementation(self.ldir)
@@ -222,7 +222,8 @@ class TestStop(StaticGame):
         self.assertEqual(len(stops), 2)
         self.assertIn("-d /run/service/postgres", stops[0])
         self.assertIn("-u /run/service/postgres", stops[1])
-        self.assertEqual(self.node_steps(), ["pgdata", "pgconf", "home", "gmstate", "pglog"])
+        self.assertEqual(self.node_steps(), ["pgdata", "pgconf", "home", "gmstate", "cronspool",
+                                             "pglog"])
         record = self.st()["snapshot"]
         self.assertEqual(record["stops"][0]["node"], "db")
         self.assertEqual(record["stops"][0]["services"], ["postgres"])

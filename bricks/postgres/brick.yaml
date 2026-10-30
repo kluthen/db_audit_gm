@@ -6,8 +6,10 @@
 # Top-level keys: capture W1-A; fixed paths, secrets, envelope file and
 # wrappers: capture W1-B; quoted octal modes: capture W1-D
 # (specs/versions/v0.1/wave-log.md); footprint shape, secret kinds and
-# `receives`: capture W1 (specs/versions/v0.2/wave-log.md). Operating
-# notes: docs/gm.md.
+# `receives`: capture W1 (specs/versions/v0.2/wave-log.md). The cron
+# daemon's entries (`seed.optional`, the crontab, `cronspool`, `gm-crontab`):
+# capture W1 items 4 and 8 (specs/versions/v0.4/wave-log.md), as built in
+# W1-x. Operating notes: docs/gm.md.
 
 # --- Identity ---------------------------------------------------------
 id: postgres
@@ -68,6 +70,8 @@ writable_paths:
   - /etc/postgresql                 # postgres:pgconf, 2775; seeded files 0664
   - /home/player                    # ~/.pgpass (rewritten at each start), ~/report.md,
                                     #   pgBadger reports
+                                    # the cron spool is not listed: its owner and modes are
+                                    #   cron's (players change it through gm-crontab only)
 protected_files:
   - /etc/ssh/sshd_config
   - /etc/sudoers
@@ -76,6 +80,7 @@ protected_files:
   - /usr/local/sbin/gm-reload-db
   - /usr/local/sbin/gm-restart-db
   - /usr/local/sbin/gm-validate
+  - /usr/local/sbin/gm-crontab      # lists or replaces postgres's crontab (the cron daemon)
   - /usr/local/sbin/gm-snapshot-db  # root only (0700): the pgdata snapshot (snapshot: below)
   - /usr/local/lib/gm/healthcheck
   - /usr/local/lib/gm/check-psql    # root only (0700): the sealed checks' psql as gm_check
@@ -91,6 +96,8 @@ player_access:
     - /usr/local/sbin/gm-reload-db
     - /usr/local/sbin/gm-restart-db
     - /usr/local/sbin/gm-validate
+    - /usr/local/sbin/gm-crontab    # -l, or one file read as player (any argument, checked
+                                    #   by the wrapper itself; sudoers gives it no "")
 capabilities:                       # added back after cap_drop: ALL; no-new-privileges stays off (sudo)
   - AUDIT_WRITE                     # sudo: audit message (else a warning on every sudo)
   - CHOWN                          # entrypoint: ownership of volumes and seeded files
@@ -145,14 +152,22 @@ secrets:
     uid: 0
     gid: 0
     mode: "0400"
+  # The crontab roles' passwords are not declared here: for each role of the
+  # node's crontab_roles (scenario.yaml), render mounts the game's secret
+  # role_<role>_password at /opt/gm/secrets/role_<role>_password, 0:0 "0400"
+  # (as on a scheduler node, spec D167); gm-entrypoint writes them into the
+  # password file /run/gm-cron/pgpass, postgres-only (capture W1 item 8).
 seed:
   dir: /opt/gm/seed/
   files:
     - postgresql.conf
     - pg_hba.conf
+    - crontab                       # postgres's crontab: the node runs the cron daemon
+  optional: [crontab]               # a node seeding no crontab runs no cron daemon
   paths:                            # seed file -> its live in-container path
     postgresql.conf: /etc/postgresql/postgresql.conf
     pg_hba.conf: /etc/postgresql/pg_hba.conf
+    crontab: /var/spool/cron/crontabs/postgres   # installed once, postgres:crontab 0600
 protected_configs:
   - name: envelopes                 # per-game envelope file, read by the validator
     path: /opt/gm/protected/envelopes.conf
@@ -172,7 +187,10 @@ volumes:
     path: /var/log/postgresql       #   postgresql.conf); postgres:pgconf 2750, files 0640
   - name: run                       # /run: a stack file's tmpfs is noexec and s6-overlay
     path: /run                      # needs exec; emptied by the entrypoint at each start
-processes:
+  - name: cronspool                 # cron's spool, root:crontab 1730, the crontab
+    path: /var/spool/cron/crontabs  #   postgres:crontab 0600, set by the entrypoint at each start
+processes:                          # not cron: down by design on a node seeding no crontab,
+                                    #   so node-health cannot watch it (docs/gm.md)
   - postgres
   - sshd
 snapshot:                           # per volume, the hand-over copy (v0.3 master spec 6.4,
@@ -182,6 +200,7 @@ snapshot:                           # per volume, the hand-over copy (v0.3 maste
   home: copy
   gmstate: copy
   pglog: copy
+  cronspool: copy                   # the crontab as the players left it
 
 # --- Catalog links ----------------------------------------------------
 interfaces:

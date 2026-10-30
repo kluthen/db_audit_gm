@@ -1,0 +1,60 @@
+#!/bin/sh
+# gm-crontab: list or replace the crontab of OS user `postgres`, the one the
+# node's cron daemon runs (master spec 7.2, capture W1 item 8).
+# DO NOT TAMPER. Root-owned, read-only; allowed by /etc/sudoers.d/gm-player
+# with any arguments, so it checks its own.
+#
+# Usage:
+#   sudo gm-crontab -l        list the crontab
+#   sudo gm-crontab <file>    install <file> as the crontab, replacing it;
+#                             cron reads it within the minute
+# <file> is read with player's rights, never root's: a file player cannot
+# read is refused, and nothing of a root-only file reaches crontab's error
+# lines. Debian's `crontab` checks the file and installs it into the spool
+# (volume cronspool), postgres:crontab 0600, so it survives a restart.
+# On a node seeding no crontab no cron daemon runs: `-l` still lists, a
+# replacement is refused, since nothing would ever run it.
+#
+# Exit status: 0 done; 1 nothing to list (crontab's "no crontab for
+# postgres"), a file that cannot be read or that crontab refuses (the
+# crontab left as it was), or no daemon on this node; 2 a bad argument or
+# a caller other than root.
+set -u
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+SEED=/opt/gm/seed/crontab
+
+usage() {
+    echo "usage: sudo gm-crontab -l | sudo gm-crontab <file>" >&2
+    exit 2
+}
+
+[ "$(id -u)" = 0 ] || { echo "gm-crontab: run it with sudo" >&2; exit 2; }
+[ "$#" -eq 1 ] || usage
+case $1 in
+    -l) exec crontab -u postgres -l ;;
+    ''|-*) usage ;;
+esac
+
+if [ ! -e "$SEED" ]; then
+    echo "gm-crontab: this node runs no cron daemon (its scenario seeds no crontab); nothing installed" >&2
+    exit 1
+fi
+
+umask 077
+tmp=$(mktemp /run/gm/gm-crontab.XXXXXX) || { echo "gm-crontab: cannot create a work file in /run/gm" >&2; exit 1; }
+trap 'rm -f "$tmp"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+# cat runs as player; root only writes what it read into its own work file.
+if ! runuser -u player -- cat -- "$1" > "$tmp"; then
+    echo "gm-crontab: cannot read $1 as player; the crontab is unchanged" >&2
+    exit 1
+fi
+if ! crontab -u postgres "$tmp"; then
+    echo "gm-crontab: crontab refused $1; the crontab is unchanged" >&2
+    exit 1
+fi
+echo "gm-crontab: $1 installed as postgres's crontab; cron reads it within the minute."
+exit 0

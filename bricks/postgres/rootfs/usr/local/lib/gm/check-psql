@@ -1,14 +1,21 @@
 #!/bin/sh
 # check-psql: psql as the GM check role gm_check, for the sealed checks.
 # DO NOT TAMPER. Root-owned, mode 0700: root only (v0.3 master spec 7.3,
-# capture W1 item 8; docs/gm.md).
+# capture W1 item 8; v0.4 master spec 6.5 and 7.2, capture W1-x; docs/gm.md).
 #
 # Usage, as root inside the database node (gmctl exec --user root):
 #   /usr/local/lib/gm/check-psql [psql options and arguments]
 #   /usr/local/lib/gm/check-psql -d <db> -Atq -v ON_ERROR_STOP=1 <<'SQL'
 #   ...
 #   SQL
-# Runs `psql -X -w -h /run/postgresql -p 5432 -U gm_check "$@"`, standard
+#   /usr/local/lib/gm/check-psql --node <node> [psql options and arguments]
+# Runs `psql -X -w -h /run/postgresql -p 5432 -U gm_check "$@"`; with
+# `--node <node>` first, another database node of the game instead, over
+# the game network: `psql -X -w -h <node> -p 5432 -U gm_check "$@"`, the
+# connection given up after 10 s. That node's pg_hba.conf must admit
+# gm_check from the game network (`host all gm_check samenet
+# scram-sha-256` under its DO NOT TAMPER comment); gm_check has one
+# password per game, so this node's secret serves. Standard
 # input, output and error passed through, with the password from the
 # root-only secret /opt/gm/secrets/gm_check_password in a 0600 PGPASSFILE
 # under the root-only /run/gm, removed on every exit. gm_check holds
@@ -17,8 +24,8 @@
 #
 # Exit status: psql's (0 done, 1 psql error, 2 connection failed or
 # lost, 3 script error under ON_ERROR_STOP); 2 too when the helper cannot
-# run (not root, the secret missing, no password file), with one
-# `check-psql: ...` line on standard error.
+# run (not root, the secret missing, no password file, `--node` without a
+# node name), with one `check-psql: ...` line on standard error.
 set -u
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
@@ -28,6 +35,18 @@ PSQL=/usr/lib/postgresql/18/bin/psql
 fail() { printf 'check-psql: %s\n' "$*" >&2; exit 2; }
 
 [ "$(id -u)" = 0 ] || fail "run as root"
+host=/run/postgresql
+timeout=
+if [ "${1:-}" = --node ]; then
+    [ "$#" -ge 2 ] || fail "usage: check-psql [--node <node>] [psql options and arguments]"
+    case $2 in
+        ''|[!a-z]*|*[!a-z0-9-]*|*-) fail "--node $2: not a node name" ;;
+    esac
+    [ "${#2}" -le 63 ] || fail "--node $2: not a node name"
+    host=$2
+    timeout=10
+    shift 2
+fi
 [ -s "$SECRET" ] || fail "secret $SECRET is missing or empty"
 umask 077
 passfile=$(mktemp /run/gm/check-psql.XXXXXX) || fail "cannot create a password file in /run/gm"
@@ -43,7 +62,12 @@ unset pw
 # Nothing from the caller's environment chooses the server, the role or
 # the password.
 unset PGHOST PGHOSTADDR PGPORT PGUSER PGPASSWORD PGSERVICE PGSERVICEFILE \
-      PGSYSCONFDIR PGOPTIONS PGREQUIRESSL PGSSLMODE PGTARGETSESSIONATTRS
+      PGSYSCONFDIR PGOPTIONS PGREQUIRESSL PGSSLMODE PGTARGETSESSIONATTRS \
+      PGCONNECT_TIMEOUT
 PGPASSFILE=$passfile
 export PGPASSFILE
-"$PSQL" -X -w -h /run/postgresql -p 5432 -U gm_check "$@"
+if [ -n "$timeout" ]; then
+    PGCONNECT_TIMEOUT=$timeout
+    export PGCONNECT_TIMEOUT
+fi
+"$PSQL" -X -w -h "$host" -p 5432 -U gm_check "$@"
