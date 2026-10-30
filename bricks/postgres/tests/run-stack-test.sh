@@ -40,7 +40,12 @@
 #     pg_cron preloaded, a job scheduled with
 #     cron.schedule_in_database(..., username => 'cron_app') running as that
 #     role and filling cron.job_run_details. No job is run by hand: each
-#     waits for its schedule.
+#     waits for its schedule;
+#   - v0.4 (chunk 4b): on both nodes every child of the postmaster at
+#     oom_score_adj +300 (PG_OOM_ADJUST_* from the run script), the
+#     postmaster, s6, sshd and cron at 0; check-psql --node reaching the
+#     other node's instance as gm_check over the game network, both ways,
+#     db2 admitting only gm_check from it; the footprint at rest.
 # Everything it creates is removed on exit, volumes included.
 #
 # Needs: a swarm manager (docker swarm init), the image built locally:
@@ -842,6 +847,70 @@ w=$(j /command/s6-svstat -o up,wantedup /run/service/cron 2>&1)
 [ "$w" = "true true" ] && j pgrep -x cron >/dev/null \
     && pass "db2: an empty player crontab leaves the daemon running, across a restart of the service ($w)" \
     || fail "db2: cron with an empty crontab: $w"
+
+# --- v0.4: the out-of-memory victim (chunk 4b) -------------------------------------------
+for node in db db2; do
+    if [ "$node" = db ]; then n_c=$C; else n_c=$J; fi
+    w=$(docker exec -u postgres "$n_c" psql -XAtc "select trim(pg_read_file('/proc/self/oom_score_adj'))" 2>&1)
+    [ "$w" = 300 ] && pass "$node: a backend runs at oom_score_adj +300 (read from the backend itself)" || fail "$node: backend's oom_score_adj: $w"
+    ppid=$(docker exec "$n_c" head -n 1 /var/lib/postgresql/18/data/postmaster.pid 2>&1)
+    # /proc/<pid>/environ is its owner's: read as postgres (root has no CAP_SYS_PTRACE)
+    w=$(docker exec -u postgres "$n_c" sh -c "tr '\\0' '\\n' < /proc/$ppid/environ | grep '^PG_OOM_ADJUST_' | sort | tr '\\n' ' '" 2>&1)
+    [ "$w" = "PG_OOM_ADJUST_FILE=/proc/self/oom_score_adj PG_OOM_ADJUST_VALUE=300 " ] \
+        && pass "$node: the run script gives the postmaster PG_OOM_ADJUST_FILE and PG_OOM_ADJUST_VALUE=300" \
+        || fail "$node: the postmaster's environment: $w"
+    w=$(docker exec "$n_c" sh -c "for p in \$(pgrep -P $ppid); do cat /proc/\$p/oom_score_adj; done | sort -u | tr '\\n' ' '" 2>&1)
+    [ "$w" = "300 " ] && pass "$node: every child of the postmaster at +300 (backends and background processes)" \
+        || fail "$node: the postmaster's children: $w"
+    w=$(docker exec "$n_c" sh -c "printf 'postmaster=%s ' \$(cat /proc/$ppid/oom_score_adj)
+        for p in \$(pgrep -x 's6-svscan|s6-supervise'); do printf 's6=%s ' \$(cat /proc/\$p/oom_score_adj); done
+        for p in \$(pgrep -x sshd); do printf 'sshd=%s ' \$(cat /proc/\$p/oom_score_adj); done
+        for p in \$(pgrep -x cron); do printf 'cron=%s ' \$(cat /proc/\$p/oom_score_adj); done" 2>&1)
+    case " $w" in
+        *=[!0]*|*=0[0-9]*) fail "$node: a process outside PostgreSQL's children not at 0: $w" ;;
+        *" postmaster=0 "*" s6=0 "*" sshd=0 "*) pass "$node: the postmaster, s6, sshd and cron (where it runs) at 0 ($w)" ;;
+        *) fail "$node: oom_score_adj outside PostgreSQL's children: $w" ;;
+    esac
+done
+case $(j sh -c 'for p in $(pgrep -x cron); do cat /proc/$p/oom_score_adj; done') in
+    0) pass "db2: the cron daemon at 0" ;; *) fail "db2: cron's oom_score_adj" ;;
+esac
+
+# --- v0.4: check-psql reaching another database node (chunk 4b) ---------------------------
+OTHER="select current_user || ' ' || (inet_client_addr() is not null) || ' ' || coalesce(current_setting('cron.database_name', true), '-')"
+w=$(gm_psql --node db2 -d postgres -XAtc "$OTHER" 2>&1)
+[ "$w" = "gm_check true postgres" ] && pass "check-psql --node db2 from db: gm_check over the game network, on db2's instance ($w)" \
+    || fail "check-psql --node db2: $w"
+w=$(docker exec -i "$J" /usr/local/lib/gm/check-psql --node db -d postgres -XAtc "$OTHER" 2>&1)
+[ "$w" = "gm_check true -" ] && pass "check-psql --node db from db2: gm_check on db's instance ($w)" || fail "check-psql --node db: $w"
+w=$(gm_psql --node db2 -d postgres -Atq -v ON_ERROR_STOP=1 <<'SQL' 2>&1
+select count(*) from pg_hba_file_rules where type = 'host' and 'gm_check' = any(user_name) and address = 'samenet';
+SQL
+)
+[ "$w" = 1 ] && pass "check-psql --node db2 reads db2's pg_hba_file_rules (its samenet line for gm_check)" || fail "db2's gm_check line: $w"
+w=$(docker exec -e PGPASSWORD="$DBA_PASSWORD" "$CLIENT" psql -h db2 -U dba -d postgres -XAtc 'select 1' 2>&1)
+case $w in *"no pg_hba.conf entry"*) pass "db2 admits only gm_check from the network: dba refused there" ;; *) fail "dba over TCP on db2: $w" ;; esac
+gm_psql --node db2 -d postgres -Atq -v ON_ERROR_STOP=1 >/dev/null 2>&1 <<'SQL'
+select no_such_column;
+SQL
+rc=$?
+[ "$rc" -eq 3 ] && pass "check-psql --node passes psql's status through (3)" || fail "check-psql --node status on a script error: $rc"
+for a in "--node" "--node Db2" "--node db2;x" "--node -h"; do
+    out=$(gm_psql $a -d postgres -XAtc 'select 1' 2>&1); rc=$?
+    case $rc:$out in 2:check-psql:*) pass "check-psql refuses [$a] (exit 2: $out)" ;; *) fail "check-psql [$a]: exit $rc: $out" ;; esac
+done
+t0=$(date +%s)
+out=$(gm_psql --node no-such-node -d postgres -XAtc 'select 1' 2>&1); rc=$?
+t1=$(date +%s)
+[ "$rc" -eq 2 ] && [ $((t1 - t0)) -le 15 ] && pass "check-psql --node on an unknown node: exit 2 within $((t1 - t0)) s" \
+    || fail "check-psql --node no-such-node: exit $rc after $((t1 - t0)) s: $out"
+w=$(gm sh -c 'ls /run/gm | grep -c "^check-psql" || true')
+[ "$w" = 0 ] && pass "check-psql --node leaves no password file in /run/gm" || fail "password files left: $w"
+
+# --- v0.4: footprint at rest of the jobs (chunk 4b) ----------------------------------------
+cpid=$(j pgrep -x cron)
+lpid=$(jsql "select pid from pg_stat_activity where backend_type = 'pg_cron launcher'")
+info "db2 at rest: cron RSS $(j ps -o rss= -p "$cpid" | tr -d ' ')K, pg_cron launcher RSS $(j ps -o rss= -p "$lpid" | tr -d ' ')K"
 
 # --- hardening ---------------------------------------------------------------------
 check "root filesystem is read-only" sh -c "[ \"\$(docker inspect -f '{{.HostConfig.ReadonlyRootfs}}' $C)\" = true ]"

@@ -22,6 +22,13 @@ The image:
   `pg_stat_statements` ships with the server), pgBadger from the same
   repository (13.2 at the 0.2.0 build), `openssh-server`, `sudo`, `nano`,
   `vim-tiny`, `less`, `procps`. About 262MB.
+- From 0.4.0, for jobs on the node (see "`pg_cron`" and "The cron
+  daemon"): `postgresql-18-cron` from the same repository, pinned exactly
+  (`1.6.8-1.pgdg13+2`, build argument `PG_CRON_PACKAGE`, checked at build;
+  security preflight G5), and Debian's `cron` (`3.0pl1-197` at the 0.4.0
+  build, unpinned, without recommends, so no mail transfer agent). Both
+  sit idle unless the scenario uses them. They add Debian's group
+  `crontab` (gid 997), so `pgconf` is gid 996 from 0.4.0 (997 before).
 - s6-overlay 3.2.3.2 (x86_64), archives verified by SHA-256 at build.
 - Generic: no scenario content and no host keys in the image.
 
@@ -40,9 +47,10 @@ The image:
   host; in v0.2 the renderer still runs the whole game on one host (one
   host remains the only playground shape, master spec 8).
 - **Stateful**: yes (`stateful: true`). Its volumes `pgdata`, `pgconf`,
-  `home`, `gmstate`, `pglog` and `run` (see "Configuration") must follow
-  the node if it is replaced; otherwise the data, the players' changes,
-  the seed marker and the server log are lost.
+  `home`, `gmstate`, `pglog`, `run` and `cronspool` (see "Configuration")
+  must follow the node if it is replaced; otherwise the data, the
+  players' changes, the seed marker, the server log and the crontab are
+  lost.
 - **Networks**: it must share a network with the bastion, which is the
   players' only way in (see "Connections"). Each network a scenario
   declares renders as `<game_id>_<network name>`; v0.2 scenarios declare
@@ -60,12 +68,14 @@ secrets, the envelope file and the data load.
 | What | Where it lands | Set by |
 |---|---|---|
 | Seed files `postgresql.conf`, `pg_hba.conf` (`seed.files`) | `/opt/gm/seed/`, root `0444`, copied into `/etc/postgresql/` at first start | the scenario's `seed_files` (`nodes/<node>/...`) |
+| Seed file `crontab` (`seed.optional`: a node may leave it out) | `/opt/gm/seed/crontab`, root `0444`, installed at first start as `postgres`'s crontab; its presence turns the cron daemon on | the scenario's `seed_files`, when the node runs a cron daemon (see "The cron daemon") |
 | Envelope file (protected config `envelopes`) | `/opt/gm/protected/envelopes.conf`, root `0444` | `gmctl render`, from the node's `knobs` envelopes |
 | Secret `player_ssh_pubkey` (kind `key-pair`, pair `player_ssh_key`, half `public`) | `/opt/gm/secrets/player_ssh_pubkey`, root `0444` | `gmctl deploy`: the public half of the bastion's `player_ssh_key` |
 | Secret `dba_password` (kind `password`, not handed over) | `/opt/gm/secrets/dba_password`, root `0400` | `gmctl deploy`: the same secret as the bastion's |
 | Secret `monitoring_password` (kind `password`, not handed over) | `/opt/gm/secrets/monitoring_password`, uid `0`, gid `102` (`postgres`), `0440`: root and `postgres` only | `gmctl deploy`: the same secret as the `postgres-exporter` node's (see "The monitoring role") |
 | Secret `gm_check_password` (kind `password`, not handed over) | `/opt/gm/secrets/gm_check_password`, root `0400`: root only | `gmctl deploy`; declared by this brick only (see "The GM check role and the reserve") |
 | Secret `pgbouncer_lookup_password` (kind `password`, not handed over, `only_with_role: pooler`) | `/opt/gm/secrets/pgbouncer_lookup_password`, root `0400`: root only | `gmctl deploy`, only in a scenario with a `pooler` node: the same secret as the `pgbouncer` node's (see "The PgBouncer lookup role") |
+| Secrets `role_<role>_password` (kind `password`, not declared in `brick.yaml`), one per role of the node's `crontab_roles` | `/opt/gm/secrets/role_<role>_password`, root `0400`; written into the crontab's password file at each start | `gmctl render`, from `crontab_roles` in `scenario.yaml`: the game's secret of that name, the one any scheduler node naming the role holds (spec D167) |
 | Data | streamed in once, after deployment | `gmctl load-data`, from `data/<node>.sql` |
 
 ### Knobs and their default envelopes
@@ -86,17 +96,20 @@ for the default footprint; a scenario may tighten them, never widen them.
 
 | What | Path | Notes |
 |---|---|---|
-| Seed directory | `/opt/gm/seed/` | configs `postgresql.conf`, `pg_hba.conf`, read-only |
+| Seed directory | `/opt/gm/seed/` | configs `postgresql.conf`, `pg_hba.conf` and, optional, `crontab`, read-only |
 | Configuration | `/etc/postgresql/` | volume `pgconf`; `postgres:pgconf`, dir `2775`, seeded files `0664` |
 | Seed marker | `/var/lib/gm-state/.gm-seeded` | volume `gmstate`; dir root `0755`, marker root `0444`; present means never seed again |
 | PGDATA | `/var/lib/postgresql/18/data` | volume `pgdata` |
 | Player home | `/home/player` | volume `home`; pgBadger reports land here |
 | Server log | `/var/log/postgresql/` | volume `pglog`; `postgres:pgconf`, dir `2750` (setgid), files `0640` |
+| Crontab's job logs | `/var/log/postgresql/cron/` | on `pglog`; `postgres:pgconf`, dir `2750` (setgid), a job's files `0644` |
+| Cron spool | `/var/spool/cron/crontabs/` | volume `cronspool`; `root:crontab`, dir `1730`; `postgres`'s crontab `postgres:crontab` `0600` (`seed.paths.crontab`) |
+| Crontab's password file | `/run/gm-cron/pgpass` | `postgres:postgres`, dir `0700`, file `0600`; absent with no crontab role |
 | Runtime | `/run` | volume `run`, emptied at each start (see below) |
-| Secrets | `/opt/gm/secrets/player_ssh_pubkey`, `/opt/gm/secrets/dba_password`, `/opt/gm/secrets/monitoring_password`, `/opt/gm/secrets/gm_check_password`, `/opt/gm/secrets/pgbouncer_lookup_password` | the last one only with a pooler node |
+| Secrets | `/opt/gm/secrets/player_ssh_pubkey`, `/opt/gm/secrets/dba_password`, `/opt/gm/secrets/monitoring_password`, `/opt/gm/secrets/gm_check_password`, `/opt/gm/secrets/pgbouncer_lookup_password`, `/opt/gm/secrets/role_<role>_password` | the lookup role's only with a pooler node; a role's for each of the node's `crontab_roles` |
 | Envelope file | `/opt/gm/protected/envelopes.conf` | protected config `envelopes`, root, `0444` |
 | Validator | `/opt/gm/validator/validate.sh` | |
-| Wrappers | `/usr/local/sbin/gm-reload-db`, `gm-restart-db`, `gm-validate` | |
+| Wrappers | `/usr/local/sbin/gm-reload-db`, `gm-restart-db`, `gm-validate`, `gm-crontab` | |
 | Entrypoint | `/usr/local/sbin/gm-entrypoint` | |
 | Snapshot helper | `/usr/local/sbin/gm-snapshot-db` | root `0700`, not a `sudo` wrapper (see "Snapshot") |
 | Health check | `/usr/local/lib/gm/healthcheck` | |
@@ -118,16 +131,24 @@ for the default footprint; a scenario may tighten them, never widen them.
    `pgbouncer_lookup_password` is optional: mounted means a pooler node.
 4. If `/var/lib/gm-state/.gm-seeded` is absent: copies the seed files into
    `/etc/postgresql/` and writes the marker. A missing seed file fails the
-   container. Never overwrites afterwards. The marker is on its own
+   container. If the node seeds a `crontab`, installs it the same once
+   as `postgres`'s crontab, through Debian's `crontab -u postgres`, which
+   checks it (a seed it refuses fails the container) and writes the
+   header `crontab -l` leaves out. Never overwrites afterwards. The marker is on its own
    root-owned volume, out of reach of `player` and `postgres`: the
    configuration directory is group-writable without the sticky bit, so
    that editors saving by rename (`sed -i`) work, and a marker there could
    be removed. At every start, seeded or not, gives `postgresql.conf` and
    `pg_hba.conf` their seeded owner and mode back (`postgres:pgconf`,
-   `0664`), as the wrappers do (see "Wrappers").
+   `0664`), as the wrappers do (see "Wrappers"); and gives the spool its
+   `root:crontab` `1730`, and `postgres`'s crontab, when there is one,
+   `postgres:crontab` `0600` (cron skips a crontab of another owner or
+   mode; a symlink is left alone).
 5. Sets `/var/log/postgresql` to `postgres:pgconf`, `2750` with the
    setgid bit, so every log file PostgreSQL writes there gets the group
-   `pgconf` (the players' group).
+   `pgconf` (the players' group); creates `/var/log/postgresql/cron/` when
+   missing (anything but a directory there is removed first) and sets it
+   the same.
 6. If PGDATA is empty: `initdb` (UTF8, `C.UTF-8`, data checksums on by
    default in 18), then, in single-user mode, creates the role `dba`
    (`LOGIN SUPERUSER`, password from its secret), the role `monitoring`
@@ -148,18 +169,25 @@ for the default footprint; a scenario may tighten them, never widen them.
    rather than lock the players out of the node. Success logs
    `gm-entrypoint: GM roles up to date: gm_check pgbouncer_lookup`
    (`gmctl logs`).
-8. Writes `/home/player/.pgpass` (`*:*:*:dba:<password>`, `0600`).
-9. Execs s6-overlay's `/init`, which supervises `postgres` and `sshd`.
+8. Writes `/home/player/.pgpass` (`*:*:*:dba:<password>`, `0600`) and,
+   when a `role_<role>_password` secret is mounted, the crontab's
+   password file (see "The cron daemon"). A secret of that form not
+   naming a role (`[a-z_][a-z0-9_]*`), empty or not a single line fails
+   the container.
+9. Execs s6-overlay's `/init`, which supervises `postgres`, `sshd` and
+   `cron` (down on a node seeding no crontab).
 
 Seeded once: the configuration files (first start on a fresh `gmstate`
 volume) and the cluster with its roles `dba` and `monitoring` and the
 extension (first start on a fresh `pgdata` volume). Rewritten at each
-start: `/run`, the sshd host key, `~/.pgpass`, and the GM's roles'
-attributes, memberships, grants and passwords.
+start: `/run`, the sshd host key, `~/.pgpass`, the crontab's password
+file, and the GM's roles' attributes, memberships, grants and passwords.
 
 PostgreSQL runs as
 `postgres -D /var/lib/postgresql/18/data -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf -c reserved_connections=2`
-(the GM's reserve, see "The GM check role and the reserve").
+(the GM's reserve, see "The GM check role and the reserve"), with
+`PG_OOM_ADJUST_FILE` and `PG_OOM_ADJUST_VALUE` in its environment (see
+"The out-of-memory victim").
 With the seed's `logging_collector = on`, it writes its log to files in
 `/var/log/postgresql` (see "What the seed files must contain"); only the
 lines before the collector starts reach the container's output (`gmctl
@@ -351,6 +379,28 @@ a planted exhaustion fault holds every ordinary slot:
   ...` line on standard error when the helper cannot run (not root, the
   secret missing). It connects over the local socket through the seed's
   `local all gm_check scram-sha-256` line.
+- **Another database node's instance** (from 0.4.0; master spec 6.5 and
+  7.2, capture W1-x): a check comparing two instances, run on one
+  database node, reaches the other's with the other node's name first:
+
+  ```
+  /usr/local/lib/gm/check-psql --node <node> -d <db> -Atq -v ON_ERROR_STOP=1 <<'SQL'
+  select ...;
+  SQL
+  ```
+
+  `<node>` is the other node's name in the scenario, which the game
+  network resolves (`[a-z]`, then `[a-z0-9-]`, not ending in `-`, at
+  most 63 characters). It runs `psql -X -w -h <node> -p 5432 -U gm_check
+  "$@"` over the game network, as `gm_check` with this node's secret
+  (one password per game), the connection given up after 10 s
+  (`PGCONNECT_TIMEOUT`). The other node's seed `pg_hba.conf` must admit
+  `gm_check` from the game network, under its DO NOT TAMPER comment:
+  `host all gm_check samenet scram-sha-256`, which every database node of
+  a scenario with `governance:` keeps (v0.4 capture W1 item 1). Same
+  streams and exit status as above; 2 also for `--node` without a node
+  name, and psql's 2 for a node that does not answer. The connection
+  lands in the other node's reserve like any `gm_check` session.
 - **Players see it**: with `log_connections = on` the server log, and so
   pgBadger, records the `gm_check` sessions, as `pg_stat_activity` shows
   them while they run.
@@ -383,6 +433,164 @@ capture W1 item 8), present only in a scenario with a `pooler` node:
   `pooler` (`only_with_role: pooler`). Its password is that per-game
   secret (kind `password`, not handed over), root `0400` here, the same
   secret as the `pgbouncer` node's.
+
+### `pg_cron`
+
+**What it is**: the PostgreSQL extension `pg_cron` (PGDG package
+`postgresql-18-cron` 1.6.8, pinned), which runs SQL on a schedule from
+inside the server: a launcher, one background worker, reads the jobs
+from its tables and starts a background worker per run. The image ships
+the library and the extension's files only; nothing runs until a seed
+preloads it (master spec 7.2). It needs no `brick.yaml` entry.
+
+**How a scenario turns it on**: the seed `postgresql.conf` and the data
+file, as `pg_stat_statements`:
+
+```
+shared_preload_libraries = 'pg_stat_statements,pg_cron'
+cron.database_name = 'shop'              # the database holding its tables; one the data file creates
+cron.use_background_workers = on         # a job runs as its role: no password, no pg_hba.conf line
+cron.timezone = '{{customer_timezone}}'  # render fills in the bare zone (8.5)
+cron.log_run = on                        # cron.job_run_details; a check on its runs needs it (12.5)
+cron.log_statement = on                  # a log line per run, in the file log and pgBadger
+```
+
+The data file creates the extension in `cron.database_name` as
+superuser (`CREATE EXTENSION pg_cron`, written at the start of a line,
+which the loader reads) and schedules each job with
+`cron.schedule_in_database(<name>, <schedule>, <command>, <database>,
+username => <role>)`, the job then running as that role. Jobs are rows,
+so the restored backup carries them, and the hand-over snapshot with it.
+The loader checks that a data file creating `pg_cron` belongs to a node
+whose seed preloads it and that `cron.database_name` names a database
+that file creates; a fault may still remove the preload. The stack test
+shows it on db2 (`tests/fixtures/postgresql-jobs.conf`).
+
+**What players and the GM see**: `\dx`, the preload, `cron.job` (the
+jobs) and `cron.job_run_details` (start, end, status, message, while
+`cron.log_run` is on). Both tables show a role its own jobs only, unless
+it is a superuser or bypasses row-level security: `dba` sees them all;
+`gm_check` reads them through a read policy `load-data` adds where the
+extension exists (chunk 7). Changing them: `cron.schedule`,
+`cron.unschedule`, `cron.alter_job` and the settings, as `dba`.
+
+**Its cost**: the launcher (one background worker, about 17MB resident in
+the stack test, most of it the server's shared memory, which the
+container counts once), and one background worker per run while it runs, out
+of `max_worker_processes` (8 by default, the other background workers
+included): at most eight jobs run at once, fewer beside parallel query,
+and a scenario needing more raises `max_worker_processes` (a restart).
+`cron.job_run_details` gains a row per run and is never purged by
+`pg_cron`: a job every few seconds makes it grow. A run's memory and
+CPU are a backend's, within the node's limits.
+
+**The faults it allows**: a job running as a superuser or as the wrong
+role, at the wrong time (its schedule, `cron.timezone`), too heavy for the
+database node, its trace turned off (`cron.log_run`, so a check on its
+runs answers 3), its preload removed (no job runs). The catalogue faults
+using it are listed in "Supported faults".
+
+### The cron daemon
+
+**What it is**: Debian's `cron` (`3.0pl1-197`), as on a Debian database
+host, running the crontab of OS user `postgres` (master spec 7.2). A
+third s6 longrun, `cron`, runs `/usr/sbin/cron -f` as root, started after
+`postgres` (`dependencies.d/postgres`); cron switches to `postgres` for
+each job. The image removes Debian's `/etc/crontab` and the entries of
+`/etc/cron.d` and `/etc/cron.{hourly,daily,weekly,monthly,yearly}` (its
+`apt-compat` and `dpkg` jobs as root), so the only crontab cron reads is
+the spool's; and it sets the jobs' umask to `0022` in `/etc/pam.d/cron`
+(Debian's `pam_umask` would give `postgres`'s jobs `0002`, letting the
+players' group write the job logs).
+
+**How a scenario turns it on**: by seeding `crontab` (the optional seed
+file, `seed.optional`) and naming the node's `crontab_roles` in
+`scenario.yaml`. Render mounts `/opt/gm/seed/crontab` only when the
+node's `seed_files` names it, and the service's run script decides by that
+file: without it, it prints `cron: this node seeds no crontab; the cron
+daemon does not run` (`gmctl logs`), marks itself to run once at most
+(`s6-svc -O`) and exits, so `s6-svstat /run/service/cron` reads down and
+not wanted up, and no daemon runs. With it, the daemon runs even if a
+player empties the crontab, as on a host.
+
+**The crontab**: installed once, at the first start (start-up step 4),
+as `/var/spool/cron/crontabs/postgres` on the volume `cronspool`
+(`snapshot: copy`), `postgres:crontab` `0600` in the spool `root:crontab`
+`1730`, both set again at every start. A player's replacement survives a
+restart and a new container. Its baseline entry (capture W1 item 8), with
+`PGPASSFILE` on a line of its own above the entries:
+
+```
+PGPASSFILE=/run/gm-cron/pgpass
+0 3 * * * psql -X -w -h /run/postgresql -U <role> -d <database> -c "<statement>" >> /var/log/postgresql/cron/<job>.log 2>&1
+```
+
+- **Connections** go over the local socket. An entry naming no role
+  connects as `postgres` by peer, a superuser: a fault. The baseline
+  connects as a customer role through the password file
+  `/run/gm-cron/pgpass`, written at every start (start-up step 8) from
+  each mounted `/opt/gm/secrets/role_<role>_password` (the role named by
+  the file name), one line `*:*:*:<role>:<password>` each, `:` and `\`
+  escaped; its directory `postgres:postgres` `0700`, the file `0600`, so
+  only OS user `postgres` reads it; on `/run`, so no password lands on a
+  volume or in the hand-over snapshot. No entry holds a password. The
+  node's seed `pg_hba.conf` must let the role in over the local socket
+  by password (`local all all scram-sha-256` does).
+- **Output**: there is no mail transfer agent and no syslog, so cron's
+  own lines and a job's output go nowhere unless the entry redirects
+  them. The baseline appends to one file per entry, named by its job
+  (`[a-z0-9-]+`), in `/var/log/postgresql/cron/` on `pglog`: the
+  directory `postgres:pgconf` `2750`, set at every start, a job's file
+  `0644` with the group `pgconf`, so the players read the logs and cannot
+  write them.
+- **Times**: cron reads the node's clock, UTC; render shifts each entry's
+  hours from scenario time, as it shifts `jobs.yaml` (8.5).
+- **Shutdown**: s6 stops `cron` (SIGTERM) before `postgres` (fast
+  shutdown); a job running then is not waited for and is a failed run, as
+  on a host. `gm-restart-db` restarts PostgreSQL alone (`s6-svc -r`):
+  cron goes on, and a job starting meanwhile fails to connect. The
+  hand-over snapshot never stops `cron`.
+- **`gm-crontab`**, the players' way in (see "Wrappers"): `sudo
+  gm-crontab -l` and `sudo gm-crontab <file>`; cron reads a replacement
+  within the minute. Debian's default lets any OS user run `crontab`
+  (no `cron.allow`, spec D211): `postgres`, which `dba` reaches through
+  `COPY ... TO PROGRAM`, changes the same crontab, on a node the players
+  may change anyway (access model 9.4).
+
+**Its cost**: the daemon, 2.5MB resident at rest in the stack test;
+each run is a shell and its programs as `postgres`, sharing the
+container's memory limit with PostgreSQL, so a heavy one can exhaust it
+(see "The out-of-memory victim"; master spec 16.3).
+
+**The faults it allows**: an entry connecting as `postgres` by peer (a
+superuser), a password written into an entry, a heavy job on the
+database node, an entry at the wrong hour (UTC against the customer's
+time), an entry whose output goes nowhere. The catalogue faults using it
+are listed in "Supported faults". Node-health cannot watch `cron` in v0.4
+(see "Known limits").
+
+### The out-of-memory victim
+
+The run script (`s6-rc.d/postgres/run`) exports
+`PG_OOM_ADJUST_FILE=/proc/self/oom_score_adj` and
+`PG_OOM_ADJUST_VALUE=300` to the postmaster (master spec 7.2). PostgreSQL
+writes the value into that file in every process it forks, right after
+the fork: each backend and each background process (checkpointer,
+autovacuum, the logger, `pg_cron`'s launcher and workers) runs at +300,
+while the postmaster, s6, `sshd`, `cron` and the jobs cron starts stay
+at 0. The kernel's out-of-memory killer picks the process of the
+container's cgroup with the highest score, its memory plus
+`oom_score_adj` in thousandths of the cgroup's limit: a backend outranks
+any process at 0 unless that process holds 30 % of the limit more, and
+among backends the largest dies. A process may raise its own score
+without a capability; lowering one needs `CAP_SYS_RESOURCE`, which the
+brick does not get, so a player cannot undo it from a backend. The
+postmaster then ends the other backends and recovers in place (s6 keeps
+the container; the health check needs only `sshd` once PostgreSQL has
+accepted connections). Nothing changes in a game where memory never runs
+out. The stack test reads +300 in a backend (`pg_read_file` of
+`/proc/self/oom_score_adj`) and in every child of the postmaster, and 0
+in the postmaster, s6, `sshd` and `cron`.
 
 ## Connections
 
@@ -434,7 +642,15 @@ material is stated by the brick that ships it, not here.
 
 The GM's own operations (data load, injection, sealed checks, validator)
 do not use these interfaces: they run inside the container through `gmctl
-exec` (see "Access").
+exec` (see "Access"). The one exception is a sealed check comparing two
+instances: from this node, `check-psql --node <node>` reaches another
+database node's `sql` interface as `gm_check` (see "The GM check role and
+the reserve"); the scenario's network and that node's `pg_hba.conf` must
+allow it.
+
+**Jobs**: `pg_cron` and the cron daemon reach nothing outside the node:
+their jobs connect over the local socket (see "`pg_cron`" and "The cron
+daemon").
 
 ## Access
 
@@ -455,9 +671,13 @@ exec` (see "Access").
   the reserve"); its password is readable by root only.
 - `pgbouncer_lookup`: PgBouncer's lookup role, with a pooler node only
   (see "The PgBouncer lookup role").
-- `sudo`: `player` may run the three wrappers as root, with no arguments
-  (`/etc/sudoers.d/gm-player`): `env_reset`, fixed `secure_path`, no
-  syslog, log in `/run/gm/sudo.log`.
+- `sudo`: `player` may run the four wrappers as root
+  (`/etc/sudoers.d/gm-player`), the first three with no arguments,
+  `gm-crontab` with any (it checks its own: see "Wrappers"):
+  `env_reset`, fixed `secure_path`, no syslog, log in `/run/gm/sudo.log`.
+- The crontab roles (`crontab_roles`): customer roles a crontab entry
+  connects as, through the password file only `postgres` reads; their
+  passwords are set by `load-data` (chunk 7) from the same secrets.
 
 - Logs: `player` reads `/var/log/postgresql/*.log` through the group
   `pgconf` (files `0640`, directory `2750`), and runs pgBadger itself, with
@@ -483,9 +703,15 @@ The node has no web interface.
   and `/var/tmp`, both links to `/run/tmp` (root, `1777`, emptied at each
   start, see "Start-up").
 - Readable, not writable, by the player: `/var/log/postgresql` (volume
-  `pglog`, `postgres:pgconf`).
+  `pglog`, `postgres:pgconf`), the crontab's job logs in its `cron/`
+  included.
+- Changed only through `gm-crontab`: `postgres`'s crontab in the spool
+  `/var/spool/cron/crontabs` (volume `cronspool`), not in
+  `writable_paths`: v0.3's owner-and-mode rule for writable paths would
+  rewrite the modes cron checks. A crontab fault's fix needs no
+  override: the node is fixable.
 - Protected (root-owned, read-only to the player): `/etc/ssh/sshd_config`,
-  `/etc/sudoers`, `/etc/sudoers.d/gm-player`, the entrypoint, the three
+  `/etc/sudoers`, `/etc/sudoers.d/gm-player`, the entrypoint, the four
   wrappers, the snapshot helper and `check-psql` (both root only), the
   health check, the validator, the envelope file, the
   s6-overlay service definitions (`/etc/s6-overlay/s6-rc.d`,
@@ -520,6 +746,20 @@ The node has no web interface.
   back"; the reason is in `gmctl logs`.
 - `gm-validate`: runs the validator as `postgres`, exit code passed
   through.
+- `gm-crontab -l`: `crontab -u postgres -l` (exit 1 and `no crontab for
+  postgres` when there is none). `gm-crontab <file>`: reads `<file>` as
+  `player` (`runuser -u player -- cat`, so a file `player` cannot read is
+  refused and nothing of a root-only file reaches an error line) into a
+  root-only work file under `/run/gm`, then `crontab -u postgres`
+  checks and installs it (`postgres:crontab` `0600`, with crontab's
+  header); exit 0, `gm-crontab: <file> installed as postgres's crontab;
+  cron reads it within the minute.`; exit 1 when the file cannot be read
+  or crontab refuses it (crontab's own lines, then `gm-crontab: crontab
+  refused <file>; the crontab is unchanged`), or on a node seeding no
+  crontab, where no daemon runs (`gm-crontab: this node runs no cron
+  daemon (its scenario seeds no crontab); nothing installed`); exit 2 for
+  any other arguments (none, two, `-e`, `-r`, `-u ...`, a lone `-`: the
+  sudoers line allows any, so the wrapper checks them).
 
 ### Capabilities
 
@@ -584,6 +824,12 @@ What makes it grow:
   takes memory from PostgreSQL (master spec 7.5; measured below).
 - **CPU**: the data load, the players' own queries and their pgBadger
   runs.
+- **Jobs on the node** (from 0.4.0): a `pg_cron` job's run is a
+  background worker and a cron daemon's job a shell, `psql` and the
+  backend it connects to, all within the node's limits: a heavy job
+  takes memory and CPU from PostgreSQL and can exhaust the memory limit
+  (see "The out-of-memory victim"). The default footprint is unchanged
+  for them; a scenario with jobs sizes the node for its heaviest run.
 
 Size the disk reservation from the data file (with its indexes) plus
 `max_wal_size` plus the expected log (1G covers a static database with
@@ -629,6 +875,16 @@ close-day batch's 20 000-row update at 12:00 included): the databases grew
 20 segments of 16MB. `8M` an hour covers both with a margin. The hand-over
 snapshot of `pgdata` (`pg_basebackup`) was 206M.
 
+At rest with jobs, from 0.4.0 (the stack test, armenelos, Docker 29.9.1,
+2026-10-30, `docker stats` once at the end of each of two runs, a 512M
+limit, the test's small clusters): `db`, seeding neither `pg_cron` nor a
+crontab, 32.2 to 32.6MiB and at most 0.02 CPU; `db2`, with `pg_cron`
+preloaded (its launcher and a job every 5 seconds) and the cron daemon
+(an entry every minute), 28.8 to 30.9MiB and 0.03 CPU. The jobs' own
+weight at rest is within the measurement's noise: the cron daemon 2.5MB
+resident, the `pg_cron` launcher 16.7 to 16.9MB resident, mostly shared
+memory. The rehearsal measures them in a game.
+
 ### Snapshot
 
 How each volume is copied at hand-over (`snapshot:` in `brick.yaml`; v0.3
@@ -669,8 +925,9 @@ master spec 6.4 and 7.3, capture W1 item 6):
   - **What players may notice afterwards**: the server log records the
     checkpoint and the replication connection. Nothing stays: no slot,
     no file in `/run/gm`.
-- `pgconf`, `home`, `gmstate`, `pglog`: `copy`, a tar of the volume while
-  the node runs (`tar --create --file=- --numeric-owner --directory=<volume
+- `pgconf`, `home`, `gmstate`, `pglog`, `cronspool`: `copy`, a tar of the
+  volume while the node runs (`cronspool`: the crontab as the players
+  left it; its owner and modes come back at the restored node's start) (`tar --create --file=- --numeric-owner --directory=<volume
   path> .`; exit 1, a file such as the log changing while read, is a copy).
 - `run` (`/run`) is never copied.
 
@@ -704,7 +961,8 @@ Every state fault's scripts run as root and query as `postgres` over the
 local socket, so they need the GM's `local all postgres peer` line in
 `pg_hba.conf`; every sealed check needs it too.
 
-Faults it lends itself to with no definition yet: a bloated table, and
+Faults it lends itself to with no definition yet: from 0.4.0, the jobs'
+faults of "`pg_cron`" and "The cron daemon" above; a bloated table, and
 other configuration, schema, role or state defects visible without
 activity; and, from v0.2, monitoring faults of master spec 11.1 not chosen for
 the v0.2 set: no slow-query log (`log_min_duration_statement = -1`), a
@@ -820,8 +1078,12 @@ The wiring to the bastion is confirmed from the bastion, as `player`:
 ### Stack test
 
 `sh bricks/postgres/tests/run-stack-test.sh` deploys the brick as a
-one-service stack (`tests/stack.test.yml`, test fixtures in
-`tests/fixtures/`), checks v0.1 chunk 2's and v0.2 chunk 6's Done-when
+two-service stack (`tests/stack.test.yml`, test fixtures in
+`tests/fixtures/`): `db`, seeding neither `pg_cron` nor a crontab, as a
+0.3.0 node, and `db2`, the node with jobs (`postgresql-jobs.conf`
+preloading `pg_cron`, `pg_hba-jobs.conf` admitting only `gm_check` from
+the network, the seed `crontab`, the crontab role `cron_app`'s secret).
+It checks v0.1 chunk 2's and v0.2 chunk 6's Done-when
 (the file log in UTC on `pglog` readable by `player`, a pgBadger run as
 `player` into its home, `pg_stat_statements`, the role `monitoring` with
 `pg_monitor` and the secret's password, the secret out of `player`'s
@@ -836,8 +1098,23 @@ and a new container's start giving it its owner back, a symlink in
 place of `pg_hba.conf` never followed, `gm-snapshot-db`'s tar with its
 WAL, no slot left after it nor after a snapshot cut short, the tar
 restored with the other volumes' copies into a fresh container of a
-second stack, `gmtest-pgr`, that starts with the data and no slot), and
-removes everything it created, volumes included.
+second stack, `gmtest-pgr`, that starts with the data and no slot; v0.4
+chunk 4a's: on `db` the service `cron` down and `gm-crontab` refusing to
+install, on `db2` the daemon up as root after `postgres` and stopped
+before it, the seed crontab installed once in the spool with cron's
+owners and modes, its entry running as `cron_app` through the password
+file and appending to its log under `/var/log/postgresql/cron/`, which
+`player` reads and cannot write, `gm-crontab` listing, refusing bad
+arguments, a root-only file and a bad crontab, and replacing the crontab,
+the replacement running and surviving a new container, an empty crontab
+leaving the daemon up, `pg_cron` preloaded and a job scheduled with
+`username => 'cron_app'` running as that role into
+`cron.job_run_details`; v0.4 chunk 4b's: +300 in every child of the
+postmaster and 0 in the postmaster, s6, `sshd` and `cron`, on both
+nodes, and `check-psql --node` both ways, its refusals and its
+timeout), and removes everything it created, volumes included. No job
+is run by hand: each waits for its schedule, so the run takes about
+five minutes more than v0.3's.
 Its seed has `max_connections = 10`, the envelope's minimum. Needs a
 swarm manager and the image built.
 
@@ -874,3 +1151,18 @@ the `postgres-exporter` brick's check.
   value the renderer passes; not built.
 - **Stop timing**: s6 gives services 8 s to stop, inside Docker's default
   10 s stop grace period.
+- **Node-health cannot watch `cron`** in v0.4: `processes` stays
+  `[postgres, sshd]`, since a node-health entry `default` expands to it
+  and `cron` is down by design on every node seeding no crontab; the
+  loader refuses an entry naming a service outside `processes` (capture
+  W1 item 8). A dead cron daemon shows only as jobs that stop running.
+- **Cron logs nowhere of its own**: no syslog and no mail, so a job's
+  failure is visible only in the log its entry writes, if any.
+- **Any OS user may run `crontab`** (no `cron.allow`, spec D211):
+  `postgres`, reached by `dba`, changes the crontab `gm-crontab` changes,
+  and `player` could install a crontab of its own in the spool, which
+  cron would run as `player` on a node with a daemon. Neither gives more
+  than those accounts already have; the checks read `postgres`'s
+  crontab only.
+- **`gm-crontab` on a node without a daemon** refuses a replacement:
+  turning the daemon on is the scenario's seed, not the players'.

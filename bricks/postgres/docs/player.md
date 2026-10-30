@@ -18,6 +18,8 @@ too.
   files next to them. `ALTER SYSTEM` works as well.
 - **Your home**, `/home/player`: notes, scripts, `~/report.md`.
 - **The database** itself, through `psql` as `dba`.
+- **The node's crontab**, if the node runs a cron daemon, through `sudo
+  gm-crontab` (see "Scheduled jobs").
 
 Changes to `/etc/postgresql` stay in place when PostgreSQL restarts.
 
@@ -55,15 +57,59 @@ If the configuration preloads it (`shared_preload_libraries`), the view
 `pg_stat_statements` in the database `postgres` lists the statements run
 on the server and what they cost.
 
+## Scheduled jobs
+
+A database node may run jobs of its own, in two ways. Whether this one
+does is part of what you find out.
+
+**`pg_cron`**, an extension that runs SQL on a schedule inside
+PostgreSQL. It is on when the configuration preloads it
+(`shared_preload_libraries` lists `pg_cron`) and the extension exists
+(`\dx` in the database `cron.database_name` names). As `dba`:
+
+- the jobs: `select * from cron.job;` (each job's schedule, command,
+  database and the role it runs as, `username`);
+- their runs: `select * from cron.job_run_details order by start_time
+  desc limit 20;`, while `cron.log_run` is on; with `cron.log_statement`
+  on, each run also leaves a line in the server log, and so in pgBadger;
+- changes: `cron.schedule`, `cron.unschedule`, `cron.alter_job`, and the
+  `cron.*` settings.
+
+Schedules are read in `cron.timezone`. A job runs as its role, with no
+password.
+
+**A cron daemon**, Debian's `cron`, running the crontab of the operating
+system user `postgres`. When the node runs one, `ps -e` shows `cron`.
+
+| Command | Does |
+|---|---|
+| `sudo gm-crontab -l` | Lists the crontab. |
+| `sudo gm-crontab <file>` | Installs `<file>` (one you can read) as the new crontab, replacing the old one. `crontab` checks it first and refuses a file with errors, leaving the crontab as it was. The daemon reads the new one within the minute; it stays in place when the node restarts. |
+
+The node's clock is UTC: a crontab's times are UTC times. An entry runs
+as `postgres`; one connecting to PostgreSQL as `postgres` connects as a
+superuser. An entry connecting as another role finds that role's password
+in the file named by `PGPASSFILE` at the top of the crontab
+(`/run/gm-cron/pgpass`), which only `postgres` can read. There is no mail
+and no system log: a job's output goes where its entry sends it, by
+convention a file in `/var/log/postgresql/cron/`, which you can read.
+On a node without a cron daemon, `sudo gm-crontab <file>` refuses: nothing
+would run it.
+
+A job on the database node shares the node's memory and CPU with
+PostgreSQL.
+
 ## Applying changes
 
-You may run exactly three commands with `sudo`, with no arguments:
+You may run exactly four commands with `sudo`; the first three take no
+arguments:
 
 | Command | Does |
 |---|---|
 | `sudo gm-reload-db` | Reloads the configuration, then lists what PostgreSQL found wrong in the files, including settings that need a restart. |
 | `sudo gm-restart-db` | Checks that the configuration loads, then restarts PostgreSQL. It refuses to restart if the files do not load, so a typo does not take the server down. Your SSH session stays open. |
 | `sudo gm-validate` | Runs the public validator. |
+| `sudo gm-crontab -l`, `sudo gm-crontab <file>` | Lists or replaces the node's crontab (see "Scheduled jobs"). |
 
 ## The validator
 
@@ -88,7 +134,8 @@ Changing the database configuration is expected. Do not change:
 - the line `local all postgres peer` in `pg_hba.conf`: it is the game
   master's access to the node;
 - SSH, `sudo`, the `gm-*` commands and the validator (they are read-only
-  anyway).
+  anyway);
+- the password file `/run/gm-cron/pgpass`.
 
 Being a database superuser also gives you access to the operating system
 as `postgres` (for example `COPY ... TO PROGRAM`). Do not use it to get
