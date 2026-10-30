@@ -1,12 +1,13 @@
 ---
 name: scenario-format
-description: Use whenever a db_audit_gm scenario, brick or fault definition is designed, generated, edited or checked for completeness — writing scenario.yaml, gm/answer-key.yaml, brick.yaml or fault.yaml, laying out their folders, or deciding whether a scenario is complete enough to deploy. Start from the templates, fill every required item, flag every missing one; the GM refuses to deploy an incomplete scenario.
+description: Use whenever a db_audit_gm scenario, brick, fault, purpose or domain definition is designed, generated, edited or checked for completeness — writing scenario.yaml, gm/answer-key.yaml, brick.yaml, fault.yaml, purpose.yaml or domain.yaml, laying out their folders, or deciding whether a scenario is complete enough to deploy. Start from the templates, fill every required item, flag every missing one; the GM refuses to deploy an incomplete scenario.
 ---
 
 # Scenario format
 
-Every scenario, brick and fault is written to one shape. This skill holds
-that shape: eight templates and the folder layouts. This is its **v0.4
+Every scenario, brick, fault and, from v0.4, purpose and domain is written
+to one shape. This skill holds that shape: eleven templates and the folder
+layouts. This is its **v0.4
 version**, expected to evolve as games are played; when a game shows the
 format is missing something, change the template and this skill together.
 
@@ -33,8 +34,11 @@ capture W1 in `specs/versions/v0.3/wave-log.md`, v0.4's capture W1 in
 | [templates/queries.yaml](templates/queries.yaml) | `scenarios/<id>/nodes/<node>/queries.yaml` | a scheduler node's query repository |
 | [templates/schedule.yaml](templates/schedule.yaml) | `scenarios/<id>/nodes/<node>/schedule.yaml` | a scheduler node's schedule (scenario time) |
 | [templates/jobs.yaml](templates/jobs.yaml) | `scenarios/<id>/nodes/<node>/jobs.yaml` | a scheduler node's fixed-time operations (scenario time) |
+| [templates/purpose.yaml](templates/purpose.yaml) | `purposes/<id>/purpose.yaml` | a purpose definition (from v0.4) |
+| [templates/domain.yaml](templates/domain.yaml) | `domains/<id>/domain.yaml` | a domain definition (from v0.4) |
+| [templates/classification.yaml](templates/classification.yaml) | `domains/<id>/data/classification.yaml`, copied to `scenarios/<id>/data/classification.yaml` | a domain's column classification (from v0.4) |
 | [templates/brick-gm.md](templates/brick-gm.md) | `bricks/<id>/docs/gm.md` | a brick's GM documentation (D56): the nine required sections |
-| [templates/layouts.md](templates/layouts.md) | — | the scenario, brick and fault folders, and the script contracts |
+| [templates/layouts.md](templates/layouts.md) | — | the scenario, brick, fault, purpose and domain folders, and the script contracts |
 
 Markers used in every template:
 
@@ -55,8 +59,9 @@ Markers used in every template:
    fills the blanks the initiator left; record what came from the
    initiator in `brief.md` as given.
 3. **Fill the folder**, not only the YAML: every file the layout requires
-   (starter pack, `gm/notes.md`, node seed files, data files, `inject/`,
-   `checks/`, docs).
+   (starter pack, the data policy with `governance:`, `gm/notes.md`, node
+   seed files, data files, the classification with `governance:`,
+   `inject/`, `checks/`, `material/`, docs).
 4. **Check completeness** against the checklists below, by reading. The
    scripts check too: whenever a `gmctl` command loads a scenario, it
    checks the scenario, and every brick and fault it uses, against these
@@ -89,7 +94,7 @@ A scenario is complete or it is not deployed.
 
 ## Completeness checklists
 
-### Scenario (v0.1 master spec 6.2, v0.2 master spec 6.3, v0.3 master spec 6.1, 6.2)
+### Scenario (v0.1 master spec 6.2, v0.2 master spec 6.3, v0.3 master spec 6.1, 6.2, v0.4 master spec 6.1, 6.2)
 
 - **Scenario information**: `id`, `version`, `title`, `date`, `origin`,
   `session_length_minutes` (at most 240), `brief` and `brief.md`.
@@ -104,8 +109,15 @@ A scenario is complete or it is not deployed.
   what mounted companion material adds to the node), `published_ports`,
   `seed_files`, `knobs` (initial value and envelope for every knob the
   brick declares), and `data` (file and schema) for a node holding data;
+  `crontab_roles` for a `postgres` node seeding `crontab` (from v0.4);
   `flows` (every flow between nodes). With a `prometheus` node, its
-  `node_health` map.
+  `node_health` map. From v0.4 several `postgres` nodes, each an instance
+  of its own with its own seed files and data file.
+- **Purposes, domain and governance** (from v0.4, each only when the
+  scenario has it): `purposes` (each `id` and its `parts`), `domain`, and
+  `governance` (`policy`, `classification`, `classes` with each class's
+  `locations`, and `readers` and `outbound` where they apply), with
+  `player/data-policy.md` and `data/classification.yaml`.
 - **Background**: `background`, and `player/story.md`.
 - **Incidents, flaws and defects**: `fault_instances` (fault id and pinned
   version, `node`, `parameters`, `visibility`, and with scheduler nodes
@@ -117,13 +129,15 @@ A scenario is complete or it is not deployed.
   `why`, `evidence` as `player` (each entry with `where`, `source`, `how`,
   `shows`), `acceptable` (diagnosis, and proposal, fix or improvement as
   they apply), `sealed_check` (with its `window` and `threshold` for a
-  behavioural check), `interactions`, `validators_left_red`;
+  behavioural check, its `judges` and `threshold` for a check judging
+  runs or triggers), `interactions`, `validators_left_red`;
   `tooling_expectations` (may be `[]`: each with `id`, `need`,
   `expected`, `acceptable`, optional `notes`); and `gm/notes.md`.
 - **Host topology it was designed for**: `designed_for` (platform, hosts
   with CPU, memory, disk, placement of every node).
-- **Starter pack** (`player/README.md`, `story.md`, `issues.md`), **node
-  files** (`nodes/<node>/`), **restored-backup data** (`data/<node>.sql`).
+- **Starter pack** (`player/README.md`, `story.md`, `issues.md`, and
+  from v0.4 `data-policy.md` with `governance:`), **node files**
+  (`nodes/<node>/`), **restored-backup data** (`data/<node>.sql`).
 - **Scenario document** (`README.md`), generated, opening with the "do not
   read" warning.
 
@@ -241,24 +255,153 @@ The rules from v0.2:
 - `designed_for.placement` places every node, and the summed reservations
   fit the hosts.
 
-### The scheduler's files (v0.3 master spec 7.1)
+The rules from v0.4 (v0.4 master spec 6.1, 6.2, 7.1, 7.2, 8.5, 8.7, 11,
+13.4; capture W1 items 0 to 2, 7 and 8 of
+`specs/versions/v0.4/wave-log.md`). The loader checks those master spec 14
+gives it (the purposes' mapping, the domain, governance's references,
+`crontab_roles`, `pg_cron`'s preload and database, a script key and a
+job's `connections:`); the others are checked by reading:
 
-A scheduler node's `queries.yaml`, `builders/`, `schedule.yaml` and
-`jobs.yaml`, under `nodes/<node>/`, in scenario time. Start from
+- **Purposes** (`purposes:`): each `id` names `purposes/<id>/purpose.yaml`
+  in the catalog (never the scenario's folder), once in the list; `parts`
+  maps exactly the parts that purpose declares: `source` and `target`
+  each a location `<node>/<database>` (a node of role `database` and a
+  database its data file creates; the two may be equal), `runner` a node
+  of role `transformer`, `consumer` of role `consumer`, `receiver` of role
+  `producer`. For each job of the purpose, the runner's `jobs.yaml` has an
+  entry with that `name` and `key`, the key in its `queries.yaml`. The
+  purpose's `material/` is copied in at design time, adapted to the
+  scenario's names: each part's fragments into that node's
+  `queries.yaml`, `scripts/`, `jobs.yaml` and `schedule.yaml`, a database
+  part's `data.sql` into that node's data file. A fault instance whose
+  fault lists `applies_to.purposes` needs each of those purposes in
+  `purposes:` (by reading: the loader does not tie them).
+- **Domain** (`domain:`): names `domains/<id>/domain.yaml` in the
+  catalog; provenance only. The domain's files are copied in and adapted:
+  `schema.sql` then `load.sql` make the data file of the node holding the
+  business, its producer fragments the producer's files, its
+  classification the scenario's `data/classification.yaml`. A static
+  scenario has none.
+- **Governance** (`governance:`): `policy` and `classification` name
+  files of the scenario that exist, the classification being the
+  domain's, copied in. Every class of `classes` is `personal`,
+  `customer-linked` or `internal`; every class the classification uses
+  other than `internal` has an entry, and a missing `internal` reads as
+  `locations: any`. `locations` is a non-empty list of locations (as for
+  purposes) or the word `any`; `any` takes neither `readers` nor
+  `outbound`, any other value requires `readers` (may be `[]`). Every
+  reader is a role a data file of the scenario creates, never one of the
+  game's own (`dba`, `postgres`, `gm_check`, `monitoring`,
+  `pgbouncer_lookup`), which every rule leaves out. Each `outbound` entry
+  has a receiver label `to` (`[a-z][a-z0-9-]*`, once per class), the
+  `outbox` it fills (`<node>/<database>/<table>`) and a non-empty
+  `fields`. `separation: instance` when the policy demands an instance of
+  its own.
+- **The data policy** (`player/data-policy.md`, with `governance:`): the
+  GM writes it from `governance:`, in the story's voice (the company
+  speaking to its staff): what the company holds, the classes in plain
+  words, where each may live, who may read it, what may leave and to
+  whom. It is **correct**: it states `governance:` faithfully, never a
+  wrong or ambiguous rule (a policy carrying a fault is not allowed in
+  v0.4). It may state rules no check verifies (encryption at rest,
+  retention, purposes of processing), **unmarked**: it never says which
+  of its rules are audited, and the answer key lists only the checked
+  ones. It speaks of application and staff accounts: the game's own roles
+  are outside it. It names no hidden fault. The bastion maps it:
+  `data-policy.md: player/data-policy.md` in its `seed_files` (an
+  optional seed file of `bastion` 0.4.0), exactly when the scenario has
+  `governance:`.
+- **The GM check role on every instance**: in a scenario with
+  `governance:`, every `database` node's seed `pg_hba.conf` admits
+  `gm_check` from the game network under its DO NOT TAMPER comment,
+  `host all gm_check samenet scram-sha-256`, beside the three `local`
+  lines above (the governance checks reach every instance over the
+  network, as does a check comparing two instances).
+- **Several `postgres` nodes**: each an instance of its own, with its own
+  seed files, its own data file `data/<node>.sql` and `data` entry, and
+  its own `knobs`.
+- **The optional crontab** (`postgres` 0.4.0): a `postgres` node seeding
+  `crontab` maps `crontab: nodes/<node>/crontab` and has
+  `crontab_roles` (may be `[]`), which a node without a crontab may not
+  have. The roles are unique, `[a-z_][a-z0-9_]{0,40}`, never reserved
+  (as a schedule's roles), and created by the node's own data file;
+  deployment mounts each one's `role_<role>_password`. The crontab is
+  written in scenario time, its time fields in the subset render can
+  shift, as [templates/layouts.md](templates/layouts.md) states with its
+  baseline entry: `PGPASSFILE`, `psql -U <role>`, output appended to
+  `/var/log/postgresql/cron/<job>.log`; no entry connects as `postgres` by
+  peer (a superuser) unless that is a planted fault, and none holds a
+  password. A fault editing `crontab` targets a node seeding it.
+- **`pg_cron`**: on exactly when the node's seed `postgresql.conf`
+  preloads it and its data file creates it. The seed's last uncommented
+  `shared_preload_libraries` lists `pg_cron`, `cron.database_name` names
+  a database that node's data file creates, `cron.use_background_workers
+  = on` (a job runs as its role with no password and no `pg_hba.conf`
+  line) and `cron.timezone = '{{customer_timezone}}'`; the data file
+  creates the extension in that database as superuser (`CREATE EXTENSION
+  [IF NOT EXISTS] pg_cron` at the start of a line) and schedules each job
+  with `cron.schedule_in_database(..., username => <role>)`, in scenario
+  time. A data file creating `pg_cron` on a node whose seed does not
+  preload it is refused (a fault may still remove the preload). At most
+  eight jobs run at once under the default `max_worker_processes`, which
+  the seed raises if the scenario needs more.
+- **The customer's time zone in seed files**: from v0.4
+  `{{customer_timezone}}` may also appear in a scheduler node's seed
+  files and in a `postgres` node's seed `postgresql.conf`
+  (`cron.timezone`), where render writes the bare zone (`Etc/GMT-2`),
+  the starter pack keeping its text form; still only in a scenario with
+  scheduler nodes. A data file reads the zone and its offset from the
+  data load's two `psql` variables. Databases stay in UTC: never `ALTER
+  DATABASE ... SET timezone`.
+- **Where a job runs** (the placement guideline, v0.4 master spec 8.7,
+  D207): a database node's cron, `pg_cron` or the daemon, runs only light,
+  well-scheduled work (creating partitions, small cleanups, refreshing a
+  small materialized view, calling a set-based procedure off-peak); heavy
+  or row-by-row transformation goes to a transformer node sized for it;
+  heavy work on the source instance is the worst placement. Where the
+  computation runs matters more than where the scheduler lives. A
+  scenario departs from this only to plant a fault, which its answer key
+  names.
+- **A second instance's monitoring** (v0.4 master spec 13.4): a second
+  `postgres` instance is monitored by a `postgres-exporter` node of its
+  own (about 42 MB reserved, its target scraped by the `prometheus`
+  node), or left unscraped by design, which the answer key states as a
+  tooling expectation naming the instance (judged in feedback, not a
+  fault instance). Every `postgres` node keeps the `monitoring` role.
+- **Jobs the players may move**: the starter pack (`player/README.md`)
+  names every job the players may edit (each `jobs.yaml` job on a node
+  where `jobs.yaml` is fixable, by policy or override: its node and its
+  name) and says that moving a job's time is how they verify a fix to
+  it. It names no database-node job (`pg_cron`, crontab) unless the story
+  does: a job nobody lists is a finding.
+- **Checks judging runs or triggers**: an answer-key instance has
+  `judges` exactly when its fault's `sealed_check.judges` is set, equal
+  to it, with a `threshold` (a non-negative integer, the violations
+  tolerated, 0 by default) and no `window`.
+
+### The scheduler's files (v0.3 master spec 7.1, v0.4 master spec 7.1)
+
+A scheduler node's `queries.yaml`, `builders/`, from v0.4 `scripts/`,
+`schedule.yaml` and `jobs.yaml`, under `nodes/<node>/`, in scenario time.
+Start from
 [templates/queries.yaml](templates/queries.yaml),
 [templates/schedule.yaml](templates/schedule.yaml) and
 [templates/jobs.yaml](templates/jobs.yaml); the forms 7.1 leaves open are
-capture W1's (item 7) and spec D168. The loader checks, and a failure is a
-missing item:
+capture W1's (item 7) and spec D168, those v0.4 adds capture W1's of
+`specs/versions/v0.4/wave-log.md` (items 0 and 7) and spec D219. The
+loader checks, and a failure is a missing item:
 
 - **Every key named exists**: each stream's `key`, each job's `key` and
   each timeline change's `set.key` is a key of the node's `queries.yaml`.
+  A script key is named by a job only, never by a stream or a timeline
+  change's `set.key` (a script runs only as a job).
 - **The repository**: a key is `[a-z0-9][a-z0-9._-]*` and maps to one
   form: a query (`sql`, optional `params`, optional `transaction`), a pool
   (a non-empty list of queries, each with an optional positive `weight`),
   a sequence (`steps`, a non-empty list of `{sql, params}`, optional
-  `transaction`) or a builder (`builder: builders/<file>:<function>`,
-  optional `options` map). Parameters come from generators, one key each:
+  `transaction`), a builder (`builder: builders/<file>:<function>`,
+  optional `options` map) or, from v0.4 (`scheduler` 0.2.0), a script
+  (`script: scripts/<file>:<function>`, optional `options` map). Parameters come from generators, one key each:
   `{int: [lo, hi]}`, `{decimal: [lo, hi, places]}`, `{choice: [..]}`,
   `{sequence: [start, step]}`, `{now: utc}`. A `transaction` has an
   `isolation` (`read committed`, `repeatable read`, `serializable`) and an
@@ -266,6 +409,15 @@ missing item:
 - **Builders**: the file is in the node's `builders/` seed folder (files
   only, named `[A-Za-z0-9_][A-Za-z0-9_.-]*`) and defines the function at
   its top level; the loader parses it, never runs it.
+- **Transformer scripts** (v0.4 master spec 7.1): the file is in the
+  node's `scripts/` seed folder, under the same naming, and defines the
+  function at its top level; it is called as `<function>(conns, options,
+  log)`, `conns` mapping each of its job's connection names to an open
+  psycopg connection (autocommit off), commits what it means to commit
+  and returns the number of rows it wrote; it imports only the standard
+  library, psycopg 3 and PyYAML, and holds no password. A purpose's
+  runner is a node of role `transformer`, sized for what its scripts move
+  in one run.
 - **Connections**: the driver is a known one (`sql/postgresql`); the
   target is `<node>:<port>/<database>` on a node of the topology; the role
   is an application role (`[a-z_][a-z0-9_]{0,40}`, never `postgres`,
@@ -274,7 +426,9 @@ missing item:
   generates one secret per role.
 - **Streams**: a `rate` `<number>/s|min|h`, `arrivals` `poisson` or
   `even`, an optional `shape` of the schedule, an optional `concurrency`;
-  a stream is known by its initial key, unique on the node.
+  a stream is known by its initial key, unique on the node. From v0.4
+  `streams` may be `[]`: a node with fixed-time operations only (a
+  transformer).
 - **Shapes cover the 24 hours**: `hours` maps quoted `"HH"` or `"HH-HH"`
   (never wrapping) to a multiplier at least 0, covering 00 to 23 exactly
   once; a weekly shape's `days` (`mon` to `sun`, alone or as ranges, never
@@ -282,11 +436,17 @@ missing item:
 - **Timeline changes**: `at` is `T0` or `handover-<N>h`, before hand-over
   and no further before it than `aging.minimum`; `stream` names a stream
   by its initial key; `set` changes its `key`, `rate` or `connection`.
-- **Jobs**: a unique `name`, a `key`, a `connection` of the node's
-  schedule, and `at`, a quoted 5-field cron in the subset render can shift
-  (minute any numeric form; hour `*`, a number or a list; day of month and
-  month `*`; day of week `*` or a number or list 0-6, only with a
-  single-number hour). Never `timezone:`. A `timezone_offset: <N>`, a
+- **Jobs**: a unique `name`, a `key`, exactly one of `connection` (a
+  connection of the node's schedule; every key but a script's) and, from
+  v0.4, `connections` (a script key's job: a non-empty map from the
+  script's connection names, `[a-z][a-z0-9_]*`, `source` and `target` by
+  convention, to connections of the schedule), and `at`, a quoted 5-field
+  cron in the subset render can shift (minute any numeric form; hour `*`,
+  or from v0.4 a comma list of `n`, `a-b` (never wrapping), `*/s` or
+  `a-b/s` within 0-23; day of month and month `*`; day of week `*` or a
+  number or list 0-6, only with a single-number hour). A purpose job's
+  `cadence` and a seeded crontab's entries use the same subset. Never
+  `timezone:`. A `timezone_offset: <N>`, a
   non-zero whole number of hours from the customer's zone, only on a node
   where a fault instance's seed change edits `jobs.yaml` (the
   wrong-time-zone fault, D168).
@@ -497,6 +657,73 @@ master spec 6.3 and 6.5):
   a required parameter `node` naming the affected node. For the
   node-health script: the `prometheus` node, through its `node_health`
   map (a node left out, or a service left out of a node's entry).
+
+### Purpose (v0.4 master spec 6.7, 8)
+
+Every key of [templates/purpose.yaml](templates/purpose.yaml), and the
+folder: `material/` (one folder per part receiving material, each file a
+fragment named as the scenario's own), `checks/` (one script per
+invariant), `gm.md`. Capture W1 item 5 of
+`specs/versions/v0.4/wave-log.md` settles the keys and closed values. In
+particular:
+
+- **Identity**: `id` (the folder's name, `[a-z][a-z0-9-]*`), `title`,
+  `domains` (non-empty, each an existing domain whose `purposes` lists
+  this one), `kind` (`pulled`, `transformed-in-place`, `pushed`,
+  `pushed-obligation`). No `version`.
+- **Parts**: among `source`, `target`, `runner`, `consumer`, `receiver`,
+  with `source`, `target` and `runner` always present, each with one line
+  saying what fills it.
+- **Jobs**: each with its `name` and `key` (as the runner's `jobs.yaml`
+  and `queries.yaml` will hold them), `part` (a declared runner), `source`
+  and `target` (declared database parts), `method` (`sql`, `script`,
+  `foreign-tables`, `procedure`, `pg_cron`, `cron-daemon`), what it
+  `computes` in one sentence, its `cadence` in scenario time (the jobs'
+  cron subset), and the customer role of each of its `connections`.
+- **Trace**: each entry with its `kind` (`outbox-rows`,
+  `published-results`, `run-ledger`, `definitions`), its declared `part`,
+  and exactly one of `table` (with `run_column`, the column tying a row to
+  its run) and `file` (an absolute path on that part's node).
+- **Invariants**: each with its `id` (`[A-Z][0-9]+`, once), a one-sentence
+  `statement` against the source, its `check` (a file of `checks/`), its
+  `parameters` (fault.yaml's shape, may be `{}`) and its `witness` (what
+  must exist in the data for a run to be able to violate it).
+- **Data moved**: one entry per job of the purpose: the classified
+  columns of a class other than `internal` it `reads`
+  (`<database>.<table>.<column>`, may be `[]`) and where it `writes`
+  (`<part>:<table>`).
+- **Roles**: each customer role the purpose needs, the database `part`
+  it lives in, and its grants (`reads`, `writes`, free text, each may be
+  `[]`).
+- **Material** is written for the first v0.4 scenario's names (nodes
+  `db`, `reporting`, `bi`, `crm`, `consumer`, `gateway`; databases
+  `shop`, `reporting`): a fragment holds only the entries it adds under
+  the scenario file's top-level keys (`queries:`; `jobs:`; a schedule's
+  `connections:`, `streams:`, `shapes:`, never `intensity` or
+  `timeline`). Heavy or row-by-row work runs on the runner, never on a
+  database node (the placement guideline above).
+
+### Domain (v0.4 master spec 6.8, 11.3)
+
+Every key of [templates/domain.yaml](templates/domain.yaml), each path
+naming a file of the domain folder that exists (`producers` a folder),
+and `docs/gm.md`. In particular:
+
+- `id` (the folder's name), `title`; no `version`. `purposes`: the ids of
+  the purposes that fit (may be `[]`; each id's form is checked, not that
+  the purpose exists yet).
+- `schema.sql` and `load.sql` follow the data load's contract
+  ([templates/layouts.md](templates/layouts.md)): each `CREATE DATABASE`
+  and `CREATE ROLE` at the start of a line, unquoted; `load.sql` may read
+  the two `psql` variables `:'customer_timezone'` and
+  `:customer_utc_offset`.
+- `producers/` holds `queries.yaml` and `schedule.yaml` fragments of the
+  business's producer, which parse as fragments.
+- `classification.yaml` ([templates/classification.yaml](templates/classification.yaml))
+  classes columns under `columns:`, keyed `<database>.<table>.<column>`
+  (the table in schema `public`), each `personal`, `customer-linked` or
+  `internal`; a column with no entry is `internal`, and a domain lists
+  every column of its tables, `internal` ones included.
 
 ## Versions and pins (v0.2 master spec 6.5, v0.3 master spec 6.6, v0.4 master spec 6.6)
 

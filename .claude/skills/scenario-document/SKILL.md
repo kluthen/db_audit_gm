@@ -8,7 +8,7 @@ description: Use whenever a db_audit_gm scenario's README.md (the scenario docum
 A scenario's `README.md` is its **scenario document**: the readable whole
 of the scenario, for the GM and the lead. It is **generated** from the two
 authoritative files, `scenario.yaml` and `gm/answer-key.yaml`, with this
-skill's [template](template.md). This is its **v0.3 version**, expected
+skill's [template](template.md). This is its **v0.4 version**, expected
 to evolve as games are played; when a game shows the document
 is missing something, change the template and this skill together, and
 the [format skill](../scenario-format/SKILL.md)'s templates first if the
@@ -22,7 +22,10 @@ routes, rendered as "Map-valued parameters" below) and v0.3's
 (`specs/versions/v0.3/master-spec.md`, 6.1 and 6.2: the aging, the
 difficulty, a fault instance's planting moment and aging minimum, a
 node's write overrides, a behavioural check's window and threshold; see
-"The v0.3 items" below). The template's sections follow the keys of the
+"The v0.3 items" below) and v0.4's (`specs/versions/v0.4/master-spec.md`,
+6.1, 6.2, 7.2, 11.5 and 14: the purposes a scenario uses, its domain, its
+governance and policy file, its database-node jobs, a check judging runs
+or triggers; see "The v0.4 items" below). The template's sections follow the keys of the
 format skill's
 [scenario.yaml](../scenario-format/templates/scenario.yaml) and
 [answer-key.yaml](../scenario-format/templates/answer-key.yaml) templates,
@@ -69,9 +72,11 @@ reconcile by hand. A hand-written note that belongs to the GM goes to
 2. **Read the inputs**: `scenario.yaml`, `gm/answer-key.yaml`, and
    `brief.md` (quoted as given). Nothing else is a source: the document
    names the other files of the folder by path, it does not copy them.
-   One exception: a node's parameter whose value is a map is rendered by
+   Two exceptions: a node's parameter whose value is a map is rendered by
    its `shape`, read from the pinned brick's `brick.yaml` (see
-   "Map-valued parameters" below).
+   "Map-valued parameters" below); and a database node's jobs are read
+   from its seed `crontab`, its seed `postgresql.conf` and its data file
+   (see "The v0.4 items" below).
 3. **Copy [template.md](template.md)** to `scenarios/<id>/README.md` and
    fill it top to bottom. Each section names the keys it comes from.
    Repeat a block once per entry where its comment says so, in the order
@@ -96,6 +101,12 @@ reconcile by hand. A hand-written note that belongs to the GM goes to
      YAML and as `scenario.yaml` writes it: each `node-map` entry with
      its node and its services (or `default`), each `web-routes` route
      with its `ui:<name>`, its path, its node and its port;
+   - from v0.4, when the scenario has them: the domain; every purpose
+     with each of its parts as mapped; every governance class with its
+     locations, separation, readers and outbound flows, and the policy
+     file; every database node's crontab roles and each of its jobs
+     (every crontab entry, every `pg_cron` job its data file schedules);
+     every check's `judges` and threshold;
    - every value matches its key (versions pinned, knobs' initial values
      and envelopes, reservations, placement);
    - each file path it names exists in the folder (`local/` excepted: it
@@ -164,6 +175,37 @@ first; never invent its rendering.
   `node:<name>`, `ui:<name>`, `report:<tool>`). The readings a fault
   definition cannot carry (a web interface, another node) are the answer
   key's, so the document shows them all.
+
+## The v0.4 items
+
+Each is an "if:" block of the template: a scenario without the key gets
+the v0.3 document, unchanged.
+
+- **Domain**: a row of section 1, the domain's id, for provenance.
+- **Purposes**: a subsection of section 3 after the flows, one block per
+  purpose: its id, its catalog folder, and a row per part with the node
+  or the `<node>/<database>` location `scenario.yaml` maps it to. The
+  purpose's definition is not read: its jobs are in the runner's files,
+  named in section 7, and the faults attached to it are in section 5.
+- **Governance and the policy file**: a subsection of section 3, the
+  policy file and the classification named by path, a row per class as
+  `governance.classes` writes it, `internal` added as "any (the default)"
+  when the file leaves it out; section 7 names the policy among the
+  starter pack and the classification among the data. The policy's text
+  is not copied.
+- **Database-node jobs**: under a database node that seeds `crontab` or
+  whose seed `postgresql.conf` preloads `pg_cron`, its crontab roles and
+  a table of its jobs: each crontab entry (its job name from its log file
+  `/var/log/postgresql/cron/<job>.log`, its schedule in scenario time as
+  written, the role it connects as, its database, what it runs) and each
+  `pg_cron` job its data file schedules with `cron.schedule_in_database`
+  (name, schedule, `username`, database, command), with `pg_cron`'s
+  metadata database and `cron.timezone` as the seed writes them. This is
+  the one place those files are read, for this alone: a job no runner
+  lists is often a finding, so the GM must see them here.
+- **A check judging runs or triggers**: under the sealed check, what it
+  judges (`runs` or `triggers`) since the judged moment and its threshold,
+  as the answer key writes them.
 
 ## What it does not describe
 
