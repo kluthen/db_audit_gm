@@ -820,7 +820,7 @@ Record: 396f4be, merge 17be068. armenelos (Docker 29.9.1), 2026-10-30, limit 512
 
 ### Chunk 10 — P1, sales reporting
 
-Status: planned
+Status: merged (w2, 1414e3c)
 Wave: 2
 Depends on: chunks 3, 5; G8 (done, spec D217)
 Architecture capture: none.
@@ -856,6 +856,8 @@ Architecture capture: none.
 - Verification: chunk checks.
 - Split rule: 10a `purpose.yaml` and the material; 10b the checks and
   `gm.md`.
+
+Record: 10a 2ecf66a, 10b 68b2675, merge 1414e3c. No departure from the spec; choices logged in the wave log (`rpt.business_settings` in `reporting`; a `run_id` column on `rpt.sales_hourly` and `rpt.sales_daily`, not in 9.6's column list; `close_day()` recomputes yesterday's hours too; R2 on revenue only; the purpose's own `tests/` folder). For chunks 13 to 15: where R1 to R5 run, the `pg_hba` lines the scenario must give, R1 and R3 reading 3 after a 14:00 hand-over.
 
 ### Chunk 11 — P2, P3 and P5: leads, mailing, export declarations
 

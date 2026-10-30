@@ -1555,3 +1555,47 @@ report: both 640M margins are estimates until 15b (backfill ~1.55 GiB
 extrapolated vs 1.25, ~24%; normal ~300 vs 320, ~6%); the night after a
 killed backfill (~355 MiB) is over half but completes; 15b re-measures
 with swap only (a no-swap reading is a one-line addition if wanted).
+
+### Chunk 10 — merged (1414e3c), 2026-10-30
+
+10a 2ecf66a, 10b 68b2675, merge 1414e3c. `purposes/shop-sales-reporting/`
+(`purpose.yaml`; `material/runner/{queries,jobs,schedule}.yaml`,
+`scripts/rollup.py`; `material/consumer/`; `material/target/data.sql`;
+`checks/r1-reconciled.sh` … `r5-dashboard-faithful.sh`; `gm.md`;
+`tests/`), a `purposes/` row in the root README. `check_purpose_dir`
+clean; unit suite 795 OK merged (the catalog test fails at 10a alone, by
+the split). Scheduler harness at +5: 73 OK (the brick's 71 plus 2), the
+real program run by moving `jobs.yaml` times and reloading; published
+hours and days equal the source's local ones. `close_day()` at −7 in
+`postgres:0.4.0` as `bi_etl`: 20 000 orders, the day's revenue, 192 hour
+rows summing to it; `bi_etl` has no USAGE on the server, `shop_etl`
+refused `orders.customer_id`. Checks: R1–R4 read 0 clean with a
+witness, 3 with `remaining=` after the last run, 1 on crafted violations
+(R1 watermark on `placed_at`; R2/R3 a close cut three hours off; R4
+`shop_etl` expired); R5 0/1. Harness ~15 min a run, under the lock.
+
+Choices (accepted; for `spec-writer` at the milestone archive if 9.6
+should show it): `rpt.business_settings` in `reporting` from
+load-data's variables; `rpt.sales_hourly`/`sales_daily` carry `run_id`
+(FK to `rpt.etl_runs`), the run column 6.7 and 12.2 need; `close_day()`
+recomputes yesterday's hours too, and the hourly script then leaves a
+closed day's orders and revenue alone (so f7's evidence persists, 16.2);
+R2 compares revenue only; R4's business hours 08:00–20:00 customer time;
+`tests/` inside the purpose (the loader ignores it). Fixed in-chunk: R1
+read booleans as `t` where `check-sql` prints `True`.
+
+**For wave 3's briefs:**
+- R1–R4 run on the runner `bi` (they need `check-runs` and the log),
+  R5 on `consumer`; f5 sits on `db` and f7 on `reporting` (16.1), so
+  chunks 14 and 15 can't reuse R4 or R3 as they are.
+- R1 and R3 read 3 for the rest of a 14:00 hand-over game: their
+  witnesses come the next noon (a re-invoiced past day) or the next
+  night (the 01:30 close); before the hand-over, judged from the planting,
+  they decide. Under f4, R1 reads 1 at the hand-over check (a fixed script
+  never restates missed days: that is the *improve*). In `gm.md`.
+- Chunk 13's scenario must give `pg_hba` lines for `shop_etl` from `bi`
+  and `reporting`, `bi_etl` from `bi`, `bi_reader` from `consumer`, and
+  `gm_check` from the network on both instances.
+- Risk: the checks' 60 s settle margin assumes no producer transaction
+  commits more than 60 s after its `now()` (longest today: the close's
+  20 s hold).
