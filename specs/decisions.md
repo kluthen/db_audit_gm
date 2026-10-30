@@ -276,3 +276,33 @@ drafting. Take the next number from `doc-ids`; no ID is reused.
   `governance.policy`, and one without to map none. Now in:
   [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) "Waves",
   chunks 2, 19.
+- **D224 (2026-10-30, owner ruling on G12, on the wave driver's
+  recommendation): The web front runs in every v0.4 game, its home the
+  starter-pack page; D103 no longer holds.** The bastion always
+  publishes its port and the tools password is always handed over; the
+  page links to the web interfaces when the scenario has any. Owner:
+  "i expect a front at every game [...] Keep the setup as minimal as
+  possible for now, delegate larger stuff for v0.5 and later." The rest
+  of his picture (a common Caddy, a setup-wide homepage, a reporting
+  tool; the provider's entry point after v1.0) is O135 and O130. Closes
+  O134. Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md)
+  2, 7.3, 14, 16.4, 22; [versions/v0.4/access-model.md](versions/v0.4/access-model.md) 3, 13.
+- **D225 (2026-10-30, spec-writer, applying D224): Chunk 19 splits; 19b,
+  the loader's port rule and the scenarios without a web interface, is
+  cut after chunk 2 has merged,** since 19b edits `tools/gm/model.py`
+  and `test_model.py`, chunk 2's files, while 19a, the bastion, can run
+  beside chunks 2 to 4. Render needs no change (it publishes the ports
+  `scenario.yaml` declares); the GM skill's hand-over lines join chunk
+  18. Rejected: the port rule in wave 2's chunk 6, which would leave
+  wave 1's gate with a front no scenario without routes can reach. Now
+  in: [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md)
+  "Waves", chunks 18, 19.
+- **D226 (2026-10-30, spec-writer, applying master spec 6.3 as
+  approved): A seed-file change names a database node's data file
+  `data`,** the target node's `data.file`, refused on a node without
+  one, since the loader admits only the brick's seed files and 6.3
+  lets a purpose fault edit the data file (chunk 1's open point, wave
+  log). Built by chunk 15a, its first user. Now in:
+  [formats.md](formats.md) "Fault definition";
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 6.3;
+  [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunk 15.

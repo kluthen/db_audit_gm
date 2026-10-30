@@ -10,10 +10,13 @@ in force unless this document changes it; where they disagree, this
 document wins for v0.4. Its [build plan](build-plan.md) carries
 section 19.
 
-Amended after approval, on 2026-10-30, by the owner's ruling during
-wave 1 on how the data policy reaches the players: `bastion` 0.4.0, the
+Amended after approval, on 2026-10-30, by the owner's rulings during
+wave 1: on how the data policy reaches the players, `bastion` 0.4.0, the
 starter pack as Markdown and as a page (2, 5, 6.4, 7.3, 11.5, 15, 16.1,
-17, 19, 20, 22).
+17, 19, 20, 22); then on the web front, which runs in every game (2,
+7.3, 14, 15, 16.4, 19, 20, 22). A database node's data file named in a
+seed-file change (6.3) was settled the same day, applying 6.3 as
+approved.
 
 ---
 
@@ -130,6 +133,10 @@ Concretely:
 - A report-only write policy for database nodes: `postgres` stays
   fixable only; a database node another party owns in the story is
   report-only by the answer key and the story (16.5).
+- Anything on the web front beyond the starter-pack page and the web
+  interfaces' links: a common entry point in front of several games'
+  fronts, a homepage for the whole setup, a reporting tool (v0.5), the
+  fictional provider's own entry point (after v1.0) (7.3, 22).
 
 ## 3. Actors
 
@@ -237,7 +244,10 @@ every version; this section lists what v0.4 changes. The shapes are in
   render (a runner's `queries.yaml`, a script, `jobs.yaml`, a database
   node's data file, `postgresql.conf` or `crontab`), a `state` change
   during the aging, or a timeline change of a schedule for an outside
-  party's behaviour.
+  party's behaviour. The data file is not a seed file of the brick: a
+  seed change names it `data`, meaning the target node's `data.file`,
+  and is refused on a node without one; the scenario's copy carries the
+  change, which is in place from the data load, before T0.
 - Families: purpose faults are `data-flow` (duplicates, dropped
   records) or `rules` (a wrong zone, a wrong segment); governance and
   credential faults join `security` (`governance-*` and `security-*`
@@ -617,7 +627,8 @@ password for any host, so the players reach a second instance with
   none.
 - **A simple read-only page on the web front**, for ease of reading: the
   README, the story, the issues and the data policy rendered as HTML,
-  beside the list of web interfaces, behind the tools password like the
+  as the front's home page, with links to the web interfaces the
+  scenario publishes when it has any, behind the tools password like the
   rest of the front. Each element appears only when the scenario
   provides it: no empty section, no link to a missing one, so a
   scenario without `governance:` shows no data policy. The page shows
@@ -626,8 +637,13 @@ password for any host, so the players reach a second instance with
   through), never the players' edited copies. It is built as a list of
   elements so a later one, a reporting tool, can join it; none does in
   v0.4.
-- The web front still runs only when the topology has a web interface
-  to publish, so a scenario without one has no page (open, 22).
+- **The web front runs in every game**, whether or not the topology has
+  a web interface to publish: the bastion always publishes its port, and
+  the GM always hands over the tools password with the bastion password.
+  Without a web interface the front serves the page alone, with no
+  section or link for web interfaces; v0.3's rule (no web interface, no
+  front, no second port, no tools password) no longer holds. Nothing
+  else joins the front in v0.4 (22).
 
 ## 8. Purposes
 
@@ -1389,7 +1405,8 @@ The other verbs are unchanged. Nobody triggers a job: no verb runs one.
 file and function and a job's `connections:`; for `postgres` 0.4.0 the
 optional `crontab` with its `crontab_roles`, and a data file creating
 `pg_cron` only on a node whose seed preloads it, `cron.database_name`
-naming a database it creates (6, 7).
+naming a database it creates; the bastion publishing the web front's
+port in every scenario, web interface or not (6, 7, 7.3).
 
 **The format skill** (`scenario-format`): templates and completeness
 rules for the purpose and the domain, `governance:` and the policy,
@@ -1423,7 +1440,7 @@ The full rules are in the [access model](access-model.md). In short:
   there is judged in the feedback as overstepping, never credited as the
   resolution (16.5).
 - They read the company's data policy in the starter pack, in their
-  home or on the web front's page where it runs (7.3); the
+  home or on the web front's page (7.3); the
   customer's roles and grants are part of the system they audit, not of
   their own access.
 
@@ -1671,7 +1688,11 @@ and never a shared host (13.3).
 `fernway-clinics-monitoring` are re-pinned to `postgres` 0.4.0, and
 tarnbeck to `scheduler` 0.2.0; none turns on `pg_cron` or the cron
 daemon, and each still deploys and passes its v0.3 smoke test
-unchanged.
+unchanged. `bookshop-new-server`, which has no web interface, gains the
+web front's published port, and its bastion now serves the
+starter-pack page with the tools password handed over (7.3); the unit
+fixtures without a web interface likewise, and v0.3's checks that such
+a game has no front and no tools password are reversed.
 
 ### 16.5 Report-only by the story: overstepping
 
@@ -1821,7 +1842,10 @@ rediscovery:
   instance's databases.
 - **`render`**: `{{customer_timezone}}` in scheduler seed files and the
   seed `postgresql.conf`; a crontab's hours shifted; `crontab_roles`'
-  secrets mounted.
+  secrets mounted. The web front in every game needs no render change:
+  render publishes the ports `scenario.yaml` declares; the loader's port
+  rule, the scenarios without a web interface and the bastion's start-up
+  change.
 - **`check-psql`** reaching another instance; every database node of a
   scenario with `governance:` admitting the GM check role from the game
   network.
@@ -1882,8 +1906,9 @@ At risk of disruption:
 - the `postgres` image and start-up (two packages, a third s6 service,
   the run script's environment), under every scenario;
 - the loader (optional seed files, new sections), under every scenario;
-- the bastion's start-up (the optional file, the page rendered when the
-  web front runs), under every scenario;
+- the bastion's start-up (the optional file, the page rendered at each
+  start, the web front now running in every game), under every
+  scenario;
 - render's shifting, extended to a crontab;
 - memory on armenelos: the new scenario reserves about 1.85 GB, and
   f10 deliberately exhausts a node's memory there.
@@ -1949,7 +1974,12 @@ At risk of disruption:
 beyond the shop, their composition, producer profiles and size; the
 governance brick changes (pgaudit, TLS) and richer rules; systemd timers
 and the provider layer; the undersized transformer; brick options;
-weekly and monthly purposes.
+weekly and monthly purposes. On the web front (7.3), for v0.5: a common
+entry point in front of several games' fronts and a homepage for the
+whole setup, dispatching the viewer to each game's rules (READMEs, game
+information, data policies, issues), tools and dashboards, and a
+reporting tool joining the page; after v1.0, the fictional provider's
+own entry point.
 
 **The drafts' other candidate faults**, recorded for later versions
 (v0.4 builds the scenario's ten only):
@@ -1970,9 +2000,6 @@ need, are not built.
 
 **Open questions carried**, still the owner's:
 
-- Whether the starter-pack page makes the web front run in every game,
-  its port published and the tools password handed over even without a
-  web interface; until ruled, it runs only with one (7.3).
 - Brick changes for governance (pgaudit, TLS): none in v0.4 by default,
   to be ruled with v0.5's regulated domains.
 - Whether a policy may itself be wrong, as starter documentation

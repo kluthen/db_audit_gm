@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v23
+Status: draft v24
 
 What a scenario, a brick, a fault definition and, from v0.4, a purpose
 and a domain must contain, and how they are laid out, so that every scenario the GM designs or generates stays
@@ -158,8 +158,12 @@ The owner's requirements (D23), with the earlier rulings that apply:
   hands the players the company's data policy, `player/data-policy.md`
   (D191, D215), mapped to the bastion's optional seed file
   `data-policy.md`; `bastion` 0.4.0 copies it into the player's home
-  with the rest and, where the web front runs, shows the starter pack on
-  a page, each file only when the scenario has it (D221).
+  with the rest and shows the starter pack on a page, each file only
+  when the scenario has it (D221). From v0.4 the web front runs in every
+  game, the bastion publishing its port and the tools password handed
+  over whether or not the topology has a web interface; the page is its
+  home, linking to the web interfaces when there are any (D224,
+  replacing D103).
 - **The files each node needs**, delivered as Swarm configs (D11).
 - **The scenario document**, generated with the GM's scenario-document
   skill (D20), opening with a prominent warning that students and players
@@ -500,6 +504,10 @@ faults/<fault-id>/
   file, `postgresql.conf` or `crontab`), a `state` change during the
   aging, or a timeline change of a schedule for an outside party's
   behaviour, which the definition states and the scenario writes (D215).
+  A data file is not a seed file of its brick: a `seed_changes` entry
+  names it `data`, the target node's `data.file`, refused on a node
+  without one; the scenario's copy carries the change, in place from the
+  data load, before T0 (D226).
 - **Evidence paths** as the player user. From v0.3 each evidence's
   free text is its `source`, and its `where` is `node` (the fault's
   target node), `bastion`, or `report:<tool>` for a tool the target's

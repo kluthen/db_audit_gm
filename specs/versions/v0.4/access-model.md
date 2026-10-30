@@ -1,7 +1,9 @@
 # db_audit_gm v0.4 — Access model
 
 Status: **approved by the owner on 2026-10-30 with the
-[master spec](master-spec.md) it accompanies.** Revises the
+[master spec](master-spec.md) it accompanies**; amended the same day by
+the owner's ruling during wave 1 that the web front runs in every game
+(2, 3, 4, 13). Revises the
 [v0.3 access model](../v0.3/access-model.md), which it replaces for v0.4
 games; "Changes from v0.3" at the end lists what moved.
 
@@ -30,7 +32,7 @@ the reason).
 | Actor | Definition | How acquired | Stacks? |
 |---|---|---|---|
 | `initiator` | Whoever starts the game with the GM: a teacher, or a student playing alone | Invokes the GM skill in an agent session | Yes: a student playing alone is also a `player` |
-| `player` | A student taking part in the game; one or many sit behind one report | Receives the bastion password, and the tools password when the game has a web interface, from the GM at hand-over | Yes, with `initiator` (solo play) and `session-participant` |
+| `player` | A student taking part in the game; one or many sit behind one report | Receives the bastion password and the tools password from the GM at hand-over | Yes, with `initiator` (solo play) and `session-participant` |
 | `session-participant` | Anyone typing in the GM session, whatever their other role | Has the session in front of them | Yes |
 | `gm` | The agent running the GM skill (non-human), with the scheduled `gmctl` runs it sets up during the aging | Started by the initiator invoking the GM skill | No: exclusive |
 | `network-visitor` | Anyone who can reach the hosts' networks, unauthenticated | Default state | No: exclusive |
@@ -58,10 +60,11 @@ acts only for the `gm` (section 8).
 - The `initiator` role ends at hand-over. After that the initiator acts
   only as a `session-participant`, or as a `player` in solo play.
 - The `player` role is granted by handing over the per-game bastion
-  password and, when the topology has a web interface to publish, the
-  tools password with it; neither can be revoked or rotated during a
-  game. Without a web interface the web front does not run and its rows
-  below do not apply. The starter pack, the data policy included, is
+  password and the tools password with it, in every game; neither can
+  be revoked or rotated during a game. The web front runs in every
+  game, whether or not the topology has a web interface to publish: its
+  home page is the starter-pack page, with links to the web interfaces
+  when there are any. The starter pack, the data policy included, is
   handed over at the same moment.
 - **A restart keeps the `player` role**: the rebuilt game keeps every
   generated secret, the players' credentials and every customer role's
@@ -87,7 +90,7 @@ acts only for the `gm` (section 8).
 | Answer key and GM notes | `read` |
 | Starter pack (story, issues, data policy) | `read` |
 | Bastion | `login`, `use` (shell, `ssh`, `scp`, `sftp`, `psql`) |
-| Web front | `reach` |
+| Web front (the starter-pack page, and the web interfaces' routes where the topology has any) | `reach` |
 | Node shell (any node but the bastion) | `login`, `read-files`, `run-wrapper` (reload, restart, validate) |
 | Node configuration files (seed-once copies) | `read`, `edit` |
 | Node protected files (including the node-health script and `check-psql`) | `read`, `edit` |
@@ -501,6 +504,9 @@ rule of the policy, which speaks of "application and staff accounts".
 - **No new write policy**: `postgres` stays fixable only. A database
   node another party owns in the story is report-only by the answer key
   and the story.
+- **The web front in every game**: the tools password is handed over
+  and the front reachable even without a web interface, where v0.3 had
+  neither; it then serves the starter-pack page alone.
 - **New condition**: `handed-over`. `before-hand-over` now also covers
   the GM's setup writes to the databases and jobs.
 - **Denial behaviour**: a change on another party's database not

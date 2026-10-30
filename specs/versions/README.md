@@ -49,6 +49,9 @@ same iam complexity."
 | **A console** | a web interface of our own layout for the above, continuing v0.6's bastion as the players' main activity point | v1.0+ |
 | **Networking** | security groups, network interfaces, editable in the console, over the swarm's overlay networks and firewall rules (O12) | v2.0+ |
 
+The console has its own entry point beside the setup's homepage, which
+v0.5 may bring (owner, 2026-10-30, D224; O130, O135).
+
 Settled: the provider is **fictional**, with an in-world name of its
 own; the console's layout is ours, not a copy of AWS's; **no AWS-style
 IAM**: access stays as simple as the game's access model is today, and

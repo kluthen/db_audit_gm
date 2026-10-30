@@ -142,6 +142,31 @@ purposes read. It brings:
 The clinic has the same shape: external labs' results coming back,
 exchanges between clinics. How a round trip is modelled is O128.
 
+## The setup's entry point (D224)
+
+From v0.4 every game has a web front, its home the starter-pack page.
+The owner, ruling on it on 2026-10-30: "i expect a front at every game,
+we may have a common caddy to handle multiple front and a homepage
+dedicated to the whole setup to dispatch the viewer toward the game
+rules(readmes, game informations, data policies, issues), tools and
+dashboards available. Keep it simple for now. Expect it to evolve both
+with v0.5 and v1.0+ (with the fake aws, which will have its own
+entrypoint there)."
+
+Placed here, none of it built in v0.4:
+
+- **a common Caddy** in front of several games' web fronts;
+- **a homepage for the whole setup**, dispatching the viewer to each
+  game's rules (READMEs, game information, data policies, issues), its
+  tools and its dashboards;
+- **a reporting tool** joining a game's starter-pack page, which v0.4
+  builds as a list of elements for it (D221).
+
+After v1.0 the fictional provider's console has its own entry point
+there ([roadmap](../README.md#beyond-v10-a-fictional-cloud-provider-d205)).
+v0.6's landing page and documentation website on the bastion are the
+in-game side of the same idea. Open: O135.
+
 ## In scope
 
 - Other tools and hand-made scripts beyond v0.2's one default brick per
@@ -230,3 +255,5 @@ exchanges between clinics. How a round trip is modelled is O128.
 - O112: which domains come first.
 - O113: producer profiles against v0.3's query repository and schedule.
 - O114: what a scenario's size scales.
+- O135: the setup's entry point (a common Caddy, the setup's homepage,
+  a reporting tool on the starter-pack page).

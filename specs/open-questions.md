@@ -11,13 +11,13 @@ their IDs keep their meaning. Questions resolved by the close of v0.2
 Questions resolved by the close of v0.3 (O45, O46, O78 and O81–O103) are
 listed in
 [archive/v0.3/open-questions-resolved.md](archive/v0.3/open-questions-resolved.md).
-Numbering continues from O135.
+Numbering continues from O136.
 
 Resolved during v0.4's drafting: O106 (D194), O110 (D195), O107 (D197), O120
 (D198), O109 (D199), O121 (D200), O123 (D202), O105 (D203), O129 (D206), O131 (D207),
 O132 (D211), O133 (D212). Resolved by the approval of v0.4's master
 spec (D215): O104, O108, O115, O116, O117, O119, O122, O124, O125, and
-O111's v0.4 part.
+O111's v0.4 part. Resolved during v0.4's build: O134 (D224).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -147,7 +147,8 @@ game's world, not the game's access model. Drafted on 2026-10-30 in
 [governance.md](versions/v0.4/governance.md), tested against the
 clinic's classes (D196); O120 closed by D198 (an instance of its own);
 O115, O116, O117 and O119 closed by the master spec's approval, as
-written there (D215). O118 stays open, for v0.5; O134 raised by D221.
+written there (D215). O118 stays open, for v0.5; O134, raised by D221,
+closed by D224.
 
 - **O118** (later, v0.4 → v0.5; **defaulted**) — Brick changes for
   governance. Default, told to the owner on 2026-10-30 and holding
@@ -156,18 +157,6 @@ written there (D215). O118 stays open, for v0.5; O134 raised by D221.
   brick change, statement logging writing personal data into the logs,
   also held for v0.5 as a candidate fault. Stays open until v0.5 rules
   on the brick changes. Refs: [governance.md](versions/v0.4/governance.md).
-- **O134** (next, v0.4; blocks the plan's chunk 19, gate G12) — Does the
-  starter-pack page (D221) make the web front run in every game? Today
-  it runs only with a web interface to publish (D103), so a scenario
-  without monitoring (`bookshop-new-server`) would show no page.
-  **Default, proposed**: D103 stands, the page is served wherever the
-  front runs, behind the tools password; the v0.4 scenario, tarnbeck and
-  fernway have it. The other answer runs the front in every game: port
-  8080 published and the tools password handed over always, which
-  changes render, the loader's port check, the GM's hand-over and the
-  access model (3, 5). Refs:
-  [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunk 19.
-
 ## v0.5: domains
 
 Raised when the owner set business domains for v0.5 on 2026-10-28
@@ -238,6 +227,28 @@ added on 2026-10-30 (D196).
   what of the clinic's lab results and inter-clinic exchanges it covers.
   Refs: [versions/v0.5/README.md](versions/v0.5/README.md#round-trips-acknowledgements-as-inputs-d201).
 
+## v0.5: the setup's entry point
+
+Raised by the owner's ruling on the web front (D224): every game has a
+web front from v0.4, and he expects more around it, "Expect it to
+evolve both with v0.5 and v1.0+".
+
+- **O135** (soon, v0.5) — A common entry point for the whole setup: one
+  Caddy in front of several games' web fronts, and a homepage for the
+  setup dispatching the viewer to each game's rules (READMEs, game
+  information, data policies, issues), tools and dashboards; and a
+  reporting tool joining a game's starter-pack page (D221). To settle:
+  where the Caddy runs (the build host, a VPS whose own Caddy is shared
+  with other sites, platform.md) and who may reach the homepage; how it
+  keeps the bastion-only rule (it may proxy only to each game's
+  published web front, never to a node); what a game publishes to it
+  and when it leaves at teardown; the tools password per game behind a
+  shared front; how it relates to v0.6's landing page and documentation
+  website on the bastion; what the reporting tool is (the players
+  writing their report, or reports generated in the stack, v0.6).
+  Refs: [versions/v0.5/README.md](versions/v0.5/README.md#the-setups-entry-point-d224),
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 7.3, 22.
+
 ## Beyond v1.0: the cloud provider
 
 Raised when the owner set a fictional cloud provider after v1.0
@@ -250,7 +261,8 @@ no AWS-style IAM.
   on its host, proposed, against the players' `dba` today); which
   capacity actions players get and what a resize does mid-game (a
   service update restarts the node); the console's relation to v0.6's
-  bastion; the in-world name. Refs:
+  bastion; its own entry point beside the setup's homepage (O135,
+  D224); the in-world name. Refs:
   [versions/README.md](versions/README.md#beyond-v10-a-fictional-cloud-provider-d205).
 
 ## Roadmap: gaps and cross-version risks

@@ -1,6 +1,6 @@
 # Planes, access and rules
 
-Status: draft v17
+Status: draft v18
 
 Who may reach what, what the player may change, how the rules are checked,
 and what is left to trust. At consolidation this document feeds the access
@@ -136,9 +136,11 @@ lives in, and the loader checks it (D143).
   its web front's port (D77).
 - From v0.2, a second per-game password, the **tools password**, opens
   the web front and Grafana's administrator account; the GM hands it over
-  with the bastion password (D79). A topology with no web interface has
-  no web front: the bastion publishes SSH only and no tools password is
-  handed over (D103).
+  with the bastion password (D79). In v0.2 and v0.3 a topology with no
+  web interface had no web front: the bastion published SSH only and no
+  tools password was handed over (D103). From v0.4 the web front runs in
+  every game, its home the starter-pack page, so both ports are
+  published and the tools password is always handed over (D221, D224).
 - From the bastion they reach other nodes as user `player`, with a per-game
   key pair: the private key sits in the player's home on the bastion, the
   public key in the node's authorized keys. Both halves travel as Swarm
