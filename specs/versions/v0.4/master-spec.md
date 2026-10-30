@@ -43,21 +43,26 @@ open-questions register and appear nowhere else in this document.
 
 | Tag | What is proposed, and why | Where |
 |---|---|---|
-| B1 | `postgres` 0.4.0 gains the report-only write policy. The scenario makes `reporting` report-only, the agency's, but `postgres` is fixable only today. Alternative: `reporting` fixable, its faults' resolutions still *report* or *propose* by the story (O132) | 7.2, 15 |
 | B2 | `shop_etl` reads `orders` without `customer_id`, and the reporting instance's foreign tables declare only the columns the close needs. As drafted, the baseline broke its own policy: `shop_etl` was no allowed reader of `orders.customer_id`, and a foreign table carrying it put that class in `reporting` | 9.7, 10.1 |
 | B3 | The GM check role's new reach: other instances over the game network (`check-psql` gains a host), a function showing each user mapping's remote role (PostgreSQL hides mapping options from a non-superuser), the read policy on `pg_cron`'s tables | 7.2, 11.6, 14 |
 | B4 | How G1 tells a classed column: a foreign table's column by the remote column it maps, a copy by table and column name, and for `personal` a content probe for e-mail addresses. Matching bare column names would flag `src.products.name` | 11.6 |
 | B5 | G1 to G4 implemented once, as a shared governance check set the governance faults' checks call; the unfaulted scenario passes all four in a smoke run | 11.6, 18 |
-| B6 | `/etc/cron.allow` names root only. Otherwise the players' `dba`, running programs as OS user `postgres`, could replace a report-only node's crontab with `crontab` itself | 7.2 |
 | B7 | A node's crontab roles declared in `scenario.yaml`, so deployment mounts their secrets for the password file | 6.1, 7.2 |
 | B8 | The baseline jobs judge consent by the latest consent event; f2's seed change makes both the extraction and the campaign job read the opt-in flag, which the web shop's release stopped updating. As drafted, the campaign job's consent check was unspecified, and I2's complaint needs it to fail too | 10.2, 10.3, 16.2 |
-| B9 | The customs gateway stub never acknowledges about one declaration in fifty, as standing behaviour of its schedule. Without it, after the hand-over every declaration is acknowledged, so f8's check would read fixed with nothing fixed, or "too soon" for ever | 10.4, 16.2 |
 | B10 | f9's planting: a second foreign server in `reporting` mapped to the back office's login, a foreign table over customers, the churn table, and a `pg_cron` job as `bi_etl` refilling it; its check also requires the job gone. As drafted, the job had no way to reach names and e-mails, and dropping the table could read fixed while the job refilled it | 16.2 |
-| B11 | f10's job is an order-level roll-up, not a "customer value" one (customer-level figures in `reporting` would breach the policy the scenario hands out, a fault nobody planted); it calls a procedure from the crontab as `bi_etl`; the expected recommendation moves the computation, not only the schedule; a calibration that cannot reach the limit with the history the backup holds comes back to the owner | 16.3 |
+| B11 | f10's job is an order-level roll-up, not a "customer value" one (customer-level figures in `reporting` would breach the policy the scenario hands out, a fault nobody planted); it calls a procedure from the crontab as `bi_etl`; the expected recommendation moves the computation, not only the schedule; (its calibration path is ruled, below) | 16.3 |
 | B12 | A failed f10 cannot be re-planted inside the same aging (its job runs nightly), so the hand-over check's rule applies: the GM offers to set the game up again | 16.3 |
-| B13 | f7 lives in the close's procedure, on `reporting` (the drafts left it between the script and the procedure, two nodes), and cannot be confirmed within a game: its job is on `bi`, report-only, so the players cannot move it; only the smoke test moves the nightly close. The sketch's "what it tests" said otherwise | 16.1, 16.2 |
-| B14 | v0.4 builds the scenario's ten faults as catalogue faults; the drafts' other candidates stay recorded for later versions (O133) | 16.2, 22 |
+| B13 | f7 lives in the close's procedure, on `reporting` (the drafts left it between the script and the procedure, two nodes), and cannot be confirmed within a game as the rules stand: its job is on `bi`, whose report-only policy the scheduler brick enforces, so the players cannot move it; only the smoke test moves the nightly close. The sketch's "what it tests" said otherwise | 16.1, 16.2, 16.5 |
 | B15 | The rehearsal runs without f10, by a harness-only override: its job runs at 03:00, outside any two-hour rehearsal placed on the peak; its own smoke run on armenelos proves it | 18 |
+
+**Ruled by the owner on 2026-10-30** and written in as settled, so no
+longer marked: the agency's database is report-only by the story and
+the answer key alone, `postgres` gaining no report-only write policy,
+and the root-only `cron.allow` that rested on it dropped (O132; 7.2,
+16.5); v0.4 builds the scenario's ten faults only (O133; 16.2); f10 is
+calibrated early in the build, on armenelos only, and comes back to the
+owner before any reshaping if it falls short (16.3); the gateway stub
+loses about one acknowledgement in fifty as standing behaviour (10.4).
 
 Not under review: the brick changes for governance (pgaudit, TLS) stay
 out of v0.4 by the default the owner was told of and has not overruled
@@ -119,8 +124,8 @@ Concretely:
 - `scheduler` 0.2.0: transformer scripts and the `transformer` role
   (7.1).
 - `postgres` 0.4.0: `pg_cron` and a cron daemon, each optional per node;
-  the out-of-memory victim set to a backend; the report-only write
-  policy; the check helper reaching another instance (7.2). **[B1]**
+  the out-of-memory victim set to a backend; the check helper reaching
+  another instance (7.2).
 - Several PostgreSQL instances per scenario, the reporting database an
   instance of its own; data moved between instances by transformer
   scripts, or by SQL or stored procedures over `postgres_fdw` (8.6, 13).
@@ -172,7 +177,10 @@ Concretely:
   daemon ship in every `postgres` image and are turned on by the
   scenario's seed.
 - The drafts' other candidate faults: recorded for later versions
-  (16.2, 22). **[B14]**
+  (16.2, 22).
+- A report-only write policy for database nodes: `postgres` stays
+  fixable only; a database node another party owns in the story is
+  report-only by the answer key and the story (16.5).
 
 ## 3. Actors
 
@@ -213,7 +221,7 @@ full rules are in the access model.
 bricks/
   scheduler/            0.2.0: transformer scripts, the transformer role
   postgres/             0.4.0: pg_cron, the cron daemon, the OOM victim,
-                        report-only, check-psql reaching another instance
+                        check-psql reaching another instance
 purposes/<purpose-id>/  new: the four purposes (6.7)
 domains/shop/           new: the shop domain (6.8)
 faults/<fault-id>/      ten new faults; every fault applying to `postgres`
@@ -291,7 +299,7 @@ every version; this section lists what v0.4 changes. The shapes are in
 
 - **`seed.optional`**: seed files a node may omit. Every seed file was
   required until now; `crontab` is the first optional one (7.2).
-- `postgres` declares the `report-only` write policy (7.2). **[B1]**
+- `postgres` keeps the `fixable` write policy only (16.5).
 - `scheduler` declares the `transformer` role (7.1).
 
 ### 6.5 Script contracts
@@ -439,8 +447,7 @@ nodes:
     crontab_roles: [shop_refresh]         # with a seeded crontab only
   - name: reporting
     brick: {id: postgres, version: 0.4.0}
-    role: database
-    write_policy: report-only
+    role: database                        # fixable: the agency's by the story only (16.5)
     crontab_roles: [bi_etl]
 
 # fault.yaml
@@ -460,7 +467,6 @@ sealed_check:
 # brick.yaml (postgres)
 seed:
   optional: [crontab]
-write_policies: [fixable, report-only]
 ```
 
 A class may add `separation: instance` when the policy demands an
@@ -534,11 +540,10 @@ on, with live connections beside: the access model's known gaps.
 |---|---|
 | Image | `postgresql-18-cron` from the PostgreSQL apt repository; Debian's `cron`, installed without recommends (so no mail transfer agent); both idle unless used |
 | `pg_cron` | turned on by the scenario: the seed preloads it, the data file creates it |
-| Cron daemon | an s6 longrun `cron`; the optional seed file `crontab`; a volume `cronspool`; the sudo wrapper `gm-crontab`; a password file for the crontab's roles; `/etc/cron.allow` naming root only **[B6]** |
+| Cron daemon | an s6 longrun `cron`; the optional seed file `crontab`; a volume `cronspool`; the sudo wrapper `gm-crontab`; a password file for the crontab's roles |
 | Out-of-memory victim | the run script exports `PG_OOM_ADJUST_FILE=/proc/self/oom_score_adj` and `PG_OOM_ADJUST_VALUE=300`: each backend raises its own score, so the kernel kills a backend before the postmaster, s6, `sshd` or `cron` |
-| Report-only write policy | the seeded configuration read-only for `player`; `gm-reload-db`, `gm-restart-db` and `gm-crontab`'s install refuse with a one-line reason; the validator runs **[B1]** |
 | `check-psql` | takes another database node's name to reach that instance as the GM check role over the game network **[B3]** |
-| Documentation | a section each in `docs/player.md` and `docs/gm.md` for `pg_cron`, the cron daemon and report-only: what it is, how a scenario turns it on, its cost, the faults it allows |
+| Documentation | a section each in `docs/player.md` and `docs/gm.md` for `pg_cron` and the cron daemon: what it is, how a scenario turns it on, its cost, the faults it allows |
 | Footprint | the default unchanged: the `pg_cron` launcher is one background worker, `cron` a few MB; measured at the rehearsal |
 
 **`pg_cron`.**
@@ -583,13 +588,13 @@ on, with live connections beside: the access model's known gaps.
 - The crontab is `postgres`'s, in the spool on the volume `cronspool`
   (snapshot `copy`), installed once from the seed, so a player's
   replacement survives a restart. The daemon runs as root and switches
-  to `postgres` for its jobs. `/etc/cron.allow` names root only, so OS
-  user `postgres`, which the players' `dba` can run programs as, cannot
-  replace its own crontab; every change goes through `gm-crontab`, under
-  the write policy. **[B6]**
-- `gm-crontab -l` lists the crontab on any node; `gm-crontab <file>`
-  installs a replacement on a fixable node only, read by cron within the
-  minute.
+  to `postgres` for its jobs. Debian's default lets OS user `postgres`
+  run `crontab` too, which the players' `dba` reaches through programs
+  run as `postgres`; that changes the same crontab `gm-crontab` does,
+  on a node the players may change anyway, so it is left as it is.
+- `gm-crontab -l` lists the crontab; `gm-crontab <file>` installs a
+  replacement, read by cron within the minute. Every database node is
+  fixable, so both work on every node with a cron daemon.
 - Connections go over the local socket. As `postgres` by peer an entry
   is a superuser, which is a fault. The baseline connects as a customer
   role: `gm-entrypoint` writes the passwords of the node's
@@ -614,8 +619,11 @@ on, with live connections beside: the access model's known gaps.
 | That it exists | the preload in `postgresql.conf`; `\dx` | `cron` in `ps`; the brick's player documentation |
 | The jobs | `cron.job` as `dba` | `sudo gm-crontab -l` |
 | The runs | `cron.job_run_details`; `cron.log_statement` lines in the log and pgBadger | the job's own log, if its entry writes one |
-| Fixing, on a fixable node | `cron.unschedule`, `cron.alter_job`, the settings | `sudo gm-crontab <file>` |
-| On a report-only node | read only (not enforced against `dba`: the access model) | `-l` only |
+| Fixing | `cron.unschedule`, `cron.alter_job`, the settings | `sudo gm-crontab <file>` |
+
+On a database node the story gives another party, the agency's
+`reporting`, the same works; the issues ask for reports or proposals
+there (16.5).
 
 Neither appears in a runner's `jobs.yaml`. The starter pack names
 neither unless the story does: a job nobody lists is a finding.
@@ -634,14 +642,11 @@ backend at +300, a backend outranks any process at 0 unless that
 process holds 30 % of the limit more: among backends the largest dies.
 This changes nothing in a game where memory never runs out.
 
-**The report-only write policy.** **[B1]** The node's seeded
-configuration is read-only for `player`, its reload and restart
-wrappers refuse, and `gm-crontab` lists only. The database's contents
-are not protected: the players' `dba` is a superuser there, so DDL, data
-changes, `ALTER SYSTEM` and `cron.alter_job` stay possible, forbidden by
-the rules and the node's documentation, on the trust line v0.3 already
-accepted for this case. Sealed checks judge the live state whatever
-changed it.
+**No report-only write policy.** `postgres` stays fixable only, as in
+v0.3. A policy could have protected the node's files and wrappers but
+never its contents against the superuser `dba`; the owner chose to rest
+another party's database on the story and the answer key instead
+(16.5).
 
 **Unchanged, relied on**: the container survives PostgreSQL (s6 is PID 1
 and restarts a dead postmaster; the health check needs only `sshd` once
@@ -1057,7 +1062,7 @@ every well-formed declaration, so two declarations of one order get two
 references. **It never acknowledges about one declaration in fifty**, as
 standing behaviour of its schedule, so the escalation of missing
 acknowledgements has work every hour, before and after the hand-over.
-**[B9]** Its outages and rejections are timeline changes of its
+Its outages and rejections are timeline changes of its
 schedule, never events outside it. No real external service.
 
 **Trace**: the triggers (orders, `export_countries`), `customs_outbox`,
@@ -1081,7 +1086,7 @@ held, released or cancelled because of it.
 - **E4 acknowledged or escalated.** Every declaration sent since the
   judged moment has an acknowledgement, or an `incidents` row within 30
   minutes of sending; every rejection has an `incidents` row. Witness:
-  the stub's unacknowledged declarations. **[B9]**
+  the stub's unacknowledged declarations.
 
 ### 10.5 Finance, held for v0.5
 
@@ -1343,8 +1348,9 @@ runs no job.
 ### 12.7 An incident check
 
 A fault judged on an incident in the recent past rather than a live
-state (16.3) exits 1 while the incident's evidence is there and its
-cause stands, and never 3. Its resolution is the players' report.
+state (16.3) exits 1 while the incident's evidence is there, and never
+0 or 3: it proves the incident happened, nothing more. Its resolution is
+the players' report.
 
 ### 12.8 At the final answer
 
@@ -1446,7 +1452,8 @@ policy from `governance:`; telling the players in the starter pack which
 jobs they may move; the judged moment and `--since` from the players'
 report; feedback on governance faults ("fixed" as 11.7) and on a report
 judged against an incident (16.3); a failed incident's handling (16.3);
-a shared host refused by `fit`.
+a change the players made where the issue asked for a report or a
+proposal (16.5); a shared host refused by `fit`.
 
 ## 15. Player access and rules
 
@@ -1456,13 +1463,13 @@ The full rules are in the [access model](access-model.md). In short:
 - On a transformer node they read the repository with its scripts,
   `jobs.yaml` and the log, and edit them where the scenario makes them
   fixable; `schedule.yaml` stays hidden.
-- On a database node they read `pg_cron`'s jobs and runs as `dba` and
-  list the crontab with `sudo gm-crontab -l`; they change either only on
-  a fixable node.
-- A report-only database node refuses configuration edits, reloads,
-  restarts and crontab installs; its database's contents stay reachable
-  to the superuser `dba`, forbidden by the rules, on the trust line.
-  **[B1]**
+- On a database node they read `pg_cron`'s jobs and runs as `dba`, list
+  the crontab with `sudo gm-crontab -l`, and may change either; every
+  database node is fixable.
+- The agency's `reporting` is technically fixable too. The story makes
+  it the agency's and its issues ask for reports or proposals; a change
+  there is judged in the feedback as overstepping, never credited as the
+  resolution (16.5).
 - They read the company's data policy in the starter pack; the
   customer's roles and grants are part of the system they audit, not of
   their own access.
@@ -1502,7 +1509,7 @@ the rehearsal):
 | `pooler` | `pgbouncer` 0.1.0 | pooler | fixable | as v0.3 |
 | `producer` | `scheduler` 0.2.0 | producer (the web shop) | report-only, repository and `jobs.yaml` fixable | 96M / 48M |
 | `consumer` | `scheduler` 0.2.0 | consumer (the back office's dashboards, reading `reporting`) | report-only, `jobs.yaml` fixable | 128M / 64M |
-| `reporting` | `postgres` 0.4.0 | database (`reporting`), the agency's | report-only | 512M / 256M |
+| `reporting` | `postgres` 0.4.0 | database (`reporting`), the agency's | fixable; the agency's by the story, its faults *propose* or *report* | 512M / 256M |
 | `bi` | `scheduler` 0.2.0 | transformer: P1, the agency's | report-only | 384M / 192M |
 | `crm` | `scheduler` 0.2.0 | transformer: P2, P3, P5 | report-only, repository and `jobs.yaml` fixable | 128M / 64M |
 | `gateway` | `scheduler` 0.2.0 | producer: the customs gateway stub | report-only | 96M / 48M |
@@ -1517,8 +1524,10 @@ the rehearsal):
   carries f10; `bi` and `gateway` on host 2. On a one-host playground
   every node on that host. `reporting` is never placed on a shared host
   (13.3).
-- The agency's nodes are report-only: their faults are *report* or
-  *propose*.
+- The agency's nodes: `bi` is report-only, which the scheduler brick
+  enforces; `reporting` is fixable, as every database node is, and only
+  the story and the answer key make it the agency's. Both nodes' faults
+  are *report* or *propose* (16.5).
 
 **Time.** As tarnbeck: T0 22:00, hand-over 14:00, sixteen hours of
 aging, four hours of play. During the aging: one nightly close (01:30),
@@ -1576,16 +1585,18 @@ and the nightly close stay clear of it.
   players' report (f10);
 - the judged moment: f1 to f3 and f8 fixed and confirmed within the game
   by their frequent runs; f5 confirmed with the GM's `--since`; f7's fix
-  is the agency's, its job on a report-only node the players cannot
-  move, so its check is expected to stay present and the players'
-  proposal is what the feedback judges **[B13]**;
+  is the agency's, its job on `bi`, a report-only node the players cannot
+  move it on, so its check is expected to stay present and the players'
+  proposal is what the feedback judges; a player overstepping could edit
+  the procedure on `reporting` and run it by hand, which 16.5 covers
+  **[B13]**;
 - governance against a stated policy (I2 cites it; f9 is found only by
   reading it);
 - shift invariance: f3 and f7 hold at any shift.
 
 ### 16.2 The new catalogue faults
 
-Owner review: **[A13, B14]**.
+Owner review: **[A13]**.
 
 v0.4 builds the scenario's ten faults as catalogue faults, each with its
 injection, aging minimum, sealed check and solvability description. The
@@ -1600,7 +1611,7 @@ drafts' other candidates stay recorded for later versions (22).
 | `purpose-etl-role-expired` (`data-flow`) | R4 | `shop_etl`, the hourly script's source role and the mapping's remote role, is given `VALID UNTIL` the planting moment: every run of either job since fails with an authentication error, the dashboards freeze | the runner's log; `rpt.etl_runs` stops; `\du` on `db` | fix: `ALTER ROLE shop_etl VALID UNTIL 'infinity'` |
 | `security-crontab-superuser` (`security`) | a credential and privilege rule | `db`'s hourly `REFRESH MATERIALIZED VIEW popular_products` runs `psql` with no user, so as `postgres` by peer: a superuser for a job `shop_refresh` could run (the role, its `MAINTAIN` grant and its password file exist, never switched to) | `gm-crontab -l`; `pg_stat_activity` during a run; the role prepared and unused | fix: connect as `shop_refresh` (`-U`, the password file); its check reads the live crontab and requires every entry's role to be no superuser (exit 0 or 1) |
 | `purpose-day-boundary-wrong-zone` (`rules`) | R3, R2 | `rpt.close_day()` cuts the day in a zone N hours off the customer's (a parameter, never 0, which render writes), so every night it rewrites yesterday on the wrong boundary; its check judges the close's runs from `rpt.etl_runs` | closed days shifted against the source's local days, and no longer the sum of their hours; the zone in `\df+` | propose: the customer's zone from `business_settings` |
-| `purpose-receiver-down-unnoticed` (`data-flow`) | E4 | the escalation job has no rule for missing acknowledgements; the gateway stopped acknowledging for two hours during the aging (a timeline change of its schedule), and still never acknowledges about one declaration in fifty **[B9]** | declarations with neither acknowledgement nor incident, the two-hour gap foremost | fix: escalate missing acknowledgements |
+| `purpose-receiver-down-unnoticed` (`data-flow`) | E4 | the escalation job has no rule for missing acknowledgements; the gateway stopped acknowledging for two hours during the aging (a timeline change of its schedule), and still never acknowledges about one declaration in fifty | declarations with neither acknowledgement nor incident, the two-hour gap foremost | fix: escalate missing acknowledgements |
 | `governance-personal-copied` (`security`) | G1, G3 | **[B10]** the agency's churn dashboard keeps `rpt.customer_activity` with names and e-mail addresses: `reporting`'s data file adds a second foreign server mapped, for `bi_etl`, to the back office's login `shop_reports`, a foreign table over `customers`, the table, and a `pg_cron` job as `bi_etl` refilling it every thirty minutes, which no runner lists | the table and the foreign table in `reporting`; `\des+`, `\deu+`; `cron.job`; the policy | propose: unschedule the job, drop the table, the foreign table and the server; its check requires all of them gone, so dropping the table alone, which the job refills, is not fixed |
 | `purpose-heavy-job-on-database-node` (`data-flow`) | placement | a heavy transformation from a database node's crontab, which a one-off backfill drove past the node's memory once during the aging (16.3) | the kill and the recovery in the log; `oom_kill` in `memory.events`; the statistics' reset time; the job's log and ledger; the backfill request | report only, whatever the write policy (16.3) |
 
@@ -1662,9 +1673,10 @@ otherwise, so the backfill must need more than twice the node's limit
 and a normal run less than half of it, after `shared_buffers`. Both are
 measured before the scenario's window is set: the cgroup's
 `memory.peak` around a normal run and around the backfill, on a host
-with swap and one without, on armenelos only. If no window the restored
-history allows reaches twice the limit, the fault comes back to the
-owner rather than being reshaped in the build.
+with swap and one without, on armenelos only, early in the build. If no
+window the restored history allows reaches twice the limit, the fault
+comes back to the owner before anything is reshaped; lowering
+`reporting`'s memory limit is the likely lever, offered to him then.
 
 **Evidence**, all of it on the node: the four log lines at the
 incident's time, in the file log and pgBadger; `oom_kill 1` in
@@ -1676,8 +1688,9 @@ ledger; the backfill request, taken and never done; the heavy entry in
 the crontab.
 
 **The check** exits 1 while the kill and the recovery are in the log
-since the planting moment and the heavy entry is still in the crontab;
-it never answers 3, and no in-game fix is expected. The answer key
+since the planting moment, whatever the crontab holds since; it never
+answers 0 or 3, and no in-game fix is expected. What the players changed
+on `reporting`, if anything, the GM reads from the node itself (16.5). The answer key
 judges the report: the incident named (when, which process, killed for
 memory, the recovery that followed), its cause (the backfill on the
 database node at its memory limit), and the recommendation: **move the
@@ -1711,6 +1724,51 @@ and never a shared host (13.3).
 tarnbeck to `scheduler` 0.2.0; none turns on `pg_cron` or the cron
 daemon, and each still deploys and passes its v0.3 smoke test
 unchanged.
+
+### 16.5 Report-only by the story: overstepping
+
+`reporting` is the agency's in the story, and nothing else makes it so:
+`postgres` has no report-only write policy, so the players, as `dba` and
+through the node's wrappers, can change its data, DDL, roles, settings,
+`pg_cron` jobs and crontab, and reload or restart it. `bi`, a scheduler
+node, stays report-only as the scheduler brick enforces it. What an
+overstepping player can do, and how it is treated:
+
+- **What the starter pack says.** The story names the agency's nodes,
+  and the issues on them ask for a report or a proposal (I4, I6). The
+  brick's player documentation is unchanged: nothing on the node claims
+  a protection it does not have.
+- **The answer key judges the expected resolution.** For a *report* or
+  *propose* fault the players' report or proposal is the resolution. A
+  sealed check reading fixed after a player's change tells the GM what
+  changed on the system; it is not the resolution, and the feedback does
+  not count it as one.
+- **The feedback names the overstep.** Positively, as a teacher would:
+  the change was outside the mandate the issue gave (the agency's
+  system, a report was asked for), whether the change itself would have
+  been right as a proposal, and what it cost (a roll-up stopped, an
+  agency's job edited behind its back). A change that is right and comes
+  with the report still gets the report's credit; a change without the
+  report leaves the issue unresolved as asked.
+- **f10.** A player who moves the heavy entry to another hour, deletes
+  it, or moves the same `CALL` to another node, has not moved the
+  computation (or has stopped the agency's roll-up); the feedback says
+  so. The incident check is unaffected (16.3). The report is judged as
+  if nothing had changed.
+- **f9.** Unscheduling the job and dropping the copies makes its check
+  read fixed; the GM judges the proposal, and names the unrequested
+  change.
+- **f7.** Editing `rpt.close_day()` on `reporting` is possible, and so is
+  running it by hand with `CALL`, a run outside the schedule, which the
+  rules forbid as they forbid triggering any job; a run so made can
+  make the check read fixed, which the GM does not take as the
+  resolution.
+- **Running any job by hand** (a `CALL`, a `cron.alter_job` to the next
+  minute, a crontab entry rescheduled to run now) is the same overstep on
+  any node: moving a fixable job's time is the players' lever, running
+  one outside its schedule is not.
+
+The access model lists this as a known gap.
 
 ## 17. Definition of done
 
@@ -1821,7 +1879,9 @@ rediscovery:
   too); `--since` in f5's cycle; f10's calibration and smoke run on
   armenelos only; the rehearsal's override leaving f10 out.
 - **The out-of-memory victim** (`PG_OOM_ADJUST_*` in the run script)
-  before f10's calibration.
+  before f10's calibration, which runs early in the build, on armenelos
+  only; a shortfall goes back to the owner before anything is reshaped
+  (16.3).
 - **No data preflight**: the project keeps no data register, and every
   scenario's data is synthetic.
 
@@ -1844,9 +1904,8 @@ grounding on v0.3's last wave:
 - **`check-sql`** (scheduler) reaches any database node over the
   network; **`check-psql`** (postgres) connects over the local socket
   only. Governance checks across instances need the change of 7.2.
-- **`postgres` is fixable only** (`bricks/postgres/brick.yaml`): the
-  report-only policy is new work, and the v0.3 trust-line gap on
-  `ALTER SYSTEM` now arises.
+- **`postgres` is fixable only** (`bricks/postgres/brick.yaml`), and
+  stays so: the agency's instance is report-only by the story (16.5).
 - **Every seed file a brick declares is required** of every node using
   it: the optional `crontab` is a loader change.
 - **One definition per brick**, a pin must match it: hence every re-pin.
@@ -1918,6 +1977,11 @@ At risk of disruption:
 - **Governance checked on the live catalog, the game's roles outside
   it**: the checks verify what is enforceable, and the policy may say
   more, as a real policy does.
+- **Another party's database report-only by the story, not the brick**:
+  a write policy could protect a database node's files and wrappers but
+  never its contents against the players' superuser; the answer key and
+  the feedback carry the mandate, as they would for a real auditor told
+  whose system is whose, at no brick cost.
 - **A real incident, never forged**: the evidence must come from the
   system; an out-of-memory kill placed at night, verified after it
   happens, and kept off shared hosts.
@@ -1933,7 +1997,8 @@ governance brick changes (pgaudit, TLS) and richer rules; systemd timers
 and the provider layer; the undersized transformer; brick options;
 weekly and monthly purposes.
 
-**The drafts' other candidate faults**, recorded for later versions:
+**The drafts' other candidate faults**, recorded for later versions
+(v0.4 builds the scenario's ten only):
 the rerun double count, the script's non-atomic watermark, the script
 swallowing errors, the foreign-data mapping for `PUBLIC`, the foreign
 server owned by a reader, the open `SECURITY DEFINER` procedure, the

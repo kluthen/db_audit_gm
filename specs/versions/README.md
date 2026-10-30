@@ -2,7 +2,8 @@
 
 The versions from the first milestone to the first release and beyond, as
 set out by the owner (D47), with v0.6 added on 2026-10-21 (D71). Each version has its own page; a version's
-master spec lands in its folder only when it is approved. Everything after
+master spec lands in its folder when it is consolidated, and its page
+says when the owner approves it. Everything after
 v0.1 is draft.
 
 | Version | Theme | Status |

@@ -5,7 +5,7 @@ it accompanies, awaiting the owner's approval.** Revises the
 [v0.3 access model](../v0.3/access-model.md), which it replaces for v0.4
 games; "Changes from v0.3" at the end lists what moved. Rules resting on
 a proposal under the owner's review carry its tag from the master
-spec's "Owner review" list (**[B1]**…); the tags are removed when the
+spec's "Owner review" list (**[B3]**…); the tags are removed when the
 spec is approved.
 
 ## 1. Purpose and scope
@@ -93,7 +93,7 @@ acts only for the `gm` (section 8).
 | Web front | `reach` |
 | Node shell (any node but the bastion) | `login`, `read-files`, `run-wrapper` (reload, restart, validate) |
 | Node configuration files (seed-once copies) | `read`, `edit` |
-| Node protected files (including the node-health script, `check-psql`, `/etc/cron.allow`) | `read`, `edit` |
+| Node protected files (including the node-health script and `check-psql`) | `read`, `edit` |
 | Scheduler query repository (`queries.yaml`, `builders/`, `scripts/`) | `read`, `edit` |
 | Scheduler fixed-time operations (`jobs.yaml`) | `read`, `edit` |
 | Scheduler schedule (`schedule.yaml`) | `read`, `edit` |
@@ -170,7 +170,8 @@ PgBouncer, the scheduler nodes, Prometheus, Grafana, the exporter)
 | node-health endpoint `read` | deny | `in-game-network` | deny | allow | deny |
 
 `run-wrapper` covers the validator on every node; the reload and
-restart wrappers act only under `fixable-node` (section 7).
+restart wrappers act only under `fixable-node` (section 7). Every
+database node is fixable in v0.4: `postgres` has no other write policy.
 
 **Scheduler nodes** (producers, consumers, transformers, the gateway
 stub)
@@ -237,7 +238,7 @@ jobs, logs and PgBouncer**
 | `holds-password` | The actor knows the game's bastion password (a teacher who also plays, for example) |
 | `holds-tools-password` | The actor knows the game's tools password and reaches the bastion's web front port with it |
 | `from-bastion` | The connection comes from the bastion, as user `player`, with the game's key (SSH) or the `dba` password (PostgreSQL on any instance, and the PgBouncer console, where `dba` is the players' console role) |
-| `fixable-node` | `from-bastion` holds and the node's write policy is *fixable*. On a report-only database node it is not enforced inside the database: see section 7 and "Known gaps" |
+| `fixable-node` | `from-bastion` holds and the node's write policy is *fixable*. It holds on every database node, `postgres` having no other policy, the agency's `reporting` included: a node the story gives another party is report-only by the answer key and the story alone (section 7, "Known gaps") |
 | `fixable-file` | `from-bastion` holds and the file is fixable: the node's write policy is *fixable*, or the scenario's write overrides make that path fixable on a report-only node |
 | `in-game-network` | The request comes from a node of the game (the bastion or any other node), where only players and the GM have a shell |
 | `through-web-front` | The request passes the web front with the tools password; from inside the game network, Prometheus' `view` is also reachable directly, since it has no login of its own |
@@ -269,12 +270,10 @@ the system cannot refuse it, forbidden by the rules in place.
 | Starter pack `read` before hand-over, by a player | Not available: the GM hands it over at hand-over, the data policy with it | The policy belongs to the game's start |
 | Bastion or node login without valid credentials | Ordinary SSH refusal | Standard behaviour |
 | Web front without the tools password | HTTP 401 with a basic-authentication challenge | Standard behaviour |
-| Editing protected files, the node-health script, `check-psql` or `/etc/cron.allow` | Ordinary filesystem "permission denied" (read-only, root-owned) | Enforced by the system |
+| Editing protected files, the node-health script or `check-psql` | Ordinary filesystem "permission denied" (read-only, root-owned) | Enforced by the system |
 | Editing a configuration file, repository (scripts included) or `jobs.yaml` that is not fixable | Ordinary "permission denied"; the reload wrapper of a report-only node refuses with a one-line reason | Enforced by the system |
-| `gm-reload-db` or `gm-restart-db` on a report-only database node **[B1]** | The wrapper refuses with a one-line reason naming the node's write policy | Enforced by the system |
-| Crontab `install` on a report-only database node | `gm-crontab <file>` refuses with a one-line reason; `gm-crontab -l` still lists | Enforced by the system |
-| Replacing `postgres`'s crontab with `crontab` itself, as OS user `postgres` (reachable through the superuser `dba`) **[B6]** | Refused by cron: `/etc/cron.allow` names root only, so "You (postgres) are not allowed to use this program"; every change goes through `gm-crontab` | Keeps the write policy on the crontab enforceable |
-| Database `write`, `alter-system` or `pg_cron` `change` on a report-only database node **[B1]** | Not refused: `dba` is a superuser. Forbidden by the rules, stated in the node's player documentation and the starter pack; sealed checks judge the live state whatever changed it, and the GM's feedback judges a fix made where only a report or a proposal was expected | Accepted on the trust line |
+| Any change on a database node the story gives another party (the agency's `reporting`): its data, DDL, roles, settings, `pg_cron` jobs, crontab, a reload or a restart | Not refused: the node is fixable. The story says whose node it is and its issues ask for a report or a proposal. The answer key judges that report or proposal; a sealed check reading fixed after such a change is not the resolution, and the feedback names the overstep, judges whether the change would have been right as a proposal and what it cost (master spec 16.5) | Report-only by the story and the answer key, not by the brick: a write policy could not have protected the database's contents from the superuser `dba` anyway |
+| Running a job by hand (a `CALL` of a job's procedure, a `cron.alter_job` or crontab entry set to run at once), on any node | Not refused where the node is fixable; it is a run outside the schedule, which the rules forbid as `control-load`. The GM does not take a check reading fixed through such a run as the resolution | The evidence must come from the schedule; moving a fixable job's time is the players' lever |
 | Reading `schedule.yaml` | Ordinary "permission denied" (root-owned, mode 0400); visible in listings. The scheduler's root run script passes it to the program on standard input, so the service account cannot read it either | Visible but blocked, as a real customer's traffic would be |
 | `connect-reserved` and service credentials | Ordinary "permission denied" on the secret files (root or the service's account only) and on a crontab's password file (OS user `postgres` only); without the check role's password the reserve is out of reach. The superuser `dba` can still reach some of them: see "Known gaps" | Enforced by the system where it can be |
 | PgBouncer console `admin` | Refused by PgBouncer: the players' console role is not in `admin_users` | Enforced by the system |
@@ -317,15 +316,14 @@ logs on each node. Repeated denials have no effect.
   incident's check). None of it changes anything.
 - **Elevation on a node** is limited to that node's `sudo` wrappers for
   `player`: reload or restart the service and run the validator (the
-  reload and restart wrappers refusing on a report-only node), reload a
-  scheduler's fixed-time operations, list or install a database node's
-  crontab (`gm-crontab`, installing on a fixable node only). Nothing else
+  reload and restart wrappers refusing on a report-only node, which a
+  database node never is), reload a scheduler's fixed-time operations,
+  list or install a database node's crontab (`gm-crontab`). Nothing else
   runs through `sudo`.
 - **The `dba` role is a PostgreSQL superuser** on every instance, which
   also gives operating-system access as `postgres`, the power to alter
   the monitoring, customer and GM roles, the power to use the GM's
-  connection reserve, and the power to change a report-only instance's
-  contents. Accepted: protected files and validators are root-owned and
+  connection reserve. Accepted: protected files and validators are root-owned and
   read-only, the answer key is never on a node, and breaking a service
   role only breaks the players' own system.
 - **A fixable builder or transformer script is code.** Where the
@@ -404,7 +402,7 @@ rule of the policy, which speaks of "application and staff accounts".
 | | `pg_cron` jobs | A crontab |
 |---|---|---|
 | Listed to | the players' `dba` (all jobs); a non-superuser customer role, its own jobs only; the GM check role, all, through its read policy | the players, through `sudo gm-crontab -l`; root |
-| Changed by | the players' `dba` on a fixable instance (`cron.schedule`, `cron.unschedule`, `cron.alter_job`, the settings); not prevented on a report-only one (section 7) | the players, through `sudo gm-crontab <file>`, on a fixable node only; never by OS user `postgres` (`/etc/cron.allow`) |
+| Changed by | the players' `dba` (`cron.schedule`, `cron.unschedule`, `cron.alter_job`, the settings), on every instance | the players, through `sudo gm-crontab <file>`, on every database node; also OS user `postgres` with `crontab` itself, which `dba` reaches through programs run as `postgres`: the same crontab, on a node the players may change anyway |
 | Run as | the job's `username`, through a background worker, with no password | OS user `postgres`, connecting as the role the entry names through the password file, or as `postgres` by peer if it names none (a superuser: a fault) |
 | Seeded by | the instance's data file | the node's seed `crontab`, installed once |
 
@@ -453,11 +451,17 @@ rule of the policy, which speaks of "application and staff accounts".
   recommended, not enforced.
 - Credentials are shared by all players of a game and cannot be rotated
   during a game, a restart included.
-- **A report-only database node protects its files, wrappers and
-  crontab, not its contents** **[B1]**: the superuser `dba` can still
-  change data, DDL, roles, `ALTER SYSTEM` and `pg_cron` jobs there.
-  Accepted on the trust line; sealed checks judge the effective state,
-  whatever changed it.
+- **Another party's database is report-only by the story alone.** The
+  agency's `reporting` is technically fixable: an overstepping player
+  can change its data, DDL, roles, settings, `pg_cron` jobs and crontab
+  (moving or deleting f10's heavy entry, unscheduling f9's job, editing
+  the close's procedure), reload or restart it, and run a job by hand.
+  Nothing prevents it. The answer key judges the report or proposal the
+  issue asked for; a check reading fixed after such a change is not the
+  resolution; the feedback names the overstep and what it cost, and
+  judges the change as a proposal (master spec 16.5). Accepted: the
+  owner's choice over a write policy that could not have protected the
+  database's contents from `dba` anyway.
 - **Customer roles' passwords are within `dba`'s reach**: as a
   superuser, `dba` reads a user mapping's password, and, running
   programs as OS user `postgres`, a crontab's password file. Accepted:
@@ -495,19 +499,19 @@ rule of the policy, which speaks of "application and staff accounts".
   customer roles' passwords wherever held, among the service
   credentials.
 - **Database operations** split into `read` and `write`: `write`, DDL
-  included, now follows `fixable-node`, which changes nothing on a
-  fixable instance and states the rule for a report-only one.
-- **New write policy**: report-only on a database node, enforced on its
-  files, its reload and restart wrappers and its crontab, on the trust
-  line inside the database.
+  included, follows `fixable-node`, which holds on every database node,
+  so nothing changes in practice.
+- **No new write policy**: `postgres` stays fixable only. A database
+  node another party owns in the story is report-only by the answer key
+  and the story.
 - **New condition**: `handed-over`. `before-hand-over` now also covers
   the GM's setup writes to the databases and jobs.
-- **Denial behaviour**: the report-only database's wrappers and crontab
-  refuse; `crontab` refused to OS user `postgres`; database changes on a
-  report-only node forbidden on the trust line; a failed out-of-memory
-  incident not re-planted.
+- **Denial behaviour**: a change on another party's database not
+  refused, judged in the feedback as overstepping; a job run by hand
+  treated as `control-load`; a failed out-of-memory incident not
+  re-planted.
 - **New section**: the customer's roles and data policy (section 9),
   the game's world rather than the game's access.
-- **Known gaps**: report-only databases' contents now arise on the trust
-  line; customer roles' passwords within `dba`'s reach; a fixable script
+- **Known gaps**: another party's database report-only by the story
+  alone; customer roles' passwords within `dba`'s reach; a fixable script
   able to print its connections' passwords.

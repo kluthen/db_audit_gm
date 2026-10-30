@@ -14,7 +14,8 @@ listed in
 Numbering continues from O134.
 
 Resolved during v0.4's drafting: O106 (D194), O110 (D195), O107 (D197), O120
-(D198), O109 (D199), O121 (D200), O123 (D202), O105 (D203), O129 (D206), O131 (D207).
+(D198), O109 (D199), O121 (D200), O123 (D202), O105 (D203), O129 (D206), O131 (D207),
+O132 (D211), O133 (D212).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -137,7 +138,8 @@ proposal was carried as written into the
 [master spec](versions/v0.4/master-spec.md#owner-review), which he
 reviews in context: each question below names its tag in the spec's
 "Owner review" list and closes when he approves the spec, or as he
-rules on it there. O132 and O133 were raised by the consolidation.
+rules on it there. O132 and O133, raised by the consolidation, were
+ruled the same day (D211, D212).
 
 - **O104** (soon, v0.4) — The purpose format. **In the master spec as proposed, owner review A1, A9, A11.** Proposed in
   [purposes.md](versions/v0.4/purposes.md): the name stays "purpose";
@@ -151,7 +153,7 @@ rules on it there. O132 and O133 were raised by the consolidation.
   (`scripts/<file>:<function>`, a job's `connections:`, the runner
   holding the passwords; D203). Then the `scenario-format` skill and the
   scenario document. How a check learns when a fix happened is now O124.
-- **O108** (soon, v0.4) — The shared business data model **In the master spec as proposed, owner review A2, B2, B8.**, the shop
+- **O108** (soon, v0.4) — The shared business data model, the shop
   domain (D192). Proposed in
   [shop-domain.md](versions/v0.4/shop-domain.md): from tarnbeck's,
   adding `business_settings` (the customer's zone, sending hours),
@@ -159,8 +161,8 @@ rules on it there. O132 and O133 were raised by the consolidation.
   opt-in flag, `packed_at`, `shipped_at`, `ship_country`,
   `export_countries`, an archived history behind `last_order_at`, the
   purposes' tables, six roles, and consent streams in the producer.
-  Tarnbeck stays untouched; the v0.4 scenario is new. Format: O111.
-- **O122** (soon, v0.4) — The customer's time zone **In the master spec as proposed, owner review A8.** in the data and the
+  Tarnbeck stays untouched; the v0.4 scenario is new. Format: O111. **In the master spec as proposed, owner review A2, B2, B8.**
+- **O122** (soon, v0.4) — The customer's time zone in the data and the
   jobs. It is UTC plus the game's shift (D129), known only at render,
   and UTC itself at a shift of 0, while purposes reason in local days and
   recipients' hours. Proposed in
@@ -171,7 +173,7 @@ rules on it there. O132 and O133 were raised by the consolidation.
   stored relative to the customer's, and a wrong-zone fault is an offset
   from the customer's, never "UTC", so no fault vanishes at a shift of 0.
   Alternative: `ALTER DATABASE … SET timezone` to the customer's zone,
-  which changes every session's `current_date` and the logs' reading.
+  which changes every session's `current_date` and the logs' reading. **In the master spec as proposed, owner review A8.**
 - **O124** (soon, v0.4) — The moment a purpose check judges from. **In the master spec as proposed, owner review A9.**
   Proposed in [checks.md](versions/v0.4/checks.md): `CHECK_SINCE`, the
   hand-over by default, raised to the runner's last successful reload,
@@ -180,30 +182,13 @@ rules on it there. O132 and O133 were raised by the consolidation.
   next run; one violating: 1; all clean with a witness: 0), or, for a
   pushed obligation, the triggers since. Rejected: a dry run of the job
   (D131).
-- **O125** (soon, v0.4) — Monitoring a second database instance **In the master spec as proposed, owner review A10.**, and
+- **O125** (soon, v0.4) — Monitoring a second database instance, and
   any further one a scenario has (D202): a `postgres-exporter` node per
   instance (about 42 MB reserved each), the exporter brick made
   multi-target (a bump), or the instance left unscraped by design, which
   is then a fault the players may find. Proposed: unscraped in the first
   scenario, an exporter node per instance in the scenario format's
-  guidance; no exporter change in v0.4.
-- **O132** (soon, v0.4) — A report-only database node. The first
-  scenario makes `reporting`, the agency's instance, report-only, but
-  `postgres` is fixable only (v0.3 deferred report-only for it).
-  Proposed in the [master spec](versions/v0.4/master-spec.md#72-postgres-040)
-  (owner review B1): `postgres` 0.4.0 gains the report-only write policy,
-  enforced on its configuration, its reload and restart wrappers and its
-  crontab, the database's contents on the trust line against the
-  superuser `dba` (the `ALTER SYSTEM` gap v0.3 accepted, now arising).
-  Alternative: `reporting` fixable, its faults' resolutions *report* or
-  *propose* by the story alone.
-- **O133** (soon, v0.4) — Which catalogue faults v0.4 builds. The
-  drafts list about thirty-five candidates; the scenario uses ten.
-  Proposed in the [master spec](versions/v0.4/master-spec.md#162-the-new-catalogue-faults)
-  (owner review B14): build the scenario's ten, each through the release
-  gate's full cycle; record the others for later versions (master spec
-  22). Alternative: build a few more cheap ones now (v0.3 built eight
-  for a scenario using six or seven), each adding a smoke cycle.
+  guidance; no exporter change in v0.4. **In the master spec as proposed, owner review A10.**
 
 ## v0.4: data governance
 

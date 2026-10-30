@@ -19,7 +19,7 @@ README:
 
 Archived IDs keep their meaning and are cited as they are. D107 and D113
 stay live: rulings still to be applied in v0.5. D190 onward are v0.4's
-drafting. Numbering continues after D205, the last; no ID is reused.
+drafting. Take the next number from `doc-ids`; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -180,3 +180,24 @@ drafting. Numbering continues after D205, the last; no ID is reused.
   only solution is reporting it." It replaces f10. The owner: "it
   happened "once" in the recent past". Now in:
   [versions/v0.4/database-node-jobs.md](versions/v0.4/database-node-jobs.md) "The out-of-memory incident".
+- **D211 (2026-10-30, owner ruling, relayed by the coordinator; against
+  spec-writer's recommendation): The agency's database is report-only by
+  the story and the answer key alone;** `postgres` 0.4.0 gets no
+  report-only write policy, every database node stays fixable, and the
+  root-only `cron.allow` that rested on it is dropped; an overstep is
+  judged in the feedback, never credited. Closes O132. Now in:
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 7.2, 16.5.
+- **D212 (2026-10-30, owner ruling, relayed by the coordinator): v0.4
+  builds only the scenario's ten faults as catalogue faults;** the
+  drafts' other candidates stay recorded for later versions. Closes
+  O133. Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md)
+  16.2, 22.
+- **D213 (2026-10-30, owner ruling, relayed by the coordinator): f10 is
+  calibrated early in the build, on armenelos only;** if it falls short,
+  it comes back to the owner before anything is reshaped, lowering
+  `reporting`'s limit the likely lever, offered then. Now in:
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 16.3, 19.
+- **D214 (2026-10-30, owner ruling, relayed by the coordinator): The
+  customs gateway stub loses about one acknowledgement in fifty as
+  standing behaviour,** so f8's check has witnesses after the hand-over.
+  Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 10.4.

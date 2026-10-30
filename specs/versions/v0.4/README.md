@@ -6,7 +6,13 @@ approval**: the [master spec](master-spec.md) and its
 below on the owner's word that v0.4 was ready. Every `(proposed)` item
 of the drafts is carried into it as written, for the owner to review in
 context: its "Owner review" list names them (A1 to A13) and the
-corrections the consolidation found (B1 to B15), raising O132 and O133.
+corrections the consolidation found (B2 to B15). The owner ruled the
+same day on four points the consolidation raised: the agency's database
+report-only by the story alone, no report-only policy in `postgres`
+(D211, closing O132, against the recommendation; B1 and B6 dropped);
+the scenario's ten faults only (D212, closing O133); f10 calibrated
+early, on armenelos only (D213); the gateway's lost acknowledgements
+(D214).
 No build plan yet; the master spec's section 19 lists what it must
 carry. The drafts stay as the working record until the archive; where
 they and the master spec disagree, the master spec is current.
@@ -381,8 +387,8 @@ section 19. Items noted as they arose:
 ## Questions due in this version
 
 Every one below except O118 and the later ones is answered as proposed
-in the master spec, for the owner's review there; O132 and O133 were
-raised by the consolidation.
+in the master spec, for the owner's review there; O132 and O133, raised
+by the consolidation, were ruled the same day (D211, D212).
 
 - O104: the purpose format.
 - O108: the shared business data model.
@@ -396,8 +402,8 @@ raised by the consolidation.
 - O122: the customer's time zone in the data and the jobs.
 - O124: the moment a purpose check judges from.
 - O125: monitoring the second database, and any further instance.
-- O132: a report-only database node (`postgres` 0.4.0).
-- O133: which catalogue faults v0.4 builds.
+- O132: a report-only database node; closed by D211 (story only).
+- O133: which catalogue faults v0.4 builds; closed by D212 (the ten).
 - O11: technologies and versions, narrowed by D190.
 - O22: scheduled jobs under real time; its v0.4 part settled by D199.
 - O52: the dbt toolchain, not planned for v0.4.
