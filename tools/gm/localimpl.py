@@ -22,8 +22,12 @@ Master spec 10.3; files, names and labels fixed by capture W2-A
                          the seed files it rewrites, a scheduler node's
                          `schedule.yaml` and `jobs.yaml` in UTC and a
                          bastion seed file with `{{customer_timezone}}`
-                         filled; `implementation.yaml` names them from
-                         `fit` on, and `render` adds its `timeline`;
+                         filled; from v0.4 (master spec 8.5) any other
+                         scheduler seed file and a `postgres` node's
+                         `postgresql.conf` holding it, and a `postgres`
+                         node's `crontab` in UTC; `implementation.yaml`
+                         names them from `fit` on, and `render` adds its
+                         `timeline`;
 - `state.yaml`           the stage reached, its history, any failure, and
                          the teardown record (spec D50); from v0.3 the
                          aging's records (capture W2, items 3 to 8, 10,
@@ -34,7 +38,9 @@ Master spec 10.3; files, names and labels fixed by capture W2-A
                          capture W1, item 7), those with `only_with_role`
                          only when a node has the role, and a password
                          `role_<role>_password` per role a scheduler's
-                         schedule names (v0.3 capture W1, items 3, 7).
+                         schedule names (v0.3 capture W1, items 3, 7) or
+                         a node's `crontab_roles` names (v0.4 capture W1
+                         item 8), one per role per game.
 
 Every path an implementation records (`file:`) is relative to the scenario
 folder.
@@ -54,9 +60,9 @@ from pathlib import Path
 
 import yaml
 
-from .model import (CUSTOMER_TIMEZONE, SUBSTITUTION_RE, GmError, has_scheduler_nodes,
-                    is_scheduler_node, is_seed_folder_entry, mounted_items, parse_mode,
-                    parse_size)
+from .model import (CUSTOMER_TIMEZONE, POSTGRES_BRICK, POSTGRESQL_CONF, SUBSTITUTION_RE,
+                    GmError, has_scheduler_nodes, is_scheduler_node, is_seed_folder_entry,
+                    mounted_items, parse_mode, parse_size)
 
 PLATFORM = "swarm"
 STAGES = ("fitted", "rendered", "deployed", "data-loaded", "injected", "load-started",
@@ -98,6 +104,10 @@ SEED_KIND = "seed"
 # item 7); the others are copied unchanged.
 SCHEDULE_FILE, JOBS_FILE = "schedule.yaml", "jobs.yaml"
 RENDERED_SCHEDULER_FILES = (SCHEDULE_FILE, JOBS_FILE)
+# A postgres node's seed crontab, shifted to UTC by render (v0.4 master spec
+# 8.5, capture W1 item 0); its postgresql.conf filled when it holds
+# {{customer_timezone}} (cron.timezone).
+CRONTAB_FILE = "crontab"
 BASTION_ROLE = "bastion"
 
 # Mounted companion material (v0.2 capture W1, item 4; W1-D): each file of
@@ -477,22 +487,40 @@ def rendered_seed_file(playground, node, fname):
     return f"local/{playground}/{RENDERED_DIR}/{node}/{fname}"
 
 
+def is_postgres_node(scenario, node):
+    return scenario.bricks[node["name"]].id == POSTGRES_BRICK
+
+
+def _holds_customer_timezone(scenario, rel):
+    try:
+        return CUSTOMER_TIMEZONE in (Path(scenario.dir) / rel).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False
+
+
 def rendered_seed_names(scenario, node):
-    """The seed files of `node` render rewrites (v0.3 capture W2, item 1):
-    a scheduler node's `schedule.yaml` and `jobs.yaml`; in a scenario with
-    scheduler nodes, a bastion seed file holding `{{customer_timezone}}`
-    (where the loader looks for it, W1 item 1)."""
-    if is_scheduler_node(node):
-        return [f for f in RENDERED_SCHEDULER_FILES if f in (node.get("seed_files") or {})]
-    if node.get("role") != BASTION_ROLE or not has_scheduler_nodes(scenario.data):
+    """The seed files of `node` render rewrites, in seed_entries order;
+    none in a scenario without scheduler nodes, which shifts nothing (v0.3
+    capture W2, item 1; D158). A scheduler node's `schedule.yaml` and
+    `jobs.yaml`, and from v0.4 any other of its seed files holding
+    `{{customer_timezone}}`; a bastion seed file holding it (where the
+    loader looks for it, v0.3 W1 item 1); a `postgres` node's `crontab`,
+    and its `postgresql.conf` when it holds it (v0.4 master spec 8.5,
+    capture W1 item 0)."""
+    if not has_scheduler_nodes(scenario.data):
         return []
     names = []
     for _, seed_name, rel in seed_entries(scenario, node):
-        try:
-            text = (Path(scenario.dir) / rel).read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            continue
-        if CUSTOMER_TIMEZONE in text:
+        if is_scheduler_node(node):
+            rewritten = seed_name in RENDERED_SCHEDULER_FILES \
+                or _holds_customer_timezone(scenario, rel)
+        elif is_postgres_node(scenario, node):
+            rewritten = seed_name == CRONTAB_FILE or (
+                seed_name == POSTGRESQL_CONF and _holds_customer_timezone(scenario, rel))
+        else:
+            rewritten = node.get("role") == BASTION_ROLE \
+                and _holds_customer_timezone(scenario, rel)
+        if rewritten:
             names.append(seed_name)
     return names
 
@@ -649,6 +677,13 @@ def connection_roles(scenario, node):
     return roles
 
 
+def crontab_roles(node):
+    """The roles a node's seeded crontab connects as (`crontab_roles`, v0.4
+    capture W1 item 1), in their order; [] for a node with none."""
+    roles = node.get("crontab_roles")
+    return [r for r in roles if isinstance(r, str)] if isinstance(roles, list) else []
+
+
 def topology_roles(scenario):
     return {n.get("role") for n in scenario.nodes}
 
@@ -656,12 +691,14 @@ def topology_roles(scenario):
 def node_secret_declarations(scenario, node):
     """The secrets a node mounts, as declarations: its brick's whose
     `only_with_role` condition holds (a node of the topology has that role;
-    v0.3 capture W1, item 3), then, on a scheduler node, one password
-    `role_<role>_password` per role its schedule names (W1 item 7)."""
+    v0.3 capture W1, item 3), then one password `role_<role>_password`,
+    root-only under /opt/gm/secrets/, per role a scheduler node's schedule
+    names (v0.3 W1 item 7) or a node's `crontab_roles` names (v0.4 W1 item
+    8): one secret per role per game, shared by every node naming it."""
     roles = topology_roles(scenario)
     out = [sec for sec in scenario.bricks[node["name"]].data.get("secrets") or []
            if sec.get("only_with_role") is None or sec.get("only_with_role") in roles]
-    for role in connection_roles(scenario, node):
+    for role in dict.fromkeys(connection_roles(scenario, node) + crontab_roles(node)):
         name = role_secret_name(role)
         out.append({"name": name, "kind": PASSWORD, "path": posixpath.join(ROLE_SECRET_DIR, name),
                     "uid": ROLE_SECRET_UID, "gid": ROLE_SECRET_GID, "mode": ROLE_SECRET_MODE})
