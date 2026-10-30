@@ -862,3 +862,23 @@ the ~290 000 historically shipped orders); the consent history is
 quieter in its last weeks than the producer's rates from T0 (a jump at
 T0, told as the campaign launch); export packing rate unmeasured until
 the rehearsal.
+
+### G12 written in: build plan v5 (af51b8f), 2026-10-30
+
+`spec-writer`: **D224** (the owner's ruling, O134 closed: the web front in
+every v0.4 game, its home page the starter-pack page, linking to the
+scenario's web interfaces when there are any; port 8080 always published,
+the tools password always handed over; D103 no longer applies), **D225**
+(chunk 19 split: 19a the bastion, beside chunks 2 to 4; 19b the loader's
+port rule in `_check_web_routes`, the port added to `bookshop-new-server`,
+`fixture-audit` and `fixture-v03-refusals` with their READMEs, `smoke.sh`'s
+four `fixture-audit` assertions reversed, the two skills; 19b starts only
+once chunk 2 has merged and chunk 19's branch has taken `v0.4-w1` in),
+**D226** (chunk 1's open point: a seed-file change may name `data`, the
+target node's `data.file`, refused on a node without one; carried by
+chunk 15a). Forward notes: **O135** (v0.5: a common Caddy, a setup-wide
+homepage, a reporting tool on the page), O130 widened (the provider's own
+entry point, after v1.0). Render and the hand-over code need nothing.
+Master spec, access model, formats.md v24, planes-and-access.md v18
+amended. Chunk 18 now rewrites the GM skill's "no front" lines. No new
+gate. Chunk 19 is dispatched at the first free slot under κ = 3.
