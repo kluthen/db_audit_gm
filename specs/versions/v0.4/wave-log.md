@@ -1658,3 +1658,20 @@ the "Amended after approval" line, D228. Nothing for the owner to rule
 `purposes/shop-export-declarations/checks/e4-acknowledged-or-escalated.sh`
 lines 17–18 can be read as "30 minutes after the rejection"; the code
 (line 128: rejection + 15 + 2 min) is right.
+
+### Shop domain consent fix — merged (f94528c), 2026-10-30
+
+`coding-executor`: 1a8b522 on `v0.4-w2-fix-consent`, merge f94528c.
+Cause: in `domains/shop/data/load.sql` the order, country and consent
+buckets all hang on `id % 100` and the zone bucket was `id % 20`, so they
+lined up (the +5 h zone's only lapsed class never granted). Now the zone
+is `(id / 100) % 20`: every zone holds 330 lapsed customers per 5 %
+offset, 200 whose latest consent event is a grant, 130 without; zone
+shares unchanged (80 %, 5 % ×4). Totals and content hashes unchanged
+(20 000 customers, 300 000 orders, 900 000 lines, 15.00 days, 17 000
+consent events); P2's leads 4 000 before and after. P3 at shift −6,
+16:07 company time: M3's witnesses 0 before, 200 after; simulated every
+quarter hour 16:00–20:45 on day 1: min 0 before, 117 after. Day 2's late
+batches have no witness either way: the lead pool runs out (P3's
+`gm.md`). `domains/shop/docs/gm.md` states the independence and the
+figures. Unit suite 795 OK; loads at −6, 0, +3 under the lock.
