@@ -1371,3 +1371,72 @@ commit): `aging.run_check`'s hand-over check failure text still says
 "N s of its window remain" for a too-soon judging check (wording only).
 Risk: a hand-edited or pre-v0.3 state without `plantings` gets a
 refusal, not a guess.
+
+### Chunk 9 — merged (17be068), 2026-10-30
+
+396f4be, merge 17be068. Files: `tools/tests/calibrate-f10.sh`,
+`tools/tests/fixtures/calibrate-f10/` (`db` with the shop domain's data;
+`reporting` at 512M / 256M, `shared_buffers` 128MB, `pg_cron`, the
+foreign server `shop`, `bi_etl`'s mapping to `shop_etl`, the foreign
+tables with the close's columns only, `rpt.etl_runs`,
+`rpt.sales_detail_backfills`, `rpt.sales_detail`, the draft
+`rpt.sales_detail_rollup()`: one `jsonb_agg` element per order, kept in
+`reporting`'s backend by a materialised CTE, checked with EXPLAIN
+VERBOSE; crontab `0 3 * * *` calling it as `bi_etl`). Each run caused by
+a backfill request row and the entry's time moved through `gm-crontab`;
+the procedure never called by hand. Measured from the host: the cgroup's
+`memory.peak`, `memory.swap.peak`, `memory.events`, 0.1 s samples, and
+the backend's peak RSS (`log_statement_stats` set on `bi_etl` at setup,
+GM-side). Three runs under the lock and the script's own inhibitor; the
+VPS Ready/Drain throughout, never reached; nothing pruned; teardown
+clean. `sh -n` OK, PyYAML OK, unit suite 746 OK.
+
+**Figures** (armenelos, Docker 29.9.1, 2026-10-30, limit 512M,
+`shared_buffers` 128MB, MiB; "need" = anon + shmem + swap, or baseline
+plus the backend's peak RSS when larger; raw peak includes page cache):
+
+| UTC | Setting | Run | Days | Orders / lines | Outcome | Raw peak | Swap peak | Need |
+|---|---|---|---|---|---|---|---|---|
+| 19:44 | swap | normal | 1 | 35,817 / 109,603 | completed | 299 | 0 | 252 |
+| 19:46 | swap | backfill | 2 | 55,790 / 169,524 | completed | 414 | 0 | 355 |
+| 19:48 | swap | backfill | 4 | 95,762 / 289,409 | completed | 512 | 45 | 549 |
+| 19:50 | swap | backfill | 6 | 135,730 / 409,332 | completed | 512 | 356 | 826 |
+| 19:52 | swap | backfill | 8 | 175,707 / 529,275 | completed | 512 | 489 | 946 |
+| 19:54 | swap | backfill | 10 | 215,699 / 649,235 | **killed** | 512 | 512 | ≥992 |
+| 19:56 | noswap | normal | 1 | 35,652 / 109,107 | completed | 301 | 0 | 250 |
+| 19:58 | noswap | backfill | 2 | 55,622 / 169,014 | completed | 416 | 0 | 353 |
+| 20:00 | noswap | backfill | 4 | 95,618 / 289,000 | **killed** | 512 | 0 | ≥450 |
+| 20:03 | swap | normal | 1 | 35,819 / 109,607 | completed | 300 | 0 | 252 |
+| 20:05 | swap | backfill | 30 (whole history, 14.9) | 300,000 / 900,000 | **killed** | 512 | 512 | ≥983 |
+
+Growth ~5.2 KB per order (whole history ≈ 1.55 GiB needed against 1 GiB
+of limit plus swap). Page cache of a normal run 87–90 MiB. Every kill:
+`oom_kill` +1, the four PostgreSQL lines, connections back within 0–1 s,
+the postmaster, s6-svscan, sshd and cron keep their pids, the job's log
+ends "connection to server was lost". Completed documents 2–12 MiB.
+Host MemAvailable never below 4.18 GiB. Full table and samples:
+the session scratchpad's `calib1/`, `calib2/` (not committed).
+
+Notes for chunk 15: the night after a killed backfill reads ~2 days
+(~355 MiB need, completes, above half); without foreign-table statistics
+every run fetches all of `order_lines` and `products` (only the orders
+filter is pushed down); the no-swap container's secrets are bind-mounted
+test files (calibration only).
+
+### G10 — applied by the driver, 2026-10-30: to the owner
+
+- **Backfill side: holds.** Every window of 10 days and more is killed
+  with swap; the scenario's thirty-day request reads the whole history
+  (14.9 days) and is killed. The window can stay as designed.
+- **Normal-run side: a shortfall on the spec's own measure.** Master
+  spec 16.3 names "the cgroup's `memory.peak` around a normal run": it
+  reads 299–301 MiB, over half the limit (256). Only on chunk 9's
+  reading (non-reclaimable memory, page cache excluded, `shared_buffers`
+  touched included) does it pass, 252 against 256, a 4 MiB margin that a
+  night of ~36k+ changed orders, or the night after a killed backfill
+  (~355), crosses. G10's rule sends a shortfall to the owner before
+  anything is reshaped. It blocks chunk 15's f10 half and chunk 16, not
+  wave 2.
+- Chunk 9's observation for the lever: a limit of about 464–800 MiB
+  satisfies both sides at the whole-history window, ~640M near the
+  middle (raw 300 < 320; ~1.55 GiB > 1.25 GiB).

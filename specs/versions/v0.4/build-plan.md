@@ -775,7 +775,7 @@ Record: 8a bde3c70, 8b 33bfb36, merge 6d88c58. No departure from the spec; outsi
 
 ### Chunk 9 — f10's early calibration
 
-Status: planned
+Status: merged (w2, 17be068)
 Wave: 2
 Depends on: chunks 4, 5; G9 (done, spec D218); G4
 Architecture capture: none of its own; its figures feed G10 and chunk 15.
@@ -809,6 +809,8 @@ Architecture capture: none of its own; its figures feed G10 and chunk 15.
   question is answered yes or no from them; the host's other games and
   the VPS untouched.
 - Verification: chunk checks, plus the calibration run (needs G4).
+
+Record: 396f4be, merge 17be068. armenelos (Docker 29.9.1), 2026-10-30, limit 512M, `shared_buffers` 128MB. With swap (Swarm, swap = limit): normal run (1 day, ~35.8k orders) `memory.peak` 299–300 MiB, non-reclaimable need 252 MiB; backfills of 2, 4, 6, 8 days completed (need 355, 549, 826, 946 MiB); 10 days and the whole history (30-day request, 14.9 days, 300k orders) killed. Without swap (`docker run --memory=512M --memory-swap=512M`): normal 301 / 250 MiB; 2 days completed; 4 days killed. ~5.2 KB per order. Every kill: `oom_kill` +1, the four recovery lines, connections back within 1 s, postmaster, s6, sshd, cron untouched. G10: the backfill side holds; the normal-run side passes only on the non-reclaimable reading (252 < 256), not on raw `memory.peak` (300 > 256): taken to the owner (wave log). No departure from the spec; nothing reshaped.
 
 ### Chunk 10 — P1, sales reporting
 
