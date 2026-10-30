@@ -1613,7 +1613,8 @@ class TestQueryRefusals(SchedulerFilesTest):
         self.queries(lambda q: q.update({"orders.odd": {"statement": "SELECT 1"},
                                          "orders.empty": []}))
         self.assertRefused(f"{self.Q}: queries.orders.odd: not a query (sql), a pool (a list of "
-                           "queries), a sequence (steps) or a builder (builder)",
+                           "queries), a sequence (steps), a builder (builder) or a script "
+                           "(script)",
                            f"{self.Q}: queries.orders.empty: a pool lists at least one query")
 
     def test_query_keys(self):
@@ -1839,8 +1840,14 @@ class TestJobsRefusals(SchedulerFilesTest):
         cases = {
             "30 1 * *": "is not a 5-field cron expression",
             "61 1 * * *": "minute 61 is not a numeric cron form",
-            "30 */2 * * *": "hour */2 is not *, a number or a list of numbers (0-23)",
-            "30 1-3 * * *": "hour 1-3 is not *",
+            "30 24 * * *": "hour 24 is not *, or a comma list of n, a-b, */s or a-b/s within "
+                           "0-23 (a <= b, never wrapping; s >= 1)",
+            "30 20-8 * * *": "hour 20-8 is not *, or a comma list",
+            "30 */0 * * *": "hour */0 is not *, or a comma list",
+            "30 1-3/0 * * *": "hour 1-3/0 is not *, or a comma list",
+            "30 *,3 * * *": "hour *,3 is not *, or a comma list",
+            "30 5/2 * * *": "hour 5/2 is not *, or a comma list",
+            "30 1-24 * * *": "hour 1-24 is not *, or a comma list",
             "30 1 1 * *": "day of month and month are *",
             "30 1 * 6 *": "day of month and month are *",
             "30 1 * * 7": "day of week 7 is not *, a number or a list of numbers (0-6)",
@@ -1853,7 +1860,8 @@ class TestJobsRefusals(SchedulerFilesTest):
                 self.assertRefused(f"{self.J}: jobs[weekly-report].at: {at!r}", message)
 
     def test_cron_accepted(self):
-        for at in ("*/15 * * * *", "0-30/10 8,12 * * *", "5 6 * * 0,6", "1,31 23 * * *"):
+        for at in ("*/15 * * * *", "0-30/10 8,12 * * *", "5 6 * * 0,6", "1,31 23 * * *",
+                   "*/15 8-20 * * *", "30 */2 * * *", "0 1-3,8-20/2,23 * * *", "0 0-23 * * *"):
             with self.subTest(at=at):
                 self.setUp()
                 self.jobs(lambda j: j[1].update(at=at))
@@ -2460,9 +2468,229 @@ class TestSeedOptionalRefusals(V04CopyTest):
 
     def test_without_optional_every_file_is_required(self):
         self.edit_yaml(self.LABEL, lambda d: d["seed"].pop("optional"))
-        self.assertRefused("scenario.yaml: nodes[db].seed_files: no entry for the brick's seed "
-                           "file crontab", "scenario.yaml: nodes[reporting].seed_files: no entry "
-                           "for the brick's seed file crontab")
+        missing = self.assertRefused("scenario.yaml: nodes[db].seed_files: no entry for the "
+                                     "brick's seed file crontab")
+        self.assertNotIn("nodes[reporting].seed_files: no entry", "\n".join(missing))
+
+
+class V04SchedulerTest(V04CopyTest):
+    """The runner bi's files: a transformer script (master spec 7.1; W1 item
+    7)."""
+
+    Q = "nodes/bi/queries.yaml"
+    S = "nodes/bi/schedule.yaml"
+    J = "nodes/bi/jobs.yaml"
+
+    def queries(self, change):
+        self.edit_yaml(self.Q, lambda d: change(d["queries"]))
+
+    def jobs(self, change):
+        self.edit_yaml(self.J, lambda d: change(d["jobs"]))
+
+
+class TestScriptRefusals(V04SchedulerTest):
+
+    def test_script_entry_accepted(self):
+        sc = self.load()
+        self.assertIn("scripts/", sc.node("bi")["seed_files"])
+
+    def test_script_reference(self):
+        cases = {
+            "rollup.py:hourly": "queries.sales.rollup.script: 'rollup.py:hourly' is not "
+                                "scripts/<file>:<function>",
+            "scripts/none.py:hourly": "queries.sales.rollup.script: scripts/none.py:hourly: "
+                                      "nodes/bi/scripts/none.py does not exist",
+            "scripts/rollup.py:daily": "queries.sales.rollup.script: scripts/rollup.py:daily: "
+                                       "nodes/bi/scripts/rollup.py defines no function daily at "
+                                       "its top level",
+        }
+        for ref, message in cases.items():
+            with self.subTest(ref=ref):
+                self.setUp()
+                self.queries(lambda q: q["sales.rollup"].update(script=ref))
+                self.assertRefused(f"{self.Q}: {message}")
+
+    def test_script_keys_and_options(self):
+        self.queries(lambda q: q["sales.rollup"].update(options=[1], sql="SELECT 1"))
+        self.assertRefused(f"{self.Q}: queries.sales.rollup.sql: not a key of a script (script, "
+                           "options)",
+                           f"{self.Q}: queries.sales.rollup.options: not a map")
+
+    def test_script_needs_the_scripts_folder(self):
+        self.scenario_yaml(lambda d: self.node(d, "bi")["seed_files"].pop("scripts/"))
+        self.assertRefused(f"{self.Q}: queries.sales.rollup.script: scripts/rollup.py:hourly, "
+                           "but the node has no scripts/ seed folder")
+
+    def test_script_file_parses(self):
+        (self.scenario / "nodes" / "bi" / "scripts" / "rollup.py").write_text("def hourly(:\n")
+        self.assertRefused("nodes/bi/scripts/rollup.py: cannot be parsed as Python")
+
+    def test_no_stream_names_a_script_key(self):
+        self.edit_yaml(self.S, lambda d: d.update(streams=[
+            {"key": "sales.rollup", "connection": "source", "rate": "1/min"}]))
+        self.assertRefused(f"{self.S}: streams[sales.rollup].key: sales.rollup is a script key, "
+                           "which runs only as a job (jobs.yaml; master spec 7.1)")
+
+    def test_no_timeline_change_names_a_script_key(self):
+        self.edit_yaml(self.S, lambda d: d.update(
+            streams=[{"key": "sales.copy", "connection": "target", "rate": "1/min"}],
+            timeline=[{"at": "handover-2h", "stream": "sales.copy",
+                       "set": {"key": "sales.rollup"}}]))
+        self.assertRefused(f"{self.S}: timeline[0].set.key: sales.rollup is a script key, which "
+                           "runs only as a job")
+
+    def test_script_job_names_connections(self):
+        self.jobs(lambda j: j[1].update(connection="target"))
+        self.assertRefused(f"{self.J}: jobs[rollup-daytime].connection: sales.rollup is a script "
+                           "key, whose job names connections: instead (master spec 7.1)")
+        self.setUp()
+        self.jobs(lambda j: j[1].pop("connections"))
+        self.assertRefused(f"{self.J}: jobs[rollup-daytime].connections: missing (the job of "
+                           "script key sales.rollup names each of the script's connections")
+
+    def test_other_job_names_one_connection(self):
+        self.jobs(lambda j: j[0].update(connections={"target": "target"}))
+        self.assertRefused(f"{self.J}: jobs[copy-hourly].connections: only a script key's job "
+                           "names connections: (sales.copy is not a script key)")
+        self.setUp()
+        self.jobs(lambda j: j[0].pop("connection"))
+        self.assertRefused(f"{self.J}: jobs[copy-hourly].connection: missing (every job but a "
+                           "script key's names one connection of the schedule)")
+
+    def test_unknown_key_takes_exactly_one(self):
+        self.jobs(lambda j: (j[0].pop("connection"), j[0].update(key="sales.none")))
+        self.assertRefused(f"{self.J}: jobs[copy-hourly]: exactly one of connection: and "
+                           "connections:")
+
+    def test_connections_names_and_values(self):
+        self.jobs(lambda j: j[1].update(connections={"Source": "source", "target": "warehouse"}))
+        self.assertRefused(f"{self.J}: jobs[rollup-daytime].connections.Source: 'Source' is not a "
+                           "script's connection name ([a-z][a-z0-9_]*)",
+                           f"{self.J}: jobs[rollup-daytime].connections.target: warehouse is not "
+                           "a connection of the node's schedule.yaml")
+        self.setUp()
+        self.jobs(lambda j: j[1].update(connections={}))
+        self.assertRefused(f"{self.J}: jobs[rollup-daytime].connections: empty")
+
+    def test_v03_producer_jobs_still_load(self):
+        model.load_scenario(FIXTURE_V03)
+
+
+class TestCrontabRefusals(V04CopyTest):
+    """postgres 0.4.0's optional crontab and crontab_roles (master spec 6.1,
+    7.2; W1 items 0, 1 and 8)."""
+
+    C = "nodes/reporting/crontab"
+    P = "scenario.yaml: nodes[reporting].crontab_roles"
+
+    def roles(self, value):
+        self.scenario_yaml(lambda d: self.node(d, "reporting").update(crontab_roles=value))
+
+    def crontab(self, *lines):
+        (self.scenario / self.C).write_text("PGPASSFILE=/run/gm-cron/pgpass\n"
+                                            + "".join(line + "\n" for line in lines))
+
+    def test_roles_required_with_a_crontab(self):
+        self.scenario_yaml(lambda d: self.node(d, "reporting").pop("crontab_roles"))
+        self.assertRefused(f"{self.P}: missing (the node seeds a crontab")
+
+    def test_roles_refused_without_a_crontab(self):
+        self.scenario_yaml(lambda d: self.node(d, "db").update(crontab_roles=[]))
+        self.assertRefused("scenario.yaml: nodes[db].crontab_roles: the node seeds no crontab (no "
+                           "crontab in its seed_files), so it names no crontab role")
+
+    def test_roles_may_be_empty(self):
+        self.roles([])
+        self.load()
+
+    def test_roles(self):
+        self.roles(["bi_etl", "bi_etl", "Bad-Role", "postgres", "shop_app"])
+        self.assertRefused(f"{self.P}: bi_etl listed more than once",
+                           f"{self.P}: 'Bad-Role' is not a role name",
+                           f"{self.P}: postgres is reserved",
+                           f"{self.P}: shop_app is not a role node reporting's own data file "
+                           "creates (its data file (data/reporting.sql); CREATE ROLE shop_app)")
+
+    def test_entries_in_the_cron_subset(self):
+        self.crontab("# a comment", "", "@reboot psql -c 'SELECT 1'", "0 25 * * * psql",
+                     "0 1 1 * * psql", "*/5 * * *")
+        self.assertRefused(f"{self.C}: line 4: @reboot: no @ form in a crontab",
+                           f"{self.C}: line 5: '0 25 * * *': hour 25 is not *",
+                           f"{self.C}: line 6: '0 1 1 * *': day of month and month are *",
+                           f"{self.C}: line 7: not a crontab entry (five time fields, then the "
+                           "command)")
+
+    def test_widened_entries_accepted(self):
+        self.crontab("*/15 8-20 * * * psql -c 'SELECT 1'", "0 3 * * 0 psql -c 'SELECT 2'",
+                     "SHELL=/bin/sh")
+        self.load()
+
+    def test_crontab_fault_on_a_node_seeding_one(self):
+        self.edit_yaml("faults/fixture-random-page-cost/fault.yaml", lambda d: d["injection"][
+            "seed_changes"][0].update(file="crontab"))
+        self.assertRefused("scenario.yaml: fault_instances[f1]: fault fixture-random-page-cost "
+                           "changes crontab, which node db does not seed (an optional seed file "
+                           "of brick postgres")
+        self.setUp()
+        self.edit_yaml("faults/fixture-random-page-cost/fault.yaml", lambda d: d["injection"][
+            "seed_changes"][0].update(file="crontab"))
+        self.scenario_yaml(lambda d: d["fault_instances"][0].update(node="reporting"))
+        self.load()
+
+
+class TestPgCronRefusals(V04CopyTest):
+    """A data file creating pg_cron (master spec 7.2; W1 item 0)."""
+
+    CONF = "nodes/reporting/postgresql.conf"
+
+    def conf(self, old, new):
+        path = self.scenario / self.CONF
+        text = path.read_text()
+        self.assertIn(old, text)
+        path.write_text(text.replace(old, new))
+
+    def test_preload_required(self):
+        self.conf("shared_preload_libraries = 'pg_cron'",
+                  "shared_preload_libraries = 'pg_stat_statements'")
+        self.assertRefused("data/reporting.sql: creates the extension pg_cron, but node "
+                           "reporting's seed postgresql.conf (nodes/reporting/postgresql.conf) "
+                           "does not preload it (shared_preload_libraries; master spec 7.2)")
+
+    def test_last_assignment_counts(self):
+        self.conf("cron.timezone", "shared_preload_libraries = ''\ncron.timezone")
+        self.assertRefused("does not preload it")
+        self.setUp()
+        self.conf("shared_preload_libraries = 'pg_cron'",
+                  "#shared_preload_libraries = 'pg_cron'\n"
+                  "shared_preload_libraries = 'pg_stat_statements, pg_cron'")
+        self.load()
+
+    def test_database_name(self):
+        self.conf("cron.database_name = 'reporting'", "cron.database_name = 'shop'")
+        self.assertRefused(f"{self.CONF}: cron.database_name: shop is not a database node "
+                           "reporting's data file (data/reporting.sql) creates (master spec 7.2)")
+        self.setUp()
+        self.conf("cron.database_name = 'reporting'", "")
+        self.assertRefused(f"{self.CONF}: cron.database_name: missing (node reporting's data "
+                           "file creates pg_cron")
+
+    def test_preload_without_the_extension_loads(self):
+        path = self.scenario / "data" / "reporting.sql"
+        path.write_text(path.read_text().replace("CREATE EXTENSION pg_cron;", "-- no pg_cron"))
+        self.load()
+
+
+class TestPurposeCadence(V04CopyTest):
+    """A purpose job's cadence in W1 item 0's subset (spec D219)."""
+
+    def test_widened_cadence_accepted(self):
+        self.assertEqual(self.purpose_problems(), "")
+        self.assertIn("*/15 8-20", (self.scenario / self.PURPOSE / "purpose.yaml").read_text())
+
+    def test_cadence_outside_the_subset(self):
+        text = self.purpose_problems(lambda d: d["jobs"][1].update(cadence="*/15 20-8 * * *"))
+        self.assertIn("purposes/fixture-sales-copy/purpose.yaml: jobs[rollup-daytime].cadence: "
+                      "'*/15 20-8 * * *': hour 20-8 is not *", text)
 
 
 if __name__ == "__main__":

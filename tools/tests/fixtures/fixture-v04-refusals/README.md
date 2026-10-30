@@ -128,7 +128,15 @@ Data, restored from `data/db.sql`:
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
-- **Seed files**: `postgresql.conf` → `nodes/reporting/postgresql.conf`; `pg_hba.conf` → `nodes/reporting/pg_hba.conf`.
+- **Seed files**: `postgresql.conf` → `nodes/reporting/postgresql.conf`; `pg_hba.conf` → `nodes/reporting/pg_hba.conf`; `crontab` → `nodes/reporting/crontab`.
+- **Crontab roles**: `bi_etl`: the customer roles its crontab connects as; deployment mounts their passwords.
+
+Jobs on the node (cron daemon on, pg_cron on, metadata in `reporting`, cron.timezone `'{{customer_timezone}}'`):
+
+| Kind | Job | Schedule (scenario time) | Runs as | Database | What |
+|---|---|---|---|---|---|
+| crontab | `vacuum-sales` | `30 2 * * *` | `bi_etl` | `reporting` | VACUUM ANALYZE sales_hourly |
+| pg_cron | `analyze-sales` | `0 * * * *` | `bi_etl` | `reporting` | ANALYZE sales_hourly |
 
 Resources (absolute, never recomputed per playground):
 
@@ -163,7 +171,7 @@ Data, restored from `data/reporting.sql`:
 - **Networks**: backend.
 - **Parameters**: none.
 - **Published ports**: none.
-- **Seed files**: `queries.yaml` → `nodes/bi/queries.yaml`; `jobs.yaml` → `nodes/bi/jobs.yaml`; `schedule.yaml` → `nodes/bi/schedule.yaml`.
+- **Seed files**: `queries.yaml` → `nodes/bi/queries.yaml`; `jobs.yaml` → `nodes/bi/jobs.yaml`; `schedule.yaml` → `nodes/bi/schedule.yaml`; `scripts/` → `nodes/bi/scripts/`.
 
 Resources (absolute, never recomputed per playground):
 
@@ -304,8 +312,8 @@ None.
 - **Starter pack**, shipped to the bastion: `player/README.md` (topology, node names, rules, DO NOT TAMPER list, how to run the validator), `player/story.md`, `player/issues.md`, and the data policy `player/data-policy.md`. It does not carry this document's warning, and nothing in it names a hidden fault or an answer.
 - **Node files**, delivered as Swarm configs:
   - `db`: `nodes/db/postgresql.conf`, `nodes/db/pg_hba.conf`
-  - `reporting`: `nodes/reporting/postgresql.conf`, `nodes/reporting/pg_hba.conf`
-  - `bi`: `nodes/bi/queries.yaml`, `nodes/bi/jobs.yaml`, `nodes/bi/schedule.yaml`
+  - `reporting`: `nodes/reporting/postgresql.conf`, `nodes/reporting/pg_hba.conf`, `nodes/reporting/crontab`
+  - `bi`: `nodes/bi/queries.yaml`, `nodes/bi/jobs.yaml`, `nodes/bi/schedule.yaml`, `nodes/bi/scripts/`
 - **Restored-backup data**, streamed in after deployment:
   - `db`: `data/db.sql`
   - `reporting`: `data/reporting.sql`

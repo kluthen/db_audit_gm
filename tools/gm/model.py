@@ -1665,6 +1665,11 @@ def _check_faults(data, nodes, bricks, sdir, catalog_root, out):
                 if isinstance(change, dict) and change.get("file") not in seeds:
                     out.append(f"{label}: {p}: fault {fault.id} changes {change.get('file')}, "
                                f"not a seed file of brick {brick.id}")
+                elif isinstance(change, dict) and change.get("file") in seed_optional(brick.data) \
+                        and change.get("file") not in _dict(by_name[target].get("seed_files")):
+                    out.append(f"{label}: {p}: fault {fault.id} changes {change.get('file')}, "
+                               f"which node {target} does not seed (an optional seed file of "
+                               f"brick {brick.id}; v0.4 capture W1 item 1)")
             _check_parameter_fault(inst, fault, brick, by_name, p, out)
             _check_report_evidence(fault, brick, p, out)
         params = inst.get("parameters") or {}
@@ -2365,9 +2370,10 @@ def _check_fragments(folder, base, scripts_allowed, out):
                 out.append(f"{shown}: {key}: not a key of a {fname} fragment "
                            f"({', '.join(allowed[fname])}){why}")
     if loaded.get("queries.yaml") is not None:
-        builders = folder / "builders"
-        builders = (f"{rel}/builders", builders) if builders.is_dir() else None
-        _check_queries(f"{rel}/queries.yaml", loaded["queries.yaml"], builders, out)
+        seeds = [(f"{rel}/{name}", folder / name) if (folder / name).is_dir() else None
+                 for name in FRAGMENT_FOLDERS]
+        _check_queries(f"{rel}/queries.yaml", loaded["queries.yaml"], seeds[0], out,
+                       seeds[1] if scripts_allowed else None)
 
 
 def check_domain_dir(domain_dir, label_base=None):
@@ -2762,12 +2768,117 @@ def _check_class_rules(rules, p, by_name, creates, roles, out):
                 out.append(f"{fp}.outbox: {problem}")
 
 
+def _check_crontabs(nodes, creates, sdir, out):
+    """A seeded crontab and its crontab_roles (master spec 6.1, 7.2; W1
+    items 0, 1 and 8): crontab_roles exactly on a node seeding a crontab,
+    each a customer role the node's own data file creates; each entry's
+    times in the cron subset render can shift, no @ form."""
+    label = "scenario.yaml"
+    for node in nodes:
+        name = node.get("name")
+        p = f"{label}: nodes[{name}].crontab_roles"
+        seeds = "crontab" in _dict(node.get("seed_files"))
+        if "crontab_roles" in node and not seeds:
+            out.append(f"{p}: the node seeds no crontab (no crontab in its seed_files), so it "
+                       "names no crontab role (master spec 6.1)")
+        elif seeds and "crontab_roles" not in node:
+            out.append(f"{p}: missing (the node seeds a crontab: the customer roles it connects "
+                       "as, may be []; master spec 6.1, 7.2)")
+        roles = node.get("crontab_roles")
+        if "crontab_roles" in node and not isinstance(roles, list):
+            out.append(f"{p}: not a list of roles")
+        created = creates.get(name)
+        seen = []
+        for role in roles if isinstance(roles, list) and seeds else []:
+            if not (isinstance(role, str) and DB_ROLE_RE.match(role)):
+                out.append(f"{p}: {role!r} is not a role name ([a-z_][a-z0-9_]{{0,40}})")
+                continue
+            if role in seen:
+                out.append(f"{p}: {role} listed more than once")
+            seen.append(role)
+            if role in RESERVED_DB_ROLES or role.startswith("pg_"):
+                out.append(f"{p}: {role} is reserved ({', '.join(RESERVED_DB_ROLES)}, pg_*); a "
+                           "crontab connects as a customer role")
+            elif created is None or role not in created.roles:
+                where = f"its data file ({created.file})" if created else "it has no data file"
+                out.append(f"{p}: {role} is not a role node {name}'s own data file creates "
+                           f"({where}; CREATE ROLE {role})")
+        rel, path = _seed_path(node, sdir, "crontab")
+        if path is not None:
+            _check_crontab_entries(rel, path, out)
+
+
+def _check_crontab_entries(rel, path, out):
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        out.append(f"{rel}: cannot be read: {exc}")
+        return
+    for number, line in enumerate(text.splitlines(), 1):
+        entry = line.strip()
+        if not entry or entry.startswith("#") or re.match(r"[A-Za-z_][A-Za-z0-9_]*\s*=", entry):
+            continue                         # blank, comment, environment setting
+        if entry.startswith("@"):
+            out.append(f"{rel}: line {number}: {entry.split()[0]}: no @ form in a crontab; five "
+                       "time fields render can shift (v0.4 capture W1 item 0)")
+            continue
+        fields = entry.split(None, 5)
+        if len(fields) < 6:
+            out.append(f"{rel}: line {number}: not a crontab entry (five time fields, then the "
+                       "command)")
+            continue
+        problem = _cron_problem(" ".join(fields[:5]))
+        if problem:
+            out.append(f"{rel}: line {number}: {problem}")
+
+
+def _conf_text_value(value):
+    """A postgresql.conf value without its quotes."""
+    value = (value or "").strip()
+    if len(value) >= 2 and value[0] == value[-1] == "'":
+        value = value[1:-1].replace("''", "'")
+    return value
+
+
+def _check_pg_cron(nodes, creates, sdir, out):
+    """A data file creating pg_cron belongs to a node whose seed
+    postgresql.conf preloads it, and cron.database_name names a database
+    that data file creates (master spec 7.2; W1 item 0)."""
+    for node in nodes:
+        name = node.get("name")
+        created = creates.get(name)
+        if created is None or not created.pg_cron:
+            continue
+        rel, path = _seed_path(node, sdir, "postgresql.conf")
+        if path is None:
+            out.append(f"{created.file}: creates the extension pg_cron, but node {name} seeds no "
+                       "postgresql.conf to preload it (master spec 7.2)")
+            continue
+        settings = read_conf_settings(path.read_text(encoding="utf-8"))
+        preload = [lib.strip() for lib in
+                   _conf_text_value(settings.get("shared_preload_libraries")).split(",")]
+        if "pg_cron" not in preload:
+            out.append(f"{created.file}: creates the extension pg_cron, but node {name}'s seed "
+                       f"postgresql.conf ({rel}) does not preload it (shared_preload_libraries; "
+                       "master spec 7.2)")
+        database = _conf_text_value(settings.get("cron.database_name"))
+        if "cron.database_name" not in settings:
+            out.append(f"{rel}: cron.database_name: missing (node {name}'s data file creates "
+                       "pg_cron; it names a database that data file creates, master spec 7.2)")
+        elif database not in created.databases:
+            out.append(f"{rel}: cron.database_name: {database} is not a database node {name}'s "
+                       f"data file ({created.file}) creates (master spec 7.2)")
+
+
 def _check_v04(data, nodes, creates, sdir, catalog_root, out):
-    """v0.4's scenario keys: domain:, purposes:, governance:."""
+    """v0.4's scenario keys: domain:, purposes:, governance:, crontab_roles,
+    and a data file's pg_cron."""
     by_name = {n.get("name"): n for n in nodes}
     _check_domain(data, catalog_root, out)
     _check_purposes(data, by_name, creates, sdir, catalog_root, out)
     _check_governance(data, nodes, by_name, creates, sdir, out)
+    _check_crontabs(nodes, creates, sdir, out)
+    _check_pg_cron(nodes, creates, sdir, out)
 
 
 # --- The scheduler's files (master spec 7.1; capture W1 of v0.3, item 7) ---
@@ -2783,6 +2894,8 @@ RESERVED_DB_ROLES = ("postgres", "dba", "monitoring", "gm_check", "pgbouncer_loo
 RATE_RE = re.compile(r"^([0-9]+(?:\.[0-9]+)?)/(s|min|h)$")
 ARRIVALS = ("poisson", "even")
 BUILDER_RE = re.compile(r"^builders/([A-Za-z0-9_][A-Za-z0-9_.-]*):([A-Za-z_][A-Za-z0-9_]*)$")
+SCRIPT_RE = re.compile(r"^scripts/([A-Za-z0-9_][A-Za-z0-9_.-]*):([A-Za-z_][A-Za-z0-9_]*)$")
+SCRIPT_CONNECTION_RE = re.compile(r"^[a-z][a-z0-9_]*$")   # a script's connection names (W1 item 7)
 WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 HOURS_RE = re.compile(r"^([0-9]{2})(?:-([0-9]{2}))?$")
 DAYS_RE = re.compile(r"^([a-z]{3})(?:-([a-z]{3}))?$")
@@ -2791,7 +2904,7 @@ CONNECTION_KEYS = ("driver", "target", "role", "pool")
 STREAM_KEYS = ("key", "connection", "rate", "arrivals", "shape", "concurrency")
 CHANGE_KEYS = ("at", "stream", "set")
 SET_KEYS = ("key", "rate", "connection")
-JOB_KEYS = ("name", "key", "connection", "at", "timezone_offset")
+JOB_KEYS = ("name", "key", "connection", "connections", "at", "timezone_offset")
 
 
 def _check_scheduler_files(data, nodes, faults, minimum, sdir, out):
@@ -2811,15 +2924,28 @@ def _check_scheduler_files(data, nodes, faults, minimum, sdir, out):
         folder = _inside(sdir, builders) if isinstance(builders, str) else None
         builders = (str(builders).rstrip("/"), folder) if folder is not None and folder.is_dir() \
             else None
+        scripts = _dict(node.get("seed_files")).get("scripts/")
+        folder = _inside(sdir, scripts) if isinstance(scripts, str) else None
+        scripts = (str(scripts).rstrip("/"), folder) if folder is not None and folder.is_dir() \
+            else None
         keys = None
+        script_keys = set()
         if loaded.get("queries.yaml", (None, None))[1] is not None:
-            keys = _check_queries(*loaded["queries.yaml"], builders, out)
+            keys = _check_queries(*loaded["queries.yaml"], builders, out, scripts)
+            script_keys = _script_keys(loaded["queries.yaml"][1])
         connections = None
         if loaded.get("schedule.yaml", (None, None))[1] is not None:
             connections = _check_schedule(*loaded["schedule.yaml"], keys, names, data, minimum,
-                                          out)
+                                          out, script_keys)
         if loaded.get("jobs.yaml", (None, None))[1] is not None:
-            _check_jobs(*loaded["jobs.yaml"], keys, connections, node, data, faults, out)
+            _check_jobs(*loaded["jobs.yaml"], keys, connections, node, data, faults, out,
+                        script_keys)
+
+
+def _script_keys(content):
+    """The keys of a repository's script entries (master spec 7.1)."""
+    queries = _dict(_dict(content).get("queries"))
+    return {k for k, v in queries.items() if isinstance(v, dict) and "script" in v}
 
 
 def _unknown_keys(value, allowed, p, what, out):
@@ -2838,8 +2964,10 @@ def _without_sql(value):
     return value
 
 
-def _check_queries(rel, content, builders, out):
-    """The query repository; returns its keys, or None when unusable."""
+def _check_queries(rel, content, builders, out, scripts=None):
+    """The query repository; returns its keys, or None when unusable.
+    `builders` and `scripts`: (shown path, folder) of the node's seed
+    folders, or None."""
     check_against_schema(content, template_schema("queries.yaml"), rel, out=out)
     placeholders(_without_sql(content), rel, out=out)
     queries = _dict(content).get("queries")
@@ -2858,6 +2986,8 @@ def _check_queries(rel, content, builders, out):
                 _check_query(item, f"{p}[{i}]", ("sql", "params", "transaction", "weight"), out)
         elif isinstance(value, dict) and "builder" in value:
             _check_builder(value, p, builders, out)
+        elif isinstance(value, dict) and "script" in value:
+            _check_builder(value, p, scripts, out, kind="script")
         elif isinstance(value, dict) and "steps" in value:
             _unknown_keys(value, ("steps", "transaction"), p, "a sequence", out)
             steps = value["steps"]
@@ -2870,8 +3000,8 @@ def _check_queries(rel, content, builders, out):
         elif isinstance(value, dict) and "sql" in value:
             _check_query(value, p, ("sql", "params", "transaction"), out)
         else:
-            out.append(f"{p}: not a query (sql), a pool (a list of queries), a sequence (steps) "
-                       "or a builder (builder)")
+            out.append(f"{p}: not a query (sql), a pool (a list of queries), a sequence "
+                       "(steps), a builder (builder) or a script (script)")
     return set(queries)
 
 
@@ -2947,25 +3077,28 @@ def _check_transaction(transaction, p, out):
             out.append(f"{p}.hold: {exc}")
 
 
-def _check_builder(value, p, builders, out):
-    """builders/<file>:<function>: a file of the node's builders/ folder
-    defining the function at its top level."""
-    _unknown_keys(value, ("builder", "options"), p, "a builder", out)
+def _check_builder(value, p, folder_info, out, kind="builder"):
+    """builders/<file>:<function> (a builder) or scripts/<file>:<function>
+    (a transformer script, master spec 7.1): a file of the node's seed folder
+    of that name defining the function at its top level."""
+    folder_name = "builders" if kind == "builder" else "scripts"
+    _unknown_keys(value, (kind, "options"), p, f"a {kind}", out)
     if "options" in value and not isinstance(value["options"], dict):
         out.append(f"{p}.options: not a map")
-    ref = value.get("builder")
-    m = BUILDER_RE.match(ref) if isinstance(ref, str) else None
+    ref = value.get(kind)
+    m = (BUILDER_RE if kind == "builder" else SCRIPT_RE).match(ref) \
+        if isinstance(ref, str) else None
     if m is None:
-        out.append(f"{p}.builder: {ref!r} is not builders/<file>:<function>")
+        out.append(f"{p}.{kind}: {ref!r} is not {folder_name}/<file>:<function>")
         return
     fname, function = m.groups()
-    if builders is None:
-        out.append(f"{p}.builder: {ref}, but the node has no builders/ seed folder")
+    if folder_info is None:
+        out.append(f"{p}.{kind}: {ref}, but the node has no {folder_name}/ seed folder")
         return
-    rel, folder = builders
+    rel, folder = folder_info
     path = folder / fname
     if not path.is_file():
-        out.append(f"{p}.builder: {ref}: {rel}/{fname} does not exist")
+        out.append(f"{p}.{kind}: {ref}: {rel}/{fname} does not exist")
         return
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -2974,7 +3107,7 @@ def _check_builder(value, p, builders, out):
         return
     if not any(isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == function
                for n in tree.body):
-        out.append(f"{p}.builder: {ref}: {rel}/{fname} defines no function {function} at its "
+        out.append(f"{p}.{kind}: {ref}: {rel}/{fname} defines no function {function} at its "
                    "top level")
 
 
@@ -2984,7 +3117,7 @@ def _check_rate(rate, p, out):
         out.append(f"{p}: {rate!r} is not a rate (<number>/s, /min or /h, positive)")
 
 
-def _check_schedule(rel, content, keys, names, data, minimum, out):
+def _check_schedule(rel, content, keys, names, data, minimum, out, script_keys=()):
     """schedule.yaml in scenario time; returns its connection names, or None
     when unusable."""
     check_against_schema(content, template_schema("schedule.yaml"), rel, out=out)
@@ -3019,6 +3152,9 @@ def _check_schedule(rel, content, keys, names, data, minimum, out):
                        "initial key, unique on the node")
         initial.append(key)
         _check_key_ref(key, keys, f"{p}.key", out)
+        if key in script_keys:
+            out.append(f"{p}.key: {key} is a script key, which runs only as a job (jobs.yaml; "
+                       "master spec 7.1)")
         if "connection" in stream and stream["connection"] not in connections:
             out.append(f"{p}.connection: {stream['connection']} is not a connection of the "
                        "schedule")
@@ -3035,7 +3171,7 @@ def _check_schedule(rel, content, keys, names, data, minimum, out):
     for i, change in enumerate(timeline if isinstance(timeline, list) else []):
         if isinstance(change, dict):
             _check_change(change, f"{rel}: timeline[{i}]", keys, connections, initial, data,
-                          minimum, out)
+                          minimum, out, script_keys)
     return set(connections)
 
 
@@ -3140,7 +3276,7 @@ def _check_shape(shape, p, out):
               "a weekly shape covers mon to sun exactly once", out)
 
 
-def _check_change(change, p, keys, connections, streams, data, minimum, out):
+def _check_change(change, p, keys, connections, streams, data, minimum, out, script_keys=()):
     """A timeline change: before hand-over, no further before it than the
     aging minimum (master spec 7.1)."""
     _unknown_keys(change, CHANGE_KEYS, p, "a timeline change", out)
@@ -3160,11 +3296,54 @@ def _check_change(change, p, keys, connections, streams, data, minimum, out):
         return                               # reported against the template
     _unknown_keys(values, SET_KEYS, f"{p}.set", "a change", out)
     _check_key_ref(values.get("key"), keys, f"{p}.set.key", out)
+    if values.get("key") in script_keys:
+        out.append(f"{p}.set.key: {values['key']} is a script key, which runs only as a job (a "
+                   "timeline change would make it a stream's; master spec 7.1)")
     if "rate" in values:
         _check_rate(values["rate"], f"{p}.set.rate", out)
     if "connection" in values and values["connection"] not in connections:
         out.append(f"{p}.set.connection: {values['connection']} is not a connection of the "
                    "schedule")
+
+
+def _check_job_connections(job, p, keys, connections, script_keys, out):
+    """Exactly one of connection: (every job but a script key's) and
+    connections: (a script key's job: script name -> a connection of the
+    schedule); master spec 7.1, W1 item 7."""
+    key = job.get("key")
+    if keys is None or key not in keys:
+        if ("connection" in job) == ("connections" in job):
+            out.append(f"{p}: exactly one of connection: and connections: (connections: for a "
+                       "script key's job only)")
+    elif key in script_keys:
+        if "connection" in job:
+            out.append(f"{p}.connection: {key} is a script key, whose job names connections: "
+                       "instead (master spec 7.1)")
+        if "connections" not in job:
+            out.append(f"{p}.connections: missing (the job of script key {key} names each of "
+                       "the script's connections; master spec 7.1)")
+    else:
+        if "connections" in job:
+            out.append(f"{p}.connections: only a script key's job names connections: ({key} is "
+                       "not a script key); it names one connection:")
+        if "connection" not in job:
+            out.append(f"{p}.connection: missing (every job but a script key's names one "
+                       "connection of the schedule)")
+    if connections is not None and "connection" in job \
+            and job["connection"] not in connections:
+        out.append(f"{p}.connection: {job['connection']} is not a connection of the node's "
+                   "schedule.yaml")
+    conns = job.get("connections")
+    if "connections" in job and not (isinstance(conns, dict) and conns):
+        out.append(f"{p}.connections: not a non-empty map of the script's connection name -> a "
+                   "connection of the schedule")
+    for name, conn in conns.items() if isinstance(conns, dict) else ():
+        if not (isinstance(name, str) and SCRIPT_CONNECTION_RE.match(name)):
+            out.append(f"{p}.connections.{name}: {name!r} is not a script's connection name "
+                       "([a-z][a-z0-9_]*)")
+        if connections is not None and conn not in connections:
+            out.append(f"{p}.connections.{name}: {conn} is not a connection of the node's "
+                       "schedule.yaml")
 
 
 def _cron_values(field_text, lo, hi, steps):
@@ -3185,9 +3364,28 @@ def _cron_values(field_text, lo, hi, steps):
     return True
 
 
+def _cron_hour_ok(hour):
+    """An hour field render can shift (v0.4 capture W1 item 0, spec D219):
+    *, or a comma list of n, a-b (a <= b), */s or a-b/s (s >= 1), 0 to 23."""
+    if hour == "*":
+        return True
+    for item in hour.split(","):
+        m = re.fullmatch(r"(?:\*|([0-9]+)-([0-9]+))/([0-9]+)|([0-9]+)-([0-9]+)|([0-9]+)", item)
+        if m is None:
+            return False
+        a, b, step, c, d, n = m.groups()
+        if step is not None and int(step) < 1:
+            return False
+        lo, hi = (a, b) if a is not None else (c, d) if c is not None else (n, n)
+        if lo is not None and not 0 <= int(lo) <= int(hi) <= 23:
+            return False
+    return True
+
+
 def _cron_problem(at):
-    """Why a job's `at` is outside the cron subset render can shift (W1
-    item 7), or None."""
+    """Why a cron expression (a job's `at`, a crontab entry's times, a
+    purpose job's cadence) is outside the subset render can shift (v0.3
+    capture W1 item 7, widened by v0.4's item 0), or None."""
     if not isinstance(at, str):
         return f"{at!r} is not a quoted cron expression"
     fields = at.split()
@@ -3197,8 +3395,9 @@ def _cron_problem(at):
     if not _cron_values(minute, 0, 59, True):
         return (f"{at!r}: minute {minute} is not a numeric cron form (*, 5, 0-30, */15, 1,31, "
                 "0-30/10) within 0-59")
-    if hour != "*" and not _cron_values(hour, 0, 23, False):
-        return f"{at!r}: hour {hour} is not *, a number or a list of numbers (0-23)"
+    if not _cron_hour_ok(hour):
+        return (f"{at!r}: hour {hour} is not *, or a comma list of n, a-b, */s or a-b/s within "
+                "0-23 (a <= b, never wrapping; s >= 1)")
     if dom != "*" or month != "*":
         return f"{at!r}: day of month and month are * (render shifts the hour only)"
     if dow != "*":
@@ -3209,7 +3408,7 @@ def _cron_problem(at):
     return None
 
 
-def _check_jobs(rel, content, keys, connections, node, data, faults, out):
+def _check_jobs(rel, content, keys, connections, node, data, faults, out, script_keys=()):
     """jobs.yaml in scenario time: no timezone:, a timezone_offset only where
     a fault instance's seed change edits jobs.yaml (spec D168)."""
     check_against_schema(content, template_schema("jobs.yaml"), rel, out=out)
@@ -3237,10 +3436,7 @@ def _check_jobs(rel, content, keys, connections, node, data, faults, out):
             out.append(f"{p}: duplicate job name")
         seen.add(job.get("name"))
         _check_key_ref(job.get("key"), keys, f"{p}.key", out)
-        if connections is not None and "connection" in job \
-                and job["connection"] not in connections:
-            out.append(f"{p}.connection: {job['connection']} is not a connection of the node's "
-                       "schedule.yaml")
+        _check_job_connections(job, p, keys, connections, script_keys, out)
         if "at" in job:
             problem = _cron_problem(job["at"])
             if problem:

@@ -21,6 +21,17 @@ jobs:
     cadence: "5 * * * *"
     connections:
       target: bi_etl
+  - name: rollup-daytime
+    key: sales.rollup
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: the day's running totals, every quarter of an hour in opening hours.
+    cadence: "*/15 8-20 * * *"
+    connections:
+      source: shop_etl
+      target: bi_etl
 trace:
   - kind: published-results
     part: target
@@ -37,6 +48,9 @@ invariants:
     witness: orders placed in an hour the job has copied.
 data_moved:
   - job: copy-hourly
+    reads: [shop.orders.customer_id]
+    writes: [target:sales_hourly]
+  - job: rollup-daytime
     reads: [shop.orders.customer_id]
     writes: [target:sales_hourly]
 roles:

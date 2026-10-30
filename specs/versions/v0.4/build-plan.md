@@ -436,7 +436,7 @@ Record: 1a fb61d48, 1b 667ded1, merge 48dc5c3. No departure from the spec; choic
 
 ### Chunk 2 — Loader checks for v0.4
 
-Status: planned
+Status: merged (w1, 5767878)
 Wave: 1
 Depends on: chunk 1, merged into `v0.4-w1` before this chunk's branch is
 cut; W1
@@ -484,9 +484,11 @@ Architecture capture: none of its own; it implements W1.
   purposes, domains and governance; 2b the scheduler's script keys and
   the `postgres` crontab and `pg_cron` checks, and the cron subset.
 
+Record: 2a adaa457 (merge 6e50d70), 2b 8630345 (merge 5767878). No departure from the spec; one loader fix outside the listed checks (`_inline_comment` and apostrophes, only `purpose.yaml` `parts.consumer` changed, to optional); choices logged as "W1 addenda — choices chunk 2 made".
+
 ### Chunk 3 — `scheduler` 0.2.0
 
-Status: planned
+Status: merged (w1, b34d375)
 Wave: 1
 Depends on: chunk 1, merged into `v0.4-w1` before this chunk's branch is
 cut; W1; G3, G4
@@ -542,6 +544,8 @@ check uses on the node.
   stack test (needs G4).
 - Split rule: 3a the script form, the call and the run; 3b the checks'
   means, the documentation and the stack test.
+
+Record: 3a 7536550, 3b 1b5d7ba, merge b34d375. No departure from the spec; outcome recorded as capture W1-y in the wave log (the `script` log line free text after `job=`, a fourth `check-runs` verb `since`). Tarnbeck's smoke run left for the wave gate.
 
 ### Chunk 4 — `postgres` 0.4.0
 

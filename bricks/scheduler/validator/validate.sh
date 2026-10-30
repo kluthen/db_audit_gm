@@ -5,9 +5,10 @@
 #   GM:       /opt/gm/validator/validate.sh, executed as scheduler
 #
 # Rules:
-#   config   queries.yaml, the builders it names and jobs.yaml load, and
-#            jobs.yaml's keys are in queries.yaml (else the scheduler does
-#            not start with them, nor reload them);
+#   config   queries.yaml, the builders and scripts it names and jobs.yaml
+#            load, jobs.yaml's keys are in queries.yaml, and a script key's
+#            job names connections: (else the scheduler does not start with
+#            them, nor reload them);
 #   server   the scheduler program answers on port 9120;
 #   pending  the files have not changed since the program loaded them (it
 #            reads them at start and on sudo gm-reload-scheduler); what it
@@ -70,5 +71,5 @@ case $state in
     running*) what="is running since ${state#running }" ;;
     *) fail "unexpected status: $state" ;;
 esac
-echo "GREEN: queries.yaml, builders/ and jobs.yaml load; the scheduler answers on port 9120, $what, and runs the files as they are (loaded $loaded)"
+echo "GREEN: queries.yaml, builders/, scripts/ and jobs.yaml load; the scheduler answers on port 9120, $what, and runs the files as they are (loaded $loaded)"
 exit 0
