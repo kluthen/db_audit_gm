@@ -30,8 +30,8 @@
 #
 # Needs: a swarm manager on the local engine (docker swarm init), curl and
 # python3 (with PyYAML, as gmctl) on the host, and the bricks' images built:
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.3.0 bricks/postgres
-#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.3.0 bricks/bastion
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.4.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.4.0 bricks/bastion
 #   docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.0 bricks/prometheus
 #   docker build -t 127.0.0.1:5000/dbagm/postgres-exporter:0.2.0 bricks/postgres-exporter
 #   docker build -t 127.0.0.1:5000/dbagm/grafana:0.2.0 bricks/grafana
@@ -44,7 +44,7 @@ REPO=$(cd "$HERE/../.." && pwd)
 GMCTL="python3 $REPO/tools/gmctl"
 PG=smoke-monitoring
 NODES="bastion db prometheus exporter grafana"
-IMAGES="127.0.0.1:5000/dbagm/postgres:0.3.0 127.0.0.1:5000/dbagm/bastion:0.3.0
+IMAGES="127.0.0.1:5000/dbagm/postgres:0.4.0 127.0.0.1:5000/dbagm/bastion:0.4.0
 127.0.0.1:5000/dbagm/prometheus:0.2.0 127.0.0.1:5000/dbagm/postgres-exporter:0.2.0
 127.0.0.1:5000/dbagm/grafana:0.2.0"
 LABELS="com.docker.stack.namespace dbagm.game"

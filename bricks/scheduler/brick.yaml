@@ -1,7 +1,7 @@
 # brick.yaml: scheduler node, the producers and consumers of a game
 # (v0.3 master spec 7.1).
 #
-# Version 0.1.0 (unreleased until the v0.3 release gate).
+# Version 0.2.0 (unreleased until the v0.4 release gate).
 # Keys of v0.3's shape (seed.paths, seed.modes, disk_growth_per_hour,
 # snapshot) and the runtime interface: capture W1 items 3, 5, 6 and 7
 # (specs/versions/v0.3/wave-log.md); what the brick fixed itself: W1-y.
@@ -9,14 +9,14 @@
 
 # --- Identity ---------------------------------------------------------
 id: scheduler
-version: 0.1.0
+version: 0.2.0
 roles:
   - producer
   - consumer
 technology:
   name: gm-scheduler                # the program in program/gm_scheduler, Python 3.13, psycopg 3
-  version: "0.1.0"
-image: 127.0.0.1:5000/dbagm/scheduler:0.1.0
+  version: "0.2.0"
+image: 127.0.0.1:5000/dbagm/scheduler:0.2.0
 
 # --- Footprint --------------------------------------------------------
 footprint:                          # master spec 7.1's figures; at rest measured within them

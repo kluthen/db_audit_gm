@@ -40,7 +40,7 @@ The image:
   script" below. No image carries it; a receiving node's brick must
   declare `receives` meeting the item's `requires` (s6-overlay `3`, the
   commands `sh`, `perl`, `du`, `df`, `s6-svstat`), which `postgres` and
-  `bastion` 0.3.0, `postgres-exporter` and `grafana` 0.2.0, and this brick
+  `bastion` 0.4.0, `postgres-exporter` and `grafana` 0.2.0, and this brick
   do.
 - **Build**: `docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.0 bricks/prometheus`.
 - **How many**: one per scenario. Prometheus and Grafana always keep
@@ -624,7 +624,7 @@ answering at `/prometheus/` through the bastion's web front.
 `sh bricks/prometheus/tests/run-stack-test.sh` deploys the brick as a
 stack (`tests/stack.test.yml`, fixtures in `tests/fixtures/`), checks the
 chunk's Done-when and removes everything it created, volumes included.
-It also runs a `postgres` 0.3.0 node `db`, mounts the node-health script
+It also runs a `postgres` 0.4.0 node `db`, mounts the node-health script
 as configs into both nodes (per-node configs written by hand in
 `tests/fixtures/node-health/`, in the renderer's format), and checks each
 endpoint from the other node, a service stopped with `s6-svc -d`, the
@@ -634,7 +634,7 @@ stop, the node redeployed `report-only` (`docker service update
 wrapper's refusal, nothing signalled), then with the override
 `/etc/prometheus` (the edit through the wrapper, the owner restored), and
 the entrypoint's two refusals. Needs a swarm manager, this image and the
-`postgres` 0.3.0 image (the `db` node and the test client) built.
+`postgres` 0.4.0 image (the `db` node and the test client) built.
 
 ## Known limits
 

@@ -39,7 +39,7 @@
 # Needs: a swarm manager (docker swarm init), the images built locally (the
 # postgres image is also the test client: it has ssh and psql):
 #   docker build -t 127.0.0.1:5000/dbagm/pgbouncer:0.1.0 bricks/pgbouncer
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.3.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.4.0 bricks/postgres
 # On the build host, run it under the docker lock:
 #   flock /tmp/dbagm-docker.lock sh bricks/pgbouncer/tests/run-stack-test.sh
 set -eu
@@ -47,7 +47,7 @@ set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 STACK=gmtest-pgb
 IMAGE=127.0.0.1:5000/dbagm/pgbouncer:0.1.0
-DB_IMAGE=127.0.0.1:5000/dbagm/postgres:0.3.0
+DB_IMAGE=127.0.0.1:5000/dbagm/postgres:0.4.0
 CLIENT_IMAGE=$DB_IMAGE
 SERVICE=${STACK}_pooler
 DB_SERVICE=${STACK}_db
@@ -161,7 +161,7 @@ wait_healthy() {  # wait_healthy <service> [old-container-id]: prints the health
 }
 
 if DB=$(wait_healthy "$DB_SERVICE"); then
-    pass "db node (postgres 0.3.0, the lookup role's secret mounted) healthy ($DB)"
+    pass "db node (postgres 0.4.0, the lookup role's secret mounted) healthy ($DB)"
 else
     fail "db node did not become healthy"
     docker service ps --no-trunc "$DB_SERVICE" || true

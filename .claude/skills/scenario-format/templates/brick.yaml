@@ -1,15 +1,16 @@
 # brick.yaml — template for bricks/<brick-id>/brick.yaml
 #
-# Version v0.3, expected to evolve as games are played.
-# Shape: v0.1 master spec section 7, v0.2 master spec 6.1 and v0.3 master
-# spec 6.4 and 6.7; top-level keys fixed by v0.1's capture W1-A
+# Version v0.4, expected to evolve as games are played.
+# Shape: v0.1 master spec section 7, v0.2 master spec 6.1, v0.3 master
+# spec 6.4 and 6.7 and v0.4 master spec 6.4 and 6.9; top-level keys fixed by v0.1's capture W1-A
 # (specs/versions/v0.1/wave-log.md), amended by v0.2's capture W1
 # (specs/versions/v0.2/wave-log.md: the footprint's shape, `interfaces`
 # required, `companion.mounted`, `receives`, secret kinds, parameter shapes)
 # and v0.3's capture W1 (specs/versions/v0.3/wave-log.md, item 3: the roles
 # list, the growth per hour, `writable_paths`, `seed.paths`, `seed.modes`,
-# directory seed entries, `only_with_role`, `report_tools`, `snapshot`);
-# D59 dropped `compatible_faults`. Do not
+# directory seed entries, `only_with_role`, `report_tools`, `snapshot`)
+# and v0.4's capture W1 (specs/versions/v0.4/wave-log.md, item 4:
+# `seed.optional`); D59 dropped `compatible_faults`. Do not
 # add, rename or drop a top-level key here; brick-specific extras go under
 # `extra`.
 #
@@ -34,7 +35,8 @@ version: <0.1.0>                    # semver string; any change to the brick's f
                                     # into it (released by its version's release gate, D100)
 roles:                              # each one of the closed list (v0.3 master spec 6.4): bastion
   - <role>                          #   producer queue database pooler transformer consumer
-                                    #   monitoring backup
+                                    #   monitoring backup; transformer from v0.4: a scheduler
+                                    #   0.2.0 node running a purpose's jobs (v0.4 master spec 7.1)
 technology:
   name: <technology>                # postgresql, openssh
   version: "<engine-version>"       # quoted ("18")
@@ -120,8 +122,11 @@ seed:                               # where the scenario's seed files land (read
   dir: </opt/gm/seed/>              # fixed in-container directory
   files:                            # seed file names the scenario must provide; may be []
     - <postgresql.conf>             # an entry ending in / is a directory of files the scenario
-                                    # names (builders/), optional in seed_files; each file becomes
-                                    # one seed config at <dir><entry><file>
+                                    # names (builders/, scripts/), optional in seed_files; each
+                                    # file becomes one seed config at <dir><entry><file>
+  optional: [<crontab>]             # optional: seed files a node may leave out of its seed_files
+                                    # (v0.4 master spec 6.4); each a plain entry of files, never
+                                    # one ending in / (a directory entry is optional already)
   paths:                            # may be {} (no seed file): each seed file -> its live
     <postgresql.conf>: </etc/postgresql/postgresql.conf>   # in-container path; a directory for a / entry
   modes:                            # optional: a seed file whose config mode is not "0444" (0:0)

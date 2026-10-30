@@ -6,7 +6,7 @@ description: Use whenever a db_audit_gm scenario, brick or fault definition is d
 # Scenario format
 
 Every scenario, brick and fault is written to one shape. This skill holds
-that shape: eight templates and the folder layouts. This is its **v0.3
+that shape: eight templates and the folder layouts. This is its **v0.4
 version**, expected to evolve as games are played; when a game shows the
 format is missing something, change the template and this skill together.
 
@@ -14,10 +14,13 @@ Source of the shape: v0.1's master spec (`specs/versions/v0.1/master-spec.md`,
 sections 6, 7, 8 and 8.1), v0.2's format changes
 (`specs/versions/v0.2/master-spec.md`, section 6) and v0.3's
 (`specs/versions/v0.3/master-spec.md`, section 6, with 7.1 for a
-scheduler's files), with `specs/formats.md`. The top-level keys of
+scheduler's files) and v0.4's (`specs/versions/v0.4/master-spec.md`,
+section 6, with 7.1 and 7.2 for the transformer script and a database
+node's crontab), with `specs/formats.md`. The top-level keys of
 `brick.yaml` are fixed (capture W1-A in `specs/versions/v0.1/wave-log.md`);
 v0.2's keys are capture W1 in `specs/versions/v0.2/wave-log.md`, v0.3's
-capture W1 in `specs/versions/v0.3/wave-log.md`.
+capture W1 in `specs/versions/v0.3/wave-log.md`, v0.4's capture W1 in
+`specs/versions/v0.4/wave-log.md`.
 
 ## Templates
 
@@ -193,7 +196,9 @@ The rules from v0.2:
   its brick supports (or `no-access`), and every required brick parameter
   is set;
 - `seed_files` covers exactly the brick's `seed.files`, and every file
-  exists;
+  exists; a directory entry (`builders/`, `scripts/`) and, from v0.4, an
+  entry of the brick's `seed.optional` (`postgres`' `crontab`) may be
+  left out;
 - each knob's envelope equals or tightens the brick's default envelope;
   the `initial` value matches the seed file (it may lie outside the
   envelope: the validator is then red from the start, and the answer key
@@ -293,11 +298,14 @@ Every key of [templates/brick.yaml](templates/brick.yaml) except the
 commented-out ones; and the folder: `Dockerfile`, `validator/`,
 `docs/player.md`, `docs/gm.md`, and `companion/` when `companion` is set.
 The image name is registry-qualified; the brick names no Swarm-only
-feature. In particular (v0.2 master spec 6.1, v0.3 master spec 6.4):
+feature. In particular (v0.2 master spec 6.1, v0.3 master spec 6.4,
+v0.4 master spec 6.4):
 
 - **Roles**: each one of the closed list `bastion`, `producer`, `queue`,
   `database`, `pooler` (PgBouncer), `transformer`, `consumer`,
   `monitoring`, `backup`. A scenario node's `role` is one of its brick's.
+  `transformer` is, from v0.4, a `scheduler` 0.2.0 node running a
+  purpose's jobs (v0.4 master spec 7.1).
 - **Footprint**: the shape of a scenario node's `resources`, `limits`
   (`cpu`, `memory`) and `reservations` (`cpu`, `memory`, `disk`, at rest),
   the default the GM starts from when it sizes a scenario, plus
@@ -315,10 +323,19 @@ feature. In particular (v0.2 master spec 6.1, v0.3 master spec 6.4):
 - **Seed paths** (`seed.paths`): every `seed.files` entry mapped to its
   live in-container path, so a *fix* resolution of a seed-file fault can
   be checked against the policy of the file it changes. An entry ending
-  in `/` (`builders/`) is a directory: optional in a scenario's
-  `seed_files`, mapped to a folder of files there, and to a directory in
-  `seed.paths`. `seed.modes` gives a seed file a config mode other than
-  `"0444"` (the scheduler's `schedule.yaml`, `"0400"`).
+  in `/` (`builders/`, `scripts/`) is a directory: optional in a
+  scenario's `seed_files`, mapped to a folder of files there, and to a
+  directory in `seed.paths`. `seed.modes` gives a seed file a config mode
+  other than `"0444"` (the scheduler's `schedule.yaml`, `"0400"`).
+- **Optional seed files** (`seed.optional`, from v0.4, capture W1 item
+  4): the seed files a node may leave out of its `seed_files`, each a
+  plain entry of `seed.files`, never one ending in `/` (a directory entry
+  is optional already, and listing it is refused as redundant). A node's
+  `seed_files` maps every entry of `seed.files` but the directory entries
+  and those in `seed.optional`; render mounts only what it maps, and the
+  brick tells an optional file left out by its absence under `seed.dir`.
+  `postgres` 0.4.0's `crontab` is the first, the bastion's
+  `data-policy.md` the second (v0.4 master spec 6.4).
 - **Report tools** (`report_tools`, optional): the report generators
   players run on the node (`pgbadger` on `postgres`); a fault's evidence
   may name `report:<tool>` only for one of the target brick's.
@@ -366,8 +383,13 @@ heading per required section, with these exact names, in this order:
 `## Purpose`, `## Placement`, `## Configuration`, `## Connections`,
 `## Access`, `## Footprint`, `## Supported faults`, `## Checks`,
 `## Known limits`. A brick may add its own sections, as subsections of a
-required one or after `## Known limits`. Refuse the brick, and so every
-scenario that uses it, when:
+required one or after `## Known limits`. A brick running scheduled jobs on
+its own node (from v0.4, `postgres` 0.4.0: `pg_cron` and the cron daemon,
+v0.4 master spec 7.2) gives each job kind a section of its own after
+`## Known limits`, and `docs/player.md` one of the same name: what it is,
+how a scenario turns it on, its cost, what players see and change, the
+faults it allows. Refuse the brick, and so every scenario that uses it,
+when:
 
 - one of the nine headings is missing, renamed or out of order;
 - one of them is empty (a section that does not apply says so in a
@@ -395,13 +417,23 @@ Every key of [templates/fault.yaml](templates/fault.yaml), with
 each kind in `resolutions`; and the folder: `inject/` (when it has
 material), `checks/fixed.sh`, `checks/probe.md`, `gm.md`. Scripts follow
 the contracts in [templates/layouts.md](templates/layouts.md). In
-particular (v0.2 master spec 6.4, v0.3 master spec 6.3 and 6.5):
+particular (v0.2 master spec 6.4, v0.3 master spec 6.3 and 6.5, v0.4
+master spec 6.3 and 6.5):
+
+- **Family** (`family`): free text. From v0.4 a purpose fault is
+  `data-flow` (duplicates, dropped records) or `rules` (a wrong zone, a
+  wrong segment), and a governance or credential fault is `security`,
+  its id `governance-<what>` or `security-<what>`.
 
 - **Aging** (`aging:`): the technique, `real-time` (the only one in
   v0.3), and the minimum duration before the evidence shows under the
   load (`0m` when it shows at once), a duration `<integer><s|m|h|d>`. It
   is counted only in a scenario with scheduler nodes (master spec 8,
-  D160).
+  D160). A fault whose evidence shows only at a time of day or at a job's
+  runs (from v0.4 a purpose's job, a database node's `pg_cron` job or
+  crontab entry too) counts its minimum from that job's first run after
+  planting (spec D189); the scenario raises the instance's
+  `aging_minimum` to cover it, and the fault's `gm.md` says so.
 - **Evidence locations**: each entry's `where` is `node` (a shell on the
   fault's target node), `bastion` (a shell on the bastion, `psql` from
   there included) or `report:<tool>` (`<tool>` one of the target brick's
@@ -416,10 +448,37 @@ particular (v0.2 master spec 6.4, v0.3 master spec 6.3 and 6.5):
   instance's `window` and `threshold`. A check that queries PostgreSQL
   connects as the GM check role `gm_check`, inside the GM's reserve,
   through `postgres`' root-only `check-psql` helper (master spec 6.5,
-  capture W1 item 8); never as `dba` or an application role.
+  capture W1 item 8); never as `dba` or an application role. From v0.4 a
+  check comparing two instances reaches each as `gm_check`: from a
+  scheduler node through `check-sql`, from a database node through
+  `check-psql` with the other node's name.
+- **Checks judging runs or triggers** (`sealed_check.judges`, from
+  v0.4): `runs` or `triggers` for a check judging a purpose's runs or its
+  triggers since the judged moment; absent, the check judges the live
+  state, as in v0.3. Never together with `behavioural: true`. The check
+  gets `CHECK_SINCE` (the judged moment, a UTC instant) and
+  `CHECK_THRESHOLD`; each instance's answer-key entry then states the
+  same `judges` and a `threshold`, and no `window`.
+- **Purpose faults** (`applies_to.purposes`, from v0.4): a non-empty list
+  of purpose ids the fault attaches to, beside `bricks:`. The fault also
+  lists in `applies_to.bricks` the `scheduler` versions its runner needs,
+  its sealed check running there, and its instance's node runs a brick of
+  that list. A scenario planting it names each of those purposes in its
+  `purposes:` (the loader does not check it). It is planted as any fault
+  is: a `seed-file` change (a runner's `queries.yaml`, `scripts/` or
+  `jobs.yaml`; a database node's data file, `postgresql.conf` or
+  `crontab`), a `state` change during the aging, or a timeline change of
+  a schedule for an outside party's behaviour, which the definition
+  states and the scenario writes.
+- **Host needs** (`needs_unshared_host`, from v0.4): `true` when the
+  fault's node must never be placed on a shared host (the out-of-memory
+  incident); a boolean, absent read as `false`. `gmctl fit` refuses a
+  mapping that places such an instance's node on a host declared
+  `shared`.
 - **Faults in a scheduler's files** are `seed-file` faults whose
-  `seed_changes` edit `queries.yaml`, `jobs.yaml` or `schedule.yaml`, at
-  render.
+  `seed_changes` edit `queries.yaml`, `builders/`, `jobs.yaml` or
+  `schedule.yaml`, from v0.4 `scripts/` too, at render. A fault editing a
+  brick's optional seed file (`crontab`) targets a node seeding it.
 
 - **`applies_to`** lists each brick's versions one by one, as exact
   strings (`["0.1.0", "0.1.1", "0.2.0"]`), never a range: a fault never
@@ -439,7 +498,7 @@ particular (v0.2 master spec 6.4, v0.3 master spec 6.3 and 6.5):
   node-health script: the `prometheus` node, through its `node_health`
   map (a node left out, or a service left out of a node's entry).
 
-## Versions and pins (v0.2 master spec 6.5, v0.3 master spec 6.6)
+## Versions and pins (v0.2 master spec 6.5, v0.3 master spec 6.6, v0.4 master spec 6.6)
 
 - **Bricks.** Any change to a brick bumps its version, whatever part of
   its folder changes (image, `brick.yaml`, validator, documentation,
@@ -457,5 +516,8 @@ particular (v0.2 master spec 6.4, v0.3 master spec 6.3 and 6.5):
 - **Faults and scenarios never bump.** They keep their version whatever
   changes; git history is the record. A pin to a fault names the fault,
   not a state of it; nothing pins a scenario.
+- **Purposes and domains** (from v0.4) carry no version and never bump:
+  their material is copied into a scenario at design time, and nothing
+  pins them.
 - **Companion material** has no version of its own: it is versioned with
   the brick that ships it (the node-health script with `prometheus`).

@@ -136,8 +136,8 @@ class TestRefusals(RefusalAsserts, ScenarioCopyTest):
 
     def test_pinned_version_mismatch(self):
         self.edit_yaml("scenario.yaml",
-                       lambda d: self.node(d, "db")["brick"].update(version="0.4.0"))
-        self.assertRefused("nodes[db].brick", "0.4.0", "0.3.0")
+                       lambda d: self.node(d, "db")["brick"].update(version="0.5.0"))
+        self.assertRefused("nodes[db].brick", "0.5.0", "0.4.0")
 
     def test_unknown_brick(self):
         self.edit_yaml("scenario.yaml",
@@ -301,8 +301,8 @@ class TestMonitoringFixture(ScenarioCopyTest):
         self.assertEqual(sc.id, "fixture-monitoring")
         self.assertEqual([n["name"] for n in sc.nodes], self.NODES)
         self.assertEqual({n: (b.id, b.version, b.source) for n, b in sc.bricks.items()}, {
-            "bastion": ("bastion", "0.3.0", "catalog"),
-            "db": ("postgres", "0.3.0", "catalog"),
+            "bastion": ("bastion", "0.4.0", "catalog"),
+            "db": ("postgres", "0.4.0", "catalog"),
             "prometheus": ("prometheus", "0.2.0", "catalog"),
             "exporter": ("postgres-exporter", "0.2.0", "catalog"),
             "grafana": ("grafana", "0.2.0", "catalog")})
@@ -363,11 +363,11 @@ class TestLoadFixture(ScenarioCopyTest):
         self.assertEqual(sc.id, "fixture-load")
         self.assertEqual([n["name"] for n in sc.nodes], self.NODES)
         self.assertEqual({n: (b.id, b.version, b.source) for n, b in sc.bricks.items()}, {
-            "bastion": ("bastion", "0.3.0", "catalog"),
-            "db": ("postgres", "0.3.0", "catalog"),
+            "bastion": ("bastion", "0.4.0", "catalog"),
+            "db": ("postgres", "0.4.0", "catalog"),
             "pooler": ("pgbouncer", "0.1.0", "catalog"),
-            "producer": ("scheduler", "0.1.0", "catalog"),
-            "consumer": ("scheduler", "0.1.0", "catalog"),
+            "producer": ("scheduler", "0.2.0", "catalog"),
+            "consumer": ("scheduler", "0.2.0", "catalog"),
             "prometheus": ("prometheus", "0.2.0", "catalog"),
             "exporter": ("postgres-exporter", "0.2.0", "catalog"),
             "grafana": ("grafana", "0.2.0", "catalog")})
