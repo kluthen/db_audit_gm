@@ -1539,3 +1539,19 @@ normal run's `memory.peak` (~300 MiB) under half of it (320) on the
 spec's own measure, the whole-history backfill (~1.55 GiB) above twice
 it (1.25 GiB). Chunk 15's f10 run re-measures at 640M. Sent to
 `spec-writer` to record and to revise the plan (G10, chunks 15 and 16).
+
+### G10 recorded: D227, build plan v6 (1e543c9), 2026-10-30
+
+`spec-writer`: D227 in `decisions.md`; master spec 16.1 `reporting`
+640M / 256M (section 20's 1.85 GB of reservations unchanged); plan v6:
+G10 done, chunk 13's `fixture-campaign` and chunk 16's sizes at 640M,
+chunk 15b re-measures on `memory.peak` with swap (normal run under 320
+MiB, the thirty-day backfill killed), a shortfall either side back to
+the owner (D213); release gate item 11. Not edited: the superseded
+`scenario-sketch.md` (still 512M); `tools/tests/calibrate-f10.sh`'s
+header and `CALIBRATE_LIMIT` default (512M) — chunk 15b's brief passes
+`CALIBRATE_LIMIT=640M` or updates them. For the owner, at wave 2's
+report: both 640M margins are estimates until 15b (backfill ~1.55 GiB
+extrapolated vs 1.25, ~24%; normal ~300 vs 320, ~6%); the night after a
+killed backfill (~355 MiB) is over half but completes; 15b re-measures
+with swap only (a no-swap reading is a one-line addition if wanted).
