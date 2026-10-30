@@ -1,6 +1,6 @@
 # v0.4 — jobs on a database node: `pg_cron` and a cron daemon
 
-Status: draft v3
+Status: draft v4
 
 A job can run on a database node itself, beside PostgreSQL, instead of
 on a scheduler node. The owner listed it among the places movement may
@@ -235,12 +235,16 @@ The owner (2026-10-30): "It is to my mind a good fault to identify but
 maybe not as is: more like, it happened "once" in the recent past,
 (maybe a larger than usual peak in the data to be transformed) and it
 need to be investigated and decided to move the transformation outside
-(reporting only)." No reshaping of the container is needed (above,
+(reporting only)." Asked what "reporting only" meant: "it means, the
+player can't solve the issue by himself alone, thus his only solution
+is reporting it." No reshaping of the container is needed (above,
 "Grounding"). Settled (D209): the incident happens **for real, once,
 during the aging**, never forged (D114, D132); at hand-over it lies in
 the recent past and the system has recovered; the players investigate,
-and the expected resolution is **report**: the finding, with the
-recommendation to move the transformation to a transformer node. The
+and the fault is **report only**, whatever the node's write policy: the
+players cannot solve it alone, so the expected resolution is the report,
+with its recommendation to move the transformation to a transformer
+node. The
 fault is `purpose-heavy-job-on-database-node`
 ([candidate-faults.md](candidate-faults.md), "Placement"). The rest is
 proposed.
@@ -325,8 +329,8 @@ All of it survives on the node:
 The fault is judged on the incident, not on a live state. Its sealed
 check, on the node, exits 1 ("present") while the kill and the recovery
 are in the log since the planting moment and the heavy entry is still
-in the crontab; 0 if the entry has left the node (a fix the report-only
-node does not allow, kept for a scenario that does). It never answers
+in the crontab. The fault being report only (D209), no in-game fix is
+expected and the check has no "fixed" path to reach; it never answers
 3. What the answer key judges is the report: the incident named (when,
 which process, killed for memory, the recovery that followed), its cause
 (the backfill on the database node at its memory limit), and the

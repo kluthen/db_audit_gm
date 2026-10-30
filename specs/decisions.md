@@ -175,6 +175,8 @@ drafting. Numbering continues after D205, the last; no ID is reused.
   real once during the aging and recovered from by hand-over;** a
   one-off backfill drives a heavy crontab job past the node's memory.
   The players investigate and *report*, recommending the move to a
-  transformer node. It replaces f10. The owner: "it happened "once" in
-  the recent past". Now in:
+  transformer node: the fault is report only, the owner confirming "it
+  means, the player can't solve the issue by himself alone, thus his
+  only solution is reporting it." It replaces f10. The owner: "it
+  happened "once" in the recent past". Now in:
   [versions/v0.4/database-node-jobs.md](versions/v0.4/database-node-jobs.md) "The out-of-memory incident".
