@@ -1,6 +1,18 @@
 # v0.4 — purposes: side usage and transformations
 
-Status: draft v3. No master spec. Direction recast on 2026-10-28 (D190),
+Status: **master spec drafted on 2026-10-30, awaiting the owner's
+approval**: the [master spec](master-spec.md) and its
+[access model](access-model.md), consolidated from the eight drafts
+below on the owner's word that v0.4 was ready. Every `(proposed)` item
+of the drafts is carried into it as written, for the owner to review in
+context: its "Owner review" list names them (A1 to A13) and the
+corrections the consolidation found (B1 to B15), raising O132 and O133.
+No build plan yet; the master spec's section 19 lists what it must
+carry. The drafts stay as the working record until the archive; where
+they and the master spec disagree, the master spec is current.
+Page draft v4.
+
+History: direction recast on 2026-10-28 (D190),
 revising D47's "transformers" for this version; a first cut of data
 governance added the same day (D191), and the shared business data
 model made the first business domain (D192). Its release gate has no
@@ -24,6 +36,8 @@ incident on a database node (D209).
 
 | Document | Purpose | Status |
 |---|---|---|
+| [master-spec.md](master-spec.md) | The consolidated v0.4 specification, with its owner-review list | drafted 2026-10-30, awaiting approval |
+| [access-model.md](access-model.md) | Who may do what in a v0.4 game; the customer's roles and data policy in the game's world | drafted 2026-10-30, awaiting approval |
 | [purposes.md](purposes.md) | The purpose as an artefact: layout, `purpose.yaml`, how a scenario uses one, faults attached to purposes, instances and node sizing, the job runner and the transformer script, moving data between instances, cadence under real time, the customer's time zone in the data | draft v4 |
 | [purpose-catalogue.md](purpose-catalogue.md) | The proposed purposes, each with its jobs, trace and invariants: sales reporting, win-back leads, customer mailing, export declarations (a pushed obligation); finance held; the clinic's reporting as a stress test | draft v4 |
 | [shop-domain.md](shop-domain.md) | The shop as the first domain: the format v0.4 settles, the data-model changes the invariants need, roles, producer changes | draft v2 |
@@ -34,7 +48,8 @@ incident on a database node (D209).
 | [scenario-sketch.md](scenario-sketch.md) | A first v0.4 scenario: story, topology and sizing, ten fault instances (a hidden `pg_cron` job, a crontab fault, an out-of-memory incident), issues | draft v5 (sketch) |
 
 The sections below are the direction as set on 2026-10-28; where a
-draft refines them, the draft is current.
+draft refines them, the draft is current, and where the master spec
+does, the master spec.
 
 ## Goal
 
@@ -327,7 +342,7 @@ regulated domains of v0.5 ([v0.5](../v0.5/README.md#domains)).
 
 ## Release gate
 
-v0.4's definition of done is written with its master spec. Its release
+v0.4's definition of done is in its [master spec](master-spec.md#17-definition-of-done), section 17, its release gate in section 18. Its release
 gate has no aged run (D193): it relies on the smoke tests, the
 rehearsal and the early check fired by the host's timer
 ([roadmap](../README.md#release-gates)). For purposes this means:
@@ -343,8 +358,8 @@ rehearsal and the early check fired by the host's timer
 
 ## For the build plan
 
-Items the build plan must carry when it is written, noted as they
-arise:
+Gathered, with the rest, in the [master spec](master-spec.md#19-for-the-build-plan),
+section 19. Items noted as they arose:
 
 - A security-advisor dependency check for `postgres` 0.4.0's new
   packages, `postgresql-18-cron` (PGDG) and Debian's `cron`: preflight
@@ -365,6 +380,10 @@ arise:
 
 ## Questions due in this version
 
+Every one below except O118 and the later ones is answered as proposed
+in the master spec, for the owner's review there; O132 and O133 were
+raised by the consolidation.
+
 - O104: the purpose format.
 - O108: the shared business data model.
 - O111: the domain format, the part v0.4 must settle for the shop.
@@ -377,6 +396,8 @@ arise:
 - O122: the customer's time zone in the data and the jobs.
 - O124: the moment a purpose check judges from.
 - O125: monitoring the second database, and any further instance.
+- O132: a report-only database node (`postgres` 0.4.0).
+- O133: which catalogue faults v0.4 builds.
 - O11: technologies and versions, narrowed by D190.
 - O22: scheduled jobs under real time; its v0.4 part settled by D199.
 - O52: the dbt toolchain, not planned for v0.4.

@@ -11,7 +11,7 @@ their IDs keep their meaning. Questions resolved by the close of v0.2
 Questions resolved by the close of v0.3 (O45, O46, O78 and O81–O103) are
 listed in
 [archive/v0.3/open-questions-resolved.md](archive/v0.3/open-questions-resolved.md).
-Numbering continues from O132.
+Numbering continues from O134.
 
 Resolved during v0.4's drafting: O106 (D194), O110 (D195), O107 (D197), O120
 (D198), O109 (D199), O121 (D200), O123 (D202), O105 (D203), O129 (D206), O131 (D207).
@@ -132,9 +132,14 @@ technology direction O123 (D202) and O105 (D203), raising O129, which
 his ruling on jobs on a database node closed (D206), raising O131,
 which he confirmed as written (D207). A
 "Proposed" answer below is in a draft, tagged `(proposed)`, and awaits
-the owner.
+the owner. On 2026-10-30 the owner declared v0.4 ready and every
+proposal was carried as written into the
+[master spec](versions/v0.4/master-spec.md#owner-review), which he
+reviews in context: each question below names its tag in the spec's
+"Owner review" list and closes when he approves the spec, or as he
+rules on it there. O132 and O133 were raised by the consolidation.
 
-- **O104** (soon, v0.4) — The purpose format. Proposed in
+- **O104** (soon, v0.4) — The purpose format. **In the master spec as proposed, owner review A1, A9, A11.** Proposed in
   [purposes.md](versions/v0.4/purposes.md): the name stays "purpose";
   `purposes/<id>/` with `purpose.yaml` (identity, parts, jobs, trace,
   invariants with witness conditions, data moved, roles), `material/`,
@@ -146,7 +151,7 @@ the owner.
   (`scripts/<file>:<function>`, a job's `connections:`, the runner
   holding the passwords; D203). Then the `scenario-format` skill and the
   scenario document. How a check learns when a fix happened is now O124.
-- **O108** (soon, v0.4) — The shared business data model, the shop
+- **O108** (soon, v0.4) — The shared business data model **In the master spec as proposed, owner review A2, B2, B8.**, the shop
   domain (D192). Proposed in
   [shop-domain.md](versions/v0.4/shop-domain.md): from tarnbeck's,
   adding `business_settings` (the customer's zone, sending hours),
@@ -155,7 +160,7 @@ the owner.
   `export_countries`, an archived history behind `last_order_at`, the
   purposes' tables, six roles, and consent streams in the producer.
   Tarnbeck stays untouched; the v0.4 scenario is new. Format: O111.
-- **O122** (soon, v0.4) — The customer's time zone in the data and the
+- **O122** (soon, v0.4) — The customer's time zone **In the master spec as proposed, owner review A8.** in the data and the
   jobs. It is UTC plus the game's shift (D129), known only at render,
   and UTC itself at a shift of 0, while purposes reason in local days and
   recipients' hours. Proposed in
@@ -167,7 +172,7 @@ the owner.
   from the customer's, never "UTC", so no fault vanishes at a shift of 0.
   Alternative: `ALTER DATABASE … SET timezone` to the customer's zone,
   which changes every session's `current_date` and the logs' reading.
-- **O124** (soon, v0.4) — The moment a purpose check judges from.
+- **O124** (soon, v0.4) — The moment a purpose check judges from. **In the master spec as proposed, owner review A9.**
   Proposed in [checks.md](versions/v0.4/checks.md): `CHECK_SINCE`, the
   hand-over by default, raised to the runner's last successful reload,
   raised by the GM with `gmctl check --since` from the players' report;
@@ -175,13 +180,30 @@ the owner.
   next run; one violating: 1; all clean with a witness: 0), or, for a
   pushed obligation, the triggers since. Rejected: a dry run of the job
   (D131).
-- **O125** (soon, v0.4) — Monitoring a second database instance, and
+- **O125** (soon, v0.4) — Monitoring a second database instance **In the master spec as proposed, owner review A10.**, and
   any further one a scenario has (D202): a `postgres-exporter` node per
   instance (about 42 MB reserved each), the exporter brick made
   multi-target (a bump), or the instance left unscraped by design, which
   is then a fault the players may find. Proposed: unscraped in the first
   scenario, an exporter node per instance in the scenario format's
   guidance; no exporter change in v0.4.
+- **O132** (soon, v0.4) — A report-only database node. The first
+  scenario makes `reporting`, the agency's instance, report-only, but
+  `postgres` is fixable only (v0.3 deferred report-only for it).
+  Proposed in the [master spec](versions/v0.4/master-spec.md#72-postgres-040)
+  (owner review B1): `postgres` 0.4.0 gains the report-only write policy,
+  enforced on its configuration, its reload and restart wrappers and its
+  crontab, the database's contents on the trust line against the
+  superuser `dba` (the `ALTER SYSTEM` gap v0.3 accepted, now arising).
+  Alternative: `reporting` fixable, its faults' resolutions *report* or
+  *propose* by the story alone.
+- **O133** (soon, v0.4) — Which catalogue faults v0.4 builds. The
+  drafts list about thirty-five candidates; the scenario uses ten.
+  Proposed in the [master spec](versions/v0.4/master-spec.md#162-the-new-catalogue-faults)
+  (owner review B14): build the scenario's ten, each through the release
+  gate's full cycle; record the others for later versions (master spec
+  22). Alternative: build a few more cheap ones now (v0.3 built eight
+  for a scenario using six or seven), each adding a smoke cycle.
 
 ## v0.4: data governance
 
@@ -192,13 +214,13 @@ game's world, not the game's access model. Drafted on 2026-10-30 in
 [governance.md](versions/v0.4/governance.md), tested against the
 clinic's classes (D196); O120 closed by D198 (an instance of its own).
 
-- **O115** (soon, v0.4) — The governance format. Proposed: classes
+- **O115** (soon, v0.4) — The governance format. **In the master spec as proposed, owner review A4.** Proposed: classes
   `personal`, `customer-linked`, `internal`; the domain's
   `classification.yaml` classes every column, the scenario's
   `governance:` states locations (`node/database`), readers and outbound
   flows with their allowed fields, and the policy file; the loader checks
   names and references; governance faults join the Security family.
-- **O116** (soon, v0.4) — Which rules are checked. Proposed: G1
+- **O116** (soon, v0.4) — Which rules are checked. **In the master spec as proposed, owner review A5, B3, B4, B5.** Proposed: G1
   locations (catalog by classified name, plus a content probe for
   personal data in disallowed databases), G2 readers
   (`has_column_privilege` through membership and `PUBLIC`), G3 reach
@@ -208,7 +230,7 @@ clinic's classes (D196); O120 closed by D198 (an instance of its own).
   (judged as a purpose); not checked: encryption at rest, retention;
   the game's own roles (`dba`, `postgres`, `gm_check`, `monitoring`,
   `pgbouncer_lookup`) outside every rule.
-- **O117** (soon, v0.4) — How the policy is presented. Proposed:
+- **O117** (soon, v0.4) — How the policy is presented. **In the master spec as proposed, owner review A6.** Proposed:
   `player/data-policy.md` in the story's voice, written by the GM from
   `governance:`; it may state unchecked rules, unmarked, as a real
   policy does; it is correct in v0.4, a wrong policy waiting for O21.
@@ -219,7 +241,7 @@ clinic's classes (D196); O120 closed by D198 (an instance of its own).
   brick change, statement logging writing personal data into the logs,
   also held for v0.5 as a candidate fault. Stays open until v0.5 rules
   on the brick changes. Refs: [governance.md](versions/v0.4/governance.md).
-- **O119** (soon, v0.4) — What "fixed" means for a governance fault.
+- **O119** (soon, v0.4) — What "fixed" means for a governance fault. **In the master spec as proposed, owner review A7.**
   Proposed: a definition (a copied column, a grant, a mapping) is fixed
   when the live state complies, removal included; content already sent
   is judged as a purpose, no new violation since the judged moment
@@ -231,7 +253,7 @@ Raised when the owner set business domains for v0.5 on 2026-10-28
 (D192). v0.4 ships the first, the shop (O108). The veterinary clinic
 added on 2026-10-30 (D196).
 
-- **O111** (soon, v0.4 → v0.5) — The domain format. Proposed for v0.4 in
+- **O111** (soon, v0.4 → v0.5) — The domain format. **In the master spec as proposed, owner review A3.** Proposed for v0.4 in
   [shop-domain.md](versions/v0.4/shop-domain.md): `domains/shop/` with
   `domain.yaml`, `data/` (schema, load, classification), `producers/`,
   `docs/gm.md`; a design-time source copied into a scenario and named in
