@@ -698,7 +698,7 @@ Record: 639e08c, merge 30e8c59. No departure from the spec; every v0.3 scenario 
 
 ### Chunk 7 — `load-data` for v0.4
 
-Status: planned
+Status: merged (w2, 38ef427)
 Wave: 2
 Depends on: chunks 2, 4; chunk 6 (in-wave, W2: its fixture's crontab
 role needs render's mount), merged into `v0.4-w2` before this chunk's
@@ -732,6 +732,8 @@ and the read policy's form.
   the user mapping connects, the crontab entry runs as its role; the
   fixture's README matches a fresh regeneration.
 - Verification: chunk checks, plus the deployment (needs G4).
+
+Record: 7d2c72e, merge 38ef427, capture W2-x 80f9c9d. No departure from the spec; deployment of `fixture-instances` on armenelos passed every Done when item and was torn down. Outside its Files line: two lines in `tools/tests/__init__.py` (`FakeDocker` answers the new survey), and the fixture carries a copy of `fixture-audit`'s seed-file fault as `f1` (the loader needs a fault instance). `localimpl.py` unchanged. Outcome recorded as capture W2-x (`gm_check.user_mapping_roles()`, policy `gm_check_read`).
 
 ### Chunk 8 — `fit` and `check`: shared hosts, the judged moment
 

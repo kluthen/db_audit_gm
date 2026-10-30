@@ -1508,3 +1508,34 @@ Recorded 2026-10-30 by chunk 7's owner from the code on
   `reporting`, `pg_cron` jobs `order-count` as `bi_etl` through the
   mapping and `ping` as `bi_reader`, server `shop_db`, `bi_etl`'s mapping
   to `shop_etl`), a bastion, one seed-file fault `f1`; no scheduler node.
+
+### Chunk 7 — merged (38ef427), 2026-10-30
+
+7d2c72e (cut from 6d88c58), merge 38ef427, W2-x 80f9c9d (above). Unit
+suite 795 OK on the chunk branch and on the merged wave branch; 19 new
+`test_inject` tests (step order, psql variables at a shift, ADD/SET and
+PUBLIC mappings, refusals, password redacted on failure, restart path).
+Deployment of `fixture-instances` on armenelos, under the lock and the
+inhibitor, the VPS untouched: `gm_check` (no BYPASSRLS, no superuser)
+read both `pg_cron` tables and both jobs; `gm_check.user_mapping_roles()`
+returned `shop_db|bi_etl|shop_etl`, `umoptions` NULL to `gm_check`; the
+mapping connected (`src.orders` as `bi_etl`); the crontab entry ran as
+`shop_etl` from `/run/gm-cron/pgpass`; `CONNECT` on a database revoking
+it from PUBLIC; README regenerated with the scenario-document skill.
+Torn down by `gmctl teardown`. Outside the Files line (accepted): two
+lines in `tools/tests/__init__.py`; the fixture's copy of
+`fixture-audit`'s seed-file fault as `f1`. For chunk 18: `docs/gm.md`
+and `gmctl.md` don't yet describe the new `load-data` steps. Risks: two
+to four more `docker exec`s per database node on every load, v0.3 games
+and restarts included; a hard-coded mapping password is overwritten;
+the `gm_check` schema and its policy are visible to players (access
+model 8).
+
+### G10 — the owner's ruling, 2026-10-30
+
+Asked with chunk 9's figures (above). The owner chose to **raise
+`reporting`'s memory limit to 640M**, its reservation staying 256M: a
+normal run's `memory.peak` (~300 MiB) under half of it (320) on the
+spec's own measure, the whole-history backfill (~1.55 GiB) above twice
+it (1.25 GiB). Chunk 15's f10 run re-measures at 640M. Sent to
+`spec-writer` to record and to revise the plan (G10, chunks 15 and 16).
