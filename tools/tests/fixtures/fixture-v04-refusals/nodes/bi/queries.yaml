@@ -1,0 +1,7 @@
+# Query repository of fixture-v04-refusals' bi node, the test purpose's
+# runner (master spec 7.1; template: .claude/skills/scenario-format/templates/queries.yaml).
+queries:
+  sales.copy:                        # purpose fixture-sales-copy's job copy-hourly (method sql)
+    sql: >-
+      INSERT INTO sales_hourly (hour, total, copied_at)
+      SELECT date_trunc('hour', now()) - interval '1 hour', 0, now()

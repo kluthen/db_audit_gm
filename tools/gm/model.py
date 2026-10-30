@@ -82,6 +82,34 @@ SEED_ENTRY_FILE_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]*$")
 HBA_PASSWORD_METHODS = ("scram-sha-256", "md5", "password", "trust")
 HBA_REPLICATION_METHODS = ("peer", "trust")
 
+# v0.4: purposes, domains, governance (master spec 6.1, 6.7 to 6.9, 11;
+# capture W1 of specs/versions/v0.4/wave-log.md, items 0 to 6).
+PURPOSE_ID_RE = re.compile(r"^[a-z][a-z0-9-]*$")       # purpose and domain ids (W1 item 0)
+PURPOSE_PARTS = ("source", "target", "runner", "consumer", "receiver")
+DATABASE_PARTS = ("source", "target")
+PART_ROLES = {"runner": "transformer", "consumer": "consumer", "receiver": "producer"}
+PURPOSE_KINDS = ("pulled", "transformed-in-place", "pushed", "pushed-obligation")
+JOB_METHODS = ("sql", "script", "foreign-tables", "procedure", "pg_cron", "cron-daemon")
+TRACE_KINDS = ("outbox-rows", "published-results", "run-ledger", "definitions")
+INVARIANT_ID_RE = re.compile(r"^[A-Z][0-9]+$")
+JUDGES = ("runs", "triggers")
+CLASSES = ("personal", "customer-linked", "internal")
+UNRESTRICTED_CLASS = "internal"     # a class with no entry in governance: reads as locations: any
+SQL_NAME_RE = re.compile(r"^[a-z_][a-z0-9_]*$")
+CLASSIFICATION_KEY_RE = re.compile(r"^[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*$")
+RECEIVER_LABEL_RE = re.compile(r"^[a-z][a-z0-9-]*$")
+PART_TABLE_RE = re.compile(r"^([a-z]+):([a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*)?)$")
+POLICY_SEED_FILE = "data-policy.md"   # the bastion's optional starter-pack seed file (D221, D223)
+FRAGMENT_FILES = ("queries.yaml", "schedule.yaml", "jobs.yaml")
+FRAGMENT_FOLDERS = ("builders", "scripts")
+SCHEDULE_FRAGMENT_KEYS = ("connections", "streams", "shapes")
+# What a data file creates (W1 item 0): statements at the start of a line,
+# keywords in any case, names unquoted; a line starting with -- is skipped.
+_CREATE_NAME_RE = re.compile(
+    r"^\s*(?i:create\s+(database|role|user))\s+([a-z_][a-z0-9_]*)(?![A-Za-z0-9_$\"])")
+_CREATE_PG_CRON_RE = re.compile(
+    r"^\s*(?i:create\s+extension\s+(?:if\s+not\s+exists\s+)?)pg_cron(?![A-Za-z0-9_$\"])")
+
 
 def fault_env_name(param_name):
     """`FAULT_<NAME>` for a fault parameter, or None when the upper-cased
@@ -142,12 +170,16 @@ _CHECKED_BY_CODE = {"envelope", "queries", "pool", "shapes"}
 
 
 def _inline_comment(line):
+    """The comment ending a template line, if any. A quote opens a quoted
+    scalar only where a scalar starts (after a mapping colon, an indicator
+    or blanks); elsewhere, as in `<the shop's database>`, it is a plain
+    character."""
     quote = None
     for i, ch in enumerate(line):
         if quote:
             if ch == quote:
                 quote = None
-        elif ch in "'\"":
+        elif ch in "'\"" and line[:i].rstrip()[-1:] in ("", ":", "[", "{", ",", "-", "?"):
             quote = ch
         elif ch == "#" and (i == 0 or line[i - 1] in " \t"):
             return line[i + 1:].strip()
@@ -620,6 +652,14 @@ def _check_brick_v03(data, label, out):
             parse_mode(mode)
         except ValueError as exc:
             out.append(f"{label}: seed.modes.{fname}: {exc}")
+    optional = seed.get("optional")
+    for fname in optional if isinstance(optional, list) else []:
+        if is_seed_folder_entry(fname):
+            out.append(f"{label}: seed.optional: {fname} is a directory entry, optional already "
+                       "(v0.4 capture W1 item 4); seed.optional lists plain entries only")
+        elif fname not in files:
+            out.append(f"{label}: seed.optional: {fname} is not a seed file of the brick "
+                       "(seed.files)")
     secrets = data.get("secrets")
     for i, secret in enumerate(secrets if isinstance(secrets, list) else []):
         role = _dict(secret).get("only_with_role")
@@ -772,10 +812,13 @@ def _check_receives(receives, label, out):
                    f"({' '.join(COMMAND_VOCABULARY)})")
 
 
-def check_fault_dir(fault_dir, label_base=None):
-    """Missing items of a fault folder (format skill, "Fault")."""
+def check_fault_dir(fault_dir, label_base=None, catalog_root=None):
+    """Missing items of a fault folder (format skill, "Fault"). Purposes
+    named by applies_to.purposes are looked up under `catalog_root`, by
+    default the folder holding faults/."""
     fault_dir = Path(fault_dir)
     base = Path(label_base) if label_base else fault_dir.parent.parent
+    catalog_root = Path(catalog_root) if catalog_root else fault_dir.parent.parent
     label = _rel(fault_dir / "fault.yaml", base)
     out = []
     data = _load_yaml(fault_dir / "fault.yaml", label, out)
@@ -837,6 +880,7 @@ def check_fault_dir(fault_dir, label_base=None):
             out.append(f"{label}: resolutions[{i}].kind: {res.get('kind')} is not one of "
                        f"{', '.join(RESOLUTION_KINDS)}")
     _check_fault_v03(data, label, out)
+    _check_fault_v04(data, label, catalog_root, out)
     return out
 
 
@@ -877,6 +921,40 @@ def _check_fault_v03(data, label, out):
     if "behavioural" in sealed and not isinstance(sealed["behavioural"], bool):
         out.append(f"{label}: sealed_check.behavioural: {sealed['behavioural']!r} is not a "
                    "boolean")
+
+
+def _check_fault_v04(data, label, catalog_root, out):
+    """v0.4's fault keys (master spec 6.3, 6.9; capture W1 item 3):
+    applies_to.purposes, sealed_check.judges, needs_unshared_host."""
+    applies = _dict(data.get("applies_to"))
+    purposes = applies.get("purposes")
+    if "purposes" in applies and not isinstance(purposes, list):
+        out.append(f"{label}: applies_to.purposes: not a list of purpose ids")
+    for pid in purposes if isinstance(purposes, list) else []:
+        if not (isinstance(pid, str) and PURPOSE_ID_RE.match(pid)):
+            out.append(f"{label}: applies_to.purposes: {pid!r} is not a purpose id "
+                       "([a-z][a-z0-9-]*)")
+        elif not (Path(catalog_root) / "purposes" / pid / "purpose.yaml").is_file():
+            out.append(f"{label}: applies_to.purposes: {pid} is not a purpose (no "
+                       f"purposes/{pid}/purpose.yaml in the catalog)")
+    sealed = _dict(data.get("sealed_check"))
+    if "judges" in sealed:
+        if sealed["judges"] not in JUDGES:
+            out.append(f"{label}: sealed_check.judges: {sealed['judges']!r} is not "
+                       f"{' or '.join(JUDGES)} (absent: the check judges the live state)")
+        if sealed.get("behavioural") is True:
+            out.append(f"{label}: sealed_check.judges: never with behavioural: true (a check "
+                       "judging runs or triggers takes no window; master spec 6.2)")
+    if "needs_unshared_host" in data and not isinstance(data["needs_unshared_host"], bool):
+        out.append(f"{label}: needs_unshared_host: {data['needs_unshared_host']!r} is not a "
+                   "boolean")
+
+
+def fault_judges(fault_data):
+    """runs or triggers when the fault's sealed check judges a purpose's
+    runs or triggers, else None (master spec 6.3)."""
+    judges = _dict(fault_data.get("sealed_check")).get("judges")
+    return judges if judges in JUDGES else None
 
 
 def fault_aging_minimum(fault_data):
@@ -953,8 +1031,10 @@ def find_definition(kind, ref_id, ref_version, scenario_dir, catalog_root):
     for directory, source, base in candidates:
         if not (directory / f"{kind}.yaml").is_file():
             continue
-        check = check_brick_dir if kind == "brick" else check_fault_dir
-        missing = check(directory, label_base=base)
+        if kind == "brick":
+            missing = check_brick_dir(directory, label_base=base)
+        else:
+            missing = check_fault_dir(directory, label_base=base, catalog_root=catalog_root)
         data = yaml.safe_load((directory / f"{kind}.yaml").read_text(encoding="utf-8")) \
             if not any("cannot be read" in m for m in missing) else None
         if not isinstance(data, dict):
@@ -1018,6 +1098,7 @@ def check_scenario(scenario_dir, catalog_root=REPO_ROOT):
     _check_retention(data, nodes, bricks, faults, scheduled, minimum, sdir, out)
     _check_postgres_seeds(nodes, bricks, sdir, out)
     _check_scheduler_files(data, nodes, faults, minimum, sdir, out)
+    _check_v04(data, nodes, _data_files(nodes, sdir), sdir, catalog_root, out)
 
     if out:
         return None, out
@@ -1134,9 +1215,11 @@ def _check_node(node, sdir, catalog_root, network_names, out):
 
     seed_files = node.get("seed_files") or {}
     declared = list((b.get("seed") or {}).get("files") or [])
+    optional = seed_optional(b)
     if isinstance(seed_files, dict):
         for fname in declared:
-            if fname not in seed_files and not is_seed_folder_entry(fname):
+            if fname not in seed_files and not is_seed_folder_entry(fname) \
+                    and fname not in optional:
                 out.append(f"{label}: {p}.seed_files: no entry for the brick's seed file "
                            f"{fname}")
         for fname, rel in seed_files.items():
@@ -1168,6 +1251,13 @@ def is_seed_folder_entry(fname):
     """A brick's seed entry ending in / (builders/): a folder of files the
     scenario names, optional in its seed_files (capture W1 of v0.3, item 3)."""
     return isinstance(fname, str) and fname.endswith("/")
+
+
+def seed_optional(brick_data):
+    """The plain seed files a node of the brick may leave out of its
+    seed_files (brick.yaml seed.optional; v0.4 master spec 6.4)."""
+    optional = _dict(brick_data.get("seed")).get("optional")
+    return [f for f in optional if isinstance(f, str)] if isinstance(optional, list) else []
 
 
 def _check_seed_folder(sdir, rel, p, out):
@@ -1776,11 +1866,34 @@ def _check_answer_key(data, nodes, bricks, faults, routes, sdir, out):
 
 
 def _check_behavioural(entry, fault, label, out):
-    """A behavioural check's window and threshold (master spec 6.2, 11; W1
-    item 4): present exactly when the fault's sealed_check.behavioural is
-    true; the window a duration, the threshold a number."""
+    """A sealed check's judges, window and threshold (v0.3 master spec 6.2,
+    11, its capture W1 item 4; v0.4 master spec 6.2, 12, capture W1 item 2).
+    A behavioural check: window and threshold, exactly when the fault's
+    sealed_check.behavioural is true; the window a duration, the threshold a
+    number. A check judging runs or triggers: judges, the fault's, and a
+    threshold, a non-negative integer; no window."""
     p = f"{label}: instances[{entry.get('instance')}].sealed_check"
     sealed = _dict(entry.get("sealed_check"))
+    judges = fault_judges(fault.data)
+    if judges is not None:
+        if "judges" not in sealed:
+            out.append(f"{p}.judges: missing (fault {fault.id}'s sealed check judges {judges})")
+        elif sealed["judges"] != judges:
+            out.append(f"{p}.judges: {sealed['judges']}, but fault {fault.id}'s sealed check "
+                       f"judges {judges}")
+        if "threshold" not in sealed:
+            out.append(f"{p}.threshold: missing (fault {fault.id}'s sealed check judges "
+                       f"{judges}: the violations tolerated)")
+        elif not (_is_int(sealed["threshold"]) and sealed["threshold"] >= 0):
+            out.append(f"{p}.threshold: {sealed['threshold']!r} is not a non-negative integer "
+                       "(the violations tolerated)")
+        if "window" in sealed:
+            out.append(f"{p}.window: fault {fault.id}'s sealed check judges {judges}, which "
+                       "takes no window (master spec 6.2)")
+        return
+    if "judges" in sealed:
+        out.append(f"{p}.judges: fault {fault.id}'s sealed check judges no runs or triggers (no "
+                   "sealed_check.judges), so it takes no judges")
     behavioural = is_behavioural(fault.data)
     for key in ("window", "threshold"):
         if behavioural and key not in sealed:
@@ -2131,6 +2244,530 @@ def _check_designed_for(data, nodes, out):
             if total > capacity:
                 out.append(f"{label}: designed_for.hosts[{host_name}].{key}: the nodes placed "
                            "there reserve more than it has")
+
+
+# --- v0.4: data files, purposes, domains, governance -----------------------
+# (master spec 6.1, 6.7 to 6.9, 11, 14; capture W1 of
+# specs/versions/v0.4/wave-log.md, items 0, 1, 5 and 6)
+
+@dataclass
+class DataFileCreates:
+    """What a data file creates, read line by line (W1 item 0): no SQL
+    parser, so a statement inside a DO body or a function is not seen."""
+    file: str
+    databases: set = field(default_factory=set)
+    roles: set = field(default_factory=set)
+    pg_cron: bool = False
+
+
+def data_file_creates(text, rel):
+    created = DataFileCreates(rel)
+    for line in text.splitlines():
+        m = _CREATE_NAME_RE.match(line)
+        if m:
+            kind, name = m.group(1).lower(), m.group(2)
+            (created.databases if kind == "database" else created.roles).add(name)
+        elif _CREATE_PG_CRON_RE.match(line):
+            created.pg_cron = True
+    return created
+
+
+def _data_files(nodes, sdir):
+    """node name -> DataFileCreates of its data file (data.file), for each
+    node whose data file exists and reads."""
+    creates = {}
+    for node in nodes:
+        rel = _dict(node.get("data")).get("file")
+        path = _inside(sdir, rel) if isinstance(rel, str) else None
+        if path is None or not path.is_file():
+            continue                         # reported with the node
+        try:
+            creates[node.get("name")] = data_file_creates(path.read_text(encoding="utf-8"), rel)
+        except (OSError, UnicodeDecodeError):
+            continue
+    return creates
+
+
+def _location_problem(value, by_name, creates):
+    """Why `value` is not a location <node>/<database> (W1 item 0): a
+    database node, and a database its data file creates; or None."""
+    node, sep, database = value.partition("/") if isinstance(value, str) else ("", "", "")
+    if not sep or not NAME_RE.match(node) or not SQL_NAME_RE.match(database):
+        return f"{value!r} is not a location <node>/<database>"
+    if node not in by_name:
+        return f"{value}: {node} is not a node"
+    role = by_name[node].get("role")
+    if role != "database":
+        return f"{value}: {node} is not a database node (its role is {role})"
+    created = creates.get(node)
+    if created is None:
+        return f"{value}: node {node} has no data file to create database {database}"
+    if database not in created.databases:
+        return (f"{value}: {database} is not a database node {node}'s data file "
+                f"({created.file}) creates (CREATE DATABASE {database})")
+    return None
+
+
+def check_classification(path, rel, out):
+    """A classification file (template classification.yaml; W1 items 0 and
+    6). Returns the classes it uses, or None when unusable."""
+    content = _load_yaml(path, rel, out)
+    if content is None:
+        return None
+    check_against_schema(content, template_schema("classification.yaml"), rel, out=out)
+    placeholders(content, rel, out=out)
+    columns = _dict(content).get("columns")
+    if not isinstance(columns, dict):
+        return None
+    used = set()
+    for key, cls in columns.items():
+        if not (isinstance(key, str) and CLASSIFICATION_KEY_RE.match(key)):
+            out.append(f"{rel}: columns.{key}: {key!r} is not <database>.<table>.<column> "
+                       "(three names [a-z_][a-z0-9_]*, the table in schema public)")
+        if cls not in CLASSES:
+            out.append(f"{rel}: columns.{key}: {cls!r} is not a class ({', '.join(CLASSES)}; "
+                       "master spec 11.2)")
+        else:
+            used.add(cls)
+    return used
+
+
+def _check_fragments(folder, base, scripts_allowed, out):
+    """A folder of fragments (formats, "Purpose folder" and "Domain
+    folder"): queries.yaml, schedule.yaml and jobs.yaml with the scenario
+    file's top-level keys holding only what they add, and builders/ or
+    scripts/ folders. A queries fragment is checked as a node's repository."""
+    rel = _rel(folder, base)
+    folders = FRAGMENT_FOLDERS if scripts_allowed else FRAGMENT_FOLDERS[:1]
+    loaded = {}
+    for entry in sorted(folder.iterdir()):
+        shown = f"{rel}/{entry.name}"
+        if entry.is_dir() and entry.name in folders:
+            continue
+        if not (entry.is_file() and entry.name in FRAGMENT_FILES):
+            out.append(f"{shown}{'/' if entry.is_dir() else ''}: not a fragment ("
+                       f"{', '.join(FRAGMENT_FILES + tuple(f + '/' for f in folders))})")
+            continue
+        loaded[entry.name] = _load_yaml(entry, shown, out)
+    allowed = {"queries.yaml": ("queries",), "jobs.yaml": ("jobs",),
+               "schedule.yaml": SCHEDULE_FRAGMENT_KEYS}
+    for fname, content in loaded.items():
+        shown = f"{rel}/{fname}"
+        if content is None:
+            continue
+        if not isinstance(content, dict):
+            out.append(f"{shown}: top level: not a mapping")
+            continue
+        for key in content:
+            if key not in allowed[fname]:
+                why = "; intensity and timeline are the scenario's" \
+                    if fname == "schedule.yaml" else ""
+                out.append(f"{shown}: {key}: not a key of a {fname} fragment "
+                           f"({', '.join(allowed[fname])}){why}")
+    if loaded.get("queries.yaml") is not None:
+        builders = folder / "builders"
+        builders = (f"{rel}/builders", builders) if builders.is_dir() else None
+        _check_queries(f"{rel}/queries.yaml", loaded["queries.yaml"], builders, out)
+
+
+def check_domain_dir(domain_dir, label_base=None):
+    """Missing items of a domain folder (format skill, "Domain folder";
+    master spec 6.8; W1 item 6)."""
+    domain_dir = Path(domain_dir)
+    base = Path(label_base) if label_base else domain_dir.parent.parent
+    label = _rel(domain_dir / "domain.yaml", base)
+    out = []
+    data = _load_yaml(domain_dir / "domain.yaml", label, out)
+    if data is None:
+        return out
+    check_against_schema(data, template_schema("domain.yaml"), label, out=out)
+    placeholders(data, label, out=out)
+    if not isinstance(data, dict):
+        return out
+    if data.get("id") != domain_dir.name:
+        out.append(f"{label}: id: {data.get('id')} is not the folder name {domain_dir.name}")
+    if not PURPOSE_ID_RE.match(domain_dir.name):
+        out.append(f"{label}: id: {domain_dir.name} is not a domain id ([a-z][a-z0-9-]*)")
+    for key in ("schema", "load", "classification", "notes"):
+        rel = data.get(key)
+        if not isinstance(rel, str):
+            continue                         # reported against the template
+        path = _inside(domain_dir, rel)
+        if path is None or not path.is_file():
+            out.append(f"{_rel(domain_dir / rel, base)}: missing file ({label} {key})")
+        elif key == "classification":
+            check_classification(path, _rel(path, base), out)
+    producers = data.get("producers")
+    if isinstance(producers, str):
+        path = _inside(domain_dir, producers)
+        if path is None or not path.is_dir():
+            out.append(f"{_rel(domain_dir / producers, base)}/: missing folder "
+                       f"({label} producers)")
+        else:
+            _check_fragments(path, base, False, out)
+    purposes = data.get("purposes")
+    for pid in purposes if isinstance(purposes, list) else []:
+        if not (isinstance(pid, str) and PURPOSE_ID_RE.match(pid)):
+            out.append(f"{label}: purposes: {pid!r} is not a purpose id ([a-z][a-z0-9-]*)")
+    return out
+
+
+def check_purpose_dir(purpose_dir, label_base=None, catalog_root=None):
+    """Missing items of a purpose folder (format skill, "Purpose folder";
+    master spec 6.7, 8; W1 item 5). Its domains are looked up under
+    `catalog_root`, by default the folder holding purposes/."""
+    purpose_dir = Path(purpose_dir)
+    base = Path(label_base) if label_base else purpose_dir.parent.parent
+    catalog_root = Path(catalog_root) if catalog_root else purpose_dir.parent.parent
+    label = _rel(purpose_dir / "purpose.yaml", base)
+    out = []
+    data = _load_yaml(purpose_dir / "purpose.yaml", label, out)
+    if data is None:
+        return out
+    check_against_schema(data, template_schema("purpose.yaml"), label, out=out)
+    placeholders(data, label, out=out)
+    if not isinstance(data, dict):
+        return out
+    pid = purpose_dir.name
+    if data.get("id") != pid:
+        out.append(f"{label}: id: {data.get('id')} is not the folder name {pid}")
+    if not PURPOSE_ID_RE.match(pid):
+        out.append(f"{label}: id: {pid} is not a purpose id ([a-z][a-z0-9-]*)")
+    if not (purpose_dir / "gm.md").is_file():
+        out.append(f"{_rel(purpose_dir / 'gm.md', base)}: missing file")
+    domains = data.get("domains")
+    for did in domains if isinstance(domains, list) else []:
+        domain_file = catalog_root / "domains" / str(did) / "domain.yaml"
+        if not (isinstance(did, str) and PURPOSE_ID_RE.match(did)):
+            out.append(f"{label}: domains: {did!r} is not a domain id ([a-z][a-z0-9-]*)")
+        elif not domain_file.is_file():
+            out.append(f"{label}: domains: {did} is not a domain (no domains/{did}/domain.yaml "
+                       "in the catalog)")
+        else:
+            try:
+                listed = _dict(yaml.safe_load(domain_file.read_text(encoding="utf-8")))
+            except (yaml.YAMLError, UnicodeDecodeError):
+                continue                     # reported with the domain
+            if pid not in (listed.get("purposes") or []):
+                out.append(f"{label}: domains: domain {did} does not list {pid} in its "
+                           "domain.yaml purposes")
+    if "kind" in data and data["kind"] not in PURPOSE_KINDS:
+        out.append(f"{label}: kind: {data['kind']} is not one of {', '.join(PURPOSE_KINDS)} "
+                   "(master spec 8.2)")
+    parts = _dict(data.get("parts"))
+    for part in parts:
+        if part not in PURPOSE_PARTS:
+            out.append(f"{label}: parts.{part}: not a part ({', '.join(PURPOSE_PARTS)})")
+    databases = [p for p in DATABASE_PARTS if p in parts]
+    jobs = [j for j in data.get("jobs") or [] if isinstance(j, dict)] \
+        if isinstance(data.get("jobs"), list) else []
+    names = []
+    for i, job in enumerate(jobs):
+        p = f"{label}: jobs[{_item_label(job, i)}]"
+        if job.get("name") in names:
+            out.append(f"{p}: duplicate job name")
+        names.append(job.get("name"))
+        if "part" in job and not (job["part"] == "runner" and "runner" in parts):
+            out.append(f"{p}.part: {job['part']} is not a declared runner part (runner, the "
+                       "only one in v0.4)")
+        for key in DATABASE_PARTS:
+            if key in job and job[key] not in databases:
+                out.append(f"{p}.{key}: {job[key]} is not a declared database part "
+                           f"({', '.join(databases)})")
+        if "method" in job and job["method"] not in JOB_METHODS:
+            out.append(f"{p}.method: {job['method']} is not one of {', '.join(JOB_METHODS)} "
+                       "(master spec 8.6)")
+        if "cadence" in job:
+            problem = _cron_problem(job["cadence"])
+            if problem:
+                out.append(f"{p}.cadence: {problem}")
+    trace = data.get("trace")
+    for i, item in enumerate(trace if isinstance(trace, list) else []):
+        if not isinstance(item, dict):
+            continue
+        p = f"{label}: trace[{i}]"
+        if "kind" in item and item["kind"] not in TRACE_KINDS:
+            out.append(f"{p}.kind: {item['kind']} is not one of {', '.join(TRACE_KINDS)} "
+                       "(master spec 8.3)")
+        if "part" in item and item["part"] not in parts:
+            out.append(f"{p}.part: {item['part']} is not a declared part")
+        if ("table" in item) == ("file" in item):
+            out.append(f"{p}: exactly one of table and file (it has "
+                       f"{'both' if 'table' in item else 'neither'})")
+        if "run_column" in item and "table" not in item:
+            out.append(f"{p}.run_column: only with table")
+        if "file" in item:
+            problem = _path_problem(item["file"])
+            if problem:
+                out.append(f"{p}.file: {problem}")
+    invariants = data.get("invariants")
+    ids = []
+    for i, inv in enumerate(invariants if isinstance(invariants, list) else []):
+        if not isinstance(inv, dict):
+            continue
+        iid = inv.get("id")
+        p = f"{label}: invariants[{_item_label(inv, i)}]"
+        if "id" in inv and not (isinstance(iid, str) and INVARIANT_ID_RE.match(iid)):
+            out.append(f"{p}.id: {iid!r} is not [A-Z][0-9]+ (R1, L2)")
+        elif iid in ids:
+            out.append(f"{p}: duplicate invariant id")
+        ids.append(iid)
+        check = inv.get("check")
+        if isinstance(check, str):
+            path = _inside(purpose_dir, check)
+            if path is None or not path.is_file() or not check.startswith("checks/"):
+                out.append(f"{_rel(purpose_dir / check, base)}: missing file "
+                           f"(invariants[{_item_label(inv, i)}].check, a file of checks/)")
+    moved = data.get("data_moved")
+    moved_jobs = []
+    for i, entry in enumerate(moved if isinstance(moved, list) else []):
+        if not isinstance(entry, dict):
+            continue
+        job = entry.get("job")
+        p = f"{label}: data_moved[{job if isinstance(job, str) else i}]"
+        if "job" in entry and job not in names:
+            out.append(f"{p}.job: {job} is not a job of the purpose")
+        elif job in moved_jobs:
+            out.append(f"{p}: more than one entry for job {job}")
+        moved_jobs.append(job)
+        reads = entry.get("reads")
+        for key in reads if isinstance(reads, list) else []:
+            if not (isinstance(key, str) and CLASSIFICATION_KEY_RE.match(key)):
+                out.append(f"{p}.reads: {key!r} is not a classification key "
+                           "<database>.<table>.<column>")
+        writes = entry.get("writes")
+        for item in writes if isinstance(writes, list) else []:
+            m = PART_TABLE_RE.match(item) if isinstance(item, str) else None
+            if m is None:
+                out.append(f"{p}.writes: {item!r} is not <part>:<table>")
+            elif m.group(1) not in parts:
+                out.append(f"{p}.writes: {item}: {m.group(1)} is not a declared part")
+    for name in names:
+        if isinstance(moved, list) and name not in moved_jobs:
+            out.append(f"{label}: data_moved: no entry for job {name} (one entry per job)")
+    roles = data.get("roles")
+    for i, role in enumerate(roles if isinstance(roles, list) else []):
+        if isinstance(role, dict) and "part" in role and role["part"] not in databases:
+            out.append(f"{label}: roles[{_item_label(role, i)}].part: {role['part']} is not a "
+                       f"declared database part ({', '.join(databases)})")
+    return out
+
+
+def _find_catalog_unit(kind, uid, catalog_root):
+    """(data or None, problem or None, missing items) of a purpose or domain,
+    looked up in the catalog only (W1 item 0)."""
+    folder = "purposes" if kind == "purpose" else "domains"
+    if not (isinstance(uid, str) and PURPOSE_ID_RE.match(uid)):
+        return None, f"{uid!r} is not a {kind} id ([a-z][a-z0-9-]*)", []
+    directory = Path(catalog_root) / folder / uid
+    if not (directory / f"{kind}.yaml").is_file():
+        return None, f"{kind} {uid} not found (looked in {folder}/{uid}/ of the catalog)", []
+    if kind == "purpose":
+        missing = check_purpose_dir(directory, Path(catalog_root), catalog_root)
+    else:
+        missing = check_domain_dir(directory, Path(catalog_root))
+    if any("cannot be read" in m for m in missing):
+        return None, None, missing
+    data = yaml.safe_load((directory / f"{kind}.yaml").read_text(encoding="utf-8"))
+    return (data if isinstance(data, dict) else None), None, missing
+
+
+def _check_domain(data, catalog_root, out):
+    """domain: names a domain of the catalog, which loads (master spec 6.1)."""
+    if "domain" not in data or data["domain"] is None:
+        return
+    _, problem, missing = _find_catalog_unit("domain", data["domain"], catalog_root)
+    out.extend(m for m in missing if m not in out)
+    if problem:
+        out.append(f"scenario.yaml: domain: {problem}")
+
+
+def _check_purposes(data, by_name, creates, sdir, catalog_root, out):
+    """purposes: each a purpose of the catalog, its parts mapped exactly, to
+    nodes of the right role and locations, and every job of the purpose on
+    the runner node (master spec 6.1, 6.9; W1 item 1)."""
+    label = "scenario.yaml"
+    entries = data.get("purposes")
+    seen = []
+    for i, entry in enumerate(entries if isinstance(entries, list) else []):
+        if not isinstance(entry, dict):
+            continue
+        pid = entry.get("id")
+        p = f"{label}: purposes[{_item_label(entry, i)}]"
+        if pid in seen:
+            out.append(f"{p}: purpose {pid} listed more than once")
+            continue
+        seen.append(pid)
+        purpose, problem, missing = _find_catalog_unit("purpose", pid, catalog_root)
+        out.extend(m for m in missing if m not in out)
+        if problem:
+            out.append(f"{p}.id: {problem}")
+        if purpose is None:
+            continue
+        declared = [k for k in _dict(purpose.get("parts")) if k in PURPOSE_PARTS]
+        parts = entry.get("parts")
+        if not isinstance(parts, dict):
+            continue                         # reported against the template
+        for part in declared:
+            if part not in parts:
+                out.append(f"{p}.parts.{part}: missing (purpose {pid} declares it)")
+        for part, value in parts.items():
+            if part not in declared:
+                out.append(f"{p}.parts.{part}: not a part purpose {pid} declares "
+                           f"({', '.join(declared)})")
+            elif part in DATABASE_PARTS:
+                problem = _location_problem(value, by_name, creates)
+                if problem:
+                    out.append(f"{p}.parts.{part}: {problem}")
+            elif value not in by_name:
+                out.append(f"{p}.parts.{part}: {value} is not a node")
+            elif by_name[value].get("role") != PART_ROLES[part]:
+                out.append(f"{p}.parts.{part}: {value} is not a node of role {PART_ROLES[part]} "
+                           f"(its role is {by_name[value].get('role')})")
+        runner = by_name.get(parts.get("runner"))
+        if runner is not None and runner.get("role") == PART_ROLES["runner"]:
+            _check_purpose_jobs(purpose, pid, runner, sdir, f"{p}.parts.runner", out)
+
+
+def _check_purpose_jobs(purpose, pid, runner, sdir, p, out):
+    """Every job of the purpose has an entry of that name and key in the
+    runner's jobs.yaml (its key in queries.yaml: the jobs' own check)."""
+    rel, path = _seed_path(runner, sdir, "jobs.yaml")
+    name = runner.get("name")
+    if path is None:
+        out.append(f"{p}: {name} seeds no jobs.yaml to run purpose {pid}'s jobs")
+        return
+    try:
+        content = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (yaml.YAMLError, UnicodeDecodeError):
+        return                               # reported with the scheduler's files
+    jobs = {j.get("name"): j for j in _dict(content).get("jobs") or []
+            if isinstance(j, dict)} if isinstance(_dict(content).get("jobs"), list) else {}
+    for job in purpose.get("jobs") or []:
+        if not isinstance(job, dict):
+            continue
+        jname, key = job.get("name"), job.get("key")
+        if jname not in jobs:
+            out.append(f"{p}: {name}'s jobs.yaml ({rel}) has no job {jname} (a job of purpose "
+                       f"{pid})")
+        elif jobs[jname].get("key") != key:
+            out.append(f"{p}: {name}'s jobs.yaml ({rel}): job {jname} has key "
+                       f"{jobs[jname].get('key')}, but purpose {pid}'s job {jname} has key {key}")
+
+
+def _check_governance(data, nodes, by_name, creates, sdir, out):
+    """governance: its files, its classes both ways, their locations,
+    readers and outbound flows (master spec 6.1, 6.9, 11.3, 11.4; W1 item
+    1); and the bastion's data-policy.md mapped to its policy, none without
+    governance: (spec D223)."""
+    label = "scenario.yaml"
+    gov = data.get("governance")
+    policy = _dict(gov).get("policy")
+    for node in nodes:
+        if node.get("role") != "bastion":
+            continue
+        mapped = _dict(node.get("seed_files")).get(POLICY_SEED_FILE)
+        p = f"{label}: nodes[{node.get('name')}].seed_files.{POLICY_SEED_FILE}"
+        if not isinstance(gov, dict):
+            if POLICY_SEED_FILE in _dict(node.get("seed_files")):
+                out.append(f"{p}: a scenario without governance: hands the players no data "
+                           "policy, so its bastion maps none (spec D223)")
+        elif mapped is None:
+            out.append(f"{p}: missing (a scenario with governance: maps the bastion's "
+                       f"{POLICY_SEED_FILE} to governance.policy {policy}; spec D223)")
+        elif isinstance(policy, str) and mapped != policy:
+            out.append(f"{p}: {mapped}, not governance.policy {policy} (spec D223)")
+    if not isinstance(gov, dict):
+        return
+    used = None
+    for key in ("policy", "classification"):
+        rel = gov.get(key)
+        if not isinstance(rel, str):
+            continue                         # reported against the template
+        path = _inside(sdir, rel)
+        if path is None or not path.is_file():
+            out.append(f"{rel}: missing file ({label} governance.{key})")
+        elif key == "classification":
+            used = check_classification(path, rel, out)
+    classes = gov.get("classes")
+    if not isinstance(classes, dict):
+        return                               # reported against the template
+    for cls in sorted(used or ()):
+        if cls != UNRESTRICTED_CLASS and cls not in classes:
+            out.append(f"{label}: governance.classes: no entry for class {cls}, which "
+                       f"{gov['classification']} uses (master spec 6.1)")
+    roles = set().union(*(c.roles for c in creates.values())) if creates else set()
+    for cls, rules in classes.items():
+        p = f"{label}: governance.classes.{cls}"
+        if cls not in CLASSES:
+            out.append(f"{p}: {cls} is not a class ({', '.join(CLASSES)}; master spec 11.2)")
+        if not isinstance(rules, dict):
+            continue                         # reported against the template
+        _check_class_rules(rules, p, by_name, creates, roles, out)
+
+
+def _check_class_rules(rules, p, by_name, creates, roles, out):
+    locations = rules.get("locations")
+    unrestricted = locations == "any"
+    if unrestricted:
+        for key in ("readers", "outbound"):
+            if key in rules:
+                out.append(f"{p}.{key}: refused with locations: any (the class is not "
+                           "restricted)")
+    elif isinstance(locations, list) and locations:
+        for value in locations:
+            problem = _location_problem(value, by_name, creates)
+            if problem:
+                out.append(f"{p}.locations: {problem}")
+        if "readers" not in rules:
+            out.append(f"{p}.readers: missing (required unless locations is any; may be [])")
+    elif "locations" in rules and locations is not None and locations != []:
+        out.append(f"{p}.locations: {locations!r} is not a non-empty list of locations "
+                   "<node>/<database> or the word any")
+    if "separation" in rules and rules["separation"] != "instance":
+        out.append(f"{p}.separation: {rules['separation']!r} is not instance (the only "
+                   "separation; master spec 11.4)")
+    readers = rules.get("readers")
+    if "readers" in rules and not isinstance(readers, list):
+        out.append(f"{p}.readers: not a list of roles")
+    for role in readers if isinstance(readers, list) and not unrestricted else []:
+        if role in RESERVED_DB_ROLES:
+            out.append(f"{p}.readers: {role} is one of the game's own roles, never a reader")
+        elif role not in roles:
+            out.append(f"{p}.readers: {role} is not a role a data file of the scenario creates "
+                       f"(CREATE ROLE {role})")
+    outbound = rules.get("outbound")
+    if "outbound" in rules and not isinstance(outbound, list):
+        out.append(f"{p}.outbound: not a list of flows")
+    labels = []
+    for i, flow in enumerate(outbound if isinstance(outbound, list) and not unrestricted
+                             else []):
+        if not isinstance(flow, dict):
+            continue
+        to = flow.get("to")
+        fp = f"{p}.outbound[{to if isinstance(to, str) else i}]"
+        if "to" in flow and not (isinstance(to, str) and RECEIVER_LABEL_RE.match(to)):
+            out.append(f"{fp}.to: {to!r} is not a receiver's label ([a-z][a-z0-9-]*)")
+        elif to in labels:
+            out.append(f"{fp}.to: {to} receives the class more than once")
+        labels.append(to)
+        outbox = flow.get("outbox")
+        if "outbox" in flow:
+            location, sep, table = outbox.rpartition("/") if isinstance(outbox, str) \
+                else ("", "", "")
+            problem = None if sep and SQL_NAME_RE.match(table) and "/" in location \
+                else f"{outbox!r} is not <node>/<database>/<table>"
+            problem = problem or _location_problem(location, by_name, creates)
+            if problem:
+                out.append(f"{fp}.outbox: {problem}")
+
+
+def _check_v04(data, nodes, creates, sdir, catalog_root, out):
+    """v0.4's scenario keys: domain:, purposes:, governance:."""
+    by_name = {n.get("name"): n for n in nodes}
+    _check_domain(data, catalog_root, out)
+    _check_purposes(data, by_name, creates, sdir, catalog_root, out)
+    _check_governance(data, nodes, by_name, creates, sdir, out)
 
 
 # --- The scheduler's files (master spec 7.1; capture W1 of v0.3, item 7) ---

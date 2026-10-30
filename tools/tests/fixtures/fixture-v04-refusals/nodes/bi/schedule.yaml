@@ -1,0 +1,16 @@
+# Schedule of fixture-v04-refusals' bi node, in scenario time (master spec
+# 7.1; template: .claude/skills/scenario-format/templates/schedule.yaml): a
+# transformer's connections, jobs and no stream (spec D219).
+intensity: 1.0
+connections:
+  source:
+    driver: sql/postgresql
+    target: db:5432/shop
+    role: shop_etl
+    pool: {per-call: true}
+  target:
+    driver: sql/postgresql
+    target: reporting:5432/reporting
+    role: bi_etl
+    pool: {per-call: true}
+streams: []
