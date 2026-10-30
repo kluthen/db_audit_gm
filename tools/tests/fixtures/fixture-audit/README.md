@@ -69,7 +69,8 @@ The story as the players read it: `player/story.md`.
   report-only.
 - **Networks**: backend.
 - **Parameters**: none.
-- **Published ports**: 22 (default host port 2222).
+- **Published ports**: 22 (default host port 2222), 8080 (default host port
+  8080).
 - **Seed files**: `README.md` → `player/README.md`; `story.md` →
   `player/story.md`; `issues.md` → `player/issues.md`.
 

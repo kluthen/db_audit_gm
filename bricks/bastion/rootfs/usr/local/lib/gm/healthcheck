@@ -1,9 +1,10 @@
 #!/bin/sh
 # Health check of the db_audit_gm bastion (DO NOT TAMPER).
 # Healthy while sshd is up under s6 and listening on port 22 and, when
-# the web front is configured (/run/web-front/nginx.conf, at least one
-# route), while `web-front` is up and listening on port 8080. Listening
-# sockets are read from /proc, so the check leaves no line in any log.
+# the web front is configured (/run/web-front/nginx.conf, which
+# gm-entrypoint writes at every start, routes or none: spec D224), while
+# `web-front` is up and listening on port 8080. Listening sockets are read
+# from /proc, so the check leaves no line in any log.
 PATH=/command:/usr/sbin:/usr/bin:/sbin:/bin
 
 # listening <hex port>: a TCP socket in state 0A (LISTEN) on that port

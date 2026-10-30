@@ -653,33 +653,47 @@ class TestWebRouteRefusals(MountedCopyTest):
         self.assertRefused("nodes[monitor]: web interface ui (port 9090, /monitor/) has 2 "
                            "routes (mon, monitor); one route per web interface")
 
+    FRONT_PORT_MISSING = ("nodes[bastion].published_ports: no {port: 8080, default: 8080}, "
+                          "which the web front needs (it runs in every game, routes or none)")
+
     def test_front_port_when_routes(self):
         self.edit_yaml("scenario.yaml", lambda d: self.node(d, "bastion")
                        .update(published_ports=[{"port": 22, "default": 2222},
                                                 {"port": 8080, "default": 8081}]))
-        self.assertRefused("nodes[bastion].published_ports: no {port: 8080, default: 8080}, "
-                           "which the web front needs (web_routes is non-empty)")
+        self.assertRefused(self.FRONT_PORT_MISSING)
 
     def drop_ui_evidence(self):
         self.edit_yaml("gm/answer-key.yaml", lambda d: d["instances"][1]["evidence"][0]
                        .update(where="node:monitor"))
 
-    def test_no_front_port_without_routes(self):
+    def without_web_interface(self):
         self.brick("fixture-monitor", lambda d: d["interfaces"]["provides"][0].pop("web_path"))
         self.drop_ui_evidence()
-        self.web_routes({})
-        missing = self.assertRefused("nodes[bastion].published_ports: port 8080 is published, "
-                                     "but web_routes is empty (the web front does not run)")
-        self.assertEqual(len(missing), 1, missing)
 
-    def test_empty_routes_by_default(self):
-        self.brick("fixture-monitor", lambda d: d["interfaces"]["provides"][0].pop("web_path"))
-        self.drop_ui_evidence()
+    def test_front_port_without_routes(self):
+        # v0.4 (D224): the front runs in every game, so empty routes still
+        # need the port; v0.3 refused it published.
+        self.without_web_interface()
         def change(d):
-            self.node(d, "bastion")["parameters"].pop("web_routes")
+            self.node(d, "bastion")["parameters"].update(web_routes={})
             self.node(d, "bastion")["published_ports"] = [{"port": 22, "default": 2222}]
         self.edit_yaml("scenario.yaml", change)
+        missing = self.assertRefused(self.FRONT_PORT_MISSING)
+        self.assertEqual(len(missing), 1, missing)
+
+    def test_front_port_published_with_empty_routes(self):
+        self.without_web_interface()
+        self.web_routes({})
         model.load_scenario(self.scenario)
+
+    def test_empty_routes_by_default(self):
+        self.without_web_interface()
+        self.edit_yaml("scenario.yaml",
+                       lambda d: self.node(d, "bastion")["parameters"].pop("web_routes"))
+        model.load_scenario(self.scenario)
+        self.edit_yaml("scenario.yaml", lambda d: self.node(d, "bastion")
+                       .update(published_ports=[{"port": 22, "default": 2222}]))
+        self.assertRefused(self.FRONT_PORT_MISSING)
 
 
 class TestParameterFaultRefusals(MountedCopyTest):

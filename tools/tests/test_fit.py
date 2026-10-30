@@ -216,7 +216,8 @@ class TestFit(ScenarioCopyTest):
         self.assertEqual(db["published_ports"], [])
         bastion = impl["nodes"]["bastion"]
         self.assertEqual(bastion["published_ports"],
-                         [{"target": 22, "published": 2222, "mode": "host"}])
+                         [{"target": 22, "published": 2222, "mode": "host"},
+                          {"target": 8080, "published": 8080, "mode": "host"}])
         state = yaml.safe_load((ldir / "state.yaml").read_text())
         self.assertEqual(state["game_id"], gid)
         self.assertEqual(state["stage"], "fitted")

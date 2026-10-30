@@ -21,7 +21,7 @@
 # bricks' images built locally:
 #   docker build -t 127.0.0.1:5000/dbagm/postgres:0.4.0 bricks/postgres
 #   docker build -t 127.0.0.1:5000/dbagm/bastion:0.4.0 bricks/bastion
-# Host port 2222 must be free (the bastion's published port).
+# Host ports 2222 and 8080 must be free (the bastion's published ports).
 # Usage: sh tools/tests/smoke.sh        (from anywhere)
 set -eu
 
@@ -130,22 +130,25 @@ same "volumes carry dbagm.game" "9" \
     "$(docker volume ls -q --filter "label=dbagm.game=$GAME" | wc -l | tr -d ' ')"
 bastion=$(docker ps -q --filter "label=com.docker.swarm.service.name=${GAME}_bastion")
 check "bastion publishes port 2222" sh -c "docker port $bastion 22/tcp | grep -q ':2222\$'"
-# v0.2, no web interface in fixture-audit: only SSH is published and the web
-# front does not run (spec D103).
-same "bastion publishes port 22 only" "22/tcp " \
+# v0.4 (spec D224): the web front runs in every game, so fixture-audit,
+# with no web interface, publishes ports 22 and 8080 and its front is up,
+# serving the starter-pack page alone (v0.3's rule, D103, reversed).
+same "bastion publishes ports 22 and 8080" "22/tcp 8080/tcp " \
     "$(docker inspect -f '{{range $p, $b := .NetworkSettings.Ports}}{{if $b}}{{$p}} {{end}}{{end}}' "$bastion")"
-same "bastion's web front not running" "false" \
+check "bastion publishes port 8080 on 8080" sh -c "docker port $bastion 8080/tcp | grep -q ':8080\$'"
+same "bastion's web front up" "true" \
     "$(docker exec "$bastion" /command/s6-svstat -o up /run/service/web-front 2>&1)"
 # v0.2: the network carries the scenario's network name; every node runs in UTC.
 same "network named after the scenario's network" "${GAME}_backend" \
     "$(docker network ls --filter "label=com.docker.stack.namespace=$GAME" --format '{{.Name}}')"
 same "status: network line" "  network: ${GAME}_backend" \
     "$($GMCTL status "$SCN" --playground "$PG" | grep '^  network:')"
-# v0.3 (chunk 8b, RG-3): no web front in fixture-audit, so no tools_password line.
-same "status: lists the 6 secret files" 6 \
+# v0.4 (D224): the front runs in fixture-audit too, so the tools password
+# is among the secret files and has its line (v0.3's RG-3 assertions reversed).
+same "status: lists the 7 secret files" 7 \
     "$($GMCTL status "$SCN" --playground "$PG" | sed -n '/^  secrets: /,/^  [^ ]/p' | grep -c '^    ')"
-same "status: no tools-password line without a web front" "" \
-    "$($GMCTL status "$SCN" --playground "$PG" | grep 'tools_password')"
+same "status: the tools-password line" 1 \
+    "$($GMCTL status "$SCN" --playground "$PG" | grep -c '^    tools_password: ')"
 for node in db bastion; do
     out=$(printf 'printf "%%s %%s" "$TZ" "$(date +%%Z)"\n' \
         | $GMCTL exec "$SCN" --playground "$PG" --node "$node" --user root)

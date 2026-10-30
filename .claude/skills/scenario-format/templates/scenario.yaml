@@ -138,9 +138,9 @@ nodes:                              # one entry per node (one service, one conta
         cpu: <0.5>
         memory: <512M>
         disk: <2G>
-    published_ports: []             # bastion only: [{port: 22, default: 2222}], and
-                                    # {port: 8080, default: 8080} (the web front) exactly when
-                                    # its web_routes is non-empty; the local implementation
+    published_ports: []             # bastion only: [{port: 22, default: 2222}, {port: 8080,
+                                    # default: 8080}], 8080 (the web front) in every game,
+                                    # routes or none (D224); the local implementation
                                     # records the port actually used
     seed_files:                     # one entry per file in the brick's seed.files; may be {}
       <postgresql.conf>: nodes/<db>/postgresql.conf
