@@ -1675,3 +1675,60 @@ quarter hour 16:00–20:45 on day 1: min 0 before, 117 after. Day 2's late
 batches have no witness either way: the lead pool runs out (P3's
 `gm.md`). `domains/shop/docs/gm.md` states the independence and the
 figures. Unit suite 795 OK; loads at −6, 0, +3 under the lock.
+
+### Wave 2 gate (coding-executor, armenelos + the VPS, 2026-10-30) — passed
+
+Every step passes on `v0.4-w2` at f35dd40, 22:13–23:21 UTC, every docker
+step under the host lock and the sleep inhibitor, one at a time.
+
+| Step | Result |
+|---|---|
+| Unit suite (`PYTHONDONTWRITEBYTECODE=1`) | 796 OK, 129 s |
+| Scheduler unit tests | 71 OK, 200 s |
+| `sh -n` / `perl -c` / `py_compile` | 147 / 7 / 44 files, plus 31 embedded Python bodies in 27 shell files; 0 fail, no `__pycache__` left |
+| Seven builds | all rc=0 (cache) |
+| Stack tests (pass/fail) | bastion 89/0, postgres 211/0, pgbouncer 105/0, scheduler 133/0, prometheus 131/0, postgres-exporter 103/0, grafana 119/0 (as wave 1; 1505 s) |
+| `smoke.sh` | 61/0 |
+| `smoke-monitoring.sh` | 43/43 |
+| `smoke-scenario.sh` | bookshop 19/19, fernway 18/18, tarnbeck 26/26 (~875 s) |
+| `smoke-load.sh armenelos` | 73/73, 427 s; fit 1.1 CPU / 1.22G reserved of 12 CPU / 4.78G, disk plan 9.94G of 42G (13.89G with the snapshot) |
+| `smoke-load.sh` two hosts (G7) | 73/73, 554 s; armenelos 0.75 CPU / 704M, disk 5.53G of 20G; VPS (`shared`) 0.35 CPU / 544M, disk 3.37G of 10G; overlay 10.20.0.0/24; ports on armenelos only; 4 images copied to the VPS |
+| Hand checks | `fixture-instances` README matches a regeneration (the only scenario or fixture whose files changed); four purposes and `domains/shop/` pass their checks |
+
+Fixes (the two listed for the gate, no gate failure):
+- 684c031 — `aging.run_check`: a too-soon judging check at the hand-over
+  check says "too soon to tell, the job's next run is in N s (…)"; new
+  test `test_a_too_soon_judging_check_at_hand_over_names_the_next_run`
+  (red before, green after).
+- f35dd40 — E4's header comment states the two deadlines (D228).
+
+**G7** (one lock hold, the drain set by a `trap`): pre-check 23:11:30
+(`tailscale status` on both, `vps-5718ad52 Ready Drain`, filetstudio.com
+200, no game port on the VPS, 23G free); active 23:11:32 (accepted, no
+refusal); run 23:11:32–23:20:46, filetstudio.com 200 on all 19 polls at
+30 s; drained 23:20:46 (rc=0); post-check: filetstudio.com 200, `Drain`,
+0 dbagm containers or `dbagm.game` volumes on the VPS, the site's four
+containers with their earlier uptimes, VPS volume list unchanged, 22G
+free (the VPS now also holds `scheduler:0.2.0`, 171MB).
+
+smoke-load calls: one host, producer `orders.insert` 28, `orders.lookup`
+180, consumer `reports.recent` 36, `reports.top-customers` 9; two hosts
+23 / 180 / 36 / 9, PgBouncer 303 transactions. Image sizes as wave 1.
+Disk 10G free on armenelos throughout. The smoke scripts run `gmctl`
+without `-B`, leaving `tools/__pycache__` (git-ignored; removed). The
+bastion's page was not checked by hand this time (the smoke scenarios
+don't check it). Logs: the session scratchpad's `gate-w2/` (not kept).
+
+Wave sync: no intent or data register, so no documentalist or
+data-steward pass; no wave 2 chunk changed a dependency, so no
+security-advisor check.
+
+### Wave 2 report to the owner, 2026-10-31
+
+All six chunks merged (none moved); the gate passed with two wording
+fixes; G10 ruled (D227, 640M); D228 (E4's reading, no ruling needed);
+the shop domain's consent fix. Left for the owner from wave 1, still
+open: the test-only brick-bump precedent, `pgbadger` in `.tech`.
+For wave 2: the 640M margins are estimates until 15b (above); R1 and R3
+read 3 for the rest of a 14:00 hand-over game (chunk 10). The owner said
+"we'll stop after this wave": wave 3 waits for his word.
