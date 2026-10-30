@@ -5,6 +5,10 @@ CREATE ROLE bi_etl LOGIN;
 CREATE DATABASE reporting OWNER bi_etl;
 
 \connect reporting
+CREATE EXTENSION pg_cron;
+SELECT cron.schedule_in_database('analyze-sales', '0 * * * *', $$ANALYZE sales_hourly$$,
+                                 'reporting', username => 'bi_etl');
+
 SET ROLE bi_etl;
 
 CREATE TABLE sales_hourly (

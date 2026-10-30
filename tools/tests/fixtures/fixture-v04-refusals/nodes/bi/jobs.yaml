@@ -5,3 +5,9 @@ jobs:
     key: sales.copy
     connection: target
     at: "5 * * * *"
+  - name: rollup-daytime             # purpose fixture-sales-copy, a script key's job
+    key: sales.rollup
+    connections:
+      source: source
+      target: target
+    at: "*/15 8-20 * * *"

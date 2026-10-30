@@ -1,0 +1,4 @@
+# postgres' crontab of fixture-v04-refusals' reporting node (postgres 0.4.0,
+# master spec 7.2; capture W1 item 8's baseline entry), in scenario time.
+PGPASSFILE=/run/gm-cron/pgpass
+30 2 * * * psql -X -w -h /run/postgresql -U bi_etl -d reporting -c 'VACUUM ANALYZE sales_hourly' >> /var/log/postgresql/cron/vacuum-sales.log 2>&1
