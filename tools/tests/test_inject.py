@@ -4,7 +4,9 @@ and exec_node's `argv`; Docker stubbed."""
 import base64
 import hashlib
 import hmac
+import json
 import re
+import shutil
 import subprocess
 import unittest
 from pathlib import Path
@@ -12,7 +14,7 @@ from unittest import mock
 
 from tools.gm import deploy, execnode, fit, inject, localimpl, model, render, state, teardown
 from tools.gm.model import GmError
-from tools.tests import SUFFICIENT, FakeDocker, run_gmctl
+from tools.tests import SUFFICIENT, FakeDocker, ScenarioCopyTest, run_gmctl
 from tools.tests.test_deploy import RenderedGame
 from tools.tests.test_render import MountedCopyTest, V03Rendered, handover_at
 
@@ -30,6 +32,10 @@ class ScriptedDocker(FakeDocker):
         super().__init__(**kwargs)
         self.reply = reply or (lambda run: (0, "", ""))
         self.runs = []
+        # load-data's survey (v0.4): node -> [database row as the survey
+        # writes it]; a node not here holds no database. `survey_answer`
+        # answers the listing and the survey before `reply` is asked.
+        self.databases = {}
 
     def run(self, args, input=None, stdin=None, capture=True, check=True, timeout=None):
         args = [str(a) for a in args]
@@ -51,8 +57,26 @@ class ScriptedDocker(FakeDocker):
         run = {"container": args[i], "user": user, "env": env, "argv": args[i + 1:],
                "stdin": text, "timeout": timeout}
         self.runs.append(run)
-        rc, out, err = self.reply(run)
+        rc, out, err = self.survey_answer(run) or self.reply(run)
         return subprocess.CompletedProcess(args, rc, out, err)
+
+    def survey_answer(self, run):
+        """The listing's and the survey's output for the run's node, as psql
+        -A -t writes them; None for any other run."""
+        node = run["container"].rsplit("_", 1)[-1].split(".")[0]
+        rows = self.databases.get(node, [])
+        if run["stdin"] == inject.DATABASES_SQL:
+            return (0, json.dumps([r["database"] for r in rows]) + "\n", "")
+        if inject.SURVEY_SQL in run["stdin"]:
+            return (0, "".join(json.dumps(r) + "\n" for r in rows), "")
+        return None
+
+
+def database_row(name, pg_cron=False, servers=0, mappings=()):
+    """A survey row (inject.SURVEY_SQL's JSON object)."""
+    return {"database": name, "pg_cron": pg_cron, "servers": servers,
+            "mappings": [dict(zip(("server", "local_role", "remote_role", "password"), m),
+                              public=m[1] == "public") for m in mappings]}
 
 
 # A fragment of each fixture script, to tell which one a run streamed.
@@ -154,12 +178,14 @@ class TestLoadData(DeployedGame):
 
     def test_streams_the_sql_into_psql_as_postgres(self):
         result = self.load_data()
-        self.assertEqual(len(self.fake.runs), 2)        # the data, the check role's grant
+        self.assertEqual(len(self.fake.runs), 3)        # the data, the survey, the grant
         run = self.fake.runs[0]
         self.assertEqual(run["container"], f"{self.gid}_db.1.ctr")
         self.assertEqual(run["user"], "postgres")
+        # no scheduler node: no shift, the customer's zone is UTC (W1 item 0)
         self.assertEqual(run["argv"], ["psql", "-X", "-q", "-v", "ON_ERROR_STOP=1",
-                                       "-d", "postgres"])
+                                       "-v", "customer_timezone=Etc/GMT",
+                                       "-v", "customer_utc_offset=0", "-d", "postgres"])
         self.assertEqual(run["env"], {})
         self.assertEqual(run["stdin"],
                          (self.scenario / "data" / "db.sql").read_text())
@@ -176,7 +202,7 @@ class TestLoadData(DeployedGame):
             result = self.load_data()
             self.assertIn(f"at stage {stage}: the data is already loaded", result.text())
             self.assertEqual((self.ldir / "state.yaml").read_bytes(), before)
-        self.assertEqual(len(self.fake.runs), 2)
+        self.assertEqual(len(self.fake.runs), 3)
 
     def test_needs_a_deployed_game(self):
         teardown.teardown(self.scenario, "laptop", docker=self.fake)
@@ -187,7 +213,8 @@ class TestLoadData(DeployedGame):
     def test_no_data_entry_loads_nothing(self):
         self.edit_yaml("scenario.yaml", lambda d: self.node(d, "db").pop("data"))
         result = self.load_data()
-        self.assertEqual([r["stdin"] for r in self.fake.runs], [inject.grant_sql()])
+        self.assertEqual([r["stdin"] for r in self.fake.runs],
+                         [inject.DATABASES_SQL, inject.grant_sql()])
         self.assertEqual(self.stage(), "data-loaded")
         self.assertIn("no node holds data", result.text())
 
@@ -472,8 +499,9 @@ class TestLoadDataPasswords(V03DeployedGame):
 
     def test_the_roles_passwords_set_after_the_data_load(self):
         result = self.load_data()
-        self.assertEqual(len(self.fake.runs), 3)
-        data, passwords, grant = self.fake.runs
+        self.assertEqual(len(self.fake.runs), 4)
+        data, passwords, survey, grant = self.fake.runs
+        self.assertEqual(survey["stdin"], inject.DATABASES_SQL)
         self.assertEqual(grant["stdin"], inject.grant_sql())
         self.assertEqual(data["stdin"], (self.scenario / "data/db.sql").read_text())
         self.assertEqual(passwords["container"], f"{self.gid}_db.1.ctr")
@@ -522,7 +550,7 @@ class TestLoadDataStatic(DeployedGame):
 
     def test_no_password_step(self):
         result = self.load_data()
-        self.assertEqual(len(self.fake.runs), 2)        # the data, the check role's grant
+        self.assertEqual(len(self.fake.runs), 3)        # the data, the survey, the grant
         self.assertEqual(result.passwords, [])
         self.assertNotIn("password", result.text())
 
@@ -533,8 +561,9 @@ class TestLoadDataCheckRoleGrant(DeployedGame):
 
     def test_granted_after_the_load_on_every_database_but_the_templates(self):
         result = self.load_data()
-        data, grant = self.fake.runs
+        data, survey, grant = self.fake.runs
         self.assertEqual(data["stdin"], (self.scenario / "data" / "db.sql").read_text())
+        self.assertEqual(survey["stdin"], inject.DATABASES_SQL)
         self.assertEqual(grant["container"], f"{self.gid}_db.1.ctr")
         self.assertEqual(grant["user"], "postgres")
         self.assertEqual(grant["argv"], list(inject.PSQL_ARGV))
@@ -560,7 +589,7 @@ class TestLoadDataCheckRoleGrant(DeployedGame):
         with mock.patch.object(localimpl, "node_secret_declarations", without_check_role):
             result = self.load_data()
         self.assertEqual([r["stdin"] for r in self.fake.runs],
-                         [(self.scenario / "data" / "db.sql").read_text()])
+                         [(self.scenario / "data" / "db.sql").read_text(), inject.DATABASES_SQL])
         self.assertEqual(result.grants, [])
         self.assertNotIn("gm_check", result.text())
         self.assertEqual(self.stage(), "data-loaded")
@@ -585,3 +614,293 @@ class TestLoadDataCheckRoleGrant(DeployedGame):
         self.assertIn("does not exist", st["failure"]["reason"])
         self.assertEqual(teardown.leftovers(self.fake, self.gid), {})
         self.assertIn("db CONNECT for gm_check (psql as postgres): exit 3", self.printed)
+
+
+# --- v0.4: load-data across instances (chunk 7) -----------------------------
+
+INSTANCES_FIXTURE = Path(__file__).resolve().parent / "fixtures" / "fixture-instances"
+BI_MAPPING = ("shop_db", "bi_etl", "shop_etl", False)
+
+
+class InstancesDeployedGame(V03Rendered):
+    """fixture-instances (db seeding a crontab for shop_etl; reporting with
+    pg_cron, a foreign server and bi_etl's user mapping to shop_etl; no
+    scheduler node) rendered and deployed on a ScriptedDocker whose survey
+    answers as the fixture's data would leave the instances."""
+
+    def setUp(self):
+        ScenarioCopyTest.setUp(self)
+        self.scenario = self.tmp / "fixture-instances"
+        shutil.copytree(INSTANCES_FIXTURE, self.scenario)
+        fit.fit(self.scenario, "laptop", **SUFFICIENT)
+        self.ldir = self.scenario / "local" / "laptop"
+        self.render()
+        self.replies = {}
+        self.fake = ScriptedDocker(reply=self.reply)
+        self.fake.databases = {
+            "db": [database_row("postgres"), database_row("shop")],
+            "reporting": [database_row("postgres"),
+                          database_row("reporting", pg_cron=True, servers=1,
+                                       mappings=[BI_MAPPING])]}
+        deploy.deploy(self.scenario, "laptop", docker=self.fake, timeout=30,
+                      sleep=lambda s: None, clock=lambda: 0.0)
+        self.printed = []
+
+    def reply(self, run):
+        for fragment, answer in self.replies.items():
+            if fragment in run["stdin"]:
+                return answer
+        return (0, "", "")
+
+    def load_data(self):
+        return inject.load_data(self.scenario, "laptop", docker=self.fake,
+                                out=self.printed.append)
+
+    def secret(self, role):
+        return (self.ldir / "secrets" / f"role_{role}_password").read_text().strip()
+
+    def node_of(self, run):
+        return run["container"][len(self.gid) + 1:].split(".")[0]
+
+
+def step(run):
+    """What a load-data run is, by its SQL."""
+    text = run["stdin"]
+    if text == inject.DATABASES_SQL:
+        return "list"
+    for kind, marker in (("survey", inject.SURVEY_SQL), ("mappings", "ALTER USER MAPPING"),
+                         ("access", "CREATE POLICY"), ("access", "CREATE OR REPLACE FUNCTION"),
+                         ("passwords", "ALTER ROLE"), ("grant", "GRANT CONNECT ON DATABASE %I")):
+        if marker in text:
+            return kind
+    return "data"
+
+
+class TestLoadDataInstances(InstancesDeployedGame):
+
+    def test_each_step_in_order(self):
+        result = self.load_data()
+        self.assertEqual([(self.node_of(r), step(r)) for r in self.fake.runs], [
+            ("db", "data"), ("reporting", "data"),
+            ("db", "passwords"),
+            ("db", "list"), ("db", "survey"), ("reporting", "list"), ("reporting", "survey"),
+            ("reporting", "mappings"),
+            ("reporting", "access"),
+            ("db", "grant"), ("reporting", "grant")])
+        self.assertEqual(result.loaded, [("db", "data/db.sql"),
+                                         ("reporting", "data/reporting.sql")])
+        self.assertEqual(result.passwords, [("db", ["shop_etl"])])
+        self.assertEqual([(n, d, [m.local_text for m in ms]) for n, d, ms in result.mappings],
+                         [("reporting", "reporting", ["bi_etl"])])
+        self.assertEqual(result.policies, [("reporting", "reporting")])
+        self.assertEqual(result.functions, [("reporting", "reporting")])
+        self.assertEqual(result.grants, ["db", "reporting"])
+        self.assertEqual(localimpl.read_state(self.ldir)["stage"], "data-loaded")
+        text = result.text()
+        for line in ("  db: password set from its secret for role(s) shop_etl",
+                     "  reporting/reporting: user mapping for bi_etl on server shop_db given "
+                     "remote role shop_etl's password",
+                     "  reporting/reporting: gm_check may read every row of cron.job and "
+                     "cron.job_run_details (policy gm_check_read)",
+                     "  reporting/reporting: gm_check.user_mapping_roles() created for gm_check",
+                     "  reporting: gm_check granted CONNECT on every database"):
+            self.assertIn(line, text)
+
+    def test_every_data_file_gets_the_zone_and_its_offset(self):
+        self.load_data()
+        data = [r for r in self.fake.runs if step(r) == "data"]
+        self.assertEqual(len(data), 2)
+        for run in data:
+            self.assertEqual(run["argv"], ["psql", "-X", "-q", "-v", "ON_ERROR_STOP=1",
+                                           "-v", "customer_timezone=Etc/GMT",
+                                           "-v", "customer_utc_offset=0", "-d", "postgres"])
+
+    def test_the_crontab_roles_password_is_set_on_its_node(self):
+        sc = model.load_scenario(self.scenario)
+        self.assertEqual(inject.password_plan(sc, self.impl),
+                         [("db", [("shop_etl", "role_shop_etl_password")])])
+        self.load_data()
+        run = next(r for r in self.fake.runs if step(r) == "passwords")
+        self.assertEqual(self.node_of(run), "db")
+        line = run["stdin"].splitlines()[3]
+        self.assertTrue(line.startswith('ALTER ROLE "shop_etl" PASSWORD '), line)
+        self.assertTrue(matches(VERIFIER_RE.search(line), self.secret("shop_etl")))
+        self.assertNotIn(self.secret("shop_etl"), run["stdin"])
+
+    def test_the_mappings_password_is_its_remote_roles_secret(self):
+        self.load_data()
+        run = next(r for r in self.fake.runs if step(r) == "mappings")
+        self.assertEqual(run["argv"], list(inject.PSQL_ARGV))
+        self.assertEqual(run["user"], "postgres")
+        secret = self.secret("shop_etl")
+        self.assertEqual(run["stdin"].splitlines(), [
+            inject.connect_line("reporting"),
+            "SET log_statement = 'none';", "SET log_min_duration_statement = -1;",
+            "SET log_min_error_statement = 'panic';",
+            "SET pg_stat_statements.track = 'none';",
+            f'ALTER USER MAPPING FOR "bi_etl" SERVER "shop_db" OPTIONS (ADD password '
+            f"'{secret}');"])
+        printed = "\n".join(self.printed)
+        self.assertIn("reporting user mapping passwords (psql as postgres): ok", printed)
+        for sec in (self.ldir / "secrets").iterdir():
+            self.assertNotIn(sec.read_text().strip(), printed)
+
+    def test_a_set_password_and_a_public_mapping(self):
+        self.fake.databases["reporting"][1]["mappings"] = [
+            dict(server="shop_db", local_role="bi_etl", remote_role="shop_etl", password=True,
+                 public=False),
+            dict(server="shop_db", local_role="public", remote_role="shop_etl",
+                 password=False, public=True)]
+        self.load_data()
+        lines = next(r for r in self.fake.runs if step(r) == "mappings")["stdin"].splitlines()
+        secret = self.secret("shop_etl")
+        self.assertEqual(lines[-2:], [
+            f"ALTER USER MAPPING FOR \"bi_etl\" SERVER \"shop_db\" OPTIONS (SET password "
+            f"'{secret}');",
+            f"ALTER USER MAPPING FOR PUBLIC SERVER \"shop_db\" OPTIONS (ADD password "
+            f"'{secret}');"])
+
+    def test_the_read_policy_and_the_function_where_they_belong(self):
+        self.fake.databases["db"].append(database_row("archive", pg_cron=True))
+        self.fake.databases["reporting"].append(database_row("staging", servers=2))
+        self.load_data()
+        access = {self.node_of(r): r["stdin"] for r in self.fake.runs if step(r) == "access"}
+        self.assertEqual(access["db"], inject.connect_line("archive") + "\n"
+                         + inject.QUIET_SQL + "\n" + inject.policy_sql())
+        self.assertEqual(access["reporting"],
+                         inject.connect_line("reporting") + "\n" + inject.QUIET_SQL + "\n"
+                         + inject.policy_sql() + inject.function_sql()
+                         + inject.connect_line("staging") + "\n" + inject.QUIET_SQL + "\n"
+                         + inject.function_sql())
+
+    def test_nothing_more_where_no_database_holds_either(self):
+        self.fake.databases = {}
+        result = self.load_data()
+        self.assertEqual([step(r) for r in self.fake.runs],
+                         ["data", "data", "passwords", "list", "list", "grant", "grant"])
+        self.assertEqual((result.mappings, result.policies, result.functions), ([], [], []))
+
+    def test_no_access_where_the_check_role_does_not_exist(self):
+        declarations = localimpl.node_secret_declarations
+
+        def without_check_role(scenario, node):
+            return [sec for sec in declarations(scenario, node)
+                    if sec.get("name") != inject.CHECK_SECRET]
+        with mock.patch.object(localimpl, "node_secret_declarations", without_check_role):
+            result = self.load_data()
+        self.assertNotIn("access", [step(r) for r in self.fake.runs])
+        self.assertIn("mappings", [step(r) for r in self.fake.runs])
+        self.assertEqual((result.policies, result.functions, result.grants), ([], [], []))
+
+    def test_a_mapping_naming_no_remote_role_fails_before_the_mappings(self):
+        self.fake.databases["reporting"][1]["mappings"][0]["remote_role"] = None
+        with self.assertRaises(state.SetupFailed) as cm:
+            self.load_data()
+        self.assertIn("reporting/reporting: the user mapping for bi_etl on server shop_db "
+                      "names no remote role (option user)", str(cm.exception))
+        self.assertNotIn("mappings", [step(r) for r in self.fake.runs])
+        st = localimpl.read_state(self.ldir)
+        self.assertEqual((st["stage"], st["failure"]["stage"]), ("failed", "data-loaded"))
+
+    def test_a_remote_role_without_a_secret_fails_before_the_mappings(self):
+        self.fake.databases["reporting"][1]["mappings"][0]["remote_role"] = "shop_reports"
+        with self.assertRaises(state.SetupFailed) as cm:
+            self.load_data()
+        self.assertIn("connects as shop_reports, which has no secret "
+                      "role_shop_reports_password in game", str(cm.exception))
+        self.assertIn("a schedule's connection or a node's crontab_roles must name the role",
+                      str(cm.exception))
+        self.assertNotIn("mappings", [step(r) for r in self.fake.runs])
+
+    def test_a_failed_mapping_step_shows_no_password(self):
+        secret = self.secret("shop_etl")
+        self.replies["ALTER USER MAPPING"] = (
+            3, "", f"ERROR:  syntax error\nLINE 1: ... OPTIONS (ADD password '{secret}')\n")
+        with self.assertRaises(state.SetupFailed) as cm:
+            self.load_data()
+        self.assertIn("setting the user mappings' passwords on reporting: psql exit 3: "
+                      "ERROR: syntax error", str(cm.exception))
+        reason = localimpl.read_state(self.ldir)["failure"]["reason"]
+        for text in (str(cm.exception), reason, "\n".join(self.printed)):
+            self.assertNotIn(secret, text)
+        self.assertIn("    LINE 1: ... OPTIONS (ADD password '<password>')", self.printed)
+
+    def test_a_failed_access_step_fails_the_setup(self):
+        self.replies["CREATE POLICY"] = (3, "", 'ERROR:  role "gm_check" does not exist\n')
+        with self.assertRaises(state.SetupFailed) as cm:
+            self.load_data()
+        self.assertIn("giving gm_check its read policy and mapping-roles function on "
+                      "reporting: psql exit 3", str(cm.exception))
+        self.assertNotIn("grant", [step(r) for r in self.fake.runs])
+
+    def test_an_unexpected_survey_fails_the_setup(self):
+        self.replies[inject.SURVEY_SQL] = (0, "not json\n", "")
+        self.fake.survey_answer = lambda run: (
+            None if inject.SURVEY_SQL in run["stdin"] else ScriptedDocker.survey_answer(
+                self.fake, run))
+        with self.assertRaises(state.SetupFailed) as cm:
+            self.load_data()
+        self.assertIn("surveying the databases of db: unexpected psql output: not json",
+                      str(cm.exception))
+
+    def test_a_restart_with_no_snapshot_runs_the_same_steps(self):
+        sc = model.load_scenario(self.scenario)
+        plans = inject.load_plans(sc, self.impl)
+        result = inject.LoadResult(self.gid)
+        inject.load_steps(self.ldir, plans, self.fake, result, out=self.printed.append)
+        self.assertEqual(result.policies, [("reporting", "reporting")])
+        self.assertEqual(result.mappings[0][:2], ("reporting", "reporting"))
+
+
+class TestLoadDataShift(V03DeployedGame):
+
+    def test_the_zone_and_offset_are_renders_shift(self):
+        shift = self.impl["timeline"]["shift"]
+        self.load_data()
+        data = self.fake.runs[0]
+        self.assertEqual(data["argv"][5:9], ["-v", f"customer_timezone={render.zone_name(shift)}",
+                                             "-v", f"customer_utc_offset={shift}"])
+
+
+class TestLoadDataSql(unittest.TestCase):
+
+    def test_psql_variables(self):
+        self.assertEqual(inject.psql_variables({}),
+                         {"customer_timezone": "Etc/GMT", "customer_utc_offset": "0"})
+        self.assertEqual(inject.psql_variables({"timeline": {"shift": 2}}),
+                         {"customer_timezone": "Etc/GMT-2", "customer_utc_offset": "2"})
+        self.assertEqual(inject.psql_variables({"timeline": {"shift": -5}}),
+                         {"customer_timezone": "Etc/GMT+5", "customer_utc_offset": "-5"})
+        self.assertEqual(inject.psql_variables({"timeline": {"planned_handover": "x"}}),
+                         {"customer_timezone": "Etc/GMT", "customer_utc_offset": "0"})
+
+    def test_connect_line_quotes_any_name(self):
+        self.assertEqual(inject.connect_line("shop"),
+                         "\\connect -reuse-previous=on 'dbname=''shop'''")
+        self.assertEqual(inject.connect_line("we'ird=db\\x"),
+                         "\\connect -reuse-previous=on 'dbname=''we\\\\''ird=db\\\\\\\\x'''")
+
+    def test_the_read_policy(self):
+        self.assertEqual(inject.policy_sql().splitlines(), [
+            "DROP POLICY IF EXISTS gm_check_read ON cron.job;",
+            "CREATE POLICY gm_check_read ON cron.job AS PERMISSIVE FOR SELECT TO gm_check "
+            "USING (true);",
+            "DROP POLICY IF EXISTS gm_check_read ON cron.job_run_details;",
+            "CREATE POLICY gm_check_read ON cron.job_run_details AS PERMISSIVE FOR SELECT "
+            "TO gm_check USING (true);"])
+
+    def test_the_mapping_roles_function(self):
+        sql = inject.function_sql()
+        for part in ("CREATE SCHEMA IF NOT EXISTS gm_check AUTHORIZATION postgres;",
+                     "REVOKE ALL ON SCHEMA gm_check FROM PUBLIC;",
+                     "GRANT USAGE ON SCHEMA gm_check TO gm_check;",
+                     "CREATE OR REPLACE FUNCTION gm_check.user_mapping_roles()",
+                     "RETURNS TABLE (server_name name, local_role name, remote_role text)",
+                     "LANGUAGE sql STABLE SECURITY DEFINER",
+                     "SET search_path = pg_catalog, pg_temp",
+                     "WHERE o.option_name = 'user'",
+                     "ALTER FUNCTION gm_check.user_mapping_roles() OWNER TO postgres;",
+                     "REVOKE ALL ON FUNCTION gm_check.user_mapping_roles() FROM PUBLIC;",
+                     "GRANT EXECUTE ON FUNCTION gm_check.user_mapping_roles() TO gm_check;"):
+            self.assertIn(part, sql)
+        self.assertNotIn("password", sql)
