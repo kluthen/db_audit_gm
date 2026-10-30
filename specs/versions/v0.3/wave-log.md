@@ -3914,3 +3914,15 @@ merges after this wave.
     recur. Nothing left after the run. Item 12: PASS.
 - Release gate: items 1 to 15 PASS, G9 and G10 cleared. v0.3-w4 is
   ready to merge into main when the owner asks.
+
+## v0.3 closed — 2026-10-30
+
+- Merged into main on the owner's word: `cba7be3` (merge of
+  `v0.3-w4`), pushed; the `v0.3-w4` worktree and local branch removed
+  (the remote branch kept).
+- Milestone archive by spec-writer, `4e2f212`: the build plan, the eight
+  drafts, the review list, 81 decisions (D108–D112, D114–D189) and 26
+  questions to `specs/archive/v0.3/`. This log stays here: about 33
+  files cite it by path, released bricks among them (D57).
+- `v0.4-readme` brought up to date with main (`e221cb6`); it merges
+  into main when the owner asks.
