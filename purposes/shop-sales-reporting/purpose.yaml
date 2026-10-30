@@ -1,0 +1,142 @@
+# P1, sales reporting (v0.4 master spec 10.1; 6.7, 8, 9.6, 9.7, 12): the
+# back office's figures move out of the shop's database into a reporting
+# instance the BI agency (Lumen Analytics) runs. A pulled purpose: results
+# published for readers who query them when they like.
+#
+# Material (material/) is written for the first v0.4 scenario's mapping:
+# source db/shop, target reporting/reporting, runner bi, consumer consumer.
+# The GM adapts the names as it copies (capture W1, item 5); gm.md says
+# where each name lives.
+id: shop-sales-reporting
+title: Sales figures moved from the shop's database to the agency's reporting database
+domains: [shop]
+kind: pulled
+
+parts:
+  source: the shop's database, where orders are placed, shipped and invoiced
+  target: the agency's reporting database (rpt.* published, src.* foreign tables over the source)
+  runner: the agency's transformer, running the hourly script and the nightly close
+  consumer: the back office's dashboards, reading the published figures
+
+jobs:
+  - name: rollup-hourly
+    key: rollup.hourly
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: >-
+      the orders changed since the watermark (updated_at), read from the source, their local
+      hours and days recomputed in rpt.sales_hourly and rpt.sales_daily in one target
+      transaction holding the watermark and one rpt.etl_runs row.
+    cadence: "5 * * * *"
+    connections:
+      source: shop_etl
+      target: bi_etl
+  - name: rollup-close
+    key: rollup.close
+    part: runner
+    source: source
+    target: target
+    method: procedure
+    computes: >-
+      CALL rpt.close_day(): yesterday in the customer's zone (rpt.business_settings), its
+      hours and its day recomputed whole from the source over postgres_fdw and the day marked
+      closed, with one rpt.etl_runs row.
+    cadence: "30 1 * * *"
+    connections:
+      reporting: bi_etl
+
+trace:
+  - kind: published-results
+    part: target
+    table: rpt.sales_hourly
+    run_column: run_id
+  - kind: published-results
+    part: target
+    table: rpt.sales_daily
+    run_column: run_id
+  - kind: run-ledger
+    part: target
+    table: rpt.etl_runs
+    run_column: id
+  - kind: run-ledger
+    part: runner
+    file: /var/log/scheduler/scheduler.log
+  - kind: definitions
+    part: consumer
+    file: /srv/scheduler/repository/queries.yaml
+
+invariants:
+  - id: R1
+    statement: >-
+      For every hour and day the hourly runs since the judged moment were due to publish, its
+      orders, units and revenue (and a day's invoiced revenue) equal the source's for that
+      local hour or day, counting the source's orders as they stood at the run's start.
+    check: checks/r1-reconciled.sh
+    parameters: {}
+    witness: >-
+      orders placed every hour, night included (an hour the run published), and the 12:00
+      close-of-day invoicing updating a past day's orders (a past day whose invoiced revenue
+      changed after it ended), both since the judged moment.
+  - id: R2
+    statement: >-
+      Each (hour, category) has one row in rpt.sales_hourly, and a day's revenue in
+      rpt.sales_daily equals the sum of its hours' revenue.
+    check: checks/r2-counted-once.sh
+    parameters: {}
+    witness: >-
+      a day row written since the judged moment by either job, with hours of its own; the
+      hourly run rewrites the current day every hour.
+  - id: R3
+    statement: >-
+      The hours and days both jobs publish are the customer's local hours and days
+      (business_settings.timezone on the source).
+    check: checks/r3-local-days.sh
+    parameters: {}
+    witness: >-
+      orders placed in the first and in the last local hour of a day a run since the judged
+      moment published whole: the producer places orders all night, so every closed day has
+      them.
+  - id: R4
+    statement: >-
+      The latest successful rollup-hourly started within 70 minutes and read rows, and no
+      run since the judged moment ended in error, was refused its connection, or read no
+      row in business hours.
+    check: checks/r4-fresh.sh
+    parameters: {}
+    witness: >-
+      a successful run since the judged moment that read changed orders: orders arrive every
+      hour, night included.
+  - id: R5
+    statement: >-
+      The dashboards' revenue query (dashboard.revenue) returns, for each day it shows, the
+      revenue rpt.sales_daily holds for that day.
+    check: checks/r5-dashboard-faithful.sh
+    parameters: {}
+    witness: >-
+      a definition, judged on the live state (master spec 12.6): rpt.sales_daily holds days
+      in the dashboard's fourteen-day window once the first hourly run has published.
+
+data_moved:
+  - job: rollup-hourly
+    reads: []
+    writes: [target:rpt.sales_hourly, target:rpt.sales_daily, target:rpt.etl_runs]
+  - job: rollup-close
+    reads: []
+    writes: [target:rpt.sales_hourly, target:rpt.sales_daily, target:rpt.etl_runs]
+
+roles:
+  - name: shop_etl
+    part: source
+    reads: [orders without customer_id (a column grant), order_lines, products]
+    writes: []
+  - name: bi_etl
+    part: target
+    reads: [src.orders, src.order_lines, src.products (through its user mapping to shop_etl),
+            rpt.*]
+    writes: [rpt.sales_hourly, rpt.sales_daily, rpt.etl_runs]
+  - name: bi_reader
+    part: target
+    reads: [rpt.*]
+    writes: []

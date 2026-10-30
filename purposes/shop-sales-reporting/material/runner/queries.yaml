@@ -1,0 +1,14 @@
+# Query repository of the BI agency's transformer, a fragment (capture W1,
+# items 5 and 7): the sales reporting purpose's two jobs. The hourly
+# roll-up is a transformer script (scripts/rollup.py); the nightly close a
+# plain CALL of the procedure on the reporting database, which computes
+# there (master spec 8.7).
+queries:
+  rollup.hourly:
+    script: scripts/rollup.py:hourly
+    options:
+      overlap_seconds: 600     # re-read the changes this far before the watermark: a
+                               # transaction committing late (the close-of-day holds its
+                               # invoicing 20 s) is never missed
+  rollup.close:
+    sql: CALL rpt.close_day()
