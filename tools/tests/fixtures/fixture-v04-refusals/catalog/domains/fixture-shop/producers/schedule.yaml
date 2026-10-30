@@ -1,0 +1,10 @@
+# The test domain's producer schedule, a fragment.
+connections:
+  app:
+    driver: sql/postgresql
+    target: db:5432/shop
+    role: shop_app
+streams:
+  - key: customers.lookup
+    connection: app
+    rate: 10/min

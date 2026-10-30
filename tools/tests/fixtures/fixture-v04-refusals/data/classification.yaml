@@ -1,0 +1,8 @@
+# The scenario's classification (tools/tests, v0.4 chunk 2): a domain's
+# file copied in (master spec 11.3; capture W1 items 0, 1 and 6).
+columns:
+  shop.customers.id: personal
+  shop.customers.name: personal
+  shop.customers.email: personal
+  shop.orders.customer_id: customer-linked
+  shop.orders.total: internal
