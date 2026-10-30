@@ -4,8 +4,8 @@ the entrypoint and by `gm-reload-scheduler`.
 `/run/gm/write-policy` (written by the entrypoint from GM_WRITE_POLICY and
 GM_WRITE_OVERRIDES) says the node's policy and overrides. A path is
 fixable when the policy is `fixable`, or it is an override or lies under
-one. Every seeded file (`queries.yaml`, the files in `builders/`,
-`jobs.yaml`) is owned scheduler:schedconf, 0664 when fixable, 0644
+one. Every seeded file (`queries.yaml`, the files in `builders/` and
+`scripts/`, `jobs.yaml`) is owned scheduler:schedconf, 0664 when fixable, 0644
 otherwise; the directories holding them, 2775 or 2755. Contents are never
 touched, and nothing is done through a symbolic link: every file is opened
 with O_NOFOLLOW and changed through its descriptor, so a link a player
@@ -93,7 +93,7 @@ def restore(policy, overrides, repository=REPOSITORY_DIR, jobs=JOBS_DIR, uid=Non
         gid = grp.getgrnam(GROUP).gr_gid
     notes = []
     plan = [(repository, ("queries.yaml",), False), (os.path.join(repository, "builders"), None, True),
-            (jobs, ("jobs.yaml",), False)]
+            (os.path.join(repository, "scripts"), None, True), (jobs, ("jobs.yaml",), False)]
     for directory, names, optional in plan:
         fixable = is_fixable(directory, policy, overrides)
         try:

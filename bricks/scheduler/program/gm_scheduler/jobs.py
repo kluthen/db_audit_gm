@@ -1,4 +1,5 @@
-"""Fixed-time operations: `jobs.yaml` (master spec 7.1; capture W1 item 7).
+"""Fixed-time operations: `jobs.yaml` (master spec 7.1; v0.3 capture W1
+item 7, v0.4 capture W1 item 7).
 
     jobs:
       - name: close-day
@@ -6,8 +7,17 @@
         connection: app               # a connection of the schedule
         at: "30 1 * * *"              # numeric 5-field cron
         timezone: Etc/GMT-3           # optional: a zone tzdata names; UTC when absent
+      - name: rollup-hourly
+        key: rollup.hourly            # a script key of queries.yaml
+        connections:                  # instead of connection: the script's name for each
+          source: shop                #   connection of the schedule ([a-z][a-z0-9_]*,
+          target: reporting           #   the keys of its conns map)
+        at: "5 * * * *"
 
-The rendered file is in UTC; a player may edit the times and zones.
+Exactly one of `connection` and `connections`; which one the key takes
+(a script key `connections`, any other `connection`) is checked against
+the repository (runner.check_job_forms). The rendered file is in UTC; a
+player may edit the times and zones.
 """
 
 import re
@@ -17,12 +27,28 @@ from .cron import Cron
 from .repository import KEY_RE, load_yaml, read_regular
 
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+CONN_KEY_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 JOBS_FILE = "jobs.yaml"
 
 
 class Job:
-    def __init__(self, name, key, connection, cron):
+    def __init__(self, name, key, connection, cron, connections=None):
         self.name, self.key, self.connection, self.cron = name, key, connection, cron
+        self.connections = connections      # {script's name: schedule connection}, a script key's job only
+
+
+def parse_connections(value, where):
+    if not isinstance(value, dict) or not value:
+        raise ConfigError(f"{where}.connections: a map of at least one <name>: <connection>")
+    out = {}
+    for name, conn in value.items():
+        if not isinstance(name, str) or not CONN_KEY_RE.match(name):
+            raise ConfigError(f"{where}.connections: name {name!r}: a lowercase letter, then lowercase letters, "
+                              "digits, '_'")
+        if not isinstance(conn, str) or not conn:
+            raise ConfigError(f"{where}.connections.{name}: a connection name")
+        out[name] = conn
+    return out
 
 
 def parse_jobs(doc):
@@ -40,7 +66,7 @@ def parse_jobs(doc):
         where = f"{JOBS_FILE}: jobs[{i}]"
         if not isinstance(item, dict):
             raise ConfigError(f"{where}: a map with name, key, connection, at")
-        unknown = set(item) - {"name", "key", "connection", "at", "timezone"}
+        unknown = set(item) - {"name", "key", "connection", "connections", "at", "timezone"}
         if unknown:
             raise ConfigError(f"{where}: unknown key(s) {', '.join(sorted(map(str, unknown)))}")
         name = item.get("name")
@@ -53,14 +79,18 @@ def parse_jobs(doc):
         key = item.get("key")
         if not isinstance(key, str) or not KEY_RE.match(key):
             raise ConfigError(f"{where}.key: a key of queries.yaml")
-        connection = item.get("connection")
-        if not isinstance(connection, str) or not connection:
+        connection, connections = item.get("connection"), None
+        if "connections" in item:
+            if "connection" in item:
+                raise ConfigError(f"{where}: connection or connections, not both")
+            connections = parse_connections(item["connections"], where)
+        elif not isinstance(connection, str) or not connection:
             raise ConfigError(f"{where}.connection: a connection name")
         try:
             cron = Cron(item.get("at"), item.get("timezone", "UTC"))
         except ConfigError as exc:
             raise ConfigError(f"{where}: {exc}") from None
-        jobs.append(Job(name, key, connection, cron))
+        jobs.append(Job(name, key, connection, cron, connections))
     return jobs
 
 

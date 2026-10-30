@@ -7,8 +7,10 @@ and jobs.yaml, opens the metrics endpoint, then:
   - with it: running, from the current time: every timeline change whose
     moment has passed is applied, the jobs run at their next time, and
     nothing missed is replayed.
-SIGHUP reloads the repository and jobs.yaml (the schedule, connections and
-counters kept); SIGTERM stops it.
+A node may have jobs and no stream (`streams: []`). A script key's job
+runs in a worker thread (gm_scheduler.scripts); every other run is an
+asyncio task. SIGHUP reloads the repository and jobs.yaml (the schedule,
+connections and counters kept); SIGTERM stops it.
 """
 
 import asyncio
@@ -28,6 +30,7 @@ from .metrics import Stats, serve_metrics
 from .pools import Pool
 from .repository import BuilderResult, fingerprint, load_repository, loaded_files
 from .rng import derive
+from . import scripts
 from .schedule import apply_change, apply_past_changes
 from .streams import draw_need, next_arrival, rate_function
 from .textlog import Log
@@ -61,20 +64,61 @@ def write_atomic(path, text, mode=0o640):
     os.replace(tmp, path)
 
 
-def check_references(schedule, repo, jobs):
-    """Every key the schedule and jobs.yaml name is in the repository; every
-    job's connection is the schedule's. Messages name only keys and the
-    players' own job names (W1 item 7)."""
+def schedule_key_problems(schedule_keys, keys, script_keys):
+    """Every key the schedule names (its streams' and timeline's) is in
+    queries.yaml, and none is a script, which runs only as a job."""
     problems = []
-    for key in sorted(schedule.keys()):
-        if key not in repo:
+    for key in sorted(schedule_keys):
+        if key not in keys:
             problems.append(f"queries.yaml: key {key} is named by the schedule but is missing")
+        elif key in script_keys:
+            problems.append(f"queries.yaml: key {key} is named by the schedule but is a script: "
+                            "a script runs only as a job")
+    return problems
+
+
+def job_connection_problems(jobs, connections):
+    """Every connection a job names (`connection`, or each of its
+    `connections`) is the schedule's."""
+    problems = []
+    for job in jobs:
+        if job.connections is None:
+            if job.connection not in connections:
+                problems.append(f"jobs.yaml: job {job.name}: connection {job.connection} is not one of the schedule's")
+            continue
+        for name, cname in job.connections.items():
+            if cname not in connections:
+                problems.append(f"jobs.yaml: job {job.name}: connections.{name}: connection {cname} is not one "
+                                "of the schedule's")
+    return problems
+
+
+def check_job_forms(repo, jobs):
+    """Every job's key is in the repository, and the job takes the form its
+    key needs: `connections:` for a script, `connection:` otherwise."""
+    problems = []
     for job in jobs:
         if job.key not in repo:
             problems.append(f"jobs.yaml: job {job.name}: key {job.key} is not in queries.yaml")
-        if job.connection not in schedule.connections:
-            problems.append(f"jobs.yaml: job {job.name}: connection {job.connection} is not one of the schedule's")
+            continue
+        script = repo.get(job.key).kind == "script"
+        if script and job.connections is None:
+            problems.append(f"jobs.yaml: job {job.name}: key {job.key} is a script: name its connections "
+                            "with connections:, not connection:")
+        elif not script and job.connections is not None:
+            problems.append(f"jobs.yaml: job {job.name}: key {job.key} is not a script: it takes connection:, "
+                            "not connections:")
     return problems
+
+
+def check_references(schedule, repo, jobs):
+    """Every key the schedule and jobs.yaml name is in the repository, the
+    schedule naming no script; each job's form fits its key; every
+    connection a job names is the schedule's. Messages name only keys,
+    connection names and the players' own job names (W1 item 7)."""
+    script_keys = {k for k in repo.keys() if repo.get(k).kind == "script"}
+    return (schedule_key_problems(schedule.keys(), set(repo.keys()), script_keys)
+            + check_job_forms(repo, jobs) + job_connection_problems(jobs, schedule.connections))
 
 
 class Context:
@@ -204,6 +248,8 @@ class Scheduler:
         entry = self.repo.get(key) if key in self.repo else None
         if entry is None:
             return None, "the key is not in queries.yaml"
+        if entry.kind == "script":
+            return None, "the key is a script: a script runs only as a job"
         try:
             return entry.plan(rng, self.ctx, self.schedule.intensity), None
         except BuilderResult as exc:
@@ -307,6 +353,9 @@ class Scheduler:
         return task
 
     async def job_run(self, job, due):
+        entry = self.repo.get(job.key) if job.key in self.repo else None
+        if entry is not None and entry.kind == "script" and job.connections is not None:
+            return await self.script_run(job, entry, due)
         rng = derive(self.schedule.seed, self.hostname, f"job:{job.name}:{int(due)}", self.started)
         pool = self.pool_for(self.job_pools.setdefault(job.name, {}), job.connection)
         started = time.monotonic()
@@ -345,6 +394,39 @@ class Scheduler:
             self.record_error(job.key, exc.code, exc.message, job=job.name)
             self.log.write("skip", ("job", job.name), ("key", job.key), ("at", instant(due)),
                            ("reason", "connection-refused"))
+
+    async def script_run(self, job, entry, due):
+        """One run of a script key's job: its connections opened in a worker
+        thread, then the call in another; the same run, skip and error
+        lines as any job's (master spec 7.1)."""
+        started = time.monotonic()
+        try:
+            conns = await scripts.in_thread(scripts.open_connections, job.connections, self.schedule,
+                                            self.passwords, self.hostname, name=f"gm-script-{job.name}")
+        except DriverError as exc:
+            self.stats.job_skip(job.key, job.name, "connection-refused")
+            self.record_error(job.key, exc.code, exc.message, job=job.name)
+            self.log.write("skip", ("job", job.name), ("key", job.key), ("at", instant(due)),
+                           ("reason", "connection-refused"))
+            return
+        self.stats.job_run(job.key, job.name)
+        self.stats.touch({job.key}, time.time())
+        self.log.write("run", ("job", job.name), ("key", job.key), ("phase", "start"))
+        name = job.name
+        outcome = await scripts.in_thread(scripts.call, entry.fn, conns, entry.options,
+                                          lambda text: self.log.write_script(name, text),
+                                          name=f"gm-script-{job.name}")
+        latency = time.monotonic() - started
+        self.stats.record(job.key, latency, not outcome.ok, time.time())
+        ms = f"{latency * 1000:.1f}"
+        if outcome.ok:
+            self.log.write("run", ("job", job.name), ("key", job.key), ("phase", "end"), ("status", "ok"),
+                           ("rows", outcome.rows), ("ms", ms))
+            return
+        self.record_error(job.key, outcome.value if outcome.field == "sqlstate" else "-", outcome.message,
+                          job=job.name)
+        self.log.write("run", ("job", job.name), ("key", job.key), ("phase", "end"), ("status", "error"),
+                       (outcome.field, outcome.value), ("ms", ms))
 
     # --- summaries -------------------------------------------------------------
     def current_keys(self):

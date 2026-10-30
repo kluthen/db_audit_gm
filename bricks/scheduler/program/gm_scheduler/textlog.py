@@ -6,10 +6,15 @@ holding a space, a quote, a backslash or an equals sign is quoted (`"..."`,
 with `\\"` and `\\\\` escaped) and is the line's last field; control
 characters become spaces. The log names keys, jobs and connections, never
 rates or shapes.
+
+One event has free text instead: `<UTC instant> script job=<name> <text>`,
+what a transformer script passed to `log(text)` (master spec 7.1),
+control characters as spaces.
 """
 
 import os
 import sys
+import threading
 import time
 
 from .timeutil import instant
@@ -39,13 +44,23 @@ def format_line(ts, event, fields):
     return " ".join(parts)
 
 
+def clean_text(text):
+    return "".join(" " if ord(c) < 32 or ord(c) == 127 else c for c in str(text))
+
+
+def script_line(ts, job, text):
+    return f"{instant(ts)} script job={job} {clean_text(text)}"
+
+
 class Log:
     """Appends lines to the log file, flushed at each line. Lines that
-    cannot be written go to standard error (the container's log)."""
+    cannot be written go to standard error (the container's log). Safe to
+    call from a script's worker thread."""
 
     def __init__(self, path):
         self.path = path
         self._file = None
+        self._lock = threading.Lock()
 
     def _open(self):
         if self._file is None and self.path:
@@ -54,18 +69,26 @@ class Log:
         return self._file
 
     def write(self, event, *fields, ts=None):
-        line = format_line(time.time() if ts is None else ts, event, fields)
-        try:
-            f = self._open()
-            if f is None:
-                raise OSError("no log path")
-            f.write(line + "\n")
-            f.flush()
-        except OSError as exc:
-            print(f"gm-scheduler: cannot write the log ({exc}): {line}", file=sys.stderr, flush=True)
+        return self._append(format_line(time.time() if ts is None else ts, event, fields))
+
+    def write_script(self, job, text, ts=None):
+        """A script's `log(text)`: `script job=<name> <text>`."""
+        return self._append(script_line(time.time() if ts is None else ts, job, text))
+
+    def _append(self, line):
+        with self._lock:
+            try:
+                f = self._open()
+                if f is None:
+                    raise OSError("no log path")
+                f.write(line + "\n")
+                f.flush()
+            except OSError as exc:
+                print(f"gm-scheduler: cannot write the log ({exc}): {line}", file=sys.stderr, flush=True)
         return line
 
     def close(self):
-        if self._file is not None:
-            self._file.close()
-            self._file = None
+        with self._lock:
+            if self._file is not None:
+                self._file.close()
+                self._file = None

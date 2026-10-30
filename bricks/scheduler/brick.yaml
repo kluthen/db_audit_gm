@@ -1,10 +1,11 @@
-# brick.yaml: scheduler node, the producers and consumers of a game
-# (v0.3 master spec 7.1).
+# brick.yaml: scheduler node, the producers, transformers and consumers of
+# a game (v0.3 master spec 7.1; v0.4 master spec 7.1: transformer scripts).
 #
 # Version 0.2.0 (unreleased until the v0.4 release gate).
 # Keys of v0.3's shape (seed.paths, seed.modes, disk_growth_per_hour,
 # snapshot) and the runtime interface: capture W1 items 3, 5, 6 and 7
-# (specs/versions/v0.3/wave-log.md); what the brick fixed itself: W1-y.
+# (specs/versions/v0.3/wave-log.md) and v0.4's W1 item 7
+# (specs/versions/v0.4/wave-log.md); what the brick fixed itself: W1-y.
 # Operating notes: docs/gm.md.
 
 # --- Identity ---------------------------------------------------------
@@ -13,6 +14,7 @@ version: 0.2.0
 roles:
   - producer
   - consumer
+  - transformer                     # a script key's job moving rows between instances (v0.4)
 technology:
   name: gm-scheduler                # the program in program/gm_scheduler, Python 3.13, psycopg 3
   version: "0.2.0"
@@ -37,7 +39,7 @@ write_policies:
   - fixable
   - report-only
 writable_paths:                     # directories, so sed -i works where they are fixable (spec D170)
-  - /srv/scheduler/repository       # queries.yaml, builders/ (volume repository)
+  - /srv/scheduler/repository       # queries.yaml, builders/, scripts/ (volume repository)
   - /srv/scheduler/jobs             # jobs.yaml (volume jobs)
   - /home/player                    # ~/report.md, the player's notes
 protected_files:
@@ -104,17 +106,19 @@ seed:
                                     # copied (spec D163); its run script passes it on standard input
     - queries.yaml                  # the query repository
     - builders/                     # optional: the repository's builders, one file each
+    - scripts/                      # optional: the repository's transformer scripts, one file each
     - jobs.yaml                     # the fixed-time operations
   paths:                            # seed file -> its live path in the node
     schedule.yaml: /opt/gm/seed/schedule.yaml
     queries.yaml: /srv/scheduler/repository/queries.yaml
     builders/: /srv/scheduler/repository/builders
+    scripts/: /srv/scheduler/repository/scripts
     jobs.yaml: /srv/scheduler/jobs/jobs.yaml
   modes:                            # seed config modes other than "0444", owner 0:0
     schedule.yaml: "0400"           # root only: neither player nor the service account reads it
 protected_configs: []
 volumes:
-  - name: repository                # queries.yaml, builders/: scheduler:schedconf, seeded once
+  - name: repository                # queries.yaml, builders/, scripts/: scheduler:schedconf, seeded once
     path: /srv/scheduler/repository
   - name: jobs                      # jobs.yaml: scheduler:schedconf, seeded once
     path: /srv/scheduler/jobs

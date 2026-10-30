@@ -2,11 +2,14 @@
 
     run          the program (the s6 service, as `scheduler`): the input on
                  standard input (gm_scheduler.schedule), exit codes in runner
-    check        as `scheduler`: queries.yaml, builders/ and jobs.yaml load,
-                 and jobs.yaml's keys are in queries.yaml; one problem a line
+    check        as `scheduler`: queries.yaml, the builders/ and scripts/ it
+                 names and jobs.yaml load, jobs.yaml's keys are in
+                 queries.yaml, and each job names `connections:` for a
+                 script key, `connection:` otherwise; one problem a line
     check-keys   as root: every key the schedule names is in queries.yaml and
-                 every job's connection is the schedule's; never imports a
-                 builder and prints only keys and the players' job names
+                 none is a script, and every connection a job names is the
+                 schedule's; never imports a builder or a script and prints
+                 only keys, connection names and the players' job names
     pending      as `scheduler`: the files changed since the program loaded them
     restore      as root: the write policy's owner and modes (gm_scheduler.policy)
     reloadable   as root: exit 0 when a file gm-reload-scheduler applies is
@@ -24,8 +27,9 @@ import sys
 from . import ConfigError
 from . import policy as wp
 from .jobs import load_jobs
-from .repository import fingerprint, load_repository, loaded_files, queries_keys_only
-from .runner import CONFIG_FILE, load_config, run, write_atomic
+from .repository import fingerprint, load_repository, loaded_files, queries_outline
+from .runner import (CONFIG_FILE, check_job_forms, job_connection_problems, load_config, run,
+                     schedule_key_problems, write_atomic)
 from .schedule import parse_schedule
 from .repository import load_yaml
 
@@ -42,9 +46,7 @@ def cmd_check(cfg):
     except ConfigError as exc:
         problems.append(str(exc))
     if repo is not None and jobs is not None:
-        for job in jobs:
-            if job.key not in repo:
-                problems.append(f"jobs.yaml: job {job.name}: key {job.key} is not in queries.yaml")
+        problems += check_job_forms(repo, jobs)
     for p in problems:
         print(p)
     return 1 if problems else 0
@@ -57,23 +59,18 @@ def cmd_check_keys(cfg):
     except (OSError, ConfigError):
         print("the schedule does not load: the game master's business, not a file of yours")
         return 2
-    problems = []
     try:
-        keys = queries_keys_only(cfg["repository"])
+        keys, script_keys = queries_outline(cfg["repository"])
     except ConfigError as exc:
         print(str(exc))
         return 1
-    for key in sorted(schedule.keys()):
-        if key not in keys:
-            problems.append(f"queries.yaml: key {key} is named by the schedule but is missing")
+    problems = schedule_key_problems(schedule.keys(), keys, script_keys)
     try:
         jobs = load_jobs(cfg["jobs"])
     except ConfigError as exc:
         problems.append(str(exc))
         jobs = []
-    for job in jobs:
-        if job.connection not in schedule.connections:
-            problems.append(f"jobs.yaml: job {job.name}: connection {job.connection} is not one of the schedule's")
+    problems += job_connection_problems(jobs, schedule.connections)
     for p in problems:
         print(p)
     return 1 if problems else 0

@@ -12,7 +12,8 @@
 #   4. checks GM_WRITE_POLICY and GM_WRITE_OVERRIDES and writes
 #      /run/gm/write-policy, read by gm-reload-scheduler (sudo resets the
 #      environment);
-#   5. seeds the repository and jobs.yaml from /opt/gm/seed once (marker
+#   5. seeds the repository (queries.yaml, builders/, scripts/) and
+#      jobs.yaml from /opt/gm/seed once (marker
 #      /var/lib/gm-state/.gm-seeded, on its own root-owned volume);
 #   6. applies the write policy's owner and modes to every seeded file and
 #      directory, seeding or not (contents untouched);
@@ -88,13 +89,14 @@ if [ ! -e "$MARKER" ]; then
         [ -f "$SEED_DIR/$f" ] || die "seed file $SEED_DIR/$f is missing"
     done
     install -o scheduler -g schedconf -m 0644 "$SEED_DIR/queries.yaml" "$REPO/queries.yaml"
-    install -d -o scheduler -g schedconf -m 0755 "$REPO/builders"
-    if [ -d "$SEED_DIR/builders" ]; then
-        for f in "$SEED_DIR"/builders/*; do
+    for d in builders scripts; do
+        install -d -o scheduler -g schedconf -m 0755 "$REPO/$d"
+        [ -d "$SEED_DIR/$d" ] || continue
+        for f in "$SEED_DIR/$d"/*; do
             [ -f "$f" ] || continue
-            install -o scheduler -g schedconf -m 0644 "$f" "$REPO/builders/${f##*/}"
+            install -o scheduler -g schedconf -m 0644 "$f" "$REPO/$d/${f##*/}"
         done
-    fi
+    done
     install -o scheduler -g schedconf -m 0644 "$SEED_DIR/jobs.yaml" "$JOBS/jobs.yaml"
     date -u '+seeded %Y-%m-%dT%H:%M:%SZ from /opt/gm/seed (DO NOT TAMPER)' > "$MARKER"
     chown root:root "$MARKER"

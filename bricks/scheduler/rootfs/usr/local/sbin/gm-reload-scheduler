@@ -9,11 +9,13 @@
 #      /run/gm/write-policy), contents untouched, never through a link;
 #   2. on a node where neither /srv/scheduler/repository nor
 #      /srv/scheduler/jobs is fixable: refuses, nothing signalled;
-#   3. checks queries.yaml, builders/ and jobs.yaml as `scheduler` (they
-#      load; the builders queries.yaml names import), then, as root, that
-#      every key the schedule names is still in queries.yaml and every
-#      job's connection is the schedule's (the messages name only keys);
-#      refuses when either fails;
+#   3. checks queries.yaml, builders/, scripts/ and jobs.yaml as
+#      `scheduler` (they load; the builders and scripts queries.yaml names
+#      import; a script key's job names connections:), then, as root, that
+#      every key the schedule names is still in queries.yaml and is no
+#      script, and every connection a job names is the schedule's (the
+#      messages name only keys and connection names); refuses when either
+#      fails;
 #   4. sends SIGHUP through s6: the program reloads both, keeping its
 #      schedule, connections and counters; waits for it and prints when
 #      each job runs next (UTC).
@@ -77,7 +79,7 @@ while [ "$i" -lt "$((WAIT * 4))" ]; do
     i=$((i + 1))
     now=$(generation)
     if [ -n "$now" ] && [ "$now" != "$before" ]; then
-        echo "$ME: reloaded queries.yaml, builders/ and jobs.yaml."
+        echo "$ME: reloaded queries.yaml, builders/, scripts/ and jobs.yaml."
         jobs=$(sed -n 's/^job \([^ ]*\) next=\(.*\)$/  \1: next run \2/p' "$LOADED")
         if [ -n "$jobs" ]; then
             echo "$ME: fixed-time operations (UTC):"

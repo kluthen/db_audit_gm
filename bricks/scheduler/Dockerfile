@@ -92,7 +92,8 @@ RUN set -eux; \
     # sets their modes by the write policy at every start
     install -d -o root -g root -m 0755 /srv/scheduler; \
     install -d -o scheduler -g schedconf -m 2755 /srv/scheduler/repository /srv/scheduler/jobs; \
-    install -d -o scheduler -g schedconf -m 0755 /srv/scheduler/repository/builders; \
+    install -d -o scheduler -g schedconf -m 0755 /srv/scheduler/repository/builders \
+        /srv/scheduler/repository/scripts; \
     # the log (volume `schedlog`), read by players through schedconf
     install -d -o scheduler -g schedconf -m 2750 /var/log/scheduler; \
     # the program's state (volume `schedstate`)

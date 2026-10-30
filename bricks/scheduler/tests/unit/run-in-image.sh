@@ -2,7 +2,8 @@
 # Runs the scheduler program's unit tests inside the image's `unit-test`
 # stage (tests/run-unit-tests.sh builds and starts it): a throwaway
 # PostgreSQL in this container (Debian's, port 5432 on 127.0.0.1, its data
-# under /tmp), the roles the tests use, then every test_*.py here against
+# under /tmp), the roles and the two databases the tests use (`shop`, and
+# `reporting` for the transformer scripts), then every test_*.py here against
 # the program installed in the image (python3 -I: dist-packages only).
 set -eu
 
@@ -13,6 +14,11 @@ GM_TEST_PG_PASSWORD=$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')
 GM_TEST_PG_ADMIN=gm_test_admin
 GM_TEST_PG_ADMIN_PASSWORD=$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')
 export GM_TEST_PG_PASSWORD GM_TEST_PG_ADMIN GM_TEST_PG_ADMIN_PASSWORD
+# a transformer script's two connections: shop as shop_etl, reporting as bi_etl
+export GM_TEST_PG_SRC_ROLE=shop_etl GM_TEST_PG_DST_DB=reporting GM_TEST_PG_DST_ROLE=bi_etl
+GM_TEST_PG_SRC_PASSWORD=$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')
+GM_TEST_PG_DST_PASSWORD=$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')
+export GM_TEST_PG_SRC_PASSWORD GM_TEST_PG_DST_PASSWORD
 
 install -d -o postgres -g postgres -m 0700 "$PGDATA"
 runuser -u postgres -- "$PGBIN/initdb" -D "$PGDATA" -A scram-sha-256 --auth-local=peer -U postgres -E UTF8 --locale=C.UTF-8 \
@@ -23,10 +29,14 @@ runuser -u postgres -- "$PGBIN/pg_ctl" -D "$PGDATA" -w -l /tmp/pg.log -o \
 trap 'runuser -u postgres -- "$PGBIN/pg_ctl" -D "$PGDATA" -m immediate stop >/dev/null 2>&1 || true' EXIT
 
 runuser -u postgres -- "$PGBIN/psql" -X -q -h /tmp -d postgres -v ON_ERROR_STOP=1 \
-    -v app="$GM_TEST_PG_PASSWORD" -v adm="$GM_TEST_PG_ADMIN_PASSWORD" <<'SQL'
+    -v app="$GM_TEST_PG_PASSWORD" -v adm="$GM_TEST_PG_ADMIN_PASSWORD" \
+    -v src="$GM_TEST_PG_SRC_PASSWORD" -v dst="$GM_TEST_PG_DST_PASSWORD" <<'SQL'
 CREATE ROLE shop_app LOGIN PASSWORD :'app';
 CREATE ROLE gm_test_admin LOGIN SUPERUSER PASSWORD :'adm';
+CREATE ROLE shop_etl LOGIN PASSWORD :'src';
+CREATE ROLE bi_etl LOGIN PASSWORD :'dst';
 CREATE DATABASE shop OWNER gm_test_admin;
+CREATE DATABASE reporting OWNER gm_test_admin;
 \c shop
 GRANT CREATE, USAGE ON SCHEMA public TO shop_app;
 SQL
