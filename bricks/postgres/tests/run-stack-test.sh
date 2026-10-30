@@ -1,8 +1,10 @@
 #!/bin/sh
 # Stack test of the PostgreSQL brick (build plan v0.1 chunk 2, v0.2
-# chunk 6 and v0.3 chunk 4, Done when).
+# chunk 6, v0.3 chunk 4 and v0.4 chunk 4, Done when).
 #
-# Deploys the brick as a one-service Swarm stack (stack.test.yml) with the
+# Deploys the brick as a two-service Swarm stack (stack.test.yml): db, a
+# node seeding neither pg_cron nor a crontab, as in 0.3.0, and db2, the
+# node with jobs (pg_cron preloaded, a seed crontab, a crontab role). With the
 # seed files, the envelope file and the secrets as external configs and
 # secrets created here, then checks, from a client container on the
 # stack's network and from the GM side (docker exec):
@@ -25,7 +27,20 @@
 #     gm-restart-db and a new container after a player's `sed -i`, never
 #     through a symlink; gm-snapshot-db's tar restored into a fresh
 #     container of a second stack (gmtest-pgr), with its data, the slot
-#     gone, and the slot gone after a failed snapshot.
+#     gone, and the slot gone after a failed snapshot;
+#   - v0.4 (chunk 4a): on db, the service cron down and gm-crontab refusing
+#     to install; on db2, the cron daemon up after postgres and stopped
+#     before it, the seed crontab installed once into the spool (volume
+#     cronspool) with cron's owner and modes, its entry connecting as the
+#     customer role cron_app through the password file /run/gm-cron/pgpass
+#     (postgres-only) and appending to its log under
+#     /var/log/postgresql/cron/ (read by player), gm-crontab listing,
+#     refusing what it must and replacing the crontab, the replacement
+#     surviving a new container, an empty crontab leaving the daemon up;
+#     pg_cron preloaded, a job scheduled with
+#     cron.schedule_in_database(..., username => 'cron_app') running as that
+#     role and filling cron.job_run_details. No job is run by hand: each
+#     waits for its schedule.
 # Everything it creates is removed on exit, volumes included.
 #
 # Needs: a swarm manager (docker swarm init), the image built locally:
@@ -40,9 +55,10 @@ SERVICE=${STACK}_db
 NET=${STACK}_net
 CLIENT=${STACK}-client
 LABEL=dbagm.test=chunk2-postgres
-CONFIGS="seed_postgresql_conf seed_pg_hba_conf envelopes"
-SECRETS="player_ssh_pubkey dba_password monitoring_password gm_check_password pgbouncer_lookup_password"
-VOLUMES="pgdata pgconf home gmstate pglog run"
+SERVICE2=${STACK}_db2               # the node with jobs (chunk 4)
+CONFIGS="seed_postgresql_conf seed_pg_hba_conf envelopes seed_postgresql_jobs_conf seed_pg_hba_jobs_conf seed_crontab"
+SECRETS="player_ssh_pubkey dba_password monitoring_password gm_check_password pgbouncer_lookup_password role_cron_app_password"
+VOLUMES="pgdata pgconf home gmstate pglog run cronspool pgdata2 pgconf2 home2 gmstate2 pglog2 run2 cronspool2"
 RSTACK=gmtest-pgr                 # the snapshot restored (chunk 4b)
 RSERVICE=${RSTACK}_db
 SSH_OPTS="-i /root/id -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o LogLevel=ERROR -o ConnectTimeout=10"
@@ -116,15 +132,21 @@ printf '%s' "$GMC_PASSWORD" > "$tmp/gm_check_password"
 LOOKUP_PASSWORD="L:$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')'q\\z"
 printf '%s' "$LOOKUP_PASSWORD" > "$tmp/pgbouncer_lookup_password"
 APP_PASSWORD="app-$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+ROLE_PASSWORD="C:$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')'q\\z"   # crontab role cron_app
+printf '%s' "$ROLE_PASSWORD" > "$tmp/role_cron_app_password"
 
 docker config create -l "$LABEL" "${STACK}_seed_postgresql_conf" "$HERE/fixtures/postgresql.conf" >/dev/null
 docker config create -l "$LABEL" "${STACK}_seed_pg_hba_conf" "$HERE/fixtures/pg_hba.conf" >/dev/null
 docker config create -l "$LABEL" "${STACK}_envelopes" "$HERE/fixtures/envelopes.conf" >/dev/null
+docker config create -l "$LABEL" "${STACK}_seed_postgresql_jobs_conf" "$HERE/fixtures/postgresql-jobs.conf" >/dev/null
+docker config create -l "$LABEL" "${STACK}_seed_pg_hba_jobs_conf" "$HERE/fixtures/pg_hba-jobs.conf" >/dev/null
+docker config create -l "$LABEL" "${STACK}_seed_crontab" "$HERE/fixtures/crontab" >/dev/null
 docker secret create -l "$LABEL" "${STACK}_player_ssh_pubkey" "$tmp/id.pub" >/dev/null
 docker secret create -l "$LABEL" "${STACK}_dba_password" "$tmp/dba_password" >/dev/null
 docker secret create -l "$LABEL" "${STACK}_monitoring_password" "$tmp/monitoring_password" >/dev/null
 docker secret create -l "$LABEL" "${STACK}_gm_check_password" "$tmp/gm_check_password" >/dev/null
 docker secret create -l "$LABEL" "${STACK}_pgbouncer_lookup_password" "$tmp/pgbouncer_lookup_password" >/dev/null
+docker secret create -l "$LABEL" "${STACK}_role_cron_app_password" "$tmp/role_cron_app_password" >/dev/null
 
 info "deploying stack $STACK"
 docker stack deploy --resolve-image never -c "$HERE/stack.test.yml" "$STACK" >/dev/null 2>&1
@@ -155,6 +177,30 @@ else
     docker service logs --tail 60 "$SERVICE" 2>&1 || true
     exit 1
 fi
+if J=$(wait_healthy "" "$SERVICE2"); then
+    pass "the node with jobs, db2, deployed and healthy ($J)"
+else
+    fail "db2 did not become healthy"
+    docker service ps --no-trunc "$SERVICE2" || true
+    docker service logs --tail 60 "$SERVICE2" 2>&1 || true
+    exit 1
+fi
+# What a data file and load-data would do on db2 (chunk 7's in a game): the
+# crontab role with its secret's password, the tables its jobs write, the
+# extension pg_cron and a job scheduled for the role. Done now, so that the
+# seeded crontab entry and the pg_cron job run on their own schedules while
+# the db checks below go on; read back in the v0.4 section.
+printf '%s\n' \
+    "create role cron_app login password :'pw';" \
+    "create table cron_daemon_runs (job text, who text default current_user, at timestamptz default now());" \
+    "grant insert on cron_daemon_runs to cron_app;" \
+    "create extension pg_cron;" \
+    "create table pg_cron_runs (who text default current_user, at timestamptz default now());" \
+    "grant insert on pg_cron_runs to cron_app;" \
+    "select cron.schedule_in_database('stack-test', '5 seconds', 'insert into pg_cron_runs default values', 'postgres', username => 'cron_app');" \
+    | docker exec -i -u postgres "$J" psql -X -q -At -v ON_ERROR_STOP=1 -v pw="$ROLE_PASSWORD" -d postgres >/dev/null 2>"$tmp/db2-setup.err" \
+    && pass "db2: role cron_app, its tables, pg_cron and a job for cron_app created as postgres" \
+    || fail "db2 setup: $(cat "$tmp/db2-setup.err")"
 
 # --- client on the stack network ---------------------------------------------
 docker run -d --name "$CLIENT" --network "$NET" -v "$tmp:/k:ro" \
@@ -177,8 +223,8 @@ w=$(pssh "psql -XAtc 'select current_user'" 2>&1 || true)
 [ "$w" = dba ] && pass "player's psql connects as dba through ~/.pgpass" || fail "player psql: $w"
 
 allowed=$(pssh sudo -n -l 2>&1 | sed -n '/may run the following commands/,$p' | sed 1d | tr -s ' \t' ' ' | sed 's/^ //')
-expected='(root) NOPASSWD: /usr/local/sbin/gm-reload-db "", /usr/local/sbin/gm-restart-db "", /usr/local/sbin/gm-validate ""'
-[ "$allowed" = "$expected" ] && pass "sudo -l lists exactly the three wrappers, no arguments" \
+expected='(root) NOPASSWD: /usr/local/sbin/gm-reload-db "", /usr/local/sbin/gm-restart-db "", /usr/local/sbin/gm-validate "", /usr/local/sbin/gm-crontab'
+[ "$allowed" = "$expected" ] && pass "sudo -l lists exactly the four wrappers, three with no arguments, gm-crontab with its own checks" \
     || fail "sudo -l: got [$allowed]"
 check "sudo refuses /bin/sh" sh -c "! docker exec $CLIENT ssh $SSH_OPTS player@db sudo -n /bin/sh -c true"
 check "sudo refuses /usr/bin/id" sh -c "! docker exec $CLIENT ssh $SSH_OPTS player@db sudo -n /usr/bin/id"
@@ -580,21 +626,22 @@ while [ "$i" -lt 40 ] && gm pgrep -f pg_basebackup >/dev/null 2>&1; do sleep 1; 
 gm sh -c 'rm -rf /run/gm/snapshot-db.*'    # a SIGKILL leaves its work directory
 
 info "restoring the snapshot into a fresh container (stack $RSTACK)"
-for v in pgconf home gmstate pglog; do
+for v in pgconf home gmstate pglog cronspool; do
     case $v in
         pgconf) path=/etc/postgresql ;; home) path=/home/player ;;
         gmstate) path=/var/lib/gm-state ;; pglog) path=/var/log/postgresql ;;
+        cronspool) path=/var/spool/cron/crontabs ;;
     esac
     docker exec "$C" tar --create --file=- --numeric-owner --directory="$path" . > "$tmp/$v.tar"; rc=$?
     [ "$rc" -le 1 ] || fail "copy of $v: exit $rc"
 done
-for v in pgdata pgconf home gmstate pglog; do
+for v in pgdata pgconf home gmstate pglog cronspool; do
     docker volume create --label "$LABEL" "${RSTACK}_$v" >/dev/null
     docker run --rm -i --network none -v "${RSTACK}_$v:/v" --entrypoint tar "$IMAGE" \
         --extract --file=- --numeric-owner --same-permissions --directory=/v < "$tmp/$v.tar" \
         || fail "extract $v into ${RSTACK}_$v"
 done
-docker stack deploy --resolve-image never -c "$HERE/stack.test.yml" "$RSTACK" >/dev/null 2>&1
+DB2_REPLICAS=0 docker stack deploy --resolve-image never -c "$HERE/stack.test.yml" "$RSTACK" >/dev/null 2>&1
 if R=$(wait_healthy "" "$RSERVICE"); then
     pass "a fresh container on the restored volumes is healthy ($R)"
     rq() { docker exec -u postgres "$R" psql -XAtc "$1"; }
@@ -613,6 +660,189 @@ else
 fi
 docker stack rm "$RSTACK" >/dev/null 2>&1
 
+# --- v0.4: the cron daemon on a node seeding no crontab (chunk 4a) --------------------
+SPOOL=/var/spool/cron/crontabs
+w=$(gm /command/s6-svstat -o up,wantedup /run/service/cron 2>&1)
+[ "$w" = "false false" ] && pass "db, seeding no crontab: the service cron is down and not wanted up ($w)" \
+    || fail "service cron on db: $w"
+check "db: no cron process" sh -c "! docker exec $C pgrep -x cron"
+n=$(docker logs "$C" 2>&1 | grep -c 'cron: this node seeds no crontab; the cron daemon does not run')
+[ "$n" = 1 ] && pass "db: the service said once why it does not run (not restarted)" || fail "db: cron's line $n times"
+mnt=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/var/spool/cron/crontabs"}}{{.Type}} {{.Name}}{{end}}{{end}}' "$C")
+[ "$mnt" = "volume ${STACK}_cronspool" ] && pass "$SPOOL is the volume cronspool" || fail "$SPOOL mount: $mnt"
+m=$(gm stat -c '%a %U:%G' "$SPOOL" "$LOGDIR/cron" | tr '\n' ' ')
+[ "$m" = "1730 root:crontab 2750 postgres:pgconf " ] && pass "db: the spool and the cron log directory as set at start ($m)" \
+    || fail "db: spool and cron log modes: $m"
+check "db: no crontab installed" gm test ! -e "$SPOOL/postgres"
+check "db: no password file (no crontab role)" gm test ! -e /run/gm-cron
+w=$(pssh sudo -n gm-crontab -l 2>&1); rc=$?
+[ "$rc" -eq 1 ] && [ "$w" = "no crontab for postgres" ] && pass "db: gm-crontab -l lists nothing (exit 1: $w)" \
+    || fail "db: gm-crontab -l: exit $rc: $w"
+pssh "printf '* * * * * true\\n' > ~/x.cron" || fail "db: player writes ~/x.cron"
+w=$(pssh sudo -n gm-crontab x.cron 2>&1); rc=$?
+case $rc:$w in
+    1:*"runs no cron daemon"*) pass "db: gm-crontab refuses to install a crontab nothing would run (exit 1)" ;;
+    *) fail "db: gm-crontab <file>: exit $rc: $w" ;;
+esac
+check "db: still no crontab" gm test ! -e "$SPOOL/postgres"
+w=$(gm_pg psql -XAtc "select count(*) from pg_stat_activity where backend_type = 'pg_cron launcher'" 2>&1)
+[ "$w" = 0 ] && pass "db: no pg_cron launcher (the seed does not preload it)" || fail "db: pg_cron launcher: $w"
+
+# --- v0.4: the node with jobs, db2 (chunk 4a) --------------------------------------------
+pssh2() { docker exec -i "$CLIENT" timeout 120 ssh $SSH_OPTS player@db2 "$@"; }
+j() { docker exec -i "$J" "$@"; }
+jsql() { docker exec -u postgres "$J" psql -XAtc "$1"; }
+denied2() {  # denied2 <description> <remote command>: pass if player's command fails on db2
+    d=$1; shift
+    if pssh2 "$@" >/dev/null 2>&1; then fail "$d"; else pass "$d"; fi
+}
+# wait_rows <seconds> <query>: wait for the query (as postgres on db2) to count more than 0
+wait_rows() {
+    i=0
+    while [ "$i" -lt "$1" ]; do
+        n=$(jsql "$2" 2>/dev/null)
+        case $n in ''|0|*[!0-9]*) ;; *) echo "$n"; return 0 ;; esac
+        sleep 3; i=$((i + 3))
+    done
+    echo "${n:-none}"
+    return 1
+}
+w=$(j /command/s6-svstat -o up,wantedup /run/service/cron 2>&1)
+[ "$w" = "true true" ] && pass "db2, seeding a crontab: the service cron is up ($w)" || fail "service cron on db2: $w"
+cpid=$(j pgrep -x cron 2>&1)
+w=$(j ps -o user=,args= -p "$cpid" 2>&1 | tr -s ' ')
+[ "$w" = "root /usr/sbin/cron -f" ] && pass "db2: the daemon runs as root, in the foreground ($w)" || fail "db2: cron process: [$cpid] $w"
+w=$(j /command/s6-rc-db -l /run/s6-rc dependencies cron 2>&1 | sort | tr '\n' ' ')
+case " $w" in *" postgres "*) pass "db2: the service cron depends on postgres: started after it, stopped before it ($w)" ;;
+    *) fail "db2: cron's dependencies: $w" ;; esac
+mnt=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/var/spool/cron/crontabs"}}{{.Type}} {{.Name}}{{end}}{{end}}' "$J")
+[ "$mnt" = "volume ${STACK}_cronspool2" ] && pass "db2: $SPOOL is its volume cronspool" || fail "db2: $SPOOL mount: $mnt"
+m=$(j stat -c '%a %U:%G' "$SPOOL" "$SPOOL/postgres" /run/gm-cron /run/gm-cron/pgpass "$LOGDIR/cron" | tr '\n' ' ')
+[ "$m" = "1730 root:crontab 600 postgres:crontab 700 postgres:postgres 600 postgres:postgres 2750 postgres:pgconf " ] \
+    && pass "db2: spool, crontab, password file and cron log directory owners and modes ($m)" || fail "db2: modes: $m"
+check "db2: the crontab is the seed's, below crontab's header" j sh -c "tail -n +4 $SPOOL/postgres | cmp -s - /opt/gm/seed/crontab"
+check "db2: the start-up logged the seeding" sh -c "docker logs $J 2>&1 | grep -q \"seeded postgres's crontab $SPOOL/postgres from /opt/gm/seed/crontab\""
+exp="*:*:*:cron_app:$(printf '%s' "$ROLE_PASSWORD" | sed 's/[\\:]/\\&/g')"
+[ "$(j cat /run/gm-cron/pgpass)" = "$exp" ] && pass "db2: the password file holds one line for cron_app, : and \\ escaped" \
+    || fail "db2: password file content"
+check "db2: postgres reads the password file" docker exec -u postgres "$J" test -r /run/gm-cron/pgpass
+denied2 "db2: player cannot read the password file" cat /run/gm-cron/pgpass
+denied2 "db2: player cannot read the role's secret" cat /opt/gm/secrets/role_cron_app_password
+denied2 "db2: player cannot read the crontab in the spool" cat "$SPOOL/postgres"
+denied2 "db2: player cannot write the spool" touch "$SPOOL/x"
+
+info "waiting for the seeded crontab entry's run (every minute)"
+n=$(wait_rows 100 "select count(*) from cron_daemon_runs where job = 'seeded' and who = 'cron_app'")
+[ $? -eq 0 ] && pass "db2: the seeded entry ran, connecting as the customer role cron_app through PGPASSFILE ($n runs)" \
+    || fail "db2: no run of the seeded entry as cron_app ($n)"
+CRONLOG=$LOGDIR/cron/stack-test.log
+m=$(j stat -c '%a %U:%G' "$CRONLOG" 2>&1)
+[ "$m" = "644 postgres:pgconf" ] && pass "db2: the entry appends to its log $CRONLOG, 0644, group pgconf ($m)" || fail "db2: job log: $m"
+w=$(pssh2 "grep -c '^INSERT 0 1' $CRONLOG" 2>&1)
+case $w in ''|0|*[!0-9]*) fail "db2: player reads the job's log: $w" ;; *) pass "db2: player reads the job's log ($w INSERT lines)" ;; esac
+denied2 "db2: player cannot write the job's log" "echo x >> $CRONLOG"
+denied2 "db2: player cannot create a file in the cron log directory" touch "$LOGDIR/cron/x"
+
+w=$(jsql 'show shared_preload_libraries' 2>&1)
+[ "$w" = "pg_stat_statements,pg_cron" ] && pass "db2: pg_cron preloaded by the seed ($w)" || fail "db2: shared_preload_libraries: $w"
+w=$(jsql "select extversion from pg_extension where extname = 'pg_cron'" 2>&1)
+[ "$w" = 1.6 ] && pass "db2: the extension pg_cron $w in cron.database_name (postgres)" || fail "db2: pg_cron extension: $w"
+w=$(jsql "select count(*) from pg_stat_activity where backend_type = 'pg_cron launcher'" 2>&1)
+[ "$w" = 1 ] && pass "db2: one pg_cron launcher" || fail "db2: pg_cron launcher: $w"
+n=$(wait_rows 60 "select count(*) from cron.job_run_details d join cron.job j using (jobid) where j.jobname = 'stack-test' and j.username = 'cron_app' and d.username = 'cron_app' and d.status = 'succeeded'")
+[ $? -eq 0 ] && pass "db2: the pg_cron job scheduled with username => 'cron_app' fills cron.job_run_details ($n succeeded runs)" \
+    || fail "db2: pg_cron job runs: $n"
+w=$(jsql "select count(*) || ' ' || count(*) filter (where who <> 'cron_app') from pg_cron_runs" 2>&1)
+case $w in "0 "*|*" "[1-9]*|'') fail "db2: pg_cron job's rows: $w" ;; *) pass "db2: the pg_cron job runs as cron_app (rows, none by another role: $w)" ;; esac
+
+# gm-crontab on the node with jobs.
+w=$(pssh2 sudo -n gm-crontab -l 2>&1); rc=$?
+[ "$rc" -eq 0 ] && [ "$w" = "$(cat "$HERE/fixtures/crontab")" ] && pass "db2: sudo gm-crontab -l lists the seeded crontab" \
+    || fail "db2: gm-crontab -l: exit $rc: $w"
+for a in "" "-l extra" "-e" "-r" "-u player -l" "-"; do
+    out=$(pssh2 sudo -n gm-crontab $a 2>&1); rc=$?
+    case $rc:$out in 2:*"usage: sudo gm-crontab -l | sudo gm-crontab <file>"*) pass "db2: gm-crontab refuses [$a] (exit 2)" ;;
+        *) fail "db2: gm-crontab [$a]: exit $rc: $out" ;; esac
+done
+out=$(pssh2 sudo -n gm-crontab /opt/gm/secrets/dba_password 2>&1); rc=$?
+case $rc:$out in
+    1:*"cannot read /opt/gm/secrets/dba_password as player"*)
+        if printf '%s' "$out" | grep -qF "$DBA_PASSWORD"; then fail "db2: gm-crontab showed a root-only file"
+        else pass "db2: gm-crontab reads its file as player: a root-only file is refused, nothing of it shown (exit 1)"; fi ;;
+    *) fail "db2: gm-crontab on a root-only file: exit $rc: $out" ;;
+esac
+pssh2 "printf 'not a crontab line\\n' > ~/bad.cron" || fail "db2: player writes ~/bad.cron"
+out=$(pssh2 sudo -n gm-crontab bad.cron 2>&1); rc=$?
+case $rc:$out in 1:*"crontab refused bad.cron; the crontab is unchanged"*) pass "db2: gm-crontab refuses a file crontab rejects (exit 1)" ;;
+    *) fail "db2: gm-crontab on a bad file: exit $rc: $out" ;; esac
+check "db2: the crontab is still the seed's after the refusals" j sh -c "tail -n +4 $SPOOL/postgres | cmp -s - /opt/gm/seed/crontab"
+cat > "$tmp/new.cron" <<'CRON'
+# replaced by the stack test, through sudo gm-crontab
+PGPASSFILE=/run/gm-cron/pgpass
+* * * * * psql -X -w -h /run/postgresql -U cron_app -d postgres -c "insert into cron_daemon_runs (job) values ('replaced')" >> /var/log/postgresql/cron/replaced.log 2>&1
+CRON
+docker exec -i -u player "$J" sh -c 'cat > /home/player/new.cron' < "$tmp/new.cron" || fail "db2: player writes ~/new.cron"
+out=$(pssh2 sudo -n gm-crontab new.cron 2>&1); rc=$?
+[ "$rc" -eq 0 ] && pass "db2: sudo gm-crontab new.cron installs a replacement (exit 0: $out)" || fail "db2: gm-crontab new.cron: exit $rc: $out"
+w=$(pssh2 sudo -n gm-crontab -l 2>&1)
+[ "$w" = "$(cat "$tmp/new.cron")" ] && pass "db2: gm-crontab -l lists the replacement" || fail "db2: crontab after the replacement: $w"
+m=$(j stat -c '%a %U:%G' "$SPOOL/postgres")
+[ "$m" = "600 postgres:crontab" ] && pass "db2: the replacement is postgres's, 0600, in the spool ($m)" || fail "db2: replacement's mode: $m"
+check "sudo logs gm-crontab to /run/gm/sudo.log" docker exec "$J" grep -q 'COMMAND=/usr/local/sbin/gm-crontab new.cron' /run/gm/sudo.log
+w=$(j sh -c 'ls /run/gm | grep -c "^gm-crontab" || true')
+[ "$w" = 0 ] && pass "gm-crontab leaves no work file in /run/gm" || fail "gm-crontab work files left: $w"
+info "waiting for the replacement's run"
+n=$(wait_rows 100 "select count(*) from cron_daemon_runs where job = 'replaced' and who = 'cron_app'")
+[ $? -eq 0 ] && pass "db2: cron runs the replacement within the minute or so, as cron_app ($n runs)" || fail "db2: replacement not run ($n)"
+
+# Shutdown order: s6-rc stops cron before postgres, as the container's stop does.
+j /command/s6-rc -d change postgres >/dev/null 2>&1 || fail "db2: s6-rc -d change postgres"
+c_dn=$(j /command/s6-svstat -o up,updownsince /run/service/cron 2>&1)
+p_dn=$(j /command/s6-svstat -o up,updownsince /run/service/postgres 2>&1)
+case $c_dn:$p_dn in
+    false\ *:false\ *)
+        if [ "$(printf '%s\n%s\n' "${c_dn#* }" "${p_dn#* }" | sort | head -n 1)" = "${c_dn#* }" ]; then
+            pass "db2: bringing postgres down stops cron first ($c_dn, then postgres $p_dn)"
+        else
+            fail "db2: postgres went down before cron ($c_dn, $p_dn)"
+        fi ;;
+    *) fail "db2: down states: cron $c_dn, postgres $p_dn" ;;
+esac
+j /command/s6-rc -u change user >/dev/null 2>&1 || fail "db2: s6-rc -u change user"
+i=0
+while [ "$i" -lt 30 ] && ! j pg_isready -q -h /run/postgresql; do sleep 1; i=$((i + 1)); done
+w=$(j /command/s6-svstat -o up /run/service/cron)$(j /command/s6-svstat -o up /run/service/postgres)
+[ "$w" = truetrue ] && pass "db2: both back up" || fail "db2: after s6-rc -u: $w"
+
+info "forcing a new container for db2"
+docker service update --force --detach "$SERVICE2" >/dev/null 2>&1
+if J2=$(wait_healthy "$J" "$SERVICE2"); then
+    pass "db2: new container healthy ($J2)"
+    J=$J2
+else
+    fail "db2: new container did not become healthy"
+fi
+tnew=$(jsql "select pg_postmaster_start_time()")
+w=$(pssh2 sudo -n gm-crontab -l 2>&1)
+[ "$w" = "$(cat "$tmp/new.cron")" ] && pass "db2: the player's replacement survives a new container (not re-seeded)" \
+    || fail "db2: crontab after a new container: $w"
+m=$(j stat -c '%a %U:%G' "$SPOOL" "$SPOOL/postgres" /run/gm-cron/pgpass | tr '\n' ' ')
+[ "$m" = "1730 root:crontab 600 postgres:crontab 600 postgres:postgres " ] \
+    && pass "db2: spool, crontab and a rewritten password file in the new container ($m)" || fail "db2: modes after a new container: $m"
+w=$(j /command/s6-svstat -o up /run/service/cron 2>&1)
+[ "$w" = true ] && pass "db2: cron up in the new container" || fail "db2: cron in the new container: $w"
+n=$(wait_rows 100 "select count(*) from cron_daemon_runs where job = 'replaced' and at > '$tnew'")
+[ $? -eq 0 ] && pass "db2: the replacement runs in the new container ($n runs since)" || fail "db2: no run in the new container ($n)"
+: | docker exec -i -u player "$J" sh -c 'cat > /home/player/empty.cron'
+out=$(pssh2 sudo -n gm-crontab empty.cron 2>&1); rc=$?
+[ "$rc" -eq 0 ] || fail "db2: gm-crontab empty.cron: exit $rc: $out"
+j /command/s6-svc -r /run/service/cron
+sleep 3
+w=$(j /command/s6-svstat -o up,wantedup /run/service/cron 2>&1)
+[ "$w" = "true true" ] && j pgrep -x cron >/dev/null \
+    && pass "db2: an empty player crontab leaves the daemon running, across a restart of the service ($w)" \
+    || fail "db2: cron with an empty crontab: $w"
+
 # --- hardening ---------------------------------------------------------------------
 check "root filesystem is read-only" sh -c "[ \"\$(docker inspect -f '{{.HostConfig.ReadonlyRootfs}}' $C)\" = true ]"
 check "root cannot write /usr/local/sbin" sh -c "! docker exec $C touch /usr/local/sbin/x"
@@ -624,7 +854,7 @@ info "capabilities: $caps"
 case $caps in "[ALL]"*) pass "cap_drop ALL" ;; *) fail "cap_drop: $caps" ;; esac
 mnt=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/run"}}{{.Type}}{{end}}{{end}}' "$C")
 [ "$mnt" = volume ] && pass "/run is a named volume (fallback a)" || fail "/run mount: $mnt"
-info "footprint at rest: $(docker stats --no-stream --format '{{.MemUsage}}, CPU {{.CPUPerc}}' "$C")"
+info "footprint at rest: db $(docker stats --no-stream --format '{{.MemUsage}}, CPU {{.CPUPerc}}' "$C"); db2 (cron, pg_cron) $(docker stats --no-stream --format '{{.MemUsage}}, CPU {{.CPUPerc}}' "$J")"
 
 echo
 if [ "$failures" -eq 0 ]; then

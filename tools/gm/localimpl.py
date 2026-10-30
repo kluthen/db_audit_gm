@@ -449,12 +449,16 @@ def seed_entries(scenario, node):
     brick's `seed.files` order: a file entry as itself; a directory entry
     (`builders/`, v0.3 capture W1, item 3) as one entry per regular file of
     the scenario's folder, by name, its seed name `<entry><file>`; a
-    directory entry the scenario leaves out gives none."""
+    directory entry the scenario leaves out gives none, nor does a file of
+    `seed.optional` (v0.4 capture W1 item 4: not mounted)."""
     seed = scenario.bricks[node["name"]].data.get("seed") or {}
     given = node.get("seed_files") or {}
+    optional = set(seed.get("optional") or [])
     out = []
     for fname in seed.get("files") or []:
         if not is_seed_folder_entry(fname):
+            if fname in optional and fname not in given:
+                continue
             out.append((fname, fname, given[fname]))
             continue
         rel = given.get(fname)

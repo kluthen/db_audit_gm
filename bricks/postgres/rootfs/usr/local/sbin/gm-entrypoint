@@ -8,8 +8,11 @@
 #   2. generates this container's sshd host key under /run;
 #   3. checks the secrets;
 #   4. seeds /etc/postgresql from /opt/gm/seed once (marker
-#      /var/lib/gm-state/.gm-seeded, outside the group-writable directory);
-#   5. sets the log directory's owner and mode (files readable by pgconf);
+#      /var/lib/gm-state/.gm-seeded, outside the group-writable directory),
+#      and postgres's crontab into cron's spool when the node seeds one;
+#      sets the spool's and the crontab's owner and mode;
+#   5. sets the log directory's owner and mode (files readable by pgconf),
+#      and its cron/ directory's, for the crontab's job logs;
 #   6. initialises PGDATA if it is empty, creates the `dba` and
 #      `monitoring` roles and the pg_stat_statements extension;
 #   7. creates or updates the GM's roles, in single-user mode before the
@@ -17,7 +20,8 @@
 #      the GM's connection reserve) and, when its secret is mounted (a
 #      scenario with a pooler node), PgBouncer's lookup role
 #      pgbouncer_lookup and its function gm_pgbouncer.lookup;
-#   8. writes the player's ~/.pgpass.
+#   8. writes the player's ~/.pgpass and, when crontab roles' secrets are
+#      mounted, the crontab's password file /run/gm-cron/pgpass.
 # Every start also gives the seeded files their owner and mode back
 # (step 4), as gm-reload-db and gm-restart-db do.
 set -eu
@@ -32,6 +36,11 @@ MARKER=$STATE_DIR/.gm-seeded
 SEED_DIR=/opt/gm/seed
 SECRETS_DIR=/opt/gm/secrets
 SEED_FILES="postgresql.conf pg_hba.conf"
+SEED_CRONTAB=$SEED_DIR/crontab       # optional: present means the cron daemon runs
+SPOOL_DIR=/var/spool/cron/crontabs   # volume cronspool
+CRONTAB=$SPOOL_DIR/postgres
+CRON_LOG_DIR=$LOG_DIR/cron
+CRON_PASS_DIR=/run/gm-cron
 PLAYER_HOME=/home/player
 LOOKUP_SECRET=$SECRETS_DIR/pgbouncer_lookup_password
 
@@ -112,6 +121,25 @@ if [ -e "$LOOKUP_SECRET" ]; then
     lookup_password=$(read_secret pgbouncer_lookup_password)
 fi
 
+# The crontab roles' passwords (scenario.yaml crontab_roles): one secret
+# role_<role>_password each, mounted by render on a node seeding a crontab.
+cron_pgpass=
+for f in "$SECRETS_DIR"/role_*_password; do
+    [ -e "$f" ] || continue
+    name=${f##*/}
+    role=${name#role_}
+    role=${role%_password}
+    case $role in
+        ''|[!a-z_]*|*[!a-z0-9_]*) die "secret $f does not name a role (role_<role>_password)" ;;
+    esac
+    [ -s "$f" ] || die "secret $f is empty"
+    pw=$(read_secret "$name")
+    pw=$(printf '%s' "$pw" | sed 's/[\\:]/\\&/g')
+    cron_pgpass="$cron_pgpass*:*:*:$role:$pw
+"
+done
+unset f name role pw
+
 # --- 4. configuration, seeded once ---------------------------------------
 chown postgres:pgconf "$CONF_DIR"
 chmod_setgid "$CONF_DIR" pgconf 2775
@@ -126,6 +154,13 @@ if [ ! -e "$MARKER" ]; then
     for f in $SEED_FILES; do
         install -o postgres -g pgconf -m 0664 "$SEED_DIR/$f" "$CONF_DIR/$f"
     done
+    # Through Debian's crontab, as gm-crontab installs one: it checks the
+    # file and writes it with its header, which `crontab -l` leaves out.
+    if [ -f "$SEED_CRONTAB" ]; then
+        rm -f "$CRONTAB"
+        crontab -u postgres "$SEED_CRONTAB" >&2 || die "crontab refused the seed $SEED_CRONTAB"
+        log "seeded postgres's crontab $CRONTAB from $SEED_CRONTAB"
+    fi
     date -u '+seeded %Y-%m-%dT%H:%M:%SZ from /opt/gm/seed (DO NOT TAMPER)' > "$MARKER"
     chown root:root "$MARKER"
     chmod 0444 "$MARKER"
@@ -136,6 +171,16 @@ fi
 for f in $SEED_FILES; do
     restore_seeded "$CONF_DIR/$f"
 done
+# Every start: cron's spool as Debian makes it, and postgres's crontab
+# postgres:crontab 0600, which cron requires of it (it skips a crontab of
+# another owner or mode). Nothing else runs yet, so nothing can swap the
+# file between the test and the change; a symlink is never followed.
+chown root:crontab "$SPOOL_DIR"
+chmod 1730 "$SPOOL_DIR"
+if [ -f "$CRONTAB" ] && [ ! -L "$CRONTAB" ]; then
+    chown postgres:crontab "$CRONTAB"
+    chmod 0600 "$CRONTAB"
+fi
 
 # --- 5. log directory ---------------------------------------------------
 # The seed postgresql.conf points log_directory here (volume pglog); with
@@ -143,6 +188,16 @@ done
 # the players read the logs (pgBadger) without being able to write them.
 chown postgres:pgconf "$LOG_DIR"
 chmod_setgid "$LOG_DIR" pgconf 2750
+# cron/: the crontab's job logs (`>> /var/log/postgresql/cron/<job>.log`),
+# written by its jobs as postgres, read by the players' group. postgres
+# owns the log directory, so anything but a directory in its place (a
+# symlink) is removed rather than followed.
+if [ -L "$CRON_LOG_DIR" ] || { [ -e "$CRON_LOG_DIR" ] && [ ! -d "$CRON_LOG_DIR" ]; }; then
+    rm -f "$CRON_LOG_DIR"
+fi
+[ -d "$CRON_LOG_DIR" ] || mkdir "$CRON_LOG_DIR"
+chown postgres:pgconf "$CRON_LOG_DIR"
+chmod_setgid "$CRON_LOG_DIR" pgconf 2750
 
 # --- 6. PGDATA ----------------------------------------------------------
 chown postgres:postgres "$PGDATA"
@@ -233,7 +288,18 @@ umask 077
 printf '*:*:*:dba:%s\n' "$pw_pgpass" > "$PLAYER_HOME/.pgpass"
 chown player:player "$PLAYER_HOME/.pgpass"
 chmod 0600 "$PLAYER_HOME/.pgpass"
+# The crontab's password file, named by PGPASSFILE in the crontab: one
+# `*:*:*:<role>:<password>` line per crontab role, readable by OS user
+# postgres only; on /run, so it never lands on a volume or in the
+# hand-over snapshot. Absent when no crontab role's secret is mounted.
+if [ -n "$cron_pgpass" ]; then
+    install -d -o postgres -g postgres -m 0700 "$CRON_PASS_DIR"
+    printf '%s' "$cron_pgpass" > "$CRON_PASS_DIR/pgpass"
+    chown postgres:postgres "$CRON_PASS_DIR/pgpass"
+    chmod 0600 "$CRON_PASS_DIR/pgpass"
+    log "crontab password file $CRON_PASS_DIR/pgpass written: $(printf '%s' "$cron_pgpass" | cut -d: -f4 | tr '\n' ' ')"
+fi
 umask 022
-unset dba_password monitoring_password gm_check_password lookup_password pw_sql mon_sql pw_pgpass
+unset dba_password monitoring_password gm_check_password lookup_password pw_sql mon_sql pw_pgpass cron_pgpass
 
 exec /init "$@"

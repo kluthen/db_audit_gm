@@ -1,0 +1,17 @@
+#!/bin/sh
+# s6 service `cron` (DO NOT TAMPER): Debian's cron daemon, in the foreground,
+# for the crontab of OS user `postgres` in its spool (volume cronspool;
+# master spec 7.2, capture W1 item 8). Started after `postgres` and, at
+# shutdown, stopped (SIGTERM) before it (dependencies.d/postgres); a job
+# still running then is not waited for.
+# On a node whose scenario seeds no crontab (no /opt/gm/seed/crontab, which
+# render mounts only when the node's seed_files names it), no daemon runs:
+# the service marks itself to run once at most and exits, so s6 leaves it
+# down. A player's empty crontab leaves the daemon running, as on a host.
+exec 2>&1
+if [ ! -e /opt/gm/seed/crontab ]; then
+    echo "cron: this node seeds no crontab; the cron daemon does not run"
+    /command/s6-svc -O .
+    exit 0
+fi
+exec /usr/sbin/cron -f

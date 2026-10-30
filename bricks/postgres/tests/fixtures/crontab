@@ -1,0 +1,6 @@
+# Test seed crontab for the PostgreSQL brick's stack test (bricks/postgres/tests),
+# installed once as postgres's crontab on the node with jobs, db2. The baseline
+# entry's form (capture W1 item 8): PGPASSFILE on a line of its own; psql -X -w
+# over the local socket as a customer role; output appended to the job's log.
+PGPASSFILE=/run/gm-cron/pgpass
+* * * * * psql -X -w -h /run/postgresql -U cron_app -d postgres -c "insert into cron_daemon_runs (job) values ('seeded')" >> /var/log/postgresql/cron/stack-test.log 2>&1
