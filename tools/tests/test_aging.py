@@ -987,6 +987,28 @@ class TestEarlyAndHandOverChecks(AgingGame):
                          ["f3 fixture-job-timezone: too soon to tell, 600 s of its window remain"])
         self.assertIn("wait 600 s", run.text())
 
+    def test_a_too_soon_judging_check_at_hand_over_names_the_next_run(self):
+        """A check judging runs or triggers (given CHECK_SINCE): its N is the
+        time to the job's next run, not a window (master spec 12.2)."""
+        from tools.gm import checks
+        self.replies[CHECKS["f3"]] = (3, "remaining=5400 the job has not run since\n", "")
+        self.inject_at("now")
+        real = checks.check
+
+        def judging(*args, **kwargs):
+            result = real(*args, **kwargs)
+            for line in result.lines:
+                if line.instance == "f3":
+                    line.since = "2026-10-30T12:00:00Z"
+            return result
+
+        with mock.patch.object(checks, "check", judging):
+            run = self.check(aging.HANDOVER_CHECK)
+        self.assertEqual(run.exit_code, 3, run.text())
+        self.assertEqual(self.st()["handover_checks"][-1]["failures"],
+                         ["f3 fixture-job-timezone: too soon to tell, the job's next run is in "
+                          "5400 s (1h30m)"])
+
     def test_the_hand_over_check_needs_every_planting(self):
         run = self.check(aging.HANDOVER_CHECK)
         self.assertEqual(run.exit_code, 1)

@@ -62,6 +62,8 @@ FAULT_ENV_NAME_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
 # v0.3's format (master spec 6.1 to 6.4, 6.7; capture W1 of
 # specs/versions/v0.3/wave-log.md, items 0 to 4).
 SCHEDULER_BRICK = "scheduler"       # a scheduler node: a node whose brick id is this (W1 item 0)
+POSTGRES_BRICK = "postgres"         # whose seed postgresql.conf render may fill (v0.4 8.5)
+POSTGRESQL_CONF = "postgresql.conf"
 ROLES = ("bastion", "producer", "queue", "database", "pooler", "transformer", "consumer",
          "monitoring", "backup")
 DIFFICULTY_LEVELS = ("easy", "normal", "hard")
@@ -2095,15 +2097,22 @@ def _seed_path(node, sdir, fname):
 
 
 def _check_customer_timezone(nodes, scheduled, sdir, out):
-    """{{customer_timezone}} in the bastion's seed files (the starter pack,
-    the story included): refused with no scheduler node (master spec 6.1,
-    D158; W1 item 1)."""
+    """{{customer_timezone}} in the files render fills: the bastion's seed
+    files (the starter pack, the story included) and, from v0.4, a
+    `postgres` node's seed postgresql.conf (cron.timezone; a scheduler
+    node's seed files need no rule, the node itself making the scenario
+    age): refused with no scheduler node (master spec 6.1, 8.5, D158; v0.3
+    W1 item 1, v0.4 W1 item 0)."""
     if scheduled:
         return
     for node in nodes:
-        if node.get("role") != "bastion":
+        if node.get("role") == "bastion":
+            fnames = list(_dict(node.get("seed_files")))
+        elif _dict(node.get("brick")).get("id") == POSTGRES_BRICK:
+            fnames = [POSTGRESQL_CONF]
+        else:
             continue
-        for fname in _dict(node.get("seed_files")):
+        for fname in fnames:
             rel, path = _seed_path(node, sdir, fname)
             if path is None:
                 continue

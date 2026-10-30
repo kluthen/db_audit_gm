@@ -1,0 +1,16 @@
+# Schedule of the BI agency's transformer, a fragment (capture W1, item 5's
+# rule): its two connections, each as the purpose's role for it (access
+# model 9.2), and no stream (a transformer runs jobs only). Written for the
+# first v0.4 scenario's nodes; the GM adapts the targets as it copies.
+connections:
+  shop:                        # the source: the hourly script reads the changed orders
+    driver: sql/postgresql
+    target: db:5432/shop
+    role: shop_etl
+    pool: {size: 1}
+  reporting:                   # the target: the script's writes and the nightly close's CALL
+    driver: sql/postgresql
+    target: reporting:5432/reporting
+    role: bi_etl
+    pool: {size: 1}
+streams: []

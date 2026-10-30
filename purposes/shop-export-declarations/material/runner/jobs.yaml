@@ -1,0 +1,13 @@
+# Fixed-time operations of the shipping manager's transformer, a fragment
+# (capture W1, item 5's rule), in scenario time (master spec 10.4): the
+# declarations every five minutes and the escalations every quarter hour,
+# day and night.
+jobs:
+  - name: declare-exports
+    key: declare.exports
+    connection: shop_customs
+    at: "*/5 * * * *"
+  - name: escalate-customs
+    key: escalate.customs
+    connection: shop_customs
+    at: "*/15 * * * *"

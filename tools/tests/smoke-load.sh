@@ -49,6 +49,12 @@
 #   (MemAvailable) and the disk free under Docker's root directory.
 #   e.g. sh tools/tests/smoke-load.sh armenelos
 #        sh tools/tests/smoke-load.sh armenelos --cpu 4 --memory 5G --disk 10G
+#   Two hosts, armenelos plus the VPS, which is shared (filetstudio.com runs
+#   there: v0.4 master spec 13.3, spec D159):
+#        SMOKE_LOAD_ENGINES=ssh://dbagm-vps sh tools/tests/smoke-load.sh duo \
+#          --host armenelos,manager,cpu=4,memory=4G,disk=20G \
+#          --host vps-5718ad52,shared,endpoint=ssh://dbagm-vps,cpu=2,memory=4G,disk=10G \
+#          --map host-1=armenelos --map host-2=vps-5718ad52
 # SMOKE_LOAD_ENGINES: other Docker endpoints of the playground
 #   (space-separated, as docker -H takes them), whose containers and volumes
 #   the leftovers check lists too.

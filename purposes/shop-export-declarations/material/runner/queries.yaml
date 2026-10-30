@@ -1,0 +1,73 @@
+# Query repository of the shipping manager's transformer, a fragment
+# (capture W1, items 5 and 7): the export declarations purpose's two jobs,
+# plain statements on the shop's database as shop_customs (master spec
+# 10.4). Each writes its rows and its run's etl_runs row in one statement,
+# so in one transaction: the run's now() is every row's time and the
+# ledger row's started_at.
+#
+# The declaration's payload is the gateway's schema (gm.md, "Payload
+# schemas"), exactly:
+#   {order_ref, consignee_name, consignee_address, destination_country,
+#    lines: [{sku, description, quantity, value}], total_value, currency}
+queries:
+  # The export orders packed in the last two hours (the deadline: an order
+  # packed earlier is overdue already) with no declaration yet, one
+  # declaration each, keyed by the order. The idempotency key is unique.
+  declare.exports:
+    sql: >-
+      WITH due AS (
+        SELECT o.id, o.packed_at, o.ship_country, c.name, c.address
+          FROM orders o
+          JOIN export_countries x ON x.country = o.ship_country
+          JOIN customers c ON c.id = o.customer_id
+         WHERE o.packed_at > now() - interval '2 hours'
+           AND NOT EXISTS (SELECT 1 FROM customs_outbox d WHERE d.order_id = o.id)),
+      ledger AS (
+        INSERT INTO etl_runs (job, started_at, finished_at, rows_read, rows_written, watermark)
+        SELECT 'declare-exports', now(), clock_timestamp(), count(*), count(*), max(packed_at)
+          FROM due)
+      INSERT INTO customs_outbox (order_id, payload, sent_at, idempotency_key)
+      SELECT d.id,
+             jsonb_build_object(
+               'order_ref', 'TB-' || d.id,
+               'consignee_name', d.name,
+               'consignee_address', d.address,
+               'destination_country', d.ship_country,
+               'lines', l.lines,
+               'total_value', l.total_value,
+               'currency', 'EUR'),
+             now(), 'export-' || d.id
+        FROM due d
+       CROSS JOIN LATERAL (
+             SELECT jsonb_agg(jsonb_build_object('sku', ol.sku, 'description', ol.product_name,
+                                                 'quantity', ol.quantity,
+                                                 'value', ol.line_total) ORDER BY ol.id) AS lines,
+                    sum(ol.line_total) AS total_value
+               FROM order_lines ol WHERE ol.order_id = d.id) AS l
+  # The declarations of the last day the gateway did not acknowledge within
+  # 30 minutes of sending, or rejected, with no incident yet: one incident
+  # each (source customs, ref the declaration's id).
+  escalate.customs:
+    sql: >-
+      WITH due AS (
+        SELECT d.id,
+               CASE WHEN r.reason IS NOT NULL THEN 'rejected by the gateway: ' || r.reason
+                    ELSE 'no acknowledgement 30 minutes after sending' END AS reason
+          FROM customs_outbox d
+          LEFT JOIN LATERAL (
+                SELECT coalesce(k.reason, 'no reason given') AS reason FROM customs_acks k
+                 WHERE k.outbox_id = d.id AND k.status = 'rejected'
+                 ORDER BY k.received_at LIMIT 1) AS r ON true
+         WHERE d.sent_at > now() - interval '1 day'
+           AND (r.reason IS NOT NULL
+                OR (d.sent_at <= now() - interval '30 minutes'
+                    AND NOT EXISTS (SELECT 1 FROM customs_acks k
+                                     WHERE k.outbox_id = d.id
+                                       AND k.received_at <= d.sent_at + interval '30 minutes')))
+           AND NOT EXISTS (SELECT 1 FROM incidents i
+                            WHERE i.source = 'customs' AND i.ref = d.id::text)),
+      ledger AS (
+        INSERT INTO etl_runs (job, started_at, finished_at, rows_read, rows_written)
+        SELECT 'escalate-customs', now(), clock_timestamp(), count(*), count(*) FROM due)
+      INSERT INTO incidents (source, ref, opened_at, reason)
+      SELECT 'customs', id::text, now(), reason FROM due

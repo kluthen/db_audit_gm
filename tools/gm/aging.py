@@ -1343,8 +1343,13 @@ def run_check(scenario_dir, playground, kind, docker=None, out=print, now=None,
         if line.verdict == "too-soon":
             entry["remaining"] = line.remaining
             if kind == HANDOVER_CHECK:
-                failures.append(f"{line.instance} {line.fault_id}: too soon to tell, "
-                                f"{line.remaining} s of its window remain")
+                if line.since is not None:      # judging runs or triggers (12.2)
+                    failures.append(f"{line.instance} {line.fault_id}: too soon to tell, the "
+                                    f"job's next run is in {line.remaining} s "
+                                    f"({duration_text(line.remaining)})")
+                else:
+                    failures.append(f"{line.instance} {line.fault_id}: too soon to tell, "
+                                    f"{line.remaining} s of its window remain")
         elif line.verdict == "error":
             failures.append(f"{line.instance} {line.fault_id}: the check errored: {line.reason}")
         elif line.returncode != expected:

@@ -1,6 +1,8 @@
 # db_audit_gm v0.4 — Build plan
 
-Status: v5 (2026-10-30): the owner's ruling on G12, the web front in
+Status: v6 (2026-10-30): the owner's ruling on G10, `reporting`'s
+memory limit raised to 640M (spec D227), written into G10, chunks 13, 15
+and 16 and the release gate; v5 the owner's ruling on G12, the web front in
 every game (spec D224, applied by D225), written into chunk 19, now split
 19a and 19b with 19b cut after chunk 2, chunk 18 and the waves; spec D226,
 a data file named in a seed change, into chunk 15a; v4 wrote `bastion`
@@ -127,10 +129,10 @@ plan states only its deltas. Its conventions follow v0.3's
 | G4 | A Docker host in swarm mode: armenelos' swarm, the VPS a drained worker in it | Hand check by the wave driver | Every stack test, deployment and smoke run, chunk 9, every wave gate, the release gate | open |
 | G5 | **Dependency preflight** on `postgres` 0.4.0's new packages: the candidate versions of `postgresql-18-cron` (PGDG) and of Debian's `cron` with what it pulls in, installed without recommends (master spec 7.2, 19). A finding the owner must rule on becomes a gate of its own | `security-advisor` (skill `dependency-check`), called by the wave driver at wave 1's start | Chunk 4's branch | done (2026-10-30, wave log) |
 | G6 | **Dependency post-change check** on the versions chunks 4 and 19 resolved, and `.tech` updated (`postgres` 0.4.0, `scheduler` 0.2.0, `bastion` 0.4.0, the three packages), committed on `v0.4-w1` | `security-advisor`, called by the wave driver once chunks 4 and 19 have merged | Wave 1's gate | done (2026-10-30, 71ab68a) |
-| G7 | The VPS ready for two-host runs, under the VPS rule ("Workflow deltas"): `tailscale status` on both hosts; the VPS still a worker of armenelos' swarm, drained; no game port published on it; at least 5G free; filetstudio.com answering before and after | Hand check by the wave driver | The two-host `smoke-load.sh` from wave 2's gate; chunk 17's two-host runs; the release gate's two-host runs | open |
+| G7 | The VPS ready for two-host runs, under the VPS rule ("Workflow deltas"): `tailscale status` on both hosts; the VPS still a worker of armenelos' swarm, drained; no game port published on it; at least 5G free; filetstudio.com answering before and after | Hand check by the wave driver | The two-host `smoke-load.sh` from wave 2's gate; chunk 17's two-host runs; the release gate's two-host runs | checked at wave 2's gate (2026-10-30, 23:11–23:20 UTC); repeated at each later two-host run |
 | G8 | **The judged moment before the hand-over** (master spec 12.1): before the hand-over (the early check, the hand-over check, the smoke runs), a purpose check judges from the fault instance's planting moment, raised to the runner's last reload, as after it | The owner | Chunk 8's merge; the "Done when" of chunks 10, 11, 14, 15 as far as they read a check before a hand-over | done (2026-10-30, spec D217) |
 | G9 | **f10's measurement without swap, on armenelos only** (master spec 16.3): a one-off calibration container with its swap disabled for it alone, outside Swarm; armenelos keeps its swap | The owner | Chunk 9's no-swap measurement | done (2026-10-30, spec D218) |
-| G10 | **f10's calibration outcome** (spec D213): the backfill needs more than twice `reporting`'s limit and a normal run less than half of it, after `shared_buffers`, within a window the restored history allows. If so, the window is set from chunk 9's figures; if not, the fault comes back to the owner before anything is reshaped, lowering `reporting`'s limit the likely lever, offered then | Chunk 9's figures, applied by the wave driver; the owner on a shortfall | Chunk 15's f10 half; chunk 16 | open |
+| G10 | **f10's calibration outcome** (spec D213): the backfill needs more than twice `reporting`'s limit and a normal run less than half of it, after `shared_buffers`, within a window the restored history allows. Ruled on chunk 9's shortfall at 512M (a normal run's `memory.peak` over half the limit): `reporting`'s limit raised to 640M, its reservation 256M; the window as designed, the thirty-day request; chunk 15b re-measures at 640M | Chunk 9's figures, applied by the wave driver; the owner on a shortfall | Chunk 15's f10 half; chunk 16 | done (2026-10-30, spec D227) |
 | G11 | The owner's judgement at release close: the smoke cycles, f10's run, the rehearsal, the feedback (overstepping and the incident report included), the named known limits | The owner | Release close | open |
 | G12 | **spec O134**: does the starter-pack page make the web front run in every game (master spec 7.3, 22)? Ruled yes: the front in every game, its home the page, nothing more in v0.4; chunk 19 split, 19b taking the loader's port rule and the scenarios without a web interface | The owner | Chunk 19's branch | done (2026-10-30, spec D224) |
 | G13 | **Dependency preflight** on `bastion` 0.4.0's new package: the candidate version of Debian 13's `cmark-gfm` with what it pulls in, installed without recommends (spec D222). A finding the owner must rule on becomes a gate of its own | `security-advisor` (skill `dependency-check`), called by the wave driver | Chunk 19's branch | done (2026-10-30, wave log) |
@@ -144,8 +146,8 @@ with the owner's ruling of spec D221, during wave 1.
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
 | 1 | 1, 2, 3, 4, 5, 19 | G1 (done); G2 (chunk 1, done); G3, G4; G5 (chunk 4); G12, G13 (chunk 19); G6 before its gate | gated (2026-10-30, 4064719) |
-| 2 | 6, 7, 8, 9, 10, 11 | wave 1; G8, G9 (done); G7 (the gate's two-host run) | planned |
-| 3 | 12, 13, 14, 15 | wave 2; G10 (chunk 15's f10 half) | planned |
+| 2 | 6, 7, 8, 9, 10, 11 | wave 1; G8, G9 (done); G7 (the gate's two-host run) | gated (2026-10-30, f35dd40) |
+| 3 | 12, 13, 14, 15 | wave 2; G10 (chunk 15's f10 half, done) | planned |
 | 4 | 16, 17, 18 | wave 3; G7 (chunk 17's two-host runs) | planned |
 
 ```
@@ -307,7 +309,9 @@ Wave 3: chunks 12 and 13 run first; chunks 14 and 15 are cut once chunk
   disabled, G9), with machine and date; G10 applies
   them.
 - f10's incident for real: chunk 15 on `fixture-campaign`, then chunk 17
-  and the release gate on the scenario, armenelos alone.
+  and the release gate on the scenario, armenelos alone. Chunk 15b's run
+  re-measures G10's criterion at `reporting`'s 640M limit (spec D227),
+  recorded with machine and date.
 - Every node's memory at peak, `reporting`, `bi`, `crm` and `gateway`
   included; the trace's growth per hour, extrapolated over the
   sixteen-hour aging and stated as an extrapolation: chunk 17b's
@@ -668,7 +672,7 @@ Record: 5a 5ff4cef, 5b 17a45d4, merge f172a0e. No departure from the spec; choic
 
 ### Chunk 6 — Render for v0.4
 
-Status: planned
+Status: merged (w2, 30e8c59)
 Wave: 2
 Depends on: chunks 1, 2
 Architecture capture: none.
@@ -694,9 +698,11 @@ Architecture capture: none.
   render as before.
 - Verification: chunk checks.
 
+Record: 639e08c, merge 30e8c59. No departure from the spec; every v0.3 scenario and fixture renders byte-identical at shifts −2, 0, +5. Choices: the bare zone substituted in a scheduler's YAML before parsing; the rendered crontab carries no header; `{{customer_timezone}}` not substituted in a crontab or `pg_hba.conf`. `gmctl.md`'s `render` paragraph left for chunk 18.
+
 ### Chunk 7 — `load-data` for v0.4
 
-Status: planned
+Status: merged (w2, 38ef427)
 Wave: 2
 Depends on: chunks 2, 4; chunk 6 (in-wave, W2: its fixture's crontab
 role needs render's mount), merged into `v0.4-w2` before this chunk's
@@ -731,9 +737,11 @@ and the read policy's form.
   fixture's README matches a fresh regeneration.
 - Verification: chunk checks, plus the deployment (needs G4).
 
+Record: 7d2c72e, merge 38ef427, capture W2-x 80f9c9d. No departure from the spec; deployment of `fixture-instances` on armenelos passed every Done when item and was torn down. Outside its Files line: two lines in `tools/tests/__init__.py` (`FakeDocker` answers the new survey), and the fixture carries a copy of `fixture-audit`'s seed-file fault as `f1` (the loader needs a fault instance). `localimpl.py` unchanged. Outcome recorded as capture W2-x (`gm_check.user_mapping_roles()`, policy `gm_check_read`).
+
 ### Chunk 8 — `fit` and `check`: shared hosts, the judged moment
 
-Status: planned
+Status: merged (w2, 6d88c58)
 Wave: 2
 Depends on: chunk 2; G8 (done, spec D217)
 Architecture capture: none.
@@ -769,9 +777,11 @@ Architecture capture: none.
 - Verification: chunk checks.
 - Split rule: 8a `fit`; 8b `check`.
 
+Record: 8a bde3c70, 8b 33bfb36, merge 6d88c58. No departure from the spec; outside its Files line, `test_render.py`'s `two_hosts()` helper gained a `worker_shared` option, and `smoke-load.sh` gained a two-host usage example marking the VPS `shared`. Choices: an unplanted judging instance is refused before anything runs; `--since` only raises the moment and is refused in the future or with no judging instance; gmctl passes `CHECK_SINCE` and the check raises it to the runner's last reload. `gmctl.md` lines left for chunk 18; `aging.run_check`'s too-soon wording left for the wave gate.
+
 ### Chunk 9 — f10's early calibration
 
-Status: planned
+Status: merged (w2, 17be068)
 Wave: 2
 Depends on: chunks 4, 5; G9 (done, spec D218); G4
 Architecture capture: none of its own; its figures feed G10 and chunk 15.
@@ -806,9 +816,11 @@ Architecture capture: none of its own; its figures feed G10 and chunk 15.
   the VPS untouched.
 - Verification: chunk checks, plus the calibration run (needs G4).
 
+Record: 396f4be, merge 17be068. armenelos (Docker 29.9.1), 2026-10-30, limit 512M, `shared_buffers` 128MB. With swap (Swarm, swap = limit): normal run (1 day, ~35.8k orders) `memory.peak` 299–300 MiB, non-reclaimable need 252 MiB; backfills of 2, 4, 6, 8 days completed (need 355, 549, 826, 946 MiB); 10 days and the whole history (30-day request, 14.9 days, 300k orders) killed. Without swap (`docker run --memory=512M --memory-swap=512M`): normal 301 / 250 MiB; 2 days completed; 4 days killed. ~5.2 KB per order. Every kill: `oom_kill` +1, the four recovery lines, connections back within 1 s, postmaster, s6, sshd, cron untouched. G10: the backfill side holds; the normal-run side passes only on the non-reclaimable reading (252 < 256), not on raw `memory.peak` (300 > 256): taken to the owner (wave log). No departure from the spec; nothing reshaped.
+
 ### Chunk 10 — P1, sales reporting
 
-Status: planned
+Status: merged (w2, 1414e3c)
 Wave: 2
 Depends on: chunks 3, 5; G8 (done, spec D217)
 Architecture capture: none.
@@ -845,9 +857,11 @@ Architecture capture: none.
 - Split rule: 10a `purpose.yaml` and the material; 10b the checks and
   `gm.md`.
 
+Record: 10a 2ecf66a, 10b 68b2675, merge 1414e3c. No departure from the spec; choices logged in the wave log (`rpt.business_settings` in `reporting`; a `run_id` column on `rpt.sales_hourly` and `rpt.sales_daily`, not in 9.6's column list; `close_day()` recomputes yesterday's hours too; R2 on revenue only; the purpose's own `tests/` folder). For chunks 13 to 15: where R1 to R5 run, the `pg_hba` lines the scenario must give, R1 and R3 reading 3 after a 14:00 hand-over.
+
 ### Chunk 11 — P2, P3 and P5: leads, mailing, export declarations
 
-Status: planned
+Status: merged (w2, d41032c)
 Wave: 2
 Depends on: chunks 3, 5; G8 (done, spec D217)
 Architecture capture: none.
@@ -879,6 +893,8 @@ Architecture capture: none.
   runs or triggers with a witness, 3 otherwise.
 - Verification: chunk checks.
 - Split rule: 11a P2 and P3; 11b P5 and the gateway stub.
+
+Record: 11a 2fda6c4, 11b 1ae95e6, merge d41032c (README purpose row merged with chunk 10's). E4's deadline read as the acknowledgement's 30 minutes plus one escalation cycle (master spec 10.4), sent to `spec-writer`; the stub answers by 15-second slots (`customs_gw` cannot read `customs_acks`). Found outside its Files line: the shop domain's consent buckets leave M3 without a witness from 16:00 to 20:45 company time, fixed on the wave branch (wave log). Choices logged in the wave log and each `gm.md`.
 
 ### Chunk 12 — The governance check set G1 to G4
 
@@ -935,7 +951,8 @@ data files, as master spec 16.1 sets them.
   refreshing `popular_products` as `shop_refresh`, `pooler`, `producer`
   with the domain's fragments, `consumer` with the dashboards,
   `reporting` with `pg_cron` and its cron daemon, `bi`, `crm`, `gateway`,
-  the monitoring of `db`), the starting limits and reservations, the
+  the monitoring of `db`), the starting limits and reservations
+  (`reporting` 640M / 256M, spec D227), the
   designed placement on two hosts (`reporting` on the first);
   `purposes:` mapping the four purposes, `domain: shop`, `governance:`
   and `player/data-policy.md` (personal and customer-linked data kept out
@@ -997,7 +1014,7 @@ Status: planned
 Wave: 3
 Depends on: chunks 4, 6, 7, 9, 10; chunks 12 and 13 (in-wave, W3-a,
 W3-b), merged into `v0.4-w3` before this chunk's branch is cut; G10 for
-15b
+15b (done, spec D227)
 Architecture capture: none of its own; recorded at its merge as W3-d,
 for chunk 16.
 
@@ -1022,13 +1039,20 @@ for chunk 16.
     file;
   - **15b**: `purpose-heavy-job-on-database-node` (f10: chunk 9's
     procedure and crontab entry as its seed at T0, the backfill request
-    as a `state` change at `handover-12h`, the window G10 set,
+    as a `state` change at `handover-12h`, the window as designed (the
+    thirty-day request, G10),
     `needs_unshared_host: true`; its incident check exiting 1 while the
     kill and the recovery are in the log since the planting moment,
     never 0 or 3; its notes for a failed planting, never re-planted
     within the aging; report only); f10 planted for real on
     `fixture-campaign` on armenelos alone, the VPS drained, its entry
-    moved to run within two minutes through `gm-crontab`;
+    moved to run within two minutes through `gm-crontab`, `reporting`
+    at its 640M limit (spec D227); that run re-measuring G10's criterion
+    at 640M: the `reporting` container's `memory.peak` around a normal
+    run under half the limit (320 MiB), and the thirty-day backfill
+    killed with swap (Swarm), so needing more than twice it (master spec
+    16.3), the figures (machine, date, limit, `shared_buffers`, peaks)
+    in the Record line and the wave log;
   - each with `fault.yaml`, its seed changes or injection, its check,
     `checks/probe.md`, `gm.md`; `postgres`' "Supported faults".
 - Files: `faults/<fault-id>/` for each (new),
@@ -1038,15 +1062,18 @@ for chunk 16.
   `.claude/skills/scenario-format/templates/fault.yaml` (the comment).
 - Spec sections: master spec 6.3, 7.2, 11.6, 11.7, 12.5 to 12.7, 13.3,
   16.2, 16.3, 16.5; access model 7, 9.4, 12; spec D209, D211, D213,
-  D226.
+  D226, D227.
 - Done when: the loader accepts each, and refuses a `data` seed change
   on a node without a data file; on `fixture-campaign` f6 and f9
   read 1, then 0 after their acceptance fix (f9 still 1 with only the
   table dropped); f7 reads 1 after the close runs (its job moved), 3
   then 0 after the fix and a move; f10's run kills a backend, PostgreSQL
   recovers by itself, s6, `sshd` and `cron` untouched, its check reads
-  1, the next run normal; `fit` refuses a mapping placing f10's node on a
-  shared host.
+  1, the next run normal; at 640M a normal run's `memory.peak` under
+  320 MiB and the thirty-day backfill killed with swap, or, on a
+  shortfall on either side, the figures back to the owner before
+  anything is reshaped (spec D213); `fit` refuses a mapping placing
+  f10's node on a shared host.
 - Verification: chunk checks, plus the faults planted on
   `fixture-campaign` (needs G4), f10's run alone on armenelos under the
   host lock.
@@ -1064,7 +1091,8 @@ node, and each acceptance fix.
 - Goal: `tarnbeck-outdoor-campaign` (working id) of master spec 16.1,
   complete by the format skill.
 - Scope: in: `fixture-campaign`'s system copied into
-  `scenarios/<id>/` at the starting sizes; `difficulty:` normal, ten;
+  `scenarios/<id>/` at the starting sizes (`reporting` 640M / 256M,
+  spec D227); `difficulty:` normal, ten;
   the ten instances of 16.1 with their nodes, plantings and visibility,
   each instance's aging minimum raised to its job's first run after
   planting; the producer's release at T0 (f2) and the gateway's
@@ -1080,7 +1108,7 @@ node, and each acceptance fix.
   regenerated.
 - Files: `scenarios/<id>/` (new); the root `README.md`'s table.
 - Spec sections: master spec 11.5, 13.2, 13.4, 16.1, 16.2, 16.5;
-  access model 7, 12.
+  access model 7, 12; spec D227.
 - Done when: the format skill finds nothing missing; `fit` and `render`
   accept it on armenelos alone and on armenelos plus the VPS declared
   `shared`, `fit` refusing the VPS for `reporting`; its README matches a
@@ -1335,7 +1363,8 @@ bastion only; GM-side checks run from the host.
    f7, f8), f4's moving the producer's invoicing, f5's with `--since`;
    f6 and f9 present, then fixed after their acceptance fix.
 10. Master spec 18.4: the unfaulted scenario passing G1 to G4.
-11. Master spec 18.5: f10 calibrated (G10 done) and run on armenelos
+11. Master spec 18.5: f10 calibrated (G10 done, re-measured at 640M by
+    chunk 15b) and run on armenelos
     alone, the VPS drained: its check present, PostgreSQL recovered, s6,
     `sshd` and `cron` untouched.
 12. Master spec 18.6: the rehearsal re-run on the merged code without

@@ -1,0 +1,87 @@
+# P2, win-back leads (v0.4 master spec 10.2; 6.7, 8, 9.3, 9.6, 9.7, 12): the
+# marketing team extracts, every hour, the customers to win back for the
+# active campaign. Transformed in place: the shop's own data turned into
+# another table of it.
+#
+# Material (material/) is written for the first v0.4 scenario's mapping:
+# source and target db/shop, runner crm. The GM adapts the names as it
+# copies (capture W1, item 5); gm.md says where each name lives.
+id: shop-winback-leads
+title: Hourly extraction of the win-back campaign's leads from the shop's own data
+domains: [shop]
+kind: transformed-in-place
+
+parts:
+  source: the shop's database, its customers, their last order and their consent history
+  target: the same database, its leads table and run ledger
+  runner: the marketing team's transformer, running the hourly extraction
+
+jobs:
+  - name: leads-extract
+    key: leads.extract
+    part: runner
+    source: source
+    target: target
+    method: sql
+    computes: >-
+      for each active winback campaign, the customers whose last order is 60 to 365 days old,
+      with marketing consent by their latest consent event (never the opt-in flag), and not yet
+      a lead of it, inserted into leads with a score, and one etl_runs row.
+    cadence: "20 * * * *"
+    connections:
+      shop_crm: shop_crm
+
+trace:
+  - kind: published-results
+    part: target
+    table: leads
+    run_column: extracted_at
+  - kind: run-ledger
+    part: target
+    table: etl_runs
+    run_column: started_at
+  - kind: run-ledger
+    part: runner
+    file: /var/log/scheduler/scheduler.log
+
+invariants:
+  - id: L1
+    statement: >-
+      Every lead extracted since the judged moment had, at its extracted_at, no order in the
+      previous 60 days and one within 365.
+    check: checks/l1-in-segment.sh
+    parameters: {}
+    witness: >-
+      a customer with no order in the backup's fifteen days (lapsed, or last ordering 16 to 59
+      days ago) ordering again between the judged moment and a run, with consent and not yet a
+      lead: the web shop picks customers uniformly, so lapsed customers order again every day.
+  - id: L2
+    statement: >-
+      Every lead extracted since the judged moment had marketing consent at its extracted_at:
+      its latest marketing-email consent event at or before it was a grant.
+    check: checks/l2-consented.sh
+    parameters: {}
+    witness: >-
+      customers of the segment, not yet leads, whose latest consent event at a run's start is a
+      withdrawal following an earlier grant: the unsubscribe stream withdraws consent from
+      lapsed customers every hour, and the backup holds about nine hundred such customers.
+  - id: L3
+    statement: At most one lead per (campaign, customer).
+    check: checks/l3-once-per-campaign.sh
+    parameters: {}
+    witness: >-
+      a run since the judged moment starting when the campaign already had leads, which a run
+      ignoring "not yet a lead" would extract again: true from the second run on.
+
+data_moved:
+  - job: leads-extract
+    reads: [shop.customers.id, shop.consent_events.id, shop.consent_events.customer_id,
+            shop.consent_events.purpose, shop.consent_events.granted, shop.consent_events.at,
+            shop.leads.campaign_id, shop.leads.customer_id]
+    writes: [target:leads, target:etl_runs]
+
+roles:
+  - name: shop_crm
+    part: source
+    reads: [customers, consent_events, orders, campaigns, leads, mail_outbox, business_settings]
+    writes: [leads, mail_outbox, etl_runs]

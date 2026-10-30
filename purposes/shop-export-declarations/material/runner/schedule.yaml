@@ -1,0 +1,13 @@
+# Schedule of the shipping manager's transformer, a fragment (capture W1,
+# item 5's rule): its connection to the shop's database as shop_customs
+# (access model 9.1), straight to the database, and no stream (a
+# transformer runs jobs only). Written for the first v0.4 scenario's nodes,
+# where the marketing team's purposes share the node; the GM adapts the
+# target as it copies.
+connections:
+  shop_customs:
+    driver: sql/postgresql
+    target: db:5432/shop
+    role: shop_customs
+    pool: {size: 1}
+streams: []
