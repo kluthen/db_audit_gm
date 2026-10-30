@@ -3893,3 +3893,24 @@ merges after this wave.
     19:00:00Z: nothing labelled left, both host timers removed. The
     VPS stayed Drain throughout. Items 9 and 11: PASS.
 - The sleep inhibitor released; no docker work left in the gate.
+- Item 12, the quality command re-run on the fixed code, armenelos
+  alone, the VPS Drain throughout, under a sleep inhibitor:
+  - 2026-10-29 from 20:06 CET, head 674e8ab: unit 658 OK, the
+    schedulers' unit tests OK, syntax 118 shell and 7 Perl files, 0
+    failed, loader 34 definitions (plus 13 in fixtures), 0 with
+    problems; postgres 0.3.0 and bastion 0.3.0 built, stack tests
+    passed. The run was stopped at 20:13 CET, during prometheus's stack
+    test (not a failure).
+  - 2026-10-30 from 08:53 CET, head 65c2c0b (docs only since 674e8ab),
+    resumed at prometheus: its stack test failed at once on a config
+    `gmtest-prom_seed_prometheus_yml` left by the stopped run (the
+    leftovers check before resuming had missed it); the test's own
+    teardown removed it and the re-run at 09:36 passed (78 s).
+    postgres-exporter, grafana, scheduler and pgbouncer: built, stack
+    tests passed. smoke (OK), smoke-monitoring (43 checks),
+    smoke-scenario bookshop-new-server (19), fernway-clinics-monitoring
+    (18), tarnbeck-outdoor-shop (26, 844 s), smoke-load armenelos (73,
+    426 s): all passed. The intermittent smoke-load failure did not
+    recur. Nothing left after the run. Item 12: PASS.
+- Release gate: items 1 to 15 PASS, G9 and G10 cleared. v0.3-w4 is
+  ready to merge into main when the owner asks.
