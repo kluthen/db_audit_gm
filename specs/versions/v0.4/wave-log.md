@@ -935,3 +935,101 @@ scenario's `host all gm_check samenet scram-sha-256` line (W1 gives it
 to the format skill). **Gate note**: `py_compile` inside a seed folder
 (`scripts/`, `builders/`) leaves a `__pycache__` the loader refuses; the
 gate compiles with `PYTHONDONTWRITEBYTECODE=1`.
+
+### Chunk 3 — merged (b34d375), 2026-10-30
+
+3a 7536550, 3b 1b5d7ba, merge b34d375 (after chunk 2's bff4dc4). Unit
+tests in the image 71 OK; stack test 133 PASS, 0 FAIL (~18 min); tools
+suite 745 OK on the merged wave branch; image 171MB. Tarnbeck's smoke
+run left for the wave gate.
+
+### Capture W1-y — chunk 3 outcomes (`scheduler` 0.2.0; read by 10, 11, 12, 14)
+
+Recorded 2026-10-30 by chunk 3's owner from the code on
+`v0.4-c3-scheduler` (7536550, 1b5d7ba; merged b34d375): what W1 item 7
+left to the brick, as built and tested. v0.3's W1-y holds except where
+noted.
+
+- **Brick lines.** `roles: [producer, consumer, transformer]`.
+  `seed.files` gains `scripts/` after `builders/`; `seed.paths`
+  `scripts/: /srv/scheduler/repository/scripts`, on the volume
+  `repository`. `protected_files` gains `/usr/local/lib/gm/check-runs`.
+  No package, no new secret; `footprint` unchanged. The entrypoint seeds
+  `scripts/` once, as `builders/`; a node seeded by 0.1.0 has no
+  `scripts/` and needs none. `restore` gives `scripts/` the write
+  policy's owner and modes (`2775`/`0664` fixable, `2755`/`0644`
+  otherwise).
+- **Program checks** (`check`, `check-keys`, start, reload): exactly one
+  of `connection:` (any key but a script) and `connections:` (a script
+  key); `connections` a non-empty map, names `[a-z][a-z0-9_]*`, values
+  connections of the schedule. Messages:
+  - `jobs.yaml: job <j>: key <k> is a script: name its connections with connections:, not connection:`
+  - `jobs.yaml: job <j>: key <k> is not a script: it takes connection:, not connections:`
+  - `jobs.yaml: job <j>: connections.<name>: connection <c> is not one of the schedule's`
+  - `queries.yaml: key <k> is named by the schedule but is a script: a script runs only as a job` (a stream or a timeline `set.key` naming a script key)
+
+  Exit codes as v0.3 (`run` 3, the checks 1). `streams: []` runs. The
+  cron parser accepted every numeric 5-field form already, W1 item 0's
+  hour field included.
+- **The call.** `<function>(conns, options, log)` in a daemon worker
+  thread, one per run (`gm_scheduler/scripts.py`). `conns`: one psycopg 3
+  connection per name, as the schedule's role for it with its
+  `role_<role>_password`; `autocommit=False`, `application_name` the
+  node's hostname, `prepare_threshold=None`, `connect_timeout` 10 s; one
+  connection per name per run whatever the connection's `pool:`.
+  `options` a copy of the entry's. The runner closes every connection
+  after the call (anything uncommitted rolls back). The return must be an
+  `int` ≥ 0 (not a bool), else `error=TypeError`. A program stopping
+  mid-run does not wait for the thread.
+- **Log lines.** Connections opened first; one failing: `error key=<k>
+  job=<j> sqlstate=<S> message="..."`, then `skip job=<j> key=<k>
+  at=<due> reason=connection-refused`, no `run` line. Otherwise `run
+  job=<j> key=<k> phase=start`, then `run ... phase=end status=ok
+  rows=<n> ms=<x>`, or on an exception `error key=<k> job=<j> sqlstate=<S
+  or -> message="<primary message>"` (or `message="script: <Class>:
+  <text>"`) then `run ... phase=end status=error sqlstate=<S> ms=<x>`
+  (with an SQLSTATE) or `status=error error=<Class> ms=<x>`. `skip ...
+  reason=still-running` while a run goes. `log(text)` writes `<instant>
+  script job=<j> <text>`, control characters turned to spaces; **the
+  text is free, never parsed as fields — the one exception to v0.3
+  W1-y's grammar**: readers take the event from the second word
+  (`gm_scheduler.textlog.parse_line`), so a script's text never passes
+  for a `run` line. Writes serialised by a lock.
+- **`/run/scheduler/loaded`.** v0.3's lines unchanged; `file <sha256>
+  <path>` lines cover every regular file in `scripts/` too (`pending` and
+  the faults' checks see a script changed but not reloaded). New: one
+  `cron <job> <zone> <at>` line per job, its time as loaded (`cron
+  rollup-hourly UTC 5 * * * *`). `gm-reload-scheduler` and `pending`
+  still parse only `job`/`file` lines.
+- **The checks' means**: `/usr/local/lib/gm/check-runs`, root `0700`,
+  run as root on the node (`gmctl exec --user root`):
+  - `check-runs runs <job> <since>`: one line per run whose `run ...
+    phase=end status=ok` line is strictly after `<since>` (UTC
+    `YYYY-MM-DDTHH:MM:SSZ` **only**), oldest first, `<start> <end>
+    rows=<n> ms=<x>`; whole seconds, truncated; `<start>` `-` without a
+    start line; nothing when none; a run started before `<since>` is
+    listed (its start shows it).
+  - `check-runs last-reload`: the instant of the last `reload status=ok`,
+    or nothing.
+  - `check-runs since <since>`: the later of `<since>` and the last
+    reload (12.1; added beyond the chunk's three).
+  - `check-runs next <job>`: `<instant> remaining=<s>` (rounded up), from
+    the loaded `cron` line by `gm_scheduler.cron`, never the live
+    `jobs.yaml`; `never` when the time never comes.
+  - Exit 0 done; 1 for `next` of a job not loaded; 2 when it cannot run
+    (not root, a bad argument or instant, the log or loaded file missing),
+    one `check-runs: ...` line on stderr. Reads only the log and the
+    loaded file. Trace rows tie to a run by its start and end, or by
+    `etl_runs` id.
+- **Footprint at rest** (stack test, armenelos, 2026-10-30): scheduler
+  node idle 17M of 128M (program RSS 25M), two streams 26M (RSS 35M);
+  transformer node (no stream, one script job) idle 17M (RSS 25M), after
+  its run 27M (RSS 35M), volumes ~56K; log 4597 bytes (51 lines) in 13
+  min. Within master spec 7.1; `brick.yaml` unchanged.
+- **Tests.** `run-in-image.sh` creates roles `shop_etl`, `bi_etl` and
+  database `reporting`; the stack test adds the transformer node and
+  `fixtures/scripts/rollup.py`.
+
+Carried: chunk 8b passes `CHECK_SINCE` as `YYYY-MM-DDTHH:MM:SSZ` or
+`check-runs` exits 2; `check-runs` reads the whole log per call (fine at
+the measured growth, slower over a long aging).
