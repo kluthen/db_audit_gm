@@ -16,7 +16,8 @@ starter pack as Markdown and as a page (2, 5, 6.4, 7.3, 11.5, 15, 16.1,
 17, 19, 20, 22); then on the web front, which runs in every game (2,
 7.3, 14, 15, 16.4, 19, 20, 22). A database node's data file named in a
 seed-file change (6.3) was settled the same day, applying 6.3 as
-approved.
+approved. During wave 2, f10's early calibration (16.3) led the owner
+to raise `reporting`'s memory limit (16.1).
 
 ---
 
@@ -1477,7 +1478,7 @@ the rehearsal):
 | `pooler` | `pgbouncer` 0.1.0 | pooler | fixable | as v0.3 |
 | `producer` | `scheduler` 0.2.0 | producer (the web shop) | report-only, repository and `jobs.yaml` fixable | 96M / 48M |
 | `consumer` | `scheduler` 0.2.0 | consumer (the back office's dashboards, reading `reporting`) | report-only, `jobs.yaml` fixable | 128M / 64M |
-| `reporting` | `postgres` 0.4.0 | database (`reporting`), the agency's | fixable; the agency's by the story, its faults *propose* or *report* | 512M / 256M |
+| `reporting` | `postgres` 0.4.0 | database (`reporting`), the agency's | fixable; the agency's by the story, its faults *propose* or *report* | 640M / 256M |
 | `bi` | `scheduler` 0.2.0 | transformer: P1, the agency's | report-only | 384M / 192M |
 | `crm` | `scheduler` 0.2.0 | transformer: P2, P3, P5 | report-only, repository and `jobs.yaml` fixable | 128M / 64M |
 | `gateway` | `scheduler` 0.2.0 | producer: the customs gateway stub | report-only | 96M / 48M |

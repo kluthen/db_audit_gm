@@ -306,3 +306,13 @@ drafting. Take the next number from `doc-ids`; no ID is reused.
   [formats.md](formats.md) "Fault definition";
   [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 6.3;
   [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunk 15.
+- **D227 (2026-10-30, owner ruling on the plan's G10, relayed by the
+  wave driver, applying D213): `reporting`'s memory limit in the v0.4
+  scenario rises from 512M to 640M, its reservation staying 256M; f10's
+  window stays as designed, and chunk 15's f10 run re-measures at 640M.**
+  At 512M chunk 9's normal run peaked at ~300 MiB, over half the limit
+  on 16.3's own measure; at 640M it is under 320, and the whole-history
+  backfill (~1.55 GiB, extrapolated) stays above twice it. Now in:
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 16.1;
+  [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) G10, chunks
+  13, 15, 16, release gate.
