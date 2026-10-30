@@ -1,0 +1,13 @@
+# Schedule of the marketing team's transformer, a fragment (capture W1,
+# item 5's rule): its connection to the shop's database as shop_crm
+# (access model 9.1), straight to the database, and no stream (a
+# transformer runs jobs only). The mailing purpose's fragment holds the
+# same connection: the GM keeps one when it copies both. Written for the
+# first v0.4 scenario's nodes; the GM adapts the target as it copies.
+connections:
+  shop_crm:
+    driver: sql/postgresql
+    target: db:5432/shop
+    role: shop_crm
+    pool: {size: 1}
+streams: []

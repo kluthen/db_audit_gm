@@ -1,0 +1,31 @@
+# Query repository of the marketing team's transformer, a fragment (capture
+# W1, items 5 and 7): the win-back leads purpose's one job, a plain
+# statement on the shop's database as shop_crm (master spec 10.2). Consent
+# is the customer's latest marketing-email event at or before the run,
+# never customers.marketing_opt_in (9.3). The leads and the run's
+# etl_runs row are written by one statement, so in one transaction: the
+# run's now() is every lead's extracted_at and the row's started_at.
+queries:
+  leads.extract:
+    sql: >-
+      WITH candidates AS (
+        SELECT k.id AS campaign_id, c.id AS customer_id,
+               round(c.lifetime_value
+                     / (1 + extract(epoch FROM now() - c.last_order_at) / 2592000), 2) AS score
+          FROM campaigns k
+          JOIN customers c
+            ON c.last_order_at <= now() - interval '60 days'
+           AND c.last_order_at >= now() - interval '365 days'
+         CROSS JOIN LATERAL (
+               SELECT e.granted FROM consent_events e
+                WHERE e.customer_id = c.id AND e.purpose = 'marketing-email' AND e.at <= now()
+                ORDER BY e.at DESC, e.id DESC LIMIT 1) AS consent
+         WHERE k.active AND k.segment = 'winback'
+           AND consent.granted
+           AND NOT EXISTS (SELECT 1 FROM leads l
+                            WHERE l.campaign_id = k.id AND l.customer_id = c.id)),
+      ledger AS (
+        INSERT INTO etl_runs (job, started_at, finished_at, rows_read, rows_written)
+        SELECT 'leads-extract', now(), clock_timestamp(), count(*), count(*) FROM candidates)
+      INSERT INTO leads (campaign_id, customer_id, score, extracted_at)
+      SELECT campaign_id, customer_id, score, now() FROM candidates
