@@ -52,6 +52,7 @@ protected_files:
   - /usr/local/sbin/gm-validate
   - /usr/local/lib/gm/healthcheck
   - /usr/local/lib/gm/check-sql     # root only (0700): the sealed checks' SQL as gm_check
+  - /usr/local/lib/gm/check-runs    # root only (0700): a job's runs, the last reload, its next run
   - /usr/local/lib/python3.13/dist-packages/gm_scheduler   # the program
   - /opt/gm/validator/validate.sh
   - /etc/s6-overlay/s6-rc.d

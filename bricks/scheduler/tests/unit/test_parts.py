@@ -22,7 +22,7 @@ from gm_scheduler.metrics import Stats, percentile
 from gm_scheduler.rng import derive
 from gm_scheduler.schedule import apply_past_changes, parse_input, parse_schedule, read_schedule
 from gm_scheduler.streams import next_arrival, rate_function, shape_multiplier
-from gm_scheduler.textlog import format_line, script_line
+from gm_scheduler.textlog import completed_runs, format_line, last_reload, parse_line, script_line
 from gm_scheduler.timeutil import instant, minute_label, parse_duration, parse_instant, parse_rate
 
 UTC = datetime.timezone.utc
@@ -99,6 +99,50 @@ class TestLogLines(unittest.TestCase):
         t = ts("2026-10-24T09:15:03Z")
         self.assertEqual(script_line(t, "rollup-hourly", "moved 120 rows\nwatermark=2026-10-24T09:00:00Z"),
                          "2026-10-24T09:15:03Z script job=rollup-hourly moved 120 rows watermark=2026-10-24T09:00:00Z")
+
+    def test_lines_parse_back(self):
+        t = ts("2026-10-24T09:15:03Z")
+        line = format_line(t, "error", [("key", "k"), ("job", "j"), ("sqlstate", "42501"),
+                                        ("message", 'permission denied for "src" \\ x')])
+        self.assertEqual(parse_line(line), ("2026-10-24T09:15:03Z", "error",
+                                            {"key": "k", "job": "j", "sqlstate": "42501",
+                                             "message": 'permission denied for "src" \\ x'}, None))
+        self.assertEqual(parse_line(script_line(t, "r", "run job=x phase=end status=ok")),
+                         ("2026-10-24T09:15:03Z", "script", {"job": "r"}, "run job=x phase=end status=ok"))
+        for bad in ("", "gm-scheduler: cannot write", "2026-10-24T09:15:03Z run job", "2026-10-24 run job=x"):
+            self.assertIsNone(parse_line(bad), bad)
+
+    def test_runs_since_a_moment_and_the_last_reload(self):
+        log = """\
+2026-10-24T09:00:00Z state state=running t0=2026-10-24T08:00:00Z
+2026-10-24T09:05:00Z run job=rollup key=rollup.hourly phase=start
+2026-10-24T09:05:02Z script job=rollup moved 3 rows
+2026-10-24T09:05:02Z run job=rollup key=rollup.hourly phase=end status=ok rows=3 ms=2012.5
+2026-10-24T09:20:00Z reload status=ok keys=4 jobs=2
+2026-10-24T09:21:00Z reload status=refused message="jobs.yaml: does not parse"
+2026-10-24T10:05:00Z run job=rollup key=rollup.hourly phase=start
+2026-10-24T10:05:01Z run job=rollup key=rollup.hourly phase=end status=error error=ValueError ms=4.0
+2026-10-24T10:06:00Z script job=rollup run job=rollup key=rollup.hourly phase=end status=ok rows=9 ms=1
+2026-10-24T11:05:00Z run job=other key=rollup.hourly phase=start
+2026-10-24T11:05:00Z run job=rollup key=rollup.hourly phase=start
+2026-10-24T11:05:03Z run job=other key=rollup.hourly phase=end status=ok rows=1 ms=1.0
+2026-10-24T11:05:04Z run job=rollup key=rollup.hourly phase=end status=ok rows=5 ms=4120.0
+gm-scheduler: a line not of the grammar
+"""
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "scheduler.log")
+            with open(path, "w") as f:
+                f.write(log)
+            self.assertEqual(completed_runs(path, "rollup", "2026-10-24T08:00:00Z"),
+                             [("2026-10-24T09:05:00Z", "2026-10-24T09:05:02Z", "3", "2012.5"),
+                              ("2026-10-24T11:05:00Z", "2026-10-24T11:05:04Z", "5", "4120.0")])
+            self.assertEqual(completed_runs(path, "rollup", "2026-10-24T09:05:02Z"),
+                             [("2026-10-24T11:05:00Z", "2026-10-24T11:05:04Z", "5", "4120.0")])
+            self.assertEqual(completed_runs(path, "rollup", "2026-10-24T11:05:04Z"), [])
+            self.assertEqual(last_reload(path), "2026-10-24T09:20:00Z")
+            with open(path, "w") as f:
+                f.write(log.split("2026-10-24T09:20")[0])
+            self.assertIsNone(last_reload(path))
 
     def test_quoted_value_is_last(self):
         t = ts("2026-10-24T09:15:00Z")
@@ -401,6 +445,26 @@ class TestCron(unittest.TestCase):
                 Cron(bad)
         with self.assertRaises(ConfigError):
             Cron("0 0 * * *", "Mars/Olympus")
+
+
+class TestLoaded(unittest.TestCase):
+    def test_the_loaded_file_keeps_each_jobs_time(self):
+        from gm_scheduler.runner import read_loaded
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "loaded")
+            with open(path, "w") as f:
+                f.write("generation=3\nloaded=2026-10-24T09:20:00Z\n"
+                        f"file {'a' * 64} /srv/scheduler/repository/scripts/rollup.py\n"
+                        "file missing /srv/scheduler/repository/queries.yaml\n"
+                        "job rollup next=2026-10-24T10:05:00Z\njob close next=never\n"
+                        "cron rollup UTC 5 * * * *\ncron close Etc/GMT-3 30 1 * * *\n")
+            out = read_loaded(path)
+        self.assertEqual((out["generation"], out["loaded"]), ("3", "2026-10-24T09:20:00Z"))
+        self.assertEqual(out["files"], {"/srv/scheduler/repository/scripts/rollup.py": "a" * 64,
+                                        "/srv/scheduler/repository/queries.yaml": "missing"})
+        self.assertEqual(out["next"], {"rollup": "2026-10-24T10:05:00Z", "close": "never"})
+        self.assertEqual(instant(out["cron"]["rollup"].next_after(ts("2026-10-24T10:05:00Z"))), "2026-10-24T11:05:00Z")
+        self.assertEqual(instant(out["cron"]["close"].next_after(ts("2026-10-24T12:00:00Z"))), "2026-10-24T22:30:00Z")
 
 
 class TestJobs(unittest.TestCase):

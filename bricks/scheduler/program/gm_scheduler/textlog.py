@@ -9,10 +9,14 @@ rates or shapes.
 
 One event has free text instead: `<UTC instant> script job=<name> <text>`,
 what a transformer script passed to `log(text)` (master spec 7.1),
-control characters as spaces.
+control characters as spaces. A reader takes the event from the second
+word only (parse_line), so a script's text never passes for another
+event; `completed_runs` and `last_reload` are what a purpose check reads
+(master spec 12.1, 12.2; /usr/local/lib/gm/check-runs).
 """
 
 import os
+import re
 import sys
 import threading
 import time
@@ -50,6 +54,78 @@ def clean_text(text):
 
 def script_line(ts, job, text):
     return f"{instant(ts)} script job={job} {clean_text(text)}"
+
+
+_LINE_RE = re.compile(r"^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z) ([a-z]+)(?: (.*))?$")
+_FIELD_RE = re.compile(r"([a-z0-9_]+)=")
+
+
+def parse_line(line):
+    """A log line -> (instant, event, {name: value}, text), or None for a
+    line not of the log's grammar. `text` is a `script` line's free text
+    (None for every other event, whose fields are all parsed)."""
+    m = _LINE_RE.match(line.rstrip("\n"))
+    if not m:
+        return None
+    at, event, rest = m.group(1), m.group(2), m.group(3) or ""
+    if event == "script":
+        job, _, text = rest.partition(" ")
+        if not job.startswith("job="):
+            return None
+        return at, event, {"job": job[4:]}, text
+    fields, i = {}, 0
+    while i < len(rest):
+        f = _FIELD_RE.match(rest, i)
+        if not f:
+            return None
+        name, i = f.group(1), f.end()
+        if rest.startswith('"', i):
+            body = rest[i + 1:]
+            if not body.endswith('"'):
+                return None
+            fields[name] = re.sub(r"\\(.)", r"\1", body[:-1])
+            break
+        end = rest.find(" ", i)
+        end = len(rest) if end < 0 else end
+        fields[name] = rest[i:end]
+        i = end + 1
+    return at, event, fields, None
+
+
+def read_events(path):
+    """The log's lines, parsed (lines not of the grammar skipped)."""
+    with open(path, encoding="utf-8", errors="replace") as f:
+        for line in f:
+            parsed = parse_line(line)
+            if parsed is not None:
+                yield parsed
+
+
+def completed_runs(path, job, since):
+    """The runs of `job` whose `run ... phase=end status=ok` line is after
+    `since` (an instant, YYYY-MM-DDTHH:MM:SSZ): [(start instant or None,
+    end instant, rows, ms)], in order. The start is the job's previous
+    `phase=start` line (runs of one job never overlap)."""
+    out, start = [], None
+    for at, event, fields, _ in read_events(path):
+        if event != "run" or fields.get("job") != job:
+            continue
+        if fields.get("phase") == "start":
+            start = at
+        elif fields.get("phase") == "end":
+            if fields.get("status") == "ok" and at > since:
+                out.append((start, at, fields.get("rows"), fields.get("ms")))
+            start = None
+    return out
+
+
+def last_reload(path):
+    """The instant of the log's last `reload status=ok` line, or None."""
+    last = None
+    for at, event, fields, _ in read_events(path):
+        if event == "reload" and fields.get("status") == "ok":
+            last = at
+    return last
 
 
 class Log:

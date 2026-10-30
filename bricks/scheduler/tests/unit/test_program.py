@@ -356,6 +356,7 @@ class TestProgram(ProgramRun):
                 loaded = f.read()
             self.assertIn("generation=2\n", loaded)
             self.assertRegex(loaded, r"job extra next=\d{4}-\d\d-\d\dT\d\d:\d[05]:00Z")
+            self.assertIn("\ncron close-day UTC 30 1 * * *\ncron extra UTC */5 * * * *\n", loaded)
             with open(self.paths["jobs"], "a") as f:
                 f.write("  - name: bad\n    key: no.such.key\n    connection: app\n    at: \"0 1 * * *\"\n")
             p.send_signal(signal.SIGHUP)

@@ -23,6 +23,7 @@ import time
 import yaml
 
 from . import ConfigError
+from .cron import Cron
 from .drivers import DriverError
 from .generators import Sequences
 from .jobs import load_jobs
@@ -121,6 +122,29 @@ def check_references(schedule, repo, jobs):
             + check_job_forms(repo, jobs) + job_connection_problems(jobs, schedule.connections))
 
 
+def read_loaded(path):
+    """/run/scheduler/loaded -> {"generation", "loaded", "files": {path:
+    digest}, "next": {job: instant or never}, "cron": {job: Cron}}: what
+    the program loaded, its jobs' times as it runs them. Raises OSError,
+    ConfigError."""
+    out = {"generation": None, "loaded": None, "files": {}, "next": {}, "cron": {}}
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
+    for line in text.splitlines():
+        parts = line.split(" ", 3)
+        if line.startswith("generation="):
+            out["generation"] = line.split("=", 1)[1]
+        elif line.startswith("loaded="):
+            out["loaded"] = line.split("=", 1)[1]
+        elif parts[0] == "file" and len(parts) >= 3:
+            out["files"][line.split(" ", 2)[2]] = parts[1]
+        elif parts[0] == "job" and len(parts) == 3 and parts[2].startswith("next="):
+            out["next"][parts[1]] = parts[2][5:]
+        elif parts[0] == "cron" and len(parts) == 4:
+            out["cron"][parts[1]] = Cron(parts[3], parts[2])
+    return out
+
+
 class Context:
     """What generators need: the time and the sequences."""
 
@@ -201,6 +225,8 @@ class Scheduler:
         for job in self.jobs:
             nxt = job.cron.next_after(now)
             lines.append(f"job {job.name} next={instant(nxt) if nxt else 'never'}")
+        for job in self.jobs:
+            lines.append(f"cron {job.name} {job.cron.zone_name} {job.cron.expr}")
         try:
             write_atomic(self.cfg["loaded"], "\n".join(lines) + "\n", 0o644)
         except OSError as exc:
