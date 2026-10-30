@@ -2,8 +2,10 @@
 
 import argparse
 import contextlib
+import datetime
 import io
 import unittest
+from unittest import mock
 
 import yaml
 
@@ -246,6 +248,100 @@ class TestCheck(DeployedGame):
         self.assertEqual(self.fake.runs, [])
 
 
+PLANTED = "2026-10-30T08:00:00Z"
+HANDED_OVER = "2026-10-30T12:00:00Z"
+NOW = datetime.datetime(2026, 10, 30, 15, 0, tzinfo=datetime.timezone.utc)
+
+
+class TestJudgedMoment(DeployedGame):
+    """CHECK_SINCE (master spec 6.5, 12.1, 14; spec D217): f2's check judges
+    runs; f1's judges the live state, as in v0.3."""
+
+    def setUp(self):
+        super().setUp()
+        for stage in ("data-loaded", "injected"):
+            localimpl.set_stage(self.ldir, stage)
+        self.edit_yaml("faults/fixture-dropped-index/fault.yaml",
+                       lambda d: d["sealed_check"].update(judges="runs"))
+        self.edit_yaml("gm/answer-key.yaml", lambda d: d["instances"][1]["sealed_check"]
+                       .update(judges="runs", threshold=0))
+
+        def planted(st):
+            st["plantings"] = {"f1": {"plant_at": "T0", "planted_at": "2026-10-30T07:00:00Z",
+                                      "by": "inject"},
+                               "f2": {"plant_at": "T0", "planted_at": PLANTED, "by": "inject"}}
+        localimpl.update_state(self.ldir, planted)
+
+    def check(self, **kwargs):
+        self.fake.runs.clear()
+        return checks.check(self.scenario, "laptop", docker=self.fake, now=NOW, **kwargs)
+
+    def envs(self, **kwargs):
+        self.check(**kwargs)
+        return {script_name(r): r["env"] for r in self.fake.runs}
+
+    def test_before_the_hand_over_the_planting_moment(self):
+        envs = self.envs()
+        self.assertEqual(envs["f2-check"], dict(F2_ENV, CHECK_THRESHOLD="0",
+                                                CHECK_SINCE=PLANTED))
+        self.assertEqual(envs["f1-check"], {})            # a live-state check, as in v0.3
+
+    def test_after_the_hand_over_the_hand_over_from_the_state(self):
+        localimpl.set_stage(self.ldir, "handed-over", HANDED_OVER)
+        self.assertEqual(self.envs()["f2-check"]["CHECK_SINCE"], HANDED_OVER)
+        # the first hand-over, later stages and a restart's second one aside
+        localimpl.set_stage(self.ldir, "final-answer", "2026-10-30T14:00:00Z")
+        localimpl.set_stage(self.ldir, "handed-over", "2026-10-30T14:30:00Z")
+        self.assertEqual(self.envs()["f2-check"]["CHECK_SINCE"], HANDED_OVER)
+
+    def test_since_raises_it_per_instance(self):
+        localimpl.set_stage(self.ldir, "handed-over", HANDED_OVER)
+        envs = self.envs(since="2026-10-30T13:30:00Z", instances=["f2"])
+        self.assertEqual(list(envs), ["f2-check"])
+        self.assertEqual(envs["f2-check"]["CHECK_SINCE"], "2026-10-30T13:30:00Z")
+        # the minute form is read too; an earlier time never lowers it
+        self.assertEqual(self.envs(since="2026-10-30T13:45Z")["f2-check"]["CHECK_SINCE"],
+                         "2026-10-30T13:45:00Z")
+        self.assertEqual(self.envs(since="2026-10-30T09:00:00Z")["f2-check"]["CHECK_SINCE"],
+                         HANDED_OVER)
+        # before the hand-over it raises the planting moment
+        localimpl.update_state(self.ldir, lambda st: st.update(history=[
+            h for h in st["history"] if h["stage"] != "handed-over"]))
+        self.assertEqual(self.envs(since="2026-10-30T09:00:00Z")["f2-check"]["CHECK_SINCE"],
+                         "2026-10-30T09:00:00Z")
+
+    def test_since_refusals_run_nothing(self):
+        for since, instances, pattern in (
+                ("2026-10-30T16:00:00Z", None, "--since 2026-10-30T16:00:00Z is in the future"),
+                ("yesterday", None, "--since: 'yesterday' is not a UTC instant"),
+                ("2026-10-30T13:00:00Z", ["f1"], r"--since 2026-10-30T13:00:00Z: no fault "
+                                                 r"instance checked judges runs or triggers "
+                                                 r"\(f1\)")):
+            with self.subTest(since=since):
+                with self.assertRaisesRegex(GmError, pattern):
+                    self.check(since=since, instances=instances)
+                self.assertEqual(self.fake.runs, [])
+
+    def test_an_instance_not_planted_yet_is_refused(self):
+        localimpl.update_state(self.ldir, lambda st: st["plantings"]["f2"].update(
+            planted_at=None, plant_at="+2h"))
+        with self.assertRaisesRegex(GmError, "fault instance f2 is not planted yet: its sealed "
+                                             "check judges runs since its planting"):
+            self.check()
+        self.assertEqual(self.fake.runs, [])
+        self.assertEqual(self.check(instances=["f1"]).exit_code, 0)
+
+    def test_too_soon_names_the_time_to_the_next_run(self):
+        self.replies[FRAGMENTS["f2-check"]] = (3, "remaining=5400 no run since the reload\n",
+                                               "")
+        result = self.check()
+        self.assertEqual(result.exit_code, checks.TOO_SOON)
+        self.assertEqual(result.lines[1].text(),
+                         "f2 fixture-dropped-index: too-soon — the job's next run is in 5400 s "
+                         f"(1h30m), judged since {PLANTED}: no run since the reload")
+        self.assertEqual((result.lines[1].remaining, result.lines[1].since), (5400, PLANTED))
+
+
 class TestReadCheck(unittest.TestCase):
 
     def read(self, returncode, *lines):
@@ -267,6 +363,9 @@ class TestReadCheck(unittest.TestCase):
                                               "remain: 3 duplicates in 6 min"))
         self.assertEqual(self.read(3, "remaining=1"),
                          ("too-soon", 3, 1, "f3 x-fault: too-soon — 1 s of the window remain"))
+        line = checks.read_check("f3", "x-fault", 3, ["remaining=60"], "2026-10-30T12:00:00Z")
+        self.assertEqual(line.text(), "f3 x-fault: too-soon — the job's next run is in 60 s "
+                                      "(1m), judged since 2026-10-30T12:00:00Z")
 
     def test_exit_3_without_a_valid_remaining_line(self):
         for lines in ([], ["remaining=0"], ["remaining=10s"], ["remaining= 10"],
@@ -297,6 +396,36 @@ class TestEvaluationExit(unittest.TestCase):
             code = gm._evaluation(args, lambda d, p: checks.CheckResult("g", [line]))
         self.assertEqual(code, 3)
         self.assertEqual(out.getvalue(), "f3 x-fault: too-soon — 120 s of the window remain\n")
+
+
+class TestCheckOptions(unittest.TestCase):
+
+    def run_check(self, *argv):
+        args = gm.build_parser().parse_args(["check", "s", "--playground", "p", *argv])
+        err = io.StringIO()
+        with mock.patch.object(checks, "check",
+                               return_value=checks.CheckResult("g")) as check, \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+            code = args.func(args)
+        return code, check, err.getvalue()
+
+    def test_since_and_instance_reach_check(self):
+        code, check, _ = self.run_check("--since", "2026-10-30T13:30:00Z", "--instance", "f5",
+                                        "--instance", "f6")
+        self.assertEqual(code, 0)
+        check.assert_called_once_with("s", "p", instances=["f5", "f6"],
+                                      since="2026-10-30T13:30:00Z")
+        code, check, _ = self.run_check()
+        check.assert_called_once_with("s", "p", instances=None, since=None)
+
+    def test_not_with_the_agings_checks(self):
+        for argv in (("--early-check", "--since", "2026-10-30T13:30:00Z"),
+                     ("--handover-check", "--instance", "f5")):
+            with self.subTest(argv=argv):
+                code, check, err = self.run_check(*argv)
+                self.assertEqual(code, 2)
+                self.assertIn("--since and --instance are not for", err)
+                check.assert_not_called()
 
 
 class TestCommandLine(RenderedGame):
