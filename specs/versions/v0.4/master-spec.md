@@ -1184,7 +1184,9 @@ long enough to contain a run. So a purpose fault's sealed check judges
 `CHECK_SINCE`, which `gmctl check` passes:
 
 - the hand-over, by default;
-- raised by the check itself to the runner's last successful reload
+- before the hand-over (the early check, the hand-over check and the
+  smoke runs), the fault instance's planting moment;
+- in either case raised by the check itself to the runner's last successful reload
   (`reload status=ok` in its log) when that is later, since a fix to a
   job's SQL or time takes effect only through a reload;
 - raised by the GM with `gmctl check --since <time>` when the players'
@@ -1345,7 +1347,7 @@ does until v0.5.
 | `fit` | reads a host's `shared` mark; refuses a node carrying a fault that needs an unshared host on a shared host (13.3) |
 | `render` | substitutes `{{customer_timezone}}` in scheduler seed files and in a `postgres` node's seed `postgresql.conf`; shifts a seeded `crontab`'s hours; mounts the secrets of a node's `crontab_roles` (8.5, 7.2) |
 | `load-data` | passes `customer_timezone` and `customer_utc_offset` to `psql`; sets each user mapping's password from its remote role's secret; gives the GM check role a read policy on `cron.job` and `cron.job_run_details` where `pg_cron` exists; creates the mapping-roles function where a foreign server exists; grants the GM check role `CONNECT` on every database, as today, on every instance (8.5, 7.2, 11.6) |
-| `check` | passes `CHECK_SINCE` (the hand-over, from the state) to checks judging runs or triggers; takes `--since <time>`, per instance with `--instance <id>` (12.1) |
+| `check` | passes `CHECK_SINCE` (the hand-over, from the state, or before it the instance's planting moment) to checks judging runs or triggers; takes `--since <time>`, per instance with `--instance <id>` (12.1) |
 
 The other verbs are unchanged. Nobody triggers a job: no verb runs one.
 
@@ -1583,8 +1585,10 @@ allows a container swap equal to its memory limit and Swarm cannot say
 otherwise, so the backfill must need more than twice the node's limit
 and a normal run less than half of it, after `shared_buffers`. Both are
 measured before the scenario's window is set: the cgroup's
-`memory.peak` around a normal run and around the backfill, on a host
-with swap and one without, on armenelos only, early in the build. If no
+`memory.peak` around a normal run and around the backfill, with swap
+and without it, on armenelos only, early in the build; without swap
+means a one-off calibration container with its swap disabled for it
+alone, outside Swarm, armenelos keeping its swap. If no
 window the restored history allows reaches twice the limit, the fault
 comes back to the owner before anything is reshaped; lowering
 `reporting`'s memory limit is the likely lever, offered to him then.

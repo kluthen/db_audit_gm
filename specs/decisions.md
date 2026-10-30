@@ -211,3 +211,22 @@ drafting. Take the next number from `doc-ids`; no ID is reused.
   O119, O122, O124, O125 and O111's v0.4 part. Now in:
   [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md),
   [versions/v0.4/access-model.md](versions/v0.4/access-model.md).
+- **D216 (2026-10-30, owner approval, relayed by the coordinator): The
+  v0.4 build plan is approved, with κ = 3 confirmed for v0.4.** Clears
+  its gate G1. Now in:
+  [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) (header,
+  "Gates", "Workflow deltas").
+- **D217 (2026-10-30, owner ruling on the plan's G8, relayed by the
+  coordinator): Before the hand-over (the early check, the hand-over
+  check, the smoke runs), a purpose check judges from the fault
+  instance's planting moment, raised to the runner's last reload, the
+  same rule as after it.** Now in:
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 12.1, 14;
+  [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunks 8,
+  10, 11.
+- **D218 (2026-10-30, owner ruling on the plan's G9, relayed by the
+  coordinator): f10's "without swap" is measured in a one-off
+  calibration container with its swap disabled for it alone, outside
+  Swarm; armenelos keeps its swap.** Now in:
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 16.3;
+  [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunk 9.

@@ -11,9 +11,12 @@ report-only policy in `postgres` (D211, closing O132); the scenario's
 ten faults only (D212, closing O133); f10 calibrated early, on
 armenelos only (D213); the gateway's lost acknowledgements (D214).
 The [build plan](build-plan.md), written from the master spec's
-section 19, was drafted the same day and awaits the owner's approval. The drafts stay as the working record until the archive; where
+section 19, was approved the same day with κ = 3 (D216), with the
+owner's rulings on the judged moment before the hand-over (D217) and on
+f10's measurement without swap (D218).
+The drafts stay as the working record until the archive; where
 they and the master spec disagree, the master spec is current.
-Page draft v6.
+Page draft v7.
 
 History: direction recast on 2026-10-28 (D190),
 revising D47's "transformers" for this version; a first cut of data
@@ -41,7 +44,7 @@ incident on a database node (D209).
 |---|---|---|
 | [master-spec.md](master-spec.md) | The consolidated v0.4 specification | approved 2026-10-30 (D215) |
 | [access-model.md](access-model.md) | Who may do what in a v0.4 game; the customer's roles and data policy in the game's world | approved 2026-10-30 (D215) |
-| [build-plan.md](build-plan.md) | The build: eighteen chunks in four waves, the gates G1 to G11, the release gate | v1 drafted 2026-10-30, awaiting the owner's approval |
+| [build-plan.md](build-plan.md) | The build: eighteen chunks in four waves, the gates G1 to G11, the release gate | v2, approved 2026-10-30 (D216–D218) |
 | [purposes.md](purposes.md) | The purpose as an artefact: layout, `purpose.yaml`, how a scenario uses one, faults attached to purposes, instances and node sizing, the job runner and the transformer script, moving data between instances, cadence under real time, the customer's time zone in the data | draft v4 |
 | [purpose-catalogue.md](purpose-catalogue.md) | The proposed purposes, each with its jobs, trace and invariants: sales reporting, win-back leads, customer mailing, export declarations (a pushed obligation); finance held; the clinic's reporting as a stress test | draft v4 |
 | [shop-domain.md](shop-domain.md) | The shop as the first domain: the format v0.4 settles, the data-model changes the invariants need, roles, producer changes | draft v2 |

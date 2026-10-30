@@ -1,8 +1,9 @@
 # db_audit_gm v0.4 — Build plan
 
-Status: v1 (2026-10-30): the first plan, written from the approved
-master spec's section 19.
-Approval: **awaiting the owner** (G1).
+Status: v2 (2026-10-30): approved, κ = 3 confirmed (spec D216); the
+owner's rulings on G8 (spec D217) and G9 (spec D218) written into chunks
+8 to 11 and 9.
+Approval: **approved 2026-10-30 by the owner** (G1, spec D216).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-10-30 (spec D215),
 with the owner's rulings spec D211 to D214 written in.
@@ -106,28 +107,27 @@ plan states only its deltas. Its conventions follow v0.3's
 
 | Gate | What | Cleared by | Blocks | Status |
 |---|---|---|---|---|
-| G1 | Plan approval | The owner | Wave 1 | open |
+| G1 | Plan approval | The owner | Wave 1 | done (2026-10-30, spec D216) |
 | G2 | [formats.md](../../formats.md) carries master spec 6: the purpose and the domain, `governance:`, the new scenario, answer-key, fault and brick fields, the optional crontab and `crontab_roles` (section 19: the format skill is updated after it) | `spec-writer` | Chunk 1 | done (2026-10-30, cf484b9; formats.md v22) |
 | G3 | Network access at image build time: Debian 13's repositories (`cron`), the PostgreSQL apt repository (`postgresql-18`, `postgresql-18-cron`), the s6-overlay release, as in v0.3 | Hand check by the wave driver | Chunks 1, 3, 4 (image builds); every wave gate's builds | open |
 | G4 | A Docker host in swarm mode: armenelos' swarm, the VPS a drained worker in it | Hand check by the wave driver | Every stack test, deployment and smoke run, chunk 9, every wave gate, the release gate | open |
 | G5 | **Dependency preflight** on `postgres` 0.4.0's new packages: the candidate versions of `postgresql-18-cron` (PGDG) and of Debian's `cron` with what it pulls in, installed without recommends (master spec 7.2, 19). A finding the owner must rule on becomes a gate of its own | `security-advisor` (skill `dependency-check`), called by the wave driver at wave 1's start | Chunk 4's branch | open |
 | G6 | **Dependency post-change check** on the versions chunk 4 resolved, and `.tech` updated (`postgres` 0.4.0, `scheduler` 0.2.0, the two packages), committed on `v0.4-w1` | `security-advisor`, called by the wave driver once chunk 4 has merged | Wave 1's gate | open |
 | G7 | The VPS ready for two-host runs, under the VPS rule ("Workflow deltas"): `tailscale status` on both hosts; the VPS still a worker of armenelos' swarm, drained; no game port published on it; at least 5G free; filetstudio.com answering before and after | Hand check by the wave driver | The two-host `smoke-load.sh` from wave 2's gate; chunk 17's two-host runs; the release gate's two-host runs | open |
-| G8 | **The judged moment before the hand-over.** Master spec 12.1 sets `CHECK_SINCE` to the hand-over by default, and says nothing of the checks run before it: the early check and the hand-over check, which must read each purpose fault present, and the smoke runs, which plant at once and never hand over. Proposed: before the hand-over, `CHECK_SINCE` is the instance's planting moment (as f10's incident check already reads, 16.3), raised to the runner's last reload as after it | The owner (a ruling for `spec-writer` to write into the spec and this plan) | Chunk 8's merge; the "Done when" of chunks 10, 11, 14, 15 as far as they read a check before a hand-over | open |
-| G9 | **f10's measurement without swap, on armenelos only.** Master spec 16.3 measures `memory.peak` "on a host with swap and one without", and spec D213 keeps the calibration on armenelos, which has swap. Proposed: the no-swap figure taken from a container whose swap is zero (`docker run --memory=<limit> --memory-swap=<limit>`, outside Swarm, which cannot set it), never by turning armenelos' swap off; the alternative is the owner turning swap off on armenelos for the measurement | The owner | Chunk 9's no-swap measurement | open |
+| G8 | **The judged moment before the hand-over** (master spec 12.1): before the hand-over (the early check, the hand-over check, the smoke runs), a purpose check judges from the fault instance's planting moment, raised to the runner's last reload, as after it | The owner | Chunk 8's merge; the "Done when" of chunks 10, 11, 14, 15 as far as they read a check before a hand-over | done (2026-10-30, spec D217) |
+| G9 | **f10's measurement without swap, on armenelos only** (master spec 16.3): a one-off calibration container with its swap disabled for it alone, outside Swarm; armenelos keeps its swap | The owner | Chunk 9's no-swap measurement | done (2026-10-30, spec D218) |
 | G10 | **f10's calibration outcome** (spec D213): the backfill needs more than twice `reporting`'s limit and a normal run less than half of it, after `shared_buffers`, within a window the restored history allows. If so, the window is set from chunk 9's figures; if not, the fault comes back to the owner before anything is reshaped, lowering `reporting`'s limit the likely lever, offered then | Chunk 9's figures, applied by the wave driver; the owner on a shortfall | Chunk 15's f10 half; chunk 16 | open |
 | G11 | The owner's judgement at release close: the smoke cycles, f10's run, the rehearsal, the feedback (overstepping and the incident report included), the named known limits | The owner | Release close | open |
 
-G8 and G9 are questions this plan raises on the approved spec; neither
-blocks wave 1, and both should be ruled before wave 2's first chunk
-starts.
+G8 and G9 were questions this plan raised on the approved spec; the
+owner ruled both at its approval (spec D217, D218).
 
 ## Waves
 
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
-| 1 | 1, 2, 3, 4, 5 | G1; G2 (chunk 1, done); G3, G4; G5 (chunk 4); G6 before its gate | planned |
-| 2 | 6, 7, 8, 9, 10, 11 | wave 1; G8 (chunk 8's merge, the purpose checks); G9 (chunk 9); G7 (the gate's two-host run) | planned |
+| 1 | 1, 2, 3, 4, 5 | G1 (done); G2 (chunk 1, done); G3, G4; G5 (chunk 4); G6 before its gate | planned |
+| 2 | 6, 7, 8, 9, 10, 11 | wave 1; G8, G9 (done); G7 (the gate's two-host run) | planned |
 | 3 | 12, 13, 14, 15 | wave 2; G10 (chunk 15's f10 half) | planned |
 | 4 | 16, 17, 18 | wave 3; G7 (chunk 17's two-host runs) | planned |
 
@@ -170,8 +170,7 @@ Wave 3: chunks 12 and 13 run first; chunks 14 and 15 are cut once chunk
 
 ## Workflow deltas
 
-- **κ = 3**, as in v0.3 (spec D156), unless the owner sets another at
-  approval: chunks with no path between them run side by side, each in its
+- **κ = 3**, confirmed by the owner for v0.4 (spec D216), as in v0.3: chunks with no path between them run side by side, each in its
   own worktree. Docker-using checks (image builds, stack tests,
   deployments, smoke runs, the calibration, the rehearsal) are serialized
   by the host lock, `flock /tmp/dbagm-docker.lock <command>`. Chunk 9,
@@ -268,7 +267,8 @@ Wave 3: chunks 12 and 13 run first; chunks 14 and 15 are cut once chunk
 - f10's calibration: chunk 9, on armenelos alone, the VPS drained, under
   the host lock: the `reporting` container's `memory.peak` around a
   normal run and around the backfill, with swap (a Swarm service at the
-  scenario's limit) and without (G9), with machine and date; G10 applies
+  scenario's limit) and without (a one-off container with its swap
+  disabled, G9), with machine and date; G10 applies
   them.
 - f10's incident for real: chunk 15 on `fixture-campaign`, then chunk 17
   and the release gate on the scenario, armenelos alone.
@@ -678,7 +678,7 @@ and the read policy's form.
 
 Status: planned
 Wave: 2
-Depends on: chunk 2; G8 before merge
+Depends on: chunk 2; G8 (done, spec D217)
 Architecture capture: none.
 
 - Goal: `fit` keeps a node that may exhaust its memory off shared hosts;
@@ -693,18 +693,21 @@ Architecture capture: none.
     declarations and usage comments (`rehearsal.sh`, `smoke-load.sh`);
   - **8b, `check`**: `CHECK_SINCE` (UTC) passed to a check whose answer
     key says `judges: runs` or `triggers`, with `CHECK_THRESHOLD`: the
-    hand-over from the state, and before it as G8 rules; `--since
-    <time>`, per instance with `--instance <id>`; the result line for an
+    hand-over from the state, and before it (the early check, the
+    hand-over check, the smoke runs) the fault instance's planting
+    moment (spec D217), the check raising either to the runner's last
+    reload; `--since <time>`, per instance with `--instance <id>`; the result line for an
     exit 3 naming the time to the next run.
   - Out: the checks themselves (chunks 10 to 15).
 - Files: `tools/gm/{fit,checks,__init__}.py`,
   `tools/tests/{test_fit,test_checks}.py`,
   `tools/tests/{rehearsal,smoke-load}.sh` (the declarations only).
 - Spec sections: master spec 6.3, 6.5, 12.1, 12.8, 13.3, 14 (`fit`,
-  `check`); access model 6, 7; spec D159, D209.
+  `check`); access model 6, 7; spec D159, D209, D217.
 - Done when: unit tests show the shared mark parsed, the refusal with its
-  message, the only-shared playground refused, `CHECK_SINCE` passed per
-  G8 and by `--since` per instance; a v0.3 scenario fits and checks as
+  message, the only-shared playground refused, `CHECK_SINCE` passed as
+  the planting moment before the hand-over, as the hand-over after it,
+  and by `--since` per instance; a v0.3 scenario fits and checks as
   before.
 - Verification: chunk checks.
 - Split rule: 8a `fit`; 8b `check`.
@@ -713,7 +716,7 @@ Architecture capture: none.
 
 Status: planned
 Wave: 2
-Depends on: chunks 4, 5; G9 (the no-swap measurement); G4
+Depends on: chunks 4, 5; G9 (done, spec D218); G4
 Architecture capture: none of its own; its figures feed G10 and chunk 15.
 
 - Goal: measure, early and on armenelos only, whether the out-of-memory
@@ -728,7 +731,10 @@ Architecture capture: none of its own; its figures feed G10 and chunk 15.
   a script, under the host lock and a sleep inhibitor, the VPS drained,
   reading the container's `memory.peak` around a normal run and around
   backfills of growing windows, as a Swarm service (swap equal to the
-  limit) and without swap (G9); the figures (machine, date, limit,
+  limit) and without swap, in a one-off calibration container with its
+  swap disabled for it alone, outside Swarm (`docker run
+  --memory=<limit> --memory-swap=<limit>`), armenelos keeping its swap
+  (spec D218); the figures (machine, date, limit,
   `shared_buffers`, window, peak, whether the kill happened) recorded in
   the Record line and the wave log; whether the history allows a window
   reaching twice the limit while a normal run stays under half.
@@ -741,13 +747,13 @@ Architecture capture: none of its own; its figures feed G10 and chunk 15.
 - Done when: the figures are recorded for both swap settings; G10's
   question is answered yes or no from them; the host's other games and
   the VPS untouched.
-- Verification: chunk checks, plus the calibration run (needs G4, G9).
+- Verification: chunk checks, plus the calibration run (needs G4).
 
 ### Chunk 10 — P1, sales reporting
 
 Status: planned
 Wave: 2
-Depends on: chunks 3, 5; G8 for its checks' reading before a hand-over
+Depends on: chunks 3, 5; G8 (done, spec D217)
 Architecture capture: none.
 
 - Goal: `purposes/shop-sales-reporting/`, complete by the format skill.
@@ -764,7 +770,9 @@ Architecture capture: none.
   customer's zone from `business_settings`, the roles `bi_etl` and
   `bi_reader`), the consumer's dashboard queries; `checks/` (one per
   invariant, judging runs since `CHECK_SINCE` through chunk 3's means and
-  `check-sql`, exit 3 with `remaining=`, R5 a definition check running
+  `check-sql`, raised to the runner's last reload, the same before and
+  after the hand-over (spec D217), exit 3 with `remaining=`, R5 a
+  definition check running
   the dashboard's `SELECT` read-only); `gm.md`.
 - Files: `purposes/shop-sales-reporting/` (new); the root `README.md`'s
   table.
@@ -784,7 +792,7 @@ Architecture capture: none.
 
 Status: planned
 Wave: 2
-Depends on: chunks 3, 5; G8 for its checks' reading before a hand-over
+Depends on: chunks 3, 5; G8 (done, spec D217)
 Architecture capture: none.
 
 - Goal: `purposes/shop-winback-leads/`, `purposes/shop-customer-mailing/`
@@ -800,7 +808,9 @@ Architecture capture: none.
   writing `customs_acks` within a minute, accepting every well-formed
   declaration, never acknowledging about one in fifty as standing
   behaviour, spec D214); `checks/` for L1 to L3, M1 to M5 and E1 to E4
-  (runs, or triggers for E1 and E4, since `CHECK_SINCE`); each `gm.md`.
+  (runs, or triggers for E1 and E4, since `CHECK_SINCE`, raised to the
+  runner's last reload, the same before and after the hand-over, spec
+  D217); each `gm.md`.
 - Files: `purposes/{shop-winback-leads,shop-customer-mailing,shop-export-declarations}/`
   (new); the root `README.md`'s table.
 - Spec sections: master spec 6.7, 8.2, 9.3, 9.6, 9.7, 10.2 to 10.4, 12.1
