@@ -1,6 +1,6 @@
 # brick.yaml: bastion node (master spec 7, 9.2 and 14).
 #
-# Version 0.3.0 (unreleased until the v0.3 release gate, D100). Roles, growth
+# Version 0.4.0 (unreleased until the v0.4 release gate, D100). Roles, growth
 # per hour, writable and seed paths, report tools and snapshot methods:
 # capture W1 item 3 (specs/versions/v0.3/wave-log.md).
 # Top-level keys: capture W1-A; secrets and starter pack: capture W1-C;
@@ -12,13 +12,13 @@
 
 # --- Identity ---------------------------------------------------------
 id: bastion
-version: 0.3.0
+version: 0.4.0
 roles:
   - bastion
 technology:
   name: openssh
   version: "10.0"                   # Debian 13's OpenSSH; PostgreSQL 18 client tools alongside
-image: 127.0.0.1:5000/dbagm/bastion:0.3.0
+image: 127.0.0.1:5000/dbagm/bastion:0.4.0
 
 # --- Footprint --------------------------------------------------------
 footprint:                          # v0.1's figures as reservations, limits twice CPU and memory;

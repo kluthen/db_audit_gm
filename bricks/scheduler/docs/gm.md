@@ -3,14 +3,14 @@
 GM documentation of the `scheduler` brick (`brick.yaml`, v0.3 master
 spec 7 and 7.1; runtime interface: capture W1 item 7 and W1-y in
 `specs/versions/v0.3/wave-log.md`). Never shipped to players. Brick
-version 0.1.0, expected to evolve as games are played.
+version 0.2.0, expected to evolve as games are played.
 
 ## Purpose
 
 The producers and consumers of a game: a small Python 3.13 program on
 Debian 13 (`program/gm_scheduler`, asyncio, Debian's `psycopg` 3 and
 PyYAML), with an SSH server for the players, in the image
-`127.0.0.1:5000/dbagm/scheduler:0.1.0`. It runs one rendered schedule
+`127.0.0.1:5000/dbagm/scheduler:0.2.0`. It runs one rendered schedule
 against one query repository and the fixed-time operations of
 `jobs.yaml`, as the customer's applications would. It holds no business
 logic: the SQL is the scenario's, written by the GM at design time. It
@@ -36,7 +36,7 @@ The image:
 - **What gets installed**: a node of its own, from the brick's image,
   which must be on the engine that runs the game (deployment never pulls
   it).
-- **Build**: `docker build -t 127.0.0.1:5000/dbagm/scheduler:0.1.0 bricks/scheduler`.
+- **Build**: `docker build -t 127.0.0.1:5000/dbagm/scheduler:0.2.0 bricks/scheduler`.
 - **How many**: one per application the story needs (a shop front, a
   reporting job, a batch consumer); each node has its own schedule,
   repository and jobs, and the same game seed (the program mixes in its
@@ -305,10 +305,10 @@ snapshot: a restart's re-render brings the new game's seed.
 
 Which faults the brick hosts is stated only by each fault's `applies_to`
 (D59). This list is every catalog fault (`faults/`) whose `applies_to`
-names `scheduler` `0.1.0`, and no other: the faults of v0.3 master spec
-15.3 that live in a scheduler node's files (capture W4). A scenario's own
-`faults/` folder may define more for itself (`fixture-load`'s
-`fixture-job-every-minute`); those are not listed here.
+names `scheduler` `0.2.0`, and no other; all also name `0.1.0`. They are
+the faults of v0.3 master spec 15.3 that live in a scheduler node's files
+(capture W4). A scenario's own `faults/` folder may define more for itself
+(`fixture-load`'s `fixture-job-every-minute`); those are not listed here.
 
 All are `seed-file` faults planted at render: the scenario writes the
 planted form into `nodes/<node>/` and nothing runs at injection. Every

@@ -1,10 +1,12 @@
 # scenario.yaml — template for scenarios/<scenario-id>/scenario.yaml
 #
-# Version v0.3, expected to evolve as games are played.
+# Version v0.4, expected to evolve as games are played.
 # Shape: v0.1 master spec section 6, v0.2 master spec 6.3 (capture W1 of
-# specs/versions/v0.2/wave-log.md) and v0.3 master spec 6.1 and 6.7, with
+# specs/versions/v0.2/wave-log.md), v0.3 master spec 6.1 and 6.7, with
 # 7.1 for a scheduler's files (capture W1 of specs/versions/v0.3/wave-log.md,
-# items 0 and 1). This file and gm/answer-key.yaml are AUTHORITATIVE;
+# items 0 and 1), and v0.4 master spec 6.1 and 6.9, with 7.1 and 7.2 for a
+# transformer and a database node's jobs, 11 for governance (capture W1 of
+# specs/versions/v0.4/wave-log.md, items 0, 1, 7 and 8). This file and gm/answer-key.yaml are AUTHORITATIVE;
 # README.md (the scenario document) is generated from them.
 # A scenario never bumps its version (D58, D75); git history is the record.
 #
@@ -27,6 +29,9 @@
 # none omits `aging:`, and has no plant_at other than T0, no instance
 # aging_minimum and no {{customer_timezone}}; its fault definitions' aging
 # minima are not counted (D158, D160): its times stay UTC, as in v0.2.
+# From v0.4 {{customer_timezone}} also fills a scheduler node's seed files
+# and a postgres node's seed postgresql.conf (cron.timezone), as the bare
+# zone (Etc/GMT-2); the starter pack keeps its text form (master spec 8.5).
 
 # --- Scenario information --------------------------------------------
 id: <scenario-id>
@@ -54,18 +59,60 @@ difficulty:
                                     # fault is worth 1; tooling expectations do not count)
   level: <normal>                   # optional: easy | normal | hard, the level it targets
 
+# --- Purposes, domain and governance (v0.4 master spec 6.1, 6.9, 11) -----
+domain: <shop>                      # optional: a scenario whose business comes from a domain;
+                                    # a domain id (domains/<id>/), for provenance only. A static
+                                    # scenario omits it
+purposes:                           # optional: a scenario running purposes; non-empty
+  - id: <shop-sales-reporting>      # a purpose id (purposes/<id>/), once in the list
+    parts:                          # exactly the parts its purpose.yaml declares
+      source: <db/shop>             # source, target: a location <node>/<database>, a database
+      target: <reporting/reporting> # node's database its data file creates; may be equal
+      runner: <bi>                  # a node of role transformer; every job of the purpose has
+                                    # an entry of that name and key in its jobs.yaml, the key
+                                    # in its queries.yaml
+      consumer: <consumer>          # optional: a purpose with a consumer; a node of role consumer
+      receiver: <gateway>           # optional: a pushed obligation; a node of role producer
+governance:                         # optional: a scenario handing the players a data policy
+  policy: player/data-policy.md     # a file of the scenario, written by the GM from governance:,
+                                    # mapped to the bastion's seed file data-policy.md
+  classification: data/classification.yaml   # a file of the scenario: the domain's
+                                    # classification copied in (template: classification.yaml)
+  classes:                          # class -> its rules; every class the classification uses
+                                    # other than internal has an entry; a missing internal reads
+                                    # as locations: any
+    <personal>:                     # personal | customer-linked | internal
+      locations: <[db/shop] | any>  # a non-empty list of locations <node>/<database> ([db/shop],
+                                    # [db/shop, crm/crm]), or the word any (one value here, as it
+                                    # takes either form)
+      separation: instance          # optional: the policy demands an instance of its own
+                                    # (master spec 11.4); the checks verify it by node
+      readers: [<shop_app>, <shop_reports>]   # optional: required unless locations is any, and
+                                    # refused with any; may be []. Customer roles a data file of
+                                    # the scenario creates; never the game's own (dba, postgres,
+                                    # gm_check, monitoring, pgbouncer_lookup)
+      outbound:                     # optional: the class leaves to someone; refused with
+                                    # locations: any. Absent, the class leaves to no one
+        - to: <mail-provider>       # a receiver's label [a-z][a-z0-9-]*, once per class
+          outbox: <db/shop/mail_outbox>   # <node>/<database>/<table>: the outbox the flow fills
+          fields: [<email>, <name>, <order>]   # non-empty: the payload keys it may carry
+
 # --- Topology ---------------------------------------------------------
 networks:                           # each renders as <game_id>_<name>; v0.2 scenarios declare
                                     # one network, and the scripts refuse a second (D85, D106)
   - name: <backend>
     description: <what travels on it>
 
-nodes:                              # one entry per node (one service, one container)
+nodes:                              # one entry per node (one service, one container). From v0.4
+                                    # a scenario may have several postgres nodes, each an
+                                    # instance of its own with its own seed files and data file
+                                    # (master spec 13.1); every scheduler node pins scheduler 0.2.0
   - name: <db>                      # node name; peers reach it by this name only
     brick:
       id: <postgres>                # looked up in the scenario's bricks/ first, then the catalog
       version: <0.1.0>              # pinned: the brick's current version (one per brick)
-    role: <database>                # one of the brick's roles
+    role: <database>                # one of the brick's roles (a scheduler node running a
+                                    # purpose's jobs: transformer)
     stateful: <true>                # as the brick declares
     networks: [<backend>]
     write_policy: <fixable>         # fixable | report-only | no-access
@@ -101,17 +148,35 @@ nodes:                              # one entry per node (one service, one conta
                                     # player/story.md, issues.md: player/issues.md; they write
                                     # the customer's zone {{customer_timezone}} (render fills
                                     # it), never a fixed zone, and only with scheduler nodes.
+                                    # The bastion maps data-policy.md: player/data-policy.md
+                                    # exactly when the scenario has governance: (an optional
+                                    # seed file, bastion 0.4.0).
                                     # A scheduler node: queries.yaml, jobs.yaml, schedule.yaml
-                                    # and optionally builders/ (an entry ending in /: a folder
-                                    # of files), in scenario time, shaped as master spec 7.1.
+                                    # and optionally builders/ and scripts/ (an entry ending in
+                                    # /: a folder of files), in scenario time, shaped as master
+                                    # spec 7.1; they may write {{customer_timezone}}.
                                     # A postgres node's pg_hba.conf keeps, under its DO NOT
                                     # TAMPER comment: local all postgres peer, local
                                     # replication postgres peer, local all gm_check
-                                    # scram-sha-256 (D164, D171).
+                                    # scram-sha-256 (D164, D171), and in a scenario with
+                                    # governance: host all gm_check samenet scram-sha-256.
+                                    # A postgres node may seed crontab: nodes/<db>/crontab
+                                    # (optional, postgres 0.4.0: postgres' crontab, in scenario
+                                    # time, turning the cron daemon on), with crontab_roles.
+                                    # pg_cron is on when its postgresql.conf preloads it
+                                    # (shared_preload_libraries, cron.database_name naming a
+                                    # database its data file creates, cron.use_background_workers
+                                    # = on, cron.timezone = '{{customer_timezone}}') and its data
+                                    # file creates the extension (master spec 7.2).
                                     # A prometheus node's prometheus.yml keeps a retention time
                                     # of at least aging.minimum plus 4h (4h with no aging) unless
                                     # a planted fault is about retention (family: retention); a
                                     # size bound stays above the TSDB's growth over that span
+    crontab_roles: [<bi_etl>]       # optional: required on a node whose seed_files names crontab,
+                                    # refused elsewhere; may be []. The customer roles its
+                                    # crontab connects as, unique, [a-z_][a-z0-9_]{0,40}, never
+                                    # reserved, created by the node's own data file; deployment
+                                    # mounts each one's role_<role>_password secret
     knobs:                          # one entry per knob the brick declares; may be []
       - setting: <shared_buffers>
         initial: <2GB>              # the value in the seed file; may lie outside the envelope
@@ -163,7 +228,7 @@ issues:                             # given to the players at hand-over; may be 
 
 # --- Host topology it was designed for -------------------------------
 designed_for:
-  platform: <swarm>                 # swarm (v0.1 to v0.3)
+  platform: <swarm>                 # swarm (v0.1 to v0.4)
   hosts:
     - name: <host-1>
       cpu: <4>

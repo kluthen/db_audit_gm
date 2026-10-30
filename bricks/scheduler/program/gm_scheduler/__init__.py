@@ -7,7 +7,7 @@ scenario's. Interfaces: capture W1 item 7 and W1-y
 (specs/versions/v0.3/wave-log.md).
 """
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 
 class ConfigError(Exception):

@@ -1,0 +1,33 @@
+# domain.yaml — template for domains/<domain-id>/domain.yaml
+#
+# Version v0.4, expected to evolve as games are played.
+# Shape: v0.4 master spec 6.8 and 11.3, with the keys capture W1 of
+# specs/versions/v0.4/wave-log.md (item 6) settles; specs/formats.md,
+# "Domain". A domain is a reusable catalogue unit of a business: its data
+# model, its producer material, its classification, its GM notes. It is a
+# design-time source: the GM copies its files into a scenario, adapting
+# them, and scenario.yaml's domain: names it for provenance. It carries no
+# version and never bumps. A static scenario needs none.
+#
+# Markers:
+#   every key is REQUIRED unless marked otherwise;
+#   "# optional: <when>"  the key is present only when <when> holds.
+# An empty list (`[]`) is a valid value where its comment says so; an
+# absent key is not.
+# Replace every <placeholder>. A filled file keeps no <placeholder>.
+# Paths are relative to the domain folder; each names a file (or, for
+# producers, a folder) that exists.
+
+id: <shop>                          # [a-z][a-z0-9-]*, the folder's name
+title: <one line>
+schema: data/schema.sql             # the business tables, roles and grants; a data file (the data
+                                    # load's contract), copied into a scenario's data file first
+load: data/load.sql                 # the generated history ("last night's backup"), after the
+                                    # schema; may read :'customer_timezone' and
+                                    # :customer_utc_offset
+classification: data/classification.yaml   # every classed column (template: classification.yaml)
+producers: producers/               # the business's producer material: queries.yaml and
+                                    # schedule.yaml fragments (as a purpose's material)
+notes: docs/gm.md                   # the business, its rules, its traps
+purposes: [<shop-sales-reporting>]  # the purpose ids that fit this domain; may be []. Each id's
+                                    # form is checked, not that the purpose exists

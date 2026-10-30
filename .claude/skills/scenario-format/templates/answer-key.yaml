@@ -1,10 +1,12 @@
 # answer-key.yaml — template for scenarios/<scenario-id>/gm/answer-key.yaml
 #
-# Version v0.3, expected to evolve as games are played.
+# Version v0.4, expected to evolve as games are played.
 # Shape: v0.1 master spec section 6.2 ("The answer key"), v0.2 master
-# spec 6.3 (capture W1 of specs/versions/v0.2/wave-log.md) and v0.3 master
+# spec 6.3 (capture W1 of specs/versions/v0.2/wave-log.md), v0.3 master
 # spec 6.2 and 11 (capture W1 of specs/versions/v0.3/wave-log.md, item 4:
-# a behavioural check's window and threshold). This file and
+# a behavioural check's window and threshold) and v0.4 master spec 6.2,
+# 12 and 13.4 (capture W1 of specs/versions/v0.4/wave-log.md, item 2: a
+# check judging runs or triggers, its threshold). This file and
 # scenario.yaml are AUTHORITATIVE. It lives under gm/, which is sealed:
 # never shipped to any node, never shown to the players before their
 # final answer.
@@ -56,10 +58,17 @@ instances:                          # exactly one entry per fault instance in sc
                                     # window on its first line) or another code (error)
       window: <30m>                 # optional: required exactly when the fault's
                                     # sealed_check.behavioural is true (v0.3 master spec 6.2, 11);
-                                    # a duration, the trailing window the check judges
-      threshold: <0>                # optional: required exactly with window; a number, as
-                                    # written, the limit the window is judged against (with a
-                                    # margin, master spec 11 rule 2)
+                                    # a duration, the trailing window the check judges. Never
+                                    # with judges
+      judges: <runs>                # optional: exactly when the fault's sealed_check.judges is
+                                    # set, and equal to it (runs | triggers); the check judges a
+                                    # purpose's runs or triggers since the judged moment, which
+                                    # it gets as CHECK_SINCE (v0.4 master spec 6.2, 12)
+      threshold: <0>                # optional: required exactly with window (v0.3) or with judges
+                                    # (v0.4). With window: a number, as written, the limit the
+                                    # window is judged against (with a margin, v0.3 master spec
+                                    # 11 rule 2). With judges: a non-negative integer, the
+                                    # violations tolerated, 0 unless the scenario says otherwise
       notes: <anything scenario-specific about reading its result>
     interactions: []                # with other instances; may be []:
                                     # [{instance: <f2>, kind: masks | masked-by | conflicts-with,
@@ -74,9 +83,14 @@ tooling_expectations:               # the GM's silent tooling expectations, apar
                                     # judged in feedback. An issue covers one through its covers
                                     # list. Under-tooling and overkill are findings, never faults;
                                     # the bastion and its tools are the players' kit, not the
-                                    # customer's tooling.
+                                    # customer's tooling. From v0.4 one may name an unmonitored
+                                    # instance (a second postgres node no exporter scrapes, by
+                                    # design; v0.4 master spec 13.4): its need and expected name
+                                    # the node in words, nothing more.
   - id: <t1>                        # unique across fault instance ids and expectation ids
     need: <log analysis>            # the need, in a few words
     expected: <what monitoring the GM silently expects of the customer>
+                                    # (an unmonitored instance: "the agency's reporting instance
+                                    # scraped by an exporter of its own, or its absence noted")
     acceptable: <what is acceptable, e.g. any of the top three tools for the need>
     notes: <for feedback>           # optional

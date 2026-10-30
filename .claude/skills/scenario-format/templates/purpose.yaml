@@ -1,0 +1,98 @@
+# purpose.yaml — template for purposes/<purpose-id>/purpose.yaml
+#
+# Version v0.4, expected to evolve as games are played.
+# Shape: v0.4 master spec 6.7 and 8 (kinds 8.2, trace 8.3, methods 8.6,
+# invariants and witnesses 12), with the keys and closed values capture W1
+# of specs/versions/v0.4/wave-log.md (item 5) settles; specs/formats.md,
+# "Purpose definition". A purpose is a catalogue unit beside bricks, faults
+# and scenarios: what some of the customer's data is FOR. Its material
+# (material/) is copied into a scenario at design time, so a purpose carries
+# no version and never bumps; a scenario names it in purposes: for
+# provenance and for the faults attached to it (applies_to.purposes).
+#
+# Markers:
+#   every key is REQUIRED unless marked otherwise;
+#   "# optional: <when>"  the key is present only when <when> holds.
+# An empty list (`[]`) or map (`{}`) is a valid value where its comment
+# says so; an absent key is not.
+# Replace every <placeholder>. A filled file keeps no <placeholder>.
+# Paths are relative to the purpose folder.
+#
+# Parts are the roles a scenario fills with its own nodes and databases
+# (scenario.yaml purposes[].parts): source and target are databases (of
+# one instance or of two, possibly the same one), runner a scheduler node of
+# role transformer, consumer a scheduler node reading published results,
+# receiver a stub node of role producer (a pushed obligation). The material
+# is written for the first v0.4 scenario's mapping (nodes db, reporting, bi,
+# crm, consumer, gateway; databases shop, reporting); the GM adapts names as
+# it copies.
+
+# --- Identity ---------------------------------------------------------
+id: <shop-sales-reporting>          # [a-z][a-z0-9-]*, the folder's name
+title: <one line>
+domains: [<shop>]                   # non-empty; domain ids (domains/<id>/), the domains it fits;
+                                    # each lists this purpose in its domain.yaml purposes
+kind: <pulled>                      # pulled | transformed-in-place | pushed | pushed-obligation
+                                    # (master spec 8.2)
+
+# --- Parts the scenario maps ------------------------------------------
+parts:                              # part -> one line saying what fills it
+  source: <the shop's database>     # a database
+  target: <the agency's reporting database>   # a database; may be the source's (in place)
+  runner: <the agency's transformer>          # a scheduler node of role transformer
+  consumer: <the back office's dashboards>    # optional: a purpose with a consumer
+  receiver: <the customs gateway stub>        # optional: a pushed obligation only
+
+# --- Jobs -------------------------------------------------------------
+jobs:                               # non-empty
+  - name: <rollup-hourly>           # its name in the runner's jobs.yaml
+    key: <rollup.hourly>            # its key in the runner's queries.yaml
+    part: runner                    # the part that runs it: a declared runner (runner, the only
+                                    # one in v0.4)
+    source: <source>                # the database parts it reads and writes: declared source or
+    target: <target>                #   target parts
+    method: <script>                # sql | script | foreign-tables | procedure | pg_cron
+                                    # | cron-daemon (master spec 8.6; sql: one plain statement on
+                                    # one connection)
+    computes: <what the job computes, in one sentence>
+    cadence: <"5 * * * *">          # quoted 5-field cron, scenario time, in the subset render can
+                                    # shift (capture W1 item 0), as jobs.yaml's at
+    connections:                    # connection name -> the customer role it connects as: a
+      <source>: <shop_etl>          #   script's names (its job's connections:), or the job's one
+      <target>: <bi_etl>            #   connection's name
+
+# --- Trace ------------------------------------------------------------
+trace:                              # non-empty: each place the purpose leaves something
+  - kind: <published-results>       # outbox-rows | published-results | run-ledger | definitions
+                                    # (master spec 8.3)
+    part: <target>                  # a declared part, on whose node or database the trace lies
+    table: <rpt.sales_hourly>       # optional: exactly one of table and file; a table,
+                                    # schema-qualified unless in public
+    run_column: <run_id>            # optional: with table; the column that ties a row to the run
+                                    # that wrote it
+    file: </var/log/scheduler/scheduler.log>   # optional: exactly one of table and file; an
+                                    # absolute path on that part's node
+
+# --- Invariants -------------------------------------------------------
+invariants:                         # non-empty
+  - id: <R1>                        # [A-Z][0-9]+, once in the purpose (R1, L2, M3, E4)
+    statement: <one sentence, stated against the source>
+    check: <checks/rollup-matches-source.sh>   # a file of checks/
+    parameters: {}                  # may be {}: name -> {description, default, required}, the
+                                    # shape of fault.yaml's parameters
+    witness: <what must exist in the data for a run to be able to violate it (master spec 12.3)>
+
+# --- Data moved -------------------------------------------------------
+data_moved:                         # one entry per job, so governance can be checked against it
+  - job: <rollup-hourly>            # a job of this purpose
+    reads: []                       # may be []: classification keys <database>.<table>.<column>
+                                    # of a class other than internal the job reads
+    writes: [<target:rpt.sales_hourly>]   # <part>:<table>, where it writes them
+
+# --- Customer roles ---------------------------------------------------
+roles:                              # the customer roles the purpose needs, with their grants
+  - name: <shop_etl>
+    part: <source>                  # the database part it lives in
+    reads: [<orders without customer_id>, <order_lines>, <products>]   # free text, as master
+                                    # spec 9.7 writes grants; may be []
+    writes: []                      # free text; may be []

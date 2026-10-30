@@ -1,5 +1,5 @@
 # Stack test fixture for the PgBouncer brick (v0.3 build plan, chunk 6):
-# the pooler node and a postgres 0.3.0 node `db` holding the lookup role,
+# the pooler node and a postgres 0.4.0 node `db` holding the lookup role,
 # both reading the lookup role's password secret and dba's. Uses only what a rendered
 # Compose 3.8 stack file can express. Configs and secrets are external,
 # created and removed by run-stack-test.sh (mirroring gmctl deploy). No
@@ -41,7 +41,7 @@ services:
         limits: {cpus: "0.25", memory: 64M}
 
   db:
-    image: 127.0.0.1:5000/dbagm/postgres:0.3.0
+    image: 127.0.0.1:5000/dbagm/postgres:0.4.0
     hostname: db
     read_only: true
     cap_drop: [ALL]

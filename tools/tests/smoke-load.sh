@@ -57,10 +57,10 @@
 # (systemctl --user; lingering on, for the game's persistent timers),
 # python3 with PyYAML (as gmctl) and curl on the host, and the bricks'
 # images built (fit refuses a missing one and names its build command):
-#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.3.0 bricks/bastion
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.3.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.4.0 bricks/bastion
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.4.0 bricks/postgres
 #   docker build -t 127.0.0.1:5000/dbagm/pgbouncer:0.1.0 bricks/pgbouncer
-#   docker build -t 127.0.0.1:5000/dbagm/scheduler:0.1.0 bricks/scheduler
+#   docker build -t 127.0.0.1:5000/dbagm/scheduler:0.2.0 bricks/scheduler
 #   docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.0 bricks/prometheus
 #   docker build -t 127.0.0.1:5000/dbagm/postgres-exporter:0.2.0 bricks/postgres-exporter
 #   docker build -t 127.0.0.1:5000/dbagm/grafana:0.2.0 bricks/grafana

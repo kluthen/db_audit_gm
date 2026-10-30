@@ -31,7 +31,7 @@ CLIENTS`) and its log, and the node-health script covers the node.
   players' edits. Requirements: it shares a network with every database
   node its `[databases]` names and with the clients that use it (the
   bastion, scheduler nodes); no host requirement of its own.
-- The scenario must also have a `postgres` 0.3.0 node, where the lookup
+- The scenario must also have a `postgres` 0.4.0 node, where the lookup
   role and its function live (see "Connections").
 
 ## Configuration
@@ -179,7 +179,7 @@ the password players already have on the bastion, not a new one.
   (`<pooler>:6432/<db>`) or `psql -h <pooler> -p 6432` on the bastion.
 - **Provides** `ssh` (port 22): `player` from the bastion, by key.
 - **Consumes** `sql` on the database node(s) (port 5432). What must
-  exist first, on the `postgres` 0.3.0 node:
+  exist first, on the `postgres` 0.4.0 node:
   - the lookup role `pgbouncer_lookup` and `gm_pgbouncer.lookup()` in
     database `postgres`: the database node creates both at every start
     when it has the lookup secret, which render mounts in a scenario with
@@ -370,7 +370,7 @@ cannot be planted through the seed (they win over it).
   from the bastion and with plain `psql` on the node; an application role
   connects through the pooler.
 - **Stack test**: `flock /tmp/dbagm-docker.lock sh
-  bricks/pgbouncer/tests/run-stack-test.sh` (a `postgres` 0.3.0 node
+  bricks/pgbouncer/tests/run-stack-test.sh` (a `postgres` 0.4.0 node
   beside it): an application role through the pooler, `dba` on the
   console (plain `psql` on the node, through `~/.pgpass`) and refused
   `RELOAD`, the GM's admin over the local socket, an
