@@ -11,10 +11,10 @@ their IDs keep their meaning. Questions resolved by the close of v0.2
 Questions resolved by the close of v0.3 (O45, O46, O78 and O81–O103) are
 listed in
 [archive/v0.3/open-questions-resolved.md](archive/v0.3/open-questions-resolved.md).
-Numbering continues from O129.
+Numbering continues from O131.
 
 Resolved during v0.4's drafting: O106 (D194), O110 (D195), O107 (D197), O120
-(D198), O109 (D199), O121 (D200).
+(D198), O109 (D199), O121 (D200), O123 (D202), O105 (D203).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -43,10 +43,11 @@ for the next version (v0.1 until it closed, with none left open);
 - **O11** (later) — Which technology fills each v1.0 role beyond v0.2's
   monitoring (settled: D69) and v0.3's producers and consumers (the
   scheduler brick sending SQL to PostgreSQL, D115, D118; other targets
-  from v0.5). Narrowed for v0.4 by D190: transformation is a generic
-  job runner started from the scheduler brick (O105), the second
-  database PostgreSQL, another engine only if a purpose needs one,
-  which none does (D194). Still open: which engine versions first, and how
+  from v0.5). Narrowed for v0.4 by D190 and D202: transformation is
+  Python transformer scripts run by the extended scheduler brick (D203),
+  over several PostgreSQL instances, `postgres_fdw` one method among
+  others; another engine only if a purpose needs one, which none does
+  (D194). Still open: which engine versions first, and how
   upgrade scenarios (both binaries, disk space) fit the budget. Refs:
   [versions/v1.0/README.md](versions/v1.0/README.md),
   [versions/v0.4/README.md](versions/v0.4/README.md).
@@ -126,7 +127,8 @@ Raised when the owner recast v0.4 as "bricks of why and bits of hows"
 on 2026-10-28 (D190). O11, O22, O25 and O52 are revised by it. Worked
 into drafts on 2026-10-30 ([versions/v0.4/](versions/v0.4/README.md#documents)):
 O106 closed (D194), O110 closed (D195), O122 to O125 raised; the
-owner's rulings closed O107 (D197) and O109 (D199) the same day. A
+owner's rulings closed O107 (D197) and O109 (D199) the same day, and his
+technology direction O123 (D202) and O105 (D203), raising O129. A
 "Proposed" answer below is in a draft, tagged `(proposed)`, and awaits
 the owner.
 
@@ -137,15 +139,11 @@ the owner.
   `checks/`, `gm.md`; copied into a scenario at design time and named in
   `scenario.yaml`'s `purposes:`, so it never bumps; faults attach by
   `applies_to.purposes`; a check judging runs is `sealed_check.judges:
-  runs` (or `triggers`). Then the `scenario-format` skill and the
+  runs` (or `triggers`); a job names its movement method, and a
+  transformer script's contract is proposed with it
+  (`scripts/<file>:<function>`, a job's `connections:`, the runner
+  holding the passwords; D203). Then the `scenario-format` skill and the
   scenario document. How a check learns when a fix happened is now O124.
-- **O105** (soon, v0.4) — The job runner. Proposed in
-  [purposes.md](versions/v0.4/purposes.md): extend v0.3's `scheduler`,
-  no fork; a purpose's jobs are fixed-time operations; its runner is a
-  `consumer` node, so `scheduler` 0.1.0 ships unchanged (a `transformer`
-  role would bump it to 0.2.0); the players reach the jobs as D116 and
-  D130 say; v0.5's drivers (D118) untouched. Cross-database movement is
-  O123.
 - **O108** (soon, v0.4) — The shared business data model, the shop
   domain (D192). Proposed in
   [shop-domain.md](versions/v0.4/shop-domain.md): from tarnbeck's,
@@ -167,14 +165,6 @@ the owner.
   from the customer's, never "UTC", so no fault vanishes at a shift of 0.
   Alternative: `ALTER DATABASE … SET timezone` to the customer's zone,
   which changes every session's `current_date` and the logs' reading.
-- **O123** (soon, v0.4) — Moving rows between databases, which
-  PostgreSQL cannot do across databases even in one instance. Proposed
-  in [purposes.md](versions/v0.4/purposes.md): `postgres_fdw` in the
-  target (plain SQL jobs, no runner code, already in the `postgres`
-  image, foreign servers and mappings the players can audit), with a new
-  `load-data` step setting each user mapping's password from its remote
-  role's secret. Alternative: a two-connection job in the runner (new
-  code, a `scheduler` bump, nothing to audit in the databases).
 - **O124** (soon, v0.4) — The moment a purpose check judges from.
   Proposed in [checks.md](versions/v0.4/checks.md): `CHECK_SINCE`, the
   hand-over by default, raised to the runner's last successful reload,
@@ -183,11 +173,24 @@ the owner.
   next run; one violating: 1; all clean with a witness: 0), or, for a
   pushed obligation, the triggers since. Rejected: a dry run of the job
   (D131).
-- **O125** (soon, v0.4) — Monitoring a second database instance: a
-  second `postgres-exporter` node, the exporter brick made multi-target
-  (a bump), or the instance left unscraped by design, which is then a
-  fault the players may find. Proposed: unscraped in the first
-  scenario, a second exporter node in the scenario format's guidance.
+- **O125** (soon, v0.4) — Monitoring a second database instance, and
+  any further one a scenario has (D202): a `postgres-exporter` node per
+  instance (about 42 MB reserved each), the exporter brick made
+  multi-target (a bump), or the instance left unscraped by design, which
+  is then a fault the players may find. Proposed: unscraped in the first
+  scenario, an exporter node per instance in the scenario format's
+  guidance; no exporter change in v0.4.
+- **O129** (soon, v0.4 → v0.5; **defaulted**) — A cron job local to a
+  database node. The owner listed where movement may run "(from a
+  producer, from a transformer node's script, local to the node cron
+  job)": the last may be the transformer's own schedule (the scheduler
+  is that node's cron) or a cron on the database node. The second needs
+  a `postgres` brick change; the lightest is `pg_cron` from PGDG
+  (`postgresql-18-cron`, a preload in the seed, `cron.database_name`,
+  `postgres` 0.4.0, a dependency check), not a cron daemon in the node.
+  Default, held unless the owner objects: none in v0.4, `pg_cron` a
+  candidate brick option in v0.5 (O79), with the hidden-job fault it
+  enables. Refs: [purposes.md](versions/v0.4/purposes.md).
   Refs: [scenario-sketch.md](versions/v0.4/scenario-sketch.md).
 
 ## v0.4: data governance
@@ -209,7 +212,9 @@ clinic's classes (D196); O120 closed by D198 (an instance of its own).
   locations (catalog by classified name, plus a content probe for
   personal data in disallowed databases), G2 readers
   (`has_column_privilege` through membership and `PUBLIC`), G3 reach
-  (foreign tables and user mappings' remote roles), G4 outbound fields
+  across instances (foreign tables, user mappings' remote roles,
+  `SECURITY DEFINER` owners, and transformer jobs' source roles, D202),
+  G4 outbound fields
   (judged as a purpose); not checked: encryption at rest, retention;
   the game's own roles (`dba`, `postgres`, `gm_check`, `monitoring`,
   `pgbouncer_lookup`) outside every rule.
@@ -299,6 +304,21 @@ added on 2026-10-30 (D196).
   what of the clinic's lab results and inter-clinic exchanges it covers.
   Refs: [versions/v0.5/README.md](versions/v0.5/README.md#round-trips-acknowledgements-as-inputs-d201).
 
+## Beyond v1.0: the cloud provider
+
+Raised when the owner set a fictional cloud provider after v1.0
+(D205). Settled there: a fictional name, the console's layout our own,
+no AWS-style IAM.
+
+- **O130** (later, after v1.0) — The provider layer's design: the type
+  ladder and how a type maps onto limits, reservations and `fit`; the
+  service kinds and what each denies (a managed database with no shell
+  on its host, proposed, against the players' `dba` today); which
+  capacity actions players get and what a resize does mid-game (a
+  service update restarts the node); the console's relation to v0.6's
+  bastion; the in-world name. Refs:
+  [versions/README.md](versions/README.md#beyond-v10-a-fictional-cloud-provider-d205).
+
 ## Roadmap: gaps and cross-version risks
 
 Raised with the roadmap (D47); O121, raised by the owner's ruling on
@@ -327,7 +347,7 @@ the question concerns.
   to a node image: image size and build time, one image per adapter
   (Postgres, DuckDB), versions to pin. One transformer brick per
   technology? v0.4 plans no dbt: its jobs run on one generic job runner
-  (D190, O105). Stands for whichever later version or purpose wants dbt.
+  (D190, D203). Stands for whichever later version or purpose wants dbt.
   Refs: [versions/v0.4/README.md](versions/v0.4/README.md).
 - **O53** (later, v0.5) — Bluebox as a dataset:
   - its schema needs PostGIS, `pg_stat_statements` (a preloaded library)

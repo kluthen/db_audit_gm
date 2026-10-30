@@ -150,7 +150,11 @@ exchanges between clinics. How a round trip is modelled is O128.
   open-source health solutions such as Nagios (D66), and hand-made scripts
   as the customer's own tooling.
 - More fault definitions in the catalog, across the families already
-  listed.
+  listed. A candidate recorded in v0.4 (D204): an **undersized
+  transformer**, a transformer script whose run outgrows its node's
+  memory (the runner restarted, runs missed, reporting stale). Until
+  players may resize a node it is *report* or *propose* only; it heads
+  the capacity family of the cloud provider layer after v1.0 (D205).
 - The scheduler's other targets (D118): other database types, message
   queues, APIs, and tools that trigger transformation layers, as drivers
   of v0.3's scheduler brick
@@ -173,7 +177,9 @@ exchanges between clinics. How a round trip is modelled is O128.
   particular, the owner expects "many 'optional' elements".
   First candidates: pgBadger, file logging, `pg_stat_statements` and the
   monitoring role (all present in every game in `postgres` 0.2.0), then
-  PostGIS, TimescaleDB and the replication modules. The model (where an
+  PostGIS, TimescaleDB and the replication modules; `pg_cron`, for a
+  job moving data from inside a database node (D202; O129) and for
+  Bluebox (O53). The model (where an
   option's software comes from, how a scenario chooses, what start-up
   does, faults that need an option, documentation) is O79; whether it is
   meant for every brick or only `postgres`, O80.
@@ -217,6 +223,8 @@ exchanges between clinics. How a round trip is modelled is O128.
 - O127: where several sites and inter-site exchange sit.
 - O128: how a round trip (an acknowledgement driving further processes)
   is modelled.
+- O129: a cron job local to a database node (`pg_cron`), held from v0.4
+  by default.
 - O24: seeded variation per deployment.
 - O47: whether generating scenarios from a brief belongs here or in v1.0.
 - O111: the domain format (its v0.4 part settled with the shop).

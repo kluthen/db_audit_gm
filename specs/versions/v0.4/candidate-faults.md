@@ -1,14 +1,14 @@
 # v0.4 — candidate faults
 
-Status: draft v1
+Status: draft v2
 
 Faults that break the purposes' invariants
 ([purpose-catalogue.md](purpose-catalogue.md)) and the governance rules
 ([governance.md](governance.md)). Candidates, not a list to build: which
 ship follows the purposes (D197) and the scenario ([scenario-sketch.md](scenario-sketch.md)).
 Ids are working names. Every one is planted as v0.3's are: a
-`seed-file` change at render (to a runner's `queries.yaml` or
-`jobs.yaml`, or a database's data file), a `state` change during the
+`seed-file` change at render (to a runner's `queries.yaml`, a
+transformer script or `jobs.yaml`, or a database's data file), a `state` change during the
 aging, or a timeline change of a schedule (D127) for an outside party's
 behaviour.
 
@@ -20,11 +20,32 @@ proposed in governance.md).
 
 | Id | Breaks | What is wrong | Planted | Evidence | Fix |
 |---|---|---|---|---|---|
-| `purpose-watermark-misses-updates` | R1 | the incremental load picks rows by `placed_at` past the watermark, so an order invoiced at the noon close never reaches reporting: invoiced revenue in `rpt` lags the source, more each day | seed-file, `queries.yaml` | the key's SQL; `rpt.sales_daily.invoiced_revenue` against the source's per day | watermark on `updated_at`; restating the affected days is an *improve* |
+| `purpose-watermark-misses-updates` | R1 | the hourly script picks rows by `placed_at` past the watermark, so an order invoiced at the noon close never reaches reporting: invoiced revenue in `rpt` lags the source, more each day | seed-file, the script | the script's query; `rpt.sales_daily.invoiced_revenue` against the source's per day | watermark on `updated_at`; restating the affected days is an *improve* |
 | `purpose-rerun-double-counts` | R2 | the hourly load inserts the overlapping hours again with no delete or upsert: hours that straddle two runs counted twice | seed-file | duplicate (hour, category) rows; day ≠ sum of hours | delete-and-insert per hour, or a unique key and upsert; remove the duplicates |
 | `purpose-day-boundary-wrong-zone` | R3 | the day is cut in a zone N hours off the customer's (`offset` parameter, never 0; render writes it, O122) | seed-file | daily totals shifted against the source's local days; the zone in the SQL | the customer's zone from `business_settings` |
-| `purpose-mapping-password-expired` | R4 | the user mapping's remote role `shop_etl` gets `VALID UNTIL` a moment during the aging: every run since fails with 28P01, the dashboards freeze | state, `plant_at: handover-<N>h` | the runner's log; `etl_runs` stops; `\du` on the source | `ALTER ROLE … VALID UNTIL 'infinity'` (or a new password in role and mapping) |
+| `purpose-etl-role-expired` | R4 | `shop_etl`, the hourly script's source role and the user mapping's remote role, gets `VALID UNTIL` a moment during the aging: every run of either job since fails with 28P01, the dashboards freeze | state, `plant_at: handover-<N>h` | the runner's log; `etl_runs` stops; `\du` on the source | `ALTER ROLE … VALID UNTIL 'infinity'` (or a new password in the role, the schedule's secret and the mapping) |
 | `purpose-dashboard-fanout` | R5 | the dashboard's revenue query sums `orders.total` over a join with `order_lines`: each order counted once per line | seed-file, the consumer's `queries.yaml` | the query; its figure against `rpt.sales_daily` | sum before the join, or read `rpt` |
+
+## Movement methods (D202)
+
+Faults of the way data moves between instances, beside what it computes.
+Each method has its own (purposes.md, "Moving data between instances").
+
+| Id | Method | Breaks | What is wrong | Planted | Evidence | Fix |
+|---|---|---|---|---|---|---|
+| `purpose-script-watermark-not-atomic` | script | R1, R2 | the script commits the rows to `reporting`, then moves the watermark kept in the source in a second transaction; a run failing between the two loads the same hours again, and one failing after a partial batch commit leaves a gap | seed-file, the script (and a `state` change making one run fail, or a timeline change on the source) | duplicate or missing hours after an `error` run; the script's two commits | the watermark in the target's transaction; delete-and-insert per hour |
+| `purpose-script-swallows-errors` | script | R4 | the script catches every exception, logs nothing and returns 0: a failing source query looks like a quiet hour, `status=ok rows=0` | seed-file, the script, with a failure (a column renamed by a producer release, a timeline change) | `rows=0` runs in business hours; `etl_runs` with no row read; the `except` | let it fail, or log and re-raise |
+| `security-fdw-mapping-public` | foreign tables | G3 | the user mapping is `FOR PUBLIC`: `bi_reader`, the dashboards' role, reads the shop's orders through `src.*` as `shop_etl` | seed-file, `reporting`'s data file | `\deu+`; `pg_user_mappings`; a query as `bi_reader` | a mapping for `bi_etl` only |
+| `security-fdw-server-owned-by-reader` | foreign tables | G3 | the foreign server is owned by `bi_reader`, which therefore sees every mapping's password in `pg_user_mappings` and may add mappings | seed-file, `reporting`'s data file | `\des+`; `pg_user_mappings` read as `bi_reader` | the server owned by an administrative role; rotate `shop_etl`'s password |
+| `security-definer-procedure-open` | stored procedure | G3 | `rpt.close_day()` is `SECURITY DEFINER`, owned by a role holding the mapping, with `EXECUTE` left to `PUBLIC` and no `SET search_path`: any `reporting` login runs it, or shadows the objects it names | seed-file, `reporting`'s data file | `\df+`; `proacl`; `proconfig` | `SECURITY INVOKER`, or `EXECUTE` revoked from `PUBLIC` and `SET search_path` |
+
+Held: a movement hidden in a cron job on a database node (`pg_cron`)
+needs a `postgres` brick change (O129); credentials written into a
+script need render to put a role's password into a seed file, against
+the script's contract (purposes.md, "The transformer script"); an
+**undersized transformer** (a script outgrowing its node's memory and
+taking the runner down) is a later fault, in v0.5's catalogue and the
+capacity family after v1.0 (D204, D205).
 
 ## Win-back leads (P2)
 
@@ -65,6 +86,7 @@ with a timeout, which is the round trip, not v0.4's push.
 |---|---|---|---|---|---|
 | `governance-personal-copied` | G1 | the BI agency's churn dashboard keeps `rpt.customer_activity` with names and e-mails, refreshed by a job | seed-file (data file and runner) | the table in `reporting`; the policy | stop the job and drop or strip the table (O119) |
 | `governance-fdw-imports-personal` | G1, G3 | `IMPORT FOREIGN SCHEMA` brought `src.customers` into `reporting`, and `shop_etl` may read it | seed-file (both data files) | `\det` in `reporting`; `shop_etl`'s grants | drop the foreign table and revoke |
+| `governance-script-source-role-too-broad` | G3 (then G1) | the hourly script's `source` names the schedule's connection as `shop_reports`, which reads names and e-mails, rather than the one as `shop_etl` | seed-file, `jobs.yaml` (the schedule holds both connections) | `pg_stat_activity` on the source during a run; `shop_reports`' grants | `source` set back to the `shop_etl` connection in `jobs.yaml` |
 | `governance-reader-not-allowed` | G2 | `bi_reader`'s login also reads `consent_events` through `PUBLIC` | seed-file | `has_column_privilege`; `\dp` | revoke from `PUBLIC` |
 | `governance-statement-log-personal` | (settings, held) | `ALTER DATABASE shop SET log_statement = 'all'`: every outbox insert, e-mails included, in the logs and pgBadger | seed-file | the log and the report | redaction; held for v0.5 (governance.md) |
 

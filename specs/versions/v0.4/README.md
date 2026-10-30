@@ -11,19 +11,22 @@ test cases (D196); the pushed obligation added as a purpose kind on the
 owner's word. Ruled the same day: four purposes (D197), the reporting
 database an instance of its own (D198), realistic cadences under real
 time (D199), the release gate's purpose cycle (D200); brick changes for
-governance held for v0.5 by default (O118).
+governance held for v0.5 by default (O118). The owner's technology
+direction the same day: several PostgreSQL instances, data moved mainly
+by Python transformer scripts the scheduler runs, `postgres_fdw` one
+method among others (D202, D203), nodes sized by role (D204).
 
 ## Documents
 
 | Document | Purpose | Status |
 |---|---|---|
-| [purposes.md](purposes.md) | The purpose as an artefact: layout, `purpose.yaml`, how a scenario uses one, faults attached to purposes, the job runner, cross-database movement, cadence under real time, the customer's time zone in the data | draft v1 |
-| [purpose-catalogue.md](purpose-catalogue.md) | The proposed purposes, each with its jobs, trace and invariants: sales reporting, win-back leads, customer mailing, export declarations (a pushed obligation); finance held; the clinic's reporting as a stress test | draft v1 |
-| [shop-domain.md](shop-domain.md) | The shop as the first domain: the format v0.4 settles, the data-model changes the invariants need, roles, producer changes | draft v1 |
-| [governance.md](governance.md) | Classes, where the rules are stated, the database-versus-instance boundary, checks G1 to G4, "fixed", the policy, brick changes | draft v1 |
-| [candidate-faults.md](candidate-faults.md) | Faults breaking each purpose's invariants and the governance rules | draft v1 |
-| [checks.md](checks.md) | Invariant checks judged by runs since a moment, witnesses, pushed obligations, definition checks, `gmctl` changes, the release gate | draft v1 |
-| [scenario-sketch.md](scenario-sketch.md) | A first v0.4 scenario: story, topology, ten fault instances, issues | draft v1 (sketch) |
+| [purposes.md](purposes.md) | The purpose as an artefact: layout, `purpose.yaml`, how a scenario uses one, faults attached to purposes, instances and node sizing, the job runner and the transformer script, moving data between instances, cadence under real time, the customer's time zone in the data | draft v3 |
+| [purpose-catalogue.md](purpose-catalogue.md) | The proposed purposes, each with its jobs, trace and invariants: sales reporting, win-back leads, customer mailing, export declarations (a pushed obligation); finance held; the clinic's reporting as a stress test | draft v3 |
+| [shop-domain.md](shop-domain.md) | The shop as the first domain: the format v0.4 settles, the data-model changes the invariants need, roles, producer changes | draft v2 |
+| [governance.md](governance.md) | Classes, where the rules are stated, the database-versus-instance boundary, checks G1 to G4 (G3 across instances and scripts), "fixed", the policy, brick changes | draft v3 |
+| [candidate-faults.md](candidate-faults.md) | Faults breaking each purpose's invariants, the movement methods and the governance rules | draft v2 |
+| [checks.md](checks.md) | Invariant checks judged by runs since a moment, witnesses, pushed obligations, definition checks, `gmctl` changes, the release gate | draft v3 |
+| [scenario-sketch.md](scenario-sketch.md) | A first v0.4 scenario: story, topology and sizing, ten fault instances, issues | draft v3 (sketch) |
 
 The sections below are the direction as set on 2026-10-28; where a
 draft refines them, the draft is current.
@@ -49,7 +52,8 @@ A new catalogue artefact beside bricks, faults and scenarios. "Purpose"
 is a working name (O104). A purpose is:
 
 - **its jobs**: for each, its source, its target, what it computes and
-  when it runs, all run by a generic job runner, the "bit of how" (O105);
+  when it runs, all run by a generic job runner, the "bit of how"
+  (D203);
 - **the trace** it leaves (below);
 - **the invariants** that must hold between the trace and the source;
 - **the faults** that break those invariants.
@@ -112,14 +116,30 @@ Two consequences of real time:
 
 ## Technology
 
-Minimal:
+Minimal (D190), as the owner set it on 2026-10-30 (D202): "there may be
+multiple postgresql instance, on mulitple distinct machine (node in the
+swarm). data transit between those instance may occurs through fdw, but
+more honestly i expect independent python script with a scheduler (so
+we may probably reuse the scheduling block we have already, just attach
+the script in there)."
 
-- **A job runner**: v0.3's `scheduler` brick (`queries.yaml`,
-  `schedule.yaml`, and `jobs.yaml`'s fixed-time operations), extended or
-  forked (O105).
-- **A second database**: PostgreSQL by default, which reuses `gm_check`,
-  the exporter, monitoring and the GM's knowledge.
-  An instance of its own, a second `postgres` node (D198).
+- **The job runner**: v0.3's `scheduler` brick, extended, no fork:
+  fixed-time jobs as today, plus **transformer scripts**, Python files
+  in the repository a job calls with several connections, and the
+  `transformer` role; `scheduler` 0.2.0 (D203;
+  [purposes.md](purposes.md#the-job-runner-d203)).
+- **Several PostgreSQL instances**, each a `postgres` node of its own
+  (D202), which reuses `gm_check`, the exporter, monitoring and the GM's
+  knowledge; v0.4's scenario has two, the shop and reporting (D198).
+- **Moving data between instances**: mainly a transformer script; also
+  SQL through `postgres_fdw` foreign tables, or a stored procedure doing
+  it, run from a producer, a transformer, or a job; a scenario picks per
+  flow, and each method is an audit surface of its own (D202;
+  [purposes.md](purposes.md#moving-data-between-instances-d202)). A cron
+  job on a database node waits (O129).
+- **Nodes sized by role**: each distinct producer on a node of its own,
+  as small as it runs; transformer nodes larger where volume needs it
+  (D204). An undersized transformer is a later fault (D204, D205).
 - **Another engine** (columnar or other) only if a purpose truly needs
   one. In the owner's words: "we may have to introduce other database at
   this step despite what i've said. We shall see." None does: D194.
@@ -249,8 +269,13 @@ regulated domains of v0.5 ([v0.5](../v0.5/README.md#domains)).
   customer mailing, P5 export declarations (a pushed obligation);
   finance (P4) held for v0.5
   ([purpose-catalogue.md](purpose-catalogue.md)).
-- The job runner (O105).
-- The second database, PostgreSQL (D194), an instance of its own (D198).
+- The job runner: v0.3's `scheduler` extended with transformer scripts
+  and the `transformer` role, `scheduler` 0.2.0 (D203).
+- Several PostgreSQL instances (D194, D202), the reporting database an
+  instance of its own (D198); data moved between them by transformer
+  scripts, or by SQL or stored procedures over `postgres_fdw` (D202).
+- Nodes sized by role: each producer on its own small node, transformers
+  larger where volume needs it (D204).
 - The shared business data model as the first domain, the shop,
   structured so that more can be added (O108, O111; D192).
 - Faults attached to purposes, and their checks over the trace.
@@ -301,7 +326,6 @@ rehearsal and the early check fired by the host's timer
 ## Questions due in this version
 
 - O104: the purpose format.
-- O105: the job runner, extending or forking the scheduler.
 - O108: the shared business data model.
 - O111: the domain format, the part v0.4 must settle for the shop.
 - O115: the governance format.
@@ -311,9 +335,9 @@ rehearsal and the early check fired by the host's timer
   in v0.4, held for v0.5 unless the owner objects.
 - O119: what "fixed" means for a governance fault.
 - O122: the customer's time zone in the data and the jobs.
-- O123: moving rows between databases (`postgres_fdw` or the runner).
 - O124: the moment a purpose check judges from.
-- O125: monitoring the second database.
+- O125: monitoring the second database, and any further instance.
+- O129: "local to the node cron job", and a cron on a database node.
 - O11: technologies and versions, narrowed by D190.
 - O22: scheduled jobs under real time; its v0.4 part settled by D199.
 - O52: the dbt toolchain, not planned for v0.4.

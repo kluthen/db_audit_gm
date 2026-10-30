@@ -21,11 +21,50 @@ v0.1 is draft.
   databases, MySQL and others (D47);
 - the GM playing the customer during the game, and the GM giving hints,
   node resets or extra time (D48).
+- a fictional cloud provider over the bricks, with capacity management
+  and a console (D205; below).
 
 Questions about the roadmap as a whole (gaps between v0.5 and v1.0,
 risks across versions) are in [open-questions.md](../open-questions.md),
 O47 to O49 and O52 to O54 (O46, multi-host, resolved by D128 for v0.3;
 O121 by D200).
+
+## Beyond v1.0: a fictional cloud provider (D205)
+
+In the owner's words (2026-10-30): "i want a fake "aws" and capacity
+management ( we type our docker in the swarm as having custom size
+(follow the sizing standard of aws, scalled down to our need of course),
+technology( rds, aurora, ec2, etc) , with a dedicated web interface
+(eventually v2.0+, it would be nice to be able to work on security
+group, network interface, etc)." Then: "yes fictionnal name of course,
+the website layout doesn't have to follow aws', nor do we yet want the
+same iam complexity."
+
+| Part | What | When |
+|---|---|---|
+| **Typed nodes** | a node's instance type, on a sizing ladder like a cloud provider's (micro, small, medium, large…) scaled down to what the hosts run, sets its limits and reservations | after v1.0 |
+| **Service kinds** | a node presented as a managed database, a plain VM and so on: a presentation and constraint layer over the existing bricks (a managed database gives no shell on its host, proposed) | after v1.0 |
+| **Capacity management** | choosing, resizing and right-sizing types is part of play; its faults a family, the undersized transformer first (D204) | after v1.0 |
+| **A console** | a web interface of our own layout for the above, continuing v0.6's bastion as the players' main activity point | v1.0+ |
+| **Networking** | security groups, network interfaces, editable in the console, over the swarm's overlay networks and firewall rules (O12) | v2.0+ |
+
+Settled: the provider is **fictional**, with an in-world name of its
+own; the console's layout is ours, not a copy of AWS's; **no AWS-style
+IAM**: access stays as simple as the game's access model is today, and
+anything richer is a later question, if ever.
+
+What earlier versions already give it:
+
+- per-node `resources` in `scenario.yaml` (D84), the shape a type would
+  set, and `fit` per host (D128), the capacity a type ladder draws on;
+- nodes sized by role from v0.4 (D204): each producer small, transformers
+  larger, the first sizing that means something in the story;
+- the undersized transformer, recorded as a later fault (D204): today
+  only reportable, since hard limits are the platform's (platform.md),
+  playable as a fix once resizing is a player action;
+- v0.6's bastion web interfaces, which the console continues.
+
+Open: O130.
 
 ## Release gates
 

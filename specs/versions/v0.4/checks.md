@@ -1,6 +1,6 @@
 # v0.4 — checks: invariants over a trace, definitions, the release gate
 
-Status: draft v2
+Status: draft v3
 
 How a purpose's invariants and the governance rules are judged by sealed
 checks, and what v0.4's release gate checks with no aged run (D193). The
@@ -119,12 +119,17 @@ no job (proposed).
 - `gmctl check` passes `CHECK_SINCE` (the hand-over from the state) and
   takes `--since <time>`; per instance with `--instance`.
 - `load-data` passes `customer_timezone` and `customer_utc_offset` to
-  `psql` as variables (O122), and sets each user mapping's password from
-  its remote role's secret (O123).
+  `psql` as variables (O122), and, where a scenario uses `postgres_fdw`,
+  sets each user mapping's password from its remote role's secret (D202).
 - `render` substitutes `{{customer_timezone}}` in scheduler seed files
   (O122).
 - The loader: `purposes:` and `governance:` in `scenario.yaml`
-  (purposes.md, governance.md); `judges:` in `fault.yaml`.
+  (purposes.md, governance.md); `judges:` in `fault.yaml`; a script key's
+  file and a job's `connections:` in a `scheduler` 0.2.0 node's seed
+  files, as it checks keys and connections today (D203).
+- A check judging a script job's runs reads the same `run … phase=end`
+  lines: a script's run logs as any job's (purposes.md, "The transformer
+  script").
 
 ## The release gate without an aged run (D200)
 

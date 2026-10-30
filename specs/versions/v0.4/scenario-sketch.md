@@ -1,7 +1,7 @@
 # v0.4 — a first scenario sketch
 
-Status: draft v2 (a sketch on the settled purposes, D197, and the
-reporting instance, D198)
+Status: draft v3 (a sketch on the settled purposes, D197, the
+reporting instance, D198, and the instances and sizing of D202 and D204)
 
 A first v0.4 scenario, to test that the purposes, the data model and the
 governance cut make a game. Working id `tarnbeck-outdoor-campaign`.
@@ -23,23 +23,31 @@ with the story.
 
 ## Topology (proposed)
 
-| Node | Brick | Role | Write policy | New in v0.4 |
-|---|---|---|---|---|
-| `bastion` | `bastion` | bastion | report-only | |
-| `db` | `postgres` | database (`shop`) | fixable | the data model of shop-domain.md |
-| `pooler` | `pgbouncer` | pooler | fixable | |
-| `producer` | `scheduler` | producer (web shop) | report-only, repository and jobs fixable | consent streams, shipping and destination columns |
-| `consumer` | `scheduler` | consumer (back office) | report-only, jobs fixable | KPIs read from `reporting` |
-| `reporting` | `postgres` | database (`reporting`) | report-only (the agency's) | yes (D198) |
-| `bi` | `scheduler` | consumer: P1's runner | report-only (the agency's) | yes |
-| `crm` | `scheduler` | consumer: P2, P3 and P5's runner | report-only, repository and jobs fixable | yes |
-| `gateway` | `scheduler` | consumer: the customs gateway stub | report-only | yes |
-| `prometheus`, `exporter`, `grafana` | as v0.3 | monitoring | as v0.3 | the reporting instance not scraped (O125) |
+Two PostgreSQL instances (D202), each distinct producer on a node of
+its own sized down, the transformer that moves volume sized up (D204).
 
-About 600 MB of reservations more than tarnbeck's 1.25 GB (a `postgres`
-node at 256 MB, three scheduler nodes at 64 MB, the data's growth), on
-the same two designed hosts: `reporting`, `bi` and `gateway` on host 2.
-To measure at the rehearsal.
+| Node | Brick | Role | Write policy | Sizing (limit / reservation) | New in v0.4 |
+|---|---|---|---|---|---|
+| `bastion` | `bastion` | bastion | report-only | as v0.3 | |
+| `db` | `postgres` | database (`shop`) | fixable | as v0.3, 1G / 512M | the data model of shop-domain.md |
+| `pooler` | `pgbouncer` | pooler | fixable | as v0.3 | |
+| `producer` | `scheduler` | producer (web shop) | report-only, repository and jobs fixable | 96M / 48M, down from 128M / 64M (peak 39M in v0.3) | consent streams, shipping and destination columns |
+| `consumer` | `scheduler` | consumer (back office) | report-only, jobs fixable | as v0.3, 128M / 64M | KPIs read from `reporting` |
+| `reporting` | `postgres` | database (`reporting`) | report-only (the agency's) | 512M / 256M | yes (D198) |
+| `bi` | `scheduler` 0.2.0 | transformer: P1's script and procedure call | report-only (the agency's) | 384M / 192M | yes |
+| `crm` | `scheduler` | transformer: P2, P3 and P5's SQL jobs | report-only, repository and jobs fixable | 128M / 64M | yes |
+| `gateway` | `scheduler` | producer: the customs gateway stub, writing acknowledgements | report-only | 96M / 48M | yes |
+| `prometheus`, `exporter`, `grafana` | as v0.3 | monitoring | as v0.3 | as v0.3 | the reporting instance not scraped (O125) |
+
+Every scheduler node runs `scheduler` 0.2.0, the one version v0.4
+ships (D203). The figures are starting points, set from v0.3's
+rehearsal peaks and measured at v0.4's.
+
+About 600 MB of reservations more than tarnbeck's 1.25 GB (`reporting`
+256 MB, `bi` 192 MB, `crm` 64 MB, `gateway` 48 MB, the producer 16 MB
+less, the data's growth). On two designed hosts, `reporting`, `bi` and
+`gateway` on host 2; on a one-host playground every node on that host,
+as v0.3 places them. A node is a scenario node, not a host (D204).
 
 The agency's nodes are report-only: its faults are *report* or
 *propose*, as tarnbeck's I5 was.
@@ -60,12 +68,12 @@ runs; the nightly close only if the players move it (D132).
 | f2 | `purpose-leads-stale-consent` | P2 → P3 | known (I2) |
 | f3 | `purpose-mail-outside-hours` | P3 | known (I3) |
 | f4 | `purpose-watermark-misses-updates` | P1 | known (I4, propose: the agency's) |
-| f5 | `purpose-mapping-password-expired`, planted `handover-5h` | P1 | known (I5) |
+| f5 | `purpose-etl-role-expired`, planted `handover-5h` | P1 | known (I5) |
 | f6 | `purpose-mail-payload-other-customer` | P3 | hidden |
 | f7 | `purpose-day-boundary-wrong-zone` | P1 | hidden |
 | f8 | `purpose-receiver-down-unnoticed` | P5 | hidden |
 | f9 | `governance-personal-copied` | P1, policy | hidden |
-| f10 | `prometheus-scrape-target-missing` (the reporting instance), or `governance-fdw-imports-personal` | monitoring or policy | hidden |
+| f10 | `security-definer-procedure-open` or `security-fdw-mapping-public`, or `prometheus-scrape-target-missing` (the reporting instance) | movement method or monitoring | hidden |
 
 ## Issues (sketch)
 
@@ -85,6 +93,8 @@ runs; the nightly close only if the players move it (D132).
 - every trace kind: outbox rows (f1, f3, f6), published results (f4,
   f7), a run ledger (f5), triggers and acknowledgements (f8), a
   definition (f9);
+- two movement methods between instances: a transformer script (f4,
+  f5) and a stored procedure over `postgres_fdw` (f5, f7, f10; D202);
 - the judged moment: f1 to f3 fixed and confirmed within the game by
   quarter-hour runs; f7 confirmable only by moving the nightly close;
 - governance against a stated policy (I2 cites it; f9 is found only by
