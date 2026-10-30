@@ -403,6 +403,8 @@ class FakeDocker:
                 del self.objects[cmd][name]
             return ""
         if cmd == "exec":
+            if isinstance(input, str) and "json_agg(datname" in input:
+                return "[]\n"                      # load-data's survey: no database
             return "exec-output\n"
         if args[:2] == ["service", "logs"]:
             return "log line\n"

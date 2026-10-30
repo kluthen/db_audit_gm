@@ -1,0 +1,210 @@
+# Fixture scenario for tools/tests (v0.4 chunk 7). Not a game: a bastion and
+# two PostgreSQL 0.4.0 instances, built from .claude/skills/scenario-format/
+# templates/scenario.yaml, to prove gmctl load-data across instances: db
+# seeds a crontab (its role shop_etl); reporting runs pg_cron and reaches db
+# through a foreign server and bi_etl's user mapping to shop_etl. No
+# scheduler node; one seed-file fault instance (f1), as the format requires.
+
+# --- Scenario information --------------------------------------------
+id: fixture-instances
+version: 0.1.0
+title: Fixture scenario for load-data across two instances
+date: 2026-10-30
+origin: hand-written
+session_length_minutes: 60
+brief: brief.md
+background: >-
+  A small shop keeps its orders on one database server and its reporting on
+  another, which reads the orders through a foreign table.
+
+# --- Aging and difficulty ---------------------------------------------
+# No aging: no scheduler node, so the fixture does not age and has no
+# `aging:` (v0.3 master spec 8; D157, D158).
+difficulty:
+  score: 1                          # its one fault instance (master spec 15.1)
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: backend
+    description: >-
+      players' SSH and SQL sessions from the bastion; reporting's user
+      mapping to db
+
+nodes:
+  - name: bastion
+    brick:
+      id: bastion
+      version: 0.4.0
+    role: bastion
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 256M
+    published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
+    seed_files:
+      README.md: player/README.md
+      story.md: player/story.md
+      issues.md: player/issues.md
+    knobs: []
+
+  - name: db
+    brick:
+      id: postgres
+      version: 0.4.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 512M
+      reservations:
+        cpu: 0.25
+        memory: 256M
+        disk: 2G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/db/postgresql.conf
+      pg_hba.conf: nodes/db/pg_hba.conf
+      crontab: nodes/db/crontab
+    knobs:
+      - setting: shared_buffers
+        initial: 64MB
+        envelope: {min: 32MB, max: 128MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 50
+        envelope: {min: 10, max: 100}
+      - setting: max_wal_size
+        initial: 256MB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+    crontab_roles: [shop_etl]         # the crontab's entry connects as shop_etl
+    data:
+      file: data/db.sql
+      databases:
+        - name: shop
+          owner: shop
+          tables:
+            - name: business_settings
+              description: >-
+                One row: the customer's zone and offset, from load-data's psql
+                variables.
+            - name: orders
+              description: 200 orders (id, placed_at, total); primary key on id.
+            - name: crontab_runs
+              description: One row per run of the crontab entry, with the role it ran as.
+
+  - name: reporting
+    brick:
+      id: postgres
+      version: 0.4.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 512M
+      reservations:
+        cpu: 0.25
+        memory: 256M
+        disk: 2G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/reporting/postgresql.conf
+      pg_hba.conf: nodes/reporting/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 64MB
+        envelope: {min: 32MB, max: 128MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 50
+        envelope: {min: 10, max: 100}
+      - setting: max_wal_size
+        initial: 256MB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+    data:
+      file: data/reporting.sql
+      databases:
+        - name: reporting
+          owner: bi_etl
+          tables:
+            - name: src.orders
+              description: >-
+                Foreign table on db's shop.orders, through the server shop_db and
+                bi_etl's user mapping to shop_etl.
+            - name: rpt.order_counts
+              description: One row per run of the pg_cron job order-count (as bi_etl).
+            - name: rpt.pings
+              description: One row per run of the pg_cron job ping (as bi_reader).
+
+flows:
+  - from: bastion
+    to: db
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: reporting
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: reporting
+    to: db
+    what: the foreign table src.orders, read through bi_etl's user mapping as shop_etl
+    how: postgresql 5432 (postgres_fdw)
+    cadence: every minute (pg_cron job order-count)
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:
+  - id: f1
+    fault:
+      id: fixture-random-page-cost
+      version: 0.1.0
+    node: db
+    parameters: {}
+    visibility: hidden
+
+issues: []
+
+# --- Host topology it was designed for -------------------------------
+designed_for:
+  platform: swarm
+  hosts:
+    - name: host-1
+      cpu: 2
+      memory: 4G
+      disk: 20G
+  placement:
+    bastion: host-1
+    db: host-1
+    reporting: host-1
