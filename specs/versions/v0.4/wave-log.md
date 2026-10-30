@@ -1346,3 +1346,28 @@ For chunk 7: `inject.password_plan` does not yet set crontab-only
 roles' passwords. For chunk 18: `gmctl.md`'s `render` paragraph (about
 line 128) still describes v0.3's files. Risk: a game fitted before this
 change on v0.4 content gets "fit again".
+
+### Chunk 8 — merged (6d88c58), 2026-10-30
+
+8a bde3c70, 8b 33bfb36, merge 6d88c58 (on 2f7bcf6; `test_render.py`
+merged cleanly). Unit suite on the merged wave branch: 776 OK. No docker,
+no VPS. `--host …,shared` parsed, written to `playground.yaml` only when
+given; a node needing an unshared host is refused on a shared one, with
+the `--map` hint, and a playground of shared hosts only is refused.
+`CHECK_SINCE` is the planting moment before the hand-over and the first
+hand-over after it (also after a restart); `--since` (and a repeatable
+`--instance`) raises it per instance, refused in the future, malformed,
+with no judging instance, or with `--early-check`/`--handover-check`.
+Exit 3 names the next run and the judged moment. v0.3's fit and check
+texts unchanged. The VPS is marked `shared` in `rehearsal.sh`'s and
+`smoke-load.sh`'s two-host examples (the latter added).
+Outside the Files line (accepted): `test_render.py`'s `two_hosts()`
+helper. Choices: an unplanted judging instance is refused before
+anything runs; gmctl only passes `CHECK_SINCE`, the check raises it to
+the runner's last reload (`check-runs since`, W1-y).
+For chunk 18: `gmctl.md`'s `fit` (`,shared`) and `check` (`--since`,
+`--instance`) lines. For the wave gate (a `coding-executor`, own
+commit): `aging.run_check`'s hand-over check failure text still says
+"N s of its window remain" for a too-soon judging check (wording only).
+Risk: a hand-edited or pre-v0.3 state without `plantings` gets a
+refusal, not a guess.

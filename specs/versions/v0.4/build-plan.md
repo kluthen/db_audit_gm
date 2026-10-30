@@ -735,7 +735,7 @@ and the read policy's form.
 
 ### Chunk 8 — `fit` and `check`: shared hosts, the judged moment
 
-Status: planned
+Status: merged (w2, 6d88c58)
 Wave: 2
 Depends on: chunk 2; G8 (done, spec D217)
 Architecture capture: none.
@@ -770,6 +770,8 @@ Architecture capture: none.
   before.
 - Verification: chunk checks.
 - Split rule: 8a `fit`; 8b `check`.
+
+Record: 8a bde3c70, 8b 33bfb36, merge 6d88c58. No departure from the spec; outside its Files line, `test_render.py`'s `two_hosts()` helper gained a `worker_shared` option, and `smoke-load.sh` gained a two-host usage example marking the VPS `shared`. Choices: an unplanted judging instance is refused before anything runs; `--since` only raises the moment and is refused in the future or with no judging instance; gmctl passes `CHECK_SINCE` and the check raises it to the runner's last reload. `gmctl.md` lines left for chunk 18; `aging.run_check`'s too-soon wording left for the wave gate.
 
 ### Chunk 9 — f10's early calibration
 
