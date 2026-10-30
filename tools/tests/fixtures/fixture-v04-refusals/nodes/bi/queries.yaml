@@ -5,3 +5,6 @@ queries:
     sql: >-
       INSERT INTO sales_hourly (hour, total, copied_at)
       SELECT date_trunc('hour', now()) - interval '1 hour', 0, now()
+  sales.rollup:                      # a transformer script (scheduler 0.2.0, master spec 7.1)
+    script: scripts/rollup.py:hourly
+    options: {batch: 500}

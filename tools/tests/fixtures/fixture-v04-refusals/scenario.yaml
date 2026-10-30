@@ -7,7 +7,9 @@
 # scripts/, bastion 0.4.0 with the optional data-policy.md); its purpose
 # and domain are under catalog/, the test catalog root the tests pass as
 # load_scenario(..., catalog_root=...). f1 a seed-file fault on db, f2 a
-# purpose fault on the runner bi, its sealed check judging runs.
+# purpose fault on the runner bi, its sealed check judging runs. The
+# runner bi runs a transformer script; reporting seeds a crontab and
+# preloads pg_cron.
 
 # --- Scenario information --------------------------------------------
 id: fixture-v04-refusals
@@ -159,6 +161,8 @@ nodes:
     seed_files:
       postgresql.conf: nodes/reporting/postgresql.conf
       pg_hba.conf: nodes/reporting/pg_hba.conf
+      crontab: nodes/reporting/crontab
+    crontab_roles: [bi_etl]
     knobs:
       - setting: shared_buffers
         initial: 128MB
@@ -209,6 +213,7 @@ nodes:
       queries.yaml: nodes/bi/queries.yaml
       jobs.yaml: nodes/bi/jobs.yaml
       schedule.yaml: nodes/bi/schedule.yaml
+      scripts/: nodes/bi/scripts/
     knobs: []
 
 flows:
