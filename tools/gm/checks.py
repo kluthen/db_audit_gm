@@ -26,6 +26,18 @@ the game's stage.
   0. A database check connects as the GM check role through its node's
   `check-psql` (W1 item 8, W1-x); `check` itself runs the scripts one at
   a time.
+- v0.4 (master spec 6.5, 12.1, 12.8, 14; spec D217; capture W1 item 2):
+  a check whose answer-key entry says `judges: runs` or `triggers` also
+  gets `CHECK_SINCE`, the judged moment as `YYYY-MM-DDTHH:MM:SSZ` (as
+  `check-runs` takes it, W1-y): the first hand-over, from the state; before
+  it (the early check, the hand-over check, the smoke runs) the instance's
+  planting moment, its `plantings` entry's `planted_at`. The check itself
+  raises it to the runner's last reload (`check-runs since`). `--since
+  <time>` raises it for the instances run (one with `--instance <id>`),
+  the GM dating a fix made outside the runner from the players' report.
+  Its exit 3 line names the time to the job's next run: `<instance>
+  <fault-id>: too-soon — the job's next run is in <N> s (<duration>),
+  judged since <CHECK_SINCE>[: <free text>]`.
 
 A refusal (no game, a stage that does not allow the run, a required
 parameter without a value) runs nothing; the command line exits 2 for it,
@@ -36,7 +48,7 @@ import re
 import shlex
 from dataclasses import dataclass, field
 
-from . import localimpl, model, state
+from . import aging, localimpl, model, state
 from .docker import for_local_dir
 from .execnode import exec_node
 from .inject import DEFAULT_RUN_AS, INJECT_STAGE, fault_env, fault_instances, node_of, \
@@ -143,12 +155,19 @@ class CheckLine:
     verdict: str                    # fixed | present | too-soon | error
     reason: str                     # too-soon: the free text after remaining=<N>
     returncode: int = None          # the script's exit; None when it could not start
-    remaining: int = None           # too-soon only: seconds of the window left
+    remaining: int = None           # too-soon only: seconds of the window left, or to the
+                                    # job's next run for a check judging runs or triggers
+    since: str = None               # a check judging runs or triggers: its CHECK_SINCE
 
     def text(self):
         if self.verdict == "too-soon":
-            head = f"{self.instance} {self.fault_id}: too-soon — {self.remaining} s of the " \
-                   "window remain"
+            if self.since is not None:
+                head = (f"{self.instance} {self.fault_id}: too-soon — the job's next run is in "
+                        f"{self.remaining} s ({aging.duration_text(self.remaining)}), judged "
+                        f"since {self.since}")
+            else:
+                head = f"{self.instance} {self.fault_id}: too-soon — {self.remaining} s of " \
+                       "the window remain"
             return f"{head}: {self.reason}" if self.reason else head
         return f"{self.instance} {self.fault_id}: {self.verdict} — {self.reason}"
 
@@ -176,16 +195,47 @@ class CheckResult:
         return "\n".join(line.text() for line in self.lines)
 
 
-def check_env(scenario, fault, instance):
+def answer_entry(scenario, iid):
+    """The answer key's `sealed_check` for instance `iid` ({} when none)."""
+    entries = (scenario.answer_key or {}).get("instances") or []
+    entry = next((e for e in entries if isinstance(e, dict) and e.get("instance") == iid), {})
+    return entry.get("sealed_check") or {}
+
+
+def judges_of(scenario, iid):
+    """runs or triggers when the instance's check judges a purpose's runs or
+    triggers (its answer-key entry's `judges`, W1 item 2), else None."""
+    judges = answer_entry(scenario, iid).get("judges")
+    return judges if judges in model.JUDGES else None
+
+
+def judged_moment(st, iid, judges, since=None):
+    """The instant a check judging runs or triggers judges from (master
+    spec 12.1; spec D217): the first hand-over, from the state; before it,
+    the instance's planting moment; raised to `since` (`--since`, an aware
+    datetime) when that is later. The check raises it again to the runner's
+    last reload. GmError, nothing run, for an instance not planted yet."""
+    moment = aging.handover_instant(st)
+    if moment is None:
+        planting = ((st or {}).get("plantings") or {}).get(iid) or {}
+        moment = aging.parse_instant(planting.get("planted_at"))
+        if moment is None:
+            raise GmError(f"fault instance {iid} is not planted yet: its sealed check judges "
+                          f"{judges} since its planting before the hand-over (master spec "
+                          "12.1); check it once planted (gmctl status), or leave it out "
+                          "with --instance")
+    return max(moment, since) if since is not None else moment
+
+
+def check_env(scenario, fault, instance, judged=None):
     """The check's environment: the instance's `FAULT_*` variables, and for
     a behavioural check (the answer key's entry has them) its `window` in
     seconds as `CHECK_WINDOW_SECONDS` and its `threshold` as written as
-    `CHECK_THRESHOLD` (W1 item 4, spec D165)."""
+    `CHECK_THRESHOLD` (W1 item 4, spec D165). For a check judging runs or
+    triggers (v0.4 W1 item 2), its `threshold` likewise and `judged`, the
+    judged moment, as `CHECK_SINCE` (`YYYY-MM-DDTHH:MM:SSZ`, W1-y)."""
     env = fault_env(fault, instance)
-    entries = (scenario.answer_key or {}).get("instances") or []
-    entry = next((e for e in entries
-                  if isinstance(e, dict) and e.get("instance") == instance.get("id")), {})
-    sealed = entry.get("sealed_check") or {}
+    sealed = answer_entry(scenario, instance.get("id"))
     if sealed.get("window") is not None:
         try:
             env["CHECK_WINDOW_SECONDS"] = str(model.parse_duration(sealed["window"]))
@@ -194,13 +244,21 @@ def check_env(scenario, fault, instance):
                           f"sealed_check.window: {exc}") from None
     if sealed.get("threshold") is not None:
         env["CHECK_THRESHOLD"] = str(sealed["threshold"])
+    if judges_of(scenario, instance.get("id")) is not None:
+        if judged is None:
+            raise GmError(f"fault instance {instance.get('id')}: its sealed check judges "
+                          f"{sealed['judges']} and needs its judged moment")
+        env["CHECK_SINCE"] = aging.iso(judged)
     return env
 
 
-def check_plan(scenario, impl, instances=None):
+def check_plan(scenario, impl, instances=None, st=None, since=None):
     """[(instance, fault, node, run_as, env, script text)], in
     `fault_instances` order, every instance or those listed in `instances`;
-    refuses (GmError) before anything runs."""
+    a check judging runs or triggers gets its judged moment from the state
+    `st`, raised to `since` (`--since`). Refuses (GmError) before anything
+    runs, `--since` among the refusals when no instance run judges runs or
+    triggers."""
     pairs = fault_instances(scenario)
     if instances is not None:
         known = {inst["id"] for inst, _ in pairs}
@@ -208,11 +266,17 @@ def check_plan(scenario, impl, instances=None):
         if unknown:
             raise GmError(f"not a fault instance of the scenario: {', '.join(unknown)}")
         pairs = [(inst, fault) for inst, fault in pairs if inst["id"] in instances]
+    if since is not None and not any(judges_of(scenario, inst["id"]) for inst, _ in pairs):
+        raise GmError(f"--since {aging.iso(since)}: no fault instance checked judges runs or "
+                      f"triggers ({', '.join(inst['id'] for inst, _ in pairs) or 'none'}); "
+                      "--since raises only their judged moment")
     plan = []
     for inst, fault in pairs:
         sealed = fault.data.get("sealed_check") or {}
         node = node_of(inst, impl)
-        env = check_env(scenario, fault, inst)
+        judges = judges_of(scenario, inst["id"])
+        judged = judged_moment(st, inst["id"], judges, since) if judges else None
+        env = check_env(scenario, fault, inst, judged)
         try:
             text = (fault.dir / str(sealed.get("script"))).read_text(encoding="utf-8")
         except OSError as exc:
@@ -223,16 +287,17 @@ def check_plan(scenario, impl, instances=None):
     return plan
 
 
-def read_check(iid, fault_id, returncode, lines):
+def read_check(iid, fault_id, returncode, lines, since=None):
     """One run's CheckLine: exit 0 fixed, 1 present, 3 with a first line
     `remaining=<N>[ <free text>]` (N >= 1) too soon, anything else an error
-    (W2 item 9)."""
+    (W2 item 9). `since`: the CHECK_SINCE a check judging runs or triggers
+    was given; its N is then the seconds to the job's next run (12.2)."""
     first = lines[0] if lines else None
     if returncode == TOO_SOON:
         m = _REMAINING_RE.match(first or "")
         if m and int(m.group(1)) >= 1:
             return CheckLine(iid, fault_id, "too-soon", (m.group(2) or "").strip(),
-                             returncode, int(m.group(1)))
+                             returncode, int(m.group(1)), since)
         said = f": {first}" if first else ", no output"
         return CheckLine(iid, fault_id, "error",
                          f"exit status 3 (too soon) without a first line remaining=<N> "
@@ -244,14 +309,24 @@ def read_check(iid, fault_id, returncode, lines):
     return CheckLine(iid, fault_id, verdict, reason, returncode)
 
 
-def check(scenario_dir, playground, docker=None, instances=None):
+def check(scenario_dir, playground, docker=None, instances=None, since=None, now=None):
     """`gmctl check`; returns a CheckResult (its `exit_code` is the
     command's). `instances`: the instance ids to run (in `fault_instances`
-    order whatever their order here), None for all. Raises GmError on a
+    order whatever their order here), None for all. `since`: `--since`, a
+    UTC instant raising the judged moment of the checks judging runs or
+    triggers (master spec 12.1); refused in the future. Raises GmError on a
     refusal (nothing run)."""
     ldir, impl = _deployed_game(scenario_dir, playground, CHECK_STAGES, "check")
+    if since is not None:
+        try:
+            since = aging.parse_instant(since)
+        except GmError as exc:
+            raise GmError(f"--since: {exc}") from None
+        if since > (now or aging.now_utc()):
+            raise GmError(f"--since {aging.iso(since)} is in the future: give the time the "
+                          "players' report dates their fix at")
     scenario = model.load_scenario(scenario_dir)
-    plan = check_plan(scenario, impl, instances)
+    plan = check_plan(scenario, impl, instances, localimpl.read_state(ldir), since)
     docker = docker or for_local_dir(ldir)
     result = CheckResult(impl["game_id"])
     for iid, fault, node, run_as, env, text in plan:
@@ -261,5 +336,6 @@ def check(scenario_dir, playground, docker=None, instances=None):
             result.lines.append(CheckLine(iid, fault.id, "error",
                                           f"the check could not be started: {exc}"))
             continue
-        result.lines.append(read_check(iid, fault.id, run.returncode, output_lines(run)))
+        result.lines.append(read_check(iid, fault.id, run.returncode, output_lines(run),
+                                       env.get("CHECK_SINCE")))
     return result

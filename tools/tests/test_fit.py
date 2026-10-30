@@ -550,7 +550,8 @@ class TestTwoHosts(TwoHostScenario):
                      mapping=["host-1=" + MANAGER, "host-2=elsewhere"])
         self.refused(f"host {WORKER} declared twice", hosts=two_hosts() + [two_hosts()[1]])
         self.refused("give its disk=", hosts=[f"{MANAGER},manager,cpu=2,memory=4G"])
-        self.refused("expected manager or one of", hosts=[f"{MANAGER},manager,ram=4G"])
+        self.refused("expected manager, shared or one of",
+                     hosts=[f"{MANAGER},manager,ram=4G"])
 
     def test_published_ports_off_the_manager_are_refused(self):
         # the bastion publishes 2222: on the VPS it would listen on its public address
@@ -558,6 +559,72 @@ class TestTwoHosts(TwoHostScenario):
                      rf"manager {MANAGER}: .*map host-1 onto {MANAGER} \(--map "
                      rf"host-1={MANAGER}\)",
                      mapping=["host-1=" + WORKER, "host-2=" + MANAGER])
+
+    def test_the_shared_mark_is_parsed_and_written_only_when_given(self):
+        host = fit.parse_host(f"{WORKER},shared,endpoint={VPS_ENDPOINT},cpu=2,memory=4G,"
+                              "disk=10G")
+        self.assertEqual(host, {"name": WORKER, "docker_endpoint": VPS_ENDPOINT,
+                                "manager": False, "shared": True,
+                                "capacity": {"cpu": 2, "memory": "4G", "disk": "10G"}})
+        self.assertTrue(fit.parse_host(f"{MANAGER},manager,shared,cpu=2,memory=4G,"
+                                       "disk=20G")["shared"])
+        self.assertNotIn("shared", fit.parse_host(two_hosts()[1]))
+        # no fault needing an unshared host: a shared host takes any node
+        result = self.fit(hosts=two_hosts(worker_shared=True))
+        self.assertTrue(result.ok, result.report.problems)
+        pg = yaml.safe_load((self.ldir / "playground.yaml").read_text())
+        self.assertEqual([h.get("shared") for h in pg["hosts"]], [None, True])
+        self.assertNotIn("shared", pg["hosts"][0])
+        text = result.text()
+        self.assertIn(f"  host {WORKER} (shared): {VPS_ENDPOINT}, capacity cpu 2", text)
+        self.assertIn(f"  host {WORKER} (shared, {VPS_ENDPOINT}): nodes db\n", text)
+        self.assertIn(f"  host {MANAGER} (manager): local engine", text)
+
+    def needs_unshared_host(self, value=True):
+        self.edit_yaml("faults/fixture-dropped-index/fault.yaml",
+                       lambda d: d.update(needs_unshared_host=value))
+
+    def test_a_node_needing_an_unshared_host_is_refused_on_a_shared_host(self):
+        self.needs_unshared_host()
+        self.refused(rf"playground duo: node db carries fault instance f2 "
+                     rf"\(fixture-dropped-index\), which needs an unshared host, and would be "
+                     rf"placed on {WORKER}, a shared host: a node that may exhaust its memory "
+                     rf"never runs on a host shared with other applications \(master spec "
+                     rf"13.3\); map host-2 onto a host that is not shared \({MANAGER}\) "
+                     rf"\(--map host-2={MANAGER}\); nothing written",
+                     hosts=two_hosts(worker_shared=True))
+        # the mapping changed as the refusal says: it fits, db on the manager
+        result = self.fit(hosts=two_hosts(worker_shared=True),
+                          mapping=("host-1=" + MANAGER, "host-2=" + MANAGER))
+        self.assertTrue(result.ok, result.report.problems)
+        impl = localimpl.read_implementation(self.ldir)
+        self.assertEqual(impl["nodes"]["db"]["host"], MANAGER)
+        # on an unshared worker it fits where designed
+        result = self.fit()
+        self.assertTrue(result.ok, result.report.problems)
+
+    def test_a_playground_whose_only_hosts_are_shared_is_refused(self):
+        hosts = [f"{MANAGER},manager,shared,cpu=2,memory=4G,disk=20G",
+                 two_hosts(worker_shared=True)[1]]
+        self.needs_unshared_host()
+        self.refused(rf"playground duo: its only hosts \({MANAGER}, {WORKER}\) are shared, "
+                     r"and node db carries fault instance f2 \(fixture-dropped-index\), which "
+                     r"needs an unshared host: .*declare a host that is not shared",
+                     hosts=hosts)
+        self.needs_unshared_host(False)                    # false reads as absent
+        self.assertTrue(self.fit(hosts=hosts).ok)
+
+    def test_a_hand_edited_shared_mark_is_refused(self):
+        self.fit()
+        def edit(pg):
+            pg["hosts"][1]["shared"] = "yes"
+        path = self.ldir / "playground.yaml"
+        data = yaml.safe_load(path.read_text())
+        edit(data)
+        path.write_text(yaml.safe_dump(data, sort_keys=False))
+        with self.assertRaisesRegex(model.GmError, f"host {WORKER}: shared is not true or "
+                                                   "false"):
+            fit.fit(self.scenario, "duo", docker=two_host_engine())
 
     def test_hosts_checked_against_the_swarm(self):
         self.refused(rf"host {WORKER} is not a node of the swarm \({MANAGER}\)",
@@ -674,6 +741,19 @@ class TestOneHost(ScenarioCopyTest):
         pg = localimpl.read_playground(self.scenario / "local" / "laptop")
         self.assertEqual(pg["hosts"][0]["capacity"]["disk"], "30G")
 
+    def test_a_shared_only_host_is_refused_for_a_node_needing_an_unshared_one(self):
+        hosts = ["laptop-host,manager,shared,cpu=2,memory=4G,disk=20G"]
+        self.edit_yaml("faults/fixture-dropped-index/fault.yaml",
+                       lambda d: d.update(needs_unshared_host=True))
+        with self.assertRaisesRegex(model.GmError, r"playground laptop: its only host "
+                                                   r"\(laptop-host\) is shared, and node db "
+                                                   r"carries fault instance f2"):
+            fit.fit(self.scenario, "laptop", hosts=hosts, docker=FakeDocker(name="laptop-host"))
+        self.assertFalse((self.scenario / "local" / "laptop").exists())
+        result = fit.fit(self.scenario, "laptop", hosts=[hosts[0].replace(",shared", "")],
+                         docker=FakeDocker(name="laptop-host"))
+        self.assertTrue(result.ok, result.report.problems)
+
     def test_growth_counts_over_the_aging_and_the_game(self):
         sc = model.load_scenario(self.scenario)
         with mock.patch("tools.gm.fit.aging_seconds", return_value=8 * 3600):
@@ -703,6 +783,10 @@ class TestGmctlFit(ScenarioCopyTest):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("  host gm-host (manager): local engine, capacity cpu 2, memory 4G, "
                       "disk 20G\n", r.stdout)
+        r = run_gmctl("fit", self.scenario, "--playground", "solo",
+                      "--host", "gm-host,manager,shared,cpu=2,memory=4G,disk=20G")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("  host gm-host (manager, shared): local engine", r.stdout)
         r = run_gmctl("fit", self.scenario, "--playground", "solo", "--host",
                       "gm-host,manager,cpu=2,memory=4G,disk=20G", "--cpu", "4")
         self.assertEqual(r.returncode, 1)

@@ -154,9 +154,14 @@ def _cmd_validate(args):
 def _cmd_check(args):
     from . import checks
     if not (args.early_check or args.handover_check):
-        return _evaluation(args, checks.check)
+        return _evaluation(args, lambda d, pg: checks.check(
+            d, pg, instances=args.instance or None, since=args.since))
     from . import aging
     kind = aging.EARLY_CHECK if args.early_check else aging.HANDOVER_CHECK
+    if args.since is not None or args.instance:
+        print(f"gmctl check: --since and --instance are not for --{kind}: it checks every "
+              "planted fault from its planting (master spec 12.1)", file=sys.stderr)
+        return checks.ERROR
     try:
         return _evaluation(args, lambda d, pg: aging.run_check(d, pg, kind))
     except aging.TimerRefused as exc:      # a stale timer: exit 1, nothing recorded (W2 item 5)
@@ -204,10 +209,12 @@ def build_parser():
     p.add_argument("--memory", metavar="SIZE", help="playground memory (8G)")
     p.add_argument("--disk", metavar="SIZE", help="playground disk (40G)")
     p.add_argument("--host", action="append", default=[],
-                   metavar="<name>[,manager][,endpoint=<url>],cpu=N,memory=SIZE,disk=SIZE",
+                   metavar="<name>[,manager][,shared][,endpoint=<url>],cpu=N,memory=SIZE,"
+                           "disk=SIZE",
                    help="a host of the playground, by its swarm node name, memory at what it "
                         "has available (repeatable; replaces the whole host list; exactly one "
-                        "manager; no endpoint: the local engine)")
+                        "manager; shared: it carries other applications, and no node that "
+                        "may exhaust its memory goes on it; no endpoint: the local engine)")
     p.add_argument("--map", action="append", default=[], metavar="<designed host>=<host>",
                    help="place the scenario's designed host on a declared host (repeatable; "
                         "replaces the whole mapping; implied on one host)")
@@ -277,6 +284,12 @@ def build_parser():
     which.add_argument("--handover-check", action="store_true",
                        help="the hand-over check, before status --set handed-over (stage "
                             "load-started; injected with no scheduler node)")
+    p.add_argument("--since", metavar="<UTC instant>",
+                   help="raise the judged moment (CHECK_SINCE) of the checks judging runs or "
+                        "triggers to this time, YYYY-MM-DDTHH:MM:SSZ, a fix the players' "
+                        "report dates outside the runner (master spec 12.1)")
+    p.add_argument("--instance", action="append", default=[], metavar="<id>",
+                   help="run this fault instance's check only (repeatable)")
     p.set_defaults(func=_cmd_check)
 
     p = sub.add_parser("snapshot", help="take the hand-over snapshot: every volume copied by its "
