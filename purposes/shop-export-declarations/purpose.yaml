@@ -1,0 +1,123 @@
+# P5, export declarations (v0.4 master spec 10.4; 6.7, 8.2, 9.4, 9.6, 9.7, 12,
+# 12.4; spec D214): every order shipped outside the customs union is declared
+# to the customs gateway within two hours of being packed; the gateway
+# answers with a movement reference or a rejection, and a declaration left
+# unanswered, or rejected, is escalated. A pushed obligation: a trigger in
+# the data, a deadline, an outside receiver, an acknowledgement.
+#
+# Material (material/) is written for the first v0.4 scenario's mapping:
+# source and target db/shop, runner crm, receiver gateway. The GM adapts the
+# names as it copies (capture W1, item 5); gm.md says where each name lives.
+id: shop-export-declarations
+title: Export declarations pushed to the customs gateway, acknowledged or escalated
+domains: [shop]
+kind: pushed-obligation
+
+parts:
+  source: the shop's database, its packed orders, their lines and export_countries (the triggers)
+  target: the same database, its customs_outbox, customs_acks, incidents and run ledger
+  runner: the shipping manager's transformer, running the declarations and the escalations
+  receiver: the customs gateway stub, standing for the customs authority and the shop's callback
+
+jobs:
+  - name: declare-exports
+    key: declare.exports
+    part: runner
+    source: source
+    target: target
+    method: sql
+    computes: >-
+      the orders packed in the last two hours whose ship_country is in export_countries and
+      that have no declaration yet: one customs_outbox row each, keyed by the order (the
+      idempotency key), with the gateway's schema's content, and one etl_runs row.
+    cadence: "*/5 * * * *"
+    connections:
+      shop_customs: shop_customs
+  - name: escalate-customs
+    key: escalate.customs
+    part: runner
+    source: target
+    target: target
+    method: sql
+    computes: >-
+      the declarations of the last day with no acknowledgement within 30 minutes of sending, or
+      rejected, and no incident yet: one incidents row each, and one etl_runs row.
+    cadence: "*/15 * * * *"
+    connections:
+      shop_customs: shop_customs
+
+trace:
+  - kind: outbox-rows
+    part: target
+    table: customs_outbox
+    run_column: sent_at
+  - kind: outbox-rows
+    part: target
+    table: customs_acks
+  - kind: published-results
+    part: target
+    table: incidents
+    run_column: opened_at
+  - kind: run-ledger
+    part: target
+    table: etl_runs
+    run_column: started_at
+  - kind: run-ledger
+    part: runner
+    file: /var/log/scheduler/scheduler.log
+
+invariants:
+  - id: E1
+    statement: >-
+      Every order packed since the judged moment with an export destination has a declaration
+      sent within two hours of its packed_at.
+    check: checks/e1-declared-in-time.sh
+    parameters: {}
+    witness: >-
+      an export order packed since the judged moment, two dispatch cycles old: export orders
+      are packed every few minutes at the peak, one every quarter hour at night.
+  - id: E2
+    statement: At most one accepted declaration per order.
+    check: checks/e2-declared-once.sh
+    parameters: {}
+    witness: >-
+      a declare-exports run since the judged moment, answered since, starting when orders of
+      its two-hour horizon were already declared, which a run ignoring "no declaration yet"
+      would declare again: true from the second run on whenever exports are packed.
+  - id: E3
+    statement: >-
+      A declaration carries the fields the gateway's schema lists and nothing else: no e-mail,
+      no customer id, no other order's lines.
+    check: checks/e3-minimum-content.sh
+    parameters: {}
+    witness: a declare-exports run since the judged moment that sent declarations.
+  - id: E4
+    statement: >-
+      Every declaration sent since the judged moment has an acknowledgement within 30 minutes
+      of sending or an incidents row by the next escalation run, and every rejection has an
+      incidents row.
+    check: checks/e4-acknowledged-or-escalated.sh
+    parameters: {}
+    witness: >-
+      a declaration since the judged moment left unacknowledged, or rejected: the gateway stub
+      never acknowledges about one declaration in fifty, as standing behaviour (spec D214).
+
+data_moved:
+  - job: declare-exports
+    reads: [shop.customers.id, shop.customers.name, shop.customers.address,
+            shop.orders.customer_id]
+    writes: [target:customs_outbox, target:etl_runs]
+  - job: escalate-customs
+    reads: []
+    writes: [target:incidents, target:etl_runs]
+
+roles:
+  - name: shop_customs
+    part: source
+    reads: [orders, order_lines, "customers (id, name, address, country)", export_countries,
+            customs_outbox, customs_acks, incidents]
+    writes: [customs_outbox, incidents, etl_runs]
+  - name: customs_gw
+    part: target
+    reads: [customs_outbox]
+    writes: [customs_acks]

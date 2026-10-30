@@ -25,7 +25,7 @@ in [`specs/versions/v0.1/README.md`](specs/versions/v0.1/README.md).
 | [`bricks/`](bricks/) | Node definitions: `postgres`, `bastion`, `prometheus`, `postgres-exporter`, `grafana`, `scheduler` and `pgbouncer` |
 | [`faults/`](faults/) | The fault catalog |
 | [`domains/`](domains/) | Business domains, design-time sources a scenario copies from: `shop` |
-| [`purposes/`](purposes/) | Purposes, what the customer's data is for, design-time sources a scenario copies from: `shop-winback-leads` and `shop-customer-mailing` |
+| [`purposes/`](purposes/) | Purposes, what the customer's data is for, design-time sources a scenario copies from: `shop-winback-leads`, `shop-customer-mailing` and `shop-export-declarations` |
 | [`scenarios/`](scenarios/) | Scenario folders (`bookshop-new-server`) |
 | [`.claude/skills/`](.claude/skills/) | The `game-master`, `scenario-format` and `scenario-document` skills |
 
