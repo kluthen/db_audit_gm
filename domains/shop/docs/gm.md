@@ -56,7 +56,10 @@ own zone.
   80 % at the customer's offset, 5 % each at −1 h, +1 h, −8 h and +5 h,
   wrapped into UTC−12..UTC+14 as render wraps a job's zone (the local
   hour is kept). The zone is independent of the country: the shift makes
-  every zone fictional anyway.
+  every zone fictional anyway. It is independent of the last order and
+  the consent too: every zone holds the same mix, so each 5 % offset has
+  330 lapsed customers, 200 of them with consent by their latest event
+  and 130 without, and every campaign batch has a witness.
 - **Consent**: 64 % granted at their first checkout, a fifth of those
   withdrew later, some granted again. At load the flag equals the latest
   event for every customer; about 4 000 lapsed customers have consent,
