@@ -1033,3 +1033,111 @@ noted.
 Carried: chunk 8b passes `CHECK_SINCE` as `YYYY-MM-DDTHH:MM:SSZ` or
 `check-runs` exits 2; `check-runs` reads the whole log per call (fine at
 the measured growth, slower over a long aging).
+
+### Chunk 4 — merged (da6d300), 2026-10-30
+
+4a 449f4ec, 4b 606cee0, `v0.4-w1` taken in b44a0e5 (2a, 2b, 3), merge
+da6d300 (D220 order kept). Stack test 211 PASS ("all checks passed",
+two containers, ~5 min longer than 0.3.0's: it waits for real cron
+minutes); unit suite 745 OK; `cve-watch check` nothing new. Resolved for
+G6: `postgresql-18-cron` 1.6.8-1.pgdg13+2 (pinned, asserted), `cron` and
+`cron-daemon-common` 3.0pl1-197 (unpinned); `postgresql-18` 18.6-1.pgdg13+2
+and `pgbadger` 13.2-1.pgdg13+1 unchanged; image ~262MB.
+
+**Outside its Files line** (accepted; chunk 6 to add a dedicated test):
+`tools/gm/localimpl.py` `seed_entries` skipped no optional seed file and
+raised `KeyError: 'crontab'` for every postgres node not mapping one (312
+unit errors once `crontab` was in `seed.files`); the two-line fix skips an
+entry of `seed.optional` the node leaves out, W1 item 4's stated
+behaviour. `test_fit`, `test_render`, `test_snapshot`, `test_teardown`
+updated for the `cronspool` volume. Chunk 19 told to take it from
+`v0.4-w1` rather than repeat it.
+
+### Capture W1-x — chunk 4 outcomes (`postgres` 0.4.0; read by 6, 7, 9, 12, 15)
+
+Recorded 2026-10-30 by chunk 4's owner from the code on
+`v0.4-c4-postgres` (449f4ec, 606cee0; merged da6d300). v0.3's W1-x holds
+except where noted.
+
+- **Packages.** `postgresql-18-cron=1.6.8-1.pgdg13+2` (ARG
+  `PG_CRON_PACKAGE`, `dpkg-query` assertion) and Debian `cron`
+  3.0pl1-197 (unpinned), both in the PGDG `apt-get install`; `postgres`
+  stays 100:102. New group `crontab` (gid 997); **`pgconf` is now gid
+  996** (was 997; nothing refers to it by number). The image removes
+  `/etc/crontab` and every entry but `.placeholder` in `/etc/cron.d` and
+  `/etc/cron.{hourly,daily,weekly,monthly,yearly}`; it appends `session
+  optional pam_umask.so umask=0022 nousergroups` to `/etc/pam.d/cron`
+  (Debian's USERGROUPS umask 0002 let the players' group write job logs);
+  `pam_loginuid` left as shipped (jobs run with it).
+- **The cron service.** s6 longrun `cron`, `dependencies.d/{base,postgres}`,
+  in the `user` bundle; SIGTERM. Without `/opt/gm/seed/crontab` the run
+  script prints `cron: this node seeds no crontab; the cron daemon does
+  not run`, runs `s6-svc -O .`, exits 0 (`s6-svstat -o up,wantedup` reads
+  `false false`); otherwise `exec /usr/sbin/cron -f` as root. s6-rc stops
+  `cron` before `postgres`; `gm-restart-db` leaves cron running; the
+  snapshot never stops it.
+- **The crontab.** `/var/spool/cron/crontabs/postgres` on volume
+  `cronspool` mounted at `/var/spool/cron/crontabs`. Installed once, in
+  the seed-marker block, by `crontab -u postgres /opt/gm/seed/crontab`
+  (not copied: Debian's `crontab -l` hides the first three lines when
+  they are comments, and `crontab` checks the syntax; a refused seed fails
+  the container; Debian's 3-line header is added, hidden by `-l`). Every
+  start: the spool `root:crontab 1730`, the crontab (a regular file, not
+  a symlink) `postgres:crontab 0600`. Log line: `gm-entrypoint: seeded
+  postgres's crontab /var/spool/cron/crontabs/postgres from
+  /opt/gm/seed/crontab`.
+- **The password file.** `/run/gm-cron/pgpass`, directory
+  `postgres:postgres 0700`, file `0600`; one `*:*:*:<role>:<password>`
+  per `/opt/gm/secrets/role_<role>_password`, `\` and `:` escaped; role
+  `[a-z_][a-z0-9_]*`, secret non-empty single line, else the container
+  fails; absent when no such secret is mounted. Log line: `gm-entrypoint:
+  crontab password file /run/gm-cron/pgpass written: <roles>`.
+- **The cron log directory.** `/var/log/postgresql/cron/`, created at
+  every start when missing (anything else there, a symlink included,
+  removed first), `postgres:pgconf 2750` setgid; a job's files `0644`,
+  group `pgconf`.
+- **`gm-crontab`**, `/usr/local/sbin/gm-crontab`, root 0755, protected;
+  the sudoers line ends `..., /usr/local/sbin/gm-crontab` (no `""`).
+  - `-l`: `crontab -u postgres -l`; exit 0, or 1 with `no crontab for postgres`.
+  - `<file>`: on a node without `/opt/gm/seed/crontab`, exit 1,
+    `gm-crontab: this node runs no cron daemon (its scenario seeds no
+    crontab); nothing installed`. Otherwise `runuser -u player -- cat --
+    <file>` into `/run/gm/gm-crontab.XXXXXX` (root 0600, removed on exit;
+    a read failure exits 1, `gm-crontab: cannot read <file> as player; the
+    crontab is unchanged`), then `crontab -u postgres <work file>` (a
+    refusal exits 1, crontab's lines then `gm-crontab: crontab refused
+    <file>; the crontab is unchanged`); success exits 0, `gm-crontab:
+    <file> installed as postgres's crontab; cron reads it within the
+    minute.`
+  - No argument, two or more, any other `-option` or a lone `-`: exit 2,
+    `usage: sudo gm-crontab -l | sudo gm-crontab <file>`; a caller other
+    than root: exit 2.
+- **`check-psql`'s other-node form.** `/usr/local/lib/gm/check-psql
+  --node <node> [psql options and arguments]`, `--node` first; `<node>`
+  `[a-z][a-z0-9-]*`, not ending in `-`, ≤ 63 characters, else exit 2
+  `check-psql: --node <x>: not a node name`. Runs `psql -X -w -h <node>
+  -p 5432 -U gm_check "$@"` with `PGCONNECT_TIMEOUT=10`, the same
+  root-only secret and temporary passfile, the same exit codes (psql's 2
+  for an unknown or unreachable node). Needs the other node's `host all
+  gm_check samenet scram-sha-256`. The local form unchanged.
+- **The victim.** `s6-rc.d/postgres/run` exports
+  `PG_OOM_ADJUST_FILE=/proc/self/oom_score_adj`,
+  `PG_OOM_ADJUST_VALUE=300`; measured: every postmaster child at 300; the
+  postmaster, s6, `sshd`, `cron` at 0.
+- **`brick.yaml`** as W1 item 8: `seed.files [postgresql.conf,
+  pg_hba.conf, crontab]`, `seed.optional: [crontab]`,
+  `seed.paths.crontab: /var/spool/cron/crontabs/postgres`; volume
+  `cronspool`, `snapshot.cronspool: copy`; `gm-crontab` in
+  `sudo_wrappers` and `protected_files`; `processes`, `writable_paths`
+  unchanged; a comment for the crontab roles' secrets.
+- **Footprint at rest** (stack test, armenelos, Docker 29.9.1,
+  2026-10-30, 512M limit, two runs): `db` 32.2–32.6MiB, ≤0.02 CPU; `db2`
+  with pg_cron (a job every 5 s) and cron (an entry a minute)
+  28.8–30.9MiB, 0.03 CPU; cron 2.5MB resident; the pg_cron launcher
+  16.7–16.9MB resident, mostly shared memory. Default footprint unchanged.
+- **Render** (chunk 6's code, applied here): `localimpl.seed_entries`
+  skips an optional seed file the node does not map.
+
+Known limit (documented in `docs/gm.md`): with no `cron.allow` (D211),
+any OS user may run `crontab`, so `player` could install a crontab of
+its own, run as `player`.

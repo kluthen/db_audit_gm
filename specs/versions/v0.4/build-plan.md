@@ -549,7 +549,7 @@ Record: 3a 7536550, 3b 1b5d7ba, merge b34d375. No departure from the spec; outco
 
 ### Chunk 4 — `postgres` 0.4.0
 
-Status: planned
+Status: merged (w1, da6d300)
 Wave: 1
 Depends on: chunk 1, merged into `v0.4-w1` before this chunk's branch is
 cut; chunk 2a, merged into `v0.4-w1` before this chunk merges (in-wave,
@@ -612,6 +612,8 @@ form.
   its merge.
 - Split rule: 4a the packages, `pg_cron` and the cron daemon; 4b the
   victim, `check-psql` and the documentation.
+
+Record: 4a 449f4ec, 4b 606cee0, wave branch taken in b44a0e5, merge da6d300 (after 2a). Outside its Files line: a two-line fix in `tools/gm/localimpl.py` `seed_entries` (an optional seed file the node leaves out is skipped, as W1 item 4 states; chunk 6's file), and four unit tests updated for the `cronspool` volume; logged in the wave log. Outcome recorded as capture W1-x.
 
 ### Chunk 5 — The shop domain
 
