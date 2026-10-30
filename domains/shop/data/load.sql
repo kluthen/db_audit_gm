@@ -70,9 +70,14 @@ END $$;
 --     365 days ago (a third of the customers); 98-99 never ordered;
 --   country bucket (id * 53) % 100: 91 % inside the customs union, 9 %
 --     outside it (CH, GB, NO, US);
---   zone bucket id % 20: 80 % at the customer's offset, 5 % each at -1 h,
---     +1 h, -8 h and +5 h (9.3), so every campaign batch has recipients
---     outside their sending hours.
+--   zone bucket (id / 100) % 20: 80 % at the customer's offset, 5 % each
+--     at -1 h, +1 h, -8 h and +5 h (9.3), so every campaign batch has
+--     recipients outside their sending hours.
+-- The order, country and consent buckets (below) depend on id % 100 only,
+-- the zone bucket on id / 100 only: each id % 100 meets each zone bucket
+-- ten times, so every zone holds the same mix of lapsed customers with and
+-- without consent. (A zone bucket of id % 20 lined up with the others: no
+-- lapsed customer at +5 h had consent, and no batch from 16:00 a witness.)
 CREATE TEMP TABLE customer_kinds AS
 SELECT g AS id,
        (g * 37) % 100 AS order_bucket,
@@ -82,7 +87,7 @@ SELECT g AS id,
             WHEN (g * 53) % 100 < 91 THEN 'BE' WHEN (g * 53) % 100 < 95 THEN 'CH'
             WHEN (g * 53) % 100 < 97 THEN 'GB' WHEN (g * 53) % 100 < 99 THEN 'NO'
             ELSE 'US' END AS country,
-       (ARRAY[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1, -8, 5])[1 + g % 20]
+       (ARRAY[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 1, -8, 5])[1 + (g / 100) % 20]
            AS zone_delta
   FROM generate_series(1, 20000) AS g;
 
