@@ -1,6 +1,6 @@
 # v0.4 — the purpose catalogue
 
-Status: draft v3
+Status: draft v4
 
 The purposes v0.4 ships, each with its jobs, its trace and its
 invariants, stated against the shop's data model
@@ -53,6 +53,14 @@ nightly procedure would (proposed):
 |---|---|---|---|
 | `rollup-hourly` | `5 * * * *` | transformer script `scripts/rollup.py:hourly`, connections `source` (`shop` as `shop_etl`) and `target` (`reporting` as `bi_etl`) | the orders changed since the watermark (`updated_at`), read from the source; their hours and days recomputed in `rpt.sales_hourly` and `rpt.sales_daily` (delete and re-insert the affected hours, one target transaction holding the watermark too); one `rpt.etl_runs` row |
 | `rollup-close` | `30 1 * * *` | `CALL rpt.close_day()` on `reporting` as `bi_etl`: a stored procedure reading foreign tables `src.orders`, `src.order_lines`, `src.products` over `postgres_fdw` (user mapping to `shop_etl`) | yesterday, in the customer's time zone, recomputed whole and marked `closed`; one `rpt.etl_runs` row |
+
+**Where each computes** (against the placement guideline, proposed;
+O131): `rollup-hourly`'s row-by-row work runs on `bi`, a transformer
+node sized for it; `rollup-close` is scheduled on `bi` but computes on
+`reporting`, the receiving instance, as one set-based procedure at
+01:30, off-peak, the shop's instance serving only the remote scan. Both
+fit; the close could equally be a `pg_cron` job on `reporting` (D206;
+[database-node-jobs.md](database-node-jobs.md), "Placement").
 
 **Consumer**: the back office's dashboards (v0.3's `consumer` node) read
 `reporting` as `bi_reader` for their KPIs; their queries are

@@ -11,10 +11,10 @@ their IDs keep their meaning. Questions resolved by the close of v0.2
 Questions resolved by the close of v0.3 (O45, O46, O78 and O81–O103) are
 listed in
 [archive/v0.3/open-questions-resolved.md](archive/v0.3/open-questions-resolved.md).
-Numbering continues from O131.
+Numbering continues from O132.
 
 Resolved during v0.4's drafting: O106 (D194), O110 (D195), O107 (D197), O120
-(D198), O109 (D199), O121 (D200), O123 (D202), O105 (D203).
+(D198), O109 (D199), O121 (D200), O123 (D202), O105 (D203), O129 (D206).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -128,7 +128,8 @@ on 2026-10-28 (D190). O11, O22, O25 and O52 are revised by it. Worked
 into drafts on 2026-10-30 ([versions/v0.4/](versions/v0.4/README.md#documents)):
 O106 closed (D194), O110 closed (D195), O122 to O125 raised; the
 owner's rulings closed O107 (D197) and O109 (D199) the same day, and his
-technology direction O123 (D202) and O105 (D203), raising O129. A
+technology direction O123 (D202) and O105 (D203), raising O129, which
+his ruling on jobs on a database node closed (D206), raising O131. A
 "Proposed" answer below is in a draft, tagged `(proposed)`, and awaits
 the owner.
 
@@ -180,18 +181,18 @@ the owner.
   is then a fault the players may find. Proposed: unscraped in the first
   scenario, an exporter node per instance in the scenario format's
   guidance; no exporter change in v0.4.
-- **O129** (soon, v0.4 → v0.5; **defaulted**) — A cron job local to a
-  database node. The owner listed where movement may run "(from a
-  producer, from a transformer node's script, local to the node cron
-  job)": the last may be the transformer's own schedule (the scheduler
-  is that node's cron) or a cron on the database node. The second needs
-  a `postgres` brick change; the lightest is `pg_cron` from PGDG
-  (`postgresql-18-cron`, a preload in the seed, `cron.database_name`,
-  `postgres` 0.4.0, a dependency check), not a cron daemon in the node.
-  Default, held unless the owner objects: none in v0.4, `pg_cron` a
-  candidate brick option in v0.5 (O79), with the hidden-job fault it
-  enables. Refs: [purposes.md](versions/v0.4/purposes.md).
-  Refs: [scenario-sketch.md](versions/v0.4/scenario-sketch.md).
+- **O131** (soon, v0.4) — The placement guideline for jobs on a
+  database node. The owner (2026-10-30): "instinctually i'm not
+  convinced having heavy transformation on the same node as a receiving
+  database to be a good move. for low computation stuff, why not,
+  especially if it's well scheduled." Proposed, for the drafts and the
+  scenario format's guidance: a database node's cron (`pg_cron` or the
+  daemon) runs light, well-scheduled work (partitions, small cleanups,
+  a small materialized view, a set-based procedure off-peak); heavy or
+  procedural transformation runs on a transformer node (D204); heavy
+  work on the source instance is the worst placement. Two candidate
+  faults follow, neither in the v0.4 sketch; an OOM kill stays a note.
+  Refs: [database-node-jobs.md](versions/v0.4/database-node-jobs.md).
 
 ## v0.4: data governance
 
@@ -371,7 +372,9 @@ the question concerns.
   `monitoring_password` secret are in every game, while the logging and
   preload settings are the scenario's, in its seed `postgresql.conf`.
   First candidate options: those four, then PostGIS, TimescaleDB and the
-  replication modules. To settle:
+  replication modules; `pg_cron` and the cron daemon, which `postgres`
+  0.4.0 ships enabled by the seed, with no `options:` key (D206). To
+  settle:
   1. Where an option's software comes from, given a read-only root and no
      network at start: one image carrying every option (simple, but
      PostGIS alone adds a few hundred MB every game pays), image variants

@@ -150,3 +150,11 @@ drafting. Numbering continues after D205, the last; no ID is reused.
   security groups and network interfaces (v2.0+); no AWS-style IAM for
   now. The owner: "fictionnal name of course". Open: O130. Now in:
   [versions/README.md](versions/README.md#beyond-v10-a-fictional-cloud-provider-d205).
+- **D206 (2026-10-30, owner ruling, relayed by the coordinator): A job
+  may run on a database node, as `pg_cron` or as a cron daemon beside
+  PostgreSQL, both in v0.4 in `postgres` 0.4.0; systemd timers come
+  later, with the virtual-machine nodes after v1.0 (D205).** The owner:
+  "we could have a cron job on the same node as the postgresql, either
+  as pure cron, systemd timer, or pg_cron", then chose the two lighter
+  forms in a container. Closes O129. Now in:
+  [versions/v0.4/database-node-jobs.md](versions/v0.4/database-node-jobs.md).

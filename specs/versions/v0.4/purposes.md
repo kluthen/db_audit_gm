@@ -1,6 +1,6 @@
 # v0.4 — the purpose: artefact, format, job runner, time
 
-Status: draft v3
+Status: draft v4
 
 What a purpose is in the catalogue, how it is written down, what runs its
 jobs, and how its cadence meets real time. The purposes themselves are in
@@ -208,9 +208,14 @@ flow (D202):
 | Method | Runs from | Audit surface it brings |
 |---|---|---|
 | **A transformer script** (the main way) | a transformer node's job | the script's code; the roles of its connections, which no catalog shows (G3, [governance.md](governance.md)); non-atomic writes across two connections; errors swallowed into a clean-looking run |
-| **SQL through foreign tables** (`postgres_fdw`) | a producer's key, a transformer's job or script | the foreign server and who owns it; user mappings holding passwords, a mapping `FOR PUBLIC`; the remote role's reach; imported foreign tables; pushdown in `EXPLAIN VERBOSE` |
+| **SQL through foreign tables** (`postgres_fdw`) | a producer's key, a transformer's job or script, a job on a database node | the foreign server and who owns it; user mappings holding passwords, a mapping `FOR PUBLIC`; the remote role's reach; imported foreign tables; pushdown in `EXPLAIN VERBOSE` |
 | **A stored procedure** doing either SQL movement | called (`CALL`) from the same places | `SECURITY DEFINER` and its owner, `search_path`, `EXECUTE` left to `PUBLIC` |
-| **A cron job local to the database node** | `pg_cron` or cron in the `postgres` node | a job invisible from the runners: held, no brick change in v0.4 (O129) |
+| **A `pg_cron` job** on a database node (D206) | `cron.job` in the node's `cron.database_name`, run as its `username` | a job no runner lists; its `username` (a superuser by default when the superuser schedules it); the database it runs in; `cron.timezone`; `cron.log_run` |
+| **A cron daemon's entry** on a database node (D206) | `postgres`'s crontab, beside PostgreSQL in the container | a job no runner lists; the role it connects as (`postgres` by peer is a superuser); credentials or a stale target in the entry; output lost with no mail and no syslog |
+
+Both jobs on a database node come with `postgres` 0.4.0, and what
+belongs there is light, well-scheduled work (proposed; O131):
+[database-node-jobs.md](database-node-jobs.md).
 
 `postgres_fdw` ships in the PGDG server package the `postgres` brick
 installs; the data file creates it as superuser. Where a scenario uses

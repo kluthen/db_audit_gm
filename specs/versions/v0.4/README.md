@@ -1,6 +1,6 @@
 # v0.4 — purposes: side usage and transformations
 
-Status: draft v2. No master spec. Direction recast on 2026-10-28 (D190),
+Status: draft v3. No master spec. Direction recast on 2026-10-28 (D190),
 revising D47's "transformers" for this version; a first cut of data
 governance added the same day (D191), and the shared business data
 model made the first business domain (D192). Its release gate has no
@@ -14,19 +14,22 @@ time (D199), the release gate's purpose cycle (D200); brick changes for
 governance held for v0.5 by default (O118). The owner's technology
 direction the same day: several PostgreSQL instances, data moved mainly
 by Python transformer scripts the scheduler runs, `postgres_fdw` one
-method among others (D202, D203), nodes sized by role (D204).
+method among others (D202, D203), nodes sized by role (D204); then
+jobs on a database node, `pg_cron` and a cron daemon in `postgres`
+0.4.0, systemd timers later (D206).
 
 ## Documents
 
 | Document | Purpose | Status |
 |---|---|---|
-| [purposes.md](purposes.md) | The purpose as an artefact: layout, `purpose.yaml`, how a scenario uses one, faults attached to purposes, instances and node sizing, the job runner and the transformer script, moving data between instances, cadence under real time, the customer's time zone in the data | draft v3 |
-| [purpose-catalogue.md](purpose-catalogue.md) | The proposed purposes, each with its jobs, trace and invariants: sales reporting, win-back leads, customer mailing, export declarations (a pushed obligation); finance held; the clinic's reporting as a stress test | draft v3 |
+| [purposes.md](purposes.md) | The purpose as an artefact: layout, `purpose.yaml`, how a scenario uses one, faults attached to purposes, instances and node sizing, the job runner and the transformer script, moving data between instances, cadence under real time, the customer's time zone in the data | draft v4 |
+| [purpose-catalogue.md](purpose-catalogue.md) | The proposed purposes, each with its jobs, trace and invariants: sales reporting, win-back leads, customer mailing, export declarations (a pushed obligation); finance held; the clinic's reporting as a stress test | draft v4 |
 | [shop-domain.md](shop-domain.md) | The shop as the first domain: the format v0.4 settles, the data-model changes the invariants need, roles, producer changes | draft v2 |
-| [governance.md](governance.md) | Classes, where the rules are stated, the database-versus-instance boundary, checks G1 to G4 (G3 across instances and scripts), "fixed", the policy, brick changes | draft v3 |
-| [candidate-faults.md](candidate-faults.md) | Faults breaking each purpose's invariants, the movement methods and the governance rules | draft v2 |
-| [checks.md](checks.md) | Invariant checks judged by runs since a moment, witnesses, pushed obligations, definition checks, `gmctl` changes, the release gate | draft v3 |
-| [scenario-sketch.md](scenario-sketch.md) | A first v0.4 scenario: story, topology and sizing, ten fault instances, issues | draft v3 (sketch) |
+| [governance.md](governance.md) | Classes, where the rules are stated, the database-versus-instance boundary, checks G1 to G4 (G3 across instances, scripts and `pg_cron` jobs), "fixed", the policy, brick changes | draft v4 |
+| [database-node-jobs.md](database-node-jobs.md) | Jobs on a database node: `pg_cron` and a cron daemon in `postgres` 0.4.0, how each runs and is enabled, what players see, scenario pins, the placement guideline, the dependency check due | draft v1 |
+| [candidate-faults.md](candidate-faults.md) | Faults breaking each purpose's invariants, the movement methods (database-node jobs included), placement and the governance rules | draft v3 |
+| [checks.md](checks.md) | Invariant checks judged by runs since a moment, witnesses, pushed obligations, runs of a database-node job, definition checks, `gmctl` changes, the release gate | draft v4 |
+| [scenario-sketch.md](scenario-sketch.md) | A first v0.4 scenario: story, topology and sizing, ten fault instances (one through a hidden `pg_cron` job), issues | draft v4 (sketch) |
 
 The sections below are the direction as set on 2026-10-28; where a
 draft refines them, the draft is current.
@@ -135,8 +138,13 @@ the script in there)."
   SQL through `postgres_fdw` foreign tables, or a stored procedure doing
   it, run from a producer, a transformer, or a job; a scenario picks per
   flow, and each method is an audit surface of its own (D202;
-  [purposes.md](purposes.md#moving-data-between-instances-d202)). A cron
-  job on a database node waits (O129).
+  [purposes.md](purposes.md#moving-data-between-instances-d202)).
+- **Jobs on a database node** (D206): `pg_cron`, and a cron daemon
+  beside PostgreSQL in the container, both optional per node in
+  `postgres` 0.4.0; systemd timers later, with the virtual-machine nodes
+  after v1.0 (D205). Light, well-scheduled work belongs there, heavy or
+  procedural work on a transformer node (proposed; O131;
+  [database-node-jobs.md](database-node-jobs.md)).
 - **Nodes sized by role**: each distinct producer on a node of its own,
   as small as it runs; transformer nodes larger where volume needs it
   (D204). An undersized transformer is a later fault (D204, D205).
@@ -276,6 +284,9 @@ regulated domains of v0.5 ([v0.5](../v0.5/README.md#domains)).
   scripts, or by SQL or stored procedures over `postgres_fdw` (D202).
 - Nodes sized by role: each producer on its own small node, transformers
   larger where volume needs it (D204).
+- Jobs on a database node: `postgres` 0.4.0 with `pg_cron` and a cron
+  daemon, each optional per node; every scenario with a `postgres` node
+  re-pinned to 0.4.0 (D206).
 - The shared business data model as the first domain, the shop,
   structured so that more can be added (O108, O111; D192).
 - Faults attached to purposes, and their checks over the trace.
@@ -294,6 +305,8 @@ regulated domains of v0.5 ([v0.5](../v0.5/README.md#domains)).
 - A sped-up clock, a forged history, time compression (D114, D132; O22);
   weekly and monthly purposes (D199).
 - Domains other than the shop: v0.5 (D192).
+- systemd timers on a database node: with the virtual-machine nodes
+  after v1.0 (D205, D206).
 - Governance rules beyond classification, locations and flows (required
   settings, audit trails, retention): they grow with v0.5's regulated
   domains (O118, defaulted).
@@ -323,6 +336,20 @@ rehearsal and the early check fired by the host's timer
   gate shows is named as a known limit (D200;
   [checks.md](checks.md)).
 
+## For the build plan
+
+Items the build plan must carry when it is written, noted as they
+arise:
+
+- A security-advisor dependency check for `postgres` 0.4.0's new
+  packages, `postgresql-18-cron` (PGDG) and Debian's `cron`: preflight
+  before the chunk that changes the image, post-change after, `.tech`
+  updated (D206; [database-node-jobs.md](database-node-jobs.md)).
+- Every scenario with a `postgres` node re-pinned to 0.4.0, and every
+  fault applying to `postgres` given 0.4.0 in `applies_to` (D206).
+- The cron daemon's faults taken through their cycle in a smoke run,
+  since the first scenario uses none (proposed).
+
 ## Questions due in this version
 
 - O104: the purpose format.
@@ -337,7 +364,7 @@ rehearsal and the early check fired by the host's timer
 - O122: the customer's time zone in the data and the jobs.
 - O124: the moment a purpose check judges from.
 - O125: monitoring the second database, and any further instance.
-- O129: "local to the node cron job", and a cron on a database node.
+- O131: the placement guideline for jobs on a database node.
 - O11: technologies and versions, narrowed by D190.
 - O22: scheduled jobs under real time; its v0.4 part settled by D199.
 - O52: the dbt toolchain, not planned for v0.4.

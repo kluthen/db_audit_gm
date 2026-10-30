@@ -1,6 +1,6 @@
 # v0.4 — checks: invariants over a trace, definitions, the release gate
 
-Status: draft v3
+Status: draft v4
 
 How a purpose's invariants and the governance rules are judged by sealed
 checks, and what v0.4's release gate checks with no aged run (D193). The
@@ -88,6 +88,28 @@ So a fix to the dispatcher shows within ten or fifteen minutes whatever
 the deadline's length, while a miss is called only once its deadline
 has passed.
 
+### Runs of a job on a database node (D206)
+
+A purpose job may run from a database node rather than a runner
+([database-node-jobs.md](database-node-jobs.md)). Its runs are read
+from a different place, with the same verdicts (proposed):
+
+- **A `pg_cron` job**: its rows in `cron.job_run_details` (`status =
+  'succeeded'`, `end_time` after the judged moment), read as `gm_check`
+  through the read policy `load-data` adds; the time to its next run
+  from `cron.job.schedule` and `cron.timezone`. The judged moment is
+  raised to the job's last change only by the GM (`--since`), since
+  `cron.job` keeps no change time. A scenario using such a job keeps
+  `cron.log_run` on in its baseline; a fault turning it off makes the
+  check answer 3, as no run is visible.
+- **A cron daemon's entry**: no ledger of its own, so a purpose job run
+  this way writes the purpose's run ledger (an `etl_runs` row) in the
+  same transaction as its output, and the check judges those rows; the
+  next run is read from the crontab with the program's own cron parser.
+
+The check runs on the database node, as `gm_check` through
+`check-psql`.
+
 ### Answer key and format
 
 - `sealed_check.judges: runs` (or `triggers`) beside v0.3's
@@ -122,7 +144,13 @@ no job (proposed).
   `psql` as variables (O122), and, where a scenario uses `postgres_fdw`,
   sets each user mapping's password from its remote role's secret (D202).
 - `render` substitutes `{{customer_timezone}}` in scheduler seed files
-  (O122).
+  (O122), and in a `postgres` node's seed `postgresql.conf`
+  (`cron.timezone`) and `crontab` (D206).
+- `load-data`, where a data file creates `pg_cron`, gives `gm_check` a
+  read policy on `cron.job` and `cron.job_run_details` (D206).
+- The loader, for `postgres` 0.4.0: the optional seed file `crontab`; a
+  data file creating `pg_cron` only on a node whose seed preloads it,
+  with `cron.database_name` naming a database it creates (D206).
 - The loader: `purposes:` and `governance:` in `scenario.yaml`
   (purposes.md, governance.md); `judges:` in `fault.yaml`; a script key's
   file and a job's `connections:` in a `scheduler` 0.2.0 node's seed

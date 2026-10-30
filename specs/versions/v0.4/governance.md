@@ -1,6 +1,6 @@
 # v0.4 — data governance: the first cut
 
-Status: draft v3
+Status: draft v4
 
 The customer's own rules for its data (D191), in the game's world:
 classes, where each may live, who may read it, where it may flow, the
@@ -116,13 +116,18 @@ and G3 cover every database of every `database` node.
 A script's reach is the one path no catalog shows: what it reads is
 whatever its source role may read, whatever its code selects. G3 judges
 the reach (the roles), G1 what actually landed; the script's code is the
-players' evidence, not the check's.
+players' evidence, not the check's. A cron daemon's entry on a database
+node (D206) is the same: G3 does not parse shell lines, so the role an
+entry connects as is the players' evidence, and G1 still sees what it
+copied. A `pg_cron` job is a catalog row, so G3 reads it: `cron.job`,
+through the read policy `load-data` gives `gm_check`
+([database-node-jobs.md](database-node-jobs.md), "`pg_cron`").
 
 | Check | Rule | How |
 |---|---|---|
 | G1 location | a classed column exists only in its allowed locations | the catalog of every database on every `database` node: tables, views, materialized views and foreign tables; by classified name, and for `personal`, a content probe on text columns of disallowed databases (values shaped like an e-mail address, or equal to a source customer's) so a renamed copy is caught |
 | G2 readers | only allowed customer roles may read a classed column | `has_column_privilege` for every customer login role, through membership and `PUBLIC` |
-| G3 reach | no path lets a disallowed location read a class | every path between instances (D202): every foreign table, and every user mapping's remote role, checked with G2 on the source (a mapping whose role may read `personal`, or a mapping `FOR PUBLIC`, makes `reporting` a reader); and every transformer job whose connections join a source role to another database: the source role checked with G2, the target as the place it may write to (read from the runner's `jobs.yaml` and schedule, on the runner node); a `SECURITY DEFINER` procedure reaches as its owner |
+| G3 reach | no path lets a disallowed location read a class | every path between instances (D202): every foreign table, and every user mapping's remote role, checked with G2 on the source (a mapping whose role may read `personal`, or a mapping `FOR PUBLIC`, makes `reporting` a reader); and every transformer job whose connections join a source role to another database: the source role checked with G2, the target as the place it may write to (read from the runner's `jobs.yaml` and schedule, on the runner node); a `SECURITY DEFINER` procedure reaches as its owner; every `pg_cron` job (D206): its `username` checked with G2 in the database it runs in, a superuser reaching everything, read from `cron.job` on each node with the extension |
 | G4 outbound | what leaves carries only the listed fields | the outboxes' payload keys against `outbound.fields`; judged on rows written since the judged moment, as a purpose invariant is ([checks.md](checks.md)) |
 
 **The game's own roles are outside every rule** (proposed; O116): `dba`

@@ -43,7 +43,7 @@ same iam complexity."
 | Part | What | When |
 |---|---|---|
 | **Typed nodes** | a node's instance type, on a sizing ladder like a cloud provider's (micro, small, medium, large…) scaled down to what the hosts run, sets its limits and reservations | after v1.0 |
-| **Service kinds** | a node presented as a managed database, a plain VM and so on: a presentation and constraint layer over the existing bricks (a managed database gives no shell on its host, proposed) | after v1.0 |
+| **Service kinds** | a node presented as a managed database, a plain VM and so on: a presentation and constraint layer over the existing bricks (a managed database gives no shell on its host, proposed); a VM node with a full init is where systemd timers come in (D206) | after v1.0 |
 | **Capacity management** | choosing, resizing and right-sizing types is part of play; its faults a family, the undersized transformer first (D204) | after v1.0 |
 | **A console** | a web interface of our own layout for the above, continuing v0.6's bastion as the players' main activity point | v1.0+ |
 | **Networking** | security groups, network interfaces, editable in the console, over the swarm's overlay networks and firewall rules (O12) | v2.0+ |
@@ -62,7 +62,10 @@ What earlier versions already give it:
 - the undersized transformer, recorded as a later fault (D204): today
   only reportable, since hard limits are the platform's (platform.md),
   playable as a fix once resizing is a player action;
-- v0.6's bastion web interfaces, which the console continues.
+- v0.6's bastion web interfaces, which the console continues;
+- jobs on a database node from v0.4, `pg_cron` and a cron daemon in the
+  container (D206): systemd timers, the third form the owner named, need
+  a VM node's init and wait for this layer.
 
 Open: O130.
 
