@@ -131,6 +131,7 @@ of `default_pool_size`, `reserve_pool_size`, `pool_mode` and
 | Secret | Kind | Path | Owner, mode | Use |
 |---|---|---|---|---|
 | `player_ssh_pubkey` | key-pair (public half of `player_ssh_key`) | `/opt/gm/secrets/player_ssh_pubkey` | 0:0 `0444` | SSH as `player` |
+| `dba_password` | password, not handed over | `/opt/gm/secrets/dba_password` | 0:0 `0400` | the player's `~/.pgpass`, for the console as `dba` |
 | `pgbouncer_lookup_password` | password, not handed over, `only_with_role: pooler` | `/opt/gm/secrets/pgbouncer_lookup_password` | 0:0 `0400` | the lookup role's password |
 
 `pgbouncer_lookup_password` is the secret the `postgres` node declares at
@@ -139,7 +140,11 @@ writes it into `auth_file` (`"pgbouncer_lookup" "<password>"`,
 root:pgbouncer `0440`, under `/run`, on no other volume); it must be one
 line with no quote, space or tab. No application role's password is held
 on this node: their SCRAM verifiers come from the database, through the
-lookup function.
+lookup function. `dba_password` is the database node's and the
+bastion's secret (one secret, three nodes): the entrypoint writes the
+player's `~/.pgpass` from it (`*:*:*:dba:<password>`, `0600`), as the
+database node does, so plain `psql` on the node opens the console; it is
+the password players already have on the bastion, not a new one.
 
 ### Start-up (`gm-entrypoint`, every container start)
 
@@ -149,8 +154,8 @@ lookup function.
    `/run/pgbouncer-auth` (root:pgbouncer `0750`), `/run/pgbouncer-conf`
    (`pgbouncer` `0755`).
 2. Generates the sshd host key under `/run/sshd-keys`.
-3. Checks the secrets (fatal when one is missing or empty) and writes
-   `auth_file`.
+3. Checks the secrets (fatal when one is missing or empty), writes
+   `auth_file` and reads `dba`'s password.
 4. Checks `GM_WRITE_POLICY` and `GM_WRITE_OVERRIDES` (fatal on an unknown
    policy, or an override that is not one of `writable_paths`), writes
    `/run/gm/write-policy`.
@@ -162,7 +167,9 @@ lookup function.
    PgBouncer starts with the GM's settings and no database: the node
    stays up, the validator says why, and a fixed file is reloaded.
 8. Sets the log's owner and mode (`pgbouncer:pgbconf`, `2750`;
-   `pgbouncer.log` `0640`) and the home's, then execs `/init`.
+   `pgbouncer.log` `0640`) and the home's, rewrites the player's
+   `~/.pgpass` (whatever stands at that name removed first, a link
+   included), then execs `/init`.
 
 ## Connections
 
@@ -200,9 +207,10 @@ lookup function.
 - `player`: SSH by public key only, member of `pgbconf`. Its SSH
   environment opens `psql` on the console as `dba` over the local socket
   (`PGHOST=/run/pgbouncer PGPORT=6432 PGUSER=dba PGDATABASE=pgbouncer`);
-  `dba`'s password is the database's, in `~/.pgpass` on the bastion,
-  where `psql -h <pooler> -p 6432 -U dba pgbouncer` needs nothing more.
-  Players hold no extra password.
+  `dba`'s password is the database's, in the player's `~/.pgpass` on the
+  node (rewritten at every start), so plain `psql` there needs nothing
+  more, and in `~/.pgpass` on the bastion, where `psql -h <pooler> -p
+  6432 -U dba pgbouncer` does the same. Players hold no extra password.
 - `pgbouncer`: runs PgBouncer, owns its configuration and log; no login.
   The console's only admin, by `peer` over the local socket.
 - `sudo`: `player` may run the two wrappers as root, with no arguments
@@ -359,11 +367,13 @@ cannot be planted through the seed (they win over it).
   it no longer connects, so PgBouncer's log carries no probe lines, and
   PgBouncer being down is the validator's business.
 - **After deployment**: `gmctl validate` green; `dba` runs `SHOW POOLS`
-  from the bastion; an application role connects through the pooler.
+  from the bastion and with plain `psql` on the node; an application role
+  connects through the pooler.
 - **Stack test**: `flock /tmp/dbagm-docker.lock sh
   bricks/pgbouncer/tests/run-stack-test.sh` (a `postgres` 0.3.0 node
   beside it): an application role through the pooler, `dba` on the
-  console and refused `RELOAD`, the GM's admin over the local socket, an
+  console (plain `psql` on the node, through `~/.pgpass`) and refused
+  `RELOAD`, the GM's admin over the local socket, an
   edit reloaded, the refusals, report-only and an override, the snapshot
   copy, the footprint at rest.
 

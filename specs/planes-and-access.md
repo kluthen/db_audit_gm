@@ -1,6 +1,6 @@
 # Planes, access and rules
 
-Status: draft v16
+Status: draft v17
 
 Who may reach what, what the player may change, how the rules are checked,
 and what is left to trust. At consolidation this document feeds the access
@@ -115,7 +115,7 @@ expected; changing SSH behaviour is not.
 ### The scheduler nodes (v0.3, draft)
 
 Producers and consumers are scheduler nodes
-([versions/v0.3/scheduler.md](versions/v0.3/scheduler.md)). The players
+([v0.3 master spec](versions/v0.3/master-spec.md) 7.1). The players
 read the node's query repository and may edit it where the scenario
 allows; of the scheduling they read and change only the batch and
 fixed-time operations, never the continuous traffic (D116). They also

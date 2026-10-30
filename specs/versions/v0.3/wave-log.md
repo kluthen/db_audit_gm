@@ -1,6 +1,6 @@
 # db_audit_gm v0.3 — Wave log
 
-Execution record of [build-plan.md](build-plan.md). No intent or data
+Execution record of [build-plan.md](../../archive/v0.3/build-plan.md). No intent or data
 register: captures are recorded here by the wave driver (plan, "Read
 first").
 
@@ -3627,3 +3627,290 @@ and Scope), before chunk 14's branch is cut.
   `tools/tests/test_fit.py` change, and asked for the committed
   `rehearsal.sh` to be re-run once on two hosts at the wave gate.
 - The driver merged `v0.3-c15-scenario` --no-ff into `v0.3-w4` as ecfaa06.
+
+### Wave 4 gate passed — 2026-10-28
+
+Run by a coding-executor on armenelos, 15:51–20:50 CET, at d7cdbd5
+(46e8589 plus step 0), κ = 1, every docker step under the host lock,
+an inhibitor held throughout. Logs in the session scratchpad
+(`gate-w4/`).
+
+- Step 0, d7cdbd5: `smoke-scenario.sh` smokes a several-host design on
+  one host (one-host `fit`, every designed host placed locally; tarnbeck
+  as `host-1-host-2`, 4 CPU / 5G / 18G, disk 7.68G, snapshot 11.78G);
+  `LOAD_MINUTES` defaults per scenario (12 for tarnbeck, 3 otherwise).
+  The only commit; no other fix.
+- Unit suite 653 OK; scheduler unit tests 60 OK; `sh -n`/`bash -n` 118
+  files and `perl -c` 7 files clean (shellcheck not installed); loader:
+  34 definitions plus 13 in fixtures, no problem; seven builds OK.
+- Stack tests all passed: postgres 131, bastion 71, prometheus 131,
+  postgres-exporter 103, grafana 119, scheduler 105, pgbouncer 103.
+- `smoke.sh` 60; `smoke-monitoring.sh` 43; `smoke-scenario.sh`:
+  bookshop 19, fernway 18, tarnbeck 26 (843 s).
+- `smoke-load.sh`: one host, first run 70 passed / 3 failed (first
+  judged minute 15:11Z: 18 producer errors, 16 `orders.lookup`, 2
+  `orders.insert`, and its every-minute job did not run; scheduler log
+  lost at teardown, no journal access; not traced to a chunk, nothing
+  on that path changed in wave 4); re-run 73/73 with a watcher, no
+  error line; duo 73/73. Treated as intermittent; open for the release
+  gate.
+- `rehearsal.sh duo` re-run (owner's request at G7): 53/53, no hand
+  intervention, 9644 s. Same placement as 15b. `/command/s6-svc`
+  outage 4 min, kill resumed in 15 s with T0 kept, early check by its
+  timer at 17:41:06, hand-over check passed, earliest hand-over
+  unmoved, snapshot 56 s (Prometheus down 7 s, Grafana 8 s), restart
+  87 s with every fault present, teardown clean. The script's inhibitor
+  held. Figures against 15b: peak 583M (280M / 311M) against 577M; db
+  213M, Grafana 192M; snapshot 218M; close-day 21.5 s; f7 waiting in
+  39% of samples, up to 14, `maxwait` 5.1 s; offered load p50 3.4, p90
+  6.1 Erlangs; armenelos' lowest available memory 3.82G; TSDB 3.0M/h.
+  G5's reading stands.
+- Grafana "Starting" after deploy: task-state lag of about a second
+  behind the container's own `healthy`; `deploy` reported after both.
+  No fix.
+- Image sizes unchanged from wave 3: postgres 262MB, bastion 185MB,
+  prometheus 488MB, postgres-exporter 165MB, grafana 866MB, scheduler
+  172MB, pgbouncer 182MB.
+- VPS: filetstudio.com 200 before, during (8/8, 160/160) and after;
+  node active only inside the lock, drained by the trap; now Drain with
+  its own containers only; four game images kept. No game object left
+  on either host.
+- No dependency changed in the wave (the scheduler Dockerfile's
+  change is a chmod and a parse check): no security-advisor check. No
+  intent or data register: no sync.
+- For the release gate: copy the schedulers' `error` lines before
+  teardown when a smoke-load check fails; G8 (armenelos kept awake for
+  the aged run) still applies, and the owner is weighing where the
+  aged run goes; release gate item 6's two-host `smoke-scenario.sh` on
+  tarnbeck is not covered by the wave gate.
+
+Side branch, outside the wave: `v0.4-readme` (287f6f6, 8ceb70c), cut
+from `v0.3-w4` for the owner's v0.4 direction (D190–D192, O104–O120);
+merges after this wave.
+
+## Release gate — started 2026-10-28
+
+- The owner asked to commit, push and run the release gate on armenelos,
+  leaving it open (G8 set: deployed this evening, hand-over 2026-10-29
+  early afternoon; G5: armenelos alone, the VPS stays Drain). The driver
+  holds a sleep inhibitor (`systemd-inhibit`, sleep, idle and lid switch)
+  for the run.
+- Already covered on this code by the wave 4 gate (d7cdbd5; c83e378
+  adds only the log): item 6's `smoke-load.sh` on armenelos alone and
+  on armenelos plus the VPS, `smoke-scenario.sh` on tarnbeck on one
+  host, the rehearsal re-run on two hosts; item 10's bookshop and
+  fernway smoke runs; item 12's quality command. Left for after the aged
+  run: `smoke-scenario.sh` on tarnbeck on armenelos plus the VPS, item
+  11's forced failures.
+- Item 7, setup: a fresh GM session set up `tarnbeck-outdoor-shop` on
+  armenelos alone (playground `laptop`, declared 4 CPU / 4G / 18G;
+  `fit`: disk 7.75G, snapshot 11.85G of 18G), the driver playing the
+  initiator. Game `tarnbeck-outdoor-shop-zcbdq5`; T0
+  2026-10-28T20:44:25Z; earliest hand-over 2026-10-29T12:44:25Z
+  (provisional until f8); planned hand-over 2026-10-29T14:00Z, customer's
+  time zone UTC+0. Every step exit 0, no warning. Host timers: f8's
+  planting at 08:00Z, the early check at 11:44:25Z. The images were the
+  wave gate's builds of the same code. At 20:45Z the producer's
+  per-minute summaries were flowing; its `catalog.lookup` errors are f1's
+  planted query error. The VPS stayed Drain.
+- Next, by the driver: a check after f8's planting (09:07 CET); a fresh
+  GM session resuming during the aging at 12:52 CET (`status` first, the
+  early check's result), then the hand-over check and the snapshot.
+- Check at 08:07Z: f8 planted 2026-10-29T08:00:00Z by its host timer
+  (the unit exited 0 at 08:00:03Z); earliest hand-over now final,
+  12:44:25Z; aged 11h22m, lost time 0; all 8 services 1/1; producer and
+  consumer summaries current (08:06Z), no outage line; the inhibitor
+  held. A Windows reboot overnight touched nothing (armenelos up 8 days).
+- Item 7, a fresh GM session resuming during the aging (11:52Z): ran
+  `status` first (stage `load-started`, aged 15h8m, lost time 0, f8
+  planted 08:00:00Z by its timer); the early check fired by its timer at
+  11:44:25Z and passed (every fault present, both schedulers' keys ok,
+  every node healthy, no lost time); 909 per-minute summaries on each
+  scheduler, no gap, no outage; the consumer's nightly-rollup (01:30Z)
+  and accounting-export (10:00Z) ran ok. It stopped before the earliest
+  hand-over (12:44:25Z), to resume for the hand-over check and snapshot.
+- Footprint around the noon peak (`docker stats` each minute,
+  11:52–12:39Z, armenelos): game total peak 632MiB; per node max: grafana
+  203M, db 192M (CPU 32%), prometheus 128M (aged TSDB; 65M in the
+  rehearsal), producer 43M, consumer 30M, exporter 25M, pooler 12M,
+  bastion 6M; armenelos' lowest available memory 3763MiB. No node
+  restarted.
+- Item 7, hand-over preparation by the same GM session: close-day ran
+  at 12:00:00–12:00:23Z (34,355 rows, 23.2 s; orders.place p95 22.6 s
+  that minute, the noon stall the story needs). The hand-over check at
+  12:47:13Z passed: f1–f10 present, both schedulers' keys ok and their
+  jobs run, 0 min lost, all 8 nodes healthy. Snapshot at 12:47:24Z:
+  34 copies, 259.09M, about 11 s; Prometheus and Grafana stopped about
+  1 s each inside their containers, no node down. Starter pack checked
+  against the render (sha256), customer's zone UTC+0, no secret in it.
+  Stopped before `--set handed-over`. The GM proposes retaking the
+  hand-over check and the snapshot just before hand-over, so a restart
+  goes back to the hand-over state.
+- Item 7, the hand-over (same GM session, as it proposed): the
+  hand-over check retaken at 13:56:15Z, passing (f1–f10 present, both
+  schedulers' keys ok, 0 min lost, 8 nodes healthy); the snapshot
+  retaken at 13:56:23Z, replacing the 12:47 copies: 34 copies, 246.59M,
+  Prometheus and Grafana stopped briefly 13:56:31–33Z (the maintenance
+  window); `status --set handed-over` at 13:56:58Z, 17h12m after T0,
+  the session ending at 17:56Z; the starter pack with the customer's
+  time zone (UTC+0) in the players' home.
+- Item 9 (stance), in the handed-over game: a player's request to pause
+  the load and to trigger close-day refused, no action; a passing
+  mention of a restart and a question about what a restart does
+  answered (whole game, every change lost, back to hand-over, no extra
+  time, only on an explicit confirmation), nothing restarted. The early
+  hand-over refusal is left for the item 11 game.
+- Item 8, play-through by a verifier as `player` (bastion and web front
+  only), 13:58–14:25Z: every evidence item of f1–f10 reachable where the
+  answer key says. Fixes 14:04–14:24Z: f8 (index), f9 (autovacuum),
+  f7 (pool 3 → 8), f1 (`sku`), f5 (close-day to 23:30), f3 (idempotent
+  insert, duplicates removed, unique index), f6 (timezone removed);
+  validators green. Not fixed by design: f2, f4 (agency), f10
+  (Prometheus report-only). Sealed checks from the host at 14:26:45Z:
+  f1, f3, f5–f9 fixed; f2, f4, f10 present.
+- Findings for the release notes (verifier):
+  - RG-1: the player's SSH key is refused on the bastion (password
+    only); the key works for the hops between nodes.
+  - RG-2: on `pooler`, plain `psql` fails (`SASL authentication failed`,
+    no `~/.pgpass`), so f7's "how" in the answer key fails as written;
+    `psql -h pooler -p 6432 -U dba pgbouncer` from the bastion works.
+  - RG-3: f4 blocks f3's proposed `ADD CONSTRAINT … UNIQUE` (a lock
+    never granted) and makes each `CREATE INDEX CONCURRENTLY` wait 5 min;
+    the answer key doesn't say so.
+  - RG-4: f5's Prometheus evidence is weak (p95 buckets 2.5/5/10/30 hide
+    the noon stall among other bumps); the logs are strong.
+  - RG-5: PostgreSQL 18's autovacuum log says "removable cutoff", not
+    the answer key's "oldest xmin" (f4).
+  - RG-6: Grafana's statement panels are labelled by queryid only (f2).
+  - RG-7: the db log's `client=` shows 10.0.1.18 for most connections.
+  - RG-8: f3's window check read 0 at once, not 3 then 0: the players
+    deleted the duplicates inside the 30-minute window, so the count of
+    duplicates inserted in it was already 0. A deletion without the
+    cause fixed would read "fixed" until the next duplicate (about four
+    a minute).
+- Item 8, the restart (G9): a player asked for a restart; the GM gave
+  the statement (every change lost, back to hand-over, the gap a
+  maintenance window, same access, no extra time) and asked for a
+  confirmation in so many words. The owner typed "yes, we confirm:
+  restart the game", relayed verbatim. `gmctl restart --confirmation`
+  14:28:57–14:29:28Z (31 s): game `tarnbeck-outdoor-shop-q8au6x`, 34
+  volumes restored, a new seed, both schedulers resumed from their
+  marker, stage handed-over, the four hours still counted from the
+  first hand-over. Checked by the driver at 14:30:45Z: f1–f10 present
+  again (the fixes gone), the player password and the tools password
+  still valid, the starter pack back in `~`. The GM told the players
+  the maintenance window, 13:56–14:29 UTC. The producer's first minute
+  after the restart had 17 errors (about 6–11 before), reconnecting.
+- Item 8, after the restart: the verifier re-applied the seven fixes at
+  14:31:26–14:31:41Z (the index builds took under a second: f4's
+  dashboard had not run yet). Sealed checks from the host: at 14:32:47Z
+  f1 (a window check) read too soon, 22 s left; at 14:34:31Z fixed.
+  The players' report handed in as final answer (14:35:09Z); the GM ran
+  `validate` (all eight green) and `check` (f1, f3, f5–f9 fixed; f2, f4,
+  f10 present, report-only), checked the report on the live system,
+  and gave feedback (14:36:25Z): all ten found, every answer
+  acceptable, three improvements (watch a behavioural fix hold, check
+  figures, join related findings: autovacuum off and the held snapshot
+  on orders). Stage `feedback-given`; teardown waits for the owner.
+- RG-8 confirmed by the GM: the f3 answer key says removing the old
+  duplicates does not matter to the check; it does (the check counts
+  the duplicates still in the table).
+- 2026-10-29, the owner: "you may teardown. i'll let you fix what need
+  to be fixed … you've done well." Taken as G10 (the owner's judgement
+  of the aged game and the feedback): passed. Teardown of
+  `tarnbeck-outdoor-shop-q8au6x` at 18:16:18Z under the host lock: 8
+  services, 1 network, 35 configs, 10 secrets, 76 volumes removed,
+  nothing labelled left, no host timer left.
+- Owner ruling the same day: no aged run before v1.0 (maybe not even
+  then); aged runs stay one-off, not a standing gate item, as they take
+  too long. Sent to spec-writer on `v0.4-readme` (later versions' gates).
+- RG-1, RG-2, RG-3, RG-5 and RG-8 to be fixed before release (owner);
+  sent to a coding-executor on `v0.3-rg-fixes`, merging into `v0.3-w4`,
+  with items 1–5 and 13's document checks. RG-4, RG-6, RG-7 go to the
+  release notes as known gaps. Left after the fixes: item 6's
+  `smoke-scenario.sh` on tarnbeck on armenelos plus the VPS, item 11's
+  forced failures with item 9's early hand-over refusal, the release
+  notes (item 15).
+- Release gate fixes (coding-executor, `v0.3-rg-fixes`, merge f84258c):
+  - RG-2 fixed in the brick (3cde51c): pgbouncer 0.1.0 declares
+    `dba_password` and writes the player's `~/.pgpass` at each start, as
+    the spec, `docs/gm.md` and the starter pack promised; stack test
+    105/105; f7's "how" now right as written.
+  - RG-1 not a defect: the bastion is password-only by v0.1 master spec
+    9.2 and the access model; the key is for the hops. The tarnbeck
+    starter pack now says so (cfeebb9); bookshop and fernway keep the
+    older wording.
+  - RG-8, RG-3, RG-5 in the answer key, the faults and `gm/notes.md`
+    (e4dca09): f3's check counts the duplicates still in the table
+    (deleting them alone is not a fix); f3↔f4 `conflicts-with`. RG-3
+    corrected: on PG 18 the `ADD CONSTRAINT` lock is granted once the
+    open holders end (about five minutes at most), not never; inserts
+    queue behind it meanwhile. PG 18.6's wording "removable cutoff".
+  - The README regenerated; the loader's completeness check clean.
+    Unit 653, scheduler 60, bastion stack 71/71, `smoke-scenario.sh
+    tarnbeck-outdoor-shop` 26/26 on armenelos alone (795 s). No version
+    bump (pgbouncer 0.1.0 and bastion 0.3.0 unreleased, D100); the
+    pgbouncer image rebuilt.
+- Items 1–5: PASS (executor, evidence in its report: every brick's
+  `docs/gm.md` against its `brick.yaml`; the eleven faults in the new
+  evidence form on `gm_check`; the eight new faults complete; the
+  scenario complete, README current; `gmctl` against master spec 13 and
+  8.7). Item 13: the brick docs held every finding but the bastion's
+  (added, ca42bad); the driver wrote the missing findings into chunks 3,
+  4, 5, 6, 8, 10 and 15's Record lines. PASS.
+- Item 6 reread: `smoke-scenario.sh` is one-host by design (it places a
+  several-host design on one engine); the two-host deployment of
+  tarnbeck is the rehearsal, re-run on armenelos plus the VPS at the
+  wave 4 gate on this code (53/53), with `smoke-load.sh` duo 73/73.
+  Item 6 PASS. The rehearsal also forced failures during an aging (a
+  scheduler killed, a 4-minute outage), recorded with the game left
+  running: item 11's second half.
+- Item 11 and item 9's early hand-over, by a fresh GM session on
+  armenelos alone, the driver the initiator (2026-10-29):
+  - Forced setup failure: a scratch copy of tarnbeck (never in the
+    repo) with `SELECT 1/0;` appended to `data/db.sql`, playground
+    `rgfail`, game `tarnbeck-outdoor-shop-rv6jxu`: fit, render, deploy
+    and the wiring reads 0; `load-data` 1, gmctl tore the game down
+    itself, stage `failed` recorded before `data-loaded`; the GM's
+    confirming teardown found nothing left. Finding RG-9: the reason
+    recorded read `psql exit 3: setval` (psql's first output line), not
+    the error. Fixed (d2e3999, merge 3330648): the reason carries
+    psql's `ERROR:` line (then `FATAL:`, `psql:`), for the data load,
+    the schedulers' passwords and the CONNECT grant; unit 658.
+  - A real game, `tarnbeck-outdoor-shop-o6aw03` on `laptop`: every
+    step 0, T0 18:53:56Z, earliest hand-over 2026-10-30T12:00Z
+    (provisional until f8), both host timers set. Asked by the
+    initiator to hand over at once: refused, saying when (12:00Z at
+    the earliest, once f8 is planted and the hand-over check passes).
+  - Forced failure during the aging: the driver scaled the producer to
+    0 at 18:54:42Z and back at 18:58:02Z. Asked what it saw, the GM read
+    `status` (OUTAGES: 4 min lost in 1 period, under the 30 min, the
+    earliest hand-over not moved; task history may be incomplete),
+    traced it to the service spec changed outside gmctl, found no
+    fixed-time run in the gap and no evidence lost, and left the game
+    running, touching nothing (the load is not the GM's to restart).
+  - Torn down at the initiator's request, with its reason, at
+    19:00:00Z: nothing labelled left, both host timers removed. The
+    VPS stayed Drain throughout. Items 9 and 11: PASS.
+- The sleep inhibitor released; no docker work left in the gate.
+- Item 12, the quality command re-run on the fixed code, armenelos
+  alone, the VPS Drain throughout, under a sleep inhibitor:
+  - 2026-10-29 from 20:06 CET, head 674e8ab: unit 658 OK, the
+    schedulers' unit tests OK, syntax 118 shell and 7 Perl files, 0
+    failed, loader 34 definitions (plus 13 in fixtures), 0 with
+    problems; postgres 0.3.0 and bastion 0.3.0 built, stack tests
+    passed. The run was stopped at 20:13 CET, during prometheus's stack
+    test (not a failure).
+  - 2026-10-30 from 08:53 CET, head 65c2c0b (docs only since 674e8ab),
+    resumed at prometheus: its stack test failed at once on a config
+    `gmtest-prom_seed_prometheus_yml` left by the stopped run (the
+    leftovers check before resuming had missed it); the test's own
+    teardown removed it and the re-run at 09:36 passed (78 s).
+    postgres-exporter, grafana, scheduler and pgbouncer: built, stack
+    tests passed. smoke (OK), smoke-monitoring (43 checks),
+    smoke-scenario bookshop-new-server (19), fernway-clinics-monitoring
+    (18), tarnbeck-outdoor-shop (26, 844 s), smoke-load armenelos (73,
+    426 s): all passed. The intermittent smoke-load failure did not
+    recur. Nothing left after the run. Item 12: PASS.
+- Release gate: items 1 to 15 PASS, G9 and G10 cleared. v0.3-w4 is
+  ready to merge into main when the owner asks.

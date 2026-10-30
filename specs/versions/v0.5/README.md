@@ -154,11 +154,11 @@ exchanges between clinics. How a round trip is modelled is O128.
 - The scheduler's other targets (D118): other database types, message
   queues, APIs, and tools that trigger transformation layers, as drivers
   of v0.3's scheduler brick
-  ([v0.3/scheduler.md](../v0.3/scheduler.md), "Drivers").
+  ([v0.3 master spec](../v0.3/master-spec.md) 7.1).
 - Adjusting v0.3's defaults after use (D146): the formats, brick
   interfaces, scenario, aging, scheduler behaviour, tooling and figures
   the owner accepted as proposed in v0.3's review list
-  ([v0.3/review-list.md](../v0.3/review-list.md)), revisited once games
+  ([v0.3/review-list.md](../../archive/v0.3/review-list.md), archived), revisited once games
   have run on them.
 - Reusable topology fragments for the most common arrangements.
 - Domains beyond v0.4's shop (D192; O112), each with its business data

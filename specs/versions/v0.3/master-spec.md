@@ -27,7 +27,7 @@ statement without a snapshot (12, D187) and the new scenario's
 monitoring nodes (15.2, D188); the time-of-day faults' aging minima
 read the same day (6.3, D189).
 Build plan:
-[build-plan.md](build-plan.md), approved (D156). Companion:
+[build-plan.md](../../archive/v0.3/build-plan.md), approved (D156). Companion:
 [access-model.md](access-model.md). Baseline: the released
 [v0.2 master spec](../v0.2/master-spec.md) and its
 [access model](../v0.2/access-model.md). Everything v0.2 specifies stays

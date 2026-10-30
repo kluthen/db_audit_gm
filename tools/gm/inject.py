@@ -135,6 +135,22 @@ def _first_line(result):
     return lines[0] if lines else "no output"
 
 
+PSQL_ERROR_PREFIXES = (("ERROR:",), ("FATAL:", "psql:"))
+
+
+def psql_error_line(result):
+    """The line of a failed psql run that says why: the first starting
+    with `ERROR:`, else with `FATAL:` or `psql:`, else the first line
+    (release-gate finding RG-9: the output's first line may be a result,
+    `setval`, printed before the error)."""
+    lines = output_lines(result)
+    for prefixes in PSQL_ERROR_PREFIXES:
+        for line in lines:
+            if line.startswith(prefixes):
+                return line
+    return _first_line(result)
+
+
 def _print_run(out, heading, result):
     out(f"{heading}: {'ok' if result.ok else f'exit {result.returncode}'}")
     for line in output_lines(result):
@@ -314,7 +330,7 @@ def load_steps(ldir, plans, docker, result, timeout=None, out=print):
         _print_run(out, f"{node} {rel} (psql as {DATA_USER})", run)
         if not run.ok:
             raise GmError(f"data load of {node} ({rel}): psql exit {run.returncode}: "
-                          f"{_first_line(run)}")
+                          f"{psql_error_line(run)}")
         result.loaded.append((node, rel))
     for node, roles in passwords:
         names = ", ".join(r for r, _ in roles)
@@ -324,7 +340,7 @@ def load_steps(ldir, plans, docker, result, timeout=None, out=print):
         if not run.ok:
             raise GmError(f"setting the passwords of {names} on {node} (the data must "
                           f"create these roles): psql exit {run.returncode}: "
-                          f"{_first_line(run)}")
+                          f"{psql_error_line(run)}")
         result.passwords.append((node, [r for r, _ in roles]))
     for node in grants:
         run = exec_node(ldir, node, DATA_USER, stdin=grant_sql(), timeout=timeout,
@@ -332,7 +348,7 @@ def load_steps(ldir, plans, docker, result, timeout=None, out=print):
         _print_run(out, f"{node} CONNECT for {CHECK_ROLE} (psql as {DATA_USER})", run)
         if not run.ok:
             raise GmError(f"granting {CHECK_ROLE} CONNECT on the databases of {node}: "
-                          f"psql exit {run.returncode}: {_first_line(run)}")
+                          f"psql exit {run.returncode}: {psql_error_line(run)}")
         result.grants.append(node)
 
 

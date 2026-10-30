@@ -91,7 +91,7 @@ acceptance:
     for minutes after their statements, and their effect: their snapshot
     (backend_xmin) keeps vacuum from removing dead rows on every table, so
     dead rows and bloat pile up (the autovacuum log's "dead but not yet
-    removable" and oldest xmin).
+    removable", and its "removable cutoff", many XIDs old).
   proposal: >-
     the client commits as soon as its statements are done (no work or
     waiting inside the transaction); idle_in_transaction_session_timeout on

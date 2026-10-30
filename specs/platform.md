@@ -1,6 +1,6 @@
 # Platform
 
-Status: draft v18
+Status: draft v19
 
 The swarm the games run on, the resource budget scenarios must fit, how
 scenario content reaches the nodes, and the Swarm behaviours that shape the
@@ -47,7 +47,11 @@ among them, which must stay up. Work on the VPS never disturbs them; a
 change that needs filetstudio.com down (a Docker upgrade, say) waits for
 a downtime scheduled with the owner beforehand. Its Caddy may be altered
 so long as filetstudio.com stays up. The documentation kept on the VPS
-itself describes its set-up and is read before any change there.
+itself describes its set-up and is read before any change there. A
+change to the VPS engine's swarm membership (leaving a swarm, joining
+one) is a downtime too: it wipes the embedded DNS of its containers, as
+the join to armenelos' swarm showed (filetstudio.com answered 502 for
+about six minutes; D178).
 
 - **Multi-host swarms use Linux hosts only** (D12). Docker Desktop's engine
   runs in a NAT'd VM, and Docker documents swarm mode on Docker Desktop as

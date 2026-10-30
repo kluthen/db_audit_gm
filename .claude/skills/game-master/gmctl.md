@@ -208,7 +208,9 @@ password or key. The GM's reads, one per tool, are in the skill's
   the files and `<node>: password set from its secret for role(s) ...`.
 - **A failed setup step** (`deploy`, `load-data`, `inject`): `setup failed
   before stage <stage>: <reason>`, the teardown it ran, then `Recorded in
-  state.yaml (stage failed).`
+  state.yaml (stage failed).` A `load-data` step's reason ends `psql exit
+  N: <line>`, psql's first `ERROR:` line (else `FATAL:` or `psql:`, else
+  its first line of output).
 - **`inject`**: one line per script, `<instance> <script> (<node>, as
   <user>): ok|exit N`, then the script's output indented 4 spaces; the
   summary names each fault it ran nothing for, `<instance>: seed-file
