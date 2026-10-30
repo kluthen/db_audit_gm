@@ -1177,7 +1177,7 @@ Architecture capture: none.
 
 ### Chunk 19 — `bastion` 0.4.0: the data policy, the starter-pack page, the web front in every game
 
-Status: planned
+Status: merged (w1, c15ff5b)
 Wave: 1
 Depends on: chunk 1, merged into `v0.4-w1` before this chunk's branch is
 cut; G12 and G13 cleared before the branch is cut; for **19b**, chunk 2
@@ -1296,6 +1296,8 @@ element joins it.
   stack test); 19b the loader's port rule, the scenarios and fixtures
   without a web interface, `smoke.sh`, the format and scenario-document
   skills. Two commits, in that order.
+
+Record: 19a 4a6f936, 19b cb82f3b, merge c15ff5b. No departure from the spec; outside its Files lines, 19b turned `test_fit`, `test_render`, `test_deploy`, `test_state` to `fixture-audit`'s new shape, and 19a's stack file gives `db` postgres 0.4.0's `cronspool` volume; `fixture-v04-refusals` keeps its local bastion copy. Outcome recorded as capture W1-z.
 
 ## Release gate
 

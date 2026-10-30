@@ -1141,3 +1141,66 @@ except where noted.
 Known limit (documented in `docs/gm.md`): with no `cron.allow` (D211),
 any OS user may run `crontab`, so `player` could install a crontab of
 its own, run as `player`.
+
+### Chunk 19 — merged (c15ff5b), 2026-10-30
+
+19a 4a6f936, 19b cb82f3b, merge c15ff5b (branch fast-forwarded to
+da6d300 first, so chunk 4's `seed_entries` fix was taken, not
+repeated). Stack test 89 PASS, 0 FAIL; unit suite 746 OK; `bastion`
+0.4.0 builds with G13's three assertions. Resolved for G6: `cmark-gfm`,
+`libcmark-gfm0.29.0.gfm.13`, `libcmark-gfm-extensions0.29.0.gfm.13` at
+0.29.0.gfm.13-4 (trixie/main, unpinned), image 185.1 → 185.6 MB.
+Outside its Files lines (accepted): `test_fit`, `test_render`,
+`test_deploy`, `test_state` follow `fixture-audit`'s new shape
+(`test_state`'s no-port test turned round so `state.py`'s hiding branch
+stays covered); the bastion stack file gives `db` the `cronspool`
+volume. `fixture-v04-refusals` keeps its now-redundant local bastion.
+The four READMEs changed only in "Published ports" (not fully
+regenerated: re-checked at the gate). For chunk 18: `game-master/SKILL.md`
+lines 98-99 (no front, no tools password) and 1191 ("the second lists
+the routes"; `/` is now the page).
+
+### Capture W1-z — chunk 19 outcomes (`bastion` 0.4.0's page and front; read by 13, 16, 18)
+
+Recorded 2026-10-30 by chunk 19's owner from the code on
+`v0.4-c19-bastion` (4a6f936, cb82f3b; merged c15ff5b).
+
+- **Paths.** At every start, routes or none, `gm-entrypoint` writes
+  `/run/web-front/` (root:www-data 0750): `nginx.conf` (0444), `htpasswd`
+  (0440, user `player`), `www/index.html` the page (root:www-data 0440),
+  `www/not-found.txt`, `www/routes/<name>/` per route. The page is
+  rendered from `/opt/gm/starter/` (as handed over, never the home
+  copies) by `cmark-gfm -e table` in safe mode (raw HTML becomes a "raw
+  HTML omitted" comment; never `--unsafe`). `README.md`, `story.md`,
+  `issues.md` required (a missing one fails the container);
+  `data-policy.md` optional, copied once to `/home/player/data-policy.md`
+  when mounted.
+- **Form.** One HTML5 page, UTF-8, at `/` behind auth_basic like every
+  path: a small inline stylesheet; a header saying this is the starter
+  pack as handed over (the player's own copies in their home), then a
+  `<nav>` linking the sections present; one `<section id="<id>">` per
+  element present, in order `readme`, `story`, `issues`, `data-policy`,
+  `web-interfaces` (`<h1>Web interfaces</h1>`, one `<a
+  href="/<route>/">` per route, sorted). An absent element leaves no
+  section and no nav link.
+- **The front's home.** With web interfaces: the starter sections, then
+  `web-interfaces`; `/<route>/` proxies as before, `/<route>` redirects.
+  Without: the same page with no `web-interfaces` section or link; the
+  front up on 8080, published `{port: 8080, default: 8080}`, the tools
+  password read and handed over. The loader refuses a bastion without
+  that port, routes or none.
+- **How a later element joins.** One list, `PAGE_ELEMENTS` in
+  `gm-entrypoint`, a line per element `<kind> <id> <source> <title>`;
+  kind `markdown` present when `/opt/gm/starter/<source>` exists, kind
+  `routes` when `GM_WEB_ROUTES` has a route. A reporting tool (O135)
+  joins by one line; a new kind adds its branch in `page_element`, which
+  prints the section or returns 1 when absent.
+- **Footprint at rest** (stack test, armenelos, Docker 29.9.1, idle,
+  2026-10-30): container 5.1 MiB with routes, 4.9 MiB without (v0.3
+  without routes 2.8 MiB, no nginx); nginx resident 12.6–12.8 MiB with
+  routes, 12.1 MiB without; the page a few KiB on `run`; `cmark-gfm` only
+  at start-up, ~860 KiB of image. `brick.yaml`'s figures unchanged.
+
+Carried: `smoke.sh` now needs host port 8080 free; a `cmark-gfm` failure
+on a starter file stops the bastion (its log says why); an untagged
+earlier bastion image (`sha256:efc56233…`) is left, removal by name only.
