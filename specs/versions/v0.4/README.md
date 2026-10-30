@@ -10,10 +10,10 @@ raised: the agency's database report-only by the story alone, no
 report-only policy in `postgres` (D211, closing O132); the scenario's
 ten faults only (D212, closing O133); f10 calibrated early, on
 armenelos only (D213); the gateway's lost acknowledgements (D214).
-No build plan yet; the master spec's section 19 lists what it must
-carry. The drafts stay as the working record until the archive; where
+The [build plan](build-plan.md), written from the master spec's
+section 19, was drafted the same day and awaits the owner's approval. The drafts stay as the working record until the archive; where
 they and the master spec disagree, the master spec is current.
-Page draft v5.
+Page draft v6.
 
 History: direction recast on 2026-10-28 (D190),
 revising D47's "transformers" for this version; a first cut of data
@@ -41,6 +41,7 @@ incident on a database node (D209).
 |---|---|---|
 | [master-spec.md](master-spec.md) | The consolidated v0.4 specification | approved 2026-10-30 (D215) |
 | [access-model.md](access-model.md) | Who may do what in a v0.4 game; the customer's roles and data policy in the game's world | approved 2026-10-30 (D215) |
+| [build-plan.md](build-plan.md) | The build: eighteen chunks in four waves, the gates G1 to G11, the release gate | v1 drafted 2026-10-30, awaiting the owner's approval |
 | [purposes.md](purposes.md) | The purpose as an artefact: layout, `purpose.yaml`, how a scenario uses one, faults attached to purposes, instances and node sizing, the job runner and the transformer script, moving data between instances, cadence under real time, the customer's time zone in the data | draft v4 |
 | [purpose-catalogue.md](purpose-catalogue.md) | The proposed purposes, each with its jobs, trace and invariants: sales reporting, win-back leads, customer mailing, export declarations (a pushed obligation); finance held; the clinic's reporting as a stress test | draft v4 |
 | [shop-domain.md](shop-domain.md) | The shop as the first domain: the format v0.4 settles, the data-model changes the invariants need, roles, producer changes | draft v2 |
@@ -362,7 +363,8 @@ rehearsal and the early check fired by the host's timer
 ## For the build plan
 
 Gathered, with the rest, in the [master spec](master-spec.md#19-for-the-build-plan),
-section 19. Items noted as they arose:
+section 19, and carried by the [build plan](build-plan.md). Items
+noted as they arose:
 
 - A security-advisor dependency check for `postgres` 0.4.0's new
   packages, `postgresql-18-cron` (PGDG) and Debian's `cron`: preflight
