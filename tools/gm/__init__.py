@@ -204,10 +204,12 @@ def build_parser():
     p.add_argument("--memory", metavar="SIZE", help="playground memory (8G)")
     p.add_argument("--disk", metavar="SIZE", help="playground disk (40G)")
     p.add_argument("--host", action="append", default=[],
-                   metavar="<name>[,manager][,endpoint=<url>],cpu=N,memory=SIZE,disk=SIZE",
+                   metavar="<name>[,manager][,shared][,endpoint=<url>],cpu=N,memory=SIZE,"
+                           "disk=SIZE",
                    help="a host of the playground, by its swarm node name, memory at what it "
                         "has available (repeatable; replaces the whole host list; exactly one "
-                        "manager; no endpoint: the local engine)")
+                        "manager; shared: it carries other applications, and no node that "
+                        "may exhaust its memory goes on it; no endpoint: the local engine)")
     p.add_argument("--map", action="append", default=[], metavar="<designed host>=<host>",
                    help="place the scenario's designed host on a declared host (repeatable; "
                         "replaces the whole mapping; implied on one host)")

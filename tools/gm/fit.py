@@ -28,6 +28,15 @@ several hosts takes its overlay's /24 from, playground.yaml's
 `overlay_range` (from /8 to /24, inside 10/8, 172.16/12 or 192.168/16); a
 re-fit without it keeps the declared one, and none declared means
 10.20.0.0/16.
+
+v0.4 (master spec 6.3, 13.3; spec D159, D209; capture W1 item 3): a host
+may be marked `shared` (`--host <name>,shared,…`, `shared: true` in
+playground.yaml; absent, not shared): it carries other applications, as
+the VPS carries filetstudio.com. A node carrying a fault instance whose
+fault declares `needs_unshared_host` (a node that may exhaust its memory)
+is refused on a shared host, naming the mapping to change, as a node
+publishing ports off the manager is; a playground whose only hosts are
+shared is refused for such a scenario.
 """
 
 import re
@@ -52,6 +61,8 @@ ENDPOINT_RE = re.compile(r"^(ssh|tcp|unix)://\S+$")
 HOST_NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,62}$")
 HOST_KEYS = ("endpoint", "cpu", "memory", "disk")
 CAPACITY_KEYS = ("cpu", "memory", "disk")
+SHARED = "shared"                   # a host carrying other applications (master spec 13.3)
+NEEDS_UNSHARED = "needs_unshared_host"      # fault.yaml (W1 item 3)
 
 
 @dataclass
@@ -265,6 +276,7 @@ def placed_capacity_check(scenario, declared, placement, images, engine):
         host = check.host
         where = host.get("docker_endpoint") or "local engine"
         role = "manager, " if host.get("manager") else ""
+        role += f"{SHARED}, " if is_shared(host) else ""
         lines.append(f"host {host['name']} ({role}{where}): nodes "
                      f"{', '.join(check.nodes) or 'none'}")
         lines += [f"  {line}" for line in check.report.lines]
@@ -292,7 +304,9 @@ class FitResult:
             out.append(f"Playground {pg['name']}: {pg['platform']}, {len(hosts)} host(s)")
             for host in hosts:
                 cap = host["capacity"]
-                out.append(f"  host {host['name']}{' (manager)' if host.get('manager') else ''}"
+                marks = ", ".join(m for m, on in (("manager", host.get("manager")),
+                                                  (SHARED, is_shared(host))) if on)
+                out.append(f"  host {host['name']}{f' ({marks})' if marks else ''}"
                            f": {host.get('docker_endpoint') or 'local engine'}, capacity cpu "
                            f"{cap['cpu']}, memory {cap['memory']}, disk {cap['disk']}")
             mapping = pg.get("mapping") or {}
@@ -350,9 +364,10 @@ def _check_endpoint(endpoint, what="endpoint"):
 
 
 def parse_host(spec):
-    """One `--host <name>[,manager][,endpoint=<url>],cpu=N,memory=SIZE,disk=SIZE`
+    """One `--host <name>[,manager][,shared][,endpoint=<url>],cpu=N,memory=SIZE,disk=SIZE`
     as a declared host (W3 item 1); a host with no endpoint is the local
-    engine."""
+    engine. `shared` (master spec 13.3) is written only when given, so a
+    host declared as before reads as before."""
     parts = [part.strip() for part in str(spec).split(",")]
     name = parts[0]
     if not HOST_NAME_RE.match(name):
@@ -364,9 +379,12 @@ def parse_host(spec):
         if part == "manager":
             host["manager"] = True
             continue
+        if part == SHARED:
+            host[SHARED] = True
+            continue
         key, sep, value = part.partition("=")
         if not sep or key not in HOST_KEYS or not value:
-            raise GmError(f"--host {spec!r}: {part!r}: expected manager or one of "
+            raise GmError(f"--host {spec!r}: {part!r}: expected manager, shared or one of "
                           f"{', '.join(k + '=' for k in HOST_KEYS)}")
         if key == "endpoint":
             _check_endpoint(value, f"--host {name}: endpoint")
@@ -462,12 +480,74 @@ def _declaration(existing, name, endpoint, cpu, memory, disk, hosts, mapping):
     return updated, existing
 
 
+def is_shared(host):
+    """Whether a declared host is marked shared (master spec 13.3)."""
+    return host.get(SHARED) is True
+
+
+def unshared_nodes(scenario):
+    """node name -> [(instance id, fault id)] of the fault instances on it
+    whose fault declares `needs_unshared_host` (W1 item 3; absent, false),
+    in node order."""
+    found = {}
+    for inst in scenario.data.get("fault_instances") or []:
+        fault = scenario.faults.get(inst.get("id"))
+        if fault is not None and fault.data.get(NEEDS_UNSHARED) is True:
+            found.setdefault(inst.get("node"), []).append((inst["id"], fault.id))
+    return {node["name"]: found[node["name"]] for node in scenario.nodes
+            if node["name"] in found}
+
+
+def _carries(instances):
+    what = ", ".join(f"{iid} ({fid})" for iid, fid in instances)
+    many = len(instances) > 1
+    return (f"fault instance{'s' if many else ''} {what}, which need{'' if many else 's'} "
+            "an unshared host")
+
+
+def unshared_problems(scenario, declared, placement):
+    """The shared-host rule (master spec 13.3; spec D209): a node carrying
+    a fault that needs an unshared host is never placed on a shared host.
+    A playground whose only hosts are shared: one problem; otherwise one per
+    node placed on a shared host, naming the mapping to change."""
+    needs = unshared_nodes(scenario)
+    hosts = localimpl.playground_hosts(declared)
+    if not needs or not hosts:
+        return []
+    unshared = [h["name"] for h in hosts if not is_shared(h)]
+    if not unshared:
+        nodes = "; ".join(f"node {n} carries {_carries(i)}" for n, i in needs.items())
+        names = ", ".join(str(h.get("name")) for h in hosts)
+        many = len(hosts) > 1
+        return [f"its only host{'s' if many else ''} ({names}) {'are' if many else 'is'} "
+                f"shared, and {nodes}: a node that may exhaust its memory never runs on a "
+                "host shared with other applications (master spec 13.3); declare a host "
+                "that is not shared (--host without shared) and place the node on it"]
+    designed_of = (scenario.data.get("designed_for") or {}).get("placement") or {}
+    by_name = {h["name"]: h for h in hosts}
+    problems = []
+    for node, instances in needs.items():
+        host = placement.get(node)
+        if host is None or not is_shared(by_name.get(host) or {}):
+            continue
+        designed = designed_of.get(node)
+        problems.append(
+            f"node {node} carries {_carries(instances)}, and would be placed on {host}, a "
+            "shared host: a node that may exhaust its memory never runs on a host shared "
+            f"with other applications (master spec 13.3); map {designed} onto a host that is "
+            f"not shared ({', '.join(unshared)}) (--map {designed}={unshared[0]})")
+    return problems
+
+
 def check_declaration(scenario, declared):
     """Refuses (GmError, nothing written) a declaration `fit` cannot place
     the scenario on (W3 items 1 and 2): no host or two managers, a host
     named twice or its capacity incomplete; on several hosts, a designed
     host unmapped or unknown, a mapping onto an undeclared host, and a node
-    publishing ports placed off the manager."""
+    publishing ports placed off the manager. v0.4 (master spec 13.3): a
+    `shared` mark that is not true or false, a node carrying a fault that
+    needs an unshared host placed on a shared host, and a playground whose
+    only hosts are shared for such a scenario."""
     pg = declared["name"]
     hosts = localimpl.playground_hosts(declared)
     if not localimpl.is_list_form(declared):
@@ -492,6 +572,8 @@ def check_declaration(scenario, declared):
         if missing:
             problems.append(f"host {host.get('name')}: capacity has no "
                             f"{', '.join(missing)}")
+        if SHARED in host and not isinstance(host[SHARED], bool):
+            problems.append(f"host {host.get('name')}: shared is not true or false")
     mapping = declared.get("mapping") or {}
     designed = localimpl.designed_hosts(scenario)
     for key, target in mapping.items():
@@ -511,8 +593,9 @@ def check_declaration(scenario, declared):
                                 f"{name}=<host>)")
     if problems:
         raise GmError(f"playground {pg}: " + "; ".join(problems) + "; nothing written")
+    placement = localimpl.node_hosts(scenario, declared, None)
+    problems += unshared_problems(scenario, declared, placement)
     if len(hosts) > 1:
-        placement = localimpl.node_hosts(scenario, declared, None)
         manager = localimpl.manager_host(declared)["name"]
         designed_of = (scenario.data.get("designed_for") or {}).get("placement") or {}
         for node in scenario.nodes:

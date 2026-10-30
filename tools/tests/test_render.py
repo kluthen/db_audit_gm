@@ -16,10 +16,13 @@ MANAGER, WORKER = "armenelos", "vps-5718ad52"
 VPS_ENDPOINT = "ssh://debian@100.126.172.117"
 
 
-def two_hosts(manager_memory="4G", worker_memory="4G", worker_disk="20G"):
-    """`--host` options for armenelos (the manager) and the VPS."""
+def two_hosts(manager_memory="4G", worker_memory="4G", worker_disk="20G", worker_shared=False):
+    """`--host` options for armenelos (the manager) and the VPS (marked
+    `shared` with `worker_shared`, master spec 13.3)."""
+    shared = ",shared" if worker_shared else ""
     return [f"{MANAGER},manager,cpu=2,memory={manager_memory},disk=20G",
-            f"{WORKER},endpoint={VPS_ENDPOINT},cpu=2,memory={worker_memory},disk={worker_disk}"]
+            f"{WORKER}{shared},endpoint={VPS_ENDPOINT},cpu=2,memory={worker_memory},"
+            f"disk={worker_disk}"]
 
 
 def two_host_engine(**kwargs):

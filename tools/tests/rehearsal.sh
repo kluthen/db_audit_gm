@@ -43,10 +43,11 @@
 # Usage: sh tools/tests/rehearsal.sh <playground> [<gmctl fit option>...]
 #   as smoke-load.sh: options after the playground go to gmctl fit; without
 #   any, the local engine at its own capacity. Two hosts (the wave 3 gate's
-#   declaration):
+#   declaration; the VPS is shared, filetstudio.com runs there: v0.4 master
+#   spec 13.3, spec D159):
 #     REHEARSAL_ENGINES=ssh://dbagm-vps sh tools/tests/rehearsal.sh duo \
 #       --host armenelos,manager,cpu=4,memory=4G,disk=20G \
-#       --host vps-5718ad52,endpoint=ssh://dbagm-vps,cpu=2,memory=4G,disk=10G \
+#       --host vps-5718ad52,shared,endpoint=ssh://dbagm-vps,cpu=2,memory=4G,disk=10G \
 #       --map host-1=armenelos --map host-2=vps-5718ad52
 # Environment:
 #   REHEARSAL_SCENARIO  the scenario folder (default scenarios/tarnbeck-outdoor-shop)
