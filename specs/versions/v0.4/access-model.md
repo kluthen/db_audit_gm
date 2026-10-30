@@ -1,12 +1,9 @@
 # db_audit_gm v0.4 — Access model
 
-Status: **drafted on 2026-10-30 with the [master spec](master-spec.md)
-it accompanies, awaiting the owner's approval.** Revises the
+Status: **approved by the owner on 2026-10-30 with the
+[master spec](master-spec.md) it accompanies.** Revises the
 [v0.3 access model](../v0.3/access-model.md), which it replaces for v0.4
-games; "Changes from v0.3" at the end lists what moved. Rules resting on
-a proposal under the owner's review carry its tag from the master
-spec's "Owner review" list (**[B3]**…); the tags are removed when the
-spec is approved.
+games; "Changes from v0.3" at the end lists what moved.
 
 ## 1. Purpose and scope
 
@@ -304,9 +301,9 @@ logs on each node. Repeated denials have no effect.
   |---|---|---|
   | settings, statistics, activity; all data; `pg_hba_file_rules` | v0.3 | `pg_monitor`, `pg_read_all_data`, the grants on the view and its function |
   | every database of its instance | v0.3, now on every instance | `CONNECT` granted by `load-data` |
-  | the other instances of the game | v0.4 | over the game network: from a scheduler node through `check-sql`, from a database node through `check-psql` with the other node's name; every database node of a scenario with a data policy admits it from the game network **[B3]** |
+  | the other instances of the game | v0.4 | over the game network: from a scheduler node through `check-sql`, from a database node through `check-psql` with the other node's name; every database node of a scenario with a data policy admits it from the game network |
   | `cron.job` and `cron.job_run_details` | v0.4 | a read policy `load-data` adds on both tables where `pg_cron` exists, narrower than bypassing row-level security |
-  | each user mapping's server, local role and remote role, never its password | v0.4 | a function owned by `postgres`, `SECURITY DEFINER`, executable by the GM check role only, created by `load-data` where a foreign server exists **[B3]** |
+  | each user mapping's server, local role and remote role, never its password | v0.4 | a function owned by `postgres`, `SECURITY DEFINER`, executable by the GM check role only, created by `load-data` where a foreign server exists |
   | the customer's zone and sending hours | v0.4 | `business_settings`, within `pg_read_all_data` |
 
   Checks run as root through the exec operation may also read, on their
@@ -356,7 +353,7 @@ of it the checks verify.
 | `shop` | `db`, `shop` | none (owner, no login) | owns the business tables | |
 | `shop_app` | `db`, `shop` | the web shop (producer, through PgBouncer) | the shop's operational tables, `consent_events`, `popular_products` | orders and their lines, the new order columns, `consent_events`, `customers.marketing_opt_in` |
 | `shop_reports` | `db`, `shop` | the back office | every business table, names and e-mail addresses included | none |
-| `shop_etl` | `db`, `shop` | the source connection of the hourly transformer script; the remote role of `reporting`'s user mapping | `orders` without `customer_id`, `order_lines`, `products` **[B2]** | none |
+| `shop_etl` | `db`, `shop` | the source connection of the hourly transformer script; the remote role of `reporting`'s user mapping | `orders` without `customer_id`, `order_lines`, `products` | none |
 | `shop_crm` | `db`, `shop` | the win-back and mailing jobs on `crm` | `customers`, `consent_events`, `orders`, `campaigns`, `leads`, `mail_outbox`, `business_settings` | `leads`, `mail_outbox`, `etl_runs` |
 | `shop_customs` | `db`, `shop` | the declaration jobs on `crm` | `orders`, `order_lines`, `customers` (name, address, country), `export_countries`, the customs tables, `incidents` | `customs_outbox`, `incidents`, `etl_runs` |
 | `customs_gw` | `db`, `shop` | the customs gateway stub | `customs_outbox` | `customs_acks` |

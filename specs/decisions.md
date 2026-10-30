@@ -201,3 +201,13 @@ drafting. Take the next number from `doc-ids`; no ID is reused.
   customs gateway stub loses about one acknowledgement in fifty as
   standing behaviour,** so f8's check has witnesses after the hand-over.
   Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 10.4.
+- **D215 (2026-10-30, owner approval, relayed by the coordinator:
+  "approved, write the build plan"): The v0.4 master spec and access
+  model are approved** (23ecee0), every A and B item of its owner-review
+  list still open accepted as written, and the list and its tags
+  removed. Among them, B13's reading of D211: a scheduler node keeps the
+  report-only policy its brick enforces (`bi`); a database node is
+  report-only by the story alone. Closes O104, O108, O115, O116, O117,
+  O119, O122, O124, O125 and O111's v0.4 part. Now in:
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md),
+  [versions/v0.4/access-model.md](versions/v0.4/access-model.md).

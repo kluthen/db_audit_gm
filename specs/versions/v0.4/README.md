@@ -1,22 +1,19 @@
 # v0.4 — purposes: side usage and transformations
 
-Status: **master spec drafted on 2026-10-30, awaiting the owner's
-approval**: the [master spec](master-spec.md) and its
+Status: **master spec and access model approved by the owner on
+2026-10-30** (D215): the [master spec](master-spec.md) and its
 [access model](access-model.md), consolidated from the eight drafts
-below on the owner's word that v0.4 was ready. Every `(proposed)` item
-of the drafts is carried into it as written, for the owner to review in
-context: its "Owner review" list names them (A1 to A13) and the
-corrections the consolidation found (B2 to B15). The owner ruled the
-same day on four points the consolidation raised: the agency's database
-report-only by the story alone, no report-only policy in `postgres`
-(D211, closing O132, against the recommendation; B1 and B6 dropped);
-the scenario's ten faults only (D212, closing O133); f10 calibrated
-early, on armenelos only (D213); the gateway's lost acknowledgements
-(D214).
+below on the owner's word that v0.4 was ready, approved with every
+proposal of its owner-review list as written, the list then removed.
+The owner had ruled the same day on four points the consolidation
+raised: the agency's database report-only by the story alone, no
+report-only policy in `postgres` (D211, closing O132); the scenario's
+ten faults only (D212, closing O133); f10 calibrated early, on
+armenelos only (D213); the gateway's lost acknowledgements (D214).
 No build plan yet; the master spec's section 19 lists what it must
 carry. The drafts stay as the working record until the archive; where
 they and the master spec disagree, the master spec is current.
-Page draft v4.
+Page draft v5.
 
 History: direction recast on 2026-10-28 (D190),
 revising D47's "transformers" for this version; a first cut of data
@@ -42,8 +39,8 @@ incident on a database node (D209).
 
 | Document | Purpose | Status |
 |---|---|---|
-| [master-spec.md](master-spec.md) | The consolidated v0.4 specification, with its owner-review list | drafted 2026-10-30, awaiting approval |
-| [access-model.md](access-model.md) | Who may do what in a v0.4 game; the customer's roles and data policy in the game's world | drafted 2026-10-30, awaiting approval |
+| [master-spec.md](master-spec.md) | The consolidated v0.4 specification | approved 2026-10-30 (D215) |
+| [access-model.md](access-model.md) | Who may do what in a v0.4 game; the customer's roles and data policy in the game's world | approved 2026-10-30 (D215) |
 | [purposes.md](purposes.md) | The purpose as an artefact: layout, `purpose.yaml`, how a scenario uses one, faults attached to purposes, instances and node sizing, the job runner and the transformer script, moving data between instances, cadence under real time, the customer's time zone in the data | draft v4 |
 | [purpose-catalogue.md](purpose-catalogue.md) | The proposed purposes, each with its jobs, trace and invariants: sales reporting, win-back leads, customer mailing, export declarations (a pushed obligation); finance held; the clinic's reporting as a stress test | draft v4 |
 | [shop-domain.md](shop-domain.md) | The shop as the first domain: the format v0.4 settles, the data-model changes the invariants need, roles, producer changes | draft v2 |
@@ -386,22 +383,23 @@ section 19. Items noted as they arose:
 
 ## Questions due in this version
 
-Every one below except O118 and the later ones is answered as proposed
-in the master spec, for the owner's review there; O132 and O133, raised
-by the consolidation, were ruled the same day (D211, D212).
+Every one below except O118 and the later ones is settled by the
+master spec, approved on 2026-10-30 (D215); O132 and O133, raised by
+the consolidation, were ruled the same day (D211, D212).
 
-- O104: the purpose format.
-- O108: the shared business data model.
-- O111: the domain format, the part v0.4 must settle for the shop.
-- O115: the governance format.
-- O116: which governance rules are checked in v0.4.
-- O117: how the player-facing policy is presented.
+- O104: the purpose format; closed by D215.
+- O108: the shared business data model; closed by D215.
+- O111: the domain format, the part v0.4 must settle for the shop;
+  that part closed by D215, the rest open for v0.5.
+- O115: the governance format; closed by D215.
+- O116: which governance rules are checked in v0.4; closed by D215.
+- O117: how the player-facing policy is presented; closed by D215.
 - O118: brick changes for governance (pgaudit, TLS); defaulted to none
   in v0.4, held for v0.5 unless the owner objects.
-- O119: what "fixed" means for a governance fault.
-- O122: the customer's time zone in the data and the jobs.
-- O124: the moment a purpose check judges from.
-- O125: monitoring the second database, and any further instance.
+- O119: what "fixed" means for a governance fault; closed by D215.
+- O122: the customer's time zone in the data and the jobs; closed by D215.
+- O124: the moment a purpose check judges from; closed by D215.
+- O125: monitoring the second database, and any further instance; closed by D215.
 - O132: a report-only database node; closed by D211 (story only).
 - O133: which catalogue faults v0.4 builds; closed by D212 (the ten).
 - O11: technologies and versions, narrowed by D190.

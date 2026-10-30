@@ -15,7 +15,9 @@ Numbering continues from O134.
 
 Resolved during v0.4's drafting: O106 (D194), O110 (D195), O107 (D197), O120
 (D198), O109 (D199), O121 (D200), O123 (D202), O105 (D203), O129 (D206), O131 (D207),
-O132 (D211), O133 (D212).
+O132 (D211), O133 (D212). Resolved by the approval of v0.4's master
+spec (D215): O104, O108, O115, O116, O117, O119, O122, O124, O125, and
+O111's v0.4 part.
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -131,64 +133,10 @@ O106 closed (D194), O110 closed (D195), O122 to O125 raised; the
 owner's rulings closed O107 (D197) and O109 (D199) the same day, and his
 technology direction O123 (D202) and O105 (D203), raising O129, which
 his ruling on jobs on a database node closed (D206), raising O131,
-which he confirmed as written (D207). A
-"Proposed" answer below is in a draft, tagged `(proposed)`, and awaits
-the owner. On 2026-10-30 the owner declared v0.4 ready and every
-proposal was carried as written into the
-[master spec](versions/v0.4/master-spec.md#owner-review), which he
-reviews in context: each question below names its tag in the spec's
-"Owner review" list and closes when he approves the spec, or as he
-rules on it there. O132 and O133, raised by the consolidation, were
-ruled the same day (D211, D212).
-
-- **O104** (soon, v0.4) — The purpose format. **In the master spec as proposed, owner review A1, A9, A11.** Proposed in
-  [purposes.md](versions/v0.4/purposes.md): the name stays "purpose";
-  `purposes/<id>/` with `purpose.yaml` (identity, parts, jobs, trace,
-  invariants with witness conditions, data moved, roles), `material/`,
-  `checks/`, `gm.md`; copied into a scenario at design time and named in
-  `scenario.yaml`'s `purposes:`, so it never bumps; faults attach by
-  `applies_to.purposes`; a check judging runs is `sealed_check.judges:
-  runs` (or `triggers`); a job names its movement method, and a
-  transformer script's contract is proposed with it
-  (`scripts/<file>:<function>`, a job's `connections:`, the runner
-  holding the passwords; D203). Then the `scenario-format` skill and the
-  scenario document. How a check learns when a fix happened is now O124.
-- **O108** (soon, v0.4) — The shared business data model, the shop
-  domain (D192). Proposed in
-  [shop-domain.md](versions/v0.4/shop-domain.md): from tarnbeck's,
-  adding `business_settings` (the customer's zone, sending hours),
-  customers' address, country and zone, `consent_events` beside the
-  opt-in flag, `packed_at`, `shipped_at`, `ship_country`,
-  `export_countries`, an archived history behind `last_order_at`, the
-  purposes' tables, six roles, and consent streams in the producer.
-  Tarnbeck stays untouched; the v0.4 scenario is new. Format: O111. **In the master spec as proposed, owner review A2, B2, B8.**
-- **O122** (soon, v0.4) — The customer's time zone in the data and the
-  jobs. It is UTC plus the game's shift (D129), known only at render,
-  and UTC itself at a shift of 0, while purposes reason in local days and
-  recipients' hours. Proposed in
-  [purposes.md](versions/v0.4/purposes.md): `render` substitutes
-  `{{customer_timezone}}` in scheduler seed files; `load-data` passes the
-  zone and offset to `psql` as variables, written into
-  `business_settings`; databases stay in UTC; recipients' zones are
-  stored relative to the customer's, and a wrong-zone fault is an offset
-  from the customer's, never "UTC", so no fault vanishes at a shift of 0.
-  Alternative: `ALTER DATABASE … SET timezone` to the customer's zone,
-  which changes every session's `current_date` and the logs' reading. **In the master spec as proposed, owner review A8.**
-- **O124** (soon, v0.4) — The moment a purpose check judges from. **In the master spec as proposed, owner review A9.**
-  Proposed in [checks.md](versions/v0.4/checks.md): `CHECK_SINCE`, the
-  hand-over by default, raised to the runner's last successful reload,
-  raised by the GM with `gmctl check --since` from the players' report;
-  the check judges the job's runs since (none: 3 with the time to the
-  next run; one violating: 1; all clean with a witness: 0), or, for a
-  pushed obligation, the triggers since. Rejected: a dry run of the job
-  (D131).
-- **O125** (soon, v0.4) — Monitoring a second database instance, and
-  any further one a scenario has (D202): a `postgres-exporter` node per
-  instance (about 42 MB reserved each), the exporter brick made
-  multi-target (a bump), or the instance left unscraped by design, which
-  is then a fault the players may find. Proposed: unscraped in the first
-  scenario, an exporter node per instance in the scenario format's
-  guidance; no exporter change in v0.4. **In the master spec as proposed, owner review A10.**
+which he confirmed as written (D207). O132 and O133, raised by the
+consolidation, were ruled the same day (D211, D212), and the approval
+of the [master spec](versions/v0.4/master-spec.md) closed O104, O108,
+O122, O124 and O125 as written there (D215). None is open.
 
 ## v0.4: data governance
 
@@ -197,28 +145,10 @@ Raised when the owner added a first cut of data governance to v0.4 on
 players, `gm_check` definition checks. The customer's governance, in the
 game's world, not the game's access model. Drafted on 2026-10-30 in
 [governance.md](versions/v0.4/governance.md), tested against the
-clinic's classes (D196); O120 closed by D198 (an instance of its own).
+clinic's classes (D196); O120 closed by D198 (an instance of its own);
+O115, O116, O117 and O119 closed by the master spec's approval, as
+written there (D215). Only O118 stays open, for v0.5.
 
-- **O115** (soon, v0.4) — The governance format. **In the master spec as proposed, owner review A4.** Proposed: classes
-  `personal`, `customer-linked`, `internal`; the domain's
-  `classification.yaml` classes every column, the scenario's
-  `governance:` states locations (`node/database`), readers and outbound
-  flows with their allowed fields, and the policy file; the loader checks
-  names and references; governance faults join the Security family.
-- **O116** (soon, v0.4) — Which rules are checked. **In the master spec as proposed, owner review A5, B3, B4, B5.** Proposed: G1
-  locations (catalog by classified name, plus a content probe for
-  personal data in disallowed databases), G2 readers
-  (`has_column_privilege` through membership and `PUBLIC`), G3 reach
-  across instances (foreign tables, user mappings' remote roles,
-  `SECURITY DEFINER` owners, and transformer jobs' source roles, D202),
-  G4 outbound fields
-  (judged as a purpose); not checked: encryption at rest, retention;
-  the game's own roles (`dba`, `postgres`, `gm_check`, `monitoring`,
-  `pgbouncer_lookup`) outside every rule.
-- **O117** (soon, v0.4) — How the policy is presented. **In the master spec as proposed, owner review A6.** Proposed:
-  `player/data-policy.md` in the story's voice, written by the GM from
-  `governance:`; it may state unchecked rules, unmarked, as a real
-  policy does; it is correct in v0.4, a wrong policy waiting for O21.
 - **O118** (later, v0.4 → v0.5; **defaulted**) — Brick changes for
   governance. Default, told to the owner on 2026-10-30 and holding
   unless he objects, not a ruling: none in v0.4 (pgaudit and TLS with
@@ -226,11 +156,6 @@ clinic's classes (D196); O120 closed by D198 (an instance of its own).
   brick change, statement logging writing personal data into the logs,
   also held for v0.5 as a candidate fault. Stays open until v0.5 rules
   on the brick changes. Refs: [governance.md](versions/v0.4/governance.md).
-- **O119** (soon, v0.4) — What "fixed" means for a governance fault. **In the master spec as proposed, owner review A7.**
-  Proposed: a definition (a copied column, a grant, a mapping) is fixed
-  when the live state complies, removal included; content already sent
-  is judged as a purpose, no new violation since the judged moment
-  (O124).
 
 ## v0.5: domains
 
@@ -238,13 +163,14 @@ Raised when the owner set business domains for v0.5 on 2026-10-28
 (D192). v0.4 ships the first, the shop (O108). The veterinary clinic
 added on 2026-10-30 (D196).
 
-- **O111** (soon, v0.4 → v0.5) — The domain format. **In the master spec as proposed, owner review A3.** Proposed for v0.4 in
-  [shop-domain.md](versions/v0.4/shop-domain.md): `domains/shop/` with
-  `domain.yaml`, `data/` (schema, load, classification), `producers/`,
-  `docs/gm.md`; a design-time source copied into a scenario and named in
-  `scenario.yaml` for provenance, so it never bumps; static scenarios
-  need none. Left to v0.5: profiles against the schedule (O113), size
-  (O114), composition (O126).
+- **O111** (later, v0.5) — The domain format, beyond v0.4's part. v0.4's
+  part was settled by the master spec's approval (D215): `domains/shop/`
+  with `domain.yaml`, `data/` (schema, load, classification),
+  `producers/`, `docs/gm.md`, a design-time source named for provenance
+  that never bumps, static scenarios needing none
+  ([master spec](versions/v0.4/master-spec.md) 6.8). Still open: what
+  the format gains when v0.5 adds the other domains, with profiles
+  against the schedule (O113), size (O114) and composition (O126).
 - **O112** (later, v0.5) — Which domains come first after the shop? The
   owner names a warehouse, a factory and a lab, and, on 2026-10-30, a
   veterinary clinic franchise (D196), a composite holding a lab. A
