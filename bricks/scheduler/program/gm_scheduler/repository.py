@@ -1,17 +1,20 @@
-"""The query repository: `queries.yaml` and `builders/` (master spec 7.1;
-forms: capture W1 item 7).
+"""The query repository: `queries.yaml`, `builders/` and `scripts/` (master
+spec 7.1; forms: v0.3 capture W1 item 7, v0.4 capture W1 item 7).
 
-A key maps to one of four things:
+A key maps to one of five things:
 
     a query      {sql, params?, transaction?}
     a pool       [{sql, params?, transaction?, weight?}, ...]   one per call, by weight
     a sequence   {steps: [{sql, params?}, ...], transaction?}  in order, one connection
     a builder    {builder: builders/<file>:<function>, options?}
+    a script     {script: scripts/<file>:<function>, options?}  a job only (gm_scheduler.scripts)
 
 An entry runs in autocommit unless it carries `transaction: {isolation,
 hold?}`. A builder is called as `<function>(intensity, options)` (and with
 `rng=`, the task's seeded generator, when its signature names `rng`); it
 returns its statements and whether they run as one transaction (W1-y).
+A script is called as `<function>(conns, options, log)` in a worker
+thread, and never by a stream.
 """
 
 import hashlib
@@ -29,10 +32,12 @@ from .timeutil import parse_duration
 
 KEY_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 BUILDER_RE = re.compile(r"^builders/([A-Za-z0-9_][A-Za-z0-9_.-]*):([A-Za-z_][A-Za-z0-9_]*)$")
+SCRIPT_RE = re.compile(r"^scripts/([A-Za-z0-9_][A-Za-z0-9_.-]*):([A-Za-z_][A-Za-z0-9_]*)$")
 BUILDER_FILE_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]*$")
 ISOLATIONS = ("read committed", "repeatable read", "serializable")
 QUERIES_FILE = "queries.yaml"
 BUILDERS_DIR = "builders"
+SCRIPTS_DIR = "scripts"
 
 _Loader = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
 
@@ -192,23 +197,8 @@ class BuilderEntry(Entry):
         if unknown:
             raise ConfigError(f"{where}: unknown key(s) {', '.join(sorted(map(str, unknown)))}")
         spec = value.get("builder")
-        m = BUILDER_RE.match(spec) if isinstance(spec, str) else None
-        if not m:
-            raise ConfigError(f"{where}.builder: builders/<file>:<function>")
-        filename, function = m.groups()
-        if filename not in modules:
-            raise ConfigError(f"{where}.builder: no file builders/{filename}")
-        module = modules[filename]
-        if module is None:
-            raise ConfigError(f"{where}.builder: builders/{filename} did not load")
-        fn = getattr(module, function, None)
-        if not callable(fn):
-            raise ConfigError(f"{where}.builder: builders/{filename} has no function {function}")
-        options = value.get("options", {})
-        if options is None:
-            options = {}
-        if not isinstance(options, dict):
-            raise ConfigError(f"{where}.options: a map")
+        fn = _module_function(spec, BUILDER_RE, BUILDERS_DIR, modules, where, "builder")
+        options = _options(value, where)
         self.fn, self.options, self.spec = fn, options, spec
         try:
             self.takes_rng = "rng" in inspect.signature(fn).parameters
@@ -219,6 +209,49 @@ class BuilderEntry(Entry):
         options = dict(self.options)
         result = self.fn(intensity, options, rng=rng) if self.takes_rng else self.fn(intensity, options)
         return builder_plan(result)
+
+
+def _module_function(spec, regex, directory, modules, where, field):
+    """`<directory>/<file>:<function>` -> the function, from the modules
+    loaded for <directory>; raises ConfigError."""
+    m = regex.match(spec) if isinstance(spec, str) else None
+    if not m:
+        raise ConfigError(f"{where}.{field}: {directory}/<file>:<function>")
+    filename, function = m.groups()
+    if filename not in modules:
+        raise ConfigError(f"{where}.{field}: no file {directory}/{filename}")
+    module = modules[filename]
+    if module is None:
+        raise ConfigError(f"{where}.{field}: {directory}/{filename} did not load")
+    fn = getattr(module, function, None)
+    if not callable(fn):
+        raise ConfigError(f"{where}.{field}: {directory}/{filename} has no function {function}")
+    return fn
+
+
+def _options(value, where):
+    options = value.get("options", {})
+    if options is None:
+        options = {}
+    if not isinstance(options, dict):
+        raise ConfigError(f"{where}.options: a map")
+    return options
+
+
+class ScriptEntry(Entry):
+    """A transformer script: runs only as a job, which names its
+    connections (gm_scheduler.scripts runs it)."""
+
+    kind = "script"
+
+    def __init__(self, key, value, where, modules):
+        super().__init__(key)
+        unknown = set(value) - {"script", "options"}
+        if unknown:
+            raise ConfigError(f"{where}: unknown key(s) {', '.join(sorted(map(str, unknown)))}")
+        self.spec = value.get("script")
+        self.fn = _module_function(self.spec, SCRIPT_RE, SCRIPTS_DIR, modules, where, "script")
+        self.options = _options(value, where)
 
 
 class BuilderResult(Exception):
@@ -263,10 +296,10 @@ def builder_plan(result):
     return Plan(steps, txn)
 
 
-def builder_files(repo_dir):
-    """Names of the regular files in builders/ that may be builders (sorted;
-    other entries, an editor's backup for one, are ignored)."""
-    d = os.path.join(repo_dir, BUILDERS_DIR)
+def builder_files(repo_dir, directory=BUILDERS_DIR):
+    """Names of the regular files in builders/ (or scripts/) that may be
+    builders (or scripts), sorted; other entries are ignored."""
+    d = os.path.join(repo_dir, directory)
     try:
         entries = sorted(os.scandir(d), key=lambda e: e.name)
     except (FileNotFoundError, NotADirectoryError):
@@ -275,29 +308,33 @@ def builder_files(repo_dir):
             if BUILDER_FILE_RE.match(e.name) and e.is_file(follow_symlinks=False)]
 
 
-def referenced_builders(doc):
-    """The builder files queries.yaml names (only those are imported)."""
+def referenced_builders(doc, field="builder", regex=BUILDER_RE):
+    """The builder (or script) files queries.yaml names (only those are
+    imported)."""
     names = set()
     queries = doc.get("queries") if isinstance(doc, dict) else None
     for value in (queries or {}).values() if isinstance(queries, dict) else ():
-        if isinstance(value, dict) and isinstance(value.get("builder"), str):
-            m = BUILDER_RE.match(value["builder"])
+        if isinstance(value, dict) and isinstance(value.get(field), str):
+            m = regex.match(value[field])
             if m:
                 names.add(m.group(1))
     return sorted(names)
 
 
-def load_builder_modules(repo_dir, names, generation):
+def load_builder_modules(repo_dir, names, generation, directory=BUILDERS_DIR):
+    """Imports the named files of builders/ (or scripts/): their code runs
+    here, as the service account."""
     modules = {}
     for name in names:
-        path = os.path.join(repo_dir, BUILDERS_DIR, name)
+        path = os.path.join(repo_dir, directory, name)
         try:
-            source = read_regular(path, f"{BUILDERS_DIR}/{name}")
+            source = read_regular(path, f"{directory}/{name}")
         except ConfigError as exc:
             if "missing" in str(exc):
                 continue  # the entry naming it says so
             raise
-        modname = f"gm_builder_{generation}_{re.sub(r'[^A-Za-z0-9_]', '_', name)}"
+        kind = "builder" if directory == BUILDERS_DIR else "script"
+        modname = f"gm_{kind}_{generation}_{re.sub(r'[^A-Za-z0-9_]', '_', name)}"
         spec = importlib.util.spec_from_loader(modname, loader=None, origin=path)
         module = importlib.util.module_from_spec(spec)
         module.__file__ = path
@@ -305,9 +342,9 @@ def load_builder_modules(repo_dir, names, generation):
             code = compile(source, path, "exec")
             exec(code, module.__dict__)
         except SyntaxError as exc:
-            raise ConfigError(f"{BUILDERS_DIR}/{name}: line {exc.lineno}: {exc.msg}") from None
-        except Exception as exc:  # the builder's own code failed at import
-            raise ConfigError(f"{BUILDERS_DIR}/{name}: fails at import: {type(exc).__name__}: {exc}") from None
+            raise ConfigError(f"{directory}/{name}: line {exc.lineno}: {exc.msg}") from None
+        except Exception as exc:  # the builder's or script's own code failed at import
+            raise ConfigError(f"{directory}/{name}: fails at import: {type(exc).__name__}: {exc}") from None
         modules[name] = module
     return modules
 
@@ -329,7 +366,7 @@ class Repository:
         return sorted(self.entries)
 
 
-def parse_queries(doc, modules):
+def parse_queries(doc, modules, scripts=None):
     if not isinstance(doc, dict) or set(doc) != {"queries"}:
         raise ConfigError(f"{QUERIES_FILE}: one top-level key, queries")
     queries = doc["queries"]
@@ -344,32 +381,45 @@ def parse_queries(doc, modules):
             entries[key] = PoolEntry(key, value, where)
         elif isinstance(value, dict) and "builder" in value:
             entries[key] = BuilderEntry(key, value, where, modules)
+        elif isinstance(value, dict) and "script" in value:
+            entries[key] = ScriptEntry(key, value, where, scripts or {})
         elif isinstance(value, dict) and "steps" in value:
             entries[key] = SequenceEntry(key, value, where)
         elif isinstance(value, dict) and "sql" in value:
             entries[key] = QueryEntry(key, value, where)
         else:
-            raise ConfigError(f"{where}: a query (sql), a pool (a list), a sequence (steps) or a builder")
+            raise ConfigError(f"{where}: a query (sql), a pool (a list), a sequence (steps), a builder or a script")
     return Repository(entries)
 
 
 def load_repository(repo_dir):
-    """Reads queries.yaml and imports builders/ (their code runs here, as the
-    service account); raises ConfigError."""
+    """Reads queries.yaml and imports the builders/ and scripts/ files it
+    names (their code runs here, as the service account); raises
+    ConfigError."""
     global _generation
     _generation += 1
     doc = load_yaml(read_regular(os.path.join(repo_dir, QUERIES_FILE), QUERIES_FILE), QUERIES_FILE)
     modules = load_builder_modules(repo_dir, referenced_builders(doc), _generation)
-    return parse_queries(doc, modules)
+    scripts = load_builder_modules(repo_dir, referenced_builders(doc, "script", SCRIPT_RE), _generation,
+                                   SCRIPTS_DIR)
+    return parse_queries(doc, modules, scripts)
 
 
-def queries_keys_only(repo_dir):
-    """The keys of queries.yaml, without importing any builder (for the
-    root-side check, which must never run the players' code)."""
+def queries_outline(repo_dir):
+    """(the keys of queries.yaml, those whose entry is a script), without
+    importing any builder or script (for the root-side check, which must
+    never run the players' code)."""
     doc = load_yaml(read_regular(os.path.join(repo_dir, QUERIES_FILE), QUERIES_FILE), QUERIES_FILE)
     if not isinstance(doc, dict) or not isinstance(doc.get("queries"), dict):
         raise ConfigError(f"{QUERIES_FILE}: one top-level key, queries")
-    return set(k for k in doc["queries"] if isinstance(k, str))
+    keys = set(k for k in doc["queries"] if isinstance(k, str))
+    scripts = set(k for k in keys if isinstance(doc["queries"][k], dict) and "script" in doc["queries"][k])
+    return keys, scripts
+
+
+def queries_keys_only(repo_dir):
+    """The keys of queries.yaml, without importing any builder or script."""
+    return queries_outline(repo_dir)[0]
 
 
 def fingerprint(paths):
@@ -387,5 +437,6 @@ def fingerprint(paths):
 def loaded_files(repo_dir, jobs_path):
     files = [os.path.join(repo_dir, QUERIES_FILE)]
     files += [os.path.join(repo_dir, BUILDERS_DIR, n) for n in builder_files(repo_dir)]
+    files += [os.path.join(repo_dir, SCRIPTS_DIR, n) for n in builder_files(repo_dir, SCRIPTS_DIR)]
     files.append(jobs_path)
     return files

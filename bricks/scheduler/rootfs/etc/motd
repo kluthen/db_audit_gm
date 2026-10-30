@@ -1,7 +1,7 @@
 
   db_audit_gm -- scheduler node (one of the customer's applications)
 
-  Queries:        /srv/scheduler/repository/queries.yaml, builders/
+  Queries:        /srv/scheduler/repository/queries.yaml, builders/, scripts/
   Fixed-time ops: /srv/scheduler/jobs/jobs.yaml  (times in UTC)
   Log:            /var/log/scheduler/scheduler.log
   Metrics:        http://localhost:9120/metrics

@@ -92,7 +92,8 @@ RUN set -eux; \
     # sets their modes by the write policy at every start
     install -d -o root -g root -m 0755 /srv/scheduler; \
     install -d -o scheduler -g schedconf -m 2755 /srv/scheduler/repository /srv/scheduler/jobs; \
-    install -d -o scheduler -g schedconf -m 0755 /srv/scheduler/repository/builders; \
+    install -d -o scheduler -g schedconf -m 0755 /srv/scheduler/repository/builders \
+        /srv/scheduler/repository/scripts; \
     # the log (volume `schedlog`), read by players through schedconf
     install -d -o scheduler -g schedconf -m 2750 /var/log/scheduler; \
     # the program's state (volume `schedstate`)
@@ -118,13 +119,15 @@ RUN set -eux; \
         /etc/s6-overlay/s6-rc.d/scheduler/run /etc/s6-overlay/s6-rc.d/scheduler/finish \
         /etc/s6-overlay/s6-rc.d/sshd/run; \
     chmod 0644 /etc/ssh/sshd_config /etc/motd /etc/scheduler/scheduler.yaml; \
-    # the sealed checks' SQL as gm_check: root only, as the secret it reads
-    chmod 0700 /usr/local/lib/gm/check-sql; \
+    # the sealed checks' SQL as gm_check: root only, as the secret it reads;
+    # what they read of a job's runs (v0.4): root only beside it
+    chmod 0700 /usr/local/lib/gm/check-sql /usr/local/lib/gm/check-runs; \
     chmod 0440 /etc/sudoers.d/gm-player; \
     visudo -c; \
     test "$(readlink -f /bin/sh)" = /usr/bin/dash; \
     python3 -I -m gm_scheduler --help >/dev/null; \
-    python3 -I -c 'import ast, sys; ast.parse(open(sys.argv[1]).read())' /usr/local/lib/gm/check-sql; \
+    python3 -I -c 'import ast, sys; [ast.parse(open(p).read()) for p in sys.argv[1:]]' \
+        /usr/local/lib/gm/check-sql /usr/local/lib/gm/check-runs; \
     # brick.yaml `receives`: each command on an s6 service's PATH
     for c in sh cat du df awk sed grep sleep perl s6-svstat s6-setuidgid; do \
         PATH=/command:/usr/bin:/bin command -v "$c" >/dev/null; \

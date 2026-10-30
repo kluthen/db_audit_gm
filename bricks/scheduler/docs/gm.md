@@ -1,8 +1,10 @@
 # scheduler brick — GM notes
 
 GM documentation of the `scheduler` brick (`brick.yaml`, v0.3 master
-spec 7 and 7.1; runtime interface: capture W1 item 7 and W1-y in
-`specs/versions/v0.3/wave-log.md`). Never shipped to players. Brick
+spec 7 and 7.1, v0.4 master spec 7.1 for the transformer scripts;
+runtime interface: capture W1 item 7 and W1-y in
+`specs/versions/v0.3/wave-log.md`, extended by W1 item 7 and W1-y in
+`specs/versions/v0.4/wave-log.md`). Never shipped to players. Brick
 version 0.2.0, expected to evolve as games are played.
 
 ## Purpose
@@ -12,11 +14,17 @@ Debian 13 (`program/gm_scheduler`, asyncio, Debian's `psycopg` 3 and
 PyYAML), with an SSH server for the players, in the image
 `127.0.0.1:5000/dbagm/scheduler:0.2.0`. It runs one rendered schedule
 against one query repository and the fixed-time operations of
-`jobs.yaml`, as the customer's applications would. It holds no business
-logic: the SQL is the scenario's, written by the GM at design time. It
-fills the roles `producer` and `consumer`; a topology may have several
-scheduler nodes, each with its own schedule. The GM picks it for every
-scenario with load (any scenario that ages, spec D157).
+`jobs.yaml`, as the customer's applications would; a fixed-time operation
+may be a **transformer script**, a Python function of the repository
+moving rows between instances over several connections (below). It holds
+no business logic: the SQL and the scripts are the scenario's, written by
+the GM at design time. It fills the roles `producer`, `consumer` and
+`transformer`; a topology may have several scheduler nodes, each with its
+own schedule, and a node may have jobs and no stream (`streams: []`). The
+GM picks it for every scenario with load (any scenario that ages, spec
+D157), and puts a transformer on a node of its own: a script exhausting
+its node's memory takes the program, and every stream of the node, down
+with it.
 
 The image:
 
@@ -29,7 +37,7 @@ The image:
   variable, user site or current directory reaches its import path).
 - Generic: no scenario content, no credential and no host keys in the
   image.
-- Size: 172MB.
+- Size: 171MB (0.2.0, 2026-10-30).
 
 ## Placement
 
@@ -65,6 +73,7 @@ seed files, where a fault or a fix can live.
 | `schedule.yaml` | `/opt/gm/seed/schedule.yaml`, read in place (0:0 `0400`, `seed.modes`), never copied onto a volume (spec D163) | never: unreadable for `player` and for the service account |
 | `queries.yaml` | `/srv/scheduler/repository/queries.yaml`, seeded once | read; edit where fixable |
 | `builders/` (optional, a folder of files) | `/srv/scheduler/repository/builders/<file>`, seeded once | read; edit where fixable |
+| `scripts/` (optional, a folder of files) | `/srv/scheduler/repository/scripts/<file>`, seeded once | read; edit where fixable |
 | `jobs.yaml` | `/srv/scheduler/jobs/jobs.yaml`, seeded once | read; edit where fixable |
 
 The program reads only the rendered forms (render, chunk 7, writes them
@@ -75,8 +84,9 @@ UTC weekday and the timeline as UTC instants. The forms are W1 item 7's:
 - **`queries.yaml`**: `queries:` maps a key (`[a-z0-9][a-z0-9._-]*`) to a
   query (`sql`, `params`, `transaction`), a pool (a list of queries, each
   with an optional `weight`, default 1; one per call), a sequence
-  (`steps:` run in order on one connection, `transaction`) or a builder
-  (`builder: builders/<file>:<function>`, `options`). Generators:
+  (`steps:` run in order on one connection, `transaction`), a builder
+  (`builder: builders/<file>:<function>`, `options`) or a script
+  (`script: scripts/<file>:<function>`, `options`; a job only, below). Generators:
   `{int: [lo, hi]}`, `{decimal: [lo, hi, places]}`, `{choice: [...]}`,
   `{sequence: [start, step]}` (never reused, a restart included),
   `{now: utc}`; any other value is a constant. Parameters are psycopg's
@@ -93,15 +103,61 @@ UTC weekday and the timeline as UTC instants. The forms are W1 item 7's:
   `transaction` is false, true (read committed) or `{isolation, hold}`.
   Only the files `queries.yaml` names are imported.
 - **`jobs.yaml`**: `jobs: [{name, key, connection, at, timezone}]`, `at`
-  any numeric 5-field cron, `timezone` optional, any zone `tzdata` names
-  (render writes `Etc/GMT±N` for the wrong-time-zone fault), UTC when
-  absent.
+  any numeric 5-field cron (v0.4's widened hour field, lists, ranges and
+  steps, included), `timezone` optional, any zone `tzdata` names (render
+  writes `Etc/GMT±N` for the wrong-time-zone fault), UTC when absent. A
+  script key's job names `connections: {<name>: <connection>, ...}`
+  instead of `connection:` (names `[a-z][a-z0-9_]*`, the keys of the
+  script's `conns`; `source` and `target` by convention); any other key's
+  job names `connection:`. The program, its `check` and `check-keys` and
+  `gm-reload-scheduler` refuse the wrong one, and a connection the
+  schedule lacks.
 - **`schedule.yaml`**: `seed`, `intensity`, `connections` (`{driver:
   sql/postgresql, target: <node>:<port>/<database>, role, pool: {size: N}
   | {per-call: true}}`), `streams` (`{key, connection, rate, arrivals:
-  poisson | even, shape, concurrency}`), `shapes` (`<name>: {utc: {mon:
+  poisson | even, shape, concurrency}`; may be `[]`, a node with
+  fixed-time operations only; a stream or a timeline's `set.key` naming a
+  script key is refused), `shapes` (`<name>: {utc: {mon:
   [24 multipliers], ..., sun: [...]}}`), `timeline` (`{at: <UTC instant>,
   stream: <initial key>, set: {key, rate, connection}}`).
+
+### Transformer scripts
+
+The contract of master spec 7.1, as built (`program/gm_scheduler/scripts.py`):
+
+- **Where**: `scripts/<file>` in the repository, seeded once from the
+  optional `scripts/` seed folder, fixable where the repository is, as
+  `builders/` are; only the files `queries.yaml` names are imported, as
+  the service account, at start and at each reload.
+- **The call**: `<function>(conns, options, log)`, in a worker thread
+  of the program (a daemon thread per run, beside the asyncio tasks).
+  `conns` maps each name of the job's `connections:` to an open psycopg 3
+  connection to that schedule connection's target, as its role with its
+  `role_<role>_password` (no new secret), autocommit off,
+  `application_name` the node's hostname, no server-side prepared
+  statement; one connection per name per run, whatever the connection's
+  `pool:`. `options` is a copy of the entry's. `log(text)` appends
+  `script job=<name> <text>` to the log (control characters as spaces).
+  The script commits what it means to commit and returns the number of
+  rows it wrote; the runner closes every connection after the call, so
+  what it left uncommitted is rolled back.
+- **Its run**: the same lines as any job's: `run job=<name> key=<k>
+  phase=start` once its connections are open, then `phase=end status=ok
+  rows=<n> ms=<x>`. A connection that cannot be opened: an `error` line and
+  `skip ... reason=connection-refused`, never a `run`. An exception: an
+  `error key=<k> job=<name> sqlstate=<S or -> message="..."` line, then
+  `phase=end status=error sqlstate=<S> ms=<x>` for a database error
+  carrying an SQLSTATE, `status=error error=<class> ms=<x>` otherwise
+  (`message="script: <class>: <text>"`); a return that is not a whole
+  number at least 0 ends as `error=TypeError`. The next run is skipped
+  while one goes (`reason=still-running`), as for every job; nothing else
+  stops. A program stopping mid-run does not wait for the script: the
+  server rolls back what it had open.
+- **What it may import**: the standard library, psycopg 3 and PyYAML,
+  which the image has; anything more is an image change with its
+  dependency check. PostgreSQL only: scripts talk psycopg, outside the
+  driver interface.
+- **What the checks read** of its runs: `check-runs` (Checks, below).
 
 ### Secrets
 
@@ -128,6 +184,7 @@ A role is `[a-z_][a-z0-9_]{0,40}`, never `postgres`, `dba`, `monitoring`,
 | Program configuration | `/etc/scheduler/scheduler.yaml` | root `0644`, protected: log, status, marker, paths, the endpoint |
 | Wrappers | `/usr/local/sbin/gm-reload-scheduler`, `gm-validate` | root `0755` |
 | The sealed checks' SQL | `/usr/local/lib/gm/check-sql` | root `0700`: root only, as the secret it reads |
+| What the checks read of a job's runs | `/usr/local/lib/gm/check-runs` | root `0700`: root only, beside `check-sql` |
 | `sudo` log | `/run/gm/sudo.log` | root, lost when the container is replaced |
 
 ### Start-up (`gm-entrypoint`, every container start)
@@ -142,9 +199,10 @@ A role is `[a-z_][a-z0-9_]{0,40}`, never `postgres`, `dba`, `monitoring`,
    no override) and writes `/run/gm/write-policy`; refuses an unknown
    policy or an override that is not one of `writable_paths`
    (`gm-entrypoint: fatal: ...`, the container exits).
-5. Seeds once (marker `/var/lib/gm-state/.gm-seeded`): `queries.yaml` and
-   `builders/` into the repository, `jobs.yaml` into the jobs directory.
-   Never `schedule.yaml`.
+5. Seeds once (marker `/var/lib/gm-state/.gm-seeded`): `queries.yaml`,
+   `builders/` and `scripts/` into the repository, `jobs.yaml` into the
+   jobs directory. Never `schedule.yaml`. A node seeded by 0.1.0 gets no
+   `scripts/` folder; it needs none.
 6. Applies the write policy's owner and modes to every seeded file and
    directory, seeding or not (contents untouched, never through a link).
 7. Sets the log, state, marker and home owners and modes; execs `/init`.
@@ -227,18 +285,25 @@ Container ports 9120 and 22; nothing is published.
   neither directory is fixable, prints `gm-reload-scheduler: this node is
   report-only: its files cannot be changed, so nothing was reloaded.` and
   exits 1, nothing signalled. Otherwise it checks the files as
-  `scheduler` (they load, builders import, jobs' keys exist), then as root
-  that every key the schedule names is still in `queries.yaml` and every
-  job's connection is the schedule's (naming only the key), refuses with
-  "NOT reloaded" and exit 1 when either fails, and sends SIGHUP through
-  s6. The program reloads the repository and `jobs.yaml`, keeping its
+  `scheduler` (they load, builders and scripts import, jobs' keys exist,
+  each job's `connection:` or `connections:` fits its key), then as root
+  that every key the schedule names is still in `queries.yaml` and is no
+  script, and every connection a job names is the schedule's (naming only
+  keys and connection names), refuses with "NOT reloaded" and exit 1 when
+  either fails, and sends SIGHUP through s6. The program reloads the repository and `jobs.yaml`, keeping its
   schedule, connections and counters; the wrapper waits for it and prints
   each job's next run in UTC. Files players add in a fixable directory:
-  the program ignores them, except a builder `queries.yaml` names;
-  `gm-reload-scheduler` gives them the seeded files' owner and mode.
-- **A fixable builder is code** players run as `scheduler`, inside the
-  process holding the schedule and the role passwords; accepted on the
-  trust line (access model 8), builders are not isolated.
+  the program ignores them, except a builder or script `queries.yaml`
+  names; `gm-reload-scheduler` gives them the seeded files' owner and
+  mode.
+- **A fixable builder or script is code** players run as `scheduler`,
+  inside the process holding the schedule and the role passwords; a
+  script also holds open connections as the schedule's roles, so it can
+  log its connections' passwords. Accepted on the trust line (access
+  model 8, 12); neither is isolated. A script reaches each instance only
+  through the connections its job names (access model 9.2): the players
+  see their names in `jobs.yaml` and their roles in `pg_stat_activity`
+  while it runs.
 - **Protected files** (root, read-only): `brick.yaml`'s
   `protected_files`. Read-only root filesystem.
 - **Capabilities** added back after `cap_drop: ALL`: `AUDIT_WRITE`,
@@ -276,6 +341,15 @@ in 12 minutes at two keys, about 20K an hour); a stream failing at 40
 calls a minute adds 40 `error` lines a minute.
 The CPU follows the rates: tens of calls a second fit in 0.25 CPU. The
 levers: lower rates or intensity, fewer keys, fewer failing calls.
+
+Measured again for 0.2.0 in the stack test (armenelos, 2026-10-30): the
+scheduler node as before (idle 17M, program RSS 25M; running two streams
+26M, RSS 35M); a **transformer node** (no stream, one script job reading
+`shop` and writing `reporting`) idle 17M (RSS 25M), after its run 27M
+(RSS 35M), its volumes about 56K. The threads and connections of a
+script exist only during its run; what a script holds in memory is the
+script's, and the scenario sizes a transformer's node by what its scripts
+move (master spec 13.2). The footprint in `brick.yaml` is unchanged.
 
 Measured in the v0.3 rehearsal (`tools/tests/rehearsal.sh`:
 `tarnbeck-outdoor-shop` on armenelos, AMD Ryzen 5 PRO 8640HS, 11.3 GiB,
@@ -360,29 +434,70 @@ and Grafana readings are the scenario's, in its answer key. Each fault's
     it (latencies `-` when `calls=0`); a minute with no `summary` is an
     outage minute;
   - `run job=<name> key=<k> phase=start`, then `phase=end status=ok
-    rows=N ms=x` or `status=error sqlstate=S ms=x`;
+    rows=N ms=x` or `status=error sqlstate=S ms=x` (`status=error
+    error=<class> ms=x` for a script's exception without an SQLSTATE);
+  - `script job=<name> <text>`: a script's `log(text)`, free text after
+    the job's name, never parsed as fields (a reader takes the event from
+    the second word only, so it never passes for a `run` line);
   - `skip job=<name> key=<k> at=<instant> reason=still-running |
     connection-refused`;
   - `error key=<k> [job=<name>] sqlstate=<S or -> message="..."`;
   - `reload status=ok keys=N jobs=N`, `reload status=refused
     message="..."`, `fatal message="..."`.
   It names keys, jobs and connections, never rates or shapes.
+- **`/run/scheduler/loaded`** (root and the validator read it): v0.3's
+  `generation=`, `loaded=`, one `file <sha256> <path>` per file read
+  (the scripts' included, so `pending` and the faults' checks see a
+  script changed and not reloaded), one `job <name> next=<instant>` per
+  job; and, from 0.2.0, one `cron <job> <zone> <at>` per job: its time as
+  the program loaded it, which `check-runs next` reads.
+- **What a purpose check reads of a job's runs** (master spec 12.1,
+  12.2), as root on the node, beside `check-sql`:
+  - `/usr/local/lib/gm/check-runs runs <job> <since>`: one line per run
+    whose `run ... phase=end status=ok` line is after `<since>` (a UTC
+    instant `YYYY-MM-DDTHH:MM:SSZ`), oldest first, `<start> <end>
+    rows=<n> ms=<x>` (the start and end lines' instants, whole seconds
+    truncated; `<start>` `-` when the log holds none); nothing when there
+    is none. A run that started before `<since>` and ended after it is
+    listed: its start says so.
+  - `check-runs last-reload`: the instant of the last `reload status=ok`
+    line; nothing when there is none.
+  - `check-runs since <since>`: the judged moment, the later of `<since>`
+    and the last reload (12.1).
+  - `check-runs next <job>`: `<instant> remaining=<s>`, the job's next
+    run after now by the loaded `cron` line and the program's own parser
+    (`gm_scheduler.cron`), whatever the live `jobs.yaml` says; `never`
+    when its time never comes.
+  - Exit 0 done, 1 `next` of a job the loaded `jobs.yaml` lacks, 2 it
+    cannot run (not root, a bad argument, the log or the loaded file
+    missing), one `check-runs: ...` line on standard error. It reads the
+    log and the loaded file only, never the repository's code, a database
+    or the schedule. A check's trace rows are tied to a run by its start
+    and end (rows written inside the run's transaction), or by the
+    purpose's `etl_runs` id.
 - **After deployment**: the node healthy, `status` reads `idle`, the
   validator green; after `start-load`, `running` and a `summary` line a
   minute.
 - **Tests**: `sh bricks/scheduler/tests/run-unit-tests.sh` (the program,
-  in the image, against a throwaway PostgreSQL) and
-  `sh bricks/scheduler/tests/run-stack-test.sh` (the brick, with a
-  `postgres` node, as a Swarm stack); both under the host lock.
+  in the image, against a throwaway PostgreSQL with two databases) and
+  `sh bricks/scheduler/tests/run-stack-test.sh` (the brick as a
+  scheduler node and a transformer node, with a throwaway PostgreSQL, as
+  a Swarm stack); both under the host lock.
 
 ## Known limits
 
 - One process for every task: a builder that blocks blocks the node's
-  load.
+  load. A script runs in its own thread, so it blocks only its job; but a
+  script exhausting the node's memory takes the program down (s6 restarts
+  it), hence a transformer on a node of its own.
+- A script's connections ignore the connection's `pool:` (one per name
+  per run), and its `log` lines are not rate-limited.
 - A call that finds every slot of its stream busy waits for one; the
   arrivals it delays are not caught up (no backlog), as a client with a
   fixed number of workers would.
 - `jobs.yaml`'s cron has no names (`mon`, `jan`) and no `@` macros.
+- `check-runs` reads the whole log at each call (the log is never
+  rotated in a game: a few megabytes over a long aging).
 - The validator cannot see the schedule (above).
 - Error lines are not rate-limited: a target down for long fills the log
   at the streams' rates.
