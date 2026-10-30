@@ -126,7 +126,8 @@ same "credential files are mode 600" "600 600 600 600 600" \
 same "configs and secrets carry both labels" "13" \
     "$(for k in config secret; do docker "$k" ls --filter "label=dbagm.game=$GAME" \
         --filter "label=com.docker.stack.namespace=$GAME" -q; done | wc -l | tr -d ' ')"
-same "volumes carry dbagm.game" "9" \
+# v0.4: postgres adds the cron spool, cronspool (chunk 4), copied by the snapshot.
+same "volumes carry dbagm.game" "10" \
     "$(docker volume ls -q --filter "label=dbagm.game=$GAME" | wc -l | tr -d ' ')"
 bastion=$(docker ps -q --filter "label=com.docker.swarm.service.name=${GAME}_bastion")
 check "bastion publishes port 2222" sh -c "docker port $bastion 22/tcp | grep -q ':2222\$'"
@@ -221,10 +222,10 @@ info "gmctl snapshot"
 out=$($GMCTL snapshot "$SCN" --playground "$PG"); rc=$?
 printf '%s\n' "$out"
 same "snapshot: exit 0" 0 "$rc"
-same "snapshot: taken, 7 volumes (bastion 2, db 5; /run never)" yes \
-    "$(printf '%s\n' "$out" | grep -q 'hand-over snapshot taken, 7 volumes' && echo yes)"
+same "snapshot: taken, 8 volumes (bastion 2, db 6; /run never)" yes \
+    "$(printf '%s\n' "$out" | grep -q 'hand-over snapshot taken, 8 volumes' && echo yes)"
 copies=$(docker volume ls -q --filter "label=dbagm.snapshot=$GAME" | sort)
-same "seven copies labelled dbagm.snapshot=$GAME" 7 "$(printf '%s\n' "$copies" | grep -c .)"
+same "eight copies labelled dbagm.snapshot=$GAME" 8 "$(printf '%s\n' "$copies" | grep -c .)"
 same "no copy carries the game's own label" "" \
     "$(docker volume ls -q --filter "label=dbagm.snapshot=$GAME" --filter "label=dbagm.game=$GAME")"
 same "the database's copy is a tar holding PG_VERSION and backup_label" 2 "$(docker run --rm \
