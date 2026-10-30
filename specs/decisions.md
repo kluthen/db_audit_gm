@@ -246,3 +246,33 @@ drafting. Take the next number from `doc-ids`; no ID is reused.
   `seed.optional` check is in (W1 item 9). Now in:
   [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) "Waves",
   chunks 3, 4.
+- **D221 (2026-10-30, owner ruling on capture W1's question 1, relayed
+  by the wave driver; refined the same day): `bastion` 0.4.0 hands the
+  starter pack over both as Markdown and as a simple read-only page on
+  its web front.** `data-policy.md` is a fourth, optional seed file,
+  copied into `/home/player` like the others; the page shows README,
+  story, issues and data policy, each only when the scenario provides
+  it (no empty section, no dead link), and is built so a reporting tool
+  can join it later (not in v0.4). Owner: "update bastion, it should
+  allow for both the md version and a simple webpage [...] we may extend
+  this with reporting tool later on"; "only if such element is
+  available for the given scenario". Raises O134. Now in:
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 6.4, 7.3,
+  11.5, 15, 19; [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md)
+  chunks 1, 19.
+- **D222 (2026-10-30, spec-writer, applying D221): The page is rendered
+  in the bastion's image at each start by `cmark-gfm` with its table
+  extension, from the starter pack as handed over,** never the players'
+  home copies; raw HTML is not passed through. Every starter-pack README
+  has tables, which plain `cmark` leaves as text; the GM side and its
+  host gain no dependency. A new package: dependency preflight G13. Now
+  in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 7.3,
+  19; [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunk 19.
+- **D223 (2026-10-30, spec-writer, applying D221): `bastion` 0.4.0's
+  feature is inserted as chunk 19 in wave 1,** cut after chunk 1, merged
+  after chunk 2a (merge order only, as chunk 4), since wave 2 is full and
+  chunk 13 in wave 3 needs it; chunk 2a's loader also requires a
+  scenario with `governance:` to map the bastion's `data-policy.md` to
+  `governance.policy`, and one without to map none. Now in:
+  [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) "Waves",
+  chunks 2, 19.

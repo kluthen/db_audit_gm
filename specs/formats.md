@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v22
+Status: draft v23
 
 What a scenario, a brick, a fault definition and, from v0.4, a purpose
 and a domain must contain, and how they are laid out, so that every scenario the GM designs or generates stays
@@ -156,7 +156,10 @@ The owner's requirements (D23), with the earlier rulings that apply:
   retention, which the loader checks, a size bound staying above the
   measured growth (D140, D151). From v0.4, a scenario with `governance:`
   hands the players the company's data policy, `player/data-policy.md`
-  (D191, D215).
+  (D191, D215), mapped to the bastion's optional seed file
+  `data-policy.md`; `bastion` 0.4.0 copies it into the player's home
+  with the rest and, where the web front runs, shows the starter pack on
+  a page, each file only when the scenario has it (D221).
 - **The files each node needs**, delivered as Swarm configs (D11).
 - **The scenario document**, generated with the GM's scenario-document
   skill (D20), opening with a prominent warning that students and players
@@ -295,7 +298,8 @@ Fields marked *optional in v0.1* have no use yet and may be left out
 - **Secrets** it needs, and the fixed paths where it reads them and its
   seed files. Every seed file a brick declares is required of every node
   using it, except those it lists under `seed.optional` (from v0.4;
-  `postgres`' `crontab` the first, D206, D215).
+  `postgres`' `crontab` the first, D206, D215; the bastion's
+  `data-policy.md` the second, D221).
 - **Processes** run under s6-overlay (D30).
 - **Companion material**, if any (see below).
 

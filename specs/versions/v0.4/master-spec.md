@@ -10,6 +10,11 @@ in force unless this document changes it; where they disagree, this
 document wins for v0.4. Its [build plan](build-plan.md) carries
 section 19.
 
+Amended after approval, on 2026-10-30, by the owner's ruling during
+wave 1 on how the data policy reaches the players: `bastion` 0.4.0, the
+starter pack as Markdown and as a page (2, 5, 6.4, 7.3, 11.5, 15, 16.1,
+17, 19, 20, 22).
+
 ---
 
 ## 1. Concept and objective
@@ -68,6 +73,8 @@ Concretely:
 - `postgres` 0.4.0: `pg_cron` and a cron daemon, each optional per node;
   the out-of-memory victim set to a backend; the check helper reaching
   another instance (7.2).
+- `bastion` 0.4.0: the data policy as a fourth, optional starter-pack
+  file, and the starter pack shown as a page on the web front (7.3).
 - Several PostgreSQL instances per scenario, the reporting database an
   instance of its own; data moved between instances by transformer
   scripts, or by SQL or stored procedures over `postgres_fdw` (8.6, 13).
@@ -164,6 +171,8 @@ bricks/
   scheduler/            0.2.0: transformer scripts, the transformer role
   postgres/             0.4.0: pg_cron, the cron daemon, the OOM victim,
                         check-psql reaching another instance
+  bastion/              0.4.0: the optional data-policy.md, the
+                        starter-pack page
 purposes/<purpose-id>/  new: the four purposes (6.7)
 domains/shop/           new: the shop domain (6.8)
 faults/<fault-id>/      ten new faults; every fault applying to `postgres`
@@ -240,7 +249,8 @@ every version; this section lists what v0.4 changes. The shapes are in
 ### 6.4 Brick definition (`brick.yaml`)
 
 - **`seed.optional`**: seed files a node may omit. Every seed file was
-  required until now; `crontab` is the first optional one (7.2).
+  required until now; `crontab` is the first optional one (7.2), the
+  bastion's `data-policy.md` the second (7.3).
 - `postgres` keeps the `fixable` write policy only (16.5).
 - `scheduler` declares the `transformer` role (7.1).
 
@@ -594,9 +604,30 @@ happens in place, with no Swarm replacement.
 ### 7.3 The other bricks
 
 Unchanged: `pgbouncer` 0.1.0, `prometheus`, `postgres-exporter` and
-`grafana` 0.2.0, `bastion` 0.3.0. The bastion's password file already
-holds `dba`'s password for any host, so the players reach a second
-instance with `psql -h <node>`.
+`grafana` 0.2.0. The bastion's password file already holds `dba`'s
+password for any host, so the players reach a second instance with
+`psql -h <node>`.
+
+**`bastion` 0.4.0** hands the starter pack over in two forms:
+
+- **Markdown, in the player's home**, as before: `data-policy.md` joins
+  `README.md`, `story.md` and `issues.md` as a fourth seed file, optional
+  (6.4), copied once into `/home/player` like the others. A scenario
+  with `governance:` maps it to its policy file (11.5); one without maps
+  none.
+- **A simple read-only page on the web front**, for ease of reading: the
+  README, the story, the issues and the data policy rendered as HTML,
+  beside the list of web interfaces, behind the tools password like the
+  rest of the front. Each element appears only when the scenario
+  provides it: no empty section, no link to a missing one, so a
+  scenario without `governance:` shows no data policy. The page shows
+  the starter pack as handed over, rendered in the image at each start
+  (Debian's `cmark-gfm`, with its table extension, raw HTML not passed
+  through), never the players' edited copies. It is built as a list of
+  elements so a later one, a reporting tool, can join it; none does in
+  v0.4.
+- The web front still runs only when the topology has a web interface
+  to publish, so a scenario without one has no page (open, 22).
 
 ## 8. Purposes
 
@@ -1097,7 +1128,8 @@ separate backups and separate failure need an instance. So:
 ### 11.5 The policy the players audit
 
 `player/data-policy.md`: the company's data policy in the story's voice,
-in the starter pack beside the story: what the company holds, the
+in the starter pack beside the story, in the player's home and on the
+bastion's page (7.3): what the company holds, the
 classes in plain words, where each may live, who may read it, what may
 leave and to whom. The GM writes it from `governance:`; the scenario
 document lists it.
@@ -1390,7 +1422,8 @@ The full rules are in the [access model](access-model.md). In short:
   it the agency's and its issues ask for reports or proposals; a change
   there is judged in the feedback as overstepping, never credited as the
   resolution (16.5).
-- They read the company's data policy in the starter pack; the
+- They read the company's data policy in the starter pack, in their
+  home or on the web front's page where it runs (7.3); the
   customer's roles and grants are part of the system they audit, not of
   their own access.
 
@@ -1422,7 +1455,7 @@ the rehearsal):
 
 | Node | Brick | Role | Write policy | Limit / reservation |
 |---|---|---|---|---|
-| `bastion` | `bastion` 0.3.0 | bastion | report-only | as v0.3 |
+| `bastion` | `bastion` 0.4.0 | bastion | report-only | as v0.3 |
 | `db` | `postgres` 0.4.0 | database (`shop`) | fixable | 1G / 512M |
 | `pooler` | `pgbouncer` 0.1.0 | pooler | fixable | as v0.3 |
 | `producer` | `scheduler` 0.2.0 | producer (the web shop) | report-only, repository and `jobs.yaml` fixable | 96M / 48M |
@@ -1687,10 +1720,11 @@ The access model lists this as a known gap.
 
 ## 17. Definition of done
 
-1. `scheduler` 0.2.0 as in 7.1 and `postgres` 0.4.0 as in 7.2, with GM
-   and player documentation, validators and measured footprints;
-   `postgres` 0.4.0's new packages through the dependency checks, the
-   project's technology record up to date.
+1. `scheduler` 0.2.0 as in 7.1, `postgres` 0.4.0 as in 7.2 and
+   `bastion` 0.4.0 as in 7.3, with GM and player documentation,
+   validators and measured footprints; `postgres` 0.4.0's and `bastion`
+   0.4.0's new packages through the dependency checks, the project's
+   technology record up to date.
 2. The format changes of section 6 in `formats.md`, the templates, the
    loader and the `scenario-format` skill, the placement guideline
    included.
@@ -1755,11 +1789,13 @@ rehearsal and the timer-fired early check, and adds:
 What the build plan must carry, so it can be written without
 rediscovery:
 
-- **Brick bumps**: `scheduler` 0.2.0 (7.1) and `postgres` 0.4.0 (7.2),
-  every change to either folding into its unreleased version.
+- **Brick bumps**: `scheduler` 0.2.0 (7.1), `postgres` 0.4.0 (7.2) and
+  `bastion` 0.4.0 (7.3), every change to any of them folding into its
+  unreleased version.
 - **Re-pins**: `tarnbeck-outdoor-shop` to `postgres` 0.4.0 and
   `scheduler` 0.2.0; `bookshop-new-server` and
-  `fernway-clinics-monitoring` to `postgres` 0.4.0; every fault applying
+  `fernway-clinics-monitoring` to `postgres` 0.4.0; every scenario and
+  fixture with a bastion to `bastion` 0.4.0; every fault applying
   to `postgres` given 0.4.0, every fault applying to `scheduler` given
   0.2.0, in `applies_to`; v0.3's smoke tests rerun unchanged on the new
   versions.
@@ -1768,7 +1804,8 @@ rediscovery:
   and Debian's `cron` with what it pulls in: a preflight on the
   candidate versions before the chunk that changes the image, a
   post-change check on the resolved versions after it lands, `.tech`
-  updated. `scheduler` 0.2.0 adds no package.
+  updated. `bastion` 0.4.0's `cmark-gfm` (Debian) likewise.
+  `scheduler` 0.2.0 adds no package.
 - **The `scenario-format` skill** updated after `formats.md`: the
   purpose and domain templates and completeness rules, `governance:`,
   the new fault fields, `seed.optional` and `crontab_roles`, the
@@ -1845,6 +1882,8 @@ At risk of disruption:
 - the `postgres` image and start-up (two packages, a third s6 service,
   the run script's environment), under every scenario;
 - the loader (optional seed files, new sections), under every scenario;
+- the bastion's start-up (the optional file, the page rendered when the
+  web front runs), under every scenario;
 - render's shifting, extended to a crontab;
 - memory on armenelos: the new scenario reserves about 1.85 GB, and
   f10 deliberately exhausts a node's memory there.
@@ -1931,6 +1970,9 @@ need, are not built.
 
 **Open questions carried**, still the owner's:
 
+- Whether the starter-pack page makes the web front run in every game,
+  its port published and the tools password handed over even without a
+  web interface; until ruled, it runs only with one (7.3).
 - Brick changes for governance (pgaudit, TLS): none in v0.4 by default,
   to be ruled with v0.5's regulated domains.
 - Whether a policy may itself be wrong, as starter documentation
