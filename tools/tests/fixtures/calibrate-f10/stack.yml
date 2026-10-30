@@ -1,0 +1,117 @@
+# f10's calibration fixture (v0.4 chunk 9; master spec 16.3, spec D213, D218):
+# the stack tools/tests/calibrate-f10.sh deploys. db stands for the shop's
+# instance (the shop domain's data, chunk 5), reporting for the agency's at
+# the scenario's starting limit and reservation (16.1: 512M / 256M), as a
+# Swarm service: Swarm gives it a swap equal to its limit and cannot say
+# otherwise. The script's no-swap setting replaces this reporting service by
+# a one-off container outside Swarm, on the same network.
+#
+# Every service is pinned to the node the script runs on (CALIBRATE_NODE, the
+# local node's id; armenelos only, 13.3). The network is attachable so the
+# one-off container can join it. Configs and secrets are external, created and
+# removed by the script. Variables: CALIBRATE_NODE, REPORTING_LIMIT,
+# REPORTING_RESERVATION, REPORTING_REPLICAS.
+version: "3.8"
+
+x-brick: &brick
+  image: 127.0.0.1:5000/dbagm/postgres:0.4.0
+  read_only: true
+  cap_drop: [ALL]
+  cap_add: [AUDIT_WRITE, CHOWN, DAC_OVERRIDE, FOWNER, KILL, NET_BIND_SERVICE, SETGID, SETUID, SYS_CHROOT]
+  healthcheck:
+    test: ["CMD", "/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+    start_period: 60s
+  networks: [net]
+
+services:
+  db:
+    <<: *brick
+    hostname: db
+    volumes:
+      - {type: volume, source: db_pgdata, target: /var/lib/postgresql/18/data}
+      - {type: volume, source: db_pgconf, target: /etc/postgresql}
+      - {type: volume, source: db_home, target: /home/player}
+      - {type: volume, source: db_gmstate, target: /var/lib/gm-state}
+      - {type: volume, source: db_pglog, target: /var/log/postgresql}
+      - {type: volume, source: db_run, target: /run}
+      - {type: volume, source: db_cronspool, target: /var/spool/cron/crontabs}
+    configs:
+      - {source: db_postgresql_conf, target: /opt/gm/seed/postgresql.conf, uid: "0", gid: "0", mode: 0444}
+      - {source: db_pg_hba_conf, target: /opt/gm/seed/pg_hba.conf, uid: "0", gid: "0", mode: 0444}
+    secrets:
+      - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
+      - {source: dba_password, target: /opt/gm/secrets/dba_password, uid: "0", gid: "0", mode: 0400}
+      - {source: monitoring_password, target: /opt/gm/secrets/monitoring_password, uid: "0", gid: "102", mode: 0440}
+      - {source: gm_check_password, target: /opt/gm/secrets/gm_check_password, uid: "0", gid: "0", mode: 0400}
+    deploy:
+      replicas: 1
+      placement: {constraints: ["node.id == ${CALIBRATE_NODE}"]}
+      resources:
+        limits: {cpus: "1", memory: 1G}
+        reservations: {cpus: "0.5", memory: 512M}
+
+  reporting:
+    <<: *brick
+    hostname: reporting
+    volumes:
+      - {type: volume, source: rp_pgdata, target: /var/lib/postgresql/18/data}
+      - {type: volume, source: rp_pgconf, target: /etc/postgresql}
+      - {type: volume, source: rp_home, target: /home/player}
+      - {type: volume, source: rp_gmstate, target: /var/lib/gm-state}
+      - {type: volume, source: rp_pglog, target: /var/log/postgresql}
+      - {type: volume, source: rp_run, target: /run}
+      - {type: volume, source: rp_cronspool, target: /var/spool/cron/crontabs}
+    configs:
+      - {source: reporting_postgresql_conf, target: /opt/gm/seed/postgresql.conf, uid: "0", gid: "0", mode: 0444}
+      - {source: reporting_pg_hba_conf, target: /opt/gm/seed/pg_hba.conf, uid: "0", gid: "0", mode: 0444}
+      - {source: reporting_crontab, target: /opt/gm/seed/crontab, uid: "0", gid: "0", mode: 0444}
+    secrets:
+      - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
+      - {source: dba_password, target: /opt/gm/secrets/dba_password, uid: "0", gid: "0", mode: 0400}
+      - {source: monitoring_password, target: /opt/gm/secrets/monitoring_password, uid: "0", gid: "102", mode: 0440}
+      - {source: gm_check_password, target: /opt/gm/secrets/gm_check_password, uid: "0", gid: "0", mode: 0400}
+      - {source: role_bi_etl_password, target: /opt/gm/secrets/role_bi_etl_password, uid: "0", gid: "0", mode: 0400}
+    deploy:
+      replicas: ${REPORTING_REPLICAS:-1}
+      placement: {constraints: ["node.id == ${CALIBRATE_NODE}"]}
+      resources:
+        limits: {cpus: "1", memory: "${REPORTING_LIMIT:-512M}"}
+        reservations: {cpus: "0.5", memory: "${REPORTING_RESERVATION:-256M}"}
+
+networks:
+  net:
+    driver: overlay
+    attachable: true   # the no-swap setting's one-off container joins it
+
+volumes:
+  db_pgdata: {}
+  db_pgconf: {}
+  db_home: {}
+  db_gmstate: {}
+  db_pglog: {}
+  db_run: {}
+  db_cronspool: {}
+  rp_pgdata: {}
+  rp_pgconf: {}
+  rp_home: {}
+  rp_gmstate: {}
+  rp_pglog: {}
+  rp_run: {}
+  rp_cronspool: {}
+
+configs:
+  db_postgresql_conf: {external: true, name: gmtest-f10_db_postgresql_conf}
+  db_pg_hba_conf: {external: true, name: gmtest-f10_db_pg_hba_conf}
+  reporting_postgresql_conf: {external: true, name: gmtest-f10_reporting_postgresql_conf}
+  reporting_pg_hba_conf: {external: true, name: gmtest-f10_reporting_pg_hba_conf}
+  reporting_crontab: {external: true, name: gmtest-f10_reporting_crontab}
+
+secrets:
+  player_ssh_pubkey: {external: true, name: gmtest-f10_player_ssh_pubkey}
+  dba_password: {external: true, name: gmtest-f10_dba_password}
+  monitoring_password: {external: true, name: gmtest-f10_monitoring_password}
+  gm_check_password: {external: true, name: gmtest-f10_gm_check_password}
+  role_bi_etl_password: {external: true, name: gmtest-f10_role_bi_etl_password}
