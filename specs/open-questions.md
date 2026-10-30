@@ -11,7 +11,10 @@ their IDs keep their meaning. Questions resolved by the close of v0.2
 Questions resolved by the close of v0.3 (O45, O46, O78 and O81–O103) are
 listed in
 [archive/v0.3/open-questions-resolved.md](archive/v0.3/open-questions-resolved.md).
-Numbering continues from O104.
+Numbering continues from O129.
+
+Resolved during v0.4's drafting: O106 (D194), O110 (D195), O107 (D197), O120
+(D198), O109 (D199), O121 (D200).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -40,9 +43,13 @@ for the next version (v0.1 until it closed, with none left open);
 - **O11** (later) — Which technology fills each v1.0 role beyond v0.2's
   monitoring (settled: D69) and v0.3's producers and consumers (the
   scheduler brick sending SQL to PostgreSQL, D115, D118; other targets
-  from v0.5): the two databases, transformation; which engine versions
-  first; and how upgrade scenarios (both binaries, disk space) fit the
-  budget. Refs: [versions/v1.0/README.md](versions/v1.0/README.md).
+  from v0.5). Narrowed for v0.4 by D190: transformation is a generic
+  job runner started from the scheduler brick (O105), the second
+  database PostgreSQL, another engine only if a purpose needs one,
+  which none does (D194). Still open: which engine versions first, and how
+  upgrade scenarios (both binaries, disk space) fit the budget. Refs:
+  [versions/v1.0/README.md](versions/v1.0/README.md),
+  [versions/v0.4/README.md](versions/v0.4/README.md).
 - **O12** (later) — Are network-level faults (segmentation, routing-mesh
   exposure) in scope? And the network layout itself (management network,
   zones, dual-homed nodes). v0.2 has one network and no network faults
@@ -71,8 +78,12 @@ for the next version (v0.1 until it closed, with none left open);
   (D150), a classroom swarm staying up for a school day may become
   enough for short-aging scenarios, which may change how much the
   volume copy is needed; noted, not reopened (D125 stands).
+  Not moot: v0.4's purposes (D190) run daily, weekly or monthly jobs,
+  which real time alone barely exercises; v0.4's part is settled by
+  D199 (realistic cadences, none weekly or monthly).
   Refs: [scenario-lifecycle.md](scenario-lifecycle.md),
-  [archive/v0.3/aging-and-timeline.md](archive/v0.3/aging-and-timeline.md).
+  [archive/v0.3/aging-and-timeline.md](archive/v0.3/aging-and-timeline.md),
+  [versions/v0.4/README.md](versions/v0.4/README.md).
 - **O23** (later) — Difficulty is a fault count, each fault worth 1 (easy
   5, normal 10, hard 20; D120), read for v0.3 as the number of fault
   instances, the levels being targets (D134). Still open:
@@ -83,7 +94,10 @@ for the next version (v0.1 until it closed, with none left open);
   scenario? Probably moot after D8; kept until the owner says so.
 - **O25** (later) — Scenario-only bricks and faults may live in the
   scenario's folder (D24). Can they be promoted into the catalog, and
-  through which review?
+  through which review? From v0.4 the question is mostly about purposes
+  (D190): a purpose built for one scenario, its jobs, invariants and
+  faults, promoted into the catalog, rather than a transformer brick.
+  Refs: [versions/v0.4/README.md](versions/v0.4/README.md).
 
 ## Game and feedback
 
@@ -106,15 +120,196 @@ for the next version (v0.1 until it closed, with none left open);
   finds one quick to implement (D120). Refs:
   [scenario-lifecycle.md](scenario-lifecycle.md).
 
+## v0.4: purposes
+
+Raised when the owner recast v0.4 as "bricks of why and bits of hows"
+on 2026-10-28 (D190). O11, O22, O25 and O52 are revised by it. Worked
+into drafts on 2026-10-30 ([versions/v0.4/](versions/v0.4/README.md#documents)):
+O106 closed (D194), O110 closed (D195), O122 to O125 raised; the
+owner's rulings closed O107 (D197) and O109 (D199) the same day. A
+"Proposed" answer below is in a draft, tagged `(proposed)`, and awaits
+the owner.
+
+- **O104** (soon, v0.4) — The purpose format. Proposed in
+  [purposes.md](versions/v0.4/purposes.md): the name stays "purpose";
+  `purposes/<id>/` with `purpose.yaml` (identity, parts, jobs, trace,
+  invariants with witness conditions, data moved, roles), `material/`,
+  `checks/`, `gm.md`; copied into a scenario at design time and named in
+  `scenario.yaml`'s `purposes:`, so it never bumps; faults attach by
+  `applies_to.purposes`; a check judging runs is `sealed_check.judges:
+  runs` (or `triggers`). Then the `scenario-format` skill and the
+  scenario document. How a check learns when a fix happened is now O124.
+- **O105** (soon, v0.4) — The job runner. Proposed in
+  [purposes.md](versions/v0.4/purposes.md): extend v0.3's `scheduler`,
+  no fork; a purpose's jobs are fixed-time operations; its runner is a
+  `consumer` node, so `scheduler` 0.1.0 ships unchanged (a `transformer`
+  role would bump it to 0.2.0); the players reach the jobs as D116 and
+  D130 say; v0.5's drivers (D118) untouched. Cross-database movement is
+  O123.
+- **O108** (soon, v0.4) — The shared business data model, the shop
+  domain (D192). Proposed in
+  [shop-domain.md](versions/v0.4/shop-domain.md): from tarnbeck's,
+  adding `business_settings` (the customer's zone, sending hours),
+  customers' address, country and zone, `consent_events` beside the
+  opt-in flag, `packed_at`, `shipped_at`, `ship_country`,
+  `export_countries`, an archived history behind `last_order_at`, the
+  purposes' tables, six roles, and consent streams in the producer.
+  Tarnbeck stays untouched; the v0.4 scenario is new. Format: O111.
+- **O122** (soon, v0.4) — The customer's time zone in the data and the
+  jobs. It is UTC plus the game's shift (D129), known only at render,
+  and UTC itself at a shift of 0, while purposes reason in local days and
+  recipients' hours. Proposed in
+  [purposes.md](versions/v0.4/purposes.md): `render` substitutes
+  `{{customer_timezone}}` in scheduler seed files; `load-data` passes the
+  zone and offset to `psql` as variables, written into
+  `business_settings`; databases stay in UTC; recipients' zones are
+  stored relative to the customer's, and a wrong-zone fault is an offset
+  from the customer's, never "UTC", so no fault vanishes at a shift of 0.
+  Alternative: `ALTER DATABASE … SET timezone` to the customer's zone,
+  which changes every session's `current_date` and the logs' reading.
+- **O123** (soon, v0.4) — Moving rows between databases, which
+  PostgreSQL cannot do across databases even in one instance. Proposed
+  in [purposes.md](versions/v0.4/purposes.md): `postgres_fdw` in the
+  target (plain SQL jobs, no runner code, already in the `postgres`
+  image, foreign servers and mappings the players can audit), with a new
+  `load-data` step setting each user mapping's password from its remote
+  role's secret. Alternative: a two-connection job in the runner (new
+  code, a `scheduler` bump, nothing to audit in the databases).
+- **O124** (soon, v0.4) — The moment a purpose check judges from.
+  Proposed in [checks.md](versions/v0.4/checks.md): `CHECK_SINCE`, the
+  hand-over by default, raised to the runner's last successful reload,
+  raised by the GM with `gmctl check --since` from the players' report;
+  the check judges the job's runs since (none: 3 with the time to the
+  next run; one violating: 1; all clean with a witness: 0), or, for a
+  pushed obligation, the triggers since. Rejected: a dry run of the job
+  (D131).
+- **O125** (soon, v0.4) — Monitoring a second database instance: a
+  second `postgres-exporter` node, the exporter brick made multi-target
+  (a bump), or the instance left unscraped by design, which is then a
+  fault the players may find. Proposed: unscraped in the first
+  scenario, a second exporter node in the scenario format's guidance.
+  Refs: [scenario-sketch.md](versions/v0.4/scenario-sketch.md).
+
+## v0.4: data governance
+
+Raised when the owner added a first cut of data governance to v0.4 on
+2026-10-28 (D191): data classes, their rules, a policy handed to the
+players, `gm_check` definition checks. The customer's governance, in the
+game's world, not the game's access model. Drafted on 2026-10-30 in
+[governance.md](versions/v0.4/governance.md), tested against the
+clinic's classes (D196); O120 closed by D198 (an instance of its own).
+
+- **O115** (soon, v0.4) — The governance format. Proposed: classes
+  `personal`, `customer-linked`, `internal`; the domain's
+  `classification.yaml` classes every column, the scenario's
+  `governance:` states locations (`node/database`), readers and outbound
+  flows with their allowed fields, and the policy file; the loader checks
+  names and references; governance faults join the Security family.
+- **O116** (soon, v0.4) — Which rules are checked. Proposed: G1
+  locations (catalog by classified name, plus a content probe for
+  personal data in disallowed databases), G2 readers
+  (`has_column_privilege` through membership and `PUBLIC`), G3 reach
+  (foreign tables and user mappings' remote roles), G4 outbound fields
+  (judged as a purpose); not checked: encryption at rest, retention;
+  the game's own roles (`dba`, `postgres`, `gm_check`, `monitoring`,
+  `pgbouncer_lookup`) outside every rule.
+- **O117** (soon, v0.4) — How the policy is presented. Proposed:
+  `player/data-policy.md` in the story's voice, written by the GM from
+  `governance:`; it may state unchecked rules, unmarked, as a real
+  policy does; it is correct in v0.4, a wrong policy waiting for O21.
+- **O118** (later, v0.4 → v0.5; **defaulted**) — Brick changes for
+  governance. Default, told to the owner on 2026-10-30 and holding
+  unless he objects, not a ruling: none in v0.4 (pgaudit and TLS with
+  v0.5's regulated domains), and the one settings rule that needs no
+  brick change, statement logging writing personal data into the logs,
+  also held for v0.5 as a candidate fault. Stays open until v0.5 rules
+  on the brick changes. Refs: [governance.md](versions/v0.4/governance.md).
+- **O119** (soon, v0.4) — What "fixed" means for a governance fault.
+  Proposed: a definition (a copied column, a grant, a mapping) is fixed
+  when the live state complies, removal included; content already sent
+  is judged as a purpose, no new violation since the judged moment
+  (O124).
+
+## v0.5: domains
+
+Raised when the owner set business domains for v0.5 on 2026-10-28
+(D192). v0.4 ships the first, the shop (O108). The veterinary clinic
+added on 2026-10-30 (D196).
+
+- **O111** (soon, v0.4 → v0.5) — The domain format. Proposed for v0.4 in
+  [shop-domain.md](versions/v0.4/shop-domain.md): `domains/shop/` with
+  `domain.yaml`, `data/` (schema, load, classification), `producers/`,
+  `docs/gm.md`; a design-time source copied into a scenario and named in
+  `scenario.yaml` for provenance, so it never bumps; static scenarios
+  need none. Left to v0.5: profiles against the schedule (O113), size
+  (O114), composition (O126).
+- **O112** (later, v0.5) — Which domains come first after the shop? The
+  owner names a warehouse, a factory and a lab, and, on 2026-10-30, a
+  veterinary clinic franchise (D196), a composite holding a lab. A
+  factory's high-frequency time series presses on "schemas simple,
+  tables small" and the memory budget, and invites TimescaleDB, placed
+  beyond v1.0 by D47 yet listed as a `postgres` option candidate (O79). A
+  lab's audit trail needs governance beyond v0.4's cut (O118). The
+  clinic's machinery may want engines beyond v1.0 (D47) and its
+  regulatory reports run monthly or yearly (O22). v0.2's
+  `fernway-clinics-monitoring` is a veterinary clinic: its owners are
+  personal data, animal health is no special category. Refs:
+  [versions/v0.5/README.md](versions/v0.5/README.md#domains).
+- **O113** (later, v0.5) — Producer profiles against v0.3's query
+  repository and schedule: a template the GM instantiates into a
+  scenario's `queries.yaml` and `schedule.yaml` at design time (the
+  folder stays self-sufficient, D23), a library of builders, traffic
+  shapes and parameter generators the scenario references, or a layer
+  the scheduler reads? Richer input types (names, addresses, SKUs,
+  sensor readings) than v0.3's generators? A catalogue profile is
+  readable in the repository while `schedule.yaml` is hidden (D130):
+  accepted on the trust line (D13)? Refs:
+  [versions/v0.5/README.md](versions/v0.5/README.md#domains),
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 7.1.
+- **O114** (later, v0.5) — What a scenario's size scales: data volume,
+  number of entities, intensity, or several? Intensity is absolute and
+  never rescaled to the playground (D32); size has to fit the
+  playground's budget and "schemas simple, tables small". Refs:
+  [versions/v0.5/README.md](versions/v0.5/README.md#domains).
+
+- **O126** (later, v0.5) — May a domain be composed of smaller
+  domains? The clinic (D196) is a lab, bookings, housing, machinery, a
+  portal and messaging, each close to a domain of its own; a warehouse
+  or a shop could reuse some. If yes: how parts share a data model's
+  keys (an animal, an owner), and whether a scenario may take a part
+  alone. Linked to O111. Refs:
+  [versions/v0.5/README.md](versions/v0.5/README.md#the-veterinary-clinic-d196).
+- **O127** (later, v0.5 → beyond v1.0) — Where several sites and the
+  exchange between them sit: the clinic is a franchise whose centres
+  share machinery and records, with redundancy (D196). Several sites
+  need more than one domain's worth of topology: several database
+  instances per business, replication or exchange between them, and
+  hosts enough. A v0.5 topology fragment (two sites on one playground),
+  or beyond v1.0 with the multi-site playgrounds it needs? Linked to
+  O12 (network layout). Refs:
+  [versions/v0.5/README.md](versions/v0.5/README.md#the-veterinary-clinic-d196).
+
+- **O128** (later, v0.5) — How a round trip is modelled (D201): an
+  acknowledgement as an inbound flow the setup waits on and reacts to.
+  To settle: whether it is a purpose kind of its own or a pushed
+  obligation with reactions; how correlation is stated (the key an
+  acknowledgement answers); the stub receiver's repertoire (late, out
+  of order, duplicated, unmatched acknowledgements, as timeline changes,
+  D127); how a check judges a cascade, whose faults show downstream; and
+  what of the clinic's lab results and inter-clinic exchanges it covers.
+  Refs: [versions/v0.5/README.md](versions/v0.5/README.md#round-trips-acknowledgements-as-inputs-d201).
+
 ## Roadmap: gaps and cross-version risks
 
-Raised with the roadmap (D47). The tag after the priority is the version
+Raised with the roadmap (D47); O121, raised by the owner's ruling on
+release gates (D193), was resolved for v0.4 by D200. The tag after the priority is the version
 the question concerns.
 
 - **O47** (later, v1.0) — Which version brings scenario generation: the GM
   designing from a partial or empty brief and filling the blanks (D16)?
-  v0.5 prepares for it without naming it. Refs:
-  [versions/v1.0/README.md](versions/v1.0/README.md).
+  v0.5 prepares for it without naming it; its domains (D192) make a
+  brief naming a domain and a size most of a scenario's business side.
+  Refs: [versions/v1.0/README.md](versions/v1.0/README.md).
 - **O48** (later, v0.3 → v1.0) — Aging enters in v0.3, in real time
   (D114). Where does the solvability probe as a gate (O20) enter the
   roadmap? With an aging of eight hours or more (D150), a probe failing at
@@ -128,10 +323,12 @@ the question concerns.
   backup". Which version? Refs:
   [bricks-and-faults.md](bricks-and-faults.md), "Future ideas: backup
   tooling".
-- **O52** (later, v0.4) — dbt adds a Python toolchain and adapters to a
-  node image: image size and build time, one image per adapter (Postgres,
-  DuckDB), versions to pin. One transformer brick per technology? Refs:
-  [versions/v0.4/README.md](versions/v0.4/README.md).
+- **O52** (later, after v0.4) — dbt adds a Python toolchain and adapters
+  to a node image: image size and build time, one image per adapter
+  (Postgres, DuckDB), versions to pin. One transformer brick per
+  technology? v0.4 plans no dbt: its jobs run on one generic job runner
+  (D190, O105). Stands for whichever later version or purpose wants dbt.
+  Refs: [versions/v0.4/README.md](versions/v0.4/README.md).
 - **O53** (later, v0.5) — Bluebox as a dataset:
   - its schema needs PostGIS, `pg_stat_statements` (a preloaded library)
     and `pg_trgm`, so a PostgreSQL 18 brick with those extensions;

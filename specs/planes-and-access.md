@@ -1,6 +1,6 @@
 # Planes, access and rules
 
-Status: draft v16
+Status: draft v17
 
 Who may reach what, what the player may change, how the rules are checked,
 and what is left to trust. At consolidation this document feeds the access
@@ -171,6 +171,16 @@ lives in, and the loader checks it (D143).
   node. Accepted on the trust line (D121): nothing prevents it, the access
   model lists it as a known gap, and sealed checks judge the effective
   live state as everywhere else.
+
+### The customer's data policy (v0.4, draft)
+
+From v0.4 a scenario may state the customer's data governance: data
+classes, where each may live and flow, which of the customer's roles may
+read it (D191; [versions/v0.4/README.md](versions/v0.4/README.md),
+"Data governance"). It is part of the game's world, audited by the
+players, not part of this document's access rules: it never restricts
+the players, and the game's own roles (`dba`, `postgres`, the GM check
+role, `monitoring`) stay outside it (proposed; O116).
 
 ### Node hardening
 

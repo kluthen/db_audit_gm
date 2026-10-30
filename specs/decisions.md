@@ -18,8 +18,8 @@ README:
   mapped in [archive/v0.3/README.md](archive/v0.3/README.md#where-it-now-lives).
 
 Archived IDs keep their meaning and are cited as they are. D107 and D113
-stay live: rulings still to be applied in v0.5. Numbering continues
-after D189, the last; no ID is reused.
+stay live: rulings still to be applied in v0.5. D190 onward are v0.4's
+drafting. Numbering continues after D201, the last; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -35,3 +35,88 @@ after D189, the last; no ID is reused.
   brick improvement, with O79. Now in:
   [versions/v0.5/README.md](versions/v0.5/README.md) "In scope",
   [versions/v0.2/README.md](versions/v0.2/README.md) "Known issues".
+- **D190 (2026-10-28, owner direction, relayed by the lead session): v0.4
+  is "bricks of why and bits of hows", not technology bricks:** a new
+  catalogue artefact, the purpose (working name: its jobs, trace,
+  invariants and faults); consumers modelled by their trace, no mailer,
+  BI or finance software; a generic job runner and a second database,
+  PostgreSQL by default, another engine only if a purpose needs one
+  (the owner: "We shall see"). Revises D47 for v0.4 only; the rest of
+  D47 holds. Open: O104–O110; O11, O22, O25, O52 revised. Now in:
+  [versions/v0.4/README.md](versions/v0.4/README.md).
+- **D191 (2026-10-28, owner direction, relayed by the lead session): v0.4
+  brings a first cut of data governance, coupled to purposes:** data
+  classes with rules (location, settings, readers, flows), handed to the
+  players as the company's data policy and checked by `gm_check` as
+  definition checks; the first cut is classification plus allowed
+  locations and flows, richer rules growing with v0.5's regulated
+  domains. Extends D190. Open: O115–O120. Now in:
+  [versions/v0.4/README.md](versions/v0.4/README.md) "Data governance".
+- **D192 (2026-10-28, owner direction, relayed by the lead session): v0.5
+  brings business domains:** a reusable catalogue unit (working name) of
+  a business data model, producer profiles, common scheduler scripts and
+  input types, and fitting purposes; a scenario is a domain, a size,
+  bricks, purposes and faults. v0.4 ships one, the shop, structured so
+  more can be added. Open: O111–O114; O108, O47 revised. Now in:
+  [versions/v0.5/README.md](versions/v0.5/README.md#domains),
+  [versions/v0.4/README.md](versions/v0.4/README.md).
+- **D193 (2026-10-29, owner ruling after v0.3's release-gate aged run,
+  relayed by the wave driver): An aged run, a full aging to the
+  hand-over then a play-through, is a one-off check, not a standing
+  item of every release gate;** none is planned before v1.0, and whether
+  v1.0's gate has one is decided when that gate is planned. The owner:
+  "it takes too much time." v0.3's gate ran one and it passed; D135
+  holds for v0.3 only. Later gates rely on the smoke tests, the
+  rehearsal and the timer-fired early check. Open: O121. Now in:
+  [versions/README.md](versions/README.md#release-gates),
+  [versions/v0.4/README.md](versions/v0.4/README.md#release-gate),
+  [versions/v1.0/README.md](versions/v1.0/README.md).
+- **D194 (2026-10-30, spec-writer, on drafting v0.4's purposes): No v0.4
+  purpose needs an engine beyond PostgreSQL;** reporting, leads,
+  mailing, export declarations and finance all fit PostgreSQL at
+  "schemas simple, tables small", so D190's condition is not met. Closes
+  O106; a later purpose needing one raises a new question. Now in:
+  [versions/v0.4/purpose-catalogue.md](versions/v0.4/purpose-catalogue.md).
+- **D195 (2026-10-30, spec-writer, reading the owner's words in D190):
+  No mail sink in v0.4: `mail_outbox` is the mail's whole trace,** since
+  every check the owner named (duplicates, ill-appropriate sending,
+  "were we truly doing this") is judged on it. Closes O110; a purpose
+  needing delivery behaviour (bounces) raises a new question. Now in:
+  [versions/v0.4/purpose-catalogue.md](versions/v0.4/purpose-catalogue.md) P3.
+- **D196 (2026-10-30, owner input, relayed by the wave driver): The
+  veterinary clinic franchise is a v0.5 domain candidate,** the flagship
+  of the regulated domains; v0.4 only borrows its strict reporting and
+  its data classes as test cases, scope unchanged. Open: O126, O127;
+  O112 revised. Now in: [versions/v0.5/README.md](versions/v0.5/README.md)
+  "The veterinary clinic".
+- **D197 (2026-10-30, owner ruling on spec-writer's recommendation,
+  relayed by the coordinator): v0.4 ships four purposes on the shop:**
+  P1 sales reporting, P2 win-back leads, P3 customer mailing, and P5
+  export declarations, a pushed obligation; finance (P4) is held for
+  v0.5. Closes O107. Now in:
+  [versions/v0.4/purpose-catalogue.md](versions/v0.4/purpose-catalogue.md).
+- **D198 (2026-10-30, owner ruling, relayed by the coordinator): v0.4's
+  reporting database is a PostgreSQL instance of its own,** a second
+  `postgres` node of about 256 MB; governance rules name their location
+  as `node/database` and may require instance separation. Closes O120.
+  Now in: [versions/v0.4/governance.md](versions/v0.4/governance.md)
+  "The database-versus-instance boundary".
+- **D199 (2026-10-30, owner ruling, relayed by the coordinator):
+  Purposes run at realistic cadences, sub-daily where a real business
+  would;** players verify a daily job by moving its run time (D132); no
+  weekly or monthly purpose in v0.4; the restored backup may hold past
+  records computed by the data load, but no fault's evidence rests on
+  them alone. Closes O109. Now in:
+  [versions/v0.4/purposes.md](versions/v0.4/purposes.md) "Time".
+- **D200 (2026-10-30, owner ruling, relayed by the coordinator): v0.4's
+  release gate runs the checks O121 proposed (known limits named,
+  rehearsal hand-over placed on the jobs, growth extrapolated) plus every
+  purpose fault through its full cycle in a smoke run,** present, too
+  soon after the fix, then fixed, its job moved as a player may. Closes
+  O121. Now in: [versions/v0.4/checks.md](versions/v0.4/checks.md).
+- **D201 (2026-10-30, owner idea, relayed by the coordinator; placed in
+  v0.5 by the owner): Round trips, an acknowledgement as an inbound flow
+  that the setup waits on and that drives further processes, are v0.5's;**
+  v0.4's P5 only records and checks acknowledgements and opens an
+  incident. Open: O128. Now in: [versions/v0.5/README.md](versions/v0.5/README.md)
+  "Round trips"; [versions/v0.4/purpose-catalogue.md](versions/v0.4/purpose-catalogue.md) P5.

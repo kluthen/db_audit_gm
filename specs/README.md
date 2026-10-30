@@ -8,7 +8,7 @@ intent (D1). To resume cold: read this page, then
 Phase: **v0.1 released** on 2026-10-21 and merged into `main`
 (3c852e1); its working record is archived in
 [archive/v0.1/](archive/v0.1/README.md) (master spec approved under the
-owner's delegation to the lead, D44). **v0.2 released** on 2026-10-22: built from its [build plan](archive/v0.2/build-plan.md) (D99) in four waves, release gate passed, G10 and G11 cleared (D109), release notes in [versions/v0.2/README.md](versions/v0.2/README.md); merged into `main` (eedaa0d); its working record is archived in [archive/v0.2/](archive/v0.2/README.md). **v0.3 released** on 2026-10-30 and merged into `main` (cba7be3); its working record is archived in [archive/v0.3/](archive/v0.3/README.md). Its drafting opened on 2026-10-22 on branch `v0.3-spec`: the owner's rulings D114–D146, every question answered and the [review list](archive/v0.3/review-list.md) accepted; **consolidated** the same day into the [v0.3 master spec](versions/v0.3/master-spec.md) and its [access model](versions/v0.3/access-model.md), then revised after the independent review (REJECT, all seven blocking issues fixed, D151) and the owner's answers (D147–D150); **spec approved** on 2026-10-22 with the re-review's corrections (D152–D155); the eight drafts kept as the working record until the archive; the [build plan](archive/v0.3/build-plan.md) **approved** on 2026-10-22 (D156), with the owner's ruling that only a scenario with scheduler nodes ages (D157, D158) and the VPS rule (D159); wave 1 started on 2026-10-23, with the owner's confirmation of three readings (D160–D162); built in four waves; **release gate passed** on 2026-10-30 on `v0.3-w4` (items 1 to 15, G9 and G10 cleared), release notes in [versions/v0.3/README.md](versions/v0.3/README.md#release-notes). v0.4 to v0.6 and v1.0 in drafting. Conventions:
+owner's delegation to the lead, D44). **v0.2 released** on 2026-10-22: built from its [build plan](archive/v0.2/build-plan.md) (D99) in four waves, release gate passed, G10 and G11 cleared (D109), release notes in [versions/v0.2/README.md](versions/v0.2/README.md); merged into `main` (eedaa0d); its working record is archived in [archive/v0.2/](archive/v0.2/README.md). **v0.3 released** on 2026-10-30 and merged into `main` (cba7be3); its working record is archived in [archive/v0.3/](archive/v0.3/README.md). Its drafting opened on 2026-10-22 on branch `v0.3-spec`: the owner's rulings D114–D146, every question answered and the [review list](archive/v0.3/review-list.md) accepted; **consolidated** the same day into the [v0.3 master spec](versions/v0.3/master-spec.md) and its [access model](versions/v0.3/access-model.md), then revised after the independent review (REJECT, all seven blocking issues fixed, D151) and the owner's answers (D147–D150); **spec approved** on 2026-10-22 with the re-review's corrections (D152–D155); the eight drafts kept as the working record until the archive; the [build plan](archive/v0.3/build-plan.md) **approved** on 2026-10-22 (D156), with the owner's ruling that only a scenario with scheduler nodes ages (D157, D158) and the VPS rule (D159); wave 1 started on 2026-10-23, with the owner's confirmation of three readings (D160–D162); built in four waves; **release gate passed** on 2026-10-30 on `v0.3-w4` (items 1 to 15, G9 and G10 cleared), release notes in [versions/v0.3/README.md](versions/v0.3/README.md#release-notes). v0.4 to v0.6 and v1.0 in drafting; v0.4 recast on 2026-10-28 as purposes, "bricks of why and bits of hows" (D190), with a first cut of data governance (D191); business domains set for v0.5 the same day, the shop first, in v0.4 (D192). On 2026-10-29, after v0.3's release-gate aged run passed, aged runs made a one-off check, none planned before v1.0 (D193). On 2026-10-30 v0.4 was worked into draft documents: no other engine (D194), no mail sink (D195); the owner's veterinary clinic placed in v0.5 (D196); then the owner ruled: four purposes, one a pushed obligation (D197), the reporting database an instance of its own (D198), realistic cadences under real time (D199), the release gate's purpose cycle (D200). Conventions:
 settled items are stated as fact, tentative ones are tagged `(proposed)`,
 and every open point cites an `O` ID. Every `(proposed)` item awaits the
 owner's confirmation; the register lists the ones with real alternatives.
@@ -17,17 +17,18 @@ owner's confirmation; the register lists the ones with real alternatives.
 
 | Document | Purpose | Status |
 |---|---|---|
-| [concept.md](concept.md) | Purpose, actors, vocabulary, scope, versions, prior art | draft v12 |
+| [concept.md](concept.md) | Purpose, actors, vocabulary, scope, versions, prior art | draft v15 |
 | [versions/](versions/README.md) | The roadmap: v0.1 to v0.6, v1.0 and beyond, one page per version; v0.1's [master spec](versions/v0.1/master-spec.md), [access model](versions/v0.1/access-model.md) and [wave log](versions/v0.1/wave-log.md) | v0.1 released and archived; v0.2 released 2026-10-22 and archived: [master spec](versions/v0.2/master-spec.md), [access model](versions/v0.2/access-model.md), [wave log](versions/v0.2/wave-log.md), build plan archived; v0.3 released 2026-10-30 and archived (below); v0.4–v0.6 and v1.0 draft |
 | [versions/v0.3/](versions/v0.3/README.md) | v0.3's page and release notes, [master spec](versions/v0.3/master-spec.md), [access model](versions/v0.3/access-model.md) and [wave log](versions/v0.3/wave-log.md) | released 2026-10-30, merged into `main` (cba7be3); spec approved 2026-10-22 (D154), amended by D157 and D158; built from the [build plan](archive/v0.3/build-plan.md) v15 (D156); release gate passed, items 1 to 15, G9 and G10 cleared; [release notes](versions/v0.3/README.md#release-notes); the build plan, the eight drafts and the review list archived in [archive/v0.3/](archive/v0.3/README.md); page draft v11 |
+| [versions/v0.4/](versions/v0.4/README.md) | v0.4's drafts: [purposes](versions/v0.4/purposes.md), [purpose catalogue](versions/v0.4/purpose-catalogue.md), [shop domain](versions/v0.4/shop-domain.md), [governance](versions/v0.4/governance.md), [candidate faults](versions/v0.4/candidate-faults.md), [checks](versions/v0.4/checks.md), [scenario sketch](versions/v0.4/scenario-sketch.md) | drafts v1–v2 (2026-10-30); no master spec; D194–D200 |
 | [gm-stance.md](gm-stance.md) | How the GM behaves and speaks: setup questions, issues, report-only interaction, no reveals, stop only, restarts, no events outside the schedule, final answer, feedback tone, future ideas | draft v13 |
 | [scenario-lifecycle.md](scenario-lifecycle.md) | The game from setup to teardown: setup inputs, scenario, local implementation, deploy, aging (real time from v0.3), hand-over, end of the game | draft v13 |
 | [formats.md](formats.md) | What a scenario folder, a brick (with its companion material and GM documentation) and a fault definition must contain; versions and pins; the local implementation; the skills and templates | draft v20 |
 | [bricks-and-faults.md](bricks-and-faults.md) | Catalog, v0.2's monitoring bricks, per-brick checks, proportionate tooling, solvability probe, fault interactions and families, difficulty, future backup-tooling faults | draft v9 |
-| [planes-and-access.md](planes-and-access.md) | Bastion-only rule (the bastion publishes the web interfaces), planes, the GM session, trust, write policies, the scheduler nodes, hardening, validators | draft v16 |
+| [planes-and-access.md](planes-and-access.md) | Bastion-only rule (the bastion publishes the web interfaces), planes, the GM session, trust, write policies, the scheduler nodes, the customer's data policy kept apart from the game's access, hardening, validators | draft v17 |
 | [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls, the shared VPS | draft v19 |
 | [open-questions.md](open-questions.md) | Open-questions register | live |
-| [decisions.md](decisions.md) | Decisions log: D107 and D113 live (D189 last); D1–D54 archived with v0.1, D55–D106 with v0.2, D108–D112 and D114–D189 with v0.3 | live |
+| [decisions.md](decisions.md) | Decisions log: D107, D113 and D190 onward live (D201 last); D1–D54 archived with v0.1, D55–D106 with v0.2, D108–D112 and D114–D189 with v0.3 | live |
 | [archive/](archive/README.md) | Closed milestones' working records, kept verbatim: v0.1's, v0.2's and v0.3's build plans, v0.3's drafts and review list, decisions D1–D54, D55–D106, D108–D112 and D114–D189, resolved questions | archive |
 
 History: the tree was seeded on 2026-10-20 from the owner's pre-spec notes,
@@ -100,11 +101,20 @@ access model.
   nerfed;
   schemas simple, tables small; sessions up to 4 hours.
 - Roadmap (D47, D71): v0.2 monitoring, v0.3 producers and consumers,
-  v0.4 transformers, v0.5 research and broadening, v0.6 the bastion as
-  the players' main activity point, then v1.0; beyond v1.0,
+  v0.4 purposes (side usage and transformations, recast by D190) with a
+  first cut of data governance (D191) and the shop as the first business
+  domain, v0.5 research and broadening with the other domains (D192),
+  v0.6 the bastion as the players' main activity point, then v1.0; beyond v1.0,
   other databases and tools, customer role-play and hints (D48). Gaps and
-  risks: O47–O49, O52–O54 (O46 resolved by D128). Brick options, `postgres` first, are a v0.5
+  risks: O47–O49, O52–O54 (O46 resolved by D128, O121 by D200). Brick options, `postgres` first, are a v0.5
   topic; v0.2 stays as built (D107; O79, O80).
+- Release gates (D193, 2026-10-29): an aged run, a full aging to the
+  hand-over then a play-through, is a one-off check, not a standing
+  gate item; v0.3's gate ran one and it passed, none is planned before
+  v1.0, and v1.0's gate decides its own. Later gates rely on the smoke
+  tests, the rehearsal and the timer-fired early check; v0.4's adds
+  every purpose fault's full cycle in a smoke run and names what no gate
+  shows as known limits (D200; [versions/](versions/README.md#release-gates)).
 - v0.2, ruled on 2026-10-21 (D63–D70): the owner's `bluebox-lab` is the
   reference and per-node health the gap; free tools, one brick per need,
   chosen by footprint; monitoring optional and tooling proportionate, with
@@ -164,8 +174,8 @@ access model.
   (D128); the schedule shifted by whole hours (D129); scheduler log
   visible, write policy per file (D130); nobody touches the load (D131);
   no time compression (D132); repository semantics (D133); one new normal
-  scenario and six to eight faults (D134); a full aged run at the release
-  gate (D135); seed, driver, `max_connections` (D136–D138); no PgBouncer
+  scenario and six to eight faults (D134); a full aged run at v0.3's
+  release gate (D135; v0.3's only, D193); seed, driver, `max_connections` (D136–D138); no PgBouncer
   metrics brick (D139); every carried item (D140). And on O81, O98–O101:
   any player confirms a restart once the GM has stated what is lost
   (D141); the snapshot taken online per brick (D142); `write_overrides`
@@ -207,6 +217,11 @@ access model.
 
 ## Next steps
 
-1. v0.4's drafting.
-2. The other "soon" question, O49 (backup tooling's version), then
+1. v0.4, in draft documents since 2026-10-30 ([versions/v0.4/](versions/v0.4/README.md#documents)):
+   the owner ruled on four purposes (D197), the reporting instance
+   (D198), cadence under real time (D199) and the release gate (D200);
+   O118 defaulted. Next: the drafts' `(proposed)` items, O104, O105,
+   O108, O111, O115–O117, O119, O122–O125; then a review list and the
+   master spec when the owner says v0.4 is ready.
+2. The roadmap's "soon" question, O49 (backup tooling's version), then
    v1.0's from the "later" ones.

@@ -1,6 +1,6 @@
 # Concept
 
-Status: draft v12
+Status: draft v15
 
 What the project is, who it is for, the words we use, and what is in and out
 of scope. Mechanics live in the other topic documents (see
@@ -92,6 +92,7 @@ hence the host/node split.
 | **Lost time** | The minutes of the aging in outage, in all; up to thirty do not move the earliest hand-over (D152) |
 | **Outage** | A minute of the aging when a node of the game was not running, or a scheduler wrote no per-minute summary (its process down or idle); a running scheduler writes one every minute, even with no call (D151, D152) |
 | **Earliest hand-over** | When the scenario's aging minimum has passed since T0, moved later by the lost time beyond thirty minutes, and every fault instance's own minimum has passed since its planting (D152) |
+| **Aged run** | A test of a release, not a game: a scenario aged for its full declared minimum to the hand-over, then played through as `player`. A one-off check, not a standing item of every release gate: v0.3's gate ran one, none is planned before v1.0 (D135, D193) |
 | **Customer's time zone** | The fixed UTC offset scenario time stands at in one game, derived from the shift and filled into the story by render (D129, D151) |
 | **Scheduler** | The brick running producer and consumer nodes; a node of it is a producer or a consumer by its role (D115) |
 | **Query repository** | A scheduler node's file of queries written by the GM at design time: a key maps to a query, a pool, a sequence or a builder (D115, D133) |
@@ -147,8 +148,11 @@ Scoped separately, each in its own page (D4):
   ([gm-stance.md](gm-stance.md)). See
   [versions/v0.1/README.md](versions/v0.1/README.md).
 - **v0.2 to v0.6**: monitoring, then producers and consumers, then
-  transformers, then research and broadening (D47), then the bastion as
-  the players' main activity point (D71).
+  purposes, side usage and transformations, with a first cut of the
+  customer's data governance (D47, recast by D190; D191), then research
+  and broadening, with business domains such as a shop, a warehouse, a
+  factory or a lab (D47, D192), then the bastion as the players' main
+  activity point (D71).
 - **v1.0, the first release**: the full pipeline, producer -> database ->
   transformation -> database -> consumer, plus monitoring tools and the
   bastion. See [versions/v1.0/README.md](versions/v1.0/README.md).

@@ -25,8 +25,8 @@ The owner believes v0.2 to v0.5 "should be sufficient to achieve v1.0"
 | Bastion, one database, the GM stance, the formats | [v0.1](../v0.1/README.md) |
 | Monitoring tools | [v0.2](../v0.2/README.md) |
 | Producer, consumer | [v0.3](../v0.3/README.md) |
-| Transformation, second database | [v0.4](../v0.4/README.md) |
-| Catalog breadth, topology fragments, schemas and datasets; other tools | [v0.5](../v0.5/README.md) |
+| Transformation, second database; the shop domain, data governance's first cut | [v0.4](../v0.4/README.md) |
+| Catalog breadth, topology fragments, business domains (schemas and datasets); other tools | [v0.5](../v0.5/README.md) |
 | The bastion as the players' main activity point | [v0.6](../v0.6/README.md) |
 
 Which technology fills each role is decided version by version (O11).
@@ -63,7 +63,9 @@ be needed for v1.0, is put to the owner:
 
 ## Open for this version
 
-- A definition of done, once the gaps above are placed.
+- A definition of done, once the gaps above are placed. Whether its
+  release gate has an aged run is decided when that gate is planned; it
+  may not (D193; [roadmap](../README.md#release-gates)).
 - O2 (scripts versus agent judgment for generated scenarios), O20 (the
   solvability probe as a gate), O29 (brief format), O30 (preparation time
   before a class), O32 (language of player-facing material), O38 (feedback
