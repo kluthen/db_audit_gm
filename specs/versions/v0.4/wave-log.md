@@ -1644,3 +1644,17 @@ declaration's id.
   game. To a `coding-executor` on the wave branch, its own commit.
 - For the wave gate: the export packing rate (66 declarations in 33 min
   at 16:00 company time, about one unanswered every 25 minutes).
+
+### E4's deadline: D228 (9e3142e), 2026-10-30
+
+`spec-writer` confirmed chunk 11's reading as the spec's intent (10.4's
+job table, 8.2, 12.4, D214): the 30 minutes are the gateway's deadline
+to acknowledge; the incident is due by the first `escalate-customs` run
+after them (45 minutes after sending); a rejection's incident one cycle
+after the rejection, no wait; a late acknowledgement doesn't count;
+two minutes' grace on each deadline. Master spec 10.4 and 12.4 reworded,
+the "Amended after approval" line, D228. Nothing for the owner to rule
+(told at the wave report). For the wave gate's fixes: the comment at
+`purposes/shop-export-declarations/checks/e4-acknowledged-or-escalated.sh`
+lines 17–18 can be read as "30 minutes after the rejection"; the code
+(line 128: rejection + 15 + 2 min) is right.
