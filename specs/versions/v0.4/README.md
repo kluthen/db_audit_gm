@@ -1,6 +1,24 @@
 # v0.4 — purposes: side usage and transformations
 
-Status: draft v3. No master spec. Direction recast on 2026-10-28 (D190),
+Status: **master spec and access model approved by the owner on
+2026-10-30** (D215): the [master spec](master-spec.md) and its
+[access model](access-model.md), consolidated from the eight drafts
+below on the owner's word that v0.4 was ready, approved with every
+proposal of its owner-review list as written, the list then removed.
+The owner had ruled the same day on four points the consolidation
+raised: the agency's database report-only by the story alone, no
+report-only policy in `postgres` (D211, closing O132); the scenario's
+ten faults only (D212, closing O133); f10 calibrated early, on
+armenelos only (D213); the gateway's lost acknowledgements (D214).
+The [build plan](build-plan.md), written from the master spec's
+section 19, was approved the same day with κ = 3 (D216), with the
+owner's rulings on the judged moment before the hand-over (D217) and on
+f10's measurement without swap (D218).
+The drafts stay as the working record until the archive; where
+they and the master spec disagree, the master spec is current.
+Page draft v7.
+
+History: direction recast on 2026-10-28 (D190),
 revising D47's "transformers" for this version; a first cut of data
 governance added the same day (D191), and the shared business data
 model made the first business domain (D192). Its release gate has no
@@ -24,6 +42,9 @@ incident on a database node (D209).
 
 | Document | Purpose | Status |
 |---|---|---|
+| [master-spec.md](master-spec.md) | The consolidated v0.4 specification | approved 2026-10-30 (D215) |
+| [access-model.md](access-model.md) | Who may do what in a v0.4 game; the customer's roles and data policy in the game's world | approved 2026-10-30 (D215) |
+| [build-plan.md](build-plan.md) | The build: eighteen chunks in four waves, the gates G1 to G11, the release gate | v2, approved 2026-10-30 (D216–D218) |
 | [purposes.md](purposes.md) | The purpose as an artefact: layout, `purpose.yaml`, how a scenario uses one, faults attached to purposes, instances and node sizing, the job runner and the transformer script, moving data between instances, cadence under real time, the customer's time zone in the data | draft v4 |
 | [purpose-catalogue.md](purpose-catalogue.md) | The proposed purposes, each with its jobs, trace and invariants: sales reporting, win-back leads, customer mailing, export declarations (a pushed obligation); finance held; the clinic's reporting as a stress test | draft v4 |
 | [shop-domain.md](shop-domain.md) | The shop as the first domain: the format v0.4 settles, the data-model changes the invariants need, roles, producer changes | draft v2 |
@@ -34,7 +55,8 @@ incident on a database node (D209).
 | [scenario-sketch.md](scenario-sketch.md) | A first v0.4 scenario: story, topology and sizing, ten fault instances (a hidden `pg_cron` job, a crontab fault, an out-of-memory incident), issues | draft v5 (sketch) |
 
 The sections below are the direction as set on 2026-10-28; where a
-draft refines them, the draft is current.
+draft refines them, the draft is current, and where the master spec
+does, the master spec.
 
 ## Goal
 
@@ -327,7 +349,7 @@ regulated domains of v0.5 ([v0.5](../v0.5/README.md#domains)).
 
 ## Release gate
 
-v0.4's definition of done is written with its master spec. Its release
+v0.4's definition of done is in its [master spec](master-spec.md#17-definition-of-done), section 17, its release gate in section 18. Its release
 gate has no aged run (D193): it relies on the smoke tests, the
 rehearsal and the early check fired by the host's timer
 ([roadmap](../README.md#release-gates)). For purposes this means:
@@ -343,8 +365,9 @@ rehearsal and the early check fired by the host's timer
 
 ## For the build plan
 
-Items the build plan must carry when it is written, noted as they
-arise:
+Gathered, with the rest, in the [master spec](master-spec.md#19-for-the-build-plan),
+section 19, and carried by the [build plan](build-plan.md). Items
+noted as they arose:
 
 - A security-advisor dependency check for `postgres` 0.4.0's new
   packages, `postgresql-18-cron` (PGDG) and Debian's `cron`: preflight
@@ -365,18 +388,25 @@ arise:
 
 ## Questions due in this version
 
-- O104: the purpose format.
-- O108: the shared business data model.
-- O111: the domain format, the part v0.4 must settle for the shop.
-- O115: the governance format.
-- O116: which governance rules are checked in v0.4.
-- O117: how the player-facing policy is presented.
+Every one below except O118 and the later ones is settled by the
+master spec, approved on 2026-10-30 (D215); O132 and O133, raised by
+the consolidation, were ruled the same day (D211, D212).
+
+- O104: the purpose format; closed by D215.
+- O108: the shared business data model; closed by D215.
+- O111: the domain format, the part v0.4 must settle for the shop;
+  that part closed by D215, the rest open for v0.5.
+- O115: the governance format; closed by D215.
+- O116: which governance rules are checked in v0.4; closed by D215.
+- O117: how the player-facing policy is presented; closed by D215.
 - O118: brick changes for governance (pgaudit, TLS); defaulted to none
   in v0.4, held for v0.5 unless the owner objects.
-- O119: what "fixed" means for a governance fault.
-- O122: the customer's time zone in the data and the jobs.
-- O124: the moment a purpose check judges from.
-- O125: monitoring the second database, and any further instance.
+- O119: what "fixed" means for a governance fault; closed by D215.
+- O122: the customer's time zone in the data and the jobs; closed by D215.
+- O124: the moment a purpose check judges from; closed by D215.
+- O125: monitoring the second database, and any further instance; closed by D215.
+- O132: a report-only database node; closed by D211 (story only).
+- O133: which catalogue faults v0.4 builds; closed by D212 (the ten).
 - O11: technologies and versions, narrowed by D190.
 - O22: scheduled jobs under real time; its v0.4 part settled by D199.
 - O52: the dbt toolchain, not planned for v0.4.

@@ -1,9 +1,9 @@
 # Formats: scenario, brick, fault
 
-Status: draft v21
+Status: draft v22
 
-What a scenario, a brick and a fault definition must contain, and how they
-are laid out, so that every scenario the GM designs or generates stays
+What a scenario, a brick, a fault definition and, from v0.4, a purpose
+and a domain must contain, and how they are laid out, so that every scenario the GM designs or generates stays
 within known boundaries. The rules these formats carry (the solvability
 probe, per-brick checks, fault families) are in
 [bricks-and-faults.md](bricks-and-faults.md); access and validator rules
@@ -14,14 +14,19 @@ fields v0.3 adds (`aging:`, `difficulty:`, `plant_at`, `write_overrides`,
 `snapshot:`, and a scheduler's `queries.yaml`, `schedule.yaml` and
 `jobs.yaml`) are in the
 [v0.3 master spec](versions/v0.3/master-spec.md), sections 6.7 and 7.1,
-normative until the format skill's templates carry them (D151).
+normative until the format skill's templates carry them (D151). Those
+v0.4 adds (`purposes:`, `domain:`, `governance:`, `crontab_roles`,
+`judges`, `needs_unshared_host`, `seed.optional`, `applies_to.purposes`)
+are in the [v0.4 master spec](versions/v0.4/master-spec.md), section 6.9,
+normative likewise (D215).
 
 ## Enforcement
 
 Skills backed by templates enforce the formats:
 
 - **The format skill** (D5): a template each for the scenario (manifest
-  and answer key), the brick and the fault definition, and one skill the GM
+  and answer key), the brick and the fault definition, from v0.4 the
+  purpose and the domain (D215), and one skill the GM
   uses whenever it designs, generates or edits any of them. It starts from
   the template, fills every required item, and flags any that is missing;
   the GM refuses to deploy an incomplete scenario (D40).
@@ -72,9 +77,28 @@ The owner's requirements (D23), with the earlier rulings that apply:
   writable paths made fixable on a report-only node, a fault's *fix*
   resolution then needing the policy of the file it lives in (D130,
   D143); a scheduler node's seed files (`queries.yaml`, `builders/`,
-  `jobs.yaml`, `schedule.yaml`; D115); every flow between nodes (what moves, how, cadence;
+  `jobs.yaml`, `schedule.yaml`; D115), from v0.4 also `scripts/`, the
+  transformer scripts (D203); from v0.4, several `postgres` nodes, each an
+  instance of its own with its own seed and data file (D202), every
+  scheduler node on `scheduler` 0.2.0, and a `postgres` node's cron
+  daemon, on when the node seeds a `crontab`, the node then naming in
+  `crontab_roles` the customer roles its crontab connects as, whose
+  password secrets deployment mounts into it (D206, D215); every flow between nodes (what moves, how, cadence;
   monitoring and backup relations included); the data schema each database
   holds, or what produces it.
+- **Purposes, domain and governance** (from v0.4, D190–D192, D215):
+  `purposes:`, each purpose used by id, its parts mapped to the
+  scenario's nodes and databases ("Purpose definition" below), the loader
+  checking every part is mapped and every job's key and name exist on
+  the mapped runner; `domain:`, the domain the scenario's business comes
+  from, for provenance only, none in a static scenario ("Domain" below);
+  `governance:`, the policy file and, for each data class, its locations
+  (`node/database`, with `separation: instance` when the policy demands
+  an instance of its own), its readers (customer roles) and its outbound
+  flows with their allowed fields, the loader checking every class named
+  is defined, every location names a `database` node and a database its
+  data file creates, every reader is a role a data file creates, and
+  the policy file exists.
 - **Background information**: the customer's story and context.
 - **Incidents, flaws and defects**: every fault instance (fault definition
   and version, target nodes, parameters, known or hidden; from v0.3 its
@@ -108,11 +132,15 @@ The owner's requirements (D23), with the earlier rulings that apply:
   check, interactions with other faults, any validator the player cannot make green (D10), and, once
   solvability probes exist, their results. From v0.3 a behavioural
   sealed check (one judging behaviour over time, not a cause) states its
-  window and threshold (D124). The GM's silent tooling
+  window and threshold (D124). From v0.4 a sealed check judging a
+  purpose's runs or triggers states `judges: runs` or `judges: triggers`
+  and a `threshold` (violations tolerated, 0 by default), and no window
+  (D215). The GM's silent tooling
   expectations (D65) are a list of their own, outside the fault
   instances: each says what is expected and what is acceptable (any of
   the research's top three tools for a need, say), has no sealed check,
-  and is judged in feedback (D76).
+  and is judged in feedback (D76); from v0.4 one may name an unmonitored
+  instance (D215).
 - **The host topology it was designed for**: the platform (Swarm,
   Kubernetes…), the hosts, their capacity (CPU, RAM, disk), and the
   resource limits, reservations and placement the scenario was sized with.
@@ -126,7 +154,9 @@ The owner's requirements (D23), with the earlier rulings that apply:
   retention covers its aging minimum (none without an aging) plus four
   hours by time unless a planted fault is about
   retention, which the loader checks, a size bound staying above the
-  measured growth (D140, D151).
+  measured growth (D140, D151). From v0.4, a scenario with `governance:`
+  hands the players the company's data policy, `player/data-policy.md`
+  (D191, D215).
 - **The files each node needs**, delivered as Swarm configs (D11).
 - **The scenario document**, generated with the GM's scenario-document
   skill (D20), opening with a prominent warning that students and players
@@ -154,6 +184,7 @@ skill (D40).
     README.md         topology, node names, rules and DO NOT TAMPER list
     story.md          the customer's background
     issues.md         the issues given, each with its expected resolution (may be empty)
+    data-policy.md    from v0.4, with `governance:`: the company's data policy
   gm/                 sealed: never shipped to any node
     answer-key.yaml
     notes.md          explanations the GM draws on for feedback
@@ -241,6 +272,9 @@ Fields marked *optional in v0.1* have no use yet and may be left out
 - **Knobs**: setting, file, default, and default envelope; a scenario may
   tighten the envelope (D32).
 - **Write policy options** it supports (*fixable*, *report-only*).
+  `postgres` supports *fixable* only, from v0.4 too: a database node
+  another party owns in the story is report-only by the story and the
+  answer key alone (D211).
 - **Writable paths** (what the player may change; from v0.3 also the
   paths a scenario's write overrides may name, D143) and **protected
   files**.
@@ -259,7 +293,9 @@ Fields marked *optional in v0.1* have no use yet and may be left out
   can collect. *Optional in v0.1.*
 - **Health check**: a command run inside the container.
 - **Secrets** it needs, and the fixed paths where it reads them and its
-  seed files.
+  seed files. Every seed file a brick declares is required of every node
+  using it, except those it lists under `seed.optional` (from v0.4;
+  `postgres`' `crontab` the first, D206, D215).
 - **Processes** run under s6-overlay (D30).
 - **Companion material**, if any (see below).
 
@@ -431,12 +467,18 @@ faults/<fault-id>/
 
 ### `fault.yaml` must contain
 
-- **Identity**: id, version, title, family, severity.
+- **Identity**: id, version, title, family, severity. From v0.4, purpose
+  faults are `data-flow` (duplicates, dropped records) or `rules` (a
+  wrong zone, a wrong segment); governance and credential faults join
+  `security`, with `governance-*` and `security-*` ids (D215).
 - **Applies to**: brick ids and, for each, the brick versions the fault
   applies to, plus topology preconditions (e.g. needs a standby, needs a
   scheduled job). This is the only statement of which faults a brick
   hosts (D59). Versions are listed one by one, never as ranges (D86), so
   each brick bump adds its version to every fault that still applies.
+  From v0.4, `applies_to.purposes` names the purposes a fault attaches to,
+  beside `bricks:`, and a purpose fault also lists the `scheduler`
+  versions its runner needs, since its sealed check runs there (D215).
 - **Parameters** the scenario sets (which table, which job…).
 - **Injection**: how it is planted, and at which stage. Kinds: a change
   to a node's seed configuration; a change to a parameter of the target
@@ -448,14 +490,21 @@ faults/<fault-id>/
   `kubectl exec` (D22). Their interface is in "Script contracts" below.
   In the format these kinds are `seed-file` (with `seed_changes`),
   `parameter` and `state`; from v0.3 only a `state` fault may be planted
-  later than T0, the other two being planted at render (D151).
+  later than T0, the other two being planted at render (D151). From
+  v0.4 a purpose fault is planted as these are: a `seed-file` change (a
+  runner's `queries.yaml`, a script, `jobs.yaml`, a database node's data
+  file, `postgresql.conf` or `crontab`), a `state` change during the
+  aging, or a timeline change of a schedule for an outside party's
+  behaviour, which the definition states and the scenario writes (D215).
 - **Evidence paths** as the player user. From v0.3 each evidence's
   free text is its `source`, and its `where` is `node` (the fault's
   target node), `bastion`, or `report:<tool>` for a tool the target's
   brick ships; never `ui:<name>`, whose routes only the scenario knows
   and which the answer key adds (D140, D145). And the **aging** technique
   (`real-time`, the only one from v0.3, D114) and
-  minimum duration that make them visible.
+  minimum duration that make them visible. From v0.4, a fault whose
+  evidence shows at a job's runs counts its aging minimum from that job's
+  first run after planting, as v0.3's time-of-day faults do (D189, D215).
 - **Solvability probe**: what it runs as the player user and what it
   expects. Descriptive only in v0.1; a manual play-through checks it
   (D38).
@@ -463,13 +512,91 @@ faults/<fault-id>/
   make sense, and which write policy each needs.
 - **Acceptance criteria**: what counts as a correct diagnosis and as an
   acceptable fix or improvement.
-- **Sealed fix check**.
+- **Sealed fix check**. From v0.4 it states `sealed_check.judges`:
+  `runs`, `triggers`, or absent for a check judging the live state
+  (D215).
+- **Host needs** (from v0.4): `needs_unshared_host: true` when the
+  fault's node must never be placed on a shared host; `gmctl fit`
+  refuses a mapping that does (D209, D215).
 - **Interactions**: masks, masked by, conflicts with.
 - **Complaint template**: how a customer would describe it, for when the
   fault is known.
 
 *Known* or *hidden* is not part of the definition: it is chosen per
 instance, in the scenario.
+
+## Purpose definition (from v0.4)
+
+A purpose is a catalogue unit beside bricks, faults and scenarios: what
+some of the customer's data is *for* (D190, D215). Its jobs are run by a
+scheduler node or a database node; faults attach to it as to bricks.
+
+```
+purposes/<purpose-id>/
+  purpose.yaml   identity, parts, jobs, trace, invariants, data moved, roles
+  material/      the jobs' repository entries, transformer scripts and
+                 jobs.yaml lines, the target's DDL (foreign servers and
+                 procedures included), as the GM copies them into a scenario
+  checks/        one script per invariant
+  gm.md          what the purpose is for, how it goes wrong, feedback notes
+```
+
+`purpose.yaml` must contain:
+
+- **Identity**: id, title, the domains it fits, its kind (pulled,
+  transformed in place, pushed, pushed obligation).
+- **Parts**: the roles the scenario fills with its own nodes and
+  databases: `source` and `target` (databases, of one instance or two),
+  `runner` (a scheduler node, role `transformer`), optionally `consumer`
+  (a scheduler node reading published results) and `receiver` (a stub
+  node, for a pushed obligation).
+- **Jobs**: for each, its name, its repository key, its runner, its
+  source and target, its movement method, what it computes in one
+  sentence, its cadence in scenario time, and the customer role of each
+  connection it holds.
+- **Trace**: each place it leaves something, with its kind (outbox rows,
+  published results, run ledger, definitions), its table or file, and
+  the column that ties a row to the run that wrote it.
+- **Invariants**: for each, an id, a one-sentence statement against the
+  source, the check script judging it, its parameters, and its witness
+  condition (what must exist in the data for a run to be able to violate
+  it).
+- **Data moved**: which classed columns each job reads and where it
+  writes them, so governance can be checked against it.
+- **Customer roles** the purpose needs, with their grants.
+
+The GM copies a purpose's material into the scenario at design time, as
+it writes a scheduler's repository: the jobs into the runner's
+`queries.yaml`, `scripts/` and `jobs.yaml`, the target's DDL into the
+target node's data file. The scenario folder stays self-sufficient
+(D23), and `purposes:` names the purpose for provenance and for the
+faults attached to it.
+
+## Domain (from v0.4)
+
+A domain is a reusable catalogue unit of a business: its data model, its
+producer material, its classification, its GM notes; the shop is the
+first (D192, D215).
+
+```
+domains/<domain-id>/
+  domain.yaml           identity, the parts below, the purposes that fit
+  data/
+    schema.sql          the business tables, roles and grants
+    load.sql            the generated history ("last night's backup")
+    classification.yaml every classed column
+  producers/            the business's producer repository and schedule fragments
+  docs/gm.md            the business, its rules, its traps
+```
+
+A domain is a design-time source: the GM copies its files into the
+scenario, adapting them, and `scenario.yaml`'s `domain:` names it for
+provenance. A static scenario needs none. `classification.yaml` classes
+every column (`personal`, `customer-linked` or `internal`), a column with
+no entry being `internal`; the scenario's `governance:` states the rules
+for each class. How producer material meets a schedule, what a
+scenario's size scales, and whether a domain may be composed of smaller
+ones are v0.5's (O111, O113, O114, O126).
 
 ## Versions and pins (D57–D62, D72, D75, D86, D100)
 
@@ -489,7 +616,10 @@ pin that does not match the definition's `version`.
   start at 0.1.0 (from v0.3, `scheduler` and `pgbouncer`; `postgres` and
   `bastion` then take 0.3.0, the monitoring bricks 0.2.0); v0.2's changes
   to a v0.1 brick take 0.2.0, since 0.1.1
-  was released with `main` at 5c16d06 (D72).
+  was released with `main` at 5c16d06 (D72). v0.4 bumps `postgres` to
+  0.4.0 and `scheduler` to 0.2.0: every scenario with a `postgres` node
+  pins 0.4.0, every scenario with a scheduler node 0.2.0, and every fault
+  applying to either adds the new version to `applies_to` (D206, D215).
 - **Faults never bump** (D60). A fault keeps its version whatever changes
   in its folder (injection, sealed check, acceptance criteria,
   `applies_to`); git history is the record. A fault pin therefore names
@@ -497,6 +627,9 @@ pin that does not match the definition's `version`.
 - **Scenarios never bump** (D58, D75). A scenario keeps its version
   whatever changes (pins, answer key, issues, story, topology); git
   history is the record, and nothing pins a scenario.
+- **Purposes and domains never bump** (from v0.4, D215): their material
+  is copied into a scenario at design time, so nothing pins a state of
+  them.
 - **Which faults a brick hosts** is stated only by each fault's
   `applies_to` (D59); `brick.yaml` lists no faults. A new brick version
   hosts no fault until the faults that still apply to it add that version
@@ -517,7 +650,12 @@ Fixed at consolidation so the scripts, the faults and the GM skill agree.
   window on the first output line (D124); any other code is an error. The
   first line of output says why, in one sentence the GM can use in
   feedback. From v0.3 a sealed check on a database connects as the GM
-  check role, inside the GM's connection reserve (D144).
+  check role, inside the GM's connection reserve (D144). From v0.4 a
+  sealed check judging runs or triggers receives `CHECK_SINCE`, the
+  judged moment as a UTC timestamp, the exit codes unchanged; a check
+  comparing two instances reaches each as the GM check role, from a
+  scheduler node through `check-sql`, from a database node through
+  `check-psql` with the other node's name (D215).
 - **The data load** (`data/<node>.sql`): SQL, streamed into `psql` run as
   `postgres` inside the node's container; once per game, a second load
   changes nothing; any error is a failed setup (D52).
@@ -529,8 +667,9 @@ Fixed at consolidation so the scripts, the faults and the GM skill agree.
 
 A node's role names its place in the topology (proposed list): `bastion`,
 `producer`, `queue`, `database`, `pooler` (from v0.3, PgBouncer),
-`transformer`, `consumer`, `monitoring`,
-`backup`. A brick may serve several roles.
+`transformer` (from v0.4, a `scheduler` 0.2.0 node running purpose jobs,
+D203), `consumer`, `monitoring`, `backup`. A brick may serve several
+roles.
 
 ### Where a job runs (D207)
 
