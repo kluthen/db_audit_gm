@@ -1,0 +1,14 @@
+# Fixed-time operations of the BI agency's transformer, a fragment (capture
+# W1, item 5's rule), in scenario time: the hourly roll-up at five past
+# every hour, the nightly close at 01:30 (master spec 10.1).
+jobs:
+  - name: rollup-hourly
+    key: rollup.hourly
+    connections:               # the script's names -> the schedule's connections
+      source: shop
+      target: reporting
+    at: "5 * * * *"
+  - name: rollup-close
+    key: rollup.close
+    connection: reporting
+    at: "30 1 * * *"
