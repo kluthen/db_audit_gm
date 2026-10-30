@@ -17,7 +17,9 @@ starter pack as Markdown and as a page (2, 5, 6.4, 7.3, 11.5, 15, 16.1,
 7.3, 14, 15, 16.4, 19, 20, 22). A database node's data file named in a
 seed-file change (6.3) was settled the same day, applying 6.3 as
 approved. During wave 2, f10's early calibration (16.3) led the owner
-to raise `reporting`'s memory limit (16.1).
+to raise `reporting`'s memory limit (16.1), and chunk 11's reading of
+E4's deadline was written in (10.4, 12.4): the 30 minutes are the
+acknowledgement's, an incident due by the escalation run after them.
 
 ---
 
@@ -1066,9 +1068,14 @@ held, released or cancelled because of it.
   schema lists and nothing else: no e-mail, no customer id, no other
   order's lines.
 - **E4 acknowledged or escalated.** Every declaration sent since the
-  judged moment has an acknowledgement, or an `incidents` row within 30
-  minutes of sending; every rejection has an `incidents` row. Witness:
-  the stub's unacknowledged declarations.
+  judged moment has an acknowledgement within 30 minutes of sending, or
+  else an `incidents` row by the first `escalate-customs` run after
+  those 30 minutes: the 30 minutes are the acknowledgement's deadline,
+  and the incident is due one escalation cycle (15 minutes) later, 45
+  minutes after sending. Every rejection has an `incidents` row by the
+  first escalation run after it, one cycle. The check allows each
+  deadline two minutes' grace for the run itself. Witness: the stub's
+  unacknowledged declarations.
 
 ### 10.5 Finance, held for v0.5
 
@@ -1282,7 +1289,8 @@ declarations) and the fault's notes say so.
 A deadline invariant judges **triggers** rather than runs:
 
 - a trigger since the judged moment past its deadline with no
-  declaration (or, for E4, no acknowledgement and no incident): **exit
+  declaration (or, for E4, no acknowledgement within its 30 minutes and
+  no incident): **exit
   1**;
 - every trigger since the judged moment older than two dispatch cycles
   handled in time, at least one such trigger: **exit 0**;

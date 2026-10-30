@@ -21,7 +21,8 @@ approval: `bastion` 0.4.0, the starter pack as Markdown and as a page
 in every game, its home the starter-pack page (D224, D225; O134 closed,
 the setup's entry point O135 for v0.5), and a data file named in a seed
 change was settled (D226). During wave 2 his ruling on G10 raised
-`reporting`'s memory limit to 640M (D227).
+`reporting`'s memory limit to 640M (D227), and chunk 11's reading of
+E4's deadline was written into the master spec (D228).
 The drafts stay as the working record until the archive; where
 they and the master spec disagree, the master spec is current.
 Page draft v9.
@@ -50,7 +51,7 @@ incident on a database node (D209).
 
 | Document | Purpose | Status |
 |---|---|---|
-| [master-spec.md](master-spec.md) | The consolidated v0.4 specification | approved 2026-10-30 (D215); amended by D221 (`bastion` 0.4.0), D224 (the web front in every game), D226 (a data file in a seed change), D227 (`reporting`'s limit at 640M) |
+| [master-spec.md](master-spec.md) | The consolidated v0.4 specification | approved 2026-10-30 (D215); amended by D221 (`bastion` 0.4.0), D224 (the web front in every game), D226 (a data file in a seed change), D227 (`reporting`'s limit at 640M), D228 (E4's deadline clarified) |
 | [access-model.md](access-model.md) | Who may do what in a v0.4 game; the customer's roles and data policy in the game's world | approved 2026-10-30 (D215); amended by D224 (the web front in every game) |
 | [build-plan.md](build-plan.md) | The build: nineteen chunks in four waves, the gates G1 to G13, the release gate | v6, approved 2026-10-30 (D216–D218), capture W1's corrections (D219, D220), `bastion` 0.4.0 as chunk 19 (D221–D223); v5, the web front in every game, chunk 19 split (D224, D225), the data file's seed change in chunk 15a (D226); v6, `reporting`'s limit at 640M, G10 done (D227) |
 | [purposes.md](purposes.md) | The purpose as an artefact: layout, `purpose.yaml`, how a scenario uses one, faults attached to purposes, instances and node sizing, the job runner and the transformer script, moving data between instances, cadence under real time, the customer's time zone in the data | draft v4 |

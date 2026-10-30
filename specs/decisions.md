@@ -316,3 +316,10 @@ drafting. Take the next number from `doc-ids`; no ID is reused.
   [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 16.1;
   [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) G10, chunks
   13, 15, 16, release gate.
+- **D228 (2026-10-30, spec-writer, confirming chunk 11's reading of 10.4
+  as approved): E4's 30 minutes are the acknowledgement's deadline; a
+  missing one's incident is due by the next `escalate-customs` run (45
+  minutes after sending), a rejection's one cycle after it, two minutes'
+  grace each.** Read literally, 10.4's own quarter-hour job could not meet
+  "an incident within 30 minutes of sending". Now in:
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 10.4, 12.4.
