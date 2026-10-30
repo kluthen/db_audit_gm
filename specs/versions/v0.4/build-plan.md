@@ -861,7 +861,7 @@ Record: 10a 2ecf66a, 10b 68b2675, merge 1414e3c. No departure from the spec; cho
 
 ### Chunk 11 — P2, P3 and P5: leads, mailing, export declarations
 
-Status: planned
+Status: merged (w2, d41032c)
 Wave: 2
 Depends on: chunks 3, 5; G8 (done, spec D217)
 Architecture capture: none.
@@ -893,6 +893,8 @@ Architecture capture: none.
   runs or triggers with a witness, 3 otherwise.
 - Verification: chunk checks.
 - Split rule: 11a P2 and P3; 11b P5 and the gateway stub.
+
+Record: 11a 2fda6c4, 11b 1ae95e6, merge d41032c (README purpose row merged with chunk 10's). E4's deadline read as the acknowledgement's 30 minutes plus one escalation cycle (master spec 10.4), sent to `spec-writer`; the stub answers by 15-second slots (`customs_gw` cannot read `customs_acks`). Found outside its Files line: the shop domain's consent buckets leave M3 without a witness from 16:00 to 20:45 company time, fixed on the wave branch (wave log). Choices logged in the wave log and each `gm.md`.
 
 ### Chunk 12 — The governance check set G1 to G4
 

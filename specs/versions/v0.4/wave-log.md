@@ -1599,3 +1599,48 @@ read booleans as `t` where `check-sql` prints `True`.
 - Risk: the checks' 60 s settle margin assumes no producer transaction
   commits more than 60 s after its `now()` (longest today: the close's
   20 s hold).
+
+### Chunk 11 — merged (d41032c), 2026-10-30
+
+11a 2fda6c4 (P2, P3), 11b 1ae95e6 (P5, the gateway stub), merge d41032c;
+the README's purpose row now lists all four purposes. `check_purpose_dir`
+clean for all four, `check_domain_dir(shop)` clean; merged runner and
+receiver fragments pass the loader's checks; unit suite 795 OK;
+scheduler unit tests 71 OK. Every job's SQL ran as its role on the shop's
+data at shifts 0, +2, −5; a 33-minute live run at −5 on the real
+`scheduler` 0.2.0 programs: every job `status=ok`, the stub 0 errors,
+nothing answered twice. The stub: 108 of 5 000 crafted declarations
+unanswered (2.2 %), live 2/66 and 5/98, the hash's picks exactly
+(idempotency key mod 50 = 0); acknowledgement delay 21.6 s live, bounded
+5–35 s. All 12 checks run as `gmctl check` runs them: 0 clean (E4 on
+crafted triggers), 3 with `remaining=` (E4 also live while a declaration
+is pending), 1 on each crafted violation; `FAULT_JOB` narrows M1, M4.
+Fixed in-chunk: L1's race with a checkout's 3 s transaction (orders
+placed under a minute before the run ignored; L2, M2 count consent
+lacking at the row's time and a minute before); the stub's slots 30 s →
+15 s; M5's boolean (`True`, as R1 in chunk 10).
+
+Choices (accepted, in each `gm.md`): the stub answers by 15-second slots
+since `customs_gw` cannot read `customs_acks` (access model 9.1); a
+restart on a slot boundary may answer a slot twice or skip one, harmless
+to the checks; `mail-shipped`'s window `[minute−6, minute−1)` without
+reading `mail_outbox` (f1's surface); `declare-exports` looks back 2 h
+only; M5 reports a missing notice even if the job hasn't run since; M1,
+M4 take an optional `job`; incidents `source = 'customs'`, `ref` the
+declaration's id.
+
+**Sent on:**
+- **E4's deadline** (master spec 10.4) to `spec-writer`: read literally
+  ("an incidents row within 30 minutes of sending") it can't hold for
+  the spec's own job, which escalates what is unanswered 30 minutes
+  after sending, every quarter hour; chunk 11 reads the 30 minutes as
+  the acknowledgement's deadline, the incident due within 30 min + one
+  15-minute cycle + 2 min grace (E4's statement, `gm.md`).
+- **The shop domain's consent buckets** (chunk 5's `load.sql`): every
+  bucket derives from the customer id and they line up, so no lapsed
+  customer at +5 h ever has first consent (0, against 200 at −8 h and
+  400 at ±1 h). 9.3's "every campaign batch has a witness" fails from
+  16:00 to 20:45 company time, and f3 after 16:00 in a 14:00–18:00
+  game. To a `coding-executor` on the wave branch, its own commit.
+- For the wave gate: the export packing rate (66 declarations in 33 min
+  at 16:00 company time, about one unanswered every 25 minutes).
