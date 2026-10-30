@@ -8,13 +8,10 @@ in [archive/v0.1/open-questions-resolved.md](archive/v0.1/open-questions-resolve
 their IDs keep their meaning. Questions resolved by the close of v0.2
 (O13, O50, O51 and O56–O77) are listed in
 [archive/v0.2/open-questions-resolved.md](archive/v0.2/open-questions-resolved.md).
+Questions resolved by the close of v0.3 (O45, O46, O78 and O81–O103) are
+listed in
+[archive/v0.3/open-questions-resolved.md](archive/v0.3/open-questions-resolved.md).
 Numbering continues from O104.
-
-Resolved since v0.2 closed: O45 (D121), O46 (D128), O78 (D140), O82
-(D124), O83 (D125), O84 (D126), O85 (D127), O86 (D129), O87 (D130), O88
-(D131), O89 (D132), O90 (D133), O91 (D134), O92 (D135), O93 (D136), O94
-(D137), O95 (D138), O96 (D139), O97 (D140), O81 (D141), O98 (D142), O99
-(D143), O100 (D144), O101 (D145), O102 (D171), O103 (D175).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -75,7 +72,7 @@ for the next version (v0.1 until it closed, with none left open);
   enough for short-aging scenarios, which may change how much the
   volume copy is needed; noted, not reopened (D125 stands).
   Refs: [scenario-lifecycle.md](scenario-lifecycle.md),
-  [versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md).
+  [archive/v0.3/aging-and-timeline.md](archive/v0.3/aging-and-timeline.md).
 - **O23** (later) — Difficulty is a fault count, each fault worth 1 (easy
   5, normal 10, hard 20; D120), read for v0.3 as the number of fault
   instances, the levels being targets (D134). Still open:
@@ -108,15 +105,6 @@ for the next version (v0.1 until it closed, with none left open);
   of the game by then)? A scoring system is post-v1.0, unless research
   finds one quick to implement (D120). Refs:
   [scenario-lifecycle.md](scenario-lifecycle.md).
-## v0.3: producers, consumers and aging
-
-Raised while v0.3 is drafted. O82 to O97, raised when the drafting
-opened, and O98 to O101, raised by their answers, were all answered on
-2026-10-22 (D124–D145). The drafts' `(proposed)` items
-await the owner's review in
-[versions/v0.3/review-list.md](versions/v0.3/review-list.md). O102,
-raised at wave 1's preflight, was answered the same day (D171), and
-O103, raised at wave 2's preflight, on 2026-10-26 (D175). None is open.
 
 ## Roadmap: gaps and cross-version risks
 
@@ -132,7 +120,7 @@ the question concerns.
   roadmap? With an aging of eight hours or more (D150), a probe failing at
   hand-over costs the class; v0.3's master spec has an early check during
   aging and a hand-over check. Refs:
-  [versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md),
+  [archive/v0.3/aging-and-timeline.md](archive/v0.3/aging-and-timeline.md),
   [versions/v1.0/README.md](versions/v1.0/README.md).
 - **O49** (soon, roadmap) — Backup tools (pgBackRest and the like) and the
   backup-tooling fault families (D17) are in no version, although backups

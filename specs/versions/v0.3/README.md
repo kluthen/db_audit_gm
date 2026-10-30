@@ -1,19 +1,21 @@
 # v0.3 — producers and consumers
 
-Status: **spec approved on 2026-10-22** (D154): the [master spec](master-spec.md)
+Status: **released on 2026-10-30, merged into `main` (cba7be3)**; its
+working record is archived in [archive/v0.3/](../../archive/v0.3/README.md)
+(page draft v11). **Spec approved on 2026-10-22** (D154): the [master spec](master-spec.md)
 and its [access model](access-model.md), consolidated the same day,
 revised after the independent review (REJECT, seven blocking issues, all
 fixed: D151), the owner's answers to it (D147–D149), his eight-hour aging
 floor (D150) and the re-review's corrections (OKAY, D155); amended the
 same day by the ruling that only a scenario with scheduler nodes ages
-(D157, D158) (page draft v10). The owner's rulings of 2026-10-22 are
+(D157, D158). The owner's rulings of 2026-10-22 are
 D114–D123, his answers to two rounds of questions D124–D145, his
 acceptance of the review list D146, D152 and D153. No v0.3 question is
-open. The [build plan](build-plan.md) is **approved** (D156), with the
+open. The [build plan](../../archive/v0.3/build-plan.md) is **approved** (D156), with the
 VPS rule (D159). Built in four waves from 2026-10-23 to 2026-10-28;
 **release gate complete on 2026-10-30** on `v0.3-w4`, items 1 to 15
 passed, G9 and G10 cleared (see "Status" and "Release notes" below);
-awaiting its merge into `main`, on the owner's word.
+merged into `main` on 2026-10-30 as cba7be3, on the owner's word.
 
 ## Documents
 
@@ -21,17 +23,17 @@ awaiting its merge into `main`, on the owner's word.
 |---|---|---|
 | [master-spec.md](master-spec.md) | The consolidated v0.3 specification | approved 2026-10-22 (D154), amended by D157 and D158 |
 | [access-model.md](access-model.md) | Who may do what in a v0.3 game | approved 2026-10-22 (D154), amended by D157 and D158 |
-| [build-plan.md](build-plan.md) | The v0.3 build: chunks, waves, gates, release gate | v15, approved 2026-10-22 (D156); built, release gate passed 2026-10-30 |
-| [wave-log.md](wave-log.md) | The waves' and the release gate's runs, captures and findings | closed with the release gate |
-| [scheduler.md](scheduler.md) | The scheduler brick, the query repository, the schedule, fixed-time operations, what the players reach, drivers | draft v3, consolidated |
-| [aging-and-timeline.md](aging-and-timeline.md) | Real-time aging, "meaningful" days, time of day, the timeline from deployment to teardown, the restart | draft v3, consolidated |
-| [load-and-capacity.md](load-and-capacity.md) | Calibrating load, `max_connections`, load control, always-on hosts, several hosts, the hosts at hand | draft v3, consolidated |
-| [faults-with-activity.md](faults-with-activity.md) | Difficulty, v0.3's scenario, fault families that need activity, candidate faults | draft v3, consolidated |
-| [checks-under-load.md](checks-under-load.md) | Sealed checks, validators and smoke tests on a living system | draft v3, consolidated |
-| [pgbouncer.md](pgbouncer.md) | The PgBouncer brick | draft v2, consolidated |
-| [carried-items.md](carried-items.md) | Earlier rulings and known issues landing in v0.3 | draft v3, consolidated |
-| [format-changes.md](format-changes.md) | Every change to the formats, script contracts, local implementation and `gmctl` | draft v2, consolidated |
-| [review-list.md](review-list.md) | Every `(proposed)` item, for the owner's review in one pass | closed: first round accepted (D146); second round ruled (D152, D153) |
+| [build-plan.md](../../archive/v0.3/build-plan.md) | The v0.3 build: chunks, waves, gates, release gate | v15, approved 2026-10-22 (D156); built, release gate passed 2026-10-30; archived |
+| [wave-log.md](wave-log.md) | The waves' and the release gate's runs, captures and findings | closed with the release gate; left in place (skills, bricks, templates, scenarios and the scripts cite its captures) |
+| [scheduler.md](../../archive/v0.3/scheduler.md) | The scheduler brick, the query repository, the schedule, fixed-time operations, what the players reach, drivers | draft v3, consolidated; archived |
+| [aging-and-timeline.md](../../archive/v0.3/aging-and-timeline.md) | Real-time aging, "meaningful" days, time of day, the timeline from deployment to teardown, the restart | draft v3, consolidated; archived |
+| [load-and-capacity.md](../../archive/v0.3/load-and-capacity.md) | Calibrating load, `max_connections`, load control, always-on hosts, several hosts, the hosts at hand | draft v3, consolidated; archived |
+| [faults-with-activity.md](../../archive/v0.3/faults-with-activity.md) | Difficulty, v0.3's scenario, fault families that need activity, candidate faults | draft v3, consolidated; archived |
+| [checks-under-load.md](../../archive/v0.3/checks-under-load.md) | Sealed checks, validators and smoke tests on a living system | draft v3, consolidated; archived |
+| [pgbouncer.md](../../archive/v0.3/pgbouncer.md) | The PgBouncer brick | draft v2, consolidated; archived |
+| [carried-items.md](../../archive/v0.3/carried-items.md) | Earlier rulings and known issues landing in v0.3 | draft v3, consolidated; archived |
+| [format-changes.md](../../archive/v0.3/format-changes.md) | Every change to the formats, script contracts, local implementation and `gmctl` | draft v2, consolidated; archived |
+| [review-list.md](../../archive/v0.3/review-list.md) | Every `(proposed)` item, for the owner's review in one pass | closed: first round accepted (D146); second round ruled (D152, D153); archived |
 
 ## Goal
 
@@ -50,7 +52,7 @@ In the owner's words (D47):
   hand-over for as long as the scenario declares, at least eight hours, a
   floor the GM judges against the time available per game (D150); no
   sped-up clock, no forged history, no time compression (D132); on
-  always-on hosts only (D125) ([aging-and-timeline.md](aging-and-timeline.md),
+  always-on hosts only (D125) ([aging-and-timeline.md](../../archive/v0.3/aging-and-timeline.md),
   superseded on the length by the master spec).
 - **Only a scenario with scheduler nodes ages** (D157): a scenario with
   no producer or consumer, a static database investigated as a restored
@@ -69,7 +71,7 @@ In the owner's words (D47):
   `steps:` a sequence, player-editable builders on the trust line (D133);
   randomness seeded per game (D136); a pluggable driver, SQL on
   PostgreSQL first, other targets from v0.5 (D118, D137)
-  ([scheduler.md](scheduler.md)).
+  ([scheduler.md](../../archive/v0.3/scheduler.md)).
 - **Players** read the repository and may edit it where the scenario
   allows; of the scheduling they read and change only the fixed-time
   operations (D116); they also see the scheduler's log and configuration
@@ -78,9 +80,9 @@ In the owner's words (D47):
   triggers the load during a game, no "run now" (D131).
 - **Checks under load** judge the cause first, a window otherwise, may
   answer "too soon to tell", never pause the load and keep a connection
-  (D124; [checks-under-load.md](checks-under-load.md)).
+  (D124; [checks-under-load.md](../../archive/v0.3/checks-under-load.md)).
 - **A PgBouncer brick**, optional, no metrics brick, the players' console
-  role in `stats_users` only (D119, D139; [pgbouncer.md](pgbouncer.md)).
+  role in `stats_users` only (D119, D139; [pgbouncer.md](../../archive/v0.3/pgbouncer.md)).
 - **Difficulty** is a fault count (D120); a score is the number of fault
   instances, the levels targets (D134). v0.3 ships one new normal
   scenario (ten faults, with producers, consumers, monitoring and
@@ -92,7 +94,7 @@ In the owner's words (D47):
 - **Capacity** is for the GM and the initiator to discuss; Swarm is the
   platform (D122); **multi-host is in v0.3**, tested on armenelos and the
   VPS over Tailscale, the default game single-host (D128;
-  [load-and-capacity.md](load-and-capacity.md)); images are copied
+  [load-and-capacity.md](../../archive/v0.3/load-and-capacity.md)); images are copied
   between hosts over SSH, no registry (D149).
 - **A restart rebuilds the game from scratch** on the players' explicit
   confirmation (D110, D123), from a hand-over snapshot where the disk
@@ -111,7 +113,7 @@ In the owner's words (D47):
   (`reserved_connections`, pinned on the server's command line, D144).
 - **A fault definition's evidence** names `node`, `bastion` or
   `report:<tool>`, never `ui:<name>` (D145).
-- **Every carried item is taken** (D140; [carried-items.md](carried-items.md)).
+- **Every carried item is taken** (D140; [carried-items.md](../../archive/v0.3/carried-items.md)).
 - **The release gate includes one full aged run** (D135).
 - **The build plan is approved** (D156) with its nine recommendations:
   a test-harness-only override of the aging minimum (G6), the aged
@@ -167,7 +169,7 @@ In the owner's words (D47):
    change bumped (`postgres` with the GM's connection reserve and its
    snapshot method, the monitoring bricks for report-only, the bastion if
    it publishes in host mode).
-2. The format changes of [format-changes.md](format-changes.md) in the
+2. The format changes of [format-changes.md](../../archive/v0.3/format-changes.md) in the
    templates, the loader and the format skill; the eleven catalog faults
    moved to the new evidence `where`.
 3. Six to eight new catalog faults, each with its injection, aging
@@ -197,7 +199,7 @@ In the owner's words (D47):
 ## Questions due in this version
 
 None open: O82–O101 are answered (D124–D145). The owner's review of the
-`(proposed)` items, [review-list.md](review-list.md), is closed (D146,
+`(proposed)` items, [review-list.md](../../archive/v0.3/review-list.md), is closed (D146,
 D152, D153). Narrowed by the
 rulings and left for later versions: O11 (D118), O22 (D114, D125, D132),
 O23 (D120, D134), O30 (D114), O38 (D120), O48 (D114).
@@ -208,21 +210,22 @@ realistic web-traffic patterns), but Bluebox itself is planned for v0.5
 
 ## Status
 
-Built in four waves from the [build plan](build-plan.md): waves 1 to 3
+Built in four waves from the [build plan](../../archive/v0.3/build-plan.md): waves 1 to 3
 merged into `main` (5faff6c, 22ff556, be857ff); the wave 4 gate (passed
 2026-10-28) and the release gate ran on `v0.3-w4`, before its merge.
 Their runs are in [wave-log.md](wave-log.md), "Wave 4 gate passed —
 2026-10-28" and "Release gate — started 2026-10-28". **The release gate
 is complete** (2026-10-30): items 1 to 15 passed; G9 confirmed and G10
 passed by the owner on 2026-10-29; item 12's re-run on the fixed code
-the last item, passed on 2026-10-30. `v0.3-w4` is not yet merged into
-`main`; the merge waits for the owner's word.
+the last item, passed on 2026-10-30. `v0.3-w4` was merged into `main`
+on 2026-10-30 as cba7be3, on the owner's word.
 
 ## Release notes
 
 v0.3, release gate complete on 2026-10-30: items 1 to 15 passed, G9
 confirmed and G10 passed by the owner, RG-2, RG-3, RG-5, RG-8 and RG-9
-fixed at the gate. Released with it (D100): `postgres` 0.3.0, `bastion` 0.3.0,
+fixed at the gate; merged into `main` on 2026-10-30 as cba7be3.
+Released with it (D100): `postgres` 0.3.0, `bastion` 0.3.0,
 `prometheus`, `postgres-exporter` and `grafana` 0.2.0, and the new
 `scheduler` 0.1.0 and `pgbouncer` 0.1.0.
 

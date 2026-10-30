@@ -1,3 +1,5 @@
+> **Archived 2026-10-30.** One of v0.3's eight drafts, consolidated into the v0.3 master spec on 2026-10-22 and kept since as the working record, stale by design where the master spec supersedes it; v0.3 was released on 2026-10-30 and merged into `main` as cba7be3. Live summary: [v0.3 master spec](../../versions/v0.3/master-spec.md). Relative links were written from `specs/versions/v0.3/`: `master-spec.md`, `access-model.md`, `README.md` and `wave-log.md` are in `../../versions/v0.3/`, and `../v0.2/` is `../../versions/v0.2/`; links between the files archived here still resolve.
+
 # v0.3 — format and tooling changes
 
 Status: draft v2, consolidated

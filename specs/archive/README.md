@@ -10,3 +10,4 @@ live documents that now state them.
 |---|---|---|---|
 | [v0.1](v0.1/README.md) | 2026-10-21 | Build plan, decisions D1–D54, the resolved-questions table | build plan: `specs/versions/v0.1/`; decisions: `specs/`; the resolved-questions table has no links |
 | [v0.2](v0.2/README.md) | 2026-10-22 | Build plan, decisions D55–D106, the resolved-questions list | build plan: `specs/versions/v0.2/`; decisions: `specs/`; the resolved-questions list has no links |
+| [v0.3](v0.3/README.md) | 2026-10-30 | Build plan, the eight drafts and the review list, decisions D108–D112 and D114–D189, the resolved-questions list | build plan, drafts, review list: `specs/versions/v0.3/`; decisions and the resolved-questions list: `specs/` |

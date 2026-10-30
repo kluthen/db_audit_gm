@@ -1,3 +1,5 @@
+> **Archived 2026-10-30.** v0.3 was released at its release gate on 2026-10-30 and merged into `main` as cba7be3, on the owner's word; every chunk of this plan is built (v15). Live summary: [v0.3 README](../../versions/v0.3/README.md), "Release notes". Relative links were written from `specs/versions/v0.3/`: `master-spec.md`, `access-model.md`, `README.md` and `wave-log.md` are in `../../versions/v0.3/`, and `../v0.2/` is `../../versions/v0.2/`; links between the files archived here still resolve.
+
 # db_audit_gm v0.3 — Build plan
 
 Status: v15 (2026-10-28): v14 with the owner's rulings of 2026-10-28 on capture W4's open items and chunk 13's reading (spec D185 to D188) and the reading of the time-of-day faults' aging minima (spec D189) written into chunks 14 and 15 and G7, the scheduler brick's `gm_check_password` joining chunk 14a; v14 wrote chunk 10's two-host try's MTU finding (spec D184) into "Left for the build".

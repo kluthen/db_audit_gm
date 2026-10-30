@@ -1,3 +1,5 @@
+> **Archived 2026-10-30.** v0.3's review list of `(proposed)` items, closed: the first round (R1–R46) accepted as proposed (D146), the second (R47–R62) ruled (D152, D153); v0.5 revisits the accepted defaults after use. v0.3 was released on 2026-10-30 and merged into `main` as cba7be3. Live summary: [v0.3 master spec](../../versions/v0.3/master-spec.md), [v0.5 page](../../versions/v0.5/README.md). Relative links were written from `specs/versions/v0.3/`: `master-spec.md`, `access-model.md`, `README.md` and `wave-log.md` are in `../../versions/v0.3/`, and `../v0.2/` is `../../versions/v0.2/`; links between the files archived here still resolve.
+
 # v0.3 — review list
 
 Status: **closed 2026-10-22.** First round: every item accepted as

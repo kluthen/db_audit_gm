@@ -1,6 +1,6 @@
 # GM stance
 
-Status: draft v12
+Status: draft v13
 
 How the game master behaves and speaks with the people in its session, from
 setup to feedback. Settling this stance is v0.1's main goal (D15). The
@@ -74,7 +74,7 @@ holds ([scenario-lifecycle.md](scenario-lifecycle.md), "Hand-over").
   the GM has stated that the game's state and the players' changes are
   lost and, without a snapshot, which evidence goes; the restart is
   recorded in the local implementation (D141;
-  [v0.3](versions/v0.3/aging-and-timeline.md), "Restart").
+  [v0.3 master spec](versions/v0.3/master-spec.md) 12).
 - **Aging feasibility** (D150, from v0.3): each scenario with scheduler
   nodes declares the aging it needs, at least eight hours; a scenario
   with no producer or consumer, a static database, has no aging and is
