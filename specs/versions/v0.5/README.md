@@ -100,6 +100,10 @@ It is a composite of parts, each close to a domain of its own:
 | Messaging and machine logs | internal mail, messages and logs with governance of their own |
 | Regulatory reporting | medicines and antimicrobial-use registers, notifiable disease reports (a pushed obligation, [v0.4](../v0.4/purpose-catalogue.md#p5--export-declarations-a-pushed-obligation)), lab results released to owners |
 
+The same round-trip shape as export declarations' acknowledgements
+(below) runs through the clinic: results coming back from external
+labs, requests and answers between clinics.
+
 Open: whether a domain may be composed of smaller domains (O126); where
 the franchise's several sites and the exchange between clinics sit
 (O127). v0.2's `fernway-clinics-monitoring` is a veterinary clinic too,
@@ -111,6 +115,32 @@ its strict reporting tests the purpose model
 and its data classes test the governance first cut
 ([v0.4 governance](../v0.4/governance.md), "The database-versus-instance
 boundary").
+
+### Round trips: acknowledgements as inputs (D201)
+
+The owner, on 2026-10-30: "Another idea that poped into mind, especially
+with export declaration, we could have outgoing flow of data
+(declarations, as such), but expect to receive "acknowledgement"
+(success or failures, whichever) and await them. It's a side input but
+may trigger several other process inside the setup. That's probably
+more v0.5 anyway."
+
+v0.4's export declarations push and check: an acknowledgement is part of
+the trace, and at most opens an incident
+([v0.4 P5](../v0.4/purpose-catalogue.md#p5--export-declarations-a-pushed-obligation)).
+A **round trip** makes it an inbound flow the setup waits on and reacts
+to: an acceptance or a rejection starts other processes, such as a
+correction and resubmission, holding or releasing a shipment, notifying
+the customer, a refund or cancellation, or a status change other
+purposes read. It brings:
+
+- correlation: matching each acknowledgement to what it answers;
+- waiting with a timeout, and resending on one;
+- acknowledgements late, out of order, duplicated or unmatched;
+- cascades whose faults show downstream of the acknowledgement.
+
+The clinic has the same shape: external labs' results coming back,
+exchanges between clinics. How a round trip is modelled is O128.
 
 ## In scope
 
@@ -185,6 +215,8 @@ boundary").
 - O112: which domains come first after the shop (the clinic, D196).
 - O126: whether a domain may be composed of smaller domains.
 - O127: where several sites and inter-site exchange sit.
+- O128: how a round trip (an acknowledgement driving further processes)
+  is modelled.
 - O24: seeded variation per deployment.
 - O47: whether generating scenarios from a brief belongs here or in v1.0.
 - O111: the domain format (its v0.4 part settled with the shop).

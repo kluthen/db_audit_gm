@@ -177,7 +177,7 @@ address may go, the e-mail may not).
 
 | Job | Cadence | What it does |
 |---|---|---|
-| `declare-exports` | `*/5 * * * *` | Packed orders whose `ship_country` is in `export_countries` and that have no accepted declaration: one `customs_outbox` row each, keyed by the order (the idempotency key), with the declared content |
+| `declare-exports` | `*/5 * * * *` | Packed orders whose `ship_country` is in `export_countries` and that have no declaration yet: one `customs_outbox` row each, keyed by the order (the idempotency key), with the declared content |
 | `escalate-customs` | `*/15 * * * *` | Declarations unacknowledged 30 minutes after sending, or rejected: one `incidents` row each |
 
 **The receiver** is a stub, a scheduler node of its own (`gateway`,
@@ -191,6 +191,13 @@ outside the schedule (D117). No real external service.
 
 **Trace**: the triggers (orders, `export_countries`), `customs_outbox`,
 `customs_acks`, `incidents`, the runner's log.
+
+**What v0.4 does with an acknowledgement**: it records it and checks
+it, and the only process it starts is an `incidents` row for a
+rejection or a missing acknowledgement; nothing waits on it, nothing is
+resubmitted, held, released or cancelled because of it. The round trip,
+an acknowledgement as an inbound flow that drives further processes, is
+v0.5's (D201).
 
 **Invariants**:
 

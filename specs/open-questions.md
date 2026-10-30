@@ -8,7 +8,7 @@ in [archive/v0.1/open-questions-resolved.md](archive/v0.1/open-questions-resolve
 their IDs keep their meaning. Questions resolved by the close of v0.2
 (O13, O50, O51 and O56–O77) are listed in
 [archive/v0.2/open-questions-resolved.md](archive/v0.2/open-questions-resolved.md).
-Numbering continues from O128.
+Numbering continues from O129.
 
 Resolved since v0.2 closed: O45 (D121), O46 (D128), O78 (D140), O82
 (D124), O83 (D125), O84 (D126), O85 (D127), O86 (D129), O87 (D130), O88
@@ -299,6 +299,16 @@ added on 2026-10-30 (D196).
   or beyond v1.0 with the multi-site playgrounds it needs? Linked to
   O12 (network layout). Refs:
   [versions/v0.5/README.md](versions/v0.5/README.md#the-veterinary-clinic-d196).
+
+- **O128** (later, v0.5) — How a round trip is modelled (D201): an
+  acknowledgement as an inbound flow the setup waits on and reacts to.
+  To settle: whether it is a purpose kind of its own or a pushed
+  obligation with reactions; how correlation is stated (the key an
+  acknowledgement answers); the stub receiver's repertoire (late, out
+  of order, duplicated, unmatched acknowledgements, as timeline changes,
+  D127); how a check judges a cascade, whose faults show downstream; and
+  what of the clinic's lab results and inter-clinic exchanges it covers.
+  Refs: [versions/v0.5/README.md](versions/v0.5/README.md#round-trips-acknowledgements-as-inputs-d201).
 
 ## Roadmap: gaps and cross-version risks
 

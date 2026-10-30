@@ -49,10 +49,15 @@ proposed in governance.md).
 | Id | Breaks | What is wrong | Planted | Evidence | Fix |
 |---|---|---|---|---|---|
 | `purpose-trigger-code-unmapped` | E1 | a release of the web shop writes `UK` where `export_countries` holds `GB` (a timeline change of the producer): those orders are never declared | timeline change | export orders with no declaration; the codes in `orders` against `export_countries` | map the code (and declare the missed orders) |
-| `purpose-retry-without-key` | E2 | the dispatcher resends unacknowledged declarations with a fresh idempotency key; during a gateway slowdown each order is declared several times | seed-file, plus a timeline change slowing the gateway | two accepted references for one order | reuse the order's key; a unique constraint |
+| `purpose-declaration-overlapping-window` | E2 | the dispatcher picks orders packed in the last ten minutes every five minutes, with no check for an existing declaration and no unique key: each export order declared twice | seed-file | two accepted references for one order | select undeclared orders; a unique idempotency key |
 | `purpose-receiver-down-unnoticed` | E4 | the gateway stops acknowledging for two hours (a timeline change of its schedule) and the escalation job has no rule for missing acknowledgements | timeline change plus seed-file | declarations without acknowledgement or incident | escalate missing acknowledgements |
 | `purpose-deadline-wrong-zone` | E1 | the deadline is computed as "before local end of day" in a zone off the customer's: late declarations look on time | seed-file | declarations later than two hours after `packed_at` | the deadline from `packed_at` |
 | `governance-declaration-overshares` | E3, G4 | the declaration's payload carries the customer's e-mail and id | seed-file | payload keys against the gateway's schema | the listed fields only |
+
+Moved to v0.5 (D201): `purpose-retry-without-key`, the dispatcher
+resending unacknowledged declarations with a fresh key during a gateway
+slowdown. Resending on a missing acknowledgement means waiting on it
+with a timeout, which is the round trip, not v0.4's push.
 
 ## Governance (G1 to G4)
 

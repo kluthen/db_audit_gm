@@ -620,3 +620,9 @@ Numbering continues after D192, the last; no ID is reused.
   purpose fault through its full cycle in a smoke run,** present, too
   soon after the fix, then fixed, its job moved as a player may. Closes
   O121. Now in: [versions/v0.4/checks.md](versions/v0.4/checks.md).
+- **D201 (2026-10-30, owner idea, relayed by the coordinator; placed in
+  v0.5 by the owner): Round trips, an acknowledgement as an inbound flow
+  that the setup waits on and that drives further processes, are v0.5's;**
+  v0.4's P5 only records and checks acknowledgements and opens an
+  incident. Open: O128. Now in: [versions/v0.5/README.md](versions/v0.5/README.md)
+  "Round trips"; [versions/v0.4/purpose-catalogue.md](versions/v0.4/purpose-catalogue.md) P5.
