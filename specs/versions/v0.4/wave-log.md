@@ -1221,3 +1221,49 @@ note: no release since July 2023; PR #394, 2026-09-28, fixes UB in the
 autolink extension, unreachable here since only `-e table` is used).
 `cve-watch lint` 0. Side note: `pgbadger` 13.2 (since 0.3.0) is not in
 `.tech` (no CPE); to add on the owner's word. G6 **done**.
+
+### Wave 1 gate (coding-executor, armenelos, 2026-10-30) — passed
+
+Every step passes on `v0.4-w1` at 4064719; the VPS untouched (`Drain`),
+every docker step under the host lock and the sleep inhibitor.
+
+| Step | Result |
+|---|---|
+| Unit suite (`PYTHONDONTWRITEBYTECODE=1`) | 746 OK, 121 s |
+| Scheduler unit tests | 71 OK, 214 s |
+| `sh -n` / `perl -c` / `py_compile` | 127 / 7 / 40 files, 0 fail, no `__pycache__` left |
+| Seven builds | all rc=0 |
+| Stack tests (pass/fail) | bastion 89/0, postgres 211/0, pgbouncer 105/0 (after fix 1), scheduler 133/0, prometheus 131/0, postgres-exporter 103/0, grafana 119/0 |
+| `smoke.sh` | 61/0 after fix 2 (first run 58/3) |
+| `smoke-monitoring.sh` | 43/43 |
+| `smoke-scenario.sh` | bookshop 19/19, fernway 18/18, tarnbeck 26/26 (834 s) |
+| `smoke-load.sh armenelos` | 73/73, 415 s; fit 1.1 CPU / 1.22G reserved of 12 CPU / 5043M, disk plan 9.94G of 42G |
+| Hand checks | bookshop README matches a regeneration; `domains/shop/` matches the templates (99 classified columns incl. `popular_products`) |
+
+Web front: the smoke scenarios do not check the page; the bastion's
+health check needs 8080 listening, and on tarnbeck the page was checked
+by hand (401 without the password, 200 with it; README, story, issues,
+`/grafana/` and `/prometheus/` links).
+
+Fixes, both from chunk 4's `cronspool` volume, test-only:
+- 906c693 — the db node of the pgbouncer, prometheus and postgres-exporter
+  stack tests mounts `db_cronspool` (the entrypoint chowns the spool;
+  read-only without it), and teardown removes it.
+- 4064719 — `smoke.sh`'s fixture-audit counts: 10 game volumes, 8
+  snapshot copies (bastion 2, db 6), as `snapshot.cronspool: copy` says.
+
+No brick bump for fix 1: it touches only `bricks/*/tests/`, following the
+v0.2 precedent a1ceac5 (prometheus' stack test changed with no bump).
+Flagged to the owner in the wave report; the formats rule ("whatever part
+of its folder") does not name tests either way.
+
+Image sizes: bastion:0.4.0 186MB, postgres:0.4.0 262MB, pgbouncer:0.1.0
+182MB, scheduler:0.2.0 171MB, prometheus:0.2.0 488MB,
+postgres-exporter:0.2.0 165MB, grafana:0.2.0 866MB. Builds came from the
+cache. smoke-load calls: producer `orders.insert` 42, `orders.lookup` 238
+(metrics); consumer `reports.recent` 36, `reports.top-customers` 9. Disk
+10 GB free on `/` before and after.
+
+Wave sync: no intent or data register, so no documentalist or
+data-steward pass; the dependency post-change check is G6 (above).
+Gate logs: the session scratchpad's `gate-w1/` (not kept).
