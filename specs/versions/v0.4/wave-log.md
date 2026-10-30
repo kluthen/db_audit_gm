@@ -1267,3 +1267,61 @@ cache. smoke-load calls: producer `orders.insert` 42, `orders.lookup` 238
 Wave sync: no intent or data register, so no documentalist or
 data-steward pass; the dependency post-change check is G6 (above).
 Gate logs: the session scratchpad's `gate-w1/` (not kept).
+
+### Wave 1 closed — merged into `main` as 5f32304, 2026-10-30
+
+Merged `--no-ff` under the owner's leave to run all waves; not pushed.
+`doc-ids compare main v0.4-w1`: 0 collisions. The wave worktree and the
+branches `v0.4-w1`, `v0.4-c{1-formats,2-loader,3-scheduler,4-postgres,5-shop-domain,19-bastion}`
+removed. Left for the owner's word: whether `bricks/*/tests/` changes
+need a bump (the gate's fix 1, above); adding `pgbadger` to `.tech` (G6).
+
+## Wave 2 — started 2026-10-30
+
+Chunks 6, 7, 8, 9, 10, 11. `v0.4-w2` cut from `main` at 5f32304, worktree
+`/home/bastien/work/db_audit_gm-wt/v0.4-w2`. No intent or data register:
+no preflight. No new dependency named by any wave 2 chunk.
+
+### Gates checked at the start
+
+- **G3** (hand check): Debian trixie, PGDG trixie-pgdg and the
+  s6-overlay releases answer 200.
+- **G4** (hand check): armenelos `Ready Active Leader`; `vps-5718ad52`
+  `Ready Drain`.
+- G8, G9 done (spec D217, D218). **G7** waits for the gate's two-host run.
+- Host: 10 GB free on `/`, 4.9 GiB of memory available, 3.0 GiB of
+  swap in use; running: `ollama`, `llmward-homepage`,
+  `llmward-dlp-metrics`.
+
+### Capture W2 — render and `load-data` across chunks 6 and 7
+
+The in-wave edge `6 ──> 7` is already fixed, before any wave 2 code, by
+W1 and W1-x; nothing is left open, so W2 cites them:
+- the cron subset render shifts and how (W1 item 0, "Cron times in
+  scenario time"); `pg_cron` schedules stay unshifted (8.5);
+- `{{customer_timezone}}` outside the starter pack as the bare zone,
+  `render.zone_name` (W1 item 0);
+- `load-data`'s `-v customer_timezone=<zone> -v customer_utc_offset=<n>`
+  (W1 item 0, chunk 7 writes);
+- the crontab roles' secrets `role_<role>_password`, derived and mounted
+  by render at `/opt/gm/secrets/role_<role>_password` 0:0 `"0400"`, one
+  per role per game, shared with any scheduler node naming the role; the
+  passwords set by `load-data` for every role a schedule or a
+  `crontab_roles` names (W1 item 8);
+- the password file, the baseline crontab entry and the log directory as
+  built (W1-x).
+
+Chunk 7 records as built, as **W2-x** (read by 12, 15): the
+mapping-roles function's name and signature and the read policy's form.
+
+### Order and dispatch
+
+κ = 3. First: chunks 6 and 8 (unit-only, no shared file) and chunk 9
+(the calibration, holding the host lock for its run, the VPS drained).
+Chunk 7 is cut once chunk 6 has merged; chunks 10 and 11 take the next
+free slots (their scheduler unit-test harness runs under the lock).
+
+Carried into the briefs: chunk 6 adds a dedicated unit test for
+`localimpl.seed_entries` skipping an optional seed file a node doesn't
+map (chunk 4's fix); chunk 8b passes `CHECK_SINCE` to `check-runs` as
+`YYYY-MM-DDTHH:MM:SSZ` (W1-y); D219's widened cron subset (chunks 6, 11).
