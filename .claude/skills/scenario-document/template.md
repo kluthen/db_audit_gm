@@ -161,8 +161,9 @@ with HTTP 401.
 
 <!-- if: a parameter of the node has shape web-routes and scenario.yaml
      writes it as {} -->
-Web front routes (`<NAME>`): none. The web front does not run, the bastion
-publishes SSH only and no tools password is handed over.
+Web front routes (`<NAME>`): none. The topology has no web interface: the
+web front serves the starter-pack page alone, and the tools password is
+handed over all the same.
 <!-- end if -->
 
 <!-- if: the node is a database node whose seed_files names crontab, or

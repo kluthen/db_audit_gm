@@ -1453,7 +1453,9 @@ def _check_receiver(node_name, target, mounting, item, out):
 
 def _check_web_routes(nodes, bricks, out):
     """web-routes parameters against the topology's web interfaces, and the
-    web front's published port (capture W1, item 3). Returns the route names."""
+    web front's published port (v0.2 capture W1, item 3): a node whose brick
+    has a web-routes parameter (the bastion) publishes it whatever its routes,
+    the front running in every game (v0.4, D224). Returns the route names."""
     label = "scenario.yaml"
     by_name = {n.get("name"): n for n in nodes}
     interfaces = {}                   # (node, port) -> provides entry with a web_path
@@ -1470,7 +1472,8 @@ def _check_web_routes(nodes, bricks, out):
         brick = bricks.get(name)
         if brick is None:
             continue
-        for pname in _shaped(brick.data, "web-routes"):
+        shaped = _shaped(brick.data, "web-routes")
+        for pname in shaped:
             p = f"nodes[{name}].parameters.{pname}"
             value = _node_parameter(node, brick.data, pname)
             if not isinstance(value, dict):
@@ -1500,17 +1503,14 @@ def _check_web_routes(nodes, bricks, out):
                 if iface.get("web_path") != f"/{route}/":
                     out.append(f"{label}: {rp}: {tnode}:{port} is served under "
                                f"{iface.get('web_path')}, not /{route}/")
+        if shaped:
             ports = node.get("published_ports")
             ports = [x for x in ports if isinstance(x, dict)] if isinstance(ports, list) else []
-            pp = f"nodes[{name}].published_ports"
-            if value and not any(x.get("port") == WEB_FRONT_PORT
-                                 and x.get("default") == WEB_FRONT_PORT for x in ports):
-                out.append(f"{label}: {pp}: no {{port: {WEB_FRONT_PORT}, default: "
-                           f"{WEB_FRONT_PORT}}}, which the web front needs ({pname} is "
-                           "non-empty)")
-            elif not value and any(x.get("port") == WEB_FRONT_PORT for x in ports):
-                out.append(f"{label}: {pp}: port {WEB_FRONT_PORT} is published, but {pname} "
-                           "is empty (the web front does not run)")
+            if not any(x.get("port") == WEB_FRONT_PORT
+                       and x.get("default") == WEB_FRONT_PORT for x in ports):
+                out.append(f"{label}: nodes[{name}].published_ports: no {{port: "
+                           f"{WEB_FRONT_PORT}, default: {WEB_FRONT_PORT}}}, which the web "
+                           "front needs (it runs in every game, routes or none)")
     for (tnode, port), names in routed.items():
         iface = interfaces[(tnode, port)]
         what = f"web interface {iface.get('name')} (port {port}, {iface.get('web_path')})"

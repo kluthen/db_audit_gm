@@ -248,8 +248,9 @@ The rules from v0.2:
 - **web routes**: each route of the bastion's `web_routes` names a node
   whose brick provides a web interface on that port with `web_path:
   /<route>/`; every web interface of the topology has exactly one route;
-  the bastion publishes `{port: 8080, default: 8080}` exactly when
-  `web_routes` is non-empty (an empty map: the web front does not run);
+  the bastion publishes `{port: 8080, default: 8080}` in every game,
+  routes or none (v0.4 master spec 7.3, D224: the web front runs in every
+  game; an empty map leaves it serving the starter-pack page alone);
 - `player/issues.md` states the same issues as `issues`; nothing under
   `player/` names a hidden fault or an answer;
 - `designed_for.placement` places every node, and the summed reservations

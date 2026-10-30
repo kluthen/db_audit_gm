@@ -103,21 +103,24 @@ class TestStatus(FittedGame):
             "    player_ssh_key: private key of pair player_ssh_key",
             "    player_ssh_key.pub: public key of pair player_ssh_key",
             "    dba_password: password",
+            "    tools_password: password, handed over",
             "    monitoring_password: password",
             "    gm_check_password: password",
         ])
 
     def test_no_tools_password_line_without_a_web_front(self):
-        """RG-3 (D103): the tools password is listed only when a node
-        publishes the web front's port."""
+        """RG-3: the tools password is listed only when a node publishes
+        the web front's port; since v0.4 (D224) every bastion does, so
+        fixture-audit has the line, and an implementation without the
+        port (a v0.3 game without a web interface) has none."""
         localimpl.set_stage(self.ldir, "rendered")
         localimpl.set_stage(self.ldir, "deployed")
-        self.assertNotIn("tools_password", state.status_text(self.ldir))
-        impl = localimpl.read_implementation(self.ldir)
-        impl["nodes"]["bastion"]["published_ports"].append(
-            {"target": 8080, "published": 8080, "mode": "host"})
-        localimpl.write_implementation(self.ldir, impl)
         self.assertIn("    tools_password: password, handed over", state.status_text(self.ldir))
+        impl = localimpl.read_implementation(self.ldir)
+        impl["nodes"]["bastion"]["published_ports"] = [
+            p for p in impl["nodes"]["bastion"]["published_ports"] if p["target"] != 8080]
+        localimpl.write_implementation(self.ldir, impl)
+        self.assertNotIn("tools_password", state.status_text(self.ldir))
 
 
 class TestGmStages(FittedGame):

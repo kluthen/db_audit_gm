@@ -145,9 +145,10 @@ node's bullets, before its resources (see the template).
   "Published on the bastion's web front port, behind HTTP basic
   authentication on the tools password; a request without it is refused
   with HTTP 401." An empty map (`{}` written in `scenario.yaml`): no
-  table, and the line "Web front routes (`<NAME>`): none. The web front
-  does not run, the bastion publishes SSH only and no tools password is
-  handed over." A parameter the scenario leaves out (its brick's default
+  table, and the line "Web front routes (`<NAME>`): none. The topology
+  has no web interface: the web front serves the starter-pack page
+  alone, and the tools password is handed over all the same" (v0.4,
+  D224). A parameter the scenario leaves out (its brick's default
   applies) is not rendered: the Parameters line says what
   `scenario.yaml` writes.
 

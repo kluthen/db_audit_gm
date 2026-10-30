@@ -456,7 +456,8 @@ class TestRender(RenderedFixture):
             "/opt/gm/starter/README.md", "/opt/gm/starter/issues.md",
             "/opt/gm/starter/story.md"])
         self.assertEqual(bastion["ports"], [
-            {"target": 22, "published": 2222, "protocol": "tcp", "mode": "host"}])
+            {"target": 22, "published": 2222, "protocol": "tcp", "mode": "host"},
+            {"target": 8080, "published": 8080, "protocol": "tcp", "mode": "host"}])
 
     def test_deploy_section(self):
         db = self.stack["services"]["db"]["deploy"]
