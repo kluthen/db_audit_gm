@@ -1,9 +1,11 @@
 #!/bin/sh
 # s6 service `web-front` (DO NOT TAMPER): the bastion's web front, nginx
-# as www-data. Configuration: /run/web-front/nginx.conf, written by
-# gm-entrypoint at each start from GM_WEB_ROUTES. Without it (no route,
-# spec D103) the service asks s6 not to restart it and exits: it stays
-# down and nothing listens on port 8080.
+# as www-data, in every game (spec D224): the starter-pack page at /, and
+# the routes of GM_WEB_ROUTES when there are any. Configuration:
+# /run/web-front/nginx.conf, written by gm-entrypoint at each start,
+# routes or none. Without it (a start that did not write it) the service
+# asks s6 not to restart it and exits: it stays down and nothing listens
+# on port 8080.
 exec 2>&1
 if [ ! -f /run/web-front/nginx.conf ]; then
     s6-svc -O .

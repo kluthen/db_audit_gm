@@ -1,10 +1,11 @@
 # jobs.yaml — template for scenarios/<scenario-id>/nodes/<node>/jobs.yaml,
 # a scheduler node's fixed-time operations (brick `scheduler`)
 #
-# Version v0.3, expected to evolve as games are played.
+# Version v0.4, expected to evolve as games are played.
 # Shape: v0.3 master spec 7.1 ("Fixed-time operations"), with the forms
 # capture W1 of specs/versions/v0.3/wave-log.md (item 7) and spec D168
-# settle. Written in SCENARIO TIME. Seed-once on the node at
+# settle, and v0.4 master spec 7.1 (a script's job; capture W1 of
+# specs/versions/v0.4/wave-log.md, items 0 and 7). Written in SCENARIO TIME. Seed-once on the node at
 # /srv/scheduler/jobs/jobs.yaml; players read it, and edit it where the
 # scenario makes /srv/scheduler/jobs fixable. Render writes every job's time
 # shifted into UTC.
@@ -17,12 +18,24 @@
 jobs:                               # may be []: a node with no fixed-time operation
   - name: <close-day>               # unique on the node
     key: <invoices.close-day>       # a key of the node's queries.yaml
-    connection: <app>               # a connection of the node's schedule.yaml
-    at: <"30 1 * * *">              # 5-field cron, scenario time, quoted. Minute: any numeric
-                                    # form (*, 5, 0-30, */15, 1,31, 0-30/10); hour: *, a number
-                                    # or a list of numbers (0-23); day of month and month: *;
-                                    # day of week: * or a number or list 0-6 (0 Sunday), the
-                                    # latter only with a single-number hour
+    connection: <app>               # optional: every job but a script key's, which has
+                                    # connections: instead (exactly one of the two); a connection
+                                    # of the node's schedule.yaml
+    connections:                    # optional: a script key's job only (v0.4), instead of
+                                    # connection:; non-empty. The script's connection name,
+                                    # [a-z][a-z0-9_]* (source and target by convention), -> a
+                                    # connection of the node's schedule.yaml
+      <source>: <shop>
+      <target>: <reporting>
+    at: <"30 1 * * *">              # 5-field cron, scenario time, quoted, in the subset render can
+                                    # shift (v0.4 capture W1 item 0, spec D219). Minute: any
+                                    # numeric form (*, 5, 0-30, */15, 1,31, 0-30/10); hour: *, or
+                                    # a comma list of items n, a-b (a <= b, never wrapping), */s
+                                    # or a-b/s (s >= 1), within 0-23 (8-20, 1,13, */6, 8-20/2);
+                                    # day of month and month: *; day of week: * or a
+                                    # number or list 0-6 (0 Sunday), the latter only with a
+                                    # single-number hour. Render writes each hour shifted to UTC
+                                    # as a sorted list (* stays *)
     timezone_offset: <-2>           # optional: only the job a fault instance's seed change sets
                                     # (the wrong-time-zone fault, spec D168): a non-zero whole
                                     # number of hours from the customer's zone. Never timezone:

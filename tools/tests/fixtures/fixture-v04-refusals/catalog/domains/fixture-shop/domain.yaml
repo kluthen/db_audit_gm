@@ -1,0 +1,10 @@
+# Test domain of tools/tests (v0.4 chunk 2), under the test catalog root
+# fixture-v04-refusals/catalog (capture W1 item 0). Not a game domain.
+id: fixture-shop
+title: A small shop selling to customers by mail
+schema: data/schema.sql
+load: data/load.sql
+classification: data/classification.yaml
+producers: producers/
+notes: docs/gm.md
+purposes: [fixture-sales-copy]

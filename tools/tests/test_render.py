@@ -432,7 +432,8 @@ class TestRender(RenderedFixture):
         self.assertEqual([(v["type"], v["target"]) for v in db["volumes"]], [
             ("volume", "/var/lib/postgresql/18/data"), ("volume", "/etc/postgresql"),
             ("volume", "/home/player"), ("volume", "/var/lib/gm-state"),
-            ("volume", "/var/log/postgresql"), ("volume", "/run")])
+            ("volume", "/var/log/postgresql"), ("volume", "/run"),
+            ("volume", "/var/spool/cron/crontabs")])
         configs = {c["target"]: c for c in db["configs"]}
         self.assertEqual(configs["/opt/gm/seed/postgresql.conf"]["mode"], 0o444)
         self.assertEqual(configs["/opt/gm/protected/envelopes.conf"]["source"],
@@ -455,7 +456,8 @@ class TestRender(RenderedFixture):
             "/opt/gm/starter/README.md", "/opt/gm/starter/issues.md",
             "/opt/gm/starter/story.md"])
         self.assertEqual(bastion["ports"], [
-            {"target": 22, "published": 2222, "protocol": "tcp", "mode": "host"}])
+            {"target": 22, "published": 2222, "protocol": "tcp", "mode": "host"},
+            {"target": 8080, "published": 8080, "protocol": "tcp", "mode": "host"}])
 
     def test_deploy_section(self):
         db = self.stack["services"]["db"]["deploy"]

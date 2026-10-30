@@ -230,3 +230,79 @@ drafting. Take the next number from `doc-ids`; no ID is reused.
   Swarm; armenelos keeps its swap.** Now in:
   [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 16.3;
   [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunk 9.
+- **D219 (2026-10-30, spec-writer, wave 1 preflight, capture W1
+  corrections 1 and 2, accepted by the wave driver): The loader checks
+  `jobs.yaml`'s `at`, a seeded crontab's entries and a purpose job's
+  `cadence` against W1 item 0's widened cron subset (chunk 2b), and
+  `schedule.yaml`'s `streams` may be `[]` (chunk 1b),** so P3's
+  `*/15 8-20 * * *` (10.3) and `bi`'s and `crm`'s stream-less nodes (7.1)
+  load. Now in: [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md)
+  chunks 1b, 2b; [versions/v0.4/wave-log.md](versions/v0.4/wave-log.md) W1 item 0.
+- **D220 (2026-10-30, spec-writer, wave 1 preflight, capture W1
+  corrections 3 and 4, accepted by the wave driver): Chunk 4 merges into
+  `v0.4-w1` only after chunk 2a (an in-wave edge `2 ──> 4`, merge order
+  only), and records as built as W1-x, chunk 3 as W1-y,** because chunk
+  4's `crontab` in `seed.files` fails the suite until 2a's
+  `seed.optional` check is in (W1 item 9). Now in:
+  [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) "Waves",
+  chunks 3, 4.
+- **D221 (2026-10-30, owner ruling on capture W1's question 1, relayed
+  by the wave driver; refined the same day): `bastion` 0.4.0 hands the
+  starter pack over both as Markdown and as a simple read-only page on
+  its web front.** `data-policy.md` is a fourth, optional seed file,
+  copied into `/home/player` like the others; the page shows README,
+  story, issues and data policy, each only when the scenario provides
+  it (no empty section, no dead link), and is built so a reporting tool
+  can join it later (not in v0.4). Owner: "update bastion, it should
+  allow for both the md version and a simple webpage [...] we may extend
+  this with reporting tool later on"; "only if such element is
+  available for the given scenario". Raises O134. Now in:
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 6.4, 7.3,
+  11.5, 15, 19; [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md)
+  chunks 1, 19.
+- **D222 (2026-10-30, spec-writer, applying D221): The page is rendered
+  in the bastion's image at each start by `cmark-gfm` with its table
+  extension, from the starter pack as handed over,** never the players'
+  home copies; raw HTML is not passed through. Every starter-pack README
+  has tables, which plain `cmark` leaves as text; the GM side and its
+  host gain no dependency. A new package: dependency preflight G13. Now
+  in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 7.3,
+  19; [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunk 19.
+- **D223 (2026-10-30, spec-writer, applying D221): `bastion` 0.4.0's
+  feature is inserted as chunk 19 in wave 1,** cut after chunk 1, merged
+  after chunk 2a (merge order only, as chunk 4), since wave 2 is full and
+  chunk 13 in wave 3 needs it; chunk 2a's loader also requires a
+  scenario with `governance:` to map the bastion's `data-policy.md` to
+  `governance.policy`, and one without to map none. Now in:
+  [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) "Waves",
+  chunks 2, 19.
+- **D224 (2026-10-30, owner ruling on G12, on the wave driver's
+  recommendation): The web front runs in every v0.4 game, its home the
+  starter-pack page; D103 no longer holds.** The bastion always
+  publishes its port and the tools password is always handed over; the
+  page links to the web interfaces when the scenario has any. Owner:
+  "i expect a front at every game [...] Keep the setup as minimal as
+  possible for now, delegate larger stuff for v0.5 and later." The rest
+  of his picture (a common Caddy, a setup-wide homepage, a reporting
+  tool; the provider's entry point after v1.0) is O135 and O130. Closes
+  O134. Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md)
+  2, 7.3, 14, 16.4, 22; [versions/v0.4/access-model.md](versions/v0.4/access-model.md) 3, 13.
+- **D225 (2026-10-30, spec-writer, applying D224): Chunk 19 splits; 19b,
+  the loader's port rule and the scenarios without a web interface, is
+  cut after chunk 2 has merged,** since 19b edits `tools/gm/model.py`
+  and `test_model.py`, chunk 2's files, while 19a, the bastion, can run
+  beside chunks 2 to 4. Render needs no change (it publishes the ports
+  `scenario.yaml` declares); the GM skill's hand-over lines join chunk
+  18. Rejected: the port rule in wave 2's chunk 6, which would leave
+  wave 1's gate with a front no scenario without routes can reach. Now
+  in: [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md)
+  "Waves", chunks 18, 19.
+- **D226 (2026-10-30, spec-writer, applying master spec 6.3 as
+  approved): A seed-file change names a database node's data file
+  `data`,** the target node's `data.file`, refused on a node without
+  one, since the loader admits only the brick's seed files and 6.3
+  lets a purpose fault edit the data file (chunk 1's open point, wave
+  log). Built by chunk 15a, its first user. Now in:
+  [formats.md](formats.md) "Fault definition";
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 6.3;
+  [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunk 15.

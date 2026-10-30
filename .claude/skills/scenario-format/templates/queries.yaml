@@ -1,9 +1,11 @@
 # queries.yaml — template for scenarios/<scenario-id>/nodes/<node>/queries.yaml,
 # a scheduler node's query repository (brick `scheduler`)
 #
-# Version v0.3, expected to evolve as games are played.
+# Version v0.4, expected to evolve as games are played.
 # Shape: v0.3 master spec 7.1 ("The query repository"), with the forms
-# capture W1 of specs/versions/v0.3/wave-log.md (item 7) settles. Seed-once
+# capture W1 of specs/versions/v0.3/wave-log.md (item 7) settles, and v0.4
+# master spec 7.1 (the transformer script; capture W1 of
+# specs/versions/v0.4/wave-log.md, item 7). Seed-once
 # on the node at /srv/scheduler/repository/queries.yaml; players read it, and
 # edit it where the scenario makes /srv/scheduler/repository fixable. Render
 # copies it unchanged (no time in it).
@@ -16,8 +18,9 @@
 #
 # A key is [a-z0-9][a-z0-9._-]* (orders.insert, catalog.lookup); streams, jobs
 # and timeline changes in schedule.yaml and jobs.yaml name keys of this file.
-# Each key maps to exactly one of four forms: a query, a pool, a sequence or
-# a builder. The loader checks every form (model.py, the scheduler's files).
+# Each key maps to exactly one of five forms: a query, a pool, a sequence, a
+# builder or, from v0.4 (scheduler 0.2.0), a script. The loader checks every
+# form (model.py, the scheduler's files).
 
 queries:
   <orders.insert>:                  # a query: one statement
@@ -47,3 +50,14 @@ queries:
                                     # node's builders/ seed folder and defines the function at
                                     # its top level, called with (intensity, options)
     options: {<months>: <3>}        # optional: a map passed to the function
+  <rollup.hourly>:                  # a script (v0.4): a transformer script of the node's scripts/
+    script: <scripts/rollup.py:hourly>   # scripts/<file>:<function>; the file is in the node's
+                                    # scripts/ seed folder and defines the function at its top
+                                    # level, called as <function>(conns, options, log): conns maps
+                                    # each of the job's connection names to an open psycopg
+                                    # connection (autocommit off; the script commits), and it
+                                    # returns the rows it wrote. It may import the standard
+                                    # library, psycopg 3 and PyYAML only, and holds no password.
+                                    # A script key runs only as a job (jobs.yaml, with
+                                    # connections:): never named by a stream or a timeline change
+    options: {<batch>: <5000>}      # optional: a map passed to the function

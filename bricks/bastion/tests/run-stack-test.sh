@@ -1,16 +1,17 @@
 #!/bin/sh
-# Stack test of the bastion brick (build plan v0.1, chunk 3, and v0.2,
-# chunk 7, Done when).
+# Stack test of the bastion brick (build plan v0.1, chunk 3, v0.2,
+# chunk 7, and v0.4, chunk 19a, Done when).
 #
 # Deploys the bastion, a PostgreSQL node and a stub web interface as a
-# three-service Swarm stack (stack.test.yml), with the starter pack, the
+# three-service Swarm stack (stack.test.yml), with the starter pack
+# (tests/fixtures/starter, its optional data-policy.md included), the
 # seed files, the stub and the secrets as external configs and secrets
 # created here, then
 # checks, from this host as a player would and from the GM side
 # (docker exec):
 #   - both containers become healthy;
 #   - password login as `player` on the published port, nothing else;
-#   - the starter pack is in the home, ~/report.md is writable;
+#   - the starter pack's four files are in the home, ~/report.md is writable;
 #   - from the bastion, `ssh db` with the key and `psql -h db` as dba;
 #   - the validator is green, and red when ~/.pgpass is broken;
 #   - after the database node is replaced (new host key), `ssh db` works;
@@ -18,18 +19,25 @@
 #     player's edits are kept, and the starter pack is not copied again;
 #   - the web front (port GMTEST_BASTION_WEB_PORT): 401 and a challenge
 #     without the tools password on every path (/, /stub, /nothing/ too),
-#     with it the route list at /, /stub redirected, 404 elsewhere, and
-#     the stub reached under /stub/,
+#     with it the page at / (README, story, issues, data policy, in that
+#     order, a README table as an HTML table, raw HTML omitted, the links
+#     to the routes and nothing else; a player's edit of ~/story.md before
+#     the bastion's replacement absent from it), /stub redirected, 404
+#     elsewhere, and the stub reached under /stub/,
 #     the path unchanged, no Authorization header upstream, the stub's own
 #     challenge not passed on, 502 for a route whose upstream is down;
 #   - read-only root, capabilities, `/run` volume, secrets unreadable;
-#   - with the routes emptied, port 8080 unpublished and no tools_password
-#     secret: the front does not run, the bastion is healthy, SSH answers.
+#   - with the routes emptied (spec D224): the front up on port 8080, 401
+#     without the password, the page alone with no web-interface section
+#     or link, the health check green, the data policy still copied;
+#   - without a data policy: no ~/data-policy.md, no section, no link;
+#   - without a required starter file (issues.md): the container refused;
+#   - the validator green in every state the bastion starts in.
 # Everything it creates is removed on exit, volumes included.
 #
 # Needs: a swarm manager (docker swarm init), both images built locally:
-#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.3.0 bricks/bastion
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.3.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.4.0 bricks/bastion
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.4.0 bricks/postgres
 # debian:13-slim (the stub's image), an OpenSSH client (8.4 or later) and
 # curl on this host, and free TCP ports GMTEST_BASTION_PORT (default 22222)
 # and GMTEST_BASTION_WEB_PORT (default 28080).
@@ -38,9 +46,10 @@ set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 PG_FIXTURES=$HERE/../../postgres/tests/fixtures
+STARTER=$HERE/fixtures/starter
 STACK=gmtest-bastion
-IMAGE=127.0.0.1:5000/dbagm/bastion:0.3.0
-PG_IMAGE=127.0.0.1:5000/dbagm/postgres:0.3.0
+IMAGE=127.0.0.1:5000/dbagm/bastion:0.4.0
+PG_IMAGE=127.0.0.1:5000/dbagm/postgres:0.4.0
 BASTION=${STACK}_bastion
 DB=${STACK}_db
 NET=${STACK}_net
@@ -50,9 +59,9 @@ PORT=${GMTEST_BASTION_PORT:-22222}
 WPORT=${GMTEST_BASTION_WEB_PORT:-28080}
 export GMTEST_BASTION_PORT=$PORT GMTEST_BASTION_WEB_PORT=$WPORT
 LABEL=dbagm.test=chunk3-bastion
-CONFIGS="starter_readme starter_story starter_issues seed_postgresql_conf seed_pg_hba_conf envelopes stub_upstream"
+CONFIGS="starter_readme starter_story starter_issues starter_policy seed_postgresql_conf seed_pg_hba_conf envelopes stub_upstream"
 SECRETS="player_password player_ssh_key player_ssh_pubkey dba_password tools_password monitoring_password"
-VOLUMES="bastion_home bastion_hostkeys bastion_run db_pgdata db_pgconf db_home db_gmstate db_pglog db_run"
+VOLUMES="bastion_home bastion_hostkeys bastion_run db_pgdata db_pgconf db_home db_gmstate db_pglog db_run db_cronspool"
 
 failures=0
 pass() { printf 'PASS  %s\n' "$*"; }
@@ -117,20 +126,17 @@ printf 'wrong password\n' > "$tmp/bad_password"
 # The tools password, with a colon: basic authentication splits at the first.
 TOOLS_PASSWORD="t00ls:$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 printf '%s' "$TOOLS_PASSWORD" > "$tmp/tools_password"
-# The database node's monitoring role password (postgres 0.3.0); unused here.
+# The database node's monitoring role password (postgres 0.4.0); unused here.
 printf 'mon%s' "$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')" > "$tmp/monitoring_password"
 for p in player_password bad_password; do
     printf '#!/bin/sh\ncat %s\n' "$tmp/$p" > "$tmp/askpass_$p"
     chmod 0700 "$tmp/askpass_$p"
 done
-mkdir "$tmp/starter"
-printf '# Starter pack (stack test)\n\nNodes: bastion, db.\n' > "$tmp/starter/README.md"
-printf '# Story (stack test)\n' > "$tmp/starter/story.md"
-printf '# Issues (stack test)\n\nNone.\n' > "$tmp/starter/issues.md"
 
-docker config create -l "$LABEL" "${STACK}_starter_readme" "$tmp/starter/README.md" >/dev/null
-docker config create -l "$LABEL" "${STACK}_starter_story" "$tmp/starter/story.md" >/dev/null
-docker config create -l "$LABEL" "${STACK}_starter_issues" "$tmp/starter/issues.md" >/dev/null
+docker config create -l "$LABEL" "${STACK}_starter_readme" "$STARTER/README.md" >/dev/null
+docker config create -l "$LABEL" "${STACK}_starter_story" "$STARTER/story.md" >/dev/null
+docker config create -l "$LABEL" "${STACK}_starter_issues" "$STARTER/issues.md" >/dev/null
+docker config create -l "$LABEL" "${STACK}_starter_policy" "$STARTER/data-policy.md" >/dev/null
 docker config create -l "$LABEL" "${STACK}_seed_postgresql_conf" "$PG_FIXTURES/postgresql.conf" >/dev/null
 docker config create -l "$LABEL" "${STACK}_seed_pg_hba_conf" "$PG_FIXTURES/pg_hba.conf" >/dev/null
 docker config create -l "$LABEL" "${STACK}_envelopes" "$PG_FIXTURES/envelopes.conf" >/dev/null
@@ -196,10 +202,11 @@ eff=$(gm sshd -T -f /etc/ssh/sshd_config 2>/dev/null | grep -E '^(passwordauthen
 
 # --- home and starter pack ------------------------------------------------------
 ok=1
-for f in README.md story.md issues.md; do
-    [ "$(pb cat "$f" 2>&1)" = "$(cat "$tmp/starter/$f")" ] || ok=0
+for f in README.md story.md issues.md data-policy.md; do
+    [ "$(pb cat "$f" 2>&1)" = "$(cat "$STARTER/$f")" ] || ok=0
 done
-[ "$ok" = 1 ] && pass "starter pack copied into the home (README.md, story.md, issues.md)" || fail "starter pack content"
+[ "$ok" = 1 ] && pass "starter pack copied into the home (README.md, story.md, issues.md, data-policy.md)" \
+    || fail "starter pack content"
 pb "echo 'audit notes' > ~/report.md" && pass "~/report.md is writable" || fail "~/report.md not writable"
 m=$(gm stat -c '%a %U:%G' /home/player /home/player/.ssh /home/player/.ssh/id_ed25519 /home/player/.pgpass /home/player/.gm-starter-copied /run/gm/shadow | tr '\n' ' ')
 [ "$m" = "750 player:player 700 player:player 600 player:player 600 player:player 444 root:root 640 root:shadow " ] \
@@ -252,6 +259,7 @@ u=$(pb ssh db id -un 2>&1)
 # --- bastion replaced: host key, home and edits kept ------------------------------
 fp=$(hostkey)
 pb "echo 'my notes' >> README.md" || fail "player edits README.md"
+pb "echo 'player edit of the story' >> story.md" || fail "player edits story.md"
 info "replacing the bastion (docker service update --force)"
 docker service update --force --detach "$BASTION" >/dev/null 2>&1
 if B2=$(wait_healthy "$BASTION" "$B"); then
@@ -279,6 +287,15 @@ URL=http://127.0.0.1:$WPORT
 web() {  # web <curl options...>: status code; headers in $tmp/h, body in $tmp/b
     curl -s -m 10 -D "$tmp/h" -o "$tmp/b" -w '%{http_code}' "$@" 2>/dev/null
 }
+sections() {  # sections <page>: its section ids, in order, space-separated
+    grep -o '<section id="[a-z-]*">' "$1" | sed 's/^<section id="\(.*\)">$/\1/' | tr '\n' ' '
+}
+links() {  # links <page>: every href in it, in order, space-separated
+    grep -o 'href="[^"]*"' "$1" | sed 's/^href="\(.*\)"$/\1/' | tr '\n' ' '
+}
+section() {  # section <page> <id>: that section's HTML
+    sed -n "/<section id=\"$2\">/,/<\/section>/p" "$1"
+}
 i=0
 while [ "$i" -lt 60 ] && [ "$(web -u "player:$TOOLS_PASSWORD" "$URL/stub/")" != 200 ]; do
     sleep 2; i=$((i + 2))
@@ -289,7 +306,7 @@ if [ "$code" = 401 ] && grep -qi '^WWW-Authenticate: Basic realm="db_audit_gm we
 else
     fail "web front without the password: $code $(tr -d '\r' < "$tmp/h" | grep -i '^www-auth')"
 fi
-# The front's own answers too: the route list, a path outside the routes,
+# The front's own answers too: the page, a path outside the routes,
 # a route without its trailing slash.
 for p in / /nothing/ /stub; do
     code=$(web "$URL$p")
@@ -317,9 +334,29 @@ code=$(web -u "player:$TOOLS_PASSWORD" "$URL/stub")
 [ "$code" = 301 ] && grep -qi '^Location: /stub/' "$tmp/h" \
     && pass "/stub redirects to /stub/" || fail "/stub: $code $(grep -i '^location' "$tmp/h")"
 code=$(web -u "player:$TOOLS_PASSWORD" "$URL/")
-[ "$code" = 200 ] && grep -qx '/other/' "$tmp/b" && grep -qx '/stub/' "$tmp/b" \
-    && grep -qi '^Content-Type: text/plain' "$tmp/h" \
-    && pass "/ lists the routes as plain text (/other/, /stub/)" || fail "/: $code $(cat "$tmp/b")"
+[ "$code" = 200 ] && grep -qi '^Content-Type: text/html; charset=utf-8' "$tmp/h" \
+    && pass "/ with the tools password: the page, HTML in UTF-8" \
+    || fail "/: $code $(tr -d '\r' < "$tmp/h" | grep -i '^content-type')"
+w=$(sections "$tmp/b")
+[ "$w" = "readme story issues data-policy web-interfaces " ] \
+    && pass "the page: README, story, issues, data policy, then the web interfaces ($w)" \
+    || fail "the page's sections: $w"
+w=$(links "$tmp/b")
+[ "$w" = "#readme #story #issues #data-policy #web-interfaces /other/ /stub/ " ] \
+    && pass "the page's links: its sections and the routes, nothing else ($w)" \
+    || fail "the page's links: $w"
+section "$tmp/b" readme | grep -q '<td>db</td>' && section "$tmp/b" readme | grep -q '<table>' \
+    && pass "the README's table rendered as an HTML table" || fail "README table: $(section "$tmp/b" readme)"
+grep -q 'raw HTML omitted' "$tmp/b" && ! grep -qi '<script' "$tmp/b" \
+    && pass "raw HTML not passed through (the README's <script> omitted)" || fail "raw HTML in the page"
+section "$tmp/b" data-policy | grep -q '<h1>Data policy (stack test)</h1>' \
+    && pass "the data policy rendered in its section" || fail "data policy section: $(section "$tmp/b" data-policy)"
+if pb grep -qx "'player edit of the story'" story.md && ! grep -q 'player edit of the story' "$tmp/b" \
+   && ! grep -q 'my notes' "$tmp/b" && section "$tmp/b" story | grep -q 'A fictional customer'; then
+    pass "the page shows the starter pack as handed over: the player's ~/story.md edit absent after a restart"
+else
+    fail "the page and the player's edits: $(section "$tmp/b" story)"
+fi
 code=$(web -u "player:$TOOLS_PASSWORD" "$URL/nothing/")
 [ "$code" = 404 ] && grep -qx 'No web interface at this path; see /' "$tmp/b" \
     && pass "a path outside the routes: 404" || fail "/nothing/: $code $(head -n 2 "$tmp/b")"
@@ -331,8 +368,8 @@ code=$(web -u "player:$TOOLS_PASSWORD" "$URL/stub/")
 [ "$code" = 200 ] && pass "the other routes still answer" || fail "/stub/ after /other/: $code"
 users=$(gm ps -o user= -C nginx | sort -u | tr '\n' ' ')
 [ "$users" = "www-data " ] && pass "nginx runs as www-data" || fail "nginx users: $users"
-m=$(gm stat -c '%a %U:%G' /run/web-front /run/web-front/htpasswd /run/web-front/nginx.conf | tr '\n' ' ')
-[ "$m" = "750 root:www-data 440 root:www-data 444 root:root " ] \
+m=$(gm stat -c '%a %U:%G' /run/web-front /run/web-front/htpasswd /run/web-front/nginx.conf /run/web-front/www/index.html | tr '\n' ' ')
+[ "$m" = "750 root:www-data 440 root:www-data 444 root:root 440 root:www-data " ] \
     && pass "front's files ($m)" || fail "front's files: $m"
 check "player cannot read the front's password file" sh -c "! SSH_ASKPASS=$tmp/askpass_player_password SSH_ASKPASS_REQUIRE=force ssh $SSH_OPTS player@127.0.0.1 cat /run/web-front/htpasswd </dev/null"
 rss=$(gm ps -o rss= -C nginx | awk '{ s += $1 } END { print s }')
@@ -363,13 +400,14 @@ case $caps in "[ALL]"*) pass "cap_drop ALL" ;; *) fail "cap_drop: $caps" ;; esac
 mnt=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/run"}}{{.Type}}{{end}}{{end}}' "$B")
 [ "$mnt" = volume ] && pass "/run is a named volume (capture W1-E)" || fail "/run mount: $mnt"
 
-# --- no route: the front does not run (spec D103) ----------------------------------
-# As a game without a web interface: GM_WEB_ROUTES empty, port 8080 not
-# published, and no tools_password secret, which the bastion then needs not.
-info "emptying the routes (no published web port, no tools_password)"
-docker service update --detach --env-add GM_WEB_ROUTES= \
-    --publish-rm "published=$WPORT,target=8080,mode=host" \
-    --secret-rm "${STACK}_tools_password" "$BASTION" >/dev/null 2>&1
+# --- no route: the front serves the page alone (spec D224) -----------------------
+# As a game without a web interface: GM_WEB_ROUTES empty, port 8080 still
+# published and tools_password still mounted, as every game now has them.
+# The GM side first removes ~/data-policy.md and the starter marker, so
+# this start copies the data policy again, without a route.
+info "emptying the routes (port 8080 and tools_password kept)"
+gm rm -f /home/player/data-policy.md /home/player/.gm-starter-copied
+docker service update --detach --env-add GM_WEB_ROUTES= "$BASTION" >/dev/null 2>&1
 if B3=$(wait_healthy "$BASTION" "$B"); then
     pass "bastion without routes healthy ($B3)"
     B=$B3
@@ -377,21 +415,88 @@ else
     fail "bastion without routes did not become healthy"
 fi
 st=$(gm /command/s6-svstat -o up,wantedup /run/service/web-front 2>&1)
-[ "$st" = "false false" ] && pass "web-front down and not wanted up (s6-svstat: $st)" || fail "web-front status: $st"
+[ "$st" = "true true" ] && pass "web-front up without routes (s6-svstat: $st)" || fail "web-front status: $st"
 n=$(gm awk '$2 ~ /:1F90$/ && $4 == "0A"' /proc/net/tcp /proc/net/tcp6 2>/dev/null | wc -l)
-[ "$n" -eq 0 ] && pass "nothing listens on port 8080 in the container" || fail "$n listener(s) on port 8080"
-check "no nginx process" sh -c "! docker exec $B ps -C nginx -o pid="
-check "no /run/web-front" sh -c "! docker exec $B test -e /run/web-front"
+[ "$n" -ge 1 ] && pass "the front listens on port 8080 in the container" || fail "no listener on port 8080"
 p=$(docker service inspect -f '{{range .Spec.EndpointSpec.Ports}}{{.TargetPort}}/{{.PublishMode}} {{end}}' "$BASTION")
 q=$(docker inspect -f '{{range $p, $b := .NetworkSettings.Ports}}{{if $b}}{{$p}} {{end}}{{end}}' "$B")
-[ "$p" = "22/host " ] && [ "$q" = "22/tcp " ] && pass "only port 22 published (service: $p; container: $q)" \
+[ "$p" = "22/host 8080/host " ] && [ "$q" = "22/tcp 8080/tcp " ] \
+    && pass "ports 22 and 8080 published (service: $p; container: $q)" \
     || fail "published ports: service $p; container $q"
-check "the web port refuses connections" sh -c "! curl -s -m 5 -o /dev/null http://127.0.0.1:$WPORT/"
+i=0
+while [ "$i" -lt 30 ] && [ "$(web "$URL/")" != 401 ]; do
+    sleep 1; i=$((i + 1))
+done
+code=$(web "$URL/")
+if [ "$code" = 401 ] && grep -qi '^WWW-Authenticate: Basic realm="db_audit_gm web front"' "$tmp/h"; then
+    pass "without routes, / without the tools password: 401 and the challenge"
+else
+    fail "without routes, / without the password: $code"
+fi
+code=$(web -u "player:$TOOLS_PASSWORD" "$URL/")
+w=$(sections "$tmp/b")
+[ "$code" = 200 ] && [ "$w" = "readme story issues data-policy " ] \
+    && pass "without routes, the page alone: README, story, issues, data policy ($w)" \
+    || fail "without routes, the page: $code, sections $w"
+w=$(links "$tmp/b")
+[ "$w" = "#readme #story #issues #data-policy " ] && ! grep -q 'Web interfaces' "$tmp/b" \
+    && pass "without routes, no web-interface section or link ($w)" || fail "without routes, links: $w"
+code=$(web -u "player:$TOOLS_PASSWORD" "$URL/stub/")
+[ "$code" = 404 ] && pass "without routes, a former route's path: 404" || fail "/stub/ without routes: $code"
+out=$(gm /usr/local/lib/gm/healthcheck 2>&1); rc=$?
+[ "$rc" -eq 0 ] && pass "health check green without routes" || fail "health check without routes: exit $rc: $out"
+[ "$(pb cat data-policy.md 2>&1)" = "$(cat "$STARTER/data-policy.md")" ] \
+    && pass "the data policy copied again into the home, without routes" || fail "data-policy.md without routes"
+w=$(pb tail -n 1 README.md 2>&1)
+[ "$w" = "my notes" ] && pass "the copy left the player's own files as they were" || fail "README.md after the copy: $w"
 u=$(pb id -un 2>&1)
 [ "$u" = player ] && pass "SSH answers: password login as player" || fail "login without routes: $u"
-info "bastion container memory without the front: $(docker stats --no-stream --format '{{.MemUsage}}' "$B")"
+rss=$(gm ps -o rss= -C nginx | awk '{ s += $1 } END { print s }')
+info "at rest without routes: nginx resident memory ${rss} KiB (master and worker)"
+info "at rest without routes: bastion container memory $(docker stats --no-stream --format '{{.MemUsage}}' "$B")"
 out=$(pb gm-validate 2>&1); rc=$?
 [ "$rc" -eq 0 ] && pass "gm-validate green without routes" || fail "validator without routes: exit $rc: $out"
+
+# --- no data policy: no file, no section, no link (spec D221) ---------------------
+# As a scenario without governance: data-policy.md not mapped, so not
+# mounted. The GM side removes the home's copy and the marker first, so
+# this start would copy it if it were there.
+info "removing the data policy from the starter pack"
+gm rm -f /home/player/data-policy.md /home/player/.gm-starter-copied
+docker service update --detach --config-rm "${STACK}_starter_policy" "$BASTION" >/dev/null 2>&1
+if B4=$(wait_healthy "$BASTION" "$B"); then
+    pass "bastion without a data policy healthy ($B4)"
+    B=$B4
+else
+    fail "bastion without a data policy did not become healthy"
+fi
+check "no data policy in the starter pack" sh -c "! docker exec $B test -e /opt/gm/starter/data-policy.md"
+check "no ~/data-policy.md in the home" sh -c "! docker exec $B test -e /home/player/data-policy.md"
+check "the starter marker written again" docker exec "$B" test -f /home/player/.gm-starter-copied
+code=$(web -u "player:$TOOLS_PASSWORD" "$URL/")
+w=$(sections "$tmp/b")
+[ "$code" = 200 ] && [ "$w" = "readme story issues " ] \
+    && pass "without a data policy, the page: README, story, issues ($w)" \
+    || fail "without a data policy, the page: $code, sections $w"
+w=$(links "$tmp/b")
+[ "$w" = "#readme #story #issues " ] && ! grep -qi 'data policy' "$tmp/b" \
+    && pass "without a data policy, no such section or link ($w)" || fail "without a data policy, links: $w"
+out=$(pb gm-validate 2>&1); rc=$?
+[ "$rc" -eq 0 ] && pass "gm-validate green without a data policy" || fail "validator without a data policy: exit $rc: $out"
+
+# --- a required starter file missing: the container is refused --------------------
+info "removing issues.md from the starter pack"
+docker service update --detach --config-rm "${STACK}_starter_issues" "$BASTION" >/dev/null 2>&1
+i=0; found=0
+while [ "$i" -lt 90 ]; do
+    if docker service logs "$BASTION" 2>&1 \
+        | grep -q 'gm-entrypoint: fatal: starter pack file /opt/gm/starter/issues.md is missing'; then
+        found=1; break
+    fi
+    sleep 3; i=$((i + 3))
+done
+[ "$found" = 1 ] && pass "a missing required starter file refused (issues.md)" \
+    || fail "no refusal of a missing issues.md in the logs"
 
 echo
 if [ "$failures" -eq 0 ]; then

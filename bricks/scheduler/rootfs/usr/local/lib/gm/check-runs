@@ -1,0 +1,104 @@
+#!/usr/bin/python3 -I
+# check-runs: what a purpose's sealed check reads on a scheduler node about
+# a job's runs (v0.4 master spec 12.1, 12.2; capture W1-y; docs/gm.md).
+# DO NOT TAMPER. Root-owned, mode 0700: root only, as check-sql beside it.
+#
+# Usage, as root inside the scheduler node (gmctl exec --user root):
+#   /usr/local/lib/gm/check-runs runs <job> <since>
+#       one line per run of <job> whose `run ... phase=end status=ok` line
+#       in the scheduler's log is after <since> (a UTC instant,
+#       YYYY-MM-DDTHH:MM:SSZ), oldest first:
+#           <start> <end> rows=<n> ms=<x>
+#       <start> and <end> the run's start and end lines' instants (whole
+#       seconds, truncated), <start> `-` when the log holds no start for it
+#       (a run is skipped while the previous one goes, so runs of one job
+#       never overlap); nothing when there is none.
+#   /usr/local/lib/gm/check-runs last-reload
+#       the instant of the log's last `reload status=ok` line (a
+#       successful `sudo gm-reload-scheduler`); nothing when there is none.
+#   /usr/local/lib/gm/check-runs since <since>
+#       the judged moment: the later of <since> and the last reload (12.1).
+#   /usr/local/lib/gm/check-runs next <job>
+#       `<instant> remaining=<s>`: the job's next run after now in the
+#       jobs.yaml the runner loaded (its `cron` line in
+#       /run/scheduler/loaded, not the file as a player may have left it),
+#       by the program's own cron parser (gm_scheduler.cron); `never` when
+#       its time never comes.
+#
+# It reads the log and /run/scheduler/loaded only: never the repository's
+# code, never a database, never the schedule. A `script job=...` line is a
+# script's free text and never counts as a run (gm_scheduler.textlog).
+#
+# Exit status: 0 done; 1 `next`: the job is not in the loaded jobs.yaml;
+# 2 the helper cannot run (not root, a bad argument, the log or the loaded
+# file missing), with one `check-runs: ...` line on standard error.
+import math
+import os
+import sys
+import time
+
+USAGE = "usage: check-runs runs <job> <since> | last-reload | since <since> | next <job>"
+
+
+def fail(code, text):
+    print(f"check-runs: {text}", file=sys.stderr)
+    sys.exit(code)
+
+
+def main(argv):
+    if os.getuid() != 0:
+        fail(2, "run as root")
+    from gm_scheduler import ConfigError
+    from gm_scheduler.runner import load_config, read_loaded
+    from gm_scheduler.textlog import completed_runs, last_reload
+    from gm_scheduler.timeutil import instant, parse_instant
+
+    verbs = {"runs": 2, "last-reload": 0, "since": 1, "next": 1}
+    if not argv or argv[0] not in verbs or len(argv) != verbs[argv[0]] + 1:
+        fail(2, USAGE)
+    verb, args = argv[0], argv[1:]
+    try:
+        cfg = load_config()
+    except (OSError, ConfigError) as exc:
+        fail(2, f"the scheduler's configuration: {exc}")
+    since = None
+    if verb in ("runs", "since"):
+        try:
+            parse_instant(args[-1], "since")
+        except ConfigError as exc:
+            fail(2, f"{exc} (not {args[-1]!r})")
+        since = args[-1]
+    if verb == "next":
+        try:
+            loaded = read_loaded(cfg["loaded"])
+        except FileNotFoundError:
+            fail(2, f"{cfg['loaded']}: missing: the program has not loaded its files")
+        except (OSError, ConfigError) as exc:
+            fail(2, f"{cfg['loaded']}: {exc}")
+        cron = loaded["cron"].get(args[0])
+        if cron is None:
+            fail(1, f"job {args[0]} is not in the loaded jobs.yaml")
+        now = time.time()
+        nxt = cron.next_after(now)
+        print("never" if nxt is None else f"{instant(nxt)} remaining={max(0, math.ceil(nxt - now))}")
+        return 0
+    try:
+        if verb == "runs":
+            for start, end, rows, ms in completed_runs(cfg["log"], args[0], since):
+                print(f"{start or '-'} {end} rows={rows} ms={ms}")
+            return 0
+        reload = last_reload(cfg["log"])
+    except FileNotFoundError:
+        fail(2, f"{cfg['log']}: missing")
+    except OSError as exc:
+        fail(2, f"{cfg['log']}: cannot be read ({exc.strerror})")
+    if verb == "last-reload":
+        if reload:
+            print(reload)
+    else:
+        print(max(since, reload) if reload else since)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

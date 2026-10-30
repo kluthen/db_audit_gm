@@ -48,6 +48,19 @@ class TestRepositoryYaml(unittest.TestCase):
             with self.subTest(fault=fault_dir.name):
                 self.assertEqual(model.check_fault_dir(fault_dir), [])
 
+    def test_catalog_purposes_are_complete(self):
+        purposes = REPO_ROOT / "purposes"
+        for purpose_dir in sorted(purposes.iterdir()) if purposes.is_dir() else []:
+            with self.subTest(purpose=purpose_dir.name):
+                self.assertEqual(model.check_purpose_dir(purpose_dir), [])
+
+    def test_catalog_domains_are_complete(self):
+        domains = REPO_ROOT / "domains"
+        self.assertTrue((domains / "shop" / "domain.yaml").is_file())
+        for domain_dir in sorted(domains.iterdir()) if domains.is_dir() else []:
+            with self.subTest(domain=domain_dir.name):
+                self.assertEqual(model.check_domain_dir(domain_dir), [])
+
     def test_repo_scenarios_load(self):
         scenarios = REPO_ROOT / "scenarios"
         for sdir in sorted(scenarios.iterdir()) if scenarios.is_dir() else []:
@@ -103,9 +116,14 @@ class TestLoadFixture(unittest.TestCase):
 
 class RefusalAsserts:
 
+    catalog_root = None                 # the repository's, unless a test sets its own
+
+    def load(self):
+        return model.load_scenario(self.scenario, self.catalog_root or model.REPO_ROOT)
+
     def assertRefused(self, *fragments):
         with self.assertRaises(model.IncompleteScenario) as cm:
-            model.load_scenario(self.scenario)
+            self.load()
         text = "\n".join(cm.exception.missing)
         for fragment in fragments:
             self.assertIn(fragment, text)
@@ -136,8 +154,8 @@ class TestRefusals(RefusalAsserts, ScenarioCopyTest):
 
     def test_pinned_version_mismatch(self):
         self.edit_yaml("scenario.yaml",
-                       lambda d: self.node(d, "db")["brick"].update(version="0.4.0"))
-        self.assertRefused("nodes[db].brick", "0.4.0", "0.3.0")
+                       lambda d: self.node(d, "db")["brick"].update(version="0.5.0"))
+        self.assertRefused("nodes[db].brick", "0.5.0", "0.4.0")
 
     def test_unknown_brick(self):
         self.edit_yaml("scenario.yaml",
@@ -301,8 +319,8 @@ class TestMonitoringFixture(ScenarioCopyTest):
         self.assertEqual(sc.id, "fixture-monitoring")
         self.assertEqual([n["name"] for n in sc.nodes], self.NODES)
         self.assertEqual({n: (b.id, b.version, b.source) for n, b in sc.bricks.items()}, {
-            "bastion": ("bastion", "0.3.0", "catalog"),
-            "db": ("postgres", "0.3.0", "catalog"),
+            "bastion": ("bastion", "0.4.0", "catalog"),
+            "db": ("postgres", "0.4.0", "catalog"),
             "prometheus": ("prometheus", "0.2.0", "catalog"),
             "exporter": ("postgres-exporter", "0.2.0", "catalog"),
             "grafana": ("grafana", "0.2.0", "catalog")})
@@ -363,11 +381,11 @@ class TestLoadFixture(ScenarioCopyTest):
         self.assertEqual(sc.id, "fixture-load")
         self.assertEqual([n["name"] for n in sc.nodes], self.NODES)
         self.assertEqual({n: (b.id, b.version, b.source) for n, b in sc.bricks.items()}, {
-            "bastion": ("bastion", "0.3.0", "catalog"),
-            "db": ("postgres", "0.3.0", "catalog"),
+            "bastion": ("bastion", "0.4.0", "catalog"),
+            "db": ("postgres", "0.4.0", "catalog"),
             "pooler": ("pgbouncer", "0.1.0", "catalog"),
-            "producer": ("scheduler", "0.1.0", "catalog"),
-            "consumer": ("scheduler", "0.1.0", "catalog"),
+            "producer": ("scheduler", "0.2.0", "catalog"),
+            "consumer": ("scheduler", "0.2.0", "catalog"),
             "prometheus": ("prometheus", "0.2.0", "catalog"),
             "exporter": ("postgres-exporter", "0.2.0", "catalog"),
             "grafana": ("grafana", "0.2.0", "catalog")})
@@ -635,33 +653,47 @@ class TestWebRouteRefusals(MountedCopyTest):
         self.assertRefused("nodes[monitor]: web interface ui (port 9090, /monitor/) has 2 "
                            "routes (mon, monitor); one route per web interface")
 
+    FRONT_PORT_MISSING = ("nodes[bastion].published_ports: no {port: 8080, default: 8080}, "
+                          "which the web front needs (it runs in every game, routes or none)")
+
     def test_front_port_when_routes(self):
         self.edit_yaml("scenario.yaml", lambda d: self.node(d, "bastion")
                        .update(published_ports=[{"port": 22, "default": 2222},
                                                 {"port": 8080, "default": 8081}]))
-        self.assertRefused("nodes[bastion].published_ports: no {port: 8080, default: 8080}, "
-                           "which the web front needs (web_routes is non-empty)")
+        self.assertRefused(self.FRONT_PORT_MISSING)
 
     def drop_ui_evidence(self):
         self.edit_yaml("gm/answer-key.yaml", lambda d: d["instances"][1]["evidence"][0]
                        .update(where="node:monitor"))
 
-    def test_no_front_port_without_routes(self):
+    def without_web_interface(self):
         self.brick("fixture-monitor", lambda d: d["interfaces"]["provides"][0].pop("web_path"))
         self.drop_ui_evidence()
-        self.web_routes({})
-        missing = self.assertRefused("nodes[bastion].published_ports: port 8080 is published, "
-                                     "but web_routes is empty (the web front does not run)")
-        self.assertEqual(len(missing), 1, missing)
 
-    def test_empty_routes_by_default(self):
-        self.brick("fixture-monitor", lambda d: d["interfaces"]["provides"][0].pop("web_path"))
-        self.drop_ui_evidence()
+    def test_front_port_without_routes(self):
+        # v0.4 (D224): the front runs in every game, so empty routes still
+        # need the port; v0.3 refused it published.
+        self.without_web_interface()
         def change(d):
-            self.node(d, "bastion")["parameters"].pop("web_routes")
+            self.node(d, "bastion")["parameters"].update(web_routes={})
             self.node(d, "bastion")["published_ports"] = [{"port": 22, "default": 2222}]
         self.edit_yaml("scenario.yaml", change)
+        missing = self.assertRefused(self.FRONT_PORT_MISSING)
+        self.assertEqual(len(missing), 1, missing)
+
+    def test_front_port_published_with_empty_routes(self):
+        self.without_web_interface()
+        self.web_routes({})
         model.load_scenario(self.scenario)
+
+    def test_empty_routes_by_default(self):
+        self.without_web_interface()
+        self.edit_yaml("scenario.yaml",
+                       lambda d: self.node(d, "bastion")["parameters"].pop("web_routes"))
+        model.load_scenario(self.scenario)
+        self.edit_yaml("scenario.yaml", lambda d: self.node(d, "bastion")
+                       .update(published_ports=[{"port": 22, "default": 2222}]))
+        self.assertRefused(self.FRONT_PORT_MISSING)
 
 
 class TestParameterFaultRefusals(MountedCopyTest):
@@ -1595,7 +1627,8 @@ class TestQueryRefusals(SchedulerFilesTest):
         self.queries(lambda q: q.update({"orders.odd": {"statement": "SELECT 1"},
                                          "orders.empty": []}))
         self.assertRefused(f"{self.Q}: queries.orders.odd: not a query (sql), a pool (a list of "
-                           "queries), a sequence (steps) or a builder (builder)",
+                           "queries), a sequence (steps), a builder (builder) or a script "
+                           "(script)",
                            f"{self.Q}: queries.orders.empty: a pool lists at least one query")
 
     def test_query_keys(self):
@@ -1821,8 +1854,14 @@ class TestJobsRefusals(SchedulerFilesTest):
         cases = {
             "30 1 * *": "is not a 5-field cron expression",
             "61 1 * * *": "minute 61 is not a numeric cron form",
-            "30 */2 * * *": "hour */2 is not *, a number or a list of numbers (0-23)",
-            "30 1-3 * * *": "hour 1-3 is not *",
+            "30 24 * * *": "hour 24 is not *, or a comma list of n, a-b, */s or a-b/s within "
+                           "0-23 (a <= b, never wrapping; s >= 1)",
+            "30 20-8 * * *": "hour 20-8 is not *, or a comma list",
+            "30 */0 * * *": "hour */0 is not *, or a comma list",
+            "30 1-3/0 * * *": "hour 1-3/0 is not *, or a comma list",
+            "30 *,3 * * *": "hour *,3 is not *, or a comma list",
+            "30 5/2 * * *": "hour 5/2 is not *, or a comma list",
+            "30 1-24 * * *": "hour 1-24 is not *, or a comma list",
             "30 1 1 * *": "day of month and month are *",
             "30 1 * 6 *": "day of month and month are *",
             "30 1 * * 7": "day of week 7 is not *, a number or a list of numbers (0-6)",
@@ -1835,7 +1874,8 @@ class TestJobsRefusals(SchedulerFilesTest):
                 self.assertRefused(f"{self.J}: jobs[weekly-report].at: {at!r}", message)
 
     def test_cron_accepted(self):
-        for at in ("*/15 * * * *", "0-30/10 8,12 * * *", "5 6 * * 0,6", "1,31 23 * * *"):
+        for at in ("*/15 * * * *", "0-30/10 8,12 * * *", "5 6 * * 0,6", "1,31 23 * * *",
+                   "*/15 8-20 * * *", "30 */2 * * *", "0 1-3,8-20/2,23 * * *", "0 0-23 * * *"):
             with self.subTest(at=at):
                 self.setUp()
                 self.jobs(lambda j: j[1].update(at=at))
@@ -1863,6 +1903,808 @@ class TestJobsRefusals(SchedulerFilesTest):
     def test_no_job_accepted(self):
         self.jobs(lambda j: j.clear())
         model.load_scenario(self.scenario)
+
+
+# --- v0.4 (build plan chunk 2; capture W1 of specs/versions/v0.4/wave-log.md) ---
+
+FIXTURE_V04 = FIXTURES / "fixture-v04-refusals"
+
+
+class V04CopyTest(RefusalAsserts, ScenarioCopyTest):
+    """Each test works on a fresh copy of fixture-v04-refusals: scenario-local
+    postgres 0.4.0, scheduler 0.2.0 and bastion 0.4.0 bricks (W1 item 9), a
+    purpose and a domain under its test catalog root catalog/ (W1 item 0),
+    governance:, f1 a seed-file fault on db, f2 a purpose fault on the
+    runner bi whose sealed check judges runs."""
+
+    PURPOSE = "catalog/purposes/fixture-sales-copy"
+    DOMAIN = "catalog/domains/fixture-shop"
+
+    def setUp(self):
+        super().setUp()
+        self.scenario = self.tmp / "fixture-v04-refusals"
+        shutil.copytree(FIXTURE_V04, self.scenario)
+        self.catalog_root = self.scenario / "catalog"
+
+    def scenario_yaml(self, change):
+        self.edit_yaml("scenario.yaml", change)
+
+    def governance(self, change):
+        self.scenario_yaml(lambda d: change(d["governance"]))
+
+    def classes(self, change):
+        self.governance(lambda g: change(g["classes"]))
+
+    def parts(self, change):
+        self.scenario_yaml(lambda d: change(d["purposes"][0]["parts"]))
+
+    def purpose(self, change):
+        self.edit_yaml(f"{self.PURPOSE}/purpose.yaml", change)
+
+    def purpose_problems(self, change=None):
+        if change is not None:
+            self.purpose(change)
+        return "\n".join(model.check_purpose_dir(self.scenario / self.PURPOSE))
+
+    def domain_problems(self, change=None):
+        if change is not None:
+            self.edit_yaml(f"{self.DOMAIN}/domain.yaml", change)
+        return "\n".join(model.check_domain_dir(self.scenario / self.DOMAIN))
+
+    def assertProblems(self, text, *fragments):
+        for fragment in fragments:
+            self.assertIn(fragment, text)
+
+
+class TestV04Fixture(unittest.TestCase):
+    """The valid fixture, its test catalog and its bricks."""
+
+    def test_fixture_loads(self):
+        sc = model.load_scenario(FIXTURE_V04, FIXTURE_V04 / "catalog")
+        self.assertEqual(sc.data["domain"], "fixture-shop")
+        self.assertEqual(sc.data["purposes"][0]["parts"]["runner"], "bi")
+        self.assertEqual(sc.bricks["bi"].version, "0.2.0")
+        self.assertEqual(sc.bricks["db"].source, "scenario")
+        self.assertNotIn("crontab", sc.node("db")["seed_files"])
+        self.assertEqual(sc.answer_key["instances"][1]["sealed_check"]["judges"], "runs")
+
+    def test_test_catalog_is_complete(self):
+        catalog = FIXTURE_V04 / "catalog"
+        self.assertEqual(model.check_purpose_dir(catalog / "purposes" / "fixture-sales-copy"), [])
+        self.assertEqual(model.check_domain_dir(catalog / "domains" / "fixture-shop"), [])
+
+    def test_fixture_bricks_are_complete(self):
+        for brick in ("bastion", "postgres", "scheduler"):
+            with self.subTest(brick=brick):
+                self.assertEqual(model.check_brick_dir(FIXTURE_V04 / "bricks" / brick), [])
+
+    def test_repository_catalog_lacks_the_test_purpose(self):
+        with self.assertRaises(model.IncompleteScenario) as cm:
+            model.load_scenario(FIXTURE_V04)
+        self.assertIn("scenario.yaml: purposes[fixture-sales-copy].id: purpose fixture-sales-copy "
+                      "not found (looked in purposes/fixture-sales-copy/ of the catalog)",
+                      cm.exception.missing)
+
+    def test_template_comment_after_an_apostrophe(self):
+        # `consumer: <the back office's dashboards>  # optional: ...`
+        parts = model.template_schema("purpose.yaml").fields["parts"].child
+        self.assertTrue(parts.fields["consumer"].optional)
+        self.assertTrue(parts.fields["receiver"].optional)
+        self.assertFalse(parts.fields["source"].optional)
+
+    def test_data_file_reading(self):
+        created = model.data_file_creates(
+            "CREATE DATABASE shop OWNER shop;\n  create role bi_etl LOGIN;\nCreate User u1;\n"
+            "-- CREATE ROLE commented;\nCREATE ROLE \"Quoted\";\nCREATE ROLE Mixed;\n"
+            "SELECT 1; CREATE ROLE inline;\nCREATE EXTENSION IF NOT EXISTS pg_cron;\n", "x.sql")
+        self.assertEqual(created.databases, {"shop"})
+        self.assertEqual(created.roles, {"bi_etl", "u1"})
+        self.assertTrue(created.pg_cron)
+        self.assertFalse(model.data_file_creates("-- CREATE EXTENSION pg_cron;\n"
+                                                 "CREATE EXTENSION pg_cronx;\n", "y").pg_cron)
+
+
+class TestScenarioPurposeRefusals(V04CopyTest):
+    """purposes: (master spec 6.1, 6.9; W1 item 1)."""
+
+    P = "scenario.yaml: purposes[fixture-sales-copy]"
+
+    def test_unknown_purpose(self):
+        self.scenario_yaml(lambda d: d["purposes"].append({"id": "nope", "parts": {
+            "source": "db/shop", "target": "db/shop", "runner": "bi"}}))
+        self.assertRefused("scenario.yaml: purposes[nope].id: purpose nope not found (looked in "
+                           "purposes/nope/ of the catalog)")
+
+    def test_purpose_listed_twice(self):
+        self.scenario_yaml(lambda d: d["purposes"].append(dict(d["purposes"][0])))
+        self.assertRefused(f"{self.P}: purpose fixture-sales-copy listed more than once")
+
+    def test_empty_purposes(self):
+        self.scenario_yaml(lambda d: d.update(purposes=[]))
+        self.assertRefused("scenario.yaml: purposes: empty")
+
+    def test_parts_mapped_exactly(self):
+        self.parts(lambda p: (p.pop("target"), p.update(consumer="bi")))
+        self.assertRefused(f"{self.P}.parts.target: missing (purpose fixture-sales-copy declares "
+                           "it)",
+                           f"{self.P}.parts.consumer: not a part purpose fixture-sales-copy "
+                           "declares (source, target, runner)")
+
+    def test_locations(self):
+        cases = {
+            "db": "'db' is not a location <node>/<database>",
+            "db/Shop": "'db/Shop' is not a location <node>/<database>",
+            "nowhere/shop": "nowhere/shop: nowhere is not a node",
+            "bi/shop": "bi/shop: bi is not a database node (its role is transformer)",
+            "db/reporting": "db/reporting: reporting is not a database node db's data file "
+                            "(data/db.sql) creates (CREATE DATABASE reporting)",
+        }
+        for value, message in cases.items():
+            with self.subTest(value=value):
+                self.setUp()
+                self.parts(lambda p: p.update(source=value))
+                self.assertRefused(f"{self.P}.parts.source: {message}")
+
+    def test_location_needs_a_data_file(self):
+        self.scenario_yaml(lambda d: self.node(d, "reporting").pop("data"))
+        self.assertRefused(f"{self.P}.parts.target: reporting/reporting: node reporting has no "
+                           "data file to create database reporting")
+
+    def test_source_and_target_may_be_equal(self):
+        self.parts(lambda p: p.update(target="db/shop"))
+        self.load()
+
+    def test_runner_role(self):
+        self.parts(lambda p: p.update(runner="db"))
+        self.assertRefused(f"{self.P}.parts.runner: db is not a node of role transformer (its "
+                           "role is database)")
+        self.setUp()
+        self.parts(lambda p: p.update(runner="nobody"))
+        self.assertRefused(f"{self.P}.parts.runner: nobody is not a node")
+
+    def test_jobs_on_the_runner(self):
+        self.edit_yaml("nodes/bi/jobs.yaml", lambda d: d["jobs"][0].update(name="copy"))
+        self.assertRefused(f"{self.P}.parts.runner: bi's jobs.yaml (nodes/bi/jobs.yaml) has no "
+                           "job copy-hourly (a job of purpose fixture-sales-copy)")
+
+    def test_job_key_on_the_runner(self):
+        self.edit_yaml("nodes/bi/queries.yaml", lambda d: d["queries"].update(
+            {"sales.other": {"sql": "SELECT 1"}}))
+        self.edit_yaml("nodes/bi/jobs.yaml", lambda d: d["jobs"][0].update(key="sales.other"))
+        self.assertRefused(f"{self.P}.parts.runner: bi's jobs.yaml (nodes/bi/jobs.yaml): job "
+                           "copy-hourly has key sales.other, but purpose fixture-sales-copy's "
+                           "job copy-hourly has key sales.copy")
+
+    def test_purpose_problems_make_the_scenario_incomplete(self):
+        self.purpose(lambda d: d.update(kind="streamed"))
+        self.assertRefused("purposes/fixture-sales-copy/purpose.yaml: kind: streamed is not one "
+                           "of pulled, transformed-in-place, pushed, pushed-obligation")
+
+
+class TestPurposeDefinitionRefusals(V04CopyTest):
+    """A purpose folder (master spec 6.7, 8; W1 item 5)."""
+
+    L = "purposes/fixture-sales-copy/purpose.yaml"
+
+    def test_identity_and_files(self):
+        (self.scenario / self.PURPOSE / "gm.md").unlink()
+        text = self.purpose_problems(lambda d: d.update(id="other"))
+        self.assertProblems(text, f"{self.L}: id: other is not the folder name fixture-sales-copy",
+                            "purposes/fixture-sales-copy/gm.md: missing file")
+
+    def test_template(self):
+        text = self.purpose_problems(lambda d: (d.pop("trace"), d["jobs"][0].pop("cadence"),
+                                                d.update(title="<one line>")))
+        self.assertProblems(text, f"{self.L}: trace: missing",
+                            f"{self.L}: jobs[copy-hourly].cadence: missing",
+                            f"{self.L}: title: placeholder <one line> left")
+
+    def test_domains(self):
+        text = self.purpose_problems(lambda d: d.update(domains=["nope", "Bad"]))
+        self.assertProblems(text, f"{self.L}: domains: nope is not a domain (no "
+                            "domains/nope/domain.yaml in the catalog)",
+                            f"{self.L}: domains: 'Bad' is not a domain id")
+        self.setUp()
+        self.edit_yaml(f"{self.DOMAIN}/domain.yaml", lambda d: d.update(purposes=[]))
+        self.assertProblems(self.purpose_problems(), f"{self.L}: domains: domain fixture-shop "
+                            "does not list fixture-sales-copy in its domain.yaml purposes")
+
+    def test_closed_values(self):
+        def change(d):
+            d["kind"] = "streamed"
+            d["parts"]["sink"] = "somewhere"
+            d["jobs"][0].update(method="magic", part="source", source="runner")
+            d["trace"][0]["kind"] = "logs"
+        text = self.purpose_problems(change)
+        self.assertProblems(text, f"{self.L}: kind: streamed is not one of pulled",
+                            f"{self.L}: parts.sink: not a part (source, target, runner, "
+                            "consumer, receiver)",
+                            f"{self.L}: jobs[copy-hourly].method: magic is not one of sql, script",
+                            f"{self.L}: jobs[copy-hourly].part: source is not a declared runner "
+                            "part (runner, the only one in v0.4)",
+                            f"{self.L}: jobs[copy-hourly].source: runner is not a declared "
+                            "database part (source, target)",
+                            f"{self.L}: trace[0].kind: logs is not one of outbox-rows")
+
+    def test_jobs(self):
+        def change(d):
+            d["jobs"][0]["cadence"] = "5 * 1 * *"
+            d["jobs"].append(dict(d["jobs"][0]))
+        text = self.purpose_problems(change)
+        self.assertProblems(text, f"{self.L}: jobs[copy-hourly]: duplicate job name",
+                            f"{self.L}: jobs[copy-hourly].cadence: '5 * 1 * *': day of month and "
+                            "month are *")
+
+    def test_trace(self):
+        def change(d):
+            d["trace"][0]["file"] = "/var/log/x.log"
+            d["trace"][1].update(part="consumer", file="log/scheduler.log")
+            d["trace"].append({"kind": "definitions", "part": "source", "run_column": "x"})
+        text = self.purpose_problems(change)
+        self.assertProblems(text, f"{self.L}: trace[0]: exactly one of table and file (it has "
+                            "both)",
+                            f"{self.L}: trace[1].part: consumer is not a declared part",
+                            f"{self.L}: trace[1].file: 'log/scheduler.log' is not an absolute path",
+                            f"{self.L}: trace[2]: exactly one of table and file (it has neither)",
+                            f"{self.L}: trace[2].run_column: only with table")
+
+    def test_invariants(self):
+        def change(d):
+            d["invariants"].append(dict(d["invariants"][0], check="checks/missing.sh"))
+            d["invariants"].append(dict(d["invariants"][0], id="r2", check="gm.md"))
+        text = self.purpose_problems(change)
+        self.assertProblems(text, f"{self.L}: invariants[R1]: duplicate invariant id",
+                            "purposes/fixture-sales-copy/checks/missing.sh: missing file "
+                            "(invariants[R1].check, a file of checks/)",
+                            f"{self.L}: invariants[r2].id: 'r2' is not [A-Z][0-9]+",
+                            "purposes/fixture-sales-copy/gm.md: missing file (invariants[r2].check")
+
+    def test_data_moved(self):
+        def change(d):
+            d["data_moved"][0].update(reads=["customers.email"],
+                                      writes=["sales_hourly", "consumer:x"])
+            d["data_moved"].append({"job": "nightly", "reads": [], "writes": ["target:t"]})
+        text = self.purpose_problems(change)
+        self.assertProblems(text, f"{self.L}: data_moved[copy-hourly].reads: 'customers.email' is "
+                            "not a classification key <database>.<table>.<column>",
+                            f"{self.L}: data_moved[copy-hourly].writes: 'sales_hourly' is not "
+                            "<part>:<table>",
+                            f"{self.L}: data_moved[copy-hourly].writes: consumer:x: consumer is "
+                            "not a declared part",
+                            f"{self.L}: data_moved[nightly].job: nightly is not a job of the "
+                            "purpose")
+        self.setUp()
+        self.assertProblems(self.purpose_problems(lambda d: d["data_moved"][0].update(
+            job="other")), f"{self.L}: data_moved: no entry for job copy-hourly (one entry per "
+            "job)")
+
+    def test_roles(self):
+        text = self.purpose_problems(lambda d: d["roles"][0].update(part="runner"))
+        self.assertProblems(text, f"{self.L}: roles[shop_etl].part: runner is not a declared "
+                            "database part (source, target)")
+
+
+class TestDomainRefusals(V04CopyTest):
+    """domain: and a domain folder (master spec 6.1, 6.8; W1 item 6)."""
+
+    L = "domains/fixture-shop/domain.yaml"
+
+    def test_unknown_domain(self):
+        self.scenario_yaml(lambda d: d.update(domain="nope"))
+        self.assertRefused("scenario.yaml: domain: domain nope not found (looked in "
+                           "domains/nope/ of the catalog)")
+
+    def test_domain_problems_make_the_scenario_incomplete(self):
+        self.edit_yaml(f"{self.DOMAIN}/domain.yaml", lambda d: d.update(id="other"))
+        self.assertRefused(f"{self.L}: id: other is not the folder name fixture-shop")
+
+    def test_static_scenario_has_none(self):
+        self.scenario_yaml(lambda d: d.pop("domain"))
+        self.load()
+
+    def test_files(self):
+        (self.scenario / self.DOMAIN / "data" / "load.sql").unlink()
+        text = self.domain_problems(lambda d: d.update(producers="feeds/", notes="docs/none.md"))
+        self.assertProblems(text, f"domains/fixture-shop/data/load.sql: missing file ({self.L} "
+                            "load)",
+                            f"domains/fixture-shop/docs/none.md: missing file ({self.L} notes)",
+                            f"domains/fixture-shop/feeds/: missing folder ({self.L} producers)")
+
+    def test_purposes_form_only(self):
+        text = self.domain_problems(lambda d: d.update(purposes=["not-yet-written", "Bad_Id"]))
+        self.assertNotIn("not-yet-written", text)
+        self.assertIn(f"{self.L}: purposes: 'Bad_Id' is not a purpose id", text)
+
+    def test_producer_fragments(self):
+        producers = self.scenario / self.DOMAIN / "producers"
+        (producers / "notes.txt").write_text("x\n")
+        (producers / "scripts").mkdir()
+        (producers / "builders").mkdir()
+        self.edit_yaml(f"{self.DOMAIN}/producers/schedule.yaml",
+                       lambda d: d.update(intensity=1.0))
+        self.edit_yaml(f"{self.DOMAIN}/producers/queries.yaml",
+                       lambda d: d["queries"].update({"odd": {"statement": "SELECT 1"}}))
+        (producers / "jobs.yaml").write_text("jobs: []\nconnections: {}\n")
+        text = self.domain_problems()
+        self.assertProblems(text, "domains/fixture-shop/producers/notes.txt: not a fragment "
+                            "(queries.yaml, schedule.yaml, jobs.yaml, builders/)",
+                            "domains/fixture-shop/producers/scripts/: not a fragment",
+                            "domains/fixture-shop/producers/schedule.yaml: intensity: not a key "
+                            "of a schedule.yaml fragment (connections, streams, shapes); "
+                            "intensity and timeline are the scenario's",
+                            "domains/fixture-shop/producers/jobs.yaml: connections: not a key of "
+                            "a jobs.yaml fragment (jobs)",
+                            "domains/fixture-shop/producers/queries.yaml: queries.odd: not a query")
+        self.assertNotIn("producers/builders", text)
+
+    def test_classification(self):
+        self.edit_yaml(f"{self.DOMAIN}/data/classification.yaml", lambda d: d["columns"].update(
+            {"customers.email": "personal", "shop.customers.phone": "secret"}))
+        text = self.domain_problems()
+        self.assertProblems(text, "domains/fixture-shop/data/classification.yaml: "
+                            "columns.customers.email: 'customers.email' is not "
+                            "<database>.<table>.<column>",
+                            "domains/fixture-shop/data/classification.yaml: "
+                            "columns.shop.customers.phone: 'secret' is not a class (personal, "
+                            "customer-linked, internal; master spec 11.2)")
+
+
+class TestGovernanceRefusals(V04CopyTest):
+    """governance: (master spec 6.1, 6.9, 11.3, 11.4; W1 item 1; D223)."""
+
+    P = "scenario.yaml: governance.classes"
+
+    def test_files(self):
+        (self.scenario / "data" / "classification.yaml").unlink()
+        self.governance(lambda g: g.update(policy="player/policy.md"))
+        self.assertRefused("player/policy.md: missing file (scenario.yaml governance.policy)",
+                           "data/classification.yaml: missing file (scenario.yaml "
+                           "governance.classification)")
+
+    def test_classes_closed_list(self):
+        self.classes(lambda c: c.update(secret={"locations": "any"}))
+        self.assertRefused(f"{self.P}.secret: secret is not a class (personal, customer-linked, "
+                           "internal; master spec 11.2)")
+
+    def test_every_class_used_has_rules(self):
+        self.classes(lambda c: (c.pop("customer-linked"), c.pop("internal")))
+        missing = self.assertRefused("scenario.yaml: governance.classes: no entry for class "
+                                     "customer-linked, which data/classification.yaml uses "
+                                     "(master spec 6.1)")
+        self.assertNotIn("class internal", "\n".join(missing))
+
+    def test_classification_file(self):
+        self.edit_yaml("data/classification.yaml", lambda d: d["columns"].update(
+            {"shop.orders": "internal", "shop.orders.placed_at": "public"}))
+        self.assertRefused("data/classification.yaml: columns.shop.orders: 'shop.orders' is not "
+                           "<database>.<table>.<column>",
+                           "data/classification.yaml: columns.shop.orders.placed_at: 'public' is "
+                           "not a class")
+
+    def test_any_takes_no_readers_or_outbound(self):
+        self.classes(lambda c: c["internal"].update(readers=["shop_app"], outbound=[
+            {"to": "x", "outbox": "db/shop/mail_outbox", "fields": ["a"]}]))
+        self.assertRefused(f"{self.P}.internal.readers: refused with locations: any",
+                           f"{self.P}.internal.outbound: refused with locations: any")
+
+    def test_readers_required_unless_any(self):
+        self.classes(lambda c: c["customer-linked"].pop("readers"))
+        self.assertRefused(f"{self.P}.customer-linked.readers: missing (required unless "
+                           "locations is any; may be [])")
+
+    def test_readers_may_be_empty(self):
+        self.classes(lambda c: c["customer-linked"].update(readers=[]))
+        self.load()
+
+    def test_locations(self):
+        cases = {"everywhere": "'everywhere' is not a non-empty list of locations "
+                               "<node>/<database> or the word any",
+                 ("bi/shop",): "bi/shop: bi is not a database node (its role is transformer)",
+                 ("reporting/shop",): "reporting/shop: shop is not a database node reporting's "
+                                      "data file (data/reporting.sql) creates"}
+        for value, message in cases.items():
+            with self.subTest(value=value):
+                self.setUp()
+                self.classes(lambda c: c["personal"].update(
+                    locations=list(value) if isinstance(value, tuple) else value))
+                self.assertRefused(f"{self.P}.personal.locations: {message}")
+        self.setUp()
+        self.classes(lambda c: c["personal"].update(locations=[]))
+        self.assertRefused(f"{self.P}.personal.locations: empty")
+
+    def test_readers(self):
+        self.classes(lambda c: c["personal"].update(readers=["shop_app", "gm_check", "nobody"]))
+        self.assertRefused(f"{self.P}.personal.readers: gm_check is one of the game's own "
+                           "roles, never a reader",
+                           f"{self.P}.personal.readers: nobody is not a role a data file of the "
+                           "scenario creates (CREATE ROLE nobody)")
+
+    def test_reader_from_another_data_file(self):
+        self.classes(lambda c: c["personal"]["readers"].append("bi_etl"))
+        self.load()
+
+    def test_outbound(self):
+        def change(c):
+            flow = c["personal"]["outbound"][0]
+            c["personal"]["outbound"] = [
+                flow, dict(flow), dict(flow, to="Mail_Provider"),
+                dict(flow, to="a", outbox="db/shop"), dict(flow, to="b", outbox="db/nope/t"),
+                dict(flow, to="c", fields=[])]
+        self.classes(change)
+        self.assertRefused(f"{self.P}.personal.outbound[mail-provider].to: mail-provider "
+                           "receives the class more than once",
+                           f"{self.P}.personal.outbound[Mail_Provider].to: 'Mail_Provider' is "
+                           "not a receiver's label",
+                           f"{self.P}.personal.outbound[a].outbox: 'db/shop' is not "
+                           "<node>/<database>/<table>",
+                           f"{self.P}.personal.outbound[b].outbox: db/nope: nope is not a "
+                           "database node db's data file",
+                           "governance.classes.personal.outbound[5].fields: empty")
+
+    def test_separation(self):
+        self.classes(lambda c: c["personal"].update(separation="database"))
+        self.assertRefused(f"{self.P}.personal.separation: 'database' is not instance")
+        self.setUp()
+        self.classes(lambda c: c["personal"].update(separation="instance"))
+        self.load()
+
+    def test_policy_mapped_to_the_bastion(self):
+        self.scenario_yaml(lambda d: self.node(d, "bastion")["seed_files"].pop("data-policy.md"))
+        self.assertRefused("scenario.yaml: nodes[bastion].seed_files.data-policy.md: missing (a "
+                           "scenario with governance: maps the bastion's data-policy.md to "
+                           "governance.policy player/data-policy.md; spec D223)")
+
+    def test_policy_mapped_to_another_file(self):
+        self.scenario_yaml(lambda d: self.node(d, "bastion")["seed_files"].update(
+            {"data-policy.md": "player/story.md"}))
+        self.assertRefused("scenario.yaml: nodes[bastion].seed_files.data-policy.md: "
+                           "player/story.md, not governance.policy player/data-policy.md "
+                           "(spec D223)")
+
+    def test_no_governance_maps_no_policy(self):
+        self.scenario_yaml(lambda d: d.pop("governance"))
+        self.assertRefused("scenario.yaml: nodes[bastion].seed_files.data-policy.md: a scenario "
+                           "without governance: hands the players no data policy, so its bastion "
+                           "maps none (spec D223)")
+        self.setUp()
+        self.scenario_yaml(lambda d: (d.pop("governance"),
+                                      self.node(d, "bastion")["seed_files"].pop("data-policy.md")))
+        self.load()
+
+
+class TestFaultV04Refusals(V04CopyTest):
+    """v0.4's fault keys (master spec 6.3; W1 item 3)."""
+
+    L = "faults/fixture-copy-runs/fault.yaml"
+
+    def problems(self, change):
+        self.edit_yaml(f"faults/fixture-copy-runs/fault.yaml", change)
+        return "\n".join(model.check_fault_dir(self.scenario / "faults" / "fixture-copy-runs",
+                                               catalog_root=self.catalog_root))
+
+    def test_purposes(self):
+        text = self.problems(lambda d: d["applies_to"].update(purposes=["nope", "Bad"]))
+        self.assertProblems(text, f"{self.L}: applies_to.purposes: nope is not a purpose (no "
+                            "purposes/nope/purpose.yaml in the catalog)",
+                            f"{self.L}: applies_to.purposes: 'Bad' is not a purpose id")
+        self.setUp()
+        self.assertIn(f"{self.L}: applies_to.purposes: empty",
+                      self.problems(lambda d: d["applies_to"].update(purposes=[])))
+
+    def test_purposes_through_the_scenario(self):
+        self.edit_yaml("faults/fixture-copy-runs/fault.yaml",
+                       lambda d: d["applies_to"].update(purposes=["nope"]))
+        self.assertRefused(f"{self.L}: applies_to.purposes: nope is not a purpose")
+
+    def test_judges(self):
+        text = self.problems(lambda d: d["sealed_check"].update(judges="outputs"))
+        self.assertIn(f"{self.L}: sealed_check.judges: 'outputs' is not runs or triggers", text)
+        self.setUp()
+        text = self.problems(lambda d: d["sealed_check"].update(behavioural=True))
+        self.assertIn(f"{self.L}: sealed_check.judges: never with behavioural: true", text)
+        self.setUp()
+        self.assertEqual(self.problems(lambda d: d["sealed_check"].update(judges="triggers")), "")
+
+    def test_needs_unshared_host(self):
+        text = self.problems(lambda d: d.update(needs_unshared_host="yes"))
+        self.assertIn(f"{self.L}: needs_unshared_host: 'yes' is not a boolean", text)
+        self.setUp()
+        self.assertEqual(self.problems(lambda d: d.pop("needs_unshared_host")), "")
+
+
+class TestJudgesAnswerKeyRefusals(V04CopyTest):
+    """A sealed check judging runs or triggers in the answer key (master
+    spec 6.2, 12; W1 item 2)."""
+
+    KEY = "gm/answer-key.yaml"
+    P = "gm/answer-key.yaml: instances[f2].sealed_check"
+
+    def check(self, change, index=1):
+        self.edit_yaml(self.KEY, lambda d: change(d["instances"][index]["sealed_check"]))
+
+    def test_judges_and_threshold_required(self):
+        self.check(lambda c: (c.pop("judges"), c.pop("threshold")))
+        self.assertRefused(f"{self.P}.judges: missing (fault fixture-copy-runs's sealed check "
+                           "judges runs)",
+                           f"{self.P}.threshold: missing (fault fixture-copy-runs's sealed check "
+                           "judges runs: the violations tolerated)")
+
+    def test_judges_equal_to_the_fault(self):
+        self.check(lambda c: c.update(judges="triggers"))
+        self.assertRefused(f"{self.P}.judges: triggers, but fault fixture-copy-runs's sealed "
+                           "check judges runs")
+
+    def test_threshold_a_non_negative_integer(self):
+        for value in (-1, 1.5, "0"):
+            with self.subTest(threshold=value):
+                self.setUp()
+                self.check(lambda c: c.update(threshold=value))
+                self.assertRefused(f"{self.P}.threshold: {value!r} is not a non-negative integer")
+        self.setUp()
+        self.check(lambda c: c.update(threshold=3))
+        self.load()
+
+    def test_no_window(self):
+        self.check(lambda c: c.update(window="30m"))
+        self.assertRefused(f"{self.P}.window: fault fixture-copy-runs's sealed check judges runs, "
+                           "which takes no window (master spec 6.2)")
+
+    def test_judges_only_for_a_judging_fault(self):
+        self.check(lambda c: c.update(judges="runs", threshold=0), index=0)
+        self.assertRefused("gm/answer-key.yaml: instances[f1].sealed_check.judges: fault "
+                           "fixture-random-page-cost's sealed check judges no runs or triggers",
+                           "gm/answer-key.yaml: instances[f1].sealed_check.threshold: fault "
+                           "fixture-random-page-cost's sealed check is not behavioural")
+
+
+class TestSeedOptionalRefusals(V04CopyTest):
+    """brick.yaml seed.optional (master spec 6.4; W1 item 4)."""
+
+    LABEL = "bricks/postgres/brick.yaml"
+
+    def test_optional_entries(self):
+        text = self.brick_problems_v04(lambda d: d["seed"].update(
+            optional=["crontab", "pgbouncer.ini", "builders/"]))
+        self.assertIn(f"{self.LABEL}: seed.optional: pgbouncer.ini is not a seed file of the "
+                      "brick (seed.files)", text)
+        self.assertIn(f"{self.LABEL}: seed.optional: builders/ is a directory entry, optional "
+                      "already", text)
+
+    def brick_problems_v04(self, change):
+        self.edit_yaml(f"{self.LABEL}", change)
+        return "\n".join(model.check_brick_dir(self.scenario / "bricks" / "postgres"))
+
+    def test_optional_file_left_out_and_required_ones_kept(self):
+        self.load()                          # db and reporting seed no crontab
+        self.scenario_yaml(lambda d: self.node(d, "db")["seed_files"].pop("pg_hba.conf"))
+        self.assertRefused("scenario.yaml: nodes[db].seed_files: no entry for the brick's seed "
+                           "file pg_hba.conf")
+
+    def test_without_optional_every_file_is_required(self):
+        self.edit_yaml(self.LABEL, lambda d: d["seed"].pop("optional"))
+        missing = self.assertRefused("scenario.yaml: nodes[db].seed_files: no entry for the "
+                                     "brick's seed file crontab")
+        self.assertNotIn("nodes[reporting].seed_files: no entry", "\n".join(missing))
+
+
+class V04SchedulerTest(V04CopyTest):
+    """The runner bi's files: a transformer script (master spec 7.1; W1 item
+    7)."""
+
+    Q = "nodes/bi/queries.yaml"
+    S = "nodes/bi/schedule.yaml"
+    J = "nodes/bi/jobs.yaml"
+
+    def queries(self, change):
+        self.edit_yaml(self.Q, lambda d: change(d["queries"]))
+
+    def jobs(self, change):
+        self.edit_yaml(self.J, lambda d: change(d["jobs"]))
+
+
+class TestScriptRefusals(V04SchedulerTest):
+
+    def test_script_entry_accepted(self):
+        sc = self.load()
+        self.assertIn("scripts/", sc.node("bi")["seed_files"])
+
+    def test_script_reference(self):
+        cases = {
+            "rollup.py:hourly": "queries.sales.rollup.script: 'rollup.py:hourly' is not "
+                                "scripts/<file>:<function>",
+            "scripts/none.py:hourly": "queries.sales.rollup.script: scripts/none.py:hourly: "
+                                      "nodes/bi/scripts/none.py does not exist",
+            "scripts/rollup.py:daily": "queries.sales.rollup.script: scripts/rollup.py:daily: "
+                                       "nodes/bi/scripts/rollup.py defines no function daily at "
+                                       "its top level",
+        }
+        for ref, message in cases.items():
+            with self.subTest(ref=ref):
+                self.setUp()
+                self.queries(lambda q: q["sales.rollup"].update(script=ref))
+                self.assertRefused(f"{self.Q}: {message}")
+
+    def test_script_keys_and_options(self):
+        self.queries(lambda q: q["sales.rollup"].update(options=[1], sql="SELECT 1"))
+        self.assertRefused(f"{self.Q}: queries.sales.rollup.sql: not a key of a script (script, "
+                           "options)",
+                           f"{self.Q}: queries.sales.rollup.options: not a map")
+
+    def test_script_needs_the_scripts_folder(self):
+        self.scenario_yaml(lambda d: self.node(d, "bi")["seed_files"].pop("scripts/"))
+        self.assertRefused(f"{self.Q}: queries.sales.rollup.script: scripts/rollup.py:hourly, "
+                           "but the node has no scripts/ seed folder")
+
+    def test_script_file_parses(self):
+        (self.scenario / "nodes" / "bi" / "scripts" / "rollup.py").write_text("def hourly(:\n")
+        self.assertRefused("nodes/bi/scripts/rollup.py: cannot be parsed as Python")
+
+    def test_no_stream_names_a_script_key(self):
+        self.edit_yaml(self.S, lambda d: d.update(streams=[
+            {"key": "sales.rollup", "connection": "source", "rate": "1/min"}]))
+        self.assertRefused(f"{self.S}: streams[sales.rollup].key: sales.rollup is a script key, "
+                           "which runs only as a job (jobs.yaml; master spec 7.1)")
+
+    def test_no_timeline_change_names_a_script_key(self):
+        self.edit_yaml(self.S, lambda d: d.update(
+            streams=[{"key": "sales.copy", "connection": "target", "rate": "1/min"}],
+            timeline=[{"at": "handover-2h", "stream": "sales.copy",
+                       "set": {"key": "sales.rollup"}}]))
+        self.assertRefused(f"{self.S}: timeline[0].set.key: sales.rollup is a script key, which "
+                           "runs only as a job")
+
+    def test_script_job_names_connections(self):
+        self.jobs(lambda j: j[1].update(connection="target"))
+        self.assertRefused(f"{self.J}: jobs[rollup-daytime].connection: sales.rollup is a script "
+                           "key, whose job names connections: instead (master spec 7.1)")
+        self.setUp()
+        self.jobs(lambda j: j[1].pop("connections"))
+        self.assertRefused(f"{self.J}: jobs[rollup-daytime].connections: missing (the job of "
+                           "script key sales.rollup names each of the script's connections")
+
+    def test_other_job_names_one_connection(self):
+        self.jobs(lambda j: j[0].update(connections={"target": "target"}))
+        self.assertRefused(f"{self.J}: jobs[copy-hourly].connections: only a script key's job "
+                           "names connections: (sales.copy is not a script key)")
+        self.setUp()
+        self.jobs(lambda j: j[0].pop("connection"))
+        self.assertRefused(f"{self.J}: jobs[copy-hourly].connection: missing (every job but a "
+                           "script key's names one connection of the schedule)")
+
+    def test_unknown_key_takes_exactly_one(self):
+        self.jobs(lambda j: (j[0].pop("connection"), j[0].update(key="sales.none")))
+        self.assertRefused(f"{self.J}: jobs[copy-hourly]: exactly one of connection: and "
+                           "connections:")
+
+    def test_connections_names_and_values(self):
+        self.jobs(lambda j: j[1].update(connections={"Source": "source", "target": "warehouse"}))
+        self.assertRefused(f"{self.J}: jobs[rollup-daytime].connections.Source: 'Source' is not a "
+                           "script's connection name ([a-z][a-z0-9_]*)",
+                           f"{self.J}: jobs[rollup-daytime].connections.target: warehouse is not "
+                           "a connection of the node's schedule.yaml")
+        self.setUp()
+        self.jobs(lambda j: j[1].update(connections={}))
+        self.assertRefused(f"{self.J}: jobs[rollup-daytime].connections: empty")
+
+    def test_v03_producer_jobs_still_load(self):
+        model.load_scenario(FIXTURE_V03)
+
+
+class TestCrontabRefusals(V04CopyTest):
+    """postgres 0.4.0's optional crontab and crontab_roles (master spec 6.1,
+    7.2; W1 items 0, 1 and 8)."""
+
+    C = "nodes/reporting/crontab"
+    P = "scenario.yaml: nodes[reporting].crontab_roles"
+
+    def roles(self, value):
+        self.scenario_yaml(lambda d: self.node(d, "reporting").update(crontab_roles=value))
+
+    def crontab(self, *lines):
+        (self.scenario / self.C).write_text("PGPASSFILE=/run/gm-cron/pgpass\n"
+                                            + "".join(line + "\n" for line in lines))
+
+    def test_roles_required_with_a_crontab(self):
+        self.scenario_yaml(lambda d: self.node(d, "reporting").pop("crontab_roles"))
+        self.assertRefused(f"{self.P}: missing (the node seeds a crontab")
+
+    def test_roles_refused_without_a_crontab(self):
+        self.scenario_yaml(lambda d: self.node(d, "db").update(crontab_roles=[]))
+        self.assertRefused("scenario.yaml: nodes[db].crontab_roles: the node seeds no crontab (no "
+                           "crontab in its seed_files), so it names no crontab role")
+
+    def test_roles_may_be_empty(self):
+        self.roles([])
+        self.load()
+
+    def test_roles(self):
+        self.roles(["bi_etl", "bi_etl", "Bad-Role", "postgres", "shop_app"])
+        self.assertRefused(f"{self.P}: bi_etl listed more than once",
+                           f"{self.P}: 'Bad-Role' is not a role name",
+                           f"{self.P}: postgres is reserved",
+                           f"{self.P}: shop_app is not a role node reporting's own data file "
+                           "creates (its data file (data/reporting.sql); CREATE ROLE shop_app)")
+
+    def test_entries_in_the_cron_subset(self):
+        self.crontab("# a comment", "", "@reboot psql -c 'SELECT 1'", "0 25 * * * psql",
+                     "0 1 1 * * psql", "*/5 * * *")
+        self.assertRefused(f"{self.C}: line 4: @reboot: no @ form in a crontab",
+                           f"{self.C}: line 5: '0 25 * * *': hour 25 is not *",
+                           f"{self.C}: line 6: '0 1 1 * *': day of month and month are *",
+                           f"{self.C}: line 7: not a crontab entry (five time fields, then the "
+                           "command)")
+
+    def test_widened_entries_accepted(self):
+        self.crontab("*/15 8-20 * * * psql -c 'SELECT 1'", "0 3 * * 0 psql -c 'SELECT 2'",
+                     "SHELL=/bin/sh")
+        self.load()
+
+    def test_crontab_fault_on_a_node_seeding_one(self):
+        self.edit_yaml("faults/fixture-random-page-cost/fault.yaml", lambda d: d["injection"][
+            "seed_changes"][0].update(file="crontab"))
+        self.assertRefused("scenario.yaml: fault_instances[f1]: fault fixture-random-page-cost "
+                           "changes crontab, which node db does not seed (an optional seed file "
+                           "of brick postgres")
+        self.setUp()
+        self.edit_yaml("faults/fixture-random-page-cost/fault.yaml", lambda d: d["injection"][
+            "seed_changes"][0].update(file="crontab"))
+        self.scenario_yaml(lambda d: d["fault_instances"][0].update(node="reporting"))
+        self.load()
+
+
+class TestPgCronRefusals(V04CopyTest):
+    """A data file creating pg_cron (master spec 7.2; W1 item 0)."""
+
+    CONF = "nodes/reporting/postgresql.conf"
+
+    def conf(self, old, new):
+        path = self.scenario / self.CONF
+        text = path.read_text()
+        self.assertIn(old, text)
+        path.write_text(text.replace(old, new))
+
+    def test_preload_required(self):
+        self.conf("shared_preload_libraries = 'pg_cron'",
+                  "shared_preload_libraries = 'pg_stat_statements'")
+        self.assertRefused("data/reporting.sql: creates the extension pg_cron, but node "
+                           "reporting's seed postgresql.conf (nodes/reporting/postgresql.conf) "
+                           "does not preload it (shared_preload_libraries; master spec 7.2)")
+
+    def test_last_assignment_counts(self):
+        self.conf("cron.timezone", "shared_preload_libraries = ''\ncron.timezone")
+        self.assertRefused("does not preload it")
+        self.setUp()
+        self.conf("shared_preload_libraries = 'pg_cron'",
+                  "#shared_preload_libraries = 'pg_cron'\n"
+                  "shared_preload_libraries = 'pg_stat_statements, pg_cron'")
+        self.load()
+
+    def test_database_name(self):
+        self.conf("cron.database_name = 'reporting'", "cron.database_name = 'shop'")
+        self.assertRefused(f"{self.CONF}: cron.database_name: shop is not a database node "
+                           "reporting's data file (data/reporting.sql) creates (master spec 7.2)")
+        self.setUp()
+        self.conf("cron.database_name = 'reporting'", "")
+        self.assertRefused(f"{self.CONF}: cron.database_name: missing (node reporting's data "
+                           "file creates pg_cron")
+
+    def test_preload_without_the_extension_loads(self):
+        path = self.scenario / "data" / "reporting.sql"
+        path.write_text(path.read_text().replace("CREATE EXTENSION pg_cron;", "-- no pg_cron"))
+        self.load()
+
+
+class TestPurposeCadence(V04CopyTest):
+    """A purpose job's cadence in W1 item 0's subset (spec D219)."""
+
+    def test_widened_cadence_accepted(self):
+        self.assertEqual(self.purpose_problems(), "")
+        self.assertIn("*/15 8-20", (self.scenario / self.PURPOSE / "purpose.yaml").read_text())
+
+    def test_cadence_outside_the_subset(self):
+        text = self.purpose_problems(lambda d: d["jobs"][1].update(cadence="*/15 20-8 * * *"))
+        self.assertIn("purposes/fixture-sales-copy/purpose.yaml: jobs[rollup-daytime].cadence: "
+                      "'*/15 20-8 * * *': hour 20-8 is not *", text)
 
 
 if __name__ == "__main__":

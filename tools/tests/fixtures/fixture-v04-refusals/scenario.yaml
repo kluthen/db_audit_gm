@@ -1,0 +1,277 @@
+# Fixture scenario for tools/tests (v0.4 chunk 2): the v0.4 loader checks
+# (master spec 6, 14 "The loader"; capture W1 of
+# specs/versions/v0.4/wave-log.md, items 0 to 9). Not a game: complete, so
+# the loader accepts it, and the base the v0.4 refusal tests change one item
+# at a time. Its bricks are scenario-local (W1 item 9: postgres 0.4.0 with
+# the optional crontab, scheduler 0.2.0 with the transformer role and
+# scripts/, bastion 0.4.0 with the optional data-policy.md); its purpose
+# and domain are under catalog/, the test catalog root the tests pass as
+# load_scenario(..., catalog_root=...). f1 a seed-file fault on db, f2 a
+# purpose fault on the runner bi, its sealed check judging runs. The
+# runner bi runs a transformer script; reporting seeds a crontab and
+# preloads pg_cron.
+
+# --- Scenario information --------------------------------------------
+id: fixture-v04-refusals
+version: 0.1.0
+title: Fixture scenario with a purpose, a domain and governance, for the v0.4 loader checks
+date: 2026-10-30
+origin: hand-written
+session_length_minutes: 60
+brief: brief.md
+background: >-
+  A small shop sends its sales to a reporting agency every hour; the
+  agency's figures stopped matching the shop's.
+
+# --- Aging and difficulty ---------------------------------------------
+aging:
+  minimum: 16h
+  handover_at: "14:00"
+difficulty:
+  score: 2                          # its two fault instances (master spec 15.1)
+  level: easy
+
+# --- Purposes, domain and governance (v0.4 master spec 6.1, 6.9, 11) -----
+domain: fixture-shop
+purposes:
+  - id: fixture-sales-copy
+    parts:
+      source: db/shop
+      target: reporting/reporting
+      runner: bi
+governance:
+  policy: player/data-policy.md
+  classification: data/classification.yaml
+  classes:
+    personal:
+      locations: [db/shop]
+      readers: [shop_app, shop_reports]
+      outbound:
+        - to: mail-provider
+          outbox: db/shop/mail_outbox
+          fields: [email, name]
+    customer-linked:
+      locations: [db/shop, reporting/reporting]
+      readers: [shop_app, shop_reports, shop_etl, bi_etl]
+    internal:
+      locations: any
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: backend
+    description: players' SSH and SQL sessions, the transformer's SQL
+
+nodes:
+  - name: bastion
+    brick:
+      id: bastion
+      version: 0.4.0
+    role: bastion
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 256M
+    published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
+    seed_files:
+      README.md: player/README.md
+      story.md: player/story.md
+      issues.md: player/issues.md
+      data-policy.md: player/data-policy.md
+    knobs: []
+
+  - name: db
+    brick:
+      id: postgres
+      version: 0.4.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.5
+        memory: 512M
+        disk: 2G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/db/postgresql.conf
+      pg_hba.conf: nodes/db/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 10, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+    data:
+      file: data/db.sql
+      databases:
+        - name: shop
+          owner: shop
+          tables:
+            - name: customers
+              description: 500 customers (id, name, email).
+            - name: orders
+              description: 20 000 orders (id, customer_id, placed_at, total).
+            - name: mail_outbox
+              description: the mail provider's outbox, empty.
+
+  - name: reporting
+    brick:
+      id: postgres
+      version: 0.4.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.5
+        memory: 512M
+        disk: 2G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/reporting/postgresql.conf
+      pg_hba.conf: nodes/reporting/pg_hba.conf
+      crontab: nodes/reporting/crontab
+    crontab_roles: [bi_etl]
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 10, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+    data:
+      file: data/reporting.sql
+      databases:
+        - name: reporting
+          owner: bi_etl
+          tables:
+            - name: sales_hourly
+              description: the hourly totals the agency's copy writes, empty.
+
+  - name: bi
+    brick:
+      id: scheduler
+      version: 0.2.0
+    role: transformer
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/bi/queries.yaml
+      jobs.yaml: nodes/bi/jobs.yaml
+      schedule.yaml: nodes/bi/schedule.yaml
+      scripts/: nodes/bi/scripts/
+    knobs: []
+
+flows:
+  - from: bastion
+    to: db
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: reporting
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bi
+    to: db
+    what: the hour's orders, read for the agency's copy
+    how: postgresql 5432
+    cadence: hourly
+  - from: bi
+    to: reporting
+    what: the hourly totals, written
+    how: postgresql 5432
+    cadence: hourly
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:
+  - id: f1
+    fault:
+      id: fixture-random-page-cost
+      version: 0.1.0
+    node: db
+    parameters: {}
+    visibility: hidden
+  - id: f2
+    fault:
+      id: fixture-copy-runs
+      version: 0.1.0
+    node: bi
+    parameters: {}
+    visibility: known
+
+issues:
+  - id: I1
+    complaint: >-
+      The agency's hourly sales are twice the shop's.
+    expected_resolution: fix
+    covers: [f2]
+
+# --- Host topology it was designed for -------------------------------
+designed_for:
+  platform: swarm
+  hosts:
+    - name: host-1
+      cpu: 4
+      memory: 4G
+      disk: 20G
+  placement:
+    bastion: host-1
+    db: host-1
+    reporting: host-1
+    bi: host-1

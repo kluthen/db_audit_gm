@@ -33,8 +33,8 @@ class TestGameId(unittest.TestCase):
         self.assertRegex(gid, r"^ab-[a-z0-9]{6}$")
 
 
-POSTGRES = "127.0.0.1:5000/dbagm/postgres:0.3.0"
-BASTION = "127.0.0.1:5000/dbagm/bastion:0.3.0"
+POSTGRES = "127.0.0.1:5000/dbagm/postgres:0.4.0"
+BASTION = "127.0.0.1:5000/dbagm/bastion:0.4.0"
 M = 1024 ** 2
 # the fixture's two images on the default fake engine: the shared base once
 FIXTURE_IMAGES = BASE_LAYER[1] + 2 * OWN_LAYER_SIZE         # 278M
@@ -209,14 +209,15 @@ class TestFit(ScenarioCopyTest):
         self.assertEqual(impl["stack"], gid)
         self.assertEqual(impl["network"], gid + "_backend")   # the scenario's network
         db = impl["nodes"]["db"]
-        self.assertEqual(db["brick"], {"id": "postgres", "version": "0.3.0"})
-        self.assertEqual(db["image"], "127.0.0.1:5000/dbagm/postgres:0.3.0")
+        self.assertEqual(db["brick"], {"id": "postgres", "version": "0.4.0"})
+        self.assertEqual(db["image"], "127.0.0.1:5000/dbagm/postgres:0.4.0")
         self.assertEqual(db["resources"]["limits"], {"cpu": 1, "memory": "1G"})
         self.assertEqual(db["service"], gid + "_db")
         self.assertEqual(db["published_ports"], [])
         bastion = impl["nodes"]["bastion"]
         self.assertEqual(bastion["published_ports"],
-                         [{"target": 22, "published": 2222, "mode": "host"}])
+                         [{"target": 22, "published": 2222, "mode": "host"},
+                          {"target": 8080, "published": 8080, "mode": "host"}])
         state = yaml.safe_load((ldir / "state.yaml").read_text())
         self.assertEqual(state["game_id"], gid)
         self.assertEqual(state["stage"], "fitted")
@@ -231,7 +232,7 @@ class TestFit(ScenarioCopyTest):
         db = impl["nodes"]["db"]
         self.assertEqual([v["name"] for v in db["volumes"]],
                          [f"{gid}_db_{v}" for v in ("pgdata", "pgconf", "home", "gmstate", "pglog",
-                                                     "run")])
+                                                     "run", "cronspool")])
         self.assertEqual(
             [c["name"] for c in db["configs"]],
             [gid + "_db_postgresql.conf", gid + "_db_pg_hba.conf", gid + "_db_envelopes"])

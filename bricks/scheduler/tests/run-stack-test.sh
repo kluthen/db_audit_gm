@@ -1,5 +1,6 @@
 #!/bin/sh
-# Stack test of the scheduler brick (v0.3 build plan, chunk 3b, Done when).
+# Stack test of the scheduler brick (v0.3 build plan, chunk 3b, Done when;
+# v0.4 build plan, chunk 3b: the transformer node).
 #
 # Builds the scheduler image and its unit-test stage (the throwaway
 # PostgreSQL `db`) from this worktree, deploys them as a Swarm stack
@@ -26,9 +27,19 @@
 #   - the GM check role's secret root-only, and check-sql (root only)
 #     reaching the database as gm_check, straight to its port 5432,
 #     read-only (spec D185);
+#   - a transformer node (v0.4: the same image, `streams: []`, a script
+#     key's job naming two connections): idle, then running with no
+#     stream; check-runs root only, its answers before any run (no run,
+#     no reload, the next run); the job moved by player (sed -i) and
+#     reloaded; the run at its new minute, its run and script lines, the
+#     row written into `reporting` as bi_etl from `shop` read as shop_etl;
+#     check-runs' answers after it (the run since the reload, the last
+#     reload, the next run a day later); the validator green;
 #   - the entrypoint's refusals (policy, override, schedule, secrets);
-#     read-only root, capabilities, /run a volume; the footprint at rest.
-# Real time throughout (about 15 minutes); nothing moves a clock.
+#     read-only root, capabilities, /run a volume; the footprint at rest
+#     of both nodes.
+# Real time throughout (about 18 minutes); nothing moves a clock, and no
+# job is run by hand: each runs at its time, which player moves.
 # Everything it creates is removed on exit, volumes included.
 #
 # Needs: a swarm manager (docker swarm init). On the build host, run it
@@ -39,16 +50,18 @@ set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 BRICK=$(cd "$HERE/.." && pwd)
 STACK=gmtest-sched
-IMAGE=127.0.0.1:5000/dbagm/scheduler:0.1.0
-DB_IMAGE=dbagm-test/scheduler-unit:0.1.0
+IMAGE=127.0.0.1:5000/dbagm/scheduler:0.2.0
+DB_IMAGE=dbagm-test/scheduler-unit:0.2.0
 SERVICE=${STACK}_scheduler
+TR_SERVICE=${STACK}_transformer
 DB_SERVICE=${STACK}_db
 NET=${STACK}_net
 CLIENT=${STACK}-client
 LABEL=dbagm.test=chunk3-scheduler
-CONFIGS="seed_schedule seed_queries seed_builder_report seed_jobs db_init"
-SECRETS="player_ssh_pubkey role_shop_app_password gm_check_password"
+CONFIGS="seed_schedule seed_queries seed_builder_report seed_jobs db_init tr_schedule tr_queries tr_script_rollup tr_jobs"
+SECRETS="player_ssh_pubkey role_shop_app_password gm_check_password role_shop_etl_password role_bi_etl_password"
 VOLUMES="sch_repository sch_jobs sch_schedlog sch_schedstate sch_home sch_gmstate sch_run"
+VOLUMES="$VOLUMES tr_repository tr_jobs tr_schedlog tr_schedstate tr_home tr_gmstate tr_run"
 SSH_OPTS="-i /root/id -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o LogLevel=ERROR -o ConnectTimeout=10"
 REPO=/srv/scheduler/repository
 JOBS=/srv/scheduler/jobs/jobs.yaml
@@ -57,6 +70,7 @@ SCHEDULE=/opt/gm/seed/schedule.yaml
 SECRET=/opt/gm/secrets/role_shop_app_password
 GMC_SECRET=/opt/gm/secrets/gm_check_password
 CHECK_SQL=/usr/local/lib/gm/check-sql
+CHECK_RUNS=/usr/local/lib/gm/check-runs
 REFUSAL='gm-reload-scheduler: this node is report-only: its files cannot be changed, so nothing was reloaded.'
 
 failures=0
@@ -179,15 +193,59 @@ jobs:
     connection: app
     at: "0 3 * * *"
 EOF
+# the transformer node: no stream, one script key's job at 03:05 UTC, moved later by player
+for r in shop_etl bi_etl; do
+    printf '%s%s' "$r" "$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')" > "$tmp/role_${r}_password"
+done
+ETLPW=$(cat "$tmp/role_shop_etl_password")
+cat > "$tmp/tr_schedule.yaml" <<EOF
+seed: 4815162342
+intensity: 1.0
+connections:
+  shop:
+    driver: sql/postgresql
+    target: db:5432/shop
+    role: shop_etl
+    pool: {size: 1}
+  reporting:
+    driver: sql/postgresql
+    target: db:5432/reporting
+    role: bi_etl
+    pool: {size: 1}
+streams: []
+EOF
+cat > "$tmp/tr_queries.yaml" <<EOF
+# Stack test fixture of the scheduler brick: a transformer node's repository.
+queries:
+  rollup.hourly:
+    script: scripts/rollup.py:hourly
+    options: {into: reporting}
+EOF
+cat > "$tmp/tr_jobs.yaml" <<EOF
+jobs:
+  - name: rollup-hourly
+    key: rollup.hourly
+    connections:
+      source: shop
+      target: reporting
+    at: "5 3 * * *"
+EOF
 cfg() { docker config create -l "$LABEL" "${STACK}_$1" "$2" >/dev/null; }
 cfg seed_schedule "$tmp/schedule.yaml"
 cfg seed_queries "$HERE/fixtures/queries.yaml"
 cfg seed_builder_report "$HERE/fixtures/builders/report.py"
 cfg seed_jobs "$tmp/jobs.yaml"
 cfg db_init "$HERE/fixtures/db.sh"
+cfg tr_schedule "$tmp/tr_schedule.yaml"
+cfg tr_queries "$tmp/tr_queries.yaml"
+cfg tr_script_rollup "$HERE/fixtures/scripts/rollup.py"
+cfg tr_jobs "$tmp/tr_jobs.yaml"
 docker secret create -l "$LABEL" "${STACK}_player_ssh_pubkey" "$tmp/id.pub" >/dev/null
 docker secret create -l "$LABEL" "${STACK}_role_shop_app_password" "$tmp/role_shop_app_password" >/dev/null
 docker secret create -l "$LABEL" "${STACK}_gm_check_password" "$tmp/gm_check_password" >/dev/null
+for r in shop_etl bi_etl; do
+    docker secret create -l "$LABEL" "${STACK}_role_${r}_password" "$tmp/role_${r}_password" >/dev/null
+done
 
 info "deploying stack $STACK (timeline change and job nightly at $(utc "$X"))"
 docker stack deploy --resolve-image never -c "$HERE/stack.test.yml" "$STACK" >/dev/null 2>&1
@@ -225,6 +283,15 @@ else
     exit 1
 fi
 
+if TC=$(wait_healthy "$TR_SERVICE"); then
+    pass "transformer deployed and container healthy ($TC)"
+else
+    fail "transformer did not become healthy"
+    docker service ps --no-trunc "$TR_SERVICE"
+    docker service logs --tail 60 "$TR_SERVICE" 2>&1
+    exit 1
+fi
+
 docker run -d --name "$CLIENT" --network "$NET" -v "$tmp:/k:ro" \
     --entrypoint /bin/sh "$IMAGE" -c 'cp /k/id /root/id && chmod 600 /root/id && exec sleep 3600' >/dev/null
 sleep 2
@@ -251,6 +318,15 @@ wait_status() {  # wait_status <word> [seconds] [old status]: until the status f
 }
 mem() { echo "$(( $(gm cat /sys/fs/cgroup/memory.current) / 1048576 ))M of $(( $(gm cat /sys/fs/cgroup/memory.max) / 1048576 ))M, program RSS $(( $(gm ps -o rss= -p "$(prog_pid)" | tr -d ' ') / 1024 ))M"; }
 
+# the transformer node
+tgm() { docker exec -i "$TC" "$@"; }
+tssh() { docker exec -i "$CLIENT" timeout 120 ssh $SSH_OPTS player@transformer "$@"; }
+tlog() { tgm cat "$LOG"; }
+tstatus() { tgm cat /run/scheduler/status 2>/dev/null; }
+tprog_pid() { tgm ps -u scheduler -o pid=,args= | awk '$2 == "/usr/bin/python3" { print $1; exit }'; }
+tmem() { echo "$(( $(tgm cat /sys/fs/cgroup/memory.current) / 1048576 ))M of $(( $(tgm cat /sys/fs/cgroup/memory.max) / 1048576 ))M, program RSS $(( $(tgm ps -o rss= -p "$(tprog_pid)" | tr -d ' ') / 1024 ))M"; }
+rsql() { docker exec -i "$DB" runuser -u postgres -- psql -X -q -At -d reporting -c "$1"; }
+
 # --- idle at start --------------------------------------------------------------
 u=$(gm ps -o user= -p "$(prog_pid)" | tr -d ' ')
 [ "$u" = scheduler ] && pass "the program runs as scheduler" || fail "program user: [$u]"
@@ -266,6 +342,9 @@ n=$(dbsql "SELECT count(*) FROM orders")
 [ "$n" = 0 ] && pass "idle: no call reached the database" || fail "idle: $n rows"
 REST_IDLE=$(mem)
 info "footprint at rest, idle: $REST_IDLE"
+case $(tstatus) in idle\ *) pass "transformer status: $(tstatus)" ;; *) fail "transformer status at start: [$(tstatus)]" ;; esac
+TR_IDLE=$(tmem)
+info "transformer footprint at rest, idle: $TR_IDLE"
 
 # --- the schedule: never readable but by root, on no volume ----------------------
 st=$(gm stat -c '%u:%g %a' "$SCHEDULE")
@@ -530,6 +609,93 @@ m=$(gm stat -c '%a %U:%G' "$JOBS")
 [ "$m" = "664 scheduler:schedconf" ] && pass "override: owner and mode restored ($m)" || fail "override after reload: $m"
 denied "override: queries.yaml still not writable" "echo '# x' >> $REPO/queries.yaml"
 
+# --- the transformer node: a script job between two databases, no stream ----------------------
+st=$(tgm stat -c '%u:%g %a' "$CHECK_RUNS")
+[ "$st" = "0:0 700" ] && pass "check-runs is 0:0 0700" || fail "check-runs: $st"
+check "player cannot run check-runs" sh -c "! docker exec $CLIENT ssh $SSH_OPTS player@transformer $CHECK_RUNS last-reload"
+check "the service account cannot run check-runs" sh -c "! docker exec -u scheduler $TC $CHECK_RUNS last-reload"
+m=$(tgm stat -c '%a %U:%G' "$REPO/scripts" "$REPO/scripts/rollup.py" | tr '\n' ' ')
+[ "$m" = "2775 scheduler:schedconf 664 scheduler:schedconf " ] && pass "scripts/ seeded, fixable ($m)" \
+    || fail "scripts/ modes: $m"
+check "player reads the transformer's script" tssh "grep -q '^def hourly(conns, options, log):' $REPO/scripts/rollup.py"
+check "loaded: the script's digest" sh -c "docker exec $TC cat /run/scheduler/loaded | grep -Eq '^file [0-9a-f]{64} $REPO/scripts/rollup.py\$'"
+TT0=$(utc "$(now)")
+tgm sh -c "printf '%s\n' '$TT0' > /var/lib/gm-state/.load-started.tmp && chown root:scheduler /var/lib/gm-state/.load-started.tmp \
+    && chmod 0440 /var/lib/gm-state/.load-started.tmp && mv /var/lib/gm-state/.load-started.tmp /var/lib/gm-state/load-started \
+    && /command/s6-svc -r /run/service/scheduler"
+i=0; st0=
+while [ "$i" -lt 60 ]; do case $(tstatus) in running\ *) st0=$(tstatus); break ;; esac; sleep 1; i=$((i + 1)); done
+if [ -n "$st0" ] && tlog | grep -q " state state=running t0=$TT0$"; then
+    pass "the transformer runs with no stream ($st0)"
+else
+    fail "transformer not running: [$(tstatus)]"
+fi
+out=$(tgm "$CHECK_RUNS" runs rollup-hourly "$TT0" 2>&1); rc=$?
+[ "$rc" = 0 ] && [ -z "$out" ] && pass "check-runs runs: none yet" || fail "check-runs runs before any: exit $rc: $out"
+out=$(tgm "$CHECK_RUNS" last-reload 2>&1); rc=$?
+[ "$rc" = 0 ] && [ -z "$out" ] && pass "check-runs last-reload: none yet" || fail "check-runs last-reload: exit $rc: $out"
+out=$(tgm "$CHECK_RUNS" since "$TT0" 2>&1)
+[ "$out" = "$TT0" ] && pass "check-runs since: the moment itself without a reload ($out)" || fail "check-runs since: [$out]"
+out=$(tgm "$CHECK_RUNS" next rollup-hourly 2>&1)
+printf '%s' "$out" | grep -Eq '^[0-9-]{10}T03:05:00Z remaining=[0-9]+$' && pass "check-runs next: $out" \
+    || fail "check-runs next before the move: [$out]"
+out=$(tgm "$CHECK_RUNS" next no-such-job 2>&1); rc=$?
+[ "$rc" = 1 ] && pass "check-runs next: an unknown job exits 1 ($out)" || fail "check-runs next unknown: exit $rc: $out"
+out=$(tgm "$CHECK_RUNS" runs rollup-hourly yesterday 2>&1); rc=$?
+[ "$rc" = 2 ] && pass "check-runs: a moment not an instant exits 2 ($out)" || fail "check-runs bad since: exit $rc: $out"
+TJ=$(( $(now) / 60 * 60 + 120 ))
+tcron="$(date -u -d "@$TJ" +%-M) $(date -u -d "@$TJ" +%-H) \* \* \*"
+tssh "sed -i 's/^    at: \"5 3 \\* \\* \\*\"/    at: \"$tcron\"/' $JOBS" && pass "player moves rollup-hourly to $(utc "$TJ") with sed -i" \
+    || fail "player cannot edit the transformer's jobs.yaml"
+out=$(tssh sudo -n gm-reload-scheduler 2>&1); rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q "rollup-hourly: next run $(utc "$TJ")" \
+    && pass "transformer: gm-reload-scheduler ($(printf '%s' "$out" | tr '\n' ' '))" || fail "transformer reload: exit $rc: $out"
+R=$(tgm "$CHECK_RUNS" last-reload 2>&1)
+lr=$(tlog | sed -n 's/^\([^ ]*\) reload status=ok .*/\1/p' | tail -n 1)
+[ -n "$R" ] && [ "$R" = "$lr" ] && pass "check-runs last-reload: $R" || fail "check-runs last-reload: [$R], log [$lr]"
+out=$(tgm "$CHECK_RUNS" since "$TT0" 2>&1)
+[ "$out" = "$R" ] && pass "check-runs since: raised to the last reload ($TT0 -> $out)" || fail "check-runs since raised: [$out]"
+out=$(tgm "$CHECK_RUNS" next rollup-hourly 2>&1)
+left=$(( TJ - $(now) ))
+rem=${out#* remaining=}
+if [ "${out%% *}" = "$(utc "$TJ")" ] && [ "$rem" -ge $((left - 2)) ] && [ "$rem" -le $((left + 2)) ]; then
+    pass "check-runs next after the move: $out"
+else
+    fail "check-runs next after the move: [$out], expected $(utc "$TJ") remaining about $left"
+fi
+info "waiting for the transformer's run at $(utc "$TJ")"
+wait_until $((TJ + 20))
+L=$(tlog)
+tmin=$(minute_of "$TJ" | sed 's/Z$//')
+if printf '%s\n' "$L" | grep -q "^$tmin:0[0-9]Z run job=rollup-hourly key=rollup.hourly phase=start$" \
+   && printf '%s\n' "$L" | grep -Eq ' run job=rollup-hourly key=rollup.hourly phase=end status=ok rows=1 ms=[0-9.]+$'; then
+    pass "the script job ran at its new minute: $(printf '%s\n' "$L" | grep ' job=rollup-hourly' | tr '\n' '|')"
+else
+    fail "the script job at $(utc "$TJ"): $(printf '%s\n' "$L" | grep ' job=rollup-hourly' | tr '\n' '|')"
+fi
+printf '%s\n' "$L" | grep -q " script job=rollup-hourly rolled up [0-9]* orders as shop_etl into reporting$" \
+    && pass "its log(text) line: $(printf '%s\n' "$L" | grep ' script job=' | tail -n 1)" || fail "no script line"
+out=$(rsql "SELECT count(*), min(src_role), min(dst_role) FROM rollup")
+[ "$out" = "1|shop_etl|bi_etl" ] && pass "one row moved from shop (read as shop_etl) into reporting (as bi_etl): $out" \
+    || fail "reporting.rollup: [$out]"
+runs=$(tgm "$CHECK_RUNS" runs rollup-hourly "$R" 2>&1)
+if [ "$(printf '%s\n' "$runs" | wc -l)" = 1 ] && printf '%s' "$runs" | grep -Eq "^$tmin:0[0-9]Z $tmin:[0-9]{2}Z rows=1 ms=[0-9.]+$"; then
+    pass "check-runs runs since the reload: $runs"
+else
+    fail "check-runs runs since the reload: [$runs]"
+fi
+end=$(printf '%s' "$runs" | cut -d' ' -f2)
+out=$(tgm "$CHECK_RUNS" runs rollup-hourly "$end" 2>&1)
+[ -z "$out" ] && pass "check-runs runs since its end: none" || fail "check-runs runs since its end: [$out]"
+out=$(tgm "$CHECK_RUNS" next rollup-hourly 2>&1)
+[ "${out%% *}" = "$(utc $((TJ + 86400)))" ] && pass "check-runs next after the run: $out" || fail "check-runs next after the run: [$out]"
+out=$(tssh sudo -n gm-validate 2>&1); rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q '^GREEN: queries.yaml, builders/, scripts/ and jobs.yaml load' \
+    && pass "transformer validator green ($out)" || fail "transformer validator: exit $rc: $out"
+check "the transformer's log holds no role password" sh -c "! docker exec $TC grep -qF '$ETLPW' $LOG"
+TR_RUN=$(tmem)
+info "transformer footprint after a run: $TR_RUN"
+
 # --- the entrypoint's refusals -------------------------------------------------------------
 printf 'x: [\n' > "$tmp/bad.yaml"
 refuse() {  # refuse <name> <expected text> <docker run args...>
@@ -563,6 +729,8 @@ mnt=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/run"}}{{.Type}}
 [ "$mnt" = volume ] && pass "/run is a named volume" || fail "/run mount: $mnt"
 check "the password is in no log line" sh -c "! docker exec $C grep -qF '$APPPW' $LOG && ! docker service logs $SERVICE 2>&1 | grep -qF '$APPPW'"
 info "footprint at rest: idle $REST_IDLE; running $REST_RUN"
+info "transformer footprint: idle $TR_IDLE; running, after a run $TR_RUN"
+info "transformer disk: $(tgm du -sh /srv/scheduler /var/log/scheduler /var/lib/scheduler /var/lib/gm-state 2>/dev/null | tr '\t\n' ' ')"
 info "disk: $(gm du -sh /srv/scheduler /var/log/scheduler /var/lib/scheduler /var/lib/gm-state 2>/dev/null | tr '\t\n' ' ')"
 info "log: $(gm sh -c "wc -lc < $LOG") (lines, bytes) after $(( ($(now) - RUN_START) / 60 )) min running"
 

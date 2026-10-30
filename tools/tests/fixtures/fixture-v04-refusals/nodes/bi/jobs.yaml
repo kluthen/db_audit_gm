@@ -1,0 +1,13 @@
+# Fixed-time operations of fixture-v04-refusals' bi node, in scenario time
+# (master spec 7.1; template: .claude/skills/scenario-format/templates/jobs.yaml).
+jobs:
+  - name: copy-hourly                # purpose fixture-sales-copy
+    key: sales.copy
+    connection: target
+    at: "5 * * * *"
+  - name: rollup-daytime             # purpose fixture-sales-copy, a script key's job
+    key: sales.rollup
+    connections:
+      source: source
+      target: target
+    at: "*/15 8-20 * * *"

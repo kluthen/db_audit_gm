@@ -1,12 +1,14 @@
 # fault.yaml — template for faults/<fault-id>/fault.yaml
 #   (or scenarios/<scenario-id>/faults/<fault-id>/ for a scenario-only fault)
 #
-# Version v0.3, expected to evolve as games are played.
+# Version v0.4, expected to evolve as games are played.
 # Shape: v0.1 master spec sections 8 and 8.1, v0.2 master spec 6.4 and 6.5,
-# v0.3 master spec 6.3, 6.5 and 6.7; keys of v0.2's capture W1
-# (specs/versions/v0.2/wave-log.md, item 8) and v0.3's capture W1
-# (specs/versions/v0.3/wave-log.md, item 2: aging, evidence locations,
-# behavioural checks).
+# v0.3 master spec 6.3, 6.5 and 6.7, v0.4 master spec 6.3, 6.5 and 6.9;
+# keys of v0.2's capture W1 (specs/versions/v0.2/wave-log.md, item 8),
+# v0.3's capture W1 (specs/versions/v0.3/wave-log.md, item 2: aging,
+# evidence locations, behavioural checks) and v0.4's capture W1
+# (specs/versions/v0.4/wave-log.md, item 3: applies_to.purposes,
+# needs_unshared_host, sealed_check.judges).
 #
 # Markers:
 #   every key is REQUIRED unless marked otherwise;
@@ -23,7 +25,11 @@ id: <fault-id>                      # lowercase, hyphens (pg-hba-trust)
 version: <0.1.0>                    # semver string; a fault never bumps (D60): it keeps its
                                     # version whatever changes in its folder
 title: <one line>
-family: <security>                  # security, performance, replication, backups, rules, ...
+family: <security>                  # security, performance, replication, backups, rules,
+                                    # data-flow, ... From v0.4 (master spec 6.3): a purpose fault
+                                    # is data-flow (duplicates, dropped records) or rules (a wrong
+                                    # zone, a wrong segment); a governance or credential fault is
+                                    # security, its id governance-<what> or security-<what>
 severity: <medium>                  # low | medium | high | critical
 
 # --- Where it applies -------------------------------------------------
@@ -33,8 +39,17 @@ applies_to:
     - id: <postgres>
       versions: [<"0.1.0">]         # brick versions it is known to work on, one by one, exact
                                     # strings (["0.1.0", "0.1.1", "0.2.0"]), never a range; each
-                                    # brick bump adds its version to every fault still applying
+                                    # brick bump adds its version to every fault still applying.
+                                    # A purpose fault lists the scheduler versions its runner
+                                    # needs, its sealed check running there (v0.4 master spec 6.3)
+  purposes: [<shop-customer-mailing>]   # optional: a purpose fault; non-empty, purpose ids
+                                    # (purposes/<id>/), the purposes it attaches to; a scenario
+                                    # planting it maps each in its purposes:
   preconditions: []                 # topology preconditions ("needs a standby"); may be []
+needs_unshared_host: true           # optional: the fault's node must never be placed on a shared
+                                    # host (the out-of-memory incident); a boolean, absent read as
+                                    # false; gmctl fit refuses a mapping that does (v0.4 master
+                                    # spec 13.3)
 
 # --- How long its evidence takes -----------------------------------------
 aging:                              # v0.3 master spec 6.3 (D114)
@@ -44,11 +59,14 @@ aging:                              # v0.3 master spec 6.3 (D114)
                                     # it shows at once. Counted only in a scenario with scheduler
                                     # nodes (master spec 8, D160); an instance may raise it
                                     # (scenario.yaml aging_minimum). A fault whose evidence shows
-                                    # only at a time of day (a job's run, business hours) counts it
-                                    # from that moment's first occurrence after planting; the
-                                    # scenario then raises the instance's aging_minimum to that
-                                    # moment's offset from its designed T0 plus this (spec D189;
-                                    # the loader cannot check it, the fault's gm.md says so)
+                                    # only at a time of day (business hours) or at a job's runs (a
+                                    # jobs.yaml job, a purpose's job, a database node's pg_cron job
+                                    # or crontab entry; v0.4 master spec 6.3) counts it from that
+                                    # moment's first occurrence after planting, the job's first
+                                    # run after planting; the scenario then raises the instance's
+                                    # aging_minimum to that moment's offset from its designed T0
+                                    # plus this (spec D189; the loader cannot check it, the
+                                    # fault's gm.md says so)
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:                         # map; may be {}. A fault about mounted material has a
@@ -65,11 +83,20 @@ injection:
                                     # state: the GM streams inject/ scripts into the node;
                                     # parameter: a change to a parameter of the target node,
                                     #   applied by the renderer when it writes the local
-                                    #   implementation (seed-file | state | parameter)
+                                    #   implementation (seed-file | state | parameter).
+                                    # A purpose fault is planted the same ways (v0.4 master spec
+                                    #   6.3): a seed-file change (a runner's queries.yaml,
+                                    #   scripts/ or jobs.yaml; a database node's data file,
+                                    #   postgresql.conf or crontab), a state change during the
+                                    #   aging, or a timeline change of a schedule for an outside
+                                    #   party's behaviour, which the definition states and the
+                                    #   scenario writes
   stage: <seed>                     # seed (present from first start: seed-file, parameter)
                                     # | after-data-load (state faults, before hand-over)
   seed_changes:                     # optional: kind seed-file only
     - file: <pg_hba.conf>           # a seed file name the target brick declares in seed.files
+                                    # (a directory entry as written there: builders/, scripts/);
+                                    # an optional one (seed.optional) only on a node seeding it
       change: <what the scenario's copy of the file must contain>
       material: <inject/pg_hba.conf.snippet>   # optional: a snippet to paste
   scripts:                          # optional: kind state only; run in this order
@@ -129,10 +156,17 @@ sealed_check:
   behavioural: true                 # optional: the check judges behaviour over a window (latency,
                                     # errors) rather than a cause; the answer key then gives the
                                     # instance's window and threshold (v0.3 master spec 6.2, 11)
-  # Contract (master spec 8.1, v0.3 master spec 6.5): POSIX shell, fed on
-  # stdin to `sh -s` in the target container, parameters as FAULT_<NAME>
-  # environment variables (a behavioural check also gets
-  # CHECK_WINDOW_SECONDS and CHECK_THRESHOLD).
+  judges: runs                      # optional: runs | triggers, a check judging a purpose's runs
+                                    # or triggers since the judged moment (v0.4 master spec 6.3,
+                                    # 12); absent: the check judges the live state, as in v0.3.
+                                    # Never with behavioural; the answer key then gives the
+                                    # instance's judges (the same) and threshold, and no window
+  # Contract (master spec 8.1, v0.3 master spec 6.5, v0.4 master spec 6.5):
+  # POSIX shell, fed on stdin to `sh -s` in the target container,
+  # parameters as FAULT_<NAME> environment variables (a behavioural check
+  # also gets CHECK_WINDOW_SECONDS and CHECK_THRESHOLD; a check with judges
+  # gets CHECK_THRESHOLD and CHECK_SINCE, the judged moment as a UTC instant
+  # YYYY-MM-DDTHH:MM:SSZ).
   # Exit 0: the fault is no longer present in the EFFECTIVE LIVE STATE;
   # exit 1: still present; exit 3: too soon to tell, the remaining window
   # on the first output line; any other code: error.
@@ -143,7 +177,9 @@ sealed_check:
   # inside the GM's connection reserve, through the root-only helper
   #   /usr/local/lib/gm/check-psql -d <db> -Atq -v ON_ERROR_STOP=1 <<'SQL'
   # (postgres 0.3.0, capture W1 item 8). Never as dba, never as an
-  # application role.
+  # application role. A check comparing two instances (v0.4) reaches each
+  # as gm_check: from a scheduler node through check-sql, from a database
+  # node through check-psql with the other node's name (postgres 0.4.0).
 
 # --- Interactions with other faults ------------------------------------
 interactions:                       # fault ids; each list may be []

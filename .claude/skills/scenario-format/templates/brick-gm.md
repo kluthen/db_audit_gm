@@ -2,7 +2,7 @@
 
 <!-- Template: bricks/<brick-id>/docs/gm.md (spec D56, specs/formats.md,
 "`docs/gm.md` must contain"; v0.2 master spec 6.2; v0.3 master spec 6.4
-and capture W1 item 5). Keep the nine level-2 headings, with these
+and capture W1 item 5; v0.4 master spec 7.2). Keep the nine level-2 headings, with these
 exact names, in this order. Add your own sections as subsections of a
 required one, or after Known limits. No required section stays empty: one
 that does not apply says so in a sentence, with the reason. Everything
@@ -53,3 +53,14 @@ to players.
 ## Known limits
 
 <What it does not do, or does surprisingly, in this version; "None known." when so.>
+
+## <Job kind run on the node>
+
+<!-- Optional: only for a brick that runs scheduled jobs on its own node
+(v0.4 master spec 7.2: `postgres` 0.4.0's `pg_cron` and its cron daemon);
+one section per job kind, after Known limits, named after the kind
+("## pg_cron", "## The cron daemon"). Drop it for a brick that runs no job
+on its node. docs/player.md carries a section of the same name, without
+spoilers. -->
+
+<What the job kind is and what runs it (a background worker, an s6 service, and whether it runs when the scenario does not use it); how a scenario turns it on (the seed file lines and the data file statements, an optional seed file under `seed.optional`, the node's `crontab_roles` and the secrets they mount); in which time its schedules are written (scenario time; what render fills or shifts); what it costs (workers, memory, log and disk growth); what players see of its jobs and their runs and how they change one (catalog tables, a sudo wrapper); where its runs leave a trace; the faults it allows; where a job may run on this node (light, well-scheduled work only, the scenario format's placement guideline); its known limits.>

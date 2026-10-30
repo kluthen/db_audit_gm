@@ -1,13 +1,14 @@
 # scheduler node — player notes
 
-What you may know about a scheduler node in a db_audit_gm game. Initial
-version (v0.3), expected to evolve.
+What you may know about a scheduler node in a db_audit_gm game. Written
+for v0.3, extended in v0.4 (scripts); expected to evolve.
 
 The node runs one of the customer's applications: a scheduler that sends
 the application's queries to its database, at the times and rates its
 schedule says, and runs its fixed-time operations (nightly batches,
-reports). It holds no business logic of its own: what it runs is in its
-query repository.
+reports, and scripts moving rows from one database to another). It holds
+no business logic of its own: what it runs is in its query repository.
+Some nodes only run fixed-time operations and send no traffic.
 
 ## Getting there
 
@@ -25,7 +26,8 @@ query repository.
 |---|---|---|
 | `/srv/scheduler/repository/queries.yaml` | the query repository: each key, the SQL it runs, its parameters, whether it runs in a transaction | read; edit when the node is fixable for it |
 | `/srv/scheduler/repository/builders/` | Python functions some keys use to build their statements | read; edit when fixable |
-| `/srv/scheduler/jobs/jobs.yaml` | the fixed-time operations: name, key, connection, `at` (a cron expression), `timezone` (UTC when absent) | read; edit when fixable |
+| `/srv/scheduler/repository/scripts/` | Python functions some fixed-time operations run, moving rows between databases (below) | read; edit when fixable |
+| `/srv/scheduler/jobs/jobs.yaml` | the fixed-time operations: name, key, `connection` (or `connections`, for a script), `at` (a cron expression), `timezone` (UTC when absent) | read; edit when fixable |
 | `/opt/gm/seed/schedule.yaml` | the schedule: the traffic, its rates and connections | you cannot read it, by design: it stands for the customer's real traffic |
 | `/var/log/scheduler/scheduler.log` | the scheduler's log | read |
 | `/etc/scheduler/scheduler.yaml` | where the log and the metrics are | read |
@@ -40,6 +42,43 @@ an ordinary "permission denied", and `sudo gm-reload-scheduler` says the
 node is report-only. Where you may, edit in place or with `sed -i`;
 your changes stay when the scheduler restarts.
 
+## Scripts and their connections
+
+A key of `queries.yaml` may name a script instead of SQL:
+
+```yaml
+  rollup.hourly:
+    script: scripts/rollup.py:hourly     # a file of scripts/ and a function in it
+    options: {batch: 5000}               # passed to the function
+```
+
+Such a key runs only as a fixed-time operation, never as traffic. Its
+entry in `jobs.yaml` names `connections:` instead of `connection:`: for
+each name the script uses, one of the scheduler's connections.
+
+```yaml
+  - name: rollup-hourly
+    key: rollup.hourly
+    connections:
+      source: shop          # the script reads conns["source"]
+      target: reporting     # and writes conns["target"]
+    at: "5 * * * *"
+```
+
+The scheduler calls the function as `hourly(conns, options, log)`:
+`conns` holds one open database connection per name, each as the
+database role the scheduler uses for that connection, outside autocommit;
+the script commits what it writes and returns the number of rows it
+wrote, and `log("...")` adds a line to the scheduler's log. What a script
+leaves uncommitted is rolled back when its run ends. You see which
+connections a script uses in `jobs.yaml`, and while it runs, its
+sessions in `pg_stat_activity` (`application_name` the node's name,
+`usename` the role); you never see a password.
+
+A script may use the Python standard library, `psycopg` 3 and `yaml`;
+nothing else is installed. A run that raises an error ends with
+`status=error` in the log; the scheduler goes on.
+
 ## Applying changes
 
 The scheduler reads its repository and `jobs.yaml` when it starts and
@@ -51,9 +90,13 @@ no arguments:
 | `sudo gm-reload-scheduler` | Checks the repository and `jobs.yaml`, then has the scheduler reload them and prints when each fixed-time operation runs next (UTC). It refuses, and reloads nothing, when a file does not load or a key the schedule uses is missing, saying which. |
 | `sudo gm-validate` | Runs the public validator. |
 
-There is no "run now": to see a fixed-time operation work after a fix,
-move its `at` to a few minutes ahead and reload. Nothing else changes
-the traffic.
+There is no "run now". To see a fixed-time operation work after a fix
+(to its SQL, its builder, its script or its time), move its `at` to a few
+minutes ahead and reload: `gm-reload-scheduler` prints when it runs next,
+and the log shows its `run job=<name> ... phase=end` line when it has.
+Put its time back afterwards and reload again, unless its time was what
+needed fixing. This is how you verify a fix to any fixed-time operation
+you may edit. Nothing else changes the traffic.
 
 ## The log
 
@@ -63,9 +106,11 @@ One line per event, each beginning with its UTC time:
   `key` line per query key: calls, errors and latency percentiles
   (`p50_ms`, `p95_ms`, `p99_ms`) in that minute;
 - `run job=... phase=start` and `phase=end` for each fixed-time run, with
-  its rows or its error; `skip job=...` for a run that could not start
-  (the previous one still going, or the database refusing the
-  connection);
+  its rows or its error (`sqlstate=...` for a database error, `error=...`
+  naming the kind of error a script raised otherwise); `skip job=...`
+  for a run that could not start (the previous one still going, or a
+  database refusing the connection);
+- `script job=... <text>` for each line a script logs;
 - `error key=... sqlstate=... message="..."` for each failed call;
 - `reload` and `state` lines.
 
@@ -75,7 +120,8 @@ One line per event, each beginning with its UTC time:
 something is wrong it prints one `RED ...` line per broken rule and exits
 1. It checks that:
 
-- `queries.yaml`, the builders it names and `jobs.yaml` load;
+- `queries.yaml`, the builders and scripts it names and `jobs.yaml` load,
+  and each script's operation names `connections:`;
 - the scheduler answers on port 9120;
 - the files have not changed since the scheduler last loaded them (if
   they have: `sudo gm-reload-scheduler`).
@@ -88,5 +134,6 @@ the validator's.
 SSH, `sudo`, the `gm-*` commands, the validator, `/etc/scheduler/` and
 the program under `/usr/local/lib/python3.13/dist-packages/gm_scheduler`
 are part of the game, not of the customer's system: leave them alone.
-Builders are code the scheduler runs: a builder you edit runs as the
-scheduler, so keep to what the customer's application would do.
+Builders and scripts are code the scheduler runs: a builder or a script
+you edit runs as the scheduler, a script with its database connections
+open, so keep to what the customer's application would do.

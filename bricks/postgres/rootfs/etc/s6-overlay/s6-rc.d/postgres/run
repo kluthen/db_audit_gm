@@ -5,6 +5,14 @@
 # 7.3): set here, on the command line, which neither postgresql.conf nor
 # ALTER SYSTEM overrides; the GM check role gm_check holds
 # pg_use_reserved_connections (gm-entrypoint, docs/gm.md).
+# The out-of-memory victim (master spec 7.2, 16.3): every process the
+# postmaster forks writes PG_OOM_ADJUST_VALUE into its own
+# PG_OOM_ADJUST_FILE, raising its score by 300 thousandths of the
+# container's memory limit (raising needs no capability), while the
+# postmaster, s6, sshd and cron stay at 0: the kernel's out-of-memory
+# killer ends a backend before any of them.
+export PG_OOM_ADJUST_FILE=/proc/self/oom_score_adj
+export PG_OOM_ADJUST_VALUE=300
 exec 2>&1
 exec /command/s6-setuidgid postgres /usr/lib/postgresql/18/bin/postgres \
     -D /var/lib/postgresql/18/data \

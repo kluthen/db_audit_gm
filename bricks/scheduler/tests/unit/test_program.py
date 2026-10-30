@@ -1,8 +1,10 @@
 """The scheduler program against the throwaway PostgreSQL: streams, jobs
 (skipped while running, or when the connection is refused), builders,
-the program itself idle and running (standard input, status, log,
-summaries, metrics, SIGHUP, a kill and a resume). Real time throughout:
-the tests wait, they never move a clock."""
+transformer scripts, the program itself idle and running (standard input,
+status, log, summaries, metrics, SIGHUP, a kill and a resume). Real time
+throughout: the tests wait, they never move a clock; a script job runs
+only at its time, which a test moves by editing jobs.yaml and reloading,
+as a player would."""
 
 import asyncio
 import calendar
@@ -18,7 +20,8 @@ import urllib.request
 
 import yaml
 
-from pgtest import DB, HOST, PASSWORD, PORT, ROLE, admin, needs_pg
+from pgtest import (DB, DST_DB, DST_PASSWORD, DST_ROLE, HOST, PASSWORD, PORT, ROLE, SRC_PASSWORD, SRC_ROLE,
+                    admin, needs_pg)
 
 QUERIES = """\
 queries:
@@ -52,6 +55,59 @@ def build(intensity, options, rng=None):
 
 def broken(intensity, options):
     raise ValueError("no data for this month")
+"""
+
+
+SCRIPT_KEYS = """\
+  rollup.hourly:
+    script: scripts/rollup.py:hourly
+    options: {after: 1}
+  rollup.broken:
+    script: scripts/rollup.py:broken
+  rollup.denied:
+    script: scripts/rollup.py:denied
+  rollup.slow:
+    script: scripts/rollup.py:slow
+    options: {seconds: 65}
+"""
+
+SCRIPT = """\
+import time
+
+
+def hourly(conns, options, log):
+    src, dst = conns["source"], conns["target"]
+    with src.cursor() as cur:
+        cur.execute("SELECT current_user, id, amount FROM src_orders WHERE id > %s ORDER BY id", (options["after"],))
+        rows = cur.fetchall()
+    src.commit()
+    with dst.cursor() as cur:
+        cur.execute("SELECT current_user")
+        dst_role = cur.fetchone()[0]
+        for src_role, i, amount in rows:
+            cur.execute("INSERT INTO moved (id, amount, src_role, dst_role) VALUES (%s, %s, %s, %s)",
+                        (i, amount, src_role, dst_role))
+    dst.commit()
+    with dst.cursor() as cur:   # never committed: rolled back when the runner closes the connection
+        cur.execute("INSERT INTO moved (id, amount, src_role, dst_role) VALUES (-1, 0, 'x', 'x')")
+    log(f"moved {len(rows)} rows as {rows[0][0]} to {dst_role}, autocommit={src.autocommit}")
+    return len(rows)
+
+
+def broken(conns, options, log):
+    log("starting")
+    raise ValueError("no watermark")
+
+
+def denied(conns, options, log):
+    with conns["source"].cursor() as cur:
+        cur.execute("SELECT * FROM src_secret")
+    return 0
+
+
+def slow(conns, options, log):
+    time.sleep(options["seconds"])
+    return 0
 """
 
 
@@ -237,7 +293,9 @@ class TestTasks(ProgramBase):
                             'this month"' in l for l in log), log)
 
 
-class TestProgram(ProgramBase):
+class ProgramRun(ProgramBase):
+    """The program as a process: start, status, metrics, stop."""
+
     def start(self, doc, stdin=None):
         p = subprocess.Popen([sys.executable, "-I", "-m", "gm_scheduler", "run", "--config", self.cfg_file],
                              stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -279,6 +337,8 @@ class TestProgram(ProgramBase):
         with open(self.paths["marker"], "w") as f:
             f.write(time.strftime("%Y-%m-%dT%H:%M:%SZ\n", time.gmtime()))
 
+
+class TestProgram(ProgramRun):
     def test_idle_without_the_marker_and_sighup_reloads(self):
         doc = schedule_doc([{"key": "orders.insert", "connection": "app", "rate": "600/min", "arrivals": "even"}])
         p = self.start(doc)
@@ -296,6 +356,7 @@ class TestProgram(ProgramBase):
                 loaded = f.read()
             self.assertIn("generation=2\n", loaded)
             self.assertRegex(loaded, r"job extra next=\d{4}-\d\d-\d\dT\d\d:\d[05]:00Z")
+            self.assertIn("\ncron close-day UTC 30 1 * * *\ncron extra UTC */5 * * * *\n", loaded)
             with open(self.paths["jobs"], "a") as f:
                 f.write("  - name: bad\n    key: no.such.key\n    connection: app\n    at: \"0 1 * * *\"\n")
             p.send_signal(signal.SIGHUP)
@@ -372,6 +433,24 @@ class TestProgram(ProgramBase):
         self.assertNotIn("secret", "\n".join(read_log(self.paths)))
         p = self.start(None, stdin="seed: 1\n")
         self.assertEqual(self.finish(p)[0], 2)
+        # a stream naming a script key, and a script key's job with connection:, refused at start
+        with open(os.path.join(self.paths["repository"], "queries.yaml"), "a") as f:
+            f.write(SCRIPT_KEYS)
+        os.makedirs(os.path.join(self.paths["repository"], "scripts"))
+        with open(os.path.join(self.paths["repository"], "scripts", "rollup.py"), "w") as f:
+            f.write(SCRIPT)
+        p = self.start(schedule_doc([{"key": "rollup.hourly", "connection": "app", "rate": "1/min",
+                                      "arrivals": "even"}]))
+        code, out = self.finish(p)
+        self.assertEqual(code, 3, out)
+        self.assertIn("queries.yaml: key rollup.hourly is named by the schedule but is a script: "
+                      "a script runs only as a job", read_log(self.paths)[-1])
+        with open(self.paths["jobs"], "w") as f:
+            f.write("jobs:\n  - {name: r, key: rollup.hourly, connection: app, at: '0 1 * * *'}\n")
+        code, out = self.finish(self.start(schedule_doc([])))
+        self.assertEqual(code, 3, out)
+        self.assertIn("jobs.yaml: job r: key rollup.hourly is a script: name its connections with connections:",
+                      read_log(self.paths)[-1])
 
 
 @needs_pg
@@ -403,15 +482,157 @@ class TestChecks(ProgramBase):
         self.assertEqual((r.returncode, r.stdout), (1, "jobs.yaml: job j: key nope is not in queries.yaml\n"))
 
     def test_pending(self):
-        from gm_scheduler.runner import write_atomic
+        os.makedirs(os.path.join(self.paths["repository"], "scripts"))
+        script = os.path.join(self.paths["repository"], "scripts", "rollup.py")
+        with open(script, "w") as f:
+            f.write(SCRIPT)
         s = self.scheduler(schedule_doc([]))
         s.write_loaded()
+        with open(self.paths["loaded"]) as f:
+            self.assertRegex(f.read(), r"\nfile [0-9a-f]{64} " + script + "\n")
         self.assertEqual(self.check("pending").returncode, 0)
         with open(self.paths["jobs"], "a") as f:
             f.write("# moved\n")
+        with open(script, "a") as f:
+            f.write("# fixed\n")
         r = self.check("pending")
         self.assertEqual(r.returncode, 1)
         self.assertIn("jobs.yaml changed since the program loaded its files", r.stdout)
+        self.assertIn("scripts/rollup.py changed since the program loaded its files", r.stdout)
+
+    def test_check_and_check_keys_on_script_keys(self):
+        with open(os.path.join(self.paths["repository"], "queries.yaml"), "a") as f:
+            f.write(SCRIPT_KEYS)
+        os.makedirs(os.path.join(self.paths["repository"], "scripts"))
+        with open(os.path.join(self.paths["repository"], "scripts", "rollup.py"), "w") as f:
+            f.write(SCRIPT)
+        doc = schedule_doc([{"key": "orders.insert", "connection": "app", "rate": "1/min", "arrivals": "even"}])
+        with open(self.paths["schedule_seed"], "w") as f:
+            yaml.safe_dump(doc, f)
+        with open(self.paths["jobs"], "w") as f:
+            f.write("jobs:\n  - {name: r, key: rollup.hourly, connections: {source: app, target: nowhere}, "
+                    "at: '5 * * * *'}\n")
+        self.assertEqual((self.check("check").returncode, self.check("check-keys").returncode), (0, 0))
+        with open(self.paths["jobs"], "w") as f:
+            f.write("jobs:\n  - {name: r, key: rollup.hourly, connection: app, at: '5 * * * *'}\n"
+                    "  - {name: q, key: slow.hold, connections: {source: app}, at: '5 * * * *'}\n")
+        r = self.check("check")
+        self.assertEqual((r.returncode, r.stdout), (1,
+            "jobs.yaml: job r: key rollup.hourly is a script: name its connections with connections:, not connection:\n"
+            "jobs.yaml: job q: key slow.hold is not a script: it takes connection:, not connections:\n"))
+        with open(self.paths["jobs"], "w") as f:
+            f.write("jobs:\n  - {name: r, key: rollup.hourly, connections: {source: app, target: elsewhere}, "
+                    "at: '5 * * * *'}\n")
+        doc["timeline"] = [{"at": "2026-10-24T08:00:00Z", "stream": "orders.insert", "set": {"key": "rollup.slow"}}]
+        with open(self.paths["schedule_seed"], "w") as f:
+            yaml.safe_dump(doc, f)
+        r = self.check("check-keys")
+        self.assertEqual((r.returncode, r.stdout), (1,
+            "queries.yaml: key rollup.slow is named by the schedule but is a script: a script runs only as a job\n"
+            "jobs.yaml: job r: connections.target: connection elsewhere is not one of the schedule's\n"))
+
+
+class TestScripts(ProgramRun):
+    """Transformer scripts in the running program, on a node with no
+    stream (D219): each job runs at its time, moved by an edit of
+    jobs.yaml and a reload."""
+
+    def setUp(self):
+        super().setUp()
+        admin("DROP TABLE IF EXISTS src_orders, src_secret")
+        admin("CREATE TABLE src_orders (id int PRIMARY KEY, amount numeric)")
+        admin("INSERT INTO src_orders SELECT i, i * 10 FROM generate_series(1, 4) i")
+        admin("CREATE TABLE src_secret (id int)")
+        admin(f"GRANT SELECT ON src_orders TO {SRC_ROLE}")
+        admin("DROP TABLE IF EXISTS moved", db=DST_DB)
+        admin("CREATE TABLE moved (id int, amount numeric, src_role text, dst_role text)", db=DST_DB)
+        admin(f"GRANT SELECT, INSERT ON moved TO {DST_ROLE}", db=DST_DB)
+        with open(os.path.join(self.paths["repository"], "queries.yaml"), "a") as f:
+            f.write(SCRIPT_KEYS)
+        os.makedirs(os.path.join(self.paths["repository"], "scripts"))
+        with open(os.path.join(self.paths["repository"], "scripts", "rollup.py"), "w") as f:
+            f.write(SCRIPT)
+        self.write_jobs("0 3 * * *", "0 3 * * *")
+
+    def write_jobs(self, at, slow_at):
+        with open(self.paths["jobs"], "w") as f:
+            f.write(f"""jobs:
+  - {{name: rollup, key: rollup.hourly, connections: {{source: shop, target: reporting}}, at: "{at}"}}
+  - {{name: broken, key: rollup.broken, connections: {{source: shop}}, at: "{at}"}}
+  - {{name: denied, key: rollup.denied, connections: {{source: shop}}, at: "{at}"}}
+  - {{name: far, key: rollup.hourly, connections: {{source: shop, target: nowhere}}, at: "{at}"}}
+  - {{name: slow, key: rollup.slow, connections: {{source: shop}}, at: "{slow_at}"}}
+""")
+
+    def test_script_jobs_run_at_their_moved_time(self):
+        doc = schedule_doc([])
+        doc["connections"]["shop"] = {"driver": "sql/postgresql", "target": f"{HOST}:{PORT}/{DB}", "role": SRC_ROLE,
+                                      "pool": {"size": 1}}
+        doc["connections"]["reporting"] = {"driver": "sql/postgresql", "target": f"{HOST}:{PORT}/{DST_DB}",
+                                           "role": DST_ROLE, "pool": {"size": 1}}
+        doc["shapes"] = {}
+        stdin = (f"gm-scheduler-input 1\npassword {ROLE} {PASSWORD}\npassword {SRC_ROLE} {SRC_PASSWORD}\n"
+                 f"password {DST_ROLE} {DST_PASSWORD}\nschedule\n" + yaml.safe_dump(doc))
+        self.write_marker()
+        p = self.start(None, stdin=stdin)
+        try:
+            self.assertTrue(self.wait_for(lambda: self.status()[:1] == ["running"]), self.status())
+            # moved to the next minute at least 8 s ahead, the slow job to every minute; then reloaded
+            m = (int(time.time()) + 8) // 60 * 60 + 60
+            at = time.strftime("%-M %-H * * *", time.gmtime(m))
+            self.write_jobs(at, "* * * * *")
+            p.send_signal(signal.SIGHUP)
+            self.assertTrue(self.wait_for(lambda: any(" reload status=ok keys=9 jobs=5" in l
+                                                      for l in read_log(self.paths))), read_log(self.paths))
+            minute = time.strftime("%Y-%m-%dT%H:%M", time.gmtime(m))
+            self.assertTrue(self.wait_for(lambda: sum(" phase=end " in l for l in read_log(self.paths)) >= 3,
+                                          timeout=m - time.time() + 20), read_log(self.paths))
+            log = read_log(self.paths)
+            # rows moved between the two databases, each connection as the schedule's role for it
+            starts = [l for l in log if " run job=rollup key=rollup.hourly phase=start" in l]
+            self.assertEqual(len(starts), 1, log)
+            self.assertTrue(starts[0].startswith(minute), (minute, starts))
+            self.assertTrue(any(" run job=rollup key=rollup.hourly phase=end status=ok rows=3 ms=" in l for l in log),
+                            log)
+            self.assertTrue(any(l.endswith(f" script job=rollup moved 3 rows as {SRC_ROLE} to {DST_ROLE}, "
+                                           "autocommit=False") for l in log), log)
+            self.assertEqual(admin("SELECT id, src_role, dst_role FROM moved ORDER BY id", db=DST_DB),
+                             [(2, SRC_ROLE, DST_ROLE), (3, SRC_ROLE, DST_ROLE), (4, SRC_ROLE, DST_ROLE)])
+            # an exception ends its run with status=error; a database error carries its sqlstate
+            self.assertTrue(any(l.endswith(" script job=broken starting") for l in log), log)
+            self.assertTrue(any(' error key=rollup.broken job=broken sqlstate=- message="script: ValueError: '
+                                'no watermark"' in l for l in log), log)
+            self.assertTrue(any(" run job=broken key=rollup.broken phase=end status=error error=ValueError ms=" in l
+                                for l in log), log)
+            self.assertTrue(any(" error key=rollup.denied job=denied sqlstate=42501 message=" in l for l in log), log)
+            self.assertTrue(any(" run job=denied key=rollup.denied phase=end status=error sqlstate=42501 ms=" in l
+                                for l in log), log)
+            # a connection refused: an error and a skip, never a run
+            self.assertTrue(any(" error key=rollup.hourly job=far sqlstate=08" in l for l in log), log)
+            self.assertTrue(any(" skip job=far key=rollup.hourly " in l and l.endswith("reason=connection-refused")
+                                for l in log), log)
+            self.assertFalse(any(" run job=far " in l for l in log), log)
+            # the slow run goes on past the next minute: that run is skipped, then the first ends
+            self.assertTrue(self.wait_for(lambda: any(" run job=slow key=rollup.slow phase=end status=ok rows=0" in l
+                                                      for l in read_log(self.paths)),
+                                          timeout=m + 75 - time.time()), read_log(self.paths))
+            log = read_log(self.paths)
+            skip_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(m + 60))
+            self.assertTrue(any(f" skip job=slow key=rollup.slow at={skip_at} reason=still-running" in l for l in log),
+                            log)
+            self.assertEqual(sum(" run job=slow key=rollup.slow phase=start" in l for l in log), 1, log)
+            # nothing else stopped: still running, the counters per job
+            self.assertEqual(self.status()[:1], ["running"])
+            metrics = self.metrics()
+            self.assertIn('scheduler_job_runs_total{key="rollup.hourly",job="rollup"} 1\n', metrics)
+            self.assertIn('scheduler_job_skips_total{key="rollup.slow",job="slow",reason="still-running"} 1\n',
+                          metrics)
+            self.assertIn('scheduler_errors_total{key="rollup.broken"} 1\n', metrics)
+        finally:
+            code, out = self.stop(p)
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("Traceback", out)
+        self.assertNotIn(SRC_PASSWORD, "\n".join(read_log(self.paths)))
 
 
 @unittest.skipUnless(os.geteuid() == 0, "restore needs root")
@@ -422,10 +643,11 @@ class TestRestore(unittest.TestCase):
         try:
             repo, jobs = os.path.join(root, "repository"), os.path.join(root, "jobs")
             os.makedirs(os.path.join(repo, "builders"))
+            os.makedirs(os.path.join(repo, "scripts"))
             os.makedirs(jobs)
             outside = os.path.join(root, "outside")
             for path in (os.path.join(repo, "queries.yaml"), os.path.join(repo, "builders", "b.py"),
-                         os.path.join(jobs, "jobs.yaml"), outside):
+                         os.path.join(repo, "scripts", "s.py"), os.path.join(jobs, "jobs.yaml"), outside):
                 with open(path, "w") as f:
                     f.write("x\n")
                 os.chmod(path, 0o600)
@@ -435,18 +657,20 @@ class TestRestore(unittest.TestCase):
             def modes():
                 return [oct(os.stat(p).st_mode & 0o7777) for p in
                         (repo, os.path.join(repo, "builders"), jobs, os.path.join(repo, "queries.yaml"),
-                         os.path.join(repo, "builders", "b.py"), os.path.join(jobs, "jobs.yaml"))]
+                         os.path.join(repo, "builders", "b.py"), os.path.join(jobs, "jobs.yaml"),
+                         os.path.join(repo, "scripts"), os.path.join(repo, "scripts", "s.py"))]
             notes = wp.restore("report-only", [], repo, jobs, uid, gid)
-            self.assertEqual(modes(), ["0o2755", "0o2755", "0o2755", "0o644", "0o644", "0o644"])
+            self.assertEqual(modes(), ["0o2755", "0o2755", "0o2755", "0o644", "0o644", "0o644", "0o2755", "0o644"])
+            self.assertEqual(os.stat(os.path.join(repo, "scripts", "s.py")).st_uid, uid)
             self.assertEqual(os.stat(os.path.join(jobs, "jobs.yaml")).st_uid, uid)
             self.assertEqual(oct(os.stat(outside).st_mode & 0o777), "0o600")
             self.assertEqual(os.stat(outside).st_uid, 0)
             self.assertTrue(any("link.py: a symbolic link" in n for n in notes), notes)
             # the override names directories as the brick's writable_paths do
             wp.restore("report-only", [jobs], repo, jobs, uid, gid)
-            self.assertEqual(modes(), ["0o2755", "0o2755", "0o2775", "0o644", "0o644", "0o664"])
+            self.assertEqual(modes(), ["0o2755", "0o2755", "0o2775", "0o644", "0o644", "0o664", "0o2755", "0o644"])
             wp.restore("fixable", [], repo, jobs, uid, gid)
-            self.assertEqual(modes(), ["0o2775", "0o2775", "0o2775", "0o664", "0o664", "0o664"])
+            self.assertEqual(modes(), ["0o2775", "0o2775", "0o2775", "0o664", "0o664", "0o664", "0o2775", "0o664"])
             with open(os.path.join(jobs, "jobs.yaml")) as f:
                 self.assertEqual(f.read(), "x\n")
         finally:

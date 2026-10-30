@@ -1,8 +1,12 @@
 # db_audit_gm v0.4 — Build plan
 
-Status: v2 (2026-10-30): approved, κ = 3 confirmed (spec D216); the
-owner's rulings on G8 (spec D217) and G9 (spec D218) written into chunks
-8 to 11 and 9.
+Status: v5 (2026-10-30): the owner's ruling on G12, the web front in
+every game (spec D224, applied by D225), written into chunk 19, now split
+19a and 19b with 19b cut after chunk 2, chunk 18 and the waves; spec D226,
+a data file named in a seed change, into chunk 15a; v4 wrote `bastion`
+0.4.0 (spec D221 to D223) as chunk 19; v3 capture W1's corrections (spec
+D219, D220); v2 the rulings on G8 and G9 (spec D217, D218), after
+approval with κ = 3 (spec D216).
 Approval: **approved 2026-10-30 by the owner** (G1, spec D216).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-10-30 (spec D215),
@@ -39,15 +43,25 @@ plan states only its deltas. Its conventions follow v0.3's
 - **Dependency gating applies.** The project keeps a `.tech` file, kept
   by `security-advisor`. `postgres` 0.4.0 adds two packages, so its
   chunk waits for a dependency preflight (G5) and is followed by a
-  post-change check (G6); `scheduler` 0.2.0 adds none.
+  post-change check (G6); `bastion` 0.4.0 adds one, `cmark-gfm` (G13,
+  then G6); `scheduler` 0.2.0 adds none.
 - **One version per brick in the catalog.** The loader refuses a pin that
   does not match the brick's `version`. Chunk 1 bumps `postgres` to
-  0.4.0 and `scheduler` to 0.2.0, adds the new version to every fault's
-  `applies_to` that names either brick (seven each), and re-pins the
-  three scenarios and the four fixtures that pin either brick, in the same
-  commit; every later v0.4 change to either brick folds into that
+  0.4.0, `scheduler` to 0.2.0 and `bastion` to 0.4.0 (spec D221), adds
+  the new version to every fault's `applies_to` that names `postgres` or
+  `scheduler` (seven each; none names `bastion`), and re-pins the three
+  scenarios and the four fixtures that pin any of them, in the same
+  commit; every later v0.4 change to any of the three folds into that
   version, a brick version being released only by v0.4's release gate.
-  The other five bricks are unchanged and keep their versions.
+  The other four bricks are unchanged and keep their versions.
+- **The web front runs in every game** (spec D224, replacing v0.2's
+  D103): the bastion always publishes port 8080 and the tools password
+  is always handed over, a web interface to publish or not; its home is
+  the starter-pack page. Chunk 19 builds it. Until 19b merges, v0.3's
+  rule still holds in the loader, the scenarios and `smoke.sh`'s
+  `fixture-audit` assertions (port 22 only, the front down, no
+  tools-password line), which 19b reverses; render is unchanged, and the
+  GM skill's lines saying otherwise are chunk 18's.
 - **Templates are the loader's schema**, as in v0.3: `tools/gm/model.py`
   checks every definition against the format skill's templates, and the
   unit suite loads every folder under `bricks/`, `faults/` and
@@ -109,32 +123,38 @@ plan states only its deltas. Its conventions follow v0.3's
 |---|---|---|---|---|
 | G1 | Plan approval | The owner | Wave 1 | done (2026-10-30, spec D216) |
 | G2 | [formats.md](../../formats.md) carries master spec 6: the purpose and the domain, `governance:`, the new scenario, answer-key, fault and brick fields, the optional crontab and `crontab_roles` (section 19: the format skill is updated after it) | `spec-writer` | Chunk 1 | done (2026-10-30, cf484b9; formats.md v22) |
-| G3 | Network access at image build time: Debian 13's repositories (`cron`), the PostgreSQL apt repository (`postgresql-18`, `postgresql-18-cron`), the s6-overlay release, as in v0.3 | Hand check by the wave driver | Chunks 1, 3, 4 (image builds); every wave gate's builds | open |
+| G3 | Network access at image build time: Debian 13's repositories (`cron`, `cmark-gfm`), the PostgreSQL apt repository (`postgresql-18`, `postgresql-18-cron`), the s6-overlay release, as in v0.3 | Hand check by the wave driver | Chunks 1, 3, 4, 19 (image builds); every wave gate's builds | open |
 | G4 | A Docker host in swarm mode: armenelos' swarm, the VPS a drained worker in it | Hand check by the wave driver | Every stack test, deployment and smoke run, chunk 9, every wave gate, the release gate | open |
-| G5 | **Dependency preflight** on `postgres` 0.4.0's new packages: the candidate versions of `postgresql-18-cron` (PGDG) and of Debian's `cron` with what it pulls in, installed without recommends (master spec 7.2, 19). A finding the owner must rule on becomes a gate of its own | `security-advisor` (skill `dependency-check`), called by the wave driver at wave 1's start | Chunk 4's branch | open |
-| G6 | **Dependency post-change check** on the versions chunk 4 resolved, and `.tech` updated (`postgres` 0.4.0, `scheduler` 0.2.0, the two packages), committed on `v0.4-w1` | `security-advisor`, called by the wave driver once chunk 4 has merged | Wave 1's gate | open |
+| G5 | **Dependency preflight** on `postgres` 0.4.0's new packages: the candidate versions of `postgresql-18-cron` (PGDG) and of Debian's `cron` with what it pulls in, installed without recommends (master spec 7.2, 19). A finding the owner must rule on becomes a gate of its own | `security-advisor` (skill `dependency-check`), called by the wave driver at wave 1's start | Chunk 4's branch | done (2026-10-30, wave log) |
+| G6 | **Dependency post-change check** on the versions chunks 4 and 19 resolved, and `.tech` updated (`postgres` 0.4.0, `scheduler` 0.2.0, `bastion` 0.4.0, the three packages), committed on `v0.4-w1` | `security-advisor`, called by the wave driver once chunks 4 and 19 have merged | Wave 1's gate | done (2026-10-30, 71ab68a) |
 | G7 | The VPS ready for two-host runs, under the VPS rule ("Workflow deltas"): `tailscale status` on both hosts; the VPS still a worker of armenelos' swarm, drained; no game port published on it; at least 5G free; filetstudio.com answering before and after | Hand check by the wave driver | The two-host `smoke-load.sh` from wave 2's gate; chunk 17's two-host runs; the release gate's two-host runs | open |
 | G8 | **The judged moment before the hand-over** (master spec 12.1): before the hand-over (the early check, the hand-over check, the smoke runs), a purpose check judges from the fault instance's planting moment, raised to the runner's last reload, as after it | The owner | Chunk 8's merge; the "Done when" of chunks 10, 11, 14, 15 as far as they read a check before a hand-over | done (2026-10-30, spec D217) |
 | G9 | **f10's measurement without swap, on armenelos only** (master spec 16.3): a one-off calibration container with its swap disabled for it alone, outside Swarm; armenelos keeps its swap | The owner | Chunk 9's no-swap measurement | done (2026-10-30, spec D218) |
 | G10 | **f10's calibration outcome** (spec D213): the backfill needs more than twice `reporting`'s limit and a normal run less than half of it, after `shared_buffers`, within a window the restored history allows. If so, the window is set from chunk 9's figures; if not, the fault comes back to the owner before anything is reshaped, lowering `reporting`'s limit the likely lever, offered then | Chunk 9's figures, applied by the wave driver; the owner on a shortfall | Chunk 15's f10 half; chunk 16 | open |
 | G11 | The owner's judgement at release close: the smoke cycles, f10's run, the rehearsal, the feedback (overstepping and the incident report included), the named known limits | The owner | Release close | open |
+| G12 | **spec O134**: does the starter-pack page make the web front run in every game (master spec 7.3, 22)? Ruled yes: the front in every game, its home the page, nothing more in v0.4; chunk 19 split, 19b taking the loader's port rule and the scenarios without a web interface | The owner | Chunk 19's branch | done (2026-10-30, spec D224) |
+| G13 | **Dependency preflight** on `bastion` 0.4.0's new package: the candidate version of Debian 13's `cmark-gfm` with what it pulls in, installed without recommends (spec D222). A finding the owner must rule on becomes a gate of its own | `security-advisor` (skill `dependency-check`), called by the wave driver | Chunk 19's branch | done (2026-10-30, wave log) |
 
 G8 and G9 were questions this plan raised on the approved spec; the
-owner ruled both at its approval (spec D217, D218).
+owner ruled both at its approval (spec D217, D218). G12 and G13 came
+with the owner's ruling of spec D221, during wave 1.
 
 ## Waves
 
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
-| 1 | 1, 2, 3, 4, 5 | G1 (done); G2 (chunk 1, done); G3, G4; G5 (chunk 4); G6 before its gate | planned |
+| 1 | 1, 2, 3, 4, 5, 19 | G1 (done); G2 (chunk 1, done); G3, G4; G5 (chunk 4); G12, G13 (chunk 19); G6 before its gate | gated (2026-10-30, 4064719) |
 | 2 | 6, 7, 8, 9, 10, 11 | wave 1; G8, G9 (done); G7 (the gate's two-host run) | planned |
 | 3 | 12, 13, 14, 15 | wave 2; G10 (chunk 15's f10 half) | planned |
 | 4 | 16, 17, 18 | wave 3; G7 (chunk 17's two-host runs) | planned |
 
 ```
-1 ──> 2, 3, 4          (in wave 1, cut once chunk 1 has merged into v0.4-w1; W1)
+1 ──> 2, 3, 4, 19      (in wave 1, cut once chunk 1 has merged into v0.4-w1; W1)
 1 ──> 5                (in-wave: runs beside chunk 1, its files all under domains/shop/; W1)
 G5 ──> 4
+G12, G13 ──> 19
+2 ──> 4                (in-wave, merge order only: chunk 2a merged into v0.4-w1 before chunk 4 merges; W1 items 4, 9)
+2 ──> 19b              (in-wave: 19b edits tools/gm/model.py and test_model.py after chunk 2 has merged; spec D225)
 1, 2 ──> 6
 2, 4 ──> 7
 6 ──> 7                (in-wave: render's crontab shift and crontab_roles' secrets, fixed by master spec 14; W2)
@@ -143,7 +163,7 @@ G5 ──> 4
 3, 5 ──> 10
 3, 5 ──> 11
 3, 4, 7 ──> 12
-5, 6, 7, 10, 11 ──> 13
+5, 6, 7, 10, 11, 19 ──> 13
 2, 7, 8, 10, 11 ──> 14
 13 ──> 14              (in-wave: the fixture's nodes, roles and jobs, fixed by master spec 16.1; W3)
 4, 6, 7, 9, 10 ──> 15
@@ -154,11 +174,27 @@ G5 ──> 4
 6, 7, 8, 14, 15 ──> 18
 ```
 
-Wave 1's order: chunks 1 and 5 run first, side by side; chunks 2, 3 and 4
-are cut from `v0.4-w1` once chunk 1 has merged (chunk 4 once G5 is
-cleared too), so no two chunks running at once share a file. Chunk 1
-owns the version lines of `postgres` and `scheduler`; chunks 3 and 4 own
-the rest of their brick.
+Wave 1's order: chunks 1 and 5 run first, side by side; chunks 2, 3, 4
+and 19 are cut from `v0.4-w1` once chunk 1 has merged (chunk 4 once G5
+is cleared too, chunk 19 once G12 and G13 are), three at a time, so no
+two chunks running at once share a file. Chunk 4 is built beside chunk
+2 but merges only after chunk 2a has: the `crontab` entry it adds to
+`seed.files` fails every scenario pinning `postgres` until 2a's
+`seed.optional` check is in, so it merges `v0.4-w1` in before its final
+suite run (spec D220). **Chunk 19** (spec D225): its branch is cut at the
+first free slot, and 19a, the bastion, is built beside chunks 2 to 4
+(no shared file); 19b starts only once chunk 2, both halves, has merged
+into `v0.4-w1` and chunk 19's branch has merged `v0.4-w1` in, since it
+edits chunk 2's `tools/gm/model.py` and `test_model.py`; both halves'
+unit-suite runs come after that merge-in (`data-policy.md` in
+`seed.files` needs 2a's `seed.optional` check, spec D223), and chunk 19
+merges after 19b. The chain 1, 2, 19b is a file order, not an
+interface: 19b changes v0.2's port rule, which chunk 2 leaves as it is.
+Chunk 1 owns the version lines of `postgres`, `scheduler` and
+`bastion`; chunks 3, 4 and 19 own the rest of their brick. Chunk 19 was
+inserted after wave 1's capture; it uses W1 item 4 and needs no capture
+of its own, and with no intent register there is no `documentalist`
+peek to run before it.
 
 Wave 2: chunks 9, 10 and 11 need only wave 1, and chunk 9 runs as early
 in the wave as the host lock allows: it is the early calibration spec
@@ -263,7 +299,7 @@ Wave 3: chunks 12 and 13 run first; chunks 14 and 15 are cut once chunk
 - G5 and G6: `security-advisor`'s dependency checks, recorded in the wave
   log; `.tech` updated on `v0.4-w1`.
 - Each bumped brick's footprint at rest: in its chunk's stack test
-  (chunks 3, 4), as a first figure.
+  (chunks 3, 4, 19), as a first figure.
 - f10's calibration: chunk 9, on armenelos alone, the VPS drained, under
   the host lock: the `reporting` container's `memory.peak` around a
   normal run and around the backfill, with swap (a Swarm service at the
@@ -295,12 +331,13 @@ checks that each is recorded.
 | The mapping-roles function's name and the read policy's form | 7 |
 | Where the governance check set lives and how a fault's check calls it | 12 |
 | The scheduler-side means a purpose check uses to read runs, the last reload and the next run | 3b |
+| The starter-pack page's paths and form, and how a later element joins it | 19 |
 
 ## Chunks
 
 ### Chunk 1 — Format skill, templates, the v0.4 versions and the re-pins
 
-Status: planned
+Status: merged (w1, 48dc5c3)
 Wave: 1
 Depends on: G1, G2; G3, G4 (the two images at their new tags)
 Architecture capture: recorded by the wave driver at wave 1 start (W1),
@@ -323,16 +360,17 @@ for chunks 2 to 5:
   the cron log directory on `pglog`.
 
 - Goal: v0.4's formats in the format and scenario-document skills, the
-  two bumped bricks at their v0.4 versions, every pin and `applies_to`
+  three bumped bricks at their v0.4 versions, every pin and `applies_to`
   brought to them, the suite green.
 - Scope: in:
-  - **1a, versions and the brick and fault formats**: `postgres` 0.4.0
-    and `scheduler` 0.2.0 (`brick.yaml`'s version line, `docs/gm.md`'s
-    version lines and image tags, the stack tests' tags); the seven
-    faults applying to `postgres` and the seven applying to `scheduler`
-    given the new version in `applies_to`; `tarnbeck-outdoor-shop`
-    re-pinned to both, `bookshop-new-server` and
-    `fernway-clinics-monitoring` to `postgres` 0.4.0, the fixtures
+  - **1a, versions and the brick and fault formats**: `postgres` 0.4.0,
+    `scheduler` 0.2.0 and `bastion` 0.4.0 (`brick.yaml`'s version and
+    image lines, the Dockerfile's build comment, `docs/gm.md`'s version
+    lines and image tags, the stack tests' tags); the seven faults
+    applying to `postgres` and the seven applying to `scheduler` given
+    the new version in `applies_to`; `tarnbeck-outdoor-shop` re-pinned
+    to all three, `bookshop-new-server` and `fernway-clinics-monitoring`
+    to `postgres` 0.4.0 and `bastion` 0.4.0, the fixtures
     `fixture-audit`, `fixture-load`, `fixture-monitoring` and
     `fixture-v03-refusals` likewise, otherwise unchanged; their READMEs
     regenerated; the templates `brick.yaml` (`seed.optional`, the
@@ -348,11 +386,14 @@ for chunks 2 to 5:
     `postgres` nodes, `crontab_roles`), `answer-key.yaml` (`judges`,
     `threshold`, no window; a tooling expectation naming an unmonitored
     instance), `queries.yaml` and `jobs.yaml` (the script entry,
-    `connections:`), and new templates `purpose.yaml`, `domain.yaml` and
+    `connections:`, `at`'s comment stating W1 item 0's cron subset),
+    `schedule.yaml` (`streams` may be `[]`: a node with fixed-time
+    operations only), and new templates `purpose.yaml`, `domain.yaml` and
     `classification.yaml`; the skill's completeness rules for a purpose
     and a domain, for `governance:` and the policy file (written by the
     GM from `governance:`, in the story's voice, correct, unchecked rules
-    stated unmarked), every `database` node of a scenario with
+    stated unmarked, mapped to the bastion's optional seed file
+    `data-policy.md`), every `database` node of a scenario with
     `governance:` admitting the GM check role from the game network in
     its seed `pg_hba.conf` under the DO NOT TAMPER comment, the optional
     crontab with its `crontab_roles`, `pg_cron` turned on by the seed
@@ -365,34 +406,37 @@ for chunks 2 to 5:
   - Out: any loader, renderer or image change (chunks 2, 4, 6); the
     bricks' features (chunks 3, 4).
 - Files: `.claude/skills/scenario-format/SKILL.md`,
-  `.claude/skills/scenario-format/templates/{brick.yaml,brick-gm.md,fault.yaml,layouts.md,scenario.yaml,answer-key.yaml,queries.yaml,jobs.yaml}`,
+  `.claude/skills/scenario-format/templates/{brick.yaml,brick-gm.md,fault.yaml,layouts.md,scenario.yaml,answer-key.yaml,queries.yaml,jobs.yaml,schedule.yaml}`,
   `.claude/skills/scenario-format/templates/{purpose.yaml,domain.yaml,classification.yaml}`
   (new), `.claude/skills/scenario-document/{SKILL,template}.md`;
-  `bricks/{postgres,scheduler}/brick.yaml` and `docs/gm.md` (version
-  lines and tags only), `bricks/{postgres,scheduler}/tests/{run-stack-test.sh,stack.test.yml}`
+  `bricks/{postgres,scheduler,bastion}/brick.yaml` and `docs/gm.md`
+  (version lines and tags only), `bricks/bastion/Dockerfile` (its build
+  comment only), `bricks/{postgres,scheduler,bastion}/tests/{run-stack-test.sh,stack.test.yml}`
   (tags only); the fourteen `faults/*/fault.yaml`;
   `scenarios/{tarnbeck-outdoor-shop,bookshop-new-server,fernway-clinics-monitoring}/{scenario.yaml,README.md}`;
   `tools/tests/fixtures/fixture-{audit,load,monitoring,v03-refusals}/`
   (pins and READMEs); the unit tests and smoke scripts naming the old
   tags, as the build finds them; the root `README.md`'s tables.
 - Spec sections: master spec 5, 6, 7.1 (the repository entry), 7.2 (the
-  seed and the crontab), 8.5, 8.7, 11.3, 11.5, 13.4, 14 ("The format
+  seed and the crontab), 7.3 (the bastion's version), 8.5, 8.7, 11.3, 11.5, 13.4, 14 ("The format
   skill", "The scenario document skill"), 16.4, 19;
   [formats.md](../../formats.md) after G2; spec D206, D207, D211, D215.
 - Done when: every template carries every item master spec 6 requires
   and loads as YAML; the loader, unchanged, loads every brick at its
   version, every fault, the three scenarios and the fixtures; the unit
-  suite (with `test_brick_docs`) passes; both images build at their new
-  tags and their stack tests pass; every README matches a fresh
+  suite (with `test_brick_docs`) passes; the three images build at their
+  new tags and their stack tests pass; every README matches a fresh
   regeneration.
 - Verification: chunk checks.
 - Split rule: 1a versions, re-pins and the brick and fault formats; 1b
   the scenario, answer-key, purpose and domain formats and the
   scenario-document skill. Each half leaves the suite green.
 
+Record: 1a fb61d48, 1b 667ded1, merge 48dc5c3. No departure from the spec; choices logged as "W1 addenda — choices chunk 1 made" in the wave log. A purpose fault editing a data file (6.3) left open, sent to `spec-writer`.
+
 ### Chunk 2 — Loader checks for v0.4
 
-Status: planned
+Status: merged (w1, 5767878)
 Wave: 1
 Depends on: chunk 1, merged into `v0.4-w1` before this chunk's branch is
 cut; W1
@@ -408,7 +452,8 @@ Architecture capture: none of its own; it implements W1.
     domain under `domains/`; `governance:` (every class named defined,
     every location a `database` node and a database its data file
     creates, every reader a role a data file creates, the policy file
-    present); faults: `applies_to.purposes` naming existing purposes,
+    present and mapped to the bastion's `data-policy.md` seed file, a
+    scenario without `governance:` mapping none, spec D223); faults: `applies_to.purposes` naming existing purposes,
     `sealed_check.judges` one of `runs`, `triggers` or absent,
     `needs_unshared_host` a boolean; answer keys: `judges` with a
     `threshold` and no window; bricks: `seed.optional` among the seed
@@ -422,28 +467,32 @@ Architecture capture: none of its own; it implements W1.
     a role a data file of the node creates, `crontab_roles` without a
     crontab refused; a data file creating `pg_cron` only on a node whose
     seed `postgresql.conf` preloads it, `cron.database_name` naming a
-    database that data file creates;
+    database that data file creates; `jobs.yaml`'s `at`, a seeded
+    crontab's entries and a purpose job's `cadence` in W1 item 0's
+    subset;
   - refusal fixtures and unit tests for each.
   - Out: rendering any of it (chunk 6); `fit` (chunk 8).
 - Files: `tools/gm/model.py`, `tools/tests/test_model.py`,
   `tools/tests/fixtures/fixture-v04-refusals/` (new).
-- Spec sections: master spec 6.1 to 6.4, 6.9, 7.1, 7.2, 14 ("The
-  loader"), 20.
+- Spec sections: master spec 6.1 to 6.4, 6.9, 7.1, 7.2, 7.3, 10.3 (P3's
+  cadence), 11.5, 14 ("The loader"), 20; spec D219, D223.
 - Done when: unit tests show each refusal with its message, and the
   acceptance of a valid fixture; every catalog definition still loads;
   the unit suite passes.
 - Verification: chunk checks.
 - Split rule: 2a scenario, fault, answer-key and brick checks with
   purposes, domains and governance; 2b the scheduler's script keys and
-  the `postgres` crontab and `pg_cron` checks.
+  the `postgres` crontab and `pg_cron` checks, and the cron subset.
+
+Record: 2a adaa457 (merge 6e50d70), 2b 8630345 (merge 5767878). No departure from the spec; one loader fix outside the listed checks (`_inline_comment` and apostrophes, only `purpose.yaml` `parts.consumer` changed, to optional); choices logged as "W1 addenda — choices chunk 2 made".
 
 ### Chunk 3 — `scheduler` 0.2.0
 
-Status: planned
+Status: merged (w1, b34d375)
 Wave: 1
 Depends on: chunk 1, merged into `v0.4-w1` before this chunk's branch is
 cut; W1; G3, G4
-Architecture capture: none of its own; it records as built, as W1-x
+Architecture capture: none of its own; it records as built, as W1-y
 (read by chunks 10, 11, 12, 14): the script call and its log lines, the
 scripts' digests in `/run/scheduler/loaded`, and the means a purpose
 check uses on the node.
@@ -468,7 +517,7 @@ check uses on the node.
     run, a stream refused on a script key);
   - **3b, what the checks read, the documentation and the stack test**:
     a root-only means beside `check-sql` (its form the chunk's, recorded
-    in W1-x) giving a job's completed runs since a moment from the log,
+    in W1-y) giving a job's completed runs since a moment from the log,
     the runner's last `reload status=ok`, and a job's next run in the
     loaded `jobs.yaml` by the program's own cron parser (12.1, 12.2);
     `docs/player.md` (scripts, connections, moving a job to verify a
@@ -496,12 +545,16 @@ check uses on the node.
 - Split rule: 3a the script form, the call and the run; 3b the checks'
   means, the documentation and the stack test.
 
+Record: 3a 7536550, 3b 1b5d7ba, merge b34d375. No departure from the spec; outcome recorded as capture W1-y in the wave log (the `script` log line free text after `job=`, a fourth `check-runs` verb `since`). Tarnbeck's smoke run left for the wave gate.
+
 ### Chunk 4 — `postgres` 0.4.0
 
-Status: planned
+Status: merged (w1, da6d300)
 Wave: 1
 Depends on: chunk 1, merged into `v0.4-w1` before this chunk's branch is
-cut; W1; G5 cleared before the branch is cut; G3, G4
+cut; chunk 2a, merged into `v0.4-w1` before this chunk merges (in-wave,
+W1 item 9: this chunk takes `v0.4-w1` in before its final suite run);
+W1; G5 cleared before the branch is cut; G3, G4
 Architecture capture: none of its own; it records as built, as W1-x
 (read by chunks 6, 7, 9, 12, 15): the cron service, the crontab's and the
 password file's paths, `gm-crontab`'s form, `check-psql`'s other-node
@@ -560,9 +613,11 @@ form.
 - Split rule: 4a the packages, `pg_cron` and the cron daemon; 4b the
   victim, `check-psql` and the documentation.
 
+Record: 4a 449f4ec, 4b 606cee0, wave branch taken in b44a0e5, merge da6d300 (after 2a). Outside its Files line: a two-line fix in `tools/gm/localimpl.py` `seed_entries` (an optional seed file the node leaves out is skipped, as W1 item 4 states; chunk 6's file), and four unit tests updated for the `cronspool` volume; logged in the wave log. Outcome recorded as capture W1-x.
+
 ### Chunk 5 — The shop domain
 
-Status: planned
+Status: merged (w1, f172a0e)
 Wave: 1
 Depends on: chunk 1 (in-wave, W1: runs beside chunk 1, its files all
 under `domains/shop/`)
@@ -608,6 +663,8 @@ Architecture capture: none of its own; it uses W1.
 - Verification: chunk checks.
 - Split rule: 5a the data model and the classification; 5b the producer
   fragments and the notes.
+
+Record: 5a 5ff4cef, 5b 17a45d4, merge f172a0e. No departure from the spec; choices (tarnbeck's planted producer faults left out, `lifetime_value` added to, `producers/jobs.yaml` and `builders/`, classification and grant readings) logged as "W1 addenda — choices chunk 5 made"; the unit suite's load of the domain is left for the wave gate.
 
 ### Chunk 6 — Render for v0.4
 
@@ -866,7 +923,7 @@ on which node).
 
 Status: planned
 Wave: 3
-Depends on: chunks 5, 6, 7, 10, 11
+Depends on: chunks 5, 6, 7, 10, 11, 19
 Architecture capture: recorded at wave 3 start (W3-b), for chunks 14 and
 15: the fixture's node names, roles, job names and keys, databases and
 data files, as master spec 16.1 sets them.
@@ -882,7 +939,8 @@ data files, as master spec 16.1 sets them.
   designed placement on two hosts (`reporting` on the first);
   `purposes:` mapping the four purposes, `domain: shop`, `governance:`
   and `player/data-policy.md` (personal and customer-linked data kept out
-  of `reporting`, the back office allowed to read names and e-mails);
+  of `reporting`, the back office allowed to read names and e-mails),
+  mapped to the bastion's `data-policy.md`;
   every database node's seed `pg_hba.conf` admitting the GM check role
   from the game network; both data files; `aging:` at the floor.
   Out: fault instances, the story and issues (chunk 16).
@@ -957,6 +1015,11 @@ for chunk 16.
     `customers`, `rpt.customer_activity`, the `pg_cron` job as `bi_etl`
     refilling it every thirty minutes; its check calling G1 and G3 and
     requiring the job, the table, the foreign table and the server gone);
+    the loader admitting `data` in a seed change, the target node's
+    `data.file`, and refusing it on a node without one (spec D226), with
+    its unit tests and the fault template's `seed_changes.file` comment,
+    for f9's planting and any other change these faults make to a data
+    file;
   - **15b**: `purpose-heavy-job-on-database-node` (f10: chunk 9's
     procedure and crontab entry as its seed at T0, the backfill request
     as a `state` change at `handover-12h`, the window G10 set,
@@ -969,10 +1032,15 @@ for chunk 16.
   - each with `fault.yaml`, its seed changes or injection, its check,
     `checks/probe.md`, `gm.md`; `postgres`' "Supported faults".
 - Files: `faults/<fault-id>/` for each (new),
-  `bricks/postgres/docs/gm.md` ("Supported faults" only).
+  `bricks/postgres/docs/gm.md` ("Supported faults" only); 15a also
+  `tools/gm/model.py` (the seed-change file check only),
+  `tools/tests/test_model.py`,
+  `.claude/skills/scenario-format/templates/fault.yaml` (the comment).
 - Spec sections: master spec 6.3, 7.2, 11.6, 11.7, 12.5 to 12.7, 13.3,
-  16.2, 16.3, 16.5; access model 7, 9.4, 12; spec D209, D211, D213.
-- Done when: the loader accepts each; on `fixture-campaign` f6 and f9
+  16.2, 16.3, 16.5; access model 7, 9.4, 12; spec D209, D211, D213,
+  D226.
+- Done when: the loader accepts each, and refuses a `data` seed change
+  on a node without a data file; on `fixture-campaign` f6 and f9
   read 1, then 0 after their acceptance fix (f9 still 1 with only the
   table dropped); f7 reads 1 after the close runs (its job moved), 3
   then 0 after the fix and a move; f10's run kills a backend, PostgreSQL
@@ -1003,7 +1071,8 @@ node, and each acceptance fix.
   two-hour outage (f8) as timeline changes of their schedules; the story
   (Tarnbeck six months on, Lumen Analytics, Ines Varga), the issues I1
   to I6, the starter pack naming every job the players may move and the
-  agency's nodes, `player/data-policy.md`; `reporting` unscraped, a
+  agency's nodes, `player/data-policy.md` mapped to the bastion's
+  `data-policy.md`; `reporting` unscraped, a
   silent tooling expectation; `gm/answer-key.yaml` with each instance's
   expected resolution, and the overstep notes of 16.5 for f7, f9 and
   f10 (a change on the agency's system judged, never credited); f7
@@ -1074,7 +1143,7 @@ Architecture capture: none of its own; it uses W4.
 
 Status: planned
 Wave: 4
-Depends on: chunks 6, 7, 8, 14, 15
+Depends on: chunks 6, 7, 8, 14, 15, 19
 Architecture capture: none.
 
 - Goal: the GM designs and runs a v0.4 game as master spec 14 says.
@@ -1084,14 +1153,20 @@ Architecture capture: none.
   which jobs the players may move; the judged moment and `--since` from
   the players' report; a shared host refused by `fit`; a failed
   incident's handling (the hand-over check failing, the offer to set the
-  game up again); a job run by hand refused as load control.
+  game up again); a job run by hand refused as load control; the web
+  front in every game (spec D224): the hand-over always giving the tools
+  password and naming the starter-pack page (W1-z), and v0.3's lines
+  saying a topology without a web interface has no front, publishes SSH
+  only and hands over no tools password rewritten, wherever `SKILL.md`
+  and `gmctl.md` say so (today in `SKILL.md`'s topology notes and
+  hand-over, `gmctl.md`'s `deploy` and `status` lines).
   `feedback.md`: governance faults ("fixed" as 11.7), a report judged
   against an incident, an overstep on the agency's system (16.5), an
   exit 3 at the final answer. `gmctl.md`: every line chunks 6 to 8
-  left. Out: new scripts; the stance itself.
+  left, and those chunk 19 changed. Out: new scripts; the stance itself.
 - Files: `.claude/skills/game-master/{SKILL,gmctl,feedback}.md`.
-- Spec sections: master spec 12.8, 13.3, 14 ("The GM skill"), 16.3,
-  16.5; access model 7, 10, 12.
+- Spec sections: master spec 7.3, 12.8, 13.3, 14 ("The GM skill"),
+  16.3, 16.5; access model 3, 7, 10, 12; spec D224.
 - Done when: the skill covers each item of master spec 14's "The GM
   skill"; every `gmctl` invocation in the three files parses with
   `gmctl`'s own parser; v0.3's stance check-list items are unchanged and
@@ -1099,6 +1174,130 @@ Architecture capture: none.
   refused; `--since` from the report).
 - Verification: chunk checks; the stance check-list runs at the release
   gate.
+
+### Chunk 19 — `bastion` 0.4.0: the data policy, the starter-pack page, the web front in every game
+
+Status: merged (w1, c15ff5b)
+Wave: 1
+Depends on: chunk 1, merged into `v0.4-w1` before this chunk's branch is
+cut; G12 and G13 cleared before the branch is cut; for **19b**, chunk 2
+(2a and 2b) merged into `v0.4-w1` and `v0.4-w1` merged into this chunk's
+branch before 19b starts (in-wave: 19b edits chunk 2's files; both
+halves' unit-suite runs after that merge-in); W1 item 4
+(`seed.optional`); G3, G4. Inserted by spec D223; split by spec D225.
+Architecture capture: none of its own; it records as built, as W1-z
+(read by chunks 13, 16, 18): the page's paths, its form and section
+order, the front's home with and without web interfaces, and how a later
+element joins it.
+
+- Goal: the bastion of master spec 7.3: the starter pack handed over as
+  Markdown in the player's home and as a simple read-only page, the home
+  of a web front that runs in every game, the data policy among them
+  when the scenario has one.
+- Scope: in:
+  - **19a, the bastion**:
+    - the Dockerfile installing Debian's `cmark-gfm` without
+      recommends, at the version G13 cleared, with G13's build
+      assertions (it runs; a table renders `<table>` with `-e table`;
+      raw HTML is omitted, never `--unsafe`);
+    - `brick.yaml`: `data-policy.md` in `seed.files`, `seed.optional`
+      and `seed.paths` (`/home/player/data-policy.md`); the header and
+      field comments saying the web front runs, port 8080 is published
+      and `tools_password` is read in every game;
+    - `gm-entrypoint`: a missing required starter file still refused,
+      an absent optional one skipped; `data-policy.md` copied once like
+      the others, never over an existing file; at every start, routes
+      or none, the web front's configuration and password file written
+      under `/run/web-front` and the page under `/run/web-front/www`
+      from `/opt/gm/starter` (the starter pack as handed over, never
+      the players' copies), each Markdown file rendered by `cmark-gfm`
+      with the table extension, raw HTML not passed through; the page
+      the front's home, one section per element present, in the order
+      README, story, issues, data policy, then the links to the web
+      interfaces when `GM_WEB_ROUTES` has any, and no such section or
+      link when it has none; nothing for an absent element (no empty
+      section, no link to it); the elements taken from one list, so a
+      later one (a reporting tool) joins by an entry; behind the tools
+      password like the rest of the front;
+    - the comments of the `web-front` s6 `run` file and of
+      `rootfs/usr/local/lib/gm/healthcheck`, which describe the front
+      as down without a route (their behaviour, keyed on the
+      configuration file, is unchanged);
+    - `docs/player.md` (the page, always there; the Markdown copies in
+      the home) and `docs/gm.md` (the optional seed file, the page, the
+      front in every game, the package, the footprint at rest);
+    - the stack test: with routes and a data policy, the four files in
+      the home and the page answering 401 without the password, with it
+      four sections, a README table rendered as an HTML table and the
+      links to the routes; without a data policy, no such file, section
+      or link; a player's edit of `~/story.md` absent from the page
+      after a restart; with no route, the front up on port 8080, 401
+      without the password, the page alone with no web-interface section
+      or link, the health check green, the data policy still copied;
+      the validator green throughout;
+  - **19b, the loader and the scenarios without a web interface** (cut
+    condition above):
+    - `tools/gm/model.py`'s `_check_web_routes`: a node whose brick has
+      a `web-routes` parameter (the bastion) publishes `{port: 8080,
+      default: 8080}` whatever its routes, refused without it; the
+      refusal of the port published with empty routes removed;
+      `tools/tests/test_model.py`'s two port tests turned accordingly;
+    - `{port: 8080, default: 8080}` added to the bastion of
+      `scenarios/bookshop-new-server`, `tools/tests/fixtures/fixture-audit`,
+      `fixture-v03-refusals` and any fixture chunk 2 added without it
+      (`fixture-v04-refusals`), each `README.md` regenerated with the
+      scenario-document skill;
+    - `tools/tests/smoke.sh`: its `fixture-audit` assertions of v0.3's
+      rule reversed: ports 22 and 8080 published, the web front up, the
+      tools password among the status's secret files (seven) and its
+      line present;
+    - the format skill's web-routes rule (`SKILL.md`) and
+      `templates/scenario.yaml`'s `published_ports` comment: 8080 always
+      on the bastion; the scenario-document skill's empty-routes line
+      (`template.md`, and `SKILL.md` where it says the same): no web
+      interface, the front serving the starter pack alone, the tools
+      password handed over;
+  - Out: render (it publishes the ports `scenario.yaml` declares;
+    unchanged); `tools/gm/state.py` (its tools-password line follows the
+    published port, now always there; unchanged); the GM skill's
+    hand-over lines (chunk 18); a common entry point for several games,
+    a setup-wide homepage, a reporting tool (spec O135, v0.5); the
+    scenarios' and fixtures' `data-policy.md` mappings (chunks 13, 16;
+    the three v0.3 scenarios have no `governance:`).
+- Files: 19a: `bricks/bastion/{Dockerfile,brick.yaml}`,
+  `bricks/bastion/rootfs/usr/local/sbin/gm-entrypoint`,
+  `bricks/bastion/rootfs/etc/s6-overlay/s6-rc.d/web-front/run`,
+  `bricks/bastion/rootfs/usr/local/lib/gm/healthcheck` (comments only),
+  `bricks/bastion/docs/{gm,player}.md`,
+  `bricks/bastion/tests/{run-stack-test.sh,stack.test.yml,fixtures/}`;
+  19b: `tools/gm/model.py` (`_check_web_routes` only),
+  `tools/tests/test_model.py`, `tools/tests/smoke.sh`,
+  `scenarios/bookshop-new-server/{scenario.yaml,README.md}`,
+  `tools/tests/fixtures/{fixture-audit,fixture-v03-refusals,fixture-v04-refusals}/{scenario.yaml,README.md}`
+  (where each has them),
+  `.claude/skills/scenario-format/{SKILL.md,templates/scenario.yaml}`,
+  `.claude/skills/scenario-document/{SKILL.md,template.md}`.
+- Spec sections: master spec 6.4, 7.3, 11.5, 14 ("The loader"), 15,
+  16.4, 19; access model 3, 5, 7 (the web front's 401), 13; spec D221,
+  D222, D223, D224, D225.
+- Done when: the stack test shows each 19a item above, among them every
+  element shown only when the scenario provides it, an absent one
+  leaving neither an empty section nor a dead link, and the front up
+  without a route; the loader accepts the brick and refuses a bastion
+  without port 8080, routes or not; every catalog scenario and fixture
+  loads; each changed `README.md` matches a fresh regeneration;
+  `test_brick_docs` and the unit suite pass; at the wave gate v0.3's
+  scenarios pass their smoke runs, `bookshop-new-server` now with its
+  front and page, tarnbeck's and fernway's bastion serving the page,
+  and `smoke.sh` passes its reversed assertions; G6 run once merged.
+- Verification: chunk checks, plus the stack test (needs G4); the smoke
+  runs at the wave gate; G6 after its merge.
+- Split rule: 19a the bastion brick (its image, start-up, documents and
+  stack test); 19b the loader's port rule, the scenarios and fixtures
+  without a web interface, `smoke.sh`, the format and scenario-document
+  skills. Two commits, in that order.
+
+Record: 19a 4a6f936, 19b cb82f3b, merge c15ff5b. No departure from the spec; outside its Files lines, 19b turned `test_fit`, `test_render`, `test_deploy`, `test_state` to `fixture-audit`'s new shape, and 19a's stack file gives `db` postgres 0.4.0's `cronspool` volume; `fixture-v04-refusals` keeps its local bastion copy. Outcome recorded as capture W1-z.
 
 ## Release gate
 
@@ -1110,9 +1309,10 @@ agents reading `.claude/skills/game-master/` as their instructions; the
 driver plays the initiator; verifier agents play as `player` through the
 bastion only; GM-side checks run from the host.
 
-1. Item 1: `scheduler` 0.2.0 and `postgres` 0.4.0 pass the format skill's
-   `docs/gm.md` check, with their validators and measured footprints;
-   G5 and G6 cleared, `.tech` current.
+1. Item 1: `scheduler` 0.2.0, `postgres` 0.4.0 and `bastion` 0.4.0 pass
+   the format skill's `docs/gm.md` check, with their validators and
+   measured footprints; G5, G6 and G13 cleared, `.tech` current; the
+   scenario's starter-pack page showing its four elements.
 2. Item 2: `formats.md`, the templates, the loader and the format skill
    carry master spec 6, the placement guideline included.
 3. Items 3 and 4: the four purposes and the shop domain complete by the
@@ -1124,8 +1324,10 @@ bastion only; GM-side checks run from the host.
 6. Item 7: `gmctl`, the loader and render as in master spec 14, checked
    through items 8 to 12.
 7. Item 8: the three existing scenarios re-pinned, each deploying and
-   passing its v0.3 smoke test unchanged; every existing fault's
-   `applies_to` carrying the new versions.
+   passing its v0.3 smoke test unchanged, every bastion serving the
+   starter-pack page, `bookshop-new-server`'s with no web interface
+   (spec D224); every existing fault's `applies_to` carrying the new
+   versions.
 8. Master spec 18.1: the scenario's smoke run on armenelos alone and on
    armenelos plus the VPS, every fault planted at once, every key and job
    running; `fit` refusing the VPS for `reporting`; the VPS drained after.

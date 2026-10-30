@@ -1,0 +1,212 @@
+# brick.yaml: fixture postgres node (tools/tests, v0.4 chunk 2). Not a catalog
+# brick: loaded, never built. The catalog's postgres 0.4.0 with capture W1's
+# item 8 seed entries (crontab, optional; the cronspool volume) (specs/versions/v0.4/wave-log.md; item 9: chunk 4's catalog
+# brick was not merged when this fixture was written).
+#
+# brick.yaml: PostgreSQL 18 node (master spec 7 and 9.1).
+#
+# Version 0.4.0 (unreleased until the v0.4 release gate, D100). Roles, growth
+# per hour, writable and seed paths, report tools and snapshot methods:
+# capture W1 item 3 (specs/versions/v0.3/wave-log.md).
+# Top-level keys: capture W1-A; fixed paths, secrets, envelope file and
+# wrappers: capture W1-B; quoted octal modes: capture W1-D
+# (specs/versions/v0.1/wave-log.md); footprint shape, secret kinds and
+# `receives`: capture W1 (specs/versions/v0.2/wave-log.md). Operating
+# notes: docs/gm.md.
+
+# --- Identity ---------------------------------------------------------
+id: postgres
+version: 0.4.0
+roles:
+  - database
+technology:
+  name: postgresql
+  version: "18"
+image: 127.0.0.1:5000/dbagm/fixture-postgres:0.4.0
+
+# --- Footprint --------------------------------------------------------
+footprint:                          # CPU and memory: v0.1's figures as reservations, limits
+                                    # twice; disk: master spec 12's db node (data and WAL 1G,
+                                    # log volume pglog 1G, home and pgBadger reports 256M); the
+                                    # v0.2 game's measurement stays within them (docs/gm.md)
+  limits:       {cpu: 1, memory: 1G}
+  reservations: {cpu: 0.5, memory: 512M, disk: 2.25G}
+  disk_growth_per_hour: 8M          # the data the load writes (its bloat included) and the file
+                                    # log; v0.3 chunk 15b measured 4.6M and 0.7M an hour at the
+                                    # noon peak with its daily batch (2026-10-28; docs/gm.md,
+                                    # Footprint); WAL stays within max_wal_size, in the reservation
+stateful: true
+
+# --- What the scenario sets -------------------------------------------
+parameters: {}                      # everything scenario-specific is in the seed files
+knobs:                              # default envelopes, sized for the default footprint;
+                                    # a scenario may tighten them, never widen them
+  - setting: shared_buffers
+    file: /etc/postgresql/postgresql.conf
+    default: 128MB
+    envelope: {min: 32MB, max: 256MB}
+  - setting: work_mem
+    file: /etc/postgresql/postgresql.conf
+    default: 4MB
+    envelope: {min: 1MB, max: 64MB}
+  - setting: maintenance_work_mem
+    file: /etc/postgresql/postgresql.conf
+    default: 64MB
+    envelope: {min: 16MB, max: 256MB}
+  - setting: max_connections
+    file: /etc/postgresql/postgresql.conf
+    default: 100
+    envelope: {min: 10, max: 200}
+  - setting: max_wal_size
+    file: /etc/postgresql/postgresql.conf
+    default: 1GB
+    envelope: {min: 64MB, max: 1GB}
+  - setting: autovacuum
+    file: /etc/postgresql/postgresql.conf
+    default: "on"                   # quoted: a bare `on` is a YAML boolean
+    envelope: {allowed: ["on"]}
+
+# --- Player plane -----------------------------------------------------
+write_policies:                     # v0.1: the database node is fixable (master spec 14)
+  - fixable
+writable_paths:
+  - /etc/postgresql                 # postgres:pgconf, 2775; seeded files 0664
+  - /home/player                    # ~/.pgpass (rewritten at each start), ~/report.md,
+                                    #   pgBadger reports
+protected_files:
+  - /etc/ssh/sshd_config
+  - /etc/sudoers
+  - /etc/sudoers.d/gm-player
+  - /usr/local/sbin/gm-entrypoint
+  - /usr/local/sbin/gm-reload-db
+  - /usr/local/sbin/gm-restart-db
+  - /usr/local/sbin/gm-validate
+  - /usr/local/sbin/gm-snapshot-db  # root only (0700): the pgdata snapshot (snapshot: below)
+  - /usr/local/lib/gm/healthcheck
+  - /usr/local/lib/gm/check-psql    # root only (0700): the sealed checks' psql as gm_check
+  - /opt/gm/validator/validate.sh
+  - /opt/gm/protected/envelopes.conf
+  - /etc/s6-overlay/s6-rc.d
+  - /etc/s6-overlay/user-bundles.d
+  - /var/lib/gm-state               # seed marker .gm-seeded (volume gmstate)
+player_access:
+  ssh_account: player
+  group: pgconf
+  sudo_wrappers:
+    - /usr/local/sbin/gm-reload-db
+    - /usr/local/sbin/gm-restart-db
+    - /usr/local/sbin/gm-validate
+capabilities:                       # added back after cap_drop: ALL; no-new-privileges stays off (sudo)
+  - AUDIT_WRITE                     # sudo: audit message (else a warning on every sudo)
+  - CHOWN                          # entrypoint: ownership of volumes and seeded files
+  - DAC_OVERRIDE                    # entrypoint: emptying /run, writing into player/postgres dirs
+  - FOWNER                          # entrypoint: modes on files it does not own
+  - KILL                            # s6: signals to the postgres-owned postmaster
+  - NET_BIND_SERVICE                # sshd on port 22 (Docker sets ip_unprivileged_port_start=0,
+                                    # other platforms may not)
+  - SETGID                          # sshd, sudo, runuser, s6-setuidgid
+  - SETUID                          # sshd, sudo, runuser, s6-setuidgid
+  - SYS_CHROOT                      # sshd privilege separation
+
+# --- Runtime ----------------------------------------------------------
+healthcheck:                        # healthy once PostgreSQL has accepted connections in this
+                                    # container and while sshd is up (docs/gm.md)
+  command: ["/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 60s
+secrets:
+  - name: player_ssh_pubkey         # inner-hop public key, for SSH as player
+    kind: key-pair
+    pair: player_ssh_key            # the bastion mounts the private half
+    half: public
+    path: /opt/gm/secrets/player_ssh_pubkey
+    uid: 0
+    gid: 0
+    mode: "0444"                    # sshd reads it as player
+  - name: dba_password              # password of the dba role; also on the bastion
+    kind: password
+    path: /opt/gm/secrets/dba_password
+    uid: 0
+    gid: 0
+    mode: "0400"
+  - name: monitoring_password       # password of the role `monitoring` (pg_monitor), set at
+    kind: password                  #   initdb; also on the postgres-exporter node
+    path: /opt/gm/secrets/monitoring_password
+    uid: 0
+    gid: 102                        # postgres' group (the Dockerfile checks 100:102)
+    mode: "0440"                    # root and postgres only
+  - name: gm_check_password         # password of the GM check role gm_check (v0.3 master
+    kind: password                  #   spec 7.3), the GM's connection reserve; read by root
+    path: /opt/gm/secrets/gm_check_password   # only, through /usr/local/lib/gm/check-psql
+    uid: 0
+    gid: 0
+    mode: "0400"
+  - name: pgbouncer_lookup_password # password of PgBouncer's auth_user pgbouncer_lookup;
+    kind: password                  #   also on the pgbouncer node
+    only_with_role: pooler          # the role exists only in a scenario with a pooler node
+    path: /opt/gm/secrets/pgbouncer_lookup_password
+    uid: 0
+    gid: 0
+    mode: "0400"
+seed:
+  dir: /opt/gm/seed/
+  files:
+    - postgresql.conf
+    - pg_hba.conf
+    - crontab                       # postgres' crontab (v0.4 capture W1 item 8)
+  optional: [crontab]               # a node seeding no crontab runs no cron daemon
+  paths:                            # seed file -> its live in-container path
+    postgresql.conf: /etc/postgresql/postgresql.conf
+    pg_hba.conf: /etc/postgresql/pg_hba.conf
+    crontab: /var/spool/cron/crontabs/postgres
+protected_configs:
+  - name: envelopes                 # per-game envelope file, read by the validator
+    path: /opt/gm/protected/envelopes.conf
+    uid: 0
+    gid: 0
+    mode: "0444"
+volumes:
+  - name: pgdata
+    path: /var/lib/postgresql/18/data
+  - name: pgconf
+    path: /etc/postgresql
+  - name: home
+    path: /home/player
+  - name: gmstate                   # seed marker /var/lib/gm-state/.gm-seeded, root-owned:
+    path: /var/lib/gm-state         #   kept out of the group-writable /etc/postgresql
+  - name: pglog                     # PostgreSQL's file logs (log_directory in the seed
+    path: /var/log/postgresql       #   postgresql.conf); postgres:pgconf 2750, files 0640
+  - name: cronspool                 # postgres' crontab in cron's spool (W1 item 8)
+    path: /var/spool/cron/crontabs
+  - name: run                       # /run: a stack file's tmpfs is noexec and s6-overlay
+    path: /run                      # needs exec; emptied by the entrypoint at each start
+processes:
+  - postgres
+  - sshd
+snapshot:                           # per volume, the hand-over copy (v0.3 master spec 6.4,
+                                    # 7.3 to 7.5); run, emptied at every start, is never copied
+  pgdata: pg_basebackup
+  pgconf: copy
+  home: copy
+  gmstate: copy
+  pglog: copy
+  cronspool: copy
+
+# --- Catalog links ----------------------------------------------------
+interfaces:
+  provides:
+    - {name: sql, protocol: postgresql, port: 5432}
+    - {name: ssh, protocol: ssh, port: 22}
+  consumes: []
+report_tools: [pgbadger]            # players run pgBadger on the file log (report:pgbadger)
+receives:                           # the image accepts another brick's mounted material
+  s6_overlay: "3.2.3.2"             # the version the Dockerfile installs
+  commands: [sh, cat, du, df, awk, sed, grep, sleep, perl, s6-svstat, s6-setuidgid]
+extra:
+  read_only_root: true              # read_only: true in the stack file
+  validator:                        # the GM's official run (gmctl validate, capture W3-A)
+    path: /opt/gm/validator/validate.sh
+    run_as: postgres                # docker exec -u postgres sets HOME=/var/lib/postgresql,
+                                    #   as gm-validate does

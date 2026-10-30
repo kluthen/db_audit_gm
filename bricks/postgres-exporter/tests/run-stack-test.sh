@@ -35,14 +35,14 @@
 # Needs: a swarm manager (docker swarm init), the images built locally (the
 # postgres image is the test client: it has ssh and perl):
 #   docker build -t 127.0.0.1:5000/dbagm/postgres-exporter:0.2.0 bricks/postgres-exporter
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.3.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.4.0 bricks/postgres
 # Usage: sh bricks/postgres-exporter/tests/run-stack-test.sh
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 STACK=gmtest-pgexp
 IMAGE=127.0.0.1:5000/dbagm/postgres-exporter:0.2.0
-CLIENT_IMAGE=127.0.0.1:5000/dbagm/postgres:0.3.0
+CLIENT_IMAGE=127.0.0.1:5000/dbagm/postgres:0.4.0
 SERVICE=${STACK}_exporter
 DB_SERVICE=${STACK}_db
 NET=${STACK}_net
@@ -50,7 +50,7 @@ CLIENT=${STACK}-client
 LABEL=dbagm.test=chunk9-postgres-exporter
 CONFIGS="seed_exporter_conf seed_postgresql_conf seed_pg_hba_conf envelopes"
 SECRETS="player_ssh_pubkey dba_password monitoring_password"
-VOLUMES="exp_conf exp_home exp_gmstate exp_run db_pgdata db_pgconf db_home db_gmstate db_pglog db_run"
+VOLUMES="exp_conf exp_home exp_gmstate exp_run db_pgdata db_pgconf db_home db_gmstate db_pglog db_run db_cronspool"
 PG_FIXTURES=$HERE/../../postgres/tests/fixtures
 SSH_OPTS="-i /root/id -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o LogLevel=ERROR -o ConnectTimeout=10"
 CONF=/etc/postgres-exporter/exporter.conf
@@ -147,7 +147,7 @@ wait_healthy() {  # wait_healthy <service> [old-container-id]: prints the health
 }
 
 if DB=$(wait_healthy "$DB_SERVICE"); then
-    pass "db node (postgres 0.3.0) healthy ($DB)"
+    pass "db node (postgres 0.4.0) healthy ($DB)"
 else
     fail "db node did not become healthy"
     docker service ps --no-trunc "$DB_SERVICE" || true

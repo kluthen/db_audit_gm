@@ -34,7 +34,7 @@ nodes:
   - name: bastion
     brick:
       id: bastion
-      version: 0.3.0
+      version: 0.4.0
     role: bastion
     stateful: true
     networks: [backend]
@@ -48,7 +48,7 @@ nodes:
         cpu: 0.1
         memory: 64M
         disk: 256M
-    published_ports: [{port: 22, default: 2222}]
+    published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
     seed_files:
       README.md: player/README.md
       story.md: player/story.md
@@ -58,7 +58,7 @@ nodes:
   - name: db
     brick:
       id: postgres
-      version: 0.3.0
+      version: 0.4.0
     role: database
     stateful: true
     networks: [backend]

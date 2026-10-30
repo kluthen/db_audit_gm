@@ -1,5 +1,5 @@
 # Integration fixture of v0.2 (build plan chunk 11). Not a game: every v0.2
-# brick at its v0.3 version (bastion and postgres 0.3.0, prometheus,
+# brick at its v0.4 version (bastion and postgres 0.4.0, prometheus,
 # postgres-exporter and grafana 0.2.0), deployed by
 # tools/tests/smoke-monitoring.sh at every wave gate from wave 3 on, and
 # loaded and fitted by tools/tests/test_model.py. Node names, pins, seeds and
@@ -37,7 +37,7 @@ nodes:
   - name: bastion
     brick:
       id: bastion
-      version: 0.3.0
+      version: 0.4.0
     role: bastion
     stateful: true
     networks: [backend]
@@ -62,7 +62,7 @@ nodes:
   - name: db
     brick:
       id: postgres
-      version: 0.3.0
+      version: 0.4.0
     role: database
     stateful: true
     networks: [backend]

@@ -22,7 +22,7 @@ from gm_scheduler.metrics import Stats, percentile
 from gm_scheduler.rng import derive
 from gm_scheduler.schedule import apply_past_changes, parse_input, parse_schedule, read_schedule
 from gm_scheduler.streams import next_arrival, rate_function, shape_multiplier
-from gm_scheduler.textlog import format_line
+from gm_scheduler.textlog import completed_runs, format_line, last_reload, parse_line, script_line
 from gm_scheduler.timeutil import instant, minute_label, parse_duration, parse_instant, parse_rate
 
 UTC = datetime.timezone.utc
@@ -94,6 +94,55 @@ class TestLogLines(unittest.TestCase):
         self.assertEqual(format_line(t, "summary", [("minute", "2026-10-24T09:14Z"), ("keys", 2), ("calls", 41),
                                                     ("errors", 1)]),
                          "2026-10-24T09:15:00Z summary minute=2026-10-24T09:14Z keys=2 calls=41 errors=1")
+
+    def test_a_script_line_is_free_text(self):
+        t = ts("2026-10-24T09:15:03Z")
+        self.assertEqual(script_line(t, "rollup-hourly", "moved 120 rows\nwatermark=2026-10-24T09:00:00Z"),
+                         "2026-10-24T09:15:03Z script job=rollup-hourly moved 120 rows watermark=2026-10-24T09:00:00Z")
+
+    def test_lines_parse_back(self):
+        t = ts("2026-10-24T09:15:03Z")
+        line = format_line(t, "error", [("key", "k"), ("job", "j"), ("sqlstate", "42501"),
+                                        ("message", 'permission denied for "src" \\ x')])
+        self.assertEqual(parse_line(line), ("2026-10-24T09:15:03Z", "error",
+                                            {"key": "k", "job": "j", "sqlstate": "42501",
+                                             "message": 'permission denied for "src" \\ x'}, None))
+        self.assertEqual(parse_line(script_line(t, "r", "run job=x phase=end status=ok")),
+                         ("2026-10-24T09:15:03Z", "script", {"job": "r"}, "run job=x phase=end status=ok"))
+        for bad in ("", "gm-scheduler: cannot write", "2026-10-24T09:15:03Z run job", "2026-10-24 run job=x"):
+            self.assertIsNone(parse_line(bad), bad)
+
+    def test_runs_since_a_moment_and_the_last_reload(self):
+        log = """\
+2026-10-24T09:00:00Z state state=running t0=2026-10-24T08:00:00Z
+2026-10-24T09:05:00Z run job=rollup key=rollup.hourly phase=start
+2026-10-24T09:05:02Z script job=rollup moved 3 rows
+2026-10-24T09:05:02Z run job=rollup key=rollup.hourly phase=end status=ok rows=3 ms=2012.5
+2026-10-24T09:20:00Z reload status=ok keys=4 jobs=2
+2026-10-24T09:21:00Z reload status=refused message="jobs.yaml: does not parse"
+2026-10-24T10:05:00Z run job=rollup key=rollup.hourly phase=start
+2026-10-24T10:05:01Z run job=rollup key=rollup.hourly phase=end status=error error=ValueError ms=4.0
+2026-10-24T10:06:00Z script job=rollup run job=rollup key=rollup.hourly phase=end status=ok rows=9 ms=1
+2026-10-24T11:05:00Z run job=other key=rollup.hourly phase=start
+2026-10-24T11:05:00Z run job=rollup key=rollup.hourly phase=start
+2026-10-24T11:05:03Z run job=other key=rollup.hourly phase=end status=ok rows=1 ms=1.0
+2026-10-24T11:05:04Z run job=rollup key=rollup.hourly phase=end status=ok rows=5 ms=4120.0
+gm-scheduler: a line not of the grammar
+"""
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "scheduler.log")
+            with open(path, "w") as f:
+                f.write(log)
+            self.assertEqual(completed_runs(path, "rollup", "2026-10-24T08:00:00Z"),
+                             [("2026-10-24T09:05:00Z", "2026-10-24T09:05:02Z", "3", "2012.5"),
+                              ("2026-10-24T11:05:00Z", "2026-10-24T11:05:04Z", "5", "4120.0")])
+            self.assertEqual(completed_runs(path, "rollup", "2026-10-24T09:05:02Z"),
+                             [("2026-10-24T11:05:00Z", "2026-10-24T11:05:04Z", "5", "4120.0")])
+            self.assertEqual(completed_runs(path, "rollup", "2026-10-24T11:05:04Z"), [])
+            self.assertEqual(last_reload(path), "2026-10-24T09:20:00Z")
+            with open(path, "w") as f:
+                f.write(log.split("2026-10-24T09:20")[0])
+            self.assertIsNone(last_reload(path))
 
     def test_quoted_value_is_last(self):
         t = ts("2026-10-24T09:15:00Z")
@@ -231,6 +280,51 @@ def build(intensity, options, rng=None):
             self.assertEqual(p.steps[0], ("SELECT %(m)s", {"m": 3}))
             self.assertEqual(p.txn, repo.Txn("read committed", 0))
 
+    def test_the_script_form(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.write_repo(d, """
+queries:
+  rollup.hourly:
+    script: scripts/rollup.py:hourly
+    options: {batch: 5000}
+  rollup.bare:
+    script: scripts/rollup.py:hourly
+  q: {sql: SELECT 1}
+""", {})
+            os.mkdir(os.path.join(d, "scripts"))
+            marker = os.path.join(d, "other-imported")
+            for name, text in {"rollup.py": "def hourly(conns, options, log):\n    return 0\n",
+                               "other.py": f"open({marker!r}, 'w').close()\n",
+                               "rollup.py~": "not python"}.items():
+                with open(os.path.join(d, "scripts", name), "w") as f:
+                    f.write(text)
+            r = repo.load_repository(d)
+            self.assertEqual([r.get(k).kind for k in r.keys()], ["query", "script", "script"])
+            e = r.get("rollup.hourly")
+            self.assertEqual((e.spec, e.options, e.fn.__name__), ("scripts/rollup.py:hourly", {"batch": 5000}, "hourly"))
+            self.assertEqual(r.get("rollup.bare").options, {})
+            self.assertFalse(os.path.exists(marker), "only the scripts queries.yaml names are imported")
+            self.assertEqual(repo.queries_outline(d), ({"rollup.hourly", "rollup.bare", "q"},
+                                                       {"rollup.hourly", "rollup.bare"}))
+            files = [os.path.relpath(f, d) for f in repo.loaded_files(d, os.path.join(d, "jobs.yaml"))]
+            self.assertEqual(files, ["queries.yaml", "scripts/other.py", "scripts/rollup.py", "jobs.yaml"])
+        for bad, why in (({"script": "builders/rollup.py:hourly"}, "scripts/<file>:<function>"),
+                         ({"script": "scripts/missing.py:hourly"}, "no file scripts/missing.py"),
+                         ({"script": "scripts/rollup.py:nope"}, "has no function nope"),
+                         ({"script": "scripts/rollup.py:hourly", "options": [1]}, "options: a map"),
+                         ({"script": "scripts/rollup.py:hourly", "connection": "app"}, "unknown key")):
+            module = type(os)("m")
+            module.hourly = lambda conns, options, log: 0
+            with self.assertRaisesRegex(ConfigError, why, msg=repr(bad)):
+                repo.parse_queries({"queries": {"k": bad}}, {}, {"rollup.py": module})
+        with tempfile.TemporaryDirectory() as d:
+            self.write_repo(d, "queries:\n  r:\n    script: scripts/s.py:run\n")
+            os.mkdir(os.path.join(d, "scripts"))
+            with open(os.path.join(d, "scripts", "s.py"), "w") as f:
+                f.write("raise RuntimeError('x')\n")
+            with self.assertRaisesRegex(ConfigError, "scripts/s.py: fails at import"):
+                repo.load_repository(d)
+
     def test_pool_picks_by_weight(self):
         r = repo.parse_queries({"queries": {"k": [{"sql": "A", "weight": 8}, {"sql": "B", "weight": 2}]}}, {})
         rng, ctx = random.Random(11), Ctx()
@@ -335,6 +429,14 @@ class TestCron(unittest.TestCase):
         self.assertEqual(instant(either.next_after(ts("2026-10-24T00:00:00Z"))), "2026-10-26T00:00:00Z")
         self.assertEqual(instant(Cron("0 0 */2 * *").next_after(ts("2026-10-24T00:00:00Z"))), "2026-10-25T00:00:00Z")
 
+    def test_the_widened_hour_subset(self):
+        # v0.4 W1 item 0: hour *, or a list of n, a-b, */s, a-b/s (P3's mail campaign)
+        c = Cron("*/15 8-20 * * *")
+        self.assertEqual(instant(c.next_after(ts("2026-10-24T20:45:00Z"))), "2026-10-25T08:00:00Z")
+        self.assertEqual(instant(c.next_after(ts("2026-10-24T07:59:59Z"))), "2026-10-24T08:00:00Z")
+        c = Cron("5 1,*/6,9-11/2 * * *")
+        self.assertEqual(sorted(c.hours), [0, 1, 6, 9, 11, 12, 18])
+
     def test_never_and_invalid(self):
         self.assertIsNone(Cron("0 0 31 2 *").next_after(ts("2026-10-24T00:00:00Z")))
         for bad in ("* * * *", "60 * * * *", "0 24 * * *", "0 0 0 * *", "0 0 * 13 *", "0 0 * * 8",
@@ -343,6 +445,26 @@ class TestCron(unittest.TestCase):
                 Cron(bad)
         with self.assertRaises(ConfigError):
             Cron("0 0 * * *", "Mars/Olympus")
+
+
+class TestLoaded(unittest.TestCase):
+    def test_the_loaded_file_keeps_each_jobs_time(self):
+        from gm_scheduler.runner import read_loaded
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "loaded")
+            with open(path, "w") as f:
+                f.write("generation=3\nloaded=2026-10-24T09:20:00Z\n"
+                        f"file {'a' * 64} /srv/scheduler/repository/scripts/rollup.py\n"
+                        "file missing /srv/scheduler/repository/queries.yaml\n"
+                        "job rollup next=2026-10-24T10:05:00Z\njob close next=never\n"
+                        "cron rollup UTC 5 * * * *\ncron close Etc/GMT-3 30 1 * * *\n")
+            out = read_loaded(path)
+        self.assertEqual((out["generation"], out["loaded"]), ("3", "2026-10-24T09:20:00Z"))
+        self.assertEqual(out["files"], {"/srv/scheduler/repository/scripts/rollup.py": "a" * 64,
+                                        "/srv/scheduler/repository/queries.yaml": "missing"})
+        self.assertEqual(out["next"], {"rollup": "2026-10-24T10:05:00Z", "close": "never"})
+        self.assertEqual(instant(out["cron"]["rollup"].next_after(ts("2026-10-24T10:05:00Z"))), "2026-10-24T11:05:00Z")
+        self.assertEqual(instant(out["cron"]["close"].next_after(ts("2026-10-24T12:00:00Z"))), "2026-10-24T22:30:00Z")
 
 
 class TestJobs(unittest.TestCase):
@@ -354,6 +476,21 @@ class TestJobs(unittest.TestCase):
         self.assertEqual([j.name for j in jobs], ["close-day", "tz"])
         self.assertEqual(jobs[1].cron.zone_name, "Etc/GMT-5")
         self.assertEqual(parse_jobs({"jobs": []}), [])
+
+    def test_a_script_jobs_connections(self):
+        job = parse_jobs({"jobs": [{"name": "rollup-hourly", "key": "rollup.hourly", "at": "5 * * * *",
+                                    "connections": {"source": "shop", "target": "reporting"}}]})[0]
+        self.assertEqual((job.connection, job.connections), (None, {"source": "shop", "target": "reporting"}))
+        base = {"name": "a", "key": "k", "at": "0 1 * * *"}
+        for bad, why in ((dict(base, connection="app", connections={"source": "app"}), "not both"),
+                         (dict(base, connections={}), "at least one"),
+                         (dict(base, connections=["app"]), "at least one"),
+                         (dict(base, connections={"Source": "app"}), "name 'Source'"),
+                         (dict(base, connections={"1st": "app"}), "name '1st'"),
+                         (dict(base, connections={"source": ""}), "connections.source: a connection name"),
+                         (base, "connection: a connection name")):
+            with self.assertRaisesRegex(ConfigError, why, msg=repr(bad)):
+                parse_jobs({"jobs": [bad]})
 
     def test_invalid(self):
         ok = {"name": "a", "key": "k", "connection": "app", "at": "0 1 * * *"}
@@ -416,6 +553,39 @@ class TestSchedule(unittest.TestCase):
         for over in cases:
             with self.assertRaises(ConfigError, msg=repr(over)):
                 parse_schedule(schedule_doc(**over))
+
+    def test_no_stream(self):
+        # a node with fixed-time operations only (D219)
+        s = parse_schedule(schedule_doc(streams=[], timeline=[]))
+        self.assertEqual((s.streams, s.keys()), ([], set()))
+
+    def test_references_a_script_key_needs(self):
+        from gm_scheduler.runner import check_references
+        doc = schedule_doc(timeline=[{"at": "2026-10-24T08:00:00Z", "stream": "orders.insert",
+                                      "set": {"key": "rollup.hourly"}}])
+        doc["connections"]["shop"] = dict(doc["connections"]["app"], role="shop_etl")
+        s = parse_schedule(doc)
+        module = type(os)("m")
+        module.hourly = lambda conns, options, log: 0
+        r = repo.parse_queries({"queries": {"orders.insert": {"sql": "SELECT 1"},
+                                            "rollup.hourly": {"script": "scripts/rollup.py:hourly"}}},
+                               {}, {"rollup.py": module})
+        jobs = parse_jobs({"jobs": [
+            {"name": "ok", "key": "rollup.hourly", "connections": {"source": "shop", "target": "app"}, "at": "5 * * * *"},
+            {"name": "one", "key": "rollup.hourly", "connection": "shop", "at": "5 * * * *"},
+            {"name": "many", "key": "orders.insert", "connections": {"source": "shop"}, "at": "5 * * * *"},
+            {"name": "far", "key": "rollup.hourly", "connections": {"source": "shop", "target": "elsewhere"},
+             "at": "5 * * * *"}]})
+        self.assertEqual(check_references(s, r, jobs), [
+            "queries.yaml: key rollup.hourly is named by the schedule but is a script: a script runs only as a job",
+            "jobs.yaml: job one: key rollup.hourly is a script: name its connections with connections:, "
+            "not connection:",
+            "jobs.yaml: job many: key orders.insert is not a script: it takes connection:, not connections:",
+            "jobs.yaml: job far: connections.target: connection elsewhere is not one of the schedule's"])
+        # a stream starting on a script key
+        doc = schedule_doc(streams=[dict(schedule_doc()["streams"][0], key="rollup.hourly")], timeline=[])
+        self.assertEqual(check_references(parse_schedule(doc), r, []), [
+            "queries.yaml: key rollup.hourly is named by the schedule but is a script: a script runs only as a job"])
 
     def test_messages_never_hold_a_schedule_value(self):
         doc = schedule_doc()

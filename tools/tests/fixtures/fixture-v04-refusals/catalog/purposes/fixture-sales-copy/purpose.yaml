@@ -1,0 +1,64 @@
+# Test purpose of tools/tests (v0.4 chunk 2): the catalog root
+# fixture-v04-refusals/catalog stands for the repository's when the tests
+# call load_scenario(..., catalog_root=...) (capture W1 item 0). Not a game
+# purpose: an hourly copy of the shop's sales into a reporting database.
+id: fixture-sales-copy
+title: An hourly copy of the shop's sales into the agency's reporting database
+domains: [fixture-shop]
+kind: pulled
+parts:
+  source: the shop's database
+  target: the agency's reporting database
+  runner: the agency's transformer
+jobs:
+  - name: copy-hourly
+    key: sales.copy
+    part: runner
+    source: source
+    target: target
+    method: sql
+    computes: the hour's order totals, written to sales_hourly.
+    cadence: "5 * * * *"
+    connections:
+      target: bi_etl
+  - name: rollup-daytime
+    key: sales.rollup
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: the day's running totals, every quarter of an hour in opening hours.
+    cadence: "*/15 8-20 * * *"
+    connections:
+      source: shop_etl
+      target: bi_etl
+trace:
+  - kind: published-results
+    part: target
+    table: sales_hourly
+    run_column: copied_at
+  - kind: run-ledger
+    part: runner
+    file: /var/log/scheduler/scheduler.log
+invariants:
+  - id: R1
+    statement: every hour's total in sales_hourly equals the sum of that hour's orders.
+    check: checks/r1-hourly-matches.sh
+    parameters: {}
+    witness: orders placed in an hour the job has copied.
+data_moved:
+  - job: copy-hourly
+    reads: [shop.orders.customer_id]
+    writes: [target:sales_hourly]
+  - job: rollup-daytime
+    reads: [shop.orders.customer_id]
+    writes: [target:sales_hourly]
+roles:
+  - name: shop_etl
+    part: source
+    reads: [orders]
+    writes: []
+  - name: bi_etl
+    part: target
+    reads: [sales_hourly]
+    writes: [sales_hourly]

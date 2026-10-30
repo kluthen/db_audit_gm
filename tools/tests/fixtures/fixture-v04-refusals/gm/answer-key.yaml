@@ -1,0 +1,45 @@
+# Answer key of fixture-v04-refusals (tools/tests, v0.4 chunk 2).
+scenario:
+  id: fixture-v04-refusals
+  version: 0.1.0
+notes: gm/notes.md
+
+instances:
+  - instance: f1
+    what: random_page_cost is 4.0, the spinning-disk default, on SSD storage.
+    why: the planner overprices index scans and favours sequential scans.
+    evidence:
+      - where: node:db
+        source: postgresql.conf and SHOW random_page_cost
+        how: ssh db, then psql -c 'SHOW random_page_cost'
+        shows: "4"
+    acceptable:
+      diagnosis: names random_page_cost as too high for SSD storage.
+      proposal: lower random_page_cost to about 1.1.
+    sealed_check:
+      script: faults/fixture-random-page-cost/checks/fixed.sh
+      at_handover: 1
+      notes: the scenario's own fault (faults/ in the fixture folder).
+    interactions: []
+    validators_left_red: []
+  - instance: f2
+    what: the hourly copy counts each order twice.
+    why: the agency's hourly totals are twice the shop's.
+    evidence:
+      - where: node:bi
+        source: /srv/scheduler/repository/queries.yaml and sales_hourly
+        how: ssh bi, then cat /srv/scheduler/repository/queries.yaml
+        shows: the copy's statement joins orders twice
+    acceptable:
+      diagnosis: names the copy's double count.
+      fix: the hourly totals match the orders from the next run on.
+    sealed_check:
+      script: faults/fixture-copy-runs/checks/fixed.sh
+      at_handover: 1
+      judges: runs
+      threshold: 0
+      notes: judges the job's runs since the judged moment (CHECK_SINCE).
+    interactions: []
+    validators_left_red: []
+
+tooling_expectations: []           # none in this scenario

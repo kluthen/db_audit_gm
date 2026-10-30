@@ -1,9 +1,12 @@
-# Stack test fixture for the bastion brick (v0.1 chunk 3, v0.2 chunk 7).
+# Stack test fixture for the bastion brick (v0.1 chunk 3, v0.2 chunk 7,
+# v0.4 chunk 19).
 # Three services: the bastion, a PostgreSQL node (the postgres image) and a
 # stub web interface (tests/fixtures/stub-upstream.pl in debian:13-slim),
 # on one overlay network. The bastion's web front routes `stub` to the stub
-# and `other` to a port where nothing listens; run-stack-test.sh later
-# empties the routes to check the front does not run. Uses only what a rendered
+# and `other` to a port where nothing listens; the starter pack includes
+# the optional data-policy.md. run-stack-test.sh later empties the routes
+# (the front still serves the page), then removes the data policy, then a
+# required starter file. Uses only what a rendered
 # Compose 3.8 stack file can express: no tmpfs `mode` or `exec` option.
 # Configs and secrets are external, created and removed by
 # run-stack-test.sh (mirroring gmctl deploy, master spec 10.1). Volume
@@ -12,7 +15,7 @@ version: "3.8"
 
 services:
   bastion:
-    image: 127.0.0.1:5000/dbagm/bastion:0.3.0
+    image: 127.0.0.1:5000/dbagm/bastion:0.4.0
     hostname: bastion
     read_only: true
     cap_drop: [ALL]
@@ -36,6 +39,7 @@ services:
       - {source: starter_readme, target: /opt/gm/starter/README.md, uid: "0", gid: "0", mode: 0444}
       - {source: starter_story, target: /opt/gm/starter/story.md, uid: "0", gid: "0", mode: 0444}
       - {source: starter_issues, target: /opt/gm/starter/issues.md, uid: "0", gid: "0", mode: 0444}
+      - {source: starter_policy, target: /opt/gm/starter/data-policy.md, uid: "0", gid: "0", mode: 0444}
     secrets:
       - {source: player_password, target: /opt/gm/secrets/player_password, uid: "0", gid: "0", mode: 0400}
       - {source: player_ssh_key, target: /opt/gm/secrets/player_ssh_key, uid: "0", gid: "0", mode: 0400}
@@ -63,7 +67,7 @@ services:
         limits: {cpus: "0.1", memory: 32M}
 
   db:
-    image: 127.0.0.1:5000/dbagm/postgres:0.3.0
+    image: 127.0.0.1:5000/dbagm/postgres:0.4.0
     hostname: db
     read_only: true
     cap_drop: [ALL]
@@ -81,6 +85,7 @@ services:
       - {type: volume, source: db_gmstate, target: /var/lib/gm-state}
       - {type: volume, source: db_pglog, target: /var/log/postgresql}
       - {type: volume, source: db_run, target: /run}
+      - {type: volume, source: db_cronspool, target: /var/spool/cron/crontabs}
     configs:
       - {source: seed_postgresql_conf, target: /opt/gm/seed/postgresql.conf, uid: "0", gid: "0", mode: 0444}
       - {source: seed_pg_hba_conf, target: /opt/gm/seed/pg_hba.conf, uid: "0", gid: "0", mode: 0444}
@@ -109,11 +114,13 @@ volumes:
   db_gmstate: {}
   db_pglog: {}
   db_run: {}
+  db_cronspool: {}
 
 configs:
   starter_readme: {external: true, name: gmtest-bastion_starter_readme}
   starter_story: {external: true, name: gmtest-bastion_starter_story}
   starter_issues: {external: true, name: gmtest-bastion_starter_issues}
+  starter_policy: {external: true, name: gmtest-bastion_starter_policy}
   seed_postgresql_conf: {external: true, name: gmtest-bastion_seed_postgresql_conf}
   seed_pg_hba_conf: {external: true, name: gmtest-bastion_seed_pg_hba_conf}
   envelopes: {external: true, name: gmtest-bastion_envelopes}

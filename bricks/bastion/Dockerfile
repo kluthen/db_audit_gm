@@ -2,11 +2,12 @@
 #
 # The players' only entry point: sshd (password login as `player`), the
 # PostgreSQL 18 client tools and an SSH client for the inner hop, and the
-# web front (nginx, port 8080) publishing the monitoring web interfaces
-# when the scenario routes any (master spec 7.6).
+# web front (nginx, port 8080), in every game: its home the starter-pack
+# page, rendered at start-up by cmark-gfm, and the monitoring web
+# interfaces when the scenario routes any (v0.4 master spec 7.3, D224).
 # Generic image: no scenario content. The starter pack and the secrets
 # arrive at run time at the fixed paths declared in brick.yaml.
-# Build:  docker build -t 127.0.0.1:5000/dbagm/bastion:0.3.0 bricks/bastion
+# Build:  docker build -t 127.0.0.1:5000/dbagm/bastion:0.4.0 bricks/bastion
 # Architecture: x86_64 only in v0.1 (the s6-overlay archive below).
 
 # --- rootfs/, its modes independent of the checkout --------------------------
@@ -37,6 +38,9 @@ ADD --checksum=sha256:e6befcc96a437a3831386ecfc51808c5d3e939dc5fe3c02ae9284599e8
 # hashes the per-game passwords at start-up (gm-entrypoint). nginx, from
 # Debian's own repository, is the web front; its packaged site, logs and
 # state are removed (its configuration is written under /run at start-up).
+# cmark-gfm, from Debian too, renders the starter pack into the front's
+# page (D222, gate G13): tables on (-e table), raw HTML omitted (its safe
+# default; never --unsafe), asserted below.
 RUN set -eux; \
     export DEBIAN_FRONTEND=noninteractive; \
     apt-get update; \
@@ -46,7 +50,7 @@ RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
         "postgresql-client-${PG_MAJOR}" \
-        openssh-server openssh-client openssl procps less nano vim-tiny nginx; \
+        openssh-server openssh-client openssl procps less nano vim-tiny nginx cmark-gfm; \
     tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz; \
     tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz; \
     rm -f /tmp/s6-overlay-noarch.tar.xz /tmp/s6-overlay-x86_64.tar.xz; \
@@ -58,7 +62,10 @@ RUN set -eux; \
     rm -rf /etc/nginx/sites-enabled/* /etc/nginx/sites-available/* /etc/nginx/conf.d/* \
         /var/log/nginx /var/lib/nginx /var/www/html; \
     test -x "/usr/lib/postgresql/${PG_MAJOR}/bin/psql"; \
-    test -x /usr/sbin/nginx
+    test -x /usr/sbin/nginx; \
+    command -v cmark-gfm; \
+    printf '| a |\n|---|\n| 1 |\n' | cmark-gfm -e table | grep -q '<table>'; \
+    printf '<b>x</b>\n' | cmark-gfm | grep -q 'raw HTML omitted'
 
 # Account `player` (SSH by password only). Its password is set at each
 # start: /etc/shadow is a symlink to /run/gm/shadow, which gm-entrypoint
@@ -103,7 +110,7 @@ ENV S6_READ_ONLY_ROOT=1 \
 EXPOSE 22 8080
 
 # gm-entrypoint prepares /run, the sshd host key, the password, the
-# player's home and starter pack, the web front's configuration when there
-# are routes, then execs s6-overlay's /init, which supervises `sshd` and
+# player's home and starter pack, the web front's configuration, password
+# file and page, then execs s6-overlay's /init, which supervises `sshd` and
 # `web-front`.
 ENTRYPOINT ["/usr/local/sbin/gm-entrypoint"]

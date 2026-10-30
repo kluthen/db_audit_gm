@@ -82,6 +82,34 @@ SEED_ENTRY_FILE_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]*$")
 HBA_PASSWORD_METHODS = ("scram-sha-256", "md5", "password", "trust")
 HBA_REPLICATION_METHODS = ("peer", "trust")
 
+# v0.4: purposes, domains, governance (master spec 6.1, 6.7 to 6.9, 11;
+# capture W1 of specs/versions/v0.4/wave-log.md, items 0 to 6).
+PURPOSE_ID_RE = re.compile(r"^[a-z][a-z0-9-]*$")       # purpose and domain ids (W1 item 0)
+PURPOSE_PARTS = ("source", "target", "runner", "consumer", "receiver")
+DATABASE_PARTS = ("source", "target")
+PART_ROLES = {"runner": "transformer", "consumer": "consumer", "receiver": "producer"}
+PURPOSE_KINDS = ("pulled", "transformed-in-place", "pushed", "pushed-obligation")
+JOB_METHODS = ("sql", "script", "foreign-tables", "procedure", "pg_cron", "cron-daemon")
+TRACE_KINDS = ("outbox-rows", "published-results", "run-ledger", "definitions")
+INVARIANT_ID_RE = re.compile(r"^[A-Z][0-9]+$")
+JUDGES = ("runs", "triggers")
+CLASSES = ("personal", "customer-linked", "internal")
+UNRESTRICTED_CLASS = "internal"     # a class with no entry in governance: reads as locations: any
+SQL_NAME_RE = re.compile(r"^[a-z_][a-z0-9_]*$")
+CLASSIFICATION_KEY_RE = re.compile(r"^[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*$")
+RECEIVER_LABEL_RE = re.compile(r"^[a-z][a-z0-9-]*$")
+PART_TABLE_RE = re.compile(r"^([a-z]+):([a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*)?)$")
+POLICY_SEED_FILE = "data-policy.md"   # the bastion's optional starter-pack seed file (D221, D223)
+FRAGMENT_FILES = ("queries.yaml", "schedule.yaml", "jobs.yaml")
+FRAGMENT_FOLDERS = ("builders", "scripts")
+SCHEDULE_FRAGMENT_KEYS = ("connections", "streams", "shapes")
+# What a data file creates (W1 item 0): statements at the start of a line,
+# keywords in any case, names unquoted; a line starting with -- is skipped.
+_CREATE_NAME_RE = re.compile(
+    r"^\s*(?i:create\s+(database|role|user))\s+([a-z_][a-z0-9_]*)(?![A-Za-z0-9_$\"])")
+_CREATE_PG_CRON_RE = re.compile(
+    r"^\s*(?i:create\s+extension\s+(?:if\s+not\s+exists\s+)?)pg_cron(?![A-Za-z0-9_$\"])")
+
 
 def fault_env_name(param_name):
     """`FAULT_<NAME>` for a fault parameter, or None when the upper-cased
@@ -142,12 +170,16 @@ _CHECKED_BY_CODE = {"envelope", "queries", "pool", "shapes"}
 
 
 def _inline_comment(line):
+    """The comment ending a template line, if any. A quote opens a quoted
+    scalar only where a scalar starts (after a mapping colon, an indicator
+    or blanks); elsewhere, as in `<the shop's database>`, it is a plain
+    character."""
     quote = None
     for i, ch in enumerate(line):
         if quote:
             if ch == quote:
                 quote = None
-        elif ch in "'\"":
+        elif ch in "'\"" and line[:i].rstrip()[-1:] in ("", ":", "[", "{", ",", "-", "?"):
             quote = ch
         elif ch == "#" and (i == 0 or line[i - 1] in " \t"):
             return line[i + 1:].strip()
@@ -620,6 +652,14 @@ def _check_brick_v03(data, label, out):
             parse_mode(mode)
         except ValueError as exc:
             out.append(f"{label}: seed.modes.{fname}: {exc}")
+    optional = seed.get("optional")
+    for fname in optional if isinstance(optional, list) else []:
+        if is_seed_folder_entry(fname):
+            out.append(f"{label}: seed.optional: {fname} is a directory entry, optional already "
+                       "(v0.4 capture W1 item 4); seed.optional lists plain entries only")
+        elif fname not in files:
+            out.append(f"{label}: seed.optional: {fname} is not a seed file of the brick "
+                       "(seed.files)")
     secrets = data.get("secrets")
     for i, secret in enumerate(secrets if isinstance(secrets, list) else []):
         role = _dict(secret).get("only_with_role")
@@ -772,10 +812,13 @@ def _check_receives(receives, label, out):
                    f"({' '.join(COMMAND_VOCABULARY)})")
 
 
-def check_fault_dir(fault_dir, label_base=None):
-    """Missing items of a fault folder (format skill, "Fault")."""
+def check_fault_dir(fault_dir, label_base=None, catalog_root=None):
+    """Missing items of a fault folder (format skill, "Fault"). Purposes
+    named by applies_to.purposes are looked up under `catalog_root`, by
+    default the folder holding faults/."""
     fault_dir = Path(fault_dir)
     base = Path(label_base) if label_base else fault_dir.parent.parent
+    catalog_root = Path(catalog_root) if catalog_root else fault_dir.parent.parent
     label = _rel(fault_dir / "fault.yaml", base)
     out = []
     data = _load_yaml(fault_dir / "fault.yaml", label, out)
@@ -837,6 +880,7 @@ def check_fault_dir(fault_dir, label_base=None):
             out.append(f"{label}: resolutions[{i}].kind: {res.get('kind')} is not one of "
                        f"{', '.join(RESOLUTION_KINDS)}")
     _check_fault_v03(data, label, out)
+    _check_fault_v04(data, label, catalog_root, out)
     return out
 
 
@@ -877,6 +921,40 @@ def _check_fault_v03(data, label, out):
     if "behavioural" in sealed and not isinstance(sealed["behavioural"], bool):
         out.append(f"{label}: sealed_check.behavioural: {sealed['behavioural']!r} is not a "
                    "boolean")
+
+
+def _check_fault_v04(data, label, catalog_root, out):
+    """v0.4's fault keys (master spec 6.3, 6.9; capture W1 item 3):
+    applies_to.purposes, sealed_check.judges, needs_unshared_host."""
+    applies = _dict(data.get("applies_to"))
+    purposes = applies.get("purposes")
+    if "purposes" in applies and not isinstance(purposes, list):
+        out.append(f"{label}: applies_to.purposes: not a list of purpose ids")
+    for pid in purposes if isinstance(purposes, list) else []:
+        if not (isinstance(pid, str) and PURPOSE_ID_RE.match(pid)):
+            out.append(f"{label}: applies_to.purposes: {pid!r} is not a purpose id "
+                       "([a-z][a-z0-9-]*)")
+        elif not (Path(catalog_root) / "purposes" / pid / "purpose.yaml").is_file():
+            out.append(f"{label}: applies_to.purposes: {pid} is not a purpose (no "
+                       f"purposes/{pid}/purpose.yaml in the catalog)")
+    sealed = _dict(data.get("sealed_check"))
+    if "judges" in sealed:
+        if sealed["judges"] not in JUDGES:
+            out.append(f"{label}: sealed_check.judges: {sealed['judges']!r} is not "
+                       f"{' or '.join(JUDGES)} (absent: the check judges the live state)")
+        if sealed.get("behavioural") is True:
+            out.append(f"{label}: sealed_check.judges: never with behavioural: true (a check "
+                       "judging runs or triggers takes no window; master spec 6.2)")
+    if "needs_unshared_host" in data and not isinstance(data["needs_unshared_host"], bool):
+        out.append(f"{label}: needs_unshared_host: {data['needs_unshared_host']!r} is not a "
+                   "boolean")
+
+
+def fault_judges(fault_data):
+    """runs or triggers when the fault's sealed check judges a purpose's
+    runs or triggers, else None (master spec 6.3)."""
+    judges = _dict(fault_data.get("sealed_check")).get("judges")
+    return judges if judges in JUDGES else None
 
 
 def fault_aging_minimum(fault_data):
@@ -953,8 +1031,10 @@ def find_definition(kind, ref_id, ref_version, scenario_dir, catalog_root):
     for directory, source, base in candidates:
         if not (directory / f"{kind}.yaml").is_file():
             continue
-        check = check_brick_dir if kind == "brick" else check_fault_dir
-        missing = check(directory, label_base=base)
+        if kind == "brick":
+            missing = check_brick_dir(directory, label_base=base)
+        else:
+            missing = check_fault_dir(directory, label_base=base, catalog_root=catalog_root)
         data = yaml.safe_load((directory / f"{kind}.yaml").read_text(encoding="utf-8")) \
             if not any("cannot be read" in m for m in missing) else None
         if not isinstance(data, dict):
@@ -1018,6 +1098,7 @@ def check_scenario(scenario_dir, catalog_root=REPO_ROOT):
     _check_retention(data, nodes, bricks, faults, scheduled, minimum, sdir, out)
     _check_postgres_seeds(nodes, bricks, sdir, out)
     _check_scheduler_files(data, nodes, faults, minimum, sdir, out)
+    _check_v04(data, nodes, _data_files(nodes, sdir), sdir, catalog_root, out)
 
     if out:
         return None, out
@@ -1134,9 +1215,11 @@ def _check_node(node, sdir, catalog_root, network_names, out):
 
     seed_files = node.get("seed_files") or {}
     declared = list((b.get("seed") or {}).get("files") or [])
+    optional = seed_optional(b)
     if isinstance(seed_files, dict):
         for fname in declared:
-            if fname not in seed_files and not is_seed_folder_entry(fname):
+            if fname not in seed_files and not is_seed_folder_entry(fname) \
+                    and fname not in optional:
                 out.append(f"{label}: {p}.seed_files: no entry for the brick's seed file "
                            f"{fname}")
         for fname, rel in seed_files.items():
@@ -1168,6 +1251,13 @@ def is_seed_folder_entry(fname):
     """A brick's seed entry ending in / (builders/): a folder of files the
     scenario names, optional in its seed_files (capture W1 of v0.3, item 3)."""
     return isinstance(fname, str) and fname.endswith("/")
+
+
+def seed_optional(brick_data):
+    """The plain seed files a node of the brick may leave out of its
+    seed_files (brick.yaml seed.optional; v0.4 master spec 6.4)."""
+    optional = _dict(brick_data.get("seed")).get("optional")
+    return [f for f in optional if isinstance(f, str)] if isinstance(optional, list) else []
 
 
 def _check_seed_folder(sdir, rel, p, out):
@@ -1363,7 +1453,9 @@ def _check_receiver(node_name, target, mounting, item, out):
 
 def _check_web_routes(nodes, bricks, out):
     """web-routes parameters against the topology's web interfaces, and the
-    web front's published port (capture W1, item 3). Returns the route names."""
+    web front's published port (v0.2 capture W1, item 3): a node whose brick
+    has a web-routes parameter (the bastion) publishes it whatever its routes,
+    the front running in every game (v0.4, D224). Returns the route names."""
     label = "scenario.yaml"
     by_name = {n.get("name"): n for n in nodes}
     interfaces = {}                   # (node, port) -> provides entry with a web_path
@@ -1380,7 +1472,8 @@ def _check_web_routes(nodes, bricks, out):
         brick = bricks.get(name)
         if brick is None:
             continue
-        for pname in _shaped(brick.data, "web-routes"):
+        shaped = _shaped(brick.data, "web-routes")
+        for pname in shaped:
             p = f"nodes[{name}].parameters.{pname}"
             value = _node_parameter(node, brick.data, pname)
             if not isinstance(value, dict):
@@ -1410,17 +1503,14 @@ def _check_web_routes(nodes, bricks, out):
                 if iface.get("web_path") != f"/{route}/":
                     out.append(f"{label}: {rp}: {tnode}:{port} is served under "
                                f"{iface.get('web_path')}, not /{route}/")
+        if shaped:
             ports = node.get("published_ports")
             ports = [x for x in ports if isinstance(x, dict)] if isinstance(ports, list) else []
-            pp = f"nodes[{name}].published_ports"
-            if value and not any(x.get("port") == WEB_FRONT_PORT
-                                 and x.get("default") == WEB_FRONT_PORT for x in ports):
-                out.append(f"{label}: {pp}: no {{port: {WEB_FRONT_PORT}, default: "
-                           f"{WEB_FRONT_PORT}}}, which the web front needs ({pname} is "
-                           "non-empty)")
-            elif not value and any(x.get("port") == WEB_FRONT_PORT for x in ports):
-                out.append(f"{label}: {pp}: port {WEB_FRONT_PORT} is published, but {pname} "
-                           "is empty (the web front does not run)")
+            if not any(x.get("port") == WEB_FRONT_PORT
+                       and x.get("default") == WEB_FRONT_PORT for x in ports):
+                out.append(f"{label}: nodes[{name}].published_ports: no {{port: "
+                           f"{WEB_FRONT_PORT}, default: {WEB_FRONT_PORT}}}, which the web "
+                           "front needs (it runs in every game, routes or none)")
     for (tnode, port), names in routed.items():
         iface = interfaces[(tnode, port)]
         what = f"web interface {iface.get('name')} (port {port}, {iface.get('web_path')})"
@@ -1575,6 +1665,11 @@ def _check_faults(data, nodes, bricks, sdir, catalog_root, out):
                 if isinstance(change, dict) and change.get("file") not in seeds:
                     out.append(f"{label}: {p}: fault {fault.id} changes {change.get('file')}, "
                                f"not a seed file of brick {brick.id}")
+                elif isinstance(change, dict) and change.get("file") in seed_optional(brick.data) \
+                        and change.get("file") not in _dict(by_name[target].get("seed_files")):
+                    out.append(f"{label}: {p}: fault {fault.id} changes {change.get('file')}, "
+                               f"which node {target} does not seed (an optional seed file of "
+                               f"brick {brick.id}; v0.4 capture W1 item 1)")
             _check_parameter_fault(inst, fault, brick, by_name, p, out)
             _check_report_evidence(fault, brick, p, out)
         params = inst.get("parameters") or {}
@@ -1776,11 +1871,34 @@ def _check_answer_key(data, nodes, bricks, faults, routes, sdir, out):
 
 
 def _check_behavioural(entry, fault, label, out):
-    """A behavioural check's window and threshold (master spec 6.2, 11; W1
-    item 4): present exactly when the fault's sealed_check.behavioural is
-    true; the window a duration, the threshold a number."""
+    """A sealed check's judges, window and threshold (v0.3 master spec 6.2,
+    11, its capture W1 item 4; v0.4 master spec 6.2, 12, capture W1 item 2).
+    A behavioural check: window and threshold, exactly when the fault's
+    sealed_check.behavioural is true; the window a duration, the threshold a
+    number. A check judging runs or triggers: judges, the fault's, and a
+    threshold, a non-negative integer; no window."""
     p = f"{label}: instances[{entry.get('instance')}].sealed_check"
     sealed = _dict(entry.get("sealed_check"))
+    judges = fault_judges(fault.data)
+    if judges is not None:
+        if "judges" not in sealed:
+            out.append(f"{p}.judges: missing (fault {fault.id}'s sealed check judges {judges})")
+        elif sealed["judges"] != judges:
+            out.append(f"{p}.judges: {sealed['judges']}, but fault {fault.id}'s sealed check "
+                       f"judges {judges}")
+        if "threshold" not in sealed:
+            out.append(f"{p}.threshold: missing (fault {fault.id}'s sealed check judges "
+                       f"{judges}: the violations tolerated)")
+        elif not (_is_int(sealed["threshold"]) and sealed["threshold"] >= 0):
+            out.append(f"{p}.threshold: {sealed['threshold']!r} is not a non-negative integer "
+                       "(the violations tolerated)")
+        if "window" in sealed:
+            out.append(f"{p}.window: fault {fault.id}'s sealed check judges {judges}, which "
+                       "takes no window (master spec 6.2)")
+        return
+    if "judges" in sealed:
+        out.append(f"{p}.judges: fault {fault.id}'s sealed check judges no runs or triggers (no "
+                   "sealed_check.judges), so it takes no judges")
     behavioural = is_behavioural(fault.data)
     for key in ("window", "threshold"):
         if behavioural and key not in sealed:
@@ -2133,6 +2251,636 @@ def _check_designed_for(data, nodes, out):
                            "there reserve more than it has")
 
 
+# --- v0.4: data files, purposes, domains, governance -----------------------
+# (master spec 6.1, 6.7 to 6.9, 11, 14; capture W1 of
+# specs/versions/v0.4/wave-log.md, items 0, 1, 5 and 6)
+
+@dataclass
+class DataFileCreates:
+    """What a data file creates, read line by line (W1 item 0): no SQL
+    parser, so a statement inside a DO body or a function is not seen."""
+    file: str
+    databases: set = field(default_factory=set)
+    roles: set = field(default_factory=set)
+    pg_cron: bool = False
+
+
+def data_file_creates(text, rel):
+    created = DataFileCreates(rel)
+    for line in text.splitlines():
+        m = _CREATE_NAME_RE.match(line)
+        if m:
+            kind, name = m.group(1).lower(), m.group(2)
+            (created.databases if kind == "database" else created.roles).add(name)
+        elif _CREATE_PG_CRON_RE.match(line):
+            created.pg_cron = True
+    return created
+
+
+def _data_files(nodes, sdir):
+    """node name -> DataFileCreates of its data file (data.file), for each
+    node whose data file exists and reads."""
+    creates = {}
+    for node in nodes:
+        rel = _dict(node.get("data")).get("file")
+        path = _inside(sdir, rel) if isinstance(rel, str) else None
+        if path is None or not path.is_file():
+            continue                         # reported with the node
+        try:
+            creates[node.get("name")] = data_file_creates(path.read_text(encoding="utf-8"), rel)
+        except (OSError, UnicodeDecodeError):
+            continue
+    return creates
+
+
+def _location_problem(value, by_name, creates):
+    """Why `value` is not a location <node>/<database> (W1 item 0): a
+    database node, and a database its data file creates; or None."""
+    node, sep, database = value.partition("/") if isinstance(value, str) else ("", "", "")
+    if not sep or not NAME_RE.match(node) or not SQL_NAME_RE.match(database):
+        return f"{value!r} is not a location <node>/<database>"
+    if node not in by_name:
+        return f"{value}: {node} is not a node"
+    role = by_name[node].get("role")
+    if role != "database":
+        return f"{value}: {node} is not a database node (its role is {role})"
+    created = creates.get(node)
+    if created is None:
+        return f"{value}: node {node} has no data file to create database {database}"
+    if database not in created.databases:
+        return (f"{value}: {database} is not a database node {node}'s data file "
+                f"({created.file}) creates (CREATE DATABASE {database})")
+    return None
+
+
+def check_classification(path, rel, out):
+    """A classification file (template classification.yaml; W1 items 0 and
+    6). Returns the classes it uses, or None when unusable."""
+    content = _load_yaml(path, rel, out)
+    if content is None:
+        return None
+    check_against_schema(content, template_schema("classification.yaml"), rel, out=out)
+    placeholders(content, rel, out=out)
+    columns = _dict(content).get("columns")
+    if not isinstance(columns, dict):
+        return None
+    used = set()
+    for key, cls in columns.items():
+        if not (isinstance(key, str) and CLASSIFICATION_KEY_RE.match(key)):
+            out.append(f"{rel}: columns.{key}: {key!r} is not <database>.<table>.<column> "
+                       "(three names [a-z_][a-z0-9_]*, the table in schema public)")
+        if cls not in CLASSES:
+            out.append(f"{rel}: columns.{key}: {cls!r} is not a class ({', '.join(CLASSES)}; "
+                       "master spec 11.2)")
+        else:
+            used.add(cls)
+    return used
+
+
+def _check_fragments(folder, base, scripts_allowed, out):
+    """A folder of fragments (formats, "Purpose folder" and "Domain
+    folder"): queries.yaml, schedule.yaml and jobs.yaml with the scenario
+    file's top-level keys holding only what they add, and builders/ or
+    scripts/ folders. A queries fragment is checked as a node's repository."""
+    rel = _rel(folder, base)
+    folders = FRAGMENT_FOLDERS if scripts_allowed else FRAGMENT_FOLDERS[:1]
+    loaded = {}
+    for entry in sorted(folder.iterdir()):
+        shown = f"{rel}/{entry.name}"
+        if entry.is_dir() and entry.name in folders:
+            continue
+        if not (entry.is_file() and entry.name in FRAGMENT_FILES):
+            out.append(f"{shown}{'/' if entry.is_dir() else ''}: not a fragment ("
+                       f"{', '.join(FRAGMENT_FILES + tuple(f + '/' for f in folders))})")
+            continue
+        loaded[entry.name] = _load_yaml(entry, shown, out)
+    allowed = {"queries.yaml": ("queries",), "jobs.yaml": ("jobs",),
+               "schedule.yaml": SCHEDULE_FRAGMENT_KEYS}
+    for fname, content in loaded.items():
+        shown = f"{rel}/{fname}"
+        if content is None:
+            continue
+        if not isinstance(content, dict):
+            out.append(f"{shown}: top level: not a mapping")
+            continue
+        for key in content:
+            if key not in allowed[fname]:
+                why = "; intensity and timeline are the scenario's" \
+                    if fname == "schedule.yaml" else ""
+                out.append(f"{shown}: {key}: not a key of a {fname} fragment "
+                           f"({', '.join(allowed[fname])}){why}")
+    if loaded.get("queries.yaml") is not None:
+        seeds = [(f"{rel}/{name}", folder / name) if (folder / name).is_dir() else None
+                 for name in FRAGMENT_FOLDERS]
+        _check_queries(f"{rel}/queries.yaml", loaded["queries.yaml"], seeds[0], out,
+                       seeds[1] if scripts_allowed else None)
+
+
+def check_domain_dir(domain_dir, label_base=None):
+    """Missing items of a domain folder (format skill, "Domain folder";
+    master spec 6.8; W1 item 6)."""
+    domain_dir = Path(domain_dir)
+    base = Path(label_base) if label_base else domain_dir.parent.parent
+    label = _rel(domain_dir / "domain.yaml", base)
+    out = []
+    data = _load_yaml(domain_dir / "domain.yaml", label, out)
+    if data is None:
+        return out
+    check_against_schema(data, template_schema("domain.yaml"), label, out=out)
+    placeholders(data, label, out=out)
+    if not isinstance(data, dict):
+        return out
+    if data.get("id") != domain_dir.name:
+        out.append(f"{label}: id: {data.get('id')} is not the folder name {domain_dir.name}")
+    if not PURPOSE_ID_RE.match(domain_dir.name):
+        out.append(f"{label}: id: {domain_dir.name} is not a domain id ([a-z][a-z0-9-]*)")
+    for key in ("schema", "load", "classification", "notes"):
+        rel = data.get(key)
+        if not isinstance(rel, str):
+            continue                         # reported against the template
+        path = _inside(domain_dir, rel)
+        if path is None or not path.is_file():
+            out.append(f"{_rel(domain_dir / rel, base)}: missing file ({label} {key})")
+        elif key == "classification":
+            check_classification(path, _rel(path, base), out)
+    producers = data.get("producers")
+    if isinstance(producers, str):
+        path = _inside(domain_dir, producers)
+        if path is None or not path.is_dir():
+            out.append(f"{_rel(domain_dir / producers, base)}/: missing folder "
+                       f"({label} producers)")
+        else:
+            _check_fragments(path, base, False, out)
+    purposes = data.get("purposes")
+    for pid in purposes if isinstance(purposes, list) else []:
+        if not (isinstance(pid, str) and PURPOSE_ID_RE.match(pid)):
+            out.append(f"{label}: purposes: {pid!r} is not a purpose id ([a-z][a-z0-9-]*)")
+    return out
+
+
+def check_purpose_dir(purpose_dir, label_base=None, catalog_root=None):
+    """Missing items of a purpose folder (format skill, "Purpose folder";
+    master spec 6.7, 8; W1 item 5). Its domains are looked up under
+    `catalog_root`, by default the folder holding purposes/."""
+    purpose_dir = Path(purpose_dir)
+    base = Path(label_base) if label_base else purpose_dir.parent.parent
+    catalog_root = Path(catalog_root) if catalog_root else purpose_dir.parent.parent
+    label = _rel(purpose_dir / "purpose.yaml", base)
+    out = []
+    data = _load_yaml(purpose_dir / "purpose.yaml", label, out)
+    if data is None:
+        return out
+    check_against_schema(data, template_schema("purpose.yaml"), label, out=out)
+    placeholders(data, label, out=out)
+    if not isinstance(data, dict):
+        return out
+    pid = purpose_dir.name
+    if data.get("id") != pid:
+        out.append(f"{label}: id: {data.get('id')} is not the folder name {pid}")
+    if not PURPOSE_ID_RE.match(pid):
+        out.append(f"{label}: id: {pid} is not a purpose id ([a-z][a-z0-9-]*)")
+    if not (purpose_dir / "gm.md").is_file():
+        out.append(f"{_rel(purpose_dir / 'gm.md', base)}: missing file")
+    domains = data.get("domains")
+    for did in domains if isinstance(domains, list) else []:
+        domain_file = catalog_root / "domains" / str(did) / "domain.yaml"
+        if not (isinstance(did, str) and PURPOSE_ID_RE.match(did)):
+            out.append(f"{label}: domains: {did!r} is not a domain id ([a-z][a-z0-9-]*)")
+        elif not domain_file.is_file():
+            out.append(f"{label}: domains: {did} is not a domain (no domains/{did}/domain.yaml "
+                       "in the catalog)")
+        else:
+            try:
+                listed = _dict(yaml.safe_load(domain_file.read_text(encoding="utf-8")))
+            except (yaml.YAMLError, UnicodeDecodeError):
+                continue                     # reported with the domain
+            if pid not in (listed.get("purposes") or []):
+                out.append(f"{label}: domains: domain {did} does not list {pid} in its "
+                           "domain.yaml purposes")
+    if "kind" in data and data["kind"] not in PURPOSE_KINDS:
+        out.append(f"{label}: kind: {data['kind']} is not one of {', '.join(PURPOSE_KINDS)} "
+                   "(master spec 8.2)")
+    parts = _dict(data.get("parts"))
+    for part in parts:
+        if part not in PURPOSE_PARTS:
+            out.append(f"{label}: parts.{part}: not a part ({', '.join(PURPOSE_PARTS)})")
+    databases = [p for p in DATABASE_PARTS if p in parts]
+    jobs = [j for j in data.get("jobs") or [] if isinstance(j, dict)] \
+        if isinstance(data.get("jobs"), list) else []
+    names = []
+    for i, job in enumerate(jobs):
+        p = f"{label}: jobs[{_item_label(job, i)}]"
+        if job.get("name") in names:
+            out.append(f"{p}: duplicate job name")
+        names.append(job.get("name"))
+        if "part" in job and not (job["part"] == "runner" and "runner" in parts):
+            out.append(f"{p}.part: {job['part']} is not a declared runner part (runner, the "
+                       "only one in v0.4)")
+        for key in DATABASE_PARTS:
+            if key in job and job[key] not in databases:
+                out.append(f"{p}.{key}: {job[key]} is not a declared database part "
+                           f"({', '.join(databases)})")
+        if "method" in job and job["method"] not in JOB_METHODS:
+            out.append(f"{p}.method: {job['method']} is not one of {', '.join(JOB_METHODS)} "
+                       "(master spec 8.6)")
+        if "cadence" in job:
+            problem = _cron_problem(job["cadence"])
+            if problem:
+                out.append(f"{p}.cadence: {problem}")
+    trace = data.get("trace")
+    for i, item in enumerate(trace if isinstance(trace, list) else []):
+        if not isinstance(item, dict):
+            continue
+        p = f"{label}: trace[{i}]"
+        if "kind" in item and item["kind"] not in TRACE_KINDS:
+            out.append(f"{p}.kind: {item['kind']} is not one of {', '.join(TRACE_KINDS)} "
+                       "(master spec 8.3)")
+        if "part" in item and item["part"] not in parts:
+            out.append(f"{p}.part: {item['part']} is not a declared part")
+        if ("table" in item) == ("file" in item):
+            out.append(f"{p}: exactly one of table and file (it has "
+                       f"{'both' if 'table' in item else 'neither'})")
+        if "run_column" in item and "table" not in item:
+            out.append(f"{p}.run_column: only with table")
+        if "file" in item:
+            problem = _path_problem(item["file"])
+            if problem:
+                out.append(f"{p}.file: {problem}")
+    invariants = data.get("invariants")
+    ids = []
+    for i, inv in enumerate(invariants if isinstance(invariants, list) else []):
+        if not isinstance(inv, dict):
+            continue
+        iid = inv.get("id")
+        p = f"{label}: invariants[{_item_label(inv, i)}]"
+        if "id" in inv and not (isinstance(iid, str) and INVARIANT_ID_RE.match(iid)):
+            out.append(f"{p}.id: {iid!r} is not [A-Z][0-9]+ (R1, L2)")
+        elif iid in ids:
+            out.append(f"{p}: duplicate invariant id")
+        ids.append(iid)
+        check = inv.get("check")
+        if isinstance(check, str):
+            path = _inside(purpose_dir, check)
+            if path is None or not path.is_file() or not check.startswith("checks/"):
+                out.append(f"{_rel(purpose_dir / check, base)}: missing file "
+                           f"(invariants[{_item_label(inv, i)}].check, a file of checks/)")
+    moved = data.get("data_moved")
+    moved_jobs = []
+    for i, entry in enumerate(moved if isinstance(moved, list) else []):
+        if not isinstance(entry, dict):
+            continue
+        job = entry.get("job")
+        p = f"{label}: data_moved[{job if isinstance(job, str) else i}]"
+        if "job" in entry and job not in names:
+            out.append(f"{p}.job: {job} is not a job of the purpose")
+        elif job in moved_jobs:
+            out.append(f"{p}: more than one entry for job {job}")
+        moved_jobs.append(job)
+        reads = entry.get("reads")
+        for key in reads if isinstance(reads, list) else []:
+            if not (isinstance(key, str) and CLASSIFICATION_KEY_RE.match(key)):
+                out.append(f"{p}.reads: {key!r} is not a classification key "
+                           "<database>.<table>.<column>")
+        writes = entry.get("writes")
+        for item in writes if isinstance(writes, list) else []:
+            m = PART_TABLE_RE.match(item) if isinstance(item, str) else None
+            if m is None:
+                out.append(f"{p}.writes: {item!r} is not <part>:<table>")
+            elif m.group(1) not in parts:
+                out.append(f"{p}.writes: {item}: {m.group(1)} is not a declared part")
+    for name in names:
+        if isinstance(moved, list) and name not in moved_jobs:
+            out.append(f"{label}: data_moved: no entry for job {name} (one entry per job)")
+    roles = data.get("roles")
+    for i, role in enumerate(roles if isinstance(roles, list) else []):
+        if isinstance(role, dict) and "part" in role and role["part"] not in databases:
+            out.append(f"{label}: roles[{_item_label(role, i)}].part: {role['part']} is not a "
+                       f"declared database part ({', '.join(databases)})")
+    return out
+
+
+def _find_catalog_unit(kind, uid, catalog_root):
+    """(data or None, problem or None, missing items) of a purpose or domain,
+    looked up in the catalog only (W1 item 0)."""
+    folder = "purposes" if kind == "purpose" else "domains"
+    if not (isinstance(uid, str) and PURPOSE_ID_RE.match(uid)):
+        return None, f"{uid!r} is not a {kind} id ([a-z][a-z0-9-]*)", []
+    directory = Path(catalog_root) / folder / uid
+    if not (directory / f"{kind}.yaml").is_file():
+        return None, f"{kind} {uid} not found (looked in {folder}/{uid}/ of the catalog)", []
+    if kind == "purpose":
+        missing = check_purpose_dir(directory, Path(catalog_root), catalog_root)
+    else:
+        missing = check_domain_dir(directory, Path(catalog_root))
+    if any("cannot be read" in m for m in missing):
+        return None, None, missing
+    data = yaml.safe_load((directory / f"{kind}.yaml").read_text(encoding="utf-8"))
+    return (data if isinstance(data, dict) else None), None, missing
+
+
+def _check_domain(data, catalog_root, out):
+    """domain: names a domain of the catalog, which loads (master spec 6.1)."""
+    if "domain" not in data or data["domain"] is None:
+        return
+    _, problem, missing = _find_catalog_unit("domain", data["domain"], catalog_root)
+    out.extend(m for m in missing if m not in out)
+    if problem:
+        out.append(f"scenario.yaml: domain: {problem}")
+
+
+def _check_purposes(data, by_name, creates, sdir, catalog_root, out):
+    """purposes: each a purpose of the catalog, its parts mapped exactly, to
+    nodes of the right role and locations, and every job of the purpose on
+    the runner node (master spec 6.1, 6.9; W1 item 1)."""
+    label = "scenario.yaml"
+    entries = data.get("purposes")
+    seen = []
+    for i, entry in enumerate(entries if isinstance(entries, list) else []):
+        if not isinstance(entry, dict):
+            continue
+        pid = entry.get("id")
+        p = f"{label}: purposes[{_item_label(entry, i)}]"
+        if pid in seen:
+            out.append(f"{p}: purpose {pid} listed more than once")
+            continue
+        seen.append(pid)
+        purpose, problem, missing = _find_catalog_unit("purpose", pid, catalog_root)
+        out.extend(m for m in missing if m not in out)
+        if problem:
+            out.append(f"{p}.id: {problem}")
+        if purpose is None:
+            continue
+        declared = [k for k in _dict(purpose.get("parts")) if k in PURPOSE_PARTS]
+        parts = entry.get("parts")
+        if not isinstance(parts, dict):
+            continue                         # reported against the template
+        for part in declared:
+            if part not in parts:
+                out.append(f"{p}.parts.{part}: missing (purpose {pid} declares it)")
+        for part, value in parts.items():
+            if part not in declared:
+                out.append(f"{p}.parts.{part}: not a part purpose {pid} declares "
+                           f"({', '.join(declared)})")
+            elif part in DATABASE_PARTS:
+                problem = _location_problem(value, by_name, creates)
+                if problem:
+                    out.append(f"{p}.parts.{part}: {problem}")
+            elif value not in by_name:
+                out.append(f"{p}.parts.{part}: {value} is not a node")
+            elif by_name[value].get("role") != PART_ROLES[part]:
+                out.append(f"{p}.parts.{part}: {value} is not a node of role {PART_ROLES[part]} "
+                           f"(its role is {by_name[value].get('role')})")
+        runner = by_name.get(parts.get("runner"))
+        if runner is not None and runner.get("role") == PART_ROLES["runner"]:
+            _check_purpose_jobs(purpose, pid, runner, sdir, f"{p}.parts.runner", out)
+
+
+def _check_purpose_jobs(purpose, pid, runner, sdir, p, out):
+    """Every job of the purpose has an entry of that name and key in the
+    runner's jobs.yaml (its key in queries.yaml: the jobs' own check)."""
+    rel, path = _seed_path(runner, sdir, "jobs.yaml")
+    name = runner.get("name")
+    if path is None:
+        out.append(f"{p}: {name} seeds no jobs.yaml to run purpose {pid}'s jobs")
+        return
+    try:
+        content = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (yaml.YAMLError, UnicodeDecodeError):
+        return                               # reported with the scheduler's files
+    jobs = {j.get("name"): j for j in _dict(content).get("jobs") or []
+            if isinstance(j, dict)} if isinstance(_dict(content).get("jobs"), list) else {}
+    for job in purpose.get("jobs") or []:
+        if not isinstance(job, dict):
+            continue
+        jname, key = job.get("name"), job.get("key")
+        if jname not in jobs:
+            out.append(f"{p}: {name}'s jobs.yaml ({rel}) has no job {jname} (a job of purpose "
+                       f"{pid})")
+        elif jobs[jname].get("key") != key:
+            out.append(f"{p}: {name}'s jobs.yaml ({rel}): job {jname} has key "
+                       f"{jobs[jname].get('key')}, but purpose {pid}'s job {jname} has key {key}")
+
+
+def _check_governance(data, nodes, by_name, creates, sdir, out):
+    """governance: its files, its classes both ways, their locations,
+    readers and outbound flows (master spec 6.1, 6.9, 11.3, 11.4; W1 item
+    1); and the bastion's data-policy.md mapped to its policy, none without
+    governance: (spec D223)."""
+    label = "scenario.yaml"
+    gov = data.get("governance")
+    policy = _dict(gov).get("policy")
+    for node in nodes:
+        if node.get("role") != "bastion":
+            continue
+        mapped = _dict(node.get("seed_files")).get(POLICY_SEED_FILE)
+        p = f"{label}: nodes[{node.get('name')}].seed_files.{POLICY_SEED_FILE}"
+        if not isinstance(gov, dict):
+            if POLICY_SEED_FILE in _dict(node.get("seed_files")):
+                out.append(f"{p}: a scenario without governance: hands the players no data "
+                           "policy, so its bastion maps none (spec D223)")
+        elif mapped is None:
+            out.append(f"{p}: missing (a scenario with governance: maps the bastion's "
+                       f"{POLICY_SEED_FILE} to governance.policy {policy}; spec D223)")
+        elif isinstance(policy, str) and mapped != policy:
+            out.append(f"{p}: {mapped}, not governance.policy {policy} (spec D223)")
+    if not isinstance(gov, dict):
+        return
+    used = None
+    for key in ("policy", "classification"):
+        rel = gov.get(key)
+        if not isinstance(rel, str):
+            continue                         # reported against the template
+        path = _inside(sdir, rel)
+        if path is None or not path.is_file():
+            out.append(f"{rel}: missing file ({label} governance.{key})")
+        elif key == "classification":
+            used = check_classification(path, rel, out)
+    classes = gov.get("classes")
+    if not isinstance(classes, dict):
+        return                               # reported against the template
+    for cls in sorted(used or ()):
+        if cls != UNRESTRICTED_CLASS and cls not in classes:
+            out.append(f"{label}: governance.classes: no entry for class {cls}, which "
+                       f"{gov['classification']} uses (master spec 6.1)")
+    roles = set().union(*(c.roles for c in creates.values())) if creates else set()
+    for cls, rules in classes.items():
+        p = f"{label}: governance.classes.{cls}"
+        if cls not in CLASSES:
+            out.append(f"{p}: {cls} is not a class ({', '.join(CLASSES)}; master spec 11.2)")
+        if not isinstance(rules, dict):
+            continue                         # reported against the template
+        _check_class_rules(rules, p, by_name, creates, roles, out)
+
+
+def _check_class_rules(rules, p, by_name, creates, roles, out):
+    locations = rules.get("locations")
+    unrestricted = locations == "any"
+    if unrestricted:
+        for key in ("readers", "outbound"):
+            if key in rules:
+                out.append(f"{p}.{key}: refused with locations: any (the class is not "
+                           "restricted)")
+    elif isinstance(locations, list) and locations:
+        for value in locations:
+            problem = _location_problem(value, by_name, creates)
+            if problem:
+                out.append(f"{p}.locations: {problem}")
+        if "readers" not in rules:
+            out.append(f"{p}.readers: missing (required unless locations is any; may be [])")
+    elif "locations" in rules and locations is not None and locations != []:
+        out.append(f"{p}.locations: {locations!r} is not a non-empty list of locations "
+                   "<node>/<database> or the word any")
+    if "separation" in rules and rules["separation"] != "instance":
+        out.append(f"{p}.separation: {rules['separation']!r} is not instance (the only "
+                   "separation; master spec 11.4)")
+    readers = rules.get("readers")
+    if "readers" in rules and not isinstance(readers, list):
+        out.append(f"{p}.readers: not a list of roles")
+    for role in readers if isinstance(readers, list) and not unrestricted else []:
+        if role in RESERVED_DB_ROLES:
+            out.append(f"{p}.readers: {role} is one of the game's own roles, never a reader")
+        elif role not in roles:
+            out.append(f"{p}.readers: {role} is not a role a data file of the scenario creates "
+                       f"(CREATE ROLE {role})")
+    outbound = rules.get("outbound")
+    if "outbound" in rules and not isinstance(outbound, list):
+        out.append(f"{p}.outbound: not a list of flows")
+    labels = []
+    for i, flow in enumerate(outbound if isinstance(outbound, list) and not unrestricted
+                             else []):
+        if not isinstance(flow, dict):
+            continue
+        to = flow.get("to")
+        fp = f"{p}.outbound[{to if isinstance(to, str) else i}]"
+        if "to" in flow and not (isinstance(to, str) and RECEIVER_LABEL_RE.match(to)):
+            out.append(f"{fp}.to: {to!r} is not a receiver's label ([a-z][a-z0-9-]*)")
+        elif to in labels:
+            out.append(f"{fp}.to: {to} receives the class more than once")
+        labels.append(to)
+        outbox = flow.get("outbox")
+        if "outbox" in flow:
+            location, sep, table = outbox.rpartition("/") if isinstance(outbox, str) \
+                else ("", "", "")
+            problem = None if sep and SQL_NAME_RE.match(table) and "/" in location \
+                else f"{outbox!r} is not <node>/<database>/<table>"
+            problem = problem or _location_problem(location, by_name, creates)
+            if problem:
+                out.append(f"{fp}.outbox: {problem}")
+
+
+def _check_crontabs(nodes, creates, sdir, out):
+    """A seeded crontab and its crontab_roles (master spec 6.1, 7.2; W1
+    items 0, 1 and 8): crontab_roles exactly on a node seeding a crontab,
+    each a customer role the node's own data file creates; each entry's
+    times in the cron subset render can shift, no @ form."""
+    label = "scenario.yaml"
+    for node in nodes:
+        name = node.get("name")
+        p = f"{label}: nodes[{name}].crontab_roles"
+        seeds = "crontab" in _dict(node.get("seed_files"))
+        if "crontab_roles" in node and not seeds:
+            out.append(f"{p}: the node seeds no crontab (no crontab in its seed_files), so it "
+                       "names no crontab role (master spec 6.1)")
+        elif seeds and "crontab_roles" not in node:
+            out.append(f"{p}: missing (the node seeds a crontab: the customer roles it connects "
+                       "as, may be []; master spec 6.1, 7.2)")
+        roles = node.get("crontab_roles")
+        if "crontab_roles" in node and not isinstance(roles, list):
+            out.append(f"{p}: not a list of roles")
+        created = creates.get(name)
+        seen = []
+        for role in roles if isinstance(roles, list) and seeds else []:
+            if not (isinstance(role, str) and DB_ROLE_RE.match(role)):
+                out.append(f"{p}: {role!r} is not a role name ([a-z_][a-z0-9_]{{0,40}})")
+                continue
+            if role in seen:
+                out.append(f"{p}: {role} listed more than once")
+            seen.append(role)
+            if role in RESERVED_DB_ROLES or role.startswith("pg_"):
+                out.append(f"{p}: {role} is reserved ({', '.join(RESERVED_DB_ROLES)}, pg_*); a "
+                           "crontab connects as a customer role")
+            elif created is None or role not in created.roles:
+                where = f"its data file ({created.file})" if created else "it has no data file"
+                out.append(f"{p}: {role} is not a role node {name}'s own data file creates "
+                           f"({where}; CREATE ROLE {role})")
+        rel, path = _seed_path(node, sdir, "crontab")
+        if path is not None:
+            _check_crontab_entries(rel, path, out)
+
+
+def _check_crontab_entries(rel, path, out):
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        out.append(f"{rel}: cannot be read: {exc}")
+        return
+    for number, line in enumerate(text.splitlines(), 1):
+        entry = line.strip()
+        if not entry or entry.startswith("#") or re.match(r"[A-Za-z_][A-Za-z0-9_]*\s*=", entry):
+            continue                         # blank, comment, environment setting
+        if entry.startswith("@"):
+            out.append(f"{rel}: line {number}: {entry.split()[0]}: no @ form in a crontab; five "
+                       "time fields render can shift (v0.4 capture W1 item 0)")
+            continue
+        fields = entry.split(None, 5)
+        if len(fields) < 6:
+            out.append(f"{rel}: line {number}: not a crontab entry (five time fields, then the "
+                       "command)")
+            continue
+        problem = _cron_problem(" ".join(fields[:5]))
+        if problem:
+            out.append(f"{rel}: line {number}: {problem}")
+
+
+def _conf_text_value(value):
+    """A postgresql.conf value without its quotes."""
+    value = (value or "").strip()
+    if len(value) >= 2 and value[0] == value[-1] == "'":
+        value = value[1:-1].replace("''", "'")
+    return value
+
+
+def _check_pg_cron(nodes, creates, sdir, out):
+    """A data file creating pg_cron belongs to a node whose seed
+    postgresql.conf preloads it, and cron.database_name names a database
+    that data file creates (master spec 7.2; W1 item 0)."""
+    for node in nodes:
+        name = node.get("name")
+        created = creates.get(name)
+        if created is None or not created.pg_cron:
+            continue
+        rel, path = _seed_path(node, sdir, "postgresql.conf")
+        if path is None:
+            out.append(f"{created.file}: creates the extension pg_cron, but node {name} seeds no "
+                       "postgresql.conf to preload it (master spec 7.2)")
+            continue
+        settings = read_conf_settings(path.read_text(encoding="utf-8"))
+        preload = [lib.strip() for lib in
+                   _conf_text_value(settings.get("shared_preload_libraries")).split(",")]
+        if "pg_cron" not in preload:
+            out.append(f"{created.file}: creates the extension pg_cron, but node {name}'s seed "
+                       f"postgresql.conf ({rel}) does not preload it (shared_preload_libraries; "
+                       "master spec 7.2)")
+        database = _conf_text_value(settings.get("cron.database_name"))
+        if "cron.database_name" not in settings:
+            out.append(f"{rel}: cron.database_name: missing (node {name}'s data file creates "
+                       "pg_cron; it names a database that data file creates, master spec 7.2)")
+        elif database not in created.databases:
+            out.append(f"{rel}: cron.database_name: {database} is not a database node {name}'s "
+                       f"data file ({created.file}) creates (master spec 7.2)")
+
+
+def _check_v04(data, nodes, creates, sdir, catalog_root, out):
+    """v0.4's scenario keys: domain:, purposes:, governance:, crontab_roles,
+    and a data file's pg_cron."""
+    by_name = {n.get("name"): n for n in nodes}
+    _check_domain(data, catalog_root, out)
+    _check_purposes(data, by_name, creates, sdir, catalog_root, out)
+    _check_governance(data, nodes, by_name, creates, sdir, out)
+    _check_crontabs(nodes, creates, sdir, out)
+    _check_pg_cron(nodes, creates, sdir, out)
+
+
 # --- The scheduler's files (master spec 7.1; capture W1 of v0.3, item 7) ---
 
 SCHEDULER_FILES = ("queries.yaml", "schedule.yaml", "jobs.yaml")
@@ -2146,6 +2894,8 @@ RESERVED_DB_ROLES = ("postgres", "dba", "monitoring", "gm_check", "pgbouncer_loo
 RATE_RE = re.compile(r"^([0-9]+(?:\.[0-9]+)?)/(s|min|h)$")
 ARRIVALS = ("poisson", "even")
 BUILDER_RE = re.compile(r"^builders/([A-Za-z0-9_][A-Za-z0-9_.-]*):([A-Za-z_][A-Za-z0-9_]*)$")
+SCRIPT_RE = re.compile(r"^scripts/([A-Za-z0-9_][A-Za-z0-9_.-]*):([A-Za-z_][A-Za-z0-9_]*)$")
+SCRIPT_CONNECTION_RE = re.compile(r"^[a-z][a-z0-9_]*$")   # a script's connection names (W1 item 7)
 WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 HOURS_RE = re.compile(r"^([0-9]{2})(?:-([0-9]{2}))?$")
 DAYS_RE = re.compile(r"^([a-z]{3})(?:-([a-z]{3}))?$")
@@ -2154,7 +2904,7 @@ CONNECTION_KEYS = ("driver", "target", "role", "pool")
 STREAM_KEYS = ("key", "connection", "rate", "arrivals", "shape", "concurrency")
 CHANGE_KEYS = ("at", "stream", "set")
 SET_KEYS = ("key", "rate", "connection")
-JOB_KEYS = ("name", "key", "connection", "at", "timezone_offset")
+JOB_KEYS = ("name", "key", "connection", "connections", "at", "timezone_offset")
 
 
 def _check_scheduler_files(data, nodes, faults, minimum, sdir, out):
@@ -2174,15 +2924,28 @@ def _check_scheduler_files(data, nodes, faults, minimum, sdir, out):
         folder = _inside(sdir, builders) if isinstance(builders, str) else None
         builders = (str(builders).rstrip("/"), folder) if folder is not None and folder.is_dir() \
             else None
+        scripts = _dict(node.get("seed_files")).get("scripts/")
+        folder = _inside(sdir, scripts) if isinstance(scripts, str) else None
+        scripts = (str(scripts).rstrip("/"), folder) if folder is not None and folder.is_dir() \
+            else None
         keys = None
+        script_keys = set()
         if loaded.get("queries.yaml", (None, None))[1] is not None:
-            keys = _check_queries(*loaded["queries.yaml"], builders, out)
+            keys = _check_queries(*loaded["queries.yaml"], builders, out, scripts)
+            script_keys = _script_keys(loaded["queries.yaml"][1])
         connections = None
         if loaded.get("schedule.yaml", (None, None))[1] is not None:
             connections = _check_schedule(*loaded["schedule.yaml"], keys, names, data, minimum,
-                                          out)
+                                          out, script_keys)
         if loaded.get("jobs.yaml", (None, None))[1] is not None:
-            _check_jobs(*loaded["jobs.yaml"], keys, connections, node, data, faults, out)
+            _check_jobs(*loaded["jobs.yaml"], keys, connections, node, data, faults, out,
+                        script_keys)
+
+
+def _script_keys(content):
+    """The keys of a repository's script entries (master spec 7.1)."""
+    queries = _dict(_dict(content).get("queries"))
+    return {k for k, v in queries.items() if isinstance(v, dict) and "script" in v}
 
 
 def _unknown_keys(value, allowed, p, what, out):
@@ -2201,8 +2964,10 @@ def _without_sql(value):
     return value
 
 
-def _check_queries(rel, content, builders, out):
-    """The query repository; returns its keys, or None when unusable."""
+def _check_queries(rel, content, builders, out, scripts=None):
+    """The query repository; returns its keys, or None when unusable.
+    `builders` and `scripts`: (shown path, folder) of the node's seed
+    folders, or None."""
     check_against_schema(content, template_schema("queries.yaml"), rel, out=out)
     placeholders(_without_sql(content), rel, out=out)
     queries = _dict(content).get("queries")
@@ -2221,6 +2986,8 @@ def _check_queries(rel, content, builders, out):
                 _check_query(item, f"{p}[{i}]", ("sql", "params", "transaction", "weight"), out)
         elif isinstance(value, dict) and "builder" in value:
             _check_builder(value, p, builders, out)
+        elif isinstance(value, dict) and "script" in value:
+            _check_builder(value, p, scripts, out, kind="script")
         elif isinstance(value, dict) and "steps" in value:
             _unknown_keys(value, ("steps", "transaction"), p, "a sequence", out)
             steps = value["steps"]
@@ -2233,8 +3000,8 @@ def _check_queries(rel, content, builders, out):
         elif isinstance(value, dict) and "sql" in value:
             _check_query(value, p, ("sql", "params", "transaction"), out)
         else:
-            out.append(f"{p}: not a query (sql), a pool (a list of queries), a sequence (steps) "
-                       "or a builder (builder)")
+            out.append(f"{p}: not a query (sql), a pool (a list of queries), a sequence "
+                       "(steps), a builder (builder) or a script (script)")
     return set(queries)
 
 
@@ -2310,25 +3077,28 @@ def _check_transaction(transaction, p, out):
             out.append(f"{p}.hold: {exc}")
 
 
-def _check_builder(value, p, builders, out):
-    """builders/<file>:<function>: a file of the node's builders/ folder
-    defining the function at its top level."""
-    _unknown_keys(value, ("builder", "options"), p, "a builder", out)
+def _check_builder(value, p, folder_info, out, kind="builder"):
+    """builders/<file>:<function> (a builder) or scripts/<file>:<function>
+    (a transformer script, master spec 7.1): a file of the node's seed folder
+    of that name defining the function at its top level."""
+    folder_name = "builders" if kind == "builder" else "scripts"
+    _unknown_keys(value, (kind, "options"), p, f"a {kind}", out)
     if "options" in value and not isinstance(value["options"], dict):
         out.append(f"{p}.options: not a map")
-    ref = value.get("builder")
-    m = BUILDER_RE.match(ref) if isinstance(ref, str) else None
+    ref = value.get(kind)
+    m = (BUILDER_RE if kind == "builder" else SCRIPT_RE).match(ref) \
+        if isinstance(ref, str) else None
     if m is None:
-        out.append(f"{p}.builder: {ref!r} is not builders/<file>:<function>")
+        out.append(f"{p}.{kind}: {ref!r} is not {folder_name}/<file>:<function>")
         return
     fname, function = m.groups()
-    if builders is None:
-        out.append(f"{p}.builder: {ref}, but the node has no builders/ seed folder")
+    if folder_info is None:
+        out.append(f"{p}.{kind}: {ref}, but the node has no {folder_name}/ seed folder")
         return
-    rel, folder = builders
+    rel, folder = folder_info
     path = folder / fname
     if not path.is_file():
-        out.append(f"{p}.builder: {ref}: {rel}/{fname} does not exist")
+        out.append(f"{p}.{kind}: {ref}: {rel}/{fname} does not exist")
         return
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -2337,7 +3107,7 @@ def _check_builder(value, p, builders, out):
         return
     if not any(isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == function
                for n in tree.body):
-        out.append(f"{p}.builder: {ref}: {rel}/{fname} defines no function {function} at its "
+        out.append(f"{p}.{kind}: {ref}: {rel}/{fname} defines no function {function} at its "
                    "top level")
 
 
@@ -2347,7 +3117,7 @@ def _check_rate(rate, p, out):
         out.append(f"{p}: {rate!r} is not a rate (<number>/s, /min or /h, positive)")
 
 
-def _check_schedule(rel, content, keys, names, data, minimum, out):
+def _check_schedule(rel, content, keys, names, data, minimum, out, script_keys=()):
     """schedule.yaml in scenario time; returns its connection names, or None
     when unusable."""
     check_against_schema(content, template_schema("schedule.yaml"), rel, out=out)
@@ -2382,6 +3152,9 @@ def _check_schedule(rel, content, keys, names, data, minimum, out):
                        "initial key, unique on the node")
         initial.append(key)
         _check_key_ref(key, keys, f"{p}.key", out)
+        if key in script_keys:
+            out.append(f"{p}.key: {key} is a script key, which runs only as a job (jobs.yaml; "
+                       "master spec 7.1)")
         if "connection" in stream and stream["connection"] not in connections:
             out.append(f"{p}.connection: {stream['connection']} is not a connection of the "
                        "schedule")
@@ -2398,7 +3171,7 @@ def _check_schedule(rel, content, keys, names, data, minimum, out):
     for i, change in enumerate(timeline if isinstance(timeline, list) else []):
         if isinstance(change, dict):
             _check_change(change, f"{rel}: timeline[{i}]", keys, connections, initial, data,
-                          minimum, out)
+                          minimum, out, script_keys)
     return set(connections)
 
 
@@ -2503,7 +3276,7 @@ def _check_shape(shape, p, out):
               "a weekly shape covers mon to sun exactly once", out)
 
 
-def _check_change(change, p, keys, connections, streams, data, minimum, out):
+def _check_change(change, p, keys, connections, streams, data, minimum, out, script_keys=()):
     """A timeline change: before hand-over, no further before it than the
     aging minimum (master spec 7.1)."""
     _unknown_keys(change, CHANGE_KEYS, p, "a timeline change", out)
@@ -2523,11 +3296,54 @@ def _check_change(change, p, keys, connections, streams, data, minimum, out):
         return                               # reported against the template
     _unknown_keys(values, SET_KEYS, f"{p}.set", "a change", out)
     _check_key_ref(values.get("key"), keys, f"{p}.set.key", out)
+    if values.get("key") in script_keys:
+        out.append(f"{p}.set.key: {values['key']} is a script key, which runs only as a job (a "
+                   "timeline change would make it a stream's; master spec 7.1)")
     if "rate" in values:
         _check_rate(values["rate"], f"{p}.set.rate", out)
     if "connection" in values and values["connection"] not in connections:
         out.append(f"{p}.set.connection: {values['connection']} is not a connection of the "
                    "schedule")
+
+
+def _check_job_connections(job, p, keys, connections, script_keys, out):
+    """Exactly one of connection: (every job but a script key's) and
+    connections: (a script key's job: script name -> a connection of the
+    schedule); master spec 7.1, W1 item 7."""
+    key = job.get("key")
+    if keys is None or key not in keys:
+        if ("connection" in job) == ("connections" in job):
+            out.append(f"{p}: exactly one of connection: and connections: (connections: for a "
+                       "script key's job only)")
+    elif key in script_keys:
+        if "connection" in job:
+            out.append(f"{p}.connection: {key} is a script key, whose job names connections: "
+                       "instead (master spec 7.1)")
+        if "connections" not in job:
+            out.append(f"{p}.connections: missing (the job of script key {key} names each of "
+                       "the script's connections; master spec 7.1)")
+    else:
+        if "connections" in job:
+            out.append(f"{p}.connections: only a script key's job names connections: ({key} is "
+                       "not a script key); it names one connection:")
+        if "connection" not in job:
+            out.append(f"{p}.connection: missing (every job but a script key's names one "
+                       "connection of the schedule)")
+    if connections is not None and "connection" in job \
+            and job["connection"] not in connections:
+        out.append(f"{p}.connection: {job['connection']} is not a connection of the node's "
+                   "schedule.yaml")
+    conns = job.get("connections")
+    if "connections" in job and not (isinstance(conns, dict) and conns):
+        out.append(f"{p}.connections: not a non-empty map of the script's connection name -> a "
+                   "connection of the schedule")
+    for name, conn in conns.items() if isinstance(conns, dict) else ():
+        if not (isinstance(name, str) and SCRIPT_CONNECTION_RE.match(name)):
+            out.append(f"{p}.connections.{name}: {name!r} is not a script's connection name "
+                       "([a-z][a-z0-9_]*)")
+        if connections is not None and conn not in connections:
+            out.append(f"{p}.connections.{name}: {conn} is not a connection of the node's "
+                       "schedule.yaml")
 
 
 def _cron_values(field_text, lo, hi, steps):
@@ -2548,9 +3364,28 @@ def _cron_values(field_text, lo, hi, steps):
     return True
 
 
+def _cron_hour_ok(hour):
+    """An hour field render can shift (v0.4 capture W1 item 0, spec D219):
+    *, or a comma list of n, a-b (a <= b), */s or a-b/s (s >= 1), 0 to 23."""
+    if hour == "*":
+        return True
+    for item in hour.split(","):
+        m = re.fullmatch(r"(?:\*|([0-9]+)-([0-9]+))/([0-9]+)|([0-9]+)-([0-9]+)|([0-9]+)", item)
+        if m is None:
+            return False
+        a, b, step, c, d, n = m.groups()
+        if step is not None and int(step) < 1:
+            return False
+        lo, hi = (a, b) if a is not None else (c, d) if c is not None else (n, n)
+        if lo is not None and not 0 <= int(lo) <= int(hi) <= 23:
+            return False
+    return True
+
+
 def _cron_problem(at):
-    """Why a job's `at` is outside the cron subset render can shift (W1
-    item 7), or None."""
+    """Why a cron expression (a job's `at`, a crontab entry's times, a
+    purpose job's cadence) is outside the subset render can shift (v0.3
+    capture W1 item 7, widened by v0.4's item 0), or None."""
     if not isinstance(at, str):
         return f"{at!r} is not a quoted cron expression"
     fields = at.split()
@@ -2560,8 +3395,9 @@ def _cron_problem(at):
     if not _cron_values(minute, 0, 59, True):
         return (f"{at!r}: minute {minute} is not a numeric cron form (*, 5, 0-30, */15, 1,31, "
                 "0-30/10) within 0-59")
-    if hour != "*" and not _cron_values(hour, 0, 23, False):
-        return f"{at!r}: hour {hour} is not *, a number or a list of numbers (0-23)"
+    if not _cron_hour_ok(hour):
+        return (f"{at!r}: hour {hour} is not *, or a comma list of n, a-b, */s or a-b/s within "
+                "0-23 (a <= b, never wrapping; s >= 1)")
     if dom != "*" or month != "*":
         return f"{at!r}: day of month and month are * (render shifts the hour only)"
     if dow != "*":
@@ -2572,7 +3408,7 @@ def _cron_problem(at):
     return None
 
 
-def _check_jobs(rel, content, keys, connections, node, data, faults, out):
+def _check_jobs(rel, content, keys, connections, node, data, faults, out, script_keys=()):
     """jobs.yaml in scenario time: no timezone:, a timezone_offset only where
     a fault instance's seed change edits jobs.yaml (spec D168)."""
     check_against_schema(content, template_schema("jobs.yaml"), rel, out=out)
@@ -2600,10 +3436,7 @@ def _check_jobs(rel, content, keys, connections, node, data, faults, out):
             out.append(f"{p}: duplicate job name")
         seen.add(job.get("name"))
         _check_key_ref(job.get("key"), keys, f"{p}.key", out)
-        if connections is not None and "connection" in job \
-                and job["connection"] not in connections:
-            out.append(f"{p}.connection: {job['connection']} is not a connection of the node's "
-                       "schedule.yaml")
+        _check_job_connections(job, p, keys, connections, script_keys, out)
         if "at" in job:
             problem = _cron_problem(job["at"])
             if problem:

@@ -1,0 +1,5 @@
+# The test domain's producer repository, a fragment.
+queries:
+  customers.lookup:
+    sql: SELECT * FROM customers WHERE id = %(id)s
+    params: {id: {int: [1, 10]}}

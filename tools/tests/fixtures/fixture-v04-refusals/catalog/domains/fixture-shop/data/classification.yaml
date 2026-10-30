@@ -1,0 +1,5 @@
+# The test domain's classification (tools/tests, v0.4 chunk 2).
+columns:
+  shop.customers.id: personal
+  shop.customers.name: personal
+  shop.customers.email: personal

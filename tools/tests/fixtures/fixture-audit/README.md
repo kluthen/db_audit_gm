@@ -59,17 +59,18 @@ The story as the players read it: `player/story.md`.
 
 | Node | Brick | Role | Stateful | Networks | Write policy |
 |---|---|---|---|---|---|
-| `bastion` | `bastion` 0.3.0 | bastion | yes | backend | report-only |
-| `db` | `postgres` 0.3.0 | database | yes | backend | fixable |
+| `bastion` | `bastion` 0.4.0 | bastion | yes | backend | report-only |
+| `db` | `postgres` 0.4.0 | database | yes | backend | fixable |
 
 #### Node `bastion`
 
-- **Brick**: `bastion`, version 0.3.0 (pinned).
+- **Brick**: `bastion`, version 0.4.0 (pinned).
 - **Role**: bastion. **Stateful**: yes. **Write policy**:
   report-only.
 - **Networks**: backend.
 - **Parameters**: none.
-- **Published ports**: 22 (default host port 2222).
+- **Published ports**: 22 (default host port 2222), 8080 (default host port
+  8080).
 - **Seed files**: `README.md` → `player/README.md`; `story.md` →
   `player/story.md`; `issues.md` → `player/issues.md`.
 
@@ -86,7 +87,7 @@ No knobs.
 
 #### Node `db`
 
-- **Brick**: `postgres`, version 0.3.0 (pinned).
+- **Brick**: `postgres`, version 0.4.0 (pinned).
 - **Role**: database. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.

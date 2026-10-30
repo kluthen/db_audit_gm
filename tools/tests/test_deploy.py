@@ -195,7 +195,7 @@ class TestDeploy(RenderedGame):
 
     def test_missing_image_is_refused(self):
         fake = FakeDocker(images=False)
-        with self.assertRaisesRegex(GmError, "127.0.0.1:5000/dbagm/postgres:0.3.0"):
+        with self.assertRaisesRegex(GmError, "127.0.0.1:5000/dbagm/postgres:0.4.0"):
             self.deploy(fake)
         self.assertFalse(fake.called("stack", "deploy"))
         self.assertEqual(localimpl.read_state(self.ldir)["stage"], "rendered")
@@ -337,7 +337,8 @@ class TestSecretsByKind(ScenarioCopyTest):
             "    player_ssh_key: private key of pair player_ssh_key",
             "    player_ssh_key.pub: public key of pair player_ssh_key",
             "    dba_password: password",
-            # no web front in fixture-audit: no tools-password line (RG-3, D103)
+            # the web front runs in fixture-audit too (v0.4, D224): its line
+            "    tools_password: password, handed over",
             "    backup_key: private key of pair backup_key",
             "    backup_key.pub: public key of pair backup_key",
             "    monitoring_password: password",
@@ -463,8 +464,8 @@ if __name__ == "__main__":
 
 # --- Several hosts (v0.3 capture W3, items 3 and 6; D173, D181) -------------
 
-POSTGRES = "127.0.0.1:5000/dbagm/postgres:0.3.0"
-BASTION = "127.0.0.1:5000/dbagm/bastion:0.3.0"
+POSTGRES = "127.0.0.1:5000/dbagm/postgres:0.4.0"
+BASTION = "127.0.0.1:5000/dbagm/bastion:0.4.0"
 
 
 class TestHostDockers(TwoHostScenario):

@@ -89,8 +89,8 @@ COLLECTORS=--collector.stat_statements
 
 | Key | Required | Value |
 |---|---|---|
-| `DATA_SOURCE_URI` | yes | `<db node>:5432/postgres?sslmode=disable`: host, port, database, options, without user or password. `sslmode=disable` because `postgres` 0.3.0 runs without SSL. |
-| `DATA_SOURCE_USER` | yes | `monitoring`, the role `postgres` 0.3.0 creates. |
+| `DATA_SOURCE_URI` | yes | `<db node>:5432/postgres?sslmode=disable`: host, port, database, options, without user or password. `sslmode=disable` because `postgres` 0.4.0 runs without SSL. |
+| `DATA_SOURCE_USER` | yes | `monitoring`, the role `postgres` 0.4.0 creates. |
 | `COLLECTORS` | no | space-separated `--collector.<name>` and `--no-collector.<name>` words, `<name>` one of the release's collectors (`/usr/local/lib/gm/exporter-collectors`). `--collector.stat_statements` turns the query statistics on; it is off by default. Absent or empty: the default collectors. |
 
 The file is not valid, and the service does not start, when it has an
@@ -501,7 +501,7 @@ series (unless a planted fault says otherwise); in Prometheus,
 
 `sh bricks/postgres-exporter/tests/run-stack-test.sh` deploys the brick as
 the stack `gmtest-pgexp` (`tests/stack.test.yml`, fixtures in
-`tests/fixtures/`, no published port) next to a `postgres` 0.3.0 node
+`tests/fixtures/`, no published port) next to a `postgres` 0.4.0 node
 `db` (its seed `postgresql.conf` from the postgres brick's fixtures, with
 the preload; a `pg_hba.conf` `host` line for `monitoring`), both reading
 the same `monitoring_password`, checks the chunk's Done-when and removes
@@ -516,7 +516,7 @@ update --env-add GM_WRITE_POLICY=report-only`: modes, denied edits, the
 wrapper's refusal, nothing restarted), then with the override
 `/etc/postgres-exporter` (the edit through the wrapper, the owner
 restored), and the entrypoint's two write-policy refusals. Needs a swarm
-manager, this image and the `postgres` 0.3.0 image (the `db` node and the
+manager, this image and the `postgres` 0.4.0 image (the `db` node and the
 test client) built.
 
 ## Known limits

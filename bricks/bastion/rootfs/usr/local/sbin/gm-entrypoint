@@ -10,16 +10,19 @@
 #   4. builds /run/gm/shadow (/etc/shadow points to it) with the hash of
 #      the per-game password;
 #   5. copies the starter pack from /opt/gm/starter into the player's home,
-#      once, never over an existing file;
+#      once, never over an existing file; an optional file the scenario
+#      does not provide (data-policy.md) is skipped;
 #   6. writes the player's ~/.ssh/id_ed25519 and ~/.pgpass from the secrets;
-#   7. with at least one route in GM_WEB_ROUTES, writes the web front's
-#      nginx configuration and password file under /run/web-front; with
-#      none, writes nothing, and the s6 service `web-front` stays down.
+#   7. writes the web front's nginx configuration, password file and page
+#      under /run/web-front, routes or none (spec D224): the page, the
+#      front's home, renders the starter pack from /opt/gm/starter and
+#      links to the web interfaces of GM_WEB_ROUTES when it has any.
 set -eu
 
 SECRETS_DIR=/opt/gm/secrets
 STARTER_DIR=/opt/gm/starter
-STARTER_FILES="README.md story.md issues.md"
+STARTER_FILES="README.md story.md issues.md"   # seed.files: required
+STARTER_OPTIONAL="data-policy.md"               # seed.optional: absent without governance:
 HOSTKEY_DIR=/var/lib/gm-sshd-keys
 SHADOW_BASE=/usr/local/lib/gm/shadow.base
 PLAYER_HOME=/home/player
@@ -100,9 +103,11 @@ for f in $STARTER_FILES; do
     [ -f "$STARTER_DIR/$f" ] || die "starter pack file $STARTER_DIR/$f is missing"
 done
 if [ ! -e "$PLAYER_HOME/.gm-starter-copied" ]; then
-    for f in $STARTER_FILES; do
+    for f in $STARTER_FILES $STARTER_OPTIONAL; do
         t=$PLAYER_HOME/$f
-        if [ -e "$t" ] || [ -L "$t" ]; then
+        if [ ! -f "$STARTER_DIR/$f" ]; then
+            log "starter pack: $f not provided by the scenario, skipped"
+        elif [ -e "$t" ] || [ -L "$t" ]; then
             log "starter pack: $t exists, left as it is"
         else
             install -o player -g player -m 0644 "$STARTER_DIR/$f" "$t"
@@ -127,14 +132,15 @@ printf '*:*:*:dba:%s\n' "$pw_pgpass" | put_file "$PLAYER_HOME/.pgpass" 0600
 unset dba_password pw_pgpass
 
 # --- 7. web front -----------------------------------------------------------
-# GM_WEB_ROUTES: the brick parameter web_routes as `name=node:port` tokens,
-# space-separated (capture W2-A). Route <name> is served at /<name>/ and
-# the path is forwarded unchanged: the upstream serves under its own
-# /<name>/. No token: nothing is written, so the s6 service `web-front`
-# marks itself down and exits, and nothing listens on the port (D103).
-# The front's own answers (the route list at /, the redirect of /<name>
-# to /<name>/, 404 elsewhere) are static files under $WEB_DIR/www, served
-# in nginx's content phase: a `return` would answer in the rewrite phase,
+# The front runs in every game (spec D224), routes or none: its home, /, is
+# the starter-pack page; its routes, when GM_WEB_ROUTES has any, publish
+# the web interfaces. GM_WEB_ROUTES: the brick parameter web_routes as
+# `name=node:port` tokens, space-separated (capture W2-A). Route <name> is
+# served at /<name>/ and the path is forwarded unchanged: the upstream
+# serves under its own /<name>/.
+# The front's own answers (the page at /, the redirect of /<name> to
+# /<name>/, 404 elsewhere) are static files under $WEB_DIR/www, served in
+# nginx's content phase: a `return` would answer in the rewrite phase,
 # before auth_basic in the access phase, so without the password.
 web_names=
 web_locations=
@@ -162,35 +168,108 @@ for token in ${GM_WEB_ROUTES:-}; do
 done
 set +f
 
-if [ -n "$web_names" ]; then
-    install -d -o root -g "$WEB_ACCOUNT" -m 0750 "$WEB_DIR"
-    install -d -o "$WEB_ACCOUNT" -g "$WEB_ACCOUNT" -m 0700 "$WEB_DIR/tmp"
-    # Password file: user `player`, SHA-512 crypt of the tools password,
-    # readable by nginx's account only.
-    tools_password=$(read_secret tools_password)
-    hash=$(printf '%s\n' "$tools_password" | openssl passwd -6 -stdin)
-    case $hash in '$6$'*) ;; *) die "could not hash the tools password" ;; esac
-    printf '%s:%s\n' "$WEB_USER" "$hash" > "$WEB_DIR/htpasswd"
-    chown root:"$WEB_ACCOUNT" "$WEB_DIR/htpasswd"
-    chmod 0440 "$WEB_DIR/htpasswd"
-    unset tools_password hash
-    # Static answers: www/index.txt (the route list), www/not-found.txt,
-    # and www/routes/<name>/, one empty directory per route, for which
-    # nginx's static module answers /<name> with a 301 to /<name>/.
-    install -d -o root -g "$WEB_ACCOUNT" -m 0750 "$WEB_DIR/www" "$WEB_DIR/www/routes"
-    {
-        printf 'Web interfaces of this game:\n'
-        for name in $web_names; do
-            printf '/%s/\n' "$name"
-            install -d -o root -g "$WEB_ACCOUNT" -m 0750 "$WEB_DIR/www/routes/$name"
-        done
-    } > "$WEB_DIR/www/index.txt"
-    printf 'No web interface at this path; see /\n' > "$WEB_DIR/www/not-found.txt"
-    chown root:"$WEB_ACCOUNT" "$WEB_DIR/www/index.txt" "$WEB_DIR/www/not-found.txt"
-    chmod 0440 "$WEB_DIR/www/index.txt" "$WEB_DIR/www/not-found.txt"
-    cat > "$WEB_DIR/nginx.conf" <<EOF
+install -d -o root -g "$WEB_ACCOUNT" -m 0750 "$WEB_DIR"
+install -d -o "$WEB_ACCOUNT" -g "$WEB_ACCOUNT" -m 0700 "$WEB_DIR/tmp"
+# Password file: user `player`, SHA-512 crypt of the tools password,
+# readable by nginx's account only.
+tools_password=$(read_secret tools_password)
+hash=$(printf '%s\n' "$tools_password" | openssl passwd -6 -stdin)
+case $hash in '$6$'*) ;; *) die "could not hash the tools password" ;; esac
+printf '%s:%s\n' "$WEB_USER" "$hash" > "$WEB_DIR/htpasswd"
+chown root:"$WEB_ACCOUNT" "$WEB_DIR/htpasswd"
+chmod 0440 "$WEB_DIR/htpasswd"
+unset tools_password hash
+# Static answers: www/index.html (the page), www/not-found.txt, and
+# www/routes/<name>/, one empty directory per route, for which nginx's
+# static module answers /<name> with a 301 to /<name>/.
+install -d -o root -g "$WEB_ACCOUNT" -m 0750 "$WEB_DIR/www" "$WEB_DIR/www/routes"
+for name in $web_names; do
+    install -d -o root -g "$WEB_ACCOUNT" -m 0750 "$WEB_DIR/www/routes/$name"
+done
+printf 'No web interface at this path; see /\n' > "$WEB_DIR/www/not-found.txt"
+
+# The page (spec D221, D222): the starter pack as handed over, from
+# $STARTER_DIR, never the players' copies in their home, rendered at each
+# start. Its elements, in page order, one line each:
+#   <kind> <id> <source> <title>
+# kind `markdown`: the starter-pack file <source>, rendered by cmark-gfm
+#   with the table extension; raw HTML is not passed through (its safe
+#   default: never --unsafe); present when the file is there;
+# kind `routes`: the links to the web interfaces; present when
+#   GM_WEB_ROUTES has a route.
+# An absent element leaves nothing: no section, no link to it. A later
+# element (a reporting tool) joins by a line here, a new kind by its own
+# branch in page_element.
+PAGE_ELEMENTS='markdown readme README.md README
+markdown story story.md Story
+markdown issues issues.md Issues
+markdown data-policy data-policy.md Data policy
+routes web-interfaces - Web interfaces'
+# page_element <kind> <id> <source> <title>: the element's section on
+# stdout; exit 1 when the element is absent.
+page_element() {
+    case $1 in
+        markdown)
+            [ -f "$STARTER_DIR/$3" ] || return 1
+            printf '<section id="%s">\n' "$2"
+            cmark-gfm -e table "$STARTER_DIR/$3" || die "could not render $STARTER_DIR/$3"
+            printf '</section>\n' ;;
+        routes)
+            [ -n "$web_names" ] || return 1
+            printf '<section id="%s">\n<h1>%s</h1>\n<ul>\n' "$2" "$4"
+            for name in $web_names; do
+                printf '<li><a href="/%s/">%s</a></li>\n' "$name" "$name"
+            done
+            printf '</ul>\n</section>\n' ;;
+        *) die "page element $2: unknown kind $1" ;;
+    esac
+}
+page_nav=
+: > /run/gm/page-sections.html
+while read -r kind id src title; do
+    if page_element "$kind" "$id" "$src" "$title" >> /run/gm/page-sections.html; then
+        page_nav="$page_nav<li><a href=\"#$id\">$title</a></li>
+"
+    fi
+done <<EOF
+$PAGE_ELEMENTS
+EOF
+{
+    cat <<EOF
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Starter pack</title>
+<style>
+body { max-width: 52rem; margin: 0 auto; padding: 0 1rem 2rem; font-family: sans-serif; line-height: 1.5; }
+section { border-top: 1px solid #ccc; margin-top: 2rem; }
+table { border-collapse: collapse; }
+th, td { border: 1px solid #ccc; padding: 0.2rem 0.5rem; text-align: left; vertical-align: top; }
+pre { overflow-x: auto; background: #f4f4f4; padding: 0.5rem; }
+</style>
+</head>
+<body>
+<header>
+<p>The game's starter pack, as handed over. Your own copies are in your home on the bastion.</p>
+<nav>
+<ul>
+${page_nav}</ul>
+</nav>
+</header>
+EOF
+    cat /run/gm/page-sections.html
+    printf '</body>\n</html>\n'
+} > "$WEB_DIR/www/index.html"
+rm -f /run/gm/page-sections.html
+chown root:"$WEB_ACCOUNT" "$WEB_DIR/www/index.html" "$WEB_DIR/www/not-found.txt"
+chmod 0440 "$WEB_DIR/www/index.html" "$WEB_DIR/www/not-found.txt"
+unset page_nav
+
+cat > "$WEB_DIR/nginx.conf" <<EOF
 # nginx configuration of the db_audit_gm web front (DO NOT TAMPER).
-# Written by gm-entrypoint at each start; routes:$web_names
+# Written by gm-entrypoint at each start; routes:${web_names:- none}
 worker_processes 1;
 pid $WEB_DIR/tmp/nginx.pid;
 error_log stderr error;
@@ -232,7 +311,10 @@ http {
         # auth_basic; a return directive would answer before it.
         location = / {
             root $WEB_DIR/www;
-            try_files /index.txt =404;
+            types { }
+            default_type text/html;
+            charset utf-8;
+            try_files /index.html =404;
         }
         location = /.gm-not-found {
             internal;
@@ -247,15 +329,12 @@ http {
     }
 }
 EOF
-    chown root:root "$WEB_DIR/nginx.conf"
-    chmod 0444 "$WEB_DIR/nginx.conf"
-    /command/s6-setuidgid "$WEB_ACCOUNT" /usr/sbin/nginx -q -t -e stderr \
-        -p "$WEB_DIR/" -c "$WEB_DIR/nginx.conf" \
-        || die "the web front's configuration does not load"
-    log "web front on port $WEB_PORT, routes:$web_names"
-else
-    log "web front: no route in GM_WEB_ROUTES, not started"
-fi
+chown root:root "$WEB_DIR/nginx.conf"
+chmod 0444 "$WEB_DIR/nginx.conf"
+/command/s6-setuidgid "$WEB_ACCOUNT" /usr/sbin/nginx -q -t -e stderr \
+    -p "$WEB_DIR/" -c "$WEB_DIR/nginx.conf" \
+    || die "the web front's configuration does not load"
+log "web front on port $WEB_PORT, routes:${web_names:- none}"
 unset web_names web_locations
 
 exec /init "$@"
