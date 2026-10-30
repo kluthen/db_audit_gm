@@ -882,3 +882,56 @@ entry point, after v1.0). Render and the hand-over code need nothing.
 Master spec, access model, formats.md v24, planes-and-access.md v18
 amended. Chunk 18 now rewrites the GM skill's "no front" lines. No new
 gate. Chunk 19 is dispatched at the first free slot under κ = 3.
+
+### Chunk 2 — merged (5767878), 2026-10-30
+
+2a adaa457 (merge 6e50d70, before 2b, D220), 2b 8630345 (merge 5767878).
+Unit suite 658 → 720 (2a) → 745 (2b), OK in the wave worktree. New
+fixture `tools/tests/fixtures/fixture-v04-refusals/` (scenario-local
+`postgres` 0.4.0, `scheduler` 0.2.0, `bastion` 0.4.0 — the catalog
+bastion has no `data-policy.md` until chunk 19 — and a test catalog root
+`catalog/` with purpose `fixture-sales-copy` and domain `fixture-shop`).
+`domains/shop/` loads in the suite (chunk 5's left-over item closed). No
+Docker used.
+
+**W1 addenda — choices chunk 2 made** (accepted):
+1. Loader fix: `_inline_comment` treats a quote as opening a string only
+   where a value starts (a placeholder with an apostrophe hid the
+   `# optional` comment); only `purpose.yaml` `parts.consumer` changed
+   (to optional) across every template's schema.
+2. Domain `producers/` accepts `queries.yaml`, `schedule.yaml`,
+   `jobs.yaml` and `builders/`, refuses anything else (`scripts/`
+   included); fragments' top-level keys checked; the queries fragment
+   gets the full repository check.
+3. Purposes: `gm.md` required; `material/` unchecked; an invariant's
+   `check` a file under `checks/`; `data_moved` one entry per job;
+   `run_column` only with `table`; a trace `file` absolute;
+   `jobs[].connections` values unchecked.
+4. Governance: a reader a role any data file of the scenario creates;
+   the game's own roles refused as readers by name; `outbox`
+   `<node>/<database>/<table>`, table unqualified; `separation` only
+   `instance`.
+5. Locations: node part per the node-name rule; database
+   `[a-z_][a-z0-9_]*`.
+6. Data files: quoted or mixed-case names not counted; only statements
+   starting a line (W1 item 0).
+7. Faults: `check_fault_dir(…, catalog_root=None)` checks
+   `applies_to.purposes` in the catalog; helper `model.fault_judges()`;
+   a seed-file fault changing an optional seed file the target node
+   doesn't seed is refused (generic).
+8. Jobs: a job with an unknown key or unreadable repository must have
+   exactly one of `connection:` and `connections:`.
+9. Cron subset: hour items `n`, `a-b`, `*/s`, `a-b/s`; `*` only alone;
+   `n/s` refused. Crontab: blank, comment and `NAME=value` lines skipped;
+   an entry is five time fields and a command.
+10. `pg_cron`: created without `cron.database_name` refused; preloaded
+    without being created loads (a fault may remove the preload).
+11. The query entry-forms error ends "…, a builder (builder) or a script
+    (script)".
+12. Test helper `RefusalAsserts` gains `catalog_root` and `load()`.
+
+Left for the wave gate: the loader does not check a governance
+scenario's `host all gm_check samenet scram-sha-256` line (W1 gives it
+to the format skill). **Gate note**: `py_compile` inside a seed folder
+(`scripts/`, `builders/`) leaves a `__pycache__` the loader refuses; the
+gate compiles with `PYTHONDONTWRITEBYTECODE=1`.
