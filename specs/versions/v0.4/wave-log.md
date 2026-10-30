@@ -666,3 +666,43 @@ passwords, the baseline entry and its log file.
    before chunk 1a merges, so the re-pins happen once. Meanwhile chunks
    1b and 2a treat `governance.policy` as a file of the scenario that
    must exist, which both answers keep.
+
+### G5 — dependency preflight on `postgres` 0.4.0's packages (security-advisor, 2026-10-30)
+
+**Clear, with conditions; nothing for the owner.** Checked in throwaway
+`debian:13-slim` containers with the Dockerfile's PGDG line (none left).
+
+- `postgresql-18-cron`: candidate `1.6.8-1.pgdg13+2` (PGDG still serves
+  1.6.7). **Install 1.6.8, pinned exactly** (ARG `PG_CRON_PACKAGE=1.6.8-1.pgdg13+2`
+  plus a `dpkg-query` build assertion, the pgbouncer precedent D177):
+  1.6.8 carries citusdata/pg_cron PR #425 (no CVE), which stops
+  `cron.unschedule` matching a job's owner case-insensitively. No advisory
+  in NVD (no CPE), OSV, GitHub or the Debian tracker.
+- Debian `cron` `3.0pl1-197` (trixie/main, no update): **unpinned**, as
+  `openssh-server` and `sudo` are. Pulls in only `cron-daemon-common`;
+  `systemd` is already there through `openssh-server`; no MTA without
+  recommends. No open advisory (CVE-2024-43688 fixed in 3.0pl1-197; NVD's
+  CVE-2019-9706 hit on "3.0" is a false positive, fixed in 3.0pl1-133).
+- Both packages go in the **second** `apt-get install` (the PGDG one),
+  so the `postgres` 100:102 assertion still holds. New group `crontab`
+  (gid 997); `/usr/bin/crontab` setgid `root:crontab`; spool
+  `/var/spool/cron/crontabs` `root:crontab` 1730, each crontab
+  `postgres:crontab` 0600 (cron skips a crontab with another owner or mode:
+  `cronspool` must keep them).
+- Build notes passed to chunk 4: Debian's `/etc/crontab` runs
+  `/etc/cron.daily/{apt-compat,dpkg}` as root (the leader may remove
+  them so cron reads only `postgres`'s spool); `/etc/pam.d/cron` requires
+  `pam_loginuid.so`, the usual cause of a PAM session error in
+  containers; no `/etc/cron.allow`, so every user may run `crontab`
+  (accepted, D211).
+- `.tech` unchanged; G6 records pg_cron 1.6.8 and cron 3.0pl1-197 (no
+  CPE) and `postgres 0.4.0` after chunk 4 merges.
+
+G5 **done (2026-10-30)**.
+
+### W1 reviewed by the driver, 2026-10-30
+
+The capture's 32 **(choice)** points are accepted as drafted. Its four
+preflight corrections go to `spec-writer` before chunk 1's branch is cut
+(chunk 5 is cut at once: none touches it); its question goes to the owner
+before chunk 1a merges.
