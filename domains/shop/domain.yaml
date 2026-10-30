@@ -1,0 +1,13 @@
+# The shop domain (master spec 6.8, 9; capture W1, item 6): Tarnbeck
+# Outdoor's web shop, derived from tarnbeck-outdoor-shop's data file and
+# producer. A design-time source: the GM copies these files into a
+# scenario, adapting them, and the scenario's domain: names it.
+id: shop
+title: An outdoor-gear web shop selling across Europe and beyond (Tarnbeck Outdoor)
+schema: data/schema.sql
+load: data/load.sql
+classification: data/classification.yaml
+producers: producers/
+notes: docs/gm.md
+purposes: [shop-sales-reporting, shop-winback-leads, shop-customer-mailing,
+           shop-export-declarations]
