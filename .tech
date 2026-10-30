@@ -6,18 +6,20 @@
 # images 127.0.0.1:5000/dbagm/<brick>:<version>) on debian:13-slim, plus the
 # GM's host tool (tools/gmctl, Debian's python3 and python3-yaml). Versions
 # below are those in the images built from this branch (dpkg-query inside
-# each image, 2026-10-26); Debian package versions carry backported fixes,
+# each image, 2026-10-26; postgres 0.4.0, bastion 0.4.0 and scheduler 0.2.0
+# re-checked 2026-10-30); Debian package versions carry backported fixes,
 # so an NVD match on one is settled by the Debian security tracker.
 schema = 1
-updated = 2026-10-26
+updated = 2026-10-30
 
 [stack]
 languages = ["Python 3.13", "POSIX shell"]
-runtime = ["Docker Engine 29 (swarm mode)", "s6-overlay 3.2"]
+runtime = ["Docker Engine 29 (swarm mode)", "s6-overlay 3.2", "cron 3.0pl1 (Debian, postgres brick)"]
 base_image = ["debian:13-slim (Debian 13.7 trixie)"]
-data = ["PostgreSQL 18 (PGDG)", "PgBouncer 1.26 (PGDG)"]
+data = ["PostgreSQL 18 (PGDG)", "pg_cron 1.6 (PGDG)", "PgBouncer 1.26 (PGDG)"]
 monitoring = ["Prometheus 3.13", "postgres_exporter 0.20", "Grafana 13.2"]
-bricks = ["postgres 0.3.0", "bastion 0.3.0", "prometheus 0.2.0", "postgres-exporter 0.2.0", "grafana 0.2.0", "scheduler 0.1.0", "pgbouncer 0.1.0"]
+bricks = ["postgres 0.4.0", "bastion 0.4.0", "prometheus 0.2.0", "postgres-exporter 0.2.0", "grafana 0.2.0", "scheduler 0.2.0", "pgbouncer 0.1.0"]
+rendering = ["cmark-gfm 0.29 (Debian, bastion starter-pack page)"]
 lockfiles = []                 # none: the GM tool uses only Debian's python3-yaml
 
 # --- the game's host ----------------------------------------------------------
@@ -64,13 +66,13 @@ source = "Debian sudo 1.9.16p2-3+deb13u2, every brick but bastion (apt, unpinned
 name = "PostgreSQL (server and client tools)"
 version = "18.6"
 cpe = "cpe:2.3:a:postgresql:postgresql"
-source = "PGDG postgresql-18 / postgresql-client-18 / libpq5 18.6-1.pgdg13+2: postgres 0.3.0 (server), bastion 0.3.0 and pgbouncer 0.1.0 (client); Dockerfile pins the major (ARG PG_MAJOR=18), the minor follows PGDG at build time"
+source = "PGDG postgresql-18 / postgresql-client-18 / libpq5 18.6-1.pgdg13+2: postgres 0.4.0 (server), bastion 0.4.0 and pgbouncer 0.1.0 (client); Dockerfile pins the major (ARG PG_MAJOR=18), the minor follows PGDG at build time"
 
 [[platform]]
 name = "PostgreSQL client library (libpq, scheduler)"
 version = "17.11"
 cpe = "cpe:2.3:a:postgresql:postgresql"
-source = "Debian libpq5 17.11-0+deb13u1 in scheduler 0.1.0, pulled by python3-psycopg (apt, unpinned); library only, no server"
+source = "Debian libpq5 17.11-0+deb13u1 in scheduler 0.2.0, pulled by python3-psycopg (apt, unpinned); library only, no server"
 
 [[platform]]
 name = "PgBouncer"
@@ -82,7 +84,23 @@ source = "bricks/pgbouncer/Dockerfile ARG PGBOUNCER_PACKAGE=1.26.1-1.pgdg13+1 (P
 name = "nginx (bastion web front)"
 version = "1.26.3"
 cpe = "cpe:2.3:a:f5:nginx_open_source"
-source = "Debian nginx 1.26.3-3+deb13u10 in bastion 0.3.0 (apt, unpinned)"
+source = "Debian nginx 1.26.3-3+deb13u10 in bastion 0.4.0 (apt, unpinned)"
+
+[[platform]]
+name = "pg_cron (PostgreSQL extension, postgres brick)"
+version = "1.6.8"
+source = "bricks/postgres/Dockerfile ARG PG_CRON_PACKAGE=1.6.8-1.pgdg13+2 (PGDG postgresql-18-cron, pinned and asserted by dpkg-query at build; gate G5) in postgres 0.4.0. No CPE exists on NVD (checked 2026-10-30), no OSV ecosystem; watch github.com/citusdata/pg_cron (no repository advisory as of 2026-10-30) and the Debian tracker's pg-cron"
+
+[[platform]]
+name = "cron (Debian, postgres brick)"
+version = "3.0pl1-197"
+source = "Debian cron and cron-daemon-common 3.0pl1-197 in postgres 0.4.0 (apt, unpinned; gate G5). Debian's own Vixie cron fork, versioned by its Debian revision: no CPE fits (none for vixie cron on NVD, checked 2026-10-30; NVD's 3.0 hits such as CVE-2019-9706 are fixed in 3.0pl1-133). The Debian tracker's source package cron is the watch (no open issue in trixie as of 2026-10-30)"
+
+[[platform]]
+name = "cmark-gfm (bastion starter-pack page)"
+version = "0.29.0.gfm.13"
+cpe = "cpe:2.3:a:github:cmark-gfm"
+source = "Debian cmark-gfm, libcmark-gfm0.29.0.gfm.13 and libcmark-gfm-extensions0.29.0.gfm.13 0.29.0.gfm.13-4 in bastion 0.4.0 (apt, unpinned; gate G13), run at start-up as cmark-gfm -e table in safe mode (never --unsafe) on the GM's starter-pack files. Watch: upstream silent since 2023 (last release 0.29.0.gfm.13, July 2023); github/cmark-gfm took two commits since (2025-12 a cmake bump, 2026-09 PR #394 an undefined-behaviour fix in the autolink extension, no advisory, not enabled here) but no release, so a future fix may come only as a Debian patch"
 
 [[platform]]
 name = "Prometheus"
@@ -105,4 +123,4 @@ source = "bricks/grafana/Dockerfile ARG GRAFANA_VERSION, sha256-pinned release t
 name = "Python"
 version = "3.13.5"
 cpe = "cpe:2.3:a:python:python"
-source = "Debian python3.13 3.13.5-2+deb13u5: scheduler 0.1.0 (with python3-psycopg 3.2.6, python3-yaml 6.0.2) and the GM host's python3 running tools/gmctl (apt, unpinned)"
+source = "Debian python3.13 3.13.5-2+deb13u5: scheduler 0.2.0 (with python3-psycopg 3.2.6, python3-yaml 6.0.2) and the GM host's python3 running tools/gmctl (apt, unpinned)"
