@@ -1,6 +1,6 @@
 # v0.4 — the purpose catalogue
 
-Status: draft v2
+Status: draft v4
 
 The purposes v0.4 ships, each with its jobs, its trace and its
 invariants, stated against the shop's data model
@@ -15,7 +15,7 @@ Four purposes on the shop, of three kinds:
 
 | Purpose | Kind | Owner's words it serves | Source → target | Trace kinds |
 |---|---|---|---|---|
-| **P1 sales reporting** | pulled: published for readers | "BI settings (capturing daily information production…)", "computation of reports", "dashboards" | `shop` → `reporting`, through `postgres_fdw` | published results, run ledger, a dashboard's definition |
+| **P1 sales reporting** | pulled: published for readers | "BI settings (capturing daily information production…)", "computation of reports", "dashboards" | `shop` → `reporting`, another instance: a transformer script, and a stored procedure through `postgres_fdw` (D202) | published results, run ledger, a dashboard's definition |
 | **P2 win-back leads** | transformed in place | "…transforming it into leads" | `shop` → `shop` (`leads`) | published results, run ledger |
 | **P3 customer mailing** | pushed, no obligation | "mailing… How would we check duplicate sending, ill appropriate sending, were we truly doing this?" | `shop` → `shop` (`mail_outbox`) | outbox rows |
 | **P5 export declarations** | **pushed obligation** | "a really good not really consummer (it's on the output of the system, but need to be pushed…)" | `shop` → the customs gateway (a stub), acknowledged back | outbox rows, acknowledgements, triggers |
@@ -33,6 +33,10 @@ much data-model work again. P4 is held for v0.5 with the domains
 Four purposes is one more than D190's "two or three"; the owner chose
 four (D197).
 
+Only P1 moves data between instances (D202); P2, P3 and P5 read and
+write the shop's own database, plain SQL jobs on the `crm` runner, which
+need no script (proposed).
+
 No purpose here needs an engine beyond PostgreSQL at the project's sizes
 ("schemas simple, tables small"): O106 closed by D194.
 
@@ -41,12 +45,21 @@ No purpose here needs an engine beyond PostgreSQL at the project's sizes
 The back office's figures move out of the shop's database into a
 reporting database the BI agency runs.
 
-**Jobs** (runner `bi`, role `bi_etl` on `reporting`):
+**Jobs** (runner `bi`, a transformer node; D202, D203). The two jobs
+use two of D202's methods, as an agency's newer loader beside its older
+nightly procedure would (proposed):
 
-| Job | Cadence (scenario time) | What it computes |
-|---|---|---|
-| `rollup-hourly` | `5 * * * *` | Through foreign tables `src.orders`, `src.order_lines`, `src.products`: the orders changed since the watermark (`updated_at`), their hours and days recomputed in `rpt.sales_hourly` and `rpt.sales_daily` (delete and re-insert the affected hours, one transaction); the watermark moved; one `rpt.etl_runs` row |
-| `rollup-close` | `30 1 * * *` | Yesterday, in the customer's time zone, recomputed whole and marked `closed`; one `rpt.etl_runs` row |
+| Job | Cadence (scenario time) | Method | What it computes |
+|---|---|---|---|
+| `rollup-hourly` | `5 * * * *` | transformer script `scripts/rollup.py:hourly`, connections `source` (`shop` as `shop_etl`) and `target` (`reporting` as `bi_etl`) | the orders changed since the watermark (`updated_at`), read from the source; their hours and days recomputed in `rpt.sales_hourly` and `rpt.sales_daily` (delete and re-insert the affected hours, one target transaction holding the watermark too); one `rpt.etl_runs` row |
+| `rollup-close` | `30 1 * * *` | `CALL rpt.close_day()` on `reporting` as `bi_etl`: a stored procedure reading foreign tables `src.orders`, `src.order_lines`, `src.products` over `postgres_fdw` (user mapping to `shop_etl`) | yesterday, in the customer's time zone, recomputed whole and marked `closed`; one `rpt.etl_runs` row |
+
+**Where each computes** (against the placement guideline, D207): `rollup-hourly`'s row-by-row work runs on `bi`, a transformer
+node sized for it; `rollup-close` is scheduled on `bi` but computes on
+`reporting`, the receiving instance, as one set-based procedure at
+01:30, off-peak, the shop's instance serving only the remote scan. Both
+fit; the close could equally be a `pg_cron` job on `reporting` (D206;
+[database-node-jobs.md](database-node-jobs.md), "Placement").
 
 **Consumer**: the back office's dashboards (v0.3's `consumer` node) read
 `reporting` as `bi_reader` for their KPIs; their queries are

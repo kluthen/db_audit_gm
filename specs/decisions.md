@@ -19,7 +19,7 @@ README:
 
 Archived IDs keep their meaning and are cited as they are. D107 and D113
 stay live: rulings still to be applied in v0.5. D190 onward are v0.4's
-drafting. Numbering continues after D201, the last; no ID is reused.
+drafting. Numbering continues after D205, the last; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -120,3 +120,63 @@ drafting. Numbering continues after D201, the last; no ID is reused.
   v0.4's P5 only records and checks acknowledgements and opens an
   incident. Open: O128. Now in: [versions/v0.5/README.md](versions/v0.5/README.md)
   "Round trips"; [versions/v0.4/purpose-catalogue.md](versions/v0.4/purpose-catalogue.md) P5.
+- **D202 (2026-10-30, owner direction, relayed by the coordinator): A
+  scenario may have several PostgreSQL instances, each a node of its
+  own; data moves between them mainly by Python transformer scripts the
+  scheduler runs,** and also by SQL through `postgres_fdw` or a stored
+  procedure, from a producer, a transformer or a job; a scenario picks
+  per flow, each method an audit surface. D198 is one case; v0.4's
+  scenario keeps two (proposed). Closes O123. Open: O129. Now in:
+  [versions/v0.4/purposes.md](versions/v0.4/purposes.md) "Moving data between instances".
+- **D203 (2026-10-30, spec-writer, applying D202; the owner accepts the
+  bump by implication): `scheduler` is extended, not forked, and ships
+  0.2.0 in v0.4** with transformer scripts (a repository form, a job
+  holding several connections, no password in the script) and the
+  `transformer` role. Closes O105; the script's contract is proposed
+  with O104. Now in: [versions/v0.4/purposes.md](versions/v0.4/purposes.md)
+  "The job runner".
+- **D204 (2026-10-30, owner direction, reading confirmed by the owner):
+  Nodes are sized by role:** each distinct producer on a scenario node of
+  its own, as small as it runs; transformer nodes larger where volume
+  needs it; placement on hosts stays v0.3's (D128). An undersized
+  transformer is a later fault, not v0.4's. The owner: "i meant node in
+  the scenario, not swarm". In the specs a node is a scenario node; a
+  swarm machine is a host. Now in:
+  [versions/v0.4/purposes.md](versions/v0.4/purposes.md) "Instances and nodes".
+- **D205 (2026-10-30, owner direction, relayed by the coordinator; after
+  v1.0): A fictional cloud provider over the bricks:** typed nodes on a
+  scaled-down cloud sizing ladder, service kinds (managed database, plain
+  VM), capacity management as play, a console of our own layout (v1.0+),
+  security groups and network interfaces (v2.0+); no AWS-style IAM for
+  now. The owner: "fictionnal name of course". Open: O130. Now in:
+  [versions/README.md](versions/README.md#beyond-v10-a-fictional-cloud-provider-d205).
+- **D206 (2026-10-30, owner ruling, relayed by the coordinator): A job
+  may run on a database node, as `pg_cron` or as a cron daemon beside
+  PostgreSQL, both in v0.4 in `postgres` 0.4.0; systemd timers come
+  later, with the virtual-machine nodes after v1.0 (D205).** The owner:
+  "we could have a cron job on the same node as the postgresql, either
+  as pure cron, systemd timer, or pg_cron", then chose the two lighter
+  forms in a container. Closes O129. Now in:
+  [versions/v0.4/database-node-jobs.md](versions/v0.4/database-node-jobs.md).
+- **D207 (2026-10-30, owner ruling, relayed by the coordinator; O131
+  confirmed as written): Light, well-scheduled work may run on a
+  database node; heavy or row-by-row work goes to a transformer node;
+  heavy work on the source instance is the worst placement.** Closes
+  O131. Now in: [formats.md](formats.md) "Where a job runs";
+  [versions/v0.4/database-node-jobs.md](versions/v0.4/database-node-jobs.md) "Placement".
+- **D208 (2026-10-30, owner choice, relayed by the coordinator: "Add one
+  crontab fault"): The first v0.4 scenario runs the cron daemon on a
+  database node with one planted crontab fault,** so it is played, not
+  only smoke-tested. Spec-writer picked `security-crontab-superuser` on
+  `db`, a fixable node, replacing f6. Now in:
+  [versions/v0.4/scenario-sketch.md](versions/v0.4/scenario-sketch.md).
+- **D209 (2026-10-30, owner idea, relayed by the coordinator): An
+  out-of-memory incident on a database node is a fault, happening for
+  real once during the aging and recovered from by hand-over;** a
+  one-off backfill drives a heavy crontab job past the node's memory.
+  The players investigate and *report*, recommending the move to a
+  transformer node: the fault is report only, the owner confirming "it
+  means, the player can't solve the issue by himself alone, thus his
+  only solution is reporting it." It replaces f10. The owner: "it
+  happened "once" in the recent past". Now in:
+  [versions/v0.4/database-node-jobs.md](versions/v0.4/database-node-jobs.md) "The out-of-memory incident".

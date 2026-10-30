@@ -1,6 +1,6 @@
 # v0.4 — the shop domain: data model and domain format
 
-Status: draft v1
+Status: draft v2
 
 The shop as the first domain (D192): what v0.4 must settle of a domain's
 format (O111), and the changes to the business data model that the
@@ -131,7 +131,7 @@ lapsed. L1.
 | `etl_runs (id, job, started_at, finished_at, rows_read, rows_written, watermark)` | each target | P1, P2, P5 | the run ledger the jobs write themselves |
 | `rpt.sales_hourly (hour_local, category, orders, units, revenue)` | `reporting` | P1 | aggregates only, no customer id |
 | `rpt.sales_daily (day_local, orders, revenue, invoiced_revenue, closed)` | `reporting` | P1 | |
-| `src.*` foreign tables over `orders`, `order_lines`, `products` | `reporting` | P1 | `postgres_fdw` (O123) |
+| `src.*` foreign tables over `orders`, `order_lines`, `products` | `reporting` | P1 | `postgres_fdw`, read by `rpt.close_day()` only; the hourly script reads the source directly (D202) |
 
 `daily_sales` leaves the shop's database: the reporting database holds
 the figures now.
@@ -142,7 +142,7 @@ the figures now.
 |---|---|---|---|
 | `shop_app` | `shop` | as v0.3, plus `consent_events` | as v0.3, plus `consent_events`, `customers.marketing_opt_in`, the new order columns |
 | `shop_reports` | `shop` | as v0.3 (names and e-mails included) | none (the roll-up moved) |
-| `shop_etl` | `shop` | `orders`, `order_lines`, `products` | none: the user mapping's remote role |
+| `shop_etl` | `shop` | `orders`, `order_lines`, `products` | none: the hourly script's source role and the user mapping's remote role |
 | `shop_crm` | `shop` | `customers`, `consent_events`, `orders`, `campaigns`, `leads`, `mail_outbox` | `leads`, `mail_outbox`, `etl_runs` |
 | `shop_customs` | `shop` | `orders`, `order_lines`, `customers` (name, country), `export_countries`, `customs_*` | `customs_outbox`, `incidents`, `etl_runs` |
 | `customs_gw` | `shop` | `customs_outbox` | `customs_acks` |
@@ -151,7 +151,7 @@ the figures now.
 
 Each login role gets its password from its secret at `load-data`, as
 v0.3 does for the roles a schedule names; the user mapping's password is
-the new step (O123).
+the new step, where a scenario uses `postgres_fdw` (D202).
 
 ### Producer changes
 
