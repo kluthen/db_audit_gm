@@ -1440,3 +1440,71 @@ test files (calibration only).
 - Chunk 9's observation for the lever: a limit of about 464–800 MiB
   satisfies both sides at the whole-history window, ~640M near the
   middle (raw 300 < 320; ~1.55 GiB > 1.25 GiB).
+
+### Capture W2-x — chunk 7 outcomes (read by 12, 15)
+
+Recorded 2026-10-30 by chunk 7's owner from the code on
+`v0.4-c7-load-data` (`tools/gm/inject.py`), checked in the `postgres`
+0.4.0 image and on the `fixture-instances` deployment (armenelos).
+
+- **The steps, in order** (`inject.load_steps`, also a restart's with no
+  snapshot): each data file, as before, with `-v
+  customer_timezone=<zone> -v customer_utc_offset=<n>` (render's shift;
+  `Etc/GMT` and `0` in a game with no scheduler node); the roles'
+  passwords (SCRAM verifiers), now also every role a `database` node's
+  `crontab_roles` names, on that node; a survey of every database of every
+  `database` node (`datallowconn`, not a template; as `postgres`, one
+  JSON line per database: `pg_cron` present, foreign servers, user
+  mappings); the user mappings' passwords; the check role's read policy
+  and mapping-roles function; `CONNECT` for `gm_check` (unchanged, last).
+  Policy and function go only to a node whose check role exists (it
+  mounts `gm_check_password`), as the grant.
+- **A user mapping's password**: per mapping the survey finds,
+  `ALTER USER MAPPING FOR "<local>" | PUBLIC SERVER "<server>" OPTIONS
+  (ADD | SET password '<secret>')` (SET when one is already there), the
+  secret being `role_<remote>_password`, the mapping's `user` option's
+  role. Statement logging and `pg_stat_statements.track` are off for the
+  session; the password is redacted from anything printed or recorded.
+  A mapping with no `user` option, or whose remote role has no secret in
+  the game (no schedule's connection and no `crontab_roles` names it),
+  fails the setup before this step runs. So the remote role must be named
+  by a schedule or a `crontab_roles` (P1's `shop_etl` is, by `bi`'s
+  schedule); its password on the remote instance is set by that role's
+  own step.
+- **The read policy**: in every database holding the extension `pg_cron`
+  (in practice `cron.database_name`), on each of `cron.job` and
+  `cron.job_run_details`: `DROP POLICY IF EXISTS gm_check_read ON <t>;
+  CREATE POLICY gm_check_read ON <t> AS PERMISSIVE FOR SELECT TO gm_check
+  USING (true);`. Row-level security is `pg_cron`'s own (enabled, not
+  forced, its policies `cron_job_policy` and
+  `cron_job_run_details_policy` `USING (username = CURRENT_USER)` for
+  `public`); load-data does not change it. Permissive policies add up, so
+  `gm_check` (no `BYPASSRLS`, not a superuser) reads every row of both
+  tables, through `pg_read_all_data`'s SELECT, and nothing else gains.
+- **The mapping-roles function**: `gm_check.user_mapping_roles()`, no
+  argument, `RETURNS TABLE (server_name name, local_role name,
+  remote_role text)`, `LANGUAGE sql STABLE SECURITY DEFINER SET
+  search_path = pg_catalog, pg_temp`, owned by `postgres`; one row per
+  user mapping of its database, ordered by server and local role:
+  `local_role` is `public` for a mapping for PUBLIC (as
+  `pg_user_mappings` writes it), `remote_role` the `user` option, NULL
+  when unset; never the password. In every database holding a foreign
+  server (`pg_foreign_server` not empty), in schema `gm_check` (created
+  `AUTHORIZATION postgres`, `USAGE` revoked from PUBLIC, granted to
+  `gm_check`); `EXECUTE` revoked from PUBLIC, granted to `gm_check` only.
+  Chunk 12's G3 calls it in each such database: `SELECT server_name,
+  local_role, remote_role FROM gm_check.user_mapping_roles()`; the
+  server's own options (`host`, `dbname`) are readable by anyone in
+  `pg_foreign_server`.
+- **For chunks 12 and 15**: both objects are in the instance's data, so
+  the hand-over snapshot keeps them and a restart from it needs nothing.
+  The players' `dba` may drop either (access model 8, accepted): with the
+  policy gone `gm_check` reads no job at all rather than an error, so a
+  check reading `pg_cron`'s tables should confirm `gm_check_read` exists
+  (`pg_policies`) before trusting an empty answer. The schema `gm_check`
+  holds no table (G1's catalog walk finds nothing in it).
+- `fixture-instances` (`tools/tests/fixtures/`): `db` (database `shop`,
+  crontab role `shop_etl`, entry `crontab-mark`), `reporting` (database
+  `reporting`, `pg_cron` jobs `order-count` as `bi_etl` through the
+  mapping and `ping` as `bi_reader`, server `shop_db`, `bi_etl`'s mapping
+  to `shop_etl`), a bastion, one seed-file fault `f1`; no scheduler node.
