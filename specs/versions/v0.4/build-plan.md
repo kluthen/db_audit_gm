@@ -107,7 +107,7 @@ plan states only its deltas. Its conventions follow v0.3's
 | Gate | What | Cleared by | Blocks | Status |
 |---|---|---|---|---|
 | G1 | Plan approval | The owner | Wave 1 | open |
-| G2 | [formats.md](../../formats.md) carries master spec 6: the purpose and the domain, `governance:`, the new scenario, answer-key, fault and brick fields, the optional crontab and `crontab_roles` (section 19: the format skill is updated after it) | `spec-writer` | Chunk 1 | open |
+| G2 | [formats.md](../../formats.md) carries master spec 6: the purpose and the domain, `governance:`, the new scenario, answer-key, fault and brick fields, the optional crontab and `crontab_roles` (section 19: the format skill is updated after it) | `spec-writer` | Chunk 1 | done (2026-10-30, cf484b9; formats.md v22) |
 | G3 | Network access at image build time: Debian 13's repositories (`cron`), the PostgreSQL apt repository (`postgresql-18`, `postgresql-18-cron`), the s6-overlay release, as in v0.3 | Hand check by the wave driver | Chunks 1, 3, 4 (image builds); every wave gate's builds | open |
 | G4 | A Docker host in swarm mode: armenelos' swarm, the VPS a drained worker in it | Hand check by the wave driver | Every stack test, deployment and smoke run, chunk 9, every wave gate, the release gate | open |
 | G5 | **Dependency preflight** on `postgres` 0.4.0's new packages: the candidate versions of `postgresql-18-cron` (PGDG) and of Debian's `cron` with what it pulls in, installed without recommends (master spec 7.2, 19). A finding the owner must rule on becomes a gate of its own | `security-advisor` (skill `dependency-check`), called by the wave driver at wave 1's start | Chunk 4's branch | open |
@@ -126,7 +126,7 @@ starts.
 
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
-| 1 | 1, 2, 3, 4, 5 | G1; G2 (chunk 1); G3, G4; G5 (chunk 4); G6 before its gate | planned |
+| 1 | 1, 2, 3, 4, 5 | G1; G2 (chunk 1, done); G3, G4; G5 (chunk 4); G6 before its gate | planned |
 | 2 | 6, 7, 8, 9, 10, 11 | wave 1; G8 (chunk 8's merge, the purpose checks); G9 (chunk 9); G7 (the gate's two-host run) | planned |
 | 3 | 12, 13, 14, 15 | wave 2; G10 (chunk 15's f10 half) | planned |
 | 4 | 16, 17, 18 | wave 3; G7 (chunk 17's two-host runs) | planned |
