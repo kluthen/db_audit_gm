@@ -10,7 +10,8 @@ import yaml
 from tools.gm import deploy, docker, execnode, fit, localimpl, render, state, teardown
 from tools.gm.model import GmError
 from tools.tests import REPO_ROOT, SUFFICIENT, FakeDocker, ScenarioCopyTest, run_gmctl
-from tools.tests.test_render import MANAGER, VPS_ENDPOINT, WORKER, TwoHostScenario
+from tools.tests.test_render import (MANAGER, VPS_ENDPOINT, WORKER, TwoHostScenario, V04Rendered,
+                                     handover_at)
 
 
 def mode(path):
@@ -355,6 +356,41 @@ class TestSecretsByKind(ScenarioCopyTest):
         r = subprocess.run(["docker", "stack", "config", "-c", str(self.ldir / "stack.yml")],
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
+
+
+class TestCrontabRoleSecrets(V04Rendered):
+    """A node's crontab_roles get their role_<role>_password generated and
+    created once per game, beside the schedule's (v0.4 capture W1 item 8)."""
+
+    def setUp(self):
+        super().setUp()
+        self.add_crontab_role("bi_maint")
+        self.fit()
+        self.render(handover_at(16))
+        self.fake = FakeDocker()
+        self.result = deploy.deploy(self.scenario, "laptop", docker=self.fake, timeout=30,
+                                    sleep=lambda s: None)
+
+    def test_generated_once_per_role_mode_0600(self):
+        sdir = self.ldir / "secrets"
+        for role in ("bi_etl", "bi_maint", "shop_etl"):
+            path = sdir / f"role_{role}_password"
+            self.assertEqual(mode(path), 0o600, path.name)
+            text = path.read_text()
+            self.assertEqual(len(text), deploy.DBA_PASSWORD_LENGTH)
+            self.assertTrue(set(text) <= set(deploy.DBA_PASSWORD_ALPHABET))
+        self.assertEqual(sorted(self.result.credentials), sorted(sdir.iterdir()))
+
+    def test_created_once_from_its_file(self):
+        creates = {}
+        for call in self.fake.called("secret", "create"):
+            self.assertNotIn(call[-2], creates)
+            creates[call[-2]] = call[-1]
+        sdir = str(self.ldir.resolve() / "secrets")
+        for role in ("bi_etl", "bi_maint"):
+            self.assertEqual(creates[f"{self.gid}_role_{role}_password"],
+                             f"{sdir}/role_{role}_password")
+        self.assertEqual(sorted(creates), sorted(s["name"] for s in self.impl["secrets"]))
 
 
 class TestSecretRefusals(ScenarioCopyTest):

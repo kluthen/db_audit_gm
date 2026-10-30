@@ -24,6 +24,16 @@ and `jobs.yaml` in UTC, shifted, and the bastion's files holding
 `{{customer_timezone}}`, filled. A scenario with none has no aging and
 shifts nothing (D158).
 
+v0.4 master spec 8.5 and 14; capture W1 items 0 and 8
+(`specs/versions/v0.4/wave-log.md`): in such a scenario render also fills
+`{{customer_timezone}}`, as the bare zone (`Etc/GMT-2`), in every
+scheduler node's seed files and in a `postgres` node's seed
+`postgresql.conf` (`cron.timezone`; `pg_cron` schedules stay in scenario
+time), and shifts a seeded `crontab`'s hours to UTC as `jobs.yaml`'s: the
+hour field expanded (lists, ranges, steps), moved by -shift modulo 24,
+written back as a sorted list. A node's `crontab_roles` get their
+`role_<role>_password` secrets mounted (localimpl.node_secret_declarations).
+
 v0.3 master spec 7.5 and 10.2; capture W3, item 2: every node is pinned to
 the host `fit` placed it on (`nodes.<n>.host`), `node.hostname == <host>`,
 the bastion with its host-mode ports, a stateful node with its volumes.
@@ -144,21 +154,62 @@ def _numbers(field_text):
     return [int(v) for v in str(field_text).split(",")]
 
 
+def cron_hours(hour):
+    """The hours an hour field of the cron subset fires at (v0.4 capture W1
+    item 0, spec D219): a comma list of `n`, `a-b`, `*/s` or `a-b/s`."""
+    hours = set()
+    for item in str(hour).split(","):
+        span, _, step = item.partition("/")
+        if span == "*":
+            lo, hi = 0, 23
+        else:
+            a, _, b = span.partition("-")
+            lo, hi = int(a), int(b or a)
+        hours.update(range(lo, hi + 1, int(step or 1)))
+    return hours
+
+
 def shift_cron(at, shift):
-    """A job's `at` in scenario time -> UTC: every hour moved by -shift, the
-    day of week with it when the hour wraps (the cron subset the loader
-    allows, W1 item 7: hour `*` or numbers; a day of week only with a
-    single-number hour). Minute, day of month and month are unchanged."""
+    """A cron time in scenario time -> UTC (`jobs.yaml`'s `at`, a seeded
+    crontab's entries; v0.4 capture W1 item 0, widening v0.3's item 7):
+    the hour field expanded to the hours it fires at, each moved by -shift
+    modulo 24, written back as a sorted list (`*` stays `*`); the day of
+    week moved with a wrapping hour (allowed only with a single-number
+    hour). Minute, day of month and month are unchanged."""
     minute, hour, dom, month, dow = str(at).split()
     if hour == "*":
         return at
-    hours = []
-    for h in _numbers(hour):
-        hours.append((h - shift) % 24)
+    hours = sorted({(h - shift) % 24 for h in cron_hours(hour)})
     if dow != "*":
         carry = (_numbers(hour)[0] - shift) // 24
         dow = ",".join(str(d) for d in sorted({(d + carry) % 7 for d in _numbers(dow)}))
-    return " ".join([minute, ",".join(str(h) for h in sorted(set(hours))), dom, month, dow])
+    return " ".join([minute, ",".join(str(h) for h in hours), dom, month, dow])
+
+
+# A crontab line's five time fields and the rest, each separator kept.
+CRONTAB_ENTRY_RE = re.compile(r"^(\s*)(\S+)(\s+)(\S+)(\s+)(\S+)(\s+)(\S+)(\s+)(\S+)(\s.*)$")
+CRONTAB_SETTING_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\s*=")
+
+
+def render_crontab(text, shift):
+    """A seeded crontab in scenario time -> UTC (master spec 8.5; v0.4
+    capture W1 item 0): each entry's hour field (and its day of week) as
+    shift_cron moves them; blank lines, comments, environment settings and
+    every other character left as written. The players' file: no header."""
+    out = []
+    for line in text.splitlines(keepends=True):
+        body = line.rstrip("\r\n")
+        entry = body.strip()
+        m = CRONTAB_ENTRY_RE.match(body)
+        if not entry or entry.startswith(("#", "@")) or CRONTAB_SETTING_RE.match(entry) \
+                or m is None:
+            out.append(line)
+            continue
+        parts = list(m.groups())
+        times = shift_cron(" ".join(parts[1:10:2]), shift).split()
+        parts[3], parts[9] = times[1], times[4]
+        out.append("".join(parts) + line[len(body):])
+    return "".join(out)
 
 
 def render_jobs(doc, shift):
@@ -303,15 +354,29 @@ def earliest_if_started(timeline, now):
 
 
 def rendered_seed_text(scenario, node, seed_name, timeline):
-    """The content render writes for one of the seed files it rewrites."""
+    """The content render writes for one of the seed files it rewrites
+    (localimpl.rendered_seed_names). `{{customer_timezone}}` is the bare
+    zone (`Etc/GMT-2`) in a scheduler node's files and a `postgres` node's
+    postgresql.conf, the text form (`UTC+2 (Etc/GMT-2)`) in the bastion's
+    (master spec 8.5; v0.4 capture W1 item 0); a `postgres` node's crontab
+    has its hours shifted to UTC; a scheduler's jobs.yaml and schedule.yaml
+    are rewritten in UTC (v0.3 W1 item 7)."""
     rel = dict((n, r) for _, n, r in localimpl.seed_entries(scenario, node))[seed_name]
     source = Path(scenario.dir) / rel
+    text = source.read_text(encoding="utf-8")
+    zone = timeline["customer_timezone"]["zone"]
+    shift = timeline["shift"]
+    if localimpl.is_postgres_node(scenario, node):
+        if seed_name == localimpl.CRONTAB_FILE:
+            return render_crontab(text, shift)
+        return text.replace(CUSTOMER_TIMEZONE, zone)
     if not is_scheduler_node(node):
-        text = source.read_text(encoding="utf-8")
         return text.replace(CUSTOMER_TIMEZONE,
                             customer_timezone_text(timeline["customer_timezone"]))
-    doc = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
-    shift = timeline["shift"]
+    text = text.replace(CUSTOMER_TIMEZONE, zone)
+    if seed_name not in localimpl.RENDERED_SCHEDULER_FILES:
+        return text
+    doc = yaml.safe_load(text) or {}
     if seed_name == localimpl.JOBS_FILE:
         # The players' file: no header, nothing about scenario time.
         return yaml.safe_dump(render_jobs(doc, shift), sort_keys=False,

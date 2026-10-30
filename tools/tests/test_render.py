@@ -639,6 +639,69 @@ class TestRenderedJobs(unittest.TestCase):
         self.assertEqual(render.wrap_offset(15), -9)
 
 
+class TestCronShift(unittest.TestCase):
+    """v0.4's cron subset shifted (capture W1 item 0, spec D219): the hour
+    field expanded, each hour moved by -shift modulo 24, a sorted list."""
+
+    def test_ranges_steps_and_lists(self):
+        hours = ",".join(str(h) for h in range(10, 23))
+        self.assertEqual(render.shift_cron("*/15 8-20 * * *", -2), f"*/15 {hours} * * *")
+        self.assertEqual(render.shift_cron("0 1-3 * * *", 2), "0 0,1,23 * * *")      # wraps
+        self.assertEqual(render.shift_cron("0 */6 * * *", 1), "0 5,11,17,23 * * *")
+        self.assertEqual(render.shift_cron("0 8-20/4,22 * * *", -3), "0 1,11,15,19,23 * * *")
+        self.assertEqual(render.shift_cron("0 22-23,0-1 * * *", 12), "0 10,11,12,13 * * *")
+        self.assertEqual(render.shift_cron("0 3,9-10 * * *", 5), "0 4,5,22 * * *")
+
+    def test_at_a_shift_of_zero(self):
+        hours = ",".join(str(h) for h in range(8, 21))
+        self.assertEqual(render.shift_cron("*/15 8-20 * * *", 0), f"*/15 {hours} * * *")
+        self.assertEqual(render.shift_cron("0 */8 * * *", 0), "0 0,8,16 * * *")
+        self.assertEqual(render.shift_cron("0 18,6 * * *", 0), "0 6,18 * * *")
+        self.assertEqual(render.shift_cron("30 2 * * *", 0), "30 2 * * *")
+        self.assertEqual(render.shift_cron("0 1 * * 1", 0), "0 1 * * 1")
+
+    def test_every_hour_stays_every_hour(self):
+        self.assertEqual(render.shift_cron("*/5 * * * *", 7), "*/5 * * * *")
+        self.assertEqual(render.cron_hours("*/1"), set(range(24)))
+        self.assertEqual(render.cron_hours("2-10/3,23"), {2, 5, 8, 23})
+
+
+class TestRenderedCrontab(unittest.TestCase):
+    """A seeded crontab's hours shifted to UTC (master spec 8.5), every
+    other character as written."""
+
+    CRONTAB = ("# postgres' crontab, in scenario time.\n"
+               "PGPASSFILE=/run/gm-cron/pgpass\n"
+               "MAILTO = \"\"\n"
+               "\n"
+               "30 2 * * * psql -X -w -U bi_etl -c 'SELECT 1' >> /var/log/cron/a.log 2>&1\n"
+               "*/15  8-20 * * *\tpsql -c \"SELECT '%'\"\n"
+               "  0 1 * * 1 weekly\n"
+               "5 * * * * hourly\n"
+               "0 6,23 * * * twice")
+
+    def test_shifted(self):
+        hours = ",".join(str(h) for h in range(6, 19))
+        self.assertEqual(render.render_crontab(self.CRONTAB, 2).splitlines(keepends=True), [
+            "# postgres' crontab, in scenario time.\n",
+            "PGPASSFILE=/run/gm-cron/pgpass\n",
+            "MAILTO = \"\"\n",
+            "\n",
+            "30 0 * * * psql -X -w -U bi_etl -c 'SELECT 1' >> /var/log/cron/a.log 2>&1\n",
+            f"*/15  {hours} * * *\tpsql -c \"SELECT '%'\"\n",
+            "  0 23 * * 0 weekly\n",                    # Monday 01:00 at UTC+2: Sunday 23:00
+            "5 * * * * hourly\n",
+            "0 4,21 * * * twice"])                      # no newline added
+
+    def test_at_a_shift_of_zero(self):
+        hours = ",".join(str(h) for h in range(8, 21))
+        lines = render.render_crontab(self.CRONTAB, 0).splitlines()
+        self.assertEqual(lines[4], self.CRONTAB.splitlines()[4])
+        self.assertEqual(lines[5], f"*/15  {hours} * * *\tpsql -c \"SELECT '%'\"")
+        self.assertEqual(lines[6:], ["  0 1 * * 1 weekly", "5 * * * * hourly",
+                                     "0 6,23 * * * twice"])
+
+
 class TestRenderedShapes(unittest.TestCase):
 
     def test_hours_shift_into_the_previous_utc_day(self):
@@ -934,6 +997,207 @@ class TestWritePolicyAndSecrets(V03Rendered):
                        lambda d: d["connections"]["reports"].update(role="shop_audit"))
         with self.assertRaisesRegex(model.GmError, "secrets changed since gmctl fit"):
             render.render(self.scenario, "laptop", handover=handover_at(16))
+
+
+V04_FIXTURE = FIXTURES / "fixture-v04-refusals"
+
+
+class V04Rendered(ScenarioCopyTest):
+    """A fresh copy of fixture-v04-refusals (hand-over designed at 14:00): a
+    scheduler node bi whose schedule connects as shop_etl and bi_etl, a
+    postgres node reporting seeding a crontab (crontab_roles [bi_etl]) and a
+    postgresql.conf with cron.timezone = '{{customer_timezone}}', a
+    postgres node db seeding neither."""
+
+    def setUp(self):
+        super().setUp()
+        self.scenario = self.tmp / "fixture-v04-refusals"
+        shutil.copytree(V04_FIXTURE, self.scenario)
+        self.catalog = self.scenario / "catalog"
+        self.ldir = self.scenario / "local" / "laptop"
+
+    def fit(self):
+        fit.fit(self.scenario, "laptop", catalog_root=self.catalog, **SUFFICIENT)
+
+    def render(self, handover):
+        self.result = render.render(self.scenario, "laptop", handover=handover,
+                                    catalog_root=self.catalog)
+        self.impl = localimpl.read_implementation(self.ldir)
+        self.gid = self.impl["game_id"]
+        self.stack = yaml.safe_load((self.ldir / "stack.yml").read_text())
+        return self.result
+
+    def rendered(self, node, fname):
+        return (self.ldir / "rendered" / node / fname).read_text()
+
+    def config(self, node, seed_name):
+        return next(c for c in self.impl["nodes"][node]["configs"]
+                    if c["path"] == f"/opt/gm/seed/{seed_name}")
+
+    def add_crontab_role(self, role):
+        """A role reporting's data file creates and its crontab_roles names,
+        which no schedule names."""
+        sql = self.scenario / "data" / "reporting.sql"
+        sql.write_text(sql.read_text() + f"CREATE ROLE {role} LOGIN;\n")
+        self.edit_yaml("scenario.yaml",
+                       lambda d: self.node(d, "reporting")["crontab_roles"].append(role))
+
+
+class TestRenderV04(V04Rendered):
+    """Render for v0.4 (master spec 8.5, 14; capture W1 items 0, 4, 8)."""
+
+    def test_the_zone_in_postgresql_conf_bare(self):
+        self.fit()
+        self.render(handover_at(12))                     # shift +2
+        conf = self.rendered("reporting", "postgresql.conf")
+        self.assertIn("\ncron.timezone = 'Etc/GMT-2'\n", conf)
+        self.assertNotIn("{{customer_timezone}}", conf)
+        self.assertEqual(self.config("reporting", "postgresql.conf")["file"],
+                         "local/laptop/rendered/reporting/postgresql.conf")
+        self.assertIn("{{customer_timezone}}",
+                      (self.scenario / "nodes/reporting/postgresql.conf").read_text())
+        # db's postgresql.conf holds no placeholder: mounted as written
+        self.assertEqual(self.config("db", "postgresql.conf")["file"],
+                         "nodes/db/postgresql.conf")
+        # the starter pack keeps its text form
+        self.assertIn("UTC+2 (Etc/GMT-2)", self.rendered("bastion", "README.md"))
+
+    def test_the_zone_at_a_shift_of_zero(self):
+        self.fit()
+        self.render(handover_at(14))                     # shift 0
+        self.assertEqual(self.impl["timeline"]["shift"], 0)
+        self.assertIn("\ncron.timezone = 'Etc/GMT'\n",
+                      self.rendered("reporting", "postgresql.conf"))
+        crontab = self.rendered("reporting", "crontab")
+        self.assertEqual(crontab, (self.scenario / "nodes/reporting/crontab").read_text())
+        jobs = yaml.safe_load(self.rendered("bi", "jobs.yaml"))["jobs"]
+        self.assertEqual([j["at"] for j in jobs],
+                         ["5 * * * *", "*/15 " + ",".join(map(str, range(8, 21))) + " * * *"])
+
+    def test_the_zone_in_every_scheduler_seed_file(self):
+        queries = self.scenario / "nodes/bi/queries.yaml"
+        queries.write_text(queries.read_text() + "# the customer's zone: {{customer_timezone}}\n")
+        script = self.scenario / "nodes/bi/scripts/rollup.py"
+        script.write_text(script.read_text() + 'ZONE = "{{customer_timezone}}"\n')
+        self.fit()
+        self.render(handover_at(16))                     # shift -2: the customer at UTC-2
+        self.assertTrue(self.rendered("bi", "queries.yaml").endswith(
+            "# the customer's zone: Etc/GMT+2\n"))
+        self.assertTrue(self.rendered("bi", "scripts/rollup.py").endswith('ZONE = "Etc/GMT+2"\n'))
+        self.assertEqual(self.config("bi", "scripts/rollup.py")["file"],
+                         "local/laptop/rendered/bi/scripts/rollup.py")
+        mounts = {m["target"]: m for m in self.stack["services"]["bi"]["configs"]}
+        self.assertEqual(mounts["/opt/gm/seed/scripts/rollup.py"]["source"],
+                         f"{self.gid}_bi_scripts-rollup.py")
+        jobs = yaml.safe_load(self.rendered("bi", "jobs.yaml"))["jobs"]
+        self.assertEqual(jobs[1]["at"], "*/15 " + ",".join(map(str, range(10, 23))) + " * * *")
+
+    def test_the_scheduler_files_without_the_zone_stay_as_written(self):
+        self.fit()
+        self.render(handover_at(16))
+        self.assertEqual(self.config("bi", "queries.yaml")["file"], "nodes/bi/queries.yaml")
+        self.assertEqual(self.config("bi", "scripts/rollup.py")["file"],
+                         "nodes/bi/scripts/rollup.py")
+        self.assertEqual(sorted(p.name for p in (self.ldir / "rendered" / "bi").iterdir()),
+                         ["jobs.yaml", "schedule.yaml"])
+
+    def test_the_crontab_shifted(self):
+        crontab = self.scenario / "nodes/reporting/crontab"
+        entry = "psql -X -w -h /run/postgresql -U bi_etl -d reporting -c 'SELECT 1'"
+        crontab.write_text(crontab.read_text()
+                           + f"*/15 8-20 * * * {entry} >> /var/log/postgresql/cron/q.log 2>&1\n"
+                           + f"0 6,23 * * * {entry} >> /var/log/postgresql/cron/t.log 2>&1\n")
+        self.fit()
+        self.render(handover_at(16))                     # shift -2
+        lines = self.rendered("reporting", "crontab").splitlines()
+        self.assertEqual(lines[:3], crontab.read_text().splitlines()[:3])  # comments, PGPASSFILE
+        self.assertTrue(lines[3].startswith("30 4 * * * psql -X -w -h /run/postgresql -U bi_etl"))
+        self.assertTrue(lines[3].endswith(">> /var/log/postgresql/cron/vacuum-sales.log 2>&1"))
+        self.assertEqual(lines[4], "*/15 " + ",".join(map(str, range(10, 23))) + f" * * * {entry}"
+                         " >> /var/log/postgresql/cron/q.log 2>&1")
+        self.assertEqual(lines[5], f"0 1,8 * * * {entry} >> /var/log/postgresql/cron/t.log 2>&1")
+        self.render(handover_at(9, days=3))              # shift +5
+        self.assertTrue(self.rendered("reporting", "crontab").splitlines()[3]
+                        .startswith("30 21 * * * "))
+        cfg = self.config("reporting", "crontab")
+        self.assertEqual((cfg["file"], cfg["uid"], cfg["gid"], cfg["mode"]),
+                         ("local/laptop/rendered/reporting/crontab", 0, 0, "0444"))
+        mounts = {m["target"]: m for m in self.stack["services"]["reporting"]["configs"]}
+        self.assertEqual(mounts["/opt/gm/seed/crontab"]["mode"], 0o444)
+
+    def test_seed_entries_skip_an_optional_seed_file_a_node_does_not_map(self):
+        # chunk 4's skip (v0.4 capture W1 item 4, W1-x): db maps no crontab
+        sc = model.load_scenario(self.scenario, self.catalog)
+        self.assertEqual(sc.bricks["db"].data["seed"]["optional"], ["crontab"])
+        self.assertEqual([n for _, n, _ in localimpl.seed_entries(sc, sc.node("db"))],
+                         ["postgresql.conf", "pg_hba.conf"])
+        self.assertEqual([n for _, n, _ in localimpl.seed_entries(sc, sc.node("reporting"))],
+                         ["postgresql.conf", "pg_hba.conf", "crontab"])
+        self.fit()
+        self.render(handover_at(16))
+        targets = [m["target"] for m in self.stack["services"]["db"]["configs"]]
+        self.assertNotIn("/opt/gm/seed/crontab", targets)
+        self.assertIn("/opt/gm/seed/pg_hba.conf", targets)
+        self.assertIn("/opt/gm/seed/crontab",
+                      [m["target"] for m in self.stack["services"]["reporting"]["configs"]])
+        self.assertFalse((self.ldir / "rendered" / "db").exists())
+
+    def test_the_crontab_roles_secrets_declared_and_mounted(self):
+        self.add_crontab_role("bi_maint")
+        self.fit()
+        self.render(handover_at(16))
+        names = [s["secret"] for s in self.impl["secrets"]]
+        for role in ("bi_etl", "bi_maint"):
+            secret = f"role_{role}_password"
+            self.assertEqual(names.count(secret), 1, secret)
+            self.assertEqual(next(s for s in self.impl["secrets"] if s["secret"] == secret),
+                             {"name": f"{self.gid}_{secret}", "secret": secret,
+                              "kind": "password", "handed_over": False,
+                              "file": f"local/laptop/secrets/{secret}"})
+            self.assertIn(f"{self.gid}_{secret}", self.stack["secrets"])
+
+        def mounts(node):
+            return {m["source"]: (m["target"], m["uid"], m["gid"], m["mode"])
+                    for m in self.stack["services"][node]["secrets"]}
+        reporting, bi, db = mounts("reporting"), mounts("bi"), mounts("db")
+        for role in ("bi_etl", "bi_maint"):
+            self.assertEqual(reporting[f"{self.gid}_role_{role}_password"],
+                             (f"/opt/gm/secrets/role_{role}_password", "0", "0", 0o400))
+        # bi_etl is one secret, shared with the scheduler node naming it
+        self.assertEqual(bi[f"{self.gid}_role_bi_etl_password"],
+                         ("/opt/gm/secrets/role_bi_etl_password", "0", "0", 0o400))
+        self.assertNotIn(f"{self.gid}_role_bi_maint_password", bi)
+        self.assertFalse([s for s in db if "_role_" in s])
+
+    def test_refit_needed_when_the_crontab_roles_change(self):
+        self.fit()
+        self.add_crontab_role("bi_maint")
+        with self.assertRaisesRegex(model.GmError, "secrets changed since gmctl fit"):
+            render.render(self.scenario, "laptop", handover=handover_at(16),
+                          catalog_root=self.catalog)
+
+    @unittest.skipUnless(shutil.which("docker"), "docker not installed")
+    def test_docker_stack_config_accepts(self):
+        self.fit()
+        self.render(handover_at(16))
+        r = subprocess.run(["docker", "stack", "config", "-c", str(self.ldir / "stack.yml")],
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+
+
+class TestCustomerTimezoneRule(ScenarioCopyTest):
+    """The loader's rule widened to the files render fills (master spec 8.5):
+    a postgres node's seed postgresql.conf holding {{customer_timezone}} is
+    refused in a scenario with no scheduler node (fixture-audit)."""
+
+    def test_refused_in_a_static_scenarios_postgresql_conf(self):
+        conf = self.scenario / "nodes/db/postgresql.conf"
+        conf.write_text(conf.read_text() + "cron.timezone = '{{customer_timezone}}'\n")
+        with self.assertRaises(model.IncompleteScenario) as cm:
+            model.load_scenario(self.scenario)
+        self.assertIn("nodes/db/postgresql.conf: {{customer_timezone}}: a scenario with no "
+                      "scheduler node has no customer's time zone; its times stay UTC",
+                      "\n".join(cm.exception.missing))
 
 
 class TestRenderStatic(RenderedFixture):
