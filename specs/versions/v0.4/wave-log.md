@@ -570,7 +570,12 @@ chunk 6 renders, chunk 7 sets the roles' passwords; read by 9, 13, 14,
   lines, image tags and Supported faults tables, the stack tests' tags);
   chunk 3 owns every other line of `scheduler`'s, chunk 4 of
   `postgres`'s. Both are cut after chunk 1 merges, so they hold its lines
-  from their start.
+  from their start. *Added 2026-10-30 after spec D221 to D223:* chunk 1a
+  also owns `bastion`'s version lines (0.4.0: `brick.yaml`'s version and
+  image, the Dockerfile's build comment, `docs/gm.md`'s version lines and
+  tags, the stack tests' tags); chunk 19 owns every other line of
+  `bastion`'s, and records as built as W1-z. Chunk 19, like chunk 4,
+  merges only after chunk 2a (D223).
 - **Order**: chunks 1 and 5 first; 2, 3 and 4 after chunk 1's merge (4
   after G5 too). **Chunk 4 adds `crontab` to `seed.files` only on a
   branch holding chunk 2a**: without 2a's `seed.optional` check, every
@@ -706,3 +711,24 @@ The capture's 32 **(choice)** points are accepted as drafted. Its four
 preflight corrections go to `spec-writer` before chunk 1's branch is cut
 (chunk 5 is cut at once: none touches it); its question goes to the owner
 before chunk 1a merges.
+
+### Plan revisions and rulings during the wave's start, 2026-10-30
+
+- `spec-writer` applied W1's four corrections: build plan v3 (8eca1a5;
+  spec D219 the cron subset and `streams: []`, D220 the `2 ──> 4`
+  merge-order edge and the W1-x/W1-y names).
+- **Owner ruling (W1's question 1), spec D221**: `bastion` 0.4.0;
+  `data-policy.md` a fourth, optional starter-pack seed file copied to
+  `/home/player`, and the web front serving a simple read-only page with
+  the README, story, issues and data policy, open to a reporting tool
+  later; owner's refinement: each element only if the scenario provides
+  it. `spec-writer` added D222 (the page rendered in the image at each
+  start by Debian's `cmark-gfm`, tables on, raw HTML off) and D223
+  (chunk 19 in wave 1; chunk 2a checks the policy's mapping); master
+  spec amended after approval; formats.md draft v23; build plan v4
+  (bfbf416) with **chunk 19** in wave 1 (six chunks), cut after chunk 1
+  and gates G12 and G13, merging after chunk 2a.
+- New gates: **G12** (owner, spec O134: does the page make the web front
+  run in every game, against D103) and **G13** (`security-advisor`
+  preflight on `cmark-gfm`). Both block chunk 19's branch.
+- W1 item 9 amended: `bastion`'s line ownership (chunk 1a / chunk 19).
