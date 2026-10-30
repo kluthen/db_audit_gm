@@ -230,3 +230,19 @@ drafting. Take the next number from `doc-ids`; no ID is reused.
   Swarm; armenelos keeps its swap.** Now in:
   [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 16.3;
   [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunk 9.
+- **D219 (2026-10-30, spec-writer, wave 1 preflight, capture W1
+  corrections 1 and 2, accepted by the wave driver): The loader checks
+  `jobs.yaml`'s `at`, a seeded crontab's entries and a purpose job's
+  `cadence` against W1 item 0's widened cron subset (chunk 2b), and
+  `schedule.yaml`'s `streams` may be `[]` (chunk 1b),** so P3's
+  `*/15 8-20 * * *` (10.3) and `bi`'s and `crm`'s stream-less nodes (7.1)
+  load. Now in: [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md)
+  chunks 1b, 2b; [versions/v0.4/wave-log.md](versions/v0.4/wave-log.md) W1 item 0.
+- **D220 (2026-10-30, spec-writer, wave 1 preflight, capture W1
+  corrections 3 and 4, accepted by the wave driver): Chunk 4 merges into
+  `v0.4-w1` only after chunk 2a (an in-wave edge `2 ──> 4`, merge order
+  only), and records as built as W1-x, chunk 3 as W1-y,** because chunk
+  4's `crontab` in `seed.files` fails the suite until 2a's
+  `seed.optional` check is in (W1 item 9). Now in:
+  [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) "Waves",
+  chunks 3, 4.

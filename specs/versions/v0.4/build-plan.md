@@ -1,8 +1,9 @@
 # db_audit_gm v0.4 — Build plan
 
-Status: v2 (2026-10-30): approved, κ = 3 confirmed (spec D216); the
-owner's rulings on G8 (spec D217) and G9 (spec D218) written into chunks
-8 to 11 and 9.
+Status: v3 (2026-10-30): capture W1's four preflight corrections (spec
+D219, D220) written into chunks 1b, 2b, 3 and 4 and wave 1's order; v2
+wrote the owner's rulings on G8 (spec D217) and G9 (spec D218) into
+chunks 8 to 11 and 9, after approval with κ = 3 (spec D216).
 Approval: **approved 2026-10-30 by the owner** (G1, spec D216).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-10-30 (spec D215),
@@ -135,6 +136,7 @@ owner ruled both at its approval (spec D217, D218).
 1 ──> 2, 3, 4          (in wave 1, cut once chunk 1 has merged into v0.4-w1; W1)
 1 ──> 5                (in-wave: runs beside chunk 1, its files all under domains/shop/; W1)
 G5 ──> 4
+2 ──> 4                (in-wave, merge order only: chunk 2a merged into v0.4-w1 before chunk 4 merges; W1 item 9)
 1, 2 ──> 6
 2, 4 ──> 7
 6 ──> 7                (in-wave: render's crontab shift and crontab_roles' secrets, fixed by master spec 14; W2)
@@ -156,9 +158,12 @@ G5 ──> 4
 
 Wave 1's order: chunks 1 and 5 run first, side by side; chunks 2, 3 and 4
 are cut from `v0.4-w1` once chunk 1 has merged (chunk 4 once G5 is
-cleared too), so no two chunks running at once share a file. Chunk 1
-owns the version lines of `postgres` and `scheduler`; chunks 3 and 4 own
-the rest of their brick.
+cleared too), so no two chunks running at once share a file. Chunk 4 is
+built beside chunk 2 but merges only after chunk 2a has: its `crontab`
+entry in `seed.files` fails every scenario pinning `postgres` 0.4.0
+until 2a's `seed.optional` check is in, so it merges `v0.4-w1` in before
+its final suite run (spec D220). Chunk 1 owns the version lines of
+`postgres` and `scheduler`; chunks 3 and 4 own the rest of their brick.
 
 Wave 2: chunks 9, 10 and 11 need only wave 1, and chunk 9 runs as early
 in the wave as the host lock allows: it is the early calibration spec
@@ -348,7 +353,9 @@ for chunks 2 to 5:
     `postgres` nodes, `crontab_roles`), `answer-key.yaml` (`judges`,
     `threshold`, no window; a tooling expectation naming an unmonitored
     instance), `queries.yaml` and `jobs.yaml` (the script entry,
-    `connections:`), and new templates `purpose.yaml`, `domain.yaml` and
+    `connections:`, `at`'s comment stating W1 item 0's cron subset),
+    `schedule.yaml` (`streams` may be `[]`: a node with fixed-time
+    operations only), and new templates `purpose.yaml`, `domain.yaml` and
     `classification.yaml`; the skill's completeness rules for a purpose
     and a domain, for `governance:` and the policy file (written by the
     GM from `governance:`, in the story's voice, correct, unchecked rules
@@ -365,7 +372,7 @@ for chunks 2 to 5:
   - Out: any loader, renderer or image change (chunks 2, 4, 6); the
     bricks' features (chunks 3, 4).
 - Files: `.claude/skills/scenario-format/SKILL.md`,
-  `.claude/skills/scenario-format/templates/{brick.yaml,brick-gm.md,fault.yaml,layouts.md,scenario.yaml,answer-key.yaml,queries.yaml,jobs.yaml}`,
+  `.claude/skills/scenario-format/templates/{brick.yaml,brick-gm.md,fault.yaml,layouts.md,scenario.yaml,answer-key.yaml,queries.yaml,jobs.yaml,schedule.yaml}`,
   `.claude/skills/scenario-format/templates/{purpose.yaml,domain.yaml,classification.yaml}`
   (new), `.claude/skills/scenario-document/{SKILL,template}.md`;
   `bricks/{postgres,scheduler}/brick.yaml` and `docs/gm.md` (version
@@ -422,20 +429,22 @@ Architecture capture: none of its own; it implements W1.
     a role a data file of the node creates, `crontab_roles` without a
     crontab refused; a data file creating `pg_cron` only on a node whose
     seed `postgresql.conf` preloads it, `cron.database_name` naming a
-    database that data file creates;
+    database that data file creates; `jobs.yaml`'s `at`, a seeded
+    crontab's entries and a purpose job's `cadence` in W1 item 0's
+    subset;
   - refusal fixtures and unit tests for each.
   - Out: rendering any of it (chunk 6); `fit` (chunk 8).
 - Files: `tools/gm/model.py`, `tools/tests/test_model.py`,
   `tools/tests/fixtures/fixture-v04-refusals/` (new).
-- Spec sections: master spec 6.1 to 6.4, 6.9, 7.1, 7.2, 14 ("The
-  loader"), 20.
+- Spec sections: master spec 6.1 to 6.4, 6.9, 7.1, 7.2, 10.3 (P3's
+  cadence), 14 ("The loader"), 20; spec D219.
 - Done when: unit tests show each refusal with its message, and the
   acceptance of a valid fixture; every catalog definition still loads;
   the unit suite passes.
 - Verification: chunk checks.
 - Split rule: 2a scenario, fault, answer-key and brick checks with
   purposes, domains and governance; 2b the scheduler's script keys and
-  the `postgres` crontab and `pg_cron` checks.
+  the `postgres` crontab and `pg_cron` checks, and the cron subset.
 
 ### Chunk 3 — `scheduler` 0.2.0
 
@@ -443,7 +452,7 @@ Status: planned
 Wave: 1
 Depends on: chunk 1, merged into `v0.4-w1` before this chunk's branch is
 cut; W1; G3, G4
-Architecture capture: none of its own; it records as built, as W1-x
+Architecture capture: none of its own; it records as built, as W1-y
 (read by chunks 10, 11, 12, 14): the script call and its log lines, the
 scripts' digests in `/run/scheduler/loaded`, and the means a purpose
 check uses on the node.
@@ -468,7 +477,7 @@ check uses on the node.
     run, a stream refused on a script key);
   - **3b, what the checks read, the documentation and the stack test**:
     a root-only means beside `check-sql` (its form the chunk's, recorded
-    in W1-x) giving a job's completed runs since a moment from the log,
+    in W1-y) giving a job's completed runs since a moment from the log,
     the runner's last `reload status=ok`, and a job's next run in the
     loaded `jobs.yaml` by the program's own cron parser (12.1, 12.2);
     `docs/player.md` (scripts, connections, moving a job to verify a
@@ -501,7 +510,9 @@ check uses on the node.
 Status: planned
 Wave: 1
 Depends on: chunk 1, merged into `v0.4-w1` before this chunk's branch is
-cut; W1; G5 cleared before the branch is cut; G3, G4
+cut; chunk 2a, merged into `v0.4-w1` before this chunk merges (in-wave,
+W1 item 9: this chunk takes `v0.4-w1` in before its final suite run);
+W1; G5 cleared before the branch is cut; G3, G4
 Architecture capture: none of its own; it records as built, as W1-x
 (read by chunks 6, 7, 9, 12, 15): the cron service, the crontab's and the
 password file's paths, `gm-crontab`'s form, `check-psql`'s other-node

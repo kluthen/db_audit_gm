@@ -44,7 +44,7 @@ incident on a database node (D209).
 |---|---|---|
 | [master-spec.md](master-spec.md) | The consolidated v0.4 specification | approved 2026-10-30 (D215) |
 | [access-model.md](access-model.md) | Who may do what in a v0.4 game; the customer's roles and data policy in the game's world | approved 2026-10-30 (D215) |
-| [build-plan.md](build-plan.md) | The build: eighteen chunks in four waves, the gates G1 to G11, the release gate | v2, approved 2026-10-30 (D216–D218) |
+| [build-plan.md](build-plan.md) | The build: eighteen chunks in four waves, the gates G1 to G11, the release gate | v3, approved 2026-10-30 (D216–D218), capture W1's corrections (D219, D220) |
 | [purposes.md](purposes.md) | The purpose as an artefact: layout, `purpose.yaml`, how a scenario uses one, faults attached to purposes, instances and node sizing, the job runner and the transformer script, moving data between instances, cadence under real time, the customer's time zone in the data | draft v4 |
 | [purpose-catalogue.md](purpose-catalogue.md) | The proposed purposes, each with its jobs, trace and invariants: sales reporting, win-back leads, customer mailing, export declarations (a pushed obligation); finance held; the clinic's reporting as a stress test | draft v4 |
 | [shop-domain.md](shop-domain.md) | The shop as the first domain: the format v0.4 settles, the data-model changes the invariants need, roles, producer changes | draft v2 |
