@@ -1,0 +1,110 @@
+# Catalog fault: a job runs in the wrong time zone (v0.3 master spec 15.3;
+# capture W4 items 0, 1 and 8; spec D168, D189). A seed-file fault planted
+# at render: the scenario's jobs.yaml gives the job timezone_offset: N (never
+# 0) beside its at as designed; render keeps the at and writes timezone:
+# Etc/GMT∓M, M the game's shift plus N, so the job runs N hours off its
+# designed time of day in the customer's zone. Its evidence shows at the
+# job's runs: its aging minimum counts from the first run at the wrong time.
+
+# --- Identity ---------------------------------------------------------
+id: scheduler-job-wrong-timezone
+version: 0.1.0
+title: a job runs in the wrong time zone
+family: rules
+severity: medium
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: scheduler
+      versions: ["0.1.0"]
+  preconditions: []
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 1h                       # counted from the job's first run at the wrong time (spec
+                                    # D189): the scenario's instance raises its aging_minimum
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  job:
+    description: the jobs.yaml job carrying timezone_offset
+    default: null
+    required: true
+  offset:
+    description: >-
+      an integer number of hours, never 0, equal to the timezone_offset the
+      scenario writes on the job (the loader checks neither the equality
+      nor the job)
+    default: null
+    required: true
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: jobs.yaml
+      change: >-
+        the {JOB} job carries timezone_offset: {OFFSET} beside its at as
+        designed (spec D168); render writes timezone: Etc/GMT∓M, M the
+        game's shift plus {OFFSET} wrapped into UTC-12..UTC+14
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: node
+    source: the fixed-time operations
+    how: cat /srv/scheduler/jobs/jobs.yaml
+    shows: the {JOB} job's timezone, another zone than the customer's, beside its at
+  - where: node
+    source: the scheduler's log
+    how: grep 'run job={JOB} ' /var/log/scheduler/scheduler.log
+    shows: the job's runs at a UTC time that, in the customer's zone, is not its intended time of day
+  - where: bastion
+    source: the customer's time zone
+    how: cat ~/story.md
+    shows: the zone the customer works in, which the job's timezone is not
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names the {JOB} job's time zone as not the customer's, so it runs
+    {OFFSET} hours off its intended time of day, and what that does (an
+    export or report taken at the wrong moment of the business day).
+  proposal: >-
+    give the job the customer's time zone (or its at in UTC with no zone),
+    so it runs at its intended time of day in the customer's zone.
+  fix: >-
+    the {JOB} job, as loaded (jobs.yaml edited and reloaded with sudo
+    gm-reload-scheduler), runs at its designed time of day in the
+    customer's zone, whatever the form: the customer's zone beside the at,
+    the at in UTC with no zone, or any zone giving those instants.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  The morning export we get from the reporting service arrives in the
+  middle of the night, or not when we expect it, and it is never complete.

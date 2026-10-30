@@ -2888,3 +2888,1029 @@ passed; no fix needed.
   `DeployResult.text`), as `status` did before 2a7f54a.
 - No dependency changed in wave 3 (no `security-advisor` check); no
   intent register (no wave sync).
+
+## Wave 3 — merged 2026-10-27
+
+Merged into `main` on the owner's word, `--no-ff`, as be857ff, with the
+gate's figures in the message. The wave worktree and the branches
+`v0.3-w3`, `v0.3-w3-overlay-range` and the chunk branches removed.
+
+## Wave 4 — started 2026-10-28
+
+Chunks 13, 14, 15 (κ = 3; 15b at κ = 1, alone on the hosts). Branch
+`v0.3-w4`, worktree `/home/bastien/work/db_audit_gm-wt/v0.3-w4`, cut from
+`main` at be857ff. Rulings since the plan's v14: none (D184 is the last).
+No intent register and no data register: no `documentalist` preflight or
+sync; capture W4 drafted for the driver, as W1 to W3 were.
+
+### Gates checked at the start
+
+- G2 (network at build time), hand check 2026-10-28: Debian's trixie
+  `Release`, the PostgreSQL apt repository's `trixie-pgdg` `Release`,
+  GitHub's s6-overlay releases and the pinned Grafana 13.2.4 tarball
+  answer 200. Cleared for wave 4.
+- G3 (Docker host in swarm mode), hand check 2026-10-28: armenelos,
+  Docker Engine 29.9.1, swarm leader; `vps-5718ad52` (29.9.2) Ready,
+  `Drain`.
+- G4 still holds: `tailscale status` shows both hosts (the VPS active,
+  direct); `ssh dbagm-vps` answers with no agent (Docker 29.9.2, 24G
+  free on `/`). The VPS stays drained except inside chunk 15b's run and
+  the release gate's two-host runs.
+- Host resources on 2026-10-28: 4.4G of memory available on armenelos
+  (3.8G of swap in use), 10G free on `/`.
+- G7 (the owner's review of the v0.3 scenario) open: blocks chunk 15's
+  merge only.
+
+### Order
+
+- Chunk 13 reads no W4 item and depends only on merged chunks:
+  dispatched at once.
+- Capture W4 (the eight faults and the scenario's choice) is drafted and
+  committed before chunk 14 starts; chunk 15 once chunk 14 has merged
+  (in-wave edge 14 ──> 15). 15a may start once 14 has merged; 15b runs
+  alone on the hosts.
+- Carried from wave 3 (cosmetic): `deploy`'s first line on a
+  several-host game; fixed on the wave branch before the gate, in no
+  chunk.
+
+### Carry-over fixed — 2026-10-28
+
+- `coding-executor` (branch `v0.3-w4-deploy-line`, removed): 53692ee,
+  merged ea3de4a. On a several-host game, `deploy`'s first line now reads
+  `Game <id>: deployed on <playground>, <n> hosts:` with one line per
+  host, through `state.host_lines`, which `status` shares; one host
+  unchanged. Unit suite 653 OK. `gmctl.md`'s deploy entry passed to
+  chunk 13's owner to match.
+
+### Capture W4 — the eight faults and the scenario's choice (chunks 14, 15) — 2026-10-28
+
+Recorded 2026-10-28, before any code; drafted for the wave driver from
+the plan's (v14) chunks 14 and 15 and G7, master spec 6.1 to 6.3, 6.5,
+6.7, 7.1 to 7.3, 8 (8.2 to 8.5), 11 and 15.1 to 15.4, D134, D145,
+D157, D160, D161, D163, D167, D168, D170, D171, D176, the working
+records `faults-with-activity.md`, `scheduler.md` and
+`checks-under-load.md`, this version's W1 items 2 to 4 (the fault, brick
+and answer-key keys), W1-y (the scheduler as built), W2 items 1, 8 and 9
+(render's records, the early and hand-over checks, "too soon to tell")
+and W2-a (PgBouncer as built), the format skill's templates
+(`fault.yaml`, `scenario.yaml`, `answer-key.yaml`, `queries.yaml`,
+`jobs.yaml`, `schedule.yaml`), and the code on `v0.3-w4` at 088e41b:
+`tools/gm/{model,render,inject,checks}.py`, `bricks/{scheduler,
+pgbouncer,postgres}/` (`brick.yaml`, `docs/gm.md`, the scheduler's
+program and `check-psql`), the existing catalog faults
+(`pg-join-index-missing`, `pg-table-autovacuum-off` and the monitoring
+ones), and `tools/tests/fixtures/fixture-load/` (its nodes'
+files, its data, and its fault `fixture-job-every-minute`, whose check
+is the precedent for a check on a scheduler's files). W1's method holds:
+a source that fixes a point is cited, not restated; **(choice)** marks a
+point the sources left open, settled here with its reason; **open —
+proposed** marks a point that is not the driver's to settle, with the
+proposal chunks 14 and 15 build on until it is ruled (item 12). Each item
+names who writes it and who reads it; a chunk's internals (the scripts'
+code, the wording of `gm.md` and `probe.md`) stay out.
+
+**0. What the eight share** (writes: chunk 14; read by 15).
+
+- **Ids and folders.** `faults/<id>/` with `fault.yaml`,
+  `checks/fixed.sh`, `checks/probe.md`, `gm.md`, and `inject/` only for
+  a fault with material; version `0.1.0`. The id opens with its target
+  brick's id, as the existing faults do (`pg-` for `postgres`):
+  `scheduler-…` for the seven living in a scheduler's files,
+  `pgbouncer-…` for the pool. Title, family, severity and complaint
+  template are chunk 14's.
+- **`applies_to`**: `scheduler` `["0.1.0"]` for the seven, `pgbouncer`
+  `["0.1.0"]` for the pool, and no other brick, although much of the
+  evidence is read on the database (the loader matches the instance's
+  node's brick). Preconditions as each item says.
+- **Injection**: `kind: seed-file`, `stage: seed`, `run_as: root`,
+  `seed_changes` naming the files of each item. The scenario writes the
+  planted state into `nodes/<node>/` at authoring; render copies
+  `queries.yaml` and `builders/` as they are, writes `jobs.yaml` in UTC
+  (a job with `timezone_offset` keeps its `at` and gains `timezone:
+  Etc/GMT∓M`, D168) and `schedule.yaml` rendered (W2 item 1); `inject`
+  runs nothing for them; `plant_at` is T0 only (6.1). That is what
+  "planted at render" means for the eight.
+- **The planted baseline** (choice: a check needs the planted form
+  without a parameter repeating the scenario's text): every seed file
+  stays on the node, as rendered, at `/opt/gm/seed/<file>` (a config,
+  0:0, `0444`; `schedule.yaml` `0400`) for the whole game, beside its
+  live copy at its `seed.paths` path. A check may read it as the
+  fault's planted form.
+- **Checks on a scheduler node** (the seven): root, on the instance's
+  node (`checks.py` runs a fault's check there and nowhere else). They
+  read the node's files, `/run/scheduler/loaded`, the log, the metrics
+  endpoint and the rendered `schedule.yaml`, and open no database
+  connection (the duplicates' check aside, item 12 point 1). They judge
+  what the program runs (choice, as `fixture-job-every-minute` does): a
+  live file whose sha256 differs from its `file` line in
+  `/run/scheduler/loaded` reads present, the first line saying the file
+  is fixed but not reloaded (`sudo gm-reload-scheduler`). They may import
+  the program's own package (`python3 -I`, `gm_scheduler`: its loaders,
+  its cron) to read the files and compute run instants as the program
+  does; whether they do is chunk 14's.
+- **The pool's check**: root on the pooler node, the console over the
+  local socket as `pgbouncer`, its only admin (W2-a): the values in
+  effect, so a file edited but not reloaded reads present.
+- **Exit codes**: 0 fixed, 1 present, 2 error; 3 only where an item
+  says so, its first line `remaining=<N>[ text]` (W2 item 9). Only the
+  duplicates fault is `behavioural: true` (15.3).
+- **Evidence locations** (6.3, D145, D167, W1 item 2): `node` is the
+  target node (the scheduler's files, its log, `curl -s
+  localhost:9120/metrics`; the pooler's console and log); `bastion` is a
+  shell or `psql` there as `dba` (`pg_stat_statements`,
+  `pg_stat_activity`, `pg_stat_user_tables`, `\d`; the story's customer
+  time zone). The PostgreSQL log on the database node, pgBadger
+  (`postgres`'s tool, so never a scheduler fault's `report:`), another
+  node's log and Prometheus or Grafana readings are the scenario's, in
+  its answer key only (`node:<name>`, `report:pgbadger`, `ui:<name>`).
+- **Resolutions**: `report` and `propose` under `[report-only,
+  fixable]` for all eight; `fix` under `[fixable]` for all but the held
+  transactions. On a scheduler node a fix is reachable only through the
+  overrides `/srv/scheduler/repository` (`queries.yaml`, `builders/`) and
+  `/srv/scheduler/jobs` (`jobs.yaml`) (D170); `schedule.yaml` is never
+  fixable, so the loader's per-file check (`model.fix_policy`) refuses a
+  *fix* for any fault whose seed changes name it.
+- **Aging minima of the time-of-day faults** (choice: a definition
+  cannot know when the scenario's day brings its evidence, and a minimum
+  longer than the scenario's aging would make the scenario unloadable):
+  the batch at the peak and the job in the wrong time zone show at the
+  job's run, so their `aging.minimum` counts from the job's first run at
+  its planted time; the pool's counts business hours under load; their
+  `gm.md` says so. A scenario places that moment inside its aging and
+  raises the instance's `aging_minimum` to the moment's offset from its
+  designed T0 plus the definition's minimum, so the loader's coverage
+  check (6.1) holds the design. The other five count from planting, as
+  6.3 reads.
+- **Times**: the scheduler's log and the rendered `jobs.yaml` are UTC;
+  the scenario's jobs and shapes are scenario time. No check takes the
+  shift as an input: those that need the customer's day derive it from
+  the rendered files (items 7 and 8).
+- **Docs**: the "Supported faults" sections of
+  `bricks/scheduler/docs/gm.md` (the seven) and
+  `bricks/pgbouncer/docs/gm.md` (the pool). `bricks/postgres/docs/gm.md`'s
+  section lists no new fault (none applies to `postgres`), but says what
+  their evidence needs from a `postgres` seed (the logging block and the
+  `pg_stat_statements` preload it already recommends: `log_lock_waits`,
+  `log_temp_files = 0`, `log_min_duration_statement`,
+  `log_autovacuum_min_duration = 0`), and its "cannot host anything
+  visible only under load" sentence points to them. No version changes:
+  the three bricks are unreleased.
+
+**1. The eight at a glance** (writes: chunk 14; read by 15).
+
+| Id | Seed change in | Parameters | `aging.minimum` | Fix | The check reads |
+|---|---|---|---|---|---|
+| `scheduler-query-error` | `queries.yaml` | `key` | 10m | yes | files and log (3 for at most a minute) |
+| `scheduler-update-without-where` | `queries.yaml` | `key` | 1h | yes | files |
+| `scheduler-report-unbounded` | `queries.yaml` | `key`, `date-column` | 30m | yes | files |
+| `scheduler-insert-retry-duplicates` | `queries.yaml`, `builders/` | `database`, `table-name`, `id-column`, `time-column` | 1h | yes | the data over a window (behavioural; item 12 point 1) |
+| `scheduler-transaction-held-open` | `queries.yaml`, `schedule.yaml` | `key` | 2h | no | files |
+| `scheduler-batch-at-peak` | `jobs.yaml` | `job`, `shape`, `quiet-below` | 1h from its first run | yes | files |
+| `scheduler-job-wrong-timezone` | `jobs.yaml` | `job`, `offset` | 1h from its first run | yes | files |
+| `pgbouncer-pool-too-small` | `pgbouncer.ini` | `database`, `min-pool-size` | 30m of business hours | yes | the console |
+
+Parameters are scalars (`FAULT_<NAME>`, `-` read as `_`), each
+`required: true` with `default: null` unless its item says otherwise.
+
+**2. `scheduler-query-error`: a query fails on a syntax or type error**
+(14a).
+
+- **Seed change**, `queries.yaml`: the entry of `{KEY}` (a query, one
+  entry of a pool, or one step of a sequence) carries an error
+  PostgreSQL rejects at every call, of SQLSTATE class 42 (a syntax error
+  42601, an operator or function that does not exist for the types
+  42883, a datatype mismatch 42804) or 22 (an invalid input, 22P02). The
+  program loads it (it never checks SQL), so the key keeps running and
+  failing. No material: the SQL is the scenario's.
+- **Parameter** `key`: the repository key holding the error; a key a
+  stream runs, never one whose calls another instance's evidence needs.
+- **Aging** 10m: errors from the first call; ten minutes give ten `key`
+  lines with `errors=` above 0 and their `error` lines.
+- **Evidence**: `node`, the log's `error key={KEY} sqlstate=<S>
+  message="…"` lines and the `key` lines' `errors=`, the counter
+  `scheduler_errors_total{key="{KEY}"}`, the entry in `queries.yaml`.
+  Answer key: the PostgreSQL log's `ERROR` and `STATEMENT` lines
+  (`node:<db>`), the error rate in Grafana.
+- **Fixed**: the entry corrected in the loaded repository, and the
+  key's calls since that reload ending without a class 42 or 22 error.
+- **Check** (choice: a changed text proves nothing until the key has
+  run, and a key runs within a minute): 1 while the loaded entry equals
+  the seed copy's, the file is not loaded, or an `error key={KEY}` line
+  of class 42 or 22 follows the last reload (`loaded=`); 0 once a call of
+  the key has ended after the reload (its `key` lines) with no such
+  error; 3, `remaining=` the seconds to the next minute's `key` line (at
+  most 70), when the entry changed and is loaded but no call has ended
+  since. No answer-key window: it is not behavioural.
+
+**3. `scheduler-update-without-where`: an update missing its `WHERE`**
+(14a; left out of the scenario, item 10).
+
+- **Seed change**, `queries.yaml`: `{KEY}`'s `UPDATE` lacks its row
+  filter (and the filter's parameter), so every call updates every row
+  of its table.
+- **Parameter** `key`.
+- **Aging** 1h: rows per call show in `pg_stat_statements` from the
+  first calls; dead rows and lock waits need an hour of calls under load.
+- **Evidence**: `node`, the entry, the key's latency in the log;
+  `bastion`, `pg_stat_statements` (`rows / calls` for the statement),
+  `pg_stat_user_tables` (`n_tup_upd`, `n_dead_tup`) on the table.
+  Answer key: the PostgreSQL log's lock waits (`node:<db>`), pgBadger.
+- **Fixed**: every `UPDATE` of the key's loaded entry has a `WHERE`.
+  Check on the files; 0, 1, 2.
+- **A scenario using it** keeps the table small (a few thousand rows),
+  apart from `pg-table-autovacuum-off`'s table, runs the key with a
+  concurrency of 2 or more (lock waits), and sizes its rate against the
+  WAL and dead rows it makes over the whole aging.
+
+**4. `scheduler-report-unbounded`: a report reading far too much** (14a).
+
+- **Seed change**, `queries.yaml`: `{KEY}` reads a large table with
+  `SELECT *` and no bound on `{DATE_COLUMN}` (the report's period
+  dropped), sorted or grouped, so each run reads the whole table and
+  spills to temporary files at the seed's `work_mem`.
+- **Parameters**: `key`; `date-column`, the column whose bound is
+  missing.
+- **Aging** 30m: temporary files and slow statements at every run; half
+  an hour holds several runs of a reporting stream (a scenario running
+  it as a job raises the instance's minimum, item 0).
+- **Evidence**: `node`, the entry, the key's latency (seconds) in the
+  log; `bastion`, `pg_stat_statements` (`temp_blks_written`,
+  `mean_exec_time`, `rows`) for the statement. Answer key: the
+  PostgreSQL log's `temporary file` and duration lines (`node:<db>`),
+  pgBadger (`report:pgbadger`).
+- **Fixed**: the key's loaded SQL bounds `{DATE_COLUMN}` in its `WHERE`
+  (a comparison or `BETWEEN` on it). `SELECT *` alone is not judged; the
+  acceptance's proposal names both. Check on the files; 0, 1, 2.
+- **A scenario using it**: the table large enough for the unbounded
+  sort to spill at the seed's `work_mem` (a few hundred thousand rows at
+  4MB), small enough for the database's disk reservation.
+
+**5. `scheduler-insert-retry-duplicates`: inserts resent without
+idempotency** (14a; its check's connection is item 12 point 1).
+
+- **Seed change**, `queries.yaml` and `builders/`: `{KEY}` maps to a
+  builder that inserts one row into `{TABLE_NAME}` carrying the client's
+  own id in `{ID_COLUMN}` and, for a share of the calls (an option of
+  the entry in `queries.yaml`), sends the same insert again with the same
+  values: the client resending when its acknowledgement is late. The
+  data gives `{ID_COLUMN}` no unique constraint. Material: a builder
+  under `inject/` that the scenario copies into `nodes/<node>/builders/`
+  and adapts (its form is chunk 14's). Both files lie under
+  `/srv/scheduler/repository`, so the repository's override makes the
+  fix reachable.
+- **Parameters**: `database`; `table-name`; `id-column`, the client's
+  id, duplicated; `time-column`, the insert time the window counts by (a
+  column the insert fills with the current time).
+- **Aging** 1h, and the answer key's window is at most that, so the
+  first full window after planting holds the fault's behaviour.
+- **Evidence**: `node`, the builder's resend and its option; `bastion`,
+  `SELECT {ID_COLUMN}, count(*) FROM {TABLE_NAME} GROUP BY 1 HAVING
+  count(*) > 1` in `{DATABASE}`, and `\d {TABLE_NAME}` showing no unique
+  constraint on the column.
+- **Behavioural**: the answer key gives `window` W and `threshold` T,
+  the most duplicate rows a fixed producer may leave in W (0 as a rule).
+- **Check** (choice: one reading for a fix on either side, with no
+  record of when it happened): d is the number of rows with
+  `{TIME_COLUMN}` in the trailing W whose `{ID_COLUMN}` occurs more than
+  once; 0 when d ≤ T; else 1 when the newest such row is younger than
+  W/2; else 3, `remaining=` W minus its age. A fix in the repository
+  (`ON CONFLICT DO NOTHING` behind a unique constraint, or the resend
+  gone) and a fix on the database alone (a unique constraint: the resends
+  then fail with 23505 in the producer's log, which the GM weighs) read
+  alike. Before the load starts the table has no recent rows and the
+  check reads 0.
+- **Fixed**: at most T duplicate rows inserted in the trailing W.
+- **A scenario using it** runs the key so that, present, any window W at
+  the stream's lowest multiplier is expected to hold at least 20 × (T+1)
+  duplicates, so a half-window without one never happens by chance and
+  the early check at night reads present.
+
+**6. `scheduler-transaction-held-open`: a consumer holding transactions
+open** (14b).
+
+- **Seed change**, `queries.yaml` and `schedule.yaml` (open — proposed,
+  item 12 point 2): `{KEY}`'s entry carries `transaction: {isolation:
+  repeatable read, hold: <duration>}`, and a stream of the schedule runs
+  `{KEY}` at a rate and concurrency giving rate × hold ≥ 1, so one such
+  transaction is always open. Repeatable read (or a write inside the
+  transaction) is required: a read-committed, read-only transaction
+  keeps no snapshot between its statements and holds back no vacuum.
+- **Parameter** `key`.
+- **Aging** 2h: `idle in transaction` at once; "dead but not yet
+  removable" needs the updated tables to reach their autovacuum
+  thresholds.
+- **Evidence**: `node`, the entry's hold, the key's `p50_ms` near the
+  hold (a call's latency includes it, W1-y); `bastion`,
+  `pg_stat_activity` (`state = 'idle in transaction'`, `now() -
+  xact_start`, `backend_xmin`, `application_name` the node's hostname),
+  `n_dead_tup` rising in `pg_stat_user_tables`. Answer key: the
+  PostgreSQL log's autovacuum lines naming dead rows not yet removable
+  and the oldest xmin (`node:<db>`).
+- **Resolutions**: report and propose only (15.3); the loader refuses
+  a fix (item 0). The proposal: the client commits as soon as its
+  statements are done; `idle_in_transaction_session_timeout` on the
+  database is a guard, not the fix.
+- **Check** on the files: 1 while the key's loaded entry carries a
+  hold, 0 once it carries none; reachable only where a scenario makes
+  the repository editable anyway.
+
+**7. `scheduler-batch-at-peak`: a nightly batch at the daily peak**
+(14b).
+
+- **Seed change**, `jobs.yaml`: `{JOB}`'s `at` puts it in the daily
+  peak instead of the night.
+- **Parameters**: `job`; `shape`, the shape of the node's
+  `schedule.yaml` whose busy hours the job must avoid; `quiet-below`, a
+  number, default `0.5`, the multiplier at or below which an hour counts
+  as quiet.
+- **Aging** 1h from the job's first run at its planted time (item 0).
+- **Evidence**: `node`, the job's `at` (UTC) in `jobs.yaml`, the log's
+  `run job={JOB}` lines at that time with their `ms=`, the other keys'
+  `p95_ms` in the same minutes; `bastion`, `pg_stat_activity` and
+  `pg_locks` during a run. Answer key: the PostgreSQL log's lock waits at
+  the job's time (`node:<db>`), latency in Grafana.
+- **Fixed**: every run of the job, as loaded, falls in an hour where the
+  shape's multiplier is at most `quiet-below`, on each weekday it runs.
+- **Check** (choice: the rendered shape is already in UTC per weekday,
+  so the check needs no shift): it reads the shape from
+  `/opt/gm/seed/schedule.yaml` (root) and the loaded job's `at` and
+  `timezone`; 0, 1, 2.
+- **A scenario using it**: the job's key is a transaction updating rows
+  the daytime streams update (lock waits at the peak); `quiet-below`
+  lies below every business hour's multiplier and at or above the
+  night's.
+
+**8. `scheduler-job-wrong-timezone`: a job in the wrong time zone** (14b).
+
+- **Seed change**, `jobs.yaml`: `{JOB}` carries `timezone_offset:
+  {OFFSET}`, its `at` as designed (D168); render writes `timezone:
+  Etc/GMT∓M`, M the shift plus `{OFFSET}` wrapped into UTC−12..UTC+14
+  (8.3, `render.render_jobs`).
+- **Parameters**: `job`; `offset`, an integer, never 0, equal to the
+  `timezone_offset` the scenario writes on the job (the loader checks
+  neither the equality nor the job; chunk 15 keeps them equal).
+- **Aging** 1h from the first run at the wrong time (item 0).
+- **Evidence**: `node`, the job's `timezone:` beside its `at` in
+  `jobs.yaml`, the log's `run job={JOB}` lines; `bastion`, the story's
+  customer time zone (`{{customer_timezone}}`, filled by render).
+- **Fixed**: the job, as loaded, runs at its designed time of day in
+  the customer's zone, whatever the form (the customer's zone beside the
+  `at`, the `at` in UTC with no zone, any zone giving those instants).
+- **Check** (choice: the only inputs a check has are its parameters and
+  the node's files): from the seed copy of `jobs.yaml` it reads the `at`
+  as designed and the zone M, takes the customer's offset as M minus
+  `{OFFSET}` brought into −11..+12 (the shift's range, so the answer is
+  unique), and compares the loaded job's run times with that `at` read
+  in the customer's zone; 0, 1, 2.
+
+**9. `pgbouncer-pool-too-small`: a pool too small for the peak** (14b).
+
+- **Seed change**, `pgbouncer.ini`: the pool for `{DATABASE}`
+  (`default_pool_size`, or the `[databases]` entry's `pool_size`) set
+  below what the clients' peak needs, under `pool_mode = transaction`.
+- **Precondition** (choice, from W1-y and 7.2): `pool_mode =
+  transaction` in effect. A scheduler keeps its sessions for the whole
+  game, so in session mode each pins a server connection and the
+  shortfall is constant from the first minute, not the peak's.
+- **Parameters**: `database`, the `[databases]` entry; `min-pool-size`,
+  an integer, the smallest pool that serves the peak, inside the
+  scenario's `default_pool_size` envelope and below the database's
+  `max_connections` less its other clients.
+- **Aging** 30m of business-hours load (item 0).
+- **Evidence**: `node`, `SHOW POOLS` (`cl_waiting`, `maxwait`) and
+  `SHOW DATABASES` (`pool_size`) on the console as `dba`,
+  `pgbouncer.ini`, the log's per-period `stats:` lines with their wait
+  times (`stats_period` set in the seed). Answer key: the clients'
+  `p95_ms` at the peak (`node:<producer>`), Grafana.
+- **Fixed**: the database's pool size in effect (`SHOW DATABASES`) at
+  least `min-pool-size`, and `max_db_connections` in effect 0 or at least
+  `min-pool-size`. The pool mode is not judged. Check on the console;
+  0, 1, 2.
+- **A scenario using it** gives the knob `default_pool_size` the seed's
+  small value as `initial` and an envelope reaching `min-pool-size`, and
+  sizes the clients so waits show in business hours and most at the
+  peak.
+
+**10. The scenario's choice** (writes: chunk 15a; read by 15b; proposed
+for G7, which reviews the faults, write policies and aging, item 12
+point 3).
+
+Ten instances: seven of the eight and the three existing faults 15.2
+names. Every one is planted at T0 but `f8`; aging 16h, `handover_at:
+"14:00"`, so the designed T0 is 22:00 the evening before and the peak
+hour is 12; the instance minima below count from that T0. Table and key
+names are proposed; 15a's data and repositories fix them, and the
+parameters follow.
+
+| Inst. | Fault | Node | Parameters (proposed) | `plant_at` | Instance `aging_minimum` | Expected |
+|---|---|---|---|---|---|---|
+| f1 | `scheduler-query-error` | producer | `key` a lookup pool entry (a type error, about one call in ten) | T0 | — | fix |
+| f2 | `scheduler-report-unbounded` | consumer | `key` a sales report, `date-column` `placed_at` | T0 | — | propose |
+| f3 | `scheduler-insert-retry-duplicates` | producer | `database` `shop`, `table-name` `delivery_events`, `id-column` `event_id`, `time-column` `received_at`; window 30m, threshold 0 | T0 | — | fix |
+| f4 | `scheduler-transaction-held-open` | consumer | `key` a dashboard read, repeatable read, hold of minutes | T0 | — | propose |
+| f5 | `scheduler-batch-at-peak` | producer | `job` the nightly close-day batch, `at` "0 12 * * *", `shape` `business-hours`, `quiet-below` 0.5 | T0 | 15h (first run at T0 + 14h) | fix |
+| f6 | `scheduler-job-wrong-timezone` | consumer | `job` the export, `at` "0 2 * * *", `offset` −8 (runs at 10:00 the customer's time) | T0 | 13h (first run at T0 + 12h) | fix |
+| f7 | `pgbouncer-pool-too-small` | pooler | `database` `shop`, `min-pool-size` from 15b's measurement, seed `default_pool_size` below it | T0 | 10h (the morning's business hours) | fix |
+| f8 | `pg-join-index-missing` | db | `database` `shop`, `table-name` `order_lines`, `column` `order_id` | `handover-6h` (08:00) | 4h | fix |
+| f9 | `pg-table-autovacuum-off` | db | `database` `shop`, `table-name` `orders` | T0 | 12h | fix |
+| f10 | `prometheus-scrape-target-missing` | prometheus | `node` `pooler` | T0 | — | propose |
+
+- **Left out: `scheduler-update-without-where`.** Of the eight it
+  alone adds a write load that grows with its table and runs at every
+  call for sixteen hours (WAL, dead rows and CPU on the database's one
+  CPU, on armenelos' 4.4G available and 10G free), and its evidence
+  families are carried here by others: dead rows by f9, lock waits by
+  f5, rows per call in `pg_stat_statements` by f2. The duplicates fault
+  stays: it is the only behavioural check, which 15a's answer-key
+  windows and the release gate's "sealed checks right under load before
+  and after fixes" need. Chunk 14 builds and verifies the left-out fault
+  all the same.
+- **Why these existing ones**: f8 is the `state` fault planted during
+  the aging that 15.2 asks for (the index dropped "this morning");
+  `handover-6h` is at least its minimum 4h and at most the aging (6.1).
+  f9's table is the hot one: the producer's order updates (a stream
+  marking orders shipped) and f5's batch make its dead rows. f10 leaves out the pooler, the one node whose only
+  metrics are node health (D139), so its CPU at the peak shows nowhere;
+  it sits on the report-only Prometheus, so it is a proposal.
+  `pg-stat-statements-not-preloaded` is not taken: it would hide f2's,
+  f3's and f4's statistics.
+- **Write policies**: `db` and `pooler` fixable; `producer` report-only
+  with `write_overrides` `/srv/scheduler/repository` and
+  `/srv/scheduler/jobs`; `consumer` report-only with
+  `/srv/scheduler/jobs`; `prometheus` report-only; `grafana` fixable;
+  `exporter` fixable (choice, as `fixture-load`; item 12 point 4);
+  `bastion` report-only.
+- **What the topology, data and schedules give the faults**: the
+  producer connects through the pooler (`pooler:6432/shop`), the
+  consumer directly to the database (f4's held transactions then pin no
+  pooled connection, and f7 starves the producer only); `pgbouncer.ini`
+  in transaction mode; the ingestion stream (f3) unshaped, since
+  deliveries arrive at night too; one job on the consumer left right
+  (a nightly roll-up) as the reference beside f6's export; the seed
+  `postgresql.conf` with `fixture-load`'s logging block and preload;
+  `orders` and `order_lines` large enough for f2's spill and f8's slow
+  lookups, inside the database's disk reservation; `delivery_events`
+  with no unique constraint on `event_id`; Prometheus' retention at least
+  20h (f10's material keeps the retention as written).
+- **Interactions** the answer key records: from 08:00 f8's slow lookups
+  hold pooled connections longer and deepen f7's waits at the peak; f4
+  holds back vacuum on every table but `orders`, which autovacuum never
+  visits (f9); f5's batch at noon adds dead rows to `orders`; f10 hides
+  the pooler's node health, not f7's evidence (the console and the log).
+  f1's key is neither f8's lookup nor f3's ingestion.
+- **Score**: `difficulty: {score: 10, level: normal}`.
+- **The smoke deployment** (`smoke-scenario.sh`, 15a's done-when): f3
+  reads present only once the ingestion has run a few minutes after
+  `start-load`, so its polling must allow for that.
+
+**11. Chunk 14's verification on `fixture-load`** (read by 14).
+
+The plan plants each fault on a deployment of `fixture-load`, which
+chunk 14 does not own (chunk 12's, deployed at every wave gate). As it
+stands it can carry f1's, the time-of-day faults' and the held
+transactions' plantings (its producer's `orders.lookup` pool, its jobs
+`refresh-stats` and `nightly-rollup`, the shape `business-hours` with
+its night at 0.5, the consumer's repeatable-read `reports.top-customers`),
+but not the others: the unbounded report needs a table that spills (its
+`orders` holds 20 000 rows), the duplicates need a client id column and
+a builder, the pool needs transaction mode, and the update needs a small
+table. Chunk 14 plants on its own copies of `fixture-load` outside the
+repository, with what each fault needs added, and leaves
+`tools/tests/fixtures/fixture-load/` as it is.
+
+**12. Points not the driver's to settle** (for `spec-writer`, the owner
+or G7; chunks 14 and 15 build on the proposals).
+
+1. **open — proposed: where the duplicates check reads the data.** 15.3
+   and the plan judge the duplicates over a window from the data; 6.5
+   says a check on a database connects as the GM check role; but a
+   check runs only on its instance's node (`checks.py`), here the
+   producer, which holds no GM check role password and no `check-psql`.
+   Proposed (A): the scheduler brick declares `gm_check_password`
+   alike (one secret, both nodes, as `pgbouncer_lookup_password` is),
+   root-only on the scheduler node, and a scenario with the duplicates
+   fault admits `gm_check` from the game network by `scram-sha-256`
+   under its DO NOT TAMPER comment (D171's `local` line covers only the
+   socket); the check connects straight to the database's port 5432
+   (never the pooler), inside the reserve, with the `database` parameter
+   and a `db-node` parameter naming the database node. Its cost: chunk
+   3's `brick.yaml` and `docs/gm.md` (unreleased), outside chunk 14's
+   Files; the plan's "as the GM check role (its `CONNECT` … D176)" reads
+   as if it expected this. Alternative (B), inside chunk 14: the check
+   connects as the producer's own role (its root-only
+   `role_<role>_password`), straight to port 5432; it breaks 6.5 and has
+   no reserve. Rejected: a cause-only check of the repository's text,
+   which 15.3 and chunk 14's done-when exclude. Blocks only that check;
+   14a's three others and 14b go ahead.
+2. **open — proposed: the held transactions' home.** 15.3 places the
+   fault in "schedule (hold)" and makes it report or propose only, but
+   7.1 (and the brick as built) puts the hold on a repository entry's
+   `transaction:`, a file a scenario may make fixable. Proposed (item 6):
+   the seed changes name both `queries.yaml` (the hold) and
+   `schedule.yaml` (the stream keeping one open), so the loader refuses a
+   fix anywhere; 15.3's wording to say the hold is the repository's and
+   its frequency the schedule's.
+3. **open — proposed (G7): the scenario's choice**, item 10: the
+   left-out fault, the names, the offset and the times.
+4. **open — proposed (G7): the monitoring nodes' policies.** 15.2 and
+   the plan say "one monitoring node fixable, one report-only"; the
+   topology has three. Proposed: Prometheus report-only, Grafana and the
+   exporter fixable, as `fixture-load`.
+5. **A reading for `spec-writer` to confirm**: the time-of-day faults'
+   minima count from their first run (item 0), where 6.3 reads "once
+   planted".
+
+### Chunk 13 merged — 2026-10-28
+
+- 3b9be51 (merge 5f51422), `coding-leader` in chunk mode. Every item of
+  master spec 13's "The GM skill" mapped to `SKILL.md`; 106 `gmctl`
+  invocations (variants included) parse with `gmctl`'s parser; unit
+  suite 653 OK; links checked by script. v0.2's stance items kept;
+  v0.3's three added. `gmctl.md`'s deploy entry matches ea3de4a.
+- Readings, beyond the spec's words: without a snapshot, the restart's
+  statement names the lost evidence by place and time span, never by
+  fault (master spec 12 against the no-reveals rule; ruled below);
+  v0.2's "restart or reset" refusal now reads "of a node or a service";
+  the bastion's new host key after a restart with no snapshot; at
+  hand-over in a game that ages, nobody touches the load; the rules at
+  hand-over include asking for a restart. `SKILL.md` grew from 628 to
+  1207 lines (a GM session loads about twice as much).
+
+### Capture W4's open items and chunk 13's reading — owner's rulings, 2026-10-28
+
+1. W4 item 12.1, the duplicates check's access: **(A)**. The scheduler
+   brick declares `gm_check_password`, shared as
+   `pgbouncer_lookup_password` is, and the scenario's `pg_hba.conf`
+   carries a do-not-tamper `host` line for `gm_check`; the check
+   connects to db:5432 as the GM check role (master spec 6.5). This
+   adds the scheduler brick's files to chunk 14 (its 0.1.0 version).
+2. W4 item 12.2, held transactions: the fault's seed changes name both
+   `queries.yaml` and `schedule.yaml`, so it is report or propose only on
+   every node; master spec 15.3's "lives in the schedule" to be
+   corrected.
+3. Chunk 13's reading of master spec 12: the restart's statement
+   without a snapshot names the lost evidence by place and time span,
+   never a fault; spec 12's wording to follow.
+4. W4 items 12.3 and 12.4: chunk 15a builds the scenario as W4 proposes
+   (`scheduler-update-without-where` left out; Prometheus report-only,
+   Grafana and the exporter fixable); the owner reviews it at G7, before
+   chunk 15 merges.
+5. W4 item 12.5 (the time-of-day faults' minima counted from the first
+   run) goes to `spec-writer` to confirm against master spec 6.3.
+
+Sent to `spec-writer`: record 1 to 3 (and 5) as decisions, revise
+master spec 6.5/15.2/15.3/12 as needed and the plan (chunk 14's Files
+and Scope), before chunk 14's branch is cut.
+
+### Rulings recorded; plan v15 — 2026-10-28
+
+- `spec-writer`, eea1e20: D185 (the duplicates check as `gm_check`,
+  straight to db:5432; the scheduler brick declares `gm_check_password`;
+  the scenario's `pg_hba.conf` `host` line), D186 (held transactions on
+  both files, report or propose only), D187 (the restart's statement by
+  place and time span), D188 (the scenario as W4 item 10, three
+  monitoring policies; G7), D189 (a reading of 6.3, not a change: the
+  instance's own minimum counts from planting, the scenario raising it
+  for time-of-day faults; nothing for the owner). Master spec 6.3, 6.5,
+  7.1, 12, 15.2, 15.3; plan v15 (chunk 14's Scope, Files, split rule;
+  15a's Scope; G7).
+- No loader check for D185's `pg_hba.conf` line or D189's raised
+  minima (both carried by the faults' `gm.md`); the owner may ask for
+  them later. The working records `aging-and-timeline.md` and
+  `faults-with-activity.md` keep the old wording (the master spec wins).
+- Chunk 14 dispatched from eea1e20 and this entry.
+
+### Chunk 14 merged — 2026-10-28
+
+- 974194e (14a: the scheduler's `gm_check_password` and root-only
+  `check-sql`; query-error, update-without-where, report-unbounded,
+  insert-retry-duplicates), 8344633 (14b: held-open, batch-at-peak,
+  job-wrong-timezone, pgbouncer-pool-too-small, the bricks' docs, the
+  template's comment), merge 75695f6; `coding-leader` in chunk mode.
+- Verification: the loader clean on all eight; unit suite 653 OK;
+  scheduler image rebuilt, stack test 105 checks (secret 0:0 0400,
+  `check-sql` 0:0 0700, neither readable nor runnable by `player` or the
+  service account, the program never given the password, `check-sql`
+  read-only and exit 2 on a refused connection). All eight planted on
+  one `fixture-load` copy on armenelos (T0 10:03:51Z), fixed as
+  `player`: each showed its evidence within its minimum; each check 1,
+  1 when edited but not reloaded, 0 after; the duplicates 0 before the
+  load, 1, 3 (274 s left), 0. Torn down; nothing left; the VPS
+  untouched.
+- The chunk owner's readings (none changes stated behaviour):
+  1. query-error's "too soon" lasts up to about 130 s right after a
+     reload (only a minute begun after it proves a call ended after
+     it), at most 70 s after; W4 said 70;
+  2. the duplicates fault takes a required `db-node` parameter (W4
+     12.1 A, not in W4's table or D185);
+  3. batch-at-peak and wrong-timezone: a job removed from the loaded
+     `jobs.yaml` reads present;
+  4. update-without-where and report-unbounded: an entry turned into a
+     builder exits 2;
+  5. held-open's refusal on a fixable node comes from the fault listing
+     no `fix` resolution (not `model.fix_policy`, as W4 item 0 said);
+     D186's effect holds;
+  6. `pg_stat_statements` evidence read with `psql -d postgres` (the
+     extension exists only there in postgres 0.3.0);
+  7. `bricks/scheduler/Dockerfile`, outside the Files line: `check-sql`
+     made 0700 with a parse check, and listed in `protected_files`.
+- For chunk 15a: f3's `db-node` and the `pg_hba.conf` line `host all
+  gm_check samenet scram-sha-256` (do not tamper), its answer-key
+  window at most 1h; the unbounded report returns few rows and no index
+  may serve its sort (an incremental sort never spills); any reload of
+  a node restarts query-error's wait; the batch and a small
+  transaction-mode pool interact strongly; f6's `offset` equals the
+  job's `timezone_offset` (unchecked by the loader).
+
+### Chunk 15a built — 2026-10-28
+
+- 8c8b2ea on `v0.3-c15-scenario` (worktree kept for 15b; not merged,
+  G7), `coding-leader` in chunk mode. Scenario `tarnbeck-outdoor-shop`
+  (Tarnbeck Outdoor, an online outdoor-gear shop), built as W4 item 10.
+- Done when (15a): the loader finds nothing missing; README generated
+  from the template. `fit` and `render` on armenelos alone (4 CPU, 4G,
+  20G): fits (CPU 1.5 of 4, memory 1.62G of 4G, disk 8.47G, 13.03G with
+  the snapshot copies). On armenelos plus the VPS (the wave 3 gate's
+  flags): fits (bastion, db, pooler, producer on armenelos; consumer and
+  the three monitoring nodes on the VPS); `fit` only ran `docker node
+  ls`; the VPS `Drain` throughout. Smoke deployment on armenelos: 26/26
+  in 807 s, f1 to f10 present on the first check, the eight validators
+  green; nothing left. Unit suite 653 OK.
+- Departures and choices, for the driver and G7:
+  - `smoke-scenario.sh` refuses a `designed_for` of several hosts, and
+    the scenario names two (for the two-host `fit`): the smoke ran on a
+    scratch copy designed for armenelos alone, nothing else changed. It
+    needs `LOAD_MINUTES=12` (f4's five-minute hold, f2's five-minute
+    stream). **Left for the wave gate**: the script taught to smoke a
+    several-host design on one host, or the gate passing a scratch
+    copy, and `LOAD_MINUTES=12`; fixed on the wave branch after
+    chunk 15 merges.
+  - load design W4 left open: checkout holds its transaction 3 s (the
+    payment provider), which makes the pool of 3 too small at noon
+    with the database idle; close-day holds 20 s after its work,
+    guaranteeing lock waits at noon; neither is a fault instance
+    (`gm/notes.md`).
+  - f7's `min-pool-size: 6` estimated; 15b measures it.
+  - the builder named `builders/carrier_feed.py` (not `resend.py`, which
+    would give the fault away); Prometheus retention 1d, 384MB.
+- Reservations 1.1 CPU, 1.22G, 3.81G disk; `designed_for` host-1 2 CPU
+  3G 10G, host-2 2 CPU 2G 8G; the data 176 MB, loaded in about 11 s.
+- G7: the scenario is ready for the owner's review on the branch
+  (`gm/notes.md`, `README.md`); 15b changes only its `resources` and
+  README.
+
+### Chunk 15b built — 2026-10-28
+
+- 575fd7a on `v0.3-c15-scenario`, on 8c8b2ea (not merged, G7; worktree
+  kept), `coding-leader` in chunk mode. Logs and raw figures: the
+  driver's scratchpad, `r15b/`.
+- The rehearsal, once, on armenelos plus the VPS (UTC): `render
+  --handover 2026-10-28T15:00Z` (customer noon 13:00Z); deploy 28 s,
+  the scheduler image copied to the VPS; `start-load
+  --test-aging-minimum 42m`, T0 12:59:03Z; f8's `inject --at 13:03Z`
+  planted by its host timer; the producer killed, resumed in 15 s, T0
+  kept, one outage minute; the early check by its host timer at
+  13:04:05, 10/10 present; the consumer's program stopped 13:06:29 to
+  13:10:36, recorded as 4 minutes ("no summary"); the hand-over check at
+  13:45:53 (5 minutes lost, the earliest hand-over not moved); the
+  snapshot, 52 s, 34 copies, 215M, Prometheus and Grafana down 7 s
+  each; `handed-over`; the restart across both hosts, 92 s, both
+  schedulers resumed on their marker with T0 kept, every fault present,
+  validate 0; teardown, nothing left on either engine. Script count 52
+  passed, 1 failed: the harness's outage step called `s6-svc` without
+  `/command/`; the outage was then made by hand inside the script's
+  window.
+- armenelos suspended 12:17 to 12:59 UTC while the stack sat idle
+  before T0 (a laptop); nothing after T0 affected. A `systemd-inhibit`
+  held from 13:00; the committed script takes one itself. **For the
+  release gate (G8)**: armenelos kept awake for the whole aged run
+  (master spec 10.1 assumes always-on hosts).
+- The VPS `active` inside the lock, drained by the trap at 13:49:50;
+  filetstudio.com 200 before, 100/100 during, after.
+- Figures (armenelos, Ryzen 5 PRO 8640HS, 11.3 GiB; `vps-5718ad52`, 4
+  vCPU Haswell, 7.6 GiB; 2026-10-28, the peak hour from 13:00Z, `docker
+  stats` every 20 s): memory max bastion 11M, db 206M, pooler 20M,
+  producer 39M, consumer 37M, Prometheus 66M, exporter 36M, Grafana
+  182M; CPU max 0.03 to 0.20. **The game's peak: 577M (273M on
+  armenelos, 308M on the VPS).** Growth per hour: postgres data 4.6M
+  (an extra 30-minute run on armenelos alone, the rehearsal's WAL
+  recycling having hidden it), its log 0.7M, TSDB 3.1M, PgBouncer log
+  0.1M, scheduler logs 0.12M and 0.03M. `disk_growth_per_hour`: postgres
+  32M to 8M, pgbouncer 4M to 1M, scheduler 2M to 1M, grafana 2M to 1M;
+  the others kept. Snapshot 215M. Fernway's 256MB TSDB bound holds
+  (under 16M over four hours); tarnbeck's 384MB holds (about 80M over
+  twenty hours). Scenario reservations unchanged.
+- f7 at the peak, pool of 3: clients waiting in 39% of samples, up to
+  16, `maxwait` 8.8 s; offered load 1.9 Erlangs before f8, about 5
+  after (fixing I4 matters to I1); a pool of 6 queues about 1%:
+  `min-pool-size: 6` kept. Close-day 23.2 s at 13:00, checkout p95 23 s
+  that minute.
+- `fit` with the figures: one host fits (disk 7.88G of 20G, snapshot
+  11.98G); two hosts fit.
+- **G5 applied**: 577M plus about 1G fits armenelos' available memory
+  (3.77G at the run's lowest): the release gate's aged run on armenelos
+  alone.
+- Outside the Files line, for the owner: `tools/tests/test_fit.py`
+  (expected figures pinned to postgres's provisional 32M/h; 653 OK);
+  the "to be confirmed by 15b" notes in `gm/answer-key.yaml` and
+  `gm/notes.md` replaced by the measures.
+- Not exercised in a full run: the committed `rehearsal.sh`'s fixes
+  (`/command/s6-svc`, a `wait_running` requiring s6 up and a fresh
+  status, the kill and the outage kept clear of an early check, the
+  inhibitor, `pg_wal` measured apart). Grafana "Starting" in `docker
+  stack ps` just after deploy reported every service healthy (task
+  state lag?), unchecked.
+
+### G7 cleared; chunk 15 merged — 2026-10-28
+
+- The owner approved `tarnbeck-outdoor-shop` (G7), kept 15b's
+  `tools/tests/test_fit.py` change, and asked for the committed
+  `rehearsal.sh` to be re-run once on two hosts at the wave gate.
+- The driver merged `v0.3-c15-scenario` --no-ff into `v0.3-w4` as ecfaa06.
+
+### Wave 4 gate passed — 2026-10-28
+
+Run by a coding-executor on armenelos, 15:51–20:50 CET, at d7cdbd5
+(46e8589 plus step 0), κ = 1, every docker step under the host lock,
+an inhibitor held throughout. Logs in the session scratchpad
+(`gate-w4/`).
+
+- Step 0, d7cdbd5: `smoke-scenario.sh` smokes a several-host design on
+  one host (one-host `fit`, every designed host placed locally; tarnbeck
+  as `host-1-host-2`, 4 CPU / 5G / 18G, disk 7.68G, snapshot 11.78G);
+  `LOAD_MINUTES` defaults per scenario (12 for tarnbeck, 3 otherwise).
+  The only commit; no other fix.
+- Unit suite 653 OK; scheduler unit tests 60 OK; `sh -n`/`bash -n` 118
+  files and `perl -c` 7 files clean (shellcheck not installed); loader:
+  34 definitions plus 13 in fixtures, no problem; seven builds OK.
+- Stack tests all passed: postgres 131, bastion 71, prometheus 131,
+  postgres-exporter 103, grafana 119, scheduler 105, pgbouncer 103.
+- `smoke.sh` 60; `smoke-monitoring.sh` 43; `smoke-scenario.sh`:
+  bookshop 19, fernway 18, tarnbeck 26 (843 s).
+- `smoke-load.sh`: one host, first run 70 passed / 3 failed (first
+  judged minute 15:11Z: 18 producer errors, 16 `orders.lookup`, 2
+  `orders.insert`, and its every-minute job did not run; scheduler log
+  lost at teardown, no journal access; not traced to a chunk, nothing
+  on that path changed in wave 4); re-run 73/73 with a watcher, no
+  error line; duo 73/73. Treated as intermittent; open for the release
+  gate.
+- `rehearsal.sh duo` re-run (owner's request at G7): 53/53, no hand
+  intervention, 9644 s. Same placement as 15b. `/command/s6-svc`
+  outage 4 min, kill resumed in 15 s with T0 kept, early check by its
+  timer at 17:41:06, hand-over check passed, earliest hand-over
+  unmoved, snapshot 56 s (Prometheus down 7 s, Grafana 8 s), restart
+  87 s with every fault present, teardown clean. The script's inhibitor
+  held. Figures against 15b: peak 583M (280M / 311M) against 577M; db
+  213M, Grafana 192M; snapshot 218M; close-day 21.5 s; f7 waiting in
+  39% of samples, up to 14, `maxwait` 5.1 s; offered load p50 3.4, p90
+  6.1 Erlangs; armenelos' lowest available memory 3.82G; TSDB 3.0M/h.
+  G5's reading stands.
+- Grafana "Starting" after deploy: task-state lag of about a second
+  behind the container's own `healthy`; `deploy` reported after both.
+  No fix.
+- Image sizes unchanged from wave 3: postgres 262MB, bastion 185MB,
+  prometheus 488MB, postgres-exporter 165MB, grafana 866MB, scheduler
+  172MB, pgbouncer 182MB.
+- VPS: filetstudio.com 200 before, during (8/8, 160/160) and after;
+  node active only inside the lock, drained by the trap; now Drain with
+  its own containers only; four game images kept. No game object left
+  on either host.
+- No dependency changed in the wave (the scheduler Dockerfile's
+  change is a chmod and a parse check): no security-advisor check. No
+  intent or data register: no sync.
+- For the release gate: copy the schedulers' `error` lines before
+  teardown when a smoke-load check fails; G8 (armenelos kept awake for
+  the aged run) still applies, and the owner is weighing where the
+  aged run goes; release gate item 6's two-host `smoke-scenario.sh` on
+  tarnbeck is not covered by the wave gate.
+
+Side branch, outside the wave: `v0.4-readme` (287f6f6, 8ceb70c), cut
+from `v0.3-w4` for the owner's v0.4 direction (D190–D192, O104–O120);
+merges after this wave.
+
+## Release gate — started 2026-10-28
+
+- The owner asked to commit, push and run the release gate on armenelos,
+  leaving it open (G8 set: deployed this evening, hand-over 2026-10-29
+  early afternoon; G5: armenelos alone, the VPS stays Drain). The driver
+  holds a sleep inhibitor (`systemd-inhibit`, sleep, idle and lid switch)
+  for the run.
+- Already covered on this code by the wave 4 gate (d7cdbd5; c83e378
+  adds only the log): item 6's `smoke-load.sh` on armenelos alone and
+  on armenelos plus the VPS, `smoke-scenario.sh` on tarnbeck on one
+  host, the rehearsal re-run on two hosts; item 10's bookshop and
+  fernway smoke runs; item 12's quality command. Left for after the aged
+  run: `smoke-scenario.sh` on tarnbeck on armenelos plus the VPS, item
+  11's forced failures.
+- Item 7, setup: a fresh GM session set up `tarnbeck-outdoor-shop` on
+  armenelos alone (playground `laptop`, declared 4 CPU / 4G / 18G;
+  `fit`: disk 7.75G, snapshot 11.85G of 18G), the driver playing the
+  initiator. Game `tarnbeck-outdoor-shop-zcbdq5`; T0
+  2026-10-28T20:44:25Z; earliest hand-over 2026-10-29T12:44:25Z
+  (provisional until f8); planned hand-over 2026-10-29T14:00Z, customer's
+  time zone UTC+0. Every step exit 0, no warning. Host timers: f8's
+  planting at 08:00Z, the early check at 11:44:25Z. The images were the
+  wave gate's builds of the same code. At 20:45Z the producer's
+  per-minute summaries were flowing; its `catalog.lookup` errors are f1's
+  planted query error. The VPS stayed Drain.
+- Next, by the driver: a check after f8's planting (09:07 CET); a fresh
+  GM session resuming during the aging at 12:52 CET (`status` first, the
+  early check's result), then the hand-over check and the snapshot.
+- Check at 08:07Z: f8 planted 2026-10-29T08:00:00Z by its host timer
+  (the unit exited 0 at 08:00:03Z); earliest hand-over now final,
+  12:44:25Z; aged 11h22m, lost time 0; all 8 services 1/1; producer and
+  consumer summaries current (08:06Z), no outage line; the inhibitor
+  held. A Windows reboot overnight touched nothing (armenelos up 8 days).
+- Item 7, a fresh GM session resuming during the aging (11:52Z): ran
+  `status` first (stage `load-started`, aged 15h8m, lost time 0, f8
+  planted 08:00:00Z by its timer); the early check fired by its timer at
+  11:44:25Z and passed (every fault present, both schedulers' keys ok,
+  every node healthy, no lost time); 909 per-minute summaries on each
+  scheduler, no gap, no outage; the consumer's nightly-rollup (01:30Z)
+  and accounting-export (10:00Z) ran ok. It stopped before the earliest
+  hand-over (12:44:25Z), to resume for the hand-over check and snapshot.
+- Footprint around the noon peak (`docker stats` each minute,
+  11:52–12:39Z, armenelos): game total peak 632MiB; per node max: grafana
+  203M, db 192M (CPU 32%), prometheus 128M (aged TSDB; 65M in the
+  rehearsal), producer 43M, consumer 30M, exporter 25M, pooler 12M,
+  bastion 6M; armenelos' lowest available memory 3763MiB. No node
+  restarted.
+- Item 7, hand-over preparation by the same GM session: close-day ran
+  at 12:00:00–12:00:23Z (34,355 rows, 23.2 s; orders.place p95 22.6 s
+  that minute, the noon stall the story needs). The hand-over check at
+  12:47:13Z passed: f1–f10 present, both schedulers' keys ok and their
+  jobs run, 0 min lost, all 8 nodes healthy. Snapshot at 12:47:24Z:
+  34 copies, 259.09M, about 11 s; Prometheus and Grafana stopped about
+  1 s each inside their containers, no node down. Starter pack checked
+  against the render (sha256), customer's zone UTC+0, no secret in it.
+  Stopped before `--set handed-over`. The GM proposes retaking the
+  hand-over check and the snapshot just before hand-over, so a restart
+  goes back to the hand-over state.
+- Item 7, the hand-over (same GM session, as it proposed): the
+  hand-over check retaken at 13:56:15Z, passing (f1–f10 present, both
+  schedulers' keys ok, 0 min lost, 8 nodes healthy); the snapshot
+  retaken at 13:56:23Z, replacing the 12:47 copies: 34 copies, 246.59M,
+  Prometheus and Grafana stopped briefly 13:56:31–33Z (the maintenance
+  window); `status --set handed-over` at 13:56:58Z, 17h12m after T0,
+  the session ending at 17:56Z; the starter pack with the customer's
+  time zone (UTC+0) in the players' home.
+- Item 9 (stance), in the handed-over game: a player's request to pause
+  the load and to trigger close-day refused, no action; a passing
+  mention of a restart and a question about what a restart does
+  answered (whole game, every change lost, back to hand-over, no extra
+  time, only on an explicit confirmation), nothing restarted. The early
+  hand-over refusal is left for the item 11 game.
+- Item 8, play-through by a verifier as `player` (bastion and web front
+  only), 13:58–14:25Z: every evidence item of f1–f10 reachable where the
+  answer key says. Fixes 14:04–14:24Z: f8 (index), f9 (autovacuum),
+  f7 (pool 3 → 8), f1 (`sku`), f5 (close-day to 23:30), f3 (idempotent
+  insert, duplicates removed, unique index), f6 (timezone removed);
+  validators green. Not fixed by design: f2, f4 (agency), f10
+  (Prometheus report-only). Sealed checks from the host at 14:26:45Z:
+  f1, f3, f5–f9 fixed; f2, f4, f10 present.
+- Findings for the release notes (verifier):
+  - RG-1: the player's SSH key is refused on the bastion (password
+    only); the key works for the hops between nodes.
+  - RG-2: on `pooler`, plain `psql` fails (`SASL authentication failed`,
+    no `~/.pgpass`), so f7's "how" in the answer key fails as written;
+    `psql -h pooler -p 6432 -U dba pgbouncer` from the bastion works.
+  - RG-3: f4 blocks f3's proposed `ADD CONSTRAINT … UNIQUE` (a lock
+    never granted) and makes each `CREATE INDEX CONCURRENTLY` wait 5 min;
+    the answer key doesn't say so.
+  - RG-4: f5's Prometheus evidence is weak (p95 buckets 2.5/5/10/30 hide
+    the noon stall among other bumps); the logs are strong.
+  - RG-5: PostgreSQL 18's autovacuum log says "removable cutoff", not
+    the answer key's "oldest xmin" (f4).
+  - RG-6: Grafana's statement panels are labelled by queryid only (f2).
+  - RG-7: the db log's `client=` shows 10.0.1.18 for most connections.
+  - RG-8: f3's window check read 0 at once, not 3 then 0: the players
+    deleted the duplicates inside the 30-minute window, so the count of
+    duplicates inserted in it was already 0. A deletion without the
+    cause fixed would read "fixed" until the next duplicate (about four
+    a minute).
+- Item 8, the restart (G9): a player asked for a restart; the GM gave
+  the statement (every change lost, back to hand-over, the gap a
+  maintenance window, same access, no extra time) and asked for a
+  confirmation in so many words. The owner typed "yes, we confirm:
+  restart the game", relayed verbatim. `gmctl restart --confirmation`
+  14:28:57–14:29:28Z (31 s): game `tarnbeck-outdoor-shop-q8au6x`, 34
+  volumes restored, a new seed, both schedulers resumed from their
+  marker, stage handed-over, the four hours still counted from the
+  first hand-over. Checked by the driver at 14:30:45Z: f1–f10 present
+  again (the fixes gone), the player password and the tools password
+  still valid, the starter pack back in `~`. The GM told the players
+  the maintenance window, 13:56–14:29 UTC. The producer's first minute
+  after the restart had 17 errors (about 6–11 before), reconnecting.
+- Item 8, after the restart: the verifier re-applied the seven fixes at
+  14:31:26–14:31:41Z (the index builds took under a second: f4's
+  dashboard had not run yet). Sealed checks from the host: at 14:32:47Z
+  f1 (a window check) read too soon, 22 s left; at 14:34:31Z fixed.
+  The players' report handed in as final answer (14:35:09Z); the GM ran
+  `validate` (all eight green) and `check` (f1, f3, f5–f9 fixed; f2, f4,
+  f10 present, report-only), checked the report on the live system,
+  and gave feedback (14:36:25Z): all ten found, every answer
+  acceptable, three improvements (watch a behavioural fix hold, check
+  figures, join related findings: autovacuum off and the held snapshot
+  on orders). Stage `feedback-given`; teardown waits for the owner.
+- RG-8 confirmed by the GM: the f3 answer key says removing the old
+  duplicates does not matter to the check; it does (the check counts
+  the duplicates still in the table).
+- 2026-10-29, the owner: "you may teardown. i'll let you fix what need
+  to be fixed … you've done well." Taken as G10 (the owner's judgement
+  of the aged game and the feedback): passed. Teardown of
+  `tarnbeck-outdoor-shop-q8au6x` at 18:16:18Z under the host lock: 8
+  services, 1 network, 35 configs, 10 secrets, 76 volumes removed,
+  nothing labelled left, no host timer left.
+- Owner ruling the same day: no aged run before v1.0 (maybe not even
+  then); aged runs stay one-off, not a standing gate item, as they take
+  too long. Sent to spec-writer on `v0.4-readme` (later versions' gates).
+- RG-1, RG-2, RG-3, RG-5 and RG-8 to be fixed before release (owner);
+  sent to a coding-executor on `v0.3-rg-fixes`, merging into `v0.3-w4`,
+  with items 1–5 and 13's document checks. RG-4, RG-6, RG-7 go to the
+  release notes as known gaps. Left after the fixes: item 6's
+  `smoke-scenario.sh` on tarnbeck on armenelos plus the VPS, item 11's
+  forced failures with item 9's early hand-over refusal, the release
+  notes (item 15).
+- Release gate fixes (coding-executor, `v0.3-rg-fixes`, merge f84258c):
+  - RG-2 fixed in the brick (3cde51c): pgbouncer 0.1.0 declares
+    `dba_password` and writes the player's `~/.pgpass` at each start, as
+    the spec, `docs/gm.md` and the starter pack promised; stack test
+    105/105; f7's "how" now right as written.
+  - RG-1 not a defect: the bastion is password-only by v0.1 master spec
+    9.2 and the access model; the key is for the hops. The tarnbeck
+    starter pack now says so (cfeebb9); bookshop and fernway keep the
+    older wording.
+  - RG-8, RG-3, RG-5 in the answer key, the faults and `gm/notes.md`
+    (e4dca09): f3's check counts the duplicates still in the table
+    (deleting them alone is not a fix); f3↔f4 `conflicts-with`. RG-3
+    corrected: on PG 18 the `ADD CONSTRAINT` lock is granted once the
+    open holders end (about five minutes at most), not never; inserts
+    queue behind it meanwhile. PG 18.6's wording "removable cutoff".
+  - The README regenerated; the loader's completeness check clean.
+    Unit 653, scheduler 60, bastion stack 71/71, `smoke-scenario.sh
+    tarnbeck-outdoor-shop` 26/26 on armenelos alone (795 s). No version
+    bump (pgbouncer 0.1.0 and bastion 0.3.0 unreleased, D100); the
+    pgbouncer image rebuilt.
+- Items 1–5: PASS (executor, evidence in its report: every brick's
+  `docs/gm.md` against its `brick.yaml`; the eleven faults in the new
+  evidence form on `gm_check`; the eight new faults complete; the
+  scenario complete, README current; `gmctl` against master spec 13 and
+  8.7). Item 13: the brick docs held every finding but the bastion's
+  (added, ca42bad); the driver wrote the missing findings into chunks 3,
+  4, 5, 6, 8, 10 and 15's Record lines. PASS.
+- Item 6 reread: `smoke-scenario.sh` is one-host by design (it places a
+  several-host design on one engine); the two-host deployment of
+  tarnbeck is the rehearsal, re-run on armenelos plus the VPS at the
+  wave 4 gate on this code (53/53), with `smoke-load.sh` duo 73/73.
+  Item 6 PASS. The rehearsal also forced failures during an aging (a
+  scheduler killed, a 4-minute outage), recorded with the game left
+  running: item 11's second half.
+- Item 11 and item 9's early hand-over, by a fresh GM session on
+  armenelos alone, the driver the initiator (2026-10-29):
+  - Forced setup failure: a scratch copy of tarnbeck (never in the
+    repo) with `SELECT 1/0;` appended to `data/db.sql`, playground
+    `rgfail`, game `tarnbeck-outdoor-shop-rv6jxu`: fit, render, deploy
+    and the wiring reads 0; `load-data` 1, gmctl tore the game down
+    itself, stage `failed` recorded before `data-loaded`; the GM's
+    confirming teardown found nothing left. Finding RG-9: the reason
+    recorded read `psql exit 3: setval` (psql's first output line), not
+    the error. Fixed (d2e3999, merge 3330648): the reason carries
+    psql's `ERROR:` line (then `FATAL:`, `psql:`), for the data load,
+    the schedulers' passwords and the CONNECT grant; unit 658.
+  - A real game, `tarnbeck-outdoor-shop-o6aw03` on `laptop`: every
+    step 0, T0 18:53:56Z, earliest hand-over 2026-10-30T12:00Z
+    (provisional until f8), both host timers set. Asked by the
+    initiator to hand over at once: refused, saying when (12:00Z at
+    the earliest, once f8 is planted and the hand-over check passes).
+  - Forced failure during the aging: the driver scaled the producer to
+    0 at 18:54:42Z and back at 18:58:02Z. Asked what it saw, the GM read
+    `status` (OUTAGES: 4 min lost in 1 period, under the 30 min, the
+    earliest hand-over not moved; task history may be incomplete),
+    traced it to the service spec changed outside gmctl, found no
+    fixed-time run in the gap and no evidence lost, and left the game
+    running, touching nothing (the load is not the GM's to restart).
+  - Torn down at the initiator's request, with its reason, at
+    19:00:00Z: nothing labelled left, both host timers removed. The
+    VPS stayed Drain throughout. Items 9 and 11: PASS.
+- The sleep inhibitor released; no docker work left in the gate.
+- Item 12, the quality command re-run on the fixed code, armenelos
+  alone, the VPS Drain throughout, under a sleep inhibitor:
+  - 2026-10-29 from 20:06 CET, head 674e8ab: unit 658 OK, the
+    schedulers' unit tests OK, syntax 118 shell and 7 Perl files, 0
+    failed, loader 34 definitions (plus 13 in fixtures), 0 with
+    problems; postgres 0.3.0 and bastion 0.3.0 built, stack tests
+    passed. The run was stopped at 20:13 CET, during prometheus's stack
+    test (not a failure).
+  - 2026-10-30 from 08:53 CET, head 65c2c0b (docs only since 674e8ab),
+    resumed at prometheus: its stack test failed at once on a config
+    `gmtest-prom_seed_prometheus_yml` left by the stopped run (the
+    leftovers check before resuming had missed it); the test's own
+    teardown removed it and the re-run at 09:36 passed (78 s).
+    postgres-exporter, grafana, scheduler and pgbouncer: built, stack
+    tests passed. smoke (OK), smoke-monitoring (43 checks),
+    smoke-scenario bookshop-new-server (19), fernway-clinics-monitoring
+    (18), tarnbeck-outdoor-shop (26, 844 s), smoke-load armenelos (73,
+    426 s): all passed. The intermittent smoke-load failure did not
+    recur. Nothing left after the run. Item 12: PASS.
+- Release gate: items 1 to 15 PASS, G9 and G10 cleared. v0.3-w4 is
+  ready to merge into main when the owner asks.

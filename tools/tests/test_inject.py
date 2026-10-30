@@ -205,6 +205,18 @@ class TestLoadData(DeployedGame):
         self.assertEqual(self.fake.names("volume"), ["registry-data"])
         self.assertIn("db data/db.sql (psql as postgres): exit 3", self.printed)
 
+    def test_the_reason_is_psqls_error_not_its_first_line(self):
+        # RG-9: a result printed before the error must not hide it
+        self.replies["CREATE DATABASE shop"] = (3, " setval \n--------\n      1\n(1 row)\n\n",
+                                                "ERROR:  division by zero\n")
+        with self.assertRaises(state.SetupFailed) as ctx:
+            self.load_data()
+        reason = localimpl.read_state(self.ldir)["failure"]["reason"]
+        self.assertEqual(reason, "data load of db (data/db.sql): psql exit 3: "
+                                 "ERROR: division by zero")         # spaces folded
+        self.assertIn("psql exit 3: ERROR: division by zero", str(ctx.exception))
+        self.assertIn("     setval", self.printed)
+
     def test_interruption_is_a_failed_setup(self):
         def interrupt(run):
             raise KeyboardInterrupt
@@ -367,6 +379,37 @@ class TestMountedGame(MountedCopyTest):
 
 VERIFIER_RE = re.compile(r"PASSWORD 'SCRAM-SHA-256\$4096:([A-Za-z0-9+/=]+)\$"
                          r"([A-Za-z0-9+/=]+):([A-Za-z0-9+/=]+)'")
+
+
+class TestPsqlErrorLine(unittest.TestCase):
+
+    @staticmethod
+    def line(stdout="", stderr="", returncode=3):
+        run = execnode.ExecResult("db", "postgres", "ctr", returncode, stdout, stderr)
+        return inject.psql_error_line(run)
+
+    def test_the_first_error_line(self):
+        self.assertEqual(self.line(" setval \n--------\n 1\n",
+                                   "NOTICE:  skipping\nERROR:  division by zero\n"
+                                   "ERROR:  second\n"),
+                         "ERROR:  division by zero")
+
+    def test_an_error_line_before_a_psql_one(self):
+        self.assertEqual(self.line("", "psql:<stdin>:3: NOTICE:  skipping\n"
+                                       "ERROR:  division by zero\n"),
+                         "ERROR:  division by zero")
+
+    def test_else_a_fatal_or_psql_line(self):
+        self.assertEqual(self.line("x\n", "FATAL:  the database system is starting up\n"),
+                         "FATAL:  the database system is starting up")
+        self.assertEqual(self.line("x\n", 'psql: error: connection to server on socket '
+                                           '"/run/postgresql/.s.PGSQL.5432" failed\n'),
+                         'psql: error: connection to server on socket '
+                         '"/run/postgresql/.s.PGSQL.5432" failed')
+
+    def test_else_the_first_line(self):
+        self.assertEqual(self.line(" setval \n--------\n", "something odd\n"), " setval")
+        self.assertEqual(self.line(), "no output")
 
 
 class TestScramVerifier(unittest.TestCase):

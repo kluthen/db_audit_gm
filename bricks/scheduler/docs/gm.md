@@ -109,6 +109,7 @@ UTC weekday and the timeline as UTC instants. The forms are W1 item 7's:
 |---|---|---|
 | `player_ssh_pubkey` (key-pair, public half of `player_ssh_key`) | `/opt/gm/secrets/player_ssh_pubkey`, root `0444` | `gmctl deploy` |
 | `role_<role>_password`, one per role the schedule names (password, not handed over) | `/opt/gm/secrets/role_<role>_password`, 0:0 `0400` | render derives them from the schedules (spec D167): not in `brick.yaml`; `load-data` sets them in the database |
+| `gm_check_password` (password, not handed over), one secret with the `postgres` brick's | `/opt/gm/secrets/gm_check_password`, 0:0 `0400` | `gmctl deploy`; the database node creates `gm_check` with it. Read only by `check-sql`, for a sealed check that reads the data (spec D185); never passed to the program |
 
 A role is `[a-z_][a-z0-9_]{0,40}`, never `postgres`, `dba`, `monitoring`,
 `gm_check`, `pgbouncer_lookup` or `pg_*`.
@@ -126,6 +127,7 @@ A role is `[a-z_][a-z0-9_]{0,40}`, never `postgres`, `dba`, `monitoring`,
 | Write policy | `/run/gm/write-policy` | root `0444` in the root-only `/run/gm` |
 | Program configuration | `/etc/scheduler/scheduler.yaml` | root `0644`, protected: log, status, marker, paths, the endpoint |
 | Wrappers | `/usr/local/sbin/gm-reload-scheduler`, `gm-validate` | root `0755` |
+| The sealed checks' SQL | `/usr/local/lib/gm/check-sql` | root `0700`: root only, as the secret it reads |
 | `sudo` log | `/run/gm/sudo.log` | root, lost when the container is replaced |
 
 ### Start-up (`gm-entrypoint`, every container start)
@@ -246,6 +248,19 @@ Container ports 9120 and 22; nothing is published.
   snapshot.
 - **The GM** uses `gmctl exec` as root: the marker, the status, the
   counters, the log.
+- **The GM check role** (`gm_check`, v0.3 master spec 6.5, spec D185): a
+  sealed check that judges the data runs on this node as root and reaches
+  the database through `/usr/local/lib/gm/check-sql -h <db node> [-p
+  5432] -d <database> [-i name=identifier]... [-v name=value]...`, the
+  statement on standard input (`{name}` an identifier, `%(name)s` a
+  value; rows printed `|`-separated, as `psql -At`). It connects straight
+  to the database node's port 5432 (never a pooler) as `gm_check`, with
+  `gm_check_password`, inside the GM's reserve, read-only, with a 60 s
+  statement timeout; exit 0 done, 1 the statement failed, 2 it cannot run
+  or connect. The database node's `pg_hba.conf` must admit `gm_check`
+  from the game network (`host all gm_check samenet scram-sha-256` under
+  its DO NOT TAMPER comment), which only a scenario with such a check
+  needs.
 
 ## Footprint
 
@@ -259,10 +274,25 @@ about 56K. What grows is the log: a `summary` line and one `key` line per key ev
 120 bytes each), plus every fixed-time run and every error (measured: 4K
 in 12 minutes at two keys, about 20K an hour); a stream failing at 40
 calls a minute adds 40 `error` lines a minute.
-`disk_growth_per_hour: 2M` is provisional, for a few keys and a few
-errors a minute; chunk 15b's measurement replaces it. The CPU follows the
-rates: tens of calls a second fit in 0.25 CPU. The levers: lower rates
-or intensity, fewer keys, fewer failing calls.
+The CPU follows the rates: tens of calls a second fit in 0.25 CPU. The
+levers: lower rates or intensity, fewer keys, fewer failing calls.
+
+Measured in the v0.3 rehearsal (`tools/tests/rehearsal.sh`:
+`tarnbeck-outdoor-shop` on armenelos, AMD Ryzen 5 PRO 8640HS, 11.3 GiB,
+Debian 13, Docker 29.9.1, plus the VPS `vps-5718ad52`, 4 vCPU Intel
+Haswell, 7.6 GiB, Docker 29.9.2; 2026-10-28; 46 minutes of load from T0
+12:59Z to the hand-over check, the customer's noon peak from 13:00Z;
+`docker stats` every 20 s, the node-health script included), under limits
+of 0.25 CPU and 128M: the producer (five streams at 220 calls a minute at
+the peak, through PgBouncer, the close-day job, fault f1's error on one
+call in ten of its 120 lookups a minute) 39M at most (37M typical), 0.04
+CPU at most; the consumer (three streams straight to the database, one
+transaction held open five minutes) 37M at most, 0.13 CPU at most (0.08 at
+the 95th percentile). The log grew 0.12M an hour on the producer and 0.03M
+on the consumer; `disk_growth_per_hour: 1M` keeps a margin for more keys
+and more failing calls. Killed (`docker kill`), the producer's container
+was replaced by Swarm and its program running again at the current time
+within 15 s, its T0 unchanged; its other volumes stay under 20K.
 
 ### Snapshot
 
@@ -273,11 +303,39 @@ snapshot: a restart's re-render brings the new game's seed.
 
 ## Supported faults
 
-No catalog fault names `scheduler` 0.1.0 yet. The faults of master spec
-15.3 that live in its files (a query with an error, a missing `WHERE`, a
-report reading far too much, retried inserts, transactions held open, a
-batch at the daily peak, a job in the wrong time zone) arrive with chunk
-14, which adds them to this section.
+Which faults the brick hosts is stated only by each fault's `applies_to`
+(D59). This list is every catalog fault (`faults/`) whose `applies_to`
+names `scheduler` `0.1.0`, and no other: the faults of v0.3 master spec
+15.3 that live in a scheduler node's files (capture W4). A scenario's own
+`faults/` folder may define more for itself (`fixture-load`'s
+`fixture-job-every-minute`); those are not listed here.
+
+All are `seed-file` faults planted at render: the scenario writes the
+planted form into `nodes/<node>/` and nothing runs at injection. Every
+seed file also stays on the node as rendered, at `/opt/gm/seed/<file>`
+(root, `0444`; `schedule.yaml` `0400`), which the sealed checks read as
+the planted form. The checks run as root on the node; they judge what the
+program runs, so a live file whose sha256 differs from its `file` line in
+`/run/scheduler/loaded` reads *present* ("fixed but not reloaded"). They
+never run the repository's code. A fix is reachable only through the
+write overrides `/srv/scheduler/repository` and `/srv/scheduler/jobs`
+(D170); `schedule.yaml` is never fixable.
+
+| Fault | Seed change | What it needs from the brick |
+|---|---|---|
+| `scheduler-query-error` | `queries.yaml`: a key's SQL fails with a class 42 or 22 error | the log's `error` and `key` lines, `scheduler_errors_total`; its check reads the log after the last load and may answer *too soon* (exit 3) for about a minute after a reload |
+| `scheduler-update-without-where` | `queries.yaml`: an `UPDATE` with no `WHERE` | the entry as loaded; the key's latencies in the log |
+| `scheduler-report-unbounded` | `queries.yaml`: a report with no bound on its date column | the entry as loaded; the key's latencies in the log |
+| `scheduler-insert-retry-duplicates` | `queries.yaml` and `builders/`: a builder resending a share of its inserts (material `inject/resend.py`) | `gm_check_password` and `check-sql`: its behavioural check reads the data as `gm_check` straight to the database node's port 5432 (spec D185); the scenario's `pg_hba.conf` admits `gm_check` from the game network |
+| `scheduler-transaction-held-open` | `queries.yaml`: a key's `transaction: {isolation: repeatable read, hold: ...}`; `schedule.yaml`: a stream keeping one always open (spec D186) | the hold as the program runs it (a call's latency includes it); report or propose only, `schedule.yaml` being never fixable |
+| `scheduler-batch-at-peak` | `jobs.yaml`: a nightly batch timed inside the peak | the rendered shapes per UTC weekday in `/opt/gm/seed/schedule.yaml` and the program's own cron (`gm_scheduler.cron`), read by its check; its aging minimum counts from the job's first run (spec D189) |
+| `scheduler-job-wrong-timezone` | `jobs.yaml`: a job with `timezone_offset` (spec D168), rendered as `timezone: Etc/GMT∓M` | the rendered `jobs.yaml` at `/opt/gm/seed/jobs.yaml` and the program's own cron, read by its check; its aging minimum counts from the first run at the wrong time (spec D189) |
+
+Their evidence is read on the node (the files, the log, the metrics
+endpoint) and from the bastion (`pg_stat_statements`,
+`pg_stat_activity`, `pg_stat_user_tables`); the database's log, pgBadger
+and Grafana readings are the scenario's, in its answer key. Each fault's
+`gm.md` says what a scenario using it must provide.
 
 ## Checks
 

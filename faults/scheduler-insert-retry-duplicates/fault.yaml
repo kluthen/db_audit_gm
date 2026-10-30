@@ -1,0 +1,145 @@
+# Catalog fault: inserts resent without idempotency leave duplicate rows
+# (v0.3 master spec 15.3; capture W4 items 0, 1 and 5; spec D185). A
+# seed-file fault planted at render: the scenario maps the ingestion key of
+# the scheduler node's queries.yaml to a builder (material: inject/resend.py)
+# that resends a share of its inserts with the same client id, into a table
+# with no unique constraint on that id. Behavioural: the sealed check judges
+# the duplicate rows still in the table among those inserted over the answer
+# key's window, from the data, connecting as the GM check role straight to
+# the database node's port 5432.
+
+# --- Identity ---------------------------------------------------------
+id: scheduler-insert-retry-duplicates
+version: 0.1.0
+title: inserts resent without idempotency leave duplicate rows
+family: data-integrity
+severity: high
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: scheduler
+      versions: ["0.1.0"]
+  preconditions:
+    - >-
+      the database node's pg_hba.conf admits gm_check from the game network
+      by scram-sha-256, under its DO NOT TAMPER comment (host all gm_check
+      samenet scram-sha-256; spec D185)
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 1h                       # the answer key's window is at most this, so the first full
+                                    # window after planting holds the fault's behaviour
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  database:
+    description: the database holding the table
+    default: null
+    required: true
+  table-name:
+    description: the table the ingestion inserts into (schema-qualified if not in the search path)
+    default: null
+    required: true
+  id-column:
+    description: the client's own id, duplicated by the resends, with no unique constraint
+    default: null
+    required: true
+  time-column:
+    description: the insert time the window counts by, a column the insert fills with the current time
+    default: null
+    required: true
+  db-node:
+    description: >-
+      the database node the check connects to, straight to its port 5432
+      (never a pooler)
+    default: null
+    required: true
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: queries.yaml
+      change: >-
+        an ingestion key maps to the resending builder, with the share of
+        calls resent as its option (builder: builders/resend.py:ingest,
+        options: {resend: 0.2})
+    - file: builders/
+      change: >-
+        the builder inserting one row into {TABLE_NAME} with the client's
+        own id in {ID_COLUMN} and the current time in {TIME_COLUMN}, and
+        sending the same insert again for a share of the calls; the data
+        gives {ID_COLUMN} no unique constraint
+      material: inject/resend.py
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: node
+    source: the builder and its entry in the query repository
+    how: cat /srv/scheduler/repository/queries.yaml /srv/scheduler/repository/builders/*
+    shows: the ingestion builder sending its INSERT a second time for a share of the calls (the resend option)
+  - where: bastion
+    source: the table's rows
+    how: >-
+      psql -d {DATABASE} -c 'SELECT {ID_COLUMN}, count(*) FROM {TABLE_NAME}
+      GROUP BY 1 HAVING count(*) > 1'
+    shows: client ids stored twice, more of them each hour
+  - where: bastion
+    source: the table's definition
+    how: psql -d {DATABASE} -c '\d {TABLE_NAME}'
+    shows: no unique constraint or unique index on {ID_COLUMN}
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names the duplicate rows of {TABLE_NAME} (the same {ID_COLUMN} stored
+    more than once), their cause (the client resends an insert whose
+    acknowledgement is late, and nothing makes the insert idempotent: no
+    unique constraint on {ID_COLUMN}), and what they cost (counts and sums
+    that are wrong downstream).
+  proposal: >-
+    make the insert idempotent: a unique constraint on {ID_COLUMN} (after
+    removing the existing duplicates) and INSERT ... ON CONFLICT
+    ({ID_COLUMN}) DO NOTHING in the client, so a resend is harmless; a
+    constraint alone turns the resends into errors the client must handle.
+  fix: >-
+    the cause fixed, and at most the answer key's threshold of duplicate
+    rows left in {TABLE_NAME} among those inserted in its trailing window:
+    the producer fixed (ON CONFLICT DO NOTHING behind a unique constraint,
+    or the resend gone, reloaded with sudo gm-reload-scheduler) or the
+    database alone fixed (a unique constraint: the resends then fail with
+    23505 in the producer's log, which the GM weighs). Deleting the
+    duplicates alone is not a fix, though the check reads it as one until
+    the next resend.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+  behavioural: true
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  Our delivery counts don't match the carriers' invoices: some deliveries
+  show up twice in our reports.

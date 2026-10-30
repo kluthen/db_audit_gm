@@ -14,7 +14,8 @@
 #     application role's password in no file of the pooler node;
 #   - an application role through the pooler, from another node and over
 #     the local socket, by auth_query; a wrong password refused;
-#   - dba on the console: SHOW POOLS, SHOW STATS, SHOW CLIENTS; RELOAD,
+#   - dba on the console: SHOW POOLS, SHOW STATS, SHOW CLIENTS, and plain
+#     psql on the node through the player's ~/.pgpass; RELOAD,
 #     SET and PAUSE refused; still refused after player writes
 #     admin_users = dba in pgbouncer.ini and reloads;
 #   - the GM's admin over the local socket (PgBouncer's own account, by
@@ -61,7 +62,7 @@ SSH_OPTS="-i /root/id -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/nul
 CONF=/etc/pgbouncer/pgbouncer.ini
 LOG=/var/log/pgbouncer/pgbouncer.log
 REFUSAL='gm-reload-pgbouncer: this node is report-only: its files cannot be changed, so nothing was reloaded.'
-REFUSE_NAMES="policy override lookup"
+REFUSE_NAMES="policy override lookup dba"
 
 failures=0
 pass() { printf 'PASS  %s\n' "$*"; }
@@ -227,8 +228,8 @@ out=$(docker exec -u pgbouncer "$C" /opt/gm/validator/validate.sh 2>&1); rc=$?
 
 # --- owners, modes, secrets ---------------------------------------------------------
 m=$(gm stat -c '%a %U:%G' /etc/pgbouncer $CONF /var/log/pgbouncer $LOG /var/lib/gm-state /var/lib/gm-state/.gm-seeded \
-    /home/player /run/pgbouncer /run/pgbouncer-auth /run/pgbouncer-auth/userlist.txt | tr '\n' ' ')
-[ "$m" = "2775 pgbouncer:pgbconf 664 pgbouncer:pgbconf 2750 pgbouncer:pgbconf 640 pgbouncer:pgbconf 755 root:root 444 root:root 750 player:player 755 pgbouncer:pgbouncer 750 root:pgbouncer 440 root:pgbouncer " ] \
+    /home/player /home/player/.pgpass /run/pgbouncer /run/pgbouncer-auth /run/pgbouncer-auth/userlist.txt | tr '\n' ' ')
+[ "$m" = "2775 pgbouncer:pgbconf 664 pgbouncer:pgbconf 2750 pgbouncer:pgbconf 640 pgbouncer:pgbconf 755 root:root 444 root:root 750 player:player 600 player:player 755 pgbouncer:pgbouncer 750 root:pgbouncer 440 root:pgbouncer " ] \
     && pass "ownership and modes set by the entrypoint ($m)" || fail "ownership and modes: $m"
 check "/run/gm/write-policy says fixable (no policy in the environment)" \
     sh -c "docker exec $C cat /run/gm/write-policy | grep -qx policy=fixable"
@@ -273,8 +274,11 @@ for cmd in RELOAD "SET default_pool_size = 9" PAUSE SHUTDOWN; do
     case $r in *"admin access needed"*) [ "$rc" -ne 0 ] && pass "dba: $cmd refused ($r)" || fail "dba $cmd: exit $rc" ;;
         *) fail "dba $cmd: exit $rc: $r" ;; esac
 done
-r=$(pssh "PGPASSWORD='$DBA_PW' psql -X -w -q -A -t -c 'SHOW LISTS'" 2>&1)
-printf '%s' "$r" | grep -q '^databases|' && pass "dba's console from the node itself (psql, its environment)" || fail "console on the node: $r"
+r=$(pssh "psql -X -w -q -A -t -c 'SHOW LISTS'" 2>&1)
+printf '%s' "$r" | grep -q '^databases|' && pass "dba's console from the node itself (plain psql: its environment, ~/.pgpass)" || fail "console on the node: $r"
+r=$(gm cat /home/player/.pgpass)
+[ "$r" = "*:*:*:dba:$DBA_PW" ] && pass "the player's ~/.pgpass holds one line: dba and its secret's password" \
+    || fail "~/.pgpass: [$(printf '%s' "$r" | sed 's/[0-9a-f]\{48\}/<pw>/')]"
 
 # --- the GM's admin over the local socket ------------------------------------------------
 [ "$(setting admin_users)" = pgbouncer ] && [ "$(setting stats_users)" = dba ] \
@@ -497,14 +501,19 @@ refuse() {  # refuse <name> <expected text> <docker run args...>
         fail "entrypoint $k: exit $rc: $(printf '%s' "$out" | tail -n 3)"
     fi
 }
-LK="-v $tmp/pgbouncer_lookup_password:/opt/gm/secrets/pgbouncer_lookup_password:ro"
+DP="-v $tmp/dba_password:/opt/gm/secrets/dba_password:ro"
+LK="-v $tmp/pgbouncer_lookup_password:/opt/gm/secrets/pgbouncer_lookup_password:ro $DP"
 # shellcheck disable=SC2086
 refuse policy "gm-entrypoint: fatal: GM_WRITE_POLICY='read-only' is not one of fixable, report-only, no-access" \
     $LK -e GM_WRITE_POLICY=read-only
 # shellcheck disable=SC2086
 refuse override "gm-entrypoint: fatal: GM_WRITE_OVERRIDES: '/etc/pgbouncer/pgbouncer.ini' is not one of this brick's writable_paths (/etc/pgbouncer, /home/player)" \
     $LK -e GM_WRITE_POLICY=report-only -e GM_WRITE_OVERRIDES=/etc/pgbouncer/pgbouncer.ini
-refuse lookup "gm-entrypoint: fatal: secret /opt/gm/secrets/pgbouncer_lookup_password is missing or empty"
+# shellcheck disable=SC2086
+refuse lookup "gm-entrypoint: fatal: secret /opt/gm/secrets/pgbouncer_lookup_password is missing or empty" \
+    $DP
+refuse dba "gm-entrypoint: fatal: secret /opt/gm/secrets/dba_password is missing or empty" \
+    -v "$tmp/pgbouncer_lookup_password:/opt/gm/secrets/pgbouncer_lookup_password:ro"
 
 # --- hardening ---------------------------------------------------------------------
 check "root filesystem is read-only" sh -c "[ \"\$(docker inspect -f '{{.HostConfig.ReadonlyRootfs}}' $C)\" = true ]"

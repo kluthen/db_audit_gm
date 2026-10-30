@@ -504,9 +504,14 @@ class DeployResult:
     services: list = field(default_factory=list)
     ports: list = field(default_factory=list)
     several_hosts: bool = False
+    host_lines: list = field(default_factory=list)  # a several-host playground's hosts
 
     def text(self):
-        out = [f"Game {self.game_id}: deployed on {self.endpoint}.", f"  {self.swarm}"]
+        if self.host_lines:
+            out = [f"Game {self.game_id}: deployed on {self.endpoint}:"] + self.host_lines
+        else:
+            out = [f"Game {self.game_id}: deployed on {self.endpoint}."]
+        out.append(f"  {self.swarm}")
         out += [f"  {line}" for line in self.hosts]
         for host, entries in self.images.items():
             copied = [e["image"] for e in entries if e["copied"]]
@@ -578,6 +583,11 @@ def deploy(scenario_dir, playground, init_swarm=False, timeout=HEALTH_TIMEOUT, d
 
     result = DeployResult(gid, docker.describe(), swarm, hosts,
                           several_hosts=bool(docker.hosts))
+    pg = localimpl.read_playground(ldir) or {}
+    declared = localimpl.playground_hosts(pg)
+    if len(declared) > 1:
+        result.endpoint = f"{pg.get('name', ldir.name)}, {len(declared)} hosts"
+        result.host_lines = state.host_lines(declared, "  ")
     def undo():
         return teardown.remove_game_objects(docker, gid, sleep=sleep, clock=clock).text()
 

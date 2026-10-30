@@ -50,6 +50,16 @@ The image:
   manager: `gmctl fit` refuses a mapping that places the bastion, or any
   node publishing ports, on another host, and names the `--map` to change.
   The image is unchanged.
+- **Across hosts, as tried** (chunk 10b's two-host try, 2026-10-26,
+  armenelos plus the VPS; master spec 20): the swarm is bound to the
+  hosts' Tailscale addresses (`--advertise-addr`, `--listen-addr` and
+  `--data-path-addr` on `tailscale0`); the game's overlay and the
+  swarm's ingress carry the MTU option 1230, which Docker reads as the
+  outer MTU, so 1180 inside a node, within Tailscale's 1280 (D184); the
+  bastion's ports 2222 and 8080 opened on its own host only. `gmctl
+  deploy` copies each image a host lacks with `docker save <image> |
+  docker --context dbagm-<host> load`, through that host's SSH Docker
+  context, never pulled (D181), and skips one held under the same id.
 - **Stateful**: yes (`stateful: true`): the player's home (`~/report.md`,
   notes) and the sshd host key. Its volumes `home` and `hostkeys` must
   follow the node if it is replaced; `run` is emptied at each start.
@@ -371,8 +381,9 @@ disk), and `gmctl` uses those, never the brick's footprint. The renderer
 applies the CPU and memory limits and reservations; disk is only counted
 by the capacity check (`gmctl fit`: reservations plus 10 % headroom
 against the playground); the volumes themselves have no size limit.
-Disk growth per hour (`disk_growth_per_hour`): `1M`, a provisional
-estimate, to be replaced by v0.3 chunk 15b's measurement.
+Disk growth per hour (`disk_growth_per_hour`): `1M`, for the players'
+notes and reports; the v0.3 rehearsal, with no player, measured none
+(below).
 
 What makes it grow: the number of players logged in at once (an sshd
 process, a shell and a `psql` or `ssh` client each), and what they keep
@@ -404,6 +415,16 @@ panel's query, about 500 requests in 14 s) 18M and 0.20 CPU; during a
 pgBadger run on `db` 11M; at rest again after them 18M. Never OOM-killed
 nor restarted, never at its limit (`memory.peak`, page cache included,
 22M). Its volumes: about 40K.
+
+Measured in the v0.3 rehearsal (`tools/tests/rehearsal.sh`:
+`tarnbeck-outdoor-shop` on armenelos, AMD Ryzen 5 PRO 8640HS, 11.3 GiB,
+Debian 13, Docker 29.9.1, plus the VPS `vps-5718ad52`, 4 vCPU Intel
+Haswell, 7.6 GiB, Docker 29.9.2; 2026-10-28; 46 minutes of load from T0
+12:59Z to the hand-over check, the customer's noon peak from 13:00Z;
+`docker stats` every 20 s, the node-health script included), with
+`tarnbeck-outdoor-shop`'s `resources` (limits 0.5 CPU / 256M, reservation
+96M), no player logged in: 11M at most, 0.03 CPU at most; its volumes did
+not grow.
 
 ### Snapshot
 

@@ -131,6 +131,7 @@ of `default_pool_size`, `reserve_pool_size`, `pool_mode` and
 | Secret | Kind | Path | Owner, mode | Use |
 |---|---|---|---|---|
 | `player_ssh_pubkey` | key-pair (public half of `player_ssh_key`) | `/opt/gm/secrets/player_ssh_pubkey` | 0:0 `0444` | SSH as `player` |
+| `dba_password` | password, not handed over | `/opt/gm/secrets/dba_password` | 0:0 `0400` | the player's `~/.pgpass`, for the console as `dba` |
 | `pgbouncer_lookup_password` | password, not handed over, `only_with_role: pooler` | `/opt/gm/secrets/pgbouncer_lookup_password` | 0:0 `0400` | the lookup role's password |
 
 `pgbouncer_lookup_password` is the secret the `postgres` node declares at
@@ -139,7 +140,11 @@ writes it into `auth_file` (`"pgbouncer_lookup" "<password>"`,
 root:pgbouncer `0440`, under `/run`, on no other volume); it must be one
 line with no quote, space or tab. No application role's password is held
 on this node: their SCRAM verifiers come from the database, through the
-lookup function.
+lookup function. `dba_password` is the database node's and the
+bastion's secret (one secret, three nodes): the entrypoint writes the
+player's `~/.pgpass` from it (`*:*:*:dba:<password>`, `0600`), as the
+database node does, so plain `psql` on the node opens the console; it is
+the password players already have on the bastion, not a new one.
 
 ### Start-up (`gm-entrypoint`, every container start)
 
@@ -149,8 +154,8 @@ lookup function.
    `/run/pgbouncer-auth` (root:pgbouncer `0750`), `/run/pgbouncer-conf`
    (`pgbouncer` `0755`).
 2. Generates the sshd host key under `/run/sshd-keys`.
-3. Checks the secrets (fatal when one is missing or empty) and writes
-   `auth_file`.
+3. Checks the secrets (fatal when one is missing or empty), writes
+   `auth_file` and reads `dba`'s password.
 4. Checks `GM_WRITE_POLICY` and `GM_WRITE_OVERRIDES` (fatal on an unknown
    policy, or an override that is not one of `writable_paths`), writes
    `/run/gm/write-policy`.
@@ -162,7 +167,9 @@ lookup function.
    PgBouncer starts with the GM's settings and no database: the node
    stays up, the validator says why, and a fixed file is reloaded.
 8. Sets the log's owner and mode (`pgbouncer:pgbconf`, `2750`;
-   `pgbouncer.log` `0640`) and the home's, then execs `/init`.
+   `pgbouncer.log` `0640`) and the home's, rewrites the player's
+   `~/.pgpass` (whatever stands at that name removed first, a link
+   included), then execs `/init`.
 
 ## Connections
 
@@ -200,9 +207,10 @@ lookup function.
 - `player`: SSH by public key only, member of `pgbconf`. Its SSH
   environment opens `psql` on the console as `dba` over the local socket
   (`PGHOST=/run/pgbouncer PGPORT=6432 PGUSER=dba PGDATABASE=pgbouncer`);
-  `dba`'s password is the database's, in `~/.pgpass` on the bastion,
-  where `psql -h <pooler> -p 6432 -U dba pgbouncer` needs nothing more.
-  Players hold no extra password.
+  `dba`'s password is the database's, in the player's `~/.pgpass` on the
+  node (rewritten at every start), so plain `psql` there needs nothing
+  more, and in `~/.pgpass` on the bastion, where `psql -h <pooler> -p
+  6432 -U dba pgbouncer` does the same. Players hold no extra password.
 - `pgbouncer`: runs PgBouncer, owns its configuration and log; no login.
   The console's only admin, by `peer` over the local socket.
 - `sudo`: `player` may run the two wrappers as root, with no arguments
@@ -296,12 +304,23 @@ disk `256M`. At rest in the stack test, under the 64M limit: 11.1 MiB
 (`docker stats`; `memory.current` 12.6 MB), CPU 0.01 %. PgBouncer's memory
 grows with clients and pools (a few kilobytes each, `pkt_buf` buffers),
 far below the limit within the envelopes. Disk growth per hour
-(`disk_growth_per_hour`): `4M`, a provisional estimate, to be replaced by
-v0.3 chunk 15b's measurement: the log only (a stats line per database a
-minute, a line per login and logout with `log_connections` and
+(`disk_growth_per_hour`): `1M`, the log only (a stats line a minute, a
+line per login and logout with `log_connections` and
 `log_disconnections`, more under a per-call client). Levers: those two
 settings, `stats_period`, a pooled client (`pool: {size: N}`) rather
 than one connection per call.
+
+Measured in the v0.3 rehearsal (`tools/tests/rehearsal.sh`:
+`tarnbeck-outdoor-shop` on armenelos, AMD Ryzen 5 PRO 8640HS, 11.3 GiB,
+Debian 13, Docker 29.9.1, plus the VPS `vps-5718ad52`, 4 vCPU Intel
+Haswell, 7.6 GiB, Docker 29.9.2; 2026-10-28; 46 minutes of load from T0
+12:59Z to the hand-over check, the customer's noon peak from 13:00Z;
+`docker stats` every 20 s, the node-health script included), under the 64M
+limit, with `tarnbeck-outdoor-shop`'s transaction-mode pool of 3 for its
+web shop (fault f7) and 20 clients at the peak: 20M at most, 0.03 CPU at
+most; the log grew 0.1M an hour (the web shop's pooled connections log in
+once). The pool was the bottleneck, which costs PgBouncer nothing: up to
+16 clients waiting, `maxwait` up to 8.8 s.
 
 ### Snapshot
 
@@ -314,11 +333,23 @@ empty volume; the next start rewrites `/run` (the socket,
 
 ## Supported faults
 
-No catalog fault names this brick yet. Faults it lends itself to (v0.3
-`faults-with-activity.md`): a pool too small for the peak
-(`default_pool_size`), a client bypassing the pooler, `pool_mode =
+Which faults the brick hosts is stated only by each fault's `applies_to`
+(D59). This list is every catalog fault (`faults/`) whose `applies_to`
+names `pgbouncer` `0.1.0`, and no other.
+
+| Fault | Kind | What it needs from the brick |
+|---|---|---|
+| `pgbouncer-pool-too-small` | seed file (`pgbouncer.ini`) | the database's pool (`default_pool_size`, or the `[databases]` entry's `pool_size`) below the peak's need, `pool_mode = transaction` in effect (a precondition: in session mode the schedulers' sessions pin the pool from the first minute), `stats_period` set; the knob `default_pool_size` with the seed's value as `initial` and an envelope reaching the fault's `min-pool-size`; its sealed check reads `SHOW DATABASES` on the console over the local socket as `pgbouncer`, so only the values in effect count |
+
+Its evidence is the console (`SHOW POOLS`, `SHOW DATABASES`, as `dba`),
+`pgbouncer.ini` and the log's `stats:` lines; the clients' latency is the
+scenario's, in its answer key. Its aging minimum counts business hours
+under load (spec D189): the scenario raises the instance's.
+
+Faults it lends itself to with no definition yet (v0.3
+`faults-with-activity.md`): a client bypassing the pooler, `pool_mode =
 transaction` with a client relying on session state, `max_client_conn`
-below the clients' total. Each is a `seed-file` fault on
+below the clients' total. Each would be a `seed-file` fault on
 `pgbouncer.ini`, fixable on a fixable node. A fault on the GM's settings
 cannot be planted through the seed (they win over it).
 
@@ -336,11 +367,13 @@ cannot be planted through the seed (they win over it).
   it no longer connects, so PgBouncer's log carries no probe lines, and
   PgBouncer being down is the validator's business.
 - **After deployment**: `gmctl validate` green; `dba` runs `SHOW POOLS`
-  from the bastion; an application role connects through the pooler.
+  from the bastion and with plain `psql` on the node; an application role
+  connects through the pooler.
 - **Stack test**: `flock /tmp/dbagm-docker.lock sh
   bricks/pgbouncer/tests/run-stack-test.sh` (a `postgres` 0.3.0 node
   beside it): an application role through the pooler, `dba` on the
-  console and refused `RELOAD`, the GM's admin over the local socket, an
+  console (plain `psql` on the node, through `~/.pgpass`) and refused
+  `RELOAD`, the GM's admin over the local socket, an
   edit reloaded, the refusals, report-only and an override, the snapshot
   copy, the footprint at rest.
 

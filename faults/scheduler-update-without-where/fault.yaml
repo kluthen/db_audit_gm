@@ -1,0 +1,107 @@
+# Catalog fault: an UPDATE of the application has lost its WHERE (v0.3
+# master spec 15.3; capture W4 items 0, 1 and 3). A seed-file fault planted
+# at render: the scenario writes the unfiltered UPDATE into the scheduler
+# node's queries.yaml, so every call rewrites every row of its table.
+
+# --- Identity ---------------------------------------------------------
+id: scheduler-update-without-where
+version: 0.1.0
+title: an update of the application has lost its WHERE and rewrites the whole table
+family: application
+severity: high
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: scheduler
+      versions: ["0.1.0"]
+  preconditions: []
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 1h                       # rows per call show from the first calls; dead rows and
+                                    # lock waits need an hour of calls under load
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  key:
+    description: the queries.yaml key whose UPDATE lacks its row filter
+    default: null
+    required: true
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: queries.yaml
+      change: >-
+        the {KEY} entry's UPDATE has no WHERE (the row filter and its
+        parameter dropped), so every call updates every row of its table
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: node
+    source: the query repository
+    how: cat /srv/scheduler/repository/queries.yaml
+    shows: the {KEY} entry's UPDATE with no WHERE
+  - where: node
+    source: the scheduler's per-minute key lines
+    how: grep 'key minute=.* key={KEY} ' /var/log/scheduler/scheduler.log | tail
+    shows: the key's p50_ms and p95_ms far above a single-row update's, rising with the table
+  - where: bastion
+    source: pg_stat_statements
+    how: >-
+      psql -d postgres (where the extension is): SELECT calls, rows, rows / calls AS rows_per_call,
+      query FROM pg_stat_statements WHERE query ILIKE 'update%' ORDER BY rows DESC
+    shows: the statement updating the whole table's row count at every call
+  - where: bastion
+    source: the table's statistics
+    how: >-
+      psql on the application's database: SELECT relname, n_tup_upd, n_dead_tup,
+      last_autovacuum FROM pg_stat_user_tables ORDER BY n_tup_upd DESC
+    shows: n_tup_upd climbing by the table's size at each call, and dead rows piling up
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names the {KEY} UPDATE as missing its WHERE, so each call rewrites the
+    whole table, and its effects: rows per call in pg_stat_statements, dead
+    rows and the vacuum work they make, WAL, lock waits between concurrent
+    calls, the call's latency.
+  proposal: >-
+    restore the row filter (the WHERE on the row the call is about, and its
+    parameter), deployed with the application; a VACUUM of the table
+    afterwards if its dead rows piled up.
+  fix: >-
+    every UPDATE of the {KEY} entry in the loaded queries.yaml has a WHERE
+    (edited and reloaded with sudo gm-reload-scheduler).
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  Saving a change has become slow, sometimes it hangs for seconds, and the
+  database's disk keeps filling although we store hardly anything new.

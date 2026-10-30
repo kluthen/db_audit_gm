@@ -1,0 +1,133 @@
+#!/usr/bin/python3 -I
+# check-sql: one SQL statement as the GM check role gm_check, for the sealed
+# checks run on a scheduler node. DO NOT TAMPER. Root-owned, mode 0700: root
+# only (v0.3 master spec 6.5, 7.1; spec D185; docs/gm.md).
+#
+# Usage, as root inside the scheduler node (gmctl exec --user root):
+#   /usr/local/lib/gm/check-sql -h <db node> [-p <port>] -d <database> \
+#       [-i <name>=<identifier>]... [-v <name>=<value>]... <<'SQL'
+#   SELECT count(*) FROM {table} WHERE {column} > now() - make_interval(secs => %(window)s::int)
+#   SQL
+# Connects straight to <db node>:<port> (5432 by default; never a pooler)
+# as gm_check, with the password of the root-only secret
+# /opt/gm/secrets/gm_check_password (one secret with the postgres brick's),
+# application_name gm_check, read-only and with a 60 s statement timeout.
+# gm_check holds pg_use_reserved_connections, so it connects inside the
+# GM's reserve when ordinary roles have taken every other slot; the
+# database node's pg_hba.conf must admit it from the game network (a
+# `host` line under its DO NOT TAMPER comment, spec D185).
+#
+# The statement comes on standard input. `{name}` is replaced by the
+# quoted identifier given with -i (`schema.table` quotes each part);
+# `%(name)s` is bound to the value given with -v, as text (cast it in the
+# SQL). When -i is given, any other brace is doubled (`{{`); when -v is
+# given, so is `%`.
+# Every row is printed on one line, columns joined by `|`, NULL as an
+# empty field (psql -At's form).
+#
+# Exit status: 0 done; 1 the statement failed (`check-sql: <SQLSTATE>
+# <message>` on standard error); 2 the helper cannot run or connect (not
+# root, the secret missing, a bad argument, the server unreachable or
+# refusing), with one `check-sql: ...` line on standard error.
+import getopt
+import os
+import sys
+
+SECRET = "/opt/gm/secrets/gm_check_password"
+ROLE = "gm_check"
+USAGE = ("usage: check-sql -h <db node> [-p <port>] -d <database> "
+         "[-i name=identifier]... [-v name=value]... < statement")
+
+
+def fail(code, text):
+    print(f"check-sql: {text}", file=sys.stderr)
+    sys.exit(code)
+
+
+def pair(text, flag):
+    name, sep, value = text.partition("=")
+    if not sep or not name.isidentifier():
+        fail(2, f"{flag} {text!r}: name=value, the name a word")
+    return name, value
+
+
+def main(argv):
+    if os.getuid() != 0:
+        fail(2, "run as root")
+    try:
+        opts, rest = getopt.getopt(argv, "h:p:d:i:v:")
+    except getopt.GetoptError as exc:
+        fail(2, f"{exc}; {USAGE}")
+    if rest:
+        fail(2, f"unexpected argument {rest[0]!r}; {USAGE}")
+    host, port, dbname, idents, values = None, "5432", None, {}, {}
+    for flag, value in opts:
+        if flag == "-h":
+            host = value
+        elif flag == "-p":
+            port = value
+        elif flag == "-d":
+            dbname = value
+        elif flag == "-i":
+            name, ident = pair(value, flag)
+            idents[name] = ident
+        else:
+            name, val = pair(value, flag)
+            values[name] = val
+    if not host or not dbname or not port.isdigit():
+        fail(2, USAGE)
+    try:
+        with open(SECRET, encoding="utf-8") as f:
+            password = f.read().strip("\n")
+    except OSError as exc:
+        fail(2, f"cannot read {SECRET}: {exc.strerror}")
+    if not password:
+        fail(2, f"secret {SECRET} is empty")
+    text = sys.stdin.read()
+    if not text.strip():
+        fail(2, "no statement on standard input")
+
+    # Nothing from the caller's environment chooses the server, the role,
+    # the password or the session's settings.
+    for key in list(os.environ):
+        if key.startswith("PG"):
+            del os.environ[key]
+    import psycopg
+    from psycopg import sql
+
+    query = sql.SQL(text)
+    if idents:
+        try:
+            query = query.format(**{n: sql.Identifier(*v.split(".")) for n, v in idents.items()})
+        except (KeyError, IndexError, ValueError) as exc:
+            fail(2, f"the statement's {{names}} and the -i names do not match: {exc}")
+    try:
+        conn = psycopg.connect(host=host, port=int(port), dbname=dbname, user=ROLE,
+                               password=password, application_name=ROLE, connect_timeout=10,
+                               options="-c default_transaction_read_only=on -c statement_timeout=60s",
+                               autocommit=True)
+    except psycopg.Error as exc:
+        fail(2, f"cannot connect to {host}:{port}/{dbname} as {ROLE}: "
+                f"{str(exc).strip().splitlines()[-1] if str(exc).strip() else type(exc).__name__}")
+    del password
+    try:
+        with conn.cursor() as cur:
+            cur.execute(query, values or None)
+            rows = cur.fetchall() if cur.description else []
+    except psycopg.Error as exc:
+        state = getattr(exc, "sqlstate", None) or "-"
+        msg = getattr(getattr(exc, "diag", None), "message_primary", None) or str(exc).strip()
+        if isinstance(exc, psycopg.OperationalError) and state == "-":
+            fail(2, f"connection lost: {msg}")
+        fail(1, f"{state} {msg}")
+    finally:
+        conn.close()
+    out = sys.stdout
+    for row in rows:
+        out.write("|".join("" if v is None else str(v) for v in row) + "\n")
+    out.flush()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

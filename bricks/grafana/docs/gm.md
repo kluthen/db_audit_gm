@@ -470,8 +470,7 @@ brick), since a brick's footprint excludes mounted material. The memory
 reservation is measured: a node of `272M` (this figure plus the script's
 6M) in place of the spec's estimate of 160M, which the node exceeded at
 rest. The scenario sets each node's own `resources`, and `gmctl` uses
-those. Disk growth per hour (`disk_growth_per_hour`): `2M`, a provisional
-estimate, to be replaced by v0.3 chunk 15b's measurement.
+those. Disk growth per hour (`disk_growth_per_hour`): `1M` (below).
 
 Measured in the v0.2 game (`fernway-clinics-monitoring` on the `laptop`
 playground, declared at 2 CPU / 4G / 8G on armenelos: AMD Ryzen 5 PRO
@@ -494,6 +493,18 @@ only the one after hand-over (the stack test's 180M to 195M,
 a dashboard load reaches 0.47 CPU, close to the 0.5 limit: a player sees
 slower panels, not a failure. The database volume: about 2M (1.7M after
 35 minutes).
+
+Measured in the v0.3 rehearsal (`tools/tests/rehearsal.sh`:
+`tarnbeck-outdoor-shop` on armenelos, AMD Ryzen 5 PRO 8640HS, 11.3 GiB,
+Debian 13, Docker 29.9.1, plus the VPS `vps-5718ad52`, 4 vCPU Intel
+Haswell, 7.6 GiB, Docker 29.9.2; 2026-10-28; 46 minutes of load from T0
+12:59Z to the hand-over check, the customer's noon peak from 13:00Z;
+`docker stats` every 20 s, the node-health script included), under the
+384M limit, no dashboard opened: 182M at most and throughout, 0.19 CPU at
+most (0.12 at the 95th percentile); `grafdata` grew 5K an hour (alert
+rules evaluated every minute, none firing), so `disk_growth_per_hour` went
+from a provisional `2M` to `1M`. Its snapshot stop: `grafana` down 7 s
+(13:46:57Z to 13:47:04Z, a 1.7M `grafdata` copied on the VPS).
 
 What makes it grow:
 

@@ -162,6 +162,11 @@ class TestDeploy(RenderedGame):
         for secret_file in (self.ldir / "secrets").iterdir():
             self.assertNotIn(secret_file.read_text().strip(), text)
 
+    def test_first_line_names_the_engine_on_one_host(self):
+        text = self.deploy(FakeDocker()).text()
+        self.assertTrue(text.startswith(f"Game {self.gid}: deployed on local engine.\n  "), text)
+        self.assertNotIn("hosts", text.splitlines()[0])
+
     def test_ssh_endpoint_from_playground(self):
         pg = localimpl.read_playground(self.ldir)
         pg["docker_endpoint"] = "ssh://gm@swarm-host"
@@ -546,6 +551,15 @@ class TestTwoHostDeploy(TwoHostRendered):
         self.assertIn(f"  node bastion: port 2222 on host {MANAGER}", result.text())
         # never pulled
         self.assertFalse(fake.called("pull") or vps.called("pull"))
+
+    def test_first_line_names_the_playgrounds_hosts(self):
+        """Not "local engine": each host, manager or not, and its endpoint,
+        as `status` lists them (wave 3 gate carry-over)."""
+        text = self.deploy(self.cluster()).text()
+        self.assertTrue(text.startswith(
+            f"Game {self.gid}: deployed on duo, 2 hosts:\n  host {MANAGER} (manager): local "
+            f"engine\n  host {WORKER}: {VPS_ENDPOINT}\n  "), text)
+        self.assertNotIn("deployed on local engine", text)
 
     def test_an_image_held_under_the_same_id_is_skipped(self):
         fake = self.cluster(images=True)            # the VPS already holds both images

@@ -16,7 +16,7 @@ README:
 Archived IDs keep their meaning and are cited as they are. D107 onward
 stay live: rulings still to be applied in a later version (D107, D108,
 D110, D113), the v0.2 release close, and v0.3's drafting from D114.
-Numbering continues from D183; no ID is reused.
+Numbering continues after D189, the last; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -499,3 +499,45 @@ Numbering continues from D183; no ID is reused.
   re-created, for about 4% of a full packet. Now in:
   [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 10.2, 20;
   [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) "Left for the build".
+- **D185 (2026-10-28, owner ruling, relayed by the wave driver; capture
+  W4 item 12.1): The duplicates fault's sealed check, which runs on the
+  producer, reaches the database as the GM check role, straight to the
+  database node's port 5432:** the `scheduler` brick declares
+  `gm_check_password` (one secret with `postgres`', as
+  `pgbouncer_lookup_password` is), root-only, and the scenario's
+  `pg_hba.conf` admits `gm_check` from the game network under its DO NOT
+  TAMPER comment. Rejected: the producer's own role (no reserve, against
+  6.5). Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md)
+  6.5, 7.1; [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunks 14, 15.
+- **D186 (2026-10-28, owner ruling, relayed by the wave driver; capture
+  W4 item 12.2): The held transactions' seed changes name both
+  `queries.yaml` (the entry's hold) and `schedule.yaml` (the stream
+  keeping one open), so the fault is report or propose only on every
+  node,** the hold being a repository entry's (7.1), which an override
+  could make fixable. Now in: [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md)
+  15.3; [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunk 14.
+- **D187 (2026-10-28, owner ruling on chunk 13's reading, relayed by the
+  wave driver): Without a hand-over snapshot, the restart's statement
+  names the lost evidence by place and time span, never by fault,**
+  since naming the faults would reveal them. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 12.
+- **D188 (2026-10-28, owner ruling, relayed by the wave driver; capture
+  W4 items 12.3, 12.4): Chunk 15a builds the v0.3 scenario as capture W4
+  item 10 proposes (`scheduler-update-without-where` left out), its three
+  monitoring nodes Prometheus report-only, Grafana and the exporter
+  fixable;** 15.2 counted two monitoring nodes. The owner reviews it at
+  G7, before chunk 15 merges. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 15.2;
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunk 15, G7.
+- **D189 (2026-10-28, spec-writer, a reading of master spec 6.3 sent to
+  it by the owner's ruling; capture W4 items 0, 12.5): A fault whose
+  evidence shows only at a time of day counts its definition's aging
+  minimum from that moment's first occurrence after planting;** the
+  scenario raises the instance's minimum to the offset plus it, so the
+  instance's minimum still counts from planting (6.1, 8.7) and nothing
+  the system computes changes. A reading: 6.3 names no starting point,
+  and 8.2 already puts fixed-time runs and hours of the day in the
+  scenario's minimum. The loader cannot check the offset; the fault's
+  `gm.md` and the format template say it. Now in:
+  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 6.3;
+  [versions/v0.3/build-plan.md](versions/v0.3/build-plan.md) chunks 14, 15.

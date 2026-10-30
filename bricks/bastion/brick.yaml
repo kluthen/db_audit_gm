@@ -26,8 +26,8 @@ footprint:                          # v0.1's figures as reservations, limits twi
                                     # the v0.2 game's measurement too (docs/gm.md, Footprint)
   limits:       {cpu: 0.5, memory: 256M}
   reservations: {cpu: 0.25, memory: 128M, disk: 256M}
-  disk_growth_per_hour: 1M          # provisional estimate (capture W1 item 3), until
-                                    # v0.3 chunk 15b measures it: the players' notes and reports only
+  disk_growth_per_hour: 1M          # the players' notes and reports only: the v0.3 rehearsal
+                                    # (no players, 2026-10-28) measured none (docs/gm.md, Footprint)
 stateful: true                      # the player's home (~/report.md) and the sshd host key
 
 # --- What the scenario sets -------------------------------------------

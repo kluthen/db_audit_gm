@@ -9,7 +9,8 @@
 #   2. generates this container's sshd host key under /run;
 #   3. checks the secrets and writes PgBouncer's auth_file from the lookup
 #      role's: the only password PgBouncer holds (root:pgbouncer 0440,
-#      under /run, on no other volume);
+#      under /run, on no other volume); reads dba's, for the player's
+#      ~/.pgpass;
 #   4. checks GM_WRITE_POLICY and GM_WRITE_OVERRIDES and writes
 #      /run/gm/write-policy, read by gm-reload-pgbouncer (sudo resets the
 #      environment);
@@ -19,7 +20,8 @@
 #      its directory, seeding or not (contents untouched);
 #   7. writes the configuration PgBouncer reads, /run/pgbouncer-conf/
 #      (pgbouncer-conf: pgbouncer.ini with the GM's settings);
-#   8. sets the owners and modes of the log and the player's home.
+#   8. sets the owners and modes of the log and the player's home, and
+#      writes the player's ~/.pgpass (dba's password, for the console).
 set -eu
 
 CONF_DIR=/etc/pgbouncer
@@ -75,6 +77,11 @@ umask 022
 chown root:pgbouncer "$AUTH_DIR/userlist.txt.new"
 chmod 0440 "$AUTH_DIR/userlist.txt.new"
 mv -f "$AUTH_DIR/userlist.txt.new" "$AUTH_DIR/userlist.txt"
+# dba's password: the players' console role, in their ~/.pgpass (step 8),
+# as on the bastion and the database node.
+f=$SECRETS_DIR/dba_password
+[ -s "$f" ] || die "secret $f is missing or empty"
+dba_password=$(cat "$f")
 
 # --- 4. the write policy --------------------------------------------------
 if ! problem=$(policy write 2>&1); then
@@ -134,5 +141,15 @@ elif [ -f "$LOG_DIR/pgbouncer.log" ] && [ ! -L "$LOG_DIR/pgbouncer.log" ]; then
 fi
 chown player:player "$PLAYER_HOME"
 chmod 0750 "$PLAYER_HOME"
+# ~/.pgpass, rewritten at every start: plain psql on the node opens the
+# console as dba (PGHOST, PGPORT, PGUSER and PGDATABASE come from sshd's
+# SetEnv). Whatever the player left at that name goes first, a link
+# included, so root never writes through it.
+pw_pgpass=$(printf '%s' "$dba_password" | sed 's/[\\:]/\\&/g')
+rm -rf -- "$PLAYER_HOME/.pgpass"
+(umask 077; printf '*:*:*:dba:%s\n' "$pw_pgpass" > "$PLAYER_HOME/.pgpass")
+chown player:player "$PLAYER_HOME/.pgpass"
+chmod 0600 "$PLAYER_HOME/.pgpass"
+unset dba_password pw_pgpass
 
 exec /init "$@"

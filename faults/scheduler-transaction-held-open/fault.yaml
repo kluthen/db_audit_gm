@@ -1,0 +1,114 @@
+# Catalog fault: a consumer holds its transactions open (v0.3 master spec
+# 15.3; capture W4 items 0, 1 and 6; spec D186). A seed-file fault planted
+# at render: the hold is a repository entry's (queries.yaml, the entry's
+# transaction: {isolation: repeatable read, hold: <duration>}), and the
+# schedule runs that key often enough that one such transaction is always
+# open (schedule.yaml). Its seed changes name both files, so no write
+# override makes it fixable: report or propose only, on every node.
+
+# --- Identity ---------------------------------------------------------
+id: scheduler-transaction-held-open
+version: 0.1.0
+title: a client holds its transactions open, keeping vacuum from removing dead rows
+family: maintenance
+severity: high
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: scheduler
+      versions: ["0.1.0"]
+  preconditions: []
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 2h                       # idle in transaction at once; dead rows not yet removable
+                                    # need the updated tables to reach their autovacuum thresholds
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  key:
+    description: the queries.yaml key whose transaction is held open after its statements
+    default: null
+    required: true
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: queries.yaml
+      change: >-
+        the {KEY} entry carries transaction: {isolation: repeatable read,
+        hold: a few minutes}: the client keeps the transaction open that long
+        after its statements, before COMMIT. Repeatable read (or a write
+        inside the transaction) is required: a read-committed, read-only
+        transaction keeps no snapshot between its statements and holds back
+        no vacuum
+    - file: schedule.yaml
+      change: >-
+        a stream runs {KEY} at a rate and concurrency giving rate × hold of
+        at least 1, so one such transaction is always open
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: node
+    source: the query repository
+    how: cat /srv/scheduler/repository/queries.yaml
+    shows: the {KEY} entry's transaction with a hold of minutes
+  - where: node
+    source: the scheduler's per-minute key lines
+    how: grep 'key minute=.* key={KEY} ' /var/log/scheduler/scheduler.log | tail
+    shows: the key's p50_ms near the hold (a call's latency includes it)
+  - where: bastion
+    source: pg_stat_activity
+    how: >-
+      psql -c "SELECT application_name, state, now() - xact_start AS xact_age,
+      backend_xmin FROM pg_stat_activity WHERE state LIKE 'idle in transaction%'"
+    shows: a session of the scheduler node (application_name its hostname) idle in transaction for minutes, holding the oldest backend_xmin
+  - where: bastion
+    source: the tables' statistics
+    how: >-
+      psql on the application's database: SELECT relname, n_dead_tup,
+      last_autovacuum FROM pg_stat_user_tables ORDER BY n_dead_tup DESC
+    shows: n_dead_tup rising on the updated tables although autovacuum runs
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+acceptance:
+  diagnosis: >-
+    names the scheduler node's {KEY} transactions left idle in transaction
+    for minutes after their statements, and their effect: their snapshot
+    (backend_xmin) keeps vacuum from removing dead rows on every table, so
+    dead rows and bloat pile up (the autovacuum log's "dead but not yet
+    removable", and its "removable cutoff", many XIDs old).
+  proposal: >-
+    the client commits as soon as its statements are done (no work or
+    waiting inside the transaction); idle_in_transaction_session_timeout on
+    the database is a guard against the next one, not the fix.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  The database keeps growing and the vacuum jobs don't seem to reclaim
+  anything; queries get slower through the day.

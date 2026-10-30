@@ -25,9 +25,9 @@ footprint:                          # master spec 12's figures for the node, les
                                     # stays within them (docs/gm.md, Footprint)
   limits:       {cpu: 0.495, memory: 378M}
   reservations: {cpu: 0.095, memory: 154M, disk: 512M}
-  disk_growth_per_hour: 4M          # provisional estimate (capture W1 item 3), until
-                                    # v0.3 chunk 15b measures it: the TSDB; the v0.2 static game: 0.9M in 35 minutes,
-                                    # more targets and series under load
+  disk_growth_per_hour: 4M          # the TSDB: the v0.3 rehearsal measured 3.1M an hour at 12
+                                    # targets and 2 253 series, before the first compaction
+                                    # (2026-10-28; docs/gm.md, Footprint)
 stateful: true
 
 # --- What the scenario sets -------------------------------------------

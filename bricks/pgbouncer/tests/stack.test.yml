@@ -1,6 +1,6 @@
 # Stack test fixture for the PgBouncer brick (v0.3 build plan, chunk 6):
 # the pooler node and a postgres 0.3.0 node `db` holding the lookup role,
-# both reading the lookup role's password secret. Uses only what a rendered
+# both reading the lookup role's password secret and dba's. Uses only what a rendered
 # Compose 3.8 stack file can express. Configs and secrets are external,
 # created and removed by run-stack-test.sh (mirroring gmctl deploy). No
 # published port.
@@ -32,6 +32,7 @@ services:
       - {source: pgb_envelopes, target: /opt/gm/protected/envelopes.conf, uid: "0", gid: "0", mode: 0444}
     secrets:
       - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
+      - {source: dba_password, target: /opt/gm/secrets/dba_password, uid: "0", gid: "0", mode: 0400}
       - {source: pgbouncer_lookup_password, target: /opt/gm/secrets/pgbouncer_lookup_password, uid: "0", gid: "0", mode: 0400}
     networks: [net]
     deploy:

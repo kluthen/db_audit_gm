@@ -23,8 +23,9 @@ footprint:                          # master spec 7.1's figures; at rest measure
                                     # (docs/gm.md, Footprint)
   limits:       {cpu: 0.25, memory: 128M}
   reservations: {cpu: 0.1, memory: 64M, disk: 64M}
-  disk_growth_per_hour: 2M          # provisional: the log at a few keys and a few errors a minute;
-                                    # chunk 15b's measurement replaces it (docs/gm.md, Footprint)
+  disk_growth_per_hour: 1M          # the log: the v0.3 rehearsal measured 0.12M an hour at five
+                                    # keys, a job and a dozen errors a minute (2026-10-28;
+                                    # docs/gm.md, Footprint)
 stateful: true
 
 # --- What the scenario sets -------------------------------------------
@@ -48,6 +49,7 @@ protected_files:
   - /usr/local/sbin/gm-reload-scheduler
   - /usr/local/sbin/gm-validate
   - /usr/local/lib/gm/healthcheck
+  - /usr/local/lib/gm/check-sql     # root only (0700): the sealed checks' SQL as gm_check
   - /usr/local/lib/python3.13/dist-packages/gm_scheduler   # the program
   - /opt/gm/validator/validate.sh
   - /etc/s6-overlay/s6-rc.d
@@ -89,6 +91,12 @@ secrets:                            # no connection secret here: render derives 
     uid: 0
     gid: 0
     mode: "0444"                    # sshd reads it as player
+  - name: gm_check_password         # password of the GM check role gm_check, one secret with
+    kind: password                  #   the postgres brick's (v0.3 master spec 6.5, spec D185):
+    path: /opt/gm/secrets/gm_check_password   # a sealed check on this node reaches the
+    uid: 0                          #   database straight to its port 5432 through
+    gid: 0                          #   /usr/local/lib/gm/check-sql; never passed to the program
+    mode: "0400"                    # root only
 seed:
   dir: /opt/gm/seed/
   files:

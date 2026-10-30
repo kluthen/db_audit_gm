@@ -27,7 +27,7 @@ PrintMotd yes
 LogLevel INFO
 
 # psql opens PgBouncer's console as the players' role dba (its password is
-# dba's, in ~/.pgpass on the bastion).
+# dba's, in ~/.pgpass here as on the bastion).
 SetEnv PGHOST=/run/pgbouncer PGPORT=6432 PGUSER=dba PGDATABASE=pgbouncer
 
 Subsystem sftp internal-sftp

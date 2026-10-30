@@ -1,0 +1,704 @@
+# Answer key of tarnbeck-outdoor-shop, built from
+# .claude/skills/scenario-format/templates/answer-key.yaml. AUTHORITATIVE,
+# with scenario.yaml. SEALED: never shipped to a node, never shown to the
+# players before their final answer.
+#
+# Evidence is as the player OS user (and dba in psql). ui: entries are read
+# in a browser through the bastion's web front (user player, the tools
+# password; Grafana's own login admin, the same password). The bastion has
+# no curl; the other nodes have it. "Noon", "08:00" and the like are the
+# customer's time ({{customer_timezone}} in the story); the logs, the
+# rendered jobs.yaml and the tools are in UTC, so the UTC hour shown is the
+# customer's hour minus the game's shift (gmctl status gives the zone).
+
+scenario:
+  id: tarnbeck-outdoor-shop
+  version: 0.1.0
+notes: gm/notes.md
+
+instances:
+  - instance: f1
+    what: >-
+      The web shop's catalog.lookup key fails at one call in ten: its third
+      entry, the search by product code, compares products.id (an integer)
+      with the text 'TB-' || lpad(code, 5, '0'), so PostgreSQL rejects it
+      at every call with SQLSTATE 42883 (operator does not exist: integer =
+      text). The code is in products.sku.
+    why: >-
+      Every product-code search ends on the shop's error page (the story's
+      "error page now and then"), about twelve a minute at the noon peak,
+      since the release; the application hides it behind a generic page,
+      and the errors fill the application's log and the database's.
+    evidence:
+      - where: node:producer
+        source: the scheduler's log, error lines
+        how: ssh producer, then grep 'error key=catalog.lookup ' /var/log/scheduler/scheduler.log | tail
+        shows: 'sqlstate=42883 message="operator does not exist: integer = text ..." lines, every minute since last night'
+      - where: node:producer
+        source: the scheduler's log, per-minute key lines
+        how: grep 'key=catalog.lookup ' /var/log/scheduler/scheduler.log | tail
+        shows: errors= about a tenth of calls= in every minute
+      - where: node:producer
+        source: the query repository
+        how: cat /srv/scheduler/repository/queries.yaml
+        shows: "catalog.lookup's third entry: WHERE id = 'TB-' || lpad(%(code)s::text, 5, '0'), weight 1 of 10"
+      - where: node:db
+        source: the PostgreSQL log
+        how: ssh db, then grep -A1 'operator does not exist' /var/log/postgresql/postgresql-*.log | tail
+        shows: ERROR and STATEMENT lines from user=shop_app, app=producer, with the search's SQL
+      - where: ui:prometheus
+        source: the scheduler's error counter
+        how: in Prometheus' graph, rate(scheduler_errors_total{key="catalog.lookup"}[5m])
+        shows: a steady error rate since the start, following the day's traffic (highest at noon)
+    acceptable:
+      diagnosis: >-
+        names the product-code search of catalog.lookup as failing at every
+        call, with SQLSTATE 42883 and its cause: the integer id compared
+        with a text code (the code is the sku).
+      proposal: >-
+        compare the sku: WHERE sku = 'TB-' || lpad(%(code)s::text, 5, '0'),
+        in queries.yaml, then sudo gm-reload-scheduler; test the query by
+        hand first.
+      fix: >-
+        the entry corrected in the loaded queries.yaml (sku compared, or any
+        SQL that returns the product without error), reloaded with sudo
+        gm-reload-scheduler, and the key's calls since that reload ending
+        without a class 42 or 22 error. Removing the search entry also reads
+        fixed; the GM weighs a search taken away from the shop.
+    sealed_check:
+      script: faults/scheduler-query-error/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        Right after a reload of the producer it reads too soon (exit 3) for
+        up to about 130 s, then at most 70 s: run it again. Any reload of
+        the producer restarts that wait, so a fix of f3 or f5 puts f1 back to
+        too soon for a minute or two.
+    interactions: []
+    validators_left_red: []
+
+  - instance: f2
+    what: >-
+      The back office's reports.best-days report (each day's three biggest
+      orders) reads and sorts the whole orders table at every run: SELECT
+      * with row_number() over placed_at::date, and no bound on placed_at
+      (its period was dropped). 300 000 rows at the backup and about 30 000
+      more a day; each run sorts them all and spills about 20 MB to
+      temporary files at work_mem 4MB, to return three rows per day of
+      history.
+    why: >-
+      The cost grows with the table (slower every week, issue I5), twenty
+      runs an hour in office hours, each a full scan, a sort on disk and a
+      burst of CPU on the database's single CPU; SELECT * ships every
+      column of every order to the sort.
+    evidence:
+      - where: node:consumer
+        source: the query repository
+        how: ssh consumer, then cat /srv/scheduler/repository/queries.yaml
+        shows: reports.best-days with SELECT * and no WHERE on placed_at in the inner query
+      - where: node:consumer
+        source: the scheduler's log, per-minute key lines
+        how: grep 'key=reports.best-days ' /var/log/scheduler/scheduler.log | tail
+        shows: p50_ms in the hundreds of milliseconds, where the other keys take a few
+      - where: bastion
+        source: pg_stat_statements
+        how: >-
+          psql -d postgres -c 'SELECT calls, rows, mean_exec_time, temp_blks_written,
+          query FROM pg_stat_statements ORDER BY temp_blks_written DESC LIMIT 5'
+        shows: the report first, temporary blocks written at every call, about 50 rows a call
+      - where: bastion
+        source: the report's plan
+        how: psql -d shop, then EXPLAIN (ANALYZE, BUFFERS) on the report's SQL
+        shows: "Seq Scan on orders, then Sort Method: external merge Disk: about 20000kB"
+      - where: node:db
+        source: the PostgreSQL log
+        how: ssh db, then grep 'temporary file' /var/log/postgresql/postgresql-*.log | tail
+        shows: a temporary file of about 20 MB at every run, user=shop_reports, app=consumer
+      - where: report:pgbadger
+        source: pgBadger's report, "Temporary Files" and "Slowest queries"
+        how: ssh db, then pgbadger -o ~/pgbadger.html /var/log/postgresql/postgresql-*.log
+        shows: the report as the query writing the temporary files
+      - where: ui:grafana
+        source: the PostgreSQL dashboard's query statistics panels
+        how: open /grafana/, the PostgreSQL dashboard
+        shows: the report among the queries costing the most time
+    acceptable:
+      diagnosis: >-
+        names the report as reading the whole orders table (no bound on
+        placed_at), sorting all of it and spilling to temporary files, its
+        cost growing with the table; notes SELECT *.
+      proposal: >-
+        bound the report to its period, for example WHERE o.placed_at >=
+        current_date - 7 in the inner query (orders_placed_at_idx serves
+        the bound), and select only the columns it shows; to the agency,
+        since the back office's code is not Tarnbeck's to change. Raising
+        work_mem for it is a palliative, not the fix.
+    sealed_check:
+      script: faults/scheduler-report-unbounded/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        The consumer's repository is report-only, so the check stays at 1
+        through the game; it judges the loaded SQL only.
+    interactions: []
+    validators_left_red: []
+
+  - instance: f3
+    what: >-
+      The web shop's carriers' feed (deliveries.ingest, the builder
+      builders/carrier_feed.py) sends one call in five a second time with
+      the same event_id (its resend option, 0.2: the client resending when
+      the acknowledgement is late), and delivery_events has no unique
+      constraint on event_id, so each resend is a second row.
+    why: >-
+      Deliveries are counted twice (issue I2): about 120 duplicate rows an
+      hour, day and night, wrong counts and sums downstream (the carriers'
+      invoices); the table grows with copies. None in the backup's
+      history: they start with last night's feed.
+    evidence:
+      - where: bastion
+        source: the table's rows
+        how: >-
+          psql -d shop -c 'SELECT event_id, count(*) FROM delivery_events
+          GROUP BY 1 HAVING count(*) > 1'
+        shows: many event ids stored twice, all received since last night
+      - where: bastion
+        source: the duplicates per hour
+        how: >-
+          psql -d shop -c "SELECT date_trunc('hour', received_at) AS h, count(*) -
+          count(DISTINCT event_id) AS extra FROM delivery_events GROUP BY 1 ORDER BY 1 DESC
+          LIMIT 24"
+        shows: about 120 extra rows every hour since last night, 0 before
+      - where: bastion
+        source: the table's definition
+        how: psql -d shop -c '\d delivery_events'
+        shows: no unique constraint or unique index on event_id
+      - where: node:producer
+        source: the builder and its entry
+        how: >-
+          ssh producer, then cat /srv/scheduler/repository/queries.yaml
+          /srv/scheduler/repository/builders/carrier_feed.py
+        shows: "options: {resend: 0.2, ...} and the builder appending the same INSERT, same event_id, a second time"
+    acceptable:
+      diagnosis: >-
+        names the duplicate rows (the same event_id stored twice), their
+        cause (the feed client resends an event whose acknowledgement is
+        late, and nothing makes the insert idempotent: no unique constraint
+        on event_id) and what they cost (wrong delivery counts).
+      proposal: >-
+        make the insert idempotent: remove the existing duplicates, add a
+        unique constraint on event_id, and INSERT ... ON CONFLICT (event_id)
+        DO NOTHING in the builder, so a resend is harmless.
+      fix: >-
+        the cause fixed, and at most the threshold's duplicate rows left in
+        delivery_events among those inserted in the trailing window: the
+        builder fixed (ON CONFLICT DO NOTHING behind a unique constraint, or
+        the resend gone) and reloaded with sudo gm-reload-scheduler, or the
+        database alone fixed (a unique constraint, after the duplicates are
+        removed: the resends then fail with 23505 in the producer's log,
+        about two a minute, which the GM weighs: the data is right, the
+        client is not). The best answer does both and cleans the existing
+        duplicates. Deleting the duplicates alone is not a fix, though the
+        check reads it as one for a minute or so (see its notes). f4 slows
+        the database side down (see interactions): the constraint waits
+        for the dashboard's open transactions, up to about five minutes,
+        and a concurrent index build about five minutes; the wait is not
+        held against a right fix.
+    sealed_check:
+      script: faults/scheduler-insert-retry-duplicates/checks/fixed.sh
+      at_handover: 1
+      window: 30m
+      threshold: 0
+      notes: >-
+        Behavioural, from the data: it runs on the producer as root and
+        connects as gm_check straight to db:5432 (the seed pg_hba.conf's
+        host all gm_check samenet line, DO NOT TAMPER). It counts the rows
+        still in delivery_events that were inserted in the trailing 30
+        minutes and whose event_id occurs more than once among them, so
+        removing the duplicates matters to it: a deletion reads 0 at once,
+        whether or not the cause is fixed. With the cause still there, the
+        next resend (about two a minute, two rows each) puts it back to
+        present within a minute or so: after a deletion, run it again a few
+        minutes later, and judge the cause from the builder and the
+        table's definition, not from one reading. With the cause fixed and
+        the duplicates left in place, it reads present while the newest
+        duplicate is younger than 15 minutes, then too soon (exit 3,
+        remaining= the rest of the 30 minutes), then 0 about 30 minutes
+        after the last duplicate; with them removed as well, 0 at once. The
+        resend's share gives about 120 duplicate rows in any 30 minutes, so
+        a present reading is never chance.
+    interactions:
+      - instance: f4
+        kind: conflicts-with
+        note: >-
+          f4's dashboard reads delivery_events in repeatable read
+          transactions held open five minutes, two at once, which gets in
+          the way of the database side of f3's fix. ALTER TABLE
+          delivery_events ADD CONSTRAINT ... UNIQUE needs an ACCESS
+          EXCLUSIVE lock, not granted while a dashboard transaction that
+          has read the table is open: up to about five minutes (the release
+          gate's play-through reported it as never granted), and
+          while it waits the feed's inserts and every read of the table
+          queue behind it, the inserts holding the pooler's server
+          connections (f7). CREATE UNIQUE INDEX CONCURRENTLY waits for every
+          transaction older than it to end: about five minutes a build. A
+          team that waits it out, or ends the dashboard's sessions first
+          (first aid for f4), gets the constraint in; the GM credits a team
+          that saw why it waited.
+    validators_left_red: []
+
+  - instance: f4
+    what: >-
+      The back office's warehouse dashboard (reports.dashboard) runs its
+      three reads in a repeatable read transaction and keeps it open five
+      minutes before committing (transaction: {isolation: repeatable read,
+      hold: 5m}); a new one starts every five minutes, two at once, so a
+      snapshot is always open and its backend_xmin holds back vacuum on
+      every table of the cluster.
+    why: >-
+      Dead rows younger than the oldest open snapshot cannot be removed:
+      autovacuum runs on customers and products (updated by every
+      checkout) again and again and leaves dead rows behind each time;
+      tables and indexes bloat and the work is wasted. A snapshot held for
+      minutes by a screen nobody watches is never needed.
+    evidence:
+      - where: bastion
+        source: pg_stat_activity
+        how: >-
+          psql -c "SELECT application_name, state, now() - xact_start AS xact_age,
+          backend_xmin FROM pg_stat_activity WHERE state LIKE 'idle in transaction%'"
+        shows: >-
+          consumer sessions idle in transaction for up to five minutes,
+          holding the oldest backend_xmin (the producer's checkouts show
+          too, for under four seconds each: see f7)
+      - where: node:consumer
+        source: the query repository
+        how: ssh consumer, then cat /srv/scheduler/repository/queries.yaml
+        shows: "reports.dashboard: transaction: {isolation: repeatable read, hold: 5m}"
+      - where: node:consumer
+        source: the scheduler's log, per-minute key lines
+        how: grep 'key=reports.dashboard ' /var/log/scheduler/scheduler.log | tail
+        shows: p50_ms about 300000, the hold
+      - where: node:db
+        source: the PostgreSQL log's autovacuum lines
+        how: >-
+          ssh db, then grep -A8 'automatic vacuum of table "shop.public.products"'
+          /var/log/postgresql/postgresql-*.log | tail -20
+        shows: >-
+          "tuples: ... are dead but not yet removable" and "removable cutoff:
+          ..., which was ... XIDs old when operation ended" at every run, the
+          cutoff held back by the oldest open snapshot (PostgreSQL 18's
+          wording; "oldest xmin" before 15)
+      - where: bastion
+        source: the tables' statistics
+        how: >-
+          psql -d shop -c 'SELECT relname, n_dead_tup, autovacuum_count, last_autovacuum
+          FROM pg_stat_user_tables ORDER BY n_dead_tup DESC'
+        shows: customers and products keeping dead rows although autovacuum ran on them many times
+    acceptable:
+      diagnosis: >-
+        names the dashboard's transactions held open for minutes (idle in
+        transaction, their snapshot the oldest backend_xmin, holding back
+        the autovacuum log's removable cutoff) as what keeps vacuum
+        from removing dead rows, from pg_stat_activity and the autovacuum
+        log lines, and traces them to the consumer's reports.dashboard.
+      proposal: >-
+        the dashboard commits as soon as its reads are done (no hold; read
+        committed is enough for it), a change for the agency;
+        idle_in_transaction_session_timeout on the database, or for the
+        role shop_reports, is a guard against it, not the fix; terminating
+        the sessions is first aid only.
+    sealed_check:
+      script: faults/scheduler-transaction-held-open/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        Report or propose only: the consumer's repository is report-only
+        and the fault's stream is the schedule's, so it stays at 1.
+    interactions:
+      - instance: f9
+        kind: masked-by
+        note: >-
+          autovacuum never visits orders (f9), so the held snapshot shows no
+          effect there: its evidence is on customers and products.
+      - instance: f3
+        kind: conflicts-with
+        note: >-
+          the dashboard's open transactions hold a lock on delivery_events,
+          so f3's ADD CONSTRAINT ... UNIQUE waits up to about five minutes
+          for its ACCESS EXCLUSIVE lock (the feed's inserts queued behind
+          it) and each CREATE INDEX CONCURRENTLY about five minutes; see
+          f3.
+    validators_left_red: []
+
+  - instance: f5
+    what: >-
+      The web shop's close-day job runs at 12:00 the customer's time, the
+      busiest hour (at "0 12 * * *" designed, in jobs.yaml in UTC), where
+      it belongs in the night. Its one transaction invoices the shipped
+      orders, rewrites every customer's lifetime value and every product's
+      sales, then holds about 20 s (the invoices posted to the accounting
+      service) before COMMIT: every customer and product row stays locked
+      for those seconds at the noon peak.
+    why: >-
+      Every checkout updates its customer and its stock, so every checkout
+      at noon waits on the batch's locks; the waiting checkouts hold the
+      pooler's few server connections (f7), and the whole shop stops for
+      the batch's duration ("nothing goes through at all", issue I1). It
+      happens every day.
+    evidence:
+      - where: node:producer
+        source: the fixed-time jobs, in UTC
+        how: ssh producer, then cat /srv/scheduler/jobs/jobs.yaml
+        shows: close-day at the UTC hour that is 12:00 in the customer's zone
+      - where: node:producer
+        source: the scheduler's log, the job's runs
+        how: grep 'run job=close-day ' /var/log/scheduler/scheduler.log
+        shows: a run starting at noon the customer's time, ending status=ok with ms= above 20000
+      - where: node:producer
+        source: the scheduler's log, per-minute key lines at that minute
+        how: grep 'key minute=YYYY-MM-DDTHH:MMZ ' /var/log/scheduler/scheduler.log, at the run's minute
+        shows: orders.place's p95_ms near 20000, and the other keys' latencies jumping in the same minute
+      - where: node:db
+        source: the PostgreSQL log's lock waits
+        how: ssh db, then grep -A2 'still waiting for' /var/log/postgresql/postgresql-*.log | tail
+        shows: shop_app sessions waiting on the batch's transaction for seconds at noon, on UPDATE customers ... last_order_at
+      - where: ui:prometheus
+        source: the checkout's latency
+        how: >-
+          in Prometheus' graph, histogram_quantile(0.95, sum by (le)
+          (rate(scheduler_call_duration_seconds_bucket{key="orders.place"}[5m])))
+        shows: a spike at noon, the customer's time
+      - where: bastion
+        source: the customer's time zone
+        how: cat ~/story.md
+        shows: the zone in which noon is the peak
+    acceptable:
+      diagnosis: >-
+        reads close-day's time in the customer's zone (noon, the peak), and
+        ties the noon stall and the lock waits to its long transaction
+        locking every customer and product row while checkouts update
+        them.
+      proposal: >-
+        move it to a quiet night hour (between 22:00 and 06:00 the
+        customer's time, finished before the morning); better still, post
+        the invoices to the accounting service after COMMIT, and split the
+        batch so it does not lock every customer at once.
+      fix: >-
+        every run of close-day, as loaded, falls in an hour where the
+        shop's traffic multiplier is at most 0.5: 22:00 to 06:59 the
+        customer's time; edited in /srv/scheduler/jobs/jobs.yaml (at in
+        UTC, or with a timezone) and reloaded with sudo
+        gm-reload-scheduler. The job must still run.
+    sealed_check:
+      script: faults/scheduler-batch-at-peak/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        Reads the files only: jobs.yaml edited but not reloaded reads 1, so
+        does the job removed. The players cannot see the next run during
+        the game (the batch ran at noon, before hand-over); the reload
+        prints its next run in UTC.
+    interactions:
+      - instance: f7
+        kind: conflicts-with
+        note: >-
+          with the small pool, checkouts blocked on the batch's locks take
+          every server connection and the whole web shop stalls; with a
+          larger pool (f7 fixed) only the checkouts wait. Both are I1's.
+      - instance: f9
+        kind: conflicts-with
+        note: the batch's invoicing adds about 10 000 dead rows a day to orders, which f9 leaves there.
+    validators_left_red: []
+
+  - instance: f6
+    what: >-
+      The back office's accounting-export job carries a timezone eight
+      hours behind the customer's (jobs.yaml: at "0 2 * * *" beside a
+      timezone: Etc/GMT... line; for a customer at UTC+1, Etc/GMT+7, which
+      is UTC-7; a zone past UTC-12 wraps by 24 hours, the hour of day
+      unchanged), so 02:00 there is 10:00 the customer's time. The
+      nightly-rollup beside it, in UTC with no zone, runs right at 01:30.
+    why: >-
+      The accountant gets the export mid-morning, not when she starts
+      (issue I3); every day, whatever the season. The time looks right to
+      whoever reads "0 2" without the zone.
+    evidence:
+      - where: node:consumer
+        source: the fixed-time jobs
+        how: ssh consumer, then cat /srv/scheduler/jobs/jobs.yaml
+        shows: 'accounting-export at "0 2 * * *" with a timezone: line, another zone than the customer''s, beside nightly-rollup''s UTC time'
+      - where: node:consumer
+        source: the scheduler's log, the job's runs
+        how: grep -E 'run job=(accounting-export|nightly-rollup) ' /var/log/scheduler/scheduler.log
+        shows: the export starting at the UTC instant that is 10:00 the customer's time, the roll-up at 01:30
+      - where: bastion
+        source: the customer's time zone
+        how: cat ~/story.md
+        shows: the zone the export's 2:00 is meant in
+    acceptable:
+      diagnosis: >-
+        reads the export's timezone beside the customer's zone, works out
+        that it runs at 10:00 the customer's time, eight hours late.
+      proposal: >-
+        give the job the customer's zone (Etc/GMT-1 for a customer at
+        UTC+1) or its UTC hour with no zone, then sudo gm-reload-scheduler, which prints its
+        next run in UTC to compare with 02:00 the customer's time.
+      fix: >-
+        the job, as loaded, runs at 02:00 the customer's time every day,
+        whatever the form (the customer's zone beside the at, the at in UTC
+        with no zone, any zone giving those instants), reloaded with sudo
+        gm-reload-scheduler.
+    sealed_check:
+      script: faults/scheduler-job-wrong-timezone/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        Reads the files only; the job removed reads 1. Its first wrong run
+        is at 10:00, four hours before hand-over.
+    interactions: []
+    validators_left_red: []
+
+  - instance: f7
+    what: >-
+      PgBouncer gives the database shop a pool of 3 server connections
+      (default_pool_size = 3, pool_mode = transaction). At the noon peak
+      the checkout alone keeps about two busy on average (40 a minute, each
+      transaction open about 3 s while the payment provider answers), and
+      the rest of the web shop shares the same three; in busy hours clients
+      queue for a connection while the database idles.
+    why: >-
+      The web shop is slow in busy hours (issue I1): every query of every
+      page waits behind the checkouts, seconds at noon; the database's
+      CPU stays low, so tuning the database helps nothing. At noon the
+      batch's locks (f5) turn the queue into a stall.
+    evidence:
+      - where: node:pooler
+        source: PgBouncer's console
+        how: ssh pooler, then psql -c 'SHOW POOLS'
+        shows: for shop, sv_active at 3, cl_waiting above 0 and maxwait in seconds in busy hours
+      - where: node:pooler
+        source: PgBouncer's console
+        how: psql -c 'SHOW DATABASES'
+        shows: shop's pool_size 3
+      - where: node:pooler
+        source: the pooler's configuration
+        how: cat /etc/pgbouncer/pgbouncer.ini
+        shows: default_pool_size = 3 and pool_mode = transaction
+      - where: node:pooler
+        source: PgBouncer's log
+        how: grep 'stats:' /var/log/pgbouncer/pgbouncer.log | tail -30
+        shows: per-minute stats lines whose average wait rises through the morning, highest at noon
+      - where: node:producer
+        source: the scheduler's per-minute key lines
+        how: ssh producer, then grep 'key=catalog.lookup ' /var/log/scheduler/scheduler.log | tail -60
+        shows: p95_ms in the hundreds of ms or seconds in busy hours, a few ms at night, for a query taking well under a millisecond in the database
+      - where: ui:grafana
+        source: the node-health dashboard
+        how: open /grafana/, the node-health dashboard, the db node's CPU
+        shows: the database's CPU low while the shop is slow
+    acceptable:
+      diagnosis: >-
+        reads the waiting clients and the wait times (SHOW POOLS, the stats
+        lines) in busy hours, compares the pool's 3 with the clients'
+        concurrency (the checkout's transactions held for the payment), and
+        concludes the pool, not the database, is the bottleneck.
+      proposal: >-
+        raise the pool for shop (default_pool_size, or a pool_size on the
+        [databases] entry) to at least 6 within the envelope, keeping
+        max_db_connections at 0 or above it and well under the database's
+        max_connections; a reserve pool for the peak helps too. Better
+        still: authorise the payment before opening the checkout's
+        transaction, so it holds a connection for milliseconds.
+      fix: >-
+        the pool size in effect for shop (SHOW DATABASES) at least 6, and
+        max_db_connections in effect 0 or at least 6, after sudo
+        gm-reload-pgbouncer. The pool mode is not judged.
+    sealed_check:
+      script: faults/pgbouncer-pool-too-small/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        Reads the values in effect on the console: a file edited but not
+        reloaded reads 1. min-pool-size 6, the design's figure, confirmed
+        by the rehearsal (chunk 15b, 2026-10-28): about 1.9 Erlangs at the
+        noon peak with f8 not planted, where a pool of 5 still queues about
+        5 % of transactions and 6 about 1 %.
+    interactions:
+      - instance: f5
+        kind: conflicts-with
+        note: at noon the batch's locks hold the pool's connections; see f5.
+      - instance: f8
+        kind: conflicts-with
+        note: from 08:00 the order pages' full scans hold connections longer and deepen the waits.
+      - instance: f10
+        kind: conflicts-with
+        note: >-
+          the pooler's node health is not scraped (f10), so its CPU and
+          services appear nowhere; f7's evidence (the console, the log) is
+          untouched.
+    validators_left_red: []
+
+  - instance: f8
+    what: >-
+      order_lines_order_id_idx, the index on order_lines.order_id, was
+      dropped at 08:00 the customer's time (six hours before hand-over), so
+      every lookup of an order's lines (the order pages, orders.detail)
+      reads the whole 900 000-row order_lines table (a parallel sequential
+      scan, about 120 MB) instead of a few index entries. The foreign key
+      order_lines_order_id_fkey stays.
+    why: >-
+      Opening an order went from well under a millisecond to tens of
+      milliseconds of a full scan, more at busy times (issue I4); each
+      scan costs the database's single CPU and holds a pooled connection
+      longer (f7); deleting or updating an order would scan the table too.
+      The table grows by about 90 000 lines a day.
+    evidence:
+      - where: bastion
+        source: the table's definition
+        how: psql -d shop -c '\d order_lines'
+        shows: the foreign key on order_id, but no index leading with order_id
+      - where: bastion
+        source: the plan of an order's lines
+        how: psql -d shop -c 'EXPLAIN ANALYZE SELECT * FROM order_lines WHERE order_id = 42'
+        shows: a (parallel) Seq Scan on order_lines removing about 900 000 rows
+      - where: node:producer
+        source: the scheduler's per-minute key lines
+        how: ssh producer, then grep 'key=orders.detail ' /var/log/scheduler/scheduler.log
+        shows: p50_ms jumping at 08:00 the customer's time, from under a millisecond to tens of milliseconds
+      - where: bastion
+        source: pg_stat_statements
+        how: >-
+          psql -d postgres -c 'SELECT calls, mean_exec_time, shared_blks_hit, query FROM
+          pg_stat_statements ORDER BY total_exec_time DESC LIMIT 5'
+        shows: the order page's join among the costliest statements, thousands of blocks read per call
+      - where: ui:prometheus
+        source: the order page's latency
+        how: >-
+          in Prometheus' graph, histogram_quantile(0.5, sum by (le)
+          (rate(scheduler_call_duration_seconds_bucket{key="orders.detail"}[5m])))
+        shows: a step up at 08:00 the customer's time
+    acceptable:
+      diagnosis: >-
+        names the missing index on order_lines.order_id (the foreign key
+        has none) as why order pages read the whole table, backed by a plan
+        showing the sequential scan; ties its start to this morning.
+      proposal: >-
+        CREATE INDEX CONCURRENTLY ON order_lines (order_id), then the plan
+        again; check the other foreign keys (order_lines.product_id) for
+        the same gap; find out who dropped it this morning.
+      fix: >-
+        a valid index whose first column is order_id exists on order_lines,
+        whatever its name and however it was built.
+    sealed_check:
+      script: faults/pg-join-index-missing/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        Planted during the aging, at handover-6h, by a scheduled gmctl
+        inject --at run; its time is in the local implementation. An index
+        left invalid by a failed CREATE INDEX CONCURRENTLY does not count.
+    interactions:
+      - instance: f7
+        kind: conflicts-with
+        note: the slower lookups hold the pool's connections longer from 08:00; see f7.
+    validators_left_red: []
+
+  - instance: f9
+    what: >-
+      Autovacuum is turned off on shop's orders table (autovacuum_enabled =
+      off), the hot table: the warehouse's status updates (two per order)
+      and the close-of-day batch's invoicing leave dead rows that nothing
+      removes, and its statistics are never refreshed.
+    why: >-
+      Dead rows pile up (tens of thousands by hand-over, more every day),
+      the table and its indexes bloat, scans slow down (the best-days
+      report, the batch), plans drift on stale statistics, and only a
+      forced anti-wraparound vacuum would ever visit it.
+    evidence:
+      - where: bastion
+        source: the table's storage parameters
+        how: psql -d shop -c '\d+ orders'
+        shows: "Options: autovacuum_enabled=off"
+      - where: bastion
+        source: the tables' statistics
+        how: >-
+          psql -d shop -c "SELECT relname, n_dead_tup, last_autovacuum, last_autoanalyze,
+          autovacuum_count FROM pg_stat_user_tables WHERE relname = 'orders'"
+        shows: tens of thousands of dead rows, never autovacuumed nor autoanalyzed since the restore
+      - where: node:db
+        source: the PostgreSQL log's autovacuum lines
+        how: ssh db, then grep 'automatic vacuum of table' /var/log/postgresql/postgresql-*.log | sort | uniq -c
+        shows: customers and products vacuumed again and again, orders never
+    acceptable:
+      diagnosis: >-
+        names the table-level autovacuum_enabled=off on orders and its
+        consequences: dead rows piling up (bloat, slower scans), stale
+        statistics, no protection against wraparound but the forced vacuum.
+      proposal: >-
+        ALTER TABLE orders RESET (autovacuum_enabled), then VACUUM (ANALYZE)
+        orders to catch up; per-table thresholds rather than off if the
+        table were too busy for the defaults.
+      fix: the table no longer has autovacuum_enabled set to false (option reset, or set to on).
+    sealed_check:
+      script: faults/pg-table-autovacuum-off/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        Reads the table's reloptions only; a VACUUM by hand does not fix it.
+        Once fixed, autovacuum's first run on orders still keeps the dead
+        rows younger than f4's open snapshot.
+    interactions:
+      - instance: f4
+        kind: masks
+        note: on orders, f4's held snapshot shows no effect, autovacuum never running there.
+      - instance: f5
+        kind: conflicts-with
+        note: the batch adds about 10 000 dead rows a day to orders.
+    validators_left_red: []
+
+  - instance: f10
+    what: >-
+      Prometheus never scrapes the pooler's node-health endpoint: the
+      node-health job in /etc/prometheus/prometheus.yml lists seven of the
+      eight nodes, not pooler:9110. The pooler runs the node-health script
+      and answers on its endpoint; only the scrape is missing.
+    why: >-
+      The pooler's CPU, memory, disk and services are monitored nowhere: it
+      is in no node-health panel, and no alert can fire for it ("Scrape
+      target down" covers only the targets Prometheus knows). The one
+      component between the web shop and its database could stop and the
+      monitoring would show only the database going quiet.
+    evidence:
+      - where: ui:prometheus
+        source: Prometheus' targets page, /prometheus/targets
+        how: open Status, Target health, and read the node-health job
+        shows: seven node-health targets for eight nodes; pooler:9110 absent, not down
+      - where: node:prometheus
+        source: /etc/prometheus/prometheus.yml
+        how: ssh prometheus, then cat /etc/prometheus/prometheus.yml
+        shows: the node-health job's targets without 'pooler:9110'
+      - where: node:prometheus
+        source: the pooler's node-health endpoint, read from the prometheus node
+        how: curl -s pooler:9110/metrics | grep sample_age
+        shows: 'node_health_sample_age_seconds lines labelled node="pooler": the endpoint answers'
+      - where: ui:grafana
+        source: the node-health dashboard
+        how: open /grafana/, the node-health dashboard, and read every panel's legend
+        shows: pooler in no panel
+    acceptable:
+      diagnosis: >-
+        names the pooler as never scraped for node health (pooler:9110
+        missing from the node-health job), tells a target absent (silence)
+        from a target down, shows the endpoint answers, and notes that no
+        alert can fire for the pooler.
+      proposal: >-
+        add pooler:9110 to the node-health job and reload Prometheus (sudo
+        gm-reload-prometheus; a change for whoever owns the monitoring's
+        configuration, the node being read-only here); keep the target list
+        in step with the topology and check the targets page after each
+        change; a PgBouncer exporter would put the pool's waits (f7) in
+        the monitoring too.
+    sealed_check:
+      script: faults/prometheus-scrape-target-missing/checks/fixed.sh
+      at_handover: 1
+      notes: Prometheus is report-only in this game, so the check stays at 1.
+    interactions:
+      - instance: f7
+        kind: conflicts-with
+        note: f10 hides the pooler's node health, not f7's evidence (the console and the log).
+    validators_left_red: []
+
+tooling_expectations: []           # none: the monitoring exists; f10 is its gap

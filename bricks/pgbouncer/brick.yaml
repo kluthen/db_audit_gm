@@ -25,9 +25,9 @@ footprint:                          # master spec 7.2's figures; at rest in the 
                                     # the 64M limit: 11.1MiB, CPU 0.01 % (docs/gm.md, Footprint)
   limits:       {cpu: 0.25, memory: 64M}
   reservations: {cpu: 0.05, memory: 32M, disk: 256M}
-  disk_growth_per_hour: 4M          # provisional estimate (capture W1 item 3), until
-                                    # v0.3 chunk 15b measures it: PgBouncer's log (a stats line per
-                                    # database a minute, a line per login and logout)
+  disk_growth_per_hour: 1M          # PgBouncer's log (a stats line a minute, a line per login and
+                                    # logout): the v0.3 rehearsal measured 0.1M an hour under its
+                                    # peak (2026-10-28; docs/gm.md, Footprint)
 stateful: true                      # its configuration, the log and the players' home
 
 # --- What the scenario sets -------------------------------------------
@@ -61,7 +61,7 @@ write_policies:                     # GM_WRITE_POLICY, gm-write-policy (docs/gm.
   - report-only
 writable_paths:
   - /etc/pgbouncer                  # pgbouncer:pgbconf, 2775 (2755 report-only); pgbouncer.ini 0664 (0644)
-  - /home/player                    # ~/report.md, the player's notes
+  - /home/player                    # ~/report.md, the player's notes; ~/.pgpass (rewritten at each start)
 protected_files:
   - /etc/ssh/sshd_config
   - /etc/sudoers
@@ -117,6 +117,12 @@ secrets:
     uid: 0
     gid: 0
     mode: "0444"                    # sshd reads it as player
+  - name: dba_password              # password of the dba role, the players' console role; the
+    kind: password                  #   same secret as the database node's and the bastion's
+    path: /opt/gm/secrets/dba_password
+    uid: 0
+    gid: 0
+    mode: "0400"                    # root only; the entrypoint writes the player's ~/.pgpass from it
   - name: pgbouncer_lookup_password # password of auth_user pgbouncer_lookup; also on the
     kind: password                  #   database node, which creates the role (capture W1 item 8)
     only_with_role: pooler          # the role exists only in a scenario with a pooler node

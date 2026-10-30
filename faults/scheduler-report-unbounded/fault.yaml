@@ -1,0 +1,111 @@
+# Catalog fault: a reporting query reads far too much (v0.3 master spec
+# 15.3; capture W4 items 0, 1 and 4). A seed-file fault planted at render:
+# the scenario writes the report into the scheduler node's queries.yaml with
+# SELECT * and its period dropped, so each run reads, sorts and spills the
+# whole table.
+
+# --- Identity ---------------------------------------------------------
+id: scheduler-report-unbounded
+version: 0.1.0
+title: a report reads the whole table instead of its period
+family: performance
+severity: medium
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: scheduler
+      versions: ["0.1.0"]
+  preconditions: []
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 30m                      # temporary files and slow statements at every run: half an
+                                    # hour holds several runs of a reporting stream (a scenario
+                                    # running it as a job raises the instance's minimum)
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  key:
+    description: the queries.yaml key of the report
+    default: null
+    required: true
+  date-column:
+    description: the column whose bound (the report's period) is missing
+    default: null
+    required: true
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: queries.yaml
+      change: >-
+        the {KEY} entry reads a large table with SELECT * and no bound on
+        {DATE_COLUMN} (the report's period dropped), sorted or grouped, so
+        each run reads the whole table and spills to temporary files at the
+        seed's work_mem
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: node
+    source: the query repository
+    how: cat /srv/scheduler/repository/queries.yaml
+    shows: the {KEY} entry's SELECT * with no condition on {DATE_COLUMN}
+  - where: node
+    source: the scheduler's per-minute key lines
+    how: grep 'key minute=.* key={KEY} ' /var/log/scheduler/scheduler.log | tail
+    shows: the key's latency in seconds (p50_ms, p95_ms), growing with the table
+  - where: bastion
+    source: pg_stat_statements
+    how: >-
+      psql -d postgres (where the extension is): SELECT calls, rows, mean_exec_time,
+      temp_blks_written, query FROM pg_stat_statements ORDER BY temp_blks_written DESC
+    shows: the report's statement first, with temporary blocks written at every call, the whole table's rows and a mean time in seconds
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names the {KEY} report as reading the whole table (no bound on
+    {DATE_COLUMN}), sorting or grouping all of it and spilling to temporary
+    files, from pg_stat_statements, the database log's temporary files or
+    pgBadger.
+  proposal: >-
+    bound the report to its period ({DATE_COLUMN} compared with the period's
+    start, or BETWEEN its start and end), select only the columns it uses
+    instead of SELECT *, and an index on {DATE_COLUMN} if none serves the
+    bound; raising work_mem for the report alone is a palliative.
+  fix: >-
+    the {KEY} entry's loaded SQL bounds {DATE_COLUMN} in its WHERE (a
+    comparison or BETWEEN on it), edited and reloaded with sudo
+    gm-reload-scheduler. SELECT * alone is not judged.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  The sales report takes longer every week, and while it runs the rest of
+  the application slows down.
