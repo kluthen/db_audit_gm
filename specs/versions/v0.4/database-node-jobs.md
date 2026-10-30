@@ -1,6 +1,6 @@
 # v0.4 — jobs on a database node: `pg_cron` and a cron daemon
 
-Status: draft v2
+Status: draft v3
 
 A job can run on a database node itself, beside PostgreSQL, instead of
 on a scheduler node. The owner listed it among the places movement may
@@ -346,7 +346,28 @@ faults do.
   the incident. No other fault's evidence on that node may rest on
   statistics gathered before it.
 - **A heavier host night.** If the host swaps, every node on it slows
-  for the minutes before the kill.
+  for the minutes before the kill. Hence the placement rule below.
+
+### Never on a shared host
+
+A host shared with other applications must never carry this thrashing:
+the VPS hosts filetstudio.com, which must stay up and never be disturbed
+(D159; [platform.md](../../platform.md)). So:
+
+- **The node carrying this fault is never placed on a host shared with
+  other applications.**
+- **How the placement keeps it off**, on v0.3's model: the scenario
+  places every node on a declared host (`designed_for.placement`), the
+  local implementation maps those hosts onto the playground's, and
+  `gmctl fit` checks the mapping. The playground's host declaration
+  marks a host `shared` (the VPS); the fault declares that its node needs
+  an unshared host; `fit` refuses a mapping that puts that node on a
+  shared host and names the mapping to change, as it refuses a node
+  publishing ports on a host other than the manager. The designed
+  placement itself puts the node on the first host, the manager
+  (proposed).
+- **Smoke runs of this fault run on armenelos only**, never on the VPS,
+  calibration included.
 
 ## Dependency check (for the build plan)
 

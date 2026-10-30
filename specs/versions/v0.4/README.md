@@ -358,7 +358,10 @@ arise:
   out-of-memory incident calibrated in a smoke run: the cgroup's
   `memory.peak` around a normal run and around the backfill, on a host
   with swap and one without, before the scenario's window is set
-  (D209).
+  (D209). These smoke runs run on armenelos only, never on the VPS.
+- `fit` refusing to place a node whose fault needs an unshared host on a
+  host the playground marks `shared` (the VPS), and the playground
+  declarations marking it (D209, D159).
 
 ## Questions due in this version
 

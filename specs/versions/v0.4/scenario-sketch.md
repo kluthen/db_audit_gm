@@ -1,6 +1,6 @@
 # v0.4 — a first scenario sketch
 
-Status: draft v5 (a sketch on the settled purposes, D197, the
+Status: draft v6 (a sketch on the settled purposes, D197, the
 reporting instance, D198, the instances and sizing of D202 and D204,
 the jobs on a database node of D206 and D207, the crontab fault of D208
 and the out-of-memory incident of D209)
@@ -54,9 +54,17 @@ rehearsal peaks and measured at v0.4's.
 
 About 600 MB of reservations more than tarnbeck's 1.25 GB (`reporting`
 256 MB, `bi` 192 MB, `crm` 64 MB, `gateway` 48 MB, the producer 16 MB
-less, the data's growth). On two designed hosts, `reporting`, `bi` and
-`gateway` on host 2; on a one-host playground every node on that host,
-as v0.3 places them. A node is a scenario node, not a host (D204).
+less, the data's growth). On two designed hosts, `bi` and `gateway` on
+host 2, and `reporting` on host 1, the manager, since it carries f10
+(below); on a one-host playground every node on that host, as v0.3
+places them. A node is a scenario node, not a host (D204).
+
+**`reporting` never goes on a host shared with other applications**
+(D209): f10 thrashes its host before the kill, and the VPS hosts
+filetstudio.com, which must never be disturbed (D159). `gmctl fit`
+refuses a mapping that puts it on a host the playground marks `shared`
+([database-node-jobs.md](database-node-jobs.md), "Never on a shared
+host"). Smoke runs of f10 run on armenelos only, never on the VPS.
 
 The agency's nodes are report-only: its faults are *report* or
 *propose*, as tarnbeck's I5 was.
