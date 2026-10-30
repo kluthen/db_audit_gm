@@ -1325,3 +1325,24 @@ Carried into the briefs: chunk 6 adds a dedicated unit test for
 `localimpl.seed_entries` skipping an optional seed file a node doesn't
 map (chunk 4's fix); chunk 8b passes `CHECK_SINCE` to `check-runs` as
 `YYYY-MM-DDTHH:MM:SSZ` (W1-y); D219's widened cron subset (chunks 6, 11).
+
+### Chunk 6 — merged (30e8c59), 2026-10-30
+
+639e08c, merge 30e8c59. Unit suite 763 OK (15 new render tests, red
+before, green after). `cron_hours`/`shift_cron` cover D219's subset
+(hours expanded, shifted −shift mod 24, written back as a sorted list;
+`*` kept; day-of-week carry unchanged); new `render_crontab` keeps every
+other character, comments, `VAR=` lines and blanks, adds no header. The
+bare zone (`render.zone_name`) goes into a scheduler node's files
+(before YAML parsing) and a postgres node's `postgresql.conf`; the
+bastion keeps the text form. `role_<role>_password` declared for each
+`crontab_roles` entry at `/opt/gm/secrets/`, 0:0 `"0400"`, one shared
+secret with a scheduler naming the same role. The loader refuses the
+placeholder in a postgres `postgresql.conf` of a scenario without a
+scheduler. Every v0.3 scenario and fixture renders byte-identical at
+−2, 0, +5; chunk 4's optional-seed skip has its own test.
+Not substituted (choice): the placeholder in a crontab or `pg_hba.conf`.
+For chunk 7: `inject.password_plan` does not yet set crontab-only
+roles' passwords. For chunk 18: `gmctl.md`'s `render` paragraph (about
+line 128) still describes v0.3's files. Risk: a game fitted before this
+change on v0.4 content gets "fit again".

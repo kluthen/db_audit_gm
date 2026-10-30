@@ -668,7 +668,7 @@ Record: 5a 5ff4cef, 5b 17a45d4, merge f172a0e. No departure from the spec; choic
 
 ### Chunk 6 — Render for v0.4
 
-Status: planned
+Status: merged (w2, 30e8c59)
 Wave: 2
 Depends on: chunks 1, 2
 Architecture capture: none.
@@ -693,6 +693,8 @@ Architecture capture: none.
   roles' secrets declared and mounted; v0.3's scenarios and fixtures
   render as before.
 - Verification: chunk checks.
+
+Record: 639e08c, merge 30e8c59. No departure from the spec; every v0.3 scenario and fixture renders byte-identical at shifts −2, 0, +5. Choices: the bare zone substituted in a scheduler's YAML before parsing; the rendered crontab carries no header; `{{customer_timezone}}` not substituted in a crontab or `pg_hba.conf`. `gmctl.md`'s `render` paragraph left for chunk 18.
 
 ### Chunk 7 — `load-data` for v0.4
 
