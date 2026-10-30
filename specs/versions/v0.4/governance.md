@@ -1,6 +1,6 @@
 # v0.4 — data governance: the first cut
 
-Status: draft v1
+Status: draft v2
 
 The customer's own rules for its data (D191), in the game's world:
 classes, where each may live, who may read it, where it may flow, the
@@ -13,8 +13,8 @@ synthetic).
 
 Classification, allowed locations, readers, and flows (D191). Required
 settings, audit trails and retention wait for v0.5's regulated domains
-(O118), with one exception the owner may want (below, "A settings rule
-for free").
+(O118, defaulted), with one exception held for v0.5 by the same default
+(below, "A settings rule for free").
 
 ## Classes (proposed; O115)
 
@@ -63,7 +63,7 @@ governance:
 family of their own (proposed; O115): `governance-*` ids, `family:
 security`.
 
-## The database-versus-instance boundary (O120)
+## The database-versus-instance boundary (D198)
 
 "Distinct database" reads two ways in PostgreSQL: another database in
 the same instance, or an instance of its own. What a rule needs decides
@@ -88,7 +88,7 @@ their own retention and often their own engine (instance, or beyond
 v1.0). So both readings are real, and a policy has to say which one each
 rule means.
 
-Proposed:
+Settled (D198):
 
 - **The location unit is `node/database`**, so a rule can name either:
   `db/shop` and `db/reporting` are two databases of one instance;
@@ -150,9 +150,10 @@ scenario document lists it.
 - It is correct in v0.4. A policy that is itself wrong or ambiguous is
   starter documentation carrying a fault, which waits for O21.
 
-## Brick changes (O118)
+## Brick changes (O118, defaulted)
 
-Proposed: none in v0.4. pgaudit (an image change and a dependency
+None in v0.4, by default: the owner was told this holds unless he
+objects, and has not ruled (O118 stays open as defaulted). pgaudit (an image change and a dependency
 check) and TLS (certificates as generated secrets) come with v0.5's
 regulated domains.
 
@@ -163,8 +164,8 @@ personal data into the logs (`log_statement = 'all'`, or
 `log_min_duration_statement` catching the outbox inserts with their
 parameters), set per database with `ALTER DATABASE … SET`, evidence in
 the logs and pgBadger's report the players already have. It is outside
-the first cut D191 set; proposed: held for v0.5, listed as a candidate
-fault ([candidate-faults.md](candidate-faults.md)).
+the first cut D191 set; held for v0.5 by the same default (O118), listed
+as a candidate fault ([candidate-faults.md](candidate-faults.md)).
 
 ## The coupling to purposes
 

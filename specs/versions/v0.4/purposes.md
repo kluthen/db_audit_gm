@@ -1,6 +1,6 @@
 # v0.4 — the purpose: artefact, format, job runner, time
 
-Status: draft v1
+Status: draft v2
 
 What a purpose is in the catalogue, how it is written down, what runs its
 jobs, and how its cadence meets real time. The purposes themselves are in
@@ -153,10 +153,10 @@ database:
   bump), a new repository form, and nothing for the players to audit in
   the databases themselves.
 
-## Time: cadence under real time (O109)
+## Time: cadence under real time (D199)
 
 No sped-up clock, no forged history, no time compression (D114, D132);
-nobody triggers a job during a game (D131). Proposed:
+nobody triggers a job during a game (D131). Settled (D199):
 
 1. **Each purpose runs at the cadence a real business would give it,
    chosen where that is sub-daily**: transactional mail every few
@@ -166,7 +166,7 @@ nobody triggers a job during a game (D131). Proposed:
    game.
 2. **A daily job stays daily** where the business closes a day (the
    reporting close at 01:30). Its fix is verified as D132 says: the
-   players move its time. A smoke test does the same (O121).
+   players move its time. A smoke test does the same (D200).
 3. **Weekly and monthly purposes are out of v0.4** (O22): a monthly
    close or a weekly report cannot run inside a game, and moving it
    proves a single run.
@@ -176,8 +176,7 @@ nobody triggers a job during a game (D131). Proposed:
    purpose's past trace the same way (KPI rows, past mail), computed by
    the data load consistently with its rules, but **a fault's evidence
    never rests on it alone**: every fault's evidence is produced live
-   during the aging, and its aging minimum counts from that (D189). This
-   is a reading of D114 and D132 for the owner (O109).
+   during the aging, and its aging minimum counts from that (D189).
 
 ### The customer's time zone in the data (O122)
 

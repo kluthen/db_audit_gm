@@ -24,7 +24,8 @@ v0.1 is draft.
 
 Questions about the roadmap as a whole (gaps between v0.5 and v1.0,
 risks across versions) are in [open-questions.md](../open-questions.md),
-O47 to O49, O52 to O54 and O121 (O46, multi-host, resolved by D128 for v0.3).
+O47 to O49 and O52 to O54 (O46, multi-host, resolved by D128 for v0.3;
+O121 by D200).
 
 ## Release gates
 
@@ -39,5 +40,8 @@ The gates of v0.4, v0.5 and v0.6 rely on the shorter checks, as v0.3
 defines them ([master spec](v0.3/master-spec.md) 11 and 8.5): the smoke
 tests, short deployments with every fault planted at once; the
 rehearsal, about two hours unattended with the aging minimum capped
-(D161); and the early check fired by the host's timer. What those
-checks cannot show that an aged run did is O121.
+(D161); and the early check fired by the host's timer. v0.4's gate
+adds every purpose fault taken through its full cycle in a smoke run,
+its job moved as a player may, and names what no gate shows (a nightly
+job at its story's time, growth over a full aging, a night unattended)
+as known limits (D200).

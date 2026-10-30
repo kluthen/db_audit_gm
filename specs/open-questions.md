@@ -15,7 +15,8 @@ Resolved since v0.2 closed: O45 (D121), O46 (D128), O78 (D140), O82
 (D131), O89 (D132), O90 (D133), O91 (D134), O92 (D135), O93 (D136), O94
 (D137), O95 (D138), O96 (D139), O97 (D140), O81 (D141), O98 (D142), O99
 (D143), O100 (D144), O101 (D145), O102 (D171), O103 (D175), O106
-(D194), O110 (D195).
+(D194), O110 (D195), O107 (D197), O120 (D198), O109 (D199), O121
+(D200).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -80,7 +81,8 @@ for the next version (v0.1 until it closed, with none left open);
   enough for short-aging scenarios, which may change how much the
   volume copy is needed; noted, not reopened (D125 stands).
   Not moot: v0.4's purposes (D190) run daily, weekly or monthly jobs,
-  which real time alone barely exercises; that part is O109.
+  which real time alone barely exercises; v0.4's part is settled by
+  D199 (realistic cadences, none weekly or monthly).
   Refs: [scenario-lifecycle.md](scenario-lifecycle.md),
   [versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md),
   [versions/v0.4/README.md](versions/v0.4/README.md).
@@ -134,7 +136,8 @@ O103, raised at wave 2's preflight, on 2026-10-26 (D175). None is open.
 Raised when the owner recast v0.4 as "bricks of why and bits of hows"
 on 2026-10-28 (D190). O11, O22, O25 and O52 are revised by it. Worked
 into drafts on 2026-10-30 ([versions/v0.4/](versions/v0.4/README.md#documents)):
-O106 closed (D194), O110 closed (D195), O122 to O125 raised. A
+O106 closed (D194), O110 closed (D195), O122 to O125 raised; the
+owner's rulings closed O107 (D197) and O109 (D199) the same day. A
 "Proposed" answer below is in a draft, tagged `(proposed)`, and awaits
 the owner.
 
@@ -154,18 +157,6 @@ the owner.
   role would bump it to 0.2.0); the players reach the jobs as D116 and
   D130 say; v0.5's drivers (D118) untouched. Cross-database movement is
   O123.
-- **O107** (next, v0.4) — Which purposes are in v0.4? Proposed in
-  [purpose-catalogue.md](versions/v0.4/purpose-catalogue.md): four on the
-  shop, P1 sales reporting (into a reporting database), P2 win-back
-  leads, P3 customer mailing (to an outbox), P5 export declarations, a
-  **pushed obligation** (trigger, deadline, outside receiver,
-  acknowledgement), the kind the owner singled out on 2026-10-30: "a
-  really good not really consummer (it's on the output of the system,
-  but need to be pushed, quite different from our usual consumer)".
-  Finance (P4) held for v0.5: it needs payments, refunds, invoices and
-  periods, and runs daily and monthly. Four is one more than D190's two
-  or three; for three, drop P2 and fold its segment into P3. Shapes
-  O108, O109 and the scenario.
 - **O108** (soon, v0.4) — The shared business data model, the shop
   domain (D192). Proposed in
   [shop-domain.md](versions/v0.4/shop-domain.md): from tarnbeck's,
@@ -175,21 +166,6 @@ the owner.
   `export_countries`, an archived history behind `last_order_at`, the
   purposes' tables, six roles, and consent streams in the producer.
   Tarnbeck stays untouched; the v0.4 scenario is new. Format: O111.
-- **O109** (next, v0.4) — Purposes under real time, with no sped-up
-  clock (D114, D132) and nobody triggering a job (D131). Proposed in
-  [purposes.md](versions/v0.4/purposes.md) "Time": each purpose runs at
-  the cadence a real business would give it, sub-daily where that is
-  realistic (mail every five minutes, a campaign every quarter hour,
-  hourly loads), so fixes show within a session; a daily job stays daily
-  and its fix is verified by moving it (D132); weekly and monthly
-  purposes are out of v0.4; the restored backup may hold a purpose's
-  past trace computed by the data load, as tarnbeck's holds fifteen days
-  of roll-ups, but a fault's evidence never rests on it alone. Pushed
-  obligations fit real time when their triggers are frequent; a
-  story's legal deadline may be shortened, a story choice rather than a
-  clock change ([purpose-catalogue.md](versions/v0.4/purpose-catalogue.md)
-  P5). The owner's question: is past trace in the backup the forged
-  history D114 and D132 rule out? Linked to O22, O121.
 - **O122** (soon, v0.4) — The customer's time zone in the data and the
   jobs. It is UTC plus the game's shift (D129), known only at render,
   and UTC itself at a shift of 0, while purposes reason in local days and
@@ -232,7 +208,7 @@ Raised when the owner added a first cut of data governance to v0.4 on
 players, `gm_check` definition checks. The customer's governance, in the
 game's world, not the game's access model. Drafted on 2026-10-30 in
 [governance.md](versions/v0.4/governance.md), tested against the
-clinic's classes (D196).
+clinic's classes (D196); O120 closed by D198 (an instance of its own).
 
 - **O115** (soon, v0.4) — The governance format. Proposed: classes
   `personal`, `customer-linked`, `internal`; the domain's
@@ -252,25 +228,18 @@ clinic's classes (D196).
   `player/data-policy.md` in the story's voice, written by the GM from
   `governance:`; it may state unchecked rules, unmarked, as a real
   policy does; it is correct in v0.4, a wrong policy waiting for O21.
-- **O118** (soon, v0.4) — Brick changes for governance. Proposed: none
-  in v0.4 (pgaudit and TLS with v0.5's regulated domains). One settings
-  rule needs no brick change, statement logging writing personal data
-  into the logs; proposed: held for v0.5 as a candidate fault, unless
-  the owner wants it in the first cut.
+- **O118** (later, v0.4 → v0.5; **defaulted**) — Brick changes for
+  governance. Default, told to the owner on 2026-10-30 and holding
+  unless he objects, not a ruling: none in v0.4 (pgaudit and TLS with
+  v0.5's regulated domains), and the one settings rule that needs no
+  brick change, statement logging writing personal data into the logs,
+  also held for v0.5 as a candidate fault. Stays open until v0.5 rules
+  on the brick changes. Refs: [governance.md](versions/v0.4/governance.md).
 - **O119** (soon, v0.4) — What "fixed" means for a governance fault.
   Proposed: a definition (a copied column, a grant, a mapping) is fixed
   when the live state complies, removal included; content already sent
   is judged as a purpose, no new violation since the judged moment
   (O124).
-- **O120** (next, v0.4) — "Distinct database": another database in the
-  same instance, or an instance of its own? The clinic's classes show
-  both are real: an audit trail needs an instance (pgaudit), readers'
-  separation only a database. Proposed in
-  [governance.md](versions/v0.4/governance.md): the rules' location
-  unit is `node/database`, with `separation: instance` where a policy
-  demands it; v0.4's reporting database is an instance of its own, a
-  second `postgres` node (about 256 MB more), since the owner's words
-  name "distinct settings" and v1.0's pipeline draws two nodes.
 
 ## v0.5: domains
 
@@ -333,8 +302,8 @@ added on 2026-10-30 (D196).
 
 ## Roadmap: gaps and cross-version risks
 
-Raised with the roadmap (D47), O121 by the owner's ruling on release
-gates (D193). The tag after the priority is the version
+Raised with the roadmap (D47); O121, raised by the owner's ruling on
+release gates (D193), was resolved for v0.4 by D200. The tag after the priority is the version
 the question concerns.
 
 - **O47** (later, v1.0) — Which version brings scenario generation: the GM
@@ -349,26 +318,6 @@ the question concerns.
   aging and a hand-over check. Refs:
   [versions/v0.3/aging-and-timeline.md](versions/v0.3/aging-and-timeline.md),
   [versions/v1.0/README.md](versions/v1.0/README.md).
-- **O121** (soon, v0.4 → v1.0) — With no aged run at a release gate
-  before v1.0 (D193), what does a gate check in place of what v0.3's
-  aged run showed? The smoke tests run minutes with every fault planted
-  at once; the rehearsal runs about two hours with the aging minimum
-  capped (D161); the early check fires from the host's timer. None of
-  them shows: evidence building over hours under the load at a
-  scenario's real minimum; a purpose's daily job running at its story's
-  time, its trace, and a fix going from "too soon to tell" to fixed
-  (O109); the volumes' growth over a full aging, only extrapolated from
-  the rehearsal's per-hour figures; the hosts and timers holding through
-  a night unattended. Proposed: each later gate's definition of done
-  names these as known limits; the rehearsal's planned hand-over is
-  chosen so a purpose job's run falls inside its two hours, as the
-  traffic's peak hours already are; growth is extrapolated and stated
-  as such; and, for v0.4 ([checks.md](versions/v0.4/checks.md)), every
-  purpose fault is taken through its whole cycle in a smoke run, its
-  job moved to run within minutes as a player may (D116): present, then
-  too soon after the fix, then fixed. Refs: [versions/README.md](versions/README.md#release-gates),
-  [versions/v0.4/README.md](versions/v0.4/README.md#release-gate),
-  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 11.
 - **O49** (soon, roadmap) — Backup tools (pgBackRest and the like) and the
   backup-tooling fault families (D17) are in no version, although backups
   were a founding example and the v0.1 goal speaks of "investigating a

@@ -1,7 +1,7 @@
 # v0.4 — a first scenario sketch
 
-Status: draft v1 (a sketch: the purposes are O107's, the topology
-O120's)
+Status: draft v2 (a sketch on the settled purposes, D197, and the
+reporting instance, D198)
 
 A first v0.4 scenario, to test that the purposes, the data model and the
 governance cut make a game. Working id `tarnbeck-outdoor-campaign`.
@@ -30,7 +30,7 @@ with the story.
 | `pooler` | `pgbouncer` | pooler | fixable | |
 | `producer` | `scheduler` | producer (web shop) | report-only, repository and jobs fixable | consent streams, shipping and destination columns |
 | `consumer` | `scheduler` | consumer (back office) | report-only, jobs fixable | KPIs read from `reporting` |
-| `reporting` | `postgres` | database (`reporting`) | report-only (the agency's) | yes (O120) |
+| `reporting` | `postgres` | database (`reporting`) | report-only (the agency's) | yes (D198) |
 | `bi` | `scheduler` | consumer: P1's runner | report-only (the agency's) | yes |
 | `crm` | `scheduler` | consumer: P2, P3 and P5's runner | report-only, repository and jobs fixable | yes |
 | `gateway` | `scheduler` | consumer: the customs gateway stub | report-only | yes |

@@ -1,6 +1,6 @@
 # v0.4 — checks: invariants over a trace, definitions, the release gate
 
-Status: draft v1
+Status: draft v2
 
 How a purpose's invariants and the governance rules are judged by sealed
 checks, and what v0.4's release gate checks with no aged run (D193). The
@@ -126,10 +126,10 @@ no job (proposed).
 - The loader: `purposes:` and `governance:` in `scenario.yaml`
   (purposes.md, governance.md); `judges:` in `fault.yaml`.
 
-## The release gate without an aged run (O121)
+## The release gate without an aged run (D200)
 
 v0.4's gate has the smoke tests, the rehearsal and the timer-fired early
-check (D193). Proposed, for purposes:
+check (D193). Settled (D200), for purposes:
 
 - **Every purpose fault through its whole cycle in a smoke run**: the
   fault planted, its job moved to run within two minutes (an edit of

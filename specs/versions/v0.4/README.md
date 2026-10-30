@@ -8,7 +8,10 @@ aged run (D193). Worked into draft documents on 2026-10-30 (below): no
 engine beyond PostgreSQL (D194), no mail sink (D195); the owner's
 veterinary clinic placed in v0.5, two of its pieces borrowed here as
 test cases (D196); the pushed obligation added as a purpose kind on the
-owner's word.
+owner's word. Ruled the same day: four purposes (D197), the reporting
+database an instance of its own (D198), realistic cadences under real
+time (D199), the release gate's purpose cycle (D200); brick changes for
+governance held for v0.5 by default (O118).
 
 ## Documents
 
@@ -101,8 +104,8 @@ Two consequences of real time:
   triggers the load or a job during a game (D131). A fix to a daily job
   can stay "too soon to tell" past the end of a four-hour session,
   unless the players move the job's run, as they may move v0.3's
-  fixed-time operations (D116). Weekly and monthly purposes are further
-  out still (O109, O22).
+  fixed-time operations (D116). Weekly and monthly purposes are out of
+  v0.4 (D199; O22).
 - A check comparing a reporting database with its source reaches both,
   as the GM check role on each (proposed), as v0.3's duplicates check
   reaches the database from the producer (D185).
@@ -116,8 +119,7 @@ Minimal:
   forked (O105).
 - **A second database**: PostgreSQL by default, which reuses `gm_check`,
   the exporter, monitoring and the GM's knowledge.
-  Whether it is an instance of its own or a database in the source's
-  instance is O120.
+  An instance of its own, a second `postgres` node (D198).
 - **Another engine** (columnar or other) only if a purpose truly needs
   one. In the owner's words: "we may have to introduce other database at
   this step despite what i've said. We shall see." None does: D194.
@@ -179,8 +181,9 @@ model, the scenario stating the rules, proposed) is O115.
 the same instance, or an instance of its own. Instance-wide settings
 (TLS, the logging collector, preloaded libraries such as pgaudit) need
 an instance of its own; settings PostgreSQL accepts per database or per
-role (`ALTER DATABASE ... SET`) do not. Which a rule means, and which
-D190's second database is, is O120.
+role (`ALTER DATABASE ... SET`) do not. Rules name `node/database` and
+may demand instance separation; D190's second database is an instance
+of its own (D198).
 
 ### The policy the players audit
 
@@ -226,9 +229,11 @@ unless the policy allows the back office to read it.
   at rest, may be stated in the policy but not checked (O116).
 - Some rules need new brick capabilities: pgaudit changes the
   `postgres` image, a dependency change with its own check; TLS needs
-  certificates, and the `postgres` brick configures none today (O118).
+  certificates, and the `postgres` brick configures none today: none in
+  v0.4, by default (O118).
 - Distinct databases on instances of their own mean more instances per
-  scenario, so more memory against the playground's budget (O120).
+  scenario, so more memory against the playground's budget: about
+  256 MB for v0.4's reporting instance (D198).
 
 ### v0.4's first cut
 
@@ -240,21 +245,19 @@ regulated domains of v0.5 ([v0.5](../v0.5/README.md#domains)).
 
 - The purpose as a catalogue artefact, its format, template and
   completeness rules (O104).
-- Two or three purposes (proposed; O107), for example a BI rollup into a
-  reporting database, lead extraction, and a mailing job to an outbox.
-  Reports, dashboards and finance could follow, or one of them could
-  replace one of these. Since 2026-10-30 the drafts propose four,
-  adding a pushed obligation (export declarations) on the owner's word
+- Four purposes (D197): P1 sales reporting, P2 win-back leads, P3
+  customer mailing, P5 export declarations (a pushed obligation);
+  finance (P4) held for v0.5
   ([purpose-catalogue.md](purpose-catalogue.md)).
 - The job runner (O105).
-- The second database, PostgreSQL (D194).
+- The second database, PostgreSQL (D194), an instance of its own (D198).
 - The shared business data model as the first domain, the shop,
   structured so that more can be added (O108, O111; D192).
 - Faults attached to purposes, and their checks over the trace.
 - Data governance's first cut (D191): data classes, the allowed
   locations and flows of each, the policy handed to the players, and
   `gm_check` definition checks of the rules a check can verify (O115 to
-  O120).
+  O119; D198).
 
 ## Out of scope
 
@@ -263,12 +266,12 @@ regulated domains of v0.5 ([v0.5](../v0.5/README.md#domains)).
 - Technology bricks for their own sake, dbt among them (O52).
 - Database engines other than PostgreSQL stay beyond v1.0 (D47) unless a
   v0.4 purpose truly needs one; none does (D194).
-- A sped-up clock, a forged history, time compression (D114, D132; O22,
-  O109).
+- A sped-up clock, a forged history, time compression (D114, D132; O22);
+  weekly and monthly purposes (D199).
 - Domains other than the shop: v0.5 (D192).
 - Governance rules beyond classification, locations and flows (required
   settings, audit trails, retention): they grow with v0.5's regulated
-  domains, unless O116 and O118 bring one in.
+  domains (O118, defaulted).
 
 ## Depends on
 
@@ -286,33 +289,32 @@ gate has no aged run (D193): it relies on the smoke tests, the
 rehearsal and the early check fired by the host's timer
 ([roadmap](../README.md#release-gates)). For purposes this means:
 
-- A daily job runs at its fixed time, so its trace, and a fix going
-  from "too soon to tell" to fixed, show at the gate only if a run falls
-  inside the rehearsal's two hours, or a smoke test moves the run as a
-  player may (D116) (proposed; O121).
-- The trace's growth over a full aging is extrapolated from the
-  rehearsal's per-hour figures, not observed (O121).
+- Every purpose fault is taken through its whole cycle in a smoke run:
+  present, then too soon after the fix, then fixed, its job moved as a
+  player may (D116) (D200).
+- The rehearsal's planned hand-over puts the hourly and quarter-hour
+  jobs inside its two hours; the trace's growth over a full aging is
+  extrapolated from its per-hour figures and stated as such; what no
+  gate shows is named as a known limit (D200;
+  [checks.md](checks.md)).
 
 ## Questions due in this version
 
-- O107 (next): which purposes are in v0.4.
 - O104: the purpose format.
 - O105: the job runner, extending or forking the scheduler.
 - O108: the shared business data model.
-- O109: daily, weekly or monthly purposes under real time.
 - O111: the domain format, the part v0.4 must settle for the shop.
 - O115: the governance format.
 - O116: which governance rules are checked in v0.4.
 - O117: how the player-facing policy is presented.
-- O118: brick changes for governance (pgaudit, TLS).
+- O118: brick changes for governance (pgaudit, TLS); defaulted to none
+  in v0.4, held for v0.5 unless the owner objects.
 - O119: what "fixed" means for a governance fault.
-- O120: a distinct database, or an instance of its own.
-- O121: what a release gate checks in place of an aged run.
 - O122: the customer's time zone in the data and the jobs.
 - O123: moving rows between databases (`postgres_fdw` or the runner).
 - O124: the moment a purpose check judges from.
 - O125: monitoring the second database.
 - O11: technologies and versions, narrowed by D190.
-- O22: scheduled jobs under real time; not moot, its v0.4 part is O109.
+- O22: scheduled jobs under real time; its v0.4 part settled by D199.
 - O52: the dbt toolchain, not planned for v0.4.
 - O25: promoting purposes built for one scenario into the catalog.

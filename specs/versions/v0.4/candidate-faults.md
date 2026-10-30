@@ -5,7 +5,7 @@ Status: draft v1
 Faults that break the purposes' invariants
 ([purpose-catalogue.md](purpose-catalogue.md)) and the governance rules
 ([governance.md](governance.md)). Candidates, not a list to build: which
-ship follows O107 and the scenario ([scenario-sketch.md](scenario-sketch.md)).
+ship follows the purposes (D197) and the scenario ([scenario-sketch.md](scenario-sketch.md)).
 Ids are working names. Every one is planted as v0.3's are: a
 `seed-file` change at render (to a runner's `queries.yaml` or
 `jobs.yaml`, or a database's data file), a `state` change during the

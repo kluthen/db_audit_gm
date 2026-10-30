@@ -1,17 +1,17 @@
 # v0.4 — the purpose catalogue
 
-Status: draft v1
+Status: draft v2
 
-The purposes proposed for v0.4, each with its jobs, its trace and its
+The purposes v0.4 ships, each with its jobs, its trace and its
 invariants, stated against the shop's data model
-([shop-domain.md](shop-domain.md)). Which purposes ship is O107, the
-owner's call; the format they follow is in [purposes.md](purposes.md);
+([shop-domain.md](shop-domain.md)). Which purposes ship is settled
+(D197); the format they follow is in [purposes.md](purposes.md);
 their faults in [candidate-faults.md](candidate-faults.md); how an
 invariant is judged in [checks.md](checks.md).
 
-## The proposal (O107)
+## The purposes v0.4 ships (D197)
 
-Four purposes on the shop, of three kinds (proposed):
+Four purposes on the shop, of three kinds:
 
 | Purpose | Kind | Owner's words it serves | Source → target | Trace kinds |
 |---|---|---|---|---|
@@ -27,12 +27,11 @@ kind with one second database; P5 is the kind the owner singled out
 need consent, time zones, a shipping time and a destination country
 added to the data model, and one stub receiver node. **Finance** (P4,
 below) needs payments, refunds, invoices and accounting periods: about as
-much data-model work again. Proposed: P4 is held for v0.5 with the
-domains (O107).
+much data-model work again. P4 is held for v0.5 with the domains
+(D197).
 
-Four purposes is one more than D190's "two or three". If the owner wants
-three, the proposal drops P2 and folds the segment into P3's campaign
-job, keeping `leads` as P3's intermediate trace (O107).
+Four purposes is one more than D190's "two or three"; the owner chose
+four (D197).
 
 No purpose here needs an engine beyond PostgreSQL at the project's sizes
 ("schemas simple, tables small"): O106 closed by D194.
@@ -161,7 +160,7 @@ v0.4 because v0.4 is about consumers modelled by their trace, and this
 is the one consumer the trace models best: everything it owes is
 checkable in the outbox, the acknowledgements and the triggers.
 
-### The shop's instance (proposed; O107)
+### The shop's instance (D197)
 
 **Export declarations**: every order shipped to a country outside the
 customs union must be declared to the customs gateway before it leaves,
@@ -169,7 +168,7 @@ within two hours of being packed, and the gateway answers with a
 movement reference (accepted) or a rejection. Other shop instances
 considered: a product-recall notice to buyers and a personal-data breach
 notification (both rare triggers, which would have to be timeline
-changes, D127), a VAT filing (monthly: O109). The declaration has a
+changes, D127), a VAT filing (monthly: out of v0.4, D199). The declaration has a
 trigger every few minutes at the shop's volume, a real deadline in
 hours, and a content rule that meets governance (consignee name and
 address may go, the e-mail may not).
@@ -213,7 +212,8 @@ A deadline counted from a continuous trigger fits real time well: the
 trigger happens every few minutes, so a fix shows within a session
 without moving any job, and the check judges each trigger once its
 deadline or two dispatch cycles have passed ([checks.md](checks.md),
-"Pushed obligations"). It eases O109 for this kind, under two
+"Pushed obligations"). It eases real time's limits (D199) for this
+kind, under two
 conditions:
 
 - **Triggers must be frequent.** A rare trigger (a breach, a recall, a
@@ -226,7 +226,7 @@ conditions:
   session. Shortening a legal deadline in the story (24 hours to two) is
   a story choice, not a clock change, so D114 and D132 allow it.
 
-## P4 — finance reconciliation (held, O107)
+## P4 — finance reconciliation (held for v0.5, D197)
 
 Listed so the swap is costed. Jobs: a nightly invoicing and a period
 close. Data: `payments`, `refunds`, `invoices`, `ledger_entries`,
@@ -235,7 +235,7 @@ reverses some. Invariants: every invoiced order has one invoice equal to
 its total and a payment covering it; the ledger balances per period; a
 closed period is never modified; a refund lands in the period it
 happened in; reporting revenue equals ledger revenue. Its daily and
-monthly cadences make it the purpose real time serves worst (O109).
+monthly cadences make it the purpose real time serves worst (D199).
 
 ## Stress test: the clinic's strict reporting
 
@@ -258,4 +258,4 @@ not exercise:
 
 No new artefact or check form is needed for them. One thing they show:
 regulatory reports are **monthly or yearly** in reality, which real time
-cannot age (O109); a v0.5 clinic will press O22 harder than the shop.
+cannot age (D199, O22); a v0.5 clinic will press O22 harder than the shop.
