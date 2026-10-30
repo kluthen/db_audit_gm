@@ -1204,3 +1204,20 @@ Recorded 2026-10-30 by chunk 19's owner from the code on
 Carried: `smoke.sh` now needs host port 8080 free; a `cmark-gfm` failure
 on a starter file stops the bastion (its log says why); an untagged
 earlier bastion image (`sha256:efc56233…`) is left, removal by name only.
+
+### G6 — dependency post-change check (security-advisor, 2026-10-30)
+
+**Clear; nothing for the owner.** Versions confirmed by `dpkg-query` in
+the three images (Debian 13.7): postgres 0.4.0 `postgresql-18-cron`
+1.6.8-1.pgdg13+2, `cron`/`cron-daemon-common` 3.0pl1-197; bastion 0.4.0
+`cmark-gfm` and its two libraries 0.29.0.gfm.13-4; scheduler 0.2.0 no
+package change. No open advisory on the new packages; `cve-watch check`
+finds the same 60 keys before and after (42 at medium or above, all
+already open items in `SECURITY_TODO.md`: NVD matches on Debian-patched
+OpenSSH, nginx, Python, sudo). `.tech` updated (71ab68a): bricks list,
+`[stack]` runtime/data/rendering lines, platform entries for pg_cron
+1.6.8 and cron 3.0pl1-197 (no CPE) and cmark-gfm 0.29.0.gfm.13 (watch
+note: no release since July 2023; PR #394, 2026-09-28, fixes UB in the
+autolink extension, unreachable here since only `-e table` is used).
+`cve-watch lint` 0. Side note: `pgbadger` 13.2 (since 0.3.0) is not in
+`.tech` (no CPE); to add on the owner's word. G6 **done**.
