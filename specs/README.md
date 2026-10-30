@@ -8,7 +8,7 @@ intent (D1). To resume cold: read this page, then
 Phase: **v0.1 released** on 2026-10-21 and merged into `main`
 (3c852e1); its working record is archived in
 [archive/v0.1/](archive/v0.1/README.md) (master spec approved under the
-owner's delegation to the lead, D44). **v0.2 released** on 2026-10-22: built from its [build plan](archive/v0.2/build-plan.md) (D99) in four waves, release gate passed, G10 and G11 cleared (D109), release notes in [versions/v0.2/README.md](versions/v0.2/README.md); merging into `main` on the owner's word; its working record is archived in [archive/v0.2/](archive/v0.2/README.md). **v0.3's drafting opened** on 2026-10-22 on branch `v0.3-spec`: the owner's rulings D114–D146, every question answered and the [review list](versions/v0.3/review-list.md) accepted; **consolidated** the same day into the [v0.3 master spec](versions/v0.3/master-spec.md) and its [access model](versions/v0.3/access-model.md), then revised after the independent review (REJECT, all seven blocking issues fixed, D151) and the owner's answers (D147–D150); **spec approved** on 2026-10-22 with the re-review's corrections (D152–D155); the eight drafts kept as the working record, stale by design where the master spec supersedes them; the [build plan](versions/v0.3/build-plan.md) **approved** on 2026-10-22 (D156), with the owner's ruling that only a scenario with scheduler nodes ages (D157, D158) and the VPS rule (D159); wave 1 started on 2026-10-23, with the owner's confirmation of three readings (D160–D162). v0.4 to v0.6 and v1.0 in drafting; v0.4 recast on 2026-10-28 as purposes, "bricks of why and bits of hows" (D190), with a first cut of data governance (D191); business domains set for v0.5 the same day, the shop first, in v0.4 (D192). On 2026-10-29, after v0.3's release-gate aged run passed, aged runs made a one-off check, none planned before v1.0 (D193). Conventions:
+owner's delegation to the lead, D44). **v0.2 released** on 2026-10-22: built from its [build plan](archive/v0.2/build-plan.md) (D99) in four waves, release gate passed, G10 and G11 cleared (D109), release notes in [versions/v0.2/README.md](versions/v0.2/README.md); merging into `main` on the owner's word; its working record is archived in [archive/v0.2/](archive/v0.2/README.md). **v0.3's drafting opened** on 2026-10-22 on branch `v0.3-spec`: the owner's rulings D114–D146, every question answered and the [review list](versions/v0.3/review-list.md) accepted; **consolidated** the same day into the [v0.3 master spec](versions/v0.3/master-spec.md) and its [access model](versions/v0.3/access-model.md), then revised after the independent review (REJECT, all seven blocking issues fixed, D151) and the owner's answers (D147–D150); **spec approved** on 2026-10-22 with the re-review's corrections (D152–D155); the eight drafts kept as the working record, stale by design where the master spec supersedes them; the [build plan](versions/v0.3/build-plan.md) **approved** on 2026-10-22 (D156), with the owner's ruling that only a scenario with scheduler nodes ages (D157, D158) and the VPS rule (D159); wave 1 started on 2026-10-23, with the owner's confirmation of three readings (D160–D162). v0.4 to v0.6 and v1.0 in drafting; v0.4 recast on 2026-10-28 as purposes, "bricks of why and bits of hows" (D190), with a first cut of data governance (D191); business domains set for v0.5 the same day, the shop first, in v0.4 (D192). On 2026-10-29, after v0.3's release-gate aged run passed, aged runs made a one-off check, none planned before v1.0 (D193). On 2026-10-30 v0.4 was worked into draft documents: four purposes proposed, one of them a pushed obligation on the owner's word; no other engine (D194), no mail sink (D195); the owner's veterinary clinic placed in v0.5 (D196). Conventions:
 settled items are stated as fact, tentative ones are tagged `(proposed)`,
 and every open point cites an `O` ID. Every `(proposed)` item awaits the
 owner's confirmation; the register lists the ones with real alternatives.
@@ -19,6 +19,7 @@ owner's confirmation; the register lists the ones with real alternatives.
 |---|---|---|
 | [concept.md](concept.md) | Purpose, actors, vocabulary, scope, versions, prior art | draft v15 |
 | [versions/](versions/README.md) | The roadmap: v0.1 to v0.6, v1.0 and beyond, one page per version; v0.1's [master spec](versions/v0.1/master-spec.md), [access model](versions/v0.1/access-model.md) and [wave log](versions/v0.1/wave-log.md) | v0.1 released and archived; v0.2 released 2026-10-22 and archived: [master spec](versions/v0.2/master-spec.md), [access model](versions/v0.2/access-model.md), [wave log](versions/v0.2/wave-log.md), build plan archived; v0.3 drafting (below); v0.4–v0.6 and v1.0 draft |
+| [versions/v0.4/](versions/v0.4/README.md) | v0.4's drafts: [purposes](versions/v0.4/purposes.md), [purpose catalogue](versions/v0.4/purpose-catalogue.md), [shop domain](versions/v0.4/shop-domain.md), [governance](versions/v0.4/governance.md), [candidate faults](versions/v0.4/candidate-faults.md), [checks](versions/v0.4/checks.md), [scenario sketch](versions/v0.4/scenario-sketch.md) | drafts v1 (2026-10-30); no master spec; D194–D196 |
 | [versions/v0.3/](versions/v0.3/README.md) | v0.3's drafts: [scheduler](versions/v0.3/scheduler.md), [aging and timeline](versions/v0.3/aging-and-timeline.md), [load and capacity](versions/v0.3/load-and-capacity.md), [faults with activity](versions/v0.3/faults-with-activity.md), [checks under load](versions/v0.3/checks-under-load.md), [PgBouncer](versions/v0.3/pgbouncer.md), [carried items](versions/v0.3/carried-items.md), [format changes](versions/v0.3/format-changes.md); [master spec](versions/v0.3/master-spec.md), [access model](versions/v0.3/access-model.md) | spec approved 2026-10-22 (D154), amended by D157 and D158; [build plan](versions/v0.3/build-plan.md) v15, approved 2026-10-22 (D156), confirmations D160–D162, wave 1's preflight corrections D163–D170, the ruling D171, wave 2's rulings D172–D177, wave 3's D178–D184 and wave 4's D185–D189 written in, wave 4 under way; page draft v8 |
 | [gm-stance.md](gm-stance.md) | How the GM behaves and speaks: setup questions, issues, report-only interaction, no reveals, stop only, restarts, no events outside the schedule, final answer, feedback tone, future ideas | draft v12 |
 | [scenario-lifecycle.md](scenario-lifecycle.md) | The game from setup to teardown: setup inputs, scenario, local implementation, deploy, aging (real time from v0.3), hand-over, end of the game | draft v13 |
@@ -27,7 +28,7 @@ owner's confirmation; the register lists the ones with real alternatives.
 | [planes-and-access.md](planes-and-access.md) | Bastion-only rule (the bastion publishes the web interfaces), planes, the GM session, trust, write policies, the scheduler nodes, the customer's data policy kept apart from the game's access, hardening, validators | draft v16 |
 | [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls, the shared VPS | draft v18 |
 | [open-questions.md](open-questions.md) | Open-questions register | live |
-| [decisions.md](decisions.md) | Decisions log, D107 onward (D193 last); D1–D54 archived with v0.1, D55–D106 with v0.2 | live |
+| [decisions.md](decisions.md) | Decisions log, D107 onward (D196 last); D1–D54 archived with v0.1, D55–D106 with v0.2 | live |
 | [archive/](archive/README.md) | Closed milestones' working records, kept verbatim: v0.1's and v0.2's build plans, decisions D1–D54 and D55–D106, resolved questions | archive |
 
 History: the tree was seeded on 2026-10-20 from the owner's pre-spec notes,
@@ -216,11 +217,12 @@ access model.
 1. v0.3: wave 1 of the [build plan](versions/v0.3/build-plan.md), under
    way since 2026-10-23; the plan's remaining owner gates (G7, G8's
    date, G9 and G10) as their waves reach them.
-2. v0.4's questions (D190–D192): O107 first, which purposes are in
-   v0.4, the one marked "next"; then O120 (a distinct database or an
-   instance) and O119 (what "fixed" means for governance), which shape
-   the rest; then O104–O106, O108, O109, O111 (the domain format's v0.4
-   part), O115–O118 and O121 (what v0.4's gate checks without an aged
-   run, D193).
+2. v0.4, in draft documents since 2026-10-30 ([versions/v0.4/](versions/v0.4/README.md#documents)):
+   the owner's rulings on the questions marked "next", O107 (which
+   purposes, four proposed with a pushed obligation), O120 (an instance
+   of its own for the reporting database) and O109 (cadence under real
+   time, past trace in the backup); then the drafts' `(proposed)` items,
+   O104, O105, O108, O111, O115–O119, O121–O125; then a review list and
+   the master spec when the owner says v0.4 is ready.
 3. The roadmap's "soon" question, O49 (backup tooling's version), then
    v1.0's from the "later" ones.

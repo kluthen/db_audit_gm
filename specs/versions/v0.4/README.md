@@ -1,10 +1,29 @@
 # v0.4 — purposes: side usage and transformations
 
-Status: draft. No master spec. Direction recast on 2026-10-28 (D190),
+Status: draft v2. No master spec. Direction recast on 2026-10-28 (D190),
 revising D47's "transformers" for this version; a first cut of data
 governance added the same day (D191), and the shared business data
 model made the first business domain (D192). Its release gate has no
-aged run (D193).
+aged run (D193). Worked into draft documents on 2026-10-30 (below): no
+engine beyond PostgreSQL (D194), no mail sink (D195); the owner's
+veterinary clinic placed in v0.5, two of its pieces borrowed here as
+test cases (D196); the pushed obligation added as a purpose kind on the
+owner's word.
+
+## Documents
+
+| Document | Purpose | Status |
+|---|---|---|
+| [purposes.md](purposes.md) | The purpose as an artefact: layout, `purpose.yaml`, how a scenario uses one, faults attached to purposes, the job runner, cross-database movement, cadence under real time, the customer's time zone in the data | draft v1 |
+| [purpose-catalogue.md](purpose-catalogue.md) | The proposed purposes, each with its jobs, trace and invariants: sales reporting, win-back leads, customer mailing, export declarations (a pushed obligation); finance held; the clinic's reporting as a stress test | draft v1 |
+| [shop-domain.md](shop-domain.md) | The shop as the first domain: the format v0.4 settles, the data-model changes the invariants need, roles, producer changes | draft v1 |
+| [governance.md](governance.md) | Classes, where the rules are stated, the database-versus-instance boundary, checks G1 to G4, "fixed", the policy, brick changes | draft v1 |
+| [candidate-faults.md](candidate-faults.md) | Faults breaking each purpose's invariants and the governance rules | draft v1 |
+| [checks.md](checks.md) | Invariant checks judged by runs since a moment, witnesses, pushed obligations, definition checks, `gmctl` changes, the release gate | draft v1 |
+| [scenario-sketch.md](scenario-sketch.md) | A first v0.4 scenario: story, topology, ten fault instances, issues | draft v1 (sketch) |
+
+The sections below are the direction as set on 2026-10-28; where a
+draft refines them, the draft is current.
 
 ## Goal
 
@@ -52,7 +71,7 @@ through what it leaves behind:
 | Definitions | a dashboard's query, a job's configuration |
 
 Definitions are checked like v0.3's `seed-file` faults. Whether a real
-mail sink is ever needed is O110; the current view is no, the outbox is
+mail sink is ever needed was O110, closed by D195: the outbox is
 enough.
 
 ## Checks
@@ -101,7 +120,7 @@ Minimal:
   instance is O120.
 - **Another engine** (columnar or other) only if a purpose truly needs
   one. In the owner's words: "we may have to introduce other database at
-  this step despite what i've said. We shall see." (O106)
+  this step despite what i've said. We shall see." None does: D194.
 - No dbt or second transformation technology is planned (O52).
 
 ## The shared business data model: the shop domain
@@ -224,9 +243,11 @@ regulated domains of v0.5 ([v0.5](../v0.5/README.md#domains)).
 - Two or three purposes (proposed; O107), for example a BI rollup into a
   reporting database, lead extraction, and a mailing job to an outbox.
   Reports, dashboards and finance could follow, or one of them could
-  replace one of these.
+  replace one of these. Since 2026-10-30 the drafts propose four,
+  adding a pushed obligation (export declarations) on the owner's word
+  ([purpose-catalogue.md](purpose-catalogue.md)).
 - The job runner (O105).
-- The second database, PostgreSQL by default (O106).
+- The second database, PostgreSQL (D194).
 - The shared business data model as the first domain, the shop,
   structured so that more can be added (O108, O111; D192).
 - Faults attached to purposes, and their checks over the trace.
@@ -238,10 +259,10 @@ regulated domains of v0.5 ([v0.5](../v0.5/README.md#domains)).
 ## Out of scope
 
 - Real consumer software: a mailer, a BI tool, a dashboard application,
-  a finance application (a mail sink: O110).
+  a finance application, a mail sink (D195).
 - Technology bricks for their own sake, dbt among them (O52).
 - Database engines other than PostgreSQL stay beyond v1.0 (D47) unless a
-  v0.4 purpose truly needs one (O106).
+  v0.4 purpose truly needs one; none does (D194).
 - A sped-up clock, a forged history, time compression (D114, D132; O22,
   O109).
 - Domains other than the shop: v0.5 (D192).
@@ -277,10 +298,8 @@ rehearsal and the early check fired by the host's timer
 - O107 (next): which purposes are in v0.4.
 - O104: the purpose format.
 - O105: the job runner, extending or forking the scheduler.
-- O106: whether any engine beyond PostgreSQL is needed.
 - O108: the shared business data model.
 - O109: daily, weekly or monthly purposes under real time.
-- O110: whether a real mail sink is ever needed.
 - O111: the domain format, the part v0.4 must settle for the shop.
 - O115: the governance format.
 - O116: which governance rules are checked in v0.4.
@@ -289,6 +308,10 @@ rehearsal and the early check fired by the host's timer
 - O119: what "fixed" means for a governance fault.
 - O120: a distinct database, or an instance of its own.
 - O121: what a release gate checks in place of an aged run.
+- O122: the customer's time zone in the data and the jobs.
+- O123: moving rows between databases (`postgres_fdw` or the runner).
+- O124: the moment a purpose check judges from.
+- O125: monitoring the second database.
 - O11: technologies and versions, narrowed by D190.
 - O22: scheduled jobs under real time; not moot, its v0.4 part is O109.
 - O52: the dbt toolchain, not planned for v0.4.

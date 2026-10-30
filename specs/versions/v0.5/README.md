@@ -68,6 +68,50 @@ How domains meet the rest of this version (proposed):
 v0.4 ships the first domain, the shop, structured so that more can be
 added (O108). v0.5 adds the others; which come first is O112.
 
+### The veterinary clinic (D196)
+
+The owner described a domain on 2026-10-30, placed here, the flagship
+of the regulated domains: "we have a veterinary clinic franchise. It's a
+big clinic: horse section (housing, dedicated machinerie, multiple
+specialists); farm section (same); domestic section; biology (lab, blood
+analysis machinerie, etc); formation center (rooms, instructors, canine
+and horse dedicated training). this clinic drains animal from all over
+the region, there are only 3 such in the country, and several outside.
+they have an heavy need on scheduling, data management and redundancy,
+but also quite strict reporting needs. they are also heavily connected
+both inside and outside: machinerie require dedicated servers and
+databases, housing have their own dedicated display for each animal,
+access to their file, inter clinic communication happen regularily (as
+specific machineries may not be available at each center), external lab
+also come into play regularily. internal mailing, messaging and machine
+logs, have also their own governance and needs. customers have a
+dedicated portal to access their animals informations." He judged it
+"may be more v0.5 than v0.4".
+
+It is a composite of parts, each close to a domain of its own:
+
+| Part | What it brings |
+|---|---|
+| Lab (biology) | D192's bio lab: instrument batch uploads, results, validation before release, an audit trail |
+| Bookings and scheduling | the sections' and the training centre's rooms, specialists, machines and instructors |
+| Housing | one display per animal: many small read-only consumers of one animal's file |
+| Machinery | dedicated servers and databases per machine, possibly engines beyond PostgreSQL (beyond v1.0 by D47) |
+| Customer portal | owner-scoped access from outside: each owner sees only their animals |
+| Messaging and machine logs | internal mail, messages and logs with governance of their own |
+| Regulatory reporting | medicines and antimicrobial-use registers, notifiable disease reports (a pushed obligation, [v0.4](../v0.4/purpose-catalogue.md#p5--export-declarations-a-pushed-obligation)), lab results released to owners |
+
+Open: whether a domain may be composed of smaller domains (O126); where
+the franchise's several sites and the exchange between clinics sit
+(O127). v0.2's `fernway-clinics-monitoring` is a veterinary clinic too,
+much smaller (O112).
+
+v0.4 borrows two pieces of it as test cases, without widening its scope:
+its strict reporting tests the purpose model
+([v0.4 purpose catalogue](../v0.4/purpose-catalogue.md), "Stress test"),
+and its data classes test the governance first cut
+([v0.4 governance](../v0.4/governance.md), "The database-versus-instance
+boundary").
+
 ## In scope
 
 - Other tools and hand-made scripts beyond v0.2's one default brick per
@@ -138,6 +182,9 @@ added (O108). v0.5 adds the others; which come first is O112.
 - O23: number and mix of faults, difficulty.
 - O25: promoting scenario-only bricks and faults into the catalog.
 - O21: whether starter documentation may itself carry faults.
+- O112: which domains come first after the shop (the clinic, D196).
+- O126: whether a domain may be composed of smaller domains.
+- O127: where several sites and inter-site exchange sit.
 - O24: seeded variation per deployment.
 - O47: whether generating scenarios from a brief belongs here or in v1.0.
 - O111: the domain format (its v0.4 part settled with the shop).

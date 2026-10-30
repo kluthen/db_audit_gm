@@ -8,13 +8,14 @@ in [archive/v0.1/open-questions-resolved.md](archive/v0.1/open-questions-resolve
 their IDs keep their meaning. Questions resolved by the close of v0.2
 (O13, O50, O51 and O56–O77) are listed in
 [archive/v0.2/open-questions-resolved.md](archive/v0.2/open-questions-resolved.md).
-Numbering continues from O122.
+Numbering continues from O128.
 
 Resolved since v0.2 closed: O45 (D121), O46 (D128), O78 (D140), O82
 (D124), O83 (D125), O84 (D126), O85 (D127), O86 (D129), O87 (D130), O88
 (D131), O89 (D132), O90 (D133), O91 (D134), O92 (D135), O93 (D136), O94
 (D137), O95 (D138), O96 (D139), O97 (D140), O81 (D141), O98 (D142), O99
-(D143), O100 (D144), O101 (D145), O102 (D171), O103 (D175).
+(D143), O100 (D144), O101 (D145), O102 (D171), O103 (D175), O106
+(D194), O110 (D195).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -45,8 +46,8 @@ for the next version (v0.1 until it closed, with none left open);
   scheduler brick sending SQL to PostgreSQL, D115, D118; other targets
   from v0.5). Narrowed for v0.4 by D190: transformation is a generic
   job runner started from the scheduler brick (O105), the second
-  database PostgreSQL by default, another engine only if a purpose
-  needs one (O106). Still open: which engine versions first, and how
+  database PostgreSQL, another engine only if a purpose needs one,
+  which none does (D194). Still open: which engine versions first, and how
   upgrade scenarios (both binaries, disk space) fit the budget. Refs:
   [versions/v1.0/README.md](versions/v1.0/README.md),
   [versions/v0.4/README.md](versions/v0.4/README.md).
@@ -131,134 +132,168 @@ O103, raised at wave 2's preflight, on 2026-10-26 (D175). None is open.
 ## v0.4: purposes
 
 Raised when the owner recast v0.4 as "bricks of why and bits of hows"
-on 2026-10-28 (D190). O11, O22, O25 and O52 are revised by it.
+on 2026-10-28 (D190). O11, O22, O25 and O52 are revised by it. Worked
+into drafts on 2026-10-30 ([versions/v0.4/](versions/v0.4/README.md#documents)):
+O106 closed (D194), O110 closed (D195), O122 to O125 raised. A
+"Proposed" answer below is in a draft, tagged `(proposed)`, and awaits
+the owner.
 
-- **O104** (soon, v0.4) — The purpose format: its definition, template
-  and completeness rules in [formats.md](formats.md), then the
-  `scenario-format` skill and the scenario document. Includes the final
-  name ("purpose" is a working name); how a job states its source,
-  target, computation and timing; how a fault attaches to a purpose as
-  well as to a brick (`applies_to` names a brick and its versions
-  today); whether a purpose has a version, as a brick does, or never
-  bumps, as faults and scenarios; and how a check learns when a fix
-  happened, so it answers "too soon to tell" until the job has run since
-  (v0.3's behavioural checks judge a trailing window and are never
-  told). Refs: [versions/v0.4/README.md](versions/v0.4/README.md).
-- **O105** (soon, v0.4) — The job runner: extend v0.3's `scheduler`
-  brick (`queries.yaml`, `schedule.yaml`, `jobs.yaml`) or fork it into a
-  brick of its own? Either way, what the players read and change of a
-  job (v0.3: the fixed-time operations, D116), and how it meets v0.5's
-  plan for transformation triggers as scheduler drivers (D118). Refs:
-  [versions/v0.4/README.md](versions/v0.4/README.md),
-  [versions/v0.3/scheduler.md](versions/v0.3/scheduler.md).
-- **O106** (soon, v0.4) — Does any v0.4 purpose need an engine beyond
-  PostgreSQL (columnar or other)? The owner: "we may have to introduce
-  other database at this step despite what i've said. We shall see."
-  If one does, it brings an engine D47 placed beyond v1.0 into v0.4.
-  Refs: [versions/v0.4/README.md](versions/v0.4/README.md).
-- **O107** (next, v0.4) — Which purposes are in v0.4? Proposed: two or
-  three, for example a BI rollup into a reporting database, lead
-  extraction, and a mailing job to an outbox; reports, dashboards and
-  finance could follow, or one of them could replace one of these.
-  Shapes O106, O108 and O109. Refs:
-  [versions/v0.4/README.md](versions/v0.4/README.md).
-- **O108** (soon, v0.4) — The shared business data model (orders,
-  customers, payments, refunds, consent, time zones): what it holds, how
-  the data load and the producers write it, and how its invariants and
-  data classes are stated against it. Since D192 it is the first domain:
-  v0.4 ships one, the shop, starting from `tarnbeck-outdoor-shop`, which
-  already is one, structured so that more can be added; v0.5 adds the
-  others. It lives in the catalogue as a domain; the format it follows is
-  O111. Probably v0.4's main technical work. Refs:
-  [versions/v0.4/README.md](versions/v0.4/README.md),
-  [versions/v0.5/README.md](versions/v0.5/README.md).
-- **O109** (soon, v0.4) — Daily, weekly or monthly purposes under real
-  time, with no sped-up clock (D114, D132): v0.3's scenario ages sixteen
-  hours, so a daily job runs once or twice per game, and nobody triggers
-  a job during a game (D131), so a fix may stay "too soon to tell" to
-  the session's end. Run the jobs more often than their story says, or
-  ship pre-aged derived history (past results already in the trace)?
-  The second may count as the forged history D114 and D132 rule out.
-  Linked to O22. Release gates have no aged run before v1.0 (D193), so
-  a gate sees a daily job only if its run is placed inside the
-  rehearsal or moved in a smoke test: O121. Refs:
-  [versions/v0.4/README.md](versions/v0.4/README.md).
-- **O110** (later, v0.4) — Is a real mail sink ever needed, or is the
-  outbox always enough? Current view: the outbox is enough. Refs:
-  [versions/v0.4/README.md](versions/v0.4/README.md).
+- **O104** (soon, v0.4) — The purpose format. Proposed in
+  [purposes.md](versions/v0.4/purposes.md): the name stays "purpose";
+  `purposes/<id>/` with `purpose.yaml` (identity, parts, jobs, trace,
+  invariants with witness conditions, data moved, roles), `material/`,
+  `checks/`, `gm.md`; copied into a scenario at design time and named in
+  `scenario.yaml`'s `purposes:`, so it never bumps; faults attach by
+  `applies_to.purposes`; a check judging runs is `sealed_check.judges:
+  runs` (or `triggers`). Then the `scenario-format` skill and the
+  scenario document. How a check learns when a fix happened is now O124.
+- **O105** (soon, v0.4) — The job runner. Proposed in
+  [purposes.md](versions/v0.4/purposes.md): extend v0.3's `scheduler`,
+  no fork; a purpose's jobs are fixed-time operations; its runner is a
+  `consumer` node, so `scheduler` 0.1.0 ships unchanged (a `transformer`
+  role would bump it to 0.2.0); the players reach the jobs as D116 and
+  D130 say; v0.5's drivers (D118) untouched. Cross-database movement is
+  O123.
+- **O107** (next, v0.4) — Which purposes are in v0.4? Proposed in
+  [purpose-catalogue.md](versions/v0.4/purpose-catalogue.md): four on the
+  shop, P1 sales reporting (into a reporting database), P2 win-back
+  leads, P3 customer mailing (to an outbox), P5 export declarations, a
+  **pushed obligation** (trigger, deadline, outside receiver,
+  acknowledgement), the kind the owner singled out on 2026-10-30: "a
+  really good not really consummer (it's on the output of the system,
+  but need to be pushed, quite different from our usual consumer)".
+  Finance (P4) held for v0.5: it needs payments, refunds, invoices and
+  periods, and runs daily and monthly. Four is one more than D190's two
+  or three; for three, drop P2 and fold its segment into P3. Shapes
+  O108, O109 and the scenario.
+- **O108** (soon, v0.4) — The shared business data model, the shop
+  domain (D192). Proposed in
+  [shop-domain.md](versions/v0.4/shop-domain.md): from tarnbeck's,
+  adding `business_settings` (the customer's zone, sending hours),
+  customers' address, country and zone, `consent_events` beside the
+  opt-in flag, `packed_at`, `shipped_at`, `ship_country`,
+  `export_countries`, an archived history behind `last_order_at`, the
+  purposes' tables, six roles, and consent streams in the producer.
+  Tarnbeck stays untouched; the v0.4 scenario is new. Format: O111.
+- **O109** (next, v0.4) — Purposes under real time, with no sped-up
+  clock (D114, D132) and nobody triggering a job (D131). Proposed in
+  [purposes.md](versions/v0.4/purposes.md) "Time": each purpose runs at
+  the cadence a real business would give it, sub-daily where that is
+  realistic (mail every five minutes, a campaign every quarter hour,
+  hourly loads), so fixes show within a session; a daily job stays daily
+  and its fix is verified by moving it (D132); weekly and monthly
+  purposes are out of v0.4; the restored backup may hold a purpose's
+  past trace computed by the data load, as tarnbeck's holds fifteen days
+  of roll-ups, but a fault's evidence never rests on it alone. Pushed
+  obligations fit real time when their triggers are frequent; a
+  story's legal deadline may be shortened, a story choice rather than a
+  clock change ([purpose-catalogue.md](versions/v0.4/purpose-catalogue.md)
+  P5). The owner's question: is past trace in the backup the forged
+  history D114 and D132 rule out? Linked to O22, O121.
+- **O122** (soon, v0.4) — The customer's time zone in the data and the
+  jobs. It is UTC plus the game's shift (D129), known only at render,
+  and UTC itself at a shift of 0, while purposes reason in local days and
+  recipients' hours. Proposed in
+  [purposes.md](versions/v0.4/purposes.md): `render` substitutes
+  `{{customer_timezone}}` in scheduler seed files; `load-data` passes the
+  zone and offset to `psql` as variables, written into
+  `business_settings`; databases stay in UTC; recipients' zones are
+  stored relative to the customer's, and a wrong-zone fault is an offset
+  from the customer's, never "UTC", so no fault vanishes at a shift of 0.
+  Alternative: `ALTER DATABASE … SET timezone` to the customer's zone,
+  which changes every session's `current_date` and the logs' reading.
+- **O123** (soon, v0.4) — Moving rows between databases, which
+  PostgreSQL cannot do across databases even in one instance. Proposed
+  in [purposes.md](versions/v0.4/purposes.md): `postgres_fdw` in the
+  target (plain SQL jobs, no runner code, already in the `postgres`
+  image, foreign servers and mappings the players can audit), with a new
+  `load-data` step setting each user mapping's password from its remote
+  role's secret. Alternative: a two-connection job in the runner (new
+  code, a `scheduler` bump, nothing to audit in the databases).
+- **O124** (soon, v0.4) — The moment a purpose check judges from.
+  Proposed in [checks.md](versions/v0.4/checks.md): `CHECK_SINCE`, the
+  hand-over by default, raised to the runner's last successful reload,
+  raised by the GM with `gmctl check --since` from the players' report;
+  the check judges the job's runs since (none: 3 with the time to the
+  next run; one violating: 1; all clean with a witness: 0), or, for a
+  pushed obligation, the triggers since. Rejected: a dry run of the job
+  (D131).
+- **O125** (soon, v0.4) — Monitoring a second database instance: a
+  second `postgres-exporter` node, the exporter brick made multi-target
+  (a bump), or the instance left unscraped by design, which is then a
+  fault the players may find. Proposed: unscraped in the first
+  scenario, a second exporter node in the scenario format's guidance.
+  Refs: [scenario-sketch.md](versions/v0.4/scenario-sketch.md).
 
 ## v0.4: data governance
 
 Raised when the owner added a first cut of data governance to v0.4 on
 2026-10-28 (D191): data classes, their rules, a policy handed to the
 players, `gm_check` definition checks. The customer's governance, in the
-game's world, not the game's access model.
+game's world, not the game's access model. Drafted on 2026-10-30 in
+[governance.md](versions/v0.4/governance.md), tested against the
+clinic's classes (D196).
 
-- **O115** (soon, v0.4) — The governance format: where the policy lives
-  (a section of `scenario.yaml`, a file of its own, partly in the
-  domain); how classes attach to data (per table, per column); how
-  locations, flows, readers and settings are stated; what the loader
-  checks; whether governance faults are a family of their own or join
-  the Security family. Proposed: the domain classifies its data model,
-  the scenario states the rules. Refs:
-  [versions/v0.4/README.md](versions/v0.4/README.md).
-- **O116** (soon, v0.4) — Which rules are checked in v0.4? Proposed: a
-  class's columns present only in the databases it may live in (the
-  catalog), no purpose job moving it to a target it may not reach, and
-  read grants of the customer's roles (`has_table_privilege`,
-  `has_column_privilege`); required settings later, encryption at rest
-  stated only. The game's own roles (`dba`, `postgres`, the GM check
-  role, `monitoring`) stay outside every rule (proposed): each would
-  break a "who may read" rule. Refs:
-  [versions/v0.4/README.md](versions/v0.4/README.md).
-- **O117** (soon, v0.4) — How the player-facing policy is presented.
-  Proposed: a document in the starter pack, the company's data policy in
-  the story's voice. Does it list rules no check verifies? May the
-  policy itself be wrong or ambiguous, which is starter documentation
-  carrying a fault (O21)? Refs:
-  [versions/v0.4/README.md](versions/v0.4/README.md).
-- **O118** (soon, v0.4) — Are brick changes for governance in v0.4?
-  pgaudit is a preloaded library, so a `postgres` image change and a
-  dependency check; TLS needs certificates as generated secrets, and the
-  `postgres` brick configures none today; both could be options (O79).
-  Proposed: none in v0.4, they come with v0.5's regulated domains. Refs:
-  [versions/v0.4/README.md](versions/v0.4/README.md),
-  [versions/v0.5/README.md](versions/v0.5/README.md).
-- **O119** (soon, v0.4) — What "fixed" means for a governance fault. A
-  purpose is fixed when no new violation follows the fix, past ones
-  staying as evidence; a definition check fails until the live state
-  complies. Proposed: a definition (a classed column where it may not
-  be, a grant) is fixed when the live state complies, so removing what
-  was copied is part of the fix; content already sent (an outbox's
-  payloads) is judged as a purpose, no new violation since the fix.
-  Refs: [versions/v0.4/README.md](versions/v0.4/README.md).
-- **O120** (soon, v0.4) — "Distinct database": another database in the
-  same PostgreSQL instance, or an instance of its own? Instance-wide
-  settings (TLS, the logging collector, pgaudit) need an instance;
-  per-database and per-role settings do not. Each instance costs memory
-  against the playground. The same reading decides what D190's second
-  database is. Refs: [versions/v0.4/README.md](versions/v0.4/README.md).
+- **O115** (soon, v0.4) — The governance format. Proposed: classes
+  `personal`, `customer-linked`, `internal`; the domain's
+  `classification.yaml` classes every column, the scenario's
+  `governance:` states locations (`node/database`), readers and outbound
+  flows with their allowed fields, and the policy file; the loader checks
+  names and references; governance faults join the Security family.
+- **O116** (soon, v0.4) — Which rules are checked. Proposed: G1
+  locations (catalog by classified name, plus a content probe for
+  personal data in disallowed databases), G2 readers
+  (`has_column_privilege` through membership and `PUBLIC`), G3 reach
+  (foreign tables and user mappings' remote roles), G4 outbound fields
+  (judged as a purpose); not checked: encryption at rest, retention;
+  the game's own roles (`dba`, `postgres`, `gm_check`, `monitoring`,
+  `pgbouncer_lookup`) outside every rule.
+- **O117** (soon, v0.4) — How the policy is presented. Proposed:
+  `player/data-policy.md` in the story's voice, written by the GM from
+  `governance:`; it may state unchecked rules, unmarked, as a real
+  policy does; it is correct in v0.4, a wrong policy waiting for O21.
+- **O118** (soon, v0.4) — Brick changes for governance. Proposed: none
+  in v0.4 (pgaudit and TLS with v0.5's regulated domains). One settings
+  rule needs no brick change, statement logging writing personal data
+  into the logs; proposed: held for v0.5 as a candidate fault, unless
+  the owner wants it in the first cut.
+- **O119** (soon, v0.4) — What "fixed" means for a governance fault.
+  Proposed: a definition (a copied column, a grant, a mapping) is fixed
+  when the live state complies, removal included; content already sent
+  is judged as a purpose, no new violation since the judged moment
+  (O124).
+- **O120** (next, v0.4) — "Distinct database": another database in the
+  same instance, or an instance of its own? The clinic's classes show
+  both are real: an audit trail needs an instance (pgaudit), readers'
+  separation only a database. Proposed in
+  [governance.md](versions/v0.4/governance.md): the rules' location
+  unit is `node/database`, with `separation: instance` where a policy
+  demands it; v0.4's reporting database is an instance of its own, a
+  second `postgres` node (about 256 MB more), since the owner's words
+  name "distinct settings" and v1.0's pipeline draws two nodes.
 
 ## v0.5: domains
 
 Raised when the owner set business domains for v0.5 on 2026-10-28
-(D192). v0.4 ships the first, the shop (O108).
+(D192). v0.4 ships the first, the shop (O108). The veterinary clinic
+added on 2026-10-30 (D196).
 
-- **O111** (soon, v0.4 → v0.5) — The domain format: what a domain holds
-  (business data model and data load, producer profiles, common
-  scheduler scripts and input types, fitting purposes, data
-  classification), where it lives in the catalogue, whether it has a
-  version as bricks do, how a scenario names it, and whether a static
-  scenario needs one. The part v0.4 must settle is what keeps v0.5 from
-  restructuring the shop. Linked to O104 and O108. Refs:
-  [versions/v0.5/README.md](versions/v0.5/README.md#domains),
-  [versions/v0.4/README.md](versions/v0.4/README.md).
+- **O111** (soon, v0.4 → v0.5) — The domain format. Proposed for v0.4 in
+  [shop-domain.md](versions/v0.4/shop-domain.md): `domains/shop/` with
+  `domain.yaml`, `data/` (schema, load, classification), `producers/`,
+  `docs/gm.md`; a design-time source copied into a scenario and named in
+  `scenario.yaml` for provenance, so it never bumps; static scenarios
+  need none. Left to v0.5: profiles against the schedule (O113), size
+  (O114), composition (O126).
 - **O112** (later, v0.5) — Which domains come first after the shop? The
-  owner names a warehouse, a factory and a lab. A factory's
-  high-frequency time series presses on "schemas simple, tables small"
-  and the memory budget, and invites TimescaleDB, placed beyond v1.0 by
-  D47 yet listed as a `postgres` option candidate (O79). A lab's audit
-  trail needs governance beyond v0.4's cut (O118). v0.2's
+  owner names a warehouse, a factory and a lab, and, on 2026-10-30, a
+  veterinary clinic franchise (D196), a composite holding a lab. A
+  factory's high-frequency time series presses on "schemas simple,
+  tables small" and the memory budget, and invites TimescaleDB, placed
+  beyond v1.0 by D47 yet listed as a `postgres` option candidate (O79). A
+  lab's audit trail needs governance beyond v0.4's cut (O118). The
+  clinic's machinery may want engines beyond v1.0 (D47) and its
+  regulatory reports run monthly or yearly (O22). v0.2's
   `fernway-clinics-monitoring` is a veterinary clinic: its owners are
   personal data, animal health is no special category. Refs:
   [versions/v0.5/README.md](versions/v0.5/README.md#domains).
@@ -278,6 +313,23 @@ Raised when the owner set business domains for v0.5 on 2026-10-28
   never rescaled to the playground (D32); size has to fit the
   playground's budget and "schemas simple, tables small". Refs:
   [versions/v0.5/README.md](versions/v0.5/README.md#domains).
+
+- **O126** (later, v0.5) — May a domain be composed of smaller
+  domains? The clinic (D196) is a lab, bookings, housing, machinery, a
+  portal and messaging, each close to a domain of its own; a warehouse
+  or a shop could reuse some. If yes: how parts share a data model's
+  keys (an animal, an owner), and whether a scenario may take a part
+  alone. Linked to O111. Refs:
+  [versions/v0.5/README.md](versions/v0.5/README.md#the-veterinary-clinic-d196).
+- **O127** (later, v0.5 → beyond v1.0) — Where several sites and the
+  exchange between them sit: the clinic is a franchise whose centres
+  share machinery and records, with redundancy (D196). Several sites
+  need more than one domain's worth of topology: several database
+  instances per business, replication or exchange between them, and
+  hosts enough. A v0.5 topology fragment (two sites on one playground),
+  or beyond v1.0 with the multi-site playgrounds it needs? Linked to
+  O12 (network layout). Refs:
+  [versions/v0.5/README.md](versions/v0.5/README.md#the-veterinary-clinic-d196).
 
 ## Roadmap: gaps and cross-version risks
 
@@ -311,7 +363,10 @@ the question concerns.
   names these as known limits; the rehearsal's planned hand-over is
   chosen so a purpose job's run falls inside its two hours, as the
   traffic's peak hours already are; growth is extrapolated and stated
-  as such. Refs: [versions/README.md](versions/README.md#release-gates),
+  as such; and, for v0.4 ([checks.md](versions/v0.4/checks.md)), every
+  purpose fault is taken through its whole cycle in a smoke run, its
+  job moved to run within minutes as a player may (D116): present, then
+  too soon after the fix, then fixed. Refs: [versions/README.md](versions/README.md#release-gates),
   [versions/v0.4/README.md](versions/v0.4/README.md#release-gate),
   [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 11.
 - **O49** (soon, roadmap) — Backup tools (pgBackRest and the like) and the

@@ -577,3 +577,21 @@ Numbering continues after D192, the last; no ID is reused.
   [versions/README.md](versions/README.md#release-gates),
   [versions/v0.4/README.md](versions/v0.4/README.md#release-gate),
   [versions/v1.0/README.md](versions/v1.0/README.md).
+- **D194 (2026-10-30, spec-writer, on drafting v0.4's purposes): No v0.4
+  purpose needs an engine beyond PostgreSQL;** reporting, leads,
+  mailing, export declarations and finance all fit PostgreSQL at
+  "schemas simple, tables small", so D190's condition is not met. Closes
+  O106; a later purpose needing one raises a new question. Now in:
+  [versions/v0.4/purpose-catalogue.md](versions/v0.4/purpose-catalogue.md).
+- **D195 (2026-10-30, spec-writer, reading the owner's words in D190):
+  No mail sink in v0.4: `mail_outbox` is the mail's whole trace,** since
+  every check the owner named (duplicates, ill-appropriate sending,
+  "were we truly doing this") is judged on it. Closes O110; a purpose
+  needing delivery behaviour (bounces) raises a new question. Now in:
+  [versions/v0.4/purpose-catalogue.md](versions/v0.4/purpose-catalogue.md) P3.
+- **D196 (2026-10-30, owner input, relayed by the wave driver): The
+  veterinary clinic franchise is a v0.5 domain candidate,** the flagship
+  of the regulated domains; v0.4 only borrows its strict reporting and
+  its data classes as test cases, scope unchanged. Open: O126, O127;
+  O112 revised. Now in: [versions/v0.5/README.md](versions/v0.5/README.md)
+  "The veterinary clinic".
