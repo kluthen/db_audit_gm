@@ -1026,7 +1026,7 @@ Record: 14a cd7daed, 14b 8fceabb, merge 3cc4a32 (the `postgres` Supported-faults
 
 ### Chunk 15 — The database-node faults f6, f7, f9 and f10
 
-Status: 15a merged (w3, e901230); 15b planned (after chunk 14's deployments, the host held alone)
+Status: 15a merged (w3, e901230); 15b blocked (on the owner: a normal run's memory.peak 327 MiB > 320 at 640M; WIP 7feaca0 on v0.4-c15b-heavy-job)
 Wave: 3
 Depends on: chunks 4, 6, 7, 9, 10; chunks 12 and 13 (in-wave, W3-a,
 W3-b), merged into `v0.4-w3` before this chunk's branch is cut; G10 for

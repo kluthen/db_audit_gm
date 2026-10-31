@@ -2122,6 +2122,25 @@ Options for the owner at the wave report: `cron.database_name =
 loader rule; no noise), a restart step in `load-data`, or documenting the
 pre-load lines in `postgres`' `gm.md` and `player.md`.
 
+### Chunk 15b — stopped on G10 (WIP 7feaca0), 2026-10-31
+
+f10 built and run on armenelos alone (VPS Ready Drain, never touched),
+game `fixture-campaign-9v8w59`, `reporting` at 640M + swap 640M,
+`shared_buffers` 128MB. Every Done-when item holds but one: the backfill
+(30 days) was killed after 11 s (`oom_kill` 0 → 1, 1258 MiB anon+shmem+swap
+of 1280 allowed), the postmaster recovered in 1 s with its pid unchanged,
+`gmctl check --instance f10` read 2 before the run and 1 after, the next
+run completed, `fit` refused a shared host. **A normal run's `memory.peak`
+read 327 MiB, above the 320 MiB half** (anon 203.5 + file 104.3 at the
+peak; 238 MiB without page cache; chunk 9 read 299–301 in an isolated
+stack; the game's baseline is higher). Measured once, as the rule says.
+Not merged; put to the owner. Notes for `spec-writer` after the ruling: a
+`state` fault with `seed_changes` (template comment says seed-file only);
+the roll-up's own foreign table `src.sales_detail_orders`; the check
+dates the planting from `requested_at`; PG 18 logs "client backend", the
+check matches both; the night after a killed backfill reads 1 day.
+Unit suite 831 OK; `check_fault_dir` clean.
+
 ### v0.5 scope rulings recorded (`v0.5-scope` 596995d), 2026-10-31
 
 `spec-writer`, on `v0.5-scope` (not this wave's branch): D248 (the sorting
