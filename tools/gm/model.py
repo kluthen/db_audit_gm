@@ -115,6 +115,8 @@ _CREATE_PG_CRON_RE = re.compile(
 # (string literals and `--` comments removed).
 _LOGIN_RE = re.compile(r"(?<![A-Za-z0-9_$])(no)?login(?![A-Za-z0-9_$])", re.IGNORECASE)
 _SQL_LITERAL_RE = re.compile(r"'(?:[^']|'')*'")
+# A password of the role's own in that text (a literal; PASSWORD NULL sets none).
+_OWN_PASSWORD_RE = re.compile(r"(?<![A-Za-z0-9_$])password\s*''", re.IGNORECASE)
 
 
 def fault_env_name(param_name):
@@ -2273,8 +2275,10 @@ class DataFileCreates:
     """What a data file creates, read line by line (W1 item 0): no SQL
     parser, so a statement inside a DO body or a function is not seen.
     `logins`: the roles created with LOGIN (`CREATE USER` without NOLOGIN,
-    `CREATE ROLE` with LOGIN, read up to the statement's `;`), in file
-    order (master spec 9.7: load-data gives each its secret)."""
+    `CREATE ROLE` with LOGIN, read up to the statement's `;`) and no
+    password of their own (`PASSWORD '...'`), in file order (master spec
+    9.7: load-data gives each its secret; a role whose statement sets its
+    password keeps it, 16.4: v0.3's scenarios run unchanged)."""
     file: str
     databases: set = field(default_factory=set)
     roles: set = field(default_factory=set)
@@ -2283,16 +2287,20 @@ class DataFileCreates:
 
 
 def _statement_login(kind, lines):
-    """Whether the role a `CREATE ROLE|USER` statement creates can log in;
-    `lines`, the statement's text after the name, then the lines after."""
+    """Whether the role a `CREATE ROLE|USER` statement creates can log in
+    with no password of its own; `lines`, the statement's text after the
+    name, then the lines after."""
     text = []
     for line in lines:
         line = _SQL_LITERAL_RE.sub("''", line).split("--", 1)[0]
         text.append(line.split(";", 1)[0])
         if ";" in line:
             break
+    attributes = " ".join(text)
+    if _OWN_PASSWORD_RE.search(attributes):
+        return False
     m = None
-    for m in _LOGIN_RE.finditer(" ".join(text)):
+    for m in _LOGIN_RE.finditer(attributes):
         pass                                 # the last one wins, as in PostgreSQL
     return kind == "user" if m is None else m.group(1) is None
 

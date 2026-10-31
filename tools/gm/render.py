@@ -33,8 +33,9 @@ time), and shifts a seeded `crontab`'s hours to UTC as `jobs.yaml`'s: the
 hour field expanded (lists, ranges, steps), moved by -shift modulo 24,
 written back as a sorted list. A node's `crontab_roles` get their
 `role_<role>_password` secrets mounted (localimpl.node_secret_declarations);
-the other login roles a data file creates have theirs too (master spec
-9.7), mounted nowhere: load-data sets them in the database.
+the other login roles a data file creates without a password of their
+own have theirs too (master spec 9.7), mounted nowhere: load-data sets
+them in the database.
 
 v0.3 master spec 7.5 and 10.2; capture W3, item 2: every node is pinned to
 the host `fit` placed it on (`nodes.<n>.host`), `node.hostname == <host>`,

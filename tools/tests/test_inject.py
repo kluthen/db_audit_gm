@@ -564,6 +564,19 @@ class TestLoadDataStatic(DeployedGame):
         self.assertEqual(inject.password_plan(sc, self.impl),
                          [("db", [("shop_app", "role_shop_app_password")])])
 
+    def test_a_login_role_with_its_own_password_keeps_it(self):
+        path = self.scenario / "data" / "db.sql"
+        path.write_text(path.read_text().replace(
+            "CREATE ROLE shop NOLOGIN;\n",
+            "CREATE ROLE shop NOLOGIN;\nCREATE ROLE shop_app LOGIN PASSWORD 'Pages-and-Co';\n"))
+        sc = model.load_scenario(self.scenario)
+        self.assertEqual(inject.password_plan(sc, self.impl), [])
+        self.assertNotIn("role_shop_app_password",
+                         {sec["secret"] for sec in localimpl.game_secrets(sc)[0]})
+        result = self.load_data()
+        self.assertEqual(result.passwords, [])
+        self.assertFalse([r for r in self.fake.runs if "ALTER ROLE" in r["stdin"]])
+
 
 # --- v0.3: the GM check role's CONNECT at load-data (spec D176) -------------
 
@@ -980,7 +993,11 @@ class TestDataLoginRoles(unittest.TestCase):
             "create user reports;",
             "CREATE USER nobody NOLOGIN;",
             "CREATE ROLE etl",
-            "  WITH LOGIN PASSWORD 'x';",
+            "  WITH LOGIN;",
+            "CREATE ROLE fixed LOGIN PASSWORD 'Pages-and-Co-2019';",
+            "CREATE USER fixed_user",
+            "  ENCRYPTED PASSWORD 'x';",
+            "CREATE ROLE unset LOGIN PASSWORD NULL;",
             "CREATE ROLE quoted PASSWORD 'login';",
             "CREATE ROLE commented; -- LOGIN",
             "-- CREATE ROLE ghost LOGIN;",
@@ -989,9 +1006,10 @@ class TestDataLoginRoles(unittest.TestCase):
             "CREATE ROLE app LOGIN;",
             "CREATE DATABASE app OWNER owner_role;"])
         created = model.data_file_creates(text, "data/db.sql")
-        self.assertEqual(created.logins, ["app", "reports", "etl", "dba", "pg_custom"])
+        self.assertEqual(created.logins, ["app", "reports", "etl", "unset", "dba", "pg_custom"])
         self.assertEqual(created.roles, {"owner_role", "app", "reports", "nobody", "etl",
-                                         "quoted", "commented", "dba", "pg_custom"})
+                                         "fixed", "fixed_user", "unset", "quoted", "commented",
+                                         "dba", "pg_custom"})
 
     def test_the_games_own_roles_get_no_secret(self):
         scenario = mock.Mock(dir=Path("/nowhere"))
