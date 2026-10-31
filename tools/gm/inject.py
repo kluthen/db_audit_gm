@@ -12,8 +12,10 @@ behaviour is fixed by capture W3-A (`specs/versions/v0.1/wave-log.md`):
   Then (v0.3 chunk 7b; capture W1, item 7) every application role a
   scheduler's schedule names gets its password from its secret
   `role_<role>_password`, the data having created the role: streamed the
-  same way into the database node the connection targets (every
-  `database` node when it targets another node, a pooler), as a SCRAM
+  same way into the database node the connection targets (when it
+  targets another node, a pooler: every `database` node whose data file
+  creates the target database, every `database` node when none does;
+  v0.4, a game with two), as a SCRAM
   verifier, with statement logging off for the session, so the password
   is never in a log, a process list or the server's statistics.
   Then (spec D176) on every `database` node whose brick has the GM check
@@ -56,6 +58,7 @@ import hmac
 import json
 import os
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from . import localimpl, model, render, state, teardown
 from .docker import for_local_dir
@@ -264,11 +267,15 @@ def data_argv(variables):
 def password_plan(scenario, impl):
     """[(database node, [(role, secret)])]: every role a scheduler node's
     schedule names, on the node its connection targets when that node is a
-    `database` node, else on every `database` node; then (v0.4 capture W1
+    `database` node, else (through a pooler) on the `database` nodes whose
+    data file creates the target database, or on every `database` node
+    when none does; then (v0.4 capture W1
     item 8) every role a node's `crontab_roles` names, on that node; then
     (master spec 9.7) every login role a node's data file creates, on that
     node; topology order, each role once per node."""
     databases = [n["name"] for n in scenario.nodes if n.get("role") == DATABASE_ROLE]
+    created = {n["name"]: model.node_data_file_creates(Path(scenario.dir), n)
+               for n in scenario.nodes if n["name"] in databases}
     roles_of = {}
 
     def add(db, role):
@@ -281,8 +288,10 @@ def password_plan(scenario, impl):
         for conn in localimpl.schedule_connections(scenario, node).values():
             role = conn.get("role")
             m = model.TARGET_RE.match(str(conn.get("target")))
-            target = m.group(1) if m else None
-            for db in [target] if target in databases else databases:
+            target, database = (m.group(1), m.group(4)) if m else (None, None)
+            holders = [db for db in databases
+                       if created[db] is not None and database in created[db].databases]
+            for db in [target] if target in databases else holders or databases:
                 add(db, role)
     for node in scenario.nodes:
         if node.get("role") != DATABASE_ROLE:
