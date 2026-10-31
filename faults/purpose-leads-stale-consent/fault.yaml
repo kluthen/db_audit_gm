@@ -1,0 +1,157 @@
+# Catalog fault: the win-back extraction and the campaign read the opt-in
+# flag, which a web-shop release stopped updating, so customers who
+# unsubscribed stay leads and get mail (v0.4 master spec 16.2; the win-back
+# leads purpose's L2, 10.2, and the mailing purpose's M2, 10.3). A seed-file
+# fault planted at render on the runner, plus an outside party's behaviour
+# the scenario writes: the producer's release, a timeline change of its
+# schedule at T0. Its evidence shows at the jobs' runs: its aging minimum
+# counts from the campaign's first run after the release (master spec 6.3).
+
+# --- Identity ---------------------------------------------------------
+id: purpose-leads-stale-consent
+version: 0.1.0
+title: the win-back jobs read a consent flag the web shop no longer updates
+family: rules
+severity: high
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: scheduler
+      versions: ["0.2.0"]
+  purposes: [shop-winback-leads, shop-customer-mailing]
+  preconditions:
+    - >-
+      the web shop's release, a timeline change the scenario writes in the
+      producer's schedule.yaml at T0: the consent.unsubscribe stream's key
+      set to one recording the withdrawal in consent_events without
+      clearing customers.marketing_opt_in (material
+      inject/producer-release.yaml: the key for the producer's queries.yaml
+      and the timeline entry)
+    - >-
+      the producer's withdrawals run day and night (the shop domain's
+      consent.unsubscribe, about 20 an hour), so withdrawn customers pile
+      up among the campaign's leads still waiting for their mail
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 1h                       # counted from the campaign job's first run after the release
+                                    # (master spec 6.3): the scenario raises the instance's
+                                    # aging_minimum to that run's offset from T0 plus 1h
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  source:
+    description: >-
+      the purposes' source part, a node/database location as the scenario's
+      purposes: maps it (where customers, consent_events, leads and
+      mail_outbox are)
+    default: db/shop
+    required: false
+  leads-job:
+    description: the runner's jobs.yaml job running leads.extract, hourly
+    default: leads-extract
+    required: false
+  mail-job:
+    description: the runner's jobs.yaml job running mail.campaign, every quarter hour by day
+    default: mail-campaign
+    required: false
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: queries.yaml
+      change: >-
+        leads.extract and mail.campaign test customers.marketing_opt_in in
+        place of the customer's latest marketing-email consent event (the
+        LATERAL on consent_events and its consent.granted dropped, AND
+        c.marketing_opt_in instead); nothing else of either entry changes.
+        With purpose-mail-outside-hours on the same node, mail.campaign
+        carries both changes
+      material: inject/queries.yaml.snippet
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: node
+    source: the query repository
+    how: cat /srv/scheduler/repository/queries.yaml
+    shows: leads.extract and mail.campaign testing c.marketing_opt_in, never consent_events
+  - where: bastion
+    source: the flag against the consent history
+    how: >-
+      psql -h db -d shop -c "SELECT count(*) FROM customers c CROSS JOIN LATERAL
+      (SELECT granted FROM consent_events e WHERE e.customer_id = c.id AND
+      e.purpose = 'marketing-email' ORDER BY at DESC, id DESC LIMIT 1) k
+      WHERE c.marketing_opt_in AND NOT k.granted"
+    shows: customers whose latest event is a withdrawal still flagged opted in, more every hour
+  - where: bastion
+    source: the campaign's mail and leads
+    how: >-
+      psql -h db -d shop -c "SELECT m.customer_id, m.sent_at, k.at FROM mail_outbox m
+      CROSS JOIN LATERAL (SELECT granted, at FROM consent_events e WHERE
+      e.customer_id = m.customer_id AND e.purpose = 'marketing-email' AND e.at <=
+      m.sent_at ORDER BY at DESC, id DESC LIMIT 1) k WHERE m.campaign_id IS NOT
+      NULL AND NOT k.granted ORDER BY m.sent_at DESC LIMIT 10"
+    shows: >-
+      win-back mail sent after the recipient's withdrawal, and leads extracted
+      after one (the same LATERAL on leads.extracted_at)
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+  - kind: improve
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names the jobs' consent test as the opt-in flag, which no longer follows
+    the consent history since the web shop's release (its unsubscribe
+    records the withdrawal and leaves the flag set), so customers who
+    unsubscribed are still extracted and mailed, against the data policy's
+    rule that consent is the latest event.
+  proposal: >-
+    both jobs read consent as the customer's latest marketing-email event
+    at the run (by at, then id), as the policy states; and the web shop's
+    unsubscribe restored to clear the flag, with the flags that drifted
+    since the release repaired, so the two places agree again.
+  fix: >-
+    the loaded leads.extract and mail.campaign (queries.yaml edited and
+    reloaded with sudo gm-reload-scheduler) take no customer without
+    consent by the latest event: no {LEADS_JOB} or {MAIL_JOB} run since the
+    reload extracts or mails one. Restoring the producer's flag update
+    alone counts only once the flags of those who withdrew since the
+    release are repaired too: until then the jobs still read them.
+  improvement: >-
+    the drifted flags repaired from the history (UPDATE customers SET
+    marketing_opt_in to each one's latest event) and the producer's
+    unsubscribe clearing the flag again, so any other reader of the flag is
+    right as well.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+  judges: runs
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  People who unsubscribed since last night still get our win-back e-mails.
+  That is exactly what the data policy forbids.

@@ -1,0 +1,136 @@
+# Catalog fault: the hourly roll-up's watermark is on placed_at, so an order
+# invoiced after it was placed never reaches reporting again and invoiced
+# revenue lags the source, more each day (v0.4 master spec 16.2; the sales
+# reporting purpose's R1, 10.1). A seed-file fault planted at render: the
+# scenario's scripts/rollup.py selects the orders placed past the watermark.
+# Its evidence shows at the job's runs after the source's daily invoicing: its
+# aging minimum counts from the first close of day after planting (master
+# spec 6.3).
+
+# --- Identity ---------------------------------------------------------
+id: purpose-watermark-misses-updates
+version: 0.1.0
+title: the hourly roll-up's watermark misses orders updated after they were placed
+family: data-flow
+severity: high
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: scheduler
+      versions: ["0.2.0"]
+  purposes: [shop-sales-reporting]
+  preconditions:
+    - >-
+      the source invoices past orders every day (the shop domain's 12:00
+      close of day, orders.close-day on the producer), so a day's invoiced
+      revenue changes after the day was published
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 1h                       # counted from the source's first close of day after planting
+                                    # (master spec 6.3): the next hourly run misses what it
+                                    # invoiced; the scenario raises the instance's aging_minimum
+                                    # to that close's offset from T0 plus 1h
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  source:
+    description: >-
+      the purpose's source part, a node/database location as the scenario's
+      purposes: maps it (the shop's orders)
+    default: db/shop
+    required: false
+  target:
+    description: >-
+      the purpose's target part, a node/database location (rpt.sales_hourly,
+      rpt.sales_daily and rpt.etl_runs)
+    default: reporting/reporting
+    required: false
+  job:
+    description: the runner's jobs.yaml job running the hourly script
+    default: rollup-hourly
+    required: false
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: scripts/
+      change: >-
+        rollup.py's hourly() reads the orders placed past the watermark
+        (o.placed_at > since) in place of those updated past it
+        (o.updated_at > since), its docstring and log line saying "placed"
+        and "new orders"; nothing else changes, the first run still
+        publishing the whole history
+      material: inject/rollup.py
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: node
+    source: the transformer's script
+    how: cat /srv/scheduler/repository/scripts/rollup.py
+    shows: the changed orders selected by placed_at past the watermark, never updated_at
+  - where: node
+    source: the scheduler's log
+    how: grep 'job={JOB} ' /var/log/scheduler/scheduler.log | tail
+    shows: each run reading only the orders placed in the hour, none of the noon invoicing
+  - where: bastion
+    source: the published days against the source's
+    how: >-
+      psql -h reporting -d reporting -c 'SELECT day_local, invoiced_revenue FROM
+      rpt.sales_daily ORDER BY 1', then psql -h db -d shop with the same days'
+      sum(total) FILTER (WHERE status = 'invoiced') by local day
+    shows: past days' invoiced revenue lower in reporting than in the source, the gap growing at each noon
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+  - kind: improve
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names the script's watermark as placed_at: an order changed after it
+    was placed (invoiced at the noon close, days later) is never read again,
+    so the published invoiced revenue lags the source's and the gap grows
+    each day.
+  proposal: >-
+    watermark on updated_at (the overlap kept for late commits), so every
+    change re-reads its order's day; and the days already published
+    restated from the source once.
+  fix: >-
+    the loaded script reads every order updated since the watermark: the
+    {JOB} runs since its reload publish each day's invoiced revenue as the
+    source holds it, a past day re-invoiced at the next close included.
+  improvement: >-
+    the days published before the fix restated (a run from no watermark, or
+    a one-off recomputation), so the past figures match the source too.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+  judges: runs
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  The accountant's invoiced revenue never matches the dashboard's, and the
+  gap grows. The figures are the agency's: tell us what they should change.
