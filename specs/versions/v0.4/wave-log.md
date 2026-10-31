@@ -2122,6 +2122,24 @@ Options for the owner at the wave report: `cron.database_name =
 loader rule; no noise), a restart step in `load-data`, or documenting the
 pre-load lines in `postgres`' `gm.md` and `player.md`.
 
+### Spec items of chunk 14 — settled (6aa843b), 2026-10-31
+
+`spec-writer`, all readings, no code change, nothing to the owner: D244
+(f2 restored through the producer is a fix only with the drifted flags
+repaired, dated with `--since`; the producer alone reads present), D245
+(f5's planting ends `shop_etl`'s open sessions), D246 (f5's and f7's
+`remaining=` count to the designed time and ignore a move; it never
+changes a verdict), D247 (a five-minute job's aging minimum is the hour
+too). Plan v8. `doc-ids compare v0.5-scope v0.4-w3`: 0 collisions (O141
+reserved, unused).
+
+For chunk 16's brief: f1 `aging_minimum: 65m`; f2's expected fix names
+both paths; spec sections D227, D239–D247. For chunk 17a's: after moving
+`rollup-hourly`, wait for the moved time, not `remaining=`. After 15b
+merges (driver, at the gate's fixes): one sentence in
+`faults/purpose-leads-stale-consent/gm.md`'s "Fix path" (the producer path
+with flags repaired dated with `gmctl check --since <repair UTC>`).
+
 ### Chunk 14 — merged (3cc4a32), 2026-10-31
 
 14a cd7daed (f1, f2, f3), 14b 8fceabb (f4, f5, f8), merge 3cc4a32; the
