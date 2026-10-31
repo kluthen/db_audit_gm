@@ -2096,3 +2096,43 @@ every job, both crontabs' daemons and the `pg_cron` launcher seen; every
 purpose check 0 or 3, none 1; fit 1.6 CPU / 1.75G / 6.19G disk. Not
 merged until its deployment passes on the fixed code: a `coding-executor`
 merges `v0.4-w3` in, redeploys and merges.
+
+### Chunk 12 — merged (21790ca), 2026-10-31
+
+9d172b0, merge 21790ca; one commit (the split would have left an
+untested first half). `tools/gm/governance.sh` and `governance.py` as
+W3-a sets them; `checks.check_plan` prepends the set to a sealed check
+whose script contains `check_governance`, with `CHECK_GOVERNANCE`, and
+refuses it in a scenario without `governance:`;
+`tools/tests/check-governance.sh` (the baseline proof) and
+`tools/tests/smoke-governance.sh`; `test_governance.py` (14);
+`fixture-instances` gains `governance:`, its classification, its policy,
+`customers`, `orders.customer_id`, `mail_outbox`, the reader `shop_app`,
+and `breaches/` (13 planted breaches, plus a transformer node `bi` added
+only to the smoke run's scratch copy). Unit suite 822 OK merged.
+`smoke-governance.sh` on armenelos: 115/0. Baseline 0 from `db`,
+`reporting` and (G3) `bi`; each breach reads as its `expect:` line, from
+`reporting` too, and all four hold after each revert (renamed copy and
+renamed matview caught by the content probe only; `monitoring` granted
+`customers` still 0, the same grants to `monitor2` flagged); exit 2 on
+each misuse and on the mapping-roles function or `gm_check_read`
+dropped; 3 for G4 with no row since `CHECK_SINCE`. Outside its Files:
+`test_inject.py` (10 lines: the fixture's new login role).
+
+Readings (accepted): D230 applied (own roles skipped in G2 only, in one
+helper `_gov_own_roles_sql`; `gm_pgbouncer` out of the walk); G2's "may
+read" also needs CONNECT and USAGE; a mapping for `PUBLIC` or without a
+remote role reaches every classed column of its server's database (an
+unset `dbname` is libpq's default); a definer's owner or a `pg_cron`
+username judged in its own database only; a transformer connection to a
+non-database node exits 2 (no v0.4 transformer has one).
+
+For `spec-writer` (not blocking): `separation: instance` has no rule in
+11.6 and is not judged; the scenario-document template still says the
+game's own roles "are outside every rule" (D230) and "copied from the
+domain" for a fixture's own classification.
+For the wave gate: `check-governance.sh` on `fixture-campaign`; f9
+(chunk 15a) first exercises the `gmctl check` path with a real fault.
+Risks: G1's content probe is a full text scan on databases without
+personal data, unmeasured beyond fixture sizes; `smoke-governance.sh`
+not re-run after 0dbbabf (unit suite passes with it).

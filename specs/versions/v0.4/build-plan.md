@@ -898,7 +898,7 @@ Record: 11a 2fda6c4, 11b 1ae95e6, merge d41032c (README purpose row merged with 
 
 ### Chunk 12 — The governance check set G1 to G4
 
-Status: planned
+Status: merged (w3, 21790ca)
 Wave: 3
 Depends on: chunks 3, 4, 7
 Architecture capture: recorded at wave 3 start (W3-a), for chunk 15's
@@ -935,9 +935,11 @@ on which node).
   (needs G4).
 - Split rule: 12a G1 and G2; 12b G3 and G4.
 
+Record: 9d172b0, merge 21790ca (one commit, not split: built in one pass). Differs from W3-a: D230 applied (the game's own roles skipped in G2 only, every G3 path judged whoever it acts as; `gm_pgbouncer` out of the walk); G2's "may read" also requires CONNECT and USAGE; a transformer connection to a non-database node exits 2; `separation: instance` not judged (to `spec-writer`). Wave log.
+
 ### Chunk 13 — `fixture-campaign`: the v0.4 topology, unfaulted
 
-Status: planned
+Status: built (dc21692; merging after its redeploy on the fixed `load-data`)
 Wave: 3
 Depends on: chunks 5, 6, 7, 10, 11, 19
 Architecture capture: recorded at wave 3 start (W3-b), for chunks 14 and
