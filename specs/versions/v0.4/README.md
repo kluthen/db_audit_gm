@@ -420,7 +420,8 @@ the consolidation, were ruled the same day (D211, D212).
 - O116: which governance rules are checked in v0.4; closed by D215.
 - O117: how the player-facing policy is presented; closed by D215.
 - O118: brick changes for governance (pgaudit, TLS); defaulted to none
-  in v0.4, held for v0.5 unless the owner objects.
+  in v0.4, held for v0.5; closed for v0.5 by D250 and D261 (both always
+  available in `postgres`).
 - O119: what "fixed" means for a governance fault; closed by D215.
 - O122: the customer's time zone in the data and the jobs; closed by D215.
 - O124: the moment a purpose check judges from; closed by D215.

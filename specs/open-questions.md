@@ -22,7 +22,8 @@ O111's v0.4 part. Resolved during v0.4's build: O134 (D224), O140 (D253).
 On 2026-10-31 v0.5 was centred on domain definition and the clinic
 (D233), and its questions retargeted: O53 and O54 to later, version not
 set (D237); O21 and O135 to v0.6; O24 and O25 to v1.0+ (D248). Resolved
-during v0.5's drafting: O137 and O47 (D248), O126 (D249).
+during v0.5's drafting: O137 and O47 (D248), O126 (D249), O139 (D260),
+O118 (D261), O80 (D262).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -153,21 +154,11 @@ game's world, not the game's access model. Drafted on 2026-10-30 in
 [governance.md](versions/v0.4/governance.md), tested against the
 clinic's classes (D196); O120 closed by D198 (an instance of its own);
 O115, O116, O117 and O119 closed by the master spec's approval, as
-written there (D215). O118 stays open, for v0.5; O134, raised by D221,
+written there (D215). O118, held for v0.5, closed by D250 and D261
+(TLS and pgaudit always available in `postgres`); O134, raised by D221,
 closed by D224; O136, raised by D230, waits for a later version. O140,
 raised by chunk 12, closed by D253.
 
-- **O118** (later, v0.4 → v0.5; **defaulted**) — Brick changes for
-  governance. Default, told to the owner on 2026-10-30 and holding
-  unless he objects, not a ruling: none in v0.4 (pgaudit and TLS with
-  v0.5's regulated domains), and the one settings rule that needs no
-  brick change, statement logging writing personal data into the logs,
-  also held for v0.5 as a candidate fault. Stays open until v0.5 rules
-  on the brick changes. TLS ruled on 2026-10-31: always available in
-  `postgres`, turned on by the seed (D250). Still open: pgaudit, an
-  option or always available as TLS is (recommended: as TLS). Refs:
-  [governance.md](versions/v0.4/governance.md),
-  [versions/v0.5/brick-options-review.md](versions/v0.5/brick-options-review.md).
 - **O136** (later, with the open `SECURITY DEFINER` candidate fault) —
   G3 judges a definer procedure by its owner (D230). Should it also
   weigh who may execute it, so a procedure owned by an allowed reader
@@ -203,7 +194,8 @@ added on 2026-10-30 (D196).
   factory's high-frequency time series presses on "schemas simple,
   tables small" and the memory budget, and invites TimescaleDB, placed
   beyond v1.0 by D47 yet listed as a `postgres` option candidate (O79). A
-  lab's audit trail needs governance beyond v0.4's cut (O118). The
+  lab's audit trail needs governance beyond v0.4's cut, pgaudit always
+  available for it (D261). The
   clinic's machinery may want engines beyond v1.0 (D47) and its
   regulatory reports run monthly or yearly (O22). v0.2's
   `fernway-clinics-monitoring` is a veterinary clinic: its owners are
@@ -276,7 +268,8 @@ D248).
 
 Raised on 2026-10-31, when the owner centred v0.5 on domain definition
 and the clinic (D233), asked for a procedure for defining a domain
-(D235) and began a post-mortem collection (D234).
+(D235) and began a post-mortem collection (D234). O139, approving the
+rest of the procedure, closed by D260.
 
 - **O138** (later, version not set) — Binding post-mortems to the game
   (D234). Settled (D251): the binding comes in a later version; the
@@ -287,13 +280,6 @@ and the clinic (D233), asked for a procedure for defining a domain
   key); the handout's form; how close a replication must stay to the
   real failure when the stack differs. Refs:
   [versions/v0.5/README.md](versions/v0.5/README.md#the-post-mortem-collection-d234).
-- **O139** (soon, v0.5) — Approving the rest of the domain procedure
-  (D235). Settled by D249: the clinic's seven-domain cut, the
-  composition rules, the four format changes, a skill after two or
-  three domains. Still to approve: what a domain holds and leaves out
-  (section 1), the steps and who takes part (2), done and the checklist
-  (3), and the effort estimate (7). Refs:
-  [versions/v0.5/domain-procedure.md](versions/v0.5/domain-procedure.md).
 
 ## Beyond v1.0: the cloud provider
 
@@ -362,10 +348,12 @@ the question concerns.
   first, tied to the clinic (D236). Narrowed by D250: TLS is always
   available and turned on by the seed, replication a standby mode of the
   brick, plain partitioned tables come before any TimescaleDB, and of
-  today's four elements only the `monitoring` role becomes an option. The
-  model now serves the `monitoring` role and pgaudit if it becomes one
-  (O118), its five points read for them in
-  [versions/v0.5/brick-options-review.md](versions/v0.5/brick-options-review.md);
+  today's four elements only the `monitoring` role becomes an option.
+  Narrowed again: pgaudit is always available as TLS is, not an option
+  (D261), and options are for `postgres` only unless a clinic part calls
+  for another brick (D262, closing O80). Still open: the model for its
+  one user, the `monitoring` role, its five points read for it in
+  [versions/v0.5/brick-options-review.md](versions/v0.5/brick-options-review.md#what-o79-still-answers-for-the-clinic);
   PostGIS and `pg_trgm` left with Bluebox (D237). The text below is the
   question as first raised. In `postgres` 0.2.0,
   pgBadger, file logs on the `pglog` volume, `pg_stat_statements`, the `monitoring` role and its
@@ -400,9 +388,3 @@ the question concerns.
   `receives` (D97). Refs: [versions/v0.5/README.md](versions/v0.5/README.md),
   [formats.md](formats.md) "Brick definition",
   [versions/v0.2/master-spec.md](versions/v0.2/master-spec.md) 7.5.
-- **O80** (later, v0.5) — Is the options model (O79) meant for every
-  brick, or only `postgres`? The owner's direction (D107) names
-  `postgres` "in particular". For the clinic, `postgres` is certain;
-  another brick only if a clinic part calls for one (proposed,
-  [brick-options-review.md](versions/v0.5/brick-options-review.md)). Refs:
-  [versions/v0.5/README.md](versions/v0.5/README.md).

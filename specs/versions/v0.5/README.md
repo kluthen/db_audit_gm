@@ -5,14 +5,16 @@ Status: draft. No master spec. Business domains added on 2026-10-28
 the worked example (D233), with a procedure for defining a domain
 (D235), brick options tied to the clinic (D236, D238) and a post-mortem
 collection begun beside it (D234). The owner accepted every
-recommendation of the scope review on 2026-10-31 (D248–D251).
+recommendation of the scope review on 2026-10-31 (D248–D251), then
+approved the domain procedure and ruled on pgaudit and the options'
+reach the same day (D260–D262).
 
 ## Documents
 
 | Document | Purpose | Status |
 |---|---|---|
-| [domain-procedure.md](domain-procedure.md) | How a domain is defined: what it holds and leaves out, the steps from a brief, done and its checklist, composites, how a scenario names its domains, the shop against it, the effort | draft v2: the clinic's cut, the composition rules, the format changes and the later skill settled (D249); the rest not yet approved (O139) |
-| [brick-options-review.md](brick-options-review.md) | The options candidates checked against the clinic, and the owner's rulings on them: what the clinic gets, as an option or otherwise, what stops mattering, what O79 and O80 still answer | draft v2, ruled (D250) |
+| [domain-procedure.md](domain-procedure.md) | How a domain is defined: what it holds and leaves out, the steps from a brief, done and its checklist, composites, how a scenario names its domains, the shop against it, the effort | approved v3 (D249, D260) |
+| [brick-options-review.md](brick-options-review.md) | The options candidates checked against the clinic, and the owner's rulings on them: what the clinic gets, as an option or otherwise, what stops mattering, what O79 still answers | draft v3, ruled (D250, D261, D262) |
 
 ## Goal
 
@@ -62,8 +64,8 @@ A **domain** (D192; working name) is a reusable catalogue unit made of:
 A scenario then becomes one or more domains, a size, the bricks, the
 purposes in use, and the faults. What a domain holds, what it leaves
 out, how it is defined and how a scenario names several is the
-[procedure](domain-procedure.md) (D235), which narrows O111 and settles
-composition (D249);
+[procedure](domain-procedure.md) (D235), approved (D260), which narrows
+O111 and settles composition (D249);
 what "size" scales is O114.
 
 How domains meet the rest of this version (proposed):
@@ -81,7 +83,8 @@ How domains meet the rest of this version (proposed):
 - **Governance**: each domain classifies its data (v0.4's first cut,
   D191). The clinic, a regulated business, brings the richer rules:
   required settings, audit trails, retention, and the brick changes they
-  need (O118; [brick-options-review.md](brick-options-review.md)).
+  need: TLS and pgaudit always available in `postgres` (D250, D261;
+  [brick-options-review.md](brick-options-review.md)).
 - **Datasets**: Bluebox and other datasets are for later, version not
   set (D237). The owner sees Bluebox as close to a domain: a later
   candidate brought in through the procedure, its dataset filling that
@@ -209,7 +212,7 @@ template and index are in [`post_mortem/`](../../../post_mortem/README.md).
 ## In scope
 
 - **Domain definition**: the [procedure](domain-procedure.md) (D235),
-  the domain format beyond the shop with its four changes, built in one
+  approved (D260), the domain format beyond the shop with its four changes, built in one
   chunk (D249; O111), producer profiles against the schedule (O113),
   size (O114), composition as a core and parts (D249), tried first on
   `vet-core` and `vet-lab`.
@@ -224,14 +227,13 @@ template and index are in [`post_mortem/`](../../../post_mortem/README.md).
   the owner will help define (D233): its faults are the catalogue's
   growth, its topology fragments the pre-planned parts (D47). Among the
   candidate faults: v0.4's `governance-statement-log-personal`, held for
-  the regulated domains (O118), and `purpose-retry-without-key`, held
+  the regulated domains (D191), and `purpose-retry-without-key`, held
   for round trips (D201).
 - **Round trips** (D201; O128), on the clinic's cases: external labs'
   results, exchanges between clinics.
 - **Governance beyond v0.4's first cut** (D191), the clinic being the
-  regulated domain, with the brick changes it needs: TLS always
-  available in `postgres`, turned on by the seed (D250); pgaudit still
-  open (O118).
+  regulated domain, with the brick changes it needs: TLS and pgaudit
+  always available in `postgres`, turned on by the seed (D250, D261).
 - **`postgres` for the clinic** (D236, D250;
   [brick-options-review.md](brick-options-review.md)): replication as a
   standby mode of the brick, for redundancy; plain partitioned tables
@@ -239,7 +241,8 @@ template and index are in [`post_mortem/`](../../../post_mortem/README.md).
   `monitoring` role the only element of today's four to become an
   option, made conditional on the game having monitoring (D113; v0.2's
   RG-5), the model for it O79. Until then the role stays in every
-  postgres game.
+  postgres game. Options are for `postgres` only, unless one of the
+  clinic's parts calls for another brick (D262).
 - **Monitoring breadth for a setting as complex as the clinic** (D238):
   pgwatch and pgCluu, both in the reference setup (D70), and
   Nagios-style health solutions (D66), beyond v0.2's one default brick
@@ -262,13 +265,13 @@ O137); one row stays deferred.
 
 | Item | Goes to | State |
 |---|---|---|
-| Domain definition: the procedure, the format beyond the shop, profiles, size, composition (O111, O113, O114; O126 closed by D249) | v0.5 | settled (D233, D235, D249) |
+| Domain definition: the procedure, the format beyond the shop, profiles, size, composition (O111, O113, O114; O126 closed by D249) | v0.5 | settled (D233, D235, D249); the procedure approved (D260) |
 | The clinic's domains (D196) | v0.5 | settled (D233) |
 | The clinic's bricks, faults, topology fragments and configurations | v0.5, defined with the owner | settled (D233) |
 | A scenario using the clinic's domains, so they are proven in play as v0.4's scenario proved the shop | v0.5 | settled (D248) |
 | Round trips (D201; O128), on the clinic's cases | v0.5 | settled (D233): the clinic's lab results and inter-clinic exchanges have their shape |
-| Governance beyond the first cut, its brick changes, the held statement-logging fault (D191; O118) | v0.5 | settled (D233): the clinic is the regulated domain |
-| Brick options (D107; O79, O80), tied to the clinic, with a review | v0.5 | settled (D236); ruled on by D250 |
+| Governance beyond the first cut, its brick changes, the held statement-logging fault (D191; O118 closed by D261) | v0.5 | settled (D233): the clinic is the regulated domain; TLS and pgaudit always available (D250, D261) |
+| Brick options (D107; O79; O80 closed by D262), tied to the clinic, with a review | v0.5 | settled (D236); ruled on by D250, D261, D262 |
 | The `monitoring` role made conditional (D113) | v0.5, with the options | settled (D236) |
 | pgwatch and pgCluu | v0.5 | settled (D238) |
 | Nagios-style health solutions (D66) | v0.5 | settled (D238): monitoring breadth across sites and machinery servers |
@@ -326,15 +329,11 @@ The items moved later are listed in the roadmap
   side.
 - O128: how a round trip (an acknowledgement driving further processes)
   is modelled.
-- O118: the governance brick changes still open, pgaudit (TLS settled
-  by D250).
-- O79: the options model, for the `monitoring` role and whatever else
-  the clinic's definition makes an option.
-- O80: options for every brick, or `postgres` only.
+- O79: the options model, for its one user, the `monitoring` role, on
+  `postgres` (D250, D261, D262).
 - O23: number and mix of faults, difficulty, for the clinic's scenario.
-- O139: approving the rest of the domain procedure.
 
 Moved out of this list on 2026-10-31: O53 and O54 (later, D237); O21
 and O135 (v0.6, D233, D248); O24 and O25 (v1.0+, D248). Closed: O47
-(v1.0) and O137 (D248), O126 (D249). Not due here: O138, the
-post-mortems' binding.
+(v1.0) and O137 (D248), O126 (D249), O139 (D260), O118 (D261), O80
+(D262). Not due here: O138, the post-mortems' binding.

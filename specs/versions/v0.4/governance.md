@@ -166,7 +166,8 @@ scenario document lists it.
 None in v0.4, by default: the owner was told this holds unless he
 objects, and has not ruled (O118 stays open as defaulted). pgaudit (an image change and a dependency
 check) and TLS (certificates as generated secrets) come with v0.5's
-regulated domains.
+regulated domains. Ruled for v0.5 on 2026-10-31: both always available
+in `postgres`, turned on by the seed (D250, D261), closing O118.
 
 ### A settings rule for free
 

@@ -1,11 +1,12 @@
 # v0.5 — defining a domain: the procedure
 
-Status: draft v2 (D235, D249). Settled by the owner on 2026-10-31
-(D249): the clinic's cut (section 4, kept now, revised once `vet-core`
-is defined), the composition rules (section 4), the four format changes
-(section 6) and a skill later (section 8). The rest, what a domain holds
-and leaves out, the steps, done and the checklist, and the effort, is
-`(proposed)` until the owner approves it (O139).
+Status: approved v3 (D235, D249, D260). Settled by the owner on
+2026-10-31 in two rulings: the clinic's cut (section 4, kept now,
+revised once `vet-core` is defined), the composition rules (section 4),
+the four format changes (section 6) and a skill later (section 8)
+(D249); then the rest as drafted, what a domain holds and leaves out
+(section 1), the steps and who takes part (2), done and the checklist
+(3), and the effort estimate (7) (D260).
 
 The owner, on 2026-10-31: "we need a proper "procedure" to define a
 domain, what we put in and not. the clinic will probably spawn multiple

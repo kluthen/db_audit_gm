@@ -19,8 +19,8 @@ README:
 
 Archived IDs keep their meaning and are cited as they are. D107 and D113
 stay live: rulings still to be applied in v0.5. D190 onward are v0.4's
-drafting and build, apart from D233–D238 and D248–D251, v0.5's
-drafting. Take the next number from `doc-ids`; no ID is reused.
+drafting and build, apart from D233–D238, D248–D251 and D260–D262,
+v0.5's drafting. Take the next number from `doc-ids`; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -534,3 +534,21 @@ drafting. Take the next number from `doc-ids`; no ID is reused.
   EXTENSION`, written lines stay); `cron.database_name = 'postgres'`
   (changes the loader rule, the data file, f9 and G3); documenting the
   lines (refused). Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 7.2, 14.
+- **D260 (2026-10-31, owner ruling on spec-writer's recommendations,
+  relayed by the coordinator: "agreed to your recomendations"): The
+  domain procedure is approved as drafted: what a domain holds and
+  leaves out, the steps and who takes part, done and its checklist, the
+  effort estimate.** With D249, the whole procedure is settled. Closes
+  O139. Now in: [versions/v0.5/domain-procedure.md](versions/v0.5/domain-procedure.md) 1, 2, 3, 7.
+- **D261 (2026-10-31, owner ruling, same recommendations): pgaudit is
+  not an option: it is always available in `postgres` and turned on by
+  the seed, as TLS is (D250), its settings in the seed so their removal
+  can be a fault.** The options model is left serving the `monitoring`
+  role alone. Closes O118, TLS ruled by D250; O79 narrowed. Now in:
+  [versions/v0.5/brick-options-review.md](versions/v0.5/brick-options-review.md#the-owners-rulings-d250-d261-d262).
+- **D262 (2026-10-31, owner ruling, same recommendations): Options are
+  for `postgres` only, unless one of the clinic's parts calls for
+  another brick.** `postgres` is the only brick the clinic is known to
+  need them on; a part that calls for one raises its own question.
+  Closes O80. Now in:
+  [versions/v0.5/brick-options-review.md](versions/v0.5/brick-options-review.md#the-owners-rulings-d250-d261-d262).
