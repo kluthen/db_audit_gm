@@ -546,13 +546,23 @@ class TestLoadDataPasswords(V03DeployedGame):
 
 
 class TestLoadDataStatic(DeployedGame):
-    """A game with no scheduler node sets no password."""
+    """A game with no scheduler node whose data file creates no login role
+    sets no password."""
 
     def test_no_password_step(self):
         result = self.load_data()
         self.assertEqual(len(self.fake.runs), 3)        # the data, the survey, the grant
         self.assertEqual(result.passwords, [])
         self.assertNotIn("password", result.text())
+
+    def test_a_login_role_of_the_data_file_gets_its_password(self):
+        path = self.scenario / "data" / "db.sql"
+        path.write_text(path.read_text().replace(
+            "CREATE ROLE shop NOLOGIN;\n",
+            "CREATE ROLE shop NOLOGIN;\nCREATE ROLE shop_app LOGIN;\n"))
+        sc = model.load_scenario(self.scenario)
+        self.assertEqual(inject.password_plan(sc, self.impl),
+                         [("db", [("shop_app", "role_shop_app_password")])])
 
 
 # --- v0.3: the GM check role's CONNECT at load-data (spec D176) -------------
@@ -632,6 +642,7 @@ class InstancesDeployedGame(V03Rendered):
         ScenarioCopyTest.setUp(self)
         self.scenario = self.tmp / "fixture-instances"
         shutil.copytree(INSTANCES_FIXTURE, self.scenario)
+        self.prepare()
         fit.fit(self.scenario, "laptop", **SUFFICIENT)
         self.ldir = self.scenario / "local" / "laptop"
         self.render()
@@ -645,6 +656,9 @@ class InstancesDeployedGame(V03Rendered):
         deploy.deploy(self.scenario, "laptop", docker=self.fake, timeout=30,
                       sleep=lambda s: None, clock=lambda: 0.0)
         self.printed = []
+
+    def prepare(self):
+        """Edits the copy before it is fitted; nothing here."""
 
     def reply(self, run):
         for fragment, answer in self.replies.items():
@@ -682,14 +696,15 @@ class TestLoadDataInstances(InstancesDeployedGame):
         result = self.load_data()
         self.assertEqual([(self.node_of(r), step(r)) for r in self.fake.runs], [
             ("db", "data"), ("reporting", "data"),
-            ("db", "passwords"),
+            ("db", "passwords"), ("reporting", "passwords"),
             ("db", "list"), ("db", "survey"), ("reporting", "list"), ("reporting", "survey"),
             ("reporting", "mappings"),
             ("reporting", "access"),
             ("db", "grant"), ("reporting", "grant")])
         self.assertEqual(result.loaded, [("db", "data/db.sql"),
                                          ("reporting", "data/reporting.sql")])
-        self.assertEqual(result.passwords, [("db", ["shop_etl"])])
+        self.assertEqual(result.passwords, [("db", ["shop_etl"]),
+                                            ("reporting", ["bi_etl", "bi_reader"])])
         self.assertEqual([(n, d, [m.local_text for m in ms]) for n, d, ms in result.mappings],
                          [("reporting", "reporting", ["bi_etl"])])
         self.assertEqual(result.policies, [("reporting", "reporting")])
@@ -698,6 +713,7 @@ class TestLoadDataInstances(InstancesDeployedGame):
         self.assertEqual(localimpl.read_state(self.ldir)["stage"], "data-loaded")
         text = result.text()
         for line in ("  db: password set from its secret for role(s) shop_etl",
+                     "  reporting: password set from its secret for role(s) bi_etl, bi_reader",
                      "  reporting/reporting: user mapping for bi_etl on server shop_db given "
                      "remote role shop_etl's password",
                      "  reporting/reporting: gm_check may read every row of cron.job and "
@@ -717,8 +733,8 @@ class TestLoadDataInstances(InstancesDeployedGame):
 
     def test_the_crontab_roles_password_is_set_on_its_node(self):
         sc = model.load_scenario(self.scenario)
-        self.assertEqual(inject.password_plan(sc, self.impl),
-                         [("db", [("shop_etl", "role_shop_etl_password")])])
+        self.assertEqual(inject.password_plan(sc, self.impl)[0],
+                         ("db", [("shop_etl", "role_shop_etl_password")]))
         self.load_data()
         run = next(r for r in self.fake.runs if step(r) == "passwords")
         self.assertEqual(self.node_of(run), "db")
@@ -777,7 +793,8 @@ class TestLoadDataInstances(InstancesDeployedGame):
         self.fake.databases = {}
         result = self.load_data()
         self.assertEqual([step(r) for r in self.fake.runs],
-                         ["data", "data", "passwords", "list", "list", "grant", "grant"])
+                         ["data", "data", "passwords", "passwords", "list", "list", "grant",
+                          "grant"])
         self.assertEqual((result.mappings, result.policies, result.functions), ([], [], []))
 
     def test_no_access_where_the_check_role_does_not_exist(self):
@@ -808,9 +825,29 @@ class TestLoadDataInstances(InstancesDeployedGame):
             self.load_data()
         self.assertIn("connects as shop_reports, which has no secret "
                       "role_shop_reports_password in game", str(cm.exception))
-        self.assertIn("a schedule's connection or a node's crontab_roles must name the role",
+        self.assertIn("no data file of the scenario creates shop_reports as a login role",
                       str(cm.exception))
         self.assertNotIn("mappings", [step(r) for r in self.fake.runs])
+
+    def test_a_remote_role_created_without_login_fails_before_the_mappings(self):
+        self.fake.databases["reporting"][1]["mappings"][0]["remote_role"] = "shop"
+        with self.assertRaises(state.SetupFailed) as cm:
+            self.load_data()
+        self.assertIn("connects as shop, which has no secret role_shop_password in game",
+                      str(cm.exception))
+        self.assertNotIn("mappings", [step(r) for r in self.fake.runs])
+
+    def test_the_login_roles_secrets_are_mounted_nowhere_new(self):
+        sc = model.load_scenario(self.scenario)
+        names = {sec["secret"] for sec in self.impl["secrets"]}
+        self.assertTrue({"role_bi_etl_password", "role_bi_reader_password"} <= names)
+        mounted = {sec["name"] for node in sc.nodes
+                   for sec in localimpl.node_secret_declarations(sc, node)}
+        self.assertNotIn("role_bi_etl_password", mounted)
+        self.assertNotIn("role_bi_reader_password", mounted)
+        stack = (self.ldir / "stack.yml").read_text()
+        self.assertNotIn("role_bi_etl_password", stack)
+        self.assertNotIn("role_bi_reader_password", stack)
 
     def test_a_failed_mapping_step_shows_no_password(self):
         secret = self.secret("shop_etl")
@@ -850,6 +887,89 @@ class TestLoadDataInstances(InstancesDeployedGame):
         inject.load_steps(self.ldir, plans, self.fake, result, out=self.printed.append)
         self.assertEqual(result.policies, [("reporting", "reporting")])
         self.assertEqual(result.mappings[0][:2], ("reporting", "reporting"))
+
+
+class TestLoadDataUnscheduledRemoteRole(InstancesDeployedGame):
+    """db's data file also creates shop_reports, a login role no schedule
+    and no crontab_roles names (as the shop domain's back office); a second
+    foreign server on reporting maps bi_etl to it (as f9 plants)."""
+
+    def prepare(self):
+        path = self.scenario / "data" / "db.sql"
+        path.write_text(path.read_text().replace(
+            "CREATE ROLE shop_etl LOGIN;\n",
+            "CREATE ROLE shop_etl LOGIN;\nCREATE ROLE shop_reports LOGIN;\n"))
+
+    def setUp(self):
+        super().setUp()
+        self.fake.databases["reporting"][1]["mappings"].append(
+            dict(server="shop_crm_db", local_role="bi_etl", remote_role="shop_reports",
+                 password=False, public=False))
+        self.fake.databases["reporting"][1]["servers"] = 2
+
+    def test_its_password_is_set_on_the_node_whose_data_creates_it(self):
+        sc = model.load_scenario(self.scenario)
+        self.assertEqual(inject.password_plan(sc, self.impl)[0],
+                         ("db", [("shop_etl", "role_shop_etl_password"),
+                                 ("shop_reports", "role_shop_reports_password")]))
+        result = self.load_data()
+        self.assertEqual(result.passwords[0], ("db", ["shop_etl", "shop_reports"]))
+        run = next(r for r in self.fake.runs if step(r) == "passwords")
+        self.assertEqual(self.node_of(run), "db")
+        line = run["stdin"].splitlines()[4]
+        self.assertTrue(line.startswith('ALTER ROLE "shop_reports" PASSWORD '), line)
+        self.assertTrue(matches(VERIFIER_RE.search(line), self.secret("shop_reports")))
+        self.assertNotIn(self.secret("shop_reports"), run["stdin"])
+
+    def test_the_mapping_resolves_to_its_secret(self):
+        result = self.load_data()
+        run = next(r for r in self.fake.runs if step(r) == "mappings")
+        self.assertEqual(run["stdin"].splitlines()[-2:], [
+            f'ALTER USER MAPPING FOR "bi_etl" SERVER "shop_db" OPTIONS (ADD password '
+            f"'{self.secret('shop_etl')}');",
+            f'ALTER USER MAPPING FOR "bi_etl" SERVER "shop_crm_db" OPTIONS (ADD password '
+            f"'{self.secret('shop_reports')}');"])
+        self.assertIn("  reporting/reporting: user mapping for bi_etl on server shop_crm_db "
+                      "given remote role shop_reports's password", result.text())
+        self.assertEqual(localimpl.read_state(self.ldir)["stage"], "data-loaded")
+
+    def test_its_secret_is_the_games_and_mounted_nowhere(self):
+        self.assertIn("role_shop_reports_password",
+                      {sec["secret"] for sec in self.impl["secrets"]})
+        self.assertTrue((self.ldir / "secrets" / "role_shop_reports_password").is_file())
+        self.assertNotIn("role_shop_reports_password", (self.ldir / "stack.yml").read_text())
+
+
+class TestDataLoginRoles(unittest.TestCase):
+    """The login roles a data file creates (model.data_file_creates)."""
+
+    def test_login_roles_in_file_order(self):
+        text = "\n".join([
+            "CREATE ROLE owner_role NOLOGIN;",
+            "CREATE ROLE app LOGIN;          -- the application",
+            "create user reports;",
+            "CREATE USER nobody NOLOGIN;",
+            "CREATE ROLE etl",
+            "  WITH LOGIN PASSWORD 'x';",
+            "CREATE ROLE quoted PASSWORD 'login';",
+            "CREATE ROLE commented; -- LOGIN",
+            "-- CREATE ROLE ghost LOGIN;",
+            "CREATE ROLE dba LOGIN;",
+            "CREATE ROLE pg_custom LOGIN;",
+            "CREATE ROLE app LOGIN;",
+            "CREATE DATABASE app OWNER owner_role;"])
+        created = model.data_file_creates(text, "data/db.sql")
+        self.assertEqual(created.logins, ["app", "reports", "etl", "dba", "pg_custom"])
+        self.assertEqual(created.roles, {"owner_role", "app", "reports", "nobody", "etl",
+                                         "quoted", "commented", "dba", "pg_custom"})
+
+    def test_the_games_own_roles_get_no_secret(self):
+        scenario = mock.Mock(dir=Path("/nowhere"))
+        node = {"name": "db", "data": {"file": "data/db.sql"}}
+        created = model.data_file_creates("CREATE ROLE dba LOGIN;\nCREATE ROLE pg_x LOGIN;\n"
+                                          "CREATE ROLE app LOGIN;\n", "data/db.sql")
+        with mock.patch.object(localimpl, "node_data_file_creates", lambda sdir, n: created):
+            self.assertEqual(localimpl.data_login_roles(scenario, node), ["app"])
 
 
 class TestLoadDataShift(V03DeployedGame):
