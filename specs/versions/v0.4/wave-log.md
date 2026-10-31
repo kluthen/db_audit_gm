@@ -2122,6 +2122,25 @@ Options for the owner at the wave report: `cron.database_name =
 loader rule; no noise), a restart step in `load-data`, or documenting the
 pre-load lines in `postgres`' `gm.md` and `player.md`.
 
+### Rulings recorded, chunk 20 inserted (f6cdc92), 2026-10-31
+
+`spec-writer`, plan v9: D252 (f10's 327 MiB accepted as measured; G10's
+row cites it), D253 (`separation: instance` a G1 rule: on each node
+holding a class's location, every other database but `postgres` is a
+breach; the loader refuses it with `locations: any`; O140 closed;
+**chunk 20 inserted on wave 3**, a coding-executor, before the gate),
+D254 (a `state` fault may carry `seed_changes`), D255 (f10's own foreign
+table), D256 (f10's check dates from `requested_at`, exits 2 when it
+can't confirm, matches both kill wordings), D257 (the night after a
+killed first backfill reads one day), D258 (`load-data`'s pg_cron
+cleanup step, 7.2 and 14). D259 reserved, unused. Lint 0 errors, 5
+known warnings; `doc-ids compare v0.5-scope v0.4-w3` 0 collisions. No
+intent register, so no `documentalist` peek for chunk 20.
+
+For chunk 16's brief: D252, D253 (no `separation:` in 16.1), D254–D257.
+For chunk 18's: f10's check reads 2 after hand-over if a player deletes
+the request row in `reporting` (GM notes).
+
 ### Chunk 15b — merged (b744cca), 2026-10-31
 
 6149311 (f10; WIP 7feaca0 squashed in, `gm.md` gives the figures as

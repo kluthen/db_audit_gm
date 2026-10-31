@@ -1385,7 +1385,7 @@ Record: 19a 4a6f936, 19b cb82f3b, merge c15ff5b. No departure from the spec; out
 
 ### Chunk 20 — `separation: instance` in G1, and the format's widenings
 
-Status: planned
+Status: in progress (w3, v0.4-c20-separation)
 Wave: 3
 Depends on: chunk 12 (merged), cut from `v0.4-w3`
 Architecture capture: none: the set's call interface and breach lines
