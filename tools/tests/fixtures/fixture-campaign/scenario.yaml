@@ -1,0 +1,737 @@
+# Fixture scenario for tools/tests (v0.4 build plan chunk 13): the topology
+# of master spec 16.1, unfaulted, built from
+# .claude/skills/scenario-format/templates/scenario.yaml as capture W3-b of
+# specs/versions/v0.4/wave-log.md records it. Not a game: the copy chunks 14
+# and 15 plant and check their faults on (on scratch copies, never this
+# folder), and the shape chunk 16's scenario copies. The shop domain's data
+# and producer, the four purposes' material copied unchanged; one harmless
+# instance (f0), as the format refuses an empty fault_instances.
+
+# --- Scenario information --------------------------------------------
+id: fixture-campaign
+version: 0.1.0
+title: Fixture scenario for the v0.4 campaign topology, unfaulted
+date: 2026-10-31
+origin: hand-written
+session_length_minutes: 240
+brief: brief.md
+background: >-
+  Tarnbeck Outdoor's web shop sells across Europe and beyond, through
+  PgBouncer into its PostgreSQL database. Lumen Analytics, a BI agency,
+  runs the back office's figures on a reporting database of its own,
+  rolled up hourly and nightly from the shop's; the marketing team mails
+  win-back campaigns and shipping notices, and the shipping manager sends
+  export declarations to a customs gateway. The shop's database refreshes
+  its popular products every hour from its own crontab. Prometheus, an
+  exporter and Grafana watch the shop's database. The data files create
+  the roles of access model 9.1 (shop, shop_app, shop_reports, shop_etl,
+  shop_crm, shop_customs, customs_gw, shop_refresh on db; reporting,
+  bi_etl, bi_reader on reporting); the brick creates dba, monitoring,
+  gm_check and pgbouncer_lookup on each instance.
+
+# --- Aging and difficulty ---------------------------------------------
+aging:
+  minimum: 8h                       # the floor: the fixture plants nothing that needs more
+  handover_at: "14:00"              # as tarnbeck-outdoor-shop and master spec 16.1
+difficulty:
+  score: 1                          # its one fault instance, f0
+  level: easy
+
+# --- Purposes, domain and governance ---------------------------------
+domain: shop
+purposes:
+  - id: shop-sales-reporting
+    parts:
+      source: db/shop
+      target: reporting/reporting
+      runner: bi
+      consumer: consumer
+  - id: shop-winback-leads
+    parts:
+      source: db/shop
+      target: db/shop
+      runner: crm
+  - id: shop-customer-mailing
+    parts:
+      source: db/shop
+      target: db/shop
+      runner: crm
+  - id: shop-export-declarations
+    parts:
+      source: db/shop
+      target: db/shop
+      runner: crm
+      receiver: gateway
+governance:
+  policy: player/data-policy.md     # master spec 11.5, in words
+  classification: data/classification.yaml   # the shop domain's, unchanged
+  classes:                          # readers: access model 9.3
+    personal:
+      locations: [db/shop]
+      readers: [shop_app, shop_reports, shop_crm, shop_customs, customs_gw]
+      outbound:                     # fields: the payloads' keys (capture W3-a item 4)
+        - to: mail-provider
+          outbox: db/shop/mail_outbox
+          fields: [name, email, order_id, shipped_at, ship_country, total, campaign]
+        - to: customs-gateway
+          outbox: db/shop/customs_outbox
+          fields: [order_ref, consignee_name, consignee_address, destination_country, lines,
+                   total_value, currency]
+    customer-linked:
+      locations: [db/shop]
+      readers: [shop_app, shop_reports, shop_crm, shop_customs]
+    internal:
+      locations: any
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: backend
+    description: >-
+      the players' SSH and SQL sessions, the web shop's SQL through the
+      pooler, the transformers', the dashboards' and the gateway's SQL to
+      the two instances, reporting's foreign tables over db, the scrapes,
+      the exporter's queries and Grafana's queries to Prometheus
+
+nodes:
+  - name: bastion
+    brick:
+      id: bastion
+      version: 0.4.0
+    role: bastion
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters:
+      web_routes: {grafana: "grafana:3000", prometheus: "prometheus:9090"}
+    resources:                      # as tarnbeck-outdoor-shop's
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.1
+        memory: 96M
+        disk: 256M
+    published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
+    seed_files:
+      README.md: player/README.md
+      story.md: player/story.md
+      issues.md: player/issues.md
+      data-policy.md: player/data-policy.md
+    knobs: []
+
+  - name: db
+    brick:
+      id: postgres
+      version: 0.4.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:                      # master spec 16.1: 1G / 512M; disk as tarnbeck's
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.5
+        memory: 512M
+        disk: 2.25G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/db/postgresql.conf
+      pg_hba.conf: nodes/db/pg_hba.conf
+      crontab: nodes/db/crontab
+    crontab_roles: [shop_refresh]   # the hourly refresh of popular_products
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 20, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+    data:
+      file: data/db.sql             # the shop domain's schema.sql then load.sql, unchanged
+      databases:
+        - name: shop
+          owner: shop
+          tables:
+            - name: business_settings
+              description: >-
+                One row: the customer's zone and offset, from load-data's psql
+                variables, and the marketing mail's local hours (08:00 to 21:00).
+            - name: customers
+              description: >-
+                20 000 customers (name, email, address, country, timezone,
+                marketing_opt_in, last_order_at, lifetime_value); a third lapsed,
+                their last order 60 to 365 days ago.
+            - name: consent_events
+              description: >-
+                About 17 000 grants and withdrawals of marketing-email; the web
+                shop adds about 50 an hour.
+            - name: products
+              description: 2 000 products, sku TB-00001 to TB-02000, eight categories.
+            - name: orders
+              description: >-
+                300 000 orders over the fifteen days before the backup, about
+                30 000 a day more under the checkout (paid, packed, shipped,
+                invoiced; packed_at, shipped_at, ship_country, updated_at).
+            - name: order_lines
+              description: 900 000 lines, foreign key to orders.
+            - name: delivery_events
+              description: 60 000 carrier events at the backup, event_id unique.
+            - name: export_countries
+              description: Six destinations outside the customs union (CH, GB, NO, IS, US, CA).
+            - name: campaigns
+              description: The active winback campaign, launched on the load day for 28 days.
+            - name: leads
+              description: Empty at load; the win-back extraction's (crm, leads-extract).
+            - name: mail_outbox
+              description: >-
+                Empty at load; the mails handed to the mail provider (crm,
+                mail-shipped and mail-campaign).
+            - name: customs_outbox
+              description: Empty at load; the export declarations (crm, declare-exports).
+            - name: customs_acks
+              description: Empty at load; the gateway's acknowledgements (gateway).
+            - name: incidents
+              description: Empty at load; the escalations (crm, escalate-customs).
+            - name: etl_runs
+              description: Empty at load; one row per run of crm's jobs.
+            - name: popular_products
+              description: >-
+                Materialized view, each category's 24 best sellers over seven days;
+                refreshed at load and hourly by db's crontab as shop_refresh.
+
+  - name: pooler
+    brick:
+      id: pgbouncer
+      version: 0.1.0
+    role: pooler
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:                      # as tarnbeck-outdoor-shop's
+      limits:
+        cpu: 0.25
+        memory: 64M
+      reservations:
+        cpu: 0.05
+        memory: 32M
+        disk: 256M
+    published_ports: []
+    seed_files:
+      pgbouncer.ini: nodes/pooler/pgbouncer.ini
+    knobs:
+      - setting: default_pool_size
+        initial: 3
+        envelope: {min: 1, max: 30}
+      - setting: max_client_conn
+        initial: 100
+        envelope: {min: 50, max: 500}
+      - setting: max_db_connections
+        initial: 0
+        envelope: {min: 0, max: 60}
+      - setting: reserve_pool_size
+        initial: 0
+        envelope: {min: 0, max: 10}
+      - setting: pool_mode
+        initial: transaction
+        envelope: {allowed: [session, transaction]}
+
+  - name: producer
+    brick:
+      id: scheduler
+      version: 0.2.0
+    role: producer
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    write_overrides:                # the web shop's code and its jobs are the customer's to fix
+      - /srv/scheduler/repository
+      - /srv/scheduler/jobs
+    parameters: {}
+    resources:                      # master spec 16.1: 96M / 48M
+      limits:
+        cpu: 0.25
+        memory: 96M
+      reservations:
+        cpu: 0.1
+        memory: 48M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/producer/queries.yaml
+      builders/: nodes/producer/builders/
+      jobs.yaml: nodes/producer/jobs.yaml
+      schedule.yaml: nodes/producer/schedule.yaml
+    knobs: []
+
+  - name: consumer
+    brick:
+      id: scheduler
+      version: 0.2.0
+    role: consumer
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    write_overrides:                # the back office's jobs only; its code is the agency's
+      - /srv/scheduler/jobs
+    parameters: {}
+    resources:                      # master spec 16.1: 128M / 64M
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/consumer/queries.yaml
+      jobs.yaml: nodes/consumer/jobs.yaml
+      schedule.yaml: nodes/consumer/schedule.yaml
+    knobs: []
+
+  - name: reporting
+    brick:
+      id: postgres
+      version: 0.4.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable           # the agency's by the story only (master spec 16.5)
+    parameters: {}
+    resources:                      # master spec 16.1 and spec D227: 640M / 256M
+      limits:
+        cpu: 1
+        memory: 640M
+      reservations:
+        cpu: 0.25
+        memory: 256M
+        disk: 2G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/reporting/postgresql.conf
+      pg_hba.conf: nodes/reporting/pg_hba.conf
+      crontab: nodes/reporting/crontab
+    crontab_roles: [bi_etl]         # the agency's nightly roll-up's role (f10's entry, chunk 15)
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 20, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+    data:
+      file: data/reporting.sql      # the sales reporting purpose's data.sql, then pg_cron
+      databases:
+        - name: reporting
+          owner: reporting
+          tables:
+            - name: rpt.business_settings
+              description: One row, the customer's zone and offset, from load-data's psql variables.
+            - name: rpt.etl_runs
+              description: Empty at load; one row per run of rollup-hourly and rollup-close.
+            - name: rpt.sales_hourly
+              description: >-
+                Empty at load; one row per local hour and category (orders, units,
+                revenue, run_id), the hourly roll-up's and the nightly close's.
+            - name: rpt.sales_daily
+              description: >-
+                Empty at load; one row per local day (orders, revenue,
+                invoiced_revenue, closed, run_id).
+            - name: src.orders
+              description: >-
+                Foreign table on db's shop.orders without customer_id, through the
+                server shop_db and bi_etl's user mapping to shop_etl.
+            - name: src.order_lines
+              description: Foreign table on db's shop.order_lines.
+            - name: src.products
+              description: Foreign table on db's shop.products.
+
+  - name: bi
+    brick:
+      id: scheduler
+      version: 0.2.0
+    role: transformer
+    stateful: true
+    networks: [backend]
+    write_policy: report-only       # the agency's: its fixes are proposals
+    parameters: {}
+    resources:                      # master spec 16.1: 384M / 192M, the script's volume
+      limits:
+        cpu: 0.5
+        memory: 384M
+      reservations:
+        cpu: 0.1
+        memory: 192M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/bi/queries.yaml
+      scripts/: nodes/bi/scripts/
+      jobs.yaml: nodes/bi/jobs.yaml
+      schedule.yaml: nodes/bi/schedule.yaml
+    knobs: []
+
+  - name: crm
+    brick:
+      id: scheduler
+      version: 0.2.0
+    role: transformer
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    write_overrides:                # the marketing team's and the shipping manager's, in-house
+      - /srv/scheduler/repository
+      - /srv/scheduler/jobs
+    parameters: {}
+    resources:                      # master spec 16.1: 128M / 64M
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/crm/queries.yaml
+      jobs.yaml: nodes/crm/jobs.yaml
+      schedule.yaml: nodes/crm/schedule.yaml
+    knobs: []
+
+  - name: gateway
+    brick:
+      id: scheduler
+      version: 0.2.0
+    role: producer                  # the customs gateway stub (capture W1 item 1)
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters: {}
+    resources:                      # master spec 16.1: 96M / 48M
+      limits:
+        cpu: 0.25
+        memory: 96M
+      reservations:
+        cpu: 0.05
+        memory: 48M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/gateway/queries.yaml
+      jobs.yaml: nodes/gateway/jobs.yaml
+      schedule.yaml: nodes/gateway/schedule.yaml
+    knobs: []
+
+  - name: prometheus
+    brick:
+      id: prometheus
+      version: 0.2.0
+    role: monitoring
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters:
+      node_health: {bastion: default, db: default, pooler: default, producer: default,
+                    consumer: default, reporting: default, bi: default, crm: default,
+                    gateway: default, prometheus: default, exporter: default,
+                    grafana: default}
+    resources:                      # as tarnbeck-outdoor-shop's
+      limits:
+        cpu: 0.5
+        memory: 384M
+      reservations:
+        cpu: 0.1
+        memory: 160M
+        disk: 512M
+    published_ports: []
+    seed_files:
+      prometheus.yml: nodes/prometheus/prometheus.yml
+    knobs: []
+
+  - name: exporter
+    brick:
+      id: postgres-exporter
+      version: 0.2.0
+    role: monitoring
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:                      # as tarnbeck-outdoor-shop's
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.05
+        memory: 48M
+        disk: 64M
+    published_ports: []
+    seed_files:
+      exporter.conf: nodes/exporter/exporter.conf
+    knobs: []
+
+  - name: grafana
+    brick:
+      id: grafana
+      version: 0.2.0
+    role: monitoring
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:                      # as tarnbeck-outdoor-shop's
+      limits:
+        cpu: 0.5
+        memory: 384M
+      reservations:
+        cpu: 0.1
+        memory: 272M
+        disk: 256M
+    published_ports: []
+    seed_files:                     # copied byte for byte from bricks/grafana/companion/
+      datasources.yaml: nodes/grafana/datasources.yaml
+      dashboards.yaml: nodes/grafana/dashboards.yaml
+      node-health.json: nodes/grafana/node-health.json
+      postgresql.json: nodes/grafana/postgresql.json
+      alert-rules.yaml: nodes/grafana/alert-rules.yaml
+    knobs: []
+
+flows:
+  - from: bastion
+    to: db
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: reporting
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: pooler
+    what: players' SSH sessions, and SQL and console sessions through the pooler
+    how: ssh 22, postgresql 6432
+    cadence: interactive
+  - from: bastion
+    to: producer
+    what: players' SSH sessions
+    how: ssh 22
+    cadence: interactive
+  - from: bastion
+    to: consumer
+    what: players' SSH sessions
+    how: ssh 22
+    cadence: interactive
+  - from: bastion
+    to: bi
+    what: players' SSH sessions
+    how: ssh 22
+    cadence: interactive
+  - from: bastion
+    to: crm
+    what: players' SSH sessions
+    how: ssh 22
+    cadence: interactive
+  - from: bastion
+    to: gateway
+    what: players' SSH sessions
+    how: ssh 22
+    cadence: interactive
+  - from: bastion
+    to: prometheus
+    what: players' SSH sessions, and the web front's route prometheus
+    how: ssh 22, http 9090
+    cadence: interactive
+  - from: bastion
+    to: exporter
+    what: players' SSH sessions
+    how: ssh 22
+    cadence: interactive
+  - from: bastion
+    to: grafana
+    what: players' SSH sessions, and the web front's route grafana
+    how: ssh 22, http 3000
+    cadence: interactive
+  - from: producer
+    to: pooler
+    what: >-
+      the web shop's checkout, catalogue, order pages, warehouse updates,
+      carriers' feed and consent changes, as shop_app, and the close of day
+    how: postgresql 6432
+    cadence: continuous (peak at noon), and daily at 12:00
+  - from: pooler
+    to: db
+    what: the pooled server sessions, and the logins' lookups as pgbouncer_lookup
+    how: postgresql 5432
+    cadence: continuous
+  - from: bi
+    to: db
+    what: the hourly roll-up's changed orders, read as shop_etl
+    how: postgresql 5432
+    cadence: hourly at :05
+  - from: bi
+    to: reporting
+    what: the hourly roll-up's writes and the nightly close's CALL, as bi_etl
+    how: postgresql 5432
+    cadence: hourly at :05, and nightly at 01:30
+  - from: reporting
+    to: db
+    what: the foreign tables src.*, read through bi_etl's user mapping as shop_etl
+    how: postgresql 5432 (postgres_fdw)
+    cadence: nightly at 01:30 (rpt.close_day())
+  - from: consumer
+    to: reporting
+    what: the back office's dashboards, as bi_reader
+    how: postgresql 5432
+    cadence: continuous (office hours, the wall screen day and night)
+  - from: crm
+    to: db
+    what: >-
+      the win-back extraction and the mailing, as shop_crm; the export
+      declarations and their escalations, as shop_customs
+    how: postgresql 5432
+    cadence: every 5 and 15 min, hourly at :20, the campaign 08:00 to 20:45
+  - from: gateway
+    to: db
+    what: the customs gateway's acknowledgements, as customs_gw
+    how: postgresql 5432
+    cadence: every 15 s
+  - from: prometheus
+    to: exporter
+    what: the PostgreSQL metrics scrape
+    how: http 9187
+    cadence: every 15 s
+  - from: prometheus
+    to: producer
+    what: the scheduler's metrics scrape, and the node-health scrape
+    how: http 9120, http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: consumer
+    what: the scheduler's metrics scrape, and the node-health scrape
+    how: http 9120, http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: bi
+    what: the scheduler's metrics scrape, and the node-health scrape
+    how: http 9120, http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: crm
+    what: the scheduler's metrics scrape, and the node-health scrape
+    how: http 9120, http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: gateway
+    what: the scheduler's metrics scrape, and the node-health scrape
+    how: http 9120, http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: bastion
+    what: the node-health scrape
+    how: http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: db
+    what: the node-health scrape
+    how: http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: pooler
+    what: the node-health scrape
+    how: http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: reporting
+    what: the node-health scrape (no exporter reads its statistics, master spec 13.4)
+    how: http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: exporter
+    what: the node-health scrape
+    how: http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: grafana
+    what: the node-health scrape
+    how: http 9110
+    cadence: every 15 s
+  - from: exporter
+    to: db
+    what: the exporter's statistics queries, as the monitoring role
+    how: postgresql 5432
+    cadence: every 15 s (at each scrape)
+  - from: grafana
+    to: prometheus
+    what: dashboard queries and alert rule evaluation
+    how: http 9090
+    cadence: every 1 min, and interactive
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:
+  - id: f0
+    fault:
+      id: fixture-random-page-cost
+      version: 0.1.0
+    node: db
+    parameters: {}
+    visibility: hidden
+
+issues: []
+
+# --- Host topology it was designed for -------------------------------
+# Two hosts (master spec 16.1): reporting on the first, the manager, never
+# on a shared host (13.3); bi and gateway on the second. On a one-host
+# playground both map onto that host (armenelos).
+designed_for:
+  platform: swarm
+  hosts:
+    - name: host-1
+      cpu: 2
+      memory: 4G
+      disk: 12G
+    - name: host-2
+      cpu: 1
+      memory: 1G
+      disk: 2G
+  placement:
+    bastion: host-1
+    db: host-1
+    pooler: host-1
+    producer: host-1
+    consumer: host-1
+    reporting: host-1
+    bi: host-2
+    crm: host-1
+    gateway: host-2
+    prometheus: host-1
+    exporter: host-1
+    grafana: host-1

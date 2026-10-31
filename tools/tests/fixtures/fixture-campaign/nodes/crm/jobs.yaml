@@ -1,0 +1,41 @@
+# Fixed-time operations of fixture-campaign's crm node (tools/tests, v0.4 chunk 13;
+# capture W3-b item 4), in scenario time: copied unchanged from
+#   purposes/shop-winback-leads/material/runner/jobs.yaml,
+#   purposes/shop-customer-mailing/material/runner/jobs.yaml,
+#   purposes/shop-export-declarations/material/runner/jobs.yaml.
+jobs:
+  # --- P2 shop-winback-leads: purposes/shop-winback-leads/material/runner/jobs.yaml
+  # Fixed-time operations of the marketing team's transformer, a fragment
+  # (capture W1, item 5's rule), in scenario time: the win-back extraction
+  # at twenty past every hour (master spec 10.2).
+  - name: leads-extract
+    key: leads.extract
+    connection: shop_crm
+    at: "20 * * * *"
+  # --- P3 shop-customer-mailing: purposes/shop-customer-mailing/material/runner/jobs.yaml
+  # Fixed-time operations of the marketing team's transformer, a fragment
+  # (capture W1, item 5's rule), in scenario time (master spec 10.3): the
+  # shipping notices every five minutes, day and night; the campaign every
+  # quarter hour from 08:00 to 20:45, the company's sending day (each
+  # recipient's own hours are the statement's).
+  - name: mail-shipped
+    key: mail.shipped
+    connection: shop_crm
+    at: "*/5 * * * *"
+  - name: mail-campaign
+    key: mail.campaign
+    connection: shop_crm
+    at: "*/15 8-20 * * *"
+  # --- P5 shop-export-declarations: purposes/shop-export-declarations/material/runner/jobs.yaml
+  # Fixed-time operations of the shipping manager's transformer, a fragment
+  # (capture W1, item 5's rule), in scenario time (master spec 10.4): the
+  # declarations every five minutes and the escalations every quarter hour,
+  # day and night.
+  - name: declare-exports
+    key: declare.exports
+    connection: shop_customs
+    at: "*/5 * * * *"
+  - name: escalate-customs
+    key: escalate.customs
+    connection: shop_customs
+    at: "*/15 * * * *"
