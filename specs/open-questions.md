@@ -19,6 +19,11 @@ O132 (D211), O133 (D212). Resolved by the approval of v0.4's master
 spec (D215): O104, O108, O115, O116, O117, O119, O122, O124, O125, and
 O111's v0.4 part. Resolved during v0.4's build: O134 (D224), O140 (D253).
 
+On 2026-10-31 v0.5 was centred on domain definition and the clinic
+(D233), and its questions retargeted: O53 and O54 to later, version not
+set (D237); O21 and O135 to v0.6; O24 and O25 to v1.0+ (D248). Resolved
+during v0.5's drafting: O137 and O47 (D248), O126 (D249).
+
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
 **later** = can wait for v1.0 or beyond.
@@ -71,8 +76,9 @@ for the next version (v0.1 until it closed, with none left open);
   while the format skill says there is no schema-check script. Refs:
   [bricks-and-faults.md](bricks-and-faults.md), [formats.md](formats.md)
   "Enforcement".
-- **O21** (later) — Can the starter documentation contain deliberate
-  inaccuracies as faults, decided per scenario?
+- **O21** (later, v0.6) — Can the starter documentation contain deliberate
+  inaccuracies as faults, decided per scenario? Due with v0.6's
+  documentation website; no longer v0.5's (D233).
 - **O22** (later, beyond v0.3) — Aging technique. v0.3 ages in real time
   only, with no sped-up clock, no forged history and no time compression
   (D114, D132), on always-on hosts (D125). Still open: which version
@@ -88,15 +94,15 @@ for the next version (v0.1 until it closed, with none left open);
   Refs: [scenario-lifecycle.md](scenario-lifecycle.md),
   [archive/v0.3/aging-and-timeline.md](archive/v0.3/aging-and-timeline.md),
   [versions/v0.4/README.md](versions/v0.4/README.md).
-- **O23** (later) — Difficulty is a fault count, each fault worth 1 (easy
+- **O23** (later, v0.5, for the clinic's scenario; D248) — Difficulty is a fault count, each fault worth 1 (easy
   5, normal 10, hard 20; D120), read for v0.3 as the number of fault
   instances, the levels being targets (D134). Still open:
   how many faults issues cover, the mix of families, and may an issue be
   a false alarm (a complaint with no fault behind it)? Refs:
   [bricks-and-faults.md](bricks-and-faults.md).
-- **O24** (later) — Seed variation (names, values) per deployment of a
+- **O24** (later, v1.0+; D248) — Seed variation (names, values) per deployment of a
   scenario? Probably moot after D8; kept until the owner says so.
-- **O25** (later) — Scenario-only bricks and faults may live in the
+- **O25** (later, v1.0+; D248) — Scenario-only bricks and faults may live in the
   scenario's folder (D24). Can they be promoted into the catalog, and
   through which review? From v0.4 the question is mostly about purposes
   (D190): a purpose built for one scenario, its jobs, invariants and
@@ -157,7 +163,11 @@ raised by chunk 12, closed by D253.
   v0.5's regulated domains), and the one settings rule that needs no
   brick change, statement logging writing personal data into the logs,
   also held for v0.5 as a candidate fault. Stays open until v0.5 rules
-  on the brick changes. Refs: [governance.md](versions/v0.4/governance.md).
+  on the brick changes. TLS ruled on 2026-10-31: always available in
+  `postgres`, turned on by the seed (D250). Still open: pgaudit, an
+  option or always available as TLS is (recommended: as TLS). Refs:
+  [governance.md](versions/v0.4/governance.md),
+  [versions/v0.5/brick-options-review.md](versions/v0.5/brick-options-review.md).
 - **O136** (later, with the open `SECURITY DEFINER` candidate fault) —
   G3 judges a definer procedure by its owner (D230). Should it also
   weigh who may execute it, so a procedure owned by an allowed reader
@@ -177,11 +187,19 @@ added on 2026-10-30 (D196).
   `producers/`, `docs/gm.md`, a design-time source named for provenance
   that never bumps, static scenarios needing none
   ([master spec](versions/v0.4/master-spec.md) 6.8). Still open: what
-  the format gains when v0.5 adds the other domains, with profiles
-  against the schedule (O113), size (O114) and composition (O126).
-- **O112** (later, v0.5) — Which domains come first after the shop? The
-  owner names a warehouse, a factory and a lab, and, on 2026-10-30, a
-  veterinary clinic franchise (D196), a composite holding a lab. A
+  the format gains when v0.5 adds the clinic's domains, beyond the four
+  changes D249 settled (the business's own rules in a domain,
+  classification keys without the database, `requires`, a scenario's
+  `domains:` list;
+  [versions/v0.5/domain-procedure.md](versions/v0.5/domain-procedure.md)
+  5, 6): profiles against the schedule (O113), size (O114), and what the
+  clinic's domains reveal.
+- **O112** (later, v0.5; **deferred**, D235) — Which domains come after
+  the shop? The clinic's first (D233). Whether any other joins v0.5 is
+  deferred until the domain procedure shows what defining one costs: the
+  owner decides then (D235). The owner names a warehouse, a factory and
+  a lab, and, on 2026-10-30, a veterinary clinic franchise (D196), a
+  composite holding a lab. A
   factory's high-frequency time series presses on "schemas simple,
   tables small" and the memory budget, and invites TimescaleDB, placed
   beyond v1.0 by D47 yet listed as a `postgres` option candidate (O79). A
@@ -208,13 +226,6 @@ added on 2026-10-30 (D196).
   playground's budget and "schemas simple, tables small". Refs:
   [versions/v0.5/README.md](versions/v0.5/README.md#domains).
 
-- **O126** (later, v0.5) — May a domain be composed of smaller
-  domains? The clinic (D196) is a lab, bookings, housing, machinery, a
-  portal and messaging, each close to a domain of its own; a warehouse
-  or a shop could reuse some. If yes: how parts share a data model's
-  keys (an animal, an owner), and whether a scenario may take a part
-  alone. Linked to O111. Refs:
-  [versions/v0.5/README.md](versions/v0.5/README.md#the-veterinary-clinic-d196).
 - **O127** (later, v0.5 → beyond v1.0) — Where several sites and the
   exchange between them sit: the clinic is a franchise whose centres
   share machinery and records, with redundancy (D196). Several sites
@@ -222,7 +233,10 @@ added on 2026-10-30 (D196).
   instances per business, replication or exchange between them, and
   hosts enough. A v0.5 topology fragment (two sites on one playground),
   or beyond v1.0 with the multi-site playgrounds it needs? Linked to
-  O12 (network layout). Refs:
+  O12 (network layout). Narrowed by the procedure (D235, D249): a site
+  is a core entity, so one database holds several sites' data; what
+  stays open is the topology side, several instances and the exchange
+  between them. Refs:
   [versions/v0.5/README.md](versions/v0.5/README.md#the-veterinary-clinic-d196).
 
 - **O128** (later, v0.5) — How a round trip is modelled (D201): an
@@ -235,13 +249,14 @@ added on 2026-10-30 (D196).
   what of the clinic's lab results and inter-clinic exchanges it covers.
   Refs: [versions/v0.5/README.md](versions/v0.5/README.md#round-trips-acknowledgements-as-inputs-d201).
 
-## v0.5: the setup's entry point
+## v0.6: the setup's entry point
 
 Raised by the owner's ruling on the web front (D224): every game has a
 web front from v0.4, and he expects more around it, "Expect it to
-evolve both with v0.5 and v1.0+".
+evolve both with v0.5 and v1.0+". Moved from v0.5 to v0.6 (D233,
+D248).
 
-- **O135** (soon, v0.5) — A common entry point for the whole setup: one
+- **O135** (later, v0.6) — A common entry point for the whole setup: one
   Caddy in front of several games' web fronts, and a homepage for the
   setup dispatching the viewer to each game's rules (READMEs, game
   information, data policies, issues), tools and dashboards; and a
@@ -254,8 +269,31 @@ evolve both with v0.5 and v1.0+".
   shared front; how it relates to v0.6's landing page and documentation
   website on the bastion; what the reporting tool is (the players
   writing their report, or reports generated in the stack, v0.6).
-  Refs: [versions/v0.5/README.md](versions/v0.5/README.md#the-setups-entry-point-d224),
+  Refs: [versions/v0.6/README.md](versions/v0.6/README.md#the-setups-entry-point-d224),
   [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 7.3, 22.
+
+## v0.5: scope, the domain procedure, post-mortems
+
+Raised on 2026-10-31, when the owner centred v0.5 on domain definition
+and the clinic (D233), asked for a procedure for defining a domain
+(D235) and began a post-mortem collection (D234).
+
+- **O138** (later, version not set) — Binding post-mortems to the game
+  (D234). Settled (D251): the binding comes in a later version; the
+  handout is given after the final answer, keeping no reveals before it
+  ([gm-stance.md](gm-stance.md)), and it summarises its source and links
+  to it rather than copying it. Still open: which version; how a fault
+  or a scenario cites an entry (a field of `fault.yaml`, the answer
+  key); the handout's form; how close a replication must stay to the
+  real failure when the stack differs. Refs:
+  [versions/v0.5/README.md](versions/v0.5/README.md#the-post-mortem-collection-d234).
+- **O139** (soon, v0.5) — Approving the rest of the domain procedure
+  (D235). Settled by D249: the clinic's seven-domain cut, the
+  composition rules, the four format changes, a skill after two or
+  three domains. Still to approve: what a domain holds and leaves out
+  (section 1), the steps and who takes part (2), done and the checklist
+  (3), and the effort estimate (7). Refs:
+  [versions/v0.5/domain-procedure.md](versions/v0.5/domain-procedure.md).
 
 ## Beyond v1.0: the cloud provider
 
@@ -276,14 +314,10 @@ no AWS-style IAM.
 ## Roadmap: gaps and cross-version risks
 
 Raised with the roadmap (D47); O121, raised by the owner's ruling on
-release gates (D193), was resolved for v0.4 by D200. The tag after the priority is the version
+release gates (D193), was resolved for v0.4 by D200; O47 by D248
+(scenario generation in v1.0). The tag after the priority is the version
 the question concerns.
 
-- **O47** (later, v1.0) — Which version brings scenario generation: the GM
-  designing from a partial or empty brief and filling the blanks (D16)?
-  v0.5 prepares for it without naming it; its domains (D192) make a
-  brief naming a domain and a size most of a scenario's business side.
-  Refs: [versions/v1.0/README.md](versions/v1.0/README.md).
 - **O48** (later, v0.3 → v1.0) — Aging enters in v0.3, in real time
   (D114). Where does the solvability probe as a gate (O20) enter the
   roadmap? With an aging of eight hours or more (D150), a probe failing at
@@ -303,7 +337,11 @@ the question concerns.
   technology? v0.4 plans no dbt: its jobs run on one generic job runner
   (D190, D203). Stands for whichever later version or purpose wants dbt.
   Refs: [versions/v0.4/README.md](versions/v0.4/README.md).
-- **O53** (later, v0.5) — Bluebox as a dataset:
+- **O53** (later, version not set; D237) — Bluebox as a dataset. The
+  owner sees it as "quite akin to a domain": a later domain candidate,
+  brought in through the domain procedure, its dataset filling that
+  domain's data model
+  ([versions/v0.5/domain-procedure.md](versions/v0.5/domain-procedure.md) 2):
   - its schema needs PostGIS, `pg_stat_statements` (a preloaded library)
     and `pg_trgm`, so a PostgreSQL 18 brick with those extensions;
   - its dump is about 88 MB compressed and larger restored, against the
@@ -314,14 +352,23 @@ the question concerns.
     other sources whose redistribution terms need checking;
   - its ongoing data generation relies on `pg_cron`.
 
-  Refs: [versions/v0.5/README.md](versions/v0.5/README.md).
-- **O54** (later, v0.5) — Internet-sourced datasets: availability at setup
-  time, licensing, and reproducibility against the self-sufficient
-  scenario folder (D23). Pin by address and checksum and cache locally?
-  Refs: [versions/v0.5/README.md](versions/v0.5/README.md).
+  Refs: [versions/README.md](versions/README.md#deferred-from-v05-d233-d237).
+- **O54** (later, version not set; D237) — Internet-sourced datasets:
+  availability at setup time, licensing, and reproducibility against the
+  self-sufficient scenario folder (D23). Pin by address and checksum and
+  cache locally? Refs:
+  [versions/README.md](versions/README.md#deferred-from-v05-d233-d237).
 - **O79** (later, v0.5) — The brick options model (D107), `postgres`
-  first. In `postgres` 0.2.0, pgBadger, file logs on the `pglog` volume,
-  `pg_stat_statements`, the `monitoring` role and its
+  first, tied to the clinic (D236). Narrowed by D250: TLS is always
+  available and turned on by the seed, replication a standby mode of the
+  brick, plain partitioned tables come before any TimescaleDB, and of
+  today's four elements only the `monitoring` role becomes an option. The
+  model now serves the `monitoring` role and pgaudit if it becomes one
+  (O118), its five points read for them in
+  [versions/v0.5/brick-options-review.md](versions/v0.5/brick-options-review.md);
+  PostGIS and `pg_trgm` left with Bluebox (D237). The text below is the
+  question as first raised. In `postgres` 0.2.0,
+  pgBadger, file logs on the `pglog` volume, `pg_stat_statements`, the `monitoring` role and its
   `monitoring_password` secret are in every game, while the logging and
   preload settings are the scenario's, in its seed `postgresql.conf`.
   First candidate options: those four, then PostGIS, TimescaleDB and the
@@ -355,5 +402,7 @@ the question concerns.
   [versions/v0.2/master-spec.md](versions/v0.2/master-spec.md) 7.5.
 - **O80** (later, v0.5) — Is the options model (O79) meant for every
   brick, or only `postgres`? The owner's direction (D107) names
-  `postgres` "in particular". Refs:
+  `postgres` "in particular". For the clinic, `postgres` is certain;
+  another brick only if a clinic part calls for one (proposed,
+  [brick-options-review.md](versions/v0.5/brick-options-review.md)). Refs:
   [versions/v0.5/README.md](versions/v0.5/README.md).

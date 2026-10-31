@@ -26,8 +26,8 @@ The owner believes v0.2 to v0.5 "should be sufficient to achieve v1.0"
 | Monitoring tools | [v0.2](../v0.2/README.md) |
 | Producer, consumer | [v0.3](../v0.3/README.md) |
 | Transformation, second database; the shop domain, data governance's first cut | [v0.4](../v0.4/README.md) |
-| Catalog breadth, topology fragments, business domains (schemas and datasets); other tools | [v0.5](../v0.5/README.md) |
-| The bastion as the players' main activity point | [v0.6](../v0.6/README.md) |
+| Domain definition, the veterinary clinic's domains, and the faults, topology, monitoring and brick options it needs (D233) | [v0.5](../v0.5/README.md) |
+| The bastion as the players' main activity point; the setup's entry point (D233) | [v0.6](../v0.6/README.md) |
 
 Which technology fills each role is decided version by version (O11).
 
@@ -44,8 +44,8 @@ be needed for v1.0, is put to the owner:
   volumes to be copied to them (D125, O22).
 - **Generating scenarios** (O47). The GM designing a scenario from a
   partial or empty brief and filling the blanks is settled as a capability
-  (D16) but placed in no version; v0.5 prepares for it (topology fragments,
-  schemas) without naming it.
+  (D16), placed in v1.0 on 2026-10-31 (D248, closing O47); v0.5 prepares
+  for it (domains, the clinic's topology).
 - **Aging and the solvability probe** (O48). Both were deferred from v0.1;
   load (v0.3) and generated scenarios need them. Aging enters in v0.3, in
   real time (D114); the probe as a gate is still unplaced.
@@ -60,10 +60,14 @@ be needed for v1.0, is put to the owner:
   (with node resets and extra time): both out of v1.0 scope (D48).
 - Other databases and tools: TimescaleDB, columnar databases, MySQL and
   others (D47).
+- What v0.5 moved later, "probably v1.0+" or with no version set (D233,
+  D237): listed in the
+  [roadmap](../README.md#deferred-from-v05-d233-d237).
 
 ## Open for this version
 
-- A definition of done, once the gaps above are placed. Whether its
+- A definition of done, once the gaps above are placed, and which of
+  the items v0.5 moved "probably v1.0+" it takes, if any (D233). Whether its
   release gate has an aged run is decided when that gate is planned; it
   may not (D193; [roadmap](../README.md#release-gates)).
 - O2 (scripts versus agent judgment for generated scenarios), O20 (the

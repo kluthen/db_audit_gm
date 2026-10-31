@@ -1,6 +1,7 @@
 # v0.6 — the bastion as the players' main activity point
 
-Status: draft. No master spec.
+Status: draft. No master spec. Bastion-related items moved in from
+v0.5 on 2026-10-31 (D233).
 
 ## Goal
 
@@ -29,6 +30,34 @@ from.
   through the bastion's web front rather than copied out with `scp` and
   `sftp`, which is how they leave in v0.2.
 
+## The setup's entry point (D224)
+
+Moved here from v0.5 (D233, D248).
+
+From v0.4 every game has a web front, its home the starter-pack page.
+The owner, ruling on it on 2026-10-30: "i expect a front at every game,
+we may have a common caddy to handle multiple front and a homepage
+dedicated to the whole setup to dispatch the viewer toward the game
+rules(readmes, game informations, data policies, issues), tools and
+dashboards available. Keep it simple for now. Expect it to evolve both
+with v0.5 and v1.0+ (with the fake aws, which will have its own
+entrypoint there)."
+
+None of it built in v0.4:
+
+- **a common Caddy** in front of several games' web fronts;
+- **a homepage for the whole setup**, dispatching the viewer to each
+  game's rules (READMEs, game information, data policies, issues), its
+  tools and its dashboards: the out-of-game side of the
+  landing page above;
+- **a reporting tool** joining a game's starter-pack page, which v0.4
+  builds as a list of elements for it (D221), served by the bastion's web
+  front.
+
+After v1.0 the fictional provider's console has its own entry point
+there ([roadmap](../README.md#beyond-v10-a-fictional-cloud-provider-d205)).
+Open: O135.
+
 ## Out of scope
 
 - Any other way in: the bastion stays the only one (bastion-only rule,
@@ -41,9 +70,14 @@ from.
 
 - v0.2: the bastion publishing the UIs (D68) through its web front (D77),
   which the documentation website and the published reports build on.
+- v0.4: the web front in every game, its home the starter-pack page
+  (D224), which the reporting tool joins.
 
 ## Questions due in this version
 
 - O21: whether the starter documentation, now a website, may itself carry
   faults.
 - O32: the language of player-facing material, the website included.
+- O135: the setup's entry point (a common Caddy, the setup's homepage,
+  a reporting tool on the starter-pack page), moved from v0.5 (D233,
+  D248).

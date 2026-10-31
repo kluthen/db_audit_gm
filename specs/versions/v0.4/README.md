@@ -19,7 +19,7 @@ data policy's way to the players amended the master spec after its
 approval: `bastion` 0.4.0, the starter pack as Markdown and as a page
 (D221–D223, chunk 19); then his ruling on G12 made the web front run
 in every game, its home the starter-pack page (D224, D225; O134 closed,
-the setup's entry point O135 for v0.5), and a data file named in a seed
+the setup's entry point O135 for v0.6, D248), and a data file named in a seed
 change was settled (D226). During wave 2 his ruling on G10 raised
 `reporting`'s memory limit to 640M (D227), and chunk 11's reading of
 E4's deadline was written into the master spec (D228). After wave 2

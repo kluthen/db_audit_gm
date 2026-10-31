@@ -154,7 +154,8 @@ Concretely:
   report-only by the answer key and the story (16.5).
 - Anything on the web front beyond the starter-pack page and the web
   interfaces' links: a common entry point in front of several games'
-  fronts, a homepage for the whole setup, a reporting tool (v0.5), the
+  fronts, a homepage for the whole setup, a reporting tool (v0.6, D233,
+  D248), the
   fictional provider's own entry point (after v1.0) (7.3, 22).
 
 ## 3. Actors
@@ -2110,7 +2111,7 @@ At risk of disruption:
 beyond the shop, their composition, producer profiles and size; the
 governance brick changes (pgaudit, TLS) and richer rules; systemd timers
 and the provider layer; the undersized transformer; brick options;
-weekly and monthly purposes. On the web front (7.3), for v0.5: a common
+weekly and monthly purposes. On the web front (7.3), for v0.6 (D233, D248): a common
 entry point in front of several games' fronts and a homepage for the
 whole setup, dispatching the viewer to each game's rules (READMEs, game
 information, data policies, issues), tools and dashboards, and a

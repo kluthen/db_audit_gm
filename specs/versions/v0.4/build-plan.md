@@ -1345,7 +1345,7 @@ element joins it.
     unchanged); `tools/gm/state.py` (its tools-password line follows the
     published port, now always there; unchanged); the GM skill's
     hand-over lines (chunk 18); a common entry point for several games,
-    a setup-wide homepage, a reporting tool (spec O135, v0.5); the
+    a setup-wide homepage, a reporting tool (spec O135, v0.6); the
     scenarios' and fixtures' `data-policy.md` mappings (chunks 13, 16;
     the three v0.3 scenarios have no `governance:`).
 - Files: 19a: `bricks/bastion/{Dockerfile,brick.yaml}`,
