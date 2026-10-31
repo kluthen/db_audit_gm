@@ -1385,7 +1385,7 @@ Record: 19a 4a6f936, 19b cb82f3b, merge c15ff5b. No departure from the spec; out
 
 ### Chunk 20 — `separation: instance` in G1, and the format's widenings
 
-Status: in progress (w3, v0.4-c20-separation)
+Status: merged (w3, 6b4ad78)
 Wave: 3
 Depends on: chunk 12 (merged), cut from `v0.4-w3`
 Architecture capture: none: the set's call interface and breach lines
@@ -1431,6 +1431,7 @@ Owner: a `coding-executor` on the wave branch, briefed by the driver
 - Verification: chunk checks, plus `smoke-governance.sh` on armenelos
   (needs G4), under the host lock and a sleep inhibitor.
 - Split rule: none; each file's change is a few lines.
+Record: cf9d0a4, merge 6b4ad78. Unit suite 848 OK; `smoke-governance.sh` on armenelos 121/0 (the new breach `g1-separation-database.sql`, a database `scratch` on `db`: G1=1 from `db` and `reporting`, 0 after its drop). Differs from the text: `smoke-governance.sh` accepts an optional `-- first:` line in a breach file; the breach line's object for a whole database is the word `database` (`G1 db/scratch database: shares the instance of db/shop, …`); SKILL.md's fault paragraph left as is (still true for what is required). Risk: a planted database without CONNECT for PUBLIC reads 2, as the existing walk does.
 
 ## Release gate
 

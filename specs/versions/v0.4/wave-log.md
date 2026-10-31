@@ -2122,6 +2122,21 @@ Options for the owner at the wave report: `cron.database_name =
 loader rule; no noise), a restart step in `load-data`, or documenting the
 pre-load lines in `postgres`' `gm.md` and `player.md`.
 
+### Chunk 20 — merged (6b4ad78), 2026-10-31
+
+`coding-executor`: cf9d0a4, merge 6b4ad78. G1 judges `separation: instance`
+(`_gov_g1_separation`, after the catalog walk); the loader refuses it with
+`locations: any`; `check_fault_dir` checks a `state` fault's
+`seed_changes` materials; `fixture-instances`' `personal` carries
+`separation: instance`, its policy says so, README regenerated (the
+Separation cell only). Unit suite 848 OK; `smoke-governance.sh` 121/0 on
+armenelos (new breach: G1=1 G2=0 G3=0 G4=0 from `db`, first line from
+`reporting` naming `db/scratch`; 0 after the drop). Readings accepted by
+the driver (not a player-facing choice of substance; to `spec-writer` at
+the wave sync): the breach line's object for a whole database is the word
+`database`; the smoke script's optional `-- first:` line. Every chunk of
+wave 3 merged; the gate is next.
+
 ### Rulings recorded, chunk 20 inserted (f6cdc92), 2026-10-31
 
 `spec-writer`, plan v9: D252 (f10's 327 MiB accepted as measured; G10's
