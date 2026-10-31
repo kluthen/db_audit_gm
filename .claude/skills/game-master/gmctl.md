@@ -206,6 +206,18 @@ password or key. The GM's reads, one per tool, are in the skill's
   sent as a SCRAM verifier with statement logging off, so no log holds
   it; a role the data did not create fails the step. The summary lists
   the files and `<node>: password set from its secret for role(s) ...`.
+  Last (v0.4), on each database node where a database holds `pg_cron`:
+  `<node> pg_cron launcher and the server log's switch (psql as
+  postgres)` waits up to 60 s for the launcher to be connected (not
+  connected fails the step), then has the logging collector switch
+  files; `<node> pg_cron launcher's start-up failures out of the server
+  log (sh as postgres)` removes from the closed files the launcher's
+  exits from boot until the data created `cron.database_name` (`database
+  "..." does not exist`, about one a second) and nothing else, so the
+  players' log holds none. The summary says `<node>: pg_cron launcher
+  running; <n> line(s) of its start-up failures removed from the server
+  log (<files>)`; a log that did not switch files is left as it was,
+  with a `warning:` line.
 - **A failed setup step** (`deploy`, `load-data`, `inject`): `setup failed
   before stage <stage>: <reason>`, the teardown it ran, then `Recorded in
   state.yaml (stage failed).` A `load-data` step's reason ends `psql exit
