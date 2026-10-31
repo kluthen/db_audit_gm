@@ -716,7 +716,7 @@ class TestLoadDataInstances(InstancesDeployedGame):
             ("db", "grant"), ("reporting", "grant")])
         self.assertEqual(result.loaded, [("db", "data/db.sql"),
                                          ("reporting", "data/reporting.sql")])
-        self.assertEqual(result.passwords, [("db", ["shop_etl"]),
+        self.assertEqual(result.passwords, [("db", ["shop_etl", "shop_app"]),
                                             ("reporting", ["bi_etl", "bi_reader"])])
         self.assertEqual([(n, d, [m.local_text for m in ms]) for n, d, ms in result.mappings],
                          [("reporting", "reporting", ["bi_etl"])])
@@ -747,7 +747,8 @@ class TestLoadDataInstances(InstancesDeployedGame):
     def test_the_crontab_roles_password_is_set_on_its_node(self):
         sc = model.load_scenario(self.scenario)
         self.assertEqual(inject.password_plan(sc, self.impl)[0],
-                         ("db", [("shop_etl", "role_shop_etl_password")]))
+                         ("db", [("shop_etl", "role_shop_etl_password"),
+                                 ("shop_app", "role_shop_app_password")]))
         self.load_data()
         run = next(r for r in self.fake.runs if step(r) == "passwords")
         self.assertEqual(self.node_of(run), "db")
@@ -924,9 +925,10 @@ class TestLoadDataUnscheduledRemoteRole(InstancesDeployedGame):
         sc = model.load_scenario(self.scenario)
         self.assertEqual(inject.password_plan(sc, self.impl)[0],
                          ("db", [("shop_etl", "role_shop_etl_password"),
-                                 ("shop_reports", "role_shop_reports_password")]))
+                                 ("shop_reports", "role_shop_reports_password"),
+                                 ("shop_app", "role_shop_app_password")]))
         result = self.load_data()
-        self.assertEqual(result.passwords[0], ("db", ["shop_etl", "shop_reports"]))
+        self.assertEqual(result.passwords[0], ("db", ["shop_etl", "shop_reports", "shop_app"]))
         run = next(r for r in self.fake.runs if step(r) == "passwords")
         self.assertEqual(self.node_of(run), "db")
         line = run["stdin"].splitlines()[4]
@@ -957,10 +959,11 @@ class TestPasswordPlanThroughAnotherNode(InstancesDeployedGame):
     """Two database nodes (db creating shop, reporting creating reporting):
     a schedule's connection through a node that is no database node (a
     pooler) sets its role on the database nodes whose data file creates the
-    target database, else on every database node."""
+    target database, else on every database node. Its role, shop_web, is
+    one no data file of the fixture creates."""
 
     def plan(self, target):
-        conns = {"web": {"role": "shop_app", "target": target}}
+        conns = {"web": {"role": "shop_web", "target": target}}
         sc = model.load_scenario(self.scenario)
         first = sc.nodes[0]["name"]
         with mock.patch.object(localimpl, "schedule_connections",
@@ -969,18 +972,19 @@ class TestPasswordPlanThroughAnotherNode(InstancesDeployedGame):
 
     def test_on_the_node_whose_data_creates_the_database(self):
         self.assertEqual(self.plan("bastion:6432/shop"),
-                         {"db": ["shop_app", "shop_etl"], "reporting": ["bi_etl", "bi_reader"]})
-        self.assertEqual(self.plan("bastion:6432/reporting")["db"], ["shop_etl"])
+                         {"db": ["shop_web", "shop_etl", "shop_app"],
+                          "reporting": ["bi_etl", "bi_reader"]})
+        self.assertEqual(self.plan("bastion:6432/reporting")["db"], ["shop_etl", "shop_app"])
         self.assertEqual(self.plan("bastion:6432/reporting")["reporting"],
-                         ["shop_app", "bi_etl", "bi_reader"])
+                         ["shop_web", "bi_etl", "bi_reader"])
 
     def test_on_every_database_node_when_no_data_file_creates_it(self):
         plan = self.plan("bastion:6432/elsewhere")
-        self.assertEqual((plan["db"][0], plan["reporting"][0]), ("shop_app", "shop_app"))
+        self.assertEqual((plan["db"][0], plan["reporting"][0]), ("shop_web", "shop_web"))
 
     def test_a_database_node_target_is_that_node_alone(self):
-        self.assertEqual(self.plan("reporting:5432/shop")["db"], ["shop_etl"])
-        self.assertEqual(self.plan("reporting:5432/shop")["reporting"][0], "shop_app")
+        self.assertEqual(self.plan("reporting:5432/shop")["db"], ["shop_etl", "shop_app"])
+        self.assertEqual(self.plan("reporting:5432/shop")["reporting"][0], "shop_web")
 
 
 class TestDataLoginRoles(unittest.TestCase):

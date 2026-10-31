@@ -1,0 +1,21 @@
+# Classification of fixture-instances' shop (tools/tests, v0.4 chunk 12;
+# template: .claude/skills/scenario-format/templates/classification.yaml):
+# every column of the shop's tables, keyed <database>.<table>.<column>.
+# Customers and what leaves for them are personal; an order's customer id
+# is customer-linked; everything else internal.
+columns:
+  shop.business_settings.customer_timezone: internal
+  shop.business_settings.customer_utc_offset: internal
+  shop.customers.id: personal
+  shop.customers.name: personal
+  shop.customers.email: personal
+  shop.orders.id: internal
+  shop.orders.customer_id: customer-linked
+  shop.orders.placed_at: internal
+  shop.orders.total: internal
+  shop.mail_outbox.id: internal
+  shop.mail_outbox.customer_id: personal
+  shop.mail_outbox.payload: personal
+  shop.mail_outbox.sent_at: internal
+  shop.crontab_runs.run_at: internal
+  shop.crontab_runs.run_by: internal
