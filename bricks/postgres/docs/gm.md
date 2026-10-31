@@ -466,6 +466,17 @@ whose seed preloads it and that `cron.database_name` names a database
 that file creates; a fault may still remove the preload. The stack test
 shows it on db2 (`tests/fixtures/postgresql-jobs.conf`).
 
+From boot until the data file has created `cron.database_name`, the
+preloaded launcher cannot connect: it exits (`FATAL:  database "..." does
+not exist`, then the postmaster's `background worker "pg_cron launcher"
+(PID n) exited with exit code 1`) and is restarted about once a second.
+The brick cannot avoid it (creating the database at start-up would fail
+the data file's `CREATE DATABASE`; holding the preload back would fail its
+`CREATE EXTENSION`, which loads the library only when preloaded), so
+`load-data`, last, waits for the launcher to be connected, has the
+collector switch files and removes those lines, and only those, from the
+files it closed (`tools/gm/inject.py`): the players' log holds none.
+
 **What players and the GM see**: `\dx`, the preload, `cron.job` (the
 jobs) and `cron.job_run_details` (start, end, status, message, while
 `cron.log_run` is on). Both tables show a role its own jobs only, unless

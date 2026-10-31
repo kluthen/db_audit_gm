@@ -5,9 +5,11 @@ import base64
 import hashlib
 import hmac
 import json
+import os
 import re
 import shutil
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -36,6 +38,11 @@ class ScriptedDocker(FakeDocker):
         # writes it]; a node not here holds no database. `survey_answer`
         # answers the listing and the survey before `reply` is asked.
         self.databases = {}
+        # The pg_cron noise fix's two runs (v0.4): the launcher's wait and the
+        # log's switch (two JSON lines), then the cleanup script's output.
+        self.launcher_answer = (0, json.dumps(LAUNCHER_BEFORE) + "\n"
+                                + json.dumps({"file": NEW_LOG}) + "\n", "")
+        self.clean_answer = (0, "postgresql-2026-10-31_092656.log: 68\n", "")
 
     def run(self, args, input=None, stdin=None, capture=True, check=True, timeout=None):
         args = [str(a) for a in args]
@@ -69,7 +76,17 @@ class ScriptedDocker(FakeDocker):
             return (0, json.dumps([r["database"] for r in rows]) + "\n", "")
         if inject.SURVEY_SQL in run["stdin"]:
             return (0, "".join(json.dumps(r) + "\n" for r in rows), "")
+        if run["stdin"] == inject.LAUNCHER_SQL:
+            return self.launcher_answer
+        if run["stdin"] == inject.CLEAN_SH:
+            return self.clean_answer
         return None
+
+
+OLD_LOG = "/var/log/postgresql/postgresql-2026-10-31_092656.log"
+NEW_LOG = "/var/log/postgresql/postgresql-2026-10-31_093112.log"
+LAUNCHER_BEFORE = {"launcher": True, "cron_database": "reporting",
+                   "data_directory": "/var/lib/postgresql/18/data", "file": OLD_LOG}
 
 
 def database_row(name, pg_cron=False, servers=0, mappings=()):
@@ -695,6 +712,10 @@ def step(run):
     text = run["stdin"]
     if text == inject.DATABASES_SQL:
         return "list"
+    if text == inject.LAUNCHER_SQL:
+        return "launcher"
+    if text == inject.CLEAN_SH:
+        return "clean"
     for kind, marker in (("survey", inject.SURVEY_SQL), ("mappings", "ALTER USER MAPPING"),
                          ("access", "CREATE POLICY"), ("access", "CREATE OR REPLACE FUNCTION"),
                          ("passwords", "ALTER ROLE"), ("grant", "GRANT CONNECT ON DATABASE %I")):
@@ -713,7 +734,8 @@ class TestLoadDataInstances(InstancesDeployedGame):
             ("db", "list"), ("db", "survey"), ("reporting", "list"), ("reporting", "survey"),
             ("reporting", "mappings"),
             ("reporting", "access"),
-            ("db", "grant"), ("reporting", "grant")])
+            ("db", "grant"), ("reporting", "grant"),
+            ("reporting", "launcher"), ("reporting", "clean")])
         self.assertEqual(result.loaded, [("db", "data/db.sql"),
                                          ("reporting", "data/reporting.sql")])
         self.assertEqual(result.passwords, [("db", ["shop_etl", "shop_app"]),
@@ -723,6 +745,8 @@ class TestLoadDataInstances(InstancesDeployedGame):
         self.assertEqual(result.policies, [("reporting", "reporting")])
         self.assertEqual(result.functions, [("reporting", "reporting")])
         self.assertEqual(result.grants, ["db", "reporting"])
+        self.assertEqual(result.cleaned,
+                         [("reporting", [("postgresql-2026-10-31_092656.log", 68)])])
         self.assertEqual(localimpl.read_state(self.ldir)["stage"], "data-loaded")
         text = result.text()
         for line in ("  db: password set from its secret for role(s) shop_etl",
@@ -732,7 +756,9 @@ class TestLoadDataInstances(InstancesDeployedGame):
                      "  reporting/reporting: gm_check may read every row of cron.job and "
                      "cron.job_run_details (policy gm_check_read)",
                      "  reporting/reporting: gm_check.user_mapping_roles() created for gm_check",
-                     "  reporting: gm_check granted CONNECT on every database"):
+                     "  reporting: gm_check granted CONNECT on every database",
+                     "  reporting: pg_cron launcher running; 68 line(s) of its start-up "
+                     "failures removed from the server log (postgresql-2026-10-31_092656.log)"):
             self.assertIn(line, text)
 
     def test_every_data_file_gets_the_zone_and_its_offset(self):
@@ -809,7 +835,8 @@ class TestLoadDataInstances(InstancesDeployedGame):
         self.assertEqual([step(r) for r in self.fake.runs],
                          ["data", "data", "passwords", "passwords", "list", "list", "grant",
                           "grant"])
-        self.assertEqual((result.mappings, result.policies, result.functions), ([], [], []))
+        self.assertEqual((result.mappings, result.policies, result.functions, result.cleaned),
+                         ([], [], [], []))
 
     def test_no_access_where_the_check_role_does_not_exist(self):
         declarations = localimpl.node_secret_declarations
@@ -901,6 +928,194 @@ class TestLoadDataInstances(InstancesDeployedGame):
         inject.load_steps(self.ldir, plans, self.fake, result, out=self.printed.append)
         self.assertEqual(result.policies, [("reporting", "reporting")])
         self.assertEqual(result.mappings[0][:2], ("reporting", "reporting"))
+
+
+class TestLoadDataPgCronNoise(InstancesDeployedGame):
+    """The pg_cron noise fix: on a node holding pg_cron, after the other
+    steps, the launcher waited for, the file log switched and the failed
+    launchers' lines removed from the closed files; nowhere else."""
+
+    def runs(self, kind):
+        return [r for r in self.fake.runs if step(r) == kind]
+
+    def test_only_the_node_holding_pg_cron_and_last(self):
+        self.load_data()
+        self.assertEqual([self.node_of(r) for r in self.runs("launcher")], ["reporting"])
+        self.assertEqual([self.node_of(r) for r in self.runs("clean")], ["reporting"])
+        self.assertEqual([step(r) for r in self.fake.runs][-2:], ["launcher", "clean"])
+
+    def test_how_each_run_is_made(self):
+        self.load_data()
+        launcher, = self.runs("launcher")
+        self.assertEqual((launcher["user"], launcher["argv"]),
+                         ("postgres", list(inject.SURVEY_ARGV)))
+        clean, = self.runs("clean")
+        self.assertEqual((clean["user"], clean["argv"], clean["env"]),
+                         ("postgres", ["sh", "-s"], {"GM_LOG_FILE": NEW_LOG}))
+        printed = "\n".join(self.printed)
+        self.assertIn("reporting pg_cron launcher and the server log's switch (psql as "
+                      "postgres): ok", printed)
+        self.assertIn("reporting pg_cron launcher's start-up failures out of the server log "
+                      "(sh as postgres): ok", printed)
+
+    def test_the_wait_and_the_switch(self):
+        sql = inject.LAUNCHER_SQL
+        self.assertEqual(sql.splitlines()[:3], list(inject.NO_LOG_SQL))   # not in the log
+        self.assertIn(f"FOR i IN 1..{inject.LAUNCHER_WAIT * 10} LOOP", sql)
+        self.assertIn("backend_type = 'pg_cron launcher'", sql)
+        self.assertEqual(sql.count("pg_catalog.pg_stat_clear_snapshot()"), 2)
+        self.assertLess(sql.index("IF before IS NULL OR NOT EXISTS"),
+                        sql.index("pg_catalog.pg_rotate_logfile()"))
+        self.assertIn(f"FOR i IN 1..{inject.ROTATE_WAIT * 10} LOOP", sql)
+
+    def test_the_launcher_not_connected_fails_the_setup(self):
+        before = dict(LAUNCHER_BEFORE, launcher=False)
+        self.fake.launcher_answer = (0, json.dumps(before) + "\n"
+                                     + json.dumps({"file": OLD_LOG}) + "\n", "")
+        with self.assertRaises(state.SetupFailed) as cm:
+            self.load_data()
+        self.assertIn("the pg_cron launcher of reporting is not connected 60 s after the data "
+                      "load (cron.database_name 'reporting': the data file must create it)",
+                      str(cm.exception))
+        self.assertEqual(self.runs("clean"), [])
+        st = localimpl.read_state(self.ldir)
+        self.assertEqual((st["stage"], st["failure"]["stage"]), ("failed", "data-loaded"))
+
+    def test_no_file_log_nothing_to_clean(self):
+        before = dict(LAUNCHER_BEFORE, file=None)
+        self.fake.launcher_answer = (0, json.dumps(before) + "\n"
+                                     + json.dumps({"file": None}) + "\n", "")
+        result = self.load_data()
+        self.assertEqual(self.runs("clean"), [])
+        self.assertEqual(result.cleaned, [("reporting", None)])
+        self.assertIn("  reporting: pg_cron launcher running; no file log (logging_collector "
+                      "off)", result.text())
+
+    def test_a_log_that_did_not_switch_is_left_with_a_warning(self):
+        self.fake.launcher_answer = (0, json.dumps(LAUNCHER_BEFORE) + "\n"
+                                     + json.dumps({"file": OLD_LOG}) + "\n", "")
+        result = self.load_data()
+        self.assertEqual(self.runs("clean"), [])
+        self.assertIn(f"  warning: reporting: the server log did not switch files within 10 s "
+                      f"({OLD_LOG}); its pg_cron launcher start-up failures are left in it",
+                      result.text())
+
+    def test_a_relative_log_directory_is_read_in_the_data_directory(self):
+        before = dict(LAUNCHER_BEFORE, file="log/postgresql-a.log")
+        self.fake.launcher_answer = (0, json.dumps(before) + "\n"
+                                     + json.dumps({"file": "log/postgresql-b.log"}) + "\n", "")
+        self.load_data()
+        clean, = self.runs("clean")
+        self.assertEqual(clean["env"],
+                         {"GM_LOG_FILE": "/var/lib/postgresql/18/data/log/postgresql-b.log"})
+
+    def test_nothing_removed(self):
+        self.fake.clean_answer = (0, "", "")
+        result = self.load_data()
+        self.assertEqual(result.cleaned, [("reporting", [])])
+        self.assertIn("no start-up failure of it in the server log", result.text())
+
+    def test_a_failed_cleanup_fails_the_setup(self):
+        self.fake.clean_answer = (1, "", "mv: cannot move\n")
+        with self.assertRaises(state.SetupFailed) as cm:
+            self.load_data()
+        self.assertIn("removing the pg_cron launcher's start-up failures from the server log "
+                      "of reporting: exit 1: mv: cannot move", str(cm.exception))
+
+    def test_unexpected_psql_output_fails_the_setup(self):
+        self.fake.launcher_answer = (0, "not json\n", "")
+        with self.assertRaises(state.SetupFailed) as cm:
+            self.load_data()
+        self.assertIn("switching the server log of reporting: unexpected psql output",
+                      str(cm.exception))
+
+    def test_a_restart_with_no_snapshot_cleans_too(self):
+        sc = model.load_scenario(self.scenario)
+        result = inject.LoadResult(self.gid)
+        inject.load_steps(self.ldir, inject.load_plans(sc, self.impl), self.fake, result,
+                          out=self.printed.append)
+        self.assertEqual([n for n, _ in result.cleaned], ["reporting"])
+
+
+class TestCleanScript(unittest.TestCase):
+    """inject.CLEAN_SH run by sh on a log directory as the brick writes it."""
+
+    BOOT = [
+        "2026-10-31 09:26:56 UTC [40]: user=,db=,app=,client= LOG:  database system is ready "
+        "to accept connections",
+        '2026-10-31 09:26:56 UTC [57]: user=,db=,app=,client= FATAL:  database "reporting" '
+        "does not exist",
+        '2026-10-31 09:26:56 UTC [40]: user=,db=,app=,client= LOG:  background worker '
+        '"pg_cron launcher" (PID 57) exited with exit code 1',
+        "2026-10-31 09:26:57 UTC [60]: user=bi,db=reporting,app=[unknown],client=10.0.0.5 "
+        'FATAL:  database "reporting" does not exist',
+        '2026-10-31 09:26:57 UTC [61]: user=,db=,app=,client= FATAL:  database "reporting" '
+        "does not exist",
+        '2026-10-31 09:26:57 UTC [61]: user=,db=,app=,client= DETAIL:  a detail',
+        "\tits continuation",
+        '2026-10-31 09:26:57 UTC [40]: user=,db=,app=,client= LOG:  background worker '
+        '"pg_cron launcher" (PID 61) exited with exit code 1',
+        "2026-10-31 09:26:58 UTC [70]: user=postgres,db=postgres,app=psql,client=[local] "
+        "LOG:  duration: 120.1 ms  statement: SELECT a[57], a[61] FROM t;",
+        "\tWHERE b[57] > 0;",
+        "2026-10-31 09:26:59 UTC [71]: user=,db=,app=,client= LOG:  pg_cron scheduler started",
+        "2026-10-31 09:27:00 UTC [61]: user=x,db=y,app=,client= LOG:  a later process 61",
+    ]
+
+    def setUp(self):
+        self.dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.dir)
+        self.boot = self.dir / "postgresql-2026-10-31_092656.log"
+        self.boot.write_text("\n".join(self.BOOT) + "\n")
+        self.boot.chmod(0o640)
+        os.utime(self.boot, (1_700_000_000, 1_700_000_000))
+        self.current = self.dir / "postgresql-2026-10-31_093112.log"
+        self.current.write_text(self.BOOT[2] + "\n")
+        (self.dir / "cron").mkdir()
+
+    def run_script(self, awk=None):
+        """The script under sh; `awk`, the awk it runs (the image's is
+        Debian's mawk), else the host's."""
+        env = dict(os.environ, GM_LOG_FILE=str(self.current))
+        if awk:
+            bindir = Path(self.dir.parent) / (self.dir.name + "-bin")
+            bindir.mkdir()
+            self.addCleanup(shutil.rmtree, bindir)
+            (bindir / "awk").symlink_to(awk)
+            env["PATH"] = f"{bindir}:{env.get('PATH', '/usr/bin:/bin')}"
+        return subprocess.run(["sh", "-s"], input=inject.CLEAN_SH, text=True,
+                              capture_output=True, env=env)
+
+    def test_only_the_failed_launchers_lines_go(self):
+        run = self.run_script()
+        self.assertEqual((run.returncode, run.stderr), (0, ""))
+        self.assertEqual(run.stdout, "postgresql-2026-10-31_092656.log: 6\n")
+        kept = [self.BOOT[i] for i in (0, 3, 8, 9, 10, 11)]
+        self.assertEqual(self.boot.read_text(), "\n".join(kept) + "\n")
+
+    @unittest.skipUnless(shutil.which("mawk"), "no mawk on this host")
+    def test_the_same_with_mawk(self):
+        run = self.run_script(awk=shutil.which("mawk"))
+        self.assertEqual((run.returncode, run.stderr), (0, ""))
+        self.assertEqual(run.stdout, "postgresql-2026-10-31_092656.log: 6\n")
+        kept = [self.BOOT[i] for i in (0, 3, 8, 9, 10, 11)]
+        self.assertEqual(self.boot.read_text(), "\n".join(kept) + "\n")
+
+    def test_the_current_file_its_mode_and_time(self):
+        self.run_script()
+        self.assertEqual(self.current.read_text(), self.BOOT[2] + "\n")
+        self.assertEqual(self.boot.stat().st_mode & 0o777, 0o640)
+        self.assertEqual(int(self.boot.stat().st_mtime), 1_700_000_000)
+        self.assertEqual(sorted(p.name for p in self.dir.iterdir()),
+                         ["cron", self.boot.name, self.current.name])
+
+    def test_a_file_naming_no_failed_launcher_is_left_alone(self):
+        self.boot.write_text(self.BOOT[0] + "\n")
+        inode = self.boot.stat().st_ino
+        run = self.run_script()
+        self.assertEqual((run.returncode, run.stdout), (0, ""))
+        self.assertEqual(self.boot.stat().st_ino, inode)          # not rewritten
+        self.assertEqual(self.boot.read_text(), self.BOOT[0] + "\n")
 
 
 class TestLoadDataUnscheduledRemoteRole(InstancesDeployedGame):
