@@ -22,7 +22,9 @@ in every game, its home the starter-pack page (D224, D225; O134 closed,
 the setup's entry point O135 for v0.5), and a data file named in a seed
 change was settled (D226). During wave 2 his ruling on G10 raised
 `reporting`'s memory limit to 640M (D227), and chunk 11's reading of
-E4's deadline was written into the master spec (D228).
+E4's deadline was written into the master spec (D228). After wave 2
+the owner ruled that a change confined to a brick's tests bumps nothing
+(D229, in formats.md), settling wave 1's gate fix.
 The drafts stay as the working record until the archive; where
 they and the master spec disagree, the master spec is current.
 Page draft v9.

@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v24
+Status: draft v25
 
 What a scenario, a brick, a fault definition and, from v0.4, a purpose
 and a domain must contain, and how they are laid out, so that every scenario the GM designs or generates stays
@@ -610,7 +610,7 @@ for each class. How producer material meets a schedule, what a
 scenario's size scales, and whether a domain may be composed of smaller
 ones are v0.5's (O111, O113, O114, O126).
 
-## Versions and pins (D57–D62, D72, D75, D86, D100)
+## Versions and pins (D57–D62, D72, D75, D86, D100, D229)
 
 A scenario pins every brick and fault it uses by id and version: each
 node's brick, each fault instance's fault definition. The scripts refuse a
@@ -620,7 +620,9 @@ pin that does not match the definition's `version`.
   its folder the change touches: the image and its build context,
   `brick.yaml`, the validator, the documentation (`docs/player.md`,
   `docs/gm.md`) or the companion material. That includes a change that
-  leaves the image byte-identical (D57, D58). A change made while a
+  leaves the image byte-identical (D57, D58). The one exception is a
+  change confined to the brick's tests (`tests/`), which bumps nothing
+  (D229). A change made while a
   brick's new version is still unreleased folds into that version with no
   further bump (D61). A brick version is released when the release gate
   of the version that builds it passes; a build wave merging into `main`

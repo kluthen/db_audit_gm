@@ -1732,3 +1732,4 @@ open: the test-only brick-bump precedent, `pgbadger` in `.tech`.
 For wave 2: the 640M margins are estimates until 15b (above); R1 and R3
 read 3 for the rest of a 14:00 hand-over game (chunk 10). The owner said
 "we'll stop after this wave": wave 3 waits for his word.
+Owner, 2026-10-31: a test-only brick change bumps nothing (D229, formats.md); `pgbadger` goes into `.tech`, added by security-advisor on his word.
