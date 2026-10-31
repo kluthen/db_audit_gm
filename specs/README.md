@@ -21,7 +21,7 @@ owner's confirmation; the register lists the ones with real alternatives.
 | [versions/](versions/README.md) | The roadmap: v0.1 to v0.6, v1.0 and beyond, one page per version; v0.1's [master spec](versions/v0.1/master-spec.md), [access model](versions/v0.1/access-model.md) and [wave log](versions/v0.1/wave-log.md) | v0.1 released and archived; v0.2 released 2026-10-22 and archived: [master spec](versions/v0.2/master-spec.md), [access model](versions/v0.2/access-model.md), [wave log](versions/v0.2/wave-log.md), build plan archived; v0.3 released 2026-10-30 and archived (below); v0.4–v0.6 and v1.0 draft |
 | [versions/v0.3/](versions/v0.3/README.md) | v0.3's page and release notes, [master spec](versions/v0.3/master-spec.md), [access model](versions/v0.3/access-model.md) and [wave log](versions/v0.3/wave-log.md) | released 2026-10-30, merged into `main` (cba7be3); spec approved 2026-10-22 (D154), amended by D157 and D158; built from the [build plan](archive/v0.3/build-plan.md) v15 (D156); release gate passed, items 1 to 15, G9 and G10 cleared; [release notes](versions/v0.3/README.md#release-notes); the build plan, the eight drafts and the review list archived in [archive/v0.3/](archive/v0.3/README.md); page draft v11 |
 | [versions/v0.4/](versions/v0.4/README.md) | v0.4's [master spec](versions/v0.4/master-spec.md) and [access model](versions/v0.4/access-model.md), and its drafts: [purposes](versions/v0.4/purposes.md), [purpose catalogue](versions/v0.4/purpose-catalogue.md), [shop domain](versions/v0.4/shop-domain.md), [governance](versions/v0.4/governance.md), [candidate faults](versions/v0.4/candidate-faults.md), [checks](versions/v0.4/checks.md), [scenario sketch](versions/v0.4/scenario-sketch.md), [database-node jobs](versions/v0.4/database-node-jobs.md) | master spec and access model approved 2026-10-30 (D215), after D211–D214; [build plan](versions/v0.4/build-plan.md) approved 2026-10-30 (D216–D218), v3 with capture W1's corrections (D219, D220), v4 with `bastion` 0.4.0 (D221–D223, the master spec amended), v5 with the web front in every game (D224–D225, the master spec and access model amended; O134 closed) and a data file in a seed change (D226), v6 with `reporting`'s limit at 640M (D227, G10, the master spec amended); E4's deadline clarified in the master spec (D228); a test-only brick change bumps nothing (D229, formats.md); in wave 3, G3 judges a path acting as one of the game's own roles (D230; O136 raised) and an outbound flow's `fields` are its payload keys (D231), the master spec, access model and formats.md amended; chunk 15a's readings of f7 and f9 (D239–D243), the master spec, access model and plan (v7) amended; chunk 14's readings of f1, f2 and f5 (D244–D247), the master spec and plan (v8) amended; the owner accepted f10's 327 MiB normal run (D252, G10) and had `separation: instance` defined as a rule of G1 (D253, O140 closed; chunk 20 inserted), chunk 15b's readings of f10 (D254–D257) and `load-data`'s `pg_cron` clean-up (D258) written in, the master spec, formats.md and plan (v9) amended; drafts v1–v6 kept as the working record; D194–D204, D206–D209 |
-| [versions/v0.5/](versions/v0.5/README.md) | v0.5's page, centred on domain definition and the veterinary clinic (D233), with its sorting of the earlier scope; drafts: the [domain procedure](versions/v0.5/domain-procedure.md) and the [brick options review](versions/v0.5/brick-options-review.md) | draft; the scope review's recommendations accepted (D248–D251, O137 closed); procedure v2, partly settled (D249), the rest awaiting approval (O139); options review v2, ruled (D250); post-mortem collection begun (D234, D251; O138) |
+| [versions/v0.5/](versions/v0.5/README.md) | v0.5's page, centred on domain definition and the veterinary clinic (D233), with its sorting of the earlier scope; the approved [domain procedure](versions/v0.5/domain-procedure.md) and the draft [brick options review](versions/v0.5/brick-options-review.md) | draft; the scope review's recommendations accepted (D248–D251, O137 closed); procedure approved, v3 (D249, D260, O139 closed); options review v3, ruled (D250; D261, pgaudit always available, O118 closed; D262, options for `postgres` only, O80 closed); post-mortem collection begun (D234, D251; O138) |
 | [gm-stance.md](gm-stance.md) | How the GM behaves and speaks: setup questions, issues, report-only interaction, no reveals, stop only, restarts, no events outside the schedule, final answer, feedback tone, future ideas | draft v13 |
 | [scenario-lifecycle.md](scenario-lifecycle.md) | The game from setup to teardown: setup inputs, scenario, local implementation, deploy, aging (real time from v0.3), hand-over, end of the game | draft v13 |
 | [formats.md](formats.md) | What a scenario folder, a brick (with its companion material and GM documentation) and a fault definition must contain; versions and pins; the local implementation; the skills and templates; where a job runs (D207); from v0.4, the purpose, the domain, governance and the new fields; a test-only brick change bumps nothing (D229); an outbound flow's `fields` are its outbox's payload keys (D231); `separation: instance` refused with `locations: any` (D253); a `state` fault's `seed_changes` (D254) | draft v27 |
@@ -111,8 +111,9 @@ access model.
   fictional cloud provider with capacity management and a console (D205;
   O130). Gaps and
   risks: O48, O49, O52–O54 (O46 resolved by D128, O121 by D200, O47 by
-  D248). Brick options, `postgres` first, are a v0.5
-  topic; v0.2 stays as built (D107; O79, O80).
+  D248). Brick options are a v0.5
+  topic, for `postgres` only unless a clinic part calls for another
+  brick; v0.2 stays as built (D107, D262; O79).
 - Release gates (D193, 2026-10-29): an aged run, a full aging to the
   hand-over then a play-through, is a one-off check, not a standing
   gate item; v0.3's gate ran one and it passed, none is planned before
@@ -231,7 +232,11 @@ access model.
   TimescaleDB, replication a standby mode of the brick, TLS always
   available, only the `monitoring` role an option; the post-mortem
   handout after the final answer, summarising and linking its source.
-  Still open: the rest of the procedure (O139), pgaudit (O118), O138.
+  Then (D260–D262): the domain procedure approved as drafted (O139
+  closed); pgaudit always available in `postgres`, as TLS is (O118
+  closed), which leaves the options model to the `monitoring` role
+  (O79); options for `postgres` only unless a clinic part calls for
+  another brick (O80 closed). Still open: O79, O138.
 - Small project: scripts and small apps, no ATD, no UI/UX tree (D2).
 - v0.1 build: seven artifacts (three skills, a Python/POSIX-shell script
   set, PostgreSQL 18 on Debian 13 and bastion bricks, one scenario), one
@@ -258,8 +263,8 @@ access model.
    `reporting`'s memory limit to 640M (D227), and his ruling that a
    test-only brick change bumps nothing settled wave 1's precedent
    (D229). Next: wave 3, on the owner's word.
-2. v0.5: the owner's approval of the rest of the domain procedure
-   (O139), then `vet-core` and `vet-lab` through the procedure, which
+2. v0.5, the domain procedure approved (D260): `vet-core` and
+   `vet-lab` through the procedure, which
    tries the composition rules, revises the clinic's cut and sets the
    cost the owner needs to decide on other domains (D235, D249).
 3. The roadmap's "soon" question, O49 (backup tooling's version), then
