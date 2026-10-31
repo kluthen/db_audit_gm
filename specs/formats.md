@@ -611,9 +611,11 @@ scenario, adapting them, and `scenario.yaml`'s `domain:` names it for
 provenance. A static scenario needs none. `classification.yaml` classes
 every column (`personal`, `customer-linked` or `internal`), a column with
 no entry being `internal`; the scenario's `governance:` states the rules
-for each class. How producer material meets a schedule, what a
-scenario's size scales, and whether a domain may be composed of smaller
-ones are v0.5's (O111, O113, O114, O126).
+for each class. How producer material meets a schedule and what a
+scenario's size scales are v0.5's (O111, O113, O114); a domain may be
+composed of smaller ones, a core and its parts
+([domain procedure](versions/v0.5/domain-procedure.md#4-composite-domains-splitting-and-composing-d249)
+4, D249).
 
 ## Versions and pins (D57–D62, D72, D75, D86, D100, D229)
 

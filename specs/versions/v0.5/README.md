@@ -202,8 +202,9 @@ now."
   version, how a fault cites an entry, and the handout's form stay
   O138.
 
-The collection is gathered on a branch of its own (`v0.5-post-mortem`);
-its folder's layout is that branch's.
+The collection was gathered on a branch of its own (`v0.5-post-mortem`),
+merged into `main` on 2026-10-31 (8f772ef); its folder's layout, entry
+template and index are in [`post_mortem/`](../../../post_mortem/README.md).
 
 ## In scope
 
