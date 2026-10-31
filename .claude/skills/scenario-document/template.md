@@ -252,7 +252,13 @@ classes: `<governance.classification>`.
 | `<class>` | <locations> | <separation> | <readers> | <outbound> |
 
 The game's own roles (`dba`, `postgres`, `gm_check`, `monitoring`,
-`pgbouncer_lookup`) are outside every rule.
+`pgbouncer_lookup`) are skipped as readers and may not be listed as one;
+a path acting as one of them (a user mapping's remote role, a
+transformer connection's role, a `SECURITY DEFINER` procedure's owner, a
+`pg_cron` job's `username`) is judged all the same, a superuser reaching
+every classed column of its database. The game's own schemas
+(`gm_check`, `gm_pgbouncer`) and extensions' objects are outside every
+rule.
 <!-- end if -->
 
 ## 4. Host topology it was designed for
@@ -399,8 +405,9 @@ the expected answer): <validators_left_red: node, rule, why, one per item>
   <!-- repeat: one item per node with data; empty: "none." -->
   - `<node>`: `<data.file>`
 <!-- if: governance -->
-- **Column classification**: `<governance.classification>`, copied from
-  the domain.
+- **Column classification**: `<governance.classification>`<if: domain:
+  ", the scenario's copy of `domains/<domain>/data/classification.yaml`".
+  Otherwise: ", the scenario's own">.
 <!-- end if -->
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
   `gm/notes.md`.
