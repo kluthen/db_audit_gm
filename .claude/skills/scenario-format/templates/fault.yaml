@@ -93,10 +93,17 @@ injection:
                                     #   scenario writes
   stage: <seed>                     # seed (present from first start: seed-file, parameter)
                                     # | after-data-load (state faults, before hand-over)
-  seed_changes:                     # optional: kind seed-file only
+  seed_changes:                     # optional: kinds seed-file and state; a state fault's are
+                                    # in the scenario's copies from T0 as a seed-file fault's,
+                                    # its scripts planting the rest later (v0.4 master spec 6.3,
+                                    # spec D254)
     - file: <pg_hba.conf>           # a seed file name the target brick declares in seed.files
                                     # (a directory entry as written there: builders/, scripts/);
-                                    # an optional one (seed.optional) only on a node seeding it
+                                    # an optional one (seed.optional) only on a node seeding it;
+                                    # or `data`, the target node's data file (data.file), refused
+                                    # on a node without one: not a seed file of the brick, the
+                                    # scenario's copy carries the change, in place from the data
+                                    # load, before T0 (v0.4 master spec 6.3, spec D226)
       change: <what the scenario's copy of the file must contain>
       material: <inject/pg_hba.conf.snippet>   # optional: a snippet to paste
   scripts:                          # optional: kind state only; run in this order

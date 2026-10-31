@@ -1,0 +1,6 @@
+# Query repository of the transformer node bi that tools/tests/smoke-governance.sh
+# adds to its copy of fixture-instances (v0.4 chunk 12; template:
+# .claude/skills/scenario-format/templates/queries.yaml): one script key.
+queries:
+  sync.noop:                         # a transformer script (scheduler 0.2.0), never run here
+    script: scripts/noop.py:run

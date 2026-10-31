@@ -1,0 +1,23 @@
+# Schedule of the copy's transformer node bi, in scenario time (template:
+# .claude/skills/scenario-format/templates/schedule.yaml): its connections
+# and no stream. shop_wide (as shop_app, the policy's reader of personal
+# data) is named by no job; the breach g3-transformer-source.sh points the
+# job's source at it.
+intensity: 1.0
+connections:
+  shop:
+    driver: sql/postgresql
+    target: db:5432/shop
+    role: shop_etl
+    pool: {per-call: true}
+  shop_wide:
+    driver: sql/postgresql
+    target: db:5432/shop
+    role: shop_app
+    pool: {per-call: true}
+  reporting:
+    driver: sql/postgresql
+    target: reporting:5432/reporting
+    role: bi_etl
+    pool: {per-call: true}
+streams: []

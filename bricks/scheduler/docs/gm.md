@@ -256,8 +256,14 @@ Container ports 9120 and 22; nothing is published.
   `BEGIN ISOLATION LEVEL ...`; no server-side prepared statements, so any
   PgBouncer pool mode works. `pool: {size: N}` keeps up to N sessions per
   task (each stream and each job has its own), opened when first needed;
-  `per-call` opens and closes one per call. Nothing has to exist first:
-  a target that refuses shows as errors in the log and the counters.
+  `per-call` opens and closes one per call. Every session, and every
+  connection a script gets, sends TCP keepalives (libpq `keepalives_idle`
+  300 s, `keepalives_interval` 30 s, `keepalives_count` 3): a Swarm
+  service address (IPVS) forgets a TCP flow idle for 900 s, so a kept
+  session idle longer between two runs of a job was dropped unseen, the
+  server still showing it idle, and its next call failed with 08006.
+  Nothing has to exist first: a target that refuses shows as errors in
+  the log and the counters.
 - **Mounted material**: the image accepts the `prometheus` brick's
   node-health script (`receives`: s6-overlay 3.2.3.2 and the commands
   `sh cat du df awk sed grep sleep perl s6-svstat s6-setuidgid`). Its
@@ -379,10 +385,13 @@ snapshot: a restart's re-render brings the new game's seed.
 
 Which faults the brick hosts is stated only by each fault's `applies_to`
 (D59). This list is every catalog fault (`faults/`) whose `applies_to`
-names `scheduler` `0.2.0`, and no other; all also name `0.1.0`. They are
-the faults of v0.3 master spec 15.3 that live in a scheduler node's files
-(capture W4). A scenario's own `faults/` folder may define more for itself
-(`fixture-load`'s `fixture-job-every-minute`); those are not listed here.
+names `scheduler` `0.2.0`, and no other. The `scheduler-*` faults are
+those of v0.3 master spec 15.3 that live in a scheduler node's files
+(capture W4), and also name `0.1.0`; the `purpose-*` faults are v0.4's
+purpose faults planted on a purpose's runner (v0.4 master spec 16.2),
+`0.2.0` only, the transformer role and scripts being its. A scenario's
+own `faults/` folder may define more for itself (`fixture-load`'s
+`fixture-job-every-minute`); those are not listed here.
 
 All are `seed-file` faults planted at render: the scenario writes the
 planted form into `nodes/<node>/` and nothing runs at injection. Every
@@ -404,12 +413,22 @@ write overrides `/srv/scheduler/repository` and `/srv/scheduler/jobs`
 | `scheduler-transaction-held-open` | `queries.yaml`: a key's `transaction: {isolation: repeatable read, hold: ...}`; `schedule.yaml`: a stream keeping one always open (spec D186) | the hold as the program runs it (a call's latency includes it); report or propose only, `schedule.yaml` being never fixable |
 | `scheduler-batch-at-peak` | `jobs.yaml`: a nightly batch timed inside the peak | the rendered shapes per UTC weekday in `/opt/gm/seed/schedule.yaml` and the program's own cron (`gm_scheduler.cron`), read by its check; its aging minimum counts from the job's first run (spec D189) |
 | `scheduler-job-wrong-timezone` | `jobs.yaml`: a job with `timezone_offset` (spec D168), rendered as `timezone: Etc/GMT∓M` | the rendered `jobs.yaml` at `/opt/gm/seed/jobs.yaml` and the program's own cron, read by its check; its aging minimum counts from the first run at the wrong time (spec D189) |
+| `purpose-mail-overlapping-window` | `queries.yaml`: the shipping notices' `mail.shipped` with a ten-minute window, its job every five | `check-runs` and `check-sql`: its check judges the job's runs since the judged moment (`judges: runs`, M1); the write override on the repository for the fix |
+| `purpose-leads-stale-consent` | `queries.yaml`: `leads.extract` and `mail.campaign` testing the opt-in flag; with the producer's release at T0, a timeline change the scenario writes in the producer's `schedule.yaml` (and its key in the producer's `queries.yaml`) | `check-runs` and `check-sql`, two jobs judged (`judges: runs`, L2 and M2); the timeline's key switch on the producer |
+| `purpose-mail-outside-hours` | `queries.yaml`: `mail.campaign`'s hours read in the company's zone | `check-runs` and `check-sql` (`judges: runs`, M3); its aging minimum counts from the campaign's first run (spec D189) |
+| `purpose-watermark-misses-updates` | `scripts/`: `rollup.py` reading the orders placed past the watermark, not updated (material `inject/rollup.py`) | a transformer script (`scripts/`), `check-runs` and `check-sql` to both instances (`judges: runs`, R1); on a report-only runner, a *propose* |
+| `purpose-receiver-down-unnoticed` | `queries.yaml`: `escalate.customs` escalating rejections only; with the receiver's two-hour outage, a timeline change the scenario writes in the gateway stub's `schedule.yaml` (and its key in its `queries.yaml`) | `check-sql` and `check-runs since` (`judges: triggers`, E4); the timeline's key switch on the receiver |
 
 Their evidence is read on the node (the files, the log, the metrics
 endpoint) and from the bastion (`pg_stat_statements`,
-`pg_stat_activity`, `pg_stat_user_tables`); the database's log, pgBadger
-and Grafana readings are the scenario's, in its answer key. Each fault's
-`gm.md` says what a scenario using it must provide.
+`pg_stat_activity`, `pg_stat_user_tables`, and for the purpose faults
+the purposes' tables); the database's log, pgBadger and Grafana readings
+are the scenario's, in its answer key. The purpose faults' checks judge a
+job's runs or triggers since the judged moment (v0.4 master spec 12),
+raised to the node's last reload (`check-runs since`), so a fix shows at
+the job's next run after `gm-reload-scheduler`, and moving the job's time
+is the players' lever. Each fault's `gm.md` says what a scenario using it
+must provide, its timeline needs and aging minimum included.
 
 ## Checks
 

@@ -24,10 +24,19 @@ change was settled (D226). During wave 2 his ruling on G10 raised
 `reporting`'s memory limit to 640M (D227), and chunk 11's reading of
 E4's deadline was written into the master spec (D228). After wave 2
 the owner ruled that a change confined to a brick's tests bumps nothing
-(D229, in formats.md), settling wave 1's gate fix.
+(D229, in formats.md), settling wave 1's gate fix. In wave 3,
+readings of the governance checks (D230, D231), of f7 and f9
+(D239–D243) and of f1, f2 and f5 (D244–D247) were written into the
+master spec, the access model and the plan. The owner then accepted
+f10's normal run at 640M as measured, 327 MiB (D252, G10), and had
+`separation: instance` defined now as a rule of G1 (D253, closing O140),
+built by the inserted chunk 20; chunk 15b's readings of f10 (D254–D257)
+and `load-data`'s last step removing the `pg_cron` launcher's start-up
+failures from the server log (D258) were written into the master spec,
+formats.md and the plan (v9).
 The drafts stay as the working record until the archive; where
 they and the master spec disagree, the master spec is current.
-Page draft v9.
+Page draft v12.
 
 History: direction recast on 2026-10-28 (D190),
 revising D47's "transformers" for this version; a first cut of data

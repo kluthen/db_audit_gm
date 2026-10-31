@@ -1,0 +1,13 @@
+# Fixed-time operations of fixture-campaign's producer node (tools/tests, v0.4 chunk 13;
+# capture W3-b item 4), in scenario time: copied unchanged from
+#   domains/shop/producers/jobs.yaml.
+#
+# Fixed-time operations of the shop's web shop, a fragment (capture W1,
+# item 5's rule): the close of day, in scenario time, as in
+# tarnbeck-outdoor-shop. Its 12:00 invoicing updates past orders daily
+# (master spec 10.1, R1's witness).
+jobs:
+  - name: close-day
+    key: orders.close-day
+    connection: app
+    at: "0 12 * * *"

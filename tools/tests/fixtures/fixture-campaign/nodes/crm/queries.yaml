@@ -1,0 +1,168 @@
+# Query repository of fixture-campaign's crm node (tools/tests, v0.4 chunk 13;
+# capture W3-b item 4), in scenario time: copied unchanged from
+#   purposes/shop-winback-leads/material/runner/queries.yaml,
+#   purposes/shop-customer-mailing/material/runner/queries.yaml,
+#   purposes/shop-export-declarations/material/runner/queries.yaml.
+queries:
+  # --- P2 shop-winback-leads: purposes/shop-winback-leads/material/runner/queries.yaml
+  # Query repository of the marketing team's transformer, a fragment (capture
+  # W1, items 5 and 7): the win-back leads purpose's one job, a plain
+  # statement on the shop's database as shop_crm (master spec 10.2). Consent
+  # is the customer's latest marketing-email event at or before the run,
+  # never customers.marketing_opt_in (9.3). The leads and the run's
+  # etl_runs row are written by one statement, so in one transaction: the
+  # run's now() is every lead's extracted_at and the row's started_at.
+  leads.extract:
+    sql: >-
+      WITH candidates AS (
+        SELECT k.id AS campaign_id, c.id AS customer_id,
+               round(c.lifetime_value
+                     / (1 + extract(epoch FROM now() - c.last_order_at) / 2592000), 2) AS score
+          FROM campaigns k
+          JOIN customers c
+            ON c.last_order_at <= now() - interval '60 days'
+           AND c.last_order_at >= now() - interval '365 days'
+         CROSS JOIN LATERAL (
+               SELECT e.granted FROM consent_events e
+                WHERE e.customer_id = c.id AND e.purpose = 'marketing-email' AND e.at <= now()
+                ORDER BY e.at DESC, e.id DESC LIMIT 1) AS consent
+         WHERE k.active AND k.segment = 'winback'
+           AND consent.granted
+           AND NOT EXISTS (SELECT 1 FROM leads l
+                            WHERE l.campaign_id = k.id AND l.customer_id = c.id)),
+      ledger AS (
+        INSERT INTO etl_runs (job, started_at, finished_at, rows_read, rows_written)
+        SELECT 'leads-extract', now(), clock_timestamp(), count(*), count(*) FROM candidates)
+      INSERT INTO leads (campaign_id, customer_id, score, extracted_at)
+      SELECT campaign_id, customer_id, score, now() FROM candidates
+  # --- P3 shop-customer-mailing: purposes/shop-customer-mailing/material/runner/queries.yaml
+  # Query repository of the marketing team's transformer, a fragment (capture
+  # W1, items 5 and 7): the customer mailing purpose's two jobs, plain
+  # statements on the shop's database as shop_crm (master spec 10.3). A row of
+  # mail_outbox is a mail handed to the provider; its sent_at is the run's
+  # now().
+  #
+  # Payloads (the provider's templates; gm.md, "Payload schemas"):
+  #   order-shipped  {name, email, order_id, shipped_at, ship_country, total}
+  #   a campaign's   {name, email, campaign}, the template the campaign's code
+  # The orders shipped since the last run: the five minutes ending at the
+  # last whole minute before the run, the window matching the job's
+  # five-minute cadence, a minute behind so a warehouse update still
+  # committing is not missed. No consent needed: a shipping notice is
+  # transactional.
+  mail.shipped:
+    sql: >-
+      WITH slot AS (
+        SELECT date_trunc('minute', now()) - interval '1 minute' AS ends),
+      shipped AS (
+        SELECT o.id, o.customer_id, o.shipped_at, o.ship_country, o.total
+          FROM slot, orders o
+         WHERE o.shipped_at >= slot.ends - interval '5 minutes' AND o.shipped_at < slot.ends)
+      INSERT INTO mail_outbox (customer_id, email, template, order_id, payload, sent_at)
+      SELECT s.customer_id, c.email, 'order-shipped', s.id,
+             jsonb_build_object('name', c.name, 'email', c.email, 'order_id', s.id,
+                                'shipped_at', s.shipped_at, 'ship_country', s.ship_country,
+                                'total', s.total),
+             now()
+        FROM shipped s JOIN customers c ON c.id = s.customer_id
+  # A batch of the active campaign's leads not yet mailed, best score
+  # first, 50 a run (the provider's contract: 200 an hour): each with
+  # marketing consent now by their latest consent event, and now within the
+  # sending hours in their own zone.
+  mail.campaign:
+    sql: >-
+      WITH pending AS (
+        SELECT l.campaign_id, k.code, l.customer_id, c.name, c.email
+          FROM campaigns k
+          JOIN leads l ON l.campaign_id = k.id
+          JOIN customers c ON c.id = l.customer_id
+         CROSS JOIN business_settings s
+         CROSS JOIN LATERAL (
+               SELECT e.granted FROM consent_events e
+                WHERE e.customer_id = c.id AND e.purpose = 'marketing-email' AND e.at <= now()
+                ORDER BY e.at DESC, e.id DESC LIMIT 1) AS consent
+         WHERE k.active AND k.segment = 'winback'
+           AND consent.granted
+           AND (now() AT TIME ZONE c.timezone)::time >= s.mail_window_start
+           AND (now() AT TIME ZONE c.timezone)::time < s.mail_window_end
+           AND NOT EXISTS (SELECT 1 FROM mail_outbox m
+                            WHERE m.campaign_id = l.campaign_id AND m.customer_id = l.customer_id)
+         ORDER BY l.score DESC, l.customer_id
+         LIMIT 50)
+      INSERT INTO mail_outbox (customer_id, email, template, campaign_id, payload, sent_at)
+      SELECT customer_id, email, code, campaign_id,
+             jsonb_build_object('name', name, 'email', email, 'campaign', code), now()
+        FROM pending
+  # --- P5 shop-export-declarations: purposes/shop-export-declarations/material/runner/queries.yaml
+  # Query repository of the shipping manager's transformer, a fragment
+  # (capture W1, items 5 and 7): the export declarations purpose's two jobs,
+  # plain statements on the shop's database as shop_customs (master spec
+  # 10.4). Each writes its rows and its run's etl_runs row in one statement,
+  # so in one transaction: the run's now() is every row's time and the
+  # ledger row's started_at.
+  #
+  # The declaration's payload is the gateway's schema (gm.md, "Payload
+  # schemas"), exactly:
+  #   {order_ref, consignee_name, consignee_address, destination_country,
+  #    lines: [{sku, description, quantity, value}], total_value, currency}
+  # The export orders packed in the last two hours (the deadline: an order
+  # packed earlier is overdue already) with no declaration yet, one
+  # declaration each, keyed by the order. The idempotency key is unique.
+  declare.exports:
+    sql: >-
+      WITH due AS (
+        SELECT o.id, o.packed_at, o.ship_country, c.name, c.address
+          FROM orders o
+          JOIN export_countries x ON x.country = o.ship_country
+          JOIN customers c ON c.id = o.customer_id
+         WHERE o.packed_at > now() - interval '2 hours'
+           AND NOT EXISTS (SELECT 1 FROM customs_outbox d WHERE d.order_id = o.id)),
+      ledger AS (
+        INSERT INTO etl_runs (job, started_at, finished_at, rows_read, rows_written, watermark)
+        SELECT 'declare-exports', now(), clock_timestamp(), count(*), count(*), max(packed_at)
+          FROM due)
+      INSERT INTO customs_outbox (order_id, payload, sent_at, idempotency_key)
+      SELECT d.id,
+             jsonb_build_object(
+               'order_ref', 'TB-' || d.id,
+               'consignee_name', d.name,
+               'consignee_address', d.address,
+               'destination_country', d.ship_country,
+               'lines', l.lines,
+               'total_value', l.total_value,
+               'currency', 'EUR'),
+             now(), 'export-' || d.id
+        FROM due d
+       CROSS JOIN LATERAL (
+             SELECT jsonb_agg(jsonb_build_object('sku', ol.sku, 'description', ol.product_name,
+                                                 'quantity', ol.quantity,
+                                                 'value', ol.line_total) ORDER BY ol.id) AS lines,
+                    sum(ol.line_total) AS total_value
+               FROM order_lines ol WHERE ol.order_id = d.id) AS l
+  # The declarations of the last day the gateway did not acknowledge within
+  # 30 minutes of sending, or rejected, with no incident yet: one incident
+  # each (source customs, ref the declaration's id).
+  escalate.customs:
+    sql: >-
+      WITH due AS (
+        SELECT d.id,
+               CASE WHEN r.reason IS NOT NULL THEN 'rejected by the gateway: ' || r.reason
+                    ELSE 'no acknowledgement 30 minutes after sending' END AS reason
+          FROM customs_outbox d
+          LEFT JOIN LATERAL (
+                SELECT coalesce(k.reason, 'no reason given') AS reason FROM customs_acks k
+                 WHERE k.outbox_id = d.id AND k.status = 'rejected'
+                 ORDER BY k.received_at LIMIT 1) AS r ON true
+         WHERE d.sent_at > now() - interval '1 day'
+           AND (r.reason IS NOT NULL
+                OR (d.sent_at <= now() - interval '30 minutes'
+                    AND NOT EXISTS (SELECT 1 FROM customs_acks k
+                                     WHERE k.outbox_id = d.id
+                                       AND k.received_at <= d.sent_at + interval '30 minutes')))
+           AND NOT EXISTS (SELECT 1 FROM incidents i
+                            WHERE i.source = 'customs' AND i.ref = d.id::text)),
+      ledger AS (
+        INSERT INTO etl_runs (job, started_at, finished_at, rows_read, rows_written)
+        SELECT 'escalate-customs', now(), clock_timestamp(), count(*), count(*) FROM due)
+      INSERT INTO incidents (source, ref, opened_at, reason)
+      SELECT 'customs', id::text, now(), reason FROM due

@@ -1,0 +1,7 @@
+# Seed crontab of db for the fixture scenario fixture-campaign (tools/tests,
+# v0.4 chunk 13; capture W3-b item 3), installed once as postgres's crontab,
+# in scenario time: the web shop's hourly refresh of popular_products, as
+# shop_refresh (MAINTAIN on the view), over the local socket through the
+# password file load-data's secret fills; output appended to the job's log.
+PGPASSFILE=/run/gm-cron/pgpass
+17 * * * * psql -X -w -h /run/postgresql -U shop_refresh -d shop -c "REFRESH MATERIALIZED VIEW popular_products" >> /var/log/postgresql/cron/popular-products.log 2>&1

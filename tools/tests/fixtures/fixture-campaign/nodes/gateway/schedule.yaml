@@ -1,0 +1,24 @@
+# Schedule of fixture-campaign's gateway node (tools/tests, v0.4 chunk 13;
+# capture W3-b item 4), in scenario time: copied unchanged from
+#   purposes/shop-export-declarations/material/receiver/schedule.yaml.
+# The scenario's intensity added; no timeline.
+#
+# Schedule of the customs gateway stub, a fragment (capture W1, item 5's
+# rule; master spec 10.4): its connection to the shop's database as
+# customs_gw, and one stream, every 15 seconds day and night (even
+# arrivals: one call a slot, queries.yaml). The stub's outage and rejection
+# spells are the scenario's timeline changes of this stream (its key), never
+# this fragment's. Written for the first v0.4 scenario's nodes; the GM adapts
+# the target as it copies.
+intensity: 1.0
+connections:
+  customs:
+    driver: sql/postgresql
+    target: db:5432/shop
+    role: customs_gw
+    pool: {size: 1}
+streams:
+  - key: customs.acknowledge
+    connection: customs
+    rate: 4/min
+    arrivals: even

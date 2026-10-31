@@ -5,6 +5,9 @@ LEVEL ...` and `COMMIT`. Parameters are psycopg's `%(name)s`; a statement
 without parameters is sent as written (a literal `%` needs no escaping).
 No server-side prepared statements (`prepare_threshold=None`), so the
 same client works directly or through PgBouncer in any pool mode.
+TCP keepalives on every session (KEEPALIVES): a kept session idle between
+calls still sends a probe every five minutes, so a Swarm service address
+(IPVS, which forgets a TCP flow idle for 900 s) never drops it unseen.
 """
 
 import time
@@ -14,6 +17,12 @@ import psycopg
 from . import CONNECT_FAILED, CONNECTION_LOST, Driver, DriverError, Result, Session
 
 CONNECT_TIMEOUT = 10
+# libpq's TCP keepalives, on every session and every script connection: the
+# first probe after 300 s idle, well under IPVS's 900 s TCP idle timeout on
+# a Swarm service VIP (a session idle longer was dropped by the VIP while
+# the server still showed it idle, and its next call failed with 08006);
+# then every 30 s, the peer declared gone after 3 unanswered probes
+KEEPALIVES = {"keepalives": 1, "keepalives_idle": 300, "keepalives_interval": 30, "keepalives_count": 3}
 ISOLATION_SQL = {
     "read committed": "BEGIN ISOLATION LEVEL READ COMMITTED",
     "repeatable read": "BEGIN ISOLATION LEVEL REPEATABLE READ",
@@ -113,7 +122,7 @@ class PgDriver(Driver):
             conn = await psycopg.AsyncConnection.connect(
                 host=connection.host, port=connection.port, dbname=connection.database,
                 user=connection.role, password=password, application_name=application_name,
-                connect_timeout=CONNECT_TIMEOUT, autocommit=True, prepare_threshold=None)
+                connect_timeout=CONNECT_TIMEOUT, autocommit=True, prepare_threshold=None, **KEEPALIVES)
         except psycopg.Error as exc:
             raise _error(exc, connect=True) from None
         except OSError as exc:

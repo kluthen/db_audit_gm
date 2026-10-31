@@ -1,0 +1,51 @@
+# purpose-leads-stale-consent: the planted leads.extract and mail.campaign
+# entries, to paste in place of the purposes' own in the runner's
+# queries.yaml (nodes/crm/). Each tests the opt-in flag where the purposes
+# take the latest consent event. With purpose-mail-outside-hours planted
+# too, mail.campaign also carries that fault's change (its snippet). The
+# comments are the players'; they read as the marketing team's own.
+  # The win-back extraction: the lapsed customers (last order 60 to 365
+  # days ago) who opted in to marketing e-mail and are not leads yet, with
+  # their score, and the run's etl_runs row, in one statement.
+  leads.extract:
+    sql: >-
+      WITH candidates AS (
+        SELECT k.id AS campaign_id, c.id AS customer_id,
+               round(c.lifetime_value
+                     / (1 + extract(epoch FROM now() - c.last_order_at) / 2592000), 2) AS score
+          FROM campaigns k
+          JOIN customers c
+            ON c.last_order_at <= now() - interval '60 days'
+           AND c.last_order_at >= now() - interval '365 days'
+         WHERE k.active AND k.segment = 'winback'
+           AND c.marketing_opt_in
+           AND NOT EXISTS (SELECT 1 FROM leads l
+                            WHERE l.campaign_id = k.id AND l.customer_id = c.id)),
+      ledger AS (
+        INSERT INTO etl_runs (job, started_at, finished_at, rows_read, rows_written)
+        SELECT 'leads-extract', now(), clock_timestamp(), count(*), count(*) FROM candidates)
+      INSERT INTO leads (campaign_id, customer_id, score, extracted_at)
+      SELECT campaign_id, customer_id, score, now() FROM candidates
+  # A batch of the active campaign's leads not yet mailed, best score
+  # first, 50 a run (the provider's contract: 200 an hour): each opted in,
+  # and now within the sending hours in their own zone.
+  mail.campaign:
+    sql: >-
+      WITH pending AS (
+        SELECT l.campaign_id, k.code, l.customer_id, c.name, c.email
+          FROM campaigns k
+          JOIN leads l ON l.campaign_id = k.id
+          JOIN customers c ON c.id = l.customer_id
+         CROSS JOIN business_settings s
+         WHERE k.active AND k.segment = 'winback'
+           AND c.marketing_opt_in
+           AND (now() AT TIME ZONE c.timezone)::time >= s.mail_window_start
+           AND (now() AT TIME ZONE c.timezone)::time < s.mail_window_end
+           AND NOT EXISTS (SELECT 1 FROM mail_outbox m
+                            WHERE m.campaign_id = l.campaign_id AND m.customer_id = l.customer_id)
+         ORDER BY l.score DESC, l.customer_id
+         LIMIT 50)
+      INSERT INTO mail_outbox (customer_id, email, template, campaign_id, payload, sent_at)
+      SELECT customer_id, email, code, campaign_id,
+             jsonb_build_object('name', name, 'email', email, 'campaign', code), now()
+        FROM pending

@@ -1,0 +1,121 @@
+# Catalog fault: the campaign's sending hours are read in the company's zone,
+# not the recipient's, so recipients elsewhere get marketing mail at night
+# (v0.4 master spec 16.2; the customer mailing purpose's M3, 10.3, 9.3). A
+# seed-file fault planted at render: the scenario's queries.yaml takes the
+# local time in business_settings' zone. Shift-invariant: every zone is
+# relative to the customer's. Its evidence shows at the job's runs: its aging
+# minimum counts from the job's first run after planting (master spec 6.3).
+
+# --- Identity ---------------------------------------------------------
+id: purpose-mail-outside-hours
+version: 0.1.0
+title: the campaign mails by the company's hours, not the recipient's
+family: rules
+severity: medium
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: scheduler
+      versions: ["0.2.0"]
+  purposes: [shop-customer-mailing]
+  preconditions: []
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 1h                       # counted from the campaign job's first run after planting
+                                    # (master spec 6.3): the scenario raises the instance's
+                                    # aging_minimum to that run's offset from T0 plus 1h
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  source:
+    description: >-
+      the purpose's source part, a node/database location as the scenario's
+      purposes: maps it (where mail_outbox, customers and business_settings
+      are)
+    default: db/shop
+    required: false
+  job:
+    description: the runner's jobs.yaml job running mail.campaign, every quarter hour by day
+    default: mail-campaign
+    required: false
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: queries.yaml
+      change: >-
+        mail.campaign compares business_settings' sending hours with the
+        local time in business_settings.timezone (the company's) in place
+        of customers.timezone (the recipient's); nothing else of the entry
+        changes. Within the job's own times (the company's day) the test
+        then passes every lead. With purpose-leads-stale-consent on the
+        same node, mail.campaign carries both changes
+      material: inject/queries.yaml.snippet
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: node
+    source: the query repository and the jobs
+    how: cat /srv/scheduler/repository/queries.yaml /srv/scheduler/jobs/jobs.yaml
+    shows: mail.campaign's hours read at s.timezone, the company's zone, and the job's day
+  - where: bastion
+    source: the campaign's mail in the recipients' own time
+    how: >-
+      psql -h db -d shop -c "SELECT c.timezone, to_char(m.sent_at AT TIME ZONE
+      c.timezone, 'HH24:MI') AS their_time, count(*) FROM mail_outbox m JOIN
+      customers c ON c.id = m.customer_id WHERE m.campaign_id IS NOT NULL GROUP BY 1, 2
+      ORDER BY 2"
+    shows: marketing mail sent at night in the recipients' zones, outside 08:00 to 21:00
+  - where: bastion
+    source: the customer's sending hours and zones
+    how: psql -h db -d shop -c 'TABLE business_settings', and cat ~/data-policy.md
+    shows: the hours as the recipient's local time, which the job reads in the company's zone
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names the campaign's hour test as the company's (business_settings'
+    zone, or the job's own times), so recipients living hours away from the
+    company get marketing mail at night in their own time.
+  proposal: >-
+    test each recipient's local time, now() AT TIME ZONE customers.timezone,
+    against the sending hours, so a batch skips those outside theirs.
+  fix: >-
+    the loaded mail.campaign (queries.yaml edited and reloaded with sudo
+    gm-reload-scheduler) mails nobody outside their own sending hours: no
+    {JOB} run since the reload sends a marketing mail whose sent_at, in the
+    recipient's zone, is outside business_settings' hours.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+  judges: runs
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  A customer abroad, eight hours behind us, complained about a promotion at
+  3 a.m. his time.

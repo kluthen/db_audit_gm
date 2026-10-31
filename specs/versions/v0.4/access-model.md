@@ -3,7 +3,9 @@
 Status: **approved by the owner on 2026-10-30 with the
 [master spec](master-spec.md) it accompanies**; amended the same day by
 the owner's ruling during wave 1 that the web front runs in every game
-(2, 3, 4, 13). Revises the
+(2, 3, 4, 13); and on 2026-10-31, during wave 3, by two readings of
+the governance checks written into the master spec (9.3), then how
+`dba` unschedules another role's `pg_cron` job (9.4). Revises the
 [v0.3 access model](../v0.3/access-model.md), which it replaces for v0.4
 games; "Changes from v0.3" at the end lists what moved.
 
@@ -388,21 +390,27 @@ may read it:
 
 | Class | May live in | May read it | May leave, and with which fields |
 |---|---|---|---|
-| `personal` | `db/shop` | `shop_app`, `shop_reports`, `shop_crm`, `shop_customs`, `customs_gw` | to the mail provider (`mail_outbox`): e-mail, name, order; to the customs gateway (`customs_outbox`): consignee name and address, country |
+| `personal` | `db/shop` | `shop_app`, `shop_reports`, `shop_crm`, `shop_customs`, `customs_gw` | to the mail provider (`mail_outbox`): name, e-mail, and the shipped order (number, date, country, total) or the campaign; to the customs gateway (`customs_outbox`): the order reference, consignee name and address, destination country, the lines, their total value and currency |
 | `customer-linked` | `db/shop` | `shop_app`, `shop_reports`, `shop_crm`, `shop_customs` | nowhere |
 | `internal` | anywhere | any customer role | not restricted |
 
 `shop_etl`, `shop_refresh`, `bi_etl` and `bi_reader` read no classed
 column in the baseline. The game's own roles (`dba`, `postgres`, the GM
 check role, `monitoring`, PgBouncer's lookup role) are outside every
-rule of the policy, which speaks of "application and staff accounts".
+rule of the policy as readers, which speaks of "application and staff
+accounts"; a mapping, job or definer procedure acting as one of them is
+judged by what it reaches (master spec 11.6).
+
+The last column is the policy's words. The scenario's `outbound.fields`
+lists the payload keys they stand for, which G4 checks (master spec
+6.9).
 
 ### 9.4 Jobs on a database node: who sees and changes them
 
 | | `pg_cron` jobs | A crontab |
 |---|---|---|
 | Listed to | the players' `dba` (all jobs); a non-superuser customer role, its own jobs only; the GM check role, all, through its read policy | the players, through `sudo gm-crontab -l`; root |
-| Changed by | the players' `dba` (`cron.schedule`, `cron.unschedule`, `cron.alter_job`, the settings), on every instance | the players, through `sudo gm-crontab <file>`, on every database node; also OS user `postgres` with `crontab` itself, which `dba` reaches through programs run as `postgres`: the same crontab, on a node the players may change anyway |
+| Changed by | the players' `dba` (`cron.schedule`, `cron.unschedule`, `cron.alter_job`, the settings), on every instance; another role's job by its id, since `cron.unschedule` by name finds the caller's own jobs only | the players, through `sudo gm-crontab <file>`, on every database node; also OS user `postgres` with `crontab` itself, which `dba` reaches through programs run as `postgres`: the same crontab, on a node the players may change anyway |
 | Run as | the job's `username`, through a background worker, with no password | OS user `postgres`, connecting as the role the entry names through the password file, or as `postgres` by peer if it names none (a superuser: a fault) |
 | Seeded by | the instance's data file | the node's seed `crontab`, installed once |
 

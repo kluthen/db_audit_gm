@@ -38,6 +38,12 @@ the game's stage.
   Its exit 3 line names the time to the job's next run: `<instance>
   <fault-id>: too-soon — the job's next run is in <N> s (<duration>),
   judged since <CHECK_SINCE>[: <free text>]`.
+- v0.4, the governance check set (master spec 11.6; capture W3-a item 1):
+  a sealed check whose script calls `check_governance` is sent as
+  `tools/gm/governance.sh`, a newline, then its script, with
+  `CHECK_GOVERNANCE` (`governance.env_value`); in a scenario without
+  `governance:` it is refused before anything runs. Every other check is
+  sent as written.
 
 A refusal (no game, a stage that does not allow the run, a required
 parameter without a value) runs nothing; the command line exits 2 for it,
@@ -48,7 +54,7 @@ import re
 import shlex
 from dataclasses import dataclass, field
 
-from . import aging, localimpl, model, state
+from . import aging, governance, localimpl, model, state
 from .docker import for_local_dir
 from .execnode import exec_node
 from .inject import DEFAULT_RUN_AS, INJECT_STAGE, fault_env, fault_instances, node_of, \
@@ -271,6 +277,7 @@ def check_plan(scenario, impl, instances=None, st=None, since=None):
                       f"triggers ({', '.join(inst['id'] for inst, _ in pairs) or 'none'}); "
                       "--since raises only their judged moment")
     plan = []
+    rules = None
     for inst, fault in pairs:
         sealed = fault.data.get("sealed_check") or {}
         node = node_of(inst, impl)
@@ -282,6 +289,14 @@ def check_plan(scenario, impl, instances=None, st=None, since=None):
         except OSError as exc:
             raise GmError(f"fault {fault.id}: sealed check {sealed.get('script')}: cannot be "
                           f"read: {exc.strerror}") from None
+        if governance.uses_governance(text):
+            if not isinstance(scenario.data.get("governance"), dict):
+                raise GmError(f"fault {fault.id}: sealed check {sealed.get('script')} calls "
+                              f"{governance.CALL}, but scenario {scenario.id} has no "
+                              "governance: to judge against (master spec 11.6)")
+            rules = rules or governance.env_value(scenario)
+            env[governance.ENV] = rules
+            text = governance.check_text(text)
         plan.append((inst["id"], fault, node, sealed.get("run_as") or DEFAULT_RUN_AS, env,
                      text))
     return plan

@@ -1,0 +1,8 @@
+# Added to the node's seed crontab (postgres 0.4.0, capture W1 item 8),
+# under its PGPASSFILE line: the agency's nightly sales-detail roll-up at
+# 03:00 scenario time (render shifts the hour to UTC), psql over the local
+# socket as the loader, its password from the crontab's password file (the
+# role in the node's crontab_roles), its output appended to its own log.
+# Example, reporting's entry in the first v0.4 scenario (master spec 16.3):
+PGPASSFILE=/run/gm-cron/pgpass
+0 3 * * * psql -X -w -h /run/postgresql -U bi_etl -d reporting -c 'CALL rpt.sales_detail_rollup()' >> /var/log/postgresql/cron/sales-detail-rollup.log 2>&1

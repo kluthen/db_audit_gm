@@ -12,7 +12,8 @@
 #   - both containers become healthy;
 #   - password login as `player` on the published port, nothing else;
 #   - the starter pack's four files are in the home, ~/report.md is writable;
-#   - from the bastion, `ssh db` with the key and `psql -h db` as dba;
+#   - from the bastion, `ssh db` with the key (ServerAliveInterval 60) and
+#     `psql -h db` as dba;
 #   - the validator is green, and red when ~/.pgpass is broken;
 #   - after the database node is replaced (new host key), `ssh db` works;
 #   - after the bastion is replaced, its host key, the home and the
@@ -218,6 +219,8 @@ u=$(pb ssh db id -un 2>&1)
 w=$(pb "psql -h db -XAtc 'select current_user, current_setting(\$\$server_version_num\$\$)'" 2>&1)
 case $w in "dba|18"*) pass "from the bastion: psql -h db as dba through ~/.pgpass ($w)" ;; *) fail "psql -h db: $w" ;; esac
 check "no known_hosts entry kept for in-game names" sh -c "! docker exec $B test -e /home/player/.ssh/known_hosts"
+w=$(pb ssh -G db 2>&1 | grep -i '^serveraliveinterval ' || true)
+[ "$w" = "serveraliveinterval 60" ] && pass "inner hop keeps an idle flow alive ($w)" || fail "ssh -G db: '$w'"
 dbip=$(pb getent hosts db 2>/dev/null | head -n 1 | cut -d" " -f1)
 out=$(pb ssh -o BatchMode=yes "$dbip" true 2>&1)
 case $out in *"Host key verification failed"*) pass "dotted names ($dbip) keep OpenSSH's host-key checks" ;;

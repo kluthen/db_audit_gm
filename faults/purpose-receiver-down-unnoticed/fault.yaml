@@ -1,0 +1,132 @@
+# Catalog fault: the export declarations' escalation has no rule for a
+# missing acknowledgement, so a gateway outage goes unnoticed (v0.4 master
+# spec 16.2; the export declarations purpose's E4, 10.4, spec D228). A
+# seed-file fault planted at render on the runner, plus an outside party's
+# behaviour the scenario writes: the gateway's two-hour outage during the
+# aging, a timeline change of the receiver's schedule. Its evidence shows at
+# the deadlines of the declarations sent during the outage: its aging minimum
+# counts from the outage's start (master spec 6.3, 16.2).
+
+# --- Identity ---------------------------------------------------------
+id: purpose-receiver-down-unnoticed
+version: 0.1.0
+title: unanswered export declarations are never escalated, so a gateway outage goes unnoticed
+family: data-flow
+severity: high
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: scheduler
+      versions: ["0.2.0"]
+  purposes: [shop-export-declarations]
+  preconditions:
+    - >-
+      the gateway's outage, a timeline change the scenario writes in the
+      receiver's schedule.yaml during the aging: the customs.acknowledge
+      stream's key set to one answering nothing, then back two hours later
+      (material inject/gateway-outage.yaml: the key for the receiver's
+      queries.yaml and the two timeline entries), at hours when exports
+      are packed
+    - >-
+      the receiver's standing behaviour of the purpose: about one
+      declaration in fifty never answered, before and after the hand-over
+      (spec D214), so missing acknowledgements keep coming in the game
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 1h                       # counted from the outage's start (master spec 16.2): its
+                                    # first declarations pass their deadline 47 minutes after;
+                                    # the scenario raises the instance's aging_minimum to the
+                                    # outage's offset from T0 plus 1h
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  source:
+    description: >-
+      the purpose's source part, a node/database location as the scenario's
+      purposes: maps it (customs_outbox, customs_acks and incidents)
+    default: db/shop
+    required: false
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: queries.yaml
+      change: >-
+        escalate.customs opens an incident for a rejected declaration only:
+        the clause for one with no acknowledgement within 30 minutes of
+        sending is dropped (the rejection's LATERAL an inner join); its
+        ledger row and everything else unchanged
+      material: inject/queries.yaml.snippet
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: node
+    source: the query repository
+    how: cat /srv/scheduler/repository/queries.yaml
+    shows: escalate.customs joining rejections only, nothing about a missing acknowledgement
+  - where: bastion
+    source: the declarations against their answers and incidents
+    how: >-
+      psql -h db -d shop -c "SELECT date_trunc('hour', d.sent_at) AS hour, count(*)
+      AS sent, count(a.outbox_id) AS answered, count(i.ref) AS escalated FROM
+      customs_outbox d LEFT JOIN (SELECT DISTINCT outbox_id FROM customs_acks) a ON
+      a.outbox_id = d.id LEFT JOIN incidents i ON i.source = 'customs' AND i.ref =
+      d.id::text GROUP BY 1 ORDER BY 1"
+    shows: >-
+      two hours of declarations with neither acknowledgement nor incident, and a
+      few more every hour
+  - where: node
+    source: the scheduler's log
+    how: grep 'run job=escalate-customs .*phase=end' /var/log/scheduler/scheduler.log | tail
+    shows: every escalation run writing rows=0 through the outage
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names the escalation as handling rejections only: a declaration the
+    gateway never answers is never escalated, so the gateway's two-hour
+    outage, and the few declarations it leaves unanswered every hour, went
+    unnoticed, the goods possibly held at customs.
+  proposal: >-
+    escalate a declaration with no acknowledgement 30 minutes after sending
+    (an incident by the next escalation run), beside the rejections; and
+    the declarations left unanswered since raised once.
+  fix: >-
+    the loaded escalate.customs (queries.yaml edited and reloaded with sudo
+    gm-reload-scheduler) opens an incident for every declaration sent since
+    the reload that has no acknowledgement within 30 minutes of sending, by
+    the escalation run after that, rejections still included.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+  judges: triggers
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  Some of our export parcels were held at the border, and nobody here was
+  told that anything was wrong with their declarations.

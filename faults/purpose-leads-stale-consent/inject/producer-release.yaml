@@ -1,0 +1,35 @@
+# purpose-leads-stale-consent: the web shop's release, the outside party's
+# behaviour the fault needs (master spec 16.2). Not a seed change of the
+# fault's node: the scenario writes both parts into the producer's files.
+#
+# 1. In the producer's queries.yaml (nodes/producer/), beside the shop
+#    domain's consent.unsubscribe, the release's entry: the same click,
+#    recorded in consent_events, the opt-in flag no longer cleared (the
+#    release moved consent to the history and dropped the flag's update).
+#    The comment is the players'.
+queries:
+  # The unsubscribe link in a mail, since the consent-history release: the
+  # withdrawal is recorded in consent_events, the record of consent. Three
+  # clicks in four come from a lapsed customer (last order 60 to 365 days
+  # ago), the win-back campaign's audience.
+  consent.unsubscribe-v2:
+    sql: >-
+      WITH target AS (
+        SELECT id FROM customers
+         WHERE marketing_opt_in
+           AND (%(audience)s > 3
+                OR last_order_at BETWEEN now() - interval '365 days'
+                                     AND now() - interval '60 days')
+         ORDER BY id < %(from)s, id LIMIT 1)
+      INSERT INTO consent_events (customer_id, purpose, granted, at, source)
+      SELECT id, 'marketing-email', false, now(), 'unsubscribe-link' FROM target
+    params:
+      audience: {int: [1, 4]}
+      from: {int: [1, 20000]}
+# 2. In the producer's schedule.yaml, the release at T0, before the first
+#    run of the win-back jobs (the stream keeps its initial key's name):
+timeline:
+  - at: T0
+    stream: consent.unsubscribe
+    set:
+      key: consent.unsubscribe-v2

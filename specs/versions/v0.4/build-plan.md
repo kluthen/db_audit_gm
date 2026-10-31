@@ -1,6 +1,15 @@
 # db_audit_gm v0.4 — Build plan
 
-Status: v6 (2026-10-30): the owner's ruling on G10, `reporting`'s
+Status: v9 (2026-10-31): the owner's rulings on G10, f10's normal run
+accepted at 327 MiB (spec D252), and on O140, `separation: instance` as a
+rule of G1 built by the inserted chunk 20 on wave 3 (spec D253); chunk
+15b's readings of f10 (spec D254 to D257) and `load-data`'s `pg_cron`
+clean-up (spec D258), written into G10, chunks 15 to 18 and 20 and the
+release gate; v8 chunk 14's readings of f1, f2 and f5 (spec
+D244 to D247) written into chunks 14, 16 and 17; v7 chunk 15a's readings
+of f7 and f9 (spec D239 to D243) written into chunks 15, 16 and 17 and
+the release gate; v6
+(2026-10-30) the owner's ruling on G10, `reporting`'s
 memory limit raised to 640M (spec D227), written into G10, chunks 13, 15
 and 16 and the release gate; v5 the owner's ruling on G12, the web front in
 every game (spec D224, applied by D225), written into chunk 19, now split
@@ -132,7 +141,7 @@ plan states only its deltas. Its conventions follow v0.3's
 | G7 | The VPS ready for two-host runs, under the VPS rule ("Workflow deltas"): `tailscale status` on both hosts; the VPS still a worker of armenelos' swarm, drained; no game port published on it; at least 5G free; filetstudio.com answering before and after | Hand check by the wave driver | The two-host `smoke-load.sh` from wave 2's gate; chunk 17's two-host runs; the release gate's two-host runs | checked at wave 2's gate (2026-10-30, 23:11–23:20 UTC); repeated at each later two-host run |
 | G8 | **The judged moment before the hand-over** (master spec 12.1): before the hand-over (the early check, the hand-over check, the smoke runs), a purpose check judges from the fault instance's planting moment, raised to the runner's last reload, as after it | The owner | Chunk 8's merge; the "Done when" of chunks 10, 11, 14, 15 as far as they read a check before a hand-over | done (2026-10-30, spec D217) |
 | G9 | **f10's measurement without swap, on armenelos only** (master spec 16.3): a one-off calibration container with its swap disabled for it alone, outside Swarm; armenelos keeps its swap | The owner | Chunk 9's no-swap measurement | done (2026-10-30, spec D218) |
-| G10 | **f10's calibration outcome** (spec D213): the backfill needs more than twice `reporting`'s limit and a normal run less than half of it, after `shared_buffers`, within a window the restored history allows. Ruled on chunk 9's shortfall at 512M (a normal run's `memory.peak` over half the limit): `reporting`'s limit raised to 640M, its reservation 256M; the window as designed, the thirty-day request; chunk 15b re-measures at 640M | Chunk 9's figures, applied by the wave driver; the owner on a shortfall | Chunk 15's f10 half; chunk 16 | done (2026-10-30, spec D227) |
+| G10 | **f10's calibration outcome** (spec D213): the backfill needs more than twice `reporting`'s limit and a normal run less than half of it, after `shared_buffers`, within a window the restored history allows. Ruled on chunk 9's shortfall at 512M (a normal run's `memory.peak` over half the limit): `reporting`'s limit raised to 640M, its reservation 256M; the window as designed, the thirty-day request; chunk 15b re-measures at 640M. Ruled on 15b's shortfall at 640M (a normal run 327 MiB): accepted as measured, no criterion change, no re-run (spec D252) | Chunk 9's figures, applied by the wave driver; the owner on a shortfall | Chunk 15's f10 half; chunk 16 | done (2026-10-30, spec D227; 15b's figure accepted 2026-10-31, spec D252) |
 | G11 | The owner's judgement at release close: the smoke cycles, f10's run, the rehearsal, the feedback (overstepping and the incident report included), the named known limits | The owner | Release close | open |
 | G12 | **spec O134**: does the starter-pack page make the web front run in every game (master spec 7.3, 22)? Ruled yes: the front in every game, its home the page, nothing more in v0.4; chunk 19 split, 19b taking the loader's port rule and the scenarios without a web interface | The owner | Chunk 19's branch | done (2026-10-30, spec D224) |
 | G13 | **Dependency preflight** on `bastion` 0.4.0's new package: the candidate version of Debian 13's `cmark-gfm` with what it pulls in, installed without recommends (spec D222). A finding the owner must rule on becomes a gate of its own | `security-advisor` (skill `dependency-check`), called by the wave driver | Chunk 19's branch | done (2026-10-30, wave log) |
@@ -147,7 +156,7 @@ with the owner's ruling of spec D221, during wave 1.
 |---|---|---|---|
 | 1 | 1, 2, 3, 4, 5, 19 | G1 (done); G2 (chunk 1, done); G3, G4; G5 (chunk 4); G12, G13 (chunk 19); G6 before its gate | gated (2026-10-30, 4064719) |
 | 2 | 6, 7, 8, 9, 10, 11 | wave 1; G8, G9 (done); G7 (the gate's two-host run) | gated (2026-10-30, f35dd40) |
-| 3 | 12, 13, 14, 15 | wave 2; G10 (chunk 15's f10 half, done) | planned |
+| 3 | 12, 13, 14, 15, 20 | wave 2; G10 (chunk 15's f10 half, done) | merged (gate passed 2026-10-31, 5e8eb84) |
 | 4 | 16, 17, 18 | wave 3; G7 (chunk 17's two-host runs) | planned |
 
 ```
@@ -170,9 +179,10 @@ G12, G13 ──> 19
 13 ──> 14              (in-wave: the fixture's nodes, roles and jobs, fixed by master spec 16.1; W3)
 4, 6, 7, 9, 10 ──> 15
 13, 12 ──> 15          (in-wave: the fixture, and the governance set's call interface; W3)
+12 ──> 20              (in-wave: chunk 12 merged; chunk 20 extends its G1, spec D253)
 13, 14, 15 ──> 16
 16 ──> 17              (in-wave: the scenario's instances and the jobs the harness moves; W4)
-8, 9, 12 ──> 17
+8, 9, 12, 20 ──> 17
 6, 7, 8, 14, 15 ──> 18
 ```
 
@@ -204,7 +214,11 @@ D213 asks for, and its outcome (G10) must be known before wave 3's f10
 work. Chunk 7 is cut once chunk 6 has merged.
 
 Wave 3: chunks 12 and 13 run first; chunks 14 and 15 are cut once chunk
-13 has merged (chunk 15 once chunk 12 has too).
+13 has merged (chunk 15 once chunk 12 has too). Chunk 20 was inserted
+after chunk 12 merged (spec D253): fix-sized, cut from `v0.4-w3` at the
+first free slot and handed by the driver to a `coding-executor`, it
+shares no file with 15b and merges before wave 3's gate. With no intent
+register there is no `documentalist` peek to run before it.
 
 ## Workflow deltas
 
@@ -311,7 +325,8 @@ Wave 3: chunks 12 and 13 run first; chunks 14 and 15 are cut once chunk
 - f10's incident for real: chunk 15 on `fixture-campaign`, then chunk 17
   and the release gate on the scenario, armenelos alone. Chunk 15b's run
   re-measures G10's criterion at `reporting`'s 640M limit (spec D227),
-  recorded with machine and date.
+  recorded with machine and date: a normal run 327 MiB (238 without
+  page cache), accepted as measured (spec D252); the backfill killed.
 - Every node's memory at peak, `reporting`, `bi`, `crm` and `gateway`
   included; the trace's growth per hour, extrapolated over the
   sixteen-hour aging and stated as an extrapolation: chunk 17b's
@@ -898,7 +913,7 @@ Record: 11a 2fda6c4, 11b 1ae95e6, merge d41032c (README purpose row merged with 
 
 ### Chunk 12 — The governance check set G1 to G4
 
-Status: planned
+Status: merged (w3, 21790ca)
 Wave: 3
 Depends on: chunks 3, 4, 7
 Architecture capture: recorded at wave 3 start (W3-a), for chunk 15's
@@ -935,9 +950,11 @@ on which node).
   (needs G4).
 - Split rule: 12a G1 and G2; 12b G3 and G4.
 
+Record: 9d172b0, merge 21790ca (one commit, not split: built in one pass). Differs from W3-a: D230 applied (the game's own roles skipped in G2 only, every G3 path judged whoever it acts as; `gm_pgbouncer` out of the walk); G2's "may read" also requires CONNECT and USAGE; a transformer connection to a non-database node exits 2; `separation: instance` not judged (to `spec-writer`). Wave log.
+
 ### Chunk 13 — `fixture-campaign`: the v0.4 topology, unfaulted
 
-Status: planned
+Status: merged (w3, a550257)
 Wave: 3
 Depends on: chunks 5, 6, 7, 10, 11, 19
 Architecture capture: recorded at wave 3 start (W3-b), for chunks 14 and
@@ -973,9 +990,11 @@ data files, as master spec 16.1 sets them.
   G1 to G4 passing on it (chunk 12 merged).
 - Verification: chunk checks, plus the deployment (needs G4).
 
+Record: dc21692, merge a550257 (one commit). Deployed on armenelos at shift +3 with no patch, after the `load-data` secrets fix: every job, both crontabs and the `pg_cron` launcher ran; every purpose check 0 or 3, none 1. `fit` 1.6 CPU, 1.75G memory, 6.19G disk. Choices: tooling expectation `t1`; Prometheus scrapes all 12 nodes; `reporting`'s `max_connections` 100 (chunk 9's calibration ran at 20). Found: a scheduler session idle over ~15 min is dropped (08006), one run lost (to a `coding-executor`); `reporting`'s `pg_cron` launcher exits until `load-data` creates its database. Wave log.
+
 ### Chunk 14 — The purpose faults f1 to f5 and f8
 
-Status: planned
+Status: merged (w3, 3cc4a32)
 Wave: 3
 Depends on: chunks 2, 7, 8, 10, 11; chunk 13 (in-wave, W3-b), merged into
 `v0.4-w3` before this chunk's branch is cut
@@ -987,19 +1006,25 @@ W3-c, for chunk 16.
   aging minimum, sealed check and solvability description.
 - Scope: in: `purpose-mail-overlapping-window` (f1),
   `purpose-leads-stale-consent` (f2, its producer release written as a
-  timeline need its definition states), `purpose-mail-outside-hours`
-  (f3), `purpose-watermark-misses-updates` (f4),
-  `purpose-etl-role-expired` (f5, a `state` change), and
+  timeline need its definition states; its producer path a fix only with
+  the drifted flags repaired, dated with `--since` (spec D244)),
+  `purpose-mail-outside-hours` (f3), `purpose-watermark-misses-updates`
+  (f4), `purpose-etl-role-expired` (f5, a `state` change: `VALID UNTIL`
+  the planting moment and the role's open sessions ended (spec D245); its
+  `remaining=` to the hourly job's minute read from the ledger (spec
+  D246)), and
   `purpose-receiver-down-unnoticed` (f8, the gateway's two-hour outage as
   a timeline need); each with `fault.yaml` (`applies_to.bricks` with the
   `scheduler` 0.2.0 or `postgres` 0.4.0 it needs, `applies_to.purposes`,
   `sealed_check.judges`, the aging minimum from the job's first run after
-  planting), its seed changes or injection, `checks/fixed.sh` (judging
-  runs or triggers since `CHECK_SINCE`), `checks/probe.md`, `gm.md`; the
+  planting, an hour for a five-minute job too (spec D247)), its seed
+  changes or injection, `checks/fixed.sh` (judging runs or triggers
+  since `CHECK_SINCE`), `checks/probe.md`, `gm.md`; the
   bricks' "Supported faults" sections, folding into their versions.
 - Files: `faults/<fault-id>/` for each (new),
   `bricks/{scheduler,postgres}/docs/gm.md` ("Supported faults" only).
-- Spec sections: master spec 6.3, 12, 16.2; access model 7.
+- Spec sections: master spec 6.3, 12, 16.2; access model 7; spec D244
+  to D247.
 - Done when: the loader accepts each; on a deployment of
   `fixture-campaign` with each planted, its evidence shows within its
   aging minimum and its check reads 1; after its acceptance fix and its
@@ -1008,9 +1033,11 @@ W3-c, for chunk 16.
   `fixture-campaign` (needs G4).
 - Split rule: 14a f1, f2, f3 (`crm`'s mail and leads); 14b f4, f5, f8.
 
+Record: 14a cd7daed, 14b 8fceabb, merge 3cc4a32 (the `postgres` Supported-faults list merged with 15a's rows). Planted on armenelos (shift −3; f4's 0 on a second game at +9, a past local day needing a local midnight): each fault's evidence within its aging minimum, then 1, 3, 0. Differs from the text: f1's aging minimum 1h (shipping ramps after the load); f5's injection also ends `shop_etl`'s open sessions (VALID UNTIL is checked at login; the scheduler now keeps its sessions); f5's `remaining=` counts from the ledger's last start; f2 restored in the producer alone still reads 1 until the flags are repaired (to `spec-writer`). Wave log, W3-c.
+
 ### Chunk 15 — The database-node faults f6, f7, f9 and f10
 
-Status: planned
+Status: merged (w3; 15a e901230, 15b b744cca)
 Wave: 3
 Depends on: chunks 4, 6, 7, 9, 10; chunks 12 and 13 (in-wave, W3-a,
 W3-b), merged into `v0.4-w3` before this chunk's branch is cut; G10 for
@@ -1026,11 +1053,14 @@ for chunk 16.
     its check requiring every live crontab entry's role to be no
     superuser); `purpose-day-boundary-wrong-zone` (f7: `rpt.close_day()`
     cutting the day N hours off the customer's zone, N a non-zero
-    parameter render writes; its check judging the close's runs from
-    `rpt.etl_runs`); `governance-personal-copied` (f9: the second foreign
+    parameter written into the data file's copy and added to the
+    customer's offset at load (spec D239); its check judging the close's
+    runs from `rpt.etl_runs`, a fix dated with `--since` (spec D241));
+    `governance-personal-copied` (f9: the second foreign
     server mapped for `bi_etl` to `shop_reports`, the foreign table over
-    `customers`, `rpt.customer_activity`, the `pg_cron` job as `bi_etl`
-    refilling it every thirty minutes; its check calling G1 and G3 and
+    `customers`, `rpt.customer_activity`, `CREATE` on `rpt` for `bi_etl`,
+    the `pg_cron` job as `bi_etl` recreating and refilling it every
+    thirty minutes (spec D242); its check calling G1 and G3 and
     requiring the job, the table, the foreign table and the server gone);
     the loader admitting `data` in a seed change, the target node's
     `data.file`, and refusing it on a node without one (spec D226), with
@@ -1052,7 +1082,15 @@ for chunk 16.
     run under half the limit (320 MiB), and the thirty-day backfill
     killed with swap (Swarm), so needing more than twice it (master spec
     16.3), the figures (machine, date, limit, `shared_buffers`, peaks)
-    in the Record line and the wave log;
+    in the Record line and the wave log; measured once, the normal run
+    at 327 MiB, accepted as measured, no re-run (spec D252); f10 a
+    `state` fault carrying `seed_changes` (`data` and `crontab`, spec
+    D254; the fault template's comment is chunk 20's), the roll-up
+    reading the orders through its own `src.sales_detail_orders` (spec
+    D255), its check dating the planting from the request's
+    `requested_at`, exiting 2 when it cannot confirm the incident and
+    matching either wording of the kill line (spec D256), the night
+    after the kill reading one day back (spec D257);
   - each with `fault.yaml`, its seed changes or injection, its check,
     `checks/probe.md`, `gm.md`; `postgres`' "Supported faults".
 - Files: `faults/<fault-id>/` for each (new),
@@ -1062,22 +1100,25 @@ for chunk 16.
   `.claude/skills/scenario-format/templates/fault.yaml` (the comment).
 - Spec sections: master spec 6.3, 7.2, 11.6, 11.7, 12.5 to 12.7, 13.3,
   16.2, 16.3, 16.5; access model 7, 9.4, 12; spec D209, D211, D213,
-  D226, D227.
+  D226, D227, D239 to D243; 15b also D252, D254 to D257.
 - Done when: the loader accepts each, and refuses a `data` seed change
   on a node without a data file; on `fixture-campaign` f6 and f9
   read 1, then 0 after their acceptance fix (f9 still 1 with only the
   table dropped); f7 reads 1 after the close runs (its job moved), 3
-  then 0 after the fix and a move; f10's run kills a backend, PostgreSQL
+  then 0 after the fix, dated with `--since`, and a move; f10's run kills a backend, PostgreSQL
   recovers by itself, s6, `sshd` and `cron` untouched, its check reads
   1, the next run normal; at 640M a normal run's `memory.peak` under
   320 MiB and the thirty-day backfill killed with swap, or, on a
   shortfall on either side, the figures back to the owner before
-  anything is reshaped (spec D213); `fit` refuses a mapping placing
+  anything is reshaped (spec D213; ruled on 327 MiB, spec D252); `fit` refuses a mapping placing
   f10's node on a shared host.
 - Verification: chunk checks, plus the faults planted on
   `fixture-campaign` (needs G4), f10's run alone on armenelos under the
   host lock.
 - Split rule: 15a f6, f7, f9; 15b f10.
+
+Record: 15a 0ddfa5d, merge e901230. Differs from the text: f7's N is written at load into the data file's copy from `load-data`'s offset, not by render (render writes no data file); f7's evidence is `\sf`, not `\df+` (PostgreSQL 18); f9's planting also grants CREATE on `rpt` to `bi_etl` so the job recreates a dropped table (to `spec-writer`). Planted on armenelos (shift −8, f7 offset 3): f6, f9 1 then 0 (f9 still 1 with the table only dropped); f7 3, 1, 3, 0. 15b: Record below once run.
+Record: 15b 6149311 (f10), b5f4557 (f2's fix path, D244), merge b744cca (its message names the pg_cron fix's log entry: the driver's log commit took the staged merge). Run on armenelos alone, 2026-10-31, `reporting` 640M + swap 640M: the 30-day backfill killed after 11 s (1258 of 1280 MiB, `oom_kill` 0 → 1), recovery in 1 s, postmaster pid unchanged, check 2 → 1, next run normal, `fit` refused a shared host; a normal run's `memory.peak` 327 MiB (238 without page cache), above the half, accepted as measured by the owner (2026-10-31). f10 is a `state` fault with `seed_changes`; the roll-up reads its own foreign table `src.sales_detail_orders`; the check dates the planting from `requested_at`; PG 18's "client backend" matched; the night after a killed backfill reads 1 day (to `spec-writer`). Unit suite 846 OK merged.
 
 ### Chunk 16 — The v0.4 scenario
 
@@ -1095,20 +1136,27 @@ node, and each acceptance fix.
   spec D227); `difficulty:` normal, ten;
   the ten instances of 16.1 with their nodes, plantings and visibility,
   each instance's aging minimum raised to its job's first run after
-  planting; the producer's release at T0 (f2) and the gateway's
-  two-hour outage (f8) as timeline changes of their schedules; the story
-  (Tarnbeck six months on, Lumen Analytics, Ines Varga), the issues I1
+  planting (f1's the hour from its first five-minute run, `65m` from T0,
+  spec D247); f2's expected fix naming both paths, the producer's with
+  the drifted flags repaired and dated with `--since` (spec D244); the
+  producer's release at T0 (f2) and the gateway's two-hour outage (f8)
+  as timeline changes of their schedules; the story (Tarnbeck six months
+  on, Lumen Analytics, Ines Varga), the issues I1
   to I6, the starter pack naming every job the players may move and the
   agency's nodes, `player/data-policy.md` mapped to the bastion's
   `data-policy.md`; `reporting` unscraped, a
   silent tooling expectation; `gm/answer-key.yaml` with each instance's
   expected resolution, and the overstep notes of 16.5 for f7, f9 and
   f10 (a change on the agency's system judged, never credited); f7
-  expected to stay present; `gm/notes.md`, `brief.md`, `README.md`
+  expected to stay present, its `offset` the same number in its instance
+  and in `reporting`'s data file (spec D239); `gm/notes.md`, `brief.md`, `README.md`
   regenerated.
 - Files: `scenarios/<id>/` (new); the root `README.md`'s table.
-- Spec sections: master spec 11.5, 13.2, 13.4, 16.1, 16.2, 16.5;
-  access model 7, 12; spec D227.
+- Spec sections: master spec 11.5, 12.5, 13.2, 13.4, 16.1, 16.2, 16.3,
+  16.5; access model 7, 9.4, 12; spec D227, D239 to D247; D252
+  (`reporting` stays at 640M), D253 (16.1's `governance:` has no
+  `separation:`, so chunk 20's rule changes nothing here), D254 to D257
+  (f10's instance as 15b built it).
 - Done when: the format skill finds nothing missing; `fit` and `render`
   accept it on armenelos alone and on armenelos plus the VPS declared
   `shared`, `fit` refusing the VPS for `reporting`; its README matches a
@@ -1119,7 +1167,7 @@ node, and each acceptance fix.
 
 Status: planned
 Wave: 4
-Depends on: chunks 8, 9, 12; chunk 16 (in-wave, W4), merged into `v0.4-w4`
+Depends on: chunks 8, 9, 12, 20; chunk 16 (in-wave, W4), merged into `v0.4-w4`
 before this chunk's branch is cut; G4; G7 (17a's two-host run, 17b)
 Architecture capture: none of its own; it uses W4.
 
@@ -1133,7 +1181,9 @@ Architecture capture: none of its own; it uses W4.
     (planted; its job moved to run within two minutes by an edit of
     `jobs.yaml` and a reload, done as root on a report-only node; present;
     its acceptance fix; too soon; moved again; fixed), f4's cycle moving
-    the producer's invoicing, f5's passing `--since`; f6 and f9 present
+    the producer's invoicing, f5's and f7's passing `--since` (spec
+    D241), their `remaining=` blind to a move, so the harness waits for
+    the moved time (spec D246); f6 and f9 present
     then fixed after their acceptance fix; the unfaulted scenario,
     rendered with every instance left out by the harness-only override,
     passing G1 to G4; f10's own run on armenelos alone, the VPS drained,
@@ -1157,8 +1207,9 @@ Architecture capture: none of its own; it uses W4.
   list (`tools/gm/{render,inject,aging}.py` as the build finds) and its
   unit tests; 17b: `bricks/{scheduler,postgres}/{brick.yaml,docs/gm.md}`
   ("Footprint"), `scenarios/<id>/{scenario.yaml,README.md}`.
-- Spec sections: master spec 12.1, 13.3, 16.3, 18 (items 1 to 6); access
-  model 6, 7.
+- Spec sections: master spec 11.6, 12.1, 12.5, 13.3, 16.3, 18 (items 1
+  to 6); access model 6, 7; spec D241, D246; D253 (the baseline's G1),
+  D256, D257 (f10's check and the night after).
 - Done when: every run passes as listed, its figures recorded with
   machine and date in the Record line and the wave log; the VPS drained
   after each two-host run and never active during f10's.
@@ -1190,11 +1241,16 @@ Architecture capture: none.
   hand-over, `gmctl.md`'s `deploy` and `status` lines).
   `feedback.md`: governance faults ("fixed" as 11.7), a report judged
   against an incident, an overstep on the agency's system (16.5), an
-  exit 3 at the final answer. `gmctl.md`: every line chunks 6 to 8
-  left, and those chunk 19 changed. Out: new scripts; the stance itself.
+  exit 3 at the final answer; f10's check reading 2 until the incident
+  is in the log, and on a failed planting (spec D256). Designing
+  governance: `separation: instance` only where the story's policy
+  demands an instance of its own, judged by G1 (spec D253). `gmctl.md`:
+  every line chunks 6 to 8 left, and those chunk 19 changed;
+  `load-data`'s `pg_cron` clean-up lines, already written (spec D258),
+  kept. Out: new scripts; the stance itself.
 - Files: `.claude/skills/game-master/{SKILL,gmctl,feedback}.md`.
 - Spec sections: master spec 7.3, 12.8, 13.3, 14 ("The GM skill"),
-  16.3, 16.5; access model 3, 7, 10, 12; spec D224.
+  16.3, 16.5; access model 3, 7, 10, 12; spec D224, D253, D256, D258.
 - Done when: the skill covers each item of master spec 14's "The GM
   skill"; every `gmctl` invocation in the three files parses with
   `gmctl`'s own parser; v0.3's stance check-list items are unchanged and
@@ -1327,6 +1383,56 @@ element joins it.
 
 Record: 19a 4a6f936, 19b cb82f3b, merge c15ff5b. No departure from the spec; outside its Files lines, 19b turned `test_fit`, `test_render`, `test_deploy`, `test_state` to `fixture-audit`'s new shape, and 19a's stack file gives `db` postgres 0.4.0's `cronspool` volume; `fixture-v04-refusals` keeps its local bastion copy. Outcome recorded as capture W1-z.
 
+### Chunk 20 — `separation: instance` in G1, and the format's widenings
+
+Status: merged (w3, 6b4ad78)
+Wave: 3
+Depends on: chunk 12 (merged), cut from `v0.4-w3`
+Architecture capture: none: the set's call interface and breach lines
+are W3-a's, and `CHECK_GOVERNANCE` already carries a class's
+`separation` as written.
+Owner: a `coding-executor` on the wave branch, briefed by the driver
+(inserted by spec D253; fix-sized, no chunk-mode leader).
+
+- Goal: the rule of master spec 11.6 for `separation: instance` (spec
+  D253), and the fault format's reading of spec D254.
+- Scope: in: G1 in `tools/gm/governance.sh` extended, for each class
+  with `separation: instance`, over the databases the set already
+  lists: on each node holding one of the class's locations, every
+  database but `postgres` not among them is a G1 breach in the set's
+  breach line, `G1 <node>/<database>` and why (it shares the instance
+  of the class's location); the loader refusing `separation` with
+  `locations: any` (`model._check_class_rules`), with its unit test;
+  `fixture-instances` with `separation: instance` on `personal` (its
+  `db` holds `shop` and `postgres` only, so the baseline holds), its
+  policy saying so in plain words, and a breach planting a second
+  database on `db`, expecting G1=1 G2=0 G3=0 G4=0, and dropping it on
+  revert (as `smoke-governance.sh` runs breaches, `CREATE DATABASE`
+  outside a transaction), its README regenerated; the format skill's
+  `SKILL.md` line and `templates/scenario.yaml` comment (refused with
+  `any`); for D254, `templates/fault.yaml`'s `seed_changes` comment
+  widened to kinds `seed-file` and `state`, and `check_fault_dir`
+  checking a `state` fault's `seed_changes` materials as it checks a
+  `seed-file` fault's. Out: any scenario under `scenarios/`; G2 to G4.
+- Files: `tools/gm/governance.sh`, `tools/gm/model.py`,
+  `tools/tests/{test_model.py,smoke-governance.sh}`,
+  `tools/tests/fixtures/fixture-instances/{scenario.yaml,player/data-policy.md,breaches/,README.md}`,
+  `.claude/skills/scenario-format/{SKILL.md,templates/scenario.yaml,templates/fault.yaml}`.
+- Spec sections: master spec 6.3, 6.9, 11.4, 11.6; [formats.md](../../formats.md)
+  "Purposes, domain and governance", "Fault definition"; spec D253,
+  D254.
+- Done when: G1 reads 1 on the planted database, from `db` and from
+  `reporting`, and 0 after its revert and on the compliant fixture; a
+  scenario without `separation:` reads as before (every other breach's
+  `expect:` unchanged, f9's check untouched); the loader refuses
+  `separation` with `locations: any`; `check_fault_dir` reports a
+  missing `seed_changes` material on a `state` fault; the fixture's
+  README matches a fresh regeneration; the unit suite passes.
+- Verification: chunk checks, plus `smoke-governance.sh` on armenelos
+  (needs G4), under the host lock and a sleep inhibitor.
+- Split rule: none; each file's change is a few lines.
+Record: cf9d0a4, merge 6b4ad78. Unit suite 848 OK; `smoke-governance.sh` on armenelos 121/0 (the new breach `g1-separation-database.sql`, a database `scratch` on `db`: G1=1 from `db` and `reporting`, 0 after its drop). Differs from the text: `smoke-governance.sh` accepts an optional `-- first:` line in a breach file; the breach line's object for a whole database is the word `database` (`G1 db/scratch database: shares the instance of db/shop, …`); SKILL.md's fault paragraph left as is (still true for what is required). Risk: a planted database without CONNECT for PUBLIC reads 2, as the existing walk does.
+
 ## Release gate
 
 Against master spec sections 17 and 18, on `v0.4-w4` before it merges,
@@ -1346,7 +1452,8 @@ bastion only; GM-side checks run from the host.
 3. Items 3 and 4: the four purposes and the shop domain complete by the
    format skill, every column classed.
 4. Item 5: the ten faults complete (injection, aging minimum, sealed
-   check, solvability description); the governance check set G1 to G4.
+   check, solvability description); the governance check set G1 to G4,
+   G1 judging `separation: instance` (spec D253, chunk 20).
 5. Item 6: the scenario complete by the format skill, its data policy
    written, its README current.
 6. Item 7: `gmctl`, the loader and render as in master spec 14, checked
@@ -1360,11 +1467,13 @@ bastion only; GM-side checks run from the host.
    armenelos plus the VPS, every fault planted at once, every key and job
    running; `fit` refusing the VPS for `reporting`; the VPS drained after.
 9. Master spec 18.2 and 18.3: every purpose fault's full cycle (f1 to f5,
-   f7, f8), f4's moving the producer's invoicing, f5's with `--since`;
+   f7, f8), f4's moving the producer's invoicing, f5's and f7's with
+   `--since`;
    f6 and f9 present, then fixed after their acceptance fix.
 10. Master spec 18.4: the unfaulted scenario passing G1 to G4.
 11. Master spec 18.5: f10 calibrated (G10 done, re-measured at 640M by
-    chunk 15b) and run on armenelos
+    chunk 15b, its 327 MiB normal run accepted as measured, spec D252)
+    and run on armenelos
     alone, the VPS drained: its check present, PostgreSQL recovered, s6,
     `sshd` and `cron` untouched.
 12. Master spec 18.6: the rehearsal re-run on the merged code without
@@ -1384,4 +1493,6 @@ bastion only; GM-side checks run from the host.
     known limits named by master spec 18.7 (the nightly close running at
     its story's time; the trace's growth over a full aging extrapolated,
     not observed; hosts and timers through a night; f10 within a real
-    aging), and the access model's known gaps that stand.
+    aging), f10's normal run at 327 MiB against the 320 MiB half (spec
+    D252), the limits of `load-data`'s `pg_cron` clean-up (master spec
+    14, spec D258), and the access model's known gaps that stand.

@@ -1,0 +1,25 @@
+# purpose-receiver-down-unnoticed: the planted escalate.customs entry, to
+# paste in place of the purpose's own in the runner's queries.yaml
+# (nodes/crm/). It escalates rejections only: a declaration the gateway
+# never answers is never escalated. The comment is the players'; it reads as
+# the shipping manager's own.
+  # The declarations of the last day the gateway rejected, with no
+  # incident yet: one incident each (source customs, ref the declaration's
+  # id).
+  escalate.customs:
+    sql: >-
+      WITH due AS (
+        SELECT d.id, 'rejected by the gateway: ' || r.reason AS reason
+          FROM customs_outbox d
+          JOIN LATERAL (
+                SELECT coalesce(k.reason, 'no reason given') AS reason FROM customs_acks k
+                 WHERE k.outbox_id = d.id AND k.status = 'rejected'
+                 ORDER BY k.received_at LIMIT 1) AS r ON true
+         WHERE d.sent_at > now() - interval '1 day'
+           AND NOT EXISTS (SELECT 1 FROM incidents i
+                            WHERE i.source = 'customs' AND i.ref = d.id::text)),
+      ledger AS (
+        INSERT INTO etl_runs (job, started_at, finished_at, rows_read, rows_written)
+        SELECT 'escalate-customs', now(), clock_timestamp(), count(*), count(*) FROM due)
+      INSERT INTO incidents (source, ref, opened_at, reason)
+      SELECT 'customs', id::text, now(), reason FROM due

@@ -1733,3 +1733,878 @@ For wave 2: the 640M margins are estimates until 15b (above); R1 and R3
 read 3 for the rest of a 14:00 hand-over game (chunk 10). The owner said
 "we'll stop after this wave": wave 3 waits for his word.
 Owner, 2026-10-31: a test-only brick change bumps nothing (D229, formats.md); `pgbadger` goes into `.tech`, added by security-advisor on his word.
+
+## Wave 3 — started 2026-10-31
+
+Chunks 12, 13, 14, 15. `v0.4-w3` cut from `main` at 62de2f2, worktree
+`/home/bastien/work/db_audit_gm-wt/v0.4-w3`. No intent or data register:
+no preflight. No new dependency named by any wave 3 chunk.
+
+### Gates checked at the start
+
+- **G3** (hand check): Debian trixie, PGDG trixie-pgdg and the s6-overlay releases answer 200.
+- **G4** (hand check): armenelos `Ready Active Leader`; `vps-5718ad52` `Ready Drain`.
+- G10 done (spec D227). G7 is not needed in wave 3 (no two-host run in its chunks; the gate's two-host `smoke-load.sh` repeats it).
+- Host: 10 GB free on `/`, 4.7 GiB of memory available, 3.1 GiB of swap in use; running: `ollama`, `llmward-homepage`, `llmward-dlp-metrics`.
+
+### Capture W3-a — the governance check set (chunk 12; read by 15)
+
+Recorded 2026-10-31, before any wave 3 code, from chunk 12's capture
+line, [master-spec.md](master-spec.md) 6.5, 11.4 to 11.7, 12, 14, 18
+(item 4), [access-model.md](access-model.md) 8 and 9.3, W1 items 0 and
+1, W1-x, W1-y, W2-x, and `tools/gm/{checks,execnode,inject,model}.py` on
+`v0.4-w3` at 62de2f2. W1's rules hold: the spec cited, not restated;
+**(choice)** a point settled here; chunk internals (the SQL) left out.
+
+**1. Home and delivery** (12 writes; 15 reads)
+
+- `tools/gm/governance.sh`: POSIX shell defining functions only (nothing
+  runs or is set at its top level, no `exit`), its SQL inside; and
+  `tools/gm/governance.py`, building the rules (item 3) and the text
+  sent. **(choice)** Shipped as checks already reach a node: `gmctl
+  check` streams a check's text into `sh -s` on its instance's node
+  (`check_plan`, `exec_node`), and nothing else of the GM's is there at
+  check time. No brick change, mount or verb; a brick helper would need
+  images rebuilt and the rules from the GM all the same.
+- `check_plan`: when a fault's `sealed_check.script` contains
+  `check_governance`, the text sent is `governance.sh`, a newline, then
+  the script, and the environment gains `CHECK_GOVERNANCE`; in a scenario
+  without `governance:` the check is refused before anything runs.
+  **(choice)** The call is the declaration: no `fault.yaml` key (no
+  template or loader change), every other check sent byte for byte as
+  today. The early and hand-over checks pass through it too.
+
+**2. The call** (12 writes; 15 reads): `out=$(check_governance G1 G3); rc=$?`
+
+- One or more of `G1` `G2` `G3` `G4`, each once, run in the order given.
+  It `return`s, never exits the caller, and writes standard output only.
+- G1, G2, G3's catalog paths and G4 run on a `database` node, G3's
+  transformer-job path on a `transformer` node, anything else returns 2;
+  the node knows itself by `hostname` (render's `hostname: <node>`).
+  **(choice)** A check runs on its instance's node only (12), and access
+  model 8 lets it read a runner's `jobs.yaml` and schedule "on their own
+  node". f9's check, on `reporting`, gets the catalog paths (foreign
+  tables, mappings, definer owners, `pg_cron` jobs, on every instance),
+  which hold its breaches; the baseline proof (item 6) runs both.
+
+**3. What it reads**
+
+| Input | From | By |
+|---|---|---|
+| `governance:`, the classification | the scenario folder, on the GM's host, at each check run | `governance.py` (`model.load_scenario`), into `CHECK_GOVERNANCE` |
+| catalogs | every database (`datallowconn`, not a template) of every `database` node | `check-psql` as `gm_check`, local on its own node, `--node <node>` for the others (W1-x) |
+| mappings' remote roles; `pg_cron` jobs | each database holding a server; the one holding the extension | `gm_check.user_mapping_roles()`; `cron.job` through `gm_check_read` (W2-x) |
+| privileges (G2); outbox rows (G4) | the instance holding the column; each flow's `outbox` (W1 item 1) | `has_column_privilege`; `check-psql` |
+| a runner's jobs | its `jobs.yaml` and schedule at the paths `/etc/scheduler/scheduler.yaml` names (`jobs`, `schedule_seed`) | the node's `python3`, as root; G2 on each connection's database through `check-sql` |
+
+**(choice)** `CHECK_GOVERNANCE`: one line of JSON, keys sorted:
+`classes` (`governance.classes` as written, every class of the closed
+list, a missing `internal` as `{"locations": "any"}`), `columns` (the
+classification's entries but `internal`), `database_nodes`,
+`transformer_nodes` (topology order), `own_roles`
+(`model.RESERVED_DB_ROLES`, 11.6's list). Reason: the environment is how
+`gmctl` hands a check its values (`FAULT_*`, `CHECK_SINCE`), root's alone
+on the node; the text stays code; PostgreSQL parses it (`jsonb`), not
+the shell.
+
+**4. Readings 11.6 leaves open** (12 writes; 15 relies on G1, G3)
+
+- **G1, a foreign table**: the remote key `<the server's
+  dbname>.<table_name, else its own name>.<column_name, else the
+  column's>`, when `schema_name` is `public` or unset (W1 item 0).
+  **(choice)** What PostgreSQL itself uses, readable by `gm_check`.
+- **G1, a copy by name**: table and column names alone, any schema or
+  database (`rpt.customers.email` is `personal`), the strictest class on
+  a clash. **(choice)** A copy is elsewhere by definition, often in `rpt`.
+- **G1, the probe**: `personal` only, tables and materialized views (not
+  views, not foreign tables) of the databases it may not live in,
+  text-typed columns, one e-mail-shaped value enough. **(choice)** A view
+  or foreign table shows data held elsewhere, which the name and remote
+  rules judge; `gm_check` has no mapping to read one.
+- **Every walk** leaves out `pg_catalog`, `information_schema`, toast
+  schemas, extension-owned schemas (`cron`) and `gm_check`. **(choice)**
+  The game's and extensions' own objects, as the game's roles are.
+- **G2**: login roles not in `own_roles` and not `pg_*`, on the instance
+  holding each column G1 classes there.
+- **G4**: rows whose `sent_at` is after `CHECK_SINCE`, the top-level keys
+  of their `payload` against the flow's `fields`. **(choice)** Both
+  outboxes' columns (9.6); nested keys are E3's and M4's. A scenario's
+  `fields` are therefore the payloads' keys (W3-b item 4), so the
+  baseline passes (18 item 4); 6.9's and access model 9.3's `[email,
+  name, order]` are the policy's words (for `spec-writer` at the archive).
+
+**5. Return status and output** (12 writes; 15 reads)
+
+- 0 every rule named holds; 1 one is broken; 2 it cannot judge (no or
+  bad `CHECK_GOVERNANCE`, an unknown or repeated rule, a rule this node
+  cannot run, a node unreachable, G4 without `CHECK_SINCE`, the
+  mapping-roles function or `gm_check_read` gone: W2-x); 3 for G4 only,
+  nothing broken but an outbox with no row since `CHECK_SINCE`. Combined
+  as `gmctl check` does: 2, else 1, else 3, else 0. **(choice)** G1 to G3
+  never 3 (11.6); G4's 3 is the set's, not a sealed check's, since a
+  database node cannot know the outbox job's next run: a caller judging
+  runs answers 3 with its own `remaining=`. No v0.4 fault calls G4.
+- The first line is one sentence a caller reuses as its own: the first
+  breach (`G1: reporting/reporting <schema>.<table>.<column> holds
+  personal data (remote shop.customers.email), allowed only in
+  db/shop`), or `G1, G3 hold on <n> database nodes, <m> databases`, or
+  `governance: cannot judge: <why>`; then one line per breach, `<rule>
+  <node>/<database> <object>: <why>`, at most 20 per rule.
+- So f9's check (15a): `rc` 1, the set's first line and exit 1; `rc` 0,
+  its own test that job, table, foreign table and server are gone
+  (16.2); `rc` 2 or 3, exit 2.
+
+**6. The baseline proof** (12 writes; 13's gate and 17's release-gate item 4 run it)
+
+`tools/tests/check-governance.sh <scenario-dir> <playground> [<since>]`
+runs `check_governance G1 G2 G3 G4` on the first `database` node and
+`check_governance G3` on every `transformer` node through `gmctl exec
+--user root`, `CHECK_SINCE` being `<since>` (default: an hour ago), and
+exits with item 5's combination. **(choice)** A harness script like the
+smoke scripts, not a `gmctl` verb (14 adds none).
+
+### Capture W3-b — `fixture-campaign` (chunk 13; read by 14, 15, 16)
+
+Recorded 2026-10-31, before any wave 3 code, from chunk 13's capture
+line, master spec 7.2, 8.5, 9, 10, 11.5, 13, 16.1 to 16.3, access model
+9, W1 items 0, 1 and 5 to 8, W1-x, W1-z, W2-x, chunk 10's "For wave 3's
+briefs", and on `v0.4-w3` the purposes, the shop domain,
+`tarnbeck-outdoor-shop` and `fixture-instances`. Folder
+`tools/tests/fixtures/fixture-campaign/`, seed files at
+`nodes/<node>/<file>`, one network `backend`.
+
+**1. Nodes** (16.1: bricks, roles, sizes, `reporting` 640M / 256M; "as
+v0.3" is `tarnbeck-outdoor-shop`'s)
+
+| Node | Role | Write policy | Seed files |
+|---|---|---|---|
+| `bastion` | bastion | report-only | `README.md`, `story.md`, `issues.md`, `data-policy.md` |
+| `db` | database | fixable | `postgresql.conf`, `pg_hba.conf`, `crontab`; `crontab_roles: [shop_refresh]` |
+| `pooler` | pooler | fixable | `pgbouncer.ini`, to `db:5432/shop` |
+| `producer` | producer | report-only; `write_overrides` `/srv/scheduler/repository`, `/srv/scheduler/jobs` | `queries.yaml`, `builders/`, `jobs.yaml`, `schedule.yaml` |
+| `consumer` | consumer | report-only; `/srv/scheduler/jobs` | `queries.yaml`, `jobs.yaml` (`jobs: []`), `schedule.yaml` |
+| `reporting` | database | fixable | `postgresql.conf`, `pg_hba.conf`, `crontab`; `crontab_roles: [bi_etl]` |
+| `bi` | transformer | report-only | `queries.yaml`, `scripts/`, `jobs.yaml`, `schedule.yaml` |
+| `crm` | transformer | report-only; both overrides | `queries.yaml`, `jobs.yaml`, `schedule.yaml` |
+| `gateway` | producer (W1 item 1) | report-only | `queries.yaml`, `jobs.yaml` (`jobs: []`), `schedule.yaml` |
+| `prometheus`, `exporter`, `grafana` | monitoring | as tarnbeck | as tarnbeck: `db` scraped, `reporting` not (13.4) |
+
+**2. Databases and data files**
+
+- `db`: `data/db.sql`, the domain's `schema.sql` then `load.sql`
+  unchanged (W1 item 6): database `shop` (owner `shop`), 9.7's roles on
+  `db`; P2, P3 and P5 add no DDL.
+- `reporting`: `data/reporting.sql`, P1's `material/target/data.sql`
+  unchanged, then `CREATE EXTENSION pg_cron;` on a line of its own under
+  `\connect reporting` (W1 item 0), no job: database `reporting` (owner
+  `reporting`), roles `reporting`, `bi_etl`, `bi_reader`; server
+  `shop_db` (`host 'db'`, `dbname 'shop'`), the one mapping `bi_etl` to
+  `shop_etl`, `src.orders`, `src.order_lines`, `src.products`,
+  `rpt.close_day()`. **(choice)** 16.1 to 16.3 give `reporting` one
+  `pg_cron` job, f9's, and one crontab entry, f10's, each planted by its
+  fault's `data` or `crontab` seed change (spec D226, W1 item 1).
+
+**3. The database nodes' seed configs**
+
+- `postgresql.conf`: `db` tarnbeck's; `reporting` the same form with
+  `shared_preload_libraries = 'pg_stat_statements,pg_cron'`,
+  `cron.database_name = 'reporting'`, `cron.use_background_workers =
+  on`, `cron.timezone = '{{customer_timezone}}'`, `cron.log_run = on`,
+  `cron.log_statement = on` (7.2, 8.5, 12.5). **(choice)**
+  `pg_stat_statements` there too: f10's evidence names its reset (16.3).
+- `pg_hba.conf`, both: `fixture-instances`' DO NOT TAMPER block (with
+  `host all gm_check samenet scram-sha-256`), then `local all all` and
+  `host all all 0.0.0.0/0`, `scram-sha-256` (`db` keeps tarnbeck's
+  `monitoring` line). **(choice)** One password line, as tarnbeck's
+  `db`: it admits chunk 10's list and f9's mapping to `shop_reports` from
+  `reporting` with no change on `db`, a fault's seed changes targeting
+  its own node only (16.2).
+- `db`'s crontab, exactly (W1 item 8's form; f6 rewrites the entry):
+
+  ```
+  PGPASSFILE=/run/gm-cron/pgpass
+  17 * * * * psql -X -w -h /run/postgresql -U shop_refresh -d shop -c "REFRESH MATERIALIZED VIEW popular_products" >> /var/log/postgresql/cron/popular-products.log 2>&1
+  ```
+
+  Job `popular-products`. **(choice)** Minute 17, off the five-minute
+  grid and the :05 and :20 jobs.
+- `reporting`'s crontab: the `PGPASSFILE=` line, no entry. **(choice)**
+  Its daemon runs (W1-x: the seed config's presence starts it), and
+  f10's seed change adds its 03:00 entry to a file the node seeds.
+
+**4. Connections, jobs, `purposes:`, `governance:`** (material copied
+unchanged, written for these names, W1 item 5; each schedule adds
+`intensity: 1.0`, no `timeline:`, f2's and f8's being their faults')
+
+| Node | Connection: target, role | Jobs (name, key, `at`); streams | From |
+|---|---|---|---|
+| `producer` | `app`: `pooler:6432/shop`, `shop_app` | `close-day`, `orders.close-day`, `0 12 * * *`; streams `orders.place`, `catalog.lookup`, `orders.detail`, `orders.status`, `deliveries.ingest`, `consent.unsubscribe`, `consent.subscribe` | `domains/shop/producers/` |
+| `consumer` | `dashboards`: `reporting:5432/reporting`, `bi_reader` | streams `dashboard.today`, `dashboard.revenue`, `dashboard.categories`, `dashboard.freshness` | P1 `consumer/` |
+| `bi` | `shop`: `db:5432/shop`, `shop_etl`; `reporting`: `reporting:5432/reporting`, `bi_etl` | `rollup-hourly`, `rollup.hourly` (`scripts/rollup.py:hourly`, `connections: {source: shop, target: reporting}`), `5 * * * *`; `rollup-close`, `rollup.close`, `30 1 * * *` | P1 `runner/` |
+| `crm` | `shop_crm`, `shop_customs`: `db:5432/shop`, each as its namesake | `leads-extract`, `leads.extract`, `20 * * * *`; `mail-shipped`, `mail.shipped`, `*/5 * * * *`; `mail-campaign`, `mail.campaign`, `*/15 8-20 * * *` (`shop_crm`); `declare-exports`, `declare.exports`, `*/5 * * * *`; `escalate-customs`, `escalate.customs`, `*/15 * * * *` (`shop_customs`) | P2, P3, P5 `runner/`, merged |
+| `gateway` | `customs`: `db:5432/shop`, `customs_gw` | stream `customs.acknowledge` | P5 `receiver/` |
+
+```yaml
+domain: shop
+purposes:
+  - {id: shop-sales-reporting, parts: {source: db/shop, target: reporting/reporting, runner: bi, consumer: consumer}}
+  - {id: shop-winback-leads, parts: {source: db/shop, target: db/shop, runner: crm}}
+  - {id: shop-customer-mailing, parts: {source: db/shop, target: db/shop, runner: crm}}
+  - {id: shop-export-declarations, parts: {source: db/shop, target: db/shop, runner: crm, receiver: gateway}}
+governance:
+  policy: player/data-policy.md                 # 11.5, in words
+  classification: data/classification.yaml      # the domain's, unchanged
+  classes:                                      # readers: access model 9.3
+    personal:
+      locations: [db/shop]
+      readers: [shop_app, shop_reports, shop_crm, shop_customs, customs_gw]
+      outbound:                                 # fields: the payloads' keys (W3-a item 4)
+        - {to: mail-provider, outbox: db/shop/mail_outbox,
+           fields: [name, email, order_id, shipped_at, ship_country, total, campaign]}
+        - {to: customs-gateway, outbox: db/shop/customs_outbox,
+           fields: [order_ref, consignee_name, consignee_address, destination_country,
+                    lines, total_value, currency]}
+    customer-linked: {locations: [db/shop], readers: [shop_app, shop_reports, shop_crm, shop_customs]}
+    internal: {locations: any}
+```
+
+**5. Instances, aging, placement, player files**
+
+- **(choice)** One harmless instance, `f0`: `fixture-instances`'
+  `fixture-random-page-cost` copied into `faults/`, on `db`, hidden;
+  `difficulty: {score: 1, level: easy}`; the answer key `f0` only. The
+  template refuses an empty `fault_instances` (`fixture-instances`'
+  precedent); the id leaves `f1` to `f10` to 16.1. Chunk 16 drops it.
+- `aging: {minimum: 8h, handover_at: "14:00"}`, the floor (`fixture-load`'s).
+- `designed_for`: `host-1`, the manager, every node but `bi` and
+  `gateway`, on `host-2` (16.1). **(choice)** 16.1 places only these.
+- `player/README.md`, `story.md`, `issues.md`: one-paragraph fixture
+  texts (the bastion needs all three, W1-z); no issue.
+
+**6. Planting on it** (14, 15). **(choice)** Each plants on scratch
+copies outside the repository (as v0.3's chunk 10b did), adding its
+instances with 16.1's ids, nodes and plantings, the timeline changes f2
+and f8 need and `difficulty.score`, never editing the committed fixture:
+14 and 15 run side by side sharing no file, and chunk 16 writes the ten.
+Their seed changes target `crm`'s `queries.yaml` and `jobs.yaml` (f1, f2,
+f3, f8), `bi`'s `scripts/rollup.py` (f4), `db`'s `crontab` (f6),
+`reporting`'s `data` (f7, f9, f10) and `crontab` (f10); f5 is a `state`
+change on `db`.
+
+### Questions from the captures
+
+1. **The game's own roles against "a superuser reaching everything"**
+   (W3-a; `spec-writer`). 11.6 skips `dba`, `postgres`, `gm_check`,
+   `monitoring` and PgBouncer's lookup role "by name", while G3 judges a
+   `SECURITY DEFINER` procedure "as its owner" and a `pg_cron` job by its
+   `username`, "a superuser reaching everything". (a) Skipped everywhere:
+   a job run as `postgres`, or a definer function it owns, is never a G3
+   path. (b) Skipped as readers only, the reason 11.6 gives ("who may
+   read"): a job's username or a function's owner is judged whoever it
+   is, a superuser reaching every classed column of its database. No
+   v0.4 verdict turns on it (f9's job runs as `bi_etl`; the baseline has
+   no `pg_cron` job and one definer function, in `gm_check`, left out
+   either way): chunk 12 keeps the predicate in one place. Not blocking.
+2. **`shop_reports` has no secret, so f9 cannot be planted** (W3-b, 15a;
+   the driver, then `spec-writer`). f9's mapping for `bi_etl` names
+   `shop_reports` (16.2); `load-data` sets a mapping's password only for
+   a remote role a schedule or a `crontab_roles` names, and fails the
+   setup otherwise (W2-x, `inject.password_plan`); nothing in 16.1 names
+   `shop_reports`. (a) 9.7 literally, "each login role's password is a
+   generated secret, set by `load-data`": render and `load-data` give
+   every login role a data file creates its secret, a `tools/gm` fix
+   before 15a against W2-x as built. (b) As built: the back office,
+   `shop_reports`' user in access model 9.1, also reads the shop, so
+   `consumer` gains a connection `db:5432/shop` as `shop_reports` and a
+   light stream (as tarnbeck's `reports.recent`), widening 16.1's
+   "reading `reporting`". Recommended: (b), content only and the access
+   model's own row (the agency then borrows a login in use). Needed
+   before chunk 13 merges.
+
+For `spec-writer`, no ruling needed: chunk 13's "Out: fault instances"
+reads as "but one harmless instance" (W3-b item 5), and its done-when's
+"the `pg_cron` job and both crontabs run" as `db`'s entry running and
+`reporting`'s daemon and `pg_cron` launcher up with nothing scheduled
+(W3-b items 2 and 3); f9's job and f10's entry run on chunk 15's copies.
+
+### Captures reviewed by the driver, 2026-10-31
+
+W3-a and W3-b accepted as drafted (fba4712). On their questions:
+
+- **Question 2, `shop_reports`' secret: (a), as master spec 9.7 states
+  it** ("each login role's password is a generated secret, set by
+  `load-data`"). `load-data` as built (chunk 7, W2-x) sets one only for
+  a role a schedule or a `crontab_roles` names: the code is narrower
+  than the spec, so it is fixed to the spec on the wave branch by a
+  `coding-executor`, in its own commit, before chunk 15's branch is cut.
+  (b) is not taken: it would widen 16.1's topology (`consumer` reading
+  `db`) to work around a gap in the code. No owner ruling needed.
+- **Question 1, the game's own roles in G3**, and the `fields` example
+  (formats.md and master spec 6's `[email, name, order]` against the
+  payloads' real keys, W3-a item 7): to `spec-writer`, not blocking.
+  Chunk 12 keeps the own-roles predicate in one place, so either reading
+  is a one-line change.
+- **Settled by `spec-writer`, 2026-10-31:** question 1 is (b) (D230,
+  master spec 11.6, 11.7): `own_roles` are skipped in G2 only, and each
+  G3 path's role (remote role, connection role, definer owner, `pg_cron`
+  `username`) is judged whoever it is, a superuser reaching every
+  classed column of its database; the walk also leaves out
+  `gm_pgbouncer`. `fields` are the payloads' top-level keys (D231, 6.9,
+  11.3, 11.6, formats.md v26), as W3-a item 4 built; G4 unchanged.
+
+### Order and dispatch
+
+κ = 3. First: chunks 12 and 13 (no shared file), and the `load-data`
+secrets fix (`tools/gm/`, no file of chunk 12's or 13's). Chunk 14 is
+cut once chunk 13 has merged; chunk 15 once chunks 12, 13 and the fix
+have merged (15a, then 15b, which holds the host lock alone on
+armenelos, the VPS drained).
+
+### `load-data` secrets fix — merged (0e13b44, 7e464ce), 2026-10-31
+
+`coding-executor`: ad0cd02 (merge 0e13b44), b1771ae (merge 7e464ce).
+Every role a node's data file creates with LOGIN (`CREATE ROLE … LOGIN`,
+or `CREATE USER` without NOLOGIN; the game's own roles and `pg_*` left
+out) has a game secret `role_<role>_password`, same name and derivation
+as before, set by `load-data` on that node as a SCRAM verifier; these
+secrets are created but mounted nowhere new (a node still mounts only
+what a schedule or its `crontab_roles` needs). A user mapping whose
+remote role is such a role gets that secret; one naming no data-file
+login role is still refused. A schedule's connection through a
+non-database node (a pooler) sets the role only on the database nodes
+whose data file creates the target database, or on every database node
+when none does (chunk 13's deployment found the old rule failing on
+`reporting`: `role "shop_app" does not exist`). Known limit: a role
+created inside a `DO` body, or given LOGIN later by `ALTER ROLE`, is not
+seen. Unit suite 807 OK. `stack.yml` and every seed file render
+byte-identical across the three scenarios and six fixtures; the new
+secrets appear only in `implementation.yaml`. f9's `shop_reports`
+logs in with its secret (container run under the lock).
+
+Driver's call: bookshop's and fernway's data files give their app role a
+fixed password, which their GM notes cite; a role whose CREATE sets its
+own PASSWORD keeps it (master spec 16.4, v0.3's scenarios unchanged). A
+follow-up commit by the same executor (bb5a505, merge 0dbbabf; 808 OK; bookshop and fernway render as before). For chunk 15a: login roles are
+read from the scenario's own data file; a role created only by a seed
+change's copy would need reading from the copy (f9 doesn't).
+For chunk 18: `gmctl.md` 143–147 and 201–208 state the old, narrower rule.
+
+### Idle-session fix — merged (047328a, ee6cb21), 2026-10-31
+
+Confirmed by a throwaway stack: a session without keepalives idle 840 s
+survives, at 960 s some die (08006, the server still `idle`, nothing
+logged); libpq's default first probe is the kernel's 7200 s. Fix: the
+scheduler's driver sets `keepalives=1`, `keepalives_idle=300`,
+`keepalives_interval=30`, `keepalives_count=3` on every session and on
+transformer scripts' connections; no retry, nothing stated changes;
+`docs/gm.md` says why; a unit test reads the options off the sockets.
+Unit suite 828 OK; scheduler unit tests 72 OK; image rebuilt; stack test
+133/0; after the fix 8 of 8 sessions survive 960 s. Scheduler stays
+0.2.0. Chunks 14 and 15a told to merge `v0.4-w3` in before deploying.
+
+Survey of other long-lived connections through a service address: PgBouncer
+→ `db` closes idle server connections at 600 s (safe); Prometheus,
+Grafana, the exporter scraped every 15 s (safe while scraped);
+`reporting`'s postgres_fdw link to `db` exposed at the network level,
+probably reconnected by PostgreSQL 14+ (untested; chunk 15a told to
+report a lost fdw link); **the bastion's inner SSH hop and players'
+`psql` from the bastion are exposed**: an idle player session over 15
+minutes may hang (no `ServerAliveInterval`). Proposed: `ServerAliveInterval
+60` in the bastion's `gm-game.conf` (sent to a `coding-executor`);
+optionally keepalive options on the data files' `CREATE SERVER`, or one
+render-level `sysctls` for every service (render and spec change; for
+`spec-writer` at the milestone, not now).
+
+`pg_cron` launcher noise: not built. Every brick-only fix changes
+`load-data`'s steps or the data-file contract (master spec 7.2, 14).
+Options for the owner at the wave report: `cron.database_name =
+'postgres'` with `cron.schedule_in_database(…, 'reporting')` (relaxes a
+loader rule; no noise), a restart step in `load-data`, or documenting the
+pre-load lines in `postgres`' `gm.md` and `player.md`.
+
+### Wave 3 report to the owner, 2026-10-31
+
+Chunks 12, 13, 14, 15 (15a, 15b) and the inserted 20 merged; none moved.
+Gate passed with one README-cell fix. Rulings this wave: the pg_cron
+noise fixed by a `load-data` step (D258); v0.5's recommendations accepted
+(D248–D251, on `v0.5-scope`); f10's 327 MiB accepted (D252);
+`separation: instance` defined (D253). Readings by `spec-writer`: D239–D247,
+D254–D257. Owner, while the gate ran: "we will end after this chunk" —
+merge wave 3, then stop; **wave 4 (chunks 16, 17, 18) waits for his word**.
+`v0.5-scope` and `v0.5-post-mortem` stay unmerged until he says.
+
+Open for wave 4's driver:
+- To `spec-writer` at wave 4's start: chunk 20's two readings (the breach
+  line's object for a whole database is the word `database`;
+  `smoke-governance.sh`'s optional `-- first:` line); after `v0.5-scope`
+  merges, `formats.md`'s O126 citation (line ~611).
+- Chunk 16's brief: f1 `aging_minimum: 65m`; f2's expected fix names both
+  paths; f7's offset equal in instance and data-file copy, non-zero,
+  −23..23, aging ≥ the close's offset from T0 + 1h, `judges: runs`,
+  `threshold: 0`, fix dated with `--since`; f9's fix unschedules by id,
+  the CREATE grant is part of the planting; no `separation:` (D253);
+  `reporting` at 640M (D252); cite D227, D239–D247, D252–D258; watch
+  `reporting`'s fdw link to `db` idle > 900 s (the nightly close).
+- Chunk 17a's brief: f7's cycle passes `--since`; after a move, wait for
+  the moved time, not `remaining=`.
+- Chunk 18's: f10's check reads 2 after hand-over if a player deletes the
+  request row in `reporting`.
+- Cosmetic README leftovers: "—" vs "none" in other generated READMEs
+  (`fixture-v04-refusals` not regenerated since 93538db); wrapping and
+  backticks; empty job-table rows.
+- The superseded `scheduler:0.2.0` layers may remain on the VPS (no prune).
+
+### Wave 3 gate (coding-executor, armenelos + the VPS, 2026-10-31) — passed
+
+Every step passes on `v0.4-w3` from 62f3b07 to 5e8eb84, 17:33–19:35 UTC,
+every docker step under the host lock and the sleep inhibitor, one at a
+time. Host: 9.0G free on `/`, 4.9 GiB available, `ollama` and two
+`llmward` services running.
+
+| Step | Result |
+|---|---|
+| Unit suite | 848 OK (146 s), again at 5e8eb84 |
+| Scheduler unit tests | 72 OK (178 s) |
+| `sh -n` / `perl -c` / `py_compile` | 163 / 7 / 52 files, plus 40 embedded Python bodies in 35 shell files; 0 fail |
+| Seven builds | all rc=0 (cache) |
+| Stack tests | bastion 90/0, postgres 211/0, pgbouncer 105/0, scheduler 133/0, prometheus 131/0, postgres-exporter 103/0, grafana 119/0 (1460 s) |
+| `smoke.sh` / `smoke-monitoring.sh` | 61/0 / 43/43 |
+| `smoke-scenario.sh` | bookshop 19/19, fernway 18/18, tarnbeck 26/26 |
+| `smoke-load.sh armenelos` | 73/73, 427 s; fit 1.1 CPU / 1.22G of 12 / 4.76G; disk 9.84G of 41G (13.79G with the snapshot) |
+| `smoke-load.sh` two hosts (G7) | 73/73, 483 s; armenelos 0.75 CPU / 704M, disk 5.53G of 20G; VPS (`shared`) 0.35 CPU / 544M, 3.37G of 10G |
+| `fixture-campaign` deployment | game `…-id9pp3`, shift −8, T0 18:39:17Z; every job ran (moves by `jobs.yaml` + reload, restored byte-identical); G1–G4 exit 0 at 18:56, 19:20, 19:30; purpose checks 0 or 3 only; 0 errors, 0 `08006` |
+| D258 on the deployment | 19 + 19 pre-load lines before `load-data`, 78 lines removed, 0 after in the files and `docker service logs` |
+| `smoke-governance.sh armenelos` | 121/0 |
+| Hand checks | `fixture-campaign` and `fixture-instances` READMEs match a regeneration (after the fix); the ten new faults and the fixture's own pass `check_fault_dir` |
+
+Fix: 5e8eb84 — `fixture-instances`' README, `internal`'s Outbound cell
+"none" as the template writes it.
+
+**G7:** pre-check 18:28:08 (`tailscale status` both ways, `Ready Drain`,
+filetstudio.com 200, nothing of ours on the VPS, 22G free); `active`
+18:28:44 (no refusal); run to 18:36:47, filetstudio.com 200 on 17 polls;
+drained 18:36:47; post-check clean, the site's four containers with their
+uptimes. The run copied the current `scheduler:0.2.0` (1ad76b563f81) to
+the VPS.
+
+Memory on the deployment (41 one-minute samples): grafana 205M of 384M,
+db 256M of 1G, reporting 73M of 640M; `memory.peak` db 868M (page cache
+at `load-data`), reporting 140M. Logs: the session scratchpad's
+`gate-w3/` (not kept).
+
+Wave sync: no intent or data register, so no documentalist or
+data-steward pass; no wave 3 chunk changed a dependency, so no
+security-advisor check. `doc-ids compare main v0.4-w3`: 0 collisions.
+
+### Chunk 20 — merged (6b4ad78), 2026-10-31
+
+`coding-executor`: cf9d0a4, merge 6b4ad78. G1 judges `separation: instance`
+(`_gov_g1_separation`, after the catalog walk); the loader refuses it with
+`locations: any`; `check_fault_dir` checks a `state` fault's
+`seed_changes` materials; `fixture-instances`' `personal` carries
+`separation: instance`, its policy says so, README regenerated (the
+Separation cell only). Unit suite 848 OK; `smoke-governance.sh` 121/0 on
+armenelos (new breach: G1=1 G2=0 G3=0 G4=0 from `db`, first line from
+`reporting` naming `db/scratch`; 0 after the drop). Readings accepted by
+the driver (not a player-facing choice of substance; to `spec-writer` at
+the wave sync): the breach line's object for a whole database is the word
+`database`; the smoke script's optional `-- first:` line. Every chunk of
+wave 3 merged; the gate is next.
+
+### Rulings recorded, chunk 20 inserted (f6cdc92), 2026-10-31
+
+`spec-writer`, plan v9: D252 (f10's 327 MiB accepted as measured; G10's
+row cites it), D253 (`separation: instance` a G1 rule: on each node
+holding a class's location, every other database but `postgres` is a
+breach; the loader refuses it with `locations: any`; O140 closed;
+**chunk 20 inserted on wave 3**, a coding-executor, before the gate),
+D254 (a `state` fault may carry `seed_changes`), D255 (f10's own foreign
+table), D256 (f10's check dates from `requested_at`, exits 2 when it
+can't confirm, matches both kill wordings), D257 (the night after a
+killed first backfill reads one day), D258 (`load-data`'s pg_cron
+cleanup step, 7.2 and 14). D259 reserved, unused. Lint 0 errors, 5
+known warnings; `doc-ids compare v0.5-scope v0.4-w3` 0 collisions. No
+intent register, so no `documentalist` peek for chunk 20.
+
+For chunk 16's brief: D252, D253 (no `separation:` in 16.1), D254–D257.
+For chunk 18's: f10's check reads 2 after hand-over if a player deletes
+the request row in `reporting` (GM notes).
+
+### Chunk 15b — merged (b744cca), 2026-10-31
+
+6149311 (f10; WIP 7feaca0 squashed in, `gm.md` gives the figures as
+measured with the owner's acceptance), b5f4557 (f2's "Fix path": the
+producer path with the flags repaired is a fix dated with
+`gmctl check --since`, D244). The merge is **b744cca**: the driver's
+`commit -a` for the pg_cron log entry ran while the agent's
+`merge --no-ff --no-commit` was staged, so it carries the log message;
+its parents (900807d, b5f4557) and content are the merge as tested. Left
+as is, not rewritten. Unit suite 846 OK merged; `check_fault_dir` clean
+for f10 and f2. Lesson: the driver does not commit in the wave worktree
+while a chunk agent may be merging.
+
+**Capture W3-d (f10):** `purpose-heavy-job-on-database-node` 0.1.0, family
+data-flow, node `reporting` (postgres 0.4.0), builds on P1's target part
+(a precondition, no `applies_to.purposes`). `seed_changes`: `data`
+(`inject/sales_detail_rollup.sql.snippet`, after P1's material) and
+`crontab` (`0 3 * * *` `CALL rpt.sales_detail_rollup()` as `bi_etl`,
+`crontab_roles: [bi_etl]`). State change `inject/10-backfill-request.sh`
+(one request of `days` days, idempotent) at `plant_at: handover-12h`.
+Parameters `database` (reporting), `days` (30). Aging minimum 30m from the
+entry's first run after planting. `needs_unshared_host: true`; no
+`judges`; `at_handover: 1`; resolution report only.
+
+### `pg_cron` pre-load noise — fixed, merged (54bc74a, merge 900807d), 2026-10-31
+
+`coding-leader`, per the owner's ruling. A last `load-data` step on every
+`database` node whose survey finds `pg_cron`: wait up to 60 s for the
+launcher (else `load-data` fails), switch the server log
+(`pg_rotate_logfile()`, statement logging off), then in the closed files
+remove each `pg_cron launcher … exited with exit code 1` line and the lines
+its PID logged before it (by the brick's `[%p]` prefix). No file log: a
+skip; no switch: left as is with a `warning:`. Restart-after-load ruled out
+(pg_cron refuses to load without the preload; lines already written stay);
+`cron.database_name = 'postgres'` ruled out (changes 7.2/14's loader rule,
+f9, G3). Unit suite 846 OK merged (15 new tests in `test_inject.py`).
+`fixture-campaign` deployed twice on armenelos alone: 58 and 54 lines
+removed, then 0 such lines in all of `reporting`'s logs and
+`docker service logs`; other pre-load lines byte-identical; launcher
+connected; `db` untouched. `smoke-governance.sh`: 115/0. Docs:
+`gmctl.md`'s `load-data`, `postgres` `gm.md`; `postgres` stays 0.4.0.
+Risks: relies on `[%p]` in `log_line_prefix`; a fixed `log_filename`
+leaves the noise with a warning; players see a second log file from
+`load-data`. The new step to `spec-writer` to record (master spec 13/14).
+
+### Owner rulings on G10 and O140, 2026-10-31
+
+- **G10 (f10 at 640M): "Accept 327 as is".** The normal run's 327 MiB
+  `memory.peak` is accepted as measured, no criterion change and no
+  re-run; the figure is recorded. 15b resumes from 7feaca0 (its own
+  agent) to word `gm.md` and merge.
+- **O140: "Define it now".** `separation: instance` gets its rule in v0.4
+  as a one-query extension of G1; to `spec-writer` to record and place in
+  the plan.
+
+### Chunk 15b — stopped on G10 (WIP 7feaca0), 2026-10-31
+
+f10 built and run on armenelos alone (VPS Ready Drain, never touched),
+game `fixture-campaign-9v8w59`, `reporting` at 640M + swap 640M,
+`shared_buffers` 128MB. Every Done-when item holds but one: the backfill
+(30 days) was killed after 11 s (`oom_kill` 0 → 1, 1258 MiB anon+shmem+swap
+of 1280 allowed), the postmaster recovered in 1 s with its pid unchanged,
+`gmctl check --instance f10` read 2 before the run and 1 after, the next
+run completed, `fit` refused a shared host. **A normal run's `memory.peak`
+read 327 MiB, above the 320 MiB half** (anon 203.5 + file 104.3 at the
+peak; 238 MiB without page cache; chunk 9 read 299–301 in an isolated
+stack; the game's baseline is higher). Measured once, as the rule says.
+Not merged; put to the owner. Notes for `spec-writer` after the ruling: a
+`state` fault with `seed_changes` (template comment says seed-file only);
+the roll-up's own foreign table `src.sales_detail_orders`; the check
+dates the planting from `requested_at`; PG 18 logs "client backend", the
+check matches both; the night after a killed backfill reads 1 day.
+Unit suite 831 OK; `check_fault_dir` clean.
+
+### v0.5 scope rulings recorded (`v0.5-scope` 596995d), 2026-10-31
+
+`spec-writer`, on `v0.5-scope` (not this wave's branch): D248 (the sorting
+stands; the clinic scenario in v0.5, generation in v1.0), D249 (seven
+domains; composition tried on `vet-core` + `vet-lab`; the four format
+changes in one chunk; a skill after two or three domains), D250 (the
+clinic's `postgres`: partitioning before TimescaleDB, replication as a
+standby mode, TLS always available and on by seed, only the `monitoring`
+role an option), D251 (post-mortems bound later; handout after the final
+answer). Closed O137, O47, O126; narrowed O111, O79, O118, O138; O139 open.
+O135 settled as v0.6's (pointers in v0.4's README, chunk 19, master spec
+2 and 22). After the merge into `main`: `formats.md` line 611 still cites
+O126 as v0.5's (left alone, this wave may edit `formats.md`).
+
+### Owner rulings, 2026-10-31
+
+- **The `pg_cron` pre-load noise must be fixed**, a step after `load-data`
+  allowed: "the pg cron problem (34 error report) we need to fix this, if
+  it require a cleanup step after load data, then do it." Documenting the
+  lines is out. Sent to a `coding-leader` (branch `v0.4-fix-pgcron-noise`,
+  waiting on 15b's lock); the new step then to `spec-writer` to record.
+- v0.5: "accept all recomendations for v0.5" (on `v0.5-scope`, recorded
+  there by `spec-writer`). O140 (`separation: instance`) not yet ruled.
+
+### Spec items of chunk 14 — settled (6aa843b), 2026-10-31
+
+`spec-writer`, all readings, no code change, nothing to the owner: D244
+(f2 restored through the producer is a fix only with the drifted flags
+repaired, dated with `--since`; the producer alone reads present), D245
+(f5's planting ends `shop_etl`'s open sessions), D246 (f5's and f7's
+`remaining=` count to the designed time and ignore a move; it never
+changes a verdict), D247 (a five-minute job's aging minimum is the hour
+too). Plan v8. `doc-ids compare v0.5-scope v0.4-w3`: 0 collisions (O141
+reserved, unused).
+
+For chunk 16's brief: f1 `aging_minimum: 65m`; f2's expected fix names
+both paths; spec sections D227, D239–D247. For chunk 17a's: after moving
+`rollup-hourly`, wait for the moved time, not `remaining=`. After 15b
+merges (driver, at the gate's fixes): one sentence in
+`faults/purpose-leads-stale-consent/gm.md`'s "Fix path" (the producer path
+with flags repaired dated with `gmctl check --since <repair UTC>`).
+
+### Chunk 14 — merged (3cc4a32), 2026-10-31
+
+14a cd7daed (f1, f2, f3), 14b 8fceabb (f4, f5, f8), merge 3cc4a32; the
+`postgres` Supported-faults conflict with 15a resolved (all rows kept).
+`v0.4-w3` merged in before deploying (the first game, on a pre-fix image,
+torn down before its load). Unit suite 831 OK merged; `check_fault_dir`
+clean for all six. Game `…-j8hkz8` (shift −3, T0 12:21:07Z), moves by
+`jobs.yaml` and reload only:
+
+| Fault | Evidence | 1 | 3 after the fix | 0 |
+|---|---|---|---|---|
+| f1 | duplicates 12:40 (T0 + 19 min) | 12:41 | 12:41 | 12:46 |
+| f2 | 13:20 leads run, 10 withdrawn leads | 13:27 | 13:49 | 14:01 |
+| f3 | 13:30 campaign, a mail at 02:30 the recipient's time | 13:31 | 13:49 | 14:01 |
+| f8 | outage from 13:00; 10 declarations past their deadline | 13:47 | 13:49 | 14:31 |
+| f5 | planted 14:00; 14:05 run refused 28P01 (expired password) | 14:01 | 14:05:50 (`--since`) | 14:09 |
+| f4 | close at 13:10; day 10-30 at 9.34M against 21.50M | 13:27 | 13:31 | 15:36 (2nd game) |
+
+f4's 0 needs a close after a local midnight: a second, f4-only game at
+shift +9 (T0 23:32 local). Both games torn down; nothing left.
+
+**Capture W3-c (f1–f5, f8), for chunk 16:**
+
+| | Fault | Node | Seed change or injection | Parameters (defaults) | Aging minimum | Timeline need |
+|---|---|---|---|---|---|---|
+| f1 | `purpose-mail-overlapping-window` (M1) | crm | `queries.yaml`: `mail.shipped` window 10 min | `source` (db/shop), `job` (mail-shipped) | 1h from the job's first run after planting | none |
+| f2 | `purpose-leads-stale-consent` (L2+M2) | crm | `leads.extract`, `mail.campaign` test `c.marketing_opt_in`; with f3, `mail.campaign` carries both | `source`, `leads-job`, `mail-job` | 1h from the campaign's first run after the release: 11h at T0 22:00 | producer: key `consent.unsubscribe-v2` (records the withdrawal, keeps the flag), timeline `at: T0` |
+| f3 | `purpose-mail-outside-hours` (M3) | crm | `mail.campaign` hours `AT TIME ZONE s.timezone` | `source`, `job` (mail-campaign) | 1h from the campaign's first run: 11h | none |
+| f4 | `purpose-watermark-misses-updates` (R1) | bi | `scripts/rollup.py` with `placed_at > since` (whole file) | `source`, `target` (reporting/reporting), `job` (rollup-hourly) | 1h from the first close of day after planting: 15h | none (the producer's daily close) |
+| f5 | `purpose-etl-role-expired` (R4) | db (postgres 0.4.0) | state `inject/10-expire-role.sh`, `plant_at: handover-5h` | `role` (shop_etl), `target`, `job` (rollup-hourly) | 1h from the hourly run after planting | none |
+| f8 | `purpose-receiver-down-unnoticed` (E4, `judges: triggers`) | crm | `escalate.customs` escalates rejections only | `source` | 1h from the outage's start: 11h | gateway: key `customs.unavailable`, timeline `handover-6h` → `handover-4h` |
+
+Every instance `judges: runs`, `threshold: 0`, except f8 (`triggers`).
+
+For `spec-writer` (sent with this entry):
+1. f2's "or restore the flag's update in the producer's repository"
+   (16.2): restoring the producer alone leaves the flags of everyone who
+   withdrew since T0, so L2 and M2 read 1 until the flags are repaired
+   (the improve); in `gm.md`.
+2. f5's injection also ends `shop_etl`'s open sessions: VALID UNTIL is
+   checked at login, and the scheduler now keeps its sessions open.
+3. f5's `remaining=` counts from the ledger's last start, not the designed
+   time D241 names (off when the job has been moved).
+4. f1's aging minimum 1h, not 30m (shipping ramps after the load; first
+   duplicates at T0 + 19 min).
+
+Risks: f4 reads 3 for a whole 14:00 hand-over game (chunk 10); f5's
+check reads `db`'s English log lines (depends on `log_line_prefix`); f8's
+0 after a fix waits on the stub's 1-in-50 (an hour or two); f2's leads
+side needs about five withdrawals before the first `:20` run.
+
+### Template edits — merged (93538db, 9e29cf7), 2026-10-31
+
+Both scenario-document template edits applied word for word; the three
+READMEs with `governance:` regenerated (`fixture-instances`,
+`fixture-v04-refusals`, `fixture-campaign`), each diff only the two
+passages; nothing under `scenarios/` has governance. Unit suite 831 OK.
+Left as found (cosmetic, for chunk 18 or the next regeneration):
+`fixture-instances` shows "—" for an absent outbound where the template
+says "none"; generations differ in wrapping and backticks in governance
+cells; the template has no rule for a node with an empty job table
+(`fixture-campaign`'s `reporting` renders a "nothing scheduled" row).
+
+### Spec items of chunks 12 and 15a — settled (583e6bc), 2026-10-31
+
+`spec-writer`: D239 (f7's N written at load into the data-file copy, the
+instance's `offset`; render writes no data file), D240 (`\sf`, not
+`\df+`), D241 (f7's check judges from `reporting`: no reload raise,
+`--since` for a fix, `remaining=` to the designed time; release-gate item
+2 and chunk 17a pass `--since` for f7 too), D242 (f9's `CREATE` grant on
+`rpt` is the fault's; its check doesn't require it revoked), D243 (`dba`
+unschedules another role's `pg_cron` job by id). **O140, for the owner**
+at the wave report: `separation: instance` has no rule (6.9, 11.4 say
+it's checked; 11.6 gives none): (a) define it as a one-query extension
+of G1 with a breach in `fixture-instances` (recommended), or (b) leave
+it to v0.5 with the loader refusing the field. Plan v7. `doc-ids compare
+v0.5-scope v0.4-w3`: 0 collisions.
+
+The scenario-document template's two stale lines (D230's own roles; "copied
+from the domain") sent to a `coding-executor` with the affected READMEs'
+regeneration, before chunk 16.
+
+For chunk 16's brief: f7's `offset` equal in the instance and the data-file
+copy, non-zero, −23..23 (unchecked by the loader); f7's aging minimum ≥
+the close's offset from T0 + 1h; f7 `judges: runs`, `threshold: 0`,
+expected present at the final answer, a fix on `reporting` an overstep
+dated with `--since`; f9's fix path unschedules by id, the `CREATE` grant
+part of the planting; no `separation: instance` until O140; the template
+edits in before its README. For chunk 17's: f7's 17a cycle passes
+`--since`.
+
+### Chunk 15a — merged (e901230), 2026-10-31
+
+0ddfa5d, merge e901230; built on `v0.4-w3` at ee6cb21 (the idle fix in).
+Unit suite 831 OK merged. Files: the three faults; `model.py`'s `data`
+seed-change rule (D226; refused on a node without a data file, `data.sql`
+still "not a seed file"); `test_model.py` (3); the template's comment;
+`postgres`' Supported faults. Planted on a scratch copy of
+`fixture-campaign` on armenelos (game `…-jpdcer`, T0 12:11:46Z, shift −8,
+f7 offset 3), torn down clean:
+- f6: 1 at T0 (the 12:17 run as `postgres` by peer); fixed as `player`
+  through `gm-crontab`: 0, the 13:17 run as `shop_refresh` (scram).
+- f9: 1 at T0 (G1); the job refilled 20 000 rows at 12:30 and recreated
+  the dropped table at 13:00 (still 1); job, foreign table, server gone
+  with an empty table: 1; all gone: 0. First real fault through the
+  `gmctl check` governance path.
+- f7: 3 at T0; the close moved to 12:20Z: 1; procedure fixed, `--since`:
+  3; close moved to 12:28Z: 0. Moves by `bi`'s `jobs.yaml` and `s6-svc
+  -h` only. No 08006; both closes' fdw links fine.
+
+**Capture W3-d (f6, f7, f9), for chunk 16:**
+- f6 `security-crontab-superuser` 0.1.0: node `db`; parameter `role`
+  (required, `shop_refresh`); seed change `crontab` (the entry without
+  `-U shop_refresh`, the `PGPASSFILE` line kept); aging minimum 1h from
+  the entry's first run (:17); no timeline need; live state, 0 or 1.
+- f7 `purpose-day-boundary-wrong-zone` 0.1.0: node `reporting`, purpose
+  `shop-sales-reporting`; parameters `offset` (required, non-zero), and
+  defaulted `close-at` 01:30, `job` rollup-close, `database` reporting,
+  `source-node` db, `source-database` shop; seed change `data`
+  (`inject/close_day.sql.snippet` after the purpose's material); aging
+  minimum 1h from the close's first run (a T0 at 22:00 needs ≥ 4h30 +
+  1h); `judges: runs`, answer key `threshold: 0`; expected 1 at the
+  hand-over check, 3 for the rest of a game; no timeline need.
+- f9 `governance-personal-copied` 0.1.0: node `reporting`, purpose
+  `shop-sales-reporting`; defaulted `database` reporting, `server`
+  shop_backoffice, `foreign-table` src.customers, `table`
+  rpt.customer_activity, `job` customer-activity; seed change `data`
+  (`inject/customer_activity.sql.snippet` after `CREATE EXTENSION
+  pg_cron`); aging minimum 30m; live state through `check_governance G1
+  G3`, needs `governance:`; no timeline need; the mapping's password is
+  `role_shop_reports_password` from `db`'s data file.
+
+For `spec-writer` (not blocking; with chunk 12's items):
+1. 16.2's f7 "N … which render writes": N is written at load into the
+   data file's copy from `load-data`'s `customer_utc_offset` plus the
+   parameter, wrapped as D168 (render writes no data file); shift
+   invariance holds.
+2. f7's evidence "the zone in `\df+`": PostgreSQL 18's `\df+` shows
+   neither source nor `proconfig`; `\sf rpt.close_day` shows the `SET`.
+3. f7's check runs on `reporting`: its judged moment is not raised to the
+   runner's reload, `remaining=` counts to the designed `close-at`, a fix
+   is dated with `--since`; a day row belongs to the last close that
+   wrote it (in `gm.md`).
+4. f9's planting adds `GRANT CREATE ON SCHEMA rpt TO bi_etl`, so the job
+   recreates a dropped table (16.2's "dropping the table alone, which the
+   job refills").
+5. A superuser unschedules `bi_etl`'s job by id only (`cron.unschedule`
+   by name finds the caller's own jobs); in f9's `gm.md`, maybe 16.5.
+
+Risks: f6's check parses crontab lines (no called script, `sudo -u`,
+`su` followed; a deleted entry or a missing role reads 0, in `gm.md`);
+`reporting`'s fdw link idle over 900 s (the nightly close on bi's kept
+session) not exercised: for chunk 16's aging and chunk 17's runs to
+watch. The chunk's test game used `fit --disk 20G` and bastion ports
+2223/8081 (chunk 14's game held 2222/8080), playground choices only.
+
+### Bastion keepalive fix — merged (fa21677, 37f905f), 2026-10-31
+
+`ServerAliveInterval 60` in the bastion's `gm-game.conf` (`Host * !*.*`,
+in-game names only); `docs/gm.md` says why; the stack test checks `ssh -G
+db` as player (90/0). No node-side `ClientAliveInterval` needed (the
+client's in-channel requests carry traffic both ways). Players' `psql`:
+nothing added, the bastion ships no file libpq reads by default; `psql`
+reconnects on its own (a `SetEnv PGOPTIONS=-c tcp_keepalives_idle=300`
+was possible, not taken: a GUC visible in players' sessions for little
+gain). Unit suite 828 OK. `bastion` stays 0.4.0.
+
+### Dispatched, 2026-10-31
+
+- `coding-executor`: the idle-session fix (scheduler; `pg_cron` launcher
+  assessed), branch `v0.4-fix-idle`, its own commit, merged into `v0.4-w3`.
+- Chunk 14 (14a, then 14b), branch `v0.4-c14-purpose-faults`.
+- Chunk 15a, branch `v0.4-c15-db-faults`; 15b dispatched once the host
+  can be held alone (no other game deployed, the VPS drained).
+- Both chunk briefs: W3-b; chunk 10's and 11's notes; D226 (15a), D228
+  (14), D229, D230 (15a), D231; the secrets rule; the idle-session defect
+  (merge `v0.4-w3` in before deploying once the fix lands); at most two
+  `fixture-campaign` games on armenelos at once.
+
+### Chunk 13 — merged (a550257), 2026-10-31
+
+The finisher merged `v0.4-w3` in (65ffc3c), ran the unit suite (813 OK
+on the chunk, 828 OK on `v0.4-w3` after the merge) and redeployed
+`fixture-campaign` on armenelos with no patch (game
+`fixture-campaign-yo0hv9`, shift +3, hand-over 11:00Z, T0 09:26:56Z).
+`load-data` passed every step (`db`: seven role passwords; `reporting`:
+`bi_reader`, `bi_etl`). Every job ran in its log and ledger: rollups,
+close, leads, both mail jobs, declarations, escalations, `close-day`,
+the gateway's stream (184 acknowledgements, 0 errors); `db`'s crontab at
+:17 as `shop_refresh` (scram); `reporting`'s cron daemon and `pg_cron`
+launcher up, no job. Purpose checks over six rounds: only 0 or 3, never
+1; f0 present every round. Times moved by `jobs.yaml` edits and reloads
+only, all restored before teardown. Teardown clean (12 services, 55
+configs, 17 secrets, 71 volumes). Memory under load well inside every
+limit (`db` 216M of 1G, `reporting` 75M of 640M, `grafana` 292M of 384M
+at rest the highest share). Merged `--no-ff` into `v0.4-w3` (a550257);
+worktree and branch removed.
+
+Findings:
+1. **A scheduler session idle over ~15 minutes is dropped silently**;
+   its next call fails 08006 and the run is lost, the session replaced
+   at the call after. Seen three times (bi `rollup-close`, crm
+   `leads-extract`, the producer's `orders.detail` stream); the server
+   still showed the session idle. Most likely Swarm's VIP (IPVS) idle
+   timeout, 900 s. In the designed schedule every pool-of-one job with
+   gaps over 15 minutes would lose every other run, which aging (chunk
+   16) and the early and hand-over checks would show. Sent to a
+   `coding-executor` on `v0.4-w3`, in its own commit (scheduler 0.2.0,
+   unreleased: no bump).
+2. **`reporting`'s `pg_cron` launcher exits at boot** (34 times,
+   `database "reporting" does not exist`) until `load-data` creates the
+   database: harmless, but noise in a log the players read. To the same
+   executor to assess; a fix that changes `load-data`'s stated steps
+   goes to `spec-writer` instead.
+
+### Chunk 13 — built (dc21692), 2026-10-31
+
+Deployed on armenelos at shift +3 with a scratch patch (the rule above);
+every job, both crontabs' daemons and the `pg_cron` launcher seen; every
+purpose check 0 or 3, none 1; fit 1.6 CPU / 1.75G / 6.19G disk. Not
+merged until its deployment passes on the fixed code: a `coding-executor`
+merges `v0.4-w3` in, redeploys and merges.
+
+### Chunk 12 — merged (21790ca), 2026-10-31
+
+9d172b0, merge 21790ca; one commit (the split would have left an
+untested first half). `tools/gm/governance.sh` and `governance.py` as
+W3-a sets them; `checks.check_plan` prepends the set to a sealed check
+whose script contains `check_governance`, with `CHECK_GOVERNANCE`, and
+refuses it in a scenario without `governance:`;
+`tools/tests/check-governance.sh` (the baseline proof) and
+`tools/tests/smoke-governance.sh`; `test_governance.py` (14);
+`fixture-instances` gains `governance:`, its classification, its policy,
+`customers`, `orders.customer_id`, `mail_outbox`, the reader `shop_app`,
+and `breaches/` (13 planted breaches, plus a transformer node `bi` added
+only to the smoke run's scratch copy). Unit suite 822 OK merged.
+`smoke-governance.sh` on armenelos: 115/0. Baseline 0 from `db`,
+`reporting` and (G3) `bi`; each breach reads as its `expect:` line, from
+`reporting` too, and all four hold after each revert (renamed copy and
+renamed matview caught by the content probe only; `monitoring` granted
+`customers` still 0, the same grants to `monitor2` flagged); exit 2 on
+each misuse and on the mapping-roles function or `gm_check_read`
+dropped; 3 for G4 with no row since `CHECK_SINCE`. Outside its Files:
+`test_inject.py` (10 lines: the fixture's new login role).
+
+Readings (accepted): D230 applied (own roles skipped in G2 only, in one
+helper `_gov_own_roles_sql`; `gm_pgbouncer` out of the walk); G2's "may
+read" also needs CONNECT and USAGE; a mapping for `PUBLIC` or without a
+remote role reaches every classed column of its server's database (an
+unset `dbname` is libpq's default); a definer's owner or a `pg_cron`
+username judged in its own database only; a transformer connection to a
+non-database node exits 2 (no v0.4 transformer has one).
+
+For `spec-writer` (not blocking): `separation: instance` has no rule in
+11.6 and is not judged; the scenario-document template still says the
+game's own roles "are outside every rule" (D230) and "copied from the
+domain" for a fixture's own classification.
+For the wave gate: `check-governance.sh` on `fixture-campaign`; f9
+(chunk 15a) first exercises the `gmctl check` path with a real fault.
+Risks: G1's content probe is a full text scan on databases without
+personal data, unmeasured beyond fixture sizes; `smoke-governance.sh`
+not re-run after 0dbbabf (unit suite passes with it).

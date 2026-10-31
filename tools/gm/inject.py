@@ -12,8 +12,10 @@ behaviour is fixed by capture W3-A (`specs/versions/v0.1/wave-log.md`):
   Then (v0.3 chunk 7b; capture W1, item 7) every application role a
   scheduler's schedule names gets its password from its secret
   `role_<role>_password`, the data having created the role: streamed the
-  same way into the database node the connection targets (every
-  `database` node when it targets another node, a pooler), as a SCRAM
+  same way into the database node the connection targets (when it
+  targets another node, a pooler: every `database` node whose data file
+  creates the target database, every `database` node when none does;
+  v0.4, a game with two), as a SCRAM
   verifier, with statement logging off for the session, so the password
   is never in a log, a process list or the server's statistics.
   Then (spec D176) on every `database` node whose brick has the GM check
@@ -24,13 +26,28 @@ behaviour is fixed by capture W3-A (`specs/versions/v0.1/wave-log.md`):
   W2-x of `specs/versions/v0.4/wave-log.md`): each data file gets `-v
   customer_timezone=<zone> -v customer_utc_offset=<n>` (render's shift;
   `Etc/GMT` and 0 in a game with none); the passwords are set for the
-  roles a node's `crontab_roles` names too, on that node; then every
+  roles a node's `crontab_roles` names too, on that node, and (master
+  spec 9.7) for every login role a node's data file creates without a
+  password of its own, on that node, each from its secret
+  `role_<role>_password` (a role the data file gives a password keeps
+  it, 16.4); then every
   database of every `database` node is surveyed (`pg_cron`, foreign
   servers, user mappings), each user mapping gets as its `password` option
   its remote role's secret, and where the check role exists it gets, in a
   database holding `pg_cron`, the read policy CHECK_POLICY on `cron.job`
   and `cron.job_run_details`, and in a database holding a foreign server
-  the mapping-roles function MAPPING_FUNCTION; the `CONNECT` grant last.
+  the mapping-roles function MAPPING_FUNCTION; then the `CONNECT` grant.
+  Last (the `pg_cron` noise fix, wave 3 of v0.4), on every `database` node
+  where the survey found `pg_cron` in a database: until the data file has
+  created `cron.database_name`, the preloaded launcher exits at each start
+  (`database "..." does not exist`, about once a second from boot), lines
+  in the file log the players read. load-data waits for the launcher to be
+  connected (LAUNCHER_WAIT), has the logging collector switch files
+  (`pg_rotate_logfile()`), and removes from the files it closed the failed
+  launchers' lines only (CLEAN_SH): each `background worker "pg_cron
+  launcher" (PID n) exited with exit code 1` and every line PID n logged
+  before it (the `[%p]` of the brick's `log_line_prefix`). Nothing else in
+  the log changes; the launcher not connected fails the step.
 - `inject`, at `data-loaded` (or `injected`, to replay the idempotent
   scripts): for every fault instance in `fault_instances` order, a `state`
   fault's `injection.scripts` are streamed in their listed order into `sh
@@ -54,6 +71,7 @@ import hmac
 import json
 import os
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from . import localimpl, model, render, state, teardown
 from .docker import for_local_dir
@@ -88,6 +106,12 @@ NO_LOG_SQL = ("SET log_statement = 'none';", "SET log_min_duration_statement = -
 NO_STATS_SQL = ("SET pg_stat_statements.track = 'none';",)
 QUIET_SQL = "SET client_min_messages = warning;"    # no "already exists" notices
 REDACTED = "<password>"
+# The pg_cron noise fix: the launcher's background worker type (its
+# pg_stat_activity.backend_type, and the name the postmaster's exit lines
+# give it), how long load-data waits for it and for the collector's switch.
+LAUNCHER = "pg_cron launcher"
+LAUNCHER_WAIT = 60                  # seconds; the launcher restarts once a second
+ROTATE_WAIT = 10                    # seconds
 
 
 # --- Fault parameters --------------------------------------------------------
@@ -206,6 +230,9 @@ class LoadResult:
     policies: list = field(default_factory=list)   # [(node, database)]: CHECK_POLICY
     functions: list = field(default_factory=list)  # [(node, database)]: MAPPING_FUNCTION
     grants: list = field(default_factory=list)     # database nodes: CHECK_ROLE's CONNECT
+    cleaned: list = field(default_factory=list)    # [(node, [(log file, lines removed)]
+                                                   #   or None: no file log)]
+    warnings: list = field(default_factory=list)   # [text]: a log left as it was
 
     def text(self):
         if self.already:
@@ -226,6 +253,14 @@ class LoadResult:
                 for node, db in self.functions]
         out += [f"  {node}: {CHECK_ROLE} granted CONNECT on every database"
                 for node in self.grants]
+        for node, files in self.cleaned:
+            removed = sum(n for _, n in files or [])
+            out.append(f"  {node}: {LAUNCHER} running; " + (
+                "no file log (logging_collector off)" if files is None
+                else f"{removed} line(s) of its start-up failures removed from the server log "
+                f"({', '.join(f for f, _ in files)})" if removed
+                else "no start-up failure of it in the server log"))
+        out += [f"  warning: {text}" for text in self.warnings]
         out.append(f"Stage {DATA_STAGE}.")
         return "\n".join(out)
 
@@ -262,10 +297,15 @@ def data_argv(variables):
 def password_plan(scenario, impl):
     """[(database node, [(role, secret)])]: every role a scheduler node's
     schedule names, on the node its connection targets when that node is a
-    `database` node, else on every `database` node; then (v0.4 capture W1
-    item 8) every role a node's `crontab_roles` names, on that node;
-    topology order, each role once per node."""
+    `database` node, else (through a pooler) on the `database` nodes whose
+    data file creates the target database, or on every `database` node
+    when none does; then (v0.4 capture W1
+    item 8) every role a node's `crontab_roles` names, on that node; then
+    (master spec 9.7) every login role a node's data file creates, on that
+    node; topology order, each role once per node."""
     databases = [n["name"] for n in scenario.nodes if n.get("role") == DATABASE_ROLE]
+    created = {n["name"]: model.node_data_file_creates(Path(scenario.dir), n)
+               for n in scenario.nodes if n["name"] in databases}
     roles_of = {}
 
     def add(db, role):
@@ -278,13 +318,20 @@ def password_plan(scenario, impl):
         for conn in localimpl.schedule_connections(scenario, node).values():
             role = conn.get("role")
             m = model.TARGET_RE.match(str(conn.get("target")))
-            target = m.group(1) if m else None
-            for db in [target] if target in databases else databases:
+            target, database = (m.group(1), m.group(4)) if m else (None, None)
+            holders = [db for db in databases
+                       if created[db] is not None and database in created[db].databases]
+            for db in [target] if target in databases else holders or databases:
                 add(db, role)
     for node in scenario.nodes:
         if node.get("role") != DATABASE_ROLE:
             continue
         for role in localimpl.crontab_roles(node):
+            add(node["name"], role)
+    for node in scenario.nodes:
+        if node.get("role") != DATABASE_ROLE:
+            continue
+        for role in localimpl.data_login_roles(scenario, node):
             add(node["name"], role)
     return [(db, [(r, localimpl.role_secret_name(r)) for r in roles_of[db]])
             for db in databases if db in roles_of]
@@ -492,10 +539,11 @@ def game_secret_names(impl):
 
 
 def plan_mappings(node, databases, game_id, secrets):
-    """Each mapping's secret, its remote role's (8.6, 9.7: the secret a
-    schedule or a `crontab_roles` gives the role); GmError, before the
-    mappings' step runs, for a mapping naming no remote role or one the
-    game (`secrets`, its secret names) has no secret for."""
+    """Each mapping's secret, its remote role's (8.6, 9.7: every login role
+    a data file creates has one, as a role a schedule or a `crontab_roles`
+    names); GmError, before the mappings' step runs, for a mapping naming
+    no remote role or one the game (`secrets`, its secret names) has no
+    secret for."""
     for db in databases:
         for m in db.mappings:
             where = (f"{node}/{db.name}: the user mapping for {m.local_text} on server "
@@ -506,8 +554,10 @@ def plan_mappings(node, databases, game_id, secrets):
             secret = localimpl.role_secret_name(m.remote_role)
             if secret not in secrets:
                 raise GmError(f"{where} connects as {m.remote_role}, which has no secret "
-                              f"{secret} in game {game_id}: a schedule's connection or "
-                              "a node's crontab_roles must name the role")
+                              f"{secret} in game {game_id}: no data file of the scenario "
+                              f"creates {m.remote_role} as a login role (CREATE ROLE "
+                              f"{m.remote_role} LOGIN), and no schedule's connection or "
+                              "node's crontab_roles names it")
             m.secret = secret
 
 
@@ -597,6 +647,161 @@ def _redacted(text, passwords):
     return text
 
 
+# --- The pg_cron launcher's start-up failures (the noise fix) -----------------
+
+_LAUNCHER_UP = (f"EXISTS (SELECT 1 FROM pg_catalog.pg_stat_activity "
+                f"WHERE backend_type = {quote_literal(LAUNCHER)})")
+
+# Read as psql -A -t: two JSON lines, before and after the switch. Statement
+# logging off for the session (the waits pass log_min_duration_statement:
+# the GM's SQL stays out of the players' log). The wait clears the
+# statistics snapshot at each turn (a transaction reads pg_stat_activity
+# once otherwise); the switch happens only with the launcher connected and
+# a file log, and is waited for (the collector rewrites current_logfiles
+# once it has opened the new file).
+_NO_LOG = "\n".join(NO_LOG_SQL)
+LAUNCHER_SQL = f"""{_NO_LOG}
+DO $gm$
+BEGIN
+  FOR i IN 1..{LAUNCHER_WAIT * 10} LOOP
+    PERFORM pg_catalog.pg_stat_clear_snapshot();
+    EXIT WHEN {_LAUNCHER_UP};
+    PERFORM pg_catalog.pg_sleep(0.1);
+  END LOOP;
+END
+$gm$;
+SELECT pg_catalog.json_build_object(
+  'launcher', {_LAUNCHER_UP},
+  'cron_database', pg_catalog.current_setting('cron.database_name', true),
+  'data_directory', pg_catalog.current_setting('data_directory'),
+  'file', pg_catalog.pg_current_logfile('stderr'));
+DO $gm$
+DECLARE
+  before text := pg_catalog.pg_current_logfile('stderr');
+BEGIN
+  PERFORM pg_catalog.pg_stat_clear_snapshot();
+  IF before IS NULL OR NOT {_LAUNCHER_UP} THEN
+    RETURN;
+  END IF;
+  PERFORM pg_catalog.pg_rotate_logfile();
+  FOR i IN 1..{ROTATE_WAIT * 10} LOOP
+    EXIT WHEN pg_catalog.pg_current_logfile('stderr') IS DISTINCT FROM before;
+    PERFORM pg_catalog.pg_sleep(0.1);
+  END LOOP;
+END
+$gm$;
+SELECT pg_catalog.json_build_object('file', pg_catalog.pg_current_logfile('stderr'));
+"""
+
+# Run as postgres, GM_LOG_FILE the collector's file now: every other regular
+# stderr-format file of its directory naming a failed launcher is rewritten
+# without those lines, its mode and time kept (the directory's setgid keeps
+# its group), through a file renamed over it: the collector writes only the
+# new file. Prints `<file>: <lines removed>` per file rewritten.
+CLEAN_SH = r"""set -eu
+umask 027
+current=$GM_LOG_FILE
+dir=${current%/*}
+exited='background worker "pg_cron launcher" (PID [0-9]*) exited with exit code 1'
+for f in "$dir"/*; do
+    if [ ! -f "$f" ] || [ -L "$f" ] || [ "$f" = "$current" ]; then continue; fi
+    case $f in *.csv|*.json) continue ;; esac
+    grep -q "$exited" "$f" || continue
+    tmp=$(mktemp "$dir/.gm-clean.XXXXXX")
+    awk '
+    # The first read: each failed launcher PID, and the line of its exit.
+    FNR == NR {
+        if (match($0, /background worker "pg_cron launcher" \(PID [0-9]+\) exited with exit code 1/)) {
+            s = substr($0, RSTART, RLENGTH); sub(/.*\(PID /, "", s); sub(/\).*/, "", s)
+            last[s] = FNR
+        }
+        next
+    }
+    # The second: those lines out, each with its tab-indented continuations;
+    # a PID is read from the prefix only (before the first "<level>:  ").
+    /^\t/ { if (!drop) print; next }
+    {
+        drop = 0
+        if ($0 ~ /background worker "pg_cron launcher" \(PID [0-9]+\) exited with exit code 1/) {
+            drop = 1; next
+        }
+        head = $0; k = index(head, ":  "); if (k) head = substr(head, 1, k - 1)
+        if (match(head, /\[[0-9]+\]/)) {
+            p = substr(head, RSTART + 1, RLENGTH - 2)
+            if ((p in last) && FNR <= last[p]) { drop = 1; next }
+        }
+        print
+    }' "$f" "$f" > "$tmp"
+    before=$(wc -l < "$f")
+    after=$(wc -l < "$tmp")
+    chmod --reference="$f" "$tmp"
+    touch -r "$f" "$tmp"
+    mv -f "$tmp" "$f"
+    echo "${f##*/}: $((before - after))"
+done
+"""
+
+
+def cron_plan(surveyed):
+    """The surveyed nodes holding `pg_cron` in a database, in order."""
+    return [node for node, databases in surveyed if any(db.pg_cron for db in databases)]
+
+
+def _log_path(path, data_directory):
+    """A pg_current_logfile() answer as an absolute path (it is relative to
+    the data directory when log_directory is)."""
+    if not path or path.startswith("/"):
+        return path
+    return f"{data_directory.rstrip('/')}/{path}"
+
+
+def clean_launcher_lines(ldir, node, docker, result, timeout=None, out=print):
+    """The noise fix on one node (see the module's docstring): the launcher
+    waited for, the file log switched, the failed launchers' lines removed
+    from the closed files; into result.cleaned, or result.warnings when the
+    log cannot be separated. GmError when the launcher is not connected."""
+    run = exec_node(ldir, node, DATA_USER, stdin=LAUNCHER_SQL, timeout=timeout,
+                    docker=docker, argv=SURVEY_ARGV)
+    out(f"{node} {LAUNCHER} and the server log's switch (psql as {DATA_USER}): "
+        f"{'ok' if run.ok else f'exit {run.returncode}'}")
+    what = f"switching the server log of {node}"
+    if not run.ok:
+        raise GmError(f"{what}: psql exit {run.returncode}: {psql_error_line(run)}")
+    rows = _json_lines(run, what)
+    if len(rows) != 2 or not all(isinstance(r, dict) for r in rows):
+        raise GmError(f"{what}: unexpected psql output: {_first_line(run)}")
+    before, after = rows
+    if not before.get("launcher"):
+        raise GmError(f"the {LAUNCHER} of {node} is not connected {LAUNCHER_WAIT} s after the "
+                      f"data load (cron.database_name {before.get('cron_database')!r}: the "
+                      "data file must create it)")
+    if not before.get("file"):
+        result.cleaned.append((node, None))         # no file log: nothing a player reads
+        return
+    if after.get("file") == before.get("file"):
+        result.warnings.append(f"{node}: the server log did not switch files within "
+                               f"{ROTATE_WAIT} s ({before['file']}); its {LAUNCHER} start-up "
+                               "failures are left in it")
+        result.cleaned.append((node, []))
+        return
+    current = _log_path(after.get("file"), str(before.get("data_directory") or ""))
+    run = exec_node(ldir, node, DATA_USER, stdin=CLEAN_SH, env={"GM_LOG_FILE": current},
+                    timeout=timeout, docker=docker)
+    _print_run(out, f"{node} {LAUNCHER}'s start-up failures out of the server log "
+                    f"(sh as {DATA_USER})", run)
+    if not run.ok:
+        raise GmError(f"removing the {LAUNCHER}'s start-up failures from the server log of "
+                      f"{node}: exit {run.returncode}: {_first_line(run)}")
+    files = []
+    for line in output_lines_stdout(run):
+        name, sep, count = line.rpartition(": ")
+        if not sep or not count.strip().isdigit():
+            raise GmError(f"removing the {LAUNCHER}'s start-up failures from the server log "
+                          f"of {node}: unexpected output: {line}")
+        files.append((name, int(count)))
+    result.cleaned.append((node, files))
+
+
 @dataclass
 class LoadPlans:
     """`load-data`'s plans, read and checked before anything runs."""
@@ -644,8 +849,9 @@ def load_steps(ldir, plans, docker, result, timeout=None, out=print):
     node's data (with the psql variables), the roles' passwords, the survey
     of every database node's databases, the user mappings' passwords, the
     check role's read policy and mapping-roles function, the check role's
-    `CONNECT`; GmError at the first that fails. Also a restart's with no
-    snapshot (chunk 11, spec D176)."""
+    `CONNECT`, the `pg_cron` launcher's start-up failures out of the server
+    log; GmError at the first that fails. Also a restart's with no snapshot
+    (chunk 11, spec D176)."""
     argv = data_argv(plans.variables)
     for node, rel, path in plans.data:
         with open(path, "rb") as fh:
@@ -708,6 +914,8 @@ def load_steps(ldir, plans, docker, result, timeout=None, out=print):
             raise GmError(f"granting {CHECK_ROLE} CONNECT on the databases of {node}: "
                           f"psql exit {run.returncode}: {psql_error_line(run)}")
         result.grants.append(node)
+    for node in cron_plan(surveyed):
+        clean_launcher_lines(ldir, node, docker, result, timeout=timeout, out=out)
 
 
 # --- inject --------------------------------------------------------------------

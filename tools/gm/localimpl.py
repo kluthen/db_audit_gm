@@ -40,7 +40,10 @@ Master spec 10.3; files, names and labels fixed by capture W2-A
                          `role_<role>_password` per role a scheduler's
                          schedule names (v0.3 capture W1, items 3, 7) or
                          a node's `crontab_roles` names (v0.4 capture W1
-                         item 8), one per role per game.
+                         item 8), one per role per game; and (master spec
+                         9.7) one per login role a node's data file
+                         creates without a password of its own, mounted
+                         nowhere: load-data sets it.
 
 Every path an implementation records (`file:`) is relative to the scenario
 folder.
@@ -60,9 +63,10 @@ from pathlib import Path
 
 import yaml
 
-from .model import (CUSTOMER_TIMEZONE, POSTGRES_BRICK, POSTGRESQL_CONF, SUBSTITUTION_RE,
-                    GmError, has_scheduler_nodes, is_scheduler_node, is_seed_folder_entry,
-                    mounted_items, parse_mode, parse_size)
+from .model import (CUSTOMER_TIMEZONE, POSTGRES_BRICK, POSTGRESQL_CONF, RESERVED_DB_ROLES,
+                    SUBSTITUTION_RE, GmError, has_scheduler_nodes, is_scheduler_node,
+                    is_seed_folder_entry, mounted_items, node_data_file_creates, parse_mode,
+                    parse_size)
 
 PLATFORM = "swarm"
 STAGES = ("fitted", "rendered", "deployed", "data-loaded", "injected", "load-started",
@@ -134,6 +138,9 @@ PUBLIC_KEY_SUFFIX = ".pub"
 # A scheduler's connection secrets (v0.3 capture W1, item 7): one password
 # per role its schedule.yaml names, derived here, never declared in
 # brick.yaml; mounted root-only in each scheduler node naming the role.
+# Master spec 9.7: every login role a data file creates has one too, the
+# same name, set by load-data and mounted only where a schedule or a
+# node's crontab_roles names the role.
 ROLE_SECRET_PREFIX, ROLE_SECRET_SUFFIX = "role_", "_password"
 ROLE_SECRET_DIR = "/opt/gm/secrets"
 ROLE_SECRET_UID, ROLE_SECRET_GID, ROLE_SECRET_MODE = 0, 0, "0400"
@@ -573,6 +580,8 @@ def _derived_lengths(scenario):
             parts.append((f"_{name}_{pc['name']}", OBJECT_NAME_MAX))
         for sec in node_secret_declarations(scenario, node):
             parts.append((f"_{sec['name']}", OBJECT_NAME_MAX))
+        for role in data_login_roles(scenario, node):
+            parts.append((f"_{role_secret_name(role)}", OBJECT_NAME_MAX))
         # mounted material: any node of the topology may receive it
         for item in mounted_items(brick):
             files = item.get("files") or []
@@ -684,6 +693,19 @@ def crontab_roles(node):
     return [r for r in roles if isinstance(r, str)] if isinstance(roles, list) else []
 
 
+def data_login_roles(scenario, node):
+    """The login roles a node's data file creates with no password of their
+    own (model.data_file_creates: `CREATE ROLE ... LOGIN`, `CREATE USER`;
+    one whose statement sets `PASSWORD '...'` keeps it), in file order,
+    the game's own roles (RESERVED_DB_ROLES, pg_*) left out; [] for a node
+    with none.
+    Each has a secret `role_<role>_password`, set by load-data on the node
+    (master spec 9.7)."""
+    created = node_data_file_creates(Path(scenario.dir), node)
+    return [r for r in (created.logins if created else [])
+            if r not in RESERVED_DB_ROLES and not r.startswith("pg_")]
+
+
 def topology_roles(scenario):
     return {n.get("role") for n in scenario.nodes}
 
@@ -707,10 +729,12 @@ def node_secret_declarations(scenario, node):
 
 def game_secrets(scenario):
     """`(secrets, problems)`: the game's secrets, one per name a node
-    mounts (node_secret_declarations) in topology order, each `{"secret":
-    name, **identity, "file": file in secrets/}`, and what refuses the
-    topology (capture W1, item 7): a malformed declaration, a name two
-    bricks declare differently, or a password whose file is a key pair's."""
+    mounts (node_secret_declarations) in topology order, then one per login
+    role a data file creates (data_login_roles, master spec 9.7) not among
+    them, mounted nowhere; each `{"secret": name, **identity, "file": file
+    in secrets/}`, and what refuses the topology (capture W1, item 7): a
+    malformed declaration, a name two bricks declare differently, or a
+    password whose file is a key pair's."""
     found, problems = {}, []
     for node in scenario.nodes:
         brick = scenario.bricks[node["name"]]
@@ -730,6 +754,10 @@ def game_secrets(scenario):
                         f"({_identity_text(identity)}): one name is one secret")
                 continue
             found[name] = (brick.id, identity)
+    for node in scenario.nodes:
+        for role in data_login_roles(scenario, node):
+            found.setdefault(role_secret_name(role), (
+                scenario.bricks[node["name"]].id, {"kind": PASSWORD, "handed_over": False}))
     pairs = {i["pair"] for _, i in found.values() if i["kind"] == KEY_PAIR}
     pair_files = {f: p for p in pairs for f in (p, p + PUBLIC_KEY_SUFFIX)}
     for name, (bid, identity) in found.items():

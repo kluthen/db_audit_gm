@@ -4,6 +4,14 @@
 # seeds a crontab (its role shop_etl); reporting runs pg_cron and reaches db
 # through a foreign server and bi_etl's user mapping to shop_etl. No
 # scheduler node; one seed-file fault instance (f1), as the format requires.
+# v0.4 chunk 12: governance: (data/classification.yaml, player/data-policy.md)
+# for the governance check set G1 to G4 (tools/gm/governance.sh), whose
+# baseline holds here; breaches/ holds what tools/tests/smoke-governance.sh
+# plants on a copy, one breach at a time, and the transformer node it adds
+# to that copy for G3's job path. Not part of the scenario.
+# v0.4 chunk 20: personal with `separation: instance` (spec D253), which
+# the baseline keeps (db holds shop and postgres only) and
+# breaches/g1-separation-database.sql breaks.
 
 # --- Scenario information --------------------------------------------
 id: fixture-instances
@@ -22,6 +30,25 @@ background: >-
 # `aging:` (v0.3 master spec 8; D157, D158).
 difficulty:
   score: 1                          # its one fault instance (master spec 15.1)
+
+# --- Governance (v0.4 master spec 6.9, 11) -----------------------------
+governance:
+  policy: player/data-policy.md
+  classification: data/classification.yaml
+  classes:
+    personal:
+      locations: [db/shop]
+      separation: instance          # db holds shop and postgres only (spec D253)
+      readers: [shop_app]
+      outbound:
+        - to: mail-provider
+          outbox: db/shop/mail_outbox
+          fields: [email, name, order_id]
+    customer-linked:
+      locations: [db/shop]
+      readers: [shop_app]
+    internal:
+      locations: any
 
 # --- Topology ---------------------------------------------------------
 networks:
@@ -53,6 +80,7 @@ nodes:
       README.md: player/README.md
       story.md: player/story.md
       issues.md: player/issues.md
+      data-policy.md: player/data-policy.md
     knobs: []
 
   - name: db
@@ -107,8 +135,15 @@ nodes:
               description: >-
                 One row: the customer's zone and offset, from load-data's psql
                 variables.
+            - name: customers
+              description: 20 customers (id, name, email), personal data.
             - name: orders
-              description: 200 orders (id, placed_at, total); primary key on id.
+              description: >-
+                200 orders (id, customer_id, placed_at, total); primary key on id.
+            - name: mail_outbox
+              description: >-
+                What leaves for the mail provider: 10 rows, each payload's keys email,
+                name and order_id; sent_at.
             - name: crontab_runs
               description: One row per run of the crontab entry, with the role it ran as.
 

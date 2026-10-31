@@ -8,7 +8,7 @@ from pathlib import Path
 
 import yaml
 
-from tools.gm import fit, model, render
+from tools.gm import fit, localimpl, model, render
 from tools.tests import REPO_ROOT, FIXTURES, FIXTURE_SCENARIO, ScenarioCopyTest
 
 FIXTURE_MOUNTED = FIXTURES / "fixture-mounted"
@@ -2348,6 +2348,11 @@ class TestGovernanceRefusals(V04CopyTest):
         self.classes(lambda c: c["personal"].update(separation="instance"))
         self.load()
 
+    def test_separation_refused_with_any(self):
+        self.classes(lambda c: c["internal"].update(separation="instance"))
+        self.assertRefused(f"{self.P}.internal.separation: refused with locations: any (the "
+                           "class is not restricted)")
+
     def test_policy_mapped_to_the_bastion(self):
         self.scenario_yaml(lambda d: self.node(d, "bastion")["seed_files"].pop("data-policy.md"))
         self.assertRefused("scenario.yaml: nodes[bastion].seed_files.data-policy.md: missing (a "
@@ -2404,6 +2409,24 @@ class TestFaultV04Refusals(V04CopyTest):
         self.assertIn(f"{self.L}: sealed_check.judges: never with behavioural: true", text)
         self.setUp()
         self.assertEqual(self.problems(lambda d: d["sealed_check"].update(judges="triggers")), "")
+
+    def test_state_seed_changes_materials(self):
+        """A state fault's seed_changes materials are checked as a seed-file
+        fault's (spec D254)."""
+        def state(material):
+            def change(d):
+                d["injection"].update(kind="state", stage="after-data-load",
+                                      scripts=["checks/fixed.sh"])
+                d["injection"]["seed_changes"][0]["material"] = material
+            return change
+        text = self.problems(state("inject/rollup.sql.snippet"))
+        self.assertIn("faults/fixture-copy-runs/inject/rollup.sql.snippet: missing file", text)
+        self.setUp()
+        self.assertEqual(self.problems(state("checks/probe.md")), "")
+        self.setUp()
+        self.assertEqual(self.problems(lambda d: (d["injection"].update(
+            kind="state", stage="after-data-load", scripts=["checks/fixed.sh"]),
+            d["injection"].pop("seed_changes"))), "")
 
     def test_needs_unshared_host(self):
         text = self.problems(lambda d: d.update(needs_unshared_host="yes"))
@@ -2652,6 +2675,38 @@ class TestCrontabRefusals(V04CopyTest):
         self.load()
 
 
+class TestDataSeedChange(V04CopyTest):
+    """A seed change naming `data`, the target node's data.file (master spec
+    6.3, spec D226)."""
+
+    def data_change(self):
+        self.edit_yaml("faults/fixture-random-page-cost/fault.yaml", lambda d: d["injection"][
+            "seed_changes"][0].update(file="data"))
+
+    def test_data_on_a_node_with_a_data_file(self):
+        self.data_change()
+        self.load()
+        self.setUp()
+        self.data_change()
+        self.scenario_yaml(lambda d: d["fault_instances"][0].update(node="reporting"))
+        self.load()
+
+    def test_data_refused_on_a_node_without_one(self):
+        self.data_change()
+        self.scenario_yaml(lambda d: self.node(d, "db").pop("data"))
+        missing = self.assertRefused(
+            "scenario.yaml: fault_instances[f1]: fault fixture-random-page-cost changes data, "
+            "the node's data file, but node db has none (no data.file; v0.4 master spec 6.3, "
+            "spec D226)")
+        self.assertFalse([m for m in missing if "not a seed file of brick" in m], missing)
+
+    def test_data_is_no_seed_file_name(self):
+        self.edit_yaml("faults/fixture-random-page-cost/fault.yaml", lambda d: d["injection"][
+            "seed_changes"][0].update(file="data.sql"))
+        self.assertRefused("scenario.yaml: fault_instances[f1]: fault fixture-random-page-cost "
+                           "changes data.sql, not a seed file of brick postgres")
+
+
 class TestPgCronRefusals(V04CopyTest):
     """A data file creating pg_cron (master spec 7.2; W1 item 0)."""
 
@@ -2705,6 +2760,172 @@ class TestPurposeCadence(V04CopyTest):
         text = self.purpose_problems(lambda d: d["jobs"][1].update(cadence="*/15 20-8 * * *"))
         self.assertIn("purposes/fixture-sales-copy/purpose.yaml: jobs[rollup-daytime].cadence: "
                       "'*/15 20-8 * * *': hour 20-8 is not *", text)
+
+
+# --- v0.4 chunk 13: the campaign topology (capture W3-b) ----------------------
+
+FIXTURE_CAMPAIGN = FIXTURES / "fixture-campaign"
+
+
+class TestCampaignFixture(ScenarioCopyTest):
+    """fixture-campaign (build plan chunk 13, capture W3-b of
+    specs/versions/v0.4/wave-log.md): master spec 16.1's topology with the
+    four purposes, the shop domain, governance, two instances each seeding
+    a crontab (reporting preloading pg_cron, nothing scheduled) and one
+    harmless instance f0. It loads against the repository's catalog, its
+    scheduler files are the purposes' and the domain's fragments unchanged,
+    and it fits and renders on the fake engine on armenelos alone and on
+    armenelos and the VPS declared shared, reporting on the manager."""
+
+    NODES = ["bastion", "db", "pooler", "producer", "consumer", "reporting", "bi", "crm",
+             "gateway", "prometheus", "exporter", "grafana"]
+    VPS = "vps-5718ad52"
+
+    def setUp(self):
+        super().setUp()
+        self.scenario = self.tmp / "fixture-campaign"
+        shutil.copytree(FIXTURE_CAMPAIGN, self.scenario)
+
+    def test_fixture_loads(self):
+        sc = model.load_scenario(FIXTURE_CAMPAIGN)
+        self.assertEqual(sc.id, "fixture-campaign")
+        self.assertEqual([n["name"] for n in sc.nodes], self.NODES)
+        self.assertEqual({n: (b.id, b.version) for n, b in sc.bricks.items()}, {
+            "bastion": ("bastion", "0.4.0"), "db": ("postgres", "0.4.0"),
+            "pooler": ("pgbouncer", "0.1.0"), "producer": ("scheduler", "0.2.0"),
+            "consumer": ("scheduler", "0.2.0"), "reporting": ("postgres", "0.4.0"),
+            "bi": ("scheduler", "0.2.0"), "crm": ("scheduler", "0.2.0"),
+            "gateway": ("scheduler", "0.2.0"), "prometheus": ("prometheus", "0.2.0"),
+            "exporter": ("postgres-exporter", "0.2.0"), "grafana": ("grafana", "0.2.0")})
+        self.assertTrue(all(b.source == "catalog" for b in sc.bricks.values()))
+        self.assertEqual({n["name"]: n["role"] for n in sc.nodes
+                          if n["brick"]["id"] == "scheduler"},
+                         {"producer": "producer", "consumer": "consumer", "bi": "transformer",
+                          "crm": "transformer", "gateway": "producer"})
+        self.assertEqual(sc.data["domain"], "shop")
+        self.assertEqual([p["id"] for p in sc.data["purposes"]],
+                         ["shop-sales-reporting", "shop-winback-leads", "shop-customer-mailing",
+                          "shop-export-declarations"])
+        self.assertEqual(sc.data["purposes"][0]["parts"],
+                         {"source": "db/shop", "target": "reporting/reporting", "runner": "bi",
+                          "consumer": "consumer"})
+        self.assertEqual(sc.data["purposes"][3]["parts"]["receiver"], "gateway")
+        self.assertEqual(sc.data["governance"]["classes"]["personal"]["locations"], ["db/shop"])
+        self.assertEqual(sc.data["aging"], {"minimum": "8h", "handover_at": "14:00"})
+        self.assertEqual(sc.node("db")["crontab_roles"], ["shop_refresh"])
+        self.assertEqual(sc.node("reporting")["crontab_roles"], ["bi_etl"])
+        self.assertEqual(sc.node("reporting")["resources"]["limits"]["memory"], "640M")
+        self.assertEqual(sc.node("reporting")["resources"]["reservations"]["memory"], "256M")
+        self.assertEqual(sc.node("bastion")["seed_files"]["data-policy.md"],
+                         "player/data-policy.md")
+        self.assertEqual([(i["id"], i["fault"]["id"], i["node"])
+                          for i in sc.data["fault_instances"]],
+                         [("f0", "fixture-random-page-cost", "db")])
+        placement = sc.data["designed_for"]["placement"]
+        self.assertEqual(sorted(n for n, h in placement.items() if h == "host-2"),
+                         ["bi", "gateway"])
+        self.assertEqual(placement["reporting"], "host-1")
+
+    def test_scheduler_files_are_the_fragments_unchanged(self):
+        def load(path):
+            return yaml.safe_load(path.read_text())
+        nodes = FIXTURE_CAMPAIGN / "nodes"
+        domain = REPO_ROOT / "domains" / "shop" / "producers"
+        purposes = REPO_ROOT / "purposes"
+        p1 = purposes / "shop-sales-reporting" / "material"
+        p5 = purposes / "shop-export-declarations" / "material"
+        for node, source in [("producer", domain), ("consumer", p1 / "consumer"),
+                             ("bi", p1 / "runner"), ("gateway", p5 / "receiver")]:
+            with self.subTest(node=node):
+                self.assertEqual(load(nodes / node / "schedule.yaml"),
+                                 {"intensity": 1.0, **load(source / "schedule.yaml")})
+                self.assertEqual(load(nodes / node / "queries.yaml"),
+                                 load(source / "queries.yaml"))
+                if (source / "jobs.yaml").exists():
+                    self.assertEqual(load(nodes / node / "jobs.yaml"), load(source / "jobs.yaml"))
+                else:
+                    self.assertEqual(load(nodes / node / "jobs.yaml"), {"jobs": []})
+        crm = [purposes / p / "material" / "runner" for p in
+               ("shop-winback-leads", "shop-customer-mailing", "shop-export-declarations")]
+        queries, jobs, connections = {}, [], {}
+        for runner in crm:
+            queries.update(load(runner / "queries.yaml")["queries"])
+            jobs += load(runner / "jobs.yaml")["jobs"]
+            connections.update(load(runner / "schedule.yaml")["connections"])
+        self.assertEqual(load(nodes / "crm" / "queries.yaml"), {"queries": queries})
+        self.assertEqual(load(nodes / "crm" / "jobs.yaml"), {"jobs": jobs})
+        self.assertEqual(load(nodes / "crm" / "schedule.yaml"),
+                         {"intensity": 1.0, "connections": connections, "streams": []})
+        self.assertEqual((nodes / "bi" / "scripts" / "rollup.py").read_bytes(),
+                         (p1 / "runner" / "scripts" / "rollup.py").read_bytes())
+
+    def test_data_files_are_the_domains_and_the_purposes(self):
+        data = FIXTURE_CAMPAIGN / "data"
+        shop = REPO_ROOT / "domains" / "shop" / "data"
+        self.assertEqual((data / "db.sql").read_text(),
+                         (shop / "schema.sql").read_text() + (shop / "load.sql").read_text())
+        self.assertEqual((data / "classification.yaml").read_bytes(),
+                         (shop / "classification.yaml").read_bytes())
+        target = (REPO_ROOT / "purposes" / "shop-sales-reporting" / "material" / "target"
+                  / "data.sql").read_text()
+        reporting = (data / "reporting.sql").read_text()
+        self.assertTrue(reporting.startswith(target))
+        self.assertIn("\n\\connect reporting\nCREATE EXTENSION pg_cron;\n", reporting[len(target):])
+        self.assertNotIn("cron.schedule", reporting)
+
+    def test_database_seeds(self):
+        nodes = FIXTURE_CAMPAIGN / "nodes"
+        for node in ("db", "reporting"):
+            with self.subTest(node=node):
+                hba = (nodes / node / "pg_hba.conf").read_text()
+                self.assertIn("host    all         gm_check    samenet     scram-sha-256", hba)
+                self.assertIn("host    all         all         0.0.0.0/0   scram-sha-256", hba)
+        self.assertEqual([l for l in (nodes / "db" / "crontab").read_text().splitlines()
+                          if not l.startswith("#")],
+                         ["PGPASSFILE=/run/gm-cron/pgpass",
+                          '17 * * * * psql -X -w -h /run/postgresql -U shop_refresh -d shop -c '
+                          '"REFRESH MATERIALIZED VIEW popular_products" >> '
+                          '/var/log/postgresql/cron/popular-products.log 2>&1'])
+        self.assertEqual([l for l in (nodes / "reporting" / "crontab").read_text().splitlines()
+                          if not l.startswith("#")], ["PGPASSFILE=/run/gm-cron/pgpass"])
+        conf = (nodes / "reporting" / "postgresql.conf").read_text()
+        self.assertIn("shared_preload_libraries = 'pg_stat_statements,pg_cron'\n", conf)
+        self.assertIn("cron.timezone = '{{customer_timezone}}'\n", conf)
+
+    def handover(self):
+        tomorrow = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)
+        return tomorrow.strftime("%Y-%m-%dT09:00Z")
+
+    def test_fits_and_renders_on_armenelos_alone(self):
+        result = fit.fit(self.scenario, "armenelos", cpu="12", memory="4.7G", disk="10G")
+        self.assertTrue(result.ok, result.text())
+        rendered = render.render(self.scenario, "armenelos", handover=self.handover())
+        self.assertIn("shift +5", rendered.text())
+        out = self.scenario / "local" / "armenelos" / "rendered"
+        files = sorted(str(p.relative_to(out)) for p in out.rglob("*") if p.is_file())
+        for name in ("db/crontab", "reporting/crontab", "reporting/postgresql.conf",
+                     "bi/jobs.yaml", "crm/jobs.yaml", "gateway/schedule.yaml",
+                     "bastion/README.md"):
+            self.assertIn(name, files)
+        self.assertIn("cron.timezone = 'Etc/GMT-5'",
+                      (out / "reporting" / "postgresql.conf").read_text())
+        self.assertIn("\n17 * * * * psql", (out / "db" / "crontab").read_text())
+
+    def test_fits_and_renders_on_armenelos_and_the_vps_declared_shared(self):
+        from tools.tests.test_render import MANAGER, two_host_engine
+        hosts = [f"{MANAGER},manager,cpu=12,memory=4.7G,disk=10G",
+                 f"{self.VPS},shared,endpoint=ssh://dbagm-vps,cpu=2,memory=1G,disk=8G"]
+        result = fit.fit(self.scenario, "duo", hosts=hosts,
+                         mapping=[f"host-1={MANAGER}", f"host-2={self.VPS}"],
+                         docker=two_host_engine())
+        self.assertTrue(result.ok, result.text())
+        impl = localimpl.read_implementation(self.scenario / "local" / "duo")
+        placed = {n: node["host"] for n, node in impl["nodes"].items()}
+        self.assertEqual(sorted(n for n, h in placed.items() if h == self.VPS), ["bi", "gateway"])
+        self.assertEqual(placed["reporting"], MANAGER)
+        render.render(self.scenario, "duo", handover=self.handover())
+        stack = (self.scenario / "local" / "duo" / "stack.yml").read_text()
+        self.assertIn(f"node.hostname == {self.VPS}", stack)
 
 
 if __name__ == "__main__":

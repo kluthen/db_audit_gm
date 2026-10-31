@@ -1,0 +1,20 @@
+# Schedule of fixture-campaign's crm node (tools/tests, v0.4 chunk 13;
+# capture W3-b item 4), in scenario time: copied unchanged from
+#   purposes/shop-winback-leads/material/runner/schedule.yaml,
+#   purposes/shop-customer-mailing/material/runner/schedule.yaml,
+#   purposes/shop-export-declarations/material/runner/schedule.yaml.
+# The two fragments' shop_crm connection kept once; the scenario's intensity
+# added; no stream (a transformer runs jobs only), no timeline.
+intensity: 1.0
+connections:
+  shop_crm:                    # P2 and P3: the win-back extraction and the mailing
+    driver: sql/postgresql
+    target: db:5432/shop
+    role: shop_crm
+    pool: {size: 1}
+  shop_customs:                # P5: the declarations and the escalations
+    driver: sql/postgresql
+    target: db:5432/shop
+    role: shop_customs
+    pool: {size: 1}
+streams: []
