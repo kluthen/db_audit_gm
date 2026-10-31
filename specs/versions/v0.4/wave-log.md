@@ -2122,6 +2122,17 @@ Options for the owner at the wave report: `cron.database_name =
 loader rule; no noise), a restart step in `load-data`, or documenting the
 pre-load lines in `postgres`' `gm.md` and `player.md`.
 
+### Bastion keepalive fix — merged (fa21677, 37f905f), 2026-10-31
+
+`ServerAliveInterval 60` in the bastion's `gm-game.conf` (`Host * !*.*`,
+in-game names only); `docs/gm.md` says why; the stack test checks `ssh -G
+db` as player (90/0). No node-side `ClientAliveInterval` needed (the
+client's in-channel requests carry traffic both ways). Players' `psql`:
+nothing added, the bastion ships no file libpq reads by default; `psql`
+reconnects on its own (a `SetEnv PGOPTIONS=-c tcp_keepalives_idle=300`
+was possible, not taken: a GUC visible in players' sessions for little
+gain). Unit suite 828 OK. `bastion` stays 0.4.0.
+
 ### Dispatched, 2026-10-31
 
 - `coding-executor`: the idle-session fix (scheduler; `pg_cron` launcher
