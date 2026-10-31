@@ -2089,6 +2089,18 @@ read from the scenario's own data file; a role created only by a seed
 change's copy would need reading from the copy (f9 doesn't).
 For chunk 18: `gmctl.md` 143–147 and 201–208 state the old, narrower rule.
 
+### Dispatched, 2026-10-31
+
+- `coding-executor`: the idle-session fix (scheduler; `pg_cron` launcher
+  assessed), branch `v0.4-fix-idle`, its own commit, merged into `v0.4-w3`.
+- Chunk 14 (14a, then 14b), branch `v0.4-c14-purpose-faults`.
+- Chunk 15a, branch `v0.4-c15-db-faults`; 15b dispatched once the host
+  can be held alone (no other game deployed, the VPS drained).
+- Both chunk briefs: W3-b; chunk 10's and 11's notes; D226 (15a), D228
+  (14), D229, D230 (15a), D231; the secrets rule; the idle-session defect
+  (merge `v0.4-w3` in before deploying once the fix lands); at most two
+  `fixture-campaign` games on armenelos at once.
+
 ### Chunk 13 — merged (a550257), 2026-10-31
 
 The finisher merged `v0.4-w3` in (65ffc3c), ran the unit suite (813 OK

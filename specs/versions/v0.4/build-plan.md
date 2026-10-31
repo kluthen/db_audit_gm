@@ -147,7 +147,7 @@ with the owner's ruling of spec D221, during wave 1.
 |---|---|---|---|
 | 1 | 1, 2, 3, 4, 5, 19 | G1 (done); G2 (chunk 1, done); G3, G4; G5 (chunk 4); G12, G13 (chunk 19); G6 before its gate | gated (2026-10-30, 4064719) |
 | 2 | 6, 7, 8, 9, 10, 11 | wave 1; G8, G9 (done); G7 (the gate's two-host run) | gated (2026-10-30, f35dd40) |
-| 3 | 12, 13, 14, 15 | wave 2; G10 (chunk 15's f10 half, done) | planned |
+| 3 | 12, 13, 14, 15 | wave 2; G10 (chunk 15's f10 half, done) | in progress |
 | 4 | 16, 17, 18 | wave 3; G7 (chunk 17's two-host runs) | planned |
 
 ```
@@ -979,7 +979,7 @@ Record: dc21692, merge a550257 (one commit). Deployed on armenelos at shift +3 w
 
 ### Chunk 14 — The purpose faults f1 to f5 and f8
 
-Status: planned
+Status: in progress (w3)
 Wave: 3
 Depends on: chunks 2, 7, 8, 10, 11; chunk 13 (in-wave, W3-b), merged into
 `v0.4-w3` before this chunk's branch is cut
@@ -1014,7 +1014,7 @@ W3-c, for chunk 16.
 
 ### Chunk 15 — The database-node faults f6, f7, f9 and f10
 
-Status: planned
+Status: in progress (w3, 15a; 15b after it, the host held alone)
 Wave: 3
 Depends on: chunks 4, 6, 7, 9, 10; chunks 12 and 13 (in-wave, W3-a,
 W3-b), merged into `v0.4-w3` before this chunk's branch is cut; G10 for
