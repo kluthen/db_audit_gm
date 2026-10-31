@@ -1,0 +1,178 @@
+# Catalog fault: a heavy transformation run from a database node's crontab,
+# which a one-off backfill drove past the node's memory once during the
+# aging (v0.4 master spec 16.2, 16.3, f10 of 16.1; spec D209, D213, D227).
+# Planted in two parts: from T0, seed changes of the node's data file (the
+# roll-up, its tables, its request table) and crontab (its nightly entry);
+# during the aging, a state change, the backfill request. The entry's next
+# run takes the request, its backend grows past the node's memory with swap
+# and the kernel kills it; PostgreSQL recovers by itself. The incident
+# happens for real, once, and is judged by the players' report: report
+# only, whatever the node's write policy. Its node must never share a host
+# with other applications.
+#
+# A state fault that also seeds files: injection.kind is state (it is
+# planted later than T0, by gmctl inject --at), and its seed_changes are in
+# the scenario's copies from the data load (16.1: "seed-file at T0, state
+# at handover-12h").
+
+# --- Identity ---------------------------------------------------------
+id: purpose-heavy-job-on-database-node
+version: 0.1.0
+title: a heavy roll-up in the database node's crontab exhausted its memory once, and the server restarted itself
+family: data-flow
+severity: high
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: postgres
+      versions: ["0.4.0"]           # the cron daemon, gm-crontab and the backends' OOM score are
+                                    # 0.4.0's (master spec 7.2)
+  preconditions:
+    - >-
+      the node's data file holds the sales reporting purpose's target part
+      (schema rpt with rpt.etl_runs, the foreign server to the source and
+      src.order_lines, src.products, the loader bi_etl and its user mapping),
+      which the seed change builds on
+    - >-
+      the node seeds a crontab and names the loader in its crontab_roles, so
+      the password file holds its line
+    - >-
+      the node's memory limit is sized so that a normal run's memory.peak
+      stays under half of it and the backfill's window needs more than twice
+      it (Swarm gives a swap equal to the limit): measured on the scenario
+      (master spec 16.3; 640M for the first v0.4 scenario, spec D227)
+    - >-
+      this node's seed postgresql.conf keeps the server log in
+      /var/log/postgresql (postgresql-*.log, log_line_prefix starting with
+      %t, log_timezone UTC) and English messages: the check reads the kill
+      and the recovery there
+needs_unshared_host: true           # the backfill thrashes the host's swap before the kill
+                                    # (master spec 13.3)
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 30m                      # counted from the entry's first run after planting (spec
+                                    # D189): the kill comes within seconds to minutes of its
+                                    # start, the recovery within seconds; the scenario raises
+                                    # the instance's aging_minimum to that run's offset from T0
+                                    # plus this
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  database:
+    description: the node's database holding the roll-up, its request table and the ledger
+    default: reporting
+    required: false
+  days:
+    description: >-
+      the backfill request's window in days: one whose rows need more than
+      twice the node's memory limit in the roll-up's backend (the thirty-day
+      request reads the first v0.4 scenario's whole history, G10)
+    default: 30
+    required: false
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: state
+  stage: after-data-load
+  seed_changes:                     # in the scenario's copies from T0 (16.1)
+    - file: data
+      change: >-
+        after the sales reporting purpose's material: the foreign table
+        src.sales_detail_orders over the source's orders with updated_at (the
+        close's src.orders keeps the close's columns), the request table
+        rpt.sales_detail_backfills, the document table rpt.sales_detail, and
+        the procedure rpt.sales_detail_rollup(), which builds every order
+        changed in its window into one jsonb_agg, executable by the loader
+      material: inject/sales_detail_rollup.sql.snippet
+    - file: crontab
+      change: >-
+        under the PGPASSFILE line, the nightly entry at 03:00 scenario time
+        calling the procedure with psql as the loader over the local socket,
+        its output appended to /var/log/postgresql/cron/sales-detail-rollup.log
+      material: inject/crontab.snippet
+  scripts:
+    - inject/10-backfill-request.sh
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: node
+    source: the server log at the incident's time
+    how: >-
+      grep -h -A1 -E 'terminated by signal 9|terminating any other|reinitializing|automatic
+      recovery|ready to accept' /var/log/postgresql/postgresql-*.log
+    shows: >-
+      a client backend running CALL rpt.sales_detail_rollup() killed by signal 9
+      at the entry's minute, every other process ended, the automatic
+      recovery and connections accepted again seconds later
+  - where: report:pgbadger
+    source: pgBadger's report over the server log
+    how: pgbadger /var/log/postgresql/postgresql-*.log -o ~/report.html
+    shows: the kill and the restart among the events of the night
+  - where: node
+    source: the node's cgroup
+    how: cat /sys/fs/cgroup/memory.events /sys/fs/cgroup/memory.peak /sys/fs/cgroup/memory.max
+    shows: oom_kill 1, and a memory.peak at the limit
+  - where: node
+    source: the statistics' reset times
+    how: >-
+      psql -d postgres -c 'SELECT stats_reset FROM pg_stat_statements_info'
+      -c 'SELECT stats_reset FROM pg_stat_checkpointer' -c 'SELECT pg_postmaster_start_time()'
+    shows: >-
+      the query and checkpoint statistics reset at the incident's second,
+      while the postmaster's start time is the node's first start
+  - where: node
+    source: the job's log, its ledger and the request
+    how: >-
+      tail /var/log/postgresql/cron/sales-detail-rollup.log; psql -d {DATABASE} -c "SELECT
+      * FROM rpt.etl_runs WHERE job = 'sales-detail-rollup'" -c 'SELECT * FROM
+      rpt.sales_detail_backfills'
+    shows: >-
+      the connection lost at that run, a run with no end in the ledger, and
+      the {DAYS}-day request taken and never done
+  - where: node
+    source: postgres's crontab
+    how: sudo gm-crontab -l
+    shows: the agency's heavy roll-up scheduled on the database node itself
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report                    # report only, whatever the write policy (master spec 16.3)
+    write_policies: [report-only, fixable]
+acceptance:
+  diagnosis: >-
+    names the incident (the night and minute, the roll-up's backend killed
+    by the kernel for memory, PostgreSQL ending every session and recovering
+    by itself within seconds), its cause (the {DAYS}-day backfill request
+    taken by the roll-up, whose single aggregate holds the whole window in
+    the database node's backend, at the node's memory limit), and the
+    recommendation: move the transformation's computation off the database
+    node, to a transformer node sized for it that reads the window in
+    batches, and bound backfills. Moving only the schedule (another hour, or
+    the same CALL from another node) leaves the computation in this node's
+    backend and is not the recommendation.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root                      # an incident check (master spec 12.7): 1 while the kill and
+                                    # the recovery are in the log since the planting, never 0 or 3
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  Our reporting agency says the reporting database restarted itself one
+  night this week and that it is fine now. Is it? Tell us what happened
+  and what should change.

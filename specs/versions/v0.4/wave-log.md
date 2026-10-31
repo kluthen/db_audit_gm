@@ -2122,6 +2122,27 @@ Options for the owner at the wave report: `cron.database_name =
 loader rule; no noise), a restart step in `load-data`, or documenting the
 pre-load lines in `postgres`' `gm.md` and `player.md`.
 
+### `pg_cron` pre-load noise — fixed, merged (54bc74a, merge 900807d), 2026-10-31
+
+`coding-leader`, per the owner's ruling. A last `load-data` step on every
+`database` node whose survey finds `pg_cron`: wait up to 60 s for the
+launcher (else `load-data` fails), switch the server log
+(`pg_rotate_logfile()`, statement logging off), then in the closed files
+remove each `pg_cron launcher … exited with exit code 1` line and the lines
+its PID logged before it (by the brick's `[%p]` prefix). No file log: a
+skip; no switch: left as is with a `warning:`. Restart-after-load ruled out
+(pg_cron refuses to load without the preload; lines already written stay);
+`cron.database_name = 'postgres'` ruled out (changes 7.2/14's loader rule,
+f9, G3). Unit suite 846 OK merged (15 new tests in `test_inject.py`).
+`fixture-campaign` deployed twice on armenelos alone: 58 and 54 lines
+removed, then 0 such lines in all of `reporting`'s logs and
+`docker service logs`; other pre-load lines byte-identical; launcher
+connected; `db` untouched. `smoke-governance.sh`: 115/0. Docs:
+`gmctl.md`'s `load-data`, `postgres` `gm.md`; `postgres` stays 0.4.0.
+Risks: relies on `[%p]` in `log_line_prefix`; a fixed `log_filename`
+leaves the noise with a warning; players see a second log file from
+`load-data`. The new step to `spec-writer` to record (master spec 13/14).
+
 ### Owner rulings on G10 and O140, 2026-10-31
 
 - **G10 (f10 at 640M): "Accept 327 as is".** The normal run's 327 MiB

@@ -63,6 +63,9 @@ runner (both entries) and `sudo gm-reload-scheduler`. The producer path
 repository override and reload) stops new drift but leaves the flags of
 everyone who withdrew since T0: the jobs keep extracting and mailing
 them until the flags are repaired, and the check keeps reading present.
+The producer path, with the drifted flags repaired, is a fix dated with
+`gmctl check --since <the repair's UTC time>` (D244): the repair is made
+outside the runner, so no reload raises the judged moment.
 
 **Sealed check.** L2 and M2 together, adapted from the purposes'
 `checks/l2-consented.sh` and `checks/m2-consent.sh`; on the runner, as
