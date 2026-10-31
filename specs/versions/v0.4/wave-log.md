@@ -2026,3 +2026,29 @@ reads as "but one harmless instance" (W3-b item 5), and its done-when's
 "the `pg_cron` job and both crontabs run" as `db`'s entry running and
 `reporting`'s daemon and `pg_cron` launcher up with nothing scheduled
 (W3-b items 2 and 3); f9's job and f10's entry run on chunk 15's copies.
+
+### Captures reviewed by the driver, 2026-10-31
+
+W3-a and W3-b accepted as drafted (fba4712). On their questions:
+
+- **Question 2, `shop_reports`' secret: (a), as master spec 9.7 states
+  it** ("each login role's password is a generated secret, set by
+  `load-data`"). `load-data` as built (chunk 7, W2-x) sets one only for
+  a role a schedule or a `crontab_roles` names: the code is narrower
+  than the spec, so it is fixed to the spec on the wave branch by a
+  `coding-executor`, in its own commit, before chunk 15's branch is cut.
+  (b) is not taken: it would widen 16.1's topology (`consumer` reading
+  `db`) to work around a gap in the code. No owner ruling needed.
+- **Question 1, the game's own roles in G3**, and the `fields` example
+  (formats.md and master spec 6's `[email, name, order]` against the
+  payloads' real keys, W3-a item 7): to `spec-writer`, not blocking.
+  Chunk 12 keeps the own-roles predicate in one place, so either reading
+  is a one-line change.
+
+### Order and dispatch
+
+κ = 3. First: chunks 12 and 13 (no shared file), and the `load-data`
+secrets fix (`tools/gm/`, no file of chunk 12's or 13's). Chunk 14 is
+cut once chunk 13 has merged; chunk 15 once chunks 12, 13 and the fix
+have merged (15a, then 15b, which holds the host lock alone on
+armenelos, the VPS drained).
