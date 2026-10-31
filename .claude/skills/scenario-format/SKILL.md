@@ -730,7 +730,8 @@ and `docs/gm.md`. In particular:
 
 - **Bricks.** Any change to a brick bumps its version, whatever part of
   its folder changes (image, `brick.yaml`, validator, documentation,
-  companion material), even with a byte-identical image. A change made
+  companion material), even with a byte-identical image; only a change
+  confined to the brick's tests (`tests/`) bumps nothing. A change made
   while the new version is unreleased folds into it. A brick version is
   released only when the release gate of the version that builds it
   passes; a build wave merging into `main` releases nothing (D100). New

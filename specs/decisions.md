@@ -323,3 +323,12 @@ drafting. Take the next number from `doc-ids`; no ID is reused.
   grace each.** Read literally, 10.4's own quarter-hour job could not meet
   "an incident within 30 minutes of sending". Now in:
   [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 10.4, 12.4.
+- **D229 (2026-10-31, owner ruling, relayed by the wave driver): A
+  change confined to a brick's tests (`bricks/<brick>/tests/`) does not
+  bump the brick's version; a change to any other part of its folder
+  still does.** The tests are not what a scenario pins or a player
+  meets. Confirms the precedents a1ceac5 (v0.2, prometheus' stack test)
+  and 906c693 (v0.4 wave 1 gate, three stack tests), flagged in
+  [versions/v0.4/wave-log.md](versions/v0.4/wave-log.md) "Wave 1 gate"
+  and "Wave 2 report to the owner". Now in: [formats.md](formats.md)
+  "Versions and pins"; the `scenario-format` skill.

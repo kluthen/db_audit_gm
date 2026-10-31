@@ -7,17 +7,18 @@
 # GM's host tool (tools/gmctl, Debian's python3 and python3-yaml). Versions
 # below are those in the images built from this branch (dpkg-query inside
 # each image, 2026-10-26; postgres 0.4.0, bastion 0.4.0 and scheduler 0.2.0
-# re-checked 2026-10-30); Debian package versions carry backported fixes,
+# re-checked 2026-10-30; pgbadger in postgres
+# 0.4.0 resolved 2026-10-31); Debian package versions carry backported fixes,
 # so an NVD match on one is settled by the Debian security tracker.
 schema = 1
-updated = 2026-10-30
+updated = 2026-10-31
 
 [stack]
 languages = ["Python 3.13", "POSIX shell"]
 runtime = ["Docker Engine 29 (swarm mode)", "s6-overlay 3.2", "cron 3.0pl1 (Debian, postgres brick)"]
 base_image = ["debian:13-slim (Debian 13.7 trixie)"]
 data = ["PostgreSQL 18 (PGDG)", "pg_cron 1.6 (PGDG)", "PgBouncer 1.26 (PGDG)"]
-monitoring = ["Prometheus 3.13", "postgres_exporter 0.20", "Grafana 13.2"]
+monitoring = ["Prometheus 3.13", "postgres_exporter 0.20", "Grafana 13.2", "pgBadger 13.2 (PGDG, postgres brick)"]
 bricks = ["postgres 0.4.0", "bastion 0.4.0", "prometheus 0.2.0", "postgres-exporter 0.2.0", "grafana 0.2.0", "scheduler 0.2.0", "pgbouncer 0.1.0"]
 rendering = ["cmark-gfm 0.29 (Debian, bastion starter-pack page)"]
 lockfiles = []                 # none: the GM tool uses only Debian's python3-yaml
@@ -95,6 +96,11 @@ source = "bricks/postgres/Dockerfile ARG PG_CRON_PACKAGE=1.6.8-1.pgdg13+2 (PGDG 
 name = "cron (Debian, postgres brick)"
 version = "3.0pl1-197"
 source = "Debian cron and cron-daemon-common 3.0pl1-197 in postgres 0.4.0 (apt, unpinned; gate G5). Debian's own Vixie cron fork, versioned by its Debian revision: no CPE fits (none for vixie cron on NVD, checked 2026-10-30; NVD's 3.0 hits such as CVE-2019-9706 are fixed in 3.0pl1-133). The Debian tracker's source package cron is the watch (no open issue in trixie as of 2026-10-30)"
+
+[[platform]]
+name = "pgBadger (PostgreSQL log analyser, postgres brick)"
+version = "13.2"
+source = "PGDG pgbadger 13.2-1.pgdg13+1 in postgres 0.4.0 (bricks/postgres/Dockerfile, apt, unpinned, installed with postgresql-${PG_MAJOR}; build asserts pgbadger --version), in the image since 0.3.0; Perl script on Debian perl 5.40.1-6+deb13u1. Players run it by hand on the file log, writing HTML reports in their home (brick.yaml report_tools); no daemon, no listener. No CPE exists on NVD and NVD has no CVE mentioning pgbadger (checked 2026-10-31); no OSV record (Debian:13 query clean), no GitHub advisory and no SECURITY.md on github.com/darold/pgbadger, no issue on the Debian tracker's source package pgbadger. 13.2 (2025-12-29) is upstream's latest release. Watch: darold/pgbadger releases and the Debian tracker"
 
 [[platform]]
 name = "cmark-gfm (bastion starter-pack page)"
