@@ -2089,6 +2089,39 @@ read from the scenario's own data file; a role created only by a seed
 change's copy would need reading from the copy (f9 doesn't).
 For chunk 18: `gmctl.md` 143–147 and 201–208 state the old, narrower rule.
 
+### Idle-session fix — merged (047328a, ee6cb21), 2026-10-31
+
+Confirmed by a throwaway stack: a session without keepalives idle 840 s
+survives, at 960 s some die (08006, the server still `idle`, nothing
+logged); libpq's default first probe is the kernel's 7200 s. Fix: the
+scheduler's driver sets `keepalives=1`, `keepalives_idle=300`,
+`keepalives_interval=30`, `keepalives_count=3` on every session and on
+transformer scripts' connections; no retry, nothing stated changes;
+`docs/gm.md` says why; a unit test reads the options off the sockets.
+Unit suite 828 OK; scheduler unit tests 72 OK; image rebuilt; stack test
+133/0; after the fix 8 of 8 sessions survive 960 s. Scheduler stays
+0.2.0. Chunks 14 and 15a told to merge `v0.4-w3` in before deploying.
+
+Survey of other long-lived connections through a service address: PgBouncer
+→ `db` closes idle server connections at 600 s (safe); Prometheus,
+Grafana, the exporter scraped every 15 s (safe while scraped);
+`reporting`'s postgres_fdw link to `db` exposed at the network level,
+probably reconnected by PostgreSQL 14+ (untested; chunk 15a told to
+report a lost fdw link); **the bastion's inner SSH hop and players'
+`psql` from the bastion are exposed**: an idle player session over 15
+minutes may hang (no `ServerAliveInterval`). Proposed: `ServerAliveInterval
+60` in the bastion's `gm-game.conf` (sent to a `coding-executor`);
+optionally keepalive options on the data files' `CREATE SERVER`, or one
+render-level `sysctls` for every service (render and spec change; for
+`spec-writer` at the milestone, not now).
+
+`pg_cron` launcher noise: not built. Every brick-only fix changes
+`load-data`'s steps or the data-file contract (master spec 7.2, 14).
+Options for the owner at the wave report: `cron.database_name =
+'postgres'` with `cron.schedule_in_database(…, 'reporting')` (relaxes a
+loader rule; no noise), a restart step in `load-data`, or documenting the
+pre-load lines in `postgres`' `gm.md` and `player.md`.
+
 ### Dispatched, 2026-10-31
 
 - `coding-executor`: the idle-session fix (scheduler; `pg_cron` launcher
