@@ -1733,3 +1733,296 @@ For wave 2: the 640M margins are estimates until 15b (above); R1 and R3
 read 3 for the rest of a 14:00 hand-over game (chunk 10). The owner said
 "we'll stop after this wave": wave 3 waits for his word.
 Owner, 2026-10-31: a test-only brick change bumps nothing (D229, formats.md); `pgbadger` goes into `.tech`, added by security-advisor on his word.
+
+## Wave 3 — started 2026-10-31
+
+Chunks 12, 13, 14, 15. `v0.4-w3` cut from `main` at 62de2f2, worktree
+`/home/bastien/work/db_audit_gm-wt/v0.4-w3`. No intent or data register:
+no preflight. No new dependency named by any wave 3 chunk.
+
+### Gates checked at the start
+
+- **G3** (hand check): Debian trixie, PGDG trixie-pgdg and the s6-overlay releases answer 200.
+- **G4** (hand check): armenelos `Ready Active Leader`; `vps-5718ad52` `Ready Drain`.
+- G10 done (spec D227). G7 is not needed in wave 3 (no two-host run in its chunks; the gate's two-host `smoke-load.sh` repeats it).
+- Host: 10 GB free on `/`, 4.7 GiB of memory available, 3.1 GiB of swap in use; running: `ollama`, `llmward-homepage`, `llmward-dlp-metrics`.
+
+### Capture W3-a — the governance check set (chunk 12; read by 15)
+
+Recorded 2026-10-31, before any wave 3 code, from chunk 12's capture
+line, [master-spec.md](master-spec.md) 6.5, 11.4 to 11.7, 12, 14, 18
+(item 4), [access-model.md](access-model.md) 8 and 9.3, W1 items 0 and
+1, W1-x, W1-y, W2-x, and `tools/gm/{checks,execnode,inject,model}.py` on
+`v0.4-w3` at 62de2f2. W1's rules hold: the spec cited, not restated;
+**(choice)** a point settled here; chunk internals (the SQL) left out.
+
+**1. Home and delivery** (12 writes; 15 reads)
+
+- `tools/gm/governance.sh`: POSIX shell defining functions only (nothing
+  runs or is set at its top level, no `exit`), its SQL inside; and
+  `tools/gm/governance.py`, building the rules (item 3) and the text
+  sent. **(choice)** Shipped as checks already reach a node: `gmctl
+  check` streams a check's text into `sh -s` on its instance's node
+  (`check_plan`, `exec_node`), and nothing else of the GM's is there at
+  check time. No brick change, mount or verb; a brick helper would need
+  images rebuilt and the rules from the GM all the same.
+- `check_plan`: when a fault's `sealed_check.script` contains
+  `check_governance`, the text sent is `governance.sh`, a newline, then
+  the script, and the environment gains `CHECK_GOVERNANCE`; in a scenario
+  without `governance:` the check is refused before anything runs.
+  **(choice)** The call is the declaration: no `fault.yaml` key (no
+  template or loader change), every other check sent byte for byte as
+  today. The early and hand-over checks pass through it too.
+
+**2. The call** (12 writes; 15 reads): `out=$(check_governance G1 G3); rc=$?`
+
+- One or more of `G1` `G2` `G3` `G4`, each once, run in the order given.
+  It `return`s, never exits the caller, and writes standard output only.
+- G1, G2, G3's catalog paths and G4 run on a `database` node, G3's
+  transformer-job path on a `transformer` node, anything else returns 2;
+  the node knows itself by `hostname` (render's `hostname: <node>`).
+  **(choice)** A check runs on its instance's node only (12), and access
+  model 8 lets it read a runner's `jobs.yaml` and schedule "on their own
+  node". f9's check, on `reporting`, gets the catalog paths (foreign
+  tables, mappings, definer owners, `pg_cron` jobs, on every instance),
+  which hold its breaches; the baseline proof (item 6) runs both.
+
+**3. What it reads**
+
+| Input | From | By |
+|---|---|---|
+| `governance:`, the classification | the scenario folder, on the GM's host, at each check run | `governance.py` (`model.load_scenario`), into `CHECK_GOVERNANCE` |
+| catalogs | every database (`datallowconn`, not a template) of every `database` node | `check-psql` as `gm_check`, local on its own node, `--node <node>` for the others (W1-x) |
+| mappings' remote roles; `pg_cron` jobs | each database holding a server; the one holding the extension | `gm_check.user_mapping_roles()`; `cron.job` through `gm_check_read` (W2-x) |
+| privileges (G2); outbox rows (G4) | the instance holding the column; each flow's `outbox` (W1 item 1) | `has_column_privilege`; `check-psql` |
+| a runner's jobs | its `jobs.yaml` and schedule at the paths `/etc/scheduler/scheduler.yaml` names (`jobs`, `schedule_seed`) | the node's `python3`, as root; G2 on each connection's database through `check-sql` |
+
+**(choice)** `CHECK_GOVERNANCE`: one line of JSON, keys sorted:
+`classes` (`governance.classes` as written, every class of the closed
+list, a missing `internal` as `{"locations": "any"}`), `columns` (the
+classification's entries but `internal`), `database_nodes`,
+`transformer_nodes` (topology order), `own_roles`
+(`model.RESERVED_DB_ROLES`, 11.6's list). Reason: the environment is how
+`gmctl` hands a check its values (`FAULT_*`, `CHECK_SINCE`), root's alone
+on the node; the text stays code; PostgreSQL parses it (`jsonb`), not
+the shell.
+
+**4. Readings 11.6 leaves open** (12 writes; 15 relies on G1, G3)
+
+- **G1, a foreign table**: the remote key `<the server's
+  dbname>.<table_name, else its own name>.<column_name, else the
+  column's>`, when `schema_name` is `public` or unset (W1 item 0).
+  **(choice)** What PostgreSQL itself uses, readable by `gm_check`.
+- **G1, a copy by name**: table and column names alone, any schema or
+  database (`rpt.customers.email` is `personal`), the strictest class on
+  a clash. **(choice)** A copy is elsewhere by definition, often in `rpt`.
+- **G1, the probe**: `personal` only, tables and materialized views (not
+  views, not foreign tables) of the databases it may not live in,
+  text-typed columns, one e-mail-shaped value enough. **(choice)** A view
+  or foreign table shows data held elsewhere, which the name and remote
+  rules judge; `gm_check` has no mapping to read one.
+- **Every walk** leaves out `pg_catalog`, `information_schema`, toast
+  schemas, extension-owned schemas (`cron`) and `gm_check`. **(choice)**
+  The game's and extensions' own objects, as the game's roles are.
+- **G2**: login roles not in `own_roles` and not `pg_*`, on the instance
+  holding each column G1 classes there.
+- **G4**: rows whose `sent_at` is after `CHECK_SINCE`, the top-level keys
+  of their `payload` against the flow's `fields`. **(choice)** Both
+  outboxes' columns (9.6); nested keys are E3's and M4's. A scenario's
+  `fields` are therefore the payloads' keys (W3-b item 4), so the
+  baseline passes (18 item 4); 6.9's and access model 9.3's `[email,
+  name, order]` are the policy's words (for `spec-writer` at the archive).
+
+**5. Return status and output** (12 writes; 15 reads)
+
+- 0 every rule named holds; 1 one is broken; 2 it cannot judge (no or
+  bad `CHECK_GOVERNANCE`, an unknown or repeated rule, a rule this node
+  cannot run, a node unreachable, G4 without `CHECK_SINCE`, the
+  mapping-roles function or `gm_check_read` gone: W2-x); 3 for G4 only,
+  nothing broken but an outbox with no row since `CHECK_SINCE`. Combined
+  as `gmctl check` does: 2, else 1, else 3, else 0. **(choice)** G1 to G3
+  never 3 (11.6); G4's 3 is the set's, not a sealed check's, since a
+  database node cannot know the outbox job's next run: a caller judging
+  runs answers 3 with its own `remaining=`. No v0.4 fault calls G4.
+- The first line is one sentence a caller reuses as its own: the first
+  breach (`G1: reporting/reporting <schema>.<table>.<column> holds
+  personal data (remote shop.customers.email), allowed only in
+  db/shop`), or `G1, G3 hold on <n> database nodes, <m> databases`, or
+  `governance: cannot judge: <why>`; then one line per breach, `<rule>
+  <node>/<database> <object>: <why>`, at most 20 per rule.
+- So f9's check (15a): `rc` 1, the set's first line and exit 1; `rc` 0,
+  its own test that job, table, foreign table and server are gone
+  (16.2); `rc` 2 or 3, exit 2.
+
+**6. The baseline proof** (12 writes; 13's gate and 17's release-gate item 4 run it)
+
+`tools/tests/check-governance.sh <scenario-dir> <playground> [<since>]`
+runs `check_governance G1 G2 G3 G4` on the first `database` node and
+`check_governance G3` on every `transformer` node through `gmctl exec
+--user root`, `CHECK_SINCE` being `<since>` (default: an hour ago), and
+exits with item 5's combination. **(choice)** A harness script like the
+smoke scripts, not a `gmctl` verb (14 adds none).
+
+### Capture W3-b — `fixture-campaign` (chunk 13; read by 14, 15, 16)
+
+Recorded 2026-10-31, before any wave 3 code, from chunk 13's capture
+line, master spec 7.2, 8.5, 9, 10, 11.5, 13, 16.1 to 16.3, access model
+9, W1 items 0, 1 and 5 to 8, W1-x, W1-z, W2-x, chunk 10's "For wave 3's
+briefs", and on `v0.4-w3` the purposes, the shop domain,
+`tarnbeck-outdoor-shop` and `fixture-instances`. Folder
+`tools/tests/fixtures/fixture-campaign/`, seed files at
+`nodes/<node>/<file>`, one network `backend`.
+
+**1. Nodes** (16.1: bricks, roles, sizes, `reporting` 640M / 256M; "as
+v0.3" is `tarnbeck-outdoor-shop`'s)
+
+| Node | Role | Write policy | Seed files |
+|---|---|---|---|
+| `bastion` | bastion | report-only | `README.md`, `story.md`, `issues.md`, `data-policy.md` |
+| `db` | database | fixable | `postgresql.conf`, `pg_hba.conf`, `crontab`; `crontab_roles: [shop_refresh]` |
+| `pooler` | pooler | fixable | `pgbouncer.ini`, to `db:5432/shop` |
+| `producer` | producer | report-only; `write_overrides` `/srv/scheduler/repository`, `/srv/scheduler/jobs` | `queries.yaml`, `builders/`, `jobs.yaml`, `schedule.yaml` |
+| `consumer` | consumer | report-only; `/srv/scheduler/jobs` | `queries.yaml`, `jobs.yaml` (`jobs: []`), `schedule.yaml` |
+| `reporting` | database | fixable | `postgresql.conf`, `pg_hba.conf`, `crontab`; `crontab_roles: [bi_etl]` |
+| `bi` | transformer | report-only | `queries.yaml`, `scripts/`, `jobs.yaml`, `schedule.yaml` |
+| `crm` | transformer | report-only; both overrides | `queries.yaml`, `jobs.yaml`, `schedule.yaml` |
+| `gateway` | producer (W1 item 1) | report-only | `queries.yaml`, `jobs.yaml` (`jobs: []`), `schedule.yaml` |
+| `prometheus`, `exporter`, `grafana` | monitoring | as tarnbeck | as tarnbeck: `db` scraped, `reporting` not (13.4) |
+
+**2. Databases and data files**
+
+- `db`: `data/db.sql`, the domain's `schema.sql` then `load.sql`
+  unchanged (W1 item 6): database `shop` (owner `shop`), 9.7's roles on
+  `db`; P2, P3 and P5 add no DDL.
+- `reporting`: `data/reporting.sql`, P1's `material/target/data.sql`
+  unchanged, then `CREATE EXTENSION pg_cron;` on a line of its own under
+  `\connect reporting` (W1 item 0), no job: database `reporting` (owner
+  `reporting`), roles `reporting`, `bi_etl`, `bi_reader`; server
+  `shop_db` (`host 'db'`, `dbname 'shop'`), the one mapping `bi_etl` to
+  `shop_etl`, `src.orders`, `src.order_lines`, `src.products`,
+  `rpt.close_day()`. **(choice)** 16.1 to 16.3 give `reporting` one
+  `pg_cron` job, f9's, and one crontab entry, f10's, each planted by its
+  fault's `data` or `crontab` seed change (spec D226, W1 item 1).
+
+**3. The database nodes' seed configs**
+
+- `postgresql.conf`: `db` tarnbeck's; `reporting` the same form with
+  `shared_preload_libraries = 'pg_stat_statements,pg_cron'`,
+  `cron.database_name = 'reporting'`, `cron.use_background_workers =
+  on`, `cron.timezone = '{{customer_timezone}}'`, `cron.log_run = on`,
+  `cron.log_statement = on` (7.2, 8.5, 12.5). **(choice)**
+  `pg_stat_statements` there too: f10's evidence names its reset (16.3).
+- `pg_hba.conf`, both: `fixture-instances`' DO NOT TAMPER block (with
+  `host all gm_check samenet scram-sha-256`), then `local all all` and
+  `host all all 0.0.0.0/0`, `scram-sha-256` (`db` keeps tarnbeck's
+  `monitoring` line). **(choice)** One password line, as tarnbeck's
+  `db`: it admits chunk 10's list and f9's mapping to `shop_reports` from
+  `reporting` with no change on `db`, a fault's seed changes targeting
+  its own node only (16.2).
+- `db`'s crontab, exactly (W1 item 8's form; f6 rewrites the entry):
+
+  ```
+  PGPASSFILE=/run/gm-cron/pgpass
+  17 * * * * psql -X -w -h /run/postgresql -U shop_refresh -d shop -c "REFRESH MATERIALIZED VIEW popular_products" >> /var/log/postgresql/cron/popular-products.log 2>&1
+  ```
+
+  Job `popular-products`. **(choice)** Minute 17, off the five-minute
+  grid and the :05 and :20 jobs.
+- `reporting`'s crontab: the `PGPASSFILE=` line, no entry. **(choice)**
+  Its daemon runs (W1-x: the seed config's presence starts it), and
+  f10's seed change adds its 03:00 entry to a file the node seeds.
+
+**4. Connections, jobs, `purposes:`, `governance:`** (material copied
+unchanged, written for these names, W1 item 5; each schedule adds
+`intensity: 1.0`, no `timeline:`, f2's and f8's being their faults')
+
+| Node | Connection: target, role | Jobs (name, key, `at`); streams | From |
+|---|---|---|---|
+| `producer` | `app`: `pooler:6432/shop`, `shop_app` | `close-day`, `orders.close-day`, `0 12 * * *`; streams `orders.place`, `catalog.lookup`, `orders.detail`, `orders.status`, `deliveries.ingest`, `consent.unsubscribe`, `consent.subscribe` | `domains/shop/producers/` |
+| `consumer` | `dashboards`: `reporting:5432/reporting`, `bi_reader` | streams `dashboard.today`, `dashboard.revenue`, `dashboard.categories`, `dashboard.freshness` | P1 `consumer/` |
+| `bi` | `shop`: `db:5432/shop`, `shop_etl`; `reporting`: `reporting:5432/reporting`, `bi_etl` | `rollup-hourly`, `rollup.hourly` (`scripts/rollup.py:hourly`, `connections: {source: shop, target: reporting}`), `5 * * * *`; `rollup-close`, `rollup.close`, `30 1 * * *` | P1 `runner/` |
+| `crm` | `shop_crm`, `shop_customs`: `db:5432/shop`, each as its namesake | `leads-extract`, `leads.extract`, `20 * * * *`; `mail-shipped`, `mail.shipped`, `*/5 * * * *`; `mail-campaign`, `mail.campaign`, `*/15 8-20 * * *` (`shop_crm`); `declare-exports`, `declare.exports`, `*/5 * * * *`; `escalate-customs`, `escalate.customs`, `*/15 * * * *` (`shop_customs`) | P2, P3, P5 `runner/`, merged |
+| `gateway` | `customs`: `db:5432/shop`, `customs_gw` | stream `customs.acknowledge` | P5 `receiver/` |
+
+```yaml
+domain: shop
+purposes:
+  - {id: shop-sales-reporting, parts: {source: db/shop, target: reporting/reporting, runner: bi, consumer: consumer}}
+  - {id: shop-winback-leads, parts: {source: db/shop, target: db/shop, runner: crm}}
+  - {id: shop-customer-mailing, parts: {source: db/shop, target: db/shop, runner: crm}}
+  - {id: shop-export-declarations, parts: {source: db/shop, target: db/shop, runner: crm, receiver: gateway}}
+governance:
+  policy: player/data-policy.md                 # 11.5, in words
+  classification: data/classification.yaml      # the domain's, unchanged
+  classes:                                      # readers: access model 9.3
+    personal:
+      locations: [db/shop]
+      readers: [shop_app, shop_reports, shop_crm, shop_customs, customs_gw]
+      outbound:                                 # fields: the payloads' keys (W3-a item 4)
+        - {to: mail-provider, outbox: db/shop/mail_outbox,
+           fields: [name, email, order_id, shipped_at, ship_country, total, campaign]}
+        - {to: customs-gateway, outbox: db/shop/customs_outbox,
+           fields: [order_ref, consignee_name, consignee_address, destination_country,
+                    lines, total_value, currency]}
+    customer-linked: {locations: [db/shop], readers: [shop_app, shop_reports, shop_crm, shop_customs]}
+    internal: {locations: any}
+```
+
+**5. Instances, aging, placement, player files**
+
+- **(choice)** One harmless instance, `f0`: `fixture-instances`'
+  `fixture-random-page-cost` copied into `faults/`, on `db`, hidden;
+  `difficulty: {score: 1, level: easy}`; the answer key `f0` only. The
+  template refuses an empty `fault_instances` (`fixture-instances`'
+  precedent); the id leaves `f1` to `f10` to 16.1. Chunk 16 drops it.
+- `aging: {minimum: 8h, handover_at: "14:00"}`, the floor (`fixture-load`'s).
+- `designed_for`: `host-1`, the manager, every node but `bi` and
+  `gateway`, on `host-2` (16.1). **(choice)** 16.1 places only these.
+- `player/README.md`, `story.md`, `issues.md`: one-paragraph fixture
+  texts (the bastion needs all three, W1-z); no issue.
+
+**6. Planting on it** (14, 15). **(choice)** Each plants on scratch
+copies outside the repository (as v0.3's chunk 10b did), adding its
+instances with 16.1's ids, nodes and plantings, the timeline changes f2
+and f8 need and `difficulty.score`, never editing the committed fixture:
+14 and 15 run side by side sharing no file, and chunk 16 writes the ten.
+Their seed changes target `crm`'s `queries.yaml` and `jobs.yaml` (f1, f2,
+f3, f8), `bi`'s `scripts/rollup.py` (f4), `db`'s `crontab` (f6),
+`reporting`'s `data` (f7, f9, f10) and `crontab` (f10); f5 is a `state`
+change on `db`.
+
+### Questions from the captures
+
+1. **The game's own roles against "a superuser reaching everything"**
+   (W3-a; `spec-writer`). 11.6 skips `dba`, `postgres`, `gm_check`,
+   `monitoring` and PgBouncer's lookup role "by name", while G3 judges a
+   `SECURITY DEFINER` procedure "as its owner" and a `pg_cron` job by its
+   `username`, "a superuser reaching everything". (a) Skipped everywhere:
+   a job run as `postgres`, or a definer function it owns, is never a G3
+   path. (b) Skipped as readers only, the reason 11.6 gives ("who may
+   read"): a job's username or a function's owner is judged whoever it
+   is, a superuser reaching every classed column of its database. No
+   v0.4 verdict turns on it (f9's job runs as `bi_etl`; the baseline has
+   no `pg_cron` job and one definer function, in `gm_check`, left out
+   either way): chunk 12 keeps the predicate in one place. Not blocking.
+2. **`shop_reports` has no secret, so f9 cannot be planted** (W3-b, 15a;
+   the driver, then `spec-writer`). f9's mapping for `bi_etl` names
+   `shop_reports` (16.2); `load-data` sets a mapping's password only for
+   a remote role a schedule or a `crontab_roles` names, and fails the
+   setup otherwise (W2-x, `inject.password_plan`); nothing in 16.1 names
+   `shop_reports`. (a) 9.7 literally, "each login role's password is a
+   generated secret, set by `load-data`": render and `load-data` give
+   every login role a data file creates its secret, a `tools/gm` fix
+   before 15a against W2-x as built. (b) As built: the back office,
+   `shop_reports`' user in access model 9.1, also reads the shop, so
+   `consumer` gains a connection `db:5432/shop` as `shop_reports` and a
+   light stream (as tarnbeck's `reports.recent`), widening 16.1's
+   "reading `reporting`". Recommended: (b), content only and the access
+   model's own row (the agency then borrows a login in use). Needed
+   before chunk 13 merges.
+
+For `spec-writer`, no ruling needed: chunk 13's "Out: fault instances"
+reads as "but one harmless instance" (W3-b item 5), and its done-when's
+"the `pg_cron` job and both crontabs run" as `db`'s entry running and
+`reporting`'s daemon and `pg_cron` launcher up with nothing scheduled
+(W3-b items 2 and 3); f9's job and f10's entry run on chunk 15's copies.
