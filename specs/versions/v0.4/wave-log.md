@@ -2122,6 +2122,30 @@ Options for the owner at the wave report: `cron.database_name =
 loader rule; no noise), a restart step in `load-data`, or documenting the
 pre-load lines in `postgres`' `gm.md` and `player.md`.
 
+### Chunk 15b — merged (b744cca), 2026-10-31
+
+6149311 (f10; WIP 7feaca0 squashed in, `gm.md` gives the figures as
+measured with the owner's acceptance), b5f4557 (f2's "Fix path": the
+producer path with the flags repaired is a fix dated with
+`gmctl check --since`, D244). The merge is **b744cca**: the driver's
+`commit -a` for the pg_cron log entry ran while the agent's
+`merge --no-ff --no-commit` was staged, so it carries the log message;
+its parents (900807d, b5f4557) and content are the merge as tested. Left
+as is, not rewritten. Unit suite 846 OK merged; `check_fault_dir` clean
+for f10 and f2. Lesson: the driver does not commit in the wave worktree
+while a chunk agent may be merging.
+
+**Capture W3-d (f10):** `purpose-heavy-job-on-database-node` 0.1.0, family
+data-flow, node `reporting` (postgres 0.4.0), builds on P1's target part
+(a precondition, no `applies_to.purposes`). `seed_changes`: `data`
+(`inject/sales_detail_rollup.sql.snippet`, after P1's material) and
+`crontab` (`0 3 * * *` `CALL rpt.sales_detail_rollup()` as `bi_etl`,
+`crontab_roles: [bi_etl]`). State change `inject/10-backfill-request.sh`
+(one request of `days` days, idempotent) at `plant_at: handover-12h`.
+Parameters `database` (reporting), `days` (30). Aging minimum 30m from the
+entry's first run after planting. `needs_unshared_host: true`; no
+`judges`; `at_handover: 1`; resolution report only.
+
 ### `pg_cron` pre-load noise — fixed, merged (54bc74a, merge 900807d), 2026-10-31
 
 `coding-leader`, per the owner's ruling. A last `load-data` step on every

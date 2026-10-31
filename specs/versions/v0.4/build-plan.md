@@ -1026,7 +1026,7 @@ Record: 14a cd7daed, 14b 8fceabb, merge 3cc4a32 (the `postgres` Supported-faults
 
 ### Chunk 15 — The database-node faults f6, f7, f9 and f10
 
-Status: 15a merged (w3, e901230); 15b resuming (owner accepted 327 MiB, 2026-10-31; WIP 7feaca0 on v0.4-c15b-heavy-job)
+Status: merged (w3; 15a e901230, 15b b744cca)
 Wave: 3
 Depends on: chunks 4, 6, 7, 9, 10; chunks 12 and 13 (in-wave, W3-a,
 W3-b), merged into `v0.4-w3` before this chunk's branch is cut; G10 for
@@ -1099,6 +1099,7 @@ for chunk 16.
 - Split rule: 15a f6, f7, f9; 15b f10.
 
 Record: 15a 0ddfa5d, merge e901230. Differs from the text: f7's N is written at load into the data file's copy from `load-data`'s offset, not by render (render writes no data file); f7's evidence is `\sf`, not `\df+` (PostgreSQL 18); f9's planting also grants CREATE on `rpt` to `bi_etl` so the job recreates a dropped table (to `spec-writer`). Planted on armenelos (shift −8, f7 offset 3): f6, f9 1 then 0 (f9 still 1 with the table only dropped); f7 3, 1, 3, 0. 15b: Record below once run.
+Record: 15b 6149311 (f10), b5f4557 (f2's fix path, D244), merge b744cca (its message names the pg_cron fix's log entry: the driver's log commit took the staged merge). Run on armenelos alone, 2026-10-31, `reporting` 640M + swap 640M: the 30-day backfill killed after 11 s (1258 of 1280 MiB, `oom_kill` 0 → 1), recovery in 1 s, postmaster pid unchanged, check 2 → 1, next run normal, `fit` refused a shared host; a normal run's `memory.peak` 327 MiB (238 without page cache), above the half, accepted as measured by the owner (2026-10-31). f10 is a `state` fault with `seed_changes`; the roll-up reads its own foreign table `src.sales_detail_orders`; the check dates the planting from `requested_at`; PG 18's "client backend" matched; the night after a killed backfill reads 1 day (to `spec-writer`). Unit suite 846 OK merged.
 
 ### Chunk 16 — The v0.4 scenario
 
