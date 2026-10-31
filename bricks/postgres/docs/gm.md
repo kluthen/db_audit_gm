@@ -941,8 +941,9 @@ Which faults the brick hosts is stated only by each fault's `applies_to`
 (D59): a fault instance is accepted on a node when the fault's
 `applies_to` names the node's brick and version (`tools/gm/model.py`).
 This list is every catalog fault (`faults/`) whose `applies_to` names
-`postgres` `0.4.0`, and no other; all also name `0.3.0` and `0.2.0`, and all but
-`pg-stat-statements-not-preloaded` also name `0.1.0` and `0.1.1`. A scenario's
+`postgres` `0.4.0`, and no other; all but `purpose-etl-role-expired` (a v0.4
+purpose fault, `0.4.0` only) also name `0.3.0` and `0.2.0`, and all but those two
+and `pg-stat-statements-not-preloaded` also name `0.1.0` and `0.1.1`. A scenario's
 own `faults/` folder may define more for itself (the test fixture
 `tools/tests/fixtures/fixture-audit` defines two); those are the
 scenario's, not the brick's, and are not listed here.
@@ -956,6 +957,7 @@ scenario's, not the brick's, and are not listed here.
 | `pg-table-autovacuum-off` | state, after the data load | parameters `database`, `table-name`: a table the data file creates; the server-wide `autovacuum` stays `on`, so the validator stays green |
 | `pg-abandoned-replication-slot` | state, after the data load | parameter `slot-name`; no standby in the topology; a seed `postgresql.conf` that allows a physical slot (`wal_level` `replica` or above, `max_replication_slots` above 0: PostgreSQL's defaults); writes, for the retained WAL to grow |
 | `pg-stat-statements-not-preloaded` | seed file | the seed `postgresql.conf` (material `inject/postgresql.conf.snippet`) without `pg_stat_statements` in `shared_preload_libraries`, the logging settings above kept; the extension this version creates at initdb in database `postgres`; `gm-restart-db` for the fix (a reload is not enough); for its dashboard evidence, a `postgres-exporter` node with `--collector.stat_statements` |
+| `purpose-etl-role-expired` | state, during the aging | parameter `role`: the purpose's source role, a login role the data file creates, given `VALID UNTIL` the planting moment and its sessions ended; its check reads `pg_roles`, this node's server log (`postgresql-*.log`, the seed's `log_line_prefix` and UTC, English messages) and the run ledger `rpt.etl_runs` on the purpose's target instance with `check-psql --node` (`judges: runs`, R4), so that instance's `pg_hba.conf` admits `gm_check` from the game network |
 
 Every state fault's scripts run as root and query as `postgres` over the
 local socket, so they need the GM's `local all postgres peer` line in

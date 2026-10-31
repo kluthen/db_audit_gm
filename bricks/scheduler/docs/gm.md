@@ -416,6 +416,8 @@ write overrides `/srv/scheduler/repository` and `/srv/scheduler/jobs`
 | `purpose-mail-overlapping-window` | `queries.yaml`: the shipping notices' `mail.shipped` with a ten-minute window, its job every five | `check-runs` and `check-sql`: its check judges the job's runs since the judged moment (`judges: runs`, M1); the write override on the repository for the fix |
 | `purpose-leads-stale-consent` | `queries.yaml`: `leads.extract` and `mail.campaign` testing the opt-in flag; with the producer's release at T0, a timeline change the scenario writes in the producer's `schedule.yaml` (and its key in the producer's `queries.yaml`) | `check-runs` and `check-sql`, two jobs judged (`judges: runs`, L2 and M2); the timeline's key switch on the producer |
 | `purpose-mail-outside-hours` | `queries.yaml`: `mail.campaign`'s hours read in the company's zone | `check-runs` and `check-sql` (`judges: runs`, M3); its aging minimum counts from the campaign's first run (spec D189) |
+| `purpose-watermark-misses-updates` | `scripts/`: `rollup.py` reading the orders placed past the watermark, not updated (material `inject/rollup.py`) | a transformer script (`scripts/`), `check-runs` and `check-sql` to both instances (`judges: runs`, R1); on a report-only runner, a *propose* |
+| `purpose-receiver-down-unnoticed` | `queries.yaml`: `escalate.customs` escalating rejections only; with the receiver's two-hour outage, a timeline change the scenario writes in the gateway stub's `schedule.yaml` (and its key in its `queries.yaml`) | `check-sql` and `check-runs since` (`judges: triggers`, E4); the timeline's key switch on the receiver |
 
 Their evidence is read on the node (the files, the log, the metrics
 endpoint) and from the bastion (`pg_stat_statements`,
