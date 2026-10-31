@@ -64,6 +64,8 @@ FAULT_ENV_NAME_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
 SCHEDULER_BRICK = "scheduler"       # a scheduler node: a node whose brick id is this (W1 item 0)
 POSTGRES_BRICK = "postgres"         # whose seed postgresql.conf render may fill (v0.4 8.5)
 POSTGRESQL_CONF = "postgresql.conf"
+DATA_SEED_CHANGE = "data"           # a seed change naming the target node's data.file (v0.4
+                                    # master spec 6.3, spec D226): not a seed file of a brick
 ROLES = ("bastion", "producer", "queue", "database", "pooler", "transformer", "consumer",
          "monitoring", "backup")
 DIFFICULTY_LEVELS = ("easy", "normal", "hard")
@@ -1670,7 +1672,12 @@ def _check_faults(data, nodes, bricks, sdir, catalog_root, out):
             injection = fault.data.get("injection") or {}
             seeds = (brick.data.get("seed") or {}).get("files") or []
             for change in injection.get("seed_changes") or []:
-                if isinstance(change, dict) and change.get("file") not in seeds:
+                if isinstance(change, dict) and change.get("file") == DATA_SEED_CHANGE:
+                    if not _dict(by_name[target].get("data")).get("file"):
+                        out.append(f"{label}: {p}: fault {fault.id} changes {DATA_SEED_CHANGE}, "
+                                   f"the node's data file, but node {target} has none (no "
+                                   "data.file; v0.4 master spec 6.3, spec D226)")
+                elif isinstance(change, dict) and change.get("file") not in seeds:
                     out.append(f"{label}: {p}: fault {fault.id} changes {change.get('file')}, "
                                f"not a seed file of brick {brick.id}")
                 elif isinstance(change, dict) and change.get("file") in seed_optional(brick.data) \

@@ -941,8 +941,11 @@ Which faults the brick hosts is stated only by each fault's `applies_to`
 (D59): a fault instance is accepted on a node when the fault's
 `applies_to` names the node's brick and version (`tools/gm/model.py`).
 This list is every catalog fault (`faults/`) whose `applies_to` names
-`postgres` `0.4.0`, and no other; all also name `0.3.0` and `0.2.0`, and all but
-`pg-stat-statements-not-preloaded` also name `0.1.0` and `0.1.1`. A scenario's
+`postgres` `0.4.0`, and no other. The v0.4 database-node faults
+(`security-crontab-superuser`, `purpose-day-boundary-wrong-zone`,
+`governance-personal-copied`) name `0.4.0` only; all others also name
+`0.3.0` and `0.2.0`, and all of those but `pg-stat-statements-not-preloaded`
+also name `0.1.0` and `0.1.1`. A scenario's
 own `faults/` folder may define more for itself (the test fixture
 `tools/tests/fixtures/fixture-audit` defines two); those are the
 scenario's, not the brick's, and are not listed here.
@@ -956,13 +959,16 @@ scenario's, not the brick's, and are not listed here.
 | `pg-table-autovacuum-off` | state, after the data load | parameters `database`, `table-name`: a table the data file creates; the server-wide `autovacuum` stays `on`, so the validator stays green |
 | `pg-abandoned-replication-slot` | state, after the data load | parameter `slot-name`; no standby in the topology; a seed `postgresql.conf` that allows a physical slot (`wal_level` `replica` or above, `max_replication_slots` above 0: PostgreSQL's defaults); writes, for the retained WAL to grow |
 | `pg-stat-statements-not-preloaded` | seed file | the seed `postgresql.conf` (material `inject/postgresql.conf.snippet`) without `pg_stat_statements` in `shared_preload_libraries`, the logging settings above kept; the extension this version creates at initdb in database `postgres`; `gm-restart-db` for the fix (a reload is not enough); for its dashboard evidence, a `postgres-exporter` node with `--collector.stat_statements` |
+| `security-crontab-superuser` | seed file (`crontab`) | the cron daemon (a seeded `crontab`, material `inject/crontab.snippet`: an entry's `-U <role>` removed, so `psql` runs as `postgres` by peer); parameter `role`, in the node's `crontab_roles` and created by its data file with the entry's grant; `log_connections = on` for the evidence; the sealed check reads cron's spool as root and `rolsuper` through `check-psql` |
+| `purpose-day-boundary-wrong-zone` | seed file (`data`, spec D226) | the node's data file holding the sales reporting purpose's target part, `rpt.close_day()` replaced after it (material `inject/close_day.sql.snippet`, its zone from `load-data`'s `customer_utc_offset` plus parameter `offset`); the sealed check (`judges: runs`) reads `rpt.etl_runs` here and the source's orders through `check-psql --node` |
+| `governance-personal-copied` | seed file (`data`, spec D226) | the node's data file creating `pg_cron` (preloaded by the seed `postgresql.conf`), then the snippet `inject/customer_activity.sql.snippet`: a second foreign server, its user mapping (password from the remote role's secret, set by `load-data`), a foreign table, the copy and a `pg_cron` job; the scenario's `governance:`; the sealed check calls the governance check set (G1, G3) and reads `cron.job` through `gm_check_read` |
 
 Every state fault's scripts run as root and query as `postgres` over the
 local socket, so they need the GM's `local all postgres peer` line in
 `pg_hba.conf`; every sealed check needs it too.
 
-Faults it lends itself to with no definition yet: from 0.4.0, the jobs'
-faults of "`pg_cron`" and "The cron daemon" above; a bloated table, and
+Faults it lends itself to with no definition yet: from 0.4.0, the other
+jobs' faults of "`pg_cron`" and "The cron daemon" above; a bloated table, and
 other configuration, schema, role or state defects visible without
 activity; and, from v0.2, monitoring faults of master spec 11.1 not chosen for
 the v0.2 set: no slow-query log (`log_min_duration_statement = -1`), a

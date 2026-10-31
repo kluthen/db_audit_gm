@@ -1,0 +1,142 @@
+# Catalog fault: personal data copied into the reporting database (v0.4
+# master spec 16.2, f9 of 16.1; 11.6 to 11.8). A governance fault planted by
+# a seed change of the reporting node's data file (`data`, spec D226): a
+# second foreign server to the shop mapped for the agency's loader to the
+# back office's login, a foreign table over customers, the churn table
+# rpt.customer_activity and a pg_cron job refilling it every thirty
+# minutes, which no runner lists. Its check runs the governance check set's
+# G1 and G3 (capture W3-a), then requires every part of the copy gone.
+
+# --- Identity ---------------------------------------------------------
+id: governance-personal-copied
+version: 0.1.0
+title: names and e-mail addresses copied into the reporting database by a job inside it
+family: security
+severity: high
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: postgres
+      versions: ["0.4.0"]           # pg_cron, the check role's read policy and the mapping-roles
+                                    # function are 0.4.0's (master spec 7.2, capture W2-x)
+  purposes: [shop-sales-reporting]
+  preconditions:
+    - the scenario has governance:, classing the source's customers.name and customers.email personal, allowed only in the source database
+    - the node's data file creates pg_cron in the database it names (cron.database_name), its seed postgresql.conf preloading it
+    - the sales reporting purpose's target part on the node (schema rpt, src, the loader and reader roles)
+    - the source's back-office login role reads customers, and the source's pg_hba.conf lets it in from the node by password
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 30m                      # the job's first run after planting fills the table (spec
+                                    # D189: counted from it, every thirty minutes from the data
+                                    # load); the server, mapping, foreign table and job show at once
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  database:
+    description: the node's database holding the copy and pg_cron (cron.database_name)
+    default: reporting
+    required: false
+  server:
+    description: the second foreign server, mapped for the loader to the back-office login
+    default: shop_backoffice
+    required: false
+  foreign-table:
+    description: the foreign table over the source's customers, schema-qualified
+    default: src.customers
+    required: false
+  table:
+    description: the copy, schema-qualified
+    default: rpt.customer_activity
+    required: false
+  job:
+    description: the pg_cron job refilling the copy (cron.job.jobname)
+    default: customer-activity
+    required: false
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: data
+      change: >-
+        after the sales reporting purpose's material and CREATE EXTENSION
+        pg_cron: the foreign server {SERVER} to the source, a user mapping
+        for the loader to the back-office login, the foreign table
+        {FOREIGN_TABLE} over customers with names and e-mail addresses,
+        CREATE on rpt for the loader, the table {TABLE} owned by it and read
+        by the dashboards, and the pg_cron job {JOB} every thirty minutes as
+        the loader, recreating the table if it is gone and upserting every
+        customer into it; no password written (load-data sets the mapping's
+        from the remote role's secret)
+      material: inject/customer_activity.sql.snippet
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: node
+    source: the copy and the foreign table
+    how: psql -d {DATABASE} -c '\d {TABLE}' -c 'SELECT name, email FROM {TABLE} LIMIT 3' -c '\det+'
+    shows: customers' names and e-mail addresses in the reporting database, and the foreign table over the shop's customers
+  - where: node
+    source: the foreign servers and their mappings
+    how: psql -d {DATABASE} -c '\des+' -c '\deu+'
+    shows: a second server to the shop, {SERVER}, mapped for the loader to the back office's login, which reads names and e-mail addresses
+  - where: node
+    source: pg_cron's jobs and runs
+    how: psql -d {DATABASE} -c 'SELECT jobname, schedule, username, command FROM cron.job' -c 'SELECT * FROM cron.job_run_details ORDER BY start_time DESC LIMIT 3'
+    shows: the job {JOB} every thirty minutes as the loader, refilling the copy, in no runner's jobs
+  - where: bastion
+    source: the company's data policy
+    how: cat ~/data-policy.md
+    shows: personal data stays in the shop's database and goes only to the listed readers; the reporting database is not one
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names the copy of personal data (names, e-mail addresses) in the
+    reporting database against the data policy, and the whole path that
+    keeps it there: the foreign table over customers through a second
+    server mapped to the back office's login, and the pg_cron job refilling
+    the table every thirty minutes, found in cron.job since no runner lists
+    it.
+  proposal: >-
+    unschedule the job, drop the table, the foreign table and the server
+    (its mapping with it); the churn dashboard to work on what the policy
+    allows (aggregates, or an id the shop does not class personal), its
+    data computed where personal data may live.
+  fix: >-
+    G1 and G3 hold on every database node, and the job, the table, the
+    foreign table and the server are all gone: dropping the table alone,
+    which the job recreates, is not fixed.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  We want to be sure our customers' personal data stays where our data
+  policy says it may be. Please check the agency's reporting database too.

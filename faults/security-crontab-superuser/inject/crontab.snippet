@@ -1,0 +1,7 @@
+# Replaces the baseline entry of the node's seed crontab (postgres 0.4.0,
+# capture W1 item 8): the same entry, its -U <role> removed, so psql
+# connects as OS user postgres by peer. Keep the PGPASSFILE line above it,
+# the time, the database, the statement and the job's log as designed.
+# Example, db's hourly refresh of popular_products (master spec 16.1):
+PGPASSFILE=/run/gm-cron/pgpass
+17 * * * * psql -X -w -h /run/postgresql -d shop -c "REFRESH MATERIALIZED VIEW popular_products" >> /var/log/postgresql/cron/popular-products.log 2>&1
