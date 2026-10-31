@@ -845,20 +845,20 @@ def check_fault_dir(fault_dir, label_base=None, catalog_root=None):
         out.append(f"{label}: id: {data.get('id')} is not the folder name {fault_dir.name}")
     injection = data.get("injection") or {}
     kind = injection.get("kind")
-    if kind == "seed-file":
-        if not injection.get("seed_changes"):
-            out.append(f"{label}: injection.seed_changes: missing (kind seed-file)")
+    if kind == "seed-file" and not injection.get("seed_changes"):
+        out.append(f"{label}: injection.seed_changes: missing (kind seed-file)")
+    if kind in ("seed-file", "state"):       # a state fault's too (spec D254)
         for change in injection.get("seed_changes") or []:
             material = change.get("material") if isinstance(change, dict) else None
             if material and not (fault_dir / material).is_file():
                 out.append(f"{_rel(fault_dir / str(material), base)}: missing file")
-    elif kind == "state":
+    if kind == "state":
         if not injection.get("scripts"):
             out.append(f"{label}: injection.scripts: missing (kind state)")
         for script in injection.get("scripts") or []:
             if not (fault_dir / str(script)).is_file():
                 out.append(f"{_rel(fault_dir / str(script), base)}: missing file")
-    elif kind is not None and kind != "parameter":
+    elif kind not in (None, "seed-file", "parameter"):
         out.append(f"{label}: injection.kind: {kind} is not seed-file, state or parameter")
     params = data.get("parameters")
     env_names = {}
@@ -2775,7 +2775,7 @@ def _check_class_rules(rules, p, by_name, creates, roles, out):
     locations = rules.get("locations")
     unrestricted = locations == "any"
     if unrestricted:
-        for key in ("readers", "outbound"):
+        for key in ("readers", "outbound", "separation"):
             if key in rules:
                 out.append(f"{p}.{key}: refused with locations: any (the class is not "
                            "restricted)")

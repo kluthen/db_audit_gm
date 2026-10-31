@@ -2348,6 +2348,11 @@ class TestGovernanceRefusals(V04CopyTest):
         self.classes(lambda c: c["personal"].update(separation="instance"))
         self.load()
 
+    def test_separation_refused_with_any(self):
+        self.classes(lambda c: c["internal"].update(separation="instance"))
+        self.assertRefused(f"{self.P}.internal.separation: refused with locations: any (the "
+                           "class is not restricted)")
+
     def test_policy_mapped_to_the_bastion(self):
         self.scenario_yaml(lambda d: self.node(d, "bastion")["seed_files"].pop("data-policy.md"))
         self.assertRefused("scenario.yaml: nodes[bastion].seed_files.data-policy.md: missing (a "
@@ -2404,6 +2409,24 @@ class TestFaultV04Refusals(V04CopyTest):
         self.assertIn(f"{self.L}: sealed_check.judges: never with behavioural: true", text)
         self.setUp()
         self.assertEqual(self.problems(lambda d: d["sealed_check"].update(judges="triggers")), "")
+
+    def test_state_seed_changes_materials(self):
+        """A state fault's seed_changes materials are checked as a seed-file
+        fault's (spec D254)."""
+        def state(material):
+            def change(d):
+                d["injection"].update(kind="state", stage="after-data-load",
+                                      scripts=["checks/fixed.sh"])
+                d["injection"]["seed_changes"][0]["material"] = material
+            return change
+        text = self.problems(state("inject/rollup.sql.snippet"))
+        self.assertIn("faults/fixture-copy-runs/inject/rollup.sql.snippet: missing file", text)
+        self.setUp()
+        self.assertEqual(self.problems(state("checks/probe.md")), "")
+        self.setUp()
+        self.assertEqual(self.problems(lambda d: (d["injection"].update(
+            kind="state", stage="after-data-load", scripts=["checks/fixed.sh"]),
+            d["injection"].pop("seed_changes"))), "")
 
     def test_needs_unshared_host(self):
         text = self.problems(lambda d: d.update(needs_unshared_host="yes"))

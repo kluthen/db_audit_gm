@@ -86,7 +86,10 @@ governance:                         # optional: a scenario handing the players a
                                     # [db/shop, crm/crm]), or the word any (one value here, as it
                                     # takes either form)
       separation: instance          # optional: the policy demands an instance of its own
-                                    # (master spec 11.4); the checks verify it by node
+                                    # (master spec 11.4); refused with locations: any. G1
+                                    # verifies it by node: every database of a node holding
+                                    # one of the class's locations, postgres aside, is one of
+                                    # them (11.6, spec D253)
       readers: [<shop_app>, <shop_reports>]   # optional: required unless locations is any, and
                                     # refused with any; may be []. Customer roles a data file of
                                     # the scenario creates; never the game's own (dba, postgres,
