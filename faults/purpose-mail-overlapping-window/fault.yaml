@@ -1,0 +1,118 @@
+# Catalog fault: the shipping notices' window overlaps the job's cadence, so
+# every notice goes out twice (v0.4 master spec 16.2; the customer mailing
+# purpose's M1, 10.3). A seed-file fault planted at render: the scenario's
+# queries.yaml gives the five-minute mail.shipped job a ten-minute window.
+# Its evidence shows at the job's runs: its aging minimum counts from the
+# job's first run after planting (master spec 6.3).
+
+# --- Identity ---------------------------------------------------------
+id: purpose-mail-overlapping-window
+version: 0.1.0
+title: the shipping notices' window is twice the job's cadence, so every notice goes twice
+family: data-flow
+severity: medium
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: scheduler
+      versions: ["0.2.0"]
+  purposes: [shop-customer-mailing]
+  preconditions: []
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 1h                       # counted from the job's first run after planting (master
+                                    # spec 6.3): an order's second notice comes five minutes after
+                                    # its first, once the warehouse ships again after the load
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  source:
+    description: >-
+      the purpose's source part, a node/database location as the scenario's
+      purposes: maps it (where mail_outbox and orders are)
+    default: db/shop
+    required: false
+  job:
+    description: the runner's jobs.yaml job running mail.shipped, every five minutes
+    default: mail-shipped
+    required: false
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: queries.yaml
+      change: >-
+        the mail.shipped entry selects the orders shipped in the ten minutes
+        ending at the last whole minute before the run, [t - 11 min, t - 1
+        min), where the purpose's five-minute cadence takes five; nothing
+        else of the entry changes (it still keeps no watermark and never
+        reads mail_outbox)
+      material: inject/queries.yaml.snippet
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: node
+    source: the query repository
+    how: cat /srv/scheduler/repository/queries.yaml
+    shows: mail.shipped's window of ten minutes, against the job's */5 in jobs.yaml
+  - where: node
+    source: the scheduler's log
+    how: grep 'run job={JOB} .*phase=end' /var/log/scheduler/scheduler.log | tail
+    shows: each run's rows= about twice the orders the warehouse ships in five minutes
+  - where: bastion
+    source: the mail outbox
+    how: >-
+      psql -h db -d shop -c "SELECT order_id, count(*), min(sent_at), max(sent_at)
+      FROM mail_outbox WHERE template = 'order-shipped' GROUP BY order_id
+      HAVING count(*) > 1 ORDER BY max(sent_at) DESC LIMIT 10"
+    shows: orders with two order-shipped mails, five minutes apart
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names the shipping notices sent twice and the cause: mail.shipped picks
+    the orders shipped in the last ten minutes while its job runs every five,
+    keeping no record of what it sent, so every shipped order falls in two
+    runs' windows.
+  proposal: >-
+    select only what was not sent yet: the window back to the cadence (five
+    minutes), or a NOT EXISTS on mail_outbox for the order and template,
+    better against a moved cadence; a unique (order_id, template) on
+    mail_outbox with ON CONFLICT DO NOTHING as the guard.
+  fix: >-
+    the loaded mail.shipped (queries.yaml edited and reloaded with sudo
+    gm-reload-scheduler) sends no order a second order-shipped mail: no
+    {JOB} run since the reload repeats a notice, whatever the form.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+  judges: runs
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  Customers say they get every shipping notice twice.
