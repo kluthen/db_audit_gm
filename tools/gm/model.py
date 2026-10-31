@@ -111,6 +111,10 @@ _CREATE_NAME_RE = re.compile(
     r"^\s*(?i:create\s+(database|role|user))\s+([a-z_][a-z0-9_]*)(?![A-Za-z0-9_$\"])")
 _CREATE_PG_CRON_RE = re.compile(
     r"^\s*(?i:create\s+extension\s+(?:if\s+not\s+exists\s+)?)pg_cron(?![A-Za-z0-9_$\"])")
+# A created role's LOGIN or NOLOGIN, in the statement's text up to its `;`
+# (string literals and `--` comments removed).
+_LOGIN_RE = re.compile(r"(?<![A-Za-z0-9_$])(no)?login(?![A-Za-z0-9_$])", re.IGNORECASE)
+_SQL_LITERAL_RE = re.compile(r"'(?:[^']|'')*'")
 
 
 def fault_env_name(param_name):
@@ -2267,23 +2271,59 @@ def _check_designed_for(data, nodes, out):
 @dataclass
 class DataFileCreates:
     """What a data file creates, read line by line (W1 item 0): no SQL
-    parser, so a statement inside a DO body or a function is not seen."""
+    parser, so a statement inside a DO body or a function is not seen.
+    `logins`: the roles created with LOGIN (`CREATE USER` without NOLOGIN,
+    `CREATE ROLE` with LOGIN, read up to the statement's `;`), in file
+    order (master spec 9.7: load-data gives each its secret)."""
     file: str
     databases: set = field(default_factory=set)
     roles: set = field(default_factory=set)
     pg_cron: bool = False
+    logins: list = field(default_factory=list)
+
+
+def _statement_login(kind, lines):
+    """Whether the role a `CREATE ROLE|USER` statement creates can log in;
+    `lines`, the statement's text after the name, then the lines after."""
+    text = []
+    for line in lines:
+        line = _SQL_LITERAL_RE.sub("''", line).split("--", 1)[0]
+        text.append(line.split(";", 1)[0])
+        if ";" in line:
+            break
+    m = None
+    for m in _LOGIN_RE.finditer(" ".join(text)):
+        pass                                 # the last one wins, as in PostgreSQL
+    return kind == "user" if m is None else m.group(1) is None
 
 
 def data_file_creates(text, rel):
     created = DataFileCreates(rel)
-    for line in text.splitlines():
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
         m = _CREATE_NAME_RE.match(line)
         if m:
             kind, name = m.group(1).lower(), m.group(2)
             (created.databases if kind == "database" else created.roles).add(name)
+            if kind != "database" and name not in created.logins and _statement_login(
+                    kind, [line[m.end():], *lines[i + 1:]]):
+                created.logins.append(name)
         elif _CREATE_PG_CRON_RE.match(line):
             created.pg_cron = True
     return created
+
+
+def node_data_file_creates(sdir, node):
+    """DataFileCreates of a node's data file (data.file), or None when it
+    has none or it does not exist or read."""
+    rel = _dict(node.get("data")).get("file")
+    path = _inside(sdir, rel) if isinstance(rel, str) else None
+    if path is None or not path.is_file():
+        return None                          # reported with the node
+    try:
+        return data_file_creates(path.read_text(encoding="utf-8"), rel)
+    except (OSError, UnicodeDecodeError):
+        return None
 
 
 def _data_files(nodes, sdir):
@@ -2291,14 +2331,9 @@ def _data_files(nodes, sdir):
     node whose data file exists and reads."""
     creates = {}
     for node in nodes:
-        rel = _dict(node.get("data")).get("file")
-        path = _inside(sdir, rel) if isinstance(rel, str) else None
-        if path is None or not path.is_file():
-            continue                         # reported with the node
-        try:
-            creates[node.get("name")] = data_file_creates(path.read_text(encoding="utf-8"), rel)
-        except (OSError, UnicodeDecodeError):
-            continue
+        created = node_data_file_creates(sdir, node)
+        if created is not None:
+            creates[node.get("name")] = created
     return creates
 
 
