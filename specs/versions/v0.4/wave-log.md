@@ -2059,3 +2059,40 @@ secrets fix (`tools/gm/`, no file of chunk 12's or 13's). Chunk 14 is
 cut once chunk 13 has merged; chunk 15 once chunks 12, 13 and the fix
 have merged (15a, then 15b, which holds the host lock alone on
 armenelos, the VPS drained).
+
+### `load-data` secrets fix — merged (0e13b44, 7e464ce), 2026-10-31
+
+`coding-executor`: ad0cd02 (merge 0e13b44), b1771ae (merge 7e464ce).
+Every role a node's data file creates with LOGIN (`CREATE ROLE … LOGIN`,
+or `CREATE USER` without NOLOGIN; the game's own roles and `pg_*` left
+out) has a game secret `role_<role>_password`, same name and derivation
+as before, set by `load-data` on that node as a SCRAM verifier; these
+secrets are created but mounted nowhere new (a node still mounts only
+what a schedule or its `crontab_roles` needs). A user mapping whose
+remote role is such a role gets that secret; one naming no data-file
+login role is still refused. A schedule's connection through a
+non-database node (a pooler) sets the role only on the database nodes
+whose data file creates the target database, or on every database node
+when none does (chunk 13's deployment found the old rule failing on
+`reporting`: `role "shop_app" does not exist`). Known limit: a role
+created inside a `DO` body, or given LOGIN later by `ALTER ROLE`, is not
+seen. Unit suite 807 OK. `stack.yml` and every seed file render
+byte-identical across the three scenarios and six fixtures; the new
+secrets appear only in `implementation.yaml`. f9's `shop_reports`
+logs in with its secret (container run under the lock).
+
+Driver's call: bookshop's and fernway's data files give their app role a
+fixed password, which their GM notes cite; a role whose CREATE sets its
+own PASSWORD keeps it (master spec 16.4, v0.3's scenarios unchanged). A
+follow-up commit by the same executor. For chunk 15a: login roles are
+read from the scenario's own data file; a role created only by a seed
+change's copy would need reading from the copy (f9 doesn't).
+For chunk 18: `gmctl.md` 143–147 and 201–208 state the old, narrower rule.
+
+### Chunk 13 — built (dc21692), 2026-10-31
+
+Deployed on armenelos at shift +3 with a scratch patch (the rule above);
+every job, both crontabs' daemons and the `pg_cron` launcher seen; every
+purpose check 0 or 3, none 1; fit 1.6 CPU / 1.75G / 6.19G disk. Not
+merged until its deployment passes on the fixed code: a `coding-executor`
+merges `v0.4-w3` in, redeploys and merges.
