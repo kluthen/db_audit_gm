@@ -2044,6 +2044,13 @@ W3-a and W3-b accepted as drafted (fba4712). On their questions:
   payloads' real keys, W3-a item 7): to `spec-writer`, not blocking.
   Chunk 12 keeps the own-roles predicate in one place, so either reading
   is a one-line change.
+- **Settled by `spec-writer`, 2026-10-31:** question 1 is (b) (D230,
+  master spec 11.6, 11.7): `own_roles` are skipped in G2 only, and each
+  G3 path's role (remote role, connection role, definer owner, `pg_cron`
+  `username`) is judged whoever it is, a superuser reaching every
+  classed column of its database; the walk also leaves out
+  `gm_pgbouncer`. `fields` are the payloads' top-level keys (D231, 6.9,
+  11.3, 11.6, formats.md v26), as W3-a item 4 built; G4 unchanged.
 
 ### Order and dispatch
 

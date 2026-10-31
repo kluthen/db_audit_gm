@@ -12,8 +12,10 @@ behaviour is fixed by capture W3-A (`specs/versions/v0.1/wave-log.md`):
   Then (v0.3 chunk 7b; capture W1, item 7) every application role a
   scheduler's schedule names gets its password from its secret
   `role_<role>_password`, the data having created the role: streamed the
-  same way into the database node the connection targets (every
-  `database` node when it targets another node, a pooler), as a SCRAM
+  same way into the database node the connection targets (when it
+  targets another node, a pooler: every `database` node whose data file
+  creates the target database, every `database` node when none does;
+  v0.4, a game with two), as a SCRAM
   verifier, with statement logging off for the session, so the password
   is never in a log, a process list or the server's statistics.
   Then (spec D176) on every `database` node whose brick has the GM check
@@ -24,7 +26,9 @@ behaviour is fixed by capture W3-A (`specs/versions/v0.1/wave-log.md`):
   W2-x of `specs/versions/v0.4/wave-log.md`): each data file gets `-v
   customer_timezone=<zone> -v customer_utc_offset=<n>` (render's shift;
   `Etc/GMT` and 0 in a game with none); the passwords are set for the
-  roles a node's `crontab_roles` names too, on that node; then every
+  roles a node's `crontab_roles` names too, on that node, and (master
+  spec 9.7) for every login role a node's data file creates, on that
+  node, each from its secret `role_<role>_password`; then every
   database of every `database` node is surveyed (`pg_cron`, foreign
   servers, user mappings), each user mapping gets as its `password` option
   its remote role's secret, and where the check role exists it gets, in a
@@ -54,6 +58,7 @@ import hmac
 import json
 import os
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from . import localimpl, model, render, state, teardown
 from .docker import for_local_dir
@@ -262,10 +267,15 @@ def data_argv(variables):
 def password_plan(scenario, impl):
     """[(database node, [(role, secret)])]: every role a scheduler node's
     schedule names, on the node its connection targets when that node is a
-    `database` node, else on every `database` node; then (v0.4 capture W1
-    item 8) every role a node's `crontab_roles` names, on that node;
-    topology order, each role once per node."""
+    `database` node, else (through a pooler) on the `database` nodes whose
+    data file creates the target database, or on every `database` node
+    when none does; then (v0.4 capture W1
+    item 8) every role a node's `crontab_roles` names, on that node; then
+    (master spec 9.7) every login role a node's data file creates, on that
+    node; topology order, each role once per node."""
     databases = [n["name"] for n in scenario.nodes if n.get("role") == DATABASE_ROLE]
+    created = {n["name"]: model.node_data_file_creates(Path(scenario.dir), n)
+               for n in scenario.nodes if n["name"] in databases}
     roles_of = {}
 
     def add(db, role):
@@ -278,13 +288,20 @@ def password_plan(scenario, impl):
         for conn in localimpl.schedule_connections(scenario, node).values():
             role = conn.get("role")
             m = model.TARGET_RE.match(str(conn.get("target")))
-            target = m.group(1) if m else None
-            for db in [target] if target in databases else databases:
+            target, database = (m.group(1), m.group(4)) if m else (None, None)
+            holders = [db for db in databases
+                       if created[db] is not None and database in created[db].databases]
+            for db in [target] if target in databases else holders or databases:
                 add(db, role)
     for node in scenario.nodes:
         if node.get("role") != DATABASE_ROLE:
             continue
         for role in localimpl.crontab_roles(node):
+            add(node["name"], role)
+    for node in scenario.nodes:
+        if node.get("role") != DATABASE_ROLE:
+            continue
+        for role in localimpl.data_login_roles(scenario, node):
             add(node["name"], role)
     return [(db, [(r, localimpl.role_secret_name(r)) for r in roles_of[db]])
             for db in databases if db in roles_of]
@@ -492,10 +509,11 @@ def game_secret_names(impl):
 
 
 def plan_mappings(node, databases, game_id, secrets):
-    """Each mapping's secret, its remote role's (8.6, 9.7: the secret a
-    schedule or a `crontab_roles` gives the role); GmError, before the
-    mappings' step runs, for a mapping naming no remote role or one the
-    game (`secrets`, its secret names) has no secret for."""
+    """Each mapping's secret, its remote role's (8.6, 9.7: every login role
+    a data file creates has one, as a role a schedule or a `crontab_roles`
+    names); GmError, before the mappings' step runs, for a mapping naming
+    no remote role or one the game (`secrets`, its secret names) has no
+    secret for."""
     for db in databases:
         for m in db.mappings:
             where = (f"{node}/{db.name}: the user mapping for {m.local_text} on server "
@@ -506,8 +524,10 @@ def plan_mappings(node, databases, game_id, secrets):
             secret = localimpl.role_secret_name(m.remote_role)
             if secret not in secrets:
                 raise GmError(f"{where} connects as {m.remote_role}, which has no secret "
-                              f"{secret} in game {game_id}: a schedule's connection or "
-                              "a node's crontab_roles must name the role")
+                              f"{secret} in game {game_id}: no data file of the scenario "
+                              f"creates {m.remote_role} as a login role (CREATE ROLE "
+                              f"{m.remote_role} LOGIN), and no schedule's connection or "
+                              "node's crontab_roles names it")
             m.secret = secret
 
 

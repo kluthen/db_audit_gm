@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v25
+Status: draft v26
 
 What a scenario, a brick, a fault definition and, from v0.4, a purpose
 and a domain must contain, and how they are laid out, so that every scenario the GM designs or generates stays
@@ -95,10 +95,13 @@ The owner's requirements (D23), with the earlier rulings that apply:
   `governance:`, the policy file and, for each data class, its locations
   (`node/database`, with `separation: instance` when the policy demands
   an instance of its own), its readers (customer roles) and its outbound
-  flows with their allowed fields, the loader checking every class named
-  is defined, every location names a `database` node and a database its
-  data file creates, every reader is a role a data file creates, and
-  the policy file exists.
+  flows, each naming its receiver (`to`), the outbox it fills (`outbox`,
+  `node/database/table`) and, in `fields`, the top-level keys that
+  outbox's `payload` may carry, the keys the purpose's job writes, not
+  words for them (D231); the loader checking every class named is
+  defined, every location and every outbox's `node/database` names a
+  `database` node and a database its data file creates, every reader is
+  a role a data file creates, and the policy file exists.
 - **Background information**: the customer's story and context.
 - **Incidents, flaws and defects**: every fault instance (fault definition
   and version, target nodes, parameters, known or hidden; from v0.3 its
