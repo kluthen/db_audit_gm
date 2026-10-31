@@ -2084,7 +2084,7 @@ logs in with its secret (container run under the lock).
 Driver's call: bookshop's and fernway's data files give their app role a
 fixed password, which their GM notes cite; a role whose CREATE sets its
 own PASSWORD keeps it (master spec 16.4, v0.3's scenarios unchanged). A
-follow-up commit by the same executor. For chunk 15a: login roles are
+follow-up commit by the same executor (bb5a505, merge 0dbbabf; 808 OK; bookshop and fernway render as before). For chunk 15a: login roles are
 read from the scenario's own data file; a role created only by a seed
 change's copy would need reading from the copy (f9 doesn't).
 For chunk 18: `gmctl.md` 143–147 and 201–208 state the old, narrower rule.
