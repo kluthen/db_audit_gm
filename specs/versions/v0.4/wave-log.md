@@ -2122,6 +2122,34 @@ Options for the owner at the wave report: `cron.database_name =
 loader rule; no noise), a restart step in `load-data`, or documenting the
 pre-load lines in `postgres`' `gm.md` and `player.md`.
 
+### Spec items of chunks 12 and 15a — settled (583e6bc), 2026-10-31
+
+`spec-writer`: D239 (f7's N written at load into the data-file copy, the
+instance's `offset`; render writes no data file), D240 (`\sf`, not
+`\df+`), D241 (f7's check judges from `reporting`: no reload raise,
+`--since` for a fix, `remaining=` to the designed time; release-gate item
+2 and chunk 17a pass `--since` for f7 too), D242 (f9's `CREATE` grant on
+`rpt` is the fault's; its check doesn't require it revoked), D243 (`dba`
+unschedules another role's `pg_cron` job by id). **O140, for the owner**
+at the wave report: `separation: instance` has no rule (6.9, 11.4 say
+it's checked; 11.6 gives none): (a) define it as a one-query extension
+of G1 with a breach in `fixture-instances` (recommended), or (b) leave
+it to v0.5 with the loader refusing the field. Plan v7. `doc-ids compare
+v0.5-scope v0.4-w3`: 0 collisions.
+
+The scenario-document template's two stale lines (D230's own roles; "copied
+from the domain") sent to a `coding-executor` with the affected READMEs'
+regeneration, before chunk 16.
+
+For chunk 16's brief: f7's `offset` equal in the instance and the data-file
+copy, non-zero, −23..23 (unchecked by the loader); f7's aging minimum ≥
+the close's offset from T0 + 1h; f7 `judges: runs`, `threshold: 0`,
+expected present at the final answer, a fix on `reporting` an overstep
+dated with `--since`; f9's fix path unschedules by id, the `CREATE` grant
+part of the planting; no `separation: instance` until O140; the template
+edits in before its README. For chunk 17's: f7's 17a cycle passes
+`--since`.
+
 ### Chunk 15a — merged (e901230), 2026-10-31
 
 0ddfa5d, merge e901230; built on `v0.4-w3` at ee6cb21 (the idle fix in).
