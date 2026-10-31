@@ -981,7 +981,7 @@ Record: dc21692, merge a550257 (one commit). Deployed on armenelos at shift +3 w
 
 ### Chunk 14 — The purpose faults f1 to f5 and f8
 
-Status: in progress (w3)
+Status: merged (w3, 3cc4a32)
 Wave: 3
 Depends on: chunks 2, 7, 8, 10, 11; chunk 13 (in-wave, W3-b), merged into
 `v0.4-w3` before this chunk's branch is cut
@@ -1013,6 +1013,8 @@ W3-c, for chunk 16.
 - Verification: chunk checks, plus the faults planted on
   `fixture-campaign` (needs G4).
 - Split rule: 14a f1, f2, f3 (`crm`'s mail and leads); 14b f4, f5, f8.
+
+Record: 14a cd7daed, 14b 8fceabb, merge 3cc4a32 (the `postgres` Supported-faults list merged with 15a's rows). Planted on armenelos (shift −3; f4's 0 on a second game at +9, a past local day needing a local midnight): each fault's evidence within its aging minimum, then 1, 3, 0. Differs from the text: f1's aging minimum 1h (shipping ramps after the load); f5's injection also ends `shop_etl`'s open sessions (VALID UNTIL is checked at login; the scheduler now keeps its sessions); f5's `remaining=` counts from the ledger's last start; f2 restored in the producer alone still reads 1 until the flags are repaired (to `spec-writer`). Wave log, W3-c.
 
 ### Chunk 15 — The database-node faults f6, f7, f9 and f10
 

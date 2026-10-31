@@ -2122,6 +2122,57 @@ Options for the owner at the wave report: `cron.database_name =
 loader rule; no noise), a restart step in `load-data`, or documenting the
 pre-load lines in `postgres`' `gm.md` and `player.md`.
 
+### Chunk 14 — merged (3cc4a32), 2026-10-31
+
+14a cd7daed (f1, f2, f3), 14b 8fceabb (f4, f5, f8), merge 3cc4a32; the
+`postgres` Supported-faults conflict with 15a resolved (all rows kept).
+`v0.4-w3` merged in before deploying (the first game, on a pre-fix image,
+torn down before its load). Unit suite 831 OK merged; `check_fault_dir`
+clean for all six. Game `…-j8hkz8` (shift −3, T0 12:21:07Z), moves by
+`jobs.yaml` and reload only:
+
+| Fault | Evidence | 1 | 3 after the fix | 0 |
+|---|---|---|---|---|
+| f1 | duplicates 12:40 (T0 + 19 min) | 12:41 | 12:41 | 12:46 |
+| f2 | 13:20 leads run, 10 withdrawn leads | 13:27 | 13:49 | 14:01 |
+| f3 | 13:30 campaign, a mail at 02:30 the recipient's time | 13:31 | 13:49 | 14:01 |
+| f8 | outage from 13:00; 10 declarations past their deadline | 13:47 | 13:49 | 14:31 |
+| f5 | planted 14:00; 14:05 run refused 28P01 (expired password) | 14:01 | 14:05:50 (`--since`) | 14:09 |
+| f4 | close at 13:10; day 10-30 at 9.34M against 21.50M | 13:27 | 13:31 | 15:36 (2nd game) |
+
+f4's 0 needs a close after a local midnight: a second, f4-only game at
+shift +9 (T0 23:32 local). Both games torn down; nothing left.
+
+**Capture W3-c (f1–f5, f8), for chunk 16:**
+
+| | Fault | Node | Seed change or injection | Parameters (defaults) | Aging minimum | Timeline need |
+|---|---|---|---|---|---|---|
+| f1 | `purpose-mail-overlapping-window` (M1) | crm | `queries.yaml`: `mail.shipped` window 10 min | `source` (db/shop), `job` (mail-shipped) | 1h from the job's first run after planting | none |
+| f2 | `purpose-leads-stale-consent` (L2+M2) | crm | `leads.extract`, `mail.campaign` test `c.marketing_opt_in`; with f3, `mail.campaign` carries both | `source`, `leads-job`, `mail-job` | 1h from the campaign's first run after the release: 11h at T0 22:00 | producer: key `consent.unsubscribe-v2` (records the withdrawal, keeps the flag), timeline `at: T0` |
+| f3 | `purpose-mail-outside-hours` (M3) | crm | `mail.campaign` hours `AT TIME ZONE s.timezone` | `source`, `job` (mail-campaign) | 1h from the campaign's first run: 11h | none |
+| f4 | `purpose-watermark-misses-updates` (R1) | bi | `scripts/rollup.py` with `placed_at > since` (whole file) | `source`, `target` (reporting/reporting), `job` (rollup-hourly) | 1h from the first close of day after planting: 15h | none (the producer's daily close) |
+| f5 | `purpose-etl-role-expired` (R4) | db (postgres 0.4.0) | state `inject/10-expire-role.sh`, `plant_at: handover-5h` | `role` (shop_etl), `target`, `job` (rollup-hourly) | 1h from the hourly run after planting | none |
+| f8 | `purpose-receiver-down-unnoticed` (E4, `judges: triggers`) | crm | `escalate.customs` escalates rejections only | `source` | 1h from the outage's start: 11h | gateway: key `customs.unavailable`, timeline `handover-6h` → `handover-4h` |
+
+Every instance `judges: runs`, `threshold: 0`, except f8 (`triggers`).
+
+For `spec-writer` (sent with this entry):
+1. f2's "or restore the flag's update in the producer's repository"
+   (16.2): restoring the producer alone leaves the flags of everyone who
+   withdrew since T0, so L2 and M2 read 1 until the flags are repaired
+   (the improve); in `gm.md`.
+2. f5's injection also ends `shop_etl`'s open sessions: VALID UNTIL is
+   checked at login, and the scheduler now keeps its sessions open.
+3. f5's `remaining=` counts from the ledger's last start, not the designed
+   time D241 names (off when the job has been moved).
+4. f1's aging minimum 1h, not 30m (shipping ramps after the load; first
+   duplicates at T0 + 19 min).
+
+Risks: f4 reads 3 for a whole 14:00 hand-over game (chunk 10); f5's
+check reads `db`'s English log lines (depends on `log_line_prefix`); f8's
+0 after a fix waits on the stub's 1-in-50 (an hour or two); f2's leads
+side needs about five withdrawals before the first `:20` run.
+
 ### Template edits — merged (93538db, 9e29cf7), 2026-10-31
 
 Both scenario-document template edits applied word for word; the three
