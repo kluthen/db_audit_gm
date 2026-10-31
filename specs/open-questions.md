@@ -17,7 +17,7 @@ Resolved during v0.4's drafting: O106 (D194), O110 (D195), O107 (D197), O120
 (D198), O109 (D199), O121 (D200), O123 (D202), O105 (D203), O129 (D206), O131 (D207),
 O132 (D211), O133 (D212). Resolved by the approval of v0.4's master
 spec (D215): O104, O108, O115, O116, O117, O119, O122, O124, O125, and
-O111's v0.4 part. Resolved during v0.4's build: O134 (D224).
+O111's v0.4 part. Resolved during v0.4's build: O134 (D224), O140 (D253).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -149,7 +149,7 @@ clinic's classes (D196); O120 closed by D198 (an instance of its own);
 O115, O116, O117 and O119 closed by the master spec's approval, as
 written there (D215). O118 stays open, for v0.5; O134, raised by D221,
 closed by D224; O136, raised by D230, waits for a later version. O140,
-raised by chunk 12, is the owner's before chunk 16.
+raised by chunk 12, closed by D253.
 
 - **O118** (later, v0.4 → v0.5; **defaulted**) — Brick changes for
   governance. Default, told to the owner on 2026-10-30 and holding
@@ -164,16 +164,7 @@ raised by chunk 12, is the owner's before chunk 16.
   but executable by `PUBLIC` or a disallowed role is a path? No v0.4
   fault turns on it. Refs:
   [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 11.6, 22.
-- **O140** (next, v0.4) — `separation: instance`. 11.4 and 6.9 say the
-  check verifies it by node, but 11.6 gives it no rule, and chunk 12's
-  check set does not judge it; the loader accepts it, no v0.4 scenario
-  uses it. Either (a) define the rule, every database on a node holding
-  one of the class's locations being itself one of them (`postgres` and
-  the templates aside), and build it into the shared set as a small
-  insertion, or (b) leave it to v0.5's regulated domains, the loader
-  refusing the field until then. Recommended: (a). Refs:
-  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 6.9, 11.4,
-  11.6; [versions/v0.4/wave-log.md](versions/v0.4/wave-log.md) chunk 12.
+
 ## v0.5: domains
 
 Raised when the owner set business domains for v0.5 on 2026-10-28

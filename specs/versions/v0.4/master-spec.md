@@ -31,6 +31,11 @@ recreate the table, unscheduled by its id (16.2, 16.5); then chunk 14's
 readings: f2's producer path a fix only with the drifted flags repaired,
 f5's planting ending the role's open sessions and its `remaining=` read
 from the ledger, and an hour for f1's five-minute job (12.5, 16.2).
+Then the owner accepted f10's normal run at 640M as measured (16.3) and
+had `separation: instance` defined now, as a rule of G1 (6.9, 11.4,
+11.6); chunk 15b's readings of f10 were written in (6.3, 9.6, 16.3),
+and `load-data`'s last step, removing the `pg_cron` launcher's start-up
+failures from the server log on the owner's ruling (7.2, 14).
 
 ---
 
@@ -262,6 +267,10 @@ every version; this section lists what v0.4 changes. The shapes are in
   seed change names it `data`, meaning the target node's `data.file`,
   and is refused on a node without one; the scenario's copy carries the
   change, which is in place from the data load, before T0.
+- A `state` fault may also carry `seed_changes`, in the scenario's
+  copies from T0 as a `seed-file` fault's, its scripts planting the rest
+  later: f10's roll-up and crontab entry, then its backfill request
+  (16.2, 16.3).
 - Families: purpose faults are `data-flow` (duplicates, dropped
   records) or `rules` (a wrong zone, a wrong segment); governance and
   credential faults join `security` (`governance-*` and `security-*`
@@ -445,7 +454,9 @@ seed:
 ```
 
 A class may add `separation: instance` when the policy demands an
-instance of its own; the check then verifies it by node (11.4).
+instance of its own; G1 then requires the instances holding its
+locations to hold no other database (11.4, 11.6). The loader refuses it
+with `locations: any`, as it refuses `readers` and `outbound` there.
 
 An outbound flow names its receiver (`to`), the outbox it fills
 (`outbox`, `node/database/table`) and, in `fields`, the top-level keys
@@ -543,6 +554,15 @@ on, with live connections beside: the access model's known gaps.
 - The loader checks that a data file creating `pg_cron` belongs to a node
   whose seed preloads it, and that `cron.database_name` names a database
   that data file creates. A fault may still remove the preload.
+- **Start-up noise, removed by `load-data`.** From boot until the data
+  file has created `cron.database_name`, the preloaded launcher cannot
+  connect: it exits (`FATAL:  database "…" does not exist`, then the
+  postmaster's `background worker "pg_cron launcher" (PID n) exited
+  with exit code 1`) and restarts about once a second, lines in the
+  file log the players read. The brick cannot avoid them: creating the
+  database at start-up would fail the data file's `CREATE DATABASE`,
+  and holding the preload back would fail its `CREATE EXTENSION`.
+  `load-data`'s last step removes them, and only them (14).
 - `cron.job` and `cron.job_run_details` show each role its own jobs
   only, unless it is a superuser or bypasses row-level security. The
   players' `dba` sees every job. `load-data` gives the GM check role a
@@ -887,7 +907,7 @@ no recent order: about a third lapsed.
 | `etl_runs (id, job, started_at, finished_at, rows_read, rows_written, watermark)` | `shop`, and `rpt.etl_runs` in `reporting` | P1, P2, P5 | the run ledger the jobs write themselves |
 | `rpt.sales_hourly (hour_local, category, orders, units, revenue)` | `reporting` | P1 | aggregates only, no customer id |
 | `rpt.sales_daily (day_local, orders, revenue, invoiced_revenue, closed)` | `reporting` | P1 | |
-| `src.orders`, `src.order_lines`, `src.products` (foreign tables) | `reporting` | P1 | over `postgres_fdw`, read by the nightly close only; each declares only the columns the close needs, `src.orders` without `customer_id` |
+| `src.orders`, `src.order_lines`, `src.products` (foreign tables) | `reporting` | P1 | over `postgres_fdw`, read by the nightly close only; each declares only the columns the close needs, `src.orders` without `customer_id`; f10's roll-up reads the orders through its own (16.3) |
 | `popular_products` (materialized view) | `shop` | the web shop | refreshed hourly by `db`'s crontab (16.1) |
 
 `daily_sales` leaves the shop's database: the reporting database holds
@@ -1163,7 +1183,7 @@ separate backups and separate failure need an instance. So:
 - **A location is `node/database`**: `db/shop` and `db/reporting` would
   be two databases of one instance, `db/shop` and `reporting/reporting`
   two instances. A class's rule may add `separation: instance`, which
-  the check verifies by node.
+  G1 verifies by node (11.6).
 - **v0.4's reporting database is an instance of its own**, a second
   `postgres` node: the owner's words point at settings, which only an
   instance separates; v1.0's pipeline already draws two database nodes;
@@ -1201,11 +1221,18 @@ breaks.
 
 | Check | Rule | How |
 |---|---|---|
-| G1 location | a classed column exists only in its allowed locations | the catalog of every database on every `database` node: tables, views, materialized views and foreign tables. A foreign table's column takes the class of the remote column it maps; a table's or view's column takes the class of a classified column with the same table and column name; and for `personal`, a content probe on the text columns of disallowed databases finds values shaped like an e-mail address, so a renamed copy is caught |
+| G1 location | a classed column exists only in its allowed locations; a class with `separation: instance` shares no instance with another database | the catalog of every database on every `database` node: tables, views, materialized views and foreign tables. A foreign table's column takes the class of the remote column it maps; a table's or view's column takes the class of a classified column with the same table and column name; and for `personal`, a content probe on the text columns of disallowed databases finds values shaped like an e-mail address, so a renamed copy is caught. For a class with `separation: instance`, every database of a node holding one of its locations is itself one of them |
 | G2 readers | only allowed customer roles may read a classed column | `has_column_privilege` for every customer login role, through membership and `PUBLIC` |
 | G3 reach | no path lets a disallowed location read a class | every foreign table, and every user mapping's remote role checked with G2 on the source (a mapping whose remote role may read `personal`, or a mapping for `PUBLIC`, makes the mapping's database a reader); every transformer job whose connections join a source role to another database, the source role checked with G2 (read from the runner's `jobs.yaml` and schedule, on the runner node); a `SECURITY DEFINER` procedure reaching as its owner, the owner checked with G2 in its database; every `pg_cron` job, its `username` checked with G2 in the database it runs in. Each path's role is judged whoever it is, a superuser reaching every classed column of the database it acts in |
 | G4 outbound | what leaves carries only the listed fields | each flow's `outbox`: the top-level keys of its rows' `payload` against the flow's `fields`, on rows written since the judged moment, as a purpose invariant is; nested content is the purposes' (E3, M4) |
 
+- **`separation: instance`** (11.4) is judged by G1 from the databases
+  it already walks (connectable, not a template), the maintenance
+  database `postgres` aside: on each node holding one of the class's
+  locations, a database that is not one of them is a breach, named by
+  its `node/database`, whatever it holds, since sharing the instance is
+  the finding. The class's own locations may share one instance. A class
+  without the field is judged as before.
 - A transformer script's reach is the one path no catalog shows: G3
   judges the roles of its connections, G1 what actually landed; the
   script's code is the players' evidence, not the check's. A cron
@@ -1451,10 +1478,39 @@ does until v0.5.
 |---|---|
 | `fit` | reads a host's `shared` mark; refuses a node carrying a fault that needs an unshared host on a shared host (13.3) |
 | `render` | substitutes `{{customer_timezone}}` in scheduler seed files and in a `postgres` node's seed `postgresql.conf`; shifts a seeded `crontab`'s hours; mounts the secrets of a node's `crontab_roles` (8.5, 7.2) |
-| `load-data` | passes `customer_timezone` and `customer_utc_offset` to `psql`; sets each user mapping's password from its remote role's secret; gives the GM check role a read policy on `cron.job` and `cron.job_run_details` where `pg_cron` exists; creates the mapping-roles function where a foreign server exists; grants the GM check role `CONNECT` on every database, as today, on every instance (8.5, 7.2, 11.6) |
+| `load-data` | passes `customer_timezone` and `customer_utc_offset` to `psql`; sets each user mapping's password from its remote role's secret; gives the GM check role a read policy on `cron.job` and `cron.job_run_details` where `pg_cron` exists; creates the mapping-roles function where a foreign server exists; grants the GM check role `CONNECT` on every database, as today, on every instance (8.5, 7.2, 11.6); last, removes the `pg_cron` launcher's start-up failures from the server log (below) |
 | `check` | passes `CHECK_SINCE` (the hand-over, from the state, or before it the instance's planting moment) to checks judging runs or triggers; takes `--since <time>`, per instance with `--instance <id>` (12.1) |
 
 The other verbs are unchanged. Nobody triggers a job: no verb runs one.
+
+**`load-data`'s last step, the `pg_cron` start-up noise** (7.2): after
+the `CONNECT` grants, on every `database` node where its survey finds
+`pg_cron` in a database (in the first scenario, `reporting` only), and
+on a restart with no snapshot too. As OS user `postgres`, statement
+logging off for the session:
+
+1. wait up to 60 s for a `pg_cron launcher` backend in
+   `pg_stat_activity`; none fails the step, and the game is torn down as
+   for any failed setup step;
+2. if the server writes a file log, have the collector switch files
+   (`pg_rotate_logfile()`) and wait up to 10 s for the new file;
+3. in every closed file, remove each `background worker "pg_cron
+   launcher" (PID n) exited with exit code 1` line and every line PID n
+   logged before it (the `[%p]` of the brick's `log_line_prefix`, with
+   its tab-indented continuation lines); nothing else changes, each
+   file's mode and time are kept, and the current file is never touched.
+
+No file log: nothing to clean. A log that did not switch files is left
+as it is, with a `warning:` line. The output has the step's `ok` lines
+and `<node>: pg_cron launcher running; <n> line(s) of its start-up
+failures removed from the server log (<files>)`. Rejected: a restart
+after the load (the preload is needed for the data file's `CREATE
+EXTENSION`, and lines already written stay); `cron.database_name =
+'postgres'` (it would change 7.2's loader rule, the data file, f9's
+planting and G3's walk); documenting the lines (refused by the owner).
+Known limits: it relies on `[%p]` in `log_line_prefix`; a
+`log_filename` without a time in it leaves the lines, with the warning;
+the players see a second log file starting at `load-data`.
 
 **The loader**: `purposes:`, `domain:` and `governance:` in
 `scenario.yaml`; `judges:` and `needs_unshared_host` in `fault.yaml`;
@@ -1672,7 +1728,11 @@ write policy.
    `rpt.sales_detail_rollup()`, which builds the agency's document for
    the order lines changed since its last run in one aggregate
    (`jsonb_agg` over the window) and inserts it. `psql` receives no
-   result set. On a normal night it fits.
+   result set. On a normal night it fits. It reads the shop's orders
+   through a foreign table of its own, `src.sales_detail_orders`, which
+   carries `updated_at` and no `customer_id`, so the close's
+   `src.orders` keeps only the close's columns (9.6). Its window runs
+   from its last finished run, or one day back when none has finished.
 2. At `handover-12h` a one-off **backfill request** arrives, a `state`
    change planted by `gmctl inject --at`: a row asking the job to
    recompute the last thirty days (in the story, the agency changed its
@@ -1681,12 +1741,16 @@ write policy.
 3. The run reads thirty days instead of one. The backend computing it
    grows past the node's memory and the kernel kills it.
 4. The postmaster ends every other backend and recovers by itself:
-   "server process … was terminated by signal 9: Killed", "terminating
+   "client backend (PID …) was terminated by signal 9: Killed"
+   (PostgreSQL 18's wording; earlier releases say "server process"), "terminating
    any other active server processes", "all server processes terminated;
    reinitializing", "database system was not properly shut down;
    automatic recovery in progress". It accepts connections again within
    seconds; s6, `sshd` and the cron daemon are untouched.
 5. The request stays taken, never done, so the next night runs normally.
+   When the killed run was the entry's first, the next night reads one
+   day back; after an earlier normal night it reads from that night,
+   two days, which still completes (355 MiB measured at 512M).
 
 The aggregate is what makes it deterministic: its memory sits in the
 backend and grows with its input, unbounded by `work_mem`, while sorts
@@ -1702,6 +1766,10 @@ alone, outside Swarm, armenelos keeping its swap. If no
 window the restored history allows reaches twice the limit, the fault
 comes back to the owner before anything is reshaped; lowering
 `reporting`'s memory limit is the likely lever, offered to him then.
+At the 640M limit (16.1), in a game with every job running, a normal
+run's `memory.peak` read 327 MiB, 238 without page cache, just above
+half; the owner accepted it as measured, the criterion unchanged, and
+the thirty-day backfill was killed as designed.
 
 **Evidence**, all of it on the node: the four log lines at the
 incident's time, in the file log and pgBadger; `oom_kill 1` in
@@ -1714,7 +1782,12 @@ the crontab.
 
 **The check** exits 1 while the kill and the recovery are in the log
 since the planting moment, whatever the crontab holds since; it never
-answers 0 or 3, and no in-game fix is expected. What the players changed
+answers 0 or 3, and no in-game fix is expected. A check judging no runs
+gets no `CHECK_SINCE` (14), so it dates the planting itself, from the
+backfill request's `requested_at`. It exits 2 when it cannot confirm
+the incident: no request, no kill since it, a kill whose recovery is
+not complete in the log yet, or the log or the request unreadable. It
+matches the kill line in either wording. What the players changed
 on `reporting`, if anything, the GM reads from the node itself (16.5). The answer key
 judges the report: the incident named (when, which process, killed for
 memory, the recovery that followed), its cause (the backfill on the
