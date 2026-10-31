@@ -23,7 +23,11 @@ acknowledgement's, an incident due by the escalation run after them.
 During wave 3, two readings of the governance checks were written in:
 the game's own roles are skipped as readers only, a path acting as one
 being judged (11.6, 11.7), and an outbound flow's `fields` are its
-outbox's payload keys (6.9, 11.3, 11.6).
+outbox's payload keys (6.9, 11.3, 11.6); then chunk 15a's readings of
+f7 and f9: f7's offset written into the data file and turned into a zone
+at load, its evidence `\sf`, its check on `reporting` dating a fix with
+`--since` (12.1, 12.5, 16.2, 18, 19), and f9's planting letting its job
+recreate the table, unscheduled by its id (16.2, 16.5).
 
 ---
 
@@ -1269,7 +1273,8 @@ long enough to contain a run. So a purpose fault's sealed check judges
   smoke runs), the fault instance's planting moment;
 - in either case raised by the check itself to the runner's last successful reload
   (`reload status=ok` in its log) when that is later, since a fix to a
-  job's SQL or time takes effect only through a reload;
+  job's SQL or time takes effect only through a reload; a check that
+  cannot read the runner is not raised (12.5);
 - raised by the GM with `gmctl check --since <time>` when the players'
   report says they fixed something outside the runner (a constraint, a
   grant, a role) at a given time.
@@ -1339,6 +1344,15 @@ passed.
   job run this way writes the purpose's run ledger in the same
   transaction as its output, and the check judges those rows; the next
   run is read from the crontab with the program's own cron parser.
+- **A runner's job whose ledger is on the database node** (f7: `bi`'s
+  `rollup-close` calls `rpt.close_day()`, which writes `rpt.etl_runs` on
+  `reporting`, the fault's node): the check judges the ledger's rows and
+  cannot read the runner's log or `jobs.yaml`. Its judged moment is not
+  raised to a reload, so a fix is dated by the GM's `--since`;
+  `remaining=` counts to the job's designed time, a parameter of the
+  fault. A run is judged on the rows it still owns: a later run
+  rewriting them (the job moved twice in a day, or run by hand)
+  replaces it.
 
 The check runs on the database node through `check-psql`.
 
@@ -1609,9 +1623,9 @@ drafts' other candidates stay recorded for later versions (22).
 | `purpose-watermark-misses-updates` (`data-flow`) | R1 | the hourly script picks rows by `placed_at` past the watermark, so an order invoiced at the noon close never reaches reporting: invoiced revenue lags the source, more each day | the script's query; `rpt.sales_daily.invoiced_revenue` against the source's | propose: watermark on `updated_at`; restating the affected days is an *improve* |
 | `purpose-etl-role-expired` (`data-flow`) | R4 | `shop_etl`, the hourly script's source role and the mapping's remote role, is given `VALID UNTIL` the planting moment: every run of either job since fails with an authentication error, the dashboards freeze | the runner's log; `rpt.etl_runs` stops; `\du` on `db` | fix: `ALTER ROLE shop_etl VALID UNTIL 'infinity'` |
 | `security-crontab-superuser` (`security`) | a credential and privilege rule | `db`'s hourly `REFRESH MATERIALIZED VIEW popular_products` runs `psql` with no user, so as `postgres` by peer: a superuser for a job `shop_refresh` could run (the role, its `MAINTAIN` grant and its password file exist, never switched to) | `gm-crontab -l`; `pg_stat_activity` during a run; the role prepared and unused | fix: connect as `shop_refresh` (`-U`, the password file); its check reads the live crontab and requires every entry's role to be no superuser (exit 0 or 1) |
-| `purpose-day-boundary-wrong-zone` (`rules`) | R3, R2 | `rpt.close_day()` cuts the day in a zone N hours off the customer's (a parameter, never 0, which render writes), so every night it rewrites yesterday on the wrong boundary; its check judges the close's runs from `rpt.etl_runs` | closed days shifted against the source's local days, and no longer the sum of their hours; the zone in `\df+` | propose: the customer's zone from `business_settings` |
+| `purpose-day-boundary-wrong-zone` (`rules`) | R3, R2 | `rpt.close_day()` cuts the day in a zone N hours off the customer's (a parameter, never 0, which the scenario writes into its copy of `reporting`'s data file and `load-data` adds to the customer's offset, 8.5), so every night it rewrites yesterday on the wrong boundary; its check judges the close's runs from `rpt.etl_runs` (12.5) | closed days shifted against the source's local days, and no longer the sum of their hours; the zone in `\sf rpt.close_day` | propose: the customer's zone from `business_settings` |
 | `purpose-receiver-down-unnoticed` (`data-flow`) | E4 | the escalation job has no rule for missing acknowledgements; the gateway stopped acknowledging for two hours during the aging (a timeline change of its schedule), and still never acknowledges about one declaration in fifty | declarations with neither acknowledgement nor incident, the two-hour gap foremost | fix: escalate missing acknowledgements |
-| `governance-personal-copied` (`security`) | G1, G3 | the agency's churn dashboard keeps `rpt.customer_activity` with names and e-mail addresses: `reporting`'s data file adds a second foreign server mapped, for `bi_etl`, to the back office's login `shop_reports`, a foreign table over `customers`, the table, and a `pg_cron` job as `bi_etl` refilling it every thirty minutes, which no runner lists | the table and the foreign table in `reporting`; `\des+`, `\deu+`; `cron.job`; the policy | propose: unschedule the job, drop the table, the foreign table and the server; its check requires all of them gone, so dropping the table alone, which the job refills, is not fixed |
+| `governance-personal-copied` (`security`) | G1, G3 | the agency's churn dashboard keeps `rpt.customer_activity` with names and e-mail addresses: `reporting`'s data file adds a second foreign server mapped, for `bi_etl`, to the back office's login `shop_reports`, a foreign table over `customers`, the table, `CREATE` on `rpt` for `bi_etl`, and a `pg_cron` job as `bi_etl` recreating the table if it is gone and refilling it every thirty minutes, which no runner lists | the table and the foreign table in `reporting`; `\des+`, `\deu+`; `cron.job`; the policy | propose: unschedule the job (by its id, 16.5), drop the table, the foreign table and the server; its check requires all of them gone, so dropping the table alone, which the job recreates and refills, is not fixed |
 | `purpose-heavy-job-on-database-node` (`data-flow`) | placement | a heavy transformation from a database node's crontab, which a one-off backfill drove past the node's memory once during the aging (16.3) | the kill and the recovery in the log; `oom_kill` in `memory.events`; the statistics' reset time; the job's log and ledger; the backfill request | report only, whatever the write policy (16.3) |
 
 A fault's seed changes target its own node only. Where it needs an
@@ -1758,8 +1772,10 @@ overstepping player can do, and how it is treated:
   computation (or has stopped the agency's roll-up); the feedback says
   so. The incident check is unaffected (16.3). The report is judged as
   if nothing had changed.
-- **f9.** Unscheduling the job and dropping the copies makes its check
-  read fixed; the GM judges the proposal, and names the unrequested
+- **f9.** Unscheduling the job (by its id: by name, `cron.unschedule`
+  finds only the caller's own jobs, and this one is `bi_etl`'s) and
+  dropping the copies makes its check read fixed; the GM judges the
+  proposal, and names the unrequested
   change.
 - **f7.** Editing `rpt.close_day()` on `reporting` is possible, and so is
   running it by hand with `CALL`, a run outside the schedule, which the
@@ -1814,7 +1830,8 @@ rehearsal and the timer-fired early check, and adds:
    report-only node too); the check read present; the acceptance fix
    applied, the check read too soon; the job moved again, the check read
    fixed. Frequent jobs need no move. f4's cycle also moves the
-   producer's invoicing, its witness; f5's passes `--since`.
+   producer's invoicing, its witness; f5's and f7's pass `--since`,
+   their fixes made outside the runner (12.1, 12.5).
 3. **Every definition fault** (f6, f9) read present, then fixed after
    its acceptance fix.
 4. **The unfaulted scenario passes G1 to G4**, proving the baseline
@@ -1886,7 +1903,7 @@ rediscovery:
 - **The governance check set** G1 to G4, shared by the governance
   faults' checks.
 - **The harness**: moving a job in a smoke cycle (on report-only nodes
-  too); `--since` in f5's cycle; f10's calibration and smoke run on
+  too); `--since` in f5's and f7's cycles; f10's calibration and smoke run on
   armenelos only; the rehearsal's override leaving f10 out.
 - **The out-of-memory victim** (`PG_OOM_ADJUST_*` in the run script)
   before f10's calibration, which runs early in the build, on armenelos

@@ -4,7 +4,8 @@ Status: **approved by the owner on 2026-10-30 with the
 [master spec](master-spec.md) it accompanies**; amended the same day by
 the owner's ruling during wave 1 that the web front runs in every game
 (2, 3, 4, 13); and on 2026-10-31, during wave 3, by two readings of
-the governance checks written into the master spec (9.3). Revises the
+the governance checks written into the master spec (9.3), then how
+`dba` unschedules another role's `pg_cron` job (9.4). Revises the
 [v0.3 access model](../v0.3/access-model.md), which it replaces for v0.4
 games; "Changes from v0.3" at the end lists what moved.
 
@@ -409,7 +410,7 @@ lists the payload keys they stand for, which G4 checks (master spec
 | | `pg_cron` jobs | A crontab |
 |---|---|---|
 | Listed to | the players' `dba` (all jobs); a non-superuser customer role, its own jobs only; the GM check role, all, through its read policy | the players, through `sudo gm-crontab -l`; root |
-| Changed by | the players' `dba` (`cron.schedule`, `cron.unschedule`, `cron.alter_job`, the settings), on every instance | the players, through `sudo gm-crontab <file>`, on every database node; also OS user `postgres` with `crontab` itself, which `dba` reaches through programs run as `postgres`: the same crontab, on a node the players may change anyway |
+| Changed by | the players' `dba` (`cron.schedule`, `cron.unschedule`, `cron.alter_job`, the settings), on every instance; another role's job by its id, since `cron.unschedule` by name finds the caller's own jobs only | the players, through `sudo gm-crontab <file>`, on every database node; also OS user `postgres` with `crontab` itself, which `dba` reaches through programs run as `postgres`: the same crontab, on a node the players may change anyway |
 | Run as | the job's `username`, through a background worker, with no password | OS user `postgres`, connecting as the role the entry names through the password file, or as `postgres` by peer if it names none (a superuser: a fault) |
 | Seeded by | the instance's data file | the node's seed `crontab`, installed once |
 

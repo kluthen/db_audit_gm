@@ -1,6 +1,8 @@
 # db_audit_gm v0.4 — Build plan
 
-Status: v6 (2026-10-30): the owner's ruling on G10, `reporting`'s
+Status: v7 (2026-10-31): chunk 15a's readings of f7 and f9 (spec D239
+to D243) written into chunks 15, 16 and 17 and the release gate; v6
+(2026-10-30) the owner's ruling on G10, `reporting`'s
 memory limit raised to 640M (spec D227), written into G10, chunks 13, 15
 and 16 and the release gate; v5 the owner's ruling on G12, the web front in
 every game (spec D224, applied by D225), written into chunk 19, now split
@@ -1030,11 +1032,14 @@ for chunk 16.
     its check requiring every live crontab entry's role to be no
     superuser); `purpose-day-boundary-wrong-zone` (f7: `rpt.close_day()`
     cutting the day N hours off the customer's zone, N a non-zero
-    parameter render writes; its check judging the close's runs from
-    `rpt.etl_runs`); `governance-personal-copied` (f9: the second foreign
+    parameter written into the data file's copy and added to the
+    customer's offset at load (spec D239); its check judging the close's
+    runs from `rpt.etl_runs`, a fix dated with `--since` (spec D241));
+    `governance-personal-copied` (f9: the second foreign
     server mapped for `bi_etl` to `shop_reports`, the foreign table over
-    `customers`, `rpt.customer_activity`, the `pg_cron` job as `bi_etl`
-    refilling it every thirty minutes; its check calling G1 and G3 and
+    `customers`, `rpt.customer_activity`, `CREATE` on `rpt` for `bi_etl`,
+    the `pg_cron` job as `bi_etl` recreating and refilling it every
+    thirty minutes (spec D242); its check calling G1 and G3 and
     requiring the job, the table, the foreign table and the server gone);
     the loader admitting `data` in a seed change, the target node's
     `data.file`, and refusing it on a node without one (spec D226), with
@@ -1066,12 +1071,12 @@ for chunk 16.
   `.claude/skills/scenario-format/templates/fault.yaml` (the comment).
 - Spec sections: master spec 6.3, 7.2, 11.6, 11.7, 12.5 to 12.7, 13.3,
   16.2, 16.3, 16.5; access model 7, 9.4, 12; spec D209, D211, D213,
-  D226, D227.
+  D226, D227, D239 to D243.
 - Done when: the loader accepts each, and refuses a `data` seed change
   on a node without a data file; on `fixture-campaign` f6 and f9
   read 1, then 0 after their acceptance fix (f9 still 1 with only the
   table dropped); f7 reads 1 after the close runs (its job moved), 3
-  then 0 after the fix and a move; f10's run kills a backend, PostgreSQL
+  then 0 after the fix, dated with `--since`, and a move; f10's run kills a backend, PostgreSQL
   recovers by itself, s6, `sshd` and `cron` untouched, its check reads
   1, the next run normal; at 640M a normal run's `memory.peak` under
   320 MiB and the thirty-day backfill killed with swap, or, on a
@@ -1110,11 +1115,12 @@ node, and each acceptance fix.
   silent tooling expectation; `gm/answer-key.yaml` with each instance's
   expected resolution, and the overstep notes of 16.5 for f7, f9 and
   f10 (a change on the agency's system judged, never credited); f7
-  expected to stay present; `gm/notes.md`, `brief.md`, `README.md`
+  expected to stay present, its `offset` the same number in its instance
+  and in `reporting`'s data file (spec D239); `gm/notes.md`, `brief.md`, `README.md`
   regenerated.
 - Files: `scenarios/<id>/` (new); the root `README.md`'s table.
-- Spec sections: master spec 11.5, 13.2, 13.4, 16.1, 16.2, 16.5;
-  access model 7, 12; spec D227.
+- Spec sections: master spec 11.5, 12.5, 13.2, 13.4, 16.1, 16.2, 16.5;
+  access model 7, 9.4, 12; spec D227, D239 to D243.
 - Done when: the format skill finds nothing missing; `fit` and `render`
   accept it on armenelos alone and on armenelos plus the VPS declared
   `shared`, `fit` refusing the VPS for `reporting`; its README matches a
@@ -1139,7 +1145,8 @@ Architecture capture: none of its own; it uses W4.
     (planted; its job moved to run within two minutes by an edit of
     `jobs.yaml` and a reload, done as root on a report-only node; present;
     its acceptance fix; too soon; moved again; fixed), f4's cycle moving
-    the producer's invoicing, f5's passing `--since`; f6 and f9 present
+    the producer's invoicing, f5's and f7's passing `--since` (spec
+    D241); f6 and f9 present
     then fixed after their acceptance fix; the unfaulted scenario,
     rendered with every instance left out by the harness-only override,
     passing G1 to G4; f10's own run on armenelos alone, the VPS drained,
@@ -1163,8 +1170,8 @@ Architecture capture: none of its own; it uses W4.
   list (`tools/gm/{render,inject,aging}.py` as the build finds) and its
   unit tests; 17b: `bricks/{scheduler,postgres}/{brick.yaml,docs/gm.md}`
   ("Footprint"), `scenarios/<id>/{scenario.yaml,README.md}`.
-- Spec sections: master spec 12.1, 13.3, 16.3, 18 (items 1 to 6); access
-  model 6, 7.
+- Spec sections: master spec 12.1, 12.5, 13.3, 16.3, 18 (items 1 to 6);
+  access model 6, 7; spec D241.
 - Done when: every run passes as listed, its figures recorded with
   machine and date in the Record line and the wave log; the VPS drained
   after each two-host run and never active during f10's.
@@ -1366,7 +1373,8 @@ bastion only; GM-side checks run from the host.
    armenelos plus the VPS, every fault planted at once, every key and job
    running; `fit` refusing the VPS for `reporting`; the VPS drained after.
 9. Master spec 18.2 and 18.3: every purpose fault's full cycle (f1 to f5,
-   f7, f8), f4's moving the producer's invoicing, f5's with `--since`;
+   f7, f8), f4's moving the producer's invoicing, f5's and f7's with
+   `--since`;
    f6 and f9 present, then fixed after their acceptance fix.
 10. Master spec 18.4: the unfaulted scenario passing G1 to G4.
 11. Master spec 18.5: f10 calibrated (G10 done, re-measured at 640M by

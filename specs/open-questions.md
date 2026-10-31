@@ -11,7 +11,7 @@ their IDs keep their meaning. Questions resolved by the close of v0.2
 Questions resolved by the close of v0.3 (O45, O46, O78 and O81–O103) are
 listed in
 [archive/v0.3/open-questions-resolved.md](archive/v0.3/open-questions-resolved.md).
-Numbering continues from O137.
+Numbering continues from O141.
 
 Resolved during v0.4's drafting: O106 (D194), O110 (D195), O107 (D197), O120
 (D198), O109 (D199), O121 (D200), O123 (D202), O105 (D203), O129 (D206), O131 (D207),
@@ -148,7 +148,8 @@ game's world, not the game's access model. Drafted on 2026-10-30 in
 clinic's classes (D196); O120 closed by D198 (an instance of its own);
 O115, O116, O117 and O119 closed by the master spec's approval, as
 written there (D215). O118 stays open, for v0.5; O134, raised by D221,
-closed by D224; O136, raised by D230, waits for a later version.
+closed by D224; O136, raised by D230, waits for a later version. O140,
+raised by chunk 12, is the owner's before chunk 16.
 
 - **O118** (later, v0.4 → v0.5; **defaulted**) — Brick changes for
   governance. Default, told to the owner on 2026-10-30 and holding
@@ -163,6 +164,16 @@ closed by D224; O136, raised by D230, waits for a later version.
   but executable by `PUBLIC` or a disallowed role is a path? No v0.4
   fault turns on it. Refs:
   [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 11.6, 22.
+- **O140** (next, v0.4) — `separation: instance`. 11.4 and 6.9 say the
+  check verifies it by node, but 11.6 gives it no rule, and chunk 12's
+  check set does not judge it; the loader accepts it, no v0.4 scenario
+  uses it. Either (a) define the rule, every database on a node holding
+  one of the class's locations being itself one of them (`postgres` and
+  the templates aside), and build it into the shared set as a small
+  insertion, or (b) leave it to v0.5's regulated domains, the loader
+  refusing the field until then. Recommended: (a). Refs:
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 6.9, 11.4,
+  11.6; [versions/v0.4/wave-log.md](versions/v0.4/wave-log.md) chunk 12.
 ## v0.5: domains
 
 Raised when the owner set business domains for v0.5 on 2026-10-28

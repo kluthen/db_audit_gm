@@ -349,3 +349,35 @@ drafting. Take the next number from `doc-ids`; no ID is reused.
   Now in: [formats.md](formats.md) "Purposes, domain and governance";
   [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 6.9,
   11.3, 11.6; [versions/v0.4/access-model.md](versions/v0.4/access-model.md) 9.3.
+- **D239 (2026-10-31, spec-writer, chunk 15a's item 1, reading 8.5 and
+  16.2 as approved): f7's N is written by the scenario into its copy of
+  `reporting`'s data file, the same number as the instance's `offset`,
+  and `load-data` adds it to `customer_utc_offset`, wrapped as D168.**
+  `render` writes no data file (8.5); the zone stays N hours off the
+  customer's at any shift. Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md)
+  16.2; [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunks 15, 16.
+- **D240 (2026-10-31, spec-writer, chunk 15a's item 2): f7's evidence is
+  `\sf rpt.close_day`, not `\df+`.** PostgreSQL 18's `\df+` shows neither
+  a procedure's source nor its `SET` clauses. Now in:
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 16.2.
+- **D241 (2026-10-31, spec-writer, chunk 15a's item 3, reading 12 as
+  approved): a check on a database node judging a runner's job by a
+  ledger there (f7) cannot read the runner: its judged moment is not
+  raised to a reload, a fix is dated with `--since`, `remaining=` counts
+  to the designed time, and a run is judged on the rows it still owns.**
+  12 keeps a check on its instance's node; 18.2's f7 cycle passes
+  `--since`, as f5's. Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md)
+  12.1, 12.5, 18, 19; [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md)
+  chunk 17, release gate.
+- **D242 (2026-10-31, spec-writer, chunk 15a's item 4, reading 16.2 as
+  approved): f9's planting grants `bi_etl` `CREATE` on `rpt`, so its job
+  recreates a dropped table.** 16.2's "dropping the table alone, which the
+  job refills" needs it; the grant is the fault's, not the baseline's
+  (access model 9.1), and its check does not require it revoked. Now in:
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 16.2;
+  [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunk 15.
+- **D243 (2026-10-31, spec-writer, chunk 15a's item 5): `dba` unschedules
+  another role's `pg_cron` job by its id; by name `cron.unschedule` finds
+  the caller's own jobs only.** pg_cron's behaviour, which f9's fix meets.
+  Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md)
+  16.2, 16.5; [versions/v0.4/access-model.md](versions/v0.4/access-model.md) 9.4.

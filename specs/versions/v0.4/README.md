@@ -24,10 +24,14 @@ change was settled (D226). During wave 2 his ruling on G10 raised
 `reporting`'s memory limit to 640M (D227), and chunk 11's reading of
 E4's deadline was written into the master spec (D228). After wave 2
 the owner ruled that a change confined to a brick's tests bumps nothing
-(D229, in formats.md), settling wave 1's gate fix.
+(D229, in formats.md), settling wave 1's gate fix. In wave 3,
+readings of the governance checks (D230, D231) and of f7 and f9
+(D239–D243) were written into the master spec, the access model and the
+plan; `separation: instance`, which no check judges, waits on the owner
+(O140).
 The drafts stay as the working record until the archive; where
 they and the master spec disagree, the master spec is current.
-Page draft v9.
+Page draft v10.
 
 History: direction recast on 2026-10-28 (D190),
 revising D47's "transformers" for this version; a first cut of data
