@@ -32,8 +32,7 @@ from.
 
 ## The setup's entry point (D224)
 
-Moved here from v0.5 (D233): the reporting tool settled, the common
-Caddy and the homepage proposed (O137).
+Moved here from v0.5 (D233, D248).
 
 From v0.4 every game has a web front, its home the starter-pack page.
 The owner, ruling on it on 2026-10-30: "i expect a front at every game,
@@ -46,11 +45,10 @@ entrypoint there)."
 
 None of it built in v0.4:
 
-- **a common Caddy** in front of several games' web fronts (proposed
-  here);
+- **a common Caddy** in front of several games' web fronts;
 - **a homepage for the whole setup**, dispatching the viewer to each
   game's rules (READMEs, game information, data policies, issues), its
-  tools and its dashboards (proposed here): the out-of-game side of the
+  tools and its dashboards: the out-of-game side of the
   landing page above;
 - **a reporting tool** joining a game's starter-pack page, which v0.4
   builds as a list of elements for it (D221), served by the bastion's web
@@ -81,5 +79,5 @@ Open: O135.
   faults.
 - O32: the language of player-facing material, the website included.
 - O135: the setup's entry point (a common Caddy, the setup's homepage,
-  a reporting tool on the starter-pack page), moved from v0.5 (D233;
-  the Caddy and homepage proposed, O137).
+  a reporting tool on the starter-pack page), moved from v0.5 (D233,
+  D248).

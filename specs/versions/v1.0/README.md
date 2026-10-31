@@ -44,9 +44,8 @@ be needed for v1.0, is put to the owner:
   volumes to be copied to them (D125, O22).
 - **Generating scenarios** (O47). The GM designing a scenario from a
   partial or empty brief and filling the blanks is settled as a capability
-  (D16) but placed in no version; v0.5 prepares for it (domains, the
-  clinic's topology) without naming it, and proposes it for v1.0 (D233,
-  O137).
+  (D16), placed in v1.0 on 2026-10-31 (D248, closing O47); v0.5 prepares
+  for it (domains, the clinic's topology).
 - **Aging and the solvability probe** (O48). Both were deferred from v0.1;
   load (v0.3) and generated scenarios need them. Aging enters in v0.3, in
   real time (D114); the probe as a gate is still unplaced.

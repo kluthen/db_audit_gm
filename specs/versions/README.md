@@ -28,8 +28,8 @@ v0.1 is draft.
 
 Questions about the roadmap as a whole (gaps between v0.5 and v1.0,
 risks across versions) are in [open-questions.md](../open-questions.md),
-O47 to O49 and O52 to O54 (O46, multi-host, resolved by D128 for v0.3;
-O121 by D200).
+O48, O49 and O52 to O54 (O46, multi-host, resolved by D128 for v0.3;
+O121 by D200; O47, scenario generation, by D248 for v1.0).
 
 ## Beyond v1.0: a fictional cloud provider (D205)
 
@@ -51,8 +51,8 @@ same iam complexity."
 | **Networking** | security groups, network interfaces, editable in the console, over the swarm's overlay networks and firewall rules (O12) | v2.0+ |
 
 The console has its own entry point beside the setup's homepage, which
-v0.6 may bring (owner, 2026-10-30, D224; moved from v0.5 by D233,
-proposed; O130, O135).
+v0.6 may bring (owner, 2026-10-30, D224; moved from v0.5, D233, D248;
+O130, O135).
 
 Settled: the provider is **fictional**, with an in-world name of its
 own; the console's layout is ours, not a copy of AWS's; **no AWS-style
@@ -80,11 +80,11 @@ Open: O130.
 On 2026-10-31 the owner centred v0.5 on domain definition and the
 veterinary clinic, moving later what does not serve it: "We will move
 all tools not related to the clinic use case for a later date (probably
-v1.0+)." The full sorting, with its settled and proposed rows, is in
-[v0.5's page](v0.5/README.md#sorting-d233); confirming the proposed ones
-is O137.
+v1.0+)." The full sorting is in
+[v0.5's page](v0.5/README.md#sorting-d233); the owner accepted every
+proposed row the same day (D248).
 
-**Probably v1.0+**, no version set (proposed, O137, unless marked):
+**Probably v1.0+**, no version set (D233, D248):
 
 - the research's other top-three picks per need, alternatives to v0.2's
   bricks;
@@ -95,10 +95,13 @@ is O137.
 - a general review of v0.3's defaults (D146), beyond what the clinic's
   work meets;
 - finance reconciliation, the shop's P4 (D197);
-- scenario generation (O47, v1.0), seeded variation (O24), promoting
-  scenario-only bricks and faults (O25);
+- seeded variation (O24), promoting scenario-only bricks and faults
+  (O25);
 - the undersized transformer, after v1.0 with the provider's capacity
   family (D204, D205).
+
+**v1.0**: scenario generation (O47, closed by D248;
+[v1.0](v1.0/README.md)).
 
 **Decided later**: whether other domains (a warehouse, a factory, a lab
 on its own) join v0.5, once the domain procedure's cost is known (D235;

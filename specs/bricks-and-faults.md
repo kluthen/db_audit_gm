@@ -83,8 +83,8 @@ fault targets the `prometheus` node, takes the affected node as a
 parameter and is planted through the node-health map (D92). A later metrics store other than
 Prometheus would need its own copy. pgwatch, pgCluu and other health
 solutions (Nagios or others) come in v0.5 with the clinic (D70, D238),
-hand-made scripts with them (proposed); alternatives to v0.2's bricks are proposed for v1.0 or later (D233,
-O137).
+hand-made scripts with them; alternatives to v0.2's bricks come in v1.0
+or later (D233, D248).
 
 Monitoring bricks are optional in a topology (D65), and may carry faults
 of their own (D63; "Example families" below).

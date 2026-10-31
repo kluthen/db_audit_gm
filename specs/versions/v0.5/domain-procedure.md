@@ -1,8 +1,11 @@
 # v0.5 — defining a domain: the procedure
 
-Status: draft v1, not approved (D235; O139). Every rule below is
-`(proposed)` until the owner approves the procedure, except where it
-states what v0.4 built.
+Status: draft v2 (D235, D249). Settled by the owner on 2026-10-31
+(D249): the clinic's cut (section 4, kept now, revised once `vet-core`
+is defined), the composition rules (section 4), the four format changes
+(section 6) and a skill later (section 8). The rest, what a domain holds
+and leaves out, the steps, done and the checklist, and the effort, is
+`(proposed)` until the owner approves it (O139).
 
 The owner, on 2026-10-31: "we need a proper "procedure" to define a
 domain, what we put in and not. the clinic will probably spawn multiple
@@ -104,11 +107,11 @@ Completeness checklist (the build's checks are those v0.4's chunk 5 ran):
       the classification, the producer, the rules, the traps, loading.
 - [ ] The `scenario-format` skill finds nothing missing.
 
-## 4. Composite domains: splitting and composing (O126)
+## 4. Composite domains: splitting and composing (D249)
 
 The clinic is one business made of parts that are close to domains of
-their own (D196). The rules proposed for splitting it, which narrow
-O126:
+their own (D196). The rules for splitting it, settled by D249 (closing
+O126), to be tried first on `vet-core` and `vet-lab`:
 
 - **A core and parts.** The core holds the keys every part shares (for
   the clinic: owners, animals, sites, staff). A part names its core in
@@ -138,7 +141,8 @@ O126:
 
 ### The clinic, a first cut
 
-Proposed, for the owner to correct; one line per domain:
+Kept now, and revised once `vet-core` is defined (D249); one line per
+domain:
 
 | Domain | What it holds |
 |---|---|
@@ -160,7 +164,7 @@ wants it on its own.
 ## 5. How a scenario names its domains
 
 Today `scenario.yaml` carries `domain: <id>`, for provenance only. With
-composites, a scenario names a list (proposed):
+composites, a scenario names a list (D249):
 
 ```yaml
 domains:
@@ -181,7 +185,7 @@ self-sufficient (D23).
 The shop fits the procedure as built for its folder layout, the
 `domain.yaml` keys, the design-time copy, never bumping, purposes listed
 by id, deterministic loads and its GM notes' sections. Four changes,
-proposed:
+settled (D249) and built together in one chunk:
 
 1. **The business's own rules.** A regulated business's rules (a
    medicines register kept, lab results released only once validated)
@@ -198,7 +202,8 @@ proposed:
 4. **`domains:`** in `scenario.yaml` (section 5), with `domain:` kept.
 
 Each needs the template, the format skill's checks and
-`check_domain_dir` to follow, in a build chunk.
+`check_domain_dir` to follow, in that one chunk; `formats.md` states
+them once it is built.
 
 ## 7. Effort to define one domain
 
@@ -228,7 +233,7 @@ the point at which the owner decides whether other domains join v0.5
 
 ## 8. A skill later
 
-The procedure should become a skill once it has been used on two or
-three domains, as `scenario-format` and `scenario-document` are: a
+The procedure becomes a skill once it has been used on two or three
+domains (D249), as `scenario-format` and `scenario-document` are: a
 domain-definition skill walking the steps, filling the draft document's
-sections and running the checklist. Proposed, not created (O139).
+sections and running the checklist. Not created yet.
