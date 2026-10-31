@@ -38,6 +38,10 @@
 # - G1's probe: personal only, in the databases it may not live in, the
 #   text-typed columns of tables and materialized views not already classed
 #   personal; one value shaped like an e-mail address is enough.
+# - G1's separation (spec D253): for a class with `separation: instance`,
+#   on each node holding one of its locations, every database walked but
+#   postgres not among them is a breach, `G1 <node>/<database> database:`,
+#   whatever it holds. A class without the field is judged as before.
 # - G2: every login role but the game's own (CHECK_GOVERNANCE's own_roles)
 #   and pg_*, on the instance holding the column; "may read" is CONNECT on
 #   the database, USAGE on the schema and SELECT on the column, through
@@ -177,8 +181,9 @@ _gov_psql() {
 
 _gov_database_node() {
     # CHECK_GOVERNANCE read by PostgreSQL: its shape first, then the
-    # database nodes and the outboxes (each with its receivers and the
-    # union of the fields of the flows naming it).
+    # database nodes, the outboxes (each with its receivers and the union
+    # of the fields of the flows naming it) and each location of a class
+    # with separation: instance.
     _gov_psql "$_gov_self" postgres > "$_gov_tmp/conf.x" <<'SQL' || return
 WITH gov AS (SELECT :'gov'::jsonb AS g)
 SELECT CASE
@@ -210,6 +215,13 @@ SELECT 'O|' || a.ob || '|' || a.tos || '|' || b.flds
          FROM flows f2, jsonb_array_elements_text(
               CASE WHEN jsonb_typeof(f2.f -> 'fields') = 'array' THEN f2.f -> 'fields' ELSE '[]' END) x
         WHERE f2.f ->> 'outbox' = a.ob) b
+ ORDER BY 1;
+WITH gov AS (SELECT :'gov'::jsonb AS g)
+SELECT 'I|' || c.key || '|' || l
+  FROM gov, jsonb_each(g -> 'classes') c,
+       jsonb_array_elements_text(CASE WHEN jsonb_typeof(c.value -> 'locations') = 'array'
+                                      THEN c.value -> 'locations' ELSE '[]' END) l
+ WHERE c.value ->> 'separation' = 'instance'
  ORDER BY 1;
 SQL
     sed -n 's/^N|//p' "$_gov_tmp/conf" > "$_gov_tmp/nodes"
@@ -317,7 +329,33 @@ _gov_collect() {
 
 # --- G1 location -----------------------------------------------------------------
 
-_gov_g1() { _gov_each_db _gov_g1_db; }
+_gov_g1() { _gov_each_db _gov_g1_db && _gov_g1_separation; }
+
+# _gov_g1_separation: for each class with separation: instance (11.6, spec
+# D253), on each node holding one of its locations, every database walked
+# but postgres is one of them; any other is a breach, whatever it holds.
+_gov_g1_separation() {
+    sed -n 's/^I|//p' "$_gov_tmp/conf" > "$_gov_tmp/sep"
+    cut -d'|' -f1 "$_gov_tmp/sep" | uniq > "$_gov_tmp/sep.classes"
+    while read -r _gov_sc; do
+        grep -F -e "$_gov_sc|" "$_gov_tmp/sep" | while IFS='|' read -r _gov_x _gov_sl; do
+            [ "$_gov_x" = "$_gov_sc" ] && printf '%s\n' "$_gov_sl"
+        done > "$_gov_tmp/sep.locs"
+        while IFS=/ read -r _gov_en _gov_ed; do
+            [ "$_gov_ed" = postgres ] && continue
+            grep -Fqx -e "$_gov_en/$_gov_ed" "$_gov_tmp/sep.locs" && continue
+            _gov_shared=
+            while read -r _gov_sl; do
+                [ "${_gov_sl%%/*}" = "$_gov_en" ] \
+                    && _gov_shared="${_gov_shared:+$_gov_shared, }$_gov_sl"
+            done < "$_gov_tmp/sep.locs"
+            [ -n "$_gov_shared" ] || continue
+            _gov_breach G1 "$_gov_en/$_gov_ed" database \
+                "shares the instance of $_gov_shared, where $_gov_sc data lives (separation: instance)"
+        done < "$_gov_tmp/dbs"
+    done < "$_gov_tmp/sep.classes"
+    return 0
+}
 
 _gov_g1_db() {
     { _gov_cte; cat <<'SQL'

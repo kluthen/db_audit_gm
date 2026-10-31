@@ -13,8 +13,11 @@
 #     alone reads 0 from either database node, G3 0 on bi;
 #   - each breach of breaches/*.sql planted as postgres on its node, each
 #     rule reading what its `expect:` line says (from db; its broken rules
-#     from reporting too, the first line naming the rule), then reverted,
-#     every rule back to 0;
+#     from reporting too, the first line naming the rule, and starting
+#     with its `first:` line's text when it has one), then reverted, every
+#     rule back to 0 (from v0.4 chunk 20, g1-separation-database: a second
+#     database on db, which personal's `separation: instance` refuses;
+#     spec D253);
 #   - breaches/g3-transformer-source.sh on bi: G3 reads 1 there, 0 after;
 #   - the set returning to its caller, and reading 2 when it cannot judge:
 #     an unknown or repeated rule, no CHECK_GOVERNANCE, G4 without
@@ -177,10 +180,11 @@ for f in "$FIXTURE"/breaches/*.sql; do
         got=$(rc_of db all "$r")
         same "$b: $r reads $want (run on db)" "$want" "$got"
         if [ "$want" = 1 ]; then
+            first=$(field "$f" first)
             line=$(rule reporting all "$r")
             case $line in
-                "1 $r: "*) pass "$b: $r reads 1 on reporting too: ${line#1 }" ;;
-                *) fail "$b: $r on reporting (expected [1 $r: ...], got [$line])" ;;
+                "1 $r: $first"*) pass "$b: $r reads 1 on reporting too: ${line#1 }" ;;
+                *) fail "$b: $r on reporting (expected [1 $r: $first...], got [$line])" ;;
             esac
             sed 's/^/      /' "$tmp/last.out"
         fi

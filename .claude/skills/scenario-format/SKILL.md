@@ -297,7 +297,9 @@ job's `connections:`); the others are checked by reading:
   has a receiver label `to` (`[a-z][a-z0-9-]*`, once per class), the
   `outbox` it fills (`<node>/<database>/<table>`) and a non-empty
   `fields`. `separation: instance` when the policy demands an instance of
-  its own.
+  its own, refused with `locations: any`: G1 then finds, on each node
+  holding one of the class's locations, every database but `postgres` not
+  among them (spec D253).
 - **The data policy** (`player/data-policy.md`, with `governance:`): the
   GM writes it from `governance:`, in the story's voice (the company
   speaking to its staff): what the company holds, the classes in plain

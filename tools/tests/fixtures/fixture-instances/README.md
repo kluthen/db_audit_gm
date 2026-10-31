@@ -198,7 +198,7 @@ classes: `data/classification.yaml`.
 
 | Class | Locations | Separation | Readers | Outbound |
 |---|---|---|---|---|
-| `personal` | db/shop | — | shop_app | mail-provider (db/shop/mail_outbox): email, name, order_id |
+| `personal` | db/shop | instance | shop_app | mail-provider (db/shop/mail_outbox): email, name, order_id |
 | `customer-linked` | db/shop | — | shop_app | none |
 | `internal` | any | — | — | — |
 

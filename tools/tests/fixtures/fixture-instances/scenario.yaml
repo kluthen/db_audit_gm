@@ -9,6 +9,9 @@
 # baseline holds here; breaches/ holds what tools/tests/smoke-governance.sh
 # plants on a copy, one breach at a time, and the transformer node it adds
 # to that copy for G3's job path. Not part of the scenario.
+# v0.4 chunk 20: personal with `separation: instance` (spec D253), which
+# the baseline keeps (db holds shop and postgres only) and
+# breaches/g1-separation-database.sql breaks.
 
 # --- Scenario information --------------------------------------------
 id: fixture-instances
@@ -35,6 +38,7 @@ governance:
   classes:
     personal:
       locations: [db/shop]
+      separation: instance          # db holds shop and postgres only (spec D253)
       readers: [shop_app]
       outbound:
         - to: mail-provider
