@@ -56,7 +56,7 @@ Every primary link above was fetched on 2026-10-31 and returned HTTP 200, with t
 - **Shepherd**: no web.archive.org snapshot exists.
 - **SingHealth**: `go.gov.sg/singhealthcoi` redirects to a 454-page PDF on file.go.gov.sg; read from the PDF.
 - **Secondary links**: the BBC article in the PHE entry and the EDB commentary in the RevenueCat entry returned 200 with curl (the BBC page could not be read with the web-fetch tool but its text was checked by curl).
-- Archive links are the "closest snapshot" returned by the Wayback Machine availability API on the same day.
+- Archive links are the "closest snapshot" returned by the Wayback Machine availability API on the same day. web.archive.org throttled the checks, so they took two passes: each of the 27 archive links returned HTTP 200 in at least one pass (19 in the first, the other 8 in the second).
 - Not used, because the primary could not be fetched or no primary write-up exists: Microsoft MSRC's 2019 customer-support database exposure post (moved, 404 at the new address), Twitter's 2018 "passwords in an internal log" post (403), Salesforce's 2019 Pardot permissions incident (status-page wording and press only), Toyota's 2023 cloud misconfiguration notice (press only).
 
 ## Entry template
