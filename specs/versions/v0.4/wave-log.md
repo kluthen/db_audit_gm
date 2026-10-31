@@ -2122,6 +2122,80 @@ Options for the owner at the wave report: `cron.database_name =
 loader rule; no noise), a restart step in `load-data`, or documenting the
 pre-load lines in `postgres`' `gm.md` and `player.md`.
 
+### Wave 3 report to the owner, 2026-10-31
+
+Chunks 12, 13, 14, 15 (15a, 15b) and the inserted 20 merged; none moved.
+Gate passed with one README-cell fix. Rulings this wave: the pg_cron
+noise fixed by a `load-data` step (D258); v0.5's recommendations accepted
+(D248–D251, on `v0.5-scope`); f10's 327 MiB accepted (D252);
+`separation: instance` defined (D253). Readings by `spec-writer`: D239–D247,
+D254–D257. Owner, while the gate ran: "we will end after this chunk" —
+merge wave 3, then stop; **wave 4 (chunks 16, 17, 18) waits for his word**.
+`v0.5-scope` and `v0.5-post-mortem` stay unmerged until he says.
+
+Open for wave 4's driver:
+- To `spec-writer` at wave 4's start: chunk 20's two readings (the breach
+  line's object for a whole database is the word `database`;
+  `smoke-governance.sh`'s optional `-- first:` line); after `v0.5-scope`
+  merges, `formats.md`'s O126 citation (line ~611).
+- Chunk 16's brief: f1 `aging_minimum: 65m`; f2's expected fix names both
+  paths; f7's offset equal in instance and data-file copy, non-zero,
+  −23..23, aging ≥ the close's offset from T0 + 1h, `judges: runs`,
+  `threshold: 0`, fix dated with `--since`; f9's fix unschedules by id,
+  the CREATE grant is part of the planting; no `separation:` (D253);
+  `reporting` at 640M (D252); cite D227, D239–D247, D252–D258; watch
+  `reporting`'s fdw link to `db` idle > 900 s (the nightly close).
+- Chunk 17a's brief: f7's cycle passes `--since`; after a move, wait for
+  the moved time, not `remaining=`.
+- Chunk 18's: f10's check reads 2 after hand-over if a player deletes the
+  request row in `reporting`.
+- Cosmetic README leftovers: "—" vs "none" in other generated READMEs
+  (`fixture-v04-refusals` not regenerated since 93538db); wrapping and
+  backticks; empty job-table rows.
+- The superseded `scheduler:0.2.0` layers may remain on the VPS (no prune).
+
+### Wave 3 gate (coding-executor, armenelos + the VPS, 2026-10-31) — passed
+
+Every step passes on `v0.4-w3` from 62f3b07 to 5e8eb84, 17:33–19:35 UTC,
+every docker step under the host lock and the sleep inhibitor, one at a
+time. Host: 9.0G free on `/`, 4.9 GiB available, `ollama` and two
+`llmward` services running.
+
+| Step | Result |
+|---|---|
+| Unit suite | 848 OK (146 s), again at 5e8eb84 |
+| Scheduler unit tests | 72 OK (178 s) |
+| `sh -n` / `perl -c` / `py_compile` | 163 / 7 / 52 files, plus 40 embedded Python bodies in 35 shell files; 0 fail |
+| Seven builds | all rc=0 (cache) |
+| Stack tests | bastion 90/0, postgres 211/0, pgbouncer 105/0, scheduler 133/0, prometheus 131/0, postgres-exporter 103/0, grafana 119/0 (1460 s) |
+| `smoke.sh` / `smoke-monitoring.sh` | 61/0 / 43/43 |
+| `smoke-scenario.sh` | bookshop 19/19, fernway 18/18, tarnbeck 26/26 |
+| `smoke-load.sh armenelos` | 73/73, 427 s; fit 1.1 CPU / 1.22G of 12 / 4.76G; disk 9.84G of 41G (13.79G with the snapshot) |
+| `smoke-load.sh` two hosts (G7) | 73/73, 483 s; armenelos 0.75 CPU / 704M, disk 5.53G of 20G; VPS (`shared`) 0.35 CPU / 544M, 3.37G of 10G |
+| `fixture-campaign` deployment | game `…-id9pp3`, shift −8, T0 18:39:17Z; every job ran (moves by `jobs.yaml` + reload, restored byte-identical); G1–G4 exit 0 at 18:56, 19:20, 19:30; purpose checks 0 or 3 only; 0 errors, 0 `08006` |
+| D258 on the deployment | 19 + 19 pre-load lines before `load-data`, 78 lines removed, 0 after in the files and `docker service logs` |
+| `smoke-governance.sh armenelos` | 121/0 |
+| Hand checks | `fixture-campaign` and `fixture-instances` READMEs match a regeneration (after the fix); the ten new faults and the fixture's own pass `check_fault_dir` |
+
+Fix: 5e8eb84 — `fixture-instances`' README, `internal`'s Outbound cell
+"none" as the template writes it.
+
+**G7:** pre-check 18:28:08 (`tailscale status` both ways, `Ready Drain`,
+filetstudio.com 200, nothing of ours on the VPS, 22G free); `active`
+18:28:44 (no refusal); run to 18:36:47, filetstudio.com 200 on 17 polls;
+drained 18:36:47; post-check clean, the site's four containers with their
+uptimes. The run copied the current `scheduler:0.2.0` (1ad76b563f81) to
+the VPS.
+
+Memory on the deployment (41 one-minute samples): grafana 205M of 384M,
+db 256M of 1G, reporting 73M of 640M; `memory.peak` db 868M (page cache
+at `load-data`), reporting 140M. Logs: the session scratchpad's
+`gate-w3/` (not kept).
+
+Wave sync: no intent or data register, so no documentalist or
+data-steward pass; no wave 3 chunk changed a dependency, so no
+security-advisor check. `doc-ids compare main v0.4-w3`: 0 collisions.
+
 ### Chunk 20 — merged (6b4ad78), 2026-10-31
 
 `coding-executor`: cf9d0a4, merge 6b4ad78. G1 judges `separation: instance`

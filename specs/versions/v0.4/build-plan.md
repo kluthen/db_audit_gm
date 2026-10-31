@@ -156,7 +156,7 @@ with the owner's ruling of spec D221, during wave 1.
 |---|---|---|---|
 | 1 | 1, 2, 3, 4, 5, 19 | G1 (done); G2 (chunk 1, done); G3, G4; G5 (chunk 4); G12, G13 (chunk 19); G6 before its gate | gated (2026-10-30, 4064719) |
 | 2 | 6, 7, 8, 9, 10, 11 | wave 1; G8, G9 (done); G7 (the gate's two-host run) | gated (2026-10-30, f35dd40) |
-| 3 | 12, 13, 14, 15, 20 | wave 2; G10 (chunk 15's f10 half, done) | in progress |
+| 3 | 12, 13, 14, 15, 20 | wave 2; G10 (chunk 15's f10 half, done) | merged (gate passed 2026-10-31, 5e8eb84) |
 | 4 | 16, 17, 18 | wave 3; G7 (chunk 17's two-host runs) | planned |
 
 ```
