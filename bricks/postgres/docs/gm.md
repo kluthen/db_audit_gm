@@ -943,8 +943,8 @@ Which faults the brick hosts is stated only by each fault's `applies_to`
 This list is every catalog fault (`faults/`) whose `applies_to` names
 `postgres` `0.4.0`, and no other. The v0.4 database-node faults
 (`security-crontab-superuser`, `purpose-day-boundary-wrong-zone`,
-`governance-personal-copied`, `purpose-etl-role-expired`) name `0.4.0`
-only; all others also name `0.3.0` and `0.2.0`, and all of those but
+`governance-personal-copied`, `purpose-etl-role-expired`,
+`purpose-heavy-job-on-database-node`) name `0.4.0` only; all others also name `0.3.0` and `0.2.0`, and all of those but
 `pg-stat-statements-not-preloaded` also name `0.1.0` and `0.1.1`. A scenario's
 own `faults/` folder may define more for itself (the test fixture
 `tools/tests/fixtures/fixture-audit` defines two); those are the
@@ -963,6 +963,7 @@ scenario's, not the brick's, and are not listed here.
 | `purpose-day-boundary-wrong-zone` | seed file (`data`, spec D226) | the node's data file holding the sales reporting purpose's target part, `rpt.close_day()` replaced after it (material `inject/close_day.sql.snippet`, its zone from `load-data`'s `customer_utc_offset` plus parameter `offset`); the sealed check (`judges: runs`) reads `rpt.etl_runs` here and the source's orders through `check-psql --node` |
 | `governance-personal-copied` | seed file (`data`, spec D226) | the node's data file creating `pg_cron` (preloaded by the seed `postgresql.conf`), then the snippet `inject/customer_activity.sql.snippet`: a second foreign server, its user mapping (password from the remote role's secret, set by `load-data`), a foreign table, the copy and a `pg_cron` job; the scenario's `governance:`; the sealed check calls the governance check set (G1, G3) and reads `cron.job` through `gm_check_read` |
 | `purpose-etl-role-expired` | state, during the aging | parameter `role`: the purpose's source role, a login role the data file creates, given `VALID UNTIL` the planting moment and its sessions ended; its check reads `pg_roles`, this node's server log (`postgresql-*.log`, the seed's `log_line_prefix` and UTC, English messages) and the run ledger `rpt.etl_runs` on the purpose's target instance with `check-psql --node` (`judges: runs`, R4), so that instance's `pg_hba.conf` admits `gm_check` from the game network |
+| `purpose-heavy-job-on-database-node` | seed files (`data`, spec D226; `crontab`), then state during the aging | the node's data file holding the sales reporting purpose's target part, then `inject/sales_detail_rollup.sql.snippet` (the roll-up's foreign table, request and document tables, `rpt.sales_detail_rollup()`); the cron daemon (a seeded `crontab` with the entry of `inject/crontab.snippet`, the loader in `crontab_roles`); the backends' raised OOM score (`PG_OOM_ADJUST_VALUE`, "The out-of-memory victim" above), so the kernel kills the roll-up's backend and the postmaster recovers; parameters `database`, `days` (the backfill request's window, inserted by `inject/10-backfill-request.sh`); a memory limit the window exceeds twice over; `needs_unshared_host`; the sealed check (an incident check, 1 or an error, never 0 or 3) reads the request through `check-psql` and this node's server log (the seed's `%t` prefix in UTC, English messages) |
 
 Every state fault's scripts run as root and query as `postgres` over the
 local socket, so they need the GM's `local all postgres peer` line in
