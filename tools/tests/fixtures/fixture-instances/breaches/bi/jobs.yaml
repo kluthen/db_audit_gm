@@ -1,0 +1,11 @@
+# Fixed-time operations of the copy's transformer node bi, in scenario time
+# (template: .claude/skills/scenario-format/templates/jobs.yaml): one job
+# joining db/shop (as shop_etl) to reporting/reporting (as bi_etl). The
+# copy never starts its load, so the job never runs; G3 reads this file.
+jobs:
+  - name: sync-nightly
+    key: sync.noop
+    connections:
+      source: shop
+      target: reporting
+    at: "0 3 * * *"

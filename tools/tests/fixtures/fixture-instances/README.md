@@ -73,7 +73,8 @@ The story as the players read it: `player/story.md`.
 - **Published ports**: 22 (default host port 2222), 8080 (default host port
   8080).
 - **Seed files**: `README.md` → `player/README.md`; `story.md` →
-  `player/story.md`; `issues.md` → `player/issues.md`.
+  `player/story.md`; `issues.md` → `player/issues.md`; `data-policy.md` →
+  `player/data-policy.md`.
 
 Resources (absolute, never recomputed per playground):
 
@@ -130,7 +131,9 @@ Data, restored from `data/db.sql`:
   | Table | Holds |
   |---|---|
   | `business_settings` | One row: the customer's zone and offset, from load-data's psql variables. |
-  | `orders` | 200 orders (id, placed_at, total); primary key on id. |
+  | `customers` | 20 customers (id, name, email), personal data. |
+  | `orders` | 200 orders (id, customer_id, placed_at, total); primary key on id. |
+  | `mail_outbox` | What leaves for the mail provider: 10 rows, each payload's keys email, name and order_id; sent_at. |
   | `crontab_runs` | One row per run of the crontab entry, with the role it ran as. |
 
 #### Node `reporting`
@@ -186,6 +189,21 @@ Data, restored from `data/reporting.sql`:
 | `bastion` | `db` | players' SSH and SQL sessions | ssh 22, postgresql 5432 | interactive |
 | `bastion` | `reporting` | players' SSH and SQL sessions | ssh 22, postgresql 5432 | interactive |
 | `reporting` | `db` | the foreign table src.orders, read through bi_etl's user mapping as shop_etl | postgresql 5432 (postgres_fdw) | every minute (pg_cron job order-count) |
+
+### Data governance
+
+The company's data policy, handed to the players: `player/data-policy.md`
+(written from the rules below; on the bastion as `data-policy.md`). Column
+classes: `data/classification.yaml`.
+
+| Class | Locations | Separation | Readers | Outbound |
+|---|---|---|---|---|
+| `personal` | db/shop | — | shop_app | mail-provider (db/shop/mail_outbox): email, name, order_id |
+| `customer-linked` | db/shop | — | shop_app | none |
+| `internal` | any | — | — | — |
+
+The game's own roles (`dba`, `postgres`, `gm_check`, `monitoring`,
+`pgbouncer_lookup`) are outside every rule.
 
 ## 4. Host topology it was designed for
 
@@ -255,7 +273,8 @@ None.
 
 - **Starter pack**, shipped to the bastion: `player/README.md` (topology,
   node names, rules, DO NOT TAMPER list, how to run the validator),
-  `player/story.md`, `player/issues.md`. It does not carry this document's
+  `player/story.md`, `player/issues.md`, and the data policy
+  `player/data-policy.md`. It does not carry this document's
   warning, and nothing in it names a hidden fault or an answer.
 - **Node files**, delivered as Swarm configs:
   - `db`: `nodes/db/postgresql.conf`, `nodes/db/pg_hba.conf`, `nodes/db/crontab`
@@ -263,6 +282,8 @@ None.
 - **Restored-backup data**, streamed in after deployment:
   - `db`: `data/db.sql`
   - `reporting`: `data/reporting.sql`
+- **Column classification**: `data/classification.yaml`, the fixture's own
+  (no domain).
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
   `gm/notes.md`.
 - **Scenario-only bricks and faults**: `faults/fixture-random-page-cost/`

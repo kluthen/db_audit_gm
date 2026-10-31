@@ -1,0 +1,27 @@
+# The node entry tools/tests/smoke-governance.sh appends to its copy's
+# scenario.yaml `nodes:` (with `aging:`, which a scheduler node requires),
+# its seed files under breaches/bi/.
+name: bi
+brick:
+  id: scheduler
+  version: 0.2.0
+role: transformer
+stateful: true
+networks: [backend]
+write_policy: fixable
+parameters: {}
+resources:
+  limits:
+    cpu: 0.25
+    memory: 128M
+  reservations:
+    cpu: 0.1
+    memory: 64M
+    disk: 128M
+published_ports: []
+seed_files:
+  queries.yaml: breaches/bi/queries.yaml
+  jobs.yaml: breaches/bi/jobs.yaml
+  schedule.yaml: breaches/bi/schedule.yaml
+  scripts/: breaches/bi/scripts/
+knobs: []
