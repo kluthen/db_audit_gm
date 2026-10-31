@@ -1014,7 +1014,7 @@ W3-c, for chunk 16.
 
 ### Chunk 15 — The database-node faults f6, f7, f9 and f10
 
-Status: in progress (w3, 15a; 15b after it, the host held alone)
+Status: 15a merged (w3, e901230); 15b planned (after chunk 14's deployments, the host held alone)
 Wave: 3
 Depends on: chunks 4, 6, 7, 9, 10; chunks 12 and 13 (in-wave, W3-a,
 W3-b), merged into `v0.4-w3` before this chunk's branch is cut; G10 for
@@ -1082,6 +1082,8 @@ for chunk 16.
   `fixture-campaign` (needs G4), f10's run alone on armenelos under the
   host lock.
 - Split rule: 15a f6, f7, f9; 15b f10.
+
+Record: 15a 0ddfa5d, merge e901230. Differs from the text: f7's N is written at load into the data file's copy from `load-data`'s offset, not by render (render writes no data file); f7's evidence is `\sf`, not `\df+` (PostgreSQL 18); f9's planting also grants CREATE on `rpt` to `bi_etl` so the job recreates a dropped table (to `spec-writer`). Planted on armenelos (shift −8, f7 offset 3): f6, f9 1 then 0 (f9 still 1 with the table only dropped); f7 3, 1, 3, 0. 15b: Record below once run.
 
 ### Chunk 16 — The v0.4 scenario
 

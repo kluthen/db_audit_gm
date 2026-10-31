@@ -2122,6 +2122,71 @@ Options for the owner at the wave report: `cron.database_name =
 loader rule; no noise), a restart step in `load-data`, or documenting the
 pre-load lines in `postgres`' `gm.md` and `player.md`.
 
+### Chunk 15a — merged (e901230), 2026-10-31
+
+0ddfa5d, merge e901230; built on `v0.4-w3` at ee6cb21 (the idle fix in).
+Unit suite 831 OK merged. Files: the three faults; `model.py`'s `data`
+seed-change rule (D226; refused on a node without a data file, `data.sql`
+still "not a seed file"); `test_model.py` (3); the template's comment;
+`postgres`' Supported faults. Planted on a scratch copy of
+`fixture-campaign` on armenelos (game `…-jpdcer`, T0 12:11:46Z, shift −8,
+f7 offset 3), torn down clean:
+- f6: 1 at T0 (the 12:17 run as `postgres` by peer); fixed as `player`
+  through `gm-crontab`: 0, the 13:17 run as `shop_refresh` (scram).
+- f9: 1 at T0 (G1); the job refilled 20 000 rows at 12:30 and recreated
+  the dropped table at 13:00 (still 1); job, foreign table, server gone
+  with an empty table: 1; all gone: 0. First real fault through the
+  `gmctl check` governance path.
+- f7: 3 at T0; the close moved to 12:20Z: 1; procedure fixed, `--since`:
+  3; close moved to 12:28Z: 0. Moves by `bi`'s `jobs.yaml` and `s6-svc
+  -h` only. No 08006; both closes' fdw links fine.
+
+**Capture W3-d (f6, f7, f9), for chunk 16:**
+- f6 `security-crontab-superuser` 0.1.0: node `db`; parameter `role`
+  (required, `shop_refresh`); seed change `crontab` (the entry without
+  `-U shop_refresh`, the `PGPASSFILE` line kept); aging minimum 1h from
+  the entry's first run (:17); no timeline need; live state, 0 or 1.
+- f7 `purpose-day-boundary-wrong-zone` 0.1.0: node `reporting`, purpose
+  `shop-sales-reporting`; parameters `offset` (required, non-zero), and
+  defaulted `close-at` 01:30, `job` rollup-close, `database` reporting,
+  `source-node` db, `source-database` shop; seed change `data`
+  (`inject/close_day.sql.snippet` after the purpose's material); aging
+  minimum 1h from the close's first run (a T0 at 22:00 needs ≥ 4h30 +
+  1h); `judges: runs`, answer key `threshold: 0`; expected 1 at the
+  hand-over check, 3 for the rest of a game; no timeline need.
+- f9 `governance-personal-copied` 0.1.0: node `reporting`, purpose
+  `shop-sales-reporting`; defaulted `database` reporting, `server`
+  shop_backoffice, `foreign-table` src.customers, `table`
+  rpt.customer_activity, `job` customer-activity; seed change `data`
+  (`inject/customer_activity.sql.snippet` after `CREATE EXTENSION
+  pg_cron`); aging minimum 30m; live state through `check_governance G1
+  G3`, needs `governance:`; no timeline need; the mapping's password is
+  `role_shop_reports_password` from `db`'s data file.
+
+For `spec-writer` (not blocking; with chunk 12's items):
+1. 16.2's f7 "N … which render writes": N is written at load into the
+   data file's copy from `load-data`'s `customer_utc_offset` plus the
+   parameter, wrapped as D168 (render writes no data file); shift
+   invariance holds.
+2. f7's evidence "the zone in `\df+`": PostgreSQL 18's `\df+` shows
+   neither source nor `proconfig`; `\sf rpt.close_day` shows the `SET`.
+3. f7's check runs on `reporting`: its judged moment is not raised to the
+   runner's reload, `remaining=` counts to the designed `close-at`, a fix
+   is dated with `--since`; a day row belongs to the last close that
+   wrote it (in `gm.md`).
+4. f9's planting adds `GRANT CREATE ON SCHEMA rpt TO bi_etl`, so the job
+   recreates a dropped table (16.2's "dropping the table alone, which the
+   job refills").
+5. A superuser unschedules `bi_etl`'s job by id only (`cron.unschedule`
+   by name finds the caller's own jobs); in f9's `gm.md`, maybe 16.5.
+
+Risks: f6's check parses crontab lines (no called script, `sudo -u`,
+`su` followed; a deleted entry or a missing role reads 0, in `gm.md`);
+`reporting`'s fdw link idle over 900 s (the nightly close on bi's kept
+session) not exercised: for chunk 16's aging and chunk 17's runs to
+watch. The chunk's test game used `fit --disk 20G` and bastion ports
+2223/8081 (chunk 14's game held 2222/8080), playground choices only.
+
 ### Bastion keepalive fix — merged (fa21677, 37f905f), 2026-10-31
 
 `ServerAliveInterval 60` in the bastion's `gm-game.conf` (`Host * !*.*`,
