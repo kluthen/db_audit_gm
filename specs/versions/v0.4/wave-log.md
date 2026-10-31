@@ -2122,6 +2122,16 @@ Options for the owner at the wave report: `cron.database_name =
 loader rule; no noise), a restart step in `load-data`, or documenting the
 pre-load lines in `postgres`' `gm.md` and `player.md`.
 
+### Owner rulings on G10 and O140, 2026-10-31
+
+- **G10 (f10 at 640M): "Accept 327 as is".** The normal run's 327 MiB
+  `memory.peak` is accepted as measured, no criterion change and no
+  re-run; the figure is recorded. 15b resumes from 7feaca0 (its own
+  agent) to word `gm.md` and merge.
+- **O140: "Define it now".** `separation: instance` gets its rule in v0.4
+  as a one-query extension of G1; to `spec-writer` to record and place in
+  the plan.
+
 ### Chunk 15b — stopped on G10 (WIP 7feaca0), 2026-10-31
 
 f10 built and run on armenelos alone (VPS Ready Drain, never touched),
