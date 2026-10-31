@@ -34,6 +34,39 @@ class TestDriver(unittest.TestCase):
         self.assertEqual((r1.rows, r2.rows, r3.rows), (2, 1, 1))
         self.assertGreater(r1.latency, 0)
 
+    def test_sessions_and_script_connections_send_tcp_keepalives(self):
+        # a kept session idle past IPVS's 900 s on a Swarm service VIP is
+        # dropped unseen: every socket probes after 300 s idle, every 30 s, 3 times
+        import socket
+        import types
+        from gm_scheduler.drivers import get_driver
+        from gm_scheduler.scripts import close_connections, open_connections
+
+        def options(pgconn):
+            sock = socket.socket(fileno=pgconn.socket)
+            try:
+                return (sock.getsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE) != 0,
+                        sock.getsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE),
+                        sock.getsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL),
+                        sock.getsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT))
+            finally:
+                sock.detach()   # the descriptor stays libpq's
+
+        async def go():
+            s = await get_driver("sql/postgresql").connect(connection(), PASSWORD, "unit-test")
+            try:
+                return options(s.conn.pgconn)
+            finally:
+                await s.close()
+        expected = (True, 300, 30, 3)
+        self.assertEqual(self.run_async(go()), expected)
+        schedule = types.SimpleNamespace(connections={"app": connection()})
+        conns = open_connections({"source": "app"}, schedule, {connection().role: PASSWORD}, "unit-test")
+        try:
+            self.assertEqual(options(conns["source"].pgconn), expected)
+        finally:
+            close_connections(conns)
+
     def test_errors_carry_the_sqlstate_and_the_session_survives(self):
         from gm_scheduler.drivers import DriverError, get_driver
 
