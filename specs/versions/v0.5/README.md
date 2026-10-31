@@ -1,28 +1,47 @@
-# v0.5 — research and broadening
+# v0.5 — domain definition: the veterinary clinic
 
 Status: draft. No master spec. Business domains added on 2026-10-28
-(D192).
+(D192); centred on 2026-10-31 on defining domains, the veterinary clinic
+the worked example (D233), with a procedure for defining a domain
+(D235), brick options tied to the clinic (D236, D238) and a post-mortem
+collection begun beside it (D234).
+
+## Documents
+
+| Document | Purpose | Status |
+|---|---|---|
+| [domain-procedure.md](domain-procedure.md) | How a domain is defined: what it holds and leaves out, the steps from a brief, done and its checklist, composites, how a scenario names its domains, the shop against it, the effort | draft v1, not approved (D235; O139) |
+| [brick-options-review.md](brick-options-review.md) | The options candidates checked against the clinic: what it plausibly needs, what stops mattering, what O79 and O80 must answer | draft v1 (D236, D238) |
 
 ## Goal
 
-In the owner's words, three things (D47):
+The owner, on 2026-10-31: "ok we will then focus on domain definition
+and the veterinary clinic franchise as a good example, which will
+require us to add a few items in the project. We will move all tools not
+related to the clinic use case for a later date (probably v1.0+)." And:
+"I see that v0.6 is bastion overhaul, so bastion related stuff (that are
+unrelated to the clinic) should move to v0.6 as well." (D233)
 
-- broaden the scope of known issues to fill in the catalogue;
-- pre-plan the most common parts of topology;
-- gather common schemas for databases, "so that the GM doesn't have to
-  reinvent everything every time". Data could also come from an external
-  dataset: Bluebox, a PostgreSQL sample database (a Pagila-derived
-  DVD-rental dataset), or truly external, internet-based open-source data
-  sources.
+v0.5 therefore defines domains, the [veterinary clinic](#the-veterinary-clinic-d196)
+(D196) first, and adds to the project the items the clinic needs. The
+owner will help define the clinic's bricks, faults, topology and
+configurations later; none is designed yet. Whether a tool is "related
+to the clinic" is judged against what a setting that complex plausibly
+needs (several sites, machinery servers, a lab, a portal, redundancy);
+monitoring breadth counts (D238). Everything else in v0.5's earlier
+scope is sorted below ([Sorting](#sorting-d233)).
 
-On 2026-10-28 the owner added business domains (D192), in the vein of
-v0.4's purposes: "we may see this for producers as well, this will
-mostly assist in having common scheduler scripts, input types etc. A
-shopping website will have specific data profile, whereas a warehouse
-management system will have another, a factory yet another than a bio
-lab." On placing them here: "v0.5 already is on expansion of
-capabilities so that's okay." Domains are how the third goal, common
-schemas, is delivered (below).
+D47's three goals for this version, in the owner's words "broaden the
+scope of known issues", "pre-plan the most common parts of topology" and
+"gather common schemas for databases", are met through the clinic: its
+faults grow the catalogue, its topology is the pre-planned part, its
+domains are the common schemas. The rest of each is sorted below.
+
+Business domains came on 2026-10-28 (D192), in the vein of v0.4's
+purposes: "we may see this for producers as well, this will mostly
+assist in having common scheduler scripts, input types etc. A shopping
+website will have specific data profile, whereas a warehouse management
+system will have another, a factory yet another than a bio lab."
 
 ## Domains
 
@@ -39,34 +58,38 @@ A **domain** (D192; working name) is a reusable catalogue unit made of:
   consumers share;
 - **the purposes that fit the domain** ([v0.4](../v0.4/README.md)).
 
-A scenario then becomes a domain, a size, the bricks, the purposes in
-use, and the faults. What a domain holds and how a scenario names it is
-O111; what "size" scales, O114.
+A scenario then becomes one or more domains, a size, the bricks, the
+purposes in use, and the faults. What a domain holds, what it leaves
+out, how it is defined and how a scenario names several is the
+[procedure](domain-procedure.md) (D235), which narrows O111 and O126;
+what "size" scales is O114.
 
 How domains meet the rest of this version (proposed):
 
 - **Common schemas**: a domain's business data model is the common
   schema D47 asks for, so the GM does not reinvent the data each time.
-- **Datasets**: Bluebox and internet sources fill a domain's data model,
-  or stand as a domain's model of their own (Bluebox is a rental shop);
-  their requirements stay O53 and O54.
 - **Topology fragments** are the technical arrangement (which bricks,
   how they connect); a domain is the business side. A scenario combines
-  one domain with fragments.
+  domains with fragments; v0.5's fragments are the clinic's.
 - **Producer profiles and v0.3's scheduler**: a profile's relation to
   the query repository (`queries.yaml`, `builders/`) and the hidden
-  schedule (`schedule.yaml`) is O113. A factory's stream or a lab's
-  instrument uploads may want the scheduler's other targets (D118),
-  message queues and APIs, below.
+  schedule (`schedule.yaml`) is O113. The lab's instrument uploads or the
+  machinery's readings may want the scheduler's other targets (D118),
+  message queues and APIs ([Sorting](#sorting-d233)).
 - **Governance**: each domain classifies its data (v0.4's first cut,
-  D191). The regulated domains, a lab's records or health data, bring
-  the richer rules: required settings, audit trails, retention, and the
-  brick changes they need (O118).
-- **Scenario generation** (O47): a brief naming a domain and a size is
-  most of a scenario's business side.
+  D191). The clinic, a regulated business, brings the richer rules:
+  required settings, audit trails, retention, and the brick changes they
+  need (O118; [brick-options-review.md](brick-options-review.md)).
+- **Datasets**: Bluebox and other datasets are for later, version not
+  set (D237). The owner sees Bluebox as close to a domain: a later
+  candidate brought in through the procedure, its dataset filling that
+  domain's data model.
 
 v0.4 ships the first domain, the shop, structured so that more can be
-added (O108). v0.5 adds the others; which come first is O112.
+added (O108). v0.5 defines the clinic's domains first (D233). Whether
+other domains (a warehouse, a factory, a lab on its own) join v0.5 is
+deferred until the procedure's cost is known: the owner decides once
+defining a domain has shown how long and complex it is (D235; O112).
 
 ### The veterinary clinic (D196)
 
@@ -104,10 +127,14 @@ The same round-trip shape as export declarations' acknowledgements
 (below) runs through the clinic: results coming back from external
 labs, requests and answers between clinics.
 
-Open: whether a domain may be composed of smaller domains (O126); where
-the franchise's several sites and the exchange between clinics sit
-(O127). v0.2's `fernway-clinics-monitoring` is a veterinary clinic too,
-much smaller (O112).
+The owner, on 2026-10-31: "the clinic will probably spawn multiple such
+domain". The procedure's first cut splits it into a core and six parts
+([domain-procedure.md](domain-procedure.md), "The clinic, a first cut"),
+proposed; regulatory reporting becomes purposes, inter-clinic exchange
+topology and round trips. Open: the composition rules (O126, narrowed by
+the procedure); where the franchise's several sites and the exchange
+between clinics sit (O127, narrowed to its topology side). v0.2's
+`fernway-clinics-monitoring` is a veterinary clinic too, much smaller.
 
 v0.4 borrows two pieces of it as test cases, without widening its scope:
 its strict reporting tests the purpose model
@@ -142,91 +169,125 @@ purposes read. It brings:
 The clinic has the same shape: external labs' results coming back,
 exchanges between clinics. How a round trip is modelled is O128.
 
-## The setup's entry point (D224)
+## The post-mortem collection (D234)
 
-From v0.4 every game has a web front, its home the starter-pack page.
-The owner, ruling on it on 2026-10-30: "i expect a front at every game,
-we may have a common caddy to handle multiple front and a homepage
-dedicated to the whole setup to dispatch the viewer toward the game
-rules(readmes, game informations, data policies, issues), tools and
-dashboards available. Keep it simple for now. Expect it to evolve both
-with v0.5 and v1.0+ (with the fake aws, which will have its own
-entrypoint there)."
+A side track, begun in v0.5. The owner, on 2026-10-31: "as a side dish
+for v0.5 i'd like that we begin to look for true use case: i mean by
+that retex from failures on the net to document our games. We don't
+need to exactly match the setting provided of course, but if we can
+replicate the main culprits and have them documented, it would be a
+good handout at the end of the game along with a concrete explanation of
+the failures." And: "store those in a side folder (post_mortem) we won't
+directly bind our fault to them quite yet or anything, that'll probably
+be done in a later version. But i belive it's a good investment to begin
+now."
 
-Placed here, none of it built in v0.4:
+- **What**: real incident reports found on the internet (post-mortems,
+  retex), one entry each, in `post_mortem/` at the repository's root,
+  outside the spec tree. Each entry records the source's tech stack and
+  topology, the symptoms, the diagnosis and the resolution, with a hard
+  link to the source.
+- **Not bound yet**: no fault, brick, domain or scenario cites an entry
+  in v0.5. The owner will help define more bricks, faults, topologies
+  and configurations from them later.
+- **The intended later use**: an end-of-game handout, a scenario
+  replicating a report's main culprit, not its exact setting, and
+  handing the players the real failure's concrete explanation after
+  the final answer. Which version binds faults to entries, how a fault
+  cites one, and the handout's form are O138.
 
-- **a common Caddy** in front of several games' web fronts;
-- **a homepage for the whole setup**, dispatching the viewer to each
-  game's rules (READMEs, game information, data policies, issues), its
-  tools and its dashboards;
-- **a reporting tool** joining a game's starter-pack page, which v0.4
-  builds as a list of elements for it (D221).
-
-After v1.0 the fictional provider's console has its own entry point
-there ([roadmap](../README.md#beyond-v10-a-fictional-cloud-provider-d205)).
-v0.6's landing page and documentation website on the bastion are the
-in-game side of the same idea. Open: O135.
+The collection is gathered on a branch of its own (`v0.5-post-mortem`);
+its folder's layout is that branch's.
 
 ## In scope
 
-- Other tools and hand-made scripts beyond v0.2's one default brick per
-  need (D70): other monitoring tools (among them the research's other
-  top-three picks and the reference setup's pgwatch and pgCluu), other
-  open-source health solutions such as Nagios (D66), and hand-made scripts
-  as the customer's own tooling.
-- More fault definitions in the catalog, across the families already
-  listed. A candidate recorded in v0.4 (D204): an **undersized
-  transformer**, a transformer script whose run outgrows its node's
-  memory (the runner restarted, runs missed, reporting stale). Until
-  players may resize a node it is *report* or *propose* only; it heads
-  the capacity family of the cloud provider layer after v1.0 (D205).
-- The scheduler's other targets (D118): other database types, message
-  queues, APIs, and tools that trigger transformation layers, as drivers
-  of v0.3's scheduler brick
-  ([v0.3 master spec](../v0.3/master-spec.md) 7.1).
-- Adjusting v0.3's defaults after use (D146): the formats, brick
-  interfaces, scenario, aging, scheduler behaviour, tooling and figures
-  the owner accepted as proposed in v0.3's review list
-  ([v0.3/review-list.md](../../archive/v0.3/review-list.md), archived), revisited once games
-  have run on them.
-- Reusable topology fragments for the most common arrangements.
-- Domains beyond v0.4's shop (D192; O112), each with its business data
-  model, producer profiles, common scheduler scripts and input types,
-  and fitting purposes: the library of common schemas, and the datasets
-  the GM can draw on, including Bluebox and selected external sources.
-- Governance rules beyond v0.4's first cut, with the regulated domains
-  (D191).
-- Brick options (D107): optional elements a brick offers and a scenario
-  chooses, each documented in the brick's GM documentation and added to
-  a scenario when appropriate, `postgres` first: for that brick in
-  particular, the owner expects "many 'optional' elements".
-  First candidates: pgBadger, file logging, `pg_stat_statements` and the
-  monitoring role (all present in every game in `postgres` 0.2.0), then
-  PostGIS, TimescaleDB and the replication modules; `pg_cron` and the
-  cron daemon, which `postgres` 0.4.0 already ships, enabled by the seed
-  (D206), and `pg_cron` for Bluebox (O53). systemd timers wait for the
-  virtual-machine nodes after v1.0 (D205, D206). The model (where an
-  option's software comes from, how a scenario chooses, what start-up
-  does, faults that need an option, documentation) is O79; whether it is
-  meant for every brick or only `postgres`, O80.
-- The `monitoring` role made conditional on the game having monitoring
-  (D113; v0.2's RG-5). In `postgres` 0.2.0 every game has the login role
-  `monitoring` (`pg_monitor`), exporter or not. The owner: "monitoring
-  isn't mandatory in any game (highly suspect if there isn't any of
-  course, but it remains a valid game)". Until then the role stays in
-  every postgres game. The role is among the first candidate options
-  above (O79).
+- **Domain definition**: the [procedure](domain-procedure.md) (D235),
+  the domain format beyond the shop (O111), producer profiles against
+  the schedule (O113), size (O114), composition (O126).
+- **The veterinary clinic's domains** (D196, D233), defined with the
+  owner: their data models, producer profiles, scheduler scripts and
+  input types, classification and governance, and their purposes,
+  regulatory reporting among them.
+- **The clinic's bricks, faults, topology and configurations**, which
+  the owner will help define (D233): its faults are the catalogue's
+  growth, its topology fragments the pre-planned parts (D47). Among the
+  candidate faults: v0.4's `governance-statement-log-personal`, held for
+  the regulated domains (O118), and `purpose-retry-without-key`, held
+  for round trips (D201).
+- **Round trips** (D201; O128), on the clinic's cases: external labs'
+  results, exchanges between clinics.
+- **Governance beyond v0.4's first cut** (D191), the clinic being the
+  regulated domain, with the brick changes it needs (O118).
+- **Brick options** (D107; O79, O80), tied to the clinic and reviewed
+  against it ([brick-options-review.md](brick-options-review.md), D236),
+  the `monitoring` role made conditional on the game having monitoring
+  among them (D113; v0.2's RG-5). Until then the role stays in every
+  postgres game.
+- **Monitoring breadth for a setting as complex as the clinic** (D238):
+  pgwatch and pgCluu, both in the reference setup (D70), and
+  Nagios-style health solutions (D66), beyond v0.2's one default brick
+  per need.
+- **The post-mortem collection**, a side track (D234, above).
+- The rest of the earlier scope as sorted below, where it is marked
+  v0.5.
+
+## Sorting (D233)
+
+Every item of v0.5's earlier scope, sorted on 2026-10-31: kept when it
+serves the clinic or domain definition, moved to v0.6 when it is
+bastion-related, moved later otherwise. "v1.0+" is the owner's
+"probably v1.0+", no version set; "later" has no version at all.
+**Proposed** rows wait for the owner's confirmation (O137).
+
+| Item | Goes to | State |
+|---|---|---|
+| Domain definition: the procedure, the format beyond the shop, profiles, size, composition (O111, O113, O114, O126) | v0.5 | settled (D233, D235) |
+| The clinic's domains (D196) | v0.5 | settled (D233) |
+| The clinic's bricks, faults, topology fragments and configurations | v0.5, defined with the owner | settled (D233) |
+| A scenario using the clinic's domains, so they are proven in play as v0.4's scenario proved the shop | v0.5 | proposed |
+| Round trips (D201; O128), on the clinic's cases | v0.5 | settled (D233): the clinic's lab results and inter-clinic exchanges have their shape |
+| Governance beyond the first cut, its brick changes, the held statement-logging fault (D191; O118) | v0.5 | settled (D233): the clinic is the regulated domain |
+| Brick options (D107; O79, O80), tied to the clinic, with a review | v0.5 | settled (D236) |
+| The `monitoring` role made conditional (D113) | v0.5, with the options | settled (D236) |
+| pgwatch and pgCluu | v0.5 | settled (D238) |
+| Nagios-style health solutions (D66) | v0.5 | settled (D238): monitoring breadth across sites and machinery servers |
+| The research's other top-three picks per need, alternatives to v0.2's bricks (VictoriaMetrics for Prometheus, for one) | v1.0+ | proposed: alternatives, not breadth |
+| Hand-made scripts as the customer's own tooling (D70) | v0.5 | proposed: a clinic's own IT plausibly runs its scripts beside the tools |
+| The scheduler's other targets (D118): the message queues and APIs the clinic's flows need (external labs, machinery, messaging) | v0.5 | proposed |
+| The scheduler's other targets: other database types, tools triggering transformation layers | v1.0+ | proposed |
+| Fault definitions beyond the clinic's, across the families | v1.0+ | proposed |
+| The undersized transformer (D204) | after v1.0, heading the provider's capacity family (D205) | proposed: only reportable until players may resize a node |
+| A general library of topology fragments for the most common arrangements | v1.0+ | proposed |
+| Revisiting v0.3's defaults after use (D146) | v0.5 where the clinic's work meets a default; a general review pass v1.0+ | proposed |
+| Other domains: a warehouse, a factory, a lab on its own (D192; O112) | decided once the procedure's cost is known | **deferred** (D235) |
+| Bluebox (O53) and the other datasets, internet-sourced data included (O54) | later, version not set | settled (D237): Bluebox a later domain candidate, through the procedure |
+| Finance reconciliation, the shop's P4 held for v0.5 (D197) | v1.0+, with the shop | proposed; a billing purpose the clinic's definition calls for is the clinic's |
+| The setup's entry point: a common Caddy and a homepage for the whole setup (D224; O135) | [v0.6](../v0.6/README.md#the-setups-entry-point-d224) | proposed: the out-of-game side of v0.6's landing page |
+| A reporting tool joining a game's starter-pack page (D221, D224) | [v0.6](../v0.6/README.md#the-setups-entry-point-d224) | settled (D233): the page is the bastion's web front |
+| O21, starter documentation carrying faults | v0.6, already due there | settled (D233) |
+| O47, scenario generation | v1.0 | proposed |
+| O24, seeded variation per deployment | v1.0+ | proposed |
+| O25, promoting scenario-only bricks and faults | v1.0+ | proposed |
+| O23, number and mix of faults | v0.5, for the clinic's scenario | proposed |
+| The post-mortem collection | v0.5, a side track | settled (D234); binding later (O138) |
+
+The items moved later are listed in the roadmap
+([versions/README.md](../README.md#deferred-from-v05-d233-d237)).
 
 ## Out of scope
 
-- New database engines (beyond v1.0).
+- New database engines (beyond v1.0). The clinic's machinery may want
+  them (D47); in v0.5 it runs on PostgreSQL.
+- Everything the sorting above moves to v0.6 or later.
 
 ## Depends on
 
-- v0.2 to v0.4: the bricks the topology fragments are made of; v0.2's
-  monitoring bricks, which v0.5's other tools extend.
+- v0.2 to v0.4: the bricks the clinic's topology is made of; v0.2's
+  monitoring bricks, which pgwatch, pgCluu and the health solutions
+  extend.
 - v0.4: the shop domain and the shape it gives domains, purposes, and
-  data governance's first cut (D190 to D192).
+  data governance's first cut (D190 to D192); P5's pushed obligation,
+  which the clinic's regulatory reports and round trips build on.
 - v0.2's `postgres` 0.2.0, whose built-in pgBadger, file logging,
   `pg_stat_statements` and monitoring role are the first candidate
   options, and v0.2's declare/choose/check pattern for mounted material
@@ -234,26 +295,25 @@ in-game side of the same idea. Open: O135.
 
 ## Questions due in this version
 
-- O79: the brick options model (images, choice, start-up, faults,
-  documentation).
-- O80: options for every brick, or `postgres` only.
-- O53: Bluebox's requirements (PostGIS and other extensions, an 88 MB
-  compressed dump, `pg_cron` for ongoing data, data licensing).
-- O54: internet-sourced data (availability at setup, licensing,
-  reproducibility).
-- O23: number and mix of faults, difficulty.
-- O25: promoting scenario-only bricks and faults into the catalog.
-- O21: whether starter documentation may itself carry faults.
-- O112: which domains come first after the shop (the clinic, D196).
-- O126: whether a domain may be composed of smaller domains.
-- O127: where several sites and inter-site exchange sit.
-- O128: how a round trip (an acknowledgement driving further processes)
-  is modelled.
-- O24: seeded variation per deployment.
-- O47: whether generating scenarios from a brief belongs here or in v1.0.
-- O111: the domain format (its v0.4 part settled with the shop).
-- O112: which domains come first.
+- O111: the domain format (its v0.4 part settled with the shop),
+  narrowed by the procedure.
+- O112: which other domains join v0.5, deferred until the procedure's
+  cost is known (D235).
 - O113: producer profiles against v0.3's query repository and schedule.
 - O114: what a scenario's size scales.
-- O135: the setup's entry point (a common Caddy, the setup's homepage,
-  a reporting tool on the starter-pack page).
+- O126: domain composition, narrowed by the procedure.
+- O127: where several sites and inter-site exchange sit, its topology
+  side.
+- O128: how a round trip (an acknowledgement driving further processes)
+  is modelled.
+- O118: the brick changes for governance (pgaudit, TLS).
+- O79: the brick options model, for the clinic's options.
+- O80: options for every brick, or `postgres` only.
+- O23: number and mix of faults, difficulty, for the clinic's scenario
+  (proposed).
+- O137: confirming the sorting's proposed rows.
+- O139: approving the domain procedure.
+
+Moved out of this list on 2026-10-31: O53 and O54 (later, D237); O21
+(v0.6, D233); O135 (v0.6, proposed); O47 (v1.0, proposed); O24 and O25
+(v1.0+, proposed). Not due here: O138, the post-mortems' binding.

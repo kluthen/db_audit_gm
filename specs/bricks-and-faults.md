@@ -1,6 +1,6 @@
 # Bricks and faults
 
-Status: draft v9
+Status: draft v10
 
 The catalog of reusable bricks and fault definitions, and the rules that
 keep scenarios fair. What a brick or fault definition must contain is in
@@ -80,9 +80,11 @@ services are the brick's s6 `processes`, which the GM may adjust. Being
 configs, the script and its list are read-only on the node: their faults
 can be reported or a fix proposed, never fixed by the player. Such a
 fault targets the `prometheus` node, takes the affected node as a
-parameter and is planted through the node-health map (D92). A v0.5 metrics store other than
-Prometheus would need its own copy. Other tools, other health solutions
-(Nagios or others) and hand-made scripts come in v0.5 (D70).
+parameter and is planted through the node-health map (D92). A later metrics store other than
+Prometheus would need its own copy. pgwatch, pgCluu and other health
+solutions (Nagios or others) come in v0.5 with the clinic (D70, D238),
+hand-made scripts with them (proposed); alternatives to v0.2's bricks are proposed for v1.0 or later (D233,
+O137).
 
 Monitoring bricks are optional in a topology (D65), and may carry faults
 of their own (D63; "Example families" below).

@@ -138,7 +138,8 @@ Concretely:
   report-only by the answer key and the story (16.5).
 - Anything on the web front beyond the starter-pack page and the web
   interfaces' links: a common entry point in front of several games'
-  fronts, a homepage for the whole setup, a reporting tool (v0.5), the
+  fronts, a homepage for the whole setup (v0.5), a reporting tool (v0.6,
+  D233), the
   fictional provider's own entry point (after v1.0) (7.3, 22).
 
 ## 3. Actors
@@ -1986,8 +1987,8 @@ and the provider layer; the undersized transformer; brick options;
 weekly and monthly purposes. On the web front (7.3), for v0.5: a common
 entry point in front of several games' fronts and a homepage for the
 whole setup, dispatching the viewer to each game's rules (READMEs, game
-information, data policies, issues), tools and dashboards, and a
-reporting tool joining the page; after v1.0, the fictional provider's
+information, data policies, issues), tools and dashboards; for v0.6
+(D233), a reporting tool joining the page; after v1.0, the fictional provider's
 own entry point.
 
 **The drafts' other candidate faults**, recorded for later versions

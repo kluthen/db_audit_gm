@@ -12,8 +12,8 @@ v0.1 is draft.
 | [v0.2](v0.2/README.md) | Monitoring and usual tooling: per-node health, PostgreSQL metrics, dashboards and alerting, log analysis; one free brick per need, chosen by footprint | released 2026-10-22: release gate passed, G10 and G11 cleared; [release notes](v0.2/README.md#release-notes); working record archived in [archive/v0.2/](../archive/v0.2/README.md) |
 | [v0.3](v0.3/README.md) | Producers and consumers: ingestion, load spikes, misbehaving requests, broad queries | released 2026-10-30: release gate passed, G9 and G10 cleared; merged into `main` (cba7be3); [master spec](v0.3/master-spec.md) and [access model](v0.3/access-model.md); [release notes](v0.3/README.md#release-notes); working record archived in [archive/v0.3/](../archive/v0.3/README.md) |
 | [v0.4](v0.4/README.md) | Purposes, "bricks of why and bits of hows": side usage and transformations (BI, leads, reports, mailing) modelled by their jobs, trace and invariants; a generic job runner, a second database (D190, revising D47); the shop as the first business domain (D192); a first cut of data governance: data classes, allowed locations and flows, a policy the players audit (D191) | master spec and access model approved 2026-10-30 (D215); [master spec](v0.4/master-spec.md), [access model](v0.4/access-model.md); [build plan](v0.4/build-plan.md) approved 2026-10-30 (D216) |
-| [v0.5](v0.5/README.md) | Research and broadening: more known issues, pre-planned topology parts, common schemas and datasets as business domains (data model, producer profiles, scheduler scripts, purposes; D192) with richer governance for the regulated ones; other tools and hand-made scripts | draft |
-| [v0.6](v0.6/README.md) | The bastion as the players' main activity point: web interfaces, a documentation website, general-use tooling | draft |
+| [v0.5](v0.5/README.md) | Domain definition, the veterinary clinic franchise the worked example (D233): a procedure for defining a domain (D235), the clinic's domains (data models, producer profiles, scheduler scripts, purposes; D192) with its richer governance, round trips, and the bricks, faults, topology and monitoring it needs (D238), brick options among them (D236); a post-mortem collection begun beside it (D234) | draft |
+| [v0.6](v0.6/README.md) | The bastion as the players' main activity point: web interfaces, a documentation website, general-use tooling; the setup's entry point and a reporting tool, moved from v0.5 (D233) | draft |
 | [v1.0](v1.0/README.md) | First release: the full pipeline scenario, reached through v0.2–v0.6 | draft |
 
 **Beyond v1.0**:
@@ -24,6 +24,7 @@ v0.1 is draft.
   node resets or extra time (D48).
 - a fictional cloud provider over the bricks, with capacity management
   and a console (D205; below).
+- what v0.5 moved later (D233, D237; below).
 
 Questions about the roadmap as a whole (gaps between v0.5 and v1.0,
 risks across versions) are in [open-questions.md](../open-questions.md),
@@ -50,7 +51,8 @@ same iam complexity."
 | **Networking** | security groups, network interfaces, editable in the console, over the swarm's overlay networks and firewall rules (O12) | v2.0+ |
 
 The console has its own entry point beside the setup's homepage, which
-v0.5 may bring (owner, 2026-10-30, D224; O130, O135).
+v0.6 may bring (owner, 2026-10-30, D224; moved from v0.5 by D233,
+proposed; O130, O135).
 
 Settled: the provider is **fictional**, with an in-world name of its
 own; the console's layout is ours, not a copy of AWS's; **no AWS-style
@@ -72,6 +74,42 @@ What earlier versions already give it:
   a VM node's init and wait for this layer.
 
 Open: O130.
+
+## Deferred from v0.5 (D233, D237)
+
+On 2026-10-31 the owner centred v0.5 on domain definition and the
+veterinary clinic, moving later what does not serve it: "We will move
+all tools not related to the clinic use case for a later date (probably
+v1.0+)." The full sorting, with its settled and proposed rows, is in
+[v0.5's page](v0.5/README.md#sorting-d233); confirming the proposed ones
+is O137.
+
+**Probably v1.0+**, no version set (proposed, O137, unless marked):
+
+- the research's other top-three picks per need, alternatives to v0.2's
+  bricks;
+- the scheduler's other targets beyond the clinic's queues and APIs:
+  other database types, tools triggering transformation layers (D118);
+- fault definitions beyond the clinic's, across the families;
+- a general library of topology fragments;
+- a general review of v0.3's defaults (D146), beyond what the clinic's
+  work meets;
+- finance reconciliation, the shop's P4 (D197);
+- scenario generation (O47, v1.0), seeded variation (O24), promoting
+  scenario-only bricks and faults (O25);
+- the undersized transformer, after v1.0 with the provider's capacity
+  family (D204, D205).
+
+**Decided later**: whether other domains (a warehouse, a factory, a lab
+on its own) join v0.5, once the domain procedure's cost is known (D235;
+O112).
+
+**Later, version not set** (settled, D237): Bluebox (O53) and the other
+datasets, internet-sourced data included (O54). The owner: "bluebox and
+other dataset are moved to later date (unspecified...). Bluebox is quite
+akin to a domain in my opinion": a later domain candidate, brought in
+through the [domain procedure](v0.5/domain-procedure.md), its dataset
+filling that domain's data model.
 
 ## Release gates
 

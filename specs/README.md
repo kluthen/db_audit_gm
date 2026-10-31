@@ -17,18 +17,19 @@ owner's confirmation; the register lists the ones with real alternatives.
 
 | Document | Purpose | Status |
 |---|---|---|
-| [concept.md](concept.md) | Purpose, actors, vocabulary, scope, versions, prior art | draft v15 |
+| [concept.md](concept.md) | Purpose, actors, vocabulary, scope, versions, prior art | draft v16 |
 | [versions/](versions/README.md) | The roadmap: v0.1 to v0.6, v1.0 and beyond, one page per version; v0.1's [master spec](versions/v0.1/master-spec.md), [access model](versions/v0.1/access-model.md) and [wave log](versions/v0.1/wave-log.md) | v0.1 released and archived; v0.2 released 2026-10-22 and archived: [master spec](versions/v0.2/master-spec.md), [access model](versions/v0.2/access-model.md), [wave log](versions/v0.2/wave-log.md), build plan archived; v0.3 released 2026-10-30 and archived (below); v0.4–v0.6 and v1.0 draft |
 | [versions/v0.3/](versions/v0.3/README.md) | v0.3's page and release notes, [master spec](versions/v0.3/master-spec.md), [access model](versions/v0.3/access-model.md) and [wave log](versions/v0.3/wave-log.md) | released 2026-10-30, merged into `main` (cba7be3); spec approved 2026-10-22 (D154), amended by D157 and D158; built from the [build plan](archive/v0.3/build-plan.md) v15 (D156); release gate passed, items 1 to 15, G9 and G10 cleared; [release notes](versions/v0.3/README.md#release-notes); the build plan, the eight drafts and the review list archived in [archive/v0.3/](archive/v0.3/README.md); page draft v11 |
 | [versions/v0.4/](versions/v0.4/README.md) | v0.4's [master spec](versions/v0.4/master-spec.md) and [access model](versions/v0.4/access-model.md), and its drafts: [purposes](versions/v0.4/purposes.md), [purpose catalogue](versions/v0.4/purpose-catalogue.md), [shop domain](versions/v0.4/shop-domain.md), [governance](versions/v0.4/governance.md), [candidate faults](versions/v0.4/candidate-faults.md), [checks](versions/v0.4/checks.md), [scenario sketch](versions/v0.4/scenario-sketch.md), [database-node jobs](versions/v0.4/database-node-jobs.md) | master spec and access model approved 2026-10-30 (D215), after D211–D214; [build plan](versions/v0.4/build-plan.md) approved 2026-10-30 (D216–D218), v3 with capture W1's corrections (D219, D220), v4 with `bastion` 0.4.0 (D221–D223, the master spec amended), v5 with the web front in every game (D224–D225, the master spec and access model amended; O134 closed) and a data file in a seed change (D226), v6 with `reporting`'s limit at 640M (D227, G10, the master spec amended); E4's deadline clarified in the master spec (D228); a test-only brick change bumps nothing (D229, formats.md); drafts v1–v6 kept as the working record; D194–D204, D206–D209 |
+| [versions/v0.5/](versions/v0.5/README.md) | v0.5's page, centred on domain definition and the veterinary clinic (D233), with its sorting of the earlier scope; drafts: the [domain procedure](versions/v0.5/domain-procedure.md) and the [brick options review](versions/v0.5/brick-options-review.md) | draft; procedure v1 not approved (O139); sorting's proposed rows O137; post-mortem collection begun (D234; O138) |
 | [gm-stance.md](gm-stance.md) | How the GM behaves and speaks: setup questions, issues, report-only interaction, no reveals, stop only, restarts, no events outside the schedule, final answer, feedback tone, future ideas | draft v13 |
 | [scenario-lifecycle.md](scenario-lifecycle.md) | The game from setup to teardown: setup inputs, scenario, local implementation, deploy, aging (real time from v0.3), hand-over, end of the game | draft v13 |
 | [formats.md](formats.md) | What a scenario folder, a brick (with its companion material and GM documentation) and a fault definition must contain; versions and pins; the local implementation; the skills and templates; where a job runs (D207); from v0.4, the purpose, the domain, governance and the new fields; a test-only brick change bumps nothing (D229) | draft v25 |
-| [bricks-and-faults.md](bricks-and-faults.md) | Catalog, v0.2's monitoring bricks, per-brick checks, proportionate tooling, solvability probe, fault interactions and families, difficulty, future backup-tooling faults | draft v9 |
+| [bricks-and-faults.md](bricks-and-faults.md) | Catalog, v0.2's monitoring bricks, per-brick checks, proportionate tooling, solvability probe, fault interactions and families, difficulty, future backup-tooling faults | draft v10 |
 | [planes-and-access.md](planes-and-access.md) | Bastion-only rule (the bastion publishes the web interfaces), planes, the GM session, trust, write policies, the scheduler nodes, the customer's data policy kept apart from the game's access, hardening, validators | draft v18 |
 | [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls, the shared VPS | draft v19 |
 | [open-questions.md](open-questions.md) | Open-questions register | live |
-| [decisions.md](decisions.md) | Decisions log: D107, D113 and D190 onward live (D229 last; take the next number from `doc-ids`); D1–D54 archived with v0.1, D55–D106 with v0.2, D108–D112 and D114–D189 with v0.3 | live |
+| [decisions.md](decisions.md) | Decisions log: D107, D113 and D190 onward live (v0.5's from D233; take the next number from `doc-ids`); D1–D54 archived with v0.1, D55–D106 with v0.2, D108–D112 and D114–D189 with v0.3 | live |
 | [archive/](archive/README.md) | Closed milestones' working records, kept verbatim: v0.1's, v0.2's and v0.3's build plans, v0.3's drafts and review list, decisions D1–D54, D55–D106, D108–D112 and D114–D189, resolved questions | archive |
 
 History: the tree was seeded on 2026-10-20 from the owner's pre-spec notes,
@@ -103,8 +104,9 @@ access model.
 - Roadmap (D47, D71): v0.2 monitoring, v0.3 producers and consumers,
   v0.4 purposes (side usage and transformations, recast by D190) with a
   first cut of data governance (D191) and the shop as the first business
-  domain, v0.5 research and broadening with the other domains (D192),
-  v0.6 the bastion as the players' main activity point, then v1.0; beyond v1.0,
+  domain, v0.5 domain definition with the veterinary clinic as its
+  worked example (D192, D233), v0.6 the bastion as the players' main
+  activity point, with the setup's entry point (D233), then v1.0; beyond v1.0,
   other databases and tools, customer role-play and hints (D48), a
   fictional cloud provider with capacity management and a console (D205;
   O130). Gaps and
@@ -124,7 +126,9 @@ access model.
   script on every node, no Docker socket; Prometheus, `postgres_exporter`,
   Grafana with its alerting, PostgreSQL file logs read by pgBadger, no log
   aggregator; no load; the bastion publishes the web interfaces. Other
-  tools and hand-made scripts in v0.5 (D70).
+  tools and hand-made scripts in v0.5 (D70), as far as the clinic's
+  setting needs them: pgwatch, pgCluu and Nagios-style health tools
+  (D238); the rest sorted by D233.
 - v0.2, ruled on the draft v2 (D72–D87): the node-health script and its
   s6 service mounted into each node as configs at deploy, on every node
   when there is a metrics store; every new brick a full node of its own;
@@ -209,6 +213,16 @@ access model.
   O102 (D171). Waves 2 to 4 ruled D172–D189 (O103 by D175); the release
   gate passed on 2026-10-30 and v0.3 was merged into `main` (cba7be3);
   its working record is archived in [archive/v0.3/](archive/v0.3/README.md).
+- v0.5, centred on 2026-10-31 (D233–D238): domain definition, the
+  veterinary clinic franchise its worked example; tools unrelated to it
+  later ("probably v1.0+"), bastion-related items to v0.6, the judgment
+  calls proposed (O137); a [procedure](versions/v0.5/domain-procedure.md)
+  for defining a domain, drafted (O139), other domains deferred until
+  its cost is known (D235; O112); brick options kept and reviewed against
+  the clinic (D236); Bluebox and other datasets later, version not set
+  (D237); pgwatch, pgCluu and monitoring breadth kept (D238); a
+  post-mortem collection in `post_mortem/`, not bound to faults yet
+  (D234; O138).
 - Small project: scripts and small apps, no ATD, no UI/UX tree (D2).
 - v0.1 build: seven artifacts (three skills, a Python/POSIX-shell script
   set, PostgreSQL 18 on Debian 13 and bastion bricks, one scenario), one
@@ -235,5 +249,9 @@ access model.
    `reporting`'s memory limit to 640M (D227), and his ruling that a
    test-only brick change bumps nothing settled wave 1's precedent
    (D229). Next: wave 3, on the owner's word.
-2. The roadmap's "soon" question, O49 (backup tooling's version), then
+2. v0.5: the owner's confirmation of the sorting's proposed rows
+   (O137) and of the domain procedure (O139), then the clinic's first
+   domain through the procedure, which sets the cost the owner needs to
+   decide on other domains (D235).
+3. The roadmap's "soon" question, O49 (backup tooling's version), then
    v1.0's from the "later" ones.
