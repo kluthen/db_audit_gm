@@ -2122,6 +2122,16 @@ Options for the owner at the wave report: `cron.database_name =
 loader rule; no noise), a restart step in `load-data`, or documenting the
 pre-load lines in `postgres`' `gm.md` and `player.md`.
 
+### Owner rulings, 2026-10-31
+
+- **The `pg_cron` pre-load noise must be fixed**, a step after `load-data`
+  allowed: "the pg cron problem (34 error report) we need to fix this, if
+  it require a cleanup step after load data, then do it." Documenting the
+  lines is out. Sent to a `coding-leader` (branch `v0.4-fix-pgcron-noise`,
+  waiting on 15b's lock); the new step then to `spec-writer` to record.
+- v0.5: "accept all recomendations for v0.5" (on `v0.5-scope`, recorded
+  there by `spec-writer`). O140 (`separation: instance`) not yet ruled.
+
 ### Spec items of chunk 14 — settled (6aa843b), 2026-10-31
 
 `spec-writer`, all readings, no code change, nothing to the owner: D244
