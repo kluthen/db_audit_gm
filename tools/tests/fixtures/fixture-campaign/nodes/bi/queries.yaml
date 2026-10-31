@@ -1,0 +1,18 @@
+# Query repository of fixture-campaign's bi node (tools/tests, v0.4 chunk 13;
+# capture W3-b item 4), in scenario time: copied unchanged from
+#   purposes/shop-sales-reporting/material/runner/queries.yaml.
+#
+# Query repository of the BI agency's transformer, a fragment (capture W1,
+# items 5 and 7): the sales reporting purpose's two jobs. The hourly
+# roll-up is a transformer script (scripts/rollup.py); the nightly close a
+# plain CALL of the procedure on the reporting database, which computes
+# there (master spec 8.7).
+queries:
+  rollup.hourly:
+    script: scripts/rollup.py:hourly
+    options:
+      overlap_seconds: 600     # re-read the changes this far before the watermark: a
+                               # transaction committing late (the close-of-day holds its
+                               # invoicing 20 s) is never missed
+  rollup.close:
+    sql: CALL rpt.close_day()

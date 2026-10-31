@@ -1,0 +1,33 @@
+# Seed prometheus.yml of the fixture scenario fixture-campaign (tools/tests,
+# v0.4 chunk 13; capture W3-b item 1): tarnbeck-outdoor-shop's form.
+# Prometheus itself, the PostgreSQL exporter (db's instance only: the
+# agency's reporting instance has no exporter, master spec 13.4), the five
+# schedulers' metrics and every node's node-health endpoint.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Retention: a day of history (at least the aging minimum plus four hours),
+# bounded in size too.
+storage:
+  tsdb:
+    retention:
+      time: 1d
+      size: 384MB
+
+scrape_configs:
+  - job_name: prometheus
+    metrics_path: /prometheus/metrics
+    static_configs:
+      - targets: ['localhost:9090']
+  - job_name: postgres
+    static_configs:
+      - targets: ['exporter:9187']
+  - job_name: scheduler
+    static_configs:
+      - targets: ['producer:9120', 'consumer:9120', 'bi:9120', 'crm:9120', 'gateway:9120']
+  - job_name: node-health
+    static_configs:
+      - targets: ['bastion:9110', 'db:9110', 'pooler:9110', 'producer:9110', 'consumer:9110',
+                  'reporting:9110', 'bi:9110', 'crm:9110', 'gateway:9110',
+                  'prometheus:9110', 'exporter:9110', 'grafana:9110']

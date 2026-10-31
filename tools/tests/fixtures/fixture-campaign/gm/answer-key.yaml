@@ -1,0 +1,41 @@
+# Answer key of the fixture scenario fixture-campaign (tools/tests, v0.4
+# chunk 13; capture W3-b item 5). Its one instance, f0, is fixture-audit's
+# harmless seed-file fault: the fixture is the unfaulted topology, which
+# chunks 14 and 15 plant on and chunk 16 copies, dropping f0.
+scenario:
+  id: fixture-campaign
+  version: 0.1.0
+notes: gm/notes.md
+
+instances:
+  - instance: f0
+    what: random_page_cost on db is 4.0, the spinning-disk default, on SSD storage.
+    why: the planner overprices index scans and favours sequential scans.
+    evidence:
+      - where: node:db
+        source: postgresql.conf and SHOW random_page_cost
+        how: ssh db, then psql -c 'SHOW random_page_cost'
+        shows: "4"
+    acceptable:
+      diagnosis: names random_page_cost on db as too high for SSD storage.
+      proposal: lower random_page_cost to about 1.1.
+    sealed_check:
+      script: faults/fixture-random-page-cost/checks/fixed.sh
+      at_handover: 1
+      notes: the scenario's own fault (faults/ in the fixture folder).
+    interactions: []
+    validators_left_red: []
+
+tooling_expectations:
+  - id: t1
+    need: monitoring of the agency's reporting instance
+    expected: >-
+      the agency's reporting instance scraped by an exporter of its own, or
+      its absence noted: Prometheus reads db's statistics only (master spec
+      13.4).
+    acceptable: >-
+      the gap named in the report, with an exporter for reporting proposed
+      or the agency asked to monitor its instance.
+    notes: >-
+      by design, not a fault instance: judged in feedback. reporting still
+      reports its node health.
