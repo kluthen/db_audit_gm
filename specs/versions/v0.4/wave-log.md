@@ -2122,6 +2122,20 @@ Options for the owner at the wave report: `cron.database_name =
 loader rule; no noise), a restart step in `load-data`, or documenting the
 pre-load lines in `postgres`' `gm.md` and `player.md`.
 
+### v0.5 scope rulings recorded (`v0.5-scope` 596995d), 2026-10-31
+
+`spec-writer`, on `v0.5-scope` (not this wave's branch): D248 (the sorting
+stands; the clinic scenario in v0.5, generation in v1.0), D249 (seven
+domains; composition tried on `vet-core` + `vet-lab`; the four format
+changes in one chunk; a skill after two or three domains), D250 (the
+clinic's `postgres`: partitioning before TimescaleDB, replication as a
+standby mode, TLS always available and on by seed, only the `monitoring`
+role an option), D251 (post-mortems bound later; handout after the final
+answer). Closed O137, O47, O126; narrowed O111, O79, O118, O138; O139 open.
+O135 settled as v0.6's (pointers in v0.4's README, chunk 19, master spec
+2 and 22). After the merge into `main`: `formats.md` line 611 still cites
+O126 as v0.5's (left alone, this wave may edit `formats.md`).
+
 ### Owner rulings, 2026-10-31
 
 - **The `pg_cron` pre-load noise must be fixed**, a step after `load-data`
