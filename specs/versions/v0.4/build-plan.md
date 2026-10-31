@@ -1,7 +1,9 @@
 # db_audit_gm v0.4 — Build plan
 
-Status: v7 (2026-10-31): chunk 15a's readings of f7 and f9 (spec D239
-to D243) written into chunks 15, 16 and 17 and the release gate; v6
+Status: v8 (2026-10-31): chunk 14's readings of f1, f2 and f5 (spec
+D244 to D247) written into chunks 14, 16 and 17; v7 chunk 15a's readings
+of f7 and f9 (spec D239 to D243) written into chunks 15, 16 and 17 and
+the release gate; v6
 (2026-10-30) the owner's ruling on G10, `reporting`'s
 memory limit raised to 640M (spec D227), written into G10, chunks 13, 15
 and 16 and the release gate; v5 the owner's ruling on G12, the web front in
@@ -993,19 +995,25 @@ W3-c, for chunk 16.
   aging minimum, sealed check and solvability description.
 - Scope: in: `purpose-mail-overlapping-window` (f1),
   `purpose-leads-stale-consent` (f2, its producer release written as a
-  timeline need its definition states), `purpose-mail-outside-hours`
-  (f3), `purpose-watermark-misses-updates` (f4),
-  `purpose-etl-role-expired` (f5, a `state` change), and
+  timeline need its definition states; its producer path a fix only with
+  the drifted flags repaired, dated with `--since` (spec D244)),
+  `purpose-mail-outside-hours` (f3), `purpose-watermark-misses-updates`
+  (f4), `purpose-etl-role-expired` (f5, a `state` change: `VALID UNTIL`
+  the planting moment and the role's open sessions ended (spec D245); its
+  `remaining=` to the hourly job's minute read from the ledger (spec
+  D246)), and
   `purpose-receiver-down-unnoticed` (f8, the gateway's two-hour outage as
   a timeline need); each with `fault.yaml` (`applies_to.bricks` with the
   `scheduler` 0.2.0 or `postgres` 0.4.0 it needs, `applies_to.purposes`,
   `sealed_check.judges`, the aging minimum from the job's first run after
-  planting), its seed changes or injection, `checks/fixed.sh` (judging
-  runs or triggers since `CHECK_SINCE`), `checks/probe.md`, `gm.md`; the
+  planting, an hour for a five-minute job too (spec D247)), its seed
+  changes or injection, `checks/fixed.sh` (judging runs or triggers
+  since `CHECK_SINCE`), `checks/probe.md`, `gm.md`; the
   bricks' "Supported faults" sections, folding into their versions.
 - Files: `faults/<fault-id>/` for each (new),
   `bricks/{scheduler,postgres}/docs/gm.md` ("Supported faults" only).
-- Spec sections: master spec 6.3, 12, 16.2; access model 7.
+- Spec sections: master spec 6.3, 12, 16.2; access model 7; spec D244
+  to D247.
 - Done when: the loader accepts each; on a deployment of
   `fixture-campaign` with each planted, its evidence shows within its
   aging minimum and its check reads 1; after its acceptance fix and its
@@ -1108,9 +1116,12 @@ node, and each acceptance fix.
   spec D227); `difficulty:` normal, ten;
   the ten instances of 16.1 with their nodes, plantings and visibility,
   each instance's aging minimum raised to its job's first run after
-  planting; the producer's release at T0 (f2) and the gateway's
-  two-hour outage (f8) as timeline changes of their schedules; the story
-  (Tarnbeck six months on, Lumen Analytics, Ines Varga), the issues I1
+  planting (f1's the hour from its first five-minute run, `65m` from T0,
+  spec D247); f2's expected fix naming both paths, the producer's with
+  the drifted flags repaired and dated with `--since` (spec D244); the
+  producer's release at T0 (f2) and the gateway's two-hour outage (f8)
+  as timeline changes of their schedules; the story (Tarnbeck six months
+  on, Lumen Analytics, Ines Varga), the issues I1
   to I6, the starter pack naming every job the players may move and the
   agency's nodes, `player/data-policy.md` mapped to the bastion's
   `data-policy.md`; `reporting` unscraped, a
@@ -1122,7 +1133,7 @@ node, and each acceptance fix.
   regenerated.
 - Files: `scenarios/<id>/` (new); the root `README.md`'s table.
 - Spec sections: master spec 11.5, 12.5, 13.2, 13.4, 16.1, 16.2, 16.5;
-  access model 7, 9.4, 12; spec D227, D239 to D243.
+  access model 7, 9.4, 12; spec D227, D239 to D247.
 - Done when: the format skill finds nothing missing; `fit` and `render`
   accept it on armenelos alone and on armenelos plus the VPS declared
   `shared`, `fit` refusing the VPS for `reporting`; its README matches a
@@ -1148,7 +1159,8 @@ Architecture capture: none of its own; it uses W4.
     `jobs.yaml` and a reload, done as root on a report-only node; present;
     its acceptance fix; too soon; moved again; fixed), f4's cycle moving
     the producer's invoicing, f5's and f7's passing `--since` (spec
-    D241); f6 and f9 present
+    D241), their `remaining=` blind to a move, so the harness waits for
+    the moved time (spec D246); f6 and f9 present
     then fixed after their acceptance fix; the unfaulted scenario,
     rendered with every instance left out by the harness-only override,
     passing G1 to G4; f10's own run on armenelos alone, the VPS drained,
@@ -1173,7 +1185,7 @@ Architecture capture: none of its own; it uses W4.
   unit tests; 17b: `bricks/{scheduler,postgres}/{brick.yaml,docs/gm.md}`
   ("Footprint"), `scenarios/<id>/{scenario.yaml,README.md}`.
 - Spec sections: master spec 12.1, 12.5, 13.3, 16.3, 18 (items 1 to 6);
-  access model 6, 7; spec D241.
+  access model 6, 7; spec D241, D246.
 - Done when: every run passes as listed, its figures recorded with
   machine and date in the Record line and the wave log; the VPS drained
   after each two-host run and never active during f10's.

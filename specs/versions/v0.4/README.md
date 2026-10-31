@@ -25,13 +25,13 @@ change was settled (D226). During wave 2 his ruling on G10 raised
 E4's deadline was written into the master spec (D228). After wave 2
 the owner ruled that a change confined to a brick's tests bumps nothing
 (D229, in formats.md), settling wave 1's gate fix. In wave 3,
-readings of the governance checks (D230, D231) and of f7 and f9
-(D239–D243) were written into the master spec, the access model and the
-plan; `separation: instance`, which no check judges, waits on the owner
+readings of the governance checks (D230, D231), of f7 and f9
+(D239–D243) and of f1, f2 and f5 (D244–D247) were written into the
+master spec, the access model and the plan; `separation: instance`, which no check judges, waits on the owner
 (O140).
 The drafts stay as the working record until the archive; where
 they and the master spec disagree, the master spec is current.
-Page draft v10.
+Page draft v11.
 
 History: direction recast on 2026-10-28 (D190),
 revising D47's "transformers" for this version; a first cut of data

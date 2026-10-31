@@ -381,3 +381,32 @@ drafting. Take the next number from `doc-ids`; no ID is reused.
   the caller's own jobs only.** pg_cron's behaviour, which f9's fix meets.
   Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md)
   16.2, 16.5; [versions/v0.4/access-model.md](versions/v0.4/access-model.md) 9.4.
+- **D244 (2026-10-31, spec-writer, chunk 14's item 1, reading 16.2 as
+  approved): f2's producer path is a fix only with the flags of those who
+  withdrew since the release repaired too, dated with the GM's `--since`;
+  the producer restored alone stops new drift and the check reads
+  present. After the jobs' fix, repairing the flags stays the *improve*.**
+  L2 and M2 judge consent by the latest event, so the jobs keep taking
+  everyone still flagged. Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md)
+  16.1, 16.2; [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunks 14, 16.
+- **D245 (2026-10-31, spec-writer, chunk 14's item 2, reading 16.2 as
+  approved): f5's planting also ends `shop_etl`'s open sessions.**
+  PostgreSQL checks `VALID UNTIL` at authentication only and a runner
+  keeps its sessions, so without it "every run since fails" would wait
+  for a reconnection; `db`'s log shows the sessions ended at the
+  planting moment. Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md)
+  16.2; [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunk 14.
+- **D246 (2026-10-31, spec-writer, chunk 14's item 3, reading 12.5 and
+  D241): f5's check counts `remaining=` to the hourly job's designed
+  minute read from the ledger's last start, carried forward by whole
+  hours; no parameter, no code change.** A designed-time parameter would
+  be as blind to a move as the ledger, and `remaining=` never changes a
+  verdict; a harness that moves the job waits for the moved time. Now
+  in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 12.5;
+  [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunk 17.
+- **D247 (2026-10-31, spec-writer, chunk 14's item 4, reading 16.2): A
+  five-minute job's fault needs an hour from its first run after
+  planting, as quarter-hour and hourly ones do: f1's minimum is 1h.**
+  Shipping ramps up after the load; f1's first duplicates came at
+  T0 + 19 minutes on armenelos. Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md)
+  16.2; [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunks 14, 16.

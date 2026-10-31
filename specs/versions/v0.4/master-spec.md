@@ -27,7 +27,10 @@ outbox's payload keys (6.9, 11.3, 11.6); then chunk 15a's readings of
 f7 and f9: f7's offset written into the data file and turned into a zone
 at load, its evidence `\sf`, its check on `reporting` dating a fix with
 `--since` (12.1, 12.5, 16.2, 18, 19), and f9's planting letting its job
-recreate the table, unscheduled by its id (16.2, 16.5).
+recreate the table, unscheduled by its id (16.2, 16.5); then chunk 14's
+readings: f2's producer path a fix only with the drifted flags repaired,
+f5's planting ending the role's open sessions and its `remaining=` read
+from the ledger, and an hour for f1's five-minute job (12.5, 16.2).
 
 ---
 
@@ -1352,7 +1355,13 @@ passed.
   `remaining=` counts to the job's designed time, a parameter of the
   fault. A run is judged on the rows it still owns: a later run
   rewriting them (the job moved twice in a day, or run by hand)
-  replaces it.
+  replaces it. f5's check, on `db`, judges `bi`'s hourly roll-up the
+  same way, from the ledger on `reporting` (`check-psql` with the
+  node's name) and the refused logins in `db`'s own log; for an hourly
+  job the designed time is the ledger's last start carried forward by
+  whole hours, which keeps the job's minute. Neither form follows a job
+  moved since its last run; `remaining=` never changes a verdict, it
+  only says when to run the check again.
 
 The check runs on the database node through `check-psql`.
 
@@ -1600,7 +1609,8 @@ and the nightly close stay clear of it.
 - an incident in the recent past, real and recovered from, judged by the
   players' report (f10);
 - the judged moment: f1 to f3 and f8 fixed and confirmed within the game
-  by their frequent runs; f5 confirmed with the GM's `--since`; f7's fix
+  by their frequent runs; f5, and f2 fixed through the producer, confirmed
+  with the GM's `--since`; f7's fix
   is the agency's, its job on `bi`, a report-only node the players cannot
   move it on, so its check is expected to stay present and the players'
   proposal is what the feedback judges; a player overstepping could edit
@@ -1618,10 +1628,10 @@ drafts' other candidates stay recorded for later versions (22).
 | Fault | Breaks | What is wrong | Evidence | Expected resolution and fix |
 |---|---|---|---|---|
 | `purpose-mail-overlapping-window` (`data-flow`) | M1 | the shipped-notice job, every five minutes, picks orders shipped in the last ten: every notice sent twice | two `order-shipped` rows per order, ten minutes apart | fix: select since the last run or `NOT EXISTS`; a unique (order, template) |
-| `purpose-leads-stale-consent` (`rules`) | L2, M2 | the extraction and the campaign job read `customers.marketing_opt_in`, which the unsubscribe link no longer updates since a release (a timeline change of the producer at T0): withdrawn customers stay leads and get mail | leads and mails whose latest consent event is a withdrawal; the producer's unsubscribe entry; the jobs' SQL | fix: read the latest consent event in both jobs (or restore the flag's update in the producer's repository); repairing the flag is an *improve* |
+| `purpose-leads-stale-consent` (`rules`) | L2, M2 | the extraction and the campaign job read `customers.marketing_opt_in`, which the unsubscribe link no longer updates since a release (a timeline change of the producer at T0): withdrawn customers stay leads and get mail | leads and mails whose latest consent event is a withdrawal; the producer's unsubscribe entry; the jobs' SQL | fix: read the latest consent event in both jobs; or restore the flag's update in the producer's repository *and* repair the flags of those who withdrew since the release, a fix outside the runner dated with the GM's `--since` (12.1): the producer restored alone leaves them flagged, the jobs keep taking them and the check reads present; after the jobs' fix, repairing the flags is an *improve* |
 | `purpose-mail-outside-hours` (`rules`) | M3 | the campaign job's hours are the company's, not the recipient's | marketing mail at night in the recipient's zone | fix: filter recipients by their local hour |
 | `purpose-watermark-misses-updates` (`data-flow`) | R1 | the hourly script picks rows by `placed_at` past the watermark, so an order invoiced at the noon close never reaches reporting: invoiced revenue lags the source, more each day | the script's query; `rpt.sales_daily.invoiced_revenue` against the source's | propose: watermark on `updated_at`; restating the affected days is an *improve* |
-| `purpose-etl-role-expired` (`data-flow`) | R4 | `shop_etl`, the hourly script's source role and the mapping's remote role, is given `VALID UNTIL` the planting moment: every run of either job since fails with an authentication error, the dashboards freeze | the runner's log; `rpt.etl_runs` stops; `\du` on `db` | fix: `ALTER ROLE shop_etl VALID UNTIL 'infinity'` |
+| `purpose-etl-role-expired` (`data-flow`) | R4 | `shop_etl`, the hourly script's source role and the mapping's remote role, is given `VALID UNTIL` the planting moment and its open sessions are ended, since PostgreSQL checks the expiry at authentication only and a runner keeps its sessions between runs: every run of either job since fails with an authentication error, the dashboards freeze | the runner's log; `rpt.etl_runs` stops; `\du` on `db` | fix: `ALTER ROLE shop_etl VALID UNTIL 'infinity'` |
 | `security-crontab-superuser` (`security`) | a credential and privilege rule | `db`'s hourly `REFRESH MATERIALIZED VIEW popular_products` runs `psql` with no user, so as `postgres` by peer: a superuser for a job `shop_refresh` could run (the role, its `MAINTAIN` grant and its password file exist, never switched to) | `gm-crontab -l`; `pg_stat_activity` during a run; the role prepared and unused | fix: connect as `shop_refresh` (`-U`, the password file); its check reads the live crontab and requires every entry's role to be no superuser (exit 0 or 1) |
 | `purpose-day-boundary-wrong-zone` (`rules`) | R3, R2 | `rpt.close_day()` cuts the day in a zone N hours off the customer's (a parameter, never 0, which the scenario writes into its copy of `reporting`'s data file and `load-data` adds to the customer's offset, 8.5), so every night it rewrites yesterday on the wrong boundary; its check judges the close's runs from `rpt.etl_runs` (12.5) | closed days shifted against the source's local days, and no longer the sum of their hours; the zone in `\sf rpt.close_day` | propose: the customer's zone from `business_settings` |
 | `purpose-receiver-down-unnoticed` (`data-flow`) | E4 | the escalation job has no rule for missing acknowledgements; the gateway stopped acknowledging for two hours during the aging (a timeline change of its schedule), and still never acknowledges about one declaration in fifty | declarations with neither acknowledgement nor incident, the two-hour gap foremost | fix: escalate missing acknowledgements |
@@ -1638,7 +1648,9 @@ Each fault's evidence shows at its job's runs; its aging minimum counts
 from the first run after planting, and the scenario raises each
 instance's minimum to that offset. Quarter-hour and hourly jobs need an
 hour; the nightly close needs T0 to 01:30 plus one run; a timeline
-change counts from its moment.
+change counts from its moment. A five-minute job needs the hour too
+(f1): shipping ramps up after the load, its first duplicates 19 minutes
+after T0 on armenelos.
 
 ### 16.3 The out-of-memory incident
 
