@@ -332,3 +332,20 @@ drafting. Take the next number from `doc-ids`; no ID is reused.
   [versions/v0.4/wave-log.md](versions/v0.4/wave-log.md) "Wave 1 gate"
   and "Wave 2 report to the owner". Now in: [formats.md](formats.md)
   "Versions and pins"; the `scenario-format` skill.
+- **D230 (2026-10-31, spec-writer, W3-a's question 1, reading 11.6 as
+  approved): The game's own roles are skipped as readers only; a path
+  acting as one (remote role, connection role, definer owner, `pg_cron`
+  `username`) is judged, a superuser reaching every classed column of
+  its database; the game's own schemas are left out.** 11.6's reason
+  ("who may read") and its superuser clause say so; no v0.4 fix creates
+  such a path. Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md)
+  11.6, 11.7; [versions/v0.4/access-model.md](versions/v0.4/access-model.md) 9.3.
+- **D231 (2026-10-31, spec-writer, from capture W3-a's item 4): An
+  outbound flow's `fields` are the top-level keys its outbox's `payload`
+  may carry, as the purpose's job writes them; G4 is unchanged.** The
+  spec's `[email, name, order]`, read as keys, failed the unfaulted
+  baseline (release-gate item 4); the example now carries the shop's
+  keys and the flow's `outbox`, and the policy's words cover every key.
+  Now in: [formats.md](formats.md) "Purposes, domain and governance";
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 6.9,
+  11.3, 11.6; [versions/v0.4/access-model.md](versions/v0.4/access-model.md) 9.3.

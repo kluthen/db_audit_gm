@@ -20,6 +20,10 @@ approved. During wave 2, f10's early calibration (16.3) led the owner
 to raise `reporting`'s memory limit (16.1), and chunk 11's reading of
 E4's deadline was written in (10.4, 12.4): the 30 minutes are the
 acknowledgement's, an incident due by the escalation run after them.
+During wave 3, two readings of the governance checks were written in:
+the game's own roles are skipped as readers only, a path acting as one
+being judged (11.6, 11.7), and an outbound flow's `fields` are its
+outbox's payload keys (6.9, 11.3, 11.6).
 
 ---
 
@@ -392,10 +396,13 @@ governance:
       locations: [db/shop]
       readers: [shop_app, shop_reports, shop_crm, shop_customs, customs_gw]
       outbound:
-        - to: mail-provider               # mail_outbox
-          fields: [email, name, order]
-        - to: customs-gateway             # customs_outbox
-          fields: [consignee_name, consignee_address, country]
+        - to: mail-provider
+          outbox: db/shop/mail_outbox     # node/database/table
+          fields: [name, email, order_id, shipped_at, ship_country, total, campaign]
+        - to: customs-gateway
+          outbox: db/shop/customs_outbox
+          fields: [order_ref, consignee_name, consignee_address,
+                   destination_country, lines, total_value, currency]
     customer-linked:
       locations: [db/shop]
       readers: [shop_app, shop_reports, shop_crm, shop_customs]
@@ -432,6 +439,12 @@ seed:
 
 A class may add `separation: instance` when the policy demands an
 instance of its own; the check then verifies it by node (11.4).
+
+An outbound flow names its receiver (`to`), the outbox it fills
+(`outbox`, `node/database/table`) and, in `fields`, the top-level keys
+that outbox's `payload` may carry: the keys the purpose's job writes,
+not words for them. G4 compares them as written (11.6); the policy says
+the same in plain words (11.5).
 
 ## 7. The bricks
 
@@ -1127,8 +1140,9 @@ regulated domains.
 `data/classification.yaml`, copied into the scenario, classes every
 column (`shop.customers.email: personal`); a column with no entry is
 `internal`. `scenario.yaml`'s `governance:` (6.9) states, per class, its
-locations, its readers (customer roles) and its outbound flows with
-their allowed fields, and names the policy file. The loader checks the
+locations, its readers (customer roles) and its outbound flows, each
+with the outbox it fills and the payload keys it may carry, and names
+the policy file. The loader checks the
 references (6.1).
 
 ### 11.4 Locations: a database or an instance
@@ -1182,8 +1196,8 @@ breaks.
 |---|---|---|
 | G1 location | a classed column exists only in its allowed locations | the catalog of every database on every `database` node: tables, views, materialized views and foreign tables. A foreign table's column takes the class of the remote column it maps; a table's or view's column takes the class of a classified column with the same table and column name; and for `personal`, a content probe on the text columns of disallowed databases finds values shaped like an e-mail address, so a renamed copy is caught |
 | G2 readers | only allowed customer roles may read a classed column | `has_column_privilege` for every customer login role, through membership and `PUBLIC` |
-| G3 reach | no path lets a disallowed location read a class | every foreign table, and every user mapping's remote role checked with G2 on the source (a mapping whose remote role may read `personal`, or a mapping for `PUBLIC`, makes the mapping's database a reader); every transformer job whose connections join a source role to another database, the source role checked with G2 (read from the runner's `jobs.yaml` and schedule, on the runner node); a `SECURITY DEFINER` procedure reaching as its owner; every `pg_cron` job, its `username` checked with G2 in the database it runs in, a superuser reaching everything |
-| G4 outbound | what leaves carries only the listed fields | the outboxes' payload keys against `outbound.fields`, on rows written since the judged moment, as a purpose invariant is |
+| G3 reach | no path lets a disallowed location read a class | every foreign table, and every user mapping's remote role checked with G2 on the source (a mapping whose remote role may read `personal`, or a mapping for `PUBLIC`, makes the mapping's database a reader); every transformer job whose connections join a source role to another database, the source role checked with G2 (read from the runner's `jobs.yaml` and schedule, on the runner node); a `SECURITY DEFINER` procedure reaching as its owner, the owner checked with G2 in its database; every `pg_cron` job, its `username` checked with G2 in the database it runs in. Each path's role is judged whoever it is, a superuser reaching every classed column of the database it acts in |
+| G4 outbound | what leaves carries only the listed fields | each flow's `outbox`: the top-level keys of its rows' `payload` against the flow's `fields`, on rows written since the judged moment, as a purpose invariant is; nested content is the purposes' (E3, M4) |
 
 - A transformer script's reach is the one path no catalog shows: G3
   judges the roles of its connections, G1 what actually landed; the
@@ -1200,11 +1214,20 @@ breaks.
   game network (7.2): every `database` node of a scenario with
   `governance:` admits the GM check role from the game network in its
   seed `pg_hba.conf`, under the DO NOT TAMPER comment.
-- **The game's own roles are outside every rule**: `dba` (the
-  players' superuser), `postgres`, the GM check role, `monitoring`, and
-  PgBouncer's lookup role. Each would break "who may read"; the policy
-  says "application and staff accounts", and the checks skip them by
-  name.
+- **The game's own roles are outside every rule as readers**: `dba`
+  (the players' superuser), `postgres`, the GM check role, `monitoring`,
+  and PgBouncer's lookup role. Each would break "who may read"; the
+  policy says "application and staff accounts", so G2 skips them by
+  name and none may be listed as a reader. A path acting as one of them
+  is judged all the same: a user mapping's remote role, a transformer
+  connection's role, a `SECURITY DEFINER` procedure's owner and a
+  `pg_cron` job's `username` are checked whoever they are, so a job run
+  as `postgres` or `dba`, or a definer procedure either owns, reaches
+  every classed column of its database. Such a job or procedure is the
+  customer's configuration, not the game's machinery.
+- **The game's own objects are outside every rule** as its roles are:
+  the GM check role's schema, PgBouncer's lookup schema
+  (`gm_pgbouncer`), and extensions' own objects.
 - **Not checked**: encryption at rest, retention, purposes of
   processing. The policy may state them; the checks do not judge them.
 
@@ -1212,7 +1235,9 @@ breaks.
 
 A definition (a classed column where it may not be, a grant, a mapping,
 a job copying data) is fixed when the live state complies: removing what
-was copied is part of the fix, not only stopping the flow. Content
+was copied is part of the fix, not only stopping the flow. What a fix
+itself creates is judged too: a replacement job run as a superuser is a
+new path (11.6). Content
 already sent (outbox payloads) is judged as a purpose is: no new
 violation since the judged moment. G1 to G3 are the first kind, G4 the
 second.
