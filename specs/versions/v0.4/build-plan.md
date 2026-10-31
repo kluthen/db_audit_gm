@@ -939,7 +939,7 @@ Record: 9d172b0, merge 21790ca (one commit, not split: built in one pass). Diffe
 
 ### Chunk 13 — `fixture-campaign`: the v0.4 topology, unfaulted
 
-Status: built (dc21692; merging after its redeploy on the fixed `load-data`)
+Status: merged (w3, a550257)
 Wave: 3
 Depends on: chunks 5, 6, 7, 10, 11, 19
 Architecture capture: recorded at wave 3 start (W3-b), for chunks 14 and
@@ -974,6 +974,8 @@ data files, as master spec 16.1 sets them.
   purpose check reads 0 or 3, none 1. It places at wave 3's gate:
   G1 to G4 passing on it (chunk 12 merged).
 - Verification: chunk checks, plus the deployment (needs G4).
+
+Record: dc21692, merge a550257 (one commit). Deployed on armenelos at shift +3 with no patch, after the `load-data` secrets fix: every job, both crontabs and the `pg_cron` launcher ran; every purpose check 0 or 3, none 1. `fit` 1.6 CPU, 1.75G memory, 6.19G disk. Choices: tooling expectation `t1`; Prometheus scrapes all 12 nodes; `reporting`'s `max_connections` 100 (chunk 9's calibration ran at 20). Found: a scheduler session idle over ~15 min is dropped (08006), one run lost (to a `coding-executor`); `reporting`'s `pg_cron` launcher exits until `load-data` creates its database. Wave log.
 
 ### Chunk 14 — The purpose faults f1 to f5 and f8
 

@@ -2089,6 +2089,42 @@ read from the scenario's own data file; a role created only by a seed
 change's copy would need reading from the copy (f9 doesn't).
 For chunk 18: `gmctl.md` 143–147 and 201–208 state the old, narrower rule.
 
+### Chunk 13 — merged (a550257), 2026-10-31
+
+The finisher merged `v0.4-w3` in (65ffc3c), ran the unit suite (813 OK
+on the chunk, 828 OK on `v0.4-w3` after the merge) and redeployed
+`fixture-campaign` on armenelos with no patch (game
+`fixture-campaign-yo0hv9`, shift +3, hand-over 11:00Z, T0 09:26:56Z).
+`load-data` passed every step (`db`: seven role passwords; `reporting`:
+`bi_reader`, `bi_etl`). Every job ran in its log and ledger: rollups,
+close, leads, both mail jobs, declarations, escalations, `close-day`,
+the gateway's stream (184 acknowledgements, 0 errors); `db`'s crontab at
+:17 as `shop_refresh` (scram); `reporting`'s cron daemon and `pg_cron`
+launcher up, no job. Purpose checks over six rounds: only 0 or 3, never
+1; f0 present every round. Times moved by `jobs.yaml` edits and reloads
+only, all restored before teardown. Teardown clean (12 services, 55
+configs, 17 secrets, 71 volumes). Memory under load well inside every
+limit (`db` 216M of 1G, `reporting` 75M of 640M, `grafana` 292M of 384M
+at rest the highest share). Merged `--no-ff` into `v0.4-w3` (a550257);
+worktree and branch removed.
+
+Findings:
+1. **A scheduler session idle over ~15 minutes is dropped silently**;
+   its next call fails 08006 and the run is lost, the session replaced
+   at the call after. Seen three times (bi `rollup-close`, crm
+   `leads-extract`, the producer's `orders.detail` stream); the server
+   still showed the session idle. Most likely Swarm's VIP (IPVS) idle
+   timeout, 900 s. In the designed schedule every pool-of-one job with
+   gaps over 15 minutes would lose every other run, which aging (chunk
+   16) and the early and hand-over checks would show. Sent to a
+   `coding-executor` on `v0.4-w3`, in its own commit (scheduler 0.2.0,
+   unreleased: no bump).
+2. **`reporting`'s `pg_cron` launcher exits at boot** (34 times,
+   `database "reporting" does not exist`) until `load-data` creates the
+   database: harmless, but noise in a log the players read. To the same
+   executor to assess; a fix that changes `load-data`'s stated steps
+   goes to `spec-writer` instead.
+
 ### Chunk 13 — built (dc21692), 2026-10-31
 
 Deployed on armenelos at shift +3 with a scratch patch (the rule above);
