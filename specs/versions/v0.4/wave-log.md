@@ -2122,6 +2122,18 @@ Options for the owner at the wave report: `cron.database_name =
 loader rule; no noise), a restart step in `load-data`, or documenting the
 pre-load lines in `postgres`' `gm.md` and `player.md`.
 
+### Template edits — merged (93538db, 9e29cf7), 2026-10-31
+
+Both scenario-document template edits applied word for word; the three
+READMEs with `governance:` regenerated (`fixture-instances`,
+`fixture-v04-refusals`, `fixture-campaign`), each diff only the two
+passages; nothing under `scenarios/` has governance. Unit suite 831 OK.
+Left as found (cosmetic, for chunk 18 or the next regeneration):
+`fixture-instances` shows "—" for an absent outbound where the template
+says "none"; generations differ in wrapping and backticks in governance
+cells; the template has no rule for a node with an empty job table
+(`fixture-campaign`'s `reporting` renders a "nothing scheduled" row).
+
 ### Spec items of chunks 12 and 15a — settled (583e6bc), 2026-10-31
 
 `spec-writer`: D239 (f7's N written at load into the data-file copy, the
