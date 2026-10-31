@@ -1,0 +1,149 @@
+# Catalog fault: the nightly close cuts the day in the wrong zone (v0.4
+# master spec 16.2, f7 of 16.1). A purpose fault of the sales reporting
+# purpose (R3, R2), planted by a seed change of the target database node's
+# data file (`data`, spec D226): rpt.close_day() cuts yesterday in a zone
+# `offset` hours off the customer's, so every night it rewrites a day on
+# the wrong boundary. Its check judges the close's runs from its own
+# ledger, rpt.etl_runs, on the target node.
+
+# --- Identity ---------------------------------------------------------
+id: purpose-day-boundary-wrong-zone
+version: 0.1.0
+title: the nightly close cuts the customer's day in another time zone
+family: rules
+severity: medium
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: postgres                  # the target node: the procedure and the check are there; the
+      versions: ["0.4.0"]           # runner calling it (scheduler) is not changed nor read
+  purposes: [shop-sales-reporting]
+  preconditions:
+    - the sales reporting purpose's target part, its rpt.close_day() and rpt.etl_runs, on the node
+    - the close scheduled once a night on the runner (rollup-close, CALL rpt.close_day())
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 1h                       # counted from the close's first run after planting (spec
+                                    # D189): the scenario raises the instance's aging_minimum to
+                                    # the close's offset from T0 plus this (T0 22:00, close 01:30:
+                                    # 5h)
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  offset:
+    description: >-
+      an integer number of hours, never 0, between -23 and 23: how far the
+      close's zone is from the customer's; the scenario writes the same
+      number in its copy of the data file (inject/close_day.sql.snippet;
+      the loader checks neither the equality nor the range)
+    default: null
+    required: true
+  close-at:
+    description: >-
+      the close's designed time of day in the customer's zone (HH:MM), the
+      runner's rollup-close at: the check's remaining= counts to it, since
+      it cannot read the runner's jobs.yaml
+    default: "01:30"
+    required: false
+  job:
+    description: the close's job name, as it writes it in rpt.etl_runs.job
+    default: rollup-close
+    required: false
+  database:
+    description: the target database on the node, holding rpt.close_day() and rpt.etl_runs
+    default: reporting
+    required: false
+  source-node:
+    description: the purpose's source node, holding orders and business_settings (the customer's zone)
+    default: db
+    required: false
+  source-database:
+    description: the source node's database holding them
+    default: shop
+    required: false
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: data
+      change: >-
+        after the sales reporting purpose's material, rpt.close_day()
+        replaced by the same procedure with SET TimeZone to the customer's
+        zone plus {OFFSET} hours, computed at load from customer_utc_offset
+        and wrapped into UTC-12..UTC+14, its day cut in that zone
+        (current_setting('TimeZone')) instead of rpt.business_settings';
+        owner, grants and every other line unchanged
+      material: inject/close_day.sql.snippet
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: node
+    source: the close's procedure
+    how: psql -d {DATABASE} -c '\sf rpt.close_day'
+    shows: SET "TimeZone" TO another zone than the customer's, and the day cut in current_setting('TimeZone') rather than in rpt.business_settings' zone
+  - where: node
+    source: the closed days against the source's local days
+    how: >-
+      psql -d {DATABASE} -c "SELECT day_local, orders, revenue FROM
+      rpt.sales_daily WHERE closed ORDER BY 1 DESC LIMIT 3", then psql -h
+      {SOURCE_NODE} -d {SOURCE_DATABASE} -c "SELECT (placed_at AT TIME ZONE
+      s.timezone)::date, count(*), sum(total) FROM orders, business_settings s
+      GROUP BY 1 ORDER BY 1 DESC LIMIT 3"
+    shows: each day the close closed differs from the source's local day of the same date, in orders and revenue
+  - where: node
+    source: the close's runs
+    how: psql -d {DATABASE} -c "SELECT * FROM rpt.etl_runs WHERE job = '{JOB}' ORDER BY id DESC LIMIT 3"
+    shows: the nightly runs whose days are off, at the close's time
+  - where: bastion
+    source: the customer's time zone
+    how: cat ~/story.md, and SELECT * FROM rpt.business_settings
+    shows: the zone the customer's business day is in, which the procedure's is not
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names the nightly close (rpt.close_day()) as cutting the day in another
+    zone than the customer's, {OFFSET} hours off, with the evidence: closed
+    days that do not match the shop's local days in orders and revenue, and
+    the zone set on the procedure against rpt.business_settings.
+  proposal: >-
+    the close takes the customer's zone from business_settings (the
+    rpt.business_settings row the data load writes), not a zone of its own.
+  fix: >-
+    the procedure cuts the day in rpt.business_settings' zone, and the
+    close's next run after the fix closes the customer's local day (the
+    run is the runner's schedule's, never one made by hand).
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+  judges: runs
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  The day's sales on the dashboard never match what the shop sold that day.
+  The figures are the agency's: tell us what they should change.

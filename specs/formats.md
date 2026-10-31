@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v25
+Status: draft v27
 
 What a scenario, a brick, a fault definition and, from v0.4, a purpose
 and a domain must contain, and how they are laid out, so that every scenario the GM designs or generates stays
@@ -94,11 +94,14 @@ The owner's requirements (D23), with the earlier rulings that apply:
   from, for provenance only, none in a static scenario ("Domain" below);
   `governance:`, the policy file and, for each data class, its locations
   (`node/database`, with `separation: instance` when the policy demands
-  an instance of its own), its readers (customer roles) and its outbound
-  flows with their allowed fields, the loader checking every class named
-  is defined, every location names a `database` node and a database its
-  data file creates, every reader is a role a data file creates, and
-  the policy file exists.
+  an instance of its own, refused with `locations: any` (D253)), its readers (customer roles) and its outbound
+  flows, each naming its receiver (`to`), the outbox it fills (`outbox`,
+  `node/database/table`) and, in `fields`, the top-level keys that
+  outbox's `payload` may carry, the keys the purpose's job writes, not
+  words for them (D231); the loader checking every class named is
+  defined, every location and every outbox's `node/database` names a
+  `database` node and a database its data file creates, every reader is
+  a role a data file creates, and the policy file exists.
 - **Background information**: the customer's story and context.
 - **Incidents, flaws and defects**: every fault instance (fault definition
   and version, target nodes, parameters, known or hidden; from v0.3 its
@@ -507,7 +510,9 @@ faults/<fault-id>/
   A data file is not a seed file of its brick: a `seed_changes` entry
   names it `data`, the target node's `data.file`, refused on a node
   without one; the scenario's copy carries the change, in place from the
-  data load, before T0 (D226).
+  data load, before T0 (D226). A `state` fault may also carry
+  `seed_changes`, in the scenario's copies from T0 as a `seed-file`
+  fault's, its scripts planting the rest later (D254).
 - **Evidence paths** as the player user. From v0.3 each evidence's
   free text is its `source`, and its `where` is `node` (the fault's
   target node), `bastion`, or `report:<tool>` for a tool the target's

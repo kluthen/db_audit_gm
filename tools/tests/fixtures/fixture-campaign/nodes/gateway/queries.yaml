@@ -1,0 +1,54 @@
+# Query repository of fixture-campaign's gateway node (tools/tests, v0.4 chunk 13;
+# capture W3-b item 4), in scenario time: copied unchanged from
+#   purposes/shop-export-declarations/material/receiver/queries.yaml.
+#
+# Query repository of the customs gateway stub, a fragment (capture W1,
+# items 5 and 7; master spec 10.4; spec D214): the customs authority's side
+# and the shop's callback endpoint, as customs_gw, which reads
+# customs_outbox and writes customs_acks, nothing else (access model 9.1).
+# It never reads its own acknowledgements, so it works by time slots: each
+# call answers the declarations sent in the 15-second slot ending at the
+# last slot boundary at least 5 seconds before it (a declaration still
+# committing is not missed), and the stream calls it every 15 seconds, one
+# call a slot: an answer within 5 to 35 seconds of sending.
+#
+# - Accepted, with a movement reference (an MRN: year, the exporter's
+#   country DE, 14 characters), when well-formed: the schema's seven fields
+#   present and not empty, lines a non-empty list. Fields beyond the schema
+#   do not make it reject: the gateway is lenient, the shop's invariant E3
+#   is not.
+# - Rejected, with the missing fields as reason, otherwise.
+# - Never answered: about one declaration in fifty, chosen by a hash of its
+#   idempotency key (mod 50 is 0), as standing behaviour, before and after
+#   the hand-over, so the escalation of missing acknowledgements has work
+#   every hour (spec D214).
+# An outage or a rejection spell is a timeline change of the stream's key
+# (the scenario's schedule), never something outside the schedule.
+queries:
+  customs.acknowledge:
+    sql: >-
+      WITH slot AS (
+        SELECT to_timestamp(floor(extract(epoch FROM now() - interval '5 seconds') / 15) * 15)
+                 AS ends),
+      received AS (
+        SELECT d.id, d.idempotency_key,
+               (SELECT string_agg(f, ', ' ORDER BY n)
+                  FROM unnest(ARRAY['order_ref', 'consignee_name', 'consignee_address',
+                                    'destination_country', 'lines', 'total_value', 'currency'])
+                       WITH ORDINALITY AS u (f, n)
+                 WHERE CASE WHEN f = 'lines'
+                            THEN jsonb_typeof(d.payload -> 'lines') IS DISTINCT FROM 'array'
+                                 OR d.payload -> 'lines' = '[]'::jsonb
+                            ELSE coalesce(d.payload ->> f, '') = '' END) AS missing
+          FROM slot, customs_outbox d
+         WHERE d.sent_at >= slot.ends - interval '15 seconds' AND d.sent_at < slot.ends
+           AND mod(hashtextextended(d.idempotency_key, 214), 50) <> 0)
+      INSERT INTO customs_acks (outbox_id, status, reference, reason, received_at)
+      SELECT id,
+             CASE WHEN missing IS NULL THEN 'accepted' ELSE 'rejected' END,
+             CASE WHEN missing IS NULL
+                  THEN to_char(now(), 'YY') || 'DE'
+                       || upper(substr(md5(idempotency_key || ':' || id), 1, 14)) END,
+             CASE WHEN missing IS NOT NULL THEN 'missing or empty: ' || missing END,
+             now()
+        FROM received

@@ -1,0 +1,142 @@
+-- purpose-heavy-job-on-database-node (v0.4 master spec 16.2, 16.3, f10):
+-- appended to the reporting node's data file (seed change `data`, spec
+-- D226), after the sales reporting purpose's material. Written for the first
+-- v0.4 scenario's names: the database reporting, its owner role reporting,
+-- the agency's loader bi_etl and the purpose's foreign server shop_db to the
+-- shop (db:5432/shop as shop_etl). The GM adapts them as it copies; the
+-- database is the instance's parameter `database`.
+--
+-- The agency's nightly sales-detail roll-up, run from the node's crontab as
+-- bi_etl (inject/crontab.snippet): the order lines changed since its last
+-- finished run (one day back on the first), or over a backfill request's
+-- days, built into one document by one aggregate over the window and
+-- inserted. The request is the fault's state change (inject/
+-- 10-backfill-request.sh), a row of rpt.sales_detail_backfills.
+\connect reporting
+
+-- The orders as the roll-up reads them: its own foreign table on the
+-- purpose's server, since the close's src.orders declares only the columns
+-- the close needs (master spec 9.6) and the roll-up's window is on
+-- updated_at, which shop_etl reads. No customer_id.
+CREATE FOREIGN TABLE src.sales_detail_orders (
+    id         integer       NOT NULL,
+    placed_at  timestamptz   NOT NULL,
+    status     text          NOT NULL,
+    total      numeric(10,2) NOT NULL,
+    updated_at timestamptz   NOT NULL
+) SERVER shop_db OPTIONS (schema_name 'public', table_name 'orders');
+GRANT SELECT ON src.sales_detail_orders TO bi_etl;
+
+SET ROLE reporting;
+
+-- A one-off request to recompute the last `days` days (in the story, the
+-- agency changed its formula). The roll-up takes the oldest one not yet
+-- taken, marks it taken and commits before it computes; done_at once its
+-- document is written. A request taken and never done is a run that died.
+CREATE TABLE rpt.sales_detail_backfills (
+    id           bigint      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    requested_at timestamptz NOT NULL DEFAULT now(),
+    days         integer     NOT NULL CHECK (days > 0),
+    reason       text        NOT NULL,
+    taken_at     timestamptz,
+    done_at      timestamptz
+);
+
+-- The agency's sales-detail document, one per run: every order changed in
+-- the run's window, with its lines.
+CREATE TABLE rpt.sales_detail (
+    run_id       bigint      PRIMARY KEY REFERENCES rpt.etl_runs (id),
+    window_start timestamptz NOT NULL,
+    window_end   timestamptz NOT NULL,
+    orders       integer     NOT NULL,
+    lines        bigint      NOT NULL,
+    built_at     timestamptz NOT NULL,
+    document     jsonb       NOT NULL
+);
+
+-- The window's rows are read once from the shop (a materialised CTE), and
+-- one jsonb_agg holds every order of the window in this backend until it
+-- returns: unbounded by work_mem, unlike a sort or a hash aggregate, which
+-- spill to disk. Its run row is committed when it starts (rpt.etl_runs, job
+-- sales-detail-rollup), so a run that dies stays without finished_at.
+-- Called from the crontab as psql -c 'CALL rpt.sales_detail_rollup()',
+-- which receives no result set. SECURITY INVOKER: it reads the shop as its
+-- caller's user mapping allows. No SET clause: the procedure commits.
+CREATE PROCEDURE rpt.sales_detail_rollup()
+LANGUAGE plpgsql
+SECURITY INVOKER
+AS $$
+DECLARE
+    v_end      timestamptz := clock_timestamp();
+    v_start    timestamptz;
+    v_request  bigint;
+    v_days     integer;
+    v_run      bigint;
+    v_orders   integer;
+    v_lines    bigint;
+BEGIN
+    SELECT id, days INTO v_request, v_days
+      FROM rpt.sales_detail_backfills
+     WHERE taken_at IS NULL
+     ORDER BY requested_at, id
+     LIMIT 1
+       FOR UPDATE SKIP LOCKED;
+    IF v_request IS NOT NULL THEN
+        UPDATE rpt.sales_detail_backfills SET taken_at = clock_timestamp() WHERE id = v_request;
+        v_start := v_end - make_interval(days => v_days);
+    ELSE
+        SELECT max(watermark) INTO v_start
+          FROM rpt.etl_runs
+         WHERE job = 'sales-detail-rollup' AND finished_at IS NOT NULL;
+        v_start := coalesce(v_start, v_end - interval '1 day');
+    END IF;
+    INSERT INTO rpt.etl_runs (job, started_at)
+    VALUES ('sales-detail-rollup', clock_timestamp())
+    RETURNING id INTO v_run;
+    -- The request taken and the run started, whatever happens next.
+    COMMIT;
+
+    INSERT INTO rpt.sales_detail (run_id, window_start, window_end, orders, lines, built_at,
+                                  document)
+    WITH changed AS MATERIALIZED (
+        SELECT o.id, o.placed_at, o.status, o.total, o.updated_at,
+               l.product_id, p.category, l.quantity, l.line_total
+          FROM src.sales_detail_orders o
+          JOIN src.order_lines l ON l.order_id = o.id
+          JOIN src.products p ON p.id = l.product_id
+         WHERE o.updated_at >= v_start AND o.updated_at < v_end
+    ), per_order AS (
+        SELECT jsonb_build_object(
+                   'order', id, 'placed_at', placed_at, 'status', status, 'total', total,
+                   'updated_at', updated_at,
+                   'lines', jsonb_agg(jsonb_build_object(
+                                'product', product_id, 'category', category,
+                                'quantity', quantity, 'line_total', line_total)
+                            ORDER BY product_id)) AS doc,
+               count(*) AS lines
+          FROM changed
+         GROUP BY id, placed_at, status, total, updated_at
+    )
+    SELECT v_run, v_start, v_end, count(*), coalesce(sum(lines), 0), clock_timestamp(),
+           coalesce(jsonb_agg(doc), '[]'::jsonb)
+      FROM per_order
+    RETURNING orders, lines INTO v_orders, v_lines;
+
+    UPDATE rpt.etl_runs
+       SET finished_at = clock_timestamp(), rows_read = v_lines, rows_written = 1,
+           watermark = v_end
+     WHERE id = v_run;
+    IF v_request IS NOT NULL THEN
+        UPDATE rpt.sales_detail_backfills SET done_at = clock_timestamp() WHERE id = v_request;
+    END IF;
+END
+$$;
+REVOKE EXECUTE ON PROCEDURE rpt.sales_detail_rollup() FROM PUBLIC;
+GRANT EXECUTE ON PROCEDURE rpt.sales_detail_rollup() TO bi_etl;
+
+-- The loader takes requests and writes the documents (rpt.etl_runs is
+-- already its, from the purpose's grants).
+GRANT SELECT, UPDATE ON rpt.sales_detail_backfills TO bi_etl;
+GRANT SELECT, INSERT ON rpt.sales_detail TO bi_etl;
+
+RESET ROLE;

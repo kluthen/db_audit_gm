@@ -20,6 +20,22 @@ approved. During wave 2, f10's early calibration (16.3) led the owner
 to raise `reporting`'s memory limit (16.1), and chunk 11's reading of
 E4's deadline was written in (10.4, 12.4): the 30 minutes are the
 acknowledgement's, an incident due by the escalation run after them.
+During wave 3, two readings of the governance checks were written in:
+the game's own roles are skipped as readers only, a path acting as one
+being judged (11.6, 11.7), and an outbound flow's `fields` are its
+outbox's payload keys (6.9, 11.3, 11.6); then chunk 15a's readings of
+f7 and f9: f7's offset written into the data file and turned into a zone
+at load, its evidence `\sf`, its check on `reporting` dating a fix with
+`--since` (12.1, 12.5, 16.2, 18, 19), and f9's planting letting its job
+recreate the table, unscheduled by its id (16.2, 16.5); then chunk 14's
+readings: f2's producer path a fix only with the drifted flags repaired,
+f5's planting ending the role's open sessions and its `remaining=` read
+from the ledger, and an hour for f1's five-minute job (12.5, 16.2).
+Then the owner accepted f10's normal run at 640M as measured (16.3) and
+had `separation: instance` defined now, as a rule of G1 (6.9, 11.4,
+11.6); chunk 15b's readings of f10 were written in (6.3, 9.6, 16.3),
+and `load-data`'s last step, removing the `pg_cron` launcher's start-up
+failures from the server log on the owner's ruling (7.2, 14).
 
 ---
 
@@ -251,6 +267,10 @@ every version; this section lists what v0.4 changes. The shapes are in
   seed change names it `data`, meaning the target node's `data.file`,
   and is refused on a node without one; the scenario's copy carries the
   change, which is in place from the data load, before T0.
+- A `state` fault may also carry `seed_changes`, in the scenario's
+  copies from T0 as a `seed-file` fault's, its scripts planting the rest
+  later: f10's roll-up and crontab entry, then its backfill request
+  (16.2, 16.3).
 - Families: purpose faults are `data-flow` (duplicates, dropped
   records) or `rules` (a wrong zone, a wrong segment); governance and
   credential faults join `security` (`governance-*` and `security-*`
@@ -392,10 +412,13 @@ governance:
       locations: [db/shop]
       readers: [shop_app, shop_reports, shop_crm, shop_customs, customs_gw]
       outbound:
-        - to: mail-provider               # mail_outbox
-          fields: [email, name, order]
-        - to: customs-gateway             # customs_outbox
-          fields: [consignee_name, consignee_address, country]
+        - to: mail-provider
+          outbox: db/shop/mail_outbox     # node/database/table
+          fields: [name, email, order_id, shipped_at, ship_country, total, campaign]
+        - to: customs-gateway
+          outbox: db/shop/customs_outbox
+          fields: [order_ref, consignee_name, consignee_address,
+                   destination_country, lines, total_value, currency]
     customer-linked:
       locations: [db/shop]
       readers: [shop_app, shop_reports, shop_crm, shop_customs]
@@ -431,7 +454,15 @@ seed:
 ```
 
 A class may add `separation: instance` when the policy demands an
-instance of its own; the check then verifies it by node (11.4).
+instance of its own; G1 then requires the instances holding its
+locations to hold no other database (11.4, 11.6). The loader refuses it
+with `locations: any`, as it refuses `readers` and `outbound` there.
+
+An outbound flow names its receiver (`to`), the outbox it fills
+(`outbox`, `node/database/table`) and, in `fields`, the top-level keys
+that outbox's `payload` may carry: the keys the purpose's job writes,
+not words for them. G4 compares them as written (11.6); the policy says
+the same in plain words (11.5).
 
 ## 7. The bricks
 
@@ -523,6 +554,15 @@ on, with live connections beside: the access model's known gaps.
 - The loader checks that a data file creating `pg_cron` belongs to a node
   whose seed preloads it, and that `cron.database_name` names a database
   that data file creates. A fault may still remove the preload.
+- **Start-up noise, removed by `load-data`.** From boot until the data
+  file has created `cron.database_name`, the preloaded launcher cannot
+  connect: it exits (`FATAL:  database "…" does not exist`, then the
+  postmaster's `background worker "pg_cron launcher" (PID n) exited
+  with exit code 1`) and restarts about once a second, lines in the
+  file log the players read. The brick cannot avoid them: creating the
+  database at start-up would fail the data file's `CREATE DATABASE`,
+  and holding the preload back would fail its `CREATE EXTENSION`.
+  `load-data`'s last step removes them, and only them (14).
 - `cron.job` and `cron.job_run_details` show each role its own jobs
   only, unless it is a superuser or bypasses row-level security. The
   players' `dba` sees every job. `load-data` gives the GM check role a
@@ -867,7 +907,7 @@ no recent order: about a third lapsed.
 | `etl_runs (id, job, started_at, finished_at, rows_read, rows_written, watermark)` | `shop`, and `rpt.etl_runs` in `reporting` | P1, P2, P5 | the run ledger the jobs write themselves |
 | `rpt.sales_hourly (hour_local, category, orders, units, revenue)` | `reporting` | P1 | aggregates only, no customer id |
 | `rpt.sales_daily (day_local, orders, revenue, invoiced_revenue, closed)` | `reporting` | P1 | |
-| `src.orders`, `src.order_lines`, `src.products` (foreign tables) | `reporting` | P1 | over `postgres_fdw`, read by the nightly close only; each declares only the columns the close needs, `src.orders` without `customer_id` |
+| `src.orders`, `src.order_lines`, `src.products` (foreign tables) | `reporting` | P1 | over `postgres_fdw`, read by the nightly close only; each declares only the columns the close needs, `src.orders` without `customer_id`; f10's roll-up reads the orders through its own (16.3) |
 | `popular_products` (materialized view) | `shop` | the web shop | refreshed hourly by `db`'s crontab (16.1) |
 
 `daily_sales` leaves the shop's database: the reporting database holds
@@ -1127,8 +1167,9 @@ regulated domains.
 `data/classification.yaml`, copied into the scenario, classes every
 column (`shop.customers.email: personal`); a column with no entry is
 `internal`. `scenario.yaml`'s `governance:` (6.9) states, per class, its
-locations, its readers (customer roles) and its outbound flows with
-their allowed fields, and names the policy file. The loader checks the
+locations, its readers (customer roles) and its outbound flows, each
+with the outbox it fills and the payload keys it may carry, and names
+the policy file. The loader checks the
 references (6.1).
 
 ### 11.4 Locations: a database or an instance
@@ -1142,7 +1183,7 @@ separate backups and separate failure need an instance. So:
 - **A location is `node/database`**: `db/shop` and `db/reporting` would
   be two databases of one instance, `db/shop` and `reporting/reporting`
   two instances. A class's rule may add `separation: instance`, which
-  the check verifies by node.
+  G1 verifies by node (11.6).
 - **v0.4's reporting database is an instance of its own**, a second
   `postgres` node: the owner's words point at settings, which only an
   instance separates; v1.0's pipeline already draws two database nodes;
@@ -1180,11 +1221,18 @@ breaks.
 
 | Check | Rule | How |
 |---|---|---|
-| G1 location | a classed column exists only in its allowed locations | the catalog of every database on every `database` node: tables, views, materialized views and foreign tables. A foreign table's column takes the class of the remote column it maps; a table's or view's column takes the class of a classified column with the same table and column name; and for `personal`, a content probe on the text columns of disallowed databases finds values shaped like an e-mail address, so a renamed copy is caught |
+| G1 location | a classed column exists only in its allowed locations; a class with `separation: instance` shares no instance with another database | the catalog of every database on every `database` node: tables, views, materialized views and foreign tables. A foreign table's column takes the class of the remote column it maps; a table's or view's column takes the class of a classified column with the same table and column name; and for `personal`, a content probe on the text columns of disallowed databases finds values shaped like an e-mail address, so a renamed copy is caught. For a class with `separation: instance`, every database of a node holding one of its locations is itself one of them |
 | G2 readers | only allowed customer roles may read a classed column | `has_column_privilege` for every customer login role, through membership and `PUBLIC` |
-| G3 reach | no path lets a disallowed location read a class | every foreign table, and every user mapping's remote role checked with G2 on the source (a mapping whose remote role may read `personal`, or a mapping for `PUBLIC`, makes the mapping's database a reader); every transformer job whose connections join a source role to another database, the source role checked with G2 (read from the runner's `jobs.yaml` and schedule, on the runner node); a `SECURITY DEFINER` procedure reaching as its owner; every `pg_cron` job, its `username` checked with G2 in the database it runs in, a superuser reaching everything |
-| G4 outbound | what leaves carries only the listed fields | the outboxes' payload keys against `outbound.fields`, on rows written since the judged moment, as a purpose invariant is |
+| G3 reach | no path lets a disallowed location read a class | every foreign table, and every user mapping's remote role checked with G2 on the source (a mapping whose remote role may read `personal`, or a mapping for `PUBLIC`, makes the mapping's database a reader); every transformer job whose connections join a source role to another database, the source role checked with G2 (read from the runner's `jobs.yaml` and schedule, on the runner node); a `SECURITY DEFINER` procedure reaching as its owner, the owner checked with G2 in its database; every `pg_cron` job, its `username` checked with G2 in the database it runs in. Each path's role is judged whoever it is, a superuser reaching every classed column of the database it acts in |
+| G4 outbound | what leaves carries only the listed fields | each flow's `outbox`: the top-level keys of its rows' `payload` against the flow's `fields`, on rows written since the judged moment, as a purpose invariant is; nested content is the purposes' (E3, M4) |
 
+- **`separation: instance`** (11.4) is judged by G1 from the databases
+  it already walks (connectable, not a template), the maintenance
+  database `postgres` aside: on each node holding one of the class's
+  locations, a database that is not one of them is a breach, named by
+  its `node/database`, whatever it holds, since sharing the instance is
+  the finding. The class's own locations may share one instance. A class
+  without the field is judged as before.
 - A transformer script's reach is the one path no catalog shows: G3
   judges the roles of its connections, G1 what actually landed; the
   script's code is the players' evidence, not the check's. A cron
@@ -1200,11 +1248,20 @@ breaks.
   game network (7.2): every `database` node of a scenario with
   `governance:` admits the GM check role from the game network in its
   seed `pg_hba.conf`, under the DO NOT TAMPER comment.
-- **The game's own roles are outside every rule**: `dba` (the
-  players' superuser), `postgres`, the GM check role, `monitoring`, and
-  PgBouncer's lookup role. Each would break "who may read"; the policy
-  says "application and staff accounts", and the checks skip them by
-  name.
+- **The game's own roles are outside every rule as readers**: `dba`
+  (the players' superuser), `postgres`, the GM check role, `monitoring`,
+  and PgBouncer's lookup role. Each would break "who may read"; the
+  policy says "application and staff accounts", so G2 skips them by
+  name and none may be listed as a reader. A path acting as one of them
+  is judged all the same: a user mapping's remote role, a transformer
+  connection's role, a `SECURITY DEFINER` procedure's owner and a
+  `pg_cron` job's `username` are checked whoever they are, so a job run
+  as `postgres` or `dba`, or a definer procedure either owns, reaches
+  every classed column of its database. Such a job or procedure is the
+  customer's configuration, not the game's machinery.
+- **The game's own objects are outside every rule** as its roles are:
+  the GM check role's schema, PgBouncer's lookup schema
+  (`gm_pgbouncer`), and extensions' own objects.
 - **Not checked**: encryption at rest, retention, purposes of
   processing. The policy may state them; the checks do not judge them.
 
@@ -1212,7 +1269,9 @@ breaks.
 
 A definition (a classed column where it may not be, a grant, a mapping,
 a job copying data) is fixed when the live state complies: removing what
-was copied is part of the fix, not only stopping the flow. Content
+was copied is part of the fix, not only stopping the flow. What a fix
+itself creates is judged too: a replacement job run as a superuser is a
+new path (11.6). Content
 already sent (outbox payloads) is judged as a purpose is: no new
 violation since the judged moment. G1 to G3 are the first kind, G4 the
 second.
@@ -1244,7 +1303,8 @@ long enough to contain a run. So a purpose fault's sealed check judges
   smoke runs), the fault instance's planting moment;
 - in either case raised by the check itself to the runner's last successful reload
   (`reload status=ok` in its log) when that is later, since a fix to a
-  job's SQL or time takes effect only through a reload;
+  job's SQL or time takes effect only through a reload; a check that
+  cannot read the runner is not raised (12.5);
 - raised by the GM with `gmctl check --since <time>` when the players'
   report says they fixed something outside the runner (a constraint, a
   grant, a role) at a given time.
@@ -1314,6 +1374,21 @@ passed.
   job run this way writes the purpose's run ledger in the same
   transaction as its output, and the check judges those rows; the next
   run is read from the crontab with the program's own cron parser.
+- **A runner's job whose ledger is on the database node** (f7: `bi`'s
+  `rollup-close` calls `rpt.close_day()`, which writes `rpt.etl_runs` on
+  `reporting`, the fault's node): the check judges the ledger's rows and
+  cannot read the runner's log or `jobs.yaml`. Its judged moment is not
+  raised to a reload, so a fix is dated by the GM's `--since`;
+  `remaining=` counts to the job's designed time, a parameter of the
+  fault. A run is judged on the rows it still owns: a later run
+  rewriting them (the job moved twice in a day, or run by hand)
+  replaces it. f5's check, on `db`, judges `bi`'s hourly roll-up the
+  same way, from the ledger on `reporting` (`check-psql` with the
+  node's name) and the refused logins in `db`'s own log; for an hourly
+  job the designed time is the ledger's last start carried forward by
+  whole hours, which keeps the job's minute. Neither form follows a job
+  moved since its last run; `remaining=` never changes a verdict, it
+  only says when to run the check again.
 
 The check runs on the database node through `check-psql`.
 
@@ -1403,10 +1478,39 @@ does until v0.5.
 |---|---|
 | `fit` | reads a host's `shared` mark; refuses a node carrying a fault that needs an unshared host on a shared host (13.3) |
 | `render` | substitutes `{{customer_timezone}}` in scheduler seed files and in a `postgres` node's seed `postgresql.conf`; shifts a seeded `crontab`'s hours; mounts the secrets of a node's `crontab_roles` (8.5, 7.2) |
-| `load-data` | passes `customer_timezone` and `customer_utc_offset` to `psql`; sets each user mapping's password from its remote role's secret; gives the GM check role a read policy on `cron.job` and `cron.job_run_details` where `pg_cron` exists; creates the mapping-roles function where a foreign server exists; grants the GM check role `CONNECT` on every database, as today, on every instance (8.5, 7.2, 11.6) |
+| `load-data` | passes `customer_timezone` and `customer_utc_offset` to `psql`; sets each user mapping's password from its remote role's secret; gives the GM check role a read policy on `cron.job` and `cron.job_run_details` where `pg_cron` exists; creates the mapping-roles function where a foreign server exists; grants the GM check role `CONNECT` on every database, as today, on every instance (8.5, 7.2, 11.6); last, removes the `pg_cron` launcher's start-up failures from the server log (below) |
 | `check` | passes `CHECK_SINCE` (the hand-over, from the state, or before it the instance's planting moment) to checks judging runs or triggers; takes `--since <time>`, per instance with `--instance <id>` (12.1) |
 
 The other verbs are unchanged. Nobody triggers a job: no verb runs one.
+
+**`load-data`'s last step, the `pg_cron` start-up noise** (7.2): after
+the `CONNECT` grants, on every `database` node where its survey finds
+`pg_cron` in a database (in the first scenario, `reporting` only), and
+on a restart with no snapshot too. As OS user `postgres`, statement
+logging off for the session:
+
+1. wait up to 60 s for a `pg_cron launcher` backend in
+   `pg_stat_activity`; none fails the step, and the game is torn down as
+   for any failed setup step;
+2. if the server writes a file log, have the collector switch files
+   (`pg_rotate_logfile()`) and wait up to 10 s for the new file;
+3. in every closed file, remove each `background worker "pg_cron
+   launcher" (PID n) exited with exit code 1` line and every line PID n
+   logged before it (the `[%p]` of the brick's `log_line_prefix`, with
+   its tab-indented continuation lines); nothing else changes, each
+   file's mode and time are kept, and the current file is never touched.
+
+No file log: nothing to clean. A log that did not switch files is left
+as it is, with a `warning:` line. The output has the step's `ok` lines
+and `<node>: pg_cron launcher running; <n> line(s) of its start-up
+failures removed from the server log (<files>)`. Rejected: a restart
+after the load (the preload is needed for the data file's `CREATE
+EXTENSION`, and lines already written stay); `cron.database_name =
+'postgres'` (it would change 7.2's loader rule, the data file, f9's
+planting and G3's walk); documenting the lines (refused by the owner).
+Known limits: it relies on `[%p]` in `log_line_prefix`; a
+`log_filename` without a time in it leaves the lines, with the warning;
+the players see a second log file starting at `load-data`.
 
 **The loader**: `purposes:`, `domain:` and `governance:` in
 `scenario.yaml`; `judges:` and `needs_unshared_host` in `fault.yaml`;
@@ -1561,7 +1665,8 @@ and the nightly close stay clear of it.
 - an incident in the recent past, real and recovered from, judged by the
   players' report (f10);
 - the judged moment: f1 to f3 and f8 fixed and confirmed within the game
-  by their frequent runs; f5 confirmed with the GM's `--since`; f7's fix
+  by their frequent runs; f5, and f2 fixed through the producer, confirmed
+  with the GM's `--since`; f7's fix
   is the agency's, its job on `bi`, a report-only node the players cannot
   move it on, so its check is expected to stay present and the players'
   proposal is what the feedback judges; a player overstepping could edit
@@ -1579,14 +1684,14 @@ drafts' other candidates stay recorded for later versions (22).
 | Fault | Breaks | What is wrong | Evidence | Expected resolution and fix |
 |---|---|---|---|---|
 | `purpose-mail-overlapping-window` (`data-flow`) | M1 | the shipped-notice job, every five minutes, picks orders shipped in the last ten: every notice sent twice | two `order-shipped` rows per order, ten minutes apart | fix: select since the last run or `NOT EXISTS`; a unique (order, template) |
-| `purpose-leads-stale-consent` (`rules`) | L2, M2 | the extraction and the campaign job read `customers.marketing_opt_in`, which the unsubscribe link no longer updates since a release (a timeline change of the producer at T0): withdrawn customers stay leads and get mail | leads and mails whose latest consent event is a withdrawal; the producer's unsubscribe entry; the jobs' SQL | fix: read the latest consent event in both jobs (or restore the flag's update in the producer's repository); repairing the flag is an *improve* |
+| `purpose-leads-stale-consent` (`rules`) | L2, M2 | the extraction and the campaign job read `customers.marketing_opt_in`, which the unsubscribe link no longer updates since a release (a timeline change of the producer at T0): withdrawn customers stay leads and get mail | leads and mails whose latest consent event is a withdrawal; the producer's unsubscribe entry; the jobs' SQL | fix: read the latest consent event in both jobs; or restore the flag's update in the producer's repository *and* repair the flags of those who withdrew since the release, a fix outside the runner dated with the GM's `--since` (12.1): the producer restored alone leaves them flagged, the jobs keep taking them and the check reads present; after the jobs' fix, repairing the flags is an *improve* |
 | `purpose-mail-outside-hours` (`rules`) | M3 | the campaign job's hours are the company's, not the recipient's | marketing mail at night in the recipient's zone | fix: filter recipients by their local hour |
 | `purpose-watermark-misses-updates` (`data-flow`) | R1 | the hourly script picks rows by `placed_at` past the watermark, so an order invoiced at the noon close never reaches reporting: invoiced revenue lags the source, more each day | the script's query; `rpt.sales_daily.invoiced_revenue` against the source's | propose: watermark on `updated_at`; restating the affected days is an *improve* |
-| `purpose-etl-role-expired` (`data-flow`) | R4 | `shop_etl`, the hourly script's source role and the mapping's remote role, is given `VALID UNTIL` the planting moment: every run of either job since fails with an authentication error, the dashboards freeze | the runner's log; `rpt.etl_runs` stops; `\du` on `db` | fix: `ALTER ROLE shop_etl VALID UNTIL 'infinity'` |
+| `purpose-etl-role-expired` (`data-flow`) | R4 | `shop_etl`, the hourly script's source role and the mapping's remote role, is given `VALID UNTIL` the planting moment and its open sessions are ended, since PostgreSQL checks the expiry at authentication only and a runner keeps its sessions between runs: every run of either job since fails with an authentication error, the dashboards freeze | the runner's log; `rpt.etl_runs` stops; `\du` on `db` | fix: `ALTER ROLE shop_etl VALID UNTIL 'infinity'` |
 | `security-crontab-superuser` (`security`) | a credential and privilege rule | `db`'s hourly `REFRESH MATERIALIZED VIEW popular_products` runs `psql` with no user, so as `postgres` by peer: a superuser for a job `shop_refresh` could run (the role, its `MAINTAIN` grant and its password file exist, never switched to) | `gm-crontab -l`; `pg_stat_activity` during a run; the role prepared and unused | fix: connect as `shop_refresh` (`-U`, the password file); its check reads the live crontab and requires every entry's role to be no superuser (exit 0 or 1) |
-| `purpose-day-boundary-wrong-zone` (`rules`) | R3, R2 | `rpt.close_day()` cuts the day in a zone N hours off the customer's (a parameter, never 0, which render writes), so every night it rewrites yesterday on the wrong boundary; its check judges the close's runs from `rpt.etl_runs` | closed days shifted against the source's local days, and no longer the sum of their hours; the zone in `\df+` | propose: the customer's zone from `business_settings` |
+| `purpose-day-boundary-wrong-zone` (`rules`) | R3, R2 | `rpt.close_day()` cuts the day in a zone N hours off the customer's (a parameter, never 0, which the scenario writes into its copy of `reporting`'s data file and `load-data` adds to the customer's offset, 8.5), so every night it rewrites yesterday on the wrong boundary; its check judges the close's runs from `rpt.etl_runs` (12.5) | closed days shifted against the source's local days, and no longer the sum of their hours; the zone in `\sf rpt.close_day` | propose: the customer's zone from `business_settings` |
 | `purpose-receiver-down-unnoticed` (`data-flow`) | E4 | the escalation job has no rule for missing acknowledgements; the gateway stopped acknowledging for two hours during the aging (a timeline change of its schedule), and still never acknowledges about one declaration in fifty | declarations with neither acknowledgement nor incident, the two-hour gap foremost | fix: escalate missing acknowledgements |
-| `governance-personal-copied` (`security`) | G1, G3 | the agency's churn dashboard keeps `rpt.customer_activity` with names and e-mail addresses: `reporting`'s data file adds a second foreign server mapped, for `bi_etl`, to the back office's login `shop_reports`, a foreign table over `customers`, the table, and a `pg_cron` job as `bi_etl` refilling it every thirty minutes, which no runner lists | the table and the foreign table in `reporting`; `\des+`, `\deu+`; `cron.job`; the policy | propose: unschedule the job, drop the table, the foreign table and the server; its check requires all of them gone, so dropping the table alone, which the job refills, is not fixed |
+| `governance-personal-copied` (`security`) | G1, G3 | the agency's churn dashboard keeps `rpt.customer_activity` with names and e-mail addresses: `reporting`'s data file adds a second foreign server mapped, for `bi_etl`, to the back office's login `shop_reports`, a foreign table over `customers`, the table, `CREATE` on `rpt` for `bi_etl`, and a `pg_cron` job as `bi_etl` recreating the table if it is gone and refilling it every thirty minutes, which no runner lists | the table and the foreign table in `reporting`; `\des+`, `\deu+`; `cron.job`; the policy | propose: unschedule the job (by its id, 16.5), drop the table, the foreign table and the server; its check requires all of them gone, so dropping the table alone, which the job recreates and refills, is not fixed |
 | `purpose-heavy-job-on-database-node` (`data-flow`) | placement | a heavy transformation from a database node's crontab, which a one-off backfill drove past the node's memory once during the aging (16.3) | the kill and the recovery in the log; `oom_kill` in `memory.events`; the statistics' reset time; the job's log and ledger; the backfill request | report only, whatever the write policy (16.3) |
 
 A fault's seed changes target its own node only. Where it needs an
@@ -1599,7 +1704,9 @@ Each fault's evidence shows at its job's runs; its aging minimum counts
 from the first run after planting, and the scenario raises each
 instance's minimum to that offset. Quarter-hour and hourly jobs need an
 hour; the nightly close needs T0 to 01:30 plus one run; a timeline
-change counts from its moment.
+change counts from its moment. A five-minute job needs the hour too
+(f1): shipping ramps up after the load, its first duplicates 19 minutes
+after T0 on armenelos.
 
 ### 16.3 The out-of-memory incident
 
@@ -1621,7 +1728,11 @@ write policy.
    `rpt.sales_detail_rollup()`, which builds the agency's document for
    the order lines changed since its last run in one aggregate
    (`jsonb_agg` over the window) and inserts it. `psql` receives no
-   result set. On a normal night it fits.
+   result set. On a normal night it fits. It reads the shop's orders
+   through a foreign table of its own, `src.sales_detail_orders`, which
+   carries `updated_at` and no `customer_id`, so the close's
+   `src.orders` keeps only the close's columns (9.6). Its window runs
+   from its last finished run, or one day back when none has finished.
 2. At `handover-12h` a one-off **backfill request** arrives, a `state`
    change planted by `gmctl inject --at`: a row asking the job to
    recompute the last thirty days (in the story, the agency changed its
@@ -1630,12 +1741,16 @@ write policy.
 3. The run reads thirty days instead of one. The backend computing it
    grows past the node's memory and the kernel kills it.
 4. The postmaster ends every other backend and recovers by itself:
-   "server process … was terminated by signal 9: Killed", "terminating
+   "client backend (PID …) was terminated by signal 9: Killed"
+   (PostgreSQL 18's wording; earlier releases say "server process"), "terminating
    any other active server processes", "all server processes terminated;
    reinitializing", "database system was not properly shut down;
    automatic recovery in progress". It accepts connections again within
    seconds; s6, `sshd` and the cron daemon are untouched.
 5. The request stays taken, never done, so the next night runs normally.
+   When the killed run was the entry's first, the next night reads one
+   day back; after an earlier normal night it reads from that night,
+   two days, which still completes (355 MiB measured at 512M).
 
 The aggregate is what makes it deterministic: its memory sits in the
 backend and grows with its input, unbounded by `work_mem`, while sorts
@@ -1651,6 +1766,10 @@ alone, outside Swarm, armenelos keeping its swap. If no
 window the restored history allows reaches twice the limit, the fault
 comes back to the owner before anything is reshaped; lowering
 `reporting`'s memory limit is the likely lever, offered to him then.
+At the 640M limit (16.1), in a game with every job running, a normal
+run's `memory.peak` read 327 MiB, 238 without page cache, just above
+half; the owner accepted it as measured, the criterion unchanged, and
+the thirty-day backfill was killed as designed.
 
 **Evidence**, all of it on the node: the four log lines at the
 incident's time, in the file log and pgBadger; `oom_kill 1` in
@@ -1663,7 +1782,12 @@ the crontab.
 
 **The check** exits 1 while the kill and the recovery are in the log
 since the planting moment, whatever the crontab holds since; it never
-answers 0 or 3, and no in-game fix is expected. What the players changed
+answers 0 or 3, and no in-game fix is expected. A check judging no runs
+gets no `CHECK_SINCE` (14), so it dates the planting itself, from the
+backfill request's `requested_at`. It exits 2 when it cannot confirm
+the incident: no request, no kill since it, a kill whose recovery is
+not complete in the log yet, or the log or the request unreadable. It
+matches the kill line in either wording. What the players changed
 on `reporting`, if anything, the GM reads from the node itself (16.5). The answer key
 judges the report: the incident named (when, which process, killed for
 memory, the recovery that followed), its cause (the backfill on the
@@ -1733,8 +1857,10 @@ overstepping player can do, and how it is treated:
   computation (or has stopped the agency's roll-up); the feedback says
   so. The incident check is unaffected (16.3). The report is judged as
   if nothing had changed.
-- **f9.** Unscheduling the job and dropping the copies makes its check
-  read fixed; the GM judges the proposal, and names the unrequested
+- **f9.** Unscheduling the job (by its id: by name, `cron.unschedule`
+  finds only the caller's own jobs, and this one is `bi_etl`'s) and
+  dropping the copies makes its check read fixed; the GM judges the
+  proposal, and names the unrequested
   change.
 - **f7.** Editing `rpt.close_day()` on `reporting` is possible, and so is
   running it by hand with `CALL`, a run outside the schedule, which the
@@ -1789,7 +1915,8 @@ rehearsal and the timer-fired early check, and adds:
    report-only node too); the check read present; the acceptance fix
    applied, the check read too soon; the job moved again, the check read
    fixed. Frequent jobs need no move. f4's cycle also moves the
-   producer's invoicing, its witness; f5's passes `--since`.
+   producer's invoicing, its witness; f5's and f7's pass `--since`,
+   their fixes made outside the runner (12.1, 12.5).
 3. **Every definition fault** (f6, f9) read present, then fixed after
    its acceptance fix.
 4. **The unfaulted scenario passes G1 to G4**, proving the baseline
@@ -1861,7 +1988,7 @@ rediscovery:
 - **The governance check set** G1 to G4, shared by the governance
   faults' checks.
 - **The harness**: moving a job in a smoke cycle (on report-only nodes
-  too); `--since` in f5's cycle; f10's calibration and smoke run on
+  too); `--since` in f5's and f7's cycles; f10's calibration and smoke run on
   armenelos only; the rehearsal's override leaving f10 out.
 - **The out-of-memory victim** (`PG_OOM_ADJUST_*` in the run script)
   before f10's calibration, which runs early in the build, on armenelos

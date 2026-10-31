@@ -1,0 +1,5 @@
+# Seed crontab of reporting for the fixture scenario fixture-campaign
+# (tools/tests, v0.4 chunk 13; capture W3-b item 3), installed once as
+# postgres's crontab: the password file's line and no entry. Its presence
+# turns the cron daemon on.
+PGPASSFILE=/run/gm-cron/pgpass

@@ -1,0 +1,126 @@
+# Catalog fault: the agency's source role is given an expiry, so every run of
+# the hourly roll-up and of the nightly close is refused its connection and
+# the dashboards freeze (v0.4 master spec 16.2; the sales reporting purpose's
+# R4, 10.1). A state fault planted during the aging on the source database
+# node (handover-5h in the first v0.4 scenario): VALID UNTIL the planting
+# moment, and the role's open sessions ended. Its evidence shows at the jobs'
+# runs: its aging minimum counts from the hourly job's first run after
+# planting (master spec 6.3).
+
+# --- Identity ---------------------------------------------------------
+id: purpose-etl-role-expired
+version: 0.1.0
+title: the reporting ETL's source role has expired, so every run is refused
+family: data-flow
+severity: high
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: postgres
+      versions: ["0.4.0"]
+  purposes: [shop-sales-reporting]
+  preconditions:
+    - >-
+      the purpose's target instance (another postgres 0.4.0 node, holding
+      rpt.etl_runs) admits gm_check from the game network (host all gm_check
+      samenet scram-sha-256 under its DO NOT TAMPER comment): the check reads
+      the run ledger there with check-psql --node
+    - >-
+      this node's seed postgresql.conf keeps the server log in
+      /var/log/postgresql (postgresql-*.log, log_line_prefix starting with
+      %t, log_timezone UTC) and English messages: the check reads the
+      refused logins' DETAIL lines
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 1h                       # counted from the hourly job's first run after planting
+                                    # (master spec 6.3); plant_at handover-<N>h with N above it
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  role:
+    description: >-
+      the purpose's source role, the hourly script's source connection and
+      the user mapping's remote role (it must exist after the data load)
+    default: shop_etl
+    required: false
+  target:
+    description: >-
+      the purpose's target part, a node/database location holding
+      rpt.etl_runs (another database node of the scenario)
+    default: reporting/reporting
+    required: false
+  job:
+    description: the runner's hourly job, as rpt.etl_runs names it
+    default: rollup-hourly
+    required: false
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: state
+  stage: after-data-load
+  scripts:
+    - inject/10-expire-role.sh
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: node
+    source: the server log
+    how: grep -h -A1 'user={ROLE},' /var/log/postgresql/postgresql-*.log | grep -B1 DETAIL | tail
+    shows: password authentication failed for {ROLE}, DETAIL its expired password, at every run
+  - where: bastion
+    source: the roles of the cluster
+    how: psql -h db -c '\du {ROLE}'
+    shows: "{ROLE} with Password valid until a moment of this morning"
+  - where: bastion
+    source: the run ledger on the reporting instance
+    how: >-
+      psql -h reporting -d reporting -c 'SELECT job, max(started_at) FROM rpt.etl_runs
+      GROUP BY job'
+    shows: no run of the roll-up or the close since the expiry
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names {ROLE}'s expired password (VALID UNTIL this morning) as why every
+    run of the agency's roll-up and close is refused since, so the
+    dashboards stopped updating; and that the role is both the script's
+    source login and the user mapping's remote role.
+  proposal: >-
+    lift the expiry (ALTER ROLE {ROLE} VALID UNTIL 'infinity'), or set one
+    the agency is told of with a rotation plan; the dashboards catch up at
+    the next hourly run.
+  fix: >-
+    {ROLE} logs in again (no expiry, or one in the future) and a run of
+    {JOB} since the fix lands in rpt.etl_runs with no login refused after
+    the time the GM passes to gmctl check --since.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+  judges: runs
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  The dashboards stopped updating this morning.

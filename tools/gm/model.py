@@ -64,6 +64,8 @@ FAULT_ENV_NAME_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
 SCHEDULER_BRICK = "scheduler"       # a scheduler node: a node whose brick id is this (W1 item 0)
 POSTGRES_BRICK = "postgres"         # whose seed postgresql.conf render may fill (v0.4 8.5)
 POSTGRESQL_CONF = "postgresql.conf"
+DATA_SEED_CHANGE = "data"           # a seed change naming the target node's data.file (v0.4
+                                    # master spec 6.3, spec D226): not a seed file of a brick
 ROLES = ("bastion", "producer", "queue", "database", "pooler", "transformer", "consumer",
          "monitoring", "backup")
 DIFFICULTY_LEVELS = ("easy", "normal", "hard")
@@ -111,6 +113,12 @@ _CREATE_NAME_RE = re.compile(
     r"^\s*(?i:create\s+(database|role|user))\s+([a-z_][a-z0-9_]*)(?![A-Za-z0-9_$\"])")
 _CREATE_PG_CRON_RE = re.compile(
     r"^\s*(?i:create\s+extension\s+(?:if\s+not\s+exists\s+)?)pg_cron(?![A-Za-z0-9_$\"])")
+# A created role's LOGIN or NOLOGIN, in the statement's text up to its `;`
+# (string literals and `--` comments removed).
+_LOGIN_RE = re.compile(r"(?<![A-Za-z0-9_$])(no)?login(?![A-Za-z0-9_$])", re.IGNORECASE)
+_SQL_LITERAL_RE = re.compile(r"'(?:[^']|'')*'")
+# A password of the role's own in that text (a literal; PASSWORD NULL sets none).
+_OWN_PASSWORD_RE = re.compile(r"(?<![A-Za-z0-9_$])password\s*''", re.IGNORECASE)
 
 
 def fault_env_name(param_name):
@@ -837,20 +845,20 @@ def check_fault_dir(fault_dir, label_base=None, catalog_root=None):
         out.append(f"{label}: id: {data.get('id')} is not the folder name {fault_dir.name}")
     injection = data.get("injection") or {}
     kind = injection.get("kind")
-    if kind == "seed-file":
-        if not injection.get("seed_changes"):
-            out.append(f"{label}: injection.seed_changes: missing (kind seed-file)")
+    if kind == "seed-file" and not injection.get("seed_changes"):
+        out.append(f"{label}: injection.seed_changes: missing (kind seed-file)")
+    if kind in ("seed-file", "state"):       # a state fault's too (spec D254)
         for change in injection.get("seed_changes") or []:
             material = change.get("material") if isinstance(change, dict) else None
             if material and not (fault_dir / material).is_file():
                 out.append(f"{_rel(fault_dir / str(material), base)}: missing file")
-    elif kind == "state":
+    if kind == "state":
         if not injection.get("scripts"):
             out.append(f"{label}: injection.scripts: missing (kind state)")
         for script in injection.get("scripts") or []:
             if not (fault_dir / str(script)).is_file():
                 out.append(f"{_rel(fault_dir / str(script), base)}: missing file")
-    elif kind is not None and kind != "parameter":
+    elif kind not in (None, "seed-file", "parameter"):
         out.append(f"{label}: injection.kind: {kind} is not seed-file, state or parameter")
     params = data.get("parameters")
     env_names = {}
@@ -1664,7 +1672,12 @@ def _check_faults(data, nodes, bricks, sdir, catalog_root, out):
             injection = fault.data.get("injection") or {}
             seeds = (brick.data.get("seed") or {}).get("files") or []
             for change in injection.get("seed_changes") or []:
-                if isinstance(change, dict) and change.get("file") not in seeds:
+                if isinstance(change, dict) and change.get("file") == DATA_SEED_CHANGE:
+                    if not _dict(by_name[target].get("data")).get("file"):
+                        out.append(f"{label}: {p}: fault {fault.id} changes {DATA_SEED_CHANGE}, "
+                                   f"the node's data file, but node {target} has none (no "
+                                   "data.file; v0.4 master spec 6.3, spec D226)")
+                elif isinstance(change, dict) and change.get("file") not in seeds:
                     out.append(f"{label}: {p}: fault {fault.id} changes {change.get('file')}, "
                                f"not a seed file of brick {brick.id}")
                 elif isinstance(change, dict) and change.get("file") in seed_optional(brick.data) \
@@ -2267,23 +2280,65 @@ def _check_designed_for(data, nodes, out):
 @dataclass
 class DataFileCreates:
     """What a data file creates, read line by line (W1 item 0): no SQL
-    parser, so a statement inside a DO body or a function is not seen."""
+    parser, so a statement inside a DO body or a function is not seen.
+    `logins`: the roles created with LOGIN (`CREATE USER` without NOLOGIN,
+    `CREATE ROLE` with LOGIN, read up to the statement's `;`) and no
+    password of their own (`PASSWORD '...'`), in file order (master spec
+    9.7: load-data gives each its secret; a role whose statement sets its
+    password keeps it, 16.4: v0.3's scenarios run unchanged)."""
     file: str
     databases: set = field(default_factory=set)
     roles: set = field(default_factory=set)
     pg_cron: bool = False
+    logins: list = field(default_factory=list)
+
+
+def _statement_login(kind, lines):
+    """Whether the role a `CREATE ROLE|USER` statement creates can log in
+    with no password of its own; `lines`, the statement's text after the
+    name, then the lines after."""
+    text = []
+    for line in lines:
+        line = _SQL_LITERAL_RE.sub("''", line).split("--", 1)[0]
+        text.append(line.split(";", 1)[0])
+        if ";" in line:
+            break
+    attributes = " ".join(text)
+    if _OWN_PASSWORD_RE.search(attributes):
+        return False
+    m = None
+    for m in _LOGIN_RE.finditer(attributes):
+        pass                                 # the last one wins, as in PostgreSQL
+    return kind == "user" if m is None else m.group(1) is None
 
 
 def data_file_creates(text, rel):
     created = DataFileCreates(rel)
-    for line in text.splitlines():
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
         m = _CREATE_NAME_RE.match(line)
         if m:
             kind, name = m.group(1).lower(), m.group(2)
             (created.databases if kind == "database" else created.roles).add(name)
+            if kind != "database" and name not in created.logins and _statement_login(
+                    kind, [line[m.end():], *lines[i + 1:]]):
+                created.logins.append(name)
         elif _CREATE_PG_CRON_RE.match(line):
             created.pg_cron = True
     return created
+
+
+def node_data_file_creates(sdir, node):
+    """DataFileCreates of a node's data file (data.file), or None when it
+    has none or it does not exist or read."""
+    rel = _dict(node.get("data")).get("file")
+    path = _inside(sdir, rel) if isinstance(rel, str) else None
+    if path is None or not path.is_file():
+        return None                          # reported with the node
+    try:
+        return data_file_creates(path.read_text(encoding="utf-8"), rel)
+    except (OSError, UnicodeDecodeError):
+        return None
 
 
 def _data_files(nodes, sdir):
@@ -2291,14 +2346,9 @@ def _data_files(nodes, sdir):
     node whose data file exists and reads."""
     creates = {}
     for node in nodes:
-        rel = _dict(node.get("data")).get("file")
-        path = _inside(sdir, rel) if isinstance(rel, str) else None
-        if path is None or not path.is_file():
-            continue                         # reported with the node
-        try:
-            creates[node.get("name")] = data_file_creates(path.read_text(encoding="utf-8"), rel)
-        except (OSError, UnicodeDecodeError):
-            continue
+        created = node_data_file_creates(sdir, node)
+        if created is not None:
+            creates[node.get("name")] = created
     return creates
 
 
@@ -2725,7 +2775,7 @@ def _check_class_rules(rules, p, by_name, creates, roles, out):
     locations = rules.get("locations")
     unrestricted = locations == "any"
     if unrestricted:
-        for key in ("readers", "outbound"):
+        for key in ("readers", "outbound", "separation"):
             if key in rules:
                 out.append(f"{p}.{key}: refused with locations: any (the class is not "
                            "restricted)")

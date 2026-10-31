@@ -1,0 +1,26 @@
+# purpose-receiver-down-unnoticed: the gateway's two-hour outage, the outside
+# party's behaviour the fault needs (master spec 16.2). Not a seed change of
+# the fault's node: the scenario writes both parts into the receiver's
+# (gateway stub's) files.
+#
+# 1. In the receiver's queries.yaml (nodes/gateway/), beside the purpose's
+#    customs.acknowledge, a key that answers nothing: the gateway down.
+#    The comment is the gateway's (the players read it).
+queries:
+  # The gateway's maintenance mode: declarations are queued on its side
+  # and nothing is answered.
+  customs.unavailable:
+    sql: SELECT 1 WHERE false
+# 2. In the receiver's schedule.yaml, the outage during the aging: the
+#    stream (known by its initial key) switched to it, then back two hours
+#    later. The hours are the scenario's: here handover-6h to handover-4h,
+#    08:00 to 10:00 at a 14:00 hand-over, in the morning's exports.
+timeline:
+  - at: handover-6h
+    stream: customs.acknowledge
+    set:
+      key: customs.unavailable
+  - at: handover-4h
+    stream: customs.acknowledge
+    set:
+      key: customs.acknowledge

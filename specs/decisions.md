@@ -332,3 +332,129 @@ drafting. Take the next number from `doc-ids`; no ID is reused.
   [versions/v0.4/wave-log.md](versions/v0.4/wave-log.md) "Wave 1 gate"
   and "Wave 2 report to the owner". Now in: [formats.md](formats.md)
   "Versions and pins"; the `scenario-format` skill.
+- **D230 (2026-10-31, spec-writer, W3-a's question 1, reading 11.6 as
+  approved): The game's own roles are skipped as readers only; a path
+  acting as one (remote role, connection role, definer owner, `pg_cron`
+  `username`) is judged, a superuser reaching every classed column of
+  its database; the game's own schemas are left out.** 11.6's reason
+  ("who may read") and its superuser clause say so; no v0.4 fix creates
+  such a path. Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md)
+  11.6, 11.7; [versions/v0.4/access-model.md](versions/v0.4/access-model.md) 9.3.
+- **D231 (2026-10-31, spec-writer, from capture W3-a's item 4): An
+  outbound flow's `fields` are the top-level keys its outbox's `payload`
+  may carry, as the purpose's job writes them; G4 is unchanged.** The
+  spec's `[email, name, order]`, read as keys, failed the unfaulted
+  baseline (release-gate item 4); the example now carries the shop's
+  keys and the flow's `outbox`, and the policy's words cover every key.
+  Now in: [formats.md](formats.md) "Purposes, domain and governance";
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 6.9,
+  11.3, 11.6; [versions/v0.4/access-model.md](versions/v0.4/access-model.md) 9.3.
+- **D239 (2026-10-31, spec-writer, chunk 15a's item 1, reading 8.5 and
+  16.2 as approved): f7's N is written by the scenario into its copy of
+  `reporting`'s data file, the same number as the instance's `offset`,
+  and `load-data` adds it to `customer_utc_offset`, wrapped as D168.**
+  `render` writes no data file (8.5); the zone stays N hours off the
+  customer's at any shift. Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md)
+  16.2; [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunks 15, 16.
+- **D240 (2026-10-31, spec-writer, chunk 15a's item 2): f7's evidence is
+  `\sf rpt.close_day`, not `\df+`.** PostgreSQL 18's `\df+` shows neither
+  a procedure's source nor its `SET` clauses. Now in:
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 16.2.
+- **D241 (2026-10-31, spec-writer, chunk 15a's item 3, reading 12 as
+  approved): a check on a database node judging a runner's job by a
+  ledger there (f7) cannot read the runner: its judged moment is not
+  raised to a reload, a fix is dated with `--since`, `remaining=` counts
+  to the designed time, and a run is judged on the rows it still owns.**
+  12 keeps a check on its instance's node; 18.2's f7 cycle passes
+  `--since`, as f5's. Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md)
+  12.1, 12.5, 18, 19; [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md)
+  chunk 17, release gate.
+- **D242 (2026-10-31, spec-writer, chunk 15a's item 4, reading 16.2 as
+  approved): f9's planting grants `bi_etl` `CREATE` on `rpt`, so its job
+  recreates a dropped table.** 16.2's "dropping the table alone, which the
+  job refills" needs it; the grant is the fault's, not the baseline's
+  (access model 9.1), and its check does not require it revoked. Now in:
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 16.2;
+  [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunk 15.
+- **D243 (2026-10-31, spec-writer, chunk 15a's item 5): `dba` unschedules
+  another role's `pg_cron` job by its id; by name `cron.unschedule` finds
+  the caller's own jobs only.** pg_cron's behaviour, which f9's fix meets.
+  Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md)
+  16.2, 16.5; [versions/v0.4/access-model.md](versions/v0.4/access-model.md) 9.4.
+- **D244 (2026-10-31, spec-writer, chunk 14's item 1, reading 16.2 as
+  approved): f2's producer path is a fix only with the flags of those who
+  withdrew since the release repaired too, dated with the GM's `--since`;
+  the producer restored alone stops new drift and the check reads
+  present. After the jobs' fix, repairing the flags stays the *improve*.**
+  L2 and M2 judge consent by the latest event, so the jobs keep taking
+  everyone still flagged. Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md)
+  16.1, 16.2; [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunks 14, 16.
+- **D245 (2026-10-31, spec-writer, chunk 14's item 2, reading 16.2 as
+  approved): f5's planting also ends `shop_etl`'s open sessions.**
+  PostgreSQL checks `VALID UNTIL` at authentication only and a runner
+  keeps its sessions, so without it "every run since fails" would wait
+  for a reconnection; `db`'s log shows the sessions ended at the
+  planting moment. Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md)
+  16.2; [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunk 14.
+- **D246 (2026-10-31, spec-writer, chunk 14's item 3, reading 12.5 and
+  D241): f5's check counts `remaining=` to the hourly job's designed
+  minute read from the ledger's last start, carried forward by whole
+  hours; no parameter, no code change.** A designed-time parameter would
+  be as blind to a move as the ledger, and `remaining=` never changes a
+  verdict; a harness that moves the job waits for the moved time. Now
+  in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 12.5;
+  [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunk 17.
+- **D247 (2026-10-31, spec-writer, chunk 14's item 4, reading 16.2): A
+  five-minute job's fault needs an hour from its first run after
+  planting, as quarter-hour and hourly ones do: f1's minimum is 1h.**
+  Shipping ramps up after the load; f1's first duplicates came at
+  T0 + 19 minutes on armenelos. Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md)
+  16.2; [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunks 14, 16.
+- **D252 (2026-10-31, owner ruling on G10, relayed by the wave driver):
+  f10's normal run at 640M is accepted as measured, 327 MiB against the
+  320 MiB half; no criterion change, no re-run.** Chunk 15b's game: 238
+  MiB without page cache, the thirty-day backfill killed. Now in:
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 16.3;
+  [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) G10, chunk 15, release gate.
+- **D253 (2026-10-31, owner ruling on O140, "Define it now"):
+  `separation: instance` is a rule of G1, every database of a node
+  holding one of the class's locations, `postgres` aside, being one of
+  them; refused with `locations: any`. Built by chunk 20, wave 3.**
+  Option (a), recommended. Closes O140. Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md)
+  6.9, 11.4, 11.6; [formats.md](formats.md); [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunk 20.
+- **D254 (2026-10-31, spec-writer, chunk 15b's item 1, reading 16.2): A
+  `state` fault may carry `seed_changes`, in the scenario's copies from
+  T0, its scripts planting the rest later.** f10 is "seed-file at T0,
+  state at `handover-12h`"; the fault template's comment and the
+  loader's material check are widened by chunk 20. Now in:
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 6.3;
+  [formats.md](formats.md) "Fault definition"; [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunk 20.
+- **D255 (2026-10-31, spec-writer, chunk 15b's item 2, reading 9.6 and
+  16.3): f10's roll-up reads the orders through its own foreign table,
+  `src.sales_detail_orders` (with `updated_at`, no `customer_id`), so the
+  close's `src.orders` keeps only the close's columns.** 9.6 keeps each
+  foreign table to its reader's needs. Now in:
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 9.6, 16.3.
+- **D256 (2026-10-31, spec-writer, chunk 15b's items 3 and 4, reading
+  12.7, 14 and 16.3): f10's check dates the planting from the backfill
+  request's `requested_at`, exits 2 when it cannot confirm the incident,
+  and matches the kill line as PostgreSQL 18 writes it ("client
+  backend") or as earlier releases do ("server process").** A check
+  judging no runs gets no `CHECK_SINCE` (14). Now in:
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 16.3.
+- **D257 (2026-10-31, spec-writer, chunk 15b's item 5, reading 16.3): The
+  night after a killed backfill reads from the last finished run, one
+  day back when the killed run was the entry's first; chunk 9's "~2
+  days" holds only after an earlier normal night, and still completes.**
+  Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md)
+  16.3 step 5.
+- **D258 (2026-10-31, owner ruling relayed by the wave driver, built in
+  54bc74a): `load-data`'s last step removes the `pg_cron` launcher's
+  start-up failures, and only them, from the closed server-log files of
+  every database node holding `pg_cron`, after the collector switches
+  files; a launcher not connected within 60 s fails the step.** The
+  owner: "the pg cron problem (34 error report) we need to fix this".
+  Rejected: a restart after the load (the preload is needed for `CREATE
+  EXTENSION`, written lines stay); `cron.database_name = 'postgres'`
+  (changes the loader rule, the data file, f9 and G3); documenting the
+  lines (refused). Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 7.2, 14.

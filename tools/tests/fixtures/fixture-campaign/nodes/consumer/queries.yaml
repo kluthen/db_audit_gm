@@ -1,0 +1,34 @@
+# Query repository of fixture-campaign's consumer node (tools/tests, v0.4 chunk 13;
+# capture W3-b item 4), in scenario time: copied unchanged from
+#   purposes/shop-sales-reporting/material/consumer/queries.yaml.
+#
+# Query repository of the back office's dashboards, a fragment (capture W1,
+# item 5's rule): what the screens ask the agency's reporting database, as
+# bi_reader. These queries are the purpose's definitions (master spec 8.3,
+# 12.6): dashboard.revenue is the one R5 runs read-only and compares with
+# rpt.sales_daily, so it keeps its columns day_local and revenue.
+queries:
+  dashboard.today:                   # the home page's tiles: today so far, by the hour
+    sql: >-
+      SELECT h.hour_local, sum(h.orders) AS orders, sum(h.units) AS units,
+             sum(h.revenue) AS revenue
+        FROM rpt.sales_hourly h, rpt.business_settings s
+       WHERE h.hour_local >= date_trunc('day', now() AT TIME ZONE s.timezone)
+       GROUP BY h.hour_local ORDER BY h.hour_local
+  dashboard.revenue:                 # the revenue chart: the last fourteen days
+    sql: >-
+      SELECT d.day_local, d.orders, d.revenue, d.invoiced_revenue, d.closed
+        FROM rpt.sales_daily d, rpt.business_settings s
+       WHERE d.day_local >= (now() AT TIME ZONE s.timezone)::date - 13
+       ORDER BY d.day_local
+  dashboard.categories:              # the category board: the last seven days by category
+    sql: >-
+      SELECT h.category, sum(h.orders) AS orders, sum(h.units) AS units,
+             sum(h.revenue) AS revenue
+        FROM rpt.sales_hourly h, rpt.business_settings s
+       WHERE h.hour_local >= date_trunc('day', now() AT TIME ZONE s.timezone) - interval '6 days'
+       GROUP BY h.category ORDER BY revenue DESC
+  dashboard.freshness:               # the "last updated" line under every chart
+    sql: >-
+      SELECT job, max(finished_at) AS last_run FROM rpt.etl_runs
+       WHERE finished_at IS NOT NULL GROUP BY job ORDER BY job

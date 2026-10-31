@@ -1,0 +1,34 @@
+# purpose-mail-outside-hours: the planted mail.campaign entry, to paste in
+# place of the purpose's own in the runner's queries.yaml (nodes/crm/). The
+# local time is the company's (business_settings.timezone). With
+# purpose-leads-stale-consent planted too, the entry also tests the opt-in
+# flag in place of the consent LATERAL (that fault's snippet). The comment
+# is the players'; it reads as the marketing team's own.
+  # A batch of the active campaign's leads not yet mailed, best score
+  # first, 50 a run (the provider's contract: 200 an hour): each with
+  # marketing consent now by their latest consent event, and now within
+  # the sending hours.
+  mail.campaign:
+    sql: >-
+      WITH pending AS (
+        SELECT l.campaign_id, k.code, l.customer_id, c.name, c.email
+          FROM campaigns k
+          JOIN leads l ON l.campaign_id = k.id
+          JOIN customers c ON c.id = l.customer_id
+         CROSS JOIN business_settings s
+         CROSS JOIN LATERAL (
+               SELECT e.granted FROM consent_events e
+                WHERE e.customer_id = c.id AND e.purpose = 'marketing-email' AND e.at <= now()
+                ORDER BY e.at DESC, e.id DESC LIMIT 1) AS consent
+         WHERE k.active AND k.segment = 'winback'
+           AND consent.granted
+           AND (now() AT TIME ZONE s.timezone)::time >= s.mail_window_start
+           AND (now() AT TIME ZONE s.timezone)::time < s.mail_window_end
+           AND NOT EXISTS (SELECT 1 FROM mail_outbox m
+                            WHERE m.campaign_id = l.campaign_id AND m.customer_id = l.customer_id)
+         ORDER BY l.score DESC, l.customer_id
+         LIMIT 50)
+      INSERT INTO mail_outbox (customer_id, email, template, campaign_id, payload, sent_at)
+      SELECT customer_id, email, code, campaign_id,
+             jsonb_build_object('name', name, 'email', email, 'campaign', code), now()
+        FROM pending

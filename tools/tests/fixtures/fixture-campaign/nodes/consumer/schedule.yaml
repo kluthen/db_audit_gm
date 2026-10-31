@@ -1,0 +1,38 @@
+# Schedule of fixture-campaign's consumer node (tools/tests, v0.4 chunk 13;
+# capture W3-b item 4), in scenario time: copied unchanged from
+#   purposes/shop-sales-reporting/material/consumer/schedule.yaml.
+# The scenario's intensity added; no timeline.
+#
+# Schedule of the back office's dashboards, a fragment (capture W1, item 5's
+# rule), in scenario time: the screens refreshing in office hours, the
+# warehouse's wall screen all day and night; straight to the reporting
+# database as bi_reader (access model 9.1).
+intensity: 1.0
+connections:
+  dashboards:
+    driver: sql/postgresql
+    target: reporting:5432/reporting
+    role: bi_reader
+    pool: {size: 2}
+streams:
+  - key: dashboard.today
+    connection: dashboards
+    rate: 12/h
+    arrivals: even
+  - key: dashboard.revenue
+    connection: dashboards
+    rate: 6/h
+    arrivals: even
+    shape: dashboard-hours
+  - key: dashboard.categories
+    connection: dashboards
+    rate: 4/h
+    arrivals: even
+    shape: dashboard-hours
+  - key: dashboard.freshness
+    connection: dashboards
+    rate: 12/h
+    arrivals: even
+shapes:
+  dashboard-hours:
+    hours: {"00-06": 0.1, "07": 0.5, "08-17": 1.0, "18-21": 0.5, "22-23": 0.1}

@@ -278,6 +278,10 @@ added" warning shows. Peers are reached by node name only (master spec
 7), and node names have no dot. Addresses and domain names keep OpenSSH's
 default checks.
 
+The same block sets `ServerAliveInterval 60`: the inner hop goes through
+the node's Swarm service address (IPVS), which forgets a TCP flow idle
+for about 900 s, so an `ssh <node>` session left idle longer would hang.
+
 The alternative, `accept-new` with a known_hosts the entrypoint resets,
 was not taken: it only resets when the *bastion* restarts, so a database
 node replaced mid-game would still lock the players out.

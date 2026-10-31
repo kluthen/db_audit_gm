@@ -7,7 +7,9 @@ the asyncio tasks:
   1. `open_connections`: one psycopg connection per name of the job's
      `connections:`, as the schedule's role for that connection with its
      password, autocommit off, `application_name` the node's hostname, no
-     server-side prepared statement (any PgBouncer pool mode works). A
+     server-side prepared statement (any PgBouncer pool mode works), the
+     driver's TCP keepalives (a script idle on one connection while it
+     works on the other keeps both through a Swarm service VIP). A
      connection that cannot be opened closes the others, and the run is
      skipped as any job's is (`reason=connection-refused`).
   2. `call`: `<function>(conns, options, log)`; `conns` maps each name to
@@ -66,7 +68,7 @@ def open_connections(names, schedule, passwords, application_name):
     connection}; raises DriverError (connect=True) naming the connection
     that could not be opened, after closing the others."""
     import psycopg
-    from .drivers.postgresql import _error
+    from .drivers.postgresql import KEEPALIVES, _error
 
     conns = {}
     try:
@@ -76,7 +78,8 @@ def open_connections(names, schedule, passwords, application_name):
                 conns[name] = psycopg.connect(
                     host=c.host, port=c.port, dbname=c.database, user=c.role,
                     password=passwords.get(c.role), application_name=application_name,
-                    connect_timeout=CONNECT_TIMEOUT, autocommit=False, prepare_threshold=None)
+                    connect_timeout=CONNECT_TIMEOUT, autocommit=False, prepare_threshold=None,
+                    **KEEPALIVES)
             except psycopg.Error as exc:
                 raise _error(exc, connect=True) from None
             except OSError as exc:

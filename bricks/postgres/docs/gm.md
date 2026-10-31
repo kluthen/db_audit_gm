@@ -466,6 +466,17 @@ whose seed preloads it and that `cron.database_name` names a database
 that file creates; a fault may still remove the preload. The stack test
 shows it on db2 (`tests/fixtures/postgresql-jobs.conf`).
 
+From boot until the data file has created `cron.database_name`, the
+preloaded launcher cannot connect: it exits (`FATAL:  database "..." does
+not exist`, then the postmaster's `background worker "pg_cron launcher"
+(PID n) exited with exit code 1`) and is restarted about once a second.
+The brick cannot avoid it (creating the database at start-up would fail
+the data file's `CREATE DATABASE`; holding the preload back would fail its
+`CREATE EXTENSION`, which loads the library only when preloaded), so
+`load-data`, last, waits for the launcher to be connected, has the
+collector switch files and removes those lines, and only those, from the
+files it closed (`tools/gm/inject.py`): the players' log holds none.
+
 **What players and the GM see**: `\dx`, the preload, `cron.job` (the
 jobs) and `cron.job_run_details` (start, end, status, message, while
 `cron.log_run` is on). Both tables show a role its own jobs only, unless
@@ -941,7 +952,10 @@ Which faults the brick hosts is stated only by each fault's `applies_to`
 (D59): a fault instance is accepted on a node when the fault's
 `applies_to` names the node's brick and version (`tools/gm/model.py`).
 This list is every catalog fault (`faults/`) whose `applies_to` names
-`postgres` `0.4.0`, and no other; all also name `0.3.0` and `0.2.0`, and all but
+`postgres` `0.4.0`, and no other. The v0.4 database-node faults
+(`security-crontab-superuser`, `purpose-day-boundary-wrong-zone`,
+`governance-personal-copied`, `purpose-etl-role-expired`,
+`purpose-heavy-job-on-database-node`) name `0.4.0` only; all others also name `0.3.0` and `0.2.0`, and all of those but
 `pg-stat-statements-not-preloaded` also name `0.1.0` and `0.1.1`. A scenario's
 own `faults/` folder may define more for itself (the test fixture
 `tools/tests/fixtures/fixture-audit` defines two); those are the
@@ -956,13 +970,18 @@ scenario's, not the brick's, and are not listed here.
 | `pg-table-autovacuum-off` | state, after the data load | parameters `database`, `table-name`: a table the data file creates; the server-wide `autovacuum` stays `on`, so the validator stays green |
 | `pg-abandoned-replication-slot` | state, after the data load | parameter `slot-name`; no standby in the topology; a seed `postgresql.conf` that allows a physical slot (`wal_level` `replica` or above, `max_replication_slots` above 0: PostgreSQL's defaults); writes, for the retained WAL to grow |
 | `pg-stat-statements-not-preloaded` | seed file | the seed `postgresql.conf` (material `inject/postgresql.conf.snippet`) without `pg_stat_statements` in `shared_preload_libraries`, the logging settings above kept; the extension this version creates at initdb in database `postgres`; `gm-restart-db` for the fix (a reload is not enough); for its dashboard evidence, a `postgres-exporter` node with `--collector.stat_statements` |
+| `security-crontab-superuser` | seed file (`crontab`) | the cron daemon (a seeded `crontab`, material `inject/crontab.snippet`: an entry's `-U <role>` removed, so `psql` runs as `postgres` by peer); parameter `role`, in the node's `crontab_roles` and created by its data file with the entry's grant; `log_connections = on` for the evidence; the sealed check reads cron's spool as root and `rolsuper` through `check-psql` |
+| `purpose-day-boundary-wrong-zone` | seed file (`data`, spec D226) | the node's data file holding the sales reporting purpose's target part, `rpt.close_day()` replaced after it (material `inject/close_day.sql.snippet`, its zone from `load-data`'s `customer_utc_offset` plus parameter `offset`); the sealed check (`judges: runs`) reads `rpt.etl_runs` here and the source's orders through `check-psql --node` |
+| `governance-personal-copied` | seed file (`data`, spec D226) | the node's data file creating `pg_cron` (preloaded by the seed `postgresql.conf`), then the snippet `inject/customer_activity.sql.snippet`: a second foreign server, its user mapping (password from the remote role's secret, set by `load-data`), a foreign table, the copy and a `pg_cron` job; the scenario's `governance:`; the sealed check calls the governance check set (G1, G3) and reads `cron.job` through `gm_check_read` |
+| `purpose-etl-role-expired` | state, during the aging | parameter `role`: the purpose's source role, a login role the data file creates, given `VALID UNTIL` the planting moment and its sessions ended; its check reads `pg_roles`, this node's server log (`postgresql-*.log`, the seed's `log_line_prefix` and UTC, English messages) and the run ledger `rpt.etl_runs` on the purpose's target instance with `check-psql --node` (`judges: runs`, R4), so that instance's `pg_hba.conf` admits `gm_check` from the game network |
+| `purpose-heavy-job-on-database-node` | seed files (`data`, spec D226; `crontab`), then state during the aging | the node's data file holding the sales reporting purpose's target part, then `inject/sales_detail_rollup.sql.snippet` (the roll-up's foreign table, request and document tables, `rpt.sales_detail_rollup()`); the cron daemon (a seeded `crontab` with the entry of `inject/crontab.snippet`, the loader in `crontab_roles`); the backends' raised OOM score (`PG_OOM_ADJUST_VALUE`, "The out-of-memory victim" above), so the kernel kills the roll-up's backend and the postmaster recovers; parameters `database`, `days` (the backfill request's window, inserted by `inject/10-backfill-request.sh`); a memory limit the window exceeds twice over; `needs_unshared_host`; the sealed check (an incident check, 1 or an error, never 0 or 3) reads the request through `check-psql` and this node's server log (the seed's `%t` prefix in UTC, English messages) |
 
 Every state fault's scripts run as root and query as `postgres` over the
 local socket, so they need the GM's `local all postgres peer` line in
 `pg_hba.conf`; every sealed check needs it too.
 
-Faults it lends itself to with no definition yet: from 0.4.0, the jobs'
-faults of "`pg_cron`" and "The cron daemon" above; a bloated table, and
+Faults it lends itself to with no definition yet: from 0.4.0, the other
+jobs' faults of "`pg_cron`" and "The cron daemon" above; a bloated table, and
 other configuration, schema, role or state defects visible without
 activity; and, from v0.2, monitoring faults of master spec 11.1 not chosen for
 the v0.2 set: no slow-query log (`log_min_duration_statement = -1`), a
