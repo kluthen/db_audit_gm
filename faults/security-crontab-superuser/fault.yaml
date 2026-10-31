@@ -1,0 +1,120 @@
+# Catalog fault: a database node's crontab entry connecting as a superuser
+# (v0.4 master spec 16.2, f6 of 16.1). A seed-file fault on the node's
+# crontab (postgres 0.4.0's cron daemon, master spec 7.2): the entry runs
+# psql over the local socket with no role, so as postgres by peer, while
+# the customer role prepared for it, its grant and its password file go
+# unused.
+
+# --- Identity ---------------------------------------------------------
+id: security-crontab-superuser
+version: 0.1.0
+title: a crontab entry on the database node connects as the superuser postgres
+family: security
+severity: high
+
+# --- Where it applies -------------------------------------------------
+applies_to:
+  bricks:
+    - id: postgres
+      versions: ["0.4.0"]           # the cron daemon and gm-crontab are 0.4.0's (master spec 7.2)
+  preconditions:
+    - the node seeds a crontab and names the prepared role in its crontab_roles
+    - the node's data file creates the role, with LOGIN and the grant the entry's statement needs
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 1h                       # counted from the entry's first run after planting (T0, spec
+                                    # D189): its connection in the server log and pg_stat_activity;
+                                    # the crontab itself shows at once
+
+# --- Parameters the scenario sets -------------------------------------
+parameters:
+  role:
+    description: >-
+      the customer role prepared for the entry and never switched to: it
+      exists with LOGIN, holds what the entry's statement needs (MAINTAIN
+      on the view it refreshes) and is listed in the node's crontab_roles,
+      so the password file holds its line
+    default: null
+    required: true
+
+# --- How it is planted ------------------------------------------------
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: crontab
+      change: >-
+        one entry runs psql over the local socket with no -U and no PGUSER,
+        so as OS user postgres by peer, the superuser postgres; the
+        PGPASSFILE line and the role {ROLE} stay, unused by the entry
+      material: inject/crontab.snippet
+  run_as: root
+
+# --- What the players can see ------------------------------------------
+evidence:
+  - where: node
+    source: postgres's live crontab
+    how: sudo gm-crontab -l
+    shows: an entry whose psql names no role (no -U), so it runs as postgres by peer, under a PGPASSFILE line no entry uses
+  - where: node
+    source: the server log, at the entry's minute
+    how: >-
+      grep -A1 'identity="postgres" method=peer' /var/log/postgresql/postgresql-*.log
+    shows: >-
+      at the entry's minute every hour, a local connection authenticated by
+      peer as postgres, then authorized as user=postgres in the entry's
+      database with application_name=psql
+  - where: node
+    source: the roles, and the grants on the entry's object
+    how: psql -c '\du {ROLE}', then \dp on the object the entry's statement names, in its database
+    shows: the role {ROLE} with LOGIN and the grant the entry needs, prepared for it and never used
+  - where: node
+    source: the sessions during a run
+    how: psql -c "SELECT usename, datname, query FROM pg_stat_activity WHERE application_name = 'psql'"
+    shows: the entry's statement running as postgres
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+# --- Resolutions and acceptance ----------------------------------------
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+  - kind: propose
+    write_policies: [report-only, fixable]
+  - kind: fix
+    write_policies: [fixable]
+acceptance:
+  diagnosis: >-
+    names the crontab entry connecting as postgres by peer, a superuser for
+    a job that needs one grant, and says why it matters: a mistake in the
+    entry, or whoever can change it or its programs, acts with every right
+    on the instance; the role {ROLE}, its grant and its password file are
+    there and unused.
+  proposal: >-
+    connect the entry as {ROLE} (-U {ROLE} over the local socket, the
+    password from the PGPASSFILE the crontab sets), and check that it still
+    runs.
+  fix: >-
+    every live crontab entry connects as a role that is not a superuser
+    (the entry as {ROLE}, installed with sudo gm-crontab and a file), and the
+    job still runs: its next run succeeds in its log.
+
+# --- The sealed check ----------------------------------------------------
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+# --- Interactions with other faults ------------------------------------
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+# --- When the fault is known ---------------------------------------------
+complaint_template: >-
+  Our database runs a small scheduled job every hour. We would like to know
+  whether it runs with more rights than it needs.

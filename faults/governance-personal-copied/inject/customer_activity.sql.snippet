@@ -1,0 +1,74 @@
+-- governance-personal-copied (v0.4 master spec 16.2, f9): appended to the
+-- reporting node's data file (seed change `data`, spec D226), after the
+-- sales reporting purpose's material and CREATE EXTENSION pg_cron, in the
+-- database pg_cron runs in (cron.database_name). Written for the first v0.4
+-- scenario's names (the instance's parameters' defaults): the shop's
+-- instance db:5432/shop, its back-office login shop_reports, the agency's
+-- loader bi_etl and dashboards' reader bi_reader. The GM adapts them as it
+-- copies.
+--
+-- The agency's churn dashboard: a second foreign server to the shop, mapped
+-- for bi_etl to the back office's login (which reads names and e-mail
+-- addresses), a foreign table over customers, the copy rpt.customer_activity
+-- and a pg_cron job refilling it every thirty minutes as bi_etl. No runner
+-- lists the job. The mapping's password is the remote role's game secret,
+-- set by load-data (role_shop_reports_password), never written here.
+\connect reporting
+
+CREATE SERVER shop_backoffice FOREIGN DATA WRAPPER postgres_fdw
+    OPTIONS (host 'db', port '5432', dbname 'shop');
+CREATE USER MAPPING FOR bi_etl SERVER shop_backoffice OPTIONS (user 'shop_reports');
+
+CREATE FOREIGN TABLE src.customers (
+    id             integer       NOT NULL,
+    name           text          NOT NULL,
+    email          text          NOT NULL,
+    country        text          NOT NULL,
+    last_order_at  timestamptz,
+    lifetime_value numeric(12,2) NOT NULL
+) SERVER shop_backoffice OPTIONS (schema_name 'public', table_name 'customers');
+GRANT SELECT ON src.customers TO bi_etl;
+
+-- The job builds its own table: bi_etl may create in rpt.
+GRANT CREATE ON SCHEMA rpt TO bi_etl;
+
+SET ROLE bi_etl;
+CREATE TABLE rpt.customer_activity (
+    customer_id      integer       PRIMARY KEY,
+    name             text          NOT NULL,
+    email            text          NOT NULL,
+    country          text          NOT NULL,
+    last_order_at    timestamptz,
+    days_since_order integer,
+    lifetime_value   numeric(12,2) NOT NULL,
+    refreshed_at     timestamptz   NOT NULL
+);
+GRANT SELECT ON rpt.customer_activity TO bi_reader;
+RESET ROLE;
+
+-- Every thirty minutes, as bi_etl, in this database. pg_cron's schedule is
+-- in cron.timezone (the customer's), unshifted (master spec 8.5); \gset keeps
+-- the job id out of the load's output.
+SELECT cron.schedule_in_database('customer-activity', '*/30 * * * *', $job$
+CREATE TABLE IF NOT EXISTS rpt.customer_activity (
+    customer_id      integer       PRIMARY KEY,
+    name             text          NOT NULL,
+    email            text          NOT NULL,
+    country          text          NOT NULL,
+    last_order_at    timestamptz,
+    days_since_order integer,
+    lifetime_value   numeric(12,2) NOT NULL,
+    refreshed_at     timestamptz   NOT NULL
+);
+GRANT SELECT ON rpt.customer_activity TO bi_reader;
+INSERT INTO rpt.customer_activity AS a
+       (customer_id, name, email, country, last_order_at, days_since_order, lifetime_value,
+        refreshed_at)
+SELECT c.id, c.name, c.email, c.country, c.last_order_at,
+       current_date - c.last_order_at::date, c.lifetime_value, now()
+  FROM src.customers c
+    ON CONFLICT (customer_id) DO UPDATE
+   SET name = excluded.name, email = excluded.email, country = excluded.country,
+       last_order_at = excluded.last_order_at, days_since_order = excluded.days_since_order,
+       lifetime_value = excluded.lifetime_value, refreshed_at = excluded.refreshed_at
+$job$, 'reporting', 'bi_etl') AS customer_activity_job \gset

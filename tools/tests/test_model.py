@@ -2652,6 +2652,38 @@ class TestCrontabRefusals(V04CopyTest):
         self.load()
 
 
+class TestDataSeedChange(V04CopyTest):
+    """A seed change naming `data`, the target node's data.file (master spec
+    6.3, spec D226)."""
+
+    def data_change(self):
+        self.edit_yaml("faults/fixture-random-page-cost/fault.yaml", lambda d: d["injection"][
+            "seed_changes"][0].update(file="data"))
+
+    def test_data_on_a_node_with_a_data_file(self):
+        self.data_change()
+        self.load()
+        self.setUp()
+        self.data_change()
+        self.scenario_yaml(lambda d: d["fault_instances"][0].update(node="reporting"))
+        self.load()
+
+    def test_data_refused_on_a_node_without_one(self):
+        self.data_change()
+        self.scenario_yaml(lambda d: self.node(d, "db").pop("data"))
+        missing = self.assertRefused(
+            "scenario.yaml: fault_instances[f1]: fault fixture-random-page-cost changes data, "
+            "the node's data file, but node db has none (no data.file; v0.4 master spec 6.3, "
+            "spec D226)")
+        self.assertFalse([m for m in missing if "not a seed file of brick" in m], missing)
+
+    def test_data_is_no_seed_file_name(self):
+        self.edit_yaml("faults/fixture-random-page-cost/fault.yaml", lambda d: d["injection"][
+            "seed_changes"][0].update(file="data.sql"))
+        self.assertRefused("scenario.yaml: fault_instances[f1]: fault fixture-random-page-cost "
+                           "changes data.sql, not a seed file of brick postgres")
+
+
 class TestPgCronRefusals(V04CopyTest):
     """A data file creating pg_cron (master spec 7.2; W1 item 0)."""
 

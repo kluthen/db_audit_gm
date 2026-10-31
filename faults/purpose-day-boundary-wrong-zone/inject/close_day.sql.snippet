@@ -1,0 +1,79 @@
+-- purpose-day-boundary-wrong-zone (v0.4 master spec 16.2, f7): appended to
+-- the target node's data file (seed change `data`, spec D226), after the
+-- sales reporting purpose's material, which creates rpt.close_day(). Write
+-- the instance's offset parameter in place of {OFFSET} (an integer number
+-- of hours, never 0; left as is, the data load fails on it).
+--
+-- The close's zone is computed at load from load-data's customer_utc_offset
+-- plus the offset, wrapped into UTC-12..UTC+14, as render wraps the
+-- wrong-time-zone fault's (spec D168): N hours off the customer's zone at
+-- any shift, never UTC by accident (master spec 8.5). The procedure keeps
+-- its owner, its grants and its body but one line: it cuts the day in the
+-- zone set on it, not in rpt.business_settings' zone.
+\set close_offset {OFFSET}
+
+\connect reporting
+SELECT CASE WHEN w.o > 0 THEN 'Etc/GMT-' || w.o
+            WHEN w.o < 0 THEN 'Etc/GMT+' || -w.o
+            ELSE 'Etc/GMT' END AS close_zone
+  FROM (SELECT CASE WHEN s.m > 14 THEN s.m - 24 WHEN s.m < -12 THEN s.m + 24 ELSE s.m END AS o
+          FROM (SELECT (:customer_utc_offset) + (:close_offset) AS m) s) w \gset
+
+SET ROLE reporting;
+
+-- The nightly close (rollup-close, run from bi as bi_etl): yesterday, its
+-- hours and its day recomputed whole from the source over postgres_fdw and
+-- the day marked closed, one rpt.etl_runs row; the day in the reporting
+-- zone set on the procedure.
+CREATE OR REPLACE PROCEDURE rpt.close_day()
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = pg_catalog, pg_temp
+SET TimeZone = :'close_zone'
+AS $$
+DECLARE
+    tz      text;
+    closing date;
+    lo      timestamptz;
+    hi      timestamptz;
+    run     bigint;
+    n_hours bigint;
+    n_read  bigint;
+BEGIN
+    tz := current_setting('TimeZone');      -- the reporting zone
+    closing := (now() AT TIME ZONE tz)::date - 1;
+    lo := closing::timestamp AT TIME ZONE tz;
+    hi := (closing + 1)::timestamp AT TIME ZONE tz;
+
+    INSERT INTO rpt.etl_runs (job, started_at, watermark)
+    VALUES ('rollup-close', clock_timestamp(), hi)
+    RETURNING id INTO run;
+
+    DELETE FROM rpt.sales_hourly WHERE hour_local >= closing AND hour_local < closing + 1;
+    INSERT INTO rpt.sales_hourly (hour_local, category, orders, units, revenue, run_id)
+    SELECT date_trunc('hour', o.placed_at AT TIME ZONE tz), p.category,
+           count(DISTINCT o.id), sum(l.quantity), sum(l.line_total), run
+      FROM src.orders o
+      JOIN src.order_lines l ON l.order_id = o.id
+      JOIN src.products p ON p.id = l.product_id
+     WHERE o.placed_at >= lo AND o.placed_at < hi
+     GROUP BY 1, 2;
+    GET DIAGNOSTICS n_hours = ROW_COUNT;
+
+    INSERT INTO rpt.sales_daily AS d (day_local, orders, revenue, invoiced_revenue, closed, run_id)
+    SELECT closing, count(*), coalesce(sum(o.total), 0),
+           coalesce(sum(o.total) FILTER (WHERE o.status = 'invoiced'), 0), true, run
+      FROM src.orders o
+     WHERE o.placed_at >= lo AND o.placed_at < hi
+    ON CONFLICT (day_local) DO UPDATE
+       SET orders = excluded.orders, revenue = excluded.revenue,
+           invoiced_revenue = excluded.invoiced_revenue, closed = true, run_id = excluded.run_id
+    RETURNING d.orders INTO n_read;
+
+    UPDATE rpt.etl_runs
+       SET finished_at = clock_timestamp(), rows_read = n_read, rows_written = n_hours + 1
+     WHERE id = run;
+END
+$$;
+
+RESET ROLE;
