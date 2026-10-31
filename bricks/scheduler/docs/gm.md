@@ -256,8 +256,14 @@ Container ports 9120 and 22; nothing is published.
   `BEGIN ISOLATION LEVEL ...`; no server-side prepared statements, so any
   PgBouncer pool mode works. `pool: {size: N}` keeps up to N sessions per
   task (each stream and each job has its own), opened when first needed;
-  `per-call` opens and closes one per call. Nothing has to exist first:
-  a target that refuses shows as errors in the log and the counters.
+  `per-call` opens and closes one per call. Every session, and every
+  connection a script gets, sends TCP keepalives (libpq `keepalives_idle`
+  300 s, `keepalives_interval` 30 s, `keepalives_count` 3): a Swarm
+  service address (IPVS) forgets a TCP flow idle for 900 s, so a kept
+  session idle longer between two runs of a job was dropped unseen, the
+  server still showing it idle, and its next call failed with 08006.
+  Nothing has to exist first: a target that refuses shows as errors in
+  the log and the counters.
 - **Mounted material**: the image accepts the `prometheus` brick's
   node-health script (`receives`: s6-overlay 3.2.3.2 and the commands
   `sh cat du df awk sed grep sleep perl s6-svstat s6-setuidgid`). Its
