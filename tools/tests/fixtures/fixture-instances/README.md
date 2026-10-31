@@ -200,7 +200,7 @@ classes: `data/classification.yaml`.
 |---|---|---|---|---|
 | `personal` | db/shop | instance | shop_app | mail-provider (db/shop/mail_outbox): email, name, order_id |
 | `customer-linked` | db/shop | — | shop_app | none |
-| `internal` | any | — | — | — |
+| `internal` | any | — | — | none |
 
 The game's own roles (`dba`, `postgres`, `gm_check`, `monitoring`,
 `pgbouncer_lookup`) are skipped as readers and may not be listed as one;
