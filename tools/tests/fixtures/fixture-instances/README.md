@@ -203,7 +203,13 @@ classes: `data/classification.yaml`.
 | `internal` | any | — | — | — |
 
 The game's own roles (`dba`, `postgres`, `gm_check`, `monitoring`,
-`pgbouncer_lookup`) are outside every rule.
+`pgbouncer_lookup`) are skipped as readers and may not be listed as one;
+a path acting as one of them (a user mapping's remote role, a
+transformer connection's role, a `SECURITY DEFINER` procedure's owner, a
+`pg_cron` job's `username`) is judged all the same, a superuser reaching
+every classed column of its database. The game's own schemas
+(`gm_check`, `gm_pgbouncer`) and extensions' objects are outside every
+rule.
 
 ## 4. Host topology it was designed for
 
@@ -282,8 +288,7 @@ None.
 - **Restored-backup data**, streamed in after deployment:
   - `db`: `data/db.sql`
   - `reporting`: `data/reporting.sql`
-- **Column classification**: `data/classification.yaml`, the fixture's own
-  (no domain).
+- **Column classification**: `data/classification.yaml`, the scenario's own.
 - **GM side** (sealed, never shipped): `gm/answer-key.yaml`,
   `gm/notes.md`.
 - **Scenario-only bricks and faults**: `faults/fixture-random-page-cost/`
