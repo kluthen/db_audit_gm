@@ -27,8 +27,10 @@ behaviour is fixed by capture W3-A (`specs/versions/v0.1/wave-log.md`):
   customer_timezone=<zone> -v customer_utc_offset=<n>` (render's shift;
   `Etc/GMT` and 0 in a game with none); the passwords are set for the
   roles a node's `crontab_roles` names too, on that node, and (master
-  spec 9.7) for every login role a node's data file creates, on that
-  node, each from its secret `role_<role>_password`; then every
+  spec 9.7) for every login role a node's data file creates without a
+  password of its own, on that node, each from its secret
+  `role_<role>_password` (a role the data file gives a password keeps
+  it, 16.4); then every
   database of every `database` node is surveyed (`pg_cron`, foreign
   servers, user mappings), each user mapping gets as its `password` option
   its remote role's secret, and where the check role exists it gets, in a

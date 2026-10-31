@@ -42,7 +42,8 @@ Master spec 10.3; files, names and labels fixed by capture W2-A
                          a node's `crontab_roles` names (v0.4 capture W1
                          item 8), one per role per game; and (master spec
                          9.7) one per login role a node's data file
-                         creates, mounted nowhere: load-data sets it.
+                         creates without a password of its own, mounted
+                         nowhere: load-data sets it.
 
 Every path an implementation records (`file:`) is relative to the scenario
 folder.
@@ -693,9 +694,11 @@ def crontab_roles(node):
 
 
 def data_login_roles(scenario, node):
-    """The login roles a node's data file creates (model.data_file_creates:
-    `CREATE ROLE ... LOGIN`, `CREATE USER`), in file order, the game's own
-    roles (RESERVED_DB_ROLES, pg_*) left out; [] for a node with none.
+    """The login roles a node's data file creates with no password of their
+    own (model.data_file_creates: `CREATE ROLE ... LOGIN`, `CREATE USER`;
+    one whose statement sets `PASSWORD '...'` keeps it), in file order,
+    the game's own roles (RESERVED_DB_ROLES, pg_*) left out; [] for a node
+    with none.
     Each has a secret `role_<role>_password`, set by load-data on the node
     (master spec 9.7)."""
     created = node_data_file_creates(Path(scenario.dir), node)
