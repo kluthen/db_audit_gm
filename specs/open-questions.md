@@ -23,7 +23,7 @@ On 2026-10-31 v0.5 was centred on domain definition and the clinic
 (D233), and its questions retargeted: O53 and O54 to later, version not
 set (D237); O21 and O135 to v0.6; O24 and O25 to v1.0+ (D248). Resolved
 during v0.5's drafting: O137 and O47 (D248), O126 (D249), O139 (D260),
-O118 (D261), O80 (D262), O114 (D263), O145 (D274, D275).
+O118 (D261), O80 (D262), O114 (D263), O145 (D274, D275), O144 (D278).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -214,14 +214,6 @@ added on 2026-10-30 (D196).
   (`vet-housing`) and the machinery's data growth over the aging
   (`vet-machinery`). Refs:
   [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md#carried-to-the-parts-profile-steps-o113).
-- **O144** (next, v0.5) — `vet-core`'s business sketch (procedure step
-  2): fourteen questions the brief leaves open, each with a default
-  (sites and the record, the default company, the farm section,
-  ownership, referrals, the hospital stay, medicines, billing, staff,
-  the training centre, scale and hours, regulations, the variant's
-  tags, natural identifiers). The split (step 3) waits for them. Refs:
-  [versions/v0.5/vet-core-domain.md](versions/v0.5/vet-core-domain.md#questions-for-the-owner-o144).
-
 - **O127** (later, v0.5 → beyond v1.0) — Where several sites and the
   exchange between them sit: the clinic is a franchise whose centres
   share machinery and records, with redundancy (D196). Several sites
@@ -233,7 +225,8 @@ added on 2026-10-30 (D196).
   is a core entity, so one database holds several sites' data; what
   stays open is the topology side, several instances and the exchange
   between them. Every site in one zone is O113's open ruling 5; which sites
-  share a record is O144's question 1. Refs:
+  share a record is settled (D278: one record for the national centres;
+  the centres abroad third parties, D274). Refs:
   [versions/v0.5/README.md](versions/v0.5/README.md#the-veterinary-clinic-d196).
 
 - **O128** (later, v0.5) — How a round trip is modelled (D201): an

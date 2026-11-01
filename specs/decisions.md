@@ -664,3 +664,12 @@ v0.5's drafting. Take the next number from `doc-ids`; no ID is reused.
   past outputs stay wrong, the players recommending the rerun. Completes
   D269. Now in:
   [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md) 4.
+- **D278 (2026-11-01, owner answer "agreed" to the defaults the lead
+  listed, relayed by the coordinator): `vet-core`'s business sketch is
+  ruled with all fourteen answers as proposed:** one shared record for
+  the three national centres; Aldermoor Veterinary Hospitals in an
+  unnamed EU state; hospital stays, medicines and referrals in the
+  core; no billing or pharmacy part in v0.5; the scale figures; the
+  variant `regional-franchise`; the identifiers and a dozen mistyped
+  chips. Closes O144. Now in:
+  [versions/v0.5/vet-core-domain.md](versions/v0.5/vet-core-domain.md#the-owners-answers-d278).
