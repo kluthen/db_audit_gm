@@ -379,10 +379,11 @@ scheduler node reads the orders falling due and POSTs their results to
 the clinic's API, through the HTTP driver (D267). The `api` brick then
 needs no timer of its own, and the lab's faults (a lost, duplicated,
 late or out-of-order callback, D268) are stream keys switched by the
-timeline, as v0.4's customs gateway's outage is. How "out of reach" is
-enforced (proposed: the third party's nodes absent from the players'
-starter pack and from the bastion's routes) is settled with the `api`
-brick; v0.4's customs gateway, which players may read, stays as built.
+timeline, as v0.4's customs gateway's outage is. Out of reach means no
+`player` account, no route on the bastion, no place in the starter pack,
+a per-node option settled with the `api` brick (D273); what a third
+party is and how it enters a game is [third-parties.md](third-parties.md)
+(O145). v0.4's customs gateway, which players may read, stays as built.
 
 **What the players reach on an `api` node (D271).** They read every
 endpoint file. Where the scenario makes the node fixable, they edit its

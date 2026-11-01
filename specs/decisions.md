@@ -624,3 +624,11 @@ v0.5's drafting. Take the next number from `doc-ids`; no ID is reused.
   major-version upgrades, hotfixes, moving providers, setting up
   replication. v0.5 is not widened. Now in:
   [versions/README.md](versions/README.md#v10-to-v2-dba-work-with-bits-of-devops-d272).
+- **D273 (2026-11-01, owner ruling, "agreed" to the lead's proposal,
+  relayed by the coordinator): A third party's nodes are outside the
+  players' reach:** no `player` account, no route on the bastion, not in
+  the starter pack; a per-node option settled with the `api` brick.
+  Hiding alone would not do: a player with a shell elsewhere finds them
+  on the network. v0.4's customs gateway stays as built until the
+  definition says otherwise. Raises O145. Now in:
+  [versions/v0.5/third-parties.md](versions/v0.5/third-parties.md) 3.

@@ -11,7 +11,7 @@ their IDs keep their meaning. Questions resolved by the close of v0.2
 Questions resolved by the close of v0.3 (O45, O46, O78 and O81–O103) are
 listed in
 [archive/v0.3/open-questions-resolved.md](archive/v0.3/open-questions-resolved.md).
-Numbering continues from O145.
+Numbering continues from O146.
 
 Resolved during v0.4's drafting: O106 (D194), O110 (D195), O107 (D197), O120
 (D198), O109 (D199), O121 (D200), O123 (D202), O105 (D203), O129 (D206), O131 (D207),
@@ -222,6 +222,14 @@ added on 2026-10-30 (D196).
   the training centre, scale and hours, regulations, the variant's
   tags, natural identifiers). The split (step 3) waits for them. Refs:
   [versions/v0.5/vet-core-domain.md](versions/v0.5/vet-core-domain.md#questions-for-the-owner-o144).
+
+- **O145** (next, v0.5) — What a third party is and how it enters a
+  game (D273): nine questions, each with a recommendation (`no-access`
+  made real, a network of its own, calling its interface, a status
+  page later, a `partners.md` starter-pack file, an unanswered support
+  contact, v0.4's customs gateway, the centres abroad, no fix on the
+  partner's side). Refs:
+  [versions/v0.5/third-parties.md](versions/v0.5/third-parties.md#questions-for-the-owner-o145).
 
 - **O127** (later, v0.5 → beyond v1.0) — Where several sites and the
   exchange between them sit: the clinic is a franchise whose centres
