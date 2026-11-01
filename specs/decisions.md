@@ -599,3 +599,25 @@ v0.5's drafting. Take the next number from `doc-ids`; no ID is reused.
   callbacks, a wrong correlation id, a retry without an idempotency key;
   SQL stubs stay where no API is needed. O128 narrowed. Now in:
   [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md) 8.
+- **D269 (2026-11-01, owner ruling, relayed by the coordinator): No
+  periodic report runs on demand in v0.5;** "run March's report now"
+  comes later, probably v1.0+, possibly v0.6, on an instance spawned for
+  the occasion. Revises D265; D117 and D131 stand. The owner: "we're
+  barely begining to introduce API and stuff like that." Now in:
+  [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md) 4.
+- **D270 (2026-11-01, owner ruling, same message): An `api` node only
+  answers requests;** producers and consumers on scheduler nodes call
+  it, and a stub's delayed callback is fired from a scheduler node. The
+  owner: "API layer isn't a scheduler". Now in:
+  [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md) 8.
+- **D271 (2026-11-01, owner ruling, same message): Players read every
+  endpoint file of an `api` node and, where the scenario makes it
+  fixable, edit its database side only** (queries, transactional work,
+  session settings), never an endpoint's route or contract; application
+  roles, a reload wrapper. Now in:
+  [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md) 8.
+- **D272 (2026-11-01, owner direction, same message): v1.0 to v2 leans
+  to DBA work with bits of devops:** reports on a spawned instance,
+  major-version upgrades, hotfixes, moving providers, setting up
+  replication. v0.5 is not widened. Now in:
+  [versions/README.md](versions/README.md#v10-to-v2-dba-work-with-bits-of-devops-d272).

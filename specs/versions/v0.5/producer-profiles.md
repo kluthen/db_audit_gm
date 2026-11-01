@@ -1,8 +1,9 @@
 # v0.5 — producer profiles against v0.3's scheduler (O113)
 
-Status: draft v2. Ruled by the owner on 2026-11-01: merging (1, D264),
-periodic reports (4, D265), identity across systems (7, D266), API nodes
-and round trips (8, D267, D268). Frictions 2, 3, 5, 6 and 10 carry
+Status: draft v3. Ruled by the owner on 2026-11-01: merging (1, D264),
+periodic reports (4, D265, revised by D269), identity across systems (7,
+D266), API nodes, what they do and what players reach on them, and
+round trips (8, D267, D268, D270, D271). Frictions 2, 3, 5, 6 and 10 carry
 recommendations, (proposed) until he rules on them
 ([open rulings](#open-rulings)); 9 and 11 wait for their parts.
 
@@ -35,11 +36,11 @@ copies; the scenario itself is built in v0.4's wave 4), the scheduler
 | 1 | Fragments are merged into a node's files by hand; collisions are lost silently | ruled: `gmctl compose` (D264) |
 | 2 | The hidden `schedule.yaml` (D130) against a profile readable in the catalogue (D13) | open ruling 1 |
 | 3 | Absolute intensity (D32) against rates the domain states | open ruling 2 |
-| 4 | Weekly, monthly and yearly cadences real time cannot age (O22) | ruled: periodic reports planted and run on demand (D265) |
+| 4 | Weekly, monthly and yearly cadences real time cannot age (O22) | ruled: periodic reports, their past periods planted, no run on demand in v0.5 (D265, D269) |
 | 5 | Richer input types than v0.3's generators | open ruling 3 |
 | 6 | Composites: a core and parts onto one producer node or several | open ruling 4 |
 | 7 | Keys shared between the core and its parts | ruled: the core the system of record, natural identifiers (D266) |
-| 8 | Inbound flows: round trips (O128) and the scheduler's other targets (D118) | ruled: an `api` brick, an HTTP driver, the lab a consumer-producer (D267, D268) |
+| 8 | Inbound flows: round trips (O128) and the scheduler's other targets (D118) | ruled: an `api` brick that only answers, its database side the players' (D267, D270, D271), an HTTP driver, the lab a consumer-producer (D268) |
 | 9 | Many small consumers that all look alike (the housing displays) | carried to `vet-housing` |
 | 10 | Several sites in different time zones | open ruling 5 |
 | 11 | Data growth over the aging (the machinery's readings) | carried to `vet-machinery` |
@@ -154,7 +155,7 @@ needless while each domain has one variant in v0.5.
 **Recommendation.** a. Parts needing a different throughput from the
 core's go on their own node (6) or have their rates adapted at copy.
 
-## 4. Periodic reports and real time (ruled, D265)
+## 4. Periodic reports and real time (ruled, D265, D269)
 
 **What.** The clinic has weekly, monthly and yearly duties: herd visits
 and rotas, the medicines register's extract and statements, the
@@ -190,10 +191,26 @@ of the game"):
 - **One run within the aging** is the GM's option: one weekly, monthly or
   yearly run may be scheduled inside the aging window. No run is
   expected during the players' session.
-- **On demand for a period.** Every periodic report can be run for a
-  given period ("run March's report now"): how the players investigate,
-  and how a fix is checked. How that meets "no run now" (D131) is
-  question 2 below.
+- **No run on demand in v0.5** (D269). "Run March's report now" comes
+  later, probably v1.0 or after, possibly v0.6: a run on an instance
+  spawned for the occasion, so the live setup is barely disturbed
+  ([roadmap](../README.md#v10-to-v2-dba-work-with-bits-of-devops-d272)).
+  D117 and D131 stand: nobody triggers the load, the scheduler has no
+  "run now". The players investigate with their own queries on the
+  planted inputs and outputs.
+- **How a fix is checked** (proposed). A fault in a periodic report is
+  judged on what the aging and the session produce, never on a
+  periodic run during the session:
+  - a fix to the report's inputs or its feeder is checked on the daily
+    feeder's next run, which the players may move to verify it (D132),
+    the same witness the at-least-one rule required;
+  - a fix to the report's own code (its query, its transaction) is
+    checked by the sealed check reading the code as fixed, and, where
+    the GM placed a periodic run in the aging, against that run's
+    output as the evidence the fix answers;
+  - the planted past outputs stay as they are: correcting them would be
+    a rerun of past periods, which waits for the on-demand runs; the
+    players recommend it in their report.
 - **Heavy, but never killed.** A report's weight is calibrated per node,
   as f10's was (D213), so that a normal run is never killed for memory
   on a shared host or a class laptop; a run that does run out of memory
@@ -342,6 +359,29 @@ API (7), the external labs, the machinery. FastAPI and uvicorn are new
 dependencies: a dependency check by security-advisor gates the build
 (a gate of the build plan). Message queues wait until a flow needs one.
 
+**API nodes only answer (D270).** The API layer is not a scheduler: an
+`api` node never acts on its own. Producers and consumers on scheduler
+nodes call it whenever appropriate, and the lab stub's delayed callback
+is fired from a scheduler node, so every event stays in a schedule
+(D117).
+
+**What the players reach on an `api` node (D271).** They read every
+endpoint file. Where the scenario makes the node fixable, they edit its
+database side only: the queries, how the transactional work is
+organised, session-level database settings. They never change an
+endpoint itself, its route or its request and response contract. The
+endpoints connect with application roles, never superusers; a change
+takes effect through a reload wrapper, as on a scheduler node.
+
+The brick's layout follows from it (proposed, for the `api` brick's
+notes): each endpoint is two files of the same name in two directories,
+`routes/<name>.py` (the route, its request and response models, calls
+into its database module; protected) and `db/<name>.py` (its SQL, its
+transactions, its session settings, the functions the route calls;
+writable where the scenario makes the node fixable). Write policy is
+per directory (D170), so `db/` is the one writable path, and a route
+importing only from `db/` keeps the contract out of the players' reach.
+
 **The ruling on round trips (D268).** The external lab is a
 consumer-producer: it consumes the clinic's orders and produces results
 later. The clinic POSTs an order and gets "accepted" with a correlation
@@ -432,26 +472,12 @@ profile steps.
 
 ## Questions the rulings raise
 
-Each with a recommendation, for the owner.
+Two were settled on 2026-11-01: an API node only answers (D270), and
+players reach its database side only (D271); a run on demand left v0.5
+(D269). One is left, with a recommendation:
 
 1. **The variant's profile (D264, D263).** The merge's middle layer is
    the variant's profile, which D263's manifest does not hold yet.
    Recommendation: a variant may carry fragment overrides beside its
    manifest, `variants/<name>/producers/`, holding only what they
    change.
-2. **"Run March's report now" and "no run now" (D265, D131, D117).**
-   Nobody triggers the load during a game, and the scheduler has no "run
-   now". Recommendation: a periodic report is a database procedure or
-   function taking its period (`CALL rpt.monthly_report('2026-03')`),
-   which the scheduled job calls and which the players call from their
-   own session as a role the scenario gives them; the scheduler stays
-   untriggerable and D131 stands. The alternative, a `sudo` wrapper on
-   the scheduler node running a key for a period, revises D131.
-3. **An API node's own activity (D267, D117).** The scheduler is the only
-   source of activity. Recommendation: an `api` node only answers; a
-   stub's delayed callback (D268) is made by a scheduler node calling it
-   or calling back, so every event stays in a schedule.
-4. **What players reach on an `api` node (D267).** Recommendation: as on
-   a scheduler node: they read the endpoint files and edit them where
-   the scenario makes them fixable, through a reload wrapper; the
-   endpoints connect with application roles, never superusers.

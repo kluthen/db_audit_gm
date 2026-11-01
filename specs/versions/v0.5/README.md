@@ -11,7 +11,9 @@ reach the same day (D260–D262). On 2026-11-01 a domain's scale, variants
 and tags were settled (D263); the frictions between producer profiles
 and v0.3's scheduler were drafted (O113) and partly ruled the same day:
 a merge script, periodic reports, the core the system of record, an
-`api` brick, the external lab's round trip (D264–D268); `vet-core`
+`api` brick, the external lab's round trip (D264–D268), then on-demand
+reports moved later and the `api` node's reach (D269–D271), with a
+direction for v1.0 to v2 (D272); `vet-core`
 reached its business sketch (O144).
 
 ## Documents
@@ -246,9 +248,9 @@ template and index are in [`post_mortem/`](../../../post_mortem/README.md).
 - **Round trips** (D201; O128), on the clinic's cases: external labs'
   results over API nodes, a consumer-producer with a correlation id and
   its callback faults (D268); exchanges between clinics.
-- **Periodic reports** (D265): weekly, monthly and yearly, their past
-  periods planted by the load, run on demand for a period, calibrated
-  per node.
+- **Periodic reports** (D265, D269): weekly, monthly and yearly, their
+  past periods planted by the load, calibrated per node; no run on
+  demand in v0.5, which comes later on an instance spawned for it.
 - **`gmctl compose`** (D264), built with the domain format's changes.
 - **Governance beyond v0.4's first cut** (D191), the clinic being the
   regulated domain, with the brick changes it needs: TLS and pgaudit
@@ -268,7 +270,9 @@ template and index are in [`post_mortem/`](../../../post_mortem/README.md).
   per need; hand-made scripts as the customer's own tooling (D70, D248).
 - **The scheduler's other targets the clinic's flows need** (D118,
   D248): an `api` brick on FastAPI serving the GM's endpoint files and
-  an HTTP driver in the scheduler (D267), for the core's lookup API, the
+  an HTTP driver in the scheduler (D267); an `api` node only answers,
+  scheduler nodes calling it (D270), and players edit only its
+  database side, never its endpoints (D271); for the core's lookup API, the
   external labs and the machinery; FastAPI and uvicorn pass a
   security-advisor dependency check before the build, a gate of the
   build plan. Message queues only if a flow needs one.
@@ -346,7 +350,7 @@ The items moved later are listed in the roadmap
 - O112: which other domains join v0.5, deferred until the procedure's
   cost is known (D235).
 - O113: producer profiles against v0.3's scheduler, partly ruled
-  (D264–D268): five rulings and four raised questions left
+  (D264–D271): five rulings and one raised question left
   ([producer-profiles.md](producer-profiles.md#open-rulings)).
 - O144: `vet-core`'s business sketch, fourteen questions
   ([vet-core-domain.md](vet-core-domain.md#questions-for-the-owner-o144)).

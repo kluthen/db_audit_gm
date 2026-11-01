@@ -57,7 +57,8 @@ for the next version (v0.1 until it closed, with none left open);
   over several PostgreSQL instances, `postgres_fdw` one method among
   others; another engine only if a purpose needs one, which none does
   (D194). Still open: which engine versions first, and how
-  upgrade scenarios (both binaries, disk space) fit the budget. Refs:
+  upgrade scenarios (both binaries, disk space) fit the budget, which
+  the direction for v1.0 to v2 makes an exercise (D272). Refs:
   [versions/v1.0/README.md](versions/v1.0/README.md),
   [versions/v0.4/README.md](versions/v0.4/README.md).
 - **O12** (later) — Are network-level faults (segmentation, routing-mesh
@@ -205,13 +206,14 @@ added on 2026-10-30 (D196).
   personal data, animal health is no special category. Refs:
   [versions/v0.5/README.md](versions/v0.5/README.md#domains).
 - **O113** (later, v0.5) — Producer profiles against v0.3's scheduler.
-  Ruled: merging (D264), periodic reports (D265), identity across
-  systems (D266), API nodes and round trips (D267, D268). Still open:
+  Ruled: merging (D264), periodic reports (D265, D269), identity across
+  systems (D266), API nodes and round trips (D267, D268, D270, D271).
+  Still open:
   five rulings (readable profiles, rates, input types, producer nodes,
   time zones), the two frictions carried to `vet-housing` and
-  `vet-machinery`, and four questions the rulings raise (the variant's
-  profile, a report run on demand against D131, an API node's own
-  activity, what players reach on an API node). Refs:
+  `vet-machinery`, and the variant's profile's location, a question the
+  rulings raise (an on-demand run left v0.5, D269; an API node's
+  activity and reach settled, D270, D271). Refs:
   [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md#open-rulings).
 - **O144** (next, v0.5) — `vet-core`'s business sketch (procedure step
   2): fourteen questions the brief leaves open, each with a default

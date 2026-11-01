@@ -25,6 +25,9 @@ v0.1 is draft.
 - a fictional cloud provider over the bricks, with capacity management
   and a console (D205; below).
 - what v0.5 moved later (D233, D237; below).
+- from v1.0 to v2, DBA work with bits of devops: reports run on a
+  spawned instance, migrations, replication set up by the players
+  (D272; below).
 
 Questions about the roadmap as a whole (gaps between v0.5 and v1.0,
 risks across versions) are in [open-questions.md](../open-questions.md),
@@ -74,6 +77,28 @@ What earlier versions already give it:
   a VM node's init and wait for this layer.
 
 Open: O130.
+
+## v1.0 to v2: DBA work with bits of devops (D272)
+
+The owner, on 2026-11-01: "the work on v1.0+ till v2 will be more active
+on the DBA part (with bits of devops)." And: "What i expect from v1.0+
+will be also exercices on migration (pg from one version to another,
+applying hotfixes, migrating from one db provider to another, setting up
+replications, etc)."
+
+| Exercise | What the players do | Builds on |
+|---|---|---|
+| **A report on a spawned instance** | "run March's report now" on an instance spawned for the occasion, so the live setup is barely disturbed; possibly in v0.6, more probably v1.0 or after (D269) | v0.5's periodic reports, their past periods planted (D265) |
+| **Major-version upgrades** | PostgreSQL from one major version to the next | O11's upgrade scenarios: both binaries, the disk space, within the budget |
+| **Hotfixes** | applying a minor release or a patch to a running setup | the bricks' pinned versions (formats.md, "Versions and pins") |
+| **Moving providers** | migrating a database from one provider to another | the fictional cloud provider (D205, above): its managed database one end of a move, a self-hosted `postgres` node the other |
+| **Setting up replication** | building a standby and its replication themselves | v0.5's replication, a standby mode of `postgres` the seed sets up (D250); setting it up becomes the exercise |
+
+The spawned instance and the provider meet: once a node's type and
+service kind are the provider's (D205), spawning one for a report or a
+migration is a player action. None of this widens v0.5: its replication
+stays a mode the seed configures, and its periodic reports run only as
+the schedule says.
 
 ## Deferred from v0.5 (D233, D237)
 
