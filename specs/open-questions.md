@@ -11,7 +11,7 @@ their IDs keep their meaning. Questions resolved by the close of v0.2
 Questions resolved by the close of v0.3 (O45, O46, O78 and O81–O103) are
 listed in
 [archive/v0.3/open-questions-resolved.md](archive/v0.3/open-questions-resolved.md).
-Numbering continues from O141.
+Numbering continues from O145.
 
 Resolved during v0.4's drafting: O106 (D194), O110 (D195), O107 (D197), O120
 (D198), O109 (D199), O121 (D200), O123 (D202), O105 (D203), O129 (D206), O131 (D207),
@@ -23,7 +23,7 @@ On 2026-10-31 v0.5 was centred on domain definition and the clinic
 (D233), and its questions retargeted: O53 and O54 to later, version not
 set (D237); O21 and O135 to v0.6; O24 and O25 to v1.0+ (D248). Resolved
 during v0.5's drafting: O137 and O47 (D248), O126 (D249), O139 (D260),
-O118 (D261), O80 (D262).
+O118 (D261), O80 (D262), O114 (D263).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -91,7 +91,9 @@ for the next version (v0.1 until it closed, with none left open);
   volume copy is needed; noted, not reopened (D125 stands).
   Not moot: v0.4's purposes (D190) run daily, weekly or monthly jobs,
   which real time alone barely exercises; v0.4's part is settled by
-  D199 (realistic cadences, none weekly or monthly).
+  D199 (realistic cadences, none weekly or monthly); the clinic's
+  monthly and yearly duties are O113's ruling 4
+  ([producer-profiles.md](versions/v0.5/producer-profiles.md) 4).
   Refs: [scenario-lifecycle.md](scenario-lifecycle.md),
   [archive/v0.3/aging-and-timeline.md](archive/v0.3/aging-and-timeline.md),
   [versions/v0.4/README.md](versions/v0.4/README.md).
@@ -183,7 +185,8 @@ added on 2026-10-30 (D196).
   classification keys without the database, `requires`, a scenario's
   `domains:` list;
   [versions/v0.5/domain-procedure.md](versions/v0.5/domain-procedure.md)
-  5, 6): profiles against the schedule (O113), size (O114), and what the
+  5, 6): profiles against the schedule (O113), the variant manifest and its
+  tags (D263; procedure 9), and what the
   clinic's domains reveal.
 - **O112** (later, v0.5; **deferred**, D235) — Which domains come after
   the shop? The clinic's first (D233). Whether any other joins v0.5 is
@@ -201,22 +204,20 @@ added on 2026-10-30 (D196).
   `fernway-clinics-monitoring` is a veterinary clinic: its owners are
   personal data, animal health is no special category. Refs:
   [versions/v0.5/README.md](versions/v0.5/README.md#domains).
-- **O113** (later, v0.5) — Producer profiles against v0.3's query
-  repository and schedule: a template the GM instantiates into a
-  scenario's `queries.yaml` and `schedule.yaml` at design time (the
-  folder stays self-sufficient, D23), a library of builders, traffic
-  shapes and parameter generators the scenario references, or a layer
-  the scheduler reads? Richer input types (names, addresses, SKUs,
-  sensor readings) than v0.3's generators? A catalogue profile is
-  readable in the repository while `schedule.yaml` is hidden (D130):
-  accepted on the trust line (D13)? Refs:
-  [versions/v0.5/README.md](versions/v0.5/README.md#domains),
-  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 7.1.
-- **O114** (later, v0.5) — What a scenario's size scales: data volume,
-  number of entities, intensity, or several? Intensity is absolute and
-  never rescaled to the playground (D32); size has to fit the
-  playground's budget and "schemas simple, tables small". Refs:
-  [versions/v0.5/README.md](versions/v0.5/README.md#domains).
+- **O113** (later, v0.5) — Producer profiles against v0.3's scheduler:
+  eleven frictions found in the shop as built and the scheduler 0.2.0,
+  nine rulings for the owner (merging fragments, readable profiles,
+  rates, long cadences, input types, producer nodes, key ranges,
+  inbound flows, time zones), each with a recommendation; two carried
+  to `vet-housing`'s and `vet-machinery`'s profile steps. Refs:
+  [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md#rulings-for-the-owner).
+- **O144** (next, v0.5) — `vet-core`'s business sketch (procedure step
+  2): thirteen questions the brief leaves open, each with a default
+  (sites and the record, the default company, the farm section,
+  ownership, referrals, the hospital stay, medicines, billing, staff,
+  the training centre, scale and hours, regulations, the variant's
+  tags). The split (step 3) waits for them. Refs:
+  [versions/v0.5/vet-core-domain.md](versions/v0.5/vet-core-domain.md#questions-for-the-owner-o144).
 
 - **O127** (later, v0.5 → beyond v1.0) — Where several sites and the
   exchange between them sit: the clinic is a franchise whose centres
@@ -228,7 +229,8 @@ added on 2026-10-30 (D196).
   O12 (network layout). Narrowed by the procedure (D235, D249): a site
   is a core entity, so one database holds several sites' data; what
   stays open is the topology side, several instances and the exchange
-  between them. Refs:
+  between them. Every site in one zone is O113's ruling 9; which sites
+  share a record is O144's question 1. Refs:
   [versions/v0.5/README.md](versions/v0.5/README.md#the-veterinary-clinic-d196).
 
 - **O128** (later, v0.5) — How a round trip is modelled (D201): an
@@ -239,7 +241,9 @@ added on 2026-10-30 (D196).
   of order, duplicated, unmatched acknowledgements, as timeline changes,
   D127); how a check judges a cascade, whose faults show downstream; and
   what of the clinic's lab results and inter-clinic exchanges it covers.
-  Refs: [versions/v0.5/README.md](versions/v0.5/README.md#round-trips-acknowledgements-as-inputs-d201).
+  The SQL stub as its baseline is O113's ruling 8.
+  Refs: [versions/v0.5/README.md](versions/v0.5/README.md#round-trips-acknowledgements-as-inputs-d201),
+  [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md) 8.
 
 ## v0.6: the setup's entry point
 

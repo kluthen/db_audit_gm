@@ -1,12 +1,14 @@
 # v0.5 — defining a domain: the procedure
 
-Status: approved v3 (D235, D249, D260). Settled by the owner on
+Status: approved v4 (D235, D249, D260, D263). Settled by the owner on
 2026-10-31 in two rulings: the clinic's cut (section 4, kept now,
 revised once `vet-core` is defined), the composition rules (section 4),
 the four format changes (section 6) and a skill later (section 8)
 (D249); then the rest as drafted, what a domain holds and leaves out
 (section 1), the steps and who takes part (2), done and the checklist
-(3), and the effort estimate (7) (D260).
+(3), and the effort estimate (7) (D260). On 2026-11-01 a domain's scale,
+its variants and their tags (section 9, D263), closing O114; where the
+variants are built is (proposed) in section 6.
 
 The owner, on 2026-10-31: "we need a proper "procedure" to define a
 domain, what we put in and not. the clinic will probably spawn multiple
@@ -31,19 +33,23 @@ goes wrong belongs elsewhere.
 | In a domain | Where it lives (the shop) | Fits as built? |
 |---|---|---|
 | **The business data model**: tables, keys, lifecycle states, roles and grants | `data/schema.sql` | yes |
-| **The history**, "last night's backup", at a reference size | `data/load.sql` | yes; scaling is O114 |
+| **The history**, "last night's backup", at the population and history its variant sets | `data/load.sql` | yes, for its one variant (section 9) |
 | **Producer profiles**: how data arrives (traffic shapes, rates, fixed-time operations) | `producers/` (`queries.yaml`, `schedule.yaml`, `jobs.yaml` fragments) | yes; how a profile meets a scenario's schedule is O113 |
 | **Scheduler scripts and input types**: builders and parameter generators | `producers/builders/` | yes; richer input types are O113 |
 | **Purposes that fit** | listed by id in `domain.yaml`; each purpose is its own unit under `purposes/` | yes: defining a domain includes choosing or drafting its purposes, but a purpose stays its own unit, since it may fit several domains |
 | **Data classification**: every column classed | `data/classification.yaml` | yes, with one change (section 6, item 2) |
 | **Governance**: the business's own rules for its data | none: today a scenario's `governance:` and its policy text state every rule | **no** (section 6, item 1) |
 | **GM notes**: the business, its data, roles, classification, producer, rules, traps, loading | `docs/gm.md` | yes; its sections become required |
+| **Variants**: the setups the domain covers, each its parts, its scale and its tags | `variants/<name>.yaml` | **no**: new (section 9; section 6, item 5) |
 
 Left out of a domain:
 
 - **Topology**: which bricks, how many instances, where each database
   lands, the sites of a franchise. That is the scenario's, or a topology
   fragment's (O127 for several sites).
+- **IT maturity**: the monitoring, the backups, the redundancy actually
+  deployed. A variant's maturity tag states the intent; the topology
+  fragment carrying the same tag holds what is deployed (section 9).
 - **Bricks and brick options**: the catalogue's. A domain may say what
   it needs from them (for instance an audit trail needing pgaudit) in
   its GM notes; the option itself is the brick's
@@ -62,9 +68,9 @@ Left out of a domain:
 | # | Step | Input | Output | Owner |
 |---|---|---|---|---|
 | 1 | **Brief** | the owner's description of the business (the clinic's, D196) | the brief, quoted in the version page | **writes it** |
-| 2 | **Business sketch** | the brief | actors, activities, volumes, cadences, regulations; the questions the brief leaves open | **answers the questions** |
+| 2 | **Business sketch** | the brief | actors, activities, the variant's scale (population, history, throughput) and tags, cadences, regulations; the questions the brief leaves open | **answers the questions** |
 | 3 | **Split** (composites only) | the sketch | a core and its parts (section 4) | **confirms the split** |
-| 4 | **Data model** | the sketch; for a domain fed by an external dataset, that dataset's schema, size, licence and availability (O53, O54) | entities, keys, states, roles and grants, reference sizes within "schemas simple, tables small" | checks plausibility, optional |
+| 4 | **Data model** | the sketch; for a domain fed by an external dataset, that dataset's schema, size, licence and availability (O53, O54) | entities, keys, states, roles and grants, the variant's population and history within "schemas simple, tables small" | checks plausibility, optional |
 | 5 | **Classification and governance** | the data model; the business's regulations | every column classed; the business's own rules (section 6, item 1) | **confirms the rules are realistic** |
 | 6 | **Producer profiles** | the sketch's activities and cadences | traffic shapes and rates, fixed-time operations, input types; cadences real time cannot age flagged (monthly, yearly: O22) | only for a flagged cadence |
 | 7 | **Purposes** | the data model, the existing purposes | which existing purposes fit; new ones named, each drafted as a purpose of its own ([formats.md](../../formats.md) "Purpose definition") | **chooses the purposes** |
@@ -104,6 +110,10 @@ Completeness checklist (the build's checks are those v0.4's chunk 5 ran):
       and `jobs.yaml` fragments, and every statement runs as its role.
 - [ ] Every purpose listed exists, or is named in the draft as to be
       drafted.
+- [ ] Every variant in `variants/` names parts that exist, sets the
+      three scale axes, takes its tags from the vocabulary only, and
+      lists purposes that fit; v0.5 builds one variant per domain
+      (section 9).
 - [ ] `docs/gm.md` has its sections: the business, the data, the roles,
       the classification, the producer, the rules, the traps, loading.
 - [ ] The `scenario-format` skill finds nothing missing.
@@ -186,7 +196,7 @@ self-sufficient (D23).
 The shop fits the procedure as built for its folder layout, the
 `domain.yaml` keys, the design-time copy, never bumping, purposes listed
 by id, deterministic loads and its GM notes' sections. Four changes,
-settled (D249) and built together in one chunk:
+settled (D249) and built together in one chunk, and a fifth (D263):
 
 1. **The business's own rules.** A regulated business's rules (a
    medicines register kept, lab results released only once validated)
@@ -201,10 +211,14 @@ settled (D249) and built together in one chunk:
    v0.4's scenario keeps its own copy.
 3. **`requires`** in `domain.yaml`, optional: the shop has none.
 4. **`domains:`** in `scenario.yaml` (section 5), with `domain:` kept.
+5. **Variants and tags** (section 9, D263): a `variants/` folder in a
+   domain, the manifest's template, the tag vocabulary, and the shop's
+   one variant, its present setup written as a manifest.
 
 Each needs the template, the format skill's checks and
-`check_domain_dir` to follow, in that one chunk; `formats.md` states
-them once it is built.
+`check_domain_dir` to follow; the fifth joins the other four in that one
+chunk (proposed), since it touches the same template, checks and
+function. `formats.md` states them once it is built.
 
 ## 7. Effort to define one domain
 
@@ -238,3 +252,57 @@ The procedure becomes a skill once it has been used on two or three
 domains (D249), as `scenario-format` and `scenario-document` are: a
 domain-definition skill walking the steps, filling the draft document's
 sections and running the checklist. Not created yet.
+
+## 9. Scale, variants and tags (D263)
+
+Settled by the owner on 2026-11-01, closing O114: "size isnt sufficient
+to describe whatever it is." One domain name covers several setups of a
+business, the owner's examples being the village shop managing its own
+storage, the city hypermarket with higher throughput and statistics on
+its customers' habits, and the shop with hundreds of warehouses.
+
+- **Scale** replaces "size", on three axes:
+  - `population`: how many entities (sites, warehouses, customers,
+    products; for the clinic, animals and staff);
+  - `history`: how far back the backup goes, so the data's volume;
+  - `throughput`: the traffic, in real-world rates, absolute as D32
+    makes the intensity ([producer profiles](producer-profiles.md) 3).
+- **A variant** is a short manifest in the domain, `variants/<name>.yaml`,
+  never a copy of the domain: the parts it takes, its three axes, the
+  purposes that fit it, its tags. Data that genuinely differs between
+  setups is a part, under section 4's rules (a `shop-analytics`, a
+  `shop-logistics`), so one domain holds every variant's material.
+- **Tags** come from a small fixed vocabulary, in families:
+  - maturity: `homebrewed`, `managed`, `industrial`;
+  - reach: `local`, `regional`, `national`, `global`;
+  - traits: `regulated`, `multi-site`, `24/7`, `seasonal`.
+
+  Topology fragments carry tags too. A variant's tags meet a fragment
+  with the same tags: the tag states the intent, the fragment what is
+  deployed. The IT maturity itself stays out of the domain (section 1).
+- **Large setups show through structure, not volume.** The playground's
+  budget and "schemas simple, tables small" hold at every scale. A
+  `global` variant differs by robustness and tooling: a few sites or
+  warehouses standing for hundreds, several instances and replication,
+  more parts and purposes; not many more rows. Its GM notes say what it
+  stands for. The owner: "it isn't because we work at world scale that
+  we need to spawn hundreds of nodes in our topology, it's more a
+  question of robustness and tool used", which fits the fictional cloud
+  provider after v1.0 (D205).
+- **In v0.5, one variant per domain**: the clinic as briefed, a large
+  regional franchise ([vet-core](vet-core-domain.md), question 13), and
+  the shop's existing setup. The shop's other variants are other-domain
+  work, deferred with O112.
+
+A scenario names the variant beside its core (proposed):
+
+```yaml
+domains:
+  - id: vet-core
+    variant: regional-franchise
+    at: records/clinic
+  - id: vet-lab
+    at: lab/lab
+```
+
+The loader then checks that the scenario's parts are the variant's.

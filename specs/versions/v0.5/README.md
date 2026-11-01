@@ -7,13 +7,18 @@ the worked example (D233), with a procedure for defining a domain
 collection begun beside it (D234). The owner accepted every
 recommendation of the scope review on 2026-10-31 (D248–D251), then
 approved the domain procedure and ruled on pgaudit and the options'
-reach the same day (D260–D262).
+reach the same day (D260–D262). On 2026-11-01 a domain's scale, variants
+and tags were settled (D263); the frictions between producer profiles
+and v0.3's scheduler were drafted (O113), and `vet-core` reached its
+business sketch (O144).
 
 ## Documents
 
 | Document | Purpose | Status |
 |---|---|---|
-| [domain-procedure.md](domain-procedure.md) | How a domain is defined: what it holds and leaves out, the steps from a brief, done and its checklist, composites, how a scenario names its domains, the shop against it, the effort | approved v3 (D249, D260) |
+| [domain-procedure.md](domain-procedure.md) | How a domain is defined: what it holds and leaves out, the steps from a brief, done and its checklist, composites, how a scenario names its domains, the shop against it, the effort, scale, variants and tags | approved v4 (D249, D260, D263) |
+| [producer-profiles.md](producer-profiles.md) | The frictions between domains' producer profiles and v0.3's scheduler, each with its evidence, options and recommendation; nine rulings for the owner | draft v1 (O113) |
+| [vet-core-domain.md](vet-core-domain.md) | `vet-core` through the procedure: the business sketch (step 2), what the parts need of the core, thirteen questions for the owner | draft v1, step 2 (O144) |
 | [brick-options-review.md](brick-options-review.md) | The options candidates checked against the clinic, and the owner's rulings on them: what the clinic gets, as an option or otherwise, what stops mattering, what O79 still answers | draft v3, ruled (D250, D261, D262) |
 
 ## Goal
@@ -61,12 +66,15 @@ A **domain** (D192; working name) is a reusable catalogue unit made of:
   consumers share;
 - **the purposes that fit the domain** ([v0.4](../v0.4/README.md)).
 
-A scenario then becomes one or more domains, a size, the bricks, the
-purposes in use, and the faults. What a domain holds, what it leaves
+A scenario then becomes one or more domains, a variant with its scale
+and tags, the bricks, the purposes in use, and the faults. What a domain holds, what it leaves
 out, how it is defined and how a scenario names several is the
 [procedure](domain-procedure.md) (D235), approved (D260), which narrows
-O111 and settles composition (D249);
-what "size" scales is O114.
+O111 and settles composition (D249). "Size" became **scale**, on three
+axes, population, history and throughput; one domain covers several
+setups as **variants**, short manifests with tags from a fixed
+vocabulary; large setups show through structure, not volume; v0.5
+builds one variant per domain (D263; procedure 9).
 
 How domains meet the rest of this version (proposed):
 
@@ -214,7 +222,8 @@ template and index are in [`post_mortem/`](../../../post_mortem/README.md).
 - **Domain definition**: the [procedure](domain-procedure.md) (D235),
   approved (D260), the domain format beyond the shop with its four changes, built in one
   chunk (D249; O111), producer profiles against the schedule (O113),
-  size (O114), composition as a core and parts (D249), tried first on
+  scale, variants and tags, one variant per domain (D263), composition
+  as a core and parts (D249), tried first on
   `vet-core` and `vet-lab`.
 - **The veterinary clinic's domains** (D196, D233), the seven of the
   procedure's cut, revised once `vet-core` is defined (D249), defined
@@ -265,7 +274,7 @@ O137); one row stays deferred.
 
 | Item | Goes to | State |
 |---|---|---|
-| Domain definition: the procedure, the format beyond the shop, profiles, size, composition (O111, O113, O114; O126 closed by D249) | v0.5 | settled (D233, D235, D249); the procedure approved (D260) |
+| Domain definition: the procedure, the format beyond the shop, profiles, scale, composition (O111, O113; O126 closed by D249, O114 by D263) | v0.5 | settled (D233, D235, D249); the procedure approved (D260); scale, variants and tags (D263) |
 | The clinic's domains (D196) | v0.5 | settled (D233) |
 | The clinic's bricks, faults, topology fragments and configurations | v0.5, defined with the owner | settled (D233) |
 | A scenario using the clinic's domains, so they are proven in play as v0.4's scenario proved the shop | v0.5 | settled (D248) |
@@ -323,8 +332,10 @@ The items moved later are listed in the roadmap
   changes.
 - O112: which other domains join v0.5, deferred until the procedure's
   cost is known (D235).
-- O113: producer profiles against v0.3's query repository and schedule.
-- O114: what a scenario's size scales.
+- O113: producer profiles against v0.3's scheduler, nine rulings
+  ([producer-profiles.md](producer-profiles.md#rulings-for-the-owner)).
+- O144: `vet-core`'s business sketch, thirteen questions
+  ([vet-core-domain.md](vet-core-domain.md#questions-for-the-owner-o144)).
 - O127: where several sites and inter-site exchange sit, its topology
   side.
 - O128: how a round trip (an acknowledgement driving further processes)
@@ -336,4 +347,4 @@ The items moved later are listed in the roadmap
 Moved out of this list on 2026-10-31: O53 and O54 (later, D237); O21
 and O135 (v0.6, D233, D248); O24 and O25 (v1.0+, D248). Closed: O47
 (v1.0) and O137 (D248), O126 (D249), O139 (D260), O118 (D261), O80
-(D262). Not due here: O138, the post-mortems' binding.
+(D262), O114 (D263). Not due here: O138, the post-mortems' binding.

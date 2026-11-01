@@ -552,3 +552,11 @@ v0.5's drafting. Take the next number from `doc-ids`; no ID is reused.
   need them on; a part that calls for one raises its own question.
   Closes O80. Now in:
   [versions/v0.5/brick-options-review.md](versions/v0.5/brick-options-review.md#the-owners-rulings-d250-d261-d262).
+- **D263 (2026-11-01, owner ruling on the lead's proposal, relayed by the
+  coordinator): "Size" becomes a domain's scale, on three axes
+  (population, history, throughput); one domain covers several setups
+  as variants, short manifests of parts, scale, purposes and tags from a
+  fixed vocabulary; large setups show through structure, not volume;
+  v0.5 builds one variant per domain.** The owner: "size isnt sufficient
+  to describe whatever it is." Closes O114. Now in:
+  [versions/v0.5/domain-procedure.md](versions/v0.5/domain-procedure.md) 9.
