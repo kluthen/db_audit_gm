@@ -360,10 +360,29 @@ dependencies: a dependency check by security-advisor gates the build
 (a gate of the build plan). Message queues wait until a flow needs one.
 
 **API nodes only answer (D270).** The API layer is not a scheduler: an
-`api` node never acts on its own. Producers and consumers on scheduler
-nodes call it whenever appropriate, and the lab stub's delayed callback
-is fired from a scheduler node, so every event stays in a schedule
-(D117).
+`api` node in the players' scope never acts on its own. Producers and
+consumers on scheduler nodes call it whenever appropriate.
+
+The one exception is a **third party outside the players' scope**: the
+external lab, which stands for a business that is not the customer's.
+The players cannot reach or edit it, and its side of a round trip
+initiates: it calls the clinic back with results. Its callbacks are
+still driven by its hidden schedule, so every event stays scheduled and
+reproducible (D117), its outages and duplicates timeline changes
+(D127).
+
+Where the callback fires from is a build detail, provided the players
+cannot reach it. Recommended: a scheduler node that is the lab's own
+back end, beside the lab's `api` node. The lab's `api` node answers the
+clinic's orders and stores them in the lab's database; the lab's
+scheduler node reads the orders falling due and POSTs their results to
+the clinic's API, through the HTTP driver (D267). The `api` brick then
+needs no timer of its own, and the lab's faults (a lost, duplicated,
+late or out-of-order callback, D268) are stream keys switched by the
+timeline, as v0.4's customs gateway's outage is. How "out of reach" is
+enforced (proposed: the third party's nodes absent from the players'
+starter pack and from the bastion's routes) is settled with the `api`
+brick; v0.4's customs gateway, which players may read, stays as built.
 
 **What the players reach on an `api` node (D271).** They read every
 endpoint file. Where the scenario makes the node fixable, they edit its

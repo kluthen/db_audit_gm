@@ -605,10 +605,13 @@ v0.5's drafting. Take the next number from `doc-ids`; no ID is reused.
   the occasion. Revises D265; D117 and D131 stand. The owner: "we're
   barely begining to introduce API and stuff like that." Now in:
   [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md) 4.
-- **D270 (2026-11-01, owner ruling, same message): An `api` node only
-  answers requests;** producers and consumers on scheduler nodes call
-  it, and a stub's delayed callback is fired from a scheduler node. The
-  owner: "API layer isn't a scheduler". Now in:
+- **D270 (2026-11-01, owner ruling, same message, amended the same day
+  by his addendum): An `api` node in the players' scope only answers
+  requests;** producers and consumers on scheduler nodes call it. The
+  one exception is a third party outside the players' scope, the
+  external lab, whose callbacks initiate, still driven by its hidden
+  schedule. The owner: "API layer isn't a scheduler"; then "that's out
+  of player's scope." Now in:
   [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md) 8.
 - **D271 (2026-11-01, owner ruling, same message): Players read every
   endpoint file of an `api` node and, where the scenario makes it
