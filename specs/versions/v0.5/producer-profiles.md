@@ -1,11 +1,12 @@
 # v0.5 — producer profiles against v0.3's scheduler (O113)
 
-Status: draft v3. Ruled by the owner on 2026-11-01: merging (1, D264),
-periodic reports (4, D265, revised by D269), identity across systems (7,
-D266), API nodes, what they do and what players reach on them, and
-round trips (8, D267, D268, D270, D271). Frictions 2, 3, 5, 6 and 10 carry
-recommendations, (proposed) until he rules on them
-([open rulings](#open-rulings)); 9 and 11 wait for their parts.
+Status: draft v4, ruled. Ruled by the owner on 2026-11-01: merging (1,
+D264), readable profiles, rates, input types, producer nodes, time
+zones and the variant's profile (2, 3, 5, 6, 10, D276), periodic reports
+and how a fix to one is checked (4, D265, D269, D277), identity across
+systems (7, D266), API nodes, what they do and what players reach on
+them, and round trips (8, D267, D268, D270, D271). Frictions 9 and 11
+wait for their parts' profile steps (O113).
 
 The owner, on 2026-11-01: "Let's begin working on the clinic domains and
 the frictions points between producer profiles and v0.3."
@@ -34,15 +35,15 @@ copies; the scenario itself is built in v0.4's wave 4), the scheduler
 | # | Friction | State |
 |---|---|---|
 | 1 | Fragments are merged into a node's files by hand; collisions are lost silently | ruled: `gmctl compose` (D264) |
-| 2 | The hidden `schedule.yaml` (D130) against a profile readable in the catalogue (D13) | open ruling 1 |
-| 3 | Absolute intensity (D32) against rates the domain states | open ruling 2 |
+| 2 | The hidden `schedule.yaml` (D130) against a profile readable in the catalogue (D13) | ruled: accepted on the trust line (D276) |
+| 3 | Absolute intensity (D32) against rates the domain states | ruled: the variant's throughput at intensity 1.0 (D276) |
 | 4 | Weekly, monthly and yearly cadences real time cannot age (O22) | ruled: periodic reports, their past periods planted, no run on demand in v0.5 (D265, D269) |
-| 5 | Richer input types than v0.3's generators | open ruling 3 |
-| 6 | Composites: a core and parts onto one producer node or several | open ruling 4 |
+| 5 | Richer input types than v0.3's generators | ruled: SQL and domain builders (D276) |
+| 6 | Composites: a core and parts onto one producer node or several | ruled: a node per application (D276) |
 | 7 | Keys shared between the core and its parts | ruled: the core the system of record, natural identifiers (D266) |
 | 8 | Inbound flows: round trips (O128) and the scheduler's other targets (D118) | ruled: an `api` brick that only answers, its database side the players' (D267, D270, D271), an HTTP driver, the lab a consumer-producer (D268) |
 | 9 | Many small consumers that all look alike (the housing displays) | carried to `vet-housing` |
-| 10 | Several sites in different time zones | open ruling 5 |
+| 10 | Several sites in different time zones | ruled: one zone in v0.5 (D276) |
 | 11 | Data growth over the aging (the machinery's readings) | carried to `vet-machinery` |
 
 ## 1. Merging fragments (ruled, D264)
@@ -92,7 +93,7 @@ layer the scheduler reads; both undo D23's self-sufficient folder and,
 since domains never bump (D215), would let a catalogue change alter
 released scenarios.
 
-## 2. A readable profile and the hidden schedule
+## 2. A readable profile and the hidden schedule (ruled, D276)
 
 **What.** `schedule.yaml` is root-only on the node, never on a volume,
 never in the hand-over snapshot (D130, master spec 7.1). A domain's
@@ -116,13 +117,13 @@ anyone to read.
 **Options.** a. Accept on the trust line. b. Keep profiles out of the
 readable catalogue: impossible while scenarios themselves are readable.
 
-**Recommendation.** a: a profile reveals a business's base traffic, which
+**The ruling (D276).** a: a profile reveals a business's base traffic, which
 the players could infer from the logs anyway (archived scheduler draft,
 "What the players reach"). The rule worth writing down: a fragment never
 carries a timeline, an intensity or a planted fault; the shop's practice
 made general.
 
-## 3. Absolute intensity and the domain's rates
+## 3. Absolute intensity and the domain's rates (ruled, D276)
 
 **What.** The intensity multiplies every stream of a schedule and is
 absolute, never rescaled to the playground (scheduler draft, "The
@@ -152,7 +153,7 @@ history's. b. Rates recomputed at render from the variant's axes:
 against D32's rule that nothing is recomputed per playground, and
 needless while each domain has one variant in v0.5.
 
-**Recommendation.** a. Parts needing a different throughput from the
+**The ruling (D276).** a. Parts needing a different throughput from the
 core's go on their own node (6) or have their rates adapted at copy.
 
 ## 4. Periodic reports and real time (ruled, D265, D269)
@@ -198,7 +199,7 @@ of the game"):
   D117 and D131 stand: nobody triggers the load, the scheduler has no
   "run now". The players investigate with their own queries on the
   planted inputs and outputs.
-- **How a fix is checked** (proposed). A fault in a periodic report is
+- **How a fix is checked** (D277). A fault in a periodic report is
   judged on what the aging and the session produce, never on a
   periodic run during the session:
   - a fix to the report's inputs or its feeder is checked on the daily
@@ -225,7 +226,7 @@ aging", the other planted faults free to rest on the past periods.
 **For the build.** pgaudit is always on in `postgres` (D261): the load's
 sessions must also set it off, or its audit log would show the planting.
 
-## 5. Richer input types
+## 5. Richer input types (ruled, D276)
 
 **What.** The clinic's producers need values v0.3's generators do not
 make: a species mix, names of new owners and animals, identifiers
@@ -251,13 +252,13 @@ with noise and alarms, instrument batches of many results.
 digits, readings drifting around a baseline). c. New generators: a
 weighted choice first, then distributions.
 
-**Recommendation.** a and b. c only if the clinic's fragments need the
+**The ruling (D276).** a and b. c only if the clinic's fragments need the
 same `int`-and-`CASE` trick over and over; a weighted `choice` would then
 be the one generator to add. Work that depends on the database's state
 (an instrument run over the pending samples) is SQL (`INSERT ... SELECT`),
 not a builder, since builders cannot read.
 
-## 6. Composites: one producer node or several
+## 6. Composites: one producer node or several (ruled, D276)
 
 **What.** A core and its parts each bring fragments. They can land on one
 scheduler node or several; a part in an instance of its own needs its own
@@ -285,7 +286,7 @@ the portal another. A domain's GM notes say which application each
 fragment belongs to. b. One node per domain. c. One node for the whole
 clinic.
 
-**Recommendation.** a. It is what the players would find in a real
+**The ruling (D276).** a. It is what the players would find in a real
 clinic, it keeps the node count to the applications, and it puts every
 cross-instance flow where the procedure puts it, in a purpose's
 transformer job.
@@ -431,7 +432,7 @@ pattern: a scheduler change.
 **Recommendation.** a, unless a `vet-housing` fault needs to tell one
 display from another; decided at `vet-housing`'s profile step (step 6).
 
-## 10. Several sites in different time zones
+## 10. Several sites in different time zones (ruled, D276)
 
 **What.** The franchise has three centres in the country and several
 abroad (D196).
@@ -447,7 +448,7 @@ abroad in neighbouring countries of the same zone). b. Per-site offsets,
 each site's schedule rendered with an extra fixed offset: a render
 change, and `timezone:` no longer a fault's marker.
 
-**Recommendation.** a, with O127's topology side.
+**The ruling (D276).** a, with O127's topology side.
 
 ## 11. Data growth over the aging
 
@@ -469,35 +470,14 @@ intensity 1.0, so the GM sizes the disk.
 **Recommendation.** a, and every domain's GM notes state the growth an
 hour of its producers; decided at `vet-machinery`'s profile step.
 
-## Open rulings
+## The variant's profile (ruled, D276)
 
-Each with its recommendation; "agreed" accepts it.
+The merge's middle layer (D264) is the variant's profile: fragment
+overrides beside the variant's manifest, in `variants/<name>/producers/`,
+holding only what they change ([procedure](domain-procedure.md) 9).
 
-1. **Readable profiles (2).** Accept them on the trust line (D13); a
-   fragment never carries a timeline, an intensity or a planted fault.
-2. **Rates (3).** A domain's rates are its variant's throughput at
-   intensity 1.0 (D263); the scenario sets each node's intensity at
-   design time; the GM notes compare the rates' daily volume with the
-   history's.
-3. **Input types (5).** SQL-side generation and domain builders; no new
-   generator in v0.5 unless the clinic's fragments keep needing a
-   weighted choice.
-4. **Producer nodes (6).** A producer node is one application of the
-   business; cross-instance flows are purposes' transformer jobs, or
-   calls to an `api` node (D267).
-5. **Time zones (10).** Every site in the customer's zone in v0.5.
+## Carried to the parts' profile steps (O113)
 
-Frictions 9 and 11 are decided at `vet-housing`'s and `vet-machinery`'s
-profile steps.
-
-## Questions the rulings raise
-
-Two were settled on 2026-11-01: an API node only answers (D270), and
-players reach its database side only (D271); a run on demand left v0.5
-(D269). One is left, with a recommendation:
-
-1. **The variant's profile (D264, D263).** The merge's middle layer is
-   the variant's profile, which D263's manifest does not hold yet.
-   Recommendation: a variant may carry fragment overrides beside its
-   manifest, `variants/<name>/producers/`, holding only what they
-   change.
+Frictions 9 and 11 are decided at `vet-housing`'s and
+`vet-machinery`'s profile steps (procedure step 6), with the
+recommendations their sections give.

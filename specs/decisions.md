@@ -649,3 +649,18 @@ v0.5's drafting. Take the next number from `doc-ids`; no ID is reused.
   services only their callers. A real lab's API is reachable from
   outside, its database is not. Separate networks wait with O12. Now in:
   [versions/v0.5/third-parties.md](versions/v0.5/third-parties.md) 3.
+- **D276 (2026-11-01, owner confirmation "yes", relayed by the
+  coordinator): O113's remaining recommendations are ruled as written:**
+  readable profiles on the trust line, no timeline, intensity or planted
+  fault in a fragment; rates the variant's throughput at intensity 1.0;
+  values from SQL and domain builders; a producer node per application;
+  every site in the customer's zone in v0.5; a variant's profile in
+  `variants/<name>/producers/`. O113 narrowed to frictions 9 and 11. Now in:
+  [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md).
+- **D277 (2026-11-01, same confirmation): A fix to a periodic report's
+  fault is checked without a run on demand:** inputs or feeder on the
+  feeder's next run; the report's code by the sealed check reading it,
+  and against the scheduled run's output if the GM placed one; planted
+  past outputs stay wrong, the players recommending the rerun. Completes
+  D269. Now in:
+  [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md) 4.

@@ -269,7 +269,9 @@ its customers' habits, and the shop with hundreds of warehouses.
     makes the intensity ([producer profiles](producer-profiles.md) 3).
 - **A variant** is a short manifest in the domain, `variants/<name>.yaml`,
   never a copy of the domain: the parts it takes, its three axes, the
-  purposes that fit it, its tags. Data that genuinely differs between
+  purposes that fit it, its tags. Its profile, the merge's middle layer
+  (D264), is fragment overrides in `variants/<name>/producers/`, holding
+  only what they change (D276). Data that genuinely differs between
   setups is a part, under section 4's rules (a `shop-analytics`, a
   `shop-logistics`), so one domain holds every variant's material.
 - **Tags** come from a small fixed vocabulary, in families:

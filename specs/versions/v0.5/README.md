@@ -14,7 +14,8 @@ a merge script, periodic reports, the core the system of record, an
 `api` brick, the external lab's round trip (D264–D268), then on-demand
 reports moved later and the `api` node's reach (D269–D271), with a
 direction for v1.0 to v2 (D272), and third parties put out of the
-players' reach (D273), their definition ruled (D274, D275); `vet-core`
+players' reach (D273), their definition ruled (D274, D275), then O113's remaining points
+and the periodic fix check (D276, D277); `vet-core`
 reached its business sketch (O144).
 
 ## Documents
@@ -22,7 +23,7 @@ reached its business sketch (O144).
 | Document | Purpose | Status |
 |---|---|---|
 | [domain-procedure.md](domain-procedure.md) | How a domain is defined: what it holds and leaves out, the steps from a brief, done and its checklist, composites, how a scenario names its domains, the shop against it, the effort, scale, variants and tags | approved v4 (D249, D260, D263) |
-| [producer-profiles.md](producer-profiles.md) | The frictions between domains' producer profiles and v0.3's scheduler, each with its evidence, and the owner's rulings or the recommendation still to rule on | draft v2, partly ruled (D264–D268; O113) |
+| [producer-profiles.md](producer-profiles.md) | The frictions between domains' producer profiles and v0.3's scheduler, each with its evidence, and the owner's rulings or the recommendation still to rule on | draft v4, ruled (D264–D271, D276, D277); two frictions carried to their parts (O113) |
 | [third-parties.md](third-parties.md) | What a third party is, what it may carry, how it is built into a game, what the players are told; the repository's third parties in all but name | draft v2, ruled (D273–D275) |
 | [vet-core-domain.md](vet-core-domain.md) | `vet-core` through the procedure: the business sketch (step 2), what the parts need of the core, identity across systems (D266), fourteen questions for the owner | draft v1, step 2 (O144) |
 | [brick-options-review.md](brick-options-review.md) | The options candidates checked against the clinic, and the owner's rulings on them: what the clinic gets, as an option or otherwise, what stops mattering, what O79 still answers | draft v3, ruled (D250, D261, D262) |
@@ -356,9 +357,10 @@ The items moved later are listed in the roadmap
   changes.
 - O112: which other domains join v0.5, deferred until the procedure's
   cost is known (D235).
-- O113: producer profiles against v0.3's scheduler, partly ruled
-  (D264–D271): five rulings and one raised question left
-  ([producer-profiles.md](producer-profiles.md#open-rulings)).
+- O113: producer profiles against v0.3's scheduler, ruled (D264–D271,
+  D276, D277) but for two frictions carried to `vet-housing` and
+  `vet-machinery`
+  ([producer-profiles.md](producer-profiles.md#carried-to-the-parts-profile-steps-o113)).
 - O144: `vet-core`'s business sketch, fourteen questions
   ([vet-core-domain.md](vet-core-domain.md#questions-for-the-owner-o144)).
 - O127: where several sites and inter-site exchange sit, its topology

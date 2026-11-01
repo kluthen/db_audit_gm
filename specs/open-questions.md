@@ -97,7 +97,7 @@ for the next version (v0.1 until it closed, with none left open);
   which real time alone barely exercises; v0.4's part is settled by
   D199 (realistic cadences, none weekly or monthly); the clinic's
   weekly, monthly and yearly reports are in the game, past periods
-  planted (D265; [producer-profiles.md](versions/v0.5/producer-profiles.md) 4).
+  planted (D265, D269, D277; [producer-profiles.md](versions/v0.5/producer-profiles.md) 4).
   Refs: [scenario-lifecycle.md](scenario-lifecycle.md),
   [archive/v0.3/aging-and-timeline.md](archive/v0.3/aging-and-timeline.md),
   [versions/v0.4/README.md](versions/v0.4/README.md).
@@ -209,15 +209,11 @@ added on 2026-10-30 (D196).
   personal data, animal health is no special category. Refs:
   [versions/v0.5/README.md](versions/v0.5/README.md#domains).
 - **O113** (later, v0.5) — Producer profiles against v0.3's scheduler.
-  Ruled: merging (D264), periodic reports (D265, D269), identity across
-  systems (D266), API nodes and round trips (D267, D268, D270, D271).
-  Still open:
-  five rulings (readable profiles, rates, input types, producer nodes,
-  time zones), the two frictions carried to `vet-housing` and
-  `vet-machinery`, and the variant's profile's location, a question the
-  rulings raise (an on-demand run left v0.5, D269; an API node's
-  activity and reach settled, D270, D271). Refs:
-  [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md#open-rulings).
+  Ruled: D264–D271, D276, D277. Still open: two frictions, decided at
+  their parts' profile steps: the housing displays all looking alike
+  (`vet-housing`) and the machinery's data growth over the aging
+  (`vet-machinery`). Refs:
+  [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md#carried-to-the-parts-profile-steps-o113).
 - **O144** (next, v0.5) — `vet-core`'s business sketch (procedure step
   2): fourteen questions the brief leaves open, each with a default
   (sites and the record, the default company, the farm section,
