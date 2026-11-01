@@ -153,9 +153,10 @@ O126), to be tried first on `vet-core` and `vet-lab`:
 ### The clinic, a first cut
 
 Kept now, and revised once `vet-core` is defined (D249); one line per
-domain. A revised split, after `vet-core`'s sketch (D278), is proposed
-for the owner's confirmation in
-[vet-core-domain.md](vet-core-domain.md#the-split-step-3-for-the-owner-to-confirm):
+domain. It is superseded by the split the owner confirmed after
+`vet-core`'s sketch (D278, D279), in
+[vet-core-domain.md](vet-core-domain.md#the-split-step-3-confirmed-d279);
+the first cut stays below as the starting point:
 
 | Domain | What it holds |
 |---|---|

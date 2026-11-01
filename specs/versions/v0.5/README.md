@@ -16,8 +16,8 @@ reports moved later and the `api` node's reach (D269–D271), with a
 direction for v1.0 to v2 (D272), and third parties put out of the
 players' reach (D273), their definition ruled (D274, D275), then O113's remaining points
 and the periodic fix check (D276, D277); `vet-core`'s business sketch
-ruled (D278), its split proposed for the owner's confirmation (step 3)
-and its data model drafted (step 4).
+ruled (D278), its split confirmed (step 3, D279), its data model
+current (step 4) and its classification and governance drafted (step 5).
 
 ## Documents
 
@@ -26,7 +26,7 @@ and its data model drafted (step 4).
 | [domain-procedure.md](domain-procedure.md) | How a domain is defined: what it holds and leaves out, the steps from a brief, done and its checklist, composites, how a scenario names its domains, the shop against it, the effort, scale, variants and tags | approved v4 (D249, D260, D263) |
 | [producer-profiles.md](producer-profiles.md) | The frictions between domains' producer profiles and v0.3's scheduler, each with its evidence, and the owner's rulings or the recommendation still to rule on | draft v4, ruled (D264–D271, D276, D277); two frictions carried to their parts (O113) |
 | [third-parties.md](third-parties.md) | What a third party is, what it may carry, how it is built into a game, what the players are told; the repository's third parties in all but name | draft v2, ruled (D273–D275) |
-| [vet-core-domain.md](vet-core-domain.md) | `vet-core` through the procedure: the business sketch and the owner's answers (step 2), what the parts need of the core, the revised split (step 3), the data model (step 4) | draft v2: step 2 ruled (D266, D278), step 3 to confirm, step 4 drafted |
+| [vet-core-domain.md](vet-core-domain.md) | `vet-core` through the procedure: the business sketch and the owner's answers (step 2), what the parts need of the core, the clinic's split (step 3), the data model (step 4), classification and governance (step 5) | draft v3: steps 2 and 3 ruled (D266, D278, D279), step 4 current, step 5 drafted |
 | [brick-options-review.md](brick-options-review.md) | The options candidates checked against the clinic, and the owner's rulings on them: what the clinic gets, as an option or otherwise, what stops mattering, what O79 still answers | draft v3, ruled (D250, D261, D262) |
 
 ## Goal
@@ -362,8 +362,8 @@ The items moved later are listed in the roadmap
   D276, D277) but for two frictions carried to `vet-housing` and
   `vet-machinery`
   ([producer-profiles.md](producer-profiles.md#carried-to-the-parts-profile-steps-o113)).
-- The owner's confirmation of the clinic's revised split, step 3 of the
-  procedure ([vet-core-domain.md](vet-core-domain.md#the-split-step-3-for-the-owner-to-confirm)).
+- The owner's check that `vet-core`'s rules are realistic, step 5 of the
+  procedure ([vet-core-domain.md](vet-core-domain.md#the-rules-for-the-owner-to-confirm)).
 - O127: where several sites and inter-site exchange sit, its topology
   side.
 - O128: how a round trip (an acknowledgement driving further processes)

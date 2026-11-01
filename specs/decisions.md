@@ -673,3 +673,11 @@ v0.5's drafting. Take the next number from `doc-ids`; no ID is reused.
   variant `regional-franchise`; the identifiers and a dozen mistyped
   chips. Closes O144. Now in:
   [versions/v0.5/vet-core-domain.md](versions/v0.5/vet-core-domain.md#the-owners-answers-d278).
+- **D279 (2026-11-01, owner confirmation "ok understood and agreed",
+  relayed by the coordinator): The clinic's split is confirmed as
+  revised, lab and imaging requests and alerts in the core;** and the
+  history shows the clinic's growth, its daily volumes ramping up to
+  today's live rates, not a busy season (the shop's). `clinic` holds
+  `vet-core` only; the parts land where `domains:` `at:` places them.
+  Now in:
+  [versions/v0.5/vet-core-domain.md](versions/v0.5/vet-core-domain.md#the-split-step-3-confirmed-d279).
