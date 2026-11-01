@@ -29,6 +29,9 @@ from.
   reports generated in the stack, such as pgBadger's HTML, readable
   through the bastion's web front rather than copied out with `scp` and
   `sftp`, which is how they leave in v0.2.
+- **A status page for each third party**, showing only the incidents
+  the partner admits, beside its `partners.md` description (D274;
+  [v0.5's third parties](../v0.5/third-parties.md)).
 
 ## The setup's entry point (D224)
 

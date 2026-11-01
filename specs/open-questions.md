@@ -23,7 +23,7 @@ On 2026-10-31 v0.5 was centred on domain definition and the clinic
 (D233), and its questions retargeted: O53 and O54 to later, version not
 set (D237); O21 and O135 to v0.6; O24 and O25 to v1.0+ (D248). Resolved
 during v0.5's drafting: O137 and O47 (D248), O126 (D249), O139 (D260),
-O118 (D261), O80 (D262), O114 (D263).
+O118 (D261), O80 (D262), O114 (D263), O145 (D274, D275).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -64,7 +64,10 @@ for the next version (v0.1 until it closed, with none left open);
 - **O12** (later) — Are network-level faults (segmentation, routing-mesh
   exposure) in scope? And the network layout itself (management network,
   zones, dual-homed nodes). v0.2 has one network and no network faults
-  (D83). Refs: [platform.md](platform.md).
+  (D83). Separate networks for third parties wait here: v0.5 keeps one
+  network, a third party's back end closed by its own access rules
+  (D275). Refs: [platform.md](platform.md),
+  [versions/v0.5/third-parties.md](versions/v0.5/third-parties.md).
 
 ## Faults and aging
 
@@ -222,14 +225,6 @@ added on 2026-10-30 (D196).
   the training centre, scale and hours, regulations, the variant's
   tags, natural identifiers). The split (step 3) waits for them. Refs:
   [versions/v0.5/vet-core-domain.md](versions/v0.5/vet-core-domain.md#questions-for-the-owner-o144).
-
-- **O145** (next, v0.5) — What a third party is and how it enters a
-  game (D273): nine questions, each with a recommendation (`no-access`
-  made real, a network of its own, calling its interface, a status
-  page later, a `partners.md` starter-pack file, an unanswered support
-  contact, v0.4's customs gateway, the centres abroad, no fix on the
-  partner's side). Refs:
-  [versions/v0.5/third-parties.md](versions/v0.5/third-parties.md#questions-for-the-owner-o145).
 
 - **O127** (later, v0.5 → beyond v1.0) — Where several sites and the
   exchange between them sit: the clinic is a franchise whose centres

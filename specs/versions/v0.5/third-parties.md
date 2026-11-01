@@ -1,8 +1,10 @@
 # v0.5 — third parties: what they are and how they enter a game
 
-Status: draft v1. Settled: a third party's nodes are outside the
-players' reach (D273). The rest is (proposed) until the owner rules on
-the [questions](#questions-for-the-owner-o145) (O145).
+Status: draft v2, ruled. A third party's nodes are outside the players'
+reach (D273); the owner's nine rulings of 2026-11-01 (D274, D275,
+closing O145) are stated below as settled. The `third_parties:` key's
+shape, the loader's checks and the format changes stay (proposed) until
+the version's master spec.
 
 The owner, on 2026-11-01, agreeing to keep a third party out of reach:
 "agreed, but we need a proper definition of what a third party element
@@ -13,9 +15,9 @@ player and how it is documented."
 touches four standing documents: the vocabulary ([concept.md](../../concept.md)),
 who reaches what ([planes-and-access.md](../../planes-and-access.md)),
 the scenario's keys ([formats.md](../../formats.md)) and the player
-material. Those state what is settled and built. This draft holds open
-questions and is built in v0.5 with the `api` brick (D267), so it lives
-here; once ruled and built, each part moves into its standing document:
+material. Those state what is settled and built. This draft still holds
+(proposed) format items and is built in v0.5 with the `api` brick
+(D267), so it lives here; once built, each part moves into its standing document:
 the term into the vocabulary, the access rule into "Player access to
 nodes", the keys into "Scenario".
 
@@ -43,14 +45,14 @@ It is not:
 
 | Element | Where | A third party? | How it fits |
 |---|---|---|---|
-| The customs gateway | v0.4's `shop-export-declarations` purpose, its `receiver` part; `fixture-campaign`'s `gateway` node, a `report-only` scheduler node writing `customs_acks` into the shop's database as `customs_gw` | yes, in all but name | the first third party with a node; it plays both the authority and the shop's callback endpoint. Stays as built (D273); a scenario from v0.5 declares a purpose's `receiver` a third party (question 7) |
+| The customs gateway | v0.4's `shop-export-declarations` purpose, its `receiver` part; `fixture-campaign`'s `gateway` node, a `report-only` scheduler node writing `customs_acks` into the shop's database as `customs_gw` | yes, in all but name | the first third party with a node; it plays both the authority and the shop's callback endpoint. Stays as built (D273); from v0.5's scenarios on, a purpose's `receiver` part is a declared third party (D274) |
 | The carriers | the shop's `carrier_feed.py` builder on the web shop's producer node, resending a share of events | yes, without a node | their traffic arrives through the customer's own feed client; nothing of the carriers runs on its own |
 | The payment provider | the shop's `orders.place`, its 3-second `hold` "the payment provider's authorisation before COMMIT" | yes, without a node | a latency inside the customer's transaction |
 | The accounting service | the shop's close of day, its 20-second `hold` "posted to the accounting service before COMMIT" | yes, without a node | as the payment provider |
 | The mail provider | `mail_outbox`, "handed to the provider"; the governance's outbound flow `to: mail-provider` | yes, without a node | an outbound target; the outbox is the mail's whole trace (D195) |
 | The BI agency | v0.4's `reporting` and `bi` nodes | **no** | a contractor operating systems inside the customer's estate, in the players' scope (D211) |
 | Vendors in the post-mortems | `post_mortem/`: managed PostgreSQL (MailPace, Clerk's provider upgrade), RDS and Aurora (Figma, RevenueCat), a veterinary practice SaaS (Shepherd) | the providers and SaaS vendors are | models for later third parties; Clerk's is the pattern: the provider's upgrade, the customer's pool settings the fix |
-| The clinic's partners | D196: external labs, the centres abroad (question 8), the authority receiving notifiable diseases and the antimicrobial-use report | yes | the external lab is the first third party with an API (D268) |
+| The clinic's partners | D196: external labs, the centres abroad (franchisees' systems, D274), the authority receiving notifiable diseases and the antimicrobial-use report | yes | the external lab is the first third party with an API (D268) |
 
 ## 2. What a third party covers
 
@@ -71,7 +73,7 @@ unsolvable.
 **Every fix is on the customer's side.** Retries with a backoff, an
 idempotency key, a timeout, a reconciliation, monitoring the partner, a
 queue that survives its outage. No fault's fix requires the third party
-to change (question 9). Telling the partner, with the evidence, is a
+to change (D274). Telling the partner, with the evidence, is a
 finding the answer key may credit, never a fix.
 
 **The trust line.** Its stubs are in the repository like every
@@ -93,24 +95,33 @@ node posting results back, a database holding the orders.
 
 **Out of reach (D273).** A third party's nodes have no `player`
 account, are not on the bastion's routes and are not listed among the
-starter pack's nodes. The per-node option is settled with the `api`
-brick; proposed: the existing `no-access` write policy made real. The
-format already offers it (`WRITE_POLICIES` in `tools/gm/model.py`, the
+starter pack's nodes. The per-node option is the existing `no-access`
+write policy made real, with no new key (D274), built with the `api`
+brick. The format already offers it (`WRITE_POLICIES` in `tools/gm/model.py`, the
 template's `write_policy`), but every brick reads it as `report-only`
 today (for instance `bricks/prometheus/docs/gm.md`, "Write policies"):
 the `player` account and its `sudo` wrappers are still created. Made
-real, `no-access` creates neither (question 1).
+real, `no-access` creates neither.
 
-**Networks.** Without a `player` account nothing logs in, but its ports
-stay reachable from any node a player has a shell on. A third party's
-back end belongs on a network of its own, with only its customer-facing
-nodes also on the customer's network (question 2). Today `gmctl` renders
-exactly one network and refuses a second (`tools/gm/localimpl.py`; D83,
-D106); a second network is O12's first use.
+**One network, the back end closed by its own rules (D275).** v0.5
+keeps the one network `gmctl` renders (`tools/gm/localimpl.py`; D83,
+D106). Without a `player` account nothing logs in, and a third party's
+back end refuses the players by its own access rules: its database's
+`pg_hba.conf` admits only the third party's own nodes, and its other
+services accept only their own callers. As with a real lab, its API is
+reachable from outside, its database is not. Separate networks for
+third parties stay with O12.
+
+How the database admits only its own nodes is the build's to verify. On
+one Swarm network the tasks' addresses change, and a host name in
+`pg_hba.conf` relies on reverse lookups that Swarm does not promise; the
+proposed form: lines for the third party's database and roles only, the
+roles' passwords secrets mounted on its own nodes only, every other
+line for that database a `reject`.
 
 **Its interface stays callable.** A player may call the lab's API from a
 node, as the customer's staff could, with the credentials the starter
-pack gives (question 3).
+pack gives (D274).
 
 **Placement.** Like any node: `fit` counts it in the host's budget; with
 several hosts the GM may place third parties on the host the players do
@@ -132,8 +143,8 @@ third_parties:
 `write_policy: no-access` on a brick that implements it; no third-party
 node is in the bastion's `web_routes` or among the starter pack's nodes;
 no fault instance's expected `fix` resolution names a third-party node;
-a third party's database is not on the customer's network. `fit` needs
-nothing new.
+a third-party `postgres` node's seed `pg_hba.conf` admits no role but
+its own on its database. `fit` needs nothing new.
 
 ## 4. What the players are told, and how it is documented
 
@@ -146,8 +157,16 @@ README, story, issues and data policy (D221):
   acknowledgement within a minute, its support hours);
 - the interface: its endpoints and their formats, the authentication,
   the customer's callback URL, the retries it makes or expects;
-- a support contact, in-world (question 6);
-- optionally a status page (question 4).
+- a support contact, in-world, never answering during the game: the GM
+  plays no partner, as it plays no customer before v1.0 is past (D48);
+  players write in their report the message they would send, and the
+  answer key may credit it (D274).
+
+The description is a fifth optional starter-pack file, `partners.md`,
+shown on the bastion's page as `data-policy.md` is (D221), a small
+`bastion` bump (D274). No status page in v0.5: one comes with v0.6's
+bastion work, showing only the incidents the partner admits
+([v0.6](../v0.6/README.md)).
 
 Never its internals: no node names to audit, no schedule, no code.
 
@@ -160,7 +179,7 @@ section (the `scenario-document` skill).
 
 - `formats.md`, "Scenario": the `third_parties:` key; `no-access` made
   real in "Player access to nodes" and in the bricks' `write_policies`;
-  a fifth optional starter-pack file for the partners (question 5).
+  `partners.md`, the fifth optional starter-pack file (D274).
 - The `scenario-format` skill: the template's `third_parties:` block,
   the checks above, a partners file when the scenario has third parties
   players are meant to know.
@@ -172,37 +191,25 @@ section (the `scenario-document` skill).
   `postgres`): `no-access` in its `write_policies`, its entrypoint
   creating no `player` account; a bump each.
 
-## Questions for the owner (O145)
+## The owner's rulings (D274, D275)
 
-Each with a recommendation; "agreed" accepts it.
+On 2026-11-01, "agreed with your recomendations", answering the lead's
+views:
 
-1. **The per-node option.** Make the existing `no-access` write policy
-   real (no `player` account, no `sudo` wrappers) rather than add a new
-   key. Recommended.
-2. **Networks.** A third party's back end on a network of its own, only
-   its customer-facing nodes also on the customer's, which lifts the
-   one-network rule (D83, D106) and starts O12. Recommended; the
-   fallback, one shared network with no `player` account, leaves its
-   ports reachable.
-3. **Calling its interface.** Players may call a third party's public
-   interface from a node with the documented credentials, as the
-   customer's staff could. Recommended.
-4. **A status page.** Not in v0.5: the partner's description only; a
-   status page, rendered from the incidents the partner admits (it may
-   lag or omit some), with v0.6's bastion. Recommended.
-5. **Where the description lives.** A fifth optional starter-pack file,
-   `partners.md`, shown on the bastion's page as `data-policy.md` is
-   (D221), a small `bastion` bump in v0.5. Recommended.
-6. **The support contact.** In-world and never answered during the game:
-   the GM plays no partner, as it plays no customer before v1.0 is
-   past (D48). Players write in their report what they would send, and the
-   answer key may credit it. Recommended.
-7. **v0.4's customs gateway.** Stays as built in v0.4's scenario; from
-   v0.5's scenarios, a purpose's `receiver` part is a declared third
-   party. Recommended.
-8. **The centres abroad.** Third parties, franchisees with systems of
-   their own, reached by exchange (O127, O128; O144's question 1).
-   Recommended.
-9. **No fix on the partner's side.** Confirm that no fault's fix ever
-   requires a third party to change; telling it, with the evidence, is a
-   creditable finding. Recommended.
+1. `no-access` made real, no new key (D274).
+2. One network in v0.5; the back end closed by its own access rules;
+   separate networks with O12 (D275, against the draft's recommendation
+   of a network of its own).
+3. Players may call a third party's public interface with the
+   documented credentials (D274).
+4. No status page in v0.5; one with v0.6's bastion, showing only what
+   the partner admits (D274).
+5. `partners.md`, a fifth optional starter-pack file, on the bastion's
+   page (D274).
+6. An in-world support contact that never answers during the game; the
+   message players would send may be credited (D274).
+7. v0.4's customs gateway stays as built; from v0.5's scenarios on, a
+   purpose's `receiver` part is a declared third party (D274).
+8. The franchise's centres abroad are third parties, franchisees with
+   systems of their own, reached by exchange (D274).
+9. No fault's fix ever requires a third party to change (D274).

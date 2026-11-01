@@ -42,7 +42,7 @@ external labs. Owners follow their animals through a portal.
 | Lab staff | the biology lab | receives orders, runs analyses (`vet-lab`) |
 | Receptionist | each centre | registers owners and animals, books (`vet-scheduling`) |
 | Instructor | the training centre | teaches with the teaching animals (`vet-scheduling`) |
-| Another centre of the franchise | the other sites | sends and receives transfers and requests (topology, round trips: O127, O128) |
+| Another centre of the franchise | the other national centres; the centres abroad, third parties, franchisees with systems of their own (D274) | sends and receives transfers and requests (topology, round trips: O127, O128) |
 | External lab | outside the franchise | receives orders, returns results (`vet-lab`, O128) |
 | The authority | the veterinary services | receives notifiable disease reports and the antimicrobial-use report (purposes) |
 
@@ -168,11 +168,12 @@ the medicines and their batches (question 7).
 Each with a proposed default; "agreed" accepts it.
 
 1. **Sites and the record.** Do the three national centres share one
-   medical record, and are the centres abroad separate systems? Default:
+   medical record? Settled already: the centres abroad are third
+   parties, franchisees with systems of their own, reached by exchange
+   (D274; [third-parties.md](third-parties.md)). Default for the rest:
    one shared record for the three national centres (a site is a core
-   entity, procedure 4); the centres abroad are separate systems,
-   reached by exchange (O127, O128), listed in `sites` so that transfers
-   name them; every site in the customer's zone ([producer
+   entity, procedure 4); the centres abroad listed in `sites` so that
+   transfers name them; every site in the customer's zone ([producer
    profiles](producer-profiles.md) 10).
 2. **The default company.** Default: a fictional franchise in an
    unnamed EU member state, "Aldermoor Veterinary Hospitals", its rules

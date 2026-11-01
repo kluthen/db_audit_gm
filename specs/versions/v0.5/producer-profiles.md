@@ -383,7 +383,7 @@ timeline, as v0.4's customs gateway's outage is. Out of reach means no
 `player` account, no route on the bastion, no place in the starter pack,
 a per-node option settled with the `api` brick (D273); what a third
 party is and how it enters a game is [third-parties.md](third-parties.md)
-(O145). v0.4's customs gateway, which players may read, stays as built.
+(D274, D275). v0.4's customs gateway, which players may read, stays as built.
 
 **What the players reach on an `api` node (D271).** They read every
 endpoint file. Where the scenario makes the node fixable, they edit its

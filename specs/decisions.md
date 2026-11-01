@@ -632,3 +632,20 @@ v0.5's drafting. Take the next number from `doc-ids`; no ID is reused.
   on the network. v0.4's customs gateway stays as built until the
   definition says otherwise. Raises O145. Now in:
   [versions/v0.5/third-parties.md](versions/v0.5/third-parties.md) 3.
+- **D274 (2026-11-01, owner ruling, "agreed with your recomendations",
+  relayed by the coordinator): Third parties as the draft recommends,
+  but for the network:** `no-access` made real, no new key; players may
+  call a partner's public interface; `partners.md`, a fifth optional
+  starter-pack file, on the bastion's page; a status page with v0.6; an
+  unanswering in-world support contact; v0.4's customs gateway as
+  built, a purpose's `receiver` a third party from v0.5; the centres
+  abroad third parties; no fix ever on the partner's side. Closes O145
+  with D275. Now in:
+  [versions/v0.5/third-parties.md](versions/v0.5/third-parties.md).
+- **D275 (2026-11-01, owner ruling, same answer; against spec-writer's
+  recommendation of a network of its own): v0.5 stays on one network;
+  a third party's back end is closed by its own access rules,** its
+  database's `pg_hba.conf` admitting only its own nodes, its other
+  services only their callers. A real lab's API is reachable from
+  outside, its database is not. Separate networks wait with O12. Now in:
+  [versions/v0.5/third-parties.md](versions/v0.5/third-parties.md) 3.
