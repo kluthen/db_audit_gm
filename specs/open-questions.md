@@ -92,8 +92,8 @@ for the next version (v0.1 until it closed, with none left open);
   Not moot: v0.4's purposes (D190) run daily, weekly or monthly jobs,
   which real time alone barely exercises; v0.4's part is settled by
   D199 (realistic cadences, none weekly or monthly); the clinic's
-  monthly and yearly duties are O113's ruling 4
-  ([producer-profiles.md](versions/v0.5/producer-profiles.md) 4).
+  weekly, monthly and yearly reports are in the game, past periods
+  planted (D265; [producer-profiles.md](versions/v0.5/producer-profiles.md) 4).
   Refs: [scenario-lifecycle.md](scenario-lifecycle.md),
   [archive/v0.3/aging-and-timeline.md](archive/v0.3/aging-and-timeline.md),
   [versions/v0.4/README.md](versions/v0.4/README.md).
@@ -204,19 +204,21 @@ added on 2026-10-30 (D196).
   `fernway-clinics-monitoring` is a veterinary clinic: its owners are
   personal data, animal health is no special category. Refs:
   [versions/v0.5/README.md](versions/v0.5/README.md#domains).
-- **O113** (later, v0.5) — Producer profiles against v0.3's scheduler:
-  eleven frictions found in the shop as built and the scheduler 0.2.0,
-  nine rulings for the owner (merging fragments, readable profiles,
-  rates, long cadences, input types, producer nodes, key ranges,
-  inbound flows, time zones), each with a recommendation; two carried
-  to `vet-housing`'s and `vet-machinery`'s profile steps. Refs:
-  [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md#rulings-for-the-owner).
+- **O113** (later, v0.5) — Producer profiles against v0.3's scheduler.
+  Ruled: merging (D264), periodic reports (D265), identity across
+  systems (D266), API nodes and round trips (D267, D268). Still open:
+  five rulings (readable profiles, rates, input types, producer nodes,
+  time zones), the two frictions carried to `vet-housing` and
+  `vet-machinery`, and four questions the rulings raise (the variant's
+  profile, a report run on demand against D131, an API node's own
+  activity, what players reach on an API node). Refs:
+  [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md#open-rulings).
 - **O144** (next, v0.5) — `vet-core`'s business sketch (procedure step
-  2): thirteen questions the brief leaves open, each with a default
+  2): fourteen questions the brief leaves open, each with a default
   (sites and the record, the default company, the farm section,
   ownership, referrals, the hospital stay, medicines, billing, staff,
   the training centre, scale and hours, regulations, the variant's
-  tags). The split (step 3) waits for them. Refs:
+  tags, natural identifiers). The split (step 3) waits for them. Refs:
   [versions/v0.5/vet-core-domain.md](versions/v0.5/vet-core-domain.md#questions-for-the-owner-o144).
 
 - **O127** (later, v0.5 → beyond v1.0) — Where several sites and the
@@ -229,7 +231,7 @@ added on 2026-10-30 (D196).
   O12 (network layout). Narrowed by the procedure (D235, D249): a site
   is a core entity, so one database holds several sites' data; what
   stays open is the topology side, several instances and the exchange
-  between them. Every site in one zone is O113's ruling 9; which sites
+  between them. Every site in one zone is O113's open ruling 5; which sites
   share a record is O144's question 1. Refs:
   [versions/v0.5/README.md](versions/v0.5/README.md#the-veterinary-clinic-d196).
 
@@ -241,7 +243,10 @@ added on 2026-10-30 (D196).
   of order, duplicated, unmatched acknowledgements, as timeline changes,
   D127); how a check judges a cascade, whose faults show downstream; and
   what of the clinic's lab results and inter-clinic exchanges it covers.
-  The SQL stub as its baseline is O113's ruling 8.
+  Settled for the external lab (D268): a consumer-producer over API
+  nodes, its correlation id and its faults; SQL stubs where no API is
+  needed. Still open: a purpose kind of its own or a pushed obligation
+  with reactions, and how a check judges a cascade.
   Refs: [versions/v0.5/README.md](versions/v0.5/README.md#round-trips-acknowledgements-as-inputs-d201),
   [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md) 8.
 

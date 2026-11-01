@@ -2,7 +2,7 @@
 
 Status: draft v1, at the procedure's step 2, the business sketch, its
 scale on D263's three axes. Its questions are the owner's to answer
-(O144); the split (step 3) and the data model (step 4) wait for his
+(O144); identity across systems is ruled (D266); the split (step 3) and the data model (step 4) wait for his
 answers. Figures and readings are
 (proposed) until he confirms them.
 
@@ -50,7 +50,7 @@ external labs. Owners follow their animals through a portal.
 
 | Activity | What it records | Held by (first cut) |
 |---|---|---|
-| Registering an owner and an animal | identity, contact, the animal's species, breed, identifier, food-chain status | core |
+| Registering an owner and an animal | identity, contact, the animal's species, breed, natural identifiers (question 14), food-chain status | core |
 | Referral intake | the referring vet, the reason, the documents | core (question 5) |
 | Booking a consultation, a room, a machine | the slot | `vet-scheduling` |
 | Consultation | the vet, the findings, the diagnoses | core |
@@ -139,14 +139,22 @@ shares (owners, animals, sites, staff) and the medical record
 Parts refer to its keys by id, with no foreign key, so a part's schema
 runs in the core's database or in an instance of its own; the core's
 load generates its keys in documented ranges; a part's names carry its
-prefix. Two answers may add to it: the hospital stay (question 6) and
+prefix.
+
+The core is the **system of record** for owners and animals (D266): a
+part gets them through a lookup API on the core, an `api` node (D267),
+or a reference table the core syncs to it. Across systems an animal is
+known by its **natural identifiers**: its microchip (ISO 11784/11785),
+a horse's UELN and passport number, a farm animal's ear tag. They are
+the animal's own columns in the core, and fault vectors: a duplicate, a
+mistyped chip, a lab result matching no animal. Two answers may add to it: the hospital stay (question 6) and
 the medicines and their batches (question 7).
 
 ## Where the parts press on the core
 
 | Part | What it needs the core to hold |
 |---|---|
-| `vet-lab` | the request that orders an analysis, tied to its consultation, animal and requesting vet, so a result can be traced back and released; the animal's food-producing status for residue tests |
+| `vet-lab` | the request that orders an analysis, tied to its consultation, animal and requesting vet, so a result can be traced back and released; the animal's natural identifiers, which an external lab's result carries (D266, D268); the animal's food-producing status for residue tests |
 | `vet-portal` | the owner as a stable key, one portal account each; who owns an animal **now**, and since when: a horse is sold, a dog changes family (question 4); what of the record an owner may see |
 | `vet-housing` | the hospital stay the box refers to (question 6); what a display shows: identity, alerts and allergies, the treatment plan; the administrations, so that care logs and the core never hold one fact twice (a trap, step 8) |
 | `vet-scheduling` | staff with their specialties and sites, rooms per site; the consultation a booking turns into, by id |
@@ -225,6 +233,14 @@ Each with a proposed default; "agreed" accepts it.
     traits `regulated`, `multi-site` and `24/7`; not `seasonal`, though
     the farm section has its calving and lambing seasons, which a
     scenario's story may name.
+
+14. **Natural identifiers (D266).** Which identifiers does the core
+    hold, and how clean are they? Default: a microchip for every dog,
+    cat and horse and for some other pets, about 2 % of domestic animals
+    with none; a UELN and a passport number for every horse; an ear tag
+    for every farm animal; unique when present, with a handful of
+    mistyped chips at load (a trap, step 8). A herd's holding number
+    for each herd.
 
 ## Next
 

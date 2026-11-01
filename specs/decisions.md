@@ -560,3 +560,42 @@ v0.5's drafting. Take the next number from `doc-ids`; no ID is reused.
   v0.5 builds one variant per domain.** The owner: "size isnt sufficient
   to describe whatever it is." Closes O114. Now in:
   [versions/v0.5/domain-procedure.md](versions/v0.5/domain-procedure.md) 9.
+- **D264 (2026-11-01, owner ruling, "agreed" to the lead's proposal,
+  relayed by the coordinator): A `gmctl compose` script merges a node's
+  fragments at design time, built with the format changes:** layers
+  domain default < variant profile < scenario, a higher layer winning
+  silently and the merge report recording it; a profile-to-profile
+  conflict stops the merge, its resolution in the scenario's
+  `merge.yaml`; part prefixes, provenance comments, duplicate keys
+  refused. O113 narrowed. Now in:
+  [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md) 1.
+- **D265 (2026-11-01, owner ruling, same proposal): Weekly, monthly and
+  yearly reports are part of the game:** past periods planted by the
+  load, unseen in logs and pgwatch; if the GM plants faults there, at
+  least one shows a witness within the aging; one periodic run may be
+  scheduled in the aging; every report runs on demand for a period;
+  calibrated per node, never killed for memory. Replaces D199 for
+  domains. O113 narrowed. Now in:
+  [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md) 4.
+- **D266 (2026-11-01, owner ruling, same proposal): `vet-core` is the
+  system of record for owners and animals,** reached through a lookup
+  API or a synced reference table; natural identifiers (microchip,
+  UELN and passport, ear tag) carry identity across systems and are
+  fault vectors; no central id provider; an EMPI-style `vet-identity`
+  part maybe later. O113 narrowed. Now in:
+  [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md) 7,
+  [versions/v0.5/vet-core-domain.md](versions/v0.5/vet-core-domain.md).
+- **D267 (2026-11-01, owner ruling, same proposal): An `api` brick on
+  FastAPI serves endpoint files the GM drops in, and the scheduler gets
+  an HTTP driver as its caller;** first for the core's lookup API, the
+  external labs and the machinery; FastAPI and uvicorn pass a
+  security-advisor dependency check before the build; message queues
+  wait for a flow that needs one. Narrows D118 and D248's targets. Now in:
+  [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md) 8.
+- **D268 (2026-11-01, owner ruling, same proposal): The external lab is
+  a consumer-producer round trip over APIs:** the clinic POSTs an order,
+  gets "accepted" with a correlation id, and the lab's stub calls back
+  hours later; its faults are lost, duplicate, late or out-of-order
+  callbacks, a wrong correlation id, a retry without an idempotency key;
+  SQL stubs stay where no API is needed. O128 narrowed. Now in:
+  [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md) 8.

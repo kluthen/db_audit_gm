@@ -9,16 +9,18 @@ recommendation of the scope review on 2026-10-31 (D248–D251), then
 approved the domain procedure and ruled on pgaudit and the options'
 reach the same day (D260–D262). On 2026-11-01 a domain's scale, variants
 and tags were settled (D263); the frictions between producer profiles
-and v0.3's scheduler were drafted (O113), and `vet-core` reached its
-business sketch (O144).
+and v0.3's scheduler were drafted (O113) and partly ruled the same day:
+a merge script, periodic reports, the core the system of record, an
+`api` brick, the external lab's round trip (D264–D268); `vet-core`
+reached its business sketch (O144).
 
 ## Documents
 
 | Document | Purpose | Status |
 |---|---|---|
 | [domain-procedure.md](domain-procedure.md) | How a domain is defined: what it holds and leaves out, the steps from a brief, done and its checklist, composites, how a scenario names its domains, the shop against it, the effort, scale, variants and tags | approved v4 (D249, D260, D263) |
-| [producer-profiles.md](producer-profiles.md) | The frictions between domains' producer profiles and v0.3's scheduler, each with its evidence, options and recommendation; nine rulings for the owner | draft v1 (O113) |
-| [vet-core-domain.md](vet-core-domain.md) | `vet-core` through the procedure: the business sketch (step 2), what the parts need of the core, thirteen questions for the owner | draft v1, step 2 (O144) |
+| [producer-profiles.md](producer-profiles.md) | The frictions between domains' producer profiles and v0.3's scheduler, each with its evidence, and the owner's rulings or the recommendation still to rule on | draft v2, partly ruled (D264–D268; O113) |
+| [vet-core-domain.md](vet-core-domain.md) | `vet-core` through the procedure: the business sketch (step 2), what the parts need of the core, identity across systems (D266), fourteen questions for the owner | draft v1, step 2 (O144) |
 | [brick-options-review.md](brick-options-review.md) | The options candidates checked against the clinic, and the owner's rulings on them: what the clinic gets, as an option or otherwise, what stops mattering, what O79 still answers | draft v3, ruled (D250, D261, D262) |
 
 ## Goal
@@ -83,11 +85,14 @@ How domains meet the rest of this version (proposed):
 - **Topology fragments** are the technical arrangement (which bricks,
   how they connect); a domain is the business side. A scenario combines
   domains with fragments; v0.5's fragments are the clinic's.
-- **Producer profiles and v0.3's scheduler**: a profile's relation to
-  the query repository (`queries.yaml`, `builders/`) and the hidden
-  schedule (`schedule.yaml`) is O113. The lab's instrument uploads or the
-  machinery's readings may want the scheduler's other targets (D118),
-  message queues and APIs ([Sorting](#sorting-d233)).
+- **Producer profiles and v0.3's scheduler**
+  ([producer-profiles.md](producer-profiles.md), O113): fragments are
+  merged by a `gmctl compose` script (D264); weekly, monthly and yearly
+  reports are in the game, their past periods planted (D265); the core
+  is the system of record, natural identifiers carrying identity across
+  systems (D266); an `api` brick and the scheduler's HTTP driver serve
+  the flows that need an API (D267), the external lab's round trip
+  first (D268).
 - **Governance**: each domain classifies its data (v0.4's first cut,
   D191). The clinic, a regulated business, brings the richer rules:
   required settings, audit trails, retention, and the brick changes they
@@ -239,7 +244,12 @@ template and index are in [`post_mortem/`](../../../post_mortem/README.md).
   the regulated domains (D191), and `purpose-retry-without-key`, held
   for round trips (D201).
 - **Round trips** (D201; O128), on the clinic's cases: external labs'
-  results, exchanges between clinics.
+  results over API nodes, a consumer-producer with a correlation id and
+  its callback faults (D268); exchanges between clinics.
+- **Periodic reports** (D265): weekly, monthly and yearly, their past
+  periods planted by the load, run on demand for a period, calibrated
+  per node.
+- **`gmctl compose`** (D264), built with the domain format's changes.
 - **Governance beyond v0.4's first cut** (D191), the clinic being the
   regulated domain, with the brick changes it needs: TLS and pgaudit
   always available in `postgres`, turned on by the seed (D250, D261).
@@ -257,8 +267,11 @@ template and index are in [`post_mortem/`](../../../post_mortem/README.md).
   Nagios-style health solutions (D66), beyond v0.2's one default brick
   per need; hand-made scripts as the customer's own tooling (D70, D248).
 - **The scheduler's other targets the clinic's flows need** (D118,
-  D248): message queues and APIs for the external labs, the machinery
-  and messaging.
+  D248): an `api` brick on FastAPI serving the GM's endpoint files and
+  an HTTP driver in the scheduler (D267), for the core's lookup API, the
+  external labs and the machinery; FastAPI and uvicorn pass a
+  security-advisor dependency check before the build, a gate of the
+  build plan. Message queues only if a flow needs one.
 - **v0.3's defaults revisited** where the clinic's work meets one
   (D146, D248).
 - **The post-mortem collection**, a side track (D234, above).
@@ -286,7 +299,7 @@ O137); one row stays deferred.
 | Nagios-style health solutions (D66) | v0.5 | settled (D238): monitoring breadth across sites and machinery servers |
 | The research's other top-three picks per need, alternatives to v0.2's bricks (VictoriaMetrics for Prometheus, for one) | v1.0+ | settled (D248): alternatives, not breadth |
 | Hand-made scripts as the customer's own tooling (D70) | v0.5 | settled (D248): a clinic's own IT runs its scripts beside the tools |
-| The scheduler's other targets (D118): the message queues and APIs the clinic's flows need (external labs, machinery, messaging) | v0.5 | settled (D248) |
+| The scheduler's other targets (D118): the message queues and APIs the clinic's flows need (external labs, machinery, messaging) | v0.5 | settled (D248): an `api` brick and an HTTP driver (D267); queues only if a flow needs one |
 | The scheduler's other targets: other database types, tools triggering transformation layers | v1.0+ | settled (D248) |
 | Fault definitions beyond the clinic's, across the families | v1.0+ | settled (D248) |
 | The undersized transformer (D204) | after v1.0, heading the provider's capacity family (D205) | settled (D248): only reportable until players may resize a node |
@@ -332,14 +345,16 @@ The items moved later are listed in the roadmap
   changes.
 - O112: which other domains join v0.5, deferred until the procedure's
   cost is known (D235).
-- O113: producer profiles against v0.3's scheduler, nine rulings
-  ([producer-profiles.md](producer-profiles.md#rulings-for-the-owner)).
-- O144: `vet-core`'s business sketch, thirteen questions
+- O113: producer profiles against v0.3's scheduler, partly ruled
+  (D264–D268): five rulings and four raised questions left
+  ([producer-profiles.md](producer-profiles.md#open-rulings)).
+- O144: `vet-core`'s business sketch, fourteen questions
   ([vet-core-domain.md](vet-core-domain.md#questions-for-the-owner-o144)).
 - O127: where several sites and inter-site exchange sit, its topology
   side.
 - O128: how a round trip (an acknowledgement driving further processes)
-  is modelled.
+  is modelled; its API side settled (D268), the purpose kind and the
+  checks of a cascade left.
 - O79: the options model, for its one user, the `monitoring` role, on
   `postgres` (D250, D261, D262).
 - O23: number and mix of faults, difficulty, for the clinic's scenario.
