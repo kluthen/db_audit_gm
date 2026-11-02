@@ -1,6 +1,9 @@
 # db_audit_gm v0.4 — Build plan
 
-Status: v11 (2026-11-02): the owner's ruling on O146 (spec D284): f4
+Status: v12 (2026-11-02): the owner's ruling on chunk 17a's finding,
+the `pgbouncer` start-up DNS race fixed in v0.4 as `pgbouncer` 0.1.1 by
+the inserted chunk 21 on wave 4 (spec D305), in "Read first", the waves,
+chunk 17 and the release gate; v11 (2026-11-02): the owner's ruling on O146 (spec D284): f4
 expected "too soon" at the hand-over check, masked by f5 at
 `handover-5h`, and the hand-over check passing a "too soon" the answer
 key expects, in chunks 16 and 17 (`gmctl.md`'s line in 17, chunk 18
@@ -73,7 +76,10 @@ plan states only its deltas. Its conventions follow v0.3's
   scenarios and the four fixtures that pin any of them, in the same
   commit; every later v0.4 change to any of the three folds into that
   version, a brick version being released only by v0.4's release gate.
-  The other four bricks are unchanged and keep their versions.
+  `pgbouncer` takes 0.1.1 by chunk 21, which fixes its start-up race and
+  re-pins it in the same commit (spec D305); `prometheus`,
+  `postgres-exporter` and `grafana` are unchanged and keep their
+  versions.
 - **The web front runs in every game** (spec D224, replacing v0.2's
   D103): the bastion always publishes port 8080 and the tools password
   is always handed over, a web interface to publish or not; its home is
@@ -166,7 +172,7 @@ with the owner's ruling of spec D221, during wave 1.
 | 1 | 1, 2, 3, 4, 5, 19 | G1 (done); G2 (chunk 1, done); G3, G4; G5 (chunk 4); G12, G13 (chunk 19); G6 before its gate | gated (2026-10-30, 4064719) |
 | 2 | 6, 7, 8, 9, 10, 11 | wave 1; G8, G9 (done); G7 (the gate's two-host run) | gated (2026-10-30, f35dd40) |
 | 3 | 12, 13, 14, 15, 20 | wave 2; G10 (chunk 15's f10 half, done) | merged (gate passed 2026-10-31, 5e8eb84) |
-| 4 | 16, 17, 18 | wave 3; G7 (chunk 17's two-host runs) | in progress (from 2026-11-02) |
+| 4 | 16, 17, 18, 21 | wave 3; G7 (chunk 17's two-host runs) | in progress (from 2026-11-02) |
 
 ```
 1 ──> 2, 3, 4, 19      (in wave 1, cut once chunk 1 has merged into v0.4-w1; W1)
@@ -191,6 +197,7 @@ G12, G13 ──> 19
 12 ──> 20              (in-wave: chunk 12 merged; chunk 20 extends its G1, spec D253)
 13, 14, 15 ──> 16
 16 ──> 17              (in-wave: the scenario's instances and the jobs the harness moves; W4)
+21 ──> 17              (in-wave, merge order only: 17a's runs after its branch merges v0.4-w4 in, and 17b, on pgbouncer 0.1.1; spec D305)
 8, 9, 12, 20 ──> 17
 6, 7, 8, 14, 15 ──> 18
 ```
@@ -228,6 +235,13 @@ after chunk 12 merged (spec D253): fix-sized, cut from `v0.4-w3` at the
 first free slot and handed by the driver to a `coding-executor`, it
 shares no file with 15b and merges before wave 3's gate. With no intent
 register there is no `documentalist` peek to run before it.
+
+Wave 4: chunk 21 was inserted while 17a was paused (spec D305): fix-sized,
+cut from `v0.4-w4` at the first free slot and handed by the driver to a
+`coding-executor`, it shares no file with 17a and merges before wave 4's
+gate. 17a's branch merges `v0.4-w4` in once chunk 21 has merged, so its
+remaining runs use `pgbouncer` 0.1.1; 17b is cut after that. No
+`documentalist` peek, as for chunk 20.
 
 ## Workflow deltas
 
@@ -309,7 +323,8 @@ register there is no `documentalist` peek to run before it.
   alone, and from wave 2 on armenelos plus the VPS (G7; the VPS `active`
   for that run only, declared `shared`); from wave 3, chunk 13's
   deployment of `fixture-campaign` with every job running and G1 to G4
-  passing; from wave 4, chunk 17's runs on the new scenario.
+  passing; from wave 4, chunk 17's runs on the new scenario, with no
+  pooler WORKAROUND line (spec D305).
 - No link checker is configured; Markdown links are checked by reading.
 - Images are tagged `127.0.0.1:5000/dbagm/<brick>:<version>`, as before;
   every pinned download is checked against its published checksum in the
@@ -1182,7 +1197,10 @@ Record: 8563c90, merged a3383d2 (2026-11-02), built on O146 (a) (spec D284). Dif
 Status: in progress (17a paused at WIP bf5dbf5, 2026-11-02)
 Wave: 4
 Depends on: chunks 8, 9, 12, 20; chunk 16 (in-wave, W4), merged into `v0.4-w4`
-before this chunk's branch is cut; G4; G7 (17a's two-host run, 17b)
+before this chunk's branch is cut; chunk 21 (in-wave, spec D305): 17a's
+runs after its branch has merged `v0.4-w4` in once chunk 21 has merged,
+and 17b, run on `pgbouncer` 0.1.1, a 17a run before that relying on its
+harness's counted WORKAROUND; G4; G7 (17a's two-host run, 17b)
 Architecture capture: none of its own; it uses W4.
 
 - Goal: the harness and the runs master spec 18 asks for, run once on the
@@ -1468,6 +1486,100 @@ Owner: a `coding-executor` on the wave branch, briefed by the driver
 - Split rule: none; each file's change is a few lines.
 Record: cf9d0a4, merge 6b4ad78. Unit suite 848 OK; `smoke-governance.sh` on armenelos 121/0 (the new breach `g1-separation-database.sql`, a database `scratch` on `db`: G1=1 from `db` and `reporting`, 0 after its drop). Differs from the text: `smoke-governance.sh` accepts an optional `-- first:` line in a breach file; the breach line's object for a whole database is the word `database` (`G1 db/scratch database: shares the instance of db/shop, …`); SKILL.md's fault paragraph left as is (still true for what is required). Risk: a planted database without CONNECT for PUBLIC reads 2, as the existing walk does.
 
+### Chunk 21 — `pgbouncer` 0.1.1: the start-up DNS race
+
+Status: planned
+Wave: 4
+Depends on: nothing in the wave; cut from `v0.4-w4`; G3, G4.
+Architecture capture: none: no interface changes (the brick's paths,
+`brick.yaml` keys and runtime interface stay as v0.3's capture W1 set
+them).
+Owner: a `coding-executor` on the wave branch, briefed by the driver
+(inserted by spec D305; fix-sized, no chunk-mode leader).
+
+- Goal: a pooler started before its database node serves through it
+  once the node is up (master spec 7.3, spec D305): the race the wave
+  log's "Finding — the `pgbouncer` brick's start-up DNS race" records
+  (the pooler ~50 ms before `db`; "DNS lookup failed: db: result=0 …
+  (bad-af)" on every lookup for 25 minutes or more while `getent hosts
+  db` resolves in the same container; 4 of 5 deploys; `s6-svc -r` of
+  the service curing it at once) no longer reproduces.
+- Scope: in:
+  - the `pgbouncer` s6 service's `run`: before it execs PgBouncer, a
+    bounded wait until every host a `host=` of the `[databases]`
+    section of `/run/pgbouncer-conf/pgbouncer.ini` names resolves (a
+    socket path and an entry without `host=` skipped), then PgBouncer
+    started whether they resolve or not, so a name that never resolves
+    (a player's edit, a fault) never keeps the node down; the wait and
+    its outcome written to the service's log. The bound covers a
+    database node starting seconds after the pooler, and stays well
+    inside the health check's 60 s `start_period`. Or an equivalent the
+    builder finds that meets "Done when", recorded in the Record line
+    with why (master spec 7.3 then follows it). The evidence shows
+    c-ares failing while `getent` resolves, so the proof is the
+    stack-test case below, not a lookup answering;
+  - the version: `brick.yaml`'s `version` and `image` 0.1.1 and its
+    header comment; every `pgbouncer:0.1.0` tag in the brick (the
+    Dockerfile's build comment, `docs/gm.md`, `tests/run-stack-test.sh`,
+    `tests/stack.test.yml`);
+  - `docs/gm.md`: the wait in "Start-up" (after `gm-entrypoint`, in the
+    service's `run`) with its bound; "Supported faults" naming 0.1.1;
+    "Known limits" saying so if the stack test shows the stuck lookup can
+    still follow a good start (the database node replaced mid-game),
+    curing that being out; footprint as measured;
+  - the stack test: a case where the pooler starts before `db` resolves
+    (for instance the pooler restarted while `db` is scaled to 0, `db`
+    then scaled back up), then a query through the pooler to `db`
+    succeeding within a bound and no `DNS lookup failed` line once `db`
+    resolves; a case where a `[databases]` host never resolves, the
+    pooler still healthy and its console answering after the bound; the
+    existing cases passing;
+  - the re-pins, in the same commit: `faults/pgbouncer-pool-too-small/fault.yaml`'s
+    `applies_to` adding "0.1.1" (0.1.0 kept); `scenarios/tarnbeck-outdoor-shop`,
+    `scenarios/tarnbeck-outdoor-campaign`, `tools/tests/fixtures/fixture-campaign`
+    and `fixture-load` pinning `pgbouncer` 0.1.1, each `README.md`
+    regenerated with the scenario-document skill; `tools/tests/test_model.py`'s
+    two expected pins (`fixture-load`'s, `fixture-campaign`'s); the
+    build comments of `tools/tests/{smoke-scenario,smoke-load}.sh`;
+    `bricks/postgres/docs/gm.md`'s line on the fault applying to
+    `pgbouncer` 0.1.0, now "0.1.1 and 0.1.0" as its scheduler line reads
+    (folds into the unreleased `postgres` 0.4.0, no bump);
+  - Out: `tools/tests/smoke-purposes.sh`'s WORKAROUND (chunk 17a's):
+    it stays as a safety net that counts its uses, and the wave gate
+    expects zero WORKAROUND lines; `.tech`'s two `pgbouncer 0.1.0`
+    mentions, brought to 0.1.1 by `security-advisor` at the driver's
+    call once merged (no package changes, so no dependency preflight;
+    if the fix needs a package, the executor stops and the driver gets
+    one); PgBouncer's own settings, unless they are the equivalent
+    found; every other brick.
+- Files: `bricks/pgbouncer/rootfs/etc/s6-overlay/s6-rc.d/pgbouncer/run`,
+  `bricks/pgbouncer/{brick.yaml,Dockerfile,docs/gm.md}`,
+  `bricks/pgbouncer/tests/{run-stack-test.sh,stack.test.yml}`,
+  `faults/pgbouncer-pool-too-small/fault.yaml`,
+  `scenarios/{tarnbeck-outdoor-shop,tarnbeck-outdoor-campaign}/{scenario.yaml,README.md}`,
+  `tools/tests/fixtures/{fixture-campaign,fixture-load}/{scenario.yaml,README.md}`,
+  `tools/tests/test_model.py` (the two pins),
+  `tools/tests/{smoke-scenario,smoke-load}.sh` (build comments),
+  `bricks/postgres/docs/gm.md` (the one line).
+- Spec sections: master spec 7.3, 16.1, 16.4, 17 (item 1);
+  [formats.md](../../formats.md) "Versions and pins"; spec D305.
+- Done when: the stack test's new cases pass: the pooler, started
+  before `db` resolves, serves a query through `db` once `db` is up,
+  with no `DNS lookup failed` line after that; a pooler whose host never
+  resolves starts after the bound; the existing cases pass; the image
+  builds as `127.0.0.1:5000/dbagm/pgbouncer:0.1.1`; every catalog
+  scenario and fixture loads, no pin naming `pgbouncer` 0.1.0 left; each
+  changed `README.md` matches a fresh regeneration; `test_brick_docs`
+  and the unit suite pass. At the wave gate, 17a's runs report
+  `pooler workarounds: 0`.
+- Verification: chunk checks, plus the brick's image build and stack
+  test (needs G3, G4), under the host lock and a sleep inhibitor; 17a's
+  runs hold the lock for hours, so these wait for a gap between them.
+- Split rule: none; the fix is one script, the rest version lines.
+- Note for 17a: its branch merges `v0.4-w4` in once this chunk has
+  merged, so its remaining runs pin `pgbouncer` 0.1.1 (the image built
+  on armenelos); its WORKAROUND stays, counted in each run's last line.
+
 ## Release gate
 
 Against master spec sections 17 and 18, on `v0.4-w4` before it merges,
@@ -1478,8 +1590,8 @@ agents reading `.claude/skills/game-master/` as their instructions; the
 driver plays the initiator; verifier agents play as `player` through the
 bastion only; GM-side checks run from the host.
 
-1. Item 1: `scheduler` 0.2.0, `postgres` 0.4.0 and `bastion` 0.4.0 pass
-   the format skill's `docs/gm.md` check, with their validators and
+1. Item 1: `scheduler` 0.2.0, `postgres` 0.4.0, `bastion` 0.4.0 and
+   `pgbouncer` 0.1.1 pass the format skill's `docs/gm.md` check, with their validators and
    measured footprints; G5, G6 and G13 cleared, `.tech` current; the
    scenario's starter-pack page showing its four elements.
 2. Item 2: `formats.md`, the templates, the loader and the format skill

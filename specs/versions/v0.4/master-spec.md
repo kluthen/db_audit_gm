@@ -206,10 +206,11 @@ bricks/
                         check-psql reaching another instance
   bastion/              0.4.0: the optional data-policy.md, the
                         starter-pack page
+  pgbouncer/            0.1.1: the start-up race fixed (7.3)
 purposes/<purpose-id>/  new: the four purposes (6.7)
 domains/shop/           new: the shop domain (6.8)
-faults/<fault-id>/      ten new faults; every fault applying to `postgres`
-                        or `scheduler` lists the new versions
+faults/<fault-id>/      ten new faults; every fault applying to `postgres`,
+                        `scheduler` or `pgbouncer` lists the new versions
 scenarios/<new-id>/     the v0.4 scenario
 scenarios/tarnbeck-outdoor-shop/, bookshop-new-server/, fernway-clinics-monitoring/
                         re-pinned, otherwise unchanged
@@ -665,8 +666,8 @@ happens in place, with no Swarm replacement.
 
 ### 7.3 The other bricks
 
-Unchanged: `pgbouncer` 0.1.0, `prometheus`, `postgres-exporter` and
-`grafana` 0.2.0. The bastion's password file already holds `dba`'s
+Unchanged: `prometheus`, `postgres-exporter` and `grafana` 0.2.0. The
+bastion's password file already holds `dba`'s
 password for any host, so the players reach a second instance with
 `psql -h <node>`.
 
@@ -696,6 +697,16 @@ password for any host, so the players reach a second instance with
   section or link for web interfaces; v0.3's rule (no web interface, no
   front, no second port, no tools password) no longer holds. Nothing
   else joins the front in v0.4 (22).
+
+**`pgbouncer` 0.1.1** fixes a start-up race found during v0.4's build:
+a pooler started before its database node was known to the swarm's DNS
+failed every lookup of that node until its PgBouncer restarted, so the
+pooler's clients lost their database for the whole game. A pooler
+started before its database node now serves through it once the node
+is up: at start it waits, for a bounded time, until the hosts its
+`[databases]` section names resolve, then starts PgBouncer either way,
+so a name that never resolves does not keep the node down. Nothing else
+changes: no interface, setting, package or footprint.
 
 ## 8. Purposes
 
@@ -1607,7 +1618,7 @@ the rehearsal):
 |---|---|---|---|---|
 | `bastion` | `bastion` 0.4.0 | bastion | report-only | as v0.3 |
 | `db` | `postgres` 0.4.0 | database (`shop`) | fixable | 1G / 512M |
-| `pooler` | `pgbouncer` 0.1.0 | pooler | fixable | as v0.3 |
+| `pooler` | `pgbouncer` 0.1.1 | pooler | fixable | as v0.3 |
 | `producer` | `scheduler` 0.2.0 | producer (the web shop) | report-only, repository and `jobs.yaml` fixable | 96M / 48M |
 | `consumer` | `scheduler` 0.2.0 | consumer (the back office's dashboards, reading `reporting`) | report-only, `jobs.yaml` fixable | 128M / 64M |
 | `reporting` | `postgres` 0.4.0 | database (`reporting`), the agency's | fixable; the agency's by the story, its faults *propose* or *report* | 640M / 256M |
@@ -1851,7 +1862,7 @@ and never a shared host (13.3).
 
 `tarnbeck-outdoor-shop`, `bookshop-new-server` and
 `fernway-clinics-monitoring` are re-pinned to `postgres` 0.4.0, and
-tarnbeck to `scheduler` 0.2.0; none turns on `pg_cron` or the cron
+tarnbeck to `scheduler` 0.2.0 and `pgbouncer` 0.1.1; none turns on `pg_cron` or the cron
 daemon, and each still deploys and passes its v0.3 smoke test
 unchanged. `bookshop-new-server`, which has no web interface, gains the
 web front's published port, and its bastion now serves the
@@ -1912,8 +1923,8 @@ The access model lists this as a known gap.
 
 ## 17. Definition of done
 
-1. `scheduler` 0.2.0 as in 7.1, `postgres` 0.4.0 as in 7.2 and
-   `bastion` 0.4.0 as in 7.3, with GM and player documentation,
+1. `scheduler` 0.2.0 as in 7.1, `postgres` 0.4.0 as in 7.2,
+   `bastion` 0.4.0 and `pgbouncer` 0.1.1 as in 7.3, with GM and player documentation,
    validators and measured footprints; `postgres` 0.4.0's and `bastion`
    0.4.0's new packages through the dependency checks, the project's
    technology record up to date.

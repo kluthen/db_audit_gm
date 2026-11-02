@@ -578,3 +578,9 @@ v0.5's drafting. Take the next number from `doc-ids`; no ID is reused.
   time against the story or the domain's copy. Now in:
   [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 6.2, 12.2, 16.1;
   [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunks 16, 17, release gate.
+- **D305 (2026-11-02, owner ruling on chunk 17a's finding, relayed by the
+  wave driver): the `pgbouncer` start-up DNS race is fixed in v0.4 as
+  `pgbouncer` 0.1.1, by a bounded wait at start until its `[databases]`
+  hosts resolve, or an equivalent; every pin re-pinned. Chunk 21, wave 4.**
+  The producer was down all game in 4 of 5 deploys; 0.1.1, a patch as D57's, no interface change.
+  Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 7.3, 16.1, 16.4, 17; [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunk 21.
