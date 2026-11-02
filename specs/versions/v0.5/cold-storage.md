@@ -1,8 +1,11 @@
 # v0.5 — cold storage: a third party for heavy data
 
-Status: draft v1. The direction is the owner's (D288); the design below
-is (proposed) throughout and awaits his ruling (O148). Linked from
-[producer profiles](producer-profiles.md) 11.
+Status: draft v2, ruled. The direction is the owner's (D288); the
+design was ruled as drafted on 2026-11-02, with the bastion's route to
+its page (D296) and the GM deciding what ships, use first (D297),
+closing O148. Linked from [producer profiles](producer-profiles.md) 11.
+The same stub may also hold the databases' WAL and base backups
+([replication.md](replication.md), proposed, O149).
 
 The owner, on 2026-11-02, on the data growth over the aging: "If we're
 talking about lab machineries, we will say that we keep a day on site
@@ -29,8 +32,10 @@ each shipment is answered by a receipt (D286).
 ## 2. The customer's side: keeping a day, shipping the rest
 
 - **On site**, the heavy data lives in plain partitioned tables (D250),
-  one partition a day, partitions created ahead. The site keeps the
-  current day and the last full day.
+  one partition a day, partitions created ahead. By default the site
+  keeps the current day and the last full day; a type the exercise's
+  consumers read keeps longer, the GM setting its window (section 6,
+  D297).
 - **A shipping job** on the customer's side, in the players' scope, runs
   each night after midnight, customer time. For each data type it takes
   the partitions older than the window, sends each as one shipment, and
@@ -62,18 +67,21 @@ endpoints:
 
 **A manifest** holds what the owner asked for and no more: the data
 type, the rows declared, the rows received, the date range, the time of
-the shipment, and the shipment id. A few rows a day, kept in a small
-store of the stub's own (where it lives is O148, with the third
-parties' back end, O147).
+the shipment, and the shipment id. A few rows a day, kept in the
+partners' shared database, cold storage's own tables and role (D296,
+following from D293's shared back end).
 
 **Before T0** the load plants the manifests of the history's days, so
 the graph shows the weeks before the hand-over and not only the aging.
 
-**Who reads it.** The players, through the read endpoint, with the
-credentials the starter pack gives (D274), and through the page if the
-bastion may publish it (O148); the GM, the same, and its checks read the
-manifests as evidence of the customer's side ([third-parties.md](third-parties.md)
-2).
+**Who reads it.** The players, through the bastion: it routes them to
+the page and the read endpoint, `GET /` and `GET /manifests`, never to
+`POST /shipments` (D296; the owner: "yes the bastion must be able to
+route the player to this coldstorage. keep it simple for now."), the
+one stated exception to a third party's absence from the bastion's
+routes ([third-parties.md](third-parties.md) 3). The GM, the same; its
+checks read the manifests as evidence of the customer's side
+([third-parties.md](third-parties.md) 2).
 
 **Its own faults**, as any third party's: an outage refusing uploads,
 slow answers, timeline changes of its schedule (D127). Never a root
@@ -90,6 +98,7 @@ cause inside it.
 | `DELETE` instead of detaching and dropping the partition | bloat, autovacuum busy, WAL volume up, the table never shrinking |
 | No partition created ahead | rows falling into a default partition the job never ships |
 | Aggregates computed after the shipment | a report's day empty or short |
+| A shipping window shorter than a consumer needs | a report or transformation missing the rows already shipped: a cascade, its fix judged end to end (D286) |
 
 ## 5. A caution: shipped data is gone
 
@@ -99,27 +108,24 @@ past periods' inputs are planted as aggregates, not as raw rows. A fault
 whose evidence lies in the shipped rows is unsolvable, and is not
 planted.
 
-## 6. When a domain ships, and what its GM notes say
+## 6. When a data type ships (D297)
 
+The owner, on 2026-11-02: "cold storage-ing decision depend on the usage
+of the data first and might be decided by the GM: data that are needed
+for transformation, reporting, etc that IS used for the exercice may not
+be cold storaged, or may be storaged with an appropriate scheduling
+(like storage after 2 days if the reporting / transofrmation whatever is
+effective daily, something like that)."
+
+- **The GM decides, per data type**: use first, volume second.
+- **Data the exercise reads**, a purpose, a transformation or a report,
+  either stays on site for the whole game or ships only after its
+  consumers' cadence and a margin: a daily consumer, shipped after two
+  days.
+- **The threshold** (D296), about 50 000 rows a day at intensity 1.0
+  for a table fed continuously, only marks a data type as a candidate.
 - **Every domain's GM notes** state each producer's growth an hour at
-  intensity 1.0, in rows and megabytes, and whether it ships.
-- **The threshold** (proposed): a table fed continuously that grows by
-  more than about 50 000 rows a day at intensity 1.0 keeps one day on
-  site and ships the rest; below it, the data stays on site for the
-  whole game.
-- **The disk**: the GM sizes the node for the window, two days at most,
-  plus the aging's slack, never for the whole game's volume.
-
-## What O148 asks the owner
-
-1. The design above: the job, the round trip, the manifest, the three
-   endpoints, the planted past manifests.
-2. The page: may the bastion publish a third party's read-only page
-   (a route to `GET /` only), as a provider's console the customer logs
-   into? [third-parties.md](third-parties.md) 3 has the loader refuse
-   any third-party node among the bastion's routes; without the route,
-   players read the JSON endpoint only. Recommended: the route, the page
-   only.
-3. The threshold, about 50 000 rows a day.
-4. Where the stub keeps its manifests: its own small store, or the
-   third parties' shared back end (O147).
+  intensity 1.0, in rows and megabytes; and, for each type that ships,
+  its retention on site and the consumers it waits for.
+- **The disk**: the GM sizes the node for the retention on site plus
+  the aging's slack, never for the whole game's volume.

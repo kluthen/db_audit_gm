@@ -1,10 +1,11 @@
 # v0.5 — third parties: what they are and how they enter a game
 
-Status: draft v3, ruled. A third party's nodes are outside the players'
+Status: draft v4, ruled. A third party's nodes are outside the players'
 reach (D273); the owner's nine rulings of 2026-11-01 (D274, D275,
 closing O145) are stated below as settled, with his ruling of
 2026-11-02 that the clinic's other centres and the franchise's systems
-are third parties too (D285). The `third_parties:` key's
+are third parties too (D285), sharing one back end (D293), and the
+bastion's route to cold storage's page (D296). The `third_parties:` key's
 shape, the loader's checks and the format changes stay (proposed) until
 the version's master spec.
 
@@ -97,13 +98,19 @@ third party api nodes"). An `api` node for an interface (D267), a
 scheduler node as its back end firing its callbacks from its hidden
 schedule (D270), a `postgres` node when it keeps state. The external
 lab: an `api` node answering the clinic's orders, a scheduler node
-posting results back, a database holding the orders. Whether every
-partner of a scenario shares one back end, one scheduler node and one
-database, is proposed in [one-centre.md](one-centre.md) 4 (O147).
+posting results back, a database holding the orders. Every partner of
+a scenario shares one back end, one scheduler node and one small
+database, each partner's tables and role its own (D293;
+[one-centre.md](one-centre.md) 4): a partner is otherwise one `api`
+node.
 
 **Out of reach (D273).** A third party's nodes have no `player`
 account, are not on the bastion's routes and are not listed among the
-starter pack's nodes. The per-node option is the existing `no-access`
+starter pack's nodes. **One stated exception** (D296): the bastion
+routes the players to cold storage's read-only page and read endpoint
+(`GET /`, `GET /manifests`), as a provider's console the customer logs
+into; never to its upload endpoint or to any other partner
+([cold-storage.md](cold-storage.md) 3). The per-node option is the existing `no-access`
 write policy made real, with no new key (D274), built with the `api`
 brick. The format already offers it (`WRITE_POLICIES` in `tools/gm/model.py`, the
 template's `write_policy`), but every brick reads it as `report-only`
@@ -149,7 +156,8 @@ third_parties:
 
 **What the loader checks** (proposed): each node listed exists and has
 `write_policy: no-access` on a brick that implements it; no third-party
-node is in the bastion's `web_routes` or among the starter pack's nodes;
+node is in the bastion's `web_routes`, but for a cold storage stub's
+read-only paths (D296), or among the starter pack's nodes;
 no fault instance's expected `fix` resolution names a third-party node;
 a third-party `postgres` node's seed `pg_hba.conf` admits no role but
 its own on its database. `fit` needs nothing new.
@@ -224,4 +232,6 @@ views:
 
 On 2026-11-02 (D285): a scenario deploys one centre of the clinic; the
 other national centres and the franchise's central systems are third
-parties as well, stub `api` nodes only.
+parties as well, stub `api` nodes only. Then (D293, D296): one back end
+shared by every partner; the bastion's route to cold storage's
+read-only page, the one exception to D273.

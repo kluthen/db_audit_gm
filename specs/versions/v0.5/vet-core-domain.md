@@ -1,13 +1,11 @@
 # v0.5 — `vet-core`, the clinic's core domain
 
-Status: draft v5. Step 2, the business sketch, is ruled (D266, D278),
+Status: draft v6. Step 2, the business sketch, is ruled (D266, D278),
 its first answer revised by one centre per scenario (D285); step 3, the
-split, is confirmed (D279); step 4, the data model, is current, with
-the history's growth and its lower year totals (D279, D280), its
-figures still sized for the three national centres: the rescale for
-one centre is (proposed) ([below](#one-centre-the-rescale-proposed-o147),
-O147); step 5, classification and governance, is ruled (D280). Step 6,
-the producer profiles, is next.
+split, is confirmed (D279), the parts one centre's (D293); step 4, the
+data model, is current, with the history's growth (D279, D280), at one
+centre's scale (D295); step 5, classification and governance, is ruled
+(D280). Step 6, the producer profiles, is next.
 
 `vet-core` is the core of the veterinary clinic franchise (D196), the
 first domain defined through the [procedure](domain-procedure.md)
@@ -79,44 +77,46 @@ parties (D285; [one-centre.md](one-centre.md)).
 
 v0.5 builds one variant of the clinic (procedure 9, D263): the
 franchise as briefed, `regional-franchise`, tagged `managed`,
-`regional`, `regulated`, `multi-site` and `24/7` (question 13). Its
-scale, on the three axes, was sized for one record shared by the three
-national centres (D278); since each centre keeps its own (D285), the
-figures below await the rescale for one centre, proposed in
-[One centre: the rescale](#one-centre-the-rescale-proposed-o147)
-(O147). Within "the data schema stays simple and the tables small"
-([platform.md](../../platform.md)); the shop holds about 1.3 million
-rows, the core stays under it.
+`regional`, `regulated`, `multi-site` and `24/7` (question 13),
+`multi-site` standing for the franchise reached through its partners.
+Its scale, on the three axes, is **one centre's** (D285, D295): a third
+of the figures first sized for one record shared by the three national
+centres (D278), every ratio and the growth curve kept. Within "the data
+schema stays simple and the tables small" ([platform.md](../../platform.md));
+the shop holds about 1.3 million rows, the core stays well under it.
 
 **Population**, at load:
 
 | What | How many |
 |---|---|
-| Sites | 6: 3 national centres, 3 abroad |
-| Staff | about 250 |
-| Owners | 30 000, of which about 600 holdings and 2 000 horse owners or stables |
-| Referring practices | about 1 200 |
-| Animals | 50 000: 43 000 domestic, 4 000 horses, 3 000 farm animals |
-| Hospitalised animals | about 120 at any time |
+| Sites | 6: the centre, the 2 other national centres, 3 abroad; the 5 others third parties (D285) |
+| Sections | 3: the centre's horse, farm and domestic sections |
+| Staff | about 85, 30 of them vets and specialists |
+| Owners | 10 000, of which 200 holdings and 700 horse owners or stables |
+| Referring practices | 400, two vets each: the centre's region, the lab's customers among them (D294) |
+| Animals | 17 000: 14 600 domestic, 1 400 horses, 1 000 farm animals in 200 herds |
+| Hospitalised animals | about 40 at any time |
 
 **History**: one year of a clinic that grew through it (D279): each
 daily volume ramps from about 60 % of today's rate a year ago up to
-today's, so the year holds about 73 000 consultations, 44 000
-prescriptions (110 000 lines) and 200 000 administrations, and the
+today's, so the year holds about 25 000 consultations, 15 000
+prescriptions (37 000 lines) and 70 000 administrations, and the
 players can see the growth in the data.
 
 **Throughput**, in real-world rates during the game:
 
 | What | Rate |
 |---|---|
-| Consultations | about 250 a day across the centres, 30 of them emergencies |
-| New owners, new animals | about 40 and 60 a day |
-| New referring practices | a few a week |
-| Administrations | about 700 a day: 120 animals, a dose every four to eight hours |
-| Prescriptions | about 150 a day |
+| Consultations | about 85 a day, 10 of them emergencies |
+| New owners, new animals | about 13 and 20 a day |
+| New referring practices | a few a month |
+| Administrations | about 240 a day: 40 animals, a dose every four to eight hours |
+| Prescriptions | about 50 a day |
 
-A franchise with more centres shows it through structure, not rows: a
-few sites stand for many (D263).
+**A few stand for many** (D263), read for one centre: the centre is
+deployed whole, a few machines, boxes and rooms standing for many; the
+five other sites, rows in `sites` and stubs among the partners, stand
+for the franchise's network.
 
 ### Cadences
 
@@ -169,12 +169,12 @@ hospital stay and the medicines with their batches (D278).
 
 | Part | What it needs the core to hold |
 |---|---|
-| `vet-lab` | the request that orders an analysis, tied to its consultation, animal and requesting vet, so a result can be traced back and released; the animal's natural identifiers, which an external lab's result carries (D266, D268); the animal's food-producing status for residue tests |
+| `vet-lab` | the request that orders an analysis, tied to its consultation, animal and requesting vet, so a result can be traced back and released; the animal's natural identifiers, which an external lab's result carries (D266, D268); the animal's food-producing status for residue tests; the referring practices, by id, as the lab's outside customers (D294) |
 | `vet-portal` | the owner as a stable key, one portal account each; who owns an animal **now**, and since when: a horse is sold, a dog changes family (D278); what of the record an owner may see |
 | `vet-housing` | the hospital stay the box refers to, the core's (D278); what a display shows: identity, alerts and allergies, the treatment plan; the administrations, so that care logs and the core never hold one fact twice (a trap, step 8) |
 | `vet-scheduling` | staff with their specialties and sites, rooms per site; the consultation a booking turns into, by id |
 | `vet-machinery` | the examination a study belongs to (a consultation or a stay), the animal |
-| `vet-messaging` | staff as the senders and recipients |
+| The franchise's messaging service, a third party (D293) | staff as the senders and recipients, through the centre's outbox |
 | Regulatory purposes | batches, quantities, withdrawal periods, the antimicrobial flag, coded diagnoses with the notifiable flag, species and food-chain status: all in the core, or the reports cannot be computed |
 | Exchange with the other centres (D285, D286) | a site on every record, transfers naming the receiving centre, a third party listed in `sites` |
 
@@ -221,10 +221,12 @@ accepted on 2026-11-01.
 8. **Billing.** In the clinic's v0.5 domains? Answer: no. Consultations
    and procedures carry no price; a billing part (insurers, the farms'
    monthly statements) comes later, with the shop's finance purpose
-   (D248).
+   (D248). Narrowed by D294: the lab bills its outside customers, in
+   `vet-lab`.
 9. **Staff.** Answer: one staff table: vets with their specialties,
    nurses and technicians, lab staff, carers and grooms, receptionists,
-   instructors, each with a home site and possibly working at others;
+   instructors, all the centre's since one centre is deployed (D295;
+   first drafted with a home site and other sites worked at);
    the applications log in with roles of their own, never one database
    login per person, as in the shop.
 10. **The training centre.** Does "canine and horse dedicated training"
@@ -233,10 +235,11 @@ accepted on 2026-11-01.
     animals; trainees are not staff and live in `vet-scheduling`; the
     teaching animals are core animals, the clinic their owner.
 11. **Scale and hours.** Answer: the figures in "The variant" and
-    "Cadences": a population of 30 000 owners and 50 000 animals, a year
-    of history, a throughput of about 250 consultations a day across the
-    three centres, about 120 animals in hospital, emergencies around the
-    clock.
+    "Cadences", first given for the three centres (30 000 owners, 50 000
+    animals, 250 consultations a day) and rescaled to one centre by
+    D295: 10 000 owners and 17 000 animals, a year of history, about 85
+    consultations a day, about 40 animals in hospital, emergencies
+    around the clock.
 12. **Regulations.** Answer: the set in "Regulations", records kept
     five years, a horse's food-chain status deciding the medicines it
     may receive, antimicrobials flagged for the yearly report, notifiable
@@ -262,25 +265,26 @@ accepted on 2026-11-01.
 ## The split (step 3), confirmed (D279)
 
 The procedure's first cut (section 4, D249), revised by the answers of
-D278, confirmed by the owner with both additions (D279).
+D278, confirmed by the owner with both additions (D279); the parts are
+one centre's, `vet-messaging` leaving for the franchise (D293).
 
 | Domain | What it holds |
 |---|---|
 | `vet-core` | sites and sections; staff; owners and their dated ownerships and keepers; animals with their natural identifiers, herds; referring practices, their vets and referrals; consultations, diagnoses, procedures; requests for analyses and imaging; hospital stays; medicines and their batches, prescriptions, administrations, dispensings; alerts on an animal |
-| `vet-lab` | samples and analyses for the core's requests, instrument batch uploads, results, a vet's validation before release; orders to and results from the external labs, a round trip with a third party (D268, D274) |
+| `vet-lab` | samples and analyses for the core's requests, instrument batch uploads, results, a vet's validation before release; orders to and results from the external labs, a round trip with a third party (D268, D274); the region's clinics' orders, their accounts, prices and monthly statements (D293, D294) |
 | `vet-scheduling` | rooms and machines' slots, bookings of staff, rooms and machines; the training centre's courses, sessions and trainees |
 | `vet-housing` | boxes and stalls, the placements of the core's stays, care and feeding logs; the displays, reading the core's board of each animal |
 | `vet-machinery` | the machines, studies for the core's imaging requests, readings and logs, each machine's own database |
 | `vet-portal` | owners' accounts, one per core owner; consents; notifications; what was released to whom |
-| `vet-messaging` | internal mail, messages and machine logs, with their own governance |
 
 Not domains: **regulatory reporting**, purposes fitting `vet-core` and
-`vet-lab` (step 7); **billing**, a later part (D278); **pharmacy stock**
+`vet-lab` (step 7); **billing**, a later part (D278), but for the lab's
+outside customers, billed in `vet-lab` (D294); **pharmacy stock**
 (receipts, ordering), out of v0.5 (D278); the **other national
 centres**, the **centres abroad**, the **franchise's central systems**
-and the **external labs**, third parties (D274, D285). Which parts are
-the deployed centre's own, `vet-portal` and `vet-messaging` in doubt,
-is proposed in [one-centre.md](one-centre.md) 1 (O147).
+and the **external labs**, third parties (D274, D285); **messaging**,
+the franchise's service, a third party (D293;
+[one-centre.md](one-centre.md) 1).
 
 **Against D249's first cut:**
 
@@ -326,10 +330,9 @@ grow. Monthly counts show the trend, and the live rates continue it.
 | Table | Key, main columns |
 |---|---|
 | `business_settings` | one row: the customer's zone and offset, as the shop's; the records' retention, 5 years |
-| `sites` | `id`; code, name, country, `kind` (`centre` or `abroad`); the sites other than the deployed centre are third parties (D274, D285), listed so transfers name them |
+| `sites` | `id`; code, name, country, `kind` (`own`, `centre` or `abroad`); the sites other than the deployed centre are third parties (D274, D285), listed so transfers name them |
 | `sections` | `id`; `site_id`, `kind` (`horse`, `farm`, `domestic`) |
-| `staff` | `id`; name, e-mail, `kind` (`vet`, `nurse`, `technician`, `lab`, `carer`, `reception`, `instructor`), specialty, `home_site_id`, started on, left on |
-| `staff_sites` | (`staff_id`, `site_id`): where a member also works |
+| `staff` | `id`; name, e-mail, `kind` (`vet`, `nurse`, `technician`, `lab`, `carer`, `reception`, `instructor`), specialty, started on, left on: the centre's staff (D295) |
 | `owners` | `id`; `kind` (`person`, `stable`, `holding`, `clinic`), name, e-mail, phone, address, country, registered at |
 | `herds` | `id`; the keeping owner, the holding number, the site that follows it |
 | `animals` | `id`; species, breed, sex, born on, name, `food_chain` (`food-producing`, `excluded`, `not-applicable`) with the date and vet of an exclusion, one-way, `herd_id`; the natural identifiers `microchip`, `ueln`, `passport_number`, `ear_tag`, each unique when present; status, died at, how |
@@ -382,16 +385,16 @@ id created during the game is above it and never meets a part's load
 
 | Key | Range | Layout |
 |---|---|---|
-| `sites.id` | 1–6 | 1–3 the national centres, 4–6 abroad |
-| `sections.id` | 1–9 | site `s` holds `3s−2` (horse), `3s−1` (farm), `3s` (domestic) |
-| `staff.id` | 1–250 | home sites in turn |
-| `owners.id` | 1–30 000 | 1 the clinic (teaching animals); 2–601 holdings; 602–2 601 horse owners and stables; 2 602–30 000 pet owners |
-| `herds.id` | 1–600 | herd `h` kept by owner `h + 1` |
-| `animals.id` | 1–50 000 | 1–43 000 domestic; 43 001–47 000 horses; 47 001–50 000 farm animals, in herd `1 + (id − 47 001) mod 600` |
-| `referring_practices.id` | 1–1 200 | |
-| `referring_vets.id` | 1–2 400 | two per practice |
+| `sites.id` | 1–6 | 1 the centre (`own`), 2–3 the other national centres, 4–6 abroad |
+| `sections.id` | 1–3 | 1 horse, 2 farm, 3 domestic, all the centre's |
+| `staff.id` | 1–85 | |
+| `owners.id` | 1–10 000 | 1 the clinic (teaching animals); 2–201 holdings; 202–901 horse owners and stables; 902–10 000 pet owners |
+| `herds.id` | 1–200 | herd `h` kept by owner `h + 1` |
+| `animals.id` | 1–17 000 | 1–14 600 domestic; 14 601–16 000 horses; 16 001–17 000 farm animals, in herd `1 + (id − 16 001) mod 200` |
+| `referring_practices.id` | 1–400 | |
+| `referring_vets.id` | 1–800 | two per practice |
 | `medicines.id` | 1–400 | antimicrobials and controlled drugs flagged |
-| History | `consultations` 1–73 000, `prescriptions` 1–44 000, `administrations` 1–200 000, the others as loaded | in time order over the year |
+| History | `consultations` 1–25 000, `prescriptions` 1–15 000, `administrations` 1–70 000, the others as loaded | in time order over the year |
 
 **Natural identifiers.** A microchip is 15 digits, the country or
 maker's 3 then 12 (ISO 11784/11785), present on every horse, dog and
@@ -423,16 +426,16 @@ notifiable diseases) come with step 7.
 
 | What | Rows at load | Live, a day |
 |---|---|---|
-| Places and people (sites, sections, staff, practices, referring vets, owners, herds) | about 34 000 | 40 owners |
-| Animals and ownerships | 50 000 and about 60 000 | 60 animals |
-| Referrals | about 12 000 | about 40 |
-| Consultations, diagnoses, procedures | 73 000, 90 000, 20 000 | 250 consultations |
-| Requests | about 50 000 | about 170 |
-| Stays, alerts | about 7 500, 5 000 | about 25 admissions |
-| Medicines, batches | 400, about 2 000 | none |
-| Prescriptions and lines | 44 000 and 110 000 | 150 prescriptions |
-| Administrations, dispensings | 200 000 and about 65 000 | about 700 administrations, 220 dispensings |
-| **Total** | **about 0.82 million rows** | **about 1 700 rows** |
+| Places and people (sites, sections, staff, practices, referring vets, owners, herds) | about 11 500 | 13 owners |
+| Animals and ownerships | 17 000 and about 20 000 | 20 animals |
+| Referrals | about 4 000 | about 13 |
+| Consultations, diagnoses, procedures | 25 000, 30 000, 7 000 | 85 consultations |
+| Requests | about 17 000 | about 55 |
+| Stays, alerts | about 2 500, 1 700 | about 8 admissions |
+| Medicines, batches | 400, about 700 | none |
+| Prescriptions and lines | 15 000 and 37 000 | 50 prescriptions |
+| Administrations, dispensings | 70 000 and about 22 000 | about 240 administrations, 75 dispensings |
+| **Total** | **about 0.28 million rows** | **about 570 rows** |
 
 Under the shop's 1.3 million rows, so within "the data schema stays
 simple and the tables small" and, by the shop's measure (about 15
@@ -442,82 +445,22 @@ both are measured at the build.
 ### Plausibility points (step 4)
 
 Offered to the owner; point 2 as he revised it (D279), the others as
-drafted:
+drafted, the figures one centre's (D295):
 
-1. **Herds of five.** 3 000 farm animals over 600 herds is five each:
+1. **Herds of five.** 1 000 farm animals over 200 herds is five each:
    the core registers only the animals the clinic has treated, not
    whole herds.
 2. **Growth, history against live.** The clinic grew through the
    year: each daily volume ramps from about 60 % of today's rate to
-   today's (about 420 to 700 administrations a day), the trend visible
+   today's (about 145 to 240 administrations a day), the trend visible
    in the data; the GM notes compare history and live volume so
    (D276).
-3. **Staff.** About 250 for three centres, 90 of them vets and
+3. **Staff.** About 85 for one centre, 30 of them vets and
    specialists.
 4. **The lookup API's reach.** Animals, ownerships and owners' names,
    never addresses or phones: the minimum a lab or the portal needs.
 5. **A dozen mistyped chips**, two digits swapped.
 6. **One day to sign a record**, an unsigned one older than that a trap.
-## One centre: the rescale (proposed, O147)
-
-The figures above were sized for one record shared by the three
-national centres. Since each centre keeps its own and a scenario
-deploys one (D285), the core holds one centre's record. Recommended:
-**a third of each figure**, rounded, every ratio and D279's growth
-curve kept. The other reading: keep today's figures as one very large
-centre, 250 consultations a day at a single site.
-
-**Population**, at load:
-
-| What | Today (three centres) | One centre (proposed) |
-|---|---|---|
-| Sites | 6: 3 national centres, 3 abroad | 6: the centre, the 2 other national centres and 3 abroad, the 5 others third parties |
-| Sections | 9 | 3: the centre's horse, farm and domestic sections |
-| Staff | about 250, 90 vets and specialists | about 85, 30 vets and specialists |
-| Owners | 30 000, of which about 600 holdings and 2 000 horse owners or stables | 10 000, of which 200 holdings and 700 horse owners or stables |
-| Referring practices, their vets | about 1 200, 2 400 | 400, 800: the centre's region, the lab's customers among them (D285) |
-| Animals | 50 000: 43 000 domestic, 4 000 horses, 3 000 farm | 17 000: 14 600 domestic, 1 400 horses, 1 000 farm animals in 200 herds of five |
-| Hospitalised animals | about 120 | about 40 |
-
-**History**, one year ramping from 60 % of today's rate (D279): about
-25 000 consultations, 15 000 prescriptions (37 000 lines) and 70 000
-administrations.
-
-**Throughput**: about 85 consultations a day, 10 of them emergencies;
-about 13 new owners and 20 new animals a day; about 240 administrations
-a day (40 animals, a dose every four to eight hours); about 50
-prescriptions a day.
-
-**Reference sizes**: about 11 500 rows of places and people; 17 000
-animals and 20 000 ownerships; 4 000 referrals; 25 000 consultations,
-30 000 diagnoses, 7 000 procedures; 17 000 requests; 2 500 stays and
-1 700 alerts; 400 medicines and 700 batches; 15 000 prescriptions and
-37 000 lines; 70 000 administrations and 22 000 dispensings: **about
-0.28 million rows**, about 570 a day live.
-
-**Key ranges**: `sites.id` 1 the centre, 2–3 the other national
-centres, 4–6 abroad; `sections.id` 1–3; `staff.id` 1–85; `owners.id`
-1–10 000 (1 the clinic, 2–201 holdings, 202–901 horse owners and
-stables, 902–10 000 pet owners); `herds.id` 1–200, herd `h` kept by
-owner `h + 1`; `animals.id` 1–17 000 (1–14 600 domestic, 14 601–16 000
-horses, 16 001–17 000 farm animals in herd `1 + (id − 16 001) mod 200`);
-`referring_practices.id` 1–400, `referring_vets.id` 1–800, two per
-practice; `medicines.id` 1–400; history `consultations` 1–25 000,
-`prescriptions` 1–15 000, `administrations` 1–70 000. A dozen mistyped
-chips, as ruled (D278).
-
-**The model, for one centre**: `sites.kind` becomes `own`, `centre` or
-`abroad`; `staff_sites` and the staff's home site go, the staff being
-the centre's (D278's ninth answer read for one centre); the other
-tables are unchanged.
-
-**"A few sites stand for many" (D263), re-read for one centre**: the
-centre is deployed whole, a few machines, boxes and rooms standing for
-many; the five other sites, rows in `sites` and stubs among the
-partners, stand for the franchise's network. The variant keeps its name
-and tags, `multi-site` standing for the franchise reached through its
-partners.
-
 ## Classification and governance (step 5, ruled, D280)
 
 ### Classification

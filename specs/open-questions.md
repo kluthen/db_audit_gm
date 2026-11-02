@@ -11,7 +11,7 @@ their IDs keep their meaning. Questions resolved by the close of v0.2
 Questions resolved by the close of v0.3 (O45, O46, O78 and O81–O103) are
 listed in
 [archive/v0.3/open-questions-resolved.md](archive/v0.3/open-questions-resolved.md).
-Numbering continues from O149.
+Numbering continues from O150.
 
 Resolved during v0.4's drafting: O106 (D194), O110 (D195), O107 (D197), O120
 (D198), O109 (D199), O121 (D200), O123 (D202), O105 (D203), O129 (D206), O131 (D207),
@@ -24,7 +24,8 @@ On 2026-10-31 v0.5 was centred on domain definition and the clinic
 set (D237); O21 and O135 to v0.6; O24 and O25 to v1.0+ (D248). Resolved
 during v0.5's drafting: O137 and O47 (D248), O126 (D249), O139 (D260),
 O118 (D261), O80 (D262), O114 (D263), O145 (D274, D275), O144 (D278),
-O127 (D285), O128 (D286), O79 (D289), O112 (D292).
+O127 (D285), O128 (D286), O79 (D289), O112 (D292), O147 (D293–D295),
+O148 (D296, D297), O113 (D298).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -198,30 +199,19 @@ added on 2026-10-30 (D196).
   tags (D263; procedure 9), and what the
   clinic's domains reveal. Finalised in the master spec when v0.5
   consolidates (D291), which closes it.
-- **O113** (later, v0.5) — Producer profiles against v0.3's scheduler.
-  Ruled: D264–D271, D276, D277, D287. Still open: friction 11's design,
-  the machinery's data growth over the aging, whose direction is ruled
-  (D288): the housing displays' action events, the machines' moderate
-  readings with a day kept on site, every domain's growth an hour in its
-  GM notes; cold storage itself is O148. Refs:
-  [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md#11-data-growth-over-the-aging-direction-d288-design-proposed).
-- **O147** (later, v0.5) — What one centre per scenario (D285) changes
-  for the clinic: whether `vet-portal` is the centre's (recommended) or
-  the franchise's; whether `vet-messaging` is the franchise's, a third
-  party out of v0.5's domains (recommended), or the centre's; the
-  external lab kept (recommended); the lab's outside customers billed
-  by a monthly statement inside `vet-lab`, against D278's "no billing",
-  or unbilled; `vet-core` rescaled to a third (recommended) or kept as
-  one very large centre; one back end shared by every partner. Refs:
-  [versions/v0.5/one-centre.md](versions/v0.5/one-centre.md),
-  [versions/v0.5/vet-core-domain.md](versions/v0.5/vet-core-domain.md#one-centre-the-rescale-proposed-o147).
-- **O148** (later, v0.5) — Cold storage's design (D288): the shipping
-  job as a round trip, the manifest (data type, rows declared and
-  received, date range, time), the stub's endpoints and page, the
-  planted past manifests; whether the bastion may publish its page
-  (recommended, the page only), the threshold (about 50 000 rows a day),
-  where the stub keeps its manifests. Refs:
-  [versions/v0.5/cold-storage.md](versions/v0.5/cold-storage.md).
+- **O149** (later, v0.5) — Replication and the off-site copies, the
+  owner asking (2026-11-02): "have we set replications needs for this
+  project ? we could have probably one off site (but still within
+  network) replication set up, and another (cold storage like) set as
+  well ?" Proposed: an asynchronous, readable standby of the instance
+  holding `vet-core`, with a slot, on an off-site node of the centre in
+  the players' scope, the periodic reports reading there; `vet-lab`
+  without one unless it lands in that instance; WAL archiving and a
+  nightly base backup with plain PostgreSQL tools, sent to the cold
+  storage stub as types `wal` and `basebackup`; the faults they enable.
+  Its ruling would narrow O49 to pgBackRest and its kind, restores and
+  drills. Refs:
+  [versions/v0.5/replication.md](versions/v0.5/replication.md).
 
 ## v0.6: the setup's entry point
 
@@ -296,7 +286,8 @@ the question concerns.
 - **O49** (soon, roadmap) — Backup tools (pgBackRest and the like) and the
   backup-tooling fault families (D17) are in no version, although backups
   were a founding example and the v0.1 goal speaks of "investigating a
-  backup". Which version? Refs:
+  backup". Which version? WAL archiving and base backups with plain
+  PostgreSQL tools are proposed for v0.5 (O149). Refs:
   [bricks-and-faults.md](bricks-and-faults.md), "Future ideas: backup
   tooling".
 - **O52** (later, after v0.4) — dbt adds a Python toolchain and adapters

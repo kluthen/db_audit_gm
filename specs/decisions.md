@@ -20,7 +20,7 @@ README:
 Archived IDs keep their meaning and are cited as they are. D107 and D113
 stay live: rulings still to be applied in v0.5. D190 onward are v0.4's
 drafting and build, apart from D233–D238, D248–D251, D260–D280 and
-D285–D292, v0.5's drafting. Take the next number from `doc-ids`; no ID is reused.
+D285–D298, v0.5's drafting. Take the next number from `doc-ids`; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -734,3 +734,41 @@ D285–D292, v0.5's drafting. Take the next number from `doc-ids`; no ID is reus
   already big, so they'll wait". Closes O112. Now in:
   [versions/v0.5/README.md](versions/v0.5/README.md#domains),
   [versions/README.md](versions/README.md).
+- **D293 (2026-11-02, owner ruling "agreed with all your
+  recommendations", relayed by the coordinator): One centre's parts and
+  partners as proposed:** `vet-portal` the centre's; `vet-messaging` the
+  franchise's, a third party traced by the outbox, so the clinic is the
+  core and five parts; the external lab kept; the exchanges with the
+  other centres round trips over their stubs, replacing D268's
+  transformer job; one back end, a scheduler node and a database, shared
+  by every partner; "privileged flows" read as trusted intra-franchise
+  flows. Closes O147 with D294, D295. Now in:
+  [versions/v0.5/one-centre.md](versions/v0.5/one-centre.md).
+- **D294 (2026-11-02, owner ruling "billing: do bill external lab", same
+  message): The lab bills its outside customers,** inside `vet-lab`:
+  prices, each outside order's charge, a monthly statement per customer
+  clinic as a periodic report; nothing for animal owners. Narrows D278's
+  eighth answer. Now in:
+  [versions/v0.5/one-centre.md](versions/v0.5/one-centre.md#2-the-labs-partners-d293-d294).
+- **D295 (2026-11-02, same message): `vet-core` is rescaled to one
+  centre, a third of each figure** (about 0.28 million rows), its ratios
+  and growth curve kept; `staff_sites` and the staff's home site go. Now
+  in: [versions/v0.5/vet-core-domain.md](versions/v0.5/vet-core-domain.md#the-variant-its-scale-and-its-tags).
+- **D296 (2026-11-02, same message): Cold storage's design as drafted,**
+  the threshold about 50 000 rows a day, its manifests in the partners'
+  shared database (from D293); the bastion routes the players to its
+  read-only page and endpoints, a stated exception to third parties'
+  rule. The owner: "yes the bastion must be able to route the player to
+  this coldstorage. keep it simple for now." Closes O148 with D297. Now
+  in: [versions/v0.5/cold-storage.md](versions/v0.5/cold-storage.md).
+- **D297 (2026-11-02, owner ruling, same message): The GM decides per
+  data type what ships, use first, volume second:** data the exercise's
+  purposes, transformations or reports read stays on site or ships only
+  after its consumers' cadence and a margin; the threshold only marks a
+  candidate. Now in:
+  [versions/v0.5/cold-storage.md](versions/v0.5/cold-storage.md#6-when-a-data-type-ships-d297).
+- **D298 (2026-11-02, same message): Friction 11's profile as drafted:**
+  the displays' action events, the machines' moderate readings with a
+  day on site, every domain's growth an hour in its GM notes. Closes
+  O113. Now in:
+  [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md) 11.

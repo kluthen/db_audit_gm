@@ -23,19 +23,24 @@ third parties (D285), round trips a purpose kind of their own and how a
 cascade's fix is checked (D286), the housing displays (D287), a
 direction for data growth with cold storage (D288), the options model
 (D289), the clinic's fault budget (D290), the domain format's
-finalisation (D291), and v0.5 clinic-only (D292); what one centre
-changes (O147) and cold storage's design (O148) are proposed.
+finalisation (D291), and v0.5 clinic-only (D292); then, the same day,
+what one centre changes, the portal the centre's and messaging the
+franchise's, the lab billing its outside customers and `vet-core` at
+one centre's scale (D293–D295), cold storage's design and when data
+ships (D296, D297), and friction 11's profile (D298). Replication and
+the off-site copies are proposed (O149).
 
 ## Documents
 
 | Document | Purpose | Status |
 |---|---|---|
 | [domain-procedure.md](domain-procedure.md) | How a domain is defined: what it holds and leaves out, the steps from a brief, done and its checklist, composites, how a scenario names its domains, the shop against it, the effort, scale, variants and tags | approved v4 (D249, D260, D263) |
-| [producer-profiles.md](producer-profiles.md) | The frictions between domains' producer profiles and v0.3's scheduler, each with its evidence, and the owner's rulings or the design still to rule on | draft v5, ruled (D264–D271, D276, D277, D287); friction 11's direction ruled (D288), its design proposed (O113) |
-| [cold-storage.md](cold-storage.md) | Cold storage, a generic third party for heavy data: keeping a day on site, the shipping job, the stub's manifest, endpoints and page, the faults it enables | draft v1, proposed (D288; O148) |
-| [third-parties.md](third-parties.md) | What a third party is, what it may carry, how it is built into a game, what the players are told; the repository's third parties in all but name | draft v3, ruled (D273–D275, D285) |
-| [one-centre.md](one-centre.md) | One centre per scenario: the ruling, and what it changes for the clinic's parts, its lab's partners, the exchanges with the other centres and the partners' nodes | draft v1: the ruling (D285); its consequences proposed (O147) |
-| [vet-core-domain.md](vet-core-domain.md) | `vet-core` through the procedure: the business sketch and the owner's answers (step 2), what the parts need of the core, the clinic's split (step 3), the data model (step 4), classification and governance (step 5), the rescale for one centre | draft v5: steps 2 and 3 ruled (D266, D278, D279, question 1 revised by D285), step 4 current, step 5 ruled (D280); the rescale proposed (O147) |
+| [producer-profiles.md](producer-profiles.md) | The frictions between domains' producer profiles and v0.3's scheduler, each with its evidence, and the owner's rulings | draft v6, ruled (D264–D271, D276, D277, D287, D288, D298; O113 closed) |
+| [cold-storage.md](cold-storage.md) | Cold storage, a generic third party for heavy data: keeping a day on site, the shipping job, the stub's manifest, endpoints and page, the faults it enables | draft v2, ruled (D288, D296, D297; O148 closed) |
+| [third-parties.md](third-parties.md) | What a third party is, what it may carry, how it is built into a game, what the players are told; the repository's third parties in all but name | draft v4, ruled (D273–D275, D285, D293, D296) |
+| [one-centre.md](one-centre.md) | One centre per scenario: the ruling, and what it changes for the clinic's parts, its lab's partners, the exchanges with the other centres and the partners' nodes | draft v2, ruled (D285, D293–D295; O127, O147 closed) |
+| [vet-core-domain.md](vet-core-domain.md) | `vet-core` through the procedure: the business sketch and the owner's answers (step 2), what the parts need of the core, the clinic's split (step 3), the data model (step 4), classification and governance (step 5) | draft v6: steps 2 and 3 ruled (D266, D278, D279, D293, question 1 revised by D285), step 4 current at one centre's scale (D295), step 5 ruled (D280) |
+| [replication.md](replication.md) | Replication and the off-site copies: a standby of the core's instance off site, WAL archiving and base backups to a vault, their faults and cost | draft v1, proposed (O149) |
 | [brick-options-review.md](brick-options-review.md) | The options candidates checked against the clinic, and the owner's rulings on them: what the clinic gets, as an option or otherwise, what stops mattering, the options model | draft v4, ruled (D250, D261, D262, D289) |
 
 ## Goal
@@ -110,7 +115,8 @@ How domains meet the rest of this version (proposed):
   the flows that need an API (D267), the external lab's round trip
   first (D268); the housing displays reach the database through a ward
   service (D287); heavy continuous data keeps a day on site and ships
-  the rest to [cold storage](cold-storage.md) (D288; the design O148).
+  the rest to [cold storage](cold-storage.md), the GM deciding per data
+type, use first (D288, D296–D298).
 - **Governance**: each domain classifies its data (v0.4's first cut,
   D191). The clinic, a regulated business, brings the richer rules:
   required settings, audit trails, retention, and the brick changes they
@@ -176,9 +182,10 @@ those beyond)". Each national centre is independent, with its own
 records, and has its own lab, which the region's other clinics pay to
 use. A scenario deploys one centre; the other national centres, the
 centres abroad and the franchise's central systems are third parties,
-stub `api` nodes only. What it changes for the parts, the lab, the
-exchanges and the partners' nodes is proposed in
-[one-centre.md](one-centre.md) (O147).
+stub `api` nodes only, sharing one back end. The clinic is the core
+and five parts, the portal the centre's and messaging the franchise's;
+the lab bills its outside customers ([one-centre.md](one-centre.md),
+D293–D295).
 
 v0.4 borrows two pieces of it as test cases, without widening its scope:
 its strict reporting tests the purpose model
@@ -233,9 +240,9 @@ and not counted toward the fault cap (D290).
 
 The clinic's round trips: the external lab's results (D268), the
 region's clinics ordering from the centre's lab, the exchanges with the
-other centres, all with third parties (D285; [one-centre.md](one-centre.md),
-proposed), and cold storage's receipts ([cold-storage.md](cold-storage.md),
-proposed).
+other centres, all with third parties (D285, D293;
+[one-centre.md](one-centre.md)), and cold storage's receipts
+([cold-storage.md](cold-storage.md), D296).
 
 ## The post-mortem collection (D234)
 
@@ -276,13 +283,16 @@ template and index are in [`post_mortem/`](../../../post_mortem/README.md).
 - **Domain definition**: the [procedure](domain-procedure.md) (D235),
   approved (D260), the domain format beyond the shop with its four changes, built in one
   chunk (D249), finalised in the master spec when v0.5 consolidates
-  (D291; O111), producer profiles against the schedule (O113),
+  (D291; O111), producer profiles against the schedule (ruled,
+O113 closed by D298),
   scale, variants and tags, one variant per domain (D263), composition
   as a core and parts (D249), tried first on
   `vet-core` and `vet-lab`.
 - **The veterinary clinic's domains** (D196, D233), only those (D292):
   the split confirmed after `vet-core` (D279), one centre's own parts
-  (D285; which ones is O147), defined with the owner: their data
+  (D285): the core and five parts, `vet-lab`, `vet-scheduling`,
+  `vet-housing`, `vet-machinery` and `vet-portal` (D293), defined with
+  the owner: their data
   models, producer profiles, scheduler scripts and input types,
   classification and governance, and their purposes, regulatory
   reporting among them.
@@ -303,24 +313,29 @@ template and index are in [`post_mortem/`](../../../post_mortem/README.md).
   judged end to end (D286), on the clinic's cases: external labs'
   results over API nodes, a consumer-producer with a correlation id and
   its callback faults (D268); the lab's outside customers and the
-  exchanges with the other centres (D285; O147).
+  exchanges with the other centres (D285, D293).
 - **Periodic reports** (D265, D269): weekly, monthly and yearly, their
   past periods planted by the load, calibrated per node; no run on
   demand in v0.5, which comes later on an instance spawned for it.
 - **`gmctl compose`** (D264), built with the domain format's changes.
 - **Third parties** (D273–D275): the external lab first; the other
   national centres, the centres abroad, the franchise's central systems
-  and the region's clinics using the lab (D285); cold storage (D288);
+  and the region's clinics using the lab (D285); the franchise's
+  messaging service (D293); cold storage (D288, D296);
   their nodes outside the players' reach (`no-access` made real, their
   back end closed by its own access rules on the one network), stub
-  `api` nodes only, their description in `partners.md`, a fifth
+  `api` nodes only with one back end shared by all (D293), the bastion
+  routing the players to cold storage's read-only page alone (D296),
+  their description in `partners.md`, a fifth
   optional starter-pack file ([third-parties.md](third-parties.md)).
 - **Governance beyond v0.4's first cut** (D191), the clinic being the
   regulated domain, with the brick changes it needs: TLS and pgaudit
   always available in `postgres`, turned on by the seed (D250, D261).
 - **`postgres` for the clinic** (D236, D250;
   [brick-options-review.md](brick-options-review.md)): replication as a
-  standby mode of the brick, for redundancy; plain partitioned tables
+  standby mode of the brick, for redundancy, which databases, where,
+  and a WAL archive proposed in [replication.md](replication.md)
+  (O149); plain partitioned tables
   for the machinery's time series, before any TimescaleDB; the
   `monitoring` role the only element of today's four to become an
   option, made conditional on the game having monitoring (D113; v0.2's
@@ -410,20 +425,15 @@ The items moved later are listed in the roadmap
 
 - O111: the domain format, beyond its v0.4 part and D249's four
   changes; finalised in the master spec when v0.5 consolidates (D291).
-- O113: producer profiles against v0.3's scheduler, ruled (D264–D271,
-  D276, D277, D287) but for friction 11's design, its direction ruled
-  (D288)
-  ([producer-profiles.md](producer-profiles.md#11-data-growth-over-the-aging-direction-d288-design-proposed)).
-- O147: what one centre per scenario changes: which parts are the
-  centre's (`vet-portal`, `vet-messaging`), the external lab, billing
-  the lab's customers, `vet-core`'s rescale, the partners' shared back
-  end ([one-centre.md](one-centre.md)).
-- O148: cold storage's design ([cold-storage.md](cold-storage.md)).
+- O149: replication and the off-site copies: a standby of the core's
+  instance off site, WAL archiving and base backups to cold storage
+  ([replication.md](replication.md)).
 
 Moved out of this list on 2026-10-31: O53 and O54 (later, D237); O21
 and O135 (v0.6, D233, D248); O24 and O25 (v1.0+, D248). Closed: O47
 (v1.0) and O137 (D248), O126 (D249), O139 (D260), O118 (D261), O80
 (D262), O114 (D263), O145 (D274, D275), O144 (D278), O127 (D285), O128
-(D286), O79 (D289), O112 (D292). O23 ruled for the clinic (D290), its
+(D286), O79 (D289), O112 (D292), O147 (D293–D295), O148 (D296, D297),
+O113 (D298). O23 ruled for the clinic (D290), its
 general part left for later. Not due here: O138, the post-mortems'
 binding.

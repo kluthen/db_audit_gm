@@ -34,8 +34,8 @@ goes wrong belongs elsewhere.
 |---|---|---|
 | **The business data model**: tables, keys, lifecycle states, roles and grants | `data/schema.sql` | yes |
 | **The history**, "last night's backup", at the population and history its variant sets | `data/load.sql` | yes, for its one variant (section 9) |
-| **Producer profiles**: how data arrives (traffic shapes, rates, fixed-time operations) | `producers/` (`queries.yaml`, `schedule.yaml`, `jobs.yaml` fragments) | yes; how a profile meets a scenario's schedule is O113 |
-| **Scheduler scripts and input types**: builders and parameter generators | `producers/builders/` | yes; richer input types are O113 |
+| **Producer profiles**: how data arrives (traffic shapes, rates, fixed-time operations) | `producers/` (`queries.yaml`, `schedule.yaml`, `jobs.yaml` fragments) | yes; how a profile meets a scenario's schedule is ruled ([producer profiles](producer-profiles.md)) |
+| **Scheduler scripts and input types**: builders and parameter generators | `producers/builders/` | yes; richer input types are ruled ([producer profiles](producer-profiles.md) 5) |
 | **Purposes that fit** | listed by id in `domain.yaml`; each purpose is its own unit under `purposes/` | yes: defining a domain includes choosing or drafting its purposes, but a purpose stays its own unit, since it may fit several domains |
 | **Data classification**: every column classed | `data/classification.yaml` | yes, with one change (section 6, item 2) |
 | **Governance**: the business's own rules for its data | none: today a scenario's `governance:` and its policy text state every rule | **no** (section 6, item 1) |

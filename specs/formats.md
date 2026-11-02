@@ -611,7 +611,7 @@ scenario, adapting them, and `scenario.yaml`'s `domain:` names it for
 provenance. A static scenario needs none. `classification.yaml` classes
 every column (`personal`, `customer-linked` or `internal`), a column with
 no entry being `internal`; the scenario's `governance:` states the rules
-for each class. How producer material meets a schedule is v0.5's (O111, O113); a
+for each class. How producer material meets a schedule is v0.5's (O111; ruled in [producer profiles](versions/v0.5/producer-profiles.md)); a
 domain's scale (population, history, throughput) and its variants, short
 manifests with tags, are settled for v0.5 to build (D263,
 [domain procedure](versions/v0.5/domain-procedure.md#9-scale-variants-and-tags-d263)
