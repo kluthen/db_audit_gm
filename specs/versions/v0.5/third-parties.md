@@ -1,8 +1,10 @@
 # v0.5 — third parties: what they are and how they enter a game
 
-Status: draft v2, ruled. A third party's nodes are outside the players'
+Status: draft v3, ruled. A third party's nodes are outside the players'
 reach (D273); the owner's nine rulings of 2026-11-01 (D274, D275,
-closing O145) are stated below as settled. The `third_parties:` key's
+closing O145) are stated below as settled, with his ruling of
+2026-11-02 that the clinic's other centres and the franchise's systems
+are third parties too (D285). The `third_parties:` key's
 shape, the loader's checks and the format changes stay (proposed) until
 the version's master spec.
 
@@ -52,13 +54,15 @@ It is not:
 | The mail provider | `mail_outbox`, "handed to the provider"; the governance's outbound flow `to: mail-provider` | yes, without a node | an outbound target; the outbox is the mail's whole trace (D195) |
 | The BI agency | v0.4's `reporting` and `bi` nodes | **no** | a contractor operating systems inside the customer's estate, in the players' scope (D211) |
 | Vendors in the post-mortems | `post_mortem/`: managed PostgreSQL (MailPace, Clerk's provider upgrade), RDS and Aurora (Figma, RevenueCat), a veterinary practice SaaS (Shepherd) | the providers and SaaS vendors are | models for later third parties; Clerk's is the pattern: the provider's upgrade, the customer's pool settings the fix |
-| The clinic's partners | D196: external labs, the centres abroad (franchisees' systems, D274), the authority receiving notifiable diseases and the antimicrobial-use report | yes | the external lab is the first third party with an API (D268) |
+| The clinic's partners | D196: external labs; the other national centres, the centres abroad and the franchise's central systems (D274, D285); the region's clinics using the centre's lab (D285); the authority receiving notifiable diseases and the antimicrobial-use report; cold storage (D288) | yes | the external lab is the first third party with an API (D268); the others stub `api` nodes only (D285; [one-centre.md](one-centre.md), [cold-storage.md](cold-storage.md)) |
 
 ## 2. What a third party covers
 
 **Its role in a scenario**: a source of inbound flows (the carriers'
 events), a target of outbound ones (the mail provider, the authority),
-or a round-trip partner (the customs gateway, the external lab, D268).
+or a round-trip partner (the customs gateway, the external lab, D268),
+either side asking: the clinic asks the external lab, the region's
+clinics ask the centre's lab (D285).
 
 **Faults it may carry**: behaviour seen at its interface, placed as
 timeline changes of its schedule (D127) or as its stub's standing
@@ -87,11 +91,15 @@ judge is the customer's side.
 
 ## 3. How a third party is built into the game
 
-**Bricks.** Whichever the role needs: an `api` node for an interface
-(D267), a scheduler node as its back end firing its callbacks from its
-hidden schedule (D270), a `postgres` node when it keeps state. The
-external lab: an `api` node answering the clinic's orders, a scheduler
-node posting results back, a database holding the orders.
+**Bricks.** Whichever the role needs, and no more: none of the
+partner's own setup runs, only its interface (D285, the owner: "just
+third party api nodes"). An `api` node for an interface (D267), a
+scheduler node as its back end firing its callbacks from its hidden
+schedule (D270), a `postgres` node when it keeps state. The external
+lab: an `api` node answering the clinic's orders, a scheduler node
+posting results back, a database holding the orders. Whether every
+partner of a scenario shares one back end, one scheduler node and one
+database, is proposed in [one-centre.md](one-centre.md) 4 (O147).
 
 **Out of reach (D273).** A third party's nodes have no `player`
 account, are not on the bastion's routes and are not listed among the
@@ -213,3 +221,7 @@ views:
 8. The franchise's centres abroad are third parties, franchisees with
    systems of their own, reached by exchange (D274).
 9. No fault's fix ever requires a third party to change (D274).
+
+On 2026-11-02 (D285): a scenario deploys one centre of the clinic; the
+other national centres and the franchise's central systems are third
+parties as well, stub `api` nodes only.

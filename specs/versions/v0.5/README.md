@@ -18,17 +18,25 @@ players' reach (D273), their definition ruled (D274, D275), then O113's remainin
 and the periodic fix check (D276, D277); `vet-core`'s business sketch
 ruled (D278), its split confirmed (step 3, D279), its data model
 current (step 4) and its classification and governance ruled (step 5,
-D280).
+D280). On 2026-11-02 the owner ruled one centre per scenario, the rest
+third parties (D285), round trips a purpose kind of their own and how a
+cascade's fix is checked (D286), the housing displays (D287), a
+direction for data growth with cold storage (D288), the options model
+(D289), the clinic's fault budget (D290), the domain format's
+finalisation (D291), and v0.5 clinic-only (D292); what one centre
+changes (O147) and cold storage's design (O148) are proposed.
 
 ## Documents
 
 | Document | Purpose | Status |
 |---|---|---|
 | [domain-procedure.md](domain-procedure.md) | How a domain is defined: what it holds and leaves out, the steps from a brief, done and its checklist, composites, how a scenario names its domains, the shop against it, the effort, scale, variants and tags | approved v4 (D249, D260, D263) |
-| [producer-profiles.md](producer-profiles.md) | The frictions between domains' producer profiles and v0.3's scheduler, each with its evidence, and the owner's rulings or the recommendation still to rule on | draft v4, ruled (D264–D271, D276, D277); two frictions carried to their parts (O113) |
-| [third-parties.md](third-parties.md) | What a third party is, what it may carry, how it is built into a game, what the players are told; the repository's third parties in all but name | draft v2, ruled (D273–D275) |
-| [vet-core-domain.md](vet-core-domain.md) | `vet-core` through the procedure: the business sketch and the owner's answers (step 2), what the parts need of the core, the clinic's split (step 3), the data model (step 4), classification and governance (step 5) | draft v3: steps 2 and 3 ruled (D266, D278, D279), step 4 current, step 5 ruled (D280) |
-| [brick-options-review.md](brick-options-review.md) | The options candidates checked against the clinic, and the owner's rulings on them: what the clinic gets, as an option or otherwise, what stops mattering, what O79 still answers | draft v3, ruled (D250, D261, D262) |
+| [producer-profiles.md](producer-profiles.md) | The frictions between domains' producer profiles and v0.3's scheduler, each with its evidence, and the owner's rulings or the design still to rule on | draft v5, ruled (D264–D271, D276, D277, D287); friction 11's direction ruled (D288), its design proposed (O113) |
+| [cold-storage.md](cold-storage.md) | Cold storage, a generic third party for heavy data: keeping a day on site, the shipping job, the stub's manifest, endpoints and page, the faults it enables | draft v1, proposed (D288; O148) |
+| [third-parties.md](third-parties.md) | What a third party is, what it may carry, how it is built into a game, what the players are told; the repository's third parties in all but name | draft v3, ruled (D273–D275, D285) |
+| [one-centre.md](one-centre.md) | One centre per scenario: the ruling, and what it changes for the clinic's parts, its lab's partners, the exchanges with the other centres and the partners' nodes | draft v1: the ruling (D285); its consequences proposed (O147) |
+| [vet-core-domain.md](vet-core-domain.md) | `vet-core` through the procedure: the business sketch and the owner's answers (step 2), what the parts need of the core, the clinic's split (step 3), the data model (step 4), classification and governance (step 5), the rescale for one centre | draft v5: steps 2 and 3 ruled (D266, D278, D279, question 1 revised by D285), step 4 current, step 5 ruled (D280); the rescale proposed (O147) |
+| [brick-options-review.md](brick-options-review.md) | The options candidates checked against the clinic, and the owner's rulings on them: what the clinic gets, as an option or otherwise, what stops mattering, the options model | draft v4, ruled (D250, D261, D262, D289) |
 
 ## Goal
 
@@ -44,8 +52,9 @@ v0.5 therefore defines domains, the [veterinary clinic](#the-veterinary-clinic-d
 owner will help define the clinic's bricks, faults, topology and
 configurations later; none is designed yet. Whether a tool is "related
 to the clinic" is judged against what a setting that complex plausibly
-needs (several sites, machinery servers, a lab, a portal, redundancy);
-monitoring breadth counts (D238). Everything else in v0.5's earlier
+needs (one large centre with machinery servers, a lab, a portal,
+redundancy, and partners around it, D285); monitoring breadth counts
+(D238). Everything else in v0.5's earlier
 scope is sorted below ([Sorting](#sorting-d233)).
 
 D47's three goals for this version, in the owner's words "broaden the
@@ -99,7 +108,9 @@ How domains meet the rest of this version (proposed):
   is the system of record, natural identifiers carrying identity across
   systems (D266); an `api` brick and the scheduler's HTTP driver serve
   the flows that need an API (D267), the external lab's round trip
-  first (D268).
+  first (D268); the housing displays reach the database through a ward
+  service (D287); heavy continuous data keeps a day on site and ships
+  the rest to [cold storage](cold-storage.md) (D288; the design O148).
 - **Governance**: each domain classifies its data (v0.4's first cut,
   D191). The clinic, a regulated business, brings the richer rules:
   required settings, audit trails, retention, and the brick changes they
@@ -111,10 +122,9 @@ How domains meet the rest of this version (proposed):
   domain's data model.
 
 v0.4 ships the first domain, the shop, structured so that more can be
-added (O108). v0.5 defines the clinic's domains first (D233). Whether
-other domains (a warehouse, a factory, a lab on its own) join v0.5 is
-deferred until the procedure's cost is known: the owner decides once
-defining a domain has shown how long and complex it is (D235; O112).
+added (O108). v0.5 defines the clinic's domains only; other domains (a
+warehouse, a factory, a lab on its own) come after v0.5 (D292). The
+owner: "i belive v0.5 is already big, so they'll wait".
 
 ### The veterinary clinic (D196)
 
@@ -156,11 +166,19 @@ The owner, on 2026-10-31: "the clinic will probably spawn multiple such
 domain". The procedure's first cut splits it into a core and six parts
 ([domain-procedure.md](domain-procedure.md), "The clinic, a first cut"),
 kept now and revised once `vet-core` is defined (D249); regulatory
-reporting becomes purposes, inter-clinic exchange topology and round
-trips. The parts compose by the procedure's rules (D249). Open: where the
-franchise's several sites and the exchange between clinics sit (O127,
-narrowed to its topology side). v0.2's
+reporting becomes purposes, inter-clinic exchange round trips. The
+parts compose by the procedure's rules (D249). v0.2's
 `fernway-clinics-monitoring` is a veterinary clinic too, much smaller.
+
+**One centre per scenario (D285).** The owner, on 2026-11-02: "the
+scenario should be centered only on one such center (not all 3, nor
+those beyond)". Each national centre is independent, with its own
+records, and has its own lab, which the region's other clinics pay to
+use. A scenario deploys one centre; the other national centres, the
+centres abroad and the franchise's central systems are third parties,
+stub `api` nodes only. What it changes for the parts, the lab, the
+exchanges and the partners' nodes is proposed in
+[one-centre.md](one-centre.md) (O147).
 
 v0.4 borrows two pieces of it as test cases, without widening its scope:
 its strict reporting tests the purpose model
@@ -192,8 +210,32 @@ purposes read. It brings:
 - acknowledgements late, out of order, duplicated or unmatched;
 - cascades whose faults show downstream of the acknowledgement.
 
-The clinic has the same shape: external labs' results coming back,
-exchanges between clinics. How a round trip is modelled is O128.
+**How it is modelled (D286).** A round trip is a **purpose kind of its
+own**, beside v0.4's four (pulled, transformed in place, pushed, pushed
+obligation). Its definition states:
+
+- the **request**: what is sent, by which job, to which partner;
+- the **correlation key**: what an answer carries to name its request;
+- the **expected answer**: its forms (accepted, rejected, a result);
+- a **timeout**: how long the setup waits before it resends or
+  escalates;
+- the **reactions**: the processes the answer starts inside the setup.
+
+v0.4's pushed obligation (P5, export declarations) stays as built.
+
+**Checking a cascade (D286).** A fix check judges the end-to-end
+invariant on the trace produced after the fix (for the lab: each new
+order gets its result released), wherever the player fixed it. Fixing
+a symptom alone earns nothing. The backlog the fault left behind (the
+orders stuck before the fix) is listed in the answer key as a
+consequence the GM may credit the players for cleaning up: not a fault,
+and not counted toward the fault cap (D290).
+
+The clinic's round trips: the external lab's results (D268), the
+region's clinics ordering from the centre's lab, the exchanges with the
+other centres, all with third parties (D285; [one-centre.md](one-centre.md),
+proposed), and cold storage's receipts ([cold-storage.md](cold-storage.md),
+proposed).
 
 ## The post-mortem collection (D234)
 
@@ -233,35 +275,46 @@ template and index are in [`post_mortem/`](../../../post_mortem/README.md).
 
 - **Domain definition**: the [procedure](domain-procedure.md) (D235),
   approved (D260), the domain format beyond the shop with its four changes, built in one
-  chunk (D249; O111), producer profiles against the schedule (O113),
+  chunk (D249), finalised in the master spec when v0.5 consolidates
+  (D291; O111), producer profiles against the schedule (O113),
   scale, variants and tags, one variant per domain (D263), composition
   as a core and parts (D249), tried first on
   `vet-core` and `vet-lab`.
-- **The veterinary clinic's domains** (D196, D233), the seven of the
-  procedure's cut, revised once `vet-core` is defined (D249), defined
-  with the owner: their data models, producer profiles, scheduler
-  scripts and input types, classification and governance, and their
-  purposes, regulatory reporting among them.
+- **The veterinary clinic's domains** (D196, D233), only those (D292):
+  the split confirmed after `vet-core` (D279), one centre's own parts
+  (D285; which ones is O147), defined with the owner: their data
+  models, producer profiles, scheduler scripts and input types,
+  classification and governance, and their purposes, regulatory
+  reporting among them.
 - **A scenario using the clinic's domains** (D248), proving them in play
-  as v0.4's scenario proved the shop.
+  as v0.4's scenario proved the shop, deploying one centre (D285). Its
+  faults (D290): ten at most, the owner judging it "one of the most
+  complex scenario that we will propose": one dramatic and already
+  noticed by the customer, two on the verge of becoming problematic,
+  the rest good optimisations and minor frictions; an issue may be a
+  false alarm, a complaint with no fault behind it.
 - **The clinic's bricks, faults, topology and configurations**, which
   the owner will help define (D233): its faults are the catalogue's
   growth, its topology fragments the pre-planned parts (D47). Among the
   candidate faults: v0.4's `governance-statement-log-personal`, held for
   the regulated domains (D191), and `purpose-retry-without-key`, held
   for round trips (D201).
-- **Round trips** (D201; O128), on the clinic's cases: external labs'
+- **Round trips** (D201), a purpose kind of their own, a cascade's fix
+  judged end to end (D286), on the clinic's cases: external labs'
   results over API nodes, a consumer-producer with a correlation id and
-  its callback faults (D268); exchanges between clinics.
+  its callback faults (D268); the lab's outside customers and the
+  exchanges with the other centres (D285; O147).
 - **Periodic reports** (D265, D269): weekly, monthly and yearly, their
   past periods planted by the load, calibrated per node; no run on
   demand in v0.5, which comes later on an instance spawned for it.
 - **`gmctl compose`** (D264), built with the domain format's changes.
-- **Third parties** (D273–D275): the external lab first, the centres
-  abroad too; their nodes outside the players' reach (`no-access` made
-  real, their back end closed by its own access rules on the one
-  network), their description in `partners.md`, a fifth optional
-  starter-pack file ([third-parties.md](third-parties.md)).
+- **Third parties** (D273–D275): the external lab first; the other
+  national centres, the centres abroad, the franchise's central systems
+  and the region's clinics using the lab (D285); cold storage (D288);
+  their nodes outside the players' reach (`no-access` made real, their
+  back end closed by its own access rules on the one network), stub
+  `api` nodes only, their description in `partners.md`, a fifth
+  optional starter-pack file ([third-parties.md](third-parties.md)).
 - **Governance beyond v0.4's first cut** (D191), the clinic being the
   regulated domain, with the brick changes it needs: TLS and pgaudit
   always available in `postgres`, turned on by the seed (D250, D261).
@@ -271,8 +324,8 @@ template and index are in [`post_mortem/`](../../../post_mortem/README.md).
   for the machinery's time series, before any TimescaleDB; the
   `monitoring` role the only element of today's four to become an
   option, made conditional on the game having monitoring (D113; v0.2's
-  RG-5), the model for it O79. Until then the role stays in every
-  postgres game. Options are for `postgres` only, unless one of the
+  RG-5), by the options model (D289): `options: [monitoring]` per node,
+  off unless chosen. Options are for `postgres` only, unless one of the
   clinic's parts calls for another brick (D262).
 - **Monitoring breadth for a setting as complex as the clinic** (D238):
   pgwatch and pgCluu, both in the reference setup (D70), and
@@ -301,13 +354,13 @@ O137); one row stays deferred.
 
 | Item | Goes to | State |
 |---|---|---|
-| Domain definition: the procedure, the format beyond the shop, profiles, scale, composition (O111, O113; O126 closed by D249, O114 by D263) | v0.5 | settled (D233, D235, D249); the procedure approved (D260); scale, variants and tags (D263) |
+| Domain definition: the procedure, the format beyond the shop, profiles, scale, composition (O111, O113; O126 closed by D249, O114 by D263) | v0.5 | settled (D233, D235, D249); the procedure approved (D260); scale, variants and tags (D263); the format finalised at consolidation (D291) |
 | The clinic's domains (D196) | v0.5 | settled (D233) |
 | The clinic's bricks, faults, topology fragments and configurations | v0.5, defined with the owner | settled (D233) |
 | A scenario using the clinic's domains, so they are proven in play as v0.4's scenario proved the shop | v0.5 | settled (D248) |
-| Round trips (D201; O128), on the clinic's cases | v0.5 | settled (D233): the clinic's lab results and inter-clinic exchanges have their shape |
+| Round trips (D201; O128 closed by D286), on the clinic's cases | v0.5 | settled (D233): the clinic's lab results and inter-clinic exchanges have their shape; a purpose kind of its own (D286) |
 | Governance beyond the first cut, its brick changes, the held statement-logging fault (D191; O118 closed by D261) | v0.5 | settled (D233): the clinic is the regulated domain; TLS and pgaudit always available (D250, D261) |
-| Brick options (D107; O79; O80 closed by D262), tied to the clinic, with a review | v0.5 | settled (D236); ruled on by D250, D261, D262 |
+| Brick options (D107; O79 closed by D289, O80 by D262), tied to the clinic, with a review | v0.5 | settled (D236); ruled on by D250, D261, D262, D289 |
 | The `monitoring` role made conditional (D113) | v0.5, with the options | settled (D236) |
 | pgwatch and pgCluu | v0.5 | settled (D238) |
 | Nagios-style health solutions (D66) | v0.5 | settled (D238): monitoring breadth across sites and machinery servers |
@@ -319,7 +372,7 @@ O137); one row stays deferred.
 | The undersized transformer (D204) | after v1.0, heading the provider's capacity family (D205) | settled (D248): only reportable until players may resize a node |
 | A general library of topology fragments for the most common arrangements | v1.0+ | settled (D248) |
 | Revisiting v0.3's defaults after use (D146) | v0.5 where the clinic's work meets a default; a general review pass v1.0+ | settled (D248) |
-| Other domains: a warehouse, a factory, a lab on its own (D192; O112) | decided once the procedure's cost is known | **deferred** (D235) |
+| Other domains: a warehouse, a factory, a lab on its own (D192; O112 closed by D292) | after v0.5 | settled (D292): v0.5 is the clinic only |
 | Bluebox (O53) and the other datasets, internet-sourced data included (O54) | later, version not set | settled (D237): Bluebox a later domain candidate, through the procedure |
 | Finance reconciliation, the shop's P4 held for v0.5 (D197) | v1.0+, with the shop | settled (D248); a billing purpose the clinic's definition calls for is the clinic's |
 | The setup's entry point: a common Caddy and a homepage for the whole setup (D224; O135) | [v0.6](../v0.6/README.md#the-setups-entry-point-d224) | settled (D248): the out-of-game side of v0.6's landing page |
@@ -328,7 +381,7 @@ O137); one row stays deferred.
 | O47, scenario generation | v1.0 | settled (D248, closing O47) |
 | O24, seeded variation per deployment | v1.0+ | settled (D248) |
 | O25, promoting scenario-only bricks and faults | v1.0+ | settled (D248) |
-| O23, number and mix of faults | v0.5, for the clinic's scenario | settled (D248) |
+| O23, number and mix of faults | v0.5, for the clinic's scenario | settled (D248); ruled for the clinic (D290), the general mix left open |
 | The post-mortem collection | v0.5, a side track | settled (D234); binding later, the handout after the final answer (D251; O138) |
 
 The items moved later are listed in the roadmap
@@ -356,23 +409,21 @@ The items moved later are listed in the roadmap
 ## Questions due in this version
 
 - O111: the domain format, beyond its v0.4 part and D249's four
-  changes.
-- O112: which other domains join v0.5, deferred until the procedure's
-  cost is known (D235).
+  changes; finalised in the master spec when v0.5 consolidates (D291).
 - O113: producer profiles against v0.3's scheduler, ruled (D264–D271,
-  D276, D277) but for two frictions carried to `vet-housing` and
-  `vet-machinery`
-  ([producer-profiles.md](producer-profiles.md#carried-to-the-parts-profile-steps-o113)).
-- O127: where several sites and inter-site exchange sit, its topology
-  side.
-- O128: how a round trip (an acknowledgement driving further processes)
-  is modelled; its API side settled (D268), the purpose kind and the
-  checks of a cascade left.
-- O79: the options model, for its one user, the `monitoring` role, on
-  `postgres` (D250, D261, D262).
-- O23: number and mix of faults, difficulty, for the clinic's scenario.
+  D276, D277, D287) but for friction 11's design, its direction ruled
+  (D288)
+  ([producer-profiles.md](producer-profiles.md#11-data-growth-over-the-aging-direction-d288-design-proposed)).
+- O147: what one centre per scenario changes: which parts are the
+  centre's (`vet-portal`, `vet-messaging`), the external lab, billing
+  the lab's customers, `vet-core`'s rescale, the partners' shared back
+  end ([one-centre.md](one-centre.md)).
+- O148: cold storage's design ([cold-storage.md](cold-storage.md)).
 
 Moved out of this list on 2026-10-31: O53 and O54 (later, D237); O21
 and O135 (v0.6, D233, D248); O24 and O25 (v1.0+, D248). Closed: O47
 (v1.0) and O137 (D248), O126 (D249), O139 (D260), O118 (D261), O80
-(D262), O114 (D263), O145 (D274, D275), O144 (D278). Not due here: O138, the post-mortems' binding.
+(D262), O114 (D263), O145 (D274, D275), O144 (D278), O127 (D285), O128
+(D286), O79 (D289), O112 (D292). O23 ruled for the clinic (D290), its
+general part left for later. Not due here: O138, the post-mortems'
+binding.

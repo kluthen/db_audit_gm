@@ -128,9 +128,8 @@ proposed row the same day (D248).
 **v1.0**: scenario generation (O47, closed by D248;
 [v1.0](v1.0/README.md)).
 
-**Decided later**: whether other domains (a warehouse, a factory, a lab
-on its own) join v0.5, once the domain procedure's cost is known (D235;
-O112).
+**After v0.5** (settled, D292): other domains (a warehouse, a factory,
+a lab on its own); v0.5 is the clinic only.
 
 **Later, version not set** (settled, D237): Bluebox (O53) and the other
 datasets, internet-sourced data included (O54). The owner: "bluebox and

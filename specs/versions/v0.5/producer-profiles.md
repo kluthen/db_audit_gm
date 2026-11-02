@@ -1,12 +1,14 @@
 # v0.5 — producer profiles against v0.3's scheduler (O113)
 
-Status: draft v4, ruled. Ruled by the owner on 2026-11-01: merging (1,
-D264), readable profiles, rates, input types, producer nodes, time
-zones and the variant's profile (2, 3, 5, 6, 10, D276), periodic reports
-and how a fix to one is checked (4, D265, D269, D277), identity across
-systems (7, D266), API nodes, what they do and what players reach on
-them, and round trips (8, D267, D268, D270, D271). Frictions 9 and 11
-wait for their parts' profile steps (O113).
+Status: draft v5, ruled but for friction 11. Ruled by the owner on
+2026-11-01: merging (1, D264), readable profiles, rates, input types,
+producer nodes, time zones and the variant's profile (2, 3, 5, 6, 10,
+D276), periodic reports and how a fix to one is checked (4, D265, D269,
+D277), identity across systems (7, D266), API nodes, what they do and
+what players reach on them, and round trips (8, D267, D268, D270,
+D271); on 2026-11-02 the housing displays (9, D287) and the direction
+for data growth (11, D288), whose design is (proposed) (O113, and
+[cold storage](cold-storage.md), O148).
 
 The owner, on 2026-11-01: "Let's begin working on the clinic domains and
 the frictions points between producer profiles and v0.3."
@@ -41,10 +43,10 @@ copies; the scenario itself is built in v0.4's wave 4), the scheduler
 | 5 | Richer input types than v0.3's generators | ruled: SQL and domain builders (D276) |
 | 6 | Composites: a core and parts onto one producer node or several | ruled: a node per application (D276) |
 | 7 | Keys shared between the core and its parts | ruled: the core the system of record, natural identifiers (D266) |
-| 8 | Inbound flows: round trips (O128) and the scheduler's other targets (D118) | ruled: an `api` brick that only answers, its database side the players' (D267, D270, D271), an HTTP driver, the lab a consumer-producer (D268) |
-| 9 | Many small consumers that all look alike (the housing displays) | carried to `vet-housing` |
+| 8 | Inbound flows: round trips (D286) and the scheduler's other targets (D118) | ruled: an `api` brick that only answers, its database side the players' (D267, D270, D271), an HTTP driver, the lab a consumer-producer (D268) |
+| 9 | Many small consumers that all look alike (the housing displays) | ruled: a ward service holding a pool (D287) |
 | 10 | Several sites in different time zones | ruled: one zone in v0.5 (D276) |
-| 11 | Data growth over the aging (the machinery's readings) | carried to `vet-machinery` |
+| 11 | Data growth over the aging (the machinery's readings) | direction ruled (D288); the design (proposed), cold storage (O113, O148) |
 
 ## 1. Merging fragments (ruled, D264)
 
@@ -336,7 +338,7 @@ to the lab's.
 
 **What.** The clinic receives: external labs' results, other clinics'
 requests and answers, machine uploads and logs, messages. Round trips
-(D201; O128) make an acknowledgement an input the setup waits on. D118
+(D201, D286) make an acknowledgement an input the setup waits on. D118
 promised message queues and APIs from v0.5, and D248 kept those the
 clinic's flows need.
 
@@ -410,13 +412,15 @@ id; the lab's stub, an API node itself, calls back hours later with the
 result. Its faults: a lost callback, a duplicate, a late or out-of-order
 result, a wrong correlation id, a retry without an idempotency key
 (`purpose-retry-without-key`, held for round trips since D201). SQL stubs
-stay where no API is needed (the exchange between two clinics, two
-instances with a transformer job between them, needs nothing new).
+stay where no API is needed. The exchange between centres, planned here
+as two instances with a transformer job between them, is with third
+parties since one centre is deployed (D285), over their `api` stubs
+([one-centre.md](one-centre.md) 3, proposed).
 
-## 9. Many small consumers that all look alike
+## 9. Many small consumers that all look alike (ruled, D287)
 
-**What.** Housing has one display per animal reading its file (D196):
-some hundred consumers.
+**What.** Housing has one display per box or stall, showing the animal
+placed in it (D196): some tens of consumers in one centre.
 
 **Evidence.** Every session a scheduler node opens carries the node's
 hostname as `application_name` (`pools.py`, `scripts.py`): in
@@ -424,13 +428,20 @@ hostname as `application_name` (`pools.py`, `scripts.py`): in
 direct connections would also meet `max_connections`' default of 100
 (D138).
 
-**Options.** a. The displays talk to a display service holding a pool,
-as real ones do: one stream, its concurrency the service's. b.
-Connections per call, for the churn. c. A per-session `application_name`
-pattern: a scheduler change.
+**Options.** a. The displays talk to a ward service holding a pool, as
+real ones do: one stream, its concurrency the service's. b. Connections
+per call, for the churn. c. A per-session `application_name` pattern: a
+scheduler change.
 
-**Recommendation.** a, unless a `vet-housing` fault needs to tell one
-display from another; decided at `vet-housing`'s profile step (step 6).
+**The ruling (D287).** a, with no scheduler change. The owner:
+"identifying the querier (the ward service) and the redundant query
+might be sufficient to determine which display is faulty. (there must
+be somewhere something that relate a housebox to a specific animal)".
+A faulty display is found through the ward service's redundant query,
+whose parameters name the box, and the relation from the box to the
+stay placed in it and from the stay to the animal: `vet-housing`'s
+placements (box, stay, from, until) and the core's stays hold it
+(D279), and the housing data must keep it.
 
 ## 10. Several sites in different time zones (ruled, D276)
 
@@ -448,9 +459,10 @@ abroad in neighbouring countries of the same zone). b. Per-site offsets,
 each site's schedule rendered with an extra fixed offset: a render
 change, and `timezone:` no longer a fault's marker.
 
-**The ruling (D276).** a, with O127's topology side.
+**The ruling (D276).** a. Since one centre is deployed (D285), the
+other sites are third parties whose stubs keep the same zone.
 
-## 11. Data growth over the aging
+## 11. Data growth over the aging (direction D288; design proposed)
 
 **What.** The machinery's readings are a time series ([brick options
 review](brick-options-review.md): plain partitioned tables, D250).
@@ -462,13 +474,37 @@ review](brick-options-review.md): plain partitioned tables, D250).
 tables small" ([platform.md](../../platform.md)) and the database's disk
 reservation.
 
-**Options.** a. Readings at a coarser grain (every ten seconds to a
-minute), or one row a minute holding a batch. b. Sub-second readings with
-a larger disk. Either way the profile states its growth an hour at
-intensity 1.0, so the GM sizes the disk.
+**The owner's direction (D288)**, on 2026-11-02: "depends on the usage
+we have here and which machinerie we are talking about. If it's the
+housing display: Do we really need to keep every day's access, etc. What
+do these monitor provide in term of new informations (it's most
+probably indicators that actions have been taken, more than anything
+(like feeding, care, washing, etc). so it should stay smallish. If
+we're talking about lab machineries, we will say that we keep a day on
+site (but moderate the generation), and the rest get shipped to cold
+storage". Cold storage serves "whenever we get to generate a hefty
+amount of data continuously", showing the minimum: type of data,
+number of rows, date.
 
-**Recommendation.** a, and every domain's GM notes state the growth an
-hour of its producers; decided at `vet-machinery`'s profile step.
+**The design (proposed, O113):**
+
+- **The housing displays** produce action events only: feeding, care,
+  cleaning, checks, recorded from the display. No per-access log is
+  kept: a display's reads leave nothing but the database's own
+  statistics. About forty animals in one centre at a dozen events each
+  is some 500 rows a day, 20 an hour; kept on site for the whole game.
+- **The machines' readings, the lab's analysers among them**, at a
+  moderate grain: a row every ten seconds per machine while it runs, or
+  a row a minute holding a batch. Ten machines give about 3 600 rows an
+  hour at intensity 1.0, under a megabyte. One day is kept on site in
+  daily partitions (D250); older days are shipped to cold storage. The
+  analysers' readings and run logs are `vet-machinery`'s, as machines;
+  their results reach `vet-lab` through its instrument batch uploads.
+- **Cold storage** is a generic third party any domain may use:
+  [cold-storage.md](cold-storage.md) (O148).
+- **Every domain's GM notes** state each producer's growth an hour at
+  intensity 1.0 and the cold storage threshold, so the GM sizes the
+  disk for the window, not the game.
 
 ## The variant's profile (ruled, D276)
 
@@ -478,6 +514,7 @@ holding only what they change ([procedure](domain-procedure.md) 9).
 
 ## Carried to the parts' profile steps (O113)
 
-Frictions 9 and 11 are decided at `vet-housing`'s and
-`vet-machinery`'s profile steps (procedure step 6), with the
-recommendations their sections give.
+Friction 9 is ruled (D287). Friction 11's design (section 11) is
+confirmed with the owner, and applied at `vet-housing`'s and
+`vet-machinery`'s profile steps (procedure step 6); cold storage's own
+design is O148.

@@ -11,7 +11,7 @@ their IDs keep their meaning. Questions resolved by the close of v0.2
 Questions resolved by the close of v0.3 (O45, O46, O78 and O81–O103) are
 listed in
 [archive/v0.3/open-questions-resolved.md](archive/v0.3/open-questions-resolved.md).
-Numbering continues from O146.
+Numbering continues from O149.
 
 Resolved during v0.4's drafting: O106 (D194), O110 (D195), O107 (D197), O120
 (D198), O109 (D199), O121 (D200), O123 (D202), O105 (D203), O129 (D206), O131 (D207),
@@ -23,7 +23,8 @@ On 2026-10-31 v0.5 was centred on domain definition and the clinic
 (D233), and its questions retargeted: O53 and O54 to later, version not
 set (D237); O21 and O135 to v0.6; O24 and O25 to v1.0+ (D248). Resolved
 during v0.5's drafting: O137 and O47 (D248), O126 (D249), O139 (D260),
-O118 (D261), O80 (D262), O114 (D263), O145 (D274, D275), O144 (D278).
+O118 (D261), O80 (D262), O114 (D263), O145 (D274, D275), O144 (D278),
+O127 (D285), O128 (D286), O79 (D289), O112 (D292).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -101,12 +102,16 @@ for the next version (v0.1 until it closed, with none left open);
   Refs: [scenario-lifecycle.md](scenario-lifecycle.md),
   [archive/v0.3/aging-and-timeline.md](archive/v0.3/aging-and-timeline.md),
   [versions/v0.4/README.md](versions/v0.4/README.md).
-- **O23** (later, v0.5, for the clinic's scenario; D248) — Difficulty is a fault count, each fault worth 1 (easy
+- **O23** (later) — Difficulty is a fault count, each fault worth 1 (easy
   5, normal 10, hard 20; D120), read for v0.3 as the number of fault
-  instances, the levels being targets (D134). Still open:
-  how many faults issues cover, the mix of families, and may an issue be
-  a false alarm (a complaint with no fault behind it)? Refs:
-  [bricks-and-faults.md](bricks-and-faults.md).
+  instances, the levels being targets (D134). Ruled for the clinic's
+  scenario (D290): ten faults at most, one dramatic and noticed by the
+  customer, two on the verge of becoming problematic, the rest
+  optimisations and minor frictions; an issue may be a false alarm.
+  Still open beyond the clinic: whether that severity mix becomes the
+  general rule, how many faults issues cover, and the mix of families.
+  Refs: [bricks-and-faults.md](bricks-and-faults.md),
+  [versions/v0.5/README.md](versions/v0.5/README.md#in-scope).
 - **O24** (later, v1.0+; D248) — Seed variation (names, values) per deployment of a
   scenario? Probably moot after D8; kept until the owner says so.
 - **O25** (later, v1.0+; D248) — Scenario-only bricks and faults may live in the
@@ -191,58 +196,32 @@ added on 2026-10-30 (D196).
   [versions/v0.5/domain-procedure.md](versions/v0.5/domain-procedure.md)
   5, 6): profiles against the schedule (O113), the variant manifest and its
   tags (D263; procedure 9), and what the
-  clinic's domains reveal.
-- **O112** (later, v0.5; **deferred**, D235) — Which domains come after
-  the shop? The clinic's first (D233). Whether any other joins v0.5 is
-  deferred until the domain procedure shows what defining one costs: the
-  owner decides then (D235). The owner names a warehouse, a factory and
-  a lab, and, on 2026-10-30, a veterinary clinic franchise (D196), a
-  composite holding a lab. A
-  factory's high-frequency time series presses on "schemas simple,
-  tables small" and the memory budget, and invites TimescaleDB, placed
-  beyond v1.0 by D47 yet listed as a `postgres` option candidate (O79). A
-  lab's audit trail needs governance beyond v0.4's cut, pgaudit always
-  available for it (D261). The
-  clinic's machinery may want engines beyond v1.0 (D47) and its
-  regulatory reports run monthly or yearly (O22). v0.2's
-  `fernway-clinics-monitoring` is a veterinary clinic: its owners are
-  personal data, animal health is no special category. Refs:
-  [versions/v0.5/README.md](versions/v0.5/README.md#domains).
+  clinic's domains reveal. Finalised in the master spec when v0.5
+  consolidates (D291), which closes it.
 - **O113** (later, v0.5) — Producer profiles against v0.3's scheduler.
-  Ruled: D264–D271, D276, D277. Still open: two frictions, decided at
-  their parts' profile steps: the housing displays all looking alike
-  (`vet-housing`) and the machinery's data growth over the aging
-  (`vet-machinery`). Refs:
-  [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md#carried-to-the-parts-profile-steps-o113).
-- **O127** (later, v0.5 → beyond v1.0) — Where several sites and the
-  exchange between them sit: the clinic is a franchise whose centres
-  share machinery and records, with redundancy (D196). Several sites
-  need more than one domain's worth of topology: several database
-  instances per business, replication or exchange between them, and
-  hosts enough. A v0.5 topology fragment (two sites on one playground),
-  or beyond v1.0 with the multi-site playgrounds it needs? Linked to
-  O12 (network layout). Narrowed by the procedure (D235, D249): a site
-  is a core entity, so one database holds several sites' data; what
-  stays open is the topology side, several instances and the exchange
-  between them. Every site in one zone is O113's open ruling 5; which sites
-  share a record is settled (D278: one record for the national centres;
-  the centres abroad third parties, D274). Refs:
-  [versions/v0.5/README.md](versions/v0.5/README.md#the-veterinary-clinic-d196).
-
-- **O128** (later, v0.5) — How a round trip is modelled (D201): an
-  acknowledgement as an inbound flow the setup waits on and reacts to.
-  To settle: whether it is a purpose kind of its own or a pushed
-  obligation with reactions; how correlation is stated (the key an
-  acknowledgement answers); the stub receiver's repertoire (late, out
-  of order, duplicated, unmatched acknowledgements, as timeline changes,
-  D127); how a check judges a cascade, whose faults show downstream; and
-  what of the clinic's lab results and inter-clinic exchanges it covers.
-  Settled for the external lab (D268): a consumer-producer over API
-  nodes, its correlation id and its faults; SQL stubs where no API is
-  needed. Still open: a purpose kind of its own or a pushed obligation
-  with reactions, and how a check judges a cascade.
-  Refs: [versions/v0.5/README.md](versions/v0.5/README.md#round-trips-acknowledgements-as-inputs-d201),
-  [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md) 8.
+  Ruled: D264–D271, D276, D277, D287. Still open: friction 11's design,
+  the machinery's data growth over the aging, whose direction is ruled
+  (D288): the housing displays' action events, the machines' moderate
+  readings with a day kept on site, every domain's growth an hour in its
+  GM notes; cold storage itself is O148. Refs:
+  [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md#11-data-growth-over-the-aging-direction-d288-design-proposed).
+- **O147** (later, v0.5) — What one centre per scenario (D285) changes
+  for the clinic: whether `vet-portal` is the centre's (recommended) or
+  the franchise's; whether `vet-messaging` is the franchise's, a third
+  party out of v0.5's domains (recommended), or the centre's; the
+  external lab kept (recommended); the lab's outside customers billed
+  by a monthly statement inside `vet-lab`, against D278's "no billing",
+  or unbilled; `vet-core` rescaled to a third (recommended) or kept as
+  one very large centre; one back end shared by every partner. Refs:
+  [versions/v0.5/one-centre.md](versions/v0.5/one-centre.md),
+  [versions/v0.5/vet-core-domain.md](versions/v0.5/vet-core-domain.md#one-centre-the-rescale-proposed-o147).
+- **O148** (later, v0.5) — Cold storage's design (D288): the shipping
+  job as a round trip, the manifest (data type, rows declared and
+  received, date range, time), the stub's endpoints and page, the
+  planted past manifests; whether the bastion may publish its page
+  (recommended, the page only), the threshold (about 50 000 rows a day),
+  where the stub keeps its manifests. Refs:
+  [versions/v0.5/cold-storage.md](versions/v0.5/cold-storage.md).
 
 ## v0.6: the setup's entry point
 
@@ -347,47 +326,3 @@ the question concerns.
   self-sufficient scenario folder (D23). Pin by address and checksum and
   cache locally? Refs:
   [versions/README.md](versions/README.md#deferred-from-v05-d233-d237).
-- **O79** (later, v0.5) — The brick options model (D107), `postgres`
-  first, tied to the clinic (D236). Narrowed by D250: TLS is always
-  available and turned on by the seed, replication a standby mode of the
-  brick, plain partitioned tables come before any TimescaleDB, and of
-  today's four elements only the `monitoring` role becomes an option.
-  Narrowed again: pgaudit is always available as TLS is, not an option
-  (D261), and options are for `postgres` only unless a clinic part calls
-  for another brick (D262, closing O80). Still open: the model for its
-  one user, the `monitoring` role, its five points read for it in
-  [versions/v0.5/brick-options-review.md](versions/v0.5/brick-options-review.md#what-o79-still-answers-for-the-clinic);
-  PostGIS and `pg_trgm` left with Bluebox (D237). The text below is the
-  question as first raised. In `postgres` 0.2.0,
-  pgBadger, file logs on the `pglog` volume, `pg_stat_statements`, the `monitoring` role and its
-  `monitoring_password` secret are in every game, while the logging and
-  preload settings are the scenario's, in its seed `postgresql.conf`.
-  First candidate options: those four, then PostGIS, TimescaleDB and the
-  replication modules; `pg_cron` and the cron daemon, which `postgres`
-  0.4.0 ships enabled by the seed, with no `options:` key (D206). To
-  settle:
-  1. Where an option's software comes from, given a read-only root and no
-     network at start: one image carrying every option (simple, but
-     PostGIS alone adds a few hundred MB every game pays), image variants
-     per option set (e.g. `postgres:0.x.0-postgis`), or a mix (light
-     options in the base, heavy ones as variants). `fit` counts image
-     sizes (D102), so the choice shows in capacity.
-  2. How a scenario chooses: e.g. `options: [pgbadger,
-     pg_stat_statements, postgis]` on the node, with `brick.yaml`
-     declaring the options it offers, each with its requirements
-     (preload library, volume), its footprint, and the secrets and
-     volumes that exist only with it (`pglog` and `monitoring_password`
-     would become per-option).
-  3. What start-up does for an option (create the extension, the role,
-     the directory), while its settings in `postgresql.conf` (preloads,
-     logging) stay in the seed so a fault can still remove them; the
-     loader checks the seed agrees with the chosen options.
-  4. Faults that need an option, as `applies_to` ties a fault to a brick
-     and version.
-  5. Documentation: one section per option in the brick's `docs/gm.md`
-     (what it adds, its cost, how to enable it, the faults it allows).
-
-  Akin to v0.2's declare/choose/check pattern for mounted material and
-  `receives` (D97). Refs: [versions/v0.5/README.md](versions/v0.5/README.md),
-  [formats.md](formats.md) "Brick definition",
-  [versions/v0.2/master-spec.md](versions/v0.2/master-spec.md) 7.5.

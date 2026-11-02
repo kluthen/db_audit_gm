@@ -21,7 +21,7 @@ Built from the one domain that exists, the shop as v0.4 built it:
 [formats.md](../../formats.md) "Domain (from v0.4)", the `scenario-format`
 skill's `templates/domain.yaml` and its "Domain" checks, and the loader's
 `check_domain_dir` (`tools/gm/model.py`). The domain format's open part
-is O111.
+is O111, finalised in the master spec when v0.5 consolidates (D291).
 
 ## 1. What a domain holds, and what it leaves out
 
@@ -46,7 +46,8 @@ Left out of a domain:
 
 - **Topology**: which bricks, how many instances, where each database
   lands, the sites of a franchise. That is the scenario's, or a topology
-  fragment's (O127 for several sites).
+  fragment's; for the clinic, a scenario deploys one centre, the other
+  sites third parties (D285).
 - **IT maturity**: the monitoring, the backups, the redundancy actually
   deployed. A variant's maturity tag states the intent; the topology
   fragment carrying the same tag holds what is deployed (section 9).
@@ -145,10 +146,11 @@ O126), to be tried first on `vet-core` and `vet-lab`:
   `lab_results`), so parts never clash in one database.
 - **Taking a part alone**: only with its core. The core may be taken
   alone.
-- **Several sites** (O127): a site is a core entity, so one database
-  can hold several sites' data. Several instances, one per site, and the
-  exchange between them are topology and round trips, outside the
-  domain. O127 narrows to that topology side.
+- **Several sites**: a site is a core entity, so one database can hold
+  several sites' data. For the clinic each centre keeps its own record
+  and a scenario deploys one; the other sites are rows naming third
+  parties, and the exchange with them is round trips, outside the
+  domain (D285, D286).
 
 ### The clinic, a first cut
 
@@ -161,7 +163,7 @@ the first cut stays below as the starting point:
 | Domain | What it holds |
 |---|---|
 | `vet-core` | owners, animals, sites and sections (horse, farm, domestic), staff and specialists, consultations, treatments and prescriptions: the medical record |
-| `vet-lab` | samples, analysis orders, instrument batch uploads, results, a vet's validation before release, external labs' orders and results (a round trip, O128) |
+| `vet-lab` | samples, analysis orders, instrument batch uploads, results, a vet's validation before release, external labs' orders and results (a round trip, D268, D286) |
 | `vet-scheduling` | rooms, machines, specialists and instructors, bookings, the training centre's courses and sessions |
 | `vet-housing` | boxes and stalls, stays, care and feeding logs, one display per animal reading its file |
 | `vet-machinery` | the machines and their readings and logs, each machine's own database (a time series, see [brick-options-review.md](brick-options-review.md)) |
@@ -171,8 +173,8 @@ the first cut stays below as the starting point:
 Not domains, in this cut: **regulatory reporting** (the medicines and
 antimicrobial-use registers, notifiable disease reports) is a set of
 purposes fitting `vet-core` and `vet-lab`, the pushed obligation of
-v0.4's P5; **inter-clinic exchange** is topology and round trips (O127,
-O128). The training centre sits in `vet-scheduling` unless the owner
+v0.4's P5; **inter-clinic exchange** is round trips with third parties
+(D285, D286). The training centre sits in `vet-scheduling` unless the owner
 wants it on its own.
 
 ## 5. How a scenario names its domains
@@ -245,9 +247,9 @@ derive it from:
   half to a whole shop; with its purposes and round trips, the clinic
   alone is several shops' worth of work.
 
-The estimate firms up after the first clinic domain is defined; that is
-the point at which the owner decides whether other domains join v0.5
-(D235; O112).
+The estimate firms up after the first clinic domain is defined. Other
+domains come after v0.5 (D292): "i belive v0.5 is already big, so
+they'll wait".
 
 ## 8. A skill later
 
@@ -297,7 +299,7 @@ its customers' habits, and the shop with hundreds of warehouses.
 - **In v0.5, one variant per domain**: the clinic as briefed, a large
   regional franchise ([vet-core](vet-core-domain.md), question 13), and
   the shop's existing setup. The shop's other variants are other-domain
-  work, deferred with O112.
+  work, after v0.5 (D292).
 
 A scenario names the variant beside its core (proposed):
 

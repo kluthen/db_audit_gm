@@ -100,8 +100,11 @@ The initiator's brief may impose a list of incidents and say whether the GM may
 add more. Difficulty is a fault count: each fault is worth 1, an easy
 game scores 5, a normal one 10, a hard one 20; a scoring system for the
 players is post-v1.0 (D120); a score is the number of fault instances, the levels
-targets (D134). The mix of faults,
-and whether an issue may be a false alarm: O23.
+targets (D134). An issue may be a false alarm, a complaint with no
+fault behind it (D290). The clinic's scenario has ten faults at most:
+one dramatic, already noticed by the customer, two on the verge of
+becoming problematic, the rest optimisations and minor frictions
+(D290). The general mix: O23.
 
 ### Tooling proportionate to the topology (D65)
 
