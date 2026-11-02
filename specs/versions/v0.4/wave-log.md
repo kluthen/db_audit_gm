@@ -2888,3 +2888,38 @@ For the driver, no ruling needed: plan v10 rewords chunk 17a's baseline
 (item 8) and 17b's leave-out (D283); chunk 20's readings are D281,
 f10's 2 for chunk 18 is D282; `formats.md`'s O126 citation was already
 fixed on `v0.5-scope` (6ac1e94), merged into `main` before this branch.
+
+### Capture W4 reviewed by the driver, 2026-11-02
+
+W4 accepted as drafted (3423326), with spec D281 (chunk 20's two
+readings, master spec 11.6), D282 (f10's check reads 2 once a player
+alters the backfill request, 16.5), D283 (the rehearsal runs without f7
+as well as f10, 18.6) and plan v10. `formats.md`'s O126 citation was
+already fixed by 6ac1e94. D263 to D280 are `v0.5-domains`' (its last,
+D280): no collision. **O146** (f5's expiry at 09:00 blocks f4's 12:05
+roll-up, so f4 reads 3 at the hand-over check) put to the owner; chunk
+16 is cut on W4's recommendation (a) with O146 as its merge gate.
+
+### Chunk 18 — merged (98c2123), 2026-11-02
+
+`coding-leader`, commit b19b978, `.claude/skills/game-master/{SKILL,gmctl,feedback}.md`
+only (+533 −110). Done when: master spec 14's "The GM skill" covered item
+by item (a "Designing a scenario" section; data policy from
+`governance:`; movable jobs in the starter pack and the hand-over; the
+judged moment and `--since`, asked at report time for every fix made
+outside a runner; governance faults, a report judged against an
+incident, an overstep, exit 3 at the final answer; a failed incident
+never re-planted, the offer to set the game up again; `fit`'s shared-host
+refusal and `--map`; the web front in every game, v0.3's "no front, SSH
+only" lines rewritten in `SKILL.md` and `gmctl.md`'s `deploy`, `status`
+and files notes); all 96 `gmctl` invocations in the three files parse
+with `gmctl`'s parser (18 bare mentions skipped; scratch script
+`parse_gmctl.py`); v0.3's stance items unchanged, v0.4's added (an
+overstep judged, never credited; a job run by hand refused; `--since`
+from the report; "may we change X?" answered from the starter pack).
+D256, D258, D282 (as wave 3's reading) and chunk 20's `database` reading
+written in. `test_brick_docs` 4 OK; no test reads these files. No
+deviation. For the release gate: item 13's stance check-list on a
+deployment of the scenario. If O146 rules (a), `gmctl.md`'s hand-over
+check line ("as the answer key's `at_handover` says") needs a sentence:
+chunk 17a's.

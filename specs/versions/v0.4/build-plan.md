@@ -162,7 +162,7 @@ with the owner's ruling of spec D221, during wave 1.
 | 1 | 1, 2, 3, 4, 5, 19 | G1 (done); G2 (chunk 1, done); G3, G4; G5 (chunk 4); G12, G13 (chunk 19); G6 before its gate | gated (2026-10-30, 4064719) |
 | 2 | 6, 7, 8, 9, 10, 11 | wave 1; G8, G9 (done); G7 (the gate's two-host run) | gated (2026-10-30, f35dd40) |
 | 3 | 12, 13, 14, 15, 20 | wave 2; G10 (chunk 15's f10 half, done) | merged (gate passed 2026-10-31, 5e8eb84) |
-| 4 | 16, 17, 18 | wave 3; G7 (chunk 17's two-host runs) | planned |
+| 4 | 16, 17, 18 | wave 3; G7 (chunk 17's two-host runs) | in progress (from 2026-11-02) |
 
 ```
 1 ──> 2, 3, 4, 19      (in wave 1, cut once chunk 1 has merged into v0.4-w1; W1)
@@ -1233,10 +1233,11 @@ Architecture capture: none of its own; it uses W4.
 
 ### Chunk 18 — The GM skill for v0.4
 
-Status: planned
+Status: merged (w4, 98c2123)
 Wave: 4
 Depends on: chunks 6, 7, 8, 14, 15, 19
 Architecture capture: none.
+Record: b19b978, merged 98c2123 (2026-11-02); no deviation from the spec. Its readings: the GM asks at report time for the time of every fix made outside a runner (12.1's `--since`); an incident fault whose planting failed is never re-planted within the aging, even with its run still ahead (16.3, access model 7). The stance check-list runs at the release gate (item 13).
 
 - Goal: the GM designs and runs a v0.4 game as master spec 14 says.
 - Scope: in: `SKILL.md`: designing with purposes and a domain (copying
