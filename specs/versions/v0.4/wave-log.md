@@ -3187,3 +3187,16 @@ Then 17b, the wave gate, the release gate.
 - **Tonight's order: cycles, baseline, f10, then the two-host smoke run
   last** (the owner: "run it overnight, last"); unattended, the drain in
   the wrapper's `trap`; a refused `active`/`drain` stops it until morning.
+
+### Session stopped by the owner, 2026-11-02 ~14:10 UTC
+
+The owner is shutting the computer down. `spec-writer` was mid-way
+through recording the `pgbouncer` ruling (decision, inserted chunk, plan
+v12) and may be cut off: **the next driver first runs `git status` and
+`git log` in this worktree**. A plan commit whose message names the
+`pgbouncer` ruling means it finished; otherwise uncommitted edits to
+`specs/` are its partial work, to finish by a fresh `spec-writer`. Then:
+the `pgbouncer` fix (`coding-executor`, on the inserted chunk), then
+17a's remaining runs overnight from WIP bf5dbf5 ("Paused again" entry
+above; order cycles, baseline, f10, two-host last), 17b, the wave gate,
+the release gate.
