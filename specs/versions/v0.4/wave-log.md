@@ -3221,3 +3221,13 @@ dependency preflight). D285–D304 are `v0.5-domains`'.
 the lock), then 17a's remaining runs from WIP bf5dbf5 after merging
 `v0.4-w4` in (order cycles, baseline, f10, two-host last), 17b, the wave
 gate, `security-advisor` on `.tech`, the release gate.
+
+### Resumed — chunk 21 dispatched, 2026-11-02 19:20 UTC
+
+The owner: "let's continue wave 4". Fresh driver. Hosts at 19:17 UTC:
+the lock free, 0 services, armenelos `Ready Active`, `vps-5718ad52`
+`Ready Drain`, no dbagm container or inhibitor, 9.6G free on `/`.
+Chunk 21 handed to a `coding-executor` (branch `v0.4-c21-pgbouncer-race`
+from `v0.4-w4` b8b94f7+this entry). 17a stays paused at WIP bf5dbf5 until
+21 merges; then its remaining runs in the owner's order (cycles,
+baseline, f10, two-host last).

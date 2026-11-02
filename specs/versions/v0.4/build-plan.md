@@ -1488,7 +1488,7 @@ Record: cf9d0a4, merge 6b4ad78. Unit suite 848 OK; `smoke-governance.sh` on arme
 
 ### Chunk 21 — `pgbouncer` 0.1.1: the start-up DNS race
 
-Status: planned
+Status: in progress
 Wave: 4
 Depends on: nothing in the wave; cut from `v0.4-w4`; G3, G4.
 Architecture capture: none: no interface changes (the brick's paths,
