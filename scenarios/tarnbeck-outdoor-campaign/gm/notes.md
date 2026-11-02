@@ -122,8 +122,8 @@ f1's hour from its first five-minute run (D247).
   `rpt.sales_detail_rollup()` read. f7's close (01:30) and f10's run
   (03:00) come before f5 (09:00), but every hourly run fails from 09:05,
   the 12:05 run after the noon invoicing among them: **f4 reads 3 (too
-  soon) at the hand-over check**, as its answer key expects (spec O146,
-  recommendation (a), pending the owner's ruling). The frozen dashboards
+  soon) at the hand-over check**, as its answer key expects (ruled (a),
+  2026-11-02 (spec O146)). The frozen dashboards
   hide the watermark gap until the players fix f5; the next hourly run
   then shows the gap in the figures, while f4's check stays too soon (no
   close in the game). If f5's planting failed, f4 would read 1 and
