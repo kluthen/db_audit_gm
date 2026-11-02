@@ -2675,6 +2675,13 @@ else, each from its fault's `inject/` material. Reason: render plants no
 seed-file fault, the copies carry it (`inject.py`: "planted by the seed
 files"), so 18.4's unfaulted scenario must be rebuilt from files, and
 this makes `fixture-campaign` that baseline file for file.
+*(Amended 2026-11-02 by the driver, on chunk 16's report:)* "byte for
+byte" holds for everything but comments. A comment players can read
+(seed files, data files) is rewritten in the story's voice wherever the
+fixture's says "fixture", cites a chunk or a capture, has become false
+in the scenario (`reporting`'s crontab "no entry", the producer's and
+the gateway's "no timeline"), or would give a fault away. No statement,
+key, value or entry changes with it, so item 8's baseline swap holds.
 
 | File | Change | For |
 |---|---|---|
@@ -2736,8 +2743,11 @@ orders its cycles by them)
   `rpt.sales_detail_rollup()` read. In the aging f7's close (01:30) and
   f10's run (03:00) come before f5 (09:00), but every hourly run fails
   from 09:05, the 12:05 run after the noon invoicing among them: **f4
-  reads 3 at the hand-over check** (question O146 below). In the game,
-  once the players fix f5, the next hourly run shows f4 (1).
+  reads 3 at the hand-over check** (question O146 below; ruled (a)). In
+  the game, once the players fix f5, the next hourly runs show f4's gap
+  in the figures, but its check stays at 3: no close falls in the game
+  (item 3's table, the fault's `gm.md`). *(Amended 2026-11-02 by the
+  driver: the earlier "shows f4 (1)" contradicted item 3.)*
 - f2 and f3 change one entry, `mail.campaign`; each check judges its own
   invariant (M2, M3), so a fix of one leaves the other present.
 - f10's recovery at 03:00 ends every session on `reporting`: f9's job
@@ -2923,3 +2933,26 @@ deviation. For the release gate: item 13's stance check-list on a
 deployment of the scenario. If O146 rules (a), `gmctl.md`'s hand-over
 check line ("as the answer key's `at_handover` says") needs a sentence:
 chunk 17a's.
+
+### O146 ruled (a) by the owner; chunk 16 built (f5906e7), 2026-11-02
+
+**O146: (a)**, the owner, 2026-11-02: times kept; the answer key expects
+f4 = 3 at the hand-over check (masked by f5); the hand-over check learns
+to accept a 3 the answer key expects (`aging.py` and its test, chunk
+17a; the `gmctl.md` hand-over check line). To `spec-writer` to record.
+
+Chunk 16 built on (a) (`coding-leader`, f5906e7, branch kept for its
+merge gate). Its points, settled by the driver:
+1. The fixture's player-visible comments (three false in the scenario,
+   most citing the fixture or W3-b): a comment-only pass in the story's
+   voice, W4 item 2 amended to allow it.
+2. A "Marketing e-mail" section added to `player/data-policy.md` (consent
+   as the latest choice; marketing mail 08:00–21:00 in the recipient's
+   zone; one shipping notice per order), since I2 and f3's evidence read
+   rules the fixture's policy did not state: accepted, unchecked rules as
+   11.5 allows, `governance:` unchanged.
+3. f7's minimum: W4's 270m (01:30 + 1h from 22:00) kept; f7's
+   `fault.yaml` comment ("5h") and `gm.md` ("4h30 plus 1h") to be
+   checked and fixed on the wave branch by a `coding-executor`.
+4. W4 item 4's "the next hourly run shows f4 (1)" contradicted item 3:
+   amended (f4's check stays 3 in the game, its gap shows in the figures).
