@@ -3075,3 +3075,13 @@ alone on the hosts):
    `v0.4-w4`; remove the worktree and branch.
 Then 17b (a fresh owner, D283: without f7 and f10), the wave gate, the
 release gate on `v0.4-w4`.
+
+### Resumed by the owner — chunk 17a with a fresh owner, 2026-11-02 12:10 UTC
+
+The owner: "you may continue." Hosts at 12:08 UTC: 0 swarm services,
+`vps-5718ad52` `Ready Drain`, the lock free, 4.3 GiB available, 9.0 GB
+free on `/`. A fresh `coding-leader` resumes 17a from WIP e622975 on its
+branch, with the pause report. The two-host run is `smoke` without the
+per-fault cycles (the cycles on armenelos alone), as 17a's first owner
+chose: accepted by the driver, the owner told before resuming, no
+objection.
