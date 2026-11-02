@@ -1488,7 +1488,8 @@ Record: cf9d0a4, merge 6b4ad78. Unit suite 848 OK; `smoke-governance.sh` on arme
 
 ### Chunk 21 — `pgbouncer` 0.1.1: the start-up DNS race
 
-Status: in progress
+Status: merged (w4, ee6edc7)
+Record: 63c6111, merged ee6edc7 (2026-11-02). The wait as written, no equivalent: `getent ahosts` once a second, bound 30 s, PgBouncer started after it either way, lines prefixed `pgbouncer-run:`. A swarm name resolves only once its container is healthy, so the bound covers the database node's time to healthy (5–8 s in the stack test); the 25-minute stuck lookup did not reproduce in the stack fixture, so 17a's `pooler workarounds: 0` is the proof. `docs/gm.md`'s Known limits: a database node replaced mid-game (served again ~600 s after, the swarm DNS lifetime) and one slower than 30 s; the cure `s6-svc -r`. Stack test 120 PASS twice; unit suite 848 OK. Wave log "Chunk 21 — merged".
 Wave: 4
 Depends on: nothing in the wave; cut from `v0.4-w4`; G3, G4.
 Architecture capture: none: no interface changes (the brick's paths,

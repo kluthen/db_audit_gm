@@ -3231,3 +3231,38 @@ Chunk 21 handed to a `coding-executor` (branch `v0.4-c21-pgbouncer-race`
 from `v0.4-w4` b8b94f7+this entry). 17a stays paused at WIP bf5dbf5 until
 21 merges; then its remaining runs in the owner's order (cycles,
 baseline, f10, two-host last).
+
+### Chunk 21 — merged (ee6edc7), 2026-11-02 ~20:00 UTC
+
+`coding-executor`: commit 63c6111, merged `--no-ff` as ee6edc7, no
+conflict; worktree and branch removed; nothing pushed.
+- **The fix**, as the chunk wrote it (no equivalent): the s6 `run` reads
+  every `host=` of `[databases]` (lists split, quotes removed, sockets and
+  entries without `host=` skipped), `timeout 5 getent ahosts` once a
+  second up to **30 s**, then starts PgBouncer either way; its lines in
+  the container log, prefixed `pgbouncer-run:`.
+- **Findings**: (1) in a swarm a name resolves only once its container is
+  *healthy*, so the bound covers the database node's time to healthy
+  (5 s at deploy, 7–8 s scaled back up, in the stack test); a `db`
+  slower than 30 s in a heavy deploy starts PgBouncer early as 0.1.0 did
+  — the main risk for 17a's runs, visible as `still not resolving after
+  30s` in the pooler's log. (2) The 25-minute stuck lookup did not
+  reproduce in the stack fixture (0.1.0 logged one `DNS lookup failed`
+  and recovered ~10 s after `db`); the new cases prove the mechanism (no
+  lookup until the name resolves), 17a's `pooler workarounds: 0` the fix.
+- **Known limits** in `docs/gm.md`: `db` replaced while PgBouncer runs
+  (served again 603 s after `db` healthy, the swarm DNS's 600 s answer
+  lifetime) and a `db` slower than 30 s; cure `/command/s6-svc -r
+  /run/service/pgbouncer` as root.
+- Stack test 120 PASS, 0 FAIL, two full runs (new cases: pooler before
+  `db`, query 10 s after `db` back, no `DNS lookup failed`; ghost host:
+  PgBouncer at the bound, healthy at 36 s, console and `appdb` answering).
+  Image `pgbouncer:0.1.1` sha256:137b342a… (local). Unit suite 848 OK;
+  every scenario and fixture loads; no 0.1.0 pin left; four READMEs
+  regenerated. Footprint 11.2 MiB, 0.04 % CPU at rest.
+- Left: `.tech`'s two `pgbouncer 0.1.0` → `security-advisor` (dispatched
+  now). Hosts clean after (lock free, 0 services).
+
+**Next**: 17a resumed by a fresh `coding-leader` from WIP bf5dbf5, its
+branch merging `v0.4-w4` (ee6edc7+) in first; the runs overnight in the
+owner's order (cycles, baseline, f10, two-host last).
