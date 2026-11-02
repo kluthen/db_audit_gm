@@ -2993,3 +2993,16 @@ producer's close", true since `close-day` is movable (W4 item 5).
 `fault.yaml`'s comment "5h" and `gm.md`'s "4h30 plus 1h" now "3h30
 plus 1h, 4h30 (270m)"; `aging.minimum: 1h` (from the close's first run)
 unchanged, consistent with 16.2; unit suite 848 OK.
+
+### O146 prose fixed (b0c0888, merged feb06b4); chunk 17a dispatched, 2026-11-02
+
+Chunk 16's owner replaced "pending the owner's ruling" with "ruled (a),
+2026-11-02 (spec O146)" in f4's and f5's answer-key notes, `gm/notes.md`
+and the comment on f5's `plant_at`; README regenerated (byte-identical to
+a fresh run), YAML loads, `test_model` OK.
+
+Chunk 17a cut from `v0.4-w4` at f465880 (`coding-leader`): the smoke
+cycles, the baseline's G1 to G4, the hand-over check change (D284) and
+f10's run, alone on the hosts under the host lock and the sleep
+inhibitor, G7 at its two-host run on wave 2's gate's pattern. 17b goes to
+a fresh owner once 17a has merged.
