@@ -1,12 +1,14 @@
 # v0.5 — `vet-core`, the clinic's core domain
 
-Status: draft v6. Step 2, the business sketch, is ruled (D266, D278),
+Status: draft v7. Step 2, the business sketch, is ruled (D266, D278),
 its first answer revised by one centre per scenario (D285); step 3, the
 split, is confirmed (D279), the parts one centre's (D293); step 4, the
 data model, is current, with the history's growth (D279, D280), at one
 centre's scale (D295); step 5, classification and governance, is ruled
 (D280). `requests` revised by `vet-lab`'s answers (D301): a
-`priority`, no `external`. Step 6, the producer profiles, is next.
+`priority`, no `external`; two constraints on the load from `vet-lab`'s
+step 4 (D302). Step 6, the producer profiles, is drafted with
+`vet-lab`'s, its points for the owner (O153, O154).
 
 `vet-core` is the core of the veterinary clinic franchise (D196), the
 first domain defined through the [procedure](domain-procedure.md)
@@ -382,13 +384,15 @@ grow. Monthly counts show the trend, and the live rates continue it.
 
 The load writes these ids; each sequence resumes after its range, so an
 id created during the game is above it and never meets a part's load
-(D276's ruling on key ranges).
+(D276's ruling on key ranges). Two constraints come from `vet-lab`'s
+load (D302): the lab's staff in a range, and each request a function
+of its id (below).
 
 | Key | Range | Layout |
 |---|---|---|
 | `sites.id` | 1–6 | 1 the centre (`own`), 2–3 the other national centres, 4–6 abroad |
 | `sections.id` | 1–3 | 1 horse, 2 farm, 3 domestic, all the centre's |
-| `staff.id` | 1–85 | 71–78 the lab's technicians, 79–80 its clinical pathologists (proposed by `vet-lab`'s step 4, O152) |
+| `staff.id` | 1–85 | 71–78 the lab's technicians (`kind` `lab`), 79–80 its clinical pathologists (`kind` `vet`, specialty clinical pathology), for `vet-lab`'s load (D302) |
 | `owners.id` | 1–10 000 | 1 the clinic (teaching animals); 2–201 holdings; 202–901 horse owners and stables; 902–10 000 pet owners |
 | `herds.id` | 1–200 | herd `h` kept by owner `h + 1` |
 | `animals.id` | 1–17 000 | 1–14 600 domestic; 14 601–16 000 horses; 16 001–17 000 farm animals, in herd `1 + (id − 16 001) mod 200` |
@@ -396,7 +400,7 @@ id created during the game is above it and never meets a part's load
 | `referring_vets.id` | 1–800 | two per practice |
 | `medicines.id` | 1–400 | antimicrobials and controlled drugs flagged |
 | History | `consultations` 1–25 000, `prescriptions` 1–15 000, `administrations` 1–70 000, the others as loaded | in time order over the year |
-| `requests.id` | 1–17 000 | each request's kind (about one in five imaging), test code, priority, consultation, animal and time computed from its id, documented in the GM notes, so `vet-lab`'s load refers to them without reading the core (proposed by `vet-lab`'s step 4, O152) |
+| `requests.id` | 1–17 000 | each request's kind (about one in five imaging), test code, priority, consultation, animal and time computed from its id, documented in the GM notes, so `vet-lab`'s load computes the same and groups a consultation's analysis requests into one order, without reading the core (D302) |
 
 **Natural identifiers.** A microchip is 15 digits, the country or
 maker's 3 then 12 (ISO 11784/11785), present on every horse, dog and
@@ -655,3 +659,276 @@ the classification above.
 11. **The portal**: an owner sees their current animals and their own
     ownership's records; results once validated, consultations once
     signed; never a former owner.
+
+## The producer profiles (step 6)
+
+Drafted on 2026-11-02 with `vet-lab`'s, since their flows interlock
+([vet-lab-domain.md](vet-lab-domain.md#the-producer-profiles-step-6)):
+the core's consultations create requests, the lab takes them through its
+order API, analysers upload, results come back, and the partners' round
+trips run around both. Every point is (proposed) until the owner rules
+on O153 (this page's and the lab's points) and O154 (what the profiles
+need of the scheduler and the format, [producer
+profiles](producer-profiles.md#12-what-the-clinics-first-profiles-need-o154)).
+Built on the ruled frictions (D264–D271, D276, D277, D287, D288,
+D296–D300) and not reopening them.
+
+**Producer or purpose.** By the procedure, a flow between parts or out
+to a partner is a purpose (procedure 4, step 7), and so is every
+periodic report (D300). This step holds what the core's own
+applications write into `clinic`, the rates and timings of every flow
+the core takes part in, and the history the load plants to meet them.
+The flows themselves (posting the requests to the lab, the results
+coming back, the exchanges with the other centres, the reports) are
+named here with their rates and left to step 7.
+
+### The applications and their nodes (D276)
+
+| Application | Node | Connection, role | What it does |
+|---|---|---|---|
+| The practice-management software | `pms`, a scheduler node | `clinic`: `records:5432/clinic` (or the scenario's pooler), `vet_app` | everything the clinic's staff record: registrations, referrals, consultations and their diagnoses, procedures, requests and prescriptions, stays, the rounds' administrations; it also carries `vet-scheduling`'s and `vet-housing`'s fragments when they are defined, one application (D276) |
+| The core's lookup API (D266, D267) | `clinic-api`, an `api` node in the players' scope | `vet_lookup` | only answers (D270): `GET /animals/{id}`, `GET /animals?microchip=` (or `ueln`, `ear_tag`), `GET /animals/{id}/owner` (the current owner's id, kind and name, never a contact); no stream of its own; its callers are the parts' producers, `vet-lab`'s first ([vet-lab](vet-lab-domain.md#the-applications-and-their-nodes-d276)) |
+
+Not the core's producers: the housing displays reading `animal_board`
+as `vet_display` are `vet-housing`'s ward service (D287); the reports
+reading as `vet_reports` are purposes (below). The fragments are
+written for the node names `pms`, `records` and `clinic-api` and the
+database `clinic`; the GM renames them as the scenario does, as the
+shop's (`docs/gm.md`, "The producer").
+
+**Readable, never planted (D276).** The fragments sit in the
+repository for anyone to read, as the shop's do; the rendered
+`schedule.yaml` stays root-only on the node (D130). A fragment holds no
+timeline, no intensity and no planted fault; a fault riding the
+schedule brings its own keys and timeline change in its material.
+
+### Rates at intensity 1.0
+
+The rates are `regional-franchise`'s throughput (D263, D276): real-world
+rates, at intensity 1.0, before the shape. A **volume** stream's rate
+makes the daily volume; a **work** stream takes the oldest item waiting
+(a consultation to close, a referral to accept) and finds nothing when
+nothing waits, so its rate is a capacity, set at least twice the
+busiest hour's arrivals, and its volume follows the volume streams. A
+work stream short of capacity builds a backlog: a fault vector, never
+the design.
+
+Volume streams, on `clinic` as `vet_app`:
+
+| Key | What one call writes | Rate | Arrivals, shape | A day: Mon–Fri / Sat / Sun / average |
+|---|---|---|---|---|
+| `owners.register` | a new owner, their first animal (the species mix of the load: 86 % domestic, 8 % horses, 6 % farm animals of an existing herd) and its ownership | 1.6/h | poisson, `clinic-day` | 17 / 6 / 0 / 13 |
+| `animals.register` | an animal for an existing owner, its ownership | 0.86/h | poisson, `clinic-day` | 9 / 3 / 0 / 7 |
+| `referrals.receive` | a referral from a referring vet, for an animal registered or found | 1.82/h | poisson, `office` | 18 / 0 / 0 / 13 |
+| `consultations.open` | a scheduled consultation, its section by the hour (horse and farm in the morning, domestic in the late afternoon) | 7.4/h | poisson, `clinic-day` | 78 / 30 / 0 / 60 |
+| `consultations.emergency` | an emergency consultation, flagged, a third of them at night | 0.42/h | poisson, `around-the-clock` | 10 every day |
+| `consultations.herd-visit` | a herd visit, a consultation on a herd | 2.1/h | even, `herd-days` | 10 on Tuesdays and Thursdays / 0 / 0 / 3 |
+| `consultations.ward` | an in-hospital consultation on a current stay | 3/h | poisson, `ward-rounds` | 12 every day |
+| `stays.admit` | an admission from a consultation of the last hours | 0.34/h | poisson, `around-the-clock` | 8 every day |
+| `stays.discharge` | the oldest stay past two days ended: discharged (90 %), transferred to another centre (4 %), died (6 %) | 2.67/h | even, `discharges` | 8 every day |
+| `alerts.record` | an alert on an animal (allergy, dangerous, infectious) | 0.6/h | poisson, `clinic-day` | 6 / 2 / 0 / 5 |
+| `ownerships.transfer` | a sale or a new keeper: one ownership ended, the next opened | 0.37/h | poisson, `clinic-day` | 4 / 1.5 / 0 / 3 |
+| `requests.cancel` | a request not yet resulted cancelled | 0.12/h | poisson, `clinic-day` | 1 / 0.5 / 0 / 1 |
+
+Consultations come to about 100 a weekday (110 on herd days), 52 on a
+Saturday and 22 on a Sunday: 85 a day over the week, as the variant
+states.
+
+Work streams, on `clinic` as `vet_app`:
+
+| Key | What it takes and writes | Capacity | Shape | Follows |
+|---|---|---|---|---|
+| `consultations.close` | the oldest open consultation started 25 minutes ago or more: closed with its findings, one or two diagnoses (1.2 on average), a procedure in about three in ten, requests in about two in three (0.65 on average, one in five imaging; `urgent` for emergencies and stays), a prescription in six in ten (2.5 lines), dispensed to the owner at once for an outpatient (75 dispensings a day), its administrations planned by the next round for a stay | 40/h | `flat` | the opens: 85 a day |
+| `consultations.sign` | the oldest closed, unsigned consultation closed an hour ago or more, signed by its vet | 20/h | `signing` | 85 a day; nothing waits a day (the trap stays a fault's) |
+| `referrals.accept` | the oldest received referral: accepted, one in twenty declined | 6/h | `office` | 13 a day |
+| `referrals.close` | an accepted referral whose consultations are signed and whose stay has ended: closed, its report marked sent (the vet's letter; the report as an electronic flow is a purpose, D278 answer 5) | 4/h | `office` | about 13 a day |
+
+Reads, on `clinic` as `vet_app`: `animals.file` (an animal's record:
+identity, alerts, ownership, the last consultations, the current stay;
+60/h, poisson, `clinic-day`, concurrency 4, about 640 a weekday),
+`wards.list` (a section's current stays and the next round's doses;
+12/h, even, `flat`), `requests.pending` (a vet's open requests and
+their state; 15/h, poisson, `clinic-day`).
+
+Fixed-time operations (`jobs.yaml`, scenario time):
+
+| Job | When | What |
+|---|---|---|
+| `administrations.round` | `0 2,6,10,14,18,22 * * *` | the round: every scheduled administration due is given (one in a hundred missed, by a hash of its id), then the next round's are planned for each current stay with an active line: about 40 a round, 240 a day |
+| `prescriptions.expire` | `15 0 * * *` | antimicrobial prescriptions past five days expired (D280, rule 1), the others past their days |
+
+`prescriptions.expire` is light, set-based work: the GM may move it to
+the database node's `pg_cron` (D206, D207).
+
+### The business hours (shapes)
+
+Scenario time, the customer's zone, every site in it (D276):
+
+| Shape | Hours |
+|---|---|
+| `clinic-day` | Monday to Friday 08:00–20:00: 0.8 at 08–10, 1.0 at 10–12, 0.4 and 0.6 over lunch, 1.0 at 14–17, 1.2 at 17–19, 0.6 at 19–20; Saturday 08:00–13:00 at 0.8; Sunday closed |
+| `office` | Monday to Friday 08:00–18:00, flat |
+| `herd-days` | Tuesday and Thursday 08:00–13:00: the herd-health visits on fixed weekdays, a weekday shape and not a job (Cadences) |
+| `ward-rounds` | every day 09:00–12:00 at 1.0, 16:00–18:00 at 0.5 |
+| `around-the-clock` | every day: 0.8 at night (00–08), 1.1 by day (08–22), 0.9 in the late evening; about a third of the volume between 22:00 and 08:00 |
+| `discharges` | every day 10:00–13:00: discharges late in the morning |
+| `signing` | every day 08:00–21:00: a night's emergencies are signed the next morning, within the day the rule gives (D280, rule 8) |
+| `flat` | every hour at 1.0 |
+
+### Input types (D276)
+
+Every value is SQL's, as the shop's: the species mix, a consultation's
+outcome, a stay's outcome, an urgent share, through an `int` parameter
+and a `CASE`; names from short lists in array literals; the natural
+identifiers of a new animal as functions of its new id, the same
+functions the load uses (step 4), so a microchip is never drawn at
+random; per-row variation inside a set-based statement (a round's
+missed doses) by a hash of the row's id, never `random()`, so a run is
+reproducible from the game's seed (D117). No domain builder. The
+int-and-`CASE` trick recurs about a dozen times across the core and the
+lab, which is D276's trigger for a weighted `choice` generator (O154).
+
+### Intensity, and the history before T0 (D276, D279)
+
+- **Absolute.** The scenario sets each node's intensity at design time;
+  nothing rescales it (D32). The core's, the lab's and the partners'
+  rates are one business's: a scenario sets the same intensity on
+  `pms`, `vet-lab`'s `lis` and the partners' back end, or the lab's
+  share of the centre's requests drifts from the history's.
+- **The history ends at intensity 1.0.** The load ramps each daily
+  volume from about 60 % of today's rate a year ago up to today's
+  (D279), on the same hour and weekday shapes as the streams above, so
+  the curve runs on into the aging without a step. A scenario at
+  another intensity shows a step at T0; its story names it (a new
+  contract, a busy week), or the players read it as a fault, as the
+  shop's busy season says of its own gap (D276).
+- **In flight at T0.** The load is last night's backup: it leaves the
+  clinic as a night leaves it. About 40 current stays, each with its
+  active lines and the next round's administrations planned; the
+  evening's emergencies open or closed and unsigned, none older than a
+  day; received referrals of the day not yet accepted; every request of
+  the history `resulted` or `cancelled` but the last day's, `sent`;
+  sequences set after each range (step 4).
+- **Unseen.** The load writes without trace: no statement logging,
+  `pg_stat_statements` off, pgaudit off for its sessions (D265, [producer
+  profiles](producer-profiles.md) 4).
+
+### The periodic reports (D265, D269, D277, D299, D300)
+
+Purposes (step 7): each reads the core on the standby (D299) and writes
+the back-office database, `office` (D300), never `clinic`; past periods
+planted before T0, no run on demand (D269), at most one run in the
+aging, the GM's choice (D265), a fix checked on the daily feeder's next
+run or by the sealed check reading the code (D277). The profile they
+meet:
+
+| Report | Cadence | Its daily feeder (the witness within the aging) | Planted before T0 |
+|---|---|---|---|
+| The medicines register (D280, rule 2) | its extract monthly, on the 1st at 03:00 | 01:30: yesterday's supplies of prescription-only medicines, with batch, quantity and recipient | the register's lines for the year, every full month's extract |
+| The controlled-drugs register (rule 3) | a signed balance monthly, on the 1st; the inventory on 1 January | 01:45: yesterday's movements of controlled medicines | the year's movements and balances, last January's inventory |
+| Antimicrobial use (rule 4) | the yearly report in January, a pushed obligation to the authority | 02:00: yesterday's use by species and medicine | last year's report, the cattle's |
+| The head office's activity figures (one-centre 1) | monthly, on the 1st, pushed to the franchise's head office, a third party | none: counts of the month | every full month's figures and the copies sent |
+
+Not reports in v0.5: the farms' and stables' statements are billing,
+out of v0.5 (D278 answer 8); the records' yearly retention purge finds
+nothing to purge in a year of history (D280, rule 9: five years), so no
+job runs it, its rule standing in the policy. Who plants each report's
+past outputs into `office`, which no domain owns, is its purpose's
+material (step 7).
+
+### Flows to step 7, with their rates
+
+| Flow | Kind | With | Rate at 1.0 |
+|---|---|---|---|
+| The analysis requests posted to the lab's order API (`vet-lab` answer 2) | round trip inside the centre: the accession id at once, the result later | `vet-lab`'s `lab-api` | about 45 tests in 25 orders a day, each within a minute of its consultation's close |
+| The released results copied back into `requests` (`resulted`) | the round trip's answer | from `vet-lab` | as released, about 45 a day |
+| Exchanges with the other centres, out: a transfer or an examination request, its answer, the report back (one-centre 3) | round trip, the centre asking | the other centres' stubs | about one a day (the transfers of `stays.discharge`, 0.3 a day, among them); an answer within a working day, the report one to three days after the examination |
+| Exchanges with the other centres, in | round trip, the partner asking, at the centre's exchange API | the centre's own `api` node | about one a day, business hours |
+| Notifiable diseases (D280, rule 7) | pushed obligation | the authority | a few a month |
+| The activity figures, the antimicrobial-use report | pushed, monthly and yearly | the head office, the authority | above |
+| Results released to owners | to `vet-portal` | later, with the portal | |
+
+Each round trip's trace tables (the exchange's request, answer and
+report) come with its purpose, as a purpose carries its target's DDL
+([formats.md](../../formats.md) "Purpose definition").
+
+### The partners the core meets (D285, D293)
+
+On the one back end every partner shares, a scheduler node and a small
+database (D293); each partner otherwise one `api` node, out of the
+players' reach (D273–D275):
+
+- **The other national centres and the centres abroad** (three `api`
+  nodes: two centres, the centres abroad as one): they answer the
+  centre's requests and post their own, about one a day, on the
+  `office` hours; the back end's streams tick each partner's own `api`
+  node, which reads its state, calls the centre and records the answer
+  (O154).
+- **The franchise's head office**: answers the monthly figures; no
+  stream.
+- **The franchise's messaging service**: answers what the centre's
+  outbox hands it; what the core hands it is O153, core point 6.
+- **The authority**, not yet among one-centre's partners: the receiver
+  of the notifiable diseases and the antimicrobial-use report, one more
+  `api` node on the back end, named with its purposes at step 7.
+
+Their fragments carry their normal behaviour only; an outage, a late or
+duplicated answer comes with its fault (D276).
+
+### Cold storage (D297)
+
+Nothing of the core ships. About 760 rows a day is far under the
+threshold of about 50 000 (D296), and the registers and the
+antimicrobial report read the whole year. The core's instance ships
+only its `wal` and `basebackup` (D299): with `archive_timeout` at an
+hour, at least 24 segments of 16 MB a day, 384 MB a day nominal and
+mostly empty, the vault discarding the payload; and one base backup a
+night. Cold storage's planted manifests cover the history's days (cold
+storage 3).
+
+### Growth, for the GM notes (D298)
+
+At intensity 1.0, on `clinic`:
+
+| | Rows | Size |
+|---|---|---|
+| A day, on average | about 760 new rows (step 4's 570 main rows, with the diagnoses, lines, procedures and ownerships) and about 450 updates (closing, signing, giving) | about 0.25 MB with indexes, before bloat |
+| An hour, on average | about 30 | |
+| The busiest hour, a weekday 17:00–19:00 with a round | about 90 | |
+| A Sunday | about a third of a weekday | |
+
+Over an aging of eight to twenty-four hours the core grows by a few
+hundred rows: the disk is never the core's problem; its updates, its
+dead rows and its WAL are. When archiving fails, `pg_wal` keeps every
+segment: at least 16 MB an hour, about 2 GB in five days, so a full
+disk is not reached inside an aging, but the growth shows (replication
+4).
+
+### Points for the owner (O153)
+
+1. **Two nodes for the core**: the practice-management software
+   (`pms`), which later carries scheduling and housing, and the lookup
+   API (`clinic-api`), only answering; the displays and the reports are
+   not the core's producers.
+2. **The week**: weekdays 08:00–20:00 with a morning and a late
+   afternoon peak, Saturday mornings, Sundays emergencies and wards
+   only; herd visits on Tuesday and Thursday mornings; a round every
+   four hours; discharges late in the morning.
+3. **The 85 consultations**: 60 scheduled, 12 in hospital, 10
+   emergencies, 3 herd visits on average; a request in two in three, a
+   prescription in six in ten, as the history's ratios.
+4. **A referral is closed by the vet's letter** once its consultations
+   are signed and its stay ended; the electronic report stays a later
+   purpose (D278 answer 5).
+5. **No farms' statements and no retention purge** in the profile:
+   billing is out of v0.5, and a year of history holds nothing past five
+   years.
+6. **The vaccination reminders** (Cadences, daily) leave the core's
+   profile: an owner's reminder is a `vet-portal` notification, settled
+   with that part; the centre's outbox to the franchise's messaging
+   service is settled there too, the core having no outbox table.
+7. **The exchanges with the other centres**: about one a day each way,
+   round trips at step 7 with their trace tables; the authority a
+   partner stub of its own on the shared back end.
+8. **One intensity for the clinic's nodes**, the history ending at 1.0's
+   rates, another intensity a step at T0 the story must explain.

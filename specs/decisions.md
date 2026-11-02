@@ -799,3 +799,9 @@ D285–D299, v0.5's drafting. Take the next number from `doc-ids`; no ID is reus
   requires of labs; a part's scale in a manifest of the core variant's
   name (feeds O111). Closes O151. Now in:
   [versions/v0.5/vet-lab-domain.md](versions/v0.5/vet-lab-domain.md#the-owners-answers-d301).
+- **D302 (2026-11-02, owner confirmation "agreed", relayed by the
+  coordinator): `vet-lab`'s steps 4 and 5 are ruled as drafted:** the
+  eight plausibility points (the two constraints on `vet-core`'s load
+  among them, now applied there) and the thirteen rules of its default
+  policy, with their game values. Closes O152. Now in:
+  [versions/v0.5/vet-lab-domain.md](versions/v0.5/vet-lab-domain.md#the-rules-as-the-owner-confirmed-them-d302).

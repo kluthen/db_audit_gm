@@ -1,11 +1,11 @@
 # v0.5 — `vet-lab`, the clinic's lab
 
-Status: draft v2. Step 2, the business sketch, is ruled, every default
+Status: draft v3. Step 2, the business sketch, is ruled, every default
 accepted (D301, closing O151); step 3, the split, is not a part's: the
 lab's boundary was set by the clinic's split (D279, D293, D294). Step 4,
-the data model, and step 5, classification and governance, are drafted:
-their plausibility points and the default policy's rules are the
-owner's to confirm (O152). Step 6, the producer profiles, comes after.
+the data model, and step 5, classification and governance, are ruled as
+drafted (D302, closing O152). Step 6, the producer profiles, is drafted
+with `vet-core`'s, their points for the owner (O153, O154).
 
 `vet-lab` is the biology lab of the centre a scenario deploys (D285),
 the second domain through the [procedure](domain-procedure.md) (D235,
@@ -271,12 +271,12 @@ the core's step 4 (D301).
 | its urgency, which orders the bench | `requests.priority`, `routine` or `urgent` (D301) |
 | who decides a test goes out | the lab, by its catalogue: `requests.external` dropped (D301) |
 | the animal's species, sex, age, food-chain status, natural identifiers; the owner's name | `vet_lookup` reads them (D266), never contacts |
-| the lab's staff and its clinical pathologists | `staff`, kind `lab`, and vets with their specialty; their ids in a documented range (step 4, proposed) |
+| the lab's staff and its clinical pathologists | `staff`, kind `lab`, and vets with their specialty; their ids in a documented range, 71–80 (D302) |
 | the practices it bills | `referring_practices`, by id (D294) |
 | the disease a test detects, and whether it is notifiable | `diagnosis_codes` with its `notifiable` flag: the catalogue names a code |
 | for a residue screening, the treatment's withdrawal end | `prescription_lines` and `administrations` hold it (D280, rule 6); the centre's order carries it, the lookup API does not reach it |
 | the request's state once resulted | `requests` `resulted`, the lab's fact copied back by a purpose, a trap (two places for one fact, step 8) |
-| a history it can refer to without reading the core | each request's kind, test, priority, consultation, animal and time a function of its id (step 4, proposed) |
+| a history it can refer to without reading the core | each request's kind, test, priority, consultation, animal and time a function of its id (D302) |
 
 ## The owner's answers (D301)
 
@@ -486,11 +486,12 @@ The load writes these ids, each sequence resuming after its range
 | `lab_prices.id` | 1–360 | test `t`'s price `t` until 1 January, `180 + t` from it |
 | `lab_accounts.id` | 1–121 | 1 the centre (`internal`); account `a` from 2 to 121 is referring practice `3 × (a − 1)` (3, 6, … 360) |
 | History | `lab_orders` 1–14 000, `lab_samples` 1–18 000, `lab_order_tests` 1–24 000, `lab_results` 1–192 000, the others as loaded | in time order over the year |
-| Core keys used | `request_id` among the core's analysis requests (1–17 000); `animal_id` 1–17 000; lab staff 71–80 | as the core documents them (proposed below) |
-| Machines | `machine_id` 1–6, the lab's analysers | the range `vet-machinery` takes when it is defined (proposed) |
+| Core keys used | `request_id` among the core's analysis requests (1–17 000); `animal_id` 1–17 000; lab staff 71–80 | as the core documents them (D302) |
+| Machines | `machine_id` 1–6, the lab's analysers | the range `vet-machinery` takes when it is defined (D302) |
 
-**Two constraints on the core's load (proposed).** So that the lab's
-history refers to the core's without reading it (procedure 4):
+**Two constraints on the core's load (D302).** So that the lab's
+history refers to the core's without reading it (procedure 4), applied
+in [vet-core](vet-core-domain.md#deterministic-key-ranges-d249-d266):
 
 - **Requests as functions of their id.** Each core request's kind
   (about one in five imaging), test code, priority, consultation,
@@ -543,9 +544,10 @@ tables small" and the brick's reservation (0.5 CPU, 512M, 2.25G of
 disk); load time and size measured at the build. Far under cold
 storage's threshold (D296): nothing of the lab's ships.
 
-### Plausibility points (step 4)
+### Plausibility points (step 4, ruled, D302)
 
-Offered to the owner (O152):
+Offered to the owner and confirmed as drafted on 2026-11-02 ("agreed",
+D302):
 
 1. **The lab outweighs the core**: 0.36 million rows against 0.28, the
    results, one per analyte, more than half of it.
@@ -557,9 +559,8 @@ Offered to the owner (O152):
 4. **Notifications a table of the lab's**, the record the pushed
    obligation's purpose reads (step 7).
 5. **Two constraints on the core's load**: requests as functions of
-   their id, lab staff 71–80 (above), recorded in
-   [vet-core](vet-core-domain.md#deterministic-key-ranges-d249-d266) as
-   proposed.
+   their id, lab staff 71–80 (above), applied in
+   [vet-core](vet-core-domain.md#deterministic-key-ranges-d249-d266).
 6. **The analysers are `vet-machinery`'s machines 1–6**, a range that
    part takes when it is defined.
 7. **Accounts on every third practice**, 3 to 360: 120 of the core's 400.
@@ -685,9 +686,10 @@ in force on each batch, each sample's condition and custody flag, the
 interval each result was flagged against, the notifications with their
 times, the charges' price and billable date.
 
-### The rules to confirm (O152)
+### The rules, as the owner confirmed them (D302)
 
-Offered to the owner with the classification above:
+The owner confirmed them as drafted on 2026-11-02 ("agreed"), with the
+classification above and their game values:
 
 1. **Release** by a clinical pathologist only; urgent results shown
    inside, marked unvalidated.
@@ -714,9 +716,251 @@ Offered to the owner with the classification above:
     week or two, custody samples 60 days at most, charges ten years.
 13. **Billing** as answer 13, the centre never charged.
 
+## The producer profiles (step 6)
+
+Drafted on 2026-11-02 with `vet-core`'s
+([vet-core-domain.md](vet-core-domain.md#the-producer-profiles-step-6)),
+whose page states what both share: a volume stream against a work
+stream, the input types, intensity and the history, and readable
+fragments with no planted fault (D276). Every point is (proposed) until
+the owner rules on O153 and O154 ([producer
+profiles](producer-profiles.md#12-what-the-clinics-first-profiles-need-o154)).
+
+**Producer or purpose.** What the lab's own applications write into
+`lab` is this step's, and so are the rates of every flow it meets,
+the partners' among them. The flows out of the lab or into another part
+are purposes (procedure 4, step 7): the centre's orders posted to the
+lab, the results copied back into the core's `requests`, the results
+posted to the practices' callbacks, the send-outs to the external lab,
+the notifications to the authority, the monthly statements, and the
+release to the portal. `lab_dispatch` and `lab_reports` are their roles;
+nothing in this step runs as either.
+
+### The applications and their nodes (D276)
+
+| Application | Node | Connection, role | What it does |
+|---|---|---|---|
+| The lab's information system, with the analysers' middleware | `lis`, a scheduler node | `lab`: `lab:5432/lab`, `lab_app`; `lab-instruments`: the same target, `lab_instruments`; `clinic-api`: the core's lookup API, HTTP (D267) | accessioning, bench work, validation and release, QC, critical calls, notifications' records, custody; the analysers' batch uploads; the centre's patients' identity from the core |
+| The lab's order API (D267, D270) | `lab-api`, an `api` node in the players' scope | `lab_api` | only answers: `POST /orders` (any account, the centre's included; idempotent on the account and its `client_ref`, the same accession answered twice), `GET /orders/{accession}` (an order's state, interim or final), `POST /send-outs/{send_key}/result` (the external lab's answer); players edit its `db/` side only (D271) |
+
+The middleware shares the information system's node: a lab's
+middleware is an application of its own, but one node standing for
+both keeps the node count to the clinic's applications, a few standing
+for many (D263; O153, lab point 1). The fragments are written for the
+node names `lis`, `lab-api`, `lab` and `clinic-api`; the GM renames
+them as the scenario does.
+
+### Rates at intensity 1.0
+
+A stream is a volume or a work stream, as for the core
+([vet-core](vet-core-domain.md#rates-at-intensity-10)); the lab's
+volume arrives mostly from outside its node: the centre's orders
+through its purpose, the practices' through their stub (below). The
+lab's own streams are therefore nearly all work streams, their rates
+capacities.
+
+Work streams, on `lab` as `lab_app` unless stated:
+
+| Key | What it takes and writes | Capacity | Shape | Follows |
+|---|---|---|---|---|
+| `lab.samples.receive` | the oldest centre order whose samples are expected, collected 15 minutes ago or more: its samples received, their condition (about 97 % fit, the rest haemolysed, lipaemic, clotted, under-filled or unlabelled, by a hash of the sample's id), a `received` event; its tests in progress, or waiting for the send-out; an unfit sample's tests not performed | 15/h | `flat` | the centre's orders: about 25 orders, 30 samples a day |
+| `lab.courier.receive` | the oldest practice order posted before the courier's round: as above; each outside test's charge, pending | 40/h, concurrency 2 | `courier-waves` | the practices' orders: about 25 orders, 35 samples a working day |
+| `lab.analyser.run`, on `lab-instruments` as `lab_instruments` | one analyser's run: a batch of the pending tests of its discipline, one result per analyte, each flagged against the interval in force for the species; nothing when nothing waits or when the analyser's last QC run failed | 5.7/h | `bench` | about 75 batches and 700 results a day |
+| `lab.bench.result` | bench work: a urinalysis, a smear or a rapid test read within hours; a culture read after two to three days, its sensitivities two or three more; a result with no batch | 8/h | `bench` | about 100 a day |
+| `lab.validate.technical` | a test whose results are all in, from a batch whose QC run passed: technically validated; stored, a `stored` event | 30/h | `bench` | about 80 a day |
+| `lab.release.urgent` | an urgent, technically validated test released at once by a clinical pathologist, on call at night and on Sundays; its order completed once every test is final | 10/h | `flat` | about 15 a day |
+| `lab.critical.call` | a critical result with no call: the call to the requesting vet or to the practice, read back, recorded within the hour (rule 6) | 6/h | `flat` | two or three a day |
+| `lab.notify` | a positive or suspect result for a test tied to a listed disease, technically validated, with no notification: its row, within the hour for category A (rule 7); its push to the authority is a purpose | 2/h | `flat` | a few a month |
+| `lab.qc.rerun` | a failed QC run with no passing run after it: rerun and passing, the analyser's results held meanwhile (rule 4) | 4/h | `flat` | about one a week |
+
+Volume streams, on `lab` as `lab_app`:
+
+| Key | What one call writes | Rate | Shape | A day: Mon–Sat / Sun |
+|---|---|---|---|---|
+| `lab.amend` | a released result amended: a new row superseding it, what changed, why, who (rule 3) | 0.25/h | `bench`, poisson | 4 / 0.6 |
+| `lab.orders.cancel` | an order not yet tested cancelled, its tests cancelled, its charges void | 0.08/h | `bench`, poisson | 1 / 0.2 |
+| `lab.add-on` | a test added on a stored sample within its keep-until, billed to whoever paid for the first | 0.1/h | `bench`, poisson | 1.5 / 0.2 |
+
+Reads, on `lab` as `lab_app`: `lab.worklist` (a bench's pending tests;
+30/h, even, `bench`), `lab.order.view` (an order's report, interim or
+final, for the staff and the telephone; 25/h, poisson, `bench`,
+concurrency 2).
+
+Fixed-time operations (`jobs.yaml`, scenario time):
+
+| Job | When | What |
+|---|---|---|
+| `lab.qc.morning` | `45 6 * * *` | QC on every analyser before the bench opens: three levels for haematology, two for the others, about 15 runs; one in fifty fails, by a hash of the run's id |
+| `lab.qc.night` | `15 21 * * *` | QC on the on-call analysers before the night (one haematology, one biochemistry, the blood gas): about 7 runs |
+| `lab.release.round` | `0 11,14,18 * * 1-6` and `0 11 * * 0` | the pathologist's round: every technically validated test not held released (rule 1), orders completed, the outside tests' charges billable on the release's date (rule 13) |
+| `lab.samples.dispose` | `0 6 * * *` | samples past their keep-until disposed, a `disposed` event; a custody sample kept until its case closes (rule 12) |
+| `lab.identity` | `* * * * *` | the centre's new orders lacking the animal's identity: each animal read from the core's lookup API (`GET /animals/{id}`, `/owner`) and its species, sex, born on, natural identifiers, food-chain status and the owner's surname written on the order; a read, a call and a write, which a script does once O154's point 1 is ruled |
+
+`lab.samples.dispose` is light, set-based work, the database node's
+`pg_cron` a placement the GM may choose (D206, D207). `lab.identity`
+is a producer's, not a purpose: it is how a part gets the core's
+animals (D266), the lab storing what the core's API answers; it is the
+lookup API's first traffic in the game (D267), and the way the core's
+dozen mistyped chips (D278) reach the lab's live orders while its
+history holds the correct ones.
+
+About 1 300 rows a day, as step 4 counted. A weekday holds about 85
+tests and 700 results, a Sunday about a quarter: the centre's urgent
+tests and its hospitalised animals'.
+
+### The business hours (shapes)
+
+| Shape | Hours |
+|---|---|
+| `bench` | Monday to Saturday 07:00–21:00 at 1.0; every other hour at 0.1, the on-call technician's urgent haematology, biochemistry and blood gases |
+| `courier-waves` | Monday to Saturday, 11:00–12:00 and 17:00–18:00: the courier, back from the practices at about 10:45 and 16:45, the samples accessioned in a wave after each round |
+| `flat` | every hour at 1.0 |
+| `practice-hours` (the practices' stub) | Monday to Friday 08:00–12:00 and 14:00–19:00 at 1.0, 0.3 over lunch; Saturday 08:00–12:00 |
+| `xlab-hours` (the external lab's stub) | Monday to Saturday 08:00–20:00 |
+
+The pathologist's rounds are jobs, at 11:00, 14:00 and 18:00 from
+Monday to Saturday and at 11:00 on Sundays (the on-call pathologist);
+urgent results are released at once around the clock. The send-outs are
+packed at 16:00, Monday to Friday, by their purpose (below).
+
+### The partners the lab meets (D285, D293, D294)
+
+On the back end every partner shares (one scheduler node, one small
+database, D293), each an `api` node out of the players' reach. A
+partner's back end ticks its own `api` node, whose endpoint reads the
+partner's state, calls the centre and records the answer, as a real
+partner's system would; its fault keys come with the faults (D276), the
+fragments holding its normal behaviour (O154).
+
+**The region's practices**, one stub for the 120 accounts (D293):
+
+| Key or endpoint | What | Rate | Shape |
+|---|---|---|---|
+| `practices.order` (back end stream) | ticks the stub: it builds a practice's order (one of accounts 2–121, its patient reference and client's surname, a species mix of 70 % dogs and cats, 15 % horses, 15 % farm animals, about 1.6 tests, one in twenty urgent, a fresh `client_ref`), posts it to `lab-api`'s `POST /orders`, and keeps the accession | 2.9/h | `practice-hours`, poisson: 28 a weekday, 12 on Saturday, 25 a working day on average (step 2) |
+| `POST /results` (its `api` node) | takes a delivery (interim, final or amended), acknowledges each `delivery_key` once, a repeat acknowledged again without a second record | | answers the dispatch's calls: about 40 a day |
+
+**The external reference lab** (D268):
+
+| Key or endpoint | What | Rate | Shape |
+|---|---|---|---|
+| `POST /orders` (its `api` node) | takes a send-out: answers `accepted` with its accession, keeps the `send_key`, the test and the due time (the test's turnaround, one to five days); the same `send_key` again answers the same accession | | about 7 a day, Monday to Friday at 16:00 |
+| `xlab.answer` (back end stream) | ticks the stub: each send-out past its due time gets its result posted to `lab-api`'s `POST /send-outs/{send_key}/result`, the answer kept | 6/h, even | `xlab-hours`: follows the send-outs, about 7 a working day |
+
+The back end's intensity is one for every partner (one schedule a
+node): at 1.0, the practices' orders above. The ticks are polling and
+their capacities only follow; the volume is the practices' order rate,
+which the scenario keeps at the clinic's nodes' intensity
+([vet-core](vet-core-domain.md#intensity-and-the-history-before-t0-d276-d279)).
+The partners' database grows by about 125 rows a day: orders,
+deliveries, send-outs, cold storage's manifests.
+
+### The round trips, for step 7 (D268, D286)
+
+Each a purpose of the round-trip kind; the profile they meet:
+
+| Round trip | Who asks | Request | Correlation key | Expected answer | Timing at 1.0 | Timeout, then | Reactions |
+|---|---|---|---|---|---|---|---|
+| The centre's orders | the centre | the consultation's analysis requests, one order, posted to `lab-api` | `client_ref`, the requests' ids | the accession id at once; the result once released | about 25 orders a day, each within a minute of its consultation's close | no accession in a minute: resent with the same `client_ref` | the core's requests `sent`, then `resulted` with the result copied back |
+| The practices' orders | a practice | an order posted to `lab-api` | the practice's `client_ref` | the accession id at once; the interim and final results at its callback | about 25 a working day; results the same day for most, cultures and send-outs days later | the dispatch's: no acknowledgement in five minutes, retried with the same `delivery_key`, at most six times | each delivery acknowledged; a test billable once released |
+| The send-outs | the centre | the day's send-out tests posted to the external lab: the accession, the label, species, sex and age, never an identifier (rule 11) | `send_key`, kept on a retry | `accepted` at once; the result one to five days later | about 7 a day, Monday to Friday 16:00 | past `due_by`: resent with the same `send_key` | the test resulted, then validated and released as the centre's own, naming the lab that performed it |
+
+The end-to-end invariant a cascade's fix is judged by (D286): every new
+order gets its result released, and for a practice's every released
+result is acknowledged at its callback.
+
+### The periodic reports (D265, D294, D300)
+
+| Report | Cadence | Its daily feeder | Planted before T0 |
+|---|---|---|---|
+| Each practice's monthly statement (answer 13) | on the 1st at 04:00 | 02:30: yesterday's billable and voided charges per account | every full month's statements of the year, one per account |
+
+A purpose (step 7), writing to `office` on the core's instance (D300).
+The lab has no standby (D299, D301): its statement reads the lab's own
+node, at night when the bench is closed and the on-call traffic light,
+a second connection writing `office` (O153, lab point 6). The yearly
+price list and the intervals' review are history only: one revision
+each, on 1 January, inside the year (step 4).
+
+### The history before T0 (D279)
+
+As the core's: the year ramps from about 60 % of today's volume to
+today's, on the shapes above, so the waves after the courier, the
+rounds' releases at 11:00, 14:00 and 18:00 and the quiet Sundays show
+in the history as they will in the aging; the price change and the
+intervals' review on 1 January. In flight at T0, as a night leaves the
+lab:
+
+- the night's urgent orders received and in progress; the practices'
+  orders posted after the last courier round, their samples not yet
+  received;
+- cultures incubating, two to five days old, about fifteen;
+- samples stored for add-ons, a week or two: about 600 not yet disposed;
+- send-outs sent within their turnaround and not yet answered, about
+  twenty; the external lab's stub holds the same send-outs, by the same
+  `send_key`, in the partners' database;
+- outside tests not yet released, their charges pending.
+
+The partners' database is planted from the same documented functions
+of the lab's ids as the lab's own load, so no outstanding send-out is
+missing from the stub, which would leave a result never coming back
+with no fault behind it (O153, lab point 7).
+
+### Cold storage (D297)
+
+Nothing of the lab ships: about 1 300 rows a day against the threshold
+of about 50 000 (D296), and the statements, amendments and add-ons read
+the year. The analysers' readings and run logs, which may ship, are
+`vet-machinery`'s (D298). The lab's node ships its `wal` and its
+nightly `basebackup` to the vault (D301), as the core's instance does:
+at least 24 segments a day with `archive_timeout` at an hour.
+
+### Growth, for the GM notes (D298)
+
+At intensity 1.0, on `lab`:
+
+| | Rows | Size |
+|---|---|---|
+| A day, on average | about 1 300 new rows, about 700 of them results; about 400 updates (tests moving through their states, orders completed) | about 0.3 MB with indexes, before bloat |
+| An hour, on average | about 55 | |
+| A bench hour on a weekday | about 100, in bursts of a batch's results | |
+| A Sunday | about a quarter of a weekday | |
+
+The partners' database: about 125 rows a day. Over an aging the lab's
+disk is never the problem: its bursts, its holds and its round trips'
+backlogs are.
+
+### Points for the owner (O153)
+
+1. **One node for the information system and the middleware**, `lis`,
+   with two connections and their roles; the order API, `lab-api`, only
+   answering.
+2. **The hours**: the bench 07:00–21:00 Monday to Saturday, a tenth of
+   its traffic on call otherwise; the courier back at about 10:45 and
+   16:45, Monday to Saturday, a wave of accessioning after each; the
+   pathologist's rounds at 11:00, 14:00 and 18:00, and one at 11:00 on
+   Sundays by the on-call pathologist; QC at 06:45 and 21:15; send-outs
+   at 16:00 Monday to Friday; the external lab answering Monday to
+   Saturday, 08:00–20:00.
+3. **The centre's patients' identity from the core's lookup API**, a
+   job of the information system every minute (D266's mechanism), not a
+   purpose.
+4. **`lab_app` writes `lab_charges`**: step 4's grants give no role
+   that write; the information system charges at accession, makes a
+   charge billable at release and voids it on a cancellation or an
+   unfit sample. A correction to D302's grants.
+5. **The other national centres order nothing from the lab in v0.5**:
+   one-centre's "the other national centres order the same way" against
+   the accounts D302 ruled, the centre and the practices; each centre
+   has its own lab (D285), so the sentence leaves one-centre.md.
+6. **The statements read the lab's node at night**, with no standby to
+   read (D299, D301); a statement read at bench hours is a fault
+   candidate, a report competing with the bench.
+7. **The partners' database planted from the lab's functions**, so the
+   external lab's stub knows every send-out the history left open and
+   the practices' stub every order not yet received.
+
 ## Next
 
-Once the owner confirms step 4's points and step 5's rules (O152): the
-producer profiles (step 6), with `vet-core`'s; then the purposes (step
-7), the lab's round trips, the results' return, the release to the
-portal, the notifications and the statements among them.
+Once the owner rules on O153 and O154: the purposes (step 7), the
+lab's round trips, the results' return, the release to the portal, the
+notifications and the statements among them, with `vet-core`'s.

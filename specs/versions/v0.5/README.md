@@ -31,20 +31,22 @@ ships (D296, D297), and friction 11's profile (D298); then replication
 and the off-site copies (D299), the reports writing to a back-office
 database, `office` (D300); `vet-lab`'s business sketch ruled, every
 default accepted, the lab on a node of its own (D301), its data model
-and governance drafted for confirmation (O152).
+and governance ruled as drafted (D302); `vet-core`'s and `vet-lab`'s
+producer profiles (step 6) drafted together, their points for the owner
+(O153), with what they need of the scheduler and the format (O154).
 
 ## Documents
 
 | Document | Purpose | Status |
 |---|---|---|
 | [domain-procedure.md](domain-procedure.md) | How a domain is defined: what it holds and leaves out, the steps from a brief, done and its checklist, composites, how a scenario names its domains, the shop against it, the effort, scale, variants and tags | approved v4 (D249, D260, D263) |
-| [producer-profiles.md](producer-profiles.md) | The frictions between domains' producer profiles and v0.3's scheduler, each with its evidence, and the owner's rulings | draft v6, ruled (D264–D271, D276, D277, D287, D288, D298; O113 closed) |
+| [producer-profiles.md](producer-profiles.md) | The frictions between domains' producer profiles and v0.3's scheduler, each with its evidence, and the owner's rulings; what the first parts' profiles need of the scheduler and the format | draft v7, ruled (D264–D271, D276, D277, D287, D288, D298; O113 closed); section 12 proposed (O154) |
 | [cold-storage.md](cold-storage.md) | Cold storage, a generic third party for heavy data: keeping a day on site, the shipping job, the stub's manifest, endpoints and page, the faults it enables | draft v2, ruled (D288, D296, D297; O148 closed) |
 | [third-parties.md](third-parties.md) | What a third party is, what it may carry, how it is built into a game, what the players are told; the repository's third parties in all but name | draft v4, ruled (D273–D275, D285, D293, D296) |
 | [one-centre.md](one-centre.md) | One centre per scenario: the ruling, and what it changes for the clinic's parts, its lab's partners, the exchanges with the other centres and the partners' nodes | draft v2, ruled (D285, D293–D295; O127, O147 closed) |
-| [vet-core-domain.md](vet-core-domain.md) | `vet-core` through the procedure: the business sketch and the owner's answers (step 2), what the parts need of the core, the clinic's split (step 3), the data model (step 4), classification and governance (step 5) | draft v6: steps 2 and 3 ruled (D266, D278, D279, D293, question 1 revised by D285), step 4 current at one centre's scale (D295), `requests` revised (D301), two load constraints proposed (O152), step 5 ruled (D280) |
+| [vet-core-domain.md](vet-core-domain.md) | `vet-core` through the procedure: the business sketch and the owner's answers (step 2), what the parts need of the core, the clinic's split (step 3), the data model (step 4), classification and governance (step 5), the producer profiles (step 6) | draft v7: steps 2 and 3 ruled (D266, D278, D279, D293, question 1 revised by D285), step 4 current at one centre's scale (D295), `requests` revised (D301), the lab's two load constraints applied (D302), step 5 ruled (D280), step 6 drafted (O153, O154) |
 | [replication.md](replication.md) | Replication and the off-site copies: a standby of the core's instance off site, WAL archiving and base backups to cold storage for the core's instance and the lab's node, their faults and cost; the back-office database the reports write to | draft v3, ruled (D299, D300, D301; O149 closed) |
-| [vet-lab-domain.md](vet-lab-domain.md) | `vet-lab` through the procedure: what is settled before it, the business sketch (step 2) and the owner's answers, where the lab presses on the core, the data model (step 4), classification and governance (step 5) | draft v2: step 2 ruled (D301, O151 closed); steps 4 and 5 drafted, their points and rules for confirmation (O152) |
+| [vet-lab-domain.md](vet-lab-domain.md) | `vet-lab` through the procedure: what is settled before it, the business sketch (step 2) and the owner's answers, where the lab presses on the core, the data model (step 4), classification and governance (step 5), the producer profiles (step 6) with its partners and round trips | draft v3: step 2 ruled (D301, O151 closed); steps 4 and 5 ruled (D302, O152 closed); step 6 drafted with `vet-core`'s (O153, O154) |
 | [brick-options-review.md](brick-options-review.md) | The options candidates checked against the clinic, and the owner's rulings on them: what the clinic gets, as an option or otherwise, what stops mattering, the options model | draft v4, ruled (D250, D261, D262, D289) |
 
 ## Goal
@@ -431,14 +433,17 @@ The items moved later are listed in the roadmap
 
 - O111: the domain format, beyond its v0.4 part and D249's four
   changes; finalised in the master spec when v0.5 consolidates (D291).
-- O152: `vet-lab`'s data model and default policy, for the owner's
-  confirmation ([vet-lab-domain.md](vet-lab-domain.md#the-rules-to-confirm-o152)).
+- O153: `vet-core`'s and `vet-lab`'s producer profiles (step 6), for
+  the owner's confirmation ([vet-core-domain.md](vet-core-domain.md#points-for-the-owner-o153),
+  [vet-lab-domain.md](vet-lab-domain.md#points-for-the-owner-o153)).
+- O154: what those profiles need of the scheduler and the domain format
+  ([producer-profiles.md](producer-profiles.md#12-what-the-clinics-first-profiles-need-o154)).
 
 Moved out of this list on 2026-10-31: O53 and O54 (later, D237); O21
 and O135 (v0.6, D233, D248); O24 and O25 (v1.0+, D248). Closed: O47
 (v1.0) and O137 (D248), O126 (D249), O139 (D260), O118 (D261), O80
 (D262), O114 (D263), O145 (D274, D275), O144 (D278), O127 (D285), O128
 (D286), O79 (D289), O112 (D292), O147 (D293–D295), O148 (D296, D297),
-O113 (D298), O149 (D300), O151 (D301). O23 ruled for the clinic (D290), its
+O113 (D298), O149 (D300), O151 (D301), O152 (D302). O23 ruled for the clinic (D290), its
 general part left for later. Not due here: O138, the post-mortems'
 binding.
