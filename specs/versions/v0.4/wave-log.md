@@ -3085,3 +3085,92 @@ branch, with the pause report. The two-host run is `smoke` without the
 per-fault cycles (the cycles on armenelos alone), as 17a's first owner
 chose: accepted by the driver, the owner told before resuming, no
 objection.
+
+### Paused again — chunk 17a at WIP bf5dbf5; the rest runs tonight, 2026-11-02 13:55 UTC
+
+The owner, ~13:50 UTC: the runs won't end this afternoon; "pause now,
+run tonight" (a session left open overnight). Chunk 17a's second owner
+paused at **WIP bf5dbf5** (on e622975), branch `v0.4-c17a-smoke-cycles`,
+worktree `/home/bastien/work/db_audit_gm-wt/v0.4-c17a-smoke-cycles`, not
+merged. Untracked in that worktree's `.wip/`: `g7-smoke-duo.sh` (the G7
+wrapper for the two-host run, **untested, not committed**) and
+`parse_gmctl.py` (the `gmctl.md` parser check, run with the repo root as
+argument), copied there from the driver's session scratchpad.
+
+**Hosts at 13:52 UTC**: 0 services; armenelos `Ready Active`,
+`vps-5718ad52` `Ready Drain` (never set active today); the lock free, no
+inhibitor; 0 dbagm containers, volumes, secrets, configs, networks, user
+units or `/tmp/gmctl-smoke-purposes.*` left; the seven images rebuilt at
+12:08 from cache (unchanged).
+
+**Runs** (armenelos, `--cpu 4 --memory 5G --disk 10G`, each under the
+lock and an inhibitor):
+
+| Run | UTC | Result |
+|---|---|---|
+| baseline 1 | 12:10–12:25 | aborted: two harness bugs (keys judged after 5 min; bi's `s6-svc` not on `gmctl exec`'s PATH); G1–G4 exit 0 |
+| baseline 2 | 12:25–13:19 (3185 s) | 30 passed, 2 failed, both the pooler race (producer `close-day` never ran: PgBouncer "DNS lookup failed: db" from T0). Passed: the unfaulted copy (8 files `fixture-campaign`'s, data file cut at line 202, every instance left out); `check` with none left: "no fault instance to check"; moves, waits, restores on crm, producer, bi; G1–G4 exit 0 after the moved jobs and again after db's `:17` entry (13:17:01Z); every crm and bi job ran; keys by rate on all five schedulers |
+| baseline 3 | 13:19–13:21 | fail-fast on the pooler race |
+| cycles 1 | 13:21–13:24 | the pooler race |
+| cycles 2 | 13:27–13:51 | stopped by the pause, mid-f2, **no failure**: the pooler WORKAROUND at 13:29:34; f10 planted (`inject --at now`), reads error as designed ("no backend killed … the incident did not happen"); f1, f2, f3, f4, f7 present; f5 planted, present; f6, f9 present then fixed in 1 s each; f1 present → fix → too soon (211 s) → **fixed after 227 s** (13:50:17) |
+
+Memory at 13:42 (`docker stats`, cycles 2): db 221.6MiB/1GiB, grafana
+196.9/384, reporting 69.9/640, prometheus 56.6/384, bi 33.3/384,
+producer 32.5/96, crm 31.8/128, consumer 30.2/128, gateway 30.3/96,
+exporter 23.9/128, pooler 16.3/64, bastion 10.1/256.
+
+Harness fixes in bf5dbf5 (`tools/tests/smoke-purposes.{sh,py}`): bi's
+reload by `/command/s6-svc -h`; `restore` fails when its reload fails;
+keys judged by rate once per mode (a silent key fails only when its
+expected calls since T0 reach 4; slower keys "not judged"); the pooler
+check at T0 + 90 s with a one-time `s6-svc -r` WORKAROUND line, counted
+in the summary. Verified live: the scheduler log's timestamp and key
+formats, `gmctl exec --user player` with `sudo` (`gm-reload-scheduler`,
+`gm-crontab`), `PGPASSFILE` with `psql -U dba`, `base64` on the nodes,
+`check` with every instance left out; by hand on `reporting`: `pidof`,
+the s6-svscan/sshd/cron pids, `memory.peak`, `memory.events`. Not yet
+live: the cycles from f2's fix on (f3, f5 `--since`, f7 `--since` and W4
+item 9, f4 across local midnight, f8), smoke mode's f8 wait, f10 mode,
+the two-host run and its wrapper. Checks: unit suite 854 OK (146 s,
+before the harness-only edits); `sh -n`, `py_compile` OK; `gmctl.md` 96
+parsed, 0 failed, 18 skipped.
+
+**Finding — the `pgbouncer` brick's start-up DNS race** (outside 17a's
+Files; **open, for the owner**): the pooler's container starts ~50 ms
+before `db`'s; its first lookup fails "DNS lookup failed: db: result=0
+… (bad-af)" and every later one too, for ≥ 25 min, while `getent hosts
+db` in the same container resolves (10.0.1.16, VIP 10.0.1.13). 4 of 5
+deploys today (baseline 1, far from a previous teardown, was clean). In a
+game the producer is down throughout. `s6-svc -r` of the pgbouncer
+service cures it at once. Likely fix: a bounded wait in its s6 `run`
+until its `[databases]` hosts resolve. Evidence: baseline 2's pooler log
+from 12:25:59; PgBouncer 1.26.1, c-ares 1.34.5; resolv.conf search
+`tail7b2df4.ts.net`, `ndots:0`. `pgbouncer` is not among the bricks v0.4
+bumps (plan "Read first"): a fix means a new `pgbouncer` version and
+re-pins, a plan change for `spec-writer`. The other smoke scripts with a
+pooler may hit it at the wave gate.
+
+**Next, in order** (a fresh `coding-leader` on 17a's brief plus "resume
+from WIP bf5dbf5" and this entry; from the 17a worktree, `S=` a log
+folder; check first: the lock free, 0 services, the VPS `Drain`; never
+edit `smoke-purposes.sh` while a run executes it — write to a new file
+and `mv`; each run's verdict is its last line `smoke-purposes <mode>: …`,
+then grep `FAIL` and `WORKAROUND`):
+1. `flock /tmp/dbagm-docker.lock systemd-inhibit --what=sleep:idle:handle-lid-switch --who=dbagm-17a --why=cycles sh tools/tests/smoke-purposes.sh cycles armenelos --cpu 4 --memory 5G --disk 10G > $S/cycles.log 2>&1`
+   (~3.5–5 h; guard at 02:45 scenario time ≈ T0 + 6h15; f8 waits up to
+   9000 s for present and again for fixed; f4's fixed reading needs the
+   local midnight ≈ T0 + 3.5 h).
+2. The same with `baseline` (~55 min, waits for db's `:17`; ≥ 32 passes).
+3. The two-host smoke run (G7), ~2.5–3 h: `flock … --why=duo env
+   POLL_LOG=$S/g7-poll.log sh .wip/g7-smoke-duo.sh --host armenelos,manager,cpu=4,memory=4G,disk=12G --host vps-5718ad52,shared,endpoint=ssh://dbagm-vps,cpu=2,memory=2G,disk=8G > $S/duo.log 2>&1`
+   (pre-check, active, site polled every 30 s, drain in a `trap`,
+   post-check; `gmctl deploy` copies the images to the VPS). **Owner's
+   call pending: run it overnight unattended, last, or keep it for a time
+   the owner is around.** If the classifier refuses `active`/`drain`, the
+   owner runs it.
+4. `f10 armenelos …` last, ~45 min, the VPS drained.
+5. Full unit suite, `sh -n`, the parser check; squash e622975, bf5dbf5
+   and later fixes into one commit (`.wip/` committed as harness if kept,
+   else removed); merge `v0.4-w4` in, then `--no-ff` into `v0.4-w4`;
+   remove the worktree and branch.
+Then 17b, the wave gate, the release gate.
