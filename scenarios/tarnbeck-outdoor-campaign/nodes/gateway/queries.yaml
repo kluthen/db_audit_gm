@@ -1,0 +1,42 @@
+# Query repository of the customs gateway's callback, as customs_gw: the
+# customs authority reads the shop's declarations from customs_outbox and
+# answers in customs_acks. Each call answers the declarations sent in the
+# 15-second slot ending at the last slot boundary at least 5 seconds before
+# it, one call a slot: an answer within 5 to 35 seconds of sending.
+#
+# - Accepted, with a movement reference (an MRN: year, the exporter's
+#   country DE, 14 characters), when well-formed: the schema's seven fields
+#   present and not empty, lines a non-empty list.
+# - Rejected, with the missing fields as reason, otherwise.
+queries:
+  customs.acknowledge:
+    sql: >-
+      WITH slot AS (
+        SELECT to_timestamp(floor(extract(epoch FROM now() - interval '5 seconds') / 15) * 15)
+                 AS ends),
+      received AS (
+        SELECT d.id, d.idempotency_key,
+               (SELECT string_agg(f, ', ' ORDER BY n)
+                  FROM unnest(ARRAY['order_ref', 'consignee_name', 'consignee_address',
+                                    'destination_country', 'lines', 'total_value', 'currency'])
+                       WITH ORDINALITY AS u (f, n)
+                 WHERE CASE WHEN f = 'lines'
+                            THEN jsonb_typeof(d.payload -> 'lines') IS DISTINCT FROM 'array'
+                                 OR d.payload -> 'lines' = '[]'::jsonb
+                            ELSE coalesce(d.payload ->> f, '') = '' END) AS missing
+          FROM slot, customs_outbox d
+         WHERE d.sent_at >= slot.ends - interval '15 seconds' AND d.sent_at < slot.ends
+           AND mod(hashtextextended(d.idempotency_key, 214), 50) <> 0)
+      INSERT INTO customs_acks (outbox_id, status, reference, reason, received_at)
+      SELECT id,
+             CASE WHEN missing IS NULL THEN 'accepted' ELSE 'rejected' END,
+             CASE WHEN missing IS NULL
+                  THEN to_char(now(), 'YY') || 'DE'
+                       || upper(substr(md5(idempotency_key || ':' || id), 1, 14)) END,
+             CASE WHEN missing IS NOT NULL THEN 'missing or empty: ' || missing END,
+             now()
+        FROM received
+  # The gateway's maintenance mode: declarations are queued on its side
+  # and nothing is answered.
+  customs.unavailable:
+    sql: SELECT 1 WHERE false

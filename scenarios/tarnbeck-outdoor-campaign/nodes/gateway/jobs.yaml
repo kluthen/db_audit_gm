@@ -1,0 +1,3 @@
+# Fixed-time jobs of the customs gateway's callback: none, it answers as
+# declarations arrive.
+jobs: []

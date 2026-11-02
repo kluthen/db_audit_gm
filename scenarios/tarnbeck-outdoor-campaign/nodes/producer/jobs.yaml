@@ -1,0 +1,8 @@
+# Fixed-time jobs of Tarnbeck Outdoor's web shop. Times are UTC, as the
+# scheduler reads them. The close of day, at noon company time, invoices
+# what was shipped since the previous one.
+jobs:
+  - name: close-day
+    key: orders.close-day
+    connection: app
+    at: "0 12 * * *"

@@ -1,0 +1,12 @@
+# Query repository of Lumen Analytics' transformer: the hourly roll-up is
+# a script (scripts/rollup.py); the nightly close a plain CALL of the
+# procedure on the reporting database, which computes there.
+queries:
+  rollup.hourly:
+    script: scripts/rollup.py:hourly
+    options:
+      overlap_seconds: 600     # re-read the changes this far before the watermark: a
+                               # transaction committing late (the close-of-day holds its
+                               # invoicing 20 s) is never missed
+  rollup.close:
+    sql: CALL rpt.close_day()

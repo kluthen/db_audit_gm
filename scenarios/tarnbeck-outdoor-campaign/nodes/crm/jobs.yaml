@@ -1,0 +1,32 @@
+# Fixed-time jobs of the marketing team and the shipping manager (the crm
+# machine). Times are UTC, as the scheduler reads them.
+jobs:
+  # --- The win-back campaign ------------------------------------------------
+  # The extraction of lapsed customers as leads, at twenty past every hour.
+  - name: leads-extract
+    key: leads.extract
+    connection: shop_crm
+    at: "20 * * * *"
+  # --- The customer mailing --------------------------------------------------
+  # The shipping notices every five minutes, day and night; the campaign
+  # every quarter hour through the company's sending day, 08:00 to 20:45
+  # company time.
+  - name: mail-shipped
+    key: mail.shipped
+    connection: shop_crm
+    at: "*/5 * * * *"
+  - name: mail-campaign
+    key: mail.campaign
+    connection: shop_crm
+    at: "*/15 8-20 * * *"
+  # --- The export declarations ----------------------------------------------
+  # The declarations every five minutes and the escalations every quarter
+  # hour, day and night.
+  - name: declare-exports
+    key: declare.exports
+    connection: shop_customs
+    at: "*/5 * * * *"
+  - name: escalate-customs
+    key: escalate.customs
+    connection: shop_customs
+    at: "*/15 * * * *"
