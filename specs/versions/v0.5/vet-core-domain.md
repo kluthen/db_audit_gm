@@ -1,10 +1,10 @@
 # v0.5 — `vet-core`, the clinic's core domain
 
-Status: draft v3. Step 2, the business sketch, is ruled (D266, D278);
+Status: draft v4. Step 2, the business sketch, is ruled (D266, D278);
 step 3, the split, is confirmed (D279); step 4, the data model, is
-current, with the history's growth (D279); step 5, classification and
-governance, is drafted for the owner to confirm the rules are
-realistic.
+current, with the history's growth and its lower year totals (D279,
+D280); step 5, classification and governance, is ruled (D280). Step 6,
+the producer profiles, is next.
 
 `vet-core` is the core of the veterinary clinic franchise (D196), the
 first domain defined through the [procedure](domain-procedure.md)
@@ -443,7 +443,7 @@ drafted:
    never addresses or phones: the minimum a lab or the portal needs.
 5. **A dozen mistyped chips**, two digits swapped.
 6. **One day to sign a record**, an unsigned one older than that a trap.
-## Classification and governance (step 5)
+## Classification and governance (step 5, ruled, D280)
 
 ### Classification
 
@@ -456,7 +456,7 @@ the database (procedure 6, item 2). The built file lists every column;
 the table below gives the personal and customer-linked ones, every
 other column of every table and view being `internal`.
 
-Three readings for the clinic, (proposed):
+Three readings for the clinic:
 
 - **The customer is the owner.** An animal's id links to its owners
   through `ownerships`, so an animal's id with no identifier beside it
@@ -597,10 +597,10 @@ authorisation number on `medicines`. The registers'
 monthly balances and yearly reports are purposes (step 7), their past
 periods planted (D265).
 
-### The rules, for the owner to confirm
+### The rules, as the owner confirmed them (D280)
 
-Step 5's question for the owner: are these realistic? Confirm or
-correct each.
+The owner judged them realistic on 2026-11-01 ("they're great"), with
+the classification above.
 
 1. **Prescriptions** carry the contents of Regulation (EU) 2019/6 Art
    105(5); an antimicrobial one is valid five days (Art 105(10)); the

@@ -681,3 +681,10 @@ v0.5's drafting. Take the next number from `doc-ids`; no ID is reused.
   `vet-core` only; the parts land where `domains:` `at:` places them.
   Now in:
   [versions/v0.5/vet-core-domain.md](versions/v0.5/vet-core-domain.md#the-split-step-3-confirmed-d279).
+- **D280 (2026-11-01, owner confirmation "they're great", relayed by
+  the coordinator): `vet-core`'s step 5 is ruled:** the classification
+  as drafted and the eleven rules of its default policy, with their
+  game values; the lower year totals the growth curve gives (about
+  73 000 consultations, 44 000 prescriptions, 0.82 million rows) are
+  accepted. Now in:
+  [versions/v0.5/vet-core-domain.md](versions/v0.5/vet-core-domain.md#the-rules-as-the-owner-confirmed-them-d280).
