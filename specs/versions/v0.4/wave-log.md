@@ -3266,3 +3266,25 @@ conflict; worktree and branch removed; nothing pushed.
 **Next**: 17a resumed by a fresh `coding-leader` from WIP bf5dbf5, its
 branch merging `v0.4-w4` (ee6edc7+) in first; the runs overnight in the
 owner's order (cycles, baseline, f10, two-host last).
+
+### `.tech` for `pgbouncer` 0.1.1 (security-advisor, 0b9e906), 2026-11-02
+
+Post-change check: **clear**. 0.1.0 and 0.1.1 images carry the same 133
+packages (PgBouncer 1.26.1-1.pgdg13+1, libcares2 1.34.5-1+deb13u1, libpq5
+18.6); no advisory on PgBouncer 1.26.1; c-ares' NVD hit CVE-2025-62408 is
+fixed by Debian's backport (DSA-6084-1). `.tech`: `updated`, the brick
+line and the PostgreSQL platform's `source` at 0.1.1; lint as before (6
+pre-existing no-CPE warnings); `cve-watch check .` 42 ≥ medium, all
+pre-existing (nginx, OpenSSH, Python, sudo), none on the pooler.
+
+**For the owner (not blocking)**: Debian's tracker lists c-ares
+CVE-2026-33630, -69184, -69186 and 11 GHSA entries open in trixie, no DSA
+yet (upstream fixed in ≥ 1.34.7; three high). Neither the sweep nor
+`check` sees them (c-ares is no `[[platform]]` in `.tech`). Exposure low
+(PgBouncer resolves backend names through Docker's resolver on the
+internal overlay only). Proposed: watch; a rebuild of the brick picks up
+Debian's fix (apt unpinned, no Dockerfile change). Decision pending: add
+c-ares 1.34.5 as a `[[platform]]` (CPE `cpe:2.3:a:c-ares:c-ares`), which
+needs an `[[ignore]]` for the false positive CVE-2025-62408 (reason
+"fixed by Debian backport 1.34.5-1+deb13u1 (DSA-6084-1)", review
+2027-02-01), an owner approval.
