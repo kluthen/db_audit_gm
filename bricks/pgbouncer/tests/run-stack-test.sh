@@ -32,13 +32,18 @@
 #     writable by player, gm-reload-pgbouncer refusing in one line with
 #     nothing reloaded, gm-validate still run, dba still refused RELOAD; an
 #     override of /etc/pgbouncer making the file fixable again;
+#   - the start-up wait (0.1.1, spec D305): a pooler started while `db`
+#     does not resolve (db scaled to 0) waits for it, then serves a query
+#     through it once db is back, with no "DNS lookup failed" line; a
+#     [databases] host that never resolves: PgBouncer started at the
+#     bound, the node healthy, its console answering;
 #   - the entrypoint's refusals; read-only root, capabilities, /run a
 #     volume; the footprint at rest.
 # Everything it creates is removed on exit, volumes included.
 #
 # Needs: a swarm manager (docker swarm init), the images built locally (the
 # postgres image is also the test client: it has ssh and psql):
-#   docker build -t 127.0.0.1:5000/dbagm/pgbouncer:0.1.0 bricks/pgbouncer
+#   docker build -t 127.0.0.1:5000/dbagm/pgbouncer:0.1.1 bricks/pgbouncer
 #   docker build -t 127.0.0.1:5000/dbagm/postgres:0.4.0 bricks/postgres
 # On the build host, run it under the docker lock:
 #   flock /tmp/dbagm-docker.lock sh bricks/pgbouncer/tests/run-stack-test.sh
@@ -46,7 +51,7 @@ set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 STACK=gmtest-pgb
-IMAGE=127.0.0.1:5000/dbagm/pgbouncer:0.1.0
+IMAGE=127.0.0.1:5000/dbagm/pgbouncer:0.1.1
 DB_IMAGE=127.0.0.1:5000/dbagm/postgres:0.4.0
 CLIENT_IMAGE=$DB_IMAGE
 SERVICE=${STACK}_pooler
@@ -176,6 +181,15 @@ else
     docker service logs --tail 60 "$SERVICE" 2>&1 || true
     exit 1
 fi
+# the deploy itself: the pooler and db started together, PgBouncer only
+# once db resolves (0.1.1, spec D305), so no failed lookup of db
+l=$(docker logs "$C" 2>&1 | grep 'pgbouncer-run: ' | tail -n 1)
+n=$(docker exec "$C" grep -c 'DNS lookup failed' /var/log/pgbouncer/pgbouncer.log)
+case $l in
+    *"hosts resolve"*) [ "$n" = 0 ] && pass "at deploy: ${l#*pgbouncer-run: }; no 'DNS lookup failed' line" \
+                           || fail "at deploy: $n 'DNS lookup failed' line(s) after: $l" ;;
+    *) fail "at deploy: no resolve line from the service's run: [$l]" ;;
+esac
 
 # --- client on the stack network, standing in for the bastion -------------------
 docker run -d --name "$CLIENT" --network "$NET" -v "$tmp:/k:ro" \
@@ -488,6 +502,104 @@ out=$(reload); rc=$?
 m=$(gm stat -c '%a %U:%G' "$CONF")
 [ "$m" = "664 pgbouncer:pgbconf" ] && pass "override: owner and mode restored by the wrapper ($m)" \
     || fail "override after reload: $m"
+
+# --- the start-up wait for the [databases] hosts (0.1.1, spec D305) ---------------------------
+resolves() { docker exec "$C" getent ahosts "$1" >/dev/null 2>&1; }
+loglines() { gm sh -c "wc -l < $LOG" | tr -d ' '; }
+dns_failed_since() { gm sh -c "tail -n +$(($1 + 1)) $LOG | grep -c 'DNS lookup failed'"; }
+next_container() {  # next_container <old id>: the service's next running container
+    i=0
+    while [ "$i" -lt 90 ]; do
+        c=$(container "$SERVICE")
+        [ -n "$c" ] && [ "$c" != "$1" ] && { echo "$c"; return 0; }
+        sleep 1; i=$((i + 1))
+    done
+    return 1
+}
+run_line() {  # run_line <pattern> <seconds>: the service run's last line matching it in $C's log
+    i=0
+    while [ "$i" -lt "$2" ]; do
+        l=$(docker logs "$C" 2>&1 | grep 'pgbouncer-run: ' | grep -e "$1" | tail -n 1)
+        [ -n "$l" ] && { printf '%s\n' "${l#*pgbouncer-run: }"; return 0; }
+        sleep 1; i=$((i + 1))
+    done
+    return 1
+}
+app_query() {
+    docker exec -e PGPASSWORD="$APP_PW" "$CLIENT" timeout 10 \
+        psql -X -w -q -A -t -h pooler -p 6432 -U app -d appdb -c 'SELECT n FROM t' 2>&1
+}
+
+# the pooler started before db resolves: db scaled to 0, a new pooler
+# container started, db scaled back up while it waits
+info "scaling db to 0, then starting a new pooler container while db does not resolve"
+docker service scale -d "$DB_SERVICE=0" >/dev/null 2>&1
+i=0
+while [ "$i" -lt 60 ] && { [ -n "$(container "$DB_SERVICE")" ] || resolves db; }; do sleep 1; i=$((i + 1)); done
+if resolves db; then fail "db still resolves with db scaled to 0"; else pass "db scaled to 0: the name db no longer resolves on the pooler"; fi
+n0=$(loglines)
+old=$C
+docker service update --force --detach "$SERVICE" >/dev/null 2>&1
+if C2=$(next_container "$old"); then C=$C2; else fail "no new pooler container"; fi
+if l=$(run_line 'waiting up to' 30); then
+    pass "the new pooler waits for db before starting PgBouncer ($l)"
+else
+    fail "no wait line in the new pooler's log: $(docker logs "$C" 2>&1 | tail -n 5 | tr '\n' ';')"
+fi
+r=$(app_query); rc=$?
+[ "$rc" -ne 0 ] && pass "a client during the wait gets no pooler: not healthy, so not in the swarm's DNS yet ($(printf '%s' "$r" | tail -n 1 | cut -c1-100))" \
+    || fail "a client during the wait: $r"
+docker service scale -d "$DB_SERVICE=1" >/dev/null 2>&1
+t0=$(date +%s)
+if l=$(run_line 'hosts resolve after' 45); then
+    pass "db resolves once scaled back up, PgBouncer started ($l)"
+else
+    fail "no resolve line in the pooler's log: $(docker logs "$C" 2>&1 | grep 'pgbouncer-run: ' | tr '\n' ';')"
+fi
+ok=0
+while [ $(($(date +%s) - t0)) -lt 120 ]; do
+    r=$(app_query)
+    [ "$r" = 42 ] && { ok=1; break; }
+    sleep 2
+done
+took=$(($(date +%s) - t0))
+[ "$ok" -eq 1 ] && pass "a query through the pooler to db ${took}s after db was scaled back up (bound 120s)" \
+    || fail "no query through the pooler within 120s of db scaled back up: $r"
+d=$(dns_failed_since "$n0")
+[ "$d" = 0 ] && pass "no 'DNS lookup failed' line in PgBouncer's log since the pooler's restart" \
+    || fail "'DNS lookup failed' lines since the restart: $d ($(gm sh -c "tail -n +$((n0 + 1)) $LOG | grep 'DNS lookup failed' | tail -n 1"))"
+if C2=$(wait_healthy "$SERVICE"); then C=$C2; pass "the pooler healthy after the wait ($C)"; else fail "pooler after the wait"; fi
+DB=$(wait_healthy "$DB_SERVICE") || fail "db not healthy again"
+
+# a [databases] host that never resolves (a player's edit): PgBouncer
+# started at the bound, the node healthy, the other databases served
+pssh "sed -i 's/^\[databases\]\$/&\nghost = host=ghost-gm-test port=5432 dbname=ghost/' $CONF" \
+    && gm grep -q '^ghost = host=ghost-gm-test ' "$CONF" \
+    && pass "player adds a database whose host never resolves (ghost-gm-test)" || fail "adding the ghost database"
+info "starting a new pooler container with a [databases] host that never resolves"
+old=$C
+t0=$(date +%s)
+docker service update --force --detach "$SERVICE" >/dev/null 2>&1
+if C2=$(next_container "$old"); then C=$C2; else fail "no new pooler container"; fi
+l=$(run_line 'waiting up to' 30)
+[ "$l" = "waiting up to 30s for [databases] hosts to resolve: ghost-gm-test" ] \
+    && pass "the pooler waits for the unresolved host only ($l)" || fail "wait line: [$l]"
+l=$(run_line 'still not resolving after' 60)
+case $l in
+    "still not resolving after "*"s: ghost-gm-test; PgBouncer starts anyway") pass "PgBouncer started at the bound ($l)" ;;
+    *) fail "bound line: [$l]" ;;
+esac
+if C2=$(wait_healthy "$SERVICE"); then
+    C=$C2; pass "the pooler healthy $(($(date +%s) - t0))s after its restart, its ghost host never resolving"
+else
+    fail "the pooler with an unresolvable host did not become healthy"
+fi
+r=$(dba 'SHOW POOLS' 2>&1)
+printf '%s' "$r" | grep -q '^pgbouncer|' && pass "the console answers after the bound (dba: SHOW POOLS)" || fail "console after the bound: $r"
+r=$(app_query)
+[ "$r" = 42 ] && pass "appdb served through the pooler beside the unresolvable host" || fail "app beside the ghost: $r"
+pssh "sed -i '/^ghost = /d' $CONF" && out=$(reload) && pass "the ghost database removed and reloaded" \
+    || fail "removing the ghost database: $out"
 
 # --- the entrypoint's refusals ---------------------------------------------------------------
 refuse() {  # refuse <name> <expected text> <docker run args...>

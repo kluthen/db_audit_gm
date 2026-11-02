@@ -8,7 +8,7 @@ version: "3.8"
 
 services:
   pooler:
-    image: 127.0.0.1:5000/dbagm/pgbouncer:0.1.0
+    image: 127.0.0.1:5000/dbagm/pgbouncer:0.1.1
     hostname: pooler
     read_only: true
     cap_drop: [ALL]

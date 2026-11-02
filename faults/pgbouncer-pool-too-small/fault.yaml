@@ -15,7 +15,7 @@ severity: medium
 applies_to:
   bricks:
     - id: pgbouncer
-      versions: ["0.1.0"]
+      versions: ["0.1.0", "0.1.1"]
   preconditions:
     - >-
       pool_mode = transaction in effect: in session mode each scheduler
