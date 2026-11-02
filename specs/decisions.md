@@ -789,3 +789,13 @@ D285–D299, v0.5's drafting. Take the next number from `doc-ids`; no ID is reus
   `office`, never the clinic's record; no domain part, D293 standing; a
   variant may move it; its fault candidates accepted. Closes O149. Now
   in: [versions/v0.5/replication.md](versions/v0.5/replication.md#3-where-the-reports-write-a-back-office-database-d300).
+- **D301 (2026-11-02, owner answer accepting every default, relayed by
+  the coordinator): `vet-lab`'s business sketch is ruled with all
+  fifteen answers as proposed:** the lab on a separate `postgres` node,
+  "not just a separate database", its WAL and base backups to the vault
+  (extending D299); one order API; `requests` gains `priority` and loses
+  `external`; outside patients never core animals; a result per analyte;
+  milk residue screening only; the lab itself notifies, as national law
+  requires of labs; a part's scale in a manifest of the core variant's
+  name (feeds O111). Closes O151. Now in:
+  [versions/v0.5/vet-lab-domain.md](versions/v0.5/vet-lab-domain.md#the-owners-answers-d301).

@@ -1,10 +1,11 @@
 # v0.5 — `vet-lab`, the clinic's lab
 
-Status: draft v1, at the procedure's step 2, the business sketch. Its
-questions are the owner's to answer (O151); the data model (step 4)
-waits for his answers. Step 3, the split, is not a part's: the lab's
-boundary was set by the clinic's split (D279, D293, D294). Figures and
-readings are (proposed) until he confirms them.
+Status: draft v2. Step 2, the business sketch, is ruled, every default
+accepted (D301, closing O151); step 3, the split, is not a part's: the
+lab's boundary was set by the clinic's split (D279, D293, D294). Step 4,
+the data model, and step 5, classification and governance, are drafted:
+their plausibility points and the default policy's rules are the
+owner's to confirm (O152). Step 6, the producer profiles, comes after.
 
 `vet-lab` is the biology lab of the centre a scenario deploys (D285),
 the second domain through the [procedure](domain-procedure.md) (D235,
@@ -87,7 +88,7 @@ and reports the answer as its own, naming the lab that performed it.
 
 A result is released once a vet, the lab's clinical pathologist, has
 validated it; the centre's clinicians see an urgent result as soon as a
-technician has checked it ([question 7](#questions-for-the-owner-o151)).
+technician has checked it ([answer 7](#the-owners-answers-d301)).
 
 ### Actors
 
@@ -101,14 +102,14 @@ technician has checked it ([question 7](#questions-for-the-owner-o151)).
 | A practice of the region | a third party (D285), a core referring practice by id (D294) | orders through the lab's API, receives results at its callback, receives a monthly statement |
 | The courier | the story's | brings the region's samples, takes send-outs to the external lab; no system |
 | External reference lab | a third party (D268) | receives the lab's send-outs, calls back with results |
-| The authority | the veterinary services | receives notifications of listed diseases ([question 12](#questions-for-the-owner-o151)) |
+| The authority | the veterinary services | receives notifications of listed diseases ([answer 12](#the-owners-answers-d301)) |
 | Owners | through `vet-portal` | see their animal's result once released (D280, rule 11) |
 
 ### Activities
 
 | Activity | What it records | Held by |
 |---|---|---|
-| Ordering an analysis, inside the centre | the request, tied to consultation, animal and vet | core (`requests`); the lab's order from it ([question 2](#questions-for-the-owner-o151)) |
+| Ordering an analysis, inside the centre | the request, tied to consultation, animal and vet | core (`requests`); the lab's order from it ([answer 2](#the-owners-answers-d301)) |
 | Ordering, from a practice of the region | the order, the practice's own patient reference, the tests, the callback | `vet-lab`, through its order API |
 | Collecting a sample | the container, the sample type, collected at, by | `vet-lab` (the sample), the collecting staff by id |
 | Accessioning | the accession id, each sample's label, received at, fit or rejected and why | `vet-lab` |
@@ -122,20 +123,20 @@ technician has checked it ([question 7](#questions-for-the-owner-o151)).
 | Release | to the centre's record, to the portal, to a practice's callback | `vet-lab`; the copies are purposes (step 7) |
 | Amending a released result | the corrected result superseding the first, both kept, the reason | `vet-lab` |
 | Sending out | the send-out, its correlation id, the external lab's answer | `vet-lab` (a round trip, D268) |
-| Sample custody and storage | each handover and storage place, disposal | `vet-lab` ([question 10](#questions-for-the-owner-o151)) |
+| Sample custody and storage | each handover and storage place, disposal | `vet-lab` ([answer 10](#the-owners-answers-d301)) |
 | Add-on tests | a test added later on a stored sample | `vet-lab` |
 | Charging a practice | each outside test's charge at its price | `vet-lab` (D294) |
 | Monthly statements | each practice's month | a periodic report into `office` (D265, D300) |
-| Screening milk for residues | a treated animal's milk after its withdrawal end, negative or positive | `vet-lab` ([question 11](#questions-for-the-owner-o151)) |
-| Notifying a listed disease | a positive for a notifiable test, the notification, a sample forwarded for confirmation | `vet-lab` ([question 12](#questions-for-the-owner-o151)); the vet's own in the core (rule 7) |
+| Screening milk for residues | a treated animal's milk after its withdrawal end, negative or positive | `vet-lab` ([answer 11](#the-owners-answers-d301)) |
+| Notifying a listed disease | a positive for a notifiable test, the notification, a sample forwarded for confirmation | `vet-lab` ([answer 12](#the-owners-answers-d301)); the vet's own in the core (rule 7) |
 | Releasing to the owner | what was released, when | `vet-portal` |
 
-### The variant, its scale and its tags (proposed)
+### The variant, its scale and its tags
 
 The lab takes the clinic's one variant, `regional-franchise` (D263,
 vet-core question 13), and adds no tag: `regulated` and `24/7` already
 say what the lab needs. Where a part's own axes are written is
-[question 15](#questions-for-the-owner-o151). The figures fit `vet-core`
+[answer 15](#the-owners-answers-d301). The figures fit `vet-core`
 at one centre's scale (D295): the core's history holds about 17 000
 requests and about 55 a day live, analyses and imaging together, of
 which the lab takes the analyses, about four in five.
@@ -144,7 +145,7 @@ which the lab takes the analyses, about four in five.
 
 | What | How many |
 |---|---|
-| Analysers | 6 in house, `vet-machinery`'s machines by id: 2 haematology, 2 biochemistry, 1 blood gas and electrolytes, 1 coagulation |
+| Analysers | 6 in house, `vet-machinery`'s machines by id: 2 haematology, 2 biochemistry, 1 blood gas and electrolytes, 1 coagulation; urinalysis on the bench |
 | Test catalogue | about 150 orderable tests and 30 panels, over about 70 measured analytes, in six disciplines (haematology, biochemistry, urinalysis, cytology, microbiology, serology); about one in five sent out |
 | Reference intervals | per analyte and species: dog, cat, horse, cattle, sheep, goat; adults only; about 400 rows |
 | Lab staff | 8 technicians and 2 clinical pathologists, among the core's 85 |
@@ -178,7 +179,7 @@ volume ramping from about 60 % of today's rate to today's:
 | Send-outs | about 7 a day, Monday to Friday |
 | Critical values called | two or three a day |
 
-About **0.35 million rows** at load and **1 200 a day** live, against
+About **0.36 million rows** at load and **1 300 a day** live (step 4's count; the sketch first gave 0.35 and 1 200), against
 the core's 0.28 million and 570 ([vet-core](vet-core-domain.md#reference-sizes)):
 the results, one per analyte, are the bulk. Far below cold storage's
 threshold of about 50 000 rows a day (D296): nothing of the lab's ships;
@@ -227,197 +228,495 @@ EU texts named.
 | Every activity and every check of a result is recorded with who and when; an amended result keeps the original, what changed, why and who | ISO/IEC 17025, 7.5.1, 7.5.2, 7.8.8 | the batch and QC run behind a result, both validations, amendments as new rows referencing what they replace |
 | A failed quality control halts the work and withholds its reports; earlier results are assessed | ISO/IEC 17025, 7.7.1, 7.10.1 | each control run and its outcome; the results it held |
 | A sample's unfitness at receipt is recorded, the customer consulted | ISO/IEC 17025, 7.4.3 | each sample's condition, a test not performed and why |
-| Listed diseases are notified: category A immediately, others as soon as practicable; EU law names "operators and other relevant natural or legal persons", national law names the labs (France: Code rural L201-7, "les vétérinaires et les laboratoires") | Regulation (EU) 2016/429, Art 18; national law | tests tied to a notifiable disease; the notification, its time and channel; the sample forwarded for confirmation ([question 12](#questions-for-the-owner-o151)) |
+| Listed diseases are notified: category A immediately, others as soon as practicable; EU law puts the duty on "operators and other relevant natural or legal persons", and national law requires labs to notify | Regulation (EU) 2016/429, Art 18; national law (the practice is France's, whose Code rural, L201-7, names vets and labs alike) | tests tied to a notifiable disease; the notification, its time and channel; the sample forwarded for confirmation ([answer 12](#the-owners-answers-d301)) |
 | Category A confirmation samples go to an official lab without delay | Delegated Regulation (EU) 2020/687, Art 3(2) | the forwarded sample, under custody, the official lab's reference |
-| Official residue control is analysed by official labs only, designated and accredited | Regulation (EU) 2017/625, Art 37; Delegated Regulation (EU) 2022/1644, Implementing Regulation (EU) 2022/1646 | nothing: out of the lab's reach ([question 11](#questions-for-the-owner-o151)) |
-| A dairy keeps milk with antibiotic residues off the market, by its own checks | Regulation (EC) 853/2004, Annex III, Section IX | a screening result, if the lab runs it (question 11) |
+| Official residue control is analysed by official labs only, designated and accredited | Regulation (EU) 2017/625, Art 37; Delegated Regulation (EU) 2022/1644, Implementing Regulation (EU) 2022/1646 | nothing: out of the lab's reach ([answer 11](#the-owners-answers-d301)) |
+| A dairy keeps milk with antibiotic residues off the market, by its own checks | Regulation (EC) 853/2004, Annex III, Section IX | a screening result ([answer 11](#the-owners-answers-d301)) |
 | The practices' clients are personal data | GDPR | a practice's order names its client; classed at step 5 |
 | Lab records kept for a set period, then purged | no EU rule found; ISO/IEC 17025 8.4.2 and AAVLD 4.10.1.2 leave the period to the lab; IDEXX UK keeps reports a year | dates to purge by (a game value, step 5) |
 
-## What the lab holds (proposed)
+## What the lab holds
 
-An outline, not yet the data model (step 4); every table prefixed
-`lab_`, every core key by id with no foreign key (procedure 4):
+Within the procedure's section 4: every table prefixed `lab_`, every
+core key by id with no foreign key, the lab on a `postgres` node of its
+own (answer 1):
 
-- **Reference**: the test catalogue (tests, panels and their members,
-  analytes, each test's discipline, sample type, turnaround, in house or
-  sent out, the external lab's code for it), reference intervals per
-  analyte and species, the price list with its revisions, the customer
-  accounts (a core referring practice by id, the callback, a discount).
-- **Orders and samples**: the order (accession), from the centre (a core
-  request by id) or a practice (its own patient reference); its samples;
-  the tests ordered on them; each sample's custody and storage events.
+- **Reference**: the test catalogue (tests and panels, the analytes
+  each reports, each test's discipline, sample type, turnaround, in
+  house or sent out, the external lab's code for it), reference
+  intervals per analyte and species, the price list with its revisions,
+  the customer accounts (a core referring practice by id, the callback).
+- **Orders and samples**: the order (accession), from the centre (the
+  core's requests by id) or a practice (its own patient reference); its
+  samples; the tests ordered on them; each sample's custody and storage
+  events.
 - **Work**: instrument batch uploads (a `vet-machinery` machine by id),
   quality-control runs, results (one per analyte, with its flag and the
   interval it was flagged against), critical-value calls, validations,
-  amendments.
+  amendments, notifications.
 - **Round trips**: send-outs to the external lab, with the correlation
-  id and the answer; results posted to the practices' callbacks, with
+  key and the answer; results posted to the practices' callbacks, with
   their acknowledgements.
-- **Billing**: the charges of outside tests; the statements are
+- **Billing**: the charges of outside orders; the statements are
   `office`'s (D300).
 
 ## Where the lab presses on the core
 
-What the lab needs of `vet-core` against its current data model (step
-4, D295). Two changes are proposed, in [question
-3](#questions-for-the-owner-o151).
+What the lab needs of `vet-core`, with answer 3's revision applied to
+the core's step 4 (D301).
 
-| The lab needs | The core today |
+| The lab needs | The core |
 |---|---|
 | the request, its test code, animal, consultation or stay, requesting vet | `requests` holds them (D279) |
-| its urgency, which orders the bench | **nothing**: a `priority` on `requests` (proposed, question 3) |
-| who decides a test goes out | `requests.external`, set by the vet: a second place for the lab's routing (proposed dropped, question 3) |
+| its urgency, which orders the bench | `requests.priority`, `routine` or `urgent` (D301) |
+| who decides a test goes out | the lab, by its catalogue: `requests.external` dropped (D301) |
 | the animal's species, sex, age, food-chain status, natural identifiers; the owner's name | `vet_lookup` reads them (D266), never contacts |
-| the lab's staff and its clinical pathologists | `staff`, kind `lab`, and vets with their specialty |
+| the lab's staff and its clinical pathologists | `staff`, kind `lab`, and vets with their specialty; their ids in a documented range (step 4, proposed) |
 | the practices it bills | `referring_practices`, by id (D294) |
 | the disease a test detects, and whether it is notifiable | `diagnosis_codes` with its `notifiable` flag: the catalogue names a code |
 | for a residue screening, the treatment's withdrawal end | `prescription_lines` and `administrations` hold it (D280, rule 6); the centre's order carries it, the lookup API does not reach it |
 | the request's state once resulted | `requests` `resulted`, the lab's fact copied back by a purpose, a trap (two places for one fact, step 8) |
+| a history it can refer to without reading the core | each request's kind, test, priority, consultation, animal and time a function of its id (step 4, proposed) |
 
-## Questions for the owner (O151)
+## The owner's answers (D301)
 
-Each with a proposed default; "agreed" accepts it.
+The questions the sketch left open (O151), each with the default the
+owner accepted on 2026-11-02, answer 1 in his words: "give a separate
+node for the lab (not just a separate database)".
 
-1. **Where the lab's database sits.** Default: an instance of its own,
-   `lab/lab`, as the lab's own information system would have, so its
-   keys come from the core through the lookup API and orphans and
-   mistyped chips are real (procedure 4, 5). By D299 it has no standby;
-   proposed: its WAL and a nightly base backup go to the vault as the
-   core's do (an extension of D299), so that a lab left out of the
-   archive is a fault, not the design. The other reading: in the core's
-   instance, riding the standby, the identity faults gone.
-2. **How the centre's orders reach the lab.** Default: one order API for
+1. **Where the lab's database sits.** Answer: on a **separate
+   `postgres` node**, `lab`, its database `lab` (`at: lab/lab`), never a
+   database on the core's instance: the lab's own information system,
+   its keys coming from the core through the lookup API, so orphans and
+   mistyped chips are real (procedure 4, 5). It has no standby (D299);
+   its WAL and a nightly base backup go to the vault as the core's do,
+   which extends D299 ([replication.md](replication.md) 2), so a lab
+   left out of the archive is a fault, not the design.
+2. **How the centre's orders reach the lab.** Answer: one order API for
    every customer. The centre's practice software posts each request to
    the lab's API, as the region's practices do, the centre an internal
    account with no charge; the lab answers with the accession id and
    the core's request becomes `sent`; the released result's state is
-   copied back into `requests` by a purpose. The other reading: a
-   purpose copying the core's new requests into the lab, no API on that
-   side.
-3. **Two changes to the core's `requests`.** Default: add a `priority`
+   copied back into `requests` by a purpose.
+3. **Two changes to the core's `requests`.** Answer: a `priority`
    (`routine`, `urgent`), the vet's choice the bench orders its work by;
-   drop `external`, since the lab routes a test in house or out by its
-   catalogue, and a vet's flag beside it is the same fact twice. Both
-   revise `vet-core`'s step 4.
-4. **The practices' patients.** Default: an outside order's animal is
+   `external` dropped, since the lab routes a test in house or out by
+   its catalogue. Applied to `vet-core`'s step 4
+   ([vet-core-domain.md](vet-core-domain.md#entities)).
+4. **The practices' patients.** Answer: an outside order's animal is
    the practice's patient, never a core animal: the order carries the
    practice's own patient reference, the species, sex and age, its
    microchip or ear tag when it has one, and the client's surname, as
    real submission forms do (Laboklin's carries the practice's patient
-   number, TiHo Hannover's the holding number); the lab never matches it to the centre's
-   animals, even on a shared chip. The core stays the system of record
-   for the centre's own animals (D266).
-5. **What one row is.** Default: an order (accession) per submission; a
+   number, TiHo Hannover's the holding number); the lab never matches it
+   to the centre's animals, even on a shared chip. The core stays the
+   system of record for the centre's own animals (D266).
+5. **What one row is.** Answer: an order (accession) per submission; a
    sample per container, each with its label; a test per orderable item
    (a panel counts as one test, billed once); a result per analyte, with
-   its unit, value, flag and interval. Results per analyte are most of
-   the lab's rows, and what reference intervals and critical values need.
-   Each sample carries its condition at receipt (haemolysed, lipaemic,
-   icteric, clotted, under-filled, too old, unlabelled), and a test it
-   makes unfit is "not performed" with that reason, as real labs report.
-6. **The test catalogue.** Default: about 150 tests and 30 panels over
-   about 70 analytes, six disciplines; each test with its sample type,
-   turnaround and whether it runs in house or goes out; about one in five
-   sent out (histopathology, most PCR, endocrinology, toxicology), about
-   8 % of the tests ordered; each send-out test mapped to the external
-   lab's own code, as practice software maps its tests and species to a
-   lab's before it may order (a test mapped to the wrong code: a trap,
-   step 8).
-7. **Validation and release.** Default: two steps. A technician
-   validates technically (quality control passed, the result plausible);
-   the clinical pathologist validates clinically and releases, at their
-   rounds, urgent results at once. Inside the centre a clinician sees a
-   technically validated urgent result at once, marked unvalidated; the
-   portal and a practice's callback get a result only once released
-   (D280, rule 11). Tests are finalised one by one, the order once all
-   are; until then its report is interim, listing what is done and what
-   is pending (as AAVLD 5.10.8 asks), so a practice receives a culture's
-   result days after its haematology. A released result is never
+   its value, flag and interval. Each sample carries its condition at
+   receipt (haemolysed, lipaemic, icteric, clotted, under-filled, too
+   old, unlabelled), and a test it makes unfit is "not performed" with
+   that reason.
+6. **The test catalogue.** Answer: about 150 tests and 30 panels over
+   about 70 analytes; each test with its sample type, turnaround and
+   whether it runs in house or goes out; about one in five sent out
+   (histopathology, most PCR, endocrinology, toxicology), about 8 % of
+   the tests ordered; each send-out test mapped to the external lab's
+   own code (a test mapped to the wrong code: a trap, step 8).
+7. **Validation and release.** Answer: two steps. A technician
+   validates technically (quality control passed, the result
+   plausible); the clinical pathologist validates clinically and
+   releases, at their rounds, urgent results at once. Inside the centre
+   a clinician sees a technically validated urgent result at once,
+   marked unvalidated; the portal and a practice's callback get a result
+   only once released (D280, rule 11). Tests are finalised one by one,
+   the order once all are; until then its report is interim, listing
+   what is done and what is pending. A released result is never
    changed: an amendment is a new result referencing the one it
-   replaces, the first kept with what changed, why and who (ISO/IEC
-   17025, 7.5.2, 7.8.8). No rule found requires a pathologist's
-   signature on routine results; the vet's validation is the clinic's
-   rule.
-8. **Quality control.** Default: every analyser once a day at the
+   replaces, the first kept with what changed, why and who.
+8. **Quality control.** Answer: every analyser once a day at the
    bench's opening and before a night run, two control levels for
-   biochemistry and three for haematology, as a 2017 survey of
-   veterinary labs found most do; a run failing its rules holds that
-   analyser's results since its last good run until a passing rerun
-   (ISO/IEC 17025, 7.10.1); the lab records each run, its level, the
-   rule broken and the action, not each control's analytes; external
-   quality assessment left out. Traps (step 8): a result released from a
-   run whose control failed; a failed control simply rerun until it
-   passes, the survey's commonest bad habit.
-9. **Reference intervals.** Default: per analyte and species, adults
-   only, each with a low and high limit and critical limits where they
-   matter (potassium, glucose, haematocrit, platelets); a dated set per
-   analyser, as labs publish theirs ("as of December 2023"), so a result
+   biochemistry and three for haematology; a failed run holds that
+   analyser's results since its last good run until a passing rerun;
+   each run recorded with its level, the rule broken and the action, not
+   each control's analytes; external quality assessment left out. Traps:
+   a result released from a run whose control failed; a failed control
+   simply rerun until it passes.
+9. **Reference intervals.** Answer: per analyte and species, adults
+   only, with low and high limits and critical limits where they matter
+   (potassium, glucose, haematocrit, platelets); dated, so a result
    keeps the interval it was flagged against; a critical value phoned to
    the requesting vet (or the practice) within the hour, read back, the
-   call recorded with who took it. No veterinary standard fixes critical
-   limits; the lab's own list is a game value.
-10. **Custody and storage.** Default: every sample's movements in one
-    event log (received, stored, moved, sent out, disposed); stored for
-    add-on tests about a week (whole blood, urine) or two (serum), then
-    disposed; an add-on test ordered against the first report within
-    that time, billed to whoever paid for it. A sample with legal weight
-    (a sample forwarded for official confirmation, a welfare, legal or
-    insurance case) adds a chain of custody: each handover's "relinquished
-    by" and "received by", time, condition and seal number, as a
-    forensic submission form records. Equine anti-doping stays out: only
-    the FEI's approved labs may analyse its samples.
-11. **Residue tests.** Official residue control is not the lab's: its
-    samples are analysed by official labs, designated and accredited
-    (Regulation (EU) 2017/625, Art 37). Default: the lab runs one
-    screening test, a microbial inhibitor test (Delvotest's kind) on a
-    treated cow's or goat's milk at the keeper's request once the
-    withdrawal period has ended, before the milk goes back into the tank;
-    a qualitative negative or positive with no legal standing, never
-    reported to the authority; on a positive the keeper holds the milk
-    back. The request names the treatment's withdrawal end, which the
-    core holds (D280, rule 6).
-12. **Notifiable diseases.** EU law puts the duty on "operators and
-    other relevant natural or legal persons" (2016/429, Art 18); national
-    law names the labs (France: Code rural L201-7). Default: the lab
-    notifies the authority itself, at once, on a positive or suspect
-    result for a test tied to a notifiable disease, for every customer,
-    the centre's vets and the region's practices alike, and calls the
-    requesting vet as for a critical value; the vet records the diagnosis
-    in the core and notifies too (rule 7), the authority receiving two
-    notifications for one case, as it would. For a category A disease the
-    lab forwards a sample to the official lab under custody (question
-    10) and records the official lab's reference; the confirmation goes
-    to the authority, not back to the lab, so this is an outbound flow,
-    not a round trip. The notification is a pushed obligation (v0.4's
-    P5), a purpose fitting `vet-lab` (step 7).
-13. **Billing the practices.** Default, after Laboklin's and IDEXX's
-    terms: one price list, revised each 1 January, a price per test and
-    per panel; a handling fee per order; an urgent surcharge of half the
-    price; each outside test charged at the price of the day it was
-    ordered, billable once released, voided if cancelled or the sample
-    unfit; a send-out re-billed at the lab's own price; the month's
-    charges gathered into the practice's statement in `office` on the
-    1st (D300), with a volume discount by the month's total (Laboklin's
-    3 to 15 %); no payments (D294), and never an owner billed, though
-    real labs may at a vet's request. A charge at today's price instead
-    of the order's day is a trap (step 8).
-14. **Scale and hours.** Default: the figures in "The variant" and
+   call recorded; the critical limits a game value.
+10. **Custody and storage.** Answer: every sample's movements in one
+    event log; stored about a week (whole blood, urine) or two (serum)
+    for add-on tests, which are ordered against the first report and
+    billed to whoever paid for it; a sample with legal weight (forwarded
+    for official confirmation, a welfare, legal or insurance case) adds
+    a chain of custody, each handover's both parties, time, condition
+    and seal number. No equine anti-doping.
+11. **Residue tests.** Answer: official residue control is the official
+    labs' (Regulation (EU) 2017/625, Art 37). The lab runs one screening
+    test, a microbial inhibitor test on a treated cow's or goat's milk at
+    the keeper's request once the withdrawal period has ended: a
+    qualitative negative or positive with no legal standing, never
+    reported to the authority; the request names the treatment's
+    withdrawal end, which the core holds (D280, rule 6).
+12. **Notifiable diseases.** Answer: national law requires labs to
+    notify, beside the "operators and other relevant natural or legal
+    persons" of Regulation (EU) 2016/429, Art 18. The lab notifies the
+    authority itself, at once, on a positive or suspect result for a test
+    tied to a notifiable disease, for every customer, the centre's vets
+    and the region's practices alike, and calls the requesting vet as for
+    a critical value; the vet records the diagnosis in the core and
+    notifies too (rule 7). For a category A disease the lab forwards a
+    sample to the official lab under custody and records the official
+    lab's reference; the confirmation goes to the authority, so this is
+    an outbound flow, not a round trip. The notification is a pushed
+    obligation (v0.4's P5), a purpose fitting `vet-lab` (step 7). Source
+    note: the lab's duty is modelled on France's Code rural, L201-7,
+    which names vets and labs alike.
+13. **Billing the practices.** Answer: one price list, revised each 1
+    January, a price per test and per panel; a handling fee per order;
+    an urgent surcharge of half the price; each outside test charged at
+    the price of the day it was ordered, billable once released, voided
+    if cancelled or the sample unfit; a send-out re-billed at the lab's
+    own price; the month's charges gathered into the practice's
+    statement in `office` on the 1st (D300), with a volume discount of 3
+    to 15 % by the month's total; no payments (D294), never an owner
+    billed. A charge at today's price instead of the order's day is a
+    trap (step 8).
+14. **Scale and hours.** Answer: the figures in "The variant" and
     "Cadences": about 85 tests a day, 700 results; a year of history,
-    about 0.35 million rows; the bench open 07:00 to 21:00 Monday to
-    Saturday, an on-call technician for the centre's urgent tests at
-    night and on Sundays; the courier twice a day; the pathologist's
-    three rounds.
-15. **A part's scale, in the format.** Default: a part writes its own
+    about 0.35 million rows (0.36 once step 4 counted every table); the
+    bench open 07:00 to 21:00 Monday to Saturday, an on-call technician
+    for the centre's urgent tests at night and on Sundays; the courier
+    twice a day; the pathologist's three rounds.
+15. **A part's scale, in the format.** Answer: a part writes its own
     axes in a manifest of the core variant's name,
-    `vet-lab/variants/regional-franchise.yaml`, which the merge's
-    provenance (`vet-lab@regional-franchise`, D264) already assumes; the
-    loader checks the core's variant names it. Feeds O111.
+    `vet-lab/variants/regional-franchise.yaml`, as the merge's
+    provenance (`vet-lab@regional-franchise`, D264) assumes; the loader
+    checks that the core's variant names the part. Feeds O111
+    ([procedure](domain-procedure.md) 9).
+
+## The data model (step 4)
+
+On the answers of D301. The `lab` database, on the `lab` node, holds
+`vet-lab` only, written in the shop's and the core's manner: the tables
+in `public`, prefixed `lab_` (procedure 4), integer keys `GENERATED BY
+DEFAULT AS IDENTITY`, explicit ids at load and each sequence set after
+its range. Core keys are plain integer columns with no foreign key:
+`animal_id`, `request_id`, `consultation_id`, `practice_id`, the staff
+ids; `vet-machinery`'s machines likewise (`machine_id`). Every value is
+generated: patient references and surnames from short lists,
+identifiers by the core's functions of the animal's id.
+
+**Growth through the year** (D279), as the core's: every daily volume of
+the history (orders, samples, tests, results, batches, send-outs,
+callbacks, charges) ramps from about 60 % of today's live rate a year
+ago to today's; reference tables, accounts and quality control do not
+grow. The price list changes on 1 January, inside the year.
+
+### Entities
+
+**Reference**
+
+| Table | Key, main columns |
+|---|---|
+| `lab_settings` | one row: the customer's zone and offset, as the core's `business_settings` (a separate node keeps its own copy); the handling fee, the urgent surcharge (50 %), the critical call's limit (60 minutes) |
+| `lab_analytes` | `id`; code, name, unit, `kind` (`numeric`, `text`: an organism, a sensitivity, a positive or negative, a report) |
+| `lab_tests` | `id`; code, name, `is_panel`, `discipline` (`haematology`, `biochemistry`, `blood-gas`, `coagulation`, `urinalysis`, `cytology`, `microbiology`, `serology`, `residue`, `histopathology`, `molecular`, `endocrinology`, `toxicology`), `sample_type` (`edta-blood`, `serum`, `citrate-plasma`, `heparin-blood`, `urine`, `milk`, `swab`, `tissue`, `faeces`), turnaround hours, `performed` (`in-house`, `sent-out`), `external_code` (the external lab's code, sent-out tests only), `diagnosis_code` (the core's, when the test detects a listed disease) |
+| `lab_test_analytes` | (`test_id`, `analyte_id`); position: what each test or panel reports |
+| `lab_reference_intervals` | `id`; analyte, `species` (`dog`, `cat`, `horse`, `cattle`, `sheep`, `goat`), low, high, critical low, critical high, valid from, valid until (open while in force) |
+| `lab_prices` | `id`; test, price (euros), valid from, valid until |
+| `lab_accounts` | `id`; `kind` (`internal`, `practice`), `practice_id` (the core's referring practice; none for the centre), callback URL, opened on, closed on |
+
+**Orders and samples**
+
+| Table | Key, main columns |
+|---|---|
+| `lab_orders` | `id` (the accession); account, `client_ref` (the customer's own order id, unique per account: the idempotency key), `priority` (`routine`, `urgent`); the centre's: `animal_id`, `consultation_id`, requesting staff; a practice's: `patient_ref`, `client_surname`; both: species, sex, born on (or an age), `microchip`, `ueln`, `ear_tag` as given, clinical notes, `withdrawal_ends_on` (a residue screening's); ordered at, received at, completed at, cancelled at |
+| `lab_samples` | `id`; order, `label` (the tube's barcode, unique), sample type, collected at, collected by (staff, the centre's), received at, `condition` (`fit`, `haemolysed`, `lipaemic`, `icteric`, `clotted`, `under-filled`, `too-old`, `unlabelled`), `custody` (a chain of custody applies), keep until, disposed at |
+| `lab_order_tests` | `id`; order, sample, test, `request_id` (the core's, the centre's orders), `routing` (`in-house`, `sent-out`), `add_on`, status, not performed because, technically validated by and at, released by and at (a clinical pathologist), comment |
+| `lab_sample_events` | `id`; sample, `kind` (`received`, `stored`, `moved`, `sent-out`, `forwarded`, `disposed`), at, by (staff), place; for a chain of custody: `other_party` (by name), condition, seal number |
+
+**Work**
+
+| Table | Key, main columns |
+|---|---|
+| `lab_qc_runs` | `id`; `machine_id`, level (1 to 3), control lot, run at, by, `outcome` (`pass`, `fail`), rule broken (`1-3s`, `2-2s`, `R-4s`, `4-1s`, `10-x`), `action` (`none`, `rerun`, `recalibrated`, `results-held`) |
+| `lab_batches` | `id`; `machine_id`, the QC run in force, started at, uploaded at, results |
+| `lab_results` | `id`; order test, analyte, batch (none for bench work and send-outs), numeric value or text value, `flag` (`normal`, `low`, `high`, `critical-low`, `critical-high`; none for text), the interval it was flagged against, measured at; `supersedes_id`, amended by, amended at, why: an amendment is a new row, the row it supersedes kept |
+| `lab_critical_calls` | `id`; result, called at, called by, `called_staff_id` (the requesting vet) or `called_person` (a person at the practice, by name), read back |
+| `lab_notifications` | `id`; order test, the core's diagnosis code, `category` (`A`, `other`), suspected at, notified at, channel, the authority's reference; for category A the sample forwarded and the official lab's reference |
+
+**Round trips and billing**
+
+| Table | Key, main columns |
+|---|---|
+| `lab_send_outs` | `id`; order test, `send_key` (a UUID: the correlation key, sent again on a retry), the external lab's accession, packed at, sent at, accepted at, answered at, due by, `status` |
+| `lab_callbacks` | `id`; order, `kind` (`interim`, `final`, `amended`), `delivery_key` (the practice's idempotency key), attempt, posted at, HTTP status, acknowledged at |
+| `lab_charges` | `id`; account, order, order test (none for the handling fee), `kind` (`test`, `handling`, `urgent`), price, amount, billable on (the release's date), voided at |
+
+### Lifecycle states
+
+| Entity | States |
+|---|---|
+| Order | `ordered` → `received` → `completed` (every test final), or `cancelled`; its report interim until completed |
+| Sample | expected → received, fit or not → stored → `disposed`; or sent out, or forwarded under custody |
+| Order test | `ordered` → `in-progress` (or `sent-out`) → `technical` → `released`; or `not-performed` (an unfit sample), `cancelled` |
+| Result | current → superseded by an amendment, both kept |
+| QC run | `pass` or `fail`; a batch after a failed run is held until a passing one |
+| Send-out | `packed` → `sent` → `accepted` → `resulted`; on its timeout resent with the same `send_key` |
+| Callback | `pending` → `acknowledged`, or failed and retried with the same `delivery_key` |
+| Charge | pending → billable on release → `void` on a cancellation or an unfit sample |
+
+### Deterministic key ranges (D249, D266)
+
+The load writes these ids, each sequence resuming after its range
+(D276), and refers to the core's keys by its documented ranges
+([vet-core](vet-core-domain.md#deterministic-key-ranges-d249-d266)).
+
+| Key | Range | Layout |
+|---|---|---|
+| `lab_analytes.id` | 1–70 | |
+| `lab_tests.id` | 1–180 | 1–150 tests, 151–180 panels; about 36 sent out |
+| `lab_reference_intervals.id` | 1–460 | 1–60 the intervals the January review replaced, 61–460 those in force |
+| `lab_prices.id` | 1–360 | test `t`'s price `t` until 1 January, `180 + t` from it |
+| `lab_accounts.id` | 1–121 | 1 the centre (`internal`); account `a` from 2 to 121 is referring practice `3 × (a − 1)` (3, 6, … 360) |
+| History | `lab_orders` 1–14 000, `lab_samples` 1–18 000, `lab_order_tests` 1–24 000, `lab_results` 1–192 000, the others as loaded | in time order over the year |
+| Core keys used | `request_id` among the core's analysis requests (1–17 000); `animal_id` 1–17 000; lab staff 71–80 | as the core documents them (proposed below) |
+| Machines | `machine_id` 1–6, the lab's analysers | the range `vet-machinery` takes when it is defined (proposed) |
+
+**Two constraints on the core's load (proposed).** So that the lab's
+history refers to the core's without reading it (procedure 4):
+
+- **Requests as functions of their id.** Each core request's kind
+  (about one in five imaging), test code, priority, consultation,
+  animal and time are computed from its id, as the core's other history
+  is generated, and documented in the core's GM notes; the lab's load
+  computes the same, grouping a consultation's analysis requests into
+  one order (1.8 tests each on average).
+- **Lab staff in a range**: staff 71–78 the lab's technicians, 79–80
+  its clinical pathologists (vets, specialty clinical pathology).
+
+The lab's orders copy each animal's natural identifiers by the core's
+functions, so the core's dozen mistyped chips (D278) meet results whose
+chip matches no animal, as designed.
+
+### Application roles and grants
+
+The login roles carry no password here; `load-data` sets each from its
+secret.
+
+| Role | Who | Reads | Writes |
+|---|---|---|---|
+| `lab` | owns everything; no login | | |
+| `lab_app` | the lab's information system, its staff's screens (a producer node, D276) | every table | orders, samples, order tests, sample events, results (bench work, amendments), critical calls, notifications, QC runs; never the reference tables |
+| `lab_api` | the lab's order API, an `api` node (D267, D270) | the catalogue, accounts, orders and their tests and results (status) | orders, samples, order tests (intake); send-outs' answers and their results, from the external lab's callback |
+| `lab_instruments` | the analysers' middleware uploading batches | samples, order tests, analytes, test analytes, reference intervals, QC runs | batches, results |
+| `lab_dispatch` | the centre's jobs posting results to the practices and send-outs to the external lab | orders, order tests, results, accounts, samples | callbacks, send-outs, sample events (`sent-out`) |
+| `lab_reports` | the periodic reports and statements, writing to `office` (D300) | every table | nothing |
+
+The purposes' roles (the results' return to the core, the release to
+the portal, the notifications, the statements) come with step 7.
+
+### Reference sizes
+
+| What | Rows at load | Live, a day |
+|---|---|---|
+| Reference (settings, analytes, tests and their analytes, intervals, prices, accounts) | about 2 100 | none |
+| Orders, samples | 14 000, 18 000 | 50, 65 |
+| Tests ordered | 24 000 | 85 |
+| Results | about 192 000, a thousand of them amendments | about 700 |
+| Sample events | about 54 000 | about 200 |
+| Batches, QC runs | 22 000, 7 000 | 75, 20 |
+| Send-outs, callbacks | 2 000, about 10 000 | 7, 40 |
+| Critical calls, notifications | about 900, about 30 | 2 or 3; a few a month |
+| Charges | about 17 000 | about 60 |
+| **Total** | **about 0.36 million rows** | **about 1 300 rows** |
+
+Under the shop's 1.3 million rows and close to the core's 0.28 million,
+on a node of its own: within "the data schema stays simple and the
+tables small" and the brick's reservation (0.5 CPU, 512M, 2.25G of
+disk); load time and size measured at the build. Far under cold
+storage's threshold (D296): nothing of the lab's ships.
+
+### Plausibility points (step 4)
+
+Offered to the owner (O152):
+
+1. **The lab outweighs the core**: 0.36 million rows against 0.28, the
+   results, one per analyte, more than half of it.
+2. **One external lab**, so its code is a column of `lab_tests`, not a
+   mapping table; a second external lab would make it one.
+3. **Validations on the test row** (technically validated by and at,
+   released by and at), not a table of their own; amendments as result
+   rows superseding the first.
+4. **Notifications a table of the lab's**, the record the pushed
+   obligation's purpose reads (step 7).
+5. **Two constraints on the core's load**: requests as functions of
+   their id, lab staff 71–80 (above), recorded in
+   [vet-core](vet-core-domain.md#deterministic-key-ranges-d249-d266) as
+   proposed.
+6. **The analysers are `vet-machinery`'s machines 1–6**, a range that
+   part takes when it is defined.
+7. **Accounts on every third practice**, 3 to 360: 120 of the core's 400.
+8. **Five application roles**: the information system, the order API,
+   the analysers' middleware, the dispatch jobs, the reports.
+
+## Classification and governance (step 5)
+
+### Classification
+
+v0.4's three classes, applied as `vet-core` applies them (D280): keys
+`<table>.<column>`, the scenario's copy adding the database (procedure
+6, item 2). The table gives the personal and customer-linked columns;
+every other column of every table is `internal`.
+
+Readings for the lab:
+
+- **The centre's orders follow the core.** A natural identifier
+  (microchip, UELN, ear tag) is a direct identifier, so personal; the
+  core animal's id stored beside it is personal too.
+- **A practice's patient leads to its client.** The practice's patient
+  reference is the practice's key to its client's record, a direct
+  identifier as a chip is, so personal; the client's surname is
+  personal.
+- **A practice is a business**: its id, account and callback are
+  `internal`, as the core's referring practices are.
+- **Child rows are internal**: a result, a test, a sample refers to its
+  order and carries no identifier, so is `internal`, as the core's
+  diagnoses are; a core `request_id` or `consultation_id` is the
+  clinic's work record, `internal`. Staff ids are `internal`, as in the
+  core.
+- **People named in the lab's records**: the other party of a custody
+  handover and a person called at a practice are personal.
+
+| Table | `personal` | `customer-linked` |
+|---|---|---|
+| `lab_orders` | `animal_id`, `microchip`, `ueln`, `ear_tag`, `patient_ref`, `client_surname` | |
+| `lab_sample_events` | `other_party` | |
+| `lab_critical_calls` | `called_person` | |
+
+No column is `customer-linked`: every order holding an animal's id
+holds an identifier beside it. Animal health is no special category
+(O112). Two traps follow (step 8): free text (clinical notes, a
+pathologist's comment, a cytology report) may name the owner or the
+client; and a send-out or a callback carrying more than its rule allows.
+
+### The business's own rules
+
+The lab's default policy (procedure 6, item 1): beside the core's,
+built into the domain's `docs/policy.md` and its `governance:`
+fragment. Its home is the core's unnamed EU member state (D278): EU law
+as written, national rules named generically; a figure marked *game
+value* is a choice, not the law. Sources as in "Regulations" above.
+
+**Release.** A result leaves the lab, to the portal or a practice, only
+once released by a clinical pathologist (D280, rule 11); inside the
+centre a technically validated urgent result is shown marked
+unvalidated (answer 7).
+
+**Traceability.** Every result names its batch (or the bench), the QC
+run in force, the technician who validated it and the vet who released
+it, with their times (ISO/IEC 17025, 7.5.1).
+
+**Amendments.** A released result is never updated: an amendment is a
+new row referencing the one it replaces, the first kept with what
+changed, why and who (7.5.2, 7.8.8).
+
+**Quality control.** Each analyser once a day and before a night run; a
+failed run holds the analyser's results since its last good run, and
+nothing is released from a failed run (7.7.1, 7.10.1).
+
+**Unfit samples.** A sample's condition is recorded at receipt; a test
+it makes unfit is not performed, the customer told why (7.4.3).
+
+**Critical values.** Phoned to the requesting vet or the practice
+within 60 minutes of the result, read back, the call recorded (*game
+value*: no veterinary standard fixes the limits or the delay).
+
+**Notifiable diseases.** National law requires labs to notify: the lab
+notifies the authority of a positive or suspect result for a test tied
+to a listed disease, for every customer, within an hour of the
+result's technical validation for a category A disease and within a day
+for another listed disease (*game values* for 2016/429 Art 18's
+"immediately" and "as soon as practicable"); for category A it forwards
+a sample to an official lab without delay, under custody (2020/687 Art
+3(2)).
+
+**Chain of custody.** A sample with legal weight records each handover:
+both parties, the time, its condition and its seal number.
+
+**Residue screening.** An own check for the keeper, never an official
+sample, never reported to the authority (answer 11).
+
+**The practices' clients (GDPR).** For an outside order the lab
+processes the practice's client data on the practice's behalf, a
+processor under Art 28: it uses the data for that order only, never
+matches a patient to the centre's animals (answer 4), and returns a
+practice only its own orders.
+
+**Least data.** A send-out carries the accession, the sample's label,
+the species, sex and age, never the owner, the client or a natural
+identifier; the lookup API is read without contacts (D266); no personal
+data in the logs: pgaudit on the lab's database logs writes, schema
+changes and role changes (`pgaudit.log = 'write, ddl, role'`), its
+statements' parameters off (`pgaudit.log_parameter = off`).
+
+**Retention.** No EU rule sets a lab's periods; ISO/IEC 17025 and
+AAVLD leave them to the lab. *Game values*: orders, results, validations,
+amendments, QC runs and custody records five years, as the clinic's
+clinical records (D280, rule 9), then the order's personal columns
+erased or anonymised; samples a week or two (answer 10), a custody
+sample until its case closes, 60 days at most; charges ten years, as
+national accounting law commonly keeps them.
+
+**Billing.** As answer 13: the price of the order's day, billable on
+release, voided on a cancellation or an unfit sample, a handling fee per
+order, half again for urgent, the volume discount on the statement; the
+centre's own account never charged; no owner billed.
+
+**What the data model took from these rules** (above): the two
+validations on each test, amendments as superseding rows, the QC run
+in force on each batch, each sample's condition and custody flag, the
+interval each result was flagged against, the notifications with their
+times, the charges' price and billable date.
+
+### The rules to confirm (O152)
+
+Offered to the owner with the classification above:
+
+1. **Release** by a clinical pathologist only; urgent results shown
+   inside, marked unvalidated.
+2. **Traceability** of every result to its batch, QC run, technician
+   and vet (ISO/IEC 17025, 7.5.1).
+3. **Amendments** as new rows, never updates (7.5.2, 7.8.8).
+4. **Quality control** daily and before a night run; a failed run
+   holds results (7.7.1, 7.10.1).
+5. **Unfit samples** recorded, the test not performed, the customer told
+   (7.4.3).
+6. **Critical values** phoned within 60 minutes, read back, recorded
+   (game value).
+7. **Notifiable diseases**: national law requires labs to notify;
+   within an hour for category A, a day for the others (game values);
+   category A samples forwarded under custody (2016/429 Art 18; 2020/687
+   Art 3(2)).
+8. **Chain of custody** for samples with legal weight.
+9. **Residue screening** an own check, never official, never reported.
+10. **The practices' clients**: the lab a processor (GDPR Art 28), each
+    practice seeing only its own orders.
+11. **Least data**: send-outs without owner, client or identifier;
+    pgaudit logging writes, DDL and roles, without parameters.
+12. **Retention** (game values): lab records five years, samples a
+    week or two, custody samples 60 days at most, charges ten years.
+13. **Billing** as answer 13, the centre never charged.
 
 ## Next
 
-Once these are answered: the data model (step 4), with the core's
-changes from question 3 written into
-[vet-core-domain.md](vet-core-domain.md); then classification and
-governance (step 5), where the lab's audit trail, its retention and the
-practices' clients' data are ruled.
+Once the owner confirms step 4's points and step 5's rules (O152): the
+producer profiles (step 6), with `vet-core`'s; then the purposes (step
+7), the lab's round trips, the results' return, the release to the
+portal, the notifications and the statements among them.

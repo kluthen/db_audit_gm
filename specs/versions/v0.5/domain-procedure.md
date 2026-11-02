@@ -279,6 +279,11 @@ its customers' habits, and the shop with hundreds of warehouses.
   only what they change (D276). Data that genuinely differs between
   setups is a part, under section 4's rules (a `shop-analytics`, a
   `shop-logistics`), so one domain holds every variant's material.
+- **A part's own scale** (D301, `vet-lab`'s answer 15): a part writes
+  its axes in a manifest of the core variant's name
+  (`vet-lab/variants/regional-franchise.yaml`), as the merge's
+  provenance (`vet-lab@regional-franchise`, D264) assumes; the loader
+  checks that the core's variant names the part.
 - **Tags** come from a small fixed vocabulary, in families:
   - maturity: `homebrewed`, `managed`, `industrial`;
   - reach: `local`, `regional`, `national`, `global`;

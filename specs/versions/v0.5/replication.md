@@ -3,7 +3,9 @@
 Status: draft v3, ruled. The owner ruled the standby, the vault and the
 fault candidates on 2026-11-02, and that the periodic reports read on
 the standby (D299); then, the same day, that they write to a back-office
-database, `office` (section 3, D300, closing O149).
+database, `office` (section 3, D300, closing O149); and that the lab,
+on a node of its own, sends its WAL and base backups to the vault too
+(section 2, D301, extending D299).
 
 The owner, asking on 2026-11-02: "have we set replications needs for
 this project ? we could have probably one off site (but still within
@@ -28,7 +30,8 @@ a scenario deploys (D285).
   standby in v0.5. A part the scenario lands in that instance
   (procedure 5) rides along. `vet-machinery`'s databases have none:
   their heavy data ships to cold storage (D288), a standby would double
-  it. `vet-lab` on an instance of its own has none either.
+  it. `vet-lab`, on a `postgres` node of its own (D301), has none
+  either: its copy is the vault's (section 2).
 - **Where**: a `postgres` node in standby mode, the centre's
   **off-site room** (a second building, a rented rack), in the players'
   scope, on the one network (D275); on another host where there are
@@ -54,6 +57,9 @@ a scenario deploys (D285).
   ships its segments.
 - **Base backups**: `pg_basebackup` each night, in the low hours, sent
   whole, from the database node's cron daemon (D206).
+- **Both instances** (D301, extending D299): the core's primary and
+  the lab's node, each archiving its WAL and sending its nightly base
+  backup; each manifest names its node.
 - **The vault is cold storage itself**, with two more data types, `wal`
   and `basebackup`, each shipment's manifest carrying the segment or
   backup's name and size beside its time; the payload discarded as for
@@ -123,6 +129,7 @@ purpose.
 | Gaps in the WAL sequence | missing segment names in the manifests |
 | Base backups older than the retention | the last `basebackup` manifest days old against the policy |
 | `pg_wal` filling the disk when archiving fails | the command failing honestly, PostgreSQL keeping every segment until the disk is full |
+| The lab's node left out of the archive (D301) | no `wal` or `basebackup` manifest naming the lab: its record has no copy anywhere |
 
 ## 5. Topology and cost
 
@@ -131,5 +138,7 @@ purpose.
   (`bricks/postgres/brick.yaml`); `fit` counts it.
 - **The vault**: nothing more where the scenario already has cold
   storage; its traffic is the WAL's volume, small at one centre's rates
-  (D295), plus a base backup a night.
+  (D295), plus a base backup a night, for the core's instance and the
+  lab's (D301). The lab's node itself is the lab's topology, not
+  replication's.
 - **The back-office database** (D300): no node.

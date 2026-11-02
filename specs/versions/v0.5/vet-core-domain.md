@@ -5,7 +5,8 @@ its first answer revised by one centre per scenario (D285); step 3, the
 split, is confirmed (D279), the parts one centre's (D293); step 4, the
 data model, is current, with the history's growth (D279, D280), at one
 centre's scale (D295); step 5, classification and governance, is ruled
-(D280). Step 6, the producer profiles, is next.
+(D280). `requests` revised by `vet-lab`'s answers (D301): a
+`priority`, no `external`. Step 6, the producer profiles, is next.
 
 `vet-core` is the core of the veterinary clinic franchise (D196), the
 first domain defined through the [procedure](domain-procedure.md)
@@ -169,7 +170,7 @@ hospital stay and the medicines with their batches (D278).
 
 | Part | What it needs the core to hold |
 |---|---|
-| `vet-lab` | the request that orders an analysis, tied to its consultation, animal and requesting vet, so a result can be traced back and released; the animal's natural identifiers, which an external lab's result carries (D266, D268); the animal's food-producing status for residue tests; the referring practices, by id, as the lab's outside customers (D294) |
+| `vet-lab` | the request that orders an analysis, tied to its consultation, animal and requesting vet, with its priority (D301), so a result can be traced back and released; the animal's natural identifiers, which an external lab's result carries (D266, D268); the animal's food-producing status for residue tests; the referring practices, by id, as the lab's outside customers (D294) |
 | `vet-portal` | the owner as a stable key, one portal account each; who owns an animal **now**, and since when: a horse is sold, a dog changes family (D278); what of the record an owner may see |
 | `vet-housing` | the hospital stay the box refers to, the core's (D278); what a display shows: identity, alerts and allergies, the treatment plan; the administrations, so that care logs and the core never hold one fact twice (a trap, step 8) |
 | `vet-scheduling` | staff with their specialties and sites, rooms per site; the consultation a booking turns into, by id |
@@ -349,7 +350,7 @@ grow. Monthly counts show the trend, and the live rates continue it.
 | `diagnosis_codes` | `code`; label, species group, `notifiable` |
 | `diagnoses` | `id`; consultation, code, confirmed, recorded at |
 | `procedures` | `id`; consultation or stay, code, lead staff, anaesthesia, performed at |
-| `requests` | `id`; consultation, animal, `kind` (`analysis`, `imaging`), test or study code, requested by, `external` (to an external lab), requested at |
+| `requests` | `id`; consultation, animal, `kind` (`analysis`, `imaging`), test or study code, requested by, `priority` (`routine`, `urgent`), requested at; whether a test goes out is the lab's routing, not the request's (D301) |
 | `stays` | `id`; animal, site, section, admitting vet, reason, admitted at, discharged at, `outcome` (`discharged`, `transferred`, `died`), the site transferred to |
 | `alerts` | `id`; animal, `kind` (`allergy`, `dangerous`, `infectious`, `other`), text, from, until |
 
@@ -387,7 +388,7 @@ id created during the game is above it and never meets a part's load
 |---|---|---|
 | `sites.id` | 1–6 | 1 the centre (`own`), 2–3 the other national centres, 4–6 abroad |
 | `sections.id` | 1–3 | 1 horse, 2 farm, 3 domestic, all the centre's |
-| `staff.id` | 1–85 | |
+| `staff.id` | 1–85 | 71–78 the lab's technicians, 79–80 its clinical pathologists (proposed by `vet-lab`'s step 4, O152) |
 | `owners.id` | 1–10 000 | 1 the clinic (teaching animals); 2–201 holdings; 202–901 horse owners and stables; 902–10 000 pet owners |
 | `herds.id` | 1–200 | herd `h` kept by owner `h + 1` |
 | `animals.id` | 1–17 000 | 1–14 600 domestic; 14 601–16 000 horses; 16 001–17 000 farm animals, in herd `1 + (id − 16 001) mod 200` |
@@ -395,6 +396,7 @@ id created during the game is above it and never meets a part's load
 | `referring_vets.id` | 1–800 | two per practice |
 | `medicines.id` | 1–400 | antimicrobials and controlled drugs flagged |
 | History | `consultations` 1–25 000, `prescriptions` 1–15 000, `administrations` 1–70 000, the others as loaded | in time order over the year |
+| `requests.id` | 1–17 000 | each request's kind (about one in five imaging), test code, priority, consultation, animal and time computed from its id, documented in the GM notes, so `vet-lab`'s load refers to them without reading the core (proposed by `vet-lab`'s step 4, O152) |
 
 **Natural identifiers.** A microchip is 15 digits, the country or
 maker's 3 then 12 (ISO 11784/11785), present on every horse, dog and

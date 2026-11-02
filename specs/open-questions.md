@@ -11,7 +11,7 @@ their IDs keep their meaning. Questions resolved by the close of v0.2
 Questions resolved by the close of v0.3 (O45, O46, O78 and O81–O103) are
 listed in
 [archive/v0.3/open-questions-resolved.md](archive/v0.3/open-questions-resolved.md).
-Numbering continues from O152.
+Numbering continues from O153.
 
 Resolved during v0.4's drafting: O106 (D194), O110 (D195), O107 (D197), O120
 (D198), O109 (D199), O121 (D200), O123 (D202), O105 (D203), O129 (D206), O131 (D207),
@@ -25,7 +25,7 @@ set (D237); O21 and O135 to v0.6; O24 and O25 to v1.0+ (D248). Resolved
 during v0.5's drafting: O137 and O47 (D248), O126 (D249), O139 (D260),
 O118 (D261), O80 (D262), O114 (D263), O145 (D274, D275), O144 (D278),
 O127 (D285), O128 (D286), O79 (D289), O112 (D292), O147 (D293–D295),
-O148 (D296, D297), O113 (D298), O149 (D300).
+O148 (D296, D297), O113 (D298), O149 (D300), O151 (D301).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -196,15 +196,16 @@ added on 2026-10-30 (D196).
   `domains:` list;
   [versions/v0.5/domain-procedure.md](versions/v0.5/domain-procedure.md)
   5, 6): profiles against the schedule (O113), the variant manifest and its
-  tags (D263; procedure 9), and what the
+  tags (D263; procedure 9), a part's own scale in a manifest of the
+  core variant's name (D301, `vet-lab`'s answer 15), and what the
   clinic's domains reveal. Finalised in the master spec when v0.5
   consolidates (D291), which closes it.
-- **O151** (next, v0.5) — `vet-lab`'s business sketch: fifteen
-  questions, each with a proposed default, from where the lab's
-  database sits and how the centre's orders reach it to residue tests,
-  notifiable diseases, billing the practices and a part's scale in the
-  format. The data model (step 4) waits for the answers. Refs:
-  [versions/v0.5/vet-lab-domain.md](versions/v0.5/vet-lab-domain.md#questions-for-the-owner-o151).
+- **O152** (next, v0.5) — `vet-lab`'s steps 4 and 5: eight
+  plausibility points on its data model (among them two constraints on
+  `vet-core`'s load: requests as functions of their id, lab staff
+  71–80) and thirteen rules of its default policy with their game
+  values, offered for the owner's confirmation. Step 6 waits. Refs:
+  [versions/v0.5/vet-lab-domain.md](versions/v0.5/vet-lab-domain.md#the-rules-to-confirm-o152).
 
 ## v0.6: the setup's entry point
 
