@@ -2956,3 +2956,40 @@ merge gate). Its points, settled by the driver:
    checked and fixed on the wave branch by a `coding-executor`.
 4. W4 item 4's "the next hourly run shows f4 (1)" contradicted item 3:
    amended (f4's check stays 3 in the game, its gap shows in the figures).
+
+### Chunk 16 — merged (a3383d2), 2026-11-02; D284, plan v11 (872921f); f7's wording (78282a6)
+
+**Chunk 16** (`coding-leader`, 8563c90, merged a3383d2):
+`scenarios/tarnbeck-outdoor-campaign/` 0.1.0 and the root README's row.
+Done when: the format checklist by reading and the loader's completeness
+check inside `fit` pass (two `<…>` placeholders in answer-key prose caught
+and fixed); `fit` on armenelos alone (`--cpu 4 --memory 5G --disk 10G`)
+fits, memory 2.25G of 5G, disk 9.47G of 10G; with the VPS declared
+`shared` (`cpu=2,memory=2G,disk=8G`, a declaration only, not measured)
+fits with `bi` and `gateway` on the VPS; `--map host-1=vps-5718ad52`
+refused, exit 1 ("node reporting carries fault instance f10 … needs an
+unshared host"); `render --handover 2026-11-03T14:00Z` reaches
+`rendered` on both; no SSH needed, the VPS still `Drain`, nothing
+deployed. README byte-identical to a fresh regeneration (scratch
+generator `gen_readme.py`, itself byte-identical on `fixture-campaign`).
+Unit suite 848 OK; 22 YAML files load; `reporting.sql` loads into
+`postgres:0.4.0` at customer offsets 2, −12, 14 (close zones wrap
+correctly for offset 3). Comment-only pass proven: 25 files, no
+difference once comments are stripped; comments giving f3, f4, f6, f8
+away removed. Left: `bi/scripts/rollup.py`'s docstring citing the master
+spec (f4's material verbatim, a string, not a comment).
+
+**D284** (`spec-writer`, 872921f): O146 (a) recorded, O146 closed;
+master spec 6.2, 12.2 ("At the hand-over check": a 3 passes only where
+the answer key writes 3 and names the instance masking it), 16.1; plan
+v11: chunk 17a takes `aging.py`'s change and test, `gmctl.md`'s
+hand-over check line and the answer-key template's `at_handover`
+comment; 17b runs after 17a's change (f5 planted minutes after the
+rehearsal's start masks f4 there too); release gate item 12 adds f4's
+"too soon". 16.1 keeps "f4 stays 3 … unless the players move the
+producer's close", true since `close-day` is movable (W4 item 5).
+
+**f7's wording** (`coding-executor`, cc8598e, merged 78282a6):
+`fault.yaml`'s comment "5h" and `gm.md`'s "4h30 plus 1h" now "3h30
+plus 1h, 4h30 (270m)"; `aging.minimum: 1h` (from the close's first run)
+unchanged, consistent with 16.2; unit suite 848 OK.

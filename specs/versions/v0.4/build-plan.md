@@ -1131,12 +1131,13 @@ Record: 15b 6149311 (f10), b5f4557 (f2's fix path, D244), merge b744cca (its mes
 
 ### Chunk 16 — The v0.4 scenario
 
-Status: planned
+Status: merged (w4, a3383d2)
 Wave: 4
 Depends on: chunks 13, 14, 15
 Architecture capture: recorded at wave 4 start (W4), for chunk 17: the
 scenario's id, its ten instances, which jobs a smoke cycle moves on which
 node, and each acceptance fix.
+Record: 8563c90, merged a3383d2 (2026-11-02), built on O146 (a) (spec D284). Differs from W4 as first drafted, with the driver's amendments (wave log): player-readable comments rewritten in the story's voice (behaviour byte-identical to `fixture-campaign`, W4 item 2); a "Marketing e-mail" section in `player/data-policy.md` stating the rules I2 and f3 read (unchecked, 11.5). `fit`/`render` on armenelos alone and with the VPS `shared` (declaration only); `fit` refuses the VPS for `reporting` (f10).
 
 - Goal: `tarnbeck-outdoor-campaign` (working id) of master spec 16.1,
   complete by the format skill.
