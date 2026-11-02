@@ -1179,7 +1179,7 @@ Record: 8563c90, merged a3383d2 (2026-11-02), built on O146 (a) (spec D284). Dif
 
 ### Chunk 17 — Smoke cycles, f10's run and the rehearsal
 
-Status: planned
+Status: in progress (17a paused at WIP e622975, 2026-11-02)
 Wave: 4
 Depends on: chunks 8, 9, 12, 20; chunk 16 (in-wave, W4), merged into `v0.4-w4`
 before this chunk's branch is cut; G4; G7 (17a's two-host run, 17b)

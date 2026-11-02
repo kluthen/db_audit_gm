@@ -3006,3 +3006,72 @@ cycles, the baseline's G1 to G4, the hand-over check change (D284) and
 f10's run, alone on the hosts under the host lock and the sleep
 inhibitor, G7 at its two-host run on wave 2's gate's pattern. 17b goes to
 a fresh owner once 17a has merged.
+
+### Stopped by the owner — chunk 17a paused at WIP e622975, 2026-11-02
+
+The owner, 2026-11-02 ~11:15 UTC: "we will stop in fifteen minutes."
+Chunk 17a was told to pause; **wave 4 waits for the owner's word**.
+
+**State for the next driver**
+- `v0.4-w4` (worktree `/home/bastien/work/db_audit_gm-wt/v0.4-w4`):
+  chunks 16 and 18 merged, D284 and plan v11 in, nothing pushed.
+- Chunk 17a: WIP e622975 on branch `v0.4-c17a-smoke-cycles`, worktree
+  `/home/bastien/work/db_audit_gm-wt/v0.4-c17a-smoke-cycles`, cut from
+  5b09c50, **not merged**. No run on the hosts yet.
+- Hosts at ~11:30 UTC: 0 swarm services; armenelos `Ready Active`,
+  `vps-5718ad52` `Ready Drain` (never set active); the host lock free, no
+  inhibitor running; 4.7 GiB available, 9.0 GB free on `/`.
+
+**17a as built (unit-tested only)**
+1. The hand-over check (D284) in `tools/gm/aging.py`: a "too soon"
+   passes only where `at_handover` is 3 and `interactions` name the
+   masking instance (`masked-by`); any other reading of it fails, 1
+   included; others' "too soon" still fail. Test
+   `test_a_masked_too_soon_passes_only_where_the_answer_key_writes_3`
+   (fails on the old code). Docstring adjusted.
+2. The harness override leaving instances out (W4 item 8): undocumented
+   `gmctl render --test-leave-out f7,f10`, recorded in
+   `implementation.yaml` as `test_harness_override.leave_out`; render,
+   `inject` (`--at` refused), `check` (`--instance` refused), the early
+   and hand-over checks and `restart` leave them out, seed changes stay.
+   `tools/gm/{localimpl,inject,checks,aging,restart,render,__init__}.py`;
+   tests `TestTestLeaveOut` (`test_render.py`), `TestLeftOutByTheHarness`
+   (`test_aging.py`).
+3. `gmctl.md`'s hand-over check line and the answer-key template's
+   `at_handover` comment say when a 3 is expected.
+4. `tools/tests/smoke-purposes.sh` (+ helper `smoke-purposes.py`), modes
+   `smoke` (every fault at once, T0 ≈ 07:30 so f8's outage falls inside),
+   `cycles` (W4's order f6, f9, f1, f2, f3, f5 `--since`, f7 `--since`
+   with a close > 15 min after the previous for item 9, f4 across a local
+   midnight, f8; T0 ≈ 21:00, stops before 02:45 ahead of f10's 03:00),
+   `baseline` (fixture files swapped in, every instance left out, every
+   job moved, G1–G4 twice), `f10` (armenelos alone).
+   Checks so far: test_aging/inject/checks/render/restart 307 OK (83 s),
+   the last two override tests alone OK; `sh -n`, `py_compile` OK. Not
+   yet: the full suite; `gmctl`'s parser on `gmctl.md` (no new
+   invocation added).
+
+**Next, in order** (a fresh `coding-leader` on 17a's brief plus "resume
+from WIP e622975" and this entry; each run under `flock
+/tmp/dbagm-docker.lock systemd-inhibit --what=sleep:idle:handle-lid-switch`,
+alone on the hosts):
+1. `sh tools/tests/smoke-purposes.sh baseline armenelos --cpu 4 --memory 5G --disk 10G`
+   (~1–1.5 h; the harness's first live run; unverified: the scheduler
+   log's timestamp format for `instant()`, `gmctl exec --user player`
+   with `sudo` and `/home/player/.pgpass`, `base64` on the nodes, `check`
+   with every instance left out).
+2. `cycles armenelos …` (~3.5–5 h; f8 relies on the stub's one-in-fifty,
+   each `crm` reload resetting its clock; f4's 0 needs the local
+   midnight 2–3 h after T0).
+3. `smoke duo` with the script header's fit options and
+   `SMOKE_ENGINES=ssh://dbagm-vps`, wrapped in G7 as wave 2's gate did
+   (wrapper not written yet). **(Owner's call pending)**: the owner of
+   17a chose the two-host run as `smoke` without the cycles, to keep the
+   VPS active ~2 h instead of 4–5; the plan's 17a reads "on armenelos
+   alone and on armenelos plus the VPS" for "every fault planted at once
+   and every scheduler key and job running", which `smoke` covers.
+4. `f10 armenelos …`, last, the VPS drained.
+5. Full unit suite, `sh -n`; squash to one commit; merge `--no-ff` into
+   `v0.4-w4`; remove the worktree and branch.
+Then 17b (a fresh owner, D283: without f7 and f10), the wave gate, the
+release gate on `v0.4-w4`.
