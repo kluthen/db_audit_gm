@@ -4,10 +4,13 @@ How the [GM skill](SKILL.md) gives feedback once the players have given
 their final answer and the evaluation has run (v0.1 master spec 13; v0.2
 master spec 6.3 and 9 add the tooling expectations; v0.3 master spec 11
 adds the fault undetermined at the final answer, and 12 the judgement
-after a restart with no history). v0.3 version, expected to evolve as
+after a restart with no history; v0.4 master spec 11.7 adds what "fixed"
+means for a governance fault, 12.8 a check judging runs undetermined at
+the final answer, 16.3 a report judged against an incident and 16.5 an
+overstep on another party's system). v0.4 version, expected to evolve as
 games are played: the owner judges the tone and the tooling's usefulness
 at acceptance. A players' score is deferred (after v1.0, v0.3 master
-spec 2; a scenario's difficulty score is not the players'): v0.3 gives no
+spec 2; a scenario's difficulty score is not the players'): v0.4 gives no
 score and saves nothing.
 
 ## Inputs
@@ -19,6 +22,10 @@ score and saves nothing.
   you could wait no longer);
 - whether the game was restarted, and from the hand-over snapshot or
   with no history (`gmctl status`, its `restart` lines);
+- the times the report gives its fixes, and the `--since` you passed for
+  each fix made outside a job's runner (master spec 12.1);
+- what you read on a node the story gives another party, and any job
+  run by hand: the players' changes there, an overstep or none;
 - `gm/answer-key.yaml` (`what`, `why`, `evidence`, `acceptable`; and
   `tooling_expectations`: `need`, `expected`, `acceptable`, `notes`), the
   issues of `scenario.yaml`, and `gm/notes.md`, whose feedback points are
@@ -52,7 +59,61 @@ it.
      to watch, and for how long, to confirm such a fix (the `evidence`),
      and, where it helps, that checking a fix over time before calling it
      done is part of the method. Never count the missing verdict against
-     them;
+     them. For a check judging a job's runs (an exit 3 at the final
+     answer, master spec 12.8), it means no run, or none that could have
+     violated, since the fix: say that a fix to a job is proved by its
+     next run, that their lever was moving the job's time where the
+     starter pack allows it (then watching the run), never running it by
+     hand;
+   - **a governance fault**, judged by the live state ("fixed" as master
+     spec 11.7): a definition (a classed column where it may not be, a
+     grant, a mapping, a job copying data) is fixed when the live state
+     complies, so removing what was copied is part of the fix, not only
+     stopping the flow; say so when they stopped the flow and left the
+     copy. What their fix itself created is judged too: a replacement job
+     run as a superuser, or a mapping to a role that may read the class,
+     is a new path, a point to improve even when the old one is gone.
+     What already left (an outbox's payloads) is judged as a purpose is:
+     no new violation since the judged moment; the old rows stay as the
+     evidence they found. A breach naming a whole database (G1's line
+     with the word `database`) is a class that must have an instance of
+     its own sharing it with another database: the finding is the shared
+     instance, whatever the database holds, so the database leaving the
+     instance is the fix and emptying it is not;
+   - **a report judged against an incident** (master spec 16.3, 12.7):
+     the check reads `present` whatever was changed since, as it proves
+     only that the incident happened; the report is the resolution.
+     Judge it on the answer key's criteria: the incident named (when,
+     which process, killed for memory, the recovery that followed), its
+     cause (on `purpose-heavy-job-on-database-node`, the backfill computed
+     on the database node at its memory limit) and the recommendation
+     (move the transformation's computation off the database node, to a
+     transformer node sized for it that reads the window in batches, and
+     bound backfills). A proposal moving only the schedule (another hour,
+     or the same `CALL` from another node) does not move the computation,
+     which still runs in the database's own backend: say so, kindly.
+     **Its check reads `error` (exit 2) until the incident is in the
+     log** (spec D256): before its job's run, after a kill whose recovery
+     is not complete yet, and on a failed planting, none of which reaches
+     a game handed over, since the hand-over check fails on it. After the
+     hand-over it reads `error` too **if a player deleted the backfill
+     request's row** in `reporting` (the check dates the incident's
+     planting from it): that is the players' change, not the game's failure. Judge the report as if
+     nothing had changed, never count the missing reading against them,
+     and name the deletion as an overstep;
+   - **an overstep** (master spec 16.5), named positively, as a teacher
+     would: the change was outside the mandate the issue gave (another
+     party's system, a report or a proposal asked for). Say whether the
+     change itself would have been right as a proposal, and what it cost
+     (a roll-up stopped, another party's job edited behind its back). A
+     sealed check reading `fixed` after it is never counted as the
+     resolution. A change that is right and comes with the report still
+     gets the report's credit; a change without the report leaves the
+     issue unresolved as asked. A job run by hand on any node (a `CALL`, a job
+     set to run at once) is the same overstep: a run outside the
+     schedule, which the rules forbid; a check reading `fixed` through
+     it is not taken as the fix, and the point to make is that moving a
+     job's time is how to see a fix work;
    - one improvement, if there is one worth making.
 3. **The other faults present** (the hidden ones, and any known one the
    issues did not lead to), one block each: found or missed. When found,
@@ -103,3 +164,6 @@ A teacher's, speaking to students:
   by a window that had not elapsed, or, after a restart with no history,
   evidence the restarted game could not build up again in the time left,
   is never held against them. Say which faults that restart affected.
+- **An overstep is a lesson in mandate**, not a penalty: name it once,
+  say what it cost and whether it would have made a good proposal, and
+  judge the issue on what it asked for.
