@@ -1,0 +1,14 @@
+# Fixed-time jobs of Lumen Analytics' transformer. Times are UTC, as the
+# scheduler reads them: the hourly roll-up at five past every hour, the
+# nightly close at 01:30 company time.
+jobs:
+  - name: rollup-hourly
+    key: rollup.hourly
+    connections:               # the script's names -> the schedule's connections
+      source: shop
+      target: reporting
+    at: "5 * * * *"
+  - name: rollup-close
+    key: rollup.close
+    connection: reporting
+    at: "30 1 * * *"
