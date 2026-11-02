@@ -2608,3 +2608,27 @@ For the wave gate: `check-governance.sh` on `fixture-campaign`; f9
 Risks: G1's content probe is a full text scan on databases without
 personal data, unmeasured beyond fixture sizes; `smoke-governance.sh`
 not re-run after 0dbbabf (unit suite passes with it).
+
+## Wave 4 — started 2026-11-02
+
+Chunks 16, 17, 18 (κ = 3). The owner, 2026-11-02: "you may start wave 4
+then." `v0.4-w4` cut from `main` at f7a45fc (wave 3's merge 476c784, then
+the v0.5 side branches), worktree `/home/bastien/work/db_audit_gm-wt/v0.4-w4`.
+No intent or data register: no preflight. No new dependency named by any
+wave 4 chunk.
+
+### Gates checked at the start
+
+- **G3** (hand check): Debian trixie, PGDG trixie-pgdg and the s6-overlay releases answer 200.
+- **G4** (hand check): armenelos `Ready Active Leader`; `vps-5718ad52` `Ready Drain`.
+- G7 is checked again at each of chunk 17's two-host runs.
+- Host: 9.0 GB free on `/`, 5.1 GiB of memory available, 2.7 GiB of swap in use; no swarm service running; the host lock free.
+
+### Order and dispatch
+
+Chunk 18 depends on no wave 4 chunk and shares no file with 16 or 17:
+dispatched at once. Capture W4 (for chunk 17, read by 16) is drafted by
+`spec-writer` on `v0.4-w4` with wave 3's leftovers for it (chunk 20's two
+readings, `formats.md`'s O126 citation); chunk 16 is cut once W4 is
+committed and reviewed; chunk 17 once chunk 16 has merged (17a, then 17b,
+each alone on the hosts under the host lock).
