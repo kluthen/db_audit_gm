@@ -571,3 +571,10 @@ v0.5's drafting. Take the next number from `doc-ids`; no ID is reused.
   f7's close runs at 01:30, outside the noon window, as f10's 03:00 job;
   release-gate item 2 proves f7. Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 18;
   [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunk 17, release gate.
+- **D284 (2026-11-02, owner ruling on O146, "(a)", relayed by the wave
+  driver): times kept, f5 planted at `handover-5h`; f4 expected "too
+  soon" (3) at the hand-over check, masked by f5, and the hand-over check
+  passes a 3 the answer key expects.** Closes O146; (b) and (c) moved a
+  time against the story or the domain's copy. Now in:
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 6.2, 12.2, 16.1;
+  [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunks 16, 17, release gate.

@@ -17,7 +17,8 @@ Resolved during v0.4's drafting: O106 (D194), O110 (D195), O107 (D197), O120
 (D198), O109 (D199), O121 (D200), O123 (D202), O105 (D203), O129 (D206), O131 (D207),
 O132 (D211), O133 (D212). Resolved by the approval of v0.4's master
 spec (D215): O104, O108, O115, O116, O117, O119, O122, O124, O125, and
-O111's v0.4 part. Resolved during v0.4's build: O134 (D224), O140 (D253).
+O111's v0.4 part. Resolved during v0.4's build: O134 (D224), O140 (D253),
+O146 (D284).
 
 On 2026-10-31 v0.5 was centred on domain definition and the clinic
 (D233), and its questions retargeted: O53 and O54 to later, version not
@@ -143,18 +144,8 @@ his ruling on jobs on a database node closed (D206), raising O131,
 which he confirmed as written (D207). O132 and O133, raised by the
 consolidation, were ruled the same day (D211, D212), and the approval
 of the [master spec](versions/v0.4/master-spec.md) closed O104, O108,
-O122, O124 and O125 as written there (D215). O146 raised by wave 4's
-capture W4.
-
-- **O146** (next, v0.4 wave 4, for the owner) — In the first scenario
-  f5 (`shop_etl` expired at 09:00) makes every hourly roll-up fail from
-  09:05, among them the 12:05 run f4's evidence needs after the noon
-  invoicing, so f4 reads "too soon" and the hand-over check fails.
-  (a) f4 expected 3 at the hand-over check, masked by f5 (recommended);
-  (b) f5 planted at `handover-1h`, I5 reworded; (c) the invoicing moved
-  earlier in this scenario. Refs:
-  [versions/v0.4/wave-log.md](versions/v0.4/wave-log.md) "Questions from
-  the capture" (wave 4); [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 16.1.
+O122, O124 and O125 as written there (D215). O146, raised by wave 4's
+capture W4, closed by the owner's ruling (D284).
 
 ## v0.4: data governance
 

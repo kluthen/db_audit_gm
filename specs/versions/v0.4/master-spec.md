@@ -38,7 +38,10 @@ and `load-data`'s last step, removing the `pg_cron` launcher's start-up
 failures from the server log on the owner's ruling (7.2, 14). At wave 4's
 start: chunk 20's breach line for a whole database (11.6); f10's check
 reading 2 when a player alters the backfill request (16.5); the
-rehearsal without f7 as well as f10, both nightly (18).
+rehearsal without f7 as well as f10, both nightly (18). Then the
+owner's ruling on f5 masking f4: times kept, f4 expected "too soon" at
+the hand-over check, which passes a "too soon" its answer key expects
+(6.2, 12.2, 16.1).
 
 ---
 
@@ -252,6 +255,8 @@ every version; this section lists what v0.4 changes. The shapes are in
 - A sealed check judging a purpose's runs or triggers states `judges:
   runs` or `judges: triggers` and a `threshold` (violations tolerated, 0
   by default), and no window (12).
+- Such a check's `at_handover` may be 3, "too soon to tell", where
+  another instance masks it until after the hand-over (12.2).
 - A tooling expectation may name an unmonitored instance (13.4).
 
 ### 6.3 Fault definition (`fault.yaml`)
@@ -1338,6 +1343,16 @@ their time (written inside the run's transaction) or by their
 **Past violations never count**; they stay in the trace as evidence.
 "Fixed" means no new violation since the fix.
 
+**At the hand-over check** a "too soon" fails, as in v0.3 (v0.3 8.5),
+unless the answer key's `at_handover` for that instance is 3. An answer
+key writes 3 only for a check judging runs or triggers whose job
+another instance, planted before it, keeps from producing a witness
+before the hand-over, and it states that instance as masking it. The
+check then passes on a 3 and fails on any other reading, a 1 included,
+as any reading other than `at_handover` does. The early check records a
+"too soon" either way. The first scenario's f4, masked by f5, is the
+case (16.1).
+
 ### 12.3 Witnesses
 
 A clean run proves a fix only if it could have violated. Each invariant
@@ -1640,6 +1655,18 @@ and the nightly close stay clear of it.
 | f8 | `purpose-receiver-down-unnoticed` | `crm` | P5 | seed-file, and the gateway's two-hour outage as a timeline change | hidden, fix |
 | f9 | `governance-personal-copied` | `reporting` | P1, the policy | seed-file | hidden, propose |
 | f10 | `purpose-heavy-job-on-database-node` | `reporting` | the agency's roll-up | seed-file at T0, state at `handover-12h` | known (I6), report |
+
+**f5 masks f4.** f5 expires `shop_etl` at `handover-5h` (09:00), so
+every hourly roll-up fails from 09:05, the 12:05 run after the
+producer's noon invoicing among them, and f4's check finds no witness:
+it reads "too soon" (3) at the hand-over check, which its answer key
+expects (`at_handover: 3`, 12.2). The game is layered: the frozen
+dashboards hide the watermark gap until the players fix f5, then the
+next hourly runs show it in the figures. f4's check still reads 3 for
+the rest of the game, since no close falls in it unless the players
+move the producer's, and the players' proposal is what the feedback
+judges, as for f7. A failed f5 planting
+leaves f4 reading 1, which fails the hand-over check as well.
 
 **Issues**:
 

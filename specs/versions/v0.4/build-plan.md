@@ -1,11 +1,15 @@
 # db_audit_gm v0.4 — Build plan
 
-Status: v10 (2026-11-02): capture W4's readings: chunk 17a's unfaulted
+Status: v11 (2026-11-02): the owner's ruling on O146 (spec D284): f4
+expected "too soon" at the hand-over check, masked by f5 at
+`handover-5h`, and the hand-over check passing a "too soon" the answer
+key expects, in chunks 16 and 17 (`gmctl.md`'s line in 17, chunk 18
+merged) and the release gate; v10 (2026-11-02): capture W4's readings: chunk 17a's unfaulted
 scenario rebuilt from `fixture-campaign`'s files, a seed change surviving
 the override; the rehearsal without f7 as well as f10 (spec D283); f10's
 check reading 2 once a player alters the request (spec D282), in chunks
-16 and 18; f4's reading at the hand-over check open (spec O146), in
-chunks 16 and 17; v9 (2026-10-31): the owner's rulings on G10, f10's normal run
+16 and 18; f4's reading at the hand-over check left to the owner (spec
+O146); v9 (2026-10-31): the owner's rulings on G10, f10's normal run
 accepted at 327 MiB (spec D252), and on O140, `separation: instance` as a
 rule of G1 built by the inserted chunk 20 on wave 3 (spec D253); chunk
 15b's readings of f10 (spec D254 to D257) and `load-data`'s `pg_cron`
@@ -1157,14 +1161,15 @@ node, and each acceptance fix.
   expected to stay present, its `offset` the same number in its instance
   and in `reporting`'s data file (spec D239); `gm/notes.md`, `brief.md`, `README.md`
   regenerated. Its files, instances, interactions and acceptance fixes as
-  capture W4 sets them; f4's `at_handover` and f5's planting by the
-  owner's ruling on spec O146 (W4 recommends f4 expected 3).
+  capture W4 sets them; f5 planted at `handover-5h`, masking f4, whose
+  answer key expects `at_handover: 3` and names f5 in its interactions
+  (spec D284).
 - Files: `scenarios/<id>/` (new); the root `README.md`'s table.
-- Spec sections: master spec 11.5, 12.5, 13.2, 13.4, 16.1, 16.2, 16.3,
-  16.5; access model 7, 9.4, 12; spec D227, D239 to D247; D252
+- Spec sections: master spec 6.2, 11.5, 12.2, 12.5, 13.2, 13.4, 16.1,
+  16.2, 16.3, 16.5; access model 7, 9.4, 12; spec D227, D239 to D247; D252
   (`reporting` stays at 640M), D253 (16.1's `governance:` has no
   `separation:`, so chunk 20's rule changes nothing here), D254 to D257
-  (f10's instance as 15b built it); D282; O146.
+  (f10's instance as 15b built it); D282; D284.
 - Done when: the format skill finds nothing missing; `fit` and `render`
   accept it on armenelos alone and on armenelos plus the VPS declared
   `shared`, `fit` refusing the VPS for `reporting`; its README matches a
@@ -1196,9 +1201,15 @@ Architecture capture: none of its own; it uses W4.
     then fixed after their acceptance fix; the unfaulted scenario (a
     scratch copy whose seed-changed files are `fixture-campaign`'s, every
     instance left out by the harness-only override, W4 item 8),
-    passing G1 to G4; if the owner rules (a) on spec O146, the hand-over
-    check passing a "too soon" reading the answer key expects, with its
-    unit test; f10's own run on armenelos alone, the VPS drained,
+    passing G1 to G4; the hand-over check passing a "too soon" reading
+    where the answer key's `at_handover` is 3 (f4's, masked by f5) and
+    failing any other reading of that instance, a 1 included, every
+    other instance's "too soon" still failing it (master spec 12.2, spec
+    D284), with its unit test in `aging.py`'s tests; `gmctl.md`'s
+    hand-over check line ("as the answer key's `at_handover` says (1,
+    present)") given the sentence saying so, and the answer-key
+    template's `at_handover` comment likewise; f10's own run on
+    armenelos alone, the VPS drained,
     its check present, PostgreSQL recovered, s6, `sshd` and `cron`
     untouched;
   - **17b, the rehearsal and the figures**: `rehearsal.sh` on the
@@ -1206,7 +1217,9 @@ Architecture capture: none of its own; it uses W4.
     capped by the harness override, its hand-over placed so the hourly
     and quarter-hour jobs and the peak run inside it; `start-load`, a
     scheduled `inject --at`, the early check fired by the host's timer,
-    a scheduler killed and resuming, the hand-over check and snapshot, a
+    a scheduler killed and resuming, the hand-over check and snapshot (f4
+    expected 3, f5 planted minutes after the start, spec D284; after
+    17a's hand-over check change), a
     restart; without f10 and f7 (spec D283), by the harness-only
     override leaving an instance's planting and check out, its seed
     changes staying (never usable in a game); every node's memory and the
@@ -1218,11 +1231,16 @@ Architecture capture: none of its own; it uses W4.
   extended, as the build finds), `tools/tests/{smoke-scenario,rehearsal}.sh`,
   the harness override where `render` and `inject` read the instance
   list (`tools/gm/{render,inject,aging}.py` as the build finds) and its
-  unit tests; 17b: `bricks/{scheduler,postgres}/{brick.yaml,docs/gm.md}`
+  unit tests; the hand-over check in `tools/gm/aging.py` and its unit
+  test (spec D284); `.claude/skills/game-master/gmctl.md` (its hand-over
+  check line only; chunk 18 merged) and
+  `.claude/skills/scenario-format/templates/answer-key.yaml` (the
+  `at_handover` comment only); 17b: `bricks/{scheduler,postgres}/{brick.yaml,docs/gm.md}`
   ("Footprint"), `scenarios/<id>/{scenario.yaml,README.md}`.
-- Spec sections: master spec 11.6, 12.1, 12.5, 13.3, 16.3, 18 (items 1
-  to 6); access model 6, 7; spec D241, D246; D253 (the baseline's G1),
-  D256, D257 (f10's check and the night after); D283; O146.
+- Spec sections: master spec 6.2, 11.6, 12.1, 12.2, 12.5, 13.3, 16.1,
+  16.3, 18 (items 1 to 6); access model 6, 7; spec D241, D246; D253 (the
+  baseline's G1), D256, D257 (f10's check and the night after); D283;
+  D284 (f4's 3 at the hand-over check).
 - Done when: every run passes as listed, its figures recorded with
   machine and date in the Record line and the wave log; the VPS drained
   after each two-host run and never active during f10's.
@@ -1494,7 +1512,9 @@ bastion only; GM-side checks run from the host.
     alone, the VPS drained: its check present, PostgreSQL recovered, s6,
     `sshd` and `cron` untouched.
 12. Master spec 18.6: the rehearsal re-run on the merged code without
-    f10 and f7 (spec D283), on armenelos plus the VPS, every step passing, every node's
+    f10 and f7 (spec D283), on armenelos plus the VPS, every step passing,
+    its hand-over check passing with f4 read "too soon" as its answer key
+    expects (master spec 12.2, spec D284), every node's
     memory within the declared figures, the trace's growth per hour
     measured and extrapolated, stated as such.
 13. Item 9, the stance check-list on a deployment of the scenario: v0.3's
