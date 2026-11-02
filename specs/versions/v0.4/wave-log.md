@@ -2632,3 +2632,259 @@ dispatched at once. Capture W4 (for chunk 17, read by 16) is drafted by
 readings, `formats.md`'s O126 citation); chunk 16 is cut once W4 is
 committed and reviewed; chunk 17 once chunk 16 has merged (17a, then 17b,
 each alone on the hosts under the host lock).
+
+### Capture W4 — the v0.4 scenario (chunk 16; read by 17)
+
+Recorded 2026-11-02, before any wave 4 code, from chunk 16's capture
+line and chunk 17's scope, master spec 11.5, 12.1, 12.5, 13.2 to 13.4,
+16.1 to 16.5 and 18, access model 6, 7, 9.4 and 12, spec D227, D239 to
+D258, W3-a to W3-d, wave 3's report, and on `v0.4-w4` at 7056388
+`fixture-campaign`, the ten faults as chunks 14 and 15 built them, the
+four purposes, the shop domain, `tarnbeck-outdoor-shop`, the smoke and
+rehearsal scripts and `tools/gm/` (`check --since`, the aging override
+`--test-aging-minimum`, the hand-over check in `aging.py`). W1's rules:
+the spec cited, not restated; **(choice)** a point the sources left
+open, settled with its reason; each item names who writes and who
+reads it. Chunk 16's wording (story, policy, answer-key prose, notes)
+and chunk 17's scripts stay out; 17 records its outcomes at its merge.
+
+**1. The scenario** (16 writes; 17 and 18 read)
+
+- Id `tarnbeck-outdoor-campaign`, `version: 0.1.0`, folder
+  `scenarios/tarnbeck-outdoor-campaign/`, a row in the root
+  `README.md`'s table. **(choice)** 16.1's working id kept: nothing in
+  the sources argues for another, and every capture and fault note
+  already uses it.
+- `aging: {minimum: 16h, handover_at: "14:00"}` (16.1 "Time", T0 22:00);
+  `difficulty: {score: 10, level: normal}`.
+- `domain:`, `purposes:`, `governance:` (no `separation:`, D253),
+  `networks:`, `nodes:` (bricks, roles, write policies and overrides,
+  resources, seed-file names, `crontab_roles`, knobs, data files),
+  `flows:` and `designed_for:` are `fixture-campaign`'s (W3-b items 1
+  to 5): `reporting` 640M / 256M (D227, D252) and unscraped (13.4).
+  Descriptions may be reworded for the story; a node's `data:` table
+  list may add what the instances' data-file changes create. f0 and
+  `faults/fixture-random-page-cost/` are not copied.
+
+**2. Its files: `fixture-campaign`'s plus the instances' seed changes**
+(16 writes; 17 reads for item 8)
+
+**(choice)** Every seed file and data file is `fixture-campaign`'s byte
+for byte, except these, which differ by the listed changes and nothing
+else, each from its fault's `inject/` material. Reason: render plants no
+seed-file fault, the copies carry it (`inject.py`: "planted by the seed
+files"), so 18.4's unfaulted scenario must be rebuilt from files, and
+this makes `fixture-campaign` that baseline file for file.
+
+| File | Change | For |
+|---|---|---|
+| `nodes/crm/queries.yaml` | `mail.shipped` (f1); `leads.extract` (f2); `mail.campaign` with f2's and f3's changes both; `escalate.customs` (f8) | f1, f2, f3, f8 |
+| `nodes/bi/scripts/rollup.py` | f4's `inject/rollup.py`, the whole file | f4 |
+| `nodes/db/crontab` | the entry as f6's `inject/crontab.snippet` (no `-U`), the `PGPASSFILE` line kept | f6 |
+| `nodes/reporting/crontab` | f10's `inject/crontab.snippet` under the `PGPASSFILE` line | f10 |
+| `data/reporting.sql` | appended after the fixture's last line (`CREATE EXTENSION pg_cron;`), in instance order: f7's `close_day.sql.snippet` with `{OFFSET}` written `3`, f9's `customer_activity.sql.snippet`, f10's `sales_detail_rollup.sql.snippet` | f7, f9, f10 |
+| `nodes/producer/{queries,schedule}.yaml` | f2's `producer-release.yaml`: key `consent.unsubscribe-v2` beside the domain's; timeline `at: T0`, stream `consent.unsubscribe` set to it | f2's precondition |
+| `nodes/gateway/{queries,schedule}.yaml` | f8's `gateway-outage.yaml`: key `customs.unavailable`; timeline `handover-6h` to it, `handover-4h` back to `customs.acknowledge` | f8's precondition |
+
+**(choice)** The data file keeps the fixture's as its prefix: each
+snippet's placement holds (f7 and f10 after P1's material, f9 after
+`CREATE EXTENSION pg_cron`), and the baseline is the file cut at the
+fixture's last line. The scenario's own files: `scenario.yaml`,
+`brief.md`, the bastion's four `player/` files (the policy in the
+story's voice, 11.5), `gm/answer-key.yaml`, `gm/notes.md`, `README.md`.
+
+**3. The ten instances** (16 writes `fault_instances`, `issues` and the
+answer key; 17 and 18 read)
+
+Every fault at `0.1.0`. Each `aging_minimum` is 16.2's rule: the first
+run's offset plus the definition's minimum, counted from T0 (22:00) for
+an instance planted at T0, from its planting otherwise (access model 6,
+`aging-done`). **(choice)** Exact minutes, not rounded up to the hour
+(tarnbeck's 9h30 became 10h): f1's `65m` and W3-c's figures are exact,
+and each lies under the 16h, read only by the override's cap and the
+loader's `plant_at` bound.
+
+| | Fault | Node | `parameters` | Visibility | `plant_at` | `aging_minimum` | Answer key | After the hand-over |
+|---|---|---|---|---|---|---|---|---|
+| f1 | `purpose-mail-overlapping-window` | crm | `{}` | known, I1 fix | T0 | `65m` (22:05 + 1h, D247) | `judges: runs`, `threshold: 0`, `at_handover: 1` | 1, fixed in the game |
+| f2 | `purpose-leads-stale-consent` | crm | `{}` | known, I2 fix | T0 | `11h` (campaign 08:00 + 1h) | runs, 0, 1 | 1; either path (D244) |
+| f3 | `purpose-mail-outside-hours` | crm | `{}` | known, I3 fix | T0 | `11h` | runs, 0, 1 | 1, fixed in the game |
+| f4 | `purpose-watermark-misses-updates` | bi | `{}` | known, I4 propose | T0 | `15h` (close 12:00 + 1h) | runs, 0, **1 or 3 by O146** | 3 (no close in the game) |
+| f5 | `purpose-etl-role-expired` | db | `{}` | known, I5 fix | `handover-5h` (**O146**) | `65m` from planting (09:05 + 1h) | runs, 0, 1 | 1, fixed with `--since` |
+| f6 | `security-crontab-superuser` | db | `{role: shop_refresh}` | hidden | T0 | `77m` (22:17 + 1h) | `at_handover: 1` | 1 (live) |
+| f7 | `purpose-day-boundary-wrong-zone` | reporting | `{offset: 3}` | hidden | T0 | `270m` (01:30 + 1h) | runs, 0, 1 | 3 (no close in the game) |
+| f8 | `purpose-receiver-down-unnoticed` | crm | `{}` | hidden | T0 | `11h` (outage 08:00 + 1h) | `judges: triggers`, 0, 1 | 1, fixed in the game |
+| f9 | `governance-personal-copied` | reporting | `{}` | hidden | T0 | `1h` (a run by 22:30 + 30m) | `at_handover: 1` | 1 (live) |
+| f10 | `purpose-heavy-job-on-database-node` | reporting | `{}` | known, I6 report | `handover-12h` | `90m` from planting (03:00 + 30m) | `at_handover: 1` | 1; 2 if a player alters the request (D282) |
+
+- **(choice)** f7's `offset` is `3`: non-zero, in −23..23, the value
+  chunk 15a planted and read 3, 1, 3, 0 with; the data file carries the
+  same number (D239). 16.1's "expected to stay present" is, by its
+  check, 1 at the hand-over check and 3 after it (12.8: undetermined);
+  the proposal is the resolution (W3-d).
+- Issues I1 to I6 as 16.1 words them, each `covers` its one instance;
+  `t1`, `reporting` unscraped, a tooling expectation no issue covers
+  (13.4). The overstep notes of 16.5 for f7, f9, f10, and D282, in the
+  answer key's notes and `gm/notes.md`.
+
+**4. Interactions** (16 writes the answer key's `interactions`; 17
+orders its cycles by them)
+
+- **f5 masks f4, f7 and f10's roll-up while present**: `shop_etl` is the
+  hourly script's source login and the remote role of `bi_etl`'s mapping
+  on `shop_db`, through which `rpt.close_day()` and
+  `rpt.sales_detail_rollup()` read. In the aging f7's close (01:30) and
+  f10's run (03:00) come before f5 (09:00), but every hourly run fails
+  from 09:05, the 12:05 run after the noon invoicing among them: **f4
+  reads 3 at the hand-over check** (question O146 below). In the game,
+  once the players fix f5, the next hourly run shows f4 (1).
+- f2 and f3 change one entry, `mail.campaign`; each check judges its own
+  invariant (M2, M3), so a fix of one leaves the other present.
+- f10's recovery at 03:00 ends every session on `reporting`: f9's job
+  run started at 03:00 (every thirty minutes) is ended, its check a
+  definition check, unaffected; `bi`'s and `consumer`'s scheduler
+  sessions fail at their next call, the 03:05 roll-up lost (16.3's
+  accepted risk), and are replaced at the call after.
+- A runner's reload raises the judged moment of every check reading that
+  runner (12.1): on `crm` f1, f2, f3 and f8; on `bi` f4. f5's and f7's,
+  judging the ledger on `reporting`, never are (D241).
+
+**5. The jobs the players may move** (16 writes the starter pack; 18
+and 17 read)
+
+- `crm`'s five jobs and the producer's `close-day`, by `jobs.yaml` and
+  `sudo gm-reload-scheduler`; `db`'s crontab entry `popular-products`
+  (:17), by `sudo gm-crontab`.
+- Not `bi`'s two (report-only, the agency's) nor `reporting`'s crontab
+  entry and `pg_cron` job (the agency's by the story, 16.5); `consumer`
+  and `gateway` have none.
+- **(choice)** `db`'s entry is listed though no purpose job: chunk 16
+  names "every job the players may move" (12.8 asks at least the purpose
+  jobs), and moving it is how a player confirms f6's fix runs.
+
+**6. What a smoke cycle moves** (17a; 18.2)
+
+A move sets the job's `at` to a fixed minute and hour one to two
+minutes ahead in scenario time, then reloads: as `player` with `sudo
+gm-reload-scheduler` where `jobs.yaml` is fixable (`crm`, `producer`),
+as root with `s6-svc -h` on `bi` (18.2: the harness does it on a
+report-only node too); a crontab entry through `sudo gm-crontab`. Each
+moved file is restored byte for byte after its cycle (wave 3 gate).
+**(choice)** 18.2's "frequent jobs need no move" means the five-minute
+jobs; f8's escalations are judged by triggers, whose 0 waits for a
+declaration the stub leaves unanswered (W3-c), not for a run.
+
+| | Moved (node: job) | Then | `--since` |
+|---|---|---|---|
+| f1 | none (`mail-shipped`, every five minutes) | | no |
+| f2 | crm: `leads-extract`, `mail-campaign` | moved before "present" and again after the fix | no |
+| f3 | crm: `mail-campaign` | as f2 | no |
+| f4 | producer: `close-day`, then bi: `rollup-hourly` after it | its 0 needs a close re-invoicing a past local day, so a local midnight between the close that showed it and the one after the fix (chunk 14 took a second game at +9): 17a picks its planned hand-over or the moved times for it | no |
+| f5 | bi: `rollup-hourly` | waits for the moved time, not `remaining=` (D246) | yes, the fix's instant |
+| f6 | none (live state) | | no |
+| f7 | bi: `rollup-close` | waits for the moved time (D241) | yes |
+| f8 | none | | no |
+| f9 | none (live state; its job runs on its own) | | no |
+| f10 | reporting: the 03:00 entry, by `sudo gm-crontab`, after `inject --at now --instance f10` | its own run, on armenelos alone | no (no `judges`) |
+
+Order: f4's and f7's cycles need runs through `shop_etl`, so f5's cycle
+(planted, present, fixed, 0) ends before theirs start (item 4).
+
+**7. Each acceptance fix** (16 writes the answer key's `fix`; 17a
+applies it): the unfaulted form, `fixture-campaign`'s, which every
+`fix` text accepts.
+
+| | The fix the harness makes |
+|---|---|
+| f1 | `crm`'s `mail.shipped` as the mailing purpose's material; reload, as `player` |
+| f2 | `leads.extract` as the leads purpose's material, and `mail.campaign`'s consent test restored, leaving f3's change (the entry as f3's snippet); reload |
+| f3 | after f2: `mail.campaign` as the mailing purpose's material; reload |
+| f4 | `bi`'s `scripts/rollup.py` as P1's material, as root, `s6-svc -h` |
+| f5 | on `db` as `dba`: `ALTER ROLE shop_etl VALID UNTIL 'infinity'`; `gmctl check --instance f5 --since <its UTC instant>` |
+| f6 | `db`'s crontab as the fixture's (`-U shop_refresh`), by `sudo gm-crontab` as `player`; 0 at once, the next :17 run as `shop_refresh` in its log |
+| f7 | on `reporting` as `dba`: `rpt.close_day()` as P1's material; `--since` its instant |
+| f8 | `escalate.customs` as the export purpose's material; reload |
+| f9 | on `reporting` as `dba`: the job unscheduled by its id (D243), `rpt.customer_activity`, `src.customers` and server `shop_backoffice` dropped (its mapping with it); `CREATE` on `rpt` left (D242) |
+| f10 | none: report only |
+
+- **(choice)** f2's cycle takes the runner path; the producer path
+  (D244) stays answer-key text: 18.2 asks for "its acceptance fix", I2's
+  fix is the in-house team's on `crm`, and chunk 14 read the
+  producer-alone half (1).
+- **(choice)** f2 before f3 on their shared entry, each fix leaving the
+  other's change: each check is then seen judging its own invariant.
+
+**8. The harness override and the unfaulted scenario** (17 builds;
+reads items 2 and 3)
+
+- The scenario carries no switch; the override is the harness's alone,
+  never usable in a game (18.6).
+- Leaving an instance out of the list render, inject and check read
+  drops its `state` planting and its check, never its seed changes.
+- 18.4's unfaulted scenario (17a): a scratch copy of the scenario whose
+  item 2 files are `fixture-campaign`'s (the data file cut at the
+  fixture's last line, the two timelines and their keys gone), every
+  instance left out by the override. **(choice)** Not `fixture-campaign`
+  itself: the copy keeps the scenario's own `scenario.yaml`, so the
+  baseline proven is the scenario's. Plan v10, chunk 17.
+- 17b runs without f10 and f7 (18.6, D283): their seed parts stay,
+  inert in its window; their planting (f10's request) and checks are
+  left out.
+
+**9. For chunk 17 to watch** (not settled here)
+
+- `reporting`'s `postgres_fdw` link to `db`: the close's link lives in
+  `bi`'s kept session to `reporting` and idles from one close to the
+  next, with libpq's default keepalives, through a service address that
+  drops a connection idle over about 900 s (the idle-session fix, wave
+  3). A game's aging runs one close and f10's recovery ends the session
+  at 03:00; 17a's f7 cycle moves the close several times: let one move
+  come more than 15 minutes after the previous close and record whether
+  it completed. A lost link comes back to `spec-writer`: keepalive
+  options on `CREATE SERVER` change P1's material (and f9's server).
+  f9's job and f10's entry open a link per run.
+- Every scheduler key running (18.1): `consent.unsubscribe-v2` runs from
+  T0, `customs.unavailable` from `handover-6h` to `handover-4h`; a
+  program started after both moments applies the last (`scheduler`'s
+  `gm.md`), so a run sees the outage only if its planned hand-over puts
+  it inside the run.
+- 17b's hand-over check in a two-hour noon window: f8's outage falls
+  before T0, so its 1 rests on the stub's one in fifty (an hour or two,
+  W3-c); f4 and f5 by O146; f7 and f10 left out.
+
+### Questions from the capture
+
+1. **O146 — f5 masks f4 through the aging, so the hand-over check
+   fails** (the owner; it blocks chunk 16's merge, not its start). f5
+   expires `shop_etl` at `handover-5h` (09:00); every hourly roll-up
+   fails from 09:05; f4's evidence needs a successful hourly run after
+   the producer's 12:00 invoicing, so f4 reads 3 at 14:00, and the
+   hand-over check fails on any "too soon" reading (`aging.py`,
+   `gmctl.md`). Chunks 14 and 15 planted the faults on separate copies
+   or at other times, so no run met it.
+   - (a) Times unchanged: f4's `at_handover: 3`, `masked-by` f5; the
+     hand-over check passes a "too soon" reading the answer key expects
+     (a few lines in `aging.py` and a unit test, in chunk 17a, which
+     touches it; the template's comment, `gmctl.md`, master spec 12.1 and
+     16.1). Story and I5 unchanged, and the game layered: the frozen
+     dashboards hide the watermark gap until the players fix f5, then
+     the next run shows it. Cost: f4's planting is not confirmed by its
+     check at the hand-over (a seed file render installs); a failed f5
+     planting would make f4 read 1 and fail the check a second time.
+   - (b) f5 at `handover-1h` (13:00): the 12:05 run shows f4 (1). Cost:
+     I5 reworded ("this morning" no longer true), one hour of frozen
+     dashboards instead of five, and D189's count gives f5 65m against
+     N = 1h, which the loader refuses: f5's minimum written 1h, five
+     minutes short of the rule, or the hand-over moved.
+   - (c) The producer's invoicing earlier in this scenario's copy (say
+     06:00, f4 shown by 07:05). Cost: the domain's close changed in one
+     copy against "copied unchanged", 16.1's "12:00 invoicing", f4's
+     notes and the rehearsal's noon window that holds the close.
+   - Recommended: **(a)**. Chunk 16 can be cut on (a), writing f4's
+     `at_handover: 3` and the interaction; (b) changes two values and
+     I5's sentence.
+
+For the driver, no ruling needed: plan v10 rewords chunk 17a's baseline
+(item 8) and 17b's leave-out (D283); chunk 20's readings are D281,
+f10's 2 for chunk 18 is D282; `formats.md`'s O126 citation was already
+fixed on `v0.5-scope` (6ac1e94), merged into `main` before this branch.

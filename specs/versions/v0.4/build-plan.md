@@ -1,6 +1,11 @@
 # db_audit_gm v0.4 — Build plan
 
-Status: v9 (2026-10-31): the owner's rulings on G10, f10's normal run
+Status: v10 (2026-11-02): capture W4's readings: chunk 17a's unfaulted
+scenario rebuilt from `fixture-campaign`'s files, a seed change surviving
+the override; the rehearsal without f7 as well as f10 (spec D283); f10's
+check reading 2 once a player alters the request (spec D282), in chunks
+16 and 18; f4's reading at the hand-over check open (spec O146), in
+chunks 16 and 17; v9 (2026-10-31): the owner's rulings on G10, f10's normal run
 accepted at 327 MiB (spec D252), and on O140, `separation: instance` as a
 rule of G1 built by the inserted chunk 20 on wave 3 (spec D253); chunk
 15b's readings of f10 (spec D254 to D257) and `load-data`'s `pg_cron`
@@ -1147,16 +1152,19 @@ node, and each acceptance fix.
   `data-policy.md`; `reporting` unscraped, a
   silent tooling expectation; `gm/answer-key.yaml` with each instance's
   expected resolution, and the overstep notes of 16.5 for f7, f9 and
-  f10 (a change on the agency's system judged, never credited); f7
+  f10 (a change on the agency's system judged, never credited), and
+  f10's check reading 2 once a player alters the request (spec D282); f7
   expected to stay present, its `offset` the same number in its instance
   and in `reporting`'s data file (spec D239); `gm/notes.md`, `brief.md`, `README.md`
-  regenerated.
+  regenerated. Its files, instances, interactions and acceptance fixes as
+  capture W4 sets them; f4's `at_handover` and f5's planting by the
+  owner's ruling on spec O146 (W4 recommends f4 expected 3).
 - Files: `scenarios/<id>/` (new); the root `README.md`'s table.
 - Spec sections: master spec 11.5, 12.5, 13.2, 13.4, 16.1, 16.2, 16.3,
   16.5; access model 7, 9.4, 12; spec D227, D239 to D247; D252
   (`reporting` stays at 640M), D253 (16.1's `governance:` has no
   `separation:`, so chunk 20's rule changes nothing here), D254 to D257
-  (f10's instance as 15b built it).
+  (f10's instance as 15b built it); D282; O146.
 - Done when: the format skill finds nothing missing; `fit` and `render`
   accept it on armenelos alone and on armenelos plus the VPS declared
   `shared`, `fit` refusing the VPS for `reporting`; its README matches a
@@ -1183,10 +1191,14 @@ Architecture capture: none of its own; it uses W4.
     its acceptance fix; too soon; moved again; fixed), f4's cycle moving
     the producer's invoicing, f5's and f7's passing `--since` (spec
     D241), their `remaining=` blind to a move, so the harness waits for
-    the moved time (spec D246); f6 and f9 present
-    then fixed after their acceptance fix; the unfaulted scenario,
-    rendered with every instance left out by the harness-only override,
-    passing G1 to G4; f10's own run on armenelos alone, the VPS drained,
+    the moved time (spec D246), f5's cycle ending before f4's and f7's
+    (W4 item 4); f6 and f9 present
+    then fixed after their acceptance fix; the unfaulted scenario (a
+    scratch copy whose seed-changed files are `fixture-campaign`'s, every
+    instance left out by the harness-only override, W4 item 8),
+    passing G1 to G4; if the owner rules (a) on spec O146, the hand-over
+    check passing a "too soon" reading the answer key expects, with its
+    unit test; f10's own run on armenelos alone, the VPS drained,
     its check present, PostgreSQL recovered, s6, `sshd` and `cron`
     untouched;
   - **17b, the rehearsal and the figures**: `rehearsal.sh` on the
@@ -1195,8 +1207,9 @@ Architecture capture: none of its own; it uses W4.
     and quarter-hour jobs and the peak run inside it; `start-load`, a
     scheduled `inject --at`, the early check fired by the host's timer,
     a scheduler killed and resuming, the hand-over check and snapshot, a
-    restart; without f10, by the harness-only override leaving an
-    instance out (never usable in a game); every node's memory and the
+    restart; without f10 and f7 (spec D283), by the harness-only
+    override leaving an instance's planting and check out, its seed
+    changes staying (never usable in a game); every node's memory and the
     trace's growth per hour, extrapolated over the sixteen hours; the
     figures into the bricks' `docs/gm.md` and `brick.yaml` ("Footprint")
     and the scenario's `resources`, `fit` re-run.
@@ -1209,7 +1222,7 @@ Architecture capture: none of its own; it uses W4.
   ("Footprint"), `scenarios/<id>/{scenario.yaml,README.md}`.
 - Spec sections: master spec 11.6, 12.1, 12.5, 13.3, 16.3, 18 (items 1
   to 6); access model 6, 7; spec D241, D246; D253 (the baseline's G1),
-  D256, D257 (f10's check and the night after).
+  D256, D257 (f10's check and the night after); D283; O146.
 - Done when: every run passes as listed, its figures recorded with
   machine and date in the Record line and the wave log; the VPS drained
   after each two-host run and never active during f10's.
@@ -1242,7 +1255,8 @@ Architecture capture: none.
   `feedback.md`: governance faults ("fixed" as 11.7), a report judged
   against an incident, an overstep on the agency's system (16.5), an
   exit 3 at the final answer; f10's check reading 2 until the incident
-  is in the log, and on a failed planting (spec D256). Designing
+  is in the log, and on a failed planting (spec D256), and after the
+  hand-over once a player alters the request, an overstep (spec D282). Designing
   governance: `separation: instance` only where the story's policy
   demands an instance of its own, judged by G1 (spec D253). `gmctl.md`:
   every line chunks 6 to 8 left, and those chunk 19 changed;
@@ -1250,7 +1264,8 @@ Architecture capture: none.
   kept. Out: new scripts; the stance itself.
 - Files: `.claude/skills/game-master/{SKILL,gmctl,feedback}.md`.
 - Spec sections: master spec 7.3, 12.8, 13.3, 14 ("The GM skill"),
-  16.3, 16.5; access model 3, 7, 10, 12; spec D224, D253, D256, D258.
+  16.3, 16.5; access model 3, 7, 10, 12; spec D224, D253, D256, D258,
+  D282.
 - Done when: the skill covers each item of master spec 14's "The GM
   skill"; every `gmctl` invocation in the three files parses with
   `gmctl`'s own parser; v0.3's stance check-list items are unchanged and
@@ -1470,14 +1485,15 @@ bastion only; GM-side checks run from the host.
    f7, f8), f4's moving the producer's invoicing, f5's and f7's with
    `--since`;
    f6 and f9 present, then fixed after their acceptance fix.
-10. Master spec 18.4: the unfaulted scenario passing G1 to G4.
+10. Master spec 18.4: the unfaulted scenario passing G1 to G4, rebuilt
+    from `fixture-campaign`'s files (capture W4 item 8).
 11. Master spec 18.5: f10 calibrated (G10 done, re-measured at 640M by
     chunk 15b, its 327 MiB normal run accepted as measured, spec D252)
     and run on armenelos
     alone, the VPS drained: its check present, PostgreSQL recovered, s6,
     `sshd` and `cron` untouched.
 12. Master spec 18.6: the rehearsal re-run on the merged code without
-    f10, on armenelos plus the VPS, every step passing, every node's
+    f10 and f7 (spec D283), on armenelos plus the VPS, every step passing, every node's
     memory within the declared figures, the trace's growth per hour
     measured and extrapolated, stated as such.
 13. Item 9, the stance check-list on a deployment of the scenario: v0.3's

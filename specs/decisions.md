@@ -552,3 +552,22 @@ v0.5's drafting. Take the next number from `doc-ids`; no ID is reused.
   need them on; a part that calls for one raises its own question.
   Closes O80. Now in:
   [versions/v0.5/brick-options-review.md](versions/v0.5/brick-options-review.md#the-owners-rulings-d250-d261-d262).
+- **D281 (2026-11-02, spec-writer, chunk 20's readings, accepted by the
+  wave driver): a G1 breach of `separation: instance` names the whole
+  database with the word `database` as its object; a planted breach may
+  carry a `-- first:` line, the start `smoke-governance.sh` expects of
+  the first line read from `reporting`.** The breach line's form is W3-a
+  item 5's. Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 11.6.
+- **D282 (2026-11-02, spec-writer, wave 3's reading for chunk 18,
+  reading 16.3 and 16.5): f10's check reads 2 once a player deletes or
+  alters the backfill request; after the hand-over that is an overstep,
+  never a failed planting, and the GM reads the incident in the log.**
+  16.3 already exits 2 without a request; 16.5 said the check was
+  unaffected. Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 16.5;
+  [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunks 16, 18.
+- **D283 (2026-11-02, spec-writer, capture W4, reading 18.6 by its own
+  reason): the rehearsal runs without f7 as well as f10; the override
+  leaves out their planting and checks, their seed changes staying.**
+  f7's close runs at 01:30, outside the noon window, as f10's 03:00 job;
+  release-gate item 2 proves f7. Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 18;
+  [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunk 17, release gate.

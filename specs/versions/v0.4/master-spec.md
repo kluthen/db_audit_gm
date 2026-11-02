@@ -35,7 +35,10 @@ Then the owner accepted f10's normal run at 640M as measured (16.3) and
 had `separation: instance` defined now, as a rule of G1 (6.9, 11.4,
 11.6); chunk 15b's readings of f10 were written in (6.3, 9.6, 16.3),
 and `load-data`'s last step, removing the `pg_cron` launcher's start-up
-failures from the server log on the owner's ruling (7.2, 14).
+failures from the server log on the owner's ruling (7.2, 14). At wave 4's
+start: chunk 20's breach line for a whole database (11.6); f10's check
+reading 2 when a player alters the backfill request (16.5); the
+rehearsal without f7 as well as f10, both nightly (18).
 
 ---
 
@@ -1231,9 +1234,10 @@ breaks.
   it already walks (connectable, not a template), the maintenance
   database `postgres` aside: on each node holding one of the class's
   locations, a database that is not one of them is a breach, named by
-  its `node/database`, whatever it holds, since sharing the instance is
-  the finding. The class's own locations may share one instance. A class
-  without the field is judged as before.
+  its `node/database` with the word `database` as the object (`G1
+  <node>/<database> database: …`), whatever it holds, since sharing the
+  instance is the finding. The class's own locations may share one
+  instance. A class without the field is judged as before.
 - A transformer script's reach is the one path no catalog shows: G3
   judges the roles of its connections, G1 what actually landed; the
   script's code is the players' evidence, not the check's. A cron
@@ -1856,8 +1860,12 @@ overstepping player can do, and how it is treated:
 - **f10.** A player who moves the heavy entry to another hour, deletes
   it, or moves the same `CALL` to another node, has not moved the
   computation (or has stopped the agency's roll-up); the feedback says
-  so. The incident check is unaffected (16.3). The report is judged as
-  if nothing had changed.
+  so. The incident check is unaffected by the crontab (16.3). A player
+  who deletes or alters the backfill request takes away what the check
+  dates the incident from, and it reads 2: after the hand-over that is
+  this overstep, never a failed planting, and the GM reads the kill and
+  the recovery in the node's log itself. The report is judged as if
+  nothing had changed.
 - **f9.** Unscheduling the job (by its id: by name, `cron.unschedule`
   finds only the caller's own jobs, and this one is `bi_etl`'s) and
   dropping the copies makes its check read fixed; the GM judges the
@@ -1934,9 +1942,11 @@ rehearsal and the timer-fired early check, and adds:
    resuming, the hand-over check and snapshot, a restart; the memory of
    every node measured, `reporting`, `bi`, `crm` and `gateway` included;
    the trace's growth per hour measured and extrapolated over the
-   sixteen-hour aging, stated as an extrapolation. It runs without f10,
-   by a harness-only override, since f10's job runs at 03:00, outside
-   the rehearsal's window; item 5 proves it.
+   sixteen-hour aging, stated as an extrapolation. It runs without f10
+   and f7, by a harness-only override, since f10's job runs at 03:00 and
+   f7's nightly close at 01:30, outside the rehearsal's window; items 5
+   and 2 prove them. The override leaves out their planting and checks,
+   not their seed changes, which stay inert in the window.
 7. **Known limits, named** in the release notes: the nightly close
    running at its story's time; the trace's growth over a full aging
    (extrapolated, not observed); hosts and timers through a night; f10

@@ -11,7 +11,7 @@ their IDs keep their meaning. Questions resolved by the close of v0.2
 Questions resolved by the close of v0.3 (O45, O46, O78 and O81–O103) are
 listed in
 [archive/v0.3/open-questions-resolved.md](archive/v0.3/open-questions-resolved.md).
-Numbering continues from O141.
+Take the next number from `doc-ids`; no ID is reused.
 
 Resolved during v0.4's drafting: O106 (D194), O110 (D195), O107 (D197), O120
 (D198), O109 (D199), O121 (D200), O123 (D202), O105 (D203), O129 (D206), O131 (D207),
@@ -143,7 +143,18 @@ his ruling on jobs on a database node closed (D206), raising O131,
 which he confirmed as written (D207). O132 and O133, raised by the
 consolidation, were ruled the same day (D211, D212), and the approval
 of the [master spec](versions/v0.4/master-spec.md) closed O104, O108,
-O122, O124 and O125 as written there (D215). None is open.
+O122, O124 and O125 as written there (D215). O146 raised by wave 4's
+capture W4.
+
+- **O146** (next, v0.4 wave 4, for the owner) — In the first scenario
+  f5 (`shop_etl` expired at 09:00) makes every hourly roll-up fail from
+  09:05, among them the 12:05 run f4's evidence needs after the noon
+  invoicing, so f4 reads "too soon" and the hand-over check fails.
+  (a) f4 expected 3 at the hand-over check, masked by f5 (recommended);
+  (b) f5 planted at `handover-1h`, I5 reworded; (c) the invoicing moved
+  earlier in this scenario. Refs:
+  [versions/v0.4/wave-log.md](versions/v0.4/wave-log.md) "Questions from
+  the capture" (wave 4); [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 16.1.
 
 ## v0.4: data governance
 
