@@ -3174,3 +3174,16 @@ then grep `FAIL` and `WORKAROUND`):
    else removed); merge `v0.4-w4` in, then `--no-ff` into `v0.4-w4`;
    remove the worktree and branch.
 Then 17b, the wave gate, the release gate.
+
+### Owner rulings on the pause, 2026-11-02 ~14:00 UTC
+
+- **The `pgbouncer` start-up race: fixed in v0.4** (the owner, on the
+  driver's recommendation): `spec-writer` records it and revises the
+  plan (an inserted fix-sized chunk, as chunk 20 was); a `coding-executor`
+  adds a bounded wait to the brick's s6 `run` until its `[databases]`
+  hosts resolve, bumps `pgbouncer` and re-pins, on `v0.4-w4`, before the
+  wave gate, and before tonight's runs if it lands in time (17a's branch
+  merges `v0.4-w4` in first).
+- **Tonight's order: cycles, baseline, f10, then the two-host smoke run
+  last** (the owner: "run it overnight, last"); unattended, the drain in
+  the wrapper's `trap`; a refused `active`/`drain` stops it until morning.
