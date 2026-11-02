@@ -1019,7 +1019,7 @@ catalog faults apply to `scheduler` 0.2.0 and 0.1.0 (`scheduler-query-error`,
 `scheduler-update-without-where`, `scheduler-report-unbounded`,
 `scheduler-insert-retry-duplicates`, `scheduler-transaction-held-open`,
 `scheduler-batch-at-peak`, `scheduler-job-wrong-timezone`) and one to
-`pgbouncer` 0.1.0 (`pgbouncer-pool-too-small`); none applies to
+`pgbouncer` 0.1.1 and 0.1.0 (`pgbouncer-pool-too-small`); none applies to
 `postgres`, so none is listed above, but much of their evidence is read
 here. A scenario using them gives this node a seed `postgresql.conf` with
 the logging block above (`log_min_duration_statement`, `log_lock_waits =

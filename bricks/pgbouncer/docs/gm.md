@@ -9,7 +9,7 @@ A PgBouncer connection pooler node (v0.3 master spec 7.2): PgBouncer
 1.26.1 from the PostgreSQL apt repository (PGDG, `trixie-pgdg`, package
 `1.26.1-1.pgdg13+1`, D177; psql 18 from there too), on `debian:13-slim`,
 with s6-overlay 3.2.3.2, `sshd`, the `player` account and a public
-validator, like every node. Image `127.0.0.1:5000/dbagm/pgbouncer:0.1.0`.
+validator, like every node. Image `127.0.0.1:5000/dbagm/pgbouncer:0.1.1`.
 Role `pooler`.
 
 It is optional in any scenario (D119): the GM picks it when the design
@@ -23,7 +23,7 @@ CLIENTS`) and its log, and the node-health script covers the node.
 
 - A node of its own, one per pooler the design needs (one is the usual
   case); it mounts no material into other nodes.
-- Build: `docker build -t 127.0.0.1:5000/dbagm/pgbouncer:0.1.0
+- Build: `docker build -t 127.0.0.1:5000/dbagm/pgbouncer:0.1.1
   bricks/pgbouncer` (x86_64; the build fails if the package is not
   PgBouncer 1.26.1, `1.26.1-1.pgdg13+1`).
 - Stateful (`stateful: true`): its configuration, its log and the
@@ -146,7 +146,7 @@ player's `~/.pgpass` from it (`*:*:*:dba:<password>`, `0600`), as the
 database node does, so plain `psql` on the node opens the console; it is
 the password players already have on the bastion, not a new one.
 
-### Start-up (`gm-entrypoint`, every container start)
+### Start-up (`gm-entrypoint` at every container start, then the service's `run`)
 
 1. Empties `/run` (a named volume) and creates the runtime directories:
    `/run/gm` (root `0700`), `/run/tmp` (`1777`, the target of `/tmp` and
@@ -170,6 +170,38 @@ the password players already have on the bastion, not a new one.
    `pgbouncer.log` `0640`) and the home's, rewrites the player's
    `~/.pgpass` (whatever stands at that name removed first, a link
    included), then execs `/init`.
+
+Then s6 starts `sshd` and the `pgbouncer` service, whose `run` (not
+`gm-entrypoint`) waits before it execs PgBouncer, at every start of the
+service (a container start, or s6 restarting PgBouncer):
+
+9. **The wait for the `[databases]` hosts** (0.1.1, spec D305). It reads
+   every `host=` of the `[databases]` section of
+   `/run/pgbouncer-conf/pgbouncer.ini` (a comma-separated list split, a
+   quoted value unquoted; a socket path, `/...` or `@...`, and an entry
+   without `host=` skipped) and waits, up to **30 s**, until each of them
+   resolves (`getent ahosts`, once a second); then it starts PgBouncer,
+   whether they resolve or not. The wait and its outcome go to the
+   container's log (`gmctl logs`), prefixed `pgbouncer-run:`:
+   `[databases] hosts resolve: db` at once; or `waiting up to 30s for [databases] hosts to resolve:
+   db` followed by `[databases] hosts resolve after 7s: db` or `still not
+   resolving after 30s: <hosts>; PgBouncer starts anyway`. Why: a
+   PgBouncer started before its database node is known to the swarm's
+   DNS can fail every lookup of it (`DNS lookup failed: db: result=0`)
+   for 25 minutes or more after the name resolves, its resolver
+   (c-ares) holding the failure while `getent hosts db` in the same
+   container answers; its clients lose the database meanwhile (4 deploys
+   in 5 during v0.4's build, on a stack whose pooler started ~50 ms
+   before `db`). A PgBouncer started once the name resolves does not.
+   The bound covers a database node starting seconds after the pooler,
+   and stays well inside the health check's 60 s `start_period`: the
+   node is healthy once PgBouncer answers. In a swarm a node's name
+   resolves only once its container is healthy, so what the bound must
+   cover is the database node's time to its first accepted connection:
+   5 s at the stack test's deploy (a new data directory), 7 s for `db`
+   scaled back up. A name that never resolves (a player's edit, a
+   fault) costs 30 s at each start and never keeps the node down; PgBouncer then logs its own lookup failures, as 0.1.0 did.
+   A `RELOAD` does not wait: only a start of the service does.
 
 ## Connections
 
@@ -292,16 +324,18 @@ SQL
 
 `gmctl validate scenarios/<id> --playground <name>` runs the validator
 as `pgbouncer`; `gmctl logs scenarios/<id> --playground <name> --node
-<pooler>` shows s6 and sshd, and PgBouncer's lines from before its log
-file opens (a file that did not load at start); its own log is
+<pooler>` shows s6 and sshd, the service's wait at start
+(`pgbouncer-run:`), and PgBouncer's lines from before its log file
+opens (a file that did not load at start); its own log is
 `/var/log/pgbouncer/pgbouncer.log`.
 
 ## Footprint
 
 Default footprint in `brick.yaml` (master spec 7.2's figures): limits
 CPU `0.25` and memory `64M`; reservations CPU `0.05`, memory `32M` and
-disk `256M`. At rest in the stack test, under the 64M limit: 11.1 MiB
-(`docker stats`; `memory.current` 12.6 MB), CPU 0.01 %. PgBouncer's memory
+disk `256M`. At rest in the stack test, under the 64M limit: 11.2 MiB
+(`docker stats`; `memory.current` 12.8 MB), CPU 0.04 % (0.1.1, 2026-11-02;
+0.1.0: 11.1 MiB, CPU 0.01 %; the wait at start costs nothing at rest). PgBouncer's memory
 grows with clients and pools (a few kilobytes each, `pkt_buf` buffers),
 far below the limit within the envelopes. Disk growth per hour
 (`disk_growth_per_hour`): `1M`, the log only (a stats line a minute, a
@@ -335,7 +369,7 @@ empty volume; the next start rewrites `/run` (the socket,
 
 Which faults the brick hosts is stated only by each fault's `applies_to`
 (D59). This list is every catalog fault (`faults/`) whose `applies_to`
-names `pgbouncer` `0.1.0`, and no other.
+names `pgbouncer` `0.1.1` (all of them name `0.1.0` too), and no other.
 
 | Fault | Kind | What it needs from the brick |
 |---|---|---|
@@ -375,7 +409,10 @@ cannot be planted through the seed (they win over it).
   console (plain `psql` on the node, through `~/.pgpass`) and refused
   `RELOAD`, the GM's admin over the local socket, an
   edit reloaded, the refusals, report-only and an override, the snapshot
-  copy, the footprint at rest.
+  copy, the start-up wait (the deploy with no failed lookup; a pooler
+  started while `db` is scaled to 0 serving through it once `db` is back;
+  a `[databases]` host that never resolves: PgBouncer started at the
+  bound, the console answering), the footprint at rest.
 
 ## Known limits
 
@@ -396,3 +433,22 @@ cannot be planted through the seed (they win over it).
 - A setting PgBouncer cannot change while running (the GM's listeners
   aside, which do not move) takes effect at the next container start;
   the wrapper prints PgBouncer's warning about it.
+- **A database node replaced while PgBouncer runs** is not covered by
+  0.1.1's wait, which runs only when the service starts. When the
+  database node gets a new container under a running pooler (its
+  container replaced, the service scaled down and up), PgBouncer keeps
+  connecting to the old container's address until its resolver's cached
+  answer expires, and every login through it fails meanwhile (`connect
+  failed` on the old address in its log, no `DNS lookup failed`): in the
+  stack test's setup, `db` scaled to 0 and back, the pooler served again
+  603 s after `db` was healthy (the swarm DNS answers for 600 s;
+  measured with 0.1.0, 2026-11-02; 0.1.1 runs the same PgBouncer). The
+  GM cures it at once by restarting the service, which waits again and
+  resolves afresh: `/command/s6-svc -r /run/service/pgbouncer` as root on
+  the node (`gmctl exec ... --node <pooler> --user root`). A cure in the
+  brick is not in 0.1.1.
+- **A database node slower to start than the wait**: a database node
+  that takes longer than 30 s to accept its first connection leaves
+  PgBouncer starting before its name resolves, as 0.1.0 always did, and
+  the stuck lookup of "Start-up" (item 9) can follow; the container's log then shows
+  `still not resolving after 30s: db`. The same restart cures it.

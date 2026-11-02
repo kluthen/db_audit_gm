@@ -383,7 +383,7 @@ class TestLoadFixture(ScenarioCopyTest):
         self.assertEqual({n: (b.id, b.version, b.source) for n, b in sc.bricks.items()}, {
             "bastion": ("bastion", "0.4.0", "catalog"),
             "db": ("postgres", "0.4.0", "catalog"),
-            "pooler": ("pgbouncer", "0.1.0", "catalog"),
+            "pooler": ("pgbouncer", "0.1.1", "catalog"),
             "producer": ("scheduler", "0.2.0", "catalog"),
             "consumer": ("scheduler", "0.2.0", "catalog"),
             "prometheus": ("prometheus", "0.2.0", "catalog"),
@@ -2792,7 +2792,7 @@ class TestCampaignFixture(ScenarioCopyTest):
         self.assertEqual([n["name"] for n in sc.nodes], self.NODES)
         self.assertEqual({n: (b.id, b.version) for n, b in sc.bricks.items()}, {
             "bastion": ("bastion", "0.4.0"), "db": ("postgres", "0.4.0"),
-            "pooler": ("pgbouncer", "0.1.0"), "producer": ("scheduler", "0.2.0"),
+            "pooler": ("pgbouncer", "0.1.1"), "producer": ("scheduler", "0.2.0"),
             "consumer": ("scheduler", "0.2.0"), "reporting": ("postgres", "0.4.0"),
             "bi": ("scheduler", "0.2.0"), "crm": ("scheduler", "0.2.0"),
             "gateway": ("scheduler", "0.2.0"), "prometheus": ("prometheus", "0.2.0"),

@@ -226,7 +226,7 @@ nodes:
   - name: pooler
     brick:
       id: pgbouncer
-      version: 0.1.0
+      version: 0.1.1
     role: pooler
     stateful: true
     networks: [backend]
