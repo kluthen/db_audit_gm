@@ -761,7 +761,7 @@ Acceptable answers:
 - **Improvement**: the days published before the fix restated (a run from no watermark, or a one-off recomputation), so the past figures match the source too; proposed to Lumen.
 
 Sealed check: `faults/purpose-watermark-misses-updates/checks/fixed.sh`, exit 3 at
-hand-over (0: fixed, 1: present, 3: too soon to tell). Spec O146, recommendation (a), pending the owner's ruling: f5 expires shop_etl at 09:00, every hourly run fails from 09:05, and R1's witness (a past day re-invoiced after it ended) needs a successful run after the noon close; so at the hand-over check f4 reads too soon (3), as expected here, not present. Once the players fix f5, the next hourly run publishes the gap in the figures (the evidence), but R1's witness is a close after the judged moment: after a 14:00 hand-over the next counted one is the next day's, so the check reads 3 for the rest of a game (W4 item 3); the proposal is what the feedback judges. bi is report-only: the players cannot move its jobs.
+hand-over (0: fixed, 1: present, 3: too soon to tell). Ruled (a), 2026-11-02 (spec O146): f5 expires shop_etl at 09:00, every hourly run fails from 09:05, and R1's witness (a past day re-invoiced after it ended) needs a successful run after the noon close; so at the hand-over check f4 reads too soon (3), as expected here, not present. Once the players fix f5, the next hourly run publishes the gap in the figures (the evidence), but R1's witness is a close after the judged moment: after a 14:00 hand-over the next counted one is the next day's, so the check reads 3 for the rest of a game (W4 item 3); the proposal is what the feedback judges. bi is report-only: the players cannot move its jobs.
 Judges the purpose's runs since the judged moment (the
 hand-over, or the players' `--since`), against a threshold of
 0 violations.
@@ -801,7 +801,7 @@ hand-over, or the players' `--since`), against a threshold of
 
 Interactions:
 
-- `f4`, masks: the hourly runs fail from 09:05, the 12:05 run after the noon invoicing among them: f4 reads too soon at the hand-over check (spec O146, recommendation (a)); once f5 is fixed, the next hourly run shows f4's gap in the figures.
+- `f4`, masks: the hourly runs fail from 09:05, the 12:05 run after the noon invoicing among them: f4 reads too soon at the hand-over check (ruled (a), 2026-11-02 (spec O146)); once f5 is fixed, the next hourly run shows f4's gap in the figures.
 - `f7`, masks: the close reads src.* through the mapping to shop_etl: the 01:30 close of the aging ran before the expiry and shows f7, but a close while f5 is present would fail, not show it.
 - `f10`, masks: the sales-detail roll-up reads src.sales_detail_orders on the same server and mapping: its next night would fail while f5 is present. The 03:00 incident came before the expiry; f10's check reads the log and is unaffected.
 

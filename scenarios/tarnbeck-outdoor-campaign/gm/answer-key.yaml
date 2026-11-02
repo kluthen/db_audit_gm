@@ -320,7 +320,7 @@ instances:
       judges: runs
       threshold: 0
       notes: >-
-        Spec O146, recommendation (a), pending the owner's ruling: f5
+        Ruled (a), 2026-11-02 (spec O146): f5
         expires shop_etl at 09:00, every hourly run fails from 09:05, and
         R1's witness (a past day re-invoiced after it ended) needs a
         successful run after the noon close; so at the hand-over check f4
@@ -412,7 +412,7 @@ instances:
         note: >-
           the hourly runs fail from 09:05, the 12:05 run after the noon
           invoicing among them: f4 reads too soon at the hand-over check
-          (spec O146, recommendation (a)); once f5 is fixed, the next
+          (ruled (a), 2026-11-02 (spec O146)); once f5 is fixed, the next
           hourly run shows f4's gap in the figures.
       - instance: f7
         kind: masks

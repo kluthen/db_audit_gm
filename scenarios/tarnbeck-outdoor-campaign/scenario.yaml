@@ -773,7 +773,7 @@ fault_instances:
     node: db
     parameters: {}
     visibility: known
-    plant_at: handover-5h           # 09:00, "this morning" (16.1; spec O146 open: W4's (a) kept)
+    plant_at: handover-5h           # 09:00, "this morning" (16.1; ruled (a), 2026-11-02, spec O146)
     aging_minimum: 65m              # the hourly roll-up's first run after planting at 09:05, plus 1h
   - id: f6
     fault:
