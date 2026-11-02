@@ -781,3 +781,11 @@ D285–D299, v0.5's drafting. Take the next number from `doc-ids`; no ID is reus
   standby; where they write stays O149, narrowed. O49 keeps pgBackRest,
   restores and PITR for v1.0+. Now in:
   [versions/v0.5/replication.md](versions/v0.5/replication.md).
+- **D300 (2026-11-02, owner ruling "agreed for the office database",
+  relayed by the coordinator): The periodic reports write to a
+  back-office database, `office`, on the primary's instance,** holding
+  the reports' outputs, the lab's monthly statements and copies of the
+  regulatory submissions; an office role reads the standby, writes
+  `office`, never the clinic's record; no domain part, D293 standing; a
+  variant may move it; its fault candidates accepted. Closes O149. Now
+  in: [versions/v0.5/replication.md](versions/v0.5/replication.md#3-where-the-reports-write-a-back-office-database-d300).

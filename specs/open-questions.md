@@ -11,7 +11,7 @@ their IDs keep their meaning. Questions resolved by the close of v0.2
 Questions resolved by the close of v0.3 (O45, O46, O78 and O81–O103) are
 listed in
 [archive/v0.3/open-questions-resolved.md](archive/v0.3/open-questions-resolved.md).
-Numbering continues from O150.
+Numbering continues from O152.
 
 Resolved during v0.4's drafting: O106 (D194), O110 (D195), O107 (D197), O120
 (D198), O109 (D199), O121 (D200), O123 (D202), O105 (D203), O129 (D206), O131 (D207),
@@ -25,7 +25,7 @@ set (D237); O21 and O135 to v0.6; O24 and O25 to v1.0+ (D248). Resolved
 during v0.5's drafting: O137 and O47 (D248), O126 (D249), O139 (D260),
 O118 (D261), O80 (D262), O114 (D263), O145 (D274, D275), O144 (D278),
 O127 (D285), O128 (D286), O79 (D289), O112 (D292), O147 (D293–D295),
-O148 (D296, D297), O113 (D298).
+O148 (D296, D297), O113 (D298), O149 (D300).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -199,15 +199,12 @@ added on 2026-10-30 (D196).
   tags (D263; procedure 9), and what the
   clinic's domains reveal. Finalised in the master spec when v0.5
   consolidates (D291), which closes it.
-- **O149** (later, v0.5) — Where the periodic reports write their
-  outputs. Replication is ruled (D299): the reports read on the core's
-  standby. Their outputs go to a back-office database, `office`, on the
-  primary's instance, with an office role and no report table in the
-  clinic's record (recommended; the purposes' target, not a domain
-  part), or back into the clinic's database. The owner: "I'm on the
-  fence to have a dedicated database for administrative purpose
-  (separation of concern, etc)." Refs:
-  [versions/v0.5/replication.md](versions/v0.5/replication.md#3-where-the-reports-write-a-back-office-database-proposed-o149).
+- **O151** (next, v0.5) — `vet-lab`'s business sketch: fifteen
+  questions, each with a proposed default, from where the lab's
+  database sits and how the centre's orders reach it to residue tests,
+  notifiable diseases, billing the practices and a part's scale in the
+  format. The data model (step 4) waits for the answers. Refs:
+  [versions/v0.5/vet-lab-domain.md](versions/v0.5/vet-lab-domain.md#questions-for-the-owner-o151).
 
 ## v0.6: the setup's entry point
 

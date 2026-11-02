@@ -88,7 +88,9 @@ activity figures, a pushed flow.
   (procedure 4); `vet-lab` keeps their accounts and price list.
 - **Billing them** (D294), inside `vet-lab`: test prices, each outside
   order's charge, a monthly statement per customer clinic, a periodic
-  report (D265) with its past statements planted. No invoices to animal
+  report (D265) with its past statements planted, the statements
+  landing in the back-office database, `office` ([replication.md](replication.md)
+  3, D300). No invoices to animal
   owners, no payments, no insurers: those stay with the later billing
   part. This narrows D278's eighth answer (no billing in the clinic's
   v0.5 domains) to the lab's outside customers.

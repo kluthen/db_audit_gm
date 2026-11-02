@@ -1,9 +1,9 @@
 # v0.5 — replication and the off-site copies
 
-Status: draft v2, ruled but for one point. The owner ruled the standby,
-the vault and the fault candidates on 2026-11-02, and that the periodic
-reports read on the standby (D299); where the reports write their
-outputs is (proposed) in section 3 (O149, narrowed to it).
+Status: draft v3, ruled. The owner ruled the standby, the vault and the
+fault candidates on 2026-11-02, and that the periodic reports read on
+the standby (D299); then, the same day, that they write to a back-office
+database, `office` (section 3, D300, closing O149).
 
 The owner, asking on 2026-11-02: "have we set replications needs for
 this project ? we could have probably one off site (but still within
@@ -11,7 +11,8 @@ network) replication set up, and another (cold storage like) set as
 well ?" Then, on the draft: "ok" to each point but one, and on where the
 reports run: "hmmm agreed on reading on the standby. I'm on the fence to
 have a dedicated database for administrative purpose (separation of
-concern, etc)."
+concern, etc)." And on the back-office database as drafted: "agreed for
+the office database".
 
 **Before this page.** Replication is a standby mode of the `postgres`
 brick, a node the topology chooses, no option (D250); every seed
@@ -39,7 +40,8 @@ a scenario deploys (D285).
   reads on the standby, `hot_standby_feedback` on so that long report
   queries are not cancelled, its cost (vacuum held back on the primary)
   a thing to watch. A standby is read-only: the report's job holds a
-  second connection for its outputs, whose target is section 3.
+  second connection for its outputs, to the back-office database on
+  the primary (section 3, D300).
 - **Built**: the standby cloned from the primary after the data load,
   before the aging; the brick's standby mode is specified with it.
 - **Observed**: `pg_stat_replication` on the primary, its lag in the
@@ -64,11 +66,11 @@ a scenario deploys (D285).
   with O49, for v1.0+'s DBA work (D272): they need a vault that keeps the
   data.
 
-## 3. Where the reports write: a back-office database (proposed, O149)
+## 3. Where the reports write: a back-office database (D300)
 
-The reports read on the standby (D299). Their outputs go either back
-into the clinic's database on the primary, or into a database of the
-business's office. Recommended: **the back-office database**.
+The reports read on the standby (D299) and write their outputs to a
+database of the business's office, `office`, not back into the clinic's
+database (D300, closing O149).
 
 - **What it holds**: what the office produces, not the clinic's
   operational record: the periodic reports' outputs (D265), the lab's
@@ -78,8 +80,8 @@ business's office. Recommended: **the back-office database**.
 - **Its roles**: an office role reading the standby and writing the
   back-office database, and no write grant on the clinic's record; the
   operational record carries no report table.
-- **Placement**: by default a database of its own, `office`, on the
-  primary's instance: no new node, and it rides the standby and the WAL
+- **Placement**: a database of its own, `office`, on the primary's
+  instance: no new node, and it rides the standby and the WAL
   archive for free; the separation is by database and roles. A variant
   may move it to an instance of its own.
 - **Not a domain part.** Its tables are the purposes' targets: a
@@ -91,7 +93,7 @@ business's office. Recommended: **the back-office database**.
   the scenario and defaulted in the clinic's GM notes; D293's "core and
   five parts" stands. The lab's prices and charges stay in `vet-lab`
   (D294); only the statements land in the office.
-- **Fault candidates**:
+- **Fault candidates**, accepted (D300):
 
   | Candidate | What the players find |
   |---|---|
@@ -100,9 +102,14 @@ business's office. Recommended: **the back-office database**.
   | A report reading the primary, not the standby | its heavy reads competing with the clinic's traffic at the report's hour |
   | The back-office database on an instance of its own, left out of the standby, the archive or the checks | a database with no copy anywhere, its manifests absent from the vault |
 
-The other reading: outputs back into the clinic's database, as first
-drafted: no new database, report tables beside the record, the
-separation by roles alone.
+Rejected: the outputs back into the clinic's database, as first
+drafted, report tables beside the record and the separation by roles
+alone.
+
+The office role's name, and whether it is `vet-core`'s `vet_reports`
+given its write grants on `office`, are settled with the purposes
+(procedure step 7), each report's or statement's target DDL in its
+purpose.
 
 ## 4. Fault candidates (D299)
 
@@ -125,4 +132,4 @@ separation by roles alone.
 - **The vault**: nothing more where the scenario already has cold
   storage; its traffic is the WAL's volume, small at one centre's rates
   (D295), plus a base backup a night.
-- **The back-office database**, as recommended: no node.
+- **The back-office database** (D300): no node.

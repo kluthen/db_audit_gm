@@ -420,7 +420,9 @@ secret, as for the shop.
 | `vet_reports` | every table, names and contacts included (the back office answers owners) | nothing |
 
 The purposes' roles (the registers, the yearly antimicrobial report,
-notifiable diseases) come with step 7.
+notifiable diseases) come with step 7; the periodic reports read on the
+standby and write to the back-office database, `office`, never to
+`clinic` ([replication.md](replication.md) 1, 3; D299, D300).
 
 ### Reference sizes
 
