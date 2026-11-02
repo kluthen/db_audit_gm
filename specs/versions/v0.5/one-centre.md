@@ -33,8 +33,9 @@ franchise, just third party api nodes." Then, on the consequences:
   has outside customers, their orders coming in and their bills going
   out.
 - **Redundancy stays inside the centre**: replication, a standby mode
-  of the brick (D250); which databases and where is
-  [replication.md](replication.md) (proposed, O149).
+  of the brick (D250): a standby of the core's instance off site, and
+  its WAL and base backups in cold storage ([replication.md](replication.md),
+  D299).
 
 **Privileged flows** are trusted flows inside the franchise, carrying
 more of the record than any outside partner gets (an animal's history,

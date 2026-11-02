@@ -20,7 +20,7 @@ README:
 Archived IDs keep their meaning and are cited as they are. D107 and D113
 stay live: rulings still to be applied in v0.5. D190 onward are v0.4's
 drafting and build, apart from D233–D238, D248–D251, D260–D280 and
-D285–D298, v0.5's drafting. Take the next number from `doc-ids`; no ID is reused.
+D285–D299, v0.5's drafting. Take the next number from `doc-ids`; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -772,3 +772,12 @@ D285–D298, v0.5's drafting. Take the next number from `doc-ids`; no ID is reus
   day on site, every domain's growth an hour in its GM notes. Closes
   O113. Now in:
   [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md) 11.
+- **D299 (2026-11-02, owner answers "ok", relayed by the coordinator):
+  Replication as proposed:** an asynchronous, readable standby of the
+  instance holding `vet-core`, with a slot, on an off-site node in the
+  players' scope, the only one in v0.5; WAL archiving (`archive_timeout`
+  1h) and a nightly base backup to cold storage as types `wal` and
+  `basebackup`; every fault candidate. The periodic reports read on the
+  standby; where they write stays O149, narrowed. O49 keeps pgBackRest,
+  restores and PITR for v1.0+. Now in:
+  [versions/v0.5/replication.md](versions/v0.5/replication.md).

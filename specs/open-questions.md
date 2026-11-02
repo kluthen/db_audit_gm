@@ -199,19 +199,15 @@ added on 2026-10-30 (D196).
   tags (D263; procedure 9), and what the
   clinic's domains reveal. Finalised in the master spec when v0.5
   consolidates (D291), which closes it.
-- **O149** (later, v0.5) — Replication and the off-site copies, the
-  owner asking (2026-11-02): "have we set replications needs for this
-  project ? we could have probably one off site (but still within
-  network) replication set up, and another (cold storage like) set as
-  well ?" Proposed: an asynchronous, readable standby of the instance
-  holding `vet-core`, with a slot, on an off-site node of the centre in
-  the players' scope, the periodic reports reading there; `vet-lab`
-  without one unless it lands in that instance; WAL archiving and a
-  nightly base backup with plain PostgreSQL tools, sent to the cold
-  storage stub as types `wal` and `basebackup`; the faults they enable.
-  Its ruling would narrow O49 to pgBackRest and its kind, restores and
-  drills. Refs:
-  [versions/v0.5/replication.md](versions/v0.5/replication.md).
+- **O149** (later, v0.5) — Where the periodic reports write their
+  outputs. Replication is ruled (D299): the reports read on the core's
+  standby. Their outputs go to a back-office database, `office`, on the
+  primary's instance, with an office role and no report table in the
+  clinic's record (recommended; the purposes' target, not a domain
+  part), or back into the clinic's database. The owner: "I'm on the
+  fence to have a dedicated database for administrative purpose
+  (separation of concern, etc)." Refs:
+  [versions/v0.5/replication.md](versions/v0.5/replication.md#3-where-the-reports-write-a-back-office-database-proposed-o149).
 
 ## v0.6: the setup's entry point
 
@@ -287,7 +283,9 @@ the question concerns.
   backup-tooling fault families (D17) are in no version, although backups
   were a founding example and the v0.1 goal speaks of "investigating a
   backup". Which version? WAL archiving and base backups with plain
-  PostgreSQL tools are proposed for v0.5 (O149). Refs:
+  PostgreSQL tools are in v0.5 (D299); left here: pgBackRest and the
+  like, restores, point-in-time recovery and restore drills, for
+  v1.0+'s DBA work (D272). Refs:
   [bricks-and-faults.md](bricks-and-faults.md), "Future ideas: backup
   tooling".
 - **O52** (later, after v0.4) — dbt adds a Python toolchain and adapters

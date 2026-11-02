@@ -4,8 +4,8 @@ Status: draft v2, ruled. The direction is the owner's (D288); the
 design was ruled as drafted on 2026-11-02, with the bastion's route to
 its page (D296) and the GM deciding what ships, use first (D297),
 closing O148. Linked from [producer profiles](producer-profiles.md) 11.
-The same stub may also hold the databases' WAL and base backups
-([replication.md](replication.md), proposed, O149).
+The same stub also holds the core's WAL and base backups, as types
+`wal` and `basebackup` ([replication.md](replication.md), D299).
 
 The owner, on 2026-11-02, on the data growth over the aging: "If we're
 talking about lab machineries, we will say that we keep a day on site
