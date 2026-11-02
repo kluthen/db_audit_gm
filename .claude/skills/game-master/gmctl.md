@@ -1,6 +1,6 @@
 # `gmctl` for the GM — command reference
 
-Every call the [GM skill](SKILL.md) makes, as built in v0.3. Run from the
+Every call the [GM skill](SKILL.md) makes, as built in v0.4. Run from the
 repository root. Each subcommand takes `<scenario-dir> --playground
 <name>`, prints a readable result, and exits non-zero on failure; `gmctl
 <subcommand> --help` is the authority when this page and the tool
@@ -18,7 +18,17 @@ adds `start-load`, `inject --at`, `check --early-check` and
 `--handover-check`, `snapshot` and `restart`, the stage `load-started`,
 `render --handover`, several hosts on `fit` and `deploy`, and the
 overlay's range; fixed by captures W2, W3, W3-a and W3-b in
-`specs/versions/v0.3/wave-log.md`.
+`specs/versions/v0.3/wave-log.md`. v0.4 (master spec 14) adds no
+subcommand: a host marked `shared` on `fit` (13.3), `render`'s customer's
+time zone in more seed files, a database node's crontab shifted and its
+roles' secrets (7.2, 8.5), `load-data`'s new steps (the roles'
+passwords, the user mappings', the GM check role's read policy and
+mapping-roles function, the `pg_cron` launcher's start-up failures out
+of the server log, spec D258), `check --since` and `--instance` with the
+judged moment (12.1), and the web front in every game, so the bastion's
+second port and the tools password in every game (7.3; spec D224,
+replacing D103); fixed by captures W1, W1-x, W1-z, W2, W2-x and W3-a in
+`specs/versions/v0.4/wave-log.md`.
 
 ## Stages
 
@@ -46,22 +56,22 @@ The teardown a failed step runs itself writes none.
 | Command | Allowed at | Records | Exit |
 |---|---|---|---|
 | `tools/gmctl status <dir> --playground <pg>` | any game | nothing | 0; 1 no game |
-| `tools/gmctl fit <dir> --playground <pg> [--endpoint ssh://user@host] [--cpu N --memory SIZE --disk SIZE]`, or on several hosts `[--host <name>[,manager][,endpoint=ssh://user@host],cpu=N,memory=SIZE,disk=SIZE ...] [--map <designed host>=<host> ...]`; either form `[--overlay-range <cidr>]` | no game, `fitted`, `rendered`, `failed` before deployment (same game id); `torn-down`, or `failed` after deployment with its teardown recorded (a new game id) | `fitted`; `overlay_range` in `playground.yaml` with `--overlay-range` (D183: the range a game on several hosts takes its overlay's /24 from; kept by a re-fit without the option; never declared: 10.20.0.0/16) | 0 fits; 1 does not fit, or refused (a deployed stage, or a failure after deployment not torn down: the message names the game, its stage and `gmctl teardown`, or `gmctl deploy` for a failed deploy; the playground's engine not reachable; an image missing on it, with its build command; a declaration it cannot place the scenario on: no or two managers, a designed host unmapped or unknown, a mapping onto an undeclared host, a host the manager's `docker node ls` does not list or a manager listed as a worker, a node publishing ports placed off the manager, `--endpoint`, `--cpu`, `--memory` or `--disk` with `--host` or on several hosts; an `--overlay-range` that is not IPv4, wider than /8, narrower than /24, with host bits set or outside 10/8, 172.16/12 and 192.168/16; these last write nothing) |
+| `tools/gmctl fit <dir> --playground <pg> [--endpoint ssh://user@host] [--cpu N --memory SIZE --disk SIZE]`, or on several hosts (or one shared host) `[--host <name>[,manager][,shared][,endpoint=ssh://user@host],cpu=N,memory=SIZE,disk=SIZE ...] [--map <designed host>=<host> ...]`; either form `[--overlay-range <cidr>]` | no game, `fitted`, `rendered`, `failed` before deployment (same game id); `torn-down`, or `failed` after deployment with its teardown recorded (a new game id) | `fitted`; `overlay_range` in `playground.yaml` with `--overlay-range` (D183: the range a game on several hosts takes its overlay's /24 from; kept by a re-fit without the option; never declared: 10.20.0.0/16); `shared: true` on a host given `shared` (written only when given; absent, not shared) | 0 fits; 1 does not fit, or refused (a deployed stage, or a failure after deployment not torn down: the message names the game, its stage and `gmctl teardown`, or `gmctl deploy` for a failed deploy; the playground's engine not reachable; an image missing on it, with its build command; a declaration it cannot place the scenario on: no or two managers, a designed host unmapped or unknown, a mapping onto an undeclared host, a host the manager's `docker node ls` does not list or a manager listed as a worker, a node publishing ports placed off the manager, a node carrying a fault that declares `needs_unshared_host` placed on a `shared` host (naming the mapping to change, `--map <designed host>=<host>` onto a host that is not shared), a playground whose only hosts are shared for such a scenario (v0.4 master spec 13.3), `--endpoint`, `--cpu`, `--memory` or `--disk` with `--host` or on several hosts; an `--overlay-range` that is not IPv4, wider than /8, narrower than /24, with host bits set or outside 10/8, 172.16/12 and 192.168/16; these last write nothing) |
 | `tools/gmctl render <dir> --playground <pg> [--handover <UTC date and hour>]` | `fitted`, `rendered` | `rendered`; the `timeline` in `implementation.yaml` | 0; 1 refused (no `--handover` with scheduler nodes, a hand-over not in the future or not a whole hour, the scenario changed since `fit`) |
 | `tools/gmctl deploy <dir> --playground <pg> [--init-swarm] [--timeout SECONDS] [--overlay-range <cidr>]` | `rendered`, or `failed` in deploy | `deployed`; `images` in `state.yaml` on several hosts | 0; 1 refused (an image missing on the manager; on several hosts: `--init-swarm`, a host with nodes not `Ready` and `active` in the swarm, naming `docker node update --availability active <host>`, which the owner runs, or a host that does not answer without an SSH agent and a terminal, as a host timer's run reaches it; a Docker context `dbagm-<host>` aimed elsewhere; no free /24 left in the range in force, or the recorded overlay subnet, inside that range, now overlapping a network: each names the networks taken and their hosts, and the way out, `--overlay-range <cidr>` for this run or `gmctl fit --overlay-range <cidr>` for the playground (D183); an `--overlay-range` `fit` would refuse; nothing created) or failed. `--overlay-range`: this run's range in place of the playground's, not recorded in `playground.yaml` |
-| `tools/gmctl load-data <dir> --playground <pg> [--timeout SECONDS]` | `deployed` (later deployed stages: no-op, exit 0) | `data-loaded` | 0; 1 refused or failed |
+| `tools/gmctl load-data <dir> --playground <pg> [--timeout SECONDS]` | `deployed` (later deployed stages: no-op, exit 0) | `data-loaded` | 0; 1 refused or failed (a data file, a role's or a user mapping's password, the GM check role's grants, or a `pg_cron` launcher not connected within 60 s: torn down, stage `failed`) |
 | `tools/gmctl inject <dir> --playground <pg> [--timeout SECONDS]` | `data-loaded`, `injected` (a replay) | `injected`; every instance's planting (`plantings`); with scheduler nodes only the instances due at T0 are planted | 0; 1 refused (at `load-started`: re-plant one instance with `--at now`) or failed |
 | `tools/gmctl start-load <dir> --playground <pg>` | `injected`, with scheduler nodes | each attempt in `load`; T0 and `load-started` once every scheduler runs; the early check's host timer | 0 started; 1 refused (no scheduler node: `game <id> has no scheduler node, so it has no aging and no load to start (D157)`; the load already started; once handed over) or a scheduler did not start (recorded, nothing torn down, the stage stays `injected`: fix it and run it again, or tear the game down) |
 | `tools/gmctl inject <dir> --playground <pg> --at <YYYY-MM-DDTHH:MMZ>\|now --instance <id>` | `load-started` | `plantings.<id>`: its host timer, or its attempt and, on success, `planted_at` | 0 scheduled or planted; 1 refused (not a `state` instance, a T0 instance (master spec 8.5), an instant not in the future or at or after the planned hand-over, an instant for an instance already planted, at or after hand-over) or the planting failed (recorded, nothing torn down, the stage unchanged) |
-| `tools/gmctl check <dir> --playground <pg> --early-check` | `load-started` (the host timer runs it; the GM may run it again) | `early_check.result`; the outages; the earliest hand-over | 0 passed; 1 failed (recorded, nothing torn down); 2 refused (no scheduler node, another stage) |
-| `tools/gmctl check <dir> --playground <pg> --handover-check` | `load-started`; `injected` with no scheduler node | a record in `handover_checks`; the outages; the earliest hand-over | 0 passed; 1 failed; 3 failed only on too-soon readings (wait the longest remaining window, then run it again); 2 refused |
+| `tools/gmctl check <dir> --playground <pg> --early-check` (never with `--since` or `--instance`: exit 2) | `load-started` (the host timer runs it; the GM may run it again) | `early_check.result`; the outages; the earliest hand-over | 0 passed; 1 failed (recorded, nothing torn down); 2 refused (no scheduler node, another stage) |
+| `tools/gmctl check <dir> --playground <pg> --handover-check` (never with `--since` or `--instance`: exit 2) | `load-started`; `injected` with no scheduler node | a record in `handover_checks`; the outages; the earliest hand-over | 0 passed; 1 failed; 3 failed only on too-soon readings (wait the longest remaining window, then run it again); 2 refused |
 | `tools/gmctl snapshot <dir> --playground <pg>` | `load-started` with the earliest hand-over reached; `injected` with no scheduler node | `snapshot`: `taken` with each copy's host and volume (`dbagm-snapshot_<game id>_<node>_<volume>`, labelled `dbagm.snapshot=<game id>`), `not-fitting` when `fit` said the copies do not fit (nothing copied), or `failed` with its reason (its copies removed, nothing torn down) | 0 taken or not fitting; 1 refused (another stage, before the earliest hand-over or while it waits for a planting, once handed over) or failed (run it again). Each volume by its brick's method; a `stop` brick (Prometheus, Grafana) is stopped briefly and started again; taking it again replaces the copies |
 | `tools/gmctl status <dir> --playground <pg> --set handed-over` | `load-started`, the earliest hand-over reached, the last hand-over check passed at or after it, and the snapshot taken or recorded as not fitting; with no scheduler node, `injected`, the last hand-over check passed and the snapshot taken or recorded as not fitting | `handed-over` | 0; 1 refused (the condition not met, and for the earliest hand-over when it falls) |
 | `printf '%s\n' 'cat ~/report.md' \| tools/gmctl exec <dir> --playground <pg> --node <bastion> --user player` | any deployed stage | nothing | the script's own; 125 could not start |
 | `printf '%s\n' '<script>' \| tools/gmctl exec <dir> --playground <pg> --node <node> --user <user> [--env KEY=VALUE]` | any deployed stage | nothing | the script's own; 125 could not start |
 | `tools/gmctl status <dir> --playground <pg> --set final-answer` | `handed-over` | `final-answer` | 0; 1 refused |
 | `tools/gmctl validate <dir> --playground <pg>` | any deployed stage | nothing | 0 green; 1 red; 2 error or refused |
-| `tools/gmctl check <dir> --playground <pg>` | `injected` and later deployed stages | nothing | 0 all fixed; 1 any present (none errored); 3 any too soon to tell (none errored or present: wait the longest remaining window, then run it again); 2 any error or refused |
+| `tools/gmctl check <dir> --playground <pg> [--since <YYYY-MM-DDTHH:MM:SSZ>] [--instance <id> ...]` | `injected` and later deployed stages | nothing | 0 all fixed; 1 any present (none errored); 3 any too soon to tell (none errored or present: wait the longest remaining window, then run it again); 2 any error or refused (a `--since` in the future or malformed, a `--since` with no instance run judging runs or triggers, an `--instance` not of the scenario, a judging instance not planted yet; nothing run). `--instance` (repeatable) runs those instances' checks only; `--since` raises the judged moment of the instances run that judge runs or triggers (master spec 12.1) |
 | `tools/gmctl logs <dir> --playground <pg> --node <node> [--tail N]` | any game (useful while its services exist) | nothing | Docker's (`docker service logs`); 1 no game. A PostgreSQL node's shows sshd and the server's start-up only when its seed sets `logging_collector = on` (every v0.2 seed): its server log is then in files, read through `exec`; without the collector, the whole server log is here |
 | `tools/gmctl status <dir> --playground <pg> --set feedback-given` | `final-answer` | `feedback-given` | 0; 1 refused |
 | `tools/gmctl restart <dir> --playground <pg> --confirmation "<the player's words>" [--timeout SECONDS] [--overlay-range <cidr>]` | `handed-over`, `final-answer` or `feedback-given`; `failed` after a failed restart (to retry it) | `restarts`: the old and new game ids, the time, from the snapshot or not, the player's words, `completed` or `failed` with its reason; the game under its new id at `handed-over` | 0 rebuilt; 1 refused (no or blank confirmation, before hand-over, torn down, a copy, image or secret file missing, an `--overlay-range` `fit` would refuse; on several hosts, the overlay's recorded subnet, inside the range in force, now taken, or no free /24 left in that range, each naming what is taken and the way out, `--overlay-range <cidr>` on `restart`, `gmctl fit --overlay-range <cidr>` only for the playground's next games; nothing done) or failed (what it deployed torn down, stage `failed`, the snapshot kept: run it again, or tear down). Every node and volume removed but the snapshot; every secret's value kept under new objects, so the players' passwords still work; a new seed. From the snapshot: fresh copies of it, the schedulers resuming from their marker, T0 unchanged. Not fitting: the data loaded, every fault planted at once and, with scheduler nodes, the load started at once under a new T0. The four hours still count from the first hand-over; the snapshot stays for a second restart. On several hosts the overlay's subnet is kept while it lies inside the range in force (`--overlay-range` for this run, else the playground's, D183); one outside it is picked again from it |
@@ -98,8 +108,9 @@ password or key. The GM's reads, one per tool, are in the skill's
   will have no snapshot, and a restart starts from nothing`, and records
   `snapshot_fit` so in `implementation.yaml` (master spec 12). On several
   hosts (v0.3 master spec 10.2; capture W3 of v0.3, items 1, 2 and 5) the
-  playground lines list each host and the mapping, and each host gets
-  its own lines, `host <name> (<manager, ><endpoint>): nodes <names>`
+  playground lines list each host (`host <name> (manager, shared): ...`,
+  each mark only when it holds) and the mapping, and each host gets
+  its own lines, `host <name> (<manager, ><shared, ><endpoint>): nodes <names>`
   then its capacity lines against the nodes placed there and their
   images, each counted once on it; the game fits when every host does,
   and a problem reads `host <name>: <line>`; then `overlay range:
@@ -111,7 +122,14 @@ password or key. The GM's reads, one per tool, are in the skill's
   (`docker -H <endpoint> build ...` for a remote engine); an engine that
   does not answer as `the engine <engine> is not reachable: <Docker's
   message>. ...`. An incomplete scenario: the list of missing items,
-  then `refused`.
+  then `refused`. A node refused on a shared host (v0.4 master spec 13.3;
+  capture W1 item 3): `playground <pg>: node <node> carries fault instance
+  <id> (<fault-id>), which needs an unshared host, and would be placed on
+  <host>, a shared host: ...; map <designed host> onto a host that is not
+  shared (<hosts>) (--map <designed host>=<host>); nothing written`; a
+  playground whose only hosts are shared: `its only host(s) (...) are
+  shared, and node <node> carries ...; declare a host that is not shared
+  (--host without shared) and place the node on it`.
 - **`render`**: `Game <id>: rendered.`, the stack file, each node's
   envelope file, then each node's own config of a mounted item
   (`mounted/<item>/<node>.conf`), then each seed file it rewrites
@@ -133,7 +151,15 @@ password or key. The GM's reads, one per tool, are in the skill's
   `timezone_offset: N` keeps its time in the zone `Etc/GMT∓M`, M the
   shift plus N wrapped into UTC-12..UTC+14) are rendered there, as are
   the bastion's files holding `{{customer_timezone}}`, filled with
-  `UTC+2 (Etc/GMT-2)`. A scenario with no scheduler node renders without
+  `UTC+2 (Etc/GMT-2)`. From v0.4 (master spec 7.2, 8.5; captures W1
+  item 0 and W2 in `specs/versions/v0.4/wave-log.md`) `{{customer_timezone}}`
+  is also filled, as the bare zone (`Etc/GMT-2`), in every scheduler
+  node's seed files and in a `postgres` node's seed `postgresql.conf`
+  (`cron.timezone`: `pg_cron` schedules stay in the customer's time, never
+  shifted), and a `postgres` node's seeded `crontab` is rewritten with
+  its hours in UTC as `jobs.yaml`'s are (the hour field expanded, moved
+  by the shift modulo 24, written back as a sorted list; `*`, comments,
+  `VAR=` lines and blanks kept; no header). A scenario with no scheduler node renders without
   `--handover` and shifts nothing; given one, only the planned hand-over
   is recorded. Each seed config is mounted with its brick's `seed.modes`
   mode (`schedule.yaml` `0400`), `0444` otherwise, and a directory seed
@@ -142,7 +168,12 @@ password or key. The GM's reads, one per tool, are in the skill's
   `GM_WRITE_OVERRIDES` (its `write_overrides`, sorted, space-separated,
   `""` when none; W1 item 5). Each role a scheduler's `schedule.yaml`
   names gets a password secret `role_<role>_password`, mounted root-only
-  (`0400`) at `/opt/gm/secrets/` in each scheduler node naming it; a
+  (`0400`) at `/opt/gm/secrets/` in each scheduler node naming it; from
+  v0.4 so does each role a `postgres` node's `crontab_roles` names, in
+  that node, one secret per role per game shared with any scheduler
+  naming it, and every other login role a data file creates without a
+  password of its own has its secret too, mounted nowhere (`load-data`
+  sets it in the database; v0.4 master spec 9.7); a
   brick secret with `only_with_role` (the lookup role's
   `pgbouncer_lookup_password`, `pooler`) exists only when a node of the
   topology has that role. Parameter faults
@@ -160,8 +191,9 @@ password or key. The GM's reads, one per tool, are in the skill's
 - **`deploy`**: `Game <id>: deployed on <endpoint>.`, the credentials
   directory (never printed), the services healthy, then one line per
   published port: `node <bastion>: port <port> on the swarm host
-  (container port <target>)`, target 22 for SSH and, with a web
-  interface, 8080 for the web front; `Stage deployed.` On several hosts
+  (container port <target>)`, target 22 for SSH and 8080 for the web
+  front, in every game from v0.4 (spec D224; the loader refuses a bastion
+  without that port, routes or none); `Stage deployed.` On several hosts
   (v0.3 master spec 10.2; capture W3 of v0.3, items 3 and 6) the first
   line is `Game <id>: deployed on <pg>, <n> hosts:`, followed by one line
   per declared host, `  host <name> (manager): <endpoint>` (`(manager)`
@@ -197,15 +229,42 @@ password or key. The GM's reads, one per tool, are in the skill's
   characters when players type it, `handed_over`, else 32); a key pair
   (ed25519, no passphrase) writes `<pair>` and `<pair>.pub`. Every node
   runs with `TZ=UTC`, on the one network `<id>_<network name>`.
-- **`load-data`**: one line per node's data file, `<node> <file> (psql as
-  postgres): ok|exit N`, then, in a game with scheduler nodes, one per
+- **`load-data`** (v0.4 master spec 14; captures W2-x and the `load-data`
+  secrets fix in `specs/versions/v0.4/wave-log.md`): the steps in order,
+  also a restart's with no snapshot. One line per node's data file,
+  `<node> <file> (psql as postgres): ok|exit N`, each run with `-v
+  customer_timezone=<zone> -v customer_utc_offset=<n>` (render's shift;
+  `Etc/GMT` and `0` in a game with no scheduler node). Then one per
   database node, `<node> passwords of <roles> (psql as postgres)`: each
-  application role a schedule names gets its password from its secret
-  (`role_<role>_password`) once the data has created it, on the database
-  node the connection targets (every database node for a pooler target),
-  sent as a SCRAM verifier with statement logging off, so no log holds
-  it; a role the data did not create fails the step. The summary lists
-  the files and `<node>: password set from its secret for role(s) ...`.
+  role gets its password from its secret (`role_<role>_password`) once
+  the data has created it, sent as a SCRAM verifier with statement
+  logging off, so no log holds it: every role a schedule names, on the
+  database node its connection targets (through a pooler, every database
+  node whose data file creates the target database, or every database
+  node when none does); every role a node's `crontab_roles` names, on
+  that node; every login role a node's data file creates without a
+  password of its own, on that node (a role whose `CREATE` sets its own
+  password keeps it). A role the data did not create fails the step.
+  Then each database node's databases are listed and surveyed (`<node>
+  databases ...`, `<node> survey of <databases> ...`: `pg_cron`, foreign
+  servers, user mappings); `<node> user mapping passwords (psql as
+  postgres)` gives each user mapping, as its `password` option, its
+  remote role's secret (redacted in anything printed; a mapping with no
+  `user` option, or whose remote role has no secret in the game, fails
+  the setup); `<node> gm_check's read policy and mapping-roles function
+  (psql as postgres)`, where the check role exists, adds the read policy
+  `gm_check_read` on `cron.job` and `cron.job_run_details` in a database
+  holding `pg_cron`, and `gm_check.user_mapping_roles()` (each mapping's
+  server, local role and remote role, never its password) in a database
+  holding a foreign server; `<node> CONNECT for gm_check (psql as
+  postgres)` grants the check role `CONNECT` on every database, on every
+  instance. The summary lists the files, `<node>: password set from its
+  secret for role(s) ...`, `<node>/<db>: user mapping for <local role> on
+  server <server> given remote role <role>'s password`, `<node>/<db>:
+  gm_check may read every row of cron.job and cron.job_run_details
+  (policy gm_check_read)`, `<node>/<db>: gm_check.user_mapping_roles()
+  created for gm_check` and `<node>: gm_check granted CONNECT on every
+  database`.
   Last (v0.4), on each database node where a database holds `pg_cron`:
   `<node> pg_cron launcher and the server log's switch (psql as
   postgres)` waits up to 60 s for the launcher to be connected (not
@@ -264,7 +323,25 @@ password or key. The GM's reads, one per tool, are in the skill's
   through its API, not only the files. A check on a PostgreSQL node
   connects as the GM check role `gm_check`, inside the GM's reserve, so an
   exhausted `max_connections` does not lock it out; players see its
-  sessions in the server log and `pg_stat_activity`.
+  sessions in the server log and `pg_stat_activity`. From v0.4 (master
+  spec 12.1, 12.8; capture W1 item 2), a check whose answer-key entry
+  says `judges: runs` or `triggers` gets `CHECK_SINCE`, the judged moment
+  (`YYYY-MM-DDTHH:MM:SSZ`): the first hand-over, from the state (also
+  after a restart); before it, the instance's planting moment (refused,
+  nothing run, for a judging instance not planted yet); raised to
+  `--since` when that is later; the check itself raises it again to the
+  runner's last successful reload. Its exit 3 line names the job's next
+  run instead of a window: `<instance> <fault-id>: too-soon — the job's
+  next run is in <N> s (<duration>), judged since <CHECK_SINCE>[:
+  <reason>]` (a job whose ledger is on a database node counts N to its
+  designed time, never to a time moved since its last run). A check
+  running the governance check set (master spec 11.6; capture W3-a) is
+  sent with the set and the scenario's `governance:`, and refused,
+  nothing run, in a scenario without `governance:`; G1 to G3 answer 0 or
+  1, never 3, and a G1 breach whose object is a whole database names it
+  with the word `database`. An incident check (master spec 12.7, 16.3)
+  answers 1 while the incident is in the log since its planting, never
+  0 or 3, and 2 (`error`) when it cannot confirm it (spec D256).
 - **`check --early-check`, `check --handover-check`** (master spec 8.5):
   the sealed check of every fault planted so far, passing when it exits
   as the answer key's `at_handover` says (1, present); in a game with
@@ -298,8 +375,9 @@ password or key. The GM's reads, one per tool, are in the skill's
   deployed game `secrets: <dir>/ (mode 0600, not printed)` followed by
   one line per file, indented 4 spaces: `<file>: password`, `<file>:
   password, handed over`, `<pair>: private key of pair <pair>` or
-  `<pair>.pub: public key of pair <pair>`; `tools_password` only when the
-  game has a web front (RG-3). In a game that ages, then: `aging: T0 <t0>;
+  `<pair>.pub: public key of pair <pair>`; `tools_password` when the
+  bastion publishes the web front, which every v0.4 game does (RG-3,
+  spec D224). In a game that ages, then: `aging: T0 <t0>;
   ran <time> (elapsed less the lost time) of the <minimum> minimum` (after
   a restart with no history, `aging: T0 <t0>, the load restarted with no
   history after the first hand-over at <instant> (the four hours count
@@ -362,19 +440,19 @@ In `scenarios/<id>/local/<pg>/` (git-ignored; never edit by hand):
 
 - `playground.yaml`: `docker_endpoint` (`null` for the local engine) and
   the declared capacity; on several hosts, `hosts` (`[{name,
-  docker_endpoint, manager, capacity}]`, each by its swarm node name)
+  docker_endpoint, manager, capacity}]`, each by its swarm node name, and
+  `shared: true` on a host declared `shared`)
   and `mapping` (`<designed host>: <host>`), written by `fit --host
   --map`, and `overlay_range` when declared (`fit --overlay-range`, D183;
   absent: 10.20.0.0/16), never by hand;
 - `implementation.yaml`: `game_id`, `snapshot_fit` (`{fits, why}`),
   and per node `host` (the host it is pinned to) and `published_ports`
   (`[{target, published, mode}]`; only the bastion publishes ports: target
-  22, SSH, and, when the topology has a web interface, target 8080, the
-  web front);
+  22, SSH, and target 8080, the web front, in every game from v0.4);
 - `state.yaml`: through `gmctl status`;
 - `secrets/`: one file per secret the bricks declare (mode 0600; never
   print one anywhere but the hand-over). `gmctl status` lists them; the
   ones marked `handed over` are typed by players: `player_password`, the
-  bastion password, and, once a topology declares it, `tools_password`
-  (handed over only when the web front runs, spec D103). They stay there
+  bastion password, and `tools_password`, the web front's, handed over
+  in every game from v0.4 (spec D224, replacing D103). They stay there
   for the whole game, so a restarted GM hands them over again from them.

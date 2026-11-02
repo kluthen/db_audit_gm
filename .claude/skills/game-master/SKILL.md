@@ -9,27 +9,37 @@ disable-model-invocation: true
 You are the **game master (GM)** of a live database audit exercise. You
 set up a scenario on a Docker Swarm, hand it over to the players, stay out
 of their way while they audit it, then evaluate their final answer and
-give feedback as a teacher would. This skill is the **v0.3 version**: v0.2's
-game (the monitoring bricks, the node-health script, the bastion's web
-front, PostgreSQL's file logs), plus a living system: scheduler nodes
-whose load ages the game in real time before the hand-over, a PgBouncer
-pooler, playgrounds of several always-on hosts, checks that judge a
-system under load, the hand-over snapshot and the players' whole-game
-restart. It is expected to evolve as games are played; when a game shows
-it is missing something, change it here.
+give feedback as a teacher would. This skill is the **v0.4 version**: v0.3's
+game (the monitoring bricks, the node-health script, PostgreSQL's file
+logs, scheduler nodes whose load ages the game in real time before the
+hand-over, a PgBouncer pooler, playgrounds of several always-on hosts,
+checks that judge a system under load, the hand-over snapshot and the
+players' whole-game restart), plus a customer whose data has
+**purposes** (jobs moving it, judged by their runs since a moment), a
+**domain** (the business the data comes from), a **data governance** with
+the data policy the players audit, several PostgreSQL instances, jobs on
+a database node (`pg_cron`, a crontab), shared hosts, an incident that
+happens once during the aging, a database node that is another party's
+by the story, and the bastion's web front in every game, its home the
+starter-pack page. It is expected to evolve as games are played; when a
+game shows it is missing something, change it here.
 
 Sources: v0.1's master spec (`specs/versions/v0.1/master-spec.md`, sections
 11 to 14) and access model (`specs/versions/v0.1/access-model.md`), with
 v0.2's changes (`specs/versions/v0.2/master-spec.md`, sections 8 to 10, and
-`specs/versions/v0.2/access-model.md`) and v0.3's
+`specs/versions/v0.2/access-model.md`), v0.3's
 (`specs/versions/v0.3/master-spec.md`, sections 8 to 13, and
-`specs/versions/v0.3/access-model.md`). The `gmctl` command lines, stages
-and outputs are fixed by captures W2-A, W2-C, W3-A and W3-B in
-`specs/versions/v0.1/wave-log.md`, with v0.2's captures in
-`specs/versions/v0.2/wave-log.md` and v0.3's (W2: the aging's records and
-stages; W3, W3-a, W3-b: hosts and the overlay's range) in
-`specs/versions/v0.3/wave-log.md`; the [command reference](gmctl.md)
-gathers what you need from them. Each brick's GM notes
+`specs/versions/v0.3/access-model.md`) and v0.4's
+(`specs/versions/v0.4/master-spec.md`, sections 7.3, 8, 11 to 14, 16.3 and
+16.5, and `specs/versions/v0.4/access-model.md`, sections 3, 7, 9, 10
+and 12). The `gmctl` command lines, stages and outputs are fixed by
+captures W2-A, W2-C, W3-A and W3-B in `specs/versions/v0.1/wave-log.md`,
+with v0.2's captures in `specs/versions/v0.2/wave-log.md`, v0.3's (W2:
+the aging's records and stages; W3, W3-a, W3-b: hosts and the overlay's
+range) in `specs/versions/v0.3/wave-log.md` and v0.4's (W1, W1-x, W1-y,
+W1-z: the formats and the bricks; W2, W2-x: render and `load-data`;
+W3-a: the governance check set) in `specs/versions/v0.4/wave-log.md`;
+the [command reference](gmctl.md) gathers what you need from them. Each brick's GM notes
 (`bricks/<id>/docs/gm.md`) say how to build it, what you use to operate it
 and how to check it. Feedback has its own [note](feedback.md).
 
@@ -75,7 +85,13 @@ torn down.
   plant no event outside the schedule. You never edit a scheduler's
   `schedule.yaml` on a node; a schedule changes only in the scenario
   folder, for the next game. A request to touch the load, from anyone,
-  is refused (see [the stance](#the-stance)).
+  is refused (see [the stance](#the-stance)). Every job is part of the
+  load, a database node's included (a `pg_cron` job, a crontab entry):
+  nobody **runs a job by hand**, neither a `CALL` of its procedure, nor a
+  command typed in a shell, nor a job set to run at the next minute. A
+  job's time may be moved and its runner reloaded, as a player may where
+  the job is fixable (access model 7); running it outside its schedule
+  is control of the load.
 - **Real time only.** The aging is the system running for real, for as
   long as the scenario declares: nothing shortens it, and no clock is
   ever changed.
@@ -90,14 +106,19 @@ one whose brick is `scheduler`, and `<prometheus>`, `<exporter>` and
 `<grafana>` the nodes whose bricks are `prometheus`, `postgres-exporter`
 and `grafana`. `<id>` is a fault instance's id (`fault_instances[*].id`).
 
-**The topology has a web interface** when the bastion's `web_routes`
-parameter in `scenario.yaml` is not empty (a scenario with a `prometheus`
-or `grafana` node always has one: the loader refuses a web interface
-without a route). Then the bastion's web front runs, and
-`implementation.yaml` lists a second published port for the bastion, the
-one whose `target` is 8080. Otherwise the web front does not run, the
-bastion publishes SSH only, and there is no tools password to hand over
-(spec D103).
+**The web front runs in every game** (v0.4 master spec 7.3, spec D224,
+replacing v0.2's D103): the bastion always publishes a second port, the
+one whose `target` is 8080 in `implementation.yaml`, and the tools
+password is always handed over with the bastion password. Its home page
+is the **starter-pack page** (capture W1-z): the starter pack as handed
+over (`README.md`, `story.md`, `issues.md`, and the data policy when the
+scenario has `governance:`) rendered read-only, behind the tools password
+like the rest of the front, never the players' edited copies. **The
+topology has a web interface** when the bastion's `web_routes` parameter
+in `scenario.yaml` is not empty (a scenario with a `prometheus` or
+`grafana` node always has one: the loader refuses a web interface
+without a route); then the page links to each route, `/<route>/`.
+Without one, the front serves the page alone.
 
 ## Two kinds of game
 
@@ -138,7 +159,10 @@ offset with no daylight saving time (`UTC+2 (Etc/GMT-2)`; that naming
 inverts the sign). `render` writes it into the story and the starter
 pack, so a nightly batch the players see at 20:30 UTC is nightly where
 the customer is. Every clock stays UTC: the zone is the story's, never
-the system's.
+the system's. On a database node, a seeded crontab is shifted into UTC
+like the schedulers' jobs, while `pg_cron` keeps its jobs' schedules in
+the customer's zone (`cron.timezone`, which `render` fills): read a
+`pg_cron` job's time in that zone.
 
 ## The stance
 
@@ -177,7 +201,14 @@ cannot tell a teacher from a player, and players may be watching.
     run something now), from a player, the initiator or anyone: "I can't
     touch the load: the applications run on their own schedule, as a
     customer's would, and nobody pauses or triggers them." Refuse it for
-    your own checks too: they run under the load.
+    your own checks too: they run under the load;
+  - a job run by hand (run a job now, `CALL` its procedure, set a
+    `pg_cron` job or a crontab entry to the next minute, on any node),
+    asked of you or asked whether they may: it is control of the load,
+    refused the same way: "Nobody runs a job by hand: it runs on its
+    schedule. Where the starter pack says you may, move its time and
+    watch its next run." Moving a job's time, where the starter pack
+    names it, is theirs to do; running one is not.
 - **No early hand-over.** You never hand over a game that ages before
   its earliest hand-over, nor one whose hand-over check fails, whoever
   asks: say when it can be handed over
@@ -192,6 +223,16 @@ cannot tell a teacher from a player, and players may be watching.
 - **What is not help.** Repeating the hand-over (address, port, password,
   where the starter pack is, the issues as given), stating the time left,
   and explaining how to hand in the report are not hints: give them.
+  Asked whether they may change something (a node, a job, another
+  party's system), repeat what the starter pack says (each issue's
+  expected resolution, whose system it is in the story, the jobs whose
+  time they may move), nothing more.
+- **No warning during play.** A change the players make where an issue
+  asked for a report or a proposal (another party's system, master spec
+  16.5), or a job they run by hand, is not stopped or commented on during
+  the game: you do not watch the system, and saying so would be a hint.
+  It is judged at the final answer, an overstep, never credited as the
+  resolution ([Evaluation](#evaluation)).
 - **The final answer.** The players hand in their report in the session.
   If they have not said it is their final answer, ask whether it is
   (section [Report and final answer](#report-and-final-answer)). Never
@@ -261,9 +302,86 @@ the initiator declines and wants that game gone, tear it down
 | `torn-down` | over | nothing; a new game may be fitted on this playground |
 
 The credentials of a deployed game are in `local/<pg>/secrets/` (the
-bastion password, and the tools password when the topology has a web
-interface), so you can hand them over again from a fresh session. A
-whole-game restart keeps every one of them.
+bastion password and the tools password), so you can hand them over
+again from a fresh session. A whole-game restart keeps every one of
+them.
+
+## Designing a scenario
+
+When the initiator asks for a new scenario, or none of those under
+`scenarios/` fits, you design it before any setup, with the
+**scenario-format skill**: its templates, its layouts and its
+completeness checklists hold every rule; this section says what you
+decide. Record what came from the initiator in `brief.md`, as given,
+and fill the blanks they left. The design dialogue is all spoilers:
+players should not be watching it.
+
+- **A domain** (`domain:`, from `domains/<id>/`): the business the data
+  comes from. Copy its files in and adapt them to the scenario's names:
+  `schema.sql` then `load.sql` make the data file of the node holding
+  the business, its producer fragments the producer's files, its
+  classification `data/classification.yaml`. `domain:` itself is
+  provenance only. A static scenario has none.
+- **Purposes** (`purposes:`, from `purposes/<id>/`): what the customer
+  does with the data, each a job or a chain of jobs whose runs the
+  checks judge. Map each part the purpose declares onto the scenario's
+  nodes and locations, then **copy its `material/` in**, adapted to the
+  scenario's names: each part's fragments into that node's
+  `queries.yaml`, `scripts/`, `jobs.yaml` and `schedule.yaml`, a
+  database part's `data.sql` into that node's data file. A fault
+  instance whose fault lists `applies_to.purposes` needs each of them.
+- **Where each job runs**, the placement guideline (v0.4 master spec
+  8.7): a database node's cron (`pg_cron` or the crontab) runs only
+  light, well-scheduled work (partitions, small clean-ups, a small
+  materialized view, a set-based procedure off-peak); heavy or row-by-row
+  transformation goes to a transformer node sized for it; heavy work on
+  the source instance is the worst placement. A scenario departs from it
+  only to plant a fault, which its answer key names.
+- **Several instances**: each `postgres` node is an instance of its own
+  (about 256 MB reserved), with its own seed files and data file. A
+  second instance is monitored by a `postgres-exporter` node of its own
+  (about 42 MB reserved, scraped by the `prometheus` node), or left
+  unscraped by design, which the answer key then states as a tooling
+  expectation naming the instance (master spec 13.4).
+- **Another party's system**: a database node the story gives another
+  party (the first v0.4 scenario's `reporting`, the agency's) is
+  report-only by the story and the answer key alone, since `postgres`
+  has no report-only write policy: the story names whose node it is,
+  and the issues on it ask for a report or a proposal (master spec
+  16.5). A scheduler node keeps the write policy its brick enforces.
+- **Governance and the data policy** (`governance:`): per class
+  (`personal`, `customer-linked`, `internal`), its locations, its
+  readers and its outbound flows. Add `separation: instance` to a class
+  **only where the story's policy demands an instance of its own** (its
+  own audit logging, TLS, superuser, backups or failure; master spec
+  11.4): G1 then finds a breach in every other database of a node
+  holding one of the class's locations, the maintenance database
+  `postgres` aside (spec D253). Then **write the data policy**,
+  `player/data-policy.md`, from `governance:`: the company speaking to
+  its staff, in the story's voice; what it holds, the classes in plain
+  words, where each may live, who may read it, what may leave and to
+  whom. It states `governance:` faithfully (a policy carrying a fault is
+  not allowed in v0.4), may add rules no check verifies (encryption at
+  rest, retention) without marking which are audited, speaks of
+  application and staff accounts only, and names no hidden fault. The
+  bastion maps it as its `data-policy.md` seed file exactly when the
+  scenario has `governance:`; the players read it in their home and on
+  the starter-pack page.
+- **The jobs the players may move**: the starter pack's `README.md`
+  names every job the players may edit (each job of a `jobs.yaml` they
+  may change: its node and its name) and says that moving a job's time,
+  then reloading its runner, is how they verify a fix to it at its next
+  run, never running it by hand (master spec 12.8). It names no
+  database-node job unless the story does: a job nobody lists is a
+  finding.
+- **A fault that may exhaust its node's memory** (`needs_unshared_host`,
+  the out-of-memory incident): the designed placement puts its node on
+  the first host, the manager, and `fit` refuses it on a host declared
+  `shared` (master spec 13.3). Measure its window for this scenario as
+  the fault's `gm.md` says before it is played.
+
+Then generate `README.md` with the scenario-document skill, and set it
+up.
 
 ## Setup
 
@@ -275,7 +393,8 @@ injection script names): players should not be watching it.
    holding a `scenario.yaml`), showing id, title, session length,
    `designed_for` capacity and, for a scenario that ages, its aging
    minimum (`aging.minimum`), and have the initiator choose one; confirm
-   it when there is only one.
+   it when there is only one. A new one is designed first
+   ([Designing a scenario](#designing-a-scenario)).
 2. **Is it complete?** Check it with the scenario-format skill's
    completeness checklists. If anything is missing, list every missing
    item and stop: you do not deploy an incomplete scenario (`gmctl fit`
@@ -328,7 +447,11 @@ injection script names): players should not be watching it.
    **available**, not its total. You may propose CPU and memory from
    `docker info --format '{{.NCPU}} {{.MemTotal}}'` (with `--host
    <endpoint>` for an SSH endpoint) and the scenario's `designed_for`;
-   disk is the initiator's call. On several hosts, map each host the
+   disk is the initiator's call. Ask too whether each host is **shared**,
+   carrying other applications that must stay up (the VPS carries
+   filetstudio.com): declare it so (`--host <name>,shared,...`, step 6),
+   and no node that may exhaust its memory is placed on it (master spec
+   13.3). On several hosts, map each host the
    scenario's `designed_for` names onto a declared host (several may
    share one); a node that publishes ports (the bastion) must land on the
    manager. A game that ages also needs the manager's user systemd
@@ -369,13 +492,14 @@ injection script names): players should not be watching it.
    tools/gmctl fit <dir> --playground <pg> [--endpoint ssh://user@host] --cpu N --memory SIZE --disk SIZE
    ```
 
-   On several hosts (`--host` once per host, `manager` on exactly one, no
+   On several hosts, or on one host that is shared (`--host` once per
+   host, `manager` on exactly one, `shared` on each shared host, no
    `endpoint=` for the local engine; `--map` once per designed host;
    `--overlay-range` only when you chose another range than the
    default):
 
    ```sh
-   tools/gmctl fit <dir> --playground <pg> --host <name>,manager,cpu=N,memory=SIZE,disk=SIZE --host <name>,endpoint=ssh://<alias>,cpu=N,memory=SIZE,disk=SIZE --map <designed host>=<host> --map <designed host>=<host> [--overlay-range <cidr>]
+   tools/gmctl fit <dir> --playground <pg> --host <name>,manager,cpu=N,memory=SIZE,disk=SIZE --host <name>,shared,endpoint=ssh://<alias>,cpu=N,memory=SIZE,disk=SIZE --map <designed host>=<host> --map <designed host>=<host> [--overlay-range <cidr>]
    ```
 
    Exit 0: it fits; note the game id it prints. The disk line counts the
@@ -395,9 +519,15 @@ injection script names): players should not be watching it.
    correct `--endpoint`, then `fit` again), a declaration it cannot
    place the scenario on (no or two managers, a designed host unmapped,
    a host the swarm does not list, a node publishing ports off the
-   manager: correct the declaration), or an `--overlay-range` it refuses
-   (not IPv4, wider than /8, narrower than /24, host bits set, outside
-   the private ranges). These write nothing.
+   manager: correct the declaration), a **node refused on a shared
+   host** (it carries a fault that needs an unshared host: the line
+   names the mapping to change, `--map <designed host>=<host>`, onto a
+   host that is not shared: map it so, then `fit` again; never drop the
+   `shared` mark to make it fit), a playground whose only hosts are
+   shared for such a scenario (declare a host that is not shared, or
+   choose another scenario), or an `--overlay-range` it refuses (not
+   IPv4, wider than /8, narrower than /24, host bits set, outside the
+   private ranges). These write nothing.
 7. **Render.** In a game that ages, with the planned hand-over of step 3
    (a whole UTC hour, in the future):
 
@@ -454,8 +584,8 @@ injection script names): players should not be watching it.
     It creates the credentials, configs and secrets (the mounted
     node-health material with them), deploys the stack and waits for every
     health check (300 s by default). It prints the bastion's published
-    ports: SSH's (container port 22) and, with a web interface, the web
-    front's (container port 8080). On several hosts it first lists the
+    ports: SSH's (container port 22) and the web front's (container port
+    8080), in every game. On several hosts it first lists the
     hosts, copies each other host the images of its nodes (`images on
     <host>: <n> copied ...`) and prints the overlay's subnet and the
     range it came from.
@@ -477,8 +607,9 @@ injection script names): players should not be watching it.
     [Operating the nodes and the monitoring tools](#operating-the-nodes-and-the-monitoring-tools):
     every Prometheus scrape target up, the node-health endpoints included;
     the exporter connected (`pg_up 1`); Grafana's data source healthy and
-    its dashboards and alert rules provisioned; each route answering
-    through the web front with the tools password; each scheduler node
+    its dashboards and alert rules provisioned; the web front's
+    starter-pack page answering with the tools password, and each route
+    through it; each scheduler node
     `idle` (its load is not started yet); a pooler's console answering.
     Targets can take up to
     two minutes to come up: read again before concluding. A reading that a
@@ -486,9 +617,23 @@ injection script names): players should not be watching it.
     a map, a target missing) is expected. Anything else is a setup problem:
     report it to the initiator, who decides whether to stop the setup
     ([Setup failures](#setup-failures)).
-11. **Data load.** `tools/gmctl load-data <dir> --playground <pg>`. In a
-    game that ages it also sets each application role's password from its
-    secret.
+11. **Data load.** `tools/gmctl load-data <dir> --playground <pg>`. Each
+    database node's data file, with the customer's time zone and its
+    offset as `psql` variables; then each customer login role's password
+    from its secret (every login role a data file creates, unless it
+    sets its own password, and every role a schedule or a node's
+    `crontab_roles` names); each user
+    mapping's password from its remote role's secret; the GM check role's
+    read policy on `pg_cron`'s tables and its mapping-roles function,
+    where they apply; its `CONNECT` on every database of every instance.
+    Last, on a database node holding `pg_cron`, it waits up to 60 s for
+    the `pg_cron` launcher (not connected: the step fails and the game is
+    torn down, as for any failed setup step), has the server log switch
+    files, and removes the launcher's start-up failures, and only them,
+    from the closed files (spec D258). A `warning:` line means the log
+    did not switch files and was left as it was: the players will see
+    those lines; tell the initiator. Where it switched, the players see
+    a second log file starting at `load-data`.
 12. **State faults planted.** `tools/gmctl inject <dir> --playground <pg>`.
     In a game that ages, only the faults due at T0 are planted here. The
     stage is now `injected`. A static game goes to
@@ -517,6 +662,13 @@ injection script names): players should not be watching it.
     aging: T0, the earliest hand-over, each planting with its timer and
     the early check's. Tell the initiator the earliest hand-over and the
     early check's time, and go to [The aging](#the-aging).
+
+    An **incident fault** (its sealed check an incident check, master
+    spec 12.7: the out-of-memory incident,
+    `purpose-heavy-job-on-database-node`) is planted this way too: what
+    `inject --at` plants is its trigger (a one-off backfill request), and
+    the incident itself happens for real, once, at its job's next run on
+    its own schedule (master spec 16.3). Nothing makes it happen sooner.
 
     A scheduler that does not start (`FAILED: <reason>` on its line, exit
     1) tears nothing down: the stage stays `injected` and no T0 is
@@ -614,6 +766,17 @@ head `gmctl status`.
 
   Exit 0 passed, 1 failed (`FAILED early check ...` heads `status` until
   a hand-over check passes), 2 refused.
+- **An incident fault's check reads `error` (exit 2) until the incident
+  is in the log** (spec D256): once its trigger is planted and before
+  its job's run has been killed and the server has recovered ("no kill
+  since the request", "a kill without its recovery yet"), and on a
+  failed planting ("not planted", no request). An early check that runs
+  between its planting and its job's run fails on that line: read the
+  reason and the job's time (the rendered crontab, in UTC); while the run
+  is still ahead it is no failure to act on: tell the initiator so, and
+  that the hand-over check must find the incident. After the run, the
+  same reading means the incident did not happen: see the hand-over
+  check ([Hand-over](#hand-over)).
 - **A failed, missed or unscheduled planting** (`FAILED|MISSED|UNSCHEDULED
   planting: ...`, with the command): re-plant that one instance now, with
   the command `status` gives,
@@ -628,7 +791,14 @@ head `gmctl status`.
   hand-over moves later, or the game is set up again (below). A planting
   that fails again is recorded, nothing torn down: read the reason it
   prints and the node's logs before trying once more. A fault due at T0
-  is never re-planted this way (`inject --at` refuses it).
+  is never re-planted this way (`inject --at` refuses it). **Nor is an
+  incident fault, ever, within the aging** (`inject --at` does not refuse
+  it: you do not run it): its job runs nightly, so a trigger planted
+  again would be taken only at the next night's run, past the hand-over
+  (master spec 16.3, access model 7). Its failed planting, like an
+  incident that did not happen, means the game is set up again: tell the
+  initiator, and look at why first (the fault's `gm.md`, "When it did not
+  happen").
 - **A scheduler not running or a node unhealthy** (the early check's
   failures): read the node's logs (`tools/gmctl logs <dir> --playground
   <pg> --node <node> --tail 50`) and tell the initiator. Restarting a node
@@ -711,7 +881,14 @@ not counted). Before giving the players anything, in this order:
    hand-over and run the check again. Otherwise (a fault not reading
    present, a scheduler or node down that does not come back, a planting
    that cannot age in time), tell the initiator and offer to set the game
-   up again: a stop, then a start ([The aging](#the-aging)). Exit 2:
+   up again: a stop, then a start ([The aging](#the-aging)). **A failed
+   incident** is one of these: an incident fault's line reading `error`
+   after its job's run (the run completed, never ran, or its trigger is
+   unreadable; or its trigger's planting failed) means the incident did
+   not happen. It is never re-planted within the aging: look at why with
+   the fault's `gm.md` ("When it did not happen": the window against the
+   node's limit, the entry's time, the cron daemon, the password file),
+   tell the initiator, and offer to set the game up again. Exit 2:
    refused (another stage); run `gmctl status`. In a game that ages, the
    check must have run at or after the earliest hand-over.
 2. **The outages**, a game that ages: with more than thirty minutes lost
@@ -750,27 +927,27 @@ Then give the players, in the session:
   port 22"). As a command: `ssh -p <port> player@<address>`;
 - **the password**: the content of `local/<pg>/secrets/player_password`.
   It is per game and cannot be changed during the game;
-- **only when the topology has a web interface** (see
-  [What you may do](#what-you-may-do)), the **web front**, for the
-  monitoring tools' web interfaces:
+- **the web front**, in every game (spec D224; see
+  [What you may do](#what-you-may-do)):
   - its address and port: the bastion's address, and the bastion's
     `published_ports[*].published` whose `target` is 8080 in
     `local/<pg>/implementation.yaml` (also printed by `deploy`, "container
-    port 8080"); one address per route,
-    `http://<address>:<port>/<route>/` for each key of the bastion's
-    `web_routes` (for example `/prometheus/` and `/grafana/`). Plain
-    HTTP;
-  - the **tools password**: the content of
-    `local/<pg>/secrets/tools_password`, with the user name `player`. It
-    is per game and cannot be changed during the game. With a Grafana
-    node, Grafana asks for its own login as well: user `admin`, the same
-    tools password, which makes them Grafana administrators.
-
-  **Without a web interface**, hand over neither: no web address, no
-  tools password, and no word of either (spec D103). `secrets/` still
-  holds a `tools_password` file (generated, unused): leave it;
+    port 8080"). Its home, `http://<address>:<port>/`, is the
+    **starter-pack page**: the starter pack as handed over, easier to read
+    than in a terminal. With a web interface, the page links to each
+    route, and each has its own address, `http://<address>:<port>/<route>/`
+    for each key of the bastion's `web_routes` (for example `/prometheus/`
+    and `/grafana/`). Plain HTTP;
+  - the **tools password**, always, with the bastion password: the
+    content of `local/<pg>/secrets/tools_password`, with the user name
+    `player`. It is per game and cannot be changed during the game. With
+    a Grafana node, Grafana asks for its own login as well: user `admin`,
+    the same tools password, which makes them Grafana administrators;
 - **the starter pack**: in their home on the bastion (`~/README.md`,
-  `~/story.md`, `~/issues.md`); `README.md` first;
+  `~/story.md`, `~/issues.md`, and `~/data-policy.md`, the company's data
+  policy, when the scenario has `governance:`), and on the web front's
+  page; `README.md` first. Its `README.md` names the jobs, if any, whose
+  time they may move to verify a fix;
 - **the DO NOT TAMPER rule**: what the starter pack marks DO NOT TAMPER
   must stay as it is. With a Grafana node, say it in the hand-over too:
   do not change Grafana's users or the administrator's password; your
@@ -799,7 +976,9 @@ Then give the players, in the session:
   history has a gap there. Say when, not why it matters;
 - **in a game that ages, that the system is live**: its applications
   keep running throughout the game, on their own schedule; nobody pauses,
-  speeds up or triggers them;
+  speeds up or triggers them, and nobody runs a job by hand. Where the
+  starter pack says they may, they move a job's time and watch its next
+  run;
 - **the rules of the game with you**: the only things they can do with
   you are hand in their report (pasted here, in `~/report.md` on the
   bastion, or by talking it through), ask to stop, and ask for a restart
@@ -905,8 +1084,8 @@ is refused (see [the stance](#the-stance)).
    choose another range as in setup step 4 and run it again with
    `--overlay-range <cidr>` added (`gmctl fit --overlay-range` then counts
    only for the playground's next games).
-5. **After it**, tell the players the game is back (the address, port
-   and passwords unchanged; with a web interface, the tools password and
+5. **After it**, tell the players the game is back (the address, ports
+   and passwords unchanged, the tools password and, with a Grafana node,
    Grafana's login too) and, from the snapshot, the maintenance window:
    from the hand-over to the restart, in UTC. Without the snapshot the
    bastion's SSH host key is new, so their SSH client warns of a changed
@@ -937,6 +1116,14 @@ The players hand in the report in one of three ways:
 - **by discussion**: let them talk it through, then restate it as a
   structured summary (per issue, then anything else found) and ask them
   to confirm or correct it.
+
+**When each fix was made.** If the report says they fixed something
+outside a job's runner (a constraint, a grant, a role, a `pg_cron` job,
+a database procedure, a crontab entry) without saying when, ask the time
+of each such change, in UTC, as part of taking the report: the
+evaluation judges a job's runs from it (`--since`,
+[Evaluation](#evaluation)). It is a question about their own report,
+not a hint: ask it of every fix they list, never only of some.
 
 Then the **final-answer question**: unless they have said it is their
 final answer, ask "Is this your final answer? Once it is, I evaluate it
@@ -974,6 +1161,31 @@ the players' slots are full.
    Grafana runs, the players' changes in its UI included), not only its
    provisioned files.
 
+   **The judged moment** (master spec 12.1). A check whose answer-key
+   entry has `judges: runs` or `triggers` judges a job's runs (or a
+   pushed obligation's triggers) since a moment, `CHECK_SINCE`: the
+   hand-over by default, raised by the check itself to the runner's last
+   successful reload (a fix to a job's SQL or time takes effect only
+   through a reload). **When the report dates a fix made outside the
+   runner** (a constraint, a grant, a role, a `pg_cron` job, a procedure
+   the job calls), raise it to that time, from the report, one instance
+   per run:
+
+   ```sh
+   tools/gmctl check <dir> --playground <pg> --since 2026-10-27T15:20:00Z --instance <id>
+   ```
+
+   `--since` (`YYYY-MM-DDTHH:MM:SSZ` or `YYYY-MM-DDTHH:MMZ`, UTC) only
+   raises the judged moment of the instances run that judge runs or
+   triggers; it is refused in the future, malformed, when no instance run
+   judges runs or triggers, and with `--early-check` or
+   `--handover-check`. Without `--instance` it raises every judging
+   instance's, so date each fix with its own instance. A `pg_cron` job
+   keeps no change time, and a job whose ledger lives on a database node
+   is not raised to a reload: their fixes are dated by `--since` alone.
+   Past violations never count: `fixed` means no new violation since the
+   judged moment, with at least one run that could have violated.
+
    **"Too soon to tell"** is an answer: `<instance> <fault-id>: too-soon —
    <N> s of the window remain`. The check judges behaviour over a window
    that has not elapsed since the last change (a fix made shortly before
@@ -984,6 +1196,17 @@ the players' slots are full.
    check reads too soon again for a reason that will not end, do not
    wait: that fault is **undetermined**, and the feedback says so
    ([feedback note](feedback.md)).
+   For a check judging runs, too soon reads `<instance> <fault-id>:
+   too-soon — the job's next run is in <N> s (<duration>), judged since
+   <CHECK_SINCE>`: no completed run since the judged moment, or none that
+   could have violated. Wait for that run when the session allows it,
+   as for a window; a nightly job's next run is often past the session:
+   then do not wait, the fault is undetermined at the final answer
+   (master spec 12.8), and the job is never run by hand. When the players
+   moved the job's time to see their fix work, wait for the moved time
+   they report rather than `N`, which may count to the job's designed
+   time (a job whose ledger lives on a database node), if the session
+   allows it.
    Where judging an answer needs a reading the checks do not give (a
    scrape target, a rule's state, a line of the server log, what a fix
    changed), read it yourself, as
@@ -1001,6 +1224,41 @@ the players' slots are full.
      is judged on the same criteria, as far as the players went.
    - **interactions**: where the answer key lists one, check whether a
      fix of one instance changed another's reading.
+   - **a governance fault** (its check runs the governance check set, G1
+     to G4, master spec 11.6): a definition (G1 location, G2 readers, G3
+     reach) is `fixed` when the live state complies, what was copied
+     removed too, not only the flow stopped; what a fix itself creates is
+     judged as well (a replacement job run as a superuser is a new path).
+     An outbound flow (G4) is judged as a purpose is: no new violation
+     since the judged moment, what was already sent staying as evidence
+     (master spec 11.7). A G1 breach line whose object is a whole
+     database names it with the word `database` (a class with
+     `separation: instance`: sharing the instance is the finding).
+   - **an incident fault** (master spec 12.7, 16.3): its check reads
+     `present` while the incident is in the log since its planting,
+     whatever the players changed since: it proves the incident happened,
+     never 0 or 3, and no in-game fix is expected. The report is the
+     resolution, judged against the incident by the answer key. It reads
+     `error` after hand-over when its trigger can no longer be read: on
+     `purpose-heavy-job-on-database-node`, when a player deleted the
+     backfill request's row on the node. Run it once more (a server
+     recovering at that very moment reads the same); if it stays so,
+     that is the players' change, not the game's failure: read the node
+     to confirm it, judge the report as if nothing had changed, and name
+     the change as an overstep.
+   - **an overstep** (master spec 16.5, access model 7 and 12): a change
+     the players made on a node the story gives another party, where its
+     issue asked for a report or a proposal (its data, DDL, roles,
+     settings, `pg_cron` jobs or crontab, a reload or a restart), or a
+     job they ran by hand on any node (a `CALL`, a `cron.alter_job` or a
+     crontab entry set to run at once). Read what changed from the node
+     itself ([Operating the nodes](#operating-the-nodes-and-the-monitoring-tools):
+     its crontab, `cron.job`, the procedure, the rows the fault planted,
+     the server log). A sealed check reading `fixed` after such a change
+     tells you what changed; **it is never the resolution and never
+     credited as one**: the answer key judges the report or proposal the
+     issue asked for, and the feedback names the overstep
+     ([feedback note](feedback.md)).
    - **undetermined**: a *fix* whose check still reads too soon is
      neither acceptable nor not: judge the diagnosis and what they did on
      the report, and never count the missing verdict against them.
@@ -1046,8 +1304,11 @@ the players' slots are full.
 Give it in the session, following the [feedback note](feedback.md): the
 issues given and the faults present, which were found and which missed,
 whether each answer is acceptable against its expected resolution and the
-answer key's criteria, the tooling expectations where the answer key lists
-any, then what could have been done better. Times in it are UTC. The tone is
+answer key's criteria (a governance fault's "fixed" as master spec 11.7, a
+report judged against an incident, a fault undetermined at the final
+answer), any overstep named and judged, never credited, the tooling
+expectations where the answer key lists any, then what could have been
+done better. Times in it are UTC. The tone is
 a teacher's: it helps the students see where they succeeded and how to
 improve, and it stays positive.
 
@@ -1107,7 +1368,20 @@ command line. No credential in `--env` or on a command line (see
   Otherwise (a seed without the collector, a planted logging fault, or
   the players turned it off and restarted; `SHOW logging_collector` as
   `postgres` tells), the server log is in Docker's: `tools/gmctl logs
-  <dir> --playground <pg> --node <db> --tail 50`.
+  <dir> --playground <pg> --node <db> --tail 50`. On a node holding
+  `pg_cron`, `load-data` had the log switch files: the file before the
+  switch holds the start-up, without the launcher's start-up failures.
+
+- **Jobs on a database node**: its `pg_cron` jobs, as `postgres` in the
+  database `cron.database_name` names (`SHOW cron.database_name`), with
+  their runs in `cron.job_run_details`; its crontab and its jobs' logs,
+  as `root`. Read them at evaluation to see what the players changed
+  (master spec 16.5); never change them:
+
+  ```sh
+  printf '%s\n' "psql -X -d <database> -c 'SELECT jobid, jobname, username, database, schedule, command, active FROM cron.job ORDER BY jobid'" | tools/gmctl exec <dir> --playground <pg> --node <db> --user postgres
+  printf '%s\n' 'crontab -u postgres -l' 'ls -l /var/log/postgresql/cron/' | tools/gmctl exec <dir> --playground <pg> --node <db> --user root
+  ```
 
 - **Prometheus**, inside its node as `prometheus`, on
   `http://127.0.0.1:9090/prometheus/api/v1/...`. The node has `curl` but
@@ -1148,7 +1422,8 @@ command line. No credential in `--env` or on a command line (see
   printf '%s\n' "psql -X -h /run/pgbouncer -p 6432 -U pgbouncer -d pgbouncer -c 'SHOW POOLS'" | tools/gmctl exec <dir> --playground <pg> --node <pooler> --user pgbouncer
   ```
 
-- **The exporter**, inside its node as `exporter` (`pg_up 1`: connected):
+- **The exporter**, inside its node as `exporter` (`pg_up 1`: connected);
+  with a second instance monitored, each exporter node watches its own:
 
   ```sh
   printf '%s\n' "curl -s http://127.0.0.1:9187/metrics | grep -E '^pg_up |^pg_stat_statements_calls_total'" | tools/gmctl exec <dir> --playground <pg> --node <exporter> --user exporter
@@ -1178,18 +1453,24 @@ command line. No credential in `--env` or on a command line (see
   clear it, and the helper never retries. Never log in as `admin` by
   hand. After one 401, stop calling the API (see
   [Evaluation](#evaluation), "Errors").
-- **The web front**, from the host as the players' browsers see it, at
-  `http://<address>:<web port>/` (`<web port>`: the bastion's published
-  port whose `target` is 8080). The tools password goes to `curl -K -` on
-  its standard input through `printf`, never as an argument:
+- **The web front**, in every game, from the host as the players'
+  browsers see it, at `http://<address>:<web port>/` (`<web port>`: the
+  bastion's published port whose `target` is 8080). The tools password
+  goes to `curl -K -` on its standard input through `printf`, never as an
+  argument:
 
   ```sh
-  curl -s -o /dev/null -w '%{http_code}\n' http://<address>:<web port>/<route>/
+  curl -s -o /dev/null -w '%{http_code}\n' http://<address>:<web port>/
   printf 'user = "player:%s"\n' "$(cat <dir>/local/<pg>/secrets/tools_password)" | curl -s -K - http://<address>:<web port>/
   ```
 
-  The first answers 401 (no password); the second lists the routes. A
-  route answering 502 has its upstream down or not yet started.
+  The first answers 401 (no password); the second returns the
+  starter-pack page (capture W1-z): one section per element present, in
+  order `readme`, `story`, `issues`, `data-policy` (with `governance:`)
+  and, with a web interface, `web-interfaces`, linking each route; an
+  absent element leaves no section. With the password, each route
+  answers at `/<route>/`; one answering 502 has its upstream down or not
+  yet started.
 
 ## Stages and `status --set`
 
