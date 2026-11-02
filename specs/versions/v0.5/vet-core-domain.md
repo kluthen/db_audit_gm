@@ -1,14 +1,16 @@
 # v0.5 — `vet-core`, the clinic's core domain
 
-Status: draft v7. Step 2, the business sketch, is ruled (D266, D278),
+Status: draft v8. Step 2, the business sketch, is ruled (D266, D278),
 its first answer revised by one centre per scenario (D285); step 3, the
 split, is confirmed (D279), the parts one centre's (D293); step 4, the
 data model, is current, with the history's growth (D279, D280), at one
 centre's scale (D295); step 5, classification and governance, is ruled
 (D280). `requests` revised by `vet-lab`'s answers (D301): a
 `priority`, no `external`; two constraints on the load from `vet-lab`'s
-step 4 (D302). Step 6, the producer profiles, is drafted with
-`vet-lab`'s, its points for the owner (O153, O154).
+step 4 (D302). Step 6, the producer profiles, is ruled as drafted with
+`vet-lab`'s (D304), with what they need of the scheduler and the format
+(D303). Step 7, the purposes, is drafted with `vet-lab`'s in
+[clinic-purposes.md](clinic-purposes.md), for the owner (O155, O156).
 
 `vet-core` is the core of the veterinary clinic franchise (D196), the
 first domain defined through the [procedure](domain-procedure.md)
@@ -426,7 +428,8 @@ secret, as for the shop.
 | `vet_reports` | every table, names and contacts included (the back office answers owners) | nothing |
 
 The purposes' roles (the registers, the yearly antimicrobial report,
-notifiable diseases) come with step 7; the periodic reports read on the
+notifiable diseases) come with step 7, drafted in
+[clinic-purposes.md](clinic-purposes.md#the-roles-the-purposes-add); the periodic reports read on the
 standby and write to the back-office database, `office`, never to
 `clinic` ([replication.md](replication.md) 1, 3; D299, D300).
 
@@ -666,10 +669,10 @@ Drafted on 2026-11-02 with `vet-lab`'s, since their flows interlock
 ([vet-lab-domain.md](vet-lab-domain.md#the-producer-profiles-step-6)):
 the core's consultations create requests, the lab takes them through its
 order API, analysers upload, results come back, and the partners' round
-trips run around both. Every point is (proposed) until the owner rules
-on O153 (this page's and the lab's points) and O154 (what the profiles
-need of the scheduler and the format, [producer
-profiles](producer-profiles.md#12-what-the-clinics-first-profiles-need-o154)).
+trips run around both. Ruled as drafted on 2026-11-02 (D304, closing
+O153), with what the profiles need of the scheduler and the format
+([producer profiles](producer-profiles.md#12-what-the-clinics-first-profiles-need-ruled-d303)
+12, D303, closing O154).
 Built on the ruled frictions (D264–D271, D276, D277, D287, D288,
 D296–D300) and not reopening them.
 
@@ -786,7 +789,7 @@ random; per-row variation inside a set-based statement (a round's
 missed doses) by a hash of the row's id, never `random()`, so a run is
 reproducible from the game's seed (D117). No domain builder. The
 int-and-`CASE` trick recurs about a dozen times across the core and the
-lab, which is D276's trigger for a weighted `choice` generator (O154).
+lab, which is D276's trigger for a weighted `choice` generator (D303).
 
 ### Intensity, and the history before T0 (D276, D279)
 
@@ -850,7 +853,8 @@ material (step 7).
 
 Each round trip's trace tables (the exchange's request, answer and
 report) come with its purpose, as a purpose carries its target's DDL
-([formats.md](../../formats.md) "Purpose definition").
+([formats.md](../../formats.md) "Purpose definition"). The purposes are
+drafted in [clinic-purposes.md](clinic-purposes.md) (step 7).
 
 ### The partners the core meets (D285, D293)
 
@@ -863,14 +867,15 @@ players' reach (D273–D275):
   centre's requests and post their own, about one a day, on the
   `office` hours; the back end's streams tick each partner's own `api`
   node, which reads its state, calls the centre and records the answer
-  (O154).
+  (D303).
 - **The franchise's head office**: answers the monthly figures; no
   stream.
 - **The franchise's messaging service**: answers what the centre's
-  outbox hands it; what the core hands it is O153, core point 6.
-- **The authority**, not yet among one-centre's partners: the receiver
-  of the notifiable diseases and the antimicrobial-use report, one more
-  `api` node on the back end, named with its purposes at step 7.
+  outbox hands it; the core hands it nothing, the reminders and the
+  outbox being `vet-portal`'s (D304).
+- **The authority**: a partner stub of its own on the back end (D304),
+  the receiver of the notifiable diseases and the antimicrobial-use
+  report ([clinic-purposes.md](clinic-purposes.md)).
 
 Their fragments carry their normal behaviour only; an outage, a late or
 duplicated answer comes with its fault (D276).
@@ -904,7 +909,10 @@ segment: at least 16 MB an hour, about 2 GB in five days, so a full
 disk is not reached inside an aging, but the growth shows (replication
 4).
 
-### Points for the owner (O153)
+### Points for the owner, ruled (D304)
+
+Confirmed as drafted on 2026-11-02 ("agreed"), with the lab's (D304,
+closing O153):
 
 1. **Two nodes for the core**: the practice-management software
    (`pms`), which later carries scheduling and housing, and the lookup

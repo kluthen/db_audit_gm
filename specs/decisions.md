@@ -20,7 +20,7 @@ README:
 Archived IDs keep their meaning and are cited as they are. D107 and D113
 stay live: rulings still to be applied in v0.5. D190 onward are v0.4's
 drafting and build, apart from D233–D238, D248–D251, D260–D280 and
-D285–D299, v0.5's drafting. Take the next number from `doc-ids`; no ID is reused.
+D285–D304, v0.5's drafting. Take the next number from `doc-ids`; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -805,3 +805,17 @@ D285–D299, v0.5's drafting. Take the next number from `doc-ids`; no ID is reus
   among them, now applied there) and the thirteen rules of its default
   policy, with their game values. Closes O152. Now in:
   [versions/v0.5/vet-lab-domain.md](versions/v0.5/vet-lab-domain.md#the-rules-as-the-owner-confirmed-them-d302).
+- **D303 (2026-11-02, owner answer "agreed", relayed by the coordinator):
+  What the clinic's first profiles need of the scheduler and the format,
+  as recommended:** script jobs with an HTTP connection, built with the
+  HTTP driver, partners ticking their own `api` node; the driver's
+  least; a weighted `choice` in the same bump; `producers/api/<node>/`
+  and `producers/partners/<partner>/` (feeds O111). Closes O154. Now in:
+  [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md#12-what-the-clinics-first-profiles-need-ruled-d303).
+- **D304 (2026-11-02, same answer): `vet-core`'s and `vet-lab`'s producer
+  profiles (step 6) are ruled as drafted, all fifteen points;** among
+  them `lab_app` writes `lab_charges`, amending D302's grants, and the
+  other centres order nothing from the lab. Closes O153. Now in:
+  [versions/v0.5/vet-core-domain.md](versions/v0.5/vet-core-domain.md#points-for-the-owner-ruled-d304),
+  [versions/v0.5/vet-lab-domain.md](versions/v0.5/vet-lab-domain.md#points-for-the-owner-ruled-d304),
+  [versions/v0.5/one-centre.md](versions/v0.5/one-centre.md).

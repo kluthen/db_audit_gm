@@ -11,7 +11,7 @@ their IDs keep their meaning. Questions resolved by the close of v0.2
 Questions resolved by the close of v0.3 (O45, O46, O78 and O81–O103) are
 listed in
 [archive/v0.3/open-questions-resolved.md](archive/v0.3/open-questions-resolved.md).
-Numbering continues from O155.
+Numbering continues from O157.
 
 Resolved during v0.4's drafting: O106 (D194), O110 (D195), O107 (D197), O120
 (D198), O109 (D199), O121 (D200), O123 (D202), O105 (D203), O129 (D206), O131 (D207),
@@ -25,7 +25,8 @@ set (D237); O21 and O135 to v0.6; O24 and O25 to v1.0+ (D248). Resolved
 during v0.5's drafting: O137 and O47 (D248), O126 (D249), O139 (D260),
 O118 (D261), O80 (D262), O114 (D263), O145 (D274, D275), O144 (D278),
 O127 (D285), O128 (D286), O79 (D289), O112 (D292), O147 (D293–D295),
-O148 (D296, D297), O113 (D298), O149 (D300), O151 (D301), O152 (D302).
+O148 (D296, D297), O113 (D298), O149 (D300), O151 (D301), O152 (D302),
+O154 (D303), O153 (D304).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -198,29 +199,28 @@ added on 2026-10-30 (D196).
   5, 6): profiles against the schedule (O113), the variant manifest and its
   tags (D263; procedure 9), a part's own scale in a manifest of the
   core variant's name (D301, `vet-lab`'s answer 15), where a domain's
-  API and partner material lives (O154), and what the clinic's domains
-  reveal. Finalised in the master spec when v0.5
+  API and partner material lives (`producers/api/<node>/` and
+  `producers/partners/<partner>/`, a partner's misbehaviour keys coming
+  with its faults, D303), the purpose format's extensions (O156), and
+  what the clinic's domains reveal. Finalised in the master spec when v0.5
   consolidates (D291), which closes it.
-- **O153** (next, v0.5) — `vet-core`'s and `vet-lab`'s producer
-  profiles (step 6), drafted together since their flows interlock:
-  eight points on the core's (its two nodes, the week's shapes, the
-  consultations' mix, referrals closed by letter, no farms' statements
-  or purge, the vaccination reminders left to `vet-portal`, the
-  exchanges with the other centres, one intensity for the clinic's
-  nodes) and seven on the lab's (one node with the middleware, the
-  hours, the identity job, `lab_app` writing the charges, no orders from
-  the other centres, the statements read at night, the partners'
-  database planted to match), for the owner's confirmation. Step 7
-  waits. Refs:
-  [versions/v0.5/vet-core-domain.md](versions/v0.5/vet-core-domain.md#points-for-the-owner-o153),
-  [versions/v0.5/vet-lab-domain.md](versions/v0.5/vet-lab-domain.md#points-for-the-owner-o153).
-- **O154** (next, v0.5) — What those profiles need of the scheduler and
-  the domain format: a read, a call and a write (script jobs with an
-  HTTP connection on the customer's side, partners ticking their own
-  `api` node), the HTTP driver's least, a weighted `choice` generator,
-  and where a domain's API and partner material lives (feeds O111).
-  Refs:
-  [versions/v0.5/producer-profiles.md](versions/v0.5/producer-profiles.md#12-what-the-clinics-first-profiles-need-o154).
+- **O155** (next, v0.5) — `vet-core`'s and `vet-lab`'s purposes (step
+  7), drafted together, for the owner to choose: ten purposes (four
+  round trips, the notifications, the critical calls' watch, the two
+  registers as one, the antimicrobial-use report, the head office's
+  figures, the lab's statements), two runners (`interfaces`,
+  `backoffice`) and a `pg_cron` watch, the results back by a feed with a
+  watermark, the office role `office_jobs`, exchanges in the core's
+  record, rare flows' faults only with a story raising their rate, the
+  notifications' category and deadlines, and the game values. Refs:
+  [versions/v0.5/clinic-purposes.md](versions/v0.5/clinic-purposes.md#points-for-the-owner-o155).
+- **O156** (next, v0.5) — What the clinic's purposes extend in the
+  purpose format: the round-trip kind's `round_trips:` block, the `api`
+  and `partner` parts, HTTP connections, endpoint and receiver material,
+  periodic jobs with their feeder and planted history, how an invariant
+  is judged, the classes of the tables a purpose brings, the `ops`
+  schema (feeds O111). Refs:
+  [versions/v0.5/clinic-purposes.md](versions/v0.5/clinic-purposes.md#4-the-format-and-what-the-round-trip-extends-o156).
 
 ## v0.6: the setup's entry point
 

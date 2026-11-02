@@ -1,11 +1,14 @@
 # v0.5 — `vet-lab`, the clinic's lab
 
-Status: draft v3. Step 2, the business sketch, is ruled, every default
+Status: draft v4. Step 2, the business sketch, is ruled, every default
 accepted (D301, closing O151); step 3, the split, is not a part's: the
 lab's boundary was set by the clinic's split (D279, D293, D294). Step 4,
 the data model, and step 5, classification and governance, are ruled as
-drafted (D302, closing O152). Step 6, the producer profiles, is drafted
-with `vet-core`'s, their points for the owner (O153, O154).
+drafted (D302, closing O152). Step 6, the producer profiles, is ruled
+as drafted with `vet-core`'s (D304), `lab_app`'s grants amended to write
+the charges; what they need of the scheduler and the format is ruled
+(D303). Step 7, the purposes, is drafted with `vet-core`'s in
+[clinic-purposes.md](clinic-purposes.md), for the owner (O155, O156).
 
 `vet-lab` is the biology lab of the centre a scenario deploys (D285),
 the second domain through the [procedure](domain-procedure.md) (D235,
@@ -514,14 +517,15 @@ secret.
 | Role | Who | Reads | Writes |
 |---|---|---|---|
 | `lab` | owns everything; no login | | |
-| `lab_app` | the lab's information system, its staff's screens (a producer node, D276) | every table | orders, samples, order tests, sample events, results (bench work, amendments), critical calls, notifications, QC runs; never the reference tables |
+| `lab_app` | the lab's information system, its staff's screens (a producer node, D276) | every table | orders, samples, order tests, sample events, results (bench work, amendments), critical calls, notifications, QC runs, charges (D304, amending D302: charged at accession, billable at release, voided on a cancellation or an unfit sample); never the reference tables |
 | `lab_api` | the lab's order API, an `api` node (D267, D270) | the catalogue, accounts, orders and their tests and results (status) | orders, samples, order tests (intake); send-outs' answers and their results, from the external lab's callback |
 | `lab_instruments` | the analysers' middleware uploading batches | samples, order tests, analytes, test analytes, reference intervals, QC runs | batches, results |
 | `lab_dispatch` | the centre's jobs posting results to the practices and send-outs to the external lab | orders, order tests, results, accounts, samples | callbacks, send-outs, sample events (`sent-out`) |
 | `lab_reports` | the periodic reports and statements, writing to `office` (D300) | every table | nothing |
 
 The purposes' roles (the results' return to the core, the release to
-the portal, the notifications, the statements) come with step 7.
+the portal, the notifications, the statements) come with step 7,
+drafted in [clinic-purposes.md](clinic-purposes.md#the-roles-the-purposes-add).
 
 ### Reference sizes
 
@@ -722,9 +726,10 @@ Drafted on 2026-11-02 with `vet-core`'s
 ([vet-core-domain.md](vet-core-domain.md#the-producer-profiles-step-6)),
 whose page states what both share: a volume stream against a work
 stream, the input types, intensity and the history, and readable
-fragments with no planted fault (D276). Every point is (proposed) until
-the owner rules on O153 and O154 ([producer
-profiles](producer-profiles.md#12-what-the-clinics-first-profiles-need-o154)).
+fragments with no planted fault (D276). Ruled as drafted on 2026-11-02
+(D304, closing O153), with what the profiles need of the scheduler and
+the format ([producer profiles](producer-profiles.md#12-what-the-clinics-first-profiles-need-ruled-d303)
+12, D303, closing O154).
 
 **Producer or purpose.** What the lab's own applications write into
 `lab` is this step's, and so are the rates of every flow it meets,
@@ -746,7 +751,7 @@ nothing in this step runs as either.
 The middleware shares the information system's node: a lab's
 middleware is an application of its own, but one node standing for
 both keeps the node count to the clinic's applications, a few standing
-for many (D263; O153, lab point 1). The fragments are written for the
+for many (D263, D304). The fragments are written for the
 node names `lis`, `lab-api`, `lab` and `clinic-api`; the GM renames
 them as the scenario does.
 
@@ -794,7 +799,7 @@ Fixed-time operations (`jobs.yaml`, scenario time):
 | `lab.qc.night` | `15 21 * * *` | QC on the on-call analysers before the night (one haematology, one biochemistry, the blood gas): about 7 runs |
 | `lab.release.round` | `0 11,14,18 * * 1-6` and `0 11 * * 0` | the pathologist's round: every technically validated test not held released (rule 1), orders completed, the outside tests' charges billable on the release's date (rule 13) |
 | `lab.samples.dispose` | `0 6 * * *` | samples past their keep-until disposed, a `disposed` event; a custody sample kept until its case closes (rule 12) |
-| `lab.identity` | `* * * * *` | the centre's new orders lacking the animal's identity: each animal read from the core's lookup API (`GET /animals/{id}`, `/owner`) and its species, sex, born on, natural identifiers, food-chain status and the owner's surname written on the order; a read, a call and a write, which a script does once O154's point 1 is ruled |
+| `lab.identity` | `* * * * *` | the centre's new orders lacking the animal's identity: each animal read from the core's lookup API (`GET /animals/{id}`, `/owner`) and its species, sex, born on, natural identifiers, food-chain status and the owner's surname written on the order; a read, a call and a write: a script job holding the `lab` connection and an HTTP one to `clinic-api` (D303) |
 
 `lab.samples.dispose` is light, set-based work, the database node's
 `pg_cron` a placement the GM may choose (D206, D207). `lab.identity`
@@ -830,7 +835,7 @@ database, D293), each an `api` node out of the players' reach. A
 partner's back end ticks its own `api` node, whose endpoint reads the
 partner's state, calls the centre and records the answer, as a real
 partner's system would; its fault keys come with the faults (D276), the
-fragments holding its normal behaviour (O154).
+fragments holding its normal behaviour (D303).
 
 **The region's practices**, one stub for the 120 accounts (D293):
 
@@ -877,7 +882,7 @@ result is acknowledged at its callback.
 A purpose (step 7), writing to `office` on the core's instance (D300).
 The lab has no standby (D299, D301): its statement reads the lab's own
 node, at night when the bench is closed and the on-call traffic light,
-a second connection writing `office` (O153, lab point 6). The yearly
+a second connection writing `office` (D304). The yearly
 price list and the intervals' review are history only: one revision
 each, on 1 January, inside the year (step 4).
 
@@ -903,7 +908,7 @@ lab:
 The partners' database is planted from the same documented functions
 of the lab's ids as the lab's own load, so no outstanding send-out is
 missing from the stub, which would leave a result never coming back
-with no fault behind it (O153, lab point 7).
+with no fault behind it (D304).
 
 ### Cold storage (D297)
 
@@ -929,7 +934,12 @@ The partners' database: about 125 rows a day. Over an aging the lab's
 disk is never the problem: its bursts, its holds and its round trips'
 backlogs are.
 
-### Points for the owner (O153)
+### Points for the owner, ruled (D304)
+
+Confirmed as drafted on 2026-11-02 ("agreed"), with the core's (D304,
+closing O153); point 4 amends D302's grants, applied in "Application
+roles and grants" above, and point 5 is applied in
+[one-centre.md](one-centre.md#2-the-labs-partners-d293-d294):
 
 1. **One node for the information system and the middleware**, `lis`,
    with two connections and their roles; the order API, `lab-api`, only
@@ -961,6 +971,8 @@ backlogs are.
 
 ## Next
 
-Once the owner rules on O153 and O154: the purposes (step 7), the
-lab's round trips, the results' return, the release to the portal, the
-notifications and the statements among them, with `vet-core`'s.
+Step 7, the purposes, drafted with `vet-core`'s in
+[clinic-purposes.md](clinic-purposes.md): the lab's round trips, the
+results' return, the notifications, the critical calls and the
+statements; the release to the portal waits for `vet-portal`. The
+owner's points are O155 and O156.

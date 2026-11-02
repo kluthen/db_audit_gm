@@ -1,9 +1,11 @@
 # v0.5 — one centre per scenario
 
-Status: draft v2, ruled. One centre per scenario is the owner's ruling
+Status: draft v3, ruled. One centre per scenario is the owner's ruling
 (D285, closing O127); what it changes for the clinic's parts, its lab,
 its exchanges and its partners' nodes was ruled on 2026-11-02 as
-recommended (D293–D295, closing O147). `vet-core` at one centre's scale
+recommended (D293–D295, closing O147); the same day the other centres
+were ruled out of the lab's customers and the authority added among the
+partners (D304). `vet-core` at one centre's scale
 is in [vet-core-domain.md](vet-core-domain.md#the-variant-its-scale-and-its-tags).
 
 The owner, on 2026-11-02: "the scenario should be centered only on one
@@ -82,8 +84,7 @@ activity figures, a pushed flow.
   lab API (an `api` node in the players' scope, only answering, D270)
   and gets an accession id; the sample arrives with the story's courier;
   the centre's own job posts the result to the clinic's callback, so the
-  half that can go wrong is the centre's. The other national centres
-  order the same way.
+  half that can go wrong is the centre's.
 - **The customers are the core's referring practices**, by id
   (procedure 4); `vet-lab` keeps their accounts and price list.
 - **Billing them** (D294), inside `vet-lab`: test prices, each outside
@@ -119,7 +120,8 @@ callbacks, D270; the clinics' and centres' orders) or remember
 end shared by every partner of a scenario**: one scheduler node driving
 their calls from its hidden schedule, and one small database holding
 their state, each partner's tables and role its own, closed to the
-players by its access rules (D275). For some seven partners (the
-external lab, two centres, the centres abroad as one, the head office,
-the messaging service, cold storage, the region's clinics as one) that
-is about nine nodes instead of twenty.
+players by its access rules (D275). For nine partners (the external
+lab, two centres, the centres abroad as one, the head office, the
+messaging service, cold storage, the region's clinics as one, and the
+authority, a stub of its own, D304) that is eleven nodes instead of
+twenty-seven.

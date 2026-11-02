@@ -1,6 +1,6 @@
 # v0.5 — producer profiles against v0.3's scheduler (O113)
 
-Status: draft v7, ruled, with section 12 (proposed, O154). Ruled by the owner on
+Status: draft v8, ruled. Ruled by the owner on
 2026-11-01: merging (1, D264), readable profiles, rates, input types,
 producer nodes, time zones and the variant's profile (2, 3, 5, 6, 10,
 D276), periodic reports and how a fix to one is checked (4, D265, D269,
@@ -9,7 +9,8 @@ what players reach on them, and round trips (8, D267, D268, D270,
 D271); on 2026-11-02 the housing displays (9, D287) and data growth (11,
 D288, D298), with [cold storage](cold-storage.md) (D296, D297), closing
 O113. Section 12, what `vet-core`'s and `vet-lab`'s profiles (step 6)
-need of the scheduler and the format, is for the owner (O154).
+need of the scheduler and the format, was ruled as proposed the same day
+(D303, closing O154).
 
 The owner, on 2026-11-01: "Let's begin working on the clinic domains and
 the frictions points between producer profiles and v0.3."
@@ -48,7 +49,7 @@ copies; the scenario itself is built in v0.4's wave 4), the scheduler
 | 9 | Many small consumers that all look alike (the housing displays) | ruled: a ward service holding a pool (D287) |
 | 10 | Several sites in different time zones | ruled: one zone in v0.5 (D276) |
 | 11 | Data growth over the aging (the machinery's readings) | ruled: small action events, a day of readings on site, cold storage (D288, D298, D296, D297) |
-| 12 | A read, a call and a write; the HTTP driver; a weighted choice; where a domain's API and partner material lives | proposed (O154) |
+| 12 | A read, a call and a write; the HTTP driver; a weighted choice; where a domain's API and partner material lives | ruled: script jobs with an HTTP connection, partners ticking their own `api` node; the driver's least; `choice`; `producers/api/` and `producers/partners/` (D303) |
 
 ## 1. Merging fragments (ruled, D264)
 
@@ -511,12 +512,15 @@ number of rows, date.
   the consumers it waits for, so the GM sizes the disk for the window,
   not the game.
 
-## 12. What the clinic's first profiles need (O154)
+## 12. What the clinic's first profiles need (ruled, D303)
 
 Found at `vet-core`'s and `vet-lab`'s profile steps (procedure step 6;
 [vet-core](vet-core-domain.md#the-producer-profiles-step-6),
-[vet-lab](vet-lab-domain.md#the-producer-profiles-step-6)); (proposed)
-until the owner rules.
+[vet-lab](vet-lab-domain.md#the-producer-profiles-step-6)). The owner
+accepted every recommendation on 2026-11-02 ("agreed", D303, closing
+O154): option a for the customer's side and c for a third party (1),
+the driver's least (2), `choice` in the same bump (3), and the layout
+(4), which feeds O111.
 
 **1. A read, a call and a write.** Nearly every flow around the lab
 reads a database, calls an API with what it read, and writes the
@@ -538,7 +542,7 @@ lookup API; cold storage's shipping job ([cold storage](cold-storage.md)
   sequence passing one step's rows to the next: a new repository form,
   more work and less readable. c. The `api` node doing the work while
   answering a tick: against D270 for the customer's nodes.
-- Recommendation: a for the customer's side, whose flows then run
+- Ruled (D303): a for the customer's side, whose flows then run
   every minute at most, as middleware polling its outbox does; c for a
   third party, outside the players' scope and D270's exception: the
   back end's stream ticks the partner's own `api` node, whose endpoint
@@ -555,10 +559,11 @@ The clinic's first profiles need nothing more.
 **3. A weighted `choice`** (5): the int-and-`CASE` trick recurs about a
 dozen times in the two profiles (species mixes, a consultation's and a
 stay's outcomes, a sample's condition, the urgent shares), D276's
-trigger. Recommended: `{choice: {dog: 45, cat: 25, horse: 15, ...}}`,
+trigger. Ruled (D303): `{choice: {dog: 45, cat: 25, horse: 15, ...}}`,
 in the same `scheduler` bump as the HTTP driver.
 
-**4. Where a domain's API and partner material lives** (feeds O111):
+**4. Where a domain's API and partner material lives** (ruled, D303;
+feeds O111):
 
 - `producers/api/<node>/routes/` and `db/` for an `api` node the domain
   owns (the core's `clinic-api`, the lab's `lab-api`), the layout of 8
