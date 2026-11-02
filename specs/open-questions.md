@@ -11,7 +11,7 @@ their IDs keep their meaning. Questions resolved by the close of v0.2
 Questions resolved by the close of v0.3 (O45, O46, O78 and O81–O103) are
 listed in
 [archive/v0.3/open-questions-resolved.md](archive/v0.3/open-questions-resolved.md).
-Numbering continues from O157.
+Numbering continues from O159.
 
 Resolved during v0.4's drafting: O106 (D194), O110 (D195), O107 (D197), O120
 (D198), O109 (D199), O121 (D200), O123 (D202), O105 (D203), O129 (D206), O131 (D207),
@@ -26,7 +26,8 @@ during v0.5's drafting: O137 and O47 (D248), O126 (D249), O139 (D260),
 O118 (D261), O80 (D262), O114 (D263), O145 (D274, D275), O144 (D278),
 O127 (D285), O128 (D286), O79 (D289), O112 (D292), O147 (D293–D295),
 O148 (D296, D297), O113 (D298), O149 (D300), O151 (D301), O152 (D302),
-O154 (D303), O153 (D304).
+O154 (D303), O153 (D304), O155 (D306),
+O156 (D307).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -201,26 +202,23 @@ added on 2026-10-30 (D196).
   core variant's name (D301, `vet-lab`'s answer 15), where a domain's
   API and partner material lives (`producers/api/<node>/` and
   `producers/partners/<partner>/`, a partner's misbehaviour keys coming
-  with its faults, D303), the purpose format's extensions (O156), and
+  with its faults, D303), the purpose format's extensions (accepted by D307, closing O156), and
   what the clinic's domains reveal. Finalised in the master spec when v0.5
   consolidates (D291), which closes it.
-- **O155** (next, v0.5) — `vet-core`'s and `vet-lab`'s purposes (step
-  7), drafted together, for the owner to choose: ten purposes (four
-  round trips, the notifications, the critical calls' watch, the two
-  registers as one, the antimicrobial-use report, the head office's
-  figures, the lab's statements), two runners (`interfaces`,
-  `backoffice`) and a `pg_cron` watch, the results back by a feed with a
-  watermark, the office role `office_jobs`, exchanges in the core's
-  record, rare flows' faults only with a story raising their rate, the
-  notifications' category and deadlines, and the game values. Refs:
-  [versions/v0.5/clinic-purposes.md](versions/v0.5/clinic-purposes.md#points-for-the-owner-o155).
-- **O156** (next, v0.5) — What the clinic's purposes extend in the
-  purpose format: the round-trip kind's `round_trips:` block, the `api`
-  and `partner` parts, HTTP connections, endpoint and receiver material,
-  periodic jobs with their feeder and planted history, how an invariant
-  is judged, the classes of the tables a purpose brings, the `ops`
-  schema (feeds O111). Refs:
-  [versions/v0.5/clinic-purposes.md](versions/v0.5/clinic-purposes.md#4-the-format-and-what-the-round-trip-extends-o156).
+- **O158** (next, v0.5) — The clinic's playground. A first tally (in
+  progress, [README](versions/v0.5/README.md#next-steps-in-progress)):
+  about 18 nodes and 3.8G reserved for `vet-core`, `vet-lab`, their
+  purposes, replication, the three grouped partner nodes (D308) and
+  monitoring; about 27 to 31 nodes and 4.8 to 5.9G, about 4.8 to 5.8 CPU,
+  with the four parts still to define. That is over one host as the
+  tests declare it (4 CPU, 4G) and within armenelos plus the VPS (6 CPU,
+  8G, 10 % headroom each), CPU the tight dimension. Is the clinic a
+  two-host scenario, when the default game stays single-host (D128)?
+  Default: yes, armenelos plus the VPS (shared, so no node that may
+  exhaust its memory there), nodes sized by role as v0.4 13.2 does;
+  otherwise trim (D238's extra monitoring, one machinery database).
+  Refs: [platform.md](platform.md),
+  [versions/v0.5/one-centre.md](versions/v0.5/one-centre.md) 4.
 
 ## v0.6: the setup's entry point
 

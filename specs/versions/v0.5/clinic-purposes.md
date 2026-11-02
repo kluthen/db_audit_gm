@@ -1,8 +1,11 @@
 # v0.5 — the clinic's purposes (step 7): `vet-core` and `vet-lab`
 
-Status: draft v1, for the owner (O155, O156). Everything here is
-(proposed) until he chooses the purposes (procedure step 7: "chooses the
-purposes").
+Status: draft v2, ruled. The owner accepted all eight points as drafted
+on 2026-11-02 ("agreed", D306, closing O155) and the format's
+extensions in section 4 (D307, closing O156, feeding O111); step 7 is
+ruled for both domains. The partners' stubs share one `api` node, each
+under its own hostname (D308). The candidate faults below are traps for
+step 8; a scenario's faults are the GM's to select (D309).
 
 Step 7 of the [procedure](domain-procedure.md#2-the-steps-from-a-brief-to-a-finished-domain)
 for the clinic's first two domains together, since their flows
@@ -70,7 +73,7 @@ with a daily feeder and planted past periods.
 
 The two medicines registers (the register of supplies and the
 controlled-drugs register) are one purpose, 7: one source, one runner,
-the same feeders' shape. Ten purposes in all (O155, point 1).
+the same feeders' shape. Ten purposes in all (D306, point 1).
 
 ## 3. Where they run
 
@@ -84,7 +87,7 @@ the same feeders' shape. Ten purposes in all (O155, point 1).
 Two runners rather than one: the integration engine's flows are
 latency-bound (an urgent order within a minute), the reports heavy at
 night; a report placed on the integration engine, delaying the orders,
-becomes a fault candidate rather than the design (O155, point 2). Light
+becomes a fault candidate rather than the design (D306, point 2). Light
 work elsewhere stays where step 6 put it (`prescriptions.expire`,
 `lab.samples.dispose`: `pg_cron` a placement the GM may choose).
 
@@ -92,13 +95,13 @@ Every job of `interfaces` holding an HTTP connection is a script job
 (D303): it reads, calls and writes, each call's status and latency in
 the runner's log. None runs more often than every minute.
 
-## 4. The format, and what the round trip extends (O156)
+## 4. The format, and what the round trip extends (ruled, D307)
 
 Each purpose below is stated in v0.4's format (identity, parts, jobs,
 trace, invariants, data moved, roles; [formats.md](../../formats.md)
 "Purpose definition"), compressed into prose and tables; it becomes
 `purposes/<id>/purpose.yaml`, `material/`, `checks/` and `gm.md` at the
-build. What extends, all (proposed), feeding O111:
+build. What extends, accepted (D307), feeding O111:
 
 1. **The round-trip kind** (D286): `kind: round-trip` and a
    `round_trips:` block, one entry per exchange the purpose carries
@@ -180,7 +183,7 @@ results' state comes back into the core's `requests`.
 `lab-api` gains the feed endpoint (section 15). A watermark rather than
 one call per open order: one call a run, and the watermark's own way of
 going wrong (v0.4's `purpose-watermark-misses-updates`) as a candidate
-(O155, point 3).
+(D306, point 3).
 
 **Trace**: `requests` (state), `ops.lab_orders_sent` (client_ref,
 request ids, accession, attempts, last HTTP status, posted at, answered
@@ -368,7 +371,7 @@ either way: key, kind, direction, HTTP status, at), `ops.incidents`,
 
 | Id | Statement | Judged | Witness |
 |---|---|---|---|
-| EX1 | Every outbound exchange recorded since the judged moment is received by its centre within 10 minutes | triggers | about one a day, the transfers among them: rare (O155, point 6) |
+| EX1 | Every outbound exchange recorded since the judged moment is received by its centre within 10 minutes | triggers | about one a day, the transfers among them: rare (D306, point 6) |
 | EX2 | Every inbound request decided since the judged moment has its answer posted within 10 minutes, every report written its report posted within 10 minutes | triggers | about one a day, business hours |
 | EX3 | One `exchange_key` per exchange, kept on a resend; each answer recorded on its own exchange | runs | the chases; the in-flight exchanges at T0 |
 | EX4 | An exchange carries what the franchise's agreement allows: this animal's record and its owner's contact, never another animal's or another owner's | runs | every post |
@@ -401,7 +404,7 @@ too (core rule 7).
 system's `lab.notify` writes it), or a `diagnoses` row whose code is
 notifiable (suspected or confirmed). Within an hour for a category A
 disease, a day for another listed disease: the lab's game values (D302),
-applied to the vet's too (O155, point 7). The category needs
+applied to the vet's too (D306, point 7). The category needs
 `diagnosis_codes` to say it (section 15).
 
 **Receiver**: the authority's stub, its own `api` node on the partners'
@@ -428,7 +431,7 @@ witness (D214's precedent).
 
 | Id | Statement | Judged | Witness |
 |---|---|---|---|
-| ND1 | Every trigger since the judged moment is notified within its deadline | triggers | rare: a few a month (O155, point 6) |
+| ND1 | Every trigger since the judged moment is notified within its deadline | triggers | rare: a few a month (D306, point 6) |
 | ND2 | One notification accepted per trigger | runs | the stub's 503s, retried |
 | ND3 | A notification carries the disease, the species, the holding or the keeper's name and address, the notifying vet or lab and the date; never the clinical notes | runs | every post |
 | ND4 | Every notification sent since the judged moment has its reference, or an incident by the next escalation run | triggers | the stub's 503s |
@@ -651,7 +654,8 @@ lists its own clients' orders.
 
 ## 15. What step 7 asks of the domains
 
-Each item is a change to a ruled step, for the owner (O155):
+Each item is a change to a ruled step, accepted with the purposes
+(D306); applying them to the domain pages is left to the next session:
 
 **`vet-core`**
 
@@ -744,7 +748,10 @@ choice is the scenario's. Read against D290's mix, without choosing:
 - **A false alarm**: "the external lab is slow": a PCR answered on its
   fourth day, within its turnaround.
 
-## Points for the owner (O155)
+## Points for the owner, ruled (D306)
+
+Accepted as drafted on 2026-11-02 ("agreed"), with vet-lab's two asks
+(the results feed on `lab-api`, `resend` on the external lab's stub).
 
 1. **Ten purposes, all built in v0.5**: the four round trips, the
    notifications, the critical calls' watch, the two registers as one
@@ -780,4 +787,4 @@ choice is the scenario's. Read against D290's mix, without choosing:
    antimicrobial-use report sent 15 January, due 31 January; the head
    office's figures by the 5th; the statements' discount brackets.
 
-The format's extensions (section 4) are O156, feeding O111.
+The format's extensions (section 4) are ruled (D307), feeding O111.

@@ -75,7 +75,7 @@ Left out of a domain:
 | 5 | **Classification and governance** | the data model; the business's regulations | every column classed; the business's own rules (section 6, item 1) | **confirms the rules are realistic** |
 | 6 | **Producer profiles** | the sketch's activities and cadences | traffic shapes and rates, fixed-time operations, input types; cadences real time cannot age flagged (monthly, yearly: O22) | only for a flagged cadence |
 | 7 | **Purposes** | the data model, the existing purposes | which existing purposes fit; new ones named, each drafted as a purpose of its own ([formats.md](../../formats.md) "Purpose definition") | **chooses the purposes** |
-| 8 | **Traps** | the model, the profiles, the purposes | where faults can bite, as a list | joins it when he defines faults (D233) |
+| 8 | **Traps** | the model, the profiles, the purposes | where faults can bite, as a list, each with its D290 class | none: a scenario's faults are selected by the GM at deploy, with whoever sets up the game (D309, amending D233) |
 | 9 | **Draft document** | steps 2 to 8 | `specs/versions/<version>/<domain>-domain.md`, as [shop-domain.md](../v0.4/shop-domain.md) | **approves it**, with the version's master spec |
 | 10 | **Build** | the approved draft | `domains/<id>/`, verified (section 3) | none: a build-plan chunk |
 | 11 | **Proof in play** | a scenario using the domain | a smoke run with the domain's data, producers and purposes running | none, unless the run shows a design gap |

@@ -34,9 +34,9 @@ default accepted, the lab on a node of its own (D301), its data model
 and governance ruled as drafted (D302); `vet-core`'s and `vet-lab`'s
 producer profiles (step 6) drafted together, then ruled as drafted
 (D304), with what they need of the scheduler and the format (D303);
-their purposes (step 7) drafted together, for the owner (O155), with
-what the round trip and the periodic reports extend in the purpose
-format (O156).
+their purposes (step 7) ruled as drafted (D306), with the purpose
+format's extensions (D307); the partners' stubs grouped on one `api`
+node (D308); selecting a scenario's faults the GM's role (D309).
 
 ## Documents
 
@@ -50,7 +50,7 @@ format (O156).
 | [vet-core-domain.md](vet-core-domain.md) | `vet-core` through the procedure: the business sketch and the owner's answers (step 2), what the parts need of the core, the clinic's split (step 3), the data model (step 4), classification and governance (step 5), the producer profiles (step 6) | draft v8: steps 2 and 3 ruled (D266, D278, D279, D293, question 1 revised by D285), step 4 current at one centre's scale (D295), `requests` revised (D301), the lab's two load constraints applied (D302), step 5 ruled (D280), step 6 ruled (D303, D304; O153, O154 closed); step 7 in [clinic-purposes.md](clinic-purposes.md) |
 | [replication.md](replication.md) | Replication and the off-site copies: a standby of the core's instance off site, WAL archiving and base backups to cold storage for the core's instance and the lab's node, their faults and cost; the back-office database the reports write to | draft v3, ruled (D299, D300, D301; O149 closed) |
 | [vet-lab-domain.md](vet-lab-domain.md) | `vet-lab` through the procedure: what is settled before it, the business sketch (step 2) and the owner's answers, where the lab presses on the core, the data model (step 4), classification and governance (step 5), the producer profiles (step 6) with its partners and round trips | draft v4: step 2 ruled (D301, O151 closed); steps 4 and 5 ruled (D302, O152 closed), `lab_app`'s grants amended (D304); step 6 ruled with `vet-core`'s (D303, D304; O153, O154 closed); step 7 in [clinic-purposes.md](clinic-purposes.md) |
-| [clinic-purposes.md](clinic-purposes.md) | Step 7 for `vet-core` and `vet-lab` together: the existing purposes against the clinic, the ten purposes proposed (four round trips, the notifications, the critical calls, the registers, the antimicrobial-use report, the head office's figures, the lab's statements), each with its kind, cadence, trace, invariants, runner, source and target and candidate faults; the runners; the format's extensions; what it asks of the domains | draft v1, for the owner (O155, O156) |
+| [clinic-purposes.md](clinic-purposes.md) | Step 7 for `vet-core` and `vet-lab` together: the existing purposes against the clinic, the ten purposes proposed (four round trips, the notifications, the critical calls, the registers, the antimicrobial-use report, the head office's figures, the lab's statements), each with its kind, cadence, trace, invariants, runner, source and target and candidate faults; the runners; the format's extensions; what it asks of the domains | draft v2, ruled (D306, D307; O155, O156 closed) |
 | [brick-options-review.md](brick-options-review.md) | The options candidates checked against the clinic, and the owner's rulings on them: what the clinic gets, as an option or otherwise, what stops mattering, the options model | draft v4, ruled (D250, D261, D262, D289) |
 
 ## Goal
@@ -437,11 +437,7 @@ The items moved later are listed in the roadmap
 
 - O111: the domain format, beyond its v0.4 part and D249's four
   changes; finalised in the master spec when v0.5 consolidates (D291).
-- O155: `vet-core`'s and `vet-lab`'s purposes (step 7), the owner to
-  choose them ([clinic-purposes.md](clinic-purposes.md#points-for-the-owner-o155)).
-- O156: what the round trip and the periodic reports extend in the
-  purpose format ([clinic-purposes.md](clinic-purposes.md#4-the-format-and-what-the-round-trip-extends-o156)),
-  feeding O111.
+- O158: the clinic's playground, two hosts by default (next steps).
 
 Moved out of this list on 2026-10-31: O53 and O54 (later, D237); O21
 and O135 (v0.6, D233, D248); O24 and O25 (v1.0+, D248). Closed: O47
@@ -449,6 +445,36 @@ and O135 (v0.6, D233, D248); O24 and O25 (v1.0+, D248). Closed: O47
 (D262), O114 (D263), O145 (D274, D275), O144 (D278), O127 (D285), O128
 (D286), O79 (D289), O112 (D292), O147 (D293–D295), O148 (D296, D297),
 O113 (D298), O149 (D300), O151 (D301), O152 (D302), O154 (D303), O153
-(D304). O23 ruled for the clinic (D290), its
+(D304), O155 (D306), O156 (D307). O23 ruled for the clinic (D290), its
 general part left for later. Not due here: O138, the post-mortems'
 binding.
+
+## Next steps (in progress)
+
+Left when the session stopped on 2026-11-02, after D306–D309:
+
+- **Step 8, Traps, for `vet-core` and `vet-lab` together**: in progress,
+  not yet written. The trap catalogue across the data model, profiles
+  and purposes (bricks and configuration, data and identity,
+  governance, replication and archive, cold storage, round trips,
+  periodic reports, `api` `db/` sides, performance), each with where it
+  bites, its witness, where it is fixed, catalogue fault or new, and its
+  D290 class, plus false-alarm material; no owner checkpoint (D309).
+- **The test selection**: in progress. Up to ten faults on D290's mix and
+  an optional false alarm, a fixture for the build's smoke run and the
+  proof in play (D309), covering a round-trip cascade, replication or
+  archive, cold storage, a periodic report with a witness in the aging,
+  an `api` node's `db/` side and governance.
+- **The node and capacity tally**: in progress. Every clinic node so
+  far, with the partners grouped (D308), plus estimates for scheduling,
+  housing, machinery and the portal, checked against platform.md's hosts
+  and `fit`. A first count: about 18 nodes so far, about 3.8G reserved,
+  over one host as the tests declare it (4G), within armenelos plus the
+  VPS; the whole clinic about 27 to 31 nodes and 4.8 to 5.9G, CPU the
+  tight dimension.
+- **Applying D306 to the domain pages**: `exchanges` and its streams in
+  vet-core steps 4 and 6, `diagnosis_codes.notifiable` none/A/other, the
+  centres' stubs; `lab-api`'s results feed and the external lab's
+  `resend` in vet-lab; replication.md 3's office role name; the partner
+  pages' "own `api` node" wording (vet-core, vet-lab, cold-storage,
+  producer-profiles 12, clinic-purposes) to D308's hostnames.

@@ -100,9 +100,11 @@ schedule (D270), a `postgres` node when it keeps state. The external
 lab: an `api` node answering the clinic's orders, a scheduler node
 posting results back, a database holding the orders. Every partner of
 a scenario shares one back end, one scheduler node and one small
-database, each partner's tables and role its own (D293;
-[one-centre.md](one-centre.md) 4): a partner is otherwise one `api`
-node.
+database, each partner's tables and role its own (D293), and one `api`
+node, each partner under its own hostname through network aliases
+(D308; [one-centre.md](one-centre.md) 4): three partner nodes in all.
+Per partner stay its routes, its `partners.md` entry, its misbehaviour
+keys, and for cold storage alone the bastion's route (D296).
 
 **Out of reach (D273).** A third party's nodes have no `player`
 account, are not on the bastion's routes and are not listed among the
@@ -235,3 +237,5 @@ other national centres and the franchise's central systems are third
 parties as well, stub `api` nodes only. Then (D293, D296): one back end
 shared by every partner; the bastion's route to cold storage's
 read-only page, the one exception to D273.
+Then (D308): every partner's stub on one `api` node, each under its own
+hostname.

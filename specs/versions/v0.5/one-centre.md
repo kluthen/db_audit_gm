@@ -1,6 +1,6 @@
 # v0.5 — one centre per scenario
 
-Status: draft v3, ruled. One centre per scenario is the owner's ruling
+Status: draft v4, ruled. The partners' stubs grouped on one `api` node (D308). One centre per scenario is the owner's ruling
 (D285, closing O127); what it changes for the clinic's parts, its lab,
 its exchanges and its partners' nodes was ruled on 2026-11-02 as
 recommended (D293–D295, closing O147); the same day the other centres
@@ -111,17 +111,36 @@ the transformer job planned before (D268's SQL stubs):
 - The core's `sites` lists the other centres, so transfers and stays
   name them.
 
-## 4. The partners' nodes (D293)
+## 4. The partners' nodes (D293, D308)
 
-"Just third party api nodes": no partner's own setup runs. Each partner
-is an `api` node. What they must do on their own (the external lab's
-callbacks, D270; the clinics' and centres' orders) or remember
-(correlation ids, cold storage's manifests, D296) lives in **one back
-end shared by every partner of a scenario**: one scheduler node driving
-their calls from its hidden schedule, and one small database holding
-their state, each partner's tables and role its own, closed to the
-players by its access rules (D275). For nine partners (the external
+"Just third party api nodes": no partner's own setup runs. What the
+partners must do on their own (the external lab's callbacks, D270; the
+clinics' and centres' orders) or remember (correlation ids, cold
+storage's manifests, D296) lives in **one back end shared by every
+partner of a scenario**: one scheduler node driving their calls from its
+hidden schedule, and one small database holding their state, each
+partner's tables and role its own, closed to the players by its access
+rules (D275).
+
+**One `api` node for every partner** (D308; the owner: "Indeed partners
+can be grouped for ease of usage"). The nine partners (the external
 lab, two centres, the centres abroad as one, the head office, the
 messaging service, cold storage, the region's clinics as one, and the
-authority, a stub of its own, D304) that is eleven nodes instead of
-twenty-seven.
+authority, D304) are served by one `api` node, each under its own
+hostname through network aliases (`northfield-lab`, `cold-storage`,
+...), so the players still see distinct partners. That is **three
+partner nodes** (the `api` node, the scheduler, the database) instead of
+eleven.
+
+What stays per partner:
+
+- its routes, dispatched by hostname, and its endpoint material;
+- its entry in `partners.md`;
+- its misbehaviour keys: an outage, slow answers or a lost callback is a
+  key switching that partner's state, read by its own routes, never a
+  stop of the shared node (which would take every partner down);
+- the bastion's route, for cold storage alone: to its hostname's
+  read-only page and endpoint (D296), never to another partner's.
+
+The build verifies that one partner's slow answers never hold another's
+(the node's workers), so a fault on one partner never spreads to all.

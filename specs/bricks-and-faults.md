@@ -104,7 +104,8 @@ targets (D134). An issue may be a false alarm, a complaint with no
 fault behind it (D290). The clinic's scenario has ten faults at most:
 one dramatic, already noticed by the customer, two on the verge of
 becoming problematic, the rest optimisations and minor frictions
-(D290). The general mix: O23.
+(D290). Selecting them is the GM's, at deploy, with whoever sets up the
+game; the cap and the mix bind the selection (D309). The general mix: O23.
 
 ### Tooling proportionate to the topology (D65)
 
