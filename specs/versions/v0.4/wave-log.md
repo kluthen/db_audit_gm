@@ -3200,3 +3200,24 @@ the `pgbouncer` fix (`coding-executor`, on the inserted chunk), then
 17a's remaining runs overnight from WIP bf5dbf5 ("Paused again" entry
 above; order cycles, baseline, f10, two-host last), 17b, the wave gate,
 the release gate.
+
+### `pgbouncer` ruling recorded: D305, chunk 21, plan v12 (9baca2a), 2026-11-02
+
+`spec-writer` finished before the shutdown (the previous entry's check
+is moot): **D305**, `pgbouncer` **0.1.1** (D57's precedent for a fix
+with no interface change); **chunk 21** inserted in wave 4 (a
+`coding-executor` briefed by the driver; the chunk's text in the plan),
+edge `21 ──> 17` (merge order only: 17a merges `v0.4-w4` in once 21 has
+merged, its remaining runs then on 0.1.1); master spec 5, 7.3, 16.1,
+16.4, 17 item 1; the wave gate expects `pooler workarounds: 0`; release
+gate item 1 lists 0.1.1. Two calls of `spec-writer`'s in the chunk,
+accepted by the driver: after the bound PgBouncer starts anyway (a name
+that never resolves never keeps the node down), the bound well inside the
+health check's 60 s `start_period`; `.tech`'s two `pgbouncer 0.1.0`
+mentions go to `security-advisor` after the merge (no package change, no
+dependency preflight). D285–D304 are `v0.5-domains`'.
+
+**Next**: chunk 21 (`coding-executor`, image build and stack test under
+the lock), then 17a's remaining runs from WIP bf5dbf5 after merging
+`v0.4-w4` in (order cycles, baseline, f10, two-host last), 17b, the wave
+gate, `security-advisor` on `.tech`, the release gate.
