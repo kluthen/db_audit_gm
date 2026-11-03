@@ -3388,3 +3388,25 @@ two-host `smoke-load.sh`), the rehearsal (17b, item 12), and item 9's
 unobserved part (f4 after the local midnight, f8's fixed, a clean cycles
 verdict); 17b leaves v0.4; the release gate keeps the rest, its notes
 naming what moved. The single-host wave gate goes on.
+
+### D311, O161 closed, O162, plan v14 (d8f5f3c), 2026-11-03
+
+`spec-writer`: **D311** writes the ruling in. The v1.0-gating list lives
+in `specs/versions/README.md`, "Release gates" → "v1.0 gating" (pointer
+in `specs/versions/v1.0/README.md`): the stance check-list (item 13),
+every two-host session (item 8's two-host half, 17a's skipped run, the
+wave 4 gate's two-host `smoke-load.sh`), the rehearsal (17b, item 12) and
+its figures. 17b leaves v0.4; the bricks' footprints and the scenario's
+`resources` stay as they stand (item 1 met by the stack tests' at-rest
+figures; the rehearsal-tied figures move with it; 17a's memory table goes
+into the notes as one-host readings). G7 now blocks nothing in v0.4 after
+wave 3; G11 trimmed (no game played). Release gate: no GM session, no VPS
+run; item 8 the single-host smoke run plus `fit` refusing the VPS for
+`reporting`; items 12, 13 v1.0 gating. **Master spec 18** amended (a
+"Moved to v1.0 gating" paragraph, item 7's clause), on the owner's ruling
+as sign-off — **to confirm with the owner**. **O162** (open): item 9's
+unobserved part (f4 after the midnight, f8's fixed, a clean cycles
+verdict, ~9 h single-host) — `spec-writer` kept it in v0.4 (a smoke run,
+not a game); proposal: move it too, named in the known limits. Driver:
+chunk 17's Status set; the wave gate line corrected to the running scope
+(smoke, baseline, f10 on armenelos; cycles as 17a ran it).
