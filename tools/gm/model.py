@@ -535,10 +535,43 @@ class Scenario:
         raise KeyError(name)
 
 
-def _load_yaml(path, label, out):
+class _StrictLoader(yaml.SafeLoader):
+    """PyYAML's safe loader refusing a duplicate mapping key, which PyYAML
+    otherwise resolves silently to the last (v0.5 master spec 8.4; W1 item 7:
+    compose's inputs, merge.yaml, composition.yaml and every file
+    check_domain_dir reads; v0.4's released scenario files load as before)."""
+
+
+def _construct_strict_mapping(loader, node, deep=False):
+    loader.flatten_mapping(node)
+    seen = {}
+    for key_node, _ in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        try:
+            first = seen.get(key)
+        except TypeError:
+            continue                         # an unhashable key: the base constructor refuses it
+        if first is not None:
+            raise yaml.constructor.ConstructorError(
+                "while constructing a mapping", node.start_mark,
+                f"found duplicate key {key!r} (first on line {first + 1})", key_node.start_mark)
+        seen[key] = key_node.start_mark.line
+    return yaml.SafeLoader.construct_mapping(loader, node, deep=deep)
+
+
+_StrictLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+                              _construct_strict_mapping)
+
+
+def strict_load(text):
+    """YAML text loaded as safe_load does, refusing a duplicate key (yaml.YAMLError)."""
+    return yaml.load(text, Loader=_StrictLoader)
+
+
+def _load_yaml(path, label, out, strict=False):
     try:
         with open(path, encoding="utf-8") as fh:
-            return yaml.safe_load(fh)
+            return strict_load(fh) if strict else yaml.safe_load(fh)
     except FileNotFoundError:
         out.append(f"{label}: missing file")
     except (yaml.YAMLError, UnicodeDecodeError) as exc:
@@ -1134,6 +1167,7 @@ def check_scenario(scenario_dir, catalog_root=REPO_ROOT):
     _check_postgres_seeds(nodes, bricks, sdir, out)
     _check_scheduler_files(data, nodes, faults, minimum, sdir, out)
     _check_v04(data, nodes, _data_files(nodes, sdir), sdir, catalog_root, out)
+    _check_composition(data, sdir, catalog_root, out)
 
     if out:
         return None, out
@@ -2404,7 +2438,7 @@ def check_classification(path, rel, out, domain_databases=None):
     `domain_databases` (the databases its schema files create or it lists),
     <table>.<column> (<schema>.<table>.<column>), never the database. Returns
     the classes it uses, or None when unusable."""
-    content = _load_yaml(path, rel, out)
+    content = _load_yaml(path, rel, out, strict=domain_databases is not None)
     if content is None:
         return None
     check_against_schema(content, template_schema("classification.yaml"), rel, out=out)
@@ -2462,7 +2496,7 @@ def _check_fragments(folder, base, scripts_allowed, out, scheduler=True, api=Fal
             out.append(f"{shown}{'/' if entry.is_dir() else ''}: not a fragment ("
                        f"{', '.join(files + tuple(f + '/' for f in folders))})")
             continue
-        loaded[entry.name] = _load_yaml(entry, shown, out)
+        loaded[entry.name] = _load_yaml(entry, shown, out, strict=True)
     allowed = {"queries.yaml": ("queries",), "jobs.yaml": ("jobs",),
                "schedule.yaml": SCHEDULE_FRAGMENT_KEYS, "api.yaml": API_YAML_KEYS}
     for fname, content in loaded.items():
@@ -2568,7 +2602,7 @@ def _sibling_domain(domain_dir, did):
     if not (isinstance(did, str) and PURPOSE_ID_RE.match(did) and path.is_file()):
         return None
     try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        data = strict_load(path.read_text(encoding="utf-8"))
     except yaml.YAMLError:
         return None
     return data if isinstance(data, dict) else {}
@@ -2638,7 +2672,7 @@ def _check_domain_part(domain_dir, data, label, out):
 def _check_register(path, rel, tables, out):
     """The register fragment (template register.yaml; D334): every table of
     the domain in exactly one processing activity."""
-    content = _load_yaml(path, rel, out)
+    content = _load_yaml(path, rel, out, strict=True)
     if content is None:
         return
     check_against_schema(content, template_schema("register.yaml"), rel, out=out)
@@ -2784,7 +2818,7 @@ def _check_variants(domain_dir, data, base, label, out):
         variant = path.stem
         if not NAME_RE.match(variant):
             out.append(f"{rel}: {variant} is not a variant name ([a-z][a-z0-9-]*)")
-        content = _load_yaml(path, rel, out)
+        content = _load_yaml(path, rel, out, strict=True)
         if content is None:
             continue
         check_against_schema(content, template_schema("variant.yaml"), rel, out=out)
@@ -2834,7 +2868,7 @@ def _sibling_yaml(path):
     if not path.is_file():
         return None
     try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        data = strict_load(path.read_text(encoding="utf-8"))
     except yaml.YAMLError:
         return None
     return data if isinstance(data, dict) else None
@@ -2847,7 +2881,7 @@ def check_domain_dir(domain_dir, label_base=None):
     base = Path(label_base) if label_base else domain_dir.parent.parent
     label = _rel(domain_dir / "domain.yaml", base)
     out = []
-    data = _load_yaml(domain_dir / "domain.yaml", label, out)
+    data = _load_yaml(domain_dir / "domain.yaml", label, out, strict=True)
     if data is None:
         return out
     check_against_schema(data, template_schema("domain.yaml"), label, out=out)
@@ -2881,7 +2915,7 @@ def check_domain_dir(domain_dir, label_base=None):
         elif key == "register":
             _check_register(path, _rel(path, base), tables, out)
         elif key == "governance":
-            content = _load_yaml(path, _rel(path, base), out)
+            content = _load_yaml(path, _rel(path, base), out, strict=True)
             if content is not None and not isinstance(content, dict):
                 out.append(f"{_rel(path, base)}: top level: not a mapping (a governance: "
                            "fragment)")
@@ -3069,6 +3103,213 @@ def _check_domain(data, catalog_root, out):
     out.extend(m for m in missing if m not in out)
     if problem:
         out.append(f"scenario.yaml: domain: {problem}")
+
+
+AT_RE = re.compile(r"^([a-z]([a-z0-9-]{0,61}[a-z0-9])?)/([a-z_][a-z0-9_]*)$")
+DOMAINS_ENTRY_KEYS = ("id", "variant", "at")
+
+
+def _at_problem(value, by_name):
+    """Why an at: value is not a database node's node/database, or None. Whether
+    the scenario's data creates the database is the coherence check's (W2)."""
+    m = AT_RE.match(value) if isinstance(value, str) else None
+    if m is None:
+        return f"{value!r} is not <node>/<database>"
+    node = by_name.get(m.group(1))
+    if node is None:
+        return f"{value}: {m.group(1)} is not a node of the topology"
+    if node.get("role") != "database":
+        return f"{value}: {m.group(1)} is not a database node (role {node.get('role')})"
+    return None
+
+
+def check_domains_entries(data, catalog_root=REPO_ROOT, label="scenario.yaml"):
+    """(domains by id, problems) of scenario.yaml's domains: (formats.md
+    "Composing domains"; v0.5 master spec 6.2, 8.5; W1 items 2 and 7): each id
+    a domain of the catalog, once; a part only with its core, no variant of its
+    own, among its core variant's parts, beside its core when it lands_with
+    it; a core's variant one of its manifests; at: a database node's
+    node/database, a map of them for a part with databases. Each domain's
+    own missing items are listed too. `domains` maps id -> (entry, domain.yaml)."""
+    out = []
+    nodes = [n for n in data.get("nodes") or [] if isinstance(n, dict)]
+    by_name = {n.get("name"): n for n in nodes}
+    domains = data.get("domains")
+    if "domain" in data and data.get("domain") is not None:
+        out.append(f"{label}: domain: and domains: both: a scenario lists domain: (one "
+                   "domain) or domains:, never both")
+    if not (isinstance(domains, list) and domains):
+        out.append(f"{label}: domains: not a non-empty list of domains")
+        return {}, out
+    found = {}
+    for i, entry in enumerate(domains):
+        did = entry.get("id") if isinstance(entry, dict) else None
+        p = f"{label}: domains[{did if isinstance(did, str) else i}]"
+        if not isinstance(entry, dict):
+            out.append(f"{p}: not a mapping (id, variant, at)")
+            continue
+        _unknown_keys(entry, DOMAINS_ENTRY_KEYS, p, "a domains: entry", out)
+        for key in ("id", "at"):
+            if key not in entry:
+                out.append(f"{p}.{key}: missing")
+        if did in found:
+            out.append(f"{p}.id: {did} listed twice")
+            continue
+        if "id" not in entry:
+            continue
+        ddata, problem, missing = _find_catalog_unit("domain", did, catalog_root)
+        out.extend(m for m in missing if m not in out)
+        if problem:
+            out.append(f"{p}.id: {problem}")
+        elif ddata is not None:
+            found[did] = (entry, ddata)
+    for did, (entry, ddata) in found.items():
+        p = f"{label}: domains[{did}]"
+        requires = ddata.get("requires")
+        core = requires[0] if isinstance(requires, list) and requires else None
+        if "requires" in ddata:
+            if "variant" in entry:
+                out.append(f"{p}.variant: on a part: the variant is its core's entry's")
+            if core not in found:
+                out.append(f"{p}: part {did} without its core {core}: a part is taken only "
+                           f"with its core (domains: lists {core} beside it)")
+            else:
+                core_entry = found[core][0]
+                variant = core_entry.get("variant")
+                manifest = _sibling_yaml(Path(catalog_root) / "domains" / str(core)
+                                         / "variants" / f"{variant}.yaml")
+                parts = manifest.get("parts") if manifest else None
+                if variant is not None and isinstance(parts, list) and did not in parts:
+                    out.append(f"{p}: not a part of {core}'s variant {variant} (its parts: "
+                               f"{', '.join(map(str, parts)) or 'none'})")
+                if "lands_with" in ddata and entry.get("at") != core_entry.get("at"):
+                    out.append(f"{p}.at: {entry.get('at')}: {did} lands_with {core}, whose "
+                               f"at: is {core_entry.get('at')}")
+        else:
+            variant = entry.get("variant")
+            if "variant" not in entry:
+                out.append(f"{p}.variant: missing (required on a core's entry)")
+            elif not (Path(catalog_root) / "domains" / did / "variants"
+                      / f"{variant}.yaml").is_file():
+                out.append(f"{p}.variant: {variant!r} is not a variant of {did} "
+                           f"(domains/{did}/variants/<variant>.yaml)")
+        at = entry.get("at")
+        databases = ddata.get("databases")
+        if "at" not in entry:
+            continue
+        if isinstance(databases, list):
+            if not (isinstance(at, dict) and set(at) == set(databases)):
+                out.append(f"{p}.at: {at!r} is not a map from each of {did}'s databases "
+                           f"({', '.join(map(str, databases))}) to <node>/<database>")
+            for db, value in at.items() if isinstance(at, dict) else ():
+                problem = _at_problem(value, by_name)
+                if problem:
+                    out.append(f"{p}.at.{db}: {problem}")
+        else:
+            problem = _at_problem(at, by_name)
+            if problem:
+                out.append(f"{p}.at: {problem}")
+    return found, out
+
+
+def check_composition(data, sdir, catalog_root=REPO_ROOT):
+    """Problems of a scenario's domains: and its composition record (formats.md
+    "Composing domains"; v0.5 master spec 8.5, 15; W1 item 7): composition.yaml
+    required with domains:, refused without; its domains equal to
+    scenario.yaml's (id, variant, at), lands_with exactly for a domain
+    declaring it; order every id once, a part after its core, a derivation's
+    domain after its after; derive only for a domain declaring it, its after
+    the declared one; keys by listed parts; scale {checked, note}."""
+    sdir = Path(sdir)
+    path = sdir / "composition.yaml"
+    rel = "composition.yaml"
+    if "domains" not in data:
+        return [f"{rel}: present without domains: in scenario.yaml (the composition record "
+                "goes with domains:)"] if path.is_file() else []
+    found, out = check_domains_entries(data, catalog_root)
+    if not path.is_file():
+        out.append(f"{rel}: missing file (the composition record, required with domains:)")
+        return out
+    content = _load_yaml(path, rel, out, strict=True)
+    if content is None:
+        return out
+    check_against_schema(content, template_schema("composition.yaml"), rel, out=out)
+    placeholders(content, rel, out=out)
+    if not isinstance(content, dict):
+        return out
+    listed = [e for e in data.get("domains") or [] if isinstance(e, dict)]
+    ids = [e.get("id") for e in listed]
+    recorded = content.get("domains")
+    if isinstance(recorded, list):
+        rec_ids = [e.get("id") if isinstance(e, dict) else None for e in recorded]
+        if rec_ids != ids:
+            out.append(f"{rel}: domains: {rec_ids} are not scenario.yaml's domains: {ids}, "
+                       "in its order")
+        for entry, rec in zip(listed, recorded):
+            if not isinstance(rec, dict) or rec.get("id") != entry.get("id"):
+                continue
+            p = f"{rel}: domains[{rec.get('id')}]"
+            _unknown_keys(rec, DOMAINS_ENTRY_KEYS + ("lands_with",), p,
+                          "a composition domains: entry", out)
+            for key in ("variant", "at"):
+                if rec.get(key) != entry.get(key):
+                    out.append(f"{p}.{key}: {rec.get(key)!r} is not scenario.yaml's "
+                               f"{entry.get(key)!r}")
+            declared = found.get(rec.get("id"), (None, {}))[1].get("lands_with")
+            if rec.get("lands_with") != declared:
+                out.append(f"{p}.lands_with: {rec.get('lands_with')!r}, but the domain "
+                           f"declares {declared!r} (present exactly for a domain declaring it)")
+    order = content.get("order")
+    if isinstance(order, list):
+        if sorted(map(str, order)) != sorted(map(str, ids)) or len(order) != len(set(order)):
+            out.append(f"{rel}: order: {order} does not list every domain of domains: once")
+        place = {d: i for i, d in enumerate(order)}
+        for did, (_, ddata) in found.items():
+            requires = ddata.get("requires")
+            core = requires[0] if isinstance(requires, list) and requires else None
+            if core in place and did in place and place[did] < place[core]:
+                out.append(f"{rel}: order: part {did} before its core {core}")
+    derive = content.get("derive")
+    for i, step in enumerate(derive if isinstance(derive, list) else []):
+        if not isinstance(step, dict):
+            continue                         # reported against the template
+        did = step.get("domain")
+        p = f"{rel}: derive[{did if isinstance(did, str) else i}]"
+        declared = found.get(did, (None, {}))[1].get("derive") if did in found else None
+        if did not in found:
+            out.append(f"{p}.domain: {did!r} is not a domain of domains:")
+        elif not isinstance(declared, dict):
+            out.append(f"{p}: {did} declares no derive (a derivation only for a domain "
+                       "shipping data/derive.sql)")
+        elif sorted(map(str, step.get("after") or [])) != sorted(map(str, declared.get("after")
+                                                                     or [])):
+            out.append(f"{p}.after: {step.get('after')} is not {did}'s declared "
+                       f"{declared.get('after')}")
+        after = step.get("after") if isinstance(step.get("after"), list) else []
+        for other in after:
+            if other not in found:
+                out.append(f"{p}.after: {other!r} is not a domain of domains:")
+            elif isinstance(order, list) and other in order and did in order \
+                    and order.index(did) < order.index(other):
+                out.append(f"{rel}: order: {did}'s derivation before {other}, whose load it "
+                           "reads")
+    keys = content.get("keys")
+    for part, names in keys.items() if isinstance(keys, dict) else ():
+        p = f"{rel}: keys.{part}"
+        if part not in found or "requires" not in found[part][1]:
+            out.append(f"{p}: not a part of domains:")
+        if not (isinstance(names, list) and names and all(isinstance(n, str) for n in names)):
+            out.append(f"{p}: not a non-empty list of the core's range and function names")
+    scale = content.get("scale")
+    if isinstance(scale, dict):
+        _unknown_keys(scale, ("checked", "note"), f"{rel}: scale", "scale", out)
+        if "checked" in scale and not isinstance(scale["checked"], bool):
+            out.append(f"{rel}: scale.checked: {scale['checked']!r} is not true or false")
+    return out
+
+
+def _check_composition(data, sdir, catalog_root, out):
+    out.extend(m for m in check_composition(data, sdir, catalog_root) if m not in out)
 
 
 def _check_purposes(data, by_name, creates, sdir, catalog_root, out):

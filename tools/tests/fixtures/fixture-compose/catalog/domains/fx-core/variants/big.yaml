@@ -1,0 +1,8 @@
+# The test core's one variant (tools/tests, v0.5 chunk 2).
+parts: [fx-part]
+scale:
+  population: {owners: 10}
+  history: {days: 1}
+  throughput: {lookups_per_minute: 20}
+purposes: []
+tags: [managed, regional]

@@ -1,0 +1,6 @@
+# The test core's desk jobs, a fragment.
+jobs:
+  - name: close-day
+    key: owners.lookup
+    connection: app
+    at: "0 12 * * *"

@@ -19,6 +19,8 @@ Python 3, standard library plus PyYAML. Modules:
 - `snapshot`   the hand-over snapshot, each volume by its brick's method (v0.3);
 - `restart`    the whole-game restart, from the snapshot or with no history (v0.3);
 - `teardown`   removing everything carrying the game's label.
+- `compose`    `compose`, merging the composed domains' producer fragments into the
+               scenario folder, at design time (v0.5).
 
 Every subcommand prints a readable result and exits non-zero on failure.
 """
@@ -46,6 +48,13 @@ OVERLAY_RANGE_HELP = {
 
 def _overlay_range_arg(parser, command):
     parser.add_argument("--overlay-range", metavar="<cidr>", help=OVERLAY_RANGE_HELP[command])
+
+
+def _cmd_compose(args):
+    from . import compose
+    result = compose.compose(args.scenario_dir, check=args.check)
+    print(result.text())
+    return 1 if args.check and result.differing else 0
 
 
 def _cmd_fit(args):
@@ -200,6 +209,13 @@ def build_parser():
         prog="gmctl", description="db_audit_gm host-side operations (master spec 11).")
     sub = parser.add_subparsers(dest="command", metavar="<subcommand>")
     sub.required = True
+
+    p = sub.add_parser("compose", help="merge the scenario's domains' producer fragments into "
+                                       "nodes/<node>/, at design time (no playground)")
+    p.add_argument("scenario_dir", metavar="<scenario-dir>")
+    p.add_argument("--check", action="store_true",
+                   help="write nothing; exit 1 when a file compose writes would differ")
+    p.set_defaults(func=_cmd_compose)
 
     p = sub.add_parser("fit", help="check a scenario against a declared playground and "
                                    "write its local implementation")

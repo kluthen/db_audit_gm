@@ -1,0 +1,8 @@
+# The test part's register fragment (tools/tests, v0.5 chunk 2).
+activities:
+  - id: fx-part-boxes
+    name: Boxes
+    purpose: Placing the owners' animals in boxes
+    people: [owners]
+    tables: [part_boxes]
+    retention: {period: 1 month, then: anonymised}

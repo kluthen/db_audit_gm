@@ -901,7 +901,8 @@ and `docs/gm.md`; the folder as [templates/layouts.md](templates/layouts.md)
 lays it out. The procedure's checklist
 (`specs/versions/v0.5/domain-procedure.md`, section 3) and formats.md "A
 domain is done" are the definition of done; `model.check_domain_dir`
-checks what a script can decide. Capture W1 item 7 of `specs/versions/v0.5/wave-log.md` settles the
+checks what a script can decide, reading every file refusing duplicate
+keys. Capture W1 item 7 of `specs/versions/v0.5/wave-log.md` settles the
 keys. In particular:
 
 - `id` (the folder's name), `title`; no `version`. `purposes`: the ids of
@@ -973,6 +974,49 @@ keys. In particular:
   classification, the producer, the rules, the traps (each with its
   class), loading; a part's "Core keys used"; each producer's growth an
   hour at intensity 1.0 and each shipped type's retention on site.
+
+### Composition (v0.5 master spec 8.4, 8.5, 15)
+
+A scenario composed of domains lists them in `domains:` and keeps its
+composition beside `scenario.yaml`:
+
+- **`domains:`** ([templates/scenario.yaml](templates/scenario.yaml)):
+  each `id` a domain of the catalogue, once; a part only with its core,
+  among its core variant's `parts`, with no `variant` of its own; the
+  core's `variant` one of its manifests; `at:` a `database` node's
+  `node/database`, or for a part with `databases` a map from each of
+  them; a `lands_with` part at its core's `at:`. `domain:` or
+  `domains:`, never both. `model.check_domains_entries` checks it.
+- **`gmctl compose <dir> [--check]`** writes each target node's files
+  under `nodes/<node>/` (a scheduler node's three files, `builders/`,
+  `scripts/`; an `api` node's `api.yaml`, `routes/`, `db/`), merging, by
+  unit (`connections.<name>`, `shapes.<name>`, `streams.<key>`,
+  `intensity`, `timeline`, `queries.<key>`, `jobs.<name>`,
+  `endpoints.<name>`, a file by name), the domain layer (each composed
+  domain's `producers/<node>/` and `producers/api/<node>/`, every
+  `producers/partners/<partner>/` onto the shared back end and `api` node
+  the `third_parties:` entries list), the variant layer
+  (`variants/<variant>/producers/`) and the scenario layer
+  (`compose/<node>/`: the purposes' material the GM adds, each scheduler
+  node's `intensity` and `timeline`). Identical units merge silently; a
+  higher layer wins, reported as an override; two sources of one layer
+  differing stop the merge, naming the unit and both sources, until
+  [templates/merge.yaml](templates/merge.yaml) resolves it (`take` a
+  source or write a `value`, with a reason); a resolution meeting no
+  conflict is refused as stale. Every output entry and file carries
+  `# from <domain>@<variant>: <path>` (or `scenario`, `merge.yaml`) and
+  `, over <source>` on an override. Never edit `nodes/<node>/` of a
+  composed node by hand: change a layer and rerun; `--check` reports a
+  file that would differ.
+- **`composition.yaml`** ([templates/composition.yaml](templates/composition.yaml)),
+  the composition record, required with `domains:` and refused without:
+  its `domains` scenario.yaml's (id, variant, at, in order), with
+  `lands_with` exactly for a domain declaring it; `keys` by listed
+  parts; `scale` `{checked, note}`; `order` every domain once, a part
+  after its core, a derivation's domain after its `after`; `derive` only
+  for a domain declaring it, its `after` the declared one;
+  `coherence` written at setup. `model.check_composition` checks it on
+  every load of a scenario listing `domains:`.
 
 ## Versions and pins (v0.2 master spec 6.5, v0.3 master spec 6.6, v0.4 master spec 6.6)
 

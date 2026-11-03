@@ -1,0 +1,5 @@
+# The test part's desk repository, a fragment.
+queries:
+  part.boxes.read:
+    sql: SELECT * FROM part_boxes WHERE id = %(id)s
+    params: {id: {int: [1, 10]}}
