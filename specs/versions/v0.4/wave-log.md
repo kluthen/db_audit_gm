@@ -3375,3 +3375,16 @@ merged `--no-ff` as edc3457; worktree and branch removed; nothing pushed.
 
 **Next**: the wave gate's armenelos-only parts now; 17b and the two-host
 parts tonight if connected (O161).
+
+### Owner ruling: stance check and two-host sessions to v1.0 gating, 2026-11-03 ~08:00 UTC
+
+The owner: "ok keep the stance check for v1.0 gating (like the 2 host
+session). We won't proceed to full game for testing until then. see if
+you can wrap up this wave and this milestone without these". Answers
+O161. Sent to `spec-writer` with the driver's reading: to v1.0 gating
+the stance check-list (release gate item 13), every two-host session
+(17a's skipped smoke run, item 8's two-host half, the wave gate's
+two-host `smoke-load.sh`), the rehearsal (17b, item 12), and item 9's
+unobserved part (f4 after the local midnight, f8's fixed, a clean cycles
+verdict); 17b leaves v0.4; the release gate keeps the rest, its notes
+naming what moved. The single-host wave gate goes on.
