@@ -1168,3 +1168,68 @@ Deviations:
 
 All five chunks merged. Next: G8 (`security-advisor`) and the open
 points to `spec-writer`, then the wave gate.
+
+### G8 — dependency post-change check (security-advisor, 2026-11-03)
+
+**Clear; one note for the owner.** `.tech` updated on `v0.5-w1`
+(d7580ca). The resolved versions match the preflights: `postgres` 0.5.0
+pgaudit `18.0-3.pgdg13+1`, `libssl3t64`/`openssl` `3.5.7-1~deb13u3`
+(floor asserted), the snakeoil pair gone, HTTP::Tiny 0.088; PostgreSQL
+18.6, pg_cron 1.6.8, cron unchanged; **pgBadger moved 13.2 → 13.3**
+(unpinned; upstream released 13.3 today, a maintenance release).
+`scheduler` 0.3.0: no new package. `api` 0.1.0: exactly G6's 15 wheels
+plus Debian PyYAML 6.0.2, psycopg pure Python over libpq 170011, no pip;
+`html.parser` imported by nothing (CVE-2026-15308 not reachable).
+`bastion` 0.5.0 and `grafana` 0.3.0 are the same images as 0.4.0 and
+0.2.0 (version lines only). osv-scanner on `bricks/api/requirements.txt`:
+no issue.
+
+OpenSSL 3.5.7, now a `.tech` platform as G5 asked, makes NVD show 22
+advisories (18 at or above medium), all resolved in Debian (DSA-6465-1,
+DSA-6531-1; every brick image carries deb13u3): false positives, the
+class of the nginx, sudo, OpenSSH and python3.13 backports. `cve-watch
+check`: 42 → 60 at or above medium (+18 OpenSSL). `.tech` gains the
+`frameworks` line, Perl 5.40, pgaudit 18.0 and TLS, pgBadger 13.3, the
+eight bricks' versions, `lockfiles = ["bricks/api/requirements.txt"]`,
+platforms OpenSSL and pgaudit; PostgreSQL, libpq, pg_cron, cron, nginx,
+cmark-gfm, OpenSSH, sudo and Python entries name the new bricks.
+`SECURITY_TODO.md` unchanged; the next sweep after `main` takes this
+will write about 18 OpenSSL items, to triage as Debian backports.
+
+**For the owner, not blocking**: the pending ruling on `.tech` ignore
+entries for triaged Debian backports now also covers OpenSSL 3.5.7
+(proposed reason "fixed in Debian 3.5.7-1~deb13u3 (DSA-6465-1,
+DSA-6531-1); NVD reads the upstream version", review 2027-02-01 or the
+next rebuild moving `libssl3t64`); and whether to pin pgBadger for
+reproducible images.
+
+G8 **done (2026-11-03)**.
+
+### Plan revision after the chunks, 2026-11-03
+
+`spec-writer`, on the chunks' open points: build plan v3 (29ea5c1), spec
+D352 (the restore gap a named known limit, not an inserted chunk: no v0.5
+game restores a standby from a snapshot; release notes and v1.0 gating
+name it; a re-clone in `restart.py` would be an inserted chunk 28 on the
+owner's word), D353 (`register_diff`'s bare `true:` kept; chunk 6 reads
+`True` or `"true"` through one shared accessor), D354 (`public` confirmed
+for a public endpoint's connection value; formats.md line), D355 (both
+`no-access` mechanisms kept), D356 (a bounded wait promises an honest
+failure past its bound, not resolution within it; bounds stay 30 s),
+D357 (text corrections: twelve faults, chunk 2's scenario, pgaudit's
+redaction), D358 (wave 2's chunks 6 to 10 corrected against W1-w to
+W1-z: chunk 6 repeats the HTTP connection checks at load, takes
+third-party hostnames and `owners` as targets, checks `vault_*`,
+`register_diff:`, does not re-add chunk 2's `domains:` checks; chunk 7's
+Files gain three tests' secret lists; chunk 8 reuses `NO_AUDIT_SQL` and
+`standby_plan`; chunk 9's fixture after chunk 7 if `clinic-api` names a
+credential). D359 reserved by mistake, never used. No owner question.
+
+### Wave gate — started 2026-11-03
+
+On armenelos alone, the VPS drained, κ = 1 for the gate, every step
+under the host lock and the sleep inhibitor; dispatched to a
+`coding-executor` (verification level: wave gate) with two known fixes:
+the `brick.yaml` template's secret kinds gaining `certificate` (chunk 3,
+finding 4) and `tarnbeck-outdoor-campaign`'s stale classification
+comment (chunk 2), its README regenerated.
