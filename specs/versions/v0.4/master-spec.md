@@ -7,7 +7,7 @@ v0.4's eight draft documents and the owner's rulings of 2026-10-28 and
 [v0.3 master spec](../v0.3/master-spec.md) and its
 [access model](../v0.3/access-model.md). Everything v0.3 specifies stays
 in force unless this document changes it; where they disagree, this
-document wins for v0.4. Its [build plan](build-plan.md) carries
+document wins for v0.4. Its [build plan](../../archive/v0.4/build-plan.md) carries
 section 19.
 
 Amended after approval, on 2026-10-30, by the owner's rulings during

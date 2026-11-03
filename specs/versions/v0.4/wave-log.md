@@ -1,6 +1,6 @@
 # db_audit_gm v0.4 — Wave log
 
-Execution record of [build-plan.md](build-plan.md). No intent or data
+Execution record of [build-plan.md](../../archive/v0.4/build-plan.md). No intent or data
 register: captures are recorded here by the wave driver (plan, "Read
 first").
 

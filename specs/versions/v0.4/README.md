@@ -13,7 +13,7 @@ raised: the agency's database report-only by the story alone, no
 report-only policy in `postgres` (D211, closing O132); the scenario's
 ten faults only (D212, closing O133); f10 calibrated early, on
 armenelos only (D213); the gateway's lost acknowledgements (D214).
-The [build plan](build-plan.md), written from the master spec's
+The [build plan](../../archive/v0.4/build-plan.md), written from the master spec's
 section 19, was approved the same day with κ = 3 (D216), with the
 owner's rulings on the judged moment before the hand-over (D217) and on
 f10's measurement without swap (D218). During wave 1 the plan took
@@ -37,9 +37,11 @@ built by the inserted chunk 20; chunk 15b's readings of f10 (D254–D257)
 and `load-data`'s last step removing the `pg_cron` launcher's start-up
 failures from the server log (D258) were written into the master spec,
 formats.md and the plan (v9).
-The drafts stay as the working record until the archive; where
-they and the master spec disagree, the master spec is current.
-Page v13.
+At v0.4's close (2026-11-03) the build plan and four of the drafts
+were archived in [archive/v0.4/](../../archive/v0.4/README.md); the
+other four drafts stay here, cited by v0.5's work and holding the later
+versions' candidate faults. Where a draft and the master spec disagree,
+the master spec is current. Page v13.
 
 History: direction recast on 2026-10-28 (D190),
 revising D47's "transformers" for this version; a first cut of data
@@ -65,17 +67,17 @@ incident on a database node (D209).
 
 | Document | Purpose | Status |
 |---|---|---|
-| [master-spec.md](master-spec.md) | The consolidated v0.4 specification | approved 2026-10-30 (D215); amended by D221 (`bastion` 0.4.0), D224 (the web front in every game), D226 (a data file in a seed change), D227 (`reporting`'s limit at 640M), D228 (E4's deadline clarified) |
+| [master-spec.md](master-spec.md) | The consolidated v0.4 specification | approved 2026-10-30 (D215); amended by D221 (`bastion` 0.4.0), D224 (the web front in every game), D226 (a data file in a seed change), D227 (`reporting`'s limit at 640M), D228 (E4's deadline clarified), then by the build's rulings (its status note), last D311–D313 (18); the contract for what v0.4 built |
 | [access-model.md](access-model.md) | Who may do what in a v0.4 game; the customer's roles and data policy in the game's world | approved 2026-10-30 (D215); amended by D224 (the web front in every game) |
-| [build-plan.md](build-plan.md) | The build: nineteen chunks in four waves, the gates G1 to G13, the release gate | v6, approved 2026-10-30 (D216–D218), capture W1's corrections (D219, D220), `bastion` 0.4.0 as chunk 19 (D221–D223); v5, the web front in every game, chunk 19 split (D224, D225), the data file's seed change in chunk 15a (D226); v6, `reporting`'s limit at 640M, G10 done (D227) |
-| [purposes.md](purposes.md) | The purpose as an artefact: layout, `purpose.yaml`, how a scenario uses one, faults attached to purposes, instances and node sizing, the job runner and the transformer script, moving data between instances, cadence under real time, the customer's time zone in the data | draft v4 |
-| [purpose-catalogue.md](purpose-catalogue.md) | The proposed purposes, each with its jobs, trace and invariants: sales reporting, win-back leads, customer mailing, export declarations (a pushed obligation); finance held; the clinic's reporting as a stress test | draft v4 |
-| [shop-domain.md](shop-domain.md) | The shop as the first domain: the format v0.4 settles, the data-model changes the invariants need, roles, producer changes | draft v2 |
-| [governance.md](governance.md) | Classes, where the rules are stated, the database-versus-instance boundary, checks G1 to G4 (G3 across instances, scripts and `pg_cron` jobs), "fixed", the policy, brick changes | draft v4 |
-| [database-node-jobs.md](database-node-jobs.md) | Jobs on a database node: `pg_cron` and a cron daemon in `postgres` 0.4.0, how each runs and is enabled, what players see, scenario pins, the placement guideline, the out-of-memory incident, the dependency check due | draft v2 |
-| [candidate-faults.md](candidate-faults.md) | Faults breaking each purpose's invariants, the movement methods (database-node jobs included), placement (the out-of-memory incident) and the governance rules | draft v4 |
-| [checks.md](checks.md) | Invariant checks judged by runs since a moment, witnesses, pushed obligations, runs of a database-node job, definition checks, `gmctl` changes, the release gate | draft v4 |
-| [scenario-sketch.md](scenario-sketch.md) | A first v0.4 scenario: story, topology and sizing, ten fault instances (a hidden `pg_cron` job, a crontab fault, an out-of-memory incident), issues | draft v5 (sketch) |
+| [build-plan.md](../../archive/v0.4/build-plan.md) | The build: nineteen chunks in four waves, the gates G1 to G13, the release gate | v16, approved 2026-10-30 (D216–D218); built, release gate passed 2026-11-03; archived |
+| [purposes.md](../../archive/v0.4/purposes.md) | The purpose as an artefact: layout, `purpose.yaml`, how a scenario uses one, faults attached to purposes, instances and node sizing, the job runner and the transformer script, moving data between instances, cadence under real time, the customer's time zone in the data | draft v4; archived |
+| [purpose-catalogue.md](purpose-catalogue.md) | The proposed purposes, each with its jobs, trace and invariants: sales reporting, win-back leads, customer mailing, export declarations (a pushed obligation); finance held; the clinic's reporting as a stress test | draft v5; kept (cited by v0.5) |
+| [shop-domain.md](shop-domain.md) | The shop as the first domain: the format v0.4 settles, the data-model changes the invariants need, roles, producer changes | draft v3; kept (v0.5's domain procedure's model) |
+| [governance.md](governance.md) | Classes, where the rules are stated, the database-versus-instance boundary, checks G1 to G4 (G3 across instances, scripts and `pg_cron` jobs), "fixed", the policy, brick changes | draft v5; kept (cited by v0.5) |
+| [database-node-jobs.md](../../archive/v0.4/database-node-jobs.md) | Jobs on a database node: `pg_cron` and a cron daemon in `postgres` 0.4.0, how each runs and is enabled, what players see, scenario pins, the placement guideline, the out-of-memory incident, the dependency check due | draft v4; archived |
+| [candidate-faults.md](candidate-faults.md) | Faults breaking each purpose's invariants, the movement methods (database-node jobs included), placement (the out-of-memory incident) and the governance rules | draft v5; kept (the later versions' candidates, master spec 22) |
+| [checks.md](../../archive/v0.4/checks.md) | Invariant checks judged by runs since a moment, witnesses, pushed obligations, runs of a database-node job, definition checks, `gmctl` changes, the release gate | draft v4; archived |
+| [scenario-sketch.md](../../archive/v0.4/scenario-sketch.md) | A first v0.4 scenario: story, topology and sizing, ten fault instances (a hidden `pg_cron` job, a crontab fault, an out-of-memory incident), issues | draft v6 (sketch); archived |
 
 The sections below are the direction as set on 2026-10-28; where a
 draft refines them, the draft is current, and where the master spec
@@ -177,7 +179,7 @@ the script in there)."
   fixed-time jobs as today, plus **transformer scripts**, Python files
   in the repository a job calls with several connections, and the
   `transformer` role; `scheduler` 0.2.0 (D203;
-  [purposes.md](purposes.md#the-job-runner-d203)).
+  [purposes.md](../../archive/v0.4/purposes.md#the-job-runner-d203)).
 - **Several PostgreSQL instances**, each a `postgres` node of its own
   (D202), which reuses `gm_check`, the exporter, monitoring and the GM's
   knowledge; v0.4's scenario has two, the shop and reporting (D198).
@@ -185,14 +187,14 @@ the script in there)."
   SQL through `postgres_fdw` foreign tables, or a stored procedure doing
   it, run from a producer, a transformer, or a job; a scenario picks per
   flow, and each method is an audit surface of its own (D202;
-  [purposes.md](purposes.md#moving-data-between-instances-d202)).
+  [purposes.md](../../archive/v0.4/purposes.md#moving-data-between-instances-d202)).
 - **Jobs on a database node** (D206): `pg_cron`, and a cron daemon
   beside PostgreSQL in the container, both optional per node in
   `postgres` 0.4.0; systemd timers later, with the virtual-machine nodes
   after v1.0 (D205). Light, well-scheduled work may run there; heavy or
   row-by-row work goes to a transformer node; heavy work on the source
   instance is the worst placement (D207;
-  [database-node-jobs.md](database-node-jobs.md)). An out-of-memory
+  [database-node-jobs.md](../../archive/v0.4/database-node-jobs.md)). An out-of-memory
   incident on a database node, real and once during the aging, is a
   fault (D209).
 - **Nodes sized by role**: each distinct producer on a node of its own,
@@ -387,18 +389,18 @@ tests (D312). For purposes this means:
   jobs inside its two hours; the trace's growth over a full aging is
   extrapolated from its per-hour figures and stated as such; what no
   gate shows is named as a known limit (D200;
-  [checks.md](checks.md)).
+  [checks.md](../../archive/v0.4/checks.md)).
 
 ## For the build plan
 
 Gathered, with the rest, in the [master spec](master-spec.md#19-for-the-build-plan),
-section 19, and carried by the [build plan](build-plan.md). Items
+section 19, and carried by the [build plan](../../archive/v0.4/build-plan.md). Items
 noted as they arose:
 
 - A security-advisor dependency check for `postgres` 0.4.0's new
   packages, `postgresql-18-cron` (PGDG) and Debian's `cron`: preflight
   before the chunk that changes the image, post-change after, `.tech`
-  updated (D206; [database-node-jobs.md](database-node-jobs.md)).
+  updated (D206; [database-node-jobs.md](../../archive/v0.4/database-node-jobs.md)).
 - Every scenario with a `postgres` node re-pinned to 0.4.0, and every
   fault applying to `postgres` given 0.4.0 in `applies_to` (D206).
 - The placement guideline (D207) written into the `scenario-format`

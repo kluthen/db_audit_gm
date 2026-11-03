@@ -1,3 +1,5 @@
+> **Archived 2026-11-03.** v0.4 was released at its release gate on 2026-11-03 and merged into `main` on the owner's word ("option c, G11 ok, merge"); every chunk of this plan is built, and what it moved is v1.0 gating (v16). Live summary: [v0.4 README](../../versions/v0.4/README.md), "Release notes". Relative links were written from `specs/versions/v0.4/`: `README.md`, `master-spec.md` and `access-model.md` are in `../../versions/v0.4/`, `../README.md` is `../../versions/README.md` and `../v0.3/wave-log.md` is `../../versions/v0.3/wave-log.md`; the links starting `../../` still resolve.
+
 # db_audit_gm v0.4 — Build plan
 
 Status: v16 (2026-11-03): the owner's answer to spec O163, the smoke
