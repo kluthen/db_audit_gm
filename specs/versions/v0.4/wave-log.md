@@ -3325,3 +3325,53 @@ runs" covers now.
 Driver's plan, told to the owner: today the wave gate's armenelos-only
 parts; tonight, if connected, 17b, the wave gate's two-host run and the
 two-host smoke; otherwise the owner rules O161.
+
+### Chunk 17a — merged (edc3457), 2026-11-03 ~07:40 UTC
+
+`coding-leader` (third owner): one commit 398f09b (13 files: `gmctl.md`,
+the answer-key template, `tools/gm/{__init__,aging,checks,inject,localimpl,render,restart}.py`,
+`tools/tests/smoke-purposes.{sh,py}`, `test_aging.py`, `test_render.py`),
+merged `--no-ff` as edc3457; worktree and branch removed; nothing pushed.
+
+| Run (armenelos, 4 CPU, 5G, 10G) | UTC | Result | Workarounds | `pgbouncer-run:` |
+|---|---|---|---|---|
+| cycles 1 | 11-02 19:58 – 11-03 01:45 | 53 passed, 6 failed (harness timing) | 0 | resolve after 6 s |
+| baseline | 01:47–02:18 (1869 s) | 32/32 | 0 | after 5 s |
+| f10 | 02:19–02:25 (386 s) | 23/23 | 0 | after 6 s |
+| cycles 2 | 02:25–07:26 | 54 passed, 0 failed; aborted (D310) | 0 | after 6 s |
+
+- **Cycles 1's failures**, all the harness's choice of scenario time: T0
+  20:58 local put f3's planted campaign after its 08:00–21:00 window (f3
+  read fixed) and f7's close on a day not yet over; f2 shows present only
+  when a segment customer unsubscribes between extractions; f8's fixed
+  reading needs a late declaration that never came before the 02:45
+  guard. Fixed in the harness: cycles' T0 18:00 local, crm rounds counted
+  per instance, f2 may rest on an earlier present reading of the same
+  planting. No product fault.
+- **Cycles 2** (T0 02:26:30Z, 17:26 scenario time): f1–f9 present, f10
+  error as designed; f6, f9, f1, f2, f3, f5 and f7 (`--since`) cycled to
+  fixed; W4 item 9's close ok 1080 s after the previous, 0 `sqlstate=08`;
+  f4 and f8 fixed in place, too soon; then the wait for 09:01Z. Not
+  observed (D310): f4 after the local midnight, f8's fixed, the final
+  keys/jobs/every-instance check. Stopped at 07:26 by TERM; the harness's
+  trap tore down.
+- **f10**: planted 02:21:11, entry at 02:23:00, present after 123 s;
+  backend SIGKILLed 02:23:08, ready 02:23:09; s6-svscan, sshd, cron pids
+  kept; reporting `memory.peak` 113025024 → 671092736 B, `oom_kill` 0 → 1.
+- **Memory** (cycles 2, MiB of limit): db 221.8/1024, grafana 190.1/384,
+  reporting 70.6/640, prometheus 61.7/384, bi 33.3/384, producer 31.7/96,
+  crm 30.6/128, consumer 30.2/128, gateway 30.0/96, exporter 20.9/128,
+  pooler 16.3/64, bastion 10.1/256 (cycles 1 at 21:09: grafana 270.2,
+  prometheus 136.8).
+- **Two-host**: not run (D310); the VPS Drain throughout; filetstudio.com
+  200 at 19:56Z and 07:33Z. `.wip/g7-smoke-duo.sh` not committed (hard-coded
+  worktree path, never drove an active VPS; trap stub-tested, copy in the
+  driver's scratchpad `wip-17a/`); 17b writes a fresh wrapper.
+- Checks: unit suite 854 OK (132 s) three times, the last on edc3457;
+  `sh -n`, `py_compile`, PyYAML OK; `gmctl.md` 96 parsed, 0 failed.
+- Risk: cycles mode has no clean end-to-end verdict yet (f4 across the
+  midnight, f8's fixed untested live).
+- Hosts at 07:33Z: clean, lock free, the VPS Drain, 9.6G free.
+
+**Next**: the wave gate's armenelos-only parts now; 17b and the two-host
+parts tonight if connected (O161).

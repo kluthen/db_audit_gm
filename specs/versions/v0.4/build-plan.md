@@ -1197,7 +1197,8 @@ Record: 8563c90, merged a3383d2 (2026-11-02), built on O146 (a) (spec D284). Dif
 
 ### Chunk 17 — Smoke cycles, f10's run and the rehearsal
 
-Status: in progress (17a paused at WIP bf5dbf5, 2026-11-02)
+Status: in progress (17a merged w4 edc3457, 2026-11-03; 17b planned)
+Record: 17a 398f09b, merged edc3457 (2026-11-03), closed under D310. armenelos, `--cpu 4 --memory 5G --disk 10G`: baseline 01:47–02:18Z 32/32; f10 02:19–02:25Z 23/23 (backend killed by signal 9, ready 1 s later, s6-svscan/sshd/cron pids kept, reporting `memory.peak` 671092736 B, `oom_kill` 1); cycles 2 02:25–07:26Z 54 passed 0 failed, aborted at f4's midnight wait (D310); pooler workarounds 0 in every run, `db` resolving after 5–6 s; no two-host run (D310, O161). Harness only: cycles' default `SMOKE_LOCAL_AT` 18:00 (21:00 put f3 outside its mail window and f7's day unfinished), per-instance crm rounds, f2 may rest on an earlier present reading of the same planting. The untested two-host wrapper not committed. No spec deviation. Wave log "Chunk 17a — merged".
 Wave: 4
 Depends on: chunks 8, 9, 12, 20; chunk 16 (in-wave, W4), merged into `v0.4-w4`
 before this chunk's branch is cut; chunk 21 (in-wave, spec D305): 17a's
