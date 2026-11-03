@@ -1,16 +1,18 @@
 # v0.5 — `vet-core`, the clinic's core domain
 
-Status: draft v8. Step 2, the business sketch, is ruled (D266, D278),
-its first answer revised by one centre per scenario (D285); step 3, the
-split, is confirmed (D279), the parts one centre's (D293); step 4, the
-data model, is current, with the history's growth (D279, D280), at one
-centre's scale (D295); step 5, classification and governance, is ruled
-(D280). `requests` revised by `vet-lab`'s answers (D301): a
-`priority`, no `external`; two constraints on the load from `vet-lab`'s
-step 4 (D302). Step 6, the producer profiles, is ruled as drafted with
-`vet-lab`'s (D304), with what they need of the scheduler and the format
-(D303). Step 7, the purposes, is drafted with `vet-lab`'s in
-[clinic-purposes.md](clinic-purposes.md), for the owner (O155, O156).
+Status: draft v9, ready for review: the draft document of procedure
+step 9, for the owner to approve with v0.5's master spec; not approved.
+Steps 2 to 8 are done: the business sketch ruled (D266, D278), its first
+answer revised by one centre per scenario (D285); the split confirmed
+(D279), the parts one centre's (D293); the data model current at one
+centre's scale (D279, D280, D295), `requests` revised by `vet-lab`'s
+answers (D301, D302), `exchanges` and the disease's category added with
+the purposes (D306); classification and governance ruled (D280); the
+producer profiles ruled (D303, D304), amended by the purposes (D306);
+the purposes ruled (D306, D307) in [clinic-purposes.md](clinic-purposes.md);
+the traps listed (step 8, no owner checkpoint, D309) in
+[clinic-traps.md](clinic-traps.md). Open: O164 (a sent request's
+cancellation) and the format's finalisation (O111, at consolidation).
 
 `vet-core` is the core of the veterinary clinic franchise (D196), the
 first domain defined through the [procedure](domain-procedure.md)
@@ -18,6 +20,23 @@ first domain defined through the [procedure](domain-procedure.md)
 shares, owners, animals, sites and staff, and the medical record:
 consultations, treatments and prescriptions (section 4). The brief is the
 owner's, quoted in the [version page](README.md#the-veterinary-clinic-d196).
+
+## The draft at a glance (step 9)
+
+Where each item of the domain's folder, `domains/vet-core/`, is stated
+on this page or beside it (procedure 1 and 3; the format is finalised
+in the master spec, O111):
+
+| In the folder | Stated in |
+|---|---|
+| `domain.yaml`: `id` `vet-core`, the core of a composite (no `requires`), its parts `vet-lab`, `vet-scheduling`, `vet-housing`, `vet-machinery`, `vet-portal` (D293), the purposes that fit | [The split](#the-split-step-3-confirmed-d279); [Purposes that fit](#purposes-that-fit-step-7) |
+| `variants/regional-franchise.yaml`: the three scale axes and the tags (D263) | [The variant](#the-variant-its-scale-and-its-tags) |
+| `data/schema.sql`: tables, keys, states, roles and grants | [The data model](#the-data-model-step-4) |
+| `data/load.sql`: the year's history and the state at T0 | [Deterministic key ranges](#deterministic-key-ranges-d249-d266), [Intensity and the history](#intensity-and-the-history-before-t0-d276-d279), [Loading](#loading) |
+| `data/classification.yaml`: every column classed | [Classification](#classification) |
+| `docs/policy.md` and a `governance:` fragment: the business's own rules | [The rules](#the-rules-as-the-owner-confirmed-them-d280) |
+| `producers/`: the practice software's fragments (`pms`), the lookup API's endpoints (`producers/api/clinic-api/`), the other centres' stubs (`producers/partners/centres/`, D303, D306) | [The producer profiles](#the-producer-profiles-step-6) |
+| `docs/gm.md`: the business, the data, the roles, the classification, the producer, the rules, the traps, loading | this page's sections of the same names; the traps in [clinic-traps.md](clinic-traps.md); [Loading](#loading) |
 
 ## The business sketch
 
@@ -949,7 +968,54 @@ closing O153):
    with that part; the centre's outbox to the franchise's messaging
    service is settled there too, the core having no outbox table.
 7. **The exchanges with the other centres**: about one a day each way,
-   round trips at step 7 with their trace tables; the authority a
+   round trips at step 7 with their trace tables (amended by D306: the
+   request, its answer and report in the core's `exchanges`); the authority a
    partner stub of its own on the shared back end.
 8. **One intensity for the clinic's nodes**, the history ending at 1.0's
    rates, another intensity a step at T0 the story must explain.
+
+## Purposes that fit (step 7)
+
+Ruled with `vet-lab`'s (D306, D307), each its own unit under
+`purposes/` ([clinic-purposes.md](clinic-purposes.md) 2): fitting the
+core, `vet-lab-centre-orders`, `vet-centre-exchanges`,
+`vet-notifiable-diseases`, `vet-medicines-registers`,
+`vet-antimicrobial-use` and `vet-head-office-figures`. Named for later:
+the release to the portal (with `vet-portal`), the referral's
+electronic report (D278 answer 5).
+
+## Traps (step 8)
+
+Listed with `vet-lab`'s in [clinic-traps.md](clinic-traps.md), each with
+its witness, where it is fixed, catalogue or new, and its D290 class;
+the domain's GM notes carry them ("the traps"). Those that bite the core:
+on its instance and configuration T1, T3, T5, T7, T9; in its data and
+identity T13 to T19; in its grants and views T24 to T28; in replication
+and the archive T31 to T37; in its round trips T39 to T44 and T54 to
+T56; in its obligations T57 to T59; in its periodic reports T64 to T74;
+in performance T79, T81 to T83. False-alarm material:
+[clinic-traps.md](clinic-traps.md) 9. Selecting a game's faults is the
+GM's (D309); the spec's test selection is
+[clinic-test-selection.md](clinic-test-selection.md).
+
+## Loading
+
+`gmctl load-data` runs `schema.sql` then `load.sql` into `clinic` as
+`postgres`, as for the shop: explicit ids in the documented ranges, each
+sequence set after its range, the shift variables applied; the load's
+sessions unseen (no statement logging, `pg_stat_statements` and pgaudit
+off, D265). About 0.28 million rows, a few seconds by the shop's
+measure (1.3 million in about 15 seconds); size and time measured at the
+build (procedure 3). After the sources' loads, the purposes plant
+`office`'s past periods ([clinic-purposes.md](clinic-purposes.md) 4,
+item 5); the standby follows the primary ([replication.md](replication.md)
+1). `vet-lab`'s load and the partners' database compute the core's ids
+by the documented functions, never reading `clinic` (D302).
+
+## Open points
+
+- **O164**: whether a `sent` request can be cancelled, and how the lab
+  learns it; the default leaves `requests.cancel` to `requested`
+  requests and brings a cancelled test back through the results feed.
+- **O111**: the domain format, finalised in v0.5's master spec (D291).
+- **O165**: how many of the traps v0.5 builds as faults.

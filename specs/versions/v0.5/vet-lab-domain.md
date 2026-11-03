@@ -1,14 +1,18 @@
 # v0.5 — `vet-lab`, the clinic's lab
 
-Status: draft v4. Step 2, the business sketch, is ruled, every default
-accepted (D301, closing O151); step 3, the split, is not a part's: the
-lab's boundary was set by the clinic's split (D279, D293, D294). Step 4,
-the data model, and step 5, classification and governance, are ruled as
-drafted (D302, closing O152). Step 6, the producer profiles, is ruled
-as drafted with `vet-core`'s (D304), `lab_app`'s grants amended to write
-the charges; what they need of the scheduler and the format is ruled
-(D303). Step 7, the purposes, is drafted with `vet-core`'s in
-[clinic-purposes.md](clinic-purposes.md), for the owner (O155, O156).
+Status: draft v5, ready for review: the draft document of procedure
+step 9, for the owner to approve with v0.5's master spec; not approved.
+Steps 2 to 8 are done: the business sketch ruled, every default
+accepted (D301, closing O151); step 3 not a part's, the lab's boundary
+set by the clinic's split (D279, D293, D294); the data model and the
+default policy ruled (D302, closing O152), `lab_app`'s grants amended
+(D304); the producer profiles ruled with `vet-core`'s (D303, D304),
+`lab-api`'s results feed and the external lab's `resend` added with the
+purposes (D306); the purposes ruled (D306, D307) in
+[clinic-purposes.md](clinic-purposes.md); the traps listed (step 8, no
+owner checkpoint, D309) in [clinic-traps.md](clinic-traps.md). Open:
+O164 (a sent request's cancellation, which the lab's feed would carry)
+and the format's finalisation (O111, at consolidation).
 
 `vet-lab` is the biology lab of the centre a scenario deploys (D285),
 the second domain through the [procedure](domain-procedure.md) (D235,
@@ -19,6 +23,23 @@ tables and roles (`lab_`). The brief is the owner's, quoted in the
 blood analysis machinerie, etc)"; "external lab also come into play
 regularily"); `vet-core`'s sketch is the model for this page
 ([vet-core-domain.md](vet-core-domain.md)).
+
+## The draft at a glance (step 9)
+
+Where each item of the part's folder, `domains/vet-lab/`, is stated on
+this page or beside it (procedure 1, 3 and 4; the format is finalised
+in the master spec, O111):
+
+| In the folder | Stated in |
+|---|---|
+| `domain.yaml`: `id` `vet-lab`, `requires: [vet-core]`, its tables and roles prefixed `lab_`, the purposes that fit | [What the lab holds](#what-the-lab-holds); [Purposes that fit](#purposes-that-fit-step-7) |
+| `variants/regional-franchise.yaml`: the part's own axes in a manifest of the core variant's name (answer 15) | [The variant](#the-variant-its-scale-and-its-tags) |
+| `data/schema.sql`: tables, keys, states, roles and grants, on the `lab` node (answer 1) | [The data model](#the-data-model-step-4) |
+| `data/load.sql`: the year's history and the state at T0, computing the core's ids by its functions | [Deterministic key ranges](#deterministic-key-ranges-d249-d266), [The history before T0](#the-history-before-t0-d279), [Loading](#loading) |
+| `data/classification.yaml`: every column classed | [Classification](#classification) |
+| `docs/policy.md` and a `governance:` fragment | [The rules](#the-rules-as-the-owner-confirmed-them-d302) |
+| `producers/`: the information system and middleware (`lis`), the order API (`producers/api/lab-api/`), the practices' and the external lab's stubs (`producers/partners/<partner>/`, D303) | [The producer profiles](#the-producer-profiles-step-6) |
+| `docs/gm.md`: the business, the data, the roles, the classification, the producer, the rules, the traps, loading | this page's sections of the same names; the traps in [clinic-traps.md](clinic-traps.md); [Loading](#loading) |
 
 ## Settled before this page
 
@@ -971,10 +992,47 @@ roles and grants" above, and point 5 is applied in
    external lab's stub knows every send-out the history left open and
    the practices' stub every order not yet received.
 
-## Next
+## Purposes that fit (step 7)
 
-Step 7, the purposes, drafted with `vet-core`'s in
-[clinic-purposes.md](clinic-purposes.md): the lab's round trips, the
-results' return, the notifications, the critical calls and the
-statements; the release to the portal waits for `vet-portal`. The
-owner's points are O155 and O156.
+Ruled with `vet-core`'s (D306, D307), each its own unit under
+`purposes/` ([clinic-purposes.md](clinic-purposes.md) 2): fitting the
+lab, `vet-lab-centre-orders`, `vet-lab-practice-results`,
+`vet-lab-send-outs`, `vet-notifiable-diseases`, `vet-lab-critical-calls`,
+`vet-head-office-figures` and `vet-lab-statements`. Named for later: the
+release to the portal, drafted with `vet-portal` (D304).
+
+## Traps (step 8)
+
+Listed with `vet-core`'s in [clinic-traps.md](clinic-traps.md); the
+part's GM notes carry them ("the traps"). Those that bite the lab: on
+its node and configuration T2, T4 to T7, T10, T11; in its data T13 (the
+core's chips reaching its orders), T20 to T23; in its governance T24,
+T29, T30; in the archive T38; in its round trips T39 to T53 (the lab's
+side of the centre's orders, the practices' deliveries, the
+send-outs); in its obligations T57, T58, T60 to T63; in its statements
+T75 to T77; in performance and `lab-api`'s `db/` side T78, T80, T83,
+T84. False-alarm material: [clinic-traps.md](clinic-traps.md) 9.
+Selecting a game's faults is the GM's (D309); the spec's test selection
+is [clinic-test-selection.md](clinic-test-selection.md).
+
+## Loading
+
+`gmctl load-data` runs `schema.sql` then `load.sql` into `lab` on the
+`lab` node as `postgres`, as for the core: explicit ids in the documented
+ranges, each sequence set after its range, the core's ids computed by
+its documented functions without reading `clinic` (D302), so the two
+loads are independent; the load's sessions unseen (D265). About 0.36
+million rows; size and time measured at the build (procedure 3). The
+partners' database is planted from the same functions, so the external
+lab's stub knows every send-out the history left open and the
+practices' stub every order not yet received (D304). After the sources'
+loads, `vet-lab-statements` plants the year's statements in `office`
+([clinic-purposes.md](clinic-purposes.md) 4, item 5).
+
+## Open points
+
+- **O164**: a `sent` request's cancellation; by the default, a centre
+  order test the lab cancels comes back through the results feed, which
+  then carries cancelled tests beside released and unperformed ones.
+- **O111**: the domain format, finalised in v0.5's master spec (D291).
+- **O165**: how many of the traps v0.5 builds as faults.

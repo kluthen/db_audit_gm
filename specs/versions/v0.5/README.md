@@ -39,7 +39,9 @@ format's extensions (D307); the partners' stubs grouped on one `api`
 node (D308); selecting a scenario's faults the GM's role (D309). On
 2026-11-03 the owner restricted v0.5's testing to short tests on a
 minimal environment, the whole clinic deployed once on two hosts as the
-one exception (D314, closing O158).
+one exception (D314, closing O158); `vet-core`'s and `vet-lab`'s traps
+listed (step 8), with a test selection and the node tally, and both
+domains brought to step 9's draft, ready for review.
 
 ## Documents
 
@@ -47,13 +49,16 @@ one exception (D314, closing O158).
 |---|---|---|
 | [domain-procedure.md](domain-procedure.md) | How a domain is defined: what it holds and leaves out, the steps from a brief, done and its checklist, composites, how a scenario names its domains, the shop against it, the effort, scale, variants and tags | approved v4 (D249, D260, D263) |
 | [producer-profiles.md](producer-profiles.md) | The frictions between domains' producer profiles and v0.3's scheduler, each with its evidence, and the owner's rulings; what the first parts' profiles need of the scheduler and the format | draft v8, ruled (D264–D271, D276, D277, D287, D288, D298, D303; O113, O154 closed) |
-| [cold-storage.md](cold-storage.md) | Cold storage, a generic third party for heavy data: keeping a day on site, the shipping job, the stub's manifest, endpoints and page, the faults it enables | draft v2, ruled (D288, D296, D297; O148 closed) |
+| [cold-storage.md](cold-storage.md) | Cold storage, a generic third party for heavy data: keeping a day on site, the shipping job, the stub's manifest, endpoints and page, the faults it enables | draft v3, ruled (D288, D296, D297; O148 closed); its stub on the partners' shared node (D308) |
 | [third-parties.md](third-parties.md) | What a third party is, what it may carry, how it is built into a game, what the players are told; the repository's third parties in all but name | draft v4, ruled (D273–D275, D285, D293, D296) |
 | [one-centre.md](one-centre.md) | One centre per scenario: the ruling, and what it changes for the clinic's parts, its lab's partners, the exchanges with the other centres and the partners' nodes | draft v3, ruled (D285, D293–D295, D304; O127, O147 closed) |
-| [vet-core-domain.md](vet-core-domain.md) | `vet-core` through the procedure: the business sketch and the owner's answers (step 2), what the parts need of the core, the clinic's split (step 3), the data model (step 4), classification and governance (step 5), the producer profiles (step 6) | draft v8: steps 2 and 3 ruled (D266, D278, D279, D293, question 1 revised by D285), step 4 current at one centre's scale (D295), `requests` revised (D301), the lab's two load constraints applied (D302), step 5 ruled (D280), step 6 ruled (D303, D304; O153, O154 closed); step 7 in [clinic-purposes.md](clinic-purposes.md) |
-| [replication.md](replication.md) | Replication and the off-site copies: a standby of the core's instance off site, WAL archiving and base backups to cold storage for the core's instance and the lab's node, their faults and cost; the back-office database the reports write to | draft v3, ruled (D299, D300, D301; O149 closed) |
-| [vet-lab-domain.md](vet-lab-domain.md) | `vet-lab` through the procedure: what is settled before it, the business sketch (step 2) and the owner's answers, where the lab presses on the core, the data model (step 4), classification and governance (step 5), the producer profiles (step 6) with its partners and round trips | draft v4: step 2 ruled (D301, O151 closed); steps 4 and 5 ruled (D302, O152 closed), `lab_app`'s grants amended (D304); step 6 ruled with `vet-core`'s (D303, D304; O153, O154 closed); step 7 in [clinic-purposes.md](clinic-purposes.md) |
+| [vet-core-domain.md](vet-core-domain.md) | `vet-core` through the procedure, the draft document of step 9: the folder at a glance, the business sketch and the owner's answers (step 2), what the parts need of the core, the split (step 3), the data model (step 4), classification and governance (step 5), the producer profiles (step 6), the purposes that fit (7), the traps (8), loading, open points | draft v9, ready for review, for approval with the master spec: steps 2 to 6 ruled (D266, D278–D280, D285, D293, D295, D301–D304), amended by the purposes (D306); steps 7 and 8 beside it; open: O164 |
+| [replication.md](replication.md) | Replication and the off-site copies: a standby of the core's instance off site, WAL archiving and base backups to cold storage for the core's instance and the lab's node, their faults and cost; the back-office database the reports write to | draft v4, ruled (D299, D300, D301; O149 closed); the office roles named (D306) |
+| [vet-lab-domain.md](vet-lab-domain.md) | `vet-lab` through the procedure, the draft document of step 9: the folder at a glance, what is settled before it, the business sketch (step 2) and the owner's answers, where the lab presses on the core, the data model (step 4), classification and governance (step 5), the producer profiles (step 6) with its partners and round trips, the purposes that fit (7), the traps (8), loading, open points | draft v5, ready for review, for approval with the master spec: steps 2 to 6 ruled (D301–D304), amended by the purposes (D306); steps 7 and 8 beside it; open: O164 |
 | [clinic-purposes.md](clinic-purposes.md) | Step 7 for `vet-core` and `vet-lab` together: the existing purposes against the clinic, the ten purposes proposed (four round trips, the notifications, the critical calls, the registers, the antimicrobial-use report, the head office's figures, the lab's statements), each with its kind, cadence, trace, invariants, runner, source and target and candidate faults; the runners; the format's extensions; what it asks of the domains | draft v2, ruled (D306, D307; O155, O156 closed) |
+| [clinic-traps.md](clinic-traps.md) | Step 8 for `vet-core` and `vet-lab` together: 84 traps across the data models, profiles, purposes, replication and the partners, each with where it bites, its witness, where it is fixed, catalogue or new, and its D290 class; false-alarm material | draft v1, ready for review; no owner checkpoint (D309); how many are built: O165 |
+| [clinic-test-selection.md](clinic-test-selection.md) | The spec's test selection, a fixture for the build's tests and the proof in play (D309): ten faults on D290's mix and a false alarm, each with its short fixture (D314), and the whole-clinic run | draft v1, ready for review |
+| [clinic-capacity.md](clinic-capacity.md) | The clinic's nodes and capacity: every node so far with its reservation and host, the parts and monitoring estimated, against `fit` and the hosts the tests declare | draft v1, ready for review (O158 closed by D314) |
 | [brick-options-review.md](brick-options-review.md) | The options candidates checked against the clinic, and the owner's rulings on them: what the clinic gets, as an option or otherwise, what stops mattering, the options model | draft v4, ruled (D250, D261, D262, D289) |
 
 ## Goal
@@ -485,6 +490,8 @@ The items moved later are listed in the roadmap
 
 - O111: the domain format, beyond its v0.4 part and D249's four
   changes; finalised in the master spec when v0.5 consolidates (D291).
+- O164: whether a request already sent to the lab can be cancelled.
+- O165: how many of the clinic's traps v0.5 builds as faults.
 
 Moved out of this list on 2026-10-31: O53 and O54 (later, D237); O21
 and O135 (v0.6, D233, D248); O24 and O25 (v1.0+, D248). Closed: O47
@@ -498,30 +505,27 @@ binding.
 
 ## Next steps (in progress)
 
-Left when the session stopped on 2026-11-02, after D306–D309:
+Left when the session stopped on 2026-11-03, after D314:
 
-- **Step 8, Traps, for `vet-core` and `vet-lab` together**: in progress,
-  not yet written. The trap catalogue across the data model, profiles
-  and purposes (bricks and configuration, data and identity,
-  governance, replication and archive, cold storage, round trips,
-  periodic reports, `api` `db/` sides, performance), each with where it
-  bites, its witness, where it is fixed, catalogue fault or new, and its
-  D290 class, plus false-alarm material; no owner checkpoint (D309).
-- **The test selection**: in progress. Up to ten faults on D290's mix and
-  an optional false alarm, a fixture for the build's smoke run and the
-  proof in play (D309), covering a round-trip cascade, replication or
-  archive, cold storage, a periodic report with a witness in the aging,
-  an `api` node's `db/` side and governance.
-- **The node and capacity tally**: in progress. Every clinic node so
-  far, with the partners grouped (D308), plus estimates for scheduling,
-  housing, machinery and the portal, checked against platform.md's hosts
-  and `fit`. A first count: about 18 nodes so far, about 3.8G reserved,
-  over one host as the tests declare it (4G), within armenelos plus the
-  VPS; the whole clinic about 27 to 31 nodes and 4.8 to 5.9G, CPU the
-  tight dimension.
-- **Applying D306 to the domain pages**: `exchanges` and its streams in
-  vet-core steps 4 and 6, `diagnosis_codes.notifiable` none/A/other, the
-  centres' stubs; `lab-api`'s results feed and the external lab's
-  `resend` in vet-lab; replication.md 3's office role name; the partner
-  pages' "own `api` node" wording (vet-core, vet-lab, cold-storage,
-  producer-profiles 12, clinic-purposes) to D308's hostnames.
+- **For the owner**: O164 (can a sent request be cancelled? default:
+  no, the lab cancels and its feed brings it back) and O165 (how many
+  traps are built as faults? default: the test selection's ten and its
+  false alarm). Neither blocks the next part.
+- **`vet-core` and `vet-lab` are through step 8** and in step 9's shape,
+  ready for review, approved only with the master spec (procedure 2):
+  [vet-core-domain.md](vet-core-domain.md),
+  [vet-lab-domain.md](vet-lab-domain.md), with
+  [clinic-purposes.md](clinic-purposes.md),
+  [clinic-traps.md](clinic-traps.md),
+  [clinic-test-selection.md](clinic-test-selection.md) and
+  [clinic-capacity.md](clinic-capacity.md).
+- **Next: the remaining parts through the procedure**, `vet-scheduling`,
+  `vet-housing`, `vet-machinery` and `vet-portal` (D293), from step 2;
+  each one's nodes then replace its estimate in the
+  [tally](clinic-capacity.md), CPU the tight dimension on two hosts, the
+  VPS's disk the other; the release to the portal drafted with
+  `vet-portal` (D304); cold storage's heavy-data traps with
+  `vet-machinery`'s step 8.
+- **Tests stay short** (D314): every check under 30 minutes on a minimal
+  fixture; the whole clinic deployed once, on armenelos plus the VPS, as
+  the proof in play, its place the release gate (proposed).
