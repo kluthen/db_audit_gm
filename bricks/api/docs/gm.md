@@ -124,7 +124,12 @@ The `api` service first waits, bounded (30 s), until every host
 `api.yaml`'s connections name resolves (`getent ahosts`), printing the
 wait and its outcome to the container's log (`api: waiting up to 30s for
 connection hosts to resolve: db`, then `... resolve after Ns`, or `still
-unresolved ..., starting anyway`); v0.4's lesson (spec D305). It then runs
+unresolved ..., starting anyway`); v0.4's lesson (spec D305). Swarm puts a
+health-checked task in its service's DNS only once the task is healthy, so
+on a first deployment a fresh `postgres` node (initdb included) usually
+resolves after the bound: the server starts anyway and its endpoints
+answer 503 until the database is there (the stack test saw both). psycopg
+resolves at every connect, so nothing keeps a stale address. It then runs
 `python3 -I -m uvicorn --factory gm_api.app:create_app --host 0.0.0.0
 --port 8000` as `api`: one process; the routes, plain `def`, run in
 AnyIO's worker threads (40), so a slow endpoint never holds the others;
@@ -179,7 +184,8 @@ writes a `fatal` line to the request log, and s6 tries again 4 s later.
   `api` (`python3 -I -m gm_api check`); on the first problem prints
   `gm-reload-api: the endpoints do not load; the server was NOT restarted
   and keeps the files it loaded:` and the problem, by file and line, and
-  exits 1; else restarts the server through s6, waits (60 s) for it to
+  exits 1; else restarts the server through s6, waits (60 s, beyond the
+  start-up wait) for it to
   load and answer, and prints `gm-reload-api: restarted the server with
   api.yaml, routes/ and db/ as they are: ...`. A restart drops the
   requests in flight; a caller sees a refused connection for a second or
@@ -213,7 +219,16 @@ writes a `fatal` line to the request log, and s6 tries again 4 s later.
   64M of disk (master spec 7.2's starting figures: 0.1 CPU and 96M; 128M
   for the partners' node serving nine hostnames).
 - **At rest, first figures** (the stack test, 2026-11-03, after 30 s
-  without a request): FOOTPRINT_FIGURES
+  without a request; four runs agreed within 5M):
+
+  | Node | Hostnames, endpoints | Memory (cgroup) | Server RSS | CPU |
+  |---|---|---|---|---|
+  | `lab-api` | one, one endpoint and a connection | 47M of 128M | 53M | 0.2% |
+  | `partners` (`no-access`) | nine, nine endpoints, two connections | 43M of 128M | 55M | 0.2% |
+
+  Both well within master spec 7.2's starting figures (96M; 128M for nine
+  hostnames): a hostname and its endpoint pair add about 1M to the server.
+  The disk at rest: 24K to 88K of endpoint files, a few kilobytes of log.
 - What makes it grow: the endpoints imported (each pair a few hundred
   kilobytes), the pooled sessions' buffers, the request log on disk.
   `disk_growth_per_hour` 2M is provisional: about 170 bytes a request,

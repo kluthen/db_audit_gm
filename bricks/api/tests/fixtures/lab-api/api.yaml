@@ -1,0 +1,8 @@
+# Stack test fixture of the api brick: the customer's lab API, one hostname
+# (its own name), one endpoint behind a credential, one database connection.
+endpoints:
+  orders:
+    hosts: [lab-api]
+    credentials: [interfaces_lab_api]
+connections:
+  lab: {driver: sql/postgresql, target: db:5432/lab, role: lab_api, pool: {size: 2}}

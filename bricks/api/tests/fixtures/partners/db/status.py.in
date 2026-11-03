@@ -1,0 +1,5 @@
+"""A partner's status, no database (stack test fixture of the api brick)."""
+
+
+def status():
+    return {"partner": "@HOST@", "ok": True}
