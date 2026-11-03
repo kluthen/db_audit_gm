@@ -5,7 +5,13 @@ register: captures are recorded here by the wave driver (plan, "Read
 first").
 
 On 2026-11-03 the owner asked for wave 1 to start and for wave 2 to follow
-it.
+it, then left the laptop to the driver until the next day ("work on the
+second wave whenever the first one's done, i'll review results
+tomorrow"). The driver reads that as: wave 1 runs to its gate; wave 2 is
+cut from the gated `v0.5-w1` (the model's "go on before merging"), since
+no merge into `main` was asked; both merges wait for the owner's word. An
+owner question met meanwhile is logged with the driver's recommendation
+and holds only the chunks it touches.
 
 ## Wave 1 — started 2026-11-03
 
@@ -579,3 +585,115 @@ node; the variant manifest and tag limits; the four-part scenario key;
 ### Questions for the owner
 
 None.
+### G5 — dependency preflight on `postgres` 0.5.0's packages (security-advisor, 2026-11-03)
+
+**Clear, with conditions; nothing for the owner.** Resolved in throwaway
+`debian:13-slim` containers with the Dockerfile's PGDG line (none left).
+
+- **pgaudit**: `postgresql-18-pgaudit=18.0-3.pgdg13+1` (upstream 18.0),
+  **pinned exactly** (`ARG PG_AUDIT_PACKAGE=18.0-3.pgdg13+1`, the second,
+  PGDG `apt-get install`, a `dpkg-query` assertion as pg_cron's; plus
+  `test -f /usr/lib/postgresql/18/lib/pgaudit.so`). Pulls in nothing new.
+  No advisory (no CPE; CVE-2025-23413 is F5's, not pgaudit's).
+- **Build note bearing on the game**: pgaudit's `role` class logs
+  statement text, so `CREATE/ALTER ROLE … PASSWORD '…'` lands in clear in
+  the file log, which `pgconf` (the players' group) reads. The initdb
+  steps setting the `monitoring` and replication passwords run before
+  pgaudit is loaded, or with `pgaudit.log = 'none'` and `log_statement =
+  'none'` for that session, or pass SCRAM verifiers. (Passed to chunk 3.)
+- **TLS: nothing to add.** `postgres` 18.6 is built `--with-openssl`;
+  `libssl3t64`/`openssl` 3.5.7-1~deb13u3 and `ssl-cert` 1.1.3 are already
+  pulled in by `postgresql-common`; `postgres` is in group `ssl-cert`.
+  **Condition**: assert the floor `dpkg --compare-versions
+  "$(dpkg-query -W -f '${Version}' libssl3t64)" ge 3.5.7-1~deb13u3`
+  (DSA-6531-1, the 2026-09-29 OpenSSL batch, fixed only in
+  trixie-security). Advised hardening: delete `ssl-cert`'s snakeoil key at
+  build and assert it gone (identical in every game built from the image).
+- **Standby and archiving**: `pg_basebackup` already present. The posting
+  command **in Perl with core `HTTP::Tiny`** 0.088 (perl 5.40.1, already in
+  the image through pgbadger): no package added; assert `perl
+  -MHTTP::Tiny -e 1`. curl (13 more packages, ~13 open trixie CVEs) is the
+  second choice; Python is not advised.
+- `.tech` at G8: OpenSSL as a platform (`cpe:2.3:a:openssl:openssl`,
+  3.5.7, Debian deb13u3; expect NVD false positives for the backported
+  batch), pgaudit 18.0 (no CPE).
+
+G5 **done (2026-11-03)**.
+
+### G6 — dependency preflight on `api` 0.1.0 (security-advisor, 2026-11-03)
+
+**Clear, with conditions.** Source: **a pinned PyPI set**, hash-pinned in
+`bricks/api/requirements.txt` (that exact name, so the daily sweep reads
+it as a lockfile). Fifteen wheels, each 0 known vulnerabilities
+(`cve-watch query pypi`), pip's resolution in a trixie container:
+
+```
+fastapi==0.162.0          --hash=sha256:3785963de305dd09912426cb81f2d230fce98ab3521cdfe97265c8d14983128c
+uvicorn==0.54.0           --hash=sha256:505bdb0f318731d45f1f712071fc781a8981f6847a31c902c9f5e652d4f67faf
+starlette==1.10.0         --hash=sha256:478c0ab3b4ced6e82719849c118fa406f0278a3499c1a898cd15cd31bdc38ce4
+pydantic==2.14.2          --hash=sha256:7efbf7507b937931cd32a5755acb00ea1cf5ccb1d4e8067a5850d5069e382118
+pydantic-core==2.50.2     --hash=sha256:31a1fb3ffbd1195b24490f671d12623dd4c9bfa56d6af0a299fa43b516134f5b
+psycopg==3.3.7            --hash=sha256:d592e88a077e01ff57f22d59f16e828b92f2b2d9f439b6679d582b48d74cf306
+h11==0.16.0               --hash=sha256:63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86
+anyio==4.16.0             --hash=sha256:c66ae634e0b8228396b801741beb3294326d4b6102f7bba4041c0dfb58c29026
+idna==3.20                --hash=sha256:ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c
+click==8.5.0              --hash=sha256:255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360
+typing-extensions==4.16.0 --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8
+typing-inspection==0.4.4  --hash=sha256:65b8397ba37ccbce054456aaccddfc91e6e3083c92824df348d96ca832f3f147
+annotated-types==0.8.0    --hash=sha256:f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0
+annotated-doc==0.0.5      --hash=sha256:117bac03a25ede5df5440e855b32d556049ca169ead221505badf432fed4b101
+opentelemetry-api==1.45.2 --hash=sha256:2cbd737377e710ee740d261c94e93fa0f08e6d037c18f17513cc0a2d94479a34
+```
+
+(pydantic-core's hash is the cp313 manylinux x86_64 wheel; psycopg 3.3.6
+is also clean if 3.3.7, released today, misbehaves.)
+
+Conditions on the build:
+- plain `uvicorn` (no `[standard]`: no uvloop, httptools, websockets), no
+  python-multipart (JSON only);
+- plain `psycopg`, never `psycopg[binary]` (its bundled libpq and OpenSSL
+  are invisible to Debian and the sweep); Debian `libpq5` as the
+  scheduler;
+- installed in a throwaway build stage with `pip install --require-hashes
+  --only-binary=:all: --no-deps --target <stage> -r requirements.txt`,
+  copied into `/usr/local/lib/python3.13/dist-packages` (the scheduler's
+  pattern); **no pip in the final image** (Debian's python3-pip 25.1.1 has
+  open trixie CVEs, build-time only); uvicorn run as `python3 -I -m
+  uvicorn`; optional `ENV OTEL_SDK_DISABLED=true` (FastAPI 0.162
+  hard-depends on `opentelemetry-api`, which exports nothing without the
+  SDK).
+- Build assertions: `sys.version_info[:2] == (3, 13)`; each
+  `importlib.metadata.version` equal to its pin; `psycopg.pq.__impl__ ==
+  "python"` and `psycopg.pq.version() >= 170000`; `! python3 -I -m pip
+  --version` in the final stage.
+
+The Debian 13 route (FastAPI 0.115.11, 23 packages) was rejected: four
+open, unreachable but permanent watch items (anyio CVE-2026-63374,
+-64847, -63349; dnspython CVE-2026-114605), and no lockfile for the
+sweep to read. CVE-2026-15308 (python3.13 `html.parser`) extends to the
+`api` image as a watch item: not reachable (nothing in the set imports
+`html.parser`), and a player editing `db/` already runs Python in the
+process. `.tech` at G8: `bricks/api/requirements.txt` and the `api`
+brick under the Python platform.
+
+**For the owner, not blocking**: this is the project's first PyPI
+dependency set and first lockfile. The plan (G6) allowed either source;
+the driver takes the advisor's recommendation. Should the owner want
+Debian packages only as a policy, that is a ruling, and chunk 5 would be
+reworked to the Debian route.
+
+G6 **done (2026-11-03)**.
+
+### G7 — `scheduler` 0.3.0's client
+
+W1 item 4 keeps the HTTP driver and the scripts' client in the standard
+library (`http.client`). G7 is **not needed** unless chunk 4 adds a
+package; its owner is told to stop and report before adding one.
+
+### W1 reviewed by the driver, 2026-11-03
+
+The capture's 49 **(choice)** points are accepted as drafted. G5's
+advice settles one point W1 left to chunk 3: `vault-post` is written in
+Perl with core `HTTP::Tiny` (no package added). Its seven preflight
+corrections go to `spec-writer` before chunk 1's branch is cut; it has
+no question for the owner.
