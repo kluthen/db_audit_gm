@@ -406,7 +406,8 @@ chunk 11's shared nodes:
 
 ### Chunk 1 — Versions, declarations and re-pins
 
-Status: in progress (w1)
+Status: merged (w1, 1c76772)
+Record: ec32633, merge 1c76772. Twelve `postgres` faults re-versioned, not eleven (the plan's count); `fixture-v04-refusals` keeps its own local bricks, not re-pinned (v03-refusals' precedent); the root `README.md`'s bricks row updated by the driver after `main`'s 117678b was merged into `v0.5-w1` (wave log).
 Wave: 1
 Depends on: G1; G3, G4 (the images at their new tags)
 Architecture capture: recorded by the wave driver at wave 1's start
@@ -482,7 +483,7 @@ Architecture capture: recorded by the wave driver at wave 1's start
 
 ### Chunk 2 — The domain format: skill, templates, checks, `gmctl compose`, variants
 
-Status: planned
+Status: in progress (w1)
 Wave: 1
 Depends on: chunk 1, merged into `v0.5-w1` before this chunk's branch is
 cut; G2 (done); W1
@@ -582,7 +583,7 @@ every domain chunk:
 
 ### Chunk 3 — `postgres` 0.5.0
 
-Status: planned
+Status: in progress (w1)
 Wave: 1
 Depends on: chunk 1 merged; G5; G3, G4
 Architecture capture: W1, plus, for chunks 7, 8, 10, 11, 20, 23, 24:
@@ -668,7 +669,7 @@ Architecture capture: W1, plus, for chunks 7, 8, 10, 11, 20, 23, 24:
 
 ### Chunk 4 — `scheduler` 0.3.0: the HTTP driver
 
-Status: planned
+Status: in progress (w1)
 Wave: 1
 Depends on: chunk 1 merged; G7 (only if a package is added); G3, G4
 Architecture capture: W1's HTTP call form; for chunks 7, 11, 12 and

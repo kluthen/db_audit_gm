@@ -40,7 +40,7 @@ has its own release notes.
 |---|---|
 | [`tools/gmctl`](tools/gmctl) | The GM's host-side command line: `fit`, `render`, `deploy`, `load-data`, `inject`, `start-load`, `validate`, `check`, `snapshot`, `restart`, `status`, `exec`, `logs`, `teardown` (code in [`tools/gm/`](tools/gm/)) |
 | [`tools/tests/`](tools/tests/) | Unit tests for `gmctl` and the smoke and rehearsal scripts |
-| [`bricks/`](bricks/) | Node definitions: `postgres` 0.4.0, `bastion` 0.4.0, `scheduler` 0.2.0, `pgbouncer` 0.1.1, `prometheus`, `postgres-exporter` and `grafana` 0.2.0 |
+| [`bricks/`](bricks/) | Node definitions: `postgres` 0.5.0, `bastion` 0.5.0, `scheduler` 0.3.0, `pgbouncer` 0.1.1, `prometheus` and `postgres-exporter` 0.2.0, `grafana` 0.3.0 |
 | [`faults/`](faults/) | The fault catalog (29 faults): PostgreSQL configuration and security, monitoring and alerting, scheduler jobs, purposes and governance |
 | [`domains/`](domains/) | Business domains, design-time sources a scenario copies from: `shop` |
 | [`purposes/`](purposes/) | Purposes (what the customer's data is for), design-time sources a scenario copies from: `shop-sales-reporting`, `shop-winback-leads`, `shop-customer-mailing` and `shop-export-declarations` |

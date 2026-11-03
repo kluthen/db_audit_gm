@@ -713,3 +713,48 @@ conditions; the PyPI source listed under "Pending with the owner").
 No W1 item to amend; no owner question. Left for W2: whether chunk 7
 reads the partners' aliases from `third_parties:` or from their
 `api.yaml` hosts (chunk 6 checks the two agree).
+
+### Chunk 1 — merged (1c76772), 2026-11-03
+
+ec32633, merge 1c76772. Unit suite 854 OK (with `test_brick_docs`),
+scheduler unit tests 72 OK in `scheduler:0.3.0`'s image; `postgres`
+0.5.0, `scheduler` 0.3.0, `bastion` 0.5.0 and `grafana` 0.3.0 build;
+the stack tests of those four and of `pgbouncer`, `postgres-exporter`
+and `prometheus` pass (the last two with `GM_OPTIONS: monitoring`). The
+loader loads the 7 bricks, 29 faults, 4 scenarios and 9 fixtures. Ten
+READMEs regenerated (only the brick versions changed). `options:
+[monitoring]` on each exporter-targeted `db` node (three scenarios,
+three fixtures). Smoke scripts' tags updated, not run: wave gate.
+
+Notes, none needing a spec change:
+- **Twelve** catalog faults named `postgres` 0.4.0, not eleven; all took
+  0.5.0 beside 0.4.0 (master spec 6.4). A miscount in the plan, for
+  `spec-writer`'s next revision.
+- `fixture-v04-refusals` keeps its own local `postgres` 0.4.0,
+  `scheduler` 0.2.0 and `bastion` 0.4.0 against its own `catalog/` (as
+  `fixture-v03-refusals` kept its scheduler 0.1.0 through v0.4); only its
+  faults gained the new versions.
+- `scheduler`'s program `VERSION` (`gm_scheduler/__init__.py`) set to
+  0.3.0, outside the chunk's Files list (v0.4's chunk 1a precedent):
+  chunk 4 may meet it as a one-line conflict.
+- `GM_OPTIONS` in `calibrate-f10/stack.yml` on `db` only, the exporter's
+  target.
+- Left as they are: `bricks/{prometheus,pgbouncer,postgres-exporter}/docs/gm.md`
+  still say "postgres 0.4.0" (a change would force a bump under 6.7);
+  `.tech`'s brick versions (G8); the format skill's templates (chunk 2);
+  the faults' prose.
+- **For chunk 2**: the scenario-document template has no slot for a
+  node's `options:`, so the READMEs don't show it.
+- Risks until chunks 3 and 4: the `postgres` image still creates
+  `monitoring` on every node; `no-access` is declared but no entrypoint
+  implements it.
+- Old images kept locally: `postgres` 0.1.0–0.4.0, `bastion` 0.1.0–0.4.0,
+  `scheduler` 0.1.0, 0.2.0, `grafana` 0.1.0, 0.2.0, the scheduler unit
+  images 0.1.0, 0.2.0. `/var` has 41G free.
+
+**`main` moved during the wave**: 117678b (the root README's status,
+version table and full layout) landed on `main` after `v0.5-w1` was cut.
+The driver merged `main` into `v0.5-w1` before chunks 2 to 5 were cut,
+and brought the README's bricks row to chunk 1's versions.
+
+Chunks 2, 3 and 4 dispatched (κ = 3); chunk 5 at the first free slot.
