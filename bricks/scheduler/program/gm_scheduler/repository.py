@@ -1,13 +1,24 @@
 """The query repository: `queries.yaml`, `builders/` and `scripts/` (master
-spec 7.1; forms: v0.3 capture W1 item 7, v0.4 capture W1 item 7).
+spec 7.1; forms: v0.3 capture W1 item 7, v0.4 capture W1 item 7; the call:
+v0.5 capture W1 item 3).
 
-A key maps to one of five things:
+A key maps to one of six things:
 
     a query      {sql, params?, transaction?}
     a pool       [{sql, params?, transaction?, weight?}, ...]   one per call, by weight
     a sequence   {steps: [{sql, params?}, ...], transaction?}  in order, one connection
     a builder    {builder: builders/<file>:<function>, options?}
     a script     {script: scripts/<file>:<function>, options?}  a job only (gm_scheduler.scripts)
+    a call       {call: "<METHOD> <path>", params?, builder?, options?}   an HTTP request (v0.5)
+
+A call runs only in a stream on an `http` connection, every other key but a
+script only on a SQL one (runner.driver_problems). Its method is GET, POST,
+PUT, PATCH or DELETE; its path absolute, each `%(name)s` filled from the
+parameter of that name, URL-quoted. The parameters not in the path are the
+JSON body's fields (GET, DELETE: the query string). With `builder`, the
+parameters hold only the path's names and the builder, called as a
+builder is, returns the JSON body (GET, DELETE: a map, the query string),
+or None for none. No pool, sequence or transaction of calls.
 
 An entry runs in autocommit unless it carries `transaction: {isolation,
 hold?}`. A builder is called as `<function>(intensity, options)` (and with
@@ -23,10 +34,12 @@ import inspect
 import os
 import re
 import stat
+from urllib.parse import quote
 
 import yaml
 
 from . import ConfigError
+from .drivers.http import QUERY_METHODS, encode_json, join_query, query_string, scalar_text
 from .generators import compile_params, draw_params
 from .timeutil import parse_duration
 
@@ -35,6 +48,9 @@ BUILDER_RE = re.compile(r"^builders/([A-Za-z0-9_][A-Za-z0-9_.-]*):([A-Za-z_][A-Z
 SCRIPT_RE = re.compile(r"^scripts/([A-Za-z0-9_][A-Za-z0-9_.-]*):([A-Za-z_][A-Za-z0-9_]*)$")
 BUILDER_FILE_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]*$")
 ISOLATIONS = ("read committed", "repeatable read", "serializable")
+CALL_RE = re.compile(r"^(GET|POST|PUT|PATCH|DELETE) (/[\x21-\x7e]*)$")
+PATH_NAME_RE = re.compile(r"%\(([A-Za-z_][A-Za-z0-9_]*)\)s")
+PATH_PERCENT_RE = re.compile(r"%(?!\([A-Za-z_][A-Za-z0-9_]*\)s|[0-9A-Fa-f]{2})")
 QUERIES_FILE = "queries.yaml"
 BUILDERS_DIR = "builders"
 SCRIPTS_DIR = "scripts"
@@ -89,6 +105,14 @@ class Plan:
 
     def __init__(self, steps, txn):
         self.steps, self.txn = steps, txn
+
+
+class CallPlan:
+    """What one call of a call key sends: a method, a target (the path and
+    its query string), a body (bytes or None) and its content type."""
+
+    def __init__(self, method, target, body, content_type):
+        self.method, self.target, self.body, self.content_type = method, target, body, content_type
 
 
 def parse_transaction(value, where):
@@ -209,6 +233,62 @@ class BuilderEntry(Entry):
         options = dict(self.options)
         result = self.fn(intensity, options, rng=rng) if self.takes_rng else self.fn(intensity, options)
         return builder_plan(result)
+
+
+class CallEntry(Entry):
+    kind = "call"
+
+    def __init__(self, key, value, where, modules):
+        super().__init__(key)
+        unknown = set(value) - {"call", "params", "builder", "options"}
+        if unknown:
+            raise ConfigError(f"{where}: unknown key(s) {', '.join(sorted(map(str, unknown)))}")
+        m = CALL_RE.match(value["call"]) if isinstance(value["call"], str) else None
+        if not m:
+            raise ConfigError(f"{where}.call: \"<METHOD> <path>\", the method GET, POST, PUT, PATCH or DELETE, "
+                              "the path absolute, without spaces")
+        self.method, self.path = m.groups()
+        if "#" in self.path or PATH_PERCENT_RE.search(self.path):
+            raise ConfigError(f"{where}.call: in the path, a % is %(name)s or a %XX escape, and no #")
+        self.names = PATH_NAME_RE.findall(self.path)
+        self.params = compile_params(value.get("params"), f"{where}.params", key)
+        missing = [n for n in self.names if n not in self.params]
+        if missing:
+            raise ConfigError(f"{where}.params: no parameter for the path's %({missing[0]})s")
+        self.fn = None
+        if "builder" in value:
+            self.fn = _module_function(value["builder"], BUILDER_RE, BUILDERS_DIR, modules, where, "builder")
+            extra = sorted(n for n in self.params if n not in self.names)
+            if extra:
+                raise ConfigError(f"{where}.params: with a builder, params holds only the path's names, "
+                                  f"not {extra[0]}")
+            self.options = _options(value, where)
+            try:
+                self.takes_rng = "rng" in inspect.signature(self.fn).parameters
+            except (TypeError, ValueError):
+                self.takes_rng = False
+        elif "options" in value:
+            raise ConfigError(f"{where}.options: only with a builder")
+
+    def plan(self, rng, ctx, intensity):
+        values = draw_params(self.params, rng, ctx)
+        path = PATH_NAME_RE.sub(lambda m: quote(scalar_text(values[m.group(1)]), safe=""), self.path)
+        if self.fn is None:
+            payload = {k: v for k, v in values.items() if k not in self.names}
+        else:
+            options = dict(self.options)
+            payload = self.fn(intensity, options, rng=rng) if self.takes_rng else self.fn(intensity, options)
+        if self.method in QUERY_METHODS:
+            if payload is not None and not isinstance(payload, dict):
+                raise BuilderResult(f"a {self.method} call's builder returns a map (the query string) or None")
+            return CallPlan(self.method, join_query(path, query_string(payload or {})), None, None)
+        if payload is None:
+            return CallPlan(self.method, path, None, None)
+        try:
+            body = encode_json(payload)
+        except (TypeError, ValueError) as exc:
+            raise BuilderResult(f"the body is not JSON: {exc}") from None
+        return CallPlan(self.method, path, body, "application/json")
 
 
 def _module_function(spec, regex, directory, modules, where, field):
@@ -379,6 +459,8 @@ def parse_queries(doc, modules, scripts=None):
             raise ConfigError(f"{QUERIES_FILE}: key {key!r}: lowercase letters, digits, '.', '_', '-'")
         if isinstance(value, list):
             entries[key] = PoolEntry(key, value, where)
+        elif isinstance(value, dict) and "call" in value:
+            entries[key] = CallEntry(key, value, where, modules)
         elif isinstance(value, dict) and "builder" in value:
             entries[key] = BuilderEntry(key, value, where, modules)
         elif isinstance(value, dict) and "script" in value:
@@ -388,7 +470,8 @@ def parse_queries(doc, modules, scripts=None):
         elif isinstance(value, dict) and "sql" in value:
             entries[key] = QueryEntry(key, value, where)
         else:
-            raise ConfigError(f"{where}: a query (sql), a pool (a list), a sequence (steps), a builder or a script")
+            raise ConfigError(f"{where}: a query (sql), a pool (a list), a sequence (steps), a builder, a script "
+                              "or a call")
     return Repository(entries)
 
 
@@ -406,15 +489,17 @@ def load_repository(repo_dir):
 
 
 def queries_outline(repo_dir):
-    """(the keys of queries.yaml, those whose entry is a script), without
-    importing any builder or script (for the root-side check, which must
-    never run the players' code)."""
+    """(the keys of queries.yaml, those whose entry is a script, those whose
+    entry is a call), without importing any builder or script (for the
+    root-side check, which must never run the players' code)."""
     doc = load_yaml(read_regular(os.path.join(repo_dir, QUERIES_FILE), QUERIES_FILE), QUERIES_FILE)
     if not isinstance(doc, dict) or not isinstance(doc.get("queries"), dict):
         raise ConfigError(f"{QUERIES_FILE}: one top-level key, queries")
-    keys = set(k for k in doc["queries"] if isinstance(k, str))
-    scripts = set(k for k in keys if isinstance(doc["queries"][k], dict) and "script" in doc["queries"][k])
-    return keys, scripts
+    q = doc["queries"]
+    keys = set(k for k in q if isinstance(k, str))
+    calls = set(k for k in keys if isinstance(q[k], dict) and "call" in q[k])
+    scripts = set(k for k in keys if isinstance(q[k], dict) and "script" in q[k] and k not in calls)
+    return keys, scripts, calls
 
 
 def queries_keys_only(repo_dir):

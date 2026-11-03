@@ -1,5 +1,7 @@
 # brick.yaml: scheduler node, the producers, transformers and consumers of
-# a game (v0.3 master spec 7.1; v0.4 master spec 7.1: transformer scripts).
+# a game (v0.3 master spec 7.1; v0.4 master spec 7.1: transformer scripts;
+# v0.5 master spec 7.2: the HTTP driver, the scripts' HTTP client, the
+# weighted choice, no-access).
 #
 # Version 0.3.0 (unreleased until the v0.5 release gate).
 # Keys of v0.3's shape (seed.paths, seed.modes, disk_growth_per_hour,
@@ -86,7 +88,8 @@ healthcheck:                        # healthy once the program has answered on :
   retries: 5
   start_period: 60s
 secrets:                            # no connection secret here: render derives one per role the
-                                    # schedule names, role_<role>_password, 0:0 "0400" (spec D167)
+                                    # schedule names, role_<role>_password, 0:0 "0400" (spec D167),
+                                    # and one per HTTP credential, http_<credential> (v0.5, D347)
   - name: player_ssh_pubkey         # inner-hop public key, for SSH as player
     kind: key-pair
     pair: player_ssh_key            # the bastion mounts the private half
@@ -153,6 +156,7 @@ interfaces:
   consumes:                         # the targets the schedule's connections name
     - {name: sql, protocol: postgresql, port: 5432} # a postgres node
     - {name: sql, protocol: postgresql, port: 6432} # or a pgbouncer node
+    - {name: http, protocol: http, port: 8000}      # v0.5: an api node (the driver http)
 receives:                           # the image accepts another brick's mounted material
   s6_overlay: "3.2.3.2"             # the version the Dockerfile installs
   commands: [sh, cat, du, df, awk, sed, grep, sleep, perl, s6-svstat, s6-setuidgid]

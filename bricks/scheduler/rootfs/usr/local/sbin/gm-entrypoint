@@ -7,8 +7,10 @@
 #   1. empties /run (a named volume: a stack file's tmpfs is noexec, and
 #      s6-overlay needs an executable /run) and creates the runtime dirs;
 #   2. generates this container's sshd host key under /run;
-#   3. checks the secrets and that the schedule's seed config is there
-#      (it is read in place by the s6 service, never copied);
+#   3. checks the secrets (the role passwords and, v0.5, the HTTP
+#      credentials `http_<name>`: one line, no space) and that the
+#      schedule's seed config is there (it is read in place by the s6
+#      service, never copied);
 #   4. checks GM_WRITE_POLICY and GM_WRITE_OVERRIDES and writes
 #      /run/gm/write-policy, read by gm-reload-scheduler (sudo resets the
 #      environment);
@@ -56,11 +58,18 @@ ssh-keygen -q -t ed25519 -N '' -C '' -f /run/sshd-keys/ssh_host_ed25519_key
 
 # --- 3. secrets and the schedule -----------------------------------------
 [ -s "$SECRETS_DIR/player_ssh_pubkey" ] || die "secret $SECRETS_DIR/player_ssh_pubkey is missing or empty"
-for f in "$SECRETS_DIR"/role_*_password; do
+for f in "$SECRETS_DIR"/role_*_password "$SECRETS_DIR"/http_*; do
     [ -e "$f" ] || continue
     name=${f#"$SECRETS_DIR"/}
-    case ${name#role_} in
-        *[!a-z0-9_]*|'') die "secret $name: the role in its name is not [a-z_][a-z0-9_]*" ;;
+    case $name in
+        role_*) case ${name#role_} in
+                    *[!a-z0-9_]*|'') die "secret $name: the role in its name is not [a-z_][a-z0-9_]*" ;;
+                esac ;;
+        # an HTTP credential (v0.5, spec D347): http_<name>, [a-z][a-z0-9_]*
+        *) case ${name#http_} in
+               [a-z]*) case ${name#http_} in *[!a-z0-9_]*) die "secret $name: the credential in its name is not [a-z][a-z0-9_]*" ;; esac ;;
+               *) die "secret $name: the credential in its name is not [a-z][a-z0-9_]*" ;;
+           esac ;;
     esac
     value=$(cat "$f")
     case $value in

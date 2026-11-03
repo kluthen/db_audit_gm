@@ -2,12 +2,15 @@
 # s6 service `scheduler` (DO NOT TAMPER; v0.3 master spec 7.1, capture W1
 # item 7, W1-y). Runs as root only to read what the service account must
 # not: the schedule, read in place from its seed config (0:0 0400, never
-# copied onto a volume, spec D163), and the role passwords render mounted
-# (/opt/gm/secrets/role_<role>_password, 0:0 0400). It passes them on
-# standard input, then drops to `scheduler` with s6-setuidgid; the program
-# never opens the schedule. Framing of standard input:
+# copied onto a volume, spec D163), the role passwords render mounted
+# (/opt/gm/secrets/role_<role>_password, 0:0 0400) and, v0.5, the HTTP
+# credentials (/opt/gm/secrets/http_<name>, 0:0 0400; v0.5 capture W1
+# items 0 and 4, spec D347). It passes them on standard input, then drops
+# to `scheduler` with s6-setuidgid; the program never opens the schedule.
+# Framing of standard input:
 #   gm-scheduler-input 1
 #   password <role> <password>      one line per mounted role secret
+#   credential <name> <secret>      one line per mounted HTTP credential
 #   schedule
 #   <schedule.yaml to the end>
 # The here-document goes through a pipe (/bin/sh is dash), never a file.
@@ -30,6 +33,13 @@ for f in /opt/gm/secrets/role_*_password; do
     password=$(cat "$f") || exit 2
     input="$input
 password $role $password"
+done
+for f in /opt/gm/secrets/http_*; do
+    [ -f "$f" ] || continue
+    name=${f#/opt/gm/secrets/http_}
+    password=$(cat "$f") || exit 2
+    input="$input
+credential $name $password"
 done
 schedule=$(cat "$SCHEDULE") || exit 2
 unset password

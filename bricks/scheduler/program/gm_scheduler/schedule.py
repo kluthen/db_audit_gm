@@ -1,12 +1,21 @@
 """The rendered schedule, read on standard input (master spec 7.1; capture
-W1 item 7; framing: W1-y).
+W1 item 7; framing: W1-y; v0.5: HTTP connections and their credentials,
+v0.5 capture W1 items 3 and 4).
 
 Standard input, written by the s6 run script as root:
 
     gm-scheduler-input 1
     password <role> <password>        one line per role secret mounted
+    credential <name> <secret>        one line per HTTP credential mounted (v0.5)
     schedule
     <schedule.yaml, as rendered, to the end of input>
+
+Two connection forms (`driver` says which):
+
+    app:     {driver: sql/postgresql, target: <node>:<port>/<database>, role: <role>,
+              pool: {size: N} | {per-call: true}}
+    lab-api: {driver: http, target: <host>:<port>, credential: <name>,   # credential optional
+              pool: N, timeout: <n>s}                                    # timeout optional, 1s-60s, 10s
 
 Error messages name the place in the schedule, never a value of it: they
 reach only the container's log.
@@ -20,41 +29,58 @@ from .timeutil import parse_instant, parse_rate
 
 INPUT_MAGIC = "gm-scheduler-input 1"
 ROLE_RE = re.compile(r"^[a-z_][a-z0-9_]{0,40}$")
-FORBIDDEN_ROLES = {"postgres", "dba", "monitoring", "gm_check", "pgbouncer_lookup"}
+CREDENTIAL_RE = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
+# the brick's and the game's own roles, never a schedule's (v0.5: replicator, spec D350)
+FORBIDDEN_ROLES = {"postgres", "dba", "monitoring", "gm_check", "pgbouncer_lookup", "replicator"}
 TARGET_RE = re.compile(r"^([a-z0-9][a-z0-9.-]*):([0-9]{1,5})/([A-Za-z0-9_][A-Za-z0-9_$-]*)$")
+HTTP_TARGET_RE = re.compile(r"^([a-z0-9][a-z0-9.-]*):([0-9]{1,5})$")
+HTTP_TIMEOUT_RE = re.compile(r"^([0-9]{1,2})s$")
+HTTP_TIMEOUT_DEFAULT = 10
 CONN_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
-DRIVERS = ("sql/postgresql",)
+DRIVERS = ("sql/postgresql", "http")
 WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 ARRIVALS = ("poisson", "even")
 
 
 def parse_input(data):
-    """Standard input -> (passwords {role: password}, schedule text)."""
+    """Standard input -> (passwords {role: password}, credentials {name:
+    secret}, schedule text)."""
     lines = data.split("\n")
     if not lines or lines[0] != INPUT_MAGIC:
         raise ConfigError(f"standard input: does not begin with {INPUT_MAGIC!r}")
-    passwords = {}
+    passwords, credentials = {}, {}
     for i, line in enumerate(lines[1:], start=1):
         if line == "schedule":
-            return passwords, "\n".join(lines[i + 1:])
+            return passwords, credentials, "\n".join(lines[i + 1:])
         fields = line.split(" ")
-        if len(fields) != 3 or fields[0] != "password" or not ROLE_RE.match(fields[1]) or not fields[2]:
-            raise ConfigError(f"standard input: line {i + 1}: expected 'password <role> <password>' or 'schedule'")
-        passwords[fields[1]] = fields[2]
+        if len(fields) == 3 and fields[0] == "password" and ROLE_RE.match(fields[1]) and fields[2]:
+            passwords[fields[1]] = fields[2]
+        elif len(fields) == 3 and fields[0] == "credential" and CREDENTIAL_RE.match(fields[1]) and fields[2]:
+            credentials[fields[1]] = fields[2]
+        else:
+            raise ConfigError(f"standard input: line {i + 1}: expected 'password <role> <password>', "
+                              "'credential <name> <secret>' or 'schedule'")
     raise ConfigError("standard input: no 'schedule' line")
 
 
 class Connection:
-    def __init__(self, name, driver, host, port, database, role, pool_size, per_call):
+    def __init__(self, name, driver, host, port, database, role, pool_size, per_call, credential=None,
+                 timeout=None, target=None):
         self.name, self.driver = name, driver
         self.host, self.port, self.database, self.role = host, port, database, role
         self.pool_size, self.per_call = pool_size, per_call
+        self.credential, self.timeout = credential, timeout     # HTTP only: a credential name or None; seconds
+        self.target = target                                    # as written
+
+    @property
+    def http(self):
+        return self.driver == "http"
 
 
 class Stream:
     def __init__(self, index, key, connection, rate, arrivals, shape, concurrency):
         self.index = index
-        self.initial_key = key
+        self.initial_key, self.initial_connection = key, connection
         self.key, self.connection, self.rate = key, connection, rate   # rate: per second, intensity 1.0
         self.arrivals, self.shape, self.concurrency = arrivals, shape, concurrency
         self.changes = []          # TimelineChange, by time
@@ -87,21 +113,44 @@ def _number(v):
     return isinstance(v, (int, float)) and not isinstance(v, bool)
 
 
+def parse_http_connection(name, value, where):
+    _unknown(value, ("driver", "target", "credential", "pool", "timeout"), where)
+    target = value.get("target")
+    m = HTTP_TARGET_RE.match(target) if isinstance(target, str) else None
+    if not m or not 1 <= int(m.group(2)) <= 65535:
+        raise ConfigError(f"{where}.target: <host>:<port>")
+    credential = value.get("credential")
+    if credential is not None and (not isinstance(credential, str) or not CREDENTIAL_RE.match(credential)):
+        raise ConfigError(f"{where}.credential: a credential name, a lowercase letter then lowercase letters, "
+                          "digits, '_'")
+    pool = value.get("pool")
+    if not isinstance(pool, int) or isinstance(pool, bool) or pool < 1:
+        raise ConfigError(f"{where}.pool: the kept-alive connections, a whole number at least 1")
+    timeout = value.get("timeout", f"{HTTP_TIMEOUT_DEFAULT}s")
+    t = HTTP_TIMEOUT_RE.match(timeout) if isinstance(timeout, str) else None
+    if not t or not 1 <= int(t.group(1)) <= 60:
+        raise ConfigError(f"{where}.timeout: <n>s, 1s to 60s")
+    return Connection(name, "http", m.group(1), int(m.group(2)), None, None, pool, False,
+                      credential=credential, timeout=int(t.group(1)), target=target)
+
+
 def parse_connection(name, value, where):
     if not isinstance(name, str) or not CONN_NAME_RE.match(name):
         raise ConfigError(f"{where}: a connection name is lowercase letters, digits, '.', '_', '-'")
     if not isinstance(value, dict):
         raise ConfigError(f"{where}: a map with driver, target, role, pool")
-    _unknown(value, ("driver", "target", "role", "pool"), where)
     if value.get("driver") not in DRIVERS:
         raise ConfigError(f"{where}.driver: one of {', '.join(DRIVERS)}")
+    if value["driver"] == "http":
+        return parse_http_connection(name, value, where)
+    _unknown(value, ("driver", "target", "role", "pool"), where)
     m = TARGET_RE.match(value.get("target") or "") if isinstance(value.get("target"), str) else None
     if not m or not 1 <= int(m.group(2)) <= 65535:
         raise ConfigError(f"{where}.target: <node>:<port>/<database>")
     role = value.get("role")
     if not isinstance(role, str) or not ROLE_RE.match(role) or role in FORBIDDEN_ROLES or role.startswith("pg_"):
         raise ConfigError(f"{where}.role: an application role, never postgres, dba, monitoring, "
-                          "gm_check, pgbouncer_lookup or pg_*")
+                          "gm_check, pgbouncer_lookup, replicator or pg_*")
     pool = value.get("pool")
     if isinstance(pool, dict) and set(pool) == {"size"} and isinstance(pool["size"], int) \
             and not isinstance(pool["size"], bool) and pool["size"] >= 1:
@@ -110,7 +159,8 @@ def parse_connection(name, value, where):
         size, per_call = None, True
     else:
         raise ConfigError(f"{where}.pool: {{size: N}}, N at least 1, or {{per-call: true}}")
-    return Connection(name, value["driver"], m.group(1), int(m.group(2)), m.group(3), role, size, per_call)
+    return Connection(name, value["driver"], m.group(1), int(m.group(2)), m.group(3), role, size, per_call,
+                      target=value["target"])
 
 
 def parse_shape(name, value, where):
@@ -129,7 +179,7 @@ def parse_shape(name, value, where):
     return out
 
 
-def parse_schedule(doc, passwords=None):
+def parse_schedule(doc, passwords=None, credentials=None):
     where = "schedule"
     if not isinstance(doc, dict):
         raise ConfigError(f"{where}: a map")
@@ -146,8 +196,10 @@ def parse_schedule(doc, passwords=None):
     connections = {n: parse_connection(n, v, f"{where}.connections.{n}") for n, v in conns.items()}
     if passwords is not None:
         for c in connections.values():
-            if c.role not in passwords:
+            if not c.http and c.role not in passwords:
                 raise ConfigError(f"{where}.connections.{c.name}: no password was passed for its role")
+            if c.http and c.credential is not None and c.credential not in (credentials or {}):
+                raise ConfigError(f"{where}.connections.{c.name}: no credential was passed for it")
     shapes_doc = doc.get("shapes") or {}
     if not isinstance(shapes_doc, dict):
         raise ConfigError(f"{where}.shapes: a map")
@@ -217,10 +269,10 @@ def parse_schedule(doc, passwords=None):
 
 
 def read_schedule(data):
-    """Standard input's text -> (Schedule, passwords)."""
-    passwords, text = parse_input(data)
+    """Standard input's text -> (Schedule, passwords, credentials)."""
+    passwords, credentials, text = parse_input(data)
     doc = load_yaml(text, "schedule")
-    return parse_schedule(doc, passwords), passwords
+    return parse_schedule(doc, passwords, credentials), passwords, credentials
 
 
 def apply_past_changes(stream, now):

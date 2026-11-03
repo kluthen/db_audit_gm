@@ -1,11 +1,13 @@
 # scheduler node — player notes
 
 What you may know about a scheduler node in a db_audit_gm game. Written
-for v0.3, extended in v0.4 (scripts); expected to evolve.
+for v0.3, extended in v0.4 (scripts) and v0.5 (calls to APIs); expected
+to evolve.
 
 The node runs one of the customer's applications: a scheduler that sends
-the application's queries to its database, at the times and rates its
-schedule says, and runs its fixed-time operations (nightly batches,
+the application's queries to its database, and its calls to the APIs it
+uses, at the times and rates its schedule says, and runs its fixed-time
+operations (nightly batches,
 reports, and scripts moving rows from one database to another). It holds
 no business logic of its own: what it runs is in its query repository.
 Some nodes only run fixed-time operations and send no traffic.
@@ -24,7 +26,7 @@ Some nodes only run fixed-time operations and send no traffic.
 
 | Path | Holds | You |
 |---|---|---|
-| `/srv/scheduler/repository/queries.yaml` | the query repository: each key, the SQL it runs, its parameters, whether it runs in a transaction | read; edit when the node is fixable for it |
+| `/srv/scheduler/repository/queries.yaml` | the query repository: each key, the SQL it runs (or the API call it makes), its parameters, whether it runs in a transaction | read; edit when the node is fixable for it |
 | `/srv/scheduler/repository/builders/` | Python functions some keys use to build their statements | read; edit when fixable |
 | `/srv/scheduler/repository/scripts/` | Python functions some fixed-time operations run, moving rows between databases (below) | read; edit when fixable |
 | `/srv/scheduler/jobs/jobs.yaml` | the fixed-time operations: name, key, `connection` (or `connections`, for a script), `at` (a cron expression), `timezone` (UTC when absent) | read; edit when fixable |
@@ -41,6 +43,29 @@ you may only report what you find. Where you may not, editing them gives
 an ordinary "permission denied", and `sudo gm-reload-scheduler` says the
 node is report-only. Where you may, edit in place or with `sed -i`;
 your changes stay when the scheduler restarts.
+
+## Calls to an API
+
+A key of `queries.yaml` may be an HTTP call instead of SQL:
+
+```yaml
+  portal.desk-consent:
+    call: POST /owners/%(owner)s/consents   # the method and the path; %(owner)s from params
+    params:
+      owner: {int: [2, 10000]}
+      consent: {choice: {grant: 3, withdraw: 1}}   # grant three times in four
+```
+
+The scheduler sends one request per call, to the API its connection
+names: the parameters not in the path are the request's JSON body (for
+`GET` and `DELETE`, its query string), or a builder writes the body. The
+request names the node in its `User-Agent` header, so the API's log shows
+which application called. An answer that is not a success (`2xx`), no
+answer in time, or no connection at all counts as an error, like a
+failed query, in the log and the metrics.
+
+A parameter may also pick among values by weight, `{choice: {a: 3, b:
+1}}`, as well as evenly, `{choice: [a, b]}`.
 
 ## Scripts and their connections
 
@@ -111,7 +136,9 @@ One line per event, each beginning with its UTC time:
   for a run that could not start (the previous one still going, or a
   database refusing the connection);
 - `script job=... <text>` for each line a script logs;
-- `error key=... sqlstate=... message="..."` for each failed call;
+- `error key=... sqlstate=... message="..."` for each failed call; for
+  a call to an API, `status=...` instead of `sqlstate=...`: the answer's
+  three-digit status, `timeout` or `refused`;
 - `reload` and `state` lines.
 
 ## The validator

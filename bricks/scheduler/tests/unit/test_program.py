@@ -176,12 +176,13 @@ class ProgramBase(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.root, ignore_errors=True)
 
-    def scheduler(self, doc):
+    def scheduler(self, doc, stdin=None):
         from gm_scheduler.runner import Scheduler, load_config
         from gm_scheduler.schedule import read_schedule
         from gm_scheduler.textlog import Log
-        schedule, passwords = read_schedule(stdin_for(doc))
-        s = Scheduler(load_config(self.cfg_file), schedule, passwords, Log(self.paths["log"]), "unit-host")
+        schedule, passwords, credentials = read_schedule(stdin if stdin is not None else stdin_for(doc))
+        s = Scheduler(load_config(self.cfg_file), schedule, passwords, Log(self.paths["log"]), "unit-host",
+                      credentials)
         s.repo, s.jobs = s.load_files()
         s.started = time.time()
         self.addCleanup(s.log.close)
@@ -633,6 +634,227 @@ class TestScripts(ProgramRun):
         self.assertEqual(code, 0, out)
         self.assertNotIn("Traceback", out)
         self.assertNotIn(SRC_PASSWORD, "\n".join(read_log(self.paths)))
+
+
+class Stub:
+    """A stand-in HTTP/1.1 server on 127.0.0.1 (v0.5): records every request
+    (method, path, headers, body, the client's port); /fail answers 503 with a
+    long body, /missing 404 with none, /slow after 2.5 s, anything else 201
+    with a small JSON body. `idle` closes a kept connection idle that long."""
+
+    def __init__(self, idle=None):
+        import http.server
+        import json
+        import threading
+        self.requests = []
+        stub = self
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
+            timeout = idle
+
+            def log_message(self, *args):
+                pass
+
+            def answer(self):
+                n = int(self.headers.get("Content-Length") or 0)
+                body = self.rfile.read(n) if n else b""
+                stub.requests.append({"method": self.command, "path": self.path, "headers": dict(self.headers),
+                                      "body": body, "peer": self.client_address[1]})
+                if self.path.startswith("/slow"):
+                    time.sleep(2.5)
+                    status, out = 200, b"{}"
+                elif self.path.startswith("/fail"):
+                    status, out = 503, ("lab closed for maintenance; " * 20).encode()
+                elif self.path.startswith("/missing"):
+                    status, out = 404, b""
+                else:
+                    status, out = 201, json.dumps({"accession": len(stub.requests), "path": self.path}).encode()
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(out)))
+                self.end_headers()
+                self.wfile.write(out)
+
+            do_GET = do_POST = do_PUT = do_PATCH = do_DELETE = answer
+
+        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.server.daemon_threads = True
+        self.port = self.server.server_address[1]
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def close(self):
+        self.server.shutdown()
+        self.server.server_close()
+
+    def of(self, prefix):
+        return [r for r in self.requests if r["path"].startswith(prefix)]
+
+
+CALL_KEYS = """\
+  lab.order:
+    call: POST /orders/%(lab)s
+    params:
+      lab: {choice: [north]}
+      species: {choice: {dog: 3, cat: 1}}
+      amount: {decimal: [5, 500, 2]}
+      at: {now: utc}
+  lab.fail:
+    call: POST /fail
+  lab.missing:
+    call: GET /missing/%(n)s
+    params: {n: {int: [1, 9]}, full: true}
+  lab.slow:
+    call: GET /slow
+"""
+
+
+def http_stdin(doc, credentials=(("interfaces_lab", "t0k3n-lab"),)):
+    lines = "".join(f"credential {n} {v}\n" for n, v in credentials)
+    return f"gm-scheduler-input 1\npassword {ROLE} {PASSWORD}\n{lines}schedule\n" + yaml.safe_dump(doc)
+
+
+class TestHttpStreams(ProgramBase):
+    """v0.5: streams on HTTP connections (master spec 7.2; capture W1 items 3
+    and 4): one request per call, its status and latency counted as a
+    statement's, a non-2xx answer, a timeout or no connection an error."""
+
+    def setUp(self):
+        super().setUp()
+        with open(os.path.join(self.paths["repository"], "queries.yaml"), "a") as f:
+            f.write(CALL_KEYS)
+        self.stub = Stub()
+        self.addCleanup(self.stub.close)
+
+    def doc(self, streams):
+        doc = schedule_doc(streams)
+        doc["connections"]["lab"] = {"driver": "http", "target": f"127.0.0.1:{self.stub.port}",
+                                     "credential": "interfaces_lab", "pool": 1}
+        doc["connections"]["slowlab"] = {"driver": "http", "target": f"127.0.0.1:{self.stub.port}", "pool": 1,
+                                         "timeout": "1s"}
+        doc["connections"]["down"] = {"driver": "http", "target": "127.0.0.1:1", "pool": 1}
+        return doc
+
+    def run_streams(self, s, seconds):
+        async def go():
+            tasks = [asyncio.ensure_future(s.run_stream(st, [])) for st in s.schedule.streams]
+            await asyncio.sleep(seconds)
+            for t in tasks:
+                t.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            await asyncio.gather(*s.calls, return_exceptions=True)
+        asyncio.run(go())
+
+    def test_a_stream_calls_an_http_connection(self):
+        import json
+        doc = self.doc([{"key": "lab.order", "connection": "lab", "rate": "600/min", "arrivals": "even"},
+                        {"key": "lab.fail", "connection": "lab", "rate": "120/min", "arrivals": "even"},
+                        {"key": "lab.missing", "connection": "lab", "rate": "120/min", "arrivals": "even"},
+                        {"key": "lab.slow", "connection": "slowlab", "rate": "120/min", "arrivals": "even"}])
+        s = self.scheduler(doc, stdin=http_stdin(doc))
+        self.run_streams(s, 3.05)
+        orders = self.stub.of("/orders/")
+        self.assertTrue(25 <= len(orders) <= 31, len(orders))      # 10 a second, even
+        r = orders[0]
+        self.assertEqual((r["method"], r["path"]), ("POST", "/orders/north"))
+        h = {k.lower(): v for k, v in r["headers"].items()}
+        self.assertEqual(h["host"], f"127.0.0.1:{self.stub.port}")           # the target as written
+        self.assertEqual(h["authorization"], "Bearer t0k3n-lab")
+        self.assertEqual(h["user-agent"], "unit-host")                       # the caller's hostname
+        self.assertEqual(h["content-type"], "application/json")
+        body = json.loads(r["body"])
+        self.assertEqual(set(body), {"species", "amount", "at"})
+        self.assertIn(body["species"], ("dog", "cat"))
+        self.assertRegex(body["at"], r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}Z$")
+        t = s.stats.totals
+        self.assertEqual((t["lab.order"].calls, t["lab.order"].errors), (len(orders), 0))
+        # a non-2xx answer is an error, its status and the answer's first 200 characters logged
+        self.assertGreaterEqual(t["lab.fail"].calls, 5)
+        self.assertEqual(t["lab.fail"].errors, t["lab.fail"].calls)
+        log = read_log(self.paths)
+        fail = [l for l in log if " error key=lab.fail status=503 " in l]
+        self.assertTrue(fail, log)
+        self.assertEqual(fail[0].split(' message="', 1)[1][:-1], ("lab closed for maintenance; " * 20)[:200].strip())
+        self.assertTrue(any(l.endswith(' error key=lab.missing status=404 message="404 Not Found"') for l in log), log)
+        get = self.stub.of("/missing/")[0]
+        self.assertEqual(get["method"], "GET")
+        self.assertRegex(get["path"], r"^/missing/[1-9]\?full=true$")
+        self.assertEqual(get["body"], b"")
+        # kept alive: the one connection of `lab`'s pool in each stream carried all its calls
+        self.assertEqual(len({r["peer"] for r in orders}), 1)
+        # a timeout is an error: 1 s on slowlab, the stub answering after 2.5 s
+        self.assertGreaterEqual(t["lab.slow"].calls, 1)
+        self.assertEqual(t["lab.slow"].errors, t["lab.slow"].calls)
+        self.assertTrue(any(l.endswith(' error key=lab.slow status=timeout message="no answer within 1s"')
+                            for l in log), log)
+        self.assertNotIn("t0k3n-lab", "\n".join(log))
+
+    def test_no_connection_is_an_error_and_the_minute_counts_it(self):
+        from gm_scheduler.textlog import format_line
+        doc = self.doc([{"key": "lab.order", "connection": "down", "rate": "300/min", "arrivals": "even"}])
+        s = self.scheduler(doc, stdin=http_stdin(doc))
+        self.run_streams(s, 1.05)
+        t = s.stats.totals["lab.order"]
+        self.assertGreaterEqual(t.calls, 4)
+        self.assertEqual(t.errors, t.calls)
+        log = read_log(self.paths)
+        self.assertTrue(any(" error key=lab.order status=refused message=" in l and "ConnectionRefusedError" in l
+                            for l in log), log)
+        calls = sum(v.get("lab.order", [0])[0] for v in s.stats.minutes.values())
+        self.assertEqual(calls, t.calls)
+        lines = []
+        for minute in sorted(s.stats.minutes):
+            lines += [format_line(0, e, f) for e, f in s.stats.summary(minute)]
+        self.assertTrue(any(" key=lab.order calls=" in l and " errors=" in l for l in lines), lines)
+
+    def test_a_kept_connection_the_server_closed_is_opened_again(self):
+        self.stub.close()
+        self.stub = Stub(idle=0.3)
+        self.addCleanup(self.stub.close)
+        doc = self.doc([{"key": "lab.order", "connection": "lab", "rate": "120/min", "arrivals": "even"}])
+        s = self.scheduler(doc, stdin=http_stdin(doc))
+        self.run_streams(s, 3.05)
+        t = s.stats.totals["lab.order"]
+        self.assertGreaterEqual(t.calls, 5)
+        self.assertEqual(t.errors, 0, read_log(self.paths))
+        self.assertGreater(len({r["peer"] for r in self.stub.requests}), 1)    # opened again after each idle close
+
+    def test_the_bounded_wait_for_the_targets_names(self):
+        from gm_scheduler import runner
+        doc = self.doc([])
+        doc["connections"]["lab"]["target"] = f"localhost:{self.stub.port}"
+        s = self.scheduler(doc, stdin=http_stdin(doc))
+        old = runner.NAME_WAIT, runner.NAME_PROBE
+        runner.NAME_WAIT, runner.NAME_PROBE = 2.0, 1.0
+
+        def restore():
+            runner.NAME_WAIT, runner.NAME_PROBE = old
+        self.addCleanup(restore)
+        self.assertEqual(asyncio.run(s.wait_for_names()), [])
+        self.assertRegex(read_log(self.paths)[-1], r" wait status=resolved ms=[0-9]+ connections=down,lab,slowlab$")
+        doc["connections"]["far"] = {"driver": "http", "target": "gm-no-such-host.invalid:8000", "pool": 1}
+        s = self.scheduler(doc, stdin=http_stdin(doc))
+        start = time.monotonic()
+        self.assertEqual(asyncio.run(s.wait_for_names()), ["far"])
+        took = time.monotonic() - start
+        self.assertTrue(2.0 <= took <= 6.0, took)                    # bounded, then it runs anyway
+        log = read_log(self.paths)
+        self.assertTrue(log[-2].endswith(" wait status=waiting bound=2s connections=far"), log)
+        self.assertRegex(log[-1], r" wait status=unresolved ms=[0-9]+ connections=far$")
+
+
+class TestHttpProgram(ProgramRun):
+    """v0.5: an HTTP credential arrives on standard input; one not passed
+    refuses the schedule, as a role without its password does."""
+
+    def test_a_credential_not_passed_refuses_the_schedule(self):
+        doc = schedule_doc([])
+        doc["connections"]["lab"] = {"driver": "http", "target": "lab-api:8000", "credential": "interfaces_lab",
+                                     "pool": 1}
+        code, out = self.finish(self.start(doc))
+        self.assertEqual(code, 2, out)
+        self.assertIn("schedule.connections.lab: no credential was passed for it", out)
+        self.assertNotIn("Traceback", out)
 
 
 @unittest.skipUnless(os.geteuid() == 0, "restore needs root")

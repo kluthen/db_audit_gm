@@ -11,6 +11,12 @@ A node may have jobs and no stream (`streams: []`). A script key's job
 runs in a worker thread (gm_scheduler.scripts); every other run is an
 asyncio task. SIGHUP reloads the repository and jobs.yaml (the schedule,
 connections and counters kept); SIGTERM stops it.
+
+v0.5: a stream may hold an HTTP connection and run a call key (one
+request per call, gm_scheduler.drivers.http). Before running, the program
+waits, bounded (NAME_WAIT), for every HTTP connection's target name to
+resolve (v0.4's lesson, spec D305): a `wait` line says it waited and how
+it ended; it runs at the bound whether the names resolve or not.
 """
 
 import asyncio
@@ -29,7 +35,7 @@ from .generators import Sequences
 from .jobs import load_jobs
 from .metrics import Stats, serve_metrics
 from .pools import Pool
-from .repository import BuilderResult, fingerprint, load_repository, loaded_files
+from .repository import BuilderResult, CallPlan, fingerprint, load_repository, loaded_files
 from .rng import derive
 from . import scripts
 from .schedule import apply_change, apply_past_changes
@@ -44,6 +50,8 @@ CONFIG_FILE = "/etc/scheduler/scheduler.yaml"
 CONFIG_KEYS = {"log", "status", "loaded", "marker", "state", "repository", "jobs", "schedule_seed", "metrics"}
 SUMMARY_DELAY = 1.0          # seconds after each UTC minute boundary
 RATE_HORIZON = 3600.0        # a stream with no arrival re-plans at least hourly
+NAME_WAIT = 30.0             # seconds: the bounded wait for the HTTP targets' names at start
+NAME_PROBE = 5.0             # seconds: one look-up's bound
 
 
 def load_config(path=CONFIG_FILE):
@@ -112,14 +120,59 @@ def check_job_forms(repo, jobs):
     return problems
 
 
+def _unique(items):
+    out = []
+    for i in items:
+        if i not in out:
+            out.append(i)
+    return out
+
+
+def driver_problems(schedule, keys, call_keys, jobs=()):
+    """A call key runs on an HTTP connection and every other key on a SQL
+    one: each stream's keys (its first and the timeline's) against each of
+    its connections (likewise); a job with `connection:` runs no call and
+    names no HTTP connection (an HTTP connection is a stream's or a
+    script's). Keys missing from queries.yaml are reported elsewhere."""
+    problems = []
+    conns = schedule.connections
+    for stream in schedule.streams:
+        stream_keys = _unique([stream.initial_key] + [c.sets["key"] for c in stream.changes if "key" in c.sets])
+        names = _unique([stream.initial_connection]
+                        + [c.sets["connection"] for c in stream.changes if "connection" in c.sets])
+        for key in stream_keys:
+            if key not in keys:
+                continue
+            for name in names:
+                http = conns[name].http
+                if key in call_keys and not http:
+                    problems.append(f"queries.yaml: key {key} is a call, but the schedule runs it on connection "
+                                    f"{name}, which is not an HTTP connection")
+                elif key not in call_keys and http:
+                    problems.append(f"queries.yaml: key {key} is not a call, but the schedule runs it on "
+                                    f"connection {name}, an HTTP connection")
+    for job in jobs:
+        if job.connections is not None:
+            continue
+        if job.key in call_keys:
+            problems.append(f"jobs.yaml: job {job.name}: key {job.key} is a call: a call runs only in a stream")
+        elif job.connection in conns and conns[job.connection].http:
+            problems.append(f"jobs.yaml: job {job.name}: connection {job.connection} is an HTTP connection: a job "
+                            "with connection: runs SQL; an HTTP connection is a stream's or a script's")
+    return _unique(problems)
+
+
 def check_references(schedule, repo, jobs):
     """Every key the schedule and jobs.yaml name is in the repository, the
     schedule naming no script; each job's form fits its key; every
-    connection a job names is the schedule's. Messages name only keys,
-    connection names and the players' own job names (W1 item 7)."""
+    connection a job names is the schedule's; a call on an HTTP connection
+    only (driver_problems). Messages name only keys, connection names and
+    the players' own job names (W1 item 7)."""
     script_keys = {k for k in repo.keys() if repo.get(k).kind == "script"}
+    call_keys = {k for k in repo.keys() if repo.get(k).kind == "call"}
     return (schedule_key_problems(schedule.keys(), set(repo.keys()), script_keys)
-            + check_job_forms(repo, jobs) + job_connection_problems(jobs, schedule.connections))
+            + check_job_forms(repo, jobs) + job_connection_problems(jobs, schedule.connections)
+            + driver_problems(schedule, set(repo.keys()), call_keys, jobs))
 
 
 def read_loaded(path):
@@ -186,8 +239,9 @@ async def run_plan(session, plan):
 
 
 class Scheduler:
-    def __init__(self, cfg, schedule, passwords, log, hostname=None):
+    def __init__(self, cfg, schedule, passwords, log, hostname=None, credentials=None):
         self.cfg, self.schedule, self.passwords, self.log = cfg, schedule, passwords, log
+        self.credentials = credentials or {}
         self.hostname = hostname or socket.gethostname()
         self.stats = Stats()
         self.stats.start_time = time.time()
@@ -254,11 +308,18 @@ class Scheduler:
         return True
 
     # --- calls -----------------------------------------------------------------
+    def secret_for(self, c):
+        """A connection's secret: its role's password (SQL), its credential
+        (HTTP; None for a public endpoint)."""
+        if c.http:
+            return self.credentials.get(c.credential) if c.credential else None
+        return self.passwords.get(c.role)
+
     def pool_for(self, pools, name):
         pool = pools.get(name)
         if pool is None or pool.closing:
             c = self.schedule.connections[name]
-            pool = Pool(c, self.passwords.get(c.role), self.hostname)
+            pool = Pool(c, self.secret_for(c), self.hostname)
             pools[name] = pool
             self.all_pools.append(pool)
         return pool
@@ -268,14 +329,18 @@ class Scheduler:
         for pool in pools:
             await pool.close_all()
 
-    def make_plan(self, key, rng):
-        """The plan of one call of `key`, drawn now (so the draws keep their
-        order); returns (plan, None) or (None, error message)."""
+    def make_plan(self, key, rng, connection=None):
+        """The plan of one call of `key` on `connection` (a name), drawn now
+        (so the draws keep their order); returns (plan, None) or (None,
+        error message)."""
         entry = self.repo.get(key) if key in self.repo else None
         if entry is None:
             return None, "the key is not in queries.yaml"
         if entry.kind == "script":
             return None, "the key is a script: a script runs only as a job"
+        if connection is not None and (entry.kind == "call") != self.schedule.connections[connection].http:
+            return None, ("the key is a call: it runs only on an HTTP connection" if entry.kind == "call"
+                          else "the key is not a call: an HTTP connection runs only calls")
         try:
             return entry.plan(rng, self.ctx, self.schedule.intensity), None
         except BuilderResult as exc:
@@ -283,24 +348,29 @@ class Scheduler:
         except Exception as exc:  # the builder's own code failed
             return None, f"builder: {type(exc).__name__}: {exc}"
 
-    def record_error(self, key, code, message, job=None):
+    def record_error(self, key, code, message, job=None, field="sqlstate"):
+        """An `error` line: `sqlstate=` for SQL, `status=` for HTTP (three
+        digits, timeout, refused; v0.5 capture W1 item 4)."""
         fields = [("key", key)]
         if job is not None:
             fields.append(("job", job))
-        fields += [("sqlstate", code), ("message", message)]
+        fields += [(field, code), ("message", message)]
         self.log.write("error", *fields)
 
     async def call(self, key, plan, pool, started):
         error = None
         try:
             async with pool.session() as session:
-                await run_plan(session, plan)
+                if isinstance(plan, CallPlan):
+                    await session.request(plan)
+                else:
+                    await run_plan(session, plan)
         except DriverError as exc:
             error = exc
         latency = time.monotonic() - started
         self.stats.record(key, latency, error is not None, time.time())
         if error is not None:
-            self.record_error(key, error.code, error.message)
+            self.record_error(key, error.code, error.message, field=error.field)
 
     def spawn(self, coro, group):
         task = asyncio.ensure_future(coro)
@@ -327,7 +397,7 @@ class Scheduler:
                 if now - at > 1.0:
                     t = now                  # every slot was busy: no backlog
                 key = stream.key
-                plan, problem = self.make_plan(key, rng)
+                plan, problem = self.make_plan(key, rng, stream.connection)
                 started = time.monotonic()
                 if plan is None:
                     slots.release()
@@ -478,7 +548,40 @@ class Scheduler:
             raise ConfigError(f"load-started marker: cannot be read ({exc.strerror})") from None
         return parse_instant(text, "load-started marker")
 
+    async def wait_for_names(self):
+        """Waits, bounded by NAME_WAIT, until every HTTP connection's target
+        name resolves; logs `wait status=waiting|resolved|unresolved`; returns
+        the connections whose name still does not resolve."""
+        targets = {name: c.host for name, c in sorted(self.schedule.connections.items()) if c.http}
+        if not targets:
+            return []
+        loop = asyncio.get_running_loop()
+        start = time.monotonic()
+
+        async def unresolved():
+            left = []
+            for name, host in targets.items():
+                try:
+                    await asyncio.wait_for(loop.getaddrinfo(host, None, type=socket.SOCK_STREAM), NAME_PROBE)
+                except (OSError, asyncio.TimeoutError):
+                    left.append(name)
+            return left
+
+        left = await unresolved()
+        if left:
+            self.log.write("wait", ("status", "waiting"), ("bound", f"{NAME_WAIT:g}s"), ("connections", ",".join(left)))
+            while left and time.monotonic() - start < NAME_WAIT:
+                await asyncio.sleep(1.0)
+                left = await unresolved()
+        ms = f"{(time.monotonic() - start) * 1000:.0f}"
+        if left:
+            self.log.write("wait", ("status", "unresolved"), ("ms", ms), ("connections", ",".join(left)))
+        else:
+            self.log.write("wait", ("status", "resolved"), ("ms", ms), ("connections", ",".join(targets)))
+        return left
+
     async def start_running(self, t0):
+        await self.wait_for_names()
         self.running = True
         self.started = time.time()
         self.stats.running = 1
@@ -510,7 +613,7 @@ class Scheduler:
             self.write_status("idle")
             self.log.write("state", ("state", "idle"))
         else:
-            await self.start_running(t0)
+            self.spawn(self.start_running(t0), self.tasks)   # the wait for names, then the tasks
         await self.stop_event.wait()
         self.log.write("state", ("state", "stopping"))
         server.close()
@@ -526,12 +629,12 @@ def run(cfg, data, hostname=None):
     log = Log(cfg["log"])
     try:
         from .schedule import read_schedule
-        schedule, passwords = read_schedule(data)
+        schedule, passwords, credentials = read_schedule(data)
     except ConfigError as exc:
         print(f"gm-scheduler: the schedule on standard input is not valid: {exc}", file=sys.stderr, flush=True)
         log.write("fatal", ("message", "the schedule is not valid; the game master reads why in the container's log"))
         return EXIT_INPUT
-    sched = Scheduler(cfg, schedule, passwords, log, hostname)
+    sched = Scheduler(cfg, schedule, passwords, log, hostname, credentials)
     try:
         sched.repo, sched.jobs = sched.load_files()
     except ConfigError as exc:
