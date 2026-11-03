@@ -1,0 +1,11 @@
+# The shop's one variant (v0.5 master spec 8.3, 8.6; template variant.yaml):
+# its present setup, v0.4's Tarnbeck Outdoor, as a manifest. Figures from
+# docs/gm.md "The business", "The data" and "The producer".
+parts: []
+scale:
+  population: {customers: 20000, products: 2000, staff: 20, sites: 1}
+  history: {days_of_orders: 15, orders: 300000, order_lines: 900000}
+  throughput: {orders_per_day: 30000, checkouts_per_minute_at_peak: 40}
+purposes: [shop-sales-reporting, shop-winback-leads, shop-customer-mailing,
+           shop-export-declarations]
+tags: [managed, global, seasonal]

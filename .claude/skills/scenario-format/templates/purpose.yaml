@@ -1,10 +1,14 @@
 # purpose.yaml — template for purposes/<purpose-id>/purpose.yaml
 #
-# Version v0.4, expected to evolve as games are played.
+# Version v0.5, expected to evolve as games are played.
 # Shape: v0.4 master spec 6.7 and 8 (kinds 8.2, trace 8.3, methods 8.6,
 # invariants and witnesses 12), with the keys and closed values capture W1
 # of specs/versions/v0.4/wave-log.md (item 5) settles; specs/formats.md,
-# "Purpose definition". A purpose is a catalogue unit beside bricks, faults
+# "Purpose definition"; v0.5 master spec 6.6 and 12.1 with formats.md
+# "Purpose definition" (from v0.5: the round trip, the api and partner parts,
+# HTTP connections, endpoint material, periodic purposes, judged:,
+# classification:, the ops schema; capture W1 of
+# specs/versions/v0.5/wave-log.md, items 2, 3 and 5). A purpose is a catalogue unit beside bricks, faults
 # and scenarios: what some of the customer's data is FOR. Its material
 # (material/) is copied into a scenario at design time, so a purpose carries
 # no version and never bumps; a scenario names it in purposes: for
@@ -25,7 +29,21 @@
 # receiver a stub node of role producer (a pushed obligation). The material
 # is written for the first v0.4 scenario's mapping (nodes db, reporting, bi,
 # crm, consumer, gateway; databases shop, reporting); the GM adapts names as
-# it copies.
+# it copies. From v0.5 two more parts: api, a customer's api node the
+# purpose calls or brings endpoints to, and partner, a declared third
+# party's node; a pushed obligation's receiver is a declared third party.
+# Endpoint material (v0.5): material/api/<node>/routes/ and db/, the
+# endpoints a purpose brings to a customer's api node, the layout of a
+# domain's producers/api/<node>/; a receiver with no stream of its own (an
+# authority, a head office) keeps its stub in the purpose (material/receiver/),
+# a partner with streams of its own stays in its domain's
+# producers/partners/<partner>/.
+#
+# The ops schema (v0.5 master spec 12.1): a purpose's own tables in a
+# domain's database (its ledgers, incidents, watermarks) live in schema ops,
+# never in public, where the domains' tables live; a target belonging to no
+# domain keeps them in public. Every run writes one ops.runs row (or the
+# target's runs) in the same transaction as its output.
 
 # --- Identity ---------------------------------------------------------
 id: <shop-sales-reporting>          # [a-z][a-z0-9-]*, the folder's name
@@ -33,7 +51,7 @@ title: <one line>
 domains: [<shop>]                   # non-empty; domain ids (domains/<id>/), the domains it fits;
                                     # each lists this purpose in its domain.yaml purposes
 kind: <pulled>                      # pulled | transformed-in-place | pushed | pushed-obligation
-                                    # (master spec 8.2)
+                                    # (master spec 8.2) | round-trip (v0.5, with round_trips:)
 
 # --- Parts the scenario maps ------------------------------------------
 parts:                              # part -> one line saying what fills it
@@ -41,7 +59,11 @@ parts:                              # part -> one line saying what fills it
   target: <the agency's reporting database>   # a database; may be the source's (in place)
   runner: <the agency's transformer>          # a scheduler node of role transformer
   consumer: <the back office's dashboards>    # optional: a purpose with a consumer
-  receiver: <the customs gateway stub>        # optional: a pushed obligation only
+  receiver: <the customs gateway stub>        # optional: a pushed obligation only; from v0.5
+                                              # a declared third party's node
+  api: <the lab's order API>        # optional: a customer's api node the purpose calls or brings
+                                    # endpoints to (v0.5)
+  partner: <the external lab>       # optional: a declared third party's node (v0.5)
 
 # --- Jobs -------------------------------------------------------------
 jobs:                               # non-empty
@@ -59,7 +81,14 @@ jobs:                               # non-empty
                                     # shift (capture W1 item 0), as jobs.yaml's at
     connections:                    # connection name -> the customer role it connects as: a
       <source>: <shop_etl>          #   script's names (its job's connections:), or the job's one
-      <target>: <bi_etl>            #   connection's name
+      <target>: <bi_etl>            #   connection's name. From v0.5 an HTTP connection (the
+                                    #   scheduler's http driver), named for the part it reaches
+                                    #   (api, partner, receiver), -> the HTTP credential it calls
+                                    #   with (schedule.yaml's credential), or public for a public
+                                    #   endpoint
+    feeder: <feed-medicines-register>   # optional: a periodic job (weekly, monthly, yearly; v0.5):
+                                    # its daily feeder, a job of this purpose, the witness within
+                                    # the aging. No periodic report runs on demand in v0.5
 
 # --- Trace ------------------------------------------------------------
 trace:                              # non-empty: each place the purpose leaves something
@@ -81,6 +110,42 @@ invariants:                         # non-empty
     parameters: {}                  # may be {}: name -> {description, default, required}, the
                                     # shape of fault.yaml's parameters
     witness: <what must exist in the data for a run to be able to violate it (master spec 12.3)>
+    judged: <runs>                  # optional: how it is judged (v0.5): runs | triggers |
+                                    # end-to-end (on the trace after the fix, wherever the player
+                                    # fixed it; the backlog the fault left is the answer key's,
+                                    # never the purpose's) | code (the sealed check reading the
+                                    # job's code) | definition. A round trip names exactly one
+                                    # end-to-end invariant
+
+# --- Round trips (v0.5) ----------------------------------------------------
+round_trips:                        # optional: required of a round-trip purpose, refused on
+                                    # another kind; non-empty, one entry per exchange the purpose
+                                    # carries (an exchange both ways carries two)
+  - asks: <customer>                # who asks: customer | partner
+    request:
+      job: <post-lab-orders>        # the job sending it (or, the partner asking, the domain's
+                                    # stream that does, named)
+      counterpart: <lab-api POST /orders>   # who answers it, and where
+      sends: <a consultation's analysis requests, one order per consultation and priority>
+    correlation: <client_ref, C-<consultation id>-<priority>, unique per account>   # what an
+                                    # answer carries to name its request
+    answers:                        # non-empty: the expected answers
+      - form: <accepted>            # accepted | rejected | a result
+        when: <at once (201)>
+        carries: <the accession>
+    timeout:
+      after: <no 2xx within 10s>    # when an answer counts as missing
+      then: <retried at the next run with the same client_ref; escalated past the turnaround>
+    reactions: [<requests sent, the accession kept in ops.lab_orders_sent>]   # the processes an
+                                    # answer starts, the purpose's jobs or a domain's streams, named
+
+# --- History (v0.5) -----------------------------------------------------
+history: material/history.sql       # optional: a periodic purpose; plants the past periods'
+                                    # outputs into the target before T0. For a target belonging
+                                    # to no domain, load-data runs it in the target database after
+                                    # the sources' loads, as the superuser, reading the sources
+                                    # through a temporary foreign server it drops afterwards,
+                                    # every session unseen
 
 # --- Data moved -------------------------------------------------------
 data_moved:                         # one entry per job, so governance can be checked against it
@@ -96,3 +161,14 @@ roles:                              # the customer roles the purpose needs, with
     reads: [<orders without customer_id>, <order_lines>, <products>]   # free text, as master
                                     # spec 9.7 writes grants; may be []
     writes: []                      # free text; may be []
+
+# --- Classes of the tables it brings (v0.5) ---------------------------------
+classification:                     # optional: a purpose whose target belongs to no domain, or
+                                    # which adds tables to a domain's database (schema ops): the
+                                    # classes of those tables' columns, as a domain classes its
+                                    # own (template classification.yaml), so governance reads them
+  columns:                          # column -> its class (personal | customer-linked | internal),
+                                    # keyed as a scenario's copy keys them:
+                                    # <database>.<table>.<column>, or
+                                    # <database>.<schema>.<table>.<column> outside public
+    <clinic.ops.lab_orders_sent.client_ref>: <internal>

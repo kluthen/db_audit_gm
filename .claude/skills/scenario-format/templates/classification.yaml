@@ -1,23 +1,29 @@
 # classification.yaml — template for domains/<domain-id>/data/classification.yaml,
 # copied into a scenario where its governance.classification names it
-# (data/classification.yaml)
+# (data/classification.yaml), each key then prefixed with its database
 #
-# Version v0.4, expected to evolve as games are played.
-# Shape: v0.4 master spec 11.2 and 11.3, with the form capture W1 of
-# specs/versions/v0.4/wave-log.md (items 0 and 6) settles. The domain
-# classifies, the scenario rules: this file classes columns; the scenario's
-# governance: states, per class, where it may live, who may read it and what
-# may leave.
+# Version v0.5, expected to evolve as games are played.
+# Shape: v0.4 master spec 11.2 and 11.3, v0.5 master spec 6.1, with the
+# keys capture W1 of specs/versions/v0.5/wave-log.md (item 7) settles. The
+# domain classifies, the scenario rules: this file classes columns; the
+# scenario's governance: states, per class, where it may live, who may read
+# it and what may leave.
+#
+# Keys (v0.5): in a domain, <table>.<column> (the table in schema public)
+# or <schema>.<table>.<column> (another schema; public is never written),
+# WITHOUT the database; a part with several databases keeps its keys unique
+# across the part. The scenario's copy adds each table's database:
+# <database>.<table>.<column>, or <database>.<schema>.<table>.<column>
+# outside public. Identifiers [a-z_][a-z0-9_]*.
 #
 # Markers:
 #   every key is REQUIRED unless marked otherwise.
 # Replace every <placeholder>. A filled file keeps no <placeholder>.
 
-columns:                            # <database>.<table>.<column> -> its class. Three identifiers
-                                    # [a-z_][a-z0-9_]*, the table in schema public. Classes:
-                                    # personal (a direct identifier, or anything stored with one)
-                                    # | customer-linked (a customer id with no direct identifier
-                                    # beside it) | internal (everything else). A column with no
-                                    # entry is internal; listing one is allowed (a domain lists
-                                    # every column of its tables)
-  <shop.customers.email>: <personal>
+columns:                            # column -> its class. Classes: personal (a direct
+                                    # identifier, or anything stored with one) | customer-linked
+                                    # (a customer id with no direct identifier beside it) |
+                                    # internal (everything else). A column with no entry is
+                                    # internal; listing one is allowed (a domain lists every
+                                    # column of its tables)
+  <customers.email>: <personal>

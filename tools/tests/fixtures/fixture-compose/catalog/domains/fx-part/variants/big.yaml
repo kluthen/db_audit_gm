@@ -1,0 +1,6 @@
+# The test part's axes in its core's variant big (tools/tests, v0.5 chunk 2).
+scale:
+  population: {boxes: 4}
+  history: {days: 1}
+  throughput: {reads_per_minute: 5}
+purposes: []

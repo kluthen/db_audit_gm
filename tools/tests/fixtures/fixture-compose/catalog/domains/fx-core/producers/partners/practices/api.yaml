@@ -1,0 +1,3 @@
+# The practices' endpoints on the partners' api node, a fragment.
+endpoints:
+  practices_referrals: {hosts: [practices], credentials: [practices_in]}

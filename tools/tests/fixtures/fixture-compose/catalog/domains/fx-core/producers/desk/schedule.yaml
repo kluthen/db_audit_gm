@@ -1,0 +1,11 @@
+# The test core's desk schedule, a fragment.
+connections:
+  app:
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: core_app
+    pool: {size: 4}
+streams:
+  - key: owners.lookup
+    connection: app
+    rate: 10/min

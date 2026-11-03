@@ -1,0 +1,7 @@
+# The practices' back end, a fragment.
+connections:
+  practices: {driver: sql/postgresql, target: partners-db:5432/partners, role: practices_app, pool: {size: 1}}
+streams:
+  - key: practices.referral
+    connection: practices
+    rate: 2/h

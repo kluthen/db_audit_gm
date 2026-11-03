@@ -1,0 +1,35 @@
+# register.yaml — template for domains/<domain-id>/data/register.yaml, a
+# domain's register fragment
+#
+# Version v0.5, expected to evolve as games are played.
+# Shape: v0.5 master spec 6.1, 13.3, specs/formats.md "Domain" (D334) and
+# specs/versions/v0.5/data-register-handout.md "One entry", with the keys
+# capture W1 of specs/versions/v0.5/wave-log.md (item 7) leaves to chunk 2.
+# One entry per processing activity of the domain, transcribed from its
+# classification and rules. The GM's data-register skill reads the
+# fragments of the domains a scenario composes, with the scenario's copies
+# of their classifications, governance:, the composition record, the
+# topology, the purposes in use and the third parties, to generate the
+# scenario's true register (gm/data-register.yaml) and its handout
+# (player/data-register.md). The fragment states only what the domain
+# knows: where the data lands, who receives it and what is classed how are
+# the scenario's.
+#
+# Markers:
+#   every key is REQUIRED unless marked otherwise.
+# Replace every <placeholder>. A filled file keeps no <placeholder>.
+
+activities:                         # one entry per processing activity; every table of the
+                                    # domain (its schema files' CREATE TABLE) belongs to exactly
+                                    # one, partitions with their parent
+  - id: <core-owners>               # [a-z][a-z0-9-]*, stable, unique across the catalogue: the
+                                    # domain's prefix first (the register fault names it)
+    name: <Owners and their animals>   # the activity, as the handout names it
+    purpose: <one line>             # why the data is held
+    people: [<owners and keepers>]  # the people concerned, in the handout's words; may be []
+                                    # (an activity holding no personal data)
+    tables: [<owners>]              # the domain's tables, keyed as its classification keys them:
+                                    # <table>, or <schema>.<table> outside public; no database
+    retention:                      # the domain's game values, stated as such
+      period: <5 years after the last visit>   # free text
+      then: <erased>                # erased | anonymised

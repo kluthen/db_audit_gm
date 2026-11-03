@@ -1,0 +1,5 @@
+# The big variant's desk profile: overrides only.
+streams:
+  - key: owners.lookup
+    connection: app
+    rate: 20/min
