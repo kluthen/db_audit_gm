@@ -1,7 +1,7 @@
 # v0.5 — domain definition: the veterinary clinic
 
 Status: **master spec and access model approved by the owner on
-2026-11-03** (D339, D340); the build plan next. Business domains added on 2026-10-28
+2026-11-03** (D339, D340); the [build plan](build-plan.md) v1 written, for the owner's approval. Business domains added on 2026-10-28
 (D192); centred on 2026-10-31 on defining domains, the veterinary clinic
 the worked example (D233), with a procedure for defining a domain
 (D235), brick options tied to the clinic (D236, D238) and a post-mortem
@@ -85,6 +85,7 @@ corrected to the spec (R16).
 |---|---|---|
 | [master-spec.md](master-spec.md) | The v0.5 master spec: the domain procedure and format, composition, the clinic's six domains (their domain documents approved with it as companions), third parties and cold storage, replication and `office`, the sixteen purposes, governance and the data register, the bricks and their bumps, topology and capacity, the test selection, testing, the release gate, the build plan's needs (its owner review R1–R20 removed at approval) | **approved** (2026-11-03, D339); the monitoring breadth written in (7.4, 14; D340, O220 closed) |
 | [access-model.md](access-model.md) | Who may do what: the game's access (players, GM, bastion, `api` nodes, the standby, the partners hidden) apart from the fiction's (the centre's staff, the applications' roles, owners and keepers on the portal, the partners) | **approved** with the master spec (D339); the monitoring breadth's rows (D340) |
+| [build-plan.md](build-plan.md) | The build plan: 27 chunks in five waves, the gates (the dependency checks, the VPS window, the whole-clinic two-host run), the per-wave gate contents, all short (D314), the release gate; no data preflight (D329) | v1 (2026-11-03), for the owner's approval; O223–O227 pending |
 | [domain-procedure.md](domain-procedure.md) | How a domain is defined: what it holds and leaves out, the steps from a brief, done and its checklist, composites, how a scenario names its domains, the shop against it, the effort, scale, variants and tags, composing domains and the initial load | approved v5 (D249, D260, D263); section 10 ruled, its mechanism and the parts' format changes confirmed as written (D322, D323, D326; O111 settled in substance) |
 | [producer-profiles.md](producer-profiles.md) | The frictions between domains' producer profiles and v0.3's scheduler, each with its evidence, and the owner's rulings; what the first parts' profiles need of the scheduler and the format | draft v9, ruled (D264–D271, D276, D277, D287, D288, D298, D303; O113, O154 closed); frictions 9 and 11 applied at the parts' steps (D318, D319) |
 | [cold-storage.md](cold-storage.md) | Cold storage, a generic third party for heavy data: keeping a day on site, the shipping job, the stub's manifest, endpoints and page, the faults it enables | draft v4, ruled (D288, D296, D297; O148 closed); its stub on the partners' shared node (D308); its first data types `vitals` and `machine-readings`, purpose 14 (D319, D324) |
@@ -549,7 +550,11 @@ The items moved later are listed in the roadmap
 
 ## Questions due in this version
 
-None open. O111 closed at consolidation (D338): the domain format in
+O223–O227, raised with the [build plan](build-plan.md#pending-with-the-owner)
+and put to the owner, each planned on its recommendation: `grafana`
+0.3.0 re-pinned (O223), the trim order if CPU is short (O224), pgCluu's
+report in the player's home (O225), the health node on the VPS (O226),
+machine 10's telemetry settled by measurement (O227). O111 closed at consolidation (D338): the domain format in
 [formats.md](../../formats.md) v28. O220, the monitoring breadth, raised
 at consolidation, closed at the master spec's approval (D340).
 
@@ -578,14 +583,17 @@ Left on 2026-11-03, after the master spec's approval (D339, D340):
   9) and corrected to the spec (R16, R13, R15). The `scenario-format`
   skill is unchanged: its templates and checks follow formats.md v28 in
   the build's domain-format chunk, with the loader, as in v0.4.
-- **Next: the build plan** (skill `build-plan-authoring`), from the
-  master spec's section 21, with the data register's chunks
-  ([data-register-handout.md](data-register-handout.md#7-build-plan-chunks-for-the-build-plan) 7).
-  Its gates include the security advisor's dependency check on the
-  monitoring breadth's packages (pgwatch 3, Prometheus as its scraper,
-  `check_postgres` and the health node's web server, pgCluu) before the
-  monitoring chunk, each joining `.tech`; and on FastAPI, uvicorn and
-  pgaudit's package before theirs. **No data preflight** (D329).
+- **Done, 2026-11-03: [build plan](build-plan.md) v1**, from the master
+  spec's section 21 and the data register's chunks: 27 chunks in five
+  waves (κ = 3 proposed), the dependency checks as gates (G5 to G11:
+  pgaudit, FastAPI and uvicorn, the scheduler's HTTP client if it takes
+  a package, the monitoring breadth's packages, each joining `.tech`),
+  the VPS window and the whole-clinic two-host run at the release gate
+  (G12, G13), **no data preflight** (D329). Five small points put to the
+  owner and planned on their recommendations (O223–O227).
+- **Next: build plan v1 for the owner's approval** (G1, with κ and
+  O223–O227); then `v0.5-domains` merged into `main` and wave 1 cut
+  from it.
 - **Tests stay short** (D314): every check under 30 minutes on a minimal
   fixture; the whole clinic deployed once, on armenelos plus the VPS,
   at the release gate (D339).

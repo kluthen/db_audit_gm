@@ -183,7 +183,29 @@ added on 2026-10-30 (D196). O111, the last of them, closed at
 consolidation (D338); O220, raised by it, closed at the master spec's
 approval (D340).
 
-None open.
+Raised with the build plan on 2026-11-03 and put to the owner, each
+with a recommendation the
+[build plan](versions/v0.5/build-plan.md#pending-with-the-owner) is
+written on; a different answer revises the chunks it names there.
+
+- **O223** (soon, v0.5 build) — `grafana` 0.3.0 for the seeded pgwatch
+  dashboard, with the existing scenarios re-pinned to it? Recommended:
+  yes, as master spec 6.7 tables it. Refs:
+  [master spec](versions/v0.5/master-spec.md) 6.7, 7.4, 17.5.
+- **O224** (soon, v0.5 build) — The trim order if the build measures
+  the CPU short: keep the exporters and drop pgwatch, since s10 needs
+  an exporter? Recommended: yes. Refs: master spec 7.4, 14.
+- **O225** (soon, v0.5 build) — pgCluu's report written to the player's
+  home and read with `scp`, as pgBadger's is? Recommended: yes. Refs:
+  master spec 7.4.
+- **O226** (soon, v0.5 build) — The health node placed on the VPS?
+  Recommended: yes, off site as the standby is, armenelos' CPU kept for
+  the parts. Refs: master spec 7.4, 14.
+- **O227** (soon, v0.5 build) — Machine 10's telemetry (the standing
+  MRI, status only: 10 or 11 machines reporting readings) settled by
+  the build's measurement? Recommended: yes, in `vet-machinery`'s
+  chunk. Refs: [vet-machinery](versions/v0.5/vet-machinery-domain.md)
+  (key ranges, reference sizes).
 
 ## v0.6: the setup's entry point
 
