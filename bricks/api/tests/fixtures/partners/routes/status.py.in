@@ -1,0 +1,12 @@
+"""A partner's public status page (stack test fixture of the api brick)."""
+
+from fastapi import APIRouter
+
+from db import @NAME@
+
+router = APIRouter()
+
+
+@router.get("/status")
+def status():
+    return @NAME@.status()

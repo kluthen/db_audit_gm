@@ -1,0 +1,8 @@
+#!/bin/sh
+# s6 finish script of `api` (DO NOT TAMPER). After api.yaml or an endpoint
+# pair that does not load (exit 3) or a server that cannot start, keep the
+# service down a few seconds before s6 tries again, so the log gets one
+# `fatal` line every few seconds, not every second. Under s6's 5 s finish
+# timeout.
+case ${1:-} in 1|2|3) sleep 4 ;; esac
+exit 0

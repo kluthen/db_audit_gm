@@ -1,0 +1,20 @@
+#!/bin/sh
+# Health check of the db_audit_gm api node (DO NOT TAMPER).
+# Healthy once the server has answered on :8000 at least once in this
+# container and while sshd is up. Never asks a database: a target that
+# refuses is the game's business. After that first time, the server being
+# down is a finding (the validator), not a reason for Swarm to replace the
+# container and cut the players' SSH sessions; and the check sends no more
+# requests, so the request log holds the callers' only.
+PATH=/command:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+MARK=/run/gm/api-was-ready
+
+[ "$(s6-svstat -o up /run/service/sshd 2>/dev/null)" = true ] || { echo "sshd is not up"; exit 1; }
+[ -e "$MARK" ] && exit 0
+code=$(curl -s -o /dev/null -m 3 -w '%{http_code}' -H 'Host: gm-healthcheck.invalid' http://127.0.0.1:8000/ 2>/dev/null)
+if [ "$code" = 404 ]; then
+    : > "$MARK"
+    exit 0
+fi
+echo "the server has not answered yet"
+exit 1

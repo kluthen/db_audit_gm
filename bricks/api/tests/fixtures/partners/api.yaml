@@ -1,0 +1,11 @@
+# Stack test fixture of the api brick: the partners' node, nine hostnames
+# (network aliases), one endpoint each; xlab_results reads the customer's
+# lab API with the credential the customer gave it and writes the partner's
+# own database. The test writes the eight public status endpoints after it.
+endpoints:
+  xlab_results:
+    hosts: [xlab]
+    credentials: [xlab_results]
+connections:
+  partners: {driver: sql/postgresql, target: db:5432/partners, role: xlab, pool: {size: 1}}
+  lab-api: {driver: http, target: lab-api:8000, credential: interfaces_lab_api, pool: 1, timeout: 5s}
