@@ -1,11 +1,16 @@
-# v0.5 — the clinic's purposes (step 7): `vet-core` and `vet-lab`
+# v0.5 — the clinic's purposes (step 7): the six clinic domains
 
-Status: draft v2, ruled. The owner accepted all eight points as drafted
+Status: draft v3, ruled. The owner accepted all eight points as drafted
 on 2026-11-02 ("agreed", D306, closing O155) and the format's
 extensions in section 4 (D307, closing O156, feeding O111); step 7 is
-ruled for both domains. The partners' stubs share one `api` node, each
-under its own hostname (D308). The candidate faults below are traps for
-step 8; a scenario's faults are the GM's to select (D309).
+ruled for `vet-core` and `vet-lab`. The partners' stubs share one `api`
+node, each under its own hostname (D308). On 2026-11-03 the four other
+parts' purposes were ruled with their pages (D317–D320) and folded in
+here as purposes 11 to 16, numbered in one sequence (D324, section 16);
+`vet-housing` brings none of its own, its occupancy joining the head
+office's figures (purpose 9); no appointment reminders in v0.5 (D321).
+The candidate faults below are traps for step 8; a scenario's faults are
+the GM's to select (D309).
 
 Step 7 of the [procedure](domain-procedure.md#2-the-steps-from-a-brief-to-a-finished-domain)
 for the clinic's first two domains together, since their flows
@@ -36,17 +41,20 @@ only.
 None as built. v0.4's four fit the shop only (`domains: [shop]`), but
 their shapes recur here: P1's reporting into a database of its own is
 the office's reports; P5's pushed obligation is the notifications; P3's
-mailing is the reminders, `vet-portal`'s (D304). The generic
-`cold-storage-archive` ([cold storage](cold-storage.md) 2) fits neither
-domain: nothing of the core's or the lab's ships (D297), and the WAL and
-base backups the vault receives are the `postgres` brick's
-([replication](replication.md) 2), not a purpose.
+mailing is the portal's vaccination reminders, with consent (purpose 16,
+D304); no appointment reminders in v0.5 (D321). The generic
+`cold-storage-archive` ([cold storage](cold-storage.md) 2) fits
+`vet-machinery`, its first user (purpose 14); nothing of the core's or
+the lab's ships (D297), and the WAL and base backups the vault receives
+are the `postgres` brick's ([replication](replication.md) 2), not a
+purpose.
 
-Named, not drafted here:
+Drafted on the parts' pages (section 16), and one named for later:
 
 - **the release to the portal**, fitting `vet-lab`, `vet-core` and
-  `vet-portal`: drafted with `vet-portal` (D304), the release gate of
-  v0.4's stress test;
+  `vet-portal`: purpose 15, `vet-portal-release`, drafted in
+  [vet-portal-domain.md](vet-portal-domain.md#vet-portal-release-the-copies-and-the-release-gate)
+  (D304, D320), the release gate of v0.4's stress test;
 - **the referral's report back to the referring vet**, as an electronic
   flow: later (D278 answer 5); in v0.5 the vet's letter closes a
   referral (D304).
@@ -63,25 +71,34 @@ Named, not drafted here:
 | 6 | `vet-lab-critical-calls` | pushed obligation | lab | every 10 minutes | `lab`'s `pg_cron` | `lab` → `lab` |
 | 7 | `vet-medicines-registers` | pulled, periodic | core | feeders 01:30 and 01:45; monthly on the 1st; inventory 1 January | `backoffice` | the standby → `office` |
 | 8 | `vet-antimicrobial-use` | pushed obligation, periodic | core | feeder 02:00; yearly, 15 January | `backoffice` | the standby → `office` → the authority's stub |
-| 9 | `vet-head-office-figures` | pushed obligation, periodic | core, lab | feeder 00:30; monthly on the 1st | `backoffice` | the standby and `lab` → `office` → the head office's stub |
+| 9 | `vet-head-office-figures` | pushed obligation, periodic | core, lab, housing | feeder 00:30; monthly on the 1st | `backoffice` | the standby and `lab` → `office` → the head office's stub |
 | 10 | `vet-lab-statements` | pulled, periodic | lab | feeder 02:30; monthly on the 1st | `backoffice` | `lab` → `office` |
+| 11 | `vet-bookings-sync` | transformed in place (the clinic's first) | core, scheduling | every minute | `interfaces` | `clinic`'s `sched_` tables ↔ `clinic`'s record |
+| 12 | `vet-working-time` | pulled, periodic | core, scheduling | feeder 09:30 daily; the month on the 1st | `backoffice` | the standby → `office` |
+| 13 | `vet-imaging-orders` | round trip inside the centre | core, machinery | every minute; reports every 5 minutes | `interfaces` | `clinic` → `pacs`; `pacs` → `clinic` |
+| 14 | `cold-storage-archive` | round trip, generic | machinery (its first user) | nightly from 00:40, resends to 05:40 | `interfaces` | `vitals`, `biomed` → cold storage's stub |
+| 15 | `vet-portal-release` | pulled | core, lab, portal | every 5 minutes | `interfaces` | `clinic`, `lab` → `portal` |
+| 16 | `vet-portal-messages` | pushed | portal | every minute; reminders daily 09:00 | `interfaces` | `portal` → the messaging service's stub |
 
-No flow of the two domains is **transformed in place** or **pushed**
-without an answer in v0.5: the reminders and the outbox, the pushed
-ones, are `vet-portal`'s (D304). Kinds are v0.4's four and the round
+No flow of the core's or the lab's is **transformed in place** or
+**pushed** without an answer: the first transformed in place is
+scheduling's 11, the bookings meeting the record in one database; the
+pushed one is the portal's 16, its notices and vaccination reminders
+(D304, D321). Kinds are v0.4's four and the round
 trip (D286); "periodic" is D265's report, a pulled or pushed purpose
 with a daily feeder and planted past periods.
 
 The two medicines registers (the register of supplies and the
 controlled-drugs register) are one purpose, 7: one source, one runner,
-the same feeders' shape. Ten purposes in all (D306, point 1).
+the same feeders' shape. Ten purposes for the core and the lab (D306,
+point 1), sixteen with the parts' six (D324).
 
 ## 3. Where they run
 
 | Runner | What | Holds |
 |---|---|---|
-| `interfaces` | the centre's integration engine: a scheduler node, role `transformer` (v0.4 master spec 7.1), running every flow between the centre's systems and out to its partners, light and frequent | `clinic` as `vet_interfaces`; `lab` as `lab_dispatch`; HTTP connections (D303) to `lab-api` (the centre's internal account), the practices' stub, the external lab's stub, the three centres' stubs and the authority's stub |
-| `backoffice` | the back office's report runner: a scheduler node, role `transformer`, running the periodic reports and their feeders, heavy at night | the standby's `clinic` as `vet_reports`; `lab` as `lab_reports`; `office` as `office_jobs`; HTTP connections to the authority's and the head office's stubs |
+| `interfaces` | the centre's integration engine: a scheduler node, role `transformer` (v0.4 master spec 7.1), running every flow between the centre's systems and out to its partners, light and frequent | `clinic` as `vet_interfaces`, `sched_interfaces` (11) and `vet_portal_sync` (15); `lab` as `lab_dispatch` and `lab_release` (15); `pacs` as `mach_orders` (13); `vitals` and `biomed` as `mach_archive` (14); `portal` as `portal_sync` (15) and `portal_dispatch` (16); HTTP connections (D303) to `lab-api` (the centre's internal account), the practices' stub, the external lab's stub, the three centres' stubs, the authority's stub, cold storage (14) and the messaging service (16); 96M (D320) |
+| `backoffice` | the back office's report runner: a scheduler node, role `transformer`, running the periodic reports and their feeders, heavy at night, and `vet-working-time`'s (12) | the standby's `clinic` as `vet_reports` (housing's and scheduling's tables in it included); `lab` as `lab_reports`; `office` as `office_jobs`; HTTP connections to the authority's and the head office's stubs |
 | `lab`'s `pg_cron` | light, set-based work on the database node (D206, D207; v0.4 master spec 8.7) | the critical calls' watch, as `lab_watch` |
 | The partners' back end | the shared scheduler node and database (D293): the partners' own streams and state, out of reach (D273) | as step 6 ruled; the authority and the head office answer only, no stream |
 
@@ -147,7 +164,8 @@ build. What extends, accepted (D307), feeding O111:
 
 **The `ops` schema.** The purposes' own tables in a domain's database
 (their ledgers, incidents, watermarks) live in a schema `ops`, in
-`clinic` and in `lab`: never in `public`, where the domains' tables and
+`clinic` and in `lab`, and in the parts' databases the purposes write
+(`pacs`, `vitals`, `biomed`, `portal`; D324): never in `public`, where the domains' tables and
 a part's prefixed ones live (procedure 4), so no purpose's table ever
 clashes with a part landing in the same database. `office`'s tables are
 the purposes' own, in `public`.
@@ -590,7 +608,7 @@ among them.
 
 | Job | Cadence | What it computes |
 |---|---|---|
-| `feed-daily-figures` (feeder) | `30 0 * * *` | yesterday's figures, the customer's day: consultations per section and kind, admissions, discharges, the stays at midnight, new owners and animals, from the standby; the lab's tests per discipline and priority, outside orders and their median turnaround, from `lab` |
+| `feed-daily-figures` (feeder) | `30 0 * * *` | yesterday's figures, the customer's day: consultations per section and kind, admissions, discharges, the stays at midnight, new owners and animals, and `vet-housing`'s units occupied and in service per section at midnight (`housing_units`, `housing_placements`, D318), from the standby; the lab's tests per discipline and priority, outside orders and their median turnaround, from `lab` |
 | `send-monthly-figures` | `0 5 1-5 * *` | the past month's figures, summed from the daily rows, posted to the head office's `POST /figures` on the 1st, retried each morning to the 5th; a month still unanswered on the 5th escalated |
 
 **Planted before T0**: the year's daily rows, every full month's
@@ -600,7 +618,7 @@ figures and the head office's references.
 
 | Id | Statement | Judged | Witness |
 |---|---|---|---|
-| HO1 | Each feeder run holds its local day's counts, equal to the sources' | runs | every day: about 85 consultations, 8 admissions |
+| HO1 | Each feeder run holds its local day's counts, equal to the sources' | runs | every day: about 85 consultations, 8 admissions, about 40 occupied units |
 | HO2 | One row per day, section and measure | runs | every feeder run |
 | HO3 | A month's figures equal the sum of its days, sent by the 5th and acknowledged, or escalated | code | the planted months; the 1st's run if the GM places one |
 
@@ -614,6 +632,7 @@ figures and the head office's references.
 | The turnaround's median taking cancelled and unperformed tests | a turnaround figure better than the lab's | the feeder's query |
 | `office_jobs` holding write grants on `clinic` (D300's candidate) | a grant the separation forbids | the grants |
 | The runner's role on the standby expired (adapting v0.4's `purpose-etl-role-expired`) | every report's night run refused, the daily rows missing since | the role |
+| Out-of-service units counted as available (vet-housing T171) | an occupancy rate below the wards' | the feeder's query |
 
 ## 14. `vet-lab-statements`: the practices' monthly statements
 
@@ -693,25 +712,88 @@ Each item is a change to a ruled step, accepted with the purposes
 - The external lab's stub gains `POST /orders/{send_key}/resend`, its
   back end posting the answer again.
 
+**`vet-scheduling`, `vet-housing`, `vet-machinery`, `vet-portal`**:
+their asks of the core and the lab (the key functions, the staff
+layout, roles and grants, the census endpoint, the imaging team's
+cancellation, `CONNECT` revoked from `PUBLIC`) are answered on those
+pages (D317–D320, D324); their purposes are section 16's.
+
 **Roles**, below.
+
+## 16. The parts' purposes (11 to 16)
+
+Ruled with their parts (D317, D319, D320) and numbered after the ten in
+one sequence (D324). Each is defined in full on its part's page, in
+v0.4's format with D307's extensions; this section lists them, and the
+part pages hold their definitions. `vet-housing` has none of its own:
+its occupancy joins purpose 9 (D318).
+
+- **11. `vet-bookings-sync`**, transformed in place, the clinic's first
+  (core, scheduling): every minute on `interfaces`, `clinic` as
+  `vet_interfaces` and `sched_interfaces`; check-in opens the core's
+  scheduled consultations from bookings (the core's `consultations.open`
+  stream removed), imaging requests and accepted examinations booked, a
+  dead animal's bookings cancelled. Invariants BS1–BS5; candidate faults
+  T112–T119.
+  [vet-scheduling](vet-scheduling-domain.md#11-vet-bookings-sync-the-agenda-and-the-record).
+- **12. `vet-working-time`**, pulled, periodic (core, scheduling): the
+  feeder at 09:30 on `backoffice`, the month on the 1st, the standby →
+  `office`, the record a labour inspector may ask for. Invariants
+  WT1–WT3; candidate faults T121, T123–T125.
+  [vet-scheduling](vet-scheduling-domain.md#12-vet-working-time-the-working-time-record).
+- **13. `vet-imaging-orders`**, a round trip inside the centre (core,
+  machinery), as `vet-lab-centre-orders`: every minute on `interfaces`
+  (`post-imaging-orders`, accession `I-<request id>`), reports fetched
+  every 5 minutes, `clinic` → `pacs` as `mach_orders` and back; a sent
+  request cancelled by the imaging team only, copied back (D324, as
+  D315). Invariants IO1–IO4; candidate faults T227–T233.
+  [vet-machinery](vet-machinery-domain.md#vet-imaging-orders-the-imaging-requests-and-their-reports).
+- **14. `cold-storage-archive`**, the generic round trip of
+  [cold storage](cold-storage.md) 2, first drafted for `vet-machinery`:
+  `ship-partitions` at 00:40 and resends hourly to 05:40 on
+  `interfaces`, `vitals` and `biomed` as `mach_archive` → cold storage's
+  stub, the last full day kept. Invariants CA1–CA4; candidate faults
+  T219–T226, T236, T237.
+  [vet-machinery](vet-machinery-domain.md#cold-storage-archive-the-readings-to-the-vault).
+- **15. `vet-portal-release`**, pulled (core, lab, portal): every 5
+  minutes on `interfaces`, `clinic` as `vet_portal_sync` and `lab` as
+  `lab_release` → `portal` as `portal_sync`: the accounts and copies,
+  and documents published only past their gate (signed, released,
+  ended), about 140 a day. Invariants RL1–RL6; candidate faults
+  T256–T269, and T270–T275 on the policies it relies on.
+  [vet-portal](vet-portal-domain.md#vet-portal-release-the-copies-and-the-release-gate).
+- **16. `vet-portal-messages`**, pushed (portal): `send-messages` every
+  minute, notices every 5 minutes, vaccination reminders queued daily at
+  09:00 with consent, sent 08:00–20:00, on `interfaces` as
+  `portal_dispatch` → the franchise's messaging service's stub. No
+  appointment reminders (D321). Invariants MS1–MS6; candidate faults
+  T283–T293.
+  [vet-portal](vet-portal-domain.md#vet-portal-messages-notices-and-reminders-to-the-messaging-service).
 
 ## The roles the purposes add
 
 | Database | Role | Who | Reads | Writes |
 |---|---|---|---|---|
-| `clinic` | `vet_interfaces` | `interfaces`' jobs | `requests`, `consultations` (state, closed at), `prescription_lines` and `administrations` (withdrawal ends), `diagnoses` and `diagnosis_codes`, `stays`, `exchanges`, `animals` (id, species) | `requests`' state, `exchanges`' sent and posted columns, `ops.*` |
+| `clinic` | `vet_interfaces` | `interfaces`' jobs | `requests`, `consultations` (state, closed at), `prescription_lines` and `administrations` (withdrawal ends), `diagnoses` and `diagnosis_codes`, `stays`, `exchanges`, `animals` (id, species, status, died at: 11) | `requests`' state, `exchanges`' sent and posted columns, `consultations`' open columns (`INSERT`, 11), `ops.*` |
+| `clinic` | `sched_interfaces` | `interfaces`' bookings jobs (11) | the `sched_` bookings, allocations, settings; executes `sched_free_slots` | bookings' state and links (`request_id`, `exchange_id`), new imaging and examination bookings, `ops.*` |
+| `clinic` | `vet_portal_sync` | `interfaces`' release jobs (15) | `owners` (id, kind, name, email, phone, registered at: no address), `animals` (no identifiers), `ownerships`, `herds`, signed consultations, ended stays | nothing |
 | `clinic` | `vet_exchange` | `clinic-api`'s exchange endpoints | `exchanges` | inbound `exchanges`, the answers and reports received on outbound ones |
-| `clinic` (on the standby) | `vet_reports` | `backoffice`'s reads | every table (step 4) | nothing |
+| `clinic` (on the standby) | `vet_reports` | `backoffice`'s reads | every table (step 4), those of the parts landing in `clinic` included (`vet-housing`'s and `vet-scheduling`'s, granted by their schemas) | nothing |
 | `lab` | `lab_dispatch` | `interfaces`' lab jobs (step 4) | as step 4 | as step 4, and `lab_notifications`' `notified_at`, channel and reference; `ops.*` |
 | `lab` | `lab_watch` | the critical calls' `pg_cron` job | `lab_results`, `lab_critical_calls`, `lab_order_tests` | `ops.incidents`, `ops.runs` |
 | `lab` | `lab_reports` | `backoffice`'s reads (step 4) | every table | nothing |
+| `lab` | `lab_release` | `interfaces`' release jobs (15) | `lab_orders` (id, account, animal, ordered at: no identifiers or notes), `lab_order_tests`, `lab_results`, `lab_tests`, `lab_analytes`, `lab_reference_intervals` | nothing |
+| `pacs` | `mach_orders` | `interfaces`' imaging jobs (13) | `mach_worklist` (accession, request, state), `mach_reports`, `mach_studies` (worklist, state) | `mach_worklist` (insert), `ops.*` |
+| `vitals`, `biomed` | `mach_archive` | `interfaces`' shipping job (14) | `mach_vitals`, `mach_readings` | `mach_readings_daily`, `ops.*`; `EXECUTE` on `mach_drop_shipped`; owns no table |
+| `portal` | `portal_sync` | the release jobs (15) | the copies, accounts, documents | accounts (insert; contacts; never a closed one's), the copies, documents, invitations in `portal_outbox`, `ops.*` |
+| `portal` | `portal_dispatch` | the messages' jobs (16) | accounts (status, channel, address), the copies, documents, consent events, the outbox | the outbox's queued rows and sending columns, `ops.*` |
 | `office` | `office` | owns everything; no login | | |
 | `office` | `office_jobs` | `backoffice`'s writes | `office` | every `office` table; nothing elsewhere |
 | `office` | `office_reader` | the back office's staff and dashboards | `office` | nothing |
 
 **The office role** (point 4), the name [replication](replication.md#3-where-the-reports-write-a-back-office-database-d300)
 3 left to step 7: `office_jobs` writes `office` and reads nothing of the
-record; the reports read as `vet_reports` and `lab_reports`, never given
+record (12's feeder writes as it too); the reports read as `vet_reports` and `lab_reports`, never given
 a write grant. A report job holds two connections, as v0.4's
 `rollup-hourly` does.
 
@@ -725,7 +807,8 @@ a write grant. A report job holds two connections, as v0.4's
 | Daily figures, monthly figures | about 5 500, 12 |
 | Lab charge lines, statements | about 17 000, about 1 400 |
 | Regulatory copies, run rows | about 50, about 3 000 |
-| **Total** | **about 0.14 million rows** |
+| Working-time days, months and breaches (12, `vet-scheduling`) | about 21 000 |
+| **Total** | **about 0.16 million rows** |
 
 Live, about 500 rows a night. On the primary's instance beside `clinic`
 (D300), it rides the standby and the archive.
@@ -750,6 +833,13 @@ choice is the scenario's. Read against D290's mix, without choosing:
   unindexed.
 - **A false alarm**: "the external lab is slow": a PCR answered on its
   fourth day, within its turnaround.
+
+The parts' purposes add their own (section 16), among them the
+portal's T270 (former owners still seeing sold animals, M), T272
+(row-level security bypassed for the API, D) and T256 (deaths not
+copied, V, or D with the owner's complaint). The spec's test selection takes T270 for s5 and housing's
+T150 for s9 (D325, [test selection](clinic-test-selection.md)); a
+game's choice stays the GM's (D309).
 
 ## Points for the owner, ruled (D306)
 
