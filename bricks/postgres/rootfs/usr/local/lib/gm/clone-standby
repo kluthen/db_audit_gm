@@ -1,0 +1,106 @@
+#!/bin/sh
+# clone-standby: makes this node the standby of its primary (v0.5 master
+# spec 7.1, 11.1; capture W1 item 6, specs/versions/v0.5/wave-log.md).
+# DO NOT TAMPER. Root-owned, mode 0700: root only, not a sudo wrapper.
+#
+# Usage, as root inside the standby, no arguments (gmctl load-data's last
+# step, after it has set the replication role on the primary):
+#   /usr/local/lib/gm/clone-standby
+# Reads GM_STANDBY_OF, the primary's node name (render), and the password
+# file /run/gm-replication/pgpass gm-entrypoint writes at each start from
+# the secret replication_password. In order:
+#   1. waits, bounded (WAIT), for the primary to answer on 5432 (its name
+#      resolving included: the standby may start before it);
+#   2. stops PostgreSQL here (s6), empties the data directory;
+#   3. pg_basebackup -X stream -C -S <slot> -R from the primary, as
+#      replicator: the slot is this node's name, `-` read as `_`, created
+#      on the primary; -R writes standby.signal and primary_conninfo
+#      (passfile=, never the password) with primary_slot_name;
+#   4. starts PostgreSQL, now a standby, and waits, bounded, until it
+#      answers in recovery.
+# Exit 0 on success; 1 when a step fails (the node is left down, with an
+# empty or partial data directory: a failed setup); 2 for a usage error.
+# Diagnostics on standard error, progress on standard output.
+set -u
+PATH=/command:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+PGBIN=/usr/lib/postgresql/18/bin
+PGDATA=/var/lib/postgresql/18/data
+PASSFILE=/run/gm-replication/pgpass
+SERVICE=/run/service/postgres
+REPLICATION_ROLE=replicator
+WAIT=120                    # seconds, for the primary and for the restart
+
+log() { printf 'clone-standby: %s\n' "$*" >&2; }
+say() { printf 'clone-standby: %s\n' "$*"; }
+
+if [ "$#" -ne 0 ]; then
+    echo "usage: clone-standby (no arguments)" >&2
+    exit 2
+fi
+[ "$(id -u)" = 0 ] || { log "run as root"; exit 2; }
+exec </dev/null
+primary=${GM_STANDBY_OF:-}
+case $primary in
+    '') log "GM_STANDBY_OF is empty: this node is no standby"; exit 2 ;;
+    [!a-z]*|*[!a-z0-9-]*) log "GM_STANDBY_OF $primary is not a node name"; exit 2 ;;
+esac
+node=$(cat /proc/sys/kernel/hostname)
+case $node in
+    [!a-z]*|*[!a-z0-9-]*|'') log "this node's name $node is not a node name"; exit 2 ;;
+esac
+slot=$(printf '%s' "$node" | tr '-' '_')
+[ -s "$PASSFILE" ] || { log "no password file $PASSFILE (the secret replication_password is missing?)"; exit 1; }
+
+# 1. The primary, bounded.
+i=0
+until "$PGBIN/pg_isready" -q -h "$primary" -p 5432 -t 2 >/dev/null 2>&1; do
+    i=$((i + 2))
+    if [ "$i" -ge "$WAIT" ]; then
+        log "the primary $primary does not answer on 5432 after ${WAIT}s"
+        exit 1
+    fi
+    sleep 2
+done
+say "primary $primary answers (after ${i}s)"
+
+# 2. PostgreSQL stopped, the data directory emptied.
+s6-svc -d "$SERVICE" || { log "cannot stop the service postgres"; exit 1; }
+s6-svwait -d -t $((WAIT * 1000)) "$SERVICE" || { log "postgres did not stop within ${WAIT}s"; exit 1; }
+find "$PGDATA" -mindepth 1 -delete || { log "cannot empty $PGDATA"; exit 1; }
+say "postgres stopped, $PGDATA emptied"
+
+# 3. The base backup, streaming its WAL, creating the slot, writing the
+# standby's configuration (postgresql.auto.conf, standby.signal).
+runuser -u postgres -- env HOME=/var/lib/postgresql "$PGBIN/pg_basebackup" \
+    -D "$PGDATA" -X stream -C -S "$slot" -R -w --checkpoint=fast --no-manifest \
+    -d "host=$primary port=5432 user=$REPLICATION_ROLE passfile=$PASSFILE application_name=$node" \
+    -l "clone-standby $node $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+rc=$?
+if [ "$rc" -ne 0 ]; then
+    log "pg_basebackup from $primary failed (exit $rc); postgres left down"
+    exit 1
+fi
+[ -e "$PGDATA/standby.signal" ] || { log "no standby.signal after pg_basebackup -R"; exit 1; }
+if grep -q 'password=' "$PGDATA/postgresql.auto.conf"; then
+    log "primary_conninfo holds a password; refusing to start"
+    exit 1
+fi
+say "cloned from $primary, slot $slot"
+
+# 4. PostgreSQL started, a standby.
+s6-svc -u "$SERVICE" || { log "cannot start the service postgres"; exit 1; }
+i=0
+while :; do
+    r=$(runuser -u postgres -- "$PGBIN/psql" -X -w -q -A -t -h /run/postgresql -p 5432 -d postgres \
+        -c 'select pg_catalog.pg_is_in_recovery()' 2>/dev/null)
+    [ "$r" = t ] && break
+    i=$((i + 2))
+    if [ "$i" -ge "$WAIT" ]; then
+        log "postgres did not answer in recovery within ${WAIT}s"
+        exit 1
+    fi
+    sleep 2
+done
+say "standby of $primary in recovery, streaming from slot $slot"
+exit 0

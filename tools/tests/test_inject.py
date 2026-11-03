@@ -1423,3 +1423,156 @@ class TestPasswordsUnaudited(unittest.TestCase):
             db.mappings[0].secret = "role_app_password"
             sql, _ = inject.mapping_sql(Path(tmp), [db])
             self.assertIn("SET pgaudit.log = 'none';", sql.splitlines()[:5])
+
+
+# --- v0.5 chunk 3b: the standby (capture W1 item 6) ----------------------------
+
+class TestStandbyPlans(unittest.TestCase):
+    """A standby (`standby_of`) takes no load-data step but its clone: its
+    roles are set on its primary; the clone is the last step, one per
+    standby in topology order, its slot the standby's name, `-` as `_`."""
+
+    def setUp(self):
+        import types
+        import yaml
+        self.dir = Path(tempfile.mkdtemp(prefix="gmtest-standby."))
+        self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
+        (self.dir / "data").mkdir()
+        (self.dir / "data/records.sql").write_text(
+            "CREATE DATABASE clinic;\nCREATE ROLE vet_reports LOGIN;\n")
+        (self.dir / "nodes/pms").mkdir(parents=True)
+        (self.dir / "nodes/pms/schedule.yaml").write_text(yaml.safe_dump({"connections": {
+            "clinic": {"driver": "sql/postgresql", "target": "records:5432/clinic",
+                       "role": "pms_app", "pool": {"size": 1}},
+            "reports": {"driver": "sql/postgresql", "target": "off-site:5432/clinic",
+                        "role": "vet_reports", "pool": {"size": 1}}}}))
+        def node(name, brick, role, **extra):
+            return {"name": name, "brick": {"id": brick, "version": "0.5.0"}, "role": role,
+                    **extra}
+        self.nodes = [
+            node("records", "postgres", "database", data={"file": "data/records.sql"}),
+            node("off-site", "postgres", "database", standby_of="records",
+                 crontab_roles=["vet_reports"]),
+            node("pms", "scheduler", "producer",
+                 seed_files={"schedule.yaml": "nodes/pms/schedule.yaml"}),
+        ]
+        bricks = {n["name"]: types.SimpleNamespace(id=n["brick"]["id"], data={"secrets": []})
+                  for n in self.nodes}
+        self.scenario = types.SimpleNamespace(dir=self.dir, nodes=self.nodes, bricks=bricks)
+        self.impl = {"game_id": "g", "nodes": {n["name"]: {} for n in self.nodes}}
+
+    def test_helpers(self):
+        self.assertEqual(localimpl.standby_of(self.nodes[1]), "records")
+        self.assertIsNone(localimpl.standby_of(self.nodes[0]))
+        self.assertEqual(localimpl.standby_slot("off-site"), "off_site")
+        self.assertEqual(localimpl.standby_slot("standby"), "standby")
+
+    def test_the_standby_takes_no_step_but_its_clone(self):
+        self.nodes[1]["data"] = {"file": "data/records.sql"}     # even with a data entry
+        sc, impl = self.scenario, self.impl
+        self.assertEqual([n for n, _, _ in inject.data_plan(sc, impl)], ["records"])
+        self.assertEqual(inject.survey_plan(sc, impl), ["records"])
+        self.assertEqual(inject.standby_plan(sc, impl), [("off-site", "records", "off_site")])
+
+    def test_its_roles_are_set_on_its_primary(self):
+        self.assertEqual(inject.password_plan(self.scenario, self.impl), [
+            ("records", [("pms_app", "role_pms_app_password"),
+                         ("vet_reports", "role_vet_reports_password")])])
+
+    def test_a_primary_that_is_itself_a_standby_is_refused(self):
+        self.nodes[0]["standby_of"] = "off-site"
+        with self.assertRaises(GmError) as cm:
+            inject.standby_plan(self.scenario, self.impl)
+        self.assertIn("is not a primary of the game", str(cm.exception))
+        self.nodes[0].pop("standby_of")
+        self.nodes[1]["standby_of"] = "nowhere"
+        with self.assertRaises(GmError):
+            inject.standby_plan(self.scenario, self.impl)
+
+
+class TestCloneStep(unittest.TestCase):
+    """clone_standby's three runs (exec_node stubbed): replicator on the
+    primary (a SCRAM verifier, logging and pgaudit off, an inactive slot of
+    the standby's name dropped), clone-standby as root on the standby, the
+    bounded wait for the slot's sender streaming on the primary."""
+
+    def setUp(self):
+        self.ldir = Path(tempfile.mkdtemp(prefix="gmtest-clone."))
+        self.addCleanup(shutil.rmtree, self.ldir, ignore_errors=True)
+        (self.ldir / "secrets").mkdir()
+        self.password = "R3pl1cat0r-secret-value"
+        (self.ldir / "secrets" / "replication_password").write_text(self.password)
+        self.runs = []
+        self.replies = []
+
+    def exec_node(self, ldir, node, user, stdin=None, timeout=None, docker=None, argv=None,
+                  env=None):
+        self.runs.append({"node": node, "user": user, "stdin": stdin, "argv": argv,
+                          "timeout": timeout})
+        code, out, err = self.replies.pop(0) if self.replies else (0, "", "")
+        return execnode.ExecResult(node, user, f"{node}.ctr", code, out, err)
+
+    def clone(self, timeout=None):
+        result = inject.LoadResult("g")
+        printed = []
+        with mock.patch.object(inject, "exec_node", self.exec_node):
+            inject.clone_standby(self.ldir, "off-site", "records", "off_site", None, result,
+                                 timeout=timeout, out=printed.append)
+        return result, printed
+
+    def test_the_three_runs(self):
+        self.replies = [(0, "", ""), (0, "clone-standby: standby of records in recovery\n", ""),
+                        (0, '{"exists" : true, "active" : true, "state" : "streaming"}\n', "")]
+        result, printed = self.clone()
+        role, clone, wait = self.runs
+        self.assertEqual((role["node"], role["user"], role["argv"]),
+                         ("records", "postgres", inject.PSQL_ARGV))
+        lines = role["stdin"].splitlines()
+        self.assertEqual(lines[:4], list(inject.NO_LOG_SQL + inject.NO_AUDIT_SQL))
+        self.assertIn("SET pg_stat_statements.track = 'none';", lines)
+        self.assertTrue(any("CREATE ROLE replicator" in l for l in lines))
+        alter = next(l for l in lines if l.startswith("ALTER ROLE replicator"))
+        self.assertIn("LOGIN REPLICATION", alter)
+        self.assertTrue(matches(VERIFIER_RE.search(alter), self.password))
+        self.assertNotIn(self.password, role["stdin"])
+        self.assertIn("slot_name = 'off_site' AND NOT active", role["stdin"])
+        self.assertEqual((clone["node"], clone["user"], clone["argv"]),
+                         ("off-site", "root", (inject.CLONE_STANDBY,)))
+        self.assertEqual((wait["node"], wait["user"], wait["argv"]),
+                         ("records", "postgres", inject.SURVEY_ARGV))
+        self.assertIn(f"FOR i IN 1..{inject.STANDBY_WAIT * 2} LOOP", wait["stdin"])
+        self.assertIn("s.slot_name = 'off_site' AND r.state = 'streaming'", wait["stdin"])
+        self.assertEqual(result.standbys, [("off-site", "records", "off_site")])
+        self.assertIn("  off-site: cloned from records, a standby streaming from slot off_site",
+                      result.text())
+        self.assertNotIn(self.password, "\n".join(printed))
+
+    def test_the_wait_is_bounded_by_the_timeout(self):
+        self.replies = [(0, "", ""), (0, "", ""),
+                        (0, '{"exists" : true, "active" : true, "state" : "streaming"}\n', "")]
+        self.clone(timeout=40)
+        self.assertIn("FOR i IN 1..80 LOOP", self.runs[2]["stdin"])
+        self.assertEqual(self.runs[2]["timeout"], 70)
+
+    def test_a_failed_clone_fails_the_step(self):
+        self.replies = [(0, "", ""), (1, "", "clone-standby: the primary records does not "
+                                             "answer on 5432 after 120s\n")]
+        with self.assertRaises(GmError) as cm:
+            self.clone()
+        self.assertIn("cloning the standby off-site from records: exit 1: clone-standby: the "
+                      "primary records does not answer", str(cm.exception))
+        self.assertEqual(len(self.runs), 2)
+
+    def test_not_streaming_fails_the_step(self):
+        self.replies = [(0, "", ""), (0, "", ""),
+                        (0, '{"exists" : true, "active" : false, "state" : null}\n', "")]
+        with self.assertRaises(GmError) as cm:
+            self.clone(timeout=5)
+        self.assertIn("slot off_site not streaming after 5 s (exists True, active False, "
+                      "sender none)", str(cm.exception))
+
+    def test_a_refused_role_fails_before_the_clone(self):
+        self.replies = [(3, "", "psql:<stdin>:7: ERROR:  permission denied\n")]
+        with self.assertRaises(GmError):
+            self.clone()
+        self.assertEqual(len(self.runs), 1)

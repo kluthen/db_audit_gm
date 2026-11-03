@@ -81,6 +81,10 @@ RUN set -eux; \
     rm -f /etc/ssl/private/ssl-cert-snakeoil.key /etc/ssl/certs/ssl-cert-snakeoil.pem; \
     test ! -e /etc/ssl/private/ssl-cert-snakeoil.key; \
     test ! -e /etc/ssl/certs/ssl-cert-snakeoil.pem; \
+    # vault-post's core Perl (G5: no package added for the posting command)
+    perl -MHTTP::Tiny -e 1; \
+    perl -MJSON::PP -MFile::Temp -MSys::Hostname -e 1; \
+    test -x "/usr/lib/postgresql/${PG_MAJOR}/bin/pg_basebackup"; \
     test -x /usr/sbin/cron; \
     # cron reads only postgres's crontab in its spool (volume cronspool):
     # no system crontab, no /etc/cron.d entry, no run-parts job as root
@@ -127,15 +131,16 @@ COPY validator/validate.sh /opt/gm/validator/validate.sh
 
 # Protected files: root-owned, read-only for everyone else.
 RUN set -eux; \
-    chown -R root:root /etc/s6-overlay /usr/local/sbin /usr/local/lib/gm /opt/gm/validator \
+    chown -R root:root /etc/s6-overlay /usr/local/sbin /usr/local/lib/gm /usr/local/bin/vault-post /opt/gm/validator \
         /etc/ssh/sshd_config /etc/sudoers.d/gm-player /etc/motd /etc/profile.d/gm-postgres.sh; \
     chmod 0755 /usr/local/sbin/gm-entrypoint /usr/local/sbin/gm-reload-db /usr/local/sbin/gm-restart-db \
         /usr/local/sbin/gm-validate /usr/local/sbin/gm-crontab /usr/local/lib/gm/healthcheck \
-        /opt/gm/validator/validate.sh \
+        /opt/gm/validator/validate.sh /usr/local/bin/vault-post \
         /etc/s6-overlay/s6-rc.d/postgres/run /etc/s6-overlay/s6-rc.d/sshd/run /etc/s6-overlay/s6-rc.d/cron/run; \
-    # root only: the GM check role's psql (its secret is root's alone) and
-    # the hand-over snapshot of pgdata (not a sudo wrapper)
-    chmod 0700 /usr/local/lib/gm/check-psql /usr/local/sbin/gm-snapshot-db; \
+    # root only: the GM check role's psql (its secret is root's alone), the
+    # hand-over snapshot of pgdata and the standby's clone (not sudo wrappers)
+    chmod 0700 /usr/local/lib/gm/check-psql /usr/local/sbin/gm-snapshot-db /usr/local/lib/gm/clone-standby; \
+    perl -c /usr/local/bin/vault-post; \
     chmod 0644 /etc/ssh/sshd_config /etc/motd /etc/profile.d/gm-postgres.sh; \
     chmod 0440 /etc/sudoers.d/gm-player; \
     visudo -c

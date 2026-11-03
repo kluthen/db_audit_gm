@@ -1343,3 +1343,32 @@ class TestOptionSecrets(unittest.TestCase):
         self.assertEqual(len(problems), 1)
         self.assertIn("certificate or key", problems[0])
         self.assertEqual(localimpl.pair_files("certificate", "tls"), ["tls.crt", "tls.key"])
+
+
+class TestStandbyEnvironment(ScenarioCopyTest):
+    """v0.5 capture W1 item 0: GM_STANDBY_OF on every postgres node, its
+    primary's name for a standby, "" otherwise; the vault parameters as
+    GM_VAULT_* when set."""
+
+    def test_rendered(self):
+        self.edit_yaml("scenario.yaml", lambda d: self.node(d, "db").update(
+            standby_of="records", parameters={"vault_target": "cold-storage:8000",
+                                              "vault_credential": "vault_records"}))
+        fit.fit(self.scenario, "laptop", **SUFFICIENT)
+        render.render(self.scenario, "laptop")
+        stack = yaml.safe_load((self.scenario / "local/laptop/stack.yml").read_text())
+        env = stack["services"]["db"]["environment"]
+        self.assertEqual((env["GM_STANDBY_OF"], env["GM_VAULT_TARGET"],
+                          env["GM_VAULT_CREDENTIAL"]),
+                         ("records", "cold-storage:8000", "vault_records"))
+        self.assertNotIn("GM_STANDBY_OF", stack["services"]["bastion"]["environment"])
+
+    def test_no_standby_no_vault(self):
+        fit.fit(self.scenario, "laptop", **SUFFICIENT)
+        render.render(self.scenario, "laptop")
+        stack = yaml.safe_load((self.scenario / "local/laptop/stack.yml").read_text())
+        env = stack["services"]["db"]["environment"]
+        self.assertEqual(env["GM_STANDBY_OF"], "")
+        self.assertFalse([k for k in env if k.startswith("GM_VAULT")])
+        mounts = [s["target"] for s in stack["services"]["db"]["secrets"]]
+        self.assertIn("/opt/gm/secrets/replication_password", mounts)

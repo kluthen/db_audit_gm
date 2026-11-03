@@ -240,8 +240,8 @@ class TestFit(ScenarioCopyTest):
         self.assertEqual(db["configs"][2]["file"], "local/laptop/envelopes/db.conf")
         self.assertEqual([s["name"] for s in db["secrets"]],
                          [gid + "_player_ssh_pubkey", gid + "_dba_password",
-                          gid + "_gm_check_password", gid + "_tls_certificate",
-                          gid + "_tls_key"])     # monitoring_password: the option is off
+                          gid + "_gm_check_password", gid + "_replication_password",
+                          gid + "_tls_certificate", gid + "_tls_key"])     # monitoring_password: the option is off
         bastion = impl["nodes"]["bastion"]
         self.assertEqual([v["name"] for v in bastion["volumes"]],
                          [f"{gid}_bastion_{v}" for v in ("home", "hostkeys", "run")])
@@ -253,6 +253,7 @@ class TestFit(ScenarioCopyTest):
             gid + "_dba_password": "local/laptop/secrets/dba_password",
             gid + "_player_ssh_pubkey": "local/laptop/secrets/player_ssh_key.pub",
             gid + "_gm_check_password": "local/laptop/secrets/gm_check_password",
+            gid + "_replication_password": "local/laptop/secrets/replication_password",
             gid + "_tls_certificate": "local/laptop/secrets/tls.crt",
             gid + "_tls_key": "local/laptop/secrets/tls.key",
             gid + "_tools_password": "local/laptop/secrets/tools_password",

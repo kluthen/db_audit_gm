@@ -23,10 +23,14 @@
 #      server listens: the check role gm_check (password from its secret,
 #      the GM's connection reserve) and, when its secret is mounted (a
 #      scenario with a pooler node), PgBouncer's lookup role
-#      pgbouncer_lookup and its function gm_pgbouncer.lookup;
+#      pgbouncer_lookup and its function gm_pgbouncer.lookup; not on a
+#      standby (standby.signal), whose roles come from its primary;
 #   8. writes the player's ~/.pgpass (not on a `no-access` node, which has
 #      no player) and, when crontab roles' secrets are mounted, the
-#      crontab's password file /run/gm-cron/pgpass.
+#      crontab's password file /run/gm-cron/pgpass; on a standby
+#      (GM_STANDBY_OF), the replication password file
+#      /run/gm-replication/pgpass; with a vault (GM_VAULT_TARGET), the
+#      files vault-post reads, /run/gm-vault/target and credential.
 # Every start also gives the seeded files their owner and mode back
 # (step 4), as gm-reload-db and gm-restart-db do.
 set -eu
@@ -56,6 +60,14 @@ OPTIONS_KNOWN="monitoring"               # brick.yaml's options:
 # W1 item 5; v0.5 capture W1 item 0): unset means `fixable` and none.
 WRITE_POLICY=${GM_WRITE_POLICY:-fixable}
 OPTIONS=${GM_OPTIONS:-}
+# v0.5 capture W1 items 0 and 6: the primary of a standby; the vault
+# (brick parameters vault_target and vault_credential), all unset when none.
+STANDBY_OF=${GM_STANDBY_OF:-}
+VAULT_TARGET=${GM_VAULT_TARGET:-}
+VAULT_CREDENTIAL=${GM_VAULT_CREDENTIAL:-}
+REPLICATION_SECRET=$SECRETS_DIR/replication_password
+REPLICATION_DIR=/run/gm-replication   # the standby's password file, postgres-only
+VAULT_DIR=/run/gm-vault               # vault-post's target and credential, postgres-only
 
 log() { printf 'gm-entrypoint: %s\n' "$*" >&2; }
 die() { log "fatal: $*"; exit 1; }
@@ -174,6 +186,34 @@ done
 dba_password=$(read_secret dba_password)
 monitoring_password=
 [ -n "$with_monitoring" ] && monitoring_password=$(read_secret monitoring_password)
+# The standby mode: the primary's node name, and the replication role's
+# password (every postgres node mounts its secret; only a standby reads it).
+replication_password=
+if [ -n "$STANDBY_OF" ]; then
+    case $STANDBY_OF in
+        [!a-z]*|*[!a-z0-9-]*) die "GM_STANDBY_OF $STANDBY_OF is not a node name" ;;
+    esac
+    [ -s "$REPLICATION_SECRET" ] || die "secret $REPLICATION_SECRET is missing or empty (a standby needs it)"
+    replication_password=$(read_secret replication_password)
+fi
+# The vault: its target `<host>:<port>` and, when named, its credential's
+# secret http_<credential> (v0.5 capture W1 items 0, 3 and 6).
+vault_credential=
+if [ -n "$VAULT_CREDENTIAL" ]; then
+    case $VAULT_CREDENTIAL in
+        [!a-z]*|*[!a-z0-9_]*) die "GM_VAULT_CREDENTIAL $VAULT_CREDENTIAL is not a credential name" ;;
+    esac
+    [ -n "$VAULT_TARGET" ] || die "GM_VAULT_CREDENTIAL is set without GM_VAULT_TARGET"
+    [ -s "$SECRETS_DIR/http_$VAULT_CREDENTIAL" ] || die "secret $SECRETS_DIR/http_$VAULT_CREDENTIAL is missing or empty (vault_credential)"
+    vault_credential=$(read_secret "http_$VAULT_CREDENTIAL")
+fi
+if [ -n "$VAULT_TARGET" ]; then
+    case $VAULT_TARGET in
+        *:*[!0-9]*|*:|:*|*[!a-z0-9.:-]*) die "GM_VAULT_TARGET $VAULT_TARGET is not <host>:<port>" ;;
+        *:*) ;;
+        *) die "GM_VAULT_TARGET $VAULT_TARGET is not <host>:<port>" ;;
+    esac
+fi
 # The check role's secret: a game always mounts it (brick.yaml); a stack
 # without it (another brick's test stack) runs with no check role.
 gm_check_password=
@@ -316,7 +356,12 @@ fi
 #   gm_check: the GM check role (v0.3 master spec 7.3; docs/gm.md).
 #   pgbouncer_lookup: PgBouncer's auth_user; gm_pgbouncer.lookup($1) is
 #     its auth_query, returning login roles' passwords, superusers too.
-if [ -n "$gm_check_password" ] || [ -n "$lookup_password" ]; then
+# A standby (its data directory cloned from its primary, standby.signal
+# there) takes its roles from the primary: single-user mode cannot run in
+# standby mode, and the primary's roles reach it by replication.
+if [ -e "$PGDATA/standby.signal" ]; then
+    log "standby of ${STANDBY_OF:-its primary} (standby.signal): the GM's roles come from the primary"
+elif [ -n "$gm_check_password" ] || [ -n "$lookup_password" ]; then
     roles_sql=$(
         if [ -n "$gm_check_password" ]; then
             printf '%s\n' \
@@ -382,7 +427,34 @@ if [ -n "$cron_pgpass" ]; then
     chmod 0600 "$CRON_PASS_DIR/pgpass"
     log "crontab password file $CRON_PASS_DIR/pgpass written: $(printf '%s' "$cron_pgpass" | cut -d: -f4 | tr '\n' ' ')"
 fi
+# The standby's password file, named by passfile= in primary_conninfo
+# (clone-standby): the replication role's line, postgres-only, on /run
+# (never on a volume, never in the snapshot); the password is never in
+# primary_conninfo.
+if [ -n "$STANDBY_OF" ]; then
+    install -d -o postgres -g postgres -m 0700 "$REPLICATION_DIR"
+    printf '*:*:*:replicator:%s\n' "$(printf '%s' "$replication_password" | sed 's/[\\:]/\\&/g')" \
+        > "$REPLICATION_DIR/pgpass"
+    chown postgres:postgres "$REPLICATION_DIR/pgpass"
+    chmod 0600 "$REPLICATION_DIR/pgpass"
+    log "standby of $STANDBY_OF: replication password file $REPLICATION_DIR/pgpass written"
+fi
+# vault-post's files: the target, and the credential copied from its
+# secret (root-only) for postgres, which runs archive_command and the
+# crontab's base backup.
+if [ -n "$VAULT_TARGET" ]; then
+    install -d -o postgres -g postgres -m 0700 "$VAULT_DIR"
+    printf '%s\n' "$VAULT_TARGET" > "$VAULT_DIR/target"
+    if [ -n "$vault_credential" ]; then
+        printf '%s\n' "$vault_credential" > "$VAULT_DIR/credential"
+    fi
+    for f in "$VAULT_DIR"/*; do
+        chown postgres:postgres "$f"
+        chmod 0600 "$f"
+    done
+    log "vault $VAULT_TARGET${VAULT_CREDENTIAL:+, credential $VAULT_CREDENTIAL}: $VAULT_DIR written"
+fi
 umask 022
-unset dba_password monitoring_password gm_check_password lookup_password pw_sql mon_sql pw_pgpass cron_pgpass
+unset dba_password monitoring_password gm_check_password lookup_password pw_sql mon_sql pw_pgpass cron_pgpass replication_password vault_credential
 
 exec /init "$@"

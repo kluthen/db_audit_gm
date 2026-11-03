@@ -93,7 +93,7 @@ class TestCredentials(RenderedGame):
         self.assertEqual(sorted(p.name for p in sdir.iterdir()),
                          ["dba_password", "gm_check_password",
                           "player_password", "player_ssh_key", "player_ssh_key.pub",
-                          "tls.crt", "tls.key", "tools_password"])
+                          "replication_password", "tls.crt", "tls.key", "tools_password"])
         self.assertEqual(sorted(paths), sorted(sdir.iterdir()))
         for path in sdir.iterdir():
             self.assertEqual(mode(path), 0o600, path.name)
@@ -162,8 +162,9 @@ class TestDeploy(RenderedGame):
             f"{gid}_db_postgresql.conf", f"{gid}_db_pg_hba.conf", f"{gid}_db_envelopes"]))
         self.assertEqual(fake.names("secret"), sorted(
             f"{gid}_{s}" for s in ("player_password", "player_ssh_key", "player_ssh_pubkey",
-                                   "dba_password", "gm_check_password", "tls_certificate",
-                                   "tls_key", "tools_password")))
+                                   "dba_password", "gm_check_password",
+                                   "replication_password", "tls_certificate", "tls_key",
+                                   "tools_password")))
         for kind in ("config", "secret"):
             for name, objlabels in fake.objects[kind].items():
                 self.assertEqual(objlabels, labels, name)
@@ -305,6 +306,8 @@ class TestSecretsByKind(ScenarioCopyTest):
              "file": rel + "player_ssh_key.pub"},
             {"name": f"{gid}_gm_check_password", "secret": "gm_check_password",
              "kind": "password", "handed_over": False, "file": rel + "gm_check_password"},
+            {"name": f"{gid}_replication_password", "secret": "replication_password",
+             "kind": "password", "handed_over": False, "file": rel + "replication_password"},
             {"name": f"{gid}_tls_certificate", "secret": "tls_certificate",
              "kind": "certificate", "pair": "tls", "half": "certificate",
              "file": rel + "tls.crt"},
@@ -319,8 +322,8 @@ class TestSecretsByKind(ScenarioCopyTest):
         self.assertEqual(mode(sdir), 0o700)
         self.assertEqual(sorted(p.name for p in sdir.iterdir()), [
             "backup_key", "backup_key.pub", "dba_password", "gm_check_password",
-            "player_password", "player_ssh_key", "player_ssh_key.pub", "tls.crt", "tls.key",
-            "tools_password"])
+            "player_password", "player_ssh_key", "player_ssh_key.pub", "replication_password",
+            "tls.crt", "tls.key", "tools_password"])
         for path in sdir.iterdir():
             self.assertEqual(mode(path), 0o600, path.name)
         tools = (sdir / "tools_password").read_text()
@@ -379,6 +382,7 @@ class TestSecretsByKind(ScenarioCopyTest):
             "    backup_key: private key of pair backup_key",
             "    backup_key.pub: public key of pair backup_key",
             "    gm_check_password: password",
+            "    replication_password: password",
             "    tls.crt: certificate tls",
             "    tls.key: private key of certificate tls",
         ])
@@ -493,7 +497,7 @@ class TestSecretRefusals(ScenarioCopyTest):
 
     def test_render_refuses_secrets_changed_since_fit(self):
         fit.fit(self.scenario, "laptop", **SUFFICIENT)
-        declare_secrets(self.scenario, "postgres", {"name": "replication_password",
+        declare_secrets(self.scenario, "postgres", {"name": "another_password",
                                                      "kind": "password"})
         with self.assertRaisesRegex(GmError, "secrets changed since gmctl fit: fit again"):
             render.render(self.scenario, "laptop")

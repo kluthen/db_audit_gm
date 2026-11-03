@@ -513,6 +513,19 @@ def seed_entries(scenario, node):
     return out
 
 
+def standby_of(node):
+    """The primary's node name of a standby (`standby_of:`, v0.5 master
+    spec 6.2, 7.1), or None for a node that is no standby."""
+    primary = node.get("standby_of") if isinstance(node, dict) else None
+    return primary if isinstance(primary, str) and primary else None
+
+
+def standby_slot(name):
+    """The physical replication slot of the standby `name` on its primary:
+    its node name, `-` read as `_` (v0.5 capture W1 item 6)."""
+    return str(name).replace("-", "_")
+
+
 def rendered_seed_file(playground, node, fname):
     """A seed file render rewrites, relative to the scenario folder."""
     return f"local/{playground}/{RENDERED_DIR}/{node}/{fname}"

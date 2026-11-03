@@ -59,9 +59,13 @@ The image:
 
 ## Configuration
 
-`brick.yaml` declares no parameters (`parameters: {}`): everything
-scenario-specific reaches the node through the seed files, the per-game
-secrets, the envelope file and the data load.
+`brick.yaml` declares two parameters, from 0.5.0, both default null:
+`vault_target`, cold storage's `<host>:<port>`, and `vault_credential`,
+the name of the credential `vault-post` sends (see "WAL archiving and the
+nightly base backup"). Everything else scenario-specific reaches the node
+through the seed files, the per-game secrets, the envelope file, the
+node's choices (`write_policy`, `options:`, `standby_of:`) and the data
+load.
 
 ### Values the GM sets per scenario and per game
 
@@ -72,7 +76,10 @@ secrets, the envelope file and the data load.
 | Envelope file (protected config `envelopes`) | `/opt/gm/protected/envelopes.conf`, root `0444` | `gmctl render`, from the node's `knobs` envelopes |
 | Secret `player_ssh_pubkey` (kind `key-pair`, pair `player_ssh_key`, half `public`) | `/opt/gm/secrets/player_ssh_pubkey`, root `0444` | `gmctl deploy`: the public half of the bastion's `player_ssh_key` |
 | Secret `dba_password` (kind `password`, not handed over) | `/opt/gm/secrets/dba_password`, root `0400` | `gmctl deploy`: the same secret as the bastion's |
-| Environment `GM_WRITE_POLICY`, `GM_OPTIONS` | the container's environment, read by `gm-entrypoint` at each start | `gmctl render`: the node's `write_policy` (`fixable` or `no-access`, see "`no-access`") and the options it chooses, space-separated, `""` when none (v0.5 capture W1 item 0) |
+| Environment `GM_WRITE_POLICY`, `GM_OPTIONS`, `GM_STANDBY_OF` | the container's environment, read by `gm-entrypoint` at each start (`GM_STANDBY_OF` also by `clone-standby`) | `gmctl render`: the node's `write_policy` (`fixable` or `no-access`, see "`no-access`"), the options it chooses, space-separated, `""` when none, and its `standby_of:`, `""` when it is no standby (v0.5 capture W1 item 0) |
+| Environment `GM_VAULT_TARGET`, `GM_VAULT_CREDENTIAL` | written by `gm-entrypoint` into `/run/gm-vault/` for `vault-post` | `gmctl render`, from the parameters `vault_target` and `vault_credential`; absent when null |
+| Secret `replication_password` (kind `password`, not handed over) | `/opt/gm/secrets/replication_password`, root `0400`; on every node | `gmctl deploy`; set on a primary by `load-data`'s clone step, read by a standby's entrypoint (see "The standby") |
+| Secret `http_<credential>` (the vault's credential) | `/opt/gm/secrets/http_<credential>`, root `0400`, copied for `postgres` into `/run/gm-vault/credential` | mounted by `gmctl render` on a node naming `vault_credential` (wave 2's chunk 7; v0.5 capture W1 items 0, 3) |
 | Secret `monitoring_password` (kind `password`, not handed over), brought by the option `monitoring` | `/opt/gm/secrets/monitoring_password`, uid `0`, gid `102` (`postgres`), `0440`: root and `postgres` only; mounted only on a node choosing the option | `gmctl deploy`: the same secret as the `postgres-exporter` node's (see "Option `monitoring`") |
 | Secrets `tls_certificate` and `tls_key` (kind `certificate`, pair `tls`, halves `certificate` and `key`) | `/opt/gm/secrets/tls.crt`, root `0444`; `/opt/gm/secrets/tls.key`, uid `0`, gid `102`, `0440`; on every node | `gmctl deploy`: one self-signed pair per game, with the host's `openssl` (see "TLS") |
 | Secret `gm_check_password` (kind `password`, not handed over) | `/opt/gm/secrets/gm_check_password`, root `0400`: root only | `gmctl deploy`; declared by this brick only (see "The GM check role and the reserve") |
@@ -107,6 +114,10 @@ for the default footprint; a scenario may tighten them, never widen them.
 | Crontab's job logs | `/var/log/postgresql/cron/` | on `pglog`; `postgres:pgconf`, dir `2750` (setgid), a job's files `0644` |
 | Cron spool | `/var/spool/cron/crontabs/` | volume `cronspool`; `root:crontab`, dir `1730`; `postgres`'s crontab `postgres:crontab` `0600` (`seed.paths.crontab`) |
 | Crontab's password file | `/run/gm-cron/pgpass` | `postgres:postgres`, dir `0700`, file `0600`; absent with no crontab role |
+| Standby's password file | `/run/gm-replication/pgpass` | `postgres:postgres`, dir `0700`, file `0600`; on a standby only, named by `passfile=` in `primary_conninfo` |
+| Vault's files | `/run/gm-vault/target`, `/run/gm-vault/credential` | `postgres:postgres`, dir `0700`, files `0600`; only with `vault_target` (the credential only with `vault_credential`) |
+| Posting command | `/usr/local/bin/vault-post` | root `0755`, on `PATH`, readable as a customer's tool (see "WAL archiving and the nightly base backup") |
+| Standby's clone | `/usr/local/lib/gm/clone-standby` | root `0700`, run by `load-data` (see "The standby") |
 | Runtime | `/run` | volume `run`, emptied at each start (see below) |
 | Secrets | `/opt/gm/secrets/player_ssh_pubkey`, `/opt/gm/secrets/dba_password`, `/opt/gm/secrets/monitoring_password`, `/opt/gm/secrets/gm_check_password`, `/opt/gm/secrets/pgbouncer_lookup_password`, `/opt/gm/secrets/role_<role>_password`, `/opt/gm/secrets/tls.crt`, `/opt/gm/secrets/tls.key` | the monitoring password's only with the option `monitoring`; the lookup role's only with a pooler node; a role's for each of the node's `crontab_roles` |
 | Account files | `/run/gm-accounts/{passwd,group,shadow,gshadow,sudoers-gm-player}` | written at each start from `/usr/local/lib/gm/accounts/`; `/etc/passwd`, `/etc/group`, `/etc/shadow`, `/etc/gshadow` and `/etc/sudoers.d/gm-player` link to them (see "`no-access`") |
@@ -132,7 +143,11 @@ for the default footprint; a scenario may tighten them, never widen them.
    not declare, or if `player_ssh_pubkey` (not needed on a `no-access`
    node), `dba_password` or, with the option `monitoring`,
    `monitoring_password` is missing or empty, or if a password secret is
-   not a single line. `gm_check_password` missing only logs a warning
+   not a single line. On a standby (`GM_STANDBY_OF` set): a value that is
+   no node name, or `replication_password` missing or empty, fails it
+   too; and with a vault, a `GM_VAULT_TARGET` that is no `<host>:<port>`
+   or a `GM_VAULT_CREDENTIAL` whose secret `http_<credential>` is missing
+   or empty. `gm_check_password` missing only logs a warning
    (another brick's test stack runs without it; a game always mounts
    it), and the check role is then neither created nor updated.
    `pgbouncer_lookup_password` is optional: mounted means a pooler node.
@@ -174,7 +189,10 @@ for the default footprint; a scenario may tighten them, never widen them.
    mode before the server listens: the check role `gm_check` and, when
    `pgbouncer_lookup_password` is mounted, the lookup role
    `pgbouncer_lookup` with its schema and function (see the two sections
-   below). Single-user mode runs on PostgreSQL's defaults
+   below), except on a standby (`standby.signal` in PGDATA): single-user
+   mode cannot run in standby mode, and the primary's roles reach it by
+   replication (the log says `standby of <primary> (standby.signal): the
+   GM's roles come from the primary`). Single-user mode runs on PostgreSQL's defaults
    (`config_file=/dev/null`), so a player's broken `postgresql.conf`
    does not stop it, with no preload library and no statement logged
    (the passwords). On a fresh cluster a failure fails the container;
@@ -187,7 +205,11 @@ for the default footprint; a scenario may tighten them, never widen them.
    when a `role_<role>_password` secret is mounted, the crontab's
    password file (see "The cron daemon"). A secret of that form not
    naming a role (`[a-z_][a-z0-9_]*`), empty or not a single line fails
-   the container.
+   the container. On a standby, writes the replication password file
+   `/run/gm-replication/pgpass` (`*:*:*:replicator:<password>`); with a
+   vault, `/run/gm-vault/target` and, with a credential,
+   `/run/gm-vault/credential` (see "WAL archiving and the nightly base
+   backup").
 9. Execs s6-overlay's `/init`, which supervises `postgres`, `sshd` and
    `cron` (down on a node seeding no crontab).
 
@@ -202,7 +224,10 @@ PostgreSQL runs as
 `postgres -D /var/lib/postgresql/18/data -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf -c reserved_connections=2`
 (the GM's reserve, see "The GM check role and the reserve"), with
 `PG_OOM_ADJUST_FILE` and `PG_OOM_ADJUST_VALUE` in its environment (see
-"The out-of-memory victim").
+"The out-of-memory victim") and, from 0.5.0, `PATH` set by the run
+script (`/usr/local/bin:/usr/bin:/bin:/usr/lib/postgresql/18/bin`), so
+`archive_command` finds `vault-post`: s6 gives its services a minimal
+environment.
 With the seed's `logging_collector = on`, it writes its log to files in
 `/var/log/postgresql` (see "What the seed files must contain"); only the
 lines before the collector starts reach the container's output (`gmctl
@@ -395,7 +420,8 @@ option: removing the settings can be a fault. The package
   PostgreSQL's defaults, no preload library (step 7); `load-data`'s
   roles' passwords and user mappings in a session that sets
   `pgaudit.log = 'none'` beside statement logging off, a role's password
-  as a SCRAM verifier (`inject.NO_AUDIT_SQL`). The stack test shows none of them in
+  as a SCRAM verifier (`inject.NO_AUDIT_SQL`); the replication role's
+  likewise (see "The standby"). The stack test shows none of them in
   `rec`'s log, and a canary `ALTER ROLE ... PASSWORD` run with
   `log_statement = 'ddl'` and without the guard landing there in clear.
 
@@ -592,6 +618,137 @@ accepted connections). Nothing changes in a game where memory never runs
 out. The stack test reads +300 in a backend (`pg_read_file` of
 `/proc/self/oom_score_adj`) and in every child of the postmaster, and 0
 in the postmaster, s6, `sshd` and `cron`.
+
+### The standby
+
+A node in standby mode is a readable, asynchronous replica of a primary
+named in the scenario (v0.5 master spec 6.2, 7.1, 11.1): `standby_of:
+<primary>` on a `postgres` 0.5.0 node, the primary a `postgres` node that
+is no standby itself, the standby with no `data:` entry (its data is the
+clone). Its role stays `database`. Several standbys of one primary would
+each get their slot; v0.5 builds one (`standby` in the clinic).
+
+- **The replication role** `replicator`, `LOGIN REPLICATION`, not
+  superuser, set on the primary by `load-data`'s clone step from the
+  secret `replication_password` as a SCRAM verifier, with statement
+  logging, pgaudit and `pg_stat_statements` off for the session: never
+  created at initdb nor by a data file; it exists where a standby needs
+  it. The secret is mounted on every `postgres` node (a spare secret costs
+  nothing); only a standby reads it, into `/run/gm-replication/pgpass`,
+  rewritten at each start. The password is never in `primary_conninfo`.
+- **The slot**: physical, on the primary, named for the standby (its node
+  name, `-` read as `_`); seen in the primary's `pg_replication_slots`
+  (active) and `pg_stat_replication` (its sender, `application_name` the
+  standby's name, `state` `streaming`).
+- **The seeds**: the primary's `pg_hba.conf` carries `host replication
+  replicator samenet scram-sha-256` (before any line rejecting the
+  network); the standby's `postgresql.conf` sets `hot_standby_feedback =
+  on` (and `hot_standby`, on by default), so the reports' long queries
+  there are not cancelled, at the cost of vacuum held back on the
+  primary. The stack test's `tests/fixtures/postgresql-standby.conf` and
+  `pg_hba-v05.conf`.
+- **The clone**, `load-data`'s last step (after every other, so the
+  standby copies the checked load; before the aging), for each standby
+  in topology order: on the primary, `replicator` created or updated
+  and an inactive slot of the standby's name dropped (a rerun); then, as
+  root in the standby, `/usr/local/lib/gm/clone-standby` (no arguments;
+  it reads `GM_STANDBY_OF`): waits, bounded (120 s), for the primary to
+  answer on 5432, its name resolving included, so a standby started
+  before its primary waits for it; stops `postgres` (s6), empties PGDATA;
+  `pg_basebackup -X stream -C -S <slot> -R -d "host=<primary> port=5432
+  user=replicator passfile=/run/gm-replication/pgpass
+  application_name=<standby>"` as `postgres` (`-R` writes
+  `standby.signal`, `primary_conninfo` and `primary_slot_name` into
+  `postgresql.auto.conf`; the helper refuses a `primary_conninfo` holding
+  a password); starts `postgres`, and waits, bounded, until it answers in
+  recovery. Exit 0 on success, 1 when a step fails (the node left down: a
+  failed setup), 2 for a usage error. `load-data` then waits, bounded by
+  its `--timeout` (300 s without one), until the primary's
+  `pg_stat_replication` shows the slot's sender `streaming`. Any failure
+  is a failed setup. Every other `load-data` step skips a standby: no
+  data file, password, grant, survey, mapping or log clean-up runs there;
+  a role a schedule names on a connection to the standby gets its
+  password on the primary.
+- **After**: the standby restarts as a standby (its `standby.signal`
+  stays), its password file rewritten, its start skipping the GM's roles
+  step: `dba`, `monitoring`, `gm_check` and `replicator` are the
+  primary's, replicated, so `check-psql` works there with the game's
+  `gm_check_password`. It answers read-only queries (`dba` over TLS
+  where its seed turns it on); a write is refused ("cannot execute ... in
+  a read-only transaction"). The players may change its own settings
+  (`fixable`) and never promote it (access model 5).
+- **The hand-over snapshot** works on both: on the primary the temporary
+  slot `gm_snapshot` comes and goes beside the standby's, which stays;
+  on the standby `gm-snapshot-db` takes its base backup from the standby
+  itself (see "Snapshot").
+- **The fault `pg-abandoned-replication-slot`** applies beside a standby
+  when its slot is an orphan: its `slot-name` is not the standby's (see
+  "Supported faults").
+
+### WAL archiving and the nightly base backup
+
+The vault is cold storage itself, types `wal` and `basebackup` (v0.5
+master spec 10.4, 11.2): plain PostgreSQL tools, and the brick's small
+posting command they call, `vault-post`, on the same trust line as every
+seed script. The vault discards the payload; nothing is restored in
+v0.5. Which instances archive and send a base backup is the scenario's
+(the clinic: `records` and `lab` both, `machines` the base backup only).
+
+- **The seed** (`postgresql.conf`):
+
+  ```
+  archive_mode = on
+  archive_command = 'vault-post wal %f %p'
+  archive_timeout = 1h
+  ```
+
+  `archive_timeout` makes a quiet night still ship, once an hour. A
+  standby does not archive with `archive_mode = on`.
+- **The nightly base backup**: a line of the node's seed `crontab`, in
+  the crontab's baseline form, low hours, scenario time (render shifts
+  it to UTC), with `PATH` on a line of its own (cron's default finds
+  neither command):
+
+  ```
+  PATH=/usr/local/bin:/usr/bin:/bin:/usr/lib/postgresql/18/bin
+  30 3 * * * pg_basebackup -h /run/postgresql -D - -Ft -X fetch | vault-post basebackup "<node>-$(date -u +\%Y\%m\%dT\%H\%MZ)" >> /var/log/postgresql/cron/basebackup.log 2>&1
+  ```
+
+  It connects as `postgres` through the seed's `local replication
+  postgres peer` line, and posts the tar whole: `vault-post` spools it to
+  `/run/tmp` first, and refuses one without tar's end-of-archive blocks
+  (a `pg_basebackup` that failed midway). Its receipt or its refusal goes
+  to `cron/basebackup.log`, which the players read.
+- **`vault-post <type> <name> [<file>]`**, `/usr/local/bin/vault-post`,
+  Perl with core `HTTP::Tiny` and `JSON::PP` (no package added, G5; the
+  build asserts `perl -MHTTP::Tiny -e 1`): `<type>` `wal` or
+  `basebackup`, `<name>` the segment's file name or the backup's name,
+  the payload `<file>` (`%p`, relative to the data directory) or standard
+  input. Its vault: `/run/gm-vault/target` and `credential`, which the
+  entrypoint writes from `vault_target`, `vault_credential` and the
+  secret `http_<credential>`; with no target it exits 1, "no vault
+  configured" (an archiving seed on a node with no vault fills `pg_wal`:
+  a design error, or a fault to plant).
+  - **The request**: `POST http://<target>/shipments`, the payload's
+    bytes as the body (`application/octet-stream`, `Content-Length`),
+    headers `Shipment-Id` and `Shipment-Name` (the name),
+    `Shipment-Type`, `Shipment-Rows` (`1`), `Shipment-From` and
+    `Shipment-To` (the posting day, UTC), `Shipment-Source` (the node's
+    name), and `Authorization: Bearer <credential>` when there is one;
+    `User-Agent: vault-post (<node>)`. Timeout 60 s.
+  - **Honest failure**: exit 0 only on a 2xx JSON receipt naming the
+    shipment (`shipment_id`) whose `size` equals the bytes sent (the
+    receipt: `{shipment_id, type, rows_declared, rows_received, size,
+    received_at}`). Anything else (a refusal, a timeout, no connection, a
+    short or foreign receipt) exits 1 with one `vault-post: ...` line on
+    standard error saying why, in the server log for `archive_command`:
+    PostgreSQL keeps the segment (`pg_wal/archive_status/<segment>.ready`),
+    counts the failure in `pg_stat_archiver` and retries. Exit 2 for a
+    usage error. A success prints one `vault-post: <type> <name>
+    shipped, <n> bytes` line.
+- **Seen**: `pg_stat_archiver` (`last_archived_wal`, `failed_count`,
+  `last_failed_wal`), the server log, `cron/basebackup.log`, and cold
+  storage's manifests and page (each manifest names its node).
 
 ## Connections
 
@@ -920,6 +1077,23 @@ weight at rest is within the measurement's noise: the cron daemon 2.5MB
 resident, the `pg_cron` launcher 16.7 to 16.9MB resident, mostly shared
 memory. The rehearsal measures them in a game.
 
+At rest in 0.5.0, a first figure (the stack test, armenelos, 2026-11-03,
+`docker stats` once at the end of a run, a 512M limit, the test's small
+clusters): `rec`, a primary with TLS and pgaudit on, the option
+`monitoring`, WAL archiving to the vault, a base-backup job and a
+standby streaming from it, 32.4MiB and no measurable CPU; its standby,
+`standby`, in recovery with `hot_standby_feedback` on, 36.2MiB; `pdb`, a
+`no-access` node, 30.8MiB; `db` and `db2` as in 0.4.0 (32.4 and
+29.3MiB). Each node's CPU at that moment was at most 4.3 % (a check's
+psql in flight). On disk after the run: `rec`'s `pgdata` 136M, 113M of
+it `pg_wal` (`max_wal_size` 512MB in the test seed, the segments the
+test switched and the archiver's retries), its log 92K with pgaudit's
+lines; the standby's `pgdata` 152M; a base backup of `rec` posted 41.4MB.
+TLS, pgaudit and archiving cost nothing visible at rest; their cost is
+under load (pgaudit's lines in `pglog`, a segment posted each time one
+fills or each hour, a base backup a night in `/run/tmp` while it posts),
+measured by the domains' runs (master spec 14).
+
 ### Snapshot
 
 How each volume is copied at hand-over (`snapshot:` in `brick.yaml`; v0.3
@@ -992,7 +1166,7 @@ scenario's, not the brick's, and are not listed here.
 | `pg-role-superuser` | state, after the data load | parameter `role`: a login role the data file creates |
 | `pg-join-index-missing` | state, after the data load | parameters `database`, `table-name`, `column`: a table the data file creates, with a foreign key and an index leading with that column; the scripts drop the index and run `ANALYZE` |
 | `pg-table-autovacuum-off` | state, after the data load | parameters `database`, `table-name`: a table the data file creates; the server-wide `autovacuum` stays `on`, so the validator stays green |
-| `pg-abandoned-replication-slot` | state, after the data load | parameter `slot-name`; no standby in the topology; a seed `postgresql.conf` that allows a physical slot (`wal_level` `replica` or above, `max_replication_slots` above 0: PostgreSQL's defaults); writes, for the retained WAL to grow |
+| `pg-abandoned-replication-slot` | state, after the data load | parameter `slot-name`; an orphan slot: no standby of the node, or a `slot-name` other than its standby's slot (from 0.5.0, master spec 6.4); a seed `postgresql.conf` that allows a physical slot (`wal_level` `replica` or above, `max_replication_slots` above 0: PostgreSQL's defaults); writes, for the retained WAL to grow |
 | `pg-stat-statements-not-preloaded` | seed file | the seed `postgresql.conf` (material `inject/postgresql.conf.snippet`) without `pg_stat_statements` in `shared_preload_libraries`, the logging settings above kept; the extension this version creates at initdb in database `postgres`; `gm-restart-db` for the fix (a reload is not enough); for its dashboard evidence, a `postgres-exporter` node with `--collector.stat_statements` |
 | `security-crontab-superuser` | seed file (`crontab`) | the cron daemon (a seeded `crontab`, material `inject/crontab.snippet`: an entry's `-U <role>` removed, so `psql` runs as `postgres` by peer); parameter `role`, in the node's `crontab_roles` and created by its data file with the entry's grant; `log_connections = on` for the evidence; the sealed check reads cron's spool as root and `rolsuper` through `check-psql` |
 | `purpose-day-boundary-wrong-zone` | seed file (`data`, spec D226) | the node's data file holding the sales reporting purpose's target part, `rpt.close_day()` replaced after it (material `inject/close_day.sql.snippet`, its zone from `load-data`'s `customer_utc_offset` plus parameter `offset`); the sealed check (`judges: runs`) reads `rpt.etl_runs` here and the source's orders through `check-psql --node` |
@@ -1155,9 +1329,41 @@ leaving the daemon up, `pg_cron` preloaded and a job scheduled with
 `cron.job_run_details`; v0.4 chunk 4b's: +300 in every child of the
 postmaster and 0 in the postmaster, s6, `sshd` and `cron`, on both
 nodes, and `check-psql --node` both ways, its refusals and its
-timeout), and removes everything it created, volumes included. No job
-is run by hand: each waits for its schedule, so the run takes about
-five minutes more than v0.3's.
+timeout; v0.5 chunk 3a's: the image's G5 conditions (pgaudit's exact
+pin and library, the OpenSSL floor, no snakeoil pair), `rec`, the v0.5
+primary (`postgresql-v05.conf`, `pg_hba-v05.conf`), serving TLS with the
+game's certificate made by `gmctl deploy`'s own generator (`verify-full`
+against it, its fingerprint on the wire) and turning plain connections
+away, `db` refusing TLS (its seed leaves it off), pgaudit's classes in
+the file log and readable by `player`, no password of `dba`,
+`monitoring`, `gm_check` or a role `load-data` sets (its own SQL, from
+`tools/gm/inject.py`) in that log and no SCRAM verifier either, the role
+`monitoring` on `db` and `rec` (the option) and neither it nor its
+secret on `db2`, an unknown option refused, and `pdb`, a `no-access`
+node (`pg_hba-partners.conf`): no `player` account, group, membership,
+sudo rules, `~/.pgpass` or SSH login, `sshd` and PostgreSQL up, `gmctl
+exec` as `postgres` working, `dba` rejected from the network; v0.5
+chunk 3b's: `standby`, cloned from `rec` the way `load-data` does it
+(`inject.replication_sql`, `clone-standby`, `inject.streaming_sql`),
+started while `rec` is down so the clone waits for it, then in recovery
+with `hot_standby_feedback` on, streaming from its slot `standby` in
+`rec`'s `pg_stat_replication`, answering a read over TLS and refusing a
+write, holding the primary's roles, its `primary_conninfo` naming the
+password file only, streaming again in a new container whose start skips
+the roles step, the hand-over snapshot on both nodes leaving only the
+standby's slot, and no replication password in either log; `rec`'s
+`archive_command` posting a switched segment to `vault` (a stand-in for
+cold storage, `tests/fixtures/vault-standin.pl`, run by the image's own
+Perl) whole with every header and the credential, a refusal and a short
+receipt failing honestly (the segment kept as `.ready`, `vault-post`'s
+reason in the server log, `pg_stat_archiver`'s failures), then shipped
+on the retry; `vault-post` with no vault (exit 1) and a bad usage (exit
+2); the base-backup job moved to the next minute, posted once, whole,
+its receipt in `cron/basebackup.log`), and removes everything it
+created, volumes included. No job is run by hand: each waits for its
+schedule (the base backup's moved one included); time is placed, never
+waited for: a WAL segment is switched by the test. A run takes a few
+minutes, well under 30.
 Its seed has `max_connections = 10`, the envelope's minimum. Needs a
 swarm manager and the image built.
 
@@ -1210,6 +1416,28 @@ the `postgres-exporter` brick's check.
   crontab only.
 - **`gm-crontab` on a node without a daemon** refuses a replacement:
   turning the daemon on is the scenario's seed, not the players'.
+- **The base backup's own errors go nowhere**: the crontab line's
+  `>> ... 2>&1` applies to `vault-post`, the pipeline's last command;
+  `pg_basebackup`'s messages are lost (no mail). Its failure still shows:
+  `vault-post` refuses a tar without its end-of-archive blocks, or
+  nothing on standard input, and says so in `cron/basebackup.log`.
+- **`vault-post` spools a base backup** to `/run/tmp` (the `run` volume)
+  before posting it, so the node needs room for one backup there, for
+  the time of the post.
+- **An archiving seed without a vault** fills `pg_wal`: every segment
+  waits for an `archive_command` that exits 1 ("no vault configured").
+  The scenario gives every archiving node `vault_target`.
+- **The standby's clone is `load-data`'s**, and a restart with no
+  snapshot clones it again (its load steps). **A restart restoring the
+  hand-over snapshot does not bring a standby back as one**: a base
+  backup leaves out `standby.signal` (so the restored standby would start
+  as a primary of its own) and `pg_replslot/` (so the restored primary
+  has no slot for it), and the two copies are taken at different
+  moments. Such a game needs the standby cloned again after the restore;
+  not built in 0.5.0 (reported for the restart's owner).
+- **`docker exec -u player` on a `no-access` node** resolves from the
+  image's account files, not the container's (see "`no-access`"): the
+  GM's own doing; no player reaches the node.
 
 ## `pg_cron`
 

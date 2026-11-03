@@ -1,0 +1,7 @@
+# Test seed for the PostgreSQL brick's stack test (bricks/postgres/tests): rec's crontab,
+# the nightly base backup (v0.5 master spec 7.1, 11.2; capture W1 item 6), in v0.4 W1
+# item 8's baseline form: its variables on lines of their own (PATH: vault-post in
+# /usr/local/bin, pg_basebackup in PostgreSQL's), the output appended to the job's log.
+# Low hours, scenario time; the stack test moves it to the next minute to see it run.
+PATH=/usr/local/bin:/usr/bin:/bin:/usr/lib/postgresql/18/bin
+30 3 * * * pg_basebackup -h /run/postgresql -D - -Ft -X fetch | vault-post basebackup "rec-$(date -u +\%Y\%m\%dT\%H\%MZ)" >> /var/log/postgresql/cron/basebackup.log 2>&1

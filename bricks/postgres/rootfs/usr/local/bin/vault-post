@@ -1,0 +1,171 @@
+#!/usr/bin/perl
+# vault-post: posts one WAL segment or one base backup to the vault, cold
+# storage's `POST /shipments` (v0.5 master spec 7.1, 10.4, 11.2; capture W1
+# item 6, specs/versions/v0.5/wave-log.md). Part of the image, on the same
+# trust line as every seed script: the seed's archive_command and the
+# crontab's nightly base backup call it.
+#
+# Usage: vault-post <type> <name> [<file>]
+#   <type>  wal or basebackup
+#   <name>  the shipment's name and id: the segment's file name (%f), the
+#           backup's name (<node>-<UTC time>)
+#   <file>  the payload (%p, relative to the data directory for the
+#           archiver); standard input when absent (pg_basebackup -D - -Ft)
+#
+#   archive_command = 'vault-post wal %f %p'
+#   <m> <h> * * * pg_basebackup -h /run/postgresql -D - -Ft -X fetch | vault-post basebackup "<node>-$(date -u +\%Y\%m\%dT\%H\%MZ)" >> /var/log/postgresql/cron/basebackup.log 2>&1
+#
+# The vault: /run/gm-vault/target (`<host>:<port>`) and, when the node
+# names a credential, /run/gm-vault/credential, both written by
+# gm-entrypoint at each start from the brick's parameters vault_target and
+# vault_credential and the secret http_<credential> (postgres-only). With
+# no target: exit 1, "no vault configured".
+#
+# The request: POST http://<target>/shipments, the payload's bytes as the
+# body (application/octet-stream), headers Shipment-Id and Shipment-Name
+# (<name>), Shipment-Type (<type>), Shipment-Rows (1), Shipment-From and
+# Shipment-To (the posting day, UTC), Shipment-Source (this node), and
+# Authorization: Bearer <credential> when there is one.
+#
+# A base backup must be a whole tar archive (its end-of-archive blocks): a
+# pg_basebackup failing midway is refused before anything is posted.
+#
+# Honest failure: exit 0 only on a 2xx receipt, JSON, naming this
+# shipment (shipment_id) and whose size equals the bytes sent; anything
+# else (a refusal, a timeout, no connection, a short or foreign receipt)
+# exits non-zero with one line on standard error saying why, so the
+# archiver keeps the segment and retries, and the crontab's log keeps the
+# reason. Core Perl only (HTTP::Tiny, JSON::PP): no package added (G5).
+use strict;
+use warnings;
+use HTTP::Tiny;
+use JSON::PP ();
+use POSIX qw(strftime);
+use Sys::Hostname qw(hostname);
+use File::Temp qw(tempfile);
+
+my $VAULT_DIR = '/run/gm-vault';
+my $TIMEOUT = 60;            # seconds, the whole request
+my $CHUNK = 1 << 20;         # bytes read and sent at a time
+
+sub fail {
+    my ($code, $why) = @_;
+    print STDERR "vault-post: $why\n";
+    exit $code;
+}
+
+sub read_line_file {
+    my ($path) = @_;
+    open(my $fh, '<', $path) or return undef;
+    my $v = <$fh>;
+    close($fh);
+    return undef unless defined $v;
+    chomp $v;
+    return $v eq '' ? undef : $v;
+}
+
+my ($type, $name, $file) = @ARGV;
+fail(2, 'usage: vault-post <wal|basebackup> <name> [<file>]')
+    if @ARGV < 2 || @ARGV > 3 || !defined $type || !defined $name;
+fail(2, "type $type is not wal or basebackup") unless $type eq 'wal' || $type eq 'basebackup';
+fail(2, "name $name: letters, digits, '.', '_' and '-' only")
+    unless $name =~ /\A[A-Za-z0-9][A-Za-z0-9._-]{0,127}\z/;
+
+my $target = read_line_file("$VAULT_DIR/target");
+fail(1, "no vault configured (no $VAULT_DIR/target: the node's vault_target is unset)")
+    unless defined $target;
+fail(1, "the vault target $target is not <host>:<port>")
+    unless $target =~ /\A[a-z0-9]([a-z0-9.-]*[a-z0-9])?:[0-9]{1,5}\z/;
+my $credential = read_line_file("$VAULT_DIR/credential");
+
+# The payload: the file, or standard input spooled to a temporary file
+# under /run/tmp (its size must be known before the request, and a short
+# read must not post a partial body as if it were whole).
+my ($path, $size, $spool);
+if (defined $file) {
+    $path = $file;
+    fail(1, "$type $name: cannot read $file") unless -f $path && -r _;
+    $size = -s _;
+} else {
+    my $fh;
+    ($fh, $spool) = tempfile('vault-post.XXXXXX', DIR => '/run/tmp', UNLINK => 1);
+    binmode(STDIN);
+    binmode($fh);
+    my $buf;
+    while (1) {
+        my $n = sysread(STDIN, $buf, $CHUNK);
+        fail(1, "$type $name: reading standard input: $!") unless defined $n;
+        last if $n == 0;
+        print {$fh} $buf or fail(1, "$type $name: spooling: $!");
+    }
+    close($fh) or fail(1, "$type $name: spooling: $!");
+    $path = $spool;
+    $size = -s $path;
+    fail(1, "$type $name: nothing on standard input") unless $size;
+}
+# A base backup is a tar archive (pg_basebackup -Ft): whole only with its
+# end-of-archive blocks, which a pg_basebackup failing midway never writes.
+if ($type eq 'basebackup') {
+    open(my $t, '<:raw', $path) or fail(1, "$type $name: cannot open $path: $!");
+    my $tail = '';
+    if ($size >= 1024) {
+        seek($t, -1024, 2);
+        read($t, $tail, 1024);
+    }
+    close($t);
+    fail(1, "$type $name: not a whole tar archive ($size bytes, no end-of-archive blocks): "
+         . "pg_basebackup failed?") unless length($tail) == 1024 && $tail !~ /[^\0]/;
+}
+
+open(my $in, '<:raw', $path) or fail(1, "$type $name: cannot open $path: $!");
+my $sent = 0;
+my $body = sub {
+    my $n = read($in, my $buf, $CHUNK);
+    return undef unless $n;
+    $sent += $n;
+    return $buf;
+};
+
+my $day = strftime('%Y-%m-%d', gmtime());
+(my $source = hostname()) =~ s/\..*//;
+my %headers = (
+    'Content-Type'    => 'application/octet-stream',
+    'Content-Length'  => $size,
+    'Shipment-Id'     => $name,
+    'Shipment-Name'   => $name,
+    'Shipment-Type'   => $type,
+    'Shipment-Rows'   => 1,
+    'Shipment-From'   => $day,
+    'Shipment-To'     => $day,
+    'Shipment-Source' => $source,
+);
+$headers{'Authorization'} = "Bearer $credential" if defined $credential;
+
+my $http = HTTP::Tiny->new(timeout => $TIMEOUT, agent => "vault-post ($source)", keep_alive => 0);
+my $res = $http->request('POST', "http://$target/shipments", {headers => \%headers, content => $body});
+close($in);
+
+my $status = $res->{status} // 0;
+if ($status == 599) {
+    my $why = $res->{content} // 'no answer';
+    $why =~ s/\s+/ /g;
+    $why =~ s/\A\s+|\s+\z//g;
+    fail(1, "$type $name: no answer from the vault at $target: " . substr($why, 0, 200));
+}
+my $text = $res->{content} // '';
+my $excerpt = substr($text, 0, 200);
+$excerpt =~ s/\s+/ /g;
+fail(1, "$type $name: the vault at $target refused it: $status $res->{reason}"
+     . ($excerpt ne '' ? ": $excerpt" : '')) unless $status =~ /\A2/;
+fail(1, "$type $name: sent $sent of $size bytes") unless $sent == $size;
+my $receipt = eval { JSON::PP->new->decode($text) };
+fail(1, "$type $name: the vault answered $status with no JSON receipt: $excerpt")
+    unless ref $receipt eq 'HASH';
+my $id = $receipt->{shipment_id} // '';
+fail(1, "$type $name: the receipt names shipment $id, not $name") unless $id eq $name;
+my $got = $receipt->{size} // '';
+fail(1, "$type $name: the vault received $got of $size bytes")
+    unless $got =~ /\A[0-9]+\z/ && $got == $size;
+print "vault-post: $type $name shipped, $size bytes, received at "
+    . ($receipt->{received_at} // '?') . "\n";
+exit 0;

@@ -105,6 +105,7 @@ class TestStatus(FittedGame):
             "    dba_password: password",
             "    tools_password: password, handed over",
             "    gm_check_password: password",
+            "    replication_password: password",
             "    tls.crt: certificate tls",
             "    tls.key: private key of certificate tls",
         ])
