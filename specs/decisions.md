@@ -593,3 +593,13 @@ v0.5's drafting. Take the next number from `doc-ids`; no ID is reused.
   in release gate items 8 and 9, unchanged, as 17b's two-host rehearsal.
   When the two-host runs happen: O161. Now in:
   [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunk 17.
+- **D311 (2026-11-03, owner ruling on O161, relayed by the wave driver):
+  v0.4 closes without its two-host runs, its rehearsal (chunk 17b and its
+  figures) and its stance check-list; they become v1.0 gating, run once
+  before the v1.0 tag, with the full-game testing none plays until then.**
+  Closes O161. The owner: "see if you can wrap up this wave and this
+  milestone without these". The footprints and the scenario's `resources`
+  stand as built; item 9's unobserved part stays in v0.4's gate (O162).
+  Now in: [versions/README.md](versions/README.md#v10-gating);
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 18;
+  [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunk 17, gates, release gate.

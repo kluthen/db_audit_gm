@@ -131,4 +131,38 @@ rehearsal, about two hours unattended with the aging minimum capped
 adds every purpose fault taken through its full cycle in a smoke run,
 its job moved as a player may, and names what no gate shows (a nightly
 job at its story's time, growth over a full aging, a night unattended)
-as known limits (D200).
+as known limits (D200). v0.4's gate left its two-host runs, its rehearsal and
+its stance check-list to v1.0 gating (D311, below).
+
+### v1.0 gating
+
+Checks run once before the v1.0 tag, at the end of v0.6, one-off as
+D193 makes the aged run; listed here so none is lost. Until then no
+release gate plays a full game for testing (the owner, D311: "We won't
+proceed to full game for testing until then"). What each runs on and
+how is set when v1.0's gate is planned; whether that gate also has an
+aged run is decided then (D193).
+
+- **The stance check-list**, a GM session played on a deployment with
+  verifier agents as `player`: v0.3's items and v0.4's (an overstep on
+  `reporting` judged and not credited, a request to run a job by hand
+  refused, `--since` taken from a report dating a fix outside the
+  runner, the feedback on a report about f10 judged against the
+  incident); v0.4's release gate item 13 (D311).
+- **Every two-host session**, under the VPS rule (D159, D209), the VPS
+  `active` for the run only and drained after: v0.4's scenario smoke run
+  on armenelos plus the VPS, every fault planted at once, every key and
+  job running, `reporting` on armenelos (v0.4
+  [master spec](v0.4/master-spec.md) 18 item 1; chunk 17a's skipped run,
+  D310); the two-host `smoke-load.sh` of v0.4's wave 4 gate (D311).
+- **v0.4's rehearsal** (master spec 18 item 6; chunk 17b, its release
+  gate item 12), about two hours on armenelos plus the VPS, without f10
+  and f7 (D283), with the timer-fired early check, a scheduler killed and
+  resuming, the hand-over check (f4 expected "too soon", D284) and a
+  restart; and the figures it measures: every node's memory and the
+  trace's growth per hour, extrapolated over the sixteen-hour aging,
+  into the bricks' "Footprint" and the scenario's `resources`, `fit`
+  re-run (D311).
+- **v0.4's cycles run past the scenario's midnight**, if O162 moves it:
+  f4's steps after the local midnight, f8's fixed reading and a clean
+  end-to-end verdict (D310).

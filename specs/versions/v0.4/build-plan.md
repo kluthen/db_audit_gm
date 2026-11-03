@@ -1,6 +1,10 @@
 # db_audit_gm v0.4 — Build plan
 
-Status: v13 (2026-11-03): the owner's ruling on chunk 17a's runs, 17a
+Status: v14 (2026-11-03): the owner's ruling on spec O161, the two-host
+runs, the rehearsal (17b) and the stance check-list moved to v1.0
+gating (spec D311), in the gates, the waves, chunk 17, the workflow
+deltas, the measurements and the release gate; item 9's unobserved part
+left to the owner (spec O162); v13 (2026-11-03): the owner's ruling on chunk 17a's runs, 17a
 done with its cycles run aborted at f4's wait for the scenario's midnight
 and without its two-host run (spec D310), in chunk 17; when the
 remaining two-host runs happen left open (spec O161); v12 (2026-11-02): the owner's ruling on chunk 17a's finding,
@@ -156,11 +160,11 @@ plan states only its deltas. Its conventions follow v0.3's
 | G4 | A Docker host in swarm mode: armenelos' swarm, the VPS a drained worker in it | Hand check by the wave driver | Every stack test, deployment and smoke run, chunk 9, every wave gate, the release gate | open |
 | G5 | **Dependency preflight** on `postgres` 0.4.0's new packages: the candidate versions of `postgresql-18-cron` (PGDG) and of Debian's `cron` with what it pulls in, installed without recommends (master spec 7.2, 19). A finding the owner must rule on becomes a gate of its own | `security-advisor` (skill `dependency-check`), called by the wave driver at wave 1's start | Chunk 4's branch | done (2026-10-30, wave log) |
 | G6 | **Dependency post-change check** on the versions chunks 4 and 19 resolved, and `.tech` updated (`postgres` 0.4.0, `scheduler` 0.2.0, `bastion` 0.4.0, the three packages), committed on `v0.4-w1` | `security-advisor`, called by the wave driver once chunks 4 and 19 have merged | Wave 1's gate | done (2026-10-30, 71ab68a) |
-| G7 | The VPS ready for two-host runs, under the VPS rule ("Workflow deltas"): `tailscale status` on both hosts; the VPS still a worker of armenelos' swarm, drained; no game port published on it; at least 5G free; filetstudio.com answering before and after | Hand check by the wave driver | The two-host `smoke-load.sh` from wave 2's gate; chunk 17's two-host runs; the release gate's two-host runs | checked at wave 2's gate (2026-10-30, 23:11–23:20 UTC); repeated at each later two-host run |
+| G7 | The VPS ready for two-host runs, under the VPS rule ("Workflow deltas"): `tailscale status` on both hosts; the VPS still a worker of armenelos' swarm, drained; no game port published on it; at least 5G free; filetstudio.com answering before and after | Hand check by the wave driver | The two-host `smoke-load.sh` of waves 2 and 3's gates; no later v0.4 run, every two-host session being v1.0 gating (spec D311) | checked at wave 2's gate (2026-10-30, 23:11–23:20 UTC); repeated at each later two-host run |
 | G8 | **The judged moment before the hand-over** (master spec 12.1): before the hand-over (the early check, the hand-over check, the smoke runs), a purpose check judges from the fault instance's planting moment, raised to the runner's last reload, as after it | The owner | Chunk 8's merge; the "Done when" of chunks 10, 11, 14, 15 as far as they read a check before a hand-over | done (2026-10-30, spec D217) |
 | G9 | **f10's measurement without swap, on armenelos only** (master spec 16.3): a one-off calibration container with its swap disabled for it alone, outside Swarm; armenelos keeps its swap | The owner | Chunk 9's no-swap measurement | done (2026-10-30, spec D218) |
 | G10 | **f10's calibration outcome** (spec D213): the backfill needs more than twice `reporting`'s limit and a normal run less than half of it, after `shared_buffers`, within a window the restored history allows. Ruled on chunk 9's shortfall at 512M (a normal run's `memory.peak` over half the limit): `reporting`'s limit raised to 640M, its reservation 256M; the window as designed, the thirty-day request; chunk 15b re-measures at 640M. Ruled on 15b's shortfall at 640M (a normal run 327 MiB): accepted as measured, no criterion change, no re-run (spec D252) | Chunk 9's figures, applied by the wave driver; the owner on a shortfall | Chunk 15's f10 half; chunk 16 | done (2026-10-30, spec D227; 15b's figure accepted 2026-10-31, spec D252) |
-| G11 | The owner's judgement at release close: the smoke cycles, f10's run, the rehearsal, the feedback (overstepping and the incident report included), the named known limits | The owner | Release close | open |
+| G11 | The owner's judgement at release close: the smoke cycles as run (spec D310), f10's run, the named known limits and what moved to v1.0 gating (spec D311) | The owner | Release close | open |
 | G12 | **spec O134**: does the starter-pack page make the web front run in every game (master spec 7.3, 22)? Ruled yes: the front in every game, its home the page, nothing more in v0.4; chunk 19 split, 19b taking the loader's port rule and the scenarios without a web interface | The owner | Chunk 19's branch | done (2026-10-30, spec D224) |
 | G13 | **Dependency preflight** on `bastion` 0.4.0's new package: the candidate version of Debian 13's `cmark-gfm` with what it pulls in, installed without recommends (spec D222). A finding the owner must rule on becomes a gate of its own | `security-advisor` (skill `dependency-check`), called by the wave driver | Chunk 19's branch | done (2026-10-30, wave log) |
 
@@ -175,7 +179,7 @@ with the owner's ruling of spec D221, during wave 1.
 | 1 | 1, 2, 3, 4, 5, 19 | G1 (done); G2 (chunk 1, done); G3, G4; G5 (chunk 4); G12, G13 (chunk 19); G6 before its gate | gated (2026-10-30, 4064719) |
 | 2 | 6, 7, 8, 9, 10, 11 | wave 1; G8, G9 (done); G7 (the gate's two-host run) | gated (2026-10-30, f35dd40) |
 | 3 | 12, 13, 14, 15, 20 | wave 2; G10 (chunk 15's f10 half, done) | merged (gate passed 2026-10-31, 5e8eb84) |
-| 4 | 16, 17, 18, 21 | wave 3; G7 (chunk 17's two-host runs) | in progress (from 2026-11-02) |
+| 4 | 16, 17a, 18, 21 (17b moved to v1.0 gating, spec D311) | wave 3 | in progress (from 2026-11-02) |
 
 ```
 1 ──> 2, 3, 4, 19      (in wave 1, cut once chunk 1 has merged into v0.4-w1; W1)
@@ -200,7 +204,7 @@ G12, G13 ──> 19
 12 ──> 20              (in-wave: chunk 12 merged; chunk 20 extends its G1, spec D253)
 13, 14, 15 ──> 16
 16 ──> 17              (in-wave: the scenario's instances and the jobs the harness moves; W4)
-21 ──> 17              (in-wave, merge order only: 17a's runs after its branch merges v0.4-w4 in, and 17b, on pgbouncer 0.1.1; spec D305)
+21 ──> 17              (in-wave, merge order only: 17a's runs after its branch merges v0.4-w4 in, on pgbouncer 0.1.1; spec D305)
 8, 9, 12, 20 ──> 17
 6, 7, 8, 14, 15 ──> 18
 ```
@@ -243,8 +247,9 @@ Wave 4: chunk 21 was inserted while 17a was paused (spec D305): fix-sized,
 cut from `v0.4-w4` at the first free slot and handed by the driver to a
 `coding-executor`, it shares no file with 17a and merges before wave 4's
 gate. 17a's branch merges `v0.4-w4` in once chunk 21 has merged, so its
-remaining runs use `pgbouncer` 0.1.1; 17b is cut after that. No
-`documentalist` peek, as for chunk 20.
+remaining runs use `pgbouncer` 0.1.1. 17b, the rehearsal and its
+figures, left v0.4 for v1.0 gating (spec D311). No `documentalist`
+peek, as for chunk 20.
 
 ## Workflow deltas
 
@@ -267,8 +272,8 @@ remaining runs use `pgbouncer` 0.1.1; 17b is cut after that. No
   touching it checks `tailscale status` on both hosts first. A swarm
   membership change on the VPS is a downtime scheduled with the owner,
   never done unannounced. The VPS node **stays `drain`**; only a two-host
-  run (a wave gate's two-host smoke run, chunk 17's two-host runs, the
-  release gate's) sets it `active`, inside that run's host lock, and
+  run (a wave gate's two-host smoke run; none after wave 3's gate in
+  v0.4, every two-host session being v1.0 gating, spec D311) sets it `active`, inside that run's host lock, and
   drains it again after, pass or fail (`docker node update
   --availability active|drain vps-5718ad52`, run by the owner if the
   auto-mode classifier refuses). **Never for f10**: chunk 9's
@@ -323,11 +328,14 @@ remaining runs use `pgbouncer` 0.1.1; 17b is cut after that. No
   on `bookshop-new-server`, `fernway-clinics-monitoring` and
   `tarnbeck-outdoor-shop`, v0.3's smoke runs unchanged on the new
   versions (master spec 16.4); `sh tools/tests/smoke-load.sh` on armenelos
-  alone, and from wave 2 on armenelos plus the VPS (G7; the VPS `active`
-  for that run only, declared `shared`); from wave 3, chunk 13's
+  alone, and at waves 2 and 3 on armenelos plus the VPS (G7; the VPS
+  `active` for that run only, declared `shared`; wave 4's two-host run
+  is v1.0 gating, spec D311); from wave 3, chunk 13's
   deployment of `fixture-campaign` with every job running and G1 to G4
-  passing; from wave 4, chunk 17's runs on the new scenario, with no
-  pooler WORKAROUND line (spec D305).
+  passing; from wave 4, chunk 17a's runs on the new scenario on
+  armenelos alone (the baseline's G1 to G4, f10's run, the cycles run up
+  to f4's wait for the scenario's midnight, spec D310), with no pooler
+  WORKAROUND line (spec D305).
 - No link checker is configured; Markdown links are checked by reading.
 - Images are tagged `127.0.0.1:5000/dbagm/<brick>:<version>`, as before;
   every pinned download is checked against its published checksum in the
@@ -356,9 +364,10 @@ remaining runs use `pgbouncer` 0.1.1; 17b is cut after that. No
   page cache), accepted as measured (spec D252); the backfill killed.
 - Every node's memory at peak, `reporting`, `bi`, `crm` and `gateway`
   included; the trace's growth per hour, extrapolated over the
-  sixteen-hour aging and stated as an extrapolation: chunk 17b's
-  rehearsal on armenelos plus the VPS, recorded in the wave log with
-  machine and date; measured again at the release gate.
+  sixteen-hour aging and stated as an extrapolation: the rehearsal's,
+  v1.0 gating with it (spec D311). In v0.4, chunk 17a's per-node memory
+  readings on armenelos (wave log, "Chunk 17a — merged") are one-host
+  smoke readings, quoted in the release notes, not footprints.
 - No aged run (spec D193): none is planned before v1.0.
 
 ## Left for the build (master spec 22)
@@ -369,7 +378,7 @@ checks that each is recorded.
 
 | Item | Chunk |
 |---|---|
-| Every footprint, the new nodes' starting sizes, the trace's growth per hour | 3, 4 (at rest); 17b (rehearsal) |
+| Every footprint, the new nodes' starting sizes, the trace's growth per hour | 3, 4 (at rest); the starting sizes as chunk 16 set them; the rehearsal's figures v1.0 gating (spec D311) |
 | f10's backfill window | 9 (G10) |
 | The gateway's acknowledgement delay and how the unacknowledged one in fifty is chosen | 11 |
 | The gateway outage's moment, and the timeline moments of f2 and f8 within the aging | 14 (the faults' definitions), 16 (the scenario) |
@@ -1203,18 +1212,19 @@ Wave: 4
 Depends on: chunks 8, 9, 12, 20; chunk 16 (in-wave, W4), merged into `v0.4-w4`
 before this chunk's branch is cut; chunk 21 (in-wave, spec D305): 17a's
 runs after its branch has merged `v0.4-w4` in once chunk 21 has merged,
-and 17b, run on `pgbouncer` 0.1.1, a 17a run before that relying on its
-harness's counted WORKAROUND; G4; G7 (17b)
+a 17a run before that relying on its harness's counted WORKAROUND; G4
 Architecture capture: none of its own; it uses W4.
+Moved: 17b, the rehearsal and its figures, left v0.4 for v1.0 gating by
+the owner's ruling (spec D311), listed in the roadmap's
+[v1.0 gating](../README.md#v10-gating); the chunk is 17a in v0.4.
 
 - Goal: the harness and the runs master spec 18 asks for, run once on the
   merged scenario.
 - Scope: in:
   - **17a, the smoke cycles**: on the scenario, every fault planted at
     once and every scheduler key and job running, on armenelos alone
-    (its run on armenelos plus the VPS, `reporting` mapped to armenelos
-    and f10's job never moved there, not run by 17a, spec D310: still
-    release gate item 8, when it runs spec O161); every purpose fault
+    (its run on armenelos plus the VPS not run by 17a, spec D310, and
+    v1.0 gating, spec D311); every purpose fault
     through its whole cycle
     (planted; its job moved to run within two minutes by an edit of
     `jobs.yaml` and a reload, done as root on a report-only node; present;
@@ -1224,7 +1234,7 @@ Architecture capture: none of its own; it uses W4.
     the moved time (spec D246), f5's cycle ending before f4's and f7's
     (W4 item 4), the cycles run counted as it stood when aborted at f4's
     wait for the scenario's midnight, f4's steps after it not run (spec
-    D310: still release gate item 9); f6 and f9 present
+    D310: still release gate item 9, spec O162); f6 and f9 present
     then fixed after their acceptance fix; the unfaulted scenario (a
     scratch copy whose seed-changed files are `fixture-campaign`'s, every
     instance left out by the harness-only override, W4 item 8),
@@ -1239,20 +1249,9 @@ Architecture capture: none of its own; it uses W4.
     armenelos alone, the VPS drained,
     its check present, PostgreSQL recovered, s6, `sshd` and `cron`
     untouched;
-  - **17b, the rehearsal and the figures**: `rehearsal.sh` on the
-    scenario, about two hours on armenelos plus the VPS, the aging
-    capped by the harness override, its hand-over placed so the hourly
-    and quarter-hour jobs and the peak run inside it; `start-load`, a
-    scheduled `inject --at`, the early check fired by the host's timer,
-    a scheduler killed and resuming, the hand-over check and snapshot (f4
-    expected 3, f5 planted minutes after the start, spec D284; after
-    17a's hand-over check change), a
-    restart; without f10 and f7 (spec D283), by the harness-only
-    override leaving an instance's planting and check out, its seed
-    changes staying (never usable in a game); every node's memory and the
-    trace's growth per hour, extrapolated over the sixteen hours; the
-    figures into the bricks' `docs/gm.md` and `brick.yaml` ("Footprint")
-    and the scenario's `resources`, `fit` re-run.
+  - **17b, the rehearsal and the figures**: moved to v1.0 gating (spec
+    D311), as master spec 18 item 6 describes it; the bricks' "Footprint"
+    and the scenario's `resources` stand as built.
   - Out: the release notes (release gate).
 - Files: `tools/tests/smoke-purposes.sh` (new; or `smoke-scenario.sh`
   extended, as the build finds), `tools/tests/{smoke-scenario,rehearsal}.sh`,
@@ -1262,21 +1261,21 @@ Architecture capture: none of its own; it uses W4.
   test (spec D284); `.claude/skills/game-master/gmctl.md` (its hand-over
   check line only; chunk 18 merged) and
   `.claude/skills/scenario-format/templates/answer-key.yaml` (the
-  `at_handover` comment only); 17b: `bricks/{scheduler,postgres}/{brick.yaml,docs/gm.md}`
-  ("Footprint"), `scenarios/<id>/{scenario.yaml,README.md}`.
+  `at_handover` comment only).
 - Spec sections: master spec 6.2, 11.6, 12.1, 12.2, 12.5, 13.3, 16.1,
   16.3, 18 (items 1 to 6); access model 6, 7; spec D241, D246; D253 (the
   baseline's G1), D256, D257 (f10's check and the night after); D283;
-  D284 (f4's 3 at the hand-over check); D310 (17a's runs as run).
-- Done when: every run passes as listed, 17a's as spec D310 accepts them
-  (its cycles run passing up to f4's wait for the scenario's midnight, no
-  two-host run), its figures recorded with machine and date in the Record
-  line and the wave log; the VPS drained after each two-host run and
-  never active during f10's.
-- Verification: chunk checks, plus the runs (needs G4; G7 for 17b), each under
+  D284 (f4's 3 at the hand-over check); D310 (17a's runs as run); D311
+  (17b moved).
+- Done when: 17a's runs pass as spec D310 accepts them (its cycles run
+  passing up to f4's wait for the scenario's midnight, no two-host run),
+  its figures recorded with machine and date in the Record line and the
+  wave log; the VPS never active during f10's run.
+- Verification: chunk checks, plus the runs (needs G4), each under
   the host lock and a sleep inhibitor, alone on the hosts.
 - Split rule: 17a the smoke cycles, the baseline's G1 to G4 and f10's
-  run; 17b the rehearsal and the figures.
+  run; 17b the rehearsal and the figures, moved to v1.0 gating (spec
+  D311).
 
 ### Chunk 18 — The GM skill for v0.4
 
@@ -1595,15 +1594,17 @@ Owner: a `coding-executor` on the wave branch, briefed by the driver
 
 Against master spec sections 17 and 18, on `v0.4-w4` before it merges,
 alone on the hosts, under the host lock and a sleep inhibitor, with
-v0.1's to v0.3's checks still applying. **No aged run** (spec D193): an
-aged run is a one-off check, none before v1.0. GM sessions are fresh
-agents reading `.claude/skills/game-master/` as their instructions; the
-driver plays the initiator; verifier agents play as `player` through the
-bastion only; GM-side checks run from the host.
+v0.1's to v0.3's checks still applying except those spec D311 moves.
+**No aged run** (spec D193): an aged run is a one-off check, none before
+v1.0. **No GM session and no run on the VPS** (spec D311): the stance
+check-list, every two-host run and the rehearsal are v1.0 gating, listed
+in the roadmap's [v1.0 gating](../README.md#v10-gating); the VPS stays
+drained throughout. GM-side checks run from the host.
 
 1. Item 1: `scheduler` 0.2.0, `postgres` 0.4.0, `bastion` 0.4.0 and
    `pgbouncer` 0.1.1 pass the format skill's `docs/gm.md` check, with their validators and
-   measured footprints; G5, G6 and G13 cleared, `.tech` current; the
+   measured footprints (their chunks' stack tests at rest; the
+   rehearsal's figures v1.0 gating, spec D311); G5, G6 and G13 cleared, `.tech` current; the
    scenario's starter-pack page showing its four elements.
 2. Item 2: `formats.md`, the templates, the loader and the format skill
    carry master spec 6, the placement guideline included.
@@ -1615,19 +1616,26 @@ bastion only; GM-side checks run from the host.
 5. Item 6: the scenario complete by the format skill, its data policy
    written, its README current.
 6. Item 7: `gmctl`, the loader and render as in master spec 14, checked
-   through items 8 to 12.
+   through items 8 to 11.
 7. Item 8: the three existing scenarios re-pinned, each deploying and
    passing its v0.3 smoke test unchanged, every bastion serving the
    starter-pack page, `bookshop-new-server`'s with no web interface
    (spec D224); every existing fault's `applies_to` carrying the new
    versions.
-8. Master spec 18.1: the scenario's smoke run on armenelos alone and on
-   armenelos plus the VPS, every fault planted at once, every key and job
-   running; `fit` refusing the VPS for `reporting`; the VPS drained after.
+8. Master spec 18.1: the scenario's smoke run on armenelos alone, every
+   fault planted at once, every key and job running; `fit` refusing the
+   VPS for `reporting` on the two-host playground declaration (the VPS
+   declared `shared`, never set `active`: a placement check, no
+   deployment). The run on armenelos plus the VPS: v1.0 gating (spec
+   D311).
 9. Master spec 18.2 and 18.3: every purpose fault's full cycle (f1 to f5,
    f7, f8), f4's moving the producer's invoicing, f5's and f7's with
    `--since`;
-   f6 and f9 present, then fixed after their acceptance fix.
+   f6 and f9 present, then fixed after their acceptance fix. Chunk 17a's
+   cycles run passed up to f4's wait for the scenario's midnight (spec
+   D310); what it left unobserved, f4's steps after that midnight, f8's
+   fixed reading and a clean end-to-end verdict, is run here unless the
+   owner moves it to v1.0 gating (spec O162).
 10. Master spec 18.4: the unfaulted scenario passing G1 to G4, rebuilt
     from `fixture-campaign`'s files (capture W4 item 8).
 11. Master spec 18.5: f10 calibrated (G10 done, re-measured at 640M by
@@ -1635,25 +1643,29 @@ bastion only; GM-side checks run from the host.
     and run on armenelos
     alone, the VPS drained: its check present, PostgreSQL recovered, s6,
     `sshd` and `cron` untouched.
-12. Master spec 18.6: the rehearsal re-run on the merged code without
-    f10 and f7 (spec D283), on armenelos plus the VPS, every step passing,
-    its hand-over check passing with f4 read "too soon" as its answer key
-    expects (master spec 12.2, spec D284), every node's
-    memory within the declared figures, the trace's growth per hour
-    measured and extrapolated, stated as such.
-13. Item 9, the stance check-list on a deployment of the scenario: v0.3's
-    items, plus an overstep on `reporting` judged and not credited, a
-    request to run a job by hand refused, `--since` taken from a report
-    dating a fix outside the runner, the feedback on a report about f10
-    judged against the incident.
-14. The wave-gate quality command, green.
+12. Master spec 18.6, the rehearsal: v1.0 gating (spec D311), not run
+    in v0.4.
+13. The stance check-list (v0.3's items, plus an overstep on
+    `reporting` judged and not credited, a request to run a job by hand
+    refused, `--since` taken from a report dating a fix outside the
+    runner, the feedback on a report about f10 judged against the
+    incident): v1.0 gating (spec D311), not played in v0.4.
+14. The wave-gate quality command, green, without its two-host run
+    (spec D311).
 15. Every row of "Left for the build" has its finding recorded in the
-    chunk's Record line and, for a brick, its `docs/gm.md`.
+    chunk's Record line and, for a brick, its `docs/gm.md`; the
+    rehearsal's part of the footprint row is v1.0 gating (spec D311).
 16. G11: the owner's judgement.
-17. Release notes in [README.md](README.md): the measured figures, the
-    known limits named by master spec 18.7 (the nightly close running at
-    its story's time; the trace's growth over a full aging extrapolated,
-    not observed; hosts and timers through a night; f10 within a real
-    aging), f10's normal run at 327 MiB against the 320 MiB half (spec
+17. Release notes in [README.md](README.md): the measured figures, chunk
+    17a's per-node memory on armenelos quoted as one-host smoke readings
+    within the declared limits, the bricks' footprints and the scenario's
+    `resources` standing as built; the known limits named by master spec
+    18.7 (the nightly close running at its story's time; the trace's
+    growth over a full aging, neither observed nor, without the
+    rehearsal, extrapolated; hosts and timers through a night; f10
+    within a real aging), what moved to v1.0 gating (spec D311: every
+    two-host run, the rehearsal with its timer-fired early check and its
+    figures, the stance check-list; item 9's unobserved part too if spec
+    O162 moves it), f10's normal run at 327 MiB against the 320 MiB half (spec
     D252), the limits of `load-data`'s `pg_cron` clean-up (master spec
     14, spec D258), and the access model's known gaps that stand.

@@ -372,7 +372,9 @@ regulated domains of v0.5 ([v0.5](../v0.5/README.md#domains)).
 v0.4's definition of done is in its [master spec](master-spec.md#17-definition-of-done), section 17, its release gate in section 18. Its release
 gate has no aged run (D193): it relies on the smoke tests, the
 rehearsal and the early check fired by the host's timer
-([roadmap](../README.md#release-gates)). For purposes this means:
+([roadmap](../README.md#release-gates)). On 2026-11-03 its two-host
+runs, its rehearsal and its stance check-list moved to
+[v1.0 gating](../README.md#v10-gating) (D311). For purposes this means:
 
 - Every purpose fault is taken through its whole cycle in a smoke run:
   present, then too soon after the fix, then fixed, its job moved as a

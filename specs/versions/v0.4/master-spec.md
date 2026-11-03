@@ -41,7 +41,9 @@ reading 2 when a player alters the backfill request (16.5); the
 rehearsal without f7 as well as f10, both nightly (18). Then the
 owner's ruling on f5 masking f4: times kept, f4 expected "too soon" at
 the hand-over check, which passes a "too soon" its answer key expects
-(6.2, 12.2, 16.1).
+(6.2, 12.2, 16.1). On 2026-11-03 the owner moved the two-host runs, the
+rehearsal and the stance check-list to v1.0 gating, run once before the
+v1.0 tag (18).
 
 ---
 
@@ -1949,8 +1951,18 @@ The access model lists this as a known gap.
 ## 18. The release gate
 
 No aged run: an aged run is a one-off check, none is planned before
-v1.0 ("it takes too much time"). v0.4's gate has the smoke tests, the
-rehearsal and the timer-fired early check, and adds:
+v1.0 ("it takes too much time"). v0.4's gate has the smoke tests and
+adds the items below.
+
+**Moved to v1.0 gating** by the owner on 2026-11-03, run once before
+the v1.0 tag, with the full-game testing no gate plays until then
+([roadmap](../README.md#v10-gating)): item 1's run on armenelos plus
+the VPS (`fit`'s refusal of the VPS for `reporting` stays in v0.4's
+gate); item 6, the rehearsal, with the timer-fired early check it
+carries and the measurements 7.2, 9.8, 13.2 and 16.1 leave to it, the
+bricks' footprints and the first scenario's starting figures standing
+as built until then; and the stance check-list, a GM session played
+with verifier agents as `player`. Item 7 names them.
 
 1. **Smoke tests** on one host and on armenelos plus the VPS, every
    fault planted at once (a test harness, never a game), every scheduler
@@ -1988,7 +2000,7 @@ rehearsal and the timer-fired early check, and adds:
 7. **Known limits, named** in the release notes: the nightly close
    running at its story's time; the trace's growth over a full aging
    (extrapolated, not observed); hosts and timers through a night; f10
-   within a real aging.
+   within a real aging; what moved to v1.0 gating, above.
 
 ## 19. For the build plan
 
