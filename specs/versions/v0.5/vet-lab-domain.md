@@ -1,6 +1,6 @@
 # v0.5 — `vet-lab`, the clinic's lab
 
-Status: draft v5, ready for review: the draft document of procedure
+Status: draft v6, ready for review: the draft document of procedure
 step 9, for the owner to approve with v0.5's master spec; not approved.
 Steps 2 to 8 are done: the business sketch ruled, every default
 accepted (D301, closing O151); step 3 not a part's, the lab's boundary
@@ -12,8 +12,11 @@ purposes (D306); the purposes ruled (D306, D307) in
 [clinic-purposes.md](clinic-purposes.md); the traps listed (step 8, no
 owner checkpoint, D309) in [clinic-traps.md](clinic-traps.md). The
 centre's sent requests are cancelled by the lab only, the feed carrying
-the cancellation (D315). Open: the format's finalisation (O111, at
-consolidation).
+the cancellation (D315). On 2026-11-03 the four remaining parts folded
+in (D317–D325): the analysers are `vet-machinery`'s machines 1–6 by its
+mapping (D319), and `vet-portal-release` reads the lab's released
+results as `lab_release` (D320). Open: the format's finalisation (O111,
+at consolidation).
 
 `vet-lab` is the biology lab of the centre a scenario deploys (D285),
 the second domain through the [procedure](domain-procedure.md) (D235,
@@ -74,7 +77,11 @@ Built on, not reopened:
 - **The analysers** are machines: their readings and run logs are
   `vet-machinery`'s, their results reach `vet-lab` through its
   instrument batch uploads; heavy continuous data follows cold storage
-  (D288, D296–D298).
+  (D288, D296–D298). `vet-machinery` numbers them (D319): 1–2
+  haematology, 3–4 biochemistry, 5 blood gas and electrolytes, 6
+  coagulation; the telemetry and events are that part's, with no
+  row-level match to `lab_batches` (a fault leaning on one brings its
+  own material).
 - **pgaudit** is always available and turned on by the seed (D261); the
   lab's audit trail is one of the clinic's governance cases (D191).
 - **The rules already ruled for the clinic** (D280): a result reaches the
@@ -512,7 +519,7 @@ The load writes these ids, each sequence resuming after its range
 | `lab_accounts.id` | 1–121 | 1 the centre (`internal`); account `a` from 2 to 121 is referring practice `3 × (a − 1)` (3, 6, … 360) |
 | History | `lab_orders` 1–14 000, `lab_samples` 1–18 000, `lab_order_tests` 1–24 000, `lab_results` 1–192 000, the others as loaded | in time order over the year |
 | Core keys used | `request_id` among the core's analysis requests (1–17 000); `animal_id` 1–17 000; lab staff 71–80 | as the core documents them (D302) |
-| Machines | `machine_id` 1–6, the lab's analysers | the range `vet-machinery` takes when it is defined (D302) |
+| Machines | `machine_id` 1–6, the lab's analysers | `vet-machinery`'s range (D302, D319): 1–2 haematology, 3–4 biochemistry, 5 blood gas and electrolytes, 6 coagulation; the on-call analysers at night 1, 3 and 5 |
 
 **Two constraints on the core's load (D302).** So that the lab's
 history refers to the core's without reading it (procedure 4), applied
@@ -545,9 +552,13 @@ secret.
 | `lab_dispatch` | the centre's jobs posting results to the practices and send-outs to the external lab | orders, order tests, results, accounts, samples | callbacks, send-outs, sample events (`sent-out`) |
 | `lab_reports` | the periodic reports and statements, writing to `office` (D300) | every table | nothing |
 
-The purposes' roles (the results' return to the core, the release to
-the portal, the notifications, the statements) come with step 7,
-drafted in [clinic-purposes.md](clinic-purposes.md#the-roles-the-purposes-add).
+The purposes' roles (the results' return to the core, the
+notifications, the statements) come with step 7, drafted in
+[clinic-purposes.md](clinic-purposes.md#the-roles-the-purposes-add);
+the release to the portal adds `lab_release`, read-only on the centre's
+released results of account 1 (`lab_order_tests.released_at`,
+amendments by `lab_results.supersedes_id`), on `interfaces` (D320); the
+lab's tables are unchanged.
 
 ### Reference sizes
 
@@ -587,8 +598,9 @@ D302):
 5. **Two constraints on the core's load**: requests as functions of
    their id, lab staff 71–80 (above), applied in
    [vet-core](vet-core-domain.md#deterministic-key-ranges-d249-d266).
-6. **The analysers are `vet-machinery`'s machines 1–6**, a range that
-   part takes when it is defined.
+6. **The analysers are `vet-machinery`'s machines 1–6**, numbered by
+   that part (D319): 1–2 haematology, 3–4 biochemistry, 5 blood gas,
+   6 coagulation.
 7. **Accounts on every third practice**, 3 to 360: 120 of the core's 400.
 8. **Five application roles**: the information system, the order API,
    the analysers' middleware, the dispatch jobs, the reports.
@@ -818,7 +830,7 @@ Fixed-time operations (`jobs.yaml`, scenario time):
 | Job | When | What |
 |---|---|---|
 | `lab.qc.morning` | `45 6 * * *` | QC on every analyser before the bench opens: three levels for haematology, two for the others, about 15 runs; one in fifty fails, by a hash of the run's id |
-| `lab.qc.night` | `15 21 * * *` | QC on the on-call analysers before the night (one haematology, one biochemistry, the blood gas): about 7 runs |
+| `lab.qc.night` | `15 21 * * *` | QC on the on-call analysers before the night (machines 1, 3 and 5: one haematology, one biochemistry, the blood gas, D319): about 7 runs |
 | `lab.release.round` | `0 11,14,18 * * 1-6` and `0 11 * * 0` | the pathologist's round: every technically validated test not held released (rule 1), orders completed, the outside tests' charges billable on the release's date (rule 13) |
 | `lab.samples.dispose` | `0 6 * * *` | samples past their keep-until disposed, a `disposed` event; a custody sample kept until its case closes (rule 12) |
 | `lab.identity` | `* * * * *` | the centre's new orders lacking the animal's identity: each animal read from the core's lookup API (`GET /animals/{id}`, `/owner`) and its species, sex, born on, natural identifiers, food-chain status and the owner's surname written on the order; a read, a call and a write: a script job holding the `lab` connection and an HTTP one to `clinic-api` (D303) |
@@ -999,8 +1011,10 @@ Ruled with `vet-core`'s (D306, D307), each its own unit under
 `purposes/` ([clinic-purposes.md](clinic-purposes.md) 2): fitting the
 lab, `vet-lab-centre-orders`, `vet-lab-practice-results`,
 `vet-lab-send-outs`, `vet-notifiable-diseases`, `vet-lab-critical-calls`,
-`vet-head-office-figures` and `vet-lab-statements`. Named for later: the
-release to the portal, drafted with `vet-portal` (D304).
+`vet-head-office-figures` and `vet-lab-statements`; with `vet-portal`,
+purpose 15, `vet-portal-release`, reading the centre's released results
+(D320, numbered by D324,
+[clinic-purposes.md](clinic-purposes.md#16-the-parts-purposes-11-to-16)).
 
 ## Traps (step 8)
 
@@ -1032,9 +1046,11 @@ loads, `vet-lab-statements` plants the year's statements in `office`
 
 ## Open points
 
-- **O111**: the domain format, finalised in v0.5's master spec (D291).
+- **O111**: the domain format, finalised in v0.5's master spec (D291),
+  with the composition rules (D322, D323,
+  [procedure](domain-procedure.md) 10).
 
-Settled on 2026-11-03: the centre's sent requests are cancelled by the
+Settled on 2026-11-03: the four parts folded in (D317–D325); the centre's sent requests are cancelled by the
 lab only, the results feed carrying cancelled tests beside released and
 unperformed ones (D315); v0.5 builds the test selection's ten faults and
 its false alarm (D316).
