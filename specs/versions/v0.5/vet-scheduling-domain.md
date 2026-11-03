@@ -33,10 +33,10 @@ the master spec, O111):
 
 | In the folder | Stated in |
 |---|---|
-| `domain.yaml`: `id` `vet-scheduling`, `requires: [vet-core]`, tables and roles prefixed `sched_`, the purposes that fit | [What scheduling holds](#what-scheduling-holds); [Purposes that fit](#purposes-that-fit-step-7) |
+| `domain.yaml`: `id` `vet-scheduling`, `requires: [vet-core]`, tables and roles prefixed `sched_`, the purposes that fit | [What scheduling holds](#what-scheduling-holds); [Purposes that fit](#purposes-that-fit-step-7-ruled-d317) |
 | `variants/regional-franchise.yaml`: the part's own axes in a manifest of the core variant's name (D301 answer 15) | [The variant](#the-variant-its-scale-and-its-tags) |
 | `data/schema.sql`: tables, the exclusion constraints, the slot function and the release trigger, roles and grants, landing in `clinic` (ruled, D317) | [The data model](#the-data-model-step-4) |
-| `data/load.sql`: the year's bookings, rota and sessions, the agenda ahead at T0, computing the core's ids by its functions | [Deterministic key ranges](#deterministic-key-ranges-d249-d266), [The history before T0](#the-history-before-t0-d279), [Loading](#loading) |
+| `data/load.sql`: the year's bookings, rota and sessions, the agenda ahead at T0, computing the core's ids by its functions | [Deterministic key ranges](#deterministic-key-ranges-d249-d266), [The history before T0](#intensity-and-the-history-before-t0-d276-d279), [Loading](#loading) |
 | `data/classification.yaml`: every column classed | [Classification](#classification) |
 | `docs/policy.md` and a `governance:` fragment | [The rules](#the-rules-ruled-d317) |
 | `producers/`: the practice software's scheduling fragments, on `pms` (D276) | [The producer profiles](#the-producer-profiles-step-6) |
@@ -1065,7 +1065,7 @@ classes as an aging finds them.
 **No node of its own.** The part's tables in `clinic` on `records`
 (O171); its producer fragments on `pms` (D276); its purposes on
 `interfaces` and `backoffice`, the runners that exist. Estimate against
-[clinic-capacity](clinic-capacity.md#the-whole-clinic-about-26-to-32-nodes):
+[clinic-capacity](clinic-capacity.md#the-whole-clinic-23-nodes-25-to-27-with-d238s-monitoring):
 
 | Where | Adds | Reservation |
 |---|---|---|
