@@ -96,6 +96,7 @@ plan states only its deltas. Its conventions follow v0.4's
 | G9 | **Dependency preflight** on the monitoring breadth (spec D340): the latest pgwatch 3 release (a checksum-pinned download), Prometheus 3.13 re-checked as the sink's scraper, `check_postgres` (Debian), the health node's web server, pgCluu's package (master spec 7.4, 21) | `security-advisor`, called by the wave driver at wave 2's start | Chunk 10's branch | open |
 | G10 | **Dependency post-change check** on chunk 10's resolved versions (`pgwatch` 0.1.0, `health-check` 0.1.0, `grafana` 0.3.0, pgCluu in `postgres` 0.5.0); `.tech` updated, committed on `v0.5-w2` | `security-advisor`, once chunk 10 has merged | Wave 2's gate | open |
 | G11 | **Any other dependency** a chunk adds or upgrades (the cold-storage page's drawing, an endpoint's or a purpose script's package, the bastion's front): a preflight before its branch and a post-change check before its wave's gate, `.tech` updated. The driver adds a row `G11.<n>` for each; none is planned | `security-advisor` | That chunk; its wave's gate | standing |
+| G11.1 | **Dependency preflight** on Debian `python3-yaml` 6.0.2 in `api` 0.1.0 (to parse `api.yaml`), asked by chunk 5's owner; its post-change check folded into G8 | `security-advisor` | Chunk 5; wave 1's gate | done (2026-11-03, wave log) |
 | G12 | **The VPS window** for G13, under the VPS rule (workflow deltas): the VPS's own documentation read first; `tailscale status` on both hosts; the VPS still a drained worker of armenelos' swarm; no game port published on it; free disk for its share (about 4.9G of volumes and 1.5G of images, [clinic-capacity.md](clinic-capacity.md)); filetstudio.com answering before the run | Hand check by the wave driver | G13 | open |
 | G13 | **The whole clinic deployed once on armenelos plus the VPS** (master spec 18.3, release gate items 4 and 5): `fit` and the deployment; about 30 minutes of smoke, every producer, partner and purpose running, each one's first run read; the test selection planted at once, each fault read present only where it reads in the window; no fix, no aging, no hand-over snapshot. The VPS `active` only inside the run's host lock and drained after, pass or fail; filetstudio.com polled throughout and answering after | The wave driver, on the owner's time (a two-host run is announced) | Release gate items 4 and 5 | open |
 | G14 | **A CPU trim, if the build measures heavier** (master spec 14): applies only when `fit` on the clinic as built (chunk 27) refuses either host, or G13's figures exceed it; the trim is the owner's call, its order settled (O224, spec D343): the exporters kept, pgwatch dropped | The owner | Chunk 27's merge and G13, only if it applies | not yet applicable |
@@ -483,7 +484,8 @@ Architecture capture: recorded by the wave driver at wave 1's start
 
 ### Chunk 2 — The domain format: skill, templates, checks, `gmctl compose`, variants
 
-Status: in progress (w1)
+Status: merged (w1, c9ab20c)
+Record: 2a edf1dd5, 2b 2dc4267, merge c9ab20c. Done when's shop scenario read as `tarnbeck-outdoor-campaign` (the one with `domain: shop` and a classification copy); outside the Files list `tools/tests/test_aging.py`'s verb list, `domains/shop/docs/gm.md`, `fixture-v04-refusals`' own shop domain; `scenario.yaml` gains `purposes[].parts.api` and `parts.partner` (wave log, W1-w).
 Wave: 1
 Depends on: chunk 1, merged into `v0.5-w1` before this chunk's branch is
 cut; G2 (done); W1
@@ -583,7 +585,8 @@ every domain chunk:
 
 ### Chunk 3 — `postgres` 0.5.0
 
-Status: in progress (w1)
+Status: merged (w1, 0e152ac)
+Record: 3a c0525d9, 3b bb0c43e, merge 0e152ac. pgaudit 18.0 redacts passwords itself (G5's premise; the guards kept); a restart from the hand-over snapshot cannot bring a standby back (a known limit in `docs/gm.md`, sent to `spec-writer`); outside the Files list `tools/gm/state.py` and three tests' secret lists (wave log, W1-x).
 Wave: 1
 Depends on: chunk 1 merged; G5; G3, G4
 Architecture capture: W1, plus, for chunks 7, 8, 10, 11, 20, 23, 24:
@@ -669,7 +672,8 @@ Architecture capture: W1, plus, for chunks 7, 8, 10, 11, 20, 23, 24:
 
 ### Chunk 4 — `scheduler` 0.3.0: the HTTP driver
 
-Status: in progress (w1)
+Status: merged (w1, 99d5398)
+Record: 4a 3316e42, 4b 48a2224, merge 99d5398. `no-access` through account files linked into `/run/gm-accounts` (the read-only root filesystem); outside the Files list `repository.py`, `runner.py`, `__main__.py`, the s6 `run` script (wave log, W1-y).
 Wave: 1
 Depends on: chunk 1 merged; G7 (only if a package is added); G3, G4
 Architecture capture: W1's HTTP call form; for chunks 7, 11, 12 and
@@ -715,7 +719,8 @@ its timeout, how a call's status and latency are logged and counted.
 
 ### Chunk 5 — `api` 0.1.0
 
-Status: planned
+Status: merged (w1, c888d18)
+Record: 5a 1f744d1, 5b a259052, merge c888d18. Debian `python3-yaml` added beyond G6's set after a `security-advisor` preflight (G11.1); `no-access` as chunk 3's; a fresh `postgres` node resolves only once healthy, beyond the 30 s bound (wave log, W1-z).
 Wave: 1
 Depends on: chunk 1 merged; G6; G3, G4
 Architecture capture: W1; for chunks 9, 11, 12, 15, 16 and every

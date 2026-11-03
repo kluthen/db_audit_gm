@@ -758,3 +758,413 @@ The driver merged `main` into `v0.5-w1` before chunks 2 to 5 were cut,
 and brought the README's bricks row to chunk 1's versions.
 
 Chunks 2, 3 and 4 dispatched (κ = 3); chunk 5 at the first free slot.
+
+### Chunk 2 — merged (c9ab20c), 2026-11-03
+
+2a edf1dd5, 2b 2dc4267, merge c9ab20c. Unit suite 893 OK; templates
+load with PyYAML and `model.strict_load`, every `template_schema`
+builds; `check_domain_dir` clean on the rekeyed shop; `TestDomainRefusals`
+(part without its core, classification keyed with its database, table in
+no activity, variant tag outside the vocabulary, fragment at
+`producers/`' root, and more); `test_compose.py` (two layers and an
+override, a conflict stopping, `merge.yaml` taking a source or writing a
+value, `api` nodes and a partner's onto the shared nodes, `--check`);
+duplicate keys refused in fragments, `merge.yaml`, `composition.yaml`.
+The only existing key made optional is `schedule.yaml`'s connection
+`role`, and `_check_connection` now refuses an `sql/postgresql`
+connection without one. The scenario holding `domain: shop` and a
+classification copy is `tarnbeck-outdoor-campaign` (the plan's Done when
+named `tarnbeck-outdoor-shop`, which has neither); both load.
+
+Outside the Files list: `tools/tests/test_aging.py`'s verb list gains
+`compose`; `domains/shop/docs/gm.md` names `producers/producer/`;
+`fixture-v04-refusals`' own `fixture-shop` domain rekeyed likewise.
+
+Points for review (no spec contradiction):
+- `scenarios/tarnbeck-outdoor-campaign/scenario.yaml` line 75's comment
+  ("the shop domain's, unchanged") is stale: the copy keeps the database
+  prefix, the domain's file no longer does. Comment-only; left for the
+  wave gate (a `scenario.yaml` edit regenerates the README).
+- **`true:` in `register_diff`** (master spec 6.8) is read by PyYAML as
+  boolean `True`: chunk 6 must look it up as `True`, or the format quotes
+  it. For `spec-writer`.
+- `public` as a purpose job's HTTP connection value for a public endpoint
+  is the executor's word, not the spec's. For `spec-writer`.
+- `scenario.yaml` gains `purposes[].parts.api` and `parts.partner`, so a
+  scenario can map the new purpose parts (beyond the brief; accepted).
+
+**Capture W1-w — chunk 2 outcomes (the domain format and `gmctl compose`;
+read by 6, 8, 9 and every domain chunk)**, as the chunk owner reported:
+
+- Template keys: `register.yaml` `activities[]` of `id`, `name`,
+  `purpose`, `people` (may be `[]`), `tables` (`<table>` or
+  `<schema>.<table>`), `retention: {period, then: erased|anonymised}`;
+  `variant.yaml` `parts`, `scale.{population,history,throughput}`,
+  `purposes`, `tags` (`parts` and `tags` required on a core, refused on a
+  part); `domain.yaml` `register` required, `schema` and `load` required
+  by code without `databases`, `policy` and `governance`
+  (`data/governance.yaml`), `requires`, `lands_with`, `databases`,
+  `derive.after`; `fault.yaml` `requires_option`, `option_absent`,
+  `partner_behaviour: {partner, key, placed: timeline|standing,
+  material}`; `answer-key.yaml` `register_diff[]` of `entry`, `field`,
+  `true`, `handed_out`, `absent`, and `backlog: {what, cleanup}`;
+  `purpose.yaml` `round_trips[]` (`asks`, `request{job,counterpart,sends}`,
+  `correlation`, `answers[]{form,when,carries}`, `timeout{after,then}`,
+  `reactions`), `history`, `classification.columns`, `jobs[].feeder`,
+  `invariants[].judged`, `parts.api`, `parts.partner`; `brick.yaml`
+  `options[]` of `name`, `brings{secrets,roles}`, `docs`; `schedule.yaml`
+  connection `credential` and `timeout`; `queries.yaml` `call`.
+- The register's tables come from `CREATE TABLE` in the schema files
+  (`PARTITION OF` children with their parent, materialized views
+  excluded); a table name in two databases of one part is refused.
+- "Keyed with its database": a three-name key whose first name is a
+  database the schema files create or `databases` lists; `public.` never
+  written. A scenario's copy has 3 or 4 names
+  (`SCENARIO_CLASSIFICATION_KEY_RE`); a purpose's `data_moved` key stays
+  3 names (`CLASSIFICATION_KEY_RE`).
+- Variants: every domain at least one `variants/<v>.yaml`; a variant's
+  `purposes` among `domain.yaml`'s; each part a core's `parts` names
+  requires that core and has a manifest of that name; a part's manifest
+  is refused if its core's variant does not name it. The shop's variant
+  is `present` (tags `managed`, `global`, `seasonal`).
+- Producer folders: `producers/<node>/` allows `scripts/`;
+  `producers/partners/<p>/` and `producers/public/<n>/` checked alike. An
+  `api.yaml` fragment's keys: top level `endpoints` and `connections`;
+  `endpoints.<name>` `[a-z][a-z0-9_]*`, non-empty `hosts`, optional
+  `credentials`; connections `CONNECTION_KEYS` plus `credential` and
+  `timeout`. Chunk 6 keeps the two files per endpoint and hosts against
+  the topology.
+- Duplicate keys: `model.strict_load` (a SafeLoader subclass);
+  `_load_yaml(..., strict=True)` on every file `check_domain_dir` reads,
+  and in compose, `merge.yaml`, `composition.yaml`; `check_scenario`
+  loads `scenario.yaml` as before, compose strictly.
+- Composition: `model.check_domains_entries(data, catalog_root)`
+  (`domain:` and `domains:` never both; entry keys `id`, `variant`, `at`;
+  each id once, of the catalogue; a part with no `variant`, its core
+  listed, one of the core variant's parts; a core's `variant` required, a
+  manifest of the core; `at` a `node/database` of a `role: database` node
+  or a map exactly over `databases`; a `lands_with` part the same `at`),
+  shared by compose and `check_composition` — **chunk 6 does not re-add
+  these `domains:` checks**. `model.check_composition(data, sdir,
+  catalog_root)` checks the record against `domains:`, runs in
+  `check_scenario` only when `domains:` is present, refuses a
+  `composition.yaml` without `domains:`, compares `derive.after` as sets.
+- Compose: `compose.compose(scenario_dir, catalog_root, check)` returns a
+  `Result` (`files`, `overrides`, `resolutions`, `differing`, `text()`),
+  raises `ComposeRefused` (a `GmError`); exit 0 merged or up to date, 1
+  refused or `--check` differing, 2 usage. It refuses its input when
+  `check_domains_entries` fails (each domain's `check_domain_dir`
+  included). Target nodes come from the producer folders and must exist
+  in `nodes:` with brick `scheduler` or `api`; the shared nodes come from
+  `third_parties:` entries with nodes (exactly one scheduler and one
+  `api` node, the same in every entry; `nodes: []` ignored). Source names
+  `<domain>@<core's variant>` (domain and variant layers, told apart by
+  path), `scenario`, `merge.yaml`. A conflict within a layer is resolved
+  only by `merge.yaml`; `take` matches a source name or its catalogue
+  path, exactly one side. Provenance `# from <name>: <path>[, over
+  <name>: <path>…][ (taken by merge.yaml)]` (`--` in `.sql`, after a
+  shebang). A scheduler node always gets its three files, an `api` node
+  its `api.yaml`. Stale files under `nodes/<node>/builders` are not
+  deleted. `merge.yaml` units: for a file in a folder, `file` the folder,
+  `entry` the file name.
+- Risks: the `CREATE TABLE` parse misses quoted table names; compose's
+  block-style output drops the fragments' comments (provenance comments
+  replace them); compose run only on its fixture so far.
+
+Chunk 5 dispatched in chunk 2's slot.
+
+### Chunk 4 — merged (99d5398), 2026-11-03
+
+4a 3316e42, 4b 48a2224, merge 99d5398. Scheduler unit tests 91 OK in
+the image; stack test 178 of 178 (about 21 min; a first run's one
+failure was the test's own `s6-svstat` path); `tools/tests` 854 OK.
+Stack: 394 `POST /consents/<owner>` from params and 78 `POST /orders`
+from a builder; 78 of 78 503s and 78 of 78 timeouts counted as errors;
+weighted `{grant: 3, withdraw: 1}` gave 77 % (unit: 20,000 seeded draws
+within ±1.5 points); the caller waited (`wait status=waiting bound=30s`)
+and resolved after 6.2 s when the stub started; the script job's client
+logged one `http` line per call, its `stub.relay/lab` series apart; a
+`no-access` node has no `player` (getent, id, ssh refused, sshd up).
+Footprint at rest: caller idle 18–19M of 128M (RSS 26–27M), 48 calls a
+minute 20M, plus a script job each minute as `no-access` 28M; image
+171MB; `brick.yaml`'s `footprint` unchanged. G7 not needed (standard
+library only).
+
+Deviations (inside the brick, accepted):
+- Files outside the Files line: `repository.py` (the call form, W1 item
+  3's sixth repository form), `runner.py`, `__main__.py`, the s6 `run`
+  script; `streams.py` unchanged.
+- **`no-access` as built**: the image bakes `player` and the root
+  filesystem is read-only, so the account can't be removed at start. Two
+  account sets in `/etc/gm-accounts/{player,no-access}`; `/etc/passwd`,
+  `group`, `shadow`, `gshadow` link into `/run/gm-accounts`, filled by
+  the entrypoint by write policy before any lookup; the image's own
+  `/run/gm-accounts` holds the full files (the engine resolves `exec -u`
+  from the image). The outcome is W1 item 4's. **The driver passed the
+  mechanism to chunks 3 and 5** while they ran, to adopt unless their
+  brick has a reason not to.
+- W1 read so: `connection=<name>` in the `http` line and the
+  `<key>/<connection>` series is the script's own name for the
+  connection (the `conns` key in `jobs.yaml`); a job with `connection:`
+  may not name an HTTP connection or run a call key (calls run in
+  streams; HTTP otherwise only through a script).
+
+**Capture W1-y — chunk 4 outcomes (`scheduler` 0.3.0; read by 7, 11, 12
+and every chunk with HTTP flows)**, as the chunk owner reported:
+- Modules: `gm_scheduler/drivers/http.py` (`HttpSession`, `Client`,
+  `HttpError`, `Answer`, `encode_json`, `exchange`); `drivers.in_thread`
+  moved out of `scripts` (re-exported); `repository.CallEntry`,
+  `CallPlan`; `runner.driver_problems`, `wait_for_names`;
+  `schedule.parse_http_connection`.
+- Standard input: `credential <name> <secret>` lines (name
+  `[a-z][a-z0-9_]{0,62}`) after the `password` lines; the run script
+  reads `/opt/gm/secrets/http_*`; the entrypoint refuses an `http_*`
+  secret badly named, empty, multi-line or holding a space; a credential
+  the schedule names but not passed exits 2.
+- Connection: `timeout` `<n>s`, 1–60, default 10, bounding connect plus
+  the answer's head, then each body read; `pool` kept-alive connections;
+  a kept connection closed while idle is reopened and the request sent
+  once more.
+- Wire: `Host` the target as written; `User-Agent` the hostname;
+  `Authorization: Bearer <secret>` only with a credential; compact UTF-8
+  `application/json`, decimals keeping their digits, `now` ISO UTC with
+  `Z`; a call with no remaining params sends `{}`, a builder returning
+  `None` no body; GET and DELETE: a builder returns a map, the query
+  string; in the path `%` is `%(name)s` or `%XX`, `#` refused.
+- Stream errors: `error key=… status=<3 digits>|timeout|refused
+  message=…` (the body's first 200 characters trimmed, `<status>
+  <reason>` when empty, `no answer within <n>s`, `<Exception>: <text>`);
+  a failed lookup counts as `refused`.
+- Scripts' client: `get(path, params)`, `post(path, body, headers=)` (a
+  bytes body `application/octet-stream`); the answer's `status`,
+  `reason`, `headers`, `content`, `text`, `json()`, `ok`; `HttpError` as
+  `conns[n].HttpError`, `gm_scheduler.scripts.HttpError` or
+  `gm_scheduler.drivers.http.HttpError`; up to `pool` idle connections,
+  thread-safe; each call logs `http job= connection= method= status= ms=
+  path=`; series declared at 0 at start and reload.
+- Bounded wait: 30 s, each HTTP target probed once a second (5 s per
+  lookup), only with an HTTP connection; `wait status=waiting bound=30s
+  connections=…`, then `resolved ms=…` or `unresolved ms=…
+  connections=…`; no status written meanwhile; SIGTERM cancels it.
+- `no-access`: the account mechanism above; no `player_ssh_pubkey`
+  required; home `root:root 0700`; report-only modes; the sudoers rule
+  and wrappers stay but name no account; sshd kept.
+- `replicator` in `FORBIDDEN_ROLES`.
+- Risks: an idle-closed kept connection's request re-sent once; the
+  `/etc/passwd` link mechanism relies on the engine resolving `-u` from
+  the image's files (held on Docker 29); a POST body to the test stub
+  took about 40 ms (the stub's unbuffered writes, not the scheduler).
+- Untagged leftovers from the rebuilds of `scheduler:0.3.0` and
+  `scheduler-unit:0.3.0` remain locally (no prune).
+
+### Chunk 3 — merged (0e152ac), 2026-11-03
+
+3a c0525d9, 3b bb0c43e, merge 0e152ac (after chunk 4's). Unit suite 880
+OK on the branch, 919 OK merged; `postgres`' stack test all passed (8 min
+28 s, armenelos), and `postgres-exporter`'s (1 min 38 s) and
+`prometheus`' (1 min 18 s) against the final 0.5.0 image. TLS: TLSv1.3,
+`verify-full` against the game's certificate, a plain connection turned
+away, a seed leaving TLS off answering "does not support SSL"; pgaudit's
+`DDL`, `WRITE`, `ROLE` lines in the file log, readable by `player`; no
+password (nor SCRAM verifier) of any role in any node's log; `monitoring`
+only on nodes choosing the option, its secret mounted only there, an
+unknown option failing the container; `no-access` (`pdb`): no `player`,
+no sudo rules, no `~/.pgpass`, ssh as player refused, sshd and
+PostgreSQL up; the standby started while its primary was scaled to 0,
+waited 14 s, cloned, streaming (`pg_stat_replication`), reads answered,
+writes refused, `primary_conninfo` naming only the password file;
+`gm-snapshot-db` leaving only the standby's slot; a switched segment
+posted whole (16777216 bytes) with W1's headers and credential, a 503
+and a short receipt failing honestly (segment kept `.ready`,
+`failed_count` up), shipped on retry; the base-backup job posting once
+(41,410,560 bytes) when moved to the next minute; the image build
+asserting G5's conditions. Footprint at rest (512M limit): `rec` 32.4MiB
+(TLS, pgaudit, the option, archiving, a standby attached), `standby`
+36.2MiB, `pdb` 30.8MiB, `db` 32.4MiB, `db2` 29.3MiB; `rec`'s pgdata 136M
+(`pg_wal` 113M), the standby's 152M.
+
+Findings:
+1. **G5's premise doesn't hold for pgaudit 18.0**: it redacts passwords
+   itself (`password <REDACTED>`); PostgreSQL's own statement logging
+   still writes them in clear (the stack test's canary under
+   `log_statement = 'ddl'`). The guards stand (initdb with no preload
+   library; load-data's password sessions `SET pgaudit.log = 'none'` and
+   statement logging off). For `security-advisor`'s G8 and
+   `spec-writer`, information only.
+2. **A restart from the hand-over snapshot can't bring a standby back as
+   one** (a base backup leaves out `standby.signal` and the primary's
+   `pg_replslot/`, and the two copies are taken at different moments): a
+   fresh clone is needed after the restore. That is `restart.py`'s,
+   outside chunk 3's files; recorded under Known limits in `postgres`'
+   `docs/gm.md`. A restart without a snapshot re-clones. **Sent to
+   `spec-writer`** to rule: an inserted chunk, or a named known limit.
+3. Files outside the list: `tools/gm/state.py` (`gmctl status` listing
+   the certificate's two files) and the secret-list expectations in
+   `test_fit`, `test_state`, `test_teardown`.
+4. The format skill's `brick.yaml` template comment lists secret kinds as
+   `password | key-pair`; `certificate` should join it (not checked by
+   the loader). For the wave gate's fix list.
+5. `no-access`: chunk 3 kept its own mechanism, alike in outcome to chunk
+   4's (account files linked into `/run/gm-accounts`, an image-layer copy
+   for `exec -u`), differing in filtering one baked copy at start, the
+   sudoers file also linked into `/run` (absent on `no-access`), and the
+   home volume left as it is.
+
+**Capture W1-x — chunk 3 outcomes (`postgres` 0.5.0; read by 7, 8, 10,
+11, 20, 23, 24)**, as the chunk owner reported:
+- Rendering: `GM_OPTIONS` to a node whose brick declares `options:`;
+  `GM_STANDBY_OF` to every `postgres` node (`""` when no standby);
+  `vault_target` and `vault_credential` brick parameters (default null),
+  passed as `GM_VAULT_*`; an option's secret mounted only on a node
+  choosing it (`localimpl.unchosen_option_secrets`).
+- Entrypoint: refuses an unknown option; `monitoring_password` required
+  only with the option, `player_ssh_pubkey` not on `no-access`; initdb
+  with no preload library and nothing logged, `monitoring` created only
+  with the option; step 7 skipped when PGDATA holds `standby.signal`;
+  `/run/gm-replication/pgpass` (`*:*:*:replicator:`) on a standby;
+  `/run/gm-vault/{target,credential}` (postgres 0600) with a vault; a
+  vault credential whose `http_<credential>` secret is missing fails the
+  container (its mounts are chunk 7's: until then a scenario setting
+  `vault_credential` fails to start).
+- TLS: secret kind `certificate` (pair `tls`), files `tls.crt`,
+  `tls.key`; P-256, CN the first `postgres` node, SANs every `postgres`
+  node plus localhost, 365 days; `deploy.openssl_certificate`,
+  `deploy.certificate_names`.
+- pgaudit: `inject.NO_AUDIT_SQL` (`SET pgaudit.log = 'none'`) in the
+  password, mapping and replication sessions.
+- `clone-standby`: waits up to 120 s for the primary's `pg_isready`;
+  stops postgres through s6; `pg_basebackup -X stream -C -S <slot> -R -w
+  --checkpoint=fast --no-manifest`, `application_name` the standby's
+  name; refuses a `primary_conninfo` holding a password; waits up to 120
+  s for recovery; exits 0, 1 or 2.
+- `load-data`: `standby_plan` lists the standbys (data, survey and grant
+  skip them; a role naming a standby target gets its password on the
+  primary); `replication_sql` creates or alters `replicator` (LOGIN
+  REPLICATION, SCRAM verifier) and drops an inactive slot of the
+  standby's name; the streaming wait `STANDBY_WAIT` 300 s or
+  `--timeout`.
+- `vault-post`: payload from the file, or standard input spooled to
+  `/run/tmp`; `Content-Length`, `User-Agent: vault-post (<node>)`,
+  timeout 60 s; a `basebackup` without tar's end-of-archive blocks
+  refused; success prints one "shipped" line; exits 1 with no vault
+  configured, 2 on bad usage.
+- The crontab line needs its own `PATH=` line; the s6 run script exports
+  `PATH` so `archive_command` finds `vault-post`. Slot name: the
+  standby's node name, `-` read as `_`. The fault's precondition is
+  prose (an orphan slot: `slot-name` other than the standby's); no fault
+  version bump (6.7).
+- Risks: `docker exec -u player` on a `no-access` node still finds a uid
+  from the image's copy (only the GM can do that).
+- The other bricks' stack tests using `postgres:0.5.0` (pgbouncer,
+  scheduler, bastion, grafana) now run on chunk 3's image: wave gate.
+
+### Chunk 5 — merged (c888d18), 2026-11-03
+
+5a 1f744d1, 5b a259052, merge c888d18 (both halves written and tested
+together at 5b's state; 5a not built alone). Unit suite 893 OK on the
+branch, 919 OK merged; `check_brick_dir("bricks/api")` clean; the brick's
+unit tests 36 OK (a throwaway PostgreSQL 17.11 in the image); stack test
+88 PASS (about 3 min). Two hostnames each answering only its own routes,
+the partners' node serving nine as aliases, an unknown hostname 404; 401
+without, with a wrong or another endpoint's credential, before any body
+is parsed; `player` edits `db/` and reloads (`gm-reload-api`), may not
+touch `routes/` or `api.yaml`; three broken edits refused and named while
+the server keeps answering; `no-access`: no `player`, no sudoers, ssh
+refused, sshd up; the endpoint connects as its application role (never a
+superuser), `SECURITY DEFINER` and the transaction-local setting never
+outliving its request; started before its database it waits (bounded
+30 s), answers 503, then 200; the image build asserting the 15 pins,
+nothing else in `dist-packages`, `psycopg.pq.__impl__ == "python"` over
+libpq 170011, no pip. Footprint at rest: `lab-api` (one hostname) 47M of
+128M (RSS 53M), `partners` (nine) 43M (RSS 55M), CPU about 0.2 %; within
+master spec 7.2's 96M and 128M. `brick.yaml`: limits 0.25 CPU and 128M,
+reservations 0.1 CPU, 96M, 64M disk, `disk_growth_per_hour` 2M
+provisional.
+
+Deviations:
+1. **A package beyond G6's set**: Debian trixie `python3-yaml`
+   6.0.2-1+b2 (with `libyaml-0-2` 0.2.5-2), to parse `api.yaml`. The
+   chunk owner asked `security-advisor` for a preflight first: **clear**,
+   on safe loading only (the brick uses a SafeLoader subclass refusing
+   duplicate keys) and `.tech`'s Python entry gaining `api 0.1.0 (with
+   python3-yaml 6.0.2)` at G8. Recorded as gate **G11.1** (done,
+   2026-11-03; its post-change check folded into G8).
+   `requirements.txt` stays G6's 15 wheels, psycopg 3.3.7.
+2. `no-access`: chunk 3's mechanism (account files kept in
+   `/usr/local/lib/gm/accounts`, rewritten at start without `player`),
+   not chunk 4's two baked sets. The bricks now use two variants
+   (`postgres` and `api` one way, `scheduler` the other): a candidate
+   for later unification, not a defect.
+3. **Swarm DNS timing**: a health-checked task enters its service's DNS
+   only once healthy, so a fresh `postgres` node (initdb included, 49 s)
+   does not resolve within the 30 s bound (60 s failed alike). Kept 30 s
+   (as `pgbouncer`); the test checks the wait ends within its bound; the
+   endpoints answer 503 until the database is up (psycopg resolves at
+   each connect). Documented in `api`'s `docs/gm.md`.
+
+**Capture W1-z — chunk 5 outcomes (`api` 0.1.0; read by 7, 9, 11, 12,
+15, 16, 18 to 21)**, as the chunk owner reported:
+- Image: Debian 13, Python 3.13, G6's 15 wheels from a throwaway stage;
+  Debian libpq5, python3-yaml, tzdata; s6-overlay 3.2.3.2
+  checksum-pinned; openssh-server, sudo, curl, procps, perl. Accounts
+  `api` 991:991, `apiconf` 992 (the group holding `player`). Server:
+  `python3 -I -m uvicorn --factory gm_api.app:create_app --host 0.0.0.0
+  --port 8000 --no-access-log --timeout-keep-alive 60
+  --timeout-graceful-shutdown 5`, as `api`, `OTEL_SDK_DISABLED=true`; one
+  process, plain `def` routes in AnyIO's 40 worker threads, an `async
+  def` route refused.
+- Paths: `/srv/api` the volume `endpoints`, seeded once; `api.yaml` and
+  `routes/` root 0644, always protected; `db/` `api:apiconf`, 2775 with
+  files 0664 when fixable, 2755 and 0644 otherwise; overrides may name
+  only `/srv/api/db` or `/home/player`, none on `no-access`.
+- Secrets: `role_<role>_password` and `http_<name>` checked (one line,
+  no space), copied at each start to `/run/gm-api/secrets/` (`api`
+  0400); a missing one stops the server, naming it.
+- Start-up wait: 30 s per start on `getent ahosts` of every host
+  `api.yaml`'s connections name.
+- `gm_api.connection(name, session=None)`: pooled, as the role,
+  autocommit off, `application_name` the hostname,
+  `prepare_threshold=None`, TCP keepalives, 10 s connect timeout,
+  uncommitted work rolled back on leaving. Pools `{size: N}` (30 s for a
+  free session, then 503) or `{per-call: true}`. `session=` maps
+  settings to values (`set_config(..., false)`, committed when the
+  mapping differs; a setting no longer named is `RESET`): the players'
+  lever. `gm_api.client(name)`: W1 item 3's wire form, `get`, `post`,
+  `HttpError` (`.status` `timeout` or `refused`), one stale keep-alive
+  retried once. Also `gm_api.HttpError`, `Unavailable`, `ConfigError`.
+- Dispatch: the `Host` header (port removed, lowercased) picks one
+  FastAPI app per hostname (`/docs`, `/redoc`, `/openapi.json` off); the
+  matched route's endpoint credentials checked first (`Authorization:
+  Bearer`, case-insensitive scheme, constant-time); 401 with
+  `WWW-Authenticate: Bearer` and `{"detail":"unauthorized"}`; unknown
+  host 404; a duplicate method and path on one hostname refused;
+  `OperationalError` or `Unavailable` 503, any other exception 500.
+- Request log `/var/log/api/api.log` (volume `apilog`, `api:apiconf`
+  0640, never rotated): `<UTC ms>Z request status= ms= method= host=
+  endpoint=<name|-> from= agent= path=<path?query>`; `error endpoint=…`,
+  `start`, `stop`, `fatal` lines; the node's own checks use `*.invalid`
+  hostnames.
+- `gm-reload-api`: restores owners and modes, then report-only (exit 1),
+  "the endpoints do not load; the server was NOT restarted …" with the
+  first problem (exit 1), or "restarted the server …" (exit 0) after an
+  s6 restart, waiting up to 60 s.
+- Build checks (`gm_api.check`, at start, on reload, by the validator;
+  first problem stops): both files regular; a route imports only
+  FastAPI, Pydantic, the standard library and `db.<name>`; a `db/` file
+  only psycopg, the standard library and `gm_api`; no relative import;
+  both import, the route defines `router`, its routes plain `def`; every
+  name a route takes from `db/` defined there; literal `connection`/
+  `client` names match `api.yaml`'s connections by driver; no duplicate
+  route on a hostname.
+- Validator rules `config`, `server` (port 8000), `pending` (fingerprint
+  against `/run/gm-api/loaded`), as `api`.
+- Risks: import rules read `import` statements only (a `db/` file runs as
+  `api` and can read the secret copies; accepted on access model 8's
+  trust line); a reload drops in-flight requests (callers without retry
+  log errors for a second or two); after a database restart each pooled
+  session fails one request with 503; `disk_growth_per_hour`
+  provisional.
+- Images kept: `dbagm-test/api-unit:0.1.0`, `127.0.0.1:5000/dbagm/api:0.1.0`.
+
+All five chunks merged. Next: G8 (`security-advisor`) and the open
+points to `spec-writer`, then the wave gate.
