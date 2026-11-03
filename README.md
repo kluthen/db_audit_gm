@@ -13,24 +13,47 @@ they are allowed to fix, and write an audit report.
 
 ## Status
 
-**v0.1 released** (2026-10-21): one static PostgreSQL scenario, played end
-to end with a GM session. v0.2 (monitoring and the usual tooling) is in
-drafting. The specification is in [`specs/`](specs/README.md), the roadmap
-in [`specs/versions/`](specs/versions/README.md), and v0.1's release notes
-in [`specs/versions/v0.1/README.md`](specs/versions/v0.1/README.md).
+**v0.4 released** (2026-11-03). **v0.5** (domain definition, with the
+veterinary clinic franchise as the worked example) has an approved master
+spec, access model and build plan: 27 chunks in five waves, with wave 1
+next. v0.6 and v1.0 are still being drafted.
+
+| Version | Theme | Released | Scenario |
+|---|---|---|---|
+| [v0.1](specs/versions/v0.1/README.md) | Settle the GM stance: a static PostgreSQL database investigated for specific defects | 2026-10-21 | `bookshop-new-server` |
+| [v0.2](specs/versions/v0.2/README.md) | Monitoring and the usual tooling: node health, PostgreSQL metrics, dashboards, alerting, logs | 2026-10-22 | `fernway-clinics-monitoring` |
+| [v0.3](specs/versions/v0.3/README.md) | Producers and consumers: a scheduler driving load, ingestion, load spikes, misbehaving requests; aging under real time | 2026-10-30 | `tarnbeck-outdoor-shop` |
+| [v0.4](specs/versions/v0.4/README.md) | Purposes: the side uses of the data (reporting, leads, mailing, export declarations), several PostgreSQL instances, jobs on a database node, the shop as the first business domain, a first cut of data governance | 2026-11-03 | `tarnbeck-outdoor-campaign` |
+| [v0.5](specs/versions/v0.5/README.md) | Domain definition: a procedure for defining a domain, the clinic's domains, purposes and round trips, `postgres` brick options, a post-mortem collection | spec approved 2026-11-03, build next | — |
+| [v0.6](specs/versions/v0.6/README.md) | The bastion as the players' main activity point: web interfaces, a documentation site, general tooling, a reporting tool | draft | — |
+| [v1.0](specs/versions/v1.0/README.md) | First release: the full pipeline scenario | draft | — |
+
+The specification starts at [`specs/README.md`](specs/README.md) (index,
+status and how to resume). The roadmap, along with what lies beyond v1.0
+and the v1.0 gating list, is in
+[`specs/versions/README.md`](specs/versions/README.md). Each version page
+has its own release notes.
+
+## Layout
 
 | Path | What |
 |---|---|
-| [`tools/gmctl`](tools/gmctl) | The GM's command line: fit, render, deploy, load data, inject, validate, check, status, teardown |
-| [`bricks/`](bricks/) | Node definitions: `postgres`, `bastion`, `prometheus`, `postgres-exporter`, `grafana`, `scheduler` and `pgbouncer` |
-| [`faults/`](faults/) | The fault catalog |
+| [`tools/gmctl`](tools/gmctl) | The GM's host-side command line: `fit`, `render`, `deploy`, `load-data`, `inject`, `start-load`, `validate`, `check`, `snapshot`, `restart`, `status`, `exec`, `logs`, `teardown` (code in [`tools/gm/`](tools/gm/)) |
+| [`tools/tests/`](tools/tests/) | Unit tests for `gmctl` and the smoke and rehearsal scripts |
+| [`bricks/`](bricks/) | Node definitions: `postgres` 0.4.0, `bastion` 0.4.0, `scheduler` 0.2.0, `pgbouncer` 0.1.1, `prometheus`, `postgres-exporter` and `grafana` 0.2.0 |
+| [`faults/`](faults/) | The fault catalog (29 faults): PostgreSQL configuration and security, monitoring and alerting, scheduler jobs, purposes and governance |
 | [`domains/`](domains/) | Business domains, design-time sources a scenario copies from: `shop` |
-| [`purposes/`](purposes/) | Purposes, what the customer's data is for, design-time sources a scenario copies from: `shop-sales-reporting`, `shop-winback-leads`, `shop-customer-mailing` and `shop-export-declarations` |
-| [`scenarios/`](scenarios/) | Scenario folders (`bookshop-new-server`, `fernway-clinics-monitoring`, `tarnbeck-outdoor-shop`, `tarnbeck-outdoor-campaign`) |
+| [`purposes/`](purposes/) | Purposes (what the customer's data is for), design-time sources a scenario copies from: `shop-sales-reporting`, `shop-winback-leads`, `shop-customer-mailing` and `shop-export-declarations` |
+| [`scenarios/`](scenarios/) | Playable scenario folders, one per released version (table above) |
+| [`post_mortem/`](post_mortem/README.md) | Summaries of 27 public database incident reports. They are source material for future games and end-of-game handouts, not fault definitions |
+| [`specs/`](specs/README.md) | The living specification: concept, platform, formats, decisions, open questions, version pages and the archive |
 | [`.claude/skills/`](.claude/skills/) | The `game-master`, `scenario-format` and `scenario-document` skills |
 
 To play, open a Claude Code session at the repository root and run
-`/game-master`.
+`/game-master`. The GM sets the game up from a complete scenario folder
+through `tools/gmctl`, hands it over, holds its stance during play,
+evaluates the final answer against the answer key and the live system,
+gives feedback and tears the game down.
 
 ## Core ideas
 
