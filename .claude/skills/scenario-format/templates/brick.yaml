@@ -124,13 +124,17 @@ healthcheck:
 secrets:                            # per-game secrets gmctl deploy creates; may be []
   - name: <logical-name>            # Swarm name is <game-id>_<name>; a name two bricks declare
                                     # is one secret, declared alike by both
-    kind: <password>                # password | key-pair
+    kind: <password>                # password | key-pair | certificate
     handed_over: <true>             # optional: kind password; true for a password players type
                                     # (16 characters, the player alphabet); absent or false: 32
                                     # characters, the dba alphabet
     pair: <player_ssh_key>          # optional: kind key-pair; the pair's name (ed25519, no
-                                    # passphrase; files <pair> and <pair>.pub)
-    half: <private>                 # optional: kind key-pair; private | public, the file mounted
+                                    # passphrase; files <pair> and <pair>.pub); kind
+                                    # certificate: the pair's name (e.g. tls; self-signed,
+                                    # every postgres node's name and localhost; files
+                                    # <pair>.crt and <pair>.key)
+    half: <private>                 # optional: kind key-pair; private | public, the file mounted;
+                                    # kind certificate: certificate | key (<pair>.crt | <pair>.key)
     only_with_role: <pooler>        # optional: generated and mounted only when a node of the
                                     # topology has this role; absent: always
     path: </opt/gm/secrets/<logical-name>>   # fixed in-container path
