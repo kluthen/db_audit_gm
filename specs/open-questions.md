@@ -35,7 +35,11 @@ the owner accepting the recommendations as a whole: O168–O179
 text on its part's page under "Questions for the owner"; with D321
 (appointment reminders) and D322, D323 (the initial load and
 composition, feeding O111). O166, O167, O191 and O216 were reserved and
-never used.
+never used. Raised with a scenario's data register, a player handout
+(D329–D331), and resolved the same day, the owner accepting the
+recommendations: O217 (D333), O218 (D334), O219 (D335), each
+question's text on
+[versions/v0.5/data-register-handout.md](versions/v0.5/data-register-handout.md#questions-for-the-owner).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -222,25 +226,8 @@ added on 2026-10-30 (D196).
   post-load coherence check, the `SECURITY DEFINER` `search_path` check.
   Nothing of it is still to decide; it stays listed because the master
   spec carries it into the domain format when v0.5 consolidates (D291),
-  which closes it.
-
-Raised with a scenario's data register, a player handout (D329–D331;
-[versions/v0.5/data-register-handout.md](versions/v0.5/data-register-handout.md)):
-
-- **O217** (v0.5, next) — A register fault's resolution: *propose*, the
-  corrected entry in the report, judged against the answer key's
-  `register_diff:` (recommended), or a corrected register handed back
-  as a file? The file waits for v0.6's reporting tool (O135).
-- **O218** (v0.5, next) — The register's format additions, beyond
-  O111's confirmed text: a domain's `data/register.yaml`, the scenario's
-  `governance.register` and `gm/data-register.yaml`, the answer key's
-  `register_diff:`, the loader's digest and coverage checks
-  (handout page 6). Recommended: accepted, into the master spec with
-  O111's.
-- **O219** (v0.5, next) — Which scenarios must have a register?
-  Recommended: every scenario listing `domains:`, the deploy refusing
-  one without; v0.4's released shop scenario exempt until next revised;
-  optional with `governance:` alone.
+  which closes it; the data register's format additions go in with it
+  (D334).
 
 ## v0.6: the setup's entry point
 

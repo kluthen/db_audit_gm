@@ -1,8 +1,9 @@
 # v0.5 — a scenario's data register, a player handout
 
-Status: draft v1, for the owner. The ruling is settled (D329–D331);
-everything below it is (proposed) unless marked otherwise. The test
-selection's swap is the GM's choice (D332).
+Status: draft v2, ruled. The ruling is settled (D329–D331); the owner
+accepted the page's recommendations on 2026-11-03 (D333–D336; O217–O219
+closed), so everything below it stands as written. The test selection's
+swap is the GM's choice (D332).
 
 ## The ruling (D329–D331)
 
@@ -35,7 +36,10 @@ Settled by it:
   documentation carrying faults, v0.6) to the other starter files.
 - **The clinic's test scenario gets one** (D330), handed to the players.
 - **A GM sub-skill generates it** (D331), with or without a planted
-  fault (section 3).
+  fault (section 3), its details as written (D336).
+- **A register fault is resolved by *propose*** (D333), **its format
+  additions go into the master spec with O111's** (D334), and **every
+  scenario listing `domains:` must have one** (D335).
 
 ## 1. What one entry holds, and how the register is grouped
 
@@ -173,7 +177,10 @@ edited by hand, and regenerated rather than reconciled.
   - checks that the handout exists unless the answer key declares it
     absent as a planted fault, which passes.
 
-  Which scenarios must have a register is O219.
+  Every scenario that lists `domains:` must have a register, and the
+  deploy refuses one without it. v0.4's released shop scenario is
+  exempt until it is next revised. A scenario with `governance:` alone
+  may have one but need not (D335).
 - **How game-master calls it**: at Setup step 2, after the
   scenario-format completeness check and before scenario-document,
   which reads its outputs. The order is format, then register, then
@@ -188,8 +195,8 @@ edited by hand, and regenerated rather than reconciled.
 
 `gmctl` gains no generator. The skill writes the files, and the loader
 checks them. Writing `SKILL.md` and its template is a build chunk
-(section 7). It is not written now because its inputs (the register
-fragment, the answer key's `register_diff:`) wait on O218.
+(section 7). Its inputs (the register fragment, the answer key's
+`register_diff:`) are settled (D334), and it is written in the build.
 
 ## 4. The trap family: the register itself (T300–T308)
 
@@ -203,9 +210,10 @@ Each witness is the register read against the system, the data policy
 or `partners.md`. The players cannot edit the customer's register, so
 each trap's resolution is **propose**: the players give the corrected
 entry, and the GM judges it at the final answer against the answer
-key's `register_diff:`, as D325 judges s9 on the report. The sealed
-check reads only that the change is present in the bastion's copy
-(O217).
+key's `register_diff:`, as D325 judges s9 on the report (D333). The
+sealed check reads only that the change is present in the bastion's
+copy. Handing back a corrected register as a file waits for v0.6's
+reporting tool (O135).
 
 | # | Trap | Witness | Class |
 |---|---|---|---|
@@ -270,10 +278,10 @@ silently while the vault still holds the planted manifests and the
 nightly base backups, so T307's witness stands. The answer key notes
 the interaction.
 
-## 6. Format impact (O111, O218)
+## 6. Format impact (O111, D334)
 
-Beyond O111's confirmed text (D326), so for the owner with this page
-(O218):
+Beyond O111's confirmed text (D326), and going into the master spec
+with it (D334):
 
 - **A domain:** `data/register.yaml`, the register fragment, declared
   in `domain.yaml`. A new checklist item: every table belongs to one
@@ -318,6 +326,11 @@ Beyond O111's confirmed text (D326), so for the owner with this page
    `player/data-register.md` with s6 planted, and `gm/data-register.yaml`.
 
 ## Questions for the owner
+
+**Ruled on 2026-11-03** (D333–D335): the owner, "i accept
+recommendations", so each is closed as recommended, and the page's
+other details stand as written (D336). Kept as the record of what was
+asked.
 
 - **O217**: How does a register fault get resolved? Recommended:
   propose. The corrected entry is part of the players' report, and the

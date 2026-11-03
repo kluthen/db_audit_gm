@@ -136,7 +136,7 @@ the deployment.
   `basebackup` manifests. *Cleared*: the handout regenerated without
   the fault names it, proving the change reversible. *Proposed*: the
   corrected entries, judged at the final answer against the answer
-  key's `register_diff:` (O217). With s2 planted too, the vault still
+  key's `register_diff:` (D333). With s2 planted too, the vault still
   holds the planted manifests and the base backups. About 10 minutes.
 - **s7, statement logging.** *Present*: an owner's name and phone in
   `records`' log after a few `pms`-style writes run by the test as

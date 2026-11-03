@@ -259,22 +259,22 @@ ground truth by the GM's `data-register` skill (D331); these traps are
 planted in the handout only, nothing in the system changing: a
 `seed-file` change on the bastion's `data-register.md`, the answer key
 recording each one's diff against the true register. Their resolution
-is *propose*, the corrected entry, judged at the final answer (O217).
+is *propose*, the corrected entry, judged at the final answer (D333).
 The whole family, its witnesses and its false-alarm material are on
 [data-register-handout.md](data-register-handout.md#4-the-trap-family-the-register-itself-t300t308),
 their one home.
 
 | # | Trap | Fixed on | Catalogue | Class |
 |---|---|---|---|---|
-| T300 | an entry out of date (the portal's copies not declared) | the register (proposed) | new, `governance-register-*` | M |
-| T301 | a column missing (`exchanges.partner_patient`) | the register (proposed) | new | M |
-| T302 | a store missing (`office`) | the register (proposed) | new | M |
-| T303 | a wrong class (natural identifiers `internal`) | the register (proposed) | new | M, V when a reader leaned on it |
-| T304 | a wrong retention (controlled drugs five years) | the register (proposed) | new | M |
-| T305 | the register absent, the policy naming one | the register (proposed) | new | M |
-| T306 | the register vague | the register (proposed) | new | M |
-| T307 | cold storage, the vault, not declared | the register (proposed) | new: s6 of the test selection (D332) | M |
-| T308 | the franchise's messaging service not declared | the register (proposed) | new | M |
+| T300 | an entry out of date (the portal's copies not declared) | the register, by *propose* | new, `governance-register-*` | M |
+| T301 | a column missing (`exchanges.partner_patient`) | the register, by *propose* | new | M |
+| T302 | a store missing (`office`) | the register, by *propose* | new | M |
+| T303 | a wrong class (natural identifiers `internal`) | the register, by *propose* | new | M, V when a reader leaned on it |
+| T304 | a wrong retention (controlled drugs five years) | the register, by *propose* | new | M |
+| T305 | the register absent, the policy naming one | the register, by *propose* | new | M |
+| T306 | the register vague | the register, by *propose* | new | M |
+| T307 | cold storage, the vault, not declared | the register, by *propose* | new: s6 of the test selection (D332) | M |
+| T308 | the franchise's messaging service not declared | the register, by *propose* | new | M |
 
 A fault planted in the system (T49, T67) leaves the register as the
 ground truth has it: the register is then the reference the system is

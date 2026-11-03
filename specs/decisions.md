@@ -1002,3 +1002,28 @@ D285–D309 and D314 onward, v0.5's drafting (D310–D313 are v0.4's, on `main`)
   planted deviation, and T49's mechanism was already proved in v0.4.
   Now in:
   [versions/v0.5/clinic-test-selection.md](versions/v0.5/clinic-test-selection.md#the-selection).
+- **D333 (2026-11-03, owner answer, relayed by the coordinator): A
+  register fault is resolved by *propose*:** the corrected entry goes in
+  the players' report, and the GM judges it against the answer key's
+  `register_diff:`. A corrected file handed back waits for v0.6's
+  reporting tool (O135). Closes O217. The owner: "i accept
+  recommendations." Now in:
+  [versions/v0.5/data-register-handout.md](versions/v0.5/data-register-handout.md#4-the-trap-family-the-register-itself-t300t308).
+- **D334 (2026-11-03, same answer): The register's format additions go
+  into the master spec with O111's text:** a domain's
+  `data/register.yaml`, `governance.register`, `gm/data-register.yaml`,
+  `register_diff:`, the loader's digest and coverage checks. Closes
+  O218. Now in:
+  [versions/v0.5/data-register-handout.md](versions/v0.5/data-register-handout.md#6-format-impact-o111-d334).
+- **D335 (2026-11-03, same answer): Every scenario listing `domains:`
+  must have a register,** and the deploy refuses one without it; v0.4's
+  released shop scenario is exempt until next revised; optional with
+  `governance:` alone. Closes O219. Now in:
+  [versions/v0.5/data-register-handout.md](versions/v0.5/data-register-handout.md#3-generation-the-gms-data-register-skill-d331).
+- **D336 (2026-11-03, same answer): The handout page's other
+  "(proposed)" details stand as written,** D331's skill details
+  included: the entry and its grouping, the two handouts, the skill's
+  inputs, outputs, triggers and checks, the trap family, the chunks.
+  Reason: the page went to the owner whole, and no question but
+  O217–O219 was left on it. Now in:
+  [versions/v0.5/data-register-handout.md](versions/v0.5/data-register-handout.md).
