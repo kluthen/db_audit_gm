@@ -3410,3 +3410,21 @@ verdict, ~9 h single-host) — `spec-writer` kept it in v0.4 (a smoke run,
 not a game); proposal: move it too, named in the known limits. Driver:
 chunk 17's Status set; the wave gate line corrected to the running scope
 (smoke, baseline, f10 on armenelos; cycles as 17a ran it).
+
+### Owner ruling: long-running tests to v1.0 gating, 2026-11-03 ~10:40 UTC
+
+The owner: "long running tests should be moved to v1.0 gating. remaining
+tests should be short." Closes O162 (item 9's unobserved part moves).
+The wave gate's `smoke` run (started 09:19Z; f1–f7, f9 present, f10 error
+as designed, 25 PASS 0 FAIL by 10:15Z, then f8's wait of up to 9000 s)
+is stopped at f8's wait, f8's reading moving too; `f10` and `baseline`
+(~31 min) still run. Taken as the owner's confirmation of D311's master
+spec 18 amendment. Sent to `spec-writer` (decision, plan v15) and to the
+gate's `coding-executor`.
+
+Wave gate so far (armenelos, 2026-11-03, UTC from the logs' local times −1 h):
+unit suite and scheduler unit tests run; `sh -n` clean; seven builds
+(first try) and stack tests all pass (07:43–08:09); `smoke.sh` pass;
+`smoke-monitoring.sh` 43/43 (46 s); `smoke-scenario.sh` bookshop 19/19
+(21 s), fernway 18/18 (29 s), tarnbeck-outdoor-shop 26/26 (822 s);
+`smoke-load.sh` armenelos 73/73 (423 s). Full figures in the gate's report.
