@@ -1,11 +1,12 @@
 # db_audit_gm v0.5 — Access model
 
-Status: **draft v1, for the owner's review with the
-[master spec](master-spec.md) it accompanies** (2026-11-03). Revises the
-[v0.4 access model](../v0.4/access-model.md), which it replaces for v0.5
-games; "Changes from v0.4" at the end lists what moved. Items decided
-here for the first time are tagged (proposed) and listed in the master
-spec's owner review (25) under R17 to R20.
+Status: **approved by the owner on 2026-11-03 with the
+[master spec](master-spec.md) it accompanies**, every point of its
+review as recommended, the partners' refusals and the portal's answers
+among them; the monitoring breadth's rows written in from the same
+ruling (5). Revises the [v0.4 access model](../v0.4/access-model.md),
+which it replaces for v0.5 games; "Changes from v0.4" at the end lists
+what moved.
 
 ## 1. Purpose and scope
 
@@ -50,8 +51,9 @@ players' scope, the standby included (it is a replica of the primary's
 roles). The partners' database has no `dba` for the players.
 
 Not actors, acting only as configured, their credentials resources
-below: the exporter's `monitoring` role (where the node chose the
-option); the customer's application roles used by the scheduler and
+below: the `monitoring` role the exporters, pgwatch and the health
+node's checks connect as (where the node chose the option); the health
+node's crontab and the customer's scripts in it; the customer's application roles used by the scheduler and
 `api` nodes; the cron daemons and `pg_cron` jobs; the replication role;
 the archive and base-backup posting; the partners' back end and its
 roles; the HTTP credentials each caller holds; the GM check role, which
@@ -109,14 +111,14 @@ v0.4's resources stand; v0.5 adds the rows marked *new*.
 | *new* `api` node endpoint files: `routes/` (the contract) and `db/` (queries, transactional work, session settings) | `read`, `edit` |
 | Database (PostgreSQL), each instance in the players' scope | `connect`, `read`, `write`, `alter-system` |
 | *new* The standby | `connect`, `read`, `alter-system` (its own settings), `promote` |
-| `pg_cron` jobs, a database node's crontab, logs and pgBadger | as v0.4 |
+| `pg_cron` jobs, a database node's crontab, logs, pgBadger and *new* pgCluu | as v0.4, pgCluu run as pgBadger is |
 | The GM's connection reserve | `connect-reserved` |
 | Service credentials (monitoring role, application roles' passwords and HTTP credentials wherever held, replication role, GM check role) | `read` |
 | *new* A partner's public interface (its routes on the partners' `api` node, by hostname) | `call` |
 | *new* Cold storage's endpoints | `view` (`GET /`, `GET /manifests`), `upload` (`POST /shipments`) |
 | *new* The partners' nodes (the `api` node, the back end, the database) | `login`, `connect`, `any` |
 | PgBouncer console, Prometheus, Grafana | as v0.4 |
-| *new* The monitoring breadth (pgwatch, pgCluu, the health check), as ruled | `view`, `edit-content` |
+| *new* The health node's status page | `view` |
 | Swarm and Docker engine | `any` |
 
 Listing and reading one item do not differ for any resource of the
@@ -206,7 +208,7 @@ only, `edit` denied to all; metrics `in-game-network`). The ward service
 | `pg_cron` jobs `change` | deny | `fixable-node` | deny | `before-hand-over` | deny |
 | crontab `list` | deny | `from-bastion` | deny | allow | deny |
 | crontab `install` | deny | `fixable-node` | deny | `before-hand-over` | deny |
-| `read-logs`, `run-pgbadger` | deny | `from-bastion` | deny | allow | deny |
+| `read-logs`, `run-pgbadger`, `run-pgcluu` | deny | `from-bastion` | deny | allow | deny |
 | `connect-reserved` | deny | deny | deny | allow | deny |
 | service credentials `read` | deny | deny | deny | allow | deny |
 
@@ -223,10 +225,16 @@ only, `edit` denied to all; metrics `in-game-network`). The ward service
 
 **Monitoring interfaces**: as v0.4 (Prometheus and Grafana `view`
 `through-web-front`, Grafana `edit-content` `fixable-grafana`, the
-administration and Prometheus' admin denied). The monitoring breadth's
-interfaces follow Grafana's rows, `view` `through-web-front` and
-`edit-content` `fixable-grafana` read for that node, once their design
-is ruled.
+administration and Prometheus' admin denied), Grafana's seeded pgwatch
+dashboard among the dashboards. The monitoring breadth (master spec
+7.4): pgwatch has no interface of its own (its web interface is off;
+its metrics are read in Prometheus and Grafana); the health node's
+status page is `view` `through-web-front` for the `player` and the GM,
+`holds-tools-password` for the initiator and a session participant, as
+the web front is, and has no `edit-content`, being rewritten by each
+run; the checks and the customer's scripts are the health node's files,
+under the node rows. The `pgwatch` and `health` nodes are monitoring
+nodes in the players' scope.
 
 **Swarm and Docker engine**: `owns-host` for the initiator, allow for
 the GM, deny otherwise.
@@ -269,7 +277,7 @@ permission denied on protected and non-fixable files, PgBouncer's
 | Login to a partners' node, or a connection to the partners' database | Nothing to log in as: no `player` account exists there (`no-access`); the database's `pg_hba.conf` rejects every role but the partners' own; the players are not told the nodes' names | A real partner's internals are not reachable; hiding alone would not do on one network |
 | A fix needing a partner to change | Never expected: no answer key's *fix* names a partner. Telling the partner, with the evidence, is written in the report and may be credited | Every fix is the customer's |
 | Writing to the partner's support contact | Not answered during the game; the players write in their report the message they would send | The GM plays no partner |
-| A call to a partner's interface with another partner's credentials, or to its undocumented routes | Refused by the stub as the real service would (401 without a valid credential, 404 for an unknown route) (proposed) | A partner's interface, not its internals |
+| A call to a partner's interface with another partner's credentials, or to its undocumented routes | Refused by the stub as the real service would (401 without a valid credential, 404 for an unknown route) | A partner's interface, not its internals |
 | Forging a partner's traffic (posting results, shipments or acknowledgements as the partner, from a node) | Not refused: reachable on the one network. Forbidden by the rules; the GM's checks read the partner's side as evidence and judge the customer's, so forged traffic is named in the feedback as an overstep and earns nothing | Trust where it cannot be enforced (Known gaps) |
 | Cold storage's upload endpoint through the bastion | Not routed: the bastion proxies `GET /` and `GET /manifests` only; any other path answers 404 | The one exception to third parties' absence is read-only |
 | Editing an `api` node's `routes/` | Ordinary "permission denied" (read-only, root-owned); the reload wrapper reloads the `db/` side only | The contract is the application's, the database side the DBA's |
@@ -411,17 +419,17 @@ through `pms` with the desk's credential, source `desk`.
 
 **Denial behaviour on the portal: out of scope is hidden, never
 blocked.** A list returns fewer rows or none; a document out of scope is
-not returned (`404`, proposed), so an owner cannot learn that another
+not returned (`404`), so an owner cannot learn that another
 owner's animal or document exists. A wrong password answers `401`; five
 failures lock the account for 30 minutes (`423`); success `201` with a
-token. An expired, idle or ended token yields no account (`401`,
-proposed). An insert outside the asker's scope fails the policy's check
-and answers an error (`403`, proposed). A keeper-access grant by an
-account that is not the animal's current owner is refused the same way,
-not stored (proposed). A closed account cannot log in, reset or
-unsubscribe (`401`, as for no account, proposed); an `invited` account
-logs in only after activation. A reset for an unknown e-mail answers as
-for a known one, so the portal never confirms an address (proposed).
+token. An expired, idle or ended token yields no account (`401`). An
+insert outside the asker's scope fails the policy's check and answers an
+error (`403`). A keeper-access grant by an account that is not the
+animal's current owner is refused the same way, not stored. A closed
+account cannot log in, reset or unsubscribe (`401`, as for no account);
+an `invited` account logs in only after activation. A reset for an
+unknown e-mail answers as for a known one, so the portal never confirms
+an address.
 
 Owner 1, the clinic itself, has no account. Vets and pathologists never
 use the portal.
@@ -451,9 +459,9 @@ the customer's. Its credential is a secret on the partners' back end.
 
 | Partner | Reaches the customer | Is reached by | May | Refused when |
 |---|---|---|---|---|
-| The external reference lab | `lab-api` `POST /send-outs/{send_key}/result` | `interfaces`' send-outs (catalogue fields only) and chases | answer a send-out, resend on request | its credential is wrong (401) or the send key unknown (404) (proposed) |
-| The region's practices (the lab's outside customers) | `lab-api` `POST /orders`, `GET /orders/...`, the results feed, each as its own account | `interfaces`' deliveries to each account's callback | order, follow its own orders and results | another account's order or feed: hidden, 404 (proposed) |
-| The two other national centres, the centres abroad | `clinic-api` `POST /exchanges`, `/answer`, `/report` | `interfaces`' exchanges (the animal's record and its owner's contact, under the franchise's agreement) | request a transfer or examination, answer, report back | another exchange's key (404, proposed) |
+| The external reference lab | `lab-api` `POST /send-outs/{send_key}/result` | `interfaces`' send-outs (catalogue fields only) and chases | answer a send-out, resend on request | its credential is wrong (401) or the send key unknown (404) |
+| The region's practices (the lab's outside customers) | `lab-api` `POST /orders`, `GET /orders/...`, the results feed, each as its own account | `interfaces`' deliveries to each account's callback | order, follow its own orders and results | another account's order or feed: hidden, 404 |
+| The two other national centres, the centres abroad | `clinic-api` `POST /exchanges`, `/answer`, `/report` | `interfaces`' exchanges (the animal's record and its owner's contact, under the franchise's agreement) | request a transfer or examination, answer, report back | another exchange's key (404) |
 | The authority | no route to the customer | `interfaces`' notifications, `backoffice`'s yearly antimicrobial-use report | acknowledge with a reference | — (it calls nothing) |
 | The franchise's head office | no route to the customer | `backoffice`'s monthly figures | acknowledge | — |
 | The franchise's messaging service (a processor) | no route to the customer | `portal_dispatch` and the core's outbox | deliver | — |
@@ -517,11 +525,10 @@ be inferred; the web front on plain HTTP. Added:
 - **The portal's answers beyond login's** (a document out of scope, an
   ended token, an insert out of scope, a closed account, an unknown
   e-mail's reset, a non-owner's keeper grant) and the partners' refusals
-  are decided here as proposals; the build writes them into the
-  endpoints, and the owner's review confirms them.
-- **The monitoring breadth's interfaces** follow Grafana's rules once
-  their design is ruled; until then they are not in the matrix beyond
-  that sentence.
+  are the stubs' and endpoints' own code: the build writes them in, and
+  nothing but the code enforces them.
+- **The health node's status page has no login** beyond the web
+  front's tools password, as Prometheus has none.
 
 ## 14. Changes from v0.4
 
@@ -531,7 +538,8 @@ be inferred; the web front on plain HTTP. Added:
 - **New resources**: composition and the register; the `api` nodes'
   `routes/` and `db/`; the standby; partners' public interfaces, cold
   storage's endpoints, the partners' nodes; `partners.md` and the data
-  register in the starter pack; the monitoring breadth.
+  register in the starter pack; the monitoring breadth (pgwatch, pgCluu,
+  the health node's status page).
 - **Hidden, for the first time**: the partners' nodes, by `no-access`
   made real; their interfaces documented, cold storage's page routed by
   the bastion, the one exception.

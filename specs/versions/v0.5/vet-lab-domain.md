@@ -1,8 +1,9 @@
 # v0.5 — `vet-lab`, the clinic's lab
 
-Status: draft v6, ready for review: the draft document of procedure
-step 9, for the owner to approve with v0.5's master spec; not approved.
-Steps 2 to 8 are done: the business sketch ruled, every default
+Status: draft v6, the draft document of procedure step 9.
+**Approved by the owner on 2026-11-03 with v0.5's
+[master spec](master-spec.md)** (procedure step 9, D339), which wins
+where the two disagree. Steps 2 to 8 are done: the business sketch ruled, every default
 accepted (D301, closing O151); step 3 not a part's, the lab's boundary
 set by the clinic's split (D279, D293, D294); the data model and the
 default policy ruled (D302, closing O152), `lab_app`'s grants amended
@@ -15,8 +16,8 @@ centre's sent requests are cancelled by the lab only, the feed carrying
 the cancellation (D315). On 2026-11-03 the four remaining parts folded
 in (D317–D325): the analysers are `vet-machinery`'s machines 1–6 by its
 mapping (D319), and `vet-portal-release` reads the lab's released
-results as `lab_release` (D320). Open: the format's finalisation (O111,
-at consolidation).
+results as `lab_release` (D320). The format finalised in
+[formats.md](../../formats.md) v28 at consolidation (D338).
 
 `vet-lab` is the biology lab of the centre a scenario deploys (D285),
 the second domain through the [procedure](domain-procedure.md) (D235,
@@ -902,7 +903,7 @@ Each a purpose of the round-trip kind; the profile they meet:
 | Round trip | Who asks | Request | Correlation key | Expected answer | Timing at 1.0 | Timeout, then | Reactions |
 |---|---|---|---|---|---|---|---|
 | The centre's orders | the centre | the consultation's analysis requests, one order, posted to `lab-api` | `client_ref`, the requests' ids | the accession id at once; the result once released | about 25 orders a day, each within a minute of its consultation's close | no accession in a minute: resent with the same `client_ref` | the core's requests `sent`, then `resulted` with the result copied back |
-| The practices' orders | a practice | an order posted to `lab-api` | the practice's `client_ref` | the accession id at once; the interim and final results at its callback | about 25 a working day; results the same day for most, cultures and send-outs days later | the dispatch's: no acknowledgement in five minutes, retried with the same `delivery_key`, at most six times | each delivery acknowledged; a test billable once released |
+| The practices' orders | a practice | an order posted to `lab-api` | the practice's `client_ref` | the accession id at once; the interim and final results at its callback | about 25 a working day; results the same day for most, cultures and send-outs days later | the dispatch's: no acknowledgement within 30 seconds, retried 5 minutes after the last attempt with the same `delivery_key`, at most six attempts, then an incident (D339; [purpose 2](clinic-purposes.md)) | each delivery acknowledged; a test billable once released |
 | The send-outs | the centre | the day's send-out tests posted to the external lab: the accession, the label, species, sex and age, never an identifier (rule 11) | `send_key`, kept on a retry | `accepted` at once; the result one to five days later | about 7 a day, Monday to Friday 16:00 | not accepted: retried with the same `send_key`; past `due_by` by a working day: chased with `resend`, then an incident (clinic-purposes 7) | the test resulted, then validated and released as the centre's own, naming the lab that performed it |
 
 The end-to-end invariant a cascade's fix is judged by (D286): every new

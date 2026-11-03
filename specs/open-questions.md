@@ -39,7 +39,9 @@ recommendations: O217 (D333), O218 (D334), O219 (D335), each
 question's text on
 [versions/v0.5/data-register-handout.md](versions/v0.5/data-register-handout.md#questions-for-the-owner).
 Resolved at consolidation: O111, its v0.5 part, the domain format
-written into [formats.md](formats.md) v28 (D338).
+written into [formats.md](formats.md) v28 (D338). Resolved at the
+master spec's approval: O220, the monitoring breadth (D340).
+O221 and O222 were reserved and never used.
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -178,21 +180,10 @@ O136, raised by D230, waits for a later version.
 Raised when the owner set business domains for v0.5 on 2026-10-28
 (D192). v0.4 ships the first, the shop (O108). The veterinary clinic
 added on 2026-10-30 (D196). O111, the last of them, closed at
-consolidation (D338); one raised by it.
+consolidation (D338); O220, raised by it, closed at the master spec's
+approval (D340).
 
-- **O220** (v0.5, before the build plan's monitoring chunk) — The
-  clinic's monitoring breadth (D238): which bricks pgwatch, pgCluu and a
-  Nagios-style health check become, where pgwatch writes its metrics,
-  whether the `monitoring` role (`pg_monitor`) gives them what they
-  need, how the health check is shown, and where the customer's
-  hand-made scripts run (D248). No draft designs them; the capacity
-  tally reserves two to four nodes. Recommended: pgwatch 3 as a new
-  brick with its Prometheus sink, feeding v0.2's Grafana; pgCluu on
-  demand as pgBadger is; a light health node running
-  `check_postgres`-style checks with a status page on the web front and
-  the hand-made scripts in its crontab; one collector only if capacity
-  is short; the new packages through a dependency check. Refs:
-  [versions/v0.5/master-spec.md](versions/v0.5/master-spec.md) 7.4, 24.
+None open.
 
 ## v0.6: the setup's entry point
 

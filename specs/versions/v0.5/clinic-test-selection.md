@@ -170,7 +170,7 @@ the deployment.
 
 The whole clinic deployed once on armenelos plus the VPS, every part
 built, the ten faults and the false alarm planted at once. Its checks
-(proposed): the deployment and `fit`; every producer, partner and
+(ruled, D339): the deployment and `fit`; every producer, partner and
 purpose running for about 30 minutes, each one's first run read; each
 fault's present reading where it reads within the window (s2, s5, s6,
 s7, s8, s9 and s10 at once, s5 as a planted former owner's visit, s6

@@ -9,7 +9,7 @@ the four format changes (section 6) and a skill later (section 8)
 (section 1), the steps and who takes part (2), done and the checklist
 (3), and the effort estimate (7) (D260). On 2026-11-01 a domain's scale,
 its variants and their tags (section 9, D263), closing O114; where the
-variants are built is (proposed) in section 6. On 2026-11-03 composing
+variants are built is in section 6 (ruled, D339). On 2026-11-03 composing
 domains (section 10, D322): D249's keys stay the default, the initial
 load is the GM's to adjudicate, the mechanism with the parts' format
 changes (D323), for O111; the same day the mechanism and the format
@@ -239,7 +239,7 @@ settled (D249) and built together in one chunk, and a fifth (D263):
 
 Each needs the template, the format skill's checks and
 `check_domain_dir` to follow; the fifth joins the other four in that one
-chunk (proposed), since it touches the same template, checks and
+chunk (ruled, D339), since it touches the same template, checks and
 function. `formats.md` states them once it is built.
 
 ## 7. Effort to define one domain
@@ -323,7 +323,7 @@ its customers' habits, and the shop with hundreds of warehouses.
   the shop's existing setup. The shop's other variants are other-domain
   work, after v0.5 (D292).
 
-A scenario names the variant beside its core (proposed):
+A scenario names the variant beside its core (ruled, D339):
 
 ```yaml
 domains:

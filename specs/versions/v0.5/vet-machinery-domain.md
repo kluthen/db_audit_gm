@@ -1,7 +1,9 @@
 # v0.5 — `vet-machinery`, the clinic's machines
 
-Status: draft v2, ruled, for approval with v0.5's master spec. Steps 1
-to 9 of the [procedure](domain-procedure.md) drafted in one pass on
+Status: draft v2, ruled. **Approved by the owner on 2026-11-03 with
+v0.5's [master spec](master-spec.md)** (procedure step 9, D339), which
+wins where the two disagree.
+Steps 1 to 9 of the [procedure](domain-procedure.md) drafted in one pass on
 2026-11-03, on the owner's instruction ("start an agent for each part,
 and let them come back with problems once they're done"); the same day
 the owner accepted the recommendations as a whole (D319, closing

@@ -6,8 +6,8 @@ closing O145) are stated below as settled, with his ruling of
 2026-11-02 that the clinic's other centres and the franchise's systems
 are third parties too (D285), sharing one back end (D293), and the
 bastion's route to cold storage's page (D296). The `third_parties:` key's
-shape, the loader's checks and the format changes stay (proposed) until
-the version's master spec.
+shape, the loader's checks and the format changes were ruled with the
+version's master spec (D339).
 
 The owner, on 2026-11-01, agreeing to keep a third party out of reach:
 "agreed, but we need a proper definition of what a third party element
@@ -18,8 +18,8 @@ player and how it is documented."
 touches four standing documents: the vocabulary ([concept.md](../../concept.md)),
 who reaches what ([planes-and-access.md](../../planes-and-access.md)),
 the scenario's keys ([formats.md](../../formats.md)) and the player
-material. Those state what is settled and built. This draft still holds
-(proposed) format items and is built in v0.5 with the `api` brick
+material. Those state what is settled and built. This draft holds
+format items ruled with the master spec (D339) and is built in v0.5 with the `api` brick
 (D267), so it lives here; once built, each part moves into its standing document:
 the term into the vocabulary, the access rule into "Player access to
 nodes", the keys into "Scenario".
@@ -136,7 +136,7 @@ third parties stay with O12.
 How the database admits only its own nodes is the build's to verify. On
 one Swarm network the tasks' addresses change, and a host name in
 `pg_hba.conf` relies on reverse lookups that Swarm does not promise; the
-proposed form: lines for the third party's database and roles only, the
+form (ruled, D339): lines for the third party's database and roles only, the
 roles' passwords secrets mounted on its own nodes only, every other
 line for that database a `reject`.
 
@@ -148,7 +148,7 @@ pack gives (D274).
 several hosts the GM may place third parties on the host the players do
 not own, a preference, not a check.
 
-**Declaring it** (proposed), in `scenario.yaml`:
+**Declaring it** (ruled, D339), in `scenario.yaml`:
 
 ```yaml
 third_parties:
@@ -160,7 +160,7 @@ third_parties:
     player_doc: player/partners.md#northfield-veterinary-laboratories
 ```
 
-**What the loader checks** (proposed): each node listed exists and has
+**What the loader checks** (ruled, D339): each node listed exists and has
 `write_policy: no-access` on a brick that implements it; no third-party
 node is in the bastion's `web_routes`, but for a cold storage stub's
 read-only paths (D296), or among the starter pack's nodes;
@@ -197,7 +197,7 @@ schedules (hidden as every `schedule.yaml` is, D130), the faults it
 carries and what it stands in for, in the scenario document's own
 section (the `scenario-document` skill).
 
-**Format changes this needs** (proposed):
+**Format changes this needs** (ruled, D339):
 
 - `formats.md`, "Scenario": the `third_parties:` key; `no-access` made
   real in "Player access to nodes" and in the bricks' `write_policies`;

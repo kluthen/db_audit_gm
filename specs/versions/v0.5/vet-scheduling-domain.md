@@ -1,7 +1,9 @@
 # v0.5 — `vet-scheduling`, the clinic's bookings, rota and training centre
 
-Status: draft v2, ruled, for approval with v0.5's master spec. Steps 1
-to 9 drafted in one pass on 2026-11-03 at the owner's instruction
+Status: draft v2, ruled. **Approved by the owner on 2026-11-03 with
+v0.5's [master spec](master-spec.md)** (procedure step 9, D339), which
+wins where the two disagree.
+Steps 1 to 9 drafted in one pass on 2026-11-03 at the owner's instruction
 ("start an agent for each part, and let them come back with problems
 once they're done"), in parallel with `vet-housing`, `vet-machinery` and
 `vet-portal`; the same day the owner accepted the recommendations as a
@@ -10,9 +12,9 @@ in with the other parts (D324): ten bookable machines, `vet-machinery`'s
 ids 7–16; the staff layout the core documents; no appointment reminders
 in v0.5 (D321). Step 8 has no owner checkpoint (D309). The changes this
 part asked of the shared pages are applied ([Changes needed in shared
-pages](#changes-needed-in-shared-pages)). Open: the format's
-finalisation (O111, at consolidation), with the composition rules
-(D322, procedure 10).
+pages](#changes-needed-in-shared-pages)). The format, with the
+composition rules (D322, procedure 10), finalised in
+[formats.md](../../formats.md) v28 at consolidation (D338).
 
 `vet-scheduling` is the centre's scheduling: the slots of its rooms and
 machines, the bookings that take staff, rooms and machines, the staff
@@ -731,8 +733,9 @@ database node's `pg_cron` (D206, D207).
 the load, the job and the core's history, O175): vets a day shift on
 four weekdays, the fifth off by `(id + week) mod 5`, domestic vets of
 odd id 10:00–20:00, the others 08:00–18:00; one vet a night,
-20:00–08:00, by rotation over the 28, the night's vet off that day and
-the next; two domestic vets on Saturday 08:00–13:00 and one vet of each
+20:00–08:00, by rotation over the 25 section vets (1–25), the night's
+vet off that day and the next, the imaging vets (26–28) keeping their
+own on-call among the three (D339); two domestic vets on Saturday 08:00–13:00 and one vet of each
 section on Sunday, by rotation; a surgeon and an anaesthetist on call
 each night; nurses and carers in day, late and night shifts around the
 clock (day 07:00–15:30, late 13:30–22:00, night 21:30–07:30); reception

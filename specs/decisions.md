@@ -25,8 +25,9 @@ Archived IDs keep their meaning and are cited as they are. D107 and D113
 stay live: rulings still to be applied in v0.5. The rest is v0.5's: D192,
 D196 and D201, its scope set while v0.4 was drafted, then its drafting
 from D233 on (D233–D238, D248–D251, D260–D280, D285–D304, D306–D309 and
-D314 onward; the numbers between are v0.4's, archived). Take the next
-number from `doc-ids`; no ID is reused.
+D314 onward; the numbers between are v0.4's, archived;
+D337 and D341 were reserved and never used). Take the next number from
+`doc-ids`; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -637,3 +638,18 @@ number from `doc-ids`; no ID is reused.
   and producer layout, the purpose format's extensions (D307) and the
   data register's additions (D334), as D291 set. Closes O111. Now in:
   [formats.md](formats.md#domain-from-v04-composed-domains-from-v05).
+- **D339 (2026-11-03, owner approval, relayed by the coordinator): v0.5's
+  master spec and access model are approved, with the review's R1–R3 and
+  R5–R20 as recommended,** and the six domain documents with them
+  (procedure step 9), corrected to the spec first (R16); purpose 2's
+  30-second acknowledgement (R13), the night rota over the 25 section
+  vets (R15). The owner: "agreed." Now in:
+  [versions/v0.5/master-spec.md](versions/v0.5/master-spec.md),
+  [versions/v0.5/access-model.md](versions/v0.5/access-model.md).
+- **D340 (2026-11-03, same answer, R4): The monitoring breadth is a
+  `pgwatch` brick (pgwatch 3, its Prometheus sink feeding v0.2's
+  Grafana), pgCluu in `postgres` run on demand as pgBadger is, and a
+  light `health-check` node running `check_postgres` with a status page
+  and the customer's scripts; one collector only if CPU is short.**
+  Closes O220. The owner: "agreed." Now in:
+  [versions/v0.5/master-spec.md](versions/v0.5/master-spec.md#74-the-monitoring-breadth) 7.4, 14.

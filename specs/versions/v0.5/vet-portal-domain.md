@@ -1,7 +1,9 @@
 # v0.5 — `vet-portal`, the owners' portal
 
-Status: draft v2, ruled, for approval with v0.5's master spec. Steps 1
-to 9 of the [procedure](domain-procedure.md) run in one pass on the
+Status: draft v2, ruled. **Approved by the owner on 2026-11-03 with
+v0.5's [master spec](master-spec.md)** (procedure step 9, D339), which
+wins where the two disagree.
+Steps 1 to 9 of the [procedure](domain-procedure.md) run in one pass on the
 owner's instruction of 2026-11-03 ("start an agent for each part, and
 let them come back with problems once they're done"); the same day the
 owner accepted the recommendations as a whole (D320, closing
@@ -36,7 +38,7 @@ master spec, O111):
 | `domain.yaml`: `id` `vet-portal`, `requires: [vet-core]`, its tables and roles prefixed `portal_`, the purposes that fit | [What the portal holds](#what-the-portal-holds); [Purposes](#purposes-that-fit-step-7) |
 | `variants/regional-franchise.yaml`: the part's own axes in a manifest of the core variant's name (D301, vet-lab answer 15) | [The variant](#the-variant-its-scale-and-its-tags) |
 | `data/schema.sql`: tables, keys, states, the row-level security policies, the auth functions, roles and grants, in a database `portal` on `records` (ruled, D320) | [The data model](#the-data-model-step-4) |
-| `data/load.sql`: the accounts, consents, reminders, sessions and tokens by documented functions, the core's and the lab's keys computed (D249, D322); `data/derive.sql`: the copies, the documents and what hangs off them, derived after the sources' loads by a step the GM sanctions (D322, proposed) | [Key ranges](#deterministic-key-ranges-d249-d266), [The history before T0](#the-history-before-t0), [Loading](#loading) |
+| `data/load.sql`: the accounts, consents, reminders, sessions and tokens by documented functions, the core's and the lab's keys computed (D249, D322); `data/derive.sql`: the copies, the documents and what hangs off them, derived after the sources' loads by a step the GM sanctions (D322, D326) | [Key ranges](#deterministic-key-ranges-d249-d266), [The history before T0](#the-history-before-t0), [Loading](#loading) |
 | `data/classification.yaml`: every column classed | [Classification](#classification) |
 | `docs/policy.md` and a `governance:` fragment | [The rules](#the-rules-ruled-d320) |
 | `producers/`: the portal's API (`producers/api/portal-api/`), the owners' traffic (`producers/partners/owners/`, ruled, D320; the folder for a traffic source that is no business, `partners/` or a sibling `public/`, chosen at the build, D323, D326), the desk's consent stream on `pms` | [The producer profiles](#the-producer-profiles-step-6) |

@@ -1,6 +1,6 @@
 # Formats: scenario, brick, fault
 
-Status: draft v28
+Status: draft v28; its v0.5 items ruled with the v0.5 master spec (D339)
 
 What a scenario, a brick, a fault definition and, from v0.4, a purpose
 and a domain must contain, and how they are laid out, so that every scenario the GM designs or generates stays
@@ -710,7 +710,7 @@ domains/<domain-id>/
     derive.sql              from v0.5, optional: a derivation step the GM may sanction
     classification.yaml     every classed column
     register.yaml           from v0.5: the register fragment, one entry per activity
-    governance.yaml         from v0.5, optional: the business's own rules (proposed name)
+    governance.yaml         from v0.5, optional: the business's own rules (ruled, D339)
   producers/                the business's producer fragments
     api/<node>/routes/      from v0.5: the endpoints of an `api` node the domain owns
     api/<node>/db/            and their database side
@@ -743,7 +743,7 @@ and pins" below). A static scenario needs none.
     its core's database; the loader refuses a scenario whose `at:` puts
     it elsewhere (`vet-housing`, whose displays' board read joins its
     units to the core's board in one statement).
-  - **`databases: [<name>, ...]`**, optional (proposed key name): a part
+  - **`databases: [<name>, ...]`**, optional (ruled, D339): a part
     with several databases names them; its folder then holds
     `data/<database>/schema.sql` and `load.sql` for each, in place of
     `schema` and `load` (`vet-machinery`'s `pacs`, `vitals`, `biomed`).
@@ -882,7 +882,7 @@ A scenario names its domains in `scenario.yaml` ("Scenario" above):
 ```yaml
 domains:
   - id: vet-core
-    variant: regional-franchise          # beside the core (proposed)
+    variant: regional-franchise          # beside the core (D339)
     at: records/clinic                   # node/database the schema lands in
   - id: vet-lab
     at: lab/lab                          # an instance of its own: keys fed by a purpose

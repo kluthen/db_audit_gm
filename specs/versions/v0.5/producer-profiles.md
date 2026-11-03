@@ -404,7 +404,7 @@ endpoint itself, its route or its request and response contract. The
 endpoints connect with application roles, never superusers; a change
 takes effect through a reload wrapper, as on a scheduler node.
 
-The brick's layout follows from it (proposed, for the `api` brick's
+The brick's layout follows from it (ruled, D339, for the `api` brick's
 notes): each endpoint is two files of the same name in two directories,
 `routes/<name>.py` (the route, its request and response models, calls
 into its database module; protected) and `db/<name>.py` (its SQL, its

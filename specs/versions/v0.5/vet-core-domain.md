@@ -1,8 +1,9 @@
 # v0.5 — `vet-core`, the clinic's core domain
 
-Status: draft v10, ready for review: the draft document of procedure
-step 9, for the owner to approve with v0.5's master spec; not approved.
-Steps 2 to 8 are done: the business sketch ruled (D266, D278), its first
+Status: draft v10, the draft document of procedure step 9.
+**Approved by the owner on 2026-11-03 with v0.5's
+[master spec](master-spec.md)** (procedure step 9, D339), which wins
+where the two disagree. Steps 2 to 8 are done: the business sketch ruled (D266, D278), its first
 answer revised by one centre per scenario (D285); the split confirmed
 (D279), the parts one centre's (D293); the data model current at one
 centre's scale (D279, D280, D295), `requests` revised by `vet-lab`'s
@@ -19,8 +20,8 @@ consultations matching scheduling's bookings, `consultations.open`
 replaced by scheduling's check-in, the census endpoint, the imaging
 team cancelling a sent imaging request, and the parts' roles and grants
 (D324); a part's load computes these, never reading `clinic`, the GM
-checking the composed load's coherence (D322). Open: the format's
-finalisation (O111, at consolidation).
+checking the composed load's coherence (D322). The format finalised in
+[formats.md](../../formats.md) v28 at consolidation (D338).
 
 `vet-core` is the core of the veterinary clinic franchise (D196), the
 first domain defined through the [procedure](domain-procedure.md)
@@ -427,7 +428,7 @@ cite ([procedure](domain-procedure.md) 10).
 |---|---|---|
 | `sites.id` | 1–6 | 1 the centre (`own`), 2–3 the other national centres, 4–6 abroad |
 | `sections.id` | 1–3 | 1 horse, 2 farm, 3 domestic, all the centre's |
-| `staff.id` | 1–85 | one layout (D324, D327): 1–25 the sections' vets (1–10 horse, 11–17 farm, 18–25 domestic, eight instead of eleven so the imaging staff fit, specialties by id); 26–28 vets, specialty diagnostic imaging (`vet-machinery`'s reporters); 29–51 the sections' nurses and technicians (kind and section by id); 52–55 radiographers and 56 the biomedical engineer (`kind` `technician`); 57–66 carers and grooms (`kind` `carer`); 67–70 receptionists; 71–78 the lab's technicians (`kind` `lab`), 79–80 its clinical pathologists (`kind` `vet`, specialty clinical pathology, D302); 81–85 instructors. Kind, section and specialty a function of the id |
+| `staff.id` | 1–85 | one layout (D324, D327): 1–25 the sections' vets (1–10 horse, 11–17 farm, 18–25 domestic, eight instead of eleven so the imaging staff fit, specialties by id); 26–28 vets, specialty diagnostic imaging (`vet-machinery`'s reporters); 29–51 the sections' nurses and technicians (kind and section by id); 52–55 radiographers and 56 the biomedical engineer (`kind` `technician`); 57–66 carers and grooms (`kind` `carer`); 67–70 receptionists; 71–78 the lab's technicians (`kind` `lab`), 79–80 its clinical pathologists (`kind` `vet`, specialty clinical pathology, D302); 81–85 instructors. Kind, section and specialty a function of the id; the night vet rotates over 1–25, the imaging vets 26–28 keeping their own on-call ([vet-scheduling](vet-scheduling-domain.md)'s rota, D339) |
 | `owners.id` | 1–10 000 | 1 the clinic (the teaching animals, below); 2–201 holdings; 202–901 horse owners and stables; 902–10 000 pet owners |
 | `herds.id` | 1–200 | herd `h` kept by owner `h + 1` |
 | `animals.id` | 1–17 000 | 1–14 600 domestic; 14 601–16 000 horses; 16 001–17 000 farm animals, in herd `1 + (id − 16 001) mod 200`; each animal's species a function of its id; the teaching animals 1–12 (dogs) and 14 601–14 608 (horses), owned by owner 1 from before the history, never patients (D317); the history's deaths (which animals, when) a function of the id (D317) |

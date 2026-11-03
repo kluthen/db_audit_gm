@@ -1,6 +1,7 @@
 # v0.5 — domain definition: the veterinary clinic
 
-Status: draft; master spec and access model draft v1, for the owner's review (2026-11-03). Business domains added on 2026-10-28
+Status: **master spec and access model approved by the owner on
+2026-11-03** (D339, D340); the build plan next. Business domains added on 2026-10-28
 (D192); centred on 2026-10-31 on defining domains, the veterinary clinic
 the worked example (D233), with a procedure for defining a domain
 (D235), brick options tied to the clinic (D236, D238) and a post-mortem
@@ -69,32 +70,37 @@ was merged in (v0.4's release and the v1.0 gating list, D314's items
 folded into it), O111's format text written into formats.md v28,
 closing O111 (D338), and the drafts **consolidated** into the
 [master spec](master-spec.md) and its [access model](access-model.md),
-draft v1 each, for the owner's review: its section 25 lists R1–R20,
+draft v1 each, for the owner's review: its section 25 listed R1–R20,
 the "(proposed)" items and the drafts' disagreements, each with a
-recommendation; one question raised, O220, the monitoring breadth.
+recommendation; one question raised, O220, the monitoring breadth. The
+owner answered "agreed" the same day: both **approved** with every
+point as recommended, the six domain documents with them (D339), the
+monitoring breadth a `pgwatch` brick, pgCluu in `postgres` and a
+`health-check` node (D340, closing O220); the domain documents
+corrected to the spec (R16).
 
 ## Documents
 
 | Document | Purpose | Status |
 |---|---|---|
-| [master-spec.md](master-spec.md) | The v0.5 master spec: the domain procedure and format, composition, the clinic's six domains (their domain documents approved with it as companions), third parties and cold storage, replication and `office`, the sixteen purposes, governance and the data register, the bricks and their bumps, topology and capacity, the test selection, testing, the release gate, the build plan's needs; the owner review R1–R20 | draft v1, for the owner's review (2026-11-03); O220 open |
-| [access-model.md](access-model.md) | Who may do what: the game's access (players, GM, bastion, `api` nodes, the standby, the partners hidden) apart from the fiction's (the centre's staff, the applications' roles, owners and keepers on the portal, the partners) | draft v1, with the master spec |
+| [master-spec.md](master-spec.md) | The v0.5 master spec: the domain procedure and format, composition, the clinic's six domains (their domain documents approved with it as companions), third parties and cold storage, replication and `office`, the sixteen purposes, governance and the data register, the bricks and their bumps, topology and capacity, the test selection, testing, the release gate, the build plan's needs (its owner review R1–R20 removed at approval) | **approved** (2026-11-03, D339); the monitoring breadth written in (7.4, 14; D340, O220 closed) |
+| [access-model.md](access-model.md) | Who may do what: the game's access (players, GM, bastion, `api` nodes, the standby, the partners hidden) apart from the fiction's (the centre's staff, the applications' roles, owners and keepers on the portal, the partners) | **approved** with the master spec (D339); the monitoring breadth's rows (D340) |
 | [domain-procedure.md](domain-procedure.md) | How a domain is defined: what it holds and leaves out, the steps from a brief, done and its checklist, composites, how a scenario names its domains, the shop against it, the effort, scale, variants and tags, composing domains and the initial load | approved v5 (D249, D260, D263); section 10 ruled, its mechanism and the parts' format changes confirmed as written (D322, D323, D326; O111 settled in substance) |
 | [producer-profiles.md](producer-profiles.md) | The frictions between domains' producer profiles and v0.3's scheduler, each with its evidence, and the owner's rulings; what the first parts' profiles need of the scheduler and the format | draft v9, ruled (D264–D271, D276, D277, D287, D288, D298, D303; O113, O154 closed); frictions 9 and 11 applied at the parts' steps (D318, D319) |
 | [cold-storage.md](cold-storage.md) | Cold storage, a generic third party for heavy data: keeping a day on site, the shipping job, the stub's manifest, endpoints and page, the faults it enables | draft v4, ruled (D288, D296, D297; O148 closed); its stub on the partners' shared node (D308); its first data types `vitals` and `machine-readings`, purpose 14 (D319, D324) |
 | [third-parties.md](third-parties.md) | What a third party is, what it may carry, how it is built into a game, what the players are told; the repository's third parties in all but name | draft v5, ruled (D273–D275, D285, D293, D296); the owners' traffic on the partners' nodes (D320) |
 | [one-centre.md](one-centre.md) | One centre per scenario: the ruling, and what it changes for the clinic's parts, its lab's partners, the exchanges with the other centres and the partners' nodes | draft v5, ruled (D285, D293–D295, D304; O127, O147 closed); `owners` a tenth hostname, no partner (D320) |
-| [vet-core-domain.md](vet-core-domain.md) | `vet-core` through the procedure, the draft document of step 9: the folder at a glance, the business sketch and the owner's answers (step 2), what the parts need of the core, the split (step 3), the data model (step 4), classification and governance (step 5), the producer profiles (step 6), the purposes that fit (7), the traps (8), loading, open points | draft v10, ready for review, for approval with the master spec: steps 2 to 6 ruled (D266, D278–D280, D285, D293, D295, D301–D304), amended by the purposes (D306) and a sent request's cancellation (D315); steps 7 and 8 beside it; the parts' asks applied at the fold-in: the staff layout, stays and alerts as functions of their ids (D317–D324), eight domestic vets (D327) |
+| [vet-core-domain.md](vet-core-domain.md) | `vet-core` through the procedure, the draft document of step 9: the folder at a glance, the business sketch and the owner's answers (step 2), what the parts need of the core, the split (step 3), the data model (step 4), classification and governance (step 5), the producer profiles (step 6), the purposes that fit (7), the traps (8), loading, open points | **approved** with the master spec (D339), draft v10: steps 2 to 6 ruled (D266, D278–D280, D285, D293, D295, D301–D304), amended by the purposes (D306) and a sent request's cancellation (D315); steps 7 and 8 beside it; the parts' asks applied at the fold-in: the staff layout, stays and alerts as functions of their ids (D317–D324), eight domestic vets (D327) |
 | [replication.md](replication.md) | Replication and the off-site copies: a standby of the core's instance off site, WAL archiving and base backups to cold storage for the core's instance and the lab's node, their faults and cost; the back-office database the reports write to | draft v5, ruled (D299, D300, D301; O149 closed); the office roles named (D306); `portal` and the parts' tables ride the standby, `machines` a nightly base backup (D319, D320) |
-| [vet-lab-domain.md](vet-lab-domain.md) | `vet-lab` through the procedure, the draft document of step 9: the folder at a glance, what is settled before it, the business sketch (step 2) and the owner's answers, where the lab presses on the core, the data model (step 4), classification and governance (step 5), the producer profiles (step 6) with its partners and round trips, the purposes that fit (7), the traps (8), loading, open points | draft v6, ready for review, for approval with the master spec: steps 2 to 6 ruled (D301–D304), amended by the purposes (D306) and a sent request's cancellation (D315); steps 7 and 8 beside it; analysers mapped to `vet-machinery`'s 1–6, `lab_release` (D319, D320) |
-| [vet-scheduling-domain.md](vet-scheduling-domain.md) | `vet-scheduling` through the procedure, step 9's draft: bookings with exclusion constraints and a slot function, the rota and working time, the training centre; two purposes (11, 12); traps T100–T128 | draft v2, ruled (D317, O168–O179 closed), folded in (D321, D324) |
-| [vet-housing-domain.md](vet-housing-domain.md) | `vet-housing` through the procedure, step 9's draft: 64 units, placements on the core's stays, plans and the care log, the displays behind the ward service (D287); traps T150–T171 | draft v2, ruled (D318, O180–O190 closed), its load on computed keys and `lands_with: vet-core` (D322) |
-| [vet-machinery-domain.md](vet-machinery-domain.md) | `vet-machinery` through the procedure, step 9's draft: 28 machines, three databases on one `machines` node, studies for the core's imaging requests, monitors' readings shipped to cold storage; two purposes (13, 14); traps T200–T237 | draft v2, ruled (D319, O192–O203 closed), the several-database format confirmed (D323, D326) |
-| [vet-portal-domain.md](vet-portal-domain.md) | `vet-portal` through the procedure, step 9's draft: owners' accounts, consents, the release gate's documents behind row-level security, notices and vaccination reminders; two purposes (15, 16); traps T250–T295 | draft v2, ruled (D320, O204–O215 closed), its content derived by a sanctioned step (D322) |
-| [clinic-purposes.md](clinic-purposes.md) | Step 7 for the clinic's six domains, `vet-core` and `vet-lab` in full, the parts' six purposes (11–16) by reference: the existing purposes against the clinic, the ten purposes proposed (four round trips, the notifications, the critical calls, the registers, the antimicrobial-use report, the head office's figures, the lab's statements), each with its kind, cadence, trace, invariants, runner, source and target and candidate faults; the runners; the format's extensions; what it asks of the domains | draft v3, ruled (D306, D307; O155, O156 closed); the parts' six purposes 11–16 (D317–D320, D324) |
+| [vet-lab-domain.md](vet-lab-domain.md) | `vet-lab` through the procedure, the draft document of step 9: the folder at a glance, what is settled before it, the business sketch (step 2) and the owner's answers, where the lab presses on the core, the data model (step 4), classification and governance (step 5), the producer profiles (step 6) with its partners and round trips, the purposes that fit (7), the traps (8), loading, open points | **approved** with the master spec (D339), draft v6: steps 2 to 6 ruled (D301–D304), amended by the purposes (D306) and a sent request's cancellation (D315); steps 7 and 8 beside it; analysers mapped to `vet-machinery`'s 1–6, `lab_release` (D319, D320) |
+| [vet-scheduling-domain.md](vet-scheduling-domain.md) | `vet-scheduling` through the procedure, step 9's draft: bookings with exclusion constraints and a slot function, the rota and working time, the training centre; two purposes (11, 12); traps T100–T128 | **approved** with the master spec (D339); draft v2, ruled (D317, O168–O179 closed), folded in (D321, D324) |
+| [vet-housing-domain.md](vet-housing-domain.md) | `vet-housing` through the procedure, step 9's draft: 64 units, placements on the core's stays, plans and the care log, the displays behind the ward service (D287); traps T150–T171 | **approved** with the master spec (D339); draft v2, ruled (D318, O180–O190 closed), its load on computed keys and `lands_with: vet-core` (D322) |
+| [vet-machinery-domain.md](vet-machinery-domain.md) | `vet-machinery` through the procedure, step 9's draft: 28 machines, three databases on one `machines` node, studies for the core's imaging requests, monitors' readings shipped to cold storage; two purposes (13, 14); traps T200–T237 | **approved** with the master spec (D339); draft v2, ruled (D319, O192–O203 closed), the several-database format confirmed (D323, D326) |
+| [vet-portal-domain.md](vet-portal-domain.md) | `vet-portal` through the procedure, step 9's draft: owners' accounts, consents, the release gate's documents behind row-level security, notices and vaccination reminders; two purposes (15, 16); traps T250–T295 | **approved** with the master spec (D339); draft v2, ruled (D320, O204–O215 closed), its content derived by a sanctioned step (D322) |
+| [clinic-purposes.md](clinic-purposes.md) | Step 7 for the clinic's six domains, `vet-core` and `vet-lab` in full, the parts' six purposes (11–16) by reference: the existing purposes against the clinic, the ten purposes of the core and the lab (four round trips, the notifications, the critical calls, the registers, the antimicrobial-use report, the head office's figures, the lab's statements), each with its kind, cadence, trace, invariants, runner, source and target and candidate faults; the runners; the format's extensions; what it asks of the domains | draft v3, ruled (D306, D307; O155, O156 closed); the parts' six purposes 11–16 (D317–D320, D324) |
 | [clinic-traps.md](clinic-traps.md) | Step 8 for the clinic: `vet-core` and `vet-lab` in full, the four parts' traps by reference; 85 traps across the data models, profiles, purposes, replication and the partners, each with where it bites, its witness, where it is fixed, catalogue or new, and its D290 class; false-alarm material | draft v4, ready for review; no owner checkpoint (D309); the test selection's ten built (D316); the whole clinic's 229 traps, the parts' by reference, the data register's T300–T308 (D330) |
 | [clinic-test-selection.md](clinic-test-selection.md) | The spec's test selection, a fixture for the build's tests and the proof in play (D309): ten faults on D290's mix and a false alarm, each with its short fixture (D314), and the whole-clinic run | draft v4, ready for review; the ten are what v0.5 builds (D316); s5 T270 and s9 T150 (D325), s6 T307 (D332) |
-| [clinic-capacity.md](clinic-capacity.md) | The clinic's nodes and capacity: every node so far with its reservation and host, the parts and monitoring estimated, against `fit` and the hosts the tests declare | draft v2, ready for review (O158 closed by D314); re-tallied with the parts: 23 nodes, 3.85 CPU, about 4.0G, 25 to 27 with D238's monitoring |
+| [clinic-capacity.md](clinic-capacity.md) | The clinic's nodes and capacity: every node so far with its reservation and host, the parts and monitoring estimated, against `fit` and the hosts the tests declare | draft v2, ready for review (O158 closed by D314); re-tallied with the parts and the monitoring breadth (D340): 25 nodes, 4.05 CPU, about 4.15G |
 | [data-register-handout.md](data-register-handout.md) | A scenario's data register, a player handout: what an entry holds and how it is grouped (an Art 30 record by department and activity), beside the data policy, generated by the GM's `data-register` skill, its trap family T300–T308, the test selection's pick, the format impact, the build's chunks | draft v2, ruled (D329–D331, D333–D336; O217–O219 closed); s6 the GM's (D332) |
 | [brick-options-review.md](brick-options-review.md) | The options candidates checked against the clinic, and the owner's rulings on them: what the clinic gets, as an option or otherwise, what stops mattering, the options model | draft v5, ruled (D250, D261, D262, D289); no part calls for an option, `pgcrypto` from contrib |
 
@@ -154,7 +160,7 @@ setups as **variants**, short manifests with tags from a fixed
 vocabulary; large setups show through structure, not volume; v0.5
 builds one variant per domain (D263; procedure 9).
 
-How domains meet the rest of this version (proposed):
+How domains meet the rest of this version (ruled with the master spec, D339):
 
 - **Common schemas**: a domain's business data model is the common
   schema D47 asks for, so the GM does not reinvent the data each time.
@@ -417,6 +423,10 @@ O113 closed by D298),
   pgwatch and pgCluu, both in the reference setup (D70), and
   Nagios-style health solutions (D66), beyond v0.2's one default brick
   per need; hand-made scripts as the customer's own tooling (D70, D248).
+  Designed at approval (D340): a `pgwatch` brick on its Prometheus sink,
+  pgCluu in `postgres` run as pgBadger is, a `health-check` node with a
+  status page and the customer's scripts
+  ([master spec](master-spec.md) 7.4).
 - **The scheduler's other targets the clinic's flows need** (D118,
   D248): an `api` brick on FastAPI serving the GM's endpoint files and
   an HTTP driver in the scheduler (D267); an `api` node only answers,
@@ -456,13 +466,13 @@ gating.
 - **The one exception: the whole clinic, deployed once** on armenelos
   plus the VPS, as step 11's proof in play for every part built
   ([procedure](domain-procedure.md) 2), for this milestone only. Its
-  checks: the deployment and `fit`; then a short smoke, about 30 minutes
-  (proposed), with every producer, partner and purpose running and each
-  of their first runs read; the test selection planted at once (proposed),
-  each fault's planted reading taken where it reads within the window.
-  No aging, no overnight cadence, no fault taken through its cycle. Its
-  place in the build plan is the release gate (proposed), once every
-  part is built. The VPS rules stand (D159): filetstudio.com stays up,
+  checks: the deployment and `fit`; then a short smoke, about 30 minutes,
+  with every producer, partner and purpose running and each of their
+  first runs read; the test selection planted at once, each fault's
+  planted reading taken where it reads within the window. No aging, no
+  overnight cadence, no fault taken through its cycle. Its place in the
+  build plan is the release gate, once every part is built (ruled,
+  D339). The VPS rules stand (D159): filetstudio.com stays up,
   the VPS is `active` for the run only and drained after, as in v0.4's
   wave 2; no node that may exhaust its memory is placed there.
 - **Unproven in v0.5**, the major test's before the v1.0 tag
@@ -539,13 +549,9 @@ The items moved later are listed in the roadmap
 
 ## Questions due in this version
 
-- O220: the clinic's monitoring breadth (pgwatch, pgCluu, a
-  Nagios-style health check, the hand-made scripts), undesigned;
-  raised at consolidation, due before the build plan's monitoring
-  chunk ([master spec](master-spec.md) 7.4).
-
-O111 closed at consolidation (D338): the domain format in
-[formats.md](../../formats.md) v28.
+None open. O111 closed at consolidation (D338): the domain format in
+[formats.md](../../formats.md) v28. O220, the monitoring breadth, raised
+at consolidation, closed at the master spec's approval (D340).
 
 Moved out of this list on 2026-10-31: O53 and O54 (later, D237); O21
 and O135 (v0.6, D233, D248); O24 and O25 (v1.0+, D248). Closed: O47
@@ -559,30 +565,27 @@ O217 (D333), O218 (D334), O219 (D335). O23 ruled for the clinic (D290), its
 general part left for later. Not due here: O138, the post-mortems'
 binding.
 
-## Next steps (in progress)
+## Next steps
 
-Left when the session stopped on 2026-11-03, after D338 and O220:
+Left on 2026-11-03, after the master spec's approval (D339, D340):
 
 - **Done**: `main` merged in (fc823ea); O111's format text in
   [formats.md](../../formats.md) v28 (D338); the
-  [master spec](master-spec.md) and its [access model](access-model.md),
-  draft v1 each, consolidated from every draft and D232–D338. The
-  `scenario-format` skill is unchanged: its templates and checks follow
-  formats.md v28 in the build's domain-format chunk, with the loader,
-  as in v0.4.
-- **Next: the owner's review** of the master spec and the access model,
-  with the six domain documents approved with them (procedure step 9):
-  its section 25, R1–R20, each with a recommendation (the whole-clinic
-  run's three details, the monitoring breadth, the bumps and re-pins,
-  the format details and names, the drafts' disagreements, the access
-  model's refusals), and O220.
-- **Before the build plan**: the owner's approval (R1–R20 and O220
-  ruled); the stale passages R16 lists corrected in the domain
-  documents, so the build reads one figure.
-- **Then the build plan** (skill `build-plan-authoring`), with the data
-  register's chunks
-  ([data-register-handout.md](data-register-handout.md#7-build-plan-chunks-for-the-build-plan) 7)
-  and the master spec's section 21. **No data preflight** (D329).
+  [master spec](master-spec.md) and its [access model](access-model.md)
+  consolidated, then **approved** by the owner ("agreed"), R1–R20 as
+  recommended (D339) and the monitoring breadth designed (D340, O220
+  closed); the six domain documents approved with them (procedure step
+  9) and corrected to the spec (R16, R13, R15). The `scenario-format`
+  skill is unchanged: its templates and checks follow formats.md v28 in
+  the build's domain-format chunk, with the loader, as in v0.4.
+- **Next: the build plan** (skill `build-plan-authoring`), from the
+  master spec's section 21, with the data register's chunks
+  ([data-register-handout.md](data-register-handout.md#7-build-plan-chunks-for-the-build-plan) 7).
+  Its gates include the security advisor's dependency check on the
+  monitoring breadth's packages (pgwatch 3, Prometheus as its scraper,
+  `check_postgres` and the health node's web server, pgCluu) before the
+  monitoring chunk, each joining `.tech`; and on FastAPI, uvicorn and
+  pgaudit's package before theirs. **No data preflight** (D329).
 - **Tests stay short** (D314): every check under 30 minutes on a minimal
   fixture; the whole clinic deployed once, on armenelos plus the VPS,
-  at the release gate (proposed, R1).
+  at the release gate (D339).

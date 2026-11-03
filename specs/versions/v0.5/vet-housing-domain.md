@@ -1,7 +1,9 @@
 # v0.5 — `vet-housing`, the clinic's boxes, stalls and displays
 
-Status: draft v2, ruled, for approval with v0.5's master spec. Steps 1
-to 9 drafted in one pass on 2026-11-03 at the owner's instruction
+Status: draft v2, ruled. **Approved by the owner on 2026-11-03 with
+v0.5's [master spec](master-spec.md)** (procedure step 9, D339), which
+wins where the two disagree.
+Steps 1 to 9 drafted in one pass on 2026-11-03 at the owner's instruction
 ("start an agent for each part, and let them come back with problems
 once they're done"); the same day the owner accepted the recommendations
 as a whole (D318, closing O180–O190), marked "(ruled, D318)" below, with
@@ -12,9 +14,9 @@ faulty display (T150) is in the test selection, judged on the report
 (D325). Step 3 is not a part's: the boundary is the confirmed split's
 (D279). The traps (step 8) need no owner (D309). The changes this part
 asked of the shared pages are applied ([Changes needed in shared
-pages](#changes-needed-in-shared-pages)). Open: the format's
-finalisation (O111, at consolidation), with the composition rules
-(D322, procedure 10).
+pages](#changes-needed-in-shared-pages)). The format, with the
+composition rules (D322, procedure 10), finalised in
+[formats.md](../../formats.md) v28 at consolidation (D338).
 
 `vet-housing` holds the centre's boxes, stalls, pens, kennels and cages,
 which animal of the core's hospital stays is placed in which, the care

@@ -32,11 +32,11 @@ the clinic is ruled (D250, D261, below).
 
 - **PostGIS and `pg_trgm`**: Bluebox's needs (O53), which leave with
   Bluebox (D237). The clinic's region-wide catchment needs no geometry
-  `(proposed)`.
-- Nothing tied to pgwatch or pgCluu: both stay (D238). Whether either
-  needs more of the `postgres` brick than it has today (pgwatch's
-  optional helper functions, for one) is checked when they are
-  specified.
+  (ruled, D339).
+- Nothing tied to pgwatch or pgCluu: both stay (D238). Neither needs
+  more of the `postgres` brick than it has: pgwatch runs a metric set
+  without helper functions as `monitoring`, pgCluu ships beside pgBadger
+  (D340).
 
 ## The owner's rulings (D250, D261, D262)
 
@@ -84,5 +84,5 @@ now, if it needs upgrading we'll handle it then". It has one user, the
 7. **v0.4's scenarios** that use the exporter get `options: [monitoring]`
    in the build.
 
-Whether pgwatch and pgCluu read what they need with `pg_monitor` is
-confirmed when they are specified.
+pgwatch and the health check read what they need with `pg_monitor`;
+pgCluu is run by the players, as pgBadger is (D340).
