@@ -892,3 +892,63 @@ D285–D309 and D314 onward, v0.5's drafting (D310–D313 are v0.4's, on `main`)
   (D309). Closes O165. Now in:
   [versions/v0.5/clinic-test-selection.md](versions/v0.5/clinic-test-selection.md),
   [versions/v0.5/clinic-traps.md](versions/v0.5/clinic-traps.md).
+- **D317 (2026-11-03, owner answer, relayed by the coordinator):
+  `vet-scheduling`'s draft accepted as recommended.** The owner: "i
+  agree with the recommendations as a whole". O168–O179 closed as the
+  page recommends, but for the fold-in's changes: ten bookable machines,
+  the core's staff layout and the purposes' numbers (D324), no
+  appointment reminders (D321). Now in:
+  [versions/v0.5/vet-scheduling-domain.md](versions/v0.5/vet-scheduling-domain.md#questions-for-the-owner).
+- **D318 (2026-11-03, same answer): `vet-housing`'s draft accepted as
+  recommended,** O180–O190 closed, but for O184's load: the tables stay
+  in `clinic`, declared `lands_with: vet-core`, and the load computes
+  the core's stays by functions instead of reading them (D322). Now in:
+  [versions/v0.5/vet-housing-domain.md](versions/v0.5/vet-housing-domain.md#questions-for-the-owner).
+- **D319 (2026-11-03, same answer): `vet-machinery`'s draft accepted as
+  recommended,** O192–O203 closed, but for O203 (T208 stays a trap, s9
+  going to T150, D325) and O198's staff ids (D324); O195's several
+  databases are proposed format text for O111 (D323). Now in:
+  [versions/v0.5/vet-machinery-domain.md](versions/v0.5/vet-machinery-domain.md#questions-for-the-owner).
+- **D320 (2026-11-03, same answer): `vet-portal`'s draft accepted as
+  recommended,** O204–O215 closed, but for O213: the load computes the
+  sources' keys by functions, and only the copied content comes from a
+  derivation step the GM sanctions (D322). Now in:
+  [versions/v0.5/vet-portal-domain.md](versions/v0.5/vet-portal-domain.md#loading).
+- **D321 (2026-11-03, owner ruling, relayed by the coordinator): No
+  appointment reminders in v0.5;** the portal reminds owners of
+  vaccinations only, with their consent. Scheduling had left them to the
+  portal, the portal had left them out. `sched_upcoming` is not built.
+  Now in:
+  [versions/v0.5/vet-scheduling-domain.md](versions/v0.5/vet-scheduling-domain.md#no-appointment-reminders-in-v05-d321).
+- **D322 (2026-11-03, owner ruling, relayed by the coordinator): The
+  initial load is a step the GM adjudicates for the whole system; D249's
+  deterministic keys stay the default.** The owner, after the
+  coordinator recommended keeping D249: "although you are also right,
+  initial load is a major step and will need to be adjudicated by the gm
+  for coherence across the system." A part's load computes the core's
+  keys from its documented ranges and functions (housing and the portal
+  move to it); the GM checks and records cross-domain coherence at
+  composition, may sanction an ordered derivation step, and placement
+  constraints are declared (`lands_with`). The mechanism's details are
+  (proposed), confirmed with the master spec (O111). Now in:
+  [versions/v0.5/domain-procedure.md](versions/v0.5/domain-procedure.md#10-composing-domains-d322).
+- **D323 (2026-11-03, same ruling): The parts' format changes join
+  O111 as proposed format text:** a several-database part (O195),
+  `lands_with`, the derivation step, a traffic source that is no
+  business, the composition record, the `SECURITY DEFINER` check. Now
+  in: [versions/v0.5/domain-procedure.md](versions/v0.5/domain-procedure.md#the-format-changes-the-parts-propose-for-o111).
+- **D324 (2026-11-03, spec choice at the fold-in): The parts' overlaps
+  settled in one layout.** Purposes renumbered 11–16 (scheduling,
+  machinery, portal), housing's occupancy in purpose 9; machine ids are
+  `vet-machinery`'s, ten bookable (7–16); one staff layout in the core
+  within D295's 85; the imaging team cancels a sent imaging request, as
+  D315 for the lab. Now in:
+  [versions/v0.5/vet-core-domain.md](versions/v0.5/vet-core-domain.md#deterministic-key-ranges-d249-d266),
+  [versions/v0.5/clinic-purposes.md](versions/v0.5/clinic-purposes.md#16-the-parts-purposes-11-to-16).
+- **D325 (2026-11-03, spec choice, the GM's under D309): The test
+  selection takes T270 for s5 and T150 for s9;** nothing of the ten
+  tested row-level security, owner-scoped access or D287's display.
+  T208 stays a trap; D290's mix holds (1 D, 2 V, 7 M). T150 is judged on
+  the report at the final answer: the GM never switches the display off
+  during play ("Stop only", no events outside the schedule). Now in:
+  [versions/v0.5/clinic-test-selection.md](versions/v0.5/clinic-test-selection.md).

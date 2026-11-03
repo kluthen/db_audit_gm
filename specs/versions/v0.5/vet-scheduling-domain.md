@@ -1,16 +1,18 @@
 # v0.5 — `vet-scheduling`, the clinic's bookings, rota and training centre
 
-Status: draft v1, steps 1 to 9 drafted in one pass on 2026-11-03 at the
-owner's instruction ("start an agent for each part, and let them come
-back with problems once they're done"), written in parallel with
-`vet-housing`, `vet-machinery` and `vet-portal`. Nothing on this page is
-ruled. Every owner checkpoint (step 1's brief, step 2's answers, step
-5's rules, step 7's purposes, step 9's approval) carries a recommended
-answer marked "(proposed, O<n>)", and the draft is built on it; the
-questions are gathered in [Questions for the owner](#questions-for-the-owner).
-Step 8 has no owner checkpoint (D309). What this part needs of the
-shared pages is in [Changes needed in shared pages](#changes-needed-in-shared-pages),
-for the spec-writer who folds the four parts in.
+Status: draft v2, ruled, for approval with v0.5's master spec. Steps 1
+to 9 drafted in one pass on 2026-11-03 at the owner's instruction
+("start an agent for each part, and let them come back with problems
+once they're done"), in parallel with `vet-housing`, `vet-machinery` and
+`vet-portal`; the same day the owner accepted the recommendations as a
+whole (D317, closing O168–O179), marked "(ruled, D317)" below. Folded
+in with the other parts (D324): ten bookable machines, `vet-machinery`'s
+ids 7–16; the staff layout the core documents; no appointment reminders
+in v0.5 (D321). Step 8 has no owner checkpoint (D309). The changes this
+part asked of the shared pages are applied ([Changes needed in shared
+pages](#changes-needed-in-shared-pages)). Open: the format's
+finalisation (O111, at consolidation), with the composition rules
+(D322, procedure 10).
 
 `vet-scheduling` is the centre's scheduling: the slots of its rooms and
 machines, the bookings that take staff, rooms and machines, the staff
@@ -33,10 +35,10 @@ the master spec, O111):
 |---|---|
 | `domain.yaml`: `id` `vet-scheduling`, `requires: [vet-core]`, tables and roles prefixed `sched_`, the purposes that fit | [What scheduling holds](#what-scheduling-holds); [Purposes that fit](#purposes-that-fit-step-7) |
 | `variants/regional-franchise.yaml`: the part's own axes in a manifest of the core variant's name (D301 answer 15) | [The variant](#the-variant-its-scale-and-its-tags) |
-| `data/schema.sql`: tables, the exclusion constraints, the slot function and the release trigger, roles and grants, landing in `clinic` (proposed, O171) | [The data model](#the-data-model-step-4) |
+| `data/schema.sql`: tables, the exclusion constraints, the slot function and the release trigger, roles and grants, landing in `clinic` (ruled, D317) | [The data model](#the-data-model-step-4) |
 | `data/load.sql`: the year's bookings, rota and sessions, the agenda ahead at T0, computing the core's ids by its functions | [Deterministic key ranges](#deterministic-key-ranges-d249-d266), [The history before T0](#the-history-before-t0-d279), [Loading](#loading) |
 | `data/classification.yaml`: every column classed | [Classification](#classification) |
-| `docs/policy.md` and a `governance:` fragment | [The rules](#the-rules-proposed-o177) |
+| `docs/policy.md` and a `governance:` fragment | [The rules](#the-rules-ruled-d317) |
 | `producers/`: the practice software's scheduling fragments, on `pms` (D276) | [The producer profiles](#the-producer-profiles-step-6) |
 | `docs/gm.md`: the business, the data, the roles, the classification, the producer, the rules, the traps, loading | this page's sections of the same names; [Traps](#traps-step-8); [Loading](#loading) |
 
@@ -62,14 +64,15 @@ Built on, not reopened:
 - **The machines are `vet-machinery`'s** (D279): the lab's analysers are
   machines 1–6 (D302); the bookable ones are that part's to number.
 - **Reminders and the outbox are `vet-portal`'s** (D304); messaging is
-  the franchise's, a third party (D293).
+  the franchise's, a third party (D293). No appointment reminders in
+  v0.5 (D321).
 - **Billing is out of v0.5**, but for the lab's outside customers (D278
   answer 8, D294).
 - **Schemas simple, tables small; one variant** (D263); tests short, on
   a minimal fixture (D314); only the test selection's ten faults built
   (D316).
 
-## The brief (step 1, proposed, O168)
+## The brief (step 1, ruled, D317)
 
 The procedure has the owner write the brief. None exists for this part
 beyond the clinic's (D196), so this one is built from it and from the
@@ -106,19 +109,19 @@ comes on a set day. The centre books:
 - **consultations**: an animal, a section's vet, a consulting room or an
   examination stall, for a set time; first referrals, follow-ups,
   specialist clinics (cardiology, dermatology, lameness work-ups);
-- **imaging studies** on the bookable machines (CT, MRI, the horses'
-  standing MRI, scintigraphy, radiography, the overground endoscope,
-  cardiac ultrasound), each for a core imaging request (D279), an
-  urgent one the same day;
+- **imaging studies** on the ten bookable machines (two CTs, MRI, the
+  horses' standing MRI, three radiography units, two ultrasounds, the
+  gamma camera; `vet-machinery`'s, D324), each for a core imaging
+  request (D279), an urgent one the same day;
 - **theatre plans**: a planned surgery's theatre, surgeon, anaesthetist
-  and nurse (proposed, O170: the plan only; the procedure itself stays
+  and nurse (ruled, D317: the plan only; the procedure itself stays
   the core's record);
 - **maintenance blocks**: a machine or room out of use (the MRI's weekly
   quality assurance, a theatre's deep clean);
 - **training sessions**: a course's days in a room, with an instructor
   and teaching animals.
 
-Not booked (proposed, O170): **emergencies** (they come at any hour and
+Not booked (ruled, D317): **emergencies** (they come at any hour and
 take whoever is on duty), **herd visits** (the farm vets' fixed weekdays,
 D278 answer 3, a rota matter), **ward rounds** (the core's rounds,
 around the clock), and **housing**'s boxes and stalls (placements are
@@ -142,9 +145,9 @@ the hours actually worked, clocked, which the working-time rules need.
 | Every staff member | core `staff` | works shifts, clocks in and out |
 | Training manager and instructors | core `staff`, `kind` `instructor` | plan sessions, teach, record attendance, issue certificates |
 | Trainee | a person: a vet, nurse or student from outside, an owner, a handler or groom | enrols, attends, receives a certificate; never staff (D278 answer 10) |
-| Teaching animals | 12 dogs and 8 horses, core animals owned by the clinic (proposed, O175) | booked for sessions, within welfare limits |
+| Teaching animals | 12 dogs and 8 horses, core animals owned by the clinic (ruled, D317) | booked for sessions, within welfare limits |
 | Another centre | a third party (D285) | its accepted examination booked on the centre's machine (core `exchanges`) |
-| Owners | through `vet-portal` | receive appointment reminders (the portal's, named for it) |
+| Owners | the core's | no appointment reminder in v0.5 (D321); the portal's reminders are vaccinations' only |
 | The labour inspectorate | the authority for working time | may ask for the working-time records (a pulled report) |
 
 ### Activities
@@ -167,7 +170,7 @@ the hours actually worked, clocked, which the working-time rules need.
 | Planning a course's session | the session, its days, room, instructor, teaching animals | `vet-scheduling` |
 | Enrolling a trainee | the trainee, the session, waiting list | `vet-scheduling` |
 | Recording attendance, issuing a certificate | hours attended, the certificate | `vet-scheduling` |
-| Reminding owners | the reminder sent | `vet-portal` (named for it) |
+| Reminding owners of appointments | not in v0.5 (D321) | — |
 
 ### The variant, its scale and its tags
 
@@ -178,12 +181,12 @@ answer 15). The figures fit `vet-core` at one centre's scale (D295):
 about 60 scheduled consultations a day out of 85, about 11 imaging
 requests a day (one in five of the core's 55 requests).
 
-**Population**, at load (proposed, O169):
+**Population**, at load (ruled, D317; machines D324):
 
 | What | How many |
 |---|---|
 | Rooms | 16: domestic 4 consulting rooms, a procedure room, 2 theatres; horse 2 examination stalls, the trot-up and lunging arena, a theatre with its induction and recovery boxes; farm an examination crush, a standing-surgery theatre; the training centre 2 classrooms and a canine practical hall (the equine sessions use the horse section's arena) |
-| Bookable machines | 7 of `vet-machinery`'s, by id: CT, MRI, the horses' standing MRI, the scintigraphy camera, the domestic radiography room, the overground endoscope, the cardiac ultrasound (assumed ids 7–13, O176) |
+| Bookable machines | 10, `vet-machinery`'s ids 7–16 (D324): 7 CT small animal, 8 CT large bore, 9 MRI 1.5 T, 10 standing MRI, 11 radiography room domestic, 12 radiography room horses, 13 portable radiography (farm and stables), 14 ultrasound domestic, 15 portable ultrasound, 16 gamma camera (horses) |
 | Appointment types | about 45: consultations per section (first referral, follow-up, specialist clinics, a lameness work-up), imaging studies (one per study code the core's requests use), surgeries, a block, a session day |
 | Staff on the rota | the core's 85 (D295), every kind |
 | Courses | 16: 7 canine, 6 equine, 3 mixed; audiences vets (continuing education), nurses, students, owners (first aid), handlers and grooms |
@@ -224,11 +227,11 @@ and 760: the allocations, about two per booking, are the bulk.
 **Against a real hospital.** A university small-animal hospital of this
 order books a few thousand appointments a month across its services,
 an MRI a handful of studies a day, a CT twice that; the centre's 1 500
-appointments a month and one or two studies per machine a day are of
+appointments a month and about one study per machine a day are of
 that order, a little smaller (figures as known to this draft, not
 re-read on 2026-11-03).
 
-**A few stand for many** (D263): sixteen rooms and seven machines for a
+**A few stand for many** (D263): sixteen rooms and ten machines for a
 hospital's floor, one rota pattern for every team, sixteen courses for a
 training centre's programme.
 
@@ -249,10 +252,10 @@ training centre's programme.
 ### Regulations
 
 What a clinic's scheduling plausibly answers to, at the level a game
-needs; the exact rules and values are confirmed at step 5 (O177). The
-EU texts below are cited as known to this draft and were **not re-read
-on 2026-11-03**; the check at review should read them, as the core's
-and the lab's sources were read (step 5 there).
+needs; the rules and values ruled at step 5 (D317). The EU texts below
+were checked against the Official Journal and the Court's judgments on
+2026-11-03, at the fold-in. *SIMAP* and *Jaeger* interpret the earlier
+Directive 93/104/EC, which 2003/88/EC consolidated.
 
 | Rule | Source | What scheduling must hold |
 |---|---|---|
@@ -263,7 +266,7 @@ and the lab's sources were read (step 5 there).
 | Training on animals below the threshold of a needle's insertion falls outside the rules on animals used for education | Directive 2010/63/EU, Art 1(5)(f); education and training a purpose it regulates above the threshold, Art 5(f) | the teaching animals' sessions limited to handling and examination; their use per day |
 | Vets keep up their continuing education; a course provider certifies attendance and hours | national, the chambers' rules | courses' hours, attendance, certificates |
 | Trainees are personal data, processed to run the course | GDPR Art 6(1)(b) | the trainees' contacts, kept for a set period |
-| Working-time records kept for a set period | national (Germany keeps them two years, ArbZG § 16(2); France a year), not re-read | dates to purge by (game value) |
+| Working-time records kept for a set period | national: Germany keeps them at least two years (ArbZG § 16(2), checked), and since the Federal Labour Court's ruling of 13 September 2022 (1 ABR 22/21) records all working time under ArbSchG § 3(2) (to confirm); France a year (to confirm) | dates to purge by (game value) |
 
 ## What scheduling holds
 
@@ -291,7 +294,7 @@ likewise:
 Not held: the consultation a booking turns into (the core's, which
 carries `booking_id`); the imaging study and its readings
 (`vet-machinery`'s); the owners' contacts (the core's, read by the
-portal's reminders); housing's placements.
+portal's copies); housing's placements.
 
 ## Where scheduling presses on the core
 
@@ -300,7 +303,7 @@ What the part needs of `vet-core`, to apply there (see
 
 | Scheduling needs | The core |
 |---|---|
-| which vets, nurses and instructors exist, their section and specialty | `staff`; each id's kind, section and specialty a function of the id, documented, in a layout (proposed, O175) |
+| which vets, nurses and instructors exist, their section and specialty | `staff`; each id's kind, section and specialty a function of the id, documented, in the core's layout (ruled, D317, D324) |
 | which consultation a booking turned into | `consultations.booking_id` (core step 4), unique when present (a new partial unique index) |
 | the scheduled consultations arriving from bookings, not from a volume stream of their own | `consultations.open` removed from the core's profile; the check-in purpose opens them (O172) |
 | the history's scheduled consultations matching the history's bookings | each history consultation's kind, section, vet and start a function of its id, documented, and `booking_id` = its own id for a scheduled one (O175) |
@@ -316,7 +319,7 @@ no rooms (its step 4), and the split puts the slots of rooms here
 (D279). The rooms are this part's; the line is corrected in item 1 of
 the changes.
 
-## The owner's answers (step 2, proposed, O169 to O175)
+## The owner's answers (step 2, ruled, D317)
 
 The questions the sketch leaves open, each with the default this draft
 is built on; none is ruled.
@@ -369,10 +372,10 @@ is built on; none is ruled.
    day; an inbound examination accepted with a date (D306) is booked on
    that date or the first free slot after it.
 9. **A dead animal's bookings** (O172). Cancelled, reason `deceased`, by
-   the purpose, within minutes of the core recording the death, so no
-   reminder goes to a grieving owner.
+   the purpose, within minutes of the core recording the death, so
+   reception never calls a grieving owner about a follow-up.
 10. **Scale and hours** (O169). The figures in "The variant" and
-    "Cadences": about 71 bookings a day, 16 rooms, 7 machines, 85 staff
+    "Cadences": about 71 bookings a day, 16 rooms, 10 machines, 85 staff
     on the rota, 100 sessions a year; reception Monday to Saturday, the
     rooms' hours per section, the rota around the clock.
 
@@ -380,7 +383,7 @@ is built on; none is ruled.
 
 On the answers above. The tables land where the scenario's `domains:`
 `at:` places them; this draft recommends **`records/clinic`**, the core's
-own database, beside the core's tables (proposed, O171): the practice
+own database, beside the core's tables (ruled, D317): the practice
 software's scheduling module, no node of its own, riding the core's
 standby and archive. The schema is written to run as well in a database
 of its own: no foreign key and no grant on the core's tables, every
@@ -408,7 +411,7 @@ teaching animals do not grow.
 | `sched_settings` | one row: the customer's zone and offset, the booking horizon (42 days), the no-show delay (30 minutes), the teaching animals' limits (two sessions, four hours a day, a rest day after two), the attendance a certificate needs (80 %), the minimum rest (11 hours) |
 | `sched_rooms` | `id`; code, name, `kind` (`consulting`, `examination`, `arena`, `procedure`, `theatre`, `classroom`, `practical`), `section_id` (the core's; none for the training centre's rooms), seats, active |
 | `sched_hours` | (`resource_kind`, `resource_id`, `weekday`); opens, closes, local times in the customer's zone: a room's or a machine's opening hours |
-| `sched_machines` | `machine_id` (`vet-machinery`'s, the key); `section_id`, `room_id` (where it stands), `study_kind` (`ct`, `mri`, `mri-standing`, `scintigraphy`, `radiography`, `endoscopy`, `ultrasound`), slot minutes, `operator_kind` (the staff kind it needs), around the clock or not |
+| `sched_machines` | `machine_id` (`vet-machinery`'s, the key); `section_id`, `room_id` (where it stands), `study_kind` (`ct`, `mri`, `mri-standing`, `radiography`, `ultrasound`, `scintigraphy`; `vet-machinery`'s modalities, D324), slot minutes, `operator_kind` (the staff kind it needs), around the clock or not |
 | `sched_types` | `id`; code, name, `kind` (`consultation`, `imaging`, `surgery`, `block`, `session`), `section_id`, duration minutes, the room kind it needs, `study_code` (the core's, for an imaging type) and its machine, the staff it takes (`vet`, `vet+nurse`, the theatre team) |
 | `sched_courses` | `id`; code, title, `audience` (`vet`, `nurse`, `student`, `owner`, `handler`), `species` (`canine`, `equine`, `mixed`), days, hours, seats, teaching animals needed, the room kind |
 
@@ -432,13 +435,13 @@ there, so the players can read and fix them):
 |---|---|
 | `sched_free_slots(type_id, after, how_many)` | a `STABLE` SQL function, security invoker: the next free slots for a type from a time within the horizon: the resource's hours (local times read in the customer's zone), a staff member of the type's section on a shift covering the slot and absent on no absence, no live allocation overlapping, for a session day the teaching animals within their limits; returns each slot's start and the staff, room and machine it would take |
 | `sched_release` | a trigger after `UPDATE OF state` on `sched_bookings`, `WHEN (NEW.state = 'cancelled')`: its allocations' `released_at` set, so the slot frees at once |
-| `sched_upcoming` | a view: the bookings of the next 48 hours, `booked`: id, animal, the type's name, the section, start, state; no notes, no staff: what the portal's reminders may read (named for `vet-portal`) |
+| `sched_upcoming` | not built in v0.5 (D321): a view of the next 48 hours' bookings without notes or staff, for appointment reminders when a later version adds them |
 
 **The rota**
 
 | Table | Key, main columns |
 |---|---|
-| `sched_shifts` | `id`; `staff_id` (the core's), `section_id` (none for the lab, reception, the training centre), `kind` (`day`, `late`, `night`, `on-call`), starts at, ends at (planned), clocked in at, clocked out at, published at; unique on (`staff_id`, starts at) |
+| `sched_shifts` | `id`; `staff_id` (the core's), `section_id` (none for imaging, the lab, reception, the training centre), `kind` (`day`, `late`, `night`, `on-call`), starts at, ends at (planned), clocked in at, clocked out at, published at; unique on (`staff_id`, starts at) |
 | `sched_absences` | `id`; `staff_id`, `kind` (`leave`, `training`, `absent`), from, until, recorded by, `note` (free text, never a reason: rule 4) |
 
 **The training centre**
@@ -467,12 +470,12 @@ fact (`consultations.closed`), held in one place.
 The load writes these ids, each sequence resuming after its range
 (D276), and refers to the core's keys by its documented ranges
 ([vet-core](vet-core-domain.md#deterministic-key-ranges-d249-d266)) and
-to `vet-machinery`'s machines by the range assumed below (O176).
+to `vet-machinery`'s machines by that part's range (D324).
 
 | Key | Range | Layout |
 |---|---|---|
 | `sched_rooms.id` | 1–16 | 1–7 domestic, 8–11 horse (10 the arena), 12–13 farm, 14–16 the training centre |
-| `sched_machines.machine_id` | 7–13 | `vet-machinery`'s bookable machines, as assumed (O176); 1–6 the lab's analysers, never booked |
+| `sched_machines.machine_id` | 7–16 | `vet-machinery`'s bookable machines (D324); 1–6 the lab's analysers and 17–28 the monitors, never booked |
 | `sched_types.id` | 1–45 | documented per section and kind |
 | `sched_courses.id` | 1–16 | |
 | `sched_bookings.id` | 1–50 000 | 1–25 000: a history consultation booking that was attended takes the id of the core consultation it turned into (only scheduled consultations have one: about 17 600 rows, gaps elsewhere); 25 001–28 000 the history's cancelled and no-show consultation bookings; 30 001–47 000: an imaging booking is `30 000 + request id`, for the core's imaging requests (about 3 400 rows); 47 001–48 300 theatre plans; 48 301–48 700 blocks; 48 701–49 000 session days; 49 001–50 000 the agenda ahead at T0 |
@@ -480,7 +483,7 @@ to `vet-machinery`'s machines by the range assumed below (O176).
 | `sched_shifts.id` | 1–21 000 | staff by staff, week by week, by the rota's pattern |
 | `sched_sessions.id` | 1–125 | 1–100 held, 101–125 planned ahead |
 | `sched_trainees.id`, `sched_enrolments.id` | 1–750, 1–1 250 | |
-| Core keys used | `animal_id` 1–17 000 by section (the teaching animals 1–12 and 14 601–14 608 excluded from patients); staff 1–85 by the layout (O175); `request_id` the core's imaging requests (1–17 000, kind a function of the id, D302); `exchange_id` 1–700 | as the core documents them |
+| Core keys used | `animal_id` 1–17 000 by section (the teaching animals 1–12 and 14 601–14 608 excluded from patients); staff 1–85 by the core's layout (D317, D324); `request_id` the core's imaging requests (1–17 000, kind a function of the id, D302); `exchange_id` 1–700 | as the core documents them |
 
 **What the load needs of the core's.** So that the year's bookings meet
 the year's consultations without reading `clinic` (procedure 4, as
@@ -502,8 +505,8 @@ secret.
 | `sched_app` | the practice software's scheduling module on `pms` (D276): reception, the theatre planners, the rota, the training office | every `sched_` table and view; executes `sched_free_slots` | bookings, allocations, shifts (published, clocked), absences, sessions' state, trainees, enrolments; never the reference tables (rooms, hours, machines, types, courses, settings) |
 | `sched_reports` | the periodic reports (the working-time feeder), on the standby | every `sched_` table | nothing |
 
-The purposes' roles (`sched_interfaces` for the flows with the core,
-the portal's reader of `sched_upcoming`) come with step 7.
+The purposes' role (`sched_interfaces` for the flows with the core)
+comes with step 7.
 
 ### Reference sizes
 
@@ -521,7 +524,7 @@ scheduling holds about 0.39 million rows, well within "the data schema
 stays simple and the tables small" and `records`' reservation (2.25G of
 disk); about 30 MB more with indexes, the GiST indexes among them.
 
-### Plausibility points (step 4, proposed, O169)
+### Plausibility points (step 4, ruled, D317)
 
 1. **Allocations outweigh bookings**, two to one: every booking takes a
    vet or a machine and a room, a surgery four resources.
@@ -574,7 +577,7 @@ Readings for scheduling:
 | `sched_absences` | `note` | |
 | `sched_trainees` | `id`, `name`, `email`, `phone`, `referring_vet_id` | |
 | `sched_enrolments` | `certificate_number` | `trainee_id` |
-| `sched_upcoming` (view) | | `animal_id` |
+| `sched_upcoming` (view, not built in v0.5, D321) | | `animal_id` |
 
 Animal health is no special category (O112); a staff member's is (GDPR
 Art 9), hence rule 4.
@@ -608,9 +611,9 @@ illness or a reason (GDPR Art 9), so the screens that show the rota show
 no health data.
 
 **Least data in a booking.** A booking names the animal by id; the
-owner's contact stays in the core and the portal reads it there; notes
-carry no owner's name or contact (core rule 10). The portal's reminders
-read `sched_upcoming`, which carries no notes and no staff.
+owner's contact stays in the core; notes carry no owner's name or
+contact (core rule 10). No appointment reminder goes out in v0.5
+(D321).
 
 **Cancellations.** A cancelled booking frees its resources at once; a
 booking not checked in 30 minutes after its start is a no-show
@@ -635,11 +638,10 @@ certificates kept five years (*game values*).
 
 **What the data model took from these rules**: the exclusion
 constraints; the slot function reading the rota and absences; clocked
-times on shifts; absences without a reason column; `sched_upcoming`
-without notes; the release trigger; the teaching animals' limits in the
+times on shifts; absences without a reason column; the release trigger; the teaching animals' limits in the
 settings.
 
-### The rules (proposed, O177)
+### The rules (ruled, D317)
 
 For the owner to judge realistic, as D280 and D302 were:
 
@@ -649,7 +651,7 @@ For the owner to judge realistic, as D280 and D302 were:
    months, nights 8 average; on call counted when called out; records
    two years (2003/88/EC; *CCOO*; game values).
 4. **Absences without a reason** (GDPR Art 9).
-5. **Least data in bookings and reminders.**
+5. **Least data in bookings.**
 6. **Cancellations** free the slot at once; no-show after 30 minutes; a
    dead animal's bookings cancelled.
 7. **Teaching animals**: below the needle threshold; two sessions and
@@ -808,7 +810,7 @@ Over an aging the part's disk is never the problem: its constraint
 violations, its releases and the agenda's consistency with the core
 are.
 
-### Points for the owner (step 6, proposed, O169)
+### Points for the owner (step 6, ruled, D317)
 
 1. **No node of its own**: the scheduling module on `pms`, one
    connection more, `sched_app`.
@@ -823,20 +825,18 @@ are.
 5. **Two sessions a week** at the training centre, enrolments on office
    hours.
 
-## Purposes that fit (step 7, proposed, O178)
+## Purposes that fit (step 7, ruled, D317)
 
 None of the ten existing clinic purposes fits as built
 ([clinic-purposes](clinic-purposes.md) 2). Two new ones, each its own
-unit under `purposes/`, in v0.4's format with D307's extensions; one
-named for `vet-portal`:
+unit under `purposes/`, in v0.4's format with D307's extensions:
 
 | # | Purpose | Kind | Fits | Cadence (scenario time) | Runs on | Source → target |
 |---|---|---|---|---|---|---|
 | 11 | `vet-bookings-sync` | transformed in place (the clinic's first) | core, scheduling | every minute | `interfaces` | `clinic`'s `sched_` tables ↔ `clinic`'s record |
 | 12 | `vet-working-time` | pulled, periodic | core, scheduling | feeder 09:30 daily; the month on the 1st | `backoffice` | the standby → `office` |
-| — | the appointment reminders | pushed | scheduling, core, portal | daily | `vet-portal`'s | `sched_upcoming` → the franchise's messaging service; drafted with `vet-portal` (D304) |
 
-Numbered after the ten (D306) for the fold-in.
+Numbered after the ten (D306), first of the parts' six, 11 to 16 in [clinic-purposes](clinic-purposes.md#16-the-parts-purposes-11-to-16) (D324).
 
 ### 11. `vet-bookings-sync`: the agenda and the record
 
@@ -925,15 +925,13 @@ core's), `office_jobs` (D306).
 
 **Candidate faults**: T121, T123 to T125 (step 8).
 
-### The appointment reminders, named for `vet-portal`
+### No appointment reminders in v0.5 (D321)
 
-An owner reminded the day before an appointment, as the vaccination
-reminders are (D304): a pushed purpose of `vet-portal`'s, fitting this
-part, the core and the portal, through the portal's outbox to the
-franchise's messaging service (D293). What this part gives it:
-`sched_upcoming`, the next 48 hours' bookings without notes or staff,
-readable by a role the portal's purpose brings; the owner's contact is
-the core's. Drafted with `vet-portal`, never here.
+The owner ruled none in v0.5: the portal reminds owners of vaccinations
+only, with their consent ([vet-portal](vet-portal-domain.md)). Were a
+later version to add them, they would be a pushed purpose queuing
+through `portal_outbox`, reading a view of the next 48 hours' bookings
+without notes or staff (`sched_upcoming`, not built now).
 
 ### `office` at T0, the part's share
 
@@ -991,7 +989,7 @@ runs).
 | T115 | The check-in's watermark from the run's start while arrivals commit later | an animal checked in with no consultation to open: the vet writing on paper, the record filled later by hand (BS1) | arrived bookings with no consultation, a few a day at the busy hours | `interfaces`' script | adapts `purpose-watermark-misses-updates` | V, D once vets complain |
 | T116 | A consultation opened twice for one booking: the core's unique index on `booking_id` missing and the job's existence check dropped | two consultations to close and sign for one visit (BS2); the core's signing backlog | consultations sharing a `booking_id`, at each retried run | the index, `interfaces`' script | adapts `scheduler-insert-retry-duplicates` | M |
 | T117 | The check-in taking bookings by start time, not by `arrived` | consultations opened for no-shows and cancellations: records with no animal behind them | consultations whose booking is `no-show` or `cancelled`, a few a day | `interfaces`' script | new | M, V over days |
-| T118 | `cancel-deceased` missing, or its watermark on `died_at` rounded to the day | a dead animal's follow-up kept: the reminder reaching its owner (once the portal's reminders run) | future `booked` bookings of `died` animals, about one every three days | `interfaces`' script, `jobs.yaml` | new | V, D when an owner complains |
+| T118 | `cancel-deceased` missing, or its watermark on `died_at` rounded to the day | a dead animal's follow-up kept on the agenda, its slot lost and reception calling the owner | future `booked` bookings of `died` animals, about one every three days | `interfaces`' script, `jobs.yaml` | new | V, D when an owner complains |
 | T119 | An inbound examination booked on the next free day, the exchange's date left as accepted, no incident | the other centre's animal arriving on a day the machine is full | bookings of exchanges on another date than accepted, with no incident; rare, a story raising the rate | `interfaces`' script | new | M |
 
 ### 3. Governance and the working-time record
@@ -1000,7 +998,7 @@ runs).
 |---|---|---|---|---|---|---|
 | T120 | Absences' notes naming a health reason ("sick: back surgery"), planted at load and continued by the stream | special-category data about staff on every rota screen (rule 4) | `sched_absences.note`, at once | the data, then the application (reported) | new | M |
 | T121 | `feed-working-time` comparing rests within a day only | a rest breach across midnight never recorded: the record clean while the rota breaks the rule (with T109, the cover-up) | breaches the shifts show and `office` lacks, each week's nights | the feeder's query | new | V |
-| T122 | `sched_upcoming` carrying the notes, or the staff's names | the owner's reminder showing what the reception wrote, or a vet's name (rule 5) | the view's definition, at once | the view | adapts `governance-personal-copied` | M |
+| T122 | `sched_upcoming` carrying the notes, or the staff's names: dormant in v0.5, the view not built (D321) | the owner's reminder showing what the reception wrote, or a vet's name (rule 5), once appointment reminders exist | the view's definition, at once | the view | adapts `governance-personal-copied` | M |
 | T123 | The feeder taking planned hours, not clocked ones | the record not "objective, reliable": overruns missing, the four-month average understated | worked hours equal to planned ones, every day | the feeder's query | new | M, V before an inspection |
 | T124 | The feeder moved to the night with the others (02:15), or its day in UTC | yesterday's night shifts counted unfinished or split at UTC midnight: night hours lost or doubled | night shifts with no worked hours in the day's rows, every night | `jobs.yaml`, the feeder's query | adapts `purpose-day-boundary-wrong-zone` | M |
 | T125 | On-call counted whole, as on site | hours overstated: breaches and averages for the surgeons on call that are none | on-call shifts' worked hours equal to their planned twelve, each night | the feeder's query | new | M |
@@ -1025,7 +1023,9 @@ runs).
 
 ### Against the test selection (D316)
 
-No trap of this part is proposed to replace one of the ten: they cover
+No trap of this part replaces one of the ten (ruled, D317; the
+selection's two swaps, s5 and s9, went to the portal and housing,
+D325): they cover
 v0.5's new bricks and features (round trips, the archive, periodic
 reports, `pg_cron`, the options model, governance), and scheduling adds
 no brick or feature, only a domain. Should the owner want the part in
@@ -1070,7 +1070,7 @@ classes as an aging finds them.
 | Where | Adds | Reservation |
 |---|---|---|
 | `records` | about 0.11 million rows, 30 MB, 330 rows a day | none: within 0.5 CPU, 512M, 2.25G |
-| `pms` | a connection, about 14 streams and a weekly job | 64M → 96M (proposed; the slot function's searches run on `records`, not on the node) |
+| `pms` | a connection, about 14 streams and a weekly job | 64M → 96M (the slot function's searches run on `records`, not on the node) |
 | `interfaces` | three script jobs a minute | none |
 | `backoffice` | one feeder a day, one monthly job | none |
 | **Total** | **0 nodes** | **0 CPU, about 32M** |
@@ -1094,12 +1094,19 @@ year in `office` ([clinic-purposes](clinic-purposes.md) 4, item 5).
 
 ## Open points
 
-- **O111**: the domain format, finalised in v0.5's master spec (D291).
-- **O168 to O179**: below.
+- **O111**: the domain format, finalised in v0.5's master spec (D291),
+  with the composition rules (D322, [procedure](domain-procedure.md) 10).
+- The working-time sources are checked (see "Regulations"); the national
+  retention periods stay game values.
 
 ## Questions for the owner
 
-Each with the recommended answer this draft is built on.
+**Ruled on 2026-11-03** (D317): the owner, "i agree with the
+recommendations as a whole", so each is closed as recommended, with
+three changes from the fold-in: O169 and O176's machines are ten,
+`vet-machinery`'s 7–16 (D324); O175's layout is the core's, adjusted for
+`vet-machinery`'s imaging staff (D324); O178's appointment reminders are
+not in v0.5 at all (D321). Kept as the record of what was asked.
 
 - **O168 — The brief (step 1).** The brief above, written from your
   clinic brief and the split, since the procedure has you write it.
@@ -1167,7 +1174,12 @@ Each with the recommended answer this draft is built on.
 
 ## Changes needed in shared pages
 
-For the spec-writer folding the four parts in; nothing here is applied.
+Applied on 2026-11-03 in the fold-in (D317, D324), with these
+differences: the staff layout of item 1 is the core's adjusted one (vets
+1–25 by section, 26–28 imaging; nurses and technicians 29–51, 52–56
+imaging and biomedical; the rest as below); items 6 and 7 are replaced
+by D324 (machines 7–16, `vet-machinery`'s) and D321 (no appointment
+reminders); the purposes are 11 and 12 of sixteen.
 
 1. **`vet-core-domain.md`** (O172, O175):
    - "Where the parts press on the core", the `vet-scheduling` row:

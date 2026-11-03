@@ -27,7 +27,15 @@ O118 (D261), O80 (D262), O114 (D263), O145 (D274, D275), O144 (D278),
 O127 (D285), O128 (D286), O79 (D289), O112 (D292), O147 (D293–D295),
 O148 (D296, D297), O113 (D298), O149 (D300), O151 (D301), O152 (D302),
 O154 (D303), O153 (D304), O155 (D306),
-O156 (D307), O158 (D314), O164 (D315), O165 (D316).
+O156 (D307), O158 (D314), O164 (D315), O165 (D316). Raised with the
+four remaining parts' drafts on 2026-11-03 and resolved the same day,
+the owner accepting the recommendations as a whole: O168–O179
+`vet-scheduling` (D317), O180–O190 `vet-housing` (D318), O192–O203
+`vet-machinery` (D319), O204–O215 `vet-portal` (D320), each question's
+text on its part's page under "Questions for the owner"; with D321
+(appointment reminders) and D322, D323 (the initial load and
+composition, feeding O111). O166, O167, O191 and O216 were reserved and
+never used.
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -203,7 +211,11 @@ added on 2026-10-30 (D196).
   API and partner material lives (`producers/api/<node>/` and
   `producers/partners/<partner>/`, a partner's misbehaviour keys coming
   with its faults, D303), the purpose format's extensions (accepted by D307, closing O156), and
-  what the clinic's domains reveal. Finalised in the master spec when v0.5
+  what the clinic's domains reveal: the composition rules and the parts'
+  format changes, proposed (D322, D323;
+  [versions/v0.5/domain-procedure.md](versions/v0.5/domain-procedure.md#10-composing-domains-d322)
+  10): `lands_with`, a several-database part, the derivation step, the
+  composition record. Finalised in the master spec when v0.5
   consolidates (D291), which closes it.
 
 ## v0.6: the setup's entry point

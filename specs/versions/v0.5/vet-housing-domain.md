@@ -1,19 +1,20 @@
 # v0.5 — `vet-housing`, the clinic's boxes, stalls and displays
 
-Status: draft v1, steps 1 to 9 drafted in one pass on 2026-11-03 at the
-owner's instruction ("start an agent for each part, and let them come
-back with problems once they're done"); nothing on this page is ruled.
-Every owner checkpoint carries a recommended answer, marked
-"(proposed, O<n>)", and the draft goes on from it: the brief (step 1,
-O180), the sketch's answers (step 2, O181–O186), the plausibility points
-(step 4, optional, O187), the rules (step 5, O188), the purposes (step
-7, O189) and the approval (step 9, O190); the questions are gathered in
-[Questions for the owner](#questions-for-the-owner). Step 3 is not a
-part's: the boundary is the confirmed split's (D279). The traps (step 8)
-need no owner (D309). What this part needs of the shared pages is in
-[Changes needed in shared pages](#changes-needed-in-shared-pages), for
-the spec-writer who folds the four parts in. Open beside these: the
-format's finalisation (O111, at consolidation).
+Status: draft v2, ruled, for approval with v0.5's master spec. Steps 1
+to 9 drafted in one pass on 2026-11-03 at the owner's instruction
+("start an agent for each part, and let them come back with problems
+once they're done"); the same day the owner accepted the recommendations
+as a whole (D318, closing O180–O190), marked "(ruled, D318)" below, with
+one change: housing's tables stay in `clinic`, declared by `lands_with:
+vet-core`, but its load computes the core's stays by the core's
+documented functions instead of reading them (D249 kept, D322). The
+faulty display (T150) is in the test selection, judged on the report
+(D325). Step 3 is not a part's: the boundary is the confirmed split's
+(D279). The traps (step 8) need no owner (D309). The changes this part
+asked of the shared pages are applied ([Changes needed in shared
+pages](#changes-needed-in-shared-pages)). Open: the format's
+finalisation (O111, at consolidation), with the composition rules
+(D322, procedure 10).
 
 `vet-housing` holds the centre's boxes, stalls, pens, kennels and cages,
 which animal of the core's hospital stays is placed in which, the care
@@ -33,12 +34,12 @@ master spec, O111):
 
 | In the folder | Stated in |
 |---|---|
-| `domain.yaml`: `id` `vet-housing`, `requires: [vet-core]`, tables and roles prefixed `housing_`, landing in the core's database only (proposed, O184), the purposes that fit | [What housing holds](#what-housing-holds); [Purposes that fit](#purposes-that-fit-step-7) |
+| `domain.yaml`: `id` `vet-housing`, `requires: [vet-core]`, tables and roles prefixed `housing_`, landing in the core's database only, `lands_with: vet-core` (ruled, D318, D322), the purposes that fit | [What housing holds](#what-housing-holds); [Purposes that fit](#purposes-that-fit-step-7) |
 | `variants/regional-franchise.yaml`: the part's own axes in a manifest of the core variant's name (D301, answer 15) | [The variant](#the-variant-its-scale-and-its-tags) |
 | `data/schema.sql`: tables, the unit board view, keys, states, roles and grants, in `clinic` | [The data model](#the-data-model-step-4) |
-| `data/load.sql`: the year's placements and care log, the state at T0, read from the core's stays in place | [Deterministic key ranges](#deterministic-key-ranges), [The history before T0](#the-history-before-t0), [Loading](#loading) |
+| `data/load.sql`: the year's placements and care log, the state at T0, on the core's stays computed by its documented functions (D322) | [Deterministic key ranges](#deterministic-key-ranges), [The history before T0](#the-history-before-t0), [Loading](#loading) |
 | `data/classification.yaml`: every column classed | [Classification](#classification) |
-| `docs/policy.md` and a `governance:` fragment | [The rules](#the-rules-proposed-o188) |
+| `docs/policy.md` and a `governance:` fragment | [The rules](#the-rules-ruled-d318) |
 | `producers/`: the practice software's housing fragments (on `pms`, D276), the ward service's (`ward`, D287) | [The producer profiles](#the-producer-profiles-step-6) |
 | `docs/gm.md`: the business, the data, the roles, the classification, the producer, the rules, the traps, loading | this page's sections of the same names; [Traps](#traps-step-8); [Loading](#loading) |
 
@@ -88,7 +89,7 @@ Built on, not reopened:
   the whole clinic deployed once as the proof in play. **Faults**: the
   GM's to select (D309); v0.5 builds the test selection's ten (D316).
 
-## The brief (step 1, proposed, O180)
+## The brief (step 1, ruled, D318)
 
 The owner writes the brief (procedure 2). Proposed, built from the
 clinic's brief (D196) and the split (D279), for him to correct:
@@ -187,7 +188,7 @@ busiest day finds a free unit.
 
 **History**: one year, as the core's (D279), following its stays: about
 3 000 placements (one stay in five moved once), 2 900 plans, and the
-care log, about 150 000 events (proposed, O185).
+care log, about 150 000 events (ruled, D318).
 
 **Throughput**, in real-world rates during the game:
 
@@ -219,15 +220,15 @@ large referral hospital's wards.
 ### Regulations
 
 What a hospital's housing plausibly answers to, at the level a game
-needs; confirmed at step 5. The sources were not re-read for this draft
-(no research step was run this session): the citations below are to
-confirm at review, and every figure is a game value.
+needs; confirmed at step 5. The EU citations were checked against the
+Official Journal's texts on 2026-11-03, at the fold-in; every figure is
+a game value.
 
 | Rule | Source | What housing must hold |
 |---|---|---|
-| Animals are fed, watered and inspected; farmed animals whose welfare depends on human attention at least once a day | Council Directive 98/58/EC, Annex (inspection, feed, water), for the farm section; national animal-welfare law for the others | the care log: feedings and checks per animal, with times |
-| An operator takes biosecurity measures against the spread of disease | Regulation (EU) 2016/429, Art 10 | isolation units, an infectious animal placed in one, disinfection recorded |
-| A medicine given is recorded with its batch and withdrawal period | Regulation (EU) 2019/6 (core rules 2, 6) | nothing: the core's administrations; the care log never records a dose |
+| Animals are fed, watered and inspected; farmed animals whose welfare depends on human attention at least once a day | Council Directive 98/58/EC, Annex points 2 (inspection at least once a day) and 14–16 (feed, water), for the farm section; national animal-welfare law for the others | the care log: feedings and checks per animal, with times |
+| An operator takes biosecurity measures against the spread of disease | Regulation (EU) 2016/429, Art 10(1)(b) and 10(4)(v) (isolation of sick animals); the vets' own duties in Art 12 | isolation units, an infectious animal placed in one, disinfection recorded |
+| A medicine given is recorded with its batch and withdrawal period | Regulation (EU) 2019/6, Art 108 (the keeper's records, the withdrawal period, five years), Art 103(3) (the batch, in the dispenser's records) (core rules 2, 6) | nothing: the core's administrations; the care log never records a dose |
 | Nil by mouth before a general anaesthetic | professional practice, no law | the order, from and until, on the board; no feeding while in force |
 | Owners' data is personal; least data per reader, the displays without identifiers | GDPR; core rule 10 | a board with no owner, no contact, no natural identifier |
 | Records kept for a set period | core rule 9 (five years, a game value) | the care log kept as the stay's record |
@@ -236,7 +237,7 @@ confirm at review, and every figure is a game value.
 
 Within the procedure's section 4: every table prefixed `housing_`,
 every core key by id with no foreign key, the tables in `clinic` beside
-the core's (proposed, O184):
+the core's (ruled, D318):
 
 - **Reference**: the units, each in a section, its kind, isolation or
   intensive care, its hygiene state; the displays, each on a unit.
@@ -261,9 +262,13 @@ the core's (proposed, O184):
 | that a dose is recorded once | the core's `administrations` only; the care log holds no dose (a trap, T165) |
 | the customer's zone, for "today" on the board | `business_settings` (the same database, no copy of its own) |
 
-**Read in place.** Housing lands in `clinic` (proposed, O184), so its
-roles read these columns directly, by column grants its own schema
-gives; nothing is copied, no purpose moves them. The placement of a new
+**Read in place while running; computed at load.** Housing lands in
+`clinic` (ruled, D318), so its roles read these columns directly while
+the game runs, by column grants its own schema gives; nothing is copied,
+no purpose moves them. Its load never reads them: it computes the
+year's stays, their animals' species and their infectious alerts from
+the core's documented functions (D249, D322), as `vet-lab`'s load
+computes the requests (D302). The placement of a new
 stay is the practice software's own work, as `lab.identity` is the
 lab's (D266, D304): one application writing both, not a flow between
 parts.
@@ -274,7 +279,7 @@ Kept minimal; nothing of theirs is designed here.
 
 - **`vet-scheduling`**: books rooms, machines and staff; it never books
   a unit. An animal is placed when admitted, with no reservation ahead
-  (proposed, O186). Housing's streams share `pms` with scheduling's
+  (ruled, D318). Housing's streams share `pms` with scheduling's
   (D276), each prefixing its keys.
 - **`vet-machinery`**: no housing unit is a machine; the displays
   produce no readings (D298) and nothing of housing ships to cold
@@ -285,24 +290,24 @@ Kept minimal; nothing of theirs is designed here.
   reading the care log through a grant of its own; named for later
   ([Purposes](#purposes-that-fit-step-7)).
 
-## The sketch's answers (step 2, proposed)
+## The sketch's answers (step 2, ruled, D318)
 
-The questions the brief leaves open, each with the answer this draft
-carries on with.
+The questions the brief leaves open, each answered as this draft
+proposed (D318), answer 4's load changed by D322.
 
-1. **Which sections have housing** (O181). Answer, proposed: all three.
+1. **Which sections have housing** (O181). Answer: all three.
    The brief names housing for the horse and farm sections; the
    domestic section's kennels and cages are housing too, since most of
    the core's stays are domestic animals and the display is "one per
    animal". Taking horse and farm only would leave about half the stays
    with no placement and no display.
-2. **One display per unit** (O182). Answer, proposed: a display on each
+2. **One display per unit** (O182). Answer: a display on each
    of the 64 units, showing the animal placed there; "one per animal"
    read as each hospitalised animal having its unit's display. An empty
    unit's display shows the unit's state (clean, to clean, out of
    service). Each display refreshes once a minute through the ward
    service: about one board read a second, each carrying the unit's id.
-3. **What a display shows and records** (O183). Answer, proposed: it
+3. **What a display shows and records** (O183). Answer: it
    shows the unit, the animal's name, species, sex and age, its alerts,
    the stay's reason and day, its diet or a nil-by-mouth order in force,
    the day's doses from the core's board (given or due), and the day's
@@ -311,23 +316,25 @@ carries on with.
    check, the disinfection of an emptied unit; never a dose, which the
    nurses record in the practice software's round (core). No owner, no
    contact, no natural identifier (core rule 10).
-4. **Where the tables live** (O184). Answer, proposed: in `clinic`, on
+4. **Where the tables live** (O184). Answer: in `clinic`, on
    `records`, beside the core (`at: records/clinic`), never in an
    instance of their own. The ward service's board read is one
    statement, a stream holding one connection (friction 6); it joins the
-   unit to the core's board, so both must be in one database. The load
-   then reads the core's stays in place (step 4) rather than computing
-   them by documented functions as `vet-lab`'s does (D302). In an
+   unit to the core's board, so both must be in one database. In an
    instance of its own, housing would need a synced copy of the stays
-   and the board, a purpose not built in v0.5. `domain.yaml` states the
-   constraint and the loader refuses another `at:` (feeds O111).
-5. **How much history** (O185). Answer, proposed: a year, as the core's:
+   and the board, a purpose not built in v0.5. `domain.yaml` declares the
+   constraint, `lands_with: vet-core`, and the loader refuses another
+   `at:` (D322, proposed format text in procedure 10, O111). The load
+   does not read the core's stays in place, as this draft first
+   proposed: it computes them by the core's documented functions, as
+   `vet-lab`'s does (D302), D249 staying the default (D322).
+5. **How much history** (O185). Answer: a year, as the core's:
    every stay's placements, plans and care log, about 0.16 million rows,
    the care log the stay's record kept five years (core rule 9). The
    alternative, the current stays only, saves about 0.15 million rows
    but leaves `housing.stay-log` and the head office's occupancy with no
    past.
-6. **Reservations** (O186). Answer, proposed: none in v0.5. An elective
+6. **Reservations** (O186). Answer: none in v0.5. An elective
    admission's unit is not booked ahead; `vet-scheduling` books no unit,
    and housing's placement happens at admission.
 7. **The variant**: `regional-franchise`, no tag added, the part's axes
@@ -388,7 +395,7 @@ placements stay the one place that says it (one fact, one place).
 | `housing_units.id` | 1–64 | 1–22 the horse section (1–2 isolation, 3–4 intensive care, 5–22 boxes; 15 out of service); 23–32 the farm section (23 isolation pen, 24–28 stalls, 29–32 pens); 33–64 the domestic section (33 isolation kennel, 34 isolation cage, 35–40 intensive-care cages, 41–54 kennels, 55–64 cages; 50 out of service) |
 | `housing_displays.id` | 1–66 | display `u` on unit `u`; 65 and 66 replaced those of units 7 and 41 during the year, displays 7 and 41 removed |
 | History | `housing_placements`, `housing_feeding_plans`, `housing_care_events` as loaded, in time order | each sequence set after its last id |
-| Core keys used | `stays` and `animals` as the core's load wrote them; `section_id` 1–3; staff by `kind` | read in place (answer 4) |
+| Core keys used | `stay_id` 1–2 500, each stay's animal, section, admission, end and outcome; the animal's species; the infectious alerts current on a stay; `section_id` 1–3; staff by the core's layout (nurses among 29–51, carers and grooms 57–66, D324) | computed by the core's documented functions, never read (D249, D322) |
 
 No part refers to housing's ids, so nothing beyond the units needs a
 documented layout.
@@ -431,7 +438,7 @@ shop's 1.3 million and within the `postgres` brick's 2.25G of disk;
 about 50 MB with indexes, measured at the build. Far under cold
 storage's threshold of about 50 000 rows a day (D296): nothing ships.
 
-### Plausibility points (step 4, optional, proposed, O187)
+### Plausibility points (step 4, optional, ruled, D318)
 
 Offered to the owner; the draft carries on with them:
 
@@ -448,8 +455,9 @@ Offered to the owner; the draft carries on with them:
 6. **The care event names its stay** beside its unit, as a real nursing
    record names its patient: the one fact housing holds twice, the unit's
    occupant at the time, an invariant against the placements (T160).
-7. **Housing in `clinic`, its load reading the core's stays in place**
-   (answer 4), the one part not computing the core's keys by functions.
+7. **Housing in `clinic`**, declared by `lands_with: vet-core` (answer
+   4, D322), its load computing the core's stays by functions like every
+   other part's.
 8. **Two displays replaced in the year**, so the chain from a unit to its
    display goes through `housing_displays`, not an equal id.
 
@@ -483,8 +491,8 @@ no personal data, which the rules below keep so.
 Housing's default policy (procedure 6, item 1), beside the core's and
 the lab's, built into the part's `docs/policy.md` and its `governance:`
 fragment. Its home is the core's unnamed EU member state (D278). The
-sources are to confirm at review (Regulations); every figure is a *game
-value*.
+sources were checked at the fold-in (Regulations); every figure is a
+*game value*.
 
 **The board's least data.** A display shows the animal's name, species,
 sex and age, its alerts, the stay's reason, its plan and the day's doses
@@ -523,7 +531,7 @@ ward service adds care events and marks units clean and nothing else.
 stay's record, kept as the clinical records are: five years from the
 stay's end (core rule 9), then erased with it.
 
-### The rules (proposed, O188)
+### The rules (ruled, D318)
 
 For the owner to judge realistic, with the classification above:
 
@@ -625,9 +633,9 @@ id, never `random()`, so a run is reproducible from the game's seed
 
 ### The history before T0
 
-The load follows the core's year of stays (D279), read in place
-(answer 4), so housing's history grows as the core's does without a
-curve of its own:
+The load follows the core's year of stays (D279), computed by the
+core's documented functions (D322), so housing's history grows as the
+core's does without a curve of its own:
 
 - each stay, in admission order, placed ten minutes after its admission
   in the free unit its rules give (fit, isolation for an animal whose
@@ -651,7 +659,10 @@ a few nil-by-mouth orders running into the morning; the night's checks
 recorded, the next feeding round due; units released in the last hour
 `to-clean`, the rest `clean`. Every core stay current at T0 has its
 placement, and no placement is open on an ended stay: a mismatch would be
-a fault with no story (D304's principle for the partners' database).
+a fault with no story (D304's principle for the partners' database). The
+GM's post-load coherence check reads exactly this on the composed
+scenario (D322; [procedure](domain-procedure.md) 10): a mismatch there is
+a design error caught before hand-over, never a fault.
 
 **Unseen.** The load writes without trace: no statement logging,
 `pg_stat_statements` off, pgaudit off for its sessions (D265).
@@ -808,10 +819,23 @@ natural identifier on `animal_board`, so on every display).
 
 ### Against the test selection
 
-The ten (D316) hold nothing of D287's own case, the one fault the owner
-described himself. [Changes needed in shared
-pages](#changes-needed-in-shared-pages) proposes T150 in place of s9,
-with the reason; the choice is the spec's (D309), not the owner's.
+The ten (D316) held nothing of D287's own case, the one fault the owner
+described himself. T150 replaces s9 (D325, the spec's choice under
+D309), class M for class M:
+[clinic-test-selection](clinic-test-selection.md).
+
+**How T150 is judged.** A display's firmware is no layer of the
+players', so T150 is reported, never fixed (bricks-and-faults; D209's
+precedent). In a game it is judged at the final answer, on the report
+alone: the unit, its display's serial and the animal named, the excess
+calls shown, and no instance-wide statement logging left behind (T170,
+core rule 10). The GM does not switch the display off when the report
+names it: the GM's only action during play is stopping the game, and it
+never touches the load (gm-stance, "Stop only", "No events outside the
+schedule"), so the faulty display loops until teardown, and the
+feedback says the clinic's technician would replace it. Clearing its
+key is the build's short test, which proves the key reversible, never a
+game's step.
 
 ## Testing (D314)
 
@@ -825,7 +849,7 @@ the bastion: four nodes, about 0.8 CPU and 0.75G reserved, one host.
 | The board | `ward.board` reading one row per unit, an occupied unit's carrying its animal, no owner and no identifier; its calls about 64 a minute in `pg_stat_statements`, from `ward` | 10 minutes |
 | Placement and release | the fixture raises `stays.admit` and `stays.discharge` on `pms` (its profile layer, D264), T0 placed at 10:00 for the discharges: a new stay placed within minutes, an ended one released and its unit disinfected within the hour | 25 minutes |
 | The care log | T0 just before 17:00: the round's feedings recorded, a nil-by-mouth animal skipped, about 20 events an hour | 20 minutes |
-| T150, if selected | *present*: the excess calls and the unit's parameter; *fixed*: the report naming the unit, display and animal, the GM switching the faulty display's key off as the clinic's technician replacing it, the calls back to 64 a minute | 15 minutes |
+| T150 (s9, D325) | *present*: the excess calls and the unit's parameter, logged for `vet_display` alone; *reported*: the chain read from the unit's parameter to the display's serial and the animal, the answer key's criteria; *cleared*: the test itself switching the display's key off in the profile layer (D264), the calls back to 64 a minute, proving the key reversible (a test step, never the GM's in a game) | 15 minutes |
 
 **Only the whole clinic shows**, in the proof in play: the ward service
 beside every other producer on `records`, its reads among the core's and
@@ -852,19 +876,26 @@ No database node, no exporter.
 ## Loading
 
 `gmctl load-data` runs housing's `schema.sql` then `load.sql` into
-`clinic` on `records` as `postgres`, after the core's, since the load
-reads the core's `stays`, `animals`, `alerts` and `staff` in place
-(answer 4): explicit ids for the units and displays, the history's ids
-in time order, each sequence set after its range; the shift variables
-need nothing of housing's own, every time following the core's shifted
-stays. The load's sessions unseen (D265). About 0.16 million rows; size
+`clinic` on `records` as `postgres`, after the core's schema (the same
+database), its load computing the core's stays, species, infectious
+alerts and staff by the core's documented functions, never reading the
+core's tables (D249, D322): explicit ids for the units and displays,
+the history's ids in time order, each sequence set after its range; the
+shift variables need nothing of housing's own, every time following the
+core's shifted stays. The loader refuses an `at:` other than the core's
+database (`lands_with: vet-core`, D322). The load's sessions unseen (D265). About 0.16 million rows; size
 and time measured at the build (procedure 3). The build checks that no
 stay of the year finds its section without a fitting unit, and fails if
-one does.
+one does; the GM's post-load coherence check then reads every placement
+on a real stay and every current stay placed (D322).
 
 ## Questions for the owner
 
-Each with the answer the draft carried on with.
+**Ruled on 2026-11-03** (D318): the owner, "i agree with the
+recommendations as a whole", so each is closed as recommended, except
+O184's load: the tables stay in `clinic`, declared `lands_with:
+vet-core`, and the load computes the core's stays by functions (D322).
+Kept as the record of what was asked.
 
 - **O180 (step 1)**: the brief above, proposed, for him to write or
   correct.
@@ -891,7 +922,13 @@ Each with the answer the draft carried on with.
 
 ## Changes needed in shared pages
 
-For the spec-writer who folds the four parts in; none is applied here.
+Applied on 2026-11-03 in the fold-in (D318, D324, D325), with these
+differences: the core's "Where the parts press" row says the part's
+load computes the stays by functions and its roles read in place while
+running (D322); the core documents the stays, species and infectious
+alerts as functions of their ids; the staff are the core's layout
+(D324); item 7 is replaced by the composition section, procedure 10
+(D322); T150's check is judged on the report (D325).
 
 1. **[vet-core-domain.md](vet-core-domain.md)**:
    - "Application roles and grants", the `vet_display` row: Reads
@@ -915,7 +952,7 @@ For the spec-writer who folds the four parts in; none is applied here.
      `housing_app`".
    - The stays' section mix, stated in step 6 and the GM notes: at any
      time about 14 horses, 6 farm animals and 20 domestic animals of the
-     40 (proposed; housing's units are sized on it), so that the core's
+     40 (housing's units are sized on it), so that the core's
      history never holds more current stays in a section than its units
      in service: 21 horse units, 10 farm units, 31 domestic units, species
      fitting.
@@ -969,6 +1006,6 @@ For the spec-writer who folds the four parts in; none is applied here.
 
 - **O180–O190**: the owner's checkpoints above.
 - **O111**: the domain format, finalised in v0.5's master spec (D291);
-  item 7 of the changes feeds it.
-- The sources in "Regulations" are to confirm at review (no research
-  step this session).
+  item 7 of the changes feeds it, with the composition rules (D322,
+  [procedure](domain-procedure.md) 10).
+- The EU sources in "Regulations" were checked on 2026-11-03.

@@ -1,15 +1,20 @@
 # v0.5 — `vet-portal`, the owners' portal
 
-Status: draft v1, wholly proposed: steps 1 to 9 of the
-[procedure](domain-procedure.md) run in one pass on the owner's
-instruction of 2026-11-03 ("start an agent for each part, and let them
-come back with problems once they're done"). Every owner checkpoint
-(step 1's brief, step 2's answers, step 5's rules, step 7's purposes)
-carries a recommended answer, marked (proposed, O204–O215), and the
-draft goes on from it; nothing here is ruled. Step 8 has no owner
-checkpoint (D309). The page holds the whole part, its two purposes and
-its traps; what it needs of the shared pages is listed at the end, for
-whoever folds the four parts in.
+Status: draft v2, ruled, for approval with v0.5's master spec. Steps 1
+to 9 of the [procedure](domain-procedure.md) run in one pass on the
+owner's instruction of 2026-11-03 ("start an agent for each part, and
+let them come back with problems once they're done"); the same day the
+owner accepted the recommendations as a whole (D320, closing
+O204–O215), marked "(ruled, D320)" below, with one change: the load
+computes the core's and the lab's keys by their documented functions
+(D249 kept), and only the copied content (the documents, their
+versions, views and notices, the copies of animals and ownerships)
+comes from a GM-sanctioned derivation step after the sources' loads
+(D322, details proposed). No appointment reminders in v0.5, the
+vaccination reminders only, with consent (D321). T270 replaces s5 in
+the test selection (D325). Step 8 has no owner checkpoint (D309). The
+changes this part asked of the shared pages are applied ([Changes
+needed in shared pages](#changes-needed-in-shared-pages)).
 
 `vet-portal` is the owners' portal of the centre a scenario deploys
 (D285), the centre's own (D293), a **part**: it requires `vet-core`
@@ -30,11 +35,11 @@ master spec, O111):
 |---|---|
 | `domain.yaml`: `id` `vet-portal`, `requires: [vet-core]`, its tables and roles prefixed `portal_`, the purposes that fit | [What the portal holds](#what-the-portal-holds); [Purposes](#purposes-that-fit-step-7) |
 | `variants/regional-franchise.yaml`: the part's own axes in a manifest of the core variant's name (D301, vet-lab answer 15) | [The variant](#the-variant-its-scale-and-its-tags) |
-| `data/schema.sql`: tables, keys, states, the row-level security policies, the auth functions, roles and grants, in a database `portal` on `records` (proposed, O210) | [The data model](#the-data-model-step-4) |
-| `data/load.sql`: the year's history and the state at T0, read from `clinic` and `lab` through a temporary foreign server (proposed, O213) | [Key ranges](#deterministic-key-ranges-d249-d266), [The history before T0](#the-history-before-t0), [Loading](#loading) |
+| `data/schema.sql`: tables, keys, states, the row-level security policies, the auth functions, roles and grants, in a database `portal` on `records` (ruled, D320) | [The data model](#the-data-model-step-4) |
+| `data/load.sql`: the accounts, consents, reminders, sessions and tokens by documented functions, the core's and the lab's keys computed (D249, D322); `data/derive.sql`: the copies, the documents and what hangs off them, derived after the sources' loads by a step the GM sanctions (D322, proposed) | [Key ranges](#deterministic-key-ranges-d249-d266), [The history before T0](#the-history-before-t0), [Loading](#loading) |
 | `data/classification.yaml`: every column classed | [Classification](#classification) |
-| `docs/policy.md` and a `governance:` fragment | [The rules](#the-rules-proposed-o214) |
-| `producers/`: the portal's API (`producers/api/portal-api/`), the owners' traffic (`producers/partners/owners/`, proposed, O211), the desk's consent stream on `pms` | [The producer profiles](#the-producer-profiles-step-6) |
+| `docs/policy.md` and a `governance:` fragment | [The rules](#the-rules-ruled-d320) |
+| `producers/`: the portal's API (`producers/api/portal-api/`), the owners' traffic (`producers/partners/owners/`, ruled, D320; the folder's name for a traffic source that is no business proposed for O111, D323), the desk's consent stream on `pms` | [The producer profiles](#the-producer-profiles-step-6) |
 | `docs/gm.md`: the business, the data, the roles, the classification, the producer, the rules, the traps, loading | this page's sections of the same names; [Loading](#loading) |
 
 ## Settled before this page
@@ -87,7 +92,7 @@ Built on, not reopened:
   ([clinic-capacity.md](clinic-capacity.md)); one variant (D263), one
   centre (D285); short tests (D314).
 
-## The brief (step 1, proposed, O204)
+## The brief (step 1, ruled, D320)
 
 The owner's words, from the clinic's brief (D196): "customers have a
 dedicated portal to access their animals informations." The split
@@ -126,7 +131,7 @@ exposed system holding owners' data.
 | Actor | Who | With the portal |
 |---|---|---|
 | Owner | a pet owner, a horse owner or stable, a farmer (a holding's keeper): a core owner | activates their account, logs in, reads their animals' documents, grants and withdraws consents, closes their account |
-| Keeper | a stable, a livery yard, a holding keeping someone else's animal: a core owner with a `keeper` ownership | sees an animal they keep only with its owner's consent (proposed, O206) |
+| Keeper | a stable, a livery yard, a holding keeping someone else's animal: a core owner with a `keeper` ownership | sees an animal they keep only with its owner's consent (ruled, D320) |
 | Receptionist | core `staff`, `kind` `reception` | records an owner's consent at the desk, through the practice software (`pms`) |
 | Vet, clinical pathologist | core `staff` | sign the consultations, release the results: the gates the portal waits for; never use the portal |
 | The franchise's messaging service | a third party (D293) | delivers the portal's e-mails and text messages |
@@ -137,18 +142,19 @@ exposed system holding owners' data.
 | Activity | What it records | Held by |
 |---|---|---|
 | Registering an owner and an animal | identity, contacts, ownership | core |
-| Inviting the owner | the account, `invited`, its one-time activation link sent | `vet-portal` (proposed, O207) |
+| Inviting the owner | the account, `invited`, its one-time activation link sent | `vet-portal` (ruled, D320) |
 | Activating, logging in, logging out | the password's hash, sessions, failed attempts | `vet-portal` |
 | Publishing what passed its gate | a document per signed consultation, released centre result, discharge; its version on an amendment | `vet-portal`, by a purpose (step 7) |
-| Notifying the owner | one notice per published document, by the account's channel | `vet-portal` (proposed, O209) |
+| Notifying the owner | one notice per published document, by the account's channel | `vet-portal` (ruled, D320) |
 | Reading | each document opened: who, when | `vet-portal` |
-| Granting and withdrawing consents | every event: purpose, granted or withdrawn, when, where | `vet-portal` (proposed, O205) |
+| Granting and withdrawing consents | every event: purpose, granted or withdrawn, when, where | `vet-portal` (ruled, D320) |
 | Vaccination reminders | one a year per domestic animal and horse, 14 days ahead, with consent | `vet-portal` (moved from the core, D304) |
 | Closing an account | its personal columns erased, its sessions ended; the record untouched | `vet-portal` |
 | Changing contacts | name, e-mail, phone | core, at the desk; copied to the portal |
 
-Not in the portal (proposed, O204): booking or appointment reminders
-(`vet-scheduling`'s bookings stay inside the centre in v0.5); payments
+Not in the portal (ruled, D320, D321): booking or appointment reminders
+(`vet-scheduling`'s bookings stay inside the centre in v0.5, the owner
+confirming no appointment reminders at all, D321); payments
 and invoices (billing is out, D278 answer 8); messages to the vets;
 imaging studies (`vet-machinery`'s, later, O208); treatment consent
 forms (O205).
@@ -238,8 +244,8 @@ checks they are realistic at step 5 (O214).
 
 Within the procedure's section 4: every table prefixed `portal_`, every
 core and lab key by id with no foreign key, in a database `portal` on
-the core's instance `records`, beside `clinic` and `office` (proposed,
-O210):
+the core's instance `records`, beside `clinic` and `office` (ruled,
+D320):
 
 - **Accounts and sessions**: one account per core owner, its login and
   password's hash, its status, its channel; sessions by a token's hash.
@@ -274,14 +280,14 @@ are new, one in `clinic` and one in `lab`
 ([roles](#the-roles-the-purposes-add)); `pms` gains one HTTP stream
 ([producers](#the-applications-and-their-nodes-d276)).
 
-## The owner's answers (step 2, proposed)
+## The owner's answers (step 2, ruled, D320)
 
-The questions the sketch leaves open, each with the default this draft
-goes on with. None is ruled.
+The questions the sketch leaves open, each answered as this draft
+proposed (D320).
 
-1. **The brief** (O204): as proposed above; information only, no
+1. **The brief** (O204): as written above; information only, no
    booking, payments or messages to the vets.
-2. **What "consents" covers** (O205). Answer (proposed): the owner's
+2. **What "consents" covers** (O205). Answer: the owner's
    communication and data-use consents, in the shop's event model:
    `reminders` (vaccination reminders by e-mail or text message) and
    `keeper-access` (a named keeper's access to one animal). Consent to
@@ -289,14 +295,14 @@ goes on with. None is ruled.
    signed clinical form, the core's when it comes, later: the core's
    procedures would need it before the act, which a separate portal
    database cannot give the practice software.
-3. **Keepers** (O206). Answer (proposed): a keeper sees an animal only
+3. **Keepers** (O206). Answer: a keeper sees an animal only
    while they keep it (the core's current `keeper` ownership) and while
    its current owner's latest `keeper-access` event for that keeper and
    animal is a grant; they then see what the owner sees. A livery yard
    following its horses is common practice in equine work, and the
    clause is the owner scope's richest case. Without it, a keeper sees
    only animals they own.
-4. **Accounts** (O207). Answer (proposed): one per core owner but the
+4. **Accounts** (O207). Answer: one per core owner but the
    clinic itself, created `invited` by the release purpose within
    minutes of the owner's registration, the invitation a one-time link
    valid 14 days; activation sets the password and offers the
@@ -305,7 +311,7 @@ goes on with. None is ruled.
    and the copy follows; the portal changes no contact. An owner may
    close the account: its personal columns erased, its sessions ended,
    the consent events kept as proof, never reopened.
-5. **What the portal shows** (O208). Answer (proposed): of each animal
+5. **What the portal shows** (O208). Answer: of each animal
    the owner owns now, the documents whose record falls within their
    ownership: signed consultations (date, kind, section, the vet's
    name, the diagnoses' labels, the prescriptions with their doses,
@@ -316,7 +322,7 @@ goes on with. None is ruled.
    free text, alerts, natural identifiers, imaging studies (later, with
    `vet-machinery`), or the region's practices' patients (lab answer 4).
    A herd's documents go to its keeper.
-6. **Notifications** (O209). Answer (proposed): one notice per published
+6. **Notifications** (O209). Answer: one notice per published
    document, by the account's channel (`email`, `sms` or `none`,
    default `email`), transactional and without consent, as the shop's
    `order-shipped` mail; vaccination reminders 14 days before each
@@ -326,14 +332,14 @@ goes on with. None is ruled.
    each message at once with an id, idempotent on the message's key; no
    delivery receipts or bounces in v0.5 (a round trip with them would
    raise D195's question again).
-7. **Where the database lands** (O210). Answer (proposed): a database
+7. **Where the database lands** (O210). Answer: a database
    `portal` on `records` (`at: records/portal`), beside `clinic` and
    `office`: no new `postgres` node, separation by database, roles,
    `pg_hba.conf` and its own settings (`ALTER DATABASE`). A node of its
    own, as a portal facing the internet often has, costs 0.5 CPU, 512M
    and 2.25G on armenelos with an exporter, which the tally cannot
    easily afford. It rides the standby and the archive.
-8. **The owners' traffic** (O211). Answer (proposed): out of the
+8. **The owners' traffic** (O211). Answer: out of the
    players' reach, as the outside world is, on the partners' shared
    `api` node under a hostname `owners` and their back end (D303's
    ticked routes, D308): no new node. The owners are no third party
@@ -410,11 +416,11 @@ Each sequence resumes after its range (D276).
 | `portal_accounts.id` | 2–10 000, the sequence set at 20 000 | the account of owner `o` is `o`: the accounts migrated from the old portal kept their owner's number, and accounts created since take 20 001 on. A query joining an account's id to an owner's id is right for every loaded account and wrong for every new one (a trap, T261) |
 | Account status at load | by a hash of the id | about 65 % active, 32 % invited (180 of them within their 14 days), 3 % closed |
 | History | `portal_documents` 1–41 600, `portal_views` 1–70 000, `portal_outbox` 1–36 000, `portal_consent_events` 1–8 000, in time order; `portal_sessions` the last 30 days' only, their ids where the year left them | |
-| Core and lab keys | `owner_id` 2–10 000, `animal_id` 1–17 000, `herd_id` 1–200 as the core documents them; documents' `source_ref` the core's consultations and stays and the lab's order tests of account 1 | read from the sources at load (O213) |
+| Core and lab keys | `owner_id` 2–10 000, `animal_id` 1–17 000, `herd_id` 1–200 as the core documents them; documents' `source_ref` the core's consultations and stays and the lab's of the lab's order tests of account 1 | the keys computed by the sources' documented functions at load (D249); the documents' ids, in order of their gate and reference, and their content from the derivation step (D322) |
 | A vaccination's due day | day of the year `1 + (animal_id × 211) mod 365` | for domestic animals and horses; farm animals have herd visits instead |
 | Passwords and links (the owners' route) | each active account's password, and each invitation's and reset's token, an HMAC of the account's id and the game's seed | so the owners' route logs in and activates without the partners' database storing a password; the load stores bcrypt hashes and SHA-256 hashes of the tokens |
 
-### Who sees what: row-level security (proposed, O212)
+### Who sees what: row-level security (ruled, D320)
 
 The owner scope is enforced in the database, so that it is a DBA's
 matter: every table of the portal has row-level security on, forced;
@@ -479,7 +485,7 @@ The purposes' roles (`portal_sync`, `portal_dispatch`) come with step 7
 About 80 MB with the documents' bodies and indexes, within `records`'
 2.25G volume; load time and size measured at the build (procedure 3).
 
-### Plausibility points (step 4, proposed)
+### Plausibility points (step 4, ruled, D320)
 
 Offered to the owner (optional at step 4):
 
@@ -628,7 +634,7 @@ lives; the documents' `record_at` against the ownership's start; the
 versions and `supersedes_id`; the consent events beside the flag; the
 two uniques of the outbox; `invite_hash` and its expiry.
 
-### The rules, proposed (O214)
+### The rules (ruled, D320)
 
 For the owner to judge realistic:
 
@@ -671,7 +677,7 @@ the messaging service, are purposes (procedure 4, step 7).
 | Application | Node | Connection, role | What it does |
 |---|---|---|---|
 | The portal | `portal-api`, an `api` node in the players' scope (D267, D270) | `portal`: `records:5432/portal`, `portal_api`, over TLS | only answers: the endpoints below; players edit its `db/` side only, the functions and queries (D271) |
-| The owners' browsers | the partners' `api` node, hostname `owners`, ticked by the partners' back end, out of reach (proposed, O211) | HTTP to `portal-api`; the back end's database for its own record of visits, and the messaging stub's record of messages received | visits, activations, resets, unsubscribes, keeper grants, closures (rates below) |
+| The owners' browsers | the partners' `api` node, hostname `owners`, ticked by the partners' back end, out of reach (ruled, D320) | HTTP to `portal-api`; the back end's database for its own record of visits, and the messaging stub's record of messages received | visits, activations, resets, unsubscribes, keeper grants, closures (rates below) |
 | The desk | `pms`, the practice software (D276: one application carries the parts' fragments) | HTTP to `portal-api`, the desk's credential (a secret) | `portal.desk-consent`, a stream: an owner's consent recorded at the desk |
 
 No scheduler node of the portal's own: its background work is the
@@ -737,7 +743,8 @@ Fixed-time operation, on `records`' `pg_cron`
 As the core's: the year ramps from about 60 % of today's volume to
 today's (D279), on the shapes above, so the evening peaks and the
 notices after the pathologist's rounds show in `portal_views` as they
-will in the aging. Read from `clinic` and `lab` at load (O213): the
+will in the aging. Derived from `clinic` and `lab` by the sanctioned
+step after their loads (D322; [Loading](#loading)): the
 copies as the core holds them at T0, the documents of every signed
 consultation, released centre test and ended stay of the year, the
 amendments as versions. In flight at T0, as a night leaves the portal:
@@ -784,8 +791,8 @@ The partners' database grows by about 300 rows a day for the portal
 
 **One node, 0.1 CPU, 96M**, against the tally's estimate of 2 to 4
 nodes and 0.2 to 0.8 CPU ([clinic-capacity.md](clinic-capacity.md)).
-`interfaces` takes six more jobs (step 7), light: proposed at 96M
-instead of 64M. If the owner wants the database on a node of its own
+`interfaces` takes six more jobs (step 7), light: 96M instead of
+64M (D320). If the owner wants the database on a node of its own
 (O210): three nodes (`portal-api`, a `postgres` node, its exporter),
 about 0.65 CPU and 0.66G, the `postgres` node on armenelos (the VPS has
 no room for one). If the owners' traffic gets a node of its own (O211):
@@ -794,7 +801,8 @@ one more, 0.1 CPU and 64M, out of reach.
 ## Purposes that fit (step 7)
 
 No existing purpose fits as built: the core's and the lab's ten move
-nothing into the portal. Two new ones, proposed (O215), each its own
+nothing into the portal. Two new ones (ruled, D320; purposes 15 and 16
+of sixteen, D324), each its own
 unit under `purposes/`, both on `interfaces` (D306 point 2: the
 integration engine's light, frequent flows), in v0.4's format with
 D307's extensions.
@@ -903,7 +911,7 @@ flow: `to: messaging`, fields `address`, `template`, `animal_name`,
 | `portal` | `portal_sync` | the release jobs | the copies, accounts, documents | accounts (insert; contacts and `synced_at`; never a closed one's), the copies, documents, invitations in `portal_outbox`, `ops.*` |
 | `portal` | `portal_dispatch` | the messages' jobs | accounts (status, channel, address), the copies, documents, consent events, the outbox | the outbox (queued notices and reminders, sending columns), `ops.*` |
 
-### Points for the owner (step 7, proposed, O215)
+### Points for the owner (step 7, ruled, D320)
 
 1. **Two purposes**, `vet-portal-release` (pulled, the release gate and
    the copies) and `vet-portal-messages` (pushed, notices and reminders
@@ -925,8 +933,9 @@ Where faults can bite the portal, each with its D290 class, in the
 manner of [clinic-traps.md](clinic-traps.md) (its "How to read the
 tables" applies). No owner checkpoint: a scenario's faults are the GM's
 to select (D309); v0.5 builds only the test selection's ten (D316), so
-these stay listed for the GM, but for one proposed swap
-([changes](#changes-needed-in-shared-pages), item 12). Of the core's
+these stay listed for the GM, but for one swap: T270 replaces s5 in the
+test selection (D325; [changes](#changes-needed-in-shared-pages), item
+12). Of the core's
 and the lab's traps, T13, T19 and T26 name the portal as a later
 victim, but the portal holds no chip and does not call the lookup API,
 so as designed they do not reach it; T43 is blocked by design (step 7,
@@ -967,7 +976,7 @@ point 3); T80, the release time unindexed on `lab`, slows
 
 | # | Trap | Where it bites | Witness | Fixed on | Catalogue | Class |
 |---|---|---|---|---|---|---|
-| T270 | The animals' policy without the ownership's end (`until_at IS NULL` dropped) | former owners still see the animals they sold and their new records (core rule 11, RL6) | a former owner's `GET /animals`, about 9 visits a day; at once in a test | the policy (DDL on `portal`) | new | M, V over days (proposed for the test selection) |
+| T270 | The animals' policy without the ownership's end (`until_at IS NULL` dropped) | former owners still see the animals they sold and their new records (core rule 11, RL6) | a former owner's `GET /animals`, about 9 visits a day; at once in a test | the policy (DDL on `portal`) | new | M, V over days (s5 of the test selection, D325) |
 | T271 | The documents' policy without the ownership's start (`record_at` against `from_at`) | a new owner reads the records from before the sale, the former owner's name with them (rule 1) | an animal sold in the year: its earlier documents returned to the buyer | the policy | new | M |
 | T272 | Row-level security bypassed for the API: `portal_api` owning the tables (a migration run as it) without `FORCE`, or granted `BYPASSRLS` for a support script | every owner sees every animal, the queries relying on the policies | every visit, at once: the owners' recorded visits, owners calling | the tables' owner, `FORCE`, the role | new | D |
 | T273 | No policy on `portal_documents` (the animals' only), while `GET /documents/{id}` reads by id | any owner opens any document by changing the number in the link | `pg_policies`, at once; the visits never probe, the story's complaint does ("I changed the number") | the policy | new | D with the story, M without |
@@ -1055,23 +1064,48 @@ class as the hand-over finds it (D290).
 
 ## Loading
 
-`gmctl load-data` runs `schema.sql` then `load.sql` into `portal` on
-`records` as `postgres`, **after `vet-core`'s and `vet-lab`'s loads**:
-the portal's history is a copy of theirs, so `load.sql` reads `clinic`
-and `lab` through a temporary foreign server it drops afterwards, every
-session unseen (no statement logging, `pg_stat_statements` and pgaudit
-off, D265), D307 item 5's mechanism for `office` (proposed, O213):
-the copies as at T0, the documents and their versions, the notices for
-them, the views; accounts, consent events, reminders, sessions and
-tokens by documented functions of the ids. Each sequence set after its
-range; `portal_accounts`' at 20 000. About 0.21 million rows and 6 500
+Two steps (D322; the mechanism's details proposed, to confirm with the
+master spec, O111):
+
+1. **The load.** `gmctl load-data` runs `schema.sql` then `load.sql`
+   into `portal` on `records` as `postgres`. It never reads the core or
+   the lab (D249): the accounts (owner `o`'s is `o`), consent events,
+   reminders and their due days, sessions and tokens by documented
+   functions of the ids, the core's owners, animals and herds by its
+   documented ranges and functions. Each sequence set after its range;
+   `portal_accounts`' at 20 000.
+2. **The derivation step, sanctioned by the GM.** The documents copy the
+   record field by field (a consultation's diagnoses and prescriptions,
+   a test's analytes, values and intervals, a discharge), and the copies
+   of animals and ownerships hold the core's state at T0. Recomputing
+   those by formulas would duplicate the core's and the lab's loads'
+   generation in a third place, two implementations that must agree on
+   every value; this is the case D322 names. So `data/derive.sql` runs
+   after every source's load, as `postgres`, reading `clinic` and `lab`
+   through a temporary foreign server it drops afterwards (D307 item
+   5's mechanism for `office`), every session unseen (no statement
+   logging, `pg_stat_statements` and pgaudit off, D265): the copies as
+   at T0; the documents of every signed consultation, released centre
+   test and ended stay of the year, numbered in order of their gate and
+   reference, their versions; the views and the notices that hang off
+   them; the messaging stub's planted notices of the last 14 days. The
+   step is recorded in the scenario's composition record, beside
+   `merge.yaml`, with its order (after `vet-core` and `vet-lab`); the
+   post-load coherence check then reads every published document
+   against a signed consultation, a released result or an ended stay
+   ([procedure](domain-procedure.md) 10). About 0.21 million rows and 6 500
 bcrypt hashes at cost 6 (about 30 seconds); size and time measured at
 the build. The partners' database is planted from the same functions
 (the last 14 days' messages and tokens).
 
 ## Questions for the owner
 
-Each with this draft's recommendation; the page goes on from it.
+**Ruled on 2026-11-03** (D320): the owner, "i agree with the
+recommendations as a whole", so each is closed as recommended, except
+O213: the load computes the sources' keys by functions, and only the
+copied content comes from a GM-sanctioned derivation step (D322). No
+appointment reminders in v0.5 (D321). Kept as the record of what was
+asked.
 
 - **O204 (step 1) The brief.** Accept the proposed brief above: every
   owner has an account to see their current animals' signed
@@ -1130,7 +1164,11 @@ Each with this draft's recommendation; the page goes on from it.
 
 ## Changes needed in shared pages
 
-For whoever folds the four parts in; nothing here is applied.
+Applied on 2026-11-03 in the fold-in (D320, D323–D325), with these
+differences: the purposes are 15 and 16 of sixteen (D324); item 10's
+first point becomes the derivation step of D322, its second proposed
+format text in procedure 10 (D323); item 12's swap is made (D325);
+item 14's questions are closed (D320).
 
 1. **[vet-core-domain.md](vet-core-domain.md)**:
    - "Flows to step 7": the row "Results released to owners | to
@@ -1230,7 +1268,7 @@ For whoever folds the four parts in; nothing here is applied.
 Kept to the boundary; none designs another part.
 
 - **`vet-scheduling`**: no booking and no appointment reminder through
-  the portal in v0.5 (O204). Were scheduling to send reminders later, it
+  the portal in v0.5 (O204, D321). Were scheduling to send reminders later, it
   would queue them in `portal_outbox` through a purpose of its own.
 - **`vet-machinery`**: imaging studies are not released to the portal
   in v0.5 (O208); a study's report would be a fourth document kind,

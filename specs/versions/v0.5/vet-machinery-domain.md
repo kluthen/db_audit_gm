@@ -1,16 +1,17 @@
 # v0.5 — `vet-machinery`, the clinic's machines
 
-Status: draft v1. Steps 1 to 9 of the [procedure](domain-procedure.md)
-drafted in one pass on 2026-11-03, on the owner's instruction ("start an
-agent for each part, and let them come back with problems once they're
-done"). Wherever the procedure has an owner checkpoint (step 1's brief,
-step 2's answers, step 5's rules, step 7's purposes, step 9's approval),
-this page writes a **recommended answer**, marks it "(proposed, O<n>)"
-and carries on with it. Nothing on this page is ruled. The questions
-are gathered in [Questions for the owner](#questions-for-the-owner).
-What this part needs from the shared pages is in [Changes needed in
-shared pages](#changes-needed-in-shared-pages), for the spec-writer who
-folds the four parts in.
+Status: draft v2, ruled, for approval with v0.5's master spec. Steps 1
+to 9 of the [procedure](domain-procedure.md) drafted in one pass on
+2026-11-03, on the owner's instruction ("start an agent for each part,
+and let them come back with problems once they're done"); the same day
+the owner accepted the recommendations as a whole (D319, closing
+O192–O203), marked "(ruled, D319)" below, with two changes: T208 stays a
+trap for the GM, s9 going to housing's T150 (D325); and the imaging
+staff move to the core's layout, 26–28 and 52–56 (D324). The
+several-database part (O195) is proposed format text for O111 (D323,
+[procedure](domain-procedure.md) 10). The changes this part asked of the
+shared pages are applied ([Changes needed in shared
+pages](#changes-needed-in-shared-pages)).
 
 `vet-machinery` holds the machines of the centre a scenario deploys
 (D285). It is the clinic's third part: it requires `vet-core`
@@ -39,11 +40,11 @@ change ([O195](#questions-for-the-owner)).
 
 | In the folder | Stated in |
 |---|---|
-| `domain.yaml`: `id` `vet-machinery`, `requires: [vet-core]`, tables and roles prefixed `mach_`, its three databases (O195), the purposes that fit | [What the part holds](#what-the-part-holds); [Purposes](#purposes-step-7-proposed-o202) |
+| `domain.yaml`: `id` `vet-machinery`, `requires: [vet-core]`, tables and roles prefixed `mach_`, its three databases (D319; format text proposed for O111, D323), the purposes that fit | [What the part holds](#what-the-part-holds); [Purposes](#purposes-step-7-ruled-d319) |
 | `variants/regional-franchise.yaml`: the part's own axes in a manifest named after the core's variant (D301, answer 15) | [The variant](#the-variant-its-scale-and-its-tags) |
 | `data/pacs/`, `data/vitals/`, `data/biomed/`: each holds a `schema.sql` and a `load.sql`, for one database each (O195) | [The data model](#the-data-model-step-4) |
 | `data/classification.yaml`: every column classed, keyed `<table>.<column>` (the names are unique across the three databases) | [Classification](#classification) |
-| `docs/policy.md` and a `governance:` fragment | [The business's own rules](#the-businesss-own-rules-proposed-o199) |
+| `docs/policy.md` and a `governance:` fragment | [The business's own rules](#the-businesss-own-rules-ruled-d319) |
 | `producers/`: the machines and their systems (`equipment`), the `pg_cron` partition jobs on `machines` | [The producer profiles](#the-producer-profiles-step-6) |
 | `docs/gm.md`: the business, the data, the roles, the classification, the producer, the rules, the traps, loading | this page's sections of the same names; [Traps](#traps-step-8); [Loading](#loading) |
 
@@ -56,8 +57,7 @@ hardest constraint. Core and lab already take 18 nodes (3.0 CPU,
 of the CPU on armenelos plus the VPS. The VPS has no room for another
 database node ([clinic-capacity.md](clinic-capacity.md)).
 
-**The plausible minimum: three nodes, all on armenelos (proposed, O194,
-O196).**
+**The plausible minimum: three nodes, all on armenelos (ruled, D319).**
 
 | Node | Brick | Scope | CPU | Memory | Disk | What it is |
 |---|---|---|---|---|---|---|
@@ -124,7 +124,7 @@ the hosts do not have); the databases on `records` (against "dedicated
 servers", and the monitors' inserts would ride the core's standby,
 which replication.md 1 refuses).
 
-## The brief (step 1, proposed, O192)
+## The brief (step 1, ruled, D319)
 
 Built from the owner's clinic brief (D196): "horse section (housing,
 dedicated machinerie, multiple specialists); farm section (same); ...
@@ -133,7 +133,7 @@ dedicated servers and databases"; "machine logs, have also their own
 governance and needs". Also from his direction on data growth (D288):
 "If we're talking about lab machineries, we will say that we keep a day
 on site (but moderate the generation), and the rest get shipped to cold
-storage". The proposed brief, for the owner to correct:
+storage". The brief, accepted as proposed (D319):
 
 > The centre's machines: the imaging of the horse, farm and domestic
 > sections (CT, MRI, radiography, ultrasound, the horses'
@@ -226,11 +226,11 @@ The centre's machine park, as its staff meet it:
 | Actor | Who | With the machines |
 |---|---|---|
 | Requesting vet | core `staff` | orders imaging in a consultation (the core's request); reads the images and reports |
-| Radiographer | core `staff`, `kind` `technician` (O198, staff 64–67) | performs studies, records the exposure and who restrained the animal |
-| Imaging specialist | core `staff`, `kind` `vet`, specialty diagnostic imaging (61–63) | reports and signs studies, amends a final report by an addendum |
+| Radiographer | core `staff`, `kind` `technician` (staff 52–55, D324) | performs studies, records the exposure and who restrained the animal |
+| Imaging specialist | core `staff`, `kind` `vet`, specialty diagnostic imaging (26–28, D324) | reports and signs studies, amends a final report by an addendum |
 | Duty vet | any core vet on call | a night's preliminary report on an urgent study |
 | Anaesthetist, nurse | core `staff` | start and end a monitor session, acknowledge alarms |
-| Biomedical engineer | core `staff`, `kind` `technician` (68) | the registry, maintenance, QA, downtimes, acknowledging machine alerts |
+| Biomedical engineer | core `staff`, `kind` `technician` (56, D324) | the registry, maintenance, QA, downtimes, acknowledging machine alerts |
 | A vendor's service engineer | a third party with a remote service account (no node in v0.5) | reads its machines' logs and readings, records its service visits |
 | Lab technician | core `staff`, `kind` `lab` | runs the analysers (`vet-lab`); their logs are here |
 | `vet-scheduling` | a part | books imaging machines by `machine_id` (an assumption at the boundary) |
@@ -261,7 +261,7 @@ and adds no tag. Its own axes go in `variants/regional-franchise.yaml`
 (D295): of the core's ~17 000 requests a year and ~55 a day, about one
 in five is imaging, so about 3 400 a year and 11 a day.
 
-**Population**, at load (proposed, O193):
+**Population**, at load (ruled, D319):
 
 | What | How many |
 |---|---|
@@ -365,12 +365,12 @@ databases (O194, O195):
 | the animal's identity and the owner's name for the worklist | `clinic-api`'s `GET /animals/{id}` and `/owner` (D266) | none |
 | who is in hospital now, for the monitors | `clinic-api`, a new `GET /stays?current=true` | **yes**: an endpoint and `vet_lookup`'s grant on `stays`' columns (O197) |
 | the history's sessions on real stays | the core's stays as functions of their id (animal, section, admitted, discharged), as requests are (D302) | **yes**: a constraint on the core's load (O197) |
-| imaging staff and the biomedical engineer in a range | `staff` 61–68 | **yes**: as D302's 71–80 (O198) |
-| cancelling a sent imaging request | the imaging team, copied back (as D315 for the lab) | **yes**: the core's `requests` lifecycle names the imaging team beside the lab (O198) |
+| imaging staff and the biomedical engineer in a range | `staff` 26–28 and 52–56, the core's layout (D324) | **yes**: as D302's 71–80 (D319) |
+| cancelling a sent imaging request | the imaging team, copied back (as D315 for the lab) | **yes**: the core's `requests` lifecycle names the imaging team beside the lab (D319, D324) |
 | the analysers' ids | `vet-lab`'s `machine_id` 1–6 | the mapping, stated here (below) |
 | machine ids to book | `vet-scheduling` | an assumption: it books machines 7–16 (`bookable`) |
 
-## Proposed answers to the sketch's questions (step 2, proposed, O193)
+## Answers to the sketch's questions (step 2, ruled, D319)
 
 The questions the brief leaves open, each with the default this page
 carries on with:
@@ -495,7 +495,7 @@ never deleted from (cold storage 2).
 | `mach_procedures.id` | 1–30 | 1–12 small animal, 13–27 large animal, 28–30 any; DX about 45 % of studies, US 30, CT 15, MR 7, NM 3 |
 | History, `pacs` | `mach_worklist` 1–3 400 (the k-th imaging request of the core's, in time order), `mach_studies` 1–3 470, `mach_series` 1–8 000, `mach_reports` 1–3 450 | each a function of the request's id and time, documented in the GM notes |
 | History, `vitals` | `mach_sessions` 1–3 800 | intensive-care sessions on the stays a hash of the stay id picks (one in three); anaesthesia sessions on stays by a hash of the day and stay |
-| Core keys used | imaging `request_id`s among 1–17 000 by the core's function; `animal_id` 1–17 000; `stay_id` 1–2 500 (O197); staff 61–68 (O198) | as the core documents them |
+| Core keys used | imaging `request_id`s among 1–17 000 by the core's function; `animal_id` 1–17 000; `stay_id` 1–2 500 (O197); staff 26–28 and 52–56 (D324) | as the core documents them |
 
 The six unmatched studies are ids 3 465–3 470. Each has a typed
 `patient_id` that names no animal (`A-` and an id above 17 000, or two
@@ -540,7 +540,7 @@ about a third of it and varies with T0. On disk: the window is about
 20 MB, the kept rows about 40 MB with indexes. Within the brick's
 2.25G with a wide margin. Load time and size are measured at the build.
 
-### Plausibility points (step 4, proposed, O193, O194)
+### Plausibility points (step 4, ruled, D319)
 
 1. **Three databases on one instance**, consolidated vendor systems,
    with the realism costs stated in [Nodes and
@@ -595,7 +595,7 @@ Everything else is `internal`. Two traps follow (step 8): free text
 shipment joined with its session's animal carries more than its rule
 allows.
 
-### The business's own rules (proposed, O199)
+### The business's own rules (ruled, D319)
 
 The part's default policy (procedure 6, item 1), beside the core's and
 the lab's, built into `docs/policy.md` and the `governance:` fragment.
@@ -697,10 +697,10 @@ Work streams:
 | Key | Connection | What it takes and writes | Capacity | Shape | Follows |
 |---|---|---|---|---|---|
 | `pacs.worklist.schedule` | `pacs` | the oldest `new` entry with its identity: scheduled on an in-service machine of its modality and species group; urgent at once, routine within two working days (a slot by a hash) | 10/h | `flat` | about 11 a day |
-| `pacs.study.acquire` | `pacs` | the oldest scheduled entry due on an in-service machine: its study (the worklist's identity, the procedure's minutes, series and images by modality, size, a radiographer 64–67, the exposure and the restrainer for an ionising one, a companion present in about one in ten); the entry `completed` | 6/h | `imaging-day` | about 11 a day |
+| `pacs.study.acquire` | `pacs` | the oldest scheduled entry due on an in-service machine: its study (the worklist's identity, the procedure's minutes, series and images by modality, size, a radiographer 52–55, the exposure and the restrainer for an ionising one, a companion present in about one in ten); the entry `completed` | 6/h | `imaging-day` | about 11 a day |
 | `pacs.study.reconcile` | `pacs` | the oldest unscheduled study: matched to the scheduled entry of the same typed `patient_id` and procedure within the day, `reconciled`, the entry `completed`; no match after a day, `unmatched` | 2/h | `office` | about 1 a week |
 | `pacs.report.preliminary` | `pacs` | an urgent study with no report: the duty vet's preliminary, signed at once | 4/h | `flat` | about 3 a day |
-| `pacs.report.final` | `pacs` | the oldest acquired study with no final: the imaging specialist's report (61–63), signed; the study `reported` | 4/h | `reporting` | about 11 a day |
+| `pacs.report.final` | `pacs` | the oldest acquired study with no final: the imaging specialist's report (26–28), signed; the study `reported` | 4/h | `reporting` | about 11 a day |
 | `vitals.alarm.ack` | `vitals` | the oldest unacknowledged alarm raised a minute ago or more: acknowledged by a nurse | 20/h | `flat` | 72 a day |
 | `vitals.anaesthesia.end` | `vitals` | the oldest anaesthesia session started 90 minutes ago or more (a hash adds up to an hour): ended by staff | 6/h | `flat` | 11 a day |
 | `biomed.events.ack` | `biomed` | the oldest unacknowledged critical event: acknowledged by the biomedical engineer within four hours (rule 7) | 1/h | `office` | rare |
@@ -798,7 +798,7 @@ is never this part's problem within an aging. The witnesses of a
 stalled shipping are the vault's graph, the partition count and the
 `ops.shipments` trace (T220). The WAL adds about 50 MB a day.
 
-### Points for the owner (step 6, proposed, O196, O197)
+### Points for the owner (step 6, ruled, D319)
 
 1. **One producer node**, `equipment`, with three connections and an
    HTTP one; the partition jobs on `machines`' `pg_cron`.
@@ -812,13 +812,13 @@ stalled shipping are the vault's graph, the partition count and the
    the monitors at a row every 10 seconds, the machines at one a
    minute.
 
-## Purposes (step 7, proposed, O202)
+## Purposes (step 7, ruled, D319)
 
-No existing purpose fits as built. Two are proposed: one new, one the
+No existing purpose fits as built. Two are added (D319): one new, one the
 generic purpose cold storage named and nobody had drafted yet. They are
 in v0.4's format compressed, with D307's extensions, for
-[clinic-purposes.md](clinic-purposes.md) to take in (numbered 11 and 12
-there). Named for later: **the release to the portal** of final imaging
+[clinic-purposes.md](clinic-purposes.md#16-the-parts-purposes-11-to-16)
+to list (purposes 13 and 14 there, D324). Named for later: **the release to the portal** of final imaging
 reports, with `vet-portal` (D304), and a monthly machine-use figure for
 the head office, if the owner wants one.
 
@@ -1035,12 +1035,13 @@ unscheduled studies' and the census's drift over an aging; rare flows
 through their cycles.
 
 **Against the ten (D316)**: the ten build no fault on partitions or on
-the shipping, which are this part's new features. The proposal (O203):
-T208, no partition created ahead, replaces s9 (T60, the watch scheduled
-by the superuser), class M for class M. T208 exercises `pg_cron` on a
-database node as s9 does, and adds the partitioned tables and the
-default partition. Fixture vault, T0 23:50: *present*, rows in
-`mach_vitals_default` from 00:00; *fixed*, the job scheduled, the
+the shipping, which are this part's new features. This page proposed
+T208 (no partition created ahead) in place of s9 (O203); s9 went to
+housing's T150 instead (D325, the spec's choice under D309), so **T208
+stays a trap for the GM**, and partitions and the shipping are proven by
+the vault fixture's build checks only. Its short test stays written for
+the day a selection takes it: fixture vault, T0 23:50: *present*, rows
+in `mach_vitals_default` from 00:00; *fixed*, the job scheduled, the
 partition created, the default's rows moved, the next night's shipment
 complete when the job is moved. About 20 minutes.
 
@@ -1059,7 +1060,11 @@ the partners' database.
 
 ## Questions for the owner
 
-Each with this page's recommendation, carried on with until answered.
+**Ruled on 2026-11-03** (D319): the owner, "i agree with the
+recommendations as a whole", so each is closed as recommended, except
+O203 (T208 stays a trap, D325) and O198's staff ids (the core's layout,
+26–28 and 52–56, D324); O195 goes to O111 as proposed format text
+(D323). Kept as the record of what was asked.
 
 - **O192, the brief (step 1).** Is the proposed brief right: imaging,
   monitors and the lab's analysers, three machine systems' databases,
@@ -1123,8 +1128,12 @@ Each with this page's recommendation, carried on with until answered.
 
 ## Changes needed in shared pages
 
-For the spec-writer folding the four parts in. Each follows from a
-proposal above and waits on its question.
+Applied on 2026-11-03 in the fold-in (D319, D323–D325), with these
+differences: item 1(c)'s staff are 26–28 (imaging vets), 52–55
+(radiographers) and 56 (the biomedical engineer), the core's layout
+(D324); item 7 is not applied, T208 staying a trap (D325); items 9 and
+12 are proposed format text in procedure 10 (D323); `cold-storage-archive`
+and `vet-imaging-orders` are purposes 14 and 13 of sixteen.
 
 1. **[vet-core-domain.md](vet-core-domain.md), key ranges and load
    (O193, O197, O198)**: (a) an imaging request's study code is one of
@@ -1209,5 +1218,5 @@ Kept minimal, each at the boundary:
 ## Open points
 
 - **O111**: the domain format, finalised in v0.5's master spec (D291),
-  with O195 feeding it.
-- O192 to O203 above, all for the owner.
+  with O195's several databases and the composition rules feeding it
+  (D322, D323, [procedure](domain-procedure.md) 10).
