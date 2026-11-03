@@ -1,0 +1,189 @@
+#!/bin/sh
+# gm-entrypoint: container entrypoint of the db_audit_gm api brick.
+# DO NOT TAMPER. Root-owned and read-only (v0.5 master spec 7.2, "The `api`
+# brick"; capture W1 items 0 and 5, W1-z).
+#
+# Runs as root at every container start, then execs s6-overlay's /init:
+#   1. empties /run (a named volume: a stack file's tmpfs is noexec, and
+#      s6-overlay needs an executable /run), writes the account files
+#      /etc/passwd, group, shadow and gshadow and the player's sudo rules
+#      link to (/run/gm-accounts; without `player` on a `no-access` node),
+#      and creates the runtime dirs;
+#   2. generates this container's sshd host key under /run;
+#   3. checks the secrets and copies those the server reads, the role
+#      passwords (role_<role>_password) and the HTTP credentials
+#      (http_<name>), to /run/gm-api/secrets, `api` only (W1 item 0);
+#      checks that api.yaml's seed is there;
+#   4. checks GM_WRITE_POLICY and GM_WRITE_OVERRIDES and writes
+#      /run/gm/write-policy, read by gm-reload-api (sudo resets the
+#      environment);
+#   5. seeds /srv/api (api.yaml, routes/, db/) from /opt/gm/seed once
+#      (marker /var/lib/gm-state/.gm-seeded, on its own root-owned volume);
+#   6. applies the write policy's owners and modes to api.yaml, routes/ and
+#      db/, seeding or not (contents untouched);
+#   7. sets the log, marker and home owners and modes.
+set -eu
+
+ROOT=/srv/api
+LOGDIR=/var/log/api
+STATE_DIR=/var/lib/gm-state
+MARKER=$STATE_DIR/.gm-seeded
+SEED_DIR=/opt/gm/seed
+SECRETS_DIR=/opt/gm/secrets
+RUN_SECRETS=/run/gm-api/secrets
+PLAYER_HOME=/home/player
+ACCOUNTS_SRC=/usr/local/lib/gm/accounts  # the image's account files (Dockerfile)
+ACCOUNTS_DIR=/run/gm-accounts            # what /etc/passwd, group, shadow, gshadow and
+                                         # /etc/sudoers.d/gm-player link to
+# The node's write policy, as render passes it (v0.3 capture W1 item 5):
+# unset means `fixable`.
+WRITE_POLICY=${GM_WRITE_POLICY:-fixable}
+
+log() { printf 'gm-entrypoint: %s\n' "$*" >&2; }
+die() { log "fatal: $*"; exit 1; }
+# chmod_setgid <path> <group> <mode>: chmod run with <group> as gid, so the
+# kernel keeps the setgid bit without CAP_FSETID (root is not in <group>).
+chmod_setgid() { setpriv --regid="$2" --clear-groups -- chmod "$3" "$1"; }
+prog() { python3 -I -m gm_api "$@"; }
+
+# without_player <file> <fields>: the account file without the line of
+# `player` (its account, its group) and without `player` in the member
+# lists at the colon-separated <fields> (`4` for group, `3 4` for gshadow).
+without_player() {
+    awk -F: -v OFS=: -v fields="$2" '
+        $1 == "player" { next }
+        {
+            n = split(fields, f, " ")
+            for (i = 1; i <= n; i++) {
+                k = split($f[i], m, ","); out = ""
+                for (j = 1; j <= k; j++) if (m[j] != "player" && m[j] != "") out = out (out == "" ? "" : ",") m[j]
+                $f[i] = out
+            }
+            print
+        }' "$1"
+}
+
+# --- 1. /run and the accounts -------------------------------------------
+cd /run
+find . -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+cd /
+# The account files first: until they are written, no name resolves (the
+# links in /etc point into /run). A `no-access` node (a third party's, v0.5
+# master spec 10.2) has no `player` account, no group of its own, no
+# membership of apiconf and no sudo rules: the rules' file is absent, which
+# sudo's @includedir skips.
+install -d -m 0755 "$ACCOUNTS_DIR"
+chown 0:0 "$ACCOUNTS_DIR"
+case $WRITE_POLICY in
+    no-access)
+        for f in passwd shadow; do
+            without_player "$ACCOUNTS_SRC/$f" "" > "$ACCOUNTS_DIR/$f"
+        done
+        without_player "$ACCOUNTS_SRC/group" "4" > "$ACCOUNTS_DIR/group"
+        without_player "$ACCOUNTS_SRC/gshadow" "3 4" > "$ACCOUNTS_DIR/gshadow"
+        for f in passwd group shadow gshadow; do
+            chown --reference="$ACCOUNTS_SRC/$f" "$ACCOUNTS_DIR/$f"
+            chmod --reference="$ACCOUNTS_SRC/$f" "$ACCOUNTS_DIR/$f"
+        done
+        ;;
+    *)
+        for f in passwd group shadow gshadow sudoers-gm-player; do
+            cp -p "$ACCOUNTS_SRC/$f" "$ACCOUNTS_DIR/$f"
+        done
+        ;;
+esac
+chown root:root /run
+chmod 0755 /run
+install -d -o root -g root -m 0755 /run/sshd
+install -d -o root -g root -m 0700 /run/sshd-keys
+install -d -o root -g root -m 0700 /run/gm
+install -d -o root -g root -m 1777 /run/tmp
+# the server's own: what it loaded (root and the validator read it), and
+# the copies of its secrets, `api` only
+install -d -o api -g api -m 0755 /run/gm-api
+install -d -o api -g api -m 0500 "$RUN_SECRETS"
+
+# --- 2. sshd host key ---------------------------------------------------
+ssh-keygen -q -t ed25519 -N '' -C '' -f /run/sshd-keys/ssh_host_ed25519_key
+
+# --- 3. secrets and api.yaml --------------------------------------------
+if [ "$WRITE_POLICY" != no-access ]; then
+    [ -s "$SECRETS_DIR/player_ssh_pubkey" ] || die "secret $SECRETS_DIR/player_ssh_pubkey is missing or empty"
+fi
+for f in "$SECRETS_DIR"/role_*_password "$SECRETS_DIR"/http_*; do
+    [ -e "$f" ] || continue
+    name=${f#"$SECRETS_DIR"/}
+    case $name in
+        role_*_password) what=${name#role_}; what=${what%_password} ;;
+        *) what=${name#http_} ;;
+    esac
+    case $what in
+        *[!a-z0-9_]*|'') die "secret $name: the name in it is not [a-z_][a-z0-9_]*" ;;
+    esac
+    value=$(cat "$f")
+    case $value in
+        '') die "secret $name is empty" ;;
+        *'
+'*) die "secret $name must be a single line" ;;
+        *' '*|*'	'*) die "secret $name must not hold a space" ;;
+    esac
+    install -o api -g api -m 0400 "$f" "$RUN_SECRETS/$name"
+done
+unset value
+[ -f "$SEED_DIR/api.yaml" ] || die "seed file $SEED_DIR/api.yaml is missing"
+
+# --- 4. the write policy --------------------------------------------------
+if ! problem=$(prog write-policy 2>&1); then
+    die "${problem:-the write policy could not be written}"
+fi
+
+# --- 5. seed once -----------------------------------------------------------
+# The marker lives on its own volume (gmstate), root-owned: neither player
+# (group apiconf) nor api can remove, rename or replace it.
+chown root:root "$STATE_DIR"
+chmod 0755 "$STATE_DIR"
+chown root:root "$ROOT"
+chmod 0755 "$ROOT"
+install -d -o root -g root -m 0755 "$ROOT/routes"
+[ -d "$ROOT/db" ] || install -d -o api -g apiconf -m 2755 "$ROOT/db"
+if [ ! -e "$MARKER" ]; then
+    install -o root -g root -m 0644 "$SEED_DIR/api.yaml" "$ROOT/api.yaml"
+    for d in routes db; do
+        [ -d "$SEED_DIR/$d" ] || continue
+        for f in "$SEED_DIR/$d"/*.py; do
+            [ -f "$f" ] || continue
+            case $d in
+                routes) install -o root -g root -m 0644 "$f" "$ROOT/$d/${f##*/}" ;;
+                db) install -o api -g apiconf -m 0644 "$f" "$ROOT/$d/${f##*/}" ;;
+            esac
+        done
+    done
+    date -u '+seeded %Y-%m-%dT%H:%M:%SZ from /opt/gm/seed (DO NOT TAMPER)' > "$MARKER"
+    chown root:root "$MARKER"
+    chmod 0444 "$MARKER"
+    log "seeded $ROOT from $SEED_DIR"
+fi
+
+# --- 6. the write policy's owners and modes ------------------------------------
+if ! notes=$(prog restore 2>&1); then
+    die "the owners and modes of the endpoint files could not be set: $notes"
+fi
+[ -z "$notes" ] || log "left alone: $(printf '%s' "$notes" | tr '\n' ';')"
+log "write policy: $(tr '\n' ' ' < /run/gm/write-policy)"
+
+# --- 7. log, markers, home ----------------------------------------------------
+chown api:apiconf "$LOGDIR"
+chmod_setgid "$LOGDIR" apiconf 2750
+if [ -e "$LOGDIR/api.log" ] && [ ! -L "$LOGDIR/api.log" ]; then
+    chown api:apiconf "$LOGDIR/api.log"
+    chmod 0640 "$LOGDIR/api.log"
+fi
+if [ "$WRITE_POLICY" = no-access ]; then
+    chown root:root "$PLAYER_HOME"
+    chmod 0700 "$PLAYER_HOME"
+else
+    chown player:player "$PLAYER_HOME"
+    chmod 0750 "$PLAYER_HOME"
+fi
+
+exec /init "$@"

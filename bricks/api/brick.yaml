@@ -1,0 +1,145 @@
+# brick.yaml: api node, FastAPI on uvicorn serving the endpoint files the GM
+# drops in (v0.5 master spec 6.5, 7.2 "The `api` brick", 10.2; access model
+# 5, "`api` nodes").
+#
+# Version 0.1.0 (unreleased until the v0.5 release gate).
+# The node's paths, api.yaml, the dispatch by hostname, the credentials and
+# gm-reload-api: capture W1 items 0, 3 and 5 (specs/versions/v0.5/
+# wave-log.md); the PyPI set and its conditions: G6 there; what the brick
+# fixed itself: W1-z. Operating notes: docs/gm.md.
+
+# --- Identity ---------------------------------------------------------
+id: api
+version: 0.1.0
+roles:
+  - api                             # spec D349
+technology:
+  name: fastapi                     # FastAPI 0.162.0 on uvicorn 0.54.0, Python 3.13, psycopg 3.3.7
+  version: "0.162.0"                #   (requirements.txt, G6's hash-pinned set)
+image: 127.0.0.1:5000/dbagm/api:0.1.0
+
+# --- Footprint --------------------------------------------------------
+footprint:                          # master spec 7.2's starting figures (0.1 CPU, 96M; 128M for
+                                    # the partners' node serving nine hostnames); at rest measured
+                                    # within them (docs/gm.md, Footprint)
+  limits:       {cpu: 0.25, memory: 128M}
+  reservations: {cpu: 0.1, memory: 96M, disk: 64M}
+  disk_growth_per_hour: 2M          # the request log, one line a request (about 170 bytes):
+                                    # provisional, about 3 requests a second (docs/gm.md)
+stateful: true
+
+# --- What the scenario sets -------------------------------------------
+parameters: {}                      # everything is in the seed files
+knobs: []                           # no envelope: the endpoints are the scenario's
+
+# --- Player plane -----------------------------------------------------
+write_policies:
+  - fixable
+  - report-only
+  - no-access                       # a third party's node, the partners' (master spec 6.5, 10.2):
+                                    # no player account, no sudo wrappers
+writable_paths:                     # directories, so sed -i works where they are fixable (spec D170)
+  - /srv/api/db                     # db/<name>.py, the endpoints' database side (volume endpoints)
+  - /home/player                    # ~/report.md, the player's notes
+protected_files:
+  - /etc/ssh/sshd_config
+  - /etc/sudoers
+  - /usr/local/lib/gm/accounts      # the account files and the player's sudo rules as built,
+                                    # copied under /run at each start (no player on no-access)
+  - /srv/api/api.yaml               # which hostname serves which endpoint (seeded, root 0644)
+  - /srv/api/routes                 # the contract: routes/<name>.py (seeded, root 0644)
+  - /usr/local/sbin/gm-entrypoint
+  - /usr/local/sbin/gm-reload-api
+  - /usr/local/sbin/gm-validate
+  - /usr/local/lib/gm/healthcheck
+  - /usr/local/lib/python3.13/dist-packages   # gm_api, FastAPI, uvicorn, psycopg (the image's)
+  - /opt/gm/validator/validate.sh
+  - /etc/s6-overlay/s6-rc.d
+  - /etc/s6-overlay/user-bundles.d
+  - /var/lib/gm-state               # seed marker .gm-seeded (volume gmstate)
+player_access:
+  ssh_account: player
+  group: apiconf                    # owns db/ with the service account; reads the request log
+  sudo_wrappers:
+    - /usr/local/sbin/gm-reload-api
+    - /usr/local/sbin/gm-validate
+capabilities:                       # added back after cap_drop: ALL; no-new-privileges stays off (sudo)
+  - AUDIT_WRITE                     # sudo: audit message (else a warning on every sudo)
+  - CHOWN                           # entrypoint, wrapper: owner of volumes and seeded files
+  - DAC_OVERRIDE                    # entrypoint: emptying /run
+  - FOWNER                          # entrypoint, wrapper: modes on files they do not own
+  - KILL                            # s6: signals to the api-owned server (a restart on reload)
+  - NET_BIND_SERVICE                # sshd on port 22 (Docker sets ip_unprivileged_port_start=0,
+                                    # other platforms may not)
+  - SETGID                          # sshd, sudo, runuser, s6-setuidgid; setgid directory modes
+  - SETUID                          # sshd, sudo, runuser, s6-setuidgid
+  - SYS_CHROOT                      # sshd privilege separation
+
+# --- Runtime ----------------------------------------------------------
+healthcheck:                        # healthy once the server has answered on :8000 in this
+                                    # container and while sshd is up; never asks a database
+  command: ["/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 60s
+secrets:                            # no connection secret here: render derives one per role
+                                    # api.yaml's connections name, role_<role>_password, and one
+                                    # per HTTP credential, http_<name>, 0:0 "0400" (v0.3 spec
+                                    # D167; capture W1 items 0 and 3; spec D345)
+  - name: player_ssh_pubkey         # inner-hop public key, for SSH as player (unused on no-access)
+    kind: key-pair
+    pair: player_ssh_key            # the bastion mounts the private half
+    half: public
+    path: /opt/gm/secrets/player_ssh_pubkey
+    uid: 0
+    gid: 0
+    mode: "0444"                    # sshd reads it as player
+seed:
+  dir: /opt/gm/seed/
+  files:
+    - api.yaml                      # endpoints (hostnames, credentials), connections (W1 item 5)
+    - routes/                       # routes/<name>.py, one per endpoint: the contract
+    - db/                           # db/<name>.py, one per endpoint: its database side
+  paths:                            # seed file -> its live path in the node
+    api.yaml: /srv/api/api.yaml
+    routes/: /srv/api/routes
+    db/: /srv/api/db
+protected_configs: []
+volumes:
+  - name: endpoints                 # api.yaml, routes/ (root), db/ (api:apiconf), seeded once
+    path: /srv/api
+  - name: apilog                    # api.log, append-only, never rotated in a game
+    path: /var/log/api
+  - name: home
+    path: /home/player
+  - name: gmstate                   # seed marker .gm-seeded, root-owned
+    path: /var/lib/gm-state
+  - name: run                       # /run: a stack file's tmpfs is noexec and s6-overlay
+    path: /run                      # needs exec; emptied by the entrypoint at each start
+processes:
+  - api
+  - sshd
+snapshot:                           # every volume but run, by copy: seeded files, the marker, an
+  endpoints: copy                   # append-only log
+  apilog: copy
+  home: copy
+  gmstate: copy
+
+# --- Catalog links ----------------------------------------------------
+interfaces:
+  provides:
+    - {name: http, protocol: http, port: 8000}   # the endpoints, by hostname; plain HTTP/1.1
+    - {name: ssh, protocol: ssh, port: 22}
+  consumes:                         # the targets api.yaml's connections name
+    - {name: sql, protocol: postgresql, port: 5432} # a postgres node
+    - {name: sql, protocol: postgresql, port: 6432} # or a pgbouncer node
+    - {name: http, protocol: http, port: 8000}   # or another api node (a partner calling back)
+receives:                           # the image accepts another brick's mounted material
+  s6_overlay: "3.2.3.2"             # the version the Dockerfile installs
+  commands: [sh, cat, du, df, awk, sed, grep, sleep, perl, s6-svstat, s6-setuidgid]
+extra:
+  read_only_root: true              # read_only: true in the stack file
+  validator:                        # the GM's official run (gmctl validate)
+    path: /opt/gm/validator/validate.sh
+    run_as: api                     # docker exec -u api; gm-validate uses runuser

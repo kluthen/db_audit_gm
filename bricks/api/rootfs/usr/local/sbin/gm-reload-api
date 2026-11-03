@@ -1,0 +1,80 @@
+#!/bin/sh
+# gm-reload-api: check the endpoint pairs, then restart the api server with
+# them. Usage: sudo gm-reload-api
+# DO NOT TAMPER. Root-owned, read-only; allowed by /etc/sudoers.d/gm-player.
+# (v0.5 master spec 7.2; capture W1 item 5, W1-z.)
+#
+#   1. restores the owners and modes of api.yaml, routes/ and db/ (db/'s
+#      files api:apiconf, 0664 or 0644, the directory 2775 or 2755, by the
+#      write policy in /run/gm/write-policy), contents untouched, never
+#      through a link;
+#   2. on a node where db/ is not fixable: refuses, nothing restarted;
+#   3. as `api`, imports and checks every endpoint pair and builds the
+#      application, as the server does at start (python3 -I -m gm_api
+#      check); on the first problem, refuses naming it: the running server
+#      stays as it is, with the files it loaded;
+#   4. restarts the server through s6 and waits (WAIT seconds) until the new
+#      one has loaded the files and answers.
+set -u
+PATH=/command:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+SERVICE=/run/service/api
+LOADED=/run/gm-api/loaded
+WAIT=60
+ME=gm-reload-api
+
+if [ "$#" -ne 0 ]; then
+    echo "usage: sudo gm-reload-api (no arguments)" >&2
+    exit 2
+fi
+cd /
+prog() { python3 -I -m gm_api "$@"; }
+indent() { sed 's/^/  /'; }
+loaded_at() { sed -n 's/^loaded=//p' "$LOADED" 2>/dev/null; }
+
+# 1. owners and modes
+if ! notes=$(prog restore 2>&1); then
+    echo "$ME: could not restore the files' owners and modes; nothing was restarted:" >&2
+    printf '%s\n' "$notes" | indent >&2
+    exit 2
+fi
+[ -z "$notes" ] || { echo "$ME: left alone:"; printf '%s\n' "$notes" | indent; }
+
+# 2. report-only
+prog reloadable
+case $? in
+    0) ;;
+    1) echo "$ME: this node is report-only: db/ cannot be changed, so nothing was restarted."
+       exit 1 ;;
+    *) echo "$ME: cannot read the node's write policy; nothing was restarted." >&2
+       exit 2 ;;
+esac
+
+# 3. the checks
+if ! out=$(runuser -u api -- env HOME=/var/lib/api python3 -I -m gm_api check 2>&1); then
+    echo "$ME: the endpoints do not load; the server was NOT restarted and keeps the files it loaded:"
+    printf '%s\n' "$out" | indent
+    exit 1
+fi
+
+# 4. restart
+if [ "$(s6-svstat -o up "$SERVICE" 2>/dev/null)" != true ]; then
+    echo "$ME: the server is not running; s6 starts it again with the checked files."
+    exit 0
+fi
+before=$(loaded_at)
+s6-svc -r "$SERVICE" || { echo "$ME: could not restart the api service" >&2; exit 1; }
+i=0
+while [ "$i" -lt "$((WAIT * 4))" ]; do
+    sleep 0.25
+    i=$((i + 1))
+    now=$(loaded_at)
+    if [ -n "$now" ] && [ "$now" != "$before" ] \
+       && [ "$(curl -s -o /dev/null -m 2 -w '%{http_code}' -H 'Host: gm-reload.invalid' http://127.0.0.1:8000/ 2>/dev/null)" = 404 ]; then
+        echo "$ME: restarted the server with api.yaml, routes/ and db/ as they are: $out"
+        exit 0
+    fi
+done
+echo "$ME: the server did not answer within ${WAIT}s of its restart." >&2
+echo "  Run sudo gm-validate; the reason is the request log's last fatal line." >&2
+exit 1

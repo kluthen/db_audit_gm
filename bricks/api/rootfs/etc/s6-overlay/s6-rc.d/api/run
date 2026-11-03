@@ -1,0 +1,55 @@
+#!/bin/sh
+# s6 service `api` (DO NOT TAMPER; v0.5 master spec 7.2, capture W1 item 5,
+# W1-z): the endpoints' server, FastAPI on uvicorn, port 8000, plain
+# HTTP/1.1, one process (the routes run in AnyIO's worker threads), as
+# `api`. It reads api.yaml, routes/ and db/ in /srv/api and the copies of
+# its secrets the entrypoint wrote under /run/gm-api/secrets.
+#
+# Before the server starts, a bounded wait (WAIT seconds) until every host
+# api.yaml's connections name resolves (`getent ahosts`): a node started
+# before its database waits for its name, as every brick does (v0.4 spec
+# D305), then starts whether the names resolve or not, so a name that never
+# resolves never keeps the node down; a request then reaching a database
+# that is not there answers 503. The wait and its outcome go to this
+# service's output (the container's log). Each start removes the previous
+# server's /run/gm-api/loaded, so a poller never reads a stale one.
+exec 2>&1
+PATH=/command:/usr/bin:/bin
+WAIT=30
+
+say() { echo "api: $*"; }
+hosts=$(python3 -I -m gm_api hosts 2>/dev/null)
+unresolved() {
+    u=
+    for h in $hosts; do
+        timeout 5 getent ahosts "$h" >/dev/null 2>&1 || u="$u $h"
+    done
+    printf '%s' "${u# }"
+}
+if [ -n "$hosts" ]; then
+    list=$(printf '%s' "$hosts" | tr '\n' ' ')
+    list=${list% }
+    start=$(date +%s)
+    left=$(unresolved)
+    if [ -z "$left" ]; then
+        say "connection hosts resolve: $list"
+    else
+        say "waiting up to ${WAIT}s for connection hosts to resolve: $left"
+        while [ -n "$left" ] && [ $(($(date +%s) - start)) -lt "$WAIT" ]; do
+            sleep 1
+            left=$(unresolved)
+        done
+        took=$(($(date +%s) - start))
+        if [ -z "$left" ]; then
+            say "connection hosts resolve after ${took}s: $list"
+        else
+            say "connection hosts still unresolved after ${took}s, starting anyway: $left"
+        fi
+    fi
+fi
+rm -f /run/gm-api/loaded /run/gm-api/loaded.tmp
+cd /srv/api || exit 2
+# OTEL_SDK_DISABLED: FastAPI imports opentelemetry-api, which exports nothing
+# without the SDK (G6); s6 gives services a clean environment, so set here.
+exec /command/s6-setuidgid api /usr/bin/env OTEL_SDK_DISABLED=true /usr/bin/python3 -I -m uvicorn --factory gm_api.app:create_app \
+    --host 0.0.0.0 --port 8000 --no-access-log --timeout-keep-alive 60 --timeout-graceful-shutdown 5
