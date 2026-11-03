@@ -152,10 +152,13 @@ def fault_env(fault, instance):
     return env
 
 
-def fault_instances(scenario):
-    """[(instance, fault definition)] in `fault_instances` order."""
+def fault_instances(scenario, impl=None):
+    """[(instance, fault definition)] in `fault_instances` order; with the
+    game's `impl`, those the test harness left out omitted
+    (localimpl.left_out)."""
+    out = localimpl.left_out(impl)
     return [(inst, scenario.faults[inst["id"]])
-            for inst in scenario.data.get("fault_instances") or []]
+            for inst in scenario.data.get("fault_instances") or [] if inst["id"] not in out]
 
 
 def node_of(instance, impl):
@@ -947,7 +950,7 @@ def inject_plan(scenario, impl):
     """[(instance, fault, node, run_as, env, [(script, text), ...])], every
     instance in order, scripts read; refuses (GmError) before anything runs."""
     plan = []
-    for inst, fault in fault_instances(scenario):
+    for inst, fault in fault_instances(scenario, impl):
         injection = fault.data.get("injection") or {}
         node = node_of(inst, impl)
         env = fault_env(fault, inst)
@@ -980,7 +983,7 @@ def initial_plantings(scenario, impl, at):
     `inject --at`, its planned instant from the timeline."""
     timeline = (impl.get(localimpl.TIMELINE) or {}).get("instances") or {}
     out = {}
-    for inst, _ in fault_instances(scenario):
+    for inst, _ in fault_instances(scenario, impl):
         plant_at = plant_at_of(scenario, impl, inst)
         if plant_at == T0:
             out[inst["id"]] = {"plant_at": T0, "planted_at": at, "by": "inject"}
@@ -1006,7 +1009,7 @@ def inject(scenario_dir, playground, timeout=None, docker=None, out=print):
     scenario = model.load_scenario(scenario_dir)
     impl = localimpl.read_implementation(ldir)
     plan = inject_plan(scenario, impl)
-    insts = {inst["id"]: inst for inst, _ in fault_instances(scenario)}
+    insts = {inst["id"]: inst for inst, _ in fault_instances(scenario, impl)}
     docker = docker or for_local_dir(ldir)
     result = InjectResult(impl["game_id"], replay=stage == INJECT_STAGE)
 

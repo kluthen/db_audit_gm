@@ -55,7 +55,13 @@ instances:                          # exactly one entry per fault instance in sc
       script: <faults/pg-hba-trust/checks/fixed.sh>   # the fault definition's check
       at_handover: 1                # expected exit code once planted (1: present); a check may
                                     # also exit 0 (fixed), 3 (too soon to tell, the remaining
-                                    # window on its first line) or another code (error)
+                                    # window on its first line) or another code (error).
+                                    # 3 only for a check judging runs or triggers whose job
+                                    # another instance, planted before it, keeps from a witness
+                                    # until after the hand-over, named in interactions as
+                                    # masked-by: the hand-over check then passes on a 3 and
+                                    # fails on any other reading, a 1 included (v0.4 master
+                                    # spec 12.2)
       window: <30m>                 # optional: required exactly when the fault's
                                     # sealed_check.behavioural is true (v0.3 master spec 6.2, 11);
                                     # a duration, the trailing window the check judges. Never

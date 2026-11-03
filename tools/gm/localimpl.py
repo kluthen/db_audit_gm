@@ -84,6 +84,7 @@ SECRETS_DIR = "secrets"
 MOUNTED_DIR = "mounted"
 RENDERED_DIR = "rendered"
 TIMELINE = "timeline"               # implementation.yaml's key render writes (v0.3 W2, item 1)
+TEST_OVERRIDE = "test_harness_override"     # render's undocumented --test-leave-out (W4 item 8)
 OVERLAY = "overlay"                 # implementation.yaml's key deploy writes on several hosts
                                     # ({subnet}, capture W3-a, item 4; D182)
 # The range a game on several hosts takes its overlay's /24 from (capture
@@ -307,6 +308,14 @@ def read_implementation(ldir):
     if data is None:
         raise GmError(f"no local implementation in {ldir}: run gmctl fit first")
     return data
+
+
+def left_out(impl):
+    """The fault instances the test harness left out of this game (render's
+    undocumented `--test-leave-out`, which only the harness scripts pass;
+    v0.4 master spec 18 items 4 and 6, capture W4 item 8): no state
+    planting and no check, their seed changes kept. Never in a game."""
+    return list(((impl or {}).get(TEST_OVERRIDE) or {}).get("leave_out") or [])
 
 
 def write_implementation(ldir, data):
