@@ -1,6 +1,7 @@
 # v0.5 — defining a domain: the procedure
 
-Status: approved v4 (D235, D249, D260, D263). Settled by the owner on
+Status: approved v4 (D235, D249, D260, D263); section 10 ruled in
+principle, its mechanism proposed (D322, D323). Settled by the owner on
 2026-10-31 in two rulings: the clinic's cut (section 4, kept now,
 revised once `vet-core` is defined), the composition rules (section 4),
 the four format changes (section 6) and a skill later (section 8)
@@ -8,7 +9,10 @@ the four format changes (section 6) and a skill later (section 8)
 (section 1), the steps and who takes part (2), done and the checklist
 (3), and the effort estimate (7) (D260). On 2026-11-01 a domain's scale,
 its variants and their tags (section 9, D263), closing O114; where the
-variants are built is (proposed) in section 6.
+variants are built is (proposed) in section 6. On 2026-11-03 composing
+domains (section 10, D322): D249's keys stay the default, the initial
+load is the GM's to adjudicate, the mechanism (proposed) with the
+parts' format changes (D323), for O111.
 
 The owner, on 2026-10-31: "we need a proper "procedure" to define a
 domain, what we put in and not. the clinic will probably spawn multiple
@@ -148,7 +152,10 @@ O126), to be tried first on `vet-core` and `vet-lab`:
   a fault vector.
 - **Deterministic keys.** The core's load generates its keys in
   documented ranges, as the shop's `generate_series` loads already do,
-  so a part's load can refer to them without reading the core.
+  so a part's load can refer to them without reading the core. Kept as
+  the default when the clinic's parts were composed (D322); the GM
+  adjudicates the initial load's coherence and may sanction a derivation
+  step (section 10).
 - **Names.** A part's roles and tables carry its prefix (`lab_app`,
   `lab_results`), so parts never clash in one database.
 - **Taking a part alone**: only with its core. The core may be taken
@@ -199,7 +206,9 @@ domains:
 
 The loader checks that each id is a domain and that every domain a part
 `requires` is in the list. `domain: <id>` stays accepted as the
-one-domain form, so v0.4's scenario keeps its line. The files are still
+one-domain form, so v0.4's scenario keeps its line. A part declaring
+`lands_with` must share its core's `at:`, and a part with several
+databases gives `at:` as a map (section 10, proposed). The files are still
 copied in and adapted at design time; the scenario folder stays
 self-sufficient (D23).
 
@@ -325,3 +334,146 @@ domains:
 ```
 
 The loader then checks that the scenario's parts are the variant's.
+
+## 10. Composing domains (D322)
+
+Ruled on 2026-11-03, when the clinic's four remaining parts came back
+with three ways of loading against the core (computed keys, a direct
+read of the core's tables, a foreign server). The owner: "although you
+are also right, initial load is a major step and will need to be
+adjudicated by the gm for coherence across the system." Two things are
+settled: **D249's deterministic keys stay the default**, and **the
+initial load is a step the GM adjudicates for the whole system**. The
+mechanism below is (proposed), for the owner to confirm with the master
+spec, and feeds O111, since the domain format is finalised at
+consolidation (D291).
+
+### Who decides what
+
+| Decided by | What |
+|---|---|
+| **The format** (fixed for every domain) | a part names its core (`requires`) and never another part; keys by id without foreign keys; prefixes; a part's load computes the core's keys and never reads the core (D249); the placement constraints a domain may declare; the composition record's fields; the loader's checks |
+| **The domain** (declared in its folder) | the core keys it relies on, by the core's documented ranges and functions; any placement constraint (`lands_with`); its databases; its producer fragments and the nodes they target; its scale per variant; the purposes it fits; a derivation step, when it needs one, which only the GM may sanction |
+| **The GM** (adjudicated at composition, recorded) | placement (`at:`, within the declared constraints); key feeding when a part sits apart from its core; colliding producer profiles; which cross-part purposes run; the initial load's coherence; capacity |
+
+### What a domain must declare
+
+- **The core keys it relies on.** In its `docs/gm.md`, the ranges and
+  functions of the core it uses ("Core keys used"), by the names the
+  core's GM notes give them; the core documents every function a part
+  needs (the clinic's: requests, consultations, stays as functions of
+  their id; the staff layout; species, deaths and infectious alerts by
+  id). A part never reads the core at load to find them.
+- **Placement constraints.** A part that must share its core's database
+  says so in `domain.yaml`, `lands_with: <core>`, and the loader refuses
+  a scenario whose `at:` puts it elsewhere. `vet-housing` is the first:
+  each display's board read joins housing's units to the core's board
+  in one statement.
+- **Its databases**, when it has several (below).
+- **A derivation step, if it wants one**, with the reason formulas would
+  be unreasonably costly; the domain proposes it, the GM sanctions it.
+
+### What the GM adjudicates
+
+1. **Placement.** Each domain's `at:`, within its constraints, against
+   the topology.
+2. **Key feeding when a part sits apart.** A part in an instance of its
+   own reads no core key while running either; the GM chooses the
+   purpose or transformer that feeds them (procedure 4), whose orphans
+   are then a fault vector.
+3. **Colliding producer profiles.** Two parts' fragments on one node
+   that conflict stop `gmctl compose`; the GM writes the resolution into
+   the scenario's `merge.yaml` (D264).
+4. **Which cross-part purposes run.** A purpose fitting several domains
+   runs only when all of them are composed; the GM chooses among those
+   that may.
+5. **The initial load's coherence**, below.
+6. **Capacity**, by `gmctl fit` on the composed topology, the parts'
+   reservations summed ([clinic-capacity](clinic-capacity.md) for the
+   clinic).
+
+### The initial load
+
+When it composes domains, the GM checks and records:
+
+- **the id ranges and functions each part relies on**, against what the
+  core documents, in the core's version the scenario copied;
+- **combined scale**: the parts' populations and histories against the
+  core variant's (a part sized for 40 current stays on a core holding
+  60 is incoherent);
+- **load order where it matters**: a part's load needs only its core's
+  schema in the same database; a derivation step runs after the loads
+  it reads;
+- **a post-load coherence check**, run once on the loaded system: every
+  part's references resolve in its core (no `animal_id`, `stay_id`,
+  `request_id` or staff id beyond what the core holds), and the
+  histories agree: placements on real stays and every current stay
+  placed, monitoring sessions on stays, published documents matching
+  signed consultations, released results and ended stays.
+
+**A failure there is a design error, caught before hand-over, not a
+fault.** The GM fixes the composition (a range, a function, a scale) and
+reloads; it never hands over an incoherence as something to find. Faults
+the GM plants against the same relations (the core's mistyped chips, an
+orphan a feed leaves) are planted after the check, from the answer key.
+
+**The derivation step.** Where formulas would be unreasonably costly,
+the GM may sanction an ordered post-load step deriving a part's history
+from its loaded sources: `data/derive.sql`, run as `postgres` after
+every load it reads, through a temporary foreign server it drops
+afterwards (D307 item 5's mechanism for `office`), its sessions unseen
+(D265). It derives content only, never keys the part's own load could
+compute. The clinic's one case is `vet-portal`: its accounts, consents,
+reminders and sessions go to formulas, but its documents copy the
+record field by field (diagnoses, prescriptions, analytes and their
+values), and recomputing them would duplicate the core's and the lab's
+generation in a third place; so the portal needs the step after all,
+for the copies, the documents and what hangs off them
+([vet-portal](vet-portal-domain.md#loading)).
+
+**The composition record.** A file beside `merge.yaml` in the scenario
+folder (`composition.yaml`, the name proposed), written by the GM and
+kept with the scenario, so the composition is reproducible (D23):
+
+```yaml
+domains:            # as scenario.yaml lists them, with the constraints checked
+  - {id: vet-core, variant: regional-franchise, at: records/clinic}
+  - {id: vet-housing, at: records/clinic, lands_with: vet-core}
+  - {id: vet-portal, at: records/portal}
+keys:               # what each part relies on, against the core's notes
+  vet-housing: [stays-by-id, species-by-animal, infectious-alerts-by-stay, staff-layout]
+scale: {checked: true, note: "housing's 64 units against 40 current stays"}
+order: [vet-core, vet-lab, vet-scheduling, vet-housing, vet-machinery, vet-portal]
+derive:             # sanctioned steps, in order
+  - {domain: vet-portal, after: [vet-core, vet-lab], reason: "documents copy the record"}
+coherence: {run_at: <setup time>, result: pass}
+```
+
+### The format changes the parts propose (for O111)
+
+Proposed format text (D323), with the others O111 lists; built with the
+format's changes and stated in `formats.md` once built:
+
+1. **`lands_with: <core>`** in `domain.yaml`, optional: the part's
+   schema must land in its core's database; the loader refuses another
+   `at:` (`vet-housing`).
+2. **A part with several databases.** A scenario's `domains:` entry
+   gives `at:` as a map from the part's database names to
+   `node/database` (`{pacs: machines/pacs, vitals: machines/vitals,
+   biomed: machines/biomed}`); the folder holds `data/<database>/`
+   with its `schema.sql` and `load.sql`; classification keys stay
+   `<table>.<column>`, unique across the part, the copy adding each
+   table's database; the loader creates the databases and revokes
+   `CONNECT` from `PUBLIC` (`vet-machinery`, O195).
+3. **`data/derive.sql`**, optional, declared in `domain.yaml`
+   (`derive: {after: [<domains>]}`), run only when the composition
+   record sanctions it.
+4. **A traffic source that is no business**, out of reach, standing for
+   the public: `producers/partners/<name>/` takes it as a partner's
+   would, with no `partners.md` entry (`vet-portal`'s `owners`), or a
+   sibling folder `producers/public/<name>/`; the choice at the build.
+5. **The composition record** above, beside `merge.yaml`, checked by
+   the loader against `scenario.yaml`'s `domains:`.
+6. **A check at the build**: a part's `SECURITY DEFINER` functions carry
+   a fixed `search_path` (`vet-machinery` T237, `vet-portal`'s
+   pre-login functions).
