@@ -3497,3 +3497,36 @@ scratchpad `w4gate/`.
 - No wave sync: no intent register; dependencies changed only by chunk
   21 (`security-advisor` done, 0b9e906).
 - Hosts at 11:19Z: clean, lock free, the VPS Drain, 9.6G free.
+
+### Release gate (coding-executor, armenelos, 2026-11-03) — passed, G11 and O163 for the owner
+
+On `v0.4-w4`; no non-spec change since the wave 4 gate's tree (cd4bbd4),
+so nothing re-run. Two commits: **5120e36** (`postgres` 0.4.0's
+`docs/gm.md`: the `pg_cron` and cron-daemon sections moved to level-2
+after Known limits, `player.md` likewise, text unchanged; unit suite 854
+OK after; the image unaffected) and **814ae8a** (release notes in
+`specs/versions/v0.4/README.md`, "## Release notes").
+- Items 1–7, 15: pass (bricks 7 checked 0 missing; 29 faults, 4 purposes,
+  1 domain, 4 scenarios complete; shop 92 columns + 7 view columns
+  classed; the ten faults complete; the scenario's README checked against
+  its sources, 619 values 0 missing; starter-pack page sections `readme
+  story issues data-policy web-interfaces` from the bastion image's own
+  code; bookshop without a web-interfaces section; every `applies_to`
+  current; the nine "Left for the build" rows recorded, five by pointer
+  to their captures).
+- Item 8's `fit`: the VPS refused for `reporting` (f10 needs an unshared
+  host, master spec 13.3) before any engine is contacted; the designed
+  mapping fits (armenelos: reporting; VPS: bi, gateway); the VPS never
+  contacted. Note: at the declared 12G the hand-over snapshot doesn't fit
+  (15.74G), on armenelos' real 41G it does.
+- Wave 3's readings: the `pg_cron` launcher on `reporting` ran in the
+  gate's `fixture-campaign` run (step5.log:103); every job run `ok`; the
+  `08006` count never taken — named in the notes.
+- Notes' known limits: master spec 18.7's four, D311/D312's moves, O163
+  as option (c) **provisionally** (an HTML comment marks it), the `08006`
+  count, D252, D258; known issues: c-ares pending, `pgbouncer` 0.1.1's
+  limits, the scheduler image rebuilt at the gate; grafana's 305M peak in
+  `smoke` above its 272M reservation (within 384M).
+- Items 9–14 as the wave log records; 12, 13 v1.0 gating; **16 (G11)
+  the owner's**.
+- Hosts: clean, lock free, the VPS Drain (never active).
