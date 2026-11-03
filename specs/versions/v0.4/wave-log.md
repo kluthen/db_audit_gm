@@ -1,6 +1,6 @@
 # db_audit_gm v0.4 — Wave log
 
-Execution record of [build-plan.md](build-plan.md). No intent or data
+Execution record of [build-plan.md](../../archive/v0.4/build-plan.md). No intent or data
 register: captures are recorded here by the wave driver (plan, "Read
 first").
 
@@ -2608,3 +2608,935 @@ For the wave gate: `check-governance.sh` on `fixture-campaign`; f9
 Risks: G1's content probe is a full text scan on databases without
 personal data, unmeasured beyond fixture sizes; `smoke-governance.sh`
 not re-run after 0dbbabf (unit suite passes with it).
+
+## Wave 4 — started 2026-11-02
+
+Chunks 16, 17, 18 (κ = 3). The owner, 2026-11-02: "you may start wave 4
+then." `v0.4-w4` cut from `main` at f7a45fc (wave 3's merge 476c784, then
+the v0.5 side branches), worktree `/home/bastien/work/db_audit_gm-wt/v0.4-w4`.
+No intent or data register: no preflight. No new dependency named by any
+wave 4 chunk.
+
+### Gates checked at the start
+
+- **G3** (hand check): Debian trixie, PGDG trixie-pgdg and the s6-overlay releases answer 200.
+- **G4** (hand check): armenelos `Ready Active Leader`; `vps-5718ad52` `Ready Drain`.
+- G7 is checked again at each of chunk 17's two-host runs.
+- Host: 9.0 GB free on `/`, 5.1 GiB of memory available, 2.7 GiB of swap in use; no swarm service running; the host lock free.
+
+### Order and dispatch
+
+Chunk 18 depends on no wave 4 chunk and shares no file with 16 or 17:
+dispatched at once. Capture W4 (for chunk 17, read by 16) is drafted by
+`spec-writer` on `v0.4-w4` with wave 3's leftovers for it (chunk 20's two
+readings, `formats.md`'s O126 citation); chunk 16 is cut once W4 is
+committed and reviewed; chunk 17 once chunk 16 has merged (17a, then 17b,
+each alone on the hosts under the host lock).
+
+### Capture W4 — the v0.4 scenario (chunk 16; read by 17)
+
+Recorded 2026-11-02, before any wave 4 code, from chunk 16's capture
+line and chunk 17's scope, master spec 11.5, 12.1, 12.5, 13.2 to 13.4,
+16.1 to 16.5 and 18, access model 6, 7, 9.4 and 12, spec D227, D239 to
+D258, W3-a to W3-d, wave 3's report, and on `v0.4-w4` at 7056388
+`fixture-campaign`, the ten faults as chunks 14 and 15 built them, the
+four purposes, the shop domain, `tarnbeck-outdoor-shop`, the smoke and
+rehearsal scripts and `tools/gm/` (`check --since`, the aging override
+`--test-aging-minimum`, the hand-over check in `aging.py`). W1's rules:
+the spec cited, not restated; **(choice)** a point the sources left
+open, settled with its reason; each item names who writes and who
+reads it. Chunk 16's wording (story, policy, answer-key prose, notes)
+and chunk 17's scripts stay out; 17 records its outcomes at its merge.
+
+**1. The scenario** (16 writes; 17 and 18 read)
+
+- Id `tarnbeck-outdoor-campaign`, `version: 0.1.0`, folder
+  `scenarios/tarnbeck-outdoor-campaign/`, a row in the root
+  `README.md`'s table. **(choice)** 16.1's working id kept: nothing in
+  the sources argues for another, and every capture and fault note
+  already uses it.
+- `aging: {minimum: 16h, handover_at: "14:00"}` (16.1 "Time", T0 22:00);
+  `difficulty: {score: 10, level: normal}`.
+- `domain:`, `purposes:`, `governance:` (no `separation:`, D253),
+  `networks:`, `nodes:` (bricks, roles, write policies and overrides,
+  resources, seed-file names, `crontab_roles`, knobs, data files),
+  `flows:` and `designed_for:` are `fixture-campaign`'s (W3-b items 1
+  to 5): `reporting` 640M / 256M (D227, D252) and unscraped (13.4).
+  Descriptions may be reworded for the story; a node's `data:` table
+  list may add what the instances' data-file changes create. f0 and
+  `faults/fixture-random-page-cost/` are not copied.
+
+**2. Its files: `fixture-campaign`'s plus the instances' seed changes**
+(16 writes; 17 reads for item 8)
+
+**(choice)** Every seed file and data file is `fixture-campaign`'s byte
+for byte, except these, which differ by the listed changes and nothing
+else, each from its fault's `inject/` material. Reason: render plants no
+seed-file fault, the copies carry it (`inject.py`: "planted by the seed
+files"), so 18.4's unfaulted scenario must be rebuilt from files, and
+this makes `fixture-campaign` that baseline file for file.
+*(Amended 2026-11-02 by the driver, on chunk 16's report:)* "byte for
+byte" holds for everything but comments. A comment players can read
+(seed files, data files) is rewritten in the story's voice wherever the
+fixture's says "fixture", cites a chunk or a capture, has become false
+in the scenario (`reporting`'s crontab "no entry", the producer's and
+the gateway's "no timeline"), or would give a fault away. No statement,
+key, value or entry changes with it, so item 8's baseline swap holds.
+
+| File | Change | For |
+|---|---|---|
+| `nodes/crm/queries.yaml` | `mail.shipped` (f1); `leads.extract` (f2); `mail.campaign` with f2's and f3's changes both; `escalate.customs` (f8) | f1, f2, f3, f8 |
+| `nodes/bi/scripts/rollup.py` | f4's `inject/rollup.py`, the whole file | f4 |
+| `nodes/db/crontab` | the entry as f6's `inject/crontab.snippet` (no `-U`), the `PGPASSFILE` line kept | f6 |
+| `nodes/reporting/crontab` | f10's `inject/crontab.snippet` under the `PGPASSFILE` line | f10 |
+| `data/reporting.sql` | appended after the fixture's last line (`CREATE EXTENSION pg_cron;`), in instance order: f7's `close_day.sql.snippet` with `{OFFSET}` written `3`, f9's `customer_activity.sql.snippet`, f10's `sales_detail_rollup.sql.snippet` | f7, f9, f10 |
+| `nodes/producer/{queries,schedule}.yaml` | f2's `producer-release.yaml`: key `consent.unsubscribe-v2` beside the domain's; timeline `at: T0`, stream `consent.unsubscribe` set to it | f2's precondition |
+| `nodes/gateway/{queries,schedule}.yaml` | f8's `gateway-outage.yaml`: key `customs.unavailable`; timeline `handover-6h` to it, `handover-4h` back to `customs.acknowledge` | f8's precondition |
+
+**(choice)** The data file keeps the fixture's as its prefix: each
+snippet's placement holds (f7 and f10 after P1's material, f9 after
+`CREATE EXTENSION pg_cron`), and the baseline is the file cut at the
+fixture's last line. The scenario's own files: `scenario.yaml`,
+`brief.md`, the bastion's four `player/` files (the policy in the
+story's voice, 11.5), `gm/answer-key.yaml`, `gm/notes.md`, `README.md`.
+
+**3. The ten instances** (16 writes `fault_instances`, `issues` and the
+answer key; 17 and 18 read)
+
+Every fault at `0.1.0`. Each `aging_minimum` is 16.2's rule: the first
+run's offset plus the definition's minimum, counted from T0 (22:00) for
+an instance planted at T0, from its planting otherwise (access model 6,
+`aging-done`). **(choice)** Exact minutes, not rounded up to the hour
+(tarnbeck's 9h30 became 10h): f1's `65m` and W3-c's figures are exact,
+and each lies under the 16h, read only by the override's cap and the
+loader's `plant_at` bound.
+
+| | Fault | Node | `parameters` | Visibility | `plant_at` | `aging_minimum` | Answer key | After the hand-over |
+|---|---|---|---|---|---|---|---|---|
+| f1 | `purpose-mail-overlapping-window` | crm | `{}` | known, I1 fix | T0 | `65m` (22:05 + 1h, D247) | `judges: runs`, `threshold: 0`, `at_handover: 1` | 1, fixed in the game |
+| f2 | `purpose-leads-stale-consent` | crm | `{}` | known, I2 fix | T0 | `11h` (campaign 08:00 + 1h) | runs, 0, 1 | 1; either path (D244) |
+| f3 | `purpose-mail-outside-hours` | crm | `{}` | known, I3 fix | T0 | `11h` | runs, 0, 1 | 1, fixed in the game |
+| f4 | `purpose-watermark-misses-updates` | bi | `{}` | known, I4 propose | T0 | `15h` (close 12:00 + 1h) | runs, 0, **1 or 3 by O146** | 3 (no close in the game) |
+| f5 | `purpose-etl-role-expired` | db | `{}` | known, I5 fix | `handover-5h` (**O146**) | `65m` from planting (09:05 + 1h) | runs, 0, 1 | 1, fixed with `--since` |
+| f6 | `security-crontab-superuser` | db | `{role: shop_refresh}` | hidden | T0 | `77m` (22:17 + 1h) | `at_handover: 1` | 1 (live) |
+| f7 | `purpose-day-boundary-wrong-zone` | reporting | `{offset: 3}` | hidden | T0 | `270m` (01:30 + 1h) | runs, 0, 1 | 3 (no close in the game) |
+| f8 | `purpose-receiver-down-unnoticed` | crm | `{}` | hidden | T0 | `11h` (outage 08:00 + 1h) | `judges: triggers`, 0, 1 | 1, fixed in the game |
+| f9 | `governance-personal-copied` | reporting | `{}` | hidden | T0 | `1h` (a run by 22:30 + 30m) | `at_handover: 1` | 1 (live) |
+| f10 | `purpose-heavy-job-on-database-node` | reporting | `{}` | known, I6 report | `handover-12h` | `90m` from planting (03:00 + 30m) | `at_handover: 1` | 1; 2 if a player alters the request (D282) |
+
+- **(choice)** f7's `offset` is `3`: non-zero, in −23..23, the value
+  chunk 15a planted and read 3, 1, 3, 0 with; the data file carries the
+  same number (D239). 16.1's "expected to stay present" is, by its
+  check, 1 at the hand-over check and 3 after it (12.8: undetermined);
+  the proposal is the resolution (W3-d).
+- Issues I1 to I6 as 16.1 words them, each `covers` its one instance;
+  `t1`, `reporting` unscraped, a tooling expectation no issue covers
+  (13.4). The overstep notes of 16.5 for f7, f9, f10, and D282, in the
+  answer key's notes and `gm/notes.md`.
+
+**4. Interactions** (16 writes the answer key's `interactions`; 17
+orders its cycles by them)
+
+- **f5 masks f4, f7 and f10's roll-up while present**: `shop_etl` is the
+  hourly script's source login and the remote role of `bi_etl`'s mapping
+  on `shop_db`, through which `rpt.close_day()` and
+  `rpt.sales_detail_rollup()` read. In the aging f7's close (01:30) and
+  f10's run (03:00) come before f5 (09:00), but every hourly run fails
+  from 09:05, the 12:05 run after the noon invoicing among them: **f4
+  reads 3 at the hand-over check** (question O146 below; ruled (a)). In
+  the game, once the players fix f5, the next hourly runs show f4's gap
+  in the figures, but its check stays at 3: no close falls in the game
+  (item 3's table, the fault's `gm.md`). *(Amended 2026-11-02 by the
+  driver: the earlier "shows f4 (1)" contradicted item 3.)*
+- f2 and f3 change one entry, `mail.campaign`; each check judges its own
+  invariant (M2, M3), so a fix of one leaves the other present.
+- f10's recovery at 03:00 ends every session on `reporting`: f9's job
+  run started at 03:00 (every thirty minutes) is ended, its check a
+  definition check, unaffected; `bi`'s and `consumer`'s scheduler
+  sessions fail at their next call, the 03:05 roll-up lost (16.3's
+  accepted risk), and are replaced at the call after.
+- A runner's reload raises the judged moment of every check reading that
+  runner (12.1): on `crm` f1, f2, f3 and f8; on `bi` f4. f5's and f7's,
+  judging the ledger on `reporting`, never are (D241).
+
+**5. The jobs the players may move** (16 writes the starter pack; 18
+and 17 read)
+
+- `crm`'s five jobs and the producer's `close-day`, by `jobs.yaml` and
+  `sudo gm-reload-scheduler`; `db`'s crontab entry `popular-products`
+  (:17), by `sudo gm-crontab`.
+- Not `bi`'s two (report-only, the agency's) nor `reporting`'s crontab
+  entry and `pg_cron` job (the agency's by the story, 16.5); `consumer`
+  and `gateway` have none.
+- **(choice)** `db`'s entry is listed though no purpose job: chunk 16
+  names "every job the players may move" (12.8 asks at least the purpose
+  jobs), and moving it is how a player confirms f6's fix runs.
+
+**6. What a smoke cycle moves** (17a; 18.2)
+
+A move sets the job's `at` to a fixed minute and hour one to two
+minutes ahead in scenario time, then reloads: as `player` with `sudo
+gm-reload-scheduler` where `jobs.yaml` is fixable (`crm`, `producer`),
+as root with `s6-svc -h` on `bi` (18.2: the harness does it on a
+report-only node too); a crontab entry through `sudo gm-crontab`. Each
+moved file is restored byte for byte after its cycle (wave 3 gate).
+**(choice)** 18.2's "frequent jobs need no move" means the five-minute
+jobs; f8's escalations are judged by triggers, whose 0 waits for a
+declaration the stub leaves unanswered (W3-c), not for a run.
+
+| | Moved (node: job) | Then | `--since` |
+|---|---|---|---|
+| f1 | none (`mail-shipped`, every five minutes) | | no |
+| f2 | crm: `leads-extract`, `mail-campaign` | moved before "present" and again after the fix | no |
+| f3 | crm: `mail-campaign` | as f2 | no |
+| f4 | producer: `close-day`, then bi: `rollup-hourly` after it | its 0 needs a close re-invoicing a past local day, so a local midnight between the close that showed it and the one after the fix (chunk 14 took a second game at +9): 17a picks its planned hand-over or the moved times for it | no |
+| f5 | bi: `rollup-hourly` | waits for the moved time, not `remaining=` (D246) | yes, the fix's instant |
+| f6 | none (live state) | | no |
+| f7 | bi: `rollup-close` | waits for the moved time (D241) | yes |
+| f8 | none | | no |
+| f9 | none (live state; its job runs on its own) | | no |
+| f10 | reporting: the 03:00 entry, by `sudo gm-crontab`, after `inject --at now --instance f10` | its own run, on armenelos alone | no (no `judges`) |
+
+Order: f4's and f7's cycles need runs through `shop_etl`, so f5's cycle
+(planted, present, fixed, 0) ends before theirs start (item 4).
+
+**7. Each acceptance fix** (16 writes the answer key's `fix`; 17a
+applies it): the unfaulted form, `fixture-campaign`'s, which every
+`fix` text accepts.
+
+| | The fix the harness makes |
+|---|---|
+| f1 | `crm`'s `mail.shipped` as the mailing purpose's material; reload, as `player` |
+| f2 | `leads.extract` as the leads purpose's material, and `mail.campaign`'s consent test restored, leaving f3's change (the entry as f3's snippet); reload |
+| f3 | after f2: `mail.campaign` as the mailing purpose's material; reload |
+| f4 | `bi`'s `scripts/rollup.py` as P1's material, as root, `s6-svc -h` |
+| f5 | on `db` as `dba`: `ALTER ROLE shop_etl VALID UNTIL 'infinity'`; `gmctl check --instance f5 --since <its UTC instant>` |
+| f6 | `db`'s crontab as the fixture's (`-U shop_refresh`), by `sudo gm-crontab` as `player`; 0 at once, the next :17 run as `shop_refresh` in its log |
+| f7 | on `reporting` as `dba`: `rpt.close_day()` as P1's material; `--since` its instant |
+| f8 | `escalate.customs` as the export purpose's material; reload |
+| f9 | on `reporting` as `dba`: the job unscheduled by its id (D243), `rpt.customer_activity`, `src.customers` and server `shop_backoffice` dropped (its mapping with it); `CREATE` on `rpt` left (D242) |
+| f10 | none: report only |
+
+- **(choice)** f2's cycle takes the runner path; the producer path
+  (D244) stays answer-key text: 18.2 asks for "its acceptance fix", I2's
+  fix is the in-house team's on `crm`, and chunk 14 read the
+  producer-alone half (1).
+- **(choice)** f2 before f3 on their shared entry, each fix leaving the
+  other's change: each check is then seen judging its own invariant.
+
+**8. The harness override and the unfaulted scenario** (17 builds;
+reads items 2 and 3)
+
+- The scenario carries no switch; the override is the harness's alone,
+  never usable in a game (18.6).
+- Leaving an instance out of the list render, inject and check read
+  drops its `state` planting and its check, never its seed changes.
+- 18.4's unfaulted scenario (17a): a scratch copy of the scenario whose
+  item 2 files are `fixture-campaign`'s (the data file cut at the
+  fixture's last line, the two timelines and their keys gone), every
+  instance left out by the override. **(choice)** Not `fixture-campaign`
+  itself: the copy keeps the scenario's own `scenario.yaml`, so the
+  baseline proven is the scenario's. Plan v10, chunk 17.
+- 17b runs without f10 and f7 (18.6, D283): their seed parts stay,
+  inert in its window; their planting (f10's request) and checks are
+  left out.
+
+**9. For chunk 17 to watch** (not settled here)
+
+- `reporting`'s `postgres_fdw` link to `db`: the close's link lives in
+  `bi`'s kept session to `reporting` and idles from one close to the
+  next, with libpq's default keepalives, through a service address that
+  drops a connection idle over about 900 s (the idle-session fix, wave
+  3). A game's aging runs one close and f10's recovery ends the session
+  at 03:00; 17a's f7 cycle moves the close several times: let one move
+  come more than 15 minutes after the previous close and record whether
+  it completed. A lost link comes back to `spec-writer`: keepalive
+  options on `CREATE SERVER` change P1's material (and f9's server).
+  f9's job and f10's entry open a link per run.
+- Every scheduler key running (18.1): `consent.unsubscribe-v2` runs from
+  T0, `customs.unavailable` from `handover-6h` to `handover-4h`; a
+  program started after both moments applies the last (`scheduler`'s
+  `gm.md`), so a run sees the outage only if its planned hand-over puts
+  it inside the run.
+- 17b's hand-over check in a two-hour noon window: f8's outage falls
+  before T0, so its 1 rests on the stub's one in fifty (an hour or two,
+  W3-c); f4 and f5 by O146; f7 and f10 left out.
+
+### Questions from the capture
+
+1. **O146 — f5 masks f4 through the aging, so the hand-over check
+   fails** (the owner; it blocks chunk 16's merge, not its start). f5
+   expires `shop_etl` at `handover-5h` (09:00); every hourly roll-up
+   fails from 09:05; f4's evidence needs a successful hourly run after
+   the producer's 12:00 invoicing, so f4 reads 3 at 14:00, and the
+   hand-over check fails on any "too soon" reading (`aging.py`,
+   `gmctl.md`). Chunks 14 and 15 planted the faults on separate copies
+   or at other times, so no run met it.
+   - (a) Times unchanged: f4's `at_handover: 3`, `masked-by` f5; the
+     hand-over check passes a "too soon" reading the answer key expects
+     (a few lines in `aging.py` and a unit test, in chunk 17a, which
+     touches it; the template's comment, `gmctl.md`, master spec 12.1 and
+     16.1). Story and I5 unchanged, and the game layered: the frozen
+     dashboards hide the watermark gap until the players fix f5, then
+     the next run shows it. Cost: f4's planting is not confirmed by its
+     check at the hand-over (a seed file render installs); a failed f5
+     planting would make f4 read 1 and fail the check a second time.
+   - (b) f5 at `handover-1h` (13:00): the 12:05 run shows f4 (1). Cost:
+     I5 reworded ("this morning" no longer true), one hour of frozen
+     dashboards instead of five, and D189's count gives f5 65m against
+     N = 1h, which the loader refuses: f5's minimum written 1h, five
+     minutes short of the rule, or the hand-over moved.
+   - (c) The producer's invoicing earlier in this scenario's copy (say
+     06:00, f4 shown by 07:05). Cost: the domain's close changed in one
+     copy against "copied unchanged", 16.1's "12:00 invoicing", f4's
+     notes and the rehearsal's noon window that holds the close.
+   - Recommended: **(a)**. Chunk 16 can be cut on (a), writing f4's
+     `at_handover: 3` and the interaction; (b) changes two values and
+     I5's sentence.
+
+For the driver, no ruling needed: plan v10 rewords chunk 17a's baseline
+(item 8) and 17b's leave-out (D283); chunk 20's readings are D281,
+f10's 2 for chunk 18 is D282; `formats.md`'s O126 citation was already
+fixed on `v0.5-scope` (6ac1e94), merged into `main` before this branch.
+
+### Capture W4 reviewed by the driver, 2026-11-02
+
+W4 accepted as drafted (3423326), with spec D281 (chunk 20's two
+readings, master spec 11.6), D282 (f10's check reads 2 once a player
+alters the backfill request, 16.5), D283 (the rehearsal runs without f7
+as well as f10, 18.6) and plan v10. `formats.md`'s O126 citation was
+already fixed by 6ac1e94. D263 to D280 are `v0.5-domains`' (its last,
+D280): no collision. **O146** (f5's expiry at 09:00 blocks f4's 12:05
+roll-up, so f4 reads 3 at the hand-over check) put to the owner; chunk
+16 is cut on W4's recommendation (a) with O146 as its merge gate.
+
+### Chunk 18 — merged (98c2123), 2026-11-02
+
+`coding-leader`, commit b19b978, `.claude/skills/game-master/{SKILL,gmctl,feedback}.md`
+only (+533 −110). Done when: master spec 14's "The GM skill" covered item
+by item (a "Designing a scenario" section; data policy from
+`governance:`; movable jobs in the starter pack and the hand-over; the
+judged moment and `--since`, asked at report time for every fix made
+outside a runner; governance faults, a report judged against an
+incident, an overstep, exit 3 at the final answer; a failed incident
+never re-planted, the offer to set the game up again; `fit`'s shared-host
+refusal and `--map`; the web front in every game, v0.3's "no front, SSH
+only" lines rewritten in `SKILL.md` and `gmctl.md`'s `deploy`, `status`
+and files notes); all 96 `gmctl` invocations in the three files parse
+with `gmctl`'s parser (18 bare mentions skipped; scratch script
+`parse_gmctl.py`); v0.3's stance items unchanged, v0.4's added (an
+overstep judged, never credited; a job run by hand refused; `--since`
+from the report; "may we change X?" answered from the starter pack).
+D256, D258, D282 (as wave 3's reading) and chunk 20's `database` reading
+written in. `test_brick_docs` 4 OK; no test reads these files. No
+deviation. For the release gate: item 13's stance check-list on a
+deployment of the scenario. If O146 rules (a), `gmctl.md`'s hand-over
+check line ("as the answer key's `at_handover` says") needs a sentence:
+chunk 17a's.
+
+### O146 ruled (a) by the owner; chunk 16 built (f5906e7), 2026-11-02
+
+**O146: (a)**, the owner, 2026-11-02: times kept; the answer key expects
+f4 = 3 at the hand-over check (masked by f5); the hand-over check learns
+to accept a 3 the answer key expects (`aging.py` and its test, chunk
+17a; the `gmctl.md` hand-over check line). To `spec-writer` to record.
+
+Chunk 16 built on (a) (`coding-leader`, f5906e7, branch kept for its
+merge gate). Its points, settled by the driver:
+1. The fixture's player-visible comments (three false in the scenario,
+   most citing the fixture or W3-b): a comment-only pass in the story's
+   voice, W4 item 2 amended to allow it.
+2. A "Marketing e-mail" section added to `player/data-policy.md` (consent
+   as the latest choice; marketing mail 08:00–21:00 in the recipient's
+   zone; one shipping notice per order), since I2 and f3's evidence read
+   rules the fixture's policy did not state: accepted, unchecked rules as
+   11.5 allows, `governance:` unchanged.
+3. f7's minimum: W4's 270m (01:30 + 1h from 22:00) kept; f7's
+   `fault.yaml` comment ("5h") and `gm.md` ("4h30 plus 1h") to be
+   checked and fixed on the wave branch by a `coding-executor`.
+4. W4 item 4's "the next hourly run shows f4 (1)" contradicted item 3:
+   amended (f4's check stays 3 in the game, its gap shows in the figures).
+
+### Chunk 16 — merged (a3383d2), 2026-11-02; D284, plan v11 (872921f); f7's wording (78282a6)
+
+**Chunk 16** (`coding-leader`, 8563c90, merged a3383d2):
+`scenarios/tarnbeck-outdoor-campaign/` 0.1.0 and the root README's row.
+Done when: the format checklist by reading and the loader's completeness
+check inside `fit` pass (two `<…>` placeholders in answer-key prose caught
+and fixed); `fit` on armenelos alone (`--cpu 4 --memory 5G --disk 10G`)
+fits, memory 2.25G of 5G, disk 9.47G of 10G; with the VPS declared
+`shared` (`cpu=2,memory=2G,disk=8G`, a declaration only, not measured)
+fits with `bi` and `gateway` on the VPS; `--map host-1=vps-5718ad52`
+refused, exit 1 ("node reporting carries fault instance f10 … needs an
+unshared host"); `render --handover 2026-11-03T14:00Z` reaches
+`rendered` on both; no SSH needed, the VPS still `Drain`, nothing
+deployed. README byte-identical to a fresh regeneration (scratch
+generator `gen_readme.py`, itself byte-identical on `fixture-campaign`).
+Unit suite 848 OK; 22 YAML files load; `reporting.sql` loads into
+`postgres:0.4.0` at customer offsets 2, −12, 14 (close zones wrap
+correctly for offset 3). Comment-only pass proven: 25 files, no
+difference once comments are stripped; comments giving f3, f4, f6, f8
+away removed. Left: `bi/scripts/rollup.py`'s docstring citing the master
+spec (f4's material verbatim, a string, not a comment).
+
+**D284** (`spec-writer`, 872921f): O146 (a) recorded, O146 closed;
+master spec 6.2, 12.2 ("At the hand-over check": a 3 passes only where
+the answer key writes 3 and names the instance masking it), 16.1; plan
+v11: chunk 17a takes `aging.py`'s change and test, `gmctl.md`'s
+hand-over check line and the answer-key template's `at_handover`
+comment; 17b runs after 17a's change (f5 planted minutes after the
+rehearsal's start masks f4 there too); release gate item 12 adds f4's
+"too soon". 16.1 keeps "f4 stays 3 … unless the players move the
+producer's close", true since `close-day` is movable (W4 item 5).
+
+**f7's wording** (`coding-executor`, cc8598e, merged 78282a6):
+`fault.yaml`'s comment "5h" and `gm.md`'s "4h30 plus 1h" now "3h30
+plus 1h, 4h30 (270m)"; `aging.minimum: 1h` (from the close's first run)
+unchanged, consistent with 16.2; unit suite 848 OK.
+
+### O146 prose fixed (b0c0888, merged feb06b4); chunk 17a dispatched, 2026-11-02
+
+Chunk 16's owner replaced "pending the owner's ruling" with "ruled (a),
+2026-11-02 (spec O146)" in f4's and f5's answer-key notes, `gm/notes.md`
+and the comment on f5's `plant_at`; README regenerated (byte-identical to
+a fresh run), YAML loads, `test_model` OK.
+
+Chunk 17a cut from `v0.4-w4` at f465880 (`coding-leader`): the smoke
+cycles, the baseline's G1 to G4, the hand-over check change (D284) and
+f10's run, alone on the hosts under the host lock and the sleep
+inhibitor, G7 at its two-host run on wave 2's gate's pattern. 17b goes to
+a fresh owner once 17a has merged.
+
+### Stopped by the owner — chunk 17a paused at WIP e622975, 2026-11-02
+
+The owner, 2026-11-02 ~11:15 UTC: "we will stop in fifteen minutes."
+Chunk 17a was told to pause; **wave 4 waits for the owner's word**.
+
+**State for the next driver**
+- `v0.4-w4` (worktree `/home/bastien/work/db_audit_gm-wt/v0.4-w4`):
+  chunks 16 and 18 merged, D284 and plan v11 in, nothing pushed.
+- Chunk 17a: WIP e622975 on branch `v0.4-c17a-smoke-cycles`, worktree
+  `/home/bastien/work/db_audit_gm-wt/v0.4-c17a-smoke-cycles`, cut from
+  5b09c50, **not merged**. No run on the hosts yet.
+- Hosts at ~11:30 UTC: 0 swarm services; armenelos `Ready Active`,
+  `vps-5718ad52` `Ready Drain` (never set active); the host lock free, no
+  inhibitor running; 4.7 GiB available, 9.0 GB free on `/`.
+
+**17a as built (unit-tested only)**
+1. The hand-over check (D284) in `tools/gm/aging.py`: a "too soon"
+   passes only where `at_handover` is 3 and `interactions` name the
+   masking instance (`masked-by`); any other reading of it fails, 1
+   included; others' "too soon" still fail. Test
+   `test_a_masked_too_soon_passes_only_where_the_answer_key_writes_3`
+   (fails on the old code). Docstring adjusted.
+2. The harness override leaving instances out (W4 item 8): undocumented
+   `gmctl render --test-leave-out f7,f10`, recorded in
+   `implementation.yaml` as `test_harness_override.leave_out`; render,
+   `inject` (`--at` refused), `check` (`--instance` refused), the early
+   and hand-over checks and `restart` leave them out, seed changes stay.
+   `tools/gm/{localimpl,inject,checks,aging,restart,render,__init__}.py`;
+   tests `TestTestLeaveOut` (`test_render.py`), `TestLeftOutByTheHarness`
+   (`test_aging.py`).
+3. `gmctl.md`'s hand-over check line and the answer-key template's
+   `at_handover` comment say when a 3 is expected.
+4. `tools/tests/smoke-purposes.sh` (+ helper `smoke-purposes.py`), modes
+   `smoke` (every fault at once, T0 ≈ 07:30 so f8's outage falls inside),
+   `cycles` (W4's order f6, f9, f1, f2, f3, f5 `--since`, f7 `--since`
+   with a close > 15 min after the previous for item 9, f4 across a local
+   midnight, f8; T0 ≈ 21:00, stops before 02:45 ahead of f10's 03:00),
+   `baseline` (fixture files swapped in, every instance left out, every
+   job moved, G1–G4 twice), `f10` (armenelos alone).
+   Checks so far: test_aging/inject/checks/render/restart 307 OK (83 s),
+   the last two override tests alone OK; `sh -n`, `py_compile` OK. Not
+   yet: the full suite; `gmctl`'s parser on `gmctl.md` (no new
+   invocation added).
+
+**Next, in order** (a fresh `coding-leader` on 17a's brief plus "resume
+from WIP e622975" and this entry; each run under `flock
+/tmp/dbagm-docker.lock systemd-inhibit --what=sleep:idle:handle-lid-switch`,
+alone on the hosts):
+1. `sh tools/tests/smoke-purposes.sh baseline armenelos --cpu 4 --memory 5G --disk 10G`
+   (~1–1.5 h; the harness's first live run; unverified: the scheduler
+   log's timestamp format for `instant()`, `gmctl exec --user player`
+   with `sudo` and `/home/player/.pgpass`, `base64` on the nodes, `check`
+   with every instance left out).
+2. `cycles armenelos …` (~3.5–5 h; f8 relies on the stub's one-in-fifty,
+   each `crm` reload resetting its clock; f4's 0 needs the local
+   midnight 2–3 h after T0).
+3. `smoke duo` with the script header's fit options and
+   `SMOKE_ENGINES=ssh://dbagm-vps`, wrapped in G7 as wave 2's gate did
+   (wrapper not written yet). **(Owner's call pending)**: the owner of
+   17a chose the two-host run as `smoke` without the cycles, to keep the
+   VPS active ~2 h instead of 4–5; the plan's 17a reads "on armenelos
+   alone and on armenelos plus the VPS" for "every fault planted at once
+   and every scheduler key and job running", which `smoke` covers.
+4. `f10 armenelos …`, last, the VPS drained.
+5. Full unit suite, `sh -n`; squash to one commit; merge `--no-ff` into
+   `v0.4-w4`; remove the worktree and branch.
+Then 17b (a fresh owner, D283: without f7 and f10), the wave gate, the
+release gate on `v0.4-w4`.
+
+### Resumed by the owner — chunk 17a with a fresh owner, 2026-11-02 12:10 UTC
+
+The owner: "you may continue." Hosts at 12:08 UTC: 0 swarm services,
+`vps-5718ad52` `Ready Drain`, the lock free, 4.3 GiB available, 9.0 GB
+free on `/`. A fresh `coding-leader` resumes 17a from WIP e622975 on its
+branch, with the pause report. The two-host run is `smoke` without the
+per-fault cycles (the cycles on armenelos alone), as 17a's first owner
+chose: accepted by the driver, the owner told before resuming, no
+objection.
+
+### Paused again — chunk 17a at WIP bf5dbf5; the rest runs tonight, 2026-11-02 13:55 UTC
+
+The owner, ~13:50 UTC: the runs won't end this afternoon; "pause now,
+run tonight" (a session left open overnight). Chunk 17a's second owner
+paused at **WIP bf5dbf5** (on e622975), branch `v0.4-c17a-smoke-cycles`,
+worktree `/home/bastien/work/db_audit_gm-wt/v0.4-c17a-smoke-cycles`, not
+merged. Untracked in that worktree's `.wip/`: `g7-smoke-duo.sh` (the G7
+wrapper for the two-host run, **untested, not committed**) and
+`parse_gmctl.py` (the `gmctl.md` parser check, run with the repo root as
+argument), copied there from the driver's session scratchpad.
+
+**Hosts at 13:52 UTC**: 0 services; armenelos `Ready Active`,
+`vps-5718ad52` `Ready Drain` (never set active today); the lock free, no
+inhibitor; 0 dbagm containers, volumes, secrets, configs, networks, user
+units or `/tmp/gmctl-smoke-purposes.*` left; the seven images rebuilt at
+12:08 from cache (unchanged).
+
+**Runs** (armenelos, `--cpu 4 --memory 5G --disk 10G`, each under the
+lock and an inhibitor):
+
+| Run | UTC | Result |
+|---|---|---|
+| baseline 1 | 12:10–12:25 | aborted: two harness bugs (keys judged after 5 min; bi's `s6-svc` not on `gmctl exec`'s PATH); G1–G4 exit 0 |
+| baseline 2 | 12:25–13:19 (3185 s) | 30 passed, 2 failed, both the pooler race (producer `close-day` never ran: PgBouncer "DNS lookup failed: db" from T0). Passed: the unfaulted copy (8 files `fixture-campaign`'s, data file cut at line 202, every instance left out); `check` with none left: "no fault instance to check"; moves, waits, restores on crm, producer, bi; G1–G4 exit 0 after the moved jobs and again after db's `:17` entry (13:17:01Z); every crm and bi job ran; keys by rate on all five schedulers |
+| baseline 3 | 13:19–13:21 | fail-fast on the pooler race |
+| cycles 1 | 13:21–13:24 | the pooler race |
+| cycles 2 | 13:27–13:51 | stopped by the pause, mid-f2, **no failure**: the pooler WORKAROUND at 13:29:34; f10 planted (`inject --at now`), reads error as designed ("no backend killed … the incident did not happen"); f1, f2, f3, f4, f7 present; f5 planted, present; f6, f9 present then fixed in 1 s each; f1 present → fix → too soon (211 s) → **fixed after 227 s** (13:50:17) |
+
+Memory at 13:42 (`docker stats`, cycles 2): db 221.6MiB/1GiB, grafana
+196.9/384, reporting 69.9/640, prometheus 56.6/384, bi 33.3/384,
+producer 32.5/96, crm 31.8/128, consumer 30.2/128, gateway 30.3/96,
+exporter 23.9/128, pooler 16.3/64, bastion 10.1/256.
+
+Harness fixes in bf5dbf5 (`tools/tests/smoke-purposes.{sh,py}`): bi's
+reload by `/command/s6-svc -h`; `restore` fails when its reload fails;
+keys judged by rate once per mode (a silent key fails only when its
+expected calls since T0 reach 4; slower keys "not judged"); the pooler
+check at T0 + 90 s with a one-time `s6-svc -r` WORKAROUND line, counted
+in the summary. Verified live: the scheduler log's timestamp and key
+formats, `gmctl exec --user player` with `sudo` (`gm-reload-scheduler`,
+`gm-crontab`), `PGPASSFILE` with `psql -U dba`, `base64` on the nodes,
+`check` with every instance left out; by hand on `reporting`: `pidof`,
+the s6-svscan/sshd/cron pids, `memory.peak`, `memory.events`. Not yet
+live: the cycles from f2's fix on (f3, f5 `--since`, f7 `--since` and W4
+item 9, f4 across local midnight, f8), smoke mode's f8 wait, f10 mode,
+the two-host run and its wrapper. Checks: unit suite 854 OK (146 s,
+before the harness-only edits); `sh -n`, `py_compile` OK; `gmctl.md` 96
+parsed, 0 failed, 18 skipped.
+
+**Finding — the `pgbouncer` brick's start-up DNS race** (outside 17a's
+Files; **open, for the owner**): the pooler's container starts ~50 ms
+before `db`'s; its first lookup fails "DNS lookup failed: db: result=0
+… (bad-af)" and every later one too, for ≥ 25 min, while `getent hosts
+db` in the same container resolves (10.0.1.16, VIP 10.0.1.13). 4 of 5
+deploys today (baseline 1, far from a previous teardown, was clean). In a
+game the producer is down throughout. `s6-svc -r` of the pgbouncer
+service cures it at once. Likely fix: a bounded wait in its s6 `run`
+until its `[databases]` hosts resolve. Evidence: baseline 2's pooler log
+from 12:25:59; PgBouncer 1.26.1, c-ares 1.34.5; resolv.conf search
+`tail7b2df4.ts.net`, `ndots:0`. `pgbouncer` is not among the bricks v0.4
+bumps (plan "Read first"): a fix means a new `pgbouncer` version and
+re-pins, a plan change for `spec-writer`. The other smoke scripts with a
+pooler may hit it at the wave gate.
+
+**Next, in order** (a fresh `coding-leader` on 17a's brief plus "resume
+from WIP bf5dbf5" and this entry; from the 17a worktree, `S=` a log
+folder; check first: the lock free, 0 services, the VPS `Drain`; never
+edit `smoke-purposes.sh` while a run executes it — write to a new file
+and `mv`; each run's verdict is its last line `smoke-purposes <mode>: …`,
+then grep `FAIL` and `WORKAROUND`):
+1. `flock /tmp/dbagm-docker.lock systemd-inhibit --what=sleep:idle:handle-lid-switch --who=dbagm-17a --why=cycles sh tools/tests/smoke-purposes.sh cycles armenelos --cpu 4 --memory 5G --disk 10G > $S/cycles.log 2>&1`
+   (~3.5–5 h; guard at 02:45 scenario time ≈ T0 + 6h15; f8 waits up to
+   9000 s for present and again for fixed; f4's fixed reading needs the
+   local midnight ≈ T0 + 3.5 h).
+2. The same with `baseline` (~55 min, waits for db's `:17`; ≥ 32 passes).
+3. The two-host smoke run (G7), ~2.5–3 h: `flock … --why=duo env
+   POLL_LOG=$S/g7-poll.log sh .wip/g7-smoke-duo.sh --host armenelos,manager,cpu=4,memory=4G,disk=12G --host vps-5718ad52,shared,endpoint=ssh://dbagm-vps,cpu=2,memory=2G,disk=8G > $S/duo.log 2>&1`
+   (pre-check, active, site polled every 30 s, drain in a `trap`,
+   post-check; `gmctl deploy` copies the images to the VPS). **Owner's
+   call pending: run it overnight unattended, last, or keep it for a time
+   the owner is around.** If the classifier refuses `active`/`drain`, the
+   owner runs it.
+4. `f10 armenelos …` last, ~45 min, the VPS drained.
+5. Full unit suite, `sh -n`, the parser check; squash e622975, bf5dbf5
+   and later fixes into one commit (`.wip/` committed as harness if kept,
+   else removed); merge `v0.4-w4` in, then `--no-ff` into `v0.4-w4`;
+   remove the worktree and branch.
+Then 17b, the wave gate, the release gate.
+
+### Owner rulings on the pause, 2026-11-02 ~14:00 UTC
+
+- **The `pgbouncer` start-up race: fixed in v0.4** (the owner, on the
+  driver's recommendation): `spec-writer` records it and revises the
+  plan (an inserted fix-sized chunk, as chunk 20 was); a `coding-executor`
+  adds a bounded wait to the brick's s6 `run` until its `[databases]`
+  hosts resolve, bumps `pgbouncer` and re-pins, on `v0.4-w4`, before the
+  wave gate, and before tonight's runs if it lands in time (17a's branch
+  merges `v0.4-w4` in first).
+- **Tonight's order: cycles, baseline, f10, then the two-host smoke run
+  last** (the owner: "run it overnight, last"); unattended, the drain in
+  the wrapper's `trap`; a refused `active`/`drain` stops it until morning.
+
+### Session stopped by the owner, 2026-11-02 ~14:10 UTC
+
+The owner is shutting the computer down. `spec-writer` was mid-way
+through recording the `pgbouncer` ruling (decision, inserted chunk, plan
+v12) and may be cut off: **the next driver first runs `git status` and
+`git log` in this worktree**. A plan commit whose message names the
+`pgbouncer` ruling means it finished; otherwise uncommitted edits to
+`specs/` are its partial work, to finish by a fresh `spec-writer`. Then:
+the `pgbouncer` fix (`coding-executor`, on the inserted chunk), then
+17a's remaining runs overnight from WIP bf5dbf5 ("Paused again" entry
+above; order cycles, baseline, f10, two-host last), 17b, the wave gate,
+the release gate.
+
+### `pgbouncer` ruling recorded: D305, chunk 21, plan v12 (9baca2a), 2026-11-02
+
+`spec-writer` finished before the shutdown (the previous entry's check
+is moot): **D305**, `pgbouncer` **0.1.1** (D57's precedent for a fix
+with no interface change); **chunk 21** inserted in wave 4 (a
+`coding-executor` briefed by the driver; the chunk's text in the plan),
+edge `21 ──> 17` (merge order only: 17a merges `v0.4-w4` in once 21 has
+merged, its remaining runs then on 0.1.1); master spec 5, 7.3, 16.1,
+16.4, 17 item 1; the wave gate expects `pooler workarounds: 0`; release
+gate item 1 lists 0.1.1. Two calls of `spec-writer`'s in the chunk,
+accepted by the driver: after the bound PgBouncer starts anyway (a name
+that never resolves never keeps the node down), the bound well inside the
+health check's 60 s `start_period`; `.tech`'s two `pgbouncer 0.1.0`
+mentions go to `security-advisor` after the merge (no package change, no
+dependency preflight). D285–D304 are `v0.5-domains`'.
+
+**Next**: chunk 21 (`coding-executor`, image build and stack test under
+the lock), then 17a's remaining runs from WIP bf5dbf5 after merging
+`v0.4-w4` in (order cycles, baseline, f10, two-host last), 17b, the wave
+gate, `security-advisor` on `.tech`, the release gate.
+
+### Resumed — chunk 21 dispatched, 2026-11-02 19:20 UTC
+
+The owner: "let's continue wave 4". Fresh driver. Hosts at 19:17 UTC:
+the lock free, 0 services, armenelos `Ready Active`, `vps-5718ad52`
+`Ready Drain`, no dbagm container or inhibitor, 9.6G free on `/`.
+Chunk 21 handed to a `coding-executor` (branch `v0.4-c21-pgbouncer-race`
+from `v0.4-w4` b8b94f7+this entry). 17a stays paused at WIP bf5dbf5 until
+21 merges; then its remaining runs in the owner's order (cycles,
+baseline, f10, two-host last).
+
+### Chunk 21 — merged (ee6edc7), 2026-11-02 ~20:00 UTC
+
+`coding-executor`: commit 63c6111, merged `--no-ff` as ee6edc7, no
+conflict; worktree and branch removed; nothing pushed.
+- **The fix**, as the chunk wrote it (no equivalent): the s6 `run` reads
+  every `host=` of `[databases]` (lists split, quotes removed, sockets and
+  entries without `host=` skipped), `timeout 5 getent ahosts` once a
+  second up to **30 s**, then starts PgBouncer either way; its lines in
+  the container log, prefixed `pgbouncer-run:`.
+- **Findings**: (1) in a swarm a name resolves only once its container is
+  *healthy*, so the bound covers the database node's time to healthy
+  (5 s at deploy, 7–8 s scaled back up, in the stack test); a `db`
+  slower than 30 s in a heavy deploy starts PgBouncer early as 0.1.0 did
+  — the main risk for 17a's runs, visible as `still not resolving after
+  30s` in the pooler's log. (2) The 25-minute stuck lookup did not
+  reproduce in the stack fixture (0.1.0 logged one `DNS lookup failed`
+  and recovered ~10 s after `db`); the new cases prove the mechanism (no
+  lookup until the name resolves), 17a's `pooler workarounds: 0` the fix.
+- **Known limits** in `docs/gm.md`: `db` replaced while PgBouncer runs
+  (served again 603 s after `db` healthy, the swarm DNS's 600 s answer
+  lifetime) and a `db` slower than 30 s; cure `/command/s6-svc -r
+  /run/service/pgbouncer` as root.
+- Stack test 120 PASS, 0 FAIL, two full runs (new cases: pooler before
+  `db`, query 10 s after `db` back, no `DNS lookup failed`; ghost host:
+  PgBouncer at the bound, healthy at 36 s, console and `appdb` answering).
+  Image `pgbouncer:0.1.1` sha256:137b342a… (local). Unit suite 848 OK;
+  every scenario and fixture loads; no 0.1.0 pin left; four READMEs
+  regenerated. Footprint 11.2 MiB, 0.04 % CPU at rest.
+- Left: `.tech`'s two `pgbouncer 0.1.0` → `security-advisor` (dispatched
+  now). Hosts clean after (lock free, 0 services).
+
+**Next**: 17a resumed by a fresh `coding-leader` from WIP bf5dbf5, its
+branch merging `v0.4-w4` (ee6edc7+) in first; the runs overnight in the
+owner's order (cycles, baseline, f10, two-host last).
+
+### `.tech` for `pgbouncer` 0.1.1 (security-advisor, 0b9e906), 2026-11-02
+
+Post-change check: **clear**. 0.1.0 and 0.1.1 images carry the same 133
+packages (PgBouncer 1.26.1-1.pgdg13+1, libcares2 1.34.5-1+deb13u1, libpq5
+18.6); no advisory on PgBouncer 1.26.1; c-ares' NVD hit CVE-2025-62408 is
+fixed by Debian's backport (DSA-6084-1). `.tech`: `updated`, the brick
+line and the PostgreSQL platform's `source` at 0.1.1; lint as before (6
+pre-existing no-CPE warnings); `cve-watch check .` 42 ≥ medium, all
+pre-existing (nginx, OpenSSH, Python, sudo), none on the pooler.
+
+**For the owner (not blocking)**: Debian's tracker lists c-ares
+CVE-2026-33630, -69184, -69186 and 11 GHSA entries open in trixie, no DSA
+yet (upstream fixed in ≥ 1.34.7; three high). Neither the sweep nor
+`check` sees them (c-ares is no `[[platform]]` in `.tech`). Exposure low
+(PgBouncer resolves backend names through Docker's resolver on the
+internal overlay only). Proposed: watch; a rebuild of the brick picks up
+Debian's fix (apt unpinned, no Dockerfile change). Decision pending: add
+c-ares 1.34.5 as a `[[platform]]` (CPE `cpe:2.3:a:c-ares:c-ares`), which
+needs an `[[ignore]]` for the false positive CVE-2025-62408 (reason
+"fixed by Debian backport 1.34.5-1+deb13u1 (DSA-6084-1)", review
+2027-02-01), an owner approval.
+
+### Owner ruling: 17a's runs closed without the two-host run, 2026-11-03 ~07:30 UTC
+
+Overnight (UTC, armenelos, all under the lock): cycles 1 19:58–01:45
+failed (f2/f3 never present, f3 present after f2's fix, f7 too soon; then
+the 02:45 guard); baseline 01:48–02:19 **32/32**, pooler workarounds 0;
+f10 02:19–02:25 **23/23**, workarounds 0, the VPS drained; cycles 2 from
+02:26, 54 PASS 0 FAIL by 03:42 (f6, f9, f1, f2, f3, f5, f7, f8 cycled),
+then idle waiting for scenario midnight (09:01Z) for f4's last steps.
+
+The owner: "abort and consider it done for this cycle of test, we can't
+proceed to the two host run, as the laptop will be regularly
+disconnected from the network today". So: cycles 2 aborted at the f4
+wait, counted as 17a's cycles run; f4's after-midnight reading not
+observed; **17a's two-host run not run**. Relayed to 17a's owner: clean
+teardown, finish the checks, one commit, merge into `v0.4-w4`.
+`spec-writer` records the ruling and revises chunk 17's text.
+
+### D310, O161, plan v13 (783eca7), 2026-11-03
+
+`spec-writer`: **D310** (17a done: cycles aborted at f4's midnight wait,
+54/0; no two-host run; unproven: f4's after-midnight steps, every fault
+at once on two hosts; still release gate items 8 and 9, master spec 18
+items 1–2, unchanged). **O161** (open): the owner, ~07:45 UTC, "we may do
+the 2 host testing later tonight (report it maybe to the end of v0.6
+prior tagging v1.0" — the remaining two-host runs (17b's rehearsal, the
+wave gate's two-host `smoke-load.sh`, release gate items 8 and 12,
+17a's skipped smoke run) tonight, or moved to the end of v0.6; proposal:
+tonight if possible, else the owner rules the move and the release gate
+names what is unproven. Chunk 17's text revised (Depends on, 17a's
+scope, Done when, Verification). Questions raised with O161: whether the
+release gate repeats items 8 and 9, and what the wave gate's "chunk 17's
+runs" covers now.
+
+Driver's plan, told to the owner: today the wave gate's armenelos-only
+parts; tonight, if connected, 17b, the wave gate's two-host run and the
+two-host smoke; otherwise the owner rules O161.
+
+### Chunk 17a — merged (edc3457), 2026-11-03 ~07:40 UTC
+
+`coding-leader` (third owner): one commit 398f09b (13 files: `gmctl.md`,
+the answer-key template, `tools/gm/{__init__,aging,checks,inject,localimpl,render,restart}.py`,
+`tools/tests/smoke-purposes.{sh,py}`, `test_aging.py`, `test_render.py`),
+merged `--no-ff` as edc3457; worktree and branch removed; nothing pushed.
+
+| Run (armenelos, 4 CPU, 5G, 10G) | UTC | Result | Workarounds | `pgbouncer-run:` |
+|---|---|---|---|---|
+| cycles 1 | 11-02 19:58 – 11-03 01:45 | 53 passed, 6 failed (harness timing) | 0 | resolve after 6 s |
+| baseline | 01:47–02:18 (1869 s) | 32/32 | 0 | after 5 s |
+| f10 | 02:19–02:25 (386 s) | 23/23 | 0 | after 6 s |
+| cycles 2 | 02:25–07:26 | 54 passed, 0 failed; aborted (D310) | 0 | after 6 s |
+
+- **Cycles 1's failures**, all the harness's choice of scenario time: T0
+  20:58 local put f3's planted campaign after its 08:00–21:00 window (f3
+  read fixed) and f7's close on a day not yet over; f2 shows present only
+  when a segment customer unsubscribes between extractions; f8's fixed
+  reading needs a late declaration that never came before the 02:45
+  guard. Fixed in the harness: cycles' T0 18:00 local, crm rounds counted
+  per instance, f2 may rest on an earlier present reading of the same
+  planting. No product fault.
+- **Cycles 2** (T0 02:26:30Z, 17:26 scenario time): f1–f9 present, f10
+  error as designed; f6, f9, f1, f2, f3, f5 and f7 (`--since`) cycled to
+  fixed; W4 item 9's close ok 1080 s after the previous, 0 `sqlstate=08`;
+  f4 and f8 fixed in place, too soon; then the wait for 09:01Z. Not
+  observed (D310): f4 after the local midnight, f8's fixed, the final
+  keys/jobs/every-instance check. Stopped at 07:26 by TERM; the harness's
+  trap tore down.
+- **f10**: planted 02:21:11, entry at 02:23:00, present after 123 s;
+  backend SIGKILLed 02:23:08, ready 02:23:09; s6-svscan, sshd, cron pids
+  kept; reporting `memory.peak` 113025024 → 671092736 B, `oom_kill` 0 → 1.
+- **Memory** (cycles 2, MiB of limit): db 221.8/1024, grafana 190.1/384,
+  reporting 70.6/640, prometheus 61.7/384, bi 33.3/384, producer 31.7/96,
+  crm 30.6/128, consumer 30.2/128, gateway 30.0/96, exporter 20.9/128,
+  pooler 16.3/64, bastion 10.1/256 (cycles 1 at 21:09: grafana 270.2,
+  prometheus 136.8).
+- **Two-host**: not run (D310); the VPS Drain throughout; filetstudio.com
+  200 at 19:56Z and 07:33Z. `.wip/g7-smoke-duo.sh` not committed (hard-coded
+  worktree path, never drove an active VPS; trap stub-tested, copy in the
+  driver's scratchpad `wip-17a/`); 17b writes a fresh wrapper.
+- Checks: unit suite 854 OK (132 s) three times, the last on edc3457;
+  `sh -n`, `py_compile`, PyYAML OK; `gmctl.md` 96 parsed, 0 failed.
+- Risk: cycles mode has no clean end-to-end verdict yet (f4 across the
+  midnight, f8's fixed untested live).
+- Hosts at 07:33Z: clean, lock free, the VPS Drain, 9.6G free.
+
+**Next**: the wave gate's armenelos-only parts now; 17b and the two-host
+parts tonight if connected (O161).
+
+### Owner ruling: stance check and two-host sessions to v1.0 gating, 2026-11-03 ~08:00 UTC
+
+The owner: "ok keep the stance check for v1.0 gating (like the 2 host
+session). We won't proceed to full game for testing until then. see if
+you can wrap up this wave and this milestone without these". Answers
+O161. Sent to `spec-writer` with the driver's reading: to v1.0 gating
+the stance check-list (release gate item 13), every two-host session
+(17a's skipped smoke run, item 8's two-host half, the wave gate's
+two-host `smoke-load.sh`), the rehearsal (17b, item 12), and item 9's
+unobserved part (f4 after the local midnight, f8's fixed, a clean cycles
+verdict); 17b leaves v0.4; the release gate keeps the rest, its notes
+naming what moved. The single-host wave gate goes on.
+
+### D311, O161 closed, O162, plan v14 (d8f5f3c), 2026-11-03
+
+`spec-writer`: **D311** writes the ruling in. The v1.0-gating list lives
+in `specs/versions/README.md`, "Release gates" → "v1.0 gating" (pointer
+in `specs/versions/v1.0/README.md`): the stance check-list (item 13),
+every two-host session (item 8's two-host half, 17a's skipped run, the
+wave 4 gate's two-host `smoke-load.sh`), the rehearsal (17b, item 12) and
+its figures. 17b leaves v0.4; the bricks' footprints and the scenario's
+`resources` stay as they stand (item 1 met by the stack tests' at-rest
+figures; the rehearsal-tied figures move with it; 17a's memory table goes
+into the notes as one-host readings). G7 now blocks nothing in v0.4 after
+wave 3; G11 trimmed (no game played). Release gate: no GM session, no VPS
+run; item 8 the single-host smoke run plus `fit` refusing the VPS for
+`reporting`; items 12, 13 v1.0 gating. **Master spec 18** amended (a
+"Moved to v1.0 gating" paragraph, item 7's clause), on the owner's ruling
+as sign-off — **to confirm with the owner**. **O162** (open): item 9's
+unobserved part (f4 after the midnight, f8's fixed, a clean cycles
+verdict, ~9 h single-host) — `spec-writer` kept it in v0.4 (a smoke run,
+not a game); proposal: move it too, named in the known limits. Driver:
+chunk 17's Status set; the wave gate line corrected to the running scope
+(smoke, baseline, f10 on armenelos; cycles as 17a ran it).
+
+### Owner ruling: long-running tests to v1.0 gating, 2026-11-03 ~10:40 UTC
+
+The owner: "long running tests should be moved to v1.0 gating. remaining
+tests should be short." Closes O162 (item 9's unobserved part moves).
+The wave gate's `smoke` run (started 09:19Z; f1–f7, f9 present, f10 error
+as designed, 25 PASS 0 FAIL by 10:15Z, then f8's wait of up to 9000 s)
+is stopped at f8's wait, f8's reading moving too; `f10` and `baseline`
+(~31 min) still run. Taken as the owner's confirmation of D311's master
+spec 18 amendment. Sent to `spec-writer` (decision, plan v15) and to the
+gate's `coding-executor`.
+
+Wave gate so far (armenelos, 2026-11-03, UTC from the logs' local times −1 h):
+unit suite and scheduler unit tests run; `sh -n` clean; seven builds
+(first try) and stack tests all pass (07:43–08:09); `smoke.sh` pass;
+`smoke-monitoring.sh` 43/43 (46 s); `smoke-scenario.sh` bookshop 19/19
+(21 s), fernway 18/18 (29 s), tarnbeck-outdoor-shop 26/26 (822 s);
+`smoke-load.sh` armenelos 73/73 (423 s). Full figures in the gate's report.
+
+### D312, O162 closed, O163, plan v15 (fd2124f), 2026-11-03
+
+`spec-writer`: **D312** (long-running tests to v1.0 gating: the full
+cycles run with f4 across the midnight, f8's fixed and a clean verdict;
+f8's wait for its present reading in the all-at-once smoke run — in
+`smoke` mode the harness waits only for present, up to 9000 s); D311's
+master spec 18 amendment confirmed by it; master spec 18, plan v15
+(wave gate line, release gate intro "no long-running test", items 8, 9,
+17), the v1.0-gating list. **O163** (open): stopping `smoke` at f8's
+wait also skipped its end-of-run checks (`jobs_ran` incl. db's crontab
+entry and reporting's `pg_cron` job, `keys_running`, the full `gmctl
+check`, the teardown checks) — never yet reached with every fault
+planted; `baseline` covers them unfaulted except reporting's `pg_cron`
+job. Option (a), checks by hand on the stopped deployment, is moot: the
+harness's trap tore it down at 10:40:16Z, before the report. Left: (b) a
+harness option skipping f8's wait and a ~1 h `smoke` re-run, or (c) the
+gap named in the known limits. Driver's reading of release gate item 14:
+the wave 4 gate's run counts, re-run only for code changed after it.
+
+### Wave 4 gate (coding-executor, armenelos, 2026-11-03 07:35–11:19 UTC) — passed, armenelos-only
+
+On tree cd4bbd4 (later tips only the driver's log and `spec-writer`'s
+spec commits); no fix, no commit; the VPS untouched (Drain); κ = 1, each
+Docker step under the lock and an inhibitor. Logs in the driver's
+scratchpad `w4gate/`.
+
+| Step | Result | UTC, duration |
+|---|---|---|
+| Unit suite | 854 OK | 07:35, 140 s |
+| Scheduler unit tests | 72 OK | 07:40, 159 s |
+| `sh -n` / `perl -c` / `py_compile` | 165 / 7 / 46 files, 0 fail | < 1 min |
+| Seven builds | rc 0 first try, 0 network retries | 07:43 |
+| Stack tests | bastion 90, postgres 211, pgbouncer 120, scheduler 133, prometheus 131, postgres-exporter 103, grafana 119; 0 FAIL | 07:43–08:09, 1575 s |
+| `smoke.sh` | 61 PASS | 29 s |
+| `smoke-monitoring.sh` | 43/43 | 46 s |
+| `smoke-scenario.sh` | bookshop 19/19 (21 s), fernway 18/18 (29 s), tarnbeck-outdoor-shop 26/26 (822 s) | |
+| `smoke-load.sh armenelos` | 73/73 | 423 s |
+| `fixture-campaign` deployment | 84/84, G1–G4 exit 0 twice, every job ran, 17 purpose checks × 3 rounds only 0/3 | 08:33–09:19, 2743 s |
+| `smoke` (new scenario, every fault) | 25 PASS 0 FAIL, stopped in f8's wait (D312) | 09:19–10:40 |
+| `f10` | 23/23 | 10:43–10:51, 425 s |
+| `baseline` | 32/32 | 10:51–11:18, 1664 s |
+
+- `pooler workarounds: 0` in every run (D305); the pooler's start-up
+  wait resolved `db` after 5–7 s each time.
+- Images (`127.0.0.1:5000/dbagm/`): bastion:0.4.0 8ffc0bf43d36 185.6 MB;
+  postgres:0.4.0 2d4f82a98130 262.3 MB; pgbouncer:0.1.1 137b342a9b34
+  182.4 MB; scheduler:0.2.0 **c1ef5309474e** 170.6 MB (rebuilt: its
+  s6-overlay `ADD` layers re-fetched, re-running the apt layer on current
+  Debian packages; no `bricks/scheduler` commit since wave 3; old
+  1ad76b563f81 untagged, kept); prometheus:0.2.0 e0bad6332958 488.2 MB;
+  postgres-exporter:0.2.0 b8c644f1c94d 164.6 MB; grafana:0.2.0
+  b53a718ae5c0 866.2 MB.
+- `smoke`, first live run: f1–f7 and f9 present, f10 error as designed,
+  every moved job ok and every `jobs.yaml` restored byte for byte; stopped
+  at 10:40:03 in `await f8 present 9000`; not reached: f8, `keys_running`,
+  `jobs_ran` (O163).
+- `f10`: present after 154 s (backend SIGKILLed 10:48:10); recovered;
+  s6-svscan/sshd/cron pids kept; reporting `oom_kill` 0 → 1, `memory.peak`
+  93675520 → 671092736 B.
+- Memory peaks (one-minute samples): `fixture-campaign` db 217M/1G,
+  grafana 253M/384M, reporting 80M/640M, crm 50M/128M; `smoke` db 203M,
+  grafana 305M, reporting 73M, prometheus 98M; `baseline` db 218M,
+  grafana 240M.
+- Not checked: wave 3's "0 errors, 0 `08006`" count and the pg_cron
+  launcher check on `reporting` in the `fixture-campaign` run.
+- No wave sync: no intent register; dependencies changed only by chunk
+  21 (`security-advisor` done, 0b9e906).
+- Hosts at 11:19Z: clean, lock free, the VPS Drain, 9.6G free.
+
+### Release gate (coding-executor, armenelos, 2026-11-03) — passed, G11 and O163 for the owner
+
+On `v0.4-w4`; no non-spec change since the wave 4 gate's tree (cd4bbd4),
+so nothing re-run. Two commits: **5120e36** (`postgres` 0.4.0's
+`docs/gm.md`: the `pg_cron` and cron-daemon sections moved to level-2
+after Known limits, `player.md` likewise, text unchanged; unit suite 854
+OK after; the image unaffected) and **814ae8a** (release notes in
+`specs/versions/v0.4/README.md`, "## Release notes").
+- Items 1–7, 15: pass (bricks 7 checked 0 missing; 29 faults, 4 purposes,
+  1 domain, 4 scenarios complete; shop 92 columns + 7 view columns
+  classed; the ten faults complete; the scenario's README checked against
+  its sources, 619 values 0 missing; starter-pack page sections `readme
+  story issues data-policy web-interfaces` from the bastion image's own
+  code; bookshop without a web-interfaces section; every `applies_to`
+  current; the nine "Left for the build" rows recorded, five by pointer
+  to their captures).
+- Item 8's `fit`: the VPS refused for `reporting` (f10 needs an unshared
+  host, master spec 13.3) before any engine is contacted; the designed
+  mapping fits (armenelos: reporting; VPS: bi, gateway); the VPS never
+  contacted. Note: at the declared 12G the hand-over snapshot doesn't fit
+  (15.74G), on armenelos' real 41G it does.
+- Wave 3's readings: the `pg_cron` launcher on `reporting` ran in the
+  gate's `fixture-campaign` run (step5.log:103); every job run `ok`; the
+  `08006` count never taken — named in the notes.
+- Notes' known limits: master spec 18.7's four, D311/D312's moves, O163
+  as option (c) **provisionally** (an HTML comment marks it), the `08006`
+  count, D252, D258; known issues: c-ares pending, `pgbouncer` 0.1.1's
+  limits, the scheduler image rebuilt at the gate; grafana's 305M peak in
+  `smoke` above its 272M reservation (within 384M).
+- Items 9–14 as the wave log records; 12, 13 v1.0 gating; **16 (G11)
+  the owner's**.
+- Hosts: clean, lock free, the VPS Drain (never active).
+
+### Owner: "option c, G11 ok, merge", 2026-11-03
+
+O163 answered (c): the `smoke` run's end-of-run checks stay a known limit,
+covered by the v1.0-gating smoke run (`spec-writer` records it and drops
+the notes' provisional mark). **G11 cleared.** The owner asks for the
+merge: `spec-writer` closes O163 and archives the milestone
+(`milestone-archive`) on `v0.4-w4`, then the driver merges `v0.4-w4`
+`--no-ff` into `main` (no push) and removes the wave worktree and
+branch. `doc-ids compare main v0.4-w4`: 0 collisions.

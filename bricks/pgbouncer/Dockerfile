@@ -3,7 +3,7 @@
 # Generic image: no scenario content. The seed pgbouncer.ini (databases,
 # pool sizes, pool mode), the lookup role's password and the envelope file
 # arrive at run time at the fixed paths declared in brick.yaml.
-# Build:  docker build -t 127.0.0.1:5000/dbagm/pgbouncer:0.1.0 bricks/pgbouncer
+# Build:  docker build -t 127.0.0.1:5000/dbagm/pgbouncer:0.1.1 bricks/pgbouncer
 # Architecture: x86_64 only (the s6-overlay archive below).
 
 # --- rootfs/, its modes independent of the checkout --------------------------

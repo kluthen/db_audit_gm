@@ -1,0 +1,16 @@
+# Schedule of Lumen Analytics' transformer: its two connections, to the
+# shop's database and to the reporting database; no traffic of its own
+# (it runs fixed-time jobs only).
+intensity: 1.0
+connections:
+  shop:                        # the source: the hourly script reads the orders
+    driver: sql/postgresql
+    target: db:5432/shop
+    role: shop_etl
+    pool: {size: 1}
+  reporting:                   # the target: the script's writes and the nightly close's CALL
+    driver: sql/postgresql
+    target: reporting:5432/reporting
+    role: bi_etl
+    pool: {size: 1}
+streams: []

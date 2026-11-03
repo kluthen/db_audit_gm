@@ -27,7 +27,8 @@ day stays. Breaks R3, and the day against the source's R2 (16.2, f7).
   v0.4 scenario's names.
 - **Aging minimum (spec D189).** 1h from the close's first run after T0:
   T0 22:00, close 01:30, so the instance's `aging_minimum` is at least
-  4h30 plus 1h. The evidence then grows by one wrong day a night.
+  3h30 plus 1h, 4h30 (270m). The evidence then grows by one wrong day a
+  night.
 - In a game the close runs on `bi`, a report-only node the players cannot
   move it on, and the expected resolution is *propose* (16.1, 16.5): the
   check is expected to stay present at the final answer.

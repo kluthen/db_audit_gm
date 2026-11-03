@@ -11,7 +11,7 @@ v0.1 is draft.
 | [v0.1](v0.1/README.md) | Settle the GM stance on one simple scenario: a static PostgreSQL database investigated for specific defects | released 2026-10-21, merged into `main` (3c852e1); working record archived in [archive/v0.1/](../archive/v0.1/README.md) |
 | [v0.2](v0.2/README.md) | Monitoring and usual tooling: per-node health, PostgreSQL metrics, dashboards and alerting, log analysis; one free brick per need, chosen by footprint | released 2026-10-22: release gate passed, G10 and G11 cleared; [release notes](v0.2/README.md#release-notes); working record archived in [archive/v0.2/](../archive/v0.2/README.md) |
 | [v0.3](v0.3/README.md) | Producers and consumers: ingestion, load spikes, misbehaving requests, broad queries | released 2026-10-30: release gate passed, G9 and G10 cleared; merged into `main` (cba7be3); [master spec](v0.3/master-spec.md) and [access model](v0.3/access-model.md); [release notes](v0.3/README.md#release-notes); working record archived in [archive/v0.3/](../archive/v0.3/README.md) |
-| [v0.4](v0.4/README.md) | Purposes, "bricks of why and bits of hows": side usage and transformations (BI, leads, reports, mailing) modelled by their jobs, trace and invariants; a generic job runner, a second database (D190, revising D47); the shop as the first business domain (D192); a first cut of data governance: data classes, allowed locations and flows, a policy the players audit (D191) | master spec and access model approved 2026-10-30 (D215); [master spec](v0.4/master-spec.md), [access model](v0.4/access-model.md); [build plan](v0.4/build-plan.md) approved 2026-10-30 (D216) |
+| [v0.4](v0.4/README.md) | Purposes, "bricks of why and bits of hows": side usage and transformations (BI, leads, reports, mailing) modelled by their jobs, trace and invariants; a generic job runner, a second database (D190, revising D47); the shop as the first business domain (D192); a first cut of data governance: data classes, allowed locations and flows, a policy the players audit (D191) | released 2026-11-03: release gate passed, G11 cleared, its long runs moved to [v1.0 gating](#v10-gating) (D311–D313); merged into `main`; [master spec](v0.4/master-spec.md) and [access model](v0.4/access-model.md); [release notes](v0.4/README.md#release-notes); working record archived in [archive/v0.4/](../archive/v0.4/README.md) |
 | [v0.5](v0.5/README.md) | Domain definition, the veterinary clinic franchise the worked example (D233): a procedure for defining a domain (D235), the clinic's domains (data models, producer profiles, scheduler scripts, purposes; D192) with its richer governance, round trips, and the bricks, faults, topology and monitoring it needs (D238), brick options among them, for `postgres` only (D236, D262); a post-mortem collection begun beside it (D234) | draft |
 | [v0.6](v0.6/README.md) | The bastion as the players' main activity point: web interfaces, a documentation website, general-use tooling; the setup's entry point and a reporting tool, moved from v0.5 (D233) | draft |
 | [v1.0](v1.0/README.md) | First release: the full pipeline scenario, reached through v0.2–v0.6 | draft |
@@ -131,4 +131,53 @@ rehearsal, about two hours unattended with the aging minimum capped
 adds every purpose fault taken through its full cycle in a smoke run,
 its job moved as a player may, and names what no gate shows (a nightly
 job at its story's time, growth over a full aging, a night unattended)
-as known limits (D200).
+as known limits (D200). v0.4's gate left its two-host runs, its rehearsal and
+its stance check-list to v1.0 gating (D311, below), then its long-running
+tests (D312).
+
+### v1.0 gating
+
+Checks run once before the v1.0 tag, at the end of v0.6, one-off as
+D193 makes the aged run; listed here so none is lost. Until then no
+release gate plays a full game for testing (the owner, D311: "We won't
+proceed to full game for testing until then"). What each runs on and
+how is set when v1.0's gate is planned; whether that gate also has an
+aged run is decided then (D193).
+
+- **The stance check-list**, a GM session played on a deployment with
+  verifier agents as `player`: v0.3's items and v0.4's (an overstep on
+  `reporting` judged and not credited, a request to run a job by hand
+  refused, `--since` taken from a report dating a fix outside the
+  runner, the feedback on a report about f10 judged against the
+  incident); v0.4's release gate item 13 (D311).
+- **Every two-host session**, under the VPS rule (D159, D209), the VPS
+  `active` for the run only and drained after: v0.4's scenario smoke run
+  on armenelos plus the VPS, every fault planted at once, every key and
+  job running, `reporting` on armenelos (v0.4
+  [master spec](v0.4/master-spec.md) 18 item 1; chunk 17a's skipped run,
+  D310); the two-host `smoke-load.sh` of v0.4's wave 4 gate (D311).
+- **v0.4's rehearsal** (master spec 18 item 6; chunk 17b, its release
+  gate item 12), about two hours on armenelos plus the VPS, without f10
+  and f7 (D283), with the timer-fired early check, a scheduler killed and
+  resuming, the hand-over check (f4 expected "too soon", D284) and a
+  restart; and the figures it measures: every node's memory and the
+  trace's growth per hour, extrapolated over the sixteen-hour aging,
+  into the bricks' "Footprint" and the scenario's `resources`, `fit`
+  re-run (D311).
+- **Long-running tests**: a release gate keeps short tests only, the
+  owner's rule ("long running tests should be moved to v1.0 gating.
+  remaining tests should be short", D312). v0.4's instances:
+  - the full cycles run with f4 across the scenario's local midnight:
+    f4's steps after that midnight, f8's fixed reading and a clean
+    end-to-end verdict, about nine hours on armenelos ([master
+    spec](v0.4/master-spec.md) 18 item 2; chunk 17a's run stopped at
+    f4's wait for that midnight, D310);
+  - f8's wait in the all-at-once smoke run, up to 9000 s for its present
+    reading (master spec 18 item 1; the wave 4 gate's run stopped at that
+    wait; f8 read present, every fault planted, in chunk 17a's cycles
+    run);
+  - the all-at-once smoke run's checks after that wait, never reached
+    in v0.4: every job of every runner and `db`'s and `reporting`'s
+    jobs since T0 with every fault planted, `reporting`'s `pg_cron` job
+    among them, every scheduler key called, the full `gmctl check`, the
+    teardown leaving nothing (master spec 18 item 1, D313).

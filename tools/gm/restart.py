@@ -179,6 +179,8 @@ def new_implementation(scenario, playground, old, game_id, subnet):
                                           hosts, old.get("snapshot_fit"))
     if subnet:
         impl[localimpl.OVERLAY] = {"subnet": subnet}
+    if old.get(localimpl.TEST_OVERRIDE):
+        impl[localimpl.TEST_OVERRIDE] = old[localimpl.TEST_OVERRIDE]
     return impl
 
 
@@ -186,7 +188,8 @@ def new_timeline(scenario, old):
     """The restart's timeline: the planned hand-over, the shift and the
     customer's zone kept, a new seed (capture W2 item 1; D136, D163)."""
     planned = aging.parse_instant((old.get(localimpl.TIMELINE) or {}).get("planned_handover"))
-    return render.build_timeline(scenario, planned, None, aging.iso(aging.now_utc()))
+    return render.build_timeline(scenario, planned, None, aging.iso(aging.now_utc()),
+                                 left_out=localimpl.left_out(old))
 
 
 def carry_state(st, game_id):
@@ -319,7 +322,7 @@ def restart_plantings(scenario, impl, at):
     at `at` by the restart."""
     timeline = (impl.get(localimpl.TIMELINE) or {}).get("instances") or {}
     out = {}
-    for inst, _ in inject.fault_instances(scenario):
+    for inst, _ in inject.fault_instances(scenario, impl):
         plant_at = inject.plant_at_of(scenario, impl, inst)
         if plant_at == aging.T0:
             out[inst["id"]] = {"plant_at": plant_at, "planted_at": at, "by": BY_RESTART}

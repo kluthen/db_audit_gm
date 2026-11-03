@@ -265,9 +265,13 @@ def check_plan(scenario, impl, instances=None, st=None, since=None):
     `st`, raised to `since` (`--since`). Refuses (GmError) before anything
     runs, `--since` among the refusals when no instance run judges runs or
     triggers."""
-    pairs = fault_instances(scenario)
+    pairs = fault_instances(scenario, impl)
     if instances is not None:
         known = {inst["id"] for inst, _ in pairs}
+        out = [iid for iid in instances if iid in localimpl.left_out(impl)]
+        if out:
+            raise GmError(f"fault instance {', '.join(out)} left out of this game by the test "
+                          "harness: not planted, not checked")
         unknown = [iid for iid in instances if iid not in known]
         if unknown:
             raise GmError(f"not a fault instance of the scenario: {', '.join(unknown)}")

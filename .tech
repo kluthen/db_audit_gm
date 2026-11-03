@@ -8,10 +8,11 @@
 # below are those in the images built from this branch (dpkg-query inside
 # each image, 2026-10-26; postgres 0.4.0, bastion 0.4.0 and scheduler 0.2.0
 # re-checked 2026-10-30; pgbadger in postgres
-# 0.4.0 resolved 2026-10-31); Debian package versions carry backported fixes,
+# 0.4.0 resolved 2026-10-31; pgbouncer 0.1.1 re-checked 2026-11-02,
+# same 133 packages as 0.1.0); Debian package versions carry backported fixes,
 # so an NVD match on one is settled by the Debian security tracker.
 schema = 1
-updated = 2026-10-31
+updated = 2026-11-02
 
 [stack]
 languages = ["Python 3.13", "POSIX shell"]
@@ -19,7 +20,7 @@ runtime = ["Docker Engine 29 (swarm mode)", "s6-overlay 3.2", "cron 3.0pl1 (Debi
 base_image = ["debian:13-slim (Debian 13.7 trixie)"]
 data = ["PostgreSQL 18 (PGDG)", "pg_cron 1.6 (PGDG)", "PgBouncer 1.26 (PGDG)"]
 monitoring = ["Prometheus 3.13", "postgres_exporter 0.20", "Grafana 13.2", "pgBadger 13.2 (PGDG, postgres brick)"]
-bricks = ["postgres 0.4.0", "bastion 0.4.0", "prometheus 0.2.0", "postgres-exporter 0.2.0", "grafana 0.2.0", "scheduler 0.2.0", "pgbouncer 0.1.0"]
+bricks = ["postgres 0.4.0", "bastion 0.4.0", "prometheus 0.2.0", "postgres-exporter 0.2.0", "grafana 0.2.0", "scheduler 0.2.0", "pgbouncer 0.1.1"]
 rendering = ["cmark-gfm 0.29 (Debian, bastion starter-pack page)"]
 lockfiles = []                 # none: the GM tool uses only Debian's python3-yaml
 
@@ -67,7 +68,7 @@ source = "Debian sudo 1.9.16p2-3+deb13u2, every brick but bastion (apt, unpinned
 name = "PostgreSQL (server and client tools)"
 version = "18.6"
 cpe = "cpe:2.3:a:postgresql:postgresql"
-source = "PGDG postgresql-18 / postgresql-client-18 / libpq5 18.6-1.pgdg13+2: postgres 0.4.0 (server), bastion 0.4.0 and pgbouncer 0.1.0 (client); Dockerfile pins the major (ARG PG_MAJOR=18), the minor follows PGDG at build time"
+source = "PGDG postgresql-18 / postgresql-client-18 / libpq5 18.6-1.pgdg13+2: postgres 0.4.0 (server), bastion 0.4.0 and pgbouncer 0.1.1 (client); Dockerfile pins the major (ARG PG_MAJOR=18), the minor follows PGDG at build time"
 
 [[platform]]
 name = "PostgreSQL client library (libpq, scheduler)"

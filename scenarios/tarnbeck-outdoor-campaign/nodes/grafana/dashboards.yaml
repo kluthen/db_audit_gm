@@ -1,0 +1,17 @@
+# Grafana's dashboard provider: every *.json under the path, node-health.json
+# and postgresql.json included. Edits to the dashboard files take effect
+# through `sudo gm-reload-grafana` (Grafana's own polling is set to once a
+# day); dashboards loaded from files cannot be saved from the UI.
+apiVersion: 1
+
+providers:
+  - name: db_audit_gm
+    orgId: 1
+    type: file
+    folder: ''
+    disableDeletion: false
+    allowUiUpdates: false
+    updateIntervalSeconds: 86400
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false

@@ -1,7 +1,9 @@
 # brick.yaml: PgBouncer node, the game's optional connection pooler (v0.3
 # master spec 7.2).
 #
-# Version 0.1.0 (unreleased until the v0.3 release gate, D100). Roles, growth
+# Version 0.1.1 (unreleased until the v0.4 release gate, D100): 0.1.0, released
+# with v0.3, plus the start-up wait for the [databases] hosts in the s6
+# service's run (v0.4 spec D305; no interface change). Roles, growth
 # per hour, writable and seed paths, snapshot methods, the lookup role's
 # secret: capture W1 items 3, 5, 6 and 8 (specs/versions/v0.3/wave-log.md).
 # Top-level keys: capture W1-A; fixed paths, secrets, envelope file and
@@ -12,17 +14,17 @@
 
 # --- Identity ---------------------------------------------------------
 id: pgbouncer
-version: 0.1.0
+version: 0.1.1
 roles:
   - pooler
 technology:
   name: pgbouncer
   version: "1.26"                   # PGDG's package, 1.26.1-1.pgdg13+1 (D177; the Dockerfile checks it)
-image: 127.0.0.1:5000/dbagm/pgbouncer:0.1.0
+image: 127.0.0.1:5000/dbagm/pgbouncer:0.1.1
 
 # --- Footprint --------------------------------------------------------
 footprint:                          # master spec 7.2's figures; at rest in the stack test, under
-                                    # the 64M limit: 11.1MiB, CPU 0.01 % (docs/gm.md, Footprint)
+                                    # the 64M limit: 11.2MiB, CPU 0.04 % (docs/gm.md, Footprint)
   limits:       {cpu: 0.25, memory: 64M}
   reservations: {cpu: 0.05, memory: 32M, disk: 256M}
   disk_growth_per_hour: 1M          # PgBouncer's log (a stats line a minute, a line per login and

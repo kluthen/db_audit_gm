@@ -7,7 +7,7 @@ v0.4's eight draft documents and the owner's rulings of 2026-10-28 and
 [v0.3 master spec](../v0.3/master-spec.md) and its
 [access model](../v0.3/access-model.md). Everything v0.3 specifies stays
 in force unless this document changes it; where they disagree, this
-document wins for v0.4. Its [build plan](build-plan.md) carries
+document wins for v0.4. Its [build plan](../../archive/v0.4/build-plan.md) carries
 section 19.
 
 Amended after approval, on 2026-10-30, by the owner's rulings during
@@ -35,7 +35,17 @@ Then the owner accepted f10's normal run at 640M as measured (16.3) and
 had `separation: instance` defined now, as a rule of G1 (6.9, 11.4,
 11.6); chunk 15b's readings of f10 were written in (6.3, 9.6, 16.3),
 and `load-data`'s last step, removing the `pg_cron` launcher's start-up
-failures from the server log on the owner's ruling (7.2, 14).
+failures from the server log on the owner's ruling (7.2, 14). At wave 4's
+start: chunk 20's breach line for a whole database (11.6); f10's check
+reading 2 when a player alters the backfill request (16.5); the
+rehearsal without f7 as well as f10, both nightly (18). Then the
+owner's ruling on f5 masking f4: times kept, f4 expected "too soon" at
+the hand-over check, which passes a "too soon" its answer key expects
+(6.2, 12.2, 16.1). On 2026-11-03 the owner moved the two-host runs, the
+rehearsal and the stance check-list to v1.0 gating, run once before the
+v1.0 tag, and then every long-running test, the gate keeping short ones
+(18); at release close, the single-host smoke run's checks after f8's
+wait, never reached, were left a known limit covered there (18).
 
 ---
 
@@ -200,10 +210,11 @@ bricks/
                         check-psql reaching another instance
   bastion/              0.4.0: the optional data-policy.md, the
                         starter-pack page
+  pgbouncer/            0.1.1: the start-up race fixed (7.3)
 purposes/<purpose-id>/  new: the four purposes (6.7)
 domains/shop/           new: the shop domain (6.8)
-faults/<fault-id>/      ten new faults; every fault applying to `postgres`
-                        or `scheduler` lists the new versions
+faults/<fault-id>/      ten new faults; every fault applying to `postgres`,
+                        `scheduler` or `pgbouncer` lists the new versions
 scenarios/<new-id>/     the v0.4 scenario
 scenarios/tarnbeck-outdoor-shop/, bookshop-new-server/, fernway-clinics-monitoring/
                         re-pinned, otherwise unchanged
@@ -249,6 +260,8 @@ every version; this section lists what v0.4 changes. The shapes are in
 - A sealed check judging a purpose's runs or triggers states `judges:
   runs` or `judges: triggers` and a `threshold` (violations tolerated, 0
   by default), and no window (12).
+- Such a check's `at_handover` may be 3, "too soon to tell", where
+  another instance masks it until after the hand-over (12.2).
 - A tooling expectation may name an unmonitored instance (13.4).
 
 ### 6.3 Fault definition (`fault.yaml`)
@@ -657,8 +670,8 @@ happens in place, with no Swarm replacement.
 
 ### 7.3 The other bricks
 
-Unchanged: `pgbouncer` 0.1.0, `prometheus`, `postgres-exporter` and
-`grafana` 0.2.0. The bastion's password file already holds `dba`'s
+Unchanged: `prometheus`, `postgres-exporter` and `grafana` 0.2.0. The
+bastion's password file already holds `dba`'s
 password for any host, so the players reach a second instance with
 `psql -h <node>`.
 
@@ -688,6 +701,16 @@ password for any host, so the players reach a second instance with
   section or link for web interfaces; v0.3's rule (no web interface, no
   front, no second port, no tools password) no longer holds. Nothing
   else joins the front in v0.4 (22).
+
+**`pgbouncer` 0.1.1** fixes a start-up race found during v0.4's build:
+a pooler started before its database node was known to the swarm's DNS
+failed every lookup of that node until its PgBouncer restarted, so the
+pooler's clients lost their database for the whole game. A pooler
+started before its database node now serves through it once the node
+is up: at start it waits, for a bounded time, until the hosts its
+`[databases]` section names resolve, then starts PgBouncer either way,
+so a name that never resolves does not keep the node down. Nothing else
+changes: no interface, setting, package or footprint.
 
 ## 8. Purposes
 
@@ -1231,9 +1254,10 @@ breaks.
   it already walks (connectable, not a template), the maintenance
   database `postgres` aside: on each node holding one of the class's
   locations, a database that is not one of them is a breach, named by
-  its `node/database`, whatever it holds, since sharing the instance is
-  the finding. The class's own locations may share one instance. A class
-  without the field is judged as before.
+  its `node/database` with the word `database` as the object (`G1
+  <node>/<database> database: …`), whatever it holds, since sharing the
+  instance is the finding. The class's own locations may share one
+  instance. A class without the field is judged as before.
 - A transformer script's reach is the one path no catalog shows: G3
   judges the roles of its connections, G1 what actually landed; the
   script's code is the players' evidence, not the check's. A cron
@@ -1333,6 +1357,16 @@ their time (written inside the run's transaction) or by their
 
 **Past violations never count**; they stay in the trace as evidence.
 "Fixed" means no new violation since the fix.
+
+**At the hand-over check** a "too soon" fails, as in v0.3 (v0.3 8.5),
+unless the answer key's `at_handover` for that instance is 3. An answer
+key writes 3 only for a check judging runs or triggers whose job
+another instance, planted before it, keeps from producing a witness
+before the hand-over, and it states that instance as masking it. The
+check then passes on a 3 and fails on any other reading, a 1 included,
+as any reading other than `at_handover` does. The early check records a
+"too soon" either way. The first scenario's f4, masked by f5, is the
+case (16.1).
 
 ### 12.3 Witnesses
 
@@ -1588,7 +1622,7 @@ the rehearsal):
 |---|---|---|---|---|
 | `bastion` | `bastion` 0.4.0 | bastion | report-only | as v0.3 |
 | `db` | `postgres` 0.4.0 | database (`shop`) | fixable | 1G / 512M |
-| `pooler` | `pgbouncer` 0.1.0 | pooler | fixable | as v0.3 |
+| `pooler` | `pgbouncer` 0.1.1 | pooler | fixable | as v0.3 |
 | `producer` | `scheduler` 0.2.0 | producer (the web shop) | report-only, repository and `jobs.yaml` fixable | 96M / 48M |
 | `consumer` | `scheduler` 0.2.0 | consumer (the back office's dashboards, reading `reporting`) | report-only, `jobs.yaml` fixable | 128M / 64M |
 | `reporting` | `postgres` 0.4.0 | database (`reporting`), the agency's | fixable; the agency's by the story, its faults *propose* or *report* | 640M / 256M |
@@ -1636,6 +1670,18 @@ and the nightly close stay clear of it.
 | f8 | `purpose-receiver-down-unnoticed` | `crm` | P5 | seed-file, and the gateway's two-hour outage as a timeline change | hidden, fix |
 | f9 | `governance-personal-copied` | `reporting` | P1, the policy | seed-file | hidden, propose |
 | f10 | `purpose-heavy-job-on-database-node` | `reporting` | the agency's roll-up | seed-file at T0, state at `handover-12h` | known (I6), report |
+
+**f5 masks f4.** f5 expires `shop_etl` at `handover-5h` (09:00), so
+every hourly roll-up fails from 09:05, the 12:05 run after the
+producer's noon invoicing among them, and f4's check finds no witness:
+it reads "too soon" (3) at the hand-over check, which its answer key
+expects (`at_handover: 3`, 12.2). The game is layered: the frozen
+dashboards hide the watermark gap until the players fix f5, then the
+next hourly runs show it in the figures. f4's check still reads 3 for
+the rest of the game, since no close falls in it unless the players
+move the producer's, and the players' proposal is what the feedback
+judges, as for f7. A failed f5 planting
+leaves f4 reading 1, which fails the hand-over check as well.
 
 **Issues**:
 
@@ -1820,7 +1866,7 @@ and never a shared host (13.3).
 
 `tarnbeck-outdoor-shop`, `bookshop-new-server` and
 `fernway-clinics-monitoring` are re-pinned to `postgres` 0.4.0, and
-tarnbeck to `scheduler` 0.2.0; none turns on `pg_cron` or the cron
+tarnbeck to `scheduler` 0.2.0 and `pgbouncer` 0.1.1; none turns on `pg_cron` or the cron
 daemon, and each still deploys and passes its v0.3 smoke test
 unchanged. `bookshop-new-server`, which has no web interface, gains the
 web front's published port, and its bastion now serves the
@@ -1856,8 +1902,12 @@ overstepping player can do, and how it is treated:
 - **f10.** A player who moves the heavy entry to another hour, deletes
   it, or moves the same `CALL` to another node, has not moved the
   computation (or has stopped the agency's roll-up); the feedback says
-  so. The incident check is unaffected (16.3). The report is judged as
-  if nothing had changed.
+  so. The incident check is unaffected by the crontab (16.3). A player
+  who deletes or alters the backfill request takes away what the check
+  dates the incident from, and it reads 2: after the hand-over that is
+  this overstep, never a failed planting, and the GM reads the kill and
+  the recovery in the node's log itself. The report is judged as if
+  nothing had changed.
 - **f9.** Unscheduling the job (by its id: by name, `cron.unschedule`
   finds only the caller's own jobs, and this one is `bi_etl`'s) and
   dropping the copies makes its check read fixed; the GM judges the
@@ -1877,8 +1927,8 @@ The access model lists this as a known gap.
 
 ## 17. Definition of done
 
-1. `scheduler` 0.2.0 as in 7.1, `postgres` 0.4.0 as in 7.2 and
-   `bastion` 0.4.0 as in 7.3, with GM and player documentation,
+1. `scheduler` 0.2.0 as in 7.1, `postgres` 0.4.0 as in 7.2,
+   `bastion` 0.4.0 and `pgbouncer` 0.1.1 as in 7.3, with GM and player documentation,
    validators and measured footprints; `postgres` 0.4.0's and `bastion`
    0.4.0's new packages through the dependency checks, the project's
    technology record up to date.
@@ -1903,8 +1953,27 @@ The access model lists this as a known gap.
 ## 18. The release gate
 
 No aged run: an aged run is a one-off check, none is planned before
-v1.0 ("it takes too much time"). v0.4's gate has the smoke tests, the
-rehearsal and the timer-fired early check, and adds:
+v1.0 ("it takes too much time"). v0.4's gate has the smoke tests and
+adds the items below.
+
+**Moved to v1.0 gating** by the owner on 2026-11-03, run once before
+the v1.0 tag, with the full-game testing no gate plays until then
+([roadmap](../README.md#v10-gating)): item 1's run on armenelos plus
+the VPS (`fit`'s refusal of the VPS for `reporting` stays in v0.4's
+gate); item 6, the rehearsal, with the timer-fired early check it
+carries and the measurements 7.2, 9.8, 13.2 and 16.1 leave to it, the
+bricks' footprints and the first scenario's starting figures standing
+as built until then; and the stance check-list, a GM session played
+with verifier agents as `player`. Then, by his ruling the same day that
+long-running tests move there and the gate's remaining tests are short:
+in item 1's single-host run, the wait for f8's reading, up to two and a
+half hours, and with it the run's checks after that wait (every job and
+key since T0 with every fault planted, `reporting`'s `pg_cron` job among
+them, the full `check`, the teardown), never reached in v0.4 and left a
+known limit by the owner's answer at release close; in item 2, f4's steps after the scenario's local midnight,
+f8's fixed reading and the cycles run's clean end-to-end verdict, a run
+of about nine hours, item 2's other steps standing as run up to f4's
+wait for that midnight. Item 7 names them.
 
 1. **Smoke tests** on one host and on armenelos plus the VPS, every
    fault planted at once (a test harness, never a game), every scheduler
@@ -1934,13 +2003,15 @@ rehearsal and the timer-fired early check, and adds:
    resuming, the hand-over check and snapshot, a restart; the memory of
    every node measured, `reporting`, `bi`, `crm` and `gateway` included;
    the trace's growth per hour measured and extrapolated over the
-   sixteen-hour aging, stated as an extrapolation. It runs without f10,
-   by a harness-only override, since f10's job runs at 03:00, outside
-   the rehearsal's window; item 5 proves it.
+   sixteen-hour aging, stated as an extrapolation. It runs without f10
+   and f7, by a harness-only override, since f10's job runs at 03:00 and
+   f7's nightly close at 01:30, outside the rehearsal's window; items 5
+   and 2 prove them. The override leaves out their planting and checks,
+   not their seed changes, which stay inert in the window.
 7. **Known limits, named** in the release notes: the nightly close
    running at its story's time; the trace's growth over a full aging
    (extrapolated, not observed); hosts and timers through a night; f10
-   within a real aging.
+   within a real aging; what moved to v1.0 gating, above.
 
 ## 19. For the build plan
 

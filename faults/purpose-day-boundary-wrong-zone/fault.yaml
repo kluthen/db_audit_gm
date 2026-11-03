@@ -29,7 +29,7 @@ aging:
   minimum: 1h                       # counted from the close's first run after planting (spec
                                     # D189): the scenario raises the instance's aging_minimum to
                                     # the close's offset from T0 plus this (T0 22:00, close 01:30:
-                                    # 5h)
+                                    # 3h30 plus 1h, 4h30 or 270m)
 
 # --- Parameters the scenario sets -------------------------------------
 parameters:

@@ -1,0 +1,151 @@
+# The shop's classification (master spec 9.9, 11.2, 11.3): every column of
+# every table and view of the shop's database, schema public, keyed
+# <database>.<table>.<column> (capture W1, items 0 and 6). The domain
+# classifies; a scenario's governance: states each class's rules.
+#
+# Classes:
+#   personal         names, e-mail and postal addresses, a customer's country
+#                    and time zone, consent (the events, and the opt-in flag
+#                    stating the same fact), the outboxes' e-mails and
+#                    payloads; and a customer id stored beside a direct
+#                    identifier (customers.id, mail_outbox.customer_id),
+#                    since "a direct identifier, or anything stored with one"
+#                    (11.2) and not "a customer id with no direct identifier
+#                    beside it";
+#   customer-linked  a customer id with no direct identifier beside it:
+#                    orders.customer_id, and leads, the whole table;
+#   internal         everything else: products, orders and their totals,
+#                    destinations, the customs acknowledgements and
+#                    incidents, the run ledger, the aggregates.
+# A column with no entry is internal; every column is listed all the same.
+columns:
+  # business_settings: the customer's zone and the mailing hours
+  shop.business_settings.timezone: internal
+  shop.business_settings.utc_offset_hours: internal
+  shop.business_settings.mail_window_start: internal
+  shop.business_settings.mail_window_end: internal
+
+  # customers
+  shop.customers.id: personal
+  shop.customers.name: personal
+  shop.customers.email: personal
+  shop.customers.address: personal
+  shop.customers.country: personal
+  shop.customers.timezone: personal
+  shop.customers.marketing_opt_in: personal
+  shop.customers.created_at: internal
+  shop.customers.last_order_at: internal
+  shop.customers.lifetime_value: internal
+
+  # consent_events: consent events are personal, every column
+  shop.consent_events.id: personal
+  shop.consent_events.customer_id: personal
+  shop.consent_events.purpose: personal
+  shop.consent_events.granted: personal
+  shop.consent_events.at: personal
+  shop.consent_events.source: personal
+
+  # products
+  shop.products.id: internal
+  shop.products.sku: internal
+  shop.products.name: internal
+  shop.products.category: internal
+  shop.products.price: internal
+  shop.products.stock: internal
+  shop.products.sold: internal
+
+  # orders
+  shop.orders.id: internal
+  shop.orders.customer_id: customer-linked
+  shop.orders.placed_at: internal
+  shop.orders.status: internal
+  shop.orders.total: internal
+  shop.orders.updated_at: internal
+  shop.orders.packed_at: internal
+  shop.orders.shipped_at: internal
+  shop.orders.ship_country: internal
+
+  # order_lines
+  shop.order_lines.id: internal
+  shop.order_lines.order_id: internal
+  shop.order_lines.product_id: internal
+  shop.order_lines.sku: internal
+  shop.order_lines.product_name: internal
+  shop.order_lines.quantity: internal
+  shop.order_lines.unit_price: internal
+  shop.order_lines.vat_rate: internal
+  shop.order_lines.line_total: internal
+  shop.order_lines.created_at: internal
+
+  # delivery_events: the carriers' feed
+  shop.delivery_events.id: internal
+  shop.delivery_events.event_id: internal
+  shop.delivery_events.order_id: internal
+  shop.delivery_events.status: internal
+  shop.delivery_events.received_at: internal
+
+  # export_countries
+  shop.export_countries.country: internal
+
+  # campaigns
+  shop.campaigns.id: internal
+  shop.campaigns.code: internal
+  shop.campaigns.segment: internal
+  shop.campaigns.starts_on: internal
+  shop.campaigns.ends_on: internal
+  shop.campaigns.active: internal
+
+  # leads: customer-linked, every column
+  shop.leads.campaign_id: customer-linked
+  shop.leads.customer_id: customer-linked
+  shop.leads.score: customer-linked
+  shop.leads.extracted_at: customer-linked
+
+  # mail_outbox: the e-mail and the payload; the customer id beside them
+  shop.mail_outbox.id: internal
+  shop.mail_outbox.customer_id: personal
+  shop.mail_outbox.email: personal
+  shop.mail_outbox.template: internal
+  shop.mail_outbox.campaign_id: internal
+  shop.mail_outbox.order_id: internal
+  shop.mail_outbox.payload: personal
+  shop.mail_outbox.sent_at: internal
+
+  # customs_outbox: the declaration's payload names the consignee
+  shop.customs_outbox.id: internal
+  shop.customs_outbox.order_id: internal
+  shop.customs_outbox.payload: personal
+  shop.customs_outbox.sent_at: internal
+  shop.customs_outbox.idempotency_key: internal
+
+  # customs_acks
+  shop.customs_acks.outbox_id: internal
+  shop.customs_acks.status: internal
+  shop.customs_acks.reference: internal
+  shop.customs_acks.reason: internal
+  shop.customs_acks.received_at: internal
+
+  # incidents
+  shop.incidents.id: internal
+  shop.incidents.source: internal
+  shop.incidents.ref: internal
+  shop.incidents.opened_at: internal
+  shop.incidents.reason: internal
+
+  # etl_runs: the run ledger
+  shop.etl_runs.id: internal
+  shop.etl_runs.job: internal
+  shop.etl_runs.started_at: internal
+  shop.etl_runs.finished_at: internal
+  shop.etl_runs.rows_read: internal
+  shop.etl_runs.rows_written: internal
+  shop.etl_runs.watermark: internal
+
+  # popular_products (materialized view): the best sellers
+  shop.popular_products.category: internal
+  shop.popular_products.rank: internal
+  shop.popular_products.product_id: internal
+  shop.popular_products.sku: internal
+  shop.popular_products.name: internal
+  shop.popular_products.price: internal
+  shop.popular_products.units: internal

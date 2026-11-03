@@ -791,6 +791,53 @@ class AgingGame(InjectedV03):
                                out=self.printed.append, **kwargs)
 
 
+class TestLeftOutByTheHarness(AgingGame):
+    """Capture W4 item 8: instances the harness left out at render (f2, a
+    state fault planted during the aging, and f3) are never planted and
+    never checked, by every verb; a restart keeps the override."""
+
+    def render(self, handover=None, **kwargs):
+        return super().render(handover, test_leave_out="f2,f3")
+
+    def setUp(self):
+        super().setUp()
+        self.start()
+
+    def test_never_planted_never_checked(self):
+        from tools.gm import checks
+        st = self.st()
+        self.assertEqual(list(st["plantings"]), ["f1"])
+        self.assertEqual(st["earliest_handover"]["waiting_for"], [])
+        with self.assertRaisesRegex(GmError, "--instance f2: left out of this game by the test "
+                                             "harness"):
+            self.inject_at("now")
+        result = checks.check(self.scenario, "laptop", docker=self.fake)
+        self.assertEqual([line.instance for line in result.lines], ["f1"])
+        with self.assertRaisesRegex(GmError, "fault instance f3 left out of this game"):
+            checks.check(self.scenario, "laptop", docker=self.fake, instances=["f3"])
+        for kind in (aging.EARLY_CHECK, aging.HANDOVER_CHECK):
+            run = self.check(kind)
+            self.assertEqual(run.exit_code, 0, run.text())
+        record = self.st()["handover_checks"][-1]
+        self.assertEqual([f["instance"] for f in record["faults"]], ["f1"])
+        self.assertEqual(self.st()["early_check"]["result"]["not_planted"], [])
+
+    def test_a_restart_keeps_it(self):
+        from tools.gm import restart
+        impl = localimpl.read_implementation(self.ldir)
+        scenario = model.load_scenario(self.scenario)
+        new = restart.new_implementation(scenario, "laptop", impl, "restarted-abc123", None)
+        self.assertEqual(localimpl.left_out(new), ["f2", "f3"])
+        self.assertEqual(list(restart.new_timeline(scenario, impl)["instances"]), ["f1"])
+        new["timeline"] = restart.new_timeline(scenario, impl)
+        self.assertEqual(list(restart.restart_plantings(scenario, new, aging.iso(self.now()))),
+                         ["f1"])
+        self.assertEqual([p[0] for p in inject.inject_plan(scenario, new)], ["f1"])
+
+    def now(self):
+        return aging.now_utc()
+
+
 class TestOutages(unittest.TestCase):
     """W2 item 6: outage minutes, the lost time, its effect (D152, D175)."""
 
@@ -1008,6 +1055,61 @@ class TestEarlyAndHandOverChecks(AgingGame):
         self.assertEqual(self.st()["handover_checks"][-1]["failures"],
                          ["f3 fixture-job-timezone: too soon to tell, the job's next run is in "
                           "5400 s (1h30m)"])
+
+    def expect_masked(self, iid, at_handover=3, masked_by="f1"):
+        """The answer key expecting `iid` at `at_handover`, masked by
+        `masked_by` (None: no instance named)."""
+        path = self.scenario / "gm" / "answer-key.yaml"
+        key = yaml.safe_load(path.read_text())
+        for entry in key["instances"]:
+            if entry["instance"] == iid:
+                entry["sealed_check"]["at_handover"] = at_handover
+                entry["interactions"] = [] if masked_by is None else [
+                    {"instance": masked_by, "kind": "masked-by", "note": "its job fails"}]
+        path.write_text(yaml.safe_dump(key, sort_keys=False))
+
+    def test_a_masked_too_soon_passes_only_where_the_answer_key_writes_3(self):
+        """Master spec 12.2, spec D284: a "too soon" passes the hand-over check
+        only for an instance whose `at_handover` is 3 and that names the
+        instance masking it; any other reading of it fails, a 1 included;
+        every other instance's "too soon" still fails."""
+        self.inject_at("now")
+        self.expect_masked("f3")
+        self.replies[CHECKS["f3"]] = (3, "remaining=5400 the job has not run since\n", "")
+        run = self.check(aging.HANDOVER_CHECK)
+        self.assertEqual(run.exit_code, 0, run.text())
+        record = self.st()["handover_checks"][-1]
+        entry = record["faults"][2]
+        self.assertEqual((entry["instance"], entry["verdict"], entry["passed"],
+                          entry["masked_by"]), ("f3", "too-soon", True, ["f1"]))
+        self.assertEqual(record["failures"], [])
+
+        # a 1 (or a 0) of the masked instance fails
+        for code, verdict in ((1, "present"), (0, "fixed")):
+            self.replies[CHECKS["f3"]] = (code, f"{verdict}\n", "")
+            run = self.check(aging.HANDOVER_CHECK)
+            self.assertEqual(run.exit_code, 1, run.text())
+            self.assertEqual(self.st()["handover_checks"][-1]["failures"],
+                             [f"f3 fixture-job-timezone: reads {verdict} (exit {code}), "
+                              "expected exit 3 at hand-over (masked by f1)"])
+
+        # another instance's too soon still fails it, beside the masked one's pass
+        self.replies[CHECKS["f3"]] = (3, "remaining=5400 the job has not run since\n", "")
+        self.replies[CHECKS["f1"]] = (3, "remaining=600 the job has not run since\n", "")
+        run = self.check(aging.HANDOVER_CHECK)
+        self.assertEqual(run.exit_code, 3, run.text())
+        self.assertEqual(self.st()["handover_checks"][-1]["failures"],
+                         ["f1 fixture-random-page-cost: too soon to tell, 600 s of its window "
+                          "remain"])
+
+        # an at_handover of 3 naming no masking instance passes no too soon
+        self.replies[CHECKS["f1"]] = (1, "present\n", "")
+        self.expect_masked("f3", masked_by=None)
+        run = self.check(aging.HANDOVER_CHECK)
+        self.assertEqual(run.exit_code, 3, run.text())
+        self.assertEqual(self.st()["handover_checks"][-1]["failures"],
+                         ["f3 fixture-job-timezone: too soon to tell, 5400 s of its window "
+                          "remain"])
 
     def test_the_hand_over_check_needs_every_planting(self):
         run = self.check(aging.HANDOVER_CHECK)

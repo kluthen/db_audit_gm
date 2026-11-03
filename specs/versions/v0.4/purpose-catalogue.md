@@ -1,13 +1,13 @@
 # v0.4 — the purpose catalogue
 
-Status: draft v4
+Status: draft v5 (2026-11-03: links to the drafts archived at v0.4's close repaired, nothing else changed)
 
 The purposes v0.4 ships, each with its jobs, its trace and its
 invariants, stated against the shop's data model
 ([shop-domain.md](shop-domain.md)). Which purposes ship is settled
-(D197); the format they follow is in [purposes.md](purposes.md);
+(D197); the format they follow is in [purposes.md](../../archive/v0.4/purposes.md);
 their faults in [candidate-faults.md](candidate-faults.md); how an
-invariant is judged in [checks.md](checks.md).
+invariant is judged in [checks.md](../../archive/v0.4/checks.md).
 
 ## The purposes v0.4 ships (D197)
 
@@ -59,7 +59,7 @@ node sized for it; `rollup-close` is scheduled on `bi` but computes on
 `reporting`, the receiving instance, as one set-based procedure at
 01:30, off-peak, the shop's instance serving only the remote scan. Both
 fit; the close could equally be a `pg_cron` job on `reporting` (D206;
-[database-node-jobs.md](database-node-jobs.md), "Placement").
+[database-node-jobs.md](../../archive/v0.4/database-node-jobs.md), "Placement").
 
 **Consumer**: the back office's dashboards (v0.3's `consumer` node) read
 `reporting` as `bi_reader` for their KPIs; their queries are
@@ -231,7 +231,7 @@ v0.5's (D201).
 A deadline counted from a continuous trigger fits real time well: the
 trigger happens every few minutes, so a fix shows within a session
 without moving any job, and the check judges each trigger once its
-deadline or two dispatch cycles have passed ([checks.md](checks.md),
+deadline or two dispatch cycles have passed ([checks.md](../../archive/v0.4/checks.md),
 "Pushed obligations"). It eases real time's limits (D199) for this
 kind, under two
 conditions:
