@@ -1,6 +1,7 @@
 # v0.5 — `vet-portal`, the owners' portal
 
-Status: draft v2, ruled. **Approved by the owner on 2026-11-03 with
+Status: draft v3, ruled, its stale passages corrected to the master
+spec at approval (R16, D339). **Approved by the owner on 2026-11-03 with
 v0.5's [master spec](master-spec.md)** (procedure step 9, D339), which
 wins where the two disagree.
 Steps 1 to 9 of the [procedure](domain-procedure.md) run in one pass on the
@@ -89,8 +90,8 @@ Built on, not reopened:
 - **TLS and pgaudit** always available in `postgres`, turned on by the
   seed (D250, D261); the portal reached from outside was among TLS's
   reasons ([brick-options-review.md](brick-options-review.md)).
-- **Budget**: the clinic is CPU-bound at 78 % to 96 % of armenelos plus
-  the VPS, and the VPS has no room for another `postgres` node
+- **Budget**: the clinic is CPU-bound at 75 % of armenelos plus the VPS
+  ([master spec](master-spec.md) 14; first estimated at 78 % to 96 %), and the VPS has no room for another `postgres` node
   ([clinic-capacity.md](clinic-capacity.md)); one variant (D263), one
   centre (D285); short tests (D314).
 
@@ -182,7 +183,7 @@ volume ramping from about 60 % of today's rate to today's:
 
 | What | Over the year |
 |---|---|
-| Documents published | about 41 600: 25 000 consultations, 13 900 centre results, 2 300 discharges, 400 amended results |
+| Documents published | about 41 600: 25 000 consultations, 13 600 centre results (the core's analysis requests), 2 300 discharges, 400 amended results |
 | Documents opened | about 70 000 |
 | Messages | about 36 000: 23 000 document notices, 8 000 reminders, 3 800 invitations, 1 500 password resets |
 | Consent events | about 8 000 |
@@ -203,7 +204,7 @@ volume ramping from about 60 % of today's rate to today's:
 
 About **0.21 million rows** at load and **720 a day** live
 ([reference sizes](#reference-sizes)), close to the core's 0.28 million
-and 570, far under the shop's 1.3 million.
+and 760 (570 main rows), far under the shop's 1.3 million.
 
 **Against a real portal.** No source was read for this draft: two
 thirds of owners activated and one visit a day per 40 active accounts,
@@ -917,7 +918,7 @@ flow: `to: messaging`, fields `address`, `template`, `animal_name`,
 
 1. **Two purposes**, `vet-portal-release` (pulled, the release gate and
    the copies) and `vet-portal-messages` (pushed, notices and reminders
-   to the messaging service), the clinic's eleventh and twelfth.
+   to the messaging service), the clinic's fifteenth and sixteenth (D324).
 2. **Both on `interfaces`**, six light jobs; the copy from the core a
    purpose, not a producer's job (D266's synced reference table; the
    portal has no scheduler node of its own).
@@ -1201,9 +1202,10 @@ item 14's questions are closed (D320).
 3. **[clinic-purposes.md](clinic-purposes.md)**:
    - section 1: "the release to the portal" drafted in
      [vet-portal-domain.md](vet-portal-domain.md#purposes-that-fit-step-7);
-   - section 2: rows 11 `vet-portal-release` (pulled; core, lab,
+   - section 2: rows 15 `vet-portal-release` (pulled; core, lab,
      portal; every 5 minutes; `interfaces`; `clinic`, `lab` →
-     `portal`) and 12 `vet-portal-messages` (pushed; portal; every
+     `portal`) and 16 `vet-portal-messages` (first drafted as 11 and 12,
+     numbered by D324; pushed; portal; every
      minute, reminders daily 09:00; `interfaces`; `portal` → the
      messaging service's stub); "No flow ... pushed without an answer"
      becomes the notices and reminders, `vet-portal-messages`;

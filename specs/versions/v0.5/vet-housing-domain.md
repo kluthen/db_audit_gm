@@ -1,6 +1,7 @@
 # v0.5 — `vet-housing`, the clinic's boxes, stalls and displays
 
-Status: draft v2, ruled. **Approved by the owner on 2026-11-03 with
+Status: draft v3, ruled, its stale passages corrected to the master
+spec at approval (R16, D339). **Approved by the owner on 2026-11-03 with
 v0.5's [master spec](master-spec.md)** (procedure step 9, D339), which
 wins where the two disagree.
 Steps 1 to 9 drafted in one pass on 2026-11-03 at the owner's instruction
@@ -203,7 +204,8 @@ care log, about 150 000 events (ruled, D318).
 | Display reads | each display once a minute: about 64 a minute, one a second, leaving no row |
 
 About **0.16 million rows** at load and **540 a day** live (step 4's
-count), beside the core's 0.28 million and 570 in the same database.
+count), beside the core's 0.28 million and 760 (570 main rows) in the
+same database.
 
 **A few stand for many** (D263): 64 units and their displays for a
 large referral hospital's wards.
@@ -436,7 +438,7 @@ therefore cannot move an animal or touch the record.
 | **Total** | **about 0.16 million rows** | **about 540 rows** |
 
 Beside the core's 0.28 million in `clinic`, about 0.44 million on
-`records`' `clinic` with `office`'s 0.14 million beside it: under the
+`records`' `clinic` with `office`'s 0.16 million beside it: under the
 shop's 1.3 million and within the `postgres` brick's 2.25G of disk;
 about 50 MB with indexes, measured at the build. Far under cold
 storage's threshold of about 50 000 rows a day (D296): nothing ships.
@@ -550,7 +552,7 @@ For the owner to judge realistic, with the classification above:
    stay.
 6. **Actions, not accesses**: no read logged (D298).
 7. **Least grants**: the displays read one view, the ward service writes
-   care events only.
+   care events and the units' `state` only.
 8. **Retention**: five years with the stay (core rule 9).
 
 ## The producer profiles (step 6)

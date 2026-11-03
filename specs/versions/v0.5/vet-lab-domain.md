@@ -1,6 +1,7 @@
 # v0.5 — `vet-lab`, the clinic's lab
 
-Status: draft v6, the draft document of procedure step 9.
+Status: draft v7, the draft document of procedure step 9, its stale
+passages corrected to the master spec at approval (R16, D339).
 **Approved by the owner on 2026-11-03 with v0.5's
 [master spec](master-spec.md)** (procedure step 9, D339), which wins
 where the two disagree. Steps 2 to 8 are done: the business sketch ruled, every default
@@ -192,12 +193,12 @@ volume ramping from about 60 % of today's rate to today's:
 |---|---|
 | Orders (accessions) | about 14 000: 7 700 from the centre, 6 300 from the practices |
 | Samples | about 18 000 |
-| Tests ordered | about 24 000: 13 900 from the centre (the core's analysis requests), 10 000 from the practices |
+| Tests ordered | about 24 000: 13 600 from the centre (the core's analysis requests, four in five of its 17 000), 10 000 from the practices |
 | Results, one per analyte | about 190 000 |
 | Instrument batch uploads | about 22 000 |
 | Quality-control runs | about 7 000: every analyser once a day, two or three levels, and before a night run |
 | Send-outs | about 2 000 |
-| Outside charges | about 10 000 |
+| Outside charges | about 17 000 charge rows |
 | Custody and storage events | about 54 000, three a sample |
 
 **Throughput**, in real-world rates during the game:
@@ -213,7 +214,7 @@ volume ramping from about 60 % of today's rate to today's:
 | Critical values called | two or three a day |
 
 About **0.36 million rows** at load and **1 300 a day** live (step 4's count; the sketch first gave 0.35 and 1 200), against
-the core's 0.28 million and 570 ([vet-core](vet-core-domain.md#reference-sizes)):
+the core's 0.28 million and 760 (570 main rows) ([vet-core](vet-core-domain.md#reference-sizes)):
 the results, one per analyte, are the bulk. Far below cold storage's
 threshold of about 50 000 rows a day (D296): nothing of the lab's ships;
 the analysers' readings, which may, are `vet-machinery`'s (D298).
@@ -550,7 +551,7 @@ secret.
 | `lab_app` | the lab's information system, its staff's screens (a producer node, D276) | every table | orders, samples, order tests, sample events, results (bench work, amendments), critical calls, notifications, QC runs, charges (D304, amending D302: charged at accession, billable at release, voided on a cancellation or an unfit sample); never the reference tables |
 | `lab_api` | the lab's order API, an `api` node (D267, D270) | the catalogue, accounts, orders and their tests and results (status) | orders, samples, order tests (intake); send-outs' answers and their results, from the external lab's callback |
 | `lab_instruments` | the analysers' middleware uploading batches | samples, order tests, analytes, test analytes, reference intervals, QC runs | batches, results |
-| `lab_dispatch` | the centre's jobs posting results to the practices and send-outs to the external lab | orders, order tests, results, accounts, samples | callbacks, send-outs, sample events (`sent-out`) |
+| `lab_dispatch` | the centre's jobs posting results to the practices and send-outs to the external lab | orders, order tests, results, accounts, samples | callbacks, send-outs, sample events (`sent-out`), notifications' sent columns |
 | `lab_reports` | the periodic reports and statements, writing to `office` (D300) | every table | nothing |
 
 The purposes' roles (the results' return to the core, the
@@ -902,7 +903,7 @@ Each a purpose of the round-trip kind; the profile they meet:
 
 | Round trip | Who asks | Request | Correlation key | Expected answer | Timing at 1.0 | Timeout, then | Reactions |
 |---|---|---|---|---|---|---|---|
-| The centre's orders | the centre | the consultation's analysis requests, one order, posted to `lab-api` | `client_ref`, the requests' ids | the accession id at once; the result once released | about 25 orders a day, each within a minute of its consultation's close | no accession in a minute: resent with the same `client_ref` | the core's requests `sent`, then `resulted` with the result copied back |
+| The centre's orders | the centre | the consultation's analysis requests, one order, posted to `lab-api` | `client_ref`, the requests' ids | the accession id at once; the result once released | about 25 orders a day, each within a minute of its consultation's close | no answer in ten seconds: retried with the same `client_ref` | the core's requests `sent`, then `resulted` with the result copied back |
 | The practices' orders | a practice | an order posted to `lab-api` | the practice's `client_ref` | the accession id at once; the interim and final results at its callback | about 25 a working day; results the same day for most, cultures and send-outs days later | the dispatch's: no acknowledgement within 30 seconds, retried 5 minutes after the last attempt with the same `delivery_key`, at most six attempts, then an incident (D339; [purpose 2](clinic-purposes.md)) | each delivery acknowledged; a test billable once released |
 | The send-outs | the centre | the day's send-out tests posted to the external lab: the accession, the label, species, sex and age, never an identifier (rule 11) | `send_key`, kept on a retry | `accepted` at once; the result one to five days later | about 7 a day, Monday to Friday 16:00 | not accepted: retried with the same `send_key`; past `due_by` by a working day: chased with `resend`, then an incident (clinic-purposes 7) | the test resulted, then validated and released as the centre's own, naming the lab that performed it |
 

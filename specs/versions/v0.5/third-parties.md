@@ -128,7 +128,8 @@ real, `no-access` creates neither.
 keeps the one network `gmctl` renders (`tools/gm/localimpl.py`; D83,
 D106). Without a `player` account nothing logs in, and a third party's
 back end refuses the players by its own access rules: its database's
-`pg_hba.conf` admits only the third party's own nodes, and its other
+`pg_hba.conf` admits only the third party's own roles on its database,
+every other line for that database a `reject`, and its other
 services accept only their own callers. As with a real lab, its API is
 reachable from outside, its database is not. Separate networks for
 third parties stay with O12.
@@ -156,7 +157,8 @@ third_parties:
     name: Northfield Veterinary Laboratories   # its in-world name
     stands_for: a regional reference laboratory
     role: round-trip                           # inbound | outbound | round-trip
-    nodes: [lab-api, lab-backend, lab-db]      # none for a party without a node
+    nodes: [partners-api, partners-backend, partners-db]  # shared nodes; none for a party without a node
+    hostname: northfield-lab                   # its alias on the partners' api node
     player_doc: player/partners.md#northfield-veterinary-laboratories
 ```
 

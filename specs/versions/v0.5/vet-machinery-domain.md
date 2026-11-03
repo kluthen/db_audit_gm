@@ -1,6 +1,7 @@
 # v0.5 — `vet-machinery`, the clinic's machines
 
-Status: draft v2, ruled. **Approved by the owner on 2026-11-03 with
+Status: draft v3, ruled, its stale passages corrected to the master
+spec at approval (R16, D339). **Approved by the owner on 2026-11-03 with
 v0.5's [master spec](master-spec.md)** (procedure step 9, D339), which
 wins where the two disagree.
 Steps 1 to 9 of the [procedure](domain-procedure.md) drafted in one pass on
@@ -55,8 +56,9 @@ change ([O195](#questions-for-the-owner)).
 The brief turns on "each machine's own database", which could multiply
 nodes. This section states the minimum first because the budget is the
 hardest constraint. Core and lab already take 18 nodes (3.0 CPU,
-3.2G). The whole clinic is estimated at 26–32 nodes, which uses 78–96 %
-of the CPU on armenelos plus the VPS. The VPS has no room for another
+3.2G). The whole clinic is 25 nodes, 75 % of the CPU on armenelos plus
+the VPS ([master spec](master-spec.md) 14; first estimated at 26–32
+nodes and 78–96 %). The VPS has no room for another
 database node ([clinic-capacity.md](clinic-capacity.md)).
 
 **The plausible minimum: three nodes, all on armenelos (ruled, D319).**
@@ -79,8 +81,7 @@ part adds no partner node.
 **Trims, if the parts come out heavier**, in this order, each the
 owner's call:
 
-1. `machines` at 0.25 CPU and 384M, as the partners' database is
-   sized, saves 0.25 CPU. Its load is about one insert a second and
+1. `machines` at 0.25 CPU and 384M saves 0.25 CPU. Its load is about one insert a second and
    small reads. This is measured at the build.
 2. The producer's fragments move onto `pms` (no `equipment` node). This
    saves 0.1 CPU and 64M. The cost is that the practice software and
@@ -253,7 +254,7 @@ The centre's machine park, as its staff meet it:
 | Machine telemetry and logs | readings each minute, events | `vet-machinery` (`biomed`) |
 | Maintenance and QA | service visits, QA tests, calibrations, downtimes | `vet-machinery` (`biomed`) |
 | Shipping heavy data | partitions to the vault, their receipts | a purpose (`cold-storage-archive`) |
-| Releasing a report to the owner | what was released, when | `vet-portal` |
+| Releasing a report to the owner | what was released, when | `vet-portal`, after v0.5: no imaging report on the portal in v0.5 (D320, O208) |
 
 ### The variant, its scale and its tags
 
@@ -605,8 +606,9 @@ Its home is the core's unnamed EU member state (D278), with Germany the
 example for national rules. A figure marked *game value* is a choice,
 not the law.
 
-1. **Release.** An imaging report leaves the PACS, to the record and to
-   the portal, only once the imaging specialist's final is signed. A
+1. **Release.** An imaging report leaves the PACS, to the record (and,
+   once the portal releases imaging reports, after v0.5, to the portal),
+   only once the imaging specialist's final is signed. A
    preliminary is visible inside the centre, marked as such (the lab's
    rule 1; the core's rule 11).
 2. **Addenda.** A signed final report is never updated. An addendum is
@@ -958,7 +960,7 @@ with machinery's tables.
 | T209 | A machine id crossing parts wrongly: a retired or down analyser still in `lab_batches`, a booking of a down machine | the lab's results from a machine out of service; the radiographer's slot on a machine that cannot run | `lab_batches.machine_id` and bookings against `mach_machines.status` | the registry, the other part's data | new | M |
 | T210 | The core's mistyped chips reaching the worklist (T13) | other patient ids matching no animal's chip | the worklist against the core's function | the record (a finding) | the domain's own | M, or false-alarm material |
 | T211 | The reconciliation's capacity cut by a key | unscheduled studies piling unreconciled, their requests `sent` for ever (IO4) | studies `acquired` with no entry older than a day | the producer (reported; its key rides the schedule) | new | V, a rare flow |
-| T212 | An addendum written as an update of the final (rule 2) | the first report lost; the portal's copy different from the PACS's | finals with an amendment and no superseded row | the producer's key, a trigger | new (as T22) | M, a rare flow |
+| T212 | An addendum written as an update of the final (rule 2) | the first report lost; once the portal releases imaging reports (after v0.5), its copy different from the PACS's | finals with an amendment and no superseded row | the producer's key, a trigger | new (as T22) | M, a rare flow |
 
 ### 3. Governance
 
@@ -990,7 +992,7 @@ with machinery's tables.
 |---|---|---|---|---|---|---|
 | T227 | Requests marked `sent` before the `pacs` entry commits (`clinic` first) | requests `sent` with no entry: the study never scheduled, the vet phoning | `sent` requests with no accession in `pacs`, at each failed insert | `post-imaging-orders`' script | new (as the lab's) | D |
 | T228 | The priority dropped in the mapping | a night's urgent CT waiting for the routine schedule | entries `routine` whose request is `urgent` | the script | new (as T40) | D |
-| T229 | A preliminary read as final | requests `resulted` on the duty vet's preliminary; the portal later releasing an unsigned report (rule 1) | `resulted` requests whose study has no final, each night (about 3) | `fetch-imaging-reports`' query | new | V, D once the portal reads |
+| T229 | A preliminary read as final | requests `resulted` on the duty vet's preliminary; once the portal releases imaging reports (after v0.5), an unsigned one released (rule 1) | `resulted` requests whose study has no final, each night (about 3) | `fetch-imaging-reports`' query | new | V, D once the portal reads |
 | T230 | The unique index on the accession dropped, then a retry | two entries for one request: one completed, the other on the modality's list for ever (IO2) | duplicate accessions, at the first retry | the index, then the data | adapts `purpose-retry-without-key` | M |
 | T231 | The reports' watermark taken from the run's start | finals signed during a run missed: requests stuck `sent` though reported | finals without `ops.imaging_results` | the script | adapts `purpose-watermark-misses-updates` | V |
 | T232 | Cancellations never read back | cancelled entries' requests `sent` for ever | `cancelled` entries against `sent` requests | the script | new | M, a rare flow |
@@ -1099,7 +1101,8 @@ confirmed as written (D326). Kept as the record of what was asked.
   monitors know who is in hospital and the history's sessions lie on
   real stays. *Recommended*: yes; `vet-housing` may need the same.
 - **O198, the imaging staff and cancellations.** Core staff 61–63
-  imaging specialists, 64–67 radiographers, 68 a biomedical engineer;
+  imaging specialists, 64–67 radiographers, 68 a biomedical engineer
+  [superseded: 26–28, 52–55 and 56, the core's layout, D324];
   a sent imaging request cancelled by the imaging team only, copied
   back, as D315 for the lab. *Recommended*: yes.
 - **O199, the rules (step 5).** Final reports only released, addenda
@@ -1121,7 +1124,9 @@ confirmed as written (D326). Kept as the record of what was asked.
 - **O202, the purposes (step 7).** `vet-imaging-orders` (a round trip
   inside the centre, no API node) and `cold-storage-archive` (generic,
   first drafted here); the reports' release to the portal with
-  `vet-portal`. *Recommended*: yes, both built in v0.5.
+  `vet-portal`. *Recommended*: yes, both built in v0.5. [Superseded for
+  the release: no imaging report on the portal in v0.5, `vet-portal`'s
+  O208 (D320); it stays named for later.]
 - **O203, the test selection.** Replace s9 (the watch scheduled by the
   superuser) with T208 (no partition created ahead), so the ten cover
   partitions and the shipping. *Recommended*: yes; if not, T208 stays
@@ -1147,7 +1152,8 @@ and `vet-imaging-orders` are purposes 14 and 13 of sixteen.
    outcome), documented in the GM notes, as D302 did for requests; (c)
    `staff` 61–63 vets with specialty diagnostic imaging, 64–67
    technicians (radiographers), 68 a technician (biomedical
-   engineering), beside D302's 71–80. Check this against the ranges
+   engineering), beside D302's 71–80 [applied as 26–28, 52–55 and 56,
+   the core's layout, D324]. Check this against the ranges
    the other three parts ask for.
 2. **vet-core, the lookup API (O197)**: `clinic-api` gains `GET
    /stays?current=true` (stay id, animal id, section, admitted at, the
@@ -1165,8 +1171,9 @@ and `vet-imaging-orders` are purposes 14 and 13 of sixteen.
    lab's analysers' telemetry and events are `vet-machinery`'s, with no
    row-level match to `lab_batches` (a fault leaning on one brings its
    own material).
-5. **[clinic-purposes.md](clinic-purposes.md)**: add 11
-   `vet-imaging-orders` and 12 `cold-storage-archive` from this page;
+5. **[clinic-purposes.md](clinic-purposes.md)**: add 13
+   `vet-imaging-orders` and 14 `cold-storage-archive` from this page
+   (first drafted as 11 and 12, numbered by D324);
    section 1's sentence on `cold-storage-archive` becomes "fits
    `vet-machinery`, its first user"; section 3's `interfaces` row gains
    `pacs` as `mach_orders`, `vitals` and `biomed` as `mach_archive`,
@@ -1212,8 +1219,9 @@ Kept minimal, each at the boundary:
 - **`vet-housing`** reads nothing of this part; intensive-care vitals
   are not on the displays in v0.5. It may share the census endpoint
   (O197).
-- **`vet-portal`** releases final imaging reports only (rule 1),
-  through the release purpose it drafts.
+- **`vet-portal`** releases no imaging report in v0.5 (its O208, D320);
+  when it does, after v0.5, final reports only (rule 1), through its
+  release purpose.
 - **`vet-lab`** uploads its batches with `machine_id` 1–6 by this
   page's mapping.
 

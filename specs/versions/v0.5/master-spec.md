@@ -1987,7 +1987,7 @@ graph and the partition count.
 #### Purposes 13 and 14
 
 **13, `vet-imaging-orders`**, a round trip inside the centre on
-`interfaces`, as purpose 5, `vet-lab-centre-orders`: the integration
+`interfaces`, as purpose 1, `vet-lab-centre-orders`: the integration
 engine writes the PACS's worklist and reads the reports back.
 `post-imaging-orders` (every minute) inserts an entry for each
 `requested` imaging request of a closed consultation (`ON CONFLICT
@@ -3204,7 +3204,8 @@ this milestone", and "yes, two hosts are covered by the exception".
 ### 18.2 The fixtures
 
 Each holds the nodes its checks touch, with the bastion every deployment
-has; seven nodes at most, every one fitting one host.
+has; seven nodes at most beside the bastion, eight with it, every one
+fitting one host.
 
 | Fixture | Nodes | T0 | Proves |
 |---|---|---|---|

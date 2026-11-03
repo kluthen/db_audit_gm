@@ -1,6 +1,7 @@
 # v0.5 — `vet-core`, the clinic's core domain
 
-Status: draft v10, the draft document of procedure step 9.
+Status: draft v11, the draft document of procedure step 9, its stale
+passages corrected to the master spec at approval (R16, D339).
 **Approved by the owner on 2026-11-03 with v0.5's
 [master spec](master-spec.md)** (procedure step 9, D339), which wins
 where the two disagree. Steps 2 to 8 are done: the business sketch ruled (D266, D278), its first
@@ -238,8 +239,8 @@ accepted on 2026-11-01.
    (a stable, a livery yard, a holding) beside the owner; the portal's
    reach follows the history (a rule for step 5).
 5. **Referrals.** Do referring practices and vets belong in the core?
-   Answer: yes, about 1 200 practices, a consultation carrying its
-   referral; the report back to the referring vet is a purpose, later.
+   Answer: yes, about 1 200 practices then, 400 at one centre's scale
+   (D295), a consultation carrying its referral; the report back to the referring vet is a purpose, later.
 6. **The hospital stay.** Core or `vet-housing`? Answer: the stay
    (admission, discharge, reason, outcome) in the core, since the lab,
    the portal, the reports and the administrations all refer to it;
@@ -887,7 +888,7 @@ meet:
 | The medicines register (D280, rule 2) | its extract monthly, on the 1st at 03:00 | 01:30: yesterday's supplies of prescription-only medicines, with batch, quantity and recipient | the register's lines for the year, every full month's extract |
 | The controlled-drugs register (rule 3) | a signed balance monthly, on the 1st; the inventory on 1 January | 01:45: yesterday's movements of controlled medicines | the year's movements and balances, last January's inventory |
 | Antimicrobial use (rule 4) | the yearly report in January, a pushed obligation to the authority | 02:00: yesterday's use by species and medicine | last year's report, the cattle's |
-| The head office's activity figures (one-centre 1) | monthly, on the 1st, pushed to the franchise's head office, a third party | none: counts of the month | every full month's figures and the copies sent |
+| The head office's activity figures (one-centre 1) | monthly, on the 1st, pushed to the franchise's head office, a third party | 00:30: the day's consultations, admissions, the midnight census, housing units occupied and in service, the lab's tests and median turnaround | every full month's figures and the copies sent |
 
 Not reports in v0.5: the farms' and stables' statements are billing,
 out of v0.5 (D278 answer 8); the records' yearly retention purge finds

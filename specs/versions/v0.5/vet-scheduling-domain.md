@@ -1,6 +1,7 @@
 # v0.5 — `vet-scheduling`, the clinic's bookings, rota and training centre
 
-Status: draft v2, ruled. **Approved by the owner on 2026-11-03 with
+Status: draft v3, ruled, its stale passages corrected to the master
+spec at approval (R16, D339). **Approved by the owner on 2026-11-03 with
 v0.5's [master spec](master-spec.md)** (procedure step 9, D339), which
 wins where the two disagree.
 Steps 1 to 9 drafted in one pass on 2026-11-03 at the owner's instruction
@@ -1150,7 +1151,9 @@ not in v0.5 at all (D321). Kept as the record of what was asked.
 - **O175 — What the core's load must document for this part.** The
   staff's kind, section and specialty by id (a layout: vets 1–28, nurses
   and technicians 29–56, carers and grooms 57–66, receptionists 67–70,
-  the lab 71–80 as ruled, instructors 81–85); the history's
+  the lab 71–80 as ruled, instructors 81–85; superseded by the core's
+  layout, D324, D327: section vets 1–25, imaging vets 26–28, nurses and
+  technicians 29–51, radiographers and the biomedical engineer 52–56); the history's
   consultations as functions of their id, the scheduled ones carrying
   their own id as booking id, their vets on shift by the rota's pattern;
   the teaching animals 1–12 and 14 601–14 608, owned by the clinic; the
@@ -1199,7 +1202,10 @@ reminders); the purposes are 11 and 12 of sixteen.
    - Step 4, "Deterministic key ranges": the staff layout (vets 1–28 by
      section, 1–10 horse, 11–17 farm, 18–28 domestic, specialties by
      id; nurses and technicians 29–56; carers and grooms 57–66;
-     receptionists 67–70; the lab 71–80, D302; instructors 81–85);
+     receptionists 67–70; the lab 71–80, D302; instructors 81–85)
+     [applied as the core's layout, D324, D327: 18–25 domestic, 26–28
+     imaging, nurses and technicians 29–51, 52–56 imaging and
+     biomedical];
      the teaching animals, animals 1–12 (dogs) and 14 601–14 608
      (horses), owned by owner 1 from before the history; each history
      consultation's kind, section, vet and start a function of its id,

@@ -76,7 +76,7 @@ switched by the test.
 | portal-scope | `records` (`clinic`, `portal`), `portal-api` | a weekday, a few hours after the fault is planted | s5 |
 | housing | `records` (`clinic`, the core and housing loaded), `pms`, `ward` | any | s9 |
 
-Seven nodes at most, with the bastion every deployment has: the
+Seven nodes at most beside the bastion every deployment has, eight with it: the
 largest, orders, about 1.5G and 1.6 CPU reserved, so every fixture fits
 one host as the tests declare it ([tally](clinic-capacity.md)); the
 new two are small: portal-scope three nodes with the bastion, housing

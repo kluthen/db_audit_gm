@@ -97,8 +97,8 @@ database (D300, closing O149).
   antimicrobial-use report, the notifiable-disease reports).
 - **Its roles** (D306, point 4): `office_jobs` writes `office` and
   reads nothing of the record; the reports read the standby as
-  `vet_reports` and the lab's node as `lab_reports`, neither given a
-  write grant; `office_reader` reads `office` for the back office's
+  `vet_reports` (and scheduling's report as `sched_reports`) and the
+  lab's node as `lab_reports`, none given a write grant; `office_reader` reads `office` for the back office's
   staff ([clinic-purposes.md](clinic-purposes.md#the-roles-the-purposes-add)).
   A report job holds two connections. The operational record carries
   no report table.
