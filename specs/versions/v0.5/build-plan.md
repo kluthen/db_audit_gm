@@ -81,8 +81,8 @@ plan states only its deltas. Its conventions follow v0.4's
 |---|---|---|---|---|
 | G1 | Plan approval, κ included (workflow deltas); `v0.5-domains` merged into `main` on the owner's word, so wave 1 is cut from `main` | The owner | Wave 1 | done (2026-11-03, spec D342; the merge into `main` by the coordinator) |
 | G2 | [formats.md](../../formats.md) carries master spec 6: the domain format, composition, the data register, the purpose format's extensions (draft v28) | `spec-writer` | Chunk 2 | done (2026-11-03, spec D338) |
-| G3 | Network access at image build time: Debian 13's repositories, the PostgreSQL apt repository (PGDG: pgaudit, pgCluu if taken from it), the s6-overlay release, PyPI if G6 picks it, the pgwatch 3 release on GitHub | Hand check by the wave driver | Every image build: chunks 1, 3, 4, 5, 10, 17; every wave gate | open |
-| G4 | A Docker host in swarm mode: armenelos' swarm, the VPS a drained worker in it | Hand check by the wave driver | Every stack test and fixture deployment, every wave gate, the release gate | open |
+| G3 | Network access at image build time: Debian 13's repositories, the PostgreSQL apt repository (PGDG: pgaudit, pgCluu if taken from it), the s6-overlay release, PyPI if G6 picks it, the pgwatch 3 release on GitHub | Hand check by the wave driver | Every image build: chunks 1, 3, 4, 5, 10, 17; every wave gate | done (2026-11-03, wave log) |
+| G4 | A Docker host in swarm mode: armenelos' swarm, the VPS a drained worker in it | Hand check by the wave driver | Every stack test and fixture deployment, every wave gate, the release gate | done (2026-11-03, wave log) |
 | G5 | **Dependency preflight** on `postgres` 0.5.0's new packages: pgaudit's package for PostgreSQL 18 (PGDG) and what TLS needs in the image, with what they pull in, installed without recommends (master spec 7.1, 21). A finding the owner must rule on becomes a gate of its own | `security-advisor` (skill `dependency-check`), called by the wave driver at wave 1's start | Chunk 3's branch | open |
 | G6 | **Dependency preflight** on `api` 0.1.0: FastAPI, uvicorn and the image's other packages (Starlette, Pydantic and what they pull in, psycopg 3), the candidate versions and their source (Debian 13 or a pinned PyPI set) (master spec 7.2, 21) | `security-advisor`, called by the wave driver at wave 1's start | Chunk 5's branch | open |
 | G7 | **Dependency preflight** on `scheduler` 0.3.0, only if the HTTP driver or the scripts' client takes a package beyond the standard library, psycopg 3 and PyYAML (master spec 7.2, 24: the standard library preferred). With none, the driver records "not needed" in the wave log | `security-advisor`, called by the wave driver | Chunk 4's branch, if a package is added | open |
@@ -105,7 +105,7 @@ none is a gate.
 
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
-| 1 | 1, 2, 3, 4, 5 | G1; G2 (done); G3, G4; G5 (chunk 3), G6 (chunk 5), G7 (chunk 4, if a package); G8 before its gate | planned |
+| 1 | 1, 2, 3, 4, 5 | G1; G2 (done); G3, G4; G5 (chunk 3), G6 (chunk 5), G7 (chunk 4, if a package); G8 before its gate | in progress (2026-11-03) |
 | 2 | 6, 7, 8, 9, 10, 11 | wave 1; G9 (chunk 10); G10 before its gate | planned |
 | 3 | 12, 13, 14, 15, 16 | wave 2 | planned |
 | 4 | 17, 18, 19, 20, 21 | wave 3 | planned |
