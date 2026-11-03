@@ -3288,3 +3288,20 @@ c-ares 1.34.5 as a `[[platform]]` (CPE `cpe:2.3:a:c-ares:c-ares`), which
 needs an `[[ignore]]` for the false positive CVE-2025-62408 (reason
 "fixed by Debian backport 1.34.5-1+deb13u1 (DSA-6084-1)", review
 2027-02-01), an owner approval.
+
+### Owner ruling: 17a's runs closed without the two-host run, 2026-11-03 ~07:30 UTC
+
+Overnight (UTC, armenelos, all under the lock): cycles 1 19:58–01:45
+failed (f2/f3 never present, f3 present after f2's fix, f7 too soon; then
+the 02:45 guard); baseline 01:48–02:19 **32/32**, pooler workarounds 0;
+f10 02:19–02:25 **23/23**, workarounds 0, the VPS drained; cycles 2 from
+02:26, 54 PASS 0 FAIL by 03:42 (f6, f9, f1, f2, f3, f5, f7, f8 cycled),
+then idle waiting for scenario midnight (09:01Z) for f4's last steps.
+
+The owner: "abort and consider it done for this cycle of test, we can't
+proceed to the two host run, as the laptop will be regularly
+disconnected from the network today". So: cycles 2 aborted at the f4
+wait, counted as 17a's cycles run; f4's after-midnight reading not
+observed; **17a's two-host run not run**. Relayed to 17a's owner: clean
+teardown, finish the checks, one commit, merge into `v0.4-w4`.
+`spec-writer` records the ruling and revises chunk 17's text.
