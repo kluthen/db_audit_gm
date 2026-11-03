@@ -217,6 +217,11 @@ of the game"):
   - the planted past outputs stay as they are: correcting them would be
     a rerun of past periods, which waits for the on-demand runs; the
     players recommend it in their report.
+- **Tested short in v0.5** (D314): a feeder's witness is read on a
+  fixture whose T0 sits just before the feeder's time, or with the
+  feeder moved as a player may (D132); that the witness surfaces within
+  a real aging is the major test's before the v1.0 tag. The rule stays
+  the design's, checkable on the scenario.
 - **Heavy, but never killed.** A report's weight is calibrated per node,
   as f10's was (D213), so that a normal run is never killed for memory
   on a shared host or a class laptop; a run that does run out of memory

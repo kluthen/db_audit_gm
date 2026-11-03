@@ -80,6 +80,13 @@ Left out of a domain:
 | 10 | **Build** | the approved draft | `domains/<id>/`, verified (section 3) | none: a build-plan chunk |
 | 11 | **Proof in play** | a scenario using the domain | a smoke run with the domain's data, producers and purposes running | none, unless the run shows a design gap |
 
+**Testing in v0.5 (D314).** Step 10's verification and every check of
+the build are short tests, under 30 minutes on the least environment
+that proves the brick or feature. Step 11's smoke run is v0.5's one
+exception, the whole clinic deployed once on two hosts, short and
+without aging; the clinic aged and played waits for the major test
+before the v1.0 tag ([v0.5](README.md#testing-in-v05-d314)).
+
 A domain fed by an **external dataset** (Bluebox, which the owner sees
 as close to a domain, D237) changes step 4 and step 10: the dataset's
 schema is the data model's starting point, and its dump replaces

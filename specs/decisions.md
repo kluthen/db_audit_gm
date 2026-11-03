@@ -20,7 +20,7 @@ README:
 Archived IDs keep their meaning and are cited as they are. D107 and D113
 stay live: rulings still to be applied in v0.5. D190 onward are v0.4's
 drafting and build, apart from D233–D238, D248–D251, D260–D280 and
-D285–D309, v0.5's drafting. Take the next number from `doc-ids`; no ID is reused.
+D285–D309 and D314 on, v0.5's drafting (D310–D313 are v0.4's, on `main`). Take the next number from `doc-ids`; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -863,3 +863,17 @@ D285–D309, v0.5's drafting. Take the next number from `doc-ids`; no ID is reus
   (with the assistance of the person that setup the game)". Now in:
   [versions/v0.5/domain-procedure.md](versions/v0.5/domain-procedure.md#2-the-steps-from-a-brief-to-a-finished-domain),
   [bricks-and-faults.md](bricks-and-faults.md).
+- **D314 (2026-11-03, owner rulings, relayed by the coordinator): v0.5
+  tests short tests only, under 30 minutes each on the least environment
+  that proves its brick or feature; one exception, the whole clinic
+  deployed once, on armenelos plus the VPS, as step 11's proof in play.**
+  Sharpens D311 and D312. Every longer run (aging, overnight cadences,
+  the rehearsal, the stance check) goes to the major test before the
+  v1.0 tag. The VPS rules stand (D159). Closes O158. The owner: "we must
+  restrict testing to short tests (validate that new bricks/features
+  works simply with minimal environment) we will do a major test prior
+  taging v1.0, any long running (>30m) will be done there"; "i'll accept
+  an exception for deploying the whole clinic on this milestone"; "yes,
+  two hosts are covered by the exception." Now in:
+  [versions/v0.5/README.md](versions/v0.5/README.md#testing-in-v05-d314),
+  [versions/README.md](versions/README.md#v10-gating-v05s-additions-d314).

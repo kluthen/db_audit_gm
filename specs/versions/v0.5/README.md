@@ -36,7 +36,10 @@ producer profiles (step 6) drafted together, then ruled as drafted
 (D304), with what they need of the scheduler and the format (D303);
 their purposes (step 7) ruled as drafted (D306), with the purpose
 format's extensions (D307); the partners' stubs grouped on one `api`
-node (D308); selecting a scenario's faults the GM's role (D309).
+node (D308); selecting a scenario's faults the GM's role (D309). On
+2026-11-03 the owner restricted v0.5's testing to short tests on a
+minimal environment, the whole clinic deployed once on two hosts as the
+one exception (D314, closing O158).
 
 ## Documents
 
@@ -312,7 +315,9 @@ O113 closed by D298),
   complex scenario that we will propose": one dramatic and already
   noticed by the customer, two on the verge of becoming problematic,
   the rest good optimisations and minor frictions; an issue may be a
-  false alarm, a complaint with no fault behind it.
+  false alarm, a complaint with no fault behind it. Deployed whole once,
+  on armenelos plus the VPS, as the proof in play, the one exception to
+  v0.5's short tests (D314, [below](#testing-in-v05-d314)).
 - **The clinic's bricks, faults, topology and configurations**, which
   the owner will help define (D233): its faults are the catalogue's
   growth, its topology fragments the pre-planned parts (D47). Among the
@@ -369,6 +374,49 @@ O113 closed by D298),
 - **v0.3's defaults revisited** where the clinic's work meets one
   (D146, D248).
 - **The post-mortem collection**, a side track (D234, above).
+
+## Testing in v0.5 (D314)
+
+The owner, on 2026-11-03: "we must restrict testing to short tests
+(validate that new bricks/features works simply with minimal
+environment) we will do a major test prior taging v1.0, any long
+running (>30m) will be done there"; then "i'll accept an exception for
+deploying the whole clinic on this milestone", and "yes, two hosts are
+covered by the exception". It sharpens D311 and D312, which moved
+v0.4's two-host runs, rehearsal, stance check-list and long runs to v1.0
+gating.
+
+- **Short tests only.** Every chunk check, wave gate and release-gate
+  item of v0.5 runs under 30 minutes, on the least environment that
+  proves the new brick or feature: the nodes it touches and those it
+  cannot run without, never the full scenario. A fault is proven on a
+  fixture of its own ([test selection](clinic-test-selection.md)).
+- **Time is placed, never waited for.** A check that needs a nightly or
+  periodic job, a base backup, the 16:00 send-outs or a release round
+  sets its fixture's T0 just before the job's time, or moves the job as
+  a player may (D132), as v0.4's gate moved a purpose's job; a WAL
+  segment is switched by the test rather than waited for an hour. No
+  aging: the hand-over follows the load.
+- **The one exception: the whole clinic, deployed once** on armenelos
+  plus the VPS, as step 11's proof in play for every part built
+  ([procedure](domain-procedure.md) 2), for this milestone only. Its
+  checks: the deployment and `fit`; then a short smoke, about 30 minutes
+  (proposed), with every producer, partner and purpose running and each
+  of their first runs read; the test selection planted at once (proposed),
+  each fault's planted reading taken where it reads within the window.
+  No aging, no overnight cadence, no fault taken through its cycle. Its
+  place in the build plan is the release gate (proposed), once every
+  part is built. The VPS rules stand (D159): filetstudio.com stays up,
+  the VPS is `active` for the run only and drained after, as in v0.4's
+  wave 2; no node that may exhaust its memory is placed there.
+- **Unproven in v0.5**, the major test's before the v1.0 tag
+  ([roadmap](../README.md#v10-gating-v05s-additions-d314)): the clinic
+  aged and played, its faults at once through their cycles, the "on the
+  verge" and "already noticed" classes as the hand-over finds them
+  (D290); its overnight and periodic cadences in scenario time, and that
+  a periodic-data fault's witness surfaces within the aging (D265); its
+  growth and footprints over an aging, its `resources` measured; its
+  rehearsal; the stance check-list (D311).
 
 ## Sorting (D233)
 
@@ -437,7 +485,6 @@ The items moved later are listed in the roadmap
 
 - O111: the domain format, beyond its v0.4 part and D249's four
   changes; finalised in the master spec when v0.5 consolidates (D291).
-- O158: the clinic's playground, two hosts by default (next steps).
 
 Moved out of this list on 2026-10-31: O53 and O54 (later, D237); O21
 and O135 (v0.6, D233, D248); O24 and O25 (v1.0+, D248). Closed: O47
@@ -445,7 +492,7 @@ and O135 (v0.6, D233, D248); O24 and O25 (v1.0+, D248). Closed: O47
 (D262), O114 (D263), O145 (D274, D275), O144 (D278), O127 (D285), O128
 (D286), O79 (D289), O112 (D292), O147 (D293–D295), O148 (D296, D297),
 O113 (D298), O149 (D300), O151 (D301), O152 (D302), O154 (D303), O153
-(D304), O155 (D306), O156 (D307). O23 ruled for the clinic (D290), its
+(D304), O155 (D306), O156 (D307), O158 (D314). O23 ruled for the clinic (D290), its
 general part left for later. Not due here: O138, the post-mortems'
 binding.
 

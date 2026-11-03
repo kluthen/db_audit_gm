@@ -156,3 +156,33 @@ adds every purpose fault taken through its full cycle in a smoke run,
 its job moved as a player may, and names what no gate shows (a nightly
 job at its story's time, growth over a full aging, a night unattended)
 as known limits (D200).
+
+### v1.0 gating: v0.5's additions (D314)
+
+`main` holds the v1.0 gating list (D311–D313), which this branch
+predates; at the merge these items join it. The owner's rule for v0.5
+(D314): "we must restrict testing to short tests (validate that new
+bricks/features works simply with minimal environment) we will do a
+major test prior taging v1.0, any long running (>30m) will be done
+there." v0.5's gates hold short tests only, each under 30 minutes on the
+least environment that proves its brick or feature, and one exception:
+the whole clinic deployed once, on armenelos plus the VPS, as the proof
+in play ([v0.5](v0.5/README.md#testing-in-v05-d314)). The rehearsal
+named above is not run in v0.5. Moved to the major test before the v1.0
+tag:
+
+- **The clinic aged**: a full aging and a session on the whole clinic,
+  every selected fault planted at once and read through its cycle;
+  whether the two faults "on the verge" are on the verge at the
+  hand-over, and the dramatic one already noticed (D290).
+- **The clinic's overnight and periodic cadences in scenario time**: the
+  feeders at night, the base backups, the 16:00 send-outs, the
+  pathologist's rounds, a periodic run the GM places in the aging; that
+  a planted periodic-data fault's witness surfaces within the aging
+  (D265), which v0.5 proves only on a short fixture.
+- **The clinic's growth and footprints**: every node's memory and the
+  trace's growth over the aging, `pg_wal` growing when archiving fails,
+  into the bricks' "Footprint" and the scenario's `resources`, `fit`
+  re-run.
+- **The clinic's rehearsal**: unattended, with the early check, a
+  scheduler killed and resuming, a restart, on two hosts.

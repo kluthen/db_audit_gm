@@ -272,9 +272,14 @@ access model.
   default policy ruled as drafted (D302, O152 closed); `vet-core`'s and
   `vet-lab`'s producer profiles ruled as drafted (D304, O153 closed),
   with what they need of the scheduler and the format (D303, O154
-  closed). Open: their purposes (step 7), ten proposed in
-  [clinic-purposes.md](versions/v0.5/clinic-purposes.md), for the owner
-  to choose (O155), and what they extend in the purpose format (O156).
+  closed); their ten purposes ruled as drafted (D306, O155 closed), with
+  the purpose format's extensions (D307, O156 closed); the partners'
+  stubs grouped on one `api` node (D308); fault selection the GM's at
+  deploy, step 8 listing traps only (D309). On 2026-11-03: short tests
+  only in v0.5, on a minimal environment, the whole clinic deployed once
+  on two hosts the one exception, the rest to the major test before the
+  v1.0 tag (D314, O158 closed). In progress: step 8, the traps, and step
+  9, the draft documents, for `vet-core` and `vet-lab`.
 - Small project: scripts and small apps, no ATD, no UI/UX tree (D2).
 - v0.1 build: seven artifacts (three skills, a Python/POSIX-shell script
   set, PostgreSQL 18 on Debian 13 and bastion bricks, one scenario), one
@@ -302,7 +307,7 @@ access model.
    test-only brick change bumps nothing settled wave 1's precedent
    (D229). Next: wave 3, on the owner's word.
 2. v0.5, the domain procedure approved (D260), the clinic only (D292):
-   the owner's choice of `vet-core`'s and `vet-lab`'s purposes (step 7,
-   O155, O156), then their traps (step 8).
+   `vet-core`'s and `vet-lab`'s traps (step 8) and draft documents (step
+   9), tested short (D314).
 3. The roadmap's "soon" question, O49 (backup tooling's version), then
    v1.0's from the "later" ones.
