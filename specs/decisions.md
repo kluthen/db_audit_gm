@@ -653,3 +653,20 @@ D337 and D341 were reserved and never used). Take the next number from
   and the customer's scripts; one collector only if CPU is short.**
   Closes O220. The owner: "agreed." Now in:
   [versions/v0.5/master-spec.md](versions/v0.5/master-spec.md#74-the-monitoring-breadth) 7.4, 14.
+- **D342 (2026-11-03, owner approval, relayed by the coordinator): v0.5's
+  build plan v1 is approved, with κ = 3 and its four plan choices as
+  recommended:** the bumps and re-pins a chunk of their own (chunk 1),
+  `bastion` 0.5.0 whole in the data-register chunk (17), each partner
+  stub built by its domain's or purpose's chunk, the standby tooling in
+  the `postgres` chunk (3). Clears G1, `v0.5-domains` merged into
+  `main` by the coordinator. The owner: "agreed. merge. i'll clean after
+  and start wave 1". Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) (header,
+  "Gates", "Workflow deltas").
+- **D343 (2026-11-03, same answer): O223–O227 as the plan recommends:**
+  `grafana` 0.3.0, the existing scenarios re-pinned (O223); if CPU is
+  short, the exporters kept and pgwatch dropped (O224); pgCluu's report
+  in the player's home, read with `scp` (O225); the health node on the
+  VPS (O226); machine 10's telemetry settled by measurement in chunk 15
+  (O227). Closes O223–O227. Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#settled-with-the-owner).

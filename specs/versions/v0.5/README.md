@@ -1,7 +1,9 @@
 # v0.5 — domain definition: the veterinary clinic
 
 Status: **master spec and access model approved by the owner on
-2026-11-03** (D339, D340); the [build plan](build-plan.md) v1 written, for the owner's approval. Business domains added on 2026-10-28
+2026-11-03** (D339, D340); the [build plan](build-plan.md) v1
+**approved** the same day, κ = 3 and O223–O227 as recommended (D342,
+D343), `v0.5-domains` merged into `main`; wave 1 next. Business domains added on 2026-10-28
 (D192); centred on 2026-10-31 on defining domains, the veterinary clinic
 the worked example (D233), with a procedure for defining a domain
 (D235), brick options tied to the clinic (D236, D238) and a post-mortem
@@ -85,7 +87,7 @@ corrected to the spec (R16).
 |---|---|---|
 | [master-spec.md](master-spec.md) | The v0.5 master spec: the domain procedure and format, composition, the clinic's six domains (their domain documents approved with it as companions), third parties and cold storage, replication and `office`, the sixteen purposes, governance and the data register, the bricks and their bumps, topology and capacity, the test selection, testing, the release gate, the build plan's needs (its owner review R1–R20 removed at approval) | **approved** (2026-11-03, D339); the monitoring breadth written in (7.4, 14; D340, O220 closed) |
 | [access-model.md](access-model.md) | Who may do what: the game's access (players, GM, bastion, `api` nodes, the standby, the partners hidden) apart from the fiction's (the centre's staff, the applications' roles, owners and keepers on the portal, the partners) | **approved** with the master spec (D339); the monitoring breadth's rows (D340) |
-| [build-plan.md](build-plan.md) | The build plan: 27 chunks in five waves, the gates (the dependency checks, the VPS window, the whole-clinic two-host run), the per-wave gate contents, all short (D314), the release gate; no data preflight (D329) | v1 (2026-11-03), for the owner's approval; O223–O227 pending |
+| [build-plan.md](build-plan.md) | The build plan: 27 chunks in five waves, the gates (the dependency checks, the VPS window, the whole-clinic two-host run), the per-wave gate contents, all short (D314), the release gate; no data preflight (D329) | v1 (2026-11-03), **approved** (D342; G1 cleared, κ = 3), O223–O227 answered as recommended (D343) |
 | [domain-procedure.md](domain-procedure.md) | How a domain is defined: what it holds and leaves out, the steps from a brief, done and its checklist, composites, how a scenario names its domains, the shop against it, the effort, scale, variants and tags, composing domains and the initial load | approved v5 (D249, D260, D263); section 10 ruled, its mechanism and the parts' format changes confirmed as written (D322, D323, D326; O111 settled in substance) |
 | [producer-profiles.md](producer-profiles.md) | The frictions between domains' producer profiles and v0.3's scheduler, each with its evidence, and the owner's rulings; what the first parts' profiles need of the scheduler and the format | draft v9, ruled (D264–D271, D276, D277, D287, D288, D298, D303; O113, O154 closed); frictions 9 and 11 applied at the parts' steps (D318, D319) |
 | [cold-storage.md](cold-storage.md) | Cold storage, a generic third party for heavy data: keeping a day on site, the shipping job, the stub's manifest, endpoints and page, the faults it enables | draft v4, ruled (D288, D296, D297; O148 closed); its stub on the partners' shared node (D308); its first data types `vitals` and `machine-readings`, purpose 14 (D319, D324) |
@@ -550,11 +552,13 @@ The items moved later are listed in the roadmap
 
 ## Questions due in this version
 
-O223–O227, raised with the [build plan](build-plan.md#pending-with-the-owner)
-and put to the owner, each planned on its recommendation: `grafana`
-0.3.0 re-pinned (O223), the trim order if CPU is short (O224), pgCluu's
-report in the player's home (O225), the health node on the VPS (O226),
-machine 10's telemetry settled by measurement (O227). O111 closed at consolidation (D338): the domain format in
+None open. O223–O227, raised with the
+[build plan](build-plan.md#settled-with-the-owner), closed at its
+approval as recommended (D343): `grafana` 0.3.0 re-pinned (O223), the
+exporters kept and pgwatch dropped if CPU is short (O224), pgCluu's
+report in the player's home, read with `scp` (O225), the health node on
+the VPS (O226), machine 10's telemetry measured in chunk 15 (O227).
+O111 closed at consolidation (D338): the domain format in
 [formats.md](../../formats.md) v28. O220, the monitoring breadth, raised
 at consolidation, closed at the master spec's approval (D340).
 
@@ -572,7 +576,7 @@ binding.
 
 ## Next steps
 
-Left on 2026-11-03, after the master spec's approval (D339, D340):
+Left on 2026-11-03, after the build plan's approval (D342, D343):
 
 - **Done**: `main` merged in (fc823ea); O111's format text in
   [formats.md](../../formats.md) v28 (D338); the
@@ -591,9 +595,19 @@ Left on 2026-11-03, after the master spec's approval (D339, D340):
   the VPS window and the whole-clinic two-host run at the release gate
   (G12, G13), **no data preflight** (D329). Five small points put to the
   owner and planned on their recommendations (O223–O227).
-- **Next: build plan v1 for the owner's approval** (G1, with κ and
-  O223–O227); then `v0.5-domains` merged into `main` and wave 1 cut
-  from it.
+- **Done, 2026-11-03: build plan v1 approved** by the owner ("agreed.
+  merge. i'll clean after and start wave 1"): κ = 3 and the plan's four
+  choices (chunk 1 the bumps and re-pins, `bastion` 0.5.0 whole in
+  chunk 17, each partner stub in its domain's or purpose's chunk, the
+  standby tooling in chunk 3) (D342, G1 cleared); O223–O227 as
+  recommended (D343). `v0.5-domains` merged into `main` by the
+  coordinator.
+- **Next: wave 1**, started by the owner: the wave driver loads the
+  `wave-execution` skill and reads [build-plan.md](build-plan.md);
+  wave 1 cut from `main` as `v0.5-w1`, **chunk 1 first**, alone (the
+  bumps and re-pins); once it has merged, chunks 2 to 5, three at a
+  time (chunk 3 after G5, chunk 5 after G6, chunk 4 after G7 if it adds
+  a package).
 - **Tests stay short** (D314): every check under 30 minutes on a minimal
   fixture; the whole clinic deployed once, on armenelos plus the VPS,
   at the release gate (D339).

@@ -41,7 +41,9 @@ question's text on
 Resolved at consolidation: O111, its v0.5 part, the domain format
 written into [formats.md](formats.md) v28 (D338). Resolved at the
 master spec's approval: O220, the monitoring breadth (D340).
-O221 and O222 were reserved and never used.
+O221 and O222 were reserved and never used. Resolved at the build plan's
+approval, as it recommended: O223–O227 (D343), their text in
+[versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#settled-with-the-owner).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -181,31 +183,8 @@ Raised when the owner set business domains for v0.5 on 2026-10-28
 (D192). v0.4 ships the first, the shop (O108). The veterinary clinic
 added on 2026-10-30 (D196). O111, the last of them, closed at
 consolidation (D338); O220, raised by it, closed at the master spec's
-approval (D340).
-
-Raised with the build plan on 2026-11-03 and put to the owner, each
-with a recommendation the
-[build plan](versions/v0.5/build-plan.md#pending-with-the-owner) is
-written on; a different answer revises the chunks it names there.
-
-- **O223** (soon, v0.5 build) — `grafana` 0.3.0 for the seeded pgwatch
-  dashboard, with the existing scenarios re-pinned to it? Recommended:
-  yes, as master spec 6.7 tables it. Refs:
-  [master spec](versions/v0.5/master-spec.md) 6.7, 7.4, 17.5.
-- **O224** (soon, v0.5 build) — The trim order if the build measures
-  the CPU short: keep the exporters and drop pgwatch, since s10 needs
-  an exporter? Recommended: yes. Refs: master spec 7.4, 14.
-- **O225** (soon, v0.5 build) — pgCluu's report written to the player's
-  home and read with `scp`, as pgBadger's is? Recommended: yes. Refs:
-  master spec 7.4.
-- **O226** (soon, v0.5 build) — The health node placed on the VPS?
-  Recommended: yes, off site as the standby is, armenelos' CPU kept for
-  the parts. Refs: master spec 7.4, 14.
-- **O227** (soon, v0.5 build) — Machine 10's telemetry (the standing
-  MRI, status only: 10 or 11 machines reporting readings) settled by
-  the build's measurement? Recommended: yes, in `vet-machinery`'s
-  chunk. Refs: [vet-machinery](versions/v0.5/vet-machinery-domain.md)
-  (key ranges, reference sizes).
+approval (D340). O223–O227, raised with the build plan, closed at its
+approval (D343). No v0.5 question is open.
 
 ## v0.6: the setup's entry point
 

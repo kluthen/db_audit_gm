@@ -1,7 +1,8 @@
 # db_audit_gm v0.5 — Build plan
 
-Status: v1 (2026-11-03): the first draft, for the owner's approval.
-Approval: **not yet approved** (G1).
+Status: v1 (2026-11-03): the first draft, approved as written with κ = 3
+(spec D342) and O223–O227 as recommended (spec D343).
+Approval: **approved 2026-11-03 by the owner** (G1, spec D342).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-11-03 (spec D339,
 D340), section 21 its main input; the six domain documents, approved
@@ -78,7 +79,7 @@ plan states only its deltas. Its conventions follow v0.4's
 
 | Gate | What | Cleared by | Blocks | Status |
 |---|---|---|---|---|
-| G1 | Plan approval, κ included (workflow deltas); `v0.5-domains` merged into `main` on the owner's word, so wave 1 is cut from `main` | The owner | Wave 1 | open |
+| G1 | Plan approval, κ included (workflow deltas); `v0.5-domains` merged into `main` on the owner's word, so wave 1 is cut from `main` | The owner | Wave 1 | done (2026-11-03, spec D342; the merge into `main` by the coordinator) |
 | G2 | [formats.md](../../formats.md) carries master spec 6: the domain format, composition, the data register, the purpose format's extensions (draft v28) | `spec-writer` | Chunk 2 | done (2026-11-03, spec D338) |
 | G3 | Network access at image build time: Debian 13's repositories, the PostgreSQL apt repository (PGDG: pgaudit, pgCluu if taken from it), the s6-overlay release, PyPI if G6 picks it, the pgwatch 3 release on GitHub | Hand check by the wave driver | Every image build: chunks 1, 3, 4, 5, 10, 17; every wave gate | open |
 | G4 | A Docker host in swarm mode: armenelos' swarm, the VPS a drained worker in it | Hand check by the wave driver | Every stack test and fixture deployment, every wave gate, the release gate | open |
@@ -91,7 +92,7 @@ plan states only its deltas. Its conventions follow v0.4's
 | G11 | **Any other dependency** a chunk adds or upgrades (the cold-storage page's drawing, an endpoint's or a purpose script's package, the bastion's front): a preflight before its branch and a post-change check before its wave's gate, `.tech` updated. The driver adds a row `G11.<n>` for each; none is planned | `security-advisor` | That chunk; its wave's gate | standing |
 | G12 | **The VPS window** for G13, under the VPS rule (workflow deltas): the VPS's own documentation read first; `tailscale status` on both hosts; the VPS still a drained worker of armenelos' swarm; no game port published on it; free disk for its share (about 4.9G of volumes and 1.5G of images, [clinic-capacity.md](clinic-capacity.md)); filetstudio.com answering before the run | Hand check by the wave driver | G13 | open |
 | G13 | **The whole clinic deployed once on armenelos plus the VPS** (master spec 18.3, release gate items 4 and 5): `fit` and the deployment; about 30 minutes of smoke, every producer, partner and purpose running, each one's first run read; the test selection planted at once, each fault read present only where it reads in the window; no fix, no aging, no hand-over snapshot. The VPS `active` only inside the run's host lock and drained after, pass or fail; filetstudio.com polled throughout and answering after | The wave driver, on the owner's time (a two-host run is announced) | Release gate items 4 and 5 | open |
-| G14 | **A CPU trim, if the build measures heavier** (master spec 14): applies only when `fit` on the clinic as built (chunk 27) refuses either host, or G13's figures exceed it; the trim is the owner's call, planned on O224's recommendation (exporters kept, pgwatch dropped) | The owner | Chunk 27's merge and G13, only if it applies | not yet applicable |
+| G14 | **A CPU trim, if the build measures heavier** (master spec 14): applies only when `fit` on the clinic as built (chunk 27) refuses either host, or G13's figures exceed it; the trim is the owner's call, its order settled (O224, spec D343): the exporters kept, pgwatch dropped | The owner | Chunk 27's merge and G13, only if it applies | not yet applicable |
 | G15 | The owner's judgement at release close: the short tests as run, G13's run, the named known limits and what stays v1.0 gating | The owner | Release close | open |
 
 G5, G6, G7 and G9 are preflights on candidate versions; G8 and G10 the
@@ -165,7 +166,7 @@ have merged.
 
 ## Workflow deltas
 
-- **κ = 3** (proposed, as v0.4's spec D216; confirmed at G1): chunks
+- **κ = 3**, confirmed by the owner for v0.5 (spec D342), as in v0.4: chunks
   with no path between them run side by side, each in its own worktree.
   Docker-using checks (image builds, stack tests, fixture deployments)
   are serialized by the host lock, `flock /tmp/dbagm-docker.lock
@@ -275,18 +276,21 @@ have merged.
 | 4 | the `bastion` 0.5.0 stack test (both new seed files, the cold-storage route refusing the upload endpoint and every other partner); the register tests (generated, a stale digest refused, a declared absence passed); the orders, send-outs, exchanges, reports, bookings, imaging, vault and portal fixtures with their purposes' checks |
 | 5 | every fault's short test, present and fixed (cleared, for s6 and s9), on its fixture (17.3), one at a time, each under 30 minutes; the false alarm's check; the clinic scenario's format check, register, scenario document and `fit` declaration on armenelos plus the VPS (placement only, no deployment); its load-only fixture through the coherence and governance checks, unfaulted |
 
-## Pending with the owner
+## Settled with the owner
 
-Put to the owner on 2026-11-03, each with a recommendation this plan is
-written on. A different answer is a revision of the chunks named.
+Put to the owner with the plan on 2026-11-03 and answered as
+recommended (spec D343, O223–O227 closed); the chunks named are written
+on these answers.
 
-| Question | Recommended, and planned | Chunks it touches |
+| Question | Answer | Chunks it touches |
 |---|---|---|
 | **O223** `grafana` 0.3.0 for the seeded pgwatch dashboard, the existing scenarios re-pinned to it | yes (master spec 6.7) | 1 (version lines, re-pins), 10 (the dashboard) |
 | **O224** The trim order if CPU is short | the exporters kept, pgwatch dropped, since s10 needs an exporter | G14; 27; release gate |
 | **O225** pgCluu's report | written to the player's home and read with `scp`, as pgBadger's | 10 |
 | **O226** The health node's host | the VPS | 10 (its docs), 27 (placement), G13 |
 | **O227** Machine 10's telemetry | settled at the build's measurement, 10 or 11 machines reporting | 15 |
+
+## Pending with the owner
 
 **The security advisor's items awaiting the owner**
 (`SECURITY_TODO.md`'s triage of 2026-11-01, and v0.4's known issues).
