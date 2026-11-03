@@ -72,7 +72,9 @@ purposes:
       receiver: gateway
 governance:
   policy: player/data-policy.md     # master spec 11.5, in words
-  classification: data/classification.yaml   # the shop domain's, unchanged
+  classification: data/classification.yaml   # the shop domain's classes, keyed with the
+                                    # shop. database prefix the domain's file no longer
+                                    # carries (v0.5 master spec 6.1, 8.6)
   classes:                          # readers: access model 9.3
     personal:
       locations: [db/shop]
