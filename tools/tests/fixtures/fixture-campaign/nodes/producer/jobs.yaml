@@ -1,6 +1,7 @@
 # Fixed-time operations of fixture-campaign's producer node (tools/tests, v0.4 chunk 13;
 # capture W3-b item 4), in scenario time: copied unchanged from
-#   domains/shop/producers/jobs.yaml.
+#   domains/shop/producers/jobs.yaml (from v0.5 in
+#   domains/shop/producers/producer/, D344).
 #
 # Fixed-time operations of the shop's web shop, a fragment (capture W1,
 # item 5's rule): the close of day, in scenario time, as in

@@ -1,12 +1,15 @@
 # answer-key.yaml — template for scenarios/<scenario-id>/gm/answer-key.yaml
 #
-# Version v0.4, expected to evolve as games are played.
+# Version v0.5, expected to evolve as games are played.
 # Shape: v0.1 master spec section 6.2 ("The answer key"), v0.2 master
 # spec 6.3 (capture W1 of specs/versions/v0.2/wave-log.md), v0.3 master
 # spec 6.2 and 11 (capture W1 of specs/versions/v0.3/wave-log.md, item 4:
 # a behavioural check's window and threshold) and v0.4 master spec 6.2,
 # 12 and 13.4 (capture W1 of specs/versions/v0.4/wave-log.md, item 2: a
-# check judging runs or triggers, its threshold). This file and
+# check judging runs or triggers, its threshold) and v0.5 master spec 6.3
+# and 6.8 (a register fault's diff, a cascade's backlog, a third party's
+# evidence, a report-only fault outside the players' layers; capture W1 of
+# specs/versions/v0.5/wave-log.md). This file and
 # scenario.yaml are AUTHORITATIVE. It lives under gm/, which is sealed:
 # never shipped to any node, never shown to the players before their
 # final answer.
@@ -40,7 +43,13 @@ instances:                          # exactly one entry per fault instance in sc
         source: <file, view or command output>   # what is looked at (v0.1's free-text where, D101)
         how: <command run as player>
         shows: <what in the output reveals it>
-    acceptable:                     # what counts as an acceptable answer
+    acceptable:                     # what counts as an acceptable answer. A fault on a component
+                                    # that is no layer of the players' (a ward display's firmware;
+                                    # v0.5 master spec 6.3) resolves by report only: judged at the
+                                    # final answer, never cleared by the GM during play. A register
+                                    # fault resolves by propose: the corrected entry, judged at the
+                                    # final answer against register_diff. No expected fix names a
+                                    # third party's node (v0.5 master spec 10.1)
       diagnosis: <what a correct diagnosis names>
       proposal: <what an acceptable recommendation says>
                                     # optional: when an issue covering it expects propose,
@@ -51,7 +60,10 @@ instances:                          # exactly one entry per fault instance in sc
       improvement: <what counts as better>
                                     # optional: when an issue covering it expects improve,
                                     # or the fault lists improve and the node is fixable
-    sealed_check:
+    sealed_check:                   # from v0.5 a check may read a third party's side as evidence
+                                    # (callbacks sent against callbacks received, a vault's
+                                    # manifests); it judges the customer's side only (v0.5 master
+                                    # spec 6.3, 10.1)
       script: <faults/pg-hba-trust/checks/fixed.sh>   # the fault definition's check
       at_handover: 1                # expected exit code once planted (1: present); a check may
                                     # also exit 0 (fixed), 3 (too soon to tell, the remaining
@@ -83,6 +95,27 @@ instances:                          # exactly one entry per fault instance in sc
                                     # Reporting each is part of the expected answer:
                                     # [{node: <db>, rule: <validator output line>,
                                     #   why: <why it cannot be made green>}]
+    register_diff:                  # optional: a register fault instance only (a fault planted in
+                                    # the data register handout; v0.5 master spec 6.3, 6.8, D333):
+                                    # non-empty, each item the entry, the field, the true value and
+                                    # the value handed out, or the one item {absent: true} for a
+                                    # register left out. Shown in the scenario document's "Data
+                                    # register" section. The true key reads as a YAML boolean key
+      - entry: <core-owners>        # optional: every item but an absent one; an entry id of the
+                                    # true register (gm/data-register.yaml)
+        field: <shared_with>        # optional: with entry; the entry's field the handout changes
+        true: <[the portal, the back office, the messaging service, cold storage]>
+                                    # optional: with entry; the field's value in the true register
+        handed_out: <[the portal, the back office, the messaging service]>
+                                    # optional: with entry; its value in player/data-register.md
+        absent: true                # optional: alone, the item of a register left out (no
+                                    # player/data-register.md handed over)
+    backlog:                        # optional: a round-trip fault instance (a cascade; v0.5 master
+                                    # spec 6.3): the requests the fault left stuck before the fix,
+                                    # a consequence the GM may credit the players for cleaning up;
+                                    # never a fault, never counted toward the fault cap or the score
+      what: <the requests stuck, e.g. orders marked sent with no lab order behind them>
+      cleanup: <what counts as cleaned up, e.g. each resent under its own key, or reconciled>
 
 tooling_expectations:               # the GM's silent tooling expectations, apart from the fault
                                     # instances; may be []. No visibility, no sealed check:

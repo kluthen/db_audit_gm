@@ -2,7 +2,8 @@
 
 <!-- Template: bricks/<brick-id>/docs/gm.md (spec D56, specs/formats.md,
 "`docs/gm.md` must contain"; v0.2 master spec 6.2; v0.3 master spec 6.4
-and capture W1 item 5; v0.4 master spec 7.2). Keep the nine level-2 headings, with these
+and capture W1 item 5; v0.4 master spec 7.2; v0.5 master spec 6.5 and
+capture W1 item 1: an option's section). Keep the nine level-2 headings, with these
 exact names, in this order. Add your own sections as subsections of a
 required one, or after Known limits. No required section stays empty: one
 that does not apply says so in a sentence, with the reason. Everything
@@ -25,6 +26,15 @@ to players.
 ## Configuration
 
 <Every parameter and per-scenario or per-node value, the per-node values of mounted companion material included (meaning, default, valid values, where it lands); the knobs and their default envelopes; the secrets (with their kind) and seed files and what they must contain; what start-up does.>
+
+### Option `<name>`
+
+<!-- Optional: one section per option brick.yaml declares under `options:`
+(from v0.5, master spec 6.5, 7.1), a level-3 heading under Configuration
+named exactly "Option `<name>`", the section its `docs:` names
+(docs/gm.md#option-<name>). Drop it for a brick without options. -->
+
+<What the option brings (the secrets under `brings.secrets`, their entries under `secrets:` unchanged, and the roles under `brings.roles`, created at initdb), on which nodes it exists (only on a node choosing it: render mounts its secrets and the entrypoint creates its roles only there); how a scenario chooses it (`options: [<name>]` on the node, off unless listed; which nodes must choose it, such as every node a monitoring brick targets); what the player documentation and the starter pack say of it when it is on, and nothing when it is off.>
 
 ## Connections
 

@@ -6,8 +6,8 @@ description: Use whenever a db_audit_gm scenario, brick, fault, purpose or domai
 # Scenario format
 
 Every scenario, brick, fault and, from v0.4, purpose and domain is written
-to one shape. This skill holds that shape: eleven templates and the folder
-layouts. This is its **v0.4
+to one shape. This skill holds that shape: sixteen templates and the folder
+layouts. This is its **v0.5
 version**, expected to evolve as games are played; when a game shows the
 format is missing something, change the template and this skill together.
 
@@ -17,11 +17,16 @@ sections 6, 7, 8 and 8.1), v0.2's format changes
 (`specs/versions/v0.3/master-spec.md`, section 6, with 7.1 for a
 scheduler's files) and v0.4's (`specs/versions/v0.4/master-spec.md`,
 section 6, with 7.1 and 7.2 for the transformer script and a database
-node's crontab), with `specs/formats.md`. The top-level keys of
+node's crontab) and v0.5's (`specs/versions/v0.5/master-spec.md`,
+section 6, its shapes in 6.8, with 7.1 and 7.2 for options, the standby,
+the `api` brick and the HTTP driver, 8.4 and 8.5 for composed domains, 10
+for third parties and 13.3 for the data register), with `specs/formats.md`
+(draft v28). The top-level keys of
 `brick.yaml` are fixed (capture W1-A in `specs/versions/v0.1/wave-log.md`);
 v0.2's keys are capture W1 in `specs/versions/v0.2/wave-log.md`, v0.3's
 capture W1 in `specs/versions/v0.3/wave-log.md`, v0.4's capture W1 in
-`specs/versions/v0.4/wave-log.md`.
+`specs/versions/v0.4/wave-log.md`, v0.5's capture W1 in
+`specs/versions/v0.5/wave-log.md` (items 0 to 7).
 
 ## Templates
 
@@ -37,6 +42,11 @@ capture W1 in `specs/versions/v0.3/wave-log.md`, v0.4's capture W1 in
 | [templates/purpose.yaml](templates/purpose.yaml) | `purposes/<id>/purpose.yaml` | a purpose definition (from v0.4) |
 | [templates/domain.yaml](templates/domain.yaml) | `domains/<id>/domain.yaml` | a domain definition (from v0.4) |
 | [templates/classification.yaml](templates/classification.yaml) | `domains/<id>/data/classification.yaml`, copied to `scenarios/<id>/data/classification.yaml` | a domain's column classification (from v0.4) |
+| [templates/register.yaml](templates/register.yaml) | `domains/<id>/data/register.yaml` | a domain's register fragment, one entry per processing activity (from v0.5) |
+| [templates/variant.yaml](templates/variant.yaml) | `domains/<id>/variants/<variant>.yaml` | a variant's manifest (from v0.5) |
+| [templates/composition.yaml](templates/composition.yaml) | `scenarios/<id>/composition.yaml` | the composition record (from v0.5) |
+| [templates/merge.yaml](templates/merge.yaml) | `scenarios/<id>/merge.yaml` | the merge's resolutions (from v0.5) |
+| [templates/api.yaml](templates/api.yaml) | `scenarios/<id>/nodes/<node>/api.yaml`, and a domain's fragment `domains/<id>/producers/api/<node>/api.yaml` | an `api` node's endpoints and connections (from v0.5) |
 | [templates/brick-gm.md](templates/brick-gm.md) | `bricks/<id>/docs/gm.md` | a brick's GM documentation (D56): the nine required sections |
 | [templates/layouts.md](templates/layouts.md) | — | the scenario, brick, fault, purpose and domain folders, and the script contracts |
 
@@ -61,7 +71,9 @@ Markers used in every template:
 3. **Fill the folder**, not only the YAML: every file the layout requires
    (starter pack, the data policy with `governance:`, `gm/notes.md`, node
    seed files, data files, the classification with `governance:`,
-   `inject/`, `checks/`, `material/`, docs).
+   `inject/`, `checks/`, `material/`, docs; from v0.5 `composition.yaml`
+   with `domains:`, `player/partners.md` with `third_parties:`, and the
+   data register's two files, generated).
 4. **Check completeness** against the checklists below, by reading. The
    scripts check too: whenever a `gmctl` command loads a scenario, it
    checks the scenario, and every brick and fault it uses, against these
@@ -94,7 +106,7 @@ A scenario is complete or it is not deployed.
 
 ## Completeness checklists
 
-### Scenario (v0.1 master spec 6.2, v0.2 master spec 6.3, v0.3 master spec 6.1, 6.2, v0.4 master spec 6.1, 6.2)
+### Scenario (v0.1 master spec 6.2, v0.2 master spec 6.3, v0.3 master spec 6.1, 6.2, v0.4 master spec 6.1, 6.2, v0.5 master spec 6.2, 6.3)
 
 - **Scenario information**: `id`, `version`, `title`, `date`, `origin`,
   `session_length_minutes` (at most 240), `brief` and `brief.md`.
@@ -118,6 +130,14 @@ A scenario is complete or it is not deployed.
   `governance` (`policy`, `classification`, `classes` with each class's
   `locations`, and `readers` and `outbound` where they apply), with
   `player/data-policy.md` and `data/classification.yaml`.
+- **Composed domains, third parties and the data register** (from v0.5,
+  each only when the scenario has it): `domains` (each `id`, `at`, and
+  the core's `variant`) with `composition.yaml` and, when two profiles
+  collided, `merge.yaml`; `third_parties` (each `id`, `name`,
+  `stands_for`, `role`, `nodes`, `hostname`, `player_doc`) with
+  `player/partners.md`; `governance.register` with
+  `player/data-register.md` and `gm/data-register.yaml`; on a node,
+  `options` and `standby_of`.
 - **Background**: `background`, and `player/story.md`.
 - **Incidents, flaws and defects**: `fault_instances` (fault id and pinned
   version, `node`, `parameters`, `visibility`, and with scheduler nodes
@@ -130,13 +150,17 @@ A scenario is complete or it is not deployed.
   `shows`), `acceptable` (diagnosis, and proposal, fix or improvement as
   they apply), `sealed_check` (with its `window` and `threshold` for a
   behavioural check, its `judges` and `threshold` for a check judging
-  runs or triggers), `interactions`, `validators_left_red`;
+  runs or triggers), `interactions`, `validators_left_red`, from v0.5
+  `register_diff` on a register fault instance and `backlog` on a
+  round-trip fault instance that leaves one;
   `tooling_expectations` (may be `[]`: each with `id`, `need`,
   `expected`, `acceptable`, optional `notes`); and `gm/notes.md`.
 - **Host topology it was designed for**: `designed_for` (platform, hosts
   with CPU, memory, disk, placement of every node).
 - **Starter pack** (`player/README.md`, `story.md`, `issues.md`, and
-  from v0.4 `data-policy.md` with `governance:`), **node files**
+  from v0.4 `data-policy.md` with `governance:`, from v0.5 `partners.md`
+  with `third_parties:` and `data-register.md` with
+  `governance.register`), **node files**
   (`nodes/<node>/`), **restored-backup data** (`data/<node>.sql`).
 - **Scenario document** (`README.md`), generated, opening with the "do not
   read" warning.
@@ -207,8 +231,8 @@ The rules from v0.2:
 - every referenced brick and fault exists at the pinned version (the
   scenario's own `bricks/`, `faults/` first, then the catalog);
 - a node's `role` is one of its brick's roles, its `write_policy` is one
-  its brick supports (or `no-access`), and every required brick parameter
-  is set;
+  its brick supports (or `no-access`; from v0.5 only on a brick listing
+  it, master spec 6.5), and every required brick parameter is set;
 - `seed_files` covers exactly the brick's `seed.files`, and every file
   exists; a directory entry (`builders/`, `scripts/`) and, from v0.4, an
   entry of the brick's `seed.optional` (`postgres`' `crontab`) may be
@@ -370,7 +394,9 @@ job's `connections:`); the others are checked by reading:
   own (about 42 MB reserved, its target scraped by the `prometheus`
   node), or left unscraped by design, which the answer key states as a
   tooling expectation naming the instance (judged in feedback, not a
-  fault instance). Every `postgres` node keeps the `monitoring` role.
+  fault instance). Every `postgres` node keeps the `monitoring` role; from
+  v0.5 the role exists only on a node choosing `options: [monitoring]`,
+  which every node an exporter targets does.
 - **Jobs the players may move**: the starter pack (`player/README.md`)
   names every job the players may edit (each `jobs.yaml` job on a node
   where `jobs.yaml` is fixable, by policy or override: its node and its
@@ -382,6 +408,73 @@ job's `connections:`); the others are checked by reading:
   to it, with a `threshold` (a non-negative integer, the violations
   tolerated, 0 by default) and no `window`.
 
+The rules from v0.5 (v0.5 master spec 6.2, 6.3, 6.8, 7.1, 8.4, 8.5, 10,
+13.3; capture W1 items 0, 2, 6 and 7 of `specs/versions/v0.5/wave-log.md`;
+`specs/formats.md` "Scenario" and "Composing domains"):
+
+- **`domain:` or `domains:`, never both.** `domain: <id>` stays the
+  one-domain form (v0.4's shop). `domains:` lists the domains the
+  scenario is composed of, each `id` a domain of the catalog, once; every
+  core a part `requires` is listed; `variant` is required on the core's
+  entry and refused on a part's, and the core's variant names every part
+  listed; `at` is a `node/database` (a `database` node and a database the
+  scenario's data creates), or for a part declaring `databases` a map
+  from each of them to a `node/database`; a `lands_with` part shares its
+  core's `at`.
+- **The composition record**: `composition.yaml` is required with
+  `domains:` and refused without ([templates/composition.yaml](templates/composition.yaml));
+  its `domains` equal `scenario.yaml`'s (id, variant, `at`). `merge.yaml`
+  ([templates/merge.yaml](templates/merge.yaml)) holds the resolutions of
+  the conflicts `gmctl compose` stopped on; a resolution meeting no
+  conflict is refused as stale. A scheduler or `api` node's files are
+  then `gmctl compose`'s output, from the domains' fragments, the
+  variant's profile and the scenario's `compose/<node>/` (the purposes'
+  material, each scheduler node's `intensity` and `timeline`), never
+  edited by hand.
+- **Third parties** (`third_parties:`): one entry per partner, with its
+  `id`, in-world `name`, `stands_for`, `role` (`inbound`, `outbound`,
+  `round-trip`), its shared `nodes` (may be `[]` for a party without a
+  node), its `hostname` (`[a-z][a-z0-9-]*`, unique, never a node's name:
+  its alias on the partners' `api` node) and its `player_doc`, an entry
+  of `player/partners.md`. The bastion maps `partners.md:
+  player/partners.md` (an optional seed file of `bastion` 0.5.0) exactly
+  when the scenario has third parties with a `player_doc`. A third
+  party's nodes have `write_policy: no-access` (no `player` account, no
+  `sudo` wrappers, no route on the bastion, not in the starter pack's
+  nodes).
+- **Options** (`options:` on a node): a non-empty list of unique option
+  names the node's brick declares (`[monitoring]` on `postgres` 0.5.0),
+  off unless listed; `[]` is refused. Every node an exporter or another
+  monitoring brick targets chooses `monitoring`.
+- **A standby** (`standby_of: <node>`): a `postgres` node whose primary is
+  a `postgres` node that is no standby itself; the standby has no `data:`
+  entry (cloned from its primary after the load) and its seed sets
+  `hot_standby_feedback = on`; the primary's seed `pg_hba.conf` carries
+  `host replication replicator samenet scram-sha-256` under its DO NOT
+  TAMPER comment. The standby keeps the role `database`.
+- **The data register** (`governance.register: player/data-register.md`):
+  required of every scenario listing `domains:` (v0.4's released shop
+  scenario is exempt until it is next revised), allowed with `governance:`
+  alone. Its two files, `player/data-register.md` (the handout, mapped to
+  the bastion's optional seed file `data-register.md`) and
+  `gm/data-register.yaml` (the true register), are generated by the GM's
+  `data-register` skill, never edited by hand, and regenerated rather
+  than reconciled; the loader refuses a stale register (its
+  `generated_from:` digests) and checks the handout exists unless the
+  answer key declares its absence as a planted fault.
+- **Answer key, from v0.5** (master spec 6.3): a register fault instance
+  carries `register_diff:` (each item its `entry`, `field`, `true` value
+  and `handed_out` value, or the one item `absent: true` for a register
+  left out), its resolution *propose*, the corrected entry judged at the
+  final answer; a round-trip fault instance lists its `backlog:`, the
+  requests it left stuck before the fix, a consequence the GM may credit
+  the players for cleaning up, never a fault and never counted toward
+  the fault cap; a fault on a component that is no layer of the players'
+  (a ward display's firmware) states *report* as its resolution, judged
+  at the final answer, never cleared during play; a sealed check may read
+  a third party's side as evidence and judges the customer's side only,
+  and no expected *fix* names a third party's node.
+
 ### The scheduler's files (v0.3 master spec 7.1, v0.4 master spec 7.1)
 
 A scheduler node's `queries.yaml`, `builders/`, from v0.4 `scripts/`,
@@ -391,8 +484,10 @@ Start from
 [templates/schedule.yaml](templates/schedule.yaml) and
 [templates/jobs.yaml](templates/jobs.yaml); the forms 7.1 leaves open are
 capture W1's (item 7) and spec D168, those v0.4 adds capture W1's of
-`specs/versions/v0.4/wave-log.md` (items 0 and 7) and spec D219. The
-loader checks, and a failure is a missing item:
+`specs/versions/v0.4/wave-log.md` (items 0 and 7) and spec D219, those
+v0.5 adds (`scheduler` 0.3.0: the HTTP driver, the call, the weighted
+`choice`) capture W1's of `specs/versions/v0.5/wave-log.md` (items 3 and
+4). The loader checks, and a failure is a missing item:
 
 - **Every key named exists**: each stream's `key`, each job's `key` and
   each timeline change's `set.key` is a key of the node's `queries.yaml`.
@@ -404,8 +499,18 @@ loader checks, and a failure is a missing item:
   a sequence (`steps`, a non-empty list of `{sql, params}`, optional
   `transaction`), a builder (`builder: builders/<file>:<function>`,
   optional `options` map) or, from v0.4 (`scheduler` 0.2.0), a script
-  (`script: scripts/<file>:<function>`, optional `options` map). Parameters come from generators, one key each:
+  (`script: scripts/<file>:<function>`, optional `options` map) or, from v0.5 (`scheduler` 0.3.0), a call
+  (`call: "<METHOD> <path>"`, the method `GET`, `POST`, `PUT`, `PATCH` or
+  `DELETE`, the path absolute, its `%(name)s` filled from `params`;
+  optional `params`, those not in the path the JSON body's fields, the
+  query string's for `GET` and `DELETE`; optional `builder` returning the
+  JSON body, with `options`, `params` then holding only the path's names).
+  A call key runs only on an `http` connection, a query, pool, sequence or
+  builder key only on a SQL one; no pool, sequence or transaction of
+  calls. Parameters come from generators, one key each:
   `{int: [lo, hi]}`, `{decimal: [lo, hi, places]}`, `{choice: [..]}`,
+  from v0.5 the weighted `{choice: {v1: 3, v2: 1}}` (weights positive
+  integers, relative; values scalars),
   `{sequence: [start, step]}`, `{now: utc}`. A `transaction` has an
   `isolation` (`read committed`, `repeatable read`, `serializable`) and an
   optional `hold` (a duration).
@@ -421,12 +526,21 @@ loader checks, and a failure is a missing item:
   library, psycopg 3 and PyYAML, and holds no password. A purpose's
   runner is a node of role `transformer`, sized for what its scripts move
   in one run.
-- **Connections**: the driver is a known one (`sql/postgresql`); the
-  target is `<node>:<port>/<database>` on a node of the topology; the role
+- **Connections**: the driver is a known one (`sql/postgresql`, from
+  v0.5 `http`). A `sql/postgresql` connection's target is
+  `<node>:<port>/<database>` on a node of the topology; its role
   is an application role (`[a-z_][a-z0-9_]{0,40}`, never `postgres`,
-  `dba`, `monitoring`, `gm_check`, `pgbouncer_lookup` or `pg_*`); the pool
-  is `{size: N}` or `{per-call: true}`. No password is ever written: render
-  generates one secret per role.
+  `dba`, `monitoring`, `gm_check`, `pgbouncer_lookup`, `replicator` or
+  `pg_*`); its pool is `{size: N}` or `{per-call: true}`. An `http`
+  connection (v0.5) has a target `<host>:<port>` (a node, or a third
+  party's hostname), an optional `credential` (`[a-z][a-z0-9_]*`, the
+  game's secret `http_<credential>`; absent for a public endpoint), a
+  `pool`, a positive integer (kept-alive connections), an optional
+  `timeout` (`<n>s`, 1 to 60, default `10s`), and no `role` and no
+  database. No password or credential value is ever written: render
+  generates one secret per role and per credential. A script job's
+  `connections:` may name an `http` connection, which its script gets as
+  an HTTP client (`get`, `post`).
 - **Streams**: a `rate` `<number>/s|min|h`, `arrivals` `poisson` or
   `even`, an optional `shape` of the schedule, an optional `concurrency`;
   a stream is known by its initial key, unique on the node. From v0.4
@@ -466,9 +580,24 @@ v0.4 master spec 6.4):
 
 - **Roles**: each one of the closed list `bastion`, `producer`, `queue`,
   `database`, `pooler` (PgBouncer), `transformer`, `consumer`,
-  `monitoring`, `backup`. A scenario node's `role` is one of its brick's.
+  `monitoring`, `backup`, `api`. A scenario node's `role` is one of its brick's.
   `transformer` is, from v0.4, a `scheduler` 0.2.0 node running a
-  purpose's jobs (v0.4 master spec 7.1).
+  purpose's jobs (v0.4 master spec 7.1); `api`, from v0.5, the `api`
+  brick's role (spec D349).
+- **Options** (`options:`, optional, from v0.5 master spec 6.5, 6.8): each
+  option's `name`, what it `brings` (`secrets`, declared under `secrets:`
+  where their path, owner and mode stay, mounted only on a node choosing
+  it; `roles`, created at initdb only there) and its `docs`, a section
+  `docs/gm.md#option-<name>`, the level-3 heading "Option `<name>`" under
+  Configuration. `postgres` 0.5.0 declares one, `monitoring`.
+- **`no-access`** (v0.5 master spec 6.5, 10.2): listed in
+  `write_policies` by every brick that may serve a third party (`api`,
+  `scheduler`, `postgres`); its entrypoint then creates no `player`
+  account and no `sudo` wrappers.
+- **The `api` brick's seed files** (v0.5, capture W1 item 5): `api.yaml`
+  ([templates/api.yaml](templates/api.yaml)) and the directory entries
+  `routes/` and `db/`, mapped by `seed.paths`; `writable_paths`
+  `/srv/api/db` and `/home/player`, the routes and `api.yaml` protected.
 - **Footprint**: the shape of a scenario node's `resources`, `limits`
   (`cpu`, `memory`) and `reservations` (`cpu`, `memory`, `disk`, at rest),
   the default the GM starts from when it sizes a scenario, plus
@@ -587,6 +716,24 @@ master spec 6.3 and 6.5):
   `data-flow` (duplicates, dropped records) or `rules` (a wrong zone, a
   wrong segment), and a governance or credential fault is `security`,
   its id `governance-<what>` or `security-<what>`.
+- **Options** (from v0.5 master spec 6.4): `requires_option: <name>` when
+  the fault needs its target node to choose that option (a lost
+  `pg_monitor` grant on the `monitoring` role), `option_absent: <name>`
+  when it plants the option's absence (a monitoring node scraping a node
+  without it).
+- **A register fault** (v0.5 master spec 6.4): a `seed-file` change on the
+  bastion, `seed_changes` naming `data-register.md`, its id
+  `governance-register-*`, family `security`; the `data-register` skill
+  writes the changed handout, and each instance's answer-key entry
+  carries `register_diff:`.
+- **A partner's misbehaviour** (`partner_behaviour:`, v0.5 master spec
+  6.4, 10.1): an outage, slow answers, errors, a lost, late, duplicated or
+  out-of-order callback, seen at the partner's interface, never a root
+  cause inside it: the `partner` (a `third_parties` id), the `key`
+  switching that partner's state on the shared nodes, how it is `placed`
+  (`timeline`, a change at the planting moment, or `standing`, from T0)
+  and its own `material` for the shared nodes, never the domain's. Every
+  fix is on the customer's side.
 
 - **Aging** (`aging:`): the technique, `real-time` (the only one in
   v0.3), and the minimum duration before the evidence shows under the
@@ -661,13 +808,14 @@ master spec 6.3 and 6.5):
   node-health script: the `prometheus` node, through its `node_health`
   map (a node left out, or a service left out of a node's entry).
 
-### Purpose (v0.4 master spec 6.7, 8)
+### Purpose (v0.4 master spec 6.7, 8; v0.5 master spec 6.6, 12.1)
 
 Every key of [templates/purpose.yaml](templates/purpose.yaml), and the
 folder: `material/` (one folder per part receiving material, each file a
 fragment named as the scenario's own), `checks/` (one script per
 invariant), `gm.md`. Capture W1 item 5 of
-`specs/versions/v0.4/wave-log.md` settles the keys and closed values. In
+`specs/versions/v0.4/wave-log.md` settles the keys and closed values;
+v0.5's additions are `specs/formats.md` "Purpose definition". In
 particular:
 
 - **Identity**: `id` (the folder's name, `[a-z][a-z0-9-]*`), `title`,
@@ -706,27 +854,125 @@ particular:
   `timeline`). Heavy or row-by-row work runs on the runner, never on a
   database node (the placement guideline above).
 
-### Domain (v0.4 master spec 6.8, 11.3)
+From v0.5 (formats.md "Purpose definition", D286, D303, D307):
+
+- **The round trip**: `kind: round-trip` and a `round_trips:` block,
+  required there and refused elsewhere, one entry per exchange (an
+  exchange both ways carries two): who `asks` (`customer` or `partner`),
+  the `request` (its `job`, its `counterpart`, what it `sends`), the
+  `correlation` key, the expected `answers` (each `form`, `when`,
+  `carries`), the `timeout` (`after`, `then`: resend with the same key,
+  escalate) and the `reactions`, named.
+- **Two more parts**: `api`, a customer's `api` node the purpose calls or
+  brings endpoints to; `partner`, a declared third party's node. A pushed
+  obligation's `receiver` is a declared third party.
+- **HTTP connections** in a job's `connections:`, named for the part they
+  reach (the scheduler's `http` driver).
+- **Endpoint material**: `material/api/<node>/routes/` and `db/`, the
+  endpoints a purpose brings to a customer's `api` node, as a domain's
+  `producers/api/<node>/`; a receiver with no stream of its own keeps its
+  stub in the purpose, a partner with streams of its own stays in its
+  domain's `producers/partners/<partner>/`.
+- **Periodic purposes**: a periodic job names its daily `feeder`, the
+  witness within the aging; `history: material/history.sql` plants the
+  past periods' outputs into the target before T0 (for a target
+  belonging to no domain, `load-data` runs it after the sources' loads,
+  as the superuser, through a temporary foreign server, every session
+  unseen). No periodic report runs on demand.
+- **How an invariant is judged** (`judged:`): `runs`, `triggers`,
+  `end-to-end` (on the trace after the fix; the backlog is the answer
+  key's), `code` or `definition`; a round trip names exactly one
+  `end-to-end` invariant.
+- **Its own `classification:`**: a purpose whose target belongs to no
+  domain, or which adds tables to a domain's database, classes their
+  columns under `columns:`, keyed as a scenario's copy keys them
+  (`<database>.<table>.<column>`).
+- **The `ops` schema**: a purpose's own tables in a domain's database
+  (ledgers, incidents, watermarks) live in schema `ops`, never in
+  `public`; a target belonging to no domain keeps them in `public`. Every
+  run writes one `ops.runs` row (or the target's `runs`) in the same
+  transaction as its output.
+
+### Domain (v0.4 master spec 6.8, 11.3; v0.5 master spec 6.1, 8.2 to 8.6)
 
 Every key of [templates/domain.yaml](templates/domain.yaml), each path
 naming a file of the domain folder that exists (`producers` a folder),
-and `docs/gm.md`. In particular:
+and `docs/gm.md`; the folder as [templates/layouts.md](templates/layouts.md)
+lays it out. The procedure's checklist
+(`specs/versions/v0.5/domain-procedure.md`, section 3) and formats.md "A
+domain is done" are the definition of done; `model.check_domain_dir`
+checks what a script can decide. Capture W1 item 7 of `specs/versions/v0.5/wave-log.md` settles the
+keys. In particular:
 
 - `id` (the folder's name), `title`; no `version`. `purposes`: the ids of
   the purposes that fit (may be `[]`; each id's form is checked, not that
   the purpose exists yet).
+- **Core and part.** A core has no `requires` and may be taken alone. A
+  part has `requires: [<core>]`, one item, a domain beside it that is no
+  part itself (one level only); `lands_with`, `databases` and `derive`
+  are a part's keys only. `lands_with` names its core. With `databases`
+  (each `[a-z_][a-z0-9_]*`, once) `schema` and `load` are absent and
+  `data/<database>/schema.sql` and `load.sql` exist for each; without,
+  `schema` and `load` are required. `derive: {after: [...]}` names other
+  domains of the catalogue and needs `data/derive.sql`, run only when
+  the scenario's composition record sanctions it.
 - `schema.sql` and `load.sql` follow the data load's contract
   ([templates/layouts.md](templates/layouts.md)): each `CREATE DATABASE`
   and `CREATE ROLE` at the start of a line, unquoted; `load.sql` may read
   the two `psql` variables `:'customer_timezone'` and
-  `:customer_utc_offset`.
-- `producers/` holds `queries.yaml` and `schedule.yaml` fragments of the
-  business's producer, which parse as fragments.
-- `classification.yaml` ([templates/classification.yaml](templates/classification.yaml))
-  classes columns under `columns:`, keyed `<database>.<table>.<column>`
-  (the table in schema `public`), each `personal`, `customer-linked` or
-  `internal`; a column with no entry is `internal`, and a domain lists
-  every column of its tables, `internal` ones included.
+  `:customer_utc_offset`. Every `SECURITY DEFINER` function carries a
+  fixed `search_path` (D323; checked at the domain's build).
+- **Classification** ([templates/classification.yaml](templates/classification.yaml)):
+  every column of every table under `columns:`, each `personal`,
+  `customer-linked` or `internal`, `internal` ones listed too, keyed
+  `<table>.<column>` (`<schema>.<table>.<column>` outside `public`,
+  which is never written) **without the database**: a key whose first
+  name is a database the schema files create or `databases` lists is
+  refused. The scenario's copy adds each table's database
+  (`<database>.<table>.<column>`, four names outside `public`). A part
+  with several databases keeps its keys unique across the part.
+- **The register fragment** ([templates/register.yaml](templates/register.yaml)),
+  `register`, required of every domain: one entry per processing
+  activity (its id, unique, the domain's prefix first; name; purpose;
+  people, may be `[]`; tables; retention, a period and `erased` or
+  `anonymised`, game values stated as such), and **every table of the
+  schema files in exactly one activity** (D334), a partition (`CREATE
+  TABLE ... PARTITION OF`) with its parent; a table listed that the
+  schema does not create is refused.
+- **The business's own rules**, when it has any: `policy`
+  (`docs/policy.md`) and `governance` (`data/governance.yaml`, a
+  `governance:` fragment), both or neither.
+- **Producer material** (D344): `producers/` holds folders only, never a
+  fragment at its root. `producers/<node>/`: the `queries.yaml`,
+  `schedule.yaml` and `jobs.yaml` fragments for the scheduler node of
+  that name, `builders/`, `scripts/`; `producers/api/<node>/`: an `api`
+  node's `api.yaml` fragment ([templates/api.yaml](templates/api.yaml);
+  `endpoints.<name>` with `hosts` and optional `credentials`,
+  `connections.<name>`), `routes/`, `db/`;
+  `producers/partners/<partner>/` (or `producers/public/<name>/` for a
+  traffic source that is no business): the partner's back-end fragments
+  and its `api.yaml`, `routes/`, `db/`. `api`, `partners` and `public`
+  are reserved, never a node's name. A fragment holds only the entries it
+  adds, parses as the scenario file would, never carries `intensity`, a
+  `timeline` or a planted fault; its rates are the variant's throughput
+  at intensity 1.0; a part prefixes its keys, connections and shapes.
+- **Variants** ([templates/variant.yaml](templates/variant.yaml)): at
+  least one `variants/<variant>.yaml`. A core's names its `parts` (may be
+  `[]`; each a domain requiring this core, with a manifest of the same
+  name), sets the three `scale` axes (`population`, `history`,
+  `throughput`, each a non-empty map of name to number or text), lists
+  `purposes` among `domain.yaml`'s, and takes its `tags` from the
+  vocabulary only (maturity `homebrewed`, `managed`, `industrial`, at most
+  one; reach `local`, `regional`, `national`, `global`, at most one;
+  traits `regulated`, `multi-site`, `24/7`, `seasonal`). A part's
+  manifest takes its core variant's name, holds `scale` and `purposes`
+  only, and its core's variant names it (D301).
+  `variants/<variant>/producers/`, optional, is the variant's profile,
+  overrides only, laid out as `producers/`.
+- **GM notes** (`docs/gm.md`): the business, the data, the roles, the
+  classification, the producer, the rules, the traps (each with its
+  class), loading; a part's "Core keys used"; each producer's growth an
+  hour at intensity 1.0 and each shipped type's retention on site.
 
 ## Versions and pins (v0.2 master spec 6.5, v0.3 master spec 6.6, v0.4 master spec 6.6)
 

@@ -1,6 +1,7 @@
 # Query repository of fixture-campaign's producer node (tools/tests, v0.4 chunk 13;
 # capture W3-b item 4), in scenario time: copied unchanged from
-#   domains/shop/producers/queries.yaml.
+#   domains/shop/producers/queries.yaml (from v0.5 in
+#   domains/shop/producers/producer/, D344).
 #
 # Query repository of the shop's web shop, a fragment (capture W1, items 5
 # and 6): the keys the web shop sends to its database, through the

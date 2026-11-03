@@ -123,8 +123,9 @@ from `orders`, which no longer holds the archived history. The 12:00
 close at the noon peak is kept on purpose: it is tarnbeck's, and its
 invoicing updates past orders daily (R1's witness).
 
-The fragments hold only the entries they add: no `intensity`, no
-`timeline`, which are the scenario's. They are written for the node
+The fragments sit in `producers/producer/`, for the v0.4 scenario's
+node `producer` (D344), and hold only the entries they add: no
+`intensity`, no `timeline`, which are the scenario's. They are written for the node
 names `pooler` and `db` and the database `shop`; rename them as the
 scenario does.
 

@@ -1,11 +1,13 @@
 # queries.yaml — template for scenarios/<scenario-id>/nodes/<node>/queries.yaml,
 # a scheduler node's query repository (brick `scheduler`)
 #
-# Version v0.4, expected to evolve as games are played.
+# Version v0.5, expected to evolve as games are played.
 # Shape: v0.3 master spec 7.1 ("The query repository"), with the forms
 # capture W1 of specs/versions/v0.3/wave-log.md (item 7) settles, and v0.4
 # master spec 7.1 (the transformer script; capture W1 of
-# specs/versions/v0.4/wave-log.md, item 7). Seed-once
+# specs/versions/v0.4/wave-log.md, item 7), and v0.5 master spec 6.8 and
+# 7.2 (the call and the weighted choice, scheduler 0.3.0; capture W1 of
+# specs/versions/v0.5/wave-log.md, item 3). Seed-once
 # on the node at /srv/scheduler/repository/queries.yaml; players read it, and
 # edit it where the scenario makes /srv/scheduler/repository fixable. Render
 # copies it unchanged (no time in it).
@@ -18,9 +20,11 @@
 #
 # A key is [a-z0-9][a-z0-9._-]* (orders.insert, catalog.lookup); streams, jobs
 # and timeline changes in schedule.yaml and jobs.yaml name keys of this file.
-# Each key maps to exactly one of five forms: a query, a pool, a sequence, a
-# builder or, from v0.4 (scheduler 0.2.0), a script. The loader checks every
-# form (model.py, the scheduler's files).
+# Each key maps to exactly one of six forms: a query, a pool, a sequence, a
+# builder, from v0.4 (scheduler 0.2.0) a script, or from v0.5 (scheduler
+# 0.3.0) a call. A call key runs only on an http connection; a query, pool,
+# sequence or builder key only on a sql/postgresql one. The loader checks
+# every form (model.py, the scheduler's files).
 
 queries:
   <orders.insert>:                  # a query: one statement
@@ -31,6 +35,9 @@ queries:
       #   {int: [lo, hi]}               an integer, lo <= hi
       #   {decimal: [lo, hi, places]}   a decimal, lo <= hi, places >= 0 digits
       #   {choice: [v1, v2, ...]}       one of a non-empty list
+      #   {choice: {v1: 3, v2: 1}}      from v0.5 (scheduler 0.3.0), weighted: value -> weight,
+      #                                 a positive integer, relative (never summing to 100 by
+      #                                 rule); values scalars, as the list form's, which stays
       #   {sequence: [start, step]}     start, start + step, ... (integers, step != 0)
       #   {now: utc}                    the current time
     transaction:                    # optional: absent, the entry runs in autocommit
@@ -58,6 +65,28 @@ queries:
                                     # connection (autocommit off; the script commits), and it
                                     # returns the rows it wrote. It may import the standard
                                     # library, psycopg 3 and PyYAML only, and holds no password.
+                                    # From v0.5 a job's http connection gives the script a client
+                                    # in conns instead: get(path, params=None, *, headers=None),
+                                    # post(path, body=None, *, headers=None), an answer with
+                                    # status, headers, text and json() whatever its status; a
+                                    # timeout or a refused connection raises HttpError (capture
+                                    # W1 item 4).
                                     # A script key runs only as a job (jobs.yaml, with
                                     # connections:): never named by a stream or a timeline change
     options: {<batch>: <5000>}      # optional: a map passed to the function
+  <portal.desk-consent>:            # a call (v0.5): one HTTP request, on an http connection only
+    call: <POST /desk/consents>     # "<METHOD> <path>": GET | POST | PUT | PATCH | DELETE; the
+                                    # path absolute, its %(name)s filled from params, URL-quoted
+    params:                         # optional: generators, as a query's; those not in the path
+                                    # are the JSON body's fields (GET, DELETE: the query string).
+                                    # Drawn values in JSON: int and decimal as numbers, choice as
+                                    # drawn, now as an ISO 8601 UTC string
+      <owner>: {int: [<2>, <10000>]}
+      <consent>: {choice: {<grant>: <3>, <withdraw>: <1>}}
+  <lab.order.post>:                 # a call with a builder: the builder returns the JSON body
+    call: <POST /orders>
+    builder: <builders/orders.py:order>   # optional: builders/<file>:<function>, called as a
+                                    # builder is, (intensity, options, rng=); params then holds
+                                    # only the path's names. No pool, sequence or transaction of
+                                    # calls; a stream's call discards the answer's body
+    options: {<urgent_share>: <0.08>}   # optional: with builder, a map passed to the function

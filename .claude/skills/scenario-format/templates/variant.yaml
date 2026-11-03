@@ -1,0 +1,33 @@
+# variant.yaml — template for domains/<domain-id>/variants/<variant>.yaml,
+# a variant's manifest
+#
+# Version v0.5, expected to evolve as games are played.
+# Shape: v0.5 master spec 8.3, specs/formats.md "Variants, scale and tags"
+# (D263, D301), with the keys capture W1 of specs/versions/v0.5/wave-log.md
+# (item 7) settles. A variant is a short manifest, never a copy of the
+# domain: one setup the domain covers. Data that genuinely differs between
+# setups is a part, not a variant. Its profile, overrides only, sits in
+# variants/<variant>/producers/, laid out as producers/ (optional). v0.5
+# builds one variant per domain.
+#
+# A core's manifest holds every key below. A part's manifest is named after
+# its core variant (vet-lab/variants/regional-franchise.yaml) and holds
+# scale and purposes only; the core's variant names the part in parts.
+#
+# Markers:
+#   every key is REQUIRED unless marked otherwise.
+# Replace every <placeholder>. A filled file keeps no <placeholder>.
+
+parts: [<vet-lab>]                  # optional: a core's only, required there. The parts this setup
+                                    # takes, each a domain requiring this one; may be []
+scale:                              # the three axes, each a non-empty map of name -> number or
+                                    # text; large setups show through structure, not volume
+  population: {<sites>: <1>}        # how many entities: sites, customers, animals, staff
+  history: {<months>: <18>}         # how far back the backup goes, so the data's volume
+  throughput: {<orders_per_day>: <30000>}   # the traffic, real-world rates at intensity 1.0
+purposes: [<shop-sales-reporting>]  # the purposes that fit this setup, among domain.yaml's
+                                    # purposes; may be []
+tags: [<managed>, <regional>]       # optional: a core's only, required there. From the vocabulary
+                                    # only: maturity homebrewed | managed | industrial (at most
+                                    # one); reach local | regional | national | global (at most
+                                    # one); traits regulated, multi-site, 24/7, seasonal

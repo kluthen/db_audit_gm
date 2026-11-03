@@ -2217,36 +2217,214 @@ class TestDomainRefusals(V04CopyTest):
 
     def test_producer_fragments(self):
         producers = self.scenario / self.DOMAIN / "producers"
-        (producers / "notes.txt").write_text("x\n")
-        (producers / "scripts").mkdir()
-        (producers / "builders").mkdir()
-        self.edit_yaml(f"{self.DOMAIN}/producers/schedule.yaml",
+        node = producers / "producer"
+        (node / "notes.txt").write_text("x\n")
+        (node / "routes").mkdir()
+        (node / "builders").mkdir()
+        self.edit_yaml(f"{self.DOMAIN}/producers/producer/schedule.yaml",
                        lambda d: d.update(intensity=1.0))
-        self.edit_yaml(f"{self.DOMAIN}/producers/queries.yaml",
+        self.edit_yaml(f"{self.DOMAIN}/producers/producer/queries.yaml",
                        lambda d: d["queries"].update({"odd": {"statement": "SELECT 1"}}))
-        (producers / "jobs.yaml").write_text("jobs: []\nconnections: {}\n")
+        (node / "jobs.yaml").write_text("jobs: []\nconnections: {}\n")
         text = self.domain_problems()
-        self.assertProblems(text, "domains/fixture-shop/producers/notes.txt: not a fragment "
-                            "(queries.yaml, schedule.yaml, jobs.yaml, builders/)",
-                            "domains/fixture-shop/producers/scripts/: not a fragment",
-                            "domains/fixture-shop/producers/schedule.yaml: intensity: not a key "
+        f = "domains/fixture-shop/producers/producer"
+        self.assertProblems(text, f"{f}/notes.txt: not a fragment "
+                            "(queries.yaml, schedule.yaml, jobs.yaml, builders/, scripts/)",
+                            f"{f}/routes/: not a fragment",
+                            f"{f}/schedule.yaml: intensity: not a key "
                             "of a schedule.yaml fragment (connections, streams, shapes); "
                             "intensity and timeline are the scenario's",
-                            "domains/fixture-shop/producers/jobs.yaml: connections: not a key of "
+                            f"{f}/jobs.yaml: connections: not a key of "
                             "a jobs.yaml fragment (jobs)",
-                            "domains/fixture-shop/producers/queries.yaml: queries.odd: not a query")
-        self.assertNotIn("producers/builders", text)
+                            f"{f}/queries.yaml: queries.odd: not a query")
+        self.assertNotIn("producer/builders", text)
+
+    def test_fragment_at_producers_root(self):
+        producers = self.scenario / self.DOMAIN / "producers"
+        shutil.copy(producers / "producer" / "queries.yaml", producers / "queries.yaml")
+        (producers / "Bad_Node").mkdir()
+        self.assertProblems(self.domain_problems(),
+                            "domains/fixture-shop/producers/queries.yaml: a fragment at "
+                            "producers/' root: fragments sit in producers/<node>/, one folder "
+                            "per node they target (D344)",
+                            "domains/fixture-shop/producers/Bad_Node/: Bad_Node is not a node "
+                            "name")
+
+    def test_api_and_partner_folders(self):
+        producers = self.scenario / self.DOMAIN / "producers"
+        api = producers / "api" / "shop-api"
+        partner = producers / "partners" / "carriers"
+        for folder in (api / "routes", api / "db", partner / "routes", partner / "db"):
+            folder.mkdir(parents=True)
+        (api / "api.yaml").write_text(
+            "endpoints:\n  orders: {hosts: [shop-api], credentials: [shop_api]}\n"
+            "  Bad-Name: {hosts: [], port: 80}\n"
+            "connections:\n  shop: {driver: sql/postgresql, target: db:5432/shop, "
+            "role: shop_api, pool: {size: 2}, retries: 3}\nstreams: []\n")
+        (api / "queries.yaml").write_text("queries: {}\n")
+        (partner / "api.yaml").write_text("endpoints:\n  carriers_events: {hosts: [carrier]}\n")
+        shutil.copy(producers / "producer" / "schedule.yaml", partner / "schedule.yaml")
+        (producers / "partners" / "stray.yaml").write_text("x: 1\n")
+        text = self.domain_problems()
+        a = "domains/fixture-shop/producers/api/shop-api"
+        self.assertProblems(text, f"{a}/queries.yaml: not a fragment (api.yaml, routes/, db/)",
+                            f"{a}/api.yaml: streams: not a key of a api.yaml fragment "
+                            "(endpoints, connections)",
+                            f"{a}/api.yaml: endpoints.Bad-Name: 'Bad-Name' is not an endpoint "
+                            "name",
+                            f"{a}/api.yaml: endpoints.Bad-Name.hosts: not a non-empty list",
+                            f"{a}/api.yaml: endpoints.Bad-Name.port: not a key of an endpoint",
+                            f"{a}/api.yaml: connections.shop.retries: not a key of a "
+                            "connection",
+                            "domains/fixture-shop/producers/partners/stray.yaml: not a folder")
+        self.assertNotIn("partners/carriers", text)
+        self.assertNotIn("endpoints.orders", text)
 
     def test_classification(self):
         self.edit_yaml(f"{self.DOMAIN}/data/classification.yaml", lambda d: d["columns"].update(
-            {"customers.email": "personal", "shop.customers.phone": "secret"}))
+            {"customers": "personal", "customers.phone": "secret",
+             "sales.customers.region": "internal", "public.customers.city": "internal"}))
         text = self.domain_problems()
-        self.assertProblems(text, "domains/fixture-shop/data/classification.yaml: "
-                            "columns.customers.email: 'customers.email' is not "
-                            "<database>.<table>.<column>",
-                            "domains/fixture-shop/data/classification.yaml: "
-                            "columns.shop.customers.phone: 'secret' is not a class (personal, "
-                            "customer-linked, internal; master spec 11.2)")
+        c = "domains/fixture-shop/data/classification.yaml: columns"
+        self.assertProblems(text, f"{c}.customers: 'customers' is not <table>.<column>",
+                            f"{c}.customers.phone: 'secret' is not a class (personal, "
+                            "customer-linked, internal; master spec 11.2)",
+                            f"{c}.public.customers.city: schema public is never written")
+        self.assertNotIn("sales.customers.region", text)      # another schema's table
+
+    def test_classification_keyed_with_its_database(self):
+        self.edit_yaml(f"{self.DOMAIN}/data/classification.yaml",
+                       lambda d: d["columns"].update({"shop.customers.email": "personal"}))
+        self.assertIn("domains/fixture-shop/data/classification.yaml: columns.shop.customers."
+                      "email: keyed with its database shop: a domain keys <table>.<column> "
+                      "(<schema>.<table>.<column> outside public), the scenario's copy adds "
+                      "the database (master spec 6.1)", self.domain_problems())
+
+    def test_scenario_copy_keeps_the_database(self):
+        self.edit_yaml("data/classification.yaml", lambda d: d["columns"].update(
+            {"shop.sales.customers.region": "internal", "customers.city": "internal"}))
+        with self.assertRaises(model.IncompleteScenario) as cm:
+            self.load()
+        text = "\n".join(cm.exception.missing)
+        self.assertIn("data/classification.yaml: columns.customers.city: 'customers.city' is "
+                      "not <database>.<table>.<column>", text)
+        self.assertNotIn("shop.sales.customers.region", text)
+
+    def test_register(self):
+        self.edit_yaml(f"{self.DOMAIN}/data/register.yaml", lambda d: d["activities"].extend([
+            {**d["activities"][0], "id": "fixture-shop-again", "tables": ["customers", "nope"]},
+            {**d["activities"][0], "id": "fixture-shop-again",
+             "retention": {"period": "1 day", "then": "kept"}}]))
+        schema = self.scenario / self.DOMAIN / "data" / "schema.sql"
+        schema.write_text(schema.read_text() + "CREATE TABLE IF NOT EXISTS public.notes "
+                          "(id integer);\nCREATE TABLE notes_2026 PARTITION OF notes "
+                          "FOR VALUES IN (1);\n")
+        text = self.domain_problems()
+        r = "domains/fixture-shop/data/register.yaml"
+        self.assertProblems(text, f"{r}: activities: table notes is in no activity (every "
+                            "table belongs to exactly one, D334)",
+                            f"{r}: activities: table customers is in 3 activities "
+                            "(fixture-shop-customers, fixture-shop-again, fixture-shop-again)",
+                            f"{r}: activities[fixture-shop-again].id: fixture-shop-again twice",
+                            f"{r}: activities[fixture-shop-again].tables: 'nope' is not a table",
+                            f"{r}: activities[fixture-shop-again].retention.then: 'kept' is "
+                            "not erased or anonymised")
+        self.assertNotIn("notes_2026", text)
+
+    def test_register_and_variants_required(self):
+        shutil.rmtree(self.scenario / self.DOMAIN / "variants")
+        text = self.domain_problems(lambda d: d.pop("register"))
+        self.assertProblems(text, f"{self.L}: register: missing",
+                            "domains/fixture-shop/variants/: missing folder (a domain has at "
+                            "least one variant")
+
+    def test_variant(self):
+        self.edit_yaml(f"{self.DOMAIN}/variants/small.yaml", lambda d: d.update(
+            tags=["homebrewed", "industrial", "planetary"], purposes=["elsewhere"],
+            parts=["fixture-nothing"],
+            scale={"population": {}, "history": {"days": [1]}, "size": {"x": 1}}))
+        (self.scenario / self.DOMAIN / "variants" / "big").mkdir()
+        text = self.domain_problems()
+        v = "domains/fixture-shop/variants/small.yaml"
+        self.assertProblems(text, f"{v}: tags: 'planetary' is not a tag of the vocabulary "
+                            "(maturity homebrewed, managed, industrial; reach local, regional, "
+                            "national, global; traits regulated, multi-site, 24/7, seasonal; "
+                            "D263)",
+                            f"{v}: tags: 2 maturity tags (homebrewed, industrial): a setup has "
+                            "at most one",
+                            f"{v}: purposes: 'elsewhere' is not among {self.L}'s purposes",
+                            f"{v}: parts: 'fixture-nothing' is not a domain of the catalogue",
+                            f"{v}: scale.population: empty",
+                            f"{v}: scale.history: not a non-empty map of name -> number or text",
+                            f"{v}: scale.size: not a scale axis",
+                            f"{v}: scale.throughput: missing",
+                            "domains/fixture-shop/variants/big/: no manifest big.yaml beside it")
+
+    def make_part(self, name="fixture-lab", **keys):
+        """A part of fixture-shop beside it, copied from it."""
+        catalog = self.scenario / "catalog" / "domains"
+        part = catalog / name
+        shutil.copytree(catalog / "fixture-shop", part)
+        self.edit_yaml(f"catalog/domains/{name}/domain.yaml", lambda d: d.update(
+            id=name, requires=["fixture-shop"], **keys))
+        self.edit_yaml(f"catalog/domains/{name}/variants/small.yaml",
+                       lambda d: [d.pop(k) for k in ("parts", "tags")])
+        self.edit_yaml(f"{self.DOMAIN}/variants/small.yaml", lambda d: d["parts"].append(name))
+        return part
+
+    def part_problems(self, name="fixture-lab"):
+        return "\n".join(model.check_domain_dir(self.scenario / "catalog" / "domains" / name))
+
+    def test_part(self):
+        part = self.make_part(lands_with="fixture-shop", derive={"after": ["fixture-shop"]})
+        (part / "data" / "derive.sql").write_text("SELECT 1;\n")
+        self.assertEqual(self.part_problems(), "")
+        self.assertEqual(self.domain_problems(), "")
+
+    def test_part_without_its_core(self):
+        self.make_part()
+        self.edit_yaml("catalog/domains/fixture-lab/domain.yaml",
+                       lambda d: d.update(requires=["fixture-core"], lands_with="fixture-shop"))
+        text = self.part_problems()
+        p = "domains/fixture-lab/domain.yaml"
+        self.assertProblems(text, f"{p}: requires: fixture-core: no domain fixture-core beside "
+                            "it (domains/fixture-core/domain.yaml): a part is taken only with "
+                            "its core",
+                            f"{p}: lands_with: 'fixture-shop' is not its core fixture-core")
+
+    def test_part_keys_and_one_level(self):
+        self.make_part()
+        self.make_part("fixture-imaging", databases=["pacs", "Bad"], derive={"after": []})
+        self.edit_yaml("catalog/domains/fixture-imaging/domain.yaml",
+                       lambda d: d.update(requires=["fixture-lab"]))
+        text = self.part_problems("fixture-imaging")
+        p = "domains/fixture-imaging/domain.yaml"
+        self.assertProblems(text, f"{p}: requires: fixture-lab is itself a part (requires "
+                            "['fixture-shop']): a part requires a core, one level only",
+                            f"{p}: databases: ['pacs', 'Bad'] is not a list of unique database",
+                            f"{p}: schema: absent with databases",
+                            "domains/fixture-imaging/data/pacs/schema.sql: missing file",
+                            f"{p}: derive: {{'after': []}} is not {{after: [<domain>, ...]}}",
+                            "domains/fixture-imaging/data/derive.sql: missing file")
+        text = self.domain_problems(lambda d: d.update(lands_with="fixture-shop"))
+        self.assertIn(f"{self.L}: lands_with: a part's key, but fixture-shop requires no core",
+                      text)
+
+    def test_part_manifest(self):
+        self.make_part()
+        self.edit_yaml("catalog/domains/fixture-lab/variants/small.yaml",
+                       lambda d: d.update(tags=["local"]))
+        self.edit_yaml(f"{self.DOMAIN}/variants/small.yaml", lambda d: d.update(parts=[]))
+        text = self.part_problems()
+        v = "domains/fixture-lab/variants/small.yaml"
+        self.assertProblems(text, f"{v}: tags: a part's manifest holds scale and purposes only",
+                            f"{v}: fixture-shop's variant small does not name fixture-lab")
+
+    def test_policy_with_governance(self):
+        (self.scenario / self.DOMAIN / "docs" / "policy.md").write_text("# Policy\n")
+        text = self.domain_problems(lambda d: d.update(policy="docs/policy.md"))
+        self.assertIn(f"{self.L}: policy: without governance: a domain's default policy comes "
+                      "with its governance fragment, both or neither", text)
 
 
 class TestGovernanceRefusals(V04CopyTest):
@@ -2830,7 +3008,7 @@ class TestCampaignFixture(ScenarioCopyTest):
         def load(path):
             return yaml.safe_load(path.read_text())
         nodes = FIXTURE_CAMPAIGN / "nodes"
-        domain = REPO_ROOT / "domains" / "shop" / "producers"
+        domain = REPO_ROOT / "domains" / "shop" / "producers" / "producer"
         purposes = REPO_ROOT / "purposes"
         p1 = purposes / "shop-sales-reporting" / "material"
         p5 = purposes / "shop-export-declarations" / "material"
@@ -2864,8 +3042,10 @@ class TestCampaignFixture(ScenarioCopyTest):
         shop = REPO_ROOT / "domains" / "shop" / "data"
         self.assertEqual((data / "db.sql").read_text(),
                          (shop / "schema.sql").read_text() + (shop / "load.sql").read_text())
-        self.assertEqual((data / "classification.yaml").read_bytes(),
-                         (shop / "classification.yaml").read_bytes())
+        # the scenario's copy adds the database to the domain's keys (v0.5 W1 item 7)
+        copy = yaml.safe_load((data / "classification.yaml").read_text())["columns"]
+        domain = yaml.safe_load((shop / "classification.yaml").read_text())["columns"]
+        self.assertEqual(copy, {f"shop.{key}": cls for key, cls in domain.items()})
         target = (REPO_ROOT / "purposes" / "shop-sales-reporting" / "material" / "target"
                   / "data.sql").read_text()
         reporting = (data / "reporting.sql").read_text()

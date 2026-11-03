@@ -5,6 +5,7 @@ title: A small shop selling to customers by mail
 schema: data/schema.sql
 load: data/load.sql
 classification: data/classification.yaml
+register: data/register.yaml
 producers: producers/
 notes: docs/gm.md
 purposes: [fixture-sales-copy]

@@ -1,0 +1,10 @@
+# The test domain's register fragment (tools/tests, v0.5 chunk 2).
+activities:
+  - id: fixture-shop-customers
+    name: Customers
+    purpose: Selling to customers by mail
+    people: [customers]
+    tables: [customers]
+    retention:
+      period: 1 year after the last order
+      then: erased

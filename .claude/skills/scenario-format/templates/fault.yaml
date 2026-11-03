@@ -1,14 +1,16 @@
 # fault.yaml — template for faults/<fault-id>/fault.yaml
 #   (or scenarios/<scenario-id>/faults/<fault-id>/ for a scenario-only fault)
 #
-# Version v0.4, expected to evolve as games are played.
+# Version v0.5, expected to evolve as games are played.
 # Shape: v0.1 master spec sections 8 and 8.1, v0.2 master spec 6.4 and 6.5,
 # v0.3 master spec 6.3, 6.5 and 6.7, v0.4 master spec 6.3, 6.5 and 6.9;
 # keys of v0.2's capture W1 (specs/versions/v0.2/wave-log.md, item 8),
 # v0.3's capture W1 (specs/versions/v0.3/wave-log.md, item 2: aging,
 # evidence locations, behavioural checks) and v0.4's capture W1
 # (specs/versions/v0.4/wave-log.md, item 3: applies_to.purposes,
-# needs_unshared_host, sealed_check.judges).
+# needs_unshared_host, sealed_check.judges); v0.5 master spec 6.4 and 6.8
+# (an option required or its absence planted, a register fault, a partner's
+# misbehaviour; capture W1 of specs/versions/v0.5/wave-log.md, items 1 and 2).
 #
 # Markers:
 #   every key is REQUIRED unless marked otherwise;
@@ -29,7 +31,9 @@ family: <security>                  # security, performance, replication, backup
                                     # data-flow, ... From v0.4 (master spec 6.3): a purpose fault
                                     # is data-flow (duplicates, dropped records) or rules (a wrong
                                     # zone, a wrong segment); a governance or credential fault is
-                                    # security, its id governance-<what> or security-<what>
+                                    # security, its id governance-<what> or security-<what>. From
+                                    # v0.5 a register fault is security, its id
+                                    # governance-register-<what> (master spec 6.4)
 severity: <medium>                  # low | medium | high | critical
 
 # --- Where it applies -------------------------------------------------
@@ -50,6 +54,14 @@ needs_unshared_host: true           # optional: the fault's node must never be p
                                     # host (the out-of-memory incident); a boolean, absent read as
                                     # false; gmctl fit refuses a mapping that does (v0.4 master
                                     # spec 13.3)
+requires_option: <monitoring>       # optional: the fault needs its target node to choose this
+                                    # option (scenario.yaml options:), one its brick declares; a
+                                    # lost pg_monitor grant on the monitoring role (v0.5 master
+                                    # spec 6.4, 17.2)
+option_absent: <monitoring>         # optional: the fault plants the option's absence: a
+                                    # monitoring node scraping a node that does not choose it
+                                    # (v0.5 master spec 6.4, s10); never with requires_option
+                                    # naming the same option
 
 # --- How long its evidence takes -----------------------------------------
 aging:                              # v0.3 master spec 6.3 (D114)
@@ -96,7 +108,12 @@ injection:
   seed_changes:                     # optional: kinds seed-file and state; a state fault's are
                                     # in the scenario's copies from T0 as a seed-file fault's,
                                     # its scripts planting the rest later (v0.4 master spec 6.3,
-                                    # spec D254)
+                                    # spec D254). A register fault (v0.5 master spec 6.4) is a
+                                    # seed-file change on the bastion, seed_changes file
+                                    # data-register.md (the handout, player/data-register.md):
+                                    # its id governance-register-*, family security; the
+                                    # data-register skill writes the changed handout, the answer
+                                    # key's register_diff states the change
     - file: <pg_hba.conf>           # a seed file name the target brick declares in seed.files
                                     # (a directory entry as written there: builders/, scripts/);
                                     # an optional one (seed.optional) only on a node seeding it;
@@ -125,6 +142,19 @@ injection:
   # the target container, parameters as FAULT_<NAME> environment variables.
   # Idempotent: running twice leaves the same state. Exit 0 on success; any
   # other code fails the setup. Nothing used for injection stays on the node.
+
+# --- A partner's misbehaviour (v0.5) -------------------------------------
+partner_behaviour:                  # optional: a partner's misbehaviour (master spec 6.4): an
+                                    # outage, slow answers, errors, a lost, late, duplicated or
+                                    # out-of-order callback; behaviour seen at the partner's
+                                    # interface, never a root cause inside it. Its instance's
+                                    # node is one of the partner's shared nodes (no-access); every
+                                    # fix is on the customer's side (master spec 10.1)
+  partner: <northfield-lab>         # the third party, by its third_parties id (a parameter's value)
+  key: <xlab.outage>                # the state key switching that partner's state on the shared
+                                    # nodes, read by its own routes; never a stop of a shared node
+  placed: <timeline>                # timeline (a change at the planting moment) | standing (from T0)
+  material: <material/>             # the fault's own material for the shared nodes, never the domain's
 
 # --- What the players can see ------------------------------------------
 evidence:                           # as the `player` OS user (and `dba` in psql)

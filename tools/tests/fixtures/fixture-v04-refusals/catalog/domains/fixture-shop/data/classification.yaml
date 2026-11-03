@@ -1,5 +1,6 @@
-# The test domain's classification (tools/tests, v0.4 chunk 2).
+# The test domain's classification (tools/tests, v0.4 chunk 2), keyed
+# <table>.<column> without the database from v0.5 (W1 item 7).
 columns:
-  shop.customers.id: personal
-  shop.customers.name: personal
-  shop.customers.email: personal
+  customers.id: personal
+  customers.name: personal
+  customers.email: personal

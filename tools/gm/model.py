@@ -107,6 +107,31 @@ POLICY_SEED_FILE = "data-policy.md"   # the bastion's optional starter-pack seed
 FRAGMENT_FILES = ("queries.yaml", "schedule.yaml", "jobs.yaml")
 FRAGMENT_FOLDERS = ("builders", "scripts")
 SCHEDULE_FRAGMENT_KEYS = ("connections", "streams", "shapes")
+# The domain format, v0.5 (master spec 6.1, 8.2 to 8.4; W1 item 7).
+_SQL_NAME = r"[a-z_][a-z0-9_]*"
+# A scenario's copy of a classification: <database>.<table>.<column>, or
+# <database>.<schema>.<table>.<column> outside public (W1 item 7).
+SCENARIO_CLASSIFICATION_KEY_RE = re.compile(rf"^{_SQL_NAME}(\.{_SQL_NAME}){{2,3}}$")
+# A domain's: <table>.<column>, or <schema>.<table>.<column>, never the database.
+DOMAIN_CLASSIFICATION_KEY_RE = re.compile(rf"^{_SQL_NAME}(\.{_SQL_NAME}){{1,2}}$")
+DOMAIN_TABLE_RE = re.compile(rf"^{_SQL_NAME}(\.{_SQL_NAME})?$")
+DOMAIN_PART_KEYS = ("lands_with", "databases", "derive")
+RESERVED_PRODUCER_FOLDERS = ("api", "partners", "public")   # never a node's name (D344)
+API_FRAGMENT_FILES = ("api.yaml",)
+API_FRAGMENT_FOLDERS = ("routes", "db")
+API_YAML_KEYS = ("endpoints", "connections")
+ENDPOINT_KEYS = ("hosts", "credentials")
+ENDPOINT_RE = re.compile(r"^[a-z][a-z0-9_]*$")              # a Python module's (W1 item 0)
+HTTP_CONNECTION_KEYS = ("credential", "timeout")            # W1 item 3, beside CONNECTION_KEYS
+SCALE_AXES = ("population", "history", "throughput")
+TAGS_MATURITY = ("homebrewed", "managed", "industrial")
+TAGS_REACH = ("local", "regional", "national", "global")
+TAGS_TRAITS = ("regulated", "multi-site", "24/7", "seasonal")
+RETENTION_ENDS = ("erased", "anonymised")
+_CREATE_TABLE_RE = re.compile(
+    rf"^[ \t]*CREATE[ \t]+(?:UNLOGGED[ \t]+)?TABLE[ \t]+(?:IF[ \t]+NOT[ \t]+EXISTS[ \t]+)?"
+    rf"({_SQL_NAME}(?:\.{_SQL_NAME})?)\b(?![ \t]*\.)([^\n]*)", re.IGNORECASE | re.MULTILINE)
+_PARTITION_OF_RE = re.compile(r"^\s*PARTITION\s+OF\b", re.IGNORECASE)
 # What a data file creates (W1 item 0): statements at the start of a line,
 # keywords in any case, names unquoted; a line starting with -- is skipped.
 _CREATE_NAME_RE = re.compile(
@@ -2372,9 +2397,13 @@ def _location_problem(value, by_name, creates):
     return None
 
 
-def check_classification(path, rel, out):
-    """A classification file (template classification.yaml; W1 items 0 and
-    6). Returns the classes it uses, or None when unusable."""
+def check_classification(path, rel, out, domain_databases=None):
+    """A classification file (template classification.yaml; v0.4 W1 items 0
+    and 6, v0.5 W1 item 7). A scenario's copy keys <database>.<table>.<column>
+    (<database>.<schema>.<table>.<column> outside public); a domain's, given
+    `domain_databases` (the databases its schema files create or it lists),
+    <table>.<column> (<schema>.<table>.<column>), never the database. Returns
+    the classes it uses, or None when unusable."""
     content = _load_yaml(path, rel, out)
     if content is None:
         return None
@@ -2385,36 +2414,57 @@ def check_classification(path, rel, out):
         return None
     used = set()
     for key, cls in columns.items():
-        if not (isinstance(key, str) and CLASSIFICATION_KEY_RE.match(key)):
-            out.append(f"{rel}: columns.{key}: {key!r} is not <database>.<table>.<column> "
-                       "(three names [a-z_][a-z0-9_]*, the table in schema public)")
+        p = f"{rel}: columns.{key}"
+        names = key.split(".") if isinstance(key, str) else []
+        if domain_databases is None:
+            if not (isinstance(key, str) and SCENARIO_CLASSIFICATION_KEY_RE.match(key)):
+                out.append(f"{p}: {key!r} is not <database>.<table>.<column> (names "
+                           "[a-z_][a-z0-9_]*; <database>.<schema>.<table>.<column> outside "
+                           "schema public)")
+        elif not (isinstance(key, str) and DOMAIN_CLASSIFICATION_KEY_RE.match(key)):
+            out.append(f"{p}: {key!r} is not <table>.<column> (names [a-z_][a-z0-9_]*; "
+                       "<schema>.<table>.<column> outside schema public)")
+        elif len(names) == 3 and names[0] in domain_databases:
+            out.append(f"{p}: keyed with its database {names[0]}: a domain keys "
+                       "<table>.<column> (<schema>.<table>.<column> outside public), the "
+                       "scenario's copy adds the database (master spec 6.1)")
+        elif len(names) == 3 and names[0] == "public":
+            out.append(f"{p}: schema public is never written: <table>.<column>")
         if cls not in CLASSES:
-            out.append(f"{rel}: columns.{key}: {cls!r} is not a class ({', '.join(CLASSES)}; "
+            out.append(f"{p}: {cls!r} is not a class ({', '.join(CLASSES)}; "
                        "master spec 11.2)")
         else:
             used.add(cls)
     return used
 
 
-def _check_fragments(folder, base, scripts_allowed, out):
+def _check_fragments(folder, base, scripts_allowed, out, scheduler=True, api=False):
     """A folder of fragments (formats, "Purpose folder" and "Domain
     folder"): queries.yaml, schedule.yaml and jobs.yaml with the scenario
     file's top-level keys holding only what they add, and builders/ or
-    scripts/ folders. A queries fragment is checked as a node's repository."""
+    scripts/ folders; with `api`, an api node's api.yaml fragment, routes/
+    and db/ (W1 items 5 and 7); without `scheduler`, those only. A queries
+    fragment is checked as a node's repository."""
     rel = _rel(folder, base)
-    folders = FRAGMENT_FOLDERS if scripts_allowed else FRAGMENT_FOLDERS[:1]
+    files, folders = (), ()
+    if scheduler:
+        files += FRAGMENT_FILES
+        folders += FRAGMENT_FOLDERS if scripts_allowed else FRAGMENT_FOLDERS[:1]
+    if api:
+        files += API_FRAGMENT_FILES
+        folders += API_FRAGMENT_FOLDERS
     loaded = {}
     for entry in sorted(folder.iterdir()):
         shown = f"{rel}/{entry.name}"
         if entry.is_dir() and entry.name in folders:
             continue
-        if not (entry.is_file() and entry.name in FRAGMENT_FILES):
+        if not (entry.is_file() and entry.name in files):
             out.append(f"{shown}{'/' if entry.is_dir() else ''}: not a fragment ("
-                       f"{', '.join(FRAGMENT_FILES + tuple(f + '/' for f in folders))})")
+                       f"{', '.join(files + tuple(f + '/' for f in folders))})")
             continue
         loaded[entry.name] = _load_yaml(entry, shown, out)
     allowed = {"queries.yaml": ("queries",), "jobs.yaml": ("jobs",),
-               "schedule.yaml": SCHEDULE_FRAGMENT_KEYS}
+               "schedule.yaml": SCHEDULE_FRAGMENT_KEYS, "api.yaml": API_YAML_KEYS}
     for fname, content in loaded.items():
         shown = f"{rel}/{fname}"
         if content is None:
@@ -2433,11 +2483,366 @@ def _check_fragments(folder, base, scripts_allowed, out):
                  for name in FRAGMENT_FOLDERS]
         _check_queries(f"{rel}/queries.yaml", loaded["queries.yaml"], seeds[0], out,
                        seeds[1] if scripts_allowed else None)
+    if isinstance(loaded.get("api.yaml"), dict):
+        _check_api_fragment(f"{rel}/api.yaml", loaded["api.yaml"], out)
+
+
+def _check_api_fragment(rel, content, out):
+    """An api.yaml fragment's keys (W1 item 5): endpoints.<name> with hosts and
+    optionally credentials, connections.<name> in schedule.yaml's two forms.
+    Its two files per endpoint and its hosts against the topology are the
+    scenario's checks."""
+    endpoints = content.get("endpoints", {})
+    if not isinstance(endpoints, dict):
+        out.append(f"{rel}: endpoints: not a mapping of endpoint name -> its hosts")
+        endpoints = {}
+    for name, entry in endpoints.items():
+        p = f"{rel}: endpoints.{name}"
+        if not (isinstance(name, str) and ENDPOINT_RE.match(name)):
+            out.append(f"{p}: {name!r} is not an endpoint name ([a-z][a-z0-9_]*, a Python "
+                       "module's)")
+        if not isinstance(entry, dict):
+            out.append(f"{p}: not a mapping (hosts, credentials)")
+            continue
+        _unknown_keys(entry, ENDPOINT_KEYS, p, "an endpoint", out)
+        hosts = entry.get("hosts")
+        if not (isinstance(hosts, list) and hosts and all(isinstance(h, str) for h in hosts)):
+            out.append(f"{p}.hosts: not a non-empty list of hostnames")
+        creds = entry.get("credentials")
+        if "credentials" in entry and not (
+                isinstance(creds, list) and creds
+                and all(isinstance(c, str) and SCRIPT_CONNECTION_RE.match(c) for c in creds)):
+            out.append(f"{p}.credentials: not a non-empty list of credential names "
+                       "([a-z][a-z0-9_]*); absent for a public endpoint")
+    connections = content.get("connections", {})
+    if not isinstance(connections, dict):
+        out.append(f"{rel}: connections: not a mapping of connection name -> connection")
+        connections = {}
+    for name, conn in connections.items():
+        p = f"{rel}: connections.{name}"
+        if not isinstance(conn, dict):
+            out.append(f"{p}: not a mapping")
+            continue
+        _unknown_keys(conn, CONNECTION_KEYS + HTTP_CONNECTION_KEYS, p, "a connection", out)
+
+
+def _domain_schema_files(domain_dir, data):
+    """(database or None, path) of each schema file of a domain."""
+    databases = data.get("databases")
+    if isinstance(databases, list):
+        return [(db, domain_dir / "data" / db / "schema.sql") for db in databases
+                if isinstance(db, str) and SQL_NAME_RE.match(db)]
+    rel = data.get("schema")
+    path = _inside(domain_dir, rel) if isinstance(rel, str) else None
+    return [(None, path)] if path is not None else []
+
+
+def _domain_tables(files, label, out):
+    """The tables of a domain's schema files, keyed as its classification keys
+    them (<table>, <schema>.<table> outside public), partitions aside: a
+    partition goes with its parent. Returns (tables, databases created)."""
+    tables, databases = {}, set()
+    for db, path in files:
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        databases |= data_file_creates(text, str(path)).databases
+        if db is not None:
+            databases.add(db)
+        for m in _CREATE_TABLE_RE.finditer(text):
+            if _PARTITION_OF_RE.match(m.group(2)):
+                continue
+            name = m.group(1).lower()
+            name = name[len("public."):] if name.startswith("public.") else name
+            if name in tables and tables[name] != db:
+                out.append(f"{label}: table {name} in databases {tables[name]} and {db}: a "
+                           "part keeps its keys unique across its databases (formats.md "
+                           "\"Domain\")")
+            tables.setdefault(name, db)
+    return set(tables), databases
+
+
+def _sibling_domain(domain_dir, did):
+    """The domain.yaml of a domain beside this one, or None."""
+    path = domain_dir.parent / did / "domain.yaml"
+    if not (isinstance(did, str) and PURPOSE_ID_RE.match(did) and path.is_file()):
+        return None
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError:
+        return None
+    return data if isinstance(data, dict) else {}
+
+
+def _check_domain_part(domain_dir, data, label, out):
+    """A part's keys (formats.md "domain.yaml must contain"; W1 item 7): one
+    core, beside it, itself no part; lands_with its core; databases; derive."""
+    did = domain_dir.name
+    requires = data.get("requires")
+    if "requires" not in data:
+        for key in DOMAIN_PART_KEYS:
+            if key in data:
+                out.append(f"{label}: {key}: a part's key, but {did} requires no core "
+                           "(requires: [<core>])")
+        return
+    if not (isinstance(requires, list) and len(requires) == 1
+            and isinstance(requires[0], str) and PURPOSE_ID_RE.match(requires[0])):
+        out.append(f"{label}: requires: {requires!r} is not one core's domain id, "
+                   "[<core>] (one level only)")
+        return
+    core = requires[0]
+    core_data = _sibling_domain(domain_dir, core) if core != did else None
+    if core == did:
+        out.append(f"{label}: requires: {did} cannot require itself")
+    elif core_data is None:
+        out.append(f"{label}: requires: {core}: no domain {core} beside it "
+                   f"({_rel(domain_dir.parent / core / 'domain.yaml', domain_dir.parent.parent)}): "
+                   "a part is taken only with its core")
+    elif "requires" in core_data:
+        out.append(f"{label}: requires: {core} is itself a part (requires "
+                   f"{core_data['requires']}): a part requires a core, one level only")
+    if "lands_with" in data and data["lands_with"] != core:
+        out.append(f"{label}: lands_with: {data['lands_with']!r} is not its core {core}")
+    databases = data.get("databases")
+    if "databases" in data:
+        if not (isinstance(databases, list) and databases
+                and all(isinstance(d, str) and SQL_NAME_RE.match(d) for d in databases)
+                and len(set(databases)) == len(databases)):
+            out.append(f"{label}: databases: {databases!r} is not a list of unique database "
+                       "names ([a-z_][a-z0-9_]*)")
+        for key in ("schema", "load"):
+            if key in data:
+                out.append(f"{label}: {key}: absent with databases (data/<database>/"
+                           f"{key}.sql for each)")
+        for db in databases if isinstance(databases, list) else []:
+            for fname in ("schema.sql", "load.sql"):
+                if isinstance(db, str) and SQL_NAME_RE.match(db) \
+                        and not (domain_dir / "data" / db / fname).is_file():
+                    out.append(f"{_rel(domain_dir / 'data' / db / fname, domain_dir.parent.parent)}: "
+                               f"missing file ({label} databases: {db})")
+    derive = data.get("derive")
+    if "derive" in data:
+        after = derive.get("after") if isinstance(derive, dict) else None
+        if not (isinstance(derive, dict) and set(derive) == {"after"}
+                and isinstance(after, list) and after):
+            out.append(f"{label}: derive: {derive!r} is not {{after: [<domain>, ...]}}")
+        for item in after if isinstance(after, list) else []:
+            if item == did or _sibling_domain(domain_dir, item) is None:
+                out.append(f"{label}: derive.after: {item!r} is not another domain of the "
+                           "catalogue")
+        if not (domain_dir / "data" / "derive.sql").is_file():
+            out.append(f"{_rel(domain_dir / 'data' / 'derive.sql', domain_dir.parent.parent)}: "
+                       f"missing file ({label} derive)")
+
+
+def _check_register(path, rel, tables, out):
+    """The register fragment (template register.yaml; D334): every table of
+    the domain in exactly one processing activity."""
+    content = _load_yaml(path, rel, out)
+    if content is None:
+        return
+    check_against_schema(content, template_schema("register.yaml"), rel, out=out)
+    placeholders(content, rel, out=out)
+    activities = _dict(content).get("activities")
+    if not isinstance(activities, list):
+        return
+    seen, held = set(), {}
+    for i, act in enumerate(activities):
+        if not isinstance(act, dict):
+            continue                         # reported against the template
+        aid = act.get("id")
+        p = f"{rel}: activities[{aid if isinstance(aid, str) else i}]"
+        if not (isinstance(aid, str) and PURPOSE_ID_RE.match(aid)):
+            out.append(f"{p}.id: {aid!r} is not an activity id ([a-z][a-z0-9-]*)")
+        elif aid in seen:
+            out.append(f"{p}.id: {aid} twice")
+        seen.add(aid)
+        retention = act.get("retention")
+        then = retention.get("then") if isinstance(retention, dict) else None
+        if isinstance(retention, dict) and "then" in retention and then not in RETENTION_ENDS:
+            out.append(f"{p}.retention.then: {then!r} is not {' or '.join(RETENTION_ENDS)}")
+        listed = act.get("tables")
+        for table in listed if isinstance(listed, list) else []:
+            if not (isinstance(table, str) and DOMAIN_TABLE_RE.match(table)) \
+                    or table not in tables:
+                out.append(f"{p}.tables: {table!r} is not a table of the domain's schema "
+                           "(<table>, <schema>.<table> outside public)")
+                continue
+            held.setdefault(table, []).append(str(aid))
+    for table in sorted(tables):
+        owners = held.get(table, [])
+        if not owners:
+            out.append(f"{rel}: activities: table {table} is in no activity (every table "
+                       "belongs to exactly one, D334)")
+        elif len(owners) > 1:
+            out.append(f"{rel}: activities: table {table} is in {len(owners)} activities "
+                       f"({', '.join(owners)}); every table belongs to exactly one (D334)")
+
+
+def _check_producers(folder, base, out):
+    """A domain's producers/ (or a variant's profile, laid out alike; formats.md
+    "Producer material", D344, W1 item 7): producers/<node>/ for a scheduler
+    node, api/<node>/ for an api node, partners/<partner>/ and public/<name>/
+    for a partner's back end and endpoints; nothing at its root."""
+    rel = _rel(folder, base)
+    for entry in sorted(folder.iterdir()):
+        shown = f"{rel}/{entry.name}"
+        if not entry.is_dir():
+            out.append(f"{shown}: a fragment at producers/' root: fragments sit in "
+                       "producers/<node>/, one folder per node they target (D344)")
+            continue
+        if entry.name not in RESERVED_PRODUCER_FOLDERS:
+            if not NAME_RE.match(entry.name):
+                out.append(f"{shown}/: {entry.name} is not a node name")
+            else:
+                _check_fragments(entry, base, True, out)
+            continue
+        for sub in sorted(entry.iterdir()):
+            sub_shown = f"{shown}/{sub.name}"
+            if not sub.is_dir():
+                what = "api node" if entry.name == "api" else "partner"
+                out.append(f"{sub_shown}: not a folder: {entry.name}/ holds one folder per "
+                           f"{what}")
+            elif not NAME_RE.match(sub.name):
+                out.append(f"{sub_shown}/: {sub.name} is not a "
+                           f"{'node' if entry.name == 'api' else 'partner'} name")
+            elif entry.name == "api":
+                _check_fragments(sub, base, True, out, scheduler=False, api=True)
+            else:
+                _check_fragments(sub, base, True, out, api=True)
+
+
+def _check_scale(scale, p, out):
+    if not isinstance(scale, dict):
+        return                               # reported against the template
+    for axis in SCALE_AXES:
+        values = scale.get(axis)
+        if axis in scale and not (
+                isinstance(values, dict) and values
+                and all(isinstance(k, str) for k in values)
+                and all(isinstance(v, (int, float, str)) and not isinstance(v, bool)
+                        for v in values.values())):
+            out.append(f"{p}.{axis}: not a non-empty map of name -> number or text")
+    for axis in scale:
+        if axis not in SCALE_AXES:
+            out.append(f"{p}.{axis}: not a scale axis ({', '.join(SCALE_AXES)})")
+
+
+def _check_tags(tags, p, out):
+    if not isinstance(tags, list):
+        if tags is not None:
+            out.append(f"{p}: not a list of tags")
+        return
+    for tag in tags:
+        if tag not in TAGS_MATURITY + TAGS_REACH + TAGS_TRAITS:
+            out.append(f"{p}: {tag!r} is not a tag of the vocabulary (maturity "
+                       f"{', '.join(TAGS_MATURITY)}; reach {', '.join(TAGS_REACH)}; traits "
+                       f"{', '.join(TAGS_TRAITS)}; D263)")
+    for axis, vocab in (("maturity", TAGS_MATURITY), ("reach", TAGS_REACH)):
+        taken = [t for t in tags if t in vocab]
+        if len(taken) > 1:
+            out.append(f"{p}: {len(taken)} {axis} tags ({', '.join(taken)}): a setup has at "
+                       "most one")
+
+
+def _check_variants(domain_dir, data, base, label, out):
+    """variants/ (formats.md "Variants, scale and tags", D263, D301; W1 item
+    7): at least one manifest; a core's names its parts, sets the three axes,
+    takes its tags from the vocabulary and lists purposes that fit; a part's,
+    named after its core's variant, holds scale and purposes only."""
+    vdir = domain_dir / "variants"
+    vrel = _rel(vdir, base)
+    if not vdir.is_dir():
+        out.append(f"{vrel}/: missing folder (a domain has at least one variant, "
+                   "variants/<variant>.yaml)")
+        return
+    did = domain_dir.name
+    requires = data.get("requires")
+    core = requires[0] if isinstance(requires, list) and len(requires) == 1 else None
+    is_part = "requires" in data
+    fits = data.get("purposes") if isinstance(data.get("purposes"), list) else []
+    manifests = sorted(p for p in vdir.iterdir() if p.is_file() and p.suffix == ".yaml")
+    if not manifests:
+        out.append(f"{vrel}/: no variant (a domain has at least one, variants/<variant>.yaml)")
+    names = {p.stem for p in manifests}
+    for entry in sorted(vdir.iterdir()):
+        shown = f"{vrel}/{entry.name}"
+        if entry.is_file() and entry.suffix == ".yaml":
+            continue
+        if not entry.is_dir():
+            out.append(f"{shown}: not a variant (<variant>.yaml, <variant>/producers/)")
+        elif entry.name not in names:
+            out.append(f"{shown}/: no manifest {entry.name}.yaml beside it")
+        else:
+            for sub in sorted(entry.iterdir()):
+                if sub.name != "producers" or not sub.is_dir():
+                    out.append(f"{shown}/{sub.name}: not a variant's profile (producers/)")
+                else:
+                    _check_producers(sub, base, out)
+    for path in manifests:
+        rel = _rel(path, base)
+        variant = path.stem
+        if not NAME_RE.match(variant):
+            out.append(f"{rel}: {variant} is not a variant name ([a-z][a-z0-9-]*)")
+        content = _load_yaml(path, rel, out)
+        if content is None:
+            continue
+        check_against_schema(content, template_schema("variant.yaml"), rel, out=out)
+        placeholders(content, rel, out=out)
+        if not isinstance(content, dict):
+            continue
+        _check_scale(content.get("scale"), f"{rel}: scale", out)
+        purposes = content.get("purposes")
+        for pid in purposes if isinstance(purposes, list) else []:
+            if pid not in fits:
+                out.append(f"{rel}: purposes: {pid!r} is not among {label}'s purposes")
+        if is_part:
+            for key in content:
+                if key not in ("scale", "purposes"):
+                    out.append(f"{rel}: {key}: a part's manifest holds scale and purposes "
+                               "only (D301)")
+            core_manifest = domain_dir.parent / str(core) / "variants" / f"{variant}.yaml"
+            core_variant = _sibling_yaml(core_manifest) if core else None
+            if core and core_variant is None:
+                out.append(f"{rel}: no variant {variant} of its core {core} "
+                           f"({_rel(core_manifest, base)}): a part's manifest takes its "
+                           "core variant's name (D301)")
+            elif core and did not in (core_variant.get("parts") or []):
+                out.append(f"{rel}: {core}'s variant {variant} does not name {did} in its "
+                           "parts (D301)")
+            continue
+        for key in ("parts", "tags"):
+            if key not in content:
+                out.append(f"{rel}: {key}: missing (a core's variant)")
+        _check_tags(content.get("tags"), f"{rel}: tags", out)
+        parts = content.get("parts")
+        if "parts" in content and not isinstance(parts, list):
+            out.append(f"{rel}: parts: not a list of domain ids")
+        for part in parts if isinstance(parts, list) else []:
+            part_data = _sibling_domain(domain_dir, part)
+            if part_data is None:
+                out.append(f"{rel}: parts: {part!r} is not a domain of the catalogue")
+            elif part_data.get("requires") != [did]:
+                out.append(f"{rel}: parts: {part} does not require {did}")
+            elif not (domain_dir.parent / part / "variants" / f"{variant}.yaml").is_file():
+                out.append(f"{rel}: parts: {part} has no manifest variants/{variant}.yaml "
+                           "(its own axes, D301)")
+
+
+def _sibling_yaml(path):
+    """A YAML mapping read for a cross-reference, or None when absent or unusable."""
+    if not path.is_file():
+        return None
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError:
+        return None
+    return data if isinstance(data, dict) else None
 
 
 def check_domain_dir(domain_dir, label_base=None):
-    """Missing items of a domain folder (format skill, "Domain folder";
-    master spec 6.8; W1 item 6)."""
+    """Missing items of a domain folder (format skill, "Domain"; formats.md
+    "Domain"; v0.5 master spec 6.1, 8.2 to 8.6; v0.5 W1 item 7)."""
     domain_dir = Path(domain_dir)
     base = Path(label_base) if label_base else domain_dir.parent.parent
     label = _rel(domain_dir / "domain.yaml", base)
@@ -2453,7 +2858,18 @@ def check_domain_dir(domain_dir, label_base=None):
         out.append(f"{label}: id: {data.get('id')} is not the folder name {domain_dir.name}")
     if not PURPOSE_ID_RE.match(domain_dir.name):
         out.append(f"{label}: id: {domain_dir.name} is not a domain id ([a-z][a-z0-9-]*)")
-    for key in ("schema", "load", "classification", "notes"):
+    if "databases" not in data:
+        for key in ("schema", "load"):
+            if key not in data:
+                out.append(f"{label}: {key}: missing (required without databases)")
+    if ("policy" in data) != ("governance" in data):
+        have, lack = ("policy", "governance") if "policy" in data else ("governance", "policy")
+        out.append(f"{label}: {have}: without {lack}: a domain's default policy comes with "
+                   "its governance fragment, both or neither")
+    _check_domain_part(domain_dir, data, label, out)
+    tables, databases = _domain_tables(_domain_schema_files(domain_dir, data), label, out)
+    for key in ("schema", "load", "classification", "register", "notes", "policy",
+                "governance"):
         rel = data.get(key)
         if not isinstance(rel, str):
             continue                         # reported against the template
@@ -2461,7 +2877,14 @@ def check_domain_dir(domain_dir, label_base=None):
         if path is None or not path.is_file():
             out.append(f"{_rel(domain_dir / rel, base)}: missing file ({label} {key})")
         elif key == "classification":
-            check_classification(path, _rel(path, base), out)
+            check_classification(path, _rel(path, base), out, domain_databases=databases)
+        elif key == "register":
+            _check_register(path, _rel(path, base), tables, out)
+        elif key == "governance":
+            content = _load_yaml(path, _rel(path, base), out)
+            if content is not None and not isinstance(content, dict):
+                out.append(f"{_rel(path, base)}: top level: not a mapping (a governance: "
+                           "fragment)")
     producers = data.get("producers")
     if isinstance(producers, str):
         path = _inside(domain_dir, producers)
@@ -2469,7 +2892,8 @@ def check_domain_dir(domain_dir, label_base=None):
             out.append(f"{_rel(domain_dir / producers, base)}/: missing folder "
                        f"({label} producers)")
         else:
-            _check_fragments(path, base, False, out)
+            _check_producers(path, base, out)
+    _check_variants(domain_dir, data, base, label, out)
     purposes = data.get("purposes")
     for pid in purposes if isinstance(purposes, list) else []:
         if not (isinstance(pid, str) and PURPOSE_ID_RE.match(pid)):
@@ -3255,6 +3679,8 @@ def _check_connection(conn, p, names, out):
         if not _is_port(int(m.group(3))):
             out.append(f"{p}.target: {target}: {m.group(3)} is not a port")
     role = conn.get("role")
+    if "role" not in conn and conn.get("driver") == "sql/postgresql":
+        out.append(f"{p}.role: missing (an sql/postgresql connection's role)")
     if "role" in conn:
         if not (isinstance(role, str) and DB_ROLE_RE.match(role)):
             out.append(f"{p}.role: {role!r} is not a role name ([a-z_][a-z0-9_]{{0,40}})")

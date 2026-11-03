@@ -1,0 +1,8 @@
+# The test domain's one variant (tools/tests, v0.5 chunk 2).
+parts: []
+scale:
+  population: {customers: 3}
+  history: {days: 1}
+  throughput: {orders_per_hour: 6}
+purposes: [fixture-sales-copy]
+tags: [homebrewed, local]

@@ -1,12 +1,16 @@
 # scenario.yaml — template for scenarios/<scenario-id>/scenario.yaml
 #
-# Version v0.4, expected to evolve as games are played.
+# Version v0.5, expected to evolve as games are played.
 # Shape: v0.1 master spec section 6, v0.2 master spec 6.3 (capture W1 of
 # specs/versions/v0.2/wave-log.md), v0.3 master spec 6.1 and 6.7, with
 # 7.1 for a scheduler's files (capture W1 of specs/versions/v0.3/wave-log.md,
 # items 0 and 1), and v0.4 master spec 6.1 and 6.9, with 7.1 and 7.2 for a
 # transformer and a database node's jobs, 11 for governance (capture W1 of
-# specs/versions/v0.4/wave-log.md, items 0, 1, 7 and 8). This file and gm/answer-key.yaml are AUTHORITATIVE;
+# specs/versions/v0.4/wave-log.md, items 0, 1, 7 and 8), and v0.5 master
+# spec 6.2 and 6.8, with 7.1 for a standby, 8.4 and 8.5 for composed domains,
+# 10 for third parties, 13.3 for the data register (capture W1 of
+# specs/versions/v0.5/wave-log.md, items 0, 2, 5, 6 and 7). This file and
+# gm/answer-key.yaml are AUTHORITATIVE;
 # README.md (the scenario document) is generated from them.
 # A scenario never bumps its version (D58, D75); git history is the record.
 #
@@ -59,10 +63,27 @@ difficulty:
                                     # fault is worth 1; tooling expectations do not count)
   level: <normal>                   # optional: easy | normal | hard, the level it targets
 
-# --- Purposes, domain and governance (v0.4 master spec 6.1, 6.9, 11) -----
-domain: <shop>                      # optional: a scenario whose business comes from a domain;
+# --- Purposes, domains and governance (v0.4 master spec 6.1, 6.9, 11; v0.5 6.2) ---
+domain: <shop>                      # optional: a scenario whose business comes from one domain;
                                     # a domain id (domains/<id>/), for provenance only. A static
-                                    # scenario omits it
+                                    # scenario omits it. A scenario lists domain: or domains:,
+                                    # never both (v0.5 capture W1 item 2)
+domains:                            # optional: a scenario composed of domains (v0.5 master spec
+                                    # 6.2, 8.4, 8.5; formats.md "Composing domains"); non-empty.
+                                    # With it, composition.yaml (the composition record, template
+                                    # composition.yaml) is required beside scenario.yaml, and
+                                    # merge.yaml (the merge's resolutions, template merge.yaml)
+                                    # when two profiles collided; governance.register is required
+  - id: <vet-core>                  # a domain id (domains/<id>/), once in the list; every core a
+                                    # part requires is listed
+    variant: <regional-franchise>   # optional: required on the core's entry, refused on a part's;
+                                    # a variant of the core (variants/<variant>.yaml) naming every
+                                    # part listed here
+    at: <records/clinic>            # node/database the domain's schema lands in (a database node
+                                    # and a database the scenario's data creates); for a part
+                                    # declaring databases, a map database -> node/database
+                                    # ({pacs: machines/pacs, vitals: machines/vitals}); a
+                                    # lands_with part shares its core's at:
 purposes:                           # optional: a scenario running purposes; non-empty
   - id: <shop-sales-reporting>      # a purpose id (purposes/<id>/), once in the list
     parts:                          # exactly the parts its purpose.yaml declares
@@ -72,10 +93,21 @@ purposes:                           # optional: a scenario running purposes; non
                                     # an entry of that name and key in its jobs.yaml, the key
                                     # in its queries.yaml
       consumer: <consumer>          # optional: a purpose with a consumer; a node of role consumer
-      receiver: <gateway>           # optional: a pushed obligation; a node of role producer
+      receiver: <gateway>           # optional: a pushed obligation; a node of role producer (from
+                                    # v0.5 a node a third_parties entry lists)
+      api: <lab-api>                # optional: a purpose with an api part (v0.5); a node of role api
+      partner: <partners-api>       # optional: a purpose with a partner part (v0.5); a node a
+                                    # third_parties entry lists
 governance:                         # optional: a scenario handing the players a data policy
   policy: player/data-policy.md     # a file of the scenario, written by the GM from governance:,
                                     # mapped to the bastion's seed file data-policy.md
+  register: player/data-register.md # optional: required of every scenario listing domains: (v0.5
+                                    # master spec 6.2, 13.3; v0.4's shop scenario exempt until it
+                                    # is next revised), allowed with governance: alone. The data
+                                    # register handout, mapped to the bastion's optional seed file
+                                    # data-register.md; the true register is gm/data-register.yaml.
+                                    # Both generated by the data-register skill, never edited by
+                                    # hand, regenerated rather than reconciled
   classification: data/classification.yaml   # a file of the scenario: the domain's
                                     # classification copied in (template: classification.yaml)
   classes:                          # class -> its rules; every class the classification uses
@@ -100,6 +132,24 @@ governance:                         # optional: a scenario handing the players a
           outbox: <db/shop/mail_outbox>   # <node>/<database>/<table>: the outbox the flow fills
           fields: [<email>, <name>, <order>]   # non-empty: the payload keys it may carry
 
+# --- Third parties (v0.5 master spec 6.2, 10) ----------------------------
+third_parties:                      # optional: a scenario with partners; one entry per partner.
+                                    # Its nodes are out of the players' reach (write_policy
+                                    # no-access) and outside the starter pack
+  - id: <northfield-lab>            # [a-z][a-z0-9-]*, once in the list
+    name: <Northfield Veterinary Laboratories>   # its in-world name, as the story names it
+    stands_for: <a regional reference laboratory>
+    role: <round-trip>              # inbound | outbound | round-trip
+    nodes: [<partners-api>, <partners-backend>, <partners-db>]   # the shared partner nodes it
+                                    # uses (the api node, the back end, the database); may be []
+                                    # for a party without a node. Every entry naming nodes names
+                                    # the same ones (gmctl compose refuses others)
+    hostname: <northfield-lab>      # [a-z][a-z0-9-]*, unique, never a node's name: its alias on
+                                    # the partners' api node, the host its endpoints answer under
+    player_doc: <player/partners.md#northfield-veterinary-laboratories>   # its partners.md
+                                    # entry; player/partners.md, the starter pack's fifth file,
+                                    # maps to the bastion's seed file partners.md (an optional one)
+
 # --- Topology ---------------------------------------------------------
 networks:                           # each renders as <game_id>_<name>; v0.2 scenarios declare
                                     # one network, and the scripts refuse a second (D85, D106)
@@ -109,17 +159,34 @@ networks:                           # each renders as <game_id>_<name>; v0.2 sce
 nodes:                              # one entry per node (one service, one container). From v0.4
                                     # a scenario may have several postgres nodes, each an
                                     # instance of its own with its own seed files and data file
-                                    # (master spec 13.1); every scheduler node pins scheduler 0.2.0
+                                    # (master spec 13.1); every scheduler node pins scheduler 0.2.0.
+                                    # From v0.5 a postgres node pins 0.5.0, a scheduler node
+                                    # 0.3.0, the bastion 0.5.0 (v0.5 master spec 6.7)
   - name: <db>                      # node name; peers reach it by this name only
     brick:
       id: <postgres>                # looked up in the scenario's bricks/ first, then the catalog
       version: <0.1.0>              # pinned: the brick's current version (one per brick)
     role: <database>                # one of the brick's roles (a scheduler node running a
-                                    # purpose's jobs: transformer)
+                                    # purpose's jobs: transformer; an api node: api, v0.5; a
+                                    # standby keeps database)
     stateful: <true>                # as the brick declares
     networks: [<backend>]
     write_policy: <fixable>         # fixable | report-only | no-access
-                                    # (fixable and report-only only when the brick supports them)
+                                    # (fixable and report-only only when the brick supports them).
+                                    # no-access, from v0.5 real (master spec 6.2, 10.2): a third
+                                    # party's nodes, on a brick listing it (api, scheduler,
+                                    # postgres); no player account, no sudo wrappers, no route
+                                    # on the bastion, not in the starter pack
+    options: [<monitoring>]         # optional: the options the node chooses (v0.5 master spec
+                                    # 6.2, 6.8, 7.1); a non-empty list of unique option names its
+                                    # brick declares (brick.yaml options:), off unless listed; an
+                                    # empty list is refused. On every node an exporter targets
+    standby_of: <records>           # optional: a postgres standby (v0.5 master spec 6.2, 7.1,
+                                    # 11.1): its primary, a postgres node that is no standby
+                                    # itself. The standby has no data: entry (cloned from its
+                                    # primary after the load) and seeds hot_standby_feedback = on;
+                                    # the primary's seed pg_hba.conf carries
+                                    # host replication replicator samenet scram-sha-256
     write_overrides:                # optional: on a report-only node only; non-empty. Each entry
       - </srv/scheduler/jobs>       # is one of the brick's writable_paths, exactly as written
                                     # there, made fixable with what lies under it; the node's
@@ -153,7 +220,15 @@ nodes:                              # one entry per node (one service, one conta
                                     # it), never a fixed zone, and only with scheduler nodes.
                                     # The bastion maps data-policy.md: player/data-policy.md
                                     # exactly when the scenario has governance: (an optional
-                                    # seed file, bastion 0.4.0).
+                                    # seed file, bastion 0.4.0). From v0.5 (bastion 0.5.0) it
+                                    # maps partners.md: player/partners.md exactly when the
+                                    # scenario has third_parties: with a player_doc, and
+                                    # data-register.md: player/data-register.md exactly when
+                                    # governance.register is set, unless a planted register
+                                    # fault is the handout's absence (both optional seed files).
+                                    # An api node (api 0.1.0): api.yaml, and the directory
+                                    # entries routes/ and db/, written by gmctl compose into
+                                    # nodes/<node>/ (v0.5 capture W1 items 5 and 7).
                                     # A scheduler node: queries.yaml, jobs.yaml, schedule.yaml
                                     # and optionally builders/ and scripts/ (an entry ending in
                                     # /: a folder of files), in scenario time, shaped as master
@@ -162,7 +237,9 @@ nodes:                              # one entry per node (one service, one conta
                                     # TAMPER comment: local all postgres peer, local
                                     # replication postgres peer, local all gm_check
                                     # scram-sha-256 (D164, D171), and in a scenario with
-                                    # governance: host all gm_check samenet scram-sha-256.
+                                    # governance: host all gm_check samenet scram-sha-256; from
+                                    # v0.5 a primary with a standby also host replication
+                                    # replicator samenet scram-sha-256 (capture W1 item 6).
                                     # A postgres node may seed crontab: nodes/<db>/crontab
                                     # (optional, postgres 0.4.0: postgres' crontab, in scenario
                                     # time, turning the cron daemon on), with crontab_roles.
@@ -186,7 +263,8 @@ nodes:                              # one entry per node (one service, one conta
                                     # (the validator is then red from the start: a finding)
         envelope: {min: <64MB>, max: <256MB>}   # or {allowed: [..]}: the brick's default
                                     # envelope, or tightened; never widened
-    data:                           # optional: only for a node that holds data
+    data:                           # optional: only for a node that holds data; never on a
+                                    # standby (standby_of)
       file: data/<db>.sql           # restored-backup data, streamed in after deployment
       databases:                    # the data schema it holds
         - name: <shop>
