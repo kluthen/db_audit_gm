@@ -3530,3 +3530,13 @@ OK after; the image unaffected) and **814ae8a** (release notes in
 - Items 9–14 as the wave log records; 12, 13 v1.0 gating; **16 (G11)
   the owner's**.
 - Hosts: clean, lock free, the VPS Drain (never active).
+
+### Owner: "option c, G11 ok, merge", 2026-11-03
+
+O163 answered (c): the `smoke` run's end-of-run checks stay a known limit,
+covered by the v1.0-gating smoke run (`spec-writer` records it and drops
+the notes' provisional mark). **G11 cleared.** The owner asks for the
+merge: `spec-writer` closes O163 and archives the milestone
+(`milestone-archive`) on `v0.4-w4`, then the driver merges `v0.4-w4`
+`--no-ff` into `main` (no push) and removes the wave worktree and
+branch. `doc-ids compare main v0.4-w4`: 0 collisions.
