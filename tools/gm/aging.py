@@ -31,7 +31,11 @@ W1 item 7 and W1-y.
 - `check --early-check` and `--handover-check` (W2 item 8; master spec
   8.5): every planted fault against the answer key's `at_handover`, the
   schedulers' keys and jobs, the nodes' health, the outages; recorded,
-  never a teardown. `status --set handed-over` needs the earliest
+  never a teardown. A "too soon" fails the hand-over check unless the
+  answer key's `at_handover` for that instance is 3 and its
+  `interactions` name the instance masking it (`masked-by`): then a 3
+  passes and any other reading fails, a 1 included (v0.4 master spec
+  12.2, spec D284). `status --set handed-over` needs the earliest
   hand-over reached, a passed hand-over check run at or after it, and the
   hand-over snapshot taken or recorded as not fitting (W2 item 11; spec
   D172, chunk 11a: `snapshot`).
@@ -745,7 +749,10 @@ class PlantResult:
 
 def _instance(scenario, impl, iid):
     from .inject import fault_instances
-    pairs = {inst["id"]: (inst, fault) for inst, fault in fault_instances(scenario)}
+    pairs = {inst["id"]: (inst, fault) for inst, fault in fault_instances(scenario, impl)}
+    if iid in localimpl.left_out(impl):
+        raise GmError(f"--instance {iid}: left out of this game by the test harness: never "
+                      "planted")
     if iid not in pairs:
         raise GmError(f"--instance {iid}: not a fault instance of the scenario "
                       f"({', '.join(pairs) or 'none'})")
@@ -1169,12 +1176,33 @@ EARLY_CHECK, HANDOVER_CHECK = "early-check", "handover-check"
 PASSED, FAILED_CHECK, CANNOT, TOO_SOON_ONLY = 0, 1, 2, 3
 
 
-def at_handover(scenario, iid):
+TOO_SOON_EXIT = 3                    # a sealed check's "too soon to tell"
+
+
+def _key_entry(scenario, iid):
     for entry in (scenario.answer_key or {}).get("instances") or []:
         if isinstance(entry, dict) and entry.get("instance") == iid:
-            value = (entry.get("sealed_check") or {}).get("at_handover")
-            return 1 if value is None else int(value)
-    return 1
+            return entry
+    return {}
+
+
+def at_handover(scenario, iid):
+    value = (_key_entry(scenario, iid).get("sealed_check") or {}).get("at_handover")
+    return 1 if value is None else int(value)
+
+
+def masked_by(scenario, iid):
+    """The instances the answer key states as masking `iid` (its
+    `interactions` of kind `masked-by`), in their order."""
+    return [str(i["instance"]) for i in _key_entry(scenario, iid).get("interactions") or []
+            if isinstance(i, dict) and i.get("kind") == "masked-by" and i.get("instance")]
+
+
+def expected_too_soon(scenario, iid):
+    """True when the answer key expects `iid` to read "too soon" at the
+    hand-over check: its `at_handover` is 3 and it names the instance
+    masking it (v0.4 master spec 12.2, spec D284)."""
+    return at_handover(scenario, iid) == TOO_SOON_EXIT and bool(masked_by(scenario, iid))
 
 
 def planting_problem(iid, planting, now):
@@ -1324,7 +1352,8 @@ def run_check(scenario_dir, playground, kind, docker=None, out=print, now=None,
     failures = []
 
     plantings = st.get("plantings") or {}
-    instances = [inst["id"] for inst in scenario.data.get("fault_instances") or []]
+    from .inject import fault_instances
+    instances = [inst["id"] for inst, _ in fault_instances(scenario, impl)]
     if aged:
         planted = [i for i in instances if (plantings.get(i) or {}).get("planted_at")
                    or (plantings.get(i) or {}).get("plant_at", T0) == T0]
@@ -1340,9 +1369,12 @@ def run_check(scenario_dir, playground, kind, docker=None, out=print, now=None,
         expected = at_handover(scenario, line.instance)
         entry = {"instance": line.instance, "fault": line.fault_id, "verdict": line.verdict,
                  "exit": line.returncode, "line": line.reason}
+        masked = expected_too_soon(scenario, line.instance)
         if line.verdict == "too-soon":
             entry["remaining"] = line.remaining
-            if kind == HANDOVER_CHECK:
+            if masked:
+                entry["masked_by"] = masked_by(scenario, line.instance)
+            elif kind == HANDOVER_CHECK:
                 if line.since is not None:      # judging runs or triggers (12.2)
                     failures.append(f"{line.instance} {line.fault_id}: too soon to tell, the "
                                     f"job's next run is in {line.remaining} s "
@@ -1353,10 +1385,13 @@ def run_check(scenario_dir, playground, kind, docker=None, out=print, now=None,
         elif line.verdict == "error":
             failures.append(f"{line.instance} {line.fault_id}: the check errored: {line.reason}")
         elif line.returncode != expected:
+            why = f"expected exit {expected} at hand-over"
+            if masked:
+                why += f" (masked by {', '.join(masked_by(scenario, line.instance))})"
             failures.append(f"{line.instance} {line.fault_id}: reads {line.verdict} (exit "
-                            f"{line.returncode}), expected exit {expected} at hand-over")
-        entry["passed"] = line.verdict != "error" and line.verdict != "too-soon" \
-            and line.returncode == expected
+                            f"{line.returncode}), {why}")
+        entry["passed"] = masked if line.verdict == "too-soon" else \
+            line.verdict != "error" and line.returncode == expected
         record["faults"].append(entry)
         run.lines.append(line.text())
 
@@ -1403,7 +1438,7 @@ def run_check(scenario_dir, playground, kind, docker=None, out=print, now=None,
     run.lines.append("nodes: " + ", ".join(f"{n} {h}" for n, h in record["nodes"].items()))
     record["failures"] = failures
     record["passed"] = not failures
-    too_soon = [f for f in record["faults"] if f["verdict"] == "too-soon"]
+    too_soon = [f for f in record["faults"] if f["verdict"] == "too-soon" and not f["passed"]]
     if record["passed"]:
         run.exit_code = PASSED
     elif kind == HANDOVER_CHECK and too_soon and len(too_soon) == len(failures):

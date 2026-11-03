@@ -344,13 +344,19 @@ password or key. The GM's reads, one per tool, are in the skill's
   0 or 3, and 2 (`error`) when it cannot confirm it (spec D256).
 - **`check --early-check`, `check --handover-check`** (master spec 8.5):
   the sealed check of every fault planted so far, passing when it exits
-  as the answer key's `at_handover` says (1, present); in a game with
+  as the answer key's `at_handover` says (1, present). A 3 (too soon to
+  tell) is expected only where another instance masks the check until
+  after the hand-over, the answer key naming it in `interactions`
+  (`masked-by`; f4, masked by f5, in the first v0.4 scenario): that
+  instance passes on a 3 and fails on any other reading, a 1 included
+  (master spec 12.2); in a game with
   scheduler nodes, every scheduler running, every current stream key with
   a line in the last complete minute, and every fixed-time operation due
   more than 10 minutes ago run once; every node healthy; the outages so
   far, recorded (never a failure on their own: the GM judges them). At the
   early check an instance due later is listed, not a failure, and a "too
-  soon to tell" reading is recorded; at the hand-over check both fail it.
+  soon to tell" reading is recorded; at the hand-over check both fail it,
+  except a 3 the answer key expects.
   A missed or failed planting fails both. A game with no scheduler node
   has no early check, and its hand-over check judges the faults and the
   nodes only. Lines per fault and per scheduler, then `<Early|Hand-over>

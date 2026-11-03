@@ -305,12 +305,13 @@ def instance_minimum(scenario, inst):
     return ((scenario.faults[inst["id"]].data.get("aging") or {}).get("minimum"))
 
 
-def build_timeline(scenario, planned, previous, rendered_at):
+def build_timeline(scenario, planned, previous, rendered_at, left_out=()):
     """implementation.yaml's `timeline`. A scheduler game: the planned and
     designed hand-overs, the shift, the customer's time zone, the seed (the
     previous render's, kept, else a new one), the aging minimum, every
-    instance's planting moment and minimum, the render time. A static game
-    with `--handover`: the planned hand-over alone; without, None."""
+    instance's planting moment and minimum (but those in `left_out`, the
+    test harness's), the render time. A static game with `--handover`: the
+    planned hand-over alone; without, None."""
     if planned is None:
         return None
     if not has_scheduler_nodes(scenario.data):
@@ -323,6 +324,8 @@ def build_timeline(scenario, planned, previous, rendered_at):
         seed = _random.randbelow(SEED_LIMIT)
     instances = {}
     for inst in scenario.data.get("fault_instances") or []:
+        if inst["id"] in left_out:
+            continue
         plant_at = inst.get("plant_at") or T0
         m = HANDOVER_MOMENT_RE.match(str(plant_at))
         instances[inst["id"]] = {
@@ -571,6 +574,7 @@ class RenderResult:
     rendered_files: list = field(default_factory=list)
     timeline: dict = None
     warning: str = None
+    left_out: list = field(default_factory=list)
 
     def text(self):
         out = [f"Game {self.game_id}: rendered.",
@@ -586,6 +590,9 @@ class RenderResult:
         elif tl:
             out.append(f"  planned hand-over {tl['planned_handover']} (no scheduler node: "
                        "nothing shifted)")
+        if self.left_out:
+            out.append(f"  test harness: {', '.join(self.left_out)} left out (never planted or "
+                       "checked; their seed changes kept)")
         if self.warning:
             out.append(f"  warning: {self.warning}")
         out.append("Stage rendered.")
@@ -628,10 +635,15 @@ def _check_fit(scenario, impl, playground):
             raise GmError(f"node {node['name']}'s seed files changed since gmctl fit: fit again")
 
 
-def render(scenario_dir, playground, handover=None, catalog_root=REPO_ROOT):
+def render(scenario_dir, playground, handover=None, catalog_root=REPO_ROOT, test_leave_out=None):
     """Write stack.yml, envelopes/<node>.conf, mounted/ and rendered/, and
     implementation.yaml's `timeline`; stage `rendered`. `handover` (the
-    planned hand-over, `--handover`) is required with scheduler nodes."""
+    planned hand-over, `--handover`) is required with scheduler nodes.
+    `test_leave_out` (the undocumented `--test-leave-out`, the test
+    harness's alone; capture W4 item 8): instance ids, comma-separated,
+    recorded as implementation.yaml's `test_harness_override`, whose state
+    planting and check every later verb leaves out; their seed changes
+    stay. Without it, a render records none."""
     ldir = localimpl.local_dir(scenario_dir, playground)
     if localimpl.read_state(ldir) is None:
         raise GmError(f"no game on playground {playground}: run gmctl fit first")
@@ -649,7 +661,13 @@ def render(scenario_dir, playground, handover=None, catalog_root=REPO_ROOT):
         planned = parse_handover(handover)
         if planned <= now:
             raise GmError(f"--handover {iso(planned)} is not in the future (it is {iso(now)})")
-    timeline = build_timeline(scenario, planned, impl.get(localimpl.TIMELINE), iso(now))
+    leave_out = parse_leave_out(scenario, test_leave_out)
+    if leave_out:
+        impl[localimpl.TEST_OVERRIDE] = {"leave_out": leave_out, "set_at": iso(now)}
+    else:
+        impl.pop(localimpl.TEST_OVERRIDE, None)
+    timeline = build_timeline(scenario, planned, impl.get(localimpl.TIMELINE), iso(now),
+                              leave_out)
     warning = None
     if scheduled:
         earliest = earliest_if_started(timeline, now)
@@ -661,7 +679,21 @@ def render(scenario_dir, playground, handover=None, catalog_root=REPO_ROOT):
         scenario, playground, ldir, impl, timeline)
     localimpl.set_stage(ldir, "rendered")
     return RenderResult(impl["game_id"], ldir, stack_file, envelope_files, node_config_files,
-                        rendered_files, timeline, warning)
+                        rendered_files, timeline, warning, leave_out)
+
+
+def parse_leave_out(scenario, text):
+    """`--test-leave-out <id>[,<id>...]` -> the ids, in `fault_instances`
+    order; GmError naming one the scenario lacks."""
+    if text is None:
+        return []
+    ids = [i.strip() for i in str(text).split(",") if i.strip()]
+    known = [inst["id"] for inst in scenario.data.get("fault_instances") or []]
+    unknown = [i for i in ids if i not in known]
+    if unknown or not ids:
+        raise GmError(f"--test-leave-out {text}: not a fault instance of the scenario: "
+                      f"{', '.join(unknown) or 'none given'} (it has {', '.join(known) or 'none'})")
+    return [i for i in known if i in ids]
 
 
 def write_rendered(scenario, playground, ldir, impl, timeline):
