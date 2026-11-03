@@ -1,6 +1,9 @@
 # db_audit_gm v0.4 — Build plan
 
-Status: v12 (2026-11-02): the owner's ruling on chunk 17a's finding,
+Status: v13 (2026-11-03): the owner's ruling on chunk 17a's runs, 17a
+done with its cycles run aborted at f4's wait for the scenario's midnight
+and without its two-host run (spec D310), in chunk 17; when the
+remaining two-host runs happen left open (spec O161); v12 (2026-11-02): the owner's ruling on chunk 17a's finding,
 the `pgbouncer` start-up DNS race fixed in v0.4 as `pgbouncer` 0.1.1 by
 the inserted chunk 21 on wave 4 (spec D305), in "Read first", the waves,
 chunk 17 and the release gate; v11 (2026-11-02): the owner's ruling on O146 (spec D284): f4
@@ -1200,23 +1203,27 @@ Depends on: chunks 8, 9, 12, 20; chunk 16 (in-wave, W4), merged into `v0.4-w4`
 before this chunk's branch is cut; chunk 21 (in-wave, spec D305): 17a's
 runs after its branch has merged `v0.4-w4` in once chunk 21 has merged,
 and 17b, run on `pgbouncer` 0.1.1, a 17a run before that relying on its
-harness's counted WORKAROUND; G4; G7 (17a's two-host run, 17b)
+harness's counted WORKAROUND; G4; G7 (17b)
 Architecture capture: none of its own; it uses W4.
 
 - Goal: the harness and the runs master spec 18 asks for, run once on the
   merged scenario.
 - Scope: in:
   - **17a, the smoke cycles**: on the scenario, every fault planted at
-    once and every scheduler key and job running, on armenelos alone and
-    on armenelos plus the VPS (`reporting` mapped to armenelos; f10's job
-    never moved there); every purpose fault through its whole cycle
+    once and every scheduler key and job running, on armenelos alone
+    (its run on armenelos plus the VPS, `reporting` mapped to armenelos
+    and f10's job never moved there, not run by 17a, spec D310: still
+    release gate item 8, when it runs spec O161); every purpose fault
+    through its whole cycle
     (planted; its job moved to run within two minutes by an edit of
     `jobs.yaml` and a reload, done as root on a report-only node; present;
     its acceptance fix; too soon; moved again; fixed), f4's cycle moving
     the producer's invoicing, f5's and f7's passing `--since` (spec
     D241), their `remaining=` blind to a move, so the harness waits for
     the moved time (spec D246), f5's cycle ending before f4's and f7's
-    (W4 item 4); f6 and f9 present
+    (W4 item 4), the cycles run counted as it stood when aborted at f4's
+    wait for the scenario's midnight, f4's steps after it not run (spec
+    D310: still release gate item 9); f6 and f9 present
     then fixed after their acceptance fix; the unfaulted scenario (a
     scratch copy whose seed-changed files are `fixture-campaign`'s, every
     instance left out by the harness-only override, W4 item 8),
@@ -1259,11 +1266,13 @@ Architecture capture: none of its own; it uses W4.
 - Spec sections: master spec 6.2, 11.6, 12.1, 12.2, 12.5, 13.3, 16.1,
   16.3, 18 (items 1 to 6); access model 6, 7; spec D241, D246; D253 (the
   baseline's G1), D256, D257 (f10's check and the night after); D283;
-  D284 (f4's 3 at the hand-over check).
-- Done when: every run passes as listed, its figures recorded with
-  machine and date in the Record line and the wave log; the VPS drained
-  after each two-host run and never active during f10's.
-- Verification: chunk checks, plus the runs (needs G4, G7), each under
+  D284 (f4's 3 at the hand-over check); D310 (17a's runs as run).
+- Done when: every run passes as listed, 17a's as spec D310 accepts them
+  (its cycles run passing up to f4's wait for the scenario's midnight, no
+  two-host run), its figures recorded with machine and date in the Record
+  line and the wave log; the VPS drained after each two-host run and
+  never active during f10's.
+- Verification: chunk checks, plus the runs (needs G4; G7 for 17b), each under
   the host lock and a sleep inhibitor, alone on the hosts.
 - Split rule: 17a the smoke cycles, the baseline's G1 to G4 and f10's
   run; 17b the rehearsal and the figures.

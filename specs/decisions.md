@@ -584,3 +584,12 @@ v0.5's drafting. Take the next number from `doc-ids`; no ID is reused.
   hosts resolve, or an equivalent; every pin re-pinned. Chunk 21, wave 4.**
   The producer was down all game in 4 of 5 deploys; 0.1.1, a patch as D57's, no interface change.
   Now in: [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 7.3, 16.1, 16.4, 17; [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunk 21.
+- **D310 (2026-11-03, owner ruling on chunk 17a's runs, relayed by the
+  wave driver): 17a is done with its second cycles run aborted at f4's
+  wait for the scenario's midnight (54 PASS, 0 FAIL) and without its
+  two-host run.** The laptop is off the network today. 17a leaves unproven
+  f4's steps after that midnight (its "fixed") and every fault at once on
+  armenelos plus the VPS; master spec 18 items 1 and 2 still ask for both,
+  in release gate items 8 and 9, unchanged, as 17b's two-host rehearsal.
+  When the two-host runs happen: O161. Now in:
+  [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunk 17.
