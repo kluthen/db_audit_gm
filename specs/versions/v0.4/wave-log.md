@@ -3428,3 +3428,22 @@ unit suite and scheduler unit tests run; `sh -n` clean; seven builds
 `smoke-monitoring.sh` 43/43 (46 s); `smoke-scenario.sh` bookshop 19/19
 (21 s), fernway 18/18 (29 s), tarnbeck-outdoor-shop 26/26 (822 s);
 `smoke-load.sh` armenelos 73/73 (423 s). Full figures in the gate's report.
+
+### D312, O162 closed, O163, plan v15 (fd2124f), 2026-11-03
+
+`spec-writer`: **D312** (long-running tests to v1.0 gating: the full
+cycles run with f4 across the midnight, f8's fixed and a clean verdict;
+f8's wait for its present reading in the all-at-once smoke run — in
+`smoke` mode the harness waits only for present, up to 9000 s); D311's
+master spec 18 amendment confirmed by it; master spec 18, plan v15
+(wave gate line, release gate intro "no long-running test", items 8, 9,
+17), the v1.0-gating list. **O163** (open): stopping `smoke` at f8's
+wait also skipped its end-of-run checks (`jobs_ran` incl. db's crontab
+entry and reporting's `pg_cron` job, `keys_running`, the full `gmctl
+check`, the teardown checks) — never yet reached with every fault
+planted; `baseline` covers them unfaulted except reporting's `pg_cron`
+job. Option (a), checks by hand on the stopped deployment, is moot: the
+harness's trap tore it down at 10:40:16Z, before the report. Left: (b) a
+harness option skipping f8's wait and a ~1 h `smoke` re-run, or (c) the
+gap named in the known limits. Driver's reading of release gate item 14:
+the wave 4 gate's run counts, re-run only for code changed after it.
