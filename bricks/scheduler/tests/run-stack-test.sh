@@ -50,8 +50,8 @@ set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 BRICK=$(cd "$HERE/.." && pwd)
 STACK=gmtest-sched
-IMAGE=127.0.0.1:5000/dbagm/scheduler:0.2.0
-DB_IMAGE=dbagm-test/scheduler-unit:0.2.0
+IMAGE=127.0.0.1:5000/dbagm/scheduler:0.3.0
+DB_IMAGE=dbagm-test/scheduler-unit:0.3.0
 SERVICE=${STACK}_scheduler
 TR_SERVICE=${STACK}_transformer
 DB_SERVICE=${STACK}_db

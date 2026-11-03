@@ -17,7 +17,7 @@ severity: high
 applies_to:
   bricks:
     - id: scheduler
-      versions: ["0.1.0", "0.2.0"]
+      versions: ["0.1.0", "0.2.0", "0.3.0"]
   preconditions: []
 
 # --- How long its evidence takes -----------------------------------------

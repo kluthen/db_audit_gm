@@ -1,5 +1,5 @@
 # Fixture scenario for tools/tests (v0.4 chunk 7). Not a game: a bastion and
-# two PostgreSQL 0.4.0 instances, built from .claude/skills/scenario-format/
+# two postgres 0.5.0 instances, built from .claude/skills/scenario-format/
 # templates/scenario.yaml, to prove gmctl load-data across instances: db
 # seeds a crontab (its role shop_etl); reporting runs pg_cron and reaches db
 # through a foreign server and bi_etl's user mapping to shop_etl. No
@@ -61,7 +61,7 @@ nodes:
   - name: bastion
     brick:
       id: bastion
-      version: 0.4.0
+      version: 0.5.0
     role: bastion
     stateful: true
     networks: [backend]
@@ -86,7 +86,7 @@ nodes:
   - name: db
     brick:
       id: postgres
-      version: 0.4.0
+      version: 0.5.0
     role: database
     stateful: true
     networks: [backend]
@@ -150,7 +150,7 @@ nodes:
   - name: reporting
     brick:
       id: postgres
-      version: 0.4.0
+      version: 0.5.0
     role: database
     stateful: true
     networks: [backend]

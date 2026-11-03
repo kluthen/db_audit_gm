@@ -19,7 +19,7 @@ severity: high
 applies_to:
   bricks:
     - id: scheduler
-      versions: ["0.1.0", "0.2.0"]
+      versions: ["0.1.0", "0.2.0", "0.3.0"]
   preconditions:
     - >-
       the database node's pg_hba.conf admits gm_check from the game network

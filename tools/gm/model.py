@@ -67,7 +67,7 @@ POSTGRESQL_CONF = "postgresql.conf"
 DATA_SEED_CHANGE = "data"           # a seed change naming the target node's data.file (v0.4
                                     # master spec 6.3, spec D226): not a seed file of a brick
 ROLES = ("bastion", "producer", "queue", "database", "pooler", "transformer", "consumer",
-         "monitoring", "backup")
+         "monitoring", "backup", "api")   # api: the api brick's (v0.5 capture W1 item 1)
 DIFFICULTY_LEVELS = ("easy", "normal", "hard")
 SNAPSHOT_METHODS = ("pg_basebackup", "copy", "stop")
 AGING_TECHNIQUES = ("real-time",)
