@@ -434,152 +434,6 @@ capture W1 item 8), present only in a scenario with a `pooler` node:
   secret (kind `password`, not handed over), root `0400` here, the same
   secret as the `pgbouncer` node's.
 
-### `pg_cron`
-
-**What it is**: the PostgreSQL extension `pg_cron` (PGDG package
-`postgresql-18-cron` 1.6.8, pinned), which runs SQL on a schedule from
-inside the server: a launcher, one background worker, reads the jobs
-from its tables and starts a background worker per run. The image ships
-the library and the extension's files only; nothing runs until a seed
-preloads it (master spec 7.2). It needs no `brick.yaml` entry.
-
-**How a scenario turns it on**: the seed `postgresql.conf` and the data
-file, as `pg_stat_statements`:
-
-```
-shared_preload_libraries = 'pg_stat_statements,pg_cron'
-cron.database_name = 'shop'              # the database holding its tables; one the data file creates
-cron.use_background_workers = on         # a job runs as its role: no password, no pg_hba.conf line
-cron.timezone = '{{customer_timezone}}'  # render fills in the bare zone (8.5)
-cron.log_run = on                        # cron.job_run_details; a check on its runs needs it (12.5)
-cron.log_statement = on                  # a log line per run, in the file log and pgBadger
-```
-
-The data file creates the extension in `cron.database_name` as
-superuser (`CREATE EXTENSION pg_cron`, written at the start of a line,
-which the loader reads) and schedules each job with
-`cron.schedule_in_database(<name>, <schedule>, <command>, <database>,
-username => <role>)`, the job then running as that role. Jobs are rows,
-so the restored backup carries them, and the hand-over snapshot with it.
-The loader checks that a data file creating `pg_cron` belongs to a node
-whose seed preloads it and that `cron.database_name` names a database
-that file creates; a fault may still remove the preload. The stack test
-shows it on db2 (`tests/fixtures/postgresql-jobs.conf`).
-
-From boot until the data file has created `cron.database_name`, the
-preloaded launcher cannot connect: it exits (`FATAL:  database "..." does
-not exist`, then the postmaster's `background worker "pg_cron launcher"
-(PID n) exited with exit code 1`) and is restarted about once a second.
-The brick cannot avoid it (creating the database at start-up would fail
-the data file's `CREATE DATABASE`; holding the preload back would fail its
-`CREATE EXTENSION`, which loads the library only when preloaded), so
-`load-data`, last, waits for the launcher to be connected, has the
-collector switch files and removes those lines, and only those, from the
-files it closed (`tools/gm/inject.py`): the players' log holds none.
-
-**What players and the GM see**: `\dx`, the preload, `cron.job` (the
-jobs) and `cron.job_run_details` (start, end, status, message, while
-`cron.log_run` is on). Both tables show a role its own jobs only, unless
-it is a superuser or bypasses row-level security: `dba` sees them all;
-`gm_check` reads them through a read policy `load-data` adds where the
-extension exists (chunk 7). Changing them: `cron.schedule`,
-`cron.unschedule`, `cron.alter_job` and the settings, as `dba`.
-
-**Its cost**: the launcher (one background worker, about 17MB resident in
-the stack test, most of it the server's shared memory, which the
-container counts once), and one background worker per run while it runs, out
-of `max_worker_processes` (8 by default, the other background workers
-included): at most eight jobs run at once, fewer beside parallel query,
-and a scenario needing more raises `max_worker_processes` (a restart).
-`cron.job_run_details` gains a row per run and is never purged by
-`pg_cron`: a job every few seconds makes it grow. A run's memory and
-CPU are a backend's, within the node's limits.
-
-**The faults it allows**: a job running as a superuser or as the wrong
-role, at the wrong time (its schedule, `cron.timezone`), too heavy for the
-database node, its trace turned off (`cron.log_run`, so a check on its
-runs answers 3), its preload removed (no job runs). The catalogue faults
-using it are listed in "Supported faults".
-
-### The cron daemon
-
-**What it is**: Debian's `cron` (`3.0pl1-197`), as on a Debian database
-host, running the crontab of OS user `postgres` (master spec 7.2). A
-third s6 longrun, `cron`, runs `/usr/sbin/cron -f` as root, started after
-`postgres` (`dependencies.d/postgres`); cron switches to `postgres` for
-each job. The image removes Debian's `/etc/crontab` and the entries of
-`/etc/cron.d` and `/etc/cron.{hourly,daily,weekly,monthly,yearly}` (its
-`apt-compat` and `dpkg` jobs as root), so the only crontab cron reads is
-the spool's; and it sets the jobs' umask to `0022` in `/etc/pam.d/cron`
-(Debian's `pam_umask` would give `postgres`'s jobs `0002`, letting the
-players' group write the job logs).
-
-**How a scenario turns it on**: by seeding `crontab` (the optional seed
-file, `seed.optional`) and naming the node's `crontab_roles` in
-`scenario.yaml`. Render mounts `/opt/gm/seed/crontab` only when the
-node's `seed_files` names it, and the service's run script decides by that
-file: without it, it prints `cron: this node seeds no crontab; the cron
-daemon does not run` (`gmctl logs`), marks itself to run once at most
-(`s6-svc -O`) and exits, so `s6-svstat /run/service/cron` reads down and
-not wanted up, and no daemon runs. With it, the daemon runs even if a
-player empties the crontab, as on a host.
-
-**The crontab**: installed once, at the first start (start-up step 4),
-as `/var/spool/cron/crontabs/postgres` on the volume `cronspool`
-(`snapshot: copy`), `postgres:crontab` `0600` in the spool `root:crontab`
-`1730`, both set again at every start. A player's replacement survives a
-restart and a new container. Its baseline entry (capture W1 item 8), with
-`PGPASSFILE` on a line of its own above the entries:
-
-```
-PGPASSFILE=/run/gm-cron/pgpass
-0 3 * * * psql -X -w -h /run/postgresql -U <role> -d <database> -c "<statement>" >> /var/log/postgresql/cron/<job>.log 2>&1
-```
-
-- **Connections** go over the local socket. An entry naming no role
-  connects as `postgres` by peer, a superuser: a fault. The baseline
-  connects as a customer role through the password file
-  `/run/gm-cron/pgpass`, written at every start (start-up step 8) from
-  each mounted `/opt/gm/secrets/role_<role>_password` (the role named by
-  the file name), one line `*:*:*:<role>:<password>` each, `:` and `\`
-  escaped; its directory `postgres:postgres` `0700`, the file `0600`, so
-  only OS user `postgres` reads it; on `/run`, so no password lands on a
-  volume or in the hand-over snapshot. No entry holds a password. The
-  node's seed `pg_hba.conf` must let the role in over the local socket
-  by password (`local all all scram-sha-256` does).
-- **Output**: there is no mail transfer agent and no syslog, so cron's
-  own lines and a job's output go nowhere unless the entry redirects
-  them. The baseline appends to one file per entry, named by its job
-  (`[a-z0-9-]+`), in `/var/log/postgresql/cron/` on `pglog`: the
-  directory `postgres:pgconf` `2750`, set at every start, a job's file
-  `0644` with the group `pgconf`, so the players read the logs and cannot
-  write them.
-- **Times**: cron reads the node's clock, UTC; render shifts each entry's
-  hours from scenario time, as it shifts `jobs.yaml` (8.5).
-- **Shutdown**: s6 stops `cron` (SIGTERM) before `postgres` (fast
-  shutdown); a job running then is not waited for and is a failed run, as
-  on a host. `gm-restart-db` restarts PostgreSQL alone (`s6-svc -r`):
-  cron goes on, and a job starting meanwhile fails to connect. The
-  hand-over snapshot never stops `cron`.
-- **`gm-crontab`**, the players' way in (see "Wrappers"): `sudo
-  gm-crontab -l` and `sudo gm-crontab <file>`; cron reads a replacement
-  within the minute. Debian's default lets any OS user run `crontab`
-  (no `cron.allow`, spec D211): `postgres`, which `dba` reaches through
-  `COPY ... TO PROGRAM`, changes the same crontab, on a node the players
-  may change anyway (access model 9.4).
-
-**Its cost**: the daemon, 2.5MB resident at rest in the stack test;
-each run is a shell and its programs as `postgres`, sharing the
-container's memory limit with PostgreSQL, so a heavy one can exhaust it
-(see "The out-of-memory victim"; master spec 16.3).
-
-**The faults it allows**: an entry connecting as `postgres` by peer (a
-superuser), a password written into an entry, a heavy job on the
-database node, an entry at the wrong hour (UTC against the customer's
-time), an entry whose output goes nowhere. The catalogue faults using it
-are listed in "Supported faults". Node-health cannot watch `cron` in v0.4
-(see "Known limits").
-
 ### The out-of-memory victim
 
 The run script (`s6-rc.d/postgres/run`) exports
@@ -981,7 +835,7 @@ local socket, so they need the GM's `local all postgres peer` line in
 `pg_hba.conf`; every sealed check needs it too.
 
 Faults it lends itself to with no definition yet: from 0.4.0, the other
-jobs' faults of "`pg_cron`" and "The cron daemon" above; a bloated table, and
+jobs' faults of "`pg_cron`" and "The cron daemon" below; a bloated table, and
 other configuration, schema, role or state defects visible without
 activity; and, from v0.2, monitoring faults of master spec 11.1 not chosen for
 the v0.2 set: no slow-query log (`log_min_duration_statement = -1`), a
@@ -1185,3 +1039,149 @@ the `postgres-exporter` brick's check.
   crontab only.
 - **`gm-crontab` on a node without a daemon** refuses a replacement:
   turning the daemon on is the scenario's seed, not the players'.
+
+## `pg_cron`
+
+**What it is**: the PostgreSQL extension `pg_cron` (PGDG package
+`postgresql-18-cron` 1.6.8, pinned), which runs SQL on a schedule from
+inside the server: a launcher, one background worker, reads the jobs
+from its tables and starts a background worker per run. The image ships
+the library and the extension's files only; nothing runs until a seed
+preloads it (master spec 7.2). It needs no `brick.yaml` entry.
+
+**How a scenario turns it on**: the seed `postgresql.conf` and the data
+file, as `pg_stat_statements`:
+
+```
+shared_preload_libraries = 'pg_stat_statements,pg_cron'
+cron.database_name = 'shop'              # the database holding its tables; one the data file creates
+cron.use_background_workers = on         # a job runs as its role: no password, no pg_hba.conf line
+cron.timezone = '{{customer_timezone}}'  # render fills in the bare zone (8.5)
+cron.log_run = on                        # cron.job_run_details; a check on its runs needs it (12.5)
+cron.log_statement = on                  # a log line per run, in the file log and pgBadger
+```
+
+The data file creates the extension in `cron.database_name` as
+superuser (`CREATE EXTENSION pg_cron`, written at the start of a line,
+which the loader reads) and schedules each job with
+`cron.schedule_in_database(<name>, <schedule>, <command>, <database>,
+username => <role>)`, the job then running as that role. Jobs are rows,
+so the restored backup carries them, and the hand-over snapshot with it.
+The loader checks that a data file creating `pg_cron` belongs to a node
+whose seed preloads it and that `cron.database_name` names a database
+that file creates; a fault may still remove the preload. The stack test
+shows it on db2 (`tests/fixtures/postgresql-jobs.conf`).
+
+From boot until the data file has created `cron.database_name`, the
+preloaded launcher cannot connect: it exits (`FATAL:  database "..." does
+not exist`, then the postmaster's `background worker "pg_cron launcher"
+(PID n) exited with exit code 1`) and is restarted about once a second.
+The brick cannot avoid it (creating the database at start-up would fail
+the data file's `CREATE DATABASE`; holding the preload back would fail its
+`CREATE EXTENSION`, which loads the library only when preloaded), so
+`load-data`, last, waits for the launcher to be connected, has the
+collector switch files and removes those lines, and only those, from the
+files it closed (`tools/gm/inject.py`): the players' log holds none.
+
+**What players and the GM see**: `\dx`, the preload, `cron.job` (the
+jobs) and `cron.job_run_details` (start, end, status, message, while
+`cron.log_run` is on). Both tables show a role its own jobs only, unless
+it is a superuser or bypasses row-level security: `dba` sees them all;
+`gm_check` reads them through a read policy `load-data` adds where the
+extension exists (chunk 7). Changing them: `cron.schedule`,
+`cron.unschedule`, `cron.alter_job` and the settings, as `dba`.
+
+**Its cost**: the launcher (one background worker, about 17MB resident in
+the stack test, most of it the server's shared memory, which the
+container counts once), and one background worker per run while it runs, out
+of `max_worker_processes` (8 by default, the other background workers
+included): at most eight jobs run at once, fewer beside parallel query,
+and a scenario needing more raises `max_worker_processes` (a restart).
+`cron.job_run_details` gains a row per run and is never purged by
+`pg_cron`: a job every few seconds makes it grow. A run's memory and
+CPU are a backend's, within the node's limits.
+
+**The faults it allows**: a job running as a superuser or as the wrong
+role, at the wrong time (its schedule, `cron.timezone`), too heavy for the
+database node, its trace turned off (`cron.log_run`, so a check on its
+runs answers 3), its preload removed (no job runs). The catalogue faults
+using it are listed in "Supported faults".
+
+## The cron daemon
+
+**What it is**: Debian's `cron` (`3.0pl1-197`), as on a Debian database
+host, running the crontab of OS user `postgres` (master spec 7.2). A
+third s6 longrun, `cron`, runs `/usr/sbin/cron -f` as root, started after
+`postgres` (`dependencies.d/postgres`); cron switches to `postgres` for
+each job. The image removes Debian's `/etc/crontab` and the entries of
+`/etc/cron.d` and `/etc/cron.{hourly,daily,weekly,monthly,yearly}` (its
+`apt-compat` and `dpkg` jobs as root), so the only crontab cron reads is
+the spool's; and it sets the jobs' umask to `0022` in `/etc/pam.d/cron`
+(Debian's `pam_umask` would give `postgres`'s jobs `0002`, letting the
+players' group write the job logs).
+
+**How a scenario turns it on**: by seeding `crontab` (the optional seed
+file, `seed.optional`) and naming the node's `crontab_roles` in
+`scenario.yaml`. Render mounts `/opt/gm/seed/crontab` only when the
+node's `seed_files` names it, and the service's run script decides by that
+file: without it, it prints `cron: this node seeds no crontab; the cron
+daemon does not run` (`gmctl logs`), marks itself to run once at most
+(`s6-svc -O`) and exits, so `s6-svstat /run/service/cron` reads down and
+not wanted up, and no daemon runs. With it, the daemon runs even if a
+player empties the crontab, as on a host.
+
+**The crontab**: installed once, at the first start (start-up step 4),
+as `/var/spool/cron/crontabs/postgres` on the volume `cronspool`
+(`snapshot: copy`), `postgres:crontab` `0600` in the spool `root:crontab`
+`1730`, both set again at every start. A player's replacement survives a
+restart and a new container. Its baseline entry (capture W1 item 8), with
+`PGPASSFILE` on a line of its own above the entries:
+
+```
+PGPASSFILE=/run/gm-cron/pgpass
+0 3 * * * psql -X -w -h /run/postgresql -U <role> -d <database> -c "<statement>" >> /var/log/postgresql/cron/<job>.log 2>&1
+```
+
+- **Connections** go over the local socket. An entry naming no role
+  connects as `postgres` by peer, a superuser: a fault. The baseline
+  connects as a customer role through the password file
+  `/run/gm-cron/pgpass`, written at every start (start-up step 8) from
+  each mounted `/opt/gm/secrets/role_<role>_password` (the role named by
+  the file name), one line `*:*:*:<role>:<password>` each, `:` and `\`
+  escaped; its directory `postgres:postgres` `0700`, the file `0600`, so
+  only OS user `postgres` reads it; on `/run`, so no password lands on a
+  volume or in the hand-over snapshot. No entry holds a password. The
+  node's seed `pg_hba.conf` must let the role in over the local socket
+  by password (`local all all scram-sha-256` does).
+- **Output**: there is no mail transfer agent and no syslog, so cron's
+  own lines and a job's output go nowhere unless the entry redirects
+  them. The baseline appends to one file per entry, named by its job
+  (`[a-z0-9-]+`), in `/var/log/postgresql/cron/` on `pglog`: the
+  directory `postgres:pgconf` `2750`, set at every start, a job's file
+  `0644` with the group `pgconf`, so the players read the logs and cannot
+  write them.
+- **Times**: cron reads the node's clock, UTC; render shifts each entry's
+  hours from scenario time, as it shifts `jobs.yaml` (8.5).
+- **Shutdown**: s6 stops `cron` (SIGTERM) before `postgres` (fast
+  shutdown); a job running then is not waited for and is a failed run, as
+  on a host. `gm-restart-db` restarts PostgreSQL alone (`s6-svc -r`):
+  cron goes on, and a job starting meanwhile fails to connect. The
+  hand-over snapshot never stops `cron`.
+- **`gm-crontab`**, the players' way in (see "Wrappers"): `sudo
+  gm-crontab -l` and `sudo gm-crontab <file>`; cron reads a replacement
+  within the minute. Debian's default lets any OS user run `crontab`
+  (no `cron.allow`, spec D211): `postgres`, which `dba` reaches through
+  `COPY ... TO PROGRAM`, changes the same crontab, on a node the players
+  may change anyway (access model 9.4).
+
+**Its cost**: the daemon, 2.5MB resident at rest in the stack test;
+each run is a shell and its programs as `postgres`, sharing the
+container's memory limit with PostgreSQL, so a heavy one can exhaust it
+(see "The out-of-memory victim"; master spec 16.3).
+
+**The faults it allows**: an entry connecting as `postgres` by peer (a
+superuser), a password written into an entry, a heavy job on the
+database node, an entry at the wrong hour (UTC against the customer's
+time), an entry whose output goes nowhere. The catalogue faults using it
+are listed in "Supported faults". Node-health cannot watch `cron` in v0.4
+(see "Known limits").
