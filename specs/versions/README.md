@@ -175,4 +175,9 @@ aged run is decided then (D193).
   - f8's wait in the all-at-once smoke run, up to 9000 s for its present
     reading (master spec 18 item 1; the wave 4 gate's run stopped at that
     wait; f8 read present, every fault planted, in chunk 17a's cycles
-    run).
+    run);
+  - the all-at-once smoke run's checks after that wait, never reached
+    in v0.4: every job of every runner and `db`'s and `reporting`'s
+    jobs since T0 with every fault planted, `reporting`'s `pg_cron` job
+    among them, every scheduler key called, the full `gmctl check`, the
+    teardown leaving nothing (master spec 18 item 1, D313).

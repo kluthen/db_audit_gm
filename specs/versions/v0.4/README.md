@@ -1,7 +1,10 @@
 # v0.4 — purposes: side usage and transformations
 
-Status: **master spec and access model approved by the owner on
-2026-10-30** (D215): the [master spec](master-spec.md) and its
+Status: **released 2026-11-03**: release gate passed on 2026-11-03,
+G11 cleared and the smoke run's end-of-run checks left a known limit on
+the owner's word ("option c, G11 ok, merge"; D313), `v0.4-w4` merged
+into `main` ([release notes](#release-notes)). Master spec and access
+model approved by the owner on 2026-10-30 (D215): the [master spec](master-spec.md) and its
 [access model](access-model.md), consolidated from the eight drafts
 below on the owner's word that v0.4 was ready, approved with every
 proposal of its owner-review list as written, the list then removed.
@@ -36,7 +39,7 @@ failures from the server log (D258) were written into the master spec,
 formats.md and the plan (v9).
 The drafts stay as the working record until the archive; where
 they and the master spec disagree, the master spec is current.
-Page draft v12.
+Page v13.
 
 History: direction recast on 2026-10-28 (D190),
 revising D47's "transformers" for this version; a first cut of data
@@ -441,10 +444,10 @@ the consolidation, were ruled the same day (D211, D212).
 v0.4, release gate run on `v0.4-w4` on 2026-11-03, on armenelos alone,
 the VPS drained throughout (D311): items 1 to 11, 14, 15 and 17 passed
 or stand as run, items 12 and 13 moved to [v1.0
-gating](../README.md#v10-gating) (D311), item 16 (G11) the owner's
-judgement, still to come. One fix at the gate, documentation only
-(below). Released with it once G11 passes and `v0.4-w4` merges into
-`main` (D100): `postgres` 0.4.0, `bastion` 0.4.0, `scheduler` 0.2.0 and
+gating](../README.md#v10-gating) (D311), item 16 (G11) cleared by
+the owner on 2026-11-03 ("G11 ok"). One fix at the gate, documentation
+only (below). Released on 2026-11-03, `v0.4-w4` merged into `main` on
+the owner's word (D100): `postgres` 0.4.0, `bastion` 0.4.0, `scheduler` 0.2.0 and
 `pgbouncer` 0.1.1; `prometheus`, `postgres-exporter` and `grafana` stay
 at 0.2.0, unchanged.
 
@@ -601,7 +604,7 @@ and short page renders.
     and 26, `smoke-load.sh` on armenelos 73. The unit suite again after
     the gate's fix: 854 OK.
 15. **Left for the build: PASS** (below).
-16. **G11**: the owner's judgement, to come.
+16. **G11: cleared** by the owner on 2026-11-03 ("G11 ok").
 17. **Release notes**: these.
 
 ### Measured figures
@@ -710,9 +713,7 @@ Named by master spec 18 item 7:
 
 Also known:
 
-<!-- O163: provisional (option c). If the owner chooses a re-run
-(option b), replace this item with its result. -->
-- **The smoke run's end-of-run checks** (O163): every job of every
+- **The smoke run's end-of-run checks** (D313): every job of every
   runner and `db`'s and `reporting`'s jobs since T0 with every fault
   planted, `reporting`'s `pg_cron` job among them, every scheduler key
   called, the full `gmctl check`, the teardown leaving nothing: not run

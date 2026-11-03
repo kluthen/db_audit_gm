@@ -1,6 +1,10 @@
 # db_audit_gm v0.4 — Build plan
 
-Status: v15 (2026-11-03): the owner's ruling on spec O162, long-running
+Status: v16 (2026-11-03): the owner's answer to spec O163, the smoke
+run's end-of-run checks a known limit covered by the v1.0-gating smoke
+run (spec D313), in release gate item 8; G11 done; v0.4 released
+2026-11-03;
+v15 (2026-11-03): the owner's ruling on spec O162, long-running
 tests moved to v1.0 gating (spec D312): the wave 4 gate's `smoke` run
 stopped at f8's wait, f8's reading there and item 9's unobserved part
 moved, in the workflow deltas, chunk 17 and release gate items 8, 9 and
@@ -1640,8 +1644,9 @@ the host.
    gate's `smoke` up to f8's wait and stopped there; f8's reading in it
    v1.0 gating (spec D312), f8 read present with every fault planted in
    chunk 17a's cycles run; the run's checks after that wait (every job
-   and key since T0, the full `check`, the teardown) left to the owner
-   (spec O163). `fit` refusing the VPS for `reporting` on the two-host
+   and key since T0, `reporting`'s `pg_cron` job among them, the full
+   `check`, the teardown) never reached in v0.4: a known limit, covered
+   by the v1.0-gating smoke run (spec D313). `fit` refusing the VPS for `reporting` on the two-host
    playground declaration (the VPS declared `shared`, never set
    `active`: a placement check, no deployment). The run on armenelos
    plus the VPS: v1.0 gating (spec D311).

@@ -613,3 +613,13 @@ v0.5's drafting. Take the next number from `doc-ids`; no ID is reused.
   [versions/README.md](versions/README.md#v10-gating);
   [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 18;
   [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) workflow deltas, chunk 17, release gate.
+- **D313 (2026-11-03, owner answer to O163, "option c, G11 ok, merge",
+  relayed by the wave driver): the `smoke` run's end-of-run checks with
+  every fault planted (every job and key since T0, `reporting`'s
+  `pg_cron` job, the full `check`, the teardown), never reached in v0.4,
+  stay a known limit, covered by the v1.0-gating smoke run.** Closes
+  O163; options (a) and (b) not taken. Now in:
+  [versions/v0.4/README.md](versions/v0.4/README.md#known-limits);
+  [versions/README.md](versions/README.md#v10-gating);
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 18;
+  [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) release gate item 8.

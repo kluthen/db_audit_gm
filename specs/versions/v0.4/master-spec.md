@@ -44,7 +44,8 @@ the hand-over check, which passes a "too soon" its answer key expects
 (6.2, 12.2, 16.1). On 2026-11-03 the owner moved the two-host runs, the
 rehearsal and the stance check-list to v1.0 gating, run once before the
 v1.0 tag, and then every long-running test, the gate keeping short ones
-(18).
+(18); at release close, the single-host smoke run's checks after f8's
+wait, never reached, were left a known limit covered there (18).
 
 ---
 
@@ -1966,7 +1967,10 @@ as built until then; and the stance check-list, a GM session played
 with verifier agents as `player`. Then, by his ruling the same day that
 long-running tests move there and the gate's remaining tests are short:
 in item 1's single-host run, the wait for f8's reading, up to two and a
-half hours; in item 2, f4's steps after the scenario's local midnight,
+half hours, and with it the run's checks after that wait (every job and
+key since T0 with every fault planted, `reporting`'s `pg_cron` job among
+them, the full `check`, the teardown), never reached in v0.4 and left a
+known limit by the owner's answer at release close; in item 2, f4's steps after the scenario's local midnight,
 f8's fixed reading and the cycles run's clean end-to-end verdict, a run
 of about nine hours, item 2's other steps standing as run up to f4's
 wait for that midnight. Item 7 names them.

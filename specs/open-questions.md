@@ -18,7 +18,7 @@ Resolved during v0.4's drafting: O106 (D194), O110 (D195), O107 (D197), O120
 O132 (D211), O133 (D212). Resolved by the approval of v0.4's master
 spec (D215): O104, O108, O115, O116, O117, O119, O122, O124, O125, and
 O111's v0.4 part. Resolved during v0.4's build: O134 (D224), O140 (D253),
-O146 (D284), O161 (D311).
+O146 (D284), O161 (D311), O162 (D312), O163 (D313).
 
 On 2026-10-31 v0.5 was centred on domain definition and the clinic
 (D233), and its questions retargeted: O53 and O54 to later, version not
@@ -148,21 +148,7 @@ O122, O124 and O125 as written there (D215). O146, raised by wave 4's
 capture W4, closed by the owner's ruling (D284). O161, raised by the
 owner's remark beside D310, closed by his ruling (D311), which raised
 O162, closed by his ruling on long-running tests (D312); O163 raised
-in writing it into the plan.
-
-- **O163** (v0.4's release, owner) — Release gate item 8's end-of-run
-  checks with every fault planted at once: the wave 4 gate's `smoke` run
-  stopped at f8's wait (D312), so its later steps never ran (every job
-  of every runner and `db`'s and `reporting`'s jobs since T0, every
-  scheduler key called, the full `gmctl check`, the teardown leaving
-  nothing). No faulted run has reached them: chunk 17a's cycles run
-  stopped at f4's wait (D310); the unfaulted `baseline` run passes them
-  but `reporting`'s `pg_cron` job, which it does not read.
-  Proposed: (a) read them by hand on the stopped run's deployment before
-  its teardown, minutes; else (b) a harness option skipping f8's wait,
-  `smoke` re-run, about an hour; else (c) left, named in the known
-  limits. Refs: [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md)
-  release gate item 8; [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 18 item 1.
+in writing it into the plan, closed by his answer (D313).
 
 ## v0.4: data governance
 
