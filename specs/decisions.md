@@ -670,3 +670,53 @@ D337 and D341 were reserved and never used). Take the next number from
   VPS (O226); machine 10's telemetry settled by measurement in chunk 15
   (O227). Closes O223–O227. Now in:
   [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#settled-with-the-owner).
+- **D344 (2026-11-03, wave 1 preflight correction 1): A domain's
+  producer fragments sit in one folder per scheduler node they target,
+  `producers/<node>/`; `api`, `partners` and `public` are reserved; the
+  shop's move to `producers/producer/`.** The approved format said a
+  domain declares the nodes its fragments target, but not how;
+  `vet-housing` feeds `pms` and `ward`. Now in:
+  [formats.md](formats.md#producer-material),
+  [versions/v0.5/master-spec.md](versions/v0.5/master-spec.md#61-the-domain-format) 6.1, 8.4,
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 2, 9, 12.
+- **D345 (2026-11-03, correction 2): An `api` node's `api.yaml` names
+  each endpoint's hostnames and accepted credentials and the node's
+  connections; chunk 3 derives its roles' secrets and passwords from
+  it, skipping `driver: http` connections.** 6.5 named the roles'
+  secrets but nothing derived them; chunk 3 holds `localimpl.py` and
+  `inject.py` in wave 1, so chunks 7 and 8 never share `inject.py`.
+  Now in: [versions/v0.5/master-spec.md](versions/v0.5/master-spec.md#65-brick-definition-brickyaml)
+  6.5, 6.8; [formats.md](formats.md#producer-material);
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 2, 3, 5, 6.
+- **D346 (2026-11-03, correction 3): Chunk 1 writes `GM_OPTIONS:
+  monitoring` into the hand-written stack files whose `postgres` serves
+  an exporter.** Once chunk 3 creates `monitoring` only with the
+  option, they would fail at wave 1's gate. Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#chunk-1--versions-declarations-and-re-pins).
+- **D347 (2026-11-03, correction 4): The HTTP credential's secret, name
+  and readers are W1's, since chunks 4 and 5 read them in wave 1; W2
+  keeps which nodes mount which, and chunk 7 mounts them on callers,
+  `api` nodes and archiving `postgres` nodes.** Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#chunk-7--render-for-v05-aliases-and-http-credentials).
+- **D348 (2026-11-03, correction 5): Chunks 9 and 11 are cut once chunk
+  6 has merged (in-wave edges `6 ──> 9`, `6 ──> 11`), not merge order
+  only as proposed.** Until chunk 6 the loader refuses `driver: http`
+  and the weighted `choice`, so vet-core's `check_domain_dir` and
+  chunk 11's fixtures could not pass on a branch without it; chunk 10's
+  edge stays merge order only (its key passes as unknown). Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#waves) ("Read first", "Waves").
+- **D349 (2026-11-03, correction 6): `api` joins the node roles, the
+  `api` brick's; `pgwatch` and `health-check` take `monitoring`.** Now
+  in: [formats.md](formats.md#roles);
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 1, 2.
+- **D350 (2026-11-03, correction 7): Chunk 6 reserves `options` and
+  `standby_of` as parameters and `replicator` as a role, and checks a
+  primary's replication line; chunk 4 forbids `replicator`.** Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 4, 6.
+- **D351 (2026-11-03, G5 and G6 cleared): Chunk 3 builds under G5's
+  conditions, `vault-post` in Perl with core `HTTP::Tiny`, the snakeoil
+  key deleted as advised; chunk 5 under G6's, from the hash-pinned
+  `bricks/api/requirements.txt`; the PyPI source is listed as pending
+  with the owner.** Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 3, 5,
+  "Pending with the owner".

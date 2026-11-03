@@ -17,6 +17,13 @@ essentials and contracts; the domain document carries its column-level
 model, every grant, every classed column and every trap. Where the two
 disagree, this spec wins.
 
+Amended after approval, on 2026-11-03, by wave 1's preflight
+corrections, settling what the approved text left to the build: a
+domain's producer fragments in one folder per scheduler node they target
+(6.1, 8.4; spec D344), and the `api` node's `api.yaml`, the file naming
+each endpoint's hostnames and credentials and its connections (6.5,
+6.8; spec D345).
+
 Baseline: the released [v0.4 master spec](../v0.4/master-spec.md) and
 its [access model](../v0.4/access-model.md). Everything v0.4 specifies
 stays in force unless this document changes it; where they disagree,
@@ -239,7 +246,7 @@ bricks/
 domains/vet-core/, vet-lab/, vet-scheduling/, vet-housing/, vet-machinery/,
   vet-portal/           new: the clinic's six domains (9)
 domains/shop/           its classification rekeyed, its register fragment, its
-                        one variant (8.6)
+                        one variant (8.6), its fragments in producers/producer/
 purposes/<purpose-id>/  new: the clinic's purposes built in v0.5 (12.2)
 faults/<fault-id>/      new: the test selection's ten (17.2); every fault applying
                         to a bumped brick lists its new version; one fault's
@@ -275,7 +282,8 @@ As [formats.md](../../formats.md) "Domain" states it:
 - **The folder** gains `data/register.yaml` (every domain), and
   optionally `data/<database>/` for a part with several databases,
   `data/derive.sql`, a `governance:` fragment with `docs/policy.md`,
-  `producers/api/<node>/` and `producers/partners/<partner>/`,
+  `producers/<node>/` (the fragments for each scheduler node the domain
+  targets), `producers/api/<node>/` and `producers/partners/<partner>/`,
   `variants/<variant>.yaml` and `variants/<variant>/producers/`.
 - **`domain.yaml`** gains `register`, and for a part `requires`,
   optionally `lands_with`, `databases` and
@@ -367,7 +375,10 @@ As [formats.md](../../formats.md) "Domain" states it:
   third party (`api`, `scheduler`, `postgres`); its entrypoint then
   creates no `player` account and no `sudo` wrappers.
 - **The `api` brick's** seed files: its endpoint files (`routes/`, `db/`)
-  as configs, its application roles' secrets (7.2).
+  as configs, and `api.yaml`, naming each endpoint's hostnames and the
+  HTTP credentials it accepts, and the node's connections (6.8's shape),
+  from which render derives its application roles' secrets and the
+  credentials it mounts (7.2).
 - **`seed.optional`** on `bastion` gains `partners.md` and
   `data-register.md`.
 
@@ -425,6 +436,15 @@ connections:
     target: lab-api:8000
     credential: interfaces_lab_api   # a secret
     pool: 2                          # kept-alive connections
+
+# an api node's api.yaml (the brick's seed file; a domain's fragment in producers/api/<node>/)
+endpoints:                           # name -> routes/<name>.py and db/<name>.py
+  orders:
+    hosts: [lab-api]                 # its own name on a node in the players' scope;
+                                     # on the partners' node a third party's hostname, or owners
+    credentials: [interfaces_lab_api]   # optional: those it accepts; absent: public
+connections:                         # optional: schedule.yaml's two drivers
+  lab: {driver: sql/postgresql, target: lab:5432/lab, role: lab_api, pool: {size: 4}}
 
 # a weighted choice, as a parameter generator
 params:
@@ -785,7 +805,8 @@ changes.
 A domain's **producer profile** is how its data arrives: the repository
 fragments (`queries.yaml`, `builders/`), the schedule fragment
 (`schedule.yaml`: connections, streams, shapes) and the fixed-time
-operations (`jobs.yaml`), under its `producers/`. The GM copies them
+operations (`jobs.yaml`), under its `producers/<node>/`, one folder per
+scheduler node it targets. The GM copies them
 into a scheduler node's seed files at design time, adapting them; the
 scenario folder stays self-sufficient.
 
@@ -838,7 +859,7 @@ profile layer, never a timeline change after the hand-over.
 `choice`, `sequence` and `now`, plus a weighted `choice`. Other values
 come from SQL (an `int` and a `CASE`; `INSERT ... SELECT` for work on the
 database's state, such as an instrument run over pending samples) or
-from domain builders in `producers/builders/`, for values with structure
+from domain builders in `producers/<node>/builders/`, for values with structure
 (identifiers with check digits, readings drifting around a baseline).
 Builders get the intensity, options and seeded `rng` and cannot read.
 
@@ -864,8 +885,9 @@ systems and are fault vectors.
 `timezone:` still the wrong-time-zone fault's marker; the other centres
 are third parties whose stubs keep that zone.
 
-**API and partner material**: `producers/api/<node>/routes/` and `db/`
-for an `api` node the domain owns (`clinic-api`, `lab-api`);
+**API and partner material**: `producers/api/<node>/`, its `api.yaml`
+fragment, `routes/` and `db/`, for an `api` node the domain owns
+(`clinic-api`, `lab-api`);
 `producers/partners/<partner>/` for its partners' fragments and endpoint
 files, merged by `gmctl compose` onto the back end all partners share.
 

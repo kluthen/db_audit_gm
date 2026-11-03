@@ -1,6 +1,7 @@
 # Formats: scenario, brick, fault
 
-Status: draft v28; its v0.5 items ruled with the v0.5 master spec (D339)
+Status: draft v28; its v0.5 items ruled with the v0.5 master spec (D339),
+amended in v0.5's build (D344, D345, D349)
 
 What a scenario, a brick, a fault definition and, from v0.4, a purpose
 and a domain must contain, and how they are laid out, so that every scenario the GM designs or generates stays
@@ -712,12 +713,17 @@ domains/<domain-id>/
     register.yaml           from v0.5: the register fragment, one entry per activity
     governance.yaml         from v0.5, optional: the business's own rules (ruled, D339)
   producers/                the business's producer fragments
-    api/<node>/routes/      from v0.5: the endpoints of an `api` node the domain owns
-    api/<node>/db/            and their database side
-    partners/<partner>/     from v0.5: a partner's fragments and endpoint files
+    <node>/                 from v0.5 (D344): the fragments for the scheduler node of that
+                              name (queries.yaml, schedule.yaml, jobs.yaml, builders/)
+    api/<node>/             from v0.5: an `api` node the domain owns: its api.yaml
+                              fragment (D345), routes/ (the endpoints), db/ (their
+                              database side)
+    partners/<partner>/     from v0.5: a partner's back-end fragments, its api.yaml,
+                              routes/ and db/
   variants/
     <variant>.yaml          from v0.5: a variant's manifest (a part: its own axes)
-    <variant>/producers/    from v0.5, optional: the variant's profile, overrides only
+    <variant>/producers/    from v0.5, optional: the variant's profile, overrides only,
+                              laid out as producers/
   docs/gm.md                the business, its rules, its traps
   docs/policy.md            from v0.5, optional: the business's default data policy
 ```
@@ -802,18 +808,23 @@ and pins" below). A static scenario needs none.
 
 - `producers/` holds `queries.yaml`, `schedule.yaml` and `jobs.yaml`
   fragments of the business's applications, which parse as fragments,
-  every statement running as its role, and the builders they use
-  (`producers/builders/`). A fragment is readable: it carries no
-  timeline, no intensity and no planted fault, which are the scenario's
-  (D276). Its rates are the variant's throughput at intensity 1.0, in
+  every statement running as its role, and the builders they use. From
+  v0.5 (D344) they sit in **`producers/<node>/`**, one folder per
+  scheduler node they target (`producers/<node>/builders/`), so a domain
+  feeding two nodes (`vet-housing`: `pms` and `ward`) says which
+  fragment goes where; `api`, `partners` and `public` are reserved
+  names. The shop's sit in `producers/producer/`, its v0.4 scenario's
+  node. A fragment is readable: it carries no timeline, no intensity
+  and no planted fault, which are the scenario's (D276). Its rates are the variant's throughput at intensity 1.0, in
   real-world rates; its values come from SQL and the domain's builders.
   One producer node per application (D276); every site of a variant is
   in the customer's zone in v0.5 (D276).
 - From v0.5 (D303): **`producers/api/<node>/`** holds the endpoints of an
-  `api` node the domain owns, `routes/` and `db/` (the `api` brick's
-  layout); **`producers/partners/<partner>/`** a partner's fragments and
-  endpoint files, merged onto the back end every partner of a scenario
-  shares, each partner prefixing its keys, connections and tables
+  `api` node the domain owns, its `api.yaml` fragment (D345), `routes/`
+  and `db/` (the `api` brick's layout); **`producers/partners/<partner>/`**
+  a partner's back-end fragments at its root, merged onto the back end
+  every partner of a scenario shares, and its `api.yaml`, `routes/` and
+  `db/`, merged onto the partners' `api` node, each partner prefixing its keys, connections and tables
   (`practices.`, `xlab.`). A partner's misbehaviour (an outage, a lost or
   duplicated callback) comes with its fault's material, never the
   domain's.
@@ -1055,7 +1066,8 @@ Fixed at consolidation so the scripts, the faults and the GM skill agree.
 A node's role names its place in the topology (proposed list): `bastion`,
 `producer`, `queue`, `database`, `pooler` (from v0.3, PgBouncer),
 `transformer` (from v0.4, a `scheduler` 0.2.0 node running purpose jobs,
-D203), `consumer`, `monitoring`, `backup`. A brick may serve several
+D203), `consumer`, `monitoring`, `backup`, `api` (from v0.5, an `api`
+node, D349). A brick may serve several
 roles.
 
 ### Where a job runs (D207)
