@@ -1,6 +1,6 @@
 # v0.5 — producer profiles against v0.3's scheduler (O113)
 
-Status: draft v8, ruled. Ruled by the owner on
+Status: draft v9, ruled; applied with the four parts (D317–D320). Ruled by the owner on
 2026-11-01: merging (1, D264), readable profiles, rates, input types,
 producer nodes, time zones and the variant's profile (2, 3, 5, 6, 10,
 D276), periodic reports and how a fix to one is checked (4, D265, D269,
@@ -591,4 +591,34 @@ holding only what they change ([procedure](domain-procedure.md) 9).
 
 Frictions 9 and 11 are ruled (D287, D298); `vet-housing`'s and
 `vet-machinery`'s profile steps (procedure step 6) apply them.
-`vet-core`'s and `vet-lab`'s apply the rest, and raised 12.
+`vet-core`'s and `vet-lab`'s apply the rest, and raised 12. Applied on
+2026-11-03 with the four parts (D317–D320):
+
+- **Friction 9** in [vet-housing](vet-housing-domain.md#the-producer-profiles-step-6):
+  the ward service `ward`, a scheduler node of its own, holding a pool
+  of four for the displays' board reads (`ward.board`, about 64 a
+  minute) and two for the carers' actions; the faulty display found as
+  D287 describes (T150, in the test selection, D325).
+- **Friction 11**, housing's figure confirmed: about 520 care events a
+  day, kept on site for the whole game. Machinery's readings at the
+  design's grain: about 68 500 rows a day, the monitors' `vitals` about
+  52 000 of them, with the machines' telemetry shipped nightly as
+  `vitals` and `machine-readings`, the last full day kept on site
+  ([vet-machinery](vet-machinery-domain.md#the-producer-profiles-step-6),
+  [cold storage](cold-storage.md)). The monitors (D319) put `vitals`
+  above the 50 000-row threshold; the telemetry ships by the owner's
+  direction (D288).
+- **Producer nodes (friction 6, D276)**: `vet-scheduling`'s fragments
+  ride `pms`, the practice software's scheduling module, on a
+  connection `sched` (`pms` to 96M); `vet-housing`'s housing screens a
+  connection `housing` there too; `vet-portal`'s desk fragment
+  (`portal.desk-consent`, an HTTP stream to `portal-api` with the desk's
+  credential) a second connection on `pms`; `vet-machinery`'s producer
+  is a node of its own, `equipment`.
+- **The `api` brick (friction 8, D267)**: `portal-api` is its first
+  endpoint set reached by an out-of-reach caller standing for the
+  public (the owners' browsers, the partners' node's hostname
+  `owners`), and its `db/` side holds `SECURITY DEFINER` functions for
+  the pre-login calls and sets a transaction-local setting per request
+  (`portal.owner_id`, for row-level security). Nothing new in the
+  brick; the build's endpoint conventions allow both.

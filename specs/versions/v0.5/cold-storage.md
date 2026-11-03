@@ -1,13 +1,17 @@
 # v0.5 — cold storage: a third party for heavy data
 
-Status: draft v3, ruled. The direction is the owner's (D288); the
+Status: draft v4, ruled. The direction is the owner's (D288); the
 design was ruled as drafted on 2026-11-02, with the bastion's route to
 its page (D296) and the GM deciding what ships, use first (D297),
 closing O148. Linked from [producer profiles](producer-profiles.md) 11.
 The same stub also holds the core's WAL and base backups, as types
 `wal` and `basebackup` ([replication.md](replication.md), D299). Its
 stub shares the partners' one `api` node, under its own hostname,
-`cold-storage` (D308).
+`cold-storage` (D308). Its first data types and first customer came
+with `vet-machinery` on 2026-11-03 (D319): `vitals` and
+`machine-readings`, shipped nightly by `cold-storage-archive`, purpose
+14 of the clinic (D324;
+[vet-machinery](vet-machinery-domain.md#cold-storage-archive-the-readings-to-the-vault)).
 
 The owner, on 2026-11-02, on the data growth over the aging: "If we're
 talking about lab machineries, we will say that we keep a day on site
@@ -49,7 +53,16 @@ each shipment is answered by a receipt (D286).
   partition on a matching receipt, keep it and resend with the same
   shipment id on a mismatch or a timeout. A generic purpose,
   `cold-storage-archive`, of the round-trip kind, fitting any domain
-  that ships.
+  that ships; first drafted and used by `vet-machinery` (purpose 14,
+  D319, D324), on `interfaces`, its runner's history planting the
+  history days' manifests in the partners' database through its
+  `history.sql` (D307 item 5).
+- **The clinic's first two data types** (D319, vet-machinery O201):
+  `vitals` (the monitors' readings, about 52 000 rows a day) and
+  `machine-readings` (the analysers' and imaging machines' telemetry,
+  below the threshold but shipped by the owner's direction for the
+  lab's machines, D288), the last full day kept on site, shipped
+  nightly at 00:40.
 - **Aggregates first.** Whatever a periodic report (D265) needs from the
   shipped rows is aggregated on site before the shipment, in a daily
   summary table kept for the whole game (section 5).
@@ -95,7 +108,7 @@ cause inside it.
 | Candidate | What the players find |
 |---|---|
 | Deleting before the upload is confirmed | a day missing from the graph, or received below declared, while its partition is gone on site: rows lost |
-| The shipping job stalled | the graph flat at zero, partitions older than the window piling up on site, the disk heading for its budget |
+| The shipping job stalled | the graph flat at zero, partitions older than the window piling up on site, the disk heading for its budget; at the clinic's moderate rates (about 10 MB a day for `machines`) the graph and the partition count show it days before the disk, which never bites within an aging |
 | Duplicate shipments | a day counted twice: a retry under a new shipment id (`purpose-retry-without-key`, D201) |
 | The wrong age window | today's partition shipped while still written, the late rows lost; or a week kept on site |
 | `DELETE` instead of detaching and dropping the partition | bloat, autovacuum busy, WAL volume up, the table never shrinking |

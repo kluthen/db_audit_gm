@@ -1,6 +1,6 @@
 # v0.5 — third parties: what they are and how they enter a game
 
-Status: draft v4, ruled. A third party's nodes are outside the players'
+Status: draft v5, ruled. A third party's nodes are outside the players'
 reach (D273); the owner's nine rulings of 2026-11-01 (D274, D275,
 closing O145) are stated below as settled, with his ruling of
 2026-11-02 that the clinic's other centres and the franchise's systems
@@ -42,7 +42,11 @@ It is not:
   observe: all in the players' scope, read and reported on.
 - **A person.** Referring vets, the freelancer of `fernway`'s story, the
   customers themselves are actors of the story, with no system of their
-  own in the game.
+  own in the game. The owners' traffic to `vet-portal` runs on the
+  partners' nodes for reach's sake only, as the hostname `owners` (D320,
+  [one-centre](one-centre.md#4-the-partners-nodes-d293-d308) 4): the
+  nodes stand for the owners' browsers, and the owners stay actors of
+  the story, not a third party, with no `partners.md` entry.
 
 ### What the repository already has
 

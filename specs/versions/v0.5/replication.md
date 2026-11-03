@@ -1,12 +1,15 @@
 # v0.5 — replication and the off-site copies
 
-Status: draft v4, ruled. The owner ruled the standby, the vault and the
+Status: draft v5, ruled. The owner ruled the standby, the vault and the
 fault candidates on 2026-11-02, and that the periodic reports read on
 the standby (D299); then, the same day, that they write to a back-office
 database, `office` (section 3, D300, closing O149); and that the lab,
 on a node of its own, sends its WAL and base backups to the vault too
 (section 2, D301, extending D299). The office role's name was settled
-with the purposes (section 3, D306).
+with the purposes (section 3, D306). On 2026-11-03 the parts folded
+in: `portal`, housing's and scheduling's tables ride the standby with
+the record (section 1); `machines` sends a nightly base backup only
+(section 2, D319).
 
 The owner, asking on 2026-11-02: "have we set replications needs for
 this project ? we could have probably one off site (but still within
@@ -29,7 +32,11 @@ a scenario deploys (D285).
 - **Which**: the instance holding `vet-core`, the system of record
   (D266) every part and the portal reads, around the clock; the only
   standby in v0.5. A part the scenario lands in that instance
-  (procedure 5) rides along. `vet-machinery`'s databases have none:
+  (procedure 5) rides along: `vet-scheduling`'s and `vet-housing`'s
+  tables in `clinic`, and `vet-portal`'s database `portal` beside
+  `clinic` and `office`, so the standby and the archive hold the
+  portal's password and token hashes off site, under the same access
+  as the record (D320). `vet-machinery`'s databases have none:
   their heavy data ships to cold storage (D288), a standby would double
   it. `vet-lab`, on a `postgres` node of its own (D301), has none
   either: its copy is the vault's (section 2).
@@ -61,6 +68,10 @@ a scenario deploys (D285).
 - **Both instances** (D301, extending D299): the core's primary and
   the lab's node, each archiving its WAL and sending its nightly base
   backup; each manifest names its node.
+- **`machines`, a base backup only** (D319, vet-machinery O200): the
+  machines' instance sends a nightly `basebackup` to the vault, no WAL
+  archive and no standby, so it recovers to last night; its readings
+  ship nightly anyway, by `cold-storage-archive` (purpose 14).
 - **The vault is cold storage itself**, with two more data types, `wal`
   and `basebackup`, each shipment's manifest carrying the segment or
   backup's name and size beside its time; the payload discarded as for
@@ -142,7 +153,7 @@ grant (D306).
   (`bricks/postgres/brick.yaml`); `fit` counts it.
 - **The vault**: nothing more where the scenario already has cold
   storage; its traffic is the WAL's volume, small at one centre's rates
-  (D295), plus a base backup a night, for the core's instance and the
-  lab's (D301). The lab's node itself is the lab's topology, not
+  (D295), plus a base backup a night, for the core's instance, the
+  lab's (D301) and `machines` (D319). The lab's node itself is the lab's topology, not
   replication's.
 - **The back-office database** (D300): no node.

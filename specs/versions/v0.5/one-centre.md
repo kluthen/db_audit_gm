@@ -1,6 +1,6 @@
 # v0.5 — one centre per scenario
 
-Status: draft v4, ruled. The partners' stubs grouped on one `api` node (D308). One centre per scenario is the owner's ruling
+Status: draft v5, ruled. The partners' stubs grouped on one `api` node (D308), with the owners' traffic as a tenth hostname, no partner (D320). One centre per scenario is the owner's ruling
 (D285, closing O127); what it changes for the clinic's parts, its lab,
 its exchanges and its partners' nodes was ruled on 2026-11-02 as
 recommended (D293–D295, closing O147); the same day the other centres
@@ -131,6 +131,12 @@ hostname through network aliases (`northfield-lab`, `cold-storage`,
 ...), so the players still see distinct partners. That is **three
 partner nodes** (the `api` node, the scheduler, the database) instead of
 eleven.
+
+**A tenth hostname that is no partner** (D320, `vet-portal`): `owners`,
+the owners' browsers calling `portal-api`, ticked by the same back end
+and out of the players' reach like the partners, but standing for the
+public, not a business: it has no entry in `partners.md`, no contract
+and no misbehaviour keys of a partner's.
 
 What stays per partner:
 
