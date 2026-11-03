@@ -1,0 +1,20 @@
+# Stack test fixture of the scheduler brick (v0.5): the caller node's
+# repository, calls on HTTP connections to the stub, and a script job's key.
+queries:
+  stub.consent:                        # a stream at 30/min: a path from params, a weighted choice in the body
+    call: POST /consents/%(owner)s
+    params:
+      owner: {int: [2, 10000]}
+      consent: {choice: {grant: 3, withdraw: 1}}
+      at: {now: utc}
+  stub.order:                          # a builder's body, at 6/min: idle 10 s, past the stub's 5 s
+    call: POST /orders
+    builder: builders/orders.py:order
+    options: {urgent_share: 0.5}
+  stub.fail:                           # the stub answers 503
+    call: POST /fail
+  stub.slow:                           # the stub answers after 3 s; the connection's timeout is 1 s
+    call: GET /slow
+    params: {n: {int: [1, 9]}}
+  stub.relay:                          # a script job's key: the scripts' HTTP client
+    script: scripts/relay.py:relay

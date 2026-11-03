@@ -5,10 +5,14 @@
 #
 # Runs as root at every container start, then execs s6-overlay's /init:
 #   1. empties /run (a named volume: a stack file's tmpfs is noexec, and
-#      s6-overlay needs an executable /run) and creates the runtime dirs;
+#      s6-overlay needs an executable /run), fills /run/gm-accounts with
+#      the account files of the write policy (v0.5: `no-access` has no
+#      `player` account, master spec 10.2) and creates the runtime dirs;
 #   2. generates this container's sshd host key under /run;
-#   3. checks the secrets and that the schedule's seed config is there
-#      (it is read in place by the s6 service, never copied);
+#   3. checks the secrets (the role passwords and, v0.5, the HTTP
+#      credentials `http_<name>`: one line, no space) and that the
+#      schedule's seed config is there (it is read in place by the s6
+#      service, never copied);
 #   4. checks GM_WRITE_POLICY and GM_WRITE_OVERRIDES and writes
 #      /run/gm/write-policy, read by gm-reload-scheduler (sudo resets the
 #      environment);
@@ -18,6 +22,9 @@
 #   6. applies the write policy's owner and modes to every seeded file and
 #      directory, seeding or not (contents untouched);
 #   7. sets the log, state, marker and home owners and modes.
+# On a `no-access` node (v0.5) there is no `player`: no account, so no SSH
+# login and no sudo wrapper anyone may run; its key is not required; the
+# home volume is root's, 0700; sshd still runs (node health's `default`).
 set -eu
 
 REPO=/srv/scheduler/repository
@@ -38,10 +45,20 @@ die() { log "fatal: $*"; exit 1; }
 chmod_setgid() { setpriv --regid="$2" --clear-groups -- chmod "$3" "$1"; }
 prog() { python3 -I -m gm_scheduler "$@"; }
 
-# --- 1. /run ------------------------------------------------------------
+# --- 1. /run, the account files ----------------------------------------------
 cd /run
 find . -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
 cd /
+# /etc/passwd, group, shadow, gshadow link into /run/gm-accounts: nothing
+# may look a name up before they are back (numeric owners, cp -p)
+case ${GM_WRITE_POLICY:-fixable} in
+    no-access) ACCOUNTS=no-access ;;
+    *) ACCOUNTS=player ;;
+esac
+mkdir -m 0755 /run/gm-accounts
+for f in passwd group shadow gshadow; do
+    cp -p "/etc/gm-accounts/$ACCOUNTS/$f" "/run/gm-accounts/$f"
+done
 chown root:root /run
 chmod 0755 /run
 install -d -o root -g root -m 0755 /run/sshd
@@ -55,12 +72,21 @@ install -d -o scheduler -g scheduler -m 0750 /run/scheduler
 ssh-keygen -q -t ed25519 -N '' -C '' -f /run/sshd-keys/ssh_host_ed25519_key
 
 # --- 3. secrets and the schedule -----------------------------------------
-[ -s "$SECRETS_DIR/player_ssh_pubkey" ] || die "secret $SECRETS_DIR/player_ssh_pubkey is missing or empty"
-for f in "$SECRETS_DIR"/role_*_password; do
+if [ "$ACCOUNTS" = player ]; then
+    [ -s "$SECRETS_DIR/player_ssh_pubkey" ] || die "secret $SECRETS_DIR/player_ssh_pubkey is missing or empty"
+fi
+for f in "$SECRETS_DIR"/role_*_password "$SECRETS_DIR"/http_*; do
     [ -e "$f" ] || continue
     name=${f#"$SECRETS_DIR"/}
-    case ${name#role_} in
-        *[!a-z0-9_]*|'') die "secret $name: the role in its name is not [a-z_][a-z0-9_]*" ;;
+    case $name in
+        role_*) case ${name#role_} in
+                    *[!a-z0-9_]*|'') die "secret $name: the role in its name is not [a-z_][a-z0-9_]*" ;;
+                esac ;;
+        # an HTTP credential (v0.5, spec D347): http_<name>, [a-z][a-z0-9_]*
+        *) case ${name#http_} in
+               [a-z]*) case ${name#http_} in *[!a-z0-9_]*) die "secret $name: the credential in its name is not [a-z][a-z0-9_]*" ;; esac ;;
+               *) die "secret $name: the credential in its name is not [a-z][a-z0-9_]*" ;;
+           esac ;;
     esac
     value=$(cat "$f")
     case $value in
@@ -124,7 +150,13 @@ if [ -e "$LOAD_MARKER" ]; then
     chown root:scheduler "$LOAD_MARKER"
     chmod 0440 "$LOAD_MARKER"
 fi
-chown player:player "$PLAYER_HOME"
-chmod 0750 "$PLAYER_HOME"
+if [ "$ACCOUNTS" = player ]; then
+    chown player:player "$PLAYER_HOME"
+    chmod 0750 "$PLAYER_HOME"
+else
+    chown root:root "$PLAYER_HOME"
+    chmod 0700 "$PLAYER_HOME"
+fi
+log "accounts: $ACCOUNTS$( [ "$ACCOUNTS" = no-access ] && printf ' (no player account)' )"
 
 exec /init "$@"

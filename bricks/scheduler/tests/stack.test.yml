@@ -1,10 +1,14 @@
 # Stack test fixture for the scheduler brick (v0.3 build plan, chunk 3;
-# v0.4 chunk 3b): the scheduler node, a transformer node (the same image,
-# a schedule with no stream and a script job between two databases) and
-# a throwaway PostgreSQL `db` (the Dockerfile's unit-test stage) holding
-# the databases their schedules target, all reading the role password
-# secrets they need and the GM check role's, each with its own owner and
-# mode.
+# v0.4 chunk 3b; v0.5 chunk 4): the scheduler node, a transformer node (the
+# same image, a schedule with no stream and a script job between two
+# databases), a caller node (v0.5: the same image, `no-access` as a third
+# party's back end is, streams and a script job on HTTP connections to a
+# stub HTTP server the test starts after it, under the network alias
+# `stub`, its credential a secret mounted by hand as render will mount it,
+# spec D347) and a throwaway PostgreSQL `db` (the
+# Dockerfile's unit-test stage) holding the databases their schedules
+# target, all reading the role password secrets they need and the GM check
+# role's, each with its own owner and mode.
 # Uses only what a rendered Compose 3.8 stack file can express. Configs
 # and secrets are external, created and removed by run-stack-test.sh
 # (mirroring gmctl deploy); the schedule's config is 0:0 0400 (seed.modes).
@@ -86,6 +90,44 @@ services:
       resources:
         limits: {cpus: "0.25", memory: 128M}
 
+  caller:
+    image: 127.0.0.1:5000/dbagm/scheduler:0.3.0
+    hostname: caller
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [AUDIT_WRITE, CHOWN, DAC_OVERRIDE, FOWNER, KILL, NET_BIND_SERVICE, SETGID, SETUID, SYS_CHROOT]
+    environment:
+      TZ: UTC
+      GM_WRITE_POLICY: no-access
+    healthcheck:
+      test: ["CMD", "/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - {type: volume, source: cl_repository, target: /srv/scheduler/repository}
+      - {type: volume, source: cl_jobs, target: /srv/scheduler/jobs}
+      - {type: volume, source: cl_schedlog, target: /var/log/scheduler}
+      - {type: volume, source: cl_schedstate, target: /var/lib/scheduler}
+      - {type: volume, source: cl_home, target: /home/player}
+      - {type: volume, source: cl_gmstate, target: /var/lib/gm-state}
+      - {type: volume, source: cl_run, target: /run}
+    configs:
+      - {source: cl_schedule, target: /opt/gm/seed/schedule.yaml, uid: "0", gid: "0", mode: 0400}
+      - {source: cl_queries, target: /opt/gm/seed/queries.yaml, uid: "0", gid: "0", mode: 0444}
+      - {source: cl_builder_orders, target: /opt/gm/seed/builders/orders.py, uid: "0", gid: "0", mode: 0444}
+      - {source: cl_script_relay, target: /opt/gm/seed/scripts/relay.py, uid: "0", gid: "0", mode: 0444}
+      - {source: cl_jobs, target: /opt/gm/seed/jobs.yaml, uid: "0", gid: "0", mode: 0444}
+    secrets:
+      - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
+      - {source: http_interfaces_stub, target: /opt/gm/secrets/http_interfaces_stub, uid: "0", gid: "0", mode: 0400}
+    networks: [net]
+    deploy:
+      replicas: 1
+      resources:
+        limits: {cpus: "0.25", memory: 128M}
+
   db:
     image: dbagm-test/scheduler-unit:0.3.0
     hostname: db
@@ -129,6 +171,13 @@ volumes:
   tr_home: {}
   tr_gmstate: {}
   tr_run: {}
+  cl_repository: {}
+  cl_jobs: {}
+  cl_schedlog: {}
+  cl_schedstate: {}
+  cl_home: {}
+  cl_gmstate: {}
+  cl_run: {}
 
 configs:
   seed_schedule: {external: true, name: gmtest-sched_seed_schedule}
@@ -140,6 +189,11 @@ configs:
   tr_queries: {external: true, name: gmtest-sched_tr_queries}
   tr_script_rollup: {external: true, name: gmtest-sched_tr_script_rollup}
   tr_jobs: {external: true, name: gmtest-sched_tr_jobs}
+  cl_schedule: {external: true, name: gmtest-sched_cl_schedule}
+  cl_queries: {external: true, name: gmtest-sched_cl_queries}
+  cl_builder_orders: {external: true, name: gmtest-sched_cl_builder_orders}
+  cl_script_relay: {external: true, name: gmtest-sched_cl_script_relay}
+  cl_jobs: {external: true, name: gmtest-sched_cl_jobs}
 
 secrets:
   player_ssh_pubkey: {external: true, name: gmtest-sched_player_ssh_pubkey}
@@ -147,3 +201,4 @@ secrets:
   gm_check_password: {external: true, name: gmtest-sched_gm_check_password}
   role_shop_etl_password: {external: true, name: gmtest-sched_role_shop_etl_password}
   role_bi_etl_password: {external: true, name: gmtest-sched_role_bi_etl_password}
+  http_interfaces_stub: {external: true, name: gmtest-sched_http_interfaces_stub}

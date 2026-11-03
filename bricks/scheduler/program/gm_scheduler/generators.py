@@ -1,8 +1,11 @@
-"""Parameter generators (master spec 7.1; forms: capture W1 item 7).
+"""Parameter generators (master spec 7.1; forms: capture W1 item 7; the
+weighted choice: v0.5 master spec 7.2, v0.5 capture W1 item 3).
 
     {int: [lo, hi]}              an integer, lo <= n <= hi
     {decimal: [lo, hi, places]}  a decimal in [lo, hi] with `places` digits
-    {choice: [v, ...]}           one of the values
+    {choice: [v, ...]}           one of the values, each as likely
+    {choice: {v: w, ...}}        one of the values, by weight: w a whole number at
+                                 least 1, relative (they need not sum to 100)
     {sequence: [start, step]}    start, start + step, ... (never reused, below)
     {now: utc}                   the current time, a timestamp with time zone
 
@@ -33,6 +36,10 @@ def _integer(v):
     return isinstance(v, int) and not isinstance(v, bool)
 
 
+def _scalar(v):
+    return v is None or isinstance(v, (str, int, float, bool, datetime.date))
+
+
 class Generator:
     def __init__(self, kind, args, ident):
         self.kind, self.args, self.ident = kind, args, ident
@@ -51,6 +58,14 @@ class Generator:
                        decimal.Decimal(repr(hi)).quantize(quantum))
         if kind == "choice":
             return a[rng.randrange(len(a))]
+        if kind == "weighted":
+            values, weights, total = a
+            n = rng.randrange(total)
+            for value, weight in zip(values, weights):
+                if n < weight:
+                    return value
+                n -= weight
+            raise AssertionError("weights")
         if kind == "sequence":
             start, step = a
             return start + step * ctx.sequences.next(self.ident)
@@ -78,8 +93,15 @@ def compile_param(value, where, ident):
             raise ConfigError(f"{where}: decimal takes [lo, hi, places], lo <= hi, 0 <= places <= 12")
         return Generator(kind, tuple(args), ident)
     if kind == "choice":
+        if isinstance(args, dict) and args:
+            weights = list(args.values())
+            if not all(_integer(w) and w >= 1 for w in weights):
+                raise ConfigError(f"{where}: a weighted choice maps each value to a whole number at least 1")
+            if not all(_scalar(v) for v in args):
+                raise ConfigError(f"{where}: a weighted choice's values are scalars")
+            return Generator("weighted", (tuple(args), tuple(weights), sum(weights)), ident)
         if not (isinstance(args, list) and args):
-            raise ConfigError(f"{where}: choice takes a non-empty list")
+            raise ConfigError(f"{where}: choice takes a non-empty list, or a map of values to weights")
         return Generator(kind, tuple(args), ident)
     if kind == "sequence":
         if not (isinstance(args, list) and len(args) == 2 and all(_integer(x) for x in args) and args[1] != 0):

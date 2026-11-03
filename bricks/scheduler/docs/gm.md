@@ -1,11 +1,13 @@
 # scheduler brick — GM notes
 
 GM documentation of the `scheduler` brick (`brick.yaml`, v0.3 master
-spec 7 and 7.1, v0.4 master spec 7.1 for the transformer scripts;
-runtime interface: capture W1 item 7 and W1-y in
-`specs/versions/v0.3/wave-log.md`, extended by W1 item 7 and W1-y in
-`specs/versions/v0.4/wave-log.md`). Never shipped to players. Brick
-version 0.3.0, expected to evolve as games are played.
+spec 7 and 7.1, v0.4 master spec 7.1 for the transformer scripts, v0.5
+master spec 7.2 for the HTTP driver, the scripts' HTTP client, the
+weighted `choice` and `no-access`; runtime interface: capture W1 item 7
+and W1-y in `specs/versions/v0.3/wave-log.md`, extended by W1 item 7 and
+W1-y in `specs/versions/v0.4/wave-log.md` and by W1 items 3 and 4 and
+W1-y in `specs/versions/v0.5/wave-log.md`). Never shipped to players.
+Brick version 0.3.0, expected to evolve as games are played.
 
 ## Purpose
 
@@ -14,7 +16,8 @@ Debian 13 (`program/gm_scheduler`, asyncio, Debian's `psycopg` 3 and
 PyYAML), with an SSH server for the players, in the image
 `127.0.0.1:5000/dbagm/scheduler:0.3.0`. It runs one rendered schedule
 against one query repository and the fixed-time operations of
-`jobs.yaml`, as the customer's applications would; a fixed-time operation
+`jobs.yaml`, as the customer's applications would, over SQL and, from
+0.3.0, HTTP (the driver `http`, below); a fixed-time operation
 may be a **transformer script**, a Python function of the repository
 moving rows between instances over several connections (below). It holds
 no business logic: the SQL and the scripts are the scenario's, written by
@@ -53,7 +56,10 @@ The image:
   node, or a `pgbouncer` node) by node name over the game's network.
 - **What it needs**: the roles its schedule names, created in the
   database by the data load with the passwords of the secrets render
-  generates for them (below); the tables its queries use.
+  generates for them (below); the tables its queries use; for an HTTP
+  connection, the endpoint it calls (an `api` node, or a third party's
+  hostname on the partners' `api` node) and, when it names a credential,
+  the secret `http_<credential>` render mounts (chunk 7).
 - **Stateful**: yes. Its volumes (`repository`, `jobs`, `schedlog`,
   `schedstate`, `home`, `gmstate`, `run`) must follow the node if it is
   replaced; otherwise the players' changes, the log, the markers and the
@@ -86,8 +92,12 @@ UTC weekday and the timeline as UTC instants. The forms are W1 item 7's:
   with an optional `weight`, default 1; one per call), a sequence
   (`steps:` run in order on one connection, `transaction`), a builder
   (`builder: builders/<file>:<function>`, `options`) or a script
-  (`script: scripts/<file>:<function>`, `options`; a job only, below). Generators:
+  (`script: scripts/<file>:<function>`, `options`; a job only, below), or,
+  from 0.3.0, a call (`call: "<METHOD> <path>"`, `params`, or `builder`
+  and `options`; a stream on an `http` connection only, below). Generators:
   `{int: [lo, hi]}`, `{decimal: [lo, hi, places]}`, `{choice: [...]}`,
+  from 0.3.0 the weighted `{choice: {<value>: <weight>, ...}}` (weights
+  whole numbers at least 1, relative, need not sum to 100; values scalars),
   `{sequence: [start, step]}` (never reused, a restart included),
   `{now: utc}`; any other value is a constant. Parameters are psycopg's
   `%(name)s`; a statement with no parameter is sent as written. A name
@@ -114,7 +124,9 @@ UTC weekday and the timeline as UTC instants. The forms are W1 item 7's:
   schedule lacks.
 - **`schedule.yaml`**: `seed`, `intensity`, `connections` (`{driver:
   sql/postgresql, target: <node>:<port>/<database>, role, pool: {size: N}
-  | {per-call: true}}`), `streams` (`{key, connection, rate, arrivals:
+  | {per-call: true}}`, or from 0.3.0 `{driver: http, target:
+  <host>:<port>, credential: <name>, pool: N, timeout: <n>s}`, below),
+  `streams` (`{key, connection, rate, arrivals:
   poisson | even, shape, concurrency}`; may be `[]`, a node with
   fixed-time operations only; a stream or a timeline's `set.key` naming a
   script key is refused), `shapes` (`<name>: {utc: {mon:
@@ -153,11 +165,101 @@ The contract of master spec 7.1, as built (`program/gm_scheduler/scripts.py`):
   while one goes (`reason=still-running`), as for every job; nothing else
   stops. A program stopping mid-run does not wait for the script: the
   server rolls back what it had open.
+- **HTTP connections (0.3.0)**: a job's `connections:` may name an
+  `http` connection (master spec 7.2): `conns[<name>]` is then the small
+  client (`gm_scheduler.drivers.http.Client`) beside the psycopg
+  connections, opened at its first call, never refused at the run's
+  start. `get(path, params=None, *, headers=None)` (`params` the query
+  string, a list repeating its name) and `post(path, body=None, *,
+  headers=None)`: `body` JSON-serialisable (sent as `application/json`,
+  decimals and times as a call's are) or `bytes` (sent as is,
+  `Content-Type` from `headers`, default `application/octet-stream`: a
+  shipment's NDJSON). `headers` never sets `Authorization` or `Host`
+  (`ValueError`); the connection's credential, `Host` and `User-Agent`
+  are the driver's. A call returns an answer whatever its status:
+  `status` (an integer), `reason`, `headers` (`headers.get(name)`, any
+  case), `text`, `content` (bytes), `json()` (`None` for an empty body),
+  `ok` (2xx); the script decides. A timeout or no connection raises
+  `HttpError`, `.status` `timeout` or `refused`, `.message` the reason;
+  catch it as `conns[<name>].HttpError` (no import needed), or let it end
+  the run as any exception does (`error=HttpError`). The client keeps up
+  to the connection's `pool` connections alive, the stale ones opened
+  again as a stream's are, and is safe to share between a script's own
+  threads. Each call is one log line, `http job=<job> connection=<name>
+  method=<M> status=<three digits>|timeout|refused ms=<latency>
+  path=<path and query>` (the path last, quoted when it holds `?`, `=`
+  or `&`), and counts under the series `<key>/<name>` (`<name>` the
+  script's name for the connection, as `conns` and `jobs.yaml` give it):
+  calls, errors (not 2xx, timeout, refused) and latency, in the minute's
+  `key` lines and the metrics, apart from the run's own count under the
+  job's key, which stays v0.4's. Every such series exists from the start,
+  at 0. On the customer's side such flows run every minute at most, as
+  middleware polling its outbox does (7.2).
 - **What it may import**: the standard library, psycopg 3 and PyYAML,
   which the image has; anything more is an image change with its
-  dependency check. PostgreSQL only: scripts talk psycopg, outside the
-  driver interface.
+  dependency check. A script's database connections talk psycopg,
+  outside the driver interface; its HTTP connections the driver's client.
 - **What the checks read** of its runs: `check-runs` (Checks, below).
+
+### The HTTP driver (0.3.0)
+
+Master spec 7.2, capture W1 items 3 and 4, as built
+(`program/gm_scheduler/drivers/http.py`, W1-y). The standard library's
+`http.client`, plain HTTP/1.1; no package beyond psycopg 3 and PyYAML.
+
+- **The connection**: `{driver: http, target: <host>:<port>, credential:
+  <name>, pool: N, timeout: <n>s}`. `target` a node, or a third party's
+  hostname (an alias on the partners' `api` node); no database and no
+  `role`. `credential` optional (absent: a public endpoint), `[a-z][a-z0-9_]*`,
+  the game's secret `http_<credential>`; a connection whose credential was
+  not passed refuses the schedule (exit 2), as a role without its password
+  does. `pool` the kept-alive connections, a whole number at least 1: each
+  stream holds at most that many, as `{size: N}` does for SQL. `timeout`
+  1 s to 60 s, default 10 s: the connection and the answer's head
+  together, then each read of its body.
+- **On the wire**: `Host:` the target as written, `User-Agent:` the
+  node's hostname (the players find the caller in the `api` node's log, as
+  `application_name` names a SQL session), `Authorization: Bearer
+  <secret>` when a credential is set; a JSON body `application/json`,
+  UTF-8.
+- **The call** (`queries.yaml`): `call: "<METHOD> <path>"`, GET, POST,
+  PUT, PATCH or DELETE, the path absolute, each `%(name)s` filled from the
+  parameter of that name, URL-quoted (any other `%` a `%XX` escape, no
+  `#`). The parameters not in the path are the JSON body's fields (an
+  empty object when none), for GET and DELETE the query string. With
+  `builder: builders/<file>:<function>` (and `options`), `params` holds
+  only the path's names, and the builder, called as a builder is
+  (`(intensity, options)`, `rng=` when its signature names it), returns
+  the JSON body (GET, DELETE: a map, the query string), or `None` for none.
+  Drawn values in JSON: `int` a number, `decimal` a number with its digits
+  (`12.50`), `choice` as drawn, `now` an ISO 8601 UTC string
+  (`2026-11-03T08:15:00.123456Z`). One request per call; a stream's call
+  discards the answer's body.
+- **Where a call runs**: in a stream on an `http` connection, and nowhere
+  else; a query, pool, sequence or builder key runs only on a SQL
+  connection, and a job with `connection:` never names an HTTP connection
+  (an HTTP connection is a stream's or a script's). The program at start
+  and at reload, `check-keys` and `gm-reload-scheduler` refuse otherwise,
+  naming the key and the connection. No pool, sequence or transaction of
+  calls.
+- **Counted and logged as a statement**: the call's latency and outcome
+  in the minute's `key` line and the metrics, under its key. A non-2xx
+  answer, a timeout or no connection is an error: `error key=<k>
+  status=<three digits>|timeout|refused message="..."`, the message the
+  answer's first 200 characters (its reason phrase when it has no body),
+  `no answer within <n>s`, or the connection's error.
+- **Kept alive**: a kept connection the server closed while idle (uvicorn
+  closes one idle 5 s) is opened again and the request sent once more,
+  which the server never answered; nothing is counted twice.
+- **The bounded wait at start** (v0.4's lesson, spec D305): before its
+  first call, the program waits up to 30 s for every HTTP connection's
+  target name to resolve, looking once a second, then runs whether they
+  resolve or not; a node with no HTTP connection does not wait. The log
+  says so: `wait status=resolved ms=<n> connections=<names>` at once, or
+  `wait status=waiting bound=30s connections=<names>` then `wait
+  status=resolved ms=<n> ...` or `wait status=unresolved ms=<n>
+  connections=<names left>`. The program writes no status while it
+  waits, and `running` after.
 
 ### Secrets
 
@@ -165,10 +267,13 @@ The contract of master spec 7.1, as built (`program/gm_scheduler/scripts.py`):
 |---|---|---|
 | `player_ssh_pubkey` (key-pair, public half of `player_ssh_key`) | `/opt/gm/secrets/player_ssh_pubkey`, root `0444` | `gmctl deploy` |
 | `role_<role>_password`, one per role the schedule names (password, not handed over) | `/opt/gm/secrets/role_<role>_password`, 0:0 `0400` | render derives them from the schedules (spec D167): not in `brick.yaml`; `load-data` sets them in the database |
+| `http_<credential>`, one per credential an HTTP connection names (v0.5; not handed over) | `/opt/gm/secrets/http_<credential>`, 0:0 `0400` | render derives them (chunk 7; spec D347); the run script passes them on standard input, never to a file |
 | `gm_check_password` (password, not handed over), one secret with the `postgres` brick's | `/opt/gm/secrets/gm_check_password`, 0:0 `0400` | `gmctl deploy`; the database node creates `gm_check` with it. Read only by `check-sql`, for a sealed check that reads the data (spec D185); never passed to the program |
 
 A role is `[a-z_][a-z0-9_]{0,40}`, never `postgres`, `dba`, `monitoring`,
-`gm_check`, `pgbouncer_lookup` or `pg_*`.
+`gm_check`, `pgbouncer_lookup`, `replicator` (0.3.0, spec D350) or
+`pg_*`. A credential is `[a-z][a-z0-9_]{0,62}`; its secret is one line
+without a space.
 
 ### Fixed paths
 
@@ -186,14 +291,19 @@ A role is `[a-z_][a-z0-9_]{0,40}`, never `postgres`, `dba`, `monitoring`,
 | The sealed checks' SQL | `/usr/local/lib/gm/check-sql` | root `0700`: root only, as the secret it reads |
 | What the checks read of a job's runs | `/usr/local/lib/gm/check-runs` | root `0700`: root only, beside `check-sql` |
 | `sudo` log | `/run/gm/sudo.log` | root, lost when the container is replaced |
+| Account files (0.3.0) | `/etc/passwd`, `group`, `shadow`, `gshadow`: links to `/run/gm-accounts/`, filled at each start from `/etc/gm-accounts/player/` or `/etc/gm-accounts/no-access/` | root; `passwd`, `group` `0644`, the shadow files root:shadow `0640` |
 
 ### Start-up (`gm-entrypoint`, every container start)
 
-1. Empties `/run` and recreates `/run/sshd`, `/run/sshd-keys`, `/run/gm`,
-   `/run/tmp` (`/tmp`, `/var/tmp` link to it) and `/run/scheduler`.
+1. Empties `/run`, refills `/run/gm-accounts` with the write policy's
+   account files (0.3.0: below, `no-access`), and recreates `/run/sshd`,
+   `/run/sshd-keys`, `/run/gm`, `/run/tmp` (`/tmp`, `/var/tmp` link to
+   it) and `/run/scheduler`.
 2. Generates an ed25519 sshd host key in `/run/sshd-keys`.
-3. Fails the container when `player_ssh_pubkey` is missing or empty, a
-   mounted `role_*_password` is empty or more than one line, or
+3. Fails the container when `player_ssh_pubkey` is missing or empty (but
+   on a `no-access` node, which has no player), a
+   mounted `role_*_password` or `http_*` is empty, more than one line or
+   holds a space, its name is not a role's or a credential's, or
    `/opt/gm/seed/schedule.yaml` is missing.
 4. Checks `GM_WRITE_POLICY` and `GM_WRITE_OVERRIDES` (unset: `fixable`,
    no override) and writes `/run/gm/write-policy`; refuses an unknown
@@ -205,12 +315,15 @@ A role is `[a-z_][a-z0-9_]{0,40}`, never `postgres`, `dba`, `monitoring`,
    `scripts/` folder; it needs none.
 6. Applies the write policy's owner and modes to every seeded file and
    directory, seeding or not (contents untouched, never through a link).
-7. Sets the log, state, marker and home owners and modes; execs `/init`.
+7. Sets the log, state, marker and home owners and modes (on a
+   `no-access` node the home volume is root's, `0700`); execs `/init`.
 
 The s6 service `scheduler` runs as root only long enough to read
-`schedule.yaml` and the role passwords and pass them on standard input
-(`gm-scheduler-input 1`, one `password <role> <password>` line per
-mounted secret, `schedule`, then the file), through a here-document
+`schedule.yaml`, the role passwords and the HTTP credentials and pass
+them on standard input (`gm-scheduler-input 1`, one `password <role>
+<password>` line per mounted `role_<role>_password`, one `credential
+<name> <secret>` line per mounted `http_<name>`, `schedule`, then the
+file), through a here-document
 (`/bin/sh` is `dash`, which feeds it through a pipe, never a file), then
 `s6-setuidgid scheduler`. The program never opens the schedule. Every
 start of the service reads it again; the file never changes in a game.
@@ -247,8 +360,15 @@ Container ports 9120 and 22; nothing is published.
   `scheduler_call_duration_seconds` (histogram, buckets 1 ms to 60 s),
   `scheduler_job_runs_total`, `scheduler_job_skips_total`; and
   `scheduler_running` (1 or 0), `scheduler_start_time_seconds`. Every key
-  the schedule or `jobs.yaml` names has its series from the start, at 0.
+  the schedule or `jobs.yaml` names has its series from the start, at 0;
+  from 0.3.0 a script job's HTTP calls count under `key="<key>/<name>"`
+  (a `/` never appears in a repository key, so no series clashes).
 - **`ssh`, port 22.** The bastion's inner hop, as `player`, by key only.
+- **Consumes `http`, port 8000 (0.3.0).** The endpoints its HTTP
+  connections name, an `api` node's or a third party's on the partners'
+  `api` node, plain HTTP/1.1 (The HTTP driver, above). A target that
+  refuses or never answers shows as errors (`status=refused`,
+  `status=timeout`), never as a stop.
 - **Consumes `sql`, PostgreSQL, port 5432 or 6432.** The targets its
   connections name, a `postgres` node or a `pgbouncer` node, over TCP,
   as the connection's role with its password, `application_name` the
@@ -276,8 +396,19 @@ Container ports 9120 and 22; nothing is published.
   for exactly `gm-reload-scheduler` and `gm-validate`, no arguments. They
   read the repository, `jobs.yaml`, the log and `/etc/scheduler/`; they
   see `/opt/gm/seed/schedule.yaml` in listings and cannot read it.
-- **Write policies**: `fixable` and `report-only` (`no-access` is treated
-  as `report-only` for files). Render sets `GM_WRITE_POLICY` and
+- **`no-access`** (0.3.0, master spec 10.2; a third party's node, the
+  partners' back end): no `player` account, so no SSH login and no `sudo`
+  wrapper anyone may run (the wrappers' files and the `sudoers` rule stay
+  in the image, naming an account that does not exist); `sshd` and the
+  program run as on any node (node health's `default`: `scheduler`,
+  `sshd`), and the files take `report-only`'s modes. On a read-only root
+  no account can be removed at start, so the image bakes two account sets
+  and the entrypoint links the right one in (Fixed paths); `docker exec
+  -u scheduler` (the GM's validator run) resolves the name from the
+  image's copy of the full set, so it works on every node. The key
+  `player_ssh_pubkey` is not required there.
+- **Write policies**: `fixable`, `report-only` and `no-access` (as
+  `report-only` for files, above). Render sets `GM_WRITE_POLICY` and
   `GM_WRITE_OVERRIDES`; the entrypoint writes `/run/gm/write-policy`.
   `writable_paths` are the two directories `/srv/scheduler/repository`
   and `/srv/scheduler/jobs` (spec D170) and `/home/player`; an override
@@ -356,6 +487,18 @@ scheduler node as before (idle 17M, program RSS 25M; running two streams
 script exist only during its run; what a script holds in memory is the
 script's, and the scenario sizes a transformer's node by what its scripts
 move (master spec 13.2). The footprint in `brick.yaml` is unchanged.
+
+Measured for 0.3.0 in the stack test (armenelos, 2026-11-03): the
+scheduler node idle 19M (program RSS 27M), running two streams 26M (RSS
+36M); the transformer idle 18M (RSS 26M), after its run 26M (RSS 35M); a
+**caller node** (four streams on two HTTP connections to a stub server,
+48 calls a minute, a 503 and a timeout among them) idle 18M (RSS 26M),
+running 20M (RSS 28M), 394 calls of one stream carried by one kept-alive
+connection. The HTTP driver holds a daemon thread per call in flight and
+nothing at rest. With the caller `no-access` and a script job on its HTTP
+connection every minute (three calls a run, JSON, NDJSON bytes and a
+503), the same run gave: idle 18M (RSS 26M), running 28M (RSS 36M). The
+footprint in `brick.yaml` is unchanged.
 
 Measured in the v0.3 rehearsal (`tools/tests/rehearsal.sh`:
 `tarnbeck-outdoor-shop` on armenelos, AMD Ryzen 5 PRO 8640HS, 11.3 GiB,
@@ -455,12 +598,19 @@ must provide, its timeline needs and aging minimum included.
   - `run job=<name> key=<k> phase=start`, then `phase=end status=ok
     rows=N ms=x` or `status=error sqlstate=S ms=x` (`status=error
     error=<class> ms=x` for a script's exception without an SQLSTATE);
+  - `http job=<name> connection=<name> method=<M> status=<s> ms=<x>
+    path=<path>` (0.3.0): one per call a script makes on an HTTP
+    connection (Transformer scripts, above);
   - `script job=<name> <text>`: a script's `log(text)`, free text after
     the job's name, never parsed as fields (a reader takes the event from
     the second word only, so it never passes for a `run` line);
   - `skip job=<name> key=<k> at=<instant> reason=still-running |
     connection-refused`;
-  - `error key=<k> [job=<name>] sqlstate=<S or -> message="..."`;
+  - `error key=<k> [job=<name>] sqlstate=<S or -> message="..."`; for a
+    call (0.3.0), `status=<three digits>|timeout|refused` in place of
+    `sqlstate=`;
+  - `wait status=waiting|resolved|unresolved ...` (0.3.0): the bounded
+    wait for the HTTP targets' names at start (above);
   - `reload status=ok keys=N jobs=N`, `reload status=refused
     message="..."`, `fatal message="..."`.
   It names keys, jobs and connections, never rates or shapes.
@@ -500,8 +650,9 @@ must provide, its timeline needs and aging minimum included.
 - **Tests**: `sh bricks/scheduler/tests/run-unit-tests.sh` (the program,
   in the image, against a throwaway PostgreSQL with two databases) and
   `sh bricks/scheduler/tests/run-stack-test.sh` (the brick as a
-  scheduler node and a transformer node, with a throwaway PostgreSQL, as
-  a Swarm stack); both under the host lock.
+  scheduler node, a transformer node and, from 0.3.0, a caller node on
+  HTTP connections to a stub server started after it, with a throwaway
+  PostgreSQL, as a Swarm stack); both under the host lock.
 
 ## Known limits
 
@@ -509,8 +660,9 @@ must provide, its timeline needs and aging minimum included.
   load. A script runs in its own thread, so it blocks only its job; but a
   script exhausting the node's memory takes the program down (s6 restarts
   it), hence a transformer on a node of its own.
-- A script's connections ignore the connection's `pool:` (one per name
-  per run), and its `log` lines are not rate-limited.
+- A script's database connections ignore the connection's `pool:` (one
+  per name per run; its HTTP client keeps up to `pool` alive), and its
+  `log` and `http` lines are not rate-limited.
 - A call that finds every slot of its stream busy waits for one; the
   arrivals it delays are not caught up (no backlog), as a client with a
   fixed number of workers would.
@@ -520,3 +672,11 @@ must provide, its timeline needs and aging minimum included.
 - The validator cannot see the schedule (above).
 - Error lines are not rate-limited: a target down for long fills the log
   at the streams' rates.
+- An HTTP call's `timeout` bounds the connection and the answer's head
+  together, then each read of its body: a server trickling a long body
+  can hold a call longer. Each stream call runs in a daemon thread of its
+  own while it waits on the network.
+- A kept HTTP connection the server closed while idle gets its request
+  once more on a new connection; a server that closed it after reading
+  the request and before answering would see that request twice
+  (uvicorn closes idle connections only).
