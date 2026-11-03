@@ -1,6 +1,6 @@
 # v0.4 — the shop domain: data model and domain format
 
-Status: draft v2
+Status: draft v3 (2026-11-03: a link to a draft archived at v0.4's close repaired, nothing else changed)
 
 The shop as the first domain (D192): what v0.4 must settle of a domain's
 format (O111), and the changes to the business data model that the
@@ -55,7 +55,7 @@ domains/shop/
 - **Tarnbeck stays untouched.** The domain is derived from its data
   file; the released v0.3 scenario keeps its own (scenarios never bump,
   D58, but nothing obliges a change). v0.4's scenario is new
-  ([scenario-sketch.md](scenario-sketch.md)).
+  ([scenario-sketch.md](../../archive/v0.4/scenario-sketch.md)).
 - Whether a domain may be **composed of smaller domains**, as the clinic
   suggests (D196), is O126; v0.4's shop is one piece.
 

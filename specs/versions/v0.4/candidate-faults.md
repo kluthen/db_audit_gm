@@ -1,11 +1,11 @@
 # v0.4 — candidate faults
 
-Status: draft v4
+Status: draft v5 (2026-11-03: links to the drafts archived at v0.4's close repaired, nothing else changed)
 
 Faults that break the purposes' invariants
 ([purpose-catalogue.md](purpose-catalogue.md)) and the governance rules
 ([governance.md](governance.md)). Candidates, not a list to build: which
-ship follows the purposes (D197) and the scenario ([scenario-sketch.md](scenario-sketch.md)).
+ship follows the purposes (D197) and the scenario ([scenario-sketch.md](../../archive/v0.4/scenario-sketch.md)).
 Ids are working names. Every one is planted as v0.3's are: a
 `seed-file` change at render (to a runner's `queries.yaml`, a
 transformer script or `jobs.yaml`, or a database node's data file,
@@ -47,7 +47,7 @@ Each method has its own (purposes.md, "Moving data between instances").
 | `purpose-cron-output-lost` | cron daemon, or `pg_cron` | R4 | the entry redirects nothing, so a failing run leaves no trace: no mail, no syslog; for `pg_cron`, `cron.log_run = off` | seed-file, planted with a failure (the stale target), as `purpose-script-swallows-errors` is | no log; the trace stops | log to a file the team reads; fail loudly |
 
 The jobs on a database node come with `postgres` 0.4.0 (D206;
-[database-node-jobs.md](database-node-jobs.md)).
+[database-node-jobs.md](../../archive/v0.4/database-node-jobs.md)).
 `security-crontab-credentials` needs `render` to write a role's
 password into a seed file, for that fault's seed change only (proposed).
 The same capability would release the fault held for scripts:
@@ -62,12 +62,12 @@ capacity family after v1.0 (D204, D205).
 Faults of where a job runs, against the placement guideline (light,
 well-scheduled work on a database node; heavy or row-by-row work on a
 transformer node; heavy work on the source instance the worst;
-[database-node-jobs.md](database-node-jobs.md), "Placement"). They break
+[database-node-jobs.md](../../archive/v0.4/database-node-jobs.md), "Placement"). They break
 no purpose invariant.
 
 | Id | What is wrong | Planted | Evidence | Resolution |
 |---|---|---|---|---|
-| `purpose-heavy-job-on-database-node` | a heavy transformation runs from a database node's crontab; a one-off backfill makes it exhaust the node's memory **once, during the aging**: its backend OOM-killed, PostgreSQL recovering by itself (D209) | seed-file, the crontab, at T0; a `state` change, the backfill request, at a planned moment before its run | the kill and the recovery in the log; `oom_kill` in `memory.events`; the statistics' reset time; the job's log and ledger; the request | *report* only, whatever the write policy: the players cannot solve it alone (D209); the report names the incident, its cause, and moving the transformation to a transformer node (D207); its check judges the incident, not a live state ([database-node-jobs.md](database-node-jobs.md), "The out-of-memory incident") |
+| `purpose-heavy-job-on-database-node` | a heavy transformation runs from a database node's crontab; a one-off backfill makes it exhaust the node's memory **once, during the aging**: its backend OOM-killed, PostgreSQL recovering by itself (D209) | seed-file, the crontab, at T0; a `state` change, the backfill request, at a planned moment before its run | the kill and the recovery in the log; `oom_kill` in `memory.events`; the statistics' reset time; the job's log and ledger; the request | *report* only, whatever the write policy: the players cannot solve it alone (D209); the report names the incident, its cause, and moving the transformation to a transformer node (D207); its check judges the incident, not a live state ([database-node-jobs.md](../../archive/v0.4/database-node-jobs.md), "The out-of-memory incident") |
 | `purpose-database-node-job-at-peak` | a database node's job is scheduled in the shop's peak hours | seed-file | latency and CPU at the peak; the job's statements in the log at those times | *fix*: schedule it off-peak |
 
 The heavy job's earlier form, a job that is merely heavy with no

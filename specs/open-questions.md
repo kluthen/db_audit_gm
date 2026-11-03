@@ -11,13 +11,11 @@ their IDs keep their meaning. Questions resolved by the close of v0.2
 Questions resolved by the close of v0.3 (O45, O46, O78 and O81–O103) are
 listed in
 [archive/v0.3/open-questions-resolved.md](archive/v0.3/open-questions-resolved.md).
-Take the next number from `doc-ids`.
-
-Resolved during v0.4's drafting: O106 (D194), O110 (D195), O107 (D197), O120
-(D198), O109 (D199), O121 (D200), O123 (D202), O105 (D203), O129 (D206), O131 (D207),
-O132 (D211), O133 (D212). Resolved by the approval of v0.4's master
-spec (D215): O104, O108, O115, O116, O117, O119, O122, O124, O125, and
-O111's v0.4 part. Resolved during v0.4's build: O134 (D224), O140 (D253).
+Questions resolved by the close of v0.4 (O104–O110, O115–O117, O119–O125,
+O129, O131–O134, O140, O146 and O161–O163, and O111's v0.4 part) are
+listed in
+[archive/v0.4/open-questions-resolved.md](archive/v0.4/open-questions-resolved.md).
+Take the next number from `doc-ids`; no ID is reused.
 
 On 2026-10-31 v0.5 was centred on domain definition and the clinic
 (D233), and its questions retargeted: O53 and O54 to later, version not
@@ -159,33 +157,12 @@ for the next version (v0.1 until it closed, with none left open);
   finds one quick to implement (D120). Refs:
   [scenario-lifecycle.md](scenario-lifecycle.md).
 
-## v0.4: purposes
-
-Raised when the owner recast v0.4 as "bricks of why and bits of hows"
-on 2026-10-28 (D190). O11, O22, O25 and O52 are revised by it. Worked
-into drafts on 2026-10-30 ([versions/v0.4/](versions/v0.4/README.md#documents)):
-O106 closed (D194), O110 closed (D195), O122 to O125 raised; the
-owner's rulings closed O107 (D197) and O109 (D199) the same day, and his
-technology direction O123 (D202) and O105 (D203), raising O129, which
-his ruling on jobs on a database node closed (D206), raising O131,
-which he confirmed as written (D207). O132 and O133, raised by the
-consolidation, were ruled the same day (D211, D212), and the approval
-of the [master spec](versions/v0.4/master-spec.md) closed O104, O108,
-O122, O124 and O125 as written there (D215). None is open.
-
 ## v0.4: data governance
 
 Raised when the owner added a first cut of data governance to v0.4 on
-2026-10-28 (D191): data classes, their rules, a policy handed to the
-players, `gm_check` definition checks. The customer's governance, in the
-game's world, not the game's access model. Drafted on 2026-10-30 in
-[governance.md](versions/v0.4/governance.md), tested against the
-clinic's classes (D196); O120 closed by D198 (an instance of its own);
-O115, O116, O117 and O119 closed by the master spec's approval, as
-written there (D215). O118, held for v0.5, closed by D250 and D261
-(TLS and pgaudit always available in `postgres`); O134, raised by D221,
-closed by D224; O136, raised by D230, waits for a later version. O140,
-raised by chunk 12, closed by D253.
+2026-10-28 (D191); its questions closed by v0.4's close are archived
+([archive/v0.4/open-questions-resolved.md](archive/v0.4/open-questions-resolved.md)).
+O136, raised by D230, waits for a later version.
 
 - **O136** (later, with the open `SECURITY DEFINER` candidate fault) —
   G3 judges a definer procedure by its owner (D230). Should it also

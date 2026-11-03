@@ -26,7 +26,7 @@ in [`specs/versions/v0.1/README.md`](specs/versions/v0.1/README.md).
 | [`faults/`](faults/) | The fault catalog |
 | [`domains/`](domains/) | Business domains, design-time sources a scenario copies from: `shop` |
 | [`purposes/`](purposes/) | Purposes, what the customer's data is for, design-time sources a scenario copies from: `shop-sales-reporting`, `shop-winback-leads`, `shop-customer-mailing` and `shop-export-declarations` |
-| [`scenarios/`](scenarios/) | Scenario folders (`bookshop-new-server`) |
+| [`scenarios/`](scenarios/) | Scenario folders (`bookshop-new-server`, `fernway-clinics-monitoring`, `tarnbeck-outdoor-shop`, `tarnbeck-outdoor-campaign`) |
 | [`.claude/skills/`](.claude/skills/) | The `game-master`, `scenario-format` and `scenario-document` skills |
 
 To play, open a Claude Code session at the repository root and run

@@ -62,7 +62,7 @@ The story as the players read it: `player/story.md`.
 |---|---|---|---|---|---|
 | `bastion` | `bastion` 0.4.0 | bastion | yes | backend | report-only |
 | `db` | `postgres` 0.4.0 | database | yes | backend | fixable |
-| `pooler` | `pgbouncer` 0.1.0 | pooler | yes | backend | fixable |
+| `pooler` | `pgbouncer` 0.1.1 | pooler | yes | backend | fixable |
 | `producer` | `scheduler` 0.2.0 | producer | yes | backend | report-only |
 | `consumer` | `scheduler` 0.2.0 | consumer | yes | backend | report-only |
 | `reporting` | `postgres` 0.4.0 | database | yes | backend | fixable |
@@ -166,7 +166,7 @@ Data, restored from `data/db.sql`:
 
 #### Node `pooler`
 
-- **Brick**: `pgbouncer`, version 0.1.0 (pinned).
+- **Brick**: `pgbouncer`, version 0.1.1 (pinned).
 - **Role**: pooler. **Stateful**: yes. **Write policy**:
   fixable.
 - **Networks**: backend.

@@ -457,7 +457,7 @@ gating.
   the VPS is `active` for the run only and drained after, as in v0.4's
   wave 2; no node that may exhaust its memory is placed there.
 - **Unproven in v0.5**, the major test's before the v1.0 tag
-  ([roadmap](../README.md#v10-gating-v05s-additions-d314)): the clinic
+  ([roadmap](../README.md#v10-gating)): the clinic
   aged and played, its faults at once through their cycles, the "on the
   verge" and "already noticed" classes as the hand-over finds them
   (D290); its overnight and periodic cadences in scenario time, and that

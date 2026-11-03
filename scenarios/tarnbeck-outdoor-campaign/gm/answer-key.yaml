@@ -1,0 +1,850 @@
+# Answer key of tarnbeck-outdoor-campaign, built from
+# .claude/skills/scenario-format/templates/answer-key.yaml as capture W4 of
+# specs/versions/v0.4/wave-log.md settles it (items 3, 4 and 7).
+# AUTHORITATIVE, with scenario.yaml. SEALED: never shipped to a node, never
+# shown to the players before their final answer.
+#
+# Evidence is as the player OS user (and dba in psql). ui: entries are read
+# in a browser through the bastion's web front (user player, the tools
+# password; Grafana's own login admin, the same password). The bastion has
+# no curl; the other nodes have it. "Noon", "08:00" and the like are the
+# customer's time ({{customer_timezone}} in the story); the logs, the
+# rendered jobs.yaml and crontabs and the tools are in UTC, so the UTC hour
+# shown is the customer's hour minus the game's shift (gmctl status gives
+# the zone). pg_cron's schedules are in cron.timezone, the customer's.
+#
+# reporting and bi are Lumen Analytics' by the story (master spec 16.5):
+# their faults expect a report or a proposal, and a change a player makes
+# there is judged in the feedback, never credited (see each instance's
+# acceptable and notes, and gm/notes.md).
+
+scenario:
+  id: tarnbeck-outdoor-campaign
+  version: 0.1.0
+notes: gm/notes.md
+
+instances:
+  - instance: f1
+    what: >-
+      crm's mail.shipped, the shipping notices' job (mail-shipped, every five
+      minutes), selects the orders shipped in the ten minutes ending a
+      minute before the run, [t - 11 min, t - 1 min), and keeps no record of
+      what it sent: every shipped order falls in two runs' windows and gets
+      two order-shipped mails, five minutes apart.
+    why: >-
+      Every customer is mailed twice for every shipped order (issue I1):
+      noise, complaints, the mail provider's quota spent twice and a
+      reputation for spam. The comment's "wide enough that a late run
+      misses nothing" is the cause, not a safeguard.
+    evidence:
+      - where: node:crm
+        source: the query repository and the jobs
+        how: ssh crm, then cat /srv/scheduler/repository/queries.yaml /srv/scheduler/jobs/jobs.yaml
+        shows: "mail.shipped's window of ten minutes (interval '10 minutes'), against mail-shipped's at: \"*/5 * * * *\""
+      - where: node:crm
+        source: the scheduler's log, the job's runs
+        how: grep 'run job=mail-shipped .*phase=end' /var/log/scheduler/scheduler.log | tail
+        shows: each run's rows= about twice the orders the warehouse ships in five minutes
+      - where: bastion
+        source: the mail outbox
+        how: >-
+          psql -h db -d shop -c "SELECT order_id, count(*), min(sent_at), max(sent_at)
+          FROM mail_outbox WHERE template = 'order-shipped' GROUP BY order_id
+          HAVING count(*) > 1 ORDER BY max(sent_at) DESC LIMIT 10"
+        shows: orders with two order-shipped mails, five minutes apart, from the first minutes after T0
+      - where: bastion
+        source: the shipments of five minutes against a run's rows
+        how: >-
+          psql -h db -d shop -c "SELECT count(*) FROM orders WHERE shipped_at >
+          now() - interval '5 minutes'"
+        shows: about half of a run's rows=
+    acceptable:
+      diagnosis: >-
+        names the shipping notices sent twice and the cause: mail.shipped
+        picks the orders shipped in the last ten minutes while its job runs
+        every five, keeping no record of what it sent, so every shipped
+        order falls in two runs' windows.
+      proposal: >-
+        select only what was not sent yet: the window back to five minutes,
+        or better a NOT EXISTS on mail_outbox for the order and template,
+        which holds whatever the cadence; a unique (order_id, template) on
+        mail_outbox with ON CONFLICT DO NOTHING as the guard (a unique index
+        alone makes every overlapping run fail, and then no notice goes).
+      fix: >-
+        the loaded mail.shipped (queries.yaml edited on crm and reloaded with
+        sudo gm-reload-scheduler) sends no order a second order-shipped
+        mail: no mail-shipped run since the reload repeats a notice, whatever
+        the form. Deleting the past duplicates is not needed and not the
+        fix.
+    sealed_check:
+      script: faults/purpose-mail-overlapping-window/checks/fixed.sh
+      at_handover: 1
+      judges: runs
+      threshold: 0
+      notes: >-
+        Judges mail-shipped's runs since the judged moment, raised to crm's
+        last reload (12.1): any reload of crm (a fix of f2, f3 or f8, or a
+        job moved) starts it again. Too soon (3) with no run since; fixed
+        (0) within five minutes of a fix's reload, day or night.
+        Duplicates sent before the judged moment stay in mail_outbox as
+        evidence and never count.
+    interactions: []
+    validators_left_red: []
+
+  - instance: f2
+    what: >-
+      crm's leads.extract (leads-extract, hourly at :20) and mail.campaign
+      (mail-campaign, every quarter hour 08:00 to 20:45) test
+      customers.marketing_opt_in, where the company's rule is the
+      customer's latest marketing-email consent event. The web shop's
+      release at T0 (the producer's stream consent.unsubscribe switched to
+      the key consent.unsubscribe-v2) records an unsubscribe in
+      consent_events and no longer clears the flag: everyone who
+      unsubscribed since last night is still flagged, still extracted as a
+      lead and still mailed.
+    why: >-
+      Mailing people who withdrew their consent is issue I2 and a breach of
+      the data policy (marketing e-mail only with the customer's consent,
+      the latest choice in the consent history), and of the law behind it; the flag looks right to whoever reads only
+      customers. Two places for one fact: the release moved consent to the
+      history and dropped the flag's update, and nobody told the jobs.
+    evidence:
+      - where: node:crm
+        source: the query repository
+        how: ssh crm, then cat /srv/scheduler/repository/queries.yaml
+        shows: leads.extract and mail.campaign testing c.marketing_opt_in, never consent_events
+      - where: node:producer
+        source: the web shop's query repository and log
+        how: >-
+          ssh producer, then cat /srv/scheduler/repository/queries.yaml, and
+          grep 'key=consent.unsubscribe' /var/log/scheduler/scheduler.log | head
+        shows: >-
+          consent.unsubscribe-v2, "since the consent-history release", inserting the
+          withdrawal and leaving marketing_opt_in alone (the old consent.unsubscribe
+          cleared it, consent.subscribe still sets it); key=consent.unsubscribe-v2 lines
+          from T0 and none of consent.unsubscribe since
+      - where: bastion
+        source: the flag against the consent history
+        how: >-
+          psql -h db -d shop -c "SELECT count(*) FROM customers c CROSS JOIN LATERAL
+          (SELECT granted FROM consent_events e WHERE e.customer_id = c.id AND
+          e.purpose = 'marketing-email' ORDER BY at DESC, id DESC LIMIT 1) k
+          WHERE c.marketing_opt_in AND NOT k.granted"
+        shows: customers whose latest event is a withdrawal still flagged opted in, about 20 more every hour since T0
+      - where: bastion
+        source: the campaign's mail and the leads
+        how: >-
+          psql -h db -d shop -c "SELECT m.customer_id, m.sent_at, k.at FROM mail_outbox m
+          CROSS JOIN LATERAL (SELECT granted, at FROM consent_events e WHERE
+          e.customer_id = m.customer_id AND e.purpose = 'marketing-email' AND e.at <=
+          m.sent_at ORDER BY at DESC, id DESC LIMIT 1) k WHERE m.campaign_id IS NOT
+          NULL AND NOT k.granted ORDER BY m.sent_at DESC LIMIT 10"
+        shows: >-
+          win-back mail sent after the recipient's withdrawal from 08:00, and leads
+          extracted after one from the first :20 run (the same LATERAL on
+          leads.extracted_at)
+      - where: bastion
+        source: the company's data policy
+        how: cat ~/data-policy.md
+        shows: the rule the jobs break, consent as the latest event
+    acceptable:
+      diagnosis: >-
+        names the jobs' consent test as the opt-in flag, which no longer
+        follows the consent history since the web shop's release (its
+        unsubscribe records the withdrawal and leaves the flag set), so
+        customers who unsubscribed are still extracted and mailed, against
+        the data policy's rule that consent is the latest event.
+      proposal: >-
+        both jobs read consent as the customer's latest marketing-email
+        event at the run (by at, then id), as the policy states; and the web
+        shop's unsubscribe restored to clear the flag, with the flags that
+        drifted since the release repaired, so the two places agree again.
+      fix: >-
+        Either path (spec D244). The runner's: the loaded leads.extract and
+        mail.campaign (queries.yaml edited on crm and reloaded) take no
+        customer without consent by the latest event, so no leads-extract
+        or mail-campaign run since the reload extracts or mails one. The
+        producer's: consent.unsubscribe-v2 clearing the flag again
+        (producer's repository edited and reloaded) AND the flags of
+        everyone who withdrew since the release repaired (an UPDATE of
+        customers from the history, on db); the producer restored alone
+        leaves them flagged, the jobs keep taking them and the check stays
+        present. The repair is made outside the runner, so this path is
+        judged with gmctl check --instance f2 --since followed by the repair's UTC
+        time, from the players' report.
+      improvement: >-
+        after the jobs' fix, the drifted flags repaired from the history
+        (UPDATE customers SET marketing_opt_in to each one's latest event)
+        and the producer's unsubscribe clearing the flag again, so any other
+        reader of the flag is right as well.
+    sealed_check:
+      script: faults/purpose-leads-stale-consent/checks/fixed.sh
+      at_handover: 1
+      judges: runs
+      threshold: 0
+      notes: >-
+        L2 and M2 together, on crm, judging both jobs' runs since the judged
+        moment, raised to crm's last reload. Too soon (3) until each job has
+        a run since with a witness: the campaign within a quarter hour in
+        its day, the extraction within the hour (remaining= the later; the
+        next :20, or the job moved). The producer path leaves crm unreloaded:
+        without --since the game's earlier runs still count and it reads 1.
+        A fix of f2 leaves f3 present (their shared entry, interactions).
+    interactions:
+      - instance: f3
+        kind: conflicts-with
+        note: >-
+          f2 and f3 change the same entry, mail.campaign (the flag, and the
+          company's zone). Each check judges its own invariant (M2, M3), so
+          a fix of one leaves the other present; a team that rewrites the
+          entry from the purpose's intent fixes both at once, and a fix that
+          restores one change can carry the other back.
+    validators_left_red: []
+
+  - instance: f3
+    what: >-
+      crm's mail.campaign compares the sending hours (business_settings,
+      08:00 to 21:00) with the local time in business_settings.timezone,
+      the company's zone, instead of customers.timezone, the recipient's.
+      The job runs only in the company's day (08:00 to 20:45), so the test
+      always passes: recipients eight hours behind the company (before
+      16:00) or five ahead (from 16:00) get marketing mail at night in
+      their own time.
+    why: >-
+      A promotion at 3 a.m. is issue I3, a breach of the company's own rule
+      on sending hours and, in several countries, of the law on unsolicited
+      mail. The times look right to anyone reading them in the company's
+      zone. Shift-invariant: every zone is relative to the customer's.
+    evidence:
+      - where: node:crm
+        source: the query repository and the jobs
+        how: ssh crm, then cat /srv/scheduler/repository/queries.yaml /srv/scheduler/jobs/jobs.yaml
+        shows: mail.campaign's hours read at s.timezone, the company's zone, and the job's day "*/15 8-20 * * *"
+      - where: bastion
+        source: the campaign's mail in the recipients' own time
+        how: >-
+          psql -h db -d shop -c "SELECT c.timezone, to_char(m.sent_at AT TIME ZONE
+          c.timezone, 'HH24:MI') AS their_time, count(*) FROM mail_outbox m JOIN
+          customers c ON c.id = m.customer_id WHERE m.campaign_id IS NOT NULL GROUP BY 1, 2
+          ORDER BY 2"
+        shows: marketing mail sent at night in the recipients' zones, outside 08:00 to 21:00, from the first 08:00 batch
+      - where: bastion
+        source: the customer's sending hours and zones
+        how: psql -h db -d shop -c 'TABLE business_settings', and cat ~/data-policy.md
+        shows: the hours as the recipient's local time, which the job reads in the company's zone
+    acceptable:
+      diagnosis: >-
+        names the campaign's hour test as the company's (business_settings'
+        zone, or the job's own times), so recipients living hours away from
+        the company get marketing mail at night in their own time.
+      proposal: >-
+        test each recipient's local time, now() AT TIME ZONE
+        customers.timezone, against the sending hours, so a batch skips
+        those outside theirs until a later batch. Moving the job's times is
+        not a fix: some recipients are outside their hours at any company
+        hour.
+      fix: >-
+        the loaded mail.campaign (queries.yaml edited on crm and reloaded)
+        mails nobody outside their own sending hours: no mail-campaign run
+        since the reload sends a marketing mail whose sent_at, in the
+        recipient's zone, is outside business_settings' hours.
+    sealed_check:
+      script: faults/purpose-mail-outside-hours/checks/fixed.sh
+      at_handover: 1
+      judges: runs
+      threshold: 0
+      notes: >-
+        M3, on crm, judging the campaign's runs since the judged moment,
+        raised to crm's last reload. Fixed (0) within a quarter hour of a
+        fix's reload, in the campaign's day; outside it (21:00 to 08:00
+        company time) too soon (3) with remaining= to the next morning's
+        batch. A fix of f3 leaves f2 present.
+    interactions:
+      - instance: f2
+        kind: conflicts-with
+        note: the shared entry mail.campaign; see f2.
+    validators_left_red: []
+
+  - instance: f4
+    what: >-
+      Lumen's hourly roll-up on bi (rollup-hourly at :05, scripts/rollup.py,
+      hourly()) re-reads the orders placed past its watermark (o.placed_at >
+      since) instead of those updated past it. New orders still arrive, so
+      the dashboards look alive; but the web shop's close of day at 12:00
+      invoices orders placed days before, and those changes are never read
+      again: each past day's invoiced revenue in rpt.sales_daily stays as it
+      was when the day was last published.
+    why: >-
+      The accountant's invoiced revenue never matches the dashboard's and
+      the gap grows every noon (issue I4): the reports drift from the books
+      without anyone changing a figure. An incremental loader written for
+      an append-only idea of orders.
+    evidence:
+      - where: node:bi
+        source: the transformer's script and its jobs
+        how: ssh bi, then cat /srv/scheduler/repository/scripts/rollup.py /srv/scheduler/jobs/jobs.yaml
+        shows: the orders selected by placed_at past the watermark, never updated_at ("new orders")
+      - where: node:bi
+        source: the scheduler's log
+        how: grep 'job=rollup-hourly ' /var/log/scheduler/scheduler.log | tail
+        shows: each run reading only the orders placed in the hour ("read N new orders"), none of the noon invoicing
+      - where: node:producer
+        source: the web shop's jobs and repository
+        how: ssh producer, then cat /srv/scheduler/jobs/jobs.yaml, and the orders.close-day entry of queries.yaml
+        shows: close-day at 12:00 invoicing the shipped orders, setting status and updated_at
+      - where: bastion
+        source: the published days against the source's
+        how: >-
+          psql -h reporting -d reporting -c 'SELECT day_local, invoiced_revenue FROM
+          rpt.sales_daily ORDER BY 1', then psql -h db -d shop with the same days'
+          sum(total) FILTER (WHERE status = 'invoiced') by local day
+        shows: past days' invoiced revenue lower in reporting than in the source, the gap growing at each noon
+    acceptable:
+      diagnosis: >-
+        names the script's watermark as placed_at: an order changed after it
+        was placed (invoiced at the noon close, days later) is never read
+        again, so the published invoiced revenue lags the source's and the
+        gap grows each day.
+      proposal: >-
+        to Lumen: watermark on updated_at (the overlap kept for late
+        commits), so every change re-reads its order's day; and the days
+        already published restated from the source once. bi is Lumen's and
+        report-only: the proposal is the resolution.
+      improvement: >-
+        the days published before the fix restated (a run from no
+        watermark, or a one-off recomputation), so the past figures match
+        the source too; proposed to Lumen.
+    sealed_check:
+      script: faults/purpose-watermark-misses-updates/checks/fixed.sh
+      at_handover: 3
+      judges: runs
+      threshold: 0
+      notes: >-
+        Ruled (a), 2026-11-02 (spec O146): f5
+        expires shop_etl at 09:00, every hourly run fails from 09:05, and
+        R1's witness (a past day re-invoiced after it ended) needs a
+        successful run after the noon close; so at the hand-over check f4
+        reads too soon (3), as expected here, not present. Once the
+        players fix f5, the next hourly run publishes the gap in the
+        figures (the evidence), but R1's witness is a close after the
+        judged moment: after a 14:00 hand-over the next counted one is the
+        next day's, so the check reads 3 for the rest of a game (W4 item 3);
+        the proposal is what the feedback judges.
+        bi is report-only: the players cannot move its jobs.
+    interactions:
+      - instance: f5
+        kind: masked-by
+        note: >-
+          shop_etl is the hourly script's source login: while f5 is present
+          (from 09:00) every hourly run fails, the 12:05 run after the noon
+          invoicing among them, so no run can show the watermark gap and the
+          check reads too soon at the hand-over. The frozen dashboards hide
+          f4 until the players fix f5; the next hourly run then shows the
+          gap in the figures (the check stays too soon: no close in the
+          game).
+    validators_left_red: []
+
+  - instance: f5
+    what: >-
+      shop_etl, Lumen's login on the shop's database (the hourly script's
+      source connection, and the remote role of reporting's user mapping
+      through which the nightly close and the sales-detail roll-up read
+      src.*), was given VALID UNTIL 09:00 this morning, and its open
+      sessions were ended: every connection since is refused at
+      authentication, every run of the hourly roll-up fails, rpt.etl_runs
+      stops, and the back office's dashboards froze.
+    why: >-
+      The back office decides on figures frozen since the morning (issue
+      I5); nothing on Lumen's side alerts, the runs just fail. A password
+      expiry applied to a service account.
+    evidence:
+      - where: node:db
+        source: the server log
+        how: ssh db, then grep -h -A1 'user=shop_etl,' /var/log/postgresql/postgresql-*.log | grep -B1 DETAIL | tail
+        shows: password authentication failed for user "shop_etl", DETAIL its expired password, at every hourly run since 09:05
+      - where: bastion
+        source: the roles of the cluster
+        how: psql -h db -c '\du shop_etl'
+        shows: "shop_etl with Password valid until a moment of this morning (09:00 the customer's time)"
+      - where: bastion
+        source: the run ledger on the reporting instance
+        how: >-
+          psql -h reporting -d reporting -c 'SELECT job, max(started_at) FROM rpt.etl_runs
+          GROUP BY job'
+        shows: no run of rollup-hourly since 08:05 (the last before the expiry)
+      - where: node:bi
+        source: the scheduler's log
+        how: ssh bi, then grep 'job=rollup-hourly ' /var/log/scheduler/scheduler.log | tail
+        shows: every run since 09:05 skipped, reason=connection-refused (the source connection, as shop_etl)
+    acceptable:
+      diagnosis: >-
+        names shop_etl's expired password (VALID UNTIL this morning) as why
+        every run of Lumen's roll-up is refused since, so the dashboards
+        stopped updating; and that the role is both the script's source
+        login and the user mapping's remote role (the close and the
+        sales-detail roll-up fail too at their next runs).
+      proposal: >-
+        lift the expiry (ALTER ROLE shop_etl VALID UNTIL 'infinity'), or
+        set one Lumen is told of with a rotation plan; the dashboards catch
+        up at the next hourly run.
+      fix: >-
+        on db as dba, ALTER ROLE shop_etl VALID UNTIL 'infinity' (or a
+        future date): shop_etl logs in again and a rollup-hourly run since
+        the fix lands in rpt.etl_runs with no login refused after the time
+        the GM passes to gmctl check --instance f5 --since followed by the fix's UTC
+        time, from the players' report.
+    sealed_check:
+      script: faults/purpose-etl-role-expired/checks/fixed.sh
+      at_handover: 1
+      judges: runs
+      threshold: 0
+      notes: >-
+        On db; judges the source's refused logins and reporting's ledger.
+        The fix is made outside any runner, so no reload raises the judged
+        moment: after the hand-over the refused runs of the game count
+        until the GM passes the fix's time with --since (12.1, D246). Then
+        too soon (3) until the next hourly run (remaining= an estimate from
+        the ledger's last start), fixed (0) once it is in the ledger. To
+        confirm sooner the GM waits for the moved time, never remaining=.
+    interactions:
+      - instance: f4
+        kind: masks
+        note: >-
+          the hourly runs fail from 09:05, the 12:05 run after the noon
+          invoicing among them: f4 reads too soon at the hand-over check
+          (ruled (a), 2026-11-02 (spec O146)); once f5 is fixed, the next
+          hourly run shows f4's gap in the figures.
+      - instance: f7
+        kind: masks
+        note: >-
+          the close reads src.* through the mapping to shop_etl: the 01:30
+          close of the aging ran before the expiry and shows f7, but a close
+          while f5 is present would fail, not show it.
+      - instance: f10
+        kind: masks
+        note: >-
+          the sales-detail roll-up reads src.sales_detail_orders on the same
+          server and mapping: its next night would fail while f5 is present.
+          The 03:00 incident came before the expiry; f10's check reads the
+          log and is unaffected.
+    validators_left_red: []
+
+  - instance: f6
+    what: >-
+      db's crontab entry refreshing popular_products every hour at :17 runs
+      psql over the local socket with no role (no -U), so as OS user
+      postgres by peer: the superuser postgres. The role prepared for it,
+      shop_refresh (LOGIN, MAINTAIN on popular_products, its password in
+      the PGPASSFILE the crontab names), exists and is never used.
+    why: >-
+      A job that needs one grant runs with every right on the instance: a
+      mistake in its statement, or anyone who can change the entry or a
+      program it calls, acts as postgres (every database, commands as the
+      OS user). The role and the password file were set up, and nobody
+      switched the entry over.
+    evidence:
+      - where: node:db
+        source: postgres's live crontab
+        how: ssh db, then sudo gm-crontab -l
+        shows: the popular-products entry's psql naming no role (no -U), under a PGPASSFILE line no entry uses
+      - where: node:db
+        source: the server log, at the entry's minute
+        how: grep -A1 'identity="postgres" method=peer' /var/log/postgresql/postgresql-*.log | tail
+        shows: >-
+          at :17 every hour, a local connection authenticated by peer as postgres,
+          then authorized as user=postgres database=shop application_name=psql
+      - where: bastion
+        source: the roles, and the grants on the view
+        how: psql -h db -c '\du shop_refresh', then psql -h db -d shop -c '\dp popular_products'
+        shows: shop_refresh with LOGIN and MAINTAIN on popular_products, prepared and unused
+      - where: node:db
+        source: the job's log
+        how: tail /var/log/postgresql/cron/popular-products.log
+        shows: REFRESH MATERIALIZED VIEW every hour
+    acceptable:
+      diagnosis: >-
+        names the crontab entry connecting as postgres by peer, a superuser
+        for a job that needs one grant, and why it matters; the role
+        shop_refresh, its grant and its password file are there and unused.
+      proposal: >-
+        connect the entry as shop_refresh (-U shop_refresh over the local
+        socket, the password from the PGPASSFILE the crontab sets), and
+        check that it still runs.
+      fix: >-
+        every live crontab entry connects as a role that is not a superuser
+        (the entry with -U shop_refresh, or a PGUSER=shop_refresh line,
+        installed with sudo gm-crontab), and the job still runs: its next
+        run succeeds in its log (moving the entry's minute is how a team
+        confirms it, W4 item 5). Deleting the entry reads fixed and is not
+        acceptable: the web shop's best-sellers refresh is gone. Moving the
+        job to dba is a new superuser path and reads present.
+    sealed_check:
+      script: faults/security-crontab-superuser/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        The live state, exit 0 or 1, at once after the crontab is installed.
+        A role that does not exist is not a superuser: the check reads fixed
+        and the job's log shows it failing; read the log after a fix.
+    interactions: []
+    validators_left_red: []
+
+  - instance: f7
+    what: >-
+      Lumen's nightly close, rpt.close_day() on reporting (called from bi's
+      rollup-close at 01:30 as bi_etl), carries SET TimeZone to a zone three
+      hours ahead of the customer's and cuts "yesterday" in it
+      (current_setting('TimeZone')) instead of rpt.business_settings' zone:
+      every night it closes a day whose edges are three hours off the
+      shop's midnight and rewrites its hours under labels in the wrong
+      zone, and the hourly roll-up leaves a closed day alone.
+    why: >-
+      The business day is the customer's: the accountant, the dashboard
+      and the shop's own reports count from the shop's midnight. A day cut
+      elsewhere moves orders from one day to the next every night, so no
+      closed day ever matches the shop's, and the gap looks like noise.
+    evidence:
+      - where: node:reporting
+        source: the close's procedure
+        how: ssh reporting, then psql -d reporting -c '\sf rpt.close_day'
+        shows: SET "TimeZone" TO an Etc/GMT zone three hours off the customer's, and the day cut in current_setting('TimeZone')
+      - where: bastion
+        source: the closed days against the source's local days
+        how: >-
+          psql -h reporting -d reporting -c "SELECT day_local, orders, revenue FROM
+          rpt.sales_daily WHERE closed ORDER BY 1 DESC LIMIT 3", then psql -h db -d shop
+          -c "SELECT (placed_at AT TIME ZONE s.timezone)::date, count(*), sum(total) FROM
+          orders, business_settings s GROUP BY 1 ORDER BY 1 DESC LIMIT 3"
+        shows: the day the 01:30 close closed differs from the source's local day of the same date, in orders and revenue
+      - where: bastion
+        source: the close's runs and the customer's zone
+        how: >-
+          psql -h reporting -d reporting -c "SELECT * FROM rpt.etl_runs WHERE job =
+          'rollup-close' ORDER BY id DESC LIMIT 3" -c 'TABLE rpt.business_settings'
+        shows: the night's run at 01:30, and the zone the procedure ignores
+      - where: node:bi
+        source: Lumen's jobs
+        how: ssh bi, then cat /srv/scheduler/jobs/jobs.yaml
+        shows: rollup-close calling the procedure at 01:30 (in UTC), report-only
+    acceptable:
+      diagnosis: >-
+        names the nightly close as cutting the day in another zone than the
+        customer's, three hours off, with the evidence: closed days that do
+        not match the shop's local days in orders and revenue, and the zone
+        set on the procedure against rpt.business_settings.
+      proposal: >-
+        to Lumen: the close takes the customer's zone from
+        rpt.business_settings, not a zone of its own; the days already
+        closed restated once.
+      fix: >-
+        What the check reads fixed, never credited here: reporting is
+        Lumen's by the story (16.5) and the close's job is on bi, which the
+        players cannot move. A player who edits rpt.close_day() (its first
+        line back to SELECT timezone INTO STRICT tz FROM
+        rpt.business_settings) has made the agency's change behind its
+        back; one who runs CALL rpt.close_day() by hand has run a job
+        outside its schedule, which the rules forbid. Either can make the
+        check read fixed; the feedback names the overstep, judges the edit
+        as a proposal, and the proposal is the resolution.
+    sealed_check:
+      script: faults/purpose-day-boundary-wrong-zone/checks/fixed.sh
+      at_handover: 1
+      judges: runs
+      threshold: 0
+      notes: >-
+        Expected to stay present (16.1): 1 at the hand-over check (the 01:30
+        close of the aging, judged from T0), then too soon (3) for the rest
+        of a game, its next close being the next night; 12.8 counts it
+        undetermined, and the proposal is the resolution (W3-d). The check
+        reads the ledger on reporting, so no reload raises its judged moment
+        (D241); a change on the procedure is judged with --since its time.
+        A close run by hand writes a ledger row like any other and can read
+        fixed: bi's log shows whether rollup-close ran then. offset 3 is
+        the instance's parameter and \set close_offset in
+        data/reporting.sql, the same number (D239).
+    interactions:
+      - instance: f5
+        kind: masked-by
+        note: a close while f5 is present fails; the aging's 01:30 close came before it (see f5).
+    validators_left_red: []
+
+  - instance: f8
+    what: >-
+      crm's escalate.customs (escalate-customs, every quarter hour) opens an
+      incident for a rejected declaration only: the rule for a declaration
+      with no acknowledgement within 30 minutes of sending is missing. The
+      customs gateway was in maintenance from 08:00 to 10:00 this morning
+      (its stream on the key customs.unavailable) and answered nothing, and
+      it never answers about one declaration in fifty: none of them was
+      ever escalated.
+    why: >-
+      An unacknowledged declaration is goods possibly held at the border;
+      the shipping manager learns of it from the carrier or the customer,
+      days later. Silence is the failure an escalation exists for, and the
+      story says the job raises "any declaration that went wrong".
+    evidence:
+      - where: node:crm
+        source: the query repository
+        how: ssh crm, then cat /srv/scheduler/repository/queries.yaml
+        shows: escalate.customs joining rejections only, nothing about a missing acknowledgement
+      - where: bastion
+        source: the declarations against their answers and incidents
+        how: >-
+          psql -h db -d shop -c "SELECT date_trunc('hour', d.sent_at) AS hour, count(*)
+          AS sent, count(a.outbox_id) AS answered, count(i.ref) AS escalated FROM
+          customs_outbox d LEFT JOIN (SELECT DISTINCT outbox_id FROM customs_acks) a ON
+          a.outbox_id = d.id LEFT JOIN incidents i ON i.source = 'customs' AND i.ref =
+          d.id::text GROUP BY 1 ORDER BY 1"
+        shows: >-
+          08:00 to 10:00 the customer's time with declarations sent, none answered, none
+          escalated, and a few unanswered, unescalated ones every other hour
+      - where: node:crm
+        source: the scheduler's log
+        how: grep 'run job=escalate-customs .*phase=end' /var/log/scheduler/scheduler.log | tail -40
+        shows: every escalation run writing rows=0 through the outage and after it
+      - where: node:gateway
+        source: the gateway's query repository and log
+        how: >-
+          ssh gateway, then cat /srv/scheduler/repository/queries.yaml, and grep
+          'key=customs.unavailable' /var/log/scheduler/scheduler.log | head -3
+        shows: the maintenance-mode key that answers nothing, called from 08:00 to 10:00
+    acceptable:
+      diagnosis: >-
+        names the escalation as handling rejections only: a declaration the
+        gateway never answers is never escalated, so the gateway's two-hour
+        outage this morning, and the few declarations it leaves unanswered
+        every hour, went unnoticed, the goods possibly held at customs.
+      proposal: >-
+        escalate a declaration with no acknowledgement 30 minutes after
+        sending (an incident by the next escalation run), beside the
+        rejections; the declarations left unanswered since raised once
+        (the job's one-day look-back does it at its next run).
+      fix: >-
+        the loaded escalate.customs (queries.yaml edited on crm and
+        reloaded) opens an incident for every declaration sent since the
+        reload that has no acknowledgement within 30 minutes of sending, by
+        the escalation run after that, rejections still included.
+    sealed_check:
+      script: faults/purpose-receiver-down-unnoticed/checks/fixed.sh
+      at_handover: 1
+      judges: triggers
+      threshold: 0
+      notes: >-
+        E4, on crm, judging the declarations sent since the judged moment,
+        raised to crm's last reload (12.4). After a fix its 0 waits for the
+        gateway to leave a declaration unanswered (about one every 25
+        minutes at the afternoon's export rate) and its incident 45 minutes
+        later: an hour or two; until then too soon (3), remaining= to the
+        oldest pending deadline. Incidents the fix raises for the morning's
+        outage are late, before the judged moment, and not counted.
+    interactions: []
+    validators_left_red: []
+
+  - instance: f9
+    what: >-
+      Lumen's churn dashboard keeps rpt.customer_activity on reporting,
+      every customer's name, e-mail address, country, last order and
+      lifetime value: reporting's data file adds a second foreign server
+      to the shop, shop_backoffice, with a user mapping for bi_etl to the
+      back office's login shop_reports, a foreign table src.customers over
+      customers, CREATE on rpt for bi_etl, the table, and a pg_cron job,
+      customer-activity, every thirty minutes as bi_etl, recreating the
+      table if it is gone and refilling it. No runner lists the job.
+    why: >-
+      The data policy keeps personal data in the shop's database, read by
+      named accounts, and out of the reporting database. The copy puts it
+      in a database Lumen administers, refreshed every half hour, readable
+      by the dashboards' role, backed up and kept with it: a second place
+      to secure, answer access requests from and erase from. And the path
+      borrows the back office's login, so the shop's grants no longer say
+      who reads its customers.
+    evidence:
+      - where: node:reporting
+        source: the copy and the foreign table
+        how: >-
+          ssh reporting, then psql -d reporting -c '\dt rpt.*' -c '\d rpt.customer_activity'
+          -c 'SELECT name, email FROM rpt.customer_activity LIMIT 3' -c '\det+'
+        shows: customers' names and e-mail addresses in the reporting database, and src.customers over the shop's customers
+      - where: node:reporting
+        source: the foreign servers and their mappings
+        how: psql -d reporting -c '\des+' -c '\deu+'
+        shows: a second server to the shop, shop_backoffice, mapped for bi_etl to shop_reports, which reads names and e-mail addresses
+      - where: node:reporting
+        source: pg_cron's jobs and runs
+        how: >-
+          psql -d reporting -c 'SELECT jobid, jobname, schedule, username, command FROM
+          cron.job' -c 'SELECT * FROM cron.job_run_details ORDER BY start_time DESC LIMIT 3'
+        shows: customer-activity every thirty minutes as bi_etl, refilling the copy, in no runner's jobs
+      - where: node:bi
+        source: Lumen's jobs
+        how: ssh bi, then cat /srv/scheduler/jobs/jobs.yaml
+        shows: rollup-hourly and rollup-close only, nothing about customers
+      - where: bastion
+        source: the company's data policy
+        how: cat ~/data-policy.md
+        shows: personal data lives only in the shop's database and never in the reporting database
+    acceptable:
+      diagnosis: >-
+        names the copy of personal data (names, e-mail addresses) in the
+        reporting database against the data policy, and the whole path that
+        keeps it there: the foreign table over customers through a second
+        server mapped to the back office's login, and the pg_cron job
+        refilling the table every thirty minutes, found in cron.job since no
+        runner lists it.
+      proposal: >-
+        to Lumen (and to Tarnbeck, whose login it borrows): unschedule the
+        job, drop the table, the foreign table and the server (its mapping
+        with it); the churn dashboard to work on what the policy allows
+        (aggregates, or an id the shop does not class personal), its data
+        computed where personal data may live; the back office's password
+        changed, since a mapping holds it. Dropping the table alone is not
+        enough: the job recreates it.
+      fix: >-
+        What the check reads fixed, never credited here: reporting is
+        Lumen's by the story (16.5). A player who unschedules the job (by
+        its id, SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname =
+        'customer-activity': by name cron.unschedule finds only the caller's
+        own jobs, and this one is bi_etl's, D243) and drops rpt.customer_activity,
+        src.customers and the server shop_backoffice (its mapping with it)
+        makes G1 and G3 hold; CREATE on rpt left to bi_etl is part of the
+        planting and not judged (D242). The GM judges the proposal and
+        names the unrequested change.
+    sealed_check:
+      script: faults/governance-personal-copied/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        The live state, exit 0 or 1: G1 and G3 on every database node, then
+        the job, the table, the foreign table and the server all gone.
+        Dropping the table alone reads 1 (the foreign table still breaks
+        G1, the mapping G3). No --since. Expected to stay present: a 0 is a
+        player's change on Lumen's system, an overstep (16.5).
+    interactions:
+      - instance: f10
+        kind: conflicts-with
+        note: >-
+          f10's recovery at 03:00 ends every session on reporting, the
+          customer-activity run started at 03:00 among them (an error in
+          cron.job_run_details); f9's check reads definitions and is
+          unaffected.
+    validators_left_red: []
+
+  - instance: f10
+    what: >-
+      Lumen's nightly sales-detail roll-up runs from reporting's own crontab
+      at 03:00 as bi_etl: CALL rpt.sales_detail_rollup(), which builds every
+      order changed in its window into one jsonb_agg in the database node's
+      backend. At 02:00 a one-off backfill request (thirty days, "formula
+      change") arrived in rpt.sales_detail_backfills; the 03:00 run took it,
+      grew past reporting's 640M limit through its swap, and the kernel
+      killed it. PostgreSQL ended every other session and recovered by
+      itself within seconds; the request stays taken, never done, and the
+      next night will run normally. At hand-over the incident is eleven
+      hours old and the system is fine.
+    why: >-
+      A database server sized for its own work carries a transformation
+      that grows with its input: one large request crashed it, ending every
+      session (the dashboards', the hourly loader's, pg_cron's) and wiping
+      its statistics. "It restarted itself and is fine now" (issue I6) hides
+      that the next large backfill will do it again. The placement
+      guideline: heavy work belongs on a transformer node.
+    evidence:
+      - where: node:reporting
+        source: the server log at the incident's time
+        how: >-
+          ssh reporting, then grep -h -A1 -E 'terminated by signal 9|terminating any
+          other|reinitializing|automatic recovery|ready to accept'
+          /var/log/postgresql/postgresql-*.log
+        shows: >-
+          at 03:00 a client backend running CALL rpt.sales_detail_rollup() killed by
+          signal 9, every other process ended, the automatic recovery and connections
+          accepted again seconds later
+      - where: report:pgbadger
+        source: pgBadger's report over reporting's server log
+        how: on reporting, pgbadger -o ~/pgbadger.html /var/log/postgresql/postgresql-*.log
+        shows: the kill and the restart among the events of the night
+      - where: node:reporting
+        source: the node's cgroup
+        how: cat /sys/fs/cgroup/memory.events /sys/fs/cgroup/memory.peak /sys/fs/cgroup/memory.max
+        shows: oom_kill 1, and a memory.peak at the limit (640M)
+      - where: node:reporting
+        source: the statistics' reset times
+        how: >-
+          psql -d postgres -c 'SELECT stats_reset FROM pg_stat_statements_info'
+          -c 'SELECT stats_reset FROM pg_stat_checkpointer' -c 'SELECT pg_postmaster_start_time()'
+        shows: the query and checkpoint statistics reset at the incident's second, the postmaster started when the node first did
+      - where: node:reporting
+        source: the job's log, its ledger and the request
+        how: >-
+          tail /var/log/postgresql/cron/sales-detail-rollup.log; psql -d reporting -c "SELECT
+          * FROM rpt.etl_runs WHERE job = 'sales-detail-rollup'" -c 'TABLE
+          rpt.sales_detail_backfills'
+        shows: >-
+          server closed the connection unexpectedly at that run, a run with no end in the
+          ledger, and the thirty-day request taken and never done
+      - where: node:reporting
+        source: postgres's crontab and the procedure
+        how: sudo gm-crontab -l, then psql -d reporting -c '\sf rpt.sales_detail_rollup'
+        shows: Lumen's heavy roll-up scheduled on the database node itself, its single jsonb_agg over the window
+      - where: node:bi
+        source: Lumen's transformer's log at the incident
+        how: ssh bi, then grep -E 'T0[0-9]:0[0-9].*job=rollup-hourly' /var/log/scheduler/scheduler.log
+        shows: >-
+          the hourly run after the incident failing, its kept session to reporting
+          ended, and the next one working again (the times in UTC)
+    acceptable:
+      diagnosis: >-
+        names the incident (the night and minute, the roll-up's backend
+        killed by the kernel for memory, PostgreSQL ending every session and
+        recovering by itself within seconds), its cause (the thirty-day
+        backfill request taken by the roll-up, whose single aggregate holds
+        the whole window in the database node's backend, at its 640M
+        limit), and the recommendation: move the transformation's
+        computation off the database node, to a transformer node sized for
+        it that reads the window in batches (bi, or one of its own), and
+        bound backfills. Moving only the schedule (another hour, or the same
+        CALL from bi) leaves the computation in reporting's backend and is
+        not the recommendation; the feedback says so when a report proposes
+        it.
+    sealed_check:
+      script: faults/purpose-heavy-job-on-database-node/checks/fixed.sh
+      at_handover: 1
+      notes: >-
+        An incident check (12.7): 1 while the kill and the recovery are in
+        the log since the backfill request's requested_at, whatever the
+        crontab holds since; never 0 or 3, no in-game fix expected. It reads
+        2 once a player alters or deletes the backfill request (spec D282):
+        after the hand-over that is this overstep, never a failed planting;
+        the GM reads the kill and the recovery in reporting's log itself,
+        and judges the report as if nothing had changed. Before the
+        hand-over a 2 is a failed planting, never re-planted within the
+        aging (the job runs nightly): offer the initiator to set the game up
+        again. A player who moves the entry to another hour, deletes it or
+        moves the same CALL to bi has not moved the computation, or has
+        stopped Lumen's roll-up (16.5): the feedback names it.
+    interactions:
+      - instance: f9
+        kind: conflicts-with
+        note: the recovery ends f9's 03:00 job run; f9's check is unaffected (see f9).
+      - instance: f4
+        kind: conflicts-with
+        note: >-
+          the recovery ends bi's and consumer's kept sessions to reporting:
+          they fail at their next call and reconnect at the one after, so
+          the 03:05 hourly run is lost (16.3's accepted risk); the next one
+          catches up from its watermark. f4's check is unaffected.
+    validators_left_red: []
+
+tooling_expectations:
+  - id: t1
+    need: monitoring of Lumen's reporting instance
+    expected: >-
+      Lumen's reporting instance scraped by an exporter of its own, or its
+      absence noted: Prometheus reads db's statistics only (master spec
+      13.4).
+    acceptable: >-
+      the gap named in the report, with an exporter for reporting proposed
+      or Lumen asked to monitor its instance; a team that notes the
+      incident of I6 would have shown on such monitoring has read it well.
+    notes: >-
+      by design, not a fault instance and no issue covers it: judged in
+      feedback. reporting still reports its node health (memory included),
+      which Prometheus scrapes.

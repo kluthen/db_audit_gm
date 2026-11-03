@@ -1,0 +1,6 @@
+# Crontab of the shop's database server (OS user postgres): the web shop's
+# best-sellers list, popular_products, refreshed every hour, the job's
+# output appended to its log. PGPASSFILE holds the passwords of the roles a
+# job may connect as.
+PGPASSFILE=/run/gm-cron/pgpass
+17 * * * * psql -X -w -h /run/postgresql -d shop -c "REFRESH MATERIALIZED VIEW popular_products" >> /var/log/postgresql/cron/popular-products.log 2>&1

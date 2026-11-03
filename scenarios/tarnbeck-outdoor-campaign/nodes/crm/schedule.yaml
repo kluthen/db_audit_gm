@@ -1,0 +1,15 @@
+# Schedule of the crm machine: its two connections to the shop's database;
+# no traffic of its own (it runs fixed-time jobs only).
+intensity: 1.0
+connections:
+  shop_crm:                    # the win-back campaign and the mailing
+    driver: sql/postgresql
+    target: db:5432/shop
+    role: shop_crm
+    pool: {size: 1}
+  shop_customs:                # the export declarations and the escalations
+    driver: sql/postgresql
+    target: db:5432/shop
+    role: shop_customs
+    pool: {size: 1}
+streams: []

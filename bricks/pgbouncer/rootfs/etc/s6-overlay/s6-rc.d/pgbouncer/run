@@ -8,5 +8,89 @@
 # gm-reload-pgbouncer). Its log: /var/log/pgbouncer/.
 # Stopped with SIGQUIT (down-signal): an immediate shutdown, since SIGTERM
 # makes PgBouncer wait for every client to leave.
+#
+# Before PgBouncer starts, a bounded wait (WAIT seconds) until every host a
+# `host=` of the [databases] section names resolves (`getent ahosts`; a
+# socket path skipped): PgBouncer's resolver (c-ares) started before its
+# database node's name exists can keep failing on that name long after it
+# resolves (v0.4 spec D305). PgBouncer starts once they all resolve, or at
+# the bound whether they do or not, so a name that never resolves never
+# keeps the node down. The wait and its outcome go to this service's
+# output (the container's log).
 exec 2>&1
-exec /command/s6-setuidgid pgbouncer /usr/sbin/pgbouncer /run/pgbouncer-conf/pgbouncer.ini
+CONF=/run/pgbouncer-conf/pgbouncer.ini
+WAIT=30
+
+say() { printf 'pgbouncer-run: %s\n' "$*"; }
+
+# The hosts of [databases], one a line, each once: every `host=` value of
+# every entry (a comma-separated list split), quoted or not; a socket
+# directory (/...) or an abstract socket (@...) left out.
+hosts=$(awk '
+    function trim(s) { sub(/^[ \t]+/, "", s); sub(/[ \t\r]+$/, "", s); return s }
+    /^[ \t]*\[/ {
+        s = $0; sub(/^[ \t]*\[/, "", s); sub(/\].*$/, "", s)
+        db = (tolower(trim(s)) == "databases"); next
+    }
+    !db || /^[ \t]*([;#]|$)/ { next }
+    {
+        line = $0
+        if (line ~ /^[ \t]*"/) { sub(/^[ \t]*"[^"]*"/, "", line) }
+        if (index(line, "=") == 0) next
+        v = substr(line, index(line, "=") + 1)
+        while (1) {
+            v = trim(v)
+            if (!match(v, /^[A-Za-z_][A-Za-z0-9_]*[ \t]*=[ \t]*/)) break
+            k = substr(v, 1, RLENGTH); sub(/[ \t]*=[ \t]*$/, "", k)
+            v = substr(v, RLENGTH + 1)
+            if (substr(v, 1, 1) == "\047") {
+                v = substr(v, 2); e = index(v, "\047")
+                if (e == 0) { val = v; v = "" } else { val = substr(v, 1, e - 1); v = substr(v, e + 1) }
+            } else {
+                match(v, /^[^ \t]*/); val = substr(v, 1, RLENGTH); v = substr(v, RLENGTH + 1)
+            }
+            if (tolower(k) != "host") continue
+            n = split(val, h, ",")
+            for (i = 1; i <= n; i++) {
+                x = trim(h[i])
+                if (x != "" && x !~ /^[\/@]/ && !(x in seen)) { seen[x] = 1; print x }
+            }
+        }
+    }
+' "$CONF" 2>/dev/null)
+
+unresolved() {  # the hosts that do not resolve now, space-separated
+    u=
+    ifs=$IFS
+    IFS='
+'
+    for h in $hosts; do
+        timeout 5 getent ahosts "$h" >/dev/null 2>&1 || u="$u $h"
+    done
+    IFS=$ifs
+    printf '%s' "${u# }"
+}
+
+if [ -n "$hosts" ]; then
+    list=$(printf '%s' "$hosts" | tr '\n' ' ')
+    list=${list% }
+    start=$(date +%s)
+    left=$(unresolved)
+    if [ -z "$left" ]; then
+        say "[databases] hosts resolve: $list"
+    else
+        say "waiting up to ${WAIT}s for [databases] hosts to resolve: $left"
+        while [ -n "$left" ] && [ $(($(date +%s) - start)) -lt "$WAIT" ]; do
+            sleep 1
+            left=$(unresolved)
+        done
+        took=$(($(date +%s) - start))
+        if [ -z "$left" ]; then
+            say "[databases] hosts resolve after ${took}s: $list"
+        else
+            say "still not resolving after ${took}s: $left; PgBouncer starts anyway"
+        fi
+    fi
+fi
+
+exec /command/s6-setuidgid pgbouncer /usr/sbin/pgbouncer "$CONF"

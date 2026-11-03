@@ -755,8 +755,8 @@ class V03Rendered(ScenarioCopyTest):
         fit.fit(self.scenario, "laptop", **SUFFICIENT)
         self.ldir = self.scenario / "local" / "laptop"
 
-    def render(self, handover=None):
-        self.result = render.render(self.scenario, "laptop", handover=handover)
+    def render(self, handover=None, **kwargs):
+        self.result = render.render(self.scenario, "laptop", handover=handover, **kwargs)
         self.impl = localimpl.read_implementation(self.ldir)
         self.gid = self.impl["game_id"]
         self.stack = yaml.safe_load((self.ldir / "stack.yml").read_text())
@@ -932,6 +932,35 @@ class TestRenderV03(V03Rendered):
                       "--handover", handover_at(16))
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("customer's time zone UTC-2 (Etc/GMT+2)", r.stdout)
+
+
+class TestTestLeaveOut(V03Rendered):
+    """Render's undocumented --test-leave-out (capture W4 item 8): the test
+    harness's override, recorded in implementation.yaml, the instances
+    left out of the timeline; their seed files rendered as ever."""
+
+    def test_recorded_and_left_out_of_the_timeline(self):
+        self.render(handover_at(16))
+        files = {p: p.read_bytes() for p in self.result.rendered_files}
+        self.render(handover_at(16), test_leave_out="f3, f2")
+        self.assertEqual(self.impl[localimpl.TEST_OVERRIDE]["leave_out"], ["f2", "f3"])
+        self.assertEqual(localimpl.left_out(self.impl), ["f2", "f3"])
+        self.assertEqual(list(self.impl["timeline"]["instances"]), ["f1"])
+        self.assertEqual({p: p.read_bytes() for p in self.result.rendered_files}, files)
+        self.assertIn("test harness: f2, f3 left out", self.result.text())
+        # a render without it records none
+        self.render(handover_at(16))
+        self.assertNotIn(localimpl.TEST_OVERRIDE, self.impl)
+        self.assertEqual(list(self.impl["timeline"]["instances"]), ["f1", "f2", "f3"])
+        self.assertNotIn("test harness", self.result.text())
+
+    def test_refusals(self):
+        for text in ("f9", "f1,f9", " , "):
+            with self.assertRaisesRegex(model.GmError, "--test-leave-out .*not a fault instance"):
+                self.render(handover_at(16), test_leave_out=text)
+
+    def test_undocumented(self):
+        self.assertNotIn("test-leave-out", run_gmctl("render", "--help").stdout)
 
 
 class TestWritePolicyAndSecrets(V03Rendered):

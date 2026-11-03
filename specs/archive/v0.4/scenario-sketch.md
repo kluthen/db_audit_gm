@@ -1,3 +1,5 @@
+> **Archived 2026-11-03.** v0.4 was released on 2026-11-03; this draft was consolidated into the master spec on 2026-10-30 and kept since as the working record, superseded where the master spec differs. Live summary: [v0.4 master spec](../../versions/v0.4/master-spec.md). Relative links were written from `specs/versions/v0.4/`: `governance.md`, `purpose-catalogue.md`, `shop-domain.md`, `candidate-faults.md`, `master-spec.md` and `README.md` stay in `../../versions/v0.4/`, `../README.md` is `../../versions/README.md` and `../v0.5/` is `../../versions/v0.5/`; links between the drafts archived here (`purposes.md`, `checks.md`, `database-node-jobs.md`, `scenario-sketch.md`) and those starting `../../` still resolve.
+
 # v0.4 — a first scenario sketch
 
 Status: draft v6 (a sketch on the settled purposes, D197, the

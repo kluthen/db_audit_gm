@@ -19,7 +19,7 @@ too.
 - **Your home**, `/home/player`: notes, scripts, `~/report.md`.
 - **The database** itself, through `psql` as `dba`.
 - **The node's crontab**, if the node runs a cron daemon, through `sudo
-  gm-crontab` (see "Scheduled jobs").
+  gm-crontab` (see "The cron daemon").
 
 Changes to `/etc/postgresql` stay in place when PostgreSQL restarts.
 
@@ -59,11 +59,15 @@ on the server and what they cost.
 
 ## Scheduled jobs
 
-A database node may run jobs of its own, in two ways. Whether this one
-does is part of what you find out.
+A database node may run jobs of its own, in two ways, `pg_cron` and a
+cron daemon (below). Whether this one does is part of what you find out.
+A job on the database node shares the node's memory and CPU with
+PostgreSQL.
 
-**`pg_cron`**, an extension that runs SQL on a schedule inside
-PostgreSQL. It is on when the configuration preloads it
+## `pg_cron`
+
+An extension that runs SQL on a schedule inside PostgreSQL. It is on
+when the configuration preloads it
 (`shared_preload_libraries` lists `pg_cron`) and the extension exists
 (`\dx` in the database `cron.database_name` names). As `dba`:
 
@@ -78,8 +82,10 @@ PostgreSQL. It is on when the configuration preloads it
 Schedules are read in `cron.timezone`. A job runs as its role, with no
 password.
 
-**A cron daemon**, Debian's `cron`, running the crontab of the operating
-system user `postgres`. When the node runs one, `ps -e` shows `cron`.
+## The cron daemon
+
+Debian's `cron`, running the crontab of the operating system user
+`postgres`. When the node runs one, `ps -e` shows `cron`.
 
 | Command | Does |
 |---|---|
@@ -96,9 +102,6 @@ convention a file in `/var/log/postgresql/cron/`, which you can read.
 On a node without a cron daemon, `sudo gm-crontab <file>` refuses: nothing
 would run it.
 
-A job on the database node shares the node's memory and CPU with
-PostgreSQL.
-
 ## Applying changes
 
 You may run exactly four commands with `sudo`; the first three take no
@@ -109,7 +112,7 @@ arguments:
 | `sudo gm-reload-db` | Reloads the configuration, then lists what PostgreSQL found wrong in the files, including settings that need a restart. |
 | `sudo gm-restart-db` | Checks that the configuration loads, then restarts PostgreSQL. It refuses to restart if the files do not load, so a typo does not take the server down. Your SSH session stays open. |
 | `sudo gm-validate` | Runs the public validator. |
-| `sudo gm-crontab -l`, `sudo gm-crontab <file>` | Lists or replaces the node's crontab (see "Scheduled jobs"). |
+| `sudo gm-crontab -l`, `sudo gm-crontab <file>` | Lists or replaces the node's crontab (see "The cron daemon"). |
 
 ## The validator
 

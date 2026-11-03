@@ -1,0 +1,16 @@
+# Grafana's data source, read from /etc/grafana/provisioning/datasources/ at
+# start and on `sudo gm-reload-grafana`. The URL names the Prometheus
+# machine.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090/prometheus
+    isDefault: true
+    editable: false          # the file is the source of truth: fix it here, then reload
+    jsonData:
+      httpMethod: POST
+      timeInterval: 15s
