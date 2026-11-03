@@ -3305,3 +3305,23 @@ wait, counted as 17a's cycles run; f4's after-midnight reading not
 observed; **17a's two-host run not run**. Relayed to 17a's owner: clean
 teardown, finish the checks, one commit, merge into `v0.4-w4`.
 `spec-writer` records the ruling and revises chunk 17's text.
+
+### D310, O161, plan v13 (783eca7), 2026-11-03
+
+`spec-writer`: **D310** (17a done: cycles aborted at f4's midnight wait,
+54/0; no two-host run; unproven: f4's after-midnight steps, every fault
+at once on two hosts; still release gate items 8 and 9, master spec 18
+items 1–2, unchanged). **O161** (open): the owner, ~07:45 UTC, "we may do
+the 2 host testing later tonight (report it maybe to the end of v0.6
+prior tagging v1.0" — the remaining two-host runs (17b's rehearsal, the
+wave gate's two-host `smoke-load.sh`, release gate items 8 and 12,
+17a's skipped smoke run) tonight, or moved to the end of v0.6; proposal:
+tonight if possible, else the owner rules the move and the release gate
+names what is unproven. Chunk 17's text revised (Depends on, 17a's
+scope, Done when, Verification). Questions raised with O161: whether the
+release gate repeats items 8 and 9, and what the wave gate's "chunk 17's
+runs" covers now.
+
+Driver's plan, told to the owner: today the wave gate's armenelos-only
+parts; tonight, if connected, 17b, the wave gate's two-host run and the
+two-host smoke; otherwise the owner rules O161.
