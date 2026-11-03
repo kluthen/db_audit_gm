@@ -697,3 +697,19 @@ advice settles one point W1 left to chunk 3: `vault-post` is written in
 Perl with core `HTTP::Tiny` (no package added). Its seven preflight
 corrections go to `spec-writer` before chunk 1's branch is cut; it has
 no question for the owner.
+
+### Plan revision before chunk 1, 2026-11-03
+
+`spec-writer` applied W1's seven corrections and G5's and G6's results:
+build plan v2 (99ecd28), spec D344 (producer fragments in
+`producers/<node>/`, the shop's in `producers/producer/`), D345
+(`api.yaml`; chunk 3 derives the `api` nodes' roles from it and skips
+`driver: http`), D346 (`GM_OPTIONS: monitoring` in the hand-written
+stack files, chunk 1), D347 (the HTTP credential fixed by W1; W2 keeps
+the mounts), D348 (chunks 9 and 11 **cut** once chunk 6 has merged, not
+merge order only: W1's correction 5 replaced), D349 (`api` a node role),
+D350 (the reserved names), D351 (chunks 3 and 5 under G5's and G6's
+conditions; the PyPI source listed under "Pending with the owner").
+No W1 item to amend; no owner question. Left for W2: whether chunk 7
+reads the partners' aliases from `third_parties:` or from their
+`api.yaml` hosts (chunk 6 checks the two agree).

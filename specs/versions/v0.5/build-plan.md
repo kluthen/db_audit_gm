@@ -406,7 +406,7 @@ chunk 11's shared nodes:
 
 ### Chunk 1 — Versions, declarations and re-pins
 
-Status: planned
+Status: in progress (w1)
 Wave: 1
 Depends on: G1; G3, G4 (the images at their new tags)
 Architecture capture: recorded by the wave driver at wave 1's start
