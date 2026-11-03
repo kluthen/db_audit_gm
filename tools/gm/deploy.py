@@ -10,7 +10,9 @@ capture W2-A, the Python interface by capture W2-B. In order:
    `local/<playground>/secrets/` (directory 0700, files 0600; never
    printed; v0.2 capture W1, item 7), with the `role_<role>_password` of
    each role a scheduler's schedule or a node's `crontab_roles` names
-   (v0.3 capture W1 item 7, v0.4 W1 item 8), once per role per game;
+   (v0.3 capture W1 item 7, v0.4 W1 item 8), once per role per game; from
+   v0.5 (capture W1 item 6) the game's TLS certificate and key, made with
+   the host's `openssl` as `ssh-keygen` makes the key pairs;
 3. every config and secret of `implementation.yaml` is created, named after
    the game id and labelled with it (the stack file refers to them as
    external, spec D46);
@@ -78,6 +80,13 @@ PLAYER_PASSWORD_LENGTH = 16
 DBA_PASSWORD_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 DBA_PASSWORD_LENGTH = 32
 SSH_KEYGEN = "ssh-keygen"
+OPENSSL = "openssl"
+# The game's TLS certificate (v0.5 capture W1 item 6): self-signed, a P-256
+# key, valid a year, naming every `postgres` node and localhost. Nothing
+# verifies a host name in v0.5; an expiry inside a game is a fault to plant.
+CERTIFICATE_DAYS = 365
+CERTIFICATE_LOCALHOST = "localhost"
+CERTIFICATE_BRICK = "postgres"
 # The overlays of gmctl's games on several hosts (capture W3-a, item 1): by
 # default 256 /24s that neither host's networks nor routes use; the range in
 # force is the playground's or one run's (capture W3-b, D183).
@@ -368,24 +377,58 @@ def ssh_keygen(private_path, comment):
         raise GmError(f"ssh-keygen failed: {' '.join(proc.stderr.split())}")
 
 
-def generate_credentials(ldir, impl, keygen=ssh_keygen):
+def certificate_names(impl):
+    """The names the game's certificate holds: every `postgres` node's,
+    in topology order, then localhost (capture W1 item 6)."""
+    names = [name for name, node in impl["nodes"].items()
+             if (node.get("brick") or {}).get("id") == CERTIFICATE_BRICK]
+    return names + [CERTIFICATE_LOCALHOST]
+
+
+def openssl_certificate(certificate_path, key_path, names):
+    """A self-signed certificate at `certificate_path` and its unencrypted
+    P-256 key at `key_path`: subject CN the first name, every name a DNS
+    subject alternative name, valid CERTIFICATE_DAYS days from now."""
+    if shutil.which(OPENSSL) is None:
+        raise GmError("openssl is not installed on this host: it is needed for the game's "
+                      "TLS certificate")
+    san = ",".join(f"DNS:{n}" for n in names)
+    proc = subprocess.run([OPENSSL, "req", "-x509", "-newkey", "ec", "-pkeyopt",
+                           "ec_paramgen_curve:prime256v1", "-nodes", "-sha256",
+                           "-days", str(CERTIFICATE_DAYS), "-subj", f"/CN={names[0]}",
+                           "-addext", f"subjectAltName={san}",
+                           "-keyout", str(key_path), "-out", str(certificate_path)],
+                          stdin=subprocess.DEVNULL, capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise GmError(f"openssl failed to make the game's certificate: "
+                      f"{' '.join(proc.stderr.split())}")
+
+
+def generate_credentials(ldir, impl, keygen=ssh_keygen, certgen=openssl_certificate):
     """Fresh per-game secrets in `secrets/` (directory 0700, files 0600),
     by kind (v0.2 capture W1, item 7), for every secret of the
     implementation: a password, handed over (16 characters, the players'
     alphabet) or not (32, the dba alphabet), writes `<name>`; a key pair
     (ed25519, no passphrase) writes `<pair>` and `<pair>.pub`, once however
-    many halves are declared. Returns the paths written."""
+    many halves are declared; a certificate (v0.5 W1 item 6) writes
+    `<pair>.crt` and `<pair>.key`, once, naming certificate_names. Returns
+    the paths written."""
     sdir = localimpl.secrets_dir(ldir)
     sdir.mkdir(mode=0o700, parents=True, exist_ok=True)
     os.chmod(sdir, 0o700)
-    passwords, pairs = {}, []
+    passwords, pairs, certificates = {}, [], []
     for sec in impl["secrets"]:
         if sec["kind"] == localimpl.PASSWORD:
             passwords[sec["secret"]] = sec.get("handed_over") is True
+        elif sec["kind"] == localimpl.CERTIFICATE:
+            if sec["pair"] not in certificates:
+                certificates.append(sec["pair"])
         elif sec["pair"] not in pairs:
             pairs.append(sec["pair"])
     files = [sdir / name for name in passwords]
-    files += [sdir / f for pair in pairs for f in (pair, pair + localimpl.PUBLIC_KEY_SUFFIX)]
+    files += [sdir / f for pair in pairs for f in localimpl.pair_files(localimpl.KEY_PAIR, pair)]
+    files += [sdir / f for pair in certificates
+              for f in localimpl.pair_files(localimpl.CERTIFICATE, pair)]
     for path in files:
         if path.exists():
             path.unlink()
@@ -398,6 +441,9 @@ def generate_credentials(ldir, impl, keygen=ssh_keygen):
     # ssh-keygen writes the private key 0600 inside the 0700 directory.
     for pair in pairs:
         keygen(sdir / pair, f"{impl['game_id']}-{pair}")
+    for pair in certificates:
+        crt, key = localimpl.pair_files(localimpl.CERTIFICATE, pair)
+        certgen(sdir / crt, sdir / key, certificate_names(impl))
     for path in files:
         if not path.is_file():
             raise GmError(f"secret file {path.name} was not written")

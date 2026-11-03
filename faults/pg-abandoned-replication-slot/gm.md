@@ -15,8 +15,9 @@ production.
 the primary; a backup or replication tool tested once and removed.
 
 **What a good answer says.** The slot, that it is inactive and that no
-standby exists (`pg_stat_replication` empty; the topology has one
-database node), the WAL it holds, and the outcome (disk full). The fix:
+standby uses it (`pg_stat_replication` empty, or, in a topology with a
+standby, showing only the standby's own slot's sender), the WAL it
+holds, and the outcome (disk full). The fix:
 `SELECT pg_drop_replication_slot('<slot>')` after confirming nothing uses
 it. A better answer adds `max_slot_wal_keep_size` as a safety net, and
 monitoring of inactive slots and of `pg_wal`'s size.
@@ -26,3 +27,12 @@ not drop the slot (it only invalidates it once it passes the limit): it is
 an improvement, not the fix.
 
 **Sealed check.** Present while a slot with that name exists.
+
+**With a standby** (v0.5, `postgres` 0.5.0's standby mode; master spec
+6.4). The precondition is an orphan slot: the scenario's `slot-name` is
+not the standby's own slot (its node name, `-` read as `_`: `standby`
+in the clinic). The players then see two physical slots, the standby's
+active with its sender streaming, the planted one inactive, and must
+tell them apart before dropping one: dropping the standby's slot is a
+wrong fix (the standby falls back on `pg_wal` and breaks once the
+segments it needs are recycled).

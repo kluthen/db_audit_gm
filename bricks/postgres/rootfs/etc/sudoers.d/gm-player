@@ -3,7 +3,10 @@
 # the first three with no arguments; gm-crontab with any, since sudo's
 # argument wildcards match spaces too: the wrapper itself accepts exactly
 # `-l` or one file and refuses anything else (capture W1 item 8). Nothing
-# else.
+# else. Installed by the image at /usr/local/lib/gm/accounts/sudoers-gm-player;
+# /etc/sudoers.d/gm-player links to the copy gm-entrypoint writes into
+# /run/gm-accounts at each start, except on a `no-access` node, which has no
+# player and no rules (v0.5 master spec 10.2).
 Defaults env_reset
 Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 Defaults !syslog

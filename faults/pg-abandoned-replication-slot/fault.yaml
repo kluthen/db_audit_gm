@@ -1,6 +1,7 @@
 # Catalog fault: an abandoned replication slot (master spec 15). A state
 # fault: a physical slot reserving WAL is created after the data load,
-# with no standby to consume it.
+# with no standby to consume it. v0.5 (master spec 6.4): the topology may
+# have a standby; the slot is then an orphan beside the standby's own.
 
 # --- Identity ---------------------------------------------------------
 id: pg-abandoned-replication-slot
@@ -14,7 +15,13 @@ applies_to:
   bricks:
     - id: postgres
       versions: ["0.1.0", "0.1.1", "0.2.0", "0.3.0", "0.4.0", "0.5.0"]
-  preconditions: []                 # the slot is abandoned: no standby in the topology
+  preconditions:                    # v0.5 (master spec 6.4): widened from "no standby in the
+                                    #   topology"
+    - >-
+      an orphan slot: no standby in the topology, or, beside a standby of
+      the node (postgres 0.5.0's standby mode), a slot-name other than the
+      standby's own slot (its node name, `-` read as `_`), so the standby's
+      slot stays active and the planted one is the only inactive one
 
 # --- How long its evidence takes -----------------------------------------
 aging:
@@ -47,7 +54,10 @@ evidence:
     how: >-
       psql -c 'SELECT * FROM pg_stat_replication'; psql -c 'SELECT slot_name,
       pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)) FROM pg_replication_slots'
-    shows: no standby connected; the WAL held back by the slot, growing with every write
+    shows: >-
+      no standby connected for that slot (with a standby, its own slot active
+      and its sender in pg_stat_replication, the planted one inactive); the
+      WAL held back by the slot, growing with every write
   - where: node
     source: the limit on slot retention
     how: psql -c 'SHOW max_slot_wal_keep_size'
@@ -67,7 +77,8 @@ resolutions:
     write_policies: [fixable]
 acceptance:
   diagnosis: >-
-    names the inactive slot with no standby behind it and its consequence:
+    names the inactive slot with no standby behind it (beside the
+    standby's own, active slot when there is one) and its consequence:
     every WAL segment written since its restart_lsn is kept, so pg_wal grows
     until the disk is full and the server stops.
   proposal: >-

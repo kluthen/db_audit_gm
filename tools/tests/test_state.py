@@ -104,8 +104,10 @@ class TestStatus(FittedGame):
             "    player_ssh_key.pub: public key of pair player_ssh_key",
             "    dba_password: password",
             "    tools_password: password, handed over",
-            "    monitoring_password: password",
             "    gm_check_password: password",
+            "    replication_password: password",
+            "    tls.crt: certificate tls",
+            "    tls.key: private key of certificate tls",
         ])
 
     def test_no_tools_password_line_without_a_web_front(self):

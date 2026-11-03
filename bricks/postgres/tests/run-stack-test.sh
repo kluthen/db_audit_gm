@@ -45,7 +45,31 @@
 #     oom_score_adj +300 (PG_OOM_ADJUST_* from the run script), the
 #     postmaster, s6, sshd and cron at 0; check-psql --node reaching the
 #     other node's instance as gm_check over the game network, both ways,
-#     db2 admitting only gm_check from it; the footprint at rest.
+#     db2 admitting only gm_check from it; the footprint at rest;
+#   - v0.5 (chunk 3a): rec, a primary whose seed turns TLS and pgaudit on,
+#     serving TLS with the game's certificate (made by gmctl deploy's own
+#     generator; verify-full against it, its fingerprint on the wire) and
+#     turning plain connections away; pgaudit writing its classes into the
+#     file log; no password in that log (initdb's roles before pgaudit is
+#     loaded, load-data's password session with pgaudit off, a canary
+#     showing what it would log otherwise); db (the option) and rec with the
+#     role monitoring, db2 (no option) without it or its secret; an unknown
+#     option refused; pdb, a `no-access` node: no player account, group
+#     membership, sudo rules, ~/.pgpass or SSH login, sshd and PostgreSQL
+#     up, gmctl's exec as postgres working; the image's G5 conditions; the
+#     footprint at rest;
+#   - v0.5 (chunk 3b): standby, cloned from rec the way load-data does it
+#     (inject's own SQL for the replication role and the wait), started
+#     while rec is down (the clone waits for it, bounded), then a readable,
+#     read-only standby streaming from its slot, seen in rec's
+#     pg_stat_replication, its password never in primary_conninfo nor in a
+#     log, still streaming in a new container; the hand-over snapshot on
+#     both, its temporary slot gone; rec's archive_command posting a
+#     switched segment to the vault stand-in with every header, a refusal
+#     and a short receipt failing honestly (the segment kept, the reason
+#     in the server log), then shipped on the retry; vault-post with no
+#     vault and with a bad usage; the nightly base backup moved to the next
+#     minute, posted once, whole.
 # Everything it creates is removed on exit, volumes included.
 #
 # Needs: a swarm manager (docker swarm init), the image built locally:
@@ -61,9 +85,18 @@ NET=${STACK}_net
 CLIENT=${STACK}-client
 LABEL=dbagm.test=chunk2-postgres
 SERVICE2=${STACK}_db2               # the node with jobs (chunk 4)
-CONFIGS="seed_postgresql_conf seed_pg_hba_conf envelopes seed_postgresql_jobs_conf seed_pg_hba_jobs_conf seed_crontab"
-SECRETS="player_ssh_pubkey dba_password monitoring_password gm_check_password pgbouncer_lookup_password role_cron_app_password"
+CONFIGS="seed_postgresql_conf seed_pg_hba_conf envelopes seed_postgresql_jobs_conf seed_pg_hba_jobs_conf seed_crontab seed_postgresql_v05_conf seed_pg_hba_v05_conf seed_pg_hba_partners_conf"
+CONFIGS="$CONFIGS seed_postgresql_standby_conf seed_crontab_v05 vault_standin"
+SECRETS="player_ssh_pubkey dba_password monitoring_password gm_check_password pgbouncer_lookup_password role_cron_app_password tls_certificate tls_key"
+SECRETS="$SECRETS replication_password http_vault_rec"
 VOLUMES="pgdata pgconf home gmstate pglog run cronspool pgdata2 pgconf2 home2 gmstate2 pglog2 run2 cronspool2"
+VOLUMES="$VOLUMES pgdata3 pgconf3 home3 gmstate3 pglog3 run3 cronspool3 pgdata4 pgconf4 home4 gmstate4 pglog4 run4 cronspool4"
+VOLUMES="$VOLUMES pgdata5 pgconf5 home5 gmstate5 pglog5 run5 cronspool5"
+REPO=$(cd "$HERE/../../.." && pwd)
+SERVICE3=${STACK}_rec               # the v0.5 primary: TLS, pgaudit, the option (chunk 3a)
+SERVICE4=${STACK}_pdb               # a no-access node (chunk 3a)
+SERVICE5=${STACK}_standby           # rec's standby (chunk 3b)
+VSERVICE=${STACK}_vault             # the vault's stand-in (chunk 3b)
 RSTACK=gmtest-pgr                 # the snapshot restored (chunk 4b)
 RSERVICE=${RSTACK}_db
 SSH_OPTS="-i /root/id -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o LogLevel=ERROR -o ConnectTimeout=10"
@@ -139,6 +172,19 @@ printf '%s' "$LOOKUP_PASSWORD" > "$tmp/pgbouncer_lookup_password"
 APP_PASSWORD="app-$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 ROLE_PASSWORD="C:$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')'q\\z"   # crontab role cron_app
 printf '%s' "$ROLE_PASSWORD" > "$tmp/role_cron_app_password"
+# The game's TLS pair, made by gmctl deploy's own generator (v0.5 capture W1
+# item 6): every postgres node's name and localhost.
+(cd "$REPO" && python3 -c 'import sys; from pathlib import Path; from tools.gm import deploy
+deploy.openssl_certificate(Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3:])' \
+    "$tmp/tls.crt" "$tmp/tls.key" db db2 rec standby pdb localhost) || { echo "no TLS pair" >&2; exit 2; }
+# The standby's replication role and the vault's credential (chunk 3b): the
+# first in secrets/ as gmctl deploy writes it, read by inject's own SQL.
+mkdir -p "$tmp/secrets"
+REPL_PASSWORD="R:$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+printf '%s' "$REPL_PASSWORD" > "$tmp/secrets/replication_password"
+VAULT_CREDENTIAL="V$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+printf '%s' "$VAULT_CREDENTIAL" > "$tmp/http_vault_rec"
+chmod 0644 "$tmp/tls.crt"
 
 docker config create -l "$LABEL" "${STACK}_seed_postgresql_conf" "$HERE/fixtures/postgresql.conf" >/dev/null
 docker config create -l "$LABEL" "${STACK}_seed_pg_hba_conf" "$HERE/fixtures/pg_hba.conf" >/dev/null
@@ -146,6 +192,16 @@ docker config create -l "$LABEL" "${STACK}_envelopes" "$HERE/fixtures/envelopes.
 docker config create -l "$LABEL" "${STACK}_seed_postgresql_jobs_conf" "$HERE/fixtures/postgresql-jobs.conf" >/dev/null
 docker config create -l "$LABEL" "${STACK}_seed_pg_hba_jobs_conf" "$HERE/fixtures/pg_hba-jobs.conf" >/dev/null
 docker config create -l "$LABEL" "${STACK}_seed_crontab" "$HERE/fixtures/crontab" >/dev/null
+docker config create -l "$LABEL" "${STACK}_seed_postgresql_v05_conf" "$HERE/fixtures/postgresql-v05.conf" >/dev/null
+docker config create -l "$LABEL" "${STACK}_seed_pg_hba_v05_conf" "$HERE/fixtures/pg_hba-v05.conf" >/dev/null
+docker config create -l "$LABEL" "${STACK}_seed_pg_hba_partners_conf" "$HERE/fixtures/pg_hba-partners.conf" >/dev/null
+docker secret create -l "$LABEL" "${STACK}_tls_certificate" "$tmp/tls.crt" >/dev/null
+docker secret create -l "$LABEL" "${STACK}_tls_key" "$tmp/tls.key" >/dev/null
+docker config create -l "$LABEL" "${STACK}_seed_postgresql_standby_conf" "$HERE/fixtures/postgresql-standby.conf" >/dev/null
+docker config create -l "$LABEL" "${STACK}_seed_crontab_v05" "$HERE/fixtures/crontab-v05" >/dev/null
+docker config create -l "$LABEL" "${STACK}_vault_standin" "$HERE/fixtures/vault-standin.pl" >/dev/null
+docker secret create -l "$LABEL" "${STACK}_replication_password" "$tmp/secrets/replication_password" >/dev/null
+docker secret create -l "$LABEL" "${STACK}_http_vault_rec" "$tmp/http_vault_rec" >/dev/null
 docker secret create -l "$LABEL" "${STACK}_player_ssh_pubkey" "$tmp/id.pub" >/dev/null
 docker secret create -l "$LABEL" "${STACK}_dba_password" "$tmp/dba_password" >/dev/null
 docker secret create -l "$LABEL" "${STACK}_monitoring_password" "$tmp/monitoring_password" >/dev/null
@@ -190,6 +246,23 @@ else
     docker service logs --tail 60 "$SERVICE2" 2>&1 || true
     exit 1
 fi
+for svc in "$SERVICE3" "$SERVICE4" "$SERVICE5"; do
+    if c=$(wait_healthy "" "$svc"); then
+        pass "v0.5: $svc deployed and healthy ($c)"
+    else
+        fail "$svc did not become healthy"
+        docker service ps --no-trunc "$svc" || true
+        docker service logs --tail 60 "$svc" 2>&1 || true
+        exit 1
+    fi
+done
+REC=$(db_container "$SERVICE3")
+PDB=$(db_container "$SERVICE4")
+SB=$(db_container "$SERVICE5")
+i=0
+while [ "$i" -lt 60 ] && [ -z "$(db_container "$VSERVICE")" ]; do sleep 2; i=$((i + 2)); done
+VAULT=$(db_container "$VSERVICE")
+[ -n "$VAULT" ] && pass "the vault's stand-in runs ($VAULT)" || { fail "the vault's stand-in did not start"; exit 1; }
 # What a data file and load-data would do on db2 (chunk 7's in a game): the
 # crontab role with its secret's password, the tables its jobs write, the
 # extension pg_cron and a job scheduled for the role. Done now, so that the
@@ -646,7 +719,7 @@ for v in pgdata pgconf home gmstate pglog cronspool; do
         --extract --file=- --numeric-owner --same-permissions --directory=/v < "$tmp/$v.tar" \
         || fail "extract $v into ${RSTACK}_$v"
 done
-DB2_REPLICAS=0 docker stack deploy --resolve-image never -c "$HERE/stack.test.yml" "$RSTACK" >/dev/null 2>&1
+DB2_REPLICAS=0 V05_REPLICAS=0 docker stack deploy --resolve-image never -c "$HERE/stack.test.yml" "$RSTACK" >/dev/null 2>&1
 if R=$(wait_healthy "" "$RSERVICE"); then
     pass "a fresh container on the restored volumes is healthy ($R)"
     rq() { docker exec -u postgres "$R" psql -XAtc "$1"; }
@@ -907,6 +980,291 @@ t1=$(date +%s)
 w=$(gm sh -c 'ls /run/gm | grep -c "^check-psql" || true')
 [ "$w" = 0 ] && pass "check-psql --node leaves no password file in /run/gm" || fail "password files left: $w"
 
+# --- v0.5: the image's G5 conditions (chunk 3a) -------------------------------------------
+w=$(gm sh -c 'dpkg-query -W -f "\${Version}" postgresql-18-pgaudit; echo " $(test -f /usr/lib/postgresql/18/lib/pgaudit.so && echo so)"' 2>&1)
+[ "$w" = "18.0-3.pgdg13+1 so" ] && pass "pgaudit pinned exactly, its library in place ($w)" || fail "pgaudit package: $w"
+w=$(gm sh -c 'dpkg --compare-versions "$(dpkg-query -W -f "\${Version}" libssl3t64)" ge 3.5.7-1~deb13u3 && dpkg-query -W -f "\${Version}" libssl3t64' 2>&1)
+[ -n "$w" ] && pass "libssl3t64 at or above the floor 3.5.7-1~deb13u3 ($w)" || fail "libssl3t64 floor"
+check "ssl-cert's snakeoil key and certificate deleted" gm sh -c 'test ! -e /etc/ssl/private/ssl-cert-snakeoil.key && test ! -e /etc/ssl/certs/ssl-cert-snakeoil.pem'
+
+# --- v0.5: TLS turned on by rec's seed (chunk 3a) --------------------------------------------
+rec() { docker exec -i "$REC" "$@"; }
+rec_pg() { docker exec -i -u postgres "$REC" psql -X -q -At -v ON_ERROR_STOP=1 -d postgres "$@"; }
+rec_tls() {  # rec_tls <password> <user> <sql>: over TLS, the game's certificate verified
+    docker exec -e PGPASSWORD="$1" "$CLIENT" psql "host=rec user=$2 dbname=postgres sslmode=verify-full sslrootcert=/k/tls.crt" -XAtc "$3"
+}
+w=$(rec_tls "$DBA_PASSWORD" dba "select ssl || ' ' || version from pg_stat_ssl where pid = pg_backend_pid()" 2>&1)
+case $w in "true TLSv1."*) pass "rec serves TLS, verify-full against the game's certificate for host rec ($w)" ;; *) fail "TLS to rec: $w" ;; esac
+served=$(docker exec "$CLIENT" sh -c 'openssl s_client -starttls postgres -connect rec:5432 </dev/null 2>/dev/null | openssl x509 -noout -fingerprint -sha256' 2>&1)
+made=$(openssl x509 -in "$tmp/tls.crt" -noout -fingerprint -sha256 2>&1)
+[ -n "$made" ] && [ "$served" = "$made" ] && pass "the certificate rec serves is the game's secret ($made)" || fail "served [$served], made [$made]"
+w=$(docker exec -e PGPASSWORD="$DBA_PASSWORD" "$CLIENT" psql "host=rec user=dba dbname=postgres sslmode=disable" -XAtc 'select 1' 2>&1)
+case $w in *"rejects connection"*|*"no encryption"*) pass "rec turns a plain connection away (hostssl only)" ;; *) fail "plain connection to rec: $w" ;; esac
+w=$(rec stat -c '%a %u:%g' /opt/gm/secrets/tls.key /opt/gm/secrets/tls.crt | tr '\n' ' ')
+[ "$w" = "440 0:102 444 0:0 " ] && pass "the key root:postgres 0440, the certificate root 0444" || fail "TLS secret modes: $w"
+w=$(gm_pg psql -XAtc 'show ssl' 2>&1)
+[ "$w" = off ] && pass "db: TLS available, off where the seed does not turn it on" || fail "db's ssl: $w"
+w=$(docker exec -e PGPASSWORD="$DBA_PASSWORD" "$CLIENT" psql "host=db user=dba dbname=postgres sslmode=require" -XAtc 'select 1' 2>&1)
+case $w in *"does not support SSL"*) pass "db refuses sslmode=require (server does not support SSL)" ;; *) fail "TLS to db: $w" ;; esac
+
+# --- v0.5: pgaudit turned on by rec's seed (chunk 3a) ----------------------------------------
+w=$(rec_pg -c 'show shared_preload_libraries' 2>&1)
+[ "$w" = "pg_stat_statements,pgaudit" ] && pass "rec preloads pgaudit ($w)" || fail "rec's preload: $w"
+w=$(rec_pg -c 'show pgaudit.log' 2>&1)
+[ "$w" = "ddl, role, write" ] && pass "pgaudit's classes from the seed ($w)" || fail "pgaudit.log: $w"
+rec_tls "$DBA_PASSWORD" dba "create table audit_probe (i int); insert into audit_probe values (1); create role audit_probe_role nologin; select 1" >/dev/null 2>&1 \
+    || fail "audited statements as dba"
+rec_log() { rec sh -c 'cat /var/log/postgresql/*.log'; }
+sleep 1
+for class in "DDL,CREATE TABLE" "WRITE,INSERT" "ROLE,CREATE ROLE"; do
+    n=$(rec_log | grep -c "AUDIT: SESSION,[0-9]*,[0-9]*,$class,")
+    [ "$n" -ge 1 ] && pass "pgaudit writes its class $class into the file log ($n line(s))" || fail "no AUDIT line for $class"
+done
+w=$(docker exec "$CLIENT" ssh $SSH_OPTS player@rec "grep -h 'AUDIT: SESSION' /var/log/postgresql/*.log | grep -c 'DDL,CREATE TABLE'" 2>&1)
+[ "$w" -ge 1 ] 2>/dev/null && pass "player reads pgaudit's lines in the file log" || fail "player reading the audit lines: $w"
+
+# --- v0.5: no password in the log pgaudit writes (G5) ----------------------------------------
+# load-data's own session (inject.password_sql: statement logging and pgaudit
+# off, a SCRAM verifier) setting a role's password from its secret.
+mkdir -p "$tmp/secrets"
+AUDIT_APP_PASSWORD="A:$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+printf '%s' "$AUDIT_APP_PASSWORD" > "$tmp/secrets/role_audit_app_password"
+rec_pg -c 'create role audit_app login' >/dev/null 2>&1 || fail "create audit_app"
+(cd "$REPO" && python3 -c 'import sys; from pathlib import Path; from tools.gm import inject
+sys.stdout.write(inject.password_sql(Path(sys.argv[1]), [("audit_app", "role_audit_app_password")]))' "$tmp") \
+    | docker exec -i -u postgres "$REC" psql -X -q -v ON_ERROR_STOP=1 -d postgres >/dev/null 2>"$tmp/audit-app.err" \
+    && pass "load-data's password session runs on rec" || fail "load-data's password session: $(cat "$tmp/audit-app.err")"
+w=$(rec_tls "$AUDIT_APP_PASSWORD" audit_app "select current_user" 2>&1)
+[ "$w" = audit_app ] && pass "audit_app logs in with its secret's password" || fail "audit_app: $w"
+# pgaudit 18.0 redacts a password in its own lines (<REDACTED>); PostgreSQL's
+# statement logging does not, which is what the guard turns off: a canary
+# shows both.
+CANARY="canary-$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+rec_pg -c "alter role audit_probe_role password '$CANARY'" >/dev/null 2>&1
+sleep 1
+n=$(rec_log | grep -c "$CANARY")
+w=$(rec_log | grep -c 'AUDIT: SESSION,[0-9]*,[0-9]*,ROLE,ALTER ROLE,,,alter role audit_probe_role password <REDACTED>')
+[ "$n" = 0 ] && [ "$w" -ge 1 ] && pass "pgaudit's role class logs a password's statement redacted (<REDACTED>)" \
+    || fail "pgaudit and a password: canary in $n line(s), redacted lines $w"
+CANARY2="canary-$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+rec_pg -c "set log_statement = 'ddl'" -c "alter role audit_probe_role password '$CANARY2'" >/dev/null 2>&1
+sleep 1
+n=$(rec_log | grep -c "$CANARY2")
+[ "$n" -ge 1 ] && pass "control: PostgreSQL's statement logging, which the guard turns off, logs a password in clear ($n line(s))" \
+    || fail "control: the statement-logging canary is not in the log ($n)"
+for v in DBA_PASSWORD MON_PASSWORD GMC_PASSWORD AUDIT_APP_PASSWORD; do
+    eval "pw=\$$v"
+    n=$(docker exec -e PW="$pw" "$REC" sh -c 'grep -rlF -e "$PW" /var/log/postgresql | wc -l' 2>&1)
+    [ "$n" = 0 ] && pass "rec's log holds no $v" || fail "rec's log holds $v ($n file(s))"
+done
+n=$(rec_log | grep -c 'SCRAM-SHA-256\$')
+[ "$n" = 0 ] && pass "rec's log holds no SCRAM verifier (load-data's session unaudited)" || fail "verifiers in the log: $n"
+
+# --- v0.5: the option monitoring (chunk 3a) ------------------------------------------------
+w=$(rec_tls "$MON_PASSWORD" monitoring "select pg_has_role(current_user, 'pg_monitor', 'member')" 2>&1)
+[ "$w" = t ] && pass "rec (option on): monitoring logs in over TLS with its secret, holds pg_monitor" || fail "rec's monitoring: $w"
+w=$(docker exec -u postgres "$J" psql -XAtc "select count(*) from pg_roles where rolname = 'monitoring'" 2>&1)
+[ "$w" = 0 ] && pass "db2 (no option): no role monitoring" || fail "db2's monitoring role: $w"
+check "db2 (no option): no monitoring_password mounted" docker exec "$J" test ! -e /opt/gm/secrets/monitoring_password
+w=$(docker service logs "$SERVICE2" 2>&1 | grep -c 'roles dba (option monitoring off)')
+[ "$w" -ge 1 ] && pass "db2's start-up log: roles dba (option monitoring off)" || fail "db2's initdb line: $w"
+w=$(docker run --rm --read-only --tmpfs /run --network none -e GM_OPTIONS="monitoring pgcluu" "$IMAGE" 2>&1); rc=$?
+case $rc:$w in 1:*"GM_OPTIONS names pgcluu, not an option of this brick"*) pass "an unknown option fails the container (exit 1)" ;; *) fail "unknown option: exit $rc: $w" ;; esac
+
+# --- v0.5: a no-access node, pdb (chunk 3a) -------------------------------------------------
+p_() { docker exec "$PDB" "$@"; }
+check "pdb: no player account (getent passwd)" sh -c "! docker exec $PDB getent passwd player"
+check "pdb: no player group" sh -c "! docker exec $PDB getent group player"
+w=$(p_ getent group pgconf 2>&1)
+case $w in pgconf:x:*:) pass "pdb: pgconf has no member ($w)" ;; *) fail "pdb's pgconf: $w" ;; esac
+check "pdb: no sudo rules for player (/etc/sudoers.d/gm-player absent)" sh -c "! docker exec $PDB test -e /etc/sudoers.d/gm-player"
+w=$(p_ sudo -l -U player 2>&1)
+case $w in *"unknown user"*) pass "pdb: sudo knows no player ($w)" ;; *) fail "pdb's sudo: $w" ;; esac
+w=$(docker exec "$CLIENT" ssh $SSH_OPTS player@pdb true 2>&1); rc=$?
+[ "$rc" -ne 0 ] && pass "pdb: SSH as player refused with the player's key (exit $rc)" || fail "pdb: SSH as player worked"
+check "pdb: no ~/.pgpass written" sh -c "! docker exec $PDB test -e /home/player/.pgpass"
+w=$(p_ sh -c '/command/s6-svstat -o up /run/service/sshd; /command/s6-svstat -o up /run/service/postgres' | tr '\n' ' ')
+[ "$w" = "true true " ] && pass "pdb: sshd and PostgreSQL up" || fail "pdb's services: $w"
+w=$(docker exec -u postgres "$PDB" psql -XAtc 'select current_user' 2>&1)
+[ "$w" = postgres ] && pass "pdb: gmctl's exec as postgres works (the daemon resolves the name)" || fail "pdb: exec as postgres: $w"
+w=$(docker exec -e PGPASSWORD="$DBA_PASSWORD" "$CLIENT" psql -h pdb -U dba -d postgres -XAtc 'select 1' 2>&1)
+case $w in *"rejects connection"*) pass "pdb: dba from the network rejected by its own pg_hba.conf" ;; *) fail "dba over TCP on pdb: $w" ;; esac
+w=$(docker service logs "$SERVICE4" 2>&1 | grep -c 'write policy no-access: no player account')
+[ "$w" -ge 1 ] && pass "pdb's start-up log names its write policy" || fail "pdb's log line: $w"
+check "db (fixable) keeps its player account" docker exec "$C" getent passwd player
+
+# --- v0.5: the standby, cloned as load-data does (chunk 3b) ------------------------------
+sb() { docker exec -i "$SB" "$@"; }
+sb_pg() { docker exec -i -u postgres "$SB" psql -X -q -At -v ON_ERROR_STOP=1 -d postgres "$@"; }
+py_sql() {  # py_sql <expression>: SQL from tools/gm/inject.py, as load-data writes it
+    (cd "$REPO" && python3 -c 'import sys; from pathlib import Path; from tools.gm import inject
+tmp = Path(sys.argv[1]); sys.stdout.write(eval(sys.argv[2]))' "$tmp" "$1")
+}
+w=$(sb_pg -c 'select pg_is_in_recovery()' 2>&1)
+[ "$w" = f ] && pass "standby before its clone: a cluster of its own, not in recovery" || fail "standby before the clone: $w"
+check "every postgres node's replication secret: rec and pdb mount it" sh -c "docker exec $REC test -s /opt/gm/secrets/replication_password && docker exec $PDB test -s /opt/gm/secrets/replication_password"
+m=$(sb stat -c '%a %U:%G' /run/gm-replication/pgpass 2>&1)
+[ "$m" = "600 postgres:postgres" ] && pass "standby: the replication password file /run/gm-replication/pgpass, postgres 0600" || fail "standby's pgpass: $m"
+rec_pg -c 'create table repl_probe (i int); insert into repl_probe values (1)' >/dev/null 2>&1 || fail "repl_probe on rec"
+py_sql 'inject.replication_sql(tmp, "standby")' | docker exec -i -u postgres "$REC" psql -X -q -v ON_ERROR_STOP=1 -d postgres >/dev/null 2>"$tmp/repl.err" \
+    && pass "rec: the replication role set by load-data's SQL (inject.replication_sql)" || fail "replication role: $(cat "$tmp/repl.err")"
+w=$(rec_pg -c "select rolreplication || ' ' || rolcanlogin || ' ' || rolsuper from pg_roles where rolname = 'replicator'" 2>&1)
+[ "$w" = "true true false" ] && pass "replicator: LOGIN REPLICATION, not superuser" || fail "replicator: $w"
+# The start-up race (spec D305): the clone starts while its primary is down
+# and waits for it, bounded; rec comes back a few seconds later.
+docker service scale -d "$SERVICE3=0" >/dev/null 2>&1
+i=0
+while [ "$i" -lt 60 ] && [ -n "$(db_container "$SERVICE3")" ]; do sleep 1; i=$((i + 1)); done
+[ -z "$(db_container "$SERVICE3")" ] && pass "rec scaled to 0 before the clone starts" || fail "rec still running"
+( docker exec "$SB" /usr/local/lib/gm/clone-standby > "$tmp/clone.out" 2> "$tmp/clone.err"; echo $? > "$tmp/clone.rc" ) &
+clone_pid=$!
+sleep 8
+docker service scale -d "$SERVICE3=1" >/dev/null 2>&1
+REC=$(wait_healthy "" "$SERVICE3") || fail "rec did not come back"
+i=0
+while [ "$i" -lt 300 ] && [ ! -s "$tmp/clone.rc" ]; do sleep 2; i=$((i + 2)); done
+wait "$clone_pid" 2>/dev/null
+rc=$(cat "$tmp/clone.rc" 2>/dev/null)
+[ "$rc" = 0 ] && pass "clone-standby exit 0 ($(tr '\n' ';' < "$tmp/clone.out"))" || fail "clone-standby: exit $rc: $(cat "$tmp/clone.err")"
+w=$(sed -n 's/.*primary rec answers (after \([0-9]*\)s).*/\1/p' "$tmp/clone.out")
+[ -n "$w" ] && [ "$w" -ge 4 ] && pass "the clone waited for its primary, bounded (${w}s)" || fail "the clone's wait: [$w]"
+w=$(py_sql 'inject.streaming_sql("standby", 60)' | docker exec -i -u postgres "$REC" psql -X -q -A -t -v ON_ERROR_STOP=1 -d postgres 2>&1 | tail -n 1)
+case $w in *'"state" : "streaming"'*) pass "rec: load-data's wait sees the slot standby's sender streaming ($w)" ;; *) fail "streaming wait: $w" ;; esac
+w=$(rec_pg -c "select r.application_name || ' ' || r.state || ' ' || s.slot_name || ' ' || s.active from pg_stat_replication r join pg_replication_slots s on s.active_pid = r.pid" 2>&1)
+[ "$w" = "standby streaming standby true" ] && pass "rec's pg_stat_replication: standby streaming from its slot standby ($w)" || fail "pg_stat_replication: $w"
+w=$(sb_pg -c "select pg_is_in_recovery() || ' ' || current_setting('hot_standby') || ' ' || current_setting('hot_standby_feedback')" 2>&1)
+[ "$w" = "true on on" ] && pass "standby in recovery, hot_standby and hot_standby_feedback on" || fail "standby settings: $w"
+rec_pg -c 'insert into repl_probe values (2)' >/dev/null 2>&1
+i=0
+while [ "$i" -lt 30 ] && [ "$(sb_pg -c 'select count(*) from repl_probe' 2>/dev/null)" != 2 ]; do sleep 1; i=$((i + 1)); done
+w=$(docker exec -e PGPASSWORD="$DBA_PASSWORD" "$CLIENT" psql "host=standby user=dba dbname=postgres sslmode=verify-full sslrootcert=/k/tls.crt" -XAtc 'select count(*) from repl_probe' 2>&1)
+[ "$w" = 2 ] && pass "standby answers a read-only query as dba over TLS, a row written after the clone included" || fail "read on the standby: $w"
+w=$(sb_pg -c 'insert into repl_probe values (3)' 2>&1)
+case $w in *"read-only transaction"*) pass "standby refuses a write (read-only)" ;; *) fail "write on the standby: $w" ;; esac
+w=$(sb grep -E '^primary_(conninfo|slot_name)' /var/lib/postgresql/18/data/postgresql.auto.conf 2>&1)
+case $w in
+    *password=*) fail "primary_conninfo holds a password" ;;
+    *"passfile=''/run/gm-replication/pgpass''"*"primary_slot_name = 'standby'"*) pass "primary_conninfo names the password file, no password; primary_slot_name standby" ;;
+    *) fail "the standby's postgresql.auto.conf: $w" ;;
+esac
+w=$(sb sh -c 'test -e /var/lib/postgresql/18/data/standby.signal && echo yes' 2>&1)
+[ "$w" = yes ] && pass "standby.signal written by the clone" || fail "no standby.signal"
+w=$(sb_pg -c "select count(*) from pg_roles where rolname in ('dba', 'monitoring', 'gm_check', 'replicator')" 2>&1)
+[ "$w" = 4 ] && pass "standby holds the primary's roles (dba, monitoring, gm_check, replicator)" || fail "the standby's roles: $w"
+w=$(docker exec -i "$SB" /usr/local/lib/gm/check-psql -d postgres -XAtc 'select current_user' 2>&1)
+[ "$w" = gm_check ] && pass "standby: gm_check through check-psql (the primary's role and password)" || fail "check-psql on the standby: $w"
+m=$(sb stat -c '%a %U:%G' /usr/local/lib/gm/clone-standby)
+[ "$m" = "700 root:root" ] && pass "clone-standby root only ($m)" || fail "clone-standby mode: $m"
+info "the standby replaced by a new container"
+docker service update --force -d "$SERVICE5" >/dev/null 2>&1
+SB2=$(wait_healthy "$SB" "$SERVICE5") && SB=$SB2 && pass "standby healthy in a new container ($SB)" || fail "standby not back"
+i=0
+while [ "$i" -lt 60 ] && [ "$(rec_pg -c "select state from pg_stat_replication where application_name = 'standby'" 2>/dev/null)" != streaming ]; do sleep 1; i=$((i + 1)); done
+w=$(rec_pg -c "select state from pg_stat_replication where application_name = 'standby'" 2>&1)
+[ "$w" = streaming ] && pass "the new standby container streams again (its password file rewritten at start)" || fail "after the replacement: $w"
+w=$(docker service logs "$SERVICE5" 2>&1 | grep -c "standby of rec (standby.signal): the GM's roles come from the primary")
+[ "$w" -ge 1 ] && pass "the standby's start skips the single-user roles step" || fail "standby start-up line: $w"
+# The hand-over snapshot with a standby: its temporary slot goes, the
+# standby's stays (both nodes snapshot their pgdata).
+docker exec "$REC" /usr/local/sbin/gm-snapshot-db > "$tmp/rec-pgdata.tar" 2> "$tmp/rec-snapshot.err"; rc=$?
+[ "$rc" -eq 0 ] && pass "rec: gm-snapshot-db with a standby attached, exit 0" || fail "rec's snapshot: exit $rc: $(cat "$tmp/rec-snapshot.err")"
+w=$(rec_pg -c "select string_agg(slot_name, ',' order by slot_name) from pg_replication_slots" 2>&1)
+[ "$w" = standby ] && pass "rec: after the snapshot, only the standby's slot (gm_snapshot removed)" || fail "rec's slots after the snapshot: $w"
+docker exec "$SB" /usr/local/sbin/gm-snapshot-db > "$tmp/sb-pgdata.tar" 2> "$tmp/sb-snapshot.err"; rc=$?
+[ "$rc" -eq 0 ] && pass "standby: gm-snapshot-db exit 0 ($(wc -c < "$tmp/sb-pgdata.tar") bytes)" || fail "the standby's snapshot: exit $rc: $(cat "$tmp/sb-snapshot.err")"
+w=$(sb_pg -c "select count(*) from pg_replication_slots" 2>&1)
+[ "$w" = 0 ] && pass "standby: no slot left after its snapshot" || fail "the standby's slots: $w"
+for node in REC SB; do
+    eval "cid=\$$node"
+    n=$(docker exec -e PW="$REPL_PASSWORD" "$cid" sh -c 'grep -rlF -e "$PW" /var/log/postgresql | wc -l' 2>&1)
+    [ "$n" = 0 ] && pass "$node's log holds no replication password" || fail "$node's log holds the replication password ($n file(s))"
+done
+
+# --- v0.5: WAL archiving to the vault (chunk 3b) ------------------------------------------
+vault() { docker exec -i "$VAULT" "$@"; }
+shipment() {  # shipment <id> <status>: the stand-in's record of that answer, as key=value
+    vault cat /srv/vault/shipments.ndjson 2>/dev/null | python3 -c 'import json, sys
+for line in sys.stdin:
+    r = json.loads(line)
+    if r.get("id") == sys.argv[1] and str(r.get("status")) == sys.argv[2]:
+        print(" ".join(f"{k}={r[k]}" for k in sorted(r)))' "$1" "$2"
+}
+archiver() { rec_pg -c "select coalesce(last_archived_wal, '-') || ' ' || failed_count || ' ' || coalesce(last_failed_wal, '-') from pg_stat_archiver"; }
+w=$(rec_pg -c "select current_setting('archive_mode') || '|' || current_setting('archive_command') || '|' || current_setting('archive_timeout')" 2>&1)
+[ "$w" = "on|vault-post wal %f %p|1h" ] && pass "rec's archiving from the seed ($w)" || fail "archiving settings: $w"
+w=$(rec sh -c 'stat -c "%a %U" /run/gm-vault/target /run/gm-vault/credential; cat /run/gm-vault/target' | tr '\n' ' ')
+[ "$w" = "600 postgres 600 postgres vault:8080 " ] && pass "rec: vault-post's target and credential under /run/gm-vault, postgres 0600" || fail "/run/gm-vault: $w"
+check "player cannot read the vault's credential" sh -c "! docker exec $CLIENT ssh $SSH_OPTS player@rec cat /run/gm-vault/credential"
+switch_wal() { rec_pg -c "insert into repl_probe select g from generate_series(1, 1000) g; select pg_walfile_name(pg_switch_wal())" 2>/dev/null | tail -n 1; }
+wait_archived() {  # wait_archived <segment> <seconds>
+    k=0
+    while [ "$k" -lt "$2" ]; do
+        case $(archiver 2>/dev/null) in "$1 "*) return 0 ;; esac
+        sleep 2; k=$((k + 2))
+    done
+    return 1
+}
+SEG=$(switch_wal)
+wait_archived "$SEG" 90 && pass "a switched segment archived ($SEG; pg_stat_archiver: $(archiver))" || fail "segment $SEG not archived: $(archiver)"
+w=$(shipment "$SEG" 201)
+today=$(date -u +%Y-%m-%d)
+case " $w " in
+    *" credential_ok=True from=$today id=$SEG method=POST name=$SEG path=/shipments received=16777216 rows=1 source=rec status=201 to=$today type=wal "*)
+        pass "the vault received it whole: POST /shipments, its headers, the credential ($w)" ;;
+    *) fail "the vault's record of $SEG: [$w]" ;;
+esac
+vault sh -c 'echo refuse > /srv/vault/mode'
+before=$(archiver | cut -d' ' -f2)
+SEG2=$(switch_wal)
+k=0
+while [ "$k" -lt 60 ]; do
+    set -- $(archiver 2>/dev/null)
+    [ "${2:-0}" -gt "$before" ] && [ "${3:-}" = "$SEG2" ] && break
+    sleep 2; k=$((k + 2))
+done
+w=$(archiver)
+case $w in "$SEG "*" $SEG2") pass "a refusal fails honestly: $SEG2 not archived, failed_count up ($w)" ;; *) fail "after a refusal: $w" ;; esac
+check "the refused segment is kept (archive_status/$SEG2.ready)" docker exec "$REC" test -e "/var/lib/postgresql/18/data/pg_wal/archive_status/$SEG2.ready"
+n=$(rec_log | grep -c "vault-post: wal $SEG2: the vault at vault:8080 refused it: 503")
+[ "$n" -ge 1 ] && pass "vault-post's reason in the server log ($n line(s): refused it: 503)" || fail "no refusal line in the log"
+vault sh -c 'echo short > /srv/vault/mode'
+k=0
+while [ "$k" -lt 120 ] && [ "$(rec_log | grep -c "vault-post: wal $SEG2: the vault received 16777215 of 16777216 bytes")" = 0 ]; do sleep 2; k=$((k + 2)); done
+n=$(rec_log | grep -c "vault-post: wal $SEG2: the vault received 16777215 of 16777216 bytes")
+[ "$n" -ge 1 ] && pass "a receipt short of the bytes sent fails too (the reason in the log)" || fail "no short-receipt line"
+case $(archiver) in "$SEG "*) pass "still not archived after the short receipt" ;; *) fail "archived on a short receipt: $(archiver)" ;; esac
+vault sh -c 'echo accept > /srv/vault/mode'
+wait_archived "$SEG2" 150 && pass "the archiver retries and ships $SEG2 once the vault accepts ($(archiver))" || fail "$SEG2 not shipped on the retry: $(archiver)"
+w=$(docker exec -u postgres "$J" sh -c 'vault-post wal x /etc/hostname; echo "rc=$?"' 2>&1 | tr '\n' ' ')
+case $w in *"no vault configured"*"rc=1 ") pass "vault-post with no vault: exit 1, no vault configured" ;; *) fail "vault-post on db2: $w" ;; esac
+w=$(docker exec -u postgres "$REC" sh -c 'vault-post nightly x; echo "rc=$?"' 2>&1 | tr '\n' ' ')
+case $w in *"rc=2 ") pass "vault-post refuses a bad usage (exit 2)" ;; *) fail "vault-post usage: $w" ;; esac
+m=$(rec stat -c '%a %U:%G' /usr/local/bin/vault-post)
+[ "$m" = "755 root:root" ] && pass "vault-post root-owned 0755, on PATH ($m)" || fail "vault-post mode: $m"
+
+# --- v0.5: the nightly base backup, moved to the next minute (chunk 3b) ----------------------
+now=$(date -u +%s)
+[ $((now % 60)) -gt 30 ] && now=$((now + 60))
+at=$((now + 60))
+M=$(date -u -d "@$at" +%-M); H=$(date -u -d "@$at" +%-H)
+sed "s/^30 3 \* \* \* /$M $H * * * /" "$HERE/fixtures/crontab-v05" | docker exec -i "$REC" crontab -u postgres - \
+    && pass "rec: the base-backup job moved to $H:$(printf %02d "$M") UTC" || fail "moving the base-backup job"
+NAME="rec-$(date -u -d "@$at" +%Y%m%dT%H%MZ)"
+k=0
+while [ "$k" -lt 240 ] && [ -z "$(shipment "$NAME" 201)" ]; do sleep 3; k=$((k + 3)); done
+w=$(shipment "$NAME" 201)
+case " $w " in
+    *" credential_ok=True "*" name=$NAME "*" rows=1 source=rec status=201 "*" type=basebackup "*) pass "the base backup posted as type basebackup ($w)" ;;
+    *) fail "no base backup shipment $NAME: [$w]" ;;
+esac
+size=$(printf '%s\n' "$w" | sed -n 's/.* received=\([0-9]*\) .*/\1/p')
+[ "${size:-0}" -gt 1000000 ] && pass "posted whole: $size bytes" || fail "base backup size: $size"
+w=$(rec grep -c "vault-post: basebackup $NAME shipped" /var/log/postgresql/cron/basebackup.log 2>&1)
+[ "$w" = 1 ] && pass "the job's log (cron/basebackup.log) records the receipt" || fail "basebackup.log: $w"
+while [ "$(date -u +%s)" -lt $((at + 75)) ]; do sleep 5; done
+n=$(vault cat /srv/vault/shipments.ndjson | grep -c '"type":"basebackup"')
+[ "$n" = 1 ] && pass "posted once: one base backup in the vault after its minute" || fail "base backups in the vault: $n"
+
 # --- v0.4: footprint at rest of the jobs (chunk 4b) ----------------------------------------
 cpid=$(j pgrep -x cron)
 lpid=$(jsql "select pid from pg_stat_activity where backend_type = 'pg_cron launcher'")
@@ -924,6 +1282,7 @@ case $caps in "[ALL]"*) pass "cap_drop ALL" ;; *) fail "cap_drop: $caps" ;; esac
 mnt=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/run"}}{{.Type}}{{end}}{{end}}' "$C")
 [ "$mnt" = volume ] && pass "/run is a named volume (fallback a)" || fail "/run mount: $mnt"
 info "footprint at rest: db $(docker stats --no-stream --format '{{.MemUsage}}, CPU {{.CPUPerc}}' "$C"); db2 (cron, pg_cron) $(docker stats --no-stream --format '{{.MemUsage}}, CPU {{.CPUPerc}}' "$J")"
+info "footprint at rest (v0.5): rec (TLS, pgaudit, the option) $(docker stats --no-stream --format '{{.MemUsage}}, CPU {{.CPUPerc}}' "$REC"); pdb (no-access) $(docker stats --no-stream --format '{{.MemUsage}}, CPU {{.CPUPerc}}' "$PDB"); standby $(docker stats --no-stream --format '{{.MemUsage}}, CPU {{.CPUPerc}}' "$SB"); rec's pgdata $(rec du -sh /var/lib/postgresql/18/data | cut -f1) (pg_wal $(rec du -sh /var/lib/postgresql/18/data/pg_wal | cut -f1)), its log $(rec du -sh /var/log/postgresql | cut -f1); standby's pgdata $(sb du -sh /var/lib/postgresql/18/data | cut -f1)"
 
 echo
 if [ "$failures" -eq 0 ]; then
