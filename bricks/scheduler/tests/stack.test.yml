@@ -13,7 +13,7 @@ version: "3.8"
 
 services:
   scheduler:
-    image: 127.0.0.1:5000/dbagm/scheduler:0.2.0
+    image: 127.0.0.1:5000/dbagm/scheduler:0.3.0
     hostname: scheduler
     read_only: true
     cap_drop: [ALL]
@@ -50,7 +50,7 @@ services:
         limits: {cpus: "0.25", memory: 128M}
 
   transformer:
-    image: 127.0.0.1:5000/dbagm/scheduler:0.2.0
+    image: 127.0.0.1:5000/dbagm/scheduler:0.3.0
     hostname: transformer
     read_only: true
     cap_drop: [ALL]
@@ -87,7 +87,7 @@ services:
         limits: {cpus: "0.25", memory: 128M}
 
   db:
-    image: dbagm-test/scheduler-unit:0.2.0
+    image: dbagm-test/scheduler-unit:0.3.0
     hostname: db
     command: ["/bin/sh", "/opt/gmtest/db.sh"]
     healthcheck:

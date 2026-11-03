@@ -8,7 +8,7 @@
 # On armenelos only, never on a shared host, every other swarm node drained
 # (13.3): the script refuses otherwise and never changes a node. It deploys
 # its own stack (tools/tests/fixtures/calibrate-f10/stack.yml):
-#   db         the shop's instance, `postgres` 0.4.0, loaded with the shop
+#   db         the shop's instance, `postgres` 0.5.0, loaded with the shop
 #              domain's data (domains/shop/data, chunk 5) as load-data would;
 #   reporting  the agency's instance at the scenario's starting limit and
 #              reservation (16.1: 512M / 256M) and the fixture's
@@ -55,7 +55,7 @@
 # the lid switch). Run it alone on the host, under the docker lock:
 #   flock /tmp/dbagm-docker.lock sh tools/tests/calibrate-f10.sh
 # Needs: a swarm manager on the local engine named armenelos, the image
-# 127.0.0.1:5000/dbagm/postgres:0.4.0 built, about 2.5 GiB of memory
+# 127.0.0.1:5000/dbagm/postgres:0.5.0 built, about 2.5 GiB of memory
 # available.
 # Environment:
 #   CALIBRATE_LIMIT        reporting's memory limit (default 512M)
@@ -77,7 +77,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/../.." && pwd)
 FIX=$HERE/fixtures/calibrate-f10
 SHOP=$REPO/domains/shop/data
-IMAGE=127.0.0.1:5000/dbagm/postgres:0.4.0
+IMAGE=127.0.0.1:5000/dbagm/postgres:0.5.0
 STACK=gmtest-f10
 NET=${STACK}_net
 CAL=${STACK}-reporting               # the noswap setting's one-off container

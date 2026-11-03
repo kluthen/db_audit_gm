@@ -19,8 +19,8 @@
 #
 # Needs: a swarm manager on the local engine (docker swarm init), and the
 # bricks' images built locally:
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.4.0 bricks/postgres
-#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.4.0 bricks/bastion
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.5.0 bricks/bastion
 # Host ports 2222 and 8080 must be free (the bastion's published ports).
 # Usage: sh tools/tests/smoke.sh        (from anywhere)
 set -eu
@@ -29,7 +29,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/../.." && pwd)
 GMCTL="python3 $REPO/tools/gmctl"
 PG=smoke
-IMAGES="127.0.0.1:5000/dbagm/postgres:0.4.0 127.0.0.1:5000/dbagm/bastion:0.4.0"
+IMAGES="127.0.0.1:5000/dbagm/postgres:0.5.0 127.0.0.1:5000/dbagm/bastion:0.5.0"
 LABELS="com.docker.stack.namespace dbagm.game dbagm.snapshot"
 KINDS="service network volume config secret"
 
@@ -230,7 +230,7 @@ same "no copy carries the game's own label" "" \
     "$(docker volume ls -q --filter "label=dbagm.snapshot=$GAME" --filter "label=dbagm.game=$GAME")"
 same "the database's copy is a tar holding PG_VERSION and backup_label" 2 "$(docker run --rm \
     --network none -v "dbagm-snapshot_${GAME}_db_pgdata:/s:ro" --entrypoint tar \
-    127.0.0.1:5000/dbagm/postgres:0.4.0 -tf /s/volume.tar 2>/dev/null \
+    127.0.0.1:5000/dbagm/postgres:0.5.0 -tf /s/volume.tar 2>/dev/null \
     | grep -c -E '^(\./)?(PG_VERSION|backup_label)$')"
 slots=$(printf '%s\n' 'psql -XAtq -c "SELECT count(*) FROM pg_replication_slots"' | exec_db postgres)
 same "no replication slot left on the database" 0 "$slots"

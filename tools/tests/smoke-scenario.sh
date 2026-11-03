@@ -48,13 +48,13 @@
 # (systemctl --user) for a scenario with scheduler nodes, and the
 # scenario's bricks' images built locally (fit refuses a missing one and
 # names its build command):
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.4.0 bricks/postgres
-#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.4.0 bricks/bastion
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.5.0 bricks/bastion
 #   docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.0 bricks/prometheus
 #   docker build -t 127.0.0.1:5000/dbagm/postgres-exporter:0.2.0 bricks/postgres-exporter
-#   docker build -t 127.0.0.1:5000/dbagm/grafana:0.2.0 bricks/grafana
+#   docker build -t 127.0.0.1:5000/dbagm/grafana:0.3.0 bricks/grafana
 #   docker build -t 127.0.0.1:5000/dbagm/pgbouncer:0.1.1 bricks/pgbouncer
-#   docker build -t 127.0.0.1:5000/dbagm/scheduler:0.2.0 bricks/scheduler
+#   docker build -t 127.0.0.1:5000/dbagm/scheduler:0.3.0 bricks/scheduler
 # Host ports 2222 and 8080 must be free (the bastion's published ports).
 # Usage: sh tools/tests/smoke-scenario.sh <scenario>        (from anywhere)
 #   e.g. sh tools/tests/smoke-scenario.sh fernway-clinics-monitoring

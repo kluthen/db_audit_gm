@@ -1,6 +1,6 @@
 # brick.yaml: PostgreSQL 18 node (master spec 7 and 9.1).
 #
-# Version 0.4.0 (unreleased until the v0.4 release gate, D100). Roles, growth
+# Version 0.5.0 (unreleased until the v0.5 release gate, D100). Roles, growth
 # per hour, writable and seed paths, report tools and snapshot methods:
 # capture W1 item 3 (specs/versions/v0.3/wave-log.md).
 # Top-level keys: capture W1-A; fixed paths, secrets, envelope file and
@@ -13,13 +13,13 @@
 
 # --- Identity ---------------------------------------------------------
 id: postgres
-version: 0.4.0
+version: 0.5.0
 roles:
   - database
 technology:
   name: postgresql
   version: "18"
-image: 127.0.0.1:5000/dbagm/postgres:0.4.0
+image: 127.0.0.1:5000/dbagm/postgres:0.5.0
 
 # --- Footprint --------------------------------------------------------
 footprint:                          # CPU and memory: v0.1's figures as reservations, limits
@@ -62,10 +62,19 @@ knobs:                              # default envelopes, sized for the default f
     file: /etc/postgresql/postgresql.conf
     default: "on"                   # quoted: a bare `on` is a YAML boolean
     envelope: {allowed: ["on"]}
+options:                            # chosen per node, `options: [monitoring]`; off unless
+                                    #   chosen (v0.5 master spec 6.8, 7.1; capture W1 item 1,
+                                    #   specs/versions/v0.5/wave-log.md)
+  - name: monitoring
+    brings:
+      secrets: [monitoring_password]
+      roles: [monitoring]            # created at initdb, member of pg_monitor
+    docs: docs/gm.md#option-monitoring
 
 # --- Player plane -----------------------------------------------------
 write_policies:                     # v0.1: the database node is fixable (master spec 14)
   - fixable
+  - no-access                       # v0.5: a third party's node (master spec 6.5)
 writable_paths:
   - /etc/postgresql                 # postgres:pgconf, 2775; seeded files 0664
   - /home/player                    # ~/.pgpass (rewritten at each start), ~/report.md,

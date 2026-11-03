@@ -26,8 +26,8 @@ severity: high
 applies_to:
   bricks:
     - id: postgres
-      versions: ["0.4.0"]           # the cron daemon, gm-crontab and the backends' OOM score are
-                                    # 0.4.0's (master spec 7.2)
+      versions: ["0.4.0", "0.5.0"]  # the cron daemon, gm-crontab and the backends' OOM score are
+                                    # date from 0.4.0 (master spec 7.2)
   preconditions:
     - >-
       the node's data file holds the sales reporting purpose's target part

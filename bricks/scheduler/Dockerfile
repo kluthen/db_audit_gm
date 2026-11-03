@@ -3,7 +3,7 @@
 # Generic image: no scenario content. The schedule, the repository, the jobs
 # and the role passwords arrive at run time at the fixed paths declared in
 # brick.yaml.
-# Build:       docker build -t 127.0.0.1:5000/dbagm/scheduler:0.2.0 bricks/scheduler
+# Build:       docker build -t 127.0.0.1:5000/dbagm/scheduler:0.3.0 bricks/scheduler
 # Unit tests:  sh bricks/scheduler/tests/run-unit-tests.sh (the `unit-test` stage)
 # Architecture: x86_64 only (the s6-overlay archive below).
 

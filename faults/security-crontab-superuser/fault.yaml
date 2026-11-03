@@ -16,7 +16,7 @@ severity: high
 applies_to:
   bricks:
     - id: postgres
-      versions: ["0.4.0"]           # the cron daemon and gm-crontab are 0.4.0's (master spec 7.2)
+      versions: ["0.4.0", "0.5.0"]  # the cron daemon and gm-crontab date from 0.4.0 (master spec 7.2)
   preconditions:
     - the node seeds a crontab and names the prepared role in its crontab_roles
     - the node's data file creates the role, with LOGIN and the grant the entry's statement needs

@@ -1,5 +1,5 @@
 # Stack test fixture for the postgres-exporter brick (v0.2 build plan,
-# chunk 9): the exporter node and the postgres 0.4.0 node `db` it watches,
+# chunk 9): the exporter node and the postgres 0.5.0 node `db` it watches,
 # both reading the same monitoring_password secret, each with its own
 # owner and mode.
 # Uses only what a rendered Compose 3.8 stack file can express: no tmpfs
@@ -37,11 +37,13 @@ services:
         limits: {cpus: "0.25", memory: 128M}
 
   db:
-    image: 127.0.0.1:5000/dbagm/postgres:0.4.0
+    image: 127.0.0.1:5000/dbagm/postgres:0.5.0
     hostname: db
     read_only: true
     cap_drop: [ALL]
     cap_add: [AUDIT_WRITE, CHOWN, DAC_OVERRIDE, FOWNER, KILL, NET_BIND_SERVICE, SETGID, SETUID, SYS_CHROOT]
+    environment:                    # the option the exporter's target chooses, as render passes it
+      GM_OPTIONS: monitoring        #   (v0.5 capture W1 items 0, 1; spec D346)
     healthcheck:
       test: ["CMD", "/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
       interval: 10s

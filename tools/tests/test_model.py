@@ -154,8 +154,8 @@ class TestRefusals(RefusalAsserts, ScenarioCopyTest):
 
     def test_pinned_version_mismatch(self):
         self.edit_yaml("scenario.yaml",
-                       lambda d: self.node(d, "db")["brick"].update(version="0.5.0"))
-        self.assertRefused("nodes[db].brick", "0.5.0", "0.4.0")
+                       lambda d: self.node(d, "db")["brick"].update(version="0.6.0"))
+        self.assertRefused("nodes[db].brick", "0.6.0", "0.5.0")
 
     def test_unknown_brick(self):
         self.edit_yaml("scenario.yaml",
@@ -319,11 +319,11 @@ class TestMonitoringFixture(ScenarioCopyTest):
         self.assertEqual(sc.id, "fixture-monitoring")
         self.assertEqual([n["name"] for n in sc.nodes], self.NODES)
         self.assertEqual({n: (b.id, b.version, b.source) for n, b in sc.bricks.items()}, {
-            "bastion": ("bastion", "0.4.0", "catalog"),
-            "db": ("postgres", "0.4.0", "catalog"),
+            "bastion": ("bastion", "0.5.0", "catalog"),
+            "db": ("postgres", "0.5.0", "catalog"),
             "prometheus": ("prometheus", "0.2.0", "catalog"),
             "exporter": ("postgres-exporter", "0.2.0", "catalog"),
-            "grafana": ("grafana", "0.2.0", "catalog")})
+            "grafana": ("grafana", "0.3.0", "catalog")})
         self.assertEqual(sc.node("prometheus")["parameters"]["node_health"],
                          {n: "default" for n in self.NODES})
         self.assertEqual(sc.node("bastion")["parameters"]["web_routes"],
@@ -381,14 +381,14 @@ class TestLoadFixture(ScenarioCopyTest):
         self.assertEqual(sc.id, "fixture-load")
         self.assertEqual([n["name"] for n in sc.nodes], self.NODES)
         self.assertEqual({n: (b.id, b.version, b.source) for n, b in sc.bricks.items()}, {
-            "bastion": ("bastion", "0.4.0", "catalog"),
-            "db": ("postgres", "0.4.0", "catalog"),
+            "bastion": ("bastion", "0.5.0", "catalog"),
+            "db": ("postgres", "0.5.0", "catalog"),
             "pooler": ("pgbouncer", "0.1.1", "catalog"),
-            "producer": ("scheduler", "0.2.0", "catalog"),
-            "consumer": ("scheduler", "0.2.0", "catalog"),
+            "producer": ("scheduler", "0.3.0", "catalog"),
+            "consumer": ("scheduler", "0.3.0", "catalog"),
             "prometheus": ("prometheus", "0.2.0", "catalog"),
             "exporter": ("postgres-exporter", "0.2.0", "catalog"),
-            "grafana": ("grafana", "0.2.0", "catalog")})
+            "grafana": ("grafana", "0.3.0", "catalog")})
         self.assertTrue(model.has_scheduler_nodes(sc.data))
         self.assertEqual(sc.data["aging"], {"minimum": "8h", "handover_at": "14:00"})
         self.assertEqual([n["name"] for n in sc.nodes if n["write_policy"] == "report-only"],
@@ -1327,7 +1327,7 @@ class TestBrickV03Refusals(V03CopyTest):
         self.assertBrickRefused(lambda d: d.update(roles=["producer", "metrics-store"]),
                                 f"{self.LABEL}: roles: metrics-store is not in the roles list "
                                 "(bastion producer queue database pooler transformer consumer "
-                                "monitoring backup; master spec 6.4)")
+                                "monitoring backup api; master spec 6.4)")
 
     def test_disk_growth_per_hour(self):
         self.assertBrickRefused(lambda d: d["footprint"].pop("disk_growth_per_hour"),
@@ -2791,12 +2791,12 @@ class TestCampaignFixture(ScenarioCopyTest):
         self.assertEqual(sc.id, "fixture-campaign")
         self.assertEqual([n["name"] for n in sc.nodes], self.NODES)
         self.assertEqual({n: (b.id, b.version) for n, b in sc.bricks.items()}, {
-            "bastion": ("bastion", "0.4.0"), "db": ("postgres", "0.4.0"),
-            "pooler": ("pgbouncer", "0.1.1"), "producer": ("scheduler", "0.2.0"),
-            "consumer": ("scheduler", "0.2.0"), "reporting": ("postgres", "0.4.0"),
-            "bi": ("scheduler", "0.2.0"), "crm": ("scheduler", "0.2.0"),
-            "gateway": ("scheduler", "0.2.0"), "prometheus": ("prometheus", "0.2.0"),
-            "exporter": ("postgres-exporter", "0.2.0"), "grafana": ("grafana", "0.2.0")})
+            "bastion": ("bastion", "0.5.0"), "db": ("postgres", "0.5.0"),
+            "pooler": ("pgbouncer", "0.1.1"), "producer": ("scheduler", "0.3.0"),
+            "consumer": ("scheduler", "0.3.0"), "reporting": ("postgres", "0.5.0"),
+            "bi": ("scheduler", "0.3.0"), "crm": ("scheduler", "0.3.0"),
+            "gateway": ("scheduler", "0.3.0"), "prometheus": ("prometheus", "0.2.0"),
+            "exporter": ("postgres-exporter", "0.2.0"), "grafana": ("grafana", "0.3.0")})
         self.assertTrue(all(b.source == "catalog" for b in sc.bricks.values()))
         self.assertEqual({n["name"]: n["role"] for n in sc.nodes
                           if n["brick"]["id"] == "scheduler"},

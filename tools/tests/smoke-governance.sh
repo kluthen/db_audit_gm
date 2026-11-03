@@ -29,7 +29,7 @@
 # Usage: sh tools/tests/smoke-governance.sh <playground> [<gmctl fit option>...]
 #   Without fit options, the local engine at its own capacity.
 # Needs: a swarm manager on the local engine, python3 with PyYAML, the
-# images bastion 0.4.0, postgres 0.4.0, scheduler 0.2.0 built; host ports
+# images bastion 0.5.0, postgres 0.5.0, scheduler 0.3.0 built; host ports
 # 2222 and 8080 free. Docker steps: run it under the host lock and the
 # sleep inhibitor:
 #   flock /tmp/dbagm-docker.lock systemd-inhibit --what=sleep:idle:handle-lid-switch \

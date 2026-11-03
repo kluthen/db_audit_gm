@@ -1,7 +1,7 @@
 # brick.yaml: scheduler node, the producers, transformers and consumers of
 # a game (v0.3 master spec 7.1; v0.4 master spec 7.1: transformer scripts).
 #
-# Version 0.2.0 (unreleased until the v0.4 release gate).
+# Version 0.3.0 (unreleased until the v0.5 release gate).
 # Keys of v0.3's shape (seed.paths, seed.modes, disk_growth_per_hour,
 # snapshot) and the runtime interface: capture W1 items 3, 5, 6 and 7
 # (specs/versions/v0.3/wave-log.md) and v0.4's W1 item 7
@@ -10,15 +10,15 @@
 
 # --- Identity ---------------------------------------------------------
 id: scheduler
-version: 0.2.0
+version: 0.3.0
 roles:
   - producer
   - consumer
   - transformer                     # a script key's job moving rows between instances (v0.4)
 technology:
   name: gm-scheduler                # the program in program/gm_scheduler, Python 3.13, psycopg 3
-  version: "0.2.0"
-image: 127.0.0.1:5000/dbagm/scheduler:0.2.0
+  version: "0.3.0"
+image: 127.0.0.1:5000/dbagm/scheduler:0.3.0
 
 # --- Footprint --------------------------------------------------------
 footprint:                          # master spec 7.1's figures; at rest measured within them
@@ -38,6 +38,7 @@ knobs: []                           # no envelope: the schedule is the scenario'
 write_policies:
   - fixable
   - report-only
+  - no-access                       # v0.5: a third party's node (master spec 6.5)
 writable_paths:                     # directories, so sed -i works where they are fixable (spec D170)
   - /srv/scheduler/repository       # queries.yaml, builders/, scripts/ (volume repository)
   - /srv/scheduler/jobs             # jobs.yaml (volume jobs)

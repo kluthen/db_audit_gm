@@ -196,7 +196,7 @@ class TestDeploy(RenderedGame):
 
     def test_missing_image_is_refused(self):
         fake = FakeDocker(images=False)
-        with self.assertRaisesRegex(GmError, "127.0.0.1:5000/dbagm/postgres:0.4.0"):
+        with self.assertRaisesRegex(GmError, "127.0.0.1:5000/dbagm/postgres:0.5.0"):
             self.deploy(fake)
         self.assertFalse(fake.called("stack", "deploy"))
         self.assertEqual(localimpl.read_state(self.ldir)["stage"], "rendered")
@@ -500,8 +500,8 @@ if __name__ == "__main__":
 
 # --- Several hosts (v0.3 capture W3, items 3 and 6; D173, D181) -------------
 
-POSTGRES = "127.0.0.1:5000/dbagm/postgres:0.4.0"
-BASTION = "127.0.0.1:5000/dbagm/bastion:0.4.0"
+POSTGRES = "127.0.0.1:5000/dbagm/postgres:0.5.0"
+BASTION = "127.0.0.1:5000/dbagm/bastion:0.5.0"
 
 
 class TestHostDockers(TwoHostScenario):

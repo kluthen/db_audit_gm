@@ -37,14 +37,14 @@
 #
 # Needs: a swarm manager (docker swarm init), the images built locally (the
 # grafana image is also the test client: it has ssh, curl and jq):
-#   docker build -t 127.0.0.1:5000/dbagm/grafana:0.2.0 bricks/grafana
+#   docker build -t 127.0.0.1:5000/dbagm/grafana:0.3.0 bricks/grafana
 #   docker build -t 127.0.0.1:5000/dbagm/prometheus:0.2.0 bricks/prometheus
 # Usage: sh bricks/grafana/tests/run-stack-test.sh
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 STACK=gmtest-grafana
-IMAGE=127.0.0.1:5000/dbagm/grafana:0.2.0
+IMAGE=127.0.0.1:5000/dbagm/grafana:0.3.0
 PROM_IMAGE=127.0.0.1:5000/dbagm/prometheus:0.2.0
 SERVICE=${STACK}_grafana
 PROM_SERVICE=${STACK}_prometheus

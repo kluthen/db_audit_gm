@@ -8,7 +8,7 @@ and W1-y (specs/versions/v0.3/wave-log.md), as extended by v0.4's W1 item
 7 and W1-y (specs/versions/v0.4/wave-log.md).
 """
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 
 
 class ConfigError(Exception):

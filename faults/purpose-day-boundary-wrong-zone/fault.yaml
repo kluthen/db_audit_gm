@@ -17,7 +17,7 @@ severity: medium
 applies_to:
   bricks:
     - id: postgres                  # the target node: the procedure and the check are there; the
-      versions: ["0.4.0"]           # runner calling it (scheduler) is not changed nor read
+      versions: ["0.4.0", "0.5.0"]  # runner calling it (scheduler) is not changed nor read
   purposes: [shop-sales-reporting]
   preconditions:
     - the sales reporting purpose's target part, its rpt.close_day() and rpt.etl_runs, on the node
