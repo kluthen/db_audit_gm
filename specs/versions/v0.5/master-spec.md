@@ -3566,3 +3566,19 @@ list is removed at approval.
   on the portal in v0.5; the centre's tests in the lab's history at the
   core's 13 600 (not 13 900). Recommended: the domain documents
   corrected before approval, so the build reads one figure.
+
+**The access model's proposals** ([access model](access-model.md))
+
+- **R17.** The partners' stubs refusing as real services would: a wrong
+  credential `401`; an unknown route, send key or exchange key, or
+  another practice's order or results feed, `404`, hidden. Recommended:
+  yes; an account never learns another exists.
+- **R18.** The portal's answers beyond login's: a document out of scope
+  `404` (hidden, as lists are), an expired, idle or ended token `401`,
+  an insert out of scope `403` from the policy's check. Recommended:
+  yes.
+- **R19.** A keeper-access grant by an account that is not the animal's
+  current owner refused, not stored; a closed account answered as no
+  account at login, reset and unsubscribe. Recommended: yes.
+- **R20.** A reset for an unknown e-mail answered as for a known one, so
+  the portal never confirms an address. Recommended: yes.
