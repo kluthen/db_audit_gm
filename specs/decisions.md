@@ -630,3 +630,10 @@ number from `doc-ids`; no ID is reused.
   Reason: the page went to the owner whole, and no question but
   O217–O219 was left on it. Now in:
   [versions/v0.5/data-register-handout.md](versions/v0.5/data-register-handout.md).
+- **D338 (2026-11-03, spec action at consolidation, on the owner's "yes,
+  start the master spec"): O111 closed: the domain format is written
+  into formats.md v28** ("Domain", "Scenario", "Purpose definition"):
+  D326's composition items, the procedure's format changes, the variant
+  and producer layout, the purpose format's extensions (D307) and the
+  data register's additions (D334), as D291 set. Closes O111. Now in:
+  [formats.md](formats.md#domain-from-v04-composed-domains-from-v05).

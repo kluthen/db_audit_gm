@@ -38,6 +38,8 @@ never used. Raised with a scenario's data register, a player handout
 recommendations: O217 (D333), O218 (D334), O219 (D335), each
 question's text on
 [versions/v0.5/data-register-handout.md](versions/v0.5/data-register-handout.md#questions-for-the-owner).
+Resolved at consolidation: O111, its v0.5 part, the domain format
+written into [formats.md](formats.md) v28 (D338).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -175,36 +177,8 @@ O136, raised by D230, waits for a later version.
 
 Raised when the owner set business domains for v0.5 on 2026-10-28
 (D192). v0.4 ships the first, the shop (O108). The veterinary clinic
-added on 2026-10-30 (D196).
-
-- **O111** (v0.5, settled in substance by D326) — The domain format,
-  beyond v0.4's part. v0.4's
-  part was settled by the master spec's approval (D215): `domains/shop/`
-  with `domain.yaml`, `data/` (schema, load, classification),
-  `producers/`, `docs/gm.md`, a design-time source named for provenance
-  that never bumps, static scenarios needing none
-  ([master spec](versions/v0.4/master-spec.md) 6.8). Still open: what
-  the format gains when v0.5 adds the clinic's domains, beyond the four
-  changes D249 settled (the business's own rules in a domain,
-  classification keys without the database, `requires`, a scenario's
-  `domains:` list;
-  [versions/v0.5/domain-procedure.md](versions/v0.5/domain-procedure.md)
-  5, 6): profiles against the schedule (O113), the variant manifest and its
-  tags (D263; procedure 9), a part's own scale in a manifest of the
-  core variant's name (D301, `vet-lab`'s answer 15), where a domain's
-  API and partner material lives (`producers/api/<node>/` and
-  `producers/partners/<partner>/`, a partner's misbehaviour keys coming
-  with its faults, D303), the purpose format's extensions (accepted by D307, closing O156), and
-  what the clinic's domains reveal: the composition rules and the parts'
-  format changes (D322, D323), confirmed as written on 2026-11-03 (D326;
-  [versions/v0.5/domain-procedure.md](versions/v0.5/domain-procedure.md#10-composing-domains-d322)
-  10): `lands_with`, a several-database part, the derivation step, the
-  traffic source that is no business, the composition record, the
-  post-load coherence check, the `SECURITY DEFINER` `search_path` check.
-  Nothing of it is still to decide; it stays listed because the master
-  spec carries it into the domain format when v0.5 consolidates (D291),
-  which closes it; the data register's format additions go in with it
-  (D334).
+added on 2026-10-30 (D196). None open: O111, the last, closed at
+consolidation (D338).
 
 ## v0.6: the setup's entry point
 
