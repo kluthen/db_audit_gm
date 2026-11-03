@@ -1,7 +1,7 @@
 # Formats: scenario, brick, fault
 
 Status: draft v28; its v0.5 items ruled with the v0.5 master spec (D339),
-amended in v0.5's build (D344, D345, D349)
+amended in v0.5's build (D344, D345, D349, D354)
 
 What a scenario, a brick, a fault definition and, from v0.4, a purpose
 and a domain must contain, and how they are laid out, so that every scenario the GM designs or generates stays
@@ -647,7 +647,9 @@ From v0.5 (D286, D303, D307):
   brings endpoints to; `partner`, a declared third party's node. A
   pushed obligation's `receiver` is a declared third party from v0.5.
 - **HTTP connections** in a job's `connections:`, named for the part
-  they reach (the scheduler's HTTP driver).
+  they reach (the scheduler's HTTP driver), each mapped to the HTTP
+  credential it calls with, or `public` for a public endpoint, where its
+  scheduler connection has no `credential` (D354).
 - **Endpoint material**: `material/api/<node>/routes/` and `db/` for the
   endpoints a purpose brings to a customer's `api` node, the layout of a
   domain's `producers/api/`. A receiver with no stream of its own (an

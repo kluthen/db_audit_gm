@@ -720,3 +720,50 @@ D337 and D341 were reserved and never used). Take the next number from
   with the owner.** Now in:
   [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 3, 5,
   "Pending with the owner".
+- **D352 (2026-11-03, end of wave 1, chunk 3's finding 2): A restart
+  from the hand-over snapshot not bringing a standby back as one is a
+  named known limit of v0.5, not an inserted chunk.** No v0.5 game
+  reaches it: the clinic has no snapshot on its declarations (master
+  spec 14), G13 takes none (18.3), the existing scenarios have no
+  standby (17.5); restarts are v1.0 gating's (18.4). 7.1's "keeps
+  working" holds for taking it (W1-x). Re-cloning after a restore would
+  add restart behaviour 15 does not state: the owner's to ask for. Now
+  in: `bricks/postgres/docs/gm.md` "Known limits"; [versions/README.md](versions/README.md#v10-gating);
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) (release gate, item 12).
+- **D353 (2026-11-03, chunk 2's point): `register_diff`'s key stays
+  `true:` as master spec 6.8 writes it; the loader reads it as PyYAML
+  gives it, boolean `True`, or quoted `"true"`, never both in one item,
+  through one accessor its later readers share.** No author has to
+  remember a quote. Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#chunk-6--loader-checks-for-v05) chunk 6.
+- **D354 (2026-11-03, chunk 2's point): `public` confirmed as a purpose's
+  `connections:` value for an HTTP connection to a public endpoint; an
+  HTTP credential named `public` refused.** It echoes `api.yaml`'s
+  "absent: public" and cannot be a database role. Now in:
+  [formats.md](formats.md#purpose-definition-from-v04);
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#chunk-6--loader-checks-for-v05) chunk 6.
+- **D355 (2026-11-03, W1-y against W1-x, W1-z): The two `no-access`
+  mechanisms stay as built; no chunk unifies them.** Same outcome
+  (access model 5), each documented in its brick's `docs/gm.md`; a
+  rewrite of a working entrypoint buys nothing in play. A later version
+  touching `scheduler`'s entrypoint for its own reasons may adopt the
+  filtering form.
+- **D356 (2026-11-03, chunk 5's finding 3): A caller's bounded wait
+  promises an honest failure past its bound, not resolution within it:**
+  a health-checked peer enters Swarm's DNS only once healthy (a fresh
+  `postgres` node about 49 s). Bounds kept at 30 s. Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#read-first)
+  ("Read first", workflow deltas, chunks 7, 10).
+- **D357 (2026-11-03, end of wave 1): Text corrections:** chunk 1's
+  count is twelve `postgres` faults; chunk 2's Done when names
+  `tarnbeck-outdoor-campaign`; pgaudit 18.0 redacts role passwords
+  itself (G5's premise was statement logging's only; the guards kept).
+  formats.md lists no secret kinds, so `certificate` needs no line
+  there. Now in: [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 1, 2, 3.
+- **D358 (2026-11-03, wave 2's chunks read against W1-w to W1-z):**
+  chunk 6 mirrors the scheduler's HTTP refusals (a target may be a
+  partner's alias), checks `api.yaml`'s roles, the partners' hosts and
+  `vault_*`, re-adding no `domains:` check; chunk 7 updates the secret
+  lists' tests; chunk 8 reuses `NO_AUDIT_SQL` and `standby_plan`; chunk
+  9's fixture waits for chunk 7 if `clinic-api` names a credential. Now
+  in: [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 6 to 9.

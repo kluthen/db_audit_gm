@@ -1,6 +1,8 @@
 # db_audit_gm v0.5 — Build plan
 
-Status: v2 (2026-11-03): wave 1's seven preflight corrections and G5's
+Status: v3 (2026-11-03): wave 1's chunk reports (W1-w to W1-z) written
+in, wave 2's chunks read against them; no chunk inserted (spec D352–D358).
+v2 (2026-11-03): wave 1's seven preflight corrections and G5's
 and G6's results written in (spec D344–D351).
 v1 (2026-11-03): the first draft, approved as written with κ = 3
 (spec D342) and O223–O227 as recommended (spec D343).
@@ -67,7 +69,11 @@ plan states only its deltas. Its conventions follow v0.4's
   - a start-up race (the `pgbouncer` DNS race, spec D305, fixed in v0.4
     by `pgbouncer` 0.1.1): every new brick and every new caller waits,
     bounded, for the names it resolves at start, and its stack test
-    starts it before its peer (workflow deltas);
+    starts it before its peer (workflow deltas). A health-checked peer
+    enters Swarm's DNS only once healthy (a fresh `postgres` node about
+    49 s with initdb, past the 30 s bound): the caller then starts
+    anyway and fails honestly (503, an error counted) until the name
+    resolves, then works (W1-z; spec D356);
   - a fix-sized finding becomes an inserted chunk, the next free
     integer, its decision first, handed by the driver to a
     `coding-executor` (v0.4's chunks 20 and 21);
@@ -239,7 +245,12 @@ have merged.
     test, `sh bricks/<brick>/tests/run-stack-test.sh` (needs G4);
   - **a new brick or a new caller** (chunks 4, 5, 10, 11): its stack
     test starts it before the node it resolves, and shows it waiting,
-    bounded, then working (the `pgbouncer` lesson);
+    bounded, then working once the name resolves (the `pgbouncer`
+    lesson); when the peer is a fresh health-checked node slower than
+    the bound, the test shows the wait ending within its bound, the
+    requests between failing honestly (503, an error counted, never a
+    hang), and the work starting once the peer resolves (W1-z; spec
+    D356);
   - **a chunk adding or changing a domain**: `check_domain_dir` clean on
     it, and its load run at shift 0 and at a non-zero shift, its time
     and size recorded (master spec 18.2);
@@ -438,7 +449,7 @@ Architecture capture: recorded by the wave driver at wave 1's start
     `docs/gm.md`'s version lines and image tags, the stack tests' tags,
     the scheduler unit runner's image tag;
   - every fault whose `applies_to` names one of them given the new
-    version (the eleven applying to `postgres`, those applying to
+    version (the twelve applying to `postgres`, those applying to
     `scheduler` and `grafana`), the fixtures' own faults likewise, and
     each brick's "Supported faults" kept equal to them;
   - the four existing scenarios and the seven fixtures pinning
@@ -575,8 +586,8 @@ every domain chunk:
   `producers/`' root; `gmctl compose` merges two layers, records an
   override, stops on a conflict and follows `merge.yaml`, and merges an
   `api` node's `api.yaml` and endpoint files, each in a unit test; a
-  duplicate key in a fragment is refused; `tarnbeck-outdoor-shop` still
-  loads with its own classification copy and `domain: shop`.
+  duplicate key in a fragment is refused; `tarnbeck-outdoor-campaign`
+  still loads with its own classification copy and `domain: shop`.
 - Verification: chunk checks.
 - Split rule: 2a the skill, the templates, `check_domain_dir`, the
   variants and the shop; 2b `gmctl compose`, `merge.yaml`, the
@@ -608,7 +619,9 @@ Architecture capture: W1, plus, for chunks 7, 8, 10, 11, 20, 23, 24:
     what TLS needs and pgaudit's package, with G5's conditions (wave
     log: pgaudit pinned exactly and asserted, the `libssl3t64` floor
     asserted; its advised hardening, the snakeoil key deleted, taken;
-    no password set while pgaudit or statement logging could write it);
+    no password set while statement logging could write it; pgaudit
+    18.0 redacts role passwords itself, its sessions' `pgaudit.log =
+    'none'` kept as a guard, spec D357);
     the seed turning each on
     (`ssl = on`, `hostssl` lines; `shared_preload_libraries` and
     pgaudit's classes), neither an option; the `monitoring` role and its
@@ -790,23 +803,42 @@ capture.
     no fault instance's expected fix naming one; a third-party
     `postgres` node's seed `pg_hba.conf` admitting no role but the
     partners' own on their database); HTTP connections in a schedule
-    (`driver: http`, the target a node, the credential a secret) and the
-    weighted `choice`; an `api` node's `api.yaml` (each endpoint's two
-    files, its hosts, its credentials, its connections; W1 item 5, spec
-    D345); a fault requiring an option; `options` and `standby_of` in
-    `RESERVED_PARAMETERS`, `replicator` in `RESERVED_DB_ROLES`, a
-    primary with a standby carrying the replication line in its seed
-    `pg_hba.conf` (W1 items 0 and 6, spec D350);
+    (`driver: http`, the target a node, a `third_parties:` hostname or
+    `owners` (an alias on the partners' node, W1-w's template), the credential a
+    secret, named
+    `[a-z][a-z0-9_]{0,62}` and never `public`, `timeout` 1–60 s, no
+    `role`; a job's one `connection:` never an HTTP connection nor a
+    call key: the program's own refusals, W1-y) and the weighted
+    `choice`; an `api` node's `api.yaml` (each endpoint's two files,
+    its hosts, its credentials, its connections, a connection's role
+    reserved as a schedule's; W1 item 5, spec D345; the keys a
+    fragment may hold are chunk 2's check, reused, W1-w; on the
+    partners' node the hosts and the `third_parties:` hostnames agree,
+    with `owners`); `postgres`' `vault_target` and `vault_credential`
+    checked as an HTTP connection's target and credential are (W1-x);
+    a fault requiring an option; an answer key's `register_diff:`
+    (6.3, 6.8), its key `true` read as PyYAML gives it, boolean `True`,
+    or quoted `"true"`, never both in one item, through one model
+    accessor its later readers share (spec D353); `options` and
+    `standby_of` in `RESERVED_PARAMETERS`, `replicator` in
+    `RESERVED_DB_ROLES`, a primary with a standby carrying the
+    replication line in its seed `pg_hba.conf` (W1 items 0 and 6, spec
+    D350);
   - **6b, purposes and domains**: the purpose format's extensions (6.6:
     `kind: round-trip` and `round_trips:`, the `api` and `partner`
-    parts, HTTP connections in jobs, endpoint material, a periodic job
+    parts, HTTP connections in jobs, each mapped in the purpose's
+    `connections:` to the credential its job's connection names, or
+    `public` when that connection has none (spec D354), endpoint
+    material, a periodic job
     naming its feeder and `material/history.sql`, `judged:` with one
     `end-to-end` invariant per round trip, the purpose's
     `classification:`, the `ops` schema); a receiver a declared third
     party; the `SECURITY DEFINER` check at a domain's build (15);
   - refusal fixtures and unit tests for each.
   - Out: the data register's digests and coverage (chunk 17); rendering
-    (chunk 7); `load-data` (chunk 8).
+    (chunk 7); `load-data` (chunk 8); `domains:` entries and the
+    composition record, already `check_domains_entries` and
+    `check_composition` (chunk 2, W1-w), not re-added.
 - Files: `tools/gm/model.py`, `tools/tests/test_model.py`,
   `tools/tests/fixtures/fixture-v05-refusals/` (new).
 - Spec sections: master spec 6.2 to 6.6, 7.1, 7.2, 10.2, 12.1, 15.
@@ -840,13 +872,17 @@ caller and the endpoint read it, are W1's (items 0, 3 to 6; spec D347).
   - Out: the bastion's route to cold storage (chunk 17); the partners'
     nodes themselves (chunk 11).
 - Files: `tools/gm/{render.py,localimpl.py,deploy.py}`,
-  `tools/tests/{test_render.py,test_deploy.py}`.
+  `tools/tests/{test_render.py,test_deploy.py}`, and the secret lists
+  `test_fit.py`, `test_state.py` and `test_teardown.py` expect, where
+  the new secrets change them (chunk 3's precedent, W1-x).
 - Spec sections: master spec 10.2, 15 ("`render`").
 - Done when: unit tests show a rendered stack giving the partners' node
   each alias and each HTTP caller, `api` node and archiving `postgres`
   node its secret; a two-node fixture shows a
-  call by alias answered, the caller started before the `api` node and
-  waiting.
+  call by alias answered, the caller started before the `api` node,
+  waiting, bounded, and calling once the alias resolves (an alias
+  enters DNS only once its task is healthy; workflow deltas, spec
+  D356).
 - Verification: chunk checks.
 - Split rule: none expected.
 
@@ -871,13 +907,15 @@ temporary foreign server, the sessions unseen), the load order from
   `pgcrypto`), run as `postgres`; a sanctioned `derive.sql` and every
   purpose's `history.sql` run after the loads they read, through a
   temporary foreign server dropped afterwards, statement logging,
-  `pg_stat_statements` and pgaudit off for their sessions; the coherence
+  `pg_stat_statements` and pgaudit off for their sessions (pgaudit
+  through chunk 3's `inject.NO_AUDIT_SQL`, W1-x); the coherence
   check once on the loaded system before any fault is planted, its
   failure stopping the setup as a design error; the result written to
   the composition record's `coherence:`; unit tests and a composed test
-  load.
+  load. Every new load step skips the standbys as chunk 3's
+  `standby_plan` does (W1-x).
   - Out: the domains' own coherence queries (each domain chunk); the
-    standby's clone (chunk 3).
+    standby's clone (chunk 3, after the loads, where it stays).
 - Files: `tools/gm/inject.py`, `tools/gm/coherence.py` (new),
   `tools/tests/{test_inject.py,test_coherence.py}` (`test_coherence.py`
   new), `tools/tests/fixtures/fixture-composed/` (new: a two-part test
@@ -919,7 +957,10 @@ vets' mapping to practices; the clinic-api endpoints' contract (9.2).
   animals by id and natural identifier, the current owner,
   `GET /stays?current=true`); its variant manifest;
   its purposes' ids. A fixture of `records` and `clinic-api` with the
-  bastion, for the lookup API.
+  bastion, for the lookup API; should `clinic-api`'s `api.yaml` name an
+  HTTP credential, the fixture runs once chunk 7 has merged into this
+  branch, since a credential it names but not mounted stops the server
+  (W1-z).
   - Out: purpose 4's exchange endpoints and the centres' stubs (chunk
     19); the parts' fragments on `pms` (their chunks).
 - Files: `domains/vet-core/` (new): `domain.yaml`,
@@ -981,8 +1022,10 @@ page and its `web_routes` entry.
   dashboard shows its series, the status page lists each check's line
   with its time through the bastion, a pgCluu report lands in the
   player's home; a node without the option is refused for each monitor
-  (after chunk 6); each new brick, started before `records`, waits and
-  then works; the footprints at rest recorded.
+  (after chunk 6); each new brick, started before `records`, waits,
+  bounded, fails its readings honestly while `records` is not yet in
+  DNS (a fresh node is past the bound), and works once it resolves
+  (workflow deltas, spec D356); the footprints at rest recorded.
 - Verification: chunk checks; G10 before the wave's gate.
 - Split rule: 10a `pgwatch` and `grafana` 0.3.0; 10b `health-check` and
   pgCluu.
@@ -1728,5 +1771,7 @@ exception. GM-side checks run from the host.
     and played, the overnight and periodic cadences in scenario time,
     growth and footprints over an aging, the clinic's rehearsal, the
     stance check-list, the parts' long views); no hand-over snapshot for
-    the whole clinic on these declarations; the access model's known
+    the whole clinic on these declarations; a restart from a hand-over
+    snapshot not bringing a standby back as one (`postgres` 0.5.0's
+    known limit, spec D352); the access model's known
     gaps that stand; the security advisor's items still with the owner.
