@@ -147,21 +147,22 @@ of the [master spec](versions/v0.4/master-spec.md) closed O104, O108,
 O122, O124 and O125 as written there (D215). O146, raised by wave 4's
 capture W4, closed by the owner's ruling (D284). O161, raised by the
 owner's remark beside D310, closed by his ruling (D311), which raised
-O162.
+O162, closed by his ruling on long-running tests (D312); O163 raised
+in writing it into the plan.
 
-- **O162** (v0.4's release, owner) — Does release gate item 9's
-  unobserved part move to v1.0 gating with the two-host runs (D311)? It
-  is single-host, no game: f4's steps after the scenario's local
-  midnight, f8's fixed reading and the cycles run's clean end-to-end
-  verdict (D310), about a nine-hour run on armenelos. D311 names the
-  two-host sessions, the stance check-list and full-game testing, not
-  it, and master spec 18 item 2 still asks for it, so it stays in v0.4's
-  gate until the owner rules. Proposed: moved, named in the release
-  notes' known limits, since the owner asked to close without the long
-  runs; else run once at the release gate. Refs:
-  [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) release
-  gate item 9; [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 18;
-  [versions/README.md](versions/README.md#v10-gating).
+- **O163** (v0.4's release, owner) — Release gate item 8's end-of-run
+  checks with every fault planted at once: the wave 4 gate's `smoke` run
+  stopped at f8's wait (D312), so its later steps never ran (every job
+  of every runner and `db`'s and `reporting`'s jobs since T0, every
+  scheduler key called, the full `gmctl check`, the teardown leaving
+  nothing). No faulted run has reached them: chunk 17a's cycles run
+  stopped at f4's wait (D310); the unfaulted `baseline` run passes them
+  but `reporting`'s `pg_cron` job, which it does not read.
+  Proposed: (a) read them by hand on the stopped run's deployment before
+  its teardown, minutes; else (b) a harness option skipping f8's wait,
+  `smoke` re-run, about an hour; else (c) left, named in the known
+  limits. Refs: [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md)
+  release gate item 8; [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 18 item 1.
 
 ## v0.4: data governance
 

@@ -1,6 +1,11 @@
 # db_audit_gm v0.4 — Build plan
 
-Status: v14 (2026-11-03): the owner's ruling on spec O161, the two-host
+Status: v15 (2026-11-03): the owner's ruling on spec O162, long-running
+tests moved to v1.0 gating (spec D312): the wave 4 gate's `smoke` run
+stopped at f8's wait, f8's reading there and item 9's unobserved part
+moved, in the workflow deltas, chunk 17 and release gate items 8, 9 and
+17; the smoke run's end-of-run checks left to the owner (spec O163);
+v14 (2026-11-03): the owner's ruling on spec O161, the two-host
 runs, the rehearsal (17b) and the stance check-list moved to v1.0
 gating (spec D311), in the gates, the waves, chunk 17, the workflow
 deltas, the measurements and the release gate; item 9's unobserved part
@@ -335,10 +340,13 @@ peek, as for chunk 20.
   passing; from wave 4, on the new scenario on armenelos alone,
   `tools/tests/smoke-purposes.sh`'s `smoke` (every fault planted at
   once, its first live run, serving release gate item 8's single-host
-  half too), `baseline` (G1 to G4) and `f10`, with no pooler WORKAROUND
-  line (spec D305); not `cycles`: its part up to f4's wait for the
-  scenario's midnight is chunk 17a's run, accepted by spec D310, not
-  repeated at the gate.
+  half too), run up to f8's wait and stopped there, f8's reading moved
+  to v1.0 gating with the rest of the long-running tests (spec D312);
+  `baseline` (G1 to G4, about 31 minutes) and `f10` (about 6 minutes);
+  with no pooler WORKAROUND line (spec D305); not `cycles`: its part up
+  to f4's wait for the scenario's midnight is chunk 17a's run, accepted
+  by spec D310, not repeated at the gate, the rest v1.0 gating (spec
+  D312).
 - No link checker is configured; Markdown links are checked by reading.
 - Images are tagged `127.0.0.1:5000/dbagm/<brick>:<version>`, as before;
   every pinned download is checked against its published checksum in the
@@ -1237,7 +1245,7 @@ the owner's ruling (spec D311), listed in the roadmap's
     the moved time (spec D246), f5's cycle ending before f4's and f7's
     (W4 item 4), the cycles run counted as it stood when aborted at f4's
     wait for the scenario's midnight, f4's steps after it not run (spec
-    D310: still release gate item 9, spec O162); f6 and f9 present
+    D310), v1.0 gating with f8's fixed reading (spec D312); f6 and f9 present
     then fixed after their acceptance fix; the unfaulted scenario (a
     scratch copy whose seed-changed files are `fixture-campaign`'s, every
     instance left out by the harness-only override, W4 item 8),
@@ -1602,7 +1610,9 @@ v0.1's to v0.3's checks still applying except those spec D311 moves.
 v1.0. **No GM session and no run on the VPS** (spec D311): the stance
 check-list, every two-host run and the rehearsal are v1.0 gating, listed
 in the roadmap's [v1.0 gating](../README.md#v10-gating); the VPS stays
-drained throughout. GM-side checks run from the host.
+drained throughout. **No long-running test** (spec D312): those are v1.0
+gating too, and every run left here is short. GM-side checks run from
+the host.
 
 1. Item 1: `scheduler` 0.2.0, `postgres` 0.4.0, `bastion` 0.4.0 and
    `pgbouncer` 0.1.1 pass the format skill's `docs/gm.md` check, with their validators and
@@ -1626,19 +1636,23 @@ drained throughout. GM-side checks run from the host.
    (spec D224); every existing fault's `applies_to` carrying the new
    versions.
 8. Master spec 18.1: the scenario's smoke run on armenelos alone, every
-   fault planted at once, every key and job running; `fit` refusing the
-   VPS for `reporting` on the two-host playground declaration (the VPS
-   declared `shared`, never set `active`: a placement check, no
-   deployment). The run on armenelos plus the VPS: v1.0 gating (spec
-   D311).
+   fault planted at once, every key and job running, run as the wave 4
+   gate's `smoke` up to f8's wait and stopped there; f8's reading in it
+   v1.0 gating (spec D312), f8 read present with every fault planted in
+   chunk 17a's cycles run; the run's checks after that wait (every job
+   and key since T0, the full `check`, the teardown) left to the owner
+   (spec O163). `fit` refusing the VPS for `reporting` on the two-host
+   playground declaration (the VPS declared `shared`, never set
+   `active`: a placement check, no deployment). The run on armenelos
+   plus the VPS: v1.0 gating (spec D311).
 9. Master spec 18.2 and 18.3: every purpose fault's full cycle (f1 to f5,
    f7, f8), f4's moving the producer's invoicing, f5's and f7's with
    `--since`;
-   f6 and f9 present, then fixed after their acceptance fix. Chunk 17a's
-   cycles run passed up to f4's wait for the scenario's midnight (spec
-   D310); what it left unobserved, f4's steps after that midnight, f8's
-   fixed reading and a clean end-to-end verdict, is run here unless the
-   owner moves it to v1.0 gating (spec O162).
+   f6 and f9 present, then fixed after their acceptance fix: chunk 17a's
+   cycles run, passed up to f4's wait for the scenario's midnight (spec
+   D310), not repeated. What it left unobserved, f4's steps after that
+   midnight, f8's fixed reading and a clean end-to-end verdict (about
+   nine hours): v1.0 gating (spec D312), not run in v0.4.
 10. Master spec 18.4: the unfaulted scenario passing G1 to G4, rebuilt
     from `fixture-campaign`'s files (capture W4 item 8).
 11. Master spec 18.5: f10 calibrated (G10 done, re-measured at 640M by
@@ -1668,7 +1682,8 @@ drained throughout. GM-side checks run from the host.
     rehearsal, extrapolated; hosts and timers through a night; f10
     within a real aging), what moved to v1.0 gating (spec D311: every
     two-host run, the rehearsal with its timer-fired early check and its
-    figures, the stance check-list; item 9's unobserved part too if spec
-    O162 moves it), f10's normal run at 327 MiB against the 320 MiB half (spec
+    figures, the stance check-list; spec D312: item 9's unobserved part,
+    f4 after the scenario's midnight, f8's fixed reading and the cycles
+    run's clean verdict, and f8's reading in the smoke run), f10's normal run at 327 MiB against the 320 MiB half (spec
     D252), the limits of `load-data`'s `pg_cron` clean-up (master spec
     14, spec D258), and the access model's known gaps that stand.

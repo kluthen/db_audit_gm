@@ -374,7 +374,8 @@ gate has no aged run (D193): it relies on the smoke tests, the
 rehearsal and the early check fired by the host's timer
 ([roadmap](../README.md#release-gates)). On 2026-11-03 its two-host
 runs, its rehearsal and its stance check-list moved to
-[v1.0 gating](../README.md#v10-gating) (D311). For purposes this means:
+[v1.0 gating](../README.md#v10-gating) (D311), then its long-running
+tests (D312). For purposes this means:
 
 - Every purpose fault is taken through its whole cycle in a smoke run:
   present, then too soon after the fix, then fixed, its job moved as a

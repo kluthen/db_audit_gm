@@ -132,7 +132,8 @@ adds every purpose fault taken through its full cycle in a smoke run,
 its job moved as a player may, and names what no gate shows (a nightly
 job at its story's time, growth over a full aging, a night unattended)
 as known limits (D200). v0.4's gate left its two-host runs, its rehearsal and
-its stance check-list to v1.0 gating (D311, below).
+its stance check-list to v1.0 gating (D311, below), then its long-running
+tests (D312).
 
 ### v1.0 gating
 
@@ -163,6 +164,15 @@ aged run is decided then (D193).
   trace's growth per hour, extrapolated over the sixteen-hour aging,
   into the bricks' "Footprint" and the scenario's `resources`, `fit`
   re-run (D311).
-- **v0.4's cycles run past the scenario's midnight**, if O162 moves it:
-  f4's steps after the local midnight, f8's fixed reading and a clean
-  end-to-end verdict (D310).
+- **Long-running tests**: a release gate keeps short tests only, the
+  owner's rule ("long running tests should be moved to v1.0 gating.
+  remaining tests should be short", D312). v0.4's instances:
+  - the full cycles run with f4 across the scenario's local midnight:
+    f4's steps after that midnight, f8's fixed reading and a clean
+    end-to-end verdict, about nine hours on armenelos ([master
+    spec](v0.4/master-spec.md) 18 item 2; chunk 17a's run stopped at
+    f4's wait for that midnight, D310);
+  - f8's wait in the all-at-once smoke run, up to 9000 s for its present
+    reading (master spec 18 item 1; the wave 4 gate's run stopped at that
+    wait; f8 read present, every fault planted, in chunk 17a's cycles
+    run).

@@ -43,7 +43,8 @@ owner's ruling on f5 masking f4: times kept, f4 expected "too soon" at
 the hand-over check, which passes a "too soon" its answer key expects
 (6.2, 12.2, 16.1). On 2026-11-03 the owner moved the two-host runs, the
 rehearsal and the stance check-list to v1.0 gating, run once before the
-v1.0 tag (18).
+v1.0 tag, and then every long-running test, the gate keeping short ones
+(18).
 
 ---
 
@@ -1962,7 +1963,13 @@ gate); item 6, the rehearsal, with the timer-fired early check it
 carries and the measurements 7.2, 9.8, 13.2 and 16.1 leave to it, the
 bricks' footprints and the first scenario's starting figures standing
 as built until then; and the stance check-list, a GM session played
-with verifier agents as `player`. Item 7 names them.
+with verifier agents as `player`. Then, by his ruling the same day that
+long-running tests move there and the gate's remaining tests are short:
+in item 1's single-host run, the wait for f8's reading, up to two and a
+half hours; in item 2, f4's steps after the scenario's local midnight,
+f8's fixed reading and the cycles run's clean end-to-end verdict, a run
+of about nine hours, item 2's other steps standing as run up to f4's
+wait for that midnight. Item 7 names them.
 
 1. **Smoke tests** on one host and on armenelos plus the VPS, every
    fault planted at once (a test harness, never a game), every scheduler

@@ -72,7 +72,8 @@ be needed for v1.0, is put to the owner:
   may not (D193; [roadmap](../README.md#release-gates)).
 - Its gate runs the checks earlier versions left to v1.0 gating, once
   before the tag: v0.4's two-host runs, rehearsal and stance check-list
-  (D311; [roadmap](../README.md#v10-gating)).
+  (D311) and its long-running tests (D312;
+  [roadmap](../README.md#v10-gating)).
 - O2 (scripts versus agent judgment for generated scenarios), O20 (the
   solvability probe as a gate), O29 (brief format), O30 (preparation time
   before a class), O32 (language of player-facing material), O38 (feedback

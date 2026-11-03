@@ -603,3 +603,13 @@ v0.5's drafting. Take the next number from `doc-ids`; no ID is reused.
   Now in: [versions/README.md](versions/README.md#v10-gating);
   [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 18;
   [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) chunk 17, gates, release gate.
+- **D312 (2026-11-03, owner ruling on O162, relayed by the wave driver):
+  "long running tests should be moved to v1.0 gating. remaining tests
+  should be short."** Item 9's unobserved part (f4 after the scenario's
+  midnight, f8's fixed reading, a clean cycles verdict, ~9 h) and f8's
+  wait in the wave 4 gate's all-at-once smoke run (stopped there) move.
+  Closes O162. The driver takes it as the owner's confirmation of D311's
+  master spec 18 amendment, since it moves more, not less. Now in:
+  [versions/README.md](versions/README.md#v10-gating);
+  [versions/v0.4/master-spec.md](versions/v0.4/master-spec.md) 18;
+  [versions/v0.4/build-plan.md](versions/v0.4/build-plan.md) workflow deltas, chunk 17, release gate.
