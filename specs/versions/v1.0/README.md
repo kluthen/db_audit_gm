@@ -63,6 +63,10 @@ be needed for v1.0, is put to the owner:
 - What v0.5 moved later, "probably v1.0+" or with no version set (D233,
   D237): listed in the
   [roadmap](../README.md#deferred-from-v05-d233-d237).
+- From v1.0 to v2, DBA work with bits of devops: a periodic report run
+  on a spawned instance (D269), major-version upgrades, hotfixes, moving
+  from one database provider to another, setting up replication (D272;
+  [roadmap](../README.md#v10-to-v2-dba-work-with-bits-of-devops-d272)).
 
 ## Open for this version
 

@@ -21,7 +21,29 @@ On 2026-10-31 v0.5 was centred on domain definition and the clinic
 (D233), and its questions retargeted: O53 and O54 to later, version not
 set (D237); O21 and O135 to v0.6; O24 and O25 to v1.0+ (D248). Resolved
 during v0.5's drafting: O137 and O47 (D248), O126 (D249), O139 (D260),
-O118 (D261), O80 (D262).
+O118 (D261), O80 (D262), O114 (D263), O145 (D274, D275), O144 (D278),
+O127 (D285), O128 (D286), O79 (D289), O112 (D292), O147 (D293–D295),
+O148 (D296, D297), O113 (D298), O149 (D300), O151 (D301), O152 (D302),
+O154 (D303), O153 (D304), O155 (D306),
+O156 (D307), O158 (D314), O164 (D315), O165 (D316). Raised with the
+four remaining parts' drafts on 2026-11-03 and resolved the same day,
+the owner accepting the recommendations as a whole: O168–O179
+`vet-scheduling` (D317), O180–O190 `vet-housing` (D318), O192–O203
+`vet-machinery` (D319), O204–O215 `vet-portal` (D320), each question's
+text on its part's page under "Questions for the owner"; with D321
+(appointment reminders) and D322, D323 (the initial load and
+composition, feeding O111). O166, O167, O191 and O216 were reserved and
+never used. Raised with a scenario's data register, a player handout
+(D329–D331), and resolved the same day, the owner accepting the
+recommendations: O217 (D333), O218 (D334), O219 (D335), each
+question's text on
+[versions/v0.5/data-register-handout.md](versions/v0.5/data-register-handout.md#questions-for-the-owner).
+Resolved at consolidation: O111, its v0.5 part, the domain format
+written into [formats.md](formats.md) v28 (D338). Resolved at the
+master spec's approval: O220, the monitoring breadth (D340).
+O221 and O222 were reserved and never used. Resolved at the build plan's
+approval, as it recommended: O223–O227 (D343), their text in
+[versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#settled-with-the-owner).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -55,13 +77,17 @@ for the next version (v0.1 until it closed, with none left open);
   over several PostgreSQL instances, `postgres_fdw` one method among
   others; another engine only if a purpose needs one, which none does
   (D194). Still open: which engine versions first, and how
-  upgrade scenarios (both binaries, disk space) fit the budget. Refs:
+  upgrade scenarios (both binaries, disk space) fit the budget, which
+  the direction for v1.0 to v2 makes an exercise (D272). Refs:
   [versions/v1.0/README.md](versions/v1.0/README.md),
   [versions/v0.4/README.md](versions/v0.4/README.md).
 - **O12** (later) — Are network-level faults (segmentation, routing-mesh
   exposure) in scope? And the network layout itself (management network,
   zones, dual-homed nodes). v0.2 has one network and no network faults
-  (D83). Refs: [platform.md](platform.md).
+  (D83). Separate networks for third parties wait here: v0.5 keeps one
+  network, a third party's back end closed by its own access rules
+  (D275). Refs: [platform.md](platform.md),
+  [versions/v0.5/third-parties.md](versions/v0.5/third-parties.md).
 
 ## Faults and aging
 
@@ -77,7 +103,9 @@ for the next version (v0.1 until it closed, with none left open);
   "Enforcement".
 - **O21** (later, v0.6) — Can the starter documentation contain deliberate
   inaccuracies as faults, decided per scenario? Due with v0.6's
-  documentation website; no longer v0.5's (D233).
+  documentation website; no longer v0.5's (D233). Narrowed by D330: the
+  data register may carry one from v0.5 (T300–T308); still open for the
+  other starter files.
 - **O22** (later, beyond v0.3) — Aging technique. v0.3 ages in real time
   only, with no sped-up clock, no forged history and no time compression
   (D114, D132), on always-on hosts (D125). Still open: which version
@@ -89,16 +117,22 @@ for the next version (v0.1 until it closed, with none left open);
   volume copy is needed; noted, not reopened (D125 stands).
   Not moot: v0.4's purposes (D190) run daily, weekly or monthly jobs,
   which real time alone barely exercises; v0.4's part is settled by
-  D199 (realistic cadences, none weekly or monthly).
+  D199 (realistic cadences, none weekly or monthly); the clinic's
+  weekly, monthly and yearly reports are in the game, past periods
+  planted (D265, D269, D277; [producer-profiles.md](versions/v0.5/producer-profiles.md) 4).
   Refs: [scenario-lifecycle.md](scenario-lifecycle.md),
   [archive/v0.3/aging-and-timeline.md](archive/v0.3/aging-and-timeline.md),
   [versions/v0.4/README.md](versions/v0.4/README.md).
-- **O23** (later, v0.5, for the clinic's scenario; D248) — Difficulty is a fault count, each fault worth 1 (easy
+- **O23** (later) — Difficulty is a fault count, each fault worth 1 (easy
   5, normal 10, hard 20; D120), read for v0.3 as the number of fault
-  instances, the levels being targets (D134). Still open:
-  how many faults issues cover, the mix of families, and may an issue be
-  a false alarm (a complaint with no fault behind it)? Refs:
-  [bricks-and-faults.md](bricks-and-faults.md).
+  instances, the levels being targets (D134). Ruled for the clinic's
+  scenario (D290): ten faults at most, one dramatic and noticed by the
+  customer, two on the verge of becoming problematic, the rest
+  optimisations and minor frictions; an issue may be a false alarm.
+  Still open beyond the clinic: whether that severity mix becomes the
+  general rule, how many faults issues cover, and the mix of families.
+  Refs: [bricks-and-faults.md](bricks-and-faults.md),
+  [versions/v0.5/README.md](versions/v0.5/README.md#in-scope).
 - **O24** (later, v1.0+; D248) — Seed variation (names, values) per deployment of a
   scenario? Probably moot after D8; kept until the owner says so.
 - **O25** (later, v1.0+; D248) — Scenario-only bricks and faults may live in the
@@ -147,76 +181,10 @@ O136, raised by D230, waits for a later version.
 
 Raised when the owner set business domains for v0.5 on 2026-10-28
 (D192). v0.4 ships the first, the shop (O108). The veterinary clinic
-added on 2026-10-30 (D196).
-
-- **O111** (later, v0.5) — The domain format, beyond v0.4's part. v0.4's
-  part was settled by the master spec's approval (D215): `domains/shop/`
-  with `domain.yaml`, `data/` (schema, load, classification),
-  `producers/`, `docs/gm.md`, a design-time source named for provenance
-  that never bumps, static scenarios needing none
-  ([master spec](versions/v0.4/master-spec.md) 6.8). Still open: what
-  the format gains when v0.5 adds the clinic's domains, beyond the four
-  changes D249 settled (the business's own rules in a domain,
-  classification keys without the database, `requires`, a scenario's
-  `domains:` list;
-  [versions/v0.5/domain-procedure.md](versions/v0.5/domain-procedure.md)
-  5, 6): profiles against the schedule (O113), size (O114), and what the
-  clinic's domains reveal.
-- **O112** (later, v0.5; **deferred**, D235) — Which domains come after
-  the shop? The clinic's first (D233). Whether any other joins v0.5 is
-  deferred until the domain procedure shows what defining one costs: the
-  owner decides then (D235). The owner names a warehouse, a factory and
-  a lab, and, on 2026-10-30, a veterinary clinic franchise (D196), a
-  composite holding a lab. A
-  factory's high-frequency time series presses on "schemas simple,
-  tables small" and the memory budget, and invites TimescaleDB, placed
-  beyond v1.0 by D47 yet listed as a `postgres` option candidate (O79). A
-  lab's audit trail needs governance beyond v0.4's cut, pgaudit always
-  available for it (D261). The
-  clinic's machinery may want engines beyond v1.0 (D47) and its
-  regulatory reports run monthly or yearly (O22). v0.2's
-  `fernway-clinics-monitoring` is a veterinary clinic: its owners are
-  personal data, animal health is no special category. Refs:
-  [versions/v0.5/README.md](versions/v0.5/README.md#domains).
-- **O113** (later, v0.5) — Producer profiles against v0.3's query
-  repository and schedule: a template the GM instantiates into a
-  scenario's `queries.yaml` and `schedule.yaml` at design time (the
-  folder stays self-sufficient, D23), a library of builders, traffic
-  shapes and parameter generators the scenario references, or a layer
-  the scheduler reads? Richer input types (names, addresses, SKUs,
-  sensor readings) than v0.3's generators? A catalogue profile is
-  readable in the repository while `schedule.yaml` is hidden (D130):
-  accepted on the trust line (D13)? Refs:
-  [versions/v0.5/README.md](versions/v0.5/README.md#domains),
-  [versions/v0.3/master-spec.md](versions/v0.3/master-spec.md) 7.1.
-- **O114** (later, v0.5) — What a scenario's size scales: data volume,
-  number of entities, intensity, or several? Intensity is absolute and
-  never rescaled to the playground (D32); size has to fit the
-  playground's budget and "schemas simple, tables small". Refs:
-  [versions/v0.5/README.md](versions/v0.5/README.md#domains).
-
-- **O127** (later, v0.5 → beyond v1.0) — Where several sites and the
-  exchange between them sit: the clinic is a franchise whose centres
-  share machinery and records, with redundancy (D196). Several sites
-  need more than one domain's worth of topology: several database
-  instances per business, replication or exchange between them, and
-  hosts enough. A v0.5 topology fragment (two sites on one playground),
-  or beyond v1.0 with the multi-site playgrounds it needs? Linked to
-  O12 (network layout). Narrowed by the procedure (D235, D249): a site
-  is a core entity, so one database holds several sites' data; what
-  stays open is the topology side, several instances and the exchange
-  between them. Refs:
-  [versions/v0.5/README.md](versions/v0.5/README.md#the-veterinary-clinic-d196).
-
-- **O128** (later, v0.5) — How a round trip is modelled (D201): an
-  acknowledgement as an inbound flow the setup waits on and reacts to.
-  To settle: whether it is a purpose kind of its own or a pushed
-  obligation with reactions; how correlation is stated (the key an
-  acknowledgement answers); the stub receiver's repertoire (late, out
-  of order, duplicated, unmatched acknowledgements, as timeline changes,
-  D127); how a check judges a cascade, whose faults show downstream; and
-  what of the clinic's lab results and inter-clinic exchanges it covers.
-  Refs: [versions/v0.5/README.md](versions/v0.5/README.md#round-trips-acknowledgements-as-inputs-d201).
+added on 2026-10-30 (D196). O111, the last of them, closed at
+consolidation (D338); O220, raised by it, closed at the master spec's
+approval (D340). O223–O227, raised with the build plan, closed at its
+approval (D343). No v0.5 question is open.
 
 ## v0.6: the setup's entry point
 
@@ -291,7 +259,10 @@ the question concerns.
 - **O49** (soon, roadmap) — Backup tools (pgBackRest and the like) and the
   backup-tooling fault families (D17) are in no version, although backups
   were a founding example and the v0.1 goal speaks of "investigating a
-  backup". Which version? Refs:
+  backup". Which version? WAL archiving and base backups with plain
+  PostgreSQL tools are in v0.5 (D299); left here: pgBackRest and the
+  like, restores, point-in-time recovery and restore drills, for
+  v1.0+'s DBA work (D272). Refs:
   [bricks-and-faults.md](bricks-and-faults.md), "Future ideas: backup
   tooling".
 - **O52** (later, after v0.4) — dbt adds a Python toolchain and adapters
@@ -321,47 +292,3 @@ the question concerns.
   self-sufficient scenario folder (D23). Pin by address and checksum and
   cache locally? Refs:
   [versions/README.md](versions/README.md#deferred-from-v05-d233-d237).
-- **O79** (later, v0.5) — The brick options model (D107), `postgres`
-  first, tied to the clinic (D236). Narrowed by D250: TLS is always
-  available and turned on by the seed, replication a standby mode of the
-  brick, plain partitioned tables come before any TimescaleDB, and of
-  today's four elements only the `monitoring` role becomes an option.
-  Narrowed again: pgaudit is always available as TLS is, not an option
-  (D261), and options are for `postgres` only unless a clinic part calls
-  for another brick (D262, closing O80). Still open: the model for its
-  one user, the `monitoring` role, its five points read for it in
-  [versions/v0.5/brick-options-review.md](versions/v0.5/brick-options-review.md#what-o79-still-answers-for-the-clinic);
-  PostGIS and `pg_trgm` left with Bluebox (D237). The text below is the
-  question as first raised. In `postgres` 0.2.0,
-  pgBadger, file logs on the `pglog` volume, `pg_stat_statements`, the `monitoring` role and its
-  `monitoring_password` secret are in every game, while the logging and
-  preload settings are the scenario's, in its seed `postgresql.conf`.
-  First candidate options: those four, then PostGIS, TimescaleDB and the
-  replication modules; `pg_cron` and the cron daemon, which `postgres`
-  0.4.0 ships enabled by the seed, with no `options:` key (D206). To
-  settle:
-  1. Where an option's software comes from, given a read-only root and no
-     network at start: one image carrying every option (simple, but
-     PostGIS alone adds a few hundred MB every game pays), image variants
-     per option set (e.g. `postgres:0.x.0-postgis`), or a mix (light
-     options in the base, heavy ones as variants). `fit` counts image
-     sizes (D102), so the choice shows in capacity.
-  2. How a scenario chooses: e.g. `options: [pgbadger,
-     pg_stat_statements, postgis]` on the node, with `brick.yaml`
-     declaring the options it offers, each with its requirements
-     (preload library, volume), its footprint, and the secrets and
-     volumes that exist only with it (`pglog` and `monitoring_password`
-     would become per-option).
-  3. What start-up does for an option (create the extension, the role,
-     the directory), while its settings in `postgresql.conf` (preloads,
-     logging) stay in the seed so a fault can still remove them; the
-     loader checks the seed agrees with the chosen options.
-  4. Faults that need an option, as `applies_to` ties a fault to a brick
-     and version.
-  5. Documentation: one section per option in the brick's `docs/gm.md`
-     (what it adds, its cost, how to enable it, the faults it allows).
-
-  Akin to v0.2's declare/choose/check pattern for mounted material and
-  `receives` (D97). Refs: [versions/v0.5/README.md](versions/v0.5/README.md),
-  [formats.md](formats.md) "Brick definition",
-  [versions/v0.2/master-spec.md](versions/v0.2/master-spec.md) 7.5.

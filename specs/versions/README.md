@@ -12,7 +12,7 @@ v0.1 is draft.
 | [v0.2](v0.2/README.md) | Monitoring and usual tooling: per-node health, PostgreSQL metrics, dashboards and alerting, log analysis; one free brick per need, chosen by footprint | released 2026-10-22: release gate passed, G10 and G11 cleared; [release notes](v0.2/README.md#release-notes); working record archived in [archive/v0.2/](../archive/v0.2/README.md) |
 | [v0.3](v0.3/README.md) | Producers and consumers: ingestion, load spikes, misbehaving requests, broad queries | released 2026-10-30: release gate passed, G9 and G10 cleared; merged into `main` (cba7be3); [master spec](v0.3/master-spec.md) and [access model](v0.3/access-model.md); [release notes](v0.3/README.md#release-notes); working record archived in [archive/v0.3/](../archive/v0.3/README.md) |
 | [v0.4](v0.4/README.md) | Purposes, "bricks of why and bits of hows": side usage and transformations (BI, leads, reports, mailing) modelled by their jobs, trace and invariants; a generic job runner, a second database (D190, revising D47); the shop as the first business domain (D192); a first cut of data governance: data classes, allowed locations and flows, a policy the players audit (D191) | released 2026-11-03: release gate passed, G11 cleared, its long runs moved to [v1.0 gating](#v10-gating) (D311–D313); merged into `main` (56b7471); [master spec](v0.4/master-spec.md) and [access model](v0.4/access-model.md); [release notes](v0.4/README.md#release-notes); working record archived in [archive/v0.4/](../archive/v0.4/README.md) |
-| [v0.5](v0.5/README.md) | Domain definition, the veterinary clinic franchise the worked example (D233): a procedure for defining a domain (D235), the clinic's domains (data models, producer profiles, scheduler scripts, purposes; D192) with its richer governance, round trips, and the bricks, faults, topology and monitoring it needs (D238), brick options among them, for `postgres` only (D236, D262); a post-mortem collection begun beside it (D234) | draft |
+| [v0.5](v0.5/README.md) | Domain definition, the veterinary clinic franchise the worked example (D233): a procedure for defining a domain (D235), the clinic's domains (data models, producer profiles, scheduler scripts, purposes; D192) with its richer governance, round trips, and the bricks, faults, topology and monitoring it needs (D238), brick options among them, for `postgres` only (D236, D262); a post-mortem collection begun beside it (D234) | [master spec](v0.5/master-spec.md) and [access model](v0.5/access-model.md) **approved** 2026-11-03 (D339, D340); the build plan next |
 | [v0.6](v0.6/README.md) | The bastion as the players' main activity point: web interfaces, a documentation website, general-use tooling; the setup's entry point and a reporting tool, moved from v0.5 (D233) | draft |
 | [v1.0](v1.0/README.md) | First release: the full pipeline scenario, reached through v0.2–v0.6 | draft |
 
@@ -25,6 +25,9 @@ v0.1 is draft.
 - a fictional cloud provider over the bricks, with capacity management
   and a console (D205; below).
 - what v0.5 moved later (D233, D237; below).
+- from v1.0 to v2, DBA work with bits of devops: reports run on a
+  spawned instance, migrations, replication set up by the players
+  (D272; below).
 
 Questions about the roadmap as a whole (gaps between v0.5 and v1.0,
 risks across versions) are in [open-questions.md](../open-questions.md),
@@ -75,6 +78,28 @@ What earlier versions already give it:
 
 Open: O130.
 
+## v1.0 to v2: DBA work with bits of devops (D272)
+
+The owner, on 2026-11-01: "the work on v1.0+ till v2 will be more active
+on the DBA part (with bits of devops)." And: "What i expect from v1.0+
+will be also exercices on migration (pg from one version to another,
+applying hotfixes, migrating from one db provider to another, setting up
+replications, etc)."
+
+| Exercise | What the players do | Builds on |
+|---|---|---|
+| **A report on a spawned instance** | "run March's report now" on an instance spawned for the occasion, so the live setup is barely disturbed; possibly in v0.6, more probably v1.0 or after (D269) | v0.5's periodic reports, their past periods planted (D265) |
+| **Major-version upgrades** | PostgreSQL from one major version to the next | O11's upgrade scenarios: both binaries, the disk space, within the budget |
+| **Hotfixes** | applying a minor release or a patch to a running setup | the bricks' pinned versions (formats.md, "Versions and pins") |
+| **Moving providers** | migrating a database from one provider to another | the fictional cloud provider (D205, above): its managed database one end of a move, a self-hosted `postgres` node the other |
+| **Setting up replication** | building a standby and its replication themselves | v0.5's replication, a standby mode of `postgres` the seed sets up (D250); setting it up becomes the exercise |
+
+The spawned instance and the provider meet: once a node's type and
+service kind are the provider's (D205), spawning one for a report or a
+migration is a player action. None of this widens v0.5: its replication
+stays a mode the seed configures, and its periodic reports run only as
+the schedule says.
+
 ## Deferred from v0.5 (D233, D237)
 
 On 2026-10-31 the owner centred v0.5 on domain definition and the
@@ -103,9 +128,8 @@ proposed row the same day (D248).
 **v1.0**: scenario generation (O47, closed by D248;
 [v1.0](v1.0/README.md)).
 
-**Decided later**: whether other domains (a warehouse, a factory, a lab
-on its own) join v0.5, once the domain procedure's cost is known (D235;
-O112).
+**After v0.5** (settled, D292): other domains (a warehouse, a factory,
+a lab on its own); v0.5 is the clinic only.
 
 **Later, version not set** (settled, D237): Bluebox (O53) and the other
 datasets, internet-sourced data included (O54). The owner: "bluebox and
@@ -134,6 +158,17 @@ job at its story's time, growth over a full aging, a night unattended)
 as known limits (D200). v0.4's gate left its two-host runs, its rehearsal and
 its stance check-list to v1.0 gating (D311, below), then its long-running
 tests (D312).
+
+v0.5's rule (D314), in the owner's words: "we must restrict testing to
+short tests (validate that new bricks/features works simply with minimal
+environment) we will do a major test prior taging v1.0, any long running
+(>30m) will be done there." v0.5's gates hold short tests only, each
+under 30 minutes on the least environment that proves its brick or
+feature, and one exception: the whole clinic deployed once, on armenelos
+plus the VPS, as the proof in play
+([v0.5](v0.5/README.md#testing-in-v05-d314)). The rehearsal named above
+is not run in v0.5. Its long-running checks join the list below, under
+"v0.5's additions".
 
 ### v1.0 gating
 
@@ -181,3 +216,19 @@ aged run is decided then (D193).
     jobs since T0 with every fault planted, `reporting`'s `pg_cron` job
     among them, every scheduler key called, the full `gmctl check`, the
     teardown leaving nothing (master spec 18 item 1, D313).
+- **v0.5's additions (D314)**, the clinic's long-running checks:
+  - **the clinic aged**: a full aging and a session on the whole clinic,
+    every selected fault planted at once and read through its cycle;
+    whether the two faults "on the verge" are on the verge at the
+    hand-over, and the dramatic one already noticed (D290);
+  - **the clinic's overnight and periodic cadences in scenario time**:
+    the feeders at night, the base backups, the 16:00 send-outs, the
+    pathologist's rounds, a periodic run the GM places in the aging;
+    that a planted periodic-data fault's witness surfaces within the
+    aging (D265), which v0.5 proves only on a short fixture;
+  - **the clinic's growth and footprints**: every node's memory and the
+    trace's growth over the aging, `pg_wal` growing when archiving
+    fails, into the bricks' "Footprint" and the scenario's `resources`,
+    `fit` re-run;
+  - **the clinic's rehearsal**: unattended, with the early check, a
+    scheduler killed and resuming, a restart, on two hosts.
