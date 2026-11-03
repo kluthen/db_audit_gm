@@ -280,8 +280,9 @@ access model.
   on two hosts the one exception, the rest to the major test before the
   v1.0 tag (D314, O158 closed). `vet-core` and `vet-lab` are through
   step 8 (84 traps, a test selection of ten, the node tally) and in step
-  9's draft, ready for review. Open: O164 (a sent request's
-  cancellation), O165 (how many traps are built).
+  9's draft, ready for review; a sent request cancelled by the lab only
+  (D315, O164 closed); v0.5 building the test selection's ten faults
+  (D316, O165 closed).
 - Small project: scripts and small apps, no ATD, no UI/UX tree (D2).
 - v0.1 build: seven artifacts (three skills, a Python/POSIX-shell script
   set, PostgreSQL 18 on Debian 13 and bastion bricks, one scenario), one
@@ -309,8 +310,8 @@ access model.
    test-only brick change bumps nothing settled wave 1's precedent
    (D229). Next: wave 3, on the owner's word.
 2. v0.5, the domain procedure approved (D260), the clinic only (D292):
-   the owner's answers to O164 and O165; then the remaining parts
-   (scheduling, housing, machinery, the portal) through the procedure,
-   tested short (D314).
+   the remaining parts (scheduling, housing, machinery, the portal)
+   through the procedure, each from step 1, the owner's brief, tested
+   short (D314).
 3. The roadmap's "soon" question, O49 (backup tooling's version), then
    v1.0's from the "later" ones.

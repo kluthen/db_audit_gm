@@ -20,7 +20,7 @@ README:
 Archived IDs keep their meaning and are cited as they are. D107 and D113
 stay live: rulings still to be applied in v0.5. D190 onward are v0.4's
 drafting and build, apart from D233–D238, D248–D251, D260–D280 and
-D285–D309 and D314 on, v0.5's drafting (D310–D313 are v0.4's, on `main`). Take the next number from `doc-ids`; no ID is reused.
+D285–D309 and D314 onward, v0.5's drafting (D310–D313 are v0.4's, on `main`). Take the next number from `doc-ids`; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
   options are a v0.5 topic; v0.2 stays as built.** The `postgres` brick
@@ -877,3 +877,18 @@ D285–D309 and D314 on, v0.5's drafting (D310–D313 are v0.4's, on `main`). Ta
   two hosts are covered by the exception." Now in:
   [versions/v0.5/README.md](versions/v0.5/README.md#testing-in-v05-d314),
   [versions/README.md](versions/README.md#v10-gating-v05s-additions-d314).
+- **D315 (2026-11-03, owner answer "i accept recomendations", relayed by
+  the coordinator): A request the centre has sent to its lab is not
+  cancelled from the clinic:** the vet phones, the lab cancels the test,
+  and the results feed brings the cancellation back, as a test not
+  performed; `requests.cancel` takes `requested` requests only; no new
+  endpoint. Closes O164. Now in:
+  [versions/v0.5/vet-core-domain.md](versions/v0.5/vet-core-domain.md#rates-at-intensity-10),
+  [versions/v0.5/vet-lab-domain.md](versions/v0.5/vet-lab-domain.md#rates-at-intensity-10),
+  [versions/v0.5/clinic-purposes.md](versions/v0.5/clinic-purposes.md) 5.
+- **D316 (2026-11-03, same answer): v0.5 builds the test selection's ten
+  faults and its false alarm's material;** every other trap stays listed
+  for the GM, to write as a scenario's own fault when a game selects it
+  (D309). Closes O165. Now in:
+  [versions/v0.5/clinic-test-selection.md](versions/v0.5/clinic-test-selection.md),
+  [versions/v0.5/clinic-traps.md](versions/v0.5/clinic-traps.md).

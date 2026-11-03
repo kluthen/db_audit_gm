@@ -27,7 +27,7 @@ O118 (D261), O80 (D262), O114 (D263), O145 (D274, D275), O144 (D278),
 O127 (D285), O128 (D286), O79 (D289), O112 (D292), O147 (D293–D295),
 O148 (D296, D297), O113 (D298), O149 (D300), O151 (D301), O152 (D302),
 O154 (D303), O153 (D304), O155 (D306),
-O156 (D307), O158 (D314).
+O156 (D307), O158 (D314), O164 (D315), O165 (D316).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -205,34 +205,6 @@ added on 2026-10-30 (D196).
   with its faults, D303), the purpose format's extensions (accepted by D307, closing O156), and
   what the clinic's domains reveal. Finalised in the master spec when v0.5
   consolidates (D291), which closes it.
-- **O164** (next, v0.5) — Can a request the centre has already sent to
-  its lab be cancelled? `vet-core`'s profile cancels "a request not yet
-  resulted" (`requests.cancel`, about one a day), `sent` ones included,
-  but no flow tells the lab: it tests the sample, releases a result, and
-  `fetch-lab-results` would mark a cancelled request `resulted`, one
-  fact in two places disagreeing. Options: (a) no: the core cancels a
-  request only before it is sent; once sent, the vet phones the lab,
-  which cancels the order test (`lab.orders.cancel`, the centre's orders
-  among them) and the results feed brings the cancellation back, so the
-  request goes `cancelled` through the purpose, as a test not performed
-  already does; (b) yes, through a cancel call on `lab-api` posted by
-  `interfaces`, the lab refusing once testing has begun; (c) yes, in the
-  core only, the lab's later result ignored on its return. Default: (a),
-  one place for the fact, no new endpoint; `requests.cancel` then takes
-  `requested` requests only, and the feed carries cancelled tests.
-  Refs: [vet-core](versions/v0.5/vet-core-domain.md#rates-at-intensity-10),
-  [vet-lab](versions/v0.5/vet-lab-domain.md#rates-at-intensity-10),
-  [clinic-purposes.md](versions/v0.5/clinic-purposes.md) 5.
-- **O165** (next, v0.5) — How many of the clinic's traps v0.5 builds as
-  fault definitions. Step 8 lists 84
-  ([clinic-traps.md](versions/v0.5/clinic-traps.md)); a GM may select
-  only what exists, or write a scenario's own fault at design time
-  (D309). Options: (a) the test selection's ten and its false alarm,
-  the two held faults among them (D191, D201), the rest left as traps in
-  the domains' GM notes; (b) the ten plus a reserve of about six, so each
-  D290 class has a second choice; (c) every trap, far beyond v0.5's
-  size. Default: (a). Refs:
-  [clinic-test-selection.md](versions/v0.5/clinic-test-selection.md).
 
 ## v0.6: the setup's entry point
 

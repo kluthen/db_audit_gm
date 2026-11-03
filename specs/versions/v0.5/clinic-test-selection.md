@@ -1,12 +1,14 @@
 # v0.5 — the clinic's test selection
 
-Status: draft v1, ready for review. The spec's own pick of faults from
+Status: draft v2, ready for review; the ten are what v0.5 builds (D316). The spec's own pick of faults from
 the [traps](clinic-traps.md), for the build's tests and the proof in
 play: a fixture, not the canonical scenario (D309). A game's faults are
 the GM's to select at deploy, with whoever sets up the game; this
 selection binds no game. It keeps D290's cap and mix: ten faults, one
 dramatic, two on the verge, seven optimisations and minor frictions,
-and a false alarm.
+and a false alarm. These ten are the faults v0.5 builds, the false
+alarm's material with them; the other traps stay listed for the GM
+(D316).
 
 Tested under D314: every check is a short test, under 30 minutes, on
 the least environment that proves the fault, one fixture per group

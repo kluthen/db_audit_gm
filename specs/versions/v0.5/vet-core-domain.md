@@ -11,8 +11,9 @@ the purposes (D306); classification and governance ruled (D280); the
 producer profiles ruled (D303, D304), amended by the purposes (D306);
 the purposes ruled (D306, D307) in [clinic-purposes.md](clinic-purposes.md);
 the traps listed (step 8, no owner checkpoint, D309) in
-[clinic-traps.md](clinic-traps.md). Open: O164 (a sent request's
-cancellation) and the format's finalisation (O111, at consolidation).
+[clinic-traps.md](clinic-traps.md). A sent request is cancelled by the
+lab only (D315). Open: the format's finalisation (O111, at
+consolidation).
 
 `vet-core` is the core of the veterinary clinic franchise (D196), the
 first domain defined through the [procedure](domain-procedure.md)
@@ -397,7 +398,7 @@ grow. Monthly counts show the trend, and the live rates continue it.
 | Ownership | current (`until_at` open) → ended; a sale ends one and opens the next |
 | Referral | `received` → `accepted` → `closed` (report sent), or `declined` |
 | Consultation | `open` → `closed` → `signed`, signed within a day by the vet (an unsigned record older than a day: a trap) |
-| Request | `requested` → `sent` → `resulted`, or `cancelled`; `resulted` is the part's fact copied back by a purpose (a trap: two places for one fact) |
+| Request | `requested` → `sent` → `resulted`, or `cancelled` (by the vet while `requested`; once `sent`, by the lab, copied back, D315); `resulted` is the part's fact copied back by a purpose (a trap: two places for one fact) |
 | Stay | `admitted` → `discharged`, `transferred` or `died` |
 | Exchange | out: `requested` → `sent` → `accepted` or `declined`, an accepted examination → `reported`; in: `received` → `accepted` or `declined`, an accepted examination → `reported` (D306) |
 | Prescription | `issued` → `dispensed`, `expired` (an antimicrobial after five days) or `cancelled` |
@@ -754,7 +755,7 @@ Volume streams, on `clinic` as `vet_app`:
 | `stays.discharge` | the oldest stay past two days ended: discharged (90 %), transferred to another centre (4 %, each recording an outbound `transfer` exchange, D306), died (6 %) | 2.67/h | even, `discharges` | 8 every day |
 | `alerts.record` | an alert on an animal (allergy, dangerous, infectious) | 0.6/h | poisson, `clinic-day` | 6 / 2 / 0 / 5 |
 | `ownerships.transfer` | a sale or a new keeper: one ownership ended, the next opened | 0.37/h | poisson, `clinic-day` | 4 / 1.5 / 0 / 3 |
-| `requests.cancel` | a request not yet resulted cancelled (what a `sent` request's cancellation does at the lab: O164) | 0.12/h | poisson, `clinic-day` | 1 / 0.5 / 0 / 1 |
+| `requests.cancel` | a request still `requested` cancelled; once `sent`, only the lab cancels it, the vet phoning, and the cancellation comes back through the results feed (D315) | 0.12/h | poisson, `clinic-day` | 1 / 0.5 / 0 / 1 |
 | `exchanges.request` | an outbound exchange recorded: an examination or a transfer asked of another centre (two centres, or the centres abroad), `requested`, its `exchange_key` (D306) | 0.1/h | poisson, `office` | 1 / 0 / 0 / 0.7 |
 
 Consultations come to about 100 a weekday (110 on herd days), 52 on a
@@ -991,8 +992,8 @@ its witness, where it is fixed, catalogue or new, and its D290 class;
 the domain's GM notes carry them ("the traps"). Those that bite the core:
 on its instance and configuration T1, T3, T5, T7, T9; in its data and
 identity T13 to T19; in its grants and views T24 to T28; in replication
-and the archive T31 to T37; in its round trips T39 to T44 and T54 to
-T56; in its obligations T57 to T59; in its periodic reports T64 to T74;
+and the archive T31 to T37; in its round trips T39 to T44, T54 to
+T56 and T85; in its obligations T57 to T59; in its periodic reports T64 to T74;
 in performance T79, T81 to T83. False-alarm material:
 [clinic-traps.md](clinic-traps.md) 9. Selecting a game's faults is the
 GM's (D309); the spec's test selection is
@@ -1014,8 +1015,9 @@ by the documented functions, never reading `clinic` (D302).
 
 ## Open points
 
-- **O164**: whether a `sent` request can be cancelled, and how the lab
-  learns it; the default leaves `requests.cancel` to `requested`
-  requests and brings a cancelled test back through the results feed.
 - **O111**: the domain format, finalised in v0.5's master spec (D291).
-- **O165**: how many of the traps v0.5 builds as faults.
+
+Settled on 2026-11-03: a sent request is cancelled by the lab only, the
+cancellation copied back (D315); v0.5 builds the test selection's ten
+faults and its false alarm, the other traps staying in the GM notes
+(D316).

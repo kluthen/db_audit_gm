@@ -1,6 +1,6 @@
 # v0.5 — the clinic's traps (step 8): `vet-core` and `vet-lab`
 
-Status: draft v1, ready for review. Step 8 of the
+Status: draft v2, ready for review; what v0.5 builds ruled (D316). Step 8 of the
 [procedure](domain-procedure.md#2-the-steps-from-a-brief-to-a-finished-domain)
 for the clinic's first two domains together, across their data models
 ([vet-core](vet-core-domain.md#the-data-model-step-4),
@@ -15,8 +15,11 @@ bite and stops there; the spec's own pick, a fixture for the build's
 tests, is the [test selection](clinic-test-selection.md).
 
 A trap is not a fault definition (procedure 1): the domain's GM notes
-list the traps, the catalogue or a scenario holds the faults. How many
-of these traps v0.5 builds as fault definitions is O165.
+list the traps, the catalogue or a scenario holds the faults. v0.5
+builds the [test selection](clinic-test-selection.md)'s ten as fault
+definitions, with its false alarm's material; every other trap stays
+here and in the GM notes, for a GM to write as a scenario's own fault
+when a game selects it (D316).
 
 ## How to read the tables
 
@@ -133,6 +136,7 @@ From [clinic-purposes.md](clinic-purposes.md) 5 to 8. Each is a cascade
 | T54 | `clinic-api`'s exchange endpoint answering 201 from a transaction it never commits | the other centre told "received", the centre holding nothing (EX3, EX5) | the stub's acknowledged requests absent from `exchanges`; rare, a story raising the rate | `clinic-api`'s `db/` | new | V |
 | T55 | Exchanges' answers posted to the wrong centre (sites 2–3 against 4–6), or a new key on a resend | a centre abroad getting another's answer; the asker chasing (EX3) | answers per site against the requests; rare | `interfaces`' script | new | M |
 | T56 | An exchange carrying the owner's other animals' records (EX4) | more than the franchise's agreement allows | the payloads, each post; rare | `interfaces`' script | adapts `governance-personal-copied` | M |
+| T85 | `fetch-lab-results` taking released and unperformed tests only, never the lab's cancellations (D315) | requests the vet had the lab cancel staying `sent`, then escalated as overdue (LO3) | cancelled centre tests whose request is still `sent`, about one a day | `interfaces`' script | new | M |
 
 ## 6. Pushed obligations: notifications and critical calls
 
@@ -205,7 +209,8 @@ Complaints with no fault behind them, each answerable from the trace
 
 ## What the build needs of a trap
 
-For a trap the build turns into a fault (O165): its `fault.yaml` with
+For a trap the build turns into a fault (in v0.5 the test selection's
+ten, D316): its `fault.yaml` with
 the class it is planted for, its material for the layer it is fixed on,
 its present and fixed checks, and its short fixture (D314,
 [test selection](clinic-test-selection.md)). The rest stay here and in

@@ -172,14 +172,14 @@ results' state comes back into the core's `requests`.
 | Correlation key | `client_ref`, `C-<consultation id>-<priority>`, unique per account: the idempotency key `lab-api` answers twice with one accession; the requests' ids, carried on each order test |
 | Expected answers | the accession at once (201); each test's release later, read from a released-results feed |
 | Timeout, then | no 2xx within ten seconds: retried at the next run with the same `client_ref`; a request `sent` and unreleased past its test's turnaround plus two hours: an `ops.incidents` row, once |
-| Reactions | requests `sent`, the accession kept in `ops.lab_orders_sent`; requests `resulted` once their test is released; a test not performed (an unfit sample): its request `cancelled` with the reason, the vet's to reorder |
+| Reactions | requests `sent`, the accession kept in `ops.lab_orders_sent`; requests `resulted` once their test is released; a test not performed (an unfit sample) or cancelled by the lab (a sent request's cancellation, phoned by the vet, D315): its request `cancelled` with the reason, the vet's to reorder |
 
 **Jobs** (on `interfaces`):
 
 | Job | Cadence | What it computes |
 |---|---|---|
 | `post-lab-orders` | `* * * * *` | the analysis requests still `requested` whose consultation has closed: grouped, posted, each answer's accession recorded and the requests `sent` in one `clinic` transaction after the call returns |
-| `fetch-lab-results` | `*/5 * * * *` | `GET /orders?account=1&released_since=<watermark>` on `lab-api`: the centre's tests released (or not performed) since the watermark; each request `resulted` (or `cancelled`), the copy in `ops.request_results`, the watermark advanced; overdue requests escalated |
+| `fetch-lab-results` | `*/5 * * * *` | `GET /orders?account=1&released_since=<watermark>` on `lab-api`: the centre's tests released (or not performed, or cancelled, D315) since the watermark; each request `resulted` (or `cancelled`), the copy in `ops.request_results`, the watermark advanced; overdue requests escalated |
 
 `lab-api` gains the feed endpoint (section 15). A watermark rather than
 one call per open order: one call a run, and the watermark's own way of

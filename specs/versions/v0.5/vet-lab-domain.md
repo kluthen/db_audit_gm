@@ -10,9 +10,10 @@ default policy ruled (D302, closing O152), `lab_app`'s grants amended
 `lab-api`'s results feed and the external lab's `resend` added with the
 purposes (D306); the purposes ruled (D306, D307) in
 [clinic-purposes.md](clinic-purposes.md); the traps listed (step 8, no
-owner checkpoint, D309) in [clinic-traps.md](clinic-traps.md). Open:
-O164 (a sent request's cancellation, which the lab's feed would carry)
-and the format's finalisation (O111, at consolidation).
+owner checkpoint, D309) in [clinic-traps.md](clinic-traps.md). The
+centre's sent requests are cancelled by the lab only, the feed carrying
+the cancellation (D315). Open: the format's finalisation (O111, at
+consolidation).
 
 `vet-lab` is the biology lab of the centre a scenario deploys (D285),
 the second domain through the [procedure](domain-procedure.md) (D235,
@@ -767,7 +768,7 @@ nothing in this step runs as either.
 | Application | Node | Connection, role | What it does |
 |---|---|---|---|
 | The lab's information system, with the analysers' middleware | `lis`, a scheduler node | `lab`: `lab:5432/lab`, `lab_app`; `lab-instruments`: the same target, `lab_instruments`; `clinic-api`: the core's lookup API, HTTP (D267) | accessioning, bench work, validation and release, QC, critical calls, notifications' records, custody; the analysers' batch uploads; the centre's patients' identity from the core |
-| The lab's order API (D267, D270) | `lab-api`, an `api` node in the players' scope | `lab_api` | only answers: `POST /orders` (any account, the centre's included; idempotent on the account and its `client_ref`, the same accession answered twice), `GET /orders/{accession}` (an order's state, interim or final), `GET /orders?account=<id>&released_since=<time>` (the released results feed: one account's tests released or not performed since a time, which the centre's `fetch-lab-results` polls every five minutes, D306), `POST /send-outs/{send_key}/result` (the external lab's answer); players edit its `db/` side only (D271) |
+| The lab's order API (D267, D270) | `lab-api`, an `api` node in the players' scope | `lab_api` | only answers: `POST /orders` (any account, the centre's included; idempotent on the account and its `client_ref`, the same accession answered twice), `GET /orders/{accession}` (an order's state, interim or final), `GET /orders?account=<id>&released_since=<time>` (the released results feed: one account's tests released, not performed or cancelled since a time, which the centre's `fetch-lab-results` polls every five minutes, D306), `POST /send-outs/{send_key}/result` (the external lab's answer); players edit its `db/` side only (D271) |
 
 The middleware shares the information system's node: a lab's
 middleware is an application of its own, but one node standing for
@@ -804,7 +805,7 @@ Volume streams, on `lab` as `lab_app`:
 | Key | What one call writes | Rate | Shape | A day: Mon–Sat / Sun |
 |---|---|---|---|---|
 | `lab.amend` | a released result amended: a new row superseding it, what changed, why, who (rule 3) | 0.25/h | `bench`, poisson | 4 / 0.6 |
-| `lab.orders.cancel` | an order not yet tested cancelled, its tests cancelled, its charges void | 0.08/h | `bench`, poisson | 1 / 0.2 |
+| `lab.orders.cancel` | an order not yet tested cancelled, its tests cancelled, its charges void; for the centre's orders, the vet's phoned cancellation of a sent request (D315), which the results feed carries back | 0.08/h | `bench`, poisson | 1 / 0.2 |
 | `lab.add-on` | a test added on a stored sample within its keep-until, billed to whoever paid for the first | 0.1/h | `bench`, poisson | 1.5 / 0.2 |
 
 Reads, on `lab` as `lab_app`: `lab.worklist` (a bench's pending tests;
@@ -1007,7 +1008,7 @@ Listed with `vet-core`'s in [clinic-traps.md](clinic-traps.md); the
 part's GM notes carry them ("the traps"). Those that bite the lab: on
 its node and configuration T2, T4 to T7, T10, T11; in its data T13 (the
 core's chips reaching its orders), T20 to T23; in its governance T24,
-T29, T30; in the archive T38; in its round trips T39 to T53 (the lab's
+T29, T30; in the archive T38; in its round trips T39 to T53 and T85 (the lab's
 side of the centre's orders, the practices' deliveries, the
 send-outs); in its obligations T57, T58, T60 to T63; in its statements
 T75 to T77; in performance and `lab-api`'s `db/` side T78, T80, T83,
@@ -1031,8 +1032,9 @@ loads, `vet-lab-statements` plants the year's statements in `office`
 
 ## Open points
 
-- **O164**: a `sent` request's cancellation; by the default, a centre
-  order test the lab cancels comes back through the results feed, which
-  then carries cancelled tests beside released and unperformed ones.
 - **O111**: the domain format, finalised in v0.5's master spec (D291).
-- **O165**: how many of the traps v0.5 builds as faults.
+
+Settled on 2026-11-03: the centre's sent requests are cancelled by the
+lab only, the results feed carrying cancelled tests beside released and
+unperformed ones (D315); v0.5 builds the test selection's ten faults and
+its false alarm (D316).
