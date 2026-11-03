@@ -427,7 +427,7 @@ cite ([procedure](domain-procedure.md) 10).
 |---|---|---|
 | `sites.id` | 1–6 | 1 the centre (`own`), 2–3 the other national centres, 4–6 abroad |
 | `sections.id` | 1–3 | 1 horse, 2 farm, 3 domestic, all the centre's |
-| `staff.id` | 1–85 | one layout (D324): 1–25 the sections' vets (1–10 horse, 11–17 farm, 18–25 domestic, specialties by id); 26–28 vets, specialty diagnostic imaging (`vet-machinery`'s reporters); 29–51 the sections' nurses and technicians (kind and section by id); 52–55 radiographers and 56 the biomedical engineer (`kind` `technician`); 57–66 carers and grooms (`kind` `carer`); 67–70 receptionists; 71–78 the lab's technicians (`kind` `lab`), 79–80 its clinical pathologists (`kind` `vet`, specialty clinical pathology, D302); 81–85 instructors. Kind, section and specialty a function of the id |
+| `staff.id` | 1–85 | one layout (D324, D327): 1–25 the sections' vets (1–10 horse, 11–17 farm, 18–25 domestic, eight instead of eleven so the imaging staff fit, specialties by id); 26–28 vets, specialty diagnostic imaging (`vet-machinery`'s reporters); 29–51 the sections' nurses and technicians (kind and section by id); 52–55 radiographers and 56 the biomedical engineer (`kind` `technician`); 57–66 carers and grooms (`kind` `carer`); 67–70 receptionists; 71–78 the lab's technicians (`kind` `lab`), 79–80 its clinical pathologists (`kind` `vet`, specialty clinical pathology, D302); 81–85 instructors. Kind, section and specialty a function of the id |
 | `owners.id` | 1–10 000 | 1 the clinic (the teaching animals, below); 2–201 holdings; 202–901 horse owners and stables; 902–10 000 pet owners |
 | `herds.id` | 1–200 | herd `h` kept by owner `h + 1` |
 | `animals.id` | 1–17 000 | 1–14 600 domestic; 14 601–16 000 horses; 16 001–17 000 farm animals, in herd `1 + (id − 16 001) mod 200`; each animal's species a function of its id; the teaching animals 1–12 (dogs) and 14 601–14 608 (horses), owned by owner 1 from before the history, never patients (D317); the history's deaths (which animals, when) a function of the id (D317) |
@@ -1051,7 +1051,7 @@ item 5); the standby follows the primary ([replication.md](replication.md)
 and `vet-portal`'s loads and the partners' database compute the core's
 ids by the documented functions, never reading `clinic` (D302, D322);
 `vet-portal`'s copied content alone comes from a derivation step the GM
-sanctions, after this load (D322, proposed). The GM's post-load
+sanctions, after this load (D322, D326). The GM's post-load
 coherence check then reads every part's references against the core
 ([procedure](domain-procedure.md) 10).
 

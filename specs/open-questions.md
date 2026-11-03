@@ -194,7 +194,8 @@ Raised when the owner set business domains for v0.5 on 2026-10-28
 (D192). v0.4 ships the first, the shop (O108). The veterinary clinic
 added on 2026-10-30 (D196).
 
-- **O111** (later, v0.5) — The domain format, beyond v0.4's part. v0.4's
+- **O111** (v0.5, settled in substance by D326) — The domain format,
+  beyond v0.4's part. v0.4's
   part was settled by the master spec's approval (D215): `domains/shop/`
   with `domain.yaml`, `data/` (schema, load, classification),
   `producers/`, `docs/gm.md`, a design-time source named for provenance
@@ -212,11 +213,14 @@ added on 2026-10-30 (D196).
   `producers/partners/<partner>/`, a partner's misbehaviour keys coming
   with its faults, D303), the purpose format's extensions (accepted by D307, closing O156), and
   what the clinic's domains reveal: the composition rules and the parts'
-  format changes, proposed (D322, D323;
+  format changes (D322, D323), confirmed as written on 2026-11-03 (D326;
   [versions/v0.5/domain-procedure.md](versions/v0.5/domain-procedure.md#10-composing-domains-d322)
   10): `lands_with`, a several-database part, the derivation step, the
-  composition record. Finalised in the master spec when v0.5
-  consolidates (D291), which closes it.
+  traffic source that is no business, the composition record, the
+  post-load coherence check, the `SECURITY DEFINER` `search_path` check.
+  Nothing of it is still to decide; it stays listed because the master
+  spec carries it into the domain format when v0.5 consolidates (D291),
+  which closes it.
 
 ## v0.6: the setup's entry point
 

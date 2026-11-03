@@ -952,3 +952,20 @@ D285–D309 and D314 onward, v0.5's drafting (D310–D313 are v0.4's, on `main`)
   the report at the final answer: the GM never switches the display off
   during play ("Stop only", no events outside the schedule). Now in:
   [versions/v0.5/clinic-test-selection.md](versions/v0.5/clinic-test-selection.md).
+- **D326 (2026-11-03, owner answer, relayed by the coordinator): The
+  composition mechanism and the parts' format text for O111 confirmed
+  as written:** `lands_with`, a several-database part, `derive:` and
+  `data/derive.sql`, the traffic source that is no business,
+  `composition.yaml`, the post-load coherence check, the `SECURITY
+  DEFINER` `search_path` check (D322, D323). The owner: "ok agreed".
+  O111 settled in substance; the master spec carries it at
+  consolidation (D291), which closes it. Now in:
+  [versions/v0.5/domain-procedure.md](versions/v0.5/domain-procedure.md#10-composing-domains-d322).
+- **D327 (2026-11-03, same answer): Domestic vets go from 11 to 8**
+  (staff 18–25), so the imaging staff fit D295's 85 in D324's layout;
+  the total stays 85 and scheduling's shifts are unchanged. Now in:
+  [versions/v0.5/vet-core-domain.md](versions/v0.5/vet-core-domain.md#deterministic-key-ranges-d249-d266).
+- **D328 (2026-11-03, same answer): No fault of the ten sits on an `api`
+  node's `db/` side (D271)** now that T78 has left; the `api` brick's
+  own build checks cover that side. Now in:
+  [versions/v0.5/clinic-test-selection.md](versions/v0.5/clinic-test-selection.md#the-selection).

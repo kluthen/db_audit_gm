@@ -46,7 +46,9 @@ idempotency lookup unindexed, s5 until then; its growth was not shown
 in v0.5 anyway) and T60 (the critical calls' watch as superuser, s9
 until then; `pg_cron` on a database node was v0.4's already). With T78
 gone, no fault of the ten sits on an `api` node's `db/` side (D271);
-the `api` brick's build checks cover that side. Machinery's T208 (no
+the `api` brick's own build checks cover that side instead (D328; the
+owner: "ok agreed"). s1 and s4 cross `clinic-api` and `lab-api` in the
+orders fixture, but neither is planted on a `db/` side. Machinery's T208 (no
 partition created ahead) was proposed for s9 too and stays a trap
 (D325).
 

@@ -10,7 +10,7 @@ computes the core's and the lab's keys by their documented functions
 (D249 kept), and only the copied content (the documents, their
 versions, views and notices, the copies of animals and ownerships)
 comes from a GM-sanctioned derivation step after the sources' loads
-(D322, details proposed). No appointment reminders in v0.5, the
+(D322; its details confirmed, D326). No appointment reminders in v0.5, the
 vaccination reminders only, with consent (D321). T270 replaces s5 in
 the test selection (D325). Step 8 has no owner checkpoint (D309). The
 changes this part asked of the shared pages are applied ([Changes
@@ -39,7 +39,7 @@ master spec, O111):
 | `data/load.sql`: the accounts, consents, reminders, sessions and tokens by documented functions, the core's and the lab's keys computed (D249, D322); `data/derive.sql`: the copies, the documents and what hangs off them, derived after the sources' loads by a step the GM sanctions (D322, proposed) | [Key ranges](#deterministic-key-ranges-d249-d266), [The history before T0](#the-history-before-t0), [Loading](#loading) |
 | `data/classification.yaml`: every column classed | [Classification](#classification) |
 | `docs/policy.md` and a `governance:` fragment | [The rules](#the-rules-ruled-d320) |
-| `producers/`: the portal's API (`producers/api/portal-api/`), the owners' traffic (`producers/partners/owners/`, ruled, D320; the folder's name for a traffic source that is no business proposed for O111, D323), the desk's consent stream on `pms` | [The producer profiles](#the-producer-profiles-step-6) |
+| `producers/`: the portal's API (`producers/api/portal-api/`), the owners' traffic (`producers/partners/owners/`, ruled, D320; the folder for a traffic source that is no business, `partners/` or a sibling `public/`, chosen at the build, D323, D326), the desk's consent stream on `pms` | [The producer profiles](#the-producer-profiles-step-6) |
 | `docs/gm.md`: the business, the data, the roles, the classification, the producer, the rules, the traps, loading | this page's sections of the same names; [Loading](#loading) |
 
 ## Settled before this page
@@ -1064,8 +1064,8 @@ class as the hand-over finds it (D290).
 
 ## Loading
 
-Two steps (D322; the mechanism's details proposed, to confirm with the
-master spec, O111):
+Two steps (D322; the mechanism confirmed as written, D326, for O111,
+which the master spec carries):
 
 1. **The load.** `gmctl load-data` runs `schema.sql` then `load.sql`
    into `portal` on `records` as `postgres`. It never reads the core or
@@ -1166,8 +1166,8 @@ asked.
 
 Applied on 2026-11-03 in the fold-in (D320, D323–D325), with these
 differences: the purposes are 15 and 16 of sixteen (D324); item 10's
-first point becomes the derivation step of D322, its second proposed
-format text in procedure 10 (D323); item 12's swap is made (D325);
+first point becomes the derivation step of D322, its second format
+text in procedure 10 (D323, confirmed by D326); item 12's swap is made (D325);
 item 14's questions are closed (D320).
 
 1. **[vet-core-domain.md](vet-core-domain.md)**:
@@ -1251,7 +1251,9 @@ item 14's questions are closed (D320).
     exposed. Reasons: the owner-scoped access is "the clinic's richest
     governance case" (D293) and none of the ten covers it, nor
     row-level security, new in the clinic; s5's own growth is not shown
-    in v0.5 anyway, and s1 and s4 keep the orders fixture's `api` side;
+    in v0.5 anyway, and s1 and s4 keep the orders fixture's `api` side
+    (its nodes, not their `db/` sides: that side is the `api` brick's
+    own build checks', D328);
     T270's fixture is three nodes (`records`, `portal-api`, the
     bastion), its check about 10 minutes (*present*: a planted former
     owner's `GET /animals` returns the horse they sold; *fixed*: after

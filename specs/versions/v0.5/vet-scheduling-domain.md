@@ -1177,7 +1177,9 @@ not in v0.5 at all (D321). Kept as the record of what was asked.
 Applied on 2026-11-03 in the fold-in (D317, D324), with these
 differences: the staff layout of item 1 is the core's adjusted one (vets
 1–25 by section, 26–28 imaging; nurses and technicians 29–51, 52–56
-imaging and biomedical; the rest as below); items 6 and 7 are replaced
+imaging and biomedical; the rest as below), its domestic vets 18–25,
+eight instead of eleven, the total still 85 and the rota's shifts
+unchanged (D327); items 6 and 7 are replaced
 by D324 (machines 7–16, `vet-machinery`'s) and D321 (no appointment
 reminders); the purposes are 11 and 12 of sixteen.
 

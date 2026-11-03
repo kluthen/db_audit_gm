@@ -1,7 +1,7 @@
 # v0.5 — defining a domain: the procedure
 
-Status: approved v4 (D235, D249, D260, D263); section 10 ruled in
-principle, its mechanism proposed (D322, D323). Settled by the owner on
+Status: approved v5 (D235, D249, D260, D263, D326); section 10 ruled,
+its mechanism and the parts' format changes confirmed (D322, D323, D326). Settled by the owner on
 2026-10-31 in two rulings: the clinic's cut (section 4, kept now,
 revised once `vet-core` is defined), the composition rules (section 4),
 the four format changes (section 6) and a skill later (section 8)
@@ -11,8 +11,9 @@ the four format changes (section 6) and a skill later (section 8)
 its variants and their tags (section 9, D263), closing O114; where the
 variants are built is (proposed) in section 6. On 2026-11-03 composing
 domains (section 10, D322): D249's keys stay the default, the initial
-load is the GM's to adjudicate, the mechanism (proposed) with the
-parts' format changes (D323), for O111.
+load is the GM's to adjudicate, the mechanism with the parts' format
+changes (D323), for O111; the same day the mechanism and the format
+text confirmed as written (D326).
 
 The owner, on 2026-10-31: "we need a proper "procedure" to define a
 domain, what we put in and not. the clinic will probably spawn multiple
@@ -208,7 +209,7 @@ The loader checks that each id is a domain and that every domain a part
 `requires` is in the list. `domain: <id>` stays accepted as the
 one-domain form, so v0.4's scenario keeps its line. A part declaring
 `lands_with` must share its core's `at:`, and a part with several
-databases gives `at:` as a map (section 10, proposed). The files are still
+databases gives `at:` as a map (section 10, D326). The files are still
 copied in and adapted at design time; the scenario folder stays
 self-sufficient (D23).
 
@@ -344,9 +345,9 @@ are also right, initial load is a major step and will need to be
 adjudicated by the gm for coherence across the system." Two things are
 settled: **D249's deterministic keys stay the default**, and **the
 initial load is a step the GM adjudicates for the whole system**. The
-mechanism below is (proposed), for the owner to confirm with the master
-spec, and feeds O111, since the domain format is finalised at
-consolidation (D291).
+mechanism below was confirmed as written the same day (D326; the
+owner: "ok agreed"). It is O111's, settled in substance; the master
+spec carries it into the domain format at consolidation (D291).
 
 ### Who decides what
 
@@ -432,7 +433,7 @@ for the copies, the documents and what hangs off them
 ([vet-portal](vet-portal-domain.md#loading)).
 
 **The composition record.** A file beside `merge.yaml` in the scenario
-folder (`composition.yaml`, the name proposed), written by the GM and
+folder (`composition.yaml`), written by the GM and
 kept with the scenario, so the composition is reproducible (D23):
 
 ```yaml
@@ -451,8 +452,9 @@ coherence: {run_at: <setup time>, result: pass}
 
 ### The format changes the parts propose (for O111)
 
-Proposed format text (D323), with the others O111 lists; built with the
-format's changes and stated in `formats.md` once built:
+Format text, confirmed as written (D323, D326), with the others O111
+lists; the master spec carries it at consolidation (D291), and
+`formats.md` states it once built:
 
 1. **`lands_with: <core>`** in `domain.yaml`, optional: the part's
    schema must land in its core's database; the loader refuses another

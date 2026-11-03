@@ -246,7 +246,9 @@ parts' pages name them:
   `stays` by T157 and T161.
 - **`vet-machinery`** and **`vet-portal`**: as their pages list them.
 
-T60 and T78, s9 and s5 until D325, are traps for the GM again.
+T60 and T78, s9 and s5 until D325, are traps for the GM again; no
+fault of the ten sits on an `api` node's `db/` side, which the `api`
+brick's own build checks cover (D328).
 
 ## What the build needs of a trap
 

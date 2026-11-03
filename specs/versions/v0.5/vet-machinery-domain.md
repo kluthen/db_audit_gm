@@ -8,8 +8,8 @@ the owner accepted the recommendations as a whole (D319, closing
 O192–O203), marked "(ruled, D319)" below, with two changes: T208 stays a
 trap for the GM, s9 going to housing's T150 (D325); and the imaging
 staff move to the core's layout, 26–28 and 52–56 (D324). The
-several-database part (O195) is proposed format text for O111 (D323,
-[procedure](domain-procedure.md) 10). The changes this part asked of the
+several-database part (O195) is format text for O111, confirmed as
+written (D323, D326, [procedure](domain-procedure.md) 10). The changes this part asked of the
 shared pages are applied ([Changes needed in shared
 pages](#changes-needed-in-shared-pages)).
 
@@ -40,7 +40,7 @@ change ([O195](#questions-for-the-owner)).
 
 | In the folder | Stated in |
 |---|---|
-| `domain.yaml`: `id` `vet-machinery`, `requires: [vet-core]`, tables and roles prefixed `mach_`, its three databases (D319; format text proposed for O111, D323), the purposes that fit | [What the part holds](#what-the-part-holds); [Purposes](#purposes-step-7-ruled-d319) |
+| `domain.yaml`: `id` `vet-machinery`, `requires: [vet-core]`, tables and roles prefixed `mach_`, its three databases (D319; format text for O111, D323, D326), the purposes that fit | [What the part holds](#what-the-part-holds); [Purposes](#purposes-step-7-ruled-d319) |
 | `variants/regional-franchise.yaml`: the part's own axes in a manifest named after the core's variant (D301, answer 15) | [The variant](#the-variant-its-scale-and-its-tags) |
 | `data/pacs/`, `data/vitals/`, `data/biomed/`: each holds a `schema.sql` and a `load.sql`, for one database each (O195) | [The data model](#the-data-model-step-4) |
 | `data/classification.yaml`: every column classed, keyed `<table>.<column>` (the names are unique across the three databases) | [Classification](#classification) |
@@ -1063,8 +1063,8 @@ the partners' database.
 **Ruled on 2026-11-03** (D319): the owner, "i agree with the
 recommendations as a whole", so each is closed as recommended, except
 O203 (T208 stays a trap, D325) and O198's staff ids (the core's layout,
-26–28 and 52–56, D324); O195 goes to O111 as proposed format text
-(D323). Kept as the record of what was asked.
+26–28 and 52–56, D324); O195 goes to O111 as format text (D323),
+confirmed as written (D326). Kept as the record of what was asked.
 
 - **O192, the brief (step 1).** Is the proposed brief right: imaging,
   monitors and the lab's analysers, three machine systems' databases,
@@ -1132,7 +1132,7 @@ Applied on 2026-11-03 in the fold-in (D319, D323–D325), with these
 differences: item 1(c)'s staff are 26–28 (imaging vets), 52–55
 (radiographers) and 56 (the biomedical engineer), the core's layout
 (D324); item 7 is not applied, T208 staying a trap (D325); items 9 and
-12 are proposed format text in procedure 10 (D323); `cold-storage-archive`
+12 are format text in procedure 10 (D323, confirmed by D326); `cold-storage-archive`
 and `vet-imaging-orders` are purposes 14 and 13 of sixteen.
 
 1. **[vet-core-domain.md](vet-core-domain.md), key ranges and load

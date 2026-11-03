@@ -324,7 +324,8 @@ proposed (D318), answer 4's load changed by D322.
    instance of its own, housing would need a synced copy of the stays
    and the board, a purpose not built in v0.5. `domain.yaml` declares the
    constraint, `lands_with: vet-core`, and the loader refuses another
-   `at:` (D322, proposed format text in procedure 10, O111). The load
+   `at:` (D322; format text in procedure 10, confirmed by D326, for
+   O111). The load
    does not read the core's stays in place, as this draft first
    proposed: it computes them by the core's documented functions, as
    `vet-lab`'s does (D302), D249 staying the default (D322).

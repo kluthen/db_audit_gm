@@ -48,25 +48,30 @@ four remaining parts were drafted in parallel through step 9 and folded
 in: the owner accepted their recommendations as a whole (D317–D320,
 closing O168–O215), ruled out appointment reminders (D321) and made the
 initial load a step the GM adjudicates for the whole system, D249's
-computed keys the default (D322), the parts' format changes proposed
-for O111 (D323); the fold-in settled their overlaps (D324) and swapped
-two faults of the test selection (D325).
+computed keys the default (D322), the parts' format changes for O111
+(D323); the fold-in settled their overlaps (D324) and swapped two
+faults of the test selection (D325). The owner then confirmed the
+composition mechanism and the format text as written (D326, O111
+settled in substance), the domestic vets down to eight so the imaging
+staff fit the 85 (D327), and the `api` nodes' `db/` sides left to the
+brick's own build checks, no fault of the ten there (D328). Steps 1 to
+9 are done for all six domains; consolidation is next.
 
 ## Documents
 
 | Document | Purpose | Status |
 |---|---|---|
-| [domain-procedure.md](domain-procedure.md) | How a domain is defined: what it holds and leaves out, the steps from a brief, done and its checklist, composites, how a scenario names its domains, the shop against it, the effort, scale, variants and tags, composing domains and the initial load | approved v4 (D249, D260, D263); section 10 ruled in principle, its mechanism and the parts' format changes proposed (D322, D323; O111) |
+| [domain-procedure.md](domain-procedure.md) | How a domain is defined: what it holds and leaves out, the steps from a brief, done and its checklist, composites, how a scenario names its domains, the shop against it, the effort, scale, variants and tags, composing domains and the initial load | approved v5 (D249, D260, D263); section 10 ruled, its mechanism and the parts' format changes confirmed as written (D322, D323, D326; O111 settled in substance) |
 | [producer-profiles.md](producer-profiles.md) | The frictions between domains' producer profiles and v0.3's scheduler, each with its evidence, and the owner's rulings; what the first parts' profiles need of the scheduler and the format | draft v9, ruled (D264–D271, D276, D277, D287, D288, D298, D303; O113, O154 closed); frictions 9 and 11 applied at the parts' steps (D318, D319) |
 | [cold-storage.md](cold-storage.md) | Cold storage, a generic third party for heavy data: keeping a day on site, the shipping job, the stub's manifest, endpoints and page, the faults it enables | draft v4, ruled (D288, D296, D297; O148 closed); its stub on the partners' shared node (D308); its first data types `vitals` and `machine-readings`, purpose 14 (D319, D324) |
 | [third-parties.md](third-parties.md) | What a third party is, what it may carry, how it is built into a game, what the players are told; the repository's third parties in all but name | draft v5, ruled (D273–D275, D285, D293, D296); the owners' traffic on the partners' nodes (D320) |
 | [one-centre.md](one-centre.md) | One centre per scenario: the ruling, and what it changes for the clinic's parts, its lab's partners, the exchanges with the other centres and the partners' nodes | draft v5, ruled (D285, D293–D295, D304; O127, O147 closed); `owners` a tenth hostname, no partner (D320) |
-| [vet-core-domain.md](vet-core-domain.md) | `vet-core` through the procedure, the draft document of step 9: the folder at a glance, the business sketch and the owner's answers (step 2), what the parts need of the core, the split (step 3), the data model (step 4), classification and governance (step 5), the producer profiles (step 6), the purposes that fit (7), the traps (8), loading, open points | draft v10, ready for review, for approval with the master spec: steps 2 to 6 ruled (D266, D278–D280, D285, D293, D295, D301–D304), amended by the purposes (D306) and a sent request's cancellation (D315); steps 7 and 8 beside it; the parts' asks applied at the fold-in: the staff layout, stays and alerts as functions of their ids (D317–D324) |
+| [vet-core-domain.md](vet-core-domain.md) | `vet-core` through the procedure, the draft document of step 9: the folder at a glance, the business sketch and the owner's answers (step 2), what the parts need of the core, the split (step 3), the data model (step 4), classification and governance (step 5), the producer profiles (step 6), the purposes that fit (7), the traps (8), loading, open points | draft v10, ready for review, for approval with the master spec: steps 2 to 6 ruled (D266, D278–D280, D285, D293, D295, D301–D304), amended by the purposes (D306) and a sent request's cancellation (D315); steps 7 and 8 beside it; the parts' asks applied at the fold-in: the staff layout, stays and alerts as functions of their ids (D317–D324), eight domestic vets (D327) |
 | [replication.md](replication.md) | Replication and the off-site copies: a standby of the core's instance off site, WAL archiving and base backups to cold storage for the core's instance and the lab's node, their faults and cost; the back-office database the reports write to | draft v5, ruled (D299, D300, D301; O149 closed); the office roles named (D306); `portal` and the parts' tables ride the standby, `machines` a nightly base backup (D319, D320) |
 | [vet-lab-domain.md](vet-lab-domain.md) | `vet-lab` through the procedure, the draft document of step 9: the folder at a glance, what is settled before it, the business sketch (step 2) and the owner's answers, where the lab presses on the core, the data model (step 4), classification and governance (step 5), the producer profiles (step 6) with its partners and round trips, the purposes that fit (7), the traps (8), loading, open points | draft v6, ready for review, for approval with the master spec: steps 2 to 6 ruled (D301–D304), amended by the purposes (D306) and a sent request's cancellation (D315); steps 7 and 8 beside it; analysers mapped to `vet-machinery`'s 1–6, `lab_release` (D319, D320) |
 | [vet-scheduling-domain.md](vet-scheduling-domain.md) | `vet-scheduling` through the procedure, step 9's draft: bookings with exclusion constraints and a slot function, the rota and working time, the training centre; two purposes (11, 12); traps T100–T128 | draft v2, ruled (D317, O168–O179 closed), folded in (D321, D324) |
 | [vet-housing-domain.md](vet-housing-domain.md) | `vet-housing` through the procedure, step 9's draft: 64 units, placements on the core's stays, plans and the care log, the displays behind the ward service (D287); traps T150–T171 | draft v2, ruled (D318, O180–O190 closed), its load on computed keys and `lands_with: vet-core` (D322) |
-| [vet-machinery-domain.md](vet-machinery-domain.md) | `vet-machinery` through the procedure, step 9's draft: 28 machines, three databases on one `machines` node, studies for the core's imaging requests, monitors' readings shipped to cold storage; two purposes (13, 14); traps T200–T237 | draft v2, ruled (D319, O192–O203 closed), the several-database format proposed (D323) |
+| [vet-machinery-domain.md](vet-machinery-domain.md) | `vet-machinery` through the procedure, step 9's draft: 28 machines, three databases on one `machines` node, studies for the core's imaging requests, monitors' readings shipped to cold storage; two purposes (13, 14); traps T200–T237 | draft v2, ruled (D319, O192–O203 closed), the several-database format confirmed (D323, D326) |
 | [vet-portal-domain.md](vet-portal-domain.md) | `vet-portal` through the procedure, step 9's draft: owners' accounts, consents, the release gate's documents behind row-level security, notices and vaccination reminders; two purposes (15, 16); traps T250–T295 | draft v2, ruled (D320, O204–O215 closed), its content derived by a sanctioned step (D322) |
 | [clinic-purposes.md](clinic-purposes.md) | Step 7 for the clinic's six domains, `vet-core` and `vet-lab` in full, the parts' six purposes (11–16) by reference: the existing purposes against the clinic, the ten purposes proposed (four round trips, the notifications, the critical calls, the registers, the antimicrobial-use report, the head office's figures, the lab's statements), each with its kind, cadence, trace, invariants, runner, source and target and candidate faults; the runners; the format's extensions; what it asks of the domains | draft v3, ruled (D306, D307; O155, O156 closed); the parts' six purposes 11–16 (D317–D320, D324) |
 | [clinic-traps.md](clinic-traps.md) | Step 8 for the clinic: `vet-core` and `vet-lab` in full, the four parts' traps by reference; 85 traps across the data models, profiles, purposes, replication and the partners, each with where it bites, its witness, where it is fixed, catalogue or new, and its D290 class; false-alarm material | draft v3, ready for review; no owner checkpoint (D309); the test selection's ten built (D316); the whole clinic's 220 traps, the parts' by reference |
@@ -385,7 +390,9 @@ O113 closed by D298),
   D248): an `api` brick on FastAPI serving the GM's endpoint files and
   an HTTP driver in the scheduler (D267); an `api` node only answers,
   scheduler nodes calling it (D270), and players edit only its
-  database side, never its endpoints (D271); for the core's lookup API, the
+  database side, never its endpoints (D271), that side covered by the
+  brick's own build checks, no fault of the test selection on it
+  (D328); for the core's lookup API, the
   external labs and the machinery; FastAPI and uvicorn pass a
   security-advisor dependency check before the build, a gate of the
   build plan. Message queues only if a flow needs one.
@@ -502,10 +509,10 @@ The items moved later are listed in the roadmap
 ## Questions due in this version
 
 - O111: the domain format, beyond its v0.4 part and D249's four
-  changes; finalised in the master spec when v0.5 consolidates (D291),
-  with the composition rules and the parts' proposed format changes
+  changes, with the composition rules and the parts' format changes
   ([procedure](domain-procedure.md#10-composing-domains-d322) 10, D322,
-  D323).
+  D323), confirmed as written (D326): settled in substance, finalised
+  in the master spec when v0.5 consolidates (D291), which closes it.
 
 Moved out of this list on 2026-10-31: O53 and O54 (later, D237); O21
 and O135 (v0.6, D233, D248); O24 and O25 (v1.0+, D248). Closed: O47
@@ -520,30 +527,37 @@ binding.
 
 ## Next steps (in progress)
 
-Left when the session stopped on 2026-11-03, after D325:
+Left when the session stopped on 2026-11-03, after D328:
 
-- **All six domains are through step 9's draft and ruled**, approved
-  only with the master spec (procedure 2): `vet-core`, `vet-lab`,
-  [`vet-scheduling`](vet-scheduling-domain.md),
+- **Steps 1 to 9 are done for all six clinic domains**, ruled, and
+  approved only with the master spec (procedure 2): `vet-core`,
+  `vet-lab`, [`vet-scheduling`](vet-scheduling-domain.md),
   [`vet-housing`](vet-housing-domain.md),
   [`vet-machinery`](vet-machinery-domain.md) and
-  [`vet-portal`](vet-portal-domain.md), folded in on 2026-11-03 (D317–D325)
-  with [clinic-purposes.md](clinic-purposes.md) (sixteen purposes),
-  [clinic-traps.md](clinic-traps.md) (220 traps),
+  [`vet-portal`](vet-portal-domain.md), folded in on 2026-11-03
+  (D317–D325, D327, D328) with [clinic-purposes.md](clinic-purposes.md)
+  (sixteen purposes), [clinic-traps.md](clinic-traps.md) (220 traps),
   [clinic-test-selection.md](clinic-test-selection.md) (the ten v0.5
   builds, s5 T270 and s9 T150, D325) and
   [clinic-capacity.md](clinic-capacity.md) (23 nodes, 25 to 27 with
-  D238's monitoring, 74 % to 79 % of the two hosts' CPU).
-- **For the owner, with the master spec**: the composition mechanism
-  ([procedure](domain-procedure.md#10-composing-domains-d322) 10,
-  proposed: the composition record, the post-load coherence check, the
-  derivation step and the portal's use of it) and the parts' format
-  changes (D323), which close O111 at consolidation (D291).
-- **Next: consolidation**, on the owner's word (D291): the master spec
-  and its access model (the owners, keepers and the centre's staff kinds
-  beside the players and the GM), then the build plan. The repository
-  keeps no data register, so the plan's data preflight has no steward to
-  run unless one is started.
+  D238's monitoring, 74 % to 79 % of the two hosts' CPU). The
+  composition mechanism and the parts' format text are confirmed as
+  written ([procedure](domain-procedure.md#10-composing-domains-d322)
+  10, D326), so O111 is settled in substance, waiting only to be
+  written into the domain format by the master spec (D291).
+- **Next: consolidation**, on the owner's word (D291), in this order:
+  1. **The master spec** (skill `spec-consolidate`), carrying O111's
+     format text into the domain format, which closes O111.
+  2. **Its access model**: the owners, keepers and the centre's staff
+     kinds beside the players and the GM.
+  3. **The data preflight question**: the repository keeps no data
+     register (`data-register/` absent), so there is no steward to run
+     the plan's data preflight. Default (proposed): the master spec and
+     the plan record, as v0.4's did, that there is none and every
+     scenario's data is synthetic, unless the owner wants a register
+     started.
+  4. **The build plan** (skill `build-plan-authoring`), once the master
+     spec is approved.
 - **Tests stay short** (D314): every check under 30 minutes on a minimal
   fixture; the whole clinic deployed once, on armenelos plus the VPS, as
   the proof in play, its place the release gate (proposed).
