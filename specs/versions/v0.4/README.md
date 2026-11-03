@@ -448,7 +448,7 @@ the VPS drained throughout (D311): items 1 to 11, 14, 15 and 17 passed
 or stand as run, items 12 and 13 moved to [v1.0
 gating](../README.md#v10-gating) (D311), item 16 (G11) cleared by
 the owner on 2026-11-03 ("G11 ok"). One fix at the gate, documentation
-only (below). Released on 2026-11-03, `v0.4-w4` merged into `main` on
+only (below). Released on 2026-11-03, `v0.4-w4` merged into `main` (56b7471) on
 the owner's word (D100): `postgres` 0.4.0, `bastion` 0.4.0, `scheduler` 0.2.0 and
 `pgbouncer` 0.1.1; `prometheus`, `postgres-exporter` and `grafana` stay
 at 0.2.0, unchanged.

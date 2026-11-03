@@ -2,7 +2,7 @@
 
 Status: archived 2026-11-03. v0.4 was released at its release gate on
 2026-11-03 (items 1 to 11, 14, 15 and 17 passed or stand as run, items
-12 and 13 moved to v1.0 gating, G11 cleared) and merged into `main` on
+12 and 13 moved to v1.0 gating, G11 cleared) and merged into `main` (56b7471) on
 the owner's word ("option c, G11 ok, merge"). Live summary: the
 [v0.4 page](../../versions/v0.4/README.md) and its release notes, and
 the [v0.4 master spec](../../versions/v0.4/master-spec.md).

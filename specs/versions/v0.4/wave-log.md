@@ -3540,3 +3540,27 @@ merge: `spec-writer` closes O163 and archives the milestone
 (`milestone-archive`) on `v0.4-w4`, then the driver merges `v0.4-w4`
 `--no-ff` into `main` (no push) and removes the wave worktree and
 branch. `doc-ids compare main v0.4-w4`: 0 collisions.
+
+### v0.4 closed — `v0.4-w4` merged into `main` as 56b7471, 2026-11-03
+
+`spec-writer` closed O163 (D313, 956802b) and archived the milestone
+(7ce4480, `specs/archive/v0.4/`: the build plan v16, four drafts, D190–D313
+in nine ranges, the resolved questions; the page, master spec, access
+model, this log and four drafts cited by v0.5 kept live). Merged
+`--no-ff` into `main` on the owner's word ("option c, G11 ok, merge");
+not pushed. `doc-ids compare`: 0 collisions (one warning: O140 cited
+here, defined in the archive, same question). Wave worktree and branch
+removed after this entry.
+
+**For whoever merges `v0.5-domains` with `main`**: expect conflicts in
+the decisions log header, `open-questions.md`, `specs/README.md` and
+`specs/versions/README.md`; the build plan now lives at
+`archive/v0.4/build-plan.md`.
+
+**Open, not blocking**: c-ares in `.tech` (the owner's call; in the
+release notes' Known issues); whether the four kept drafts
+(`purpose-catalogue.md`, `shop-domain.md`, `governance.md`,
+`candidate-faults.md`) stay live. **v1.0 gating** (`specs/versions/README.md`):
+the two-host runs, the rehearsal (17b), the stance check-list, the
+long-running tests (the full cycles run, f8's waits, the smoke run's
+end-of-run checks).
