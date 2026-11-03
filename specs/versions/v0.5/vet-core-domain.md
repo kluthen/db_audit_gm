@@ -351,12 +351,13 @@ grow. Monthly counts show the trend, and the live rates continue it.
 |---|---|
 | `referrals` | `id`; animal, referring vet, receiving site, received at, reason, report sent at |
 | `consultations` | `id`; an animal **or** a herd (a herd visit), site, section, vet, `kind` (`scheduled`, `emergency`, `herd-visit`, `in-hospital`), the referral or stay it belongs to, `booking_id` (`vet-scheduling`'s, by id), started at, ended at, findings, signed at |
-| `diagnosis_codes` | `code`; label, species group, `notifiable` |
+| `diagnosis_codes` | `code`; label, species group, `notifiable` (`none`, `A` or `other`: a category A disease notified within the hour, another listed disease within the day, D306) |
 | `diagnoses` | `id`; consultation, code, confirmed, recorded at |
 | `procedures` | `id`; consultation or stay, code, lead staff, anaesthesia, performed at |
 | `requests` | `id`; consultation, animal, `kind` (`analysis`, `imaging`), test or study code, requested by, `priority` (`routine`, `urgent`), requested at; whether a test goes out is the lab's routing, not the request's (D301) |
 | `stays` | `id`; animal, site, section, admitting vet, reason, admitted at, discharged at, `outcome` (`discharged`, `transferred`, `died`), the site transferred to |
 | `alerts` | `id`; animal, `kind` (`allergy`, `dangerous`, `infectious`, `other`), text, from, until |
+| `exchanges` | `id`; `direction` (`out`, `in`), `kind` (`transfer`, `examination`), the partner site, the animal, or for an inbound request `partner_patient`, the partner's patient summary, until the animal is registered; reason, `exchange_key` (a UUID, the round trip's correlation key), requested at, the answer (an accepted date, or declined) and answered at, report at, state: the record of an exchange with another centre; its messages are the purpose's trace (D306) |
 
 **Medicines**
 
@@ -379,6 +380,7 @@ grow. Monthly counts show the trend, and the live rates continue it.
 | Consultation | `open` → `closed` → `signed`, signed within a day by the vet (an unsigned record older than a day: a trap) |
 | Request | `requested` → `sent` → `resulted`, or `cancelled`; `resulted` is the part's fact copied back by a purpose (a trap: two places for one fact) |
 | Stay | `admitted` → `discharged`, `transferred` or `died` |
+| Exchange | out: `requested` → `sent` → `accepted` or `declined`, an accepted examination → `reported`; in: `received` → `accepted` or `declined`, an accepted examination → `reported` (D306) |
 | Prescription | `issued` → `dispensed`, `expired` (an antimicrobial after five days) or `cancelled` |
 | Administration | `scheduled` → `given`, `missed` or `cancelled` |
 
@@ -401,7 +403,7 @@ of its id (below).
 | `referring_practices.id` | 1–400 | |
 | `referring_vets.id` | 1–800 | two per practice |
 | `medicines.id` | 1–400 | antimicrobials and controlled drugs flagged |
-| History | `consultations` 1–25 000, `prescriptions` 1–15 000, `administrations` 1–70 000, the others as loaded | in time order over the year |
+| History | `consultations` 1–25 000, `prescriptions` 1–15 000, `administrations` 1–70 000, `exchanges` 1–700, the others as loaded | in time order over the year |
 | `requests.id` | 1–17 000 | each request's kind (about one in five imaging), test code, priority, consultation, animal and time computed from its id, documented in the GM notes, so `vet-lab`'s load computes the same and groups a consultation's analysis requests into one order, without reading the core (D302) |
 
 **Natural identifiers.** A microchip is 15 digits, the country or
@@ -422,7 +424,7 @@ secret, as for the shop.
 | Role | Reads | Writes |
 |---|---|---|
 | `vet` | owns everything; no login | |
-| `vet_app` | every table | the record and the people the software keeps: owners, ownerships, animals, herds, referrals, consultations, diagnoses, procedures, requests, stays, alerts, prescriptions and lines, administrations, dispensings; never the reference tables (sites, sections, staff, codes, medicines, batches) |
+| `vet_app` | every table | the record and the people the software keeps: owners, ownerships, animals, herds, referrals, consultations, diagnoses, procedures, requests, stays, alerts, exchanges (recorded, decided, reported), prescriptions and lines, administrations, dispensings; never the reference tables (sites, sections, staff, codes, medicines, batches) |
 | `vet_lookup` | the core's lookup API (D266, D267): `animals` without the death columns, `ownerships`, `owners`' id, kind and name (a column grant: no address, no phone) | nothing |
 | `vet_display` | the view `animal_board` only: an animal's identity, its current stay, its alerts, its administrations of the day | nothing |
 | `vet_reports` | every table, names and contacts included (the back office answers owners) | nothing |
@@ -443,6 +445,7 @@ standby and write to the back-office database, `office`, never to
 | Consultations, diagnoses, procedures | 25 000, 30 000, 7 000 | 85 consultations |
 | Requests | about 17 000 | about 55 |
 | Stays, alerts | about 2 500, 1 700 | about 8 admissions |
+| Exchanges | about 700 | about 2, either way |
 | Medicines, batches | 400, about 700 | none |
 | Prescriptions and lines | 15 000 and 37 000 | 50 prescriptions |
 | Administrations, dispensings | 70 000 and about 22 000 | about 240 administrations, 75 dispensings |
@@ -514,6 +517,7 @@ Three readings for the clinic:
 | `requests` | | `animal_id` |
 | `stays` | | `animal_id` |
 | `alerts` | | `animal_id` |
+| `exchanges` | `partner_patient` (an inbound request's summary, which may name the owner; classed by the readings above when D306 added the table) | `animal_id` |
 | `prescriptions` | | `animal_id`, `herd_id` |
 | `administrations` | | `animal_id` |
 | `dispensings` | | `owner_id` |
@@ -690,7 +694,7 @@ named here with their rates and left to step 7.
 | Application | Node | Connection, role | What it does |
 |---|---|---|---|
 | The practice-management software | `pms`, a scheduler node | `clinic`: `records:5432/clinic` (or the scenario's pooler), `vet_app` | everything the clinic's staff record: registrations, referrals, consultations and their diagnoses, procedures, requests and prescriptions, stays, the rounds' administrations; it also carries `vet-scheduling`'s and `vet-housing`'s fragments when they are defined, one application (D276) |
-| The core's lookup API (D266, D267) | `clinic-api`, an `api` node in the players' scope | `vet_lookup` | only answers (D270): `GET /animals/{id}`, `GET /animals?microchip=` (or `ueln`, `ear_tag`), `GET /animals/{id}/owner` (the current owner's id, kind and name, never a contact); no stream of its own; its callers are the parts' producers, `vet-lab`'s first ([vet-lab](vet-lab-domain.md#the-applications-and-their-nodes-d276)) |
+| The core's lookup API (D266, D267) | `clinic-api`, an `api` node in the players' scope | `vet_lookup` | only answers (D270): `GET /animals/{id}`, `GET /animals?microchip=` (or `ueln`, `ear_tag`), `GET /animals/{id}/owner` (the current owner's id, kind and name, never a contact); no stream of its own; its callers are the parts' producers, `vet-lab`'s first ([vet-lab](vet-lab-domain.md#the-applications-and-their-nodes-d276)); and the exchange endpoints `vet-centre-exchanges` brings, `POST /exchanges`, `POST /exchanges/{key}/answer` and `/report`, as `vet_exchange` (D306), called by the other centres' stubs |
 
 Not the core's producers: the housing displays reading `animal_board`
 as `vet_display` are `vet-housing`'s ward service (D287); the reports
@@ -728,10 +732,11 @@ Volume streams, on `clinic` as `vet_app`:
 | `consultations.herd-visit` | a herd visit, a consultation on a herd | 2.1/h | even, `herd-days` | 10 on Tuesdays and Thursdays / 0 / 0 / 3 |
 | `consultations.ward` | an in-hospital consultation on a current stay | 3/h | poisson, `ward-rounds` | 12 every day |
 | `stays.admit` | an admission from a consultation of the last hours | 0.34/h | poisson, `around-the-clock` | 8 every day |
-| `stays.discharge` | the oldest stay past two days ended: discharged (90 %), transferred to another centre (4 %), died (6 %) | 2.67/h | even, `discharges` | 8 every day |
+| `stays.discharge` | the oldest stay past two days ended: discharged (90 %), transferred to another centre (4 %, each recording an outbound `transfer` exchange, D306), died (6 %) | 2.67/h | even, `discharges` | 8 every day |
 | `alerts.record` | an alert on an animal (allergy, dangerous, infectious) | 0.6/h | poisson, `clinic-day` | 6 / 2 / 0 / 5 |
 | `ownerships.transfer` | a sale or a new keeper: one ownership ended, the next opened | 0.37/h | poisson, `clinic-day` | 4 / 1.5 / 0 / 3 |
-| `requests.cancel` | a request not yet resulted cancelled | 0.12/h | poisson, `clinic-day` | 1 / 0.5 / 0 / 1 |
+| `requests.cancel` | a request not yet resulted cancelled (what a `sent` request's cancellation does at the lab: O164) | 0.12/h | poisson, `clinic-day` | 1 / 0.5 / 0 / 1 |
+| `exchanges.request` | an outbound exchange recorded: an examination or a transfer asked of another centre (two centres, or the centres abroad), `requested`, its `exchange_key` (D306) | 0.1/h | poisson, `office` | 1 / 0 / 0 / 0.7 |
 
 Consultations come to about 100 a weekday (110 on herd days), 52 on a
 Saturday and 22 on a Sunday: 85 a day over the week, as the variant
@@ -745,6 +750,8 @@ Work streams, on `clinic` as `vet_app`:
 | `consultations.sign` | the oldest closed, unsigned consultation closed an hour ago or more, signed by its vet | 20/h | `signing` | 85 a day; nothing waits a day (the trap stays a fault's) |
 | `referrals.accept` | the oldest received referral: accepted, one in twenty declined | 6/h | `office` | 13 a day |
 | `referrals.close` | an accepted referral whose consultations are signed and whose stay has ended: closed, its report marked sent (the vet's letter; the report as an electronic flow is a purpose, D278 answer 5) | 4/h | `office` | about 13 a day |
+| `exchanges.decide` | the oldest inbound exchange `received`: accepted with a date, one in ten declined, within a working day (D306) | 2/h | `office` | about one a day |
+| `exchanges.report` | an accepted examination, either way, one to three days after its date: its report written, `reported` (D306) | 2/h | `office` | under one a day |
 
 Reads, on `clinic` as `vet_app`: `animals.file` (an animal's record:
 identity, alerts, ownership, the last consultations, the current stay;
@@ -809,7 +816,9 @@ lab, which is D276's trigger for a weighted `choice` generator (D303).
   clinic as a night leaves it. About 40 current stays, each with its
   active lines and the next round's administrations planned; the
   evening's emergencies open or closed and unsigned, none older than a
-  day; received referrals of the day not yet accepted; every request of
+  day; a few exchanges in flight either way, answered or reported over
+  the next days, the partners' database planted from the same functions
+  (D306); received referrals of the day not yet accepted; every request of
   the history `resulted` or `cancelled` but the last day's, `sent`;
   sequences set after each range (step 4).
 - **Unseen.** The load writes without trace: no statement logging,
@@ -846,28 +855,32 @@ material (step 7).
 | The analysis requests posted to the lab's order API (`vet-lab` answer 2) | round trip inside the centre: the accession id at once, the result later | `vet-lab`'s `lab-api` | about 45 tests in 25 orders a day, each within a minute of its consultation's close |
 | The released results copied back into `requests` (`resulted`) | the round trip's answer | from `vet-lab` | as released, about 45 a day |
 | Exchanges with the other centres, out: a transfer or an examination request, its answer, the report back (one-centre 3) | round trip, the centre asking | the other centres' stubs | about one a day (the transfers of `stays.discharge`, 0.3 a day, among them); an answer within a working day, the report one to three days after the examination |
-| Exchanges with the other centres, in | round trip, the partner asking, at the centre's exchange API | the centre's own `api` node | about one a day, business hours |
+| Exchanges with the other centres, in | round trip, the partner asking, at the centre's exchange endpoints | `clinic-api`, as `vet_exchange` (D306) | about one a day, business hours |
 | Notifiable diseases (D280, rule 7) | pushed obligation | the authority | a few a month |
 | The activity figures, the antimicrobial-use report | pushed, monthly and yearly | the head office, the authority | above |
 | Results released to owners | to `vet-portal` | later, with the portal | |
 
-Each round trip's trace tables (the exchange's request, answer and
-report) come with its purpose, as a purpose carries its target's DDL
-([formats.md](../../formats.md) "Purpose definition"). The purposes are
+An exchange's request, answer and report are the core's record, in
+`exchanges` (D306, amending this step's first draft); the messages
+either way are the purpose's trace (`ops.exchange_messages`), as a
+purpose carries its target's DDL ([formats.md](../../formats.md)
+"Purpose definition"). The purposes are
 drafted in [clinic-purposes.md](clinic-purposes.md) (step 7).
 
 ### The partners the core meets (D285, D293)
 
 On the one back end every partner shares, a scheduler node and a small
-database (D293); each partner otherwise one `api` node, out of the
-players' reach (D273–D275):
+database (D293), and the one `api` node serving every partner, each
+under its own hostname (D308), out of the players' reach (D273–D275):
 
-- **The other national centres and the centres abroad** (three `api`
-  nodes: two centres, the centres abroad as one): they answer the
-  centre's requests and post their own, about one a day, on the
-  `office` hours; the back end's streams tick each partner's own `api`
-  node, which reads its state, calls the centre and records the answer
-  (D303).
+- **The other national centres and the centres abroad** (three
+  partners, two centres and the centres abroad as one, each its own
+  hostname on the shared node): they answer the centre's requests
+  within a working day, report one to three days after an
+  examination, and post their own requests, about one a day, on the
+  `office` hours; the back end's streams tick each partner's routes,
+  which read its state, call the centre and record the answer (D303).
+  Their fragments: `producers/partners/centres/` (D306).
 - **The franchise's head office**: answers the monthly figures; no
   stream.
 - **The franchise's messaging service**: answers what the centre's

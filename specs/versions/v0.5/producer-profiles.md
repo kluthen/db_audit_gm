@@ -49,7 +49,7 @@ copies; the scenario itself is built in v0.4's wave 4), the scheduler
 | 9 | Many small consumers that all look alike (the housing displays) | ruled: a ward service holding a pool (D287) |
 | 10 | Several sites in different time zones | ruled: one zone in v0.5 (D276) |
 | 11 | Data growth over the aging (the machinery's readings) | ruled: small action events, a day of readings on site, cold storage (D288, D298, D296, D297) |
-| 12 | A read, a call and a write; the HTTP driver; a weighted choice; where a domain's API and partner material lives | ruled: script jobs with an HTTP connection, partners ticking their own `api` node; the driver's least; `choice`; `producers/api/` and `producers/partners/` (D303) |
+| 12 | A read, a call and a write; the HTTP driver; a weighted choice; where a domain's API and partner material lives | ruled: script jobs with an HTTP connection, partners ticking their own `api` node (their routes on one shared node, D308); the driver's least; `choice`; `producers/api/` and `producers/partners/` (D303) |
 
 ## 1. Merging fragments (ruled, D264)
 
@@ -550,8 +550,9 @@ lookup API; cold storage's shipping job ([cold storage](cold-storage.md)
 - Ruled (D303): a for the customer's side, whose flows then run
   every minute at most, as middleware polling its outbox does; c for a
   third party, outside the players' scope and D270's exception: the
-  back end's stream ticks the partner's own `api` node, whose endpoint
-  reads, calls and writes, so a partner's misbehaviour stays a stream
+  back end's stream ticks the partner's routes, under its own hostname
+  on the partners' one `api` node (D308), whose endpoint reads, calls
+  and writes, so a partner's misbehaviour stays a stream
   key the timeline switches (D127, D268), with no scheduler change.
 
 **2. The HTTP driver's least** (D267): a connection `driver: http`,

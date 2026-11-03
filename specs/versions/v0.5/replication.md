@@ -1,11 +1,12 @@
 # v0.5 — replication and the off-site copies
 
-Status: draft v3, ruled. The owner ruled the standby, the vault and the
+Status: draft v4, ruled. The owner ruled the standby, the vault and the
 fault candidates on 2026-11-02, and that the periodic reports read on
 the standby (D299); then, the same day, that they write to a back-office
 database, `office` (section 3, D300, closing O149); and that the lab,
 on a node of its own, sends its WAL and base backups to the vault too
-(section 2, D301, extending D299).
+(section 2, D301, extending D299). The office role's name was settled
+with the purposes (section 3, D306).
 
 The owner, asking on 2026-11-02: "have we set replications needs for
 this project ? we could have probably one off site (but still within
@@ -83,9 +84,13 @@ database (D300, closing O149).
   monthly statements to its outside customers (D294), copies of the
   regulatory submissions sent (the registers' extracts, the
   antimicrobial-use report, the notifiable-disease reports).
-- **Its roles**: an office role reading the standby and writing the
-  back-office database, and no write grant on the clinic's record; the
-  operational record carries no report table.
+- **Its roles** (D306, point 4): `office_jobs` writes `office` and
+  reads nothing of the record; the reports read the standby as
+  `vet_reports` and the lab's node as `lab_reports`, neither given a
+  write grant; `office_reader` reads `office` for the back office's
+  staff ([clinic-purposes.md](clinic-purposes.md#the-roles-the-purposes-add)).
+  A report job holds two connections. The operational record carries
+  no report table.
 - **Placement**: a database of its own, `office`, on the primary's
   instance: no new node, and it rides the standby and the WAL
   archive for free; the separation is by database and roles. A variant
@@ -112,10 +117,9 @@ Rejected: the outputs back into the clinic's database, as first
 drafted, report tables beside the record and the separation by roles
 alone.
 
-The office role's name, and whether it is `vet-core`'s `vet_reports`
-given its write grants on `office`, are settled with the purposes
-(procedure step 7), each report's or statement's target DDL in its
-purpose.
+Each report's or statement's target DDL is in its purpose (step 7,
+[clinic-purposes.md](clinic-purposes.md)); `vet_reports` keeps no write
+grant (D306).
 
 ## 4. Fault candidates (D299)
 

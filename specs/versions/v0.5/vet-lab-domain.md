@@ -746,7 +746,7 @@ nothing in this step runs as either.
 | Application | Node | Connection, role | What it does |
 |---|---|---|---|
 | The lab's information system, with the analysers' middleware | `lis`, a scheduler node | `lab`: `lab:5432/lab`, `lab_app`; `lab-instruments`: the same target, `lab_instruments`; `clinic-api`: the core's lookup API, HTTP (D267) | accessioning, bench work, validation and release, QC, critical calls, notifications' records, custody; the analysers' batch uploads; the centre's patients' identity from the core |
-| The lab's order API (D267, D270) | `lab-api`, an `api` node in the players' scope | `lab_api` | only answers: `POST /orders` (any account, the centre's included; idempotent on the account and its `client_ref`, the same accession answered twice), `GET /orders/{accession}` (an order's state, interim or final), `POST /send-outs/{send_key}/result` (the external lab's answer); players edit its `db/` side only (D271) |
+| The lab's order API (D267, D270) | `lab-api`, an `api` node in the players' scope | `lab_api` | only answers: `POST /orders` (any account, the centre's included; idempotent on the account and its `client_ref`, the same accession answered twice), `GET /orders/{accession}` (an order's state, interim or final), `GET /orders?account=<id>&released_since=<time>` (the released results feed: one account's tests released or not performed since a time, which the centre's `fetch-lab-results` polls every five minutes, D306), `POST /send-outs/{send_key}/result` (the external lab's answer); players edit its `db/` side only (D271) |
 
 The middleware shares the information system's node: a lab's
 middleware is an application of its own, but one node standing for
@@ -831,10 +831,11 @@ packed at 16:00, Monday to Friday, by their purpose (below).
 ### The partners the lab meets (D285, D293, D294)
 
 On the back end every partner shares (one scheduler node, one small
-database, D293), each an `api` node out of the players' reach. A
-partner's back end ticks its own `api` node, whose endpoint reads the
-partner's state, calls the centre and records the answer, as a real
-partner's system would; its fault keys come with the faults (D276), the
+database, D293), and the one `api` node serving every partner, each
+under its own hostname (D308), out of the players' reach. A partner's
+back end ticks its own routes, whose endpoint reads the partner's
+state, calls the centre and records the answer, as a real partner's
+system would; its fault keys come with the faults (D276), the
 fragments holding its normal behaviour (D303).
 
 **The region's practices**, one stub for the 120 accounts (D293):
@@ -842,13 +843,14 @@ fragments holding its normal behaviour (D303).
 | Key or endpoint | What | Rate | Shape |
 |---|---|---|---|
 | `practices.order` (back end stream) | ticks the stub: it builds a practice's order (one of accounts 2–121, its patient reference and client's surname, a species mix of 70 % dogs and cats, 15 % horses, 15 % farm animals, about 1.6 tests, one in twenty urgent, a fresh `client_ref`), posts it to `lab-api`'s `POST /orders`, and keeps the accession | 2.9/h | `practice-hours`, poisson: 28 a weekday, 12 on Saturday, 25 a working day on average (step 2) |
-| `POST /results` (its `api` node) | takes a delivery (interim, final or amended), acknowledges each `delivery_key` once, a repeat acknowledged again without a second record | | answers the dispatch's calls: about 40 a day |
+| `POST /results` (its routes) | takes a delivery (interim, final or amended), acknowledges each `delivery_key` once, a repeat acknowledged again without a second record | | answers the dispatch's calls: about 40 a day |
 
 **The external reference lab** (D268):
 
 | Key or endpoint | What | Rate | Shape |
 |---|---|---|---|
-| `POST /orders` (its `api` node) | takes a send-out: answers `accepted` with its accession, keeps the `send_key`, the test and the due time (the test's turnaround, one to five days); the same `send_key` again answers the same accession | | about 7 a day, Monday to Friday at 16:00 |
+| `POST /orders` (its routes) | takes a send-out: answers `accepted` with its accession, keeps the `send_key`, the test and the due time (the test's turnaround, one to five days); the same `send_key` again answers the same accession | | about 7 a day, Monday to Friday at 16:00 |
+| `POST /orders/{send_key}/resend` (its routes, D306) | a chase: the back end posts that send-out's answer again, at once if resulted, else when due | | the chases of `vet-lab-send-outs`, rare unless a callback was lost |
 | `xlab.answer` (back end stream) | ticks the stub: each send-out past its due time gets its result posted to `lab-api`'s `POST /send-outs/{send_key}/result`, the answer kept | 6/h, even | `xlab-hours`: follows the send-outs, about 7 a working day |
 
 The back end's intensity is one for every partner (one schedule a
@@ -867,7 +869,7 @@ Each a purpose of the round-trip kind; the profile they meet:
 |---|---|---|---|---|---|---|---|
 | The centre's orders | the centre | the consultation's analysis requests, one order, posted to `lab-api` | `client_ref`, the requests' ids | the accession id at once; the result once released | about 25 orders a day, each within a minute of its consultation's close | no accession in a minute: resent with the same `client_ref` | the core's requests `sent`, then `resulted` with the result copied back |
 | The practices' orders | a practice | an order posted to `lab-api` | the practice's `client_ref` | the accession id at once; the interim and final results at its callback | about 25 a working day; results the same day for most, cultures and send-outs days later | the dispatch's: no acknowledgement in five minutes, retried with the same `delivery_key`, at most six times | each delivery acknowledged; a test billable once released |
-| The send-outs | the centre | the day's send-out tests posted to the external lab: the accession, the label, species, sex and age, never an identifier (rule 11) | `send_key`, kept on a retry | `accepted` at once; the result one to five days later | about 7 a day, Monday to Friday 16:00 | past `due_by`: resent with the same `send_key` | the test resulted, then validated and released as the centre's own, naming the lab that performed it |
+| The send-outs | the centre | the day's send-out tests posted to the external lab: the accession, the label, species, sex and age, never an identifier (rule 11) | `send_key`, kept on a retry | `accepted` at once; the result one to five days later | about 7 a day, Monday to Friday 16:00 | not accepted: retried with the same `send_key`; past `due_by` by a working day: chased with `resend`, then an incident (clinic-purposes 7) | the test resulted, then validated and released as the centre's own, naming the lab that performed it |
 
 The end-to-end invariant a cascade's fix is judged by (D286): every new
 order gets its result released, and for a practice's every released

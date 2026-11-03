@@ -26,7 +26,8 @@ cascade judged end to end (D286); the reports reading the standby and
 writing `office` (D299, D300); `api` nodes that only answer, their
 database side the players' (D270, D271); third parties out of reach,
 every fix on the customer's side (D273–D275); script jobs with an HTTP
-connection and partners ticking their own `api` node (D303); the
+connection and partners ticking their own routes, each under its own
+hostname on the partners' one `api` node (D303, D308); the
 clinic's ten faults at most (D290), of which this page lists candidates
 only.
 
@@ -407,8 +408,8 @@ disease, a day for another listed disease: the lab's game values (D302),
 applied to the vet's too (D306, point 7). The category needs
 `diagnosis_codes` to say it (section 15).
 
-**Receiver**: the authority's stub, its own `api` node on the partners'
-back end (D304), material in the purpose (`receiver/`): `POST
+**Receiver**: the authority's stub, its own hostname on the partners'
+one `api` node (D308) and their back end (D304), material in the purpose (`receiver/`): `POST
 /notifications` answers 201 with a reference, the same
 `notification_key` again the same reference; it answers 503 to about one
 call in fifty as standing behaviour, so retries and escalations have a
@@ -655,7 +656,9 @@ lists its own clients' orders.
 ## 15. What step 7 asks of the domains
 
 Each item is a change to a ruled step, accepted with the purposes
-(D306); applying them to the domain pages is left to the next session:
+(D306), and applied on 2026-11-03 to
+[vet-core](vet-core-domain.md) steps 4 and 6 and
+[vet-lab](vet-lab-domain.md) step 6:
 
 **`vet-core`**
 

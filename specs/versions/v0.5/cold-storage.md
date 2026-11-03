@@ -1,11 +1,13 @@
 # v0.5 — cold storage: a third party for heavy data
 
-Status: draft v2, ruled. The direction is the owner's (D288); the
+Status: draft v3, ruled. The direction is the owner's (D288); the
 design was ruled as drafted on 2026-11-02, with the bastion's route to
 its page (D296) and the GM deciding what ships, use first (D297),
 closing O148. Linked from [producer profiles](producer-profiles.md) 11.
 The same stub also holds the core's WAL and base backups, as types
-`wal` and `basebackup` ([replication.md](replication.md), D299).
+`wal` and `basebackup` ([replication.md](replication.md), D299). Its
+stub shares the partners' one `api` node, under its own hostname,
+`cold-storage` (D308).
 
 The owner, on 2026-11-02, on the data growth over the aging: "If we're
 talking about lab machineries, we will say that we keep a day on site
@@ -56,8 +58,9 @@ each shipment is answered by a receipt (D286).
 
 ## 3. The stub's side
 
-An `api` node, `no-access` (D274), on the one network (D275), with three
-endpoints:
+A partner on the partners' shared `api` node, `no-access` (D274), on
+the one network (D275), under its own hostname, `cold-storage`, its
+routes dispatched by that name (D308); three endpoints:
 
 | Endpoint | What it does |
 |---|---|
