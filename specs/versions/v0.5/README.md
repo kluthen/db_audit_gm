@@ -1,6 +1,6 @@
 # v0.5 — domain definition: the veterinary clinic
 
-Status: draft. No master spec. Business domains added on 2026-10-28
+Status: draft; master spec and access model draft v1, for the owner's review (2026-11-03). Business domains added on 2026-10-28
 (D192); centred on 2026-10-31 on defining domains, the veterinary clinic
 the worked example (D233), with a procedure for defining a domain
 (D235), brick options tied to the clinic (D236, D238) and a post-mortem
@@ -64,12 +64,21 @@ sub-skill (D331); the test selection's s6 became the register's T307
 register fault resolved by *propose* (D333), its format additions into
 the master spec with O111's (D334), a register for every scenario
 listing `domains:` (D335), the page's other details as written (D336).
-Consolidation is next.
+On the owner's word the same day ("yes, start the master spec"), `main`
+was merged in (v0.4's release and the v1.0 gating list, D314's items
+folded into it), O111's format text written into formats.md v28,
+closing O111 (D338), and the drafts **consolidated** into the
+[master spec](master-spec.md) and its [access model](access-model.md),
+draft v1 each, for the owner's review: its section 25 lists R1–R20,
+the "(proposed)" items and the drafts' disagreements, each with a
+recommendation; one question raised, O220, the monitoring breadth.
 
 ## Documents
 
 | Document | Purpose | Status |
 |---|---|---|
+| [master-spec.md](master-spec.md) | The v0.5 master spec: the domain procedure and format, composition, the clinic's six domains (their domain documents approved with it as companions), third parties and cold storage, replication and `office`, the sixteen purposes, governance and the data register, the bricks and their bumps, topology and capacity, the test selection, testing, the release gate, the build plan's needs; the owner review R1–R20 | draft v1, for the owner's review (2026-11-03); O220 open |
+| [access-model.md](access-model.md) | Who may do what: the game's access (players, GM, bastion, `api` nodes, the standby, the partners hidden) apart from the fiction's (the centre's staff, the applications' roles, owners and keepers on the portal, the partners) | draft v1, with the master spec |
 | [domain-procedure.md](domain-procedure.md) | How a domain is defined: what it holds and leaves out, the steps from a brief, done and its checklist, composites, how a scenario names its domains, the shop against it, the effort, scale, variants and tags, composing domains and the initial load | approved v5 (D249, D260, D263); section 10 ruled, its mechanism and the parts' format changes confirmed as written (D322, D323, D326; O111 settled in substance) |
 | [producer-profiles.md](producer-profiles.md) | The frictions between domains' producer profiles and v0.3's scheduler, each with its evidence, and the owner's rulings; what the first parts' profiles need of the scheduler and the format | draft v9, ruled (D264–D271, D276, D277, D287, D288, D298, D303; O113, O154 closed); frictions 9 and 11 applied at the parts' steps (D318, D319) |
 | [cold-storage.md](cold-storage.md) | Cold storage, a generic third party for heavy data: keeping a day on site, the shipping job, the stub's manifest, endpoints and page, the faults it enables | draft v4, ruled (D288, D296, D297; O148 closed); its stub on the partners' shared node (D308); its first data types `vitals` and `machine-readings`, purpose 14 (D319, D324) |
@@ -530,12 +539,13 @@ The items moved later are listed in the roadmap
 
 ## Questions due in this version
 
-- O111: the domain format, beyond its v0.4 part and D249's four
-  changes, with the composition rules and the parts' format changes
-  ([procedure](domain-procedure.md#10-composing-domains-d322) 10, D322,
-  D323), confirmed as written (D326): settled in substance, finalised
-  in the master spec when v0.5 consolidates (D291), which closes it,
-  with the data register's format additions (D334).
+- O220: the clinic's monitoring breadth (pgwatch, pgCluu, a
+  Nagios-style health check, the hand-made scripts), undesigned;
+  raised at consolidation, due before the build plan's monitoring
+  chunk ([master spec](master-spec.md) 7.4).
+
+O111 closed at consolidation (D338): the domain format in
+[formats.md](../../formats.md) v28.
 
 Moved out of this list on 2026-10-31: O53 and O54 (later, D237); O21
 and O135 (v0.6, D233, D248); O24 and O25 (v1.0+, D248). Closed: O47
@@ -551,39 +561,28 @@ binding.
 
 ## Next steps (in progress)
 
-Left when the session stopped on 2026-11-03, after D336:
+Left when the session stopped on 2026-11-03, after D338 and O220:
 
-- **Steps 1 to 9 are done for all six clinic domains**, ruled, and
-  approved only with the master spec (procedure 2): `vet-core`,
-  `vet-lab`, [`vet-scheduling`](vet-scheduling-domain.md),
-  [`vet-housing`](vet-housing-domain.md),
-  [`vet-machinery`](vet-machinery-domain.md) and
-  [`vet-portal`](vet-portal-domain.md), folded in on 2026-11-03
-  (D317–D325, D327, D328) with [clinic-purposes.md](clinic-purposes.md)
-  (sixteen purposes), [clinic-traps.md](clinic-traps.md) (229 traps, the register's nine among them),
-  [clinic-test-selection.md](clinic-test-selection.md) (the ten v0.5
-  builds, s5 T270 and s9 T150, D325, s6 T307, D332) and
-  [clinic-capacity.md](clinic-capacity.md) (23 nodes, 25 to 27 with
-  D238's monitoring, 74 % to 79 % of the two hosts' CPU). The
-  composition mechanism and the parts' format text are confirmed as
-  written ([procedure](domain-procedure.md#10-composing-domains-d322)
-  10, D326), so O111 is settled in substance, waiting only to be
-  written into the domain format by the master spec (D291).
-- **Next: consolidation**, on the owner's word (D291); no question
-  due here is left before it, O111 closing with it. In this order:
-  1. **The master spec** (skill `spec-consolidate`), carrying O111's
-     format text into the domain format, which closes O111, and the
-     data register's format additions with it (D334), as
-     [data-register-handout.md](data-register-handout.md) states them
-     (D333–D336).
-  2. **Its access model**: the owners, keepers and the centre's staff
-     kinds beside the players and the GM.
-  3. **No data preflight** (D329): the master spec and the plan record
-     that the repository keeps no data register, every scenario's data
-     being synthetic.
-  4. **The build plan** (skill `build-plan-authoring`), once the master
-     spec is approved, with the data register's chunks
-     ([data-register-handout.md](data-register-handout.md#7-build-plan-chunks-for-the-build-plan) 7).
+- **Done**: `main` merged in (fc823ea); O111's format text in
+  [formats.md](../../formats.md) v28 (D338); the
+  [master spec](master-spec.md) and its [access model](access-model.md),
+  draft v1 each, consolidated from every draft and D232–D338. The
+  `scenario-format` skill is unchanged: its templates and checks follow
+  formats.md v28 in the build's domain-format chunk, with the loader,
+  as in v0.4.
+- **Next: the owner's review** of the master spec and the access model,
+  with the six domain documents approved with them (procedure step 9):
+  its section 25, R1–R20, each with a recommendation (the whole-clinic
+  run's three details, the monitoring breadth, the bumps and re-pins,
+  the format details and names, the drafts' disagreements, the access
+  model's refusals), and O220.
+- **Before the build plan**: the owner's approval (R1–R20 and O220
+  ruled); the stale passages R16 lists corrected in the domain
+  documents, so the build reads one figure.
+- **Then the build plan** (skill `build-plan-authoring`), with the data
+  register's chunks
+  ([data-register-handout.md](data-register-handout.md#7-build-plan-chunks-for-the-build-plan) 7)
+  and the master spec's section 21. **No data preflight** (D329).
 - **Tests stay short** (D314): every check under 30 minutes on a minimal
-  fixture; the whole clinic deployed once, on armenelos plus the VPS, as
-  the proof in play, its place the release gate (proposed).
+  fixture; the whole clinic deployed once, on armenelos plus the VPS,
+  at the release gate (proposed, R1).
