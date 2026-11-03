@@ -3447,3 +3447,53 @@ harness's trap tore it down at 10:40:16Z, before the report. Left: (b) a
 harness option skipping f8's wait and a ~1 h `smoke` re-run, or (c) the
 gap named in the known limits. Driver's reading of release gate item 14:
 the wave 4 gate's run counts, re-run only for code changed after it.
+
+### Wave 4 gate (coding-executor, armenelos, 2026-11-03 07:35–11:19 UTC) — passed, armenelos-only
+
+On tree cd4bbd4 (later tips only the driver's log and `spec-writer`'s
+spec commits); no fix, no commit; the VPS untouched (Drain); κ = 1, each
+Docker step under the lock and an inhibitor. Logs in the driver's
+scratchpad `w4gate/`.
+
+| Step | Result | UTC, duration |
+|---|---|---|
+| Unit suite | 854 OK | 07:35, 140 s |
+| Scheduler unit tests | 72 OK | 07:40, 159 s |
+| `sh -n` / `perl -c` / `py_compile` | 165 / 7 / 46 files, 0 fail | < 1 min |
+| Seven builds | rc 0 first try, 0 network retries | 07:43 |
+| Stack tests | bastion 90, postgres 211, pgbouncer 120, scheduler 133, prometheus 131, postgres-exporter 103, grafana 119; 0 FAIL | 07:43–08:09, 1575 s |
+| `smoke.sh` | 61 PASS | 29 s |
+| `smoke-monitoring.sh` | 43/43 | 46 s |
+| `smoke-scenario.sh` | bookshop 19/19 (21 s), fernway 18/18 (29 s), tarnbeck-outdoor-shop 26/26 (822 s) | |
+| `smoke-load.sh armenelos` | 73/73 | 423 s |
+| `fixture-campaign` deployment | 84/84, G1–G4 exit 0 twice, every job ran, 17 purpose checks × 3 rounds only 0/3 | 08:33–09:19, 2743 s |
+| `smoke` (new scenario, every fault) | 25 PASS 0 FAIL, stopped in f8's wait (D312) | 09:19–10:40 |
+| `f10` | 23/23 | 10:43–10:51, 425 s |
+| `baseline` | 32/32 | 10:51–11:18, 1664 s |
+
+- `pooler workarounds: 0` in every run (D305); the pooler's start-up
+  wait resolved `db` after 5–7 s each time.
+- Images (`127.0.0.1:5000/dbagm/`): bastion:0.4.0 8ffc0bf43d36 185.6 MB;
+  postgres:0.4.0 2d4f82a98130 262.3 MB; pgbouncer:0.1.1 137b342a9b34
+  182.4 MB; scheduler:0.2.0 **c1ef5309474e** 170.6 MB (rebuilt: its
+  s6-overlay `ADD` layers re-fetched, re-running the apt layer on current
+  Debian packages; no `bricks/scheduler` commit since wave 3; old
+  1ad76b563f81 untagged, kept); prometheus:0.2.0 e0bad6332958 488.2 MB;
+  postgres-exporter:0.2.0 b8c644f1c94d 164.6 MB; grafana:0.2.0
+  b53a718ae5c0 866.2 MB.
+- `smoke`, first live run: f1–f7 and f9 present, f10 error as designed,
+  every moved job ok and every `jobs.yaml` restored byte for byte; stopped
+  at 10:40:03 in `await f8 present 9000`; not reached: f8, `keys_running`,
+  `jobs_ran` (O163).
+- `f10`: present after 154 s (backend SIGKILLed 10:48:10); recovered;
+  s6-svscan/sshd/cron pids kept; reporting `oom_kill` 0 → 1, `memory.peak`
+  93675520 → 671092736 B.
+- Memory peaks (one-minute samples): `fixture-campaign` db 217M/1G,
+  grafana 253M/384M, reporting 80M/640M, crm 50M/128M; `smoke` db 203M,
+  grafana 305M, reporting 73M, prometheus 98M; `baseline` db 218M,
+  grafana 240M.
+- Not checked: wave 3's "0 errors, 0 `08006`" count and the pg_cron
+  launcher check on `reporting` in the `fixture-campaign` run.
+- No wave sync: no intent register; dependencies changed only by chunk
+  21 (`security-advisor` done, 0b9e906).
+- Hosts at 11:19Z: clean, lock free, the VPS Drain, 9.6G free.
