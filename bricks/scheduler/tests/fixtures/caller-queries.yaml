@@ -1,5 +1,5 @@
 # Stack test fixture of the scheduler brick (v0.5): the caller node's
-# repository, calls on HTTP connections to the stub.
+# repository, calls on HTTP connections to the stub, and a script job's key.
 queries:
   stub.consent:                        # a stream at 30/min: a path from params, a weighted choice in the body
     call: POST /consents/%(owner)s
@@ -16,3 +16,5 @@ queries:
   stub.slow:                           # the stub answers after 3 s; the connection's timeout is 1 s
     call: GET /slow
     params: {n: {int: [1, 9]}}
+  stub.relay:                          # a script job's key: the scripts' HTTP client
+    script: scripts/relay.py:relay

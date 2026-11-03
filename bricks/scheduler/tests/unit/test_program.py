@@ -843,6 +843,131 @@ class TestHttpStreams(ProgramBase):
         self.assertRegex(log[-1], r" wait status=unresolved ms=[0-9]+ connections=far$")
 
 
+HTTP_SCRIPT_KEYS = """\
+  relay.orders:
+    script: scripts/relay.py:relay
+  relay.unhandled:
+    script: scripts/relay.py:unhandled
+  relay.forbidden:
+    script: scripts/relay.py:forbidden
+"""
+
+HTTP_SCRIPT = """\
+import decimal
+
+
+def relay(conns, options, log):
+    db, lab, slow, down = conns["db"], conns["lab"], conns["slow"], conns["down"]
+    with db.cursor() as cur:                  # reads a database ...
+        cur.execute("SELECT 41 + 1")
+        n = cur.fetchone()[0]
+    db.rollback()
+    a = lab.post("/orders/north", {"n": n, "price": decimal.Decimal("1.50")})   # ... calls an API with it
+    b = lab.post("/shipments", b'{"a":1}\\n{"a":2}\\n',
+                 headers={"Content-Type": "application/x-ndjson", "Shipment-Id": "s-1"})
+    c = lab.post("/fail")                      # an answer whatever its status
+    d = lab.get("/missing/3", {"full": True, "tag": ["a", "b"]})
+    try:
+        slow.get("/slow")
+    except slow.HttpError as exc:
+        log(f"slow: {exc.status}")
+    try:
+        down.get("/x")
+    except down.HttpError as exc:
+        log(f"down: {exc.status}")
+    log(f"{a.status} {a.json()['accession']} {b.status} {c.status} {c.text[:10]} {d.status} {d.headers.get('content-type')}")
+    return 2
+
+
+def unhandled(conns, options, log):
+    conns["down"].get("/x")
+    return 0
+
+
+def forbidden(conns, options, log):
+    conns["lab"].get("/orders/x", headers={"Authorization": "Bearer stolen"})
+    return 0
+"""
+
+
+class TestHttpScripts(ProgramBase):
+    """v0.5: a script job's HTTP connections (capture W1 item 4): the small
+    client beside its psycopg connections, an answer whatever its status,
+    HttpError on a timeout or no connection, each call an `http` line and
+    counted under `<key>/<name>`."""
+
+    def setUp(self):
+        super().setUp()
+        with open(os.path.join(self.paths["repository"], "queries.yaml"), "a") as f:
+            f.write(HTTP_SCRIPT_KEYS)
+        os.makedirs(os.path.join(self.paths["repository"], "scripts"))
+        with open(os.path.join(self.paths["repository"], "scripts", "relay.py"), "w") as f:
+            f.write(HTTP_SCRIPT)
+        self.stub = Stub()
+        self.addCleanup(self.stub.close)
+        conns = {"db": "app", "lab": "lab", "slow": "slowlab", "down": "down"}
+        with open(self.paths["jobs"], "w") as f:
+            yaml.safe_dump({"jobs": [
+                {"name": "relay", "key": "relay.orders", "connections": conns, "at": "0 3 * * *"},
+                {"name": "unhandled", "key": "relay.unhandled", "connections": {"down": "down"}, "at": "0 3 * * *"},
+                {"name": "forbidden", "key": "relay.forbidden", "connections": {"lab": "lab"}, "at": "0 3 * * *"}]}, f)
+
+    def test_a_script_calls_an_api_beside_its_database(self):
+        import json
+        doc = TestHttpStreams.doc(self, [])
+        s = self.scheduler(doc, stdin=http_stdin(doc))
+        s.declare_http_series()
+        self.assertIn("relay.orders/lab", s.stats.totals)       # its series from the start, at 0
+        jobs = {j.name: j for j in s.jobs}
+        for name in ("relay", "unhandled", "forbidden"):
+            asyncio.run(s.job_run(jobs[name], time.time()))
+        log = read_log(self.paths)
+        # the run itself: ok, its rows, as any script's
+        self.assertTrue(any(" run job=relay key=relay.orders phase=end status=ok rows=2 ms=" in l for l in log), log)
+        self.assertTrue(any(l.endswith(" script job=relay 201 1 201 503 lab closed 404 application/json")
+                            for l in log), log)
+        self.assertTrue(any(l.endswith(" script job=relay slow: timeout") for l in log), log)
+        self.assertTrue(any(l.endswith(" script job=relay down: refused") for l in log), log)
+        # one http line per call, the path last
+        http = [l for l in log if " http job=relay " in l]
+        self.assertEqual(len(http), 6, http)
+        self.assertRegex(http[0], r" http job=relay connection=lab method=POST status=201 ms=[0-9.]+ path=/orders/north$")
+        self.assertRegex(http[2], r" http job=relay connection=lab method=POST status=503 ms=[0-9.]+ path=/fail$")
+        self.assertRegex(http[3], r' http job=relay connection=lab method=GET status=404 ms=[0-9.]+ '
+                                  r'path="/missing/3\?full=true&tag=a&tag=b"$')
+        self.assertRegex(http[4], r" http job=relay connection=slow method=GET status=timeout ms=[0-9.]+ path=/slow$")
+        self.assertRegex(http[5], r" http job=relay connection=down method=GET status=refused ms=[0-9.]+ path=/x$")
+        # counted under <key>/<name>, apart from the run's own count
+        t = s.stats.totals
+        self.assertEqual((t["relay.orders/lab"].calls, t["relay.orders/lab"].errors), (4, 2))
+        self.assertEqual((t["relay.orders/slow"].calls, t["relay.orders/slow"].errors), (1, 1))
+        self.assertEqual((t["relay.orders/down"].calls, t["relay.orders/down"].errors), (1, 1))
+        self.assertEqual((t["relay.orders"].calls, t["relay.orders"].errors), (1, 0))
+        # on the wire: the credential, the caller, JSON or bytes as given
+        order = self.stub.of("/orders/north")[0]
+        h = {k.lower(): v for k, v in order["headers"].items()}
+        self.assertEqual((h["authorization"], h["user-agent"], h["content-type"]),
+                         ("Bearer t0k3n-lab", "unit-host", "application/json"))
+        self.assertEqual(order["body"], b'{"n":42,"price":1.50}')
+        ship = self.stub.of("/shipments")[0]
+        h = {k.lower(): v for k, v in ship["headers"].items()}
+        self.assertEqual((h["content-type"], h["shipment-id"]), ("application/x-ndjson", "s-1"))
+        self.assertEqual(ship["body"], b'{"a":1}\n{"a":2}\n')
+        self.assertEqual(json.loads(self.stub.of("/orders/north")[0]["body"])["n"], 42)
+        self.assertEqual(len({r["peer"] for r in self.stub.requests if r["path"] != "/slow"}), 1)   # kept alive
+        # an HttpError not handled ends the run as any exception does
+        self.assertTrue(any(" run job=unhandled key=relay.unhandled phase=end status=error error=HttpError ms=" in l
+                            for l in log), log)
+        self.assertTrue(any(' error key=relay.unhandled job=unhandled sqlstate=- message="script: HttpError: refused: '
+                            in l for l in log), log)
+        # headers never sets Authorization or Host
+        self.assertTrue(any(" run job=forbidden key=relay.forbidden phase=end status=error error=ValueError " in l
+                            for l in log), log)
+        self.assertFalse(any("stolen" in l for l in log))
+        self.assertFalse(self.stub.of("/orders/x"))
+        self.assertNotIn("t0k3n-lab", "\n".join(log))
+
+
 class TestHttpProgram(ProgramRun):
     """v0.5: an HTTP credential arrives on standard input; one not passed
     refuses the schedule, as a role without its password does."""

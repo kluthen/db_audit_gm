@@ -165,10 +165,40 @@ The contract of master spec 7.1, as built (`program/gm_scheduler/scripts.py`):
   while one goes (`reason=still-running`), as for every job; nothing else
   stops. A program stopping mid-run does not wait for the script: the
   server rolls back what it had open.
+- **HTTP connections (0.3.0)**: a job's `connections:` may name an
+  `http` connection (master spec 7.2): `conns[<name>]` is then the small
+  client (`gm_scheduler.drivers.http.Client`) beside the psycopg
+  connections, opened at its first call, never refused at the run's
+  start. `get(path, params=None, *, headers=None)` (`params` the query
+  string, a list repeating its name) and `post(path, body=None, *,
+  headers=None)`: `body` JSON-serialisable (sent as `application/json`,
+  decimals and times as a call's are) or `bytes` (sent as is,
+  `Content-Type` from `headers`, default `application/octet-stream`: a
+  shipment's NDJSON). `headers` never sets `Authorization` or `Host`
+  (`ValueError`); the connection's credential, `Host` and `User-Agent`
+  are the driver's. A call returns an answer whatever its status:
+  `status` (an integer), `reason`, `headers` (`headers.get(name)`, any
+  case), `text`, `content` (bytes), `json()` (`None` for an empty body),
+  `ok` (2xx); the script decides. A timeout or no connection raises
+  `HttpError`, `.status` `timeout` or `refused`, `.message` the reason;
+  catch it as `conns[<name>].HttpError` (no import needed), or let it end
+  the run as any exception does (`error=HttpError`). The client keeps up
+  to the connection's `pool` connections alive, the stale ones opened
+  again as a stream's are, and is safe to share between a script's own
+  threads. Each call is one log line, `http job=<job> connection=<name>
+  method=<M> status=<three digits>|timeout|refused ms=<latency>
+  path=<path and query>` (the path last, quoted when it holds `?`, `=`
+  or `&`), and counts under the series `<key>/<name>` (`<name>` the
+  script's name for the connection, as `conns` and `jobs.yaml` give it):
+  calls, errors (not 2xx, timeout, refused) and latency, in the minute's
+  `key` lines and the metrics, apart from the run's own count under the
+  job's key, which stays v0.4's. Every such series exists from the start,
+  at 0. On the customer's side such flows run every minute at most, as
+  middleware polling its outbox does (7.2).
 - **What it may import**: the standard library, psycopg 3 and PyYAML,
   which the image has; anything more is an image change with its
-  dependency check. PostgreSQL only: scripts talk psycopg, outside the
-  driver interface.
+  dependency check. A script's database connections talk psycopg,
+  outside the driver interface; its HTTP connections the driver's client.
 - **What the checks read** of its runs: `check-runs` (Checks, below).
 
 ### The HTTP driver (0.3.0)
@@ -261,13 +291,17 @@ without a space.
 | The sealed checks' SQL | `/usr/local/lib/gm/check-sql` | root `0700`: root only, as the secret it reads |
 | What the checks read of a job's runs | `/usr/local/lib/gm/check-runs` | root `0700`: root only, beside `check-sql` |
 | `sudo` log | `/run/gm/sudo.log` | root, lost when the container is replaced |
+| Account files (0.3.0) | `/etc/passwd`, `group`, `shadow`, `gshadow`: links to `/run/gm-accounts/`, filled at each start from `/etc/gm-accounts/player/` or `/etc/gm-accounts/no-access/` | root; `passwd`, `group` `0644`, the shadow files root:shadow `0640` |
 
 ### Start-up (`gm-entrypoint`, every container start)
 
-1. Empties `/run` and recreates `/run/sshd`, `/run/sshd-keys`, `/run/gm`,
-   `/run/tmp` (`/tmp`, `/var/tmp` link to it) and `/run/scheduler`.
+1. Empties `/run`, refills `/run/gm-accounts` with the write policy's
+   account files (0.3.0: below, `no-access`), and recreates `/run/sshd`,
+   `/run/sshd-keys`, `/run/gm`, `/run/tmp` (`/tmp`, `/var/tmp` link to
+   it) and `/run/scheduler`.
 2. Generates an ed25519 sshd host key in `/run/sshd-keys`.
-3. Fails the container when `player_ssh_pubkey` is missing or empty, a
+3. Fails the container when `player_ssh_pubkey` is missing or empty (but
+   on a `no-access` node, which has no player), a
    mounted `role_*_password` or `http_*` is empty, more than one line or
    holds a space, its name is not a role's or a credential's, or
    `/opt/gm/seed/schedule.yaml` is missing.
@@ -281,7 +315,8 @@ without a space.
    `scripts/` folder; it needs none.
 6. Applies the write policy's owner and modes to every seeded file and
    directory, seeding or not (contents untouched, never through a link).
-7. Sets the log, state, marker and home owners and modes; execs `/init`.
+7. Sets the log, state, marker and home owners and modes (on a
+   `no-access` node the home volume is root's, `0700`); execs `/init`.
 
 The s6 service `scheduler` runs as root only long enough to read
 `schedule.yaml`, the role passwords and the HTTP credentials and pass
@@ -325,7 +360,9 @@ Container ports 9120 and 22; nothing is published.
   `scheduler_call_duration_seconds` (histogram, buckets 1 ms to 60 s),
   `scheduler_job_runs_total`, `scheduler_job_skips_total`; and
   `scheduler_running` (1 or 0), `scheduler_start_time_seconds`. Every key
-  the schedule or `jobs.yaml` names has its series from the start, at 0.
+  the schedule or `jobs.yaml` names has its series from the start, at 0;
+  from 0.3.0 a script job's HTTP calls count under `key="<key>/<name>"`
+  (a `/` never appears in a repository key, so no series clashes).
 - **`ssh`, port 22.** The bastion's inner hop, as `player`, by key only.
 - **Consumes `http`, port 8000 (0.3.0).** The endpoints its HTTP
   connections name, an `api` node's or a third party's on the partners'
@@ -359,8 +396,19 @@ Container ports 9120 and 22; nothing is published.
   for exactly `gm-reload-scheduler` and `gm-validate`, no arguments. They
   read the repository, `jobs.yaml`, the log and `/etc/scheduler/`; they
   see `/opt/gm/seed/schedule.yaml` in listings and cannot read it.
-- **Write policies**: `fixable` and `report-only` (`no-access` is treated
-  as `report-only` for files). Render sets `GM_WRITE_POLICY` and
+- **`no-access`** (0.3.0, master spec 10.2; a third party's node, the
+  partners' back end): no `player` account, so no SSH login and no `sudo`
+  wrapper anyone may run (the wrappers' files and the `sudoers` rule stay
+  in the image, naming an account that does not exist); `sshd` and the
+  program run as on any node (node health's `default`: `scheduler`,
+  `sshd`), and the files take `report-only`'s modes. On a read-only root
+  no account can be removed at start, so the image bakes two account sets
+  and the entrypoint links the right one in (Fixed paths); `docker exec
+  -u scheduler` (the GM's validator run) resolves the name from the
+  image's copy of the full set, so it works on every node. The key
+  `player_ssh_pubkey` is not required there.
+- **Write policies**: `fixable`, `report-only` and `no-access` (as
+  `report-only` for files, above). Render sets `GM_WRITE_POLICY` and
   `GM_WRITE_OVERRIDES`; the entrypoint writes `/run/gm/write-policy`.
   `writable_paths` are the two directories `/srv/scheduler/repository`
   and `/srv/scheduler/jobs` (spec D170) and `/home/player`; an override
@@ -447,7 +495,10 @@ scheduler node idle 19M (program RSS 27M), running two streams 26M (RSS
 48 calls a minute, a 503 and a timeout among them) idle 18M (RSS 26M),
 running 20M (RSS 28M), 394 calls of one stream carried by one kept-alive
 connection. The HTTP driver holds a daemon thread per call in flight and
-nothing at rest. The footprint in `brick.yaml` is unchanged.
+nothing at rest. With the caller `no-access` and a script job on its HTTP
+connection every minute (three calls a run, JSON, NDJSON bytes and a
+503), the same run gave: idle 18M (RSS 26M), running 28M (RSS 36M). The
+footprint in `brick.yaml` is unchanged.
 
 Measured in the v0.3 rehearsal (`tools/tests/rehearsal.sh`:
 `tarnbeck-outdoor-shop` on armenelos, AMD Ryzen 5 PRO 8640HS, 11.3 GiB,
@@ -547,6 +598,9 @@ must provide, its timeline needs and aging minimum included.
   - `run job=<name> key=<k> phase=start`, then `phase=end status=ok
     rows=N ms=x` or `status=error sqlstate=S ms=x` (`status=error
     error=<class> ms=x` for a script's exception without an SQLSTATE);
+  - `http job=<name> connection=<name> method=<M> status=<s> ms=<x>
+    path=<path>` (0.3.0): one per call a script makes on an HTTP
+    connection (Transformer scripts, above);
   - `script job=<name> <text>`: a script's `log(text)`, free text after
     the job's name, never parsed as fields (a reader takes the event from
     the second word only, so it never passes for a `run` line);
@@ -606,8 +660,9 @@ must provide, its timeline needs and aging minimum included.
   load. A script runs in its own thread, so it blocks only its job; but a
   script exhausting the node's memory takes the program down (s6 restarts
   it), hence a transformer on a node of its own.
-- A script's connections ignore the connection's `pool:` (one per name
-  per run), and its `log` lines are not rate-limited.
+- A script's database connections ignore the connection's `pool:` (one
+  per name per run; its HTTP client keeps up to `pool` alive), and its
+  `log` and `http` lines are not rate-limited.
 - A call that finds every slot of its stream busy waits for one; the
   arrivals it delays are not caught up (no backlog), as a client with a
   fixed number of workers would.

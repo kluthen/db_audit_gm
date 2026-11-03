@@ -100,6 +100,14 @@ connections a script uses in `jobs.yaml`, and while it runs, its
 sessions in `pg_stat_activity` (`application_name` the node's name,
 `usename` the role); you never see a password.
 
+A script may also name a connection to an API: `conns["lab"]` is then a
+small HTTP client, `conns["lab"].get(path, params)` and
+`conns["lab"].post(path, body)`, each returning the answer (`status`,
+`headers`, `text`, `json()`) whatever its status; no answer in time, or
+no connection, raises `conns["lab"].HttpError`. Each call adds an `http
+job=... connection=... method=... status=... ms=... path=...` line to
+the log, and counts in the metrics under `<key>/<connection>`.
+
 A script may use the Python standard library, `psycopg` 3 and `yaml`;
 nothing else is installed. A run that raises an error ends with
 `status=error` in the log; the scheduler goes on.
@@ -135,7 +143,8 @@ One line per event, each beginning with its UTC time:
   naming the kind of error a script raised otherwise); `skip job=...`
   for a run that could not start (the previous one still going, or a
   database refusing the connection);
-- `script job=... <text>` for each line a script logs;
+- `script job=... <text>` for each line a script logs, and `http job=...`
+  for each call a script makes to an API;
 - `error key=... sqlstate=... message="..."` for each failed call; for
   a call to an API, `status=...` instead of `sqlstate=...`: the answer's
   three-digit status, `timeout` or `refused`;

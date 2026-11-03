@@ -36,14 +36,19 @@
 #     row written into `reporting` as bi_etl from `shop` read as shop_etl;
 #     check-runs' answers after it (the run since the reload, the last
 #     reload, the next run a day later); the validator green;
-#   - a caller node (v0.5: the same image, streams on two HTTP connections,
-#     one with a credential mounted by hand as http_<name>, spec D347):
-#     started before the stub HTTP server, it waits, bounded, for the
-#     stub's name (spec D305's lesson), then runs once the stub starts;
-#     the stub sees each call's method, path, JSON body (a weighted choice
-#     within its share, a builder's body), Host, User-Agent and
-#     Authorization; kept-alive connections; the caller counts a 503 and
-#     a timeout as errors, logs them with status=, and the token nowhere;
+#   - a caller node (v0.5: the same image, `no-access`, streams on two HTTP
+#     connections, one with a credential mounted by hand as http_<name>,
+#     spec D347, and a script job on it): no `player` account (SSH
+#     refused, no sudo, home root's), sshd up, the GM's exec as scheduler
+#     and its validator run working; started before the stub HTTP server,
+#     it waits, bounded, for the stub's name (spec D305's lesson), then
+#     runs once the stub starts; the stub sees each call's method, path,
+#     JSON body (a weighted choice within its share, a builder's body),
+#     Host, User-Agent and Authorization; kept-alive connections; the
+#     caller counts a 503 and a timeout as errors, logs them with status=,
+#     and the token nowhere; the script job's calls (JSON, NDJSON bytes, a
+#     503 answer it handles) each an `http` line, counted under
+#     `stub.relay/lab`;
 #   - the entrypoint's refusals (policy, override, schedule, secrets);
 #     read-only root, capabilities, /run a volume; the footprint at rest
 #     of the three nodes.
@@ -70,7 +75,7 @@ CLIENT=${STACK}-client
 STUB=${STACK}-stub
 LABEL=dbagm.test=chunk3-scheduler
 CONFIGS="seed_schedule seed_queries seed_builder_report seed_jobs db_init tr_schedule tr_queries tr_script_rollup tr_jobs"
-CONFIGS="$CONFIGS cl_schedule cl_queries cl_builder_orders cl_jobs"
+CONFIGS="$CONFIGS cl_schedule cl_queries cl_builder_orders cl_script_relay cl_jobs"
 SECRETS="player_ssh_pubkey role_shop_app_password gm_check_password role_shop_etl_password role_bi_etl_password"
 SECRETS="$SECRETS http_interfaces_stub"
 VOLUMES="sch_repository sch_jobs sch_schedlog sch_schedstate sch_home sch_gmstate sch_run"
@@ -269,7 +274,13 @@ streams:
   - {key: stub.fail, connection: stub, rate: 6/min, arrivals: even}
   - {key: stub.slow, connection: slowstub, rate: 6/min, arrivals: even}
 EOF
-printf 'jobs: []\n' > "$tmp/cl_jobs.yaml"
+cat > "$tmp/cl_jobs.yaml" <<EOF
+jobs:
+  - name: relay
+    key: stub.relay
+    connections: {lab: stub}
+    at: "* * * * *"
+EOF
 cfg() { docker config create -l "$LABEL" "${STACK}_$1" "$2" >/dev/null; }
 cfg seed_schedule "$tmp/schedule.yaml"
 cfg seed_queries "$HERE/fixtures/queries.yaml"
@@ -283,6 +294,7 @@ cfg tr_jobs "$tmp/tr_jobs.yaml"
 cfg cl_schedule "$tmp/cl_schedule.yaml"
 cfg cl_queries "$HERE/fixtures/caller-queries.yaml"
 cfg cl_builder_orders "$HERE/fixtures/builders/orders.py"
+cfg cl_script_relay "$HERE/fixtures/scripts/relay.py"
 cfg cl_jobs "$tmp/cl_jobs.yaml"
 docker secret create -l "$LABEL" "${STACK}_http_interfaces_stub" "$tmp/http_interfaces_stub" >/dev/null
 docker secret create -l "$LABEL" "${STACK}_player_ssh_pubkey" "$tmp/id.pub" >/dev/null
@@ -416,6 +428,24 @@ st=$(cgm stat -c '%u:%g %a' "$HTTP_SECRET")
 [ "$st" = "0:0 400" ] && pass "the HTTP credential's secret is 0:0 0400" || fail "$HTTP_SECRET: $st"
 check "the service account cannot read the HTTP credential" sh -c "! docker exec -u scheduler $CC cat $HTTP_SECRET"
 check "the stub's name does not resolve yet" sh -c "! docker exec $CC getent hosts stub"
+# no-access (v0.5, master spec 10.2): no player account, sshd kept
+check "no-access: no player account" sh -c "! docker exec $CC getent passwd player && ! docker exec $CC id player"
+g=$(cgm getent group schedconf)
+[ "$g" = "schedconf:x:994:" ] && pass "no-access: schedconf has no member ($g)" || fail "no-access: schedconf [$g]"
+check "no-access: /run/gm/write-policy says no-access" sh -c "docker exec $CC cat /run/gm/write-policy | grep -qx policy=no-access"
+[ "$(cgm /command/s6-svstat -o up /run/service/sshd)" = true ] && pass "no-access: sshd runs" || fail "no-access: sshd not up"
+check "no-access: SSH as player refused" sh -c "! docker exec $CLIENT ssh $SSH_OPTS player@caller true"
+m=$(cgm stat -c '%U:%G %a' /home/player)
+[ "$m" = "root:root 700" ] && pass "no-access: the home volume is root's ($m)" || fail "no-access home: $m"
+m=$(cgm stat -c '%a %U:%G' "$REPO" "$REPO/queries.yaml" "$REPO/scripts/relay.py" /srv/scheduler/jobs "$JOBS" | tr '\n' ' ')
+[ "$m" = "2755 scheduler:schedconf 644 scheduler:schedconf 644 scheduler:schedconf 2755 scheduler:schedconf 644 scheduler:schedconf " ] \
+    && pass "no-access: files as report-only ($m)" || fail "no-access modes: $m"
+u=$(docker exec -u scheduler "$CC" id -un 2>&1)
+[ "$u" = scheduler ] && pass "no-access: the GM's exec as scheduler resolves the account" || fail "exec -u scheduler: [$u]"
+out=$(docker exec -u scheduler "$CC" /opt/gm/validator/validate.sh 2>&1); rc=$?
+[ "$rc" -eq 0 ] && pass "no-access: the GM's validator run as scheduler is green ($out)" || fail "caller validator: exit $rc: $out"
+u=$(cgm ps -o user= -p "$(cprog_pid)" | tr -d ' ')
+[ "$u" = scheduler ] && pass "no-access: the program runs as scheduler" || fail "caller program user: [$u]"
 CT0=$(utc "$(now)")
 cgm sh -c "printf '%s\n' '$CT0' > /var/lib/gm-state/.load-started.tmp && chown root:scheduler /var/lib/gm-state/.load-started.tmp \
     && chmod 0440 /var/lib/gm-state/.load-started.tmp && mv /var/lib/gm-state/.load-started.tmp /var/lib/gm-state/load-started \
@@ -820,7 +850,7 @@ o=$(printf '%s\n' "$R" | grep -c '"json": {"n": 10, "tests": \["cbc", "chem"\], 
 p=$(printf '%s\n' "$R" | grep '"path": "/consents/' | sed -n 's/.*"peer": "\([^"]*\)".*/\1/p' | sort -u | wc -l)
 [ "$p" -ge 1 ] && [ "$p" -le 4 ] && pass "kept alive: $c consent calls on $p connections" || fail "consent connections: $p for $c calls"
 m=$(docker exec "$CLIENT" curl -fsS -m 10 http://caller:9120/metrics)
-v() { printf '%s\n' "$m" | sed -n "s/^$1{key=\"$2\"} \\([0-9]*\\)\$/\\1/p"; }
+v() { printf '%s\n' "$m" | awk -v n="$1{key=\"$2\"}" '$1 == n { print $2 }'; }   # v <series> <key>
 [ "$(v scheduler_errors_total stub.consent)" = 0 ] && [ "$(v scheduler_calls_total stub.consent)" -ge 100 ] \
     && pass "metrics: stub.consent $(v scheduler_calls_total stub.consent) calls, 0 errors" || fail "stub.consent metrics: $(v scheduler_calls_total stub.consent)/$(v scheduler_errors_total stub.consent)"
 [ "$(v scheduler_errors_total stub.order)" = 0 ] && [ "$(v scheduler_calls_total stub.order)" -ge 10 ] \
@@ -839,8 +869,29 @@ printf '%s\n' "$L" | grep -q ' error key=stub.slow status=timeout message="no an
 k=$(printf '%s\n' "$L" | grep ' key minute=.* key=stub.fail ' | tail -n 1)
 printf '%s' "$k" | grep -Eq 'calls=([1-9][0-9]*) errors=\1 ' && pass "the minute's key line counts them: $k" || fail "stub.fail key line: [$k]"
 check "the caller's log holds no credential" sh -c "! docker exec $CC grep -qF '$HTTPTOKEN' $LOG && ! docker service logs $CL_SERVICE 2>&1 | grep -qF '$HTTPTOKEN'"
+# the script job on the HTTP connection, every minute since the caller runs
+runs=$(printf '%s\n' "$L" | grep -c ' run job=relay key=stub.relay phase=end status=ok rows=1 ms=')
+[ "$runs" -ge 5 ] && pass "the script job ran on its HTTP connection ($runs runs, $(printf '%s\n' "$L" | grep ' run job=relay ' | tail -n 1 | cut -c22-))" \
+    || fail "relay runs: $runs; $(printf '%s\n' "$L" | grep ' job=relay ' | tail -n 3 | tr '\n' '|')"
+printf '%s\n' "$L" | grep -Eq ' script job=relay order 201 A[0-9]{6}, shipment 201, refused 503$' \
+    && pass "the script got each answer, whatever its status: $(printf '%s\n' "$L" | grep ' script job=relay ' | tail -n 1 | cut -c22-)" \
+    || fail "relay script line: $(printf '%s\n' "$L" | grep ' script job=relay ' | tail -n 1)"
+for want in 'connection=lab method=POST status=201 ms=[0-9.]+ path=/orders$' \
+            'connection=lab method=POST status=201 ms=[0-9.]+ path=/shipments$' \
+            'connection=lab method=POST status=503 ms=[0-9.]+ path=/fail$'; do
+    printf '%s\n' "$L" | grep -Eq " http job=relay $want" && pass "an http line: $(printf '%s\n' "$L" | grep -E " http job=relay $want" | tail -n 1 | cut -c22-)" \
+        || fail "no http line matching [$want]"
+done
+s=$(printf '%s\n' "$R" | grep '"path": "/shipments"' | tail -n 1)
+printf '%s' "$s" | grep -q '"size": 22, "type": "application/x-ndjson"' && pass "a bytes body as given, its Content-Type from headers" \
+    || fail "shipment at the stub: [$s]"
+rc_=$(v scheduler_calls_total stub.relay/lab); re_=$(v scheduler_errors_total stub.relay/lab)
+[ "${rc_:-0}" -ge 15 ] && [ "$rc_" = $(( 3 * ${re_:-0} )) ] \
+    && pass "metrics: stub.relay/lab $rc_ calls, $re_ errors (the 503s), apart from the runs" || fail "stub.relay/lab metrics: $rc_/$re_"
+[ "$(v scheduler_errors_total stub.relay)" = 0 ] && pass "metrics: the runs themselves, no error ($(v scheduler_calls_total stub.relay))" \
+    || fail "stub.relay run metrics: $(v scheduler_calls_total stub.relay)/$(v scheduler_errors_total stub.relay)"
 CL_RUN=$(cmem)
-info "caller footprint running (48 calls a minute): $CL_RUN"
+info "caller footprint running (48 calls a minute, a script job every minute): $CL_RUN"
 
 # --- the entrypoint's refusals -------------------------------------------------------------
 printf 'x: [\n' > "$tmp/bad.yaml"

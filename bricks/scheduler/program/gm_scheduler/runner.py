@@ -13,7 +13,9 @@ asyncio task. SIGHUP reloads the repository and jobs.yaml (the schedule,
 connections and counters kept); SIGTERM stops it.
 
 v0.5: a stream may hold an HTTP connection and run a call key (one
-request per call, gm_scheduler.drivers.http). Before running, the program
+request per call, gm_scheduler.drivers.http); a script job's connections
+may name HTTP connections, each a client whose calls are logged (`http`
+lines) and counted under `<key>/<name>`, apart from the run's own count. Before running, the program
 waits, bounded (NAME_WAIT), for every HTTP connection's target name to
 resolve (v0.4's lesson, spec D305): a `wait` line says it waited and how
 it ended; it runs at the bound whether the names resolve or not.
@@ -301,6 +303,7 @@ class Scheduler:
         self.repo, self.jobs = repo, jobs
         for job in jobs:
             self.stats.declare(job.key)
+        self.declare_http_series()
         if self.running:
             self.start_jobs()
         self.write_loaded()
@@ -491,14 +494,40 @@ class Scheduler:
             self.log.write("skip", ("job", job.name), ("key", job.key), ("at", instant(due)),
                            ("reason", "connection-refused"))
 
+    def declare_http_series(self):
+        """Every script job's HTTP connection has its series, `<key>/<name>`,
+        from the start, at 0."""
+        for job in self.jobs:
+            for name, cname in (job.connections or {}).items():
+                c = self.schedule.connections.get(cname)
+                if c is not None and c.http:
+                    self.stats.declare(f"{job.key}/{name}")
+
+    def http_recorder(self, job):
+        """A script job's HTTP calls, reported from its thread: one `http`
+        line each, counted under `<job's key>/<name>` in the loop's thread
+        (calls; errors: not 2xx, timeout, refused; latency)."""
+        loop = asyncio.get_running_loop()
+
+        def on_call(name, method, target, status, latency, error):
+            self.log.write("http", ("job", job.name), ("connection", name), ("method", method),
+                           ("status", status), ("ms", f"{latency * 1000:.1f}"), ("path", target))
+            try:
+                loop.call_soon_threadsafe(self.stats.record, f"{job.key}/{name}", latency, error, time.time())
+            except RuntimeError:
+                pass  # the loop is gone: the program is stopping
+        return on_call
+
     async def script_run(self, job, entry, due):
         """One run of a script key's job: its connections opened in a worker
         thread, then the call in another; the same run, skip and error
-        lines as any job's (master spec 7.1)."""
+        lines as any job's (master spec 7.1); its HTTP calls logged and
+        counted on their own (v0.5)."""
         started = time.monotonic()
         try:
             conns = await scripts.in_thread(scripts.open_connections, job.connections, self.schedule,
-                                            self.passwords, self.hostname, name=f"gm-script-{job.name}")
+                                            self.passwords, self.hostname, self.credentials,
+                                            self.http_recorder(job), name=f"gm-script-{job.name}")
         except DriverError as exc:
             self.stats.job_skip(job.key, job.name, "connection-refused")
             self.record_error(job.key, exc.code, exc.message, job=job.name)
@@ -608,6 +637,7 @@ class Scheduler:
             self.stats.declare(key)
         for job in self.jobs:
             self.stats.declare(job.key)
+        self.declare_http_series()
         self.write_loaded()
         if t0 is None:
             self.write_status("idle")
