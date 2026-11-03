@@ -1,6 +1,6 @@
 # v0.5 — the clinic's test selection
 
-Status: draft v3, ready for review; the ten are what v0.5 builds (D316), s5 and s9 swapped for the portal's T270 and housing's T150 when the four parts were folded in (D325). The spec's own pick of faults from
+Status: draft v4, ready for review; the ten are what v0.5 builds (D316), s5 and s9 swapped for the portal's T270 and housing's T150 when the four parts were folded in (D325), s6 for the data register's T307 (D332). The spec's own pick of faults from
 the [traps](clinic-traps.md), for the build's tests and the proof in
 play: a fixture, not the canonical scenario (D309). A game's faults are
 the GM's to select at deploy, with whoever sets up the game; this
@@ -24,7 +24,7 @@ the selection planted at once ([README](README.md#testing-in-v05-d314)).
 | s3 | T69, herd prescriptions dropped from the antimicrobial use | V | a periodic report, its witness the daily feeder (D265); last year's planted report wrong, the cattle the one species due | the feeder's query on `backoffice`, and the planted report | reports |
 | s4 | T41, a retry under a new `client_ref` | M | a round trip's correlation key; the held `purpose-retry-without-key` (D201) built | `interfaces`' script | orders |
 | s5 | T270 ([vet-portal](vet-portal-domain.md#3-who-sees-what-the-policies)), the animals' policy without the ownership's end | M | row-level security and owner-scoped access, "the clinic's richest governance case" (D293), new in the clinic | the policy on `portal` (DDL), a few hours before T0 | portal-scope |
-| s6 | T49, a natural identifier in the send-outs' payload | M | governance towards a third party (lab rule 11) | `interfaces`' script (`send-outs`) | send-outs |
+| s6 | T307 ([data register](data-register-handout.md#4-the-trap-family-the-register-itself-t300t308)), cold storage, the vault, declared nowhere in the players' data register | M | the data register (D330) and its skill (D331): a planted deviation, the true and handed-out registers, the answer key's diff; resolved by *propose* | the bastion's `data-register.md` (seed-file), written by the `data-register` skill | archive |
 | s7 | T1, statement logging on `records` | M | governance in the logs (core rule 10); the held `governance-statement-log-personal` (D191) built | `records`' `postgresql.conf` | reports |
 | s8 | T33, the standby an hour behind (`recovery_min_apply_delay`) | M | the reporting standby (D299): the night's feeders missing the evening | the standby's `postgresql.conf` | reports |
 | s9 | T150 ([vet-housing](vet-housing-domain.md#1-the-ward-service-and-the-displays-d287)), a faulty display reading its board in a loop | M | D287's own case, the owner's: many small consumers behind one service, found through the redundant query and the box → stay → animal chain; reported, never fixed | the display's key in `ward`'s profile layer (D264) | housing |
@@ -40,6 +40,13 @@ delay, the customer's "for safety"; s5 is planted a few hours before T0,
 so only the day's sales are exposed and it stays minor; s9 at one
 display looping about once a second, below what saturates the ward's
 pool (V if it did, at a feeding round).
+
+Replaced by D332, back among the traps for the GM: T49 (a natural
+identifier in the send-outs, s6 until then): it adapts v0.4's
+`governance-personal-copied`, whose outbound `fields` check v0.4
+already proved, while no clean register proves the register's planted
+deviation; governance stays with s5, s7 and s6
+([data register](data-register-handout.md#5-the-test-selection-d332-the-gms-under-d309)).
 
 Replaced by D325, back among the traps for the GM: T78 (`lab-api`'s
 idempotency lookup unindexed, s5 until then; its growth was not shown
@@ -62,9 +69,9 @@ switched by the test.
 | Fixture | Nodes | T0 | Faults |
 |---|---|---|---|
 | orders | `records` (`clinic`), `lab`, `clinic-api`, `lab-api`, `pms`, `lis`, `interfaces` | a weekday, 10:00 | s1, s4 |
-| archive | `records`, the partners' `api` node (cold storage's hostname) and database | any | s2 |
+| archive | `records`, the partners' `api` node (cold storage's hostname) and database | any | s2, s6 |
 | reports | `records` (`clinic`, `office`), the standby, `backoffice` | a Friday, 01:20 (Thursday held herd visits) | s3, s7, s8 |
-| send-outs | `lab`, `interfaces`, the partners' `api` node (the external lab's hostname), database and back end | a weekday, 15:50 | s6, fa |
+| send-outs | `lab`, `interfaces`, the partners' `api` node (the external lab's hostname), database and back end | a weekday, 15:50 | fa |
 | lab | `lab`, its exporter | any | s10 |
 | portal-scope | `records` (`clinic`, `portal`), `portal-api` | a weekday, a few hours after the fault is planted | s5 |
 | housing | `records` (`clinic`, the core and housing loaded), `pms`, `ward` | any | s9 |
@@ -122,11 +129,15 @@ the deployment.
   as the planted former owner, `GET /animals` on `portal-api` returns
   the horse they sold. *Fixed*: after the policy's fix, it does not, and
   the buyer still sees it. About 10 minutes.
-- **s6, an identifier in the send-outs.** *Present*: the 16:00
-  `send-outs` run's payloads at the external lab's stub carry the
-  microchip (SO3). *Fixed*: after the fix, `send-outs` moved to the next
-  minute, a send-out tested that day carries the catalogue's fields
-  only. About 20 minutes.
+- **s6, the vault not declared.** *Present*: the bastion serves
+  `data-register.md` (`/home/player` and the page) with cold storage
+  among no entry's recipients; the true register (`gm/`) names it on
+  every entry it holds; the vault's page lists `records`' `wal` and
+  `basebackup` manifests. *Cleared*: the handout regenerated without
+  the fault names it, proving the change reversible. *Proposed*: the
+  corrected entries, judged at the final answer against the answer
+  key's `register_diff:` (O217). With s2 planted too, the vault still
+  holds the planted manifests and the base backups. About 10 minutes.
 - **s7, statement logging.** *Present*: an owner's name and phone in
   `records`' log after a few `pms`-style writes run by the test as
   `vet_app`. *Fixed*: after the fix and a reload, the same writes leave
@@ -161,11 +172,11 @@ The whole clinic deployed once on armenelos plus the VPS, every part
 built, the ten faults and the false alarm planted at once. Its checks
 (proposed): the deployment and `fit`; every producer, partner and
 purpose running for about 30 minutes, each one's first run read; each
-fault's present reading where it reads within the window (s2, s5, s7,
-s8, s9 and s10 at once, s5 as a planted former owner's visit, s9 the
-display's excess calls; s1 at the first urgent order, if one comes; s3
-and s6 only with T0 placed before their jobs, which the window cannot
-hold for both, so they rest on their fixtures). No fault is fixed there.
+fault's present reading where it reads within the window (s2, s5, s6,
+s7, s8, s9 and s10 at once, s5 as a planted former owner's visit, s6
+the handout against the vault's page, s9 the display's excess calls;
+s1 at the first urgent order, if one comes; s3 only with T0 placed
+before its feeder, so it rests on its fixture). No fault is fixed there.
 None of the ten may exhaust a node's memory, so none sets
 `needs_unshared_host` and the placement is free on that count; the VPS
 rules still bind the run (D159).

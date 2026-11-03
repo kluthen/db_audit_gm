@@ -1,11 +1,13 @@
 # v0.5 — the clinic's traps (step 8): the whole clinic
 
-Status: draft v3, ready for review; what v0.5 builds ruled (D316), the
-test selection's swaps T270 and T150 (D325). The index of the whole
-clinic's traps: 220 in all, the core's and the lab's 85 here (sections
+Status: draft v4, ready for review; what v0.5 builds ruled (D316), the
+test selection's swaps T270 and T150 (D325), then T307 for T49 (D332).
+The index of the whole
+clinic's traps: 229 in all, the core's and the lab's 85 here (sections
 1 to 9), the four parts' 135 on their own pages (section 10: scheduling
 29, housing 22, machinery 38, the portal 46), folded in on 2026-11-03
-(D317–D320). Step 8 of the
+(D317–D320), and the data register's 9 (section 11, T300–T308, D330),
+planted in the players' handout only. Step 8 of the
 [procedure](domain-procedure.md#2-the-steps-from-a-brief-to-a-finished-domain)
 for the clinic's first two domains together, across their data models
 ([vet-core](vet-core-domain.md#the-data-model-step-4),
@@ -249,6 +251,34 @@ parts' pages name them:
 T60 and T78, s9 and s5 until D325, are traps for the GM again; no
 fault of the ten sits on an `api` node's `db/` side, which the `api`
 brick's own build checks cover (D328).
+
+## 11. The data register (T300–T308, D330)
+
+A scenario's data register is a player handout generated from the
+ground truth by the GM's `data-register` skill (D331); these traps are
+planted in the handout only, nothing in the system changing: a
+`seed-file` change on the bastion's `data-register.md`, the answer key
+recording each one's diff against the true register. Their resolution
+is *propose*, the corrected entry, judged at the final answer (O217).
+The whole family, its witnesses and its false-alarm material are on
+[data-register-handout.md](data-register-handout.md#4-the-trap-family-the-register-itself-t300t308),
+their one home.
+
+| # | Trap | Fixed on | Catalogue | Class |
+|---|---|---|---|---|
+| T300 | an entry out of date (the portal's copies not declared) | the register (proposed) | new, `governance-register-*` | M |
+| T301 | a column missing (`exchanges.partner_patient`) | the register (proposed) | new | M |
+| T302 | a store missing (`office`) | the register (proposed) | new | M |
+| T303 | a wrong class (natural identifiers `internal`) | the register (proposed) | new | M, V when a reader leaned on it |
+| T304 | a wrong retention (controlled drugs five years) | the register (proposed) | new | M |
+| T305 | the register absent, the policy naming one | the register (proposed) | new | M |
+| T306 | the register vague | the register (proposed) | new | M |
+| T307 | cold storage, the vault, not declared | the register (proposed) | new: s6 of the test selection (D332) | M |
+| T308 | the franchise's messaging service not declared | the register (proposed) | new | M |
+
+A fault planted in the system (T49, T67) leaves the register as the
+ground truth has it: the register is then the reference the system is
+read against, as the policy is; it is not a register trap.
 
 ## What the build needs of a trap
 

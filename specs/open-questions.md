@@ -95,7 +95,9 @@ for the next version (v0.1 until it closed, with none left open);
   "Enforcement".
 - **O21** (later, v0.6) — Can the starter documentation contain deliberate
   inaccuracies as faults, decided per scenario? Due with v0.6's
-  documentation website; no longer v0.5's (D233).
+  documentation website; no longer v0.5's (D233). Narrowed by D330: the
+  data register may carry one from v0.5 (T300–T308); still open for the
+  other starter files.
 - **O22** (later, beyond v0.3) — Aging technique. v0.3 ages in real time
   only, with no sped-up clock, no forged history and no time compression
   (D114, D132), on always-on hosts (D125). Still open: which version
@@ -221,6 +223,24 @@ added on 2026-10-30 (D196).
   Nothing of it is still to decide; it stays listed because the master
   spec carries it into the domain format when v0.5 consolidates (D291),
   which closes it.
+
+Raised with a scenario's data register, a player handout (D329–D331;
+[versions/v0.5/data-register-handout.md](versions/v0.5/data-register-handout.md)):
+
+- **O217** (v0.5, next) — A register fault's resolution: *propose*, the
+  corrected entry in the report, judged against the answer key's
+  `register_diff:` (recommended), or a corrected register handed back
+  as a file? The file waits for v0.6's reporting tool (O135).
+- **O218** (v0.5, next) — The register's format additions, beyond
+  O111's confirmed text: a domain's `data/register.yaml`, the scenario's
+  `governance.register` and `gm/data-register.yaml`, the answer key's
+  `register_diff:`, the loader's digest and coverage checks
+  (handout page 6). Recommended: accepted, into the master spec with
+  O111's.
+- **O219** (v0.5, next) — Which scenarios must have a register?
+  Recommended: every scenario listing `domains:`, the deploy refusing
+  one without; v0.4's released shop scenario exempt until next revised;
+  optional with `governance:` alone.
 
 ## v0.6: the setup's entry point
 

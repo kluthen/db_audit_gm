@@ -969,3 +969,36 @@ D285–D309 and D314 onward, v0.5's drafting (D310–D313 are v0.4's, on `main`)
   node's `db/` side (D271)** now that T78 has left; the `api` brick's
   own build checks cover that side. Now in:
   [versions/v0.5/clinic-test-selection.md](versions/v0.5/clinic-test-selection.md#the-selection).
+- **D329 (2026-11-03, owner ruling, relayed by the coordinator): No data
+  register for this repository, and no data preflight in v0.5's
+  consolidation or build plan:** all data is synthetic. The game's own
+  inventory is its catalogue. Replaces the README's "(proposed)" default
+  on the data preflight. The owner: "this repo doesn't "need" to have a
+  data register (the only data register the game itself would have will
+  focus on bricks, faults, domains, etc)". Now in:
+  [versions/v0.5/data-register-handout.md](versions/v0.5/data-register-handout.md#the-ruling-d329d331).
+- **D330 (2026-11-03, same ruling): A scenario's data register is game
+  content:** a player handout generated from the ground truth. It may
+  carry a fault (out of step, absent, badly documented), a trap family
+  (T300–T308). The clinic's test scenario gets one. Narrows O21 to the
+  other starter files. The owner: "Scenarios may/should have data
+  registries (as handout) to the players(could also be some fault here:
+  desync from the ground truth, entierely absent, ill documented, etc)".
+  Now in:
+  [versions/v0.5/data-register-handout.md](versions/v0.5/data-register-handout.md),
+  [versions/v0.5/clinic-traps.md](versions/v0.5/clinic-traps.md#11-the-data-register-t300t308-d330).
+- **D331 (2026-11-03, owner addition, relayed by the coordinator): A GM
+  sub-skill, `data-register`, generates each scenario's register,**
+  with a fault planted or not: the true register in `gm/` and the
+  handout. Its details are (proposed). The owner: "it should probably be
+  added as a subskill to the GM ensuring such registries get generated
+  with the appropriate informations (with fault planted or not)." Now
+  in:
+  [versions/v0.5/data-register-handout.md](versions/v0.5/data-register-handout.md#3-generation-the-gms-data-register-skill-d331).
+- **D332 (2026-11-03, spec choice, the GM's under D309): The test
+  selection's s6 is T307, the vault not declared in the register,**
+  replacing T49, which goes back to the traps; D290's mix holds (1 D,
+  2 V, 7 M). Reason: T307 is the only fault that proves the register's
+  planted deviation, and T49's mechanism was already proved in v0.4.
+  Now in:
+  [versions/v0.5/clinic-test-selection.md](versions/v0.5/clinic-test-selection.md#the-selection).
