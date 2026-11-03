@@ -4,24 +4,29 @@
 #
 # Runs as root at every container start, then execs s6-overlay's /init:
 #   1. empties /run (a named volume: a stack file's tmpfs is noexec, and
-#      s6-overlay needs an executable /run) and creates the runtime dirs;
+#      s6-overlay needs an executable /run), writes the account files
+#      /etc/passwd, group, shadow and gshadow and the player's sudo rules
+#      link to (/run/gm-accounts; without `player` on a `no-access` node)
+#      and creates the runtime dirs;
 #   2. generates this container's sshd host key under /run;
-#   3. checks the secrets;
+#   3. checks the node's options (GM_OPTIONS) and the secrets;
 #   4. seeds /etc/postgresql from /opt/gm/seed once (marker
 #      /var/lib/gm-state/.gm-seeded, outside the group-writable directory),
 #      and postgres's crontab into cron's spool when the node seeds one;
 #      sets the spool's and the crontab's owner and mode;
 #   5. sets the log directory's owner and mode (files readable by pgconf),
 #      and its cron/ directory's, for the crontab's job logs;
-#   6. initialises PGDATA if it is empty, creates the `dba` and
-#      `monitoring` roles and the pg_stat_statements extension;
+#   6. initialises PGDATA if it is empty, creates the `dba` role, the
+#      `monitoring` role when the node chooses the option `monitoring`,
+#      and the pg_stat_statements extension;
 #   7. creates or updates the GM's roles, in single-user mode before the
 #      server listens: the check role gm_check (password from its secret,
 #      the GM's connection reserve) and, when its secret is mounted (a
 #      scenario with a pooler node), PgBouncer's lookup role
 #      pgbouncer_lookup and its function gm_pgbouncer.lookup;
-#   8. writes the player's ~/.pgpass and, when crontab roles' secrets are
-#      mounted, the crontab's password file /run/gm-cron/pgpass.
+#   8. writes the player's ~/.pgpass (not on a `no-access` node, which has
+#      no player) and, when crontab roles' secrets are mounted, the
+#      crontab's password file /run/gm-cron/pgpass.
 # Every start also gives the seeded files their owner and mode back
 # (step 4), as gm-reload-db and gm-restart-db do.
 set -eu
@@ -43,6 +48,14 @@ CRON_LOG_DIR=$LOG_DIR/cron
 CRON_PASS_DIR=/run/gm-cron
 PLAYER_HOME=/home/player
 LOOKUP_SECRET=$SECRETS_DIR/pgbouncer_lookup_password
+ACCOUNTS_SRC=/usr/local/lib/gm/accounts  # the image's account files (Dockerfile)
+ACCOUNTS_DIR=/run/gm-accounts            # what /etc/passwd, group, shadow, gshadow and
+                                         # /etc/sudoers.d/gm-player link to
+OPTIONS_KNOWN="monitoring"               # brick.yaml's options:
+# The node's write policy and options, as render passes them (v0.3 capture
+# W1 item 5; v0.5 capture W1 item 0): unset means `fixable` and none.
+WRITE_POLICY=${GM_WRITE_POLICY:-fixable}
+OPTIONS=${GM_OPTIONS:-}
 
 log() { printf 'gm-entrypoint: %s\n' "$*" >&2; }
 die() { log "fatal: $*"; exit 1; }
@@ -81,12 +94,54 @@ read_secret() {
     printf '%s' "$v"
 }
 
-# --- 1. /run ------------------------------------------------------------
+# without_player <file> <fields>: the account file without the line of
+# `player` (its account, its group) and without `player` in the member
+# lists at the colon-separated <fields> (`4` for group, `3 4` for gshadow).
+without_player() {
+    awk -F: -v OFS=: -v fields="$2" '
+        $1 == "player" { next }
+        {
+            n = split(fields, f, " ")
+            for (i = 1; i <= n; i++) {
+                k = split($f[i], m, ","); out = ""
+                for (j = 1; j <= k; j++) if (m[j] != "player" && m[j] != "") out = out (out == "" ? "" : ",") m[j]
+                $f[i] = out
+            }
+            print
+        }' "$1"
+}
+
+# --- 1. /run and the accounts -------------------------------------------
 # Leftovers of a previous container (s6 state, sockets, pid files) must
 # not survive into this one.
 cd /run
 find . -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
 cd /
+# The account files first: until they are written, no name resolves (the
+# links in /etc point into /run). By number, then. A `no-access` node (a
+# third party's, v0.5 master spec 10.2) has no `player` account, no group
+# of its own, no membership of pgconf and no sudo rules: the rules' file
+# is absent, which sudo's @includedir skips.
+install -d -m 0755 "$ACCOUNTS_DIR"
+chown 0:0 "$ACCOUNTS_DIR"
+case $WRITE_POLICY in
+    no-access)
+        for f in passwd shadow; do
+            without_player "$ACCOUNTS_SRC/$f" "" > "$ACCOUNTS_DIR/$f"
+        done
+        without_player "$ACCOUNTS_SRC/group" "4" > "$ACCOUNTS_DIR/group"
+        without_player "$ACCOUNTS_SRC/gshadow" "3 4" > "$ACCOUNTS_DIR/gshadow"
+        for f in passwd group shadow gshadow; do
+            chown --reference="$ACCOUNTS_SRC/$f" "$ACCOUNTS_DIR/$f"
+            chmod --reference="$ACCOUNTS_SRC/$f" "$ACCOUNTS_DIR/$f"
+        done
+        ;;
+    *)
+        for f in passwd group shadow gshadow sudoers-gm-player; do
+            cp -p "$ACCOUNTS_SRC/$f" "$ACCOUNTS_DIR/$f"
+        done
+        ;;
+esac
 chown root:root /run
 chmod 0755 /run
 install -d -o postgres -g postgres /run/postgresql
@@ -99,12 +154,26 @@ install -d -o root -g root -m 1777 /run/tmp
 # --- 2. sshd host key ---------------------------------------------------
 ssh-keygen -q -t ed25519 -N '' -C '' -f /run/sshd-keys/ssh_host_ed25519_key
 
-# --- 3. secrets ---------------------------------------------------------
-for s in player_ssh_pubkey dba_password monitoring_password; do
+# --- 3. options and secrets ---------------------------------------------
+# Options (brick.yaml options:, v0.5 master spec 7.1): `monitoring` brings
+# the role `monitoring` and its secret, created at initdb only when chosen.
+with_monitoring=
+for o in $OPTIONS; do
+    case " $OPTIONS_KNOWN " in
+        *" $o "*) ;;
+        *) die "GM_OPTIONS names $o, not an option of this brick ($OPTIONS_KNOWN)" ;;
+    esac
+    [ "$o" = monitoring ] && with_monitoring=yes
+done
+required="dba_password"
+[ "$WRITE_POLICY" = no-access ] || required="player_ssh_pubkey $required"
+[ -n "$with_monitoring" ] && required="$required monitoring_password"
+for s in $required; do
     [ -s "$SECRETS_DIR/$s" ] || die "secret $SECRETS_DIR/$s is missing or empty"
 done
 dba_password=$(read_secret dba_password)
-monitoring_password=$(read_secret monitoring_password)
+monitoring_password=
+[ -n "$with_monitoring" ] && monitoring_password=$(read_secret monitoring_password)
 # The check role's secret: a game always mounts it (brick.yaml); a stack
 # without it (another brick's test stack) runs with no check role.
 gm_check_password=
@@ -210,22 +279,30 @@ if [ ! -s "$PGDATA/PG_VERSION" ]; then
         --encoding=UTF8 --locale=C.UTF-8 \
         --auth-local=peer --auth-host=scram-sha-256 >&2
     # Created in single-user mode (no network, no pg_hba.conf involved)
-    # against initdb's own default configuration: the players' superuser
-    # role; the monitoring role the postgres-exporter brick connects with;
-    # pg_stat_statements' view in the database `postgres` (querying it
-    # still needs the library preloaded by the seed postgresql.conf).
+    # against initdb's own default configuration, before the seed's is
+    # ever read: no preload library (pgaudit's `role` class would log the
+    # statements, passwords included, into the file log the players' group
+    # reads; G5), no statement logged, even on an error. The players'
+    # superuser role; with the option, the monitoring role the
+    # postgres-exporter brick connects with; pg_stat_statements' view in
+    # the database `postgres` (querying it still needs the library
+    # preloaded by the seed postgresql.conf).
     pw_sql=$(sql_quote "$dba_password")
     mon_sql=$(sql_quote "$monitoring_password")
     {
         printf "CREATE ROLE dba LOGIN SUPERUSER PASSWORD '%s';\n" "$pw_sql"
-        printf "CREATE ROLE monitoring LOGIN PASSWORD '%s';\n" "$mon_sql"
-        printf "GRANT pg_monitor TO monitoring;\n"
+        if [ -n "$with_monitoring" ]; then
+            printf "CREATE ROLE monitoring LOGIN PASSWORD '%s';\n" "$mon_sql"
+            printf "GRANT pg_monitor TO monitoring;\n"
+        fi
         printf "CREATE EXTENSION pg_stat_statements;\n"
-    } | runuser -u postgres -- "$PGBIN/postgres" --single -D "$PGDATA" postgres >/dev/null
+    } | runuser -u postgres -- "$PGBIN/postgres" --single -D "$PGDATA" \
+            -c shared_preload_libraries= -c log_statement=none -c log_min_error_statement=panic \
+            postgres >/dev/null
     # The live configuration is in /etc/postgresql; remove initdb's copies
     # so there is only one place to look.
     rm -f "$PGDATA/postgresql.conf" "$PGDATA/pg_hba.conf"
-    log "cluster initialised: roles dba and monitoring, extension pg_stat_statements"
+    log "cluster initialised: roles dba${with_monitoring:+ and monitoring} (option monitoring ${with_monitoring:+on}${with_monitoring:-off}), extension pg_stat_statements"
 fi
 
 # --- 7. the GM's roles --------------------------------------------------
@@ -281,13 +358,19 @@ if [ -n "$gm_check_password" ] || [ -n "$lookup_password" ]; then
 fi
 
 # --- 8. player's home ---------------------------------------------------
-chown player:player "$PLAYER_HOME"
-chmod 0750 "$PLAYER_HOME"
-pw_pgpass=$(printf '%s' "$dba_password" | sed 's/[\\:]/\\&/g')
+# Not on a `no-access` node: it has no player (step 1), and its home
+# volume is left as it is.
 umask 077
-printf '*:*:*:dba:%s\n' "$pw_pgpass" > "$PLAYER_HOME/.pgpass"
-chown player:player "$PLAYER_HOME/.pgpass"
-chmod 0600 "$PLAYER_HOME/.pgpass"
+if [ "$WRITE_POLICY" != no-access ]; then
+    chown player:player "$PLAYER_HOME"
+    chmod 0750 "$PLAYER_HOME"
+    pw_pgpass=$(printf '%s' "$dba_password" | sed 's/[\\:]/\\&/g')
+    printf '*:*:*:dba:%s\n' "$pw_pgpass" > "$PLAYER_HOME/.pgpass"
+    chown player:player "$PLAYER_HOME/.pgpass"
+    chmod 0600 "$PLAYER_HOME/.pgpass"
+else
+    log "write policy no-access: no player account, no sudo rules, no ~/.pgpass"
+fi
 # The crontab's password file, named by PGPASSFILE in the crontab: one
 # `*:*:*:<role>:<password>` line per crontab role, readable by OS user
 # postgres only; on /run, so it never lands on a volume or in the

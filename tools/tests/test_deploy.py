@@ -91,9 +91,9 @@ class TestCredentials(RenderedGame):
         sdir = self.ldir / "secrets"
         self.assertEqual(mode(sdir), 0o700)
         self.assertEqual(sorted(p.name for p in sdir.iterdir()),
-                         ["dba_password", "gm_check_password", "monitoring_password",
+                         ["dba_password", "gm_check_password",
                           "player_password", "player_ssh_key", "player_ssh_key.pub",
-                          "tools_password"])
+                          "tls.crt", "tls.key", "tools_password"])
         self.assertEqual(sorted(paths), sorted(sdir.iterdir()))
         for path in sdir.iterdir():
             self.assertEqual(mode(path), 0o600, path.name)
@@ -114,6 +114,37 @@ class TestCredentials(RenderedGame):
         deploy.generate_credentials(self.ldir, self.impl)
         self.assertNotEqual(first, (self.ldir / "secrets" / "dba_password").read_text())
 
+    def test_the_tls_certificate(self):
+        # v0.5 capture W1 item 6: one per game, self-signed, every postgres
+        # node's name and localhost, a year; written 0600 with the others.
+        import subprocess
+        deploy.generate_credentials(self.ldir, self.impl)
+        sdir = self.ldir / "secrets"
+        crt, key = sdir / "tls.crt", sdir / "tls.key"
+        self.assertEqual((mode(crt), mode(key)), (0o600, 0o600))
+        self.assertIn("BEGIN CERTIFICATE", crt.read_text())
+        self.assertIn("PRIVATE KEY", key.read_text())
+        self.assertEqual(deploy.certificate_names(self.impl), ["db", "localhost"])
+        text = subprocess.run(["openssl", "x509", "-in", str(crt), "-noout", "-subject",
+                               "-ext", "subjectAltName", "-dates"],
+                              capture_output=True, text=True, check=True).stdout
+        self.assertIn("CN=db", text)
+        self.assertIn("DNS:db, DNS:localhost", text)
+        pub_crt = subprocess.run(["openssl", "x509", "-in", str(crt), "-noout", "-pubkey"],
+                                 capture_output=True, text=True, check=True).stdout
+        pub_key = subprocess.run(["openssl", "pkey", "-in", str(key), "-pubout"],
+                                 capture_output=True, text=True, check=True).stdout
+        self.assertEqual(pub_crt, pub_key)          # the key is the certificate's
+
+    def test_the_certificate_generator_is_called_once_per_pair(self):
+        calls = []
+        def certgen(crt, key, names):
+            calls.append((crt.name, key.name, names))
+            crt.write_text("c")
+            key.write_text("k")
+        deploy.generate_credentials(self.ldir, self.impl, certgen=certgen)
+        self.assertEqual(calls, [("tls.crt", "tls.key", ["db", "localhost"])])
+
     def test_credentials_are_git_ignored(self):
         repo_ignore = (localimpl.Path(__file__).resolve().parents[2] / ".gitignore").read_text()
         self.assertIn("local/", repo_ignore.split())
@@ -131,8 +162,8 @@ class TestDeploy(RenderedGame):
             f"{gid}_db_postgresql.conf", f"{gid}_db_pg_hba.conf", f"{gid}_db_envelopes"]))
         self.assertEqual(fake.names("secret"), sorted(
             f"{gid}_{s}" for s in ("player_password", "player_ssh_key", "player_ssh_pubkey",
-                                   "dba_password", "monitoring_password", "gm_check_password",
-                                   "tools_password")))
+                                   "dba_password", "gm_check_password", "tls_certificate",
+                                   "tls_key", "tools_password")))
         for kind in ("config", "secret"):
             for name, objlabels in fake.objects[kind].items():
                 self.assertEqual(objlabels, labels, name)
@@ -272,10 +303,13 @@ class TestSecretsByKind(ScenarioCopyTest):
             {"name": f"{gid}_player_ssh_pubkey", "secret": "player_ssh_pubkey",
              "kind": "key-pair", "pair": "player_ssh_key", "half": "public",
              "file": rel + "player_ssh_key.pub"},
-            {"name": f"{gid}_monitoring_password", "secret": "monitoring_password",
-             "kind": "password", "handed_over": False, "file": rel + "monitoring_password"},
             {"name": f"{gid}_gm_check_password", "secret": "gm_check_password",
              "kind": "password", "handed_over": False, "file": rel + "gm_check_password"},
+            {"name": f"{gid}_tls_certificate", "secret": "tls_certificate",
+             "kind": "certificate", "pair": "tls", "half": "certificate",
+             "file": rel + "tls.crt"},
+            {"name": f"{gid}_tls_key", "secret": "tls_key", "kind": "certificate",
+             "pair": "tls", "half": "key", "file": rel + "tls.key"},
             {"name": f"{gid}_backup_key", "secret": "backup_key", "kind": "key-pair",
              "pair": "backup_key", "half": "private", "file": rel + "backup_key"},
         ])
@@ -285,15 +319,16 @@ class TestSecretsByKind(ScenarioCopyTest):
         self.assertEqual(mode(sdir), 0o700)
         self.assertEqual(sorted(p.name for p in sdir.iterdir()), [
             "backup_key", "backup_key.pub", "dba_password", "gm_check_password",
-            "monitoring_password", "player_password", "player_ssh_key", "player_ssh_key.pub", "tools_password"])
+            "player_password", "player_ssh_key", "player_ssh_key.pub", "tls.crt", "tls.key",
+            "tools_password"])
         for path in sdir.iterdir():
             self.assertEqual(mode(path), 0o600, path.name)
         tools = (sdir / "tools_password").read_text()
         self.assertEqual(len(tools), deploy.PLAYER_PASSWORD_LENGTH)
         self.assertTrue(set(tools) <= set(deploy.PLAYER_PASSWORD_ALPHABET))
-        monitoring = (sdir / "monitoring_password").read_text()
-        self.assertEqual(len(monitoring), deploy.DBA_PASSWORD_LENGTH)
-        self.assertTrue(set(monitoring) <= set(deploy.DBA_PASSWORD_ALPHABET))
+        gm_check = (sdir / "gm_check_password").read_text()
+        self.assertEqual(len(gm_check), deploy.DBA_PASSWORD_LENGTH)
+        self.assertTrue(set(gm_check) <= set(deploy.DBA_PASSWORD_ALPHABET))
         self.assertIn("OPENSSH PRIVATE KEY", (sdir / "backup_key").read_text())
         pub = (sdir / "backup_key.pub").read_text()
         self.assertTrue(pub.startswith("ssh-ed25519 "))
@@ -309,7 +344,8 @@ class TestSecretsByKind(ScenarioCopyTest):
         sdir = str(self.ldir.resolve() / "secrets")
         gid = self.gid
         self.assertEqual(creates[f"{gid}_tools_password"], f"{sdir}/tools_password")
-        self.assertEqual(creates[f"{gid}_monitoring_password"], f"{sdir}/monitoring_password")
+        self.assertEqual(creates[f"{gid}_gm_check_password"], f"{sdir}/gm_check_password")
+        self.assertEqual(creates[f"{gid}_tls_key"], f"{sdir}/tls.key")
         self.assertEqual(creates[f"{gid}_backup_key"], f"{sdir}/backup_key")
         self.assertEqual(creates[f"{gid}_backup_pubkey"], f"{sdir}/backup_key.pub")
 
@@ -319,8 +355,8 @@ class TestSecretsByKind(ScenarioCopyTest):
             return {m["source"]: (m["target"], m["mode"])
                     for m in self.stack["services"][node]["secrets"]}
         db, bastion = mounts("db"), mounts("bastion")
-        self.assertEqual(db[f"{gid}_monitoring_password"],
-                         ("/opt/gm/secrets/monitoring_password", 0o440))
+        self.assertEqual(db[f"{gid}_tls_key"], ("/opt/gm/secrets/tls.key", 0o440))
+        self.assertNotIn(f"{gid}_monitoring_password", db)     # the option is off on db
         self.assertEqual(db[f"{gid}_backup_key"], ("/opt/gm/secrets/backup_key", 0o400))
         self.assertEqual(db[f"{gid}_backup_pubkey"], ("/opt/gm/secrets/backup_pubkey", 0o444))
         self.assertEqual(bastion[f"{gid}_tools_password"],
@@ -342,8 +378,9 @@ class TestSecretsByKind(ScenarioCopyTest):
             "    tools_password: password, handed over",
             "    backup_key: private key of pair backup_key",
             "    backup_key.pub: public key of pair backup_key",
-            "    monitoring_password: password",
             "    gm_check_password: password",
+            "    tls.crt: certificate tls",
+            "    tls.key: private key of certificate tls",
         ])
         text = "\n".join(lines)
         for path in (self.ldir / "secrets").iterdir():

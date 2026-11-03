@@ -525,17 +525,18 @@ class TestLoadDataPasswords(V03DeployedGame):
         self.assertEqual(passwords["user"], "postgres")
         self.assertEqual(passwords["argv"], list(inject.PSQL_ARGV))
         lines = passwords["stdin"].splitlines()
-        self.assertEqual(lines[:3], ["SET log_statement = 'none';",
+        self.assertEqual(lines[:4], ["SET log_statement = 'none';",
                                      "SET log_min_duration_statement = -1;",
-                                     "SET log_min_error_statement = 'panic';"])
+                                     "SET log_min_error_statement = 'panic';",
+                                     "SET pgaudit.log = 'none';"])
         sdir = self.ldir / "secrets"
-        for line, role in zip(lines[3:], ("shop_app", "shop_reports")):
+        for line, role in zip(lines[4:], ("shop_app", "shop_reports")):
             self.assertTrue(line.startswith(f'ALTER ROLE "{role}" PASSWORD '), line)
             secret = (sdir / f"role_{role}_password").read_text()
             self.assertEqual(len(secret), deploy.DBA_PASSWORD_LENGTH)
             self.assertNotIn(secret, passwords["stdin"])       # only its verifier
             self.assertTrue(matches(VERIFIER_RE.search(line), secret), role)
-        self.assertEqual(len(lines), 5)
+        self.assertEqual(len(lines), 6)
         self.assertEqual(result.passwords, [("db", ["shop_app", "shop_reports"])])
         self.assertIn("  db: password set from its secret for role(s) shop_app, shop_reports",
                       result.text())
@@ -778,7 +779,7 @@ class TestLoadDataInstances(InstancesDeployedGame):
         self.load_data()
         run = next(r for r in self.fake.runs if step(r) == "passwords")
         self.assertEqual(self.node_of(run), "db")
-        line = run["stdin"].splitlines()[3]
+        line = run["stdin"].splitlines()[4]
         self.assertTrue(line.startswith('ALTER ROLE "shop_etl" PASSWORD '), line)
         self.assertTrue(matches(VERIFIER_RE.search(line), self.secret("shop_etl")))
         self.assertNotIn(self.secret("shop_etl"), run["stdin"])
@@ -792,7 +793,7 @@ class TestLoadDataInstances(InstancesDeployedGame):
         self.assertEqual(run["stdin"].splitlines(), [
             inject.connect_line("reporting"),
             "SET log_statement = 'none';", "SET log_min_duration_statement = -1;",
-            "SET log_min_error_statement = 'panic';",
+            "SET log_min_error_statement = 'panic';", "SET pgaudit.log = 'none';",
             "SET pg_stat_statements.track = 'none';",
             f'ALTER USER MAPPING FOR "bi_etl" SERVER "shop_db" OPTIONS (ADD password '
             f"'{secret}');"])
@@ -1146,7 +1147,7 @@ class TestLoadDataUnscheduledRemoteRole(InstancesDeployedGame):
         self.assertEqual(result.passwords[0], ("db", ["shop_etl", "shop_reports", "shop_app"]))
         run = next(r for r in self.fake.runs if step(r) == "passwords")
         self.assertEqual(self.node_of(run), "db")
-        line = run["stdin"].splitlines()[4]
+        line = run["stdin"].splitlines()[5]
         self.assertTrue(line.startswith('ALTER ROLE "shop_reports" PASSWORD '), line)
         self.assertTrue(matches(VERIFIER_RE.search(line), self.secret("shop_reports")))
         self.assertNotIn(self.secret("shop_reports"), run["stdin"])
@@ -1181,7 +1182,7 @@ class TestPasswordPlanThroughAnotherNode(InstancesDeployedGame):
         conns = {"web": {"role": "shop_web", "target": target}}
         sc = model.load_scenario(self.scenario)
         first = sc.nodes[0]["name"]
-        with mock.patch.object(localimpl, "schedule_connections",
+        with mock.patch.object(localimpl, "node_connections",
                                lambda s, node: conns if node["name"] == first else {}):
             return {db: [r for r, _ in roles] for db, roles in inject.password_plan(sc, self.impl)}
 
@@ -1291,3 +1292,134 @@ class TestLoadDataSql(unittest.TestCase):
                      "GRANT EXECUTE ON FUNCTION gm_check.user_mapping_roles() TO gm_check;"):
             self.assertIn(part, sql)
         self.assertNotIn("password", sql)
+
+
+# --- v0.5 chunk 3a: an api node's connection roles, HTTP connections ----------
+
+class TestApiNodesConnectionRoles(unittest.TestCase):
+    """Spec D345, capture W1 items 3 and 5 (specs/versions/v0.5/wave-log.md):
+    an `api` node's api.yaml connections name roles as a scheduler node's
+    schedule.yaml does, each given its secret role_<role>_password (mounted
+    on the node naming it, its password set by load-data on the database
+    node its connection targets); a `driver: http` connection, in either
+    file, names none."""
+
+    API_YAML = {
+        "endpoints": {"orders": {"hosts": ["lab-api"], "credentials": ["interfaces_lab_api"]}},
+        "connections": {
+            "lab": {"driver": "sql/postgresql", "target": "lab:5432/lab", "role": "lab_api",
+                    "pool": {"size": 4}},
+            "records": {"driver": "sql/postgresql", "target": "records:5432/portal",
+                        "role": "portal_api", "pool": {"size": 2}},
+            "xlab-results": {"driver": "http", "target": "lab-api:8000",
+                             "credential": "xlab_results", "pool": 1},
+        },
+    }
+    SCHEDULE_YAML = {
+        "connections": {
+            "clinic": {"driver": "sql/postgresql", "target": "records:5432/clinic",
+                       "role": "pms_app", "pool": {"size": 2}},
+            "lab-api": {"driver": "http", "target": "lab-api:8000",
+                        "credential": "interfaces_lab_api", "pool": 2},
+            "careless": {"driver": "http", "target": "lab-api:8000", "role": "not_a_role",
+                         "pool": 1},
+        },
+        "streams": [],
+    }
+
+    def setUp(self):
+        import types
+        import yaml
+        self.dir = Path(tempfile.mkdtemp(prefix="gmtest-api-roles."))
+        self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
+        (self.dir / "nodes/lab-api").mkdir(parents=True)
+        (self.dir / "nodes/pms").mkdir(parents=True)
+        (self.dir / "nodes/lab-api/api.yaml").write_text(yaml.safe_dump(self.API_YAML))
+        (self.dir / "nodes/pms/schedule.yaml").write_text(yaml.safe_dump(self.SCHEDULE_YAML))
+        def node(name, brick, role, **extra):
+            return {"name": name, "brick": {"id": brick, "version": "0.1.0"}, "role": role,
+                    **extra}
+        self.nodes = [
+            node("records", "postgres", "database"),
+            node("lab", "postgres", "database"),
+            node("pms", "scheduler", "producer",
+                 seed_files={"schedule.yaml": "nodes/pms/schedule.yaml"}),
+            node("lab-api", "api", "api", seed_files={"api.yaml": "nodes/lab-api/api.yaml"}),
+        ]
+        bricks = {n["name"]: types.SimpleNamespace(id=n["brick"]["id"], data={"secrets": []})
+                  for n in self.nodes}
+        self.scenario = types.SimpleNamespace(dir=self.dir, nodes=self.nodes, bricks=bricks)
+        self.impl = {"game_id": "g", "nodes": {n["name"]: {} for n in self.nodes}}
+
+    def node(self, name):
+        return next(n for n in self.nodes if n["name"] == name)
+
+    def test_the_api_nodes_roles_from_its_api_yaml(self):
+        self.assertTrue(localimpl.is_api_node(self.node("lab-api")))
+        self.assertFalse(localimpl.is_api_node(self.node("pms")))
+        self.assertEqual(localimpl.connection_roles(self.scenario, self.node("lab-api")),
+                         ["lab_api", "portal_api"])
+        self.assertEqual(list(localimpl.sql_connections(self.scenario, self.node("lab-api"))),
+                         ["lab", "records"])
+
+    def test_an_http_connection_names_no_role(self):
+        self.assertEqual(localimpl.connection_roles(self.scenario, self.node("pms")), ["pms_app"])
+        self.assertEqual(list(localimpl.sql_connections(self.scenario, self.node("pms"))),
+                         ["clinic"])
+        self.assertEqual(set(localimpl.node_connections(self.scenario, self.node("pms"))),
+                         {"clinic", "lab-api", "careless"})
+
+    def test_the_secrets_mounted_on_the_api_node(self):
+        names = [s["name"] for s in
+                 localimpl.node_secret_declarations(self.scenario, self.node("lab-api"))]
+        self.assertEqual(names, ["role_lab_api_password", "role_portal_api_password"])
+        sec = localimpl.node_secret_declarations(self.scenario, self.node("lab-api"))[0]
+        self.assertEqual((sec["path"], sec["uid"], sec["gid"], sec["mode"], sec["kind"]),
+                         ("/opt/gm/secrets/role_lab_api_password", 0, 0, "0400", "password"))
+        names = [s["name"] for s in
+                 localimpl.node_secret_declarations(self.scenario, self.node("pms"))]
+        self.assertEqual(names, ["role_pms_app_password"])     # none for an HTTP connection
+
+    def test_the_game_has_their_secrets_and_none_for_http(self):
+        secrets = [s["secret"] for s in localimpl.game_secrets(self.scenario)[0]]
+        self.assertEqual(secrets, ["role_pms_app_password", "role_lab_api_password",
+                                   "role_portal_api_password"])
+        self.assertFalse([s for s in secrets if "not_a_role" in s or "None" in s])
+
+    def test_their_passwords_set_on_the_targeted_database_nodes(self):
+        self.assertEqual(inject.password_plan(self.scenario, self.impl), [
+            ("records", [("pms_app", "role_pms_app_password"),
+                         ("portal_api", "role_portal_api_password")]),
+            ("lab", [("lab_api", "role_lab_api_password")])])
+
+    def test_a_scheduler_with_only_http_connections_sets_no_password(self):
+        import yaml
+        doc = dict(self.SCHEDULE_YAML)
+        doc["connections"] = {k: v for k, v in doc["connections"].items()
+                              if v["driver"] == "http"}
+        (self.dir / "nodes/pms/schedule.yaml").write_text(yaml.safe_dump(doc))
+        self.nodes.remove(self.node("lab-api"))
+        self.assertEqual(inject.password_plan(self.scenario, self.impl), [])
+        self.assertEqual(localimpl.connection_roles(self.scenario, self.node("pms")), [])
+
+
+class TestPasswordsUnaudited(unittest.TestCase):
+    """v0.5 G5: pgaudit's `role` class logs a statement's text into the log
+    the players' group reads: a session writing a secret turns pgaudit off
+    with statement logging."""
+
+    def test_the_password_and_mapping_sessions(self):
+        self.assertEqual(inject.NO_AUDIT_SQL, ("SET pgaudit.log = 'none';",))
+        with tempfile.TemporaryDirectory() as tmp:
+            sdir = Path(tmp) / "secrets"
+            sdir.mkdir()
+            (sdir / "role_app_password").write_text("s3cret-value")
+            sql = inject.password_sql(Path(tmp), [("app", "role_app_password")])
+            lines = sql.splitlines()
+            self.assertEqual(lines[:4], list(inject.NO_LOG_SQL + inject.NO_AUDIT_SQL))
+            self.assertNotIn("s3cret-value", sql)
+            db = inject.Database("shop", False, 1, [
+                inject.Mapping("srv", "bi", False, "app", False)])
+            db.mappings[0].secret = "role_app_password"
+            sql, _ = inject.mapping_sql(Path(tmp), [db])
+            self.assertIn("SET pgaudit.log = 'none';", sql.splitlines()[:5])

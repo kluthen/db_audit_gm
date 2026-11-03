@@ -3,6 +3,11 @@
 # a pooler node. db seeds neither pg_cron nor a crontab (a node as in 0.3.0); db2, the node
 # with jobs, preloads pg_cron, seeds a crontab and mounts its crontab role's secret.
 # DB2_REPLICAS=0 leaves db2 out (the snapshot's restore stack, gmtest-pgr).
+# v0.5 (chunk 3): db chooses the option monitoring (GM_OPTIONS), db2 none (no
+# monitoring role, its secret not mounted); every node mounts the game's TLS
+# pair. rec, the v0.5 primary, turns TLS and pgaudit on in its seed and chooses
+# the option; pdb is a `no-access` node (no player). V05_REPLICAS=0 leaves the
+# v0.5 nodes out (the restore stack).
 # Uses only what a rendered Compose 3.8 stack file can express: no tmpfs
 # `mode` or `exec` option. Configs and secrets are external, created and
 # removed by run-stack-test.sh (mirroring gmctl deploy, master spec 10.1).
@@ -13,6 +18,7 @@ services:
     image: 127.0.0.1:5000/dbagm/postgres:0.5.0
     hostname: db
     read_only: true
+    environment: {TZ: UTC, GM_WRITE_POLICY: fixable, GM_WRITE_OVERRIDES: "", GM_OPTIONS: monitoring}
     cap_drop: [ALL]
     cap_add: [AUDIT_WRITE, CHOWN, DAC_OVERRIDE, FOWNER, KILL, NET_BIND_SERVICE, SETGID, SETUID, SYS_CHROOT]
     healthcheck:
@@ -39,6 +45,8 @@ services:
       - {source: monitoring_password, target: /opt/gm/secrets/monitoring_password, uid: "0", gid: "102", mode: 0440}
       - {source: gm_check_password, target: /opt/gm/secrets/gm_check_password, uid: "0", gid: "0", mode: 0400}
       - {source: pgbouncer_lookup_password, target: /opt/gm/secrets/pgbouncer_lookup_password, uid: "0", gid: "0", mode: 0400}
+      - {source: tls_certificate, target: /opt/gm/secrets/tls.crt, uid: "0", gid: "0", mode: 0444}
+      - {source: tls_key, target: /opt/gm/secrets/tls.key, uid: "0", gid: "102", mode: 0440}
     networks: [net]
     deploy:
       replicas: 1
@@ -49,6 +57,7 @@ services:
     image: 127.0.0.1:5000/dbagm/postgres:0.5.0
     hostname: db2
     read_only: true
+    environment: {TZ: UTC, GM_WRITE_POLICY: fixable, GM_WRITE_OVERRIDES: "", GM_OPTIONS: ""}
     cap_drop: [ALL]
     cap_add: [AUDIT_WRITE, CHOWN, DAC_OVERRIDE, FOWNER, KILL, NET_BIND_SERVICE, SETGID, SETUID, SYS_CHROOT]
     healthcheck:
@@ -73,12 +82,88 @@ services:
     secrets:
       - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
       - {source: dba_password, target: /opt/gm/secrets/dba_password, uid: "0", gid: "0", mode: 0400}
-      - {source: monitoring_password, target: /opt/gm/secrets/monitoring_password, uid: "0", gid: "102", mode: 0440}
       - {source: gm_check_password, target: /opt/gm/secrets/gm_check_password, uid: "0", gid: "0", mode: 0400}
       - {source: role_cron_app_password, target: /opt/gm/secrets/role_cron_app_password, uid: "0", gid: "0", mode: 0400}
+      - {source: tls_certificate, target: /opt/gm/secrets/tls.crt, uid: "0", gid: "0", mode: 0444}
+      - {source: tls_key, target: /opt/gm/secrets/tls.key, uid: "0", gid: "102", mode: 0440}
     networks: [net]
     deploy:
       replicas: ${DB2_REPLICAS:-1}
+      resources:
+        limits: {cpus: "0.5", memory: 512M}
+
+  rec:
+    image: 127.0.0.1:5000/dbagm/postgres:0.5.0
+    hostname: rec
+    read_only: true
+    environment: {TZ: UTC, GM_WRITE_POLICY: fixable, GM_WRITE_OVERRIDES: "", GM_OPTIONS: monitoring}
+    cap_drop: [ALL]
+    cap_add: [AUDIT_WRITE, CHOWN, DAC_OVERRIDE, FOWNER, KILL, NET_BIND_SERVICE, SETGID, SETUID, SYS_CHROOT]
+    healthcheck:
+      test: ["CMD", "/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - {type: volume, source: pgdata3, target: /var/lib/postgresql/18/data}
+      - {type: volume, source: pgconf3, target: /etc/postgresql}
+      - {type: volume, source: home3, target: /home/player}
+      - {type: volume, source: gmstate3, target: /var/lib/gm-state}
+      - {type: volume, source: pglog3, target: /var/log/postgresql}
+      - {type: volume, source: run3, target: /run}
+      - {type: volume, source: cronspool3, target: /var/spool/cron/crontabs}
+    configs:
+      - {source: seed_postgresql_v05_conf, target: /opt/gm/seed/postgresql.conf, uid: "0", gid: "0", mode: 0444}
+      - {source: seed_pg_hba_v05_conf, target: /opt/gm/seed/pg_hba.conf, uid: "0", gid: "0", mode: 0444}
+      - {source: envelopes, target: /opt/gm/protected/envelopes.conf, uid: "0", gid: "0", mode: 0444}
+    secrets:
+      - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
+      - {source: dba_password, target: /opt/gm/secrets/dba_password, uid: "0", gid: "0", mode: 0400}
+      - {source: monitoring_password, target: /opt/gm/secrets/monitoring_password, uid: "0", gid: "102", mode: 0440}
+      - {source: gm_check_password, target: /opt/gm/secrets/gm_check_password, uid: "0", gid: "0", mode: 0400}
+      - {source: tls_certificate, target: /opt/gm/secrets/tls.crt, uid: "0", gid: "0", mode: 0444}
+      - {source: tls_key, target: /opt/gm/secrets/tls.key, uid: "0", gid: "102", mode: 0440}
+    networks: [net]
+    deploy:
+      replicas: ${V05_REPLICAS:-1}
+      resources:
+        limits: {cpus: "0.5", memory: 512M}
+
+  pdb:
+    image: 127.0.0.1:5000/dbagm/postgres:0.5.0
+    hostname: pdb
+    read_only: true
+    environment: {TZ: UTC, GM_WRITE_POLICY: no-access, GM_WRITE_OVERRIDES: "", GM_OPTIONS: ""}
+    cap_drop: [ALL]
+    cap_add: [AUDIT_WRITE, CHOWN, DAC_OVERRIDE, FOWNER, KILL, NET_BIND_SERVICE, SETGID, SETUID, SYS_CHROOT]
+    healthcheck:
+      test: ["CMD", "/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - {type: volume, source: pgdata4, target: /var/lib/postgresql/18/data}
+      - {type: volume, source: pgconf4, target: /etc/postgresql}
+      - {type: volume, source: home4, target: /home/player}
+      - {type: volume, source: gmstate4, target: /var/lib/gm-state}
+      - {type: volume, source: pglog4, target: /var/log/postgresql}
+      - {type: volume, source: run4, target: /run}
+      - {type: volume, source: cronspool4, target: /var/spool/cron/crontabs}
+    configs:
+      - {source: seed_postgresql_conf, target: /opt/gm/seed/postgresql.conf, uid: "0", gid: "0", mode: 0444}
+      - {source: seed_pg_hba_partners_conf, target: /opt/gm/seed/pg_hba.conf, uid: "0", gid: "0", mode: 0444}
+      - {source: envelopes, target: /opt/gm/protected/envelopes.conf, uid: "0", gid: "0", mode: 0444}
+    secrets:
+      - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
+      - {source: dba_password, target: /opt/gm/secrets/dba_password, uid: "0", gid: "0", mode: 0400}
+      - {source: gm_check_password, target: /opt/gm/secrets/gm_check_password, uid: "0", gid: "0", mode: 0400}
+      - {source: tls_certificate, target: /opt/gm/secrets/tls.crt, uid: "0", gid: "0", mode: 0444}
+      - {source: tls_key, target: /opt/gm/secrets/tls.key, uid: "0", gid: "102", mode: 0440}
+    networks: [net]
+    deploy:
+      replicas: ${V05_REPLICAS:-1}
       resources:
         limits: {cpus: "0.5", memory: 512M}
 
@@ -102,6 +187,20 @@ volumes:
   pglog2: {}
   run2: {}
   cronspool2: {}
+  pgdata3: {}
+  pgconf3: {}
+  home3: {}
+  gmstate3: {}
+  pglog3: {}
+  run3: {}
+  cronspool3: {}
+  pgdata4: {}
+  pgconf4: {}
+  home4: {}
+  gmstate4: {}
+  pglog4: {}
+  run4: {}
+  cronspool4: {}
 
 configs:
   seed_postgresql_conf: {external: true, name: gmtest-pg_seed_postgresql_conf}
@@ -110,6 +209,9 @@ configs:
   seed_postgresql_jobs_conf: {external: true, name: gmtest-pg_seed_postgresql_jobs_conf}
   seed_pg_hba_jobs_conf: {external: true, name: gmtest-pg_seed_pg_hba_jobs_conf}
   seed_crontab: {external: true, name: gmtest-pg_seed_crontab}
+  seed_postgresql_v05_conf: {external: true, name: gmtest-pg_seed_postgresql_v05_conf}
+  seed_pg_hba_v05_conf: {external: true, name: gmtest-pg_seed_pg_hba_v05_conf}
+  seed_pg_hba_partners_conf: {external: true, name: gmtest-pg_seed_pg_hba_partners_conf}
 
 secrets:
   player_ssh_pubkey: {external: true, name: gmtest-pg_player_ssh_pubkey}
@@ -118,3 +220,5 @@ secrets:
   gm_check_password: {external: true, name: gmtest-pg_gm_check_password}
   pgbouncer_lookup_password: {external: true, name: gmtest-pg_pgbouncer_lookup_password}
   role_cron_app_password: {external: true, name: gmtest-pg_role_cron_app_password}
+  tls_certificate: {external: true, name: gmtest-pg_tls_certificate}
+  tls_key: {external: true, name: gmtest-pg_tls_key}

@@ -445,8 +445,11 @@ class TestRender(RenderedFixture):
         secrets = {c["target"]: c for c in db["secrets"]}
         self.assertEqual(secrets["/opt/gm/secrets/dba_password"]["mode"], 0o400)
         self.assertEqual(secrets["/opt/gm/secrets/player_ssh_pubkey"]["mode"], 0o444)
-        self.assertEqual((secrets["/opt/gm/secrets/monitoring_password"]["gid"],
-                          secrets["/opt/gm/secrets/monitoring_password"]["mode"]), ("102", 0o440))
+        self.assertNotIn("/opt/gm/secrets/monitoring_password", secrets)  # the option is off
+        self.assertEqual((secrets["/opt/gm/secrets/tls.crt"]["uid"],
+                          secrets["/opt/gm/secrets/tls.crt"]["mode"]), ("0", 0o444))
+        self.assertEqual((secrets["/opt/gm/secrets/tls.key"]["gid"],
+                          secrets["/opt/gm/secrets/tls.key"]["mode"]), ("102", 0o440))
         self.assertEqual(db["healthcheck"]["test"],
                          ["CMD", "/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"])
         self.assertEqual(db["healthcheck"]["start_period"], "60s")
@@ -1255,3 +1258,88 @@ class TestRenderStatic(RenderedFixture):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# --- v0.5 chunk 3a: the options and the TLS pair (capture W1 items 0, 1, 6) ----
+
+class TestOptionsAndTls(ScenarioCopyTest):
+    """fixture-audit's db, a `postgres` 0.5.0 node: GM_OPTIONS from its
+    `options:`, the option's secret mounted only when chosen, the game's
+    TLS certificate and key on every postgres node."""
+
+    def render_with(self, options=None):
+        if options is not None:
+            self.edit_yaml("scenario.yaml",
+                           lambda d: self.node(d, "db").update(options=options))
+        fit.fit(self.scenario, "laptop", **SUFFICIENT)
+        render.render(self.scenario, "laptop")
+        self.ldir = self.scenario / "local" / "laptop"
+        self.impl = localimpl.read_implementation(self.ldir)
+        self.gid = self.impl["game_id"]
+        self.stack = yaml.safe_load((self.ldir / "stack.yml").read_text())
+        return self.stack["services"]
+
+    def secrets(self, svc, node):
+        return {s["target"]: (s["source"], s["uid"], s["gid"], s["mode"])
+                for s in svc[node]["secrets"]}
+
+    def test_no_option_chosen(self):
+        svc = self.render_with()
+        self.assertEqual(svc["db"]["environment"]["GM_OPTIONS"], "")
+        self.assertNotIn("GM_OPTIONS", svc["bastion"]["environment"])   # declares none
+        self.assertNotIn("/opt/gm/secrets/monitoring_password", self.secrets(svc, "db"))
+        self.assertNotIn("monitoring_password", [s["secret"] for s in self.impl["secrets"]])
+
+    def test_the_monitoring_option(self):
+        svc = self.render_with(["monitoring"])
+        self.assertEqual(svc["db"]["environment"]["GM_OPTIONS"], "monitoring")
+        self.assertEqual(self.secrets(svc, "db")["/opt/gm/secrets/monitoring_password"],
+                         (f"{self.gid}_monitoring_password", "0", "102", 0o440))
+        self.assertIn("monitoring_password", [s["secret"] for s in self.impl["secrets"]])
+
+    def test_the_tls_pair(self):
+        svc = self.render_with()
+        mounts = self.secrets(svc, "db")
+        self.assertEqual(mounts["/opt/gm/secrets/tls.crt"],
+                         (f"{self.gid}_tls_certificate", "0", "0", 0o444))
+        self.assertEqual(mounts["/opt/gm/secrets/tls.key"],
+                         (f"{self.gid}_tls_key", "0", "102", 0o440))
+        by_name = {s["secret"]: s for s in self.impl["secrets"]}
+        self.assertEqual({k: by_name["tls_key"][k] for k in ("kind", "pair", "half", "file")},
+                         {"kind": "certificate", "pair": "tls", "half": "key",
+                          "file": "local/laptop/secrets/tls.key"})
+        self.assertEqual(by_name["tls_certificate"]["file"], "local/laptop/secrets/tls.crt")
+        self.assertNotIn("/opt/gm/secrets/tls.crt", self.secrets(svc, "bastion"))
+
+    def test_options_environment(self):
+        self.assertEqual(render.options_environment({"options": ["a", "b"]}),
+                         {"GM_OPTIONS": "a b"})
+        self.assertEqual(render.options_environment({}), {"GM_OPTIONS": ""})
+        self.assertEqual(render.service_environment({}, {"options": []}),
+                         {"TZ": "UTC", "GM_OPTIONS": ""})
+
+
+class TestOptionSecrets(unittest.TestCase):
+    """localimpl.unchosen_option_secrets and the certificate kind's shape."""
+
+    BRICK = {"options": [
+        {"name": "a", "brings": {"secrets": ["shared", "only_a"]}},
+        {"name": "b", "brings": {"secrets": ["shared"], "roles": ["r"]}}]}
+
+    def test_a_secret_two_options_bring(self):
+        self.assertEqual(localimpl.unchosen_option_secrets(self.BRICK, {}), {"shared", "only_a"})
+        self.assertEqual(localimpl.unchosen_option_secrets(self.BRICK, {"options": ["b"]}),
+                         {"only_a"})
+        self.assertEqual(localimpl.unchosen_option_secrets(self.BRICK, {"options": ["a"]}), set())
+        self.assertEqual(localimpl.unchosen_option_secrets({}, {"options": ["a"]}), set())
+
+    def test_the_certificate_kind(self):
+        brick = type("B", (), {"id": "postgres"})()
+        ok = {"name": "tls_key", "kind": "certificate", "pair": "tls", "half": "key"}
+        self.assertEqual(localimpl._secret_problems(brick, ok), [])
+        self.assertEqual(localimpl.secret_file(ok), "tls.key")
+        self.assertEqual(localimpl.secret_file({**ok, "half": "certificate"}), "tls.crt")
+        problems = localimpl._secret_problems(brick, {**ok, "half": "public"})
+        self.assertEqual(len(problems), 1)
+        self.assertIn("certificate or key", problems[0])
+        self.assertEqual(localimpl.pair_files("certificate", "tls"), ["tls.crt", "tls.key"])

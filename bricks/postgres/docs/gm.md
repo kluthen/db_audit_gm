@@ -72,7 +72,9 @@ secrets, the envelope file and the data load.
 | Envelope file (protected config `envelopes`) | `/opt/gm/protected/envelopes.conf`, root `0444` | `gmctl render`, from the node's `knobs` envelopes |
 | Secret `player_ssh_pubkey` (kind `key-pair`, pair `player_ssh_key`, half `public`) | `/opt/gm/secrets/player_ssh_pubkey`, root `0444` | `gmctl deploy`: the public half of the bastion's `player_ssh_key` |
 | Secret `dba_password` (kind `password`, not handed over) | `/opt/gm/secrets/dba_password`, root `0400` | `gmctl deploy`: the same secret as the bastion's |
-| Secret `monitoring_password` (kind `password`, not handed over) | `/opt/gm/secrets/monitoring_password`, uid `0`, gid `102` (`postgres`), `0440`: root and `postgres` only | `gmctl deploy`: the same secret as the `postgres-exporter` node's (see "The monitoring role") |
+| Environment `GM_WRITE_POLICY`, `GM_OPTIONS` | the container's environment, read by `gm-entrypoint` at each start | `gmctl render`: the node's `write_policy` (`fixable` or `no-access`, see "`no-access`") and the options it chooses, space-separated, `""` when none (v0.5 capture W1 item 0) |
+| Secret `monitoring_password` (kind `password`, not handed over), brought by the option `monitoring` | `/opt/gm/secrets/monitoring_password`, uid `0`, gid `102` (`postgres`), `0440`: root and `postgres` only; mounted only on a node choosing the option | `gmctl deploy`: the same secret as the `postgres-exporter` node's (see "Option `monitoring`") |
+| Secrets `tls_certificate` and `tls_key` (kind `certificate`, pair `tls`, halves `certificate` and `key`) | `/opt/gm/secrets/tls.crt`, root `0444`; `/opt/gm/secrets/tls.key`, uid `0`, gid `102`, `0440`; on every node | `gmctl deploy`: one self-signed pair per game, with the host's `openssl` (see "TLS") |
 | Secret `gm_check_password` (kind `password`, not handed over) | `/opt/gm/secrets/gm_check_password`, root `0400`: root only | `gmctl deploy`; declared by this brick only (see "The GM check role and the reserve") |
 | Secret `pgbouncer_lookup_password` (kind `password`, not handed over, `only_with_role: pooler`) | `/opt/gm/secrets/pgbouncer_lookup_password`, root `0400`: root only | `gmctl deploy`, only in a scenario with a `pooler` node: the same secret as the `pgbouncer` node's (see "The PgBouncer lookup role") |
 | Secrets `role_<role>_password` (kind `password`, not declared in `brick.yaml`), one per role of the node's `crontab_roles` | `/opt/gm/secrets/role_<role>_password`, root `0400`; written into the crontab's password file at each start | `gmctl render`, from `crontab_roles` in `scenario.yaml`: the game's secret of that name, the one any scheduler node naming the role holds (spec D167) |
@@ -106,7 +108,8 @@ for the default footprint; a scenario may tighten them, never widen them.
 | Cron spool | `/var/spool/cron/crontabs/` | volume `cronspool`; `root:crontab`, dir `1730`; `postgres`'s crontab `postgres:crontab` `0600` (`seed.paths.crontab`) |
 | Crontab's password file | `/run/gm-cron/pgpass` | `postgres:postgres`, dir `0700`, file `0600`; absent with no crontab role |
 | Runtime | `/run` | volume `run`, emptied at each start (see below) |
-| Secrets | `/opt/gm/secrets/player_ssh_pubkey`, `/opt/gm/secrets/dba_password`, `/opt/gm/secrets/monitoring_password`, `/opt/gm/secrets/gm_check_password`, `/opt/gm/secrets/pgbouncer_lookup_password`, `/opt/gm/secrets/role_<role>_password` | the lookup role's only with a pooler node; a role's for each of the node's `crontab_roles` |
+| Secrets | `/opt/gm/secrets/player_ssh_pubkey`, `/opt/gm/secrets/dba_password`, `/opt/gm/secrets/monitoring_password`, `/opt/gm/secrets/gm_check_password`, `/opt/gm/secrets/pgbouncer_lookup_password`, `/opt/gm/secrets/role_<role>_password`, `/opt/gm/secrets/tls.crt`, `/opt/gm/secrets/tls.key` | the monitoring password's only with the option `monitoring`; the lookup role's only with a pooler node; a role's for each of the node's `crontab_roles` |
+| Account files | `/run/gm-accounts/{passwd,group,shadow,gshadow,sudoers-gm-player}` | written at each start from `/usr/local/lib/gm/accounts/`; `/etc/passwd`, `/etc/group`, `/etc/shadow`, `/etc/gshadow` and `/etc/sudoers.d/gm-player` link to them (see "`no-access`") |
 | Envelope file | `/opt/gm/protected/envelopes.conf` | protected config `envelopes`, root, `0444` |
 | Validator | `/opt/gm/validator/validate.sh` | |
 | Wrappers | `/usr/local/sbin/gm-reload-db`, `gm-restart-db`, `gm-validate`, `gm-crontab` | |
@@ -119,11 +122,15 @@ for the default footprint; a scenario may tighten them, never widen them.
 
 ### Start-up (`gm-entrypoint`, every container start)
 
-1. Empties `/run` and recreates `/run/postgresql` (`postgres`, `2775`),
+1. Empties `/run`, writes the account files into `/run/gm-accounts`
+   (the image's, or without `player` on a `no-access` node: see
+   "`no-access`"), and recreates `/run/postgresql` (`postgres`, `2775`),
    `/run/sshd`, `/run/sshd-keys`, `/run/gm`, `/run/tmp` (`/tmp` and
    `/var/tmp` are symlinks to it).
 2. Generates an ed25519 sshd host key in `/run/sshd-keys`.
-3. Fails the container if `player_ssh_pubkey`, `dba_password` or
+3. Fails the container if `GM_OPTIONS` names an option the brick does
+   not declare, or if `player_ssh_pubkey` (not needed on a `no-access`
+   node), `dba_password` or, with the option `monitoring`,
    `monitoring_password` is missing or empty, or if a password secret is
    not a single line. `gm_check_password` missing only logs a warning
    (another brick's test stack runs without it; a game always mounts
@@ -151,12 +158,18 @@ for the default footprint; a scenario may tighten them, never widen them.
    the same.
 6. If PGDATA is empty: `initdb` (UTF8, `C.UTF-8`, data checksums on by
    default in 18), then, in single-user mode, creates the role `dba`
-   (`LOGIN SUPERUSER`, password from its secret), the role `monitoring`
-   (`LOGIN`, member of `pg_monitor`, password from `monitoring_password`)
-   and the extension `pg_stat_statements` in the database `postgres`;
-   then removes initdb's own `postgresql.conf` and `pg_hba.conf` from
-   PGDATA, so the live files are only in `/etc/postgresql`.
-   `pg_ident.conf` stays in PGDATA.
+   (`LOGIN SUPERUSER`, password from its secret), with the option
+   `monitoring` the role `monitoring` (`LOGIN`, member of `pg_monitor`,
+   password from `monitoring_password`), and the extension
+   `pg_stat_statements` in the database `postgres`; then removes initdb's
+   own `postgresql.conf` and `pg_hba.conf` from PGDATA, so the live files
+   are only in `/etc/postgresql`. `pg_ident.conf` stays in PGDATA. The
+   single-user session runs on initdb's configuration, before the seed's
+   is ever read, with no preload library and no statement logged, even
+   on an error: pgaudit, which a seed preloads, never sees these
+   passwords (see "pgaudit"). The start-up log says
+   `cluster initialised: roles dba and monitoring (option monitoring on)`
+   or `roles dba (option monitoring off)`.
 7. Creates or updates the GM's roles, at every start, in single-user
    mode before the server listens: the check role `gm_check` and, when
    `pgbouncer_lookup_password` is mounted, the lookup role
@@ -169,7 +182,8 @@ for the default footprint; a scenario may tighten them, never widen them.
    rather than lock the players out of the node. Success logs
    `gm-entrypoint: GM roles up to date: gm_check pgbouncer_lookup`
    (`gmctl logs`).
-8. Writes `/home/player/.pgpass` (`*:*:*:dba:<password>`, `0600`) and,
+8. Writes `/home/player/.pgpass` (`*:*:*:dba:<password>`, `0600`; not on
+   a `no-access` node, whose home volume is left as it is) and,
    when a `role_<role>_password` secret is mounted, the crontab's
    password file (see "The cron daemon"). A secret of that form not
    naming a role (`[a-z_][a-z0-9_]*`), empty or not a single line fails
@@ -178,9 +192,10 @@ for the default footprint; a scenario may tighten them, never widen them.
    `cron` (down on a node seeding no crontab).
 
 Seeded once: the configuration files (first start on a fresh `gmstate`
-volume) and the cluster with its roles `dba` and `monitoring` and the
-extension (first start on a fresh `pgdata` volume). Rewritten at each
-start: `/run`, the sshd host key, `~/.pgpass`, the crontab's password
+volume) and the cluster with its role `dba`, the role `monitoring` with
+the option, and the extension (first start on a fresh `pgdata` volume).
+Rewritten at each start: `/run` and the account files, the sshd host
+key, `~/.pgpass`, the crontab's password
 file, and the GM's roles' attributes, memberships, grants and passwords.
 
 PostgreSQL runs as
@@ -295,6 +310,95 @@ These are not knobs: the validator does not check them, so leaving one
 out or getting one wrong is a finding for the players, not a red
 validator.
 
+### TLS
+
+Always available, turned on by the seed (v0.5 master spec 7.1). Not an
+option: a seed turning it off, or a `host` line where the policy demands
+`hostssl`, is a fault to plant. The image is built `--with-openssl` and
+needs no TLS package of its own (G5): OpenSSL comes with
+`postgresql-common`, at or above the floor `libssl3t64
+3.5.7-1~deb13u3` the build asserts; `postgres` is in the group
+`ssl-cert`. `ssl-cert`'s snakeoil pair, the same in every game built from
+the image, is deleted at build, and the build asserts it gone.
+
+- **The pair**: one per game, the secrets `tls_certificate` and `tls_key`
+  (kind `certificate`, pair `tls`), generated by `gmctl deploy` with the
+  host's `openssl`, as `ssh-keygen` makes the key pairs: a self-signed
+  certificate with a P-256 key, its subject `CN` the first `postgres`
+  node, its subject alternative names every `postgres` node's name and
+  `localhost`, valid 365 days from the deployment; files
+  `secrets/tls.crt` and `secrets/tls.key`. Mounted on every `postgres`
+  node: `/opt/gm/secrets/tls.crt` root `0444`, `/opt/gm/secrets/tls.key`
+  root, group `postgres` (102), `0440`, which PostgreSQL accepts for a
+  root-owned key (at most `u=rw,g=r`). Used only where a seed turns TLS
+  on (17.5: the existing scenarios keep theirs, TLS unused). Nothing
+  verifies a host name in v0.5, though a client may (`verify-full`
+  against the certificate works for every node); an expiry inside a
+  game is a fault to plant, never an accident.
+- **The seed**: in `postgresql.conf`,
+
+  ```
+  ssl = on
+  ssl_cert_file = '/opt/gm/secrets/tls.crt'
+  ssl_key_file = '/opt/gm/secrets/tls.key'
+  ```
+
+  and in `pg_hba.conf`, `hostssl` lines for what must arrive encrypted
+  (the portal's API reaching `records`), a `host ... reject` after them
+  turning a plain connection away. The stack test's `rec`
+  (`tests/fixtures/postgresql-v05.conf`, `pg_hba-v05.conf`) is the
+  reference: TLS from the whole network, plain connections refused.
+- **Seen**: `pg_stat_ssl` (`ssl`, `version`) for a session; `show ssl`;
+  `openssl s_client -starttls postgres -connect <node>:5432` prints the
+  certificate served. A node whose seed leaves `ssl` off answers a client
+  asking for TLS "server does not support SSL".
+
+### pgaudit
+
+Always available, turned on by the seed (v0.5 master spec 7.1). Not an
+option: removing the settings can be a fault. The package
+`postgresql-18-pgaudit` is pinned exactly (`18.0-3.pgdg13+1`, upstream
+18.0, G5), the build asserting its version and
+`/usr/lib/postgresql/18/lib/pgaudit.so`.
+
+- **The seed**: `shared_preload_libraries` naming it beside
+  `pg_stat_statements` (a restart), and its classes. The stack test's
+  `rec` seeds
+
+  ```
+  shared_preload_libraries = 'pg_stat_statements,pgaudit'
+  pgaudit.log = 'ddl, role, write'
+  pgaudit.log_catalog = off
+  pgaudit.log_parameter = off
+  pgaudit.log_relation = off
+  pgaudit.log_statement_once = off
+  ```
+
+  Session auditing needs no `CREATE EXTENSION` (the stack test runs
+  without one).
+- **Where it writes**: the server log, as `LOG:  AUDIT:
+  SESSION,<statement>,<substatement>,<class>,<command>,...` lines in the
+  file log (`log_line_prefix` before them), which the players' group
+  reads and pgBadger counts. Its volume weighs on the disk budget: each
+  audited statement is a line, its text included; the domains' GM notes
+  count it per class.
+- **Passwords never reach the log**: the `role` class logs `CREATE
+  ROLE`, `ALTER ROLE` and the user mappings with their text. pgaudit
+  18.0 redacts a password there (`... password <REDACTED>`, which the
+  stack test shows), but PostgreSQL's own statement logging
+  (`log_statement`, `log_min_duration_statement`, an error's statement)
+  does not, and G5 asked for neither to see them. So every secret this
+  brick or `gmctl` writes into a database goes where neither can see
+  it: `dba`'s and `monitoring`'s
+  at initdb, before the seed's configuration is ever read (start-up step
+  6); `gm_check`'s and `pgbouncer_lookup`'s in single-user mode on
+  PostgreSQL's defaults, no preload library (step 7); `load-data`'s
+  roles' passwords and user mappings in a session that sets
+  `pgaudit.log = 'none'` beside statement logging off, a role's password
+  as a SCRAM verifier (`inject.NO_AUDIT_SQL`). The stack test shows none of them in
+  `rec`'s log, and a canary `ALTER ROLE ... PASSWORD` run with
+  `log_statement = 'ddl'` and without the guard landing there in clear.
+
 ### Option `monitoring`
 
 The brick's one option (v0.5 master spec 7.1, "Options"), declared in
@@ -308,14 +412,33 @@ monitoring brick targets (`postgres-exporter`, `pgwatch`,
 documentation and the starter pack mention the role only when the
 option is on.
 
+- **Rendered**: `gmctl render` passes the node's options as
+  `GM_OPTIONS` (`monitoring`, or `""`), and mounts `monitoring_password`
+  only on a node choosing the option (`localimpl.node_secret_declarations`
+  leaves out a secret an option the node does not choose brings); the
+  `postgres-exporter` node, which declares the same secret, mounts it as
+  before. A game whose `postgres` nodes all leave the option off has no
+  `monitoring_password` at all, unless an exporter declares it.
+- **At start**: `gm-entrypoint` refuses an option the brick does not
+  declare, requires `monitoring_password` only with the option, and
+  creates the role at initdb only then (start-up step 6; "The monitoring
+  role" below).
+- **Checked by `gmctl`** (chunk 6): a monitoring node targeting a node
+  without the option is refused, unless a fault plants that gap; a fault
+  may require the option (a lost `pg_monitor` grant).
+- **Changed later**: choosing the option on a node whose `pgdata` already
+  exists creates nothing; the role exists only on a cluster initialised
+  with it.
+
 ### The monitoring role
 
 Who creates the exporter's monitoring role and how its password reaches
 the database (master spec 15, settled by the build of this brick):
 
 - **Who and when**: this brick's start-up (`gm-entrypoint`, step 6), once,
-  when it initialises a fresh `pgdata` volume, in single-user mode, before
-  PostgreSQL first listens. Not the data load: the role exists before
+  when it initialises a fresh `pgdata` volume on a node choosing the
+  option `monitoring`, in single-user mode, before PostgreSQL first
+  listens. Not the data load: the role exists before
   `gmctl load-data` runs, whatever the scenario's data file holds.
 - **The role**: `monitoring`, `LOGIN`, not superuser, member of
   `pg_monitor` (`GRANT pg_monitor TO monitoring`); it reads every
@@ -537,6 +660,7 @@ daemon").
 - `player`: SSH by public key only (`AuthorizedKeysFile` points at the
   secret; no password, no PAM), member of `pgconf`. sshd sets
   `PGUSER=dba` and `PGDATABASE=postgres`. No TCP, agent or X11 forwarding.
+  None on a `no-access` node (see "`no-access`").
 - `dba`: superuser role, password from the secret `dba_password` (the same
   Swarm secret as the bastion's). Superuser also means OS access as
   `postgres`; protected files are root-owned and read-only, so it cannot
@@ -564,11 +688,40 @@ daemon").
   in its home; the players copy it to the bastion with `scp
   <node>:pgbadger.html .` (sshd's `internal-sftp` subsystem serves `scp`
   and `sftp`) and from the bastion to their machine with `sftp`.
-- `monitoring`: the exporter's role (see "The monitoring role"); its
-  password is readable on this node by root and `postgres` only, never by
-  `player`.
+- `monitoring`: the exporter's role, on a node choosing the option
+  (see "The monitoring role"); its password is readable on this node by
+  root and `postgres` only, never by `player`.
 
 The node has no web interface.
+
+### `no-access`
+
+The write policy of a third party's node (v0.5 master spec 10.2; the
+partners' shared database), made real: the node has **no `player`
+account, no `sudo` rules and no `~/.pgpass`**. `sshd` still runs (the
+health check and `processes` unchanged), but no account can log in;
+PostgreSQL serves the partners' own roles as its seed `pg_hba.conf`
+admits them (only theirs, on their database, every other line for the
+network a `reject`).
+
+How, on a read-only root: `/etc/passwd`, `/etc/group`, `/etc/shadow`,
+`/etc/gshadow` and `/etc/sudoers.d/gm-player` are links into
+`/run/gm-accounts`, which `gm-entrypoint` writes first at each start
+(step 1) from the image's copies in `/usr/local/lib/gm/accounts`: as
+built on any other node; on a `no-access` node without `player`'s line,
+without its group and without it among `pgconf`'s members, and with no
+sudo rules file (sudo's `@includedir` skips the dangling link). The
+image's own `/run/gm-accounts` holds the files as built, because the
+Docker daemon resolves `docker exec -u postgres` (`gmctl exec`) from the
+image's root filesystem, where the `/run` volume is not mounted; inside
+the container the volume hides that copy. So `gmctl exec --user postgres`
+works on every node, and `docker exec -u player` on a `no-access` node
+would still find a uid from the image's copy: the GM's own doing, not a
+player's.
+
+`GM_WRITE_POLICY` is read at start only for this: on a `fixable` node
+nothing else changes (see "Writable and protected paths, write
+policies").
 
 ### Writable and protected paths, write policies
 
@@ -589,14 +742,18 @@ The node has no web interface.
   rewrite the modes cron checks. A crontab fault's fix needs no
   override: the node is fixable.
 - Protected (root-owned, read-only to the player): `/etc/ssh/sshd_config`,
-  `/etc/sudoers`, `/etc/sudoers.d/gm-player`, the entrypoint, the four
+  `/etc/sudoers`, `/etc/sudoers.d/gm-player` (a link to the copy in
+  `/run/gm-accounts`), the account files' copies in
+  `/usr/local/lib/gm/accounts`, the entrypoint, the four
   wrappers, the snapshot helper and `check-psql` (both root only), the
   health check, the validator, the envelope file, the
   s6-overlay service definitions (`/etc/s6-overlay/s6-rc.d`,
   `/etc/s6-overlay/user-bundles.d`) and the seed marker's directory
   `/var/lib/gm-state`.
-- Write policies: `fixable` only (v0.3 master spec 7.3; see "Known
-  limits"); the node ignores `GM_WRITE_POLICY` and `GM_WRITE_OVERRIDES`.
+- Write policies: `fixable` (v0.3 master spec 7.3; see "Known limits")
+  and, from 0.5.0, `no-access` (see "`no-access`"); the node reads
+  `GM_WRITE_POLICY` for `no-access` alone and ignores
+  `GM_WRITE_OVERRIDES`.
 
 ### Wrappers
 
@@ -1024,15 +1181,16 @@ the `postgres-exporter` brick's check.
   1G for it.
 - **pgBadger shares the node's limits.** A large run competes with
   PostgreSQL for the node's memory and CPU.
-- **The monitoring role is created once**, with a fresh `pgdata` volume:
-  a cluster from an older image has no `monitoring` role, and a password
-  changed in the secret is not applied to an existing cluster.
+- **The monitoring role is created once**, with a fresh `pgdata` volume
+  on a node choosing the option: a cluster from an older image, or one
+  initialised without the option, has no `monitoring` role, and a
+  password changed in the secret is not applied to an existing cluster.
 - **The reserve is not the GM's alone.** `dba`, a superuser, can take
   the superuser slots and use the reserve too (access model 11); and
   `gm_check` is put back only at a container start, so a `dba` who
   dropped it locks the sealed checks out until then (the GM's checks
   report an error, never "fixed").
-- **Write policy**: only `fixable` (v0.3 master spec 7.3). A `report-only` node would need
+- **Write policy**: `fixable` and `no-access` (v0.3 master spec 7.3, v0.5 10.2). A `report-only` node would need
   the configuration files not group-writable, decided at start from a
   value the renderer passes; not built.
 - **Stop timing**: s6 gives services 8 s to stop, inside Docker's default

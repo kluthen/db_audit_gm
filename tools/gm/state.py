@@ -197,13 +197,18 @@ def has_web_front(impl):
 def secret_files(impl):
     """`[(file in secrets/, what it holds)]` for an implementation, in its
     order: a password (`handed over` when players type it), or one half of
-    a key pair; a pair's two files are listed once, together."""
+    a key pair or of a certificate (v0.5); a pair's two files are listed
+    once, together."""
     out, seen = [], set()
     for sec in impl.get("secrets") or []:
         if sec.get("kind") == localimpl.KEY_PAIR:
             pair = sec.get("pair")
             files = [(pair, f"private key of pair {pair}"),
                      (pair + localimpl.PUBLIC_KEY_SUFFIX, f"public key of pair {pair}")]
+        elif sec.get("kind") == localimpl.CERTIFICATE:
+            pair = sec.get("pair")
+            crt, key = localimpl.pair_files(localimpl.CERTIFICATE, pair)
+            files = [(crt, f"certificate {pair}"), (key, f"private key of certificate {pair}")]
         else:
             files = [(sec.get("secret"),
                       "password, handed over" if sec.get("handed_over") else "password")]

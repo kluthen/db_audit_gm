@@ -149,6 +149,11 @@ around these rules.
 - No ports of this node are published outside the game's network.
 - If PostgreSQL does not come back after a restart, `gm-restart-db` says
   so; look at your last changes.
-- A role named `monitoring` exists: the game's monitoring tools connect
-  with it. Its password is not yours to read.
+- Where the game's monitoring tools watch this node, a role named
+  `monitoring` exists: they connect with it. Its password is not yours
+  to read. Where nothing monitors the node, there is no such role.
+- The server may take encrypted connections (`ssl` in
+  `postgresql.conf`, `hostssl` lines in `pg_hba.conf`) and may write
+  audit lines (`AUDIT: SESSION,...`, pgaudit) into its log: both are
+  settings you can read and change like any other.
 - Most of the system is read-only; `/tmp` is available.

@@ -104,6 +104,12 @@ SURVEY_ARGV = ("psql", "-X", "-q", "-A", "-t", "-v", "ON_ERROR_STOP=1", "-d", "p
 NO_LOG_SQL = ("SET log_statement = 'none';", "SET log_min_duration_statement = -1;",
               "SET log_min_error_statement = 'panic';")
 NO_STATS_SQL = ("SET pg_stat_statements.track = 'none';",)
+# pgaudit off for a session writing a secret (v0.5 G5), beside statement
+# logging: its `role` class logs the statement's text into the log the
+# players' group reads (pgaudit 18.0 redacts a password there; the
+# session's other statements stay out too). Accepted whether pgaudit is
+# loaded or not (a placeholder setting then).
+NO_AUDIT_SQL = ("SET pgaudit.log = 'none';",)
 QUIET_SQL = "SET client_min_messages = warning;"    # no "already exists" notices
 REDACTED = "<password>"
 # The pg_cron noise fix: the launcher's background worker type (its
@@ -299,7 +305,8 @@ def data_argv(variables):
 
 def password_plan(scenario, impl):
     """[(database node, [(role, secret)])]: every role a scheduler node's
-    schedule names, on the node its connection targets when that node is a
+    schedule or an `api` node's api.yaml names (spec D345; an HTTP
+    connection names none), on the node its connection targets when that node is a
     `database` node, else (through a pooler) on the `database` nodes whose
     data file creates the target database, or on every `database` node
     when none does; then (v0.4 capture W1
@@ -318,7 +325,7 @@ def password_plan(scenario, impl):
         if role not in roles:
             roles.append(role)
     for node in scenario.nodes:
-        for conn in localimpl.schedule_connections(scenario, node).values():
+        for conn in localimpl.sql_connections(scenario, node).values():
             role = conn.get("role")
             m = model.TARGET_RE.match(str(conn.get("target")))
             target, database = (m.group(1), m.group(4)) if m else (None, None)
@@ -355,8 +362,8 @@ def read_secret(ldir, secret):
 
 def password_sql(ldir, roles):
     """The SQL setting each role's password from its secret file in
-    `secrets/`, statement logging off for the session."""
-    lines = list(NO_LOG_SQL)
+    `secrets/`, statement logging and pgaudit off for the session."""
+    lines = list(NO_LOG_SQL + NO_AUDIT_SQL)
     for role, secret in roles:
         password = read_secret(ldir, secret)
         lines.append(f'ALTER ROLE "{role}" PASSWORD \'{scram_verifier(password)}\';')
@@ -567,13 +574,14 @@ def plan_mappings(node, databases, game_id, secrets):
 def mapping_sql(ldir, databases):
     """`(sql, passwords)`: per database holding a mapping, each mapping's
     `password` option set (ADD, or SET when one is there) to its remote
-    role's secret, statement logging and statistics off for each session;
+    role's secret, statement logging, pgaudit and statistics off for each
+    session;
     the passwords, to keep them out of anything printed."""
     parts, passwords = [], []
     for db in databases:
         if not db.mappings:
             continue
-        parts += [connect_line(db.name), *NO_LOG_SQL, *NO_STATS_SQL]
+        parts += [connect_line(db.name), *NO_LOG_SQL, *NO_AUDIT_SQL, *NO_STATS_SQL]
         for m in db.mappings:
             password = read_secret(ldir, m.secret)
             passwords.append(password)

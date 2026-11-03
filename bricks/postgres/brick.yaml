@@ -84,7 +84,10 @@ writable_paths:
 protected_files:
   - /etc/ssh/sshd_config
   - /etc/sudoers
-  - /etc/sudoers.d/gm-player
+  - /etc/sudoers.d/gm-player        # a link to /run/gm-accounts/sudoers-gm-player, written at
+                                    #   each start from the image's copy; absent on no-access
+  - /usr/local/lib/gm/accounts      # the image's account files and sudo rules, copied into
+                                    #   /run/gm-accounts at each start (docs/gm.md, Accounts)
   - /usr/local/sbin/gm-entrypoint
   - /usr/local/sbin/gm-reload-db
   - /usr/local/sbin/gm-restart-db
@@ -143,7 +146,9 @@ secrets:
     gid: 0
     mode: "0400"
   - name: monitoring_password       # password of the role `monitoring` (pg_monitor), set at
-    kind: password                  #   initdb; also on the postgres-exporter node
+    kind: password                  #   initdb; also on the postgres-exporter node. Brought by
+                                    #   the option monitoring (options:): mounted only on a
+                                    #   node choosing it
     path: /opt/gm/secrets/monitoring_password
     uid: 0
     gid: 102                        # postgres' group (the Dockerfile checks 100:102)
@@ -161,6 +166,22 @@ secrets:
     uid: 0
     gid: 0
     mode: "0400"
+  - name: tls_certificate           # the game's TLS certificate (v0.5 capture W1 item 6):
+    kind: certificate               #   self-signed, every postgres node's name and localhost,
+    pair: tls                       #   valid a year, one per game (secrets/tls.crt); used only
+    half: certificate               #   where a seed turns ssl on (ssl_cert_file)
+    path: /opt/gm/secrets/tls.crt
+    uid: 0
+    gid: 0
+    mode: "0444"
+  - name: tls_key                   # its private key (secrets/tls.key; ssl_key_file)
+    kind: certificate
+    pair: tls
+    half: key
+    path: /opt/gm/secrets/tls.key
+    uid: 0
+    gid: 102                        # postgres' group: PostgreSQL accepts a root-owned key
+    mode: "0440"                    #   readable by its group, at most u=rw,g=r
   # The crontab roles' passwords are not declared here: for each role of the
   # node's crontab_roles (scenario.yaml), render mounts the game's secret
   # role_<role>_password at /opt/gm/secrets/role_<role>_password, 0:0 "0400"
