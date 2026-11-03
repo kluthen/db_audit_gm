@@ -332,10 +332,13 @@ peek, as for chunk 20.
   `active` for that run only, declared `shared`; wave 4's two-host run
   is v1.0 gating, spec D311); from wave 3, chunk 13's
   deployment of `fixture-campaign` with every job running and G1 to G4
-  passing; from wave 4, chunk 17a's runs on the new scenario on
-  armenelos alone (the baseline's G1 to G4, f10's run, the cycles run up
-  to f4's wait for the scenario's midnight, spec D310), with no pooler
-  WORKAROUND line (spec D305).
+  passing; from wave 4, on the new scenario on armenelos alone,
+  `tools/tests/smoke-purposes.sh`'s `smoke` (every fault planted at
+  once, its first live run, serving release gate item 8's single-host
+  half too), `baseline` (G1 to G4) and `f10`, with no pooler WORKAROUND
+  line (spec D305); not `cycles`: its part up to f4's wait for the
+  scenario's midnight is chunk 17a's run, accepted by spec D310, not
+  repeated at the gate.
 - No link checker is configured; Markdown links are checked by reading.
 - Images are tagged `127.0.0.1:5000/dbagm/<brick>:<version>`, as before;
   every pinned download is checked against its published checksum in the
