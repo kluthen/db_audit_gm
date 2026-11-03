@@ -1,6 +1,11 @@
-# v0.5 — the clinic's traps (step 8): `vet-core` and `vet-lab`
+# v0.5 — the clinic's traps (step 8): the whole clinic
 
-Status: draft v2, ready for review; what v0.5 builds ruled (D316). Step 8 of the
+Status: draft v3, ready for review; what v0.5 builds ruled (D316), the
+test selection's swaps T270 and T150 (D325). The index of the whole
+clinic's traps: 220 in all, the core's and the lab's 85 here (sections
+1 to 9), the four parts' 135 on their own pages (section 10: scheduling
+29, housing 22, machinery 38, the portal 46), folded in on 2026-11-03
+(D317–D320). Step 8 of the
 [procedure](domain-procedure.md#2-the-steps-from-a-brief-to-a-finished-domain)
 for the clinic's first two domains together, across their data models
 ([vet-core](vet-core-domain.md#the-data-model-step-4),
@@ -97,8 +102,10 @@ purposes below.
 From [replication.md](replication.md) 4, ruled as candidates (D299,
 D301). For these two domains cold storage is the archive's vault: no
 table of theirs ships (D297), so cold storage's heavy-data traps
-([cold-storage.md](cold-storage.md) 4) wait for `vet-machinery`'s step
-8, and the vault's traps here read the `wal` and `basebackup` manifests.
+([cold-storage.md](cold-storage.md) 4) are `vet-machinery`'s, with its
+tables ([vet-machinery](vet-machinery-domain.md#4-partitions-the-time-series-and-cold-storage),
+section 10 below), and the vault's traps here read the `wal` and
+`basebackup` manifests.
 
 | # | Trap | Where it bites | Witness | Fixed on | Catalogue | Class |
 |---|---|---|---|---|---|---|
@@ -206,6 +213,40 @@ Complaints with no fault behind them, each answerable from the trace
 | "The lab charged more in January" | the price list's yearly revision on 1 January | `lab_prices` |
 | "Critical values are phoned late at night" | called within the hour by the on-call technician | `lab_critical_calls` against the results |
 | "A dozen results match no animal" | when the story names no fault: the mistyped chips are the core's data (T13), a finding to report | the chips against the core's function |
+
+## 10. The four parts' traps
+
+Each part's traps are on its page, in the tables and columns of this
+one ("How to read the tables"), with its false-alarm material; the
+rare-flow and cascade rules bind them too (D306 point 6, D286). Not
+copied here: the part's page is their one home.
+
+| Part | Traps | False alarms | Notes |
+|---|---|---|---|
+| [`vet-scheduling`](vet-scheduling-domain.md#traps-step-8) | T100–T128 (29) | 5 | T122 dormant: `sched_upcoming` is not built, no appointment reminders in v0.5 (D321) |
+| [`vet-housing`](vet-housing-domain.md#traps-step-8) | T150–T171 (22) | 4 | T150, the faulty display (D287's own case), is s9 of the test selection, judged on the report (D325) |
+| [`vet-machinery`](vet-machinery-domain.md#traps-step-8) | T200–T237 (38) | 6 | cold storage's heavy-data traps among them (its section 4); T208, no partition created ahead, a trap for the GM, not in the selection (D325) |
+| [`vet-portal`](vet-portal-domain.md#traps-step-8) | T250–T295 (46) | 6 | T270, the animals' policy without the ownership's end, is s5 of the test selection (D325) |
+
+**The core's and the lab's traps that bite the parts too**, as the
+parts' pages name them:
+
+- **`vet-scheduling`**: T5 (an application role superuser:
+  `sched_app`), T7 (autovacuum off: on `sched_allocations` or
+  `sched_bookings`), T9 (the pooler's pool at the 17:00 peak, with the
+  booking stream's searches), T14 (a sequence below its range: on
+  `sched_bookings`), T24 (free text copied: a booking's notes), T31 to
+  T37 (the archive and the standby, the part riding the core's
+  instance), T73 and T74 (the report runner's role and connection, for
+  `vet-working-time`), T82 (an `interfaces` job holding its transaction
+  across a call: `book-requests`).
+- **`vet-housing`**: T14 (on a housing table: the first placement after
+  T0 failing), T25 (a natural identifier on `animal_board`, so on every
+  display); and the core's `animal_board` bitten by housing's T155, its
+  `stays` by T157 and T161.
+- **`vet-machinery`** and **`vet-portal`**: as their pages list them.
+
+T60 and T78, s9 and s5 until D325, are traps for the GM again.
 
 ## What the build needs of a trap
 
