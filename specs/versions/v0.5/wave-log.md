@@ -2012,3 +2012,144 @@ modules embedded in downloaded binaries (Prometheus, Grafana,
 a check like this one.
 
 G9 **done (2026-11-04)**.
+
+### Chunk 6 — merged (f3eb50d), 2026-11-04
+
+`coding-leader`: 6a `dde1a14` (scenario, brick and fault checks;
+`node_creates`; `register_diff_true`; the fixture without its catalogue),
+6b `2052e6f` (purpose and domain checks; the fixture's `catalog/`; the
+`scenario-format` skill's checklist), merge `f3eb50d`. Unit suite 992 OK
+on the branch and on the merged `v0.5-w2` (6a alone 971 OK). Done when:
+each refusal shown with its message (`test_model.py`: `TestV05Fixture`,
+`TestOptionRefusals`, `TestMonitorRefusals`, `TestStandbyRefusals`,
+`TestThirdPartyRefusals`, `TestHttpRefusals`, `TestApiNodeRefusals`,
+`TestRegisterDiffRefusals`, `TestV05Composed`, `TestPurposeV05Refusals`,
+`TestDomainV05Refusals`); the valid fixture
+`tools/tests/fixtures/fixture-v05-refusals/` (eight nodes, three third
+parties) accepted; a location in a database a composed domain creates
+accepted through `model.node_creates` and refused without `domains:`;
+the four scenarios, the fixtures and the catalogue still load.
+
+Deviations (none against W2 or a ruling): `tools/tests/test_render.py`
+(chunk 7's) changed: chunk 3's `TestStandbyEnvironment` now builds a real
+standby and targets `records:8000`, as the new checks require; the split
+is not exact (the skill's lines all in 6b; `PURPOSE_PARTS`,
+`PART_ROLES["api"]`, `PURPOSE_KINDS` in 6a, which alone crashes only on a
+scenario mapping a `partner` part, none existing); three message strings
+in existing `test_model.py` tests; the README template has no slot for
+`options:`, `standby_of`, `third_parties:` (the scenario-document skill's,
+later). For G16: partner `data.sql`, the prefix rule, `register_diff`
+required on a register fault, the `ops` trace rule. Risks: the SQL
+splitter and the `search_path` regex are heuristics; the starter-pack scan
+is textual; pgwatch's `sources.yaml` read as a top-level list (chunk 10
+confirms on 6.1.0).
+
+**Capture W2-a — chunk 6 outcomes (the loader's v0.5 checks; read by 7, 8, 9, 11, 17, 23 and every chunk loading a scenario or fixture)**
+
+- **`model.node_creates(sdir, data, node, catalog_root=REPO_ROOT)`**:
+  `node` a node dict or name; returns a `DataFileCreates`, or None when
+  nothing creates anything there (a standby gives None). Unions the
+  node's data file; each `domains:` entry's `at:` database on that node;
+  the roles and databases that entry's schema and load files create
+  (`schema`/`load`, or `data/<db>/{schema,load}.sql` for a map `at:`); and,
+  on a `postgres` node a `third_parties:` entry lists, each composed
+  domain's `producers/{partners,public}/*/data.sql`. `pg_cron` from the
+  data file only. `DataFileCreates` gains `sources` (the data file first,
+  then `domains/<id>/<path>`). `check_scenario` builds its map from it for
+  purposes, governance and crontab roles; `_check_pg_cron` still reads
+  `_data_files`. The location message names "the data file or the domains
+  placed on it" only when a domain contributed.
+- **A standby is no location**: refused as a purpose part's or
+  governance location and as an `at:`.
+- **Options**: `brick_options(brick_data)`; a node's `options:` a
+  non-empty list of unique declared names; `no-access` only in the brick's
+  `write_policies` (the bypass gone); `requires_option` /
+  `option_absent` option names, never the same one; at instance level the
+  brick declares the option and the node chooses it (or not).
+- **Monitors**: `model.monitor_targets(node, brick, sdir)`:
+  `postgres-exporter` from `exporter.conf`'s `DATA_SOURCE_URI` host;
+  `pgwatch` from `sources.yaml`, a top-level list, each entry's `conn_str`
+  in URI form unless `is_enabled: false`; `health-check` from
+  `health.yaml` `instances[].host`. A `postgres` target, and a standby
+  target's primary, choose `monitoring`, excused by an
+  `option_absent: monitoring` instance on that node or the monitored
+  standby. A third-party target refused.
+- **Standby**: `standby_of` names an existing `postgres` node, no
+  standby, not itself; only a `postgres` node is a standby; no `data:`;
+  the primary's seed `pg_hba.conf` holds exactly `host replication
+  replicator samenet scram-sha-256`. `hot_standby_feedback` not checked.
+- **`third_parties:`**: `ThirdParties(nodes, hostnames, api_node,
+  db_node)`, `hostnames` the entries naming nodes. `id` and `hostname`
+  `[a-z][a-z0-9-]*`, unique, never `owners`, a hostname never a node's
+  name; `role` inbound, outbound or round-trip; listed nodes exist and are
+  `no-access`; more than one `api` or `postgres` third-party node refused.
+  `partners.md` and the `partners` database not checked (chunks 11, 17).
+- **Out of reach**: `web_routes` refuses a third-party node or alias
+  (D363); the starter pack (every non-folder bastion seed file) refuses a
+  whole-word third-party node name; a fault instance on a third-party
+  node expecting `fix` (issue or `acceptable.fix`) refused; the partners'
+  roles (SQL roles in third-party nodes' `schedule.yaml` and `api.yaml`
+  connections) named by no other node's SQL connection or
+  `crontab_roles`; the third-party `pg_hba.conf` holds only the fixed GM
+  lines (`local all postgres peer`, `local replication postgres peer`,
+  `local all gm_check scram-sha-256`, `host all gm_check samenet
+  scram-sha-256`, the replicator line), `reject` lines, or `host partners
+  <their roles> <addr> scram-sha-256`, with `host all all all reject`
+  last.
+- **HTTP**: `HttpContext(nodes, aliases, api_nodes, third_party_nodes)`;
+  aliases every `api` node's `api.yaml` hosts but its own name, plus the
+  hostnames of entries with nodes (`owners` only when served). Target
+  `<host>:<port>`, a node or alias, port 8000 on an `api` node or alias.
+  Credential `[a-z][a-z0-9_]{0,62}`, never `public`; `pool` a positive
+  integer; `timeout` `<n>s`, 1 to 60; `role` refused. Same check for
+  schedule connections, `api.yaml` connections and the vault
+  (`vault_target`/`vault_credential` when not null). `_check_drivers`
+  mirrors `driver_problems`: a stream (with its timeline changes) runs a
+  call key only on HTTP, any other only on SQL; a job with `connection:`
+  neither runs a call key nor names an HTTP connection.
+- **The call form** in `queries.yaml`: `{call, params, builder,
+  options}`; `CALL_RE`, the `%`/`#` path rule, a param per `%(name)s`, with
+  a builder only the path's names; `options` only with a builder.
+- **Weighted `choice`**: a non-empty map, integer weights ≥ 1.
+- **`api.yaml` on a node**: the fragment's key check reused; at least one
+  endpoint, each with `routes/<name>.py` and `db/<name>.py` in the node's
+  seed; hosts exactly `[own name]` on a players'-scope node; on the
+  partners' node never its own name, and served hosts minus `owners`
+  equal the entries' hostnames both ways; credentials never `public`;
+  connections checked as a schedule's (reserved roles, `replicator`
+  included).
+- **Reserved names**: `RESERVED_PARAMETERS` + `options`, `standby_of`;
+  `RESERVED_DB_ROLES` + `replicator`; `DRIVERS` + `http`.
+- **`register_diff`**: `model.register_diff_true(item)` reads the key
+  `True` (`is True`, so `1` is not taken), else `"true"`. A register fault
+  is one whose `injection.seed_changes` holds `data-register.md`;
+  `register_diff` required on its instance, refused on any other;
+  non-empty; each item exactly `entry`, `field`, `true`, `handed_out`
+  (never both forms of `true`), or `{absent: true}` alone. `entry` not
+  checked against `gm/data-register.yaml` (chunk 17).
+- **Purposes**: kinds gain `round-trip`, `round_trips` required exactly
+  there; `asks` customer or partner; a customer's `request.job` a job of
+  the purpose; `answers` non-empty; `judged` runs, triggers, end-to-end,
+  code, definition; as many end-to-end invariants as round trips. HTTP
+  connections are the `connections:` keys named `api`, `partner`,
+  `receiver`, that part declared, the value a credential or `public`; in a
+  scenario it equals the `credential` of the runner's schedule connection
+  the job maps it to (`public` if none), and that connection is `http`.
+  `feeder` another job of the purpose; a feeder requires `history`, and
+  `history` without one refused; the file under `material/`.
+  `material/api/<node>/` holds only `routes/` and `db/` with paired files,
+  and needs an `api` part. `classification.columns` in the scenario's key
+  form, valid classes. With `domains:`, a trace table on a database part
+  placed at an `at:` lies in schema `ops`. `receiver` and `partner` parts
+  are third-party nodes (`receiver` only with `third_parties:` or
+  `domains:`); `api` takes a node of role `api`.
+- **Domains**: `model.sql_statements(text)` splits at `;` with comments
+  and dollar-quoted bodies blanked (no parser). The `SECURITY DEFINER`
+  check covers schema and load files, `data/derive.sql`, `data/keys.sql`
+  and partner `data.sql`, requiring `SET search_path =|TO <value>` without
+  `"$user"` (`FROM CURRENT` refused). A partner folder accepts `data.sql`;
+  a `producers/partners/<name>/` name matches `[a-z][a-z0-9]{0,15}`
+  (`public/` names unchecked). A composed domain with a partner
+  `data.sql` and no partners' `postgres` node refused.
+- **Not here**: register digests, coverage, the partners.md seed mapping
+  and the `web_routes` exception (chunk 17); `coherence.yaml` (chunk 8).

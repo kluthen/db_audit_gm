@@ -801,7 +801,8 @@ credential, the transaction-local setting per request.
 
 ### Chunk 6 — Loader checks for v0.5
 
-Status: planned
+Status: merged (w2, f3eb50d)
+Record: 6a dde1a14, 6b 2052e6f, merge f3eb50d. Outside the Files list `tools/tests/test_render.py` (chunk 3's standby test made valid); the split not exact (skill lines in 6b, four purpose constants in 6a) (wave log, W2-a).
 Wave: 2
 Depends on: chunks 1, 2 and 5 (wave 1; 5 for the `api` brick its
 fixtures name)
