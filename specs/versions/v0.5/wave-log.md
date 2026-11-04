@@ -3290,3 +3290,537 @@ report's open point 1 is closed.
 
 The owner then: "commit and merge when done". `v0.5-w1` and `v0.5-w2`
 merged into `main` (below, in the merge messages).
+
+## Wave 3 — started 2026-11-04
+
+Branch `v0.5-w3`, worktree `/home/bastien/work/db_audit_gm-wt/v0.5-w3`,
+cut from `main` at fece30c, after waves 1 and 2 merged into it (167fec0,
+f89eb73) on the owner's word. Chunks 12 to 16. No intent register, so no
+documentalist preflight; the driver drafted capture W3 from the chunks'
+**Architecture capture** lines, as W1 and W2. Gates checked at the
+start: G4, the swarm (armenelos `Active`, the leader; `vps-5718ad52`
+`Drain`; both `Ready`; engine 29.9.2); `/var` 30G free on armenelos. No
+dependency preflight is planned for wave 3: its chunks add no package
+beyond the `postgres` image's contrib extensions (`btree_gist`,
+`pgcrypto`) and the `api` and `scheduler` bricks as built, and rebuild
+no image; G11 stands.
+
+### Capture W3 — the five parts: their keys, the lab's results and stubs, bookings, the board, the machines' days, the portal's scope (chunks 12–16; read by 16 to 27)
+
+Recorded 2026-11-04, before any code; drafted for the wave driver from
+the **Architecture capture** lines of chunks 12 to 16 (plan v9, with its
+header, "Read first", the gates, the dependency graph, wave 3's order,
+the shared lists, "Left for the build" and "The partners, and where each
+stub is built"), master spec 8.5, 9.1, 9.3 to 9.7, 10.2, 10.4, 13.1 and
+14, access model 9.3, [clinic-purposes.md](clinic-purposes.md), the five
+domain documents ([vet-lab](vet-lab-domain.md),
+[vet-scheduling](vet-scheduling-domain.md),
+[vet-housing](vet-housing-domain.md),
+[vet-machinery](vet-machinery-domain.md),
+[vet-portal](vet-portal-domain.md)) with
+[vet-core-domain.md](vet-core-domain.md), [formats.md](../../formats.md)
+v30, O229 ([open-questions.md](../../open-questions.md)), and the code on
+`v0.5-w3` at fece30c (`domains/vet-core/`, `partners/`,
+`tools/gm/{model,inject,coherence,compose}.py`, `bricks/api/`, the
+scenario-format skill). W1's and W2's rules: cited, not restated;
+**(choice)** marks a point the sources left open, settled here with its
+reason; each item names the chunk that writes it and those that read
+it. Held: W1 and W2 with their addenda W1-w to W1-z and W2-a to W2-g;
+where the merged code differs from them, the code and the addenda win.
+The domain documents stay the column-level input: an item fixes only
+what they leave open or what the code forces. Chunks
+record their as-built outcomes as **W3-a** (chunk 12), **W3-b** (chunk
+13), **W3-c** (chunk 14), **W3-d** (chunk 15) and **W3-e** (chunk 16);
+chunk 29, if inserted (Preflight corrections, item 1), as **W3-f**.
+
+**0. Rules shared by the five parts** (read by 12 to 27)
+
+- **Column names (choice)**: a column a domain document lists in words
+  takes those words in snake_case ("booked at" `booked_at`, "released
+  by and at" `released_by`, `released_at`, "numeric value or text value"
+  `numeric_value`, `text_value`); a time ends `_at`, a date `_on`, a
+  staff member `_by` (the core's staff id), a key `<thing>_id`. Reason:
+  chunks 18 to 25 query these tables from the documents alone; one rule
+  replaces five column lists.
+- **Roles (choice)**: a part's schema creates, at top level, exactly the
+  roles of its document's "Application roles and grants" table, and
+  grants the core's roles what that table says (`vet_display`,
+  `vet_reports` on housing's and scheduling's tables). A several-database part creates its roles
+  once, in its first database's `schema.sql` (`pacs`, in `databases`
+  order), the others only granting: roles are the instance's, and a
+  second `CREATE ROLE` fails. The roles of clinic-purposes' "The roles
+  the purposes add" (`lab_release`, `lab_watch`, `sched_interfaces`,
+  `mach_orders`, `mach_archive`, `portal_sync`, `portal_dispatch`), their
+  grants and policies, and the `ops` schema are not the parts'
+  (Preflight corrections, item 4). Reason: `model.node_creates` reads a
+  top-level `CREATE ROLE` (W2-a), so each role gets its secret; a part's
+  chunk cannot know a purpose's grants.
+- **A part's key functions (choice)**: a part may ship `data/keys.sql`,
+  defining `pg_temp.<its table prefix>_*` functions only (`lab_`,
+  `portal_`), on the core's conventions (`(n integer)` or `(n integer,
+  load_epoch timestamptz, utc_offset integer)`, `IMMUTABLE`, no row
+  outside its range: vet-core's GM notes, "Core keys"), listed in a "Part
+  keys" section of its GM notes; `load-data` streams it after the
+  core's, ahead of that part's `load.sql`, its partners' `data.sql` and
+  its `derive.sql`. The lab (its load and its two stubs, item 1) and the
+  portal (its load, its derivation and the owners' state, item 5) need
+  it; scheduling, housing and machinery compute from the core's alone.
+  Today `inject._keys` streams the core's file only: chunk 29's (a).
+  Reason: W2 item 3's own, one text for every file computing the same
+  ids.
+- **Producers left out of a fixture (choice)**: `composition.yaml` gains
+  an optional `left_out:` list of `{domain, producer, reason}`,
+  `producer` a folder under that domain's `producers/` (`pms`,
+  `api/clinic-api`, `partners/xlab`); `gmctl compose` merges nothing from
+  it and needs no node for it; a left-out partner folder's `data.sql`
+  still runs when the scenario has a partners' database and is skipped
+  when it has none (the loader's refusal then not applying; a coherence
+  check reading `partners` skipped, as today). For fixtures: the clinic
+  leaves nothing out. Chunk 29's (b). Reason: compose needs a node for
+  every producer folder of every composed domain (`compose.py`, W1-w;
+  chunk 9 added `pms` to `fixture-core` for it), which puts the lab's
+  fixture at ten nodes and the portal's at twelve, against "Read
+  first"'s eight and D314's least environment (Preflight corrections,
+  item 2).
+- **Shapes and connections on a shared node (choice)**: a part's
+  fragment on `pms` names the core's shapes (`clinic-day`, `office`,
+  `flat`) and never writes them; on its own node (`lis`, `ward`,
+  `equipment`) it writes every shape it uses, the core's copied
+  unchanged; connections are unique per node (`sched`, `housing`,
+  `portal-api` beside `clinic` on `pms`). Reason: compose merges
+  identical entries silently and stops on two different ones (W1-w).
+- **HTTP credentials (choice)**, each named by the fragment owning the
+  endpoint, since compose merges `endpoints.<name>` whole (W2 item 4):
+
+  | Endpoint (host) | Accepts | Sent by |
+  |---|---|---|
+  | `orders` (`lab-api`) | `lab_centre`, `lab_practices` | purpose 1 on `interfaces` (account 1); the practices' stub |
+  | `send_outs` (`lab-api`) | `lab_xlab` | the external lab's stub |
+  | `xlab_orders` (`northfield-lab`) | `xlab_customer` | purpose 3 |
+  | `practices_results` (`practices`) | `practices_customer` | purpose 2 |
+  | each stub's `<prefix>_tick` | `partners_backend` | the back end (W2-f) |
+  | `desk` (`portal-api`) | `portal_desk` | `pms`' `portal.desk-consent` |
+  | `portal-api`'s owner endpoints | public, the session cookie (item 5) | the owners' route |
+
+  The brick tells a route no caller apart (`gm_api` checks a bearer
+  against the endpoint's list only), so `lab-api` takes the account from
+  the request and trusts it: the 120 practices share one credential, and
+  rule 10 ("each practice seeing only its own orders") holds by the stub
+  asking for its own, a known limit for the lab's GM notes. The
+  `*_customer` credentials are the customer's own with each partner,
+  which chunk 17 hands over (D365, O231).
+
+**1. `vet-lab`** (chunk 12 writes, W3-a records; read by 16, 18, 19, 20,
+22, 25)
+
+- **Keys**: the document's "Deterministic key ranges (D249, D266)" and
+  "The test catalogue (D372)"; of the core's, `core_request` (a
+  consultation's analysis requests, one order per priority) and the
+  identity and staff functions its "Core keys used" names. Its
+  `data/keys.sql` **(choice)** holds at least `pg_temp.lab_order(n,
+  load_epoch, utc_offset)` (order 1–14 000: account, `client_ref`,
+  priority, its times and state at T0, the centre's consultation and
+  animal or a practice's patient fields) and `pg_temp.lab_send_out(n,
+  load_epoch, utc_offset)` (its order test, `send_key`, the external
+  lab's accession, its times, `status` and `due_by` at T0), called by
+  the load and by both stubs' `data.sql`. A `send_key` is computed from
+  the send-out's id (`md5(...)::uuid`), never `gen_random_uuid()`: the
+  stub holds the same key.
+- **The released results** (read by 16's derivation, purpose 15 as
+  `lab_release`, purposes 9 and 10): `lab_orders`, `lab_order_tests` and
+  `lab_results` named by item 0 (`lab_orders.account_id`, 1 the centre;
+  `lab_order_tests.order_id`, `status`, `not_performed_reason`,
+  `released_by`, `released_at`; `lab_results.order_test_id`,
+  `numeric_value`, `text_value`, `flag`, `interval_id`, `supersedes_id`,
+  `amended_at`). The result in force is the one no row supersedes; a
+  centre result's gate is `released_at` with `account_id = 1`
+  (vet-portal, "Cross-part assumptions").
+- **`lab-api`'s contract (choice)**, port 8000 under its own hostname,
+  connection `lab` as `lab_api`; JSON keys the column names, times ISO
+  8601 UTC with `Z`, 404 `{"detail": "not found"}`, the brick's 401 and
+  503 (as `clinic-api`'s, W2-d):
+  - endpoint `orders`: `POST /orders` `{account, client_ref, priority,
+    tests: [{code, request_id?}], ...}` (the rest `lab_orders`' columns,
+    each optional) → 201 `{accession, account, client_ref, tests: [{order_test_id, code,
+    request_id}]}`; the same account and `client_ref` again → 200, the
+    same body, nothing written; an unknown code or account 422.
+    `GET /orders/{accession}`: the order, its state, its tests with
+    their results in force. **The feed**, `GET
+    /orders?account=<id>&released_since=<time>` (both required, else
+    422): the account's order tests whose status became `released`,
+    `not-performed` or `cancelled` at or after the time, ordered by that
+    time then `order_test_id`, each `{accession, client_ref,
+    order_test_id, request_id, code, status, at, reason, results:
+    [{analyte, numeric_value, text_value, unit, flag, low, high}]}`
+    (`results` empty unless released). Inclusive, so a poller's margin
+    re-reads and its ledger deduplicates (purpose 1, W4); an amendment
+    after release lists no test again (the portal reads amendments in
+    the lab, purpose 15);
+  - endpoint `send_outs`: `POST /send-outs/{send_key}/result` `{accession,
+    resulted_at, results: [{analyte, numeric_value?, text_value?, unit?,
+    flag?}]}` → 200 `{send_key, status: "resulted"}`; the same key again
+    200 with nothing written twice; an unknown key 404.
+- **The stubs (choice)**: `xlab` serving `northfield-lab` (D370),
+  `practices` serving `practices`; every practice account's
+  `callback_url` `http://practices:8000/results` (one stub, D293; the
+  delivery names its account). On `partners-db`, each schema its
+  prefix's:
+  - `xlab.orders (send_key uuid PRIMARY KEY, accession text UNIQUE,
+    lab_accession integer, label, test_code, species, sex, age,
+    received_at, due_at, answered_at, answer jsonb, resends integer)`,
+    `xlab.state` (W2-f);
+  - `practices.orders (account_id, client_ref, accession, priority,
+    tests, posted_at, PRIMARY KEY (account_id, client_ref))`,
+    `practices.deliveries (delivery_key text PRIMARY KEY, account_id,
+    accession, kind, first_at, last_at, repeats integer)`,
+    `practices.state`;
+  - planted by their `data.sql` from `pg_temp.lab_*`: every send-out the
+    history leaves open (about twenty) and every practice order not yet
+    completed at T0 (D304). Purposes 2 and 3's checks (chunk 18) read
+    these tables as evidence.
+- **Coherence** (W2-c's form): every `request_id`, `animal_id` and staff
+  id within the core's, reading `vet-core`; the stubs' open send-outs
+  and orders against the lab's, reading `partners` and `vet-lab`, so
+  run in `partners` on `partners-db` (D383).
+- **Fixture** `fixture-lab-core`: the bastion, `records`, `clinic-api`,
+  `lab`, `lis`, `lab-api`, `partners-db` (seven); `left_out` vet-core's
+  `pms` and vet-lab's `partners/xlab` and `partners/practices`: the
+  stubs' state loaded and checked, their fragments composed in a unit
+  test only (Preflight corrections, item 2).
+
+**2. `vet-scheduling`** (chunk 13 writes, W3-b records; read by 20, 21)
+
+- **The bookings' tables**: the document's "Entities" and "Deterministic
+  key ranges (D249, D266)", names by item 0; `sched_bookings.state`
+  `booked`, `arrived`, `no-show`, `cancelled`, `held`; an attended
+  history booking's id is its consultation's (`core_consultation`'s
+  `booking_id`), an imaging one's `30 000 + request_id`; live bookings
+  take the sequence, above 50 000; `sched_allocations.during`
+  `tstzrange(starts_at, ends_at, '[)')`, the four exclusion constraints
+  named `sched_allocations_{staff,room,machine,animal}_excl`.
+- **The slot function (choice)**: `sched_free_slots(type_id integer,
+  after timestamptz, how_many integer DEFAULT 1) RETURNS TABLE
+  (starts_at timestamptz, ends_at timestamptz, staff_ids integer[],
+  room_id integer, machine_id integer)`, `LANGUAGE sql STABLE`, security
+  invoker, `SET search_path = public, pg_temp`; `staff_ids` in the
+  type's order (the vet first, then the nurse or the theatre team); no
+  slot past `now()` plus the horizon. Executed by `sched_app` and, from
+  W4, `sched_interfaces` (purpose 11's `book-requests`).
+- **The booking horizon (choice; "Left for the build")**:
+  `sched_settings`' 42 days bind `sched_free_slots` only, so the phone,
+  desk, follow-up and referral bookings and the purposes' imaging ones.
+  Session days (planned three months ahead, `open` eight weeks ahead)
+  and theatre plans are inserted directly, by the load and their
+  streams, under the same exclusion constraints, so a slot search
+  within 42 days sees them taken. Reason: the document holds both
+  figures; the horizon is reception's rule, the training centre's
+  planning no slot search.
+- **The rota's published weeks (choice)**: a week runs Monday 00:00 to
+  Monday 00:00 in the customer's zone (`core_shifts`' own week);
+  `sched.rota.publish`, Friday 12:00, publishes the week starting ten
+  days later, `published_at` that Friday 12:00, idempotent on
+  (`staff_id`, `starts_at`). The load writes every shift to the end of
+  the week the last Friday 12:00 before T0 published, each week's
+  `published_at` its own Friday, clocked up to T0: at T0 the rota runs
+  to the end of next week before Friday noon, of the week after next
+  from it (the document's "to the end of the week after next" holds from
+  Friday noon; the job's rule wins). A `core_shifts` row with an absence
+  becomes a `sched_absences` period, never a shift. Purpose 12 (chunk
+  20) reads `clocked_in_at` and `clocked_out_at` against `starts_at` and
+  `ends_at`.
+- **Fixture** `fixture-bookings`: the plan's four nodes and `clinic-api`
+  (compose's need for vet-core), T0 a weekday at 09:50.
+
+**3. `vet-housing`** (chunk 14 writes, W3-c records; read by 20, 25)
+
+- **The board's statement (choice)**: the key `ward.board` in
+  `producers/ward/queries.yaml`, its SQL exactly `SELECT * FROM
+  housing_unit_board WHERE unit_id = %(unit)s`, `unit` `{int: [1, 64]}`,
+  on connection `ward-board` (`records:5432/clinic` as `vet_display`,
+  `pool: {size: 4}`); its stream 3 840/h, even, `flat`, concurrency 4.
+  Reason: s9's calls must be this one statement (one `queryid` in
+  `pg_stat_statements`), its `$1` the unit (D287's chain).
+- **The display's key (choice)**, s9's (chunk 25): a stream in the
+  fixture's or scenario's `compose/ward/` layer, its key the fault's,
+  whose `sql` is `ward.board`'s byte for byte with `unit` fixed (`{int:
+  [u, u]}`), on `ward-board`, at a rate well above one a minute;
+  "cleared" removes it from that layer. Chunk 14 provides nothing for it
+  but the statement and the GM notes' "D287 applied: finding a faulty
+  display".
+- **The occupancy measure (choice)**, purpose 9's feeder (chunk 20), on
+  the standby as `vet_reports`, per section at each local midnight `t`:
+  units in service, `housing_units` with `state <> 'out-of-service'`;
+  units occupied, distinct `unit_id` of `housing_placements` with
+  `from_at <= t AND (until_at IS NULL OR until_at > t)`. `state` keeps
+  no history (out of service at load only), so its present value stands
+  for every midnight; counting out-of-service units as available is
+  T171. The GM notes give the query; the schema grants `vet_reports`
+  `SELECT` on every housing table.
+- **Fixture** `fixture-housing`: the plan's four nodes and `clinic-api`
+  (five); chunk 25 adds s9's instance and its answer key.
+
+**4. `vet-machinery`** (chunk 15 writes, W3-d records; read by 21, 23)
+
+- **The tables purposes 13 and 14 use**: in `pacs`, `mach_worklist`
+  (`accession` `I-<request_id>`, `UNIQUE`, the idempotency key; `state`),
+  `mach_studies` (`worklist_id`, `state`), `mach_reports` (`study_id`,
+  `kind`, `status`, `signed_at`, `supersedes_id`); in `vitals`,
+  `mach_vitals` (`session_id`, `at`, the measures); in `biomed`,
+  `mach_readings` (`machine_id`, `read_at`, `status`, `channels`) and
+  `mach_readings_daily` (`machine_id`, `day`, `rows`, `channels`,
+  `PRIMARY KEY (machine_id, day)`); names by item 0.
+- **The daily partitions (choice)**: `mach_vitals` on `at` and
+  `mach_readings` on `read_at` by the customer's local day (`[d 00:00,
+  d+1 00:00)` at `customer_utc_offset`, a fixed offset), each named
+  `<table>_<yyyymmdd>` by that date, beside `<table>_default`, empty by
+  design; `mach_events` monthly, `mach_events_<yyyymm>`. In `vitals` and
+  `biomed`, `mach_create_partitions(days integer) RETURNS integer` (the
+  partitions it created, today to today plus `days`, idempotent) and
+  `mach_drop_shipped(day date) RETURNS boolean` (that day's partition of
+  the database's shipped table detached and dropped; false when none),
+  both `SECURITY DEFINER`, owned by `mach`, `SET search_path = public,
+  pg_temp`. The window is "today and the last full day": at T0 the
+  partitions from yesterday to today plus three exist, none older.
+- **The summaries kept on site**: `mach_readings_daily`, loaded for every
+  day of the year (`rows` the day's raw count), and `mach_vitals_chart`,
+  kept five years. **A history day's rows (choice)**, for purpose 14's
+  planted manifests (chunk 21): readings, `mach_readings_daily.rows`
+  summed over the machines; vitals, the `vitals.sample` ticks (one row
+  per open session every 10 seconds on the UTC minute's grid) within
+  each `mach_sessions` interval that day, a query on `mach_sessions` the
+  GM notes give, which the window's raw rows obey (a coherence query
+  checks the window's days against it). Reason: a dropped day keeps no
+  raw row, and a history reads its sources through `gm_src_*` alone,
+  without keys (W2-c).
+- **Its `pg_cron` jobs (choice)**: `vitals-partitions`,
+  `readings-partitions` and `events-partitions`, as `mach_maint`, in
+  `data/cron.sql` (`cron.schedule_in_database(...)` calls and nothing
+  else), which `load-data` runs on the part's node in its
+  `cron.database_name` after the part's load (chunk 29's (d)). Reason:
+  the node's data file runs before `load-data` creates `vitals`,
+  `biomed` and `mach_maint`, and pg_cron refuses a job whose database
+  or user it cannot check (Preflight corrections, item 5). `machines`
+  preloads pg_cron in the fixture and the clinic.
+- **Fixture** `fixture-imaging` as planned (seven nodes, compose's needs
+  met).
+
+**5. `vet-portal`** (chunk 16 writes, W3-e records; read by 21, 25)
+
+- **The copies**: `portal_animals`, `portal_ownerships`, `portal_herds`
+  as the document's "Entities"; written by the derivation at T0 (the
+  core's state at `load_epoch`), then by purpose 15; `synced_at` on each.
+- **Row-level security (choice)**: on and forced on every table; the
+  tables owned by `portal`, `NOLOGIN BYPASSRLS`, so the `SECURITY
+  DEFINER` functions it owns reach every row and nobody logs in as it;
+  `portal_api` neither owns nor bypasses. The asker is
+  `NULLIF(current_setting('portal.owner_id', true), '')::integer`,
+  inline in each policy (unset: no row), set by the API as text with
+  `SELECT set_config('portal.owner_id', %s, true)`, first in each
+  request's transaction after `portal_session(token)`; `gm_api` rolls
+  it back with the request. Policies are named `<table>_scope` for
+  `portal_api`, `portal_sessions_purge` for `portal_housekeeping`.
+  `portal_animals_scope` holds the ownership's end as `until_at IS NULL`
+  on the asker's ownership row (s5, T270, edits that policy by name);
+  `portal_documents_scope` reads the animal's visibility through
+  `portal_animals`, so T270 returns the buyer's new records too, as the
+  trap says, and `record_at` against the current ownership's `from_at`
+  (T271). The keeper's clause needs the current owner's latest
+  `keeper-access` event, which own-rows policies hide from a keeper:
+  chunk 16 settles it (a consent-events policy also admitting the events
+  naming the asker as keeper, or a pinned definer helper) and records it
+  in W3-e; T274 and T275 bite wherever it lands. The purposes' roles'
+  policies: Preflight corrections, item 4.
+- **`portal-api`'s endpoints (choice)**, hostname `portal-api`,
+  connection `portal` (`records:5432/portal`, `portal_api`), the
+  document's "The applications and their nodes" grouped as endpoints
+  `session` (`POST /login`, `POST /logout`), `me` (`GET /me`, `PUT
+  /me/preferences`, `POST /me/consents`, `POST /me/close`), `animals`
+  (`GET /animals`, `GET /animals/{id}/documents`), `documents` (`GET
+  /documents/{id}`), `accounts` (`POST /accounts/activate`, `POST
+  /password-reset`, `POST /password-reset/{token}`, `POST
+  /unsubscribe/{message_key}`), all public at the brick, and `desk`
+  (`POST /desk/consents`, `portal_desk`). `POST /login` `{email,
+  password}` → 201 `{token}` with `Set-Cookie: portal_session=<token>`,
+  401, or 423; an owner endpoint reads `Cookie: portal_session=<token>`,
+  401 when `portal_session` refuses it; `GET /animals` → `[{animal_id,
+  name, species, sex, born_on, status}]` by `animal_id`. Reason:
+  `gm_api`'s client never lets a caller set `Authorization`
+  (`FORBIDDEN_HEADERS`), so the owners' route sends a cookie, as a
+  browser does; s5's check (chunk 25) logs in and lists.
+- **Passwords and tokens (choice)**: master spec 9.7's "game's seed"
+  reaches neither `load-data` nor an `api` node (Preflight corrections,
+  item 6). The key is `encode(sha256(convert_to('vet-portal ' ||
+  :'load_epoch', 'UTF8')), 'hex')`, computed by `pg_temp.portal_*` in the
+  load (bcrypt cost 6 of each active account's password, SHA-256 of the
+  planted invitations' and resets' tokens), the derivation (the tokens
+  in the outbox's payloads) and `owners`' `data.sql`, which alone keeps
+  it (`owners.settings`, name `password_key`). A password is
+  `encode(hmac('<account id>', key, 'sha256'), 'hex')`, a planted token
+  the same of `'<template>:<account id>'`; tokens made in play
+  (purposes 15 and 16) are random and reach the owners' route through
+  the messaging stub. Known limit, for the GM's notes: the key follows
+  from T0, so it guards nothing from a reader of the notes; no player
+  sees the formula.
+- **The outbox and its id order (choice; "Left for the build")**: the
+  load writes no `portal_outbox` row; the derivation writes the year's
+  whole outbox, invitations, resets, closures and reminders (from the
+  load's accounts and consent events) and notices (from the documents
+  it writes), numbered 1 to n in `queued_at` order, ties by
+  `message_key`, the sequence set after; `message_key`
+  `md5(<template>:<account id>:<reference>)::uuid`, a sent row's
+  `provider_id` likewise. Reason: one writer numbers one sequence in
+  time order, and the notices hang off documents only the derivation
+  writes.
+- **O229, adopted (choice)**: `derive.sql` writes `portal` only. The
+  messaging stub's planted messages (the last 14 days' sent rows, the
+  180 open invitations' tokens among them) are purpose 16's history
+  (chunk 21), its `target` the partners' database, its source `portal`,
+  run after the derivation (W2 item 3's order), copying `portal_outbox`'s
+  sent rows through `gm_src_source`. As merged, the loader refuses a
+  `history` on a purpose with no job naming a feeder (`model.py`,
+  "history: only on a periodic purpose"); purpose 16 has none, nor
+  purpose 14 (D366): chunk 29's (c). The stub, prefix and hostname
+  `messaging`, its DDL purpose 16's receiver material copied into
+  `partners-db`'s data file (W2 item 6's way), holds `messaging.messages
+  (message_key uuid PRIMARY KEY, provider_id, channel, address,
+  template, account_id, payload jsonb, received_at)` and grants `SELECT`
+  on it to `owners`; the owners' route reads it when it exists
+  (`to_regclass`), else picks at random. Reason: T0's state is the same
+  either way (O229); a history is the one loader writing `partners`
+  from a source it reads through `gm_src_*`.
+- **The owners' traffic** (`producers/partners/owners/`, D369): role and
+  schema `owners`; `owners.settings (name text PRIMARY KEY, value
+  text)`; `owners.visits (id bigint GENERATED ALWAYS AS IDENTITY, at,
+  account_id, call, status, animal_ids integer[], document_ids
+  integer[])`, one row per call, RL6's evidence (chunk 21); no
+  `owners.state`, no `owners.normal`; endpoint `owners_tick` (`POST
+  /tick`, `partners_backend`); connections `owners-db` and
+  `owners-portal` (`portal-api:8000`, no credential).
+- **Its `pg_cron` job**: `portal.sessions.purge` as `portal_housekeeping`
+  in `data/cron.sql`, on `records` (item 4's rule).
+- **Fixture** `fixture-portal`: the bastion, `records`, `lab`,
+  `interfaces`, `portal-api` and the partners' three nodes (eight);
+  `left_out` vet-core's `pms` and `api/clinic-api`, vet-lab's `lis`,
+  `api/lab-api`, `partners/xlab` and `partners/practices`, vet-portal's
+  `pms` (the desk stream, proven by its fragment's unit check only); the
+  lab's stubs' state loaded.
+
+**6. The tool support wave 3 needs** (chunk 29, proposed: Preflight
+corrections, item 1; W3-f records; read by 12, 15, 16, 21 and every
+composed fixture after)
+
+(a) A part's `data/keys.sql` streamed after the core's (`inject._keys`,
+item 0). (b) `composition.yaml`'s `left_out:` (item 0): `compose`,
+`model.check_composition` (each entry a producer folder of a composed
+domain), `model.node_creates` and the partner-database refusal,
+`inject.composed_plan`. (c) `history` accepted on a purpose with no
+feeder, its `target` on the partners' database accepted (item 5); "a
+feeder requires `history`" kept. (d) A domain's `data/cron.sql`, run
+after its load on its node in `cron.database_name`, unseen; a composed
+domain shipping one on a node that does not preload pg_cron refused
+(item 4). The scenario-format skill and its templates follow; no image
+changes.
+
+**7. Wave 3 coordination** (for the driver and chunks 12 to 16, 29)
+
+- **Order**: chunk 29 first (its decisions first, `spec-writer`), beside
+  12 and 13; 14 and 15 at the next free slots (κ = 3). 12a and 15a run
+  their SQL into the image by hand meanwhile, keys streamed by hand;
+  12's composed check and fixture, 15's `cron.sql` and chunk 16 wait for
+  29's merge; 16 is cut once 12 and 29 have merged.
+- **Files**: `tools/gm/{inject,compose,model}.py` and the scenario-format
+  skill are chunk 29's alone in wave 3; each part chunk holds its
+  `domains/<id>/` and its fixture; shared lists `regional-franchise.yaml`'s
+  `parts:` and the root README's domain table (D380), each chunk adding
+  its line at its merge.
+- **Images**: none rebuilt; every load and fixture on `postgres:0.5.0`,
+  `api:0.1.0` and `scheduler:0.3.0` as they stand; each part loaded with
+  the core (its 89 s each time, W2-d's risk).
+
+**Choices made here, not in the spec** (for the driver's review): the
+23 marked **(choice)** above, items 0 to 5, and chunk 29's scope
+(item 6).
+
+### Preflight corrections for spec-writer
+
+1. **Four tool gaps no wave-3 chunk holds** (W3 item 6): `inject._keys`
+   streams the core's `keys.sql` only (formats.md: "a core's"); compose
+   needs a node for every producer folder of every composed domain;
+   `model.py` refuses `history` without a feeder (O229's recommendation
+   and D366 alike); a composed domain's `pg_cron` jobs have no place
+   (item 5 below). Proposal: decisions for item 6's (a) to (d); an
+   inserted **chunk 29** in wave 3 for a `coding-executor` ("Read
+   first"), Files `tools/gm/{inject,compose,model}.py`, their tests in
+   `tools/tests/` and the scenario-format skill (SKILL.md, its
+   `composition.yaml` and `keys.sql` templates), Done when each
+   acceptance and refusal shown by a unit test and the composed test
+   load passing with a part's keys and a `cron.sql`; edges `29 ──> 12`
+   (its composed check and fixture), `29 ──> 15` (its fixture's
+   `cron.sql`), `29 ──> 16` in wave, and `29 ──> 21`; a gate row like
+   G16 for formats.md and master spec 5, blocking release gate item 6.
+   Item 4's mechanism joins it if ruled before it is cut. Fallbacks if
+   rejected: the part's functions inlined in each file with a test
+   keeping the copies equal; fixtures above eight nodes (the owner's,
+   D314); (c) in chunk 17 (`model.py` in wave 4), with `17 ──> 21`.
+2. **Fixtures against compose's rule** (chunks 12 to 16; the plan's
+   fixture lists from chunk 18 on). Chunks 13's and 14's fixtures lack
+   `clinic-api`, which composing vet-core requires: add it (five nodes
+   each). Chunks 12 and 16: the nodes and `left_out:` of items 1 and 5.
+   Chunk 15's is complete. Chunk 12's Done when "the stubs' fragments
+   parse on the shared back end" is met by a unit test composing vet-lab
+   onto a stand-in with the partners' three nodes and loading the
+   output, no deployment: chunk 12's Files gain
+   `tools/tests/test_compose.py` (a case). For W4: 18's orders fixture
+   needs `left_out` for the lab's stubs, its send-outs fixture lacks
+   `records` (vet-lab is composed only with its core), 19 to 21 to be
+   counted the same way.
+3. **O229** (chunks 16, 21): record its adoption as a decision (item 5)
+   and close it. Plan text: chunk 16's scope, "`data/derive.sql` ...
+   writing `portal` only, the whole outbox included"; chunk 21's scope
+   and capture line, "purpose 16's `history` plants the messaging stub's
+   messages, `target` the partners' database, source `portal`; the
+   stub's DDL its receiver material in `partners-db`'s data file, with
+   `SELECT` granted to `owners`". Master spec 9.7 and vet-portal's
+   "Loading" and "The history before T0" move "the messaging stub's
+   planted notices" from the derivation to purpose 16; vet-portal's
+   purpose 16 gains a `target` and a `history`. D366 (purpose 14) meets
+   the same feeder refusal: chunk 21's capture line names chunk 29's
+   (c).
+4. **The purposes' roles, grants, policies and `ops` tables have no
+   loader in a composed domain's database** (chunks 18 to 21; W4).
+   Formats.md "Purpose definition" copies a target's DDL into its node's
+   data file, which runs before `load-data` creates `clinic`, `lab`,
+   `portal`, `pacs`, `vitals` and `biomed`; a history runs only for a
+   periodic purpose, in its target alone; vet-core's schema, merged,
+   creates none of `vet_interfaces`, `vet_portal_sync`, `vet_exchange`.
+   Proposal: settle before wave 4 (W4 cannot without a loader): a
+   `load-data` step after the domains' loads and before the
+   derivations, running each `purposes:` entry's DDL for every database
+   part mapped to a composed domain, as `postgres`, unseen, joining
+   chunk 29 if ruled in time, else an inserted chunk ahead of wave 4.
+   W3 keeps the parts out of it (item 0).
+5. **A composed domain's `pg_cron` jobs** (chunks 15, 16; purpose 6's
+   watch, chunk 18): `cron.schedule_in_database` checks the job's
+   database and user (`CONNECT`) when scheduling, and the data file that
+   would schedule them runs before their databases and roles exist.
+   Proposal: chunk 29's (d), `data/cron.sql`; vet-machinery's and
+   vet-portal's "Loading" say so; purpose 6's job rides item 4's step.
+6. **"The game's seed" has no path to the load or to the owners' route**
+   (master spec 9.7 "Keys and scale"; vet-portal "Deterministic key
+   ranges (D249, D266)"): render's seed sits in `implementation.yaml`
+   and the schedulers' `schedule.yaml`; `load-data` passes the zone, its
+   offset and `load_epoch` only. Proposal: both texts read "a key
+   computed from the load's `load_epoch`, kept only in `owners`' schema
+   on the partners' database" (item 5).
+7. **Wave 3's gate: the six domains' load-only run has no fixture**
+   ("Per-wave gate contents", wave 3; no chunk's Files). Proposal: the
+   row names `tools/tests/fixtures/fixture-clinic-load/`, uncomposed (no
+   producer node, so no compose; `composition.yaml` written by hand):
+   the bastion, `records`, `lab`, `machines`, `partners-db`, built at
+   the gate's start by a `coding-executor` from the merged parts; the
+   row's fixtures gain `fixture-lab-core` beside bookings, housing,
+   imaging and portal.
+
+### Questions for the owner
+
+None.
