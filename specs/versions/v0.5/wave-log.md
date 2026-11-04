@@ -4449,3 +4449,64 @@ releases through `lab.release.urgent`, not the 14:00 round; the ticks
 hold a session while posting over HTTP.
 
 Chunk 16 is cut from `v0.5-w3` now (chunks 12 and 29 merged).
+
+### vet-lab's document to 12b as built (D420), 2026-11-04
+
+`spec-writer` (63d6979): `lab_instruments` reads `lab_results
+(order_test_id)`; the release rounds three jobs; `lab_api` reads the
+intervals; the practices' `client_ref` `<local YYMMDD>-<m>` with
+`practices.state`'s `utc_offset`; the lab keeps no food-chain status (no
+trap or fault reads one); SO4 and master spec 9.3 "about eight
+send-outs in flight at T0, all the practices'". The fixture's
+`partners-db` `pg_hba.conf` without `host partners` is the fixture's own
+(both stubs left out): no document change.
+
+### Chunk 30 — merged (8566267), 2026-11-04
+
+`coding-executor`: `3df1e01`, `v0.5-w3` merged in at `47464b3`, merged
+`--no-ff` at `8566267`; worktree and `c30pg` removed. `check_domain_dir`
+clean. Core loads: +2 131.4 / 122.2 s, 49 MB, 269 397 rows; shift 0
+133.6 / 136.6 s, 270 260 rows (today's code on the same host the same
+day 94–95 s, 274 235 / 274 404 rows): within twice 89 s. Every slot
+invariant 0 on both loads (no vet twice in a slot; each start in its
+slot's first five minutes and closing by its end; no slot over its
+covering vets or spaces; every vet of its section on a covering `day`
+shift with no absence; within the rooms' hours; `booking_id` the id;
+`vc_vet_shifts` equal to `core_shifts`). Scheduled consultations at
+07:50Z +2: 16 729 against 17 395 (666 fewer, `spec-writer`'s figure); at
+the GM notes' reference T0 16 747 against 17 414 (domestic 616, horse 36,
+farm 15); shift 0 734 fewer (4.2 %). Unbooked consultations whose vet has
+a booking over them: 98 of 7 219 (+2), 96 (shift 0), all the domestic
+evening's emergencies. `exchanges.reason` and `partner_patient`
+byte-identical. Unit suite 1137 OK, 2 skipped. `fixture-core` not rerun
+(reads none of the changed columns); the wave gate reruns it.
+
+W3-g (chunks 12, 13, 15, 16, 20, 21): every `core_*` signature unchanged;
+`core_exchange` gains `reason` (`transfer for specialist care`, or for an
+examination `CT examination`, `MRI examination`, `scintigraphy`, `second
+opinion`, `endoscopy`, `cardiology examination`) and `partner_species`
+(`dog`, `cat`, `horse`, `cow`; null outbound). A scheduled consultation:
+its half-hour slot (`vc_slot`), its rank among the section's scheduled
+ones of the slot in id order (`vc_slot_rank`), the slot's vets ordered by
+a hash (`vc_slot_vets` over `vc_vet_shifts(d)`), placed while its rank is
+under both the vet count and the spaces (`vc_spaces`: domestic 4, horse 3,
+farm 2) and taking the vet at its rank, else no row; start `s+(t−s)/6`,
+close `start+25min+u6·(s+5min−start)`. `vc_agenda(s, load_epoch,
+utc_offset)` returns a slot's placed rows (`c, sec, vet, started,
+closed`). **For chunk 13**: an attended booking per placed scheduled
+consultation (its id, the slot's start for 30 minutes, the consultation's
+vet, the space at its rank, `vc_slot_rank`'s `rk`); inbound examinations
+mapped from `reason` and `partner_species`. Unbooked ones take
+`vc_free_vet` (on shift, no placed consultation over them; else
+`vc_vet_at`, unchanged, still the stays' admitting vet). Ids now in drawn
+time order (only scheduled ones move, within their slot); about 4 % of
+scheduled ids have no row and no requests. The parts' counts move (+2:
+requests 16 617 → 16 167, analyses 13 584 → 13 196, imaging 3 033 →
+2 971, lab orders 7 432 → 7 214) and every `core_request` caller pays
+the slower `core_consultation` (59 s and 49 s on 25 000 / 17 000 calls).
+Deviations: internal `vc_*` helpers (`STRICT`, an `OFFSET 0` to stop
+inlining); a scheduled consultation's patient checked at its new start.
+Risks: the core's load about 35 % slower; the agenda relies on
+`vc_before` being exact, checked at both shifts only.
+
+Chunk 13 restarts from `v0.5-w3` (fresh owner).

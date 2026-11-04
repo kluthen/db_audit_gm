@@ -1267,7 +1267,7 @@ the partners' stubs' tables on `partners-db`.
 
 ### Chunk 13 — `vet-scheduling`, bookings, rota and the training centre
 
-Status: blocked (on chunk 30, spec D409; restarts once it has merged)
+Status: in progress (restarted after chunk 30)
 Wave: 3
 Depends on: chunks 4, 8 and 9 (waves 1 and 2); chunk 30, merged into
 `v0.5-w3` before this chunk's branch is cut (spec D409)
@@ -2152,7 +2152,8 @@ before the derivations), read by chunks 18 to 21. As built: W3-f.
 
 ### Chunk 30 — The core's agenda: the scheduled consultations on half-hour slots, the exchanges' reason
 
-Status: in progress
+Status: merged (w3, 8566267)
+Record: 3df1e01, merged 8566267; every slot invariant 0 at +2 and shift 0; scheduled consultations 16 729 against 17 395 (666 fewer); the core's load about 122–137 s (was about 95 s on the same host); new internal `vc_*` functions (wave log, chunk 30 merged); `fixture-core` not rerun (reads no changed column; the wave gate reruns it).
 Wave: 3
 Depends on: chunk 9 (wave 2); inserted into wave 3 after chunk 13
 stopped (spec D409), built by a `coding-executor` handed the brief by
