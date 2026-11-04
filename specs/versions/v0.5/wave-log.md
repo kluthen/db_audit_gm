@@ -4843,3 +4843,51 @@ history, the RL1–RL6 and MS1–MS6 checks and s5's check; any `gm_check`
 policy shows in `pg_policies` and can be dropped by a player. May need
 the owner's view. The portal GM notes' doubled row count is a gate fix
 (sent to the gate's executor).
+
+### Wave gate — first part, 2026-11-04
+
+`coding-executor`, armenelos alone (the VPS drained), under the lock and
+the inhibitor. Gate fixes: `8894771` (vet-housing's GM notes, T163 as
+D419; chunk 14), `b338c5e` (the `scenario-document` skill lists a
+composed domain's `data/cron.sql` jobs; the READMEs of `fixture-imaging`,
+`fixture-portal` and `fixture-bookings` regenerated; chunks 15, 16, 13),
+`8e1be6a` (vet-portal's GM notes 199 735 rows by `count(*)`; chunk 16),
+`231900b` (`fixture-clinic-load`, D407: uncomposed, the 13 producer
+folders in `left_out:`, the bastion, `records`, `lab`, `machines`,
+`partners-db`; `cron.timezone` `'UTC'` since the loader refuses the
+template with no scheduler node), `50692ef` (`fixture-lab-core`'s feed
+window: no not-performed test fell in it on the merged branch; chunk 12;
+its rerun queued). The `%%` grep: 457 statements in 62 `queries.yaml`,
+none to fix.
+
+Results so far: unit suite 1153 OK, 2 skipped (201 s, before the last
+three commits); `sh -n` 225, `perl -c` 13, `py_compile` 221, 0 failures;
+`postgres` 0.5.0 (cache, `2ee628d58ded`) 315 PASS, 460 s; `bastion` 0.5.0
+(cache, `8ffc0bf43d36`) all pass, 82 s; `scheduler` 0.3.0 178/0, 851 s;
+`check_domain_dir` clean on the six clinic domains and the shop;
+`TestComposedLoad` 2 OK; **`fixture-clinic-load` 23/23, `load-data` 865 s,
+27/27 coherence checks (886 s)**; `fixture-housing` place 40/40 (1184 s);
+`fixture-imaging` 50/50 (480 s); `fixture-portal` 61/61 (1022 s);
+`fixture-core` 40/40 (177 s, as chunk 30 asked); `fixture-bookings` 39/39
+(1176 s); `fixture-lab-core` 43/1 (the test bug above).
+
+Each domain's load (load-data's plans and steps into throwaway
+`postgres:0.5.0` containers, no CPU limit), shift 0 / +2 in seconds: core
+116.3 / 114.8; housing 7.4 / 7.4; scheduling 93.5 / 92.3; lab 72.2 /
+72.7; the lab's partner files practices 64.1 / 63.6, xlab 64.1 / 64.2;
+pacs 49.6 / 49.4, vitals 9.7 / 9.8, biomed 1.8 / 1.8; portal 17.8 / 17.8,
+owners 0.5 / 0.5, the portal's derivation 120.5 / 120.4; total 668 / 666
+s; coherence passing at both. By `count(*)` at shift 0: `clinic` 93.4 MB,
+512 344 rows (housing 138 970, scheduling 103 569, the core about
+269 800); `portal` 82.7 MB, 200 144; `lab` 56.6 MB, 325 993; `pacs` 14.2
+MB, 15 950; `vitals` 36.5 MB, 182 130; `biomed` 28.9 MB, 106 327;
+`partners` 10.1 MB, 9 782. On Swarm the 0.5-CPU limits on `machines` and
+`partners-db` about double the slow steps (each lab partner file about
+133 s, pacs about 102 s). **Risk for chunk 27**: `fixture-clinic-load`
+takes 886 s of its 30 minutes.
+
+Still running unattended (the executor's queue in the scratchpad's
+`gate3/`): the `api` stack test, the scheduler's and `api`'s unit tests,
+six bricks' builds and stack tests, the five smokes, `smoke-scenario.sh`
+on the four scenarios, `fixture-housing` care, then `fixture-lab-core`
+again and the full unit suite on the final head.
