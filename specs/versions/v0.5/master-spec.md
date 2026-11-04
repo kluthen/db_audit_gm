@@ -1716,14 +1716,15 @@ every minute on `interfaces`, holding `clinic` as `vet_interfaces` and
 the allocated vet, started at the arrival, `booking_id`) for each
 arrived booking, once, its ledger row (`ops.booking_consultations`) in
 the same transaction; `book-requests` books each new imaging request on
-its study's machine (an urgent one today, a routine one within two
-working days) and each accepted inbound examination on its date, or the
+its study's machine (an urgent one at the machine's first free slot:
+the same day around the clock, otherwise the next imaging day's
+opening; a routine one within two working days) and each accepted inbound examination on its date, or the
 next free slot with an incident; `cancel-deceased` cancels a dead
 animal's future bookings. `vet_interfaces` gains `INSERT` on
 `consultations`' open columns and `SELECT` on `animals`' `id`, `status`,
 `died_at`. Invariants within 2 minutes: every arrived booking has its
 consultation (BS1), never two (BS2); every imaging request one live
-booking, urgent ones today (BS3); no dead animal's booking left (BS4);
+booking, an urgent one at its machine's first free slot (BS3); no dead animal's booking left (BS4);
 every accepted examination booked or an incident (BS5).
 
 **12, `vet-working-time`**, pulled, periodic: on `backoffice`, the

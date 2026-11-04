@@ -19,8 +19,9 @@ animals (D412); an inbound examination's machine (D413); `vet_reports`'
 grant (D414). Brought to as built after chunk 13 (2026-11-04, D422):
 the columns, types, machines' hours, grants, id ranges and figures the
 build needed, the GM notes (`domains/vet-scheduling/docs/gm.md`)
-holding the detail; an urgent study on a machine not around the clock
-(O239) and the load's future absences (O240) open for the driver.
+holding the detail; an urgent study at its machine's first free slot,
+BS3 and T113 with it (D424), and the load's future absences kept with a
+false-alarm line (D425), as the driver ruled.
 Steps 1 to 9 drafted in one pass on 2026-11-03 at the owner's instruction
 ("start an agent for each part, and let them come back with problems
 once they're done"), in parallel with `vet-housing`, `vet-machinery` and
@@ -132,7 +133,7 @@ comes on a set day. The centre books:
 - **imaging studies** on the ten bookable machines (two CTs, MRI, the
   horses' standing MRI, three radiography units, two ultrasounds, the
   gamma camera; `vet-machinery`'s, D324), each for a core imaging
-  request (D279), an urgent one the same day;
+  request (D279), an urgent one at its machine's first free slot (D424);
 - **theatre plans**: a planned surgery's theatre, surgeon, anaesthetist
   and nurse (ruled, D317: the plan only; the procedure itself stays
   the core's record);
@@ -159,7 +160,7 @@ the hours actually worked, clocked, which the working-time rules need.
 | Receptionist | core `staff`, `kind` `reception` | books, moves and cancels consultations by phone and at the desk; checks animals in |
 | Referring vet | a core referring vet, by phone or letter | asks for an appointment for a referred animal; reception books it |
 | Vet and specialist | core `staff`, `kind` `vet` | is booked; books follow-ups at the end of a consultation; requests imaging (the core's request) |
-| Imaging team | core vets (imaging specialty) and technicians | its machines' agenda; urgent studies slotted the same day |
+| Imaging team | core vets (imaging specialty) and technicians | its machines' agenda; urgent studies slotted at the machine's first free slot (D424) |
 | Theatre planner | a section's senior nurse | plans surgeries: theatre, surgeon, anaesthetist, nurse |
 | Rota manager | the clinic's management (story's) | the rota's pattern; publishes it weekly; records absences |
 | Every staff member | core `staff` | works shifts, clocks in and out |
@@ -233,7 +234,7 @@ volume ramping from about 60 % of today's rate to today's:
 | Consultation bookings made | about 71 a day (92 a weekday, 34 on Saturday): 75 % domestic, 18 % horse, 7 % farm |
 | Lead time | 30 % within two days, 50 % within two weeks, 20 % up to six weeks (follow-ups and re-checks); about ten days on average |
 | Cancellations, no-shows | 10 % of bookings cancelled ahead, 5 % of the rest not attended (game values) |
-| Imaging bookings | about 11 a day, a quarter urgent and the same day; the load books an urgent MRI or scintigraphy requested after the imaging day at the next one (D422; BS3 and T113 against it, O239) |
+| Imaging bookings | about 11 a day, a quarter urgent and the same day; an urgent one at its machine's first free slot: an urgent MRI or scintigraphy requested after the imaging day at the next one's opening (D424) |
 | Theatre plans | about 4 a day, Monday to Friday 6 |
 | Arrivals checked in | about 60 consultations a day, 78 a weekday, 30 on Saturday, as the core's scheduled share |
 | Shifts | about 55 a day, each clocked in and out |
@@ -388,8 +389,8 @@ is built on; none is ruled.
    two sessions a day, four hours in all, and a rest day after two
    working days (game values), the slot function refusing more.
 8. **Imaging and the other centres** (O172). A core imaging request is
-   booked on its study's machine by a purpose, an urgent one the same
-   day; an inbound examination accepted with a date (D306) is booked on
+   booked on its study's machine by a purpose, an urgent one at the
+   machine's first free slot (D424); an inbound examination accepted with a date (D306) is booked on
    that date or the first free slot after it.
 9. **A dead animal's bookings** (O172). Cancelled, reason `deceased`, by
    the purpose, within minutes of the core recording the death, so
@@ -585,7 +586,7 @@ imaging, the inbound examinations, the theatre plans, the sessions, the
 cancelled and no-show bookings, the agenda ahead. An urgent imaging
 request goes to the first free slot from ten minutes after it within its
 machine's hours, so an urgent MRI (9, 10) or scintigraphy (16) requested
-after the imaging day is booked at the next one (O239); every other
+after the imaging day is booked at the next one (D424); every other
 urgent study the same day. A routine one at the first free slot of the
 imaging day from an hour after it. A theatre plan takes the first
 half-hour start of its weekday where a theatre and the team of four are
@@ -595,7 +596,8 @@ placed within six weeks of its target day, else the next course in
 order: the arena, the horse section's third consultation space, is
 taken about half the weekdays, so equine courses move. The history's
 absences that start after T0 (the planned weeks') are recorded before
-T0, `absent` ones too, which the core's draw knows no future for (O240);
+T0, `absent` ones too, which the core's draw knows no future for (kept,
+D425; a false-alarm line below);
 the others one to six weeks ahead (leave, training) or the morning
 they start (`absent`).
 
@@ -992,7 +994,7 @@ on `pms`, is O172's.
 | Job | Cadence | What it computes |
 |---|---|---|
 | `check-in` | `* * * * *` | the consultation bookings `arrived` since its watermark with no consultation in its ledger: each consultation opened in the core (kind `scheduled`, the section, the allocated vet, started at the arrival, `booking_id`), only if none carries that booking id, the ledger row written in the same `clinic` transaction |
-| `book-requests` | `* * * * *` | the core's imaging requests `requested` since its watermark with no live booking: each booked on its study's machine by `sched_free_slots`, an urgent one at the first slot today (the CT around the clock), a routine one within two working days (D376); the inbound examinations `accepted` since the watermark: booked on the accepted date, or the first free slot after it and an `ops.incidents` row for the gap |
+| `book-requests` | `* * * * *` | the core's imaging requests `requested` since its watermark with no live booking: each booked on its study's machine by `sched_free_slots`, an urgent one at its machine's first free slot: the same day around the clock, otherwise the next imaging day's opening (D424), a routine one within two working days (D376); the inbound examinations `accepted` since the watermark: booked on the accepted date, or the first free slot after it and an `ops.incidents` row for the gap |
 | `cancel-deceased` | `* * * * *` | the animals the core recorded `died` since its watermark: their future bookings `cancelled`, reason `deceased`, the trigger releasing the slots |
 
 **Trace**: `sched_bookings` (state, `request_id`, `exchange_id`),
@@ -1006,7 +1008,7 @@ runner's log.
 |---|---|---|---|
 | BS1 | Every consultation booking `arrived` since the judged moment has its consultation, carrying its id, within 2 minutes | triggers | about 60 a day, on the rooms' hours |
 | BS2 | No booking has two consultations; no consultation's booking is anything but `arrived` | runs | every run; the retried ones |
-| BS3 | Every imaging request recorded since the judged moment has one live booking on its study's machine within 2 minutes, an urgent one starting the same day | triggers | about 11 a day, a quarter urgent, around the clock |
+| BS3 | Every imaging request recorded since the judged moment has one live booking on its study's machine within 2 minutes, an urgent one at its machine's first free slot: the same day around the clock, otherwise the next imaging day's opening (D424) | triggers | about 11 a day, a quarter urgent, around the clock |
 | BS4 | Every animal recorded `died` since the judged moment has no future booking left `booked` 2 minutes later | triggers | about one death a day; a future booking for about one in three (follow-ups) |
 | BS5 | Every inbound examination accepted since the judged moment is booked, on its date or with an incident | triggers | under one a day: rare (D306 point 6) |
 
@@ -1123,7 +1125,7 @@ runs).
 | # | Trap | Where it bites | Witness | Fixed on | Catalogue | Class |
 |---|---|---|---|---|---|---|
 | T112 | `vet_interfaces` granted `INSERT` on all of `consultations`, or `UPDATE` | the integration engine able to write the record's findings and signatures | the grants, at once | the grants | new | M |
-| T113 | The priority dropped in `book-requests`: urgent imaging booked as routine | an emergency's CT two days later; the emergency team phoning radiology (BS3) | urgent requests whose booking is not today, at the first urgent request (about three a day) | `interfaces`' script | new | D |
+| T113 | The priority dropped in `book-requests`: urgent imaging booked as routine | an emergency's CT two days later; the emergency team phoning radiology (BS3) | urgent requests booked after their machine's first free slot, at the first urgent request (about three a day; D424) | `interfaces`' script | new | D |
 | T114 | A retry booking a request again (the live-booking check missing) | two MRI slots for one study, one wasted | two live bookings for one `request_id`, at each slow run | `interfaces`' script | adapts `scheduler-insert-retry-duplicates` | M |
 | T115 | The check-in's watermark from the run's start while arrivals commit later | an animal checked in with no consultation to open: the vet writing on paper, the record filled later by hand (BS1) | arrived bookings with no consultation, a few a day at the busy hours | `interfaces`' script | adapts `purpose-watermark-misses-updates` | V, D once vets complain |
 | T116 | A consultation opened twice for one booking: the core's unique index on `booking_id` missing and the job's existence check dropped | two consultations to close and sign for one visit (BS2); the core's signing backlog | consultations sharing a `booking_id`, at each retried run | the index, `interfaces`' script | adapts `scheduler-insert-retry-duplicates` | M |
@@ -1159,6 +1161,7 @@ runs).
 | "Twelve dogs have hundreds of bookings" | the teaching animals, within their limits | the allocations and the settings' limits |
 | "Consultations open a minute or two after the owner arrives" | the check-in runs every minute | the ledger against the arrivals |
 | "Next week's agenda is half empty" | the lead time: the next days fill last-minute, 30 % booked within two days | the history's lead times |
+| "Sick leave booked weeks ahead" | an `absent` period ahead is an absence the rota manager knew of, recorded by its kind only, never a reason (rule 4; the load's planned weeks, D425) | the absence's kind and empty note |
 
 ### Against the test selection (D316)
 

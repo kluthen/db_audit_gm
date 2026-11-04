@@ -222,7 +222,8 @@ recommended (D404). O235 and O236, raised by the documents' as-built
 passes on chunks 15a and 14, closed by the driver as recommended (D418,
 D419), kept here verbatim until v0.5's archive moves them. O239 to
 O242, raised by the documents' as-built passes on chunks 13 and 16
-(D422, D423), are the driver's:
+(D422, D423), closed by the driver as recommended (D424–D427), are kept
+likewise. O243, raised by the same pass, is W4's capture's:
 
 - **O235** (v0.5, wave 3; **closed**, D418, as recommended; raised by D416) — The PACS cannot read
   `biomed`'s registry (another database), so as built (chunk 15)
@@ -263,7 +264,7 @@ O242, raised by the documents' as-built passes on chunks 13 and 16
   rule 2 kept, "as soon as one is free" covering the waits. Refs:
   [vet-housing](versions/v0.5/vet-housing-domain.md#3-care-feeding-and-biosecurity)
   (T163), [wave log](versions/v0.5/wave-log.md) (chunk 14).
-- **O239** (v0.5, wave 3; raised by D422) — An urgent imaging request
+- **O239** (v0.5, wave 3; **closed**, D424, as recommended; raised by D422) — An urgent imaging request
   on a machine not around the clock (the MRIs 9 and 10, the gamma camera
   16: Monday to Friday 08:00–18:00) made after the imaging day can only
   be booked at the next one: the load does so (chunk 13), and purpose
@@ -279,7 +280,7 @@ O242, raised by the documents' as-built passes on chunks 13 and 16
   machine's first free slot". Refs:
   [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#11-vet-bookings-sync-the-agenda-and-the-record)
   (BS3, T113), [wave log](versions/v0.5/wave-log.md) (chunk 13).
-- **O240** (v0.5, wave 3; raised by D422) — The load records the
+- **O240** (v0.5, wave 3; **closed**, D425, as recommended; raised by D422) — The load records the
   history's absences that start after T0 (the seven planned weeks')
   before T0, `absent` ones too, the core's draw knowing no future:
   players reading `sched_absences` find unplanned absences known weeks
@@ -293,7 +294,7 @@ O242, raised by the documents' as-built passes on chunks 13 and 16
   history never reads the future). Refs:
   [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#deterministic-key-ranges-d249-d266)
   ("As built"), [wave log](versions/v0.5/wave-log.md) (chunk 13).
-- **O241** (v0.5, wave 3; raised by D423) — The desk's stream
+- **O241** (v0.5, wave 3; **closed**, D426, as recommended; raised by D423) — The desk's stream
   `portal.desk-consent` draws an owner from 2 to 10 000 without knowing
   the accounts (`pms` cannot read `portal`), so about one call in thirty
   names a closed account's owner and `portal_desk_consent` refuses it: a
@@ -306,7 +307,7 @@ O242, raised by the documents' as-built passes on chunks 13 and 16
   `portal_account`'s formula, still meets those closed in play. Refs:
   [vet-portal](versions/v0.5/vet-portal-domain.md#the-applications-and-their-nodes-d276),
   [wave log](versions/v0.5/wave-log.md) (chunk 16b).
-- **O242** (v0.5, wave 3; raised by D423) — T274's witness quotes
+- **O242** (v0.5, wave 3; **closed**, D427, as recommended; raised by D423) — T274's witness quotes
   "about one withdrawal every three days" and its fix "the policy"; as
   built (chunk 16) about half the `owners.keeper` ticks find a consent
   to change (222 of the 414 active horse owners hold one), so
@@ -317,6 +318,21 @@ O242, raised by the documents' as-built passes on chunks 13 and 16
   history", fixed on "the helper or the policy"; the traffic unchanged.
   Refs: [vet-portal](versions/v0.5/vet-portal-domain.md#3-who-sees-what-the-policies)
   (T274), [wave log](versions/v0.5/wave-log.md) (chunk 16).
+- **O243** (v0.5, wave 4; raised by D423; W4's capture settles it) —
+  `gm_check` reads no row of a `portal` table: `pg_read_all_data` does
+  not bypass row-level security, which is forced on all ten (chunk 16).
+  Purpose 16's history (`portal_outbox`'s sent rows through `gm_src_*`,
+  D404) and every GM check reading `portal` as `gm_check` (RL1 to RL6,
+  MS1 to MS6, s5's) need a way in, while the access model keeps
+  `gm_check`'s v0.4 reads on every instance in scope. A policy for
+  `gm_check` (through a purpose's `ddl:`, say) is in players' sight in
+  `pg_policies` and theirs to drop; other ways (the reads as another
+  role, or on the GM's own plane) change the checks' mechanism. Only the
+  coherence check, as `postgres`, is unaffected. Open: no
+  recommendation here; W4 weighs it with chunk 21's purposes. Refs:
+  [vet-portal](versions/v0.5/vet-portal-domain.md#who-sees-what-row-level-security-ruled-d320),
+  [access model](versions/v0.5/access-model.md),
+  [build plan](versions/v0.5/build-plan.md) chunks 21, 25.
 
 
 ## v0.6: the setup's entry point

@@ -1227,3 +1227,33 @@ D337, D341, D359, D371 and D392 were reserved and never used). Take the next num
   closed account is O241's, T274's witness O242's. Now in:
   [vet-portal](versions/v0.5/vet-portal-domain.md#who-sees-what-row-level-security-ruled-d320)
   (policies, endpoints, ranges, sizes, loading); master spec 9.7.
+- **D424 (2026-11-04, the driver, closes O239): An urgent imaging
+  request is booked at its machine's first free slot: the same day
+  around the clock, otherwise the next imaging day's opening; BS3 and
+  `book-requests` read so, and T113's witness is "urgent requests booked
+  after their machine's first free slot".** As recommended: the MRIs and
+  the gamma camera keep the imaging day. Now in:
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#11-vet-bookings-sync-the-agenda-and-the-record)
+  (BS3, T113); master spec 9.4; [build plan](versions/v0.5/build-plan.md) chunk 21.
+- **D425 (2026-11-04, the driver, closes O240): The load's absences
+  that start after T0, `absent` ones included, stay recorded before T0;
+  a false-alarm line answers "sick leave booked weeks ahead".** As
+  recommended: the kind only, no reason. Now in:
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#5-false-alarm-material).
+- **D426 (2026-11-04, the driver, closes O241): The desk's 422 for a
+  closed account's owner is kept, about one desk call in thirty; a
+  false-alarm line answers it by the account's `status`.** As
+  recommended. Now in:
+  [vet-portal](versions/v0.5/vet-portal-domain.md#false-alarm-material).
+- **D427 (2026-11-04, the driver, closes O242): T274's witness is about
+  one withdrawal every five or six days, the rate as built, and it is
+  fixed on `portal_keeper_granted` (the withdrawal) or
+  `portal_animals_scope` (the keeping's end).** As recommended; the
+  traffic unchanged. Now in:
+  [vet-portal](versions/v0.5/vet-portal-domain.md#3-who-sees-what-the-policies) (T274).
+- **D428 (2026-11-04, the driver, chunk 16 as built): The access model's
+  closed account: login `401`; a reset asked for its address `202`, as
+  any address's, sending nothing (no account enumeration); its
+  unsubscribe link `404`, as an unknown key's.** A text correction to
+  what `portal_request_reset` and `portal_unsubscribe` do. Now in:
+  [access model](versions/v0.5/access-model.md) 9.3.

@@ -1718,7 +1718,25 @@ chunk 29's (c) accepts (spec D401).
   `mach_vitals_settings` in `vitals` and `mach_settings` in `biomed`,
   `mach_archive` needs `SELECT` on them, a grant purpose 14's roles do
   not list yet; purpose 13's `mach_orders` reads the worklist's
-  cancelled because and `cancelled_at` (spec D416).
+  cancelled because and `cancelled_at` (spec D416). `book-requests`
+  books an urgent request at its machine's first free slot, the same
+  day around the clock, otherwise the next imaging day's opening, and BS3
+  reads it so (spec D424); an inbound examination's booking id is
+  `28 000 + exchange id`, as the load's (spec D422). **Notes for W4's
+  capture, from chunks 13 and 16** (spec D423): `gm_check` reads no
+  row of a `portal` table, `pg_read_all_data` not bypassing the forced
+  row-level security, so purpose 16's history (`portal_outbox` through
+  `gm_src_*`) and every check reading `portal` as `gm_check` (RL1 to
+  RL6, MS1 to MS6) need a way in, and any policy for it is in players'
+  sight in `pg_policies`: open, W4 settles it (O243); the api brick's
+  client has no `put()`, so the owners' `PUT /me/preferences` goes
+  through gm_api's private `_call`, for the brick's next bump; the
+  portal fixture's T0 just before 09:00 local for `queue-reminders`
+  (chunk 16's ran at 11:23); until the messaging stub exists, resets are
+  asked and never used and no unsubscribe is sent, `owners.activate`
+  falling back to the stub's invitations; `interfaces`' placeholder
+  connection to `portal-api` (`interfaces.idle`) in the bookings,
+  imaging and portal fixtures is replaced by the purposes.
 - Files: `purposes/{vet-bookings-sync,vet-imaging-orders,cold-storage-archive,vet-portal-release,vet-portal-messages}/`
   (new); `tools/tests/fixtures/fixture-{bookings,imaging,portal}/`,
   `tools/tests/fixtures/fixture-vault/` (new); the root `README.md`'s
@@ -1873,7 +1891,14 @@ layer of the players' (6.3).
   layer, its resolution *report*, judged at the final answer, never
   cleared in play, on the housing fixture; s10 the topology's `options`
   planting the option's absence (the loader's exception), on a `lab`
-  fixture (`lab`, its exporter, the bastion).
+  fixture (`lab`, its exporter, the bastion). **Notes for the capture,
+  from chunk 16** (spec D423): s5's check, if it reads `portal` as
+  `gm_check`, sees no row under the forced row-level security (O243,
+  settled at W4); T270 edits `portal_animals_scope`'s owner branch; the
+  keeper's withdrawal is tested in `portal_keeper_granted`, not in the
+  policy text (T274, spec D427); the owners' traffic is thin in a
+  short watch (4 to 9 visits in six minutes at intensity 10), so s5's
+  test makes the former owner's call itself.
 - Files: `faults/<s5's id>/`, `faults/<s9's id>/`, `faults/<s10's id>/`
   (new); `tools/tests/fixtures/fixture-portal-scope/`,
   `tools/tests/fixtures/fixture-lab/` (new),

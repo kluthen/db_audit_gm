@@ -21,8 +21,9 @@ needed in shared pages](#changes-needed-in-shared-pages)). Brought to as
 built after chunk 16 (2026-11-04, D423): the keeper's clause, the
 functions, status codes, grants, id ranges and figures the build needed,
 the GM notes (`domains/vet-portal/docs/gm.md`) holding the detail; the
-desk's refusal of a closed account's owner (O241) and T274's witness
-(O242) open for the driver.
+desk's refusal of a closed account's owner kept with a false-alarm line
+(D426) and T274's witness at the rate as built (D427), as the driver
+ruled.
 
 `vet-portal` is the owners' portal of the centre a scenario deploys
 (D285), the centre's own (D293), a **part**: it requires `vet-core`
@@ -485,7 +486,7 @@ invitation's or a reset's link, both 14 days; an `activation` consent
 event is written only when the reminders are granted. Row-level
 security binds every role but `portal` and superusers: `gm_check`'s
 `pg_read_all_data` reads no portal row, so a GM read of `portal`
-through `gm_src_*` needs a policy for it.
+through `gm_src_*` needs a way in, open for W4's capture (O243).
 
 ### Application roles and grants
 
@@ -740,7 +741,7 @@ set locally first for those after login):
 | `POST /password-reset`, `POST /password-reset/{token}` | `portal_request_reset` queues a `password-reset` message, 202 whatever the address; `portal_reset` sets the password and renews an expired invitation, 200 or 401 |
 | `POST /unsubscribe/{message_key}` | `portal_unsubscribe`: the reminders withdrawn (`message-link`), no login |
 | `POST /me/close` | `portal_close` |
-| `POST /desk/consents` | the desk's credential: `portal_desk_consent` (`desk`), 201; 422 refused (another purpose, or the owner's account closed: about one desk call in thirty, O241); 401 without the credential |
+| `POST /desk/consents` | the desk's credential: `portal_desk_consent` (`desk`), 201; 422 refused (another purpose, or the owner's account closed: about one desk call in thirty, kept, D426); 401 without the credential |
 
 ### Rates at intensity 1.0
 
@@ -767,7 +768,7 @@ activations and closures, since the route cannot read `portal`; every
 call recorded in `owners.visits (id, at, account_id, call, status,
 animal_ids, document_ids)`. Its constants are one-value `choice`s (D303).
 About half the `owners.keeper` ticks find a consent to change (222 of
-the 414 active horse owners hold one; O242).
+the 414 active horse owners hold one; T274's witness, D427).
 
 On `pms`, as the desk's credential over HTTP:
 
@@ -941,7 +942,7 @@ received in the last 14 days, its `target` the partners' database,
 `portal` its source: `portal_outbox`'s sent rows, read through
 `gm_src_source` after the derivation, the 193 open links' tokens
 among them (read as `gm_check`, which row-level security binds: the
-read needs a policy for it, settled at chunk 21's capture, D423). The stub's DDL is its receiver material, copied into the
+read needs a way in, open for W4's capture, O243). The stub's DDL is its receiver material, copied into the
 partners' node's data file, with `SELECT` granted to `owners`.
 
 **Jobs** (on `interfaces`, `portal` as `portal_dispatch`):
@@ -1051,7 +1052,7 @@ point 3); T80, the release time unindexed on `lab`, slows
 | T271 | The documents' policy without the ownership's start (`record_at` against `from_at`) | a new owner reads the records from before the sale, the former owner's name with them (rule 1) | an animal sold in the year: its earlier documents returned to the buyer | the policy | new | M |
 | T272 | Row-level security bypassed for the API: `portal_api` owning the tables (a migration run as it) without `FORCE`, or granted `BYPASSRLS` for a support script | every owner sees every animal, the queries relying on the policies | every visit, at once: the owners' recorded visits, owners calling | the tables' owner, `FORCE`, the role | new | D |
 | T273 | No policy on `portal_documents` (the animals' only), while `GET /documents/{id}` reads by id | any owner opens any document by changing the number in the link | `pg_policies`, at once; the visits never probe, the story's complaint does ("I changed the number") | the policy | new | D with the story, M without |
-| T274 | The keeper's clause without the withdrawal, or without the keeping's end | a livery yard still seeing a horse after the owner withdrew, or after it left (rule 1) | about one withdrawal every three days; the planted history | the policy | new | M |
+| T274 | The keeper's clause without the withdrawal, or without the keeping's end | a livery yard still seeing a horse after the owner withdrew, or after it left (rule 1) | about one withdrawal every five or six days (as built, D427); the planted history | `portal_keeper_granted` (the withdrawal) or `portal_animals_scope` (the keeping's end) | new | M |
 | T275 | The consent lookup inside the policy unindexed (`portal_consent_events (animal_id, keeper_id, at)`; the shop's `consent_events (customer_id, at)`) | every `GET /animals` scanning the events, the evening peak slowing | `pg_stat_statements` on `records`, at once and at each peak | an index | adapts `pg-join-index-missing` | M |
 
 ### 4. Accounts and sessions (`portal-api`'s `db/` side)
@@ -1102,6 +1103,7 @@ Complaints with no fault behind them, each answerable from the trace
 | "The livery yard lost access to my horse" | the owner withdrew it, or the horse moved yard | the latest `keeper-access` event, the keeping's end |
 | "No reminder for my cows" | farm animals have herd visits, no reminders | the reminders' rule |
 | "The reminder came two weeks early" | 14 days ahead, by design | the due day's function and the lead |
+| "The desk's consent call fails now and then" (a 422 in `pms`' log) | the owner's account is closed: the desk tried a client who left, about one call in thirty (D426) | the account's `status` |
 
 ## Testing in v0.5 (D314): the minimal fixture
 
