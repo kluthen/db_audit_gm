@@ -47,7 +47,10 @@ spec D411). On 2026-11-04, chunk 12's measures of the lab's load: about
 20 800 samples, one a container, their ids as loaded; about 161 000
 results and 9 800 batches; intervals 61–456 in force; about eight
 send-outs open at T0; and the middleware's and the dispatch jobs' reads
-as granted (9.3; spec D415).
+as granted (9.3; spec D415). On 2026-11-04, chunk 12b's: the
+middleware's read of the results' `order_test_id`, the order API's of
+the reference intervals, the release rounds as three jobs, no
+food-chain status on an order (9.3; spec D420).
 
 Baseline: the released [v0.4 master spec](../v0.4/master-spec.md) and
 its [access model](../v0.4/access-model.md). Everything v0.4 specifies
@@ -1397,8 +1400,8 @@ and run logs are `vet-machinery`'s, with no row-level match to `lab_batches`.
 |---|---|
 | `lab` | own everything; no login |
 | `lab_app` | the information system: read every table; write orders, samples, order tests, sample events, results (bench, amendments), critical calls, notifications, QC runs, charges; never the reference tables |
-| `lab_api` | the order API: read the catalogue, accounts, orders, tests, results; write orders, samples and order tests at intake, send-outs' answers and their results |
-| `lab_instruments` | the analysers' middleware: read samples, tests, analytes, intervals, QC runs, and an order's `id`, `species`, `priority` and a catalogue test's `id`, `code`, `discipline`; write batches and results |
+| `lab_api` | the order API: read the catalogue, accounts, orders, tests, results, and the reference intervals (the feed's `low`, `high`); write orders, samples and order tests at intake, send-outs' answers and their results |
+| `lab_instruments` | the analysers' middleware: read samples, tests, analytes, intervals, QC runs, and an order's `id`, `species`, `priority`, a catalogue test's `id`, `code`, `discipline` and a result's `order_test_id` (the tests no run has resulted yet); write batches and results |
 | `lab_dispatch` | the dispatch jobs: read orders, tests, results, accounts, samples, the catalogue, and the callbacks, send-outs and notifications they update; write callbacks, send-outs, `sent-out` events, notifications' sent columns |
 | `lab_reports` | the reports and statements: read every table, write nothing |
 
@@ -1440,8 +1443,9 @@ each test released or not performed within its turnaround plus the next round.
 **Identity from the core.** `lab.identity`, a job on `lis` every minute with a
 `lab` connection and an HTTP one to `clinic-api`, reads each new centre order's
 animal (`GET /animals/{id}`, `/owner`) and writes species, sex, birth date,
-identifiers, food-chain status and the owner's surname on the order: the
-lookup API's first traffic, a producer's job, not a purpose.
+identifiers and the owner's surname on the order (no food-chain status: an
+order has no column for it): the lookup API's first traffic, a producer's
+job, not a purpose.
 
 #### The outside customers and billing
 
@@ -1528,12 +1532,12 @@ work streams, their rates capacities:
 |---|---|
 | Work streams | `lab.samples.receive` 15/h (about 97 % fit by a hash of the sample's id), `lab.courier.receive` 40/h in `courier-waves`, `lab.analyser.run` 5.7/h as `lab_instruments` (nothing while the analyser's last QC failed), `lab.bench.result` 8/h, `lab.validate.technical` 30/h, `lab.release.urgent` 10/h, `lab.critical.call` 6/h, `lab.notify` 2/h, `lab.qc.rerun` 4/h |
 | Volume streams | `lab.amend` 0.25/h, `lab.orders.cancel` 0.08/h, `lab.add-on` 0.1/h |
-| Jobs | `lab.qc.morning` `45 6 * * *` (one in fifty fails), `lab.qc.night` `15 21 * * *` (machines 1, 3, 5), `lab.release.round` `0 11,14,18 * * 1-6` and `0 11 * * 0`, `lab.samples.dispose` `0 6 * * *` (may go to `pg_cron`), `lab.identity` every minute |
+| Jobs | `lab.qc.morning` `45 6 * * *` (one in fifty fails), `lab.qc.night` `15 21 * * *` (machines 1, 3, 5), `lab.release.round` as three jobs, `0 11 * * *` (Sundays' round included), `0 14 * * 1,2,3,4,5,6` and `0 18 * * 1,2,3,4,5,6`, `lab.samples.dispose` `0 6 * * *` (may go to `pg_cron`), `lab.identity` every minute |
 | Shapes | `bench` (Monday–Saturday 07:00–21:00 at 1.0, 0.1 otherwise), `courier-waves` (11:00–12:00, 17:00–18:00), `flat`; the stubs' `practice-hours` and `xlab-hours` |
 
 **In flight at T0**: the night's urgent orders, the practices' late orders not
-yet received, about fifteen cultures, 600 stored samples, twenty open
-send-outs, outside tests not yet released with their charges pending.
+yet received, about fifteen cultures, 600 stored samples, about eight open
+send-outs (all the practices'), outside tests not yet released with their charges pending.
 
 #### Purposes, loading, and what the build verifies
 

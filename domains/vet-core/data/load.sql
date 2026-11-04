@@ -424,12 +424,9 @@ INSERT INTO exchanges (id, direction, kind, partner_site_id, animal_id, partner_
 SELECT e.id, e.direction, e.kind, e.site_id, e.animal_id,
        CASE WHEN e.direction = 'in' THEN
             'partner record ' || si.code || '/' || (100000 + e.id) || ': '
-            || (ARRAY['dog', 'cat', 'horse', 'cow'])[1 + floor(4 * pg_temp.vc_u(e.id, 391))::integer] || ', '
+            || e.partner_species || ', '
             || (1 + floor(14 * pg_temp.vc_u(e.id, 392)))::integer || ' years' END,
-       e.stay_id,
-       CASE WHEN e.kind = 'transfer' THEN 'transfer for specialist care'
-            ELSE (ARRAY['CT examination', 'MRI examination', 'scintigraphy', 'second opinion', 'endoscopy',
-                        'cardiology examination'])[1 + floor(6 * pg_temp.vc_u(e.id, 393))::integer] END,
+       e.stay_id, e.reason,
        e.exchange_key, e.requested_at, e.sent_at, e.state, e.accepted_for, e.answered_at,
        CASE WHEN e.reported_at IS NOT NULL THEN 'Examination performed; report attached.' END, e.reported_at
   FROM l_e AS e JOIN sites AS si ON si.id = e.site_id
