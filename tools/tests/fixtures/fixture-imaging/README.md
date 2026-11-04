@@ -30,7 +30,7 @@ for, not any one playground.
 | Origin | hand-written |
 | Session length | 60 minutes |
 | Brief | `brief.md` |
-| Difficulty | score 1 (1 fault instance), level easy |
+| Difficulty | score 1 (1 fault instance); targets easy |
 | Aging | 8h at least; hand-over designed for 14:00, scenario time |
 | Domains | `vet-core` (variant `regional-franchise`, at `records/clinic`) and its part `vet-machinery` (its databases `pacs` at `machines/pacs`, `vitals` at `machines/vitals`, `biomed` at `machines/biomed`), for provenance: the business's data loaded from `domains/vet-core/` then `domains/vet-machinery/`, and their producers' fragments composed by `gmctl compose` from `domains/vet-core/producers/api/clinic-api/` (into `nodes/clinic-api/`), `domains/vet-core/producers/pms/` with the scenario layer `compose/pms/` (into `nodes/pms/`), `domains/vet-machinery/producers/equipment/` with the scenario layer `compose/equipment/` (into `nodes/equipment/`), and the scenario layer `compose/interfaces/` alone (into `nodes/interfaces/`); its composition record `composition.yaml` |
 
@@ -177,7 +177,7 @@ No knobs.
 - **Seed files**: `postgresql.conf` → `nodes/machines/postgresql.conf`;
   `pg_hba.conf` → `nodes/machines/pg_hba.conf`.
 
-Jobs on the node (pg_cron on, metadata in `jobs`, cron.timezone `{{customer_timezone}}`), scheduled by `load-data` from the domain `vet-machinery`'s `data/cron.sql` after its loads (its data file schedules none):
+Jobs on the node (pg_cron on, metadata in `jobs`, cron.timezone `'{{customer_timezone}}'`), scheduled by `load-data` from the domain `vet-machinery`'s `data/cron.sql` after its load (its data file schedules none):
 
 | Kind | Job | Schedule (scenario time) | Runs as | Database | What |
 |---|---|---|---|---|---|

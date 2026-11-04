@@ -30,7 +30,7 @@ for, not any one playground.
 | Origin | hand-written |
 | Session length | 60 minutes |
 | Brief | `brief.md` |
-| Difficulty | score 1 (1 fault instance), level easy |
+| Difficulty | score 1 (1 fault instance); targets easy |
 | Aging | 8h at least; hand-over designed for 20:00, scenario time |
 | Domains | `vet-core` (variant `regional-franchise`, at `records/clinic`), its part `vet-lab` (at `lab/lab`, on its own node) and its part `vet-portal` (at `records/portal`, beside the core), for provenance: the business's data loaded from `domains/vet-core/`, then `domains/vet-lab/` (its two partners' state, `domains/vet-lab/producers/partners/xlab/data.sql` and `domains/vet-lab/producers/partners/practices/data.sql`, into `partners` on `partners-db`), then `domains/vet-portal/` (the owners' traffic's state, `domains/vet-portal/producers/partners/owners/data.sql`, into `partners` on `partners-db`), and `vet-portal`'s derivation, `domains/vet-portal/data/derive.sql`, after the core's and the lab's loads, as the composition record sanctions it; their producers' fragments composed by `gmctl compose` from `domains/vet-portal/producers/api/portal-api/` (into `nodes/portal-api/`), `domains/vet-portal/producers/partners/owners/` with the scenario layer `compose/partners-backend/` (into `nodes/partners-api/` and `nodes/partners-backend/`, the partners' shared nodes, as no third party lists a scheduler or api node), and the scenario layer `compose/interfaces/` alone (into `nodes/interfaces/`); left out: vet-core's `pms` and `api/clinic-api`, vet-lab's `lis`, `api/lab-api`, `partners/xlab` and `partners/practices`, vet-portal's `pms`; its composition record `composition.yaml` |
 

@@ -30,7 +30,7 @@ for, not any one playground.
 | Origin | hand-written |
 | Session length | 60 minutes |
 | Brief | `brief.md` |
-| Difficulty | score 1 (1 fault instance), level easy |
+| Difficulty | score 1 (1 fault instance); targets easy |
 | Aging | 8h at least; hand-over designed for 14:00, scenario time |
 | Domains | `vet-core` (variant `regional-franchise`, at `records/clinic`) and its part `vet-scheduling` (at `records/clinic`), for provenance: the business's data loaded from `domains/vet-core/` then `domains/vet-scheduling/`, and their producers' fragments composed by `gmctl compose` from `domains/vet-core/producers/api/clinic-api/` (into `nodes/clinic-api/`), `domains/vet-core/producers/pms/` and `domains/vet-scheduling/producers/pms/` with the scenario layer `compose/pms/` (into `nodes/pms/`), and the scenario layer `compose/interfaces/` alone (into `nodes/interfaces/`); its composition record `composition.yaml` |
 

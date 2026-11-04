@@ -75,8 +75,9 @@ reconcile by hand. A hand-written note that belongs to the GM goes to
    Two exceptions: a node's parameter whose value is a map is rendered by
    its `shape`, read from the pinned brick's `brick.yaml` (see
    "Map-valued parameters" below); and a database node's jobs are read
-   from its seed `crontab`, its seed `postgresql.conf` and its data file
-   (see "The v0.4 items" below).
+   from its seed `crontab`, its seed `postgresql.conf`, its data file and
+   the `data/cron.sql` of each domain `domains:` places on it (see "The
+   v0.4 items" below).
 3. **Copy [template.md](template.md)** to `scenarios/<id>/README.md` and
    fill it top to bottom. Each section names the keys it comes from.
    Repeat a block once per entry where its comment says so, in the order
@@ -105,7 +106,8 @@ reconcile by hand. A hand-written note that belongs to the GM goes to
      with each of its parts as mapped; every governance class with its
      locations, separation, readers and outbound flows, and the policy
      file; every database node's crontab roles and each of its jobs
-     (every crontab entry, every `pg_cron` job its data file schedules);
+     (every crontab entry, every `pg_cron` job its data file schedules,
+     and from v0.5 every one a domain's `data/cron.sql` schedules there);
      every check's `judges` and threshold;
    - every value matches its key (versions pinned, knobs' initial values
      and envelopes, reservations, placement);
@@ -201,9 +203,18 @@ the v0.3 document, unchanged.
   written, the role it connects as, its database, what it runs) and each
   `pg_cron` job its data file schedules with `cron.schedule_in_database`
   (name, schedule, `username`, database, command), with `pg_cron`'s
-  metadata database and `cron.timezone` as the seed writes them. This is
-  the one place those files are read, for this alone: a job no runner
-  lists is often a finding, so the GM must see them here.
+  metadata database and `cron.timezone` as the seed writes them. From
+  v0.5, a composed domain's jobs too: every entry of `domains:` whose
+  `at:` places it on the node (a domain shipping a `data/cron.sql` sits
+  on one node, spec D405) adds the `cron.schedule_in_database` calls of
+  the catalog's `domains/<id>/data/cron.sql`, after the data file's, in
+  `domains:` order; `load-data` schedules them after the domain's load,
+  as `postgres` in the node's `cron.database_name`. Their database is the
+  domain's, renamed as `at:` maps it. The jobs line names the domain's
+  `data/cron.sql` and says "(its data file schedules none)" when the data
+  file schedules none. This is the one place those files are read, for
+  this alone: a job no runner lists is often a finding, so the GM must
+  see them here.
 - **A check judging runs or triggers**: under the sealed check, what it
   judges (`runs` or `triggers`) since the judged moment and its threshold,
   as the answer key writes them.
