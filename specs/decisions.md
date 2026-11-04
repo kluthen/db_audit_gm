@@ -975,3 +975,18 @@ D337, D341 and D371 were reserved and never used). Take the next number from
   history and the live round alike.** The spec ties only a
   consultation's vet to the rota. Now in:
   [vet-core](versions/v0.5/vet-core-domain.md) (Loading).
+- **D393 (2026-11-04, chunk 9's third stop): The history's
+  administrations stand at the build's 61 241, about 60 000, the range
+  1–70 000 and the load's cap kept; the live round gives each active
+  line's doses at its frequency (every 4, 12 or 24 hours), as the
+  history does, about 210 a day.** One dosing model in the history and
+  live keeps the ramp ending at the live rate (D279). Now in:
+  [vet-core](versions/v0.5/vet-core-domain.md) (volumes, jobs); MR1, T65.
+- **D394 (2026-11-04, the same stop): D388's every-shift rule binds each
+  section's nurses and technicians; the carers keep the same cycle, 57–60
+  horse, 61–62 farm, 63–66 domestic, the farm's two holding two phases a
+  week and its nurses the rest; a care event's carer is of the unit's
+  section, not matched against the rota.** Ten carers can't fill four
+  phases in three sections, and two can't hold days and lates daily.
+  Now in: [vet-scheduling](versions/v0.5/vet-scheduling-domain.md) (the
+  rota's pattern); [vet-housing](versions/v0.5/vet-housing-domain.md).

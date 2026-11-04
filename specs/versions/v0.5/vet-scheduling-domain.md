@@ -8,7 +8,8 @@ wins where the two disagree. Amended in wave 2 of the build
 (D376); the rota's pattern and the history's absences are the core's
 `core_shifts`, the consultations and exchanges its `core_consultation`
 and `core_exchange` (D374); a duty vet a section at the weekend
-(D384), the nurses' cycle and the history's absences (D388).
+(D384), the nurses' cycle and the history's absences (D388); the
+every-shift rule the nurses', the carers' cover (D394).
 Steps 1 to 9 drafted in one pass on 2026-11-03 at the owner's instruction
 ("start an agent for each part, and let them come back with problems
 once they're done"), in parallel with `vet-housing`, `vet-machinery` and
@@ -762,9 +763,14 @@ Sunday's), so each section has a vet from 08:00 to 20:00 every day and
 the night vet after; a surgeon and an anaesthetist on call
 each night; nurses and carers in day, late and night shifts around the
 clock (day 07:00–15:30, late 13:30–22:00, night 21:30–07:30), on a
-four-week cycle staggered by id (a day week, a late week, a night week,
-then late on Wednesday and Thursday and day at the weekend), each
-section's every shift of every day held (D388); reception
+four-week cycle staggered by id, phase `(id + week) mod 4`: day Monday
+and Tuesday and night Thursday to Sunday; night Monday to Wednesday and
+late at the weekend; late Monday to Friday; day Wednesday to Sunday
+(D388). Each section's every shift of every day is held by its nurses
+and technicians (D388); the carers follow the same cycle, so the
+horse's four (57–60) and the domestic's four (63–66) hold every shift
+too, and the farm's two (61, 62) two of the four phases each week, the
+farm's other shifts held by its nurses alone (D394); reception
 Monday to Saturday; the lab's staff alternating day and late weeks on
 the bench's hours, with its on-call nights; the imaging vets and the
 radiographers their own on-call; instructors on four weekdays of five,

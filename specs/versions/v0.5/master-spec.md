@@ -1089,8 +1089,8 @@ sized for three, every ratio kept:
 | Axis | `regional-franchise` |
 |---|---|
 | Population at load | 6 sites, 3 sections, 85 staff (30 vets and specialists), 10 000 owners (200 holdings, 700 horse owners or stables), 400 referring practices with two vets each, 17 000 animals (14 600 domestic, 1 400 horses, 1 000 farm animals in 200 herds), about 40 in hospital |
-| History | one year: about 25 000 consultations, 15 000 prescriptions (37 000 lines), 70 000 administrations, 17 000 requests, 2 500 stays, 700 exchanges; about 0.28 million rows |
-| Throughput | about 85 consultations a day (60 scheduled, 12 in hospital, 10 emergencies, 3 herd visits on average), 13 new owners and 20 new animals, 240 administrations, 50 prescriptions, 55 requests; about 760 new rows and 450 updates a day |
+| History | one year: about 25 000 consultations, 15 000 prescriptions (37 000 lines), about 60 000 administrations, 17 000 requests, 2 500 stays, 700 exchanges; about 0.28 million rows |
+| Throughput | about 85 consultations a day (60 scheduled, 12 in hospital, 10 emergencies, 3 herd visits on average), 13 new owners and 20 new animals, 210 administrations, 50 prescriptions, 55 requests; about 760 new rows and 450 updates a day |
 
 **The growth curve.** Every daily volume of the history ramps linearly from
 about 60 % of today's live rate a year ago to today's, the weekday and hour
@@ -1156,7 +1156,7 @@ modality shares. Their formulas are written into the GM notes at the build.
 | 26–28 | vets, specialty diagnostic imaging (`vet-machinery`'s reporters) | `vet` |
 | 29–51 | the sections' nurses and technicians, kind and section by id | `nurse`, `technician` |
 | 52–55, 56 | radiographers; the biomedical engineer | `technician` |
-| 57–66 | carers and grooms | `carer` |
+| 57–66 | carers and grooms: 57–60 horse, 61–62 farm, 63–66 domestic | `carer` |
 | 67–70 | receptionists | `reception` |
 | 71–78 | the lab's technicians | `lab` |
 | 79–80 | the lab's clinical pathologists | `vet`, specialty clinical pathology |
@@ -1242,7 +1242,7 @@ written, a national figure one member state's, a *game value* a choice.
 |---|---|
 | Volume streams | `owners.register` 1.6/h (13; 86 % domestic, 8 % horses, 6 % farm), `animals.register` 0.86/h (7), `referrals.receive` 1.82/h (13), `consultations.emergency` 0.42/h (10, a third at night), `consultations.herd-visit` 2.1/h Tuesday and Thursday mornings (3), `consultations.ward` 3/h (12), `stays.admit` 0.34/h (8), `stays.discharge` 2.67/h late mornings (8: 90 % discharged, 4 % transferred with an outbound exchange, 6 % died), `alerts.record` 0.6/h, `ownerships.transfer` 0.37/h, `requests.cancel` 0.12/h (`requested` only), `exchanges.request` 0.1/h; scheduled consultations have no stream, the bookings purpose's check-in opening them (about 60) |
 | Work streams (capacities) | `consultations.close` 40/h (1.2 diagnoses, a procedure in three in ten, 0.65 requests, a prescription in six in ten), `consultations.sign` 20/h, `referrals.accept` 6/h, `referrals.close` 4/h, `exchanges.decide` 2/h, `exchanges.report` 2/h |
-| Jobs | `administrations.round` `0 2,6,10,14,18,22 * * *` (about 40 doses, one in a hundred missed by a hash of its id); `prescriptions.expire` `15 0 * * *` (the GM may move it to `pg_cron`) |
+| Jobs | `administrations.round` `0 2,6,10,14,18,22 * * *` (about 35 doses, each active line's at its frequency, one in a hundred missed by a hash of its id); `prescriptions.expire` `15 0 * * *` (the GM may move it to `pg_cron`) |
 | Shapes | `clinic-day` (weekdays 08:00–20:00, peak late afternoon; Saturday mornings), `office`, `herd-days`, `ward-rounds`, `around-the-clock`, `discharges`, `signing`, `flat`; variation by a hash of the row's id, never `random()` |
 
 **In flight at T0**: about 40 current stays, their next round planned; the

@@ -11,7 +11,8 @@ species and codes (D379); the code catalogues their parts' (D372,
 D373); the weekend cover and the absences in `core_shifts` (D384,
 D388), the requests per consultation (D385), draws from an id without
 a period (D386), `MINH`'s line, the inbound exchanges and `given_by`
-(D389–D391), the load's expected time (D387). Steps 2 to 8 are done: the business sketch ruled (D266, D278), its first
+(D389–D391), the load's expected time (D387); the administrations'
+volume and the round's dosing (D393), the carers by section (D394). Steps 2 to 8 are done: the business sketch ruled (D266, D278), its first
 answer revised by one centre per scenario (D285); the split confirmed
 (D279), the parts one centre's (D293); the data model current at one
 centre's scale (D279, D280, D295), `requests` revised by `vet-lab`'s
@@ -141,7 +142,7 @@ the shop holds about 1.3 million rows, the core stays well under it.
 **History**: one year of a clinic that grew through it (D279): each
 daily volume ramps from about 60 % of today's rate a year ago up to
 today's, so the year holds about 25 000 consultations, 15 000
-prescriptions (37 000 lines) and 70 000 administrations, and the
+prescriptions (37 000 lines) and about 60 000 administrations (D393), and the
 players can see the growth in the data.
 
 **Throughput**, in real-world rates during the game:
@@ -151,7 +152,7 @@ players can see the growth in the data.
 | Consultations | about 85 a day, 10 of them emergencies |
 | New owners, new animals | about 13 and 20 a day |
 | New referring practices | a few a month |
-| Administrations | about 240 a day: 40 animals, a dose every four to eight hours |
+| Administrations | about 210 a day: 40 animals, each active line's doses at its frequency, every 4, 12 or 24 hours (D393) |
 | Prescriptions | about 50 a day |
 
 **A few stand for many** (D263), read for one centre: the centre is
@@ -436,14 +437,14 @@ cite ([procedure](domain-procedure.md) 10).
 |---|---|---|
 | `sites.id` | 1–6 | 1 the centre (`own`), 2–3 the other national centres, 4–6 abroad |
 | `sections.id` | 1–3 | 1 horse, 2 farm, 3 domestic, all the centre's |
-| `staff.id` | 1–85 | one layout (D324, D327): 1–25 the sections' vets (1–10 horse, 11–17 farm, 18–25 domestic, eight instead of eleven so the imaging staff fit, specialties by id); 26–28 vets, specialty diagnostic imaging (`vet-machinery`'s reporters); 29–51 the sections' nurses and technicians (kind and section by id); 52–55 radiographers and 56 the biomedical engineer (`kind` `technician`); 57–66 carers and grooms (`kind` `carer`); 67–70 receptionists; 71–78 the lab's technicians (`kind` `lab`), 79–80 its clinical pathologists (`kind` `vet`, specialty clinical pathology, D302); 81–85 instructors. Kind, section and specialty a function of the id; the night vet rotates over 1–25, the imaging vets 26–28 keeping their own on-call ([vet-scheduling](vet-scheduling-domain.md)'s rota, D339) |
+| `staff.id` | 1–85 | one layout (D324, D327): 1–25 the sections' vets (1–10 horse, 11–17 farm, 18–25 domestic, eight instead of eleven so the imaging staff fit, specialties by id); 26–28 vets, specialty diagnostic imaging (`vet-machinery`'s reporters); 29–51 the sections' nurses and technicians (kind and section by id); 52–55 radiographers and 56 the biomedical engineer (`kind` `technician`); 57–66 carers and grooms (`kind` `carer`; 57–60 horse, 61–62 farm, 63–66 domestic, D394); 67–70 receptionists; 71–78 the lab's technicians (`kind` `lab`), 79–80 its clinical pathologists (`kind` `vet`, specialty clinical pathology, D302); 81–85 instructors. Kind, section and specialty a function of the id; the night vet rotates over 1–25, the imaging vets 26–28 keeping their own on-call ([vet-scheduling](vet-scheduling-domain.md)'s rota, D339) |
 | `owners.id` | 1–10 000 | 1 the clinic (the teaching animals, below); 2–201 holdings; 202–901 horse owners and stables; 902–10 000 pet owners |
 | `herds.id` | 1–200 | herd `h` kept by owner `h + 1` |
 | `animals.id` | 1–17 000 | 1–14 600 domestic; 14 601–16 000 horses; 16 001–17 000 farm animals, in herd `1 + (id − 16 001) mod 200`; each animal's species a function of its id; the teaching animals 1–12 (dogs) and 14 601–14 608 (horses), owned by owner 1 from before the history, never patients (D317); the history's deaths (which animals, when) a function of the id (D317) |
 | `referring_practices.id` | 1–400 | |
 | `referring_vets.id` | 1–800 | two per practice |
 | `medicines.id` | 1–400 | antimicrobials and controlled drugs flagged |
-| History | `consultations` 1–25 000, `prescriptions` 1–15 000, `administrations` 1–70 000, `exchanges` 1–700, the others as loaded | in time order over the year; each consultation's kind, section, vet and start a function of its id, a scheduled one's `booking_id` its own id and its vet one the rota's pattern puts on shift ([vet-scheduling](vet-scheduling-domain.md), step 6; D317) |
+| History | `consultations` 1–25 000, `prescriptions` 1–15 000, `administrations` 1–70 000 (about 60 000 used, D393), `exchanges` 1–700, the others as loaded | in time order over the year; each consultation's kind, section, vet and start a function of its id, a scheduled one's `booking_id` its own id and its vet one the rota's pattern puts on shift ([vet-scheduling](vet-scheduling-domain.md), step 6; D317) |
 | `stays.id` | 1–2 500 | each stay's animal, section, admitted at, discharged at and outcome a function of its id, and the infectious alert current on it (from, until) a function of the stay's id (D319, D322); at any time about 14 horses, 6 farm animals and 20 domestic animals of the 40 current, never more current stays in a section than its units in service (21 horse, 10 farm, 31 domestic, species fitting; D318) |
 | `requests.id` | 1–17 000 | each request's kind (about one in five imaging), test code, priority, consultation, animal and time computed from its id, documented in the GM notes, so `vet-lab`'s load computes the same and groups a consultation's analysis requests into one order, without reading the core (D302); an imaging request's study code one of `vet-machinery`'s 30 procedure codes, drawn by the documented function of its id among those valid for the animal's species group (1–12 domestic, 13–27 horses and farm but 26 and 27 horses only, 28–30 any), at that page's modality shares (D319, D373); the codes and their draw are [the lab's test catalogue](vet-lab-domain.md#the-test-catalogue-d372) and [the machinery's procedure catalogue](vet-machinery-domain.md#the-procedure-catalogue-d372-d373) (D372) |
 
@@ -600,7 +601,7 @@ its roles the purposes' (D320).
 | Exchanges | about 700 | about 2, either way |
 | Medicines, batches | 400, about 700 | none |
 | Prescriptions and lines | 15 000 and 37 000 | 50 prescriptions |
-| Administrations, dispensings | 70 000 and about 22 000 | about 240 administrations, 75 dispensings |
+| Administrations, dispensings | about 60 000 and about 22 000 | about 210 administrations, 75 dispensings |
 | **Total** | **about 0.28 million rows** | **about 570 rows** |
 
 Under the shop's 1.3 million rows, so within "the data schema stays
@@ -618,7 +619,7 @@ drafted, the figures one centre's (D295):
    whole herds.
 2. **Growth, history against live.** The clinic grew through the
    year: each daily volume ramps from about 60 % of today's rate to
-   today's (about 145 to 240 administrations a day), the trend visible
+   today's (about 125 to 210 administrations a day, D393), the trend visible
    in the data; the GM notes compare history and live volume so
    (D276).
 3. **Staff.** About 85 for one centre, 30 of them vets and
@@ -920,7 +921,7 @@ Fixed-time operations (`jobs.yaml`, scenario time):
 
 | Job | When | What |
 |---|---|---|
-| `administrations.round` | `0 2,6,10,14,18,22 * * *` | the round: every scheduled administration due is given (one in a hundred missed, by a hash of its id), then the next round's are planned for each current stay with an active line: about 40 a round, 240 a day |
+| `administrations.round` | `0 2,6,10,14,18,22 * * *` | the round: every scheduled administration due is given (one in a hundred missed, by a hash of its id), then the next round's are planned, each active line's doses at its frequency (every 4, 12 or 24 hours, as in the history, D393): about 35 a round, 210 a day |
 | `prescriptions.expire` | `15 0 * * *` | antimicrobial prescriptions past five days expired (D280, rule 1), the others past their days |
 
 `prescriptions.expire` is light, set-based work: the GM may move it to
