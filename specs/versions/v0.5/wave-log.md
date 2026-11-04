@@ -4078,3 +4078,34 @@ approved figures.
   table now has the row.
 - **Unchanged**: item 2's tables and states, ids, slot function
   signature, booking horizon and fixture.
+
+### Chunk 13's stop settled; chunk 30 inserted, 2026-11-04
+
+`spec-writer`: plan v11 (52dcaf0), spec D408 to D414; its "W3 item 2,
+revised" note above. The driver's lean (the core drawing a free vet) does
+not fit: even an optimal assignment leaves 1 474 domestic scheduled
+consultations (11 %) with no section vet free (weekdays 17:00–20:00,
+09:00–10:00, Saturday mornings); re-timed shifts still leave 1 382 to
+1 920. D408: the history's scheduled consultations sit on half-hour
+slots, each slot taking the section's covering vets and its consultation
+spaces in id order, the rest dropped (666, about 3.8 %; attended bookings
+about 16 700); T100's witness reads scheduled consultations only. D409:
+chunk 30 inserted ahead of chunk 13 (`coding-executor`; `9 ──> 30`,
+`30 ──> 13` in wave; W3-g); wave 3 holds seven chunks, one past the
+model's six. D410: 30-minute types; the consultation spaces; the farm's
+rooms Monday to Friday 08:00–16:00. D411: the rota planned to the end of
+the seventh week ahead, the week after next published, the slot function
+reading both. D412: `sched_free_slots` carries the core's staff layout,
+checks teaching animals free and returns none. D413: `core_exchange`
+gains `reason` and `partner_species`. D414: `vet_reports` granted every
+`sched_` table (W3 item 0 stands; the domain's grants table corrected).
+
+Peeks for the inserted chunk: no intent register (no `documentalist`), no
+data register, no dependency (no `security-advisor`). Running chunks 12,
+14, 15: no code change (core ids through the core's functions); load
+figures taken before chunk 30 are about 3 % off, superseded by the
+gate's reruns. **For the owner, information only** (no ruling asked):
+the history's agenda is capped (about 4 % fewer scheduled consultations,
+closing 25–30 minutes after they start); the farm's rooms close at 16:00,
+not 13:00. Chunk 30 waits for the next free slot (κ = 3: 12, 14, 15 in
+flight).

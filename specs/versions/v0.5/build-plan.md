@@ -1266,7 +1266,7 @@ the partners' stubs' tables on `partners-db`.
 
 ### Chunk 13 — `vet-scheduling`, bookings, rota and the training centre
 
-Status: blocked (on the core's vet draw overlapping, wave log 2026-11-04)
+Status: blocked (on chunk 30, spec D409; restarts once it has merged)
 Wave: 3
 Depends on: chunks 4, 8 and 9 (waves 1 and 2); chunk 30, merged into
 `v0.5-w3` before this chunk's branch is cut (spec D409)
