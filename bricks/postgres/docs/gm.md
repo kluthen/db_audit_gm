@@ -762,6 +762,66 @@ v0.5. Which instances archive and send a base backup is the scenario's
   `last_failed_wal`), the server log, `cron/basebackup.log`, and cold
   storage's manifests and page (each manifest names its node).
 
+### The partners' database: `partners-db`'s `pg_hba.conf`
+
+A scenario's third parties share one small `postgres` node, `partners-db`
+(`no-access`), holding the database `partners`, each partner's role and
+schema its own (v0.5 master spec 10.2; capture W2 item 1, W2-f;
+[`partners/README.md`](../../../partners/README.md)). Its seed
+`pg_hba.conf` is the catalogue's
+[`partners/shared/partners-db/pg_hba.conf`](../../../partners/shared/partners-db/pg_hba.conf),
+the partners' line filled by the GM. It departs from "What the seed
+files must contain" in one way: no players' access, no `dba` line.
+
+- **The form**: the GM's DO NOT TAMPER `local` lines (as every seed),
+  then one line for the partners, then a reject:
+
+  ```
+  local   all       postgres                          peer
+  local   replication postgres                        peer
+  local   all       gm_check                          scram-sha-256
+  host    partners  <the partners' roles, comma-separated>    samenet     scram-sha-256
+  host    all       all                   all         reject
+  ```
+
+  The roles are exactly those the partners' nodes connect as: each
+  composed partner's prefix (`producers/partners/<prefix>/`),
+  `coldstore` when the scenario has a vault, `owners` for the owners'
+  traffic (spec D369).
+- **No `gm_check` host line** (access model 8; spec D383): the check
+  role reaches every instance in the players' scope, not the partners'
+  from the network. It still reads `partners` over the node's local
+  socket: a coherence check whose `reads` names `partners` runs on
+  `partners-db` itself, and a derivation or a history reading
+  `partners` from another node is refused at plan time.
+- **Measured** on one Swarm network (`fixture-partners`' short test on
+  armenelos, Docker 29, one host, 2026-11-04):
+  - every other role is refused from the network by `pg_hba.conf`
+    itself, with or without its password: `dba`, `postgres`,
+    `gm_check`, and a partner's own role on any other database
+    (`pg_hba.conf rejects connection for host ...`);
+  - `samenet` covers the game network and the host's `docker_gwbridge`
+    (the server's two subnets, `10.0.1.0/24` and `172.18.0.0/16` in the
+    run): a partner's role with the right password gets in even from the
+    bastion;
+  - through a service name (the node's virtual address) every client on
+    a host arrives from the network's load-balancer address
+    (`<network>-endpoint`, `10.0.1.10` in the run): the bastion and
+    `partners-api` look the same to the server;
+  - through `tasks.partners-db` a client arrives from its task's
+    address, which changes when the task restarts (`10.0.1.3` to
+    `10.0.1.11`); no address form tells the partners' nodes apart;
+  - a host-name line never matches: Swarm's reverse lookup of a task's
+    address names the task (`<game>_<node>.<slot>.<task
+    id>.<game>_<network>`) and the load-balancer address has none, so
+    `host partners <roles> partners-api scram-sha-256` refuses
+    `partners-api` itself.
+- **The guard is the password**: each partner role's password is a
+  secret render mounts on the partners' nodes only (`partners-api`,
+  `partners-backend`), never on the bastion or a player's node; every
+  other role is rejected by the file (access model 13's known gap, now
+  measured).
+
 ## Connections
 
 The brick provides two interfaces and consumes none (`interfaces.consumes:

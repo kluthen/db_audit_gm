@@ -101,7 +101,9 @@ Measured by `fixture-partners`' short test on armenelos, 2026-11-04
   the load-balancer address has none, so `host partners <roles>
   partners-api scram-sha-256` refuses `partners-api` itself.
 
-The form joins `bricks/postgres/docs/gm.md` at wave 2's gate.
+The form and these figures are also in `postgres`' GM notes,
+[`bricks/postgres/docs/gm.md`](../bricks/postgres/docs/gm.md) ("The partners'
+database: `partners-db`'s `pg_hba.conf`").
 
 ## Cold storage, the vault (`coldstore/`)
 
