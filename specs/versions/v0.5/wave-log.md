@@ -3986,3 +3986,239 @@ composed load).
   unresolved. formats.md and master spec 5: G17, after the gate.
 
 Chunk 15 takes the slot.
+
+### W3 item 2, revised: chunk 13's stop settled (spec D408–D414), 2026-11-04
+
+Written by `spec-writer` from chunk 13's report, before chunk 30 and
+chunk 13's restart; plan v11. Where it differs from W3 item 2 or item
+0, it wins for chunks 13, 20, 21 and 30. The column-level text is in
+[vet-scheduling-domain.md](vet-scheduling-domain.md) ("The history on
+the agenda", "An inbound examination's booking", `sched_types`, the
+rooms' hours, `sched_free_slots`, the rota's lifecycle) and
+[vet-core-domain.md](vet-core-domain.md) ("The key functions"). Chunk
+30 records its as-built outcome as **W3-g**.
+
+Why the vet draw alone could not be fixed: on the core as merged
+(reference T0 2026-11-04 09:50 at +2, 17 395 scheduled consultations),
+even an optimal assignment of free section vets leaves 1 474 domestic
+scheduled consultations (11 %) with no vet free at their drawn times
+and lengths, and at 1 380 starts more domestic consultations are under
+way than all 25 section vets on shift: the domestic demand at weekday
+17:00–20:00, 09:00–10:00 and Saturday mornings exceeds the rota's vets.
+Re-timing the domestic shifts does not help (1 382 to 1 920 left), nor
+does option 2 (the booking's vet differing), which meets the same lack
+of vets. So the history caps the agenda, the only draw within the
+approved figures.
+
+- **(a) The agenda (D408; chunk 30 writes it, 13 reads it).** A
+  scheduled consultation sits in the half-hour slot (on the hour or
+  the half-hour, local) of its drawn time; the section's scheduled ones
+  of that slot, in id order, take its vets on a `day` shift covering
+  the slot with no absence, in an order hashed by the slot, while both
+  a vet and a consultation space are left (domestic 4, horse 3, farm
+  2); past that, no row. Started in the slot's first five minutes,
+  closed by its end. Measured on the same T0 as a half-hour count: 666
+  fewer (domestic 616, horse 35, farm 15), about 3.8 %. An unbooked
+  consultation takes an on-shift vet with no placed scheduled
+  consultation over it when one exists (all but about 110 emergencies a
+  year at the evening peak, which keep the present draw).
+- **(b) The attended bookings (D408, D410; chunk 13).** Booking `id` =
+  the consultation's; `starts_at` the slot's start, `ends_at` 30
+  minutes later; the vet allocation the consultation's `vet_id`; the
+  room the section's consultation space of the consultation's rank
+  among the slot's placed ones (id order; domestic 1–4, horse 8, 9, 10,
+  farm 12, 13); arrived at its `started_at`. The cancelled and no-show
+  consultation bookings (25 001–28 000), the theatre plans, imaging
+  bookings, blocks and session days are placed by the part's load in
+  what the agenda leaves free, a no-show's allocations live, a
+  cancelled one's released. The four exclusion constraints exist before
+  the load runs.
+- **(c) Consultation types and spaces (D410).** Every consultation type
+  30 minutes, on its room's half-hour grid; a type's room kind is its
+  section's consultation spaces as in (b); the procedure room and the
+  theatres take no consultation, but the farm's standing-surgery
+  theatre (13) is both a space and a theatre, so a farm theatre plan
+  avoids its consultations. The farm's rooms open Monday to Friday
+  08:00–16:00 (the core's farm consultations run to 16:00).
+- **(d) The rota (D411; corrects item 2's "The rota's published
+  weeks").** The load writes every shift from the history's first week
+  to the end of the seventh week after the week of the last Friday
+  12:00 before T0, `published_at` set (that week's Friday 12:00) on the
+  weeks published by then (to the end of the week after next from that
+  Friday), null on the later ones, which are planned. Each Friday
+  12:00, `sched.rota.publish` generates the seventh week after the
+  current one as planned shifts and publishes the week after next,
+  removing first its planned shifts a live absence covers; both steps
+  idempotent on (`staff_id`, `starts_at`). `sched_shifts.id` 1–24 000.
+  `sched_free_slots` reads planned and published shifts alike, so the
+  42-day horizon always meets the rota. Purpose 12 reads published,
+  clocked shifts only.
+- **(e) The slot function (D412).** Signature as item 2. A staff
+  member's kind, section and specialty from the core's layout copied
+  into its text (`core_staff`'s CASE, the GM notes saying the two are
+  one formula, as for the rota), never from the core's `staff`. For a
+  session type it returns a slot only when the course's number of
+  teaching animals of its species are free within their limits; it
+  returns no animal; the caller picks them (the lowest ids free), the
+  animals' exclusion constraint the guard.
+- **(f) The inbound examinations (D413; chunk 30 the function, 13 and
+  21 the mapping).** `core_exchange` gains `reason` and
+  `partner_species`, the values the core's load writes; the machine by
+  reason and species as vet-scheduling's "An inbound examination's
+  booking" maps it; a second opinion or an endoscopy a consultation
+  booking of the species' section. Purpose 11's `book-requests` reads
+  `exchanges.reason` and the species in `partner_patient` and maps
+  alike.
+- **(g) Grants (D414; corrects chunk 13's reading, item 0 stands).**
+  Master spec 9.2 and vet-core's grants give `vet_reports` the tables
+  of the parts in `clinic`, granted by their schemas: scheduling's
+  `schema.sql` grants `SELECT` on every `sched_` table to `vet_reports`
+  inside a `DO` block when the role exists (not in a database of its
+  own on an instance without the core). The domain document's grants
+  table now has the row.
+- **Unchanged**: item 2's tables and states, ids, slot function
+  signature, booking horizon and fixture.
+
+### Chunk 13's stop settled; chunk 30 inserted, 2026-11-04
+
+`spec-writer`: plan v11 (52dcaf0), spec D408 to D414; its "W3 item 2,
+revised" note above. The driver's lean (the core drawing a free vet) does
+not fit: even an optimal assignment leaves 1 474 domestic scheduled
+consultations (11 %) with no section vet free (weekdays 17:00–20:00,
+09:00–10:00, Saturday mornings); re-timed shifts still leave 1 382 to
+1 920. D408: the history's scheduled consultations sit on half-hour
+slots, each slot taking the section's covering vets and its consultation
+spaces in id order, the rest dropped (666, about 3.8 %; attended bookings
+about 16 700); T100's witness reads scheduled consultations only. D409:
+chunk 30 inserted ahead of chunk 13 (`coding-executor`; `9 ──> 30`,
+`30 ──> 13` in wave; W3-g); wave 3 holds seven chunks, one past the
+model's six. D410: 30-minute types; the consultation spaces; the farm's
+rooms Monday to Friday 08:00–16:00. D411: the rota planned to the end of
+the seventh week ahead, the week after next published, the slot function
+reading both. D412: `sched_free_slots` carries the core's staff layout,
+checks teaching animals free and returns none. D413: `core_exchange`
+gains `reason` and `partner_species`. D414: `vet_reports` granted every
+`sched_` table (W3 item 0 stands; the domain's grants table corrected).
+
+Peeks for the inserted chunk: no intent register (no `documentalist`), no
+data register, no dependency (no `security-advisor`). Running chunks 12,
+14, 15: no code change (core ids through the core's functions); load
+figures taken before chunk 30 are about 3 % off, superseded by the
+gate's reruns. **For the owner, information only** (no ruling asked):
+the history's agenda is capped (about 4 % fewer scheduled consultations,
+closing 25–30 minutes after they start); the farm's rooms close at 16:00,
+not 13:00. Chunk 30 waits for the next free slot (κ = 3: 12, 14, 15 in
+flight).
+
+### Chunk 12 — 12a built, paused before 12b, 2026-11-04
+
+Owner paused at about 160k tokens. Branch `v0.5-c12-vet-lab` (worktree
+kept): 12a `1e6431c`, then `c441776` merging `v0.5-w3` (chunk 29 in, the
+log to 557e803). The two stubs' `data.sql` moved into 12a
+(`check_domain_dir` and `test_catalog_domains_are_complete` need the
+`producers/` folder). Loads in a throwaway `postgres:0.5.0`, keys
+streamed by hand: +2 71 s, 54 MB, 330 077 rows; shift 0 64–70 s, 329 916
+rows; each stub's `data.sql` about 60 s (xlab 8 open send-outs; practices
+39 orders, 12 deliveries). The five coherence checks clean by hand (one
+fix in `keys.sql`: two lab cancellations after the core's
+`cancelled_at`). Unit tests `test_model`, `test_coherence`, `test_inject`,
+`test_compose`: 613 OK, 2 skipped.
+
+W3-a so far (the 12a owner's): one pass, `pg_temp.lab_order_tests(load_epoch,
+utc_offset)` (about 60 s, 17 000 `core_request` calls), called once by the
+load and once by each stub; `lab_order(n, …)` and `lab_send_out(n, …)`
+lookups over it (about 60 s each, a GM's query, not a loop);
+`lab_catalogue()`, `lab_delivery(accession, kind, revision, event_at)`;
+`send_key = md5('vet-lab-send-out:'‖id)::uuid`; `delivery_key =
+md5('vet-lab-delivery:'‖accession‖':'‖kind‖':'‖revision)::uuid::text`; the
+external accession `NL` 400000 + n, codes `NL-<code>`, labels `ALD` + 8
+digits; `client_ref` `C-<consultation>-<priority>` (centre),
+`<YYMMDD>-<m>` (practices); `lab_order_tests` gains `not_performed_at`,
+`cancelled_at`; `lab_orders` has no status column (state from its times);
+amendments by `supersedes_id`, `amended_by`, `amended_at`,
+`amendment_reason`; indexes `(account_id, client_ref)`, `released_at`
+(T78, T80 baselines); the centre's last-24-hour tests unreleased at T0 (32
+technical, 14 in progress, 8 sent out), purpose 1's first backlog; stubs
+as W3 item 1 (`practices.orders.tests` `text[]`, `xlab.orders.age` whole
+years; open items only; `delay_ms` 0; roles LOGIN); `lab_callbacks` about
+9 500 rows keyed by `lab_delivery` (chunk 18); `lab_charges` kinds `test`,
+`handling`, `urgent`, `billable_on` a local date, `voided_at`, fees in
+`lab_settings` (chunk 20). Risk: a composed load pays the pass three
+times (about 3 minutes on top of the core's 89 s).
+
+Deviations, sent to `spec-writer` (documents to as-built): `lab_samples`
+about 20 800, not 1–18 000 (the core's centre orders give 11 777 alone);
+figures below the document's "about" (open send-outs 8 not about twenty,
+results about 161 000 not 192 000, batches 9 776 not 22 000, intervals
+61–456, 457–460 unused); column grants beyond the read list
+(`lab_instruments` on `lab_orders (id, species, priority)` and
+`lab_tests (id, code, discipline)`; `lab_dispatch` the catalogue). A fresh
+owner resumes 12b.
+
+### vet-lab's document to 12a as built (D415), 2026-11-04
+
+`spec-writer` (7b2783d): `vet-lab-domain.md` and master spec 9.3 —
+`lab_samples` about 20 800, no fixed range; results about 161 000 (range
+1–192 000 kept, the sequence set after it), batches about 9 800,
+intervals 61–456 in force, about eight send-outs open at T0 (the
+practices'); sample events about 63 000; the load about 0.33 million
+rows; `lab_instruments` and `lab_dispatch` grants as built. No trap or
+fault witness quotes them. **For wave 4's capture (chunk 18)**:
+`clinic-purposes.md` SO4 still reads "about twenty send-outs in flight at
+T0"; it should read about eight, the practices', so the answer leg has
+little to judge at T0 until new send-outs arrive. Left as is: QC runs
+7 861 (document 7 000), amendments 813 ("a thousand").
+
+### Chunk 15 — 15a built, 15b paused at WIP; usage limit, 2026-11-04
+
+Chunk 15's owner paused on context (and long waits on the host lock):
+branch `v0.5-c15-vet-machinery`, 15a `c95523a` (complete: three
+databases, loads, classification, register, rules, 7 coherence checks, GM
+notes, `parts:`, README row), 15b WIP `d60e472` (`equipment`'s
+fragments, `scripts/lookup.py`, `data/cron.sql`). Not merged. Loads
+(throwaway `postgres:0.5.0`, keys streamed by hand): +2 50.8 s (pacs
+40.1, vitals 9.1, biomed 1.6), 282 020 rows, 75.4 MB; shift 0 50.3 s,
+291 087 rows, 76.3 MB. Coherence clean by hand. Related unit tests 511
+OK, 2 skipped. **O227 settled: 11 machines reporting** (machine 10 a
+status row a minute with empty channels, 48 bytes against 116.5; about 70
+kB on a 2.4 MB readings day; 15 840 readings a day, the spec's figure).
+
+W3-d so far (chunks 21, 23): roles once in `pacs/schema.sql`; `mach_maint`
+LOGIN (pg_cron refuses a NOLOGIN role), a secret no node mounts;
+`CONNECT` pacs `mach_pacs_app`, vitals `mach_vitals_app` + `mach_maint`,
+biomed `mach_biomed_app` + `mach_maint` + `mach_service`; `mach_orders`,
+`mach_archive`, `ops` left to chunk 21. Partitions `mach_vitals_<yyyymmdd>`,
+`mach_readings_<yyyymmdd>`, `mach_events_<yyyymm>`, each a `_default`;
+the load creates yesterday to today+3 and the event months to next
+month; `mach_create_partitions(days)`, `mach_drop_shipped(day)` SECURITY
+DEFINER owned by `mach`, `search_path = public, pg_temp`, over
+`mach_partition_day(d)` (biomed also `mach_partition_month(d)`), EXECUTE
+revoked from PUBLIC; biomed's creates the months its days touch;
+`mach_drop_shipped` DETACH then DROP, false when none. A history day's
+readings `sum(mach_readings_daily.rows)` (1 440 a machine-day before the
+window); vitals by the GM notes' tick count over `mach_sessions`.
+Purpose 13: `mach_worklist(accession UNIQUE, state, cancelled_at,
+cancelled_because)`, `mach_reports(kind, status, signed_at,
+supersedes_id, why)`; a history final signed 1–9 minutes before the
+core's `resulted_at`. `mach_census`: stays current at T0 plus those left
+within the window.
+
+Deviations, sent to `spec-writer`: (1) `mach_vitals_settings` and
+`mach_pacs_settings` beside biomed's `mach_settings` (names unique across
+a part's databases); (2) `mach_worklist.cancelled_at` (purpose 13's
+watermark); (3) the PACS can't read biomed's registry (another database):
+`pacs.worklist.schedule` and `pacs.study.acquire` never check a machine
+in service, a down machine's studies just wait; (4) about 2 intensive-care
+sessions a day by D377's rule (not 2.7), about 42 700 raw vitals rows a
+day (not 52 000), about 2 980 imaging requests reaching the worklist
+(not 3 400); (5) some history finals outside reporting hours (the core's
+turnaround draw).
+
+**Driver's ruling on the fixture's T0**: the shift moves whole hours and
+the minute is the clock's, so `fixture-imaging` aims within 30 minutes of
+08:50 local on a weekday (refusing to run on a weekend day), not exactly
+08:50; accepted, since the checks read jobs that run after it.
+
+**Usage limit**: chunks 12b and 14 stopped mid-work on the account's
+5-hour limit; both resumed from where they stopped once it reset. A
+fresh owner resumes 15b.

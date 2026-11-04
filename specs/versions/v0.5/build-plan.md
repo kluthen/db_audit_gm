@@ -1,6 +1,11 @@
 # db_audit_gm v0.5 — Build plan
 
-Status: v10 (2026-11-04): capture W3's preflight corrections written in
+Status: v11 (2026-11-04): chunk 13's stop settled (spec D408–D414):
+chunk 30 inserted into wave 3 ahead of chunk 13, the core's scheduled
+consultations on the agenda and `core_exchange`'s two columns; chunk
+13's scope, Done when and split rule; chunk 21's inbound examinations;
+wave 3's order.
+v10 (2026-11-04): capture W3's preflight corrections written in
 before wave 3's first chunk: chunk 29 inserted into wave 3 with G17, the
 fixtures' lists, O229 closed, the parts' `cron.sql`, the portal's key,
 wave 3's gate fixtures (spec D401–D407); chunks 12 to 16, 18 to 21, 27.
@@ -124,7 +129,7 @@ none is a gate.
 |---|---|---|---|
 | 1 | 1, 2, 3, 4, 5 | G1; G2 (done); G3, G4; G5 (chunk 3), G6 (chunk 5), G7 (chunk 4, if a package); G8 before its gate | merged into `main` (2026-11-04, 167fec0) |
 | 2 | 6, 7, 8, 9, 10, 11, 28 | wave 1; G9 (chunk 10); G10 before its gate; chunk 28 after the gate, the items it touches rerun (spec D398) | merged into `main` (2026-11-04, f89eb73) |
-| 3 | 12, 13, 14, 15, 16, 29 | wave 2 | in progress (started 2026-11-04) |
+| 3 | 12, 13, 14, 15, 16, 29, 30 | wave 2; chunk 30 before chunk 13 (spec D409): seven chunks, past the model's six, both insertions small and mid-wave | in progress (started 2026-11-04) |
 | 4 | 17, 18, 19, 20, 21 | wave 3 | planned |
 | 5 | 22, 23, 24, 25, 26, 27 | wave 4; G14 (chunk 27, only if it applies) | planned |
 
@@ -156,6 +161,9 @@ G5 ──> 3;  G6 ──> 5;  G7 ──> 4 (if a package)
 29 ──> 12               (in-wave, its composed check and fixture only: a part's
                          keys and `left_out:`, fixed by W3 items 0 and 6; spec D402)
 4, 8, 9 ──> 13
+9 ──> 30                (inserted into wave 3 after chunk 13 stopped; spec D409)
+30 ──> 13               (in-wave: the agenda's rule and `core_exchange`'s columns,
+                         fixed by "W3 item 2, revised"; spec D409)
 4, 9 ──> 14
 4, 5, 8, 9, 11 ──> 15
 29 ──> 15               (in-wave, its fixture's `cron.sql` only: W3 items 4 and 6)
@@ -211,7 +219,13 @@ since `29 ──> 12` delays no start and W3 fixes the interfaces it crosses
 (spec D402). `tools/gm/{inject,compose,model}.py` and the
 scenario-format skill are chunk 29's alone in wave 3; the five domains
 share no file but the root `README.md`'s domain table and `vet-core`'s
-variant `parts:` list (shared lists, spec D380).
+variant `parts:` list (shared lists, spec D380). Chunk 30 (spec D409)
+takes the next free slot once inserted; chunk 13 is cut from `v0.5-w3`
+once it has merged. `vet-core`'s `data/` and `docs/gm.md` are chunk
+30's alone. The other parts compute the core's ids through its
+functions, so chunk 30 changes none of their code; their load figures
+taken before it merges are superseded by wave 3's gate, which reruns
+each domain's load.
 
 Wave 4: no in-wave edge; the five chunks run as κ allows. Chunk 17 is
 the largest; it starts first.
@@ -1252,11 +1266,14 @@ the partners' stubs' tables on `partners-db`.
 
 ### Chunk 13 — `vet-scheduling`, bookings, rota and the training centre
 
-Status: blocked (on the core's vet draw overlapping, wave log 2026-11-04)
+Status: blocked (on chunk 30, spec D409; restarts once it has merged)
 Wave: 3
-Depends on: chunks 4, 8 and 9 (waves 1 and 2)
-Architecture capture: W3, for chunks 20 and 21: the bookings' tables
-and the slot function's signature; the rota's published weeks.
+Depends on: chunks 4, 8 and 9 (waves 1 and 2); chunk 30, merged into
+`v0.5-w3` before this chunk's branch is cut (spec D409)
+Architecture capture: W3 item 2 with "W3 item 2, revised" (wave log),
+for chunks 20 and 21: the bookings' tables and the slot function's
+signature; the rota's planned and published weeks; an inbound
+examination's machine.
 
 - Goal: `domains/vet-scheduling/` as
   [vet-scheduling-domain.md](vet-scheduling-domain.md) and master spec
@@ -1265,12 +1282,20 @@ and the slot function's signature; the rota's published weeks.
   through chunk 8), load, classification, register fragment, policy and
   rules; its fragments on `pms` (connection `sched`, `sched_app`); the
   slot function; its coherence queries; its variant manifest; the rota
-  and the history's absences from the core's `core_shifts`, the
-  inbound examinations from `core_exchange` (spec D374); a routine
+  and the history's absences from the core's `core_shifts`, planned to
+  the horizon and published to the week after next (spec D411), the
+  inbound examinations from `core_exchange`, their machine by its
+  reason and species (spec D374, D413); the attended consultation
+  bookings from the core's agenda, their space by rank in the slot,
+  the part's other bookings placed around it (spec D408, D410); the
+  consultation types 30 minutes on the half-hour grid, the consultation
+  spaces, the farm's hours (spec D410); the slot function's copy of the
+  staff layout and its teaching animals (spec D412); `vet_reports`'
+  guarded grant (spec D414); a routine
   imaging booking within two working days (spec D376), the imaging types
   one per section and machine (spec D372); **the
   booking horizon against sessions planned three months ahead**,
-  settled and recorded; the `bookings` fixture (`records`, `pms`,
+  settled and recorded (W3 item 2); the `bookings` fixture (`records`, `pms`,
   `clinic-api`, `interfaces`, the bastion, five: `clinic-api` for
   composing vet-core, spec D403; T0 a weekday at 09:50).
   - Out: purposes 11 and 12 (chunks 21, 20).
@@ -1281,14 +1306,20 @@ and the slot function's signature; the rota's published weeks.
 - Spec sections: master spec 9.4; vet-scheduling-domain.md whole, its
   "Tests in v0.5".
 - Done when: `check_domain_dir` passes; the core's and the part's loads
-  agree (every attended booking's consultation by id, no overlap, every
-  vet of the history on shift); on the fixture an overlapping allocation
-  is refused (`23P01`), bookings made through the slot function, a
+  agree (every attended booking's consultation by id, its vet the
+  consultation's, every booking within its room's or machine's hours,
+  every vet of the history on shift), the four exclusion constraints
+  created before the load and holding through it; on the fixture an
+  overlapping allocation is refused (`23P01`), bookings made through the
+  slot function, one of them 40 days ahead on a planned shift, a
   cancellation releasing its slot, `sched.rota.publish` moved to the
-  next minute publishing the week after next, rerun without a
-  duplicate; load figures recorded.
+  next minute publishing the week after next and planning the seventh
+  week, rerun without a duplicate; load figures recorded.
 - Verification: chunk checks.
-- Split rule: none expected.
+- Split rule: 13a the GM notes, the schema with the slot function, the
+  load, classification, register, policy and rules; 13b the fragments
+  on `pms`, the coherence queries, the variant manifest and the
+  fixture.
 
 ### Chunk 14 — `vet-housing`, the wards and their displays
 
@@ -1652,7 +1683,9 @@ chunk 29's (c) accepts (spec D401).
   own opening stream removed; the shipping job on `vitals` and
   `biomed`; the copies and the release gate; the outbox's dispatch),
   `checks/` (BS1 to BS5, IO1 to IO4, CA1 to CA4, RL1 to RL6, MS1 to
-  MS6), `gm.md`; the messaging service's stub (purpose 16); purpose
+  MS6), `gm.md`; `book-requests`' inbound examinations on the machine
+  vet-scheduling maps from `exchanges.reason` and the partner patient's
+  species (spec D413); the messaging service's stub (purpose 16); purpose
   16's `history` planting the messaging stub's messages, `target` the
   partners' database, source `portal`; the stub's DDL its receiver
   material in `partners-db`'s data file, with `SELECT` granted to
@@ -2108,6 +2141,77 @@ before the derivations), read by chunks 18 to 21. As built: W3-f.
   premise, (a), (b) and (d), with their tests, fixture and skill items;
   29b (c) and (e), theirs; in order, each its own commit, the chunk
   merging once 29b's is made.
+
+### Chunk 30 — The core's agenda: the scheduled consultations on half-hour slots, the exchanges' reason
+
+Status: planned
+Wave: 3
+Depends on: chunk 9 (wave 2); inserted into wave 3 after chunk 13
+stopped (spec D409), built by a `coding-executor` handed the brief by
+the driver ("Read first")
+Architecture capture: "W3 item 2, revised" (wave log), items (a) and
+(f): the agenda's rule in `core_consultation` and `core_exchange`'s
+`reason` and `partner_species`, read by chunk 13 and, through the
+core's functions, by 12, 15 and 16. As built: W3-g.
+
+- Goal: the core's history holds a valid agenda: no vet with two
+  scheduled consultations at once, each on a covering shift of its
+  section, within its section's consultation spaces and rooms' hours,
+  so that vet-scheduling's history can book each one with its
+  consultation's vet (spec D408).
+- Scope: in:
+  - **`core_consultation`'s scheduled branch** as
+    [vet-core's key functions](vet-core-domain.md#the-key-functions-d374-d375-d379)
+    now state it: the half-hour slot of the drawn time; the slot's
+    scheduled consultations of the section counted in id order from the
+    slot's id range (`vc_before`) and the kind and section draws alone,
+    so the function stays closed form; the section's vets on a `day`
+    shift covering the whole slot with no absence, in an order hashed by
+    the slot; a consultation placed while its rank is below both that
+    count of vets and the section's consultation spaces (domestic 4,
+    horse 3, farm 2), no row otherwise; started in the slot's first
+    five minutes, closed 25 minutes after its start or later and by the
+    slot's end, `signed_at` from that close as now;
+  - **the unbooked consultations' vet** (emergency, in hospital, herd
+    visit): an on-shift vet of the section, else any section vet on
+    shift, with no placed scheduled consultation over its start to its
+    close, drawn by a hash; when there is none, the present draw;
+    `vc_vet_at` kept as it is for the stays' admitting vet;
+  - **`core_exchange`'s `reason` and `partner_species`**: the two draws
+    `load.sql` makes today (`u₃₉₃`, `u₃₉₁`), moved into the function and
+    read from it by the load, the loaded values unchanged;
+  - `docs/gm.md`'s "Core keys" (the consultation's and the exchange's
+    sections, "A consultation's vet", the reference T0's figures, the
+    catalogues' shares) and "Loading" rerun and rewritten.
+  - Out: every part's own code (12 to 16 call the functions); the
+    consultation ids' range and layout, the rota, the other functions;
+    the live producers.
+- Files: `domains/vet-core/data/keys.sql`, `domains/vet-core/data/load.sql`
+  (the exchanges' two columns only), `domains/vet-core/docs/gm.md`.
+- Spec sections: [vet-core-domain.md](vet-core-domain.md) "Deterministic
+  key ranges", "The key functions";
+  [vet-scheduling-domain.md](vet-scheduling-domain.md#deterministic-key-ranges-d249-d266)
+  "The history on the agenda", "An inbound examination's booking", the
+  consultation spaces (`sched_types`) and the rooms' hours; master spec
+  9.2, 9.4.
+- Done when: `check_domain_dir` passes; the core's load at shift 0 and
+  at +2, its time and size recorded (within twice today's 89 s, or the
+  record says why), and on each: no vet with two scheduled consultations
+  in one slot; every scheduled consultation starting in its slot's first
+  five minutes and closed by its end; per section and slot no more than
+  the covering on-shift section vets and the section's spaces; every
+  scheduled consultation's vet of its section on a `day` shift covering
+  its slot with no absence; every scheduled consultation within its
+  section's rooms' hours (domestic Monday to Friday 08:00–20:00 and
+  Saturday 08:00–13:00, horse Monday to Friday 08:00–17:00, farm Monday
+  to Friday 08:00–16:00); the count of scheduled consultations against
+  today's 17 395 at the reference T0 (about 4 % fewer expected), and of
+  unbooked ones whose vet has a booking over them, both in the GM notes;
+  `exchanges.reason` and `partner_patient` identical to today's for
+  every id; the unit suite passes.
+- Verification: chunk checks; the SQL checks above run as one query
+  file against each load, kept in the record.
+- Split rule: none expected.
 
 ## Release gate
 

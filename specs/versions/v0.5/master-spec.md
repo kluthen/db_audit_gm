@@ -38,7 +38,16 @@ traffic in `producers/partners/owners/` (9.7, 24; spec D369). On
 2026-11-04, the owner's ruling on the restore: a restart from the
 hand-over snapshot gives back every node as it was meant to run, a
 standby streaming from its primary again (7.1, 15, 18.2; spec D397,
-superseding D352's known limit).
+superseding D352's known limit). On 2026-11-04, two corrections chunk
+13 found, each settling the text against the rest of it: the history's
+scheduled consultations on the agenda's half-hour slots, never two of a
+vet at once, about 16 700 attended (9.4; spec D408); the rota planned to
+the booking horizon ahead of its publication, shifts 1–24 000 (9.4;
+spec D411). On 2026-11-04, chunk 12's measures of the lab's load: about
+20 800 samples, one a container, their ids as loaded; about 161 000
+results and 9 800 batches; intervals 61–456 in force; about eight
+send-outs open at T0; and the middleware's and the dispatch jobs' reads
+as granted (9.3; spec D415).
 
 Baseline: the released [v0.4 master spec](../v0.4/master-spec.md) and
 its [access model](../v0.4/access-model.md). Everything v0.4 specifies
@@ -1347,10 +1356,10 @@ loader checks that the core's variant names the part.
 | Axis | `regional-franchise` |
 |---|---|
 | Population | 6 analysers (`vet-machinery`'s machines 1–6), about 150 tests and 30 panels over 70 analytes, about 400 reference intervals in force (dog, cat, horse, cattle, sheep, goat; adults), 10 lab staff, 120 customer accounts, one price list revised each 1 January |
-| History | one year on the core's growth curve: 14 000 orders (7 700 the centre's, 6 300 the practices'), 18 000 samples, 24 000 tests, 192 000 results (one per analyte, a thousand amendments), 22 000 batches, 7 000 QC runs, 2 000 send-outs, 10 000 callbacks, 17 000 charge rows; about 0.36 million rows |
+| History | one year on the core's growth curve: 14 000 orders (7 700 the centre's, 6 300 the practices'), about 20 800 samples (one a container), 24 000 tests, about 161 000 results (one per analyte, a thousand amendments), about 9 800 batches (one per analyser-hour with results), 7 000 QC runs, 2 000 send-outs, 10 000 callbacks, 17 000 charge rows; about 0.33 million rows |
 | Throughput | about 85 tests a day (45 the centre's, around the clock; 25 practice orders a working day at 1.6 tests), 700 results, 75 batch uploads, 20 QC runs, 7 send-outs (Monday to Friday), two or three critical calls; about 1 300 rows and 400 updates a day |
 
-The lab outweighs the core, the results more than half of it; nothing ships to
+The lab outweighs the core, the results about half of it; nothing ships to
 cold storage. The bench works 07:00–21:00 Monday to Saturday, an on-call
 technician running the centre's urgent haematology, biochemistry and blood
 gases otherwise; the courier returns at about 10:45 and 16:45; the
@@ -1371,10 +1380,10 @@ pathologist's rounds are at 11:00, 14:00 and 18:00 (11:00 on Sundays).
 | Key | Range and layout |
 |---|---|
 | `lab_analytes.id`, `lab_tests.id` | 1–70; 1–180: 1–150 tests, 151–180 panels, about 36 sent out |
-| `lab_reference_intervals.id` | 1–460: 1–60 replaced by the January review, 61–460 in force |
+| `lab_reference_intervals.id` | 1–460: 1–60 replaced by the January review, 61–456 in force, 457–460 unused |
 | `lab_prices.id` | 1–360: test `t`'s price `t` until 1 January, `180 + t` from it |
 | `lab_accounts.id` | 1–121: 1 the centre (`internal`); account `a` (2–121) is referring practice `3 × (a − 1)` (3, 6, … 360) |
-| History | `lab_orders` 1–14 000, `lab_samples` 1–18 000, `lab_order_tests` 1–24 000, `lab_results` 1–192 000, in time order |
+| History | `lab_orders` 1–14 000, `lab_order_tests` 1–24 000, `lab_results` 1–192 000 (about 161 000 loaded), `lab_samples` as loaded (about 20 800), in time order |
 | Machines | `machine_id` 1–6: 1–2 haematology, 3–4 biochemistry, 5 blood gas and electrolytes, 6 coagulation; 1, 3 and 5 on call at night |
 | Core keys used | analysis `request_id`s among 1–17 000 by the core's requests function, a consultation's grouped into one order (1.8 tests); `animal_id` 1–17 000 and its identifiers by the core's functions; lab staff 71–80 |
 
@@ -1389,8 +1398,8 @@ and run logs are `vet-machinery`'s, with no row-level match to `lab_batches`.
 | `lab` | own everything; no login |
 | `lab_app` | the information system: read every table; write orders, samples, order tests, sample events, results (bench, amendments), critical calls, notifications, QC runs, charges; never the reference tables |
 | `lab_api` | the order API: read the catalogue, accounts, orders, tests, results; write orders, samples and order tests at intake, send-outs' answers and their results |
-| `lab_instruments` | the analysers' middleware: read samples, tests, analytes, intervals, QC runs; write batches and results |
-| `lab_dispatch` | the dispatch jobs: read orders, tests, results, accounts, samples; write callbacks, send-outs, `sent-out` events, notifications' sent columns |
+| `lab_instruments` | the analysers' middleware: read samples, tests, analytes, intervals, QC runs, and an order's `id`, `species`, `priority` and a catalogue test's `id`, `code`, `discipline`; write batches and results |
+| `lab_dispatch` | the dispatch jobs: read orders, tests, results, accounts, samples, the catalogue, and the callbacks, send-outs and notifications they update; write callbacks, send-outs, `sent-out` events, notifications' sent columns |
 | `lab_reports` | the reports and statements: read every table, write nothing |
 
 The purposes add `lab_watch` (the critical calls' `pg_cron` job) and
@@ -1473,7 +1482,7 @@ each result when due to `lab-api`'s `POST /send-outs/{send_key}/result`. Past
 `POST /orders/{send_key}/resend` (the stub posts its answer again), then becomes
 an incident. The test is validated and released as the lab's own. The partners'
 database is planted from the lab's functions, so the stub knows every send-out
-the history left open (about twenty).
+the history left open (about eight, all the practices').
 
 #### The default policy: thirteen rules
 
@@ -1630,13 +1639,15 @@ day after two (game values).
 | Key | Range, layout |
 |---|---|
 | `sched_rooms.id` | 1–16: 1–7 domestic, 8–11 horse (10 the arena), 12–13 farm, 14–16 training |
-| `sched_bookings.id` | 1–25 000 an attended history consultation booking, taking its core consultation's id (about 17 600, gaps elsewhere); 25 001–28 000 cancelled and no-show ones; 30 001–47 000 imaging, `30 000 + request id`; 47 001–48 300 theatre plans; 48 301–48 700 blocks; 48 701–49 000 session days; 49 001–50 000 the agenda ahead at T0 |
-| others | types 1–45, courses 1–16, allocations 1–60 000, shifts 1–21 000, sessions 1–125 (101–125 planned), trainees 1–750, enrolments 1–1 250 |
+| `sched_bookings.id` | 1–25 000 an attended history consultation booking, taking its core consultation's id (about 16 700, gaps elsewhere); 25 001–28 000 cancelled and no-show ones; 30 001–47 000 imaging, `30 000 + request id`; 47 001–48 300 theatre plans; 48 301–48 700 blocks; 48 701–49 000 session days; 49 001–50 000 the agenda ahead at T0 |
+| others | types 1–45, courses 1–16, allocations 1–60 000, shifts 1–24 000 (planned to the horizon), sessions 1–125 (101–125 planned), trainees 1–750, enrolments 1–1 250 |
 
 Of the core it computes, never reads: the staff layout within the 85;
 each history consultation's kind, section, vet and start as functions
 of its id, a scheduled one's `booking_id` its own id, its vet on shift
-by the rota's pattern; the teaching animals; the history's deaths by
+by the rota's pattern, the scheduled ones on the agenda's half-hour
+slots within the section's vets and consultation spaces, never two of a
+vet at once; the teaching animals; the history's deaths by
 animal id; the imaging requests' study code and priority by request
 id. The core gains a partial unique index on `consultations.booking_id`
 and loses its `consultations.open` stream: scheduled consultations open
@@ -1645,9 +1656,9 @@ from bookings checked in.
 #### Scale, roles, classification, rules
 
 One variant, `regional-franchise`, no tag added. A year growing from
-about 60 % of today's rate: 20 600 consultation bookings (17 600
+about 60 % of today's rate: 19 700 consultation bookings (16 700
 attended, 2 100 cancelled, 900 no-shows), 3 400 imaging, 1 250 theatre
-plans, 360 blocks, 100 sessions, 1 000 enrolments, 20 600 shifts, 600
+plans, 360 blocks, 100 sessions, 1 000 enrolments, 22 700 shifts, 600
 absences; about 0.11 million rows and 30 MB, 330 new rows and 200
 updates a day.
 

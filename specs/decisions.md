@@ -1074,3 +1074,71 @@ D337, D341, D359, D371 and D392 were reserved and never used). Take the next num
   `fixture-lab-core` with the other four.** No chunk's Files held that
   fixture; chunk 27 changes it later. Now in: [build plan](versions/v0.5/build-plan.md) ("Per-wave gate
   contents", wave 3), chunk 27.
+- **D408 (2026-11-04, chunk 13's stop, point 1): The history's scheduled
+  consultations follow the agenda: on half-hour slots, the section's
+  vets on a covering shift and its consultation spaces taken in id
+  order, none past them; an unbooked consultation takes a vet with no
+  booking over it when one is on shift.** The approved demand puts more
+  domestic consultations at the evening and Saturday peaks than the rota
+  has vets (1 474 unplaceable even optimally), so no free-vet pick, nor
+  a booking's vet differing, can meet "no overlap"; this cap is the one
+  draw within the figures: about 4 % fewer (16 700 attended). T100's
+  witness reads scheduled consultations only. Now in:
+  [vet-core](versions/v0.5/vet-core-domain.md#the-key-functions-d374-d375-d379);
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#deterministic-key-ranges-d249-d266)
+  ("The history on the agenda", T100); master spec 9.4; wave log "W3
+  item 2, revised" (a), (b).
+- **D409 (2026-11-04): Chunk 30 inserted into wave 3 for a
+  `coding-executor`, ahead of chunk 13 (`30 ──> 13`, in-wave): D408's
+  rule in `core_consultation` and D413's columns in `core_exchange`.**
+  Wave 3 holds seven chunks, past the model's six: both insertions are
+  small and came mid-wave. Chunks 12, 14, 15 and 16 call the core's
+  functions, so none changes; the gate's loads supersede their figures.
+  Chunk 13 gains a split rule. Now in: [build plan](versions/v0.5/build-plan.md)
+  ("Waves", chunks 13, 30).
+- **D410 (2026-11-04, point 2): Consultation types take 30 minutes on
+  their room's half-hour grid, in their section's consultation spaces
+  (domestic rooms 1–4, horse 8–10, farm 12 and 13); the farm's rooms
+  open Monday to Friday 08:00–16:00.** One crush could not take the
+  farm's concurrent bookings, nor two stalls the horses'; the core's
+  farm consultations run to 16:00. Now in:
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#entities)
+  (`sched_types`, Cadences).
+- **D411 (2026-11-04, point 3): Shifts are planned to the horizon ahead
+  of their publication: the load and each Friday's job keep the rota
+  planned to the end of the seventh week ahead, publishing the week
+  after next; the slot function reads both; shifts 1–24 000.** The
+  approved lifecycle already has planned shifts, and a 42-day horizon
+  needs a rota to meet. Now in: [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#lifecycle-states)
+  (lifecycle, ranges, `sched.rota.publish`); master spec 9.4; wave log
+  "W3 item 2, revised" (d).
+- **D412 (2026-11-04, points 4 and 5): `sched_free_slots` copies the
+  core's staff layout into its text, one formula with `core_staff`; for
+  a session type it checks enough teaching animals free and returns
+  none, the caller picking them.** The schema must run without the
+  core's tables; the signature stays W3's. Now in:
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#entities)
+  ("Logic in the database").
+- **D413 (2026-11-04, point 6): `core_exchange` returns the reason and
+  the partner patient's species its load writes; an inbound
+  examination's machine follows them (CT, MRI, gamma camera,
+  ultrasound by species; a second opinion or endoscopy a consultation).**
+  A part's own draw would book an "MRI examination" on a CT. Now in:
+  [vet-core](versions/v0.5/vet-core-domain.md#the-key-functions-d374-d375-d379);
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#deterministic-key-ranges-d249-d266)
+  ("An inbound examination's booking"); build plan chunks 21, 30.
+- **D414 (2026-11-04, point 7): Scheduling's schema grants `vet_reports`
+  every `sched_` table, guarded on the role existing; W3 item 0 stands.**
+  Master spec 9.2 and vet-core's grants say so; the domain document's
+  table had left the row out. Now in:
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#application-roles-and-grants).
+- **D415 (2026-11-04, chunk 12a, documents to as-built): `vet-lab`'s
+  figures and grants are the build's: `lab_samples` as loaded, about
+  20 800 (one a container, the centre's 11 777); about 161 000 results,
+  9 800 batches, 8 send-outs open at T0; intervals 61–456 in force,
+  457–460 unused; `lab_instruments` reads `lab_orders (id, species,
+  priority)` and `lab_tests (id, code, discipline)`, `lab_dispatch` the
+  catalogue.** Measured by the load, within the approved spec; chunk 30
+  (D408) moves them a few per cent, the wave gate's reruns the figures
+  of record. Now in: [vet-lab](versions/v0.5/vet-lab-domain.md#deterministic-key-ranges-d249-d266)
+  (the variant, ranges, grants, sizes, T0); master spec 9.3.
