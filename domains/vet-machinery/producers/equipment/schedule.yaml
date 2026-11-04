@@ -1,0 +1,32 @@
+# Schedule of the machines and their systems, vet-machinery's fragment (v0.5
+# master spec 9.6, "Producer profiles"; vet-machinery-domain.md, "The
+# applications and their nodes", "Rates at intensity 1.0", "The business
+# hours"): one node, equipment, standing for every machine (D263, D304), in
+# scenario time (the customer's zone); intensity and timeline are the
+# scenario's. Its connections: each database as its application role, and
+# the core's lookup API by HTTP (D267, D303), behind the credential every
+# caller of the estate sends (clinic_lookup, vet-core's clinic-api fragment).
+# Written for the node names machines and clinic-api; the GM renames them as
+# the scenario does.
+connections:
+  pacs:
+    driver: sql/postgresql
+    target: machines:5432/pacs
+    role: mach_pacs_app
+    pool: {size: 3}
+  vitals:
+    driver: sql/postgresql
+    target: machines:5432/vitals
+    role: mach_vitals_app
+    pool: {size: 3}
+  biomed:
+    driver: sql/postgresql
+    target: machines:5432/biomed
+    role: mach_biomed_app
+    pool: {size: 2}
+  clinic-api:
+    driver: http
+    target: clinic-api:8000
+    credential: clinic_lookup
+    pool: 2
+    timeout: 10s

@@ -7,7 +7,7 @@
 # named here to be a domain of the catalogue requiring vet-core, with its
 # own variants/regional-franchise.yaml, so each part's chunk adds its id here
 # as it lands (wave 3); until then the list holds the parts built.
-parts: []
+parts: [vet-machinery]
 scale:
   population: {sites: 6, sections: 3, staff: 85, vets: 30, owners: 10000, holdings: 200,
                horse_owners_and_stables: 700, referring_practices: 400, referring_vets: 800,
