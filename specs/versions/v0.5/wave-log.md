@@ -1697,8 +1697,8 @@ records; read by 12 to 16, 18 to 21, 27). Master spec 9.2,
 **5. The monitoring breadth** (chunk 10 writes, W2-e records; read by
 6, 27). Master spec 7.4, 14; O223, O225, O226.
 
-- **`pgwatch` (choice)**: seed file `sources.yaml`, pgwatch 3's YAML
-  sources format (G9's release), one entry per instance in scope,
+- **`pgwatch` (choice)**: seed file `sources.yaml`, pgwatch's YAML
+  sources format (6.1.0, G9; checked against that release's format by chunk 10), one entry per instance in scope,
   `conn_str: postgresql://monitoring@<node>:5432/postgres` (the URI
   form, no password: libpq's `PGPASSFILE` under `/run`, W1 item 0);
   its Prometheus sink on port **9188**, path `/metrics`. Reason: 9187
