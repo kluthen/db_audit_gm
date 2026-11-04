@@ -2153,3 +2153,84 @@ confirms on 6.1.0).
   `data.sql` and no partners' `postgres` node refused.
 - **Not here**: register digests, coverage, the partners.md seed mapping
   and the `web_routes` exception (chunk 17); `coherence.yaml` (chunk 8).
+
+### Chunk 7 — merged (a7b76ff), 2026-11-04
+
+`coding-leader` (built 430c1a6, waited on chunk 6; resumed by a fresh
+owner): merge of `v0.5-w2` in `9c9155a` (chunk 6's
+`TestStandbyEnvironment` kept), `node_creates` switch `2411424`, merge
+`a7b76ff`. Unit suite 1013 OK on the branch and the merged `v0.5-w2`.
+Done when: render's tests (`TestAliases`, `TestHttpCredentialsRendered`,
+`TestArchivingCredential`, `TestNodeCredentials`, `TestDomainLoginRoles`;
+`test_deploy`'s `TestHttpCredentialSecrets`, `TestVaultCredentialSecret`)
+pass; `fixture-alias`'s short test, under the lock on armenelos, no
+filter: **23 passed, 0 failed, 38 s** (the alias `xlab` on partners,
+`http_xlab_status` 0:0 0400 on both nodes; the caller waits within its
+30 s bound while the api node is down and calls once it resolves, 10.2 s;
+4 calls answered 200). Deviations: `tools/tests/test_inject.py` (mocks,
+two stand-in scenarios gain `data`); two tests' `vault_target` moved from
+`cold-storage:8000` (now refused) to `bastion:8000`; the fixture's one
+scenario-local fault; the README template has no Third parties section
+(later). Risk: callers stay on the default catalogue (one line each to
+thread a scenario's own); a broken parameter fault raises at `fit`.
+
+**Capture W2-b — chunk 7 outcomes (render: aliases and HTTP credentials; read by 11, 12, 15 to 21, 23, 27)**
+
+- Aliases: `localimpl.node_aliases(scenario, node)` returns the hosts in
+  an api node's seed `api.yaml` endpoints other than its own name, sorted
+  and unique. `fit` records them as `implementation.yaml`
+  `nodes.<n>.aliases`, only when there are some. `render.service_networks`
+  writes `{<net>: {aliases: [...]}}` for that service and the list form
+  for every other. `render` refuses with "node X's hostnames (api.yaml's
+  hosts, its network aliases) changed since gmctl fit: fit again".
+- HTTP credentials: `localimpl.node_credentials(scenario, node,
+  params=None)` gives the credentials in first-use order: a scheduler's
+  `schedule.yaml` `driver: http` connections' `credential`; an api node's
+  endpoints' `credentials`, then its HTTP connections' `credential`; the
+  `vault_credential` parameter of a brick declaring it, read through
+  `node_parameters`, so with the parameter faults applied. Each becomes a
+  password `http_<credential>` (`http_secret_name`), not handed over, 32
+  characters from the dba alphabet, mounted at
+  `/opt/gm/secrets/http_<credential>` 0:0 0400 on each node naming it;
+  one Swarm secret `<gid>_http_<credential>` per game, ordered after the
+  node's brick and role secrets, counted by `_derived_lengths`.
+- Fixture `fixture-alias` and its short test `run-short-test.sh` (about
+  40 s): a fresh api node at 0.1.0 is healthy and its alias resolves
+  about 7 s after the scale-up, inside the scheduler's 30 s wait
+  (resolved at 10.2 s in the merged run: 23 passed, 0 failed, 38 s).
+- `data_login_roles` reading `model.node_creates`:
+  `localimpl.data_login_roles(scenario, node, catalog_root=REPO_ROOT)`
+  returns the login roles created on the node with no password of their
+  own, through `model.node_creates(Path(scenario.dir), scenario.data,
+  node, catalog_root=...)`: the data file's roles in file order, then
+  those each `domains:` entry placed on the node creates and, on the
+  partners' node, the composed domains' partner `data.sql`, without
+  duplicates; the game's own roles and `pg_*` left out; a standby gives
+  `[]`. Each gets `role_<role>_password`, not mounted, set by load-data.
+  The keyword runs along `_derived_lengths`, `max_game_id_length`,
+  `game_secrets`, `check_supported`, `implementation_secrets`; every
+  caller (`fit`, `render`, `restart`, `inject.password_plan`) on the
+  default `REPO_ROOT`.
+
+### Plan revision: `public/` producer state, 2026-11-04
+
+From chunks 6 and 8: the loader accepted a `producers/public/<name>/data.sql`
+(and `node_creates` counted it) while `load-data` runs only
+`producers/partners/<prefix>/data.sql`. `spec-writer`, build plan v6
+(3c0a9fd):
+- D369: the owners' route keeps state (its record of visits) in the
+  `partners` database, so its folder is `producers/partners/owners/`
+  (role and schema `owners`), loaded by chunk 8's rule as built; nothing
+  goes in `public/` in v0.5. Chunk 16's scope, Files and Done when name
+  it (no `owners.state`, no `owners.normal`); chunk 17 (17a) makes the
+  loader refuse a `public/` `data.sql` and `_partner_data_files` read
+  `partners/` only; G16 carries both into formats.md. No wave-3 chunk
+  plans a `public/` file, so no urgency.
+- D370 (text): chunk 12's Files name `producers/partners/{xlab,practices}/`,
+  not `northfield-lab/` (a partner's folder is its prefix, W2 item 0;
+  `xlab` serves the hostname `northfield-lab`).
+- O229 (for capture W3, before chunk 16; not the owner's): the portal's
+  `derive.sql` cannot write the messaging stub's planted notices into
+  `partners` under W2 item 3. Recommended: purpose 16's history plants
+  them (target `partners`, source `portal`), as D366 for purpose 14.
+D371 reserved by mistake, unused. No owner question.

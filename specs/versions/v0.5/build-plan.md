@@ -882,7 +882,8 @@ W1-w and W2 item 1, its outcomes recorded as W2-a.
 
 ### Chunk 7 — Render for v0.5: aliases and HTTP credentials
 
-Status: planned
+Status: merged (w2, a7b76ff)
+Record: built 430c1a6, merge of v0.5-w2 9c9155a, 2411424, merge a7b76ff. Outside the Files list `tools/tests/test_inject.py` (mocks); two tests' vault target moved to `bastion:8000` (wave log, W2-b).
 Wave: 2
 Depends on: chunks 3, 4 and 5 (wave 1); chunk 6, merge order: merged
 into `v0.5-w2` before this chunk merges, its `model.node_creates` taken
