@@ -4811,3 +4811,35 @@ written by hand from the template, never generated with the
 wave gate (a `coding-executor`, verification level: wave gate), and
 `spec-writer` bringing vet-scheduling's and vet-portal's documents to as
 built.
+
+### Documents to as built: scheduling and portal (D422–D428), 2026-11-04
+
+`spec-writer`: `256de8e` — D422 (vet-scheduling to chunk 13 as built:
+W3-b's columns and types, the machines' hours, `sched_app`'s column
+grants, `sched_free_slots`' `EXECUTE`, the horizon binding the slot
+function only, inbound examinations 28 001–28 700, shift ids to about
+24 300, the load reading `vc_agenda`, about 800 theatre plans, 103 500
+rows, 20 MB; master spec 9.4's `sched.rota.publish` brought to D411),
+D423 (vet-portal to chunk 16 as built: the policies and the two helpers,
+`portal_logout`, one link slot, the activation event only on a grant,
+`BYPASSRLS`, the status codes, the outbox order and keys,
+`owners.accounts`; about 0.20 million rows by `count(*)`, 77 MB).
+`bd56599` — the driver's rulings on the four points it left open, each as
+recommended: **D424** (O239) an urgent imaging request booked at its
+machine's first free slot (the same day on a machine around the clock,
+else the next imaging day's opening), BS3, `book-requests` and T113's
+witness so; **D425** (O240) the future absences kept, a false-alarm line;
+**D426** (O241) the desk's 422 for a closed account's owner kept, a
+false-alarm line; **D427** (O242) T274's witness at about one withdrawal
+every five or six days, fixed on `portal_keeper_granted` and
+`portal_animals_scope`; **D428** access model 9.3's closed-account line to
+as built (login 401; a reset request 202 like any address, sending
+nothing; unsubscribe 404 like an unknown key). Chunks 21 and 25 carry
+notes for wave 4's capture.
+
+**Open for wave 4's capture: O243** — `gm_check` reads no portal row
+(forced RLS; `pg_read_all_data` doesn't bypass it): purpose 16's
+history, the RL1–RL6 and MS1–MS6 checks and s5's check; any `gm_check`
+policy shows in `pg_policies` and can be dropped by a player. May need
+the owner's view. The portal GM notes' doubled row count is a gate fix
+(sent to the gate's executor).
