@@ -2951,3 +2951,71 @@ until chunk 17.
 - **Load figures**: 88.6 s at +2, 89.5–112.7 s at 0; 49 MB; 274 235 and
   274 404 rows; through `load-data` on Swarm 91–97 s; `core_consultation`
   about 41 s, `core_request` about 38 s of it.
+
+### Wave gate — results, 2026-11-04
+
+`coding-executor` (steps 1 to 5), then the driver (step 6), armenelos
+alone, 2026-11-04 04:57Z to 07:21Z, the laptop suspended from about
+06:35Z to 07:15Z (the executor stopped while step 6 began, resumed by
+the driver from its scripts); κ = 1, every step under the host lock and
+the sleep inhibitor, each bounded at 29 minutes. Branch at `c486fb8`
+throughout; no fix was needed during the gate (the early gate fixes are
+logged above). Logs:
+`/tmp/claude-1001/-home-bastien-work-db-audit-gm/626ab41f-a466-4175-9a28-a4f76cedff0e/scratchpad/gate-w2/`,
+copied to `db_audit_gm-wt/v0.5-resume-2026-11-04/gate-w2/` (not kept).
+
+| Item | Result | Wall |
+|---|---|---|
+| Unit suite (`tools/tests`) | 1092 OK, 2 skipped (the composed-load pair, run in step 5) | 157 s |
+| `bricks/scheduler` unit runner | 91 OK | 215 s |
+| `bricks/api` unit runner | 36 OK | 3 s |
+| `sh -n` (212 files), `perl -c` (13), `py_compile` (67 outside `tools/`, 82 in it), no `__pycache__` left | 0 fail | — |
+| `postgres` 0.5.0 build / stack test | ok / 302 PASS | 0 s / 492 s |
+| `scheduler` 0.3.0 | ok / 178 PASS | 0 s / 828 s |
+| `bastion` 0.5.0 | ok / 90 PASS | 0 s / 83 s |
+| `grafana` 0.3.0 | ok / 130 PASS | 0 s / 158 s |
+| `api` 0.1.0 | ok / 88 PASS | 0 s / 194 s |
+| `pgbouncer` 0.1.1 | ok / 120 PASS | 0 s / 174 s |
+| `prometheus` 0.2.0 | ok / 131 PASS | 0 s / 78 s |
+| `postgres-exporter` 0.2.0 | ok / 103 PASS | 0 s / 98 s |
+| `pgwatch` 0.1.0 | ok / 72 PASS | 0 s / 252 s |
+| `health-check` 0.1.0 | ok / 95 PASS | 1 s / 159 s |
+| `smoke.sh` | 61/61 | 30 s |
+| `smoke-monitoring.sh` | 43/43 | 52 s |
+| `smoke-governance.sh armenelos` | 121/121 | 104 s |
+| `smoke-load.sh armenelos` | 73/73 | 405 s |
+| `smoke-scenario.sh bookshop-new-server` | 19/19 | 21 s |
+| `smoke-scenario.sh fernway-clinics-monitoring` | 18/18 | 30 s |
+| `smoke-scenario.sh tarnbeck-outdoor-shop` | 26/26 | 822 s |
+| `smoke-scenario.sh tarnbeck-outdoor-campaign` | 33/33 | 313 s |
+| fixture-alias (chunk 7) | 23/23 | 38 s |
+| the composed test load (chunk 8, `GM_TEST_COMPOSED_LOAD=1`: a composed load passing, a broken range failing) | 2 OK | 11 s |
+| `smoke-monitoring-v05.sh` (chunk 10) | 27/27 | 144 s |
+| fixture-partners (chunk 11) | 51/51 | 129 s |
+| fixture-archive (chunk 11) | 45/45 | 339 s |
+| fixture-core (chunk 9) | 40/40 | 151 s |
+| `vet-core`'s load, shift 0 / +2 (`load_epoch` 2026-11-04T07:18Z) | 89.0 s / 89.5 s; 49 MB; 273 970 / 274 003 rows in the 25 tables | — |
+
+Chunk 6's refusal fixture is a unit-suite item (`test_model.py`, the
+v0.5 refusal classes), passed in the suite. Row counts differ from
+chunk 9's (274 235 at +2, epoch 2026-03-18T15:37Z) by design: the history
+runs to `load_epoch`.
+
+The gate fixes made early, confirmed: fixture-archive shows one segment
+name posted by two sources making two manifests and the same shipment
+id again replacing its own (D381); fixture-partners shows `gm_check`
+granted CONNECT on `partners-db` and refused from the network and from
+the bastion (D383); the composed test load ran the partners' coherence
+check on the partners' node; `bricks/postgres/docs/gm.md` carries the
+partners' `pg_hba` form (`990941b`).
+
+Image sizes (armenelos, 2026-11-04): `postgres:0.5.0` 265 MB (pgCluu
+added), `scheduler:0.3.0` 171 MB, `bastion:0.5.0` 186 MB, `grafana:0.3.0`
+866 MB, `api:0.1.0` 218 MB, `pgbouncer:0.1.1` 182 MB, `prometheus:0.2.0`
+488 MB, `postgres-exporter:0.2.0` 165 MB, `pgwatch:0.1.0` 167 MB,
+`health-check:0.1.0` 195 MB. `/var` 34 GB free; nothing pruned; no
+container, stack or volume of the gate's left.
+
+Wave 2's gate **passed (2026-11-04)**, at `c486fb8`. Wave sync: none (no
+intent register); dependency post-change check: G10, done. G16 next
+(`spec-writer`). Not merged into `main`: the owner's word.
