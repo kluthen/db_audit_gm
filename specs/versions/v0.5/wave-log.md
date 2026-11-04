@@ -3895,3 +3895,217 @@ starts:
   (W2 item 1).
 - **For 29a**: check that the jobs a `data/cron.sql` schedules survive
   step (6)'s `pg_cron` clean-up, and record it in W3-f.
+
+### Chunks 29, 12, 13 dispatched; chunk 13 stopped, 2026-11-04
+
+Dispatched at 72c1f80: chunk 29 (`coding-executor`, 29a then 29b),
+chunks 12 and 13 (`coding-leader`). Chunk 12 does 12a first; its
+composed check, `test_compose.py` case and fixture wait for 29's merge.
+
+**Chunk 13 stopped before any code** (no commit; branch and worktree
+removed). The merged core's `vc_vet_at` (`domains/vet-core/data/keys.sql`,
+chunk 9) draws an on-shift section vet per consultation regardless of
+that vet's other consultations, so the history's bookings cannot take
+their consultation's vet without overlapping: on a core load at +2 (94
+s; 17 395 scheduled consultations, every vet on a covering shift), one
+vet's bookings overlap in 1 684 pairs at 10-minute slots, 4 461 at 20,
+7 127 at 30; 545 more have the same vet's emergency or ward round within
+15 minutes. `sched_allocations_staff_excl` would refuse the load, and
+T100's witness (one vet's consultations overlapping) would show with no
+fault. Rooms short too at 20 minutes (farm 204 moments with 2–3 at once
+for one crush; horse 32 with 4–5 for two stalls and the arena). Further
+gaps: the booking horizon against a rota published only 10 to 17 days
+ahead (most six-week bookings find no shift); no `sched_` table holds a
+staff member's kind or specialty; `sched_free_slots`' signature returns
+no teaching animals; inbound examinations carry no study kind
+(`core_exchange`'s reason is a hash no part reads); W3 item 0 names
+`vet_reports` grants the domain's table doesn't. Owner's options: change
+the core's draw (an inserted chunk, core figures rerun), let the
+booking's vet differ for the colliding ones, or shorter slots (fails).
+Sent to `spec-writer`. Chunk 14 takes the slot.
+
+### Chunk 29 — merged (46ee425), 2026-11-04
+
+`coding-executor`: 29a `34a46b7`, 29b `67535a4`, merged `--no-ff` at
+`46ee425`, no conflict. Unit suite 1135 OK, 2 skipped (1127 before);
+`GM_TEST_COMPOSED_LOAD=1` `TestComposedLoad` OK (2 tests, ~23 s, the load
+13.6 s), part keys, the cron call and the DDL's role, table and policy
+absent from the server log and `pg_stat_statements`; py_compile, YAML
+(PyYAML and `strict_load`) clean.
+
+**Premise (D405)**: in `postgres:0.5.0` (pg_cron 1.6),
+`cron.schedule_in_database` refuses a missing database, a missing role
+and a role without `CONNECT` on the database (load-data revokes it from
+`PUBLIC`: a part's schema grants its job role `CONNECT`). So
+`data/cron.sql` stays; chunks 15 and 16 keep it. Its jobs survive step
+(6) (`clean_launcher_lines` never touches `cron.job`; shown by the
+composed load).
+
+**W3-f, as built** (read by 12, 15, 16, 18–21):
+- (a) A part's `data/keys.sql` streams after the core's, in the same
+  session, ahead of the part's `load.sql`, partner `data.sql` and
+  `derive.sql`; never ahead of a schema, a `cron.sql`, another domain's
+  file, a DDL file or a history. `check_domain_dir` refuses in it any
+  line-start `CREATE` but `CREATE [OR REPLACE] FUNCTION pg_temp.<p>_…(`,
+  more than one prefix, the prefix `core`, or a prefix the core's
+  `keys.sql` uses (vet-core's: `core`, `vc`). A part's function may call
+  the core's.
+- (b) `composition.yaml`'s `left_out:`: a non-empty list of `{domain,
+  producer, reason}`, each producer once; `producer` is `<node>`,
+  `api/<node>`, `partners/<prefix>` or `public/<name>`, an existing
+  folder under the domain's `producers/`. `gmctl compose` skips it (domain
+  and variant layers) and needs no node for it. A left-out
+  `partners/<prefix>/data.sql` still runs (and counts in `node_creates`)
+  where a partners' database exists; with none it is skipped and the
+  partner-database refusal does not apply.
+- (d) `data/cron.sql`: `SELECT cron.schedule_in_database(…)` calls only,
+  at least one; runs last in the domain's load (after its partner
+  files), as `postgres`, on the node's `cron.database_name` (from its
+  seed `postgresql.conf`, `postgres` when unset), unseen, no keys.
+  Refused when the domain's `at:` spans several nodes, the seed doesn't
+  preload pg_cron, or the node's data file doesn't create the extension.
+- (c) `history` without a feeder accepted, its target on the partners'
+  database too; such a history runs on the partners' node and reads its
+  source over TCP.
+- (e) `ddl:` in `purpose.yaml` maps `source` or `target` to a file under
+  `material/`; runs at step (2b), after every domain's load, partner file
+  and `cron.sql`, before the derivations; `purposes:` in list order, each
+  entry's parts in its `purpose.yaml`'s `parts:` order; as `postgres`,
+  `-d` the mapped database, unseen, every variable, no keys. Refused: a
+  part mapped to a database no domain's `at:` holds; `CREATE DATABASE`
+  or `\connect` (naming the line). `node_creates` counts a DDL file's
+  roles (a guarded `CREATE ROLE` in a `DO` block counts when at the
+  start of its own line). `LoadResult.ddl` reports each run.
+- Deviations (the executor's, none against the spec): most new loader
+  tests in `tools/tests/test_coherence.py` (not in Files; the composed
+  plan's tests live there); fx-ward's schema gains `GRANT SELECT, DELETE
+  ON ward_placements TO ward_app`; `cron.sql`'s two extra refusals above.
+- Risks: the composed test's fixed `log_filename` leaves the pg_cron log
+  switch unexercised there (covered by `TestLoadDataPgCronNoise`);
+  `cron.database_name` read from the seed as written, a templated value
+  unresolved. formats.md and master spec 5: G17, after the gate.
+
+Chunk 15 takes the slot.
+
+### W3 item 2, revised: chunk 13's stop settled (spec D408–D414), 2026-11-04
+
+Written by `spec-writer` from chunk 13's report, before chunk 30 and
+chunk 13's restart; plan v11. Where it differs from W3 item 2 or item
+0, it wins for chunks 13, 20, 21 and 30. The column-level text is in
+[vet-scheduling-domain.md](vet-scheduling-domain.md) ("The history on
+the agenda", "An inbound examination's booking", `sched_types`, the
+rooms' hours, `sched_free_slots`, the rota's lifecycle) and
+[vet-core-domain.md](vet-core-domain.md) ("The key functions"). Chunk
+30 records its as-built outcome as **W3-g**.
+
+Why the vet draw alone could not be fixed: on the core as merged
+(reference T0 2026-11-04 09:50 at +2, 17 395 scheduled consultations),
+even an optimal assignment of free section vets leaves 1 474 domestic
+scheduled consultations (11 %) with no vet free at their drawn times
+and lengths, and at 1 380 starts more domestic consultations are under
+way than all 25 section vets on shift: the domestic demand at weekday
+17:00–20:00, 09:00–10:00 and Saturday mornings exceeds the rota's vets.
+Re-timing the domestic shifts does not help (1 382 to 1 920 left), nor
+does option 2 (the booking's vet differing), which meets the same lack
+of vets. So the history caps the agenda, the only draw within the
+approved figures.
+
+- **(a) The agenda (D408; chunk 30 writes it, 13 reads it).** A
+  scheduled consultation sits in the half-hour slot (on the hour or
+  the half-hour, local) of its drawn time; the section's scheduled ones
+  of that slot, in id order, take its vets on a `day` shift covering
+  the slot with no absence, in an order hashed by the slot, while both
+  a vet and a consultation space are left (domestic 4, horse 3, farm
+  2); past that, no row. Started in the slot's first five minutes,
+  closed by its end. Measured on the same T0 as a half-hour count: 666
+  fewer (domestic 616, horse 35, farm 15), about 3.8 %. An unbooked
+  consultation takes an on-shift vet with no placed scheduled
+  consultation over it when one exists (all but about 110 emergencies a
+  year at the evening peak, which keep the present draw).
+- **(b) The attended bookings (D408, D410; chunk 13).** Booking `id` =
+  the consultation's; `starts_at` the slot's start, `ends_at` 30
+  minutes later; the vet allocation the consultation's `vet_id`; the
+  room the section's consultation space of the consultation's rank
+  among the slot's placed ones (id order; domestic 1–4, horse 8, 9, 10,
+  farm 12, 13); arrived at its `started_at`. The cancelled and no-show
+  consultation bookings (25 001–28 000), the theatre plans, imaging
+  bookings, blocks and session days are placed by the part's load in
+  what the agenda leaves free, a no-show's allocations live, a
+  cancelled one's released. The four exclusion constraints exist before
+  the load runs.
+- **(c) Consultation types and spaces (D410).** Every consultation type
+  30 minutes, on its room's half-hour grid; a type's room kind is its
+  section's consultation spaces as in (b); the procedure room and the
+  theatres take no consultation, but the farm's standing-surgery
+  theatre (13) is both a space and a theatre, so a farm theatre plan
+  avoids its consultations. The farm's rooms open Monday to Friday
+  08:00–16:00 (the core's farm consultations run to 16:00).
+- **(d) The rota (D411; corrects item 2's "The rota's published
+  weeks").** The load writes every shift from the history's first week
+  to the end of the seventh week after the week of the last Friday
+  12:00 before T0, `published_at` set (that week's Friday 12:00) on the
+  weeks published by then (to the end of the week after next from that
+  Friday), null on the later ones, which are planned. Each Friday
+  12:00, `sched.rota.publish` generates the seventh week after the
+  current one as planned shifts and publishes the week after next,
+  removing first its planned shifts a live absence covers; both steps
+  idempotent on (`staff_id`, `starts_at`). `sched_shifts.id` 1–24 000.
+  `sched_free_slots` reads planned and published shifts alike, so the
+  42-day horizon always meets the rota. Purpose 12 reads published,
+  clocked shifts only.
+- **(e) The slot function (D412).** Signature as item 2. A staff
+  member's kind, section and specialty from the core's layout copied
+  into its text (`core_staff`'s CASE, the GM notes saying the two are
+  one formula, as for the rota), never from the core's `staff`. For a
+  session type it returns a slot only when the course's number of
+  teaching animals of its species are free within their limits; it
+  returns no animal; the caller picks them (the lowest ids free), the
+  animals' exclusion constraint the guard.
+- **(f) The inbound examinations (D413; chunk 30 the function, 13 and
+  21 the mapping).** `core_exchange` gains `reason` and
+  `partner_species`, the values the core's load writes; the machine by
+  reason and species as vet-scheduling's "An inbound examination's
+  booking" maps it; a second opinion or an endoscopy a consultation
+  booking of the species' section. Purpose 11's `book-requests` reads
+  `exchanges.reason` and the species in `partner_patient` and maps
+  alike.
+- **(g) Grants (D414; corrects chunk 13's reading, item 0 stands).**
+  Master spec 9.2 and vet-core's grants give `vet_reports` the tables
+  of the parts in `clinic`, granted by their schemas: scheduling's
+  `schema.sql` grants `SELECT` on every `sched_` table to `vet_reports`
+  inside a `DO` block when the role exists (not in a database of its
+  own on an instance without the core). The domain document's grants
+  table now has the row.
+- **Unchanged**: item 2's tables and states, ids, slot function
+  signature, booking horizon and fixture.
+
+### Chunk 13's stop settled; chunk 30 inserted, 2026-11-04
+
+`spec-writer`: plan v11 (52dcaf0), spec D408 to D414; its "W3 item 2,
+revised" note above. The driver's lean (the core drawing a free vet) does
+not fit: even an optimal assignment leaves 1 474 domestic scheduled
+consultations (11 %) with no section vet free (weekdays 17:00–20:00,
+09:00–10:00, Saturday mornings); re-timed shifts still leave 1 382 to
+1 920. D408: the history's scheduled consultations sit on half-hour
+slots, each slot taking the section's covering vets and its consultation
+spaces in id order, the rest dropped (666, about 3.8 %; attended bookings
+about 16 700); T100's witness reads scheduled consultations only. D409:
+chunk 30 inserted ahead of chunk 13 (`coding-executor`; `9 ──> 30`,
+`30 ──> 13` in wave; W3-g); wave 3 holds seven chunks, one past the
+model's six. D410: 30-minute types; the consultation spaces; the farm's
+rooms Monday to Friday 08:00–16:00. D411: the rota planned to the end of
+the seventh week ahead, the week after next published, the slot function
+reading both. D412: `sched_free_slots` carries the core's staff layout,
+checks teaching animals free and returns none. D413: `core_exchange`
+gains `reason` and `partner_species`. D414: `vet_reports` granted every
+`sched_` table (W3 item 0 stands; the domain's grants table corrected).
+
+Peeks for the inserted chunk: no intent register (no `documentalist`), no
+data register, no dependency (no `security-advisor`). Running chunks 12,
+14, 15: no code change (core ids through the core's functions); load
+figures taken before chunk 30 are about 3 % off, superseded by the
+gate's reruns. **For the owner, information only** (no ruling asked):
+the history's agenda is capped (about 4 % fewer scheduled consultations,
+closing 25–30 minutes after they start); the farm's rooms close at 16:00,
+not 13:00. Chunk 30 waits for the next free slot (κ = 3: 12, 14, 15 in
+flight).

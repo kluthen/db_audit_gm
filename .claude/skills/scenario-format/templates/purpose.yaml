@@ -140,12 +140,33 @@ round_trips:                        # optional: required of a round-trip purpose
                                     # answer starts, the purpose's jobs or a domain's streams, named
 
 # --- History (v0.5) -----------------------------------------------------
-history: material/history.sql       # optional: a periodic purpose; plants the past periods'
-                                    # outputs into the target before T0. For a target belonging
-                                    # to no domain, load-data runs it in the target database after
-                                    # the sources' loads, as the superuser, reading the sources
-                                    # through a temporary foreign server it drops afterwards,
-                                    # every session unseen
+history: material/history.sql       # optional: a periodic purpose (required when a job names
+                                    # its feeder), or one planting a past no periodic job extends
+                                    # (no feeder: from v0.5 chunk 29, D366, D404); plants the past
+                                    # into the target before T0, the partners' database allowed.
+                                    # In a scenario with domains:, load-data runs it in the target
+                                    # database after the sources' loads and the derivations, as the
+                                    # superuser, reading the other parts through a temporary
+                                    # foreign server it drops afterwards, every session unseen
+
+# --- Target DDL (v0.5, chunk 29) -------------------------------------------
+ddl:                                # optional: the DDL a part's database needs (roles, grants,
+                                    # policies, ops tables) when the scenario maps that part to a
+                                    # composed domain's database (a domains: entry's at:); read
+                                    # from the catalogue at every load, as history is, never
+                                    # copied. Refused for a part mapped elsewhere (office,
+                                    # partners): there the DDL goes into the node's data file
+  target: material/target-ddl.sql   # a database part the purpose declares (source, target) -> a
+                                    # file of material/. load-data runs each after every domain's
+                                    # load and partner file, before the derivations, the purposes:
+                                    # entries in list order, the parts in parts:' order, as
+                                    # postgres connected to the mapped database, unseen, with
+                                    # customer_timezone, customer_utc_offset and load_epoch, no
+                                    # keys; never CREATE DATABASE nor \connect (refused, naming the
+                                    # line), the database named :"DBNAME", roles at top level (a
+                                    # role two purposes create on one node guarded, DO ... IF NOT
+                                    # EXISTS, its CREATE ROLE at the start of a line), counted by
+                                    # model.node_creates (each login role gets its secret)
 
 # --- Data moved -------------------------------------------------------
 data_moved:                         # one entry per job, so governance can be checked against it

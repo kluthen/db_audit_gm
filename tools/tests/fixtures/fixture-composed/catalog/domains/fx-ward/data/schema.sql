@@ -6,3 +6,4 @@ GRANT CONNECT ON DATABASE :"DBNAME" TO ward_app;
 CREATE TABLE ward_placements (id integer PRIMARY KEY, stay_id integer NOT NULL,
                               unit text NOT NULL, during tstzrange NOT NULL,
                               EXCLUDE USING gist (unit WITH =, during WITH &&));
+GRANT SELECT, DELETE ON ward_placements TO ward_app;   -- its pg_cron job (data/cron.sql)

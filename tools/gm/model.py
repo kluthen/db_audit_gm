@@ -2977,6 +2977,7 @@ def check_domain_dir(domain_dir, label_base=None):
     _check_variants(domain_dir, data, base, label, out)
     for path in _domain_sql_files(domain_dir, data):
         _check_security_definer(path, _rel(path, base), out)
+    _check_part_sql(domain_dir, data, base, out)
     purposes = data.get("purposes")
     for pid in purposes if isinstance(purposes, list) else []:
         if not (isinstance(pid, str) and PURPOSE_ID_RE.match(pid)):
@@ -3269,7 +3270,8 @@ def check_composition(data, sdir, catalog_root=REPO_ROOT):
     scenario.yaml's (id, variant, at), lands_with exactly for a domain
     declaring it; order every id once, a part after its core, a derivation's
     domain after its after; derive only for a domain declaring it, its after
-    the declared one; keys by listed parts; scale {checked, note}."""
+    the declared one; keys by listed parts; scale {checked, note}; left_out
+    (v0.5 chunk 29's (b)) each a producer folder of a composed domain."""
     sdir = Path(sdir)
     path = sdir / "composition.yaml"
     rel = "composition.yaml"
@@ -3355,6 +3357,7 @@ def check_composition(data, sdir, catalog_root=REPO_ROOT):
         _unknown_keys(scale, ("checked", "note"), f"{rel}: scale", "scale", out)
         if "checked" in scale and not isinstance(scale["checked"], bool):
             out.append(f"{rel}: scale.checked: {scale['checked']!r} is not true or false")
+    check_left_out(content, found, catalog_root, rel, out)
     return out
 
 
@@ -3409,6 +3412,13 @@ def _check_purposes(data, by_name, creates, sdir, catalog_root, out):
             elif by_name[value].get("role") != PART_ROLES[part]:
                 out.append(f"{p}.parts.{part}: {value} is not a node of role {PART_ROLES[part]} "
                            f"(its role is {by_name[value].get('role')})")
+        placed = domain_locations(data)
+        for part, _ in purpose_ddl(purpose):
+            if part in parts and parts[part] not in placed:
+                out.append(f"{p}.parts.{part}: {parts[part]}: purpose {pid}'s ddl.{part} runs "
+                           "only in a database a domains: entry's at: holds; for a database no "
+                           "domain holds, its DDL stays in the node's data file (capture W3 "
+                           "addendum, item 6 (e))")
         runner = by_name.get(parts.get("runner"))
         if runner is not None and runner.get("role") == PART_ROLES["runner"]:
             _check_purpose_jobs(purpose, pid, runner, sdir, f"{p}.parts.runner", out)
@@ -5033,7 +5043,9 @@ def node_creates(sdir, data, node, catalog_root=REPO_ROOT):
     domains: entry placed there, each at: database and the roles and
     databases its schema and load files create, plus, on the partners'
     node (the postgres node the third_parties: entries list), each composed
-    domain's partner data.sql. None when nothing creates anything there.
+    domain's partner data.sql, plus each purposes: entry's ddl: file whose
+    part the scenario maps to this node (v0.5 chunk 29b, capture W3
+    addendum item 6 (e)). None when nothing creates anything there.
     Read by the location, crontab-role and governance checks, by
     localimpl.data_login_roles and inject.password_plan."""
     sdir = Path(sdir)
@@ -5095,16 +5107,39 @@ def node_creates(sdir, data, node, catalog_root=REPO_ROOT):
                 domain_dir = Path(catalog_root) / "domains" / did
                 for path in _partner_data_files(domain_dir):
                     take(path, f"domains/{did}/{path.relative_to(domain_dir)}")
+    purposes = _dict(data).get("purposes")
+    for entry in purposes if isinstance(purposes, list) else []:
+        pid = _dict(entry).get("id")
+        if not (isinstance(pid, str) and PURPOSE_ID_RE.match(pid)):
+            continue
+        purpose_dir = Path(catalog_root) / "purposes" / pid
+        try:
+            purpose = _dict(yaml.safe_load((purpose_dir / "purpose.yaml")
+                                           .read_text(encoding="utf-8")))
+        except (OSError, UnicodeDecodeError, yaml.YAMLError):
+            continue
+        mapped = _dict(_dict(entry).get("parts"))
+        for part, rel in purpose_ddl(purpose):
+            location = mapped.get(part)
+            if not (isinstance(location, str) and location.partition("/")[0] == name):
+                continue
+            path = _inside(purpose_dir, rel)
+            if path is not None and path.is_file():
+                take(path, f"purposes/{pid}/{rel}")    # W3 addendum, item 6 (e)
     if not created.sources:
         return None
     return created
 
 
-def _check_domains_v05(data, nodes, third, catalog_root, out):
+def _check_domains_v05(data, nodes, third, sdir, catalog_root, out):
     """No domain's at: on a standby; a composed domain with a partner
-    data.sql needs a partners' postgres node (W2 item 1)."""
+    data.sql needs a partners' postgres node (W2 item 1), unless
+    composition.yaml leaves that partner's folder out (chunk 29's (b)); a
+    composed domain shipping data/cron.sql sits on one node, which preloads
+    pg_cron and whose data file creates it (chunk 29's (d))."""
     label = "scenario.yaml"
     by_name = {n.get("name"): n for n in nodes}
+    left_out = left_out_of(_composition_content(sdir))
     entries = data.get("domains")
     for i, entry in enumerate(entries if isinstance(entries, list) else []):
         if not isinstance(entry, dict):
@@ -5123,9 +5158,217 @@ def _check_domains_v05(data, nodes, third, catalog_root, out):
         domain_dir = Path(catalog_root) / "domains" / did
         if third.db_node is None:
             for path in _partner_data_files(domain_dir):
+                if (did, path.parent.relative_to(domain_dir / "producers").as_posix()) \
+                        in left_out:
+                    continue                 # left out: skipped with no partners' database
                 out.append(f"{p}: domains/{did}/{path.relative_to(domain_dir)} plants a "
                            "partner's state, but no third_parties: entry lists a postgres node "
                            f"(the partners' database, {PARTNERS_DATABASE}; W2 items 0 and 1)")
+        if (domain_dir / CRON_FILE).is_file():
+            _check_domain_cron(entry, did, by_name, sdir, p, out)
+
+
+def _composition_content(sdir):
+    """composition.yaml's content beside scenario.yaml, or None."""
+    path = Path(sdir) / "composition.yaml" if sdir is not None else None
+    if path is None or not path.is_file():
+        return None
+    try:
+        return strict_load(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, yaml.YAMLError):
+        return None                          # reported by check_composition
+
+
+def _check_domain_cron(entry, did, by_name, sdir, p, out):
+    """A composed domain's data/cron.sql runs on its node, in its
+    cron.database_name (chunk 29's (d), spec D405): every location of the
+    domain on one node, whose seed postgresql.conf preloads pg_cron and whose
+    data file creates the extension."""
+    shown = f"domains/{did}/{CRON_FILE}"
+    nodes = []
+    for _, location in _domain_entry_locations(entry):
+        lnode = location.partition("/")[0]
+        if lnode not in nodes:
+            nodes.append(lnode)
+    if len(nodes) != 1:
+        out.append(f"{p}: {shown} schedules pg_cron jobs on the domain's node, but its at: "
+                   f"names {len(nodes)} nodes ({', '.join(nodes) or 'none'}); a domain shipping "
+                   "one sits on one node")
+        return
+    node = by_name.get(nodes[0])
+    if node is None or node.get("role") != "database":
+        return                               # reported with the at:
+    preloaded, _, rel = node_pg_cron(node, sdir)
+    if not preloaded:
+        where = f"its seed postgresql.conf ({rel})" if rel else "it seeds no postgresql.conf"
+        out.append(f"{p}: {shown} schedules pg_cron jobs on node {nodes[0]}, which does not "
+                   f"preload pg_cron ({where}; shared_preload_libraries, master spec 7.2)")
+        return
+    created = node_data_file_creates(sdir, node)
+    if created is None or not created.pg_cron:
+        out.append(f"{p}: {shown} schedules pg_cron jobs on node {nodes[0]}, whose data file "
+                   "does not create the extension pg_cron (CREATE EXTENSION pg_cron, in "
+                   "cron.database_name)")
+
+
+# --- v0.5: the loader's support for the parts (build plan chunk 29; capture W3
+# --- items 0 and 6 of specs/versions/v0.5/wave-log.md; spec D401, D405) ---
+
+KEYS_FILE = "data/keys.sql"         # a core's key functions; a part's (chunk 29's (a))
+CRON_FILE = "data/cron.sql"         # a domain's pg_cron jobs (chunk 29's (d))
+LEFT_OUT_KEYS = ("domain", "producer", "reason")
+_PRODUCER_RE = re.compile(r"^(?:(api|partners|public)/)?([a-z][a-z0-9-]*)$")
+_KEY_FUNCTION_RE = re.compile(
+    r"^\s*CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+pg_temp\.([a-z][a-z0-9]*)_[a-z0-9_]*\s*\(",
+    re.IGNORECASE)
+_KEY_ANY_FUNCTION_RE = re.compile(
+    r"^\s*CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+pg_temp\.([a-z][a-z0-9]*)_", re.IGNORECASE)
+_CREATE_LINE_RE = re.compile(r"^\s*CREATE\b", re.IGNORECASE)
+_CRON_CALL_RE = re.compile(r"^SELECT\s+cron\s*\.\s*schedule_in_database\s*\(", re.IGNORECASE)
+
+
+def left_out_of(content):
+    """{(domain, producer)} of a composition record's left_out: (chunk 29's
+    (b)), its well-formed entries only (check_composition reports the rest)."""
+    entries = _dict(content).get("left_out")
+    return {(e.get("domain"), e.get("producer")) for e in entries
+            if isinstance(e, dict) and isinstance(e.get("domain"), str)
+            and isinstance(e.get("producer"), str)} if isinstance(entries, list) else set()
+
+
+def check_left_out(content, found, catalog_root, rel, out):
+    """composition.yaml's optional left_out: (capture W3 item 0, chunk 29's
+    (b)): a list of {domain, producer, reason}, each `producer` a folder
+    under a composed domain's producers/ (`pms`, `api/clinic-api`,
+    `partners/xlab`), once."""
+    entries = content.get("left_out")
+    if "left_out" not in content:
+        return
+    if not isinstance(entries, list) or not entries:
+        out.append(f"{rel}: left_out: {entries!r} is not a non-empty list of {{domain, "
+                   "producer, reason}}")
+        return
+    seen = []
+    for i, entry in enumerate(entries):
+        p = f"{rel}: left_out[{i}]"
+        if not isinstance(entry, dict):
+            out.append(f"{p}: not a mapping {{domain, producer, reason}}")
+            continue
+        _unknown_keys(entry, LEFT_OUT_KEYS, p, "a left_out entry", out)
+        for key in LEFT_OUT_KEYS:
+            if not (isinstance(entry.get(key), str) and entry[key].strip()):
+                out.append(f"{p}.{key}: missing or empty")
+        did, producer = entry.get("domain"), entry.get("producer")
+        if not (isinstance(did, str) and isinstance(producer, str)):
+            continue
+        if did not in found:
+            out.append(f"{p}.domain: {did} is not a domain of domains:")
+            continue
+        if (did, producer) in seen:
+            out.append(f"{p}: {did} {producer} left out twice")
+        seen.append((did, producer))
+        m = _PRODUCER_RE.match(producer)
+        if m is None or (m.group(1) is None and m.group(2) in RESERVED_PRODUCER_FOLDERS):
+            out.append(f"{p}.producer: {producer!r} is not a producer folder (<node>, "
+                       "api/<node>, partners/<prefix> or public/<name>)")
+            continue
+        folder = _dict(found[did][1]).get("producers")
+        base = Path(catalog_root) / "domains" / did
+        path = _inside(base, folder) if isinstance(folder, str) else None
+        if path is None or not (path / producer).is_dir():
+            out.append(f"{p}.producer: {producer}: not a folder of domains/{did}/"
+                       f"{(folder or 'producers/').rstrip('/')}/ (a producer folder of the "
+                       "composed domain)")
+
+
+def _check_part_sql(domain_dir, data, base, out):
+    """A part's data/keys.sql (check_part_keys) and any domain's
+    data/cron.sql (check_cron_file), when present (chunk 29's (a), (d))."""
+    for rel, check in ((KEYS_FILE, "keys"), (CRON_FILE, "cron")):
+        path = domain_dir / rel
+        if not path.is_file() or (check == "keys" and "requires" not in data):
+            continue                         # a core's keys.sql: formats.md, unchecked
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            out.append(f"{_rel(path, base)}: cannot be read: {exc}")
+            continue
+        if check == "cron":
+            out.extend(check_cron_file(text, _rel(path, base)))
+            continue
+        requires = data.get("requires")
+        core = requires[0] if isinstance(requires, list) and requires else None
+        core_keys = domain_dir.parent / str(core) / KEYS_FILE
+        try:
+            core_text = core_keys.read_text(encoding="utf-8") if core_keys.is_file() else ""
+        except (OSError, UnicodeDecodeError):
+            core_text = ""
+        out.extend(check_part_keys(text, _rel(path, base), core_text))
+
+
+def _key_prefixes(text):
+    return {m.group(1).lower() for m in map(_KEY_ANY_FUNCTION_RE.match, text.splitlines()) if m}
+
+
+def check_part_keys(text, rel, core_text=None):
+    """Problems of a part's data/keys.sql (capture W3 item 0, chunk 29's
+    (a)): every CREATE at the start of a line a `CREATE [OR REPLACE] FUNCTION
+    pg_temp.<prefix>_<name>(`, one prefix throughout, its own: never `core`
+    nor a prefix of the core's keys.sql (`core_text`), streamed in the same
+    session after it."""
+    out, prefixes = [], []
+    for number, line in enumerate(text.splitlines(), 1):
+        if line.lstrip().startswith("--") or not _CREATE_LINE_RE.match(line):
+            continue
+        m = _KEY_FUNCTION_RE.match(line)
+        if m is None:
+            out.append(f"{rel}:{number}: {line.strip()[:80]}: a part's keys.sql creates "
+                       "pg_temp.<its prefix>_* functions only")
+            continue
+        prefix = m.group(1).lower()
+        if prefix not in prefixes:
+            prefixes.append(prefix)
+    if len(prefixes) > 1:
+        out.append(f"{rel}: functions under {len(prefixes)} prefixes ({', '.join(prefixes)}): "
+                   "a part's keys share its one prefix (pg_temp.<prefix>_*)")
+    core = _key_prefixes(core_text or "") | {"core"}
+    for prefix in prefixes:
+        if prefix in core:
+            out.append(f"{rel}: pg_temp.{prefix}_*: the core's prefix; a part's keys take its "
+                       "own (lab_, portal_), streamed after the core's in one session")
+    return out
+
+
+def check_cron_file(text, rel):
+    """Problems of a domain's data/cron.sql (capture W3 item 6 (d), spec
+    D405): `SELECT cron.schedule_in_database(...)` calls only, at least one."""
+    out = []
+    statements = sql_statements(text)
+    for number, stmt in statements:
+        if not _CRON_CALL_RE.match(stmt.strip()):
+            out.append(f"{rel}:{number}: {' '.join(stmt.split())[:80]}: a cron.sql holds "
+                       "SELECT cron.schedule_in_database(...) calls only")
+    if not statements:
+        out.append(f"{rel}: schedules no job (SELECT cron.schedule_in_database(...))")
+    return out
+
+
+def node_pg_cron(node, sdir):
+    """(preloaded, cron.database_name, the seed's path) of a postgres node,
+    read from its seed postgresql.conf: whether shared_preload_libraries
+    names pg_cron, and the database pg_cron keeps its jobs in (`postgres`,
+    pg_cron's default, when unset)."""
+    rel, path = _seed_path(_dict(node), Path(sdir), POSTGRESQL_CONF)
+    if path is None:
+        return False, None, rel
+    try:
+        settings = read_conf_settings(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError):
+        return False, None, rel
+    preload = [lib.strip() for lib in
+               _conf_text_value(settings.get("shared_preload_libraries")).split(",")]
+    database = _conf_text_value(settings.get("cron.database_name")) or "postgres"
+    return "pg_cron" in preload, database, rel
 
 
 def _check_v05(data, nodes, bricks, faults, answer_key, third, apis, http, sdir, catalog_root,
@@ -5137,7 +5380,7 @@ def _check_v05(data, nodes, bricks, faults, answer_key, third, apis, http, sdir,
     _check_api_nodes(nodes, bricks, third, apis, http, sdir, out)
     _check_partner_access(data, nodes, bricks, faults, answer_key, third, apis, sdir, out)
     _check_vaults(nodes, bricks, http, out)
-    _check_domains_v05(data, nodes, third, catalog_root, out)
+    _check_domains_v05(data, nodes, third, sdir, catalog_root, out)
 
 
 # --- v0.5: purposes and domains (build plan chunk 6b; master spec 6.6, 12.1, 15;
@@ -5346,13 +5589,14 @@ def _check_purpose_v05(purpose_dir, data, label, base, parts, jobs, out):
         out.append(f"{label}: history: missing (a periodic purpose, jobs "
                    f"{', '.join(map(str, feeders))} naming their feeder, plants its past "
                    "periods' outputs: material/history.sql; master spec 12.1)")
-    elif "history" in data and not feeders:
-        out.append(f"{label}: history: only on a periodic purpose (a job naming its feeder)")
+    # A history with no feeder is accepted (v0.5 chunk 29's (c); purposes 14
+    # and 16, spec D366, D404): it plants a past no periodic job extends.
     if isinstance(history, str):
         path = _inside(purpose_dir, history)
         if path is None or not path.is_file() or not history.startswith("material/"):
             out.append(f"{_rel(purpose_dir / history, base)}: missing file (history, a file of "
                        "material/)")
+    _check_purpose_ddl(purpose_dir, data, label, base, parts, out)
     endpoints = purpose_dir / "material" / "api"
     if endpoints.is_dir():
         if "api" not in parts:
@@ -5422,6 +5666,46 @@ def _check_purpose_http(purpose, pid, runner, sdir, p, out):
             if value != expected:
                 out.append(f"{p}: purpose {pid}'s job {job['name']} maps {cname} to {value}, but "
                            f"{where} calls with {expected} (spec D354)")
+
+
+def _check_purpose_ddl(purpose_dir, data, label, base, parts, out):
+    """ddl: (capture W3 addendum, item 6 (e); chunk 29b): a non-empty mapping
+    from database parts the purpose declares (source, target) to files of
+    material/, each existing."""
+    if "ddl" not in data:
+        return
+    ddl = data.get("ddl")
+    if not (isinstance(ddl, dict) and ddl):
+        out.append(f"{label}: ddl: {ddl!r} is not a non-empty map of a database part -> its "
+                   "DDL file (ddl: {target: material/target-ddl.sql})")
+        return
+    for part, rel in ddl.items():
+        p = f"{label}: ddl.{part}"
+        if part not in DATABASE_PARTS or part not in _dict(parts):
+            out.append(f"{p}: not a database part the purpose declares ("
+                       f"{', '.join(k for k in DATABASE_PARTS if k in _dict(parts)) or 'none'})")
+            continue
+        path = _inside(purpose_dir, rel) if isinstance(rel, str) else None
+        if path is None or not path.is_file() or not rel.startswith("material/"):
+            out.append(f"{_rel(purpose_dir / str(rel), base)}: missing file (ddl.{part}, a file "
+                       "of material/)")
+
+
+def purpose_ddl(purpose):
+    """[(part, relative file)] of a purpose.yaml's ddl:, its well-formed
+    entries, in the order the purpose's parts: lists them (W3 addendum)."""
+    ddl = _dict(_dict(purpose).get("ddl"))
+    order = list(_dict(_dict(purpose).get("parts")))
+    parts = sorted((p for p in ddl if isinstance(ddl[p], str)),
+                   key=lambda p: order.index(p) if p in order else len(order))
+    return [(p, ddl[p]) for p in parts]
+
+
+def domain_locations(data):
+    """{node/database} every domains: entry's at: places a database at."""
+    entries = _dict(data).get("domains")
+    return {loc for e in entries if isinstance(e, dict) for _, loc in _domain_entry_locations(e)} \
+        if isinstance(entries, list) else set()
 
 
 def _check_purpose_ops(data, purpose, pid, parts, p, out):
