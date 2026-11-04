@@ -121,6 +121,10 @@ tools, manual tools, etc and migrate up to standard."
   customer's standard. It meets the major-version upgrades and hotfixes
   above (D272) and O11's open part (which engine versions, the upgrade
   scenarios' budget); not designed yet.
+- **`check_postgres`** stays the health node's checker for now; a
+  switch to another tool is expected at some point, though it may stay
+  in use with the older versions above from v1.0 (D399).
+- **pgBadger** stays unpinned, the PGDG package at each build (D400).
 
 ## Deferred from v0.5 (D233, D237)
 
@@ -254,9 +258,9 @@ aged run is decided then (D193).
     `fit` re-run;
   - **the clinic's rehearsal**: unattended, with the early check, a
     scheduler killed and resuming, a restart, on two hosts;
-  - **a restart from a hand-over snapshot with a standby** (D352): not
-    built in v0.5, where no game reaches it; `restart.py` clones the
-    standby again after the restore (a base backup leaves out
-    `standby.signal` and the primary's slot), built and proven before
-    v1.0's test if that test takes a snapshot (v0.5 master spec 18.4:
-    whether one is needed and fits).
+  - **a restart from a hand-over snapshot with a standby, on the
+    clinic** (D397): v0.5 builds the restore that brings the standby
+    back streaming, the planted slots and the archive in step, and
+    proves it on a short fixture (its build plan's chunk 28); the
+    clinic's own restart from a snapshot runs only if v1.0's test takes
+    one (v0.5 master spec 18.4: whether one is needed and fits).

@@ -128,6 +128,21 @@ for the next version (v0.1 until it closed, with none left open);
   Refs: [scenario-lifecycle.md](scenario-lifecycle.md),
   [archive/v0.3/aging-and-timeline.md](archive/v0.3/aging-and-timeline.md),
   [versions/v0.4/README.md](versions/v0.4/README.md).
+- **O232** (later, version not set; D397) — A snapshot and restore of
+  the whole game as a feature of the game itself: the owner, 2026-11-04,
+  "ability to take snapshot and restore the full game at a given point
+  [...] I'd love for the game to keep track of the game time and stay
+  set on it", and, for now, "Full game snapshot/restoration without
+  interruption of service as seen through the game will have to wait".
+  The known constraint: containers share the host's clock, so the game
+  cannot hold a clock of its own; a restore at a later wall-clock time
+  shows as a gap in the data unless the restored data's timestamps are
+  shifted forward ("age once, restore many"). Open: when, how game time
+  is kept and shown, whether timestamps are shifted at restore, and how
+  it meets the aging (O22) and the restart already in v1.0 gating.
+  Today's restore (the hand-over snapshot, a player-confirmed restart)
+  is D397's. Refs: [versions/README.md](versions/README.md#v10-gating);
+  [versions/v0.5/master-spec.md](versions/v0.5/master-spec.md) 15.
 - **O23** (later) — Difficulty is a fault count, each fault worth 1 (easy
   5, normal 10, hard 20; D120), read for v0.3 as the number of fault
   instances, the levels being targets (D134). Ruled for the clinic's

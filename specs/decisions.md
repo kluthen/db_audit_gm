@@ -1003,3 +1003,26 @@ D337, D341 and D371 were reserved and never used). Take the next number from
   tools, migrating up to standard).** Now in:
   [versions/README.md](versions/README.md#from-v10-versions-at-a-game-wide-scope-d396);
   [open-questions.md](open-questions.md) O11.
+- **D397 (2026-11-04, the owner on D352): A restart from the hand-over
+  snapshot gives back every node as it was meant to run, replication
+  included; D352 is superseded and its known limit removed.** The owner:
+  "a restoration procedure that doesn't work means as much as no
+  procedure at all". A standby held as one and cloned again from its
+  restored primary, the only mechanism that holds: the copies are taken
+  at different moments and no WAL is kept to replay between them. Now
+  in: [master spec](versions/v0.5/master-spec.md) 7.1, 15, 18.2;
+  [versions/README.md](versions/README.md#v10-gating);
+  [build plan](versions/v0.5/build-plan.md) chunk 28, release gate.
+- **D398 (2026-11-04, D397's chunk): Chunk 28 is inserted into wave 2,
+  gated but not merged, so the fix merges with it;** it depends on chunk
+  3 alone and is cut from the gated `v0.5-w2`; the gate items it touches
+  are rerun after it merges. Now in:
+  [build plan](versions/v0.5/build-plan.md#chunk-28--a-restart-from-the-hand-over-snapshot-gives-back-replication)
+  (waves, per-wave gate contents).
+- **D399 (2026-11-04, the owner after D396): `check_postgres` stays the
+  health node's checker for now; a switch is expected some day, though
+  it may stay in use with older versions from v1.0.** Now in:
+  [versions/README.md](versions/README.md#from-v10-versions-at-a-game-wide-scope-d396).
+- **D400 (2026-11-04, the owner on G8's open point): pgBadger stays
+  unpinned, as is.** Now in:
+  [versions/README.md](versions/README.md#from-v10-versions-at-a-game-wide-scope-d396).

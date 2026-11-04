@@ -34,7 +34,11 @@ chunk 11: a manifest is keyed on its source and shipment id, since two
 archiving nodes post the same segment names (10.4; spec D381). On
 2026-11-04, after wave 2's gate: its format items as built, recorded in
 sections 5 and 6.1 and in formats.md v29 (spec D364), and the owners'
-traffic in `producers/partners/owners/` (9.7, 24; spec D369).
+traffic in `producers/partners/owners/` (9.7, 24; spec D369). On
+2026-11-04, the owner's ruling on the restore: a restart from the
+hand-over snapshot gives back every node as it was meant to run, a
+standby streaming from its primary again (7.1, 15, 18.2; spec D397,
+superseding D352's known limit).
 
 Baseline: the released [v0.4 master spec](../v0.4/master-spec.md) and
 its [access model](../v0.4/access-model.md). Everything v0.4 specifies
@@ -536,7 +540,9 @@ daemon, the GM check role). It adds:
   its primary with `pg_basebackup` after the data load and before the
   aging, by a `gmctl` setup step; it then streams. Every seed already
   carries the replication line in `pg_hba.conf`. The hand-over snapshot
-  keeps working: its temporary slot is removed as today.
+  keeps working: its temporary slot is removed as today; a restart
+  restoring it brings the standby back as one, streaming from its
+  primary (15, "The restore from the hand-over snapshot").
 - **WAL archiving and the nightly base backup.** The seed sets
   `archive_mode = on`, an `archive_command` that posts each segment to
   the vault (cold storage's `wal` type) and fails honestly on a refusal,
@@ -3081,6 +3087,49 @@ tenth of a gigabyte there.
   the setup as a design error.
 - **The standby's clone**: after the data load and before the aging, a
   setup step cloning the standby from its primary (7.1).
+- **The restore from the hand-over snapshot** (`gmctl restart`, v0.3
+  master spec 12; spec D397): every node comes back as it was meant to
+  run, replication included. A restore gives back:
+  - **each node's volumes from their copies**, as before;
+  - **a standby as a standby**: it never runs as a primary of its own,
+    not even during the restart (its restored data directory starts in
+    standby mode, read-only); once the stack is healthy, it is cloned
+    again from its restored primary, as the setup's clone does (7.1),
+    in topology order, since its copy and its primary's are taken at
+    different moments and no WAL is kept to replay between them. Its
+    slot exists again on the primary, active; the primary's
+    `pg_stat_replication` shows its sender `streaming`; it answers
+    read-only queries and refuses writes; a row written on the primary
+    after the restore reaches it. Its own settings come back as its
+    copies hold them: its configuration volume untouched by the clone,
+    and the settings its data directory holds (`postgresql.auto.conf`)
+    kept across it. A job reaching it during the clone fails as at any
+    outage of the standby, and its next run reads it;
+  - **the replication credentials**: `replicator` and its password, the
+    standby's password file, unchanged (every secret's value is kept);
+  - **every other persistent replication slot** a primary held when its
+    copy was taken (a planted `pg-abandoned-replication-slot`): the
+    snapshot records them, the restore re-creates each, physical,
+    reserving WAL at once, inactive. A base backup leaves `pg_replslot/`
+    out, so without this a planted slot would vanish;
+  - **archiving and the vault in step**: the archiving node keeps
+    shipping (the next segment's `wal` manifest in the vault, the
+    nightly base backup still posting), and the vault's restored
+    manifests name every segment the restored node counts as archived:
+    the snapshot copies the nodes with a `vault_target` before every
+    other node, so the vault's copy is the later one. A segment the
+    restored node ships again under a name the vault already holds
+    replaces that manifest (10.4); the node stays on its timeline;
+  - **a failure is a failed restart**, as before: what it deployed torn
+    down, recorded, the snapshot kept for a retry.
+
+  **What a restore does not give back**, named in the brick's
+  documentation: the WAL a node had accumulated (a planted slot's or a
+  failing archive's backlog) and its cumulative statistics, which a base
+  backup does not carry; both build again from the restore with the
+  load, as after a crash. A restart with no snapshot is unchanged (its
+  load steps clone the standby). A snapshot of the whole game as a
+  feature of play, with game time, is later (O232).
 - **`render`**: the network aliases of the partners' `api` node; the
   bastion's route to cold storage's read-only paths; the HTTP
   connections' credentials as secrets; the TLS certificates generated
@@ -3293,11 +3342,13 @@ fitting one host.
 | imaging | `records`, `clinic-api`, `pms`, `machines`, `equipment`, `interfaces` | a weekday, 08:50 | the three databases and loads, the imaging round trip |
 | vault | `machines`, `equipment`, `interfaces`, the partners' `api` node and database | 21:55 | partitions ahead, the nightly shipping and its receipt |
 | portal | `records`, `lab`, `interfaces`, `portal-api`, the partners' three nodes | a weekday | the copies, the release gate, owner scope, accounts, messages |
+| restore | `records`, `standby`, the partners' `api` node and database | any | a restart from the hand-over snapshot: the standby streaming again, a planted slot back, archiving shipping (15; spec D397) |
 
 Beside them, each brick's own short tests: the `api` brick's build
 checks on its database side; the HTTP driver against one stub; the
 partners' node with one partner slow and another answering; the standby
-cloned and streaming; a segment and a base backup reaching the vault;
+cloned and streaming, and streaming again after a restart from the
+hand-over snapshot (15); a segment and a base backup reaching the vault;
 the options refused and accepted by `gmctl`; `gmctl compose` merging,
 overriding, stopping on a conflict and following `merge.yaml`; the
 coherence check passing on a composed load and failing on a broken

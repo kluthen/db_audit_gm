@@ -1,6 +1,10 @@
 # db_audit_gm v0.5 — Build plan
 
-Status: v8 (2026-11-04): chunk 11's two findings settled (spec
+Status: v9 (2026-11-04): the owner's ruling on the restore (spec D397,
+superseding D352): chunk 28 inserted into wave 2 after its gate, cut
+from the gated `v0.5-w2`, the gate items it touches rerun once it has
+merged (spec D398); release gate items 1 and 12.
+v8 (2026-11-04): chunk 11's two findings settled (spec
 D381–D383): cold storage's manifest keyed on its source and shipment id,
 and a coherence check reading `partners` run on the partners' node, both
 fixed at wave 2's gate on `v0.5-w2` (the gate's row); chunks 12, 21 and
@@ -20,8 +24,6 @@ build conditions (spec D368).
 v4 (2026-11-04): capture W2's ten preflight corrections written
 in before wave 2's first chunk (chunks 6 to 11, 17, 21; G16); no chunk
 inserted (spec D360–D367).
-v3 (2026-11-03): wave 1's chunk reports (W1-w to W1-z) written
-in, wave 2's chunks read against them; no chunk inserted (spec D352–D358).
 Approval: **approved 2026-11-03 by the owner** (G1, spec D342).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-11-03 (spec D339,
@@ -136,7 +138,7 @@ none is a gate.
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
 | 1 | 1, 2, 3, 4, 5 | G1; G2 (done); G3, G4; G5 (chunk 3), G6 (chunk 5), G7 (chunk 4, if a package); G8 before its gate | gated (2026-11-04, wave log); merge into `main` on the owner's word |
-| 2 | 6, 7, 8, 9, 10, 11 | wave 1; G9 (chunk 10); G10 before its gate | gated (2026-11-04, wave log); merge into `main` on the owner's word |
+| 2 | 6, 7, 8, 9, 10, 11, 28 | wave 1; G9 (chunk 10); G10 before its gate; chunk 28 after the gate, the items it touches rerun (spec D398) | gated (2026-11-04, wave log); merge into `main` on the owner's word |
 | 3 | 12, 13, 14, 15, 16 | wave 2 | planned |
 | 4 | 17, 18, 19, 20, 21 | wave 3 | planned |
 | 5 | 22, 23, 24, 25, 26, 27 | wave 4; G14 (chunk 27, only if it applies) | planned |
@@ -158,6 +160,8 @@ G5 ──> 3;  G6 ──> 5;  G7 ──> 4 (if a package)
                          the composed load, fixed by W2 items 2 to 4; spec D362)
 3, 6 ──> 10 (merge order only: its fixture's options checked); G9 ──> 10
 3, 4, 5 ──> 11
+3 ──> 28                (inserted after wave 2's gate, cut from the gated
+                         `v0.5-w2`; no edge with wave 2's chunks; spec D398)
 6, 7 ──> 11             (in-wave: from 7 the partners' network aliases and the
                          HTTP credentials' mounts, fixed by master spec 10.2, 15
                          and W2; from 6 HTTP connections loading, W1 item 3;
@@ -200,6 +204,10 @@ completion chains run three chunks long (6, 7, 11 and 6, 8, 9), past the
 model's two: kept, since the merge-order edges delay no start (7 and 8
 start beside 6; 9 and 11 already waited for it) and W2 fixes every
 interface the chains cross (spec D361).
+Chunk 28 (spec D398) is inserted after the gate: it is cut from the
+gated `v0.5-w2` once its capture is recorded, and once it has merged,
+the gate items it touches are rerun on the merged branch ("Per-wave gate
+contents") before the wave merges into `main`.
 
 Wave 3: chunks 12 to 15 start as κ allows; chunk 16 is cut once chunk
 12 has merged. The five domains share no file but the root `README.md`'s
@@ -332,7 +340,7 @@ have merged.
 | Wave | Adds to the full quality command |
 |---|---|
 | 1 | G8 cleared; the four re-pinned scenarios through `smoke-scenario.sh`; chunk 3's standby fixture (cloned, streaming, read-only queries answered) and a segment switched and archived to a stub; chunk 2's compose tests (merge, override, conflict, `merge.yaml`); the `api` brick's stack test with two hostnames |
-| 2 | G10 cleared; `pgwatch`, `health-check` and `grafana` 0.3.0 built and stack-tested; chunk 10's monitoring fixture; chunk 11's partners fixture (one partner slow, another answering) and archive fixture (a segment and a base backup in the vault, the page and `GET /manifests`); chunk 8's coherence tests (a composed load passing, a broken range failing, a partner's state loaded); chunk 6's refusal fixture; `vet-core`'s load at shift 0 and at a non-zero shift; chunk 11's `pg_hba` form written into `postgres`' `docs/gm.md`; **two gate fixes on chunk 8's and chunk 11's code** (spec D381, D383): cold storage's manifest keyed `(source, shipment_id)` (`partners/coldstore/`: the DDL, the upsert, `GET /manifests`' order, `partners/README.md`, the archive fixture's copies) with one segment name posted by two sources making two manifests and the same source again replacing its own; a coherence check whose `reads` names `partners` run in the partners' database on the partners' node (`tools/gm/{inject,coherence}.py`, the scenario-format skill's coherence item and template), shown by the composed test load with `partners-db` on the partners' `pg_hba.conf` |
+| 2 | G10 cleared; `pgwatch`, `health-check` and `grafana` 0.3.0 built and stack-tested; chunk 10's monitoring fixture; chunk 11's partners fixture (one partner slow, another answering) and archive fixture (a segment and a base backup in the vault, the page and `GET /manifests`); chunk 8's coherence tests (a composed load passing, a broken range failing, a partner's state loaded); chunk 6's refusal fixture; `vet-core`'s load at shift 0 and at a non-zero shift; chunk 11's `pg_hba` form written into `postgres`' `docs/gm.md`; **two gate fixes on chunk 8's and chunk 11's code** (spec D381, D383): cold storage's manifest keyed `(source, shipment_id)` (`partners/coldstore/`: the DDL, the upsert, `GET /manifests`' order, `partners/README.md`, the archive fixture's copies) with one segment name posted by two sources making two manifests and the same source again replacing its own; a coherence check whose `reads` names `partners` run in the partners' database on the partners' node (`tools/gm/{inject,coherence}.py`, the scenario-format skill's coherence item and template), shown by the composed test load with `partners-db` on the partners' `pg_hba.conf`; **after chunk 28 merges** (spec D398), rerun on the merged `v0.5-w2`: the full unit suite (`test_snapshot`, `test_restart`, `test_inject` among it), `sh -n` and `shellcheck` over the shell files, the `postgres` image build and stack test, `sh tools/tests/smoke.sh` (the snapshot's copy order) and the restore fixture's short test; no other item takes a snapshot or a restart |
 | 3 | `check_domain_dir` clean on all six clinic domains and the shop; each domain's load at shift 0 and a non-zero shift, its figures; the bookings, housing, imaging and portal fixtures' domain checks; the composed load of the six domains through the coherence check (load only, the database nodes and the bastion) |
 | 4 | the `bastion` 0.5.0 stack test (both new seed files, the cold-storage route refusing the upload endpoint and every other partner); the register tests (generated, a stale digest refused, a declared absence passed); the orders, send-outs, exchanges, reports, bookings, imaging, vault and portal fixtures with their purposes' checks |
 | 5 | every fault's short test, present and fixed (cleared, for s6 and s9), on its fixture (17.3), one at a time, each under 30 minutes; the false alarm's check; the clinic scenario's format check, register, scenario document and `fit` declaration on armenelos plus the VPS (placement only, no deployment); its load-only fixture through the coherence and governance checks, unfaulted |
@@ -1868,6 +1876,122 @@ Architecture capture: none of its own; it reads W1 to W5.
   register and the document; 27b `fit`, the load-only fixture and its
   checks.
 
+### Chunk 28 — A restart from the hand-over snapshot gives back replication
+
+Status: not started
+Wave: 2
+Depends on: chunk 3 (wave 1); no chunk of wave 2, all merged: cut from
+the gated `v0.5-w2` once its capture is recorded (spec D397, D398)
+Architecture capture: a W2 addendum, recorded by the driver in the wave
+log before the chunk starts: the snapshot record's new key for the
+primaries' slots (`slots: [{node, name}]`, beside `volumes`; a record
+without it read as none); the restart's new steps and their place (a
+standby's restored data volume given `standby.signal` before the stack
+starts; once the stack is healthy, each primary's recorded slots
+re-created, then each standby cloned through load-data's clone step,
+before the restart completes) and their lines in the restart's text
+and record; `clone-standby`'s restore mode (its argument, the file it
+keeps).
+
+- Goal: a restart from the hand-over snapshot gives back every node as
+  it was meant to run, replication included, as master spec 15 ("The
+  restore from the hand-over snapshot") states it: the standby
+  streaming from its restored primary again, a primary's planted slots
+  back, archiving shipping and the vault in step.
+- Scope: in:
+  - **the snapshot** (`snapshot.py`): every node with a `vault_target`
+    copied before the others, the rest in `nodes` order; for each
+    primary (a `postgres` node that is no standby), its persistent
+    replication slots recorded when its copy is taken, its standbys'
+    own slots and temporary slots left out;
+  - **the restart** (`restart.py`): a standby's restored data volume
+    given `standby.signal` (owner and mode as PostgreSQL needs) before
+    the stack starts, so it never runs as a primary; once the stack is
+    healthy, on each primary the recorded slots re-created (physical,
+    reserving WAL at once, inactive), then each standby, in topology
+    order, cloned again as `load-data` does (`inject.clone_standby`:
+    `replicator` set, the clone, the wait until its sender streams),
+    in restore mode; the restart's text and record naming the standbys
+    cloned and the slots re-created; a failure in these steps a failed
+    restart, as today (torn down, recorded, the snapshot kept, a retry
+    accepted);
+  - **`clone-standby`'s restore mode**: the standby's own
+    `postgresql.auto.conf` kept across the clone (saved before PGDATA
+    is emptied, put back after `pg_basebackup -R`, the conninfo check
+    still applied); the default mode, `load-data`'s, unchanged;
+  - **the documentation**: `postgres`' `docs/gm.md`, what a restore
+    gives back in "The standby" and "Snapshot", and what it does not
+    (the accumulated WAL, the cumulative statistics, both building
+    again from the restore), measured on the fixture; its "Known
+    limits" line "A restart restoring the hand-over snapshot does not
+    bring a standby back as one" removed (D352's); the GM skill's
+    `restart` row;
+  - **a restore fixture** and its short test.
+  - Out: a restart with no snapshot (unchanged: its load steps clone);
+    restoring the vault's payload, point-in-time recovery (11.2, later);
+    the copies' sizes and `fit`'s snapshot verdict (unchanged); a
+    snapshot of the whole game as a feature of play (O232).
+- Files: `tools/gm/snapshot.py`, `tools/gm/restart.py`
+  (`tools/gm/inject.py` only if `clone_standby` takes the restore
+  mode's argument); `tools/tests/{test_snapshot.py,test_restart.py}`
+  (`test_inject.py` with `inject.py`);
+  `bricks/postgres/rootfs/usr/local/lib/gm/clone-standby`;
+  `bricks/postgres/tests/run-stack-test.sh`;
+  `bricks/postgres/docs/gm.md` ("The standby", "Snapshot", "Known
+  limits"); `.claude/skills/game-master/gmctl.md` (the `restart` row);
+  `tools/tests/fixtures/fixture-restore/` (new: `records` archiving to
+  the vault, `standby` its standby, the partners' `api` node and
+  database as cold storage, the bastion; no scheduler node, so the
+  snapshot follows `inject`, D162; one fault instance,
+  `pg-abandoned-replication-slot` on `records` beside the standby's
+  slot; its `README.md` by the `scenario-document` skill, its
+  `run-short-test.sh`).
+- Spec sections: master spec 7.1 (the standby), 11.1, 11.2, 15 ("The
+  restore from the hand-over snapshot"), 18.2 (the restore fixture);
+  v0.3 master spec 12 (the restart); access model 5 (the standby never
+  promoted).
+- Done when:
+  - unit tests show: the snapshot copying the nodes with a
+    `vault_target` first; a primary's persistent slots recorded, its
+    standby's own and temporary ones not; a restart from a snapshot
+    with a standby writing `standby.signal` into the standby's restored
+    data volume before the stack starts, re-creating each recorded
+    slot, and cloning each standby in topology order once the stack is
+    healthy, in restore mode; a clone or slot failure a failed restart,
+    the snapshot kept and a retry accepted; a record without `slots:`
+    restoring with none; a restart with no snapshot unchanged; the unit
+    suite passes;
+  - the `postgres` stack test shows `clone-standby`'s restore mode
+    keeping a setting written into the standby's `postgresql.auto.conf`
+    before it, the standby streaming after it, and the default mode
+    unchanged;
+  - on the restore fixture, after `load-data` (the standby cloned),
+    `inject`, the snapshot, the hand-over and `gmctl restart`: the
+    standby's log since the restore shows it starting in standby mode,
+    never as a primary; its slot active on `records` and its sender
+    `streaming` in `pg_stat_replication`; a read-only query answered
+    on the standby and a write refused; a row written on `records`
+    after the restart read on the standby within 30 s, and one written
+    between the snapshot and the restart gone; the planted slot on
+    `records` again, inactive, reserving WAL; a switched segment's
+    `wal` manifest naming `records` in `GET /manifests`, and
+    `pg_stat_archiver`'s `failed_count` unchanged by it; `gmctl
+    teardown` leaving nothing of the game, its copies included; the run
+    under 30 minutes, its figure recorded;
+  - `postgres`' `docs/gm.md` states what a restore gives back and what
+    it does not, and its "Known limits" no longer list the standby's
+    restore.
+- Verification: chunk checks; the `postgres` stack test and the restore
+  fixture's short test are this chunk's point, each under 30 minutes.
+  Once it has merged, wave 2's gate items it touches are rerun on the
+  merged `v0.5-w2` ("Per-wave gate contents", row 2): the full unit
+  suite, `sh -n` and `shellcheck` over the shell files, the `postgres`
+  image build and stack test, `sh tools/tests/smoke.sh` (the
+  snapshot's copy order), and the restore fixture's short test.
+- Split rule: 28a the snapshot's order and slots, the restart's steps,
+  `clone-standby`'s restore mode, with the unit and stack tests; 28b the
+  restore fixture and its short test, `docs/gm.md` and `gmctl.md`.
+
 ## Release gate
 
 Against master spec sections 19 and 20, on `v0.5-w5` before it merges,
@@ -1882,8 +2006,9 @@ exception. GM-side checks run from the host.
    cleared), the false alarm's check, every fixture's checks, each
    brick's own short tests (the `api` brick's build checks; the HTTP
    driver against one stub; the partners' node with one partner slow;
-   the standby cloned and streaming; a segment and a base backup in the
-   vault; the options refused and accepted; `gmctl compose`'s four
+   the standby cloned and streaming, and again after a restart from
+   the hand-over snapshot (chunk 28's restore fixture); a segment and a
+   base backup in the vault; the options refused and accepted; `gmctl compose`'s four
    cases; the coherence check passing and failing; the register
    generated, a stale digest refused, a declared absence passed; each
    domain's load at shift 0 and a non-zero shift) (DoD items 1 to 9).
@@ -1927,7 +2052,7 @@ exception. GM-side checks run from the host.
     and played, the overnight and periodic cadences in scenario time,
     growth and footprints over an aging, the clinic's rehearsal, the
     stance check-list, the parts' long views); no hand-over snapshot for
-    the whole clinic on these declarations; a restart from a hand-over
-    snapshot not bringing a standby back as one (`postgres` 0.5.0's
-    known limit, spec D352); the access model's known
-    gaps that stand; the security advisor's items still with the owner.
+    the whole clinic on these declarations; what a restore from the
+    hand-over snapshot does not give back, the accumulated WAL and the
+    cumulative statistics (master spec 15, spec D397); the access
+    model's known gaps that stand; the security advisor's items still with the owner.
