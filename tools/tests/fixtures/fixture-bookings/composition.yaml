@@ -1,0 +1,19 @@
+# The bookings fixture's composition record (tools/tests, v0.5 chunk 13): the
+# core and its part vet-scheduling, both in records/clinic, loaded core first;
+# no derivation. The keys vet-scheduling relies on are the core's functions,
+# by the names vet-core's docs/gm.md ("Core keys") gives them, and the
+# agenda's vc_agenda, which those notes name for this part (W3-g); the scale
+# check is the part's agenda against the core's consultations
+# (vet-scheduling docs/gm.md, "Core keys used").
+domains:
+  - {id: vet-core, variant: regional-franchise, at: records/clinic}
+  - {id: vet-scheduling, at: records/clinic}
+keys:
+  vet-scheduling: [consultations.id, consultations.booking_id, requests.id, exchanges.id, staff.id, animals.id,
+                   core_shifts, core_staff, core_consultation, core_request, core_exchange, core_animal, core_death,
+                   core_referring_practice, vc_agenda]
+scale:
+  checked: true
+  note: "the core's 16 700 placed scheduled consultations as attended bookings, its 3 000 imaging requests and 270 inbound examinations booked, the rota of its 85 staff; about 0.13 million rows beside the core's 0.27"
+order: [vet-core, vet-scheduling]
+# derive: none (scheduling computes the core's keys; no sanctioned derivation)

@@ -1,0 +1,257 @@
+# Bookings fixture of v0.5 (build plan chunk 13; capture W3 item 2 with "W3
+# item 2, revised", W3-b, of specs/versions/v0.5/wave-log.md; spec D403,
+# D408-D414). Not a game: vet-core's medical record and vet-scheduling's
+# agenda, rota and training centre, loaded by gmctl load-data from the
+# domains (domains:, the variant regional-franchise, both at records/clinic:
+# the core's schema, keys.sql and load, then scheduling's schema (btree_gist
+# and the four exclusion constraints) and load with the core's keys.sql,
+# then the coherence check), the practice software, pms (scheduler 0.3.0),
+# with the core's streams as vet_app and scheduling's as sched_app, the
+# integration engine, interfaces (scheduler 0.3.0, idle until chunk 21 adds
+# purpose 11), the lookup API, clinic-api (api 0.1.0), which compose needs
+# for vet-core's producer folder (D403), and the bastion; five nodes on one
+# host. gmctl compose writes nodes/clinic-api/, nodes/pms/ and
+# nodes/interfaces/ from the domains' producers/ with the scenario layers
+# compose/pms/ (the clinic's day at 1.0) and compose/interfaces/ (idle).
+# Deployed by its short test, tools/tests/fixtures/fixture-bookings/
+# run-short-test.sh, T0 a weekday at 09:50 local (placed to the hour by the
+# shift, the minute the clock's): the loads agreeing, an overlapping
+# allocation refused (23P01), bookings through the slot function (one 40
+# days ahead on a planned shift), a cancellation releasing its slot, and
+# sched.rota.publish moved to the next minute, publishing the week after
+# next and planning the seventh week, rerun without a duplicate. One
+# harmless seed-file fault (f1), since a scenario needs at least one,
+# copied from the core fixture.
+
+# --- Scenario information --------------------------------------------
+id: fixture-bookings
+version: 0.1.0
+title: Bookings fixture, vet-scheduling's agenda, rota and training centre beside vet-core's record
+date: 2026-11-04
+origin: hand-written
+session_length_minutes: 60
+brief: brief.md
+background: >-
+  A veterinary hospital keeps its medical record and its agenda in one
+  PostgreSQL database, records; its practice software books owners'
+  animals, imaging studies, theatre plans and training days on its rooms,
+  machines and staff, keeps the staff rota, and publishes it each Friday,
+  reached through a bastion.
+
+# --- Aging and difficulty ---------------------------------------------
+aging:
+  minimum: 8h                       # the floor (master spec 8.2); the short test never ages it
+  handover_at: "14:00"
+difficulty:
+  score: 1                          # its one fault instance (master spec 15.1)
+  level: easy
+
+# --- Domains (v0.5 master spec 6, 8) ----------------------------------
+domains:
+  - id: vet-core
+    variant: regional-franchise
+    at: records/clinic
+  - id: vet-scheduling
+    at: records/clinic
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: backend
+    description: players' SSH and SQL sessions, the practice software's and the lookup API's SQL, the lookup API's callers' HTTP
+
+nodes:
+  - name: bastion
+    brick:
+      id: bastion
+      version: 0.5.0
+    role: bastion
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters:
+      web_routes: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.1
+        memory: 96M
+        disk: 256M
+    published_ports:
+      - port: 22
+        default: 2222
+      - port: 8080
+        default: 8080
+    seed_files:
+      README.md: player/README.md
+      story.md: player/story.md
+      issues.md: player/issues.md
+    knobs: []
+
+  - name: records
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.5
+        memory: 512M
+        disk: 2.25G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/records/postgresql.conf
+      pg_hba.conf: nodes/records/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 10, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+
+  - name: clinic-api
+    brick:
+      id: api
+      version: 0.1.0
+    role: api
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 128M
+        disk: 64M
+    published_ports: []
+    seed_files:
+      api.yaml: nodes/clinic-api/api.yaml
+      routes/: nodes/clinic-api/routes/
+      db/: nodes/clinic-api/db/
+    knobs: []
+
+  - name: pms
+    brick:
+      id: scheduler
+      version: 0.3.0
+    role: producer
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/pms/queries.yaml
+      jobs.yaml: nodes/pms/jobs.yaml
+      schedule.yaml: nodes/pms/schedule.yaml
+    knobs: []
+
+  - name: interfaces
+    brick:
+      id: scheduler
+      version: 0.3.0
+    role: transformer
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/interfaces/queries.yaml
+      jobs.yaml: nodes/interfaces/jobs.yaml
+      schedule.yaml: nodes/interfaces/schedule.yaml
+    knobs: []
+
+flows:
+  - from: bastion
+    to: records
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: clinic-api
+    what: players' SSH sessions; a lookup needs the credential clinic_lookup, which the bastion does not hold
+    how: ssh 22, http 8000
+    cadence: interactive
+  - from: clinic-api
+    to: records
+    what: the lookups (an animal, its current owner, the current stays), as vet_lookup
+    how: postgresql 5432
+    cadence: per request
+  - from: pms
+    to: records
+    what: the practice software's work (vet-core's streams and jobs, as vet_app; vet-scheduling's 17 streams and its Friday job, as sched_app)
+    how: postgresql 5432
+    cadence: continuous, by the clinic's hours
+  - from: interfaces
+    to: clinic-api
+    what: nothing until chunk 21 (the integration engine idle, its one connection never opened)
+    how: http 8000
+    cadence: none
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:
+  - id: f1
+    fault:
+      id: fixture-random-page-cost
+      version: 0.1.0
+    node: records
+    parameters: {}
+    visibility: hidden
+
+issues: []
+
+# --- Host topology it was designed for -------------------------------
+designed_for:
+  platform: swarm
+  hosts:
+    - name: laptop
+      cpu: 2
+      memory: 4G
+      disk: 8G
+  placement:
+    bastion: laptop
+    records: laptop
+    clinic-api: laptop
+    pms: laptop
+    interfaces: laptop

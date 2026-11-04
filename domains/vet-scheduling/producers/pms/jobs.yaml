@@ -1,0 +1,11 @@
+# Fixed-time operations of the practice-management software, vet-scheduling's
+# fragment (vet-scheduling-domain.md, "Fixed-time operations"; spec D411), in
+# scenario time: each Friday at noon the rota's seventh week ahead planned,
+# the week after next published, and the week after next's machine and
+# theatre blocks booked. Set-based work: the GM may move it to the database
+# node's pg_cron (D206, D207).
+jobs:
+  - name: rota-publish
+    key: sched.rota.publish
+    connection: sched
+    at: "0 12 * * 5"
