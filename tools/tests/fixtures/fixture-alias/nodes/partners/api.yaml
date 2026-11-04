@@ -1,0 +1,8 @@
+# api.yaml of the fixture's partners node (v0.5 capture W1 item 5; template:
+# .claude/skills/scenario-format/templates/api.yaml): one endpoint under
+# the third party's hostname, xlab, its network alias (capture W2 item 2),
+# behind one credential.
+endpoints:
+  xlab_status:
+    hosts: [xlab]
+    credentials: [xlab_status]

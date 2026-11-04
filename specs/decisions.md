@@ -26,7 +26,7 @@ stay live: rulings still to be applied in v0.5. The rest is v0.5's: D192,
 D196 and D201, its scope set while v0.4 was drafted, then its drafting
 from D233 on (D233–D238, D248–D251, D260–D280, D285–D304, D306–D309 and
 D314 onward; the numbers between are v0.4's, archived;
-D337 and D341 were reserved and never used). Take the next number from
+D337, D341 and D371 were reserved and never used). Take the next number from
 `doc-ids`; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
@@ -815,3 +815,15 @@ D337 and D341 were reserved and never used). Take the next number from
   latest cleared release. Chunk 10 points to G9's conditions in the wave
   log. Now in: [versions/v0.5/master-spec.md](versions/v0.5/master-spec.md)
   7.4, 21; [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) G3, G9, chunk 10.
+- **D369 (2026-11-04, the spec gap chunks 6 and 8 found): The owners'
+  traffic takes `producers/partners/owners/`; no v0.5 folder uses
+  `public/`, and chunk 17 refuses a `data.sql` there.** The route keeps
+  its record of visits in `partners` (master spec 9.7, 10.2), which only
+  `partners/`' `data.sql` loads (W2 item 3), and no chunk after 8 holds
+  `inject.py` (D366). No wave-3 chunk plans a `public/` one. Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 16, 17, G16.
+- **D370 (2026-11-04, the same pass): Text correction: chunk 12's lab
+  stub folder is `producers/partners/xlab/`, not `northfield-lab/`.** A
+  partner's folder is its prefix (W2 item 0), which chunk 6 checks;
+  `xlab` serves the hostname `northfield-lab`. Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunk 12.

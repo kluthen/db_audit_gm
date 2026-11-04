@@ -49,6 +49,17 @@ certificate and key are secrets of kind `certificate`, mounted on every
 `vault_credential` reach it as GM_VAULT_TARGET and GM_VAULT_CREDENTIAL,
 as any scalar parameter does.
 
+v0.5 master spec 10.2 and 15, capture W2 item 2 (spec D347): an `api`
+node gets as network aliases the hosts its seed api.yaml lists other than
+its own name (the partners' node: every `third_parties:` hostname and
+`owners`), recorded by `fit` as its `aliases` in implementation.yaml and
+rendered as `networks: {<network>: {aliases: [...]}}`; every other service
+keeps the list form. Each HTTP credential is a password secret
+`http_<credential>`, generated per game and not handed over, mounted
+root-only under /opt/gm/secrets/ on each node naming it: a scheduler
+node's HTTP connections, an `api` node's endpoints and connections, a
+`postgres` node's `vault_credential` (localimpl.node_credentials).
+
 v0.3 master spec 7.5 and 10.2; capture W3, item 2: every node is pinned to
 the host `fit` placed it on (`nodes.<n>.host`), `node.hostname == <host>`,
 the bastion with its host-mode ports, a stateful node with its volumes.
@@ -510,6 +521,17 @@ def _healthcheck(spec):
     return hc
 
 
+def service_networks(network, aliases=None):
+    """A service's `networks`: the list form `[<network>]`, so v0.4's stack
+    files render unchanged, or, for a node with network aliases (an `api`
+    node's, localimpl.node_aliases), `{<network>: {aliases: [...]}}` (v0.5
+    capture W2 item 2). Swarm puts an alias in its DNS once the service's
+    task is healthy, as the service's own name (spec D356)."""
+    if aliases:
+        return {network: {"aliases": list(aliases)}}
+    return [network]
+
+
 def set_subnet(overlay, subnet):
     """The overlay network's explicit subnet (capture W3-a, item 4)."""
     overlay["ipam"] = {"config": [{"subnet": subnet}]}
@@ -549,7 +571,7 @@ def build_stack(scenario, impl):
                           for v in inode["volumes"]]
         svc["configs"] = [_mount(c) for c in inode["configs"]]
         svc["secrets"] = [_mount(s) for s in inode["secrets"]]
-        svc["networks"] = [network]
+        svc["networks"] = service_networks(network, inode.get("aliases"))
         limits = inode["resources"]["limits"]
         reservations = inode["resources"]["reservations"]
         svc["deploy"] = {
@@ -663,6 +685,10 @@ def _check_fit(scenario, impl, playground):
                 if c.get("kind") == localimpl.SEED_KIND] \
                 != localimpl.seed_configs(scenario, node, playground, impl["game_id"]):
             raise GmError(f"node {node['name']}'s seed files changed since gmctl fit: fit again")
+        if impl["nodes"][node["name"]].get("aliases", []) \
+                != localimpl.node_aliases(scenario, node):
+            raise GmError(f"node {node['name']}'s hostnames (api.yaml's hosts, its network "
+                          "aliases) changed since gmctl fit: fit again")
 
 
 def render(scenario_dir, playground, handover=None, catalog_root=REPO_ROOT, test_leave_out=None):

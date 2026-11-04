@@ -12,7 +12,9 @@ Master spec 10.3; files, names and labels fixed by capture W2-A
                          resources (copied, never recomputed), published
                          ports, every derived name, and from v0.3 each
                          node's `host` and the hand-over snapshot's verdict
-                         `snapshot_fit` (capture W3 of v0.3, items 2, 5);
+                         `snapshot_fit` (capture W3 of v0.3, items 2, 5),
+                         from v0.5 an `api` node's network `aliases` (v0.5
+                         capture W2 item 2);
 - `stack.yml`, `envelopes/<node>.conf`, `mounted/<item>/<node>.conf`
                          written by `render` (the last: each receiving
                          node's own config of a mounted item, v0.2 capture
@@ -47,7 +49,10 @@ Master spec 10.3; files, names and labels fixed by capture W2-A
                          items 5 and 6): a certificate `<pair>.crt` and its
                          key `<pair>.key` (the game's TLS pair, `tls`), and
                          the role passwords an `api` node's `api.yaml`
-                         names; an option's secret only where it is chosen.
+                         names; an option's secret only where it is chosen;
+                         (capture W2 item 2, spec D347) a password
+                         `http_<credential>` per HTTP credential, mounted on
+                         each node sending or checking it.
 
 Every path an implementation records (`file:`) is relative to the scenario
 folder.
@@ -67,10 +72,10 @@ from pathlib import Path
 
 import yaml
 
-from .model import (CUSTOMER_TIMEZONE, POSTGRES_BRICK, POSTGRESQL_CONF, RESERVED_DB_ROLES,
-                    SUBSTITUTION_RE, GmError, has_scheduler_nodes, is_scheduler_node,
-                    is_seed_folder_entry, mounted_items, node_data_file_creates, parse_mode,
-                    parse_size)
+from .model import (CUSTOMER_TIMEZONE, POSTGRES_BRICK, POSTGRESQL_CONF, REPO_ROOT,
+                    RESERVED_DB_ROLES, SUBSTITUTION_RE, GmError, has_scheduler_nodes,
+                    is_scheduler_node, is_seed_folder_entry, mounted_items, node_creates,
+                    parse_mode, parse_size)
 
 PLATFORM = "swarm"
 STAGES = ("fitted", "rendered", "deployed", "data-loaded", "injected", "load-started",
@@ -160,6 +165,14 @@ ROLE_SECRET_UID, ROLE_SECRET_GID, ROLE_SECRET_MODE = 0, 0, "0400"
 API_BRICK = "api"                   # an api node: a node whose brick id is this (W1 item 5)
 API_FILE = "api.yaml"               # its seed file naming endpoints and connections
 HTTP_DRIVER = "http"                # a connection naming no role (W1 item 3)
+# v0.5 HTTP credentials (spec D347; capture W1 items 0, 3 and 6, W2 item 2):
+# one password `http_<credential>` per name per game, not handed over,
+# mounted like a role secret on each node naming the credential: a
+# scheduler node's schedule.yaml HTTP connections, an `api` node's api.yaml
+# endpoints (`credentials`) and connections (`credential`), a node's
+# `vault_credential` parameter (a `postgres` node's archiving).
+HTTP_SECRET_PREFIX = "http_"
+VAULT_CREDENTIAL = "vault_credential"
 
 GAME_ID_MAX = 63                    # master spec 10.3
 SERVICE_NAME_MAX = 63               # Swarm service names
@@ -604,8 +617,9 @@ def config_file_part(file_name):
     return str(file_name).replace("/", "-")
 
 
-def _derived_lengths(scenario):
-    """(name part after the game id, limit) for every derived name."""
+def _derived_lengths(scenario, catalog_root=REPO_ROOT):
+    """(name part after the game id, limit) for every derived name;
+    `catalog_root` the catalogue the scenario's domains are read from."""
     parts = []
     for node in scenario.nodes:
         name = node["name"]
@@ -617,7 +631,7 @@ def _derived_lengths(scenario):
             parts.append((f"_{name}_{pc['name']}", OBJECT_NAME_MAX))
         for sec in node_secret_declarations(scenario, node):
             parts.append((f"_{sec['name']}", OBJECT_NAME_MAX))
-        for role in data_login_roles(scenario, node):
+        for role in data_login_roles(scenario, node, catalog_root):
             parts.append((f"_{role_secret_name(role)}", OBJECT_NAME_MAX))
         # mounted material: any node of the topology may receive it
         for item in mounted_items(brick):
@@ -628,9 +642,9 @@ def _derived_lengths(scenario):
     return parts
 
 
-def max_game_id_length(scenario):
+def max_game_id_length(scenario, catalog_root=REPO_ROOT):
     longest = GAME_ID_MAX
-    for part, limit in _derived_lengths(scenario):
+    for part, limit in _derived_lengths(scenario, catalog_root):
         longest = min(longest, limit - len(part))
     return longest
 
@@ -714,10 +728,9 @@ def is_api_node(node):
         and node["brick"].get("id") == API_BRICK
 
 
-def _seed_connections(scenario, node, fname):
-    """The `connections` map of the node's seed file `fname` (`{}` when
-    the node seeds none, or when it cannot be read: the loader reports
-    it)."""
+def _seed_map(scenario, node, fname, key):
+    """The `key` map of the node's seed file `fname` (`{}` when the node
+    seeds none, or when it cannot be read: the loader reports it)."""
     rel = (node.get("seed_files") or {}).get(fname)
     if rel is None:
         return {}
@@ -725,8 +738,34 @@ def _seed_connections(scenario, node, fname):
         doc = yaml.safe_load((Path(scenario.dir) / rel).read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, yaml.YAMLError):
         return {}
-    connections = (doc or {}).get("connections") if isinstance(doc, dict) else None
-    return connections if isinstance(connections, dict) else {}
+    found = (doc or {}).get(key) if isinstance(doc, dict) else None
+    return found if isinstance(found, dict) else {}
+
+
+def _seed_connections(scenario, node, fname):
+    """The `connections` map of the node's seed file `fname`."""
+    return _seed_map(scenario, node, fname, "connections")
+
+
+def api_endpoints(scenario, node):
+    """An `api` node's api.yaml `endpoints` map (`{}` for another node, or
+    when the file cannot be read: the loader reports it)."""
+    return _seed_map(scenario, node, API_FILE, "endpoints") if is_api_node(node) else {}
+
+
+def node_aliases(scenario, node):
+    """The network aliases of an `api` node (v0.5 capture W2 item 2): the
+    hosts its seed api.yaml's endpoints list other than its own name,
+    sorted, unique; [] for another node. With the loader's v0.5 checks
+    (W2 item 1) only the partners' node has any: the `third_parties:`
+    hostnames, plus `owners`."""
+    hosts = set()
+    for endpoint in api_endpoints(scenario, node).values():
+        listed = endpoint.get("hosts") if isinstance(endpoint, dict) else None
+        hosts.update(h for h in (listed if isinstance(listed, list) else [])
+                     if isinstance(h, str) and h)
+    hosts.discard(node["name"])
+    return sorted(hosts)
 
 
 def schedule_connections(scenario, node):
@@ -765,6 +804,41 @@ def connection_roles(scenario, node):
     return roles
 
 
+def http_secret_name(credential):
+    return f"{HTTP_SECRET_PREFIX}{credential}"
+
+
+def _credential(value):
+    return value if isinstance(value, str) and value else None
+
+
+def node_credentials(scenario, node, params=None):
+    """The HTTP credentials a node sends or checks (v0.5 capture W2 item 2),
+    in first-use order: a scheduler node's schedule.yaml HTTP connections'
+    `credential`; an `api` node's api.yaml endpoints' `credentials`, then
+    its HTTP connections' `credential`; the node's `vault_credential`
+    parameter when its brick declares one (a `postgres` node's archiving,
+    W1 item 6), as node_parameters gives it (`params`, computed when not
+    given: the parameter faults applied, so a fault planting another
+    credential mounts that one), else the brick's default. [] for a node
+    naming none: no node holds a credential it neither sends nor checks."""
+    names = []
+    for endpoint in api_endpoints(scenario, node).values():
+        accepted = endpoint.get("credentials") if isinstance(endpoint, dict) else None
+        names += [c for c in (accepted if isinstance(accepted, list) else []) if _credential(c)]
+    for conn in node_connections(scenario, node).values():
+        if isinstance(conn, dict) and conn.get("driver") == HTTP_DRIVER \
+                and _credential(conn.get("credential")):
+            names.append(conn["credential"])
+    spec = (scenario.bricks[node["name"]].data.get("parameters") or {}).get(VAULT_CREDENTIAL)
+    if isinstance(spec, dict):
+        values = (params if params is not None else node_parameters(scenario))[node["name"]]
+        vault = _credential(values.get(VAULT_CREDENTIAL, spec.get("default")))
+        if vault:
+            names.append(vault)
+    return list(dict.fromkeys(names))
+
+
 def crontab_roles(node):
     """The roles a node's seeded crontab connects as (`crontab_roles`, v0.4
     capture W1 item 1), in their order; [] for a node with none."""
@@ -772,15 +846,18 @@ def crontab_roles(node):
     return [r for r in roles if isinstance(r, str)] if isinstance(roles, list) else []
 
 
-def data_login_roles(scenario, node):
-    """The login roles a node's data file creates with no password of their
-    own (model.data_file_creates: `CREATE ROLE ... LOGIN`, `CREATE USER`;
-    one whose statement sets `PASSWORD '...'` keeps it), in file order,
-    the game's own roles (RESERVED_DB_ROLES, pg_*) left out; [] for a node
-    with none.
+def data_login_roles(scenario, node, catalog_root=REPO_ROOT):
+    """The login roles created on a node with no password of their own
+    (model.data_file_creates: `CREATE ROLE ... LOGIN`, `CREATE USER`; one
+    whose statement sets `PASSWORD '...'` keeps it), the game's own roles
+    (RESERVED_DB_ROLES, pg_*) left out; [] for a node with none. Read
+    through model.node_creates (v0.5 capture W2 items 1 and 2, spec D360):
+    the node's data file's, in file order, then those the domains placed
+    on it (and, on the partners' node, the composed domains' partner
+    data.sql) create, read from `catalog_root`.
     Each has a secret `role_<role>_password`, set by load-data on the node
     (master spec 9.7)."""
-    created = node_data_file_creates(Path(scenario.dir), node)
+    created = node_creates(Path(scenario.dir), scenario.data, node, catalog_root=catalog_root)
     return [r for r in (created.logins if created else [])
             if r not in RESERVED_DB_ROLES and not r.startswith("pg_")]
 
@@ -819,24 +896,29 @@ def node_secret_declarations(scenario, node):
     root-only under /opt/gm/secrets/, per role a scheduler node's schedule
     or an `api` node's api.yaml names (v0.3 W1 item 7, spec D345) or a
     node's `crontab_roles` names (v0.4 W1 item 8): one secret per role per
-    game, shared by every node naming it."""
+    game, shared by every node naming it; then (v0.5 capture W2 item 2,
+    spec D347) one password `http_<credential>` per HTTP credential the
+    node names (node_credentials), mounted as the role secrets are, one
+    per credential per game."""
     roles = topology_roles(scenario)
     brick = scenario.bricks[node["name"]].data
     off = unchosen_option_secrets(brick, node)
     out = [sec for sec in brick.get("secrets") or []
            if (sec.get("only_with_role") is None or sec.get("only_with_role") in roles)
            and sec.get("name") not in off]
-    for role in dict.fromkeys(connection_roles(scenario, node) + crontab_roles(node)):
-        name = role_secret_name(role)
+    names = [role_secret_name(role)
+             for role in dict.fromkeys(connection_roles(scenario, node) + crontab_roles(node))]
+    names += [http_secret_name(c) for c in node_credentials(scenario, node)]
+    for name in names:
         out.append({"name": name, "kind": PASSWORD, "path": posixpath.join(ROLE_SECRET_DIR, name),
                     "uid": ROLE_SECRET_UID, "gid": ROLE_SECRET_GID, "mode": ROLE_SECRET_MODE})
     return out
 
 
-def game_secrets(scenario):
+def game_secrets(scenario, catalog_root=REPO_ROOT):
     """`(secrets, problems)`: the game's secrets, one per name a node
     mounts (node_secret_declarations) in topology order, then one per login
-    role a data file creates (data_login_roles, master spec 9.7) not among
+    role created on a node (data_login_roles, master spec 9.7) not among
     them, mounted nowhere; each `{"secret": name, **identity, "file": file
     in secrets/}`, and what refuses the topology (capture W1, item 7): a
     malformed declaration, a name two bricks declare differently, or a
@@ -861,7 +943,7 @@ def game_secrets(scenario):
                 continue
             found[name] = (brick.id, identity)
     for node in scenario.nodes:
-        for role in data_login_roles(scenario, node):
+        for role in data_login_roles(scenario, node, catalog_root):
             found.setdefault(role_secret_name(role), (
                 scenario.bricks[node["name"]].id, {"kind": PASSWORD, "handed_over": False}))
     pairs = {(i["kind"], i["pair"]) for _, i in found.values() if i["kind"] != PASSWORD}
@@ -891,14 +973,14 @@ def _identity_text(identity):
     return f"key pair {identity['pair']}, {identity['half']} half"
 
 
-def check_supported(scenario):
+def check_supported(scenario, catalog_root=REPO_ROOT):
     """What gmctl cannot render or deploy; [] when all is supported."""
     problems = []
     networks = scenario.data.get("networks") or []
     if len(networks) != 1:
         problems.append(f"the scenario declares {len(networks)} networks; gmctl renders one "
                         "network, <game_id>_<network name> (spec D83, D106)")
-    problems += game_secrets(scenario)[1]
+    problems += game_secrets(scenario, catalog_root)[1]
     for node in scenario.nodes:
         brick = scenario.bricks[node["name"]]
         for pc in brick.data.get("protected_configs") or []:
@@ -908,11 +990,11 @@ def check_supported(scenario):
     return problems
 
 
-def implementation_secrets(scenario, playground, game_id):
+def implementation_secrets(scenario, playground, game_id, catalog_root=REPO_ROOT):
     """implementation.yaml's `secrets`: per game secret, its Swarm name
     `<game_id>_<name>`, its declaration and its file (relative to the
     scenario folder). GmError when the topology is refused."""
-    secrets, problems = game_secrets(scenario)
+    secrets, problems = game_secrets(scenario, catalog_root)
     if problems:
         raise GmError("; ".join(problems))
     return [{"name": f"{game_id}_{sec['secret']}", **sec,
@@ -1111,7 +1193,8 @@ def build_implementation(scenario, playground, game_id, created_at, hosts, snaps
     """implementation.yaml's content (capture W2-A; v0.2: the network named
     after the scenario's, the secrets by kind, the mounted material and the
     parameter faults applied before it is derived; v0.3 W3 items 2 and 5:
-    `hosts`, node name -> its host, and the snapshot's verdict)."""
+    `hosts`, node name -> its host, and the snapshot's verdict; v0.5 W2
+    item 2: a node's network `aliases`, when it has any, node_aliases)."""
     gid = game_id
     local_rel = f"local/{playground}"
     mounted = mounted_configs(scenario, node_parameters(scenario), playground, gid)
@@ -1147,6 +1230,9 @@ def build_implementation(scenario, playground, game_id, created_at, hosts, snaps
             "configs": configs,
             "secrets": node_secrets,
         }
+        aliases = node_aliases(scenario, node)
+        if aliases:
+            nodes[name]["aliases"] = aliases
     impl = {
         "scenario": {"id": scenario.id, "version": str(scenario.data.get("version")),
                      "path": str(scenario.dir)},
