@@ -1,0 +1,6 @@
+# The test part's classification (tools/tests, v0.5 chunk 8).
+columns:
+  ward_placements.id: internal
+  ward_placements.stay_id: customer-linked
+  ward_placements.unit: internal
+  ward_placements.during: customer-linked

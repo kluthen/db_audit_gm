@@ -1,0 +1,25 @@
+# The test part's coherence queries (tools/tests, v0.5 chunk 8): its
+# references to its core, and a history it shares with the external lab.
+checks:
+  - id: placements-on-stays
+    what: every placement on a stay of the core
+    reads: [fx-core]
+    sql: |
+      SELECT p.id AS placement_id, p.stay_id AS c8_coherence_canary
+        FROM ward_placements p
+       WHERE NOT EXISTS (SELECT 1 FROM gm_src_fx_core.stays s WHERE s.id = p.stay_id)
+  - id: stays-placed
+    what: every current stay placed in a unit
+    reads: [fx-core]
+    sql: |
+      SELECT s.id AS stay_id FROM gm_src_fx_core.stays s
+       WHERE s.discharged_at IS NULL
+         AND NOT EXISTS (SELECT 1 FROM ward_placements p WHERE p.stay_id = s.id)
+       ORDER BY s.id
+  - id: requests-on-current-stays
+    what: every open lab request on a current stay
+    reads: [fx-core, partners]
+    sql: |
+      SELECT r.stay_id FROM gm_src_partners_xlab.requests r
+       WHERE NOT EXISTS (SELECT 1 FROM gm_src_fx_core.stays s
+                          WHERE s.id = r.stay_id AND s.discharged_at IS NULL)

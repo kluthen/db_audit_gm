@@ -1,0 +1,8 @@
+# The test core's one variant (tools/tests, v0.5 chunk 6).
+parts: []
+scale:
+  population: {owners: 10}
+  history: {days: 1}
+  throughput: {orders_per_minute: 2}
+purposes: [fx-lab-orders]
+tags: [managed, regional]

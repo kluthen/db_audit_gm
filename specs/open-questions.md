@@ -184,7 +184,23 @@ Raised when the owner set business domains for v0.5 on 2026-10-28
 added on 2026-10-30 (D196). O111, the last of them, closed at
 consolidation (D338); O220, raised by it, closed at the master spec's
 approval (D340). O223–O227, raised with the build plan, closed at its
-approval (D343). No v0.5 question is open.
+approval (D343).
+
+- **O229** (soon, v0.5; for capture W3, before chunk 16) — Where the
+  messaging stub's planted notices of the last 14 days are written.
+  Master spec 9.7 and vet-portal's "Loading" have the portal's
+  `derive.sql` derive them, but they live in `partners` (purpose 16's
+  stub, built by chunk 21), and W2 item 3 runs `derive.sql` in
+  `portal`, reading its sources through `gm_check`, with no source
+  written. *Recommended:* as D366 for purpose 14, purpose 16's history
+  plants them, its `target` the partners' database and `portal` its
+  source, after the derivation (W2 item 3's order); `derive.sql` writes
+  `portal` only; capture W4 fixes where the stub's role and tables come
+  from within W2's loaders. Any write path from `derive.sql` into
+  `partners` is an inserted chunk. Not the owner's: T0's state is the
+  same either way. Refs:
+  [versions/v0.5/master-spec.md](versions/v0.5/master-spec.md) 9.7,
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 16, 21.
 
 ## v0.6: the setup's entry point
 

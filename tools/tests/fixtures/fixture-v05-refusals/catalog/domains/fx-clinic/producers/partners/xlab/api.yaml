@@ -1,0 +1,5 @@
+# The external lab's endpoint fragment (tools/tests, v0.5 chunk 6).
+endpoints:
+  xlab_results:
+    hosts: [northfield-lab]
+    credentials: [xlab_results]

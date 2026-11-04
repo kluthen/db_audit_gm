@@ -1,0 +1,13 @@
+# A test part of tools/tests (v0.5 chunk 8): not a game domain.
+id: fx-docs
+title: A test part documenting the stays, in a database of its own
+schema: data/schema.sql
+load: data/load.sql
+classification: data/classification.yaml
+register: data/register.yaml
+producers: producers/
+notes: docs/gm.md
+requires: [fx-core]
+derive:
+  after: [fx-core]
+purposes: []

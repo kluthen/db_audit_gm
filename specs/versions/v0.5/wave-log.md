@@ -2012,3 +2012,332 @@ modules embedded in downloaded binaries (Prometheus, Grafana,
 a check like this one.
 
 G9 **done (2026-11-04)**.
+
+### Chunk 6 — merged (f3eb50d), 2026-11-04
+
+`coding-leader`: 6a `dde1a14` (scenario, brick and fault checks;
+`node_creates`; `register_diff_true`; the fixture without its catalogue),
+6b `2052e6f` (purpose and domain checks; the fixture's `catalog/`; the
+`scenario-format` skill's checklist), merge `f3eb50d`. Unit suite 992 OK
+on the branch and on the merged `v0.5-w2` (6a alone 971 OK). Done when:
+each refusal shown with its message (`test_model.py`: `TestV05Fixture`,
+`TestOptionRefusals`, `TestMonitorRefusals`, `TestStandbyRefusals`,
+`TestThirdPartyRefusals`, `TestHttpRefusals`, `TestApiNodeRefusals`,
+`TestRegisterDiffRefusals`, `TestV05Composed`, `TestPurposeV05Refusals`,
+`TestDomainV05Refusals`); the valid fixture
+`tools/tests/fixtures/fixture-v05-refusals/` (eight nodes, three third
+parties) accepted; a location in a database a composed domain creates
+accepted through `model.node_creates` and refused without `domains:`;
+the four scenarios, the fixtures and the catalogue still load.
+
+Deviations (none against W2 or a ruling): `tools/tests/test_render.py`
+(chunk 7's) changed: chunk 3's `TestStandbyEnvironment` now builds a real
+standby and targets `records:8000`, as the new checks require; the split
+is not exact (the skill's lines all in 6b; `PURPOSE_PARTS`,
+`PART_ROLES["api"]`, `PURPOSE_KINDS` in 6a, which alone crashes only on a
+scenario mapping a `partner` part, none existing); three message strings
+in existing `test_model.py` tests; the README template has no slot for
+`options:`, `standby_of`, `third_parties:` (the scenario-document skill's,
+later). For G16: partner `data.sql`, the prefix rule, `register_diff`
+required on a register fault, the `ops` trace rule. Risks: the SQL
+splitter and the `search_path` regex are heuristics; the starter-pack scan
+is textual; pgwatch's `sources.yaml` read as a top-level list (chunk 10
+confirms on 6.1.0).
+
+**Capture W2-a — chunk 6 outcomes (the loader's v0.5 checks; read by 7, 8, 9, 11, 17, 23 and every chunk loading a scenario or fixture)**
+
+- **`model.node_creates(sdir, data, node, catalog_root=REPO_ROOT)`**:
+  `node` a node dict or name; returns a `DataFileCreates`, or None when
+  nothing creates anything there (a standby gives None). Unions the
+  node's data file; each `domains:` entry's `at:` database on that node;
+  the roles and databases that entry's schema and load files create
+  (`schema`/`load`, or `data/<db>/{schema,load}.sql` for a map `at:`); and,
+  on a `postgres` node a `third_parties:` entry lists, each composed
+  domain's `producers/{partners,public}/*/data.sql`. `pg_cron` from the
+  data file only. `DataFileCreates` gains `sources` (the data file first,
+  then `domains/<id>/<path>`). `check_scenario` builds its map from it for
+  purposes, governance and crontab roles; `_check_pg_cron` still reads
+  `_data_files`. The location message names "the data file or the domains
+  placed on it" only when a domain contributed.
+- **A standby is no location**: refused as a purpose part's or
+  governance location and as an `at:`.
+- **Options**: `brick_options(brick_data)`; a node's `options:` a
+  non-empty list of unique declared names; `no-access` only in the brick's
+  `write_policies` (the bypass gone); `requires_option` /
+  `option_absent` option names, never the same one; at instance level the
+  brick declares the option and the node chooses it (or not).
+- **Monitors**: `model.monitor_targets(node, brick, sdir)`:
+  `postgres-exporter` from `exporter.conf`'s `DATA_SOURCE_URI` host;
+  `pgwatch` from `sources.yaml`, a top-level list, each entry's `conn_str`
+  in URI form unless `is_enabled: false`; `health-check` from
+  `health.yaml` `instances[].host`. A `postgres` target, and a standby
+  target's primary, choose `monitoring`, excused by an
+  `option_absent: monitoring` instance on that node or the monitored
+  standby. A third-party target refused.
+- **Standby**: `standby_of` names an existing `postgres` node, no
+  standby, not itself; only a `postgres` node is a standby; no `data:`;
+  the primary's seed `pg_hba.conf` holds exactly `host replication
+  replicator samenet scram-sha-256`. `hot_standby_feedback` not checked.
+- **`third_parties:`**: `ThirdParties(nodes, hostnames, api_node,
+  db_node)`, `hostnames` the entries naming nodes. `id` and `hostname`
+  `[a-z][a-z0-9-]*`, unique, never `owners`, a hostname never a node's
+  name; `role` inbound, outbound or round-trip; listed nodes exist and are
+  `no-access`; more than one `api` or `postgres` third-party node refused.
+  `partners.md` and the `partners` database not checked (chunks 11, 17).
+- **Out of reach**: `web_routes` refuses a third-party node or alias
+  (D363); the starter pack (every non-folder bastion seed file) refuses a
+  whole-word third-party node name; a fault instance on a third-party
+  node expecting `fix` (issue or `acceptable.fix`) refused; the partners'
+  roles (SQL roles in third-party nodes' `schedule.yaml` and `api.yaml`
+  connections) named by no other node's SQL connection or
+  `crontab_roles`; the third-party `pg_hba.conf` holds only the fixed GM
+  lines (`local all postgres peer`, `local replication postgres peer`,
+  `local all gm_check scram-sha-256`, `host all gm_check samenet
+  scram-sha-256`, the replicator line), `reject` lines, or `host partners
+  <their roles> <addr> scram-sha-256`, with `host all all all reject`
+  last.
+- **HTTP**: `HttpContext(nodes, aliases, api_nodes, third_party_nodes)`;
+  aliases every `api` node's `api.yaml` hosts but its own name, plus the
+  hostnames of entries with nodes (`owners` only when served). Target
+  `<host>:<port>`, a node or alias, port 8000 on an `api` node or alias.
+  Credential `[a-z][a-z0-9_]{0,62}`, never `public`; `pool` a positive
+  integer; `timeout` `<n>s`, 1 to 60; `role` refused. Same check for
+  schedule connections, `api.yaml` connections and the vault
+  (`vault_target`/`vault_credential` when not null). `_check_drivers`
+  mirrors `driver_problems`: a stream (with its timeline changes) runs a
+  call key only on HTTP, any other only on SQL; a job with `connection:`
+  neither runs a call key nor names an HTTP connection.
+- **The call form** in `queries.yaml`: `{call, params, builder,
+  options}`; `CALL_RE`, the `%`/`#` path rule, a param per `%(name)s`, with
+  a builder only the path's names; `options` only with a builder.
+- **Weighted `choice`**: a non-empty map, integer weights ≥ 1.
+- **`api.yaml` on a node**: the fragment's key check reused; at least one
+  endpoint, each with `routes/<name>.py` and `db/<name>.py` in the node's
+  seed; hosts exactly `[own name]` on a players'-scope node; on the
+  partners' node never its own name, and served hosts minus `owners`
+  equal the entries' hostnames both ways; credentials never `public`;
+  connections checked as a schedule's (reserved roles, `replicator`
+  included).
+- **Reserved names**: `RESERVED_PARAMETERS` + `options`, `standby_of`;
+  `RESERVED_DB_ROLES` + `replicator`; `DRIVERS` + `http`.
+- **`register_diff`**: `model.register_diff_true(item)` reads the key
+  `True` (`is True`, so `1` is not taken), else `"true"`. A register fault
+  is one whose `injection.seed_changes` holds `data-register.md`;
+  `register_diff` required on its instance, refused on any other;
+  non-empty; each item exactly `entry`, `field`, `true`, `handed_out`
+  (never both forms of `true`), or `{absent: true}` alone. `entry` not
+  checked against `gm/data-register.yaml` (chunk 17).
+- **Purposes**: kinds gain `round-trip`, `round_trips` required exactly
+  there; `asks` customer or partner; a customer's `request.job` a job of
+  the purpose; `answers` non-empty; `judged` runs, triggers, end-to-end,
+  code, definition; as many end-to-end invariants as round trips. HTTP
+  connections are the `connections:` keys named `api`, `partner`,
+  `receiver`, that part declared, the value a credential or `public`; in a
+  scenario it equals the `credential` of the runner's schedule connection
+  the job maps it to (`public` if none), and that connection is `http`.
+  `feeder` another job of the purpose; a feeder requires `history`, and
+  `history` without one refused; the file under `material/`.
+  `material/api/<node>/` holds only `routes/` and `db/` with paired files,
+  and needs an `api` part. `classification.columns` in the scenario's key
+  form, valid classes. With `domains:`, a trace table on a database part
+  placed at an `at:` lies in schema `ops`. `receiver` and `partner` parts
+  are third-party nodes (`receiver` only with `third_parties:` or
+  `domains:`); `api` takes a node of role `api`.
+- **Domains**: `model.sql_statements(text)` splits at `;` with comments
+  and dollar-quoted bodies blanked (no parser). The `SECURITY DEFINER`
+  check covers schema and load files, `data/derive.sql`, `data/keys.sql`
+  and partner `data.sql`, requiring `SET search_path =|TO <value>` without
+  `"$user"` (`FROM CURRENT` refused). A partner folder accepts `data.sql`;
+  a `producers/partners/<name>/` name matches `[a-z][a-z0-9]{0,15}`
+  (`public/` names unchecked). A composed domain with a partner
+  `data.sql` and no partners' `postgres` node refused.
+- **Not here**: register digests, coverage, the partners.md seed mapping
+  and the `web_routes` exception (chunk 17); `coherence.yaml` (chunk 8).
+
+### Chunk 7 — merged (a7b76ff), 2026-11-04
+
+`coding-leader` (built 430c1a6, waited on chunk 6; resumed by a fresh
+owner): merge of `v0.5-w2` in `9c9155a` (chunk 6's
+`TestStandbyEnvironment` kept), `node_creates` switch `2411424`, merge
+`a7b76ff`. Unit suite 1013 OK on the branch and the merged `v0.5-w2`.
+Done when: render's tests (`TestAliases`, `TestHttpCredentialsRendered`,
+`TestArchivingCredential`, `TestNodeCredentials`, `TestDomainLoginRoles`;
+`test_deploy`'s `TestHttpCredentialSecrets`, `TestVaultCredentialSecret`)
+pass; `fixture-alias`'s short test, under the lock on armenelos, no
+filter: **23 passed, 0 failed, 38 s** (the alias `xlab` on partners,
+`http_xlab_status` 0:0 0400 on both nodes; the caller waits within its
+30 s bound while the api node is down and calls once it resolves, 10.2 s;
+4 calls answered 200). Deviations: `tools/tests/test_inject.py` (mocks,
+two stand-in scenarios gain `data`); two tests' `vault_target` moved from
+`cold-storage:8000` (now refused) to `bastion:8000`; the fixture's one
+scenario-local fault; the README template has no Third parties section
+(later). Risk: callers stay on the default catalogue (one line each to
+thread a scenario's own); a broken parameter fault raises at `fit`.
+
+**Capture W2-b — chunk 7 outcomes (render: aliases and HTTP credentials; read by 11, 12, 15 to 21, 23, 27)**
+
+- Aliases: `localimpl.node_aliases(scenario, node)` returns the hosts in
+  an api node's seed `api.yaml` endpoints other than its own name, sorted
+  and unique. `fit` records them as `implementation.yaml`
+  `nodes.<n>.aliases`, only when there are some. `render.service_networks`
+  writes `{<net>: {aliases: [...]}}` for that service and the list form
+  for every other. `render` refuses with "node X's hostnames (api.yaml's
+  hosts, its network aliases) changed since gmctl fit: fit again".
+- HTTP credentials: `localimpl.node_credentials(scenario, node,
+  params=None)` gives the credentials in first-use order: a scheduler's
+  `schedule.yaml` `driver: http` connections' `credential`; an api node's
+  endpoints' `credentials`, then its HTTP connections' `credential`; the
+  `vault_credential` parameter of a brick declaring it, read through
+  `node_parameters`, so with the parameter faults applied. Each becomes a
+  password `http_<credential>` (`http_secret_name`), not handed over, 32
+  characters from the dba alphabet, mounted at
+  `/opt/gm/secrets/http_<credential>` 0:0 0400 on each node naming it;
+  one Swarm secret `<gid>_http_<credential>` per game, ordered after the
+  node's brick and role secrets, counted by `_derived_lengths`.
+- Fixture `fixture-alias` and its short test `run-short-test.sh` (about
+  40 s): a fresh api node at 0.1.0 is healthy and its alias resolves
+  about 7 s after the scale-up, inside the scheduler's 30 s wait
+  (resolved at 10.2 s in the merged run: 23 passed, 0 failed, 38 s).
+- `data_login_roles` reading `model.node_creates`:
+  `localimpl.data_login_roles(scenario, node, catalog_root=REPO_ROOT)`
+  returns the login roles created on the node with no password of their
+  own, through `model.node_creates(Path(scenario.dir), scenario.data,
+  node, catalog_root=...)`: the data file's roles in file order, then
+  those each `domains:` entry placed on the node creates and, on the
+  partners' node, the composed domains' partner `data.sql`, without
+  duplicates; the game's own roles and `pg_*` left out; a standby gives
+  `[]`. Each gets `role_<role>_password`, not mounted, set by load-data.
+  The keyword runs along `_derived_lengths`, `max_game_id_length`,
+  `game_secrets`, `check_supported`, `implementation_secrets`; every
+  caller (`fit`, `render`, `restart`) on the default `REPO_ROOT`;
+  `inject.password_plan` passes `load_plans`' `catalog_root` (chunk 8,
+  1a7f1ab; W2-c).
+
+### Plan revision: `public/` producer state, 2026-11-04
+
+From chunks 6 and 8: the loader accepted a `producers/public/<name>/data.sql`
+(and `node_creates` counted it) while `load-data` runs only
+`producers/partners/<prefix>/data.sql`. `spec-writer`, build plan v6
+(3c0a9fd):
+- D369: the owners' route keeps state (its record of visits) in the
+  `partners` database, so its folder is `producers/partners/owners/`
+  (role and schema `owners`), loaded by chunk 8's rule as built; nothing
+  goes in `public/` in v0.5. Chunk 16's scope, Files and Done when name
+  it (no `owners.state`, no `owners.normal`); chunk 17 (17a) makes the
+  loader refuse a `public/` `data.sql` and `_partner_data_files` read
+  `partners/` only; G16 carries both into formats.md. No wave-3 chunk
+  plans a `public/` file, so no urgency.
+- D370 (text): chunk 12's Files name `producers/partners/{xlab,practices}/`,
+  not `northfield-lab/` (a partner's folder is its prefix, W2 item 0;
+  `xlab` serves the hostname `northfield-lab`).
+- O229 (for capture W3, before chunk 16; not the owner's): the portal's
+  `derive.sql` cannot write the messaging stub's planted notices into
+  `partners` under W2 item 3. Recommended: purpose 16's history plants
+  them (target `partners`, source `portal`), as D366 for purpose 14.
+D371 reserved by mistake, unused. No owner question.
+
+### Chunk 8 — merged (4b22401), 2026-11-04
+
+`coding-leader` (built fab4f5f, waited on chunk 6; resumed by a fresh
+owner): merge of `v0.5-w2` (chunk 6) `7da2e45`, its one conflict in the
+scenario-format skill's Domain item resolved with both chunks' rules;
+`61b1b90` (`password_plan` on `node_creates`, `TestFixtureChecks`); merge
+of `v0.5-w2` (chunk 7) `6432c6d`, clean; `1a7f1ab` (`password_plan` passes
+the same `catalog_root` to chunk 7's `data_login_roles`); merge `4b22401`.
+Unit suite 1055 OK (2 skipped, the env-gated composed load), 166 s. The
+composed test load under the lock: 2 OK in 10.6 s (loads 2.7 s passing,
+2.1 s with the broken range), on `postgres:0.5.0` as it stood. Done when:
+the load order follows `composition.yaml` (fx-core, the xlab partner
+`data.sql`, fx-docs, fx-ward); `records/docs` created with `CONNECT`
+revoked from `PUBLIC`; the derivation unseen in the log, pgaudit's trail
+and `pg_stat_statements`, its foreign servers gone; `partners.xlab.requests`
+5001 to 5004 from the core's key functions, the `core_*` functions gone
+after; coherence 5/5 passing and recorded, a broken range failing with
+its ids and recorded `result: fail`. Choices taken (none against W2): a
+failing check recorded before the setup fails; `database:` required only
+on a several-database part; a `derive` on one refused; a domain file
+creating a database or using `\connect` refused (line scan); `gm_check`
+also gets `log_min_error_statement = panic`. Deviations: two merges of the
+wave and two code commits, not one (chunk 7 merged mid-way); the password
+step now also sets the domains' and the partner's login roles' passwords
+(consistent with chunk 7's secrets); W2-b's caller line corrected above.
+Risks: a restart with no snapshot reruns the composed steps and rewrites
+`composition.yaml`'s record; the line scan; a `;` inside a check's string
+literal refused.
+
+**Capture W2-c — chunk 8 outcomes (`load-data`'s composed load, derivations, histories, the coherence check; read by 9, 12 to 16, the purpose chunks)**
+
+- Entry points: `inject.load_plans(scenario, impl, catalog_root=model.REPO_ROOT,
+  now=None)` adds `LoadPlans.composed = inject.composed_plan(...)`; the
+  plans' variables gain `load_epoch` (`inject.load_epoch()`,
+  `%Y-%m-%dT%H:%MZ`, UTC); `inject.load_data(..., catalog_root=)`.
+  `inject.load_steps` runs: data files, then `composed_steps`, then the
+  v0.4 passwords, survey, mappings, access, grants and `pg_cron` clean-up,
+  then the standbys' clone. `restart.py`'s `load_plans(scenario, impl)`
+  call unchanged. New helpers `data_argv(variables, database="postgres")`
+  and `read_argv(database)`.
+- Domain loads: for each `at:` database, a session as `postgres` on
+  `-d postgres` runs `\gset`/`\if`: if absent, `CREATE DATABASE … OWNER
+  postgres`, `REVOKE CONNECT … FROM PUBLIC`, printing
+  `gm-database-created`. Then `schema.sql` alone, then the core's
+  `keys.sql` plus `load.sql` in one session (`psql -d <db>`, all three
+  variables), streamed through a temporary file. Partner files
+  `<catalog>/domains/<id>/producers/partners/<prefix>/data.sql`, in name
+  order, run with keys first into `-d partners` on the one `postgres`
+  node the `third_parties:` entries list (`inject.partners_node`; two such
+  nodes refused); the owners' route's `producers/partners/owners/` is one
+  of them (D369). A `producers/public/<name>/data.sql`, which chunk 6's
+  loader accepts and `node_creates` counts, is not run; chunk 17 refuses
+  it (D369). A domain's schema or load that creates a database or
+  uses `\connect` is refused before anything runs, naming the line (a
+  line scan, not a parser).
+- Sourced runs (derive, history, each check): on every source node, once
+  before the first read, `ALTER ROLE gm_check SET` `log_statement`,
+  `log_min_duration_statement`, `log_min_error_statement` (`panic`),
+  `pg_stat_statements.track`, `pgaudit.log` (a placeholder accepted where
+  pgaudit is not loaded), and `GRANT CONNECT` to `gm_check` on each source
+  database; reset once after the coherence check (on a failure the game is
+  torn down instead). Per run, the source's schemas listed unseen; then
+  `UNSEEN_SQL` (`NO_LOG`, `NO_AUDIT`, `NO_STATS`, `QUIET`); `postgres_fdw`
+  (`\gset` notes whether it existed); per source a server `gm_src_<name>`
+  (host `/run/postgresql` on the same node, else `<node>`; port 5432), a
+  user mapping for `postgres` as `gm_check` with `gm_check_password`,
+  schema `gm_src_<name>` importing `public` and `gm_src_<name>_<s>` each
+  other schema (`pg_*`, `information_schema`, `gm_src_*` excluded; a name
+  over 63 characters refused); the body; then schemas and server dropped
+  `CASCADE`, the extension only if the session created it. psql output on
+  failure redacted. Keys streamed ahead of derive only, never a history.
+  A `derive` on a several-database part is refused (none in v0.5).
+- Coherence (`tools/gm/coherence.py`): `read_checks(path, domain,
+  databases)`, strict YAML, exactly `{checks: [non-empty]}`, keys
+  id/what/database/reads/sql; one SELECT or WITH query (no `;` but a
+  trailing one, so none inside a literal; no psql meta-command);
+  `database:` required on a several-database part, refused otherwise;
+  `reads` may name the domain itself. `query_sql` wraps it as `BEGIN
+  TRANSACTION READ ONLY; WITH gm_rows AS (…) SELECT
+  jsonb_build_object('count',…, 'rows', first 10)`, `psql -A -t`.
+  Outcomes pass, fail, skipped (a catalogue domain not composed, or
+  `partners` with no partners' node); a name that is no catalogue domain
+  refused. `record_composition` rewrites only the `coherence:` key (flow
+  form, other bytes kept, read back; an aliased value refused);
+  `state.yaml` gets `coherence: {run_at, result, checks: [{domain, check,
+  what, result[, rows, first_rows, reason]}]}`. A failure is recorded
+  `result: fail` in both before the setup fails. Source names: `<id, - as
+  _>`, `<id>_<db>` for a several-database part, `partners`, or a purpose
+  part's name (`source`).
+- Skill: templates `keys.sql`, `coherence.yaml`, `partner-data.sql`; the
+  Domain section gains the database convention, the core's keys, a
+  partner's state, the coherence queries; the Composition section gains
+  load-data's order and its record (chunk 6's `SECURITY DEFINER` rule kept
+  in the same item, D362). `fixture-composed` passes `check_domain_dir`
+  (each domain) and `check_composition` (`test_coherence.TestFixtureChecks`).
+- `password_plan` reading `model.node_creates`:
+  `inject.password_plan(scenario, impl, catalog_root=model.REPO_ROOT)`,
+  `catalog_root` passed through from `load_plans`: a connection through a
+  node that is no database node (a pooler) sets its role on the database
+  nodes where `node_creates` finds its target database created (the data
+  file, a `domains:` entry's `at:` database or its schema and load files),
+  else on every database node; the login roles step calls
+  `localimpl.data_login_roles(scenario, node, catalog_root)` with the same
+  root, so the domains' and the partner files' login roles get their
+  passwords set (`test_coherence.TestPasswordPlanReadsNodeCreates`).

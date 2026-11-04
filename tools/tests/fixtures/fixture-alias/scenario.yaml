@@ -1,0 +1,126 @@
+# Alias fixture of v0.5 (build plan chunk 7; spec D362). Not a game: two
+# nodes, a scheduler caller and the partners' api node, declared under
+# third_parties: (no-access), whose one hostname, xlab, render gives it as a
+# network alias (capture W2 item 2). The caller's HTTP connection names
+# xlab:8000 and the credential xlab_status the endpoint accepts; render
+# mounts http_xlab_status on both nodes. Loaded and rendered by
+# tools/tests/test_render.py; deployed by its short test,
+# tools/tests/fixtures/fixture-alias/run-short-test.sh, which starts the
+# caller's load before the api node and shows it waiting, bounded, then
+# calling once the alias resolves (spec D356). No bastion; one harmless
+# seed-file fault (f1), the one instance the loader requires.
+
+# --- Scenario information --------------------------------------------
+id: fixture-alias
+version: 0.1.0
+title: Alias fixture, a caller and the partners' api node under a third party's hostname
+date: 2026-11-04
+origin: hand-written
+session_length_minutes: 60
+brief: brief.md
+background: >-
+  A clinic's back office checks its reference laboratory's status every
+  second through the laboratory's public API.
+
+# --- Aging and difficulty ---------------------------------------------
+aging:
+  minimum: 8h                       # the floor (master spec 8.2); the short test never ages it
+  handover_at: "14:00"
+difficulty:
+  score: 1                          # its one fault instance (master spec 15.1)
+  level: easy
+
+# --- Third parties (v0.5 master spec 6.2, 10) ----------------------------
+third_parties:
+  - id: northfield-lab
+    name: Northfield Veterinary Laboratories
+    stands_for: a regional reference laboratory
+    role: inbound
+    nodes: [partners]
+    hostname: xlab
+    player_doc: player/partners.md#northfield-veterinary-laboratories
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: backend
+    description: the caller's HTTP calls to the laboratory's API
+
+nodes:
+  - name: caller
+    brick:
+      id: scheduler
+      version: 0.3.0
+    role: producer
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/caller/queries.yaml
+      jobs.yaml: nodes/caller/jobs.yaml
+      schedule.yaml: nodes/caller/schedule.yaml
+    knobs: []
+
+  - name: partners
+    brick:
+      id: api
+      version: 0.1.0
+    role: api
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 96M
+        disk: 64M
+    published_ports: []
+    seed_files:
+      api.yaml: nodes/partners/api.yaml
+      routes/: nodes/partners/routes/
+      db/: nodes/partners/db/
+    knobs: []
+
+flows:
+  - from: caller
+    to: partners
+    what: the laboratory's status, by its hostname xlab
+    how: http 8000
+    cadence: continuous
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:
+  - id: f1
+    fault:
+      id: fixture-status-every-second
+      version: 0.1.0
+    node: caller
+    parameters: {}
+    visibility: hidden
+
+issues: []
+
+# --- Host topology it was designed for -------------------------------
+designed_for:
+  platform: swarm
+  hosts:
+    - name: host-1
+      cpu: 2
+      memory: 4G
+      disk: 20G
+  placement:
+    caller: host-1
+    partners: host-1

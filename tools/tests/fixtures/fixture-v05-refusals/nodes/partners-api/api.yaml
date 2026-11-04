@@ -1,0 +1,14 @@
+# The partners' api node (tools/tests, v0.5 chunk 6; W1 item 5, W2 item 1):
+# the external lab and cold storage under their hostnames, the owners'
+# landing page under owners.
+endpoints:
+  xlab_results:
+    hosts: [northfield-lab]
+    credentials: [xlab_results]
+  coldstore_shipments:
+    hosts: [cold-storage]
+    credentials: [cold_storage]
+  owners_home:
+    hosts: [owners]
+connections:
+  xlab-db: {driver: sql/postgresql, target: partners-db:5432/partners, role: xlab, pool: {size: 1}}

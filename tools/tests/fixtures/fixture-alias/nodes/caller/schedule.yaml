@@ -1,0 +1,18 @@
+# Schedule of the fixture's caller node, in scenario time (v0.5 master spec
+# 7.2, capture W1 item 3; template:
+# .claude/skills/scenario-format/templates/schedule.yaml). One HTTP
+# connection to the third party's hostname, an alias on the partners' api
+# node, with the credential its endpoint accepts.
+intensity: 1.0
+connections:
+  xlab:
+    driver: http
+    target: xlab:8000
+    credential: xlab_status
+    pool: 1
+    timeout: 5s
+streams:
+  - key: xlab.status
+    connection: xlab
+    rate: 1/s
+    arrivals: even

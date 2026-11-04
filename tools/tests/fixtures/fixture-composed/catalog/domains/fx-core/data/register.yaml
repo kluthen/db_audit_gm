@@ -1,0 +1,8 @@
+# The test core's register fragment (tools/tests, v0.5 chunk 8).
+activities:
+  - id: fx-core-stays
+    name: Stays
+    purpose: Keeping the animals' stays
+    people: [owners]
+    tables: [animals, stays]
+    retention: {period: 1 year, then: anonymised}
