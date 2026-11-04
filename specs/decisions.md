@@ -767,3 +767,45 @@ D337 and D341 were reserved and never used). Take the next number from
   lists' tests; chunk 8 reuses `NO_AUDIT_SQL` and `standby_plan`; chunk
   9's fixture waits for chunk 7 if `clinic-api` names a credential. Now
   in: [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 6 to 9.
+- **D360 (2026-11-04, capture W2's corrections 1 and 2): Chunk 6 adds
+  `model.node_creates` and a partner folder's `data.sql`; chunk 8 runs
+  that file into `partners`, streams `data/keys.sql` and passes
+  `load_epoch`; chunks 7 and 8 read `node_creates` and merge after 6.**
+  Else a composed domain's databases, roles and partner state have no
+  loader. Now in: [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 6 to 8, wave 2.
+- **D361 (2026-11-04, the edges D360 and D362 add): Wave 2 keeps two
+  three-chunk completion chains (6, 7, 11 and 6, 8, 9), past the
+  model's two.** The merge-order edges delay no start, and W2 fixes
+  every interface they cross. Rejected: moving 9 and 11 to wave 3,
+  which would put it at seven chunks with in-wave chains of its own.
+  Now in: [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#waves) ("Wave 2").
+- **D362 (2026-11-04, capture W2's corrections 3, 4, 6, 10 and 7's Files):
+  Chunk 9's fixture waits for chunks 7 and 8; chunk 7 gains
+  `fixture-alias/`, chunks 6 then 8 the scenario-format skill, chunk 11
+  `partners/` and the README's layout row; chunk 10's stack test answers
+  `GET /manifests` with a stand-in.** Each names what its chunk already
+  does. Now in: [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 6 to 11.
+- **D363 (2026-11-04, capture W2's correction 5): Chunk 6 refuses every
+  third-party node and alias in `web_routes`; chunk 17 adds cold
+  storage's one exception to `model._check_web_routes`.** The route's
+  form is chunk 17's front. Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 6, 17.
+- **D364 (2026-11-04, capture W2's correction 7): formats.md and master
+  spec 5 take wave 2's format items as built, after its gate, as G16.**
+  Wave 3 reads them from capture W2 and the skill meanwhile. Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#gates) G16, release gate item 6.
+- **D365 (2026-11-04, capture W2's correction 8): Chunk 17 hands the
+  players the credentials `partners.md` documents with the starter
+  pack: the customer's own with that partner, its game value, never
+  `cold_storage` (upload is denied, its reads public); W4 fixes how a
+  scenario names them.** Access model 3 and 6 and master spec 10.2 say
+  the starter pack gives them, so "public endpoints only" is out.
+  Now in: [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 17, 27.
+- **D366 (2026-11-04, capture W2's correction 9): Purpose 14's planted
+  manifests must fit W2 item 3's history rule; another form is an
+  inserted chunk.** No chunk after 8 holds `inject.py`. Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunk 21.
+- **D367 (2026-11-04, wave 1's gate): The full quality command judges
+  each existing scenario's smoke against its own design, by the
+  harness's rules as wave 1's gate fixed them.** Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#workflow-deltas).
