@@ -1132,3 +1132,13 @@ D337, D341, D359, D371 and D392 were reserved and never used). Take the next num
   Master spec 9.2 and vet-core's grants say so; the domain document's
   table had left the row out. Now in:
   [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#application-roles-and-grants).
+- **D415 (2026-11-04, chunk 12a, documents to as-built): `vet-lab`'s
+  figures and grants are the build's: `lab_samples` as loaded, about
+  20 800 (one a container, the centre's 11 777); about 161 000 results,
+  9 800 batches, 8 send-outs open at T0; intervals 61–456 in force,
+  457–460 unused; `lab_instruments` reads `lab_orders (id, species,
+  priority)` and `lab_tests (id, code, discipline)`, `lab_dispatch` the
+  catalogue.** Measured by the load, within the approved spec; chunk 30
+  (D408) moves them a few per cent, the wave gate's reruns the figures
+  of record. Now in: [vet-lab](versions/v0.5/vet-lab-domain.md#deterministic-key-ranges-d249-d266)
+  (the variant, ranges, grants, sizes, T0); master spec 9.3.
