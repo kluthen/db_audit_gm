@@ -1,0 +1,5 @@
+# The scenario layer of node ward (v0.5 master spec 8.4): its intensity, no
+# timeline. 1.0: each display once a minute, 64 board reads a minute
+# (vet-housing docs/gm.md, "The producers"). Chunk 25 adds s9's display key
+# here.
+intensity: 1.0

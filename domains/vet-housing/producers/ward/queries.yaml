@@ -1,0 +1,98 @@
+# Query repository of the ward service, ward (v0.5 master spec 9.5;
+# vet-housing-domain.md, "The producer profiles"; D287, D298; capture W3
+# item 3): the displays' board reads, as vet_display on ward-board, and the
+# carers' actions recorded from the displays, as housing_ward on ward-care.
+# A display's read leaves no row (D298): the database's statistics only.
+# A carer is one of the unit's section's (horse 57-60, farm 61-62, domestic
+# 63-66: the core's layout, D394), picked by a parameter, not matched against
+# the rota. Every value is SQL's or a parameter's, never random(). Written
+# for the database clinic; no planted fault.
+queries:
+  # One display's refresh: its unit's row of the board. This statement,
+  # byte for byte, is the one a faulty display repeats (T150, s9: capture W3
+  # item 3), its parameter the unit, so pg_stat_statements shows one
+  # queryid for all of them.
+  ward.board:
+    sql: SELECT * FROM housing_unit_board WHERE unit_id = %(unit)s
+    params:
+      unit: {int: [1, 64]}
+  # The lowest occupied unit whose occupant is behind its meals (fewer
+  # feedings today than its species' rounds have made due since it was
+  # placed there), its board showing no nil-by-mouth order, read off the
+  # board as a carer reads the display: a feeding, what was eaten by a hash
+  # of the event's id (about 85 % all, 12 % part, 3 % none).
+  ward.feed:
+    sql: >-
+      WITH b AS (
+        SELECT unit_id, stay_id, section_id FROM housing_unit_board
+         WHERE stay_id IS NOT NULL AND plan_kind = 'diet' AND feedings_today < meals_due
+         ORDER BY unit_id LIMIT 1),
+      k AS (
+        SELECT b.*, nextval(pg_get_serial_sequence('housing_care_events', 'id')) AS id FROM b)
+      INSERT INTO housing_care_events (id, unit_id, stay_id, kind, eaten, done_at, done_by)
+      SELECT k.id, k.unit_id, k.stay_id, 'feeding',
+             CASE WHEN (hashint8extended(k.id, 1412) & 2147483647)::float8 / 2147483648 < 0.85 THEN 'all'
+                  WHEN (hashint8extended(k.id, 1412) & 2147483647)::float8 / 2147483648 < 0.97 THEN 'part'
+                  ELSE 'none' END,
+             now(),
+             CASE k.section_id WHEN 1 THEN (ARRAY[57, 58, 59, 60])[1 + %(carer)s %% 4]
+                               WHEN 2 THEN (ARRAY[61, 62])[1 + %(carer)s %% 2]
+                               ELSE (ARRAY[63, 64, 65, 66])[1 + %(carer)s %% 4] END
+        FROM k
+    params:
+      carer: {int: [0, 999]}
+  # A check on an occupied unit, picked by an int offset among the open
+  # placements in id order.
+  ward.check:
+    sql: >-
+      INSERT INTO housing_care_events (unit_id, stay_id, kind, done_at, done_by)
+      SELECT p.unit_id, p.stay_id, 'check', now(),
+             CASE u.section_id WHEN 1 THEN (ARRAY[57, 58, 59, 60])[1 + %(carer)s %% 4]
+                               WHEN 2 THEN (ARRAY[61, 62])[1 + %(carer)s %% 2]
+                               ELSE (ARRAY[63, 64, 65, 66])[1 + %(carer)s %% 4] END
+        FROM housing_placements AS p JOIN housing_units AS u ON u.id = p.unit_id
+       WHERE p.until_at IS NULL
+       ORDER BY p.id
+       LIMIT 1 OFFSET %(offset)s %% greatest((SELECT count(*) FROM housing_placements WHERE until_at IS NULL), 1)
+    params:
+      offset: {int: [0, 999]}
+      carer: {int: [0, 999]}
+  # Another action on an occupied unit, picked as a check is, off the board:
+  # water, mucking out, bedding, a walk (a dog's or a horse's; water for the
+  # others) or grooming.
+  ward.care:
+    sql: >-
+      INSERT INTO housing_care_events (unit_id, stay_id, kind, done_at, done_by)
+      SELECT b.unit_id, b.stay_id,
+             CASE WHEN %(action)s::text = 'walk' AND b.species NOT IN ('dog', 'horse') THEN 'water'
+                  ELSE %(action)s::text END,
+             now(),
+             CASE b.section_id WHEN 1 THEN (ARRAY[57, 58, 59, 60])[1 + %(carer)s %% 4]
+                               WHEN 2 THEN (ARRAY[61, 62])[1 + %(carer)s %% 2]
+                               ELSE (ARRAY[63, 64, 65, 66])[1 + %(carer)s %% 4] END
+        FROM housing_unit_board AS b
+       WHERE b.stay_id IS NOT NULL
+       ORDER BY b.unit_id
+       LIMIT 1 OFFSET %(offset)s %% greatest((SELECT count(*) FROM housing_placements WHERE until_at IS NULL), 1)
+    params:
+      action: {choice: {water: 25, mucking-out: 25, bedding: 12, walk: 30, grooming: 8}}
+      offset: {int: [0, 999]}
+      carer: {int: [0, 999]}
+  # The unit to clean the longest, for 30 minutes or more: disinfected, a
+  # care event with no stay, the unit clean again.
+  ward.disinfect:
+    sql: >-
+      WITH u AS (
+        UPDATE housing_units SET state = 'clean', state_since_at = now()
+         WHERE id = (SELECT id FROM housing_units
+                      WHERE state = 'to-clean' AND state_since_at <= now() - interval '30 minutes'
+                      ORDER BY state_since_at, id LIMIT 1 FOR UPDATE SKIP LOCKED)
+        RETURNING id, section_id)
+      INSERT INTO housing_care_events (unit_id, kind, done_at, done_by)
+      SELECT u.id, 'disinfection', now(),
+             CASE u.section_id WHEN 1 THEN (ARRAY[57, 58, 59, 60])[1 + %(carer)s %% 4]
+                               WHEN 2 THEN (ARRAY[61, 62])[1 + %(carer)s %% 2]
+                               ELSE (ARRAY[63, 64, 65, 66])[1 + %(carer)s %% 4] END
+        FROM u
+    params:
+      carer: {int: [0, 999]}

@@ -1,0 +1,254 @@
+# Housing fixture of v0.5 (build plan chunk 14; capture W3 item 3, W3-c, of
+# specs/versions/v0.5/wave-log.md; spec D403). Not a game: vet-core's medical
+# record and vet-housing's wards, loaded by gmctl load-data from the domains
+# (domains:, the variant regional-franchise, both at records/clinic, as
+# vet-housing's lands_with requires: the core's schema, keys.sql and load,
+# then housing's schema, keys.sql and load, then the coherence check), the
+# practice software, pms (scheduler 0.3.0), with the core's streams as
+# vet_app and housing's as housing_app, the ward service, ward (scheduler
+# 0.3.0), the displays' reads as vet_display and the carers' actions as
+# housing_ward, the lookup API, clinic-api (api 0.1.0), which compose needs
+# for vet-core's producer folder (D403), and the bastion; five nodes on one
+# host. gmctl compose writes nodes/clinic-api/, nodes/pms/ and nodes/ward/
+# from the domains' producers/ with the scenario layers compose/pms/ (the
+# clinic's day at 1.0, admissions, discharges and nil-by-mouth orders
+# raised so the short test sees them) and compose/ward/ (1.0: the displays
+# once a minute). Deployed by its short test,
+# tools/tests/fixtures/fixture-housing/run-short-test.sh, in two runs: place
+# (T0 at 10:00 local: the board, a new stay placed, an ended one released)
+# and care (T0 just before 17:00 local: the round's feedings, a nil-by-mouth
+# animal skipped, the care log's pace). One harmless seed-file fault (f1),
+# since a scenario needs at least one, copied from the core fixture.
+# Chunk 25 adds s9 (T150, the faulty display) and its answer key.
+
+# --- Scenario information --------------------------------------------
+id: fixture-housing
+version: 0.1.0
+title: Housing fixture, vet-housing's wards and displays beside vet-core's record
+date: 2026-11-04
+origin: hand-written
+session_length_minutes: 60
+brief: brief.md
+background: >-
+  A veterinary hospital keeps its medical record and its wards in one
+  PostgreSQL database, records; its practice software places each
+  hospitalised animal in a unit, and a display on each unit reads the
+  animal's board through a small ward service, reached through a bastion.
+
+# --- Aging and difficulty ---------------------------------------------
+aging:
+  minimum: 8h                       # the floor (master spec 8.2); the short test never ages it
+  handover_at: "14:00"
+difficulty:
+  score: 1                          # its one fault instance (master spec 15.1)
+  level: easy
+
+# --- Domains (v0.5 master spec 6, 8) ----------------------------------
+domains:
+  - id: vet-core
+    variant: regional-franchise
+    at: records/clinic
+  - id: vet-housing
+    at: records/clinic
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: backend
+    description: players' SSH and SQL sessions, the practice software's, the ward service's and the lookup API's SQL, the lookup API's callers' HTTP
+
+nodes:
+  - name: bastion
+    brick:
+      id: bastion
+      version: 0.5.0
+    role: bastion
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters:
+      web_routes: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.1
+        memory: 96M
+        disk: 256M
+    published_ports:
+      - port: 22
+        default: 2222
+      - port: 8080
+        default: 8080
+    seed_files:
+      README.md: player/README.md
+      story.md: player/story.md
+      issues.md: player/issues.md
+    knobs: []
+
+  - name: records
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.5
+        memory: 512M
+        disk: 2.25G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/records/postgresql.conf
+      pg_hba.conf: nodes/records/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 10, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+
+  - name: clinic-api
+    brick:
+      id: api
+      version: 0.1.0
+    role: api
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 128M
+        disk: 64M
+    published_ports: []
+    seed_files:
+      api.yaml: nodes/clinic-api/api.yaml
+      routes/: nodes/clinic-api/routes/
+      db/: nodes/clinic-api/db/
+    knobs: []
+
+  - name: pms
+    brick:
+      id: scheduler
+      version: 0.3.0
+    role: producer
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/pms/queries.yaml
+      jobs.yaml: nodes/pms/jobs.yaml
+      schedule.yaml: nodes/pms/schedule.yaml
+    knobs: []
+
+  - name: ward
+    brick:
+      id: scheduler
+      version: 0.3.0
+    role: producer
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/ward/queries.yaml
+      jobs.yaml: nodes/ward/jobs.yaml
+      schedule.yaml: nodes/ward/schedule.yaml
+    knobs: []
+
+flows:
+  - from: bastion
+    to: records
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: clinic-api
+    what: players' SSH sessions; a lookup needs the credential clinic_lookup, which the bastion does not hold
+    how: ssh 22, http 8000
+    cadence: interactive
+  - from: clinic-api
+    to: records
+    what: the lookups (an animal, its current owner, the current stays), as vet_lookup
+    how: postgresql 5432
+    cadence: per request
+  - from: pms
+    to: records
+    what: the practice software's work (vet-core's 21 streams and 2 jobs, as vet_app; vet-housing's 6 streams, as housing_app)
+    how: postgresql 5432
+    cadence: continuous, by the clinic's hours
+  - from: ward
+    to: records
+    what: the displays' board reads (about 64 a minute, as vet_display) and the carers' actions (as housing_ward)
+    how: postgresql 5432
+    cadence: continuous
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:
+  - id: f1
+    fault:
+      id: fixture-random-page-cost
+      version: 0.1.0
+    node: records
+    parameters: {}
+    visibility: hidden
+
+issues: []
+
+# --- Host topology it was designed for -------------------------------
+designed_for:
+  platform: swarm
+  hosts:
+    - name: laptop
+      cpu: 2
+      memory: 4G
+      disk: 8G
+  placement:
+    bastion: laptop
+    records: laptop
+    clinic-api: laptop
+    pms: laptop
+    ward: laptop

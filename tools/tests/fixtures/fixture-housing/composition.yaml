@@ -1,0 +1,16 @@
+# The housing fixture's composition record (tools/tests, v0.5 chunk 14): the
+# core and its part vet-housing, both in records/clinic (vet-housing
+# lands_with vet-core), loaded core first; no derivation. The keys
+# vet-housing relies on are the core's, by the names vet-core's docs/gm.md
+# ("Core keys") gives them; the scale check is the part's units against the
+# core's stays (vet-housing docs/gm.md, "Core keys used").
+domains:
+  - {id: vet-core, variant: regional-franchise, at: records/clinic}
+  - {id: vet-housing, at: records/clinic, lands_with: vet-core}
+keys:
+  vet-housing: [stays.id, sections.id, staff.id, core_stay, core_species, core_stay_alert, core_staff]
+scale:
+  checked: true
+  note: "64 units, 62 in service (21 horse, 10 farm, 31 domestic), against the core's at most 17, 9 and 23 current stays; about 0.14 million rows beside the core's 0.27"
+order: [vet-core, vet-housing]
+# derive: none (housing computes the core's keys; no sanctioned derivation)

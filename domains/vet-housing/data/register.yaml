@@ -1,0 +1,25 @@
+# vet-housing's register fragment (v0.5 master spec 6.1, 9.5, 13.1, D334;
+# template register.yaml): one entry per processing activity, every table of
+# data/schema.sql in exactly one, transcribed from the classification and
+# docs/policy.md's rules. Housing holds no personal data: the people
+# concerned are the owners through their animals' stays, and the staff by
+# id. Retention follows rule 8: the stay's record, five years from its end
+# (core rule 9), game values stated as such. The scenario's data register (a
+# player handout, chunks 17 and 27) is built from it.
+activities:
+  - id: vet-housing-wards
+    name: The wards' units and their displays
+    purpose: Keeping the centre's boxes, stalls, pens, kennels and cages, their hygiene state, and the display installed on each, so each animal is housed in a fitting, clean unit and its display can be traced
+    people: []
+    tables: [housing_units, housing_displays]
+    retention:
+      period: while the unit or the display is in place, then 5 years with the records naming it (a game value)
+      then: erased
+  - id: vet-housing-care
+    name: Placements, feeding plans and the care log
+    purpose: Housing each hospitalised animal, moving it as its care changes (isolation, intensive care), feeding it by its plan or holding it nil by mouth, and recording the carers' actions, as the stay's record (rules 2 to 5)
+    people: [owners, staff]
+    tables: [housing_placements, housing_feeding_plans, housing_care_events]
+    retention:
+      period: 5 years from the stay's end (rule 8, core rule 9, a game value)
+      then: erased
