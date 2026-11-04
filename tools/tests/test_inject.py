@@ -1355,7 +1355,8 @@ class TestApiNodesConnectionRoles(unittest.TestCase):
         ]
         bricks = {n["name"]: types.SimpleNamespace(id=n["brick"]["id"], data={"secrets": []})
                   for n in self.nodes}
-        self.scenario = types.SimpleNamespace(dir=self.dir, nodes=self.nodes, bricks=bricks)
+        self.scenario = types.SimpleNamespace(dir=self.dir, nodes=self.nodes, bricks=bricks,
+                                              data={"nodes": self.nodes})
         self.impl = {"game_id": "g", "nodes": {n["name"]: {} for n in self.nodes}}
 
     def node(self, name):
@@ -1465,7 +1466,8 @@ class TestStandbyPlans(unittest.TestCase):
         ]
         bricks = {n["name"]: types.SimpleNamespace(id=n["brick"]["id"], data={"secrets": []})
                   for n in self.nodes}
-        self.scenario = types.SimpleNamespace(dir=self.dir, nodes=self.nodes, bricks=bricks)
+        self.scenario = types.SimpleNamespace(dir=self.dir, nodes=self.nodes, bricks=bricks,
+                                              data={"nodes": self.nodes})
         self.impl = {"game_id": "g", "nodes": {n["name"]: {} for n in self.nodes}}
 
     def test_helpers(self):

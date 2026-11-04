@@ -417,13 +417,14 @@ def read_argv(database):
     return (*SURVEY_ARGV[:-1], database)
 
 
-def password_plan(scenario, impl):
+def password_plan(scenario, impl, catalog_root=model.REPO_ROOT):
     """[(database node, [(role, secret)])]: every role a scheduler node's
     schedule or an `api` node's api.yaml names (spec D345; an HTTP
     connection names none), on the node its connection targets when that node is a
-    `database` node, else (through a pooler) on the `database` nodes whose
-    data file creates the target database, or on every `database` node
-    when none does; then (v0.4 capture W1
+    `database` node, else (through a pooler) on the `database` nodes where
+    the target database is created (model.node_creates: the data file, or
+    v0.5 a composed domain or a partner `data.sql` from `catalog_root`,
+    W2 item 1, spec D360), or on every `database` node when none is; then (v0.4 capture W1
     item 8) every role a node's `crontab_roles` names, on that node; then
     (master spec 9.7) every login role a node's data file creates, on that
     node; topology order, each role once per node."""
@@ -431,7 +432,7 @@ def password_plan(scenario, impl):
                  if localimpl.standby_of(n)}
     databases = [n["name"] for n in scenario.nodes
                  if n.get("role") == DATABASE_ROLE and n["name"] not in primaries]
-    created = {n["name"]: model.node_data_file_creates(Path(scenario.dir), n)
+    created = {n["name"]: model.node_creates(Path(scenario.dir), scenario.data, n, catalog_root)
                for n in scenario.nodes if n["name"] in databases}
     roles_of = {}
 
@@ -1614,7 +1615,7 @@ def load_plans(scenario, impl, catalog_root=model.REPO_ROOT, now=None):
     """`load-data`'s plans (LoadPlans), read and checked before anything
     runs; the domains and the purposes' histories read from the catalogue
     `catalog_root` (W2 item 3); `load_epoch` the run's start (`now`)."""
-    return LoadPlans(data_plan(scenario, impl), password_plan(scenario, impl),
+    return LoadPlans(data_plan(scenario, impl), password_plan(scenario, impl, catalog_root),
                      survey_plan(scenario, impl), grant_plan(scenario, impl),
                      {**psql_variables(impl), EPOCH_VAR: load_epoch(now)}, impl["game_id"],
                      game_secret_names(impl), standby_plan(scenario, impl),

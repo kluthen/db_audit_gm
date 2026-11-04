@@ -586,6 +586,63 @@ class TestComposedSteps(unittest.TestCase):
         self.assertIsNone(result.coherence_result)
 
 
+class TestFixtureChecks(unittest.TestCase):
+    """The fixture's catalogue and composition pass the loader's own checks
+    (chunk 6's, W2-a): each domain folder and the composition record."""
+
+    def test_check_domain_dir_is_clean_on_each_domain(self):
+        domains = sorted(p for p in (CATALOG / "domains").iterdir() if p.is_dir())
+        self.assertEqual([p.name for p in domains], ["fx-core", "fx-docs", "fx-ward"])
+        for domain_dir in domains:
+            with self.subTest(domain=domain_dir.name):
+                self.assertEqual(model.check_domain_dir(domain_dir), [])
+
+    def test_check_composition_is_clean(self):
+        data = yaml.safe_load((FIXTURE / "scenario" / "scenario.yaml").read_text())
+        self.assertEqual(model.check_composition(data, FIXTURE / "scenario", CATALOG), [])
+
+
+class TestPasswordPlanReadsNodeCreates(unittest.TestCase):
+    """password_plan places a role connecting through another node (a
+    pooler) on the database nodes where its database is created, as
+    model.node_creates reads them from the catalogue load_plans passes
+    (W2 item 1, spec D360): a composed domain's at: database included."""
+
+    def setUp(self):
+        self.scenario = scenario_of(FIXTURE)
+        self.impl = impl_of(self.scenario)
+
+    def connections(self):
+        conns = {"web": {"role": "docs_web", "target": self.target}}
+        return mock.patch.object(localimpl, "node_connections",
+                                 lambda s, node: conns if node["name"] == "records" else {})
+
+    def placed(self, target, catalog_root):
+        self.target = target
+        with self.connections():
+            return {db: [r for r, _ in roles]
+                    for db, roles in inject.password_plan(self.scenario, self.impl, catalog_root)}
+
+    def test_a_database_a_domain_creates_is_its_nodes(self):
+        self.assertEqual(self.placed("pool:6432/docs", CATALOG), {"records": ["docs_web"]})
+        self.assertEqual(self.placed("pool:6432/clinic", CATALOG), {"records": ["docs_web"]})
+
+    def test_a_database_the_data_file_creates_is_its_nodes(self):
+        self.assertEqual(self.placed("pool:6432/partners", CATALOG), {"partners-db": ["docs_web"]})
+        self.assertEqual(self.placed("pool:6432/office", CATALOG), {"records": ["docs_web"]})
+
+    def test_the_catalogue_is_the_one_passed(self):
+        # The repository's catalogue holds no fx-docs: no node creates docs there.
+        self.assertEqual(self.placed("pool:6432/docs", model.REPO_ROOT),
+                         {"records": ["docs_web"], "partners-db": ["docs_web"]})
+
+    def test_load_plans_passes_its_catalogue(self):
+        self.target = "pool:6432/docs"
+        with self.connections():
+            plans = inject.load_plans(self.scenario, self.impl, CATALOG)
+        self.assertEqual([db for db, _ in plans.passwords], ["records"])
+
+
 class TestHelpers(unittest.TestCase):
 
     def test_load_epoch(self):
