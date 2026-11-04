@@ -1,0 +1,49 @@
+# coherence.yaml — template for domains/<domain-id>/data/coherence.yaml, a
+# domain's coherence queries
+#
+# Version v0.5, expected to evolve as games are played.
+# Shape: v0.5 master spec 8.5, 15; capture W2 item 3 of
+# specs/versions/v0.5/wave-log.md. Optional. A part carries its references
+# to its core (every animal, stay, request or staff id it holds resolves in
+# the core) and the histories it shares (placements on real stays, every
+# current stay placed, ...); the core carries none.
+#
+# load-data runs every check once on the loaded system, after the domains'
+# loads, the derivations and the purposes' histories, before any fault is
+# planted: as postgres, in the domain's database, in a read-only
+# transaction, its session unseen. Each `reads` entry is reachable through
+# foreign schemas load-data creates for the check and drops after:
+# gm_src_<name> for the source's public schema, gm_src_<name>_<schema> for
+# each other schema; <name> a domain id with - read as _ (vet_core),
+# <id>_<database> for a several-database part, partners for the partners'
+# database. A check whose `reads` names partners runs in the partners'
+# database on the partners' node instead (spec D383: partners-db admits
+# gm_check over its own socket only): gm_src_partners over that socket, its
+# other reads over TCP, so every table it reads goes through gm_src_*, its
+# own domain's too (name the domain in reads), and it takes no database:.
+# A check whose `reads` names a domain the scenario does not compose (or
+# partners, in a game without them) is skipped and reported so. Any row fails the setup as a design
+# error (fix the composition and reload), never a fault; the result is
+# recorded in composition.yaml's coherence: and the game's state.yaml.
+# load-data refuses a malformed file before any query runs.
+#
+# Markers:
+#   every key is REQUIRED unless marked otherwise;
+#   "# optional: <when>"  the key is present only when <when> holds.
+# Replace every <placeholder>. A filled file keeps no <placeholder>.
+
+checks:                             # non-empty
+  - id: <stays-placed>              # [a-z][a-z0-9-]*, once in the domain
+    what: <every current stay placed in a unit>   # one line, the report's
+    database: <clinic>              # optional: a several-database part only, and required
+                                    # there: one of its databases, where the check runs;
+                                    # never on a check reading partners
+    reads: [<vet-core>]             # optional: composed domains (this one included, for a
+                                    # several-database part's other databases) or partners;
+                                    # each once. With partners: this domain too, if read
+    # sql: one SELECT (or WITH ... SELECT), its trailing ; optional, no other ; and no psql
+    # meta-command: the offending rows, none when coherent; name each row's ids
+    sql: |
+      SELECT s.id AS stay_id FROM gm_src_<vet_core>.stays s
+       WHERE s.discharged_at IS NULL
+         AND NOT EXISTS (SELECT 1 FROM <placements> p WHERE p.stay_id = s.id)

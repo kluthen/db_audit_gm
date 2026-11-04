@@ -1,0 +1,305 @@
+#!/usr/bin/env python3
+"""go-sbom: the Go modules inside the release binaries the bricks download.
+
+Prometheus, promtool, Grafana, postgres_exporter and pgwatch reach their
+images as release tarballs (each brick's Dockerfile, ADD --checksum=sha256),
+not through a lockfile, so the daily cve-watch sweep (osv-scanner over the
+repository) would not see the Go modules compiled into them. This tool writes
+one CycloneDX SBOM per binary, bricks/<brick>/sbom/<binary>.cdx.json, listing
+the Go toolchain (stdlib), every module `go version -m` reports and, where it
+has a release version OSV can match, the main module. osv-scanner reads these
+files as SBOMs on every sweep; .tech lists them under [stack] lockfiles.
+
+    tools/go-sbom generate [brick...]   download each archive the Dockerfile
+                                        pins, verify its SHA-256, read the
+                                        binaries' build info, write the SBOMs
+    tools/go-sbom check [brick...]      offline: does every SBOM record the
+                                        version and archive checksum its
+                                        Dockerfile pins now? (exit 1 if not)
+
+At each bump of one of these bricks' release ARGs (or checksum), run
+`tools/go-sbom generate <brick>` and commit the SBOMs with the Dockerfile;
+tools/tests/test_go_sbom.py runs `check` and fails until you do. Needs `go`
+on the PATH (`go version -m` only reads the binary, never runs it) and network
+access to the release hosts; Prometheus's main module version is confirmed
+against proxy.golang.org. Kept by security-advisor (dev_team).
+"""
+
+import hashlib
+import json
+import re
+import subprocess
+import sys
+import tarfile
+import tempfile
+import urllib.request
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parent.parent
+TOOL = "tools/go-sbom"
+
+# brick -> the release ARG, a substring picking the archive's ADD line, and
+# every Go binary the Dockerfile installs from that archive: its path inside
+# the archive ({v} the version) and how its main module gets a version OSV
+# can match:
+#   "release"     the build info's own vX.Y.Z (a tagged release build)
+#   "pseudo"      the build info's pseudo-version (a module with no tags)
+#   "prom-go-tag" Prometheus 3.M.P is tagged v0.3MM.P for Go, confirmed
+#                 against the binary's vcs.revision on proxy.golang.org
+#   None          left out, the reason recorded in the SBOM
+BRICKS = {
+    "prometheus": {
+        "arg": "PROMETHEUS_VERSION",
+        "url": "github.com/prometheus/prometheus/releases/",
+        "binaries": [("prometheus-{v}.linux-amd64/prometheus", "prom-go-tag"),
+                     ("prometheus-{v}.linux-amd64/promtool", "prom-go-tag")],
+    },
+    "postgres-exporter": {
+        "arg": "PG_EXPORTER_VERSION",
+        "url": "github.com/prometheus-community/postgres_exporter/releases/",
+        "binaries": [("postgres_exporter-{v}.linux-amd64/postgres_exporter", "release")],
+    },
+    "pgwatch": {
+        "arg": "PGWATCH_VERSION",
+        "url": "github.com/cybertec-postgresql/pgwatch/releases/",
+        "binaries": [("pgwatch_Linux_x86_64/pgwatch", "release")],
+    },
+    "grafana": {
+        "arg": "GRAFANA_VERSION",
+        "url": "dl.grafana.com/grafana/release/",
+        # bin/grafana is built as (devel), and OSV's Go records for the module
+        # github.com/grafana/grafana carry no fixed version (every version
+        # matches): Grafana itself is checked on NVD (.tech [[platform]]).
+        # The Prometheus data source is the one bundled plugin the Dockerfile
+        # keeps; its backend is a Go binary Grafana runs as a child process.
+        "binaries": [("grafana-{v}/bin/grafana", None),
+                     ("grafana-{v}/data/plugins-bundled/prometheus/"
+                      "gpx_grafana-prometheus-datasource_linux_amd64", "pseudo")],
+    },
+}
+
+ARG_RE = re.compile(r"^ARG\s+([A-Za-z_][A-Za-z0-9_]*)=(\S+)\s*$", re.M)
+ADD_RE = re.compile(r"ADD\s+--checksum=sha256:([0-9a-f]{64})\s+(\S+)")
+VAR_RE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+
+
+def pinned(brick):
+    """(version, archive URL, archive sha256) as the brick's Dockerfile pins them."""
+    spec = BRICKS[brick]
+    path = REPO / "bricks" / brick / "Dockerfile"
+    text = path.read_text()
+    args = {}
+    for name, value in ARG_RE.findall(text):
+        if args.setdefault(name, value) != value:
+            sys.exit(f"{path}: ARG {name} has two defaults ({args[name]}, {value})")
+    joined = text.replace("\\\n", " ")
+    adds = []
+    for sha, url in ADD_RE.findall(joined):
+        url = VAR_RE.sub(lambda m: args.get(m.group(1), m.group(0)), url)
+        if spec["url"] in url:
+            adds.append((sha, url))
+    if spec["arg"] not in args or len(adds) != 1:
+        sys.exit(f"{path}: expected ARG {spec['arg']}= and one ADD --checksum from "
+                 f"{spec['url']} (found {len(adds)})")
+    if "${" in adds[0][1]:
+        sys.exit(f"{path}: unresolved variable in {adds[0][1]}")
+    return args[spec["arg"]], adds[0][1], adds[0][0]
+
+
+def sbom_dir(brick):
+    return REPO / "bricks" / brick / "sbom"
+
+
+def build_info(binary):
+    """`go version -m` of a binary: (go version, path, main (path, version),
+    [(module, version, replaced module or None)], {build setting: value},
+    [modules replaced by a directory of the main module's own source])."""
+    out = subprocess.run(["go", "version", "-m", str(binary)], capture_output=True,
+                         text=True, check=True).stdout
+    lines = out.splitlines()
+    goversion = lines[0].rsplit(": ", 1)[1].strip()
+    path, main, deps, settings, local = "", None, [], {}, []
+    for line in lines[1:]:
+        cells = line.strip("\n").split("\t")
+        if len(cells) < 3:
+            continue
+        kind = cells[1]
+        if kind == "path":
+            path = cells[2]
+        elif kind == "mod":
+            main = (cells[2], cells[3] if len(cells) > 3 else "")
+        elif kind == "dep":
+            deps.append([cells[2], cells[3], None])
+        elif kind == "=>":
+            if not deps:
+                sys.exit(f"{binary}: replacement before any dep")
+            original = deps[-1][0]
+            if cells[2].startswith(("./", "../", "/")):
+                local.append(f"{original} => {cells[2]}")
+                deps.pop()
+                continue
+            deps[-1] = [cells[2], cells[3], original]
+        elif kind == "build" and "=" in cells[2]:
+            key, _, value = cells[2].partition("=")
+            settings[key] = value
+    return goversion, path, main, deps, settings, local
+
+
+def prometheus_go_tag(version, revision):
+    """Prometheus 3.M.P is tagged v0.3MM.P for Go; confirm the tag is the
+    binary's own commit on proxy.golang.org."""
+    major, minor, patch = (int(x) for x in version.split("."))
+    tag = f"v0.{major}{minor:02d}.{patch}"
+    url = f"https://proxy.golang.org/github.com/prometheus/prometheus/@v/{tag}.info"
+    with urllib.request.urlopen(url, timeout=60) as resp:
+        info = json.load(resp)
+    if info.get("Origin", {}).get("Hash") != revision:
+        sys.exit(f"prometheus {version}: {tag} on the Go proxy is "
+                 f"{info.get('Origin', {}).get('Hash')}, the binary is {revision}")
+    return tag
+
+
+def purl(name, version):
+    return f"pkg:golang/{name}@{version}"
+
+
+def component(name, version, props=()):
+    c = {"type": "library", "bom-ref": purl(name, version), "name": name,
+         "version": version, "purl": purl(name, version)}
+    if props:
+        c["properties"] = [{"name": k, "value": v} for k, v in props]
+    return c
+
+
+def sbom(brick, version, url, sha, member, rule, binary):
+    goversion, path, main, deps, settings, local = build_info(binary)
+    name = Path(member).name
+    notes = [("dbagm:local-replacement", f"{r} (the main module's own source)") for r in local]
+    components = [component("stdlib", goversion.removeprefix("go"))]
+    if rule == "release":
+        if not main or not re.match(r"^v\d+\.\d+\.\d+$", main[1]):
+            sys.exit(f"{binary}: main module {main} has no release version")
+        components.append(component(main[0], main[1], [("dbagm:role", "main module")]))
+    elif rule == "pseudo":
+        if not main or not re.match(r"^v\d+\.\d+\.\d+-(0\.)?\d{14}-[0-9a-f]{12}$", main[1]):
+            sys.exit(f"{binary}: main module {main} has no pseudo-version")
+        components.append(component(main[0], main[1], [("dbagm:role", "main module")]))
+    elif rule == "prom-go-tag":
+        tag = prometheus_go_tag(version, settings.get("vcs.revision", ""))
+        components.append(component(main[0], tag, [
+            ("dbagm:role", "main module"),
+            ("dbagm:version-source", f"build info says {main[1]}; the release's Go tag "
+                                     f"{tag} is commit {settings.get('vcs.revision')} "
+                                     "(proxy.golang.org)")]))
+    else:
+        notes.append(("dbagm:main-module-omitted",
+                      f"{main[0]} {main[1]}: checked on NVD by its .tech platform entry"))
+    for mod, ver, replaces in sorted(deps):
+        props = [("dbagm:replaces", replaces)] if replaces else []
+        components.append(component(mod, ver, props))
+    digest = hashlib.sha256(binary.read_bytes()).hexdigest()
+    return {
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.5",
+        "version": 1,
+        "metadata": {
+            "tools": {"components": [{"type": "application", "name": TOOL}]},
+            "component": {
+                "type": "application", "bom-ref": f"{brick}/{name}", "name": name,
+                "version": version,
+                "hashes": [{"alg": "SHA-256", "content": digest}],
+                "properties": [{"name": k, "value": v} for k, v in [
+                    ("dbagm:brick", brick),
+                    ("dbagm:dockerfile", f"bricks/{brick}/Dockerfile"),
+                    ("dbagm:release-arg", f"{BRICKS[brick]['arg']}={version}"),
+                    ("dbagm:archive", url),
+                    ("dbagm:archive-sha256", sha),
+                    ("dbagm:archive-member", member),
+                    ("dbagm:go-package", path),
+                    ("dbagm:go-version", goversion),
+                    ("dbagm:vcs-revision", settings.get("vcs.revision", "")),
+                ] + notes],
+            },
+        },
+        "components": components,
+    }
+
+
+def generate(brick):
+    version, url, sha = pinned(brick)
+    members = [(m.format(v=version), rule) for m, rule in BRICKS[brick]["binaries"]]
+    with tempfile.TemporaryDirectory(prefix="go-sbom-") as tmp:
+        archive = Path(tmp) / "archive.tar.gz"
+        print(f"{brick}: {url}", file=sys.stderr)
+        digest = hashlib.sha256()
+        with urllib.request.urlopen(url, timeout=300) as resp, archive.open("wb") as fh:
+            while chunk := resp.read(1 << 20):
+                digest.update(chunk)
+                fh.write(chunk)
+        got = digest.hexdigest()
+        if got != sha:
+            sys.exit(f"{brick}: archive sha256 {got}, Dockerfile pins {sha}")
+        out_dir = Path(tmp) / "x"
+        out_dir.mkdir()
+        with tarfile.open(archive) as tar:
+            for member, _ in members:
+                info = tar.getmember(member)
+                if not info.isfile():
+                    sys.exit(f"{brick}: {member} is not a regular file in the archive")
+                (out_dir / Path(member).name).write_bytes(tar.extractfile(info).read())
+        target = sbom_dir(brick)
+        target.mkdir(exist_ok=True)
+        for member, rule in members:
+            name = Path(member).name
+            doc = sbom(brick, version, url, sha, member, rule, out_dir / name)
+            dest = target / f"{name}.cdx.json"
+            dest.write_text(json.dumps(doc, indent=2) + "\n")
+            print(f"{brick}: {dest.relative_to(REPO)}: {len(doc['components'])} components",
+                  file=sys.stderr)
+
+
+def check(brick):
+    """Problems: an SBOM missing, or recording another version or archive."""
+    version, url, sha = pinned(brick)
+    problems = []
+    for member, _ in BRICKS[brick]["binaries"]:
+        name = Path(member).name
+        path = sbom_dir(brick) / f"{name}.cdx.json"
+        rel = path.relative_to(REPO)
+        if not path.is_file():
+            problems.append(f"{rel}: missing")
+            continue
+        props = {p["name"]: p["value"]
+                 for p in json.loads(path.read_text())["metadata"]["component"]["properties"]}
+        for key, want in (("dbagm:release-arg", f"{BRICKS[brick]['arg']}={version}"),
+                          ("dbagm:archive", url), ("dbagm:archive-sha256", sha)):
+            if props.get(key) != want:
+                problems.append(f"{rel}: {key} is {props.get(key)!r}, the Dockerfile pins {want!r}")
+    extra = sorted(p.name for p in sbom_dir(brick).glob("*.cdx.json")
+                   if p.name not in {Path(m).name + ".cdx.json" for m, _ in BRICKS[brick]["binaries"]}) \
+        if sbom_dir(brick).is_dir() else []
+    problems += [f"bricks/{brick}/sbom/{n}: no such binary in the brick" for n in extra]
+    return problems
+
+
+def main(argv):
+    if not argv or argv[0] not in ("generate", "check"):
+        sys.exit(__doc__)
+    bricks = argv[1:] or sorted(BRICKS)
+    unknown = [b for b in bricks if b not in BRICKS]
+    if unknown:
+        sys.exit(f"unknown brick(s): {', '.join(unknown)} (known: {', '.join(sorted(BRICKS))})")
+    if argv[0] == "generate":
+        for brick in bricks:
+            generate(brick)
+        return 0
+    problems = [p for brick in bricks for p in check(brick)]
+    for p in problems:
+        print(p)
+    if problems:
+        print(f"regenerate with: {TOOL} generate <brick>")
+    return 1 if problems else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

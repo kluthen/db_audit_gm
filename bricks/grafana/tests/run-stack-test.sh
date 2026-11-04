@@ -2,15 +2,17 @@
 # Stack test of the Grafana brick (v0.2 build plan, chunk 10, Done when;
 # v0.3 build plan, chunk 5b: the write policies and the snapshot's stop).
 #
-# Deploys the brick as a Swarm stack (stack.test.yml), its five seed files
-# copied from companion/ as a scenario would, with a prometheus 0.2.0 node
+# Deploys the brick as a Swarm stack (stack.test.yml), its six seed files
+# (the optional pgwatch.json included) copied from companion/ as a scenario
+# would, with a prometheus 0.2.0 node
 # for the data source; seed files and secrets are external configs and
 # secrets created here. Checks, from a client container on the stack's
 # network and from the GM side (docker exec, the API helper):
 #   - the container becomes healthy; Grafana runs as grafana (472:472);
 #   - the provisioned data source (and its health), dashboards and alert
 #     rules are present through the API; no contact point is provisioned;
-#     the rules are evaluated and a firing one is readable;
+#     the rules are evaluated and a firing one is readable; every query of
+#     the pgwatch dashboard is accepted by Prometheus;
 #   - the administrator logs in with the secret's password (API and the
 #     login form); the default time zone is UTC;
 #   - the UI answers under /grafana/, from another container;
@@ -18,6 +20,9 @@
 #   - edited seed files (a dashboard, the data source, an alert rule) take
 #     effect through gm-reload-grafana; a broken file is refused;
 #   - the validator exits 0, then 1 on a pending, broken or refused file;
+#   - the optional pgwatch.json: removed, the node reloads and validates
+#     green; put back, the wrapper gives it the seeded owner and mode; a
+#     container seeded without it starts and its files check clean;
 #   - edits, the marker and the player's home survive a new container, and a
 #     changed administrator's password is set back from the secret at start;
 #   - the secret, the database and the API helper are out of player's
@@ -51,7 +56,7 @@ PROM_SERVICE=${STACK}_prometheus
 NET=${STACK}_net
 CLIENT=${STACK}-client
 LABEL=dbagm.test=chunk10-grafana
-CONFIGS="seed_datasources_yaml seed_dashboards_yaml seed_node_health_json seed_postgresql_json seed_alert_rules_yaml seed_prometheus_yml"
+CONFIGS="seed_datasources_yaml seed_dashboards_yaml seed_node_health_json seed_postgresql_json seed_pgwatch_json seed_alert_rules_yaml seed_prometheus_yml"
 SECRETS="player_ssh_pubkey tools_password"
 VOLUMES="graf_data graf_conf graf_home graf_gmstate graf_run prom_data prom_conf prom_home prom_gmstate prom_run"
 COMPANION=$HERE/../companion
@@ -74,7 +79,7 @@ chmod 0700 "$tmp"
 cleanup() {
     set +e
     info "teardown"
-    docker rm -f "$CLIENT" "${STACK}-refuse-policy" "${STACK}-refuse-override" >/dev/null 2>&1
+    docker rm -f "$CLIENT" "${STACK}-refuse-policy" "${STACK}-refuse-override" "${STACK}-nopgwatch" >/dev/null 2>&1
     docker stack rm "$STACK" >/dev/null 2>&1
     i=0
     while [ "$i" -lt 60 ] && [ -n "$(docker ps -aq -f "label=com.docker.stack.namespace=$STACK")" ]; do
@@ -120,11 +125,12 @@ ssh-keygen -q -t ed25519 -N '' -C gmtest-player -f "$tmp/id"
     | head -c 16 > "$tmp/tools_password")
 [ "$(wc -c < "$tmp/tools_password")" -eq 16 ] || { echo "could not generate the tools password" >&2; exit 2; }
 cfg() { docker config create -l "$LABEL" "${STACK}_$1" "$2" >/dev/null; }
-# the five seed files: the companion's, byte for byte, as a scenario copies them
+# the six seed files: the companion's, byte for byte, as a scenario copies them
 cfg seed_datasources_yaml "$COMPANION/datasources.yaml"
 cfg seed_dashboards_yaml "$COMPANION/dashboards.yaml"
 cfg seed_node_health_json "$COMPANION/node-health.json"
 cfg seed_postgresql_json "$COMPANION/postgresql.json"
+cfg seed_pgwatch_json "$COMPANION/pgwatch.json"
 cfg seed_alert_rules_yaml "$COMPANION/alert-rules.yaml"
 # prometheus: its own stack test's seed (it also lists targets that do not
 # exist here, so a target-down alert fires)
@@ -190,7 +196,7 @@ u=$(gm ps -o user= -C grafana | sort -u | tr -d ' ')
 ids=$(gm sh -c 'echo "$(id -u grafana):$(id -g grafana) $(getent group grafconf | cut -d: -f3)"')
 [ "$ids" = "472:472 473" ] && pass "grafana is 472:472, grafconf 473" || fail "ids: $ids"
 v=$(api GET /api/health | jq -r '.version + " " + .database')
-[ "$v" = "13.2.4 ok" ] && pass "/api/health: version 13.2.4, database ok" || fail "/api/health: $v"
+[ "$v" = "13.3.0 ok" ] && pass "/api/health: version 13.3.0, database ok" || fail "/api/health: $v"
 
 # --- administrator ---------------------------------------------------------------
 r=$(api GET /api/user | jq -c '{login, isGrafanaAdmin}')
@@ -214,14 +220,29 @@ while [ "$i" -lt 60 ]; do
 done
 [ "$h" = OK ] && pass "data source health OK (Prometheus reachable at prometheus:9090/prometheus)" || fail "data source health: $h"
 r=$(api GET '/api/search?type=dash-db' | jq -c '[.[] | .uid] | sort')
-[ "$r" = '["node-health","postgresql"]' ] && pass "dashboards provisioned: $r" || fail "dashboards: $r"
-for uid in node-health postgresql; do
+[ "$r" = '["node-health","pgwatch","postgresql"]' ] && pass "dashboards provisioned: $r" || fail "dashboards: $r"
+for uid in node-health postgresql pgwatch; do
     r=$(api GET "/api/dashboards/uid/$uid" | jq -c '{tz: .dashboard.timezone, provisioned: .meta.provisioned, panels: (.dashboard.panels | length)}')
     case $r in
         '{"tz":"utc","provisioned":true,'*) pass "dashboard $uid: time zone utc, provisioned ($r)" ;;
         *) fail "dashboard $uid: $r" ;;
     esac
 done
+r=$(api GET /api/dashboards/uid/pgwatch | jq -c '{title: .dashboard.title, tags: .dashboard.tags, panels: (.dashboard.panels | length)}')
+w=$(jq -c '{title, tags, panels: (.panels | length)}' "$COMPANION/pgwatch.json")
+[ "$r" = "$w" ] && pass "Grafana serves /api/dashboards/uid/pgwatch, the companion's dashboard ($r)" || fail "dashboard pgwatch: $r, want $w"
+# every query of the pgwatch dashboard, through Prometheus' query API (an
+# empty result is expected: the test has no pgwatch node)
+n=0; bad=
+for e in $(jq -r '[.panels[].targets[].expr | @base64] | join(" ")' "$COMPANION/pgwatch.json"); do
+    e=$(printf '%s' "$e" | base64 -d)
+    n=$((n + 1))
+    st=$(docker exec "$CLIENT" curl -sS -m 15 -G --data-urlencode "query=$e" \
+        http://prometheus:9090/prometheus/api/v1/query 2>&1 | jq -r '.status' 2>/dev/null)
+    [ "$st" = success ] || bad="$bad [$e: $st]"
+done
+[ "$n" -gt 0 ] && [ -z "$bad" ] && pass "Prometheus accepts all $n queries of pgwatch.json (status success)" \
+    || fail "pgwatch.json queries ($n):$bad"
 want=$(python3 -c 'import sys, yaml; print(" ".join(sorted(r["uid"] for g in yaml.safe_load(open(sys.argv[1]))["groups"] for r in g["rules"])))' "$COMPANION/alert-rules.yaml")
 got=$(api GET /api/v1/provisioning/alert-rules | jq -r '[.[] | .uid] | sort | join(" ")')
 [ "$got" = "$want" ] && pass "alert rules provisioned, the companion's $(echo "$want" | wc -w): $got" || fail "alert rules: [$got], want [$want]"
@@ -301,16 +322,17 @@ out=$(pssh sudo -n gm-validate 2>&1); rc=$?
 check "sudo logs to /run/gm/sudo.log" docker exec "$C" grep -q 'COMMAND=/usr/local/sbin/gm-validate' /run/gm/sudo.log
 out=$(docker exec -u grafana "$C" /opt/gm/validator/validate.sh 2>&1); rc=$?
 [ "$rc" -eq 0 ] && pass "GM run of the validator as grafana green (exit 0)" || fail "GM validator: exit $rc: $out"
-m=$(gm stat -c '%a %U:%G' $PROV $PROV/datasources $PROV/dashboards/node-health.json $PROV/alerting/alert-rules.yaml \
+m=$(gm stat -c '%a %U:%G' $PROV $PROV/datasources $PROV/dashboards/node-health.json $PROV/dashboards/postgresql.json \
+    $PROV/dashboards/pgwatch.json $PROV/alerting/alert-rules.yaml \
     /var/lib/gm-state /var/lib/gm-state/.gm-seeded /home/player /var/lib/grafana /opt/gm/secrets/tools_password \
     /usr/local/lib/gm/grafana-api /etc/grafana/grafana.ini | tr '\n' ' ')
-[ "$m" = "2775 grafana:grafconf 2775 grafana:grafconf 664 grafana:grafconf 664 grafana:grafconf 755 root:root 444 root:root 750 player:player 750 grafana:grafana 440 root:grafana 750 root:grafana 444 root:root " ] \
+[ "$m" = "2775 grafana:grafconf 2775 grafana:grafconf 664 grafana:grafconf 664 grafana:grafconf 664 grafana:grafconf 664 grafana:grafconf 755 root:root 444 root:root 750 player:player 750 grafana:grafana 440 root:grafana 750 root:grafana 444 root:root " ] \
     && pass "ownership and modes ($m)" || fail "ownership and modes: $m"
 check "/run/gm/write-policy says fixable (no policy in the environment)" \
     sh -c "docker exec $C cat /run/gm/write-policy | grep -qx policy=fixable"
 for f in datasources.yaml:datasources/datasources.yaml dashboards.yaml:dashboards/dashboards.yaml \
          node-health.json:dashboards/node-health.json postgresql.json:dashboards/postgresql.json \
-         alert-rules.yaml:alerting/alert-rules.yaml; do
+         pgwatch.json:dashboards/pgwatch.json alert-rules.yaml:alerting/alert-rules.yaml; do
     check "seeded ${f#*:} is the companion's ${f%%:*}, byte for byte" sh -c \
         "docker exec $C cat $PROV/${f#*:} | cmp -s - '$COMPANION/${f%%:*}'"
 done
@@ -424,6 +446,27 @@ out=$(pssh sudo -n gm-validate 2>&1); rc=$?
 n=$(api GET /api/v1/provisioning/alert-rules | jq 'length')
 [ "$n" = "$(echo "$want" | wc -w)" ] && pass "all $n alert rules back" || fail "alert rules after fix: $n"
 
+# --- the optional pgwatch.json: absent, then back ------------------------------------------
+PGW=$PROV/dashboards/pgwatch.json
+pssh "cp $PGW ~/pgwatch.json.good && rm $PGW" && pass "player removes the optional $PGW" || fail "remove $PGW"
+out=$(pssh sudo -n gm-reload-grafana 2>&1); rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q 'provisioning reloaded' \
+    && pass "gm-reload-grafana without pgwatch.json (exit 0)" || fail "reload without pgwatch.json: exit $rc: $out"
+out=$(pssh sudo -n gm-validate 2>&1); rc=$?
+[ "$rc" -eq 0 ] && pass "validator green without pgwatch.json, an optional seed file (exit 0: $out)" \
+    || fail "validator without pgwatch.json: exit $rc: $out"
+info "dashboards without pgwatch.json: $(api GET '/api/search?type=dash-db' | jq -c '[.[] | .uid] | sort')"
+pssh "cp ~/pgwatch.json.good $PGW" || fail "put $PGW back"
+m=$(gm stat -c '%U:%G' "$PGW")
+info "pgwatch.json put back by player: $m"
+out=$(pssh sudo -n gm-reload-grafana 2>&1); rc=$?
+m=$(gm stat -c '%a %U:%G' "$PGW")
+[ "$rc" -eq 0 ] && [ "$m" = "664 grafana:grafconf" ] \
+    && pass "the wrapper gives pgwatch.json put back the seeded owner and mode ($m)" || fail "pgwatch.json put back: exit $rc, $m: $out"
+check "dashboard pgwatch served again" docker exec "$C" "$API" GET /api/dashboards/uid/pgwatch
+out=$(pssh sudo -n gm-validate 2>&1); rc=$?
+[ "$rc" -eq 0 ] && pass "validator green with pgwatch.json back (exit 0)" || fail "validator with pgwatch.json back: exit $rc: $out"
+
 # --- a changed administrator's password, then a new container -----------------------------
 # The players must not do this (DO NOT TAMPER); the GM's recovery is a
 # restart. Change it with the right current password (never a wrong one).
@@ -500,7 +543,7 @@ t=$(api GET /api/dashboards/uid/node-health | jq -r '.dashboard.title')
 # --- report-only ---------------------------------------------------------------------------
 REFUSAL='gm-reload-grafana: this node is report-only: its files cannot be changed, so nothing was reloaded.'
 modes() { gm stat -c '%a %U:%G' $PROV $PROV/datasources $PROV/dashboards $PROV/alerting $PROV/plugins \
-    "$DSY" "$NHJ" "$ARY" | tr '\n' ' '; }
+    "$DSY" "$NHJ" "$PGW" "$ARY" | tr '\n' ' '; }
 # sed -i on the fixable node, content unchanged: the new container's
 # entrypoint gives the file sed -i left to player back
 pssh "sed -i 's/^//' $DSY" && [ "$(gm stat -c '%U' "$DSY")" = player ] \
@@ -511,7 +554,7 @@ if C2=$(wait_healthy "$SERVICE" "$C"); then C=$C2; pass "report-only container h
 w=$(gm cat /run/gm/write-policy | tr '\n' ' ')
 [ "$w" = "policy=report-only overrides= " ] && pass "/run/gm/write-policy says report-only, no override" || fail "write-policy: [$w]"
 m=$(modes)
-want="2755 grafana:grafconf 2755 grafana:grafconf 2755 grafana:grafconf 2755 grafana:grafconf 2755 grafana:grafconf 644 grafana:grafconf 644 grafana:grafconf 644 grafana:grafconf "
+want="2755 grafana:grafconf 2755 grafana:grafconf 2755 grafana:grafconf 2755 grafana:grafconf 2755 grafana:grafconf 644 grafana:grafconf 644 grafana:grafconf 644 grafana:grafconf 644 grafana:grafconf "
 [ "$m" = "$want" ] && pass "report-only: owners and modes, the file sed -i left to player given back at start ($m)" \
     || fail "report-only modes: $m"
 denied "report-only: player cannot sed -i $ARY" "sed -i 's/title: Scrape target down/title: x/' $ARY"
@@ -539,7 +582,7 @@ w=$(gm cat /run/gm/write-policy | tr '\n' ' ')
 [ "$w" = "policy=report-only overrides=$PROV/alerting " ] && pass "/run/gm/write-policy names the override" \
     || fail "write-policy: [$w]"
 m=$(modes)
-want="2755 grafana:grafconf 2755 grafana:grafconf 2755 grafana:grafconf 2775 grafana:grafconf 2755 grafana:grafconf 644 grafana:grafconf 644 grafana:grafconf 664 grafana:grafconf "
+want="2755 grafana:grafconf 2755 grafana:grafconf 2755 grafana:grafconf 2775 grafana:grafconf 2755 grafana:grafconf 644 grafana:grafconf 644 grafana:grafconf 644 grafana:grafconf 664 grafana:grafconf "
 [ "$m" = "$want" ] && pass "override: alerting/ and its rule file fixable, the rest not ($m)" || fail "override modes: $m"
 pssh "sed -i 's|title: Scrape target down$|title: Scrape target down (override)|' $ARY" \
     && pass "override: player edits $ARY with sed -i" || fail "override: sed -i on $ARY"
@@ -572,6 +615,26 @@ refuse policy "gm-entrypoint: fatal: GM_WRITE_POLICY='read-only' is not one of f
     -e GM_WRITE_POLICY=read-only
 refuse override "gm-entrypoint: fatal: GM_WRITE_OVERRIDES: '$PROV/plugins' is not one of this brick's writable_paths ($PROV, $PROV/alerting, $PROV/dashboards, $PROV/datasources, /home/player)" \
     -e GM_WRITE_POLICY=report-only -e "GM_WRITE_OVERRIDES=$PROV/alerting $PROV/plugins"
+
+# --- a node seeded without the optional pgwatch.json ------------------------------------------
+# A fresh container (no volume, so the seeding runs) given the five required
+# seed files only; its command runs once the services are up, then the
+# container stops.
+seeds=
+for f in datasources.yaml dashboards.yaml node-health.json postgresql.json alert-rules.yaml; do
+    seeds="$seeds -v $COMPANION/$f:/opt/gm/seed/$f:ro"
+done
+out=$(docker run --name "${STACK}-nopgwatch" --rm \
+    -v "$tmp/id.pub:/opt/gm/secrets/player_ssh_pubkey:ro" -v "$tmp/refuse_pw:/opt/gm/secrets/tools_password:ro" \
+    $seeds "$IMAGE" sh -c 'echo "dashboards: $(ls /etc/grafana/provisioning/dashboards | tr "\n" " ")"
+        echo "problems: [$(runuser -u grafana -- sh -c ". /usr/local/lib/gm/grafana-files && prov_check_files")]"' 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q '^gm-entrypoint: seeded ' \
+   && printf '%s' "$out" | grep -qx 'dashboards: dashboards.yaml node-health.json postgresql.json ' \
+   && printf '%s' "$out" | grep -qx 'problems: \[\]'; then
+    pass "a node seeded without pgwatch.json starts, seeds the five required files, its files check clean"
+else
+    fail "seeded without pgwatch.json: exit $rc: $(printf '%s' "$out" | grep -E '^(gm-entrypoint|dashboards|problems):' | tr '\n' ' ')"
+fi
 
 # --- hardening ---------------------------------------------------------------------
 check "root filesystem is read-only" sh -c "[ \"\$(docker inspect -f '{{.HostConfig.ReadonlyRootfs}}' $C)\" = true ]"

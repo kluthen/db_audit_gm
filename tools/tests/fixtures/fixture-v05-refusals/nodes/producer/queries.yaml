@@ -1,0 +1,24 @@
+# The order service's repository (tools/tests, v0.5 chunk 6): a query, two
+# calls, one with the weighted choice (v0.5 W1 item 3).
+queries:
+  orders.insert:
+    sql: >-
+      INSERT INTO orders (customer_id, placed_at, total)
+      VALUES (%(customer_id)s, %(placed_at)s, %(total)s)
+    params:
+      customer_id: {int: [1, 500]}
+      placed_at: {now: utc}
+      total: {decimal: [5, 500, 2]}
+  orders.post:
+    call: POST /orders/%(customer)s
+    params:
+      customer: {int: [1, 500]}
+      priority: {choice: {routine: 3, urgent: 1}}
+  results.ask:
+    call: GET /results
+    params:
+      since: {now: utc}
+  stats.refresh:
+    sql: >-
+      SELECT count(*), coalesce(sum(total), 0) FROM orders
+      WHERE placed_at > now() - interval '1 hour'

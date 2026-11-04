@@ -1,0 +1,64 @@
+# vet-core's register fragment (v0.5 master spec 6.1, 13.1, D334; template
+# register.yaml): one entry per processing activity, every table of
+# data/schema.sql in exactly one, transcribed from the classification and
+# docs/policy.md's rules (D280). Retention periods follow rule 9: clinical
+# records five years from the last entry, medicines five, controlled drugs
+# ten, game values stated as such. The scenario's data register (a player
+# handout, chunks 17 and 27) is built from it.
+activities:
+  - id: vet-core-owners
+    name: Owners, their animals and who owns them
+    purpose: Registering the owners, keepers and holdings who bring animals, the animals with their natural identifiers and food-chain status, and each dated ownership, so the record follows the animal and the portal reaches its current owner
+    people: [owners, keepers, holdings' keepers]
+    tables: [owners, animals, ownerships, herds]
+    retention:
+      period: 5 years after the owner's last record entry (rule 9, a game value)
+      then: anonymised
+  - id: vet-core-staff
+    name: The centre's staff
+    purpose: Knowing who examined, prescribed, gave, cared and signed, by the staff layout, and reaching staff through the franchise's messaging service
+    people: [staff]
+    tables: [staff]
+    retention:
+      period: 5 years after the staff member leaves, as long as the records they signed are kept (a game value)
+      then: erased
+  - id: vet-core-referrals
+    name: Referrals from the region's practices
+    purpose: Receiving referred animals from the region's practices and their vets, and sending each referral's report back by letter
+    people: [referring vets, owners]
+    tables: [referring_practices, referring_vets, referrals]
+    retention:
+      period: 5 years from the referral's last entry (rule 9, a game value)
+      then: erased
+  - id: vet-core-record
+    name: The medical record
+    purpose: Examining, diagnosing, treating and hospitalising animals, ordering analyses and imaging, recording alerts, and notifying listed diseases to the authority (rules 7, 8)
+    people: [owners]
+    tables: [consultations, diagnoses, procedures, requests, stays, alerts]
+    retention:
+      period: 5 years from the record's last entry (rule 9, a game value; no EU rule)
+      then: anonymised
+  - id: vet-core-medicines
+    name: Prescriptions, administrations and supplies of medicines
+    purpose: Prescribing, giving and supplying medicines with their batch, quantity and withdrawal period, keeping the medicines and controlled-drugs registers and the antimicrobial-use record (rules 1 to 6)
+    people: [owners, keepers]
+    tables: [prescriptions, prescription_lines, administrations, dispensings]
+    retention:
+      period: 5 years (Regulation (EU) 2019/6 Art 103, 108), 10 years for controlled drugs' movements (the French rule, a game value)
+      then: erased
+  - id: vet-core-exchanges
+    name: Exchanges with the franchise's other centres
+    purpose: Transferring animals to and asking examinations of the other centres, and answering theirs, under the franchise's agreement (privileged flows)
+    people: [owners]
+    tables: [exchanges]
+    retention:
+      period: 5 years from the exchange's report (rule 9, a game value)
+      then: erased
+  - id: vet-core-operations
+    name: Running the centre
+    purpose: The centre's settings, its sites and sections, the diagnosis codes, the medicines and their batches
+    people: []
+    tables: [business_settings, sites, sections, diagnosis_codes, medicines, medicine_batches]
+    retention:
+      period: as long as the centre runs; batches 5 years after their last supply (rule 2, a game value)
+      then: erased

@@ -21,7 +21,19 @@ The image:
   PGDG repository (`trixie-pgdg`, major version pinned by package name;
   `pg_stat_statements` ships with the server), pgBadger from the same
   repository (13.2 at the 0.2.0 build), `openssh-server`, `sudo`, `nano`,
-  `vim-tiny`, `less`, `procps`. About 262MB.
+  `vim-tiny`, `less`, `procps`. About 265MB (pgCluu included, 0.5.0).
+- From 0.5.0, pgCluu 5.0 from the same repository (G9: `pgcluu=5.0-1.pgdg13+1`,
+  build argument `PG_CLUU_PACKAGE`, pinned exactly and checked at build;
+  not Debian's 4.0, which does not collect from PostgreSQL 17 and 18), a
+  report tool beside pgBadger (master spec 7.4, O225): run on demand by
+  the players, never a daemon or a node of its own. Its report CGI
+  (`/usr/lib/cgi-bin/pgcluu.cgi`) and Apache configuration
+  (`/etc/apache2/conf-available/pgcluu.conf`) are deleted at build and
+  asserted gone; no `sysstat`, so the collector runs with `--disable-sar
+  --disable-pidstat`. It brings `libjs-jquery` and `libjs-underscore` for
+  the report's own pages (G9: CVE-2026-27601 in underscore, a recursion
+  in the browser's JavaScript, not reachable here). Cosmetic: every run
+  prints `Duplicate specification "no-sysinfo!"`; `--help` exits 1.
 - From 0.4.0, for jobs on the node (see "`pg_cron`" and "The cron
   daemon"): `postgresql-18-cron` from the same repository, pinned exactly
   (`1.6.8-1.pgdg13+2`, build argument `PG_CRON_PACKAGE`, checked at build;
@@ -681,6 +693,32 @@ each get their slot; v0.5 builds one (`standby` in the clinic).
   slot `gm_snapshot` comes and goes beside the standby's, which stays;
   on the standby `gm-snapshot-db` takes its base backup from the standby
   itself (see "Snapshot").
+- **A restart from the hand-over snapshot** gives the standby back as a
+  standby, streaming from its restored primary (v0.5 master spec 15, "The
+  restore from the hand-over snapshot"; capture W2-g; spec D397). Before
+  the stack starts, `gmctl restart` writes `standby.signal` (`postgres`,
+  0600) into the standby's restored data volume, so it starts in standby
+  mode, read-only, and never runs as a primary of its own: its walreceiver
+  finds no slot on the primary yet and retries, while it reaches
+  consistency from the WAL its copy holds and turns healthy. Once the
+  stack is healthy, after the primary's recorded slots are re-created
+  (see "Snapshot"), each standby in topology order is cloned again as
+  `load-data` does (`replicator` set, then `clone-standby --restore`,
+  then the wait until the slot's sender streams): its copy and its
+  primary's are taken at different moments and no WAL is kept to replay
+  between them. **`clone-standby --restore`** is the clone above with
+  one difference: the standby's own `postgresql.auto.conf` (the settings
+  its restored copy holds) is saved under `/run/gm` once `postgres` is
+  stopped, before PGDATA is emptied, and put back (`postgres`, 0600) in
+  place of the one `pg_basebackup -R` wrote, the check refusing a
+  `primary_conninfo` holding a password applied to the result. Without
+  an argument it is `load-data`'s mode, unchanged; any other argument
+  exits 2. Its configuration volume (`pgconf`) is restored from its copy
+  and the clone does not touch it. `replicator`, its password and the
+  standby's password file are unchanged (every secret's value is kept).
+  A job reaching the standby during the clone fails as at any outage of
+  it; its next run reads it. A failure in any of these steps is a failed
+  restart (torn down, recorded, the snapshot kept, a retry accepted).
 - **The fault `pg-abandoned-replication-slot`** applies beside a standby
   when its slot is an orphan: its `slot-name` is not the standby's (see
   "Supported faults").
@@ -749,6 +787,66 @@ v0.5. Which instances archive and send a base backup is the scenario's
 - **Seen**: `pg_stat_archiver` (`last_archived_wal`, `failed_count`,
   `last_failed_wal`), the server log, `cron/basebackup.log`, and cold
   storage's manifests and page (each manifest names its node).
+
+### The partners' database: `partners-db`'s `pg_hba.conf`
+
+A scenario's third parties share one small `postgres` node, `partners-db`
+(`no-access`), holding the database `partners`, each partner's role and
+schema its own (v0.5 master spec 10.2; capture W2 item 1, W2-f;
+[`partners/README.md`](../../../partners/README.md)). Its seed
+`pg_hba.conf` is the catalogue's
+[`partners/shared/partners-db/pg_hba.conf`](../../../partners/shared/partners-db/pg_hba.conf),
+the partners' line filled by the GM. It departs from "What the seed
+files must contain" in one way: no players' access, no `dba` line.
+
+- **The form**: the GM's DO NOT TAMPER `local` lines (as every seed),
+  then one line for the partners, then a reject:
+
+  ```
+  local   all       postgres                          peer
+  local   replication postgres                        peer
+  local   all       gm_check                          scram-sha-256
+  host    partners  <the partners' roles, comma-separated>    samenet     scram-sha-256
+  host    all       all                   all         reject
+  ```
+
+  The roles are exactly those the partners' nodes connect as: each
+  composed partner's prefix (`producers/partners/<prefix>/`),
+  `coldstore` when the scenario has a vault, `owners` for the owners'
+  traffic (spec D369).
+- **No `gm_check` host line** (access model 8; spec D383): the check
+  role reaches every instance in the players' scope, not the partners'
+  from the network. It still reads `partners` over the node's local
+  socket: a coherence check whose `reads` names `partners` runs on
+  `partners-db` itself, and a derivation or a history reading
+  `partners` from another node is refused at plan time.
+- **Measured** on one Swarm network (`fixture-partners`' short test on
+  armenelos, Docker 29, one host, 2026-11-04):
+  - every other role is refused from the network by `pg_hba.conf`
+    itself, with or without its password: `dba`, `postgres`,
+    `gm_check`, and a partner's own role on any other database
+    (`pg_hba.conf rejects connection for host ...`);
+  - `samenet` covers the game network and the host's `docker_gwbridge`
+    (the server's two subnets, `10.0.1.0/24` and `172.18.0.0/16` in the
+    run): a partner's role with the right password gets in even from the
+    bastion;
+  - through a service name (the node's virtual address) every client on
+    a host arrives from the network's load-balancer address
+    (`<network>-endpoint`, `10.0.1.10` in the run): the bastion and
+    `partners-api` look the same to the server;
+  - through `tasks.partners-db` a client arrives from its task's
+    address, which changes when the task restarts (`10.0.1.3` to
+    `10.0.1.11`); no address form tells the partners' nodes apart;
+  - a host-name line never matches: Swarm's reverse lookup of a task's
+    address names the task (`<game>_<node>.<slot>.<task
+    id>.<game>_<network>`) and the load-balancer address has none, so
+    `host partners <roles> partners-api scram-sha-256` refuses
+    `partners-api` itself.
+- **The guard is the password**: each partner role's password is a
+  secret render mounts on the partners' nodes only (`partners-api`,
+  `partners-backend`), never on the bastion or a player's node; every
+  other role is rejected by the file (access model 13's known gap, now
+  measured).
 
 ## Connections
 
@@ -845,6 +943,15 @@ daemon").
   in its home; the players copy it to the bastion with `scp
   <node>:pgbadger.html .` (sshd's `internal-sftp` subsystem serves `scp`
   and `sftp`) and from the bastion to their machine with `sftp`.
+- pgCluu, the same way (O225): `player` runs `pgcluu_collectd` itself,
+  as `dba` (its `~/.pgpass`), for the window it chooses (`-E`), with a pid
+  file of its own (`-f`), then `pgcluu -o <directory>` writes the report into
+  a directory of its home, which must exist;
+  no wrapper, no `sudo`, no sudoers rule (G9: `pgcluu_collectd` builds
+  shell commands from its arguments, so it never runs as root). A
+  collection is a few queries every `-i` seconds on the node, inside its
+  limits; the fixture short test (`tools/tests/smoke-monitoring-v05.sh`)
+  runs one of 30 s and copies the report to the bastion with `scp`.
 - `monitoring`: the exporter's role, on a node choosing the option
   (see "The monitoring role"); its password is readable on this node by
   root and `postgres` only, never by `player`.
@@ -1144,6 +1251,47 @@ Size of a snapshot: the data directory and the WAL segments written
 during the backup, 16MB each, plus the other volumes' copies. The stack
 test's small cluster gives a 41MB tar (one WAL segment), 2026-10-23.
 
+**What a restart from the hand-over snapshot gives back** (v0.5 master
+spec 15, "The restore from the hand-over snapshot"; capture W2-g; spec
+D397):
+
+- every volume from its copy, as above;
+- **a standby as a standby**, cloned again from its restored primary,
+  streaming, its own settings kept (see "The standby");
+- **a primary's persistent replication slots**: `gmctl snapshot` reads
+  each primary's `pg_replication_slots` when its copies are taken and
+  records the persistent physical ones in the snapshot's `slots:`
+  (its standbys' own slots, re-created by their clone, and temporary
+  slots such as `gm_snapshot` left out), since a base backup leaves
+  `pg_replslot/` out; the restart re-creates each once the stack is
+  healthy, before the standbys' clones:
+  `pg_create_physical_replication_slot(<name>, true)`, physical,
+  reserving WAL at once, inactive (a planted
+  `pg-abandoned-replication-slot` comes back). A snapshot record without
+  `slots:` (taken before v0.5) re-creates none;
+- **archiving and the vault in step**: the nodes with a `vault_target`
+  are copied before every other node, so the vault's copy is the later
+  one and its manifests name every segment the restored node counts as
+  archived; the restored node keeps shipping on its timeline, and a
+  segment it ships again under a name the vault holds replaces that
+  manifest (D381).
+
+**What it does not give back**: the WAL a node had accumulated (a
+planted slot's backlog, or a failing archive's) and its cumulative
+statistics (`pg_stat_archiver`, `pg_stat_user_tables` and the other
+`pg_stat_*` views), which a base backup does not carry; both build
+again from the restore, as after a crash. Measured on the restore
+fixture (`tools/tests/fixtures/fixture-restore/`, armenelos,
+2026-11-04): before the snapshot the planted slot `old_reports` held
+48 MB of WAL on `records` and `pg_wal` was 65M; `pg_stat_archiver` read
+5 archived, 0 failed, and `visits` 22000 rows inserted. Just after the
+restart, the re-created slot held 33 MB (counted from its new
+`restart_lsn`, the restored server's, not the backlog carried over) and
+`pg_wal` was 49M; `pg_stat_archiver` read 3 archived since the restore
+(the last the standby's clone's backup history file), 0 failed, and
+`visits` 1 row inserted, the counters started again. The whole restart
+took 37 to 41 s there.
+
 ## Supported faults
 
 Which faults the brick hosts is stated only by each fault's `applies_to`
@@ -1351,7 +1499,14 @@ with `hot_standby_feedback` on, streaming from its slot `standby` in
 write, holding the primary's roles, its `primary_conninfo` naming the
 password file only, streaming again in a new container whose start skips
 the roles step, the hand-over snapshot on both nodes leaving only the
-standby's slot, and no replication password in either log; `rec`'s
+standby's slot, and no replication password in either log; chunk 28's:
+`clone-standby --restore`, run as a restart runs it (the standby's
+`postgres` stopped, no slot of its name on `rec`), keeping a setting
+written into the standby's `postgresql.auto.conf` before it (the file
+put back `postgres` 0600, its `primary_conninfo` naming the password
+file only), the standby streaming after it and a row written on `rec`
+read there, the default mode keeping nothing of that file and streaming
+too, an unknown argument exiting 2; `rec`'s
 `archive_command` posting a switched segment to `vault` (a stand-in for
 cold storage, `tests/fixtures/vault-standin.pl`, run by the image's own
 Perl) whole with every header and the credential, a refusal and a short
@@ -1427,14 +1582,6 @@ the `postgres-exporter` brick's check.
 - **An archiving seed without a vault** fills `pg_wal`: every segment
   waits for an `archive_command` that exits 1 ("no vault configured").
   The scenario gives every archiving node `vault_target`.
-- **The standby's clone is `load-data`'s**, and a restart with no
-  snapshot clones it again (its load steps). **A restart restoring the
-  hand-over snapshot does not bring a standby back as one**: a base
-  backup leaves out `standby.signal` (so the restored standby would start
-  as a primary of its own) and `pg_replslot/` (so the restored primary
-  has no slot for it), and the two copies are taken at different
-  moments. Such a game needs the standby cloned again after the restore;
-  not built in 0.5.0 (reported for the restart's owner).
 - **`docker exec -u player` on a `no-access` node** resolves from the
   image's account files, not the container's (see "`no-access`"): the
   GM's own doing; no player reaches the node.

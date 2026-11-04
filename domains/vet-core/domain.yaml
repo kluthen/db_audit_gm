@@ -1,0 +1,22 @@
+# vet-core, the clinic's core domain (v0.5 master spec 9.1, 9.2;
+# specs/versions/v0.5/vet-core-domain.md): the medical record of one centre
+# of Aldermoor Veterinary Hospitals, the keys every part shares (sites,
+# sections, staff, owners, animals) and the system of record for owners and
+# animals. A core: no requires, taken alone or with its parts (vet-lab,
+# vet-scheduling, vet-housing, vet-machinery, vet-portal), which compute its
+# keys from data/keys.sql's functions (docs/gm.md, "Core keys") and never
+# read its database. Its producers: the practice software (producers/pms/)
+# and the lookup API (producers/api/clinic-api/).
+id: vet-core
+title: The medical record of a veterinary hospital, one centre of a regional franchise (Aldermoor Veterinary Hospitals)
+schema: data/schema.sql
+load: data/load.sql
+classification: data/classification.yaml
+register: data/register.yaml
+producers: producers/
+notes: docs/gm.md
+policy: docs/policy.md
+governance: data/governance.yaml
+purposes: [vet-lab-centre-orders, vet-centre-exchanges, vet-notifiable-diseases,
+           vet-medicines-registers, vet-antimicrobial-use, vet-head-office-figures,
+           vet-bookings-sync, vet-working-time, vet-imaging-orders, vet-portal-release]

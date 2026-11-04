@@ -1,11 +1,29 @@
 # db_audit_gm v0.5 — Build plan
 
-Status: v3 (2026-11-03): wave 1's chunk reports (W1-w to W1-z) written
-in, wave 2's chunks read against them; no chunk inserted (spec D352–D358).
-v2 (2026-11-03): wave 1's seven preflight corrections and G5's
-and G6's results written in (spec D344–D351).
-v1 (2026-11-03): the first draft, approved as written with κ = 3
-(spec D342) and O223–O227 as recommended (spec D343).
+Status: v9 (2026-11-04): the owner's ruling on the restore (spec D397,
+superseding D352): chunk 28 inserted into wave 2 after its gate, cut
+from the gated `v0.5-w2`, the gate items it touches rerun once it has
+merged (spec D398); release gate items 1 and 12.
+v8 (2026-11-04): chunk 11's two findings settled (spec
+D381–D383): cold storage's manifest keyed on its source and shipment id,
+and a coherence check reading `partners` run on the partners' node, both
+fixed at wave 2's gate on `v0.5-w2` (the gate's row); chunks 12, 21 and
+23 read them.
+v7 (2026-11-04): chunk 9's spec gaps settled (spec D372–D380):
+the code catalogues in vet-lab's and vet-machinery's documents, adopted
+by chunks 9, 12 and 15; the core's key functions, eighteen; the imaging
+lead time, the intensive-care sessions; `vet-core`'s variant `parts:` a
+shared list, each part chunk adding its id.
+v6 (2026-11-04): the owners' traffic in
+`producers/partners/owners/`, chunk 16's folder choice settled; chunk 17
+refuses a `public/` `data.sql`; G16 records both (spec D369). Chunk 12's
+lab stub folder is its prefix, `xlab` (spec D370).
+v5 (2026-11-04): G9's text correction, pgwatch its latest
+release at the build (6.1.0), not "pgwatch 3"; chunk 10 names G9's
+build conditions (spec D368).
+v4 (2026-11-04): capture W2's ten preflight corrections written
+in before wave 2's first chunk (chunks 6 to 11, 17, 21; G16); no chunk
+inserted (spec D360–D367).
 Approval: **approved 2026-11-03 by the owner** (G1, spec D342).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-11-03 (spec D339,
@@ -93,20 +111,21 @@ plan states only its deltas. Its conventions follow v0.4's
 |---|---|---|---|---|
 | G1 | Plan approval, κ included (workflow deltas); `v0.5-domains` merged into `main` on the owner's word, so wave 1 is cut from `main` | The owner | Wave 1 | done (2026-11-03, spec D342; the merge into `main` by the coordinator) |
 | G2 | [formats.md](../../formats.md) carries master spec 6: the domain format, composition, the data register, the purpose format's extensions (draft v28) | `spec-writer` | Chunk 2 | done (2026-11-03, spec D338) |
-| G3 | Network access at image build time: Debian 13's repositories, the PostgreSQL apt repository (PGDG: pgaudit, pgCluu if taken from it), the s6-overlay release, PyPI if G6 picks it, the pgwatch 3 release on GitHub | Hand check by the wave driver | Every image build: chunks 1, 3, 4, 5, 10, 17; every wave gate | done (2026-11-03, wave log) |
+| G3 | Network access at image build time: Debian 13's repositories, the PostgreSQL apt repository (PGDG: pgaudit, pgCluu if taken from it), the s6-overlay release, PyPI if G6 picks it, pgwatch's latest release on GitHub | Hand check by the wave driver | Every image build: chunks 1, 3, 4, 5, 10, 17; every wave gate | done (2026-11-03, wave log) |
 | G4 | A Docker host in swarm mode: armenelos' swarm, the VPS a drained worker in it | Hand check by the wave driver | Every stack test and fixture deployment, every wave gate, the release gate | done (2026-11-03, wave log) |
 | G5 | **Dependency preflight** on `postgres` 0.5.0's new packages: pgaudit's package for PostgreSQL 18 (PGDG) and what TLS needs in the image, with what they pull in, installed without recommends (master spec 7.1, 21). A finding the owner must rule on becomes a gate of its own | `security-advisor` (skill `dependency-check`), called by the wave driver at wave 1's start | Chunk 3's branch | done (2026-11-03, wave log) |
 | G6 | **Dependency preflight** on `api` 0.1.0: FastAPI, uvicorn and the image's other packages (Starlette, Pydantic and what they pull in, psycopg 3), the candidate versions and their source (Debian 13 or a pinned PyPI set) (master spec 7.2, 21) | `security-advisor`, called by the wave driver at wave 1's start | Chunk 5's branch | done (2026-11-03, wave log) |
 | G7 | **Dependency preflight** on `scheduler` 0.3.0, only if the HTTP driver or the scripts' client takes a package beyond the standard library, psycopg 3 and PyYAML (master spec 7.2, 24: the standard library preferred). With none, the driver records "not needed" in the wave log | `security-advisor`, called by the wave driver | Chunk 4's branch, if a package is added | not needed (2026-11-03, wave log; unless chunk 4 adds a package) |
 | G8 | **Dependency post-change check** on what wave 1 resolved: `postgres` 0.5.0 (chunk 3), `scheduler` 0.3.0 (chunk 4), `api` 0.1.0 (chunk 5), with the version lines chunk 1 bumped; `.tech` updated, committed on `v0.5-w1` | `security-advisor`, called by the wave driver once chunks 3 to 5 have merged | Wave 1's gate | done (2026-11-03, wave log) |
-| G9 | **Dependency preflight** on the monitoring breadth (spec D340): the latest pgwatch 3 release (a checksum-pinned download), Prometheus 3.13 re-checked as the sink's scraper, `check_postgres` (Debian), the health node's web server, pgCluu's package (master spec 7.4, 21) | `security-advisor`, called by the wave driver at wave 2's start | Chunk 10's branch | open |
-| G10 | **Dependency post-change check** on chunk 10's resolved versions (`pgwatch` 0.1.0, `health-check` 0.1.0, `grafana` 0.3.0, pgCluu in `postgres` 0.5.0); `.tech` updated, committed on `v0.5-w2` | `security-advisor`, once chunk 10 has merged | Wave 2's gate | open |
+| G9 | **Dependency preflight** on the monitoring breadth (spec D340): pgwatch's latest release at the build (6.1.0 at G9; a checksum-pinned download), Prometheus 3.13 re-checked as the sink's scraper, `check_postgres` (Debian), the health node's web server, pgCluu's package (master spec 7.4, 21) | `security-advisor`, called by the wave driver at wave 2's start | Chunk 10's branch | done (2026-11-04, wave log) |
+| G10 | **Dependency post-change check** on chunk 10's resolved versions (`pgwatch` 0.1.0, `health-check` 0.1.0, `grafana` 0.3.0, pgCluu in `postgres` 0.5.0); `.tech` updated, committed on `v0.5-w2` | `security-advisor`, once chunk 10 has merged | Wave 2's gate | done (2026-11-04, wave log) |
 | G11 | **Any other dependency** a chunk adds or upgrades (the cold-storage page's drawing, an endpoint's or a purpose script's package, the bastion's front): a preflight before its branch and a post-change check before its wave's gate, `.tech` updated. The driver adds a row `G11.<n>` for each; none is planned | `security-advisor` | That chunk; its wave's gate | standing |
 | G11.1 | **Dependency preflight** on Debian `python3-yaml` 6.0.2 in `api` 0.1.0 (to parse `api.yaml`), asked by chunk 5's owner; its post-change check folded into G8 | `security-advisor` | Chunk 5; wave 1's gate | done (2026-11-03, wave log) |
 | G12 | **The VPS window** for G13, under the VPS rule (workflow deltas): the VPS's own documentation read first; `tailscale status` on both hosts; the VPS still a drained worker of armenelos' swarm; no game port published on it; free disk for its share (about 4.9G of volumes and 1.5G of images, [clinic-capacity.md](clinic-capacity.md)); filetstudio.com answering before the run | Hand check by the wave driver | G13 | open |
 | G13 | **The whole clinic deployed once on armenelos plus the VPS** (master spec 18.3, release gate items 4 and 5): `fit` and the deployment; about 30 minutes of smoke, every producer, partner and purpose running, each one's first run read; the test selection planted at once, each fault read present only where it reads in the window; no fix, no aging, no hand-over snapshot. The VPS `active` only inside the run's host lock and drained after, pass or fail; filetstudio.com polled throughout and answering after | The wave driver, on the owner's time (a two-host run is announced) | Release gate items 4 and 5 | open |
 | G14 | **A CPU trim, if the build measures heavier** (master spec 14): applies only when `fit` on the clinic as built (chunk 27) refuses either host, or G13's figures exceed it; the trim is the owner's call, its order settled (O224, spec D343): the exporters kept, pgwatch dropped | The owner | Chunk 27's merge and G13, only if it applies | not yet applicable |
 | G15 | The owner's judgement at release close: the short tests as run, G13's run, the named known limits and what stays v1.0 gating | The owner | Release close | open |
+| G16 | [formats.md](../../formats.md) and master spec 5 carry wave 2's format items as built (spec D364): the `partners/` catalogue folder (cold storage's home, the shared nodes' base); a domain's `data/keys.sql` and `data/coherence.yaml`, a partner folder's `data.sql`, in `partners/<prefix>/` only, and the owners' traffic in `producers/partners/owners/` (formats.md's "chosen at the build", spec D369); a domain's schema never creating its database (`:"DBNAME"`); formats.md's "a domain is a design-time source", corrected for composed domains, which `load-data` reads from the catalogue. Written from W2-a, W2-c and W2-f | `spec-writer`, after wave 2's gate | Release gate item 6 | done (2026-11-04, wave log) |
 
 G5, G6, G7 and G9 are preflights on candidate versions; G8 and G10 the
 post-change checks on the resolved ones (skill
@@ -119,7 +138,7 @@ none is a gate.
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
 | 1 | 1, 2, 3, 4, 5 | G1; G2 (done); G3, G4; G5 (chunk 3), G6 (chunk 5), G7 (chunk 4, if a package); G8 before its gate | gated (2026-11-04, wave log); merge into `main` on the owner's word |
-| 2 | 6, 7, 8, 9, 10, 11 | wave 1; G9 (chunk 10); G10 before its gate | planned |
+| 2 | 6, 7, 8, 9, 10, 11, 28 | wave 1; G9 (chunk 10); G10 before its gate; chunk 28 after the gate, the items it touches rerun (spec D398) | gated (2026-11-04, wave log; chunk 28's reruns passed); merge into `main` on the owner's word |
 | 3 | 12, 13, 14, 15, 16 | wave 2 | planned |
 | 4 | 17, 18, 19, 20, 21 | wave 3 | planned |
 | 5 | 22, 23, 24, 25, 26, 27 | wave 4; G14 (chunk 27, only if it applies) | planned |
@@ -131,11 +150,18 @@ G5 ──> 3;  G6 ──> 5;  G7 ──> 4 (if a package)
 1, 2, 5 ──> 6           (model.py after chunks 1 and 2)
 3, 4, 5 ──> 7
 2, 3 ──> 8
+6 ──> 7, 8              (in-wave, merge order: `model.node_creates`, fixed by W2
+                         item 1, and the scenario-format skill, 6's then 8's;
+                         spec D360)
 1, 2, 3, 5 ──> 9
 6 ──> 9                 (in-wave: the weighted `choice` in vet-core's fragments,
                          fixed by W1 item 3; spec D348)
+7, 8 ──> 9              (in-wave, its fixture only: `clinic_lookup`'s mount and
+                         the composed load, fixed by W2 items 2 to 4; spec D362)
 3, 6 ──> 10 (merge order only: its fixture's options checked); G9 ──> 10
 3, 4, 5 ──> 11
+3 ──> 28                (inserted after wave 2's gate, cut from the gated
+                         `v0.5-w2`; no edge with wave 2's chunks; spec D398)
 6, 7 ──> 11             (in-wave: from 7 the partners' network aliases and the
                          HTTP credentials' mounts, fixed by master spec 10.2, 15
                          and W2; from 6 HTTP connections loading, W1 item 3;
@@ -166,16 +192,27 @@ chunk 2 holds `tools/gm/model.py` in wave 1, chunk 3 the standby's and
 TLS's tool side and the `api` nodes' connection roles (`render.py`,
 `localimpl.py`, `inject.py`; spec D345), chunks 4 and 5 their bricks.
 
-Wave 2: chunks 6, 7, 8 and 10 start first, three at a time, chunk 6
-among the first three; chunk 9 is cut once chunk 6 has merged, chunk 11
-once chunks 6 and 7 have (vet-core's weighted `choice`, chunk 11's HTTP
-connections: spec D348). Chunk 10's fixture lists `options:
+Wave 2 (capture W2, item 7): chunks 6, 7 and 8 start first, chunk 10 at
+the first free slot; chunk 6 merges before 7, 8 and 10, and 7 and 8 take
+`v0.5-w2` in once it has, before their own merge (spec D360). Chunk 9 is
+cut once chunk 6 has merged, its fixture run once 7 and 8 have; chunk 11
+is cut once chunks 6 and 7 have (vet-core's weighted `choice`, chunk
+11's HTTP connections: spec D348). Chunk 10's fixture lists `options:
 [monitoring]`, which loads before chunk 6 (unknown keys pass); it
-merges after chunk 6 so its fixture is checked by the option rule.
+merges after chunk 6 so its fixture is checked by the option rule. Two
+completion chains run three chunks long (6, 7, 11 and 6, 8, 9), past the
+model's two: kept, since the merge-order edges delay no start (7 and 8
+start beside 6; 9 and 11 already waited for it) and W2 fixes every
+interface the chains cross (spec D361).
+Chunk 28 (spec D398) is inserted after the gate: it is cut from the
+gated `v0.5-w2` once its capture is recorded, and once it has merged,
+the gate items it touches are rerun on the merged branch ("Per-wave gate
+contents") before the wave merges into `main`.
 
 Wave 3: chunks 12 to 15 start as κ allows; chunk 16 is cut once chunk
 12 has merged. The five domains share no file but the root `README.md`'s
-domain table.
+domain table and `vet-core`'s variant `parts:` list (shared lists, spec
+D380).
 
 Wave 4: no in-wave edge; the five chunks run as κ allows. Chunk 17 is
 the largest; it starts first.
@@ -220,8 +257,11 @@ have merged.
   `.claude/skills/game-master/gmctl.md`'s verb table, the root
   `README.md`'s brick, fault, purpose and domain tables, the bricks'
   "Supported faults" sections in `docs/gm.md` (the fault chunks 22 to
-  25 all add to `postgres`' and `scheduler`'s), and the smoke scripts'
-  `IMAGES=` lists.
+  25 all add to `postgres`' and `scheduler`'s), the smoke scripts'
+  `IMAGES=` lists, and `domains/vet-core/variants/regional-franchise.yaml`'s
+  `parts:` (chunk 9 writes it empty; chunks 12 to 16 each add their
+  part's id, since `check_domain_dir` requires every part it names to
+  exist; spec D380).
 - **Chunk checks**, in addition to the model's (v0.4's, kept):
   - Python: `python3 -m unittest discover -s tools/tests -t .`;
   - the scheduler program's unit tests, inside its image: `sh
@@ -277,7 +317,12 @@ have merged.
     on armenelos alone;
   - `sh tools/tests/smoke-scenario.sh` on each of the four existing
     scenarios: its short smoke (deployment, first runs, teardown), never
-    `smoke-purposes.sh`'s `cycles` or `baseline`, which are v1.0 gating;
+    `smoke-purposes.sh`'s `cycles` or `baseline`, which are v1.0 gating.
+    Each scenario is judged against its own design within the smoke's
+    minutes (a key the timeline renames under its current name, a slow
+    key's first run and a check's `too-soon` as the design places them),
+    by the harness's rules as wave 1's gate fixed them (wave log; spec
+    D367);
   - every fixture short test the wave's chunks ran, rerun on the merged
     wave branch, one at a time, with its figure;
   - what each wave adds, below ("Per-wave gate contents").
@@ -286,8 +331,8 @@ have merged.
   `main` on the owner's word.
 - No link checker is configured; Markdown links are checked by reading.
 - Images are tagged `127.0.0.1:5000/dbagm/<brick>:<version>`; every
-  pinned download (s6-overlay, Prometheus, `postgres_exporter`, pgwatch
-  3) is checked against its published checksum in the Dockerfile.
+  pinned download (s6-overlay, Prometheus, `postgres_exporter`,
+  pgwatch) is checked against its published checksum in the Dockerfile.
 - The release gate runs on `v0.5-w5` before it merges, as v0.4's did.
 
 ### Per-wave gate contents
@@ -295,7 +340,7 @@ have merged.
 | Wave | Adds to the full quality command |
 |---|---|
 | 1 | G8 cleared; the four re-pinned scenarios through `smoke-scenario.sh`; chunk 3's standby fixture (cloned, streaming, read-only queries answered) and a segment switched and archived to a stub; chunk 2's compose tests (merge, override, conflict, `merge.yaml`); the `api` brick's stack test with two hostnames |
-| 2 | G10 cleared; `pgwatch`, `health-check` and `grafana` 0.3.0 built and stack-tested; chunk 10's monitoring fixture; chunk 11's partners fixture (one partner slow, another answering) and archive fixture (a segment and a base backup in the vault, the page and `GET /manifests`); chunk 8's coherence tests (a composed load passing, a broken range failing); chunk 6's refusal fixture; `vet-core`'s load at shift 0 and at a non-zero shift; chunk 11's `pg_hba` form written into `postgres`' `docs/gm.md` |
+| 2 | G10 cleared; `pgwatch`, `health-check` and `grafana` 0.3.0 built and stack-tested; chunk 10's monitoring fixture; chunk 11's partners fixture (one partner slow, another answering) and archive fixture (a segment and a base backup in the vault, the page and `GET /manifests`); chunk 8's coherence tests (a composed load passing, a broken range failing, a partner's state loaded); chunk 6's refusal fixture; `vet-core`'s load at shift 0 and at a non-zero shift; chunk 11's `pg_hba` form written into `postgres`' `docs/gm.md`; **two gate fixes on chunk 8's and chunk 11's code** (spec D381, D383): cold storage's manifest keyed `(source, shipment_id)` (`partners/coldstore/`: the DDL, the upsert, `GET /manifests`' order, `partners/README.md`, the archive fixture's copies) with one segment name posted by two sources making two manifests and the same source again replacing its own; a coherence check whose `reads` names `partners` run in the partners' database on the partners' node (`tools/gm/{inject,coherence}.py`, the scenario-format skill's coherence item and template), shown by the composed test load with `partners-db` on the partners' `pg_hba.conf`; **after chunk 28 merges** (spec D398), rerun on the merged `v0.5-w2`: the full unit suite (`test_snapshot`, `test_restart`, `test_inject` among it), `sh -n` and `shellcheck` over the shell files, the `postgres` image build and stack test, `sh tools/tests/smoke.sh` (the snapshot's copy order) and the restore fixture's short test; no other item takes a snapshot or a restart |
 | 3 | `check_domain_dir` clean on all six clinic domains and the shop; each domain's load at shift 0 and a non-zero shift, its figures; the bookings, housing, imaging and portal fixtures' domain checks; the composed load of the six domains through the coherence check (load only, the database nodes and the bastion) |
 | 4 | the `bastion` 0.5.0 stack test (both new seed files, the cold-storage route refusing the upload endpoint and every other partner); the register tests (generated, a stale digest refused, a declared absence passed); the orders, send-outs, exchanges, reports, bookings, imaging, vault and portal fixtures with their purposes' checks |
 | 5 | every fault's short test, present and fixed (cleared, for s6 and s9), on its fixture (17.3), one at a time, each under 30 minutes; the false alarm's check; the clinic scenario's format check, register, scenario document and `fit` declaration on armenelos plus the VPS (placement only, no deployment); its load-only fixture through the coherence and governance checks, unfaulted |
@@ -360,9 +405,6 @@ None is decided here and none is a gate; where one touches a chunk:
   the `postgres` brick's `docs/gm.md` at wave 2's gate.
 - **One partner's slow answers never holding another's** (the `api`
   node's workers): chunk 11.
-- **Where the non-business traffic source sits**
-  (`producers/partners/owners/` or `producers/public/owners/`): chunk
-  16, recorded in formats.md's line by `spec-writer` after.
 - **Machine 10's telemetry**, 10 or 11 machines (O227): chunk 15.
 - **CPU against the "one collector" trim**: `pgwatch`'s and the
   exporters' measured reservations (chunk 10) and `fit` on the clinic as
@@ -385,14 +427,14 @@ release gate checks that each is recorded.
 | The core's id functions in its GM notes (names, formulas), and the referring vets' mapping to practices | 9, first deliverable; the mapping 9, read by 12 |
 | The repository form of an HTTP call, and the scripts' HTTP client | 4, the form fixed by capture W1 before chunks 2 and 4 start |
 | Where a purpose's `history.sql` and endpoint material sit beside v0.4's per-part material folders | 18, fixed by capture W4 for 18 to 21 |
-| `producers/partners/<name>/` or `producers/public/<name>/` for the owners' traffic | 16 |
+| `producers/partners/<name>/` or `producers/public/<name>/` for the owners' traffic | settled before the build: `producers/partners/owners/` (spec D369); built by 16, recorded with G16 |
 | The `api` brick's internal layout (`db/` its one writable path, routes importing only from `db/`) | 5 |
 | How the partners' `pg_hba.conf` admits only their own nodes on one Swarm network | 11 |
 | The portal outbox's id order across the load and the derivation | 16 |
 | The booking horizon against sessions planned three months ahead | 13 |
 | The timeline moments of each fault within its fixture, each before its test's reading | 22 to 25 |
 | A part's schema creating a contrib extension (`btree_gist`, `pgcrypto`), run as `postgres` by `load-data` | 8, used by 13 and 16 |
-| Where cold storage's stub lives (a receiver with no stream of its own, used by a purpose and by the `postgres` brick's archiving) | 11 |
+| Where cold storage's stub lives (a receiver with no stream of its own, used by a purpose and by the `postgres` brick's archiving) | 11, in the catalogue's `partners/coldstore/` (W2 item 6) |
 
 ## The partners, and where each stub is built
 
@@ -411,8 +453,8 @@ chunk 11's shared nodes:
 | The authority (notifiable diseases, the antimicrobial-use report) | purposes 5 and 8, each its route under the authority's hostname | 19 (5), 20 (8) |
 | The franchise's head office (monthly figures) | purpose 9 | 20 |
 | The franchise's messaging service | purpose 16 | 21 |
-| Cold storage, with the vault | chunk 11's home for it (master spec 24) | 11; exercised by 21 (purpose 14) and 23 (s2, s6) |
-| `owners`, the tenth hostname, no business | `vet-portal`, its folder settled by the build | 16 |
+| Cold storage, with the vault | the catalogue's `partners/coldstore/`, beside the shared nodes' base in `partners/shared/` (master spec 24, W2 item 6) | 11; exercised by 21 (purpose 14) and 23 (s2, s6) |
+| `owners`, the tenth hostname, no business | `vet-portal`'s `producers/partners/owners/` (spec D369) | 16 |
 
 ## Chunks
 
@@ -782,12 +824,13 @@ credential, the transaction-local setting per request.
 
 ### Chunk 6 — Loader checks for v0.5
 
-Status: planned
+Status: merged (w2, f3eb50d)
+Record: 6a dde1a14, 6b 2052e6f, merge f3eb50d. Outside the Files list `tools/tests/test_render.py` (chunk 3's standby test made valid); the split not exact (skill lines in 6b, four purpose constants in 6a) (wave log, W2-a).
 Wave: 2
 Depends on: chunks 1, 2 and 5 (wave 1; 5 for the `api` brick its
 fixtures name)
-Architecture capture: none of its own; it implements W1 and chunk 2's
-capture.
+Architecture capture: none of its own; it implements W1, chunk 2's
+W1-w and W2 item 1, its outcomes recorded as W2-a.
 
 - Goal: the loader refuses what master spec 6, 10.2 and 15 say it
   refuses, with what is missing or wrong.
@@ -798,8 +841,9 @@ capture.
     refused unless a fault instance plants the gap (7.1 item 3);
     `no-access` accepted only on a brick declaring it; `standby_of`
     naming a `postgres` node; `third_parties:` (each node exists with
-    `write_policy: no-access`; none in the bastion's `web_routes` but
-    cold storage's read-only paths; none among the starter pack's nodes;
+    `write_policy: no-access`; no third-party node and no alias in the
+    bastion's `web_routes`, cold storage's exception being chunk 17's
+    (spec D363); none among the starter pack's nodes;
     no fault instance's expected fix naming one; a third-party
     `postgres` node's seed `pg_hba.conf` admitting no role but the
     partners' own on their database); HTTP connections in a schedule
@@ -823,7 +867,9 @@ capture.
     `standby_of` in `RESERVED_PARAMETERS`, `replicator` in
     `RESERVED_DB_ROLES`, a primary with a standby carrying the
     replication line in its seed `pg_hba.conf` (W1 items 0 and 6, spec
-    D350);
+    D350); `model.node_creates`, what a `postgres` node's data file and
+    the domains placed on it create, read by the location, crontab-role
+    and governance checks and by chunks 7 and 8 (W2 item 1, spec D360);
   - **6b, purposes and domains**: the purpose format's extensions (6.6:
     `kind: round-trip` and `round_trips:`, the `api` and `partner`
     parts, HTTP connections in jobs, each mapped in the purpose's
@@ -833,28 +879,37 @@ capture.
     naming its feeder and `material/history.sql`, `judged:` with one
     `end-to-end` invariant per round trip, the purpose's
     `classification:`, the `ops` schema); a receiver a declared third
-    party; the `SECURITY DEFINER` check at a domain's build (15);
+    party; the `SECURITY DEFINER` check at a domain's build (15); a
+    partner folder's one `data.sql` beside its fragments (W2 item 1,
+    spec D360);
+  - the scenario-format skill's checklist for these checks;
   - refusal fixtures and unit tests for each.
   - Out: the data register's digests and coverage (chunk 17); rendering
     (chunk 7); `load-data` (chunk 8); `domains:` entries and the
     composition record, already `check_domains_entries` and
-    `check_composition` (chunk 2, W1-w), not re-added.
+    `check_composition` (chunk 2, W1-w), not re-added; cold storage's
+    `web_routes` exception (chunk 17).
 - Files: `tools/gm/model.py`, `tools/tests/test_model.py`,
-  `tools/tests/fixtures/fixture-v05-refusals/` (new).
+  `tools/tests/fixtures/fixture-v05-refusals/` (new);
+  `.claude/skills/scenario-format/` (before chunk 8, spec D362).
 - Spec sections: master spec 6.2 to 6.6, 7.1, 7.2, 10.2, 12.1, 15.
 - Done when: unit tests show each refusal with its message and the
-  acceptance of a valid fixture; the four existing scenarios, the
-  fixtures and every catalogue definition still load; the unit suite
-  passes.
+  acceptance of a valid fixture; a location in a database a composed
+  domain creates is accepted through `model.node_creates`; the four
+  existing scenarios, the fixtures and every catalogue definition still
+  load; the unit suite passes.
 - Verification: chunk checks.
 - Split rule: 6a scenario, brick and fault checks; 6b purpose and domain
   checks.
 
 ### Chunk 7 — Render for v0.5: aliases and HTTP credentials
 
-Status: planned
+Status: merged (w2, a7b76ff)
+Record: built 430c1a6, merge of v0.5-w2 9c9155a, 2411424, merge a7b76ff. Outside the Files list `tools/tests/test_inject.py` (mocks); two tests' vault target moved to `bastion:8000` (wave log, W2-b).
 Wave: 2
-Depends on: chunks 3, 4 and 5 (wave 1)
+Depends on: chunks 3, 4 and 5 (wave 1); chunk 6, merge order: merged
+into `v0.5-w2` before this chunk merges, its `model.node_creates` taken
+in first (spec D360)
 Architecture capture: W2, for chunk 11 and every chunk deploying a
 partner or an HTTP caller: how a `third_parties:` hostname becomes a
 network alias on the partners' `api` node; which nodes mount which
@@ -868,13 +923,19 @@ caller and the endpoint read it, are W1's (items 0, 3 to 6; spec D347).
   HTTP credentials generated per game, one `http_<credential>` each, and
   mounted on each scheduler node whose connections name it, on each
   `api` node whose `api.yaml` accepts or uses it, and on each `postgres`
-  node whose `vault_credential` names it (spec D347); unit tests.
+  node whose `vault_credential` names it (spec D347); the login roles a
+  composed domain creates given their passwords, `data_login_roles`
+  reading `model.node_creates` (W2 items 1 and 2, spec D360); unit
+  tests.
   - Out: the bastion's route to cold storage (chunk 17); the partners'
-    nodes themselves (chunk 11).
+    nodes themselves (chunk 11); handing documented credentials over
+    (chunk 17).
 - Files: `tools/gm/{render.py,localimpl.py,deploy.py}`,
   `tools/tests/{test_render.py,test_deploy.py}`, and the secret lists
   `test_fit.py`, `test_state.py` and `test_teardown.py` expect, where
-  the new secrets change them (chunk 3's precedent, W1-x).
+  the new secrets change them (chunk 3's precedent, W1-x);
+  `tools/tests/fixtures/fixture-alias/` (new: the two-node fixture, its
+  `api` node declared under `third_parties:`; spec D362).
 - Spec sections: master spec 10.2, 15 ("`render`").
 - Done when: unit tests show a rendered stack giving the partners' node
   each alias and each HTTP caller, `api` node and archiving `postgres`
@@ -888,9 +949,12 @@ caller and the endpoint read it, are W1's (items 0, 3 to 6; spec D347).
 
 ### Chunk 8 — `load-data` for v0.5 and the coherence check
 
-Status: planned
+Status: merged (w2, 4b22401)
+Record: built fab4f5f, merges of v0.5-w2 7da2e45 and 6432c6d, 61b1b90, 1a7f1ab, merge 4b22401. Two code commits on top, not one (chunk 7 merged mid-way); the password step sets the domains' and partner's login roles (wave log, W2-c).
 Wave: 2
-Depends on: chunks 2 and 3 (wave 1)
+Depends on: chunks 2 and 3 (wave 1); chunk 6, merge order: merged into
+`v0.5-w2` before this chunk merges, its `model.node_creates` and its
+scenario-format skill lines taken in first (spec D360, D362)
 Architecture capture: W2, for the domain chunks 9 and 12 to 16 and the
 purpose chunks: **where a part's coherence queries live and their
 contract** (a part's references to its core, and the histories that
@@ -913,32 +977,49 @@ temporary foreign server, the sessions unseen), the load order from
   failure stopping the setup as a design error; the result written to
   the composition record's `coherence:`; unit tests and a composed test
   load. Every new load step skips the standbys as chunk 3's
-  `standby_plan` does (W1-x).
+  `standby_plan` does (W1-x). **A partner's state** (W2 items 1 and 3,
+  spec D360): each composed domain's partner `data.sql` run into the
+  partners' database after that domain's load; a core's `data/keys.sql`
+  streamed ahead of every part's load, each partner file and
+  `derive.sql`, in the same session; `load_epoch` passed to every file
+  it runs; `password_plan` reading `model.node_creates`. The
+  scenario-format skill's lines and templates for `data/keys.sql`,
+  `data/coherence.yaml`, a partner's `data.sql` and the database
+  convention (after chunk 6's).
   - Out: the domains' own coherence queries (each domain chunk); the
     standby's clone (chunk 3, after the loads, where it stays).
 - Files: `tools/gm/inject.py`, `tools/gm/coherence.py` (new),
   `tools/tests/{test_inject.py,test_coherence.py}` (`test_coherence.py`
   new), `tools/tests/fixtures/fixture-composed/` (new: a two-part test
-  composition with a derivation).
+  composition with a derivation, a core's `data/keys.sql` and a partner
+  folder's `data.sql`); `.claude/skills/scenario-format/` (after chunk
+  6, spec D362).
 - Spec sections: master spec 8.5, 15 ("`load-data`"), 24 (contrib
   extensions); formats.md "Composing domains".
 - Done when: on a composed test load, the order follows
   `composition.yaml`, a second database has `CONNECT` revoked from
   `PUBLIC`, a derivation runs unseen (nothing in the log,
   `pg_stat_statements` or pgaudit's trail) and its foreign server is
-  gone; the coherence check passes, and fails with the offending ids on
-  a broken range; the unit suite passes.
+  gone; the partner's `data.sql` has created its role, schema and
+  planted state in `partners` after its domain's load; the core's key
+  functions served every part's load and the partner file and are
+  absent from the catalog after; the coherence check passes, and fails
+  with the offending ids on a broken range; the unit suite passes.
 - Verification: chunk checks.
 - Split rule: 8a the load order, several databases, contrib extensions,
-  derivation and history; 8b the coherence check and its record.
+  `data/keys.sql`, `load_epoch`, a partner's state, derivation and
+  history; 8b the coherence check and its record.
 
 ### Chunk 9 — `vet-core`, the medical record
 
-Status: planned
+Status: merged (w2, 7f95c5b)
+Record: 9a 86bbc16, 9b ded1b67, merge 7f95c5b; five owners (stopped on spec gaps D372-D380, paused, D384-D391, D393-D394, stopped on load-data's unseen defect, fixed at the gate e5d158c). fixture-core 40/40 (wave log, W2-d).
 Wave: 2
 Depends on: chunks 1, 2, 3 and 5 (wave 1); chunk 6, merged into
 `v0.5-w2` before this chunk's branch is cut (its fragments' weighted
-`choice`; spec D348)
+`choice`; spec D348); chunks 7 and 8, merged into this branch before
+its fixture runs (`clinic_lookup`'s mount, the composed load; spec
+D362)
 Architecture capture: W2, for every part and purpose: **the core's key
 ranges and id functions, names and formulas**, written into its GM notes
 as this chunk's first deliverable (master spec 21), with the referring
@@ -956,35 +1037,46 @@ vets' mapping to practices; the clinic-api endpoints' contract (9.2).
   endpoints with their `api.yaml` fragment (`producers/api/clinic-api/`:
   animals by id and natural identifier, the current owner,
   `GET /stays?current=true`); its variant manifest;
-  its purposes' ids. A fixture of `records` and `clinic-api` with the
-  bastion, for the lookup API; should `clinic-api`'s `api.yaml` name an
-  HTTP credential, the fixture runs once chunk 7 has merged into this
-  branch, since a credential it names but not mounted stops the server
-  (W1-z).
+  its purposes' ids; `data/keys.sql`, the core's key functions as its
+  GM notes give them (W2 items 3 and 4): the eighteen and their returns
+  of [vet-core-domain.md](vet-core-domain.md#the-key-functions-d374-d375-d379)
+  (spec D374, D375, D379), the request codes drawn from the two
+  catalogues ([vet-lab](vet-lab-domain.md#the-test-catalogue-d372),
+  [vet-machinery](vet-machinery-domain.md#the-procedure-catalogue-d372-d373);
+  spec D372, D373). A fixture of `records` and
+  `clinic-api` with the bastion, for the lookup API, deployed through
+  chunk 8's `load-data`; `clinic-api`'s `api.yaml` names `clinic_lookup`
+  (W2 item 4), which only chunk 7 mounts, and a credential named but not
+  mounted stops the server (W1-z).
   - Out: purpose 4's exchange endpoints and the centres' stubs (chunk
     19); the parts' fragments on `pms` (their chunks).
 - Files: `domains/vet-core/` (new): `domain.yaml`,
-  `data/{schema.sql,load.sql,classification.yaml,register.yaml,governance.yaml}`,
+  `data/{schema.sql,load.sql,keys.sql,classification.yaml,register.yaml,governance.yaml}`,
   `producers/pms/{queries.yaml,schedule.yaml,jobs.yaml,builders/}`,
   `producers/api/clinic-api/{api.yaml,routes/,db/}`,
-  `variants/regional-franchise.yaml`, `docs/{gm.md,policy.md}`;
+  `variants/regional-franchise.yaml` (its `parts:` empty, each part
+  chunk adding its id, spec D380), `docs/{gm.md,policy.md}`;
   `tools/tests/fixtures/fixture-core/` (new); the root `README.md`'s
   domain table.
-- Spec sections: master spec 9.1, 9.2, 13.1; vet-core-domain.md whole.
+- Spec sections: master spec 9.1, 9.2, 13.1; vet-core-domain.md whole;
+  vet-lab-domain.md and vet-machinery-domain.md, their catalogues.
 - Done when: `check_domain_dir` passes; the load runs at shift 0 and a
   non-zero shift, its time and size recorded; every column classed and
   every table in one register activity; the fragments parse, each
   statement running as its role; on the fixture, the lookup endpoints
   answer for loaded animals and never return a contact; the GM notes
-  carry every function and range the parts' documents name.
+  carry every function and range the parts' documents name, and
+  `data/keys.sql` defines each function as they give it.
 - Verification: chunk checks.
-- Split rule: 9a the GM notes' ranges and functions, the schema, the
-  load, classification, register and policy; 9b the producer fragments,
+- Split rule: 9a the GM notes' ranges and functions with
+  `data/keys.sql`, the schema, the load, classification, register and
+  policy; 9b the producer fragments,
   `clinic-api`'s endpoints, the variant and the fixture.
 
 ### Chunk 10 — The monitoring breadth: `pgwatch`, `health-check`, `grafana` 0.3.0, pgCluu
 
-Status: planned
+Status: merged (w2, 35e8bf7)
+Record: 10a 65dae42, 10b 88485c6, merge of v0.5-w2 3d11433, merge 35e8bf7; postgres:0.5.0 rebuilt (7cca24d4). Outside the Files list grafana's brick files, two test_model checks, the smoke runner and its unit test, health-check's companion; health.yaml's optional primary (wave log, W2-e).
 Wave: 2
 Depends on: chunk 3 (wave 1); G9; chunk 6, merge order only
 Architecture capture: W2, for chunk 27: the `pgwatch` sources file and
@@ -994,10 +1086,10 @@ page and its `web_routes` entry.
 - Goal: master spec 7.4's three pieces, each reading what `postgres`
   already provides through the `monitoring` role.
 - Scope: in:
-  - **10a, `pgwatch` 0.1.0 and `grafana` 0.3.0**: pgwatch 3 (G9's
-    release, checksum-pinned), one collector, its sources a seeded file,
-    no configuration database, its web interface off, a metric set
-    needing no helper function, its Prometheus sink scraped by v0.2's
+  - **10a, `pgwatch` 0.1.0 and `grafana` 0.3.0**: pgwatch, its latest
+    release at the build (6.1.0, cleared by G9; checksum-pinned), one
+    collector, its sources a seeded file, no configuration database,
+    its web interface off, a metric set needing no helper function, its Prometheus sink scraped by v0.2's
     Prometheus (a seed target); `grafana` 0.3.0's seeded pgwatch
     dashboard (O223); its footprint at rest;
   - **10b, `health-check` 0.1.0 and pgCluu**: `check_postgres`
@@ -1005,7 +1097,9 @@ page and its `web_routes` entry.
     in scope (the exact set the build's, within `pg_monitor`), the
     status page rewritten each run and served, routed as `health`; the
     customer's two scripts (the disk alarm; the nightly "is the backup
-    there" asking cold storage's `GET /manifests`); pgCluu in `postgres`
+    there" asking cold storage's `GET /manifests`, answered in the stack
+    test by a stand-in, as chunk 3's test answered `POST /shipments`;
+    spec D362); pgCluu in `postgres`
     0.5.0, run on demand, its report in the player's home, read with
     `scp` (O225); their documentation; footprints.
   - Out: the option's loader check (chunk 6); placing them in the
@@ -1018,6 +1112,11 @@ page and its `web_routes` entry.
   `records` with the option, `pgwatch`, `prometheus`, `grafana`,
   `health`, the bastion); the root `README.md`'s brick table.
 - Spec sections: master spec 7.4, 7.5, 14; spec D340.
+- Build conditions: G9's, in the wave log ("### G9"): for `pgwatch`
+  the binary only, `--web-disable=all`, a metric set with no
+  `init_sql`, `PGPASSFILE`; for `health`, nginx serving static files
+  only and `check_postgres` through `PGPASSFILE`; pgCluu 5.0 from PGDG,
+  pinned, its CGI removed (spec D368).
 - Done when: on the fixture, Prometheus scrapes pgwatch's sink, the
   dashboard shows its series, the status page lists each check's line
   with its time through the bastion, a pgCluu report lands in the
@@ -1025,14 +1124,18 @@ page and its `web_routes` entry.
   (after chunk 6); each new brick, started before `records`, waits,
   bounded, fails its readings honestly while `records` is not yet in
   DNS (a fresh node is past the bound), and works once it resolves
-  (workflow deltas, spec D356); the footprints at rest recorded.
+  (workflow deltas, spec D356); `health-check`'s stack test shows the
+  backup script reading the stand-in's `GET /manifests` answer, found
+  and missing, on the page (its first read against cold storage itself
+  is G13's); the footprints at rest recorded.
 - Verification: chunk checks; G10 before the wave's gate.
 - Split rule: 10a `pgwatch` and `grafana` 0.3.0; 10b `health-check` and
   pgCluu.
 
 ### Chunk 11 — The partners' shared nodes, cold storage and the vault
 
-Status: planned
+Status: merged (w2, dc4fdd5)
+Record: 11a 1f000c1, 11b b42448c, merge dc4fdd5. Two findings settled (D381-D383), fixed at the gate; the pg_hba form into postgres' docs/gm.md left for the gate (wave log, W2-f).
 Wave: 2
 Depends on: chunks 3, 4 and 5 (wave 1); chunks 6 and 7, merged into
 `v0.5-w2` before this chunk's branch is cut (6: its fixtures' HTTP
@@ -1058,15 +1161,18 @@ lives.
   `GET /` drawn on the server) and its manifests in `partners-db`, the
   planted history's manifests, the vault's `wal` and `basebackup` types
   fed by `postgres` 0.5.0's posting command; the home of cold storage's
-  stub, recorded; a partners fixture and an archive fixture.
+  stub, `partners/coldstore/`, recorded; a partners fixture and an
+  archive fixture.
   - Out: each partner's own stub (the table "The partners, and where
     each stub is built"); `partners.md` (chunk 27); the bastion's route
     (chunk 17); purpose 14's shipping job (chunk 21).
-- Files: cold storage's stub (its home recorded by the chunk) and its
-  manifests' DDL; the shared nodes' seed material as the scenario
-  format's partner layout gives it; `tools/tests/fixtures/fixture-partners/`
+- Files: `partners/` (new catalogue folder, W2 item 6): `shared/`, the
+  three shared nodes' base, and `coldstore/`, cold storage's stub, its
+  manifests' DDL and the planted `wal` and `basebackup` snippet, each
+  laid out as a domain's partner folder; `tools/tests/fixtures/fixture-partners/`
   and `tools/tests/fixtures/fixture-archive/` (new: `records`, the
-  partners' `api` node and database, the bastion). The `pg_hba` form is
+  partners' `api` node and database, the bastion); the root
+  `README.md`'s layout row for `partners/` (spec D362). The `pg_hba` form is
   recorded in the partners' seed and the chunk's Record line; chunk 10
   holds `bricks/postgres/docs/gm.md` in this wave, so the form joins it
   at wave 2's gate, in its own commit.
@@ -1107,14 +1213,22 @@ the partners' stubs' tables on `partners-db`.
   feed, `POST /send-outs/{send_key}/result`); the external lab's and the
   practices' stubs under `producers/partners/`, planted from the same
   functions so the stubs know every send-out and order the history left
-  open; its coherence queries (W2's contract); its variant manifest;
+  open; its coherence queries (W2's contract; the stubs' open send-outs
+  and orders against the lab's read `partners`, so they run in the
+  partners' database, every table through `gm_src_*`, spec D383); its
+  variant manifest;
+  **the test catalogue as [the domain document](vet-lab-domain.md#the-test-catalogue-d372)
+  fixes it** (its layout and named codes; the core's draw already in
+  `keys.sql`, spec D372), the rest of the 180 named within it;
   a fixture `lab` with `lis`, `lab-api`, `clinic-api` and `records`.
   - Out: purposes 1 to 3, 5, 6 and 10 (chunks 18 to 20); s10 (chunk 25).
 - Files: `domains/vet-lab/` (new), as chunk 9's layout, with
   `producers/lis/`, `producers/api/lab-api/` and
-  `producers/partners/{northfield-lab,practices}/`;
+  `producers/partners/{xlab,practices}/` (each folder its prefix, W2
+  item 0; `xlab` serves the hostname `northfield-lab`, spec D370);
   `tools/tests/fixtures/fixture-lab-core/` (new); the root `README.md`'s
-  domain table.
+  domain table; `domains/vet-core/variants/regional-franchise.yaml`'s
+  `parts:` (a shared list: the chunk adds `vet-lab`, spec D380).
 - Spec sections: master spec 9.1, 9.3, 10.2; vet-lab-domain.md whole.
 - Done when: `check_domain_dir` passes; the load at shift 0 and a
   non-zero shift, its time and size recorded, and the composed core and
@@ -1142,13 +1256,19 @@ and the slot function's signature; the rota's published weeks.
 - Scope: in: its GM notes, schema (exclusion constraints, `btree_gist`
   through chunk 8), load, classification, register fragment, policy and
   rules; its fragments on `pms` (connection `sched`, `sched_app`); the
-  slot function; its coherence queries; its variant manifest; **the
+  slot function; its coherence queries; its variant manifest; the rota
+  and the history's absences from the core's `core_shifts`, the
+  inbound examinations from `core_exchange` (spec D374); a routine
+  imaging booking within two working days (spec D376), the imaging types
+  one per section and machine (spec D372); **the
   booking horizon against sessions planned three months ahead**,
   settled and recorded; the `bookings` fixture (`records`, `pms`,
   `interfaces`, the bastion; T0 a weekday at 09:50).
   - Out: purposes 11 and 12 (chunks 21, 20).
 - Files: `domains/vet-scheduling/` (new); `tools/tests/fixtures/fixture-bookings/`
-  (new); the root `README.md`'s domain table.
+  (new); the root `README.md`'s domain table;
+  `domains/vet-core/variants/regional-franchise.yaml`'s `parts:` (a
+  shared list: the chunk adds `vet-scheduling`, spec D380).
 - Spec sections: master spec 9.4; vet-scheduling-domain.md whole, its
   "Tests in v0.5".
 - Done when: `check_domain_dir` passes; the core's and the part's loads
@@ -1183,7 +1303,9 @@ purpose 9 reads.
   - Out: s9, the faulty display (chunk 25); purpose 9's occupancy
     (chunk 20).
 - Files: `domains/vet-housing/` (new); `tools/tests/fixtures/fixture-housing/`
-  (new); the root `README.md`'s domain table.
+  (new); the root `README.md`'s domain table;
+  `domains/vet-core/variants/regional-franchise.yaml`'s `parts:` (a
+  shared list: the chunk adds `vet-housing`, spec D380).
 - Spec sections: master spec 9.5; vet-housing-domain.md whole, its
   "Testing".
 - Done when: `check_domain_dir` passes, `lands_with` refusing another
@@ -1214,7 +1336,12 @@ site.
   `equipment` (the identity and census jobs on `clinic-api` by HTTP);
   plain partitioned tables, a partition a day created ahead; its
   coherence queries (monitoring sessions on stays); its variant
-  manifest; **machine 10's telemetry measured and settled** (O227: 10
+  manifest; **the procedure catalogue as [the domain
+  document](vet-machinery-domain.md#the-procedure-catalogue-d372-d373)
+  fixes it** (30 rows, `species_group` `horse` for 26, 27 and machines
+  10 and 16; spec D372, D373); the intensive-care sessions on one
+  domestic stay in two and one horse stay in four, until the step-down
+  (spec D377); **machine 10's telemetry measured and settled** (O227: 10
   or 11 machines reporting), the reference sizes and the growth an hour
   following; the `imaging` fixture (`records`, `clinic-api`, `pms`,
   `machines`, `equipment`, `interfaces`, the bastion; T0 a weekday at
@@ -1222,7 +1349,8 @@ site.
   - Out: purposes 13 and 14 and the `vault` fixture (chunk 21).
 - Files: `domains/vet-machinery/` (new) with `data/{pacs,vitals,biomed}/`;
   `tools/tests/fixtures/fixture-imaging/` (new); the root `README.md`'s
-  domain table.
+  domain table; `domains/vet-core/variants/regional-franchise.yaml`'s
+  `parts:` (a shared list: the chunk adds `vet-machinery`, spec D380).
 - Spec sections: master spec 9.6, 10.4 (the site's side), 14 (its
   trims); vet-machinery-domain.md whole, its "Testing in v0.5".
 - Done when: `check_domain_dir` passes; three databases created, each
@@ -1243,7 +1371,9 @@ Depends on: chunks 5, 8, 9 and 11 (waves 1 and 2); chunk 12, merged
 into `v0.5-w3` before this chunk's branch is cut; W3
 Architecture capture: W3, for chunk 21 and 25: the copies' tables, the
 row-level security policies and the transaction-local `portal.owner_id`,
-`portal-api`'s endpoints, the outbox.
+`portal-api`'s endpoints, the outbox; and O229 first (the messaging
+stub's planted notices, which W2 item 3's `derive.sql` cannot write into
+`partners`).
 
 - Goal: `domains/vet-portal/` as
   [vet-portal-domain.md](vet-portal-domain.md) and master spec 9.7
@@ -1255,9 +1385,12 @@ row-level security policies and the transaction-local `portal.owner_id`,
   rules; `portal-api`'s endpoints (`producers/api/portal-api/`: login,
   accounts, animals and documents under owner scope, `SECURITY DEFINER`
   pre-login calls); the desk's consent stream on `pms` (an HTTP
-  connection); **the owners' traffic source, its folder settled**
-  (`producers/partners/owners/` or `producers/public/owners/`) and
-  recorded; **the outbox's id order across the load and the
+  connection); **the owners' traffic source in
+  `producers/partners/owners/`** (spec D369): prefix `owners`, its
+  `data.sql` creating the role and schema `owners` and the route's record
+  of visits in `partners` (W2 item 3), with no `partners.md` entry, no
+  contract and no misbehaviour key (no `owners.state`, no
+  `owners.normal` stream; master spec 10.2); **the outbox's id order across the load and the
   derivation**, settled; its coherence queries (published documents
   matching signed consultations and released results); its variant
   manifest; the `portal` fixture's base (`records`, `lab`,
@@ -1265,9 +1398,10 @@ row-level security policies and the transaction-local `portal.owner_id`,
   eight nodes).
   - Out: purposes 15 and 16 (chunk 21); s5 (chunk 25).
 - Files: `domains/vet-portal/` (new) with `data/derive.sql`,
-  `producers/api/portal-api/` and the owners' folder;
+  `producers/api/portal-api/` and `producers/partners/owners/`;
   `tools/tests/fixtures/fixture-portal/` (new); the root `README.md`'s
-  domain table.
+  domain table; `domains/vet-core/variants/regional-franchise.yaml`'s
+  `parts:` (a shared list: the chunk adds `vet-portal`, spec D380).
 - Spec sections: master spec 9.7, 13.1 (owner-scoped access), 8.5 (the
   derivation); access model 9.3; vet-portal-domain.md whole.
 - Done when: `check_domain_dir` passes; the load and the derivation run
@@ -1275,7 +1409,8 @@ row-level security policies and the transaction-local `portal.owner_id`,
   former owner, a buyer and a keeper with and without consent, each
   `GET /animals` and document list as the rules say, another owner's
   document refused; activation, login, the lock after five failures, an
-  old token refused; load figures recorded.
+  old token refused, each visit in the owners' record in `partners`;
+  load figures recorded.
 - Verification: chunk checks.
 - Split rule: 16a the schema, the policies, the load, the derivation,
   classification, register and rules; 16b `portal-api`, the desk stream,
@@ -1289,7 +1424,9 @@ Depends on: chunks 7, 11 and 12 to 16 (waves 2 and 3)
 Architecture capture: W4, for chunks 23, 26 and 27: the skill's inputs
 and outputs (`gm/data-register.yaml` with `generated_from:`, the
 handout, `register_diff:`), how a register fault's change is applied,
-the loader's digest and coverage checks.
+the loader's digest and coverage checks; how a scenario names the
+credentials `partners.md` documents, and where the players read their
+values (spec D365).
 
 - Goal: master spec 21's data-register chunk: the skill, the GM's Setup
   step 2, the scenario document's section, the loader's checks and the
@@ -1301,7 +1438,18 @@ the loader's digest and coverage checks.
     data policy; the web front proxying cold storage's `GET /` and
     `GET /manifests` under its hostname, never its upload endpoint and
     never another partner (the entrypoint's routes and
-    `render.web_routes_value`); its docs; its stack test;
+    `render.web_routes_value`), and the loader's one exception for that
+    route in `model._check_web_routes`, every other third-party node and
+    alias still refused (spec D363); the loader refusing a `data.sql` in
+    `producers/public/<name>/`, naming the file and `partners/<prefix>/`
+    as its home (`_check_fragments`; `model._partner_data_files`, and so
+    `node_creates`, reading `partners/` only), the folder's fragments
+    still accepted (spec D369); **the partners' documented
+    credentials handed over with the starter pack** (access model 3 and
+    6, master spec 10.2; spec D365): each credential `partners.md`
+    documents, the customer's own with that partner, its game value
+    marked handed over and given with `partners.md`, never
+    `cold_storage`; its docs; its stack test;
   - **17b, the data register**: the `data-register` GM sub-skill and its
     template (13.3): generated from the composed domains' classification
     copies and register fragments, `governance:`, the composition
@@ -1319,11 +1467,13 @@ the loader's digest and coverage checks.
 - Files: `bricks/bastion/{brick.yaml,docs/gm.md,docs/player.md}`,
   `bricks/bastion/rootfs/usr/local/sbin/gm-entrypoint`,
   `bricks/bastion/tests/{run-stack-test.sh,stack.test.yml,fixtures/starter/}`;
-  `tools/gm/render.py`, `tools/tests/test_render.py`;
+  `tools/gm/{render.py,localimpl.py}`, `tools/tests/test_render.py`
+  (the handed-over credentials);
   `.claude/skills/data-register/{SKILL.md,template.md}` (new);
   `.claude/skills/game-master/SKILL.md` (Setup step 2),
   `.claude/skills/scenario-document/{SKILL.md,template.md}`,
-  `.claude/skills/scenario-format/SKILL.md` (the register's items);
+  `.claude/skills/scenario-format/{SKILL.md,templates/layouts.md}` (the
+  register's items; the `public/` folder without `data.sql`);
   `tools/gm/model.py`, `tools/tests/test_model.py`;
   `tools/tests/fixtures/fixture-register/` (new: the six domains
   composed, no deployment).
@@ -1333,7 +1483,11 @@ the loader's digest and coverage checks.
 - Done when: the bastion's stack test shows both files on the page when
   present and absent otherwise, and the route answering `GET /` and
   `GET /manifests` while refusing `POST /shipments` and every other
-  partner's hostname; on the register fixture, the true register and the
+  partner's hostname; the loader accepting that route and refusing any
+  other third-party node or alias in `web_routes`; a `public/`
+  `data.sql` refused; a documented
+  credential's value given with `partners.md` and accepted by its
+  partner's endpoint, `cold_storage` never given; on the register fixture, the true register and the
   handout generated, about twenty entries and the internal table, the
   coverage checks passing, a stale digest refused, a declared absence
   passed; the unit suite passes.
@@ -1392,7 +1546,8 @@ Architecture capture: W4.
   /exchanges`, `.../answer`, `.../report`, as `vet_exchange`); the three
   centres' stubs in `vet-core`'s `producers/partners/`; the authority's
   stub in purpose 5's material, answering with a reference, 503 to one
-  call in fifty; the 02:15 copy into `office`; an `exchanges` fixture
+  call in fifty; the centres' stubs planted by the core's `core_exchange`
+  (spec D374); the 02:15 copy into `office`; an `exchanges` fixture
   (`records`, `lab`, `clinic-api`, `interfaces`, the partners' three
   nodes, the bastion).
 - Files: `purposes/{vet-centre-exchanges,vet-notifiable-diseases}/`
@@ -1450,7 +1605,10 @@ Architecture capture: W4, for chunk 24: the feeders' times and queries,
 Status: planned
 Wave: 4
 Depends on: chunks 11, 13, 15 and 16 (waves 2 and 3)
-Architecture capture: W4.
+Architecture capture: W4, which keeps purpose 14's planted manifests
+(cold-storage.md 2) within W2 item 3's history rule, its `target` the
+partners' database: no chunk after 8 holds `inject.py`, so another form
+is an inserted chunk, its decision first (spec D366).
 
 - Goal: `vet-bookings-sync`, `vet-imaging-orders`,
   `cold-storage-archive`, `vet-portal-release` and `vet-portal-messages`
@@ -1462,7 +1620,8 @@ Architecture capture: W4.
   `checks/` (BS1 to BS5, IO1 to IO4, CA1 to CA4, RL1 to RL6, MS1 to
   MS6), `gm.md`; the messaging service's stub (purpose 16); the
   `bookings`, `imaging` and `portal` fixtures extended with their
-  purposes; the `vault` fixture (`machines`, `equipment`, `interfaces`,
+  purposes; each shipment's source `machines`, the node whose partitions
+  ship (spec D381); the `vault` fixture (`machines`, `equipment`, `interfaces`,
   the partners' `api` node and database, the bastion; T0 21:55, the
   shipping moved to the next minute).
 - Files: `purposes/{vet-bookings-sync,vet-imaging-orders,cold-storage-archive,vet-portal-release,vet-portal-messages}/`
@@ -1543,7 +1702,10 @@ fixture, the answer key noting the interaction (17.2).
   skill, its `register_diff:`, resolved by *propose*, cleared by the
   handout regenerated without the fault; on the archive fixture, s2's
   segment switched by the test (`pg_switch_wal()`), s6's witness the
-  vault's planted manifests and base backups.
+  vault's planted manifests and base backups. A check finding a node's
+  latest `wal` manifest orders by `received_at`, never by name; s2's
+  answer key notes the planted names sorting above the live ones as a
+  setup limit, not a fault (spec D382).
 - Files: `faults/<s2's id>/`, `faults/governance-register-flow-undeclared/`
   (new); `tools/tests/fixtures/fixture-archive/` (its fault instances,
   answer key and register); `bricks/postgres/docs/gm.md`,
@@ -1686,7 +1848,8 @@ Architecture capture: none of its own; it reads W1 to W5.
   `gmctl compose` run, `merge.yaml` and `composition.yaml` written; the
   story, naming the centre, the off-site room and the partners by their
   in-world names; the data policy adapted from the domains' default
-  policies; `player/partners.md`; the register generated with s6
+  policies; `player/partners.md`, with the credentials it documents
+  named as W4 fixes (spec D365); the register generated with s6
   planted and the true register beside it; the answer key; the scenario
   document generated; **`fit` on armenelos plus the VPS with the
   measured reservations and real image sizes** (placement only, the
@@ -1713,6 +1876,123 @@ Architecture capture: none of its own; it reads W1 to W5.
   register and the document; 27b `fit`, the load-only fixture and its
   checks.
 
+### Chunk 28 — A restart from the hand-over snapshot gives back replication
+
+Status: merged (w2, 1cfd371)
+Record: 53f4e63, merge 1cfd371. One commit, no split; restart record keys `slots` and `standbys` chosen within W2-g; outside the Files list `tools/tests/__init__.py`'s `FakeDocker` slot answer; `gmctl.md`'s `snapshot` row left (wave log).
+Wave: 2
+Depends on: chunk 3 (wave 1); no chunk of wave 2, all merged: cut from
+the gated `v0.5-w2` once its capture is recorded (spec D397, D398)
+Architecture capture: a W2 addendum, recorded by the driver in the wave
+log before the chunk starts: the snapshot record's new key for the
+primaries' slots (`slots: [{node, name}]`, beside `volumes`; a record
+without it read as none); the restart's new steps and their place (a
+standby's restored data volume given `standby.signal` before the stack
+starts; once the stack is healthy, each primary's recorded slots
+re-created, then each standby cloned through load-data's clone step,
+before the restart completes) and their lines in the restart's text
+and record; `clone-standby`'s restore mode (its argument, the file it
+keeps).
+
+- Goal: a restart from the hand-over snapshot gives back every node as
+  it was meant to run, replication included, as master spec 15 ("The
+  restore from the hand-over snapshot") states it: the standby
+  streaming from its restored primary again, a primary's planted slots
+  back, archiving shipping and the vault in step.
+- Scope: in:
+  - **the snapshot** (`snapshot.py`): every node with a `vault_target`
+    copied before the others, the rest in `nodes` order; for each
+    primary (a `postgres` node that is no standby), its persistent
+    replication slots recorded when its copy is taken, its standbys'
+    own slots and temporary slots left out;
+  - **the restart** (`restart.py`): a standby's restored data volume
+    given `standby.signal` (owner and mode as PostgreSQL needs) before
+    the stack starts, so it never runs as a primary; once the stack is
+    healthy, on each primary the recorded slots re-created (physical,
+    reserving WAL at once, inactive), then each standby, in topology
+    order, cloned again as `load-data` does (`inject.clone_standby`:
+    `replicator` set, the clone, the wait until its sender streams),
+    in restore mode; the restart's text and record naming the standbys
+    cloned and the slots re-created; a failure in these steps a failed
+    restart, as today (torn down, recorded, the snapshot kept, a retry
+    accepted);
+  - **`clone-standby`'s restore mode**: the standby's own
+    `postgresql.auto.conf` kept across the clone (saved before PGDATA
+    is emptied, put back after `pg_basebackup -R`, the conninfo check
+    still applied); the default mode, `load-data`'s, unchanged;
+  - **the documentation**: `postgres`' `docs/gm.md`, what a restore
+    gives back in "The standby" and "Snapshot", and what it does not
+    (the accumulated WAL, the cumulative statistics, both building
+    again from the restore), measured on the fixture; its "Known
+    limits" line "A restart restoring the hand-over snapshot does not
+    bring a standby back as one" removed (D352's); the GM skill's
+    `restart` row;
+  - **a restore fixture** and its short test.
+  - Out: a restart with no snapshot (unchanged: its load steps clone);
+    restoring the vault's payload, point-in-time recovery (11.2, later);
+    the copies' sizes and `fit`'s snapshot verdict (unchanged); a
+    snapshot of the whole game as a feature of play (O232).
+- Files: `tools/gm/snapshot.py`, `tools/gm/restart.py`
+  (`tools/gm/inject.py` only if `clone_standby` takes the restore
+  mode's argument); `tools/tests/{test_snapshot.py,test_restart.py}`
+  (`test_inject.py` with `inject.py`);
+  `bricks/postgres/rootfs/usr/local/lib/gm/clone-standby`;
+  `bricks/postgres/tests/run-stack-test.sh`;
+  `bricks/postgres/docs/gm.md` ("The standby", "Snapshot", "Known
+  limits"); `.claude/skills/game-master/gmctl.md` (the `restart` row);
+  `tools/tests/fixtures/fixture-restore/` (new: `records` archiving to
+  the vault, `standby` its standby, the partners' `api` node and
+  database as cold storage, the bastion; no scheduler node, so the
+  snapshot follows `inject`, D162; one fault instance,
+  `pg-abandoned-replication-slot` on `records` beside the standby's
+  slot; its `README.md` by the `scenario-document` skill, its
+  `run-short-test.sh`).
+- Spec sections: master spec 7.1 (the standby), 11.1, 11.2, 15 ("The
+  restore from the hand-over snapshot"), 18.2 (the restore fixture);
+  v0.3 master spec 12 (the restart); access model 5 (the standby never
+  promoted).
+- Done when:
+  - unit tests show: the snapshot copying the nodes with a
+    `vault_target` first; a primary's persistent slots recorded, its
+    standby's own and temporary ones not; a restart from a snapshot
+    with a standby writing `standby.signal` into the standby's restored
+    data volume before the stack starts, re-creating each recorded
+    slot, and cloning each standby in topology order once the stack is
+    healthy, in restore mode; a clone or slot failure a failed restart,
+    the snapshot kept and a retry accepted; a record without `slots:`
+    restoring with none; a restart with no snapshot unchanged; the unit
+    suite passes;
+  - the `postgres` stack test shows `clone-standby`'s restore mode
+    keeping a setting written into the standby's `postgresql.auto.conf`
+    before it, the standby streaming after it, and the default mode
+    unchanged;
+  - on the restore fixture, after `load-data` (the standby cloned),
+    `inject`, the snapshot, the hand-over and `gmctl restart`: the
+    standby's log since the restore shows it starting in standby mode,
+    never as a primary; its slot active on `records` and its sender
+    `streaming` in `pg_stat_replication`; a read-only query answered
+    on the standby and a write refused; a row written on `records`
+    after the restart read on the standby within 30 s, and one written
+    between the snapshot and the restart gone; the planted slot on
+    `records` again, inactive, reserving WAL; a switched segment's
+    `wal` manifest naming `records` in `GET /manifests`, and
+    `pg_stat_archiver`'s `failed_count` unchanged by it; `gmctl
+    teardown` leaving nothing of the game, its copies included; the run
+    under 30 minutes, its figure recorded;
+  - `postgres`' `docs/gm.md` states what a restore gives back and what
+    it does not, and its "Known limits" no longer list the standby's
+    restore.
+- Verification: chunk checks; the `postgres` stack test and the restore
+  fixture's short test are this chunk's point, each under 30 minutes.
+  Once it has merged, wave 2's gate items it touches are rerun on the
+  merged `v0.5-w2` ("Per-wave gate contents", row 2): the full unit
+  suite, `sh -n` and `shellcheck` over the shell files, the `postgres`
+  image build and stack test, `sh tools/tests/smoke.sh` (the
+  snapshot's copy order), and the restore fixture's short test.
+- Split rule: 28a the snapshot's order and slots, the restart's steps,
+  `clone-standby`'s restore mode, with the unit and stack tests; 28b the
+  restore fixture and its short test, `docs/gm.md` and `gmctl.md`.
+
 ## Release gate
 
 Against master spec sections 19 and 20, on `v0.5-w5` before it merges,
@@ -1727,8 +2007,9 @@ exception. GM-side checks run from the host.
    cleared), the false alarm's check, every fixture's checks, each
    brick's own short tests (the `api` brick's build checks; the HTTP
    driver against one stub; the partners' node with one partner slow;
-   the standby cloned and streaming; a segment and a base backup in the
-   vault; the options refused and accepted; `gmctl compose`'s four
+   the standby cloned and streaming, and again after a restart from
+   the hand-over snapshot (chunk 28's restore fixture); a segment and a
+   base backup in the vault; the options refused and accepted; `gmctl compose`'s four
    cases; the coherence check passing and failing; the register
    generated, a stale digest refused, a declared absence passed; each
    domain's load at shift 0 and a non-zero shift) (DoD items 1 to 9).
@@ -1746,7 +2027,8 @@ exception. GM-side checks run from the host.
    at the first urgent order, if one comes; s3 resting on its fixture),
    no fault fixed; the VPS drained after and filetstudio.com answering.
 6. **The format, the loader and the skills**: formats.md v28's items in
-   the templates, the loader and the `scenario-format` skill; the
+   the templates, the loader and the `scenario-format` skill, with
+   wave 2's as-built items written into formats.md (G16); the
    `data-register` skill, the GM's Setup step 2, the scenario
    document's sections (DoD 3, 4, 8).
 7. **The bricks**: `postgres` 0.5.0, `scheduler` 0.3.0, `api` 0.1.0,
@@ -1771,7 +2053,7 @@ exception. GM-side checks run from the host.
     and played, the overnight and periodic cadences in scenario time,
     growth and footprints over an aging, the clinic's rehearsal, the
     stance check-list, the parts' long views); no hand-over snapshot for
-    the whole clinic on these declarations; a restart from a hand-over
-    snapshot not bringing a standby back as one (`postgres` 0.5.0's
-    known limit, spec D352); the access model's known
-    gaps that stand; the security advisor's items still with the owner.
+    the whole clinic on these declarations; what a restore from the
+    hand-over snapshot does not give back, the accumulated WAL and the
+    cumulative statistics (master spec 15, spec D397); the access
+    model's known gaps that stand; the security advisor's items still with the owner.

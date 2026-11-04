@@ -22,7 +22,9 @@ ones live in the catalog (D24). Whether and how a scenario-only brick or
 fault is promoted into the catalog, and through which review: O25.
 
 v0.2's monitoring tools are settled (D69, "Monitoring bricks" below);
-the technologies and versions of the other roles: O11.
+the technologies and versions of the other roles: O11. Until v1.0 each
+brick runs its tool's latest release; older versions are a v1.0+ concern
+(D396).
 
 Brick documentation is split: player-facing and GM-facing, kept apart so
 spoilers never ship to the player side.

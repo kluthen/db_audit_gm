@@ -1,0 +1,5 @@
+# The test part's desk repository, a fragment.
+queries:
+  docs.documents.read:
+    sql: SELECT * FROM documents WHERE stay_id = %(id)s
+    params: {id: {int: [5001, 5006]}}

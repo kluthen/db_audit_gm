@@ -44,6 +44,8 @@ master spec's approval: O220, the monitoring breadth (D340).
 O221 and O222 were reserved and never used. Resolved at the build plan's
 approval, as it recommended: O223–O227 (D343), their text in
 [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#settled-with-the-owner).
+O230 was reserved and never used (chunk 9's stop, settled as D372–D380
+without a question).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -76,10 +78,13 @@ for the next version (v0.1 until it closed, with none left open);
   Python transformer scripts run by the extended scheduler brick (D203),
   over several PostgreSQL instances, `postgres_fdw` one method among
   others; another engine only if a purpose needs one, which none does
-  (D194). Still open: which engine versions first, and how
+  (D194). Until v1.0 each brick takes its tool's latest release; from
+  v1.0 versions are handled game-wide, older ones included (D396).
+  Still open: which engine versions first, and how
   upgrade scenarios (both binaries, disk space) fit the budget, which
   the direction for v1.0 to v2 makes an exercise (D272). Refs:
   [versions/v1.0/README.md](versions/v1.0/README.md),
+  [versions/README.md](versions/README.md#from-v10-versions-at-a-game-wide-scope-d396),
   [versions/v0.4/README.md](versions/v0.4/README.md).
 - **O12** (later) — Are network-level faults (segmentation, routing-mesh
   exposure) in scope? And the network layout itself (management network,
@@ -123,6 +128,21 @@ for the next version (v0.1 until it closed, with none left open);
   Refs: [scenario-lifecycle.md](scenario-lifecycle.md),
   [archive/v0.3/aging-and-timeline.md](archive/v0.3/aging-and-timeline.md),
   [versions/v0.4/README.md](versions/v0.4/README.md).
+- **O232** (later, version not set; D397) — A snapshot and restore of
+  the whole game as a feature of the game itself: the owner, 2026-11-04,
+  "ability to take snapshot and restore the full game at a given point
+  [...] I'd love for the game to keep track of the game time and stay
+  set on it", and, for now, "Full game snapshot/restoration without
+  interruption of service as seen through the game will have to wait".
+  The known constraint: containers share the host's clock, so the game
+  cannot hold a clock of its own; a restore at a later wall-clock time
+  shows as a gap in the data unless the restored data's timestamps are
+  shifted forward ("age once, restore many"). Open: when, how game time
+  is kept and shown, whether timestamps are shifted at restore, and how
+  it meets the aging (O22) and the restart already in v1.0 gating.
+  Today's restore (the hand-over snapshot, a player-confirmed restart)
+  is D397's. Refs: [versions/README.md](versions/README.md#v10-gating);
+  [versions/v0.5/master-spec.md](versions/v0.5/master-spec.md) 15.
 - **O23** (later) — Difficulty is a fault count, each fault worth 1 (easy
   5, normal 10, hard 20; D120), read for v0.3 as the number of fault
   instances, the levels being targets (D134). Ruled for the clinic's
@@ -162,6 +182,17 @@ for the next version (v0.1 until it closed, with none left open);
   of the game by then)? A scoring system is post-v1.0, unless research
   finds one quick to implement (D120). Refs:
   [scenario-lifecycle.md](scenario-lifecycle.md).
+- **O231** (later, version not set; D395) — The starter pack hands the
+  players the customer's own credentials with each partner (D365). DBAs
+  are not security advisors, but they may find a company's integration
+  credentials in a handout odd and report it; the owner, 2026-11-04:
+  "we may need to rectify it at some point", the game keeping some
+  distance from ground truth. Until then such a report is a plausible,
+  reasonable finding, not a misreading. Open: whether to rectify (the
+  credentials obtained another way, or kept and named a known
+  practice), and how the feedback receives the report meanwhile. Refs:
+  [versions/v0.5/access-model.md](versions/v0.5/access-model.md) 3, 6,
+  13; [versions/v0.5/master-spec.md](versions/v0.5/master-spec.md) 10.2.
 
 ## v0.4: data governance
 
@@ -184,7 +215,23 @@ Raised when the owner set business domains for v0.5 on 2026-10-28
 added on 2026-10-30 (D196). O111, the last of them, closed at
 consolidation (D338); O220, raised by it, closed at the master spec's
 approval (D340). O223–O227, raised with the build plan, closed at its
-approval (D343). No v0.5 question is open.
+approval (D343).
+
+- **O229** (soon, v0.5; for capture W3, before chunk 16) — Where the
+  messaging stub's planted notices of the last 14 days are written.
+  Master spec 9.7 and vet-portal's "Loading" have the portal's
+  `derive.sql` derive them, but they live in `partners` (purpose 16's
+  stub, built by chunk 21), and W2 item 3 runs `derive.sql` in
+  `portal`, reading its sources through `gm_check`, with no source
+  written. *Recommended:* as D366 for purpose 14, purpose 16's history
+  plants them, its `target` the partners' database and `portal` its
+  source, after the derivation (W2 item 3's order); `derive.sql` writes
+  `portal` only; capture W4 fixes where the stub's role and tables come
+  from within W2's loaders. Any write path from `derive.sql` into
+  `partners` is an inserted chunk. Not the owner's: T0's state is the
+  same either way. Refs:
+  [versions/v0.5/master-spec.md](versions/v0.5/master-spec.md) 9.7,
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 16, 21.
 
 ## v0.6: the setup's entry point
 

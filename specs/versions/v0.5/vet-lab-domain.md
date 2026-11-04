@@ -4,7 +4,10 @@ Status: draft v7, the draft document of procedure step 9, its stale
 passages corrected to the master spec at approval (R16, D339).
 **Approved by the owner on 2026-11-03 with v0.5's
 [master spec](master-spec.md)** (procedure step 9, D339), which wins
-where the two disagree. Steps 2 to 8 are done: the business sketch ruled, every default
+where the two disagree. Amended in wave 2 of the build (2026-11-04):
+the test catalogue's layout, its named codes and the centre's draw
+(D372); the centre's orders at about 7 700 (D385), `MINH`'s line
+(D389). Steps 2 to 8 are done: the business sketch ruled, every default
 accepted (D301, closing O151); step 3 not a part's, the lab's boundary
 set by the clinic's split (D279, D293, D294); the data model and the
 default policy ruled (D302, closing O152), `lab_app`'s grants amended
@@ -515,7 +518,7 @@ The load writes these ids, each sequence resuming after its range
 | Key | Range | Layout |
 |---|---|---|
 | `lab_analytes.id` | 1–70 | |
-| `lab_tests.id` | 1–180 | 1–150 tests, 151–180 panels; about 36 sent out |
+| `lab_tests.id` | 1–180 | 1–150 tests, 151–180 panels; about 36 sent out: [the test catalogue](#the-test-catalogue-d372) |
 | `lab_reference_intervals.id` | 1–460 | 1–60 the intervals the January review replaced, 61–460 those in force |
 | `lab_prices.id` | 1–360 | test `t`'s price `t` until 1 January, `180 + t` from it |
 | `lab_accounts.id` | 1–121 | 1 the centre (`internal`); account `a` from 2 to 121 is referring practice `3 × (a − 1)` (3, 6, … 360) |
@@ -532,13 +535,125 @@ in [vet-core](vet-core-domain.md#deterministic-key-ranges-d249-d266):
   animal and time are computed from its id, as the core's other history
   is generated, and documented in the core's GM notes; the lab's load
   computes the same, grouping a consultation's analysis requests into
-  one order (1.8 tests each on average).
+  one order (1.8 tests each on average, about 7 700 orders in the
+  history, D385).
 - **Lab staff in a range**: staff 71–78 the lab's technicians, 79–80
   its clinical pathologists (vets, specialty clinical pathology).
 
 The lab's orders copy each animal's natural identifiers by the core's
 functions, so the core's dozen mistyped chips (D278) meet results whose
 chip matches no animal, as designed.
+
+### The test catalogue (D372)
+
+The layout of `lab_tests` 1–180, and the draw by which the core's
+request function gives the centre's analysis requests their test code.
+This page is their one source: the core's `data/keys.sql` draws from it
+(chunk 9), this part's load writes the catalogue (chunk 12).
+`requests.code` holds the `code` column. The ids below are fixed; the
+names, analytes, sample types and external codes of the tests this page
+does not name are this part's load's, within their range's discipline.
+
+**The layout.** A test is in house or sent out by its range; about 36
+sent out, a fifth of the catalogue. **Night-capable** means the on-call
+technician runs it outside the bench's hours (21:00–07:00, and Sundays):
+the in-house haematology, biochemistry and blood gases, on the on-call
+analysers 1, 3 and 5.
+
+| Ids | Discipline | Performed | Night-capable |
+|---|---|---|---|
+| 1–12 | `haematology` | in house | yes |
+| 13–52 | `biochemistry` | in house | yes |
+| 53–60 | `blood-gas` | in house | yes |
+| 61–66 | `coagulation` | in house | no |
+| 67–74 | `urinalysis` | in house | no |
+| 75–84 | `cytology` | in house | no |
+| 85–98 | `microbiology` | in house | no |
+| 99–113 | `serology` (rapid tests and ELISAs) | in house | no |
+| 114 | `residue` (the milk inhibitor test, answer 11) | in house | no |
+| 115–122 | `histopathology` | sent out | no |
+| 123–134 | `molecular` | sent out | no |
+| 135–144 | `endocrinology` | sent out | no |
+| 145–150 | `toxicology` | sent out | no |
+| 151–180 | the panels, below, each its own discipline | in house | by its discipline |
+
+**The named codes**: every panel, and the single tests the centre
+orders. Species: `domestic` the domestic section's animals, `farm`
+cattle, sheep and goats, or the species named; turnaround in hours, the
+bench's for an in-house test, the external lab's for a sent-out one.
+
+| Id | Code | Test | Discipline | Species | Turnaround (h) |
+|---|---|---|---|---|---|
+| 13 | `GLU` | glucose | biochemistry | any | 1 |
+| 75 | `FNA` | fine-needle aspirate cytology | cytology | any | 24 |
+| 99 | `EIA` | equine infectious anaemia antibody (Coggins), a listed disease | serology | horse | 24 |
+| 114 | `MINH` | milk inhibitor test (antimicrobial residues) | residue | a female cow or goat, food-producing | 24 |
+| 115 | `HISTO` | histopathology, biopsy | histopathology | any | 120 |
+| 123 | `PCRSA` | small-animal infectious disease PCR panel | molecular | domestic | 96 |
+| 124 | `STREP` | strangles PCR (*Streptococcus equi*) | molecular | horse | 72 |
+| 125 | `BVDPCR` | bovine viral diarrhoea virus PCR, a listed disease | molecular | cattle | 72 |
+| 135 | `TT4` | total thyroxine | endocrinology | dog, cat | 72 |
+| 136 | `ACTHST` | ACTH stimulation test (cortisol) | endocrinology | dog | 72 |
+| 137 | `EACTH` | equine endogenous ACTH (PPID) | endocrinology | horse | 72 |
+| 145 | `PB` | blood lead | toxicology | any | 120 |
+| 151 | `CBC` | complete blood count | haematology | any | 2 |
+| 152 | `CBCS` | complete blood count with smear review | haematology | any | 4 |
+| 153 | `PCVTS` | haematocrit and total solids | haematology | any | 1 |
+| 154 | `PREA` | pre-anaesthetic profile | biochemistry | domestic | 2 |
+| 155 | `CHEMSA` | biochemistry profile, small animal | biochemistry | domestic | 4 |
+| 156 | `SENIOR` | senior profile | biochemistry | domestic | 4 |
+| 157 | `RENAL` | renal profile | biochemistry | any | 2 |
+| 158 | `LIVER` | liver profile | biochemistry | any | 2 |
+| 159 | `LYTES` | electrolytes | blood-gas | any | 1 |
+| 160 | `BGAS` | blood gas and electrolytes | blood-gas | any | 1 |
+| 161 | `CHEMEQ` | equine biochemistry profile | biochemistry | horse | 4 |
+| 162 | `COLIC` | equine colic profile | biochemistry | horse | 1 |
+| 163 | `PERFEQ` | equine performance profile | biochemistry | horse | 4 |
+| 164 | `METRU` | ruminant metabolic profile | biochemistry | farm | 4 |
+| 165 | `MINRU` | ruminant mineral profile | biochemistry | farm | 24 |
+| 166 | `COAG` | coagulation profile | coagulation | any | 2 |
+| 167 | `UA` | urinalysis, complete | urinalysis | any | 2 |
+| 168 | `UAUPC` | urinalysis with protein to creatinine ratio | urinalysis | domestic | 4 |
+| 169 | `FAECP` | faecal parasitology | microbiology | any | 24 |
+| 170 | `FEC` | faecal egg count | microbiology | horse, farm | 24 |
+| 171 | `CULT` | aerobic culture and sensitivity | microbiology | any | 72 |
+| 172 | `UCULT` | urine culture and sensitivity | microbiology | any | 72 |
+| 173 | `MCULT` | milk culture and sensitivity (mastitis) | microbiology | farm, female | 72 |
+| 174 | `FELV` | feline viral screen (FeLV antigen, FIV antibody) | serology | cat | 2 |
+| 175 | `VECT` | canine vector-borne screen | serology | dog | 2 |
+| 176 | `DIARC` | canine diarrhoea screen (parvovirus, *Giardia*) | serology | dog | 2 |
+| 177 | `CALFD` | neonatal calf diarrhoea screen | serology | cattle | 4 |
+| 178 | `FOAL` | foal IgG and sepsis screen | serology | horse | 2 |
+| 179 | `EFFUS` | effusion analysis | cytology | any | 4 |
+| 180 | `HERDB` | bovine herd-health screen (BVD, IBR, Johne's antibodies) | serology | cattle | 48 |
+
+**The draw** (each analysis request's code, by a hash of the request's
+id, among the codes of the animal's section). Weights in percent of that
+section's analysis requests:
+
+| Section | Codes and weights |
+|---|---|
+| domestic | `CBC` 22, `CHEMSA` 14, `PREA` 8, `SENIOR` 4, `RENAL` 4, `LIVER` 3, `BGAS` 5, `COAG` 4, `UA` 6, `UAUPC` 2, `UCULT` 3, `CULT` 3, `EFFUS` 2, `FNA` 4, `FELV` 2, `VECT` 2, `DIARC` 1, `HISTO` 5, `TT4` 2, `ACTHST` 1, `PCRSA` 1, `GLU` 2 |
+| horse | `CBC` 27, `CHEMEQ` 18, `COLIC` 6, `PERFEQ` 4, `BGAS` 6, `PCVTS` 5, `COAG` 2, `FOAL` 3, `UA` 2, `CULT` 5, `EFFUS` 6, `FEC` 3, `EIA` 4, `HISTO` 3, `STREP` 3, `EACTH` 3 |
+| farm | `CBC` 18, `METRU` 18, `MINRU` 6, `RENAL` 4, `LIVER` 4, `BGAS` 6, `MCULT` 10, `FEC` 6, `CALFD` 5, `HERDB` 6, `CULT` 4, `MINH` 5, `HISTO` 3, `BVDPCR` 3, `PB` 2 |
+
+- **Validity.** A code is drawn only for an animal of its species (and
+  sex), the weights renormalised over the valid codes: a rabbit or a
+  ferret takes the `any` and `domestic` codes, never `FELV`, `VECT`,
+  `DIARC`, `TT4` or `ACTHST`. `MINH` is drawn only on a food-producing
+  female cow or goat with a prescription line whose milk withdrawal has
+  ended before the request; the request carries that line's withdrawal
+  end (`core_request`'s `withdrawal_ends_on`, D375), the line on the
+  herd's latest earlier consultation that allows it (D389). A consultation's
+  requests draw distinct codes.
+- **Urgent requests** (an emergency's or a stay's, D375) draw only
+  in-house codes with a turnaround of 4 hours or less; outside the
+  bench's hours only the night-capable ones (haematology, biochemistry,
+  blood gases), the weights renormalised.
+- **Shares.** Routine, about 9 % of the centre's tests go out, urgent
+  ones none: about 6 % of the centre's 13 600 tests a year, the
+  practices' orders (this part's own load) carrying the rest of the
+  8 % the lab sends out.
 
 ### Application roles and grants
 

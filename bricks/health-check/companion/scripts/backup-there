@@ -1,0 +1,30 @@
+#!/bin/sh
+# backup-there: is last night's base backup in cold storage? (hand-made)
+# Usage: backup-there <cold storage URL> [<source node>]
+# Asks cold storage's manifests, GET <URL>/manifests?type=basebackup&from=
+# <yesterday> (and &source=<node> when given), and counts the manifests
+# that received something. Nagios-style: one line, exit 0 OK (one or more),
+# 2 CRITICAL (none), 3 UNKNOWN (cold storage did not answer, or not JSON).
+if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
+    echo "BACKUP UNKNOWN: usage: backup-there <cold storage URL> [<source node>]"
+    exit 3
+fi
+since=$(date -u -d yesterday +%Y-%m-%d)
+url="$1/manifests?type=basebackup&from=$since"
+[ -n "${2:-}" ] && url="$url&source=$2"
+if ! body=$(curl -fsS -m 20 "$url" 2>&1); then
+    echo "BACKUP UNKNOWN: cold storage did not answer: $(printf '%s' "$body" | head -n 1 | cut -c1-120)"
+    exit 3
+fi
+printf '%s' "$body" | perl -MJSON::PP -e '
+    my $since = shift;
+    my $list = eval { local $/; JSON::PP->new->decode(<STDIN>) };
+    if (ref $list ne "ARRAY") { print "BACKUP UNKNOWN: cold storage answered, but not a list of manifests\n"; exit 3; }
+    my @got = sort { ($a->{received_at} // "") cmp ($b->{received_at} // "") }
+              grep { ref $_ eq "HASH" && ($_->{rows_received} // 0) >= 1 } @$list;
+    if (!@got) { print "BACKUP CRITICAL: no basebackup manifest since $since\n"; exit 2; }
+    my $last = $got[-1];
+    printf "BACKUP OK: %d basebackup manifest(s) since %s, the last %s from %s, received %s\n",
+        scalar @got, $since, $last->{name} // "?", $last->{source} // "?", $last->{received_at} // "?";
+    exit 0;
+' "$since"

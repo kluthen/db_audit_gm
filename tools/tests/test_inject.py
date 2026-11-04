@@ -14,7 +14,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from tools.gm import deploy, execnode, fit, inject, localimpl, model, render, state, teardown
+from tools.gm import (deploy, execnode, fit, inject, localimpl, model, render, snapshot,
+                      state, teardown)
 from tools.gm.model import GmError
 from tools.tests import SUFFICIENT, FakeDocker, ScenarioCopyTest, run_gmctl
 from tools.tests.test_deploy import RenderedGame
@@ -43,6 +44,9 @@ class ScriptedDocker(FakeDocker):
         self.launcher_answer = (0, json.dumps(LAUNCHER_BEFORE) + "\n"
                                 + json.dumps({"file": NEW_LOG}) + "\n", "")
         self.clean_answer = (0, "postgresql-2026-10-31_092656.log: 68\n", "")
+        # The snapshot's read of a primary's replication slots (v0.5 capture
+        # W2-g item 1): node -> [SLOTS_SQL row]; a node not here holds none.
+        self.slots = {}
 
     def run(self, args, input=None, stdin=None, capture=True, check=True, timeout=None):
         args = [str(a) for a in args]
@@ -80,6 +84,8 @@ class ScriptedDocker(FakeDocker):
             return self.launcher_answer
         if run["stdin"] == inject.CLEAN_SH:
             return self.clean_answer
+        if run["stdin"] == snapshot.SLOTS_SQL:
+            return (0, "".join(json.dumps(r) + "\n" for r in self.slots.get(node, [])), "")
         return None
 
 
@@ -199,10 +205,14 @@ class TestLoadData(DeployedGame):
         run = self.fake.runs[0]
         self.assertEqual(run["container"], f"{self.gid}_db.1.ctr")
         self.assertEqual(run["user"], "postgres")
-        # no scheduler node: no shift, the customer's zone is UTC (W1 item 0)
-        self.assertEqual(run["argv"], ["psql", "-X", "-q", "-v", "ON_ERROR_STOP=1",
-                                       "-v", "customer_timezone=Etc/GMT",
-                                       "-v", "customer_utc_offset=0", "-d", "postgres"])
+        # no scheduler node: no shift, the customer's zone is UTC (W1 item 0);
+        # v0.5 (W2 item 3): the run's start, to the minute, as load_epoch
+        self.assertEqual(run["argv"][:9] + run["argv"][-2:],
+                         ["psql", "-X", "-q", "-v", "ON_ERROR_STOP=1",
+                          "-v", "customer_timezone=Etc/GMT",
+                          "-v", "customer_utc_offset=0", "-d", "postgres"])
+        self.assertEqual(run["argv"][9], "-v")
+        self.assertRegex(run["argv"][10], r"^load_epoch=\d{4}-\d\d-\d\dT\d\d:\d\dZ$")
         self.assertEqual(run["env"], {})
         self.assertEqual(run["stdin"],
                          (self.scenario / "data" / "db.sql").read_text())
@@ -525,18 +535,19 @@ class TestLoadDataPasswords(V03DeployedGame):
         self.assertEqual(passwords["user"], "postgres")
         self.assertEqual(passwords["argv"], list(inject.PSQL_ARGV))
         lines = passwords["stdin"].splitlines()
-        self.assertEqual(lines[:4], ["SET log_statement = 'none';",
+        self.assertEqual(lines[:5], ["SET log_statement = 'none';",
                                      "SET log_min_duration_statement = -1;",
                                      "SET log_min_error_statement = 'panic';",
+                                     "SET log_temp_files = -1;",
                                      "SET pgaudit.log = 'none';"])
         sdir = self.ldir / "secrets"
-        for line, role in zip(lines[4:], ("shop_app", "shop_reports")):
+        for line, role in zip(lines[5:], ("shop_app", "shop_reports")):
             self.assertTrue(line.startswith(f'ALTER ROLE "{role}" PASSWORD '), line)
             secret = (sdir / f"role_{role}_password").read_text()
             self.assertEqual(len(secret), deploy.DBA_PASSWORD_LENGTH)
             self.assertNotIn(secret, passwords["stdin"])       # only its verifier
             self.assertTrue(matches(VERIFIER_RE.search(line), secret), role)
-        self.assertEqual(len(lines), 6)
+        self.assertEqual(len(lines), 7)
         self.assertEqual(result.passwords, [("db", ["shop_app", "shop_reports"])])
         self.assertIn("  db: password set from its secret for role(s) shop_app, shop_reports",
                       result.text())
@@ -766,10 +777,13 @@ class TestLoadDataInstances(InstancesDeployedGame):
         self.load_data()
         data = [r for r in self.fake.runs if step(r) == "data"]
         self.assertEqual(len(data), 2)
+        epochs = {run["argv"][10] for run in data}
+        self.assertEqual(len(epochs), 1)            # one reference moment per run (W2 item 3)
         for run in data:
-            self.assertEqual(run["argv"], ["psql", "-X", "-q", "-v", "ON_ERROR_STOP=1",
-                                           "-v", "customer_timezone=Etc/GMT",
-                                           "-v", "customer_utc_offset=0", "-d", "postgres"])
+            self.assertEqual(run["argv"][:9] + run["argv"][-2:],
+                             ["psql", "-X", "-q", "-v", "ON_ERROR_STOP=1",
+                              "-v", "customer_timezone=Etc/GMT",
+                              "-v", "customer_utc_offset=0", "-d", "postgres"])
 
     def test_the_crontab_roles_password_is_set_on_its_node(self):
         sc = model.load_scenario(self.scenario)
@@ -779,7 +793,7 @@ class TestLoadDataInstances(InstancesDeployedGame):
         self.load_data()
         run = next(r for r in self.fake.runs if step(r) == "passwords")
         self.assertEqual(self.node_of(run), "db")
-        line = run["stdin"].splitlines()[4]
+        line = run["stdin"].splitlines()[5]
         self.assertTrue(line.startswith('ALTER ROLE "shop_etl" PASSWORD '), line)
         self.assertTrue(matches(VERIFIER_RE.search(line), self.secret("shop_etl")))
         self.assertNotIn(self.secret("shop_etl"), run["stdin"])
@@ -793,8 +807,8 @@ class TestLoadDataInstances(InstancesDeployedGame):
         self.assertEqual(run["stdin"].splitlines(), [
             inject.connect_line("reporting"),
             "SET log_statement = 'none';", "SET log_min_duration_statement = -1;",
-            "SET log_min_error_statement = 'panic';", "SET pgaudit.log = 'none';",
-            "SET pg_stat_statements.track = 'none';",
+            "SET log_min_error_statement = 'panic';", "SET log_temp_files = -1;",
+            "SET pgaudit.log = 'none';", "SET pg_stat_statements.track = 'none';",
             f'ALTER USER MAPPING FOR "bi_etl" SERVER "shop_db" OPTIONS (ADD password '
             f"'{secret}');"])
         printed = "\n".join(self.printed)
@@ -961,7 +975,7 @@ class TestLoadDataPgCronNoise(InstancesDeployedGame):
 
     def test_the_wait_and_the_switch(self):
         sql = inject.LAUNCHER_SQL
-        self.assertEqual(sql.splitlines()[:3], list(inject.NO_LOG_SQL))   # not in the log
+        self.assertEqual(sql.splitlines()[:4], list(inject.NO_LOG_SQL))   # not in the log
         self.assertIn(f"FOR i IN 1..{inject.LAUNCHER_WAIT * 10} LOOP", sql)
         self.assertIn("backend_type = 'pg_cron launcher'", sql)
         self.assertEqual(sql.count("pg_catalog.pg_stat_clear_snapshot()"), 2)
@@ -1147,7 +1161,7 @@ class TestLoadDataUnscheduledRemoteRole(InstancesDeployedGame):
         self.assertEqual(result.passwords[0], ("db", ["shop_etl", "shop_reports", "shop_app"]))
         run = next(r for r in self.fake.runs if step(r) == "passwords")
         self.assertEqual(self.node_of(run), "db")
-        line = run["stdin"].splitlines()[5]
+        line = run["stdin"].splitlines()[6]
         self.assertTrue(line.startswith('ALTER ROLE "shop_reports" PASSWORD '), line)
         self.assertTrue(matches(VERIFIER_RE.search(line), self.secret("shop_reports")))
         self.assertNotIn(self.secret("shop_reports"), run["stdin"])
@@ -1236,7 +1250,8 @@ class TestDataLoginRoles(unittest.TestCase):
         node = {"name": "db", "data": {"file": "data/db.sql"}}
         created = model.data_file_creates("CREATE ROLE dba LOGIN;\nCREATE ROLE pg_x LOGIN;\n"
                                           "CREATE ROLE app LOGIN;\n", "data/db.sql")
-        with mock.patch.object(localimpl, "node_data_file_creates", lambda sdir, n: created):
+        with mock.patch.object(localimpl, "node_creates",
+                               lambda sdir, data, n, catalog_root=None: created):
             self.assertEqual(localimpl.data_login_roles(scenario, node), ["app"])
 
 
@@ -1348,7 +1363,8 @@ class TestApiNodesConnectionRoles(unittest.TestCase):
         ]
         bricks = {n["name"]: types.SimpleNamespace(id=n["brick"]["id"], data={"secrets": []})
                   for n in self.nodes}
-        self.scenario = types.SimpleNamespace(dir=self.dir, nodes=self.nodes, bricks=bricks)
+        self.scenario = types.SimpleNamespace(dir=self.dir, nodes=self.nodes, bricks=bricks,
+                                              data={"nodes": self.nodes})
         self.impl = {"game_id": "g", "nodes": {n["name"]: {} for n in self.nodes}}
 
     def node(self, name):
@@ -1370,20 +1386,24 @@ class TestApiNodesConnectionRoles(unittest.TestCase):
                          {"clinic", "lab-api", "careless"})
 
     def test_the_secrets_mounted_on_the_api_node(self):
+        # and (v0.5 chunk 7, capture W2 item 2) the HTTP credentials it checks and sends
         names = [s["name"] for s in
                  localimpl.node_secret_declarations(self.scenario, self.node("lab-api"))]
-        self.assertEqual(names, ["role_lab_api_password", "role_portal_api_password"])
+        self.assertEqual(names, ["role_lab_api_password", "role_portal_api_password",
+                                 "http_interfaces_lab_api", "http_xlab_results"])
         sec = localimpl.node_secret_declarations(self.scenario, self.node("lab-api"))[0]
         self.assertEqual((sec["path"], sec["uid"], sec["gid"], sec["mode"], sec["kind"]),
                          ("/opt/gm/secrets/role_lab_api_password", 0, 0, "0400", "password"))
         names = [s["name"] for s in
                  localimpl.node_secret_declarations(self.scenario, self.node("pms"))]
-        self.assertEqual(names, ["role_pms_app_password"])     # none for an HTTP connection
+        # no role secret for an HTTP connection, its credential's secret instead
+        self.assertEqual(names, ["role_pms_app_password", "http_interfaces_lab_api"])
 
     def test_the_game_has_their_secrets_and_none_for_http(self):
         secrets = [s["secret"] for s in localimpl.game_secrets(self.scenario)[0]]
-        self.assertEqual(secrets, ["role_pms_app_password", "role_lab_api_password",
-                                   "role_portal_api_password"])
+        self.assertEqual(secrets, ["role_pms_app_password", "http_interfaces_lab_api",
+                                   "role_lab_api_password", "role_portal_api_password",
+                                   "http_xlab_results"])
         self.assertFalse([s for s in secrets if "not_a_role" in s or "None" in s])
 
     def test_their_passwords_set_on_the_targeted_database_nodes(self):
@@ -1416,13 +1436,13 @@ class TestPasswordsUnaudited(unittest.TestCase):
             (sdir / "role_app_password").write_text("s3cret-value")
             sql = inject.password_sql(Path(tmp), [("app", "role_app_password")])
             lines = sql.splitlines()
-            self.assertEqual(lines[:4], list(inject.NO_LOG_SQL + inject.NO_AUDIT_SQL))
+            self.assertEqual(lines[:5], list(inject.NO_LOG_SQL + inject.NO_AUDIT_SQL))
             self.assertNotIn("s3cret-value", sql)
             db = inject.Database("shop", False, 1, [
                 inject.Mapping("srv", "bi", False, "app", False)])
             db.mappings[0].secret = "role_app_password"
             sql, _ = inject.mapping_sql(Path(tmp), [db])
-            self.assertIn("SET pgaudit.log = 'none';", sql.splitlines()[:5])
+            self.assertIn("SET pgaudit.log = 'none';", sql.splitlines()[:6])
 
 
 # --- v0.5 chunk 3b: the standby (capture W1 item 6) ----------------------------
@@ -1458,7 +1478,8 @@ class TestStandbyPlans(unittest.TestCase):
         ]
         bricks = {n["name"]: types.SimpleNamespace(id=n["brick"]["id"], data={"secrets": []})
                   for n in self.nodes}
-        self.scenario = types.SimpleNamespace(dir=self.dir, nodes=self.nodes, bricks=bricks)
+        self.scenario = types.SimpleNamespace(dir=self.dir, nodes=self.nodes, bricks=bricks,
+                                              data={"nodes": self.nodes})
         self.impl = {"game_id": "g", "nodes": {n["name"]: {} for n in self.nodes}}
 
     def test_helpers(self):
@@ -1512,13 +1533,27 @@ class TestCloneStep(unittest.TestCase):
         code, out, err = self.replies.pop(0) if self.replies else (0, "", "")
         return execnode.ExecResult(node, user, f"{node}.ctr", code, out, err)
 
-    def clone(self, timeout=None):
+    def clone(self, timeout=None, **kwargs):
         result = inject.LoadResult("g")
         printed = []
         with mock.patch.object(inject, "exec_node", self.exec_node):
             inject.clone_standby(self.ldir, "off-site", "records", "off_site", None, result,
-                                 timeout=timeout, out=printed.append)
+                                 timeout=timeout, out=printed.append, **kwargs)
         return result, printed
+
+    def test_the_restore_mode_passes_its_argument(self):
+        """A restart's from the snapshot (capture W2-g item 3): the same
+        three runs, clone-standby given --restore."""
+        self.replies = [(0, "", ""), (0, "", ""),
+                        (0, '{"exists" : true, "active" : true, "state" : "streaming"}\n', "")]
+        result, printed = self.clone(restore=True)
+        role, clone, wait = self.runs
+        self.assertIn("ALTER ROLE replicator", role["stdin"])
+        self.assertEqual((clone["node"], clone["user"], clone["argv"]),
+                         ("off-site", "root", (inject.CLONE_STANDBY, "--restore")))
+        self.assertIn("off-site /usr/local/lib/gm/clone-standby --restore (as root): ok", printed)
+        self.assertIn("r.state = 'streaming'", wait["stdin"])
+        self.assertEqual(result.standbys, [("off-site", "records", "off_site")])
 
     def test_the_three_runs(self):
         self.replies = [(0, "", ""), (0, "clone-standby: standby of records in recovery\n", ""),
@@ -1528,7 +1563,7 @@ class TestCloneStep(unittest.TestCase):
         self.assertEqual((role["node"], role["user"], role["argv"]),
                          ("records", "postgres", inject.PSQL_ARGV))
         lines = role["stdin"].splitlines()
-        self.assertEqual(lines[:4], list(inject.NO_LOG_SQL + inject.NO_AUDIT_SQL))
+        self.assertEqual(lines[:5], list(inject.NO_LOG_SQL + inject.NO_AUDIT_SQL))
         self.assertIn("SET pg_stat_statements.track = 'none';", lines)
         self.assertTrue(any("CREATE ROLE replicator" in l for l in lines))
         alter = next(l for l in lines if l.startswith("ALTER ROLE replicator"))

@@ -26,7 +26,7 @@ stay live: rulings still to be applied in v0.5. The rest is v0.5's: D192,
 D196 and D201, its scope set while v0.4 was drafted, then its drafting
 from D233 on (D233–D238, D248–D251, D260–D280, D285–D304, D306–D309 and
 D314 onward; the numbers between are v0.4's, archived;
-D337 and D341 were reserved and never used). Take the next number from
+D337, D341 and D371 were reserved and never used). Take the next number from
 `doc-ids`; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
@@ -767,3 +767,262 @@ D337 and D341 were reserved and never used). Take the next number from
   lists' tests; chunk 8 reuses `NO_AUDIT_SQL` and `standby_plan`; chunk
   9's fixture waits for chunk 7 if `clinic-api` names a credential. Now
   in: [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 6 to 9.
+- **D360 (2026-11-04, capture W2's corrections 1 and 2): Chunk 6 adds
+  `model.node_creates` and a partner folder's `data.sql`; chunk 8 runs
+  that file into `partners`, streams `data/keys.sql` and passes
+  `load_epoch`; chunks 7 and 8 read `node_creates` and merge after 6.**
+  Else a composed domain's databases, roles and partner state have no
+  loader. Now in: [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 6 to 8, wave 2.
+- **D361 (2026-11-04, the edges D360 and D362 add): Wave 2 keeps two
+  three-chunk completion chains (6, 7, 11 and 6, 8, 9), past the
+  model's two.** The merge-order edges delay no start, and W2 fixes
+  every interface they cross. Rejected: moving 9 and 11 to wave 3,
+  which would put it at seven chunks with in-wave chains of its own.
+  Now in: [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#waves) ("Wave 2").
+- **D362 (2026-11-04, capture W2's corrections 3, 4, 6, 10 and 7's Files):
+  Chunk 9's fixture waits for chunks 7 and 8; chunk 7 gains
+  `fixture-alias/`, chunks 6 then 8 the scenario-format skill, chunk 11
+  `partners/` and the README's layout row; chunk 10's stack test answers
+  `GET /manifests` with a stand-in.** Each names what its chunk already
+  does. Now in: [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 6 to 11.
+- **D363 (2026-11-04, capture W2's correction 5): Chunk 6 refuses every
+  third-party node and alias in `web_routes`; chunk 17 adds cold
+  storage's one exception to `model._check_web_routes`.** The route's
+  form is chunk 17's front. Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 6, 17.
+- **D364 (2026-11-04, capture W2's correction 7): formats.md and master
+  spec 5 take wave 2's format items as built, after its gate, as G16.**
+  Wave 3 reads them from capture W2 and the skill meanwhile. Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#gates) G16, release gate item 6.
+- **D365 (2026-11-04, capture W2's correction 8): Chunk 17 hands the
+  players the credentials `partners.md` documents with the starter
+  pack: the customer's own with that partner, its game value, never
+  `cold_storage` (upload is denied, its reads public); W4 fixes how a
+  scenario names them.** Access model 3 and 6 and master spec 10.2 say
+  the starter pack gives them, so "public endpoints only" is out.
+  Now in: [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 17, 27.
+- **D366 (2026-11-04, capture W2's correction 9): Purpose 14's planted
+  manifests must fit W2 item 3's history rule; another form is an
+  inserted chunk.** No chunk after 8 holds `inject.py`. Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunk 21.
+- **D367 (2026-11-04, wave 1's gate): The full quality command judges
+  each existing scenario's smoke against its own design, by the
+  harness's rules as wave 1's gate fixed them.** Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#workflow-deltas).
+- **D368 (2026-11-04, G9): Text correction: pgwatch is its latest
+  release at the build (6.1.0 at G9), not "pgwatch 3".** The 3.x line
+  ended at 3.7.0, which G9 rejected; 7.4's own rule already named the
+  latest cleared release. Chunk 10 points to G9's conditions in the wave
+  log. Now in: [versions/v0.5/master-spec.md](versions/v0.5/master-spec.md)
+  7.4, 21; [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) G3, G9, chunk 10.
+- **D369 (2026-11-04, the spec gap chunks 6 and 8 found): The owners'
+  traffic takes `producers/partners/owners/`; no v0.5 folder uses
+  `public/`, and chunk 17 refuses a `data.sql` there.** The route keeps
+  its record of visits in `partners` (master spec 9.7, 10.2), which only
+  `partners/`' `data.sql` loads (W2 item 3), and no chunk after 8 holds
+  `inject.py` (D366). No wave-3 chunk plans a `public/` one. Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 16, 17, G16.
+- **D370 (2026-11-04, the same pass): Text correction: chunk 12's lab
+  stub folder is `producers/partners/xlab/`, not `northfield-lab/`.** A
+  partner's folder is its prefix (W2 item 0), which chunk 6 checks;
+  `xlab` serves the hostname `northfield-lab`. Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunk 12.
+- **D372 (2026-11-04, chunk 9's stop): The code catalogues live in their
+  parts' domain documents: the lab's layout, named codes and the
+  centre's draw; machinery's 30 procedures and their draw. The core's
+  `keys.sql` draws from them (chunk 9); chunks 12 and 15 load them.**
+  The tables are the parts'; one written source, not the core's code,
+  keeps three chunks equal. Scheduling's imaging types are one per
+  section and machine. Now in:
+  [vet-lab](versions/v0.5/vet-lab-domain.md#the-test-catalogue-d372),
+  [vet-machinery](versions/v0.5/vet-machinery-domain.md#the-procedure-catalogue-d372-d373),
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md) (`sched_types`).
+- **D373 (2026-11-04, the same stop): MR and NM codes on large animals
+  are horses only: codes 26 and 27 and machines 10 and 16 take
+  `species_group` `horse`; a farm animal draws DX, US and CT (the
+  large-bore CT 8); an urgent request never draws 26 or 27.** The
+  standing MRI and the gamma camera take horses only (machinery's
+  machines). Now in: [vet-machinery](versions/v0.5/vet-machinery-domain.md#the-procedure-catalogue-d372-d373);
+  [master spec](versions/v0.5/master-spec.md) 9.2, 9.6.
+- **D374 (2026-11-04, the same stop): The core's key functions are
+  eighteen: W2 item 4's thirteen plus `core_animal`, `core_owner`,
+  `core_ownership`, `core_exchange` and `core_shifts` (the rota's pattern
+  with the history's absences), each returning what the table says; no
+  `core_withdrawal` (the request carries it).** Each answers a part's
+  load that would otherwise re-derive it. Amends capture W2 item 4. Now
+  in: [vet-core](versions/v0.5/vet-core-domain.md#the-key-functions-d374-d375-d379);
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md) ("What the
+  load needs of the core's").
+- **D375 (2026-11-04, the same stop): `core_request` returns the
+  request's state at T0 with its times (`resulted` or `cancelled`, the
+  last 24 hours' `sent`, none `requested`), the consultation's priority
+  (urgent for emergencies and stays), vet, animal and close, and the
+  milk inhibitor test's withdrawal end; the parts fit their times inside
+  it.** Chunk 9's choices, as the core's own `consultations.close`
+  writes them. Now in: [vet-core](versions/v0.5/vet-core-domain.md#the-key-functions-d374-d375-d379).
+- **D376 (2026-11-04, the same stop): Routine imaging is booked and
+  scheduled within two working days, the final report within one more:
+  the turnaround stays three.** Machinery's scheduling, its timeout and
+  9.6's turnaround agree on 2 + 1; only 9.4's booking said three. Now
+  in: [master spec](versions/v0.5/master-spec.md) 9.4;
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md) (`book-requests`).
+- **D377 (2026-11-04, the same stop): An intensive-care session covers
+  one domestic stay in two and one horse stay in four, never a farm
+  stay, on a free monitor of its group, until a step-down 24 to 72 hours
+  after admission or the stay's end.** "One in three for the whole
+  stay" gave about 13 at once against the 8 monitors and the "about
+  five" the raw volume rests on; the step-down keeps 2.7 a day and five
+  at once. T206's witness is about one a day. Now in:
+  [vet-machinery](versions/v0.5/vet-machinery-domain.md) answer 7,
+  `mach.census`; [master spec](versions/v0.5/master-spec.md) 9.6.
+- **D378 (2026-11-04, the same stop): Text correction: the referring
+  vets' mapping (`core_referring_practice`) is read by
+  `vet-scheduling`'s `sched_trainees` (master spec 9.4, left to the
+  build by 24), not by 9.3: the lab reads practices by id only.** Now
+  in: [vet-core](versions/v0.5/vet-core-domain.md#the-key-functions-d374-d375-d379).
+- **D379 (2026-11-04, the same stop): Chunk 9's identifier and signature
+  choices stand: chips on every dog, cat, horse and ferret, none on two
+  rabbits in three (rabbits about 3 % of domestic animals, the 2 %);
+  the member state `XA` and one user-assigned 900–998 code; time
+  functions `(n, load_epoch, utc_offset)`, all `IMMUTABLE`.** Fictional
+  codes point at no real registry; the zone is a fixed offset. Now in:
+  [vet-core](versions/v0.5/vet-core-domain.md#the-key-functions-d374-d375-d379)
+  and its "Natural identifiers".
+- **D380 (2026-11-04, the same stop): Plan correction: `vet-core`'s
+  variant holds `parts: []`; chunks 12 to 16 each add their id to it, a
+  shared list in their Files.** `check_domain_dir` requires every part
+  named there to exist with its own manifest. Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 9,
+  12 to 16, workflow deltas.
+- **D381 (2026-11-04, chunk 11's finding): Cold storage's manifest is keyed
+  `(source, shipment_id)`, its source the node holding the data; the same id
+  from the same source replaces it, from another source makes a second;
+  `GET /manifests` ordered by `received_at`, source, id; the page sums the
+  sources.** `records` and `lab` post the same segment names. Gate fix. Now
+  in: [master spec](versions/v0.5/master-spec.md) 10.4; [cold-storage.md](versions/v0.5/cold-storage.md) 3; [build plan](versions/v0.5/build-plan.md) gate, chunk 21.
+- **D382 (2026-11-04, the same finding): The planted `wal` names sorting
+  above the live ones stay a known limit: no check reads them in name order
+  (s2's and T38's compare names or sources, the page counts days), and a
+  check finding a node's latest `wal` manifest orders by `received_at`.**
+  A 35-day history cannot sort below a fresh cluster's first segment;
+  pushing the live names up (`pg_resetwal -l`) would change `postgres`
+  0.5.0 for realism alone. s2's answer key notes it as a setup limit. Now
+  in: [build plan](versions/v0.5/build-plan.md) chunk 23.
+- **D383 (2026-11-04, chunk 11's second finding): `partners-db` gets no
+  `gm_check` host line; a coherence check whose `reads` names `partners`
+  runs in the partners' database on the partners' node (as `postgres`, read
+  only, unseen), `gm_src_partners` over that node's socket, its other reads
+  over TCP from there, every table through `gm_src_*`, no `database:`; a
+  derivation or history reading `partners` from another node is refused.**
+  A host line breaks 10.2 and access model 8; dropping such checks drops
+  9.3's "stubs' open send-outs and orders matching the lab's". As purpose
+  14's history. First met by chunk 12; fixed at wave 2's gate. Now in:
+  [access model](versions/v0.5/access-model.md) 8; [build plan](versions/v0.5/build-plan.md) gate, chunk 12.
+- **D384 (2026-11-04, chunk 9's second stop): Each section has a duty vet
+  on Saturday and on Sunday, 08:00–20:00, by rotation over its vets,
+  never one of that weekend's night vets; Saturday's two domestic vets
+  08:00–13:00 stay, for the bookings.** A 24/7 hospital with stays and
+  emergencies had no vet on Saturday afternoon, none for horses and farm
+  all Saturday. `sched.rota.publish` carries the same. Now in:
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md) (the rota's
+  pattern); [vet-core](versions/v0.5/vet-core-domain.md#the-key-functions-d374-d375-d379) (`core_shifts`).
+- **D385 (2026-11-04, the same stop): About four in ten consultations make
+  requests, 0.65 on average: a lab order of 1.8 analyses in three in ten
+  (about 7 700 in the history, no more), an imaging study in one in
+  eight.** "Two in three" at 0.65 cannot give the lab's 1.8 tests an
+  order; an imaging share drawn per request gives about 1.6 and 8 500
+  orders, past the lab's 1–14 000 with the practices' 6 300. Now in:
+  [vet-core](versions/v0.5/vet-core-domain.md#the-key-functions-d374-d375-d379)
+  (`core_request`'s `kind`), `consultations.close`, point 3;
+  [vet-lab](versions/v0.5/vet-lab-domain.md) (the two constraints).
+- **D386 (2026-11-04, the same stop): No history draw repeats with a fixed
+  period in id order: fixed counts per block of ids may stay, their
+  places shuffled per block by a hash of the block's number, or the draw
+  a hash of the id.** Ids run in time order, so the requests' 40-id
+  places (and the stays' section and outcome) show as a period in time;
+  the live streams already vary by a hash of the row's id. Now in:
+  [vet-core](versions/v0.5/vet-core-domain.md#the-key-functions-d374-d375-d379) ("Draws from an id").
+- **D387 (2026-11-04, the same stop): Text correction: the core's load is
+  expected at one to two minutes, not "a few seconds"; it matters for
+  nothing.** Each row is computed by the key functions (about 2 ms a
+  consultation or request); `load-data` has no limit, every test stays
+  under 30 minutes. Now in: [vet-core](versions/v0.5/vet-core-domain.md)
+  (Loading); [master spec](versions/v0.5/master-spec.md) 9.2.
+- **D388 (2026-11-04, the same stop): Chunk 9's nurses' four-week cycle
+  stands, each section's every shift held, no rest, weekly-rest or
+  48-hour breach; the history's absences are periods of one day to two
+  weeks on weekday day and late shifts, leave about five weeks a year a
+  head, about 600 a year.** The chosen 3.5 % of staff-weeks gave under
+  two weeks' leave, below Directive 2003/88/EC Art 7's four, which the
+  working-time purpose's reader knows. Now in:
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md) (the rota's
+  pattern, the history's absences); [vet-core](versions/v0.5/vet-core-domain.md#the-key-functions-d374-d375-d379) (`core_shifts`).
+- **D389 (2026-11-04, the same stop): `MINH`'s checked line is on the
+  herd's latest earlier consultation early enough for its withdrawal to
+  end before the request, written by the load; `MINH` is never drawn
+  where none exists.** The request's function must know the date; a
+  count of cases without one would break the lab's validity rule. Now
+  in: [vet-core](versions/v0.5/vet-core-domain.md#the-key-functions-d374-d375-d379)
+  (`withdrawal_ends_on`); [vet-lab](versions/v0.5/vet-lab-domain.md#the-test-catalogue-d372).
+- **D390 (2026-11-04, the same stop): The history's inbound exchanges are
+  examinations of unregistered animals (`partner_patient` kept), no
+  inbound transfer; their ids stay in `requested_at` order, an
+  office-hours time drawn there, never moved past the next id's.** The
+  history's ranges are in time order (vet-core's key ranges). Now in:
+  [vet-core](versions/v0.5/vet-core-domain.md#the-key-functions-d374-d375-d379) (`core_exchange`).
+- **D391 (2026-11-04, the same stop): An administration's `given_by` is a
+  nurse of the stay's section, not matched against the rota, in the
+  history and the live round alike.** The spec ties only a
+  consultation's vet to the rota. Now in:
+  [vet-core](versions/v0.5/vet-core-domain.md) (Loading).
+- **D393 (2026-11-04, chunk 9's third stop): The history's
+  administrations stand at the build's 61 241, about 60 000, the range
+  1–70 000 and the load's cap kept; the live round gives each active
+  line's doses at its frequency (every 4, 12 or 24 hours), as the
+  history does, about 210 a day.** One dosing model in the history and
+  live keeps the ramp ending at the live rate (D279). Now in:
+  [vet-core](versions/v0.5/vet-core-domain.md) (volumes, jobs); MR1, T65.
+- **D394 (2026-11-04, the same stop): D388's every-shift rule binds each
+  section's nurses and technicians; the carers keep the same cycle, 57–60
+  horse, 61–62 farm, 63–66 domestic, the farm's two holding two phases a
+  week and its nurses the rest; a care event's carer is of the unit's
+  section, not matched against the rota.** Ten carers can't fill four
+  phases in three sections, and two can't hold days and lates daily.
+  Now in: [vet-scheduling](versions/v0.5/vet-scheduling-domain.md) (the
+  rota's pattern); [vet-housing](versions/v0.5/vet-housing-domain.md).
+- **D395 (2026-11-04, the owner on D365): D365 stays, tracked: the
+  starter pack keeps handing the players the customer's own partner
+  credentials, and whether to rectify it is a later question (O231).**
+  A DBA may find it odd and report it, a plausible, reasonable finding;
+  the owner keeps it as a game's distance from ground truth ("It's
+  still a game"). Now in: [open-questions.md](open-questions.md) O231;
+  [versions/v0.5/access-model.md](versions/v0.5/access-model.md) 13.
+- **D396 (2026-11-04, the owner after D368): Until v1.0 each brick takes
+  its tool's latest available version; from v1.0 versions are handled
+  game-wide (old PostgreSQL majors such as 13, older and hand-installed
+  tools, migrating up to standard).** Now in:
+  [versions/README.md](versions/README.md#from-v10-versions-at-a-game-wide-scope-d396);
+  [open-questions.md](open-questions.md) O11.
+- **D397 (2026-11-04, the owner on D352): A restart from the hand-over
+  snapshot gives back every node as it was meant to run, replication
+  included; D352 is superseded and its known limit removed.** The owner:
+  "a restoration procedure that doesn't work means as much as no
+  procedure at all". A standby held as one and cloned again from its
+  restored primary, the only mechanism that holds: the copies are taken
+  at different moments and no WAL is kept to replay between them. Now
+  in: [master spec](versions/v0.5/master-spec.md) 7.1, 15, 18.2;
+  [versions/README.md](versions/README.md#v10-gating);
+  [build plan](versions/v0.5/build-plan.md) chunk 28, release gate.
+- **D398 (2026-11-04, D397's chunk): Chunk 28 is inserted into wave 2,
+  gated but not merged, so the fix merges with it;** it depends on chunk
+  3 alone and is cut from the gated `v0.5-w2`; the gate items it touches
+  are rerun after it merges. Now in:
+  [build plan](versions/v0.5/build-plan.md#chunk-28--a-restart-from-the-hand-over-snapshot-gives-back-replication)
+  (waves, per-wave gate contents).
+- **D399 (2026-11-04, the owner after D396): `check_postgres` stays the
+  health node's checker for now; a switch is expected some day, though
+  it may stay in use with older versions from v1.0.** Now in:
+  [versions/README.md](versions/README.md#from-v10-versions-at-a-game-wide-scope-d396).
+- **D400 (2026-11-04, the owner on G8's open point): pgBadger stays
+  unpinned, as is.** Now in:
+  [versions/README.md](versions/README.md#from-v10-versions-at-a-game-wide-scope-d396).

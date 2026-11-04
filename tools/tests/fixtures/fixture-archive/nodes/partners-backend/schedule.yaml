@@ -1,0 +1,11 @@
+# schedule.yaml of partners-backend (fixture-archive, v0.5 chunk 11b):
+# partners/shared/partners-backend/schedule.yaml's base with cold storage's
+# fragment, partners/coldstore/schedule.yaml, joined (its baseline stream).
+intensity: 1.0
+connections:
+  coldstore-db: {driver: sql/postgresql, target: partners-db:5432/partners, role: coldstore, pool: {size: 1}}
+streams:
+  - key: coldstore.normal
+    connection: coldstore-db
+    rate: 1/min
+    arrivals: even

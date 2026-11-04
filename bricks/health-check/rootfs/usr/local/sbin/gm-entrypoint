@@ -1,0 +1,139 @@
+#!/bin/sh
+# gm-entrypoint: container entrypoint of the db_audit_gm health-check brick.
+# DO NOT TAMPER. Root-owned and read-only (v0.5 master spec 7.4; as the
+# postgres-exporter and postgres bricks' entrypoints).
+#
+# Runs as root at every container start, then execs s6-overlay's /init:
+#   1. empties /run (a named volume: a stack file's tmpfs is noexec, and
+#      s6-overlay needs an executable /run) and creates the runtime dirs;
+#   2. generates this container's sshd host key under /run;
+#   3. checks the secrets (the monitoring password one non-empty line) and
+#      writes libpq's password file /run/gm-health/pgpass (postgres 0600),
+#      health-run's PGPASSFILE (capture W1 item 0);
+#   4. checks GM_WRITE_POLICY and GM_WRITE_OVERRIDES and writes
+#      /run/gm/write-policy, read by gm-crontab (sudo resets the
+#      environment);
+#   5. seeds once (marker /var/lib/gm-state/.gm-seeded): health.yaml and
+#      scripts/ into /etc/health, the crontab into cron's spool as
+#      postgres's, through Debian's crontab;
+#   6. applies the write policy's owner and modes to the seeded files, the
+#      scripts and their directories, seeding or not (contents untouched);
+#   7. sets the spool's and the crontab's owner and mode, the page's
+#      directories (volume healthdata), and writes the page when there is
+#      none yet;
+#   8. sets the ownership of the player's home.
+set -eu
+
+CONF_DIR=/etc/health
+STATE_DIR=/var/lib/gm-state
+MARKER=$STATE_DIR/.gm-seeded
+SEED_DIR=/opt/gm/seed
+SECRETS_DIR=/opt/gm/secrets
+SPOOL_DIR=/var/spool/cron/crontabs   # volume cronspool
+CRONTAB=$SPOOL_DIR/postgres
+DATA=/var/lib/health                 # volume healthdata
+PASSFILE=/run/gm-health/pgpass
+PLAYER_HOME=/home/player
+
+log() { printf 'gm-entrypoint: %s\n' "$*" >&2; }
+die() { log "fatal: $*"; exit 1; }
+policy() { /usr/local/sbin/gm-write-policy "$@"; }
+
+# --- 1. /run ------------------------------------------------------------
+cd /run
+find . -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+cd /
+chown root:root /run
+chmod 0755 /run
+install -d -o root -g root -m 0755 /run/sshd
+install -d -o root -g root -m 0700 /run/sshd-keys
+install -d -o root -g root -m 0700 /run/gm
+install -d -o root -g root -m 1777 /run/tmp
+install -d -o www-data -g www-data -m 0700 /run/nginx
+install -d -o root -g postgres -m 0750 /run/gm-health
+
+# --- 2. sshd host key ---------------------------------------------------
+ssh-keygen -q -t ed25519 -N '' -C '' -f /run/sshd-keys/ssh_host_ed25519_key
+
+# --- 3. secrets, the password file --------------------------------------------
+for s in player_ssh_pubkey monitoring_password; do
+    [ -s "$SECRETS_DIR/$s" ] || die "secret $SECRETS_DIR/$s is missing or empty"
+done
+monitoring_password=$(cat "$SECRETS_DIR/monitoring_password")
+case $monitoring_password in
+    '') die "secret monitoring_password is empty" ;;
+    *'
+'*) die "secret monitoring_password must be a single line" ;;
+esac
+# libpq's .pgpass format: `:` and `\` escaped
+esc=$(printf '%s' "$monitoring_password" | sed 's/[\\:]/\\&/g')
+(umask 077; printf '*:*:*:monitoring:%s\n' "$esc" > "$PASSFILE")
+chown postgres:postgres "$PASSFILE"
+chmod 0600 "$PASSFILE"
+unset monitoring_password esc
+
+# --- 4. the write policy --------------------------------------------------
+if ! problem=$(policy write 2>&1); then
+    die "${problem:-the write policy could not be written}"
+fi
+
+# --- 5. seeded once --------------------------------------------------------
+# The marker lives on its own volume (gmstate), root-owned: neither player
+# (group healthconf) nor postgres can remove, rename or replace it.
+chown root:root "$STATE_DIR"
+chmod 0755 "$STATE_DIR"
+chown root:crontab "$SPOOL_DIR"
+chmod 1730 "$SPOOL_DIR"
+if [ ! -e "$MARKER" ]; then
+    for f in health.yaml crontab; do
+        [ -f "$SEED_DIR/$f" ] || die "seed file $SEED_DIR/$f is missing"
+    done
+    install -o postgres -g healthconf -m 0664 "$SEED_DIR/health.yaml" "$CONF_DIR/health.yaml"
+    install -d -o postgres -g healthconf -m 2775 "$CONF_DIR/scripts"
+    if [ -d "$SEED_DIR/scripts" ]; then
+        for f in "$SEED_DIR/scripts"/*; do
+            [ -f "$f" ] || continue
+            install -o postgres -g healthconf -m 0775 "$f" "$CONF_DIR/scripts/${f##*/}"
+        done
+    fi
+    # Through Debian's crontab, as gm-crontab installs one: it checks the
+    # file and writes it with its header.
+    rm -f "$CRONTAB"
+    crontab -u postgres "$SEED_DIR/crontab" >&2 || die "crontab refused the seed $SEED_DIR/crontab"
+    date -u '+seeded %Y-%m-%dT%H:%M:%SZ from /opt/gm/seed (DO NOT TAMPER)' > "$MARKER"
+    chown root:root "$MARKER"
+    chmod 0444 "$MARKER"
+    log "seeded $CONF_DIR and postgres's crontab from $SEED_DIR"
+fi
+
+# --- 6. the write policy's owner and modes ------------------------------------
+if ! notes=$(policy restore 2>&1); then
+    die "the owner and modes of the seeded files could not be set: $notes"
+fi
+[ -z "$notes" ] || log "left alone: $(printf '%s' "$notes" | tr '\n' ';')"
+log "write policy: $(tr '\n' ' ' < /run/gm/write-policy)"
+
+# --- 7. the crontab, the page's directories -----------------------------------
+# cron skips a crontab of another owner or mode
+if [ -f "$CRONTAB" ] && [ ! -L "$CRONTAB" ]; then
+    chown postgres:crontab "$CRONTAB"
+    chmod 0600 "$CRONTAB"
+fi
+chown postgres:postgres "$DATA"
+chmod 0755 "$DATA"
+for d in "$DATA/results" "$DATA/www" "$DATA/www/health"; do
+    if [ -L "$d" ] || { [ -e "$d" ] && [ ! -d "$d" ]; }; then rm -f "$d"; fi
+    [ -d "$d" ] || mkdir "$d"
+    chown postgres:postgres "$d"
+    chmod 0755 "$d"
+done
+if [ ! -f "$DATA/www/health/index.html" ]; then
+    /command/s6-setuidgid postgres /usr/local/bin/health-run page \
+        || die "the status page could not be written"
+fi
+
+# --- 8. the player's home -------------------------------------------------
+chown player:player "$PLAYER_HOME"
+chmod 0750 "$PLAYER_HOME"
+
+exec /init "$@"

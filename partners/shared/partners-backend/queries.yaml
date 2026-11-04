@@ -1,0 +1,4 @@
+# queries.yaml of partners-backend, the partners' back end (v0.5 master spec
+# 10.2; capture W2 item 6; partners/README.md): the base the partners'
+# fragments join, each adding its keys <prefix>.<...>.
+queries: {}

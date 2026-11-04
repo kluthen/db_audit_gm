@@ -22,7 +22,23 @@ corrections, settling what the approved text left to the build: a
 domain's producer fragments in one folder per scheduler node they target
 (6.1, 8.4; spec D344), and the `api` node's `api.yaml`, the file naming
 each endpoint's hostnames and credentials and its connections (6.5,
-6.8; spec D345).
+6.8; spec D345). On 2026-11-04, a text correction: pgwatch is its
+latest release at the build, not a 3.x one, a line that ended at 3.7.0
+(7.4, 21; spec D368). On 2026-11-04, three corrections chunk 9 found,
+each settling the text against the rest of it: the horse-only MR and NM
+codes 26 and 27 (9.2, 9.6; spec D373); a routine imaging study booked
+within two working days, the turnaround staying three (9.4; spec D376);
+an intensive-care session on one domestic stay in two and one horse stay
+in four, until its step-down (9.6; spec D377). On 2026-11-04, after
+chunk 11: a manifest is keyed on its source and shipment id, since two
+archiving nodes post the same segment names (10.4; spec D381). On
+2026-11-04, after wave 2's gate: its format items as built, recorded in
+sections 5 and 6.1 and in formats.md v29 (spec D364), and the owners'
+traffic in `producers/partners/owners/` (9.7, 24; spec D369). On
+2026-11-04, the owner's ruling on the restore: a restart from the
+hand-over snapshot gives back every node as it was meant to run, a
+standby streaming from its primary again (7.1, 15, 18.2; spec D397,
+superseding D352's known limit).
 
 Baseline: the released [v0.4 master spec](../v0.4/master-spec.md) and
 its [access model](../v0.4/access-model.md). Everything v0.4 specifies
@@ -239,22 +255,28 @@ bricks/
   api/                  0.1.0, new: FastAPI and uvicorn serving endpoint files
   bastion/              0.5.0: `partners.md` and `data-register.md`, optional
                         seed files on the page; the route to cold storage's page
-  pgwatch/              0.1.0, new: pgwatch 3, its Prometheus sink (7.4)
+  pgwatch/              0.1.0, new: pgwatch, its Prometheus sink (7.4)
   health-check/         0.1.0, new: `check_postgres`, the status page, the
                         customer's scripts (7.4)
   grafana/              0.3.0: a seeded pgwatch dashboard (7.4)
 domains/vet-core/, vet-lab/, vet-scheduling/, vet-housing/, vet-machinery/,
-  vet-portal/           new: the clinic's six domains (9)
+  vet-portal/           new: the clinic's six domains (9); the core's key
+                        functions in data/keys.sql, a part's coherence
+                        queries in data/coherence.yaml, a partner's state in
+                        producers/partners/<prefix>/data.sql (6.1)
 domains/shop/           its classification rekeyed, its register fragment, its
                         one variant (8.6), its fragments in producers/producer/
+partners/               new: a catalogue folder beside domains/ and purposes/:
+                        shared/, the base of the partners' three shared nodes;
+                        coldstore/, cold storage, the vault (6.1, 10.2, 10.4)
 purposes/<purpose-id>/  new: the clinic's purposes built in v0.5 (12.2)
 faults/<fault-id>/      new: the test selection's ten (17.2); every fault applying
                         to a bumped brick lists its new version; one fault's
                         precondition widened (17.2)
 scenarios/<clinic-id>/  new: the clinic scenario (17)
 scenarios/*             the existing four re-pinned (17.5)
-tools/                  `gmctl compose`, the loader's checks, the coherence
-                        check (15)
+tools/                  `gmctl compose`, the loader's checks, `load-data`'s
+                        composed load and the coherence check (15)
 tools/tests/fixtures/   the fixtures of the short tests (18)
 .claude/skills/scenario-format/    templates and checks for section 6
 .claude/skills/scenario-document/  third parties, composition, the data register
@@ -262,7 +284,9 @@ tools/tests/fixtures/   the fixtures of the short tests (18)
                                    parties, the register in Setup step 2
 .claude/skills/data-register/      new: the GM sub-skill generating a
                                    scenario's data register (13.3)
-specs/formats.md        draft v28: the domain format, composition, the register
+specs/formats.md        draft v28: the domain format, composition, the register;
+                        v29 after wave 2: the composed load's files and the
+                        partners/ folder, as built
 ```
 
 ## 6. Format changes
@@ -270,7 +294,8 @@ specs/formats.md        draft v28: the domain format, composition, the register
 The cross-version [formats.md](../../formats.md) states the rules for
 every version. Its draft v28 states v0.5's domain format, the
 composition of domains, the data register's files and the purpose
-format's extensions in full; this section lists what v0.5 changes and
+format's extensions in full, and its v29 the composed load's files and
+the partners' folder as wave 2 built them; this section lists what v0.5 changes and
 gives the shapes of the rest, normative until the `scenario-format`
 skill's templates carry them. The skill, its templates and the loader
 change together in the build, as in v0.4.
@@ -283,8 +308,31 @@ As [formats.md](../../formats.md) "Domain" states it:
   optionally `data/<database>/` for a part with several databases,
   `data/derive.sql`, a `governance:` fragment with `docs/policy.md`,
   `producers/<node>/` (the fragments for each scheduler node the domain
-  targets), `producers/api/<node>/` and `producers/partners/<partner>/`,
-  `variants/<variant>.yaml` and `variants/<variant>/producers/`.
+  targets), `producers/api/<node>/` and `producers/partners/<prefix>/`
+  (the folder's name the partner's prefix, `[a-z][a-z0-9]{0,15}`: its
+  role, schema, keys, endpoints and connections), `variants/<variant>.yaml`
+  and `variants/<variant>/producers/`; as built in wave 2, a core's
+  `data/keys.sql`, a part's `data/coherence.yaml` and a partner's
+  `data.sql` (below). The owners' traffic is
+  `producers/partners/owners/`; `producers/public/` holds no `data.sql`.
+- **A composed domain's data files are read, not copied** (formats.md
+  "Domain", "Loading a composed domain"): `load-data` reads the schema,
+  load, keys, derivation, partner and coherence files from the
+  catalogue at every load, as it reads a purpose's history; `gmctl
+  compose` writes the fragments into the scenario, and the GM copies the
+  classification, policy and governance fragment as before. `load-data`
+  creates each `at:` database, so a domain's schema and load never
+  create a database nor `\connect`, and name it `:"DBNAME"`; every file
+  it runs gets `load_epoch`, the run's start, its one "now"; the core's
+  `keys.sql` (`pg_temp.core_*`) is streamed ahead of each load, partner
+  file and derivation in the same session; a partner's `data.sql` runs
+  into `partners`; `coherence.yaml` holds the post-load coherence
+  queries (8.5), a check reading `partners` running on the partners'
+  node.
+- **The partners' catalogue folder**, `partners/` (formats.md
+  "Partners"): `shared/`, the three shared nodes' declarations and
+  seeds, and `coldstore/`, cold storage laid out as a partner folder,
+  both copied into a scenario as a purpose's material is (10.2, 10.4).
 - **`domain.yaml`** gains `register`, and for a part `requires`,
   optionally `lands_with`, `databases` and
   `derive: {after: [...]}`.
@@ -492,7 +540,9 @@ daemon, the GM check role). It adds:
   its primary with `pg_basebackup` after the data load and before the
   aging, by a `gmctl` setup step; it then streams. Every seed already
   carries the replication line in `pg_hba.conf`. The hand-over snapshot
-  keeps working: its temporary slot is removed as today.
+  keeps working: its temporary slot is removed as today; a restart
+  restoring it brings the standby back as one, streaming from its
+  primary (15, "The restore from the hand-over snapshot").
 - **WAL archiving and the nightly base backup.** The seed sets
   `archive_mode = on`, an `archive_command` that posts each segment to
   the vault (cold storage's `wal` type) and fails honestly on a refusal,
@@ -667,7 +717,7 @@ Three pieces, each reading what `postgres` already provides
 (`pg_stat_statements`, the file logs) through the `monitoring` role
 (`pg_monitor`), and nothing more of the brick:
 
-- **`pgwatch` 0.1.0, a new brick, the node `pgwatch`**: pgwatch 3, one
+- **`pgwatch` 0.1.0, a new brick, the node `pgwatch`**: pgwatch, one
   collector for every instance in the players' scope (`records`, the
   standby, `lab`, `machines`; never the partners' database), its
   sources a file the scenario seeds, no configuration database, its own
@@ -678,11 +728,11 @@ Three pieces, each reading what `postgres` already provides
   Prometheus sink serves the metrics on its endpoint, v0.2's Prometheus
   scrapes it beside the exporters (its seed file's targets), and
   Grafana shows them in a seeded pgwatch dashboard (`grafana` 0.3.0).
-  The version is the latest pgwatch 3 release at the build, a
-  checksum-pinned release download as v0.2's Prometheus and
-  `postgres_exporter` are, once the dependency check has cleared it
-  (21). Starting footprint 0.1 CPU and 96M, no volume; on armenelos,
-  beside Prometheus.
+  The version is pgwatch's latest release at the build (6.1.0 at the
+  dependency check of 2026-11-04), a checksum-pinned release download
+  as v0.2's Prometheus and `postgres_exporter` are, once the dependency
+  check has cleared it (21). Starting footprint 0.1 CPU and 96M, no
+  volume; on armenelos, beside Prometheus.
 - **pgCluu, in `postgres` 0.5.0**, from the same package source as
   pgBadger and a report tool beside it: run on demand by the players on
   the node, its collector sampling for the window they choose, its
@@ -1080,8 +1130,8 @@ sized for three, every ratio kept:
 | Axis | `regional-franchise` |
 |---|---|
 | Population at load | 6 sites, 3 sections, 85 staff (30 vets and specialists), 10 000 owners (200 holdings, 700 horse owners or stables), 400 referring practices with two vets each, 17 000 animals (14 600 domestic, 1 400 horses, 1 000 farm animals in 200 herds), about 40 in hospital |
-| History | one year: about 25 000 consultations, 15 000 prescriptions (37 000 lines), 70 000 administrations, 17 000 requests, 2 500 stays, 700 exchanges; about 0.28 million rows |
-| Throughput | about 85 consultations a day (60 scheduled, 12 in hospital, 10 emergencies, 3 herd visits on average), 13 new owners and 20 new animals, 240 administrations, 50 prescriptions, 55 requests; about 760 new rows and 450 updates a day |
+| History | one year: about 25 000 consultations, 15 000 prescriptions (37 000 lines), about 60 000 administrations, 17 000 requests, 2 500 stays, 700 exchanges; about 0.28 million rows |
+| Throughput | about 85 consultations a day (60 scheduled, 12 in hospital, 10 emergencies, 3 herd visits on average), 13 new owners and 20 new animals, 210 administrations, 50 prescriptions, 55 requests; about 760 new rows and 450 updates a day |
 
 **The growth curve.** Every daily volume of the history ramps linearly from
 about 60 % of today's live rate a year ago to today's, the weekday and hour
@@ -1133,7 +1183,8 @@ The functions must give about 40 stays current at T0 (14 horses, 6 farm
 animals, 20 domestic), never more current stays in a section than housing's
 units in service (21 horse, 10 farm, 31 domestic, species fitting); an imaging
 request's study code one of `vet-machinery`'s 30 codes valid for the animal's
-group (1–12 domestic, 13–27 horses and farm, 28–30 any) at that part's
+group (1–12 domestic, 13–27 horses and farm but 26 and 27 horses only, 28–30
+any) at that part's
 modality shares. Their formulas are written into the GM notes at the build.
 
 #### The staff layout
@@ -1146,7 +1197,7 @@ modality shares. Their formulas are written into the GM notes at the build.
 | 26–28 | vets, specialty diagnostic imaging (`vet-machinery`'s reporters) | `vet` |
 | 29–51 | the sections' nurses and technicians, kind and section by id | `nurse`, `technician` |
 | 52–55, 56 | radiographers; the biomedical engineer | `technician` |
-| 57–66 | carers and grooms | `carer` |
+| 57–66 | carers and grooms: 57–60 horse, 61–62 farm, 63–66 domestic | `carer` |
 | 67–70 | receptionists | `reception` |
 | 71–78 | the lab's technicians | `lab` |
 | 79–80 | the lab's clinical pathologists | `vet`, specialty clinical pathology |
@@ -1232,7 +1283,7 @@ written, a national figure one member state's, a *game value* a choice.
 |---|---|
 | Volume streams | `owners.register` 1.6/h (13; 86 % domestic, 8 % horses, 6 % farm), `animals.register` 0.86/h (7), `referrals.receive` 1.82/h (13), `consultations.emergency` 0.42/h (10, a third at night), `consultations.herd-visit` 2.1/h Tuesday and Thursday mornings (3), `consultations.ward` 3/h (12), `stays.admit` 0.34/h (8), `stays.discharge` 2.67/h late mornings (8: 90 % discharged, 4 % transferred with an outbound exchange, 6 % died), `alerts.record` 0.6/h, `ownerships.transfer` 0.37/h, `requests.cancel` 0.12/h (`requested` only), `exchanges.request` 0.1/h; scheduled consultations have no stream, the bookings purpose's check-in opening them (about 60) |
 | Work streams (capacities) | `consultations.close` 40/h (1.2 diagnoses, a procedure in three in ten, 0.65 requests, a prescription in six in ten), `consultations.sign` 20/h, `referrals.accept` 6/h, `referrals.close` 4/h, `exchanges.decide` 2/h, `exchanges.report` 2/h |
-| Jobs | `administrations.round` `0 2,6,10,14,18,22 * * *` (about 40 doses, one in a hundred missed by a hash of its id); `prescriptions.expire` `15 0 * * *` (the GM may move it to `pg_cron`) |
+| Jobs | `administrations.round` `0 2,6,10,14,18,22 * * *` (about 35 doses, each active line's at its frequency, one in a hundred missed by a hash of its id); `prescriptions.expire` `15 0 * * *` (the GM may move it to `pg_cron`) |
 | Shapes | `clinic-day` (weekdays 08:00–20:00, peak late afternoon; Saturday mornings), `office`, `herd-days`, `ward-rounds`, `around-the-clock`, `discharges`, `signing`, `flat`; variation by a hash of the row's id, never `random()` |
 
 **In flight at T0**: about 40 current stays, their next round planned; the
@@ -1255,8 +1306,8 @@ and write `office`, never `clinic`.
 off). The parts' loads and the partners' database compute the core's keys by
 its functions; only `vet-portal`'s copied content comes from a derivation step
 the GM sanctions after this load; the purposes then plant `office`'s past
-periods. The build verifies: load time and size (about 0.28 million rows, a few
-seconds by the shop's measure); every function a part cites documented in the
+periods. The build verifies: load time and size (about 0.28 million rows, one
+to two minutes expected, each row computed by the key functions, D387); every function a part cites documented in the
 GM notes; the post-load coherence check on the composed clinic (no part's
 `animal_id`, `stay_id`, `request_id` or staff id beyond the core's, every
 current stay placed, published documents matching signed consultations and
@@ -1645,7 +1696,7 @@ every minute on `interfaces`, holding `clinic` as `vet_interfaces` and
 the allocated vet, started at the arrival, `booking_id`) for each
 arrived booking, once, its ledger row (`ops.booking_consultations`) in
 the same transaction; `book-requests` books each new imaging request on
-its study's machine (an urgent one today, a routine one within three
+its study's machine (an urgent one today, a routine one within two
 working days) and each accepted inbound examination on its date, or the
 next free slot with an incident; `cancel-deceased` cancels a dead
 animal's future bookings. `vet_interfaces` gains `INSERT` on
@@ -1921,7 +1972,7 @@ the census or by staff; a machine `in-service` ⇄ `down` → `retired`.
 | Key | Range, layout |
 |---|---|
 | `mach_machines.id` | 1–28: 1–6 the lab's analysers (1–2 haematology, 3–4 biochemistry, 5 blood gas, 6 coagulation; on call at night 1, 3, 5); 7–16 imaging (7 CT small animal, 8 CT large bore, 9 MRI 1.5 T, 10 standing MRI with no helium, 11–13 DR, 14–15 ultrasound, 16 gamma camera), bookable by `vet-scheduling`; 17–20 anaesthesia monitors, 21–28 intensive-care monitors; telemetry 1–9 and 16 |
-| `mach_procedures.id` | 1–30: 1–12 small animal, 13–27 large animal, 28–30 any; DX 45 % of studies, US 30, CT 15, MR 7, NM 3 |
+| `mach_procedures.id` | 1–30: 1–12 small animal, 13–27 large animal (26 standing MRI and 27 scintigraphy horses only), 28–30 any; DX 45 % of studies, US 30, CT 15, MR 7, NM 3 |
 | History | worklist 1–3 400 (the k-th imaging request of the core, in time order), studies 1–3 470, series 1–8 000, reports 1–3 450, sessions 1–3 800, functions of their ids in the GM notes; studies 3 465–3 470 six unmatched ones (a typed patient id naming no animal), the PACS's mistyped chips |
 | Core keys used | imaging requests by the core's request function (study code drawn among these 30 by species group); animals 1–17 000; stays 1–2 500 by the stay function; staff 26–28 imaging specialists, 52–55 radiographers, 56 the biomedical engineer |
 
@@ -1990,8 +2041,10 @@ weekly, addenda every three days); work streams, at capacities, schedule, acquir
 reconcile and report studies. Fixed-time: `mach.identity` every minute
 (identities from `GET /animals/{id}` and `/owner`, a script job with a
 `pacs` and an HTTP connection); `mach.census` every 5 minutes (`GET
-/stays?current=true`, an intensive-care session opened for about one
-new stay in three by a hash, ended when the stay leaves);
+/stays?current=true`, an intensive-care session opened on a free monitor
+for about one new domestic stay in two and one horse stay in four by a
+hash, none for farm animals, ended at its step-down 24 to 72 hours after
+admission or when the stay leaves);
 `vitals.chart` every 5 minutes; partitions at 22:00 and 22:05, the
 events' on the 25th. Shapes: `imaging-day` (weekdays 08:00–18:00,
 Saturday morning at 0.6, else 0.1), `reporting` (weekdays 08:30–18:00,
@@ -2075,8 +2128,9 @@ created in it. One node, `portal-api` (`api`, players' scope, 0.1 CPU,
 out of reach on the partners' shared `api` node under a tenth hostname,
 `owners`: owners are people, not a third party, so it has no
 `partners.md` entry. It is a traffic source that is no business, under
-`producers/partners/owners/` or `producers/public/owners/` (chosen at
-the build).
+`producers/partners/owners/` (role and schema `owners`), keeping its
+record of visits in the partners' database, whose tables its `data.sql`
+creates.
 
 #### What it holds
 
@@ -2393,11 +2447,14 @@ back.
 - **The stub's side**, three endpoints: `POST /shipments` (a header with
   shipment id, data type, rows declared and date range, and the rows as
   NDJSON; counts the rows, discards the payload, writes a manifest,
-  answers a receipt; the same shipment id again replaces its manifest, a
-  new id for a day already shipped adds a second one); `GET /manifests`
-  (JSON, filtered by type and dates); `GET /` (a page graphing rows
+  answers a receipt; the same shipment id from the same source again
+  replaces its manifest, a new id for a day already shipped adds a
+  second one, and one id from two sources, as two archiving nodes'
+  segment names, makes two); `GET /manifests`
+  (JSON, filtered by type, source and dates); `GET /` (a page graphing rows
   shipped per day per type, declared against received, drawn on the
-  server). **A manifest** holds the type, rows declared and received,
+  server). **A manifest** holds the type, its source (the customer's
+  node holding the data), rows declared and received,
   the date range, the shipment's time and id, and for `wal` and
   `basebackup` the segment's or backup's name and size; kept in the
   partners' database. The load plants the history's manifests, so the
@@ -3030,6 +3087,49 @@ tenth of a gigabyte there.
   the setup as a design error.
 - **The standby's clone**: after the data load and before the aging, a
   setup step cloning the standby from its primary (7.1).
+- **The restore from the hand-over snapshot** (`gmctl restart`, v0.3
+  master spec 12; spec D397): every node comes back as it was meant to
+  run, replication included. A restore gives back:
+  - **each node's volumes from their copies**, as before;
+  - **a standby as a standby**: it never runs as a primary of its own,
+    not even during the restart (its restored data directory starts in
+    standby mode, read-only); once the stack is healthy, it is cloned
+    again from its restored primary, as the setup's clone does (7.1),
+    in topology order, since its copy and its primary's are taken at
+    different moments and no WAL is kept to replay between them. Its
+    slot exists again on the primary, active; the primary's
+    `pg_stat_replication` shows its sender `streaming`; it answers
+    read-only queries and refuses writes; a row written on the primary
+    after the restore reaches it. Its own settings come back as its
+    copies hold them: its configuration volume untouched by the clone,
+    and the settings its data directory holds (`postgresql.auto.conf`)
+    kept across it. A job reaching it during the clone fails as at any
+    outage of the standby, and its next run reads it;
+  - **the replication credentials**: `replicator` and its password, the
+    standby's password file, unchanged (every secret's value is kept);
+  - **every other persistent replication slot** a primary held when its
+    copy was taken (a planted `pg-abandoned-replication-slot`): the
+    snapshot records them, the restore re-creates each, physical,
+    reserving WAL at once, inactive. A base backup leaves `pg_replslot/`
+    out, so without this a planted slot would vanish;
+  - **archiving and the vault in step**: the archiving node keeps
+    shipping (the next segment's `wal` manifest in the vault, the
+    nightly base backup still posting), and the vault's restored
+    manifests name every segment the restored node counts as archived:
+    the snapshot copies the nodes with a `vault_target` before every
+    other node, so the vault's copy is the later one. A segment the
+    restored node ships again under a name the vault already holds
+    replaces that manifest (10.4); the node stays on its timeline;
+  - **a failure is a failed restart**, as before: what it deployed torn
+    down, recorded, the snapshot kept for a retry.
+
+  **What a restore does not give back**, named in the brick's
+  documentation: the WAL a node had accumulated (a planted slot's or a
+  failing archive's backlog) and its cumulative statistics, which a base
+  backup does not carry; both build again from the restore with the
+  load, as after a crash. A restart with no snapshot is unchanged (its
+  load steps clone the standby). A snapshot of the whole game as a
+  feature of play, with game time, is later (O232).
 - **`render`**: the network aliases of the partners' `api` node; the
   bastion's route to cold storage's read-only paths; the HTTP
   connections' credentials as secrets; the TLS certificates generated
@@ -3242,11 +3342,13 @@ fitting one host.
 | imaging | `records`, `clinic-api`, `pms`, `machines`, `equipment`, `interfaces` | a weekday, 08:50 | the three databases and loads, the imaging round trip |
 | vault | `machines`, `equipment`, `interfaces`, the partners' `api` node and database | 21:55 | partitions ahead, the nightly shipping and its receipt |
 | portal | `records`, `lab`, `interfaces`, `portal-api`, the partners' three nodes | a weekday | the copies, the release gate, owner scope, accounts, messages |
+| restore | `records`, `standby`, the partners' `api` node and database | any | a restart from the hand-over snapshot: the standby streaming again, a planted slot back, archiving shipping (15; spec D397) |
 
 Beside them, each brick's own short tests: the `api` brick's build
 checks on its database side; the HTTP driver against one stub; the
 partners' node with one partner slow and another answering; the standby
-cloned and streaming; a segment and a base backup reaching the vault;
+cloned and streaming, and streaming again after a restart from the
+hand-over snapshot (15); a segment and a base backup reaching the vault;
 the options refused and accepted by `gmctl`; `gmctl compose` merging,
 overriding, stopping on a conflict and following `merge.yaml`; the
 coherence check passing on a composed load and failing on a broken
@@ -3361,7 +3463,7 @@ exception.
 - **Dependency checks** by the security advisor: FastAPI and uvicorn
   (and the `api` image's other packages) before the `api` chunk;
   pgaudit's package for `postgres` 0.5.0; for the monitoring breadth
-  (7.4), pgwatch 3's release, Prometheus as the sink's scraper,
+  (7.4), pgwatch's latest release, Prometheus as the sink's scraper,
   `check_postgres` and the health node's web server, and pgCluu's
   package, a gate on the monitoring chunk, so each joins `.tech`; each
   as a preflight on the candidate versions and a post-change check on
@@ -3537,7 +3639,7 @@ superuser, no partition created ahead on the machines' readings.
 - where a purpose's `history.sql` and endpoint material sit beside v0.4's
   per-part material folders;
 - `producers/partners/<name>/` or `producers/public/<name>/` for the
-  owners' traffic;
+  owners' traffic (settled: `producers/partners/owners/`, 9.7);
 - the `api` brick's internal layout: `db/` its one writable path, routes
   importing only from `db/` (as drafted);
 - how the partners' `pg_hba.conf` admits only their own nodes on one

@@ -36,7 +36,7 @@ GET /api/v1/provisioning/alert-rules/{RULE}` and `jq`, on the live state:
 `max-for`; *fixed* when it exists, is not paused and its `for` is at most
 `max-for`. Exit 2 when the helper exits 2 (Grafana not answering). A file
 edited but not reloaded reads *present*. Deleting the rule is not a fix.
-Grafana 13.2.4 returns the period as written in the file (`"for": "2h"`);
+Grafana 13.3.0 returns the period as written in the file (`"for": "2h"`);
 the check parses either that or Go's long form (`2h0m0s`).
 
 **Placement (no masking).**

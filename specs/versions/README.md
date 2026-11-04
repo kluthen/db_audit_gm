@@ -28,6 +28,9 @@ v0.1 is draft.
 - from v1.0 to v2, DBA work with bits of devops: reports run on a
   spawned instance, migrations, replication set up by the players
   (D272; below).
+- from v1.0, versions handled game-wide: older PostgreSQL majors, older
+  and hand-installed tools, migrating up to standard; until then each
+  brick takes its tool's latest release (D396; below).
 
 Questions about the roadmap as a whole (gaps between v0.5 and v1.0,
 risks across versions) are in [open-questions.md](../open-questions.md),
@@ -99,6 +102,29 @@ service kind are the provider's (D205), spawning one for a report or a
 migration is a player action. None of this widens v0.5: its replication
 stays a mode the seed configures, and its periodic reports run only as
 the schedule says.
+
+## From v1.0: versions at a game-wide scope (D396)
+
+The owner, on 2026-11-04, after pgwatch's "3" became 6.1.0 (D368): "just
+use the latest version available for now. Expect that in later version
+(v1+) we will have to handle versions at a global scope: pg 13, older
+tools, manual tools, etc and migrate up to standard."
+
+- **Until v1.0**: each brick takes the latest version of its tool
+  available when the brick is built (the upstream release, or the
+  distribution's package where the brick installs from packages), as
+  the dependency check clears it; pgwatch's is 7.4 of the
+  [v0.5 master spec](v0.5/master-spec.md).
+- **From v1.0**: a setup's versions become part of the game: old
+  PostgreSQL majors (13 and the like), older tools, tools installed by
+  hand rather than packaged, and the work of bringing them up to the
+  customer's standard. It meets the major-version upgrades and hotfixes
+  above (D272) and O11's open part (which engine versions, the upgrade
+  scenarios' budget); not designed yet.
+- **`check_postgres`** stays the health node's checker for now; a
+  switch to another tool is expected at some point, though it may stay
+  in use with the older versions above from v1.0 (D399).
+- **pgBadger** stays unpinned, the PGDG package at each build (D400).
 
 ## Deferred from v0.5 (D233, D237)
 
@@ -232,9 +258,9 @@ aged run is decided then (D193).
     `fit` re-run;
   - **the clinic's rehearsal**: unattended, with the early check, a
     scheduler killed and resuming, a restart, on two hosts;
-  - **a restart from a hand-over snapshot with a standby** (D352): not
-    built in v0.5, where no game reaches it; `restart.py` clones the
-    standby again after the restore (a base backup leaves out
-    `standby.signal` and the primary's slot), built and proven before
-    v1.0's test if that test takes a snapshot (v0.5 master spec 18.4:
-    whether one is needed and fits).
+  - **a restart from a hand-over snapshot with a standby, on the
+    clinic** (D397): v0.5 builds the restore that brings the standby
+    back streaming, the planted slots and the archive in step, and
+    proves it on a short fixture (its build plan's chunk 28); the
+    clinic's own restart from a snapshot runs only if v1.0's test takes
+    one (v0.5 master spec 18.4: whether one is needed and fits).

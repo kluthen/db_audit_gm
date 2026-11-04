@@ -1,0 +1,11 @@
+# Seed crontab of the v0.5 monitoring fixture (tools/tests, v0.5 chunk 10),
+# the companion's: no cold storage here, so the backup line reads UNKNOWN
+# until G13 (spec D362). Each line's results land on the page (/health/).
+PATH=/usr/local/bin:/usr/bin:/bin
+MAILTO=""
+# the checks (check_postgres over health.yaml), every five minutes
+*/5 * * * * health-run checks
+# the IT's disk alarm on the databases' size: warning at 2 GB, critical at 4 GB
+*/5 * * * * health-run script disk-alarm 2048 4096 records
+# is last night's base backup in cold storage? after the nightly job
+30 6 * * * health-run script backup-there http://cold-storage:8000 records

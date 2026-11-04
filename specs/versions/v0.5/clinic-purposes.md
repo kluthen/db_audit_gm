@@ -538,7 +538,7 @@ inventory. Periodic runs in the aging: none, unless the GM places one
 
 | Id | Statement | Judged | Witness |
 |---|---|---|---|
-| MR1 | Each feeder run since the judged moment holds every supply of its day once, its batch and quantity equal to the source's | runs | about 75 dispensings and 240 administrations a day |
+| MR1 | Each feeder run since the judged moment holds every supply of its day once, its batch and quantity equal to the source's | runs | about 75 dispensings and 210 administrations a day |
 | MR2 | A register line carries the fields of Art 103(3) and no more: no e-mail, no phone | runs | every feeder run with a dispensing |
 | MR3 | Each controlled-drugs feeder run holds every movement of its day once | runs | the anaesthetics of the day's procedures (about three consultations in ten) |
 | MR4 | A month's balance equals the previous closing less the month's movements, per batch | code | the planted months; the 1st's run if the GM places one |

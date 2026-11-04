@@ -1,0 +1,41 @@
+#!/bin/sh
+# disk-alarm: the IT's alarm on the size of the databases (hand-made).
+# Usage: disk-alarm <warning MB> <critical MB> <host> [<host>...]
+# Adds up every database of each host (pg_database_size), as the role
+# monitoring (PGUSER, PGPASSFILE set by health-run). Nagios-style: one line,
+# exit 0 OK, 1 WARNING, 2 CRITICAL, 3 UNKNOWN.
+if [ "$#" -lt 3 ]; then
+    echo "DISK UNKNOWN: usage: disk-alarm <warning MB> <critical MB> <host>..."
+    exit 3
+fi
+warn=$1
+crit=$2
+shift 2
+state=0
+text=
+for h in "$@"; do
+    mb=$(psql -X -A -t -q -h "$h" -d postgres \
+        -c "select (sum(pg_database_size(datname)) / 1048576)::bigint from pg_database" 2>&1)
+    case $mb in
+        ''|*[!0-9]*)
+            text="$text $h: no answer ($(printf '%s' "$mb" | head -n 1 | cut -c1-80));"
+            [ "$state" -eq 0 ] && state=3
+            continue ;;
+    esac
+    if [ "$mb" -ge "$crit" ]; then
+        state=2
+        text="$text $h ${mb} MB (critical at $crit);"
+    elif [ "$mb" -ge "$warn" ]; then
+        [ "$state" -eq 2 ] || state=1
+        text="$text $h ${mb} MB (warning at $warn);"
+    else
+        text="$text $h ${mb} MB;"
+    fi
+done
+case $state in
+    0) echo "DISK OK:${text%;}" ;;
+    1) echo "DISK WARNING:${text%;}" ;;
+    2) echo "DISK CRITICAL:${text%;}" ;;
+    *) echo "DISK UNKNOWN:${text%;}" ;;
+esac
+exit "$state"

@@ -2,8 +2,9 @@
 # gm-reload-grafana and the validator. Sourced, never run.
 # DO NOT TAMPER. Root-owned, read-only.
 #
-# The provisioning files: the five seed files at their live paths, and any
-# other YAML or JSON file players add under /etc/grafana/provisioning.
+# The provisioning files: the five required seed files at their live paths,
+# the optional ones a node seeds (pgwatch.json), and any other YAML or JSON
+# file players add under /etc/grafana/provisioning.
 # The record of the last start or reload (/run/gm-grafana/applied, written
 # by root only, readable by grafana): what Grafana last provisioned from.
 
@@ -16,6 +17,9 @@ dashboards.yaml dashboards/dashboards.yaml
 node-health.json dashboards/node-health.json
 postgresql.json dashboards/postgresql.json
 alert-rules.yaml alerting/alert-rules.yaml'
+# the optional seed files (brick.yaml seed.optional), same form: seeded when
+# the scenario provides them, never reported missing
+PROV_OPTIONAL='pgwatch.json dashboards/pgwatch.json'
 
 # prov_fingerprint: one line identifying the provisioning files as they are
 # now: every *.yaml, *.yml and *.json under $PROV, with its size and time of
@@ -27,12 +31,19 @@ prov_fingerprint() {
 }
 
 # prov_check_files: one line per problem on stdout, nothing when the files
-# are fine. Run it as grafana: a file grafana cannot read is a problem.
+# are fine. Run it as grafana: a file grafana cannot read is a problem. An
+# optional file (PROV_OPTIONAL) may be absent; when present it is checked
+# like any other dashboard file.
 prov_check_files() {
     printf '%s\n' "$PROV_FILES" | while read -r _seed live; do
         if [ ! -e "$PROV/$live" ]; then
             echo "$PROV/$live is missing"
         elif [ ! -f "$PROV/$live" ]; then
+            echo "$PROV/$live is not a regular file"
+        fi
+    done
+    printf '%s\n' "$PROV_OPTIONAL" | while read -r _seed live; do
+        if [ -e "$PROV/$live" ] && [ ! -f "$PROV/$live" ]; then
             echo "$PROV/$live is not a regular file"
         fi
     done

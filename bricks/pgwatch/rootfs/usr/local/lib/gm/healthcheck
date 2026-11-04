@@ -1,0 +1,19 @@
+#!/bin/sh
+# Health check of the db_audit_gm pgwatch node (DO NOT TAMPER).
+# Healthy once pgwatch's Prometheus sink has answered at least once in this
+# container and while sshd is up. Never depends on the databases it
+# watches: the sink answers whether or not a source does. After that first
+# time, pgwatch being down is the game's business (the validator reports
+# it), not a reason for Swarm to replace the container and cut the
+# players' SSH sessions.
+PATH=/command:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+MARK=/run/gm/pgwatch-was-ready
+
+[ "$(s6-svstat -o up /run/service/sshd 2>/dev/null)" = true ] || { echo "sshd is not up"; exit 1; }
+if curl -fsS -o /dev/null -m 3 http://127.0.0.1:9188/metrics 2>/dev/null; then
+    [ -e "$MARK" ] || : > "$MARK"
+    exit 0
+fi
+[ -e "$MARK" ] && exit 0
+echo "pgwatch has not answered yet"
+exit 1

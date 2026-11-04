@@ -39,11 +39,14 @@ has its own release notes.
 | Path | What |
 |---|---|
 | [`tools/gmctl`](tools/gmctl) | The GM's host-side command line: `fit`, `render`, `deploy`, `load-data`, `inject`, `start-load`, `validate`, `check`, `snapshot`, `restart`, `status`, `exec`, `logs`, `teardown` (code in [`tools/gm/`](tools/gm/)) |
+| [`tools/go-sbom`](tools/go-sbom) | Generates (`generate`) and checks (`check`, offline) the CycloneDX SBOMs of the Go binaries the bricks download as release tarballs (Prometheus, promtool, Grafana and its Prometheus data source plugin, postgres_exporter, pgwatch), from the exact archive each Dockerfile pins; the daily cve-watch sweep reads the SBOMs through [`.tech`](.tech)'s `lockfiles`. Kept by the security advisor |
 | [`tools/tests/`](tools/tests/) | Unit tests for `gmctl` and the smoke and rehearsal scripts |
-| [`bricks/`](bricks/) | Node definitions: `postgres` 0.5.0, `bastion` 0.5.0, `scheduler` 0.3.0, `api` 0.1.0, `pgbouncer` 0.1.1, `prometheus` and `postgres-exporter` 0.2.0, `grafana` 0.3.0 |
+| [`bricks/`](bricks/) | Node definitions: `postgres` 0.5.0, `bastion` 0.5.0, `scheduler` 0.3.0, `api` 0.1.0, `pgbouncer` 0.1.1, `prometheus` and `postgres-exporter` 0.2.0, `grafana` 0.3.0, `pgwatch` 0.1.0, `health-check` 0.1.0 |
+| `bricks/<brick>/sbom/` | One CycloneDX SBOM per downloaded Go binary (`<binary>.cdx.json`, written by `tools/go-sbom`): [`prometheus`](bricks/prometheus/sbom/), [`postgres-exporter`](bricks/postgres-exporter/sbom/), [`grafana`](bricks/grafana/sbom/), [`pgwatch`](bricks/pgwatch/sbom/); a bump of a pinned release regenerates them (`tools/tests/test_go_sbom.py` fails until it does) |
 | [`faults/`](faults/) | The fault catalog (29 faults): PostgreSQL configuration and security, monitoring and alerting, scheduler jobs, purposes and governance |
-| [`domains/`](domains/) | Business domains, design-time sources a scenario copies from: `shop` |
-| [`purposes/`](purposes/) | Purposes (what the customer's data is for), design-time sources a scenario copies from: `shop-sales-reporting`, `shop-winback-leads`, `shop-customer-mailing` and `shop-export-declarations` |
+| [`domains/`](domains/) | Business domains: `shop`, `vet-core` (the clinic's medical record and the keys its parts share). The one-domain form (`domain:`) copies a domain into the scenario at design time; a composed scenario (`domains:`) takes its producer fragments through `gmctl compose`, and `load-data` reads its data files from the catalogue at every load |
+| [`partners/`](partners/README.md) | The partners' three shared nodes (`shared/`: the `api` node, the back end and the small database every third party runs on) and cold storage, the vault (`coldstore/`), design-time sources a scenario copies from |
+| [`purposes/`](purposes/) | Purposes (what the customer's data is for): `shop-sales-reporting`, `shop-winback-leads`, `shop-customer-mailing` and `shop-export-declarations`. A scenario copies a purpose's material at design time; a purpose's `history:` (the past periods' outputs planted into its target) is read from the catalogue by `load-data` at every load |
 | [`scenarios/`](scenarios/) | Playable scenario folders, one per released version (table above) |
 | [`post_mortem/`](post_mortem/README.md) | Summaries of 27 public database incident reports. They are source material for future games and end-of-game handouts, not fault definitions |
 | [`specs/`](specs/README.md) | The living specification: concept, platform, formats, decisions, open questions, version pages and the archive |

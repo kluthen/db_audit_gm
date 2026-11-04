@@ -1,0 +1,7 @@
+# Seed sources.yaml of the v0.5 monitoring fixture (tools/tests, v0.5 chunk
+# 10): pgwatch 6.1.0's YAML sources format, one source, records.
+- name: records
+  conn_str: postgresql://monitoring@records:5432/postgres
+  kind: postgres
+  preset_metrics: basic
+  is_enabled: true

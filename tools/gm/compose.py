@@ -123,7 +123,12 @@ def _read_yaml(path, shown):
 
 
 def _brick_id(node):
+    """A node's brick id: from the mapping the loader reads (`brick: {id:
+    api, version: 0.1.0}`, model._check_node), or from the `api@0.1.0`
+    shorthand; None for neither."""
     brick = node.get("brick")
+    if isinstance(brick, dict):
+        return brick.get("id") if isinstance(brick.get("id"), str) else None
     return brick.split("@", 1)[0] if isinstance(brick, str) else None
 
 

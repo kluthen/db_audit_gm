@@ -1,0 +1,236 @@
+#!/bin/sh
+# pgwatch-sources: reads /etc/pgwatch/sources.yaml, the one place the
+# pgwatch settings players may change (v0.5 master spec 7.4; capture W2
+# item 5). DO NOT TAMPER. Root-owned, read-only.
+#
+# Usage:
+#   pgwatch-sources check   print one problem per line, exit 0 if the file
+#                           is valid, 1 if not (the validator, as pgwatch;
+#                           gm-restart-pgwatch, as root)
+#   pgwatch-sources hosts   the host of every enabled source, one a line,
+#                           each once (the service's bounded wait)
+#   pgwatch-sources run     the s6 service `pgwatch`, as root: exit 3
+#                           without starting anything if the file is not
+#                           valid; otherwise write the password file
+#                           /run/gm-pgwatch/pgpass from the secret, wait,
+#                           bounded, for the sources' hosts to resolve, then
+#                           exec pgwatch as `pgwatch`
+#
+# The file is pgwatch 6.1.0's YAML sources format: a list of sources, each
+# a map (name, conn_str, kind, preset_metrics, is_enabled, ...). pgwatch
+# itself parses it: `pgwatch source resolve`, run as pgwatch with nothing
+# but the file, prints `<name>=<conn_str>` for every enabled source and
+# connects to none (for kind postgres). On top of pgwatch's own parsing,
+# the file must be a regular file pgwatch can read, and every enabled
+# source a `postgresql://` URI with a host (capture W2 item 5: the URI
+# form). Problems name sources, never passwords: a conn_str's password,
+# if a player wrote one, is never printed.
+# pgwatch rereads the file every REFRESH seconds while it runs: an edit
+# applies within a minute, or at once through sudo gm-restart-pgwatch.
+set -u
+PATH=/command:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+export PATH
+LC_ALL=C.UTF-8
+export LC_ALL
+
+CONF=/etc/pgwatch/sources.yaml
+SECRET=/opt/gm/secrets/monitoring_password
+RUN_DIR=/run/gm-pgwatch
+PASSFILE=$RUN_DIR/pgpass
+SINK=prometheus://0.0.0.0:9188
+REFRESH=60
+WAIT=30
+
+# resolve: pgwatch's own reading of the file, as pgwatch, in a clean
+# environment; `<name>=<conn_str>` lines on stdout, its error on stderr.
+resolve() {
+    if [ "$(id -u)" = 0 ]; then
+        set -- s6-setuidgid pgwatch
+    else
+        set --
+    fi
+    "$@" /usr/bin/env -i PATH=/usr/bin:/bin HOME=/nonexistent \
+        /usr/local/bin/pgwatch --sources="$CONF" source resolve
+}
+
+# enabled: the names of the sources with is_enabled true, one a line.
+# `pgwatch source resolve` lists every source, enabled or not, while the
+# collector watches only the enabled ones (pgwatch's default is disabled),
+# so the brick reads is_enabled itself: each top-level list item, in block
+# form (`- name: x` then `  key: value` lines) or flow form (`- {name: x,
+# is_enabled: true}`), quotes and comments allowed.
+enabled() {
+    awk '
+        function unq(v) {
+            sub(/^[ \t]+/, "", v); sub(/[ \t]+$/, "", v)
+            if (v ~ /^".*"$/ || v ~ /^\047.*\047$/) v = substr(v, 2, length(v) - 2)
+            return v
+        }
+        function pair(kv,   c, k, v) {
+            c = index(kv, ":"); if (c == 0) return
+            k = unq(substr(kv, 1, c - 1)); v = unq(substr(kv, c + 1))
+            if (k == "name") name = v
+            else if (k == "is_enabled") on = (v == "true" || v == "True" || v == "TRUE")
+        }
+        function flush() { if (item && on && name != "") print name; item = 0; name = ""; on = 0 }
+        {
+            line = $0; sub(/\r$/, "", line)
+            sub(/(^|[ \t])#.*$/, "", line)
+            if (line ~ /^[ \t]*$/) next
+            if (line ~ /^- /) {
+                flush(); item = 1
+                rest = substr(line, 3); sub(/^[ \t]+/, "", rest)
+                if (rest ~ /^\{.*\}$/) {
+                    rest = substr(rest, 2, length(rest) - 2)
+                    n = split(rest, kv, ",")
+                    for (i = 1; i <= n; i++) pair(kv[i])
+                } else pair(rest)
+                next
+            }
+            if (item && line ~ /^[ \t]+[A-Za-z_]+:/) pair(line)
+        }
+        END { flush() }
+    ' "$CONF"
+}
+
+# parse: `ERR <problem>` lines, or `HOST <host>` lines (enabled sources).
+parse() {
+    if [ -L "$CONF" ]; then
+        echo "ERR $CONF is a symbolic link; it must be a regular file"; return
+    elif [ ! -e "$CONF" ]; then
+        echo "ERR $CONF is missing"; return
+    elif [ ! -f "$CONF" ]; then
+        echo "ERR $CONF is not a regular file"; return
+    fi
+    if ! out=$(resolve 2>&1); then
+        # pgwatch prints its usage before the reason: keep the reason
+        reason=$(printf '%s\n' "$out" | grep -v '^Version info:\|^  \|^Usage:\|^[A-Z][A-Za-z ]*:$\|^$' | tail -n 3 | tr '\n' ' ')
+        echo "ERR $CONF is not valid for pgwatch: ${reason:-pgwatch source resolve failed}"
+        return
+    fi
+    on=$(enabled | tr '\n' ' ')
+    printf '%s\n' "$out" | awk -v conf="$CONF" -v on=" $on" '
+        /^Version info:/ || /^  / || /^$/ || /^Usage:/ || /^[A-Z][A-Za-z ]*:$/ { next }
+        {
+            eq = index($0, "=")
+            if (eq == 0) {
+                print "ERR " conf " is not valid for pgwatch: " substr($0, 1, 200)
+                bad = 1; next
+            }
+            name = substr($0, 1, eq - 1)
+            uri = substr($0, eq + 1)
+            if (index(on, " " name " ") == 0) next     # disabled: not watched
+            if (uri !~ /^postgres(ql)?:\/\//) {
+                print "ERR source " name ": conn_str is not a postgresql:// URI (the URI form, capture W2 item 5)"
+                bad = 1; next
+            }
+            rest = uri; sub(/^postgres(ql)?:\/\//, "", rest)
+            sub(/[\/?].*$/, "", rest)          # authority only
+            sub(/^.*@/, "", rest)              # userinfo dropped, never printed
+            host = rest
+            if (host ~ /^\[/) { sub(/\].*$/, "", host); sub(/^\[/, "", host) }
+            else sub(/:[0-9]*$/, "", host)
+            if (host == "" || host ~ /,/) {
+                print "ERR source " name ": conn_str names no single host"
+                bad = 1; next
+            }
+            n++
+            if (!(host in seen)) { seen[host] = 1; hosts[++h] = host }
+        }
+        END {
+            if (bad) exit
+            if (n == 0) { print "ERR no enabled source (is_enabled: true): pgwatch would watch nothing"; exit }
+            for (i = 1; i <= h; i++) print "HOST " hosts[i]
+        }'
+}
+
+out=$(parse)
+problems=$(printf '%s\n' "$out" | sed -n 's/^ERR //p')
+hosts=$(printf '%s\n' "$out" | sed -n 's/^HOST //p')
+
+unresolved() {  # the hosts that do not resolve now, space-separated
+    u=
+    for h in $hosts; do
+        timeout 5 getent ahosts "$h" >/dev/null 2>&1 || u="$u $h"
+    done
+    printf '%s' "${u# }"
+}
+
+case ${1:-} in
+check)
+    [ "$#" -eq 1 ] || { echo "usage: pgwatch-sources check" >&2; exit 2; }
+    if [ -n "$problems" ]; then
+        printf '%s\n' "$problems"
+        exit 1
+    fi
+    exit 0
+    ;;
+hosts)
+    [ "$#" -eq 1 ] || { echo "usage: pgwatch-sources hosts" >&2; exit 2; }
+    [ -z "$problems" ] || exit 1
+    printf '%s\n' "$hosts"
+    exit 0
+    ;;
+run)
+    [ "$#" -eq 1 ] || { echo "usage: pgwatch-sources run" >&2; exit 2; }
+    say() { printf 'pgwatch-run: %s\n' "$*" >&2; }
+    if [ -n "$problems" ]; then
+        printf '%s\n' "$problems" | sed 's/^/pgwatch: NOT started: /' >&2
+        exit 3
+    fi
+    # The password file, owner-only, from the secret at every start
+    # (capture W1 item 0): libpq reads it through PGPASSFILE, so no
+    # password is in the sources file, pgwatch's arguments or environment.
+    # `:` and `\` escaped as libpq's .pgpass format requires.
+    pw=$(cat "$SECRET") || { say "cannot read the secret monitoring_password"; exit 3; }
+    esc=$(printf '%s' "$pw" | sed 's/[\\:]/\\&/g')
+    umask 077
+    printf '*:*:*:monitoring:%s\n' "$esc" > "$PASSFILE.new" \
+        && chown pgwatch:pgwatch "$PASSFILE.new" && chmod 0600 "$PASSFILE.new" \
+        && mv -f "$PASSFILE.new" "$PASSFILE" || { say "cannot write $PASSFILE"; exit 3; }
+    unset pw esc
+    # Bounded wait for the sources' hosts (the pgbouncer lesson, v0.4 spec
+    # D305; v0.5 spec D356): pgwatch starts once they all resolve, or at
+    # the bound whether they do or not. A host that does not resolve yet
+    # is then a failed fetch (pgwatch_instance_up 0), retried at every
+    # sources refresh, never a node kept down.
+    list=$(printf '%s' "$hosts" | tr '\n' ' ')
+    start=$(date +%s)
+    left=$(unresolved)
+    if [ -z "$left" ]; then
+        say "sources' hosts resolve: $list"
+    else
+        say "waiting up to ${WAIT}s for sources' hosts to resolve: $left"
+        while [ -n "$left" ] && [ $(($(date +%s) - start)) -lt "$WAIT" ]; do
+            sleep 1
+            left=$(unresolved)
+        done
+        took=$(($(date +%s) - start))
+        if [ -z "$left" ]; then
+            say "sources' hosts resolve after ${took}s: $list"
+        else
+            say "still not resolving after ${took}s: $left; pgwatch starts anyway (retried every ${REFRESH}s)"
+        fi
+    fi
+    say "starting: sources $CONF, sink $SINK/metrics, web interface and REST API off"
+    # A clean environment: no PW_* variable reaches pgwatch. Its web
+    # interface and REST API are off (--web-disable=all: nothing on 8080);
+    # no --create-helpers, no --try-create-listed-exts-if-missing: nothing
+    # is created in the watched databases (G9). The emergency pause file
+    # lives where pgwatch cannot create it (the default is under /tmp).
+    exec s6-setuidgid pgwatch /usr/bin/env -i \
+        PATH=/usr/bin:/bin \
+        HOME=/nonexistent \
+        PGPASSFILE="$PASSFILE" \
+        /usr/local/bin/pgwatch \
+        --sources="$CONF" \
+        --refresh="$REFRESH" \
+        --sink="$SINK" \
+        --web-disable=all \
+        --emergency-pause-triggerfile="$RUN_DIR/emergency-pause"
+    ;;
+*)
+    echo "usage: pgwatch-sources check | hosts | run" >&2
+    exit 2
+    ;;
+esac

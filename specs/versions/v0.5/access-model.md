@@ -4,7 +4,11 @@ Status: **approved by the owner on 2026-11-03 with the
 [master spec](master-spec.md) it accompanies**, every point of its
 review as recommended, the partners' refusals and the portal's answers
 among them; the monitoring breadth's rows written in from the same
-ruling (5). Revises the [v0.4 access model](../v0.4/access-model.md),
+ruling (5). Amended on 2026-11-04 after chunk 11, a wording made
+exact against what was built: the GM check role is kept off the
+partners' database from the network, and reads it on its node (8; spec
+D383); and a known gap added, the partner credentials the starter pack
+hands over, kept and tracked (13; spec D395, O231). Revises the [v0.4 access model](../v0.4/access-model.md),
 which it replaces for v0.5 games; "Changes from v0.4" at the end lists
 what moved.
 
@@ -301,10 +305,13 @@ denials have no effect.
 - **The GM check role** (`gm_check`) keeps v0.4's reads, on every
   instance in the players' scope, the standby (by replication) and
   `machines`' three databases included (`CONNECT` granted by
-  `load-data`). It is not admitted to the partners' database; the GM's
+  `load-data`). It is not admitted to the partners' database from the
+  network (its `pg_hba.conf` has no `host` line for it); the GM's
   checks read the partners' side through the GM's own plane (the exec
-  operation on the partners' nodes, cold storage's manifests), as
-  evidence only.
+  operation on the partners' nodes, over that node's own socket; cold
+  storage's manifests), as evidence only. So does the setup: a
+  coherence check reading the partners' side runs on the partners'
+  node, reading the customer's databases from there (spec D383).
 - **Elevation on a node** is v0.4's: the `sudo` wrappers for `player`
   (reload, restart, validate, `gm-crontab`), and on an `api` node a
   reload of the `db/` side. None exists on the partners' nodes.
@@ -529,12 +536,16 @@ be inferred; the web front on plain HTTP. Added:
   nothing but the code enforces them.
 - **The health node's status page has no login** beyond the web
   front's tools password, as Prometheus has none.
+- **The starter pack hands over the customer's own partner credentials**
+  (3, `documented-call` in 6; D365): kept as is and tracked (O231). A
+  player reporting it as odd makes a plausible, reasonable finding.
 
 ## 14. Changes from v0.4
 
 - **Actors**: unchanged. The GM gains the composition, the coherence
   check, the standby's clone and the register's generation; the GM check
-  role reaches every instance in scope, not the partners'.
+  role reaches every instance in scope, not the partners' from the
+  network (8).
 - **New resources**: composition and the register; the `api` nodes'
   `routes/` and `db/`; the standby; partners' public interfaces, cold
   storage's endpoints, the partners' nodes; `partners.md` and the data

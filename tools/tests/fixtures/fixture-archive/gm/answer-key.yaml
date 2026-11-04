@@ -1,0 +1,25 @@
+# Answer key of the archive fixture (tools/tests, v0.5 chunk 11b).
+scenario:
+  id: fixture-archive
+  version: 0.1.0
+notes: gm/notes.md
+
+instances:
+  - instance: f1
+    what: the nightly base backup's log is written and never read.
+    why: a failed base backup goes unnoticed until the vault's page shows a missing day.
+    evidence:
+      - where: node:records
+        source: the base-backup job's log
+        how: ssh records, then cat /var/log/postgresql/cron/basebackup.log
+        shows: one line a night, read by no check or alert
+    acceptable:
+      diagnosis: names the base backup as unmonitored, its log read by nothing.
+    sealed_check:
+      script: faults/fixture-basebackup-log-unread/checks/fixed.sh
+      at_handover: 1
+      notes: report-only; the scenario's own fault (faults/ in the fixture folder).
+    interactions: []
+    validators_left_red: []
+
+tooling_expectations: []           # none in this scenario

@@ -3,7 +3,9 @@
 Status: draft v3, ruled, its stale passages corrected to the master
 spec at approval (R16, D339). **Approved by the owner on 2026-11-03 with
 v0.5's [master spec](master-spec.md)** (procedure step 9, D339), which
-wins where the two disagree.
+wins where the two disagree. Amended in wave 2 of the build
+(2026-11-04): the carers by section, a care event's carer not matched
+against the rota (D394).
 Steps 1 to 9 drafted in one pass on 2026-11-03 at the owner's instruction
 ("start an agent for each part, and let them come back with problems
 once they're done"); the same day the owner accepted the recommendations
@@ -400,7 +402,7 @@ placements stay the one place that says it (one fact, one place).
 | `housing_units.id` | 1–64 | 1–22 the horse section (1–2 isolation, 3–4 intensive care, 5–22 boxes; 15 out of service); 23–32 the farm section (23 isolation pen, 24–28 stalls, 29–32 pens); 33–64 the domestic section (33 isolation kennel, 34 isolation cage, 35–40 intensive-care cages, 41–54 kennels, 55–64 cages; 50 out of service) |
 | `housing_displays.id` | 1–66 | display `u` on unit `u`; 65 and 66 replaced those of units 7 and 41 during the year, displays 7 and 41 removed |
 | History | `housing_placements`, `housing_feeding_plans`, `housing_care_events` as loaded, in time order | each sequence set after its last id |
-| Core keys used | `stay_id` 1–2 500, each stay's animal, section, admission, end and outcome; the animal's species; the infectious alerts current on a stay; `section_id` 1–3; staff by the core's layout (nurses among 29–51, carers and grooms 57–66, D324) | computed by the core's documented functions, never read (D249, D322) |
+| Core keys used | `stay_id` 1–2 500, each stay's animal, section, admission, end and outcome; the animal's species; the infectious alerts current on a stay; `section_id` 1–3; staff by the core's layout (nurses among 29–51, carers and grooms 57–66, by section 57–60 horse, 61–62 farm, 63–66 domestic, D324, D394) | computed by the core's documented functions, never read (D249, D322) |
 
 No part refers to housing's ids, so nothing beyond the units needs a
 documented layout.
@@ -654,7 +656,8 @@ core's does without a curve of its own:
 - each placement's care log, day by day, by the rates above: the
   species' meals at its rounds (none while nil by mouth), a check every
   four hours, the care day's other actions, times and carers by hashes
-  of the placement's id and the day;
+  of the placement's id and the day (a carer of the unit's section, not
+  matched against the rota, D394);
 - the two out-of-service units out since a week before T0; the two
   replaced displays swapped mid-year.
 

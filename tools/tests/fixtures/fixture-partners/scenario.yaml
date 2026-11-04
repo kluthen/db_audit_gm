@@ -1,0 +1,246 @@
+# Partners fixture of v0.5 (build plan chunk 11a; capture W2 items 0 and 6,
+# W2-f, of specs/versions/v0.5/wave-log.md). Not a game: the three shared
+# partner nodes as master spec 10.2 builds them (partners-api, one api node
+# serving every partner under its hostname; partners-backend, the merged back
+# end and its hidden schedule; partners-db, the small database holding each
+# partner's tables and role), from the catalogue's partners/shared/, with two
+# sample partners, alpha (hostname alpha-lab) and beta (beta-lab), and the
+# bastion. alpha is made slow from T0 by its misbehaviour key (alpha.slow,
+# placed standing: a timeline change of its stream alpha.normal at T0) while
+# beta answers in time. Deployed by its short test,
+# tools/tests/fixtures/fixture-partners/run-short-test.sh, which measures one
+# partner's slow answers against the other's and the pg_hba.conf form on one
+# Swarm network; loaded and rendered by tools/tests/test_partners.py. One
+# fault instance (f1), the partner's slowness itself, report only.
+
+# --- Scenario information --------------------------------------------
+id: fixture-partners
+version: 0.1.0
+title: Partners fixture, the three shared partner nodes with two sample partners
+date: 2026-11-04
+origin: hand-written
+session_length_minutes: 60
+brief: brief.md
+background: >-
+  A clinic works with two outside laboratories, Alpha and Beta, each
+  answering under its own hostname; the clinic's staff ask both for their
+  status during the day.
+
+# --- Aging and difficulty ---------------------------------------------
+aging:
+  minimum: 8h                       # the floor (master spec 8.2); the short test never ages it
+  handover_at: "14:00"
+difficulty:
+  score: 1                          # its one fault instance (master spec 15.1)
+  level: easy
+
+# --- Third parties (v0.5 master spec 6.2, 10) ----------------------------
+third_parties:
+  - id: alpha-lab
+    name: Alpha Laboratories
+    stands_for: an outside laboratory, a sample partner
+    role: inbound
+    nodes: [partners-api, partners-backend, partners-db]
+    hostname: alpha-lab
+    player_doc: player/partners.md#alpha-laboratories
+  - id: beta-lab
+    name: Beta Laboratories
+    stands_for: an outside laboratory, a sample partner
+    role: inbound
+    nodes: [partners-api, partners-backend, partners-db]
+    hostname: beta-lab
+    player_doc: player/partners.md#beta-laboratories
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: backend
+    description: every node's traffic, the partners' included (one network, spec D275)
+
+nodes:
+  - name: bastion
+    brick:
+      id: bastion
+      version: 0.5.0
+    role: bastion
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters:
+      web_routes: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.1
+        memory: 96M
+        disk: 256M
+    published_ports:
+      - port: 22
+        default: 2222
+      - port: 8080
+        default: 8080
+    seed_files:
+      README.md: player/README.md
+      story.md: player/story.md
+      issues.md: player/issues.md
+    knobs: []
+
+  # --- The partners' three shared nodes (partners/shared/nodes.yaml) -----
+  - name: partners-api
+    brick:
+      id: api
+      version: 0.1.0
+    role: api
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 128M
+        disk: 64M
+    published_ports: []
+    seed_files:
+      api.yaml: nodes/partners-api/api.yaml
+      routes/: nodes/partners-api/routes/
+      db/: nodes/partners-api/db/
+    knobs: []
+
+  - name: partners-backend
+    brick:
+      id: scheduler
+      version: 0.3.0
+    role: producer
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/partners-backend/queries.yaml
+      jobs.yaml: nodes/partners-backend/jobs.yaml
+      schedule.yaml: nodes/partners-backend/schedule.yaml
+    knobs: []
+
+  - name: partners-db
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.25
+        memory: 256M
+        disk: 512M
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/partners-db/postgresql.conf
+      pg_hba.conf: nodes/partners-db/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 32MB
+        envelope:
+          min: 32MB
+          max: 64MB
+      - setting: work_mem
+        initial: 4MB
+        envelope:
+          min: 1MB
+          max: 16MB
+      - setting: maintenance_work_mem
+        initial: 32MB
+        envelope:
+          min: 16MB
+          max: 64MB
+      - setting: max_connections
+        initial: 40
+        envelope:
+          min: 20
+          max: 60
+      - setting: max_wal_size
+        initial: 256MB
+        envelope:
+          min: 64MB
+          max: 512MB
+      - setting: autovacuum
+        initial: 'on'
+        envelope:
+          allowed: ['on']
+    data:
+      file: data/partners-db.sql
+      databases:
+        - name: partners
+          owner: postgres
+          tables:
+            - name: alpha.state
+              description: alpha's state, read by its routes at each request (hostname, name, value, set_at); its baseline planted, delay_ms 0
+            - name: beta.state
+              description: beta's state, as alpha's
+
+flows:
+  - from: bastion
+    to: partners-api
+    what: nothing (the partners are out of reach); a player may call a partner's public status
+    how: http 8000
+    cadence: interactive
+  - from: partners-backend
+    to: partners-db
+    what: each partner's misbehaviour key, its stream alpha.normal or beta.normal, as the partner's role
+    how: postgresql 5432
+    cadence: 1 a minute per partner
+  - from: partners-backend
+    to: partners-api
+    what: each partner's tick, under its hostname, with the credential partners_backend
+    how: http 8000
+    cadence: 6 a minute per partner
+  - from: partners-api
+    to: partners-db
+    what: each partner's state, read at each request, as the partner's role
+    how: postgresql 5432
+    cadence: per request
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:
+  - id: f1
+    fault:
+      id: fixture-partner-slow
+      version: 0.1.0
+    node: partners-backend
+    parameters: {}
+    visibility: hidden
+
+issues: []
+
+# --- Host topology it was designed for -------------------------------
+designed_for:
+  platform: swarm
+  hosts:
+    - name: host-1
+      cpu: 2
+      memory: 4G
+      disk: 20G
+  placement:
+    bastion: host-1
+    partners-api: host-1
+    partners-backend: host-1
+    partners-db: host-1

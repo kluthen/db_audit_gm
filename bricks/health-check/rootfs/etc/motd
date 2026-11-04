@@ -1,0 +1,12 @@
+
+  db_audit_gm -- health node (check_postgres, the customer's scripts, a status page)
+
+  Instances:      /etc/health/health.yaml   (the databases checked, as monitoring)
+  Scripts:        /etc/health/scripts/      (the customer's own, Nagios-style)
+  Schedule:       sudo gm-crontab -l        postgres's crontab (sudo gm-crontab <file> replaces it)
+  Run now:        sudo gm-run-checks        the checks, at once
+  Page:           http://localhost:8080/health/  (status.txt beside it)
+                  from your browser: the bastion's web front, /health/
+  Check:          sudo gm-validate          public validator
+
+  DO NOT TAMPER with SSH, sudo, the gm-* wrappers, health-run or the validator.

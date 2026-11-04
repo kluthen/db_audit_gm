@@ -1,0 +1,291 @@
+# vet-core's classification (v0.5 master spec 9.2; vet-core-domain.md,
+# "Classification", ruled D280): every column of every table and view of the
+# core's database, schema public, keyed <table>.<column> without the database
+# (v0.5 master spec 6.1): the scenario's copy adds it (clinic.<table>.<column>).
+# The domain classifies; a scenario's governance: states each class's rules.
+#
+# Classes (v0.4's three, as the shop applies them):
+#   personal         a direct identifier, or a person's id stored beside one:
+#                    owners' identity and contacts; staff and referring vets'
+#                    id, name, e-mail; an animal's natural identifiers
+#                    (microchip, UELN, passport number, ear tag) and a herd's
+#                    holding number, which lead to the owner or keeper through
+#                    the national registries, and the id beside them; an
+#                    inbound exchange's partner_patient summary, which may name
+#                    the owner;
+#   customer-linked  the customer is the owner: an animal's or a herd's id
+#                    with no identifier beside it, the ownerships' keys, a
+#                    herd's keeper, a dispensing's owner;
+#   internal         everything else: sites, sections, the reference tables,
+#                    the medical content (findings, diagnoses, procedures,
+#                    doses), the animals' species, breed, name and food-chain
+#                    status, a staff id or a referring vet's id as the clinic's
+#                    work record. Animal health is no special category (O112).
+# Two traps follow (docs/gm.md, "The traps"): free text (findings, an alert,
+# a referral's reason) may name the owner, though classed internal; and the
+# board the displays read must carry no natural identifier.
+columns:
+  # business_settings
+  business_settings.timezone: internal
+  business_settings.utc_offset_hours: internal
+  business_settings.company: internal
+  business_settings.retention_years: internal
+
+  # sites
+  sites.id: internal
+  sites.code: internal
+  sites.name: internal
+  sites.country: internal
+  sites.kind: internal
+
+  # sections
+  sections.id: internal
+  sections.site_id: internal
+  sections.kind: internal
+
+  # staff
+  staff.id: personal
+  staff.name: personal
+  staff.email: personal
+  staff.kind: internal
+  staff.section_id: internal
+  staff.specialty: internal
+  staff.started_on: internal
+  staff.left_on: internal
+
+  # owners
+  owners.id: personal
+  owners.kind: internal
+  owners.name: personal
+  owners.email: personal
+  owners.phone: personal
+  owners.address: personal
+  owners.country: personal
+  owners.registered_at: internal
+
+  # herds
+  herds.id: personal
+  herds.keeper_owner_id: customer-linked
+  herds.holding_number: personal
+  herds.site_id: internal
+
+  # animals
+  animals.id: personal
+  animals.species: internal
+  animals.breed: internal
+  animals.sex: internal
+  animals.born_on: internal
+  animals.name: internal
+  animals.food_chain: internal
+  animals.food_chain_excluded_on: internal
+  animals.food_chain_excluded_by: internal
+  animals.herd_id: internal
+  animals.microchip: personal
+  animals.ueln: personal
+  animals.passport_number: personal
+  animals.ear_tag: personal
+  animals.registered_at: internal
+  animals.status: internal
+  animals.died_at: internal
+  animals.death_kind: internal
+
+  # ownerships
+  ownerships.animal_id: customer-linked
+  ownerships.owner_id: customer-linked
+  ownerships.role: internal
+  ownerships.from_at: internal
+  ownerships.until_at: internal
+
+  # referring_practices
+  referring_practices.id: internal
+  referring_practices.name: internal
+  referring_practices.address: internal
+  referring_practices.country: internal
+  referring_practices.email: internal
+
+  # referring_vets
+  referring_vets.id: personal
+  referring_vets.practice_id: internal
+  referring_vets.name: personal
+  referring_vets.email: personal
+
+  # referrals
+  referrals.id: internal
+  referrals.animal_id: customer-linked
+  referrals.referring_vet_id: internal
+  referrals.site_id: internal
+  referrals.received_at: internal
+  referrals.reason: internal
+  referrals.state: internal
+  referrals.decided_at: internal
+  referrals.report_sent_at: internal
+
+  # stays
+  stays.id: internal
+  stays.animal_id: customer-linked
+  stays.site_id: internal
+  stays.section_id: internal
+  stays.admitting_vet_id: internal
+  stays.reason: internal
+  stays.admitted_at: internal
+  stays.discharged_at: internal
+  stays.outcome: internal
+  stays.transferred_to_site_id: internal
+
+  # consultations
+  consultations.id: internal
+  consultations.animal_id: customer-linked
+  consultations.herd_id: customer-linked
+  consultations.site_id: internal
+  consultations.section_id: internal
+  consultations.vet_id: internal
+  consultations.kind: internal
+  consultations.referral_id: internal
+  consultations.stay_id: internal
+  consultations.booking_id: internal
+  consultations.started_at: internal
+  consultations.ended_at: internal
+  consultations.findings: internal
+  consultations.state: internal
+  consultations.signed_at: internal
+
+  # diagnosis_codes
+  diagnosis_codes.code: internal
+  diagnosis_codes.label: internal
+  diagnosis_codes.species_group: internal
+  diagnosis_codes.notifiable: internal
+
+  # diagnoses
+  diagnoses.id: internal
+  diagnoses.consultation_id: internal
+  diagnoses.code: internal
+  diagnoses.confirmed: internal
+  diagnoses.recorded_at: internal
+
+  # procedures
+  procedures.id: internal
+  procedures.consultation_id: internal
+  procedures.stay_id: internal
+  procedures.code: internal
+  procedures.lead_staff_id: internal
+  procedures.anaesthesia: internal
+  procedures.performed_at: internal
+
+  # requests
+  requests.id: internal
+  requests.consultation_id: internal
+  requests.animal_id: customer-linked
+  requests.kind: internal
+  requests.code: internal
+  requests.requested_by: internal
+  requests.priority: internal
+  requests.requested_at: internal
+  requests.state: internal
+  requests.sent_at: internal
+  requests.resulted_at: internal
+  requests.cancelled_at: internal
+
+  # alerts
+  alerts.id: internal
+  alerts.animal_id: customer-linked
+  alerts.kind: internal
+  alerts.text: internal
+  alerts.from_at: internal
+  alerts.until_at: internal
+
+  # exchanges
+  exchanges.id: internal
+  exchanges.direction: internal
+  exchanges.kind: internal
+  exchanges.partner_site_id: internal
+  exchanges.animal_id: customer-linked
+  exchanges.partner_patient: personal
+  exchanges.stay_id: internal
+  exchanges.reason: internal
+  exchanges.exchange_key: internal
+  exchanges.requested_at: internal
+  exchanges.sent_at: internal
+  exchanges.state: internal
+  exchanges.accepted_for: internal
+  exchanges.answered_at: internal
+  exchanges.report: internal
+  exchanges.reported_at: internal
+
+  # medicines
+  medicines.id: internal
+  medicines.name: internal
+  medicines.authorisation_number: internal
+  medicines.atcvet_code: internal
+  medicines.form: internal
+  medicines.antimicrobial: internal
+  medicines.controlled: internal
+  medicines.meat_withdrawal_days: internal
+  medicines.milk_withdrawal_days: internal
+  medicines.food_chain_horse_allowed: internal
+
+  # medicine_batches
+  medicine_batches.id: internal
+  medicine_batches.medicine_id: internal
+  medicine_batches.batch_number: internal
+  medicine_batches.site_id: internal
+  medicine_batches.expires_on: internal
+  medicine_batches.quantity_received: internal
+
+  # prescriptions
+  prescriptions.id: internal
+  prescriptions.consultation_id: internal
+  prescriptions.animal_id: customer-linked
+  prescriptions.herd_id: customer-linked
+  prescriptions.vet_id: internal
+  prescriptions.issued_at: internal
+  prescriptions.valid_until: internal
+  prescriptions.state: internal
+
+  # prescription_lines
+  prescription_lines.id: internal
+  prescription_lines.prescription_id: internal
+  prescription_lines.medicine_id: internal
+  prescription_lines.dose: internal
+  prescription_lines.unit: internal
+  prescription_lines.frequency_hours: internal
+  prescription_lines.days: internal
+  prescription_lines.cascade: internal
+  prescription_lines.meat_withdrawal_days: internal
+  prescription_lines.milk_withdrawal_days: internal
+  prescription_lines.withdrawal_ends_on: internal
+
+  # administrations
+  administrations.id: internal
+  administrations.animal_id: customer-linked
+  administrations.stay_id: internal
+  administrations.prescription_line_id: internal
+  administrations.medicine_id: internal
+  administrations.batch_id: internal
+  administrations.quantity: internal
+  administrations.scheduled_at: internal
+  administrations.given_at: internal
+  administrations.given_by: internal
+  administrations.state: internal
+
+  # dispensings
+  dispensings.id: internal
+  dispensings.prescription_line_id: internal
+  dispensings.batch_id: internal
+  dispensings.quantity: internal
+  dispensings.owner_id: customer-linked
+  dispensings.dispensed_by: internal
+  dispensings.dispensed_at: internal
+
+  # animal_board (view)
+  animal_board.animal_id: customer-linked
+  animal_board.name: internal
+  animal_board.species: internal
+  animal_board.breed: internal
+  animal_board.sex: internal
+  animal_board.stay_id: internal
+  animal_board.section_id: internal
+  animal_board.admitted_at: internal
+  animal_board.alerts: internal
+  animal_board.doses_today: internal
+  animal_board.doses_given_today: internal
+  animal_board.next_dose_at: internal

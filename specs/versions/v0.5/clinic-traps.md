@@ -174,7 +174,7 @@ moved (D132).
 | # | Trap | Where it bites | Witness | Fixed on | Catalogue | Class |
 |---|---|---|---|---|---|---|
 | T64 | The medicines feeder joining administrations through prescription lines twice | supplies counted twice in the register (MR1) | the feeder's day against the source, each night | the feeder's query | new | M |
-| T65 | Administrations in hospital left out (dispensings only) | the register short of most of its lines (MR1) | about 240 lines missing a day | the feeder's query | new | V |
+| T65 | Administrations in hospital left out (dispensings only) | the register short of most of its lines (MR1) | about 210 lines missing a day | the feeder's query | new | V |
 | T66 | A feeder's day in UTC | supplies around midnight in the wrong day, or missing | the day's lines against the source at a non-zero shift | the feeder's query | adapts `purpose-day-boundary-wrong-zone` | M |
 | T67 | The owner's e-mail and phone copied into `office` (MR2) | personal data beyond the register's rule | the register's columns, each night | the feeder's query | adapts `governance-personal-copied` | M |
 | T68 | A controlled medicine (ketamine) not flagged, planted in the history and carried forward | its movements absent from the controlled register for the year and every day since | the controlled feeder's day against the anaesthetics given, each night | `medicines.controlled`, then the feeder's next run | new | V |

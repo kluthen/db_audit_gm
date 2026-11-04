@@ -1,0 +1,25 @@
+# Answer key of the alias fixture (tools/tests, v0.5 chunk 7).
+scenario:
+  id: fixture-alias
+  version: 0.1.0
+notes: gm/notes.md
+
+instances:
+  - instance: f1
+    what: the caller polls the laboratory's status endpoint every second.
+    why: a status needs a call a minute at most; the laboratory sees sixty.
+    evidence:
+      - where: node:caller
+        source: the scheduler's log, its minute summaries
+        how: ssh caller, then grep 'key=xlab.status' /var/log/scheduler/scheduler.log
+        shows: sixty status calls a minute
+    acceptable:
+      diagnosis: names the status polling as far more frequent than a status needs.
+    sealed_check:
+      script: faults/fixture-status-every-second/checks/fixed.sh
+      at_handover: 1
+      notes: report-only; the scenario's own fault (faults/ in the fixture folder).
+    interactions: []
+    validators_left_red: []
+
+tooling_expectations: []           # none in this scenario

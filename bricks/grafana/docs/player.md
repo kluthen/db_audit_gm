@@ -41,6 +41,7 @@ in a row also lock the `admin` account for a few minutes.
   | `dashboards/dashboards.yaml` | where Grafana looks for dashboard files |
   | `dashboards/node-health.json` | the node-health dashboard (every node's CPU, memory, disk and services) |
   | `dashboards/postgresql.json` | the PostgreSQL dashboard |
+  | `dashboards/pgwatch.json` | the pgwatch dashboard (each database as pgwatch sees it); only on games with a pgwatch node |
   | `alerting/alert-rules.yaml` | the alert rules |
 
   On some games these files are read-only: an edit gets "permission
@@ -68,8 +69,8 @@ You may run exactly two commands with `sudo`, with no arguments:
 something is wrong it prints one `RED ...` line per broken rule and exits
 1. It checks that:
 
-- the five provisioning files are in place, readable by Grafana, and the
-  dashboard files are valid JSON;
+- the provisioning files are in place (`pgwatch.json` only where the game
+  has it), readable by Grafana, and the dashboard files are valid JSON;
 - Grafana answers, under `/grafana/`;
 - Grafana runs the files as they are now: the last reload succeeded, every
   dashboard file is loaded, and no file changed since (otherwise reload).

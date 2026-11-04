@@ -1,0 +1,6 @@
+# The test part's axes in its core's variant small (tools/tests, v0.5 chunk 8).
+scale:
+  population: {documents: 6}
+  history: {days: 6}
+  throughput: {documents_per_day: 1}
+purposes: []

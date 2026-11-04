@@ -12,7 +12,9 @@ capture W2-A, the Python interface by capture W2-B. In order:
    each role a scheduler's schedule or a node's `crontab_roles` names
    (v0.3 capture W1 item 7, v0.4 W1 item 8), once per role per game; from
    v0.5 (capture W1 item 6) the game's TLS certificate and key, made with
-   the host's `openssl` as `ssh-keygen` makes the key pairs;
+   the host's `openssl` as `ssh-keygen` makes the key pairs, and (W2 item
+   2, spec D347) an `http_<credential>` password per HTTP credential a
+   node sends or checks, once per credential per game, not handed over;
 3. every config and secret of `implementation.yaml` is created, named after
    the game id and labelled with it (the stack file refers to them as
    external, spec D46);
@@ -408,9 +410,11 @@ def generate_credentials(ldir, impl, keygen=ssh_keygen, certgen=openssl_certific
     """Fresh per-game secrets in `secrets/` (directory 0700, files 0600),
     by kind (v0.2 capture W1, item 7), for every secret of the
     implementation: a password, handed over (16 characters, the players'
-    alphabet) or not (32, the dba alphabet), writes `<name>`; a key pair
-    (ed25519, no passphrase) writes `<pair>` and `<pair>.pub`, once however
-    many halves are declared; a certificate (v0.5 W1 item 6) writes
+    alphabet) or not (32, the dba alphabet: a role's `role_<role>_password`
+    and, v0.5 W2 item 2, an HTTP credential's `http_<credential>`), writes
+    `<name>`; a key pair (ed25519, no passphrase) writes `<pair>` and
+    `<pair>.pub`, once however many halves are declared; a certificate
+    (v0.5 W1 item 6) writes
     `<pair>.crt` and `<pair>.key`, once, naming certificate_names. Returns
     the paths written."""
     sdir = localimpl.secrets_dir(ldir)

@@ -4,7 +4,15 @@ Status: draft v11, the draft document of procedure step 9, its stale
 passages corrected to the master spec at approval (R16, D339).
 **Approved by the owner on 2026-11-03 with v0.5's
 [master spec](master-spec.md)** (procedure step 9, D339), which wins
-where the two disagree. Steps 2 to 8 are done: the business sketch ruled (D266, D278), its first
+where the two disagree. Amended in wave 2 of the build (2026-11-04):
+the key functions, their set, signatures and returns, and
+`core_request`'s contract (D374, D375, D378, D379); the identifiers'
+species and codes (D379); the code catalogues their parts' (D372,
+D373); the weekend cover and the absences in `core_shifts` (D384,
+D388), the requests per consultation (D385), draws from an id without
+a period (D386), `MINH`'s line, the inbound exchanges and `given_by`
+(D389–D391), the load's expected time (D387); the administrations'
+volume and the round's dosing (D393), the carers by section (D394). Steps 2 to 8 are done: the business sketch ruled (D266, D278), its first
 answer revised by one centre per scenario (D285); the split confirmed
 (D279), the parts one centre's (D293); the data model current at one
 centre's scale (D279, D280, D295), `requests` revised by `vet-lab`'s
@@ -134,7 +142,7 @@ the shop holds about 1.3 million rows, the core stays well under it.
 **History**: one year of a clinic that grew through it (D279): each
 daily volume ramps from about 60 % of today's rate a year ago up to
 today's, so the year holds about 25 000 consultations, 15 000
-prescriptions (37 000 lines) and 70 000 administrations, and the
+prescriptions (37 000 lines) and about 60 000 administrations (D393), and the
 players can see the growth in the data.
 
 **Throughput**, in real-world rates during the game:
@@ -144,7 +152,7 @@ players can see the growth in the data.
 | Consultations | about 85 a day, 10 of them emergencies |
 | New owners, new animals | about 13 and 20 a day |
 | New referring practices | a few a month |
-| Administrations | about 240 a day: 40 animals, a dose every four to eight hours |
+| Administrations | about 210 a day: 40 animals, each active line's doses at its frequency, every 4, 12 or 24 hours (D393) |
 | Prescriptions | about 50 a day |
 
 **A few stand for many** (D263), read for one centre: the centre is
@@ -429,26 +437,128 @@ cite ([procedure](domain-procedure.md) 10).
 |---|---|---|
 | `sites.id` | 1–6 | 1 the centre (`own`), 2–3 the other national centres, 4–6 abroad |
 | `sections.id` | 1–3 | 1 horse, 2 farm, 3 domestic, all the centre's |
-| `staff.id` | 1–85 | one layout (D324, D327): 1–25 the sections' vets (1–10 horse, 11–17 farm, 18–25 domestic, eight instead of eleven so the imaging staff fit, specialties by id); 26–28 vets, specialty diagnostic imaging (`vet-machinery`'s reporters); 29–51 the sections' nurses and technicians (kind and section by id); 52–55 radiographers and 56 the biomedical engineer (`kind` `technician`); 57–66 carers and grooms (`kind` `carer`); 67–70 receptionists; 71–78 the lab's technicians (`kind` `lab`), 79–80 its clinical pathologists (`kind` `vet`, specialty clinical pathology, D302); 81–85 instructors. Kind, section and specialty a function of the id; the night vet rotates over 1–25, the imaging vets 26–28 keeping their own on-call ([vet-scheduling](vet-scheduling-domain.md)'s rota, D339) |
+| `staff.id` | 1–85 | one layout (D324, D327): 1–25 the sections' vets (1–10 horse, 11–17 farm, 18–25 domestic, eight instead of eleven so the imaging staff fit, specialties by id); 26–28 vets, specialty diagnostic imaging (`vet-machinery`'s reporters); 29–51 the sections' nurses and technicians (kind and section by id); 52–55 radiographers and 56 the biomedical engineer (`kind` `technician`); 57–66 carers and grooms (`kind` `carer`; 57–60 horse, 61–62 farm, 63–66 domestic, D394); 67–70 receptionists; 71–78 the lab's technicians (`kind` `lab`), 79–80 its clinical pathologists (`kind` `vet`, specialty clinical pathology, D302); 81–85 instructors. Kind, section and specialty a function of the id; the night vet rotates over 1–25, the imaging vets 26–28 keeping their own on-call ([vet-scheduling](vet-scheduling-domain.md)'s rota, D339) |
 | `owners.id` | 1–10 000 | 1 the clinic (the teaching animals, below); 2–201 holdings; 202–901 horse owners and stables; 902–10 000 pet owners |
 | `herds.id` | 1–200 | herd `h` kept by owner `h + 1` |
 | `animals.id` | 1–17 000 | 1–14 600 domestic; 14 601–16 000 horses; 16 001–17 000 farm animals, in herd `1 + (id − 16 001) mod 200`; each animal's species a function of its id; the teaching animals 1–12 (dogs) and 14 601–14 608 (horses), owned by owner 1 from before the history, never patients (D317); the history's deaths (which animals, when) a function of the id (D317) |
 | `referring_practices.id` | 1–400 | |
 | `referring_vets.id` | 1–800 | two per practice |
 | `medicines.id` | 1–400 | antimicrobials and controlled drugs flagged |
-| History | `consultations` 1–25 000, `prescriptions` 1–15 000, `administrations` 1–70 000, `exchanges` 1–700, the others as loaded | in time order over the year; each consultation's kind, section, vet and start a function of its id, a scheduled one's `booking_id` its own id and its vet one the rota's pattern puts on shift ([vet-scheduling](vet-scheduling-domain.md), step 6; D317) |
+| History | `consultations` 1–25 000, `prescriptions` 1–15 000, `administrations` 1–70 000 (about 60 000 used, D393), `exchanges` 1–700, the others as loaded | in time order over the year; each consultation's kind, section, vet and start a function of its id, a scheduled one's `booking_id` its own id and its vet one the rota's pattern puts on shift ([vet-scheduling](vet-scheduling-domain.md), step 6; D317) |
 | `stays.id` | 1–2 500 | each stay's animal, section, admitted at, discharged at and outcome a function of its id, and the infectious alert current on it (from, until) a function of the stay's id (D319, D322); at any time about 14 horses, 6 farm animals and 20 domestic animals of the 40 current, never more current stays in a section than its units in service (21 horse, 10 farm, 31 domestic, species fitting; D318) |
-| `requests.id` | 1–17 000 | each request's kind (about one in five imaging), test code, priority, consultation, animal and time computed from its id, documented in the GM notes, so `vet-lab`'s load computes the same and groups a consultation's analysis requests into one order, without reading the core (D302); an imaging request's study code one of `vet-machinery`'s 30 procedure codes, drawn by the documented function of its id among those valid for the animal's species group (1–12 domestic, 13–27 horses and farm, 28–30 any), at that page's modality shares (D319) |
+| `requests.id` | 1–17 000 | each request's kind (about one in five imaging), test code, priority, consultation, animal and time computed from its id, documented in the GM notes, so `vet-lab`'s load computes the same and groups a consultation's analysis requests into one order, without reading the core (D302); an imaging request's study code one of `vet-machinery`'s 30 procedure codes, drawn by the documented function of its id among those valid for the animal's species group (1–12 domestic, 13–27 horses and farm but 26 and 27 horses only, 28–30 any), at that page's modality shares (D319, D373); the codes and their draw are [the lab's test catalogue](vet-lab-domain.md#the-test-catalogue-d372) and [the machinery's procedure catalogue](vet-machinery-domain.md#the-procedure-catalogue-d372-d373) (D372) |
 
 **Natural identifiers.** A microchip is 15 digits, the country or
 maker's 3 then 12 (ISO 11784/11785), present on every horse, dog and
-cat and some other pets, missing on about 2 % of domestic animals; a
+cat and some other pets, missing on about 2 % of domestic animals:
+every dog, cat, horse and ferret carries one, and two rabbits in three
+none, rabbits being about 3 % of the domestic animals (D379); a
 UELN (15 characters) and a passport number on every horse; an ear tag
 (country code and 12 digits) on every farm animal; each a function of
 the animal's id, so a part's load can write the same value without
 reading the core. **A dozen mistyped chips** are planted at load: two
 digits swapped against the value the parts' loads hold, so a lab result
-or a portal record matches no animal (D278; a trap, step 8).
+or a portal record matches no animal (D278; a trap, step 8). The
+unnamed member state's codes are fictional, so no identifier points at
+a real registry (D379): `XA`, ISO 3166-1's user-assigned alpha-2, on
+the ear tags and passports; one user-assigned numeric code of 900–998
+(never 999, ISO 11784's test code) as a chip's first three digits and
+a UELN's country part, the GM notes naming it.
+
+### The key functions (D374, D375, D379)
+
+The core's `data/keys.sql` defines them as `pg_temp.core_<name>`, which
+`load-data` streams ahead of the core's load, every part's load, every
+partner `data.sql` and `derive.sql` (capture W2, item 3); `docs/gm.md`'s
+"Core keys" documents each with its SQL. **This is the set**, and what
+each returns is the contract the parts' loads rely on. The formulas are
+the build's (master spec 24), within the ranges and figures of this
+page; no part re-derives what a function returns.
+
+**Signatures** (D379). An id function takes `(n integer)`. A function
+computing a time takes `(n integer, load_epoch timestamptz, utc_offset
+integer)`: `load_epoch` is the run's psql variable, the load's "now";
+`utc_offset` is `customer_utc_offset` in hours, the customer's zone
+being a fixed `Etc/GMT` offset, so the shapes' local hours need no
+zone name. Every function is `IMMUTABLE`, a pure function of its
+arguments, and returns no row for an id outside its range.
+
+**Draws from an id** (D386). The history's ids run in time order, so a
+draw that repeats with the id shows as a period in time. A function may
+keep fixed counts per block of ids (its shares exact), but their places
+in each block are shuffled by a hash of the block's number, or the draw
+is a hash of the id, as the live streams vary by a hash of the row's id:
+no attribute repeats with a fixed period in id order (the requests'
+places, the stays' section and outcome). A range's layout stated as a
+modulus (the herds') stands.
+
+| Function | Returns | Read by |
+|---|---|---|
+| `core_staff(n)` | `kind`, `section_id`, `specialty`: the layout above | every part |
+| `core_shifts(n, day date, utc_offset)` | staff `n`'s shifts starting on that local day by the rota's pattern ([vet-scheduling](vet-scheduling-domain.md), step 6): rows of `kind` (`day`, `late`, `night`, `on-call`), `starts_at`, `ends_at`, `absence` (null, or `leave`, `training`, `absent` when one of the history's absences covers the shift: weekday day and late shifts only, periods of one day to two weeks, leave about five weeks a year a head; about 600 absences a year, leave nine in ten, D388). The pattern's weekend cover: two domestic vets Saturday 08:00–13:00, and a duty vet for each section Saturday and Sunday 08:00–20:00 by rotation, never one of that weekend's night vets (D384); `sched.rota.publish` carries the same | `vet-scheduling` (its shifts and absences); the core's own pick of a consultation's vet, among shifts with no absence |
+| `core_species(n)` | the animal's species | housing, machinery, lab |
+| `core_animal(n, load_epoch, utc_offset)` | `species` (`core_species`'), `breed`, `sex`, `born_on`, `name`, `food_chain`, an exclusion's date and vet, `herd_id`, `registered_at` | lab (an order's species, sex, age), machinery (the worklist's identity), portal |
+| `core_microchip(n)`, `core_ueln(n)`, `core_passport(n)`, `core_ear_tag(n)` | the identifier as the parts hold it, null where the animal has none; the dozen mistyped chips are the core's load's own swap, never the function's | lab, machinery, portal |
+| `core_holding(h)` | herd `h`'s holding number | the core's load; no part in v0.5 |
+| `core_owner(n, load_epoch, utc_offset)` | `kind`, `name`, `family_name` (a person's surname; a stable's, holding's or the clinic's name whole), `email`, `phone`, `registered_at`; never the address | portal (an account's name, e-mail and phone; the owners' route), machinery (a study's patient name and responsible person) |
+| `core_ownership(n, load_epoch, utc_offset)` | animal `n`'s ownerships over the year, every row: `owner_id`, `role` (`owner`, `keeper`), `from_at`, `until_at` (null while current); one current owner, a sale ending one row and opening the next | portal (keepers, consent events), machinery (the owner at a study's time) |
+| `core_death(n, load_epoch, utc_offset)` | `died_at` and how, for an animal of the history that died; no row otherwise | scheduling, portal |
+| `core_consultation(n, load_epoch, utc_offset)` | `kind`, `section_id`, `vet_id`, `animal_id` or `herd_id`, `stay_id` (in hospital), `referral_id`, `started_at`, `closed_at`, `signed_at`, `booking_id` (its own id when `scheduled`, else null) | scheduling, lab and machinery (through their requests), portal |
+| `core_stay(n, load_epoch, utc_offset)` | `animal_id`, `section_id`, `admitted_at`, `discharged_at` (null while current), `outcome`, the site transferred to | housing, machinery, portal |
+| `core_stay_alert(n, load_epoch, utc_offset)` | stay `n`'s `infectious` alert: `from_at`, `until_at`; no row when none | housing |
+| `core_request(n, load_epoch, utc_offset)` | below (D375) | lab, machinery, scheduling |
+| `core_exchange(n, load_epoch, utc_offset)` | `direction`, `kind`, `site_id` (the partner centre), `animal_id` (null for an inbound one whose animal is not registered: every inbound one of the history, `partner_patient` kept; inbound exchanges are examinations only, no inbound transfer in v0.5; `requested_at` in id order, the history's ranges in time order, a time that must fall in office hours drawn there, never moved past the next id's, D390), `stay_id` (a transfer's, its stay `transferred`), `exchange_key` (a UUID, a function of the id), `requested_at`, `state`, the answer (an accepted date, or declined) and `answered_at`, `reported_at` | scheduling (the inbound examinations' dates), the centres' stubs (their `data.sql`, chunk 19) |
+| `core_referring_practice(v)` | referring vet `v`'s practice, two vets a practice (by default `(v + 1) / 2`) | scheduling (`sched_trainees`), the core's own `referring_vets` (D378) |
+
+A prescription line's withdrawal end has no function of its own: the one
+part reading it, the lab's residue screening, gets it from the request
+(`withdrawal_ends_on`, below).
+
+**`core_request`** (D375) returns, for each request of the history:
+
+- `kind`: about one in five `imaging`, its share by section setting
+  the imaging mix, about 60 % domestic, 30 % horses, 10 % farm. Per
+  consultation (D385): about four in ten make requests, 0.65 on
+  average (0.68 in the history, 17 000 over 25 000); a consultation's
+  analysis requests are one lab order, in about three in ten
+  consultations, 1.8 tests each on average (the lab's 25 orders a day;
+  about 7 700 in the history and no more, so the lab's `lab_orders`
+  1–14 000 holds); an imaging study in about one in eight, one each.
+  The lab's 1.8 counts analyses only: an imaging share drawn per
+  request would dilute it (to about 1.6) and swell the orders;
+- `code`: drawn by the catalogues' draw, [the lab's
+  tests](vet-lab-domain.md#the-test-catalogue-d372) or [the
+  machinery's procedures](vet-machinery-domain.md#the-procedure-catalogue-d372-d373),
+  valid for the animal;
+- `consultation_id`, `animal_id` (the consultation's, or for a herd
+  visit an animal of the herd), `requested_by`
+  (the consultation's vet), `requested_at` (at its close, which writes
+  the request);
+- `priority`: the consultation's, `urgent` for an emergency's or a
+  stay's (`in-hospital`), `routine` otherwise, as `consultations.close`
+  writes it;
+- `state` at T0 and its times: `resulted` (with `sent_at`,
+  `resulted_at`) or `cancelled` (`cancelled_at`; with `sent_at` when the
+  part cancelled it after sending, without when the vet did before),
+  but a request of the last 24 hours before `load_epoch` `sent`, or
+  `cancelled` by the vet. None is `requested` at T0: a request is
+  written at its consultation's close and sent within minutes;
+- `withdrawal_ends_on`: for the milk inhibitor test only, the milk
+  withdrawal end of the prescription line it checks, which the core's
+  load holds; null otherwise. That line (D389) is on the herd's latest
+  earlier consultation early enough for its treatment and milk
+  withdrawal to end before the request: the function computes the date
+  from it, the load writes the line (an antimicrobial with a milk
+  withdrawal for the species) on that consultation's prescription, and
+  `MINH` is never drawn where the herd has no such consultation (the
+  weights renormalised), so the load's check finds none.
+
+The parts fit their own times inside these: a lab release, or an
+imaging final report, falls before `resulted_at` by the copying
+purpose's lag, within the code's turnaround from `sent_at` (the lab's
+catalogue; imaging urgent 18 hours, routine three working days, D376);
+a part's cancellation before `cancelled_at`. Only the sent requests
+reach a part's load.
 
 ### Application roles and grants
 
@@ -491,7 +601,7 @@ its roles the purposes' (D320).
 | Exchanges | about 700 | about 2, either way |
 | Medicines, batches | 400, about 700 | none |
 | Prescriptions and lines | 15 000 and 37 000 | 50 prescriptions |
-| Administrations, dispensings | 70 000 and about 22 000 | about 240 administrations, 75 dispensings |
+| Administrations, dispensings | about 60 000 and about 22 000 | about 210 administrations, 75 dispensings |
 | **Total** | **about 0.28 million rows** | **about 570 rows** |
 
 Under the shop's 1.3 million rows, so within "the data schema stays
@@ -509,7 +619,7 @@ drafted, the figures one centre's (D295):
    whole herds.
 2. **Growth, history against live.** The clinic grew through the
    year: each daily volume ramps from about 60 % of today's rate to
-   today's (about 145 to 240 administrations a day), the trend visible
+   today's (about 125 to 210 administrations a day, D393), the trend visible
    in the data; the GM notes compare history and live volume so
    (D276).
 3. **Staff.** About 85 for one centre, 30 of them vets and
@@ -793,7 +903,7 @@ Work streams, on `clinic` as `vet_app`:
 
 | Key | What it takes and writes | Capacity | Shape | Follows |
 |---|---|---|---|---|
-| `consultations.close` | the oldest open consultation started 25 minutes ago or more: closed with its findings, one or two diagnoses (1.2 on average), a procedure in about three in ten, requests in about two in three (0.65 on average, one in five imaging; `urgent` for emergencies and stays), a prescription in six in ten (2.5 lines), dispensed to the owner at once for an outpatient (75 dispensings a day), its administrations planned by the next round for a stay | 40/h | `flat` | the opens: 85 a day |
+| `consultations.close` | the oldest open consultation started 25 minutes ago or more: closed with its findings, one or two diagnoses (1.2 on average), a procedure in about three in ten, requests in about four in ten (0.65 on average: a lab order of 1.8 tests in three in ten, an imaging study in one in eight, D385; `urgent` for emergencies and stays), a prescription in six in ten (2.5 lines), dispensed to the owner at once for an outpatient (75 dispensings a day), its administrations planned by the next round for a stay | 40/h | `flat` | the opens: 85 a day |
 | `consultations.sign` | the oldest closed, unsigned consultation closed an hour ago or more, signed by its vet | 20/h | `signing` | 85 a day; nothing waits a day (the trap stays a fault's) |
 | `referrals.accept` | the oldest received referral: accepted, one in twenty declined | 6/h | `office` | 13 a day |
 | `referrals.close` | an accepted referral whose consultations are signed and whose stay has ended: closed, its report marked sent (the vet's letter; the report as an electronic flow is a purpose, D278 answer 5) | 4/h | `office` | about 13 a day |
@@ -811,7 +921,7 @@ Fixed-time operations (`jobs.yaml`, scenario time):
 
 | Job | When | What |
 |---|---|---|
-| `administrations.round` | `0 2,6,10,14,18,22 * * *` | the round: every scheduled administration due is given (one in a hundred missed, by a hash of its id), then the next round's are planned for each current stay with an active line: about 40 a round, 240 a day |
+| `administrations.round` | `0 2,6,10,14,18,22 * * *` | the round: every scheduled administration due is given (one in a hundred missed, by a hash of its id), then the next round's are planned, each active line's doses at its frequency (every 4, 12 or 24 hours, as in the history, D393): about 35 a round, 210 a day |
 | `prescriptions.expire` | `15 0 * * *` | antimicrobial prescriptions past five days expired (D280, rule 1), the others past their days |
 
 `prescriptions.expire` is light, set-based work: the GM may move it to
@@ -989,8 +1099,10 @@ closing O153):
    only; herd visits on Tuesday and Thursday mornings; a round every
    four hours; discharges late in the morning.
 3. **The 85 consultations**: 60 scheduled, 12 in hospital, 10
-   emergencies, 3 herd visits on average; a request in two in three, a
-   prescription in six in ten, as the history's ratios.
+   emergencies, 3 herd visits on average; a request in two in three
+   (corrected by D385: four in ten, 0.65 a consultation, as the lab's
+   1.8 tests an order requires), a prescription in six in ten, as the
+   history's ratios.
 4. **A referral is closed by the vet's letter** once its consultations
    are signed and its stay ended; the electronic report stays a later
    purpose (D278 answer 5).
@@ -1044,9 +1156,14 @@ GM's (D309); the spec's test selection is
 `postgres`, as for the shop: explicit ids in the documented ranges, each
 sequence set after its range, the shift variables applied; the load's
 sessions unseen (no statement logging, `pg_stat_statements` and pgaudit
-off, D265). About 0.28 million rows, a few seconds by the shop's
-measure (1.3 million in about 15 seconds); size and time measured at the
-build (procedure 3). After the sources' loads, the purposes plant
+off, D265). About 0.28 million rows, in one to two minutes expected
+(D387): unlike the shop's plain rows (1.3 million in about 15 seconds),
+each row is computed by the key functions, about 2 ms a consultation or
+a request, and each part's load calling them adds its share; nothing
+waits on it (`load-data` has no time limit of its own, every test stays
+under 30 minutes). Size and time measured at the build (procedure 3).
+An administration's `given_by` is a nurse of the stay's section, not
+matched against the rota, as the live round writes it (D391). After the sources' loads, the purposes plant
 `office`'s past periods ([clinic-purposes.md](clinic-purposes.md) 4,
 item 5); the standby follows the primary ([replication.md](replication.md)
 1). `vet-lab`'s, `vet-scheduling`'s, `vet-housing`'s, `vet-machinery`'s

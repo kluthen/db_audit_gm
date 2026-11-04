@@ -5,9 +5,10 @@
 #   GM:       /opt/gm/validator/validate.sh, executed as grafana
 #
 # Rules:
-#   files    the five provisioning files are at their paths, every file
-#            under /etc/grafana/provisioning is readable by grafana, and
-#            every dashboard file is valid JSON;
+#   files    the five provisioning files are at their paths (the optional
+#            pgwatch.json may be absent), every file under
+#            /etc/grafana/provisioning is readable by grafana, and every
+#            dashboard file is valid JSON;
 #   server   Grafana answers on port 3000 under /grafana/ and reports its
 #            database ok;
 #   reload   the last start or reload provisioned without error, and every

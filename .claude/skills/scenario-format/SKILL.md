@@ -44,6 +44,9 @@ capture W1 in `specs/versions/v0.3/wave-log.md`, v0.4's capture W1 in
 | [templates/classification.yaml](templates/classification.yaml) | `domains/<id>/data/classification.yaml`, copied to `scenarios/<id>/data/classification.yaml` | a domain's column classification (from v0.4) |
 | [templates/register.yaml](templates/register.yaml) | `domains/<id>/data/register.yaml` | a domain's register fragment, one entry per processing activity (from v0.5) |
 | [templates/variant.yaml](templates/variant.yaml) | `domains/<id>/variants/<variant>.yaml` | a variant's manifest (from v0.5) |
+| [templates/keys.sql](templates/keys.sql) | `domains/<core-id>/data/keys.sql` | a core's key functions, `pg_temp.core_*` (from v0.5) |
+| [templates/coherence.yaml](templates/coherence.yaml) | `domains/<id>/data/coherence.yaml` | a domain's coherence queries (from v0.5) |
+| [templates/partner-data.sql](templates/partner-data.sql) | `domains/<id>/producers/partners/<prefix>/data.sql` | a partner's tables and planted state (from v0.5) |
 | [templates/composition.yaml](templates/composition.yaml) | `scenarios/<id>/composition.yaml` | the composition record (from v0.5) |
 | [templates/merge.yaml](templates/merge.yaml) | `scenarios/<id>/merge.yaml` | the merge's resolutions (from v0.5) |
 | [templates/api.yaml](templates/api.yaml) | `scenarios/<id>/nodes/<node>/api.yaml`, and a domain's fragment `domains/<id>/producers/api/<node>/api.yaml` | an `api` node's endpoints and connections (from v0.5) |
@@ -441,17 +444,54 @@ The rules from v0.5 (v0.5 master spec 6.2, 6.3, 6.8, 7.1, 8.4, 8.5, 10,
   when the scenario has third parties with a `player_doc`. A third
   party's nodes have `write_policy: no-access` (no `player` account, no
   `sudo` wrappers, no route on the bastion, not in the starter pack's
-  nodes).
+  nodes). The loader refuses (v0.5 capture W2 item 1): an `id` or
+  `hostname` `owners` (the owners' browsers' hostname, reserved); a
+  listed node that is not a node or not `no-access`; more than one `api`
+  or `postgres` node among the parties' nodes (every partner shares one
+  of each); a third party's node or hostname in the bastion's
+  `web_routes` (cold storage's route waits for v0.5's chunk 17); a third
+  party's node named in a bastion seed file (the starter pack); a fault
+  instance on a third party's node with an expected *fix*; a role a third
+  party's node connects as (its `api.yaml` or `schedule.yaml`) named by
+  any other node's connection or `crontab_roles`; and on the partners'
+  `postgres` node a `pg_hba.conf` line other than the GM's DO NOT TAMPER
+  lines, a `reject`, or `host partners <the partners' roles> <address>
+  scram-sha-256`, with `host all all all reject` last. On the partners'
+  `api` node the endpoints' hosts are exactly the hostnames of the
+  entries naming nodes, plus `owners`, never the node's own name; a
+  hostname on an entry with `nodes: []` aliases nothing. A composed
+  domain with a partner `data.sql` needs the partners' `postgres` node.
 - **Options** (`options:` on a node): a non-empty list of unique option
   names the node's brick declares (`[monitoring]` on `postgres` 0.5.0),
   off unless listed; `[]` is refused. Every node an exporter or another
-  monitoring brick targets chooses `monitoring`.
+  monitoring brick targets chooses `monitoring`: the targets are read from
+  `postgres-exporter`'s `exporter.conf` (`DATA_SOURCE_URI`), `pgwatch`'s
+  `sources.yaml` (each entry's `conn_str`, the URI form, only on an
+  entry with `is_enabled: true`: pgwatch watches no other, an entry
+  without the key included) and `health-check`'s `health.yaml`
+  (`instances[].host`); a monitored standby's primary chooses it too; the
+  gap is accepted only on the node of a fault instance whose fault plants
+  it (`option_absent: monitoring`); a third party's node is never a
+  target. A fault with `requires_option` targets a node choosing it, one
+  with `option_absent` a node not choosing it, either an option the
+  node's brick declares. `no-access` is accepted only on a brick listing
+  it in `write_policies`.
 - **A standby** (`standby_of: <node>`): a `postgres` node whose primary is
   a `postgres` node that is no standby itself; the standby has no `data:`
   entry (cloned from its primary after the load) and its seed sets
   `hot_standby_feedback = on`; the primary's seed `pg_hba.conf` carries
   `host replication replicator samenet scram-sha-256` under its DO NOT
-  TAMPER comment. The standby keeps the role `database`.
+  TAMPER comment. The standby keeps the role `database`. A standby is no
+  location: no `at:`, purpose part or governance location names it.
+- **A vault** (`postgres`' parameters `vault_target` and
+  `vault_credential`): checked as an `http` connection's target and
+  credential are.
+- **Created on a node** (`model.node_creates`, v0.5 capture W2 item 1):
+  what a location, a crontab role or a governance reader may name is what
+  the node's data file creates, plus each `at:` database a `domains:`
+  entry places there and what its schema and load files create, plus, on
+  the partners' `postgres` node, each composed domain's partner
+  `data.sql`.
 - **The data register** (`governance.register: player/data-register.md`):
   required of every scenario listing `domains:` (v0.4's released shop
   scenario is exempt until it is next revised), allowed with `governance:`
@@ -466,7 +506,10 @@ The rules from v0.5 (v0.5 master spec 6.2, 6.3, 6.8, 7.1, 8.4, 8.5, 10,
   carries `register_diff:` (each item its `entry`, `field`, `true` value
   and `handed_out` value, or the one item `absent: true` for a register
   left out), its resolution *propose*, the corrected entry judged at the
-  final answer; a round-trip fault instance lists its `backlog:`, the
+  final answer; the key `true` is written bare (YAML reads it as the
+  boolean) or quoted (`"true"`), never both in one item (spec D353);
+  `register_diff:` is required on, and only on, the instance of a fault
+  changing the bastion's `data-register.md`; a round-trip fault instance lists its `backlog:`, the
   requests it left stuck before the fix, a consequence the GM may credit
   the players for cleaning up, never a fault and never counted toward
   the fault cap; a fault on a component that is no layer of the players'
@@ -533,14 +576,19 @@ v0.5 adds (`scheduler` 0.3.0: the HTTP driver, the call, the weighted
   `dba`, `monitoring`, `gm_check`, `pgbouncer_lookup`, `replicator` or
   `pg_*`); its pool is `{size: N}` or `{per-call: true}`. An `http`
   connection (v0.5) has a target `<host>:<port>` (a node, or a third
-  party's hostname), an optional `credential` (`[a-z][a-z0-9_]*`, the
-  game's secret `http_<credential>`; absent for a public endpoint), a
+  party's hostname or `owners`: an alias on the partners' `api` node;
+  port 8000 on an `api` node or an alias), an optional `credential`
+  (`[a-z][a-z0-9_]{0,62}`, never `public`, the game's secret
+  `http_<credential>`; absent for a public endpoint), a
   `pool`, a positive integer (kept-alive connections), an optional
   `timeout` (`<n>s`, 1 to 60, default `10s`), and no `role` and no
   database. No password or credential value is ever written: render
   generates one secret per role and per credential. A script job's
   `connections:` may name an `http` connection, which its script gets as
-  an HTTP client (`get`, `post`).
+  an HTTP client (`get`, `post`); a job's one `connection:` never names an
+  `http` connection nor runs a call key, and a stream (with its timeline
+  changes) runs a call key only on an `http` connection, any other key
+  only on a SQL one.
 - **Streams**: a `rate` `<number>/s|min|h`, `arrivals` `poisson` or
   `even`, an optional `shape` of the schedule, an optional `concurrency`;
   a stream is known by its initial key, unique on the node. From v0.4
@@ -598,6 +646,11 @@ v0.4 master spec 6.4):
   ([templates/api.yaml](templates/api.yaml)) and the directory entries
   `routes/` and `db/`, mapped by `seed.paths`; `writable_paths`
   `/srv/api/db` and `/home/player`, the routes and `api.yaml` protected.
+  A node's `api.yaml` holds the keys a fragment may hold, at least one
+  endpoint, each served by `routes/<name>.py` and `db/<name>.py` of the
+  node's seed folders; on a node in the players' scope its hosts are its
+  own name only; its credentials are never `public`; its connections are
+  checked as a schedule's (an `sql/postgresql` role never a reserved one).
 - **Footprint**: the shape of a scenario node's `resources`, `limits`
   (`cpu`, `memory`) and `reservations` (`cpu`, `memory`, `disk`, at rest),
   the default the GM starts from when it sizes a scenario, plus
@@ -862,27 +915,42 @@ From v0.5 (formats.md "Purpose definition", D286, D303, D307):
   the `request` (its `job`, its `counterpart`, what it `sends`), the
   `correlation` key, the expected `answers` (each `form`, `when`,
   `carries`), the `timeout` (`after`, `then`: resend with the same key,
-  escalate) and the `reactions`, named.
+  escalate) and the `reactions`, named. `asks` is `customer` or
+  `partner`; when the customer asks, `request.job` is a job of the
+  purpose; `answers` is non-empty.
 - **Two more parts**: `api`, a customer's `api` node the purpose calls or
   brings endpoints to; `partner`, a declared third party's node. A pushed
-  obligation's `receiver` is a declared third party.
+  obligation's `receiver` is a declared third party (checked in a
+  scenario with `third_parties:` or `domains:`; v0.4's scenarios keep a
+  `producer` node as receiver).
 - **HTTP connections** in a job's `connections:`, named for the part they
-  reach (the scheduler's `http` driver).
+  reach (`api`, `partner`, `receiver`: the scheduler's `http` driver),
+  that part declared, each mapped to the credential it calls with or
+  `public` for a public endpoint (D354); in a scenario, the value equals
+  the `credential` of the runner's schedule connection the job's
+  `connections:` names (`public` when it names none), and that connection
+  is an `http` one.
 - **Endpoint material**: `material/api/<node>/routes/` and `db/`, the
   endpoints a purpose brings to a customer's `api` node, as a domain's
   `producers/api/<node>/`; a receiver with no stream of its own keeps its
   stub in the purpose, a partner with streams of its own stays in its
-  domain's `producers/partners/<partner>/`.
+  domain's `producers/partners/<partner>/`. Endpoint material needs an
+  `api` part; each `routes/<name>.py` has its `db/<name>.py` and the
+  reverse, `<name>` an endpoint name (`[a-z][a-z0-9_]*`); nothing else
+  sits in `material/api/<node>/`.
 - **Periodic purposes**: a periodic job names its daily `feeder`, the
   witness within the aging; `history: material/history.sql` plants the
   past periods' outputs into the target before T0 (for a target
   belonging to no domain, `load-data` runs it after the sources' loads,
   as the superuser, through a temporary foreign server, every session
-  unseen). No periodic report runs on demand.
+  unseen). No periodic report runs on demand. The feeder is another job
+  of the purpose; a purpose with a job naming a feeder has `history`, a
+  file under `material/`, and `history` without one is refused.
 - **How an invariant is judged** (`judged:`): `runs`, `triggers`,
   `end-to-end` (on the trace after the fix; the backlog is the answer
   key's), `code` or `definition`; a round trip names exactly one
-  `end-to-end` invariant.
+  `end-to-end` invariant: a round-trip purpose has as many `end-to-end`
+  invariants as `round_trips:` entries.
 - **Its own `classification:`**: a purpose whose target belongs to no
   domain, or which adds tables to a domain's database, classes their
   columns under `columns:`, keyed as a scenario's copy keys them
@@ -891,7 +959,8 @@ From v0.5 (formats.md "Purpose definition", D286, D303, D307):
   (ledgers, incidents, watermarks) live in schema `ops`, never in
   `public`; a target belonging to no domain keeps them in `public`. Every
   run writes one `ops.runs` row (or the target's `runs`) in the same
-  transaction as its output.
+  transaction as its output. In a scenario, a `trace` table on a database
+  part placed on a `domains:` entry's `at:` is in schema `ops`.
 
 ### Domain (v0.4 master spec 6.8, 11.3; v0.5 master spec 6.1, 8.2 to 8.6)
 
@@ -918,11 +987,56 @@ keys. In particular:
   domains of the catalogue and needs `data/derive.sql`, run only when
   the scenario's composition record sanctions it.
 - `schema.sql` and `load.sql` follow the data load's contract
-  ([templates/layouts.md](templates/layouts.md)): each `CREATE DATABASE`
-  and `CREATE ROLE` at the start of a line, unquoted; `load.sql` may read
-  the two `psql` variables `:'customer_timezone'` and
-  `:customer_utc_offset`. Every `SECURITY DEFINER` function carries a
-  fixed `search_path` (D323; checked at the domain's build).
+  ([templates/layouts.md](templates/layouts.md)): each `CREATE ROLE` (and,
+  in the shop's v0.4 schema only, `CREATE DATABASE`) at the start of a
+  line, unquoted; `load.sql` may read the `psql`
+  variables `:'customer_timezone'`, `:customer_utc_offset` and (v0.5)
+  `:'load_epoch'`, the run's start (UTC, to the minute), its one "now":
+  a load computes a time from `:'load_epoch'::timestamptz`, never
+  `now()`, so parts loaded minutes apart agree. Every `SECURITY DEFINER`
+  function carries a fixed `search_path` (D323; checked at the domain's
+  build): in the schema and load files, `data/derive.sql`, `data/keys.sql`
+  and each partner `data.sql`, every `CREATE [OR REPLACE] FUNCTION|PROCEDURE`
+  holding `SECURITY DEFINER` holds `SET search_path = <schemas>` (or
+  `TO`) never naming `"$user"`; `FROM CURRENT` is no fixed path.
+- **The database convention** (v0.5, W2 item 3): load-data creates each
+  `at:` database absent from its node (owner `postgres`, `CONNECT`
+  revoked from `PUBLIC`) and runs `schema.sql` then `load.sql` connected
+  to it (`psql -d <db>`), as `postgres` (a contrib extension, `btree_gist`
+  or `pgcrypto`, is a plain `CREATE EXTENSION` in the schema). So a
+  domain's schema and load **never create a database nor `\connect`**
+  (load-data refuses either, naming the line), create their roles at top
+  level, and name their database `:"DBNAME"` (`GRANT CONNECT ON DATABASE
+  :"DBNAME" TO vet_app`): a part lands in its core's database or its
+  own, the name is the scenario's. The shop's v0.4 schema (`CREATE
+  DATABASE shop`) stays as built for `domain: shop` only.
+- **The core's key functions** ([templates/keys.sql](templates/keys.sql)),
+  optional, `data/keys.sql` of a core (a fixed path, no `domain.yaml`
+  key): `pg_temp.core_<name>(...)` functions, streamed by load-data
+  ahead of the core's and each part's `load.sql`, each partner
+  `data.sql` and each `derive.sql`, in the same session (never ahead of a
+  schema or a history); called schema-qualified, they vanish with the
+  session. `docs/gm.md`'s "Core keys" lists each.
+- **A partner's state** ([templates/partner-data.sql](templates/partner-data.sql)),
+  optional: `producers/partners/<prefix>/data.sql`, beside the partner's
+  fragments, run by load-data as `postgres` into the partners' database
+  `partners` after its domain's load, folders in name order, the core's
+  keys ahead: it creates the role `<prefix>` (`LOGIN`, no password), the
+  schema `<prefix>` it owns, its tables and its planted state. A scenario
+  composing it needs a `postgres` node its `third_parties:` entries list.
+- **Coherence queries** ([templates/coherence.yaml](templates/coherence.yaml)),
+  optional, `data/coherence.yaml`: a part's references to its core and
+  the histories it shares, each check one SELECT of the offending rows,
+  `reads` naming the composed domains or `partners` it reads through
+  `gm_src_<name>`; the core carries none. A check whose `reads` names
+  `partners` runs in the partners' database on the partners' node (spec
+  D383: `partners-db` admits `gm_check` over its own socket only),
+  `gm_src_partners` over that socket, its other reads over TCP as
+  `gm_check`: **every table it reads goes through `gm_src_*`**, its own
+  domain's too (name the domain in `reads`), and it takes **no
+  `database:`** (refused on it, not required on a several-database
+  part). Not checked by `check_domain_dir` in v0.5: load-data refuses a
+  malformed file before any query runs.
 - **Classification** ([templates/classification.yaml](templates/classification.yaml)):
   every column of every table under `columns:`, each `personal`,
   `customer-linked` or `internal`, `internal` ones listed too, keyed
@@ -952,7 +1066,11 @@ keys. In particular:
   `connections.<name>`), `routes/`, `db/`;
   `producers/partners/<partner>/` (or `producers/public/<name>/` for a
   traffic source that is no business): the partner's back-end fragments
-  and its `api.yaml`, `routes/`, `db/`. `api`, `partners` and `public`
+  and its `api.yaml`, `routes/`, `db/`, and one `data.sql`, the
+  partner's state planted in the partners' database (v0.5 capture W2
+  item 1). A partner folder's name is its prefix, `[a-z][a-z0-9]{0,15}`
+  (its role, schema, keys `<prefix>.`, endpoints `<prefix>_`,
+  connections `<prefix>-`; W2 item 0). `api`, `partners` and `public`
   are reserved, never a node's name. A fragment holds only the entries it
   adds, parses as the scenario file would, never carries `intensity`, a
   `timeline` or a planted fault; its rates are the variant's throughput
@@ -1017,6 +1135,25 @@ composition beside `scenario.yaml`:
   for a domain declaring it, its `after` the declared one;
   `coherence` written at setup. `model.check_composition` checks it on
   every load of a scenario listing `domains:`.
+- **`gmctl load-data`** (v0.5, W2 item 3) reads the domains and the
+  purposes' histories from the catalogue, never from the scenario
+  folder, and loads, in this order: the nodes' data files (they create
+  the databases no domain holds: `office`, `partners`); each domain in
+  `order` (its databases, `schema.sql`, `load.sql`, a several-database
+  part in `databases` order; then its partners' `data.sql`); the
+  sanctioned derivations in `derive` order, each in its part's database;
+  each `purposes:` entry's `history` in list order, in its `target`;
+  then the coherence check. A derivation reads its `after` domains, a
+  history its entry's other location parts (`gm_src_source`), through
+  foreign schemas `gm_src_*` created for the session and dropped after
+  (one reading `partners` from another node is refused, spec D383),
+  every such session unseen (no statement logging, `pg_stat_statements`
+  or pgaudit, on either end). A failing check stops the setup as a
+  design error, naming the domain, the check, its `what`, the row count
+  and the first ten rows; the result is written to `composition.yaml`'s
+  `coherence: {run_at, result}` (that key only) and each check's outcome
+  to the game's `state.yaml`. Schemas `gm_src_*` and functions
+  `pg_temp.core_*` are load-data's and the core's: never a domain's own.
 
 ## Versions and pins (v0.2 master spec 6.5, v0.3 master spec 6.6, v0.4 master spec 6.6)
 

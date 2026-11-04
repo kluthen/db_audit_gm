@@ -405,6 +405,9 @@ class FakeDocker:
         if cmd == "exec":
             if isinstance(input, str) and "json_agg(datname" in input:
                 return "[]\n"                      # load-data's survey: no database
+            if isinstance(input, str) and "FROM pg_catalog.pg_replication_slots" in input \
+                    and input.startswith("SELECT pg_catalog.json_build_object('name'"):
+                return ""                          # the snapshot's slots (v0.5): none
             return "exec-output\n"
         if args[:2] == ["service", "logs"]:
             return "log line\n"
