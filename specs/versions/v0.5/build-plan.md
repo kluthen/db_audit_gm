@@ -2235,7 +2235,7 @@ core's functions, by 12, 15 and 16. As built: W3-g.
 
 ### Chunk 31 — The partners' nodes serving `owners` alone: `compose` and the loader with no `third_parties:` entry listing them
 
-Status: planned
+Status: in progress
 Wave: 3
 Depends on: chunks 2 and 6 (waves 1 and 2: `compose._shared_nodes`,
 `model._check_third_parties` and `_check_api_nodes`); chunk 29, merged

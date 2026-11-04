@@ -4690,3 +4690,21 @@ an urgent night MRI or scintigraphy booked on the next imaging day;
 equine sessions searching six weeks then the next course (the arena busy
 about half the weekdays); the load reads `vc_agenda`. A fresh owner
 runs the short test and merges.
+
+### Chunk 31 inserted (D421), 2026-11-04
+
+`spec-writer`: plan v12 (045cc6e), D421: with no `third_parties:` entry
+listing a scheduler or api node, the partners' shared nodes are the
+`no-access` nodes named `partners-backend` and `partners-api` (the plan's
+names for chunk 11's nodes); `compose` puts a composed
+`producers/partners/owners/` onto them, `partners-api` serving exactly
+`owners`, both joining the third parties' nodes for every out-of-reach
+check; with an entry listing them, every rule as today. Taken by the
+driver (a `composition.yaml` key naming them would change the format).
+Edges `29 ──> 31`, `31 ──> 16` (16b's restart and fixture only); wave 3
+eight chunks (row 3 says why). Peeks: no intent register, no data
+register, no dependency. Known limit: a scenario with the owners' route
+and no third party at all is still refused for the owners' `data.sql`
+(no v0.5 scenario is). 16b's restart merges `v0.5-w3` first and changes
+`fixture-portal`'s lab entries to `[partners-db]`. Chunk 31 dispatched
+to a `coding-executor`.
