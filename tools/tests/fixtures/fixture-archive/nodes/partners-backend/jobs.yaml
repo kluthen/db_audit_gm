@@ -1,0 +1,3 @@
+# jobs.yaml of partners-backend, the partners' back end (v0.5 master spec
+# 10.2; partners/README.md): no fixed-time operation in the base.
+jobs: []

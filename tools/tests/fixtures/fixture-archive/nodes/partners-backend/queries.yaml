@@ -1,0 +1,8 @@
+# queries.yaml of partners-backend (fixture-archive, v0.5 chunk 11b):
+# cold storage's fragment, partners/coldstore/queries.yaml, joined.
+queries:
+  coldstore.normal:
+    sql: >-
+      INSERT INTO coldstore.state (hostname, name, value)
+      VALUES ('cold-storage', 'delay_ms', '0'), ('cold-storage', 'uploads', 'accept')
+      ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()

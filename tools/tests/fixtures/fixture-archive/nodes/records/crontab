@@ -1,0 +1,7 @@
+# Seed crontab of records, the archive fixture's archiving node (tools/tests,
+# v0.5 chunk 11b): the nightly base backup to the vault (master spec 11.2;
+# capture W1 item 6, W1-x), in v0.4 W1 item 8's baseline form: its PATH on a
+# line of its own, the output appended to the job's log. 03:30 UTC; the short
+# test moves it to the next minute to see it run.
+PATH=/usr/local/bin:/usr/bin:/bin:/usr/lib/postgresql/18/bin
+30 3 * * * pg_basebackup -h /run/postgresql -D - -Ft -X fetch | vault-post basebackup "records-$(date -u +\%Y\%m\%dT\%H\%MZ)" >> /var/log/postgresql/cron/basebackup.log 2>&1

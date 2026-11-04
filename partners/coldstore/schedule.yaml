@@ -1,0 +1,12 @@
+# schedule.yaml of cold storage, a fragment for partners-backend (v0.5 master
+# spec 10.2; capture W2 item 6, "A misbehaviour key"; partners/README.md): its
+# baseline stream, upserting its state once a minute as its own role. A
+# fault's timeline change of coldstore.normal to coldstore.<behaviour> is the
+# scenario's.
+connections:
+  coldstore-db: {driver: sql/postgresql, target: partners-db:5432/partners, role: coldstore, pool: {size: 1}}
+streams:
+  - key: coldstore.normal
+    connection: coldstore-db
+    rate: 1/min
+    arrivals: even

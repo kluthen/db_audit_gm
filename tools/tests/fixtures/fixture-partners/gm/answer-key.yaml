@@ -1,0 +1,25 @@
+# Answer key of the partners fixture (tools/tests, v0.5 chunk 11a).
+scenario:
+  id: fixture-partners
+  version: 0.1.0
+notes: gm/notes.md
+
+instances:
+  - instance: f1
+    what: Alpha Laboratories answers its status four seconds late from T0.
+    why: a partner's slow answers, seen at its interface; every fix is on the customer's side (a timeout, a retry, monitoring the partner).
+    evidence:
+      - where: bastion
+        source: a call to the partner's public status
+        how: time curl -s http://alpha-lab:8000/status (from a node with curl)
+        shows: an answer after about four seconds, delay_ms 4000; beta-lab's at once
+    acceptable:
+      diagnosis: names Alpha's status as slow, and Beta's as answering in time.
+    sealed_check:
+      script: faults/fixture-partner-slow/checks/fixed.sh
+      at_handover: 1
+      notes: report-only; a partner's behaviour is never fixed by the players (master spec 10.1).
+    interactions: []
+    validators_left_red: []
+
+tooling_expectations: []           # none in this scenario

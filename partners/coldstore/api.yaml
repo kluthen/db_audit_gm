@@ -1,0 +1,17 @@
+# api.yaml of cold storage, the vault, a fragment for partners-api (v0.5
+# master spec 10.4, 11.2; cold-storage.md 3; capture W1 items 5 and 6, W2
+# item 6, W2-f; partners/README.md). Its three endpoints under its hostname,
+# cold-storage: the upload behind the customer's one account key,
+# cold_storage (the postgres nodes' vault_credential, purpose 14's
+# connection); the manifests and the page public (the bastion's route
+# carries no credential, the health node's backup script calls it).
+endpoints:
+  coldstore_shipments:
+    hosts: [cold-storage]
+    credentials: [cold_storage]
+  coldstore_manifests:
+    hosts: [cold-storage]
+  coldstore_page:
+    hosts: [cold-storage]
+connections:
+  coldstore-db: {driver: sql/postgresql, target: partners-db:5432/partners, role: coldstore, pool: {size: 2}}

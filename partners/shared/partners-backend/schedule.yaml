@@ -1,0 +1,10 @@
+# schedule.yaml of partners-backend, the partners' back end (v0.5 master spec
+# 10.2; capture W2 item 6; partners/README.md): the base the partners'
+# fragments join. Each partner adds its connection <prefix>-db and its
+# stream <prefix>.normal (its misbehaviour key's baseline), its ticks'
+# connection and streams; a fault's timeline change of <prefix>.normal to
+# <prefix>.<behaviour> is the scenario's (compose/partners-backend/ in a
+# composed scenario). Hidden from the players, as every schedule.yaml.
+intensity: 1.0
+connections: {}
+streams: []

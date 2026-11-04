@@ -1,0 +1,11 @@
+# queries.yaml of cold storage, a fragment for partners-backend (v0.5 master
+# spec 10.2; capture W2 item 6): its baseline key, every answer at once and
+# uploads accepted. A fault's key (coldstore.<behaviour>) upserts other
+# values: delay_ms, the milliseconds added before each answer; uploads
+# refuse, POST /shipments answering 503.
+queries:
+  coldstore.normal:
+    sql: >-
+      INSERT INTO coldstore.state (hostname, name, value)
+      VALUES ('cold-storage', 'delay_ms', '0'), ('cold-storage', 'uploads', 'accept')
+      ON CONFLICT (hostname, name) DO UPDATE SET value = EXCLUDED.value, set_at = now()
