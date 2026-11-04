@@ -5,7 +5,11 @@ spec at approval (R16, D339). **Approved by the owner on 2026-11-03 with
 v0.5's [master spec](master-spec.md)** (procedure step 9, D339), which
 wins where the two disagree. Amended in wave 2 of the build
 (2026-11-04): the carers by section, a care event's carer not matched
-against the rota (D394).
+against the rota (D394). Amended in wave 3 (2026-11-04) to the build's
+measures (D417): the owner role's and the ward's grants as built, an
+animal moved out of isolation when its alert ends (and the waits for
+isolation that follow), about 0.14 million rows and 17 MB, the short
+test's limits.
 Steps 1 to 9 drafted in one pass on 2026-11-03 at the owner's instruction
 ("start an agent for each part, and let them come back with problems
 once they're done"); the same day the owner accepted the recommendations
@@ -192,8 +196,9 @@ About 62 % of the units in service occupied on average, so a section's
 busiest day finds a free unit.
 
 **History**: one year, as the core's (D279), following its stays: about
-3 000 placements (one stay in five moved once), 2 900 plans, and the
-care log, about 150 000 events (ruled, D318).
+3 030 placements (454 stays moved, 157 of them twice, into isolation and
+out), 2 800 plans, and the care log, about 133 000 events (ruled, D318;
+the build's figures, D417).
 
 **Throughput**, in real-world rates during the game:
 
@@ -205,8 +210,8 @@ care log, about 150 000 events (ruled, D318).
 | Care events | about 520 a day: 110 feedings, 240 checks, 160 other actions, 8 disinfections; about 22 an hour |
 | Display reads | each display once a minute: about 64 a minute, one a second, leaving no row |
 
-About **0.16 million rows** at load and **540 a day** live (step 4's
-count), beside the core's 0.28 million and 760 (570 main rows) in the
+About **0.14 million rows** at load (138 752 at the reference T0, D417;
+step 4 counted 0.16) and **540 a day** live, beside the core's 0.28 million and 760 (570 main rows) in the
 same database.
 
 **A few stand for many** (D263): 64 units and their displays for a
@@ -336,7 +341,8 @@ proposed (D318), answer 4's load changed by D322.
    proposed: it computes them by the core's documented functions, as
    `vet-lab`'s does (D302), D249 staying the default (D322).
 5. **How much history** (O185). Answer: a year, as the core's:
-   every stay's placements, plans and care log, about 0.16 million rows,
+   every stay's placements, plans and care log, about 0.16 million rows
+   (0.14 million as built, D417),
    the care log the stay's record kept five years (core rule 9). The
    alternative, the current stays only, saves about 0.15 million rows
    but leaves `housing.stay-log` and the head office's occupancy with no
@@ -361,7 +367,7 @@ invariant, and an orphan a fault vector (procedure 4).
 
 | Table | Key, main columns |
 |---|---|
-| `housing_units` | `id`; `section_id` (the core's), `code` (`H-01`, `F-03`, `D-12`), `kind` (`box`, `stall`, `pen`, `kennel`, `cage`), `isolation`, `intensive`, `state` (`clean`, `to-clean`, `out-of-service`), state since |
+| `housing_units` | `id`; `section_id` (the core's), `code` (`H-01`, `F-03`, `D-12`), `kind` (`box`, `stall`, `pen`, `kennel`, `cage`), `isolation`, `intensive`, `state` (`clean`, `to-clean`, `out-of-service`), `state_since_at` |
 | `housing_displays` | `id`; `unit_id`, serial, installed on, removed on (open while in place) |
 | `housing_placements` | `id`; `unit_id`, `stay_id` (the core's), `from_at`, `until_at` (open while placed), `reason` (`admission`, `move`, `isolation`), placed by (staff); a partial unique index on `unit_id` and one on `stay_id` where `until_at` is open: one animal per unit, one unit per stay |
 | `housing_feeding_plans` | `id`; `stay_id`, `kind` (`diet`, `nil-by-mouth`), diet (from a short list per species), meals a day, `from_at`, `until_at`, set by (staff), note |
@@ -373,8 +379,10 @@ its open placement (id, from); the stay (`stay_id`, admitted at) and,
 through the core's `stays`, its animal; from `animal_board`, the
 animal's identity, its alerts, the stay's reason and the day's doses;
 the plan in force, a nil-by-mouth order overriding the diet; the day's
-feedings (count, the last and how much was eaten) and the last check,
-"today" in the customer's zone (`business_settings`). An empty unit's
+feedings (count, the last and how much was eaten), the meals due so far
+today and the last check, "today" in the customer's zone
+(`business_settings`); the animal's age in years from `animals.born_on`
+(D417). An empty unit's
 row carries the unit only. The chain D287 requires is the view's own
 join: unit → open placement → stay → animal.
 
@@ -417,9 +425,9 @@ shared pages](#changes-needed-in-shared-pages).
 
 | Role | Who | Reads | Writes |
 |---|---|---|---|
-| `housing` | owns housing's tables and the view; no login | for the view: `animal_board`, and `stays` (`id`, `animal_id`) | |
-| `housing_app` | the practice software's housing screens, on `pms` (D276) | every housing table and the view; of the core's: `stays` (`id`, `animal_id`, `section_id`, `admitted_at`, `discharged_at`, `outcome`), `animals` (`id`, `species`), `alerts` (`animal_id`, `kind`, `from`, `until`), `staff` (`id`, `kind`) | `housing_placements`, `housing_feeding_plans`; `housing_units` (`state`, state since) only; never the units' or displays' other columns |
-| `housing_ward` | the ward service's writes (D287) | `housing_units`, `housing_placements`, `housing_feeding_plans`, `housing_care_events`, the view; `staff` (`id`, `kind`) | `housing_care_events` (insert only); `housing_units` (`state`, state since) only |
+| `housing` | owns housing's tables and the view; no login | for the view: `animal_board`, `business_settings`, `stays` (`id`, `animal_id`, `reason`) and `animals` (`id`, `born_on`) (D417) | |
+| `housing_app` | the practice software's housing screens, on `pms` (D276) | every housing table and the view; of the core's: `stays` (`id`, `animal_id`, `section_id`, `admitted_at`, `discharged_at`, `outcome`), `animals` (`id`, `species`), `alerts` (`animal_id`, `kind`, `from_at`, `until_at`), `staff` (`id`, `kind`) | `housing_placements`, `housing_feeding_plans`; `housing_units` (`state`, `state_since_at`) only; never the units' or displays' other columns |
+| `housing_ward` | the ward service's writes (D287) | `housing_units`, `housing_placements`, `housing_feeding_plans`, `housing_care_events`, the view; `staff` (`id`, `kind`) | `housing_care_events` (insert only, with `USAGE` on its sequence: a feeding's `eaten` is a hash of its id, D417); `housing_units` (`state`, `state_since_at`) only |
 | `vet_display` (the core's) | the ward service's board reads, the displays' | the core's `animal_board` (D279) and `housing_unit_board` | nothing |
 | `vet_reports` (the core's) | `backoffice`'s reads on the standby (D299, D306) | every housing table, as every core table | nothing |
 
@@ -434,15 +442,17 @@ therefore cannot move an animal or touch the record.
 | What | Rows at load | Live, a day |
 |---|---|---|
 | Units, displays | 64, 66 | none |
-| Placements | about 3 000 | about 10 (8 admissions, 2 moves) |
-| Feeding plans | about 2 900 (2 500 diets, 400 nil-by-mouth orders) | about 11 |
-| Care events | about 150 000 | about 520 |
-| **Total** | **about 0.16 million rows** | **about 540 rows** |
+| Placements | about 3 030 (2 421 admissions, 244 into isolation, 367 moves) | about 10 (8 admissions, 2 moves) |
+| Feeding plans | about 2 800 (2 421 diets, 374 nil-by-mouth orders) | about 11 |
+| Care events | about 133 000 (60 800 checks, 28 400 feedings, 40 700 other actions, 3 000 disinfections) | about 520 |
+| **Total** | **about 0.14 million rows** (138 752 at the reference T0, 2026-11-04 10:00Z, offset +2; 138 863 at offset 0) | **about 540 rows** |
 
-Beside the core's 0.28 million in `clinic`, about 0.44 million on
-`records`' `clinic` with `office`'s 0.16 million beside it: under the
-shop's 1.3 million and within the `postgres` brick's 2.25G of disk;
-about 50 MB with indexes, measured at the build. Far under cold
+The build's counts (D417): the care log follows the stays' ramp, so
+the year's mean is below the 520 a day of today's 40 animals. Beside
+the core's 0.28 million in `clinic`, about 0.42 million on `records`'
+`clinic` with `office`'s 0.16 million beside it: under the shop's 1.3
+million and within the `postgres` brick's 2.25G of disk; 17 MB with
+indexes, measured. Far under cold
 storage's threshold of about 50 000 rows a day (D296): nothing ships.
 
 ### Plausibility points (step 4, optional, ruled, D318)
@@ -507,7 +517,8 @@ and care; never the owner, a contact or a natural identifier (core rule
 10). Its notes are working notes, never an owner's name.
 
 **Biosecurity.** An animal with a current `infectious` alert is housed
-in an isolation unit, moved there when the alert comes during its stay;
+in an isolation unit, moved there when the alert comes during its stay,
+as soon as one is free (the policy as built, D417);
 an isolation unit's occupant never shares the ward's ordinary units;
 every emptied unit is mucked out and disinfected before the next animal,
 an isolation unit always (Regulation (EU) 2016/429, Art 10, the
@@ -646,10 +657,20 @@ core's does without a curve of its own:
 
 - each stay, in admission order, placed ten minutes after its admission
   in the free unit its rules give (fit, isolation for an animal whose
-  infectious alert was current then, the lowest id); one stay in five
-  moved once, by a hash of its id (out of intensive care after one or
-  two days, into isolation when an alert started during the stay);
-  released at its end, the unit disinfected 30 to 90 minutes later;
+  infectious alert was current then, the lowest id); one in nine of the
+  horse and domestic stays with no alert to intensive care first, moved
+  out after one or two days; a stay with an alert moved into isolation
+  when it starts, or, none free, at the first isolation unit
+  disinfected while the alert lasts, and **back to an ordinary unit when
+  the alert ends**, freeing isolation for the next (without it the
+  farm's sixth head of cattle found no unit twice in the year: five
+  stalls, and the isolation pen held by a recovered sheep) (D417);
+  released at its end, the unit disinfected 30 to 90 minutes later. As
+  built: 454 stays moved, 157 of them twice; of 249 infectious stays,
+  244 reached isolation, 47 after a wait (at most four infectious
+  horses, three farm animals and six domestic animals at once against
+  two, one and two isolation units), up to three days on the farm, and
+  5 never did; 2 non-infectious admissions overflowed into isolation;
 - each stay's diet at its placement; about one stay in six a
   nil-by-mouth order, by a hash of its id, on the evening before a
   morning;
@@ -664,7 +685,7 @@ core's does without a curve of its own:
 **In flight at T0**, as a night leaves the wards: about 40 stays placed,
 one open placement each and no unit holding two; their plans in force,
 a few nil-by-mouth orders running into the morning; the night's checks
-recorded, the next feeding round due; units released in the last hour
+recorded, the next feeding round due; units released in the last 90 minutes
 `to-clean`, the rest `clean`. Every core stay current at T0 has its
 placement, and no placement is open on an ended stay: a mismatch would be
 a fault with no story (D304's principle for the partners' database). The
@@ -801,7 +822,7 @@ natural identifier on `animal_board`, so on every display).
 | # | Trap | Where it bites | Witness | Fixed on | Catalogue | Class |
 |---|---|---|---|---|---|---|
 | T162 | The unit board showing the latest plan by its start, the diet written after a nil-by-mouth order hiding it | the carers, following the display (`ward.feed` reading it), feeding an animal due for an anaesthetic: rule 3 | feeding events inside a nil-by-mouth order, at each order followed by a diet change (about 3 orders a day) | the view on `records` | new | V; D with a story of an anaesthetist's complaint (a horse fed before its colic surgery) |
-| T163 | `housing.place` ignoring a current infectious alert, or `housing.move` never moving an animal whose alert came during its stay | an infectious animal in an ordinary unit: rule 2 | open placements outside isolation whose animal has a current `infectious` alert; rare, a story raising the rate (strangles in the horse barn, D306 point 6) | `pms`' `queries.yaml`, then the moves (reported) | new | V |
+| T163 | `housing.place` ignoring a current infectious alert, or `housing.move` never moving an animal whose alert came during its stay | an infectious animal in an ordinary unit: rule 2 | an infectious animal outside isolation while an isolation unit of its section has stood clean and free for more than a day (D419; the history's waits, every isolation unit held, are no witness); rare, a story raising the rate (strangles in the horse barn, D306 point 6) | `pms`' `queries.yaml`, then the moves (reported) | new | V |
 | T164 | `housing.release` marking an isolation unit `clean` at once, skipping its disinfection | the next animal placed where an infectious one was: rule 2 | placements into an isolation unit with no `disinfection` event since its last occupant, at each release of one | `pms`' `queries.yaml` | new | M |
 | T165 | A care kind `medication` offered on the displays and used | a dose recorded at the box and not in the core's administrations, or in both: two places for one fact (rule 5); the medicines register short | care events of that kind, beside the core's administrations at the same animal and hour | reported (the ward's application); the ward's `queries.yaml` where fixable | new | M; V when the register's feeder misses the doses |
 | T166 | The night checks short: `ward.check`'s capacity cut at night by a key (rides the schedule) | animals unchecked for more than four hours at night: rule 4 | occupied units with no check for over four hours, every night | reported (the ward's staffing, D276) | new | M |
@@ -824,6 +845,7 @@ natural identifier on `animal_board`, so on every display).
 | "Box H-07's display shows no feeding since last night" | the horse is nil by mouth for this morning's surgery (rule 3) | the plan in force |
 | "Box H-12's display shows it empty, yet the horse's name is on the door" | the horse moved to intensive care an hour ago | the placements |
 | "Two isolation boxes stand empty while a horse waits for a box" | isolation units are kept for infectious animals (rule 2) | the units and the alerts |
+| "An infectious animal is in an ordinary unit" (the history's, at most a few at once) | the section's isolation units were all held; it moves in at the first one disinfected (D417; never T163's witness, which needs a free isolation unit for a day, D419) | the placements, the alerts and the isolation units' occupants |
 
 ### Against the test selection
 
@@ -859,6 +881,19 @@ the bastion: four nodes, about 0.8 CPU and 0.75G reserved, one host.
 | The care log | T0 just before 17:00: the round's feedings recorded, a nil-by-mouth animal skipped, about 20 events an hour | 20 minutes |
 | T150 (s9, D325) | *present*: the excess calls and the unit's parameter, logged for `vet_display` alone; *reported*: the chain read from the unit's parameter to the display's serial and the animal, the answer key's criteria; *cleared*: the test itself switching the display's key off in the profile layer (D264), the calls back to 64 a minute, proving the key reversible (a test step, never the GM's in a game) | 15 minutes |
 
+**As built** (chunk 14, D417): the shift moves whole hours, so "T0 at
+10:00" is placed within 10:00–10:59 local and "just before 17:00"
+within 16:00–16:59 (runs at 10:04 and 16:48); the place run 39 of 39
+checks in 19.4 minutes, the care run 40 of 40 in 22.3. "Its unit
+disinfected within the hour" is not shown for a unit released live:
+`ward.disinfect` takes a unit `to-clean` for 30 minutes or more, and
+the run stops after the ward's first call, about 15 minutes after T0, so
+it shows the disinfection of units the history released before T0, the
+live one left to the whole clinic's run (a test limit, not a design
+change). The fixture renders its hand-over
+at least nine hours out, past the eight-hour aging floor, at the
+designed 14:00 scenario time; the test runs its checks long before it.
+
 **Only the whole clinic shows**, in the proof in play: the ward service
 beside every other producer on `records`, its reads among the core's and
 the purposes', the standby replaying housing's rows; if O189 is
@@ -876,7 +911,7 @@ T150 found across a hand-over; the night checks of T166 over a night.
 | `ward`, the ward service (D287) | `scheduler` | the players' | 0.1 | 64M | 128M | armenelos (light enough for the VPS if CPU there allows) |
 
 One node, the [tally](clinic-capacity.md)'s estimate unchanged. On
-`records`: about 0.16 million rows and 50 MB more in `clinic`, within
+`records`: about 0.14 million rows and 17 MB more in `clinic` (D417), within
 its 2.25G; about one board read a second and 540 rows a day, a few
 hundredths of its 0.5 CPU; four pooled sessions and two for the writes.
 No database node, no exporter.
@@ -891,8 +926,11 @@ core's tables (D249, D322): explicit ids for the units and displays,
 the history's ids in time order, each sequence set after its range; the
 shift variables need nothing of housing's own, every time following the
 core's shifted stays. The loader refuses an `at:` other than the core's
-database (`lands_with: vet-core`, D322). The load's sessions unseen (D265). About 0.16 million rows; size
-and time measured at the build (procedure 3). The build checks that no
+database (`lands_with: vet-core`, D322). The load's sessions unseen (D265). About 0.14 million rows and 17 MB,
+in about 7.5 s after the core's 92 to 96 s (7.4 s at offset +2, 7.6 s
+at 0, `postgres` 0.5.0 in a throwaway container); through `load-data`
+on Swarm, the core and the coherence check included, 102 to 122 s
+(D417). The build checks that no
 stay of the year finds its section without a fitting unit, and fails if
 one does; the GM's post-load coherence check then reads every placement
 on a real stay and every current stay placed (D322).

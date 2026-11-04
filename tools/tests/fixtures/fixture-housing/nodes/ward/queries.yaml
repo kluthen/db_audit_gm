@@ -1,0 +1,103 @@
+# queries.yaml of node ward, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+queries:
+  # from vet-housing@regional-franchise: domains/vet-housing/producers/ward/queries.yaml
+  ward.board:
+    sql: SELECT * FROM housing_unit_board WHERE unit_id = %(unit)s
+    params:
+      unit:
+        int:
+        - 1
+        - 64
+  # from vet-housing@regional-franchise: domains/vet-housing/producers/ward/queries.yaml
+  ward.feed:
+    sql: |-
+      WITH b AS (
+        SELECT unit_id, stay_id, section_id FROM housing_unit_board
+         WHERE stay_id IS NOT NULL AND plan_kind = 'diet' AND feedings_today < meals_due
+         ORDER BY unit_id LIMIT 1),
+      k AS (
+        SELECT b.*, nextval(pg_get_serial_sequence('housing_care_events', 'id')) AS id FROM b)
+      INSERT INTO housing_care_events (id, unit_id, stay_id, kind, eaten, done_at, done_by) SELECT k.id, k.unit_id, k.stay_id, 'feeding',
+             CASE WHEN (hashint8extended(k.id, 1412) & 2147483647)::float8 / 2147483648 < 0.85 THEN 'all'
+                  WHEN (hashint8extended(k.id, 1412) & 2147483647)::float8 / 2147483648 < 0.97 THEN 'part'
+                  ELSE 'none' END,
+             now(),
+             CASE k.section_id WHEN 1 THEN (ARRAY[57, 58, 59, 60])[1 + %(carer)s %% 4]
+                               WHEN 2 THEN (ARRAY[61, 62])[1 + %(carer)s %% 2]
+                               ELSE (ARRAY[63, 64, 65, 66])[1 + %(carer)s %% 4] END
+        FROM k
+    params:
+      carer:
+        int:
+        - 0
+        - 999
+  # from vet-housing@regional-franchise: domains/vet-housing/producers/ward/queries.yaml
+  ward.check:
+    sql: |-
+      INSERT INTO housing_care_events (unit_id, stay_id, kind, done_at, done_by) SELECT p.unit_id, p.stay_id, 'check', now(),
+             CASE u.section_id WHEN 1 THEN (ARRAY[57, 58, 59, 60])[1 + %(carer)s %% 4]
+                               WHEN 2 THEN (ARRAY[61, 62])[1 + %(carer)s %% 2]
+                               ELSE (ARRAY[63, 64, 65, 66])[1 + %(carer)s %% 4] END
+        FROM housing_placements AS p JOIN housing_units AS u ON u.id = p.unit_id
+       WHERE p.until_at IS NULL
+       ORDER BY p.id
+       LIMIT 1 OFFSET %(offset)s %% greatest((SELECT count(*) FROM housing_placements WHERE until_at IS NULL), 1)
+    params:
+      offset:
+        int:
+        - 0
+        - 999
+      carer:
+        int:
+        - 0
+        - 999
+  # from vet-housing@regional-franchise: domains/vet-housing/producers/ward/queries.yaml
+  ward.care:
+    sql: |-
+      INSERT INTO housing_care_events (unit_id, stay_id, kind, done_at, done_by) SELECT b.unit_id, b.stay_id,
+             CASE WHEN %(action)s::text = 'walk' AND b.species NOT IN ('dog', 'horse') THEN 'water'
+                  ELSE %(action)s::text END,
+             now(),
+             CASE b.section_id WHEN 1 THEN (ARRAY[57, 58, 59, 60])[1 + %(carer)s %% 4]
+                               WHEN 2 THEN (ARRAY[61, 62])[1 + %(carer)s %% 2]
+                               ELSE (ARRAY[63, 64, 65, 66])[1 + %(carer)s %% 4] END
+        FROM housing_unit_board AS b
+       WHERE b.stay_id IS NOT NULL
+       ORDER BY b.unit_id
+       LIMIT 1 OFFSET %(offset)s %% greatest((SELECT count(*) FROM housing_placements WHERE until_at IS NULL), 1)
+    params:
+      action:
+        choice:
+          water: 25
+          mucking-out: 25
+          bedding: 12
+          walk: 30
+          grooming: 8
+      offset:
+        int:
+        - 0
+        - 999
+      carer:
+        int:
+        - 0
+        - 999
+  # from vet-housing@regional-franchise: domains/vet-housing/producers/ward/queries.yaml
+  ward.disinfect:
+    sql: |-
+      WITH u AS (
+        UPDATE housing_units SET state = 'clean', state_since_at = now()
+         WHERE id = (SELECT id FROM housing_units
+                      WHERE state = 'to-clean' AND state_since_at <= now() - interval '30 minutes'
+                      ORDER BY state_since_at, id LIMIT 1 FOR UPDATE SKIP LOCKED)
+        RETURNING id, section_id)
+      INSERT INTO housing_care_events (unit_id, kind, done_at, done_by) SELECT u.id, 'disinfection', now(),
+             CASE u.section_id WHEN 1 THEN (ARRAY[57, 58, 59, 60])[1 + %(carer)s %% 4]
+                               WHEN 2 THEN (ARRAY[61, 62])[1 + %(carer)s %% 2]
+                               ELSE (ARRAY[63, 64, 65, 66])[1 + %(carer)s %% 4] END
+        FROM u
+    params:
+      carer:
+        int:
+        - 0
+        - 999

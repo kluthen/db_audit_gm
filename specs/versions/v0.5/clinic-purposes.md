@@ -783,7 +783,7 @@ its occupancy joins purpose 9 (D318).
 | `lab` | `lab_watch` | the critical calls' `pg_cron` job | `lab_results`, `lab_critical_calls`, `lab_order_tests` | `ops.incidents`, `ops.runs` |
 | `lab` | `lab_reports` | `backoffice`'s reads (step 4) | every table | nothing |
 | `lab` | `lab_release` | `interfaces`' release jobs (15) | `lab_orders` (id, account, animal, ordered at: no identifiers or notes), `lab_order_tests`, `lab_results`, `lab_tests`, `lab_analytes`, `lab_reference_intervals` | nothing |
-| `pacs` | `mach_orders` | `interfaces`' imaging jobs (13) | `mach_worklist` (accession, request, state), `mach_reports`, `mach_studies` (worklist, state) | `mach_worklist` (insert), `ops.*` |
+| `pacs` | `mach_orders` | `interfaces`' imaging jobs (13) | `mach_worklist` (accession, request, state, cancelled because, `cancelled_at`: the watermark on cancellations, D416), `mach_reports`, `mach_studies` (worklist, state) | `mach_worklist` (insert), `ops.*` |
 | `vitals`, `biomed` | `mach_archive` | `interfaces`' shipping job (14) | `mach_vitals`, `mach_readings` | `mach_readings_daily`, `ops.*`; `EXECUTE` on `mach_drop_shipped`; owns no table |
 | `portal` | `portal_sync` | the release jobs (15) | the copies, accounts, documents | accounts (insert; contacts; never a closed one's), the copies, documents, invitations in `portal_outbox`, `ops.*` |
 | `portal` | `portal_dispatch` | the messages' jobs (16) | accounts (status, channel, address), the copies, documents, consent events, the outbox | the outbox's queued rows and sending columns, `ops.*` |

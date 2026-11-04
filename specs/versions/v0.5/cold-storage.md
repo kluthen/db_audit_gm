@@ -58,7 +58,7 @@ each shipment is answered by a receipt (D286).
   history days' manifests in the partners' database through its
   `history.sql` (D307 item 5).
 - **The clinic's first two data types** (D319, vet-machinery O201):
-  `vitals` (the monitors' readings, about 52 000 rows a day) and
+  `vitals` (the monitors' readings, about 42 700 rows a day as built, D416) and
   `machine-readings` (the analysers' and imaging machines' telemetry,
   below the threshold but shipped by the owner's direction for the
   lab's machines, D288), the last full day kept on site, shipped
@@ -109,7 +109,7 @@ cause inside it.
 | Candidate | What the players find |
 |---|---|
 | Deleting before the upload is confirmed | a day missing from the graph, or received below declared, while its partition is gone on site: rows lost |
-| The shipping job stalled | the graph flat at zero, partitions older than the window piling up on site, the disk heading for its budget; at the clinic's moderate rates (about 10 MB a day for `machines`) the graph and the partition count show it days before the disk, which never bites within an aging |
+| The shipping job stalled | the graph flat at zero, partitions older than the window piling up on site, the disk heading for its budget; at the clinic's moderate rates (about 7 MB a day for `machines`, D416) the graph and the partition count show it days before the disk, which never bites within an aging |
 | Duplicate shipments | a day counted twice: a retry under a new shipment id (`purpose-retry-without-key`, D201) |
 | The wrong age window | today's partition shipped while still written, the late rows lost; or a week kept on site |
 | `DELETE` instead of detaching and dropping the partition | bloat, autovacuum busy, WAL volume up, the table never shrinking |

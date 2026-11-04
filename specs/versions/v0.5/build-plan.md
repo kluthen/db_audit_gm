@@ -1323,7 +1323,8 @@ examination's machine.
 
 ### Chunk 14 — `vet-housing`, the wards and their displays
 
-Status: in progress
+Status: merged (w3, 82c8c6d)
+Record: 7b3eeab, merged 82c8c6d (the driver merged it after the owner's rotation pause); deviations sent to `spec-writer` (wave log, chunk 14 merged): grants beyond the table, the move out of isolation when an alert ends, "disinfected within the hour" not shown live under 30 minutes, T0 placed to the hour.
 Wave: 3
 Depends on: chunks 4 and 9 (waves 1 and 2)
 Architecture capture: W3, for chunks 20 and 25: the board's statement
@@ -1697,7 +1698,12 @@ chunk 29's (c) accepts (spec D401).
   the partners' `api` node and database, the bastion; T0 21:55, the
   shipping moved to the next minute). **For W4** (spec D403): the four
   fixtures' nodes and `left_out:` counted against compose's rule (W3
-  item 0) within eight.
+  item 0) within eight. **Also for W4** (spec D418): if `ship-partitions` reads the
+  customer's zone or the window from the settings rows,
+  `mach_vitals_settings` in `vitals` and `mach_settings` in `biomed`,
+  `mach_archive` needs `SELECT` on them, a grant purpose 14's roles do
+  not list yet; purpose 13's `mach_orders` reads the worklist's
+  cancelled because and `cancelled_at` (spec D416).
 - Files: `purposes/{vet-bookings-sync,vet-imaging-orders,cold-storage-archive,vet-portal-release,vet-portal-messages}/`
   (new); `tools/tests/fixtures/fixture-{bookings,imaging,portal}/`,
   `tools/tests/fixtures/fixture-vault/` (new); the root `README.md`'s
@@ -2144,7 +2150,7 @@ before the derivations), read by chunks 18 to 21. As built: W3-f.
 
 ### Chunk 30 — The core's agenda: the scheduled consultations on half-hour slots, the exchanges' reason
 
-Status: planned
+Status: in progress
 Wave: 3
 Depends on: chunk 9 (wave 2); inserted into wave 3 after chunk 13
 stopped (spec D409), built by a `coding-executor` handed the brief by

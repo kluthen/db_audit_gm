@@ -1,0 +1,3 @@
+# jobs.yaml of node ward, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+jobs: []
