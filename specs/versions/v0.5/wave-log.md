@@ -3206,3 +3206,62 @@ had exited between the listing and the read (`cat: /proc/446/...: No
 such file`); it passed in chunk 28's run and at the gate. Sent to a
 `coding-executor`: the check skips a child gone before its read, then
 the stack test rerun.
+
+Gate fixes `ed863df` (the stack test's `oom_score_adj` checks skip a
+process gone before its read: the children's, the postmaster/s6/sshd/cron
+line's, db2's cron daemon's with `sort -u`; the script isn't in the
+image, no rebuild) and `1a7562e` (`gmctl.md`'s `snapshot` row: the copy
+order and `slots:`; the root README's `purposes/` row as the `domains/`
+row, and rows for `tools/go-sbom` and `bricks/<brick>/sbom/`). `postgres`
+stack test rerun: **315/315**, 459 s; unit suite 1105 OK, 2 skipped, 174
+s. Wave 2's gate **passed again (2026-11-04)**, at `ed863df`, chunk 28
+in.
+
+### Wave 2 — report to the owner, 2026-11-04
+
+- **Chunks merged**: 6 (f3eb50d), 7 (a7b76ff), 8 (4b22401), 9 (7f95c5b),
+  10 (35e8bf7), 11 (dc4fdd5), and 28 (1cfd371), inserted after the gate
+  on the owner's restore ruling (D397, D398). None moved. Chunk 9
+  stopped three times on spec gaps (catalogues and functions; rota and
+  requests; administrations and carers), each settled by `spec-writer`
+  without the owner, and once on a defect in `load-data`; chunks 7, 8
+  and 9 were resumed by fresh owners from WIP commits.
+- **Gates**: G9, G10 and G16 done. The wave gate passed at `c486fb8`
+  (no fix during it), then its touched items were rerun after chunk 28
+  (above). Gate fixes: early, while chunks ran, `9131cc4`, `c1f7d2f`
+  (D381), `2035b0e` (D383), `990941b`, `e5d158c`, `5900212`, `26bcbba`;
+  after G16, `5a3765f` (the loader enforcing D383, a partner `data.sql`
+  and the `partners` id; skill templates), `8a23bef` (the Go binaries'
+  SBOMs in the daily sweep), `ed863df` and `1a7562e`.
+- **Figures** (armenelos, 2026-11-04): `vet-core`'s load 89.0 s at shift
+  0, 89.5 s at +2, 49 MB, about 274 000 rows; the restore fixture 83–93
+  s (the restart 37 s); `postgres:0.5.0` 265 MB, `pgwatch:0.1.0` 167 MB,
+  `health-check:0.1.0` 195 MB (the rest above); `/var` 34 GB free,
+  nothing pruned.
+- **Rulings**: spec D360 to D400 (plan v4 to v9); D371 and D392 unused.
+  The owner's this wave: D395 (D365 kept, tracked as O231), D396 (latest
+  versions until v1.0, versions game-wide from v1.0), D397 (the restore
+  gives back replication, superseding D352), D398 (chunk 28), D399
+  (check_postgres kept, a switch expected), D400 (pgBadger unpinned);
+  O232 (a snapshot of the whole game as a feature of play, with game
+  time; later). Information only: access model 8 reworded (D383) and 13's
+  new known gap (D395); master spec 9.2, 9.4, 9.6 text corrections (D372
+  to D380, D387); formats.md draft v30 (G16, `compose/<node>/`).
+- **Settled by the owner on 2026-11-04**: `a100f5a` confirmed; G6's PyPI
+  set kept ("see how it goes"); pgBadger listed, unpinned; D365 kept and
+  tracked; pgwatch the latest; the Go modules in the sweep (done); the
+  restore fixed (chunk 28); check_postgres kept.
+- **For the owner, open**:
+  1. Grafana 13.2.4 → 13.2.5 (four Grafana CVEs, not yet on NVD/OSV) or
+     13.3.0 (go-jose's fix too; D396's "latest"). The driver recommends
+     13.3.0 as a gate fix with Grafana's stack test and the monitoring
+     smokes rerun, or as wave 3's first fix.
+  2. After the merge, the daily sweep will write about 50 Go items into
+     `SECURITY_TODO.md` (none reachable, triaged in `.tech`), and about
+     18 OpenSSL ones (Debian backports): a triage pass then, or `.tech`
+     ignore entries with a review date if a quieter list is preferred.
+- **Wave sync**: none (no intent register). `doc-ids compare main
+  v0.5-w1` and `main v0.5-w2`: 0 collisions.
+- **Merge**: `v0.5-w1` then `v0.5-w2` → `main` on the owner's word (w2
+  holds w1; merging w2 alone takes both). Wave 3 starts in a fresh
+  session, from `main` once merged.
