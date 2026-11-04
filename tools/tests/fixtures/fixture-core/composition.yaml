@@ -1,0 +1,9 @@
+# The core fixture's composition record (tools/tests, v0.5 chunk 9b): the
+# core alone, no part, so no key list and no derivation; the variant's scale
+# is the core's own.
+domains:
+  - {id: vet-core, variant: regional-franchise, at: records/clinic}
+keys: {}
+scale: {checked: true, note: "the core alone at one centre's scale: about 0.27 million rows, 49 MB"}
+order: [vet-core]
+# derive: none (the core alone)
