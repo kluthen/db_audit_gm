@@ -1,0 +1,430 @@
+# Portal fixture of v0.5 (build plan chunk 16b; spec D403, D404, D405, D406,
+# D369; capture W3 items 0 and 5, W3-e, W3-f, of specs/versions/v0.5/
+# wave-log.md). Not a game: vet-core's record (records/clinic), vet-lab's
+# laboratory (lab/lab) and vet-portal's owners' portal (records/portal), loaded
+# by gmctl load-data from the domains (each schema.sql; the core's then the
+# part's data/keys.sql streamed ahead of each part's load.sql and of its
+# partners' data.sql, run into partners on partners-db; the portal's
+# derivation after the core's and the lab's loads, as composition.yaml
+# sanctions it; vet-portal's data/cron.sql on records; the coherence check
+# after); the portal's API, portal-api (api 0.1.0), as portal_api over TLS;
+# the integration engine, interfaces (scheduler 0.3.0), idle until chunk 21;
+# the owners' traffic on the partners' three nodes (partners-api serving the
+# hostname owners, partners-backend ticking it, partners-db holding its
+# record of visits and the lab's two stubs' state); and the bastion: eight
+# nodes on one host. Left out (composition.yaml): vet-core's pms and
+# clinic-api, vet-lab's lis, lab-api and two stubs' fragments, vet-portal's
+# desk stream on pms; the fragments compose in tools/tests/test_compose.py
+# only. gmctl compose writes nodes/portal-api/, nodes/interfaces/,
+# nodes/partners-api/ and nodes/partners-backend/ from the domains' producers,
+# with the scenario layers compose/interfaces/ (its idle placeholder) and
+# compose/partners-backend/ (the owners' traffic raised, D264). Deployed by its
+# short test, run-short-test.sh. One harmless seed-file fault (f1), as the
+# core fixture's.
+
+# --- Scenario information --------------------------------------------
+id: fixture-portal
+version: 0.1.0
+title: Portal fixture, vet-portal's owners' portal beside vet-core's record and vet-lab's laboratory, its API and the owners' traffic
+date: 2026-11-04
+origin: hand-written
+session_length_minutes: 60
+brief: brief.md
+background: >-
+  A veterinary hospital keeps its medical record in one PostgreSQL
+  database, records, and its laboratory's in another, lab; its owners'
+  portal, a database portal beside the record, publishes the signed
+  consultations, the released results and the discharges to the animals'
+  owners through a small API, under row-level security.
+
+# --- Aging and difficulty ---------------------------------------------
+aging:
+  minimum: 8h                       # the floor (master spec 8.2); the short test never ages it
+  handover_at: "20:00"               # T0 between 11:00 and 12:00 local, the owners' day (run-short-test.sh)
+difficulty:
+  score: 1                          # its one fault instance (master spec 15.1)
+  level: easy
+
+# --- Domains (v0.5 master spec 6, 8) ----------------------------------
+domains:
+  - id: vet-core
+    variant: regional-franchise
+    at: records/clinic
+  - id: vet-lab
+    at: lab/lab
+  - id: vet-portal
+    at: records/portal
+
+# --- Third parties (v0.5 master spec 6.2, 10) ----------------------------
+# The lab's two partners, their state on partners-db, their fragments left
+# out (composition.yaml). They list the partners' three nodes, which the
+# owners' traffic (no third party: master spec 10.2, D369) shares.
+third_parties:
+  - id: northfield-lab
+    name: Northfield Veterinary Laboratories
+    stands_for: the external reference laboratory the lab sends what it cannot run
+    role: round-trip
+    nodes: [partners-api, partners-backend, partners-db]
+    hostname: northfield-lab
+    player_doc: player/partners.md#northfield-veterinary-laboratories
+  - id: regional-practices
+    name: The region's practices
+    stands_for: the 120 referring practices with an account at the lab
+    role: round-trip
+    nodes: [partners-api, partners-backend, partners-db]
+    hostname: practices
+    player_doc: player/partners.md#the-regions-practices
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: backend
+    description: every node's traffic (players' SSH and SQL sessions, the applications' SQL and HTTP, the partners' nodes)
+
+nodes:
+  - name: bastion
+    brick:
+      id: bastion
+      version: 0.5.0
+    role: bastion
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters:
+      web_routes: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.1
+        memory: 96M
+        disk: 256M
+    published_ports:
+      - port: 22
+        default: 2222
+      - port: 8080
+        default: 8080
+    seed_files:
+      README.md: player/README.md
+      story.md: player/story.md
+      issues.md: player/issues.md
+    knobs: []
+
+
+  - name: records
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.5
+        memory: 512M
+        disk: 2.25G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/records/postgresql.conf
+      pg_hba.conf: nodes/records/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 10, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+
+    data:
+      file: data/records.sql        # the database jobs and pg_cron in it; the domains make the rest
+      databases:
+        - name: jobs
+          owner: postgres
+          tables:
+            - name: cron.job
+              description: pg_cron's jobs; vet-portal's sessions' purge (portal.sessions.purge, 30 3 * * *), scheduled by load-data after the part's load, in portal, as portal_housekeeping.
+
+  - name: lab
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.4
+        memory: 384M
+        disk: 1G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/lab/postgresql.conf
+      pg_hba.conf: nodes/lab/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 10, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+
+
+  - name: interfaces
+    brick:
+      id: scheduler
+      version: 0.3.0
+    role: transformer
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/interfaces/queries.yaml
+      jobs.yaml: nodes/interfaces/jobs.yaml
+      schedule.yaml: nodes/interfaces/schedule.yaml
+    knobs: []
+
+  - name: portal-api
+    brick:
+      id: api
+      version: 0.1.0
+    role: api
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 96M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      api.yaml: nodes/portal-api/api.yaml
+      routes/: nodes/portal-api/routes/
+      db/: nodes/portal-api/db/
+    knobs: []
+
+  - name: partners-api
+    brick:
+      id: api
+      version: 0.1.0
+    role: api
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 128M
+        disk: 64M
+    published_ports: []
+    seed_files:
+      api.yaml: nodes/partners-api/api.yaml
+      routes/: nodes/partners-api/routes/
+      db/: nodes/partners-api/db/
+    knobs: []
+
+  - name: partners-backend
+    brick:
+      id: scheduler
+      version: 0.3.0
+    role: producer
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/partners-backend/queries.yaml
+      jobs.yaml: nodes/partners-backend/jobs.yaml
+      schedule.yaml: nodes/partners-backend/schedule.yaml
+    knobs: []
+
+  - name: partners-db
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.25
+        memory: 256M
+        disk: 512M
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/partners-db/postgresql.conf
+      pg_hba.conf: nodes/partners-db/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 32MB
+        envelope: {min: 32MB, max: 64MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 16MB}
+      - setting: maintenance_work_mem
+        initial: 32MB
+        envelope: {min: 16MB, max: 64MB}
+      - setting: max_connections
+        initial: 40
+        envelope: {min: 20, max: 60}
+      - setting: max_wal_size
+        initial: 256MB
+        envelope: {min: 64MB, max: 512MB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+    data:
+      file: data/partners-db.sql
+      databases:
+        - name: partners
+          owner: postgres
+          tables:
+            - name: xlab.orders
+              description: the external lab's stub, one row a send-out it holds (send_key, its accession, the test, due_at, its answer), the history's open ones planted
+            - name: xlab.state
+              description: the external lab's stub's state (delay_ms 0)
+            - name: practices.orders
+              description: the practices' stub, one row an order posted to lab-api (account, client_ref, accession), the history's open ones planted
+            - name: practices.deliveries
+              description: the practices' stub, one row a delivery_key acknowledged, repeats counted
+            - name: practices.state
+              description: the practices' stub's state (delay_ms 0, the customer's utc_offset)
+            - name: owners.settings
+              description: the owners' traffic's key, password_key, the one copy of the portal's passwords' and planted links' key (D406)
+            - name: owners.accounts
+              description: the owners' own logins, the load's open accounts (account_id, email, status as the route last knew it, the open planted link, when an invitation's owner activates it)
+            - name: owners.visits
+              description: one row per call the owners' route made on portal-api (at, account_id, call, status, animal_ids, document_ids), RL6's evidence
+
+flows:
+  - from: bastion
+    to: records
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: lab
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: portal-api
+    what: players' SSH sessions; an owner's call needs an owner's login, which the bastion does not hold
+    how: ssh 22, http 8000
+    cadence: interactive
+  - from: portal-api
+    to: records
+    what: the portal's requests, as portal_api over TLS, each one transaction under the owner's row-level security
+    how: postgresql 5432 (hostssl)
+    cadence: per request
+  - from: partners-backend
+    to: partners-api
+    what: the owners' ticks, under the hostname owners, with the credential partners_backend
+    how: http 8000
+    cadence: about 75 visits an hour by day (the owners' traffic raised to 10)
+  - from: partners-api
+    to: portal-api
+    what: the owners' browsers' calls (log in, list, open, consents, activation, resets, closures), the session a cookie
+    how: http 8000
+    cadence: per tick
+  - from: partners-api
+    to: partners-db
+    what: the owners' record of visits and their logins, as owners
+    how: postgresql 5432
+    cadence: per tick
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:
+  - id: f1
+    fault:
+      id: fixture-random-page-cost
+      version: 0.1.0
+    node: records
+    parameters: {}
+    visibility: hidden
+
+issues: []
+
+# --- Host topology it was designed for -------------------------------
+designed_for:
+  platform: swarm
+  hosts:
+    - name: laptop
+      cpu: 2
+      memory: 4G
+      disk: 8G
+  placement:
+    bastion: laptop
+    records: laptop
+    lab: laptop
+    interfaces: laptop
+    portal-api: laptop
+    partners-api: laptop
+    partners-backend: laptop
+    partners-db: laptop

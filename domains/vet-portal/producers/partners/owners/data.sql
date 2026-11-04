@@ -10,7 +10,9 @@
 -- passwords and the planted links with; this is its only copy (D406). The
 -- messaging stub's record (messaging.messages, its tokens and recipients) is
 -- purpose 16's, planted by its history (D404); the route reads it when it
--- exists.
+-- exists. The owners' own logins (owners.accounts) are the load's accounts as
+-- each browser remembers its own: the route cannot read portal, and an
+-- address is a hash of the core's (pg_temp.core_owner).
 \if :{?load_epoch}
 \else
 DO $$ BEGIN RAISE EXCEPTION 'owners data.sql: psql variable load_epoch is not set'; END $$;
@@ -49,3 +51,28 @@ CREATE TABLE owners.visits (
 );
 ALTER TABLE owners.visits OWNER TO owners;
 CREATE INDEX visits_at_idx ON owners.visits (at);
+
+-- The owners' own logins, as each browser remembers them: every account of the
+-- load (2-10 000; owner n's, docs/gm.md "Part keys"), its e-mail, its status
+-- as the route last knew it (the load's at T0, then the route's own
+-- activations and closures), the open planted link's template (invitation or
+-- password-reset) and, for an invitation whose activation delay
+-- (pg_temp.portal_activation_delay: none for three in ten) ends after T0,
+-- when its owner activates it (owners.activate). Accounts made in play (20 001
+-- on) join from the messaging stub's invitations.
+CREATE TABLE owners.accounts (
+    account_id   integer     PRIMARY KEY,
+    email        text        NOT NULL,
+    status       text        NOT NULL CHECK (status IN ('invited', 'active', 'closed')),
+    link         text        CHECK (link IN ('invitation', 'password-reset')),
+    activates_at timestamptz
+);
+ALTER TABLE owners.accounts OWNER TO owners;
+INSERT INTO owners.accounts (account_id, email, status, link, activates_at)
+SELECT n, a.email, a.status, a.open_template,
+       CASE WHEN a.status = 'invited' AND a.open_template = 'invitation'
+            THEN a.invited_at + pg_temp.portal_activation_delay(n) END
+  FROM generate_series(2, 10000) AS n,
+       LATERAL pg_temp.portal_account(n, :'load_epoch'::timestamptz, :'customer_utc_offset'::integer) AS a
+ WHERE a.status <> 'closed';
+CREATE INDEX accounts_activates_idx ON owners.accounts (activates_at) WHERE activates_at IS NOT NULL;

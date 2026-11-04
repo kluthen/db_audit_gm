@@ -414,6 +414,69 @@ class TestLabStubs(unittest.TestCase):
         self.assertEqual(self.result.overrides, [])
 
 
+class TestPortalDesk(unittest.TestCase):
+    """vet-portal's desk stream on the practice software (capture W3 item 5):
+    fixture-portal, its two left-out pms folders put back (vet-core's and
+    vet-portal's) and a pms node added; gmctl compose from the repository's
+    catalogue. The desk's connection and stream join the core's on pms, the
+    core's shape named, never written by the portal. No deployment."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory(prefix="gmctl-portal-desk-")
+        self.addCleanup(tmp.cleanup)
+        self.scenario = Path(tmp.name) / "fixture-portal"
+        shutil.copytree(FIXTURES / "fixture-portal", self.scenario, ignore=shutil.ignore_patterns("nodes"))
+        shutil.copytree(FIXTURES / "fixture-portal" / "nodes", self.scenario / "nodes",
+                        ignore=shutil.ignore_patterns("portal-api", "interfaces", "partners-api",
+                                                      "partners-backend"))
+        record = self.scenario / "composition.yaml"
+        data = yaml.safe_load(record.read_text())
+        data["left_out"] = [e for e in data["left_out"] if e["producer"] != "pms"]
+        record.write_text(yaml.safe_dump(data, sort_keys=False))
+        path = self.scenario / "scenario.yaml"
+        data = yaml.safe_load(path.read_text())
+        data["nodes"].append({
+            "name": "pms", "brick": {"id": "scheduler", "version": "0.3.0"}, "role": "producer",
+            "stateful": True, "networks": ["backend"], "write_policy": "no-access", "parameters": {},
+            "resources": {"limits": {"cpu": 0.25, "memory": "128M"},
+                          "reservations": {"cpu": 0.1, "memory": "64M", "disk": "128M"}},
+            "published_ports": [],
+            "seed_files": {f: f"nodes/pms/{f}" for f in ("queries.yaml", "jobs.yaml", "schedule.yaml")},
+            "knobs": []})
+        data["designed_for"]["placement"]["pms"] = "laptop"
+        path.write_text(yaml.safe_dump(data, sort_keys=False))
+        layer = self.scenario / "compose" / "pms"
+        layer.mkdir(parents=True)
+        (layer / "schedule.yaml").write_text("intensity: 1.0\n")
+        self.result = compose.compose(self.scenario, model.REPO_ROOT)
+
+    def output(self, node, fname):
+        return model.strict_load((self.scenario / "nodes" / node / fname).read_text())
+
+    def test_the_desk_on_pms(self):
+        schedule = self.output("pms", "schedule.yaml")
+        self.assertEqual(schedule["connections"]["portal"],
+                         {"driver": "http", "target": "portal-api:8000", "credential": "portal_desk",
+                          "pool": 1, "timeout": "10s"})
+        self.assertEqual(schedule["connections"]["clinic"]["role"], "vet_app")
+        desk = [s for s in schedule["streams"] if s["key"] == "portal.desk-consent"]
+        self.assertEqual(desk, [{"key": "portal.desk-consent", "connection": "portal", "rate": "0.28/h",
+                                 "arrivals": "poisson", "shape": "clinic-day"}])
+        self.assertIn("clinic-day", schedule["shapes"])
+        queries = self.output("pms", "queries.yaml")["queries"]
+        self.assertEqual(queries["portal.desk-consent"], {
+            "call": "POST /desk/consents",
+            "params": {"owner_id": {"int": [2, 10000]}, "purpose": {"choice": ["reminders"]},
+                       "granted": {"choice": {True: 2, False: 1}}}})
+        self.assertEqual(self.result.overrides, [])
+
+    def test_the_desk_endpoint_takes_the_credential(self):
+        api = self.output("portal-api", "api.yaml")
+        self.assertEqual(api["endpoints"]["desk"], {"hosts": ["portal-api"], "credentials": ["portal_desk"]})
+        self.assertEqual([n for n, e in api["endpoints"].items() if "credentials" not in e],
+                         ["session", "me", "animals", "documents", "accounts"])
+
+
 class TestComposition(ComposeCopyTest):
     """composition.yaml against domains: (formats.md "Composing domains"; W1 item 7)."""
 

@@ -23,9 +23,9 @@ its derivation, which reads `clinic` and `lab` once, after their loads.
 | [`data/classification.yaml`](../data/classification.yaml) | where `governance.classification` names it | the class of every column |
 | [`data/register.yaml`](../data/register.yaml) | the scenario's data register (chunks 17, 27) | the processing activities, every table in one |
 | [`data/governance.yaml`](../data/governance.yaml), [`policy.md`](policy.md) | the scenario's `governance:` and `player/data-policy.md`, beside the core's and the lab's | the eleven rules, where each class may live, the outbound flow to the messaging service |
-| `producers/api/portal-api/` | the portal's API node (`nodes/portal-api/`), by compose | the endpoints (chunk 16b) |
-| `producers/pms/` | the practice software's node, by compose | the desk's consent stream, `portal.desk-consent` (chunk 16b) |
-| [`producers/partners/owners/`](../producers/partners/owners/) | `partners-db`'s data and the partners' back end and `api` node | `data.sql` (the role and schema `owners`, the key, the record of visits); the owners' route (chunk 16b) |
+| [`producers/api/portal-api/`](../producers/api/portal-api/) | the portal's API node (`nodes/portal-api/`), by compose | the six endpoints ("The producers", below) |
+| [`producers/pms/`](../producers/pms/) | the practice software's node, by compose | the desk's consent stream, `portal.desk-consent` |
+| [`producers/partners/owners/`](../producers/partners/owners/) | `partners-db`'s data and the partners' back end and `api` node | `data.sql` (the role and schema `owners`, the key, the owners' logins, the record of visits); the owners' route: `api.yaml`, `routes/`, `db/` onto `partners-api`, `schedule.yaml`, `queries.yaml` onto `partners-backend` |
 | [`variants/regional-franchise.yaml`](../variants/regional-franchise.yaml) | read by compose | the portal's axes in the core's variant |
 
 ## The business
@@ -274,12 +274,83 @@ the list.
 
 ## The producers
 
-`portal-api` (`producers/api/portal-api/`), the desk's stream on `pms`
-(`producers/pms/`) and the owners' route (`producers/partners/owners/`):
-chunk 16b, written up here then. The owners' state is `owners.settings`
-(`password_key`) and `owners.visits (id, at, account_id, call, status,
-animal_ids, document_ids)`, one row per call, RL6's evidence (chunk 21);
-no `owners.state`, no `owners.normal` (master spec 10.2).
+### `portal-api` (`producers/api/portal-api/`, W3 item 5)
+
+An `api` node in the players' scope, hostname `portal-api`, connection
+`portal` (`records:5432/portal` as `portal_api`, pool 4, over TLS: the
+seed's `hostssl portal portal_api`, plain refused). Every endpoint is
+public at the brick but `desk` (credential `portal_desk`): an owner is
+known by the cookie `portal_session`, never `Authorization` (`gm_api`'s
+client refuses to set it, so the owners' route sends a cookie as a browser
+does). Each request is one transaction: an owner endpoint's `db/` side
+calls `portal_session(token)` first (an idle or expired session ended and
+committed, then 401), then `set_config('portal.owner_id', <owner>,
+true)`; its queries carry no owner filter, the policies do. Times in JSON
+are UTC with `Z`.
+
+| Endpoint | Route | Answers |
+|---|---|---|
+| `session` | `POST /login {email, password}` | 201 `{token}` and `Set-Cookie: portal_session=<token>; HttpOnly; Path=/; SameSite=strict`; 401 wrong e-mail or password; 423 locked |
+| | `POST /logout` | 204, the cookie cleared; 401 no open session |
+| `me` | `GET /me` | 200 the account (`account_id`, `owner_id`, `kind`, `display_name`, `email`, `phone`, `status`, `notify_by`, `reminders`, `invited_at`, `activated_at`, `last_login_at`) and `consents`, the latest event of each purpose, animal and keeper; 401 |
+| | `PUT /me/preferences {notify_by}` | 200 the account; 401; 422 a channel not `email`, `sms`, `none` |
+| | `POST /me/consents {purpose, granted, animal_id, keeper_id}` | 201 the event (source `portal`), the `reminders` flag beside a reminders' one; 403 `keeper-access` for an animal not owned now (the policy's `WITH CHECK`); 422 a malformed pair; 401 |
+| | `POST /me/close` | 200 `{closed: true}`, the cookie cleared (`portal_close`); 401 |
+| `animals` | `GET /animals` | 200 `[{animal_id, name, species, sex, born_on, status}]` by `animal_id`; 401 |
+| | `GET /animals/{id}/documents` | 200 `[{document_id, kind, title, version, record_at, published_at, superseded_at}]`, newest first by `record_at`, 50 at most, superseded versions included; 404 an animal the asker does not see; 401 |
+| `documents` | `GET /documents/{id}` | 200 the document (`document_id`, `animal_id`, `herd_id`, `kind`, `source_ref`, `version`, `record_at`, `gated_at`, `published_at`, `title`, `vet_name`, `body`, `supersedes_id`, `superseded_at`), its `portal_views` row (`open`) in the same transaction; 404 one the asker does not see, another owner's among them; 401 |
+| `accounts` | `POST /accounts/activate {token, password, reminders}` | 200 `{account_id}` (`portal_activate`); 401 a link unknown, used or expired; 422 a password under 8 characters |
+| | `POST /password-reset {email}` | 202 whatever the address (`portal_request_reset`) |
+| | `POST /password-reset/{token} {password}` | 200 `{reset: true}` (`portal_reset`); 401 |
+| | `POST /unsubscribe/{message_key}` | 200 `{unsubscribed: true}` (`portal_unsubscribe`); 404 another key; 422 not a UUID |
+| `desk` | `POST /desk/consents {owner_id, purpose, granted}` | 201 `{recorded: true}` (`portal_desk_consent`); 422 refused (another purpose, a closed account); 401 without `portal_desk` (the brick) |
+
+Herds' documents have no listing route: a herd's keeper opens one by its
+id (`GET /documents/{id}`).
+
+### The desk (`producers/pms/`)
+
+On the practice software, beside the core's `clinic`: the HTTP
+connection `portal` (`portal-api:8000`, credential `portal_desk`, pool 1)
+and the stream `portal.desk-consent` (0.28/h, Poisson, the core's
+`clinic-day`, about three a weekday): `POST /desk/consents` for an owner
+drawn from 2 to 10 000, `reminders`, granted two times in three. A closed
+account's owner (about one call in thirty) answers 422, an error counted
+in `pms`' log. The shape is the core's, named only.
+
+### The owners' traffic (`producers/partners/owners/`, D369)
+
+The owners' browsers, no third party: prefix and hostname `owners` on the
+partners' `api` node, no `partners.md` entry, no contract, no
+misbehaviour key (no `owners.state`, no `owners.normal`; master spec
+10.2). One endpoint, `owners_tick` (`POST /tick {kind}`, credential
+`partners_backend`), ticked by six streams on the back end (connection
+`owners-tick`, `owners:8000`), at intensity 1.0 on `owners-day`:
+
+| Key | Rate | What one tick does |
+|---|---|---|
+| `owners.visit` | 9.3/h, Poisson | an active account (70 % among the last day's recipients in the messaging stub's record when it exists, else at random): one in 50 first tries a past session's token (`session-1`, a bookmarked link, 401), one in 300 mistypes five times (locked, 423), one in 25 once; logs in, lists its animals, opens one animal's documents and one or two of them (1.6 on average); one in ten reads `GET /me` and changes its channel or its reminders' consent; logs out half the time |
+| `owners.activate` | 4/h, even (a capacity) | the oldest planted invitation whose activation delay has passed (`owners.accounts`' `activates_at`), else one made in play from the messaging stub (its link's token; 0 to 3 days by a hash of the id, three in ten never): `POST /accounts/activate` with the account's password, the reminders granted by 80 % |
+| `owners.reset` | 0.31/h, Poisson | a reset asked earlier used through its message's token (the messaging stub), then an active account asks a new one |
+| `owners.unsubscribe` | 2/h, even (a capacity) | a reminder received 3 hours to 14 days ago, one in twenty by a hash of its key, withdrawn by its link (the messaging stub) |
+| `owners.keeper` | 0.08/h, Poisson | a horse owner (302–901) grants (three in four) or withdraws a keeper's access named in its consents |
+| `owners.close` | 0.015/h, Poisson | an active account closed (`POST /me/close`) |
+
+Connections on `partners-api`: `owners-db` (`partners-db:5432/partners`
+as `owners`, pool 2) and `owners-portal` (`portal-api:8000`, no
+credential, pool 2). A tick reads what it needs in one short transaction,
+makes its calls holding no database session, then writes every call to
+`owners.visits (id, at, account_id, call, status, animal_ids,
+document_ids)`, `call` the route's pattern (`GET /animals/{id}/documents`),
+RL6's evidence (chunk 21). Its state, in `owners`' `data.sql`:
+`owners.settings` (`password_key`, the key's one copy) and
+`owners.accounts (account_id, email, status, link, activates_at)`, the
+load's open accounts as each browser remembers its own login (the route
+cannot read `portal`, and an address is a hash of the core's), updated by
+its own activations and closures. Without the messaging stub (until chunk
+21) the resets are asked and never used, and no unsubscribe is sent.
+`PUT /me/preferences` goes through the client's own request path, since
+`gm_api`'s client offers only `get()` and `post()`.
 
 ## The rules
 

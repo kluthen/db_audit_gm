@@ -1,0 +1,45 @@
+# queries.yaml of node partners-backend, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+queries:
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/queries.yaml
+  owners.visit:
+    call: POST /tick
+    params:
+      kind:
+        choice:
+        - visit
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/queries.yaml
+  owners.activate:
+    call: POST /tick
+    params:
+      kind:
+        choice:
+        - activate
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/queries.yaml
+  owners.reset:
+    call: POST /tick
+    params:
+      kind:
+        choice:
+        - reset
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/queries.yaml
+  owners.unsubscribe:
+    call: POST /tick
+    params:
+      kind:
+        choice:
+        - unsubscribe
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/queries.yaml
+  owners.keeper:
+    call: POST /tick
+    params:
+      kind:
+        choice:
+        - keeper
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/queries.yaml
+  owners.close:
+    call: POST /tick
+    params:
+      kind:
+        choice:
+        - close

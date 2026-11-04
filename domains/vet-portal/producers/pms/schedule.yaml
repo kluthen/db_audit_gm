@@ -1,0 +1,22 @@
+# Schedule of the practice-management software, vet-portal's fragment (v0.5
+# master spec 9.7; vet-portal-domain.md, "The applications and their nodes",
+# "Rates at intensity 1.0"; capture W3 item 5): the reception desk recording
+# an owner's reminders' consent, over HTTP to portal-api's desk endpoint with
+# the desk's credential portal_desk (the connection portal, beside the core's
+# clinic: D276, connections unique per node), about three a weekday. In
+# scenario time. The shape is the core's (clinic-day), named, never written
+# here: compose merges it from vet-core's fragment on the same node. Written
+# for the node name portal-api; the GM renames it as the scenario does.
+connections:
+  portal:
+    driver: http
+    target: portal-api:8000
+    credential: portal_desk
+    pool: 1
+    timeout: 10s
+streams:
+  - key: portal.desk-consent         # about 3 a weekday, 1 on a Saturday
+    connection: portal
+    rate: 0.28/h
+    arrivals: poisson
+    shape: clinic-day
