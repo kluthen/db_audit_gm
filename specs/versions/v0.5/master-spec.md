@@ -22,7 +22,9 @@ corrections, settling what the approved text left to the build: a
 domain's producer fragments in one folder per scheduler node they target
 (6.1, 8.4; spec D344), and the `api` node's `api.yaml`, the file naming
 each endpoint's hostnames and credentials and its connections (6.5,
-6.8; spec D345).
+6.8; spec D345). On 2026-11-04, a text correction: pgwatch is its
+latest release at the build, not a 3.x one, a line that ended at 3.7.0
+(7.4, 21; spec D368).
 
 Baseline: the released [v0.4 master spec](../v0.4/master-spec.md) and
 its [access model](../v0.4/access-model.md). Everything v0.4 specifies
@@ -239,7 +241,7 @@ bricks/
   api/                  0.1.0, new: FastAPI and uvicorn serving endpoint files
   bastion/              0.5.0: `partners.md` and `data-register.md`, optional
                         seed files on the page; the route to cold storage's page
-  pgwatch/              0.1.0, new: pgwatch 3, its Prometheus sink (7.4)
+  pgwatch/              0.1.0, new: pgwatch, its Prometheus sink (7.4)
   health-check/         0.1.0, new: `check_postgres`, the status page, the
                         customer's scripts (7.4)
   grafana/              0.3.0: a seeded pgwatch dashboard (7.4)
@@ -667,7 +669,7 @@ Three pieces, each reading what `postgres` already provides
 (`pg_stat_statements`, the file logs) through the `monitoring` role
 (`pg_monitor`), and nothing more of the brick:
 
-- **`pgwatch` 0.1.0, a new brick, the node `pgwatch`**: pgwatch 3, one
+- **`pgwatch` 0.1.0, a new brick, the node `pgwatch`**: pgwatch, one
   collector for every instance in the players' scope (`records`, the
   standby, `lab`, `machines`; never the partners' database), its
   sources a file the scenario seeds, no configuration database, its own
@@ -678,11 +680,11 @@ Three pieces, each reading what `postgres` already provides
   Prometheus sink serves the metrics on its endpoint, v0.2's Prometheus
   scrapes it beside the exporters (its seed file's targets), and
   Grafana shows them in a seeded pgwatch dashboard (`grafana` 0.3.0).
-  The version is the latest pgwatch 3 release at the build, a
-  checksum-pinned release download as v0.2's Prometheus and
-  `postgres_exporter` are, once the dependency check has cleared it
-  (21). Starting footprint 0.1 CPU and 96M, no volume; on armenelos,
-  beside Prometheus.
+  The version is pgwatch's latest release at the build (6.1.0 at the
+  dependency check of 2026-11-04), a checksum-pinned release download
+  as v0.2's Prometheus and `postgres_exporter` are, once the dependency
+  check has cleared it (21). Starting footprint 0.1 CPU and 96M, no
+  volume; on armenelos, beside Prometheus.
 - **pgCluu, in `postgres` 0.5.0**, from the same package source as
   pgBadger and a report tool beside it: run on demand by the players on
   the node, its collector sampling for the window they choose, its
@@ -3361,7 +3363,7 @@ exception.
 - **Dependency checks** by the security advisor: FastAPI and uvicorn
   (and the `api` image's other packages) before the `api` chunk;
   pgaudit's package for `postgres` 0.5.0; for the monitoring breadth
-  (7.4), pgwatch 3's release, Prometheus as the sink's scraper,
+  (7.4), pgwatch's latest release, Prometheus as the sink's scraper,
   `check_postgres` and the health node's web server, and pgCluu's
   package, a gate on the monitoring chunk, so each joins `.tech`; each
   as a preflight on the candidate versions and a post-change check on

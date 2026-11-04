@@ -1,0 +1,469 @@
+# Refusal fixture of v0.5 (build plan chunk 6; capture W2 item 1 of
+# specs/versions/v0.5/wave-log.md). Not a game, never deployed: one valid
+# scenario holding every v0.5 key the loader checks (an option, a standby,
+# third parties on no-access nodes, HTTP connections, calls and a weighted
+# choice, two api nodes, a vault), copied and broken by tools/tests/test_model.py.
+# The load fixture's bricks, faults and issue; eight nodes.
+
+id: fixture-v05-refusals
+version: 0.1.0
+title: Refusal fixture for the v0.5 loader checks
+date: 2026-11-04
+origin: hand-written
+session_length_minutes: 60
+brief: brief.md
+background: A small shop takes orders, posts some to an external laboratory through its order API, ships
+  its archive to an off-site vault, and keeps a read-only replica of its database.
+aging:
+  minimum: 8h
+  handover_at: '14:00'
+difficulty:
+  score: 2
+  level: easy
+networks:
+- name: backend
+  description: every node's traffic, the partners' included
+nodes:
+- name: bastion
+  brick:
+    id: bastion
+    version: 0.5.0
+  role: bastion
+  stateful: true
+  networks:
+  - backend
+  write_policy: report-only
+  parameters:
+    web_routes: {}
+  resources:
+    limits:
+      cpu: 0.5
+      memory: 256M
+    reservations:
+      cpu: 0.1
+      memory: 96M
+      disk: 256M
+  published_ports:
+  - port: 22
+    default: 2222
+  - port: 8080
+    default: 8080
+  seed_files:
+    README.md: player/README.md
+    story.md: player/story.md
+    issues.md: player/issues.md
+  knobs: []
+- name: db
+  brick:
+    id: postgres
+    version: 0.5.0
+  options:
+  - monitoring
+  role: database
+  stateful: true
+  networks:
+  - backend
+  write_policy: fixable
+  parameters:
+    vault_target: cold-storage:8000
+    vault_credential: cold_storage
+  resources:
+    limits:
+      cpu: 1
+      memory: 1G
+    reservations:
+      cpu: 0.5
+      memory: 512M
+      disk: 2.25G
+  published_ports: []
+  seed_files:
+    postgresql.conf: nodes/db/postgresql.conf
+    pg_hba.conf: nodes/db/pg_hba.conf
+  knobs:
+  - setting: shared_buffers
+    initial: 128MB
+    envelope:
+      min: 64MB
+      max: 256MB
+  - setting: work_mem
+    initial: 4MB
+    envelope:
+      min: 1MB
+      max: 64MB
+  - setting: maintenance_work_mem
+    initial: 64MB
+    envelope:
+      min: 16MB
+      max: 256MB
+  - setting: max_connections
+    initial: 100
+    envelope:
+      min: 10
+      max: 200
+  - setting: max_wal_size
+    initial: 1GB
+    envelope:
+      min: 64MB
+      max: 1GB
+  - setting: autovacuum
+    initial: 'on'
+    envelope:
+      allowed:
+      - 'on'
+  data:
+    file: data/db.sql
+    databases:
+    - name: shop
+      owner: shop
+      tables:
+      - name: customers
+        description: 500 customers (id, name); primary key on id.
+      - name: orders
+        description: 20 000 orders at the backup, growing by about 20 a minute under the producer (id,
+          an identity column, customer_id, placed_at, total); primary key on id, index orders_customer_id_idx
+          on customer_id.
+- name: standby
+  brick:
+    id: postgres
+    version: 0.5.0
+  role: database
+  stateful: true
+  networks:
+  - backend
+  write_policy: fixable
+  parameters: {}
+  resources:
+    limits:
+      cpu: 1
+      memory: 1G
+    reservations:
+      cpu: 0.5
+      memory: 512M
+      disk: 2.25G
+  published_ports: []
+  seed_files:
+    postgresql.conf: nodes/standby/postgresql.conf
+    pg_hba.conf: nodes/standby/pg_hba.conf
+  knobs:
+  - setting: shared_buffers
+    initial: 128MB
+    envelope:
+      min: 64MB
+      max: 256MB
+  - setting: work_mem
+    initial: 4MB
+    envelope:
+      min: 1MB
+      max: 64MB
+  - setting: maintenance_work_mem
+    initial: 64MB
+    envelope:
+      min: 16MB
+      max: 256MB
+  - setting: max_connections
+    initial: 100
+    envelope:
+      min: 10
+      max: 200
+  - setting: max_wal_size
+    initial: 1GB
+    envelope:
+      min: 64MB
+      max: 1GB
+  - setting: autovacuum
+    initial: 'on'
+    envelope:
+      allowed:
+      - 'on'
+  standby_of: db
+- name: exporter
+  brick:
+    id: postgres-exporter
+    version: 0.2.0
+  role: monitoring
+  stateful: true
+  networks:
+  - backend
+  write_policy: fixable
+  parameters: {}
+  resources:
+    limits:
+      cpu: 0.25
+      memory: 128M
+    reservations:
+      cpu: 0.05
+      memory: 48M
+      disk: 64M
+  published_ports: []
+  seed_files:
+    exporter.conf: nodes/exporter/exporter.conf
+  knobs: []
+- name: producer
+  brick:
+    id: scheduler
+    version: 0.3.0
+  role: producer
+  stateful: true
+  networks:
+  - backend
+  write_policy: report-only
+  write_overrides:
+  - /srv/scheduler/jobs
+  parameters: {}
+  resources:
+    limits:
+      cpu: 0.25
+      memory: 128M
+    reservations:
+      cpu: 0.1
+      memory: 64M
+      disk: 128M
+  published_ports: []
+  seed_files:
+    queries.yaml: nodes/producer/queries.yaml
+    jobs.yaml: nodes/producer/jobs.yaml
+    schedule.yaml: nodes/producer/schedule.yaml
+  knobs: []
+- name: lab-api
+  brick:
+    id: api
+    version: 0.1.0
+  role: api
+  stateful: true
+  networks:
+  - backend
+  write_policy: fixable
+  parameters: {}
+  resources:
+    limits:
+      cpu: 0.25
+      memory: 128M
+    reservations:
+      cpu: 0.1
+      memory: 96M
+      disk: 64M
+  published_ports: []
+  seed_files:
+    api.yaml: nodes/lab-api/api.yaml
+    routes/: nodes/lab-api/routes/
+    db/: nodes/lab-api/db/
+  knobs: []
+- name: partners-api
+  brick:
+    id: api
+    version: 0.1.0
+  role: api
+  stateful: true
+  networks:
+  - backend
+  write_policy: no-access
+  parameters: {}
+  resources:
+    limits:
+      cpu: 0.25
+      memory: 128M
+    reservations:
+      cpu: 0.1
+      memory: 96M
+      disk: 64M
+  published_ports: []
+  seed_files:
+    api.yaml: nodes/partners-api/api.yaml
+    routes/: nodes/partners-api/routes/
+    db/: nodes/partners-api/db/
+  knobs: []
+- name: partners-db
+  brick:
+    id: postgres
+    version: 0.5.0
+  role: database
+  stateful: true
+  networks:
+  - backend
+  write_policy: no-access
+  parameters: {}
+  resources:
+    limits:
+      cpu: 1
+      memory: 1G
+    reservations:
+      cpu: 0.5
+      memory: 512M
+      disk: 2.25G
+  published_ports: []
+  seed_files:
+    postgresql.conf: nodes/partners-db/postgresql.conf
+    pg_hba.conf: nodes/partners-db/pg_hba.conf
+  knobs:
+  - setting: shared_buffers
+    initial: 128MB
+    envelope:
+      min: 64MB
+      max: 256MB
+  - setting: work_mem
+    initial: 4MB
+    envelope:
+      min: 1MB
+      max: 64MB
+  - setting: maintenance_work_mem
+    initial: 64MB
+    envelope:
+      min: 16MB
+      max: 256MB
+  - setting: max_connections
+    initial: 100
+    envelope:
+      min: 10
+      max: 200
+  - setting: max_wal_size
+    initial: 1GB
+    envelope:
+      min: 64MB
+      max: 1GB
+  - setting: autovacuum
+    initial: 'on'
+    envelope:
+      allowed:
+      - 'on'
+  data:
+    file: data/partners.sql
+    databases:
+    - name: partners
+      owner: postgres
+      tables:
+      - name: xlab.orders
+        description: the external lab's orders (id, client_ref), empty at T0
+flows:
+- from: bastion
+  to: db
+  what: players' SSH and SQL sessions
+  how: ssh 22, postgresql 5432
+  cadence: interactive
+- from: bastion
+  to: standby
+  what: players' SSH and SQL sessions
+  how: ssh 22, postgresql 5432
+  cadence: interactive
+- from: bastion
+  to: exporter
+  what: players' SSH sessions
+  how: ssh 22
+  cadence: interactive
+- from: bastion
+  to: producer
+  what: players' SSH sessions
+  how: ssh 22
+  cadence: interactive
+- from: bastion
+  to: lab-api
+  what: players' SSH sessions
+  how: ssh 22
+  cadence: interactive
+- from: producer
+  to: db
+  what: the order service's inserts
+  how: postgresql 5432
+  cadence: 20 a minute
+- from: producer
+  to: lab-api
+  what: the order posts
+  how: http 8000
+  cadence: 2 a minute
+- from: producer
+  to: partners-api
+  what: the results asked of the lab (northfield-lab)
+  how: http 8000
+  cadence: 1 a minute
+- from: lab-api
+  to: db
+  what: the order API's queries, as lab_api
+  how: postgresql 5432
+  cadence: per request
+- from: partners-api
+  to: partners-db
+  what: the lab's state, as xlab
+  how: postgresql 5432
+  cadence: per request
+- from: db
+  to: partners-api
+  what: WAL segments to the vault (cold-storage)
+  how: http 8000
+  cadence: per segment
+- from: standby
+  to: db
+  what: streaming replication
+  how: postgresql 5432
+  cadence: continuous
+- from: exporter
+  to: db
+  what: the exporter's statistics queries, as monitoring
+  how: postgresql 5432
+  cadence: every 15 s
+fault_instances:
+- id: f1
+  fault:
+    id: fixture-job-every-minute
+    version: 0.1.0
+  node: producer
+  parameters:
+    job: refresh-stats
+  visibility: known
+- id: f2
+  fault:
+    id: pg-table-autovacuum-off
+    version: 0.1.0
+  node: db
+  parameters:
+    database: shop
+    table-name: orders
+  visibility: hidden
+  plant_at: handover-4h
+issues:
+- id: I1
+  complaint: The order service's log fills with the stats refresh, and the database works harder than
+    it should between the hourly reports.
+  expected_resolution: fix
+  covers:
+  - f1
+designed_for:
+  platform: swarm
+  hosts:
+  - name: host-1
+    cpu: 4
+    memory: 6G
+    disk: 16G
+  placement:
+    bastion: host-1
+    db: host-1
+    standby: host-1
+    exporter: host-1
+    producer: host-1
+    lab-api: host-1
+    partners-api: host-1
+    partners-db: host-1
+third_parties:
+- id: northfield-lab
+  name: Northfield Veterinary Laboratories
+  stands_for: an external reference laboratory
+  role: round-trip
+  nodes:
+  - partners-api
+  - partners-db
+  hostname: northfield-lab
+  player_doc: player/README.md
+- id: cold-storage
+  name: Cold Storage
+  stands_for: the off-site vault
+  role: inbound
+  nodes:
+  - partners-api
+  - partners-db
+  hostname: cold-storage
+  player_doc: player/README.md
+- id: authority
+  name: The Authority
+  stands_for: an authority with no node
+  role: outbound
+  nodes: []
+  hostname: authority
+  player_doc: player/README.md

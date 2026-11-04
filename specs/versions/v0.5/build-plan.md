@@ -1,6 +1,9 @@
 # db_audit_gm v0.5 — Build plan
 
-Status: v4 (2026-11-04): capture W2's ten preflight corrections written
+Status: v5 (2026-11-04): G9's text correction, pgwatch its latest
+release at the build (6.1.0), not "pgwatch 3"; chunk 10 names G9's
+build conditions (spec D368).
+v4 (2026-11-04): capture W2's ten preflight corrections written
 in before wave 2's first chunk (chunks 6 to 11, 17, 21; G16); no chunk
 inserted (spec D360–D367).
 v3 (2026-11-03): wave 1's chunk reports (W1-w to W1-z) written
@@ -92,13 +95,13 @@ plan states only its deltas. Its conventions follow v0.4's
 |---|---|---|---|---|
 | G1 | Plan approval, κ included (workflow deltas); `v0.5-domains` merged into `main` on the owner's word, so wave 1 is cut from `main` | The owner | Wave 1 | done (2026-11-03, spec D342; the merge into `main` by the coordinator) |
 | G2 | [formats.md](../../formats.md) carries master spec 6: the domain format, composition, the data register, the purpose format's extensions (draft v28) | `spec-writer` | Chunk 2 | done (2026-11-03, spec D338) |
-| G3 | Network access at image build time: Debian 13's repositories, the PostgreSQL apt repository (PGDG: pgaudit, pgCluu if taken from it), the s6-overlay release, PyPI if G6 picks it, the pgwatch 3 release on GitHub | Hand check by the wave driver | Every image build: chunks 1, 3, 4, 5, 10, 17; every wave gate | done (2026-11-03, wave log) |
+| G3 | Network access at image build time: Debian 13's repositories, the PostgreSQL apt repository (PGDG: pgaudit, pgCluu if taken from it), the s6-overlay release, PyPI if G6 picks it, pgwatch's latest release on GitHub | Hand check by the wave driver | Every image build: chunks 1, 3, 4, 5, 10, 17; every wave gate | done (2026-11-03, wave log) |
 | G4 | A Docker host in swarm mode: armenelos' swarm, the VPS a drained worker in it | Hand check by the wave driver | Every stack test and fixture deployment, every wave gate, the release gate | done (2026-11-03, wave log) |
 | G5 | **Dependency preflight** on `postgres` 0.5.0's new packages: pgaudit's package for PostgreSQL 18 (PGDG) and what TLS needs in the image, with what they pull in, installed without recommends (master spec 7.1, 21). A finding the owner must rule on becomes a gate of its own | `security-advisor` (skill `dependency-check`), called by the wave driver at wave 1's start | Chunk 3's branch | done (2026-11-03, wave log) |
 | G6 | **Dependency preflight** on `api` 0.1.0: FastAPI, uvicorn and the image's other packages (Starlette, Pydantic and what they pull in, psycopg 3), the candidate versions and their source (Debian 13 or a pinned PyPI set) (master spec 7.2, 21) | `security-advisor`, called by the wave driver at wave 1's start | Chunk 5's branch | done (2026-11-03, wave log) |
 | G7 | **Dependency preflight** on `scheduler` 0.3.0, only if the HTTP driver or the scripts' client takes a package beyond the standard library, psycopg 3 and PyYAML (master spec 7.2, 24: the standard library preferred). With none, the driver records "not needed" in the wave log | `security-advisor`, called by the wave driver | Chunk 4's branch, if a package is added | not needed (2026-11-03, wave log; unless chunk 4 adds a package) |
 | G8 | **Dependency post-change check** on what wave 1 resolved: `postgres` 0.5.0 (chunk 3), `scheduler` 0.3.0 (chunk 4), `api` 0.1.0 (chunk 5), with the version lines chunk 1 bumped; `.tech` updated, committed on `v0.5-w1` | `security-advisor`, called by the wave driver once chunks 3 to 5 have merged | Wave 1's gate | done (2026-11-03, wave log) |
-| G9 | **Dependency preflight** on the monitoring breadth (spec D340): the latest pgwatch 3 release (a checksum-pinned download), Prometheus 3.13 re-checked as the sink's scraper, `check_postgres` (Debian), the health node's web server, pgCluu's package (master spec 7.4, 21) | `security-advisor`, called by the wave driver at wave 2's start | Chunk 10's branch | open |
+| G9 | **Dependency preflight** on the monitoring breadth (spec D340): pgwatch's latest release at the build (6.1.0 at G9; a checksum-pinned download), Prometheus 3.13 re-checked as the sink's scraper, `check_postgres` (Debian), the health node's web server, pgCluu's package (master spec 7.4, 21) | `security-advisor`, called by the wave driver at wave 2's start | Chunk 10's branch | done (2026-11-04, wave log) |
 | G10 | **Dependency post-change check** on chunk 10's resolved versions (`pgwatch` 0.1.0, `health-check` 0.1.0, `grafana` 0.3.0, pgCluu in `postgres` 0.5.0); `.tech` updated, committed on `v0.5-w2` | `security-advisor`, once chunk 10 has merged | Wave 2's gate | open |
 | G11 | **Any other dependency** a chunk adds or upgrades (the cold-storage page's drawing, an endpoint's or a purpose script's package, the bastion's front): a preflight before its branch and a post-change check before its wave's gate, `.tech` updated. The driver adds a row `G11.<n>` for each; none is planned | `security-advisor` | That chunk; its wave's gate | standing |
 | G11.1 | **Dependency preflight** on Debian `python3-yaml` 6.0.2 in `api` 0.1.0 (to parse `api.yaml`), asked by chunk 5's owner; its post-change check folded into G8 | `security-advisor` | Chunk 5; wave 1's gate | done (2026-11-03, wave log) |
@@ -118,8 +121,8 @@ none is a gate.
 
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
-| 1 | 1, 2, 3, 4, 5 | G1; G2 (done); G3, G4; G5 (chunk 3), G6 (chunk 5), G7 (chunk 4, if a package); G8 before its gate | in progress (2026-11-03) |
-| 2 | 6, 7, 8, 9, 10, 11 | wave 1; G9 (chunk 10); G10 before its gate | planned |
+| 1 | 1, 2, 3, 4, 5 | G1; G2 (done); G3, G4; G5 (chunk 3), G6 (chunk 5), G7 (chunk 4, if a package); G8 before its gate | gated (2026-11-04, wave log); merge into `main` on the owner's word |
+| 2 | 6, 7, 8, 9, 10, 11 | wave 1; G9 (chunk 10); G10 before its gate | in progress (2026-11-04) |
 | 3 | 12, 13, 14, 15, 16 | wave 2 | planned |
 | 4 | 17, 18, 19, 20, 21 | wave 3 | planned |
 | 5 | 22, 23, 24, 25, 26, 27 | wave 4; G14 (chunk 27, only if it applies) | planned |
@@ -302,8 +305,8 @@ have merged.
   `main` on the owner's word.
 - No link checker is configured; Markdown links are checked by reading.
 - Images are tagged `127.0.0.1:5000/dbagm/<brick>:<version>`; every
-  pinned download (s6-overlay, Prometheus, `postgres_exporter`, pgwatch
-  3) is checked against its published checksum in the Dockerfile.
+  pinned download (s6-overlay, Prometheus, `postgres_exporter`,
+  pgwatch) is checked against its published checksum in the Dockerfile.
 - The release gate runs on `v0.5-w5` before it merges, as v0.4's did.
 
 ### Per-wave gate contents
@@ -798,7 +801,8 @@ credential, the transaction-local setting per request.
 
 ### Chunk 6 — Loader checks for v0.5
 
-Status: planned
+Status: merged (w2, f3eb50d)
+Record: 6a dde1a14, 6b 2052e6f, merge f3eb50d. Outside the Files list `tools/tests/test_render.py` (chunk 3's standby test made valid); the split not exact (skill lines in 6b, four purpose constants in 6a) (wave log, W2-a).
 Wave: 2
 Depends on: chunks 1, 2 and 5 (wave 1; 5 for the `api` brick its
 fixtures name)
@@ -1048,10 +1052,10 @@ page and its `web_routes` entry.
 - Goal: master spec 7.4's three pieces, each reading what `postgres`
   already provides through the `monitoring` role.
 - Scope: in:
-  - **10a, `pgwatch` 0.1.0 and `grafana` 0.3.0**: pgwatch 3 (G9's
-    release, checksum-pinned), one collector, its sources a seeded file,
-    no configuration database, its web interface off, a metric set
-    needing no helper function, its Prometheus sink scraped by v0.2's
+  - **10a, `pgwatch` 0.1.0 and `grafana` 0.3.0**: pgwatch, its latest
+    release at the build (6.1.0, cleared by G9; checksum-pinned), one
+    collector, its sources a seeded file, no configuration database,
+    its web interface off, a metric set needing no helper function, its Prometheus sink scraped by v0.2's
     Prometheus (a seed target); `grafana` 0.3.0's seeded pgwatch
     dashboard (O223); its footprint at rest;
   - **10b, `health-check` 0.1.0 and pgCluu**: `check_postgres`
@@ -1074,6 +1078,11 @@ page and its `web_routes` entry.
   `records` with the option, `pgwatch`, `prometheus`, `grafana`,
   `health`, the bastion); the root `README.md`'s brick table.
 - Spec sections: master spec 7.4, 7.5, 14; spec D340.
+- Build conditions: G9's, in the wave log ("### G9"): for `pgwatch`
+  the binary only, `--web-disable=all`, a metric set with no
+  `init_sql`, `PGPASSFILE`; for `health`, nginx serving static files
+  only and `check_postgres` through `PGPASSFILE`; pgCluu 5.0 from PGDG,
+  pinned, its CGI removed (spec D368).
 - Done when: on the fixture, Prometheus scrapes pgwatch's sink, the
   dashboard shows its series, the status page lists each check's line
   with its time through the bastion, a pgCluu report lands in the
