@@ -274,9 +274,36 @@ name the owner: a trap (T213), not a class.
 
 ## The producer
 
-`equipment`, the machines and their systems as one scheduler node: its connections are
-[`producers/equipment/schedule.yaml`](../producers/equipment/schedule.yaml)'s (each database as its
-application role, and `clinic-api` by HTTP behind `clinic_lookup`).
+**`equipment`**, the machines and their systems as one scheduler node
+([`producers/equipment/`](../producers/equipment/)), in the players'
+scope: three SQL connections (`pacs` as `mach_pacs_app`, `vitals` as
+`mach_vitals_app`, `biomed` as `mach_biomed_app`) and an HTTP one to
+`clinic-api` behind the credential `clinic_lookup`. At intensity 1.0:
+volume streams `vitals.sample` (360/h, set-based, a row per open session
+on the 10-second tick), `vitals.alarm` (3/h), `vitals.anaesthesia.start`
+(1/h on `theatre`), `biomed.readings` (60/h, a row per machine with
+telemetry at the minute), `biomed.events` (10.4/h on `imaging-day`),
+`biomed.maintenance` (0.06/h), and the rare flows `pacs.study.unscheduled`
+and `pacs.worklist.cancel` (0.01/h, about one a week) and
+`pacs.report.addendum` (0.02/h); work streams, at capacities,
+`pacs.worklist.schedule` (10/h), `pacs.study.acquire` (6/h on
+`imaging-day`), `pacs.study.reconcile` (2/h), `pacs.report.preliminary`
+(4/h), `pacs.report.final` (4/h on `reporting`), `vitals.alarm.ack`
+(20/h), `vitals.anaesthesia.end` (6/h), `biomed.events.ack` (1/h);
+reads `pacs.mwl.query` (120/h), `pacs.viewer.open` (40/h),
+`vitals.station` (60/h), `biomed.dashboard` (12/h). Jobs:
+`mach-identity` every minute and `mach-census` every five
+([`scripts/lookup.py`](../producers/equipment/scripts/lookup.py), each
+holding its database connection and the HTTP one, D303), `vitals-chart`
+every five. **The PACS reads no registry** (`biomed` is another database):
+its schedule takes the procedure's machine for the animal's section, so
+a down machine's studies wait on its worklist (a story's, T209), and
+`mach_worklist` gains entries only from purpose 13 (`mach_orders`): with
+the purpose absent, the worklist streams find nothing to do. The shapes
+`imaging-day`, `reporting` and `theatre` are the part's; `clinic-day`,
+`office` and `flat` the core's, copied unchanged.
+
+Every key's statement was run as its role on a load (chunk 15's SQL checks).
 
 ## The partition jobs
 

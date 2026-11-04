@@ -30,3 +30,153 @@ connections:
     credential: clinic_lookup
     pool: 2
     timeout: 10s
+streams:
+  # --- volume streams (vet-machinery-domain.md, "Rates at intensity 1.0") ---
+  - key: vitals.sample               # every 10 s: one row per open session, about 52 000 a day
+    connection: vitals
+    rate: 360/h
+    arrivals: even
+    shape: flat
+  - key: vitals.alarm                # about 72 a day
+    connection: vitals
+    rate: 3/h
+    arrivals: poisson
+    shape: flat
+  - key: vitals.anaesthesia.start    # 10 a weekday, 1 a night
+    connection: vitals
+    rate: 1/h
+    arrivals: poisson
+    shape: theatre
+  - key: biomed.readings             # a row a minute per machine with telemetry (11): 15 840 a day
+    connection: biomed
+    rate: 60/h
+    arrivals: even
+    shape: flat
+  - key: biomed.events               # about 250 a day
+    connection: biomed
+    rate: 10.4/h
+    arrivals: poisson
+    shape: imaging-day
+  - key: biomed.maintenance          # under one a day
+    connection: biomed
+    rate: 0.06/h
+    arrivals: poisson
+    shape: office
+  - key: pacs.study.unscheduled      # about one a week: a rare flow
+    connection: pacs
+    rate: 0.01/h
+    arrivals: poisson
+    shape: flat
+  - key: pacs.worklist.cancel        # about one a week: a rare flow
+    connection: pacs
+    rate: 0.01/h
+    arrivals: poisson
+    shape: imaging-day
+  - key: pacs.report.addendum        # about one every three days: a rare flow
+    connection: pacs
+    rate: 0.02/h
+    arrivals: poisson
+    shape: reporting
+  # --- work streams: each takes the oldest item waiting; its rate is a capacity ---
+  - key: pacs.worklist.schedule      # about 11 a day
+    connection: pacs
+    rate: 10/h
+    arrivals: even
+    shape: flat
+  - key: pacs.study.acquire          # about 11 a day, in imaging hours (urgent ones at 0.1 at night)
+    connection: pacs
+    rate: 6/h
+    arrivals: even
+    shape: imaging-day
+  - key: pacs.study.reconcile
+    connection: pacs
+    rate: 2/h
+    arrivals: even
+    shape: office
+  - key: pacs.report.preliminary     # about 3 a day, at once
+    connection: pacs
+    rate: 4/h
+    arrivals: even
+    shape: flat
+  - key: pacs.report.final           # about 11 a day, in reporting hours
+    connection: pacs
+    rate: 4/h
+    arrivals: even
+    shape: reporting
+  - key: vitals.alarm.ack            # 72 a day, within minutes
+    connection: vitals
+    rate: 20/h
+    arrivals: even
+    shape: flat
+  - key: vitals.anaesthesia.end      # 11 a day
+    connection: vitals
+    rate: 6/h
+    arrivals: even
+    shape: flat
+  - key: biomed.events.ack           # rare: the critical ones, within four hours (rule 7)
+    connection: biomed
+    rate: 1/h
+    arrivals: even
+    shape: office
+  # --- reads ---
+  - key: pacs.mwl.query              # each modality's C-FIND
+    connection: pacs
+    rate: 120/h
+    arrivals: even
+    shape: flat
+  - key: pacs.viewer.open
+    connection: pacs
+    rate: 40/h
+    arrivals: poisson
+    shape: clinic-day
+  - key: vitals.station
+    connection: vitals
+    rate: 60/h
+    arrivals: even
+    shape: flat
+  - key: biomed.dashboard
+    connection: biomed
+    rate: 12/h
+    arrivals: even
+    shape: office
+shapes:
+  imaging-day:                       # weekdays 08:00-18:00, Saturday morning at 0.6; else 0.1, the on-call's urgent studies
+    days:
+      mon-fri:
+        hours: {"00-07": 0.1, "08-17": 1.0, "18-23": 0.1}
+      sat:
+        hours: {"00-07": 0.1, "08-11": 0.6, "12-23": 0.1}
+      sun:
+        hours: {"00-23": 0.1}
+  reporting:                         # the imaging specialists: weekdays 08:30-18:00, Saturday 09:00-12:00
+    days:
+      mon-fri:
+        hours: {"00-07": 0, "08": 0.5, "09-17": 1.0, "18-23": 0}
+      sat:
+        hours: {"00-08": 0, "09-11": 1.0, "12-23": 0}
+      sun:
+        hours: {"00-23": 0}
+  theatre:                           # weekdays 08:00-18:00; else 0.1, emergency surgery
+    days:
+      mon-fri:
+        hours: {"00-07": 0.1, "08-17": 1.0, "18-23": 0.1}
+      sat-sun:
+        hours: {"00-23": 0.1}
+  # the core's, copied unchanged (capture W3 item 0)
+  clinic-day:                        # weekdays 08:00-20:00, the late afternoon peak; Saturday mornings
+    days:
+      mon-fri:
+        hours: {"00-07": 0, "08-09": 0.8, "10-11": 1.0, "12": 0.4, "13": 0.6, "14-16": 1.0,
+                "17-18": 1.2, "19": 0.6, "20-23": 0}
+      sat:
+        hours: {"00-07": 0, "08-12": 0.8, "13-23": 0}
+      sun:
+        hours: {"00-23": 0}
+  office:                            # weekdays 08:00-18:00, flat
+    days:
+      mon-fri:
+        hours: {"00-07": 0, "08-17": 1.0, "18-23": 0}
+      sat-sun:
+        hours: {"00-23": 0}
+  flat:
+    hours: {"00-23": 1.0}
