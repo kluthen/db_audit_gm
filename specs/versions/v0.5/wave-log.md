@@ -3068,3 +3068,77 @@ Found, not settled by G16:
 6. G9/G10, the Go modules in downloaded binaries: the owner asked that
    they be put where the daily sweep sees them; sent to
    `security-advisor`.
+
+### Gate fixes after G16, 2026-11-04
+
+- `9a41056` (`spec-writer`): formats.md v30, wave 1's `compose/<node>/`
+  scenario layer; D395 (D365 kept, tracked as O231; access model 13's
+  known gap); D396 (latest version per brick until v1.0, versions a
+  game-wide concern from v1.0; O11).
+- `5a3765f` (`coding-executor`): the loader refuses a `host` line naming
+  `gm_check` in a third party's `pg_hba.conf` (D383, access model 8); a
+  partner `data.sql` creating a database or `\connect`ing; `partners` as
+  a domain id; each with a unit test; the scenario-format skill's
+  `keys.sql` (`IMMUTABLE`, D379) and `layouts.md` (v29 domain tree, D369),
+  the root README's `domains/` row. Unit suite 1094 OK, 2 skipped;
+  fixture-core loaded by hand (not in the suite).
+- `8a23bef` (`security-advisor`, the owner's ask on G9/G10's Go
+  modules): one CycloneDX SBOM per downloaded Go binary (prometheus,
+  promtool, postgres_exporter, grafana, grafana's bundled Prometheus
+  data-source plugin, pgwatch) in `bricks/*/sbom/`, listed in `.tech`'s
+  `lockfiles`; `tools/go-sbom generate|check` (the exact archive by the
+  Dockerfile's checksum, `go version -m`; every binary's hash equal to
+  the built image's); `tools/tests/test_go_sbom.py` fails when an SBOM
+  disagrees with its Dockerfile. `cve-watch check .`: 110 at or above
+  medium, 50 of them Go; triaged per binary: none reachable, grafana's
+  kin-openapi and go-jose unknown (behind the login, players already
+  admin). The daily sweep reads `main` only: about 50 items after the
+  merge, to triage from the `.tech` notes. For the owner: Grafana
+  13.2.4 → 13.2.5 (four Grafana CVEs not yet on NVD/OSV) or 13.3.0
+  (also go-jose's fix); postgres_exporter 0.20.1 is upstream's latest,
+  watch.
+
+### The owner's restore ruling; chunk 28 inserted, 2026-11-04
+
+The owner, on D352: "a restoration procedure that doesn't work means as
+much as no procedure at all [...] For now: ensure that restoration works
+well (including replications)." A snapshot of the whole game as a
+feature of play, with game time, waits (O232). Also: check_postgres kept,
+a switch expected some day (D399); pgBadger left unpinned (D400).
+`spec-writer` `71eef17`: D397 (supersedes D352), D398 (chunk 28 into wave
+2, plan v9), master spec 7.1, 15 ("The restore from the hand-over
+snapshot"), 18.2, release gate items 1 and 12. Found besides the standby:
+a primary's planted slots lost on restore (`pg_replslot/` not in a base
+backup), a false WAL gap in the vault when its database is copied before
+an archiving node; the WAL backlog and the cumulative statistics reset
+(a known difference, measured by the chunk). Wave 2 is **in progress**
+again until chunk 28 merges and its reruns pass.
+
+**Capture W2-g — chunk 28 (read by chunk 28; any later chunk touching
+the snapshot or the restart)**
+1. **The snapshot record** gains `slots:`, beside `volumes`: a list of
+   `{node, name}`, each a persistent physical replication slot on a
+   primary (a `postgres` node that is no standby), read when that
+   node's copy is taken; a standby's own slot (re-created by its clone)
+   and temporary slots left out. A record without `slots:` is read as
+   none. Nodes with a `vault_target` are copied first, then the rest in
+   `nodes` order.
+2. **The restart from a snapshot**, its new steps in this order: (a)
+   before the stack starts, each standby's restored data volume gets
+   `standby.signal` (owner `postgres`, mode `0600`), so it never runs as
+   a primary; (b) once the stack is healthy, on each primary its
+   recorded slots re-created (`pg_create_physical_replication_slot(name,
+   true)`: reserving WAL at once, inactive); (c) then each standby, in
+   topology order, cloned through `inject.clone_standby` in restore mode
+   (`replicator` set, the clone, the wait until its sender streams);
+   (d) the restart's text and record name the slots re-created and the
+   standbys cloned. A failure in (a)–(c) is a failed restart as today
+   (torn down, recorded, the snapshot kept, a retry accepted). A restart
+   without a snapshot is unchanged.
+3. **`clone-standby`'s restore mode**: one argument, `clone-standby
+   --restore`; with it, the standby's own `postgresql.auto.conf` is saved
+   before PGDATA is emptied and put back after `pg_basebackup -R`, the
+   conninfo check still applied to the result; without arguments it is
+   `load-data`'s mode, unchanged; any other argument a usage error (exit
+   2). `inject.clone_standby` takes `restore=False`, passing `--restore`
+   when true.
