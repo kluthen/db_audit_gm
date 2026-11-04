@@ -1151,3 +1151,13 @@ D337, D341, D359, D371 and D392 were reserved and never used). Take the next num
   Measured within the approved rules; the PACS reading no registry is
   O235's. Now in: [vet-machinery](versions/v0.5/vet-machinery-domain.md#reference-sizes);
   master spec 9.6, 10.4; [purposes](versions/v0.5/clinic-purposes.md#the-roles-the-purposes-add).
+- **D417 (2026-11-04, chunk 14, documents to as-built): `vet-housing`
+  as built: `housing` reads `stays.reason`, `animals.born_on` and
+  `business_settings` for the board, `housing_ward` has `USAGE` on the
+  care log's sequence; an animal moves into isolation as soon as one is
+  free and out when its alert ends (157 stays moving twice, 47 of 249
+  infectious ones waiting, 5 never in); about 0.14 million rows, 17 MB,
+  7.5 s; the short test's limits (T0 to the hour, a live release's
+  disinfection unseen, the hand-over nine hours out).** Measured within
+  the approved rules; T163's witness against the waits is O236's. Now
+  in: [vet-housing](versions/v0.5/vet-housing-domain.md#reference-sizes); master spec 9.5.

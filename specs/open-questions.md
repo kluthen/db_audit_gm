@@ -243,6 +243,22 @@ recommended (D404).
   PACS-side modality list later if a story needs it. Refs:
   [vet-machinery](versions/v0.5/vet-machinery-domain.md#the-procedure-catalogue-d372-d373),
   [wave log](versions/v0.5/wave-log.md) (chunk 15).
+- **O236** (v0.5, wave 3; for the driver; D417) — T163's witness
+  ("open placements outside isolation whose animal has a current
+  `infectious` alert") has a baseline in the clean data as built
+  (chunk 14): with two, one and two isolation units against up to four,
+  three and six infectious animals at once, 47 of the year's 249
+  infectious stays waited in an ordinary unit, up to three days on the
+  farm, and 5 never got in; live, `housing.move` takes them in at a
+  poisson 0.08/h. The witness therefore fires without the fault, and
+  the policy's "an isolation unit's occupant never shares the ward's
+  ordinary units" reads against those waits. T163 is not among the ten.
+  Recommended: its witness becomes an infectious animal outside
+  isolation while an isolation unit of its section has stood clean and
+  free for more than a day, which the baseline never shows; the policy's
+  rule 2 kept, "as soon as one is free" covering the waits. Refs:
+  [vet-housing](versions/v0.5/vet-housing-domain.md#3-care-feeding-and-biosecurity)
+  (T163), [wave log](versions/v0.5/wave-log.md) (chunk 14).
 
 ## v0.6: the setup's entry point
 

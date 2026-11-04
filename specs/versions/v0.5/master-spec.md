@@ -1771,14 +1771,18 @@ section's units in service), so about 62 % occupancy.
   (open while placed), reason, placed by; partial unique indexes on
   `unit_id` and on `stay_id` where open: one animal per unit, one unit
   per stay. A move ends one and opens the next at one instant, in one
-  transaction; one stay in five moves once. About 3 000 a year.
+  transaction; an animal moves out of intensive care, into isolation
+when its alert comes (as soon as a unit is free) and back to an
+ordinary unit when it ends. About 3 030 a year, 454 stays moving, 157
+of them twice.
 - **`housing_feeding_plans`**: a diet per species list or a
-  `nil-by-mouth` order overriding it, from, until. About 2 900.
+  `nil-by-mouth` order overriding it, from, until. About 2 800.
 - **`housing_care_events`**: unit, the occupant's `stay_id` (none for
   an emptied unit), kind (`feeding` with `eaten` all, part or none,
   `water`, `mucking-out`, `bedding`, `walk`, `grooming`, `check`,
   `disinfection`), at, by; written once. Never a dose: medicines are the
-  core's `administrations`. About 150 000 a year, 520 a day.
+  core's `administrations`. About 133 000 a year (the stays' ramp), 520
+a day.
 
 **`housing_unit_board`**, a view owned by `housing`, one row per unit,
 is what a display shows: the unit, its open placement, the stay and its
@@ -1806,7 +1810,10 @@ units against 40 current stays.
 
 The history follows the core's year: each stay placed ten minutes after
 admission in the lowest-id free unit that fits (isolation when
-infectious), one in five moved, released at its end, disinfected 30 to
+infectious, an ordinary unit while the section's isolation units are
+held, then in at the first one disinfected, and out when the alert
+ends: about one infectious stay in five waits, a few never get in),
+moved out of intensive care, released at its end, disinfected 30 to
 90 minutes later; diets, a nil-by-mouth order for one stay in six, the
 care log day by day, times and carers by hashes. At T0, as a night
 leaves the wards: 40 stays placed once each, the night's checks done,
@@ -1814,16 +1821,16 @@ units released in the last hour `to-clean`. The build fails if a stay
 finds no fitting unit; the GM's post-load coherence check then reads
 every placement on a real stay and every current stay placed, a
 mismatch being a design error caught before hand-over, never a fault.
-About 0.16 million rows and 50 MB; 540 a day; nothing ships to cold
-storage.
+About 0.14 million rows and 17 MB, loaded in about 7.5 s after the
+core; 540 a day; nothing ships to cold storage.
 
 #### Roles, classification, rules
 
 | Role | May |
 |---|---|
-| `housing` | own the tables and the view; no login |
+| `housing` | own the tables and the view; no login; for the view, read `animal_board`, `business_settings`, `stays` (reason) and `animals` (`born_on`) |
 | `housing_app` | the housing screens on `pms`: read housing's tables and the core's `stays`, `animals` (species), `alerts`, `staff` (kind) by column; write placements, plans, and units' `state` only |
-| `housing_ward` | the ward service's writes: insert care events, set units' `state`; nothing else |
+| `housing_ward` | the ward service's writes: insert care events (with `USAGE` on their sequence), set units' `state`; nothing else |
 | `vet_display` (core's) | the displays' reads: `animal_board` and `housing_unit_board` only |
 | `vet_reports` (core's) | the back office on the standby: every housing table |
 
@@ -1832,8 +1839,8 @@ table holds personal data; the board's `animal_id` is
 `customer-linked`; notes are `internal` and may name the owner (a
 trap). Rules (game values): the board shows no owner, contact or
 natural identifier; an animal with a current `infectious` alert is in
-isolation, every emptied unit disinfected before the next, isolation
-always (Regulation (EU) 2016/429, Art 10); nil by mouth shown from its
+isolation as soon as one is free, every emptied unit disinfected
+before the next, isolation always (Regulation (EU) 2016/429, Art 10); nil by mouth shown from its
 start, no feeding while in force (eight hours before an anaesthetic,
 twelve for horses and ruminants); checks every four hours, feeding at
 the species' rounds (horses 06, 12, 17, 21; ruminants 07, 16; dogs 08,
@@ -1899,9 +1906,12 @@ infectious animals outside isolation) and governance (the owner's
 contact on the board, read auditing on). The `housing` fixture
 (`records`, `pms`, `ward`, bastion; about 0.8 CPU and 0.75G) proves in
 under 30 minutes each the load's placements, the board (64 calls a
-minute, no owner), placement and release (T0 10:00), the care log (T0
-before 17:00), and T150 present, reported, cleared by the test turning
-the display's key off. Loading: into `clinic` as `postgres` after the
+minute, no owner), placement and release (T0 in the 10:00 hour, the
+shift moving whole hours; a unit released live is not seen disinfected
+within the run, the ward taking a unit after 30 minutes to clean), the
+care log (T0 in the 16:00 hour), and T150 present, reported, cleared by
+the test turning the display's key off; its hand-over rendered at least
+nine hours out, past the aging floor. Loading: into `clinic` as `postgres` after the
 core's schema, every time following the core's shifted stays. Capacity:
 `ward` (`scheduler`, 0.1 CPU, 64M, 128M disk, armenelos); a few
 hundredths of `records`' CPU.
