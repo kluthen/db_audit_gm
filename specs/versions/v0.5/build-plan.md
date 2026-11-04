@@ -124,7 +124,7 @@ none is a gate.
 |---|---|---|---|
 | 1 | 1, 2, 3, 4, 5 | G1; G2 (done); G3, G4; G5 (chunk 3), G6 (chunk 5), G7 (chunk 4, if a package); G8 before its gate | merged into `main` (2026-11-04, 167fec0) |
 | 2 | 6, 7, 8, 9, 10, 11, 28 | wave 1; G9 (chunk 10); G10 before its gate; chunk 28 after the gate, the items it touches rerun (spec D398) | merged into `main` (2026-11-04, f89eb73) |
-| 3 | 12, 13, 14, 15, 16, 29 | wave 2 | planned |
+| 3 | 12, 13, 14, 15, 16, 29 | wave 2 | in progress (started 2026-11-04) |
 | 4 | 17, 18, 19, 20, 21 | wave 3 | planned |
 | 5 | 22, 23, 24, 25, 26, 27 | wave 4; G14 (chunk 27, only if it applies) | planned |
 
@@ -1190,7 +1190,7 @@ lives.
 
 ### Chunk 12 — `vet-lab`, the centre's laboratory
 
-Status: planned
+Status: in progress (29a, 29b first for its composed check)
 Wave: 3
 Depends on: chunks 4, 6, 8, 9 and 11 (waves 1 and 2); chunk 29 for its
 composed check and fixture only, merged into `v0.5-w3` before them
@@ -1252,7 +1252,7 @@ the partners' stubs' tables on `partners-db`.
 
 ### Chunk 13 — `vet-scheduling`, bookings, rota and the training centre
 
-Status: planned
+Status: in progress
 Wave: 3
 Depends on: chunks 4, 8 and 9 (waves 1 and 2)
 Architecture capture: W3, for chunks 20 and 21: the bookings' tables
@@ -2037,7 +2037,7 @@ keeps).
 
 ### Chunk 29 — The loader's support for the parts and the purposes: their keys, producers left out, histories with no feeder, `pg_cron` jobs, the purposes' DDL
 
-Status: planned
+Status: in progress
 Wave: 3
 Depends on: chunks 6 and 8 (wave 2); inserted after wave 3's preflight
 (spec D401), built by a `coding-executor` handed the brief by the
