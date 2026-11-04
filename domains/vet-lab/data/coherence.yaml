@@ -1,0 +1,96 @@
+# vet-lab's coherence queries (v0.5 master spec 8.5, 15; capture W2 item 3's
+# form, W3 item 1): its references to the core's keys, the history it shares
+# with the core's requests, and the state its partners' stubs hold. Each SELECT
+# returns the offending rows, none when coherent. load-data runs them once
+# after the loads, in the lab's database; the two reading partners run in the
+# partners' database on its node (spec D383), so every table they read, the
+# lab's too, goes through gm_src_* (coherence.py).
+checks:
+  - id: core-keys
+    what: every centre order's consultation, animal and request the core's, its test the request's code
+    reads: [vet-core]
+    sql: |
+      SELECT 'order' AS what, o.id AS lab_id, o.consultation_id AS core_id
+        FROM lab_orders o
+       WHERE o.consultation_id IS NOT NULL
+         AND NOT EXISTS (SELECT 1 FROM gm_src_vet_core.consultations c
+                          WHERE c.id = o.consultation_id AND c.animal_id IS NOT DISTINCT FROM o.animal_id
+                             OR c.id = o.consultation_id AND c.kind = 'herd-visit')
+      UNION ALL
+      SELECT 'animal', o.id, o.animal_id FROM lab_orders o
+       WHERE o.animal_id IS NOT NULL
+         AND NOT EXISTS (SELECT 1 FROM gm_src_vet_core.animals a WHERE a.id = o.animal_id)
+      UNION ALL
+      SELECT 'request', t.id, t.request_id
+        FROM lab_order_tests t JOIN lab_orders o ON o.id = t.order_id JOIN lab_tests x ON x.id = t.test_id
+       WHERE t.request_id IS NOT NULL
+         AND NOT EXISTS (SELECT 1 FROM gm_src_vet_core.requests r
+                          WHERE r.id = t.request_id AND r.kind = 'analysis' AND r.code = x.code
+                            AND r.consultation_id = o.consultation_id AND r.animal_id = o.animal_id)
+       ORDER BY 1, 2
+  - id: requests-in-step
+    what: every centre test in the state its request holds (released or not performed when resulted, cancelled when cancelled, else sent)
+    reads: [vet-core]
+    sql: |
+      SELECT t.id AS order_test_id, t.status, r.state AS request_state
+        FROM lab_order_tests t JOIN gm_src_vet_core.requests r ON r.id = t.request_id
+       WHERE NOT (r.state = 'resulted' AND t.status IN ('released', 'not-performed')
+                  AND coalesce(t.released_at, t.not_performed_at) <= r.resulted_at
+               OR r.state = 'cancelled' AND t.status = 'cancelled' AND t.cancelled_at <= r.cancelled_at
+               OR r.state = 'sent' AND t.status NOT IN ('released', 'not-performed', 'cancelled'))
+       ORDER BY t.id
+  - id: staff-and-practices
+    what: every staff id the core's (the requesting vets, the collectors, the lab's technicians 71-78 and pathologists 79-80), every account's practice the core's
+    reads: [vet-core]
+    sql: |
+      SELECT 'requested_by' AS what, o.id AS lab_id, o.requested_by AS core_id FROM lab_orders o
+       WHERE o.requested_by IS NOT NULL
+         AND NOT EXISTS (SELECT 1 FROM gm_src_vet_core.staff s WHERE s.id = o.requested_by AND s.kind = 'vet')
+      UNION ALL
+      SELECT 'collected_by', s.id, s.collected_by FROM lab_samples s
+       WHERE s.collected_by IS NOT NULL
+         AND NOT EXISTS (SELECT 1 FROM gm_src_vet_core.staff f WHERE f.id = s.collected_by)
+      UNION ALL
+      SELECT 'technical_by', t.id, t.technical_by FROM lab_order_tests t
+       WHERE t.technical_by IS NOT NULL
+         AND NOT EXISTS (SELECT 1 FROM gm_src_vet_core.staff f WHERE f.id = t.technical_by AND f.kind = 'lab')
+      UNION ALL
+      SELECT 'released_by', t.id, t.released_by FROM lab_order_tests t
+       WHERE t.released_by IS NOT NULL AND t.released_by NOT BETWEEN 79 AND 80
+      UNION ALL
+      SELECT 'called_staff_id', c.id, c.called_staff_id FROM lab_critical_calls c
+       WHERE c.called_staff_id IS NOT NULL
+         AND NOT EXISTS (SELECT 1 FROM gm_src_vet_core.staff f WHERE f.id = c.called_staff_id)
+      UNION ALL
+      SELECT 'practice_id', a.id, a.practice_id FROM lab_accounts a
+       WHERE a.practice_id IS NOT NULL
+         AND NOT EXISTS (SELECT 1 FROM gm_src_vet_core.referring_practices p WHERE p.id = a.practice_id)
+       ORDER BY 1, 2
+  - id: xlab-open-send-outs
+    what: every send-out the lab holds open known to the external lab's stub by its send_key, and no other
+    reads: [vet-lab, partners]
+    sql: |
+      SELECT 'lab' AS side, s.send_key FROM gm_src_vet_lab.lab_send_outs s
+       WHERE s.status IN ('sent', 'accepted')
+         AND NOT EXISTS (SELECT 1 FROM gm_src_partners_xlab.orders x
+                          WHERE x.send_key = s.send_key AND x.answered_at IS NULL)
+      UNION ALL
+      SELECT 'stub', x.send_key FROM gm_src_partners_xlab.orders x
+       WHERE x.answered_at IS NULL
+         AND NOT EXISTS (SELECT 1 FROM gm_src_vet_lab.lab_send_outs s
+                          WHERE s.send_key = x.send_key AND s.status IN ('sent', 'accepted'))
+       ORDER BY 1, 2
+  - id: practices-open-orders
+    what: every practice order the lab has not completed or cancelled known to the practices' stub by its account, client_ref and accession, and no other
+    reads: [vet-lab, partners]
+    sql: |
+      SELECT 'lab' AS side, o.account_id, o.client_ref FROM gm_src_vet_lab.lab_orders o
+       WHERE o.account_id > 1 AND o.completed_at IS NULL AND o.cancelled_at IS NULL
+         AND NOT EXISTS (SELECT 1 FROM gm_src_partners_practices.orders p
+                          WHERE p.account_id = o.account_id AND p.client_ref = o.client_ref AND p.accession = o.id)
+      UNION ALL
+      SELECT 'stub', p.account_id, p.client_ref FROM gm_src_partners_practices.orders p
+       WHERE NOT EXISTS (SELECT 1 FROM gm_src_vet_lab.lab_orders o
+                          WHERE o.account_id = p.account_id AND o.client_ref = p.client_ref AND o.id = p.accession
+                            AND o.completed_at IS NULL AND o.cancelled_at IS NULL)
+       ORDER BY 1, 2, 3

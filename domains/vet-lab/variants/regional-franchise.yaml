@@ -1,0 +1,13 @@
+# vet-lab's axes in the core's one variant (v0.5 master spec 8.3, 9.3;
+# vet-lab-domain.md, "The variant, its scale and its tags", answer 15): the
+# lab at one centre's scale (D295), adding no tag. The figures are the load's
+# at the reference T0 (docs/gm.md, "The data").
+scale:
+  population: {analysers: 6, tests: 150, panels: 30, analytes: 70, reference_intervals: 456,
+               lab_technicians: 8, clinical_pathologists: 2, practice_accounts: 120}
+  history: {days: 365, orders: 13700, samples: 20800, order_tests: 23400, results: 161000,
+            send_outs: 1940, rows: 330000, growth: "each daily volume from 60 % of today's rate a year ago"}
+  throughput: {centre_tests_per_day: 45, practice_orders_per_working_day: 25, results_per_day: 700,
+               send_outs_per_working_day: 7, new_rows_per_day: 1300}
+purposes: [vet-lab-centre-orders, vet-lab-practice-results, vet-lab-send-outs, vet-notifiable-diseases,
+           vet-lab-critical-calls, vet-head-office-figures, vet-lab-statements, vet-portal-release]
