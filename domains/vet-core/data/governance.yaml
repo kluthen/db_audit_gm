@@ -1,0 +1,19 @@
+# vet-core's governance: fragment (v0.5 master spec 9.2, 13.1; formats.md
+# "Domain"): where each class of data/classification.yaml may live and who
+# may read it, as docs/policy.md states it (rule 10: least data per reader).
+# The GM copies it into the scenario's governance: and adapts it: the
+# locations are written for the node records and the database clinic,
+# renamed as the scenario does; the parts landing in clinic and the purposes
+# add their own readers (vet_interfaces, vet_exchange, vet_portal_sync, the
+# parts' roles) and their outbound flows (the exchanges to the other centres,
+# the notifiable diseases to the authority, the reports to office), each
+# with its purpose.
+classes:
+  personal:
+    locations: [records/clinic]
+    readers: [vet_app, vet_lookup, vet_reports]
+  customer-linked:
+    locations: [records/clinic]
+    readers: [vet_app, vet_lookup, vet_display, vet_reports]
+  internal:
+    locations: any
