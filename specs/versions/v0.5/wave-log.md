@@ -2724,3 +2724,47 @@ chunk 11's code for D381, chunk 8's (`inject.composed_plan`,
 started with the shared `pg_hba.conf`. W2 items 3 and 6 and W2-f's known
 limits amended above (driver). **For the owner, information only**:
 access model 8 reworded after approval to match what chunk 11 built.
+
+### Gate fixes made early: D381, D383, the `pg_hba` form, 2026-11-04
+
+`coding-executor`, on `v0.5-w2`:
+- `c1f7d2f` (D381, chunk 11): `coldstore.manifests` `PRIMARY KEY (source,
+  shipment_id)`, the upsert on that key (no longer updating `source`,
+  `received_at` the new receipt's), `GET /manifests` ordered by
+  `received_at, source, shipment_id`; `partners/README.md` (the key, D382's
+  order rule); fixture-archive's copies; `TestManifestKey`; the short
+  test posts one segment from `records` and `lab` (two manifests) and
+  `lab` again (replaces its own). **fixture-archive 45/45 in 311 s.**
+- `2035b0e` (D383, chunk 8): a check whose `reads` names `partners` runs
+  on the partners' node in `partners`, `gm_src_partners` over the node's
+  socket, other sources over TCP as `gm_check`;
+  `_refuse_partners_from_afar` refuses a derivation or history reading
+  `partners` from another node; `read_checks` refuses `database:` on such
+  a check; the skill and template. The composed test load now starts
+  `partners-db` on `partners/shared/partners-db/pg_hba.conf` (`xlab`
+  filled in), asserts `gm_check` over TCP from `records` is rejected,
+  that fx-ward's `requests-on-current-stays` ran in `partners-db/partners`,
+  and that nothing is left in `partners`. **2 OK in 10.7 s.**
+- `990941b` (chunk 11): "The partners' database: `partners-db`'s
+  `pg_hba.conf`" in `bricks/postgres/docs/gm.md` (the form, no `gm_check`
+  host line, the measured facts); `test_brick_docs` passes.
+Unit suite 1090 OK (2 skipped), 161 s.
+
+### Chunk 9 — paused again, resumed by a third owner, 2026-11-04
+
+The second owner merged `v0.5-w2` in (`948d0b9`) and wrote the eighteen
+key functions in `data/keys.sql` (WIP `16246ae`, over `0a3e43b`), all
+`IMMUTABLE`, with internal `pg_temp.vc_*` helpers: a 53-week local
+calendar cut at `load_epoch` (ramp 0.6 to 1.0), inverse lookups without
+year scans, 589 consultations and 58 stays a week, stays and animals by
+affine bijections (at T0 2026-11-04 10:00Z, +2: 2 421 stays, 36
+current), identifiers `941…`/`941001…`/`XA` (D379), requests from the
+D372/D373 catalogues with D375's states. Timings: `core_consultation`
+about 1.7 ms a call, `core_request` 1.8 ms (`MATERIALIZED` CTEs and
+`OFFSET 0` fences needed; 800 ms before). It paused, context heavy; a
+third owner resumed from `16246ae`. Two of its choices went to
+`spec-writer`: the weekend vet cover (the scheduling pattern leaves
+Saturday afternoon without a vet), and requests per consultation (vet-core's
+"about two in three" averaging 0.65 cannot hold with the lab's 1.8
+tests per order; built as about 37 % at 1.8, repeating every 40 ids),
+with the core's load time (likely 1–2 minutes, against "a few seconds").
