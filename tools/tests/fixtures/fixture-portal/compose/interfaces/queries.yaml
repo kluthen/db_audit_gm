@@ -1,0 +1,5 @@
+# The scenario layer of node interfaces: one key, which no stream and no job
+# sends (the program needs one); chunk 21's purpose material replaces it.
+queries:
+  interfaces.idle:
+    call: GET /animals

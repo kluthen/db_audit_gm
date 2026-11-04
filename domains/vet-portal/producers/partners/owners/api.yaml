@@ -1,0 +1,17 @@
+# api.yaml of the owners' traffic, the owners' browsers, a fragment for
+# partners-api (v0.5 master spec 9.7, 10.2; vet-portal-domain.md, "The
+# applications and their nodes", "Rates at intensity 1.0"; capture W3 item 5;
+# spec D369; partners/README.md). Prefix owners, hostname owners (reserved
+# for it: no third party, no partners.md entry, no contract, no misbehaviour
+# key). One endpoint, its tick, behind the back end's partners_backend: each
+# tick one kind of owner's doing (a visit, an activation, a reset, an
+# unsubscribe, a keeper's grant, a closure) called on portal-api with no
+# credential (connection owners-portal, the session a cookie, as a browser
+# sends it), each call recorded in owners.visits (connection owners-db).
+endpoints:
+  owners_tick:
+    hosts: [owners]
+    credentials: [partners_backend]
+connections:
+  owners-db: {driver: sql/postgresql, target: partners-db:5432/partners, role: owners, pool: {size: 2}}
+  owners-portal: {driver: http, target: portal-api:8000, pool: 2, timeout: 10s}

@@ -1,0 +1,23 @@
+# api.yaml of node partners-api, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+endpoints:
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/api.yaml
+  owners_tick:
+    hosts:
+    - owners
+    credentials:
+    - partners_backend
+connections:
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/api.yaml
+  owners-db:
+    driver: sql/postgresql
+    target: partners-db:5432/partners
+    role: owners
+    pool:
+      size: 2
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/api.yaml
+  owners-portal:
+    driver: http
+    target: portal-api:8000
+    pool: 2
+    timeout: 10s

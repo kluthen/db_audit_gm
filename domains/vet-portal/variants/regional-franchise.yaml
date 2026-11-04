@@ -1,0 +1,12 @@
+# vet-portal's axes in the core's one variant (v0.5 master spec 8.3, 9.7;
+# vet-portal-domain.md, "The variant, its scale and its tags", D301 answer 15):
+# the portal at one centre's scale (D295), adding no tag. The figures are the
+# load's and the derivation's at the reference T0 (docs/gm.md, "The data").
+scale:
+  population: {accounts: 9999, active: 6700, invited: 3000, closed: 300, open_invitations: 190,
+               reminders_consent: 5100, keeper_grants: 230, animals: 17000, ownerships: 18600, herds: 200}
+  history: {days: 365, documents: 40000, views: 66000, messages: 39000, consent_events: 7300,
+            sessions: 4500, rows: 240000, growth: "each daily volume from 60 % of today's rate a year ago"}
+  throughput: {documents_per_day: 140, visits_per_day: 150, views_per_day: 240, messages_per_day: 120,
+               activations_per_day: 9, consent_events_per_day: 11, new_rows_per_day: 720}
+purposes: [vet-portal-release, vet-portal-messages]

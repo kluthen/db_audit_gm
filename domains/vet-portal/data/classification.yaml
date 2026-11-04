@@ -1,0 +1,138 @@
+# vet-portal's classification (v0.5 master spec 9.7; vet-portal-domain.md,
+# "Classification", ruled D320): every column of every table of the portal's
+# database, schema public, keyed <table>.<column> without the database
+# (master spec 6.1): the scenario's copy adds it (portal.<table>.<column>).
+#
+# Classes (v0.4's three, as vet-core applies them, D280):
+#   personal         a direct identifier, or a person's id stored beside one:
+#                    an account's name, e-mail and phone, with the account's
+#                    and the owner's ids beside them, its password's hash and
+#                    its one-time link's; a session token's hash (an online
+#                    identifier, GDPR recital 30); a document's vet's name (a
+#                    staff member's); the outbox's address and payload (the
+#                    recipient's name, the animal's) and the ids beside them;
+#   customer-linked  the customer is the owner: an id with no identifier
+#                    beside it, as the core's ownerships.animal_id: the
+#                    copies' animal, herd, owner and keeper ids, a document's
+#                    animal or herd, a session's or a view's account, a
+#                    consent event's owner, animal and keeper (the shop
+#                    classed its consent events personal, v0.4 9.9, which the
+#                    column-by-column reading of D280 refines);
+#   internal         everything else: the settings, statuses, times and
+#                    counters, a document's body (the medical record, as the
+#                    core's diagnoses, once no owner is beside it), the
+#                    message keys and the messaging service's ids. Animal
+#                    health is no special category (O112).
+# Two traps follow (docs/gm.md, "The traps"): a document's body carrying free
+# text, which may name a former owner, though classed internal; and the
+# copies carrying more than the portal shows (an address, a chip).
+columns:
+  # portal_settings
+  portal_settings.timezone: internal
+  portal_settings.utc_offset_hours: internal
+  portal_settings.idle_minutes: internal
+  portal_settings.session_hours: internal
+  portal_settings.lock_failures: internal
+  portal_settings.lock_minutes: internal
+  portal_settings.invitation_days: internal
+  portal_settings.reminder_lead_days: internal
+  portal_settings.reminders_from: internal
+  portal_settings.reminders_until: internal
+  # portal_accounts
+  portal_accounts.id: personal
+  portal_accounts.owner_id: personal
+  portal_accounts.kind: internal
+  portal_accounts.display_name: personal
+  portal_accounts.email: personal
+  portal_accounts.phone: personal
+  portal_accounts.status: internal
+  portal_accounts.invited_at: internal
+  portal_accounts.invite_hash: personal
+  portal_accounts.invite_expires_at: internal
+  portal_accounts.activated_at: internal
+  portal_accounts.password_hash: personal
+  portal_accounts.failed_logins: internal
+  portal_accounts.locked_until: internal
+  portal_accounts.last_login_at: internal
+  portal_accounts.notify_by: internal
+  portal_accounts.reminders: internal
+  portal_accounts.closed_at: internal
+  portal_accounts.synced_at: internal
+  # portal_sessions
+  portal_sessions.id: internal
+  portal_sessions.account_id: customer-linked
+  portal_sessions.token_hash: personal
+  portal_sessions.created_at: internal
+  portal_sessions.last_seen_at: internal
+  portal_sessions.expires_at: internal
+  portal_sessions.ended_at: internal
+  portal_sessions.ended_by: internal
+  # portal_animals
+  portal_animals.animal_id: customer-linked
+  portal_animals.name: internal
+  portal_animals.species: internal
+  portal_animals.sex: internal
+  portal_animals.born_on: internal
+  portal_animals.herd_id: customer-linked
+  portal_animals.status: internal
+  portal_animals.died_at: internal
+  portal_animals.synced_at: internal
+  # portal_ownerships
+  portal_ownerships.animal_id: customer-linked
+  portal_ownerships.owner_id: customer-linked
+  portal_ownerships.role: internal
+  portal_ownerships.from_at: internal
+  portal_ownerships.until_at: internal
+  portal_ownerships.synced_at: internal
+  # portal_herds
+  portal_herds.herd_id: customer-linked
+  portal_herds.keeper_owner_id: customer-linked
+  portal_herds.synced_at: internal
+  # portal_documents
+  portal_documents.id: internal
+  portal_documents.animal_id: customer-linked
+  portal_documents.herd_id: customer-linked
+  portal_documents.kind: internal
+  portal_documents.source_ref: internal
+  portal_documents.version: internal
+  portal_documents.record_at: internal
+  portal_documents.gated_at: internal
+  portal_documents.published_at: internal
+  portal_documents.title: internal
+  portal_documents.vet_name: personal
+  portal_documents.body: internal
+  portal_documents.supersedes_id: internal
+  portal_documents.superseded_at: internal
+  # portal_views
+  portal_views.id: internal
+  portal_views.account_id: customer-linked
+  portal_views.document_id: internal
+  portal_views.at: internal
+  portal_views.action: internal
+  # portal_consent_events
+  portal_consent_events.id: internal
+  portal_consent_events.owner_id: customer-linked
+  portal_consent_events.purpose: internal
+  portal_consent_events.animal_id: customer-linked
+  portal_consent_events.keeper_id: customer-linked
+  portal_consent_events.granted: internal
+  portal_consent_events.at: internal
+  portal_consent_events.source: internal
+  # portal_outbox
+  portal_outbox.id: internal
+  portal_outbox.message_key: internal
+  portal_outbox.account_id: personal
+  portal_outbox.owner_id: personal
+  portal_outbox.template: internal
+  portal_outbox.channel: internal
+  portal_outbox.address: personal
+  portal_outbox.document_id: internal
+  portal_outbox.animal_id: personal
+  portal_outbox.due_on: internal
+  portal_outbox.payload: personal
+  portal_outbox.queued_at: internal
+  portal_outbox.sent_at: internal
+  portal_outbox.attempts: internal
+  portal_outbox.last_status: internal
+  portal_outbox.provider_id: internal
+  portal_outbox.failed_at: internal

@@ -1,0 +1,59 @@
+# schedule.yaml of node partners-backend, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+# from scenario: compose/partners-backend/schedule.yaml
+intensity: 10.0
+connections:
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/schedule.yaml
+  owners-tick:
+    driver: http
+    target: owners:8000
+    credential: partners_backend
+    pool: 1
+    timeout: 30s
+streams:
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/schedule.yaml
+  - key: owners.visit
+    connection: owners-tick
+    rate: 9.3/h
+    arrivals: poisson
+    shape: owners-day
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/schedule.yaml
+  - key: owners.activate
+    connection: owners-tick
+    rate: 4/h
+    arrivals: even
+    shape: owners-day
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/schedule.yaml
+  - key: owners.reset
+    connection: owners-tick
+    rate: 0.31/h
+    arrivals: poisson
+    shape: owners-day
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/schedule.yaml
+  - key: owners.unsubscribe
+    connection: owners-tick
+    rate: 2/h
+    arrivals: even
+    shape: owners-day
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/schedule.yaml
+  - key: owners.keeper
+    connection: owners-tick
+    rate: 0.08/h
+    arrivals: poisson
+    shape: owners-day
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/schedule.yaml
+  - key: owners.close
+    connection: owners-tick
+    rate: 0.015/h
+    arrivals: poisson
+    shape: owners-day
+shapes:
+  # from vet-portal@regional-franchise: domains/vet-portal/producers/partners/owners/schedule.yaml
+  owners-day:
+    hours:
+      00-06: 0.1
+      07-08: 0.5
+      09-17: 0.8
+      18-21: 1.6
+      '22': 0.8
+      '23': 0.1

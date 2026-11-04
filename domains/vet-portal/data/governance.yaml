@@ -1,0 +1,22 @@
+# vet-portal's governance: fragment (v0.5 master spec 9.7, 13.1; formats.md
+# "Domain"): where each class of data/classification.yaml may live and who may
+# read it, as docs/policy.md's eleven rules state it (rule 1, owner scope by
+# row-level security; rule 3, least data; rule 10, the API on portal only).
+# The GM copies it into the scenario's governance: beside vet-core's and
+# adapts it: the locations are written for the node records and the database
+# portal, renamed as the scenario does; the purposes add their readers
+# (portal_sync, portal_dispatch, and vet_portal_sync and lab_release on the
+# sources) and their outbound flow: the messages to the franchise's messaging
+# service (to: messaging, a processor), carrying address, template,
+# animal_name and link only (rule 7, D191), with its purpose. portal_api reads
+# the personal columns of the asker's own account only, never the hashes;
+# portal_housekeeping reads the sessions, for their purge.
+classes:
+  personal:
+    locations: [records/portal]
+    readers: [portal_api, portal_housekeeping]
+  customer-linked:
+    locations: [records/portal]
+    readers: [portal_api, portal_housekeeping]
+  internal:
+    locations: any
