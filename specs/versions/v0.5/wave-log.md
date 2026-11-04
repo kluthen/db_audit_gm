@@ -4222,3 +4222,35 @@ the minute is the clock's, so `fixture-imaging` aims within 30 minutes of
 **Usage limit**: chunks 12b and 14 stopped mid-work on the account's
 5-hour limit; both resumed from where they stopped once it reset. A
 fresh owner resumes 15b.
+
+### Chunk 12b — paused for rotation (9ef2683), 2026-11-04
+
+On the owner's word ("rotate them": contexts at 444k and 300k), chunks
+12b and 14 asked to pause at a safe point. 12b: WIP `9ef2683` on
+`v0.5-c12-vet-lab` (after `ae01c40`, merging `v0.5-w3` at 7e93aa3). Built:
+`lab-api` (`orders`: `POST /orders` 201 new / 200 same `client_ref`,
+nothing written, 422 unknown or closed account or code; `GET
+/orders/{accession}`; the feed `GET /orders?account=&released_since=`,
+both required; `send_outs`: `POST /send-outs/{send_key}/result`, once,
+200 again, 404 unknown; connection `lab` as `lab_api`, pool 4; all pass
+`gm_api check`); the stubs `xlab` (`northfield-lab`: `POST /orders`,
+`POST /orders/{send_key}/resend`, `xlab_tick`) and `practices`
+(`POST /results` counting repeats per `delivery_key`, `practices_tick`
+posting an order a tick, retrying under the same `client_ref`); streams
+`xlab.normal`, `practices.normal` 1/min, `xlab.answer` 6/h,
+`practices.order` 2.9/h poisson; connections `xlab-lab`, `practices-lab`;
+`TestLabStubs.test_the_stubs_on_the_shared_nodes` passing;
+`fixture-lab-core` (7 nodes, `left_out:` pms and both stubs; hand-over
+20:00, T0 11:00–12:00 local; `run-short-test.sh` never run). A
+`coding-executor` the owner started is still dry-running `lis`'s keys in
+container `c12pg` (uncommitted changes under `producers/lis/`); asked to
+report to the driver. Next: `lis` verified, `lab-release-round`'s cron
+`1-6` written `1,2,3,4,5,6` (the loader refuses ranges), compose again
+(no `__pycache__`), the fixture's README, `@@LIS@@` in the GM notes, the
+full checks, `fit` and the short test, the composed figure, commit and
+merge. Deviations, for `spec-writer`: `lab_api` reads
+`lab_reference_intervals` (the feed's `low`, `high`); `practices.state`
+gains a `utc_offset` row; `lab.identity` writes no food-chain status
+(`lab_orders` has no column); the fixture's `partners-db` `pg_hba.conf`
+has no `host partners` line (both stubs left out). Risk: the ticks hold
+a session while they post over HTTP (the back end serializes them).
