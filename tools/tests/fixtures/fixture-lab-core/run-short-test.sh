@@ -235,7 +235,12 @@ info "composition.yaml's coherence record: $(printf '%s' "$coh" | cut -c1-300)"
 
 # --- lab-api ---------------------------------------------------------------------
 ANIMAL=$(dbsql records clinic "SELECT id FROM animals WHERE species = 'dog' AND status = 'alive' AND id > 12 ORDER BY id LIMIT 1 OFFSET 200")
-SINCE=$(dbsql lab lab "SELECT to_char(min(c) AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') FROM (
+# The feed's time: the earlier of the centre's second-latest cancelled test
+# and its latest not-performed one, so the window holds both kinds whatever
+# the load's epoch (the released ones follow every hour).
+SINCE=$(dbsql lab lab "SELECT to_char(least(min(c), (SELECT max(t.not_performed_at) FROM lab_order_tests t
+          JOIN lab_orders o ON o.id = t.order_id WHERE o.account_id = 1 AND t.status = 'not-performed'))
+          AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') FROM (
           SELECT t.cancelled_at AS c FROM lab_order_tests t JOIN lab_orders o ON o.id = t.order_id
            WHERE o.account_id = 1 AND t.status = 'cancelled' ORDER BY t.cancelled_at DESC LIMIT 2) x")
 SEND=$(dbsql lab lab "SELECT send_key FROM lab_send_outs WHERE status = 'accepted' ORDER BY id LIMIT 1")
