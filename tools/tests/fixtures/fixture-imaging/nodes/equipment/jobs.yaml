@@ -1,0 +1,22 @@
+# jobs.yaml of node equipment, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+jobs:
+  # from vet-machinery@regional-franchise: domains/vet-machinery/producers/equipment/jobs.yaml
+  - name: mach-identity
+    key: mach.identity
+    connections:
+      pacs: pacs
+      clinic: clinic-api
+    at: '* * * * *'
+  # from vet-machinery@regional-franchise: domains/vet-machinery/producers/equipment/jobs.yaml
+  - name: mach-census
+    key: mach.census
+    connections:
+      vitals: vitals
+      clinic: clinic-api
+    at: '*/5 * * * *'
+  # from vet-machinery@regional-franchise: domains/vet-machinery/producers/equipment/jobs.yaml
+  - name: vitals-chart
+    key: vitals.chart
+    connection: vitals
+    at: '*/5 * * * *'

@@ -128,6 +128,16 @@ particular draw.
   (3 465–3 470), one every two months at night on a radiography room,
   typed `patient_id`s naming no animal (above 17 000, or two digits
   swapped): domain data, a finding (false-alarm material).
+- **No history study inside a downtime** (O235): the load computes
+  `biomed`'s downtimes with its formulas (the quarterly services at 08:00
+  local, 3 to 5 hours, on machines 7–10 and 16, salt 502; the repairs of
+  2 to 30 hours, salts 505, 506), since `pacs` cannot read `biomed`, and
+  acquires a study its machine's downtime would hold just after it when
+  its final still follows, else just before it once its entry had its
+  identity, else on the section's other machine of its modality (CT 7–8,
+  DX 11–12–13, US 14–15); an unmatched study just after it. The load
+  refuses a study left inside one. About six studies a year move (six at
+  2026-11-04T08:50Z, of 2 914 at +2 and of 2 911 at 0).
 - **Sessions** (`vitals`, D377): intensive care on the stays a hash picks
   (`m_u(stay, 541)` below 0.5 domestic, 0.25 horse; no farm stay), from
   the first census after admission, on the first free monitor of the group
@@ -296,10 +306,15 @@ reads `pacs.mwl.query` (120/h), `pacs.viewer.open` (40/h),
 ([`scripts/lookup.py`](../producers/equipment/scripts/lookup.py), each
 holding its database connection and the HTTP one, D303), `vitals-chart`
 every five. **The PACS reads no registry** (`biomed` is another database):
-its schedule takes the procedure's machine for the animal's section, so
-a down machine's studies wait on its worklist (a story's, T209), and
-`mach_worklist` gains entries only from purpose 13 (`mach_orders`): with
-the purpose absent, the worklist streams find nothing to do. The shapes
+its schedule takes the procedure's machine for the animal's section, and
+`pacs.study.acquire` keeps no machine filter, so a machine down in
+`biomed` goes on acquiring its studies (accepted for v0.5, O235): **a
+story taking a machine down must stop its acquisitions itself** (its own
+timeline change to `pacs.study.acquire`, or the machine's entries held),
+or the PACS shows studies on a machine `biomed` records as down.
+`mach_worklist` gains entries only from purpose 13
+(`mach_orders`): with the purpose absent, the worklist streams find
+nothing to do. The shapes
 `imaging-day`, `reporting` and `theatre` are the part's; `clinic-day`,
 `office` and `flat` the core's, copied unchanged.
 

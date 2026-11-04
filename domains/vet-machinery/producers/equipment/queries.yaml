@@ -39,7 +39,7 @@ queries:
                              CASE s.species WHEN 'horse' THEN 37.8 WHEN 'dog' THEN 38.5 WHEN 'cat' THEN 38.6
                                             WHEN 'sheep' THEN 39.2 WHEN 'goat' THEN 39.2 ELSE 38.8 END AS temp) AS b,
              LATERAL (SELECT array_agg(1 + 0.05 * sin(extract(epoch FROM t.at) / 900 + s.id + salt)
-                                       + 0.06 * ((hashint8extended(extract(epoch FROM t.at)::bigint * 64 + s.id %% 64,
+                                       + 0.06 * ((hashint8extended(extract(epoch FROM t.at)::bigint * 64 + mod(s.id, 64),
                                                                    salt) & 2147483647) / 2147483648.0 - 0.5)
                                        ORDER BY salt) AS v
                         FROM generate_series(551, 556) AS salt) AS m

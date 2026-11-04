@@ -184,6 +184,53 @@ SELECT w.id, w.state AS core_state, w.priority, w.minutes,
                             THEN greatest(w.cancelled_at - (1 + 3 * h.u1) * interval '1 minute', w.identity_at)
                        END AS cancelled_at) AS f;
 
+-- The machines' recorded downtimes (O235), computed with biomed/load.sql's
+-- formulas, since pacs cannot read biomed: imaging's quarterly service visits
+-- at 08:00 local, 3 to 5 hours down (machines 7-10 and 16, salt 502), and the
+-- fourteen repairs at 10:00 local, each after a downtime of 2 to 30 hours
+-- (salts 505, 506); both as biomed keeps them, before the last day.
+CREATE TEMP TABLE l_down AS
+SELECT x.machine_id,
+       CASE WHEN x.repair THEN x.at - x.hours * interval '1 hour' ELSE x.at END AS from_at,
+       CASE WHEN x.repair THEN x.at ELSE x.at + x.hours * interval '1 hour' END AS until_at
+  FROM (SELECT m AS machine_id, false AS repair,
+               pg_temp.m_utc(env.s::date + 91 * k + 20 + m * 5 + time '08:00', env.o) AS at,
+               3 + 2 * pg_temp.m_u(m * 10 + k, 502) AS hours
+          FROM l_env AS env, unnest(ARRAY[7, 8, 9, 10, 16]) AS m, generate_series(0, 3) AS k
+        UNION ALL
+        SELECT (ARRAY[1, 3, 5, 7, 8, 9, 11, 12, 13, 14, 15, 2, 4, 6])[k + 1], true,
+               pg_temp.m_utc(env.s::date + 10 + 25 * k + floor(10 * pg_temp.m_u(k, 505))::integer + time '10:00', env.o),
+               2 + 28 * pg_temp.m_u(k, 506)
+          FROM l_env AS env, generate_series(0, 13) AS k) AS x, l_env AS env
+ WHERE x.at < env.e - interval '1 day';
+
+-- A study its machine's downtime would hold is acquired out of it: just
+-- after it when its final still follows (the study's minutes and a quarter
+-- of an hour), else just before it when its entry already had its identity
+-- (an unscheduled one at any time), else on the section's other machine of
+-- its modality (CT 7-8, DX 11-12-13, US 14-15; MR and NM have none). The
+-- load's own checks refuse a study left inside a downtime.
+CREATE TEMP TABLE l_clash AS
+SELECT DISTINCT ON (c.id) c.id, d.from_at, d.until_at, w.minutes, w.identity_at, c.final_at, c.unscheduled,
+       pg_temp.m_u(w.request_id, 595) AS u
+  FROM l_c AS c JOIN l_w AS w ON w.id = c.id JOIN l_down AS d ON d.machine_id = w.machine_id
+ WHERE c.started_at IS NOT NULL AND c.started_at < d.until_at AND c.ended_at > d.from_at
+ ORDER BY c.id, d.from_at;
+UPDATE l_c AS c SET started_at = m.at, ended_at = m.at + m.minutes * interval '1 minute'
+  FROM (SELECT k.id, k.minutes,
+               CASE WHEN k.final_at IS NULL
+                         OR k.until_at + (5 + 10 * k.u + k.minutes + 15) * interval '1 minute' <= k.final_at
+                    THEN k.until_at + (5 + 10 * k.u) * interval '1 minute'
+                    WHEN k.unscheduled
+                         OR k.from_at - (5 + 10 * k.u + k.minutes) * interval '1 minute' >= k.identity_at
+                    THEN k.from_at - (5 + 10 * k.u + k.minutes) * interval '1 minute' END AS at
+          FROM l_clash AS k) AS m
+ WHERE m.id = c.id AND m.at IS NOT NULL;
+UPDATE l_w AS w SET machine_id = CASE w.machine_id WHEN 7 THEN 8 WHEN 8 THEN 7 WHEN 11 THEN 12 WHEN 12 THEN 13
+                                                   WHEN 13 THEN 12 WHEN 14 THEN 15 WHEN 15 THEN 14 ELSE w.machine_id END
+  FROM l_c AS c JOIN l_down AS d ON c.started_at < d.until_at AND c.ended_at > d.from_at
+ WHERE c.id = w.id AND d.machine_id = w.machine_id;
+
 INSERT INTO mach_worklist (id, accession, request_id, consultation_id, animal_id, requested_by, procedure_id, priority,
                            machine_id, scheduled_at, patient_id, patient_name, species, breed, sex, born_on,
                            microchip, ueln, ear_tag, responsible_person, identity_at, state, cancelled_because,
@@ -269,8 +316,13 @@ SELECT 3464 + k, '1.2.826.0.1.3680043.9.7433.1.' || (3464 + k), NULL, NULL, u.ma
                (5, 11, 'A-21007', 'Dubois^Milo', 49, 2, '58 kV, 5 mAs'),
                (6, 12, 'A-14916', 'Keller^Storm', 33, 4, '78 kV, 14 mAs'))
          AS u (k, machine_id, patient_id, patient_name, restrainer, images, exposure),
-       LATERAL (SELECT pg_temp.m_utc(env.s::date + (60 * u.k - 30) + time '23:00' + u.k * interval '17 minutes', env.o) AS t) AS x
- WHERE t < env.e - interval '1 day';
+       LATERAL (SELECT pg_temp.m_utc(env.s::date + (60 * u.k - 30) + time '23:00' + u.k * interval '17 minutes', env.o) AS t0) AS x0,
+       -- out of its machine's downtime, just after it
+       LATERAL (SELECT coalesce((SELECT d.until_at + interval '20 minutes' FROM l_down AS d
+                                  WHERE d.machine_id = u.machine_id AND x0.t0 < d.until_at
+                                    AND x0.t0 + interval '20 minutes' > d.from_at
+                                  ORDER BY d.from_at LIMIT 1), x0.t0) AS t) AS x
+ WHERE x0.t0 < env.e - interval '1 day';
 
 -- Series: by modality, numbered in the study; their images sum to the study's.
 INSERT INTO mach_series (id, study_id, number, modality, body_part, description, images)
@@ -368,6 +420,14 @@ BEGIN
     IF EXISTS (SELECT 1 FROM mach_studies s JOIN mach_reports r ON r.study_id = s.id
                 WHERE r.signed_at < s.ended_at) THEN
         RAISE EXCEPTION 'pacs/load.sql: a report signed before its study ended';
+    END IF;
+    IF EXISTS (SELECT 1 FROM mach_studies s JOIN l_down AS d ON d.machine_id = s.machine_id
+                WHERE s.started_at < d.until_at AND coalesce(s.ended_at, s.started_at) > d.from_at) THEN
+        RAISE EXCEPTION 'pacs/load.sql: % studies acquired inside a recorded downtime of their machine (O235), the first %',
+            (SELECT count(*) FROM mach_studies s JOIN l_down AS d ON d.machine_id = s.machine_id
+              WHERE s.started_at < d.until_at AND coalesce(s.ended_at, s.started_at) > d.from_at),
+            (SELECT min(s.id) FROM mach_studies s JOIN l_down AS d ON d.machine_id = s.machine_id
+              WHERE s.started_at < d.until_at AND coalesce(s.ended_at, s.started_at) > d.from_at);
     END IF;
 END $$;
 
