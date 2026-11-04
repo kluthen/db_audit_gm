@@ -3265,3 +3265,28 @@ in.
 - **Merge**: `v0.5-w1` then `v0.5-w2` → `main` on the owner's word (w2
   holds w1; merging w2 alone takes both). Wave 3 starts in a fresh
   session, from `main` once merged.
+
+### Grafana 13.3.0, on the owner's word, 2026-11-04
+
+The owner: "bump grafana up" (the report's open point 1; D396). `75c195d`
+(`coding-executor`): `grafana` 0.3.0 on Grafana 13.3.0 (the latest
+release, 2026-10-27; build 40412481033; sha256 from grafana.com's
+package list, `ADD --checksum` at build), no brick version bump (0.3.0
+unreleased). 13.3's one breaking change (`[marketplace]` renamed) unused
+by the brick; the `$__file{}` password, the time zone refusal, the root
+policy's receiver and a provisioned rule's `for` rechecked on 13.3.0.
+SBOMs regenerated (Grafana 520 components, the bundled Prometheus plugin
+13.2.4 104; both Go 1.27.3). Stack test 130/130 (155 s),
+`smoke-monitoring.sh` 43/43 (47 s), `smoke-monitoring-v05.sh` 27/27 (138
+s), unit suite 1105 OK, 2 skipped; image 866 MB → 845 MB (the old image
+left untagged). `2c0adc3`: grafana-alert-for-too-long's GM note names
+13.3.0. `f7f9f99` (`security-advisor`, post-change): **clear**; 13.3.0
+fixes the four 13.2.x CVEs (CVE-2026-103506 by the advisory's range, and
+its toggle unset in the brick), go-jose 4.1.6 and kin-openapi 0.151.0
+clear their 11 GHSAs, Go 1.27.3 clears the stdlib set; no advisory
+names 13.3.0; the findings left (x/crypto openpgp, x/net html,
+aws-sdk-go S3 crypto) not reachable; `.tech` updated, lint clean. The
+report's open point 1 is closed.
+
+The owner then: "commit and merge when done". `v0.5-w1` and `v0.5-w2`
+merged into `main` (below, in the merge messages).
