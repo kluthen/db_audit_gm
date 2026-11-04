@@ -354,13 +354,15 @@ GRANT USAGE ON SEQUENCE lab_orders_id_seq, lab_samples_id_seq, lab_order_tests_i
 
 -- The analysers' middleware: what a run needs (the order's species and the
 -- test's discipline beside the document's list, to flag and to pick a
--- bench's tests), batches and results written.
+-- bench's tests; the results' order_test_id, to pick the tests no run has
+-- resulted yet), batches and results written.
 GRANT SELECT ON lab_samples, lab_order_tests, lab_analytes, lab_test_analytes, lab_reference_intervals,
                 lab_qc_runs TO lab_instruments;
 GRANT SELECT (id, species, priority) ON lab_orders TO lab_instruments;
 GRANT SELECT (id, code, discipline) ON lab_tests TO lab_instruments;
 GRANT SELECT, INSERT, UPDATE ON lab_batches TO lab_instruments;
 GRANT INSERT ON lab_results TO lab_instruments;
+GRANT SELECT (order_test_id) ON lab_results TO lab_instruments;
 GRANT USAGE ON SEQUENCE lab_batches_id_seq, lab_results_id_seq TO lab_instruments;
 
 -- The dispatch jobs: what a delivery and a send-out carry; callbacks,

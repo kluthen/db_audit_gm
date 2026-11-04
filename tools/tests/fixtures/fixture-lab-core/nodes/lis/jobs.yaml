@@ -15,12 +15,17 @@ jobs:
   - name: lab-release-round
     key: lab.release.round
     connection: lab
-    at: 0 11,14,18 * * 1-6
+    at: 0 11 * * *
   # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/jobs.yaml
-  - name: lab-release-round-sunday
+  - name: lab-release-round-14
     key: lab.release.round
     connection: lab
-    at: 0 11 * * 0
+    at: 0 14 * * 1,2,3,4,5,6
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/jobs.yaml
+  - name: lab-release-round-18
+    key: lab.release.round
+    connection: lab
+    at: 0 18 * * 1,2,3,4,5,6
   # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/jobs.yaml
   - name: lab-samples-dispose
     key: lab.samples.dispose

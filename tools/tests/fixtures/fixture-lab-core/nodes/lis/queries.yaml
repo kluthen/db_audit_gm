@@ -36,7 +36,10 @@ queries:
           FROM sc WHERE x.id = sc.id),
       ev AS (
         INSERT INTO lab_sample_events (sample_id, kind, at, recorded_by, place)
-        SELECT sc.id, 'received', now(), %(tech)s, 'reception' FROM sc)
+        SELECT sc.id, 'received', now(), %(tech)s, 'reception' FROM sc
+        UNION ALL
+        SELECT sc.id, 'stored', now(), %(tech)s, 'fridge ' || (1 + mod(sc.id, 4)) FROM sc
+         WHERE sc.condition <> 'fit')
       UPDATE lab_order_tests AS x
          SET status = CASE WHEN tt.condition <> 'fit' THEN 'not-performed'
                            WHEN tt.routing = 'sent-out' THEN 'sent-out' ELSE 'in-progress' END,
@@ -90,7 +93,10 @@ queries:
           FROM sc WHERE x.id = sc.id),
       ev AS (
         INSERT INTO lab_sample_events (sample_id, kind, at, recorded_by, place)
-        SELECT sc.id, 'received', now(), %(tech)s, 'reception' FROM sc),
+        SELECT sc.id, 'received', now(), %(tech)s, 'reception' FROM sc
+        UNION ALL
+        SELECT sc.id, 'stored', now(), %(tech)s, 'fridge ' || (1 + mod(sc.id, 4)) FROM sc
+         WHERE sc.condition <> 'fit'),
       ch AS (
         INSERT INTO lab_charges (account_id, order_id, order_test_id, kind, price, amount, voided_at)
         SELECT pick.account_id, pick.id, tt.id, k.kind, p.price,

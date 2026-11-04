@@ -69,11 +69,11 @@ def run(conns, options, log):
     for order_id, animal_id in pending:
         try:
             animal = api.get(f"/animals/{animal_id}")
-            if not animal.ok:
+            if not 200 <= animal.status < 300:
                 log(f"order={order_id} animal status={animal.status}: left")
                 continue
             owner = api.get(f"/animals/{animal_id}/owner")
-            if not owner.ok:
+            if not 200 <= owner.status < 300:
                 log(f"order={order_id} owner status={owner.status}: left")
                 continue
         except api.HttpError as exc:

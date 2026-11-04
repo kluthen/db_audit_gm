@@ -29,7 +29,7 @@
 #     tests, equal to the lab's own rows read as postgres; its two
 #     parameters required; an open send-out's answer recorded once (again:
 #     200, nothing written twice), an unknown send_key 404;
-#   - inject -> start-load (T0): lis running with its six jobs; within
+#   - inject -> start-load (T0): lis running with its seven jobs; within
 #     minutes lab.identity writes the posted centre order's animal from
 #     clinic-api, lis receives it (its samples' collection placed 20 minutes
 #     back) and releases urgent tests; no error in lis's log;
@@ -331,7 +331,7 @@ done
 case $(pstatus) in running\ *) pass "lis running: $(pstatus)" ;; *) fail "lis not running: [$(pstatus)]" ;; esac
 info "local time at T0: $(dbsql lab lab "SELECT to_char(now() AT TIME ZONE 'UTC' + utc_offset_hours * interval '1 hour', 'Dy HH24:MI') FROM lab_settings")"
 jobs=$(docker exec "$(ctr lis)" cat /run/scheduler/loaded 2>/dev/null | sed -n 's/^job \([^ ]*\) next=.*/\1/p' | sort | tr '\n' ' ' | sed 's/ $//')
-same "lis loaded its six jobs" "6" "$(echo "$jobs" | wc -w | tr -d ' ')"
+same "lis loaded its seven jobs" "7" "$(echo "$jobs" | wc -w | tr -d ' ')"
 info "lis's jobs: $jobs"
 # Time placed, never waited for: the centre order's samples collected 20 minutes ago.
 dbsql lab lab "UPDATE lab_samples SET collected_at = now() - interval '20 minutes' WHERE order_id = $ACC" >/dev/null
@@ -355,6 +355,25 @@ info "since T0: $(dbsql lab lab "SELECT (SELECT count(*) FROM lab_samples WHERE 
   || (SELECT count(*) FROM lab_batches WHERE started_at >= '$T0') || ' batches'")"
 info "lis's log: $(plog | grep -c ' run \| key ' || true) lines of work; lab_app and lab_instruments sessions: $(dbsql lab postgres "SELECT count(*) FROM pg_stat_activity WHERE usename IN ('lab_app', 'lab_instruments')")"
 info "lis's lab.identity calls on clinic-api: $(plog | grep -c 'http job=lab.identity' || true)"
+# The analysers' middleware as its own role (the driver's grant at 12b,
+# lab_results (order_test_id)): lab.analyser.run's SQL for each machine, as
+# lab_instruments, in a transaction rolled back.
+anal=$(python3 -c 'import sys, yaml; print(yaml.safe_load(open(sys.argv[1]))["queries"]["lab.analyser.run"]["sql"])' \
+    "$SCN/nodes/lis/queries.yaml")
+runs=
+for m in 1 2 3 4 5 6; do
+    r=$(printf 'BEGIN;\nSET ROLE lab_instruments;\n%s;\nROLLBACK;\n' "$(printf '%s' "$anal" | sed "s/%(machine)s/$m/g")" \
+        | docker exec -i -u postgres "$(ctr lab)" psql -XAt -v ON_ERROR_STOP=1 -d lab 2>&1 | grep -E '^INSERT|ERROR' | head -n 1)
+    runs="$runs $m:${r:-none}"
+done
+info "lab.analyser.run as lab_instruments, rolled back:$runs"
+case $runs in *ERROR*|*none*) fail "lab.analyser.run as lab_instruments" ;; *) pass "lab.analyser.run runs as lab_instruments" ;; esac
+# An unfit sample stored at its receipt (the lifecycle: received, fit or
+# not, then stored): every unfit sample received since T0 has a 'stored' event.
+same "every unfit sample received since T0 stored" "0" "$(dbsql lab lab "SELECT count(*) FROM lab_samples AS s
+  WHERE s.received_at >= '$T0' AND s.condition <> 'fit'
+    AND NOT EXISTS (SELECT 1 FROM lab_sample_events AS e WHERE e.sample_id = s.id AND e.kind = 'stored')")"
+info "unfit samples received since T0: $(dbsql lab lab "SELECT count(*) FROM lab_samples WHERE received_at >= '$T0' AND condition <> 'fit'")"
 errs=$(plog | grep ' error ' || true)
 same "lis ran without an error" "0" "$(printf '%s' "$errs" | grep -c . || true)"
 [ -z "$errs" ] || printf '%s\n' "$errs" | head -n 8 | cut -c1-300 | sed 's/^/....  lis: /'

@@ -19,8 +19,8 @@ computes them by the core's functions, never reading `clinic`.
 | [`data/classification.yaml`](../data/classification.yaml) | where `governance.classification` names it | the class of every column |
 | [`data/register.yaml`](../data/register.yaml) | the scenario's data register (chunks 17, 27) | six processing activities, every table in one |
 | [`data/governance.yaml`](../data/governance.yaml), [`policy.md`](policy.md) | the scenario's `governance:` and `player/data-policy.md`, beside the core's | the thirteen rules, where each class may live |
-| `producers/lis/` | the information system's node (`nodes/lis/`) | `queries.yaml`, `schedule.yaml`, `jobs.yaml` (chunk 12b) |
-| `producers/api/lab-api/` | the order API's node (`nodes/lab-api/`) | `api.yaml`, `routes/`, `db/` (chunk 12b) |
+| [`producers/lis/`](../producers/lis/) | the information system's node (`nodes/lis/`), by compose | `schedule.yaml` (three connections, 14 streams), `queries.yaml` (18 SQL keys and `lab.identity`), `jobs.yaml` (six jobs), `scripts/lab_identity.py` ("The producers", below) |
+| [`producers/api/lab-api/`](../producers/api/lab-api/) | the order API's node (`nodes/lab-api/`), by compose | `api.yaml` (the `lab` connection as `lab_api`, three credentials), `routes/` and `db/` of `orders` and `send_outs` |
 | [`producers/partners/xlab/`](../producers/partners/xlab/), [`producers/partners/practices/`](../producers/partners/practices/) | `partners-db`'s data and the partners' back end and `api` node | each stub's `data.sql` (its state, from the key functions); its fragments (chunk 12b) |
 | [`variants/regional-franchise.yaml`](../variants/regional-franchise.yaml) | read by compose | the lab's axes in the core's variant |
 
@@ -216,7 +216,7 @@ At the reference T0, counted with `count(*)`:
 | `lab` | owns everything; no login | | |
 | `lab_app` | the information system (`lis`) | every table | orders, samples, tests, events, results, calls, notifications, QC runs, charges; never the reference tables |
 | `lab_api` | the order API (`lab-api`) | the catalogue, accounts, orders, samples, tests, results, send-outs | the intake; the external lab's answers (a send-out's `status`, `answered_at`; its results) |
-| `lab_instruments` | the analysers' middleware (`lis`, connection `lab-instruments`) | samples, tests, analytes, test analytes, intervals, QC runs; `lab_orders (id, species, priority)`, `lab_tests (id, code, discipline)` | batches, results |
+| `lab_instruments` | the analysers' middleware (`lis`, connection `lab-instruments`) | samples, tests, analytes, test analytes, intervals, QC runs; `lab_orders (id, species, priority)`, `lab_tests (id, code, discipline)`, `lab_results (order_test_id)` | batches, results |
 | `lab_dispatch` | purposes 2 and 3's jobs | orders, tests, results, accounts, samples, the catalogue, callbacks, send-outs, notifications | callbacks, send-outs, sent-out events, the notifications' sent columns |
 | `lab_reports` | the periodic reports | every table | nothing |
 
@@ -243,7 +243,53 @@ planted fault in any of them (D276).
 
 ### `lis`, the information system and the analysers' middleware
 
-@@LIS@@
+A `scheduler` node outside the players' scope (vet-core's `pms` is its
+model), three connections: `lab` as `lab_app` (pool 4), `lab-instruments`
+as `lab_instruments` (pool 2, the analysers' uploads only) and
+`clinic-api` (`http`, credential `clinic_lookup`, pool 1, timeout 10 s,
+the `lab.identity` job's only). The lab's volume arrives from outside
+(the centre's orders through purpose 1, the practices' through their
+stub, both by `lab-api`'s intake), so nearly every stream is a work
+stream: it takes the oldest item waiting, its rate a capacity; with
+nothing waiting it writes nothing. Shapes `bench` (Monday to Saturday
+07:00–21:00, 0.1 otherwise, the on-call technician's urgent work),
+`courier-waves` (the 11:00 and 17:00 hours, Monday to Saturday) and
+`flat`. The history's hashes are the live ones (a sample's condition, a
+QC run's outcome, a result's value), so live rows look like the backup's.
+
+| Key | Connection | Rate, shape | What one call does |
+|---|---|---|---|
+| `lab.samples.receive` | `lab` | 15/h, `flat` | the oldest centre order collected 15 minutes ago or more received: each sample's condition (97 in 100 fit, by `hashint8extended(id, 7116)`), a `received` event; its tests `in-progress` or `sent-out`; an unfit sample's tests `not-performed`, the condition their reason, the sample stored at once (a `stored` event, as the history stores it), the order completed when nothing is left |
+| `lab.courier.receive` | `lab` | 40/h, `courier-waves`, concurrency 2 | the oldest practice order posted before the courier's round (09:30 for the 11:00 wave, 15:30 for the 17:00 one), received as above and charged (rule 13): each test at the price in force on the order's local date, the urgent surcharge, the handling fee once; an unfit sample's charges void at once; never charged twice |
+| `lab.analyser.run` | `lab-instruments` | 5.7/h, `bench` | one machine's batch (1–2 haematology, 3–4 biochemistry, 5 blood gas, 6 coagulation): up to 20 of its discipline's tests in progress with no result, one result an analyte, flagged against the interval in force for the species; nothing when its QC stands failed (rule 4) or nothing waits |
+| `lab.bench.result` | `lab` | 8/h, `bench` | bench work with no batch: a urinalysis, smear or rapid test; a culture read after two to three days |
+| `lab.validate.technical` | `lab` | 30/h, `bench` | the oldest test (urgent first) whose every analyte has a result from a passing batch (a sent-out test once its send-out is `resulted`): `technical`; its sample, once nothing on it waits, `stored` (a fridge, kept a week, two for serum) |
+| `lab.release.urgent` | `lab` | 10/h, `flat` | an urgent technical test released by the on-call pathologist (79 or 80), its order completed once every test is final |
+| `lab.critical.call` | `lab` | 6/h, `flat` | a critical result with no call: the call, read back, recorded (rule 6) |
+| `lab.notify` | `lab` | 2/h, `flat` | a positive or suspect result of a listed disease's test, technically validated, with no notification: its row (rule 7) |
+| `lab.qc.rerun` | `lab` | 4/h, `flat` | a failed QC run with no passing run after it: rerun, passing |
+| `lab.amend` | `lab` | 0.25/h, `bench`, poisson | a released result amended: a new row superseding it, what, why, who (rule 3) |
+| `lab.orders.cancel` | `lab` | 0.08/h, `bench`, poisson | an order not yet tested cancelled, its tests `cancelled`, its charges void (the feed carries a centre order's back) |
+| `lab.add-on` | `lab` | 0.1/h, `bench`, poisson | a test added on a practice order's fit sample within its keep-until, at the account's request, charged at today's price |
+| `lab.worklist`, `lab.order.view` | `lab` | 30/h even, 25/h poisson (concurrency 2), `bench` | reads: a bench's pending tests; an order's report |
+
+Fixed-time jobs (`jobs.yaml`, scenario time; the loader takes no cron
+range and a day of week with one hour only, so the weekdays are listed
+and the rounds are one job a time of day):
+
+| Job | Key | When | What |
+|---|---|---|---|
+| `lab-qc-morning` | `lab.qc.morning` | `45 6 * * *` | QC on every analyser, about 15 runs, one in fifty failing by a hash of its id |
+| `lab-qc-night` | `lab.qc.night` | `15 21 * * *` | QC on the on-call machines 1, 3 and 5, about 7 runs |
+| `lab-release-round` | `lab.release.round` | `0 11 * * *` | the pathologist's round, one transaction: every technical test not held by a failed control released (rule 1), the orders whose tests are all final completed, the practices' charges billable on the local date; every day, Sundays' one round included |
+| `lab-release-round-14`, `lab-release-round-18` | `lab.release.round` | `0 14 * * 1,2,3,4,5,6`, `0 18 * * 1,2,3,4,5,6` | the same, Monday to Saturday |
+| `lab-samples-dispose` | `lab.samples.dispose` | `0 6 * * *` | samples past their keep-until, not under custody and with no test waiting, disposed, a `disposed` event (rule 12); set-based, the GM may move it to `lab`'s `pg_cron` |
+| `lab-identity` | `lab.identity` | `* * * * *` | `scripts/lab_identity.py`: up to 20 centre orders of the last two days with an animal and no species, each read from `clinic-api` (`GET /animals/{id}`, `/owner`) with no transaction open across the calls, and the species, sex, born on, identifiers and the owner's surname written, committed per order; a non-2xx answer leaves the order for the next run, no answer ends the run; logs ids and statuses only (rule 11). `lab_orders` has no food-chain column, so the status is not stored |
+
+`lab_instruments` reads `lab_results (order_test_id)` beside its document
+list, to pick the tests no run has resulted yet (the driver's ruling at
+12b). A release round on a fixture lands at 11:00, 14:00 or 18:00 local:
+a T0 between 11:00 and 12:00 has the 14:00 round in reach.
 
 ### `lab-api`, the order API (W3 item 1)
 
