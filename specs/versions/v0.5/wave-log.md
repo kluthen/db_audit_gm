@@ -3824,3 +3824,74 @@ changes.
 ### Questions for the owner
 
 None.
+
+### W3 reviewed by the driver, 2026-11-04
+
+The 23 **(choice)** points taken as written; none needs the owner. The
+seven preflight corrections accepted and sent to `spec-writer` before any
+chunk was cut, correction 4's mechanism (the purposes' DDL in a composed
+database) joined to chunk 29, the only chunk holding `inject.py` before
+wave 4 (next entry).
+
+### Plan revision before wave 3, 2026-11-04
+
+`spec-writer`: build plan v10 (6e4a0b3), spec D401 to D407:
+- D401: chunk 29 inserted into wave 3 for a `coding-executor` (W3 item
+  6's (a) to (d), plus (e) the purposes' DDL step), split 29a (the
+  `pg_cron` premise, (a), (b), (d)) and 29b ((c), (e)); gate G17 (its
+  format items into formats.md and master spec 5 after wave 3's gate,
+  blocking release gate item 6).
+- D402: the chain 29, 12, 16 kept, three chunks long (as D361): no start
+  delayed, W3 items 0 and 6 fix the interfaces.
+- D403 (correction 2): fixtures follow compose's rule; 13 and 14 gain
+  `clinic-api`, 12 and 16 use `left_out:`, chunk 12 a `test_compose.py`
+  case; chunks 18 to 21 carry the W4 notes.
+- D404: O229 adopted and closed (derive.sql writes `portal` only; purpose
+  16's history plants the messaging stub's messages).
+- D405: a composed domain's `pg_cron` jobs in `data/cron.sql`, subject to
+  chunk 29's premise check.
+- D406 (text): the portal's key from `load_epoch`, not "the game's seed".
+- D407: wave 3's gate runs `fixture-clinic-load` and adds
+  `fixture-lab-core`.
+Master spec 9.7, vet-portal's and vet-machinery's "Loading" reworded;
+chunk 27's `fixture-clinic-load/` now "changed here". O233 reserved by
+mistake, unused. Wave 3 holds six chunks, the model's maximum.
+`doc-ids lint spec`: 0 errors. No owner question.
+
+### W3 addendum, item 6 (e): the purposes' DDL step (for chunk 29b), 2026-11-04
+
+Asked by chunk 29's capture line, settled by the driver before the chunk
+starts:
+
+- **The key (choice)**: `ddl:` in `purpose.yaml`, beside `history:`, a
+  mapping from one of the purpose's part names (the names its `parts:`
+  uses, `target` among them) to a file under the purpose folder
+  (`ddl: {target: material/target-ddl.sql}`). Read from the catalogue at
+  every load, as `history:` is (formats.md "Purpose definition"), never
+  copied into the scenario. Reason: the same reading rule as the
+  history, one key per database the purpose adds tables to.
+- **Where it runs**: only for a part the scenario maps to a database a
+  composed domain's `at:` holds. A `ddl:` entry whose part maps to a
+  database no domain holds (`office`, `partners`) is refused by the
+  loader, naming the purpose and the part: there the DDL stays in the
+  node's data file, as v0.4 copies it (one place each, never both).
+- **The step's place**: new step **(2b)** of "Loading a composed
+  domain"'s order, after every domain's load and partner `data.sql`
+  (step 2), before the derivations (step 3); the `purposes:` entries in
+  list order, each entry's `ddl:` parts in the order its `parts:` lists
+  them. Reason: a derivation or a history may write into the purpose's
+  `ops` tables.
+- **How it runs**: as `postgres`, connected to the mapped database
+  (`psql -d`), unseen, with `customer_timezone`, `customer_utc_offset`
+  and `load_epoch` set; no `keys.sql` streamed (as a history). The
+  schema's rules hold: never `CREATE DATABASE` nor `\connect` (refused,
+  naming the line), the database named `:"DBNAME"`, roles at top level.
+  Roles are cluster-wide: a role two purposes' DDL create on one node is
+  created guarded (`DO … IF NOT EXISTS`), the purpose's material's
+  concern; the loader doesn't police it.
+- **The loader sees it**: `model.node_creates` counts the roles and
+  objects a `ddl:` file creates on its node, so render gives its login
+  roles their secrets and the location and crontab-role checks see them
+  (W2 item 1).
+- **For 29a**: check that the jobs a `data/cron.sql` schedules survive
+  step (6)'s `pg_cron` clean-up, and record it in W3-f.
