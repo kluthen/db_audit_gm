@@ -3,7 +3,10 @@
 Status: draft v3, ruled, its stale passages corrected to the master
 spec at approval (R16, D339). **Approved by the owner on 2026-11-03 with
 v0.5's [master spec](master-spec.md)** (procedure step 9, D339), which
-wins where the two disagree.
+wins where the two disagree. Amended in wave 2 of the build (2026-11-04):
+the procedure catalogue and its draw, with the horse-only MR and NM
+codes (D372, D373); the intensive-care sessions (D377); routine imaging
+within two working days, the turnaround three (D376).
 Steps 1 to 9 of the [procedure](domain-procedure.md) drafted in one pass on
 2026-11-03, on the owner's instruction ("start an agent for each part,
 and let them come back with problems once they're done"); the same day
@@ -408,10 +411,16 @@ carries on with:
    PACS's version of the core's mistyped chips: domain data, a finding
    to report.
 7. **Monitor sessions.** Started on a current stay of the core: in
-   intensive care for about one stay in three, by a hash of the stay's
-   id; under anaesthesia for about ten stays a weekday, in theatre
-   hours. A session ends when its stay is no longer current
-   (intensive care) or after about 90 minutes (anaesthesia).
+   intensive care for about one domestic stay in two and one horse
+   stay in four, by a hash of the stay's id, on a free monitor of its
+   group (21–26 domestic, 27–28 horses and foals; no farm stay, there
+   being no farm monitor), about 2.7 a day and 5 at once; under
+   anaesthesia for about ten stays a weekday, in theatre hours. An
+   intensive-care session ends at the animal's step-down to the ward,
+   24 to 72 hours after admission by a hash of the stay's id (`ended_by`
+   `staff`), or earlier when its stay is no longer current (`census`); an
+   anaesthesia session after about 90 minutes. A pick finding no free
+   monitor gets no session, in the load as in play (D377).
 8. **What a "reading" is.** For a monitor, a row every 10 seconds of
    heart rate, respiratory rate, SpO2, end-tidal CO2, blood pressures
    and temperature. For a machine, a row a minute holding its
@@ -451,7 +460,7 @@ never deleted from (cold storage 2).
 | Table | Key, main columns |
 |---|---|
 | `mach_settings` | one row: the customer's zone and offset (a separate node keeps its own copy, as `lab_settings`); the on-site window (1 full day), the logs' retention (12 months) |
-| `mach_machines` | `id`; code (`CT-SA-1`), name, `kind` (`analyser`, `ct`, `mri`, `dr`, `us`, `gamma`, `monitor-anaesthesia`, `monitor-icu`), DICOM `modality` (`CT`, `MR`, `DX`, `US`, `NM`; none for analysers and monitors), `ae_title` (the modality's DICOM name), `section_id` (the core's), `discipline` (analysers), `species_group` (`small`, `large`, `any`), vendor, model, serial, installed on, `bookable`, `ionising`, `telemetry`, `status` (`in-service`, `down`, `retired`), `qa_due_on` (ionising machines) |
+| `mach_machines` | `id`; code (`CT-SA-1`), name, `kind` (`analyser`, `ct`, `mri`, `dr`, `us`, `gamma`, `monitor-anaesthesia`, `monitor-icu`), DICOM `modality` (`CT`, `MR`, `DX`, `US`, `NM`; none for analysers and monitors), `ae_title` (the modality's DICOM name), `section_id` (the core's), `discipline` (analysers), `species_group` (`small`, `large`, `horse`, `any`: `horse` for machines 10 and 16, D373), vendor, model, serial, installed on, `bookable`, `ionising`, `telemetry`, `status` (`in-service`, `down`, `retired`), `qa_due_on` (ionising machines) |
 | `mach_maintenance` | `id`; machine, `kind` (`service`, `repair`, `qa-test`, `calibration`, `software-update`), performed at, vendor, `engineer` (the vendor engineer's name) or staff id, outcome (`pass`, `fail`, `done`), next due on, notes |
 | `mach_downtimes` | `id`; machine, from, until (open while down), reason |
 | `mach_events` | partitioned by month on `at`: `id`; machine, at, `level` (`info`, `warning`, `error`, `critical`), code, message, `operator_id` (staff), acknowledged at, acknowledged by (critical events) |
@@ -462,7 +471,7 @@ never deleted from (cold storage 2).
 
 | Table | Key, main columns |
 |---|---|
-| `mach_procedures` | `id`; `code` (unique: the core's study code), name, modality, `species_group`, body part, minutes, `under_ga`, turnaround hours (routine) |
+| `mach_procedures` | `id`; `code` (unique: the core's study code), name, modality, `species_group` (`small`, `large`, `horse`, `any`), body part, minutes, `under_ga`, turnaround hours (routine): the 30 rows of [the procedure catalogue](#the-procedure-catalogue-d372-d373) |
 | `mach_worklist` | `id`; `accession` (unique, `I-<request id>`: the idempotency key), `request_id`, `consultation_id`, `animal_id`, `requested_by`, procedure, `priority` (`routine`, `urgent`), `machine_id`, scheduled at, `booking_id` (`vet-scheduling`'s, by id, empty in v0.5); the identity the lookup API answered: `patient_id` (`A-<animal id>`), `patient_name` (`Surname^Name`, PS3.5 6.2), species, breed, sex, born on, `microchip`, `ueln`, `ear_tag`, `responsible_person` (the owner's name, role `OWNER`), identity at; `state`, cancelled because, created at |
 | `mach_studies` | `id`; `study_uid` (unique), `worklist_id` (none while unscheduled), accession as acquired, `machine_id`, `patient_id` and `patient_name` as acquired (from the worklist, or typed), performed by (staff), restrained by (staff, ionising studies), `companion_present`, started at, ended at, images, size in MB, `exposure` (kV and mAs; CT's DLP; none for MR and US), `state`, reconciled at, by |
 | `mach_series` | `id`; study, number, modality, body part, description, images |
@@ -495,14 +504,97 @@ never deleted from (cold storage 2).
 | Key | Range | Layout |
 |---|---|---|
 | `mach_machines.id` | 1–28 | 1–2 haematology, 3–4 biochemistry, 5 blood gas and electrolytes, 6 coagulation (the on-call analysers at night are 1, 3 and 5, as `vet-lab`'s `lab.qc.night` runs three); 7 CT small animal, 8 CT large bore, 9 MRI 1.5 T (domestic, helium), 10 standing MRI (horses, a permanent low-field magnet: no helium), 11 DR room domestic, 12 DR room horses, 13 portable DR (farm and stables), 14 ultrasound domestic, 15 portable ultrasound (horses and farm), 16 gamma camera (horses); 17–18 anaesthesia monitors of the small-animal theatres, 19 of the equine theatre, 20 the MRI-compatible one; 21–26 intensive-care monitors domestic, 27–28 horses and foals. Bookable: 7–16. Telemetry: 1–9 and 16 (10 machines) and 10 (status only) |
-| `mach_procedures.id` | 1–30 | 1–12 small animal, 13–27 large animal, 28–30 any; DX about 45 % of studies, US 30, CT 15, MR 7, NM 3 |
+| `mach_procedures.id` | 1–30 | 1–12 small animal, 13–27 large animal (26 and 27 horses only), 28–30 any; DX about 45 % of studies, US 30, CT 15, MR 7, NM 3: [the procedure catalogue](#the-procedure-catalogue-d372-d373) |
 | History, `pacs` | `mach_worklist` 1–3 400 (the k-th imaging request of the core's, in time order), `mach_studies` 1–3 470, `mach_series` 1–8 000, `mach_reports` 1–3 450 | each a function of the request's id and time, documented in the GM notes |
-| History, `vitals` | `mach_sessions` 1–3 800 | intensive-care sessions on the stays a hash of the stay id picks (one in three); anaesthesia sessions on stays by a hash of the day and stay |
+| History, `vitals` | `mach_sessions` 1–3 800 | intensive-care sessions on the stays a hash of the stay id picks (one domestic stay in two, one horse stay in four, no farm stay), each on a free monitor of its group, until its step-down or the stay's end (D377); anaesthesia sessions on stays by a hash of the day and stay |
 | Core keys used | imaging `request_id`s among 1–17 000 by the core's function; `animal_id` 1–17 000; `stay_id` 1–2 500 (O197); staff 26–28 and 52–56 (D324) | as the core documents them |
 
 The six unmatched studies are ids 3 465–3 470. Each has a typed
 `patient_id` that names no animal (`A-` and an id above 17 000, or two
 digits swapped), with no worklist entry and no request.
+
+### The procedure catalogue (D372, D373)
+
+The 30 rows of `mach_procedures`, and the draw by which the core's
+request function gives an imaging request its study code. This page is
+their one source: the core's `data/keys.sql` draws from it (chunk 9),
+this part's load writes it (chunk 15), `vet-scheduling` books its
+machines, one imaging type per section and machine (chunk 13). `requests.code` holds the
+`code` column.
+
+**Species groups.** `small` is the domestic section's animals; `large`
+is horses and farm animals; `horse` is horses only; `any` is every
+animal. A farm animal never draws a `horse` code: the standing MRI
+(machine 10) and the gamma camera (16) take horses only, and the
+large-bore CT (8) takes calves, sheep and goats as well as horses. The
+machine is the group's: domestic, horse, farm.
+
+| Id | Code | Study | Modality | Group | Machine (domestic / horse / farm) | Minutes | Under GA |
+|---|---|---|---|---|---|---|---|
+| 1 | `DX-THX-S` | thorax radiographs | DX | small | 11 | 15 | no |
+| 2 | `DX-ABD-S` | abdomen radiographs | DX | small | 11 | 15 | no |
+| 3 | `DX-LIMB-S` | limb and joint radiographs | DX | small | 11 | 20 | no |
+| 4 | `DX-SPN-S` | spine and skull radiographs | DX | small | 11 | 20 | yes |
+| 5 | `US-ABD-S` | abdominal ultrasound | US | small | 14 | 30 | no |
+| 6 | `US-ECHO-S` | echocardiography | US | small | 14 | 40 | no |
+| 7 | `US-THX-S` | thoracic and neck ultrasound | US | small | 14 | 20 | no |
+| 8 | `CT-HEAD-S` | head CT | CT | small | 7 | 30 | yes |
+| 9 | `CT-TAB-S` | thorax and abdomen CT | CT | small | 7 | 30 | yes |
+| 10 | `CT-LSP-S` | limb and spine CT | CT | small | 7 | 30 | yes |
+| 11 | `MR-BRN-S` | brain MRI | MR | small | 9 | 60 | yes |
+| 12 | `MR-SPN-S` | spine MRI | MR | small | 9 | 60 | yes |
+| 13 | `DX-FOOT-L` | foot radiographs (navicular series) | DX | large | 12 / 13 | 30 | no |
+| 14 | `DX-FTLK-L` | fetlock and pastern radiographs | DX | large | 12 / 13 | 20 | no |
+| 15 | `DX-CRHK-L` | carpus and hock radiographs | DX | large | 12 / 13 | 30 | no |
+| 16 | `DX-STFL-L` | stifle radiographs | DX | large | 12 / 13 | 20 | no |
+| 17 | `DX-HEAD-L` | head, teeth and sinus radiographs | DX | large | 12 / 13 | 20 | no |
+| 18 | `DX-NKBK-L` | neck and back radiographs | DX | large | 12 / 13 | 30 | no |
+| 19 | `DX-THX-L` | thorax radiographs (foal, calf, small ruminant) | DX | large | 12 / 13 | 20 | no |
+| 20 | `US-TEND-L` | tendon and ligament ultrasound | US | large | 15 / 15 | 40 | no |
+| 21 | `US-ABD-L` | abdominal ultrasound | US | large | 15 / 15 | 30 | no |
+| 22 | `US-THX-L` | thoracic ultrasound | US | large | 15 / 15 | 20 | no |
+| 23 | `US-REPR-L` | reproductive tract ultrasound | US | large | 15 / 15 | 20 | no |
+| 24 | `CT-HEAD-L` | head CT, standing (large bore) | CT | large | 8 / 8 | 45 | no |
+| 25 | `CT-LIMB-L` | distal limb CT (large bore) | CT | large | 8 / 8 | 60 | yes |
+| 26 | `MR-LIMB-H` | standing distal limb MRI | MR | horse | 10 | 90 | no |
+| 27 | `NM-BONE-H` | bone scintigraphy | NM | horse | 16 | 60 | no |
+| 28 | `DX-VIEW-A` | single follow-up radiograph | DX | any | 11 / 12 / 13 | 10 | no |
+| 29 | `US-GUID-A` | ultrasound-guided aspirate or biopsy | US | any | 14 / 15 / 15 | 30 | no |
+| 30 | `DX-CONT-A` | contrast radiography | DX | any | 11 / 12 / 13 | 45 | no |
+
+The machine column is the machine a study takes (for `large`, the
+horse's then the farm animal's; for `any`, the domestic, horse and
+farm animal's);
+`pacs.worklist.schedule` takes it, or, while it is down, another
+in-service machine of the modality and group if there is one (13 for
+12, a horse radiographed in its stable), else none. A
+study under GA in machine 9 takes the MRI-compatible monitor (20). The
+turnaround of every code is the rule's: urgent 18 hours, the next
+working morning; routine three working days, two to the study and one
+to the final report (D376). The column holds 72 for every row; the GM
+notes say it counts working hours of the imaging day.
+
+**The draw** (each request's code, by a hash of the request's id, among
+the codes of the animal's section). Weights in percent of that
+section's imaging requests:
+
+| Section | DX | US | CT | MR | NM |
+|---|---|---|---|---|---|
+| domestic | 1: 14, 2: 9, 3: 10, 4: 5, 28: 3, 30: 2 (43) | 5: 15, 6: 7, 7: 3, 29: 3 (28) | 8: 7, 9: 9, 10: 5 (21) | 11: 4, 12: 4 (8) | none |
+| horse | 13: 10, 14: 8, 15: 7, 16: 3, 17: 5, 18: 3, 19: 2, 28: 3, 30: 2 (43) | 20: 16, 21: 6, 22: 3, 23: 5, 29: 3 (33) | 24: 3, 25: 4 (7) | 26: 7 (7) | 27: 10 (10) |
+| farm | 13: 12, 14: 10, 15: 8, 16: 5, 17: 6, 18: 4, 19: 10, 28: 3, 30: 2 (60) | 20: 6, 21: 9, 22: 5, 23: 12, 29: 3 (35) | 24: 3, 25: 2 (5) | none | none |
+
+- **An urgent request never draws 26 or 27**: the standing MRI and the
+  scintigraphy are planned studies. Its draw gives their weight to 13
+  (for 27) and 20 (for 26). Urgent requests take the other codes around
+  the clock, the on-call radiographer's (`imaging-day` at 0.1).
+- **The overall shares** follow the core's mix of imaging requests by
+  section, about 60 % domestic, 30 % horses and 10 % farm, which the
+  core's request function sets (its imaging share by section). At that
+  mix the routine draw gives DX 45 %, US 30, CT 15, MR 7, NM 3; urgent
+  requests move about a point from MR and NM to DX and US. The GM notes
+  record the shares the load measures.
+- A consultation's imaging requests draw distinct codes.
 
 ### Application roles and grants
 
@@ -721,7 +813,7 @@ Fixed-time operations:
 | Job | Where, when | What |
 |---|---|---|
 | `mach.identity` | `equipment`, `* * * * *` | the `new` entries lacking identity: each animal read from `clinic-api` (`GET /animals/{id}`, `/owner`) and its patient id, name, species, breed, sex, born on, natural identifiers and the owner's name written; a script job holding the `pacs` connection and an HTTP one (D303), as the lab's `lab.identity` |
-| `mach.census` | `equipment`, `*/5 * * * *` | `GET /stays?current=true` on `clinic-api` (O197): `mach_census` upserted, rows no longer current marked left; an intensive-care session opened on a free monitor of the species group for each new stay a hash picks (one in three), and the session of a stay that left ended (`ended_by` `census`) |
+| `mach.census` | `equipment`, `*/5 * * * *` | `GET /stays?current=true` on `clinic-api` (O197): `mach_census` upserted, rows no longer current marked left; an intensive-care session opened on a free monitor of the species group for each new stay a hash picks (a domestic one in two, a horse one in four, no farm stay; none when no monitor is free), the session of a stay that left ended (`ended_by` `census`), and each session past its step-down time (24 to 72 hours after admission, by a hash of the stay id) ended (`ended_by` `staff`) (D377) |
 | `vitals.chart` | `equipment`, `*/5 * * * *` | the chart's rows: every open anaesthesia session's last five minutes, and at minute 0 every intensive-care session's last hour, set-based from the raw rows |
 | `vitals-partitions` | `machines`' `pg_cron`, `0 22 * * *`, as `mach_maint` | `mach_create_partitions(3)` in `vitals` |
 | `readings-partitions` | `machines`' `pg_cron`, `5 22 * * *`, as `mach_maint` | the same in `biomed` |
@@ -759,8 +851,8 @@ day's: those are `sent` in the core, and here scheduled, acquired or
 reported preliminary, matching. The six unmatched studies are spread
 over the year. Each history session lies on a stay the core's function
 gives (O197), its chart and alarms loaded, its raw rows only within the
-window. The intensive-care sessions open at T0 are those of the stays
-current at T0, about five. The events cover the year in monthly
+window. The intensive-care sessions open at T0 are those of the picked
+stays current at T0 and not yet stepped down, about five (D377). The events cover the year in monthly
 partitions, and the readings' and vitals' window holds the last full
 day and today up to T0. Partitions exist three days ahead, and next
 month's for the events.
@@ -954,7 +1046,7 @@ with machinery's tables.
 | # | Trap | Where it bites | Witness | Fixed on | Catalogue | Class |
 |---|---|---|---|---|---|---|
 | T205 | A sequence left below its loaded range on `mach_worklist` or `mach_studies` | the first live entry or study failing on a duplicate key: no imaging after T0 | the runner's or the producer's errors, at once | the sequence | new (as T14) | D |
-| T206 | The census adding stays and never marking those that left | intensive-care sessions open on discharged animals; their monitors never free, the next patients unmonitored | open sessions whose stay is no longer current, at each discharge (about 3 a day from intensive care) | the census job's script (reported: the producer's), then the data | new (two places for one fact) | V |
+| T206 | The census adding stays and never marking those that left | intensive-care sessions open on discharged animals; their monitors never free, the next patients unmonitored | open sessions whose stay is no longer current, at each stay ending before its step-down (about one a day, D377) | the census job's script (reported: the producer's), then the data | new (two places for one fact) | V |
 | T207 | Unscheduled studies reconciled by animal name and species rather than patient id | images filed to another animal of the same name; its report on the wrong request | reconciled studies whose patient id differs from their entry's | the producer (reported), then the data | new | D when it lands; a rare flow, with a story |
 | T208 | No partition created ahead: the `vitals-partitions` job unscheduled or failing | rows from midnight in `mach_vitals_default`, never shipped, the chart's reads slower; without a default partition, the inserts failing and a night's vitals lost | rows in the default partition at 00:00; `cron.job_run_details` | `cron.job`, then the partitions and the rows moved | new | M; D without a default partition |
 | T209 | A machine id crossing parts wrongly: a retired or down analyser still in `lab_batches`, a booking of a down machine | the lab's results from a machine out of service; the radiographer's slot on a machine that cannot run | `lab_batches.machine_id` and bookings against `mach_machines.status` | the registry, the other part's data | new | M |

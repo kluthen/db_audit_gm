@@ -4,7 +4,11 @@ Status: draft v11, the draft document of procedure step 9, its stale
 passages corrected to the master spec at approval (R16, D339).
 **Approved by the owner on 2026-11-03 with v0.5's
 [master spec](master-spec.md)** (procedure step 9, D339), which wins
-where the two disagree. Steps 2 to 8 are done: the business sketch ruled (D266, D278), its first
+where the two disagree. Amended in wave 2 of the build (2026-11-04):
+the key functions, their set, signatures and returns, and
+`core_request`'s contract (D374, D375, D378, D379); the identifiers'
+species and codes (D379); the code catalogues their parts' (D372,
+D373). Steps 2 to 8 are done: the business sketch ruled (D266, D278), its first
 answer revised by one centre per scenario (D285); the split confirmed
 (D279), the parts one centre's (D293); the data model current at one
 centre's scale (D279, D280, D295), `requests` revised by `vet-lab`'s
@@ -438,17 +442,96 @@ cite ([procedure](domain-procedure.md) 10).
 | `medicines.id` | 1–400 | antimicrobials and controlled drugs flagged |
 | History | `consultations` 1–25 000, `prescriptions` 1–15 000, `administrations` 1–70 000, `exchanges` 1–700, the others as loaded | in time order over the year; each consultation's kind, section, vet and start a function of its id, a scheduled one's `booking_id` its own id and its vet one the rota's pattern puts on shift ([vet-scheduling](vet-scheduling-domain.md), step 6; D317) |
 | `stays.id` | 1–2 500 | each stay's animal, section, admitted at, discharged at and outcome a function of its id, and the infectious alert current on it (from, until) a function of the stay's id (D319, D322); at any time about 14 horses, 6 farm animals and 20 domestic animals of the 40 current, never more current stays in a section than its units in service (21 horse, 10 farm, 31 domestic, species fitting; D318) |
-| `requests.id` | 1–17 000 | each request's kind (about one in five imaging), test code, priority, consultation, animal and time computed from its id, documented in the GM notes, so `vet-lab`'s load computes the same and groups a consultation's analysis requests into one order, without reading the core (D302); an imaging request's study code one of `vet-machinery`'s 30 procedure codes, drawn by the documented function of its id among those valid for the animal's species group (1–12 domestic, 13–27 horses and farm, 28–30 any), at that page's modality shares (D319) |
+| `requests.id` | 1–17 000 | each request's kind (about one in five imaging), test code, priority, consultation, animal and time computed from its id, documented in the GM notes, so `vet-lab`'s load computes the same and groups a consultation's analysis requests into one order, without reading the core (D302); an imaging request's study code one of `vet-machinery`'s 30 procedure codes, drawn by the documented function of its id among those valid for the animal's species group (1–12 domestic, 13–27 horses and farm but 26 and 27 horses only, 28–30 any), at that page's modality shares (D319, D373); the codes and their draw are [the lab's test catalogue](vet-lab-domain.md#the-test-catalogue-d372) and [the machinery's procedure catalogue](vet-machinery-domain.md#the-procedure-catalogue-d372-d373) (D372) |
 
 **Natural identifiers.** A microchip is 15 digits, the country or
 maker's 3 then 12 (ISO 11784/11785), present on every horse, dog and
-cat and some other pets, missing on about 2 % of domestic animals; a
+cat and some other pets, missing on about 2 % of domestic animals:
+every dog, cat, horse and ferret carries one, and two rabbits in three
+none, rabbits being about 3 % of the domestic animals (D379); a
 UELN (15 characters) and a passport number on every horse; an ear tag
 (country code and 12 digits) on every farm animal; each a function of
 the animal's id, so a part's load can write the same value without
 reading the core. **A dozen mistyped chips** are planted at load: two
 digits swapped against the value the parts' loads hold, so a lab result
-or a portal record matches no animal (D278; a trap, step 8).
+or a portal record matches no animal (D278; a trap, step 8). The
+unnamed member state's codes are fictional, so no identifier points at
+a real registry (D379): `XA`, ISO 3166-1's user-assigned alpha-2, on
+the ear tags and passports; one user-assigned numeric code of 900–998
+(never 999, ISO 11784's test code) as a chip's first three digits and
+a UELN's country part, the GM notes naming it.
+
+### The key functions (D374, D375, D379)
+
+The core's `data/keys.sql` defines them as `pg_temp.core_<name>`, which
+`load-data` streams ahead of the core's load, every part's load, every
+partner `data.sql` and `derive.sql` (capture W2, item 3); `docs/gm.md`'s
+"Core keys" documents each with its SQL. **This is the set**, and what
+each returns is the contract the parts' loads rely on. The formulas are
+the build's (master spec 24), within the ranges and figures of this
+page; no part re-derives what a function returns.
+
+**Signatures** (D379). An id function takes `(n integer)`. A function
+computing a time takes `(n integer, load_epoch timestamptz, utc_offset
+integer)`: `load_epoch` is the run's psql variable, the load's "now";
+`utc_offset` is `customer_utc_offset` in hours, the customer's zone
+being a fixed `Etc/GMT` offset, so the shapes' local hours need no
+zone name. Every function is `IMMUTABLE`, a pure function of its
+arguments, and returns no row for an id outside its range.
+
+| Function | Returns | Read by |
+|---|---|---|
+| `core_staff(n)` | `kind`, `section_id`, `specialty`: the layout above | every part |
+| `core_shifts(n, day date, utc_offset)` | staff `n`'s shifts starting on that local day by the rota's pattern ([vet-scheduling](vet-scheduling-domain.md), step 6): rows of `kind` (`day`, `late`, `night`, `on-call`), `starts_at`, `ends_at`, `absence` (null, or `leave`, `training`, `absent` when one of the history's absences covers the shift; about 600 absences a year, leave nine in ten) | `vet-scheduling` (its shifts and absences); the core's own pick of a consultation's vet, among shifts with no absence |
+| `core_species(n)` | the animal's species | housing, machinery, lab |
+| `core_animal(n, load_epoch, utc_offset)` | `species` (`core_species`'), `breed`, `sex`, `born_on`, `name`, `food_chain`, an exclusion's date and vet, `herd_id`, `registered_at` | lab (an order's species, sex, age), machinery (the worklist's identity), portal |
+| `core_microchip(n)`, `core_ueln(n)`, `core_passport(n)`, `core_ear_tag(n)` | the identifier as the parts hold it, null where the animal has none; the dozen mistyped chips are the core's load's own swap, never the function's | lab, machinery, portal |
+| `core_holding(h)` | herd `h`'s holding number | the core's load; no part in v0.5 |
+| `core_owner(n, load_epoch, utc_offset)` | `kind`, `name`, `family_name` (a person's surname; a stable's, holding's or the clinic's name whole), `email`, `phone`, `registered_at`; never the address | portal (an account's name, e-mail and phone; the owners' route), machinery (a study's patient name and responsible person) |
+| `core_ownership(n, load_epoch, utc_offset)` | animal `n`'s ownerships over the year, every row: `owner_id`, `role` (`owner`, `keeper`), `from_at`, `until_at` (null while current); one current owner, a sale ending one row and opening the next | portal (keepers, consent events), machinery (the owner at a study's time) |
+| `core_death(n, load_epoch, utc_offset)` | `died_at` and how, for an animal of the history that died; no row otherwise | scheduling, portal |
+| `core_consultation(n, load_epoch, utc_offset)` | `kind`, `section_id`, `vet_id`, `animal_id` or `herd_id`, `stay_id` (in hospital), `referral_id`, `started_at`, `closed_at`, `signed_at`, `booking_id` (its own id when `scheduled`, else null) | scheduling, lab and machinery (through their requests), portal |
+| `core_stay(n, load_epoch, utc_offset)` | `animal_id`, `section_id`, `admitted_at`, `discharged_at` (null while current), `outcome`, the site transferred to | housing, machinery, portal |
+| `core_stay_alert(n, load_epoch, utc_offset)` | stay `n`'s `infectious` alert: `from_at`, `until_at`; no row when none | housing |
+| `core_request(n, load_epoch, utc_offset)` | below (D375) | lab, machinery, scheduling |
+| `core_exchange(n, load_epoch, utc_offset)` | `direction`, `kind`, `site_id` (the partner centre), `animal_id` (null for an inbound one whose animal is not registered), `stay_id` (a transfer's, its stay `transferred`), `exchange_key` (a UUID, a function of the id), `requested_at`, `state`, the answer (an accepted date, or declined) and `answered_at`, `reported_at` | scheduling (the inbound examinations' dates), the centres' stubs (their `data.sql`, chunk 19) |
+| `core_referring_practice(v)` | referring vet `v`'s practice, two vets a practice (by default `(v + 1) / 2`) | scheduling (`sched_trainees`), the core's own `referring_vets` (D378) |
+
+A prescription line's withdrawal end has no function of its own: the one
+part reading it, the lab's residue screening, gets it from the request
+(`withdrawal_ends_on`, below).
+
+**`core_request`** (D375) returns, for each request of the history:
+
+- `kind`: about one in five `imaging`, its share by section setting
+  the imaging mix, about 60 % domestic, 30 % horses, 10 % farm;
+- `code`: drawn by the catalogues' draw, [the lab's
+  tests](vet-lab-domain.md#the-test-catalogue-d372) or [the
+  machinery's procedures](vet-machinery-domain.md#the-procedure-catalogue-d372-d373),
+  valid for the animal;
+- `consultation_id`, `animal_id` (the consultation's, or for a herd
+  visit an animal of the herd), `requested_by`
+  (the consultation's vet), `requested_at` (at its close, which writes
+  the request);
+- `priority`: the consultation's, `urgent` for an emergency's or a
+  stay's (`in-hospital`), `routine` otherwise, as `consultations.close`
+  writes it;
+- `state` at T0 and its times: `resulted` (with `sent_at`,
+  `resulted_at`) or `cancelled` (`cancelled_at`; with `sent_at` when the
+  part cancelled it after sending, without when the vet did before),
+  but a request of the last 24 hours before `load_epoch` `sent`, or
+  `cancelled` by the vet. None is `requested` at T0: a request is
+  written at its consultation's close and sent within minutes;
+- `withdrawal_ends_on`: for the milk inhibitor test only, the milk
+  withdrawal end of the prescription line it checks, which the core's
+  load holds; null otherwise.
+
+The parts fit their own times inside these: a lab release, or an
+imaging final report, falls before `resulted_at` by the copying
+purpose's lag, within the code's turnaround from `sent_at` (the lab's
+catalogue; imaging urgent 18 hours, routine three working days, D376);
+a part's cancellation before `cancelled_at`. Only the sent requests
+reach a part's load.
 
 ### Application roles and grants
 

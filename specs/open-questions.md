@@ -44,6 +44,8 @@ master spec's approval: O220, the monitoring breadth (D340).
 O221 and O222 were reserved and never used. Resolved at the build plan's
 approval, as it recommended: O223–O227 (D343), their text in
 [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#settled-with-the-owner).
+O230 was reserved and never used (chunk 9's stop, settled as D372–D380
+without a question).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);

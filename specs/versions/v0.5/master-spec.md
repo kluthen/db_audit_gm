@@ -24,7 +24,12 @@ domain's producer fragments in one folder per scheduler node they target
 each endpoint's hostnames and credentials and its connections (6.5,
 6.8; spec D345). On 2026-11-04, a text correction: pgwatch is its
 latest release at the build, not a 3.x one, a line that ended at 3.7.0
-(7.4, 21; spec D368).
+(7.4, 21; spec D368). On 2026-11-04, three corrections chunk 9 found,
+each settling the text against the rest of it: the horse-only MR and NM
+codes 26 and 27 (9.2, 9.6; spec D373); a routine imaging study booked
+within two working days, the turnaround staying three (9.4; spec D376);
+an intensive-care session on one domestic stay in two and one horse stay
+in four, until its step-down (9.6; spec D377).
 
 Baseline: the released [v0.4 master spec](../v0.4/master-spec.md) and
 its [access model](../v0.4/access-model.md). Everything v0.4 specifies
@@ -1135,7 +1140,8 @@ The functions must give about 40 stays current at T0 (14 horses, 6 farm
 animals, 20 domestic), never more current stays in a section than housing's
 units in service (21 horse, 10 farm, 31 domestic, species fitting); an imaging
 request's study code one of `vet-machinery`'s 30 codes valid for the animal's
-group (1–12 domestic, 13–27 horses and farm, 28–30 any) at that part's
+group (1–12 domestic, 13–27 horses and farm but 26 and 27 horses only, 28–30
+any) at that part's
 modality shares. Their formulas are written into the GM notes at the build.
 
 #### The staff layout
@@ -1647,7 +1653,7 @@ every minute on `interfaces`, holding `clinic` as `vet_interfaces` and
 the allocated vet, started at the arrival, `booking_id`) for each
 arrived booking, once, its ledger row (`ops.booking_consultations`) in
 the same transaction; `book-requests` books each new imaging request on
-its study's machine (an urgent one today, a routine one within three
+its study's machine (an urgent one today, a routine one within two
 working days) and each accepted inbound examination on its date, or the
 next free slot with an incident; `cancel-deceased` cancels a dead
 animal's future bookings. `vet_interfaces` gains `INSERT` on
@@ -1923,7 +1929,7 @@ the census or by staff; a machine `in-service` ⇄ `down` → `retired`.
 | Key | Range, layout |
 |---|---|
 | `mach_machines.id` | 1–28: 1–6 the lab's analysers (1–2 haematology, 3–4 biochemistry, 5 blood gas, 6 coagulation; on call at night 1, 3, 5); 7–16 imaging (7 CT small animal, 8 CT large bore, 9 MRI 1.5 T, 10 standing MRI with no helium, 11–13 DR, 14–15 ultrasound, 16 gamma camera), bookable by `vet-scheduling`; 17–20 anaesthesia monitors, 21–28 intensive-care monitors; telemetry 1–9 and 16 |
-| `mach_procedures.id` | 1–30: 1–12 small animal, 13–27 large animal, 28–30 any; DX 45 % of studies, US 30, CT 15, MR 7, NM 3 |
+| `mach_procedures.id` | 1–30: 1–12 small animal, 13–27 large animal (26 standing MRI and 27 scintigraphy horses only), 28–30 any; DX 45 % of studies, US 30, CT 15, MR 7, NM 3 |
 | History | worklist 1–3 400 (the k-th imaging request of the core, in time order), studies 1–3 470, series 1–8 000, reports 1–3 450, sessions 1–3 800, functions of their ids in the GM notes; studies 3 465–3 470 six unmatched ones (a typed patient id naming no animal), the PACS's mistyped chips |
 | Core keys used | imaging requests by the core's request function (study code drawn among these 30 by species group); animals 1–17 000; stays 1–2 500 by the stay function; staff 26–28 imaging specialists, 52–55 radiographers, 56 the biomedical engineer |
 
@@ -1992,8 +1998,10 @@ weekly, addenda every three days); work streams, at capacities, schedule, acquir
 reconcile and report studies. Fixed-time: `mach.identity` every minute
 (identities from `GET /animals/{id}` and `/owner`, a script job with a
 `pacs` and an HTTP connection); `mach.census` every 5 minutes (`GET
-/stays?current=true`, an intensive-care session opened for about one
-new stay in three by a hash, ended when the stay leaves);
+/stays?current=true`, an intensive-care session opened on a free monitor
+for about one new domestic stay in two and one horse stay in four by a
+hash, none for farm animals, ended at its step-down 24 to 72 hours after
+admission or when the stay leaves);
 `vitals.chart` every 5 minutes; partitions at 22:00 and 22:05, the
 events' on the 25th. Shapes: `imaging-day` (weekdays 08:00–18:00,
 Saturday morning at 0.6, else 0.1), `reporting` (weekdays 08:30–18:00,

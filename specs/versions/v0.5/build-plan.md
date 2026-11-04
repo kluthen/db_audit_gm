@@ -1,6 +1,11 @@
 # db_audit_gm v0.5 — Build plan
 
-Status: v6 (2026-11-04): the owners' traffic in
+Status: v7 (2026-11-04): chunk 9's spec gaps settled (spec D372–D380):
+the code catalogues in vet-lab's and vet-machinery's documents, adopted
+by chunks 9, 12 and 15; the core's key functions, eighteen; the imaging
+lead time, the intensive-care sessions; `vet-core`'s variant `parts:` a
+shared list, each part chunk adding its id.
+v6 (2026-11-04): the owners' traffic in
 `producers/partners/owners/`, chunk 16's folder choice settled; chunk 17
 refuses a `public/` `data.sql`; G16 records both (spec D369). Chunk 12's
 lab stub folder is its prefix, `xlab` (spec D370).
@@ -193,7 +198,8 @@ interface the chains cross (spec D361).
 
 Wave 3: chunks 12 to 15 start as κ allows; chunk 16 is cut once chunk
 12 has merged. The five domains share no file but the root `README.md`'s
-domain table.
+domain table and `vet-core`'s variant `parts:` list (shared lists, spec
+D380).
 
 Wave 4: no in-wave edge; the five chunks run as κ allows. Chunk 17 is
 the largest; it starts first.
@@ -238,8 +244,11 @@ have merged.
   `.claude/skills/game-master/gmctl.md`'s verb table, the root
   `README.md`'s brick, fault, purpose and domain tables, the bricks'
   "Supported faults" sections in `docs/gm.md` (the fault chunks 22 to
-  25 all add to `postgres`' and `scheduler`'s), and the smoke scripts'
-  `IMAGES=` lists.
+  25 all add to `postgres`' and `scheduler`'s), the smoke scripts'
+  `IMAGES=` lists, and `domains/vet-core/variants/regional-franchise.yaml`'s
+  `parts:` (chunk 9 writes it empty; chunks 12 to 16 each add their
+  part's id, since `check_domain_dir` requires every part it names to
+  exist; spec D380).
 - **Chunk checks**, in addition to the model's (v0.4's, kept):
   - Python: `python3 -m unittest discover -s tools/tests -t .`;
   - the scheduler program's unit tests, inside its image: `sh
@@ -1015,7 +1024,12 @@ vets' mapping to practices; the clinic-api endpoints' contract (9.2).
   animals by id and natural identifier, the current owner,
   `GET /stays?current=true`); its variant manifest;
   its purposes' ids; `data/keys.sql`, the core's key functions as its
-  GM notes give them (W2 items 3 and 4). A fixture of `records` and
+  GM notes give them (W2 items 3 and 4): the eighteen and their returns
+  of [vet-core-domain.md](vet-core-domain.md#the-key-functions-d374-d375-d379)
+  (spec D374, D375, D379), the request codes drawn from the two
+  catalogues ([vet-lab](vet-lab-domain.md#the-test-catalogue-d372),
+  [vet-machinery](vet-machinery-domain.md#the-procedure-catalogue-d372-d373);
+  spec D372, D373). A fixture of `records` and
   `clinic-api` with the bastion, for the lookup API, deployed through
   chunk 8's `load-data`; `clinic-api`'s `api.yaml` names `clinic_lookup`
   (W2 item 4), which only chunk 7 mounts, and a credential named but not
@@ -1026,10 +1040,12 @@ vets' mapping to practices; the clinic-api endpoints' contract (9.2).
   `data/{schema.sql,load.sql,keys.sql,classification.yaml,register.yaml,governance.yaml}`,
   `producers/pms/{queries.yaml,schedule.yaml,jobs.yaml,builders/}`,
   `producers/api/clinic-api/{api.yaml,routes/,db/}`,
-  `variants/regional-franchise.yaml`, `docs/{gm.md,policy.md}`;
+  `variants/regional-franchise.yaml` (its `parts:` empty, each part
+  chunk adding its id, spec D380), `docs/{gm.md,policy.md}`;
   `tools/tests/fixtures/fixture-core/` (new); the root `README.md`'s
   domain table.
-- Spec sections: master spec 9.1, 9.2, 13.1; vet-core-domain.md whole.
+- Spec sections: master spec 9.1, 9.2, 13.1; vet-core-domain.md whole;
+  vet-lab-domain.md and vet-machinery-domain.md, their catalogues.
 - Done when: `check_domain_dir` passes; the load runs at shift 0 and a
   non-zero shift, its time and size recorded; every column classed and
   every table in one register activity; the fragments parse, each
@@ -1183,6 +1199,9 @@ the partners' stubs' tables on `partners-db`.
   practices' stubs under `producers/partners/`, planted from the same
   functions so the stubs know every send-out and order the history left
   open; its coherence queries (W2's contract); its variant manifest;
+  **the test catalogue as [the domain document](vet-lab-domain.md#the-test-catalogue-d372)
+  fixes it** (its layout and named codes; the core's draw already in
+  `keys.sql`, spec D372), the rest of the 180 named within it;
   a fixture `lab` with `lis`, `lab-api`, `clinic-api` and `records`.
   - Out: purposes 1 to 3, 5, 6 and 10 (chunks 18 to 20); s10 (chunk 25).
 - Files: `domains/vet-lab/` (new), as chunk 9's layout, with
@@ -1190,7 +1209,8 @@ the partners' stubs' tables on `partners-db`.
   `producers/partners/{xlab,practices}/` (each folder its prefix, W2
   item 0; `xlab` serves the hostname `northfield-lab`, spec D370);
   `tools/tests/fixtures/fixture-lab-core/` (new); the root `README.md`'s
-  domain table.
+  domain table; `domains/vet-core/variants/regional-franchise.yaml`'s
+  `parts:` (a shared list: the chunk adds `vet-lab`, spec D380).
 - Spec sections: master spec 9.1, 9.3, 10.2; vet-lab-domain.md whole.
 - Done when: `check_domain_dir` passes; the load at shift 0 and a
   non-zero shift, its time and size recorded, and the composed core and
@@ -1218,13 +1238,19 @@ and the slot function's signature; the rota's published weeks.
 - Scope: in: its GM notes, schema (exclusion constraints, `btree_gist`
   through chunk 8), load, classification, register fragment, policy and
   rules; its fragments on `pms` (connection `sched`, `sched_app`); the
-  slot function; its coherence queries; its variant manifest; **the
+  slot function; its coherence queries; its variant manifest; the rota
+  and the history's absences from the core's `core_shifts`, the
+  inbound examinations from `core_exchange` (spec D374); a routine
+  imaging booking within two working days (spec D376), the imaging types
+  one per section and machine (spec D372); **the
   booking horizon against sessions planned three months ahead**,
   settled and recorded; the `bookings` fixture (`records`, `pms`,
   `interfaces`, the bastion; T0 a weekday at 09:50).
   - Out: purposes 11 and 12 (chunks 21, 20).
 - Files: `domains/vet-scheduling/` (new); `tools/tests/fixtures/fixture-bookings/`
-  (new); the root `README.md`'s domain table.
+  (new); the root `README.md`'s domain table;
+  `domains/vet-core/variants/regional-franchise.yaml`'s `parts:` (a
+  shared list: the chunk adds `vet-scheduling`, spec D380).
 - Spec sections: master spec 9.4; vet-scheduling-domain.md whole, its
   "Tests in v0.5".
 - Done when: `check_domain_dir` passes; the core's and the part's loads
@@ -1259,7 +1285,9 @@ purpose 9 reads.
   - Out: s9, the faulty display (chunk 25); purpose 9's occupancy
     (chunk 20).
 - Files: `domains/vet-housing/` (new); `tools/tests/fixtures/fixture-housing/`
-  (new); the root `README.md`'s domain table.
+  (new); the root `README.md`'s domain table;
+  `domains/vet-core/variants/regional-franchise.yaml`'s `parts:` (a
+  shared list: the chunk adds `vet-housing`, spec D380).
 - Spec sections: master spec 9.5; vet-housing-domain.md whole, its
   "Testing".
 - Done when: `check_domain_dir` passes, `lands_with` refusing another
@@ -1290,7 +1318,12 @@ site.
   `equipment` (the identity and census jobs on `clinic-api` by HTTP);
   plain partitioned tables, a partition a day created ahead; its
   coherence queries (monitoring sessions on stays); its variant
-  manifest; **machine 10's telemetry measured and settled** (O227: 10
+  manifest; **the procedure catalogue as [the domain
+  document](vet-machinery-domain.md#the-procedure-catalogue-d372-d373)
+  fixes it** (30 rows, `species_group` `horse` for 26, 27 and machines
+  10 and 16; spec D372, D373); the intensive-care sessions on one
+  domestic stay in two and one horse stay in four, until the step-down
+  (spec D377); **machine 10's telemetry measured and settled** (O227: 10
   or 11 machines reporting), the reference sizes and the growth an hour
   following; the `imaging` fixture (`records`, `clinic-api`, `pms`,
   `machines`, `equipment`, `interfaces`, the bastion; T0 a weekday at
@@ -1298,7 +1331,8 @@ site.
   - Out: purposes 13 and 14 and the `vault` fixture (chunk 21).
 - Files: `domains/vet-machinery/` (new) with `data/{pacs,vitals,biomed}/`;
   `tools/tests/fixtures/fixture-imaging/` (new); the root `README.md`'s
-  domain table.
+  domain table; `domains/vet-core/variants/regional-franchise.yaml`'s
+  `parts:` (a shared list: the chunk adds `vet-machinery`, spec D380).
 - Spec sections: master spec 9.6, 10.4 (the site's side), 14 (its
   trims); vet-machinery-domain.md whole, its "Testing in v0.5".
 - Done when: `check_domain_dir` passes; three databases created, each
@@ -1348,7 +1382,8 @@ stub's planted notices, which W2 item 3's `derive.sql` cannot write into
 - Files: `domains/vet-portal/` (new) with `data/derive.sql`,
   `producers/api/portal-api/` and `producers/partners/owners/`;
   `tools/tests/fixtures/fixture-portal/` (new); the root `README.md`'s
-  domain table.
+  domain table; `domains/vet-core/variants/regional-franchise.yaml`'s
+  `parts:` (a shared list: the chunk adds `vet-portal`, spec D380).
 - Spec sections: master spec 9.7, 13.1 (owner-scoped access), 8.5 (the
   derivation); access model 9.3; vet-portal-domain.md whole.
 - Done when: `check_domain_dir` passes; the load and the derivation run
@@ -1493,7 +1528,8 @@ Architecture capture: W4.
   /exchanges`, `.../answer`, `.../report`, as `vet_exchange`); the three
   centres' stubs in `vet-core`'s `producers/partners/`; the authority's
   stub in purpose 5's material, answering with a reference, 503 to one
-  call in fifty; the 02:15 copy into `office`; an `exchanges` fixture
+  call in fifty; the centres' stubs planted by the core's `core_exchange`
+  (spec D374); the 02:15 copy into `office`; an `exchanges` fixture
   (`records`, `lab`, `clinic-api`, `interfaces`, the partners' three
   nodes, the bastion).
 - Files: `purposes/{vet-centre-exchanges,vet-notifiable-diseases}/`

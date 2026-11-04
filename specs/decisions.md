@@ -827,3 +827,70 @@ D337, D341 and D371 were reserved and never used). Take the next number from
   partner's folder is its prefix (W2 item 0), which chunk 6 checks;
   `xlab` serves the hostname `northfield-lab`. Now in:
   [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunk 12.
+- **D372 (2026-11-04, chunk 9's stop): The code catalogues live in their
+  parts' domain documents: the lab's layout, named codes and the
+  centre's draw; machinery's 30 procedures and their draw. The core's
+  `keys.sql` draws from them (chunk 9); chunks 12 and 15 load them.**
+  The tables are the parts'; one written source, not the core's code,
+  keeps three chunks equal. Scheduling's imaging types are one per
+  section and machine. Now in:
+  [vet-lab](versions/v0.5/vet-lab-domain.md#the-test-catalogue-d372),
+  [vet-machinery](versions/v0.5/vet-machinery-domain.md#the-procedure-catalogue-d372-d373),
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md) (`sched_types`).
+- **D373 (2026-11-04, the same stop): MR and NM codes on large animals
+  are horses only: codes 26 and 27 and machines 10 and 16 take
+  `species_group` `horse`; a farm animal draws DX, US and CT (the
+  large-bore CT 8); an urgent request never draws 26 or 27.** The
+  standing MRI and the gamma camera take horses only (machinery's
+  machines). Now in: [vet-machinery](versions/v0.5/vet-machinery-domain.md#the-procedure-catalogue-d372-d373);
+  [master spec](versions/v0.5/master-spec.md) 9.2, 9.6.
+- **D374 (2026-11-04, the same stop): The core's key functions are
+  eighteen: W2 item 4's thirteen plus `core_animal`, `core_owner`,
+  `core_ownership`, `core_exchange` and `core_shifts` (the rota's pattern
+  with the history's absences), each returning what the table says; no
+  `core_withdrawal` (the request carries it).** Each answers a part's
+  load that would otherwise re-derive it. Amends capture W2 item 4. Now
+  in: [vet-core](versions/v0.5/vet-core-domain.md#the-key-functions-d374-d375-d379);
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md) ("What the
+  load needs of the core's").
+- **D375 (2026-11-04, the same stop): `core_request` returns the
+  request's state at T0 with its times (`resulted` or `cancelled`, the
+  last 24 hours' `sent`, none `requested`), the consultation's priority
+  (urgent for emergencies and stays), vet, animal and close, and the
+  milk inhibitor test's withdrawal end; the parts fit their times inside
+  it.** Chunk 9's choices, as the core's own `consultations.close`
+  writes them. Now in: [vet-core](versions/v0.5/vet-core-domain.md#the-key-functions-d374-d375-d379).
+- **D376 (2026-11-04, the same stop): Routine imaging is booked and
+  scheduled within two working days, the final report within one more:
+  the turnaround stays three.** Machinery's scheduling, its timeout and
+  9.6's turnaround agree on 2 + 1; only 9.4's booking said three. Now
+  in: [master spec](versions/v0.5/master-spec.md) 9.4;
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md) (`book-requests`).
+- **D377 (2026-11-04, the same stop): An intensive-care session covers
+  one domestic stay in two and one horse stay in four, never a farm
+  stay, on a free monitor of its group, until a step-down 24 to 72 hours
+  after admission or the stay's end.** "One in three for the whole
+  stay" gave about 13 at once against the 8 monitors and the "about
+  five" the raw volume rests on; the step-down keeps 2.7 a day and five
+  at once. T206's witness is about one a day. Now in:
+  [vet-machinery](versions/v0.5/vet-machinery-domain.md) answer 7,
+  `mach.census`; [master spec](versions/v0.5/master-spec.md) 9.6.
+- **D378 (2026-11-04, the same stop): Text correction: the referring
+  vets' mapping (`core_referring_practice`) is read by
+  `vet-scheduling`'s `sched_trainees` (master spec 9.4, left to the
+  build by 24), not by 9.3: the lab reads practices by id only.** Now
+  in: [vet-core](versions/v0.5/vet-core-domain.md#the-key-functions-d374-d375-d379).
+- **D379 (2026-11-04, the same stop): Chunk 9's identifier and signature
+  choices stand: chips on every dog, cat, horse and ferret, none on two
+  rabbits in three (rabbits about 3 % of domestic animals, the 2 %);
+  the member state `XA` and one user-assigned 900–998 code; time
+  functions `(n, load_epoch, utc_offset)`, all `IMMUTABLE`.** Fictional
+  codes point at no real registry; the zone is a fixed offset. Now in:
+  [vet-core](versions/v0.5/vet-core-domain.md#the-key-functions-d374-d375-d379)
+  and its "Natural identifiers".
+- **D380 (2026-11-04, the same stop): Plan correction: `vet-core`'s
+  variant holds `parts: []`; chunks 12 to 16 each add their id to it, a
+  shared list in their Files.** `check_domain_dir` requires every part
+  named there to exist with its own manifest. Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 9,
+  12 to 16, workflow deltas.

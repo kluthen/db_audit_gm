@@ -3,7 +3,11 @@
 Status: draft v3, ruled, its stale passages corrected to the master
 spec at approval (R16, D339). **Approved by the owner on 2026-11-03 with
 v0.5's [master spec](master-spec.md)** (procedure step 9, D339), which
-wins where the two disagree.
+wins where the two disagree. Amended in wave 2 of the build
+(2026-11-04): a routine imaging request booked within two working days
+(D376); the rota's pattern and the history's absences are the core's
+`core_shifts`, the consultations and exchanges its `core_consultation`
+and `core_exchange` (D374).
 Steps 1 to 9 drafted in one pass on 2026-11-03 at the owner's instruction
 ("start an agent for each part, and let them come back with problems
 once they're done"), in parallel with `vet-housing`, `vet-machinery` and
@@ -415,7 +419,7 @@ teaching animals do not grow.
 | `sched_rooms` | `id`; code, name, `kind` (`consulting`, `examination`, `arena`, `procedure`, `theatre`, `classroom`, `practical`), `section_id` (the core's; none for the training centre's rooms), seats, active |
 | `sched_hours` | (`resource_kind`, `resource_id`, `weekday`); opens, closes, local times in the customer's zone: a room's or a machine's opening hours |
 | `sched_machines` | `machine_id` (`vet-machinery`'s, the key); `section_id`, `room_id` (where it stands), `study_kind` (`ct`, `mri`, `mri-standing`, `radiography`, `ultrasound`, `scintigraphy`; `vet-machinery`'s modalities, D324), slot minutes, `operator_kind` (the staff kind it needs), around the clock or not |
-| `sched_types` | `id`; code, name, `kind` (`consultation`, `imaging`, `surgery`, `block`, `session`), `section_id`, duration minutes, the room kind it needs, `study_code` (the core's, for an imaging type) and its machine, the staff it takes (`vet`, `vet+nurse`, the theatre team) |
+| `sched_types` | `id`; code, name, `kind` (`consultation`, `imaging`, `surgery`, `block`, `session`), `section_id`, duration minutes, the room kind it needs, `study_code` (the core's, for an imaging type) and its machine, the staff it takes (`vet`, `vet+nurse`, the theatre team); the imaging types are one per section and machine, 12 of the 45 (domestic 7, 9, 11, 14; horse 8, 10, 12, 15, 16; farm 8, 13, 15), their `study_code` empty, since 30 codes by section would not fit the range: an imaging booking's study is its request's code ([vet-machinery's catalogue](vet-machinery-domain.md#the-procedure-catalogue-d372-d373), D372) |
 | `sched_courses` | `id`; code, title, `audience` (`vet`, `nurse`, `student`, `owner`, `handler`), `species` (`canine`, `equine`, `mixed`), days, hours, seats, teaching animals needed, the room kind |
 
 **Bookings**
@@ -495,7 +499,20 @@ the changes, O175): each consultation's kind, section, vet and start as
 functions of its id, `booking_id` set to its own id when scheduled; the
 vet picked among those the rota's pattern puts on shift; the staff
 layout; the teaching animals; the history's deaths as a function of the
-animal's id.
+animal's id. Their names are the core's key functions
+([vet-core](vet-core-domain.md#the-key-functions-d374-d375-d379), D374):
+`core_consultation`, `core_staff`, `core_death`, `core_request` (an
+imaging study's code from
+[vet-machinery's catalogue](vet-machinery-domain.md#the-procedure-catalogue-d372-d373)),
+`core_exchange` (the inbound examinations' accepted dates),
+`core_referring_practice` (a trainee's practice beside its referring
+vet) and `core_shifts`: **the rota's pattern lives in the core's
+`data/keys.sql`**, with the history's absences, because the core's
+history needs it and loads without this part. This part's load writes
+`sched_shifts` from its rows with no absence and `sched_absences` from
+the others; `sched.rota.publish` carries the same pattern (without the
+history's absences: live absences are this part's table) in its own
+statement, and the GM notes say the two texts are one formula.
 
 ### Application roles and grants
 
@@ -857,7 +874,7 @@ on `pms`, is O172's.
 | Job | Cadence | What it computes |
 |---|---|---|
 | `check-in` | `* * * * *` | the consultation bookings `arrived` since its watermark with no consultation in its ledger: each consultation opened in the core (kind `scheduled`, the section, the allocated vet, started at the arrival, `booking_id`), only if none carries that booking id, the ledger row written in the same `clinic` transaction |
-| `book-requests` | `* * * * *` | the core's imaging requests `requested` since its watermark with no live booking: each booked on its study's machine by `sched_free_slots`, an urgent one at the first slot today (the CT around the clock), a routine one within three working days; the inbound examinations `accepted` since the watermark: booked on the accepted date, or the first free slot after it and an `ops.incidents` row for the gap |
+| `book-requests` | `* * * * *` | the core's imaging requests `requested` since its watermark with no live booking: each booked on its study's machine by `sched_free_slots`, an urgent one at the first slot today (the CT around the clock), a routine one within two working days (D376); the inbound examinations `accepted` since the watermark: booked on the accepted date, or the first free slot after it and an `ops.incidents` row for the gap |
 | `cancel-deceased` | `* * * * *` | the animals the core recorded `died` since its watermark: their future bookings `cancelled`, reason `deceased`, the trigger releasing the slots |
 
 **Trace**: `sched_bookings` (state, `request_id`, `exchange_id`),

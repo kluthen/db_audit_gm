@@ -29,7 +29,7 @@ owner's confirmation; the register lists the ones with real alternatives.
 | [planes-and-access.md](planes-and-access.md) | Bastion-only rule (the bastion publishes the web interfaces), planes, the GM session, trust, write policies, the scheduler nodes, the customer's data policy kept apart from the game's access, hardening, validators | draft v18 |
 | [platform.md](platform.md) | Hosting, resources and nerfing, scenario content delivery, portability, Swarm facts and pitfalls, the shared VPS | draft v19 |
 | [open-questions.md](open-questions.md) | Open-questions register | live |
-| [decisions.md](decisions.md) | Decisions log: D107, D113 and D190 onward live (v0.5's are D233–D238, D248–D251, D260–D262, D263–D280, D285–D309 and D314–D358 and D360–D370; D370 last, D337, D341, D359 and D371 never used, D281–D284 issued on v0.4's wave 4 branch; take the next number from `doc-ids`); D1–D54 archived with v0.1, D55–D106 with v0.2, D108–D112 and D114–D189 with v0.3 | live |
+| [decisions.md](decisions.md) | Decisions log: D107, D113 and D190 onward live (v0.5's are D233–D238, D248–D251, D260–D262, D263–D280, D285–D309 and D314–D358, D360–D370 and D372–D380; D380 last, D337, D341, D359 and D371 never used, D281–D284 issued on v0.4's wave 4 branch; take the next number from `doc-ids`); D1–D54 archived with v0.1, D55–D106 with v0.2, D108–D112 and D114–D189 with v0.3 | live |
 | [archive/](archive/README.md) | Closed milestones' working records, kept verbatim: v0.1's, v0.2's and v0.3's build plans, v0.3's drafts and review list, decisions D1–D54, D55–D106, D108–D112 and D114–D189, resolved questions | archive |
 
 History: the tree was seeded on 2026-10-20 from the owner's pre-spec notes,
