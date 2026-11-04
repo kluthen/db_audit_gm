@@ -2514,3 +2514,51 @@ into `postgres:0.5.0` at shift +2.
 Master spec 9.2, 9.4 and 9.6 corrected as text (cited in their headers).
 D371 and O230 reserved by mistake, unused. W2 item 4 amended above
 (driver). The chunk resumes with a fresh owner from `0a3e43b`.
+
+### Gate fix made early: pgwatch's `is_enabled`, 2026-11-04
+
+`coding-executor`, `9131cc4` (chunk 6): `model.monitor_targets` counts a
+`pgwatch` source only with `is_enabled: true` (YAML boolean), as pgwatch
+6.1.0 watches it (W2-e); no key, `false` or the string `'true'` is no
+target; an enabled source still needs the `monitoring` option. Tests in
+`test_monitoring_v05.py` (fail 3 times on the old rule); the
+scenario-format skill's Options paragraph says so. Only
+`fixture-monitoring-v05` seeds pgwatch, and it already writes
+`is_enabled: true`. Unit suite 1063 OK (2 skipped). W2-a's Monitors line
+reads accordingly from here.
+
+### G10 — dependency post-change check (security-advisor, 2026-11-04)
+
+**Clear.** `.tech` updated on `v0.5-w2` (4353683, `.tech` only). The
+resolved versions match G9's pins and conditions as image inspection
+shows. `pgwatch:0.1.0`: the binary only (`pgwatch/v6` v6.1.0, commit
+`742aaf9`, go1.26.9, the `ADD --checksum` `8c9bb139…`, banner `Version:
+6.1.0`), nothing else from the tarball, no libpq (Go's `crypto/tls`); 0
+advisories for pgwatch/v6 and pgx/v5; osv-scanner on the binary finds
+exactly G9's three, none reachable (`x/net/html` not linked).
+`health-check:0.1.0`: `check-postgres 2.26.0-2` pinned and asserted,
+`postgresql-client-17`/`libpq5` 17.11-0+deb13u1, perl 5.40.1-6+deb13u1,
+nginx 1.26.3-3+deb13u10, cron 3.0pl1-197, curl 8.14.1-2+deb13u7; the
+OpenSSL floor asserted; no `libnginx-mod-*`, the nginx configuration
+static only (checked on `nginx -T`); no sysstat. `postgres:0.5.0`
+(`05b52e42…` → `7cca24d4…`): exactly +3 packages (`pgcluu
+5.0-1.pgdg13+1`, `libjs-jquery` 3.6.1, `libjs-underscore` 1.13.4),
+nothing else moved; the CGI and Apache files gone, no apache2, no
+sysstat; underscore's CVE-2026-27601 not reachable (G9). `grafana`
+0.3.0, `prometheus`: no package change. Already present elsewhere, now
+also here, not reachable: curl's open trixie "no DSA" issues (`backup-there`
+runs `curl -fsS -m 20` with no `-L`, proxy, auth or cookies), perl's
+three (Pod::Text, Archive::Tar, a 286 MB regex subject), nginx's NVD hits
+(Debian backports; the modules they hit excluded). `cve-watch check`: 60
+→ 60 at or above medium, the same IDs; `cve-watch lint` 0 errors.
+`SECURITY_TODO.md` unchanged. G9's text corrected: `pgwatch
+--web-disable=all` with no sources exits 1.
+
+**For the owner, not blocking**: (1) the daily sweep does not see Go
+modules embedded in downloaded binaries (Prometheus, Grafana,
+`postgres_exporter`, pgwatch); the `.tech` header now says they are
+checked at each version bump; (2) check_postgres (no release since
+2023-04-03) and underscore (CVE-2026-27601 open in trixie) may get fixes
+only as Debian patches; the tracker is the watch.
+
+G10 **done (2026-11-04)**.
