@@ -1643,12 +1643,12 @@ day after two (game values).
 | Key | Range, layout |
 |---|---|
 | `sched_rooms.id` | 1–16: 1–7 domestic, 8–11 horse (10 the arena), 12–13 farm, 14–16 training |
-| `sched_bookings.id` | 1–25 000 an attended history consultation booking, taking its core consultation's id (about 16 700, gaps elsewhere); 25 001–28 000 cancelled and no-show ones; 30 001–47 000 imaging, `30 000 + request id`; 47 001–48 300 theatre plans; 48 301–48 700 blocks; 48 701–49 000 session days; 49 001–50 000 the agenda ahead at T0 |
-| others | types 1–45, courses 1–16, allocations 1–60 000, shifts 1–24 000 (planned to the horizon), sessions 1–125 (101–125 planned), trainees 1–750, enrolments 1–1 250 |
+| `sched_bookings.id` | 1–25 000 an attended history consultation booking, taking its core consultation's id (about 16 700, gaps elsewhere); 25 001–28 000 cancelled and no-show ones; 28 001–28 700 inbound examinations, `28 000 + exchange id`; 30 001–47 000 imaging, `30 000 + request id`; 47 001–48 300 theatre plans; 48 301–48 700 blocks; 48 701–49 000 session days; 49 001–50 000 the agenda ahead at T0 |
+| others | types 1–45 (1–12 consultations, 13–24 imaging, 25–27 surgeries, 28–29 blocks, 30–45 session days), courses 1–16, allocations 1–60 000, shifts 1–about 24 300 (planned to the horizon; past 24 000 from a T0 between Friday noon and Sunday, the sequence resuming after both), sessions 1–125 (101–125 planned), trainees 1–750, enrolments 1–1 250 |
 
 Of the core it computes, never reads: the staff layout within the 85;
 each history consultation's kind, section, vet and start as functions
-of its id, a scheduled one's `booking_id` its own id, its vet on shift
+of its id, each half-hour slot's placed ones by the core's `vc_agenda`, a scheduled one's `booking_id` its own id, its vet on shift
 by the rota's pattern, the scheduled ones on the agenda's half-hour
 slots within the section's vets and consultation spaces, never two of a
 vet at once; the teaching animals; the history's deaths by
@@ -1661,15 +1661,18 @@ from bookings checked in.
 
 One variant, `regional-franchise`, no tag added. A year growing from
 about 60 % of today's rate: 19 700 consultation bookings (16 700
-attended, 2 100 cancelled, 900 no-shows), 3 400 imaging, 1 250 theatre
-plans, 360 blocks, 100 sessions, 1 000 enrolments, 22 700 shifts, 600
-absences; about 0.11 million rows and 30 MB, 330 new rows and 200
-updates a day.
+attended, 2 100 cancelled, 900 no-shows), 2 900 imaging, 800 theatre
+plans (the domestic surgeons consulting most of the day), 370 blocks,
+100 sessions, 1 200 enrolments, 23 800 shifts, 800 absences (the
+planned weeks' among them); about 0.10 million rows and 20 MB, 330 new
+rows and 200 updates a day. The bookable machines' hours: the CTs, the
+radiography units and the ultrasounds around the clock; the two MRIs and
+the gamma camera Monday to Friday 08:00–18:00.
 
 | Role | May |
 |---|---|
 | `sched` | own everything; no login |
-| `sched_app` | the module on `pms`: read all, execute the slot function, write bookings, allocations, shifts, absences, sessions, trainees, enrolments; never the reference tables |
+| `sched_app` | the module on `pms`: read all, execute the slot function (`EXECUTE` revoked from `PUBLIC`), write bookings, allocations, absences, trainees, enrolments, shifts (insert, delete, their publication and clocked times only), sessions' state; never the reference tables |
 | `sched_reports` | purpose 12, on the standby: read every `sched_` table |
 | `sched_interfaces` | purpose 11: read bookings, allocations, types, machines, hours, shifts, absences, settings; execute the slot function; write bookings and allocations |
 
@@ -1697,9 +1700,11 @@ one statement calling the slot function; cancellations 0.85/h, theatre
 plans 0.6/h, enrolments 0.38/h. Work streams check arrivals in (about
 75 a day, one in twenty left a no-show by a hash), mark no-shows, move
 bookings under a new absence, clock shifts (about 110 clockings a day),
-and run sessions. `sched.rota.publish` at `0 12 * * 5` writes the week
-after next's shifts and the machines' weekly blocks, idempotent on
-staff and start (movable to `pg_cron`). Variation is by a hash of the
+and run sessions. `sched.rota.publish` at `0 12 * * 5`, one statement,
+plans the seventh week's shifts, publishes the week after next's (those
+an absence covers removed) and books its seven weekly blocks,
+idempotent on staff and start and on the blocks' start and note
+(movable to `pg_cron`). Variation is by a hash of the
 row's id. Arrivals lag bookings by ten days, so another intensity shows
 in arrivals only over two weeks, which the story says.
 
@@ -2197,16 +2202,18 @@ Account `o` belongs to owner `o` (2–10 000, migrated from an old
 portal); the sequence is set at 20 000, so accounts created in play
 take 20 001 on, and joining an account's id to an owner's id is right
 for every loaded account and wrong for every new one (trap T261). At
-load about 65 % active, 32 % invited, 3 % closed, by a hash of the id;
-5 200 owners with the reminders' consent, 250 keeper grants; documents
-1–41 600 and the other history in time order. A vaccination is
+load about 67 % active, 30 % invited, 3 % closed, by a hash of the id;
+5 100 owners with the reminders' consent, 230 keeper grants; documents
+1–about 39 000 and the other history in time order, the outbox by
+`queued_at`; sessions from 39 301. A vaccination is
 due on day `1 + (animal_id × 211) mod 365`, for domestic animals and
 horses only. Passwords and tokens are HMACs of the account's id and a
 key computed from the load's `load_epoch`, kept only in `owners`'
 schema on the partners' database, so the owners' route logs in without
 the partners' database storing one; the load stores bcrypt (cost 6, *gv*) and SHA-256
-hashes. About 0.21 million rows at load; live about 720 a day: 140
-documents, 150 visits (mostly 18:00–22:00), 120 messages.
+hashes. About 0.20 million rows and 77 MB at load (the load 17 s, the
+derivation about two minutes); live about 720 a day: 140 documents, 150
+visits (mostly 18:00–22:00), 120 messages.
 
 #### Who may do what, and how a session is scoped
 
@@ -2231,17 +2238,21 @@ account's id).
 | sessions, outbox | no grant: through the functions only |
 
 Before anyone is known, the API calls `SECURITY DEFINER` functions
-owned by `portal`, `search_path` pinned: `portal_login(email,
-password)`, `portal_session(token)`, `portal_activate(token, password,
-reminders)`, `portal_request_reset(email)`, `portal_reset(token,
+owned by `portal` (`BYPASSRLS`), `search_path` pinned: `portal_login(email,
+password)`, `portal_session(token)`, `portal_logout(token)`,
+`portal_activate(token, password, reminders)`, `portal_request_reset(email)`, `portal_reset(token,
 password)`, `portal_unsubscribe(message_key)`, `portal_close()`,
-`portal_desk_consent(owner_id, purpose, granted)`. They and the queries
-are the API's `db/` side, which players may fix; never the routes.
+`portal_desk_consent(owner_id, purpose, granted)`. The keeper's clause
+and the documents' start read rows the own-rows policies hide from a
+keeper, through two such helpers the policies call,
+`portal_keeper_granted(animal, keeper)` and `portal_owner_since(animal)`.
+They and the queries are the API's `db/` side, which players may fix;
+never the routes.
 
 - **An owner** activates from the invitation's one-time link (sets a
   password, is offered the reminders' consent), logs in and out, lists
   their animals, lists an animal's documents (newest first, 50 at
-  most), opens one (a view recorded in the same transaction), changes
+  most, superseded versions included; a herd's are opened by id), opens one (a view recorded in the same transaction), changes
   their channel, grants or withdraws the reminders' consent or a named
   keeper's access to one animal, unsubscribes from a reminder's link
   without logging in, resets the password, closes the account (personal
@@ -2258,13 +2269,15 @@ are the API's `db/` side, which players may fix; never the routes.
   Vets and pathologists never use the portal.
 
 Refusals: a wrong password answers `401`, a locked account (five
-failures, 30 minutes) `423`, success `201` with a token. Out of scope
-is absent, not forbidden: the policies return no row, so a list is
-shorter or empty and another owner's document is not returned. An
-insert outside the asker's scope fails the policy's check with an
-error. An expired, idle or ended token yields no account.
+failures, 30 minutes) `423`, success `201` with a token in an HttpOnly
+cookie; activation `200`, logout `204`, a reset asked `202` whatever the
+address. Out of scope is absent, not forbidden: the policies return no
+row, so a list is shorter or empty and another owner's document is
+`404`. An insert outside the asker's scope fails the policy's check with
+an error (`403` for a `keeper-access` consent); the desk's refused call
+`422`. An expired, idle or ended token yields no account.
 
-Other roles: `portal_housekeeping` purges sessions ended 30 days ago
+Other roles: `portal_housekeeping`, a login role, purges sessions ended 30 days ago
 (03:30, `records`' `pg_cron` via `cron.schedule_in_database`); purpose
 15's `portal_sync` (accounts, never a closed one's; copies; documents)
 reading `clinic` as `vet_portal_sync` and `lab` as `lab_release`, both
@@ -2298,7 +2311,8 @@ hashes, a document's vet's name, the outbox's address and payload.
    password; reminders 08:00–20:00, never for a dead animal, a former
    owner or a closed account, each with a withdrawal link.
 8. **Audit**: every opening recorded; pgaudit without parameters.
-9. **Logs**: `log_statement = none` on `portal`.
+9. **Logs**: `log_statement = none` on `portal`, a database setting
+   `schema.sql` makes, as `pgaudit.log_parameter = off`.
 10. **Reach**: the API on `portal` only, over TLS.
 11. **Retention** (*gv*): documents five years, views and messages two,
     sessions 30 days, consent events five years after the account.

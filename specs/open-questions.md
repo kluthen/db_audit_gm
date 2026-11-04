@@ -220,7 +220,9 @@ approval (D340). O223–O227, raised with the build plan, closed at its
 approval (D343). O229, raised for capture W3, closed by it as
 recommended (D404). O235 and O236, raised by the documents' as-built
 passes on chunks 15a and 14, closed by the driver as recommended (D418,
-D419), kept here verbatim until v0.5's archive moves them:
+D419), kept here verbatim until v0.5's archive moves them. O239 to
+O242, raised by the documents' as-built passes on chunks 13 and 16
+(D422, D423), are the driver's:
 
 - **O235** (v0.5, wave 3; **closed**, D418, as recommended; raised by D416) — The PACS cannot read
   `biomed`'s registry (another database), so as built (chunk 15)
@@ -261,6 +263,60 @@ D419), kept here verbatim until v0.5's archive moves them:
   rule 2 kept, "as soon as one is free" covering the waits. Refs:
   [vet-housing](versions/v0.5/vet-housing-domain.md#3-care-feeding-and-biosecurity)
   (T163), [wave log](versions/v0.5/wave-log.md) (chunk 14).
+- **O239** (v0.5, wave 3; raised by D422) — An urgent imaging request
+  on a machine not around the clock (the MRIs 9 and 10, the gamma camera
+  16: Monday to Friday 08:00–18:00) made after the imaging day can only
+  be booked at the next one: the load does so (chunk 13), and purpose
+  11's `book-requests`, calling `sched_free_slots`, will too. BS3 ("an
+  urgent one starting the same day") and T113's witness ("urgent
+  requests whose booking is not today") then fire without the fault, and
+  `book-requests`' text ("an urgent one at the first slot today (the CT
+  around the clock)") says nothing for them. T113 is not among the ten;
+  chunk 21 builds BS3. Recommended: BS3 and `book-requests` read "an
+  urgent one at its machine's first free slot from the request: the same
+  day on a machine around the clock, the next imaging day's opening
+  otherwise", T113's witness "urgent requests booked after their
+  machine's first free slot". Refs:
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#11-vet-bookings-sync-the-agenda-and-the-record)
+  (BS3, T113), [wave log](versions/v0.5/wave-log.md) (chunk 13).
+- **O240** (v0.5, wave 3; raised by D422) — The load records the
+  history's absences that start after T0 (the seven planned weeks')
+  before T0, `absent` ones too, the core's draw knowing no future:
+  players reading `sched_absences` find unplanned absences known weeks
+  ahead, which reads as pre-booked sick leave, a health inference about
+  a named staff member near rule 4 and T120. Not counted at the build
+  (a few periods). No fault of the ten reads it. Recommended: kept for
+  v0.5, with a false-alarm line ("sick leave booked weeks ahead": an
+  `absent` period ahead is an absence the rota manager knew of, recorded
+  by its kind only); the alternative, an `absent` period starting after
+  T0 written as `leave`, is one expression in `load.sql` (the core's
+  history never reads the future). Refs:
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#deterministic-key-ranges-d249-d266)
+  ("As built"), [wave log](versions/v0.5/wave-log.md) (chunk 13).
+- **O241** (v0.5, wave 3; raised by D423) — The desk's stream
+  `portal.desk-consent` draws an owner from 2 to 10 000 without knowing
+  the accounts (`pms` cannot read `portal`), so about one call in thirty
+  names a closed account's owner and `portal_desk_consent` refuses it: a
+  422, an error in `pms`' log, about one every ten weekdays at intensity
+  1.0, which players can read as a fault. Recommended: kept as the
+  desk's real behaviour (a receptionist trying a client who left), with
+  a false-alarm line in the portal's traps ("the desk's consent call
+  fails now and then": a closed account, answered by its `status`); the
+  alternative, the stream skipping the loaded closed accounts by
+  `portal_account`'s formula, still meets those closed in play. Refs:
+  [vet-portal](versions/v0.5/vet-portal-domain.md#the-applications-and-their-nodes-d276),
+  [wave log](versions/v0.5/wave-log.md) (chunk 16b).
+- **O242** (v0.5, wave 3; raised by D423) — T274's witness quotes
+  "about one withdrawal every three days" and its fix "the policy"; as
+  built (chunk 16) about half the `owners.keeper` ticks find a consent
+  to change (222 of the 414 active horse owners hold one), so
+  withdrawals come about every five or six days, and the withdrawal is
+  tested in the helper `portal_keeper_granted`, the keeping's end in
+  `portal_animals_scope`. T274 is not among the ten. Recommended: its
+  witness "about one withdrawal every five or six days; the planted
+  history", fixed on "the helper or the policy"; the traffic unchanged.
+  Refs: [vet-portal](versions/v0.5/vet-portal-domain.md#3-who-sees-what-the-policies)
+  (T274), [wave log](versions/v0.5/wave-log.md) (chunk 16).
 
 
 ## v0.6: the setup's entry point

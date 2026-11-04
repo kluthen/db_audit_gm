@@ -1198,3 +1198,32 @@ D337, D341, D359, D371 and D392 were reserved and never used). Take the next num
   changes the fixture chunk 21 builds on; (c) a placeholder messaging
   party builds chunk 21's material early. Now in: [build plan](versions/v0.5/build-plan.md)
   ("Waves", chunks 16, 31).
+- **D422 (2026-11-04, chunk 13, documents to as-built): `vet-scheduling`
+  as built: W3-b's columns (`sched_rooms.consultation_space`,
+  `sched_types.staff` and `course_id`, `sched_machines.around_the_clock`,
+  the generated `during`, `sched_shifts_staff_start_key`); types 1–12,
+  13–24, 25–27, 28–29, 30–45; machines 7, 8, 11–15 around the clock, 9,
+  10, 16 the imaging day; `sched_app`'s column grants on shifts and
+  sessions; inbound examinations 28 001–28 700; shift ids past 24 000
+  from a weekend T0; the load reading `vc_agenda`, a session six weeks
+  from its target else the next course; about 800 theatre plans, 2 900
+  imaging, 23 800 shifts, 800 absences, 0.10 million rows, 20 MB.**
+  Measured within the approved rules, the inbound range the owner's
+  choice; an urgent study after the imaging day is O239's, the load's
+  future absences O240's. Now in:
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md#deterministic-key-ranges-d249-d266)
+  (entities, ranges, placement, grants, sizes); master spec 9.4.
+- **D423 (2026-11-04, chunk 16, documents to as-built): `vet-portal` as
+  built: the keeper's clause and the documents' start through two
+  `SECURITY DEFINER` helpers the policies call (`portal_keeper_granted`,
+  `portal_owner_since`); `portal_logout`; one link slot, an invitation's
+  or a reset's, 14 days; an `activation` event only on a grant; the
+  logging settings in `schema.sql`; `portal` `BYPASSRLS`,
+  `portal_housekeeping` a login role; the status codes, superseded
+  versions listed, no herd listing; the outbox numbered by `queued_at`;
+  `owners.accounts`; about 0.20 million rows, 77 MB.** Within the
+  approved model (one link slot and life, the functions owning
+  authentication), the figures after D408's agenda; the desk's 422 for a
+  closed account is O241's, T274's witness O242's. Now in:
+  [vet-portal](versions/v0.5/vet-portal-domain.md#who-sees-what-row-level-security-ruled-d320)
+  (policies, endpoints, ranges, sizes, loading); master spec 9.7.

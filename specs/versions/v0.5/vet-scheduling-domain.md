@@ -16,7 +16,11 @@ consultation spaces, 30-minute consultation types and the farm's hours
 (D410); the rota planned to the horizon ahead of its publication
 (D411); the slot function's copy of the staff layout and its teaching
 animals (D412); an inbound examination's machine (D413); `vet_reports`'
-grant (D414).
+grant (D414). Brought to as built after chunk 13 (2026-11-04, D422):
+the columns, types, machines' hours, grants, id ranges and figures the
+build needed, the GM notes (`domains/vet-scheduling/docs/gm.md`)
+holding the detail; an urgent study on a machine not around the clock
+(O239) and the load's future absences (O240) open for the driver.
 Steps 1 to 9 drafted in one pass on 2026-11-03 at the owner's instruction
 ("start an agent for each part, and let them come back with problems
 once they're done"), in parallel with `vet-housing`, `vet-machinery` and
@@ -214,13 +218,13 @@ volume ramping from about 60 % of today's rate to today's:
 | What | Over the year |
 |---|---|
 | Consultation bookings | about 19 700: 16 700 attended (the core's scheduled consultations, on the agenda, D408), 2 100 cancelled, 900 no-shows |
-| Imaging bookings | about 3 400, one per core imaging request |
-| Theatre plans | about 1 250 |
-| Maintenance blocks | about 360 |
-| Sessions | about 100 held, 200 session days; 25 planned ahead at T0 |
-| Trainees, enrolments | about 750 people, 1 000 enrolments |
-| Shifts | about 22 700 (85 staff, about 4.5 a week, the year and six or seven weeks ahead: published to the end of the week after next, planned beyond to the horizon, D411) |
-| Absences | about 600 |
+| Imaging bookings | about 2 900, one per core imaging request (2 918 at the reference T0, D422) |
+| Theatre plans | about 800 (D422): the core's agenda keeps the two domestic surgeons consulting most of the day, so a domestic plan finds its team of four free together about 240 times a year (horse about 450, farm about 115) |
+| Maintenance blocks | about 370 |
+| Sessions | about 100 held, about 200 session days (164 in their range, the rest among the agenda ahead); 25 planned ahead at T0 |
+| Trainees, enrolments | about 740 people, 1 200 enrolments |
+| Shifts | about 23 800 (85 staff, about 4.5 a week, the year and six or seven weeks ahead: published to the end of the week after next, planned beyond to the horizon, D411; 21 793 published at the reference T0) |
+| Absences | about 800 periods (794 at the reference T0, the planned weeks' included) |
 
 **Throughput**, in real-world rates during the game:
 
@@ -229,14 +233,14 @@ volume ramping from about 60 % of today's rate to today's:
 | Consultation bookings made | about 71 a day (92 a weekday, 34 on Saturday): 75 % domestic, 18 % horse, 7 % farm |
 | Lead time | 30 % within two days, 50 % within two weeks, 20 % up to six weeks (follow-ups and re-checks); about ten days on average |
 | Cancellations, no-shows | 10 % of bookings cancelled ahead, 5 % of the rest not attended (game values) |
-| Imaging bookings | about 11 a day, a quarter urgent and the same day |
+| Imaging bookings | about 11 a day, a quarter urgent and the same day; the load books an urgent MRI or scintigraphy requested after the imaging day at the next one (D422; BS3 and T113 against it, O239) |
 | Theatre plans | about 4 a day, Monday to Friday 6 |
 | Arrivals checked in | about 60 consultations a day, 78 a weekday, 30 on Saturday, as the core's scheduled share |
 | Shifts | about 55 a day, each clocked in and out |
 | Enrolments | about 3 a working day |
 | Inbound examinations booked | under one a day (the core's exchanges, D306) |
 
-About **0.11 million rows** at load and about **330 new rows and 200
+About **0.10 million rows** at load (103 500 as built, D422) and about **330 new rows and 200
 updates a day** live (step 4's count), against the core's 0.28 million
 and 760: the allocations, about two per booking, are the bulk.
 
@@ -425,10 +429,10 @@ teaching animals do not grow.
 | Table | Key, main columns |
 |---|---|
 | `sched_settings` | one row: the customer's zone and offset, the booking horizon (42 days), the no-show delay (30 minutes), the teaching animals' limits (two sessions, four hours a day, a rest day after two), the attendance a certificate needs (80 %), the minimum rest (11 hours) |
-| `sched_rooms` | `id`; code, name, `kind` (`consulting`, `examination`, `arena`, `procedure`, `theatre`, `classroom`, `practical`), `section_id` (the core's; none for the training centre's rooms), seats, active |
+| `sched_rooms` | `id`; code, name, `kind` (`consulting`, `examination`, `arena`, `procedure`, `theatre`, `classroom`, `practical`), `section_id` (the core's; none for the training centre's rooms), seats, active, `consultation_space` (rooms 1–4, 8–10, 12, 13; D410, D422) |
 | `sched_hours` | (`resource_kind`, `resource_id`, `weekday`); opens, closes, local times in the customer's zone: a room's or a machine's opening hours |
-| `sched_machines` | `machine_id` (`vet-machinery`'s, the key); `section_id`, `room_id` (where it stands), `study_kind` (`ct`, `mri`, `mri-standing`, `radiography`, `ultrasound`, `scintigraphy`; `vet-machinery`'s modalities, D324), slot minutes, `operator_kind` (the staff kind it needs), around the clock or not |
-| `sched_types` | `id`; code, name, `kind` (`consultation`, `imaging`, `surgery`, `block`, `session`), `section_id`, duration minutes, the room kind it needs, `study_code` (the core's, for an imaging type) and its machine, the staff it takes (`vet`, `vet+nurse`, the theatre team); every consultation type takes 30 minutes, a slot of its room's half-hour grid (slots starting on the hour and the half-hour within the room's hours), in one of its section's **consultation spaces**: domestic the consulting rooms 1–4, horse the examination stalls 8 and 9 and the arena 10, farm the crush 12 and the standing-surgery theatre 13 (D410); the imaging types are one per section and machine, 12 of the 45 (domestic 7, 9, 11, 14; horse 8, 10, 12, 15, 16; farm 8, 13, 15), their `study_code` empty, since 30 codes by section would not fit the range: an imaging booking's study is its request's code ([vet-machinery's catalogue](vet-machinery-domain.md#the-procedure-catalogue-d372-d373), D372) |
+| `sched_machines` | `machine_id` (`vet-machinery`'s, the key); `section_id`, `room_id` (where it stands), `study_kind` (`ct`, `mri`, `mri-standing`, `radiography`, `ultrasound`, `scintigraphy`; `vet-machinery`'s modalities, D324), slot minutes, `operator_kind` (the staff kind it needs), `around_the_clock` (as built, D422: 7, 8 and 11–15 every day 00:00–24:00, the imaging on-call; 9, 10 and 16 the imaging day, Monday to Friday 08:00–18:00) |
+| `sched_types` | `id`; code, name, `kind` (`consultation`, `imaging`, `surgery`, `block`, `session`), `section_id`, duration minutes, the room kind it needs, `study_code` (the core's, for an imaging type) and its machine, `staff` (the staff it takes: `vet`, `vet+nurse`, the theatre team), `course_id` (a session type's course); as built (D422) types 1–12 the consultations, 13–24 imaging, 25–27 the surgeries, 28 and 29 the blocks (a machine's, a room's), 30–45 a session day of courses 1–16; every consultation type takes 30 minutes, a slot of its room's half-hour grid (slots starting on the hour and the half-hour within the room's hours), in one of its section's **consultation spaces**: domestic the consulting rooms 1–4, horse the examination stalls 8 and 9 and the arena 10, farm the crush 12 and the standing-surgery theatre 13 (D410); the imaging types are one per section and machine, 12 of the 45 (domestic 7, 9, 11, 14; horse 8, 10, 12, 15, 16; farm 8, 13, 15), their `study_code` empty, since 30 codes by section would not fit the range: an imaging booking's study is its request's code ([vet-machinery's catalogue](vet-machinery-domain.md#the-procedure-catalogue-d372-d373), D372) |
 | `sched_courses` | `id`; code, title, `audience` (`vet`, `nurse`, `student`, `owner`, `handler`), `species` (`canine`, `equine`, `mixed`), days, hours, seats, teaching animals needed, the room kind |
 
 **Bookings**
@@ -436,7 +440,7 @@ teaching animals do not grow.
 | Table | Key, main columns |
 |---|---|
 | `sched_bookings` | `id`; `type_id`, `kind` (the type's, copied for the streams' and the purposes' filters), `animal_id` (the core's patient; none for a block or a session, none for an inbound examination until the animal is registered), `section_id`, `starts_at`, `ends_at`, `state`, `source` (`phone`, `desk`, `follow-up`, `referral`, `request`, `exchange`, `planned`), `request_id` (the core's, an imaging study), `exchange_id` (the core's, an inbound examination), `session_id`, booked at, booked by (staff), `notes` (free text), arrived at, cancelled at, `cancel_reason` (`owner`, `clinic`, `deceased`, `moved`) |
-| `sched_allocations` | `id`; `booking_id`, exactly one of `staff_id` (the core's), `room_id`, `machine_id` (`vet-machinery`'s), `animal_id` (a teaching animal, the core's), `role` (`vet`, `nurse`, `surgeon`, `anaesthetist`, `operator`, `instructor`, `room`, `machine`, `teaching`), `during` (`tstzrange(starts_at, ends_at, '[)')`), `released_at` |
+| `sched_allocations` | `id`; `booking_id`, exactly one of `staff_id` (the core's), `room_id`, `machine_id` (`vet-machinery`'s), `animal_id` (a teaching animal, the core's), `role` (`vet`, `nurse`, `surgeon`, `anaesthetist`, `operator`, `instructor`, `room`, `machine`, `teaching`), `during` (`tstzrange(starts_at, ends_at, '[)')`, a generated column), `released_at` |
 
 Four exclusion constraints on `sched_allocations`, one per kind of
 resource, each `EXCLUDE USING gist (<resource> WITH =, during WITH &&)
@@ -449,15 +453,25 @@ there, so the players can read and fix them):
 
 | Object | What |
 |---|---|
-| `sched_free_slots(type_id, after, how_many)` | a `STABLE` SQL function, security invoker: the next free slots for a type from a time within the horizon: the resource's hours (local times read in the customer's zone), a staff member of the type's section on a shift covering the slot (planned or published, D411) and absent on no absence, no live allocation overlapping, for a session day as many teaching animals of the course's species free within their limits as the course needs; returns each slot's start and end and the staff, room and machine it would take, never the teaching animals, which the caller picks (D412). A staff member's kind, section and specialty come from the core's documented layout, copied into the function's text (`core_staff`'s, one formula, as `sched.rota.publish` copies the rota's pattern; D412) |
+| `sched_free_slots(type_id, after, how_many)` | as built `sched_free_slots(type_id integer, after timestamptz, how_many integer DEFAULT 1) RETURNS TABLE (starts_at, ends_at, staff_ids integer[], room_id, machine_id)`, slots in time order, `search_path` pinned, `EXECUTE` revoked from `PUBLIC` (D422); a `STABLE` SQL function, security invoker: the next free slots for a type from a time within the horizon: the resource's hours (local times read in the customer's zone), a staff member of the type's section on a shift covering the slot (planned or published, D411) and absent on no absence, no live allocation overlapping, for a session day as many teaching animals of the course's species free within their limits as the course needs; returns each slot's start and end and the staff, room and machine it would take, never the teaching animals, which the caller picks (D412). A staff member's kind, section and specialty come from the core's documented layout, copied into the function's text (`core_staff`'s, one formula, as `sched.rota.publish` copies the rota's pattern; D412) |
 | `sched_release` | a trigger after `UPDATE OF state` on `sched_bookings`, `WHEN (NEW.state = 'cancelled')`: its allocations' `released_at` set, so the slot frees at once |
 | `sched_upcoming` | not built in v0.5 (D321): a view of the next 48 hours' bookings without notes or staff, for appointment reminders when a later version adds them |
+
+As built (D422): `staff_ids` holds, in role order, the vet; the
+operator; the surgeon, the anaesthetist and the nurse; the instructor;
+none for a block type, for which the function returns no slot. The
+42-day horizon binds `sched_free_slots` only, so reception's bookings
+and the purposes' imaging bookings; session days and theatre plans are
+inserted by the load and their streams under the same exclusion
+constraints, and a search within 42 days sees them taken. A block's
+`notes` name its resource (`service: machine 7`), which
+`sched.rota.publish` reads to stay idempotent.
 
 **The rota**
 
 | Table | Key, main columns |
 |---|---|
-| `sched_shifts` | `id`; `staff_id` (the core's), `section_id` (none for imaging, the lab, reception, the training centre), `kind` (`day`, `late`, `night`, `on-call`), starts at, ends at (planned), clocked in at, clocked out at, published at; unique on (`staff_id`, starts at) |
+| `sched_shifts` | `id`; `staff_id` (the core's), `section_id` (none for imaging, the lab, reception, the training centre), `kind` (`day`, `late`, `night`, `on-call`), starts at, ends at (planned), clocked in at, clocked out at, `published_at`; unique on (`staff_id`, starts at), `sched_shifts_staff_start_key` |
 | `sched_absences` | `id`; `staff_id`, `kind` (`leave`, `training`, `absent`), from, until, recorded by, `note` (free text, never a reason: rule 4) |
 
 **The training centre**
@@ -492,11 +506,11 @@ to `vet-machinery`'s machines by that part's range (D324).
 |---|---|---|
 | `sched_rooms.id` | 1–16 | 1–7 domestic, 8–11 horse (10 the arena), 12–13 farm, 14–16 the training centre |
 | `sched_machines.machine_id` | 7–16 | `vet-machinery`'s bookable machines (D324); 1–6 the lab's analysers and 17–28 the monitors, never booked |
-| `sched_types.id` | 1–45 | documented per section and kind |
+| `sched_types.id` | 1–45 | 1–12 consultations, 13–24 imaging, 25–27 surgeries, 28–29 blocks, 30–45 session days (D422) |
 | `sched_courses.id` | 1–16 | |
-| `sched_bookings.id` | 1–50 000 | 1–25 000: a history consultation booking that was attended takes the id of the core consultation it turned into (only scheduled consultations have one: about 16 700 rows, gaps elsewhere; D408); 25 001–28 000 the history's cancelled and no-show consultation bookings; 30 001–47 000: an imaging booking is `30 000 + request id`, for the core's imaging requests (about 3 400 rows); 47 001–48 300 theatre plans; 48 301–48 700 blocks; 48 701–49 000 session days; 49 001–50 000 the agenda ahead at T0 |
+| `sched_bookings.id` | 1–50 000 | 1–25 000: a history consultation booking that was attended takes the id of the core consultation it turned into (only scheduled consultations have one: about 16 700 rows, gaps elsewhere; D408); 25 001–28 000 the history's cancelled and no-show consultation bookings; 28 001–28 700 an inbound examination, `28 000 + exchange id` (about 300 rows; D413, D422); 30 001–47 000: an imaging booking is `30 000 + request id`, for the core's imaging requests (about 2 900 rows); 47 001–48 300 theatre plans; 48 301–48 700 blocks; 48 701–49 000 session days; 49 001–50 000 the agenda ahead at T0 |
 | `sched_allocations.id` | 1–60 000 | in the bookings' order |
-| `sched_shifts.id` | 1–24 000 | staff by staff, week by week, by the rota's pattern, to the end of the planned weeks (D411) |
+| `sched_shifts.id` | 1–about 24 300 | staff by staff, week by week, by the rota's pattern, to the end of the planned weeks (D411); about 404 a week, so from a T0 between Friday noon and Sunday the planned rota holds 60 weeks and the ids pass 24 000 (about 24 230); the sequence resumes after the larger of 24 000 and the last id (D422) |
 | `sched_sessions.id` | 1–125 | 1–100 held, 101–125 planned ahead |
 | `sched_trainees.id`, `sched_enrolments.id` | 1–750, 1–1 250 | |
 | Core keys used | `animal_id` 1–17 000 by section (the teaching animals 1–12 and 14 601–14 608 excluded from patients); staff 1–85 by the core's layout (D317, D324); `request_id` the core's imaging requests (1–17 000, kind a function of the id, D302); `exchange_id` 1–700 | as the core documents them |
@@ -532,7 +546,9 @@ order the core hashes by the slot) and the section's consultation spaces
 (domestic 4, horse 3, farm 2; D410), as long as both are left; one past
 that has no row, the agenda having been full. A placed one starts in its
 slot's first five minutes and closes by the slot's end. So this part's
-load writes each attended booking as the slot (`starts_at` the slot's
+load, reading each slot's placed consultations, their section and vet,
+with the core's `vc_agenda(s, load_epoch, utc_offset)` (the core's notes
+name it for this part; D422), writes each attended booking as the slot (`starts_at` the slot's
 start, 30 minutes), the consultation's vet, and the section's
 consultation space of the consultation's rank among the slot's placed
 ones (the first the lowest-numbered space); no two overlap, and every
@@ -563,6 +579,26 @@ first-referral type, with a vet and a consultation space. The load and
 purpose 11's `book-requests` (which reads the same two values from
 `exchanges`) map alike.
 
+**As built (D422).** The load places the bookings around the agenda in
+this order, each at the first free slot from its drawn time: the blocks,
+imaging, the inbound examinations, the theatre plans, the sessions, the
+cancelled and no-show bookings, the agenda ahead. An urgent imaging
+request goes to the first free slot from ten minutes after it within its
+machine's hours, so an urgent MRI (9, 10) or scintigraphy (16) requested
+after the imaging day is booked at the next one (O239); every other
+urgent study the same day. A routine one at the first free slot of the
+imaging day from an hour after it. A theatre plan takes the first
+half-hour start of its weekday where a theatre and the team of four are
+free, else the next weekday's (five at most): about 800 a year, not
+1 250, the domestic surgeons consulting most of the day. A session is
+placed within six weeks of its target day, else the next course in
+order: the arena, the horse section's third consultation space, is
+taken about half the weekdays, so equine courses move. The history's
+absences that start after T0 (the planned weeks') are recorded before
+T0, `absent` ones too, which the core's draw knows no future for (O240);
+the others one to six weeks ahead (leave, training) or the morning
+they start (`absent`).
+
 ### Application roles and grants
 
 The login roles carry no password here; `load-data` sets each from its
@@ -571,7 +607,7 @@ secret.
 | Role | Who | Reads | Writes |
 |---|---|---|---|
 | `sched` | owns everything; no login | | |
-| `sched_app` | the practice software's scheduling module on `pms` (D276): reception, the theatre planners, the rota, the training office | every `sched_` table and view; executes `sched_free_slots` | bookings, allocations, shifts (published, clocked), absences, sessions' state, trainees, enrolments; never the reference tables (rooms, hours, machines, types, courses, settings) |
+| `sched_app` | the practice software's scheduling module on `pms` (D276): reception, the theatre planners, the rota, the training office | every `sched_` table and view; executes `sched_free_slots` | as built (D422): bookings, allocations, absences, trainees, enrolments (insert, update); shifts (insert, delete, update of `published_at`, `clocked_in_at`, `clocked_out_at` only); sessions' `state` only; never the reference tables (rooms, hours, machines, types, courses, settings) |
 | `sched_reports` | the periodic reports (the working-time feeder), on the standby | every `sched_` table | nothing |
 | `vet_reports` (the core's) | the back office on the standby, as on every core table (vet-core's grants, master spec 9.2) | every `sched_` table, granted by this schema where the role exists (in a database of its own on an instance without the core, it does not; D414) | nothing |
 
@@ -580,19 +616,21 @@ comes with step 7.
 
 ### Reference sizes
 
+As built (D422; at the reference T0, offset +2, 2026-11-04 07:50Z):
+
 | What | Rows at load | Live, a day |
 |---|---|---|
-| Reference (settings, rooms, hours, machines, types, courses) | about 240 | none |
-| Bookings | about 25 700 (with about 800 ahead of T0) | about 88 |
-| Allocations | about 54 000 | about 180 |
-| Shifts, absences | about 22 700, 600 | about 55 (weekly, 380 on Fridays), under one |
-| Sessions, trainees, enrolments | 125, 750, 1 250 | under one, 2, 3 |
-| **Total** | **about 0.11 million rows** | **about 330 rows** |
+| Reference (settings, rooms, hours, machines, types, courses) | 236 | none |
+| Bookings | 24 922 (683 ahead of T0: 593 consultations, 40 theatre plans, 11 blocks, 39 session days) | about 88 |
+| Allocations | 51 653 | about 180 |
+| Shifts, absences | 23 826 (21 793 published), 794 | about 55 (weekly, about 440 planned on Fridays), under one |
+| Sessions, trainees, enrolments | 125, 742, 1 202 | under one, 2, 3 |
+| **Total** | **103 500 rows, about 0.10 million** | **about 330 rows** |
 
 Under the core's 0.28 million in the same database: `clinic` with
-scheduling holds about 0.39 million rows, well within "the data schema
+scheduling holds about 0.38 million rows, well within "the data schema
 stays simple and the tables small" and `records`' reservation (2.25G of
-disk); about 30 MB more with indexes, the GiST indexes among them.
+disk); about 20 MB more with indexes, the GiST indexes among them.
 
 ### Plausibility points (step 4, ruled, D317)
 
@@ -762,7 +800,7 @@ Volume streams, on `sched` as `sched_app`:
 
 | Key | What one call writes | Rate | Arrivals, shape | A day: Mon–Fri / Sat / Sun / average |
 |---|---|---|---|---|
-| `sched.bookings.make` | a consultation booking: the section by `choice` (domestic 75, horse 18, farm 7), a type of it, a patient of the section's range by a hash (never a teaching animal nor one the core's death function marks dead), a lead time by `choice`, a preferred hour by the section's shape; the first slot `sched_free_slots` gives at or after it; the booking and its allocations in one statement; a source by `choice` (phone, desk, follow-up, referral) | 8.4/h | poisson, `reception` | 92 / 34 / 0 / 71 |
+| `sched.bookings.make` | a consultation booking: the section by `choice` (domestic 75, horse 18, farm 7), a type of it, a patient of the section's range by a hash (never a teaching animal nor one the core's death function marks dead; as built one of the section's animals registered during the year, domestic 9 738–14 600, horse 15 537–16 000, farm 16 668–17 000, the first of six drawn that the core's at-home death draw spares, D422), a lead time by `choice`, a preferred hour by the section's shape; the first slot `sched_free_slots` gives at or after it; the booking and its allocations in one statement; a source by `choice` (phone, desk, follow-up, referral) | 8.4/h | poisson, `reception` | 92 / 34 / 0 / 71 |
 | `sched.bookings.cancel` | a future booking, `booked`, cancelled (owner or clinic), the trigger releasing its slot | 0.85/h | poisson, `reception` | 9 / 3.5 / 0 / 7 |
 | `sched.surgery.plan` | a theatre plan two to ten days ahead: theatre, surgeon, anaesthetist, nurse of the section | 0.6/h | poisson, `office` | 6 / 0 / 0 / 4.3 |
 | `sched.trainees.enrol` | an enrolment in an `open` session, a new trainee in three of four; `full` at the last seat, then `waitlisted` | 0.38/h | poisson, `office` | 3.8 / 0 / 0 / 2.7 |
@@ -792,7 +830,7 @@ Fixed-time operations (`jobs.yaml`, scenario time):
 
 | Job | When | What |
 |---|---|---|
-| `sched.rota.publish` | `0 12 * * 5` | the seventh week after this one generated by the pattern as planned shifts, so the planned rota stays past the 42-day horizon until next Friday; the week after next's planned shifts an absence covers removed, the others `published` (D411); each machine's weekly block (the MRI's quality assurance on Wednesday morning, the CT's service) booked; idempotent on (`staff_id`, starts at) |
+| `sched.rota.publish` | `0 12 * * 5` | the seventh week after this one generated by the pattern as planned shifts, so the planned rota stays past the 42-day horizon until next Friday; the week after next's planned shifts an absence covers removed, the others `published` (D411); each machine's weekly block (the MRI's quality assurance on Wednesday morning, the CT's service) booked; idempotent on (`staff_id`, starts at); as built one statement, the week after next's seven blocks booked where their resource is free and no block of the same start and note exists (D422) |
 
 `sched.rota.publish` is set-based work: the GM may move it to the
 database node's `pg_cron` (D206, D207).
@@ -833,7 +871,10 @@ part's table): only on weekday day and late shifts, so the nights and
 the weekend's cover are never short; each a period of one day to two
 weeks; leave about five weeks a year a head (above the four weeks of
 Directive 2003/88/EC, Art 7), training and `absent` the rest; about 600
-periods a year, leave nine in ten.
+periods a year, leave nine in ten (the load holds 794 at the reference
+T0, the planned weeks' and the year's, a period being a staff member's
+consecutive absent shifts of one kind with no worked shift between them;
+D422).
 
 ### The business hours (shapes)
 
@@ -871,7 +912,8 @@ the function, inserting the booking and its allocations).
 - **The history ends at intensity 1.0**, ramped as the core's from about
   60 % (D279), on the same shapes.
 - **In flight at T0** (last night's backup):
-  - the agenda ahead: about 800 bookings over the next six weeks, the
+  - the agenda ahead: about 700 bookings over the next six weeks (683
+    at the reference T0, D422), the
     next days nearly full, thinning further out; the rota published to
     the end of the week after next and planned beyond it to the end of
     the seventh week after the last Friday's (D411); the next three
@@ -900,7 +942,7 @@ At intensity 1.0, in `clinic`:
 |---|---|---|
 | A day, on average | about 330 new rows (88 bookings, 180 allocations, 55 shifts' worth) and 200 updates (arrivals, cancellations' releases, clockings) | about 0.12 MB with indexes, the GiST ones included, before bloat |
 | A reception hour on a weekday | about 30 | |
-| A Friday at 12:00 | about 380 shifts at once, the rota's publication | |
+| A Friday at 12:00 | about 440 shifts planned and 390 published at once, the rota's publication (as built, D422) | |
 | A Sunday | under a fifth of a weekday: the clockings | |
 
 Over an aging the part's disk is never the problem: its constraint
@@ -1166,7 +1208,7 @@ classes as an aging finds them.
 
 | Where | Adds | Reservation |
 |---|---|---|
-| `records` | about 0.11 million rows, 30 MB, 330 rows a day | none: within 0.5 CPU, 512M, 2.25G |
+| `records` | about 0.10 million rows, 20 MB, 330 rows a day | none: within 0.5 CPU, 512M, 2.25G |
 | `pms` | a connection, about 14 streams and a weekly job | 64M → 96M (the slot function's searches run on `records`, not on the node) |
 | `interfaces` | three script jobs a minute | none |
 | `backoffice` | one feeder a day, one monthly job | none |
@@ -1185,8 +1227,10 @@ core's"): `btree_gist` created, explicit ids in the documented ranges,
 each sequence set after its range, the shift variables applied, the
 core's ids computed by its documented functions without reading the
 core's tables (O175), so the two loads are independent; the load's
-sessions unseen (D265). About 0.11 million rows; size and time measured
-at the build. After the sources' loads, `vet-working-time` plants its
+sessions unseen (D265). Measured at the build (D422): 103 500 rows and
+20 MB in 92 to 99 s after the core's (115 to 121 s), at shift 0 and +2;
+the four exclusion constraints exist before the load, which checks its
+allocations against them; the bookings fixture's whole `load-data` 233 s. After the sources' loads, `vet-working-time` plants its
 year in `office` ([clinic-purposes](clinic-purposes.md) 4, item 5).
 
 ## Open points
