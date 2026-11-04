@@ -990,7 +990,7 @@ temporary foreign server, the sessions unseen), the load order from
 
 ### Chunk 9 — `vet-core`, the medical record
 
-Status: planned
+Status: blocked (on spec-writer: the core's code catalogues, its further key functions, three spec conflicts; WIP 0a3e43b)
 Wave: 2
 Depends on: chunks 1, 2, 3 and 5 (wave 1); chunk 6, merged into
 `v0.5-w2` before this chunk's branch is cut (its fragments' weighted
