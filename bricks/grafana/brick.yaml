@@ -106,17 +106,20 @@ secrets:
     mode: "0440"
 seed:
   dir: /opt/gm/seed/
-  files:                            # all five required; flat names (Swarm config names)
+  files:                            # five required, one optional; flat names (Swarm config names)
     - datasources.yaml              # -> /etc/grafana/provisioning/datasources/datasources.yaml
     - dashboards.yaml               # -> /etc/grafana/provisioning/dashboards/dashboards.yaml
     - node-health.json              # -> /etc/grafana/provisioning/dashboards/node-health.json
     - postgresql.json               # -> /etc/grafana/provisioning/dashboards/postgresql.json
+    - pgwatch.json                  # -> /etc/grafana/provisioning/dashboards/pgwatch.json
     - alert-rules.yaml              # -> /etc/grafana/provisioning/alerting/alert-rules.yaml
+  optional: [pgwatch.json]          # a scenario with no pgwatch node seeds no pgwatch dashboard
   paths:                            # seed file -> its live in-container path
     datasources.yaml: /etc/grafana/provisioning/datasources/datasources.yaml
     dashboards.yaml: /etc/grafana/provisioning/dashboards/dashboards.yaml
     node-health.json: /etc/grafana/provisioning/dashboards/node-health.json
     postgresql.json: /etc/grafana/provisioning/dashboards/postgresql.json
+    pgwatch.json: /etc/grafana/provisioning/dashboards/pgwatch.json
     alert-rules.yaml: /etc/grafana/provisioning/alerting/alert-rules.yaml
 protected_configs: []
 volumes:

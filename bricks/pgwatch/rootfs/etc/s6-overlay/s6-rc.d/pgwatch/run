@@ -1,0 +1,10 @@
+#!/bin/sh
+# s6 service `pgwatch` (DO NOT TAMPER). Sources: /etc/pgwatch/sources.yaml,
+# read by pgwatch at start and every 60 s while it runs (or at once through
+# sudo gm-restart-pgwatch). The file is checked as root by pgwatch-sources;
+# a file that is not valid leaves the service down (exit 3, see ./finish).
+# pgwatch runs as `pgwatch`, its Prometheus sink on :9188 (/metrics), its
+# web interface and REST API off, the password through PGPASSFILE
+# (/run/gm-pgwatch/pgpass, written at each start from the secret).
+exec 2>&1
+exec /usr/local/lib/gm/pgwatch-sources run

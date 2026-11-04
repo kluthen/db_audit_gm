@@ -73,7 +73,7 @@ seed-file fault.
 
 | What | Where it lands | Set by |
 |---|---|---|
-| The five seed files (`seed.files`, all required) | `/opt/gm/seed/<file>`, root `0444`, copied into `/etc/grafana/provisioning/` at first start (table below) | the scenario's `seed_files` (`nodes/<node>/<file>`), copied from `companion/` |
+| The seed files (`seed.files`: five required, `pgwatch.json` optional, `seed.optional`) | `/opt/gm/seed/<file>`, root `0444`, copied into `/etc/grafana/provisioning/` at first start (table below) | the scenario's `seed_files` (`nodes/<node>/<file>`), copied from `companion/`; `pgwatch.json` only when the scenario has a `pgwatch` node |
 | Secret `tools_password` (kind `password`, `handed_over: true`) | `/opt/gm/secrets/tools_password`, uid 0, gid 472 (`grafana`), `0440` | `gmctl deploy`: the same secret as the bastion's (16 characters, the player alphabet); the GM hands it over with the web front |
 | Secret `player_ssh_pubkey` (kind `key-pair`, pair `player_ssh_key`, half `public`) | `/opt/gm/secrets/player_ssh_pubkey`, root `0444` | `gmctl deploy`: the public half of the bastion's `player_ssh_key` |
 
@@ -92,6 +92,7 @@ Flat names, so the Swarm config names stay short. Each is copied once,
 | `dashboards.yaml` | `dashboards/dashboards.yaml` | the dashboard file provider, path `/etc/grafana/provisioning/dashboards`, `allowUiUpdates: false`, `updateIntervalSeconds: 86400` |
 | `node-health.json` | `dashboards/node-health.json` | dashboard uid `node-health`: the node-health view (D104) |
 | `postgresql.json` | `dashboards/postgresql.json` | dashboard uid `postgresql` |
+| `pgwatch.json` | `dashboards/pgwatch.json` | dashboard uid `pgwatch`; optional: a node not seeding it has no pgwatch dashboard |
 | `alert-rules.yaml` | `alerting/alert-rules.yaml` | alert rules in Grafana's file format; no contact points, no policies |
 
 The entrypoint also creates the empty `plugins/` directory (Grafana logs
@@ -120,6 +121,18 @@ metric name and the `node` label, never by `job`.
   per second, mean time per call and calls per second for the ten heaviest
   statements (`pg_stat_statements_calls_total`,
   `pg_stat_statements_seconds_total`, by `queryid`).
+- **`pgwatch.json`**, optional: the databases as pgwatch 6.1.0's `basic`
+  preset reads them, from its Prometheus sink (series `pgwatch_*`, one per
+  source, label `dbname`, the pgwatch source name). Whether each source
+  answered pgwatch's last fetch (`pgwatch_instance_up`, UP or DOWN);
+  backends per source; commits and rollbacks per second; the cache hit
+  ratio (`blks_hit / (blks_hit + blks_read)` over 5 minutes); the database
+  size and its catalog's share; WAL bytes per second (`deriv` of the WAL
+  position); deadlocks and temporary-file bytes per second. Its panels are
+  empty unless the scenario has a `pgwatch` node and Prometheus scrapes it
+  under the job `pgwatch` (target `<pgwatch node>:9188`). A scenario
+  without pgwatch does not seed this file; the node starts and validates
+  without it.
 - **`alert-rules.yaml`**: one group `db_audit_gm` in folder `db_audit_gm`,
   evaluated every minute; each rule an instant query and a threshold, no
   data counted as normal (a missing exporter shows as a target down):
@@ -215,10 +228,12 @@ authentication settings. Everything else keeps Grafana's defaults.
    GM_WRITE_OVERRIDES: '<path>' is not one of this brick's writable_paths
    (...)`).
 5. If `/var/lib/gm-state/.gm-seeded` is absent: creates `datasources/`,
-   `dashboards/`, `alerting/` and `plugins/`, copies the five seed files to
-   their live paths and writes the marker. A missing seed file fails the
-   container. Never overwrites afterwards. The marker is on its own
-   root-owned volume, out of reach of `player` and `grafana`.
+   `dashboards/`, `alerting/` and `plugins/`, copies the five required
+   seed files to their live paths, and `pgwatch.json` when the scenario
+   seeds it, and writes the marker. A missing required seed file fails the
+   container; an absent `pgwatch.json` is skipped. Never overwrites
+   afterwards. The marker is on its own root-owned volume, out of reach
+   of `player` and `grafana`.
 6. Applies the write policy's owner and modes to the seeded files and the
    provisioning directories (see "Access"), seeding or not, contents
    untouched; logs `write policy: policy=... overrides=...`.
@@ -359,9 +374,10 @@ and the wrapper, so a fix lives in the file and survives a restart.
   reload; it changes only with a new deployment.
 - **Owner restored**: `sed -i` replaces a file with one owned by
   `player`. The entrypoint at every start, and `gm-reload-grafana` before
-  it reloads, give the five seeded files and the provisioning directories
-  their owner and mode back, contents untouched. Nothing is changed
-  through a symbolic link or on a file with other hard links: such an
+  it reloads, give the seeded files (`pgwatch.json` too, when present)
+  and the provisioning directories their owner and mode back, contents
+  untouched. Nothing is changed through a symbolic link or on a file
+  with other hard links: such an
   entry is left alone and named (`left alone: ...`); a directory a player
   removed on a fixable node is not recreated. Files players add on a
   fixable path (a dashboard of their own, a second rules file) stay as
@@ -562,7 +578,7 @@ companion files: the data source pointed at the wrong address
 (`datasources.yaml`; not chosen for v0.2: it hides every other monitoring
 fault); an alert left out (`alert-rules.yaml`); a misleading dashboard,
 for example a panel reading the wrong metric or a threshold set too high
-(`node-health.json`, `postgresql.json`); an alert rule with a threshold
+(`node-health.json`, `postgresql.json`, `pgwatch.json`); an alert rule with a threshold
 in the wrong unit. All would be fixable on a fixable node through the
 files and `gm-reload-grafana`; sealed checks judge the result through the
 API.
@@ -590,7 +606,7 @@ not a red rule. Rules:
 
 | Rule | Red when |
 |---|---|
-| `files` | one of the five files is missing from its live path, a file under `/etc/grafana/provisioning` is unreadable to `grafana`, or a dashboard file is not valid JSON |
+| `files` | one of the five required files is missing from its live path (an absent `pgwatch.json` is not red), a file under `/etc/grafana/provisioning` is unreadable to `grafana`, or a dashboard file is not valid JSON |
 | `server` | Grafana does not answer `/grafana/api/health` on port 3000, or reports its database other than `ok` (the next two rules are then not checked) |
 | `reload` | the last reload through the wrapper failed; or a dashboard file with a `uid` is not served by Grafana (not checked while a change is pending) |
 | `pending` | a provisioning file (`*.yaml`, `*.yml`, `*.json`: name, size or time of change) differs from when Grafana last loaded them, at its last start or reload through the wrapper |
@@ -639,27 +655,34 @@ Swarm does not replace it and cut the players' SSH sessions.
 started (with its data source and alert rules files, which stop it when
 they fail). `gmctl validate` shows the validator. The wiring is confirmed
 from inside the node with the helper: `/api/datasources/uid/prometheus/health`
-`OK`, both dashboard uids in `/api/search?type=dash-db`, the alert rule
+`OK`, the dashboard uids in `/api/search?type=dash-db` (`node-health`,
+`postgresql`, and `pgwatch` when seeded), the alert rule
 count equal to the scenario's file, the default time zone `UTC`; and the UI
 answering at `/grafana/` through the bastion's web front.
 
 ### Stack test
 
 `sh bricks/grafana/tests/run-stack-test.sh` deploys the brick as stack
-`gmtest-grafana` (`tests/stack.test.yml`, no published port) with its five
+`gmtest-grafana` (`tests/stack.test.yml`, no published port) with its six
 seed files copied from `companion/` and a `prometheus` 0.2.0 node seeded
 with that brick's test fixture, checks the chunk's Done-when and removes
 everything it created, volumes included. It reads the API with the helper,
 the UI from a client container on the stack's network (this image, entry
 point replaced), and SSHes in as `player`; every credential goes to `curl`
 on stdin. It never sends a wrong administrator's password, so the
-validator's `ERROR` on a refused login is not exercised there. Then the
+validator's `ERROR` on a refused login is not exercised there. Every
+query of `pgwatch.json` is sent to Prometheus' query API and must come back
+`success` (empty, with no pgwatch node there); `pgwatch.json` is removed
+(reload and validator green), then put back (the wrapper restores its
+owner and mode). Then the
 snapshot's brief stop, the node redeployed `report-only` (`docker service
 update --env-add GM_WRITE_POLICY=report-only`: modes, denied edits, the
 wrapper's refusal, nothing reloaded), then with the override
 `/etc/grafana/provisioning/alerting` (the rule file's edit through the
 wrapper, the owner restored, the data source file still locked), and the
-entrypoint's two write-policy refusals. Needs a swarm manager and both
+entrypoint's two write-policy refusals, and a container (`docker run`)
+seeded with the five required files only, which starts and whose files
+check clean. Needs a swarm manager and both
 images built.
 
 ## Known limits

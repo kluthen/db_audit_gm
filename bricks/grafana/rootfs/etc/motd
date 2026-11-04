@@ -3,7 +3,8 @@
 
   Provisioning:   /etc/grafana/provisioning/  (data source, dashboards, alert rules)
                     datasources/datasources.yaml
-                    dashboards/dashboards.yaml, node-health.json, postgresql.json
+                    dashboards/dashboards.yaml, node-health.json, postgresql.json,
+                      pgwatch.json (on games with a pgwatch node)
                     alerting/alert-rules.yaml
   Grafana:        http://localhost:3000/grafana/
                   from your browser: the bastion's web front, /grafana/

@@ -1,6 +1,7 @@
 # Stack test fixture for the Grafana brick (v0.2 build plan, chunk 10): the
-# grafana node, its five seed files copied from companion/ as a scenario
-# would, and a prometheus 0.2.0 node for its data source to reach.
+# grafana node, its six seed files (the optional pgwatch.json included)
+# copied from companion/ as a scenario would, and a prometheus 0.2.0 node
+# for its data source to reach.
 # Uses only what a rendered Compose 3.8 stack file can express: no tmpfs
 # `mode` or `exec` option. Configs and secrets are external, created and
 # removed by run-stack-test.sh (mirroring gmctl deploy).
@@ -32,6 +33,7 @@ services:
       - {source: seed_dashboards_yaml, target: /opt/gm/seed/dashboards.yaml, uid: "0", gid: "0", mode: 0444}
       - {source: seed_node_health_json, target: /opt/gm/seed/node-health.json, uid: "0", gid: "0", mode: 0444}
       - {source: seed_postgresql_json, target: /opt/gm/seed/postgresql.json, uid: "0", gid: "0", mode: 0444}
+      - {source: seed_pgwatch_json, target: /opt/gm/seed/pgwatch.json, uid: "0", gid: "0", mode: 0444}
       - {source: seed_alert_rules_yaml, target: /opt/gm/seed/alert-rules.yaml, uid: "0", gid: "0", mode: 0444}
     secrets:
       - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
@@ -92,6 +94,7 @@ configs:
   seed_dashboards_yaml: {external: true, name: gmtest-grafana_seed_dashboards_yaml}
   seed_node_health_json: {external: true, name: gmtest-grafana_seed_node_health_json}
   seed_postgresql_json: {external: true, name: gmtest-grafana_seed_postgresql_json}
+  seed_pgwatch_json: {external: true, name: gmtest-grafana_seed_pgwatch_json}
   seed_alert_rules_yaml: {external: true, name: gmtest-grafana_seed_alert_rules_yaml}
   seed_prometheus_yml: {external: true, name: gmtest-grafana_seed_prometheus_yml}
 
