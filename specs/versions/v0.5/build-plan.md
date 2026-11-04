@@ -1,18 +1,14 @@
 # db_audit_gm v0.5 — Build plan
 
-Status: v11 (2026-11-04): chunk 13's stop settled (spec D408–D414):
+Status: v12 (2026-11-04): chunk 16b's tool gap (spec D421): chunk 31
+inserted into wave 3 ahead of 16b's restart, the partners' api and
+back-end nodes serving `owners` alone; chunk 16's fixture and
+dependencies; wave 3's row and order.
+v11 (2026-11-04): chunk 13's stop settled (spec D408–D414):
 chunk 30 inserted into wave 3 ahead of chunk 13, the core's scheduled
 consultations on the agenda and `core_exchange`'s two columns; chunk
 13's scope, Done when and split rule; chunk 21's inbound examinations;
 wave 3's order.
-v10 (2026-11-04): capture W3's preflight corrections written in
-before wave 3's first chunk: chunk 29 inserted into wave 3 with G17, the
-fixtures' lists, O229 closed, the parts' `cron.sql`, the portal's key,
-wave 3's gate fixtures (spec D401–D407); chunks 12 to 16, 18 to 21, 27.
-v9 (2026-11-04): the owner's ruling on the restore (spec D397,
-superseding D352): chunk 28 inserted into wave 2 after its gate, cut
-from the gated `v0.5-w2`, the gate items it touches rerun once it has
-merged (spec D398); release gate items 1 and 12.
 Approval: **approved 2026-11-03 by the owner** (G1, spec D342).
 Written from: [master-spec.md](master-spec.md) and
 [access-model.md](access-model.md), approved 2026-11-03 (spec D339,
@@ -129,7 +125,7 @@ none is a gate.
 |---|---|---|---|
 | 1 | 1, 2, 3, 4, 5 | G1; G2 (done); G3, G4; G5 (chunk 3), G6 (chunk 5), G7 (chunk 4, if a package); G8 before its gate | merged into `main` (2026-11-04, 167fec0) |
 | 2 | 6, 7, 8, 9, 10, 11, 28 | wave 1; G9 (chunk 10); G10 before its gate; chunk 28 after the gate, the items it touches rerun (spec D398) | merged into `main` (2026-11-04, f89eb73) |
-| 3 | 12, 13, 14, 15, 16, 29, 30 | wave 2; chunk 30 before chunk 13 (spec D409): seven chunks, past the model's six, both insertions small and mid-wave | in progress (started 2026-11-04) |
+| 3 | 12, 13, 14, 15, 16, 29, 30, 31 | wave 2; chunk 30 before chunk 13 (spec D409); chunk 31 before 16b's restart (spec D421): eight chunks, two past the model's six: the three insertions are small (29 from the preflight, 30 and 31 each a gap a running chunk found) and each unblocks a part of this wave, so none can wait for wave 4 | in progress (started 2026-11-04) |
 | 4 | 17, 18, 19, 20, 21 | wave 3 | planned |
 | 5 | 22, 23, 24, 25, 26, 27 | wave 4; G14 (chunk 27, only if it applies) | planned |
 
@@ -173,6 +169,10 @@ G5 ──> 3;  G6 ──> 5;  G7 ──> 4 (if a package)
                          domain document; W3)
 29 ──> 16               (in-wave: the portal's keys, its fixture's `left_out:`, its
                          `cron.sql`; W3 items 0, 5 and 6)
+29 ──> 31               (inserted into wave 3 after chunk 16b stopped, cut once 29
+                         had merged; spec D421)
+31 ──> 16               (in-wave, 16b's restart and its fixture only: the partners'
+                         nodes serving `owners` alone, fixed by spec D421)
 7, 11, 12, 13, 14, 15, 16 ──> 17
 9, 11, 12 ──> 18
 9, 11, 12 ──> 19
@@ -217,7 +217,8 @@ check and fixture, chunk 15's `cron.sql` and chunk 16 wait for chunk
 chain runs three chunks long (29, 12, 16), past the model's two: kept,
 since `29 ──> 12` delays no start and W3 fixes the interfaces it crosses
 (spec D402). `tools/gm/{inject,compose,model}.py` and the
-scenario-format skill are chunk 29's alone in wave 3; the five domains
+scenario-format skill are chunk 29's alone in wave 3, then
+`compose.py`, `model.py` and the skill chunk 31's; the five domains
 share no file but the root `README.md`'s domain table and `vet-core`'s
 variant `parts:` list (shared lists, spec D380). Chunk 30 (spec D409)
 takes the next free slot once inserted; chunk 13 is cut from `v0.5-w3`
@@ -226,6 +227,12 @@ once it has merged. `vet-core`'s `data/` and `docs/gm.md` are chunk
 functions, so chunk 30 changes none of their code; their load figures
 taken before it merges are superseded by wave 3's gate, which reruns
 each domain's load.
+Chunk 31 (spec D421) takes the next free slot once inserted; 16b
+restarts on its paused branch once 31 has merged into `v0.5-w3` and the
+branch has taken it in. A second three-chunk chain (29, 31, 16) is kept:
+D402's reasoning covers its first link only (29 had merged before 31
+was cut, so no start waits); the second holds back 16b's restart, the
+gap's own cost, with the interface fixed by D421.
 
 Wave 4: no in-wave edge; the five chunks run as κ allows. Chunk 17 is
 the largest; it starts first.
@@ -1411,10 +1418,12 @@ site.
 
 ### Chunk 16 — `vet-portal`, the owners' portal
 
-Status: in progress
+Status: in progress (16b restarted after chunk 31)
 Wave: 3
 Depends on: chunks 5, 8, 9 and 11 (waves 1 and 2); chunks 12 and 29,
-merged into `v0.5-w3` before this chunk's branch is cut; W3
+merged into `v0.5-w3` before this chunk's branch is cut; chunk 31,
+merged into `v0.5-w3` and taken into this chunk's branch before 16b
+restarts (spec D421); W3
 Architecture capture: W3, for chunk 21 and 25: the copies' tables, the
 row-level security policies and the transaction-local `portal.owner_id`,
 `portal-api`'s endpoints, the outbox; the messaging stub's planted
@@ -1447,7 +1456,9 @@ messages purpose 16's history, not the derivation's (O229, spec D404).
   vet-lab's `lis`, `api/lab-api`, `partners/xlab` and
   `partners/practices`, vet-portal's `pms` (the desk stream, proven by
   its fragment's unit check only), the lab's stubs' state loaded (spec
-  D403).
+  D403), the lab's two `third_parties:` entries listing `[partners-db]`
+  only, `partners-api` and `partners-backend` serving `owners` alone
+  (spec D421).
   - Out: purposes 15 and 16 (chunk 21); s5 (chunk 25).
 - Files: `domains/vet-portal/` (new) with `data/derive.sql`,
   `producers/api/portal-api/` and `producers/partners/owners/`;
@@ -2221,6 +2232,63 @@ core's functions, by 12, 15 and 16. As built: W3-g.
 - Verification: chunk checks; the SQL checks above run as one query
   file against each load, kept in the record.
 - Split rule: none expected.
+
+### Chunk 31 — The partners' nodes serving `owners` alone: `compose` and the loader with no `third_parties:` entry listing them
+
+Status: merged (w3, b4c5221)
+Record: d6ffc8f, merged b4c5221; `model.owners_alone_nodes(data, left_out, catalog_root)`, compose's `_brick_id` moved to `model.node_brick_id`; the loader also reports the helper's node problems; an owners-only `partners-api` refused when not answering under `owners` (the executor's reading of D421); unit suite 1151 OK, 2 skipped.
+Wave: 3
+Depends on: chunks 2 and 6 (waves 1 and 2: `compose._shared_nodes`,
+`model._check_third_parties` and `_check_api_nodes`); chunk 29, merged
+into `v0.5-w3` (the files' last holder); inserted after chunk 16b
+stopped (spec D421), built by a `coding-executor` handed the brief by
+the driver ("Read first")
+Architecture capture: none beyond spec D421.
+
+- Goal: a scenario whose only partner material on the shared scheduler
+  and `api` nodes is a composed domain's owners' route composes and
+  loads with no `third_parties:` entry listing those nodes, as
+  `fixture-portal` needs (W3 item 5; spec D421).
+- Scope: in:
+  - **`compose`**: when no `third_parties:` entry lists a scheduler or
+    `api` node, a composed domain's `producers/partners/owners/` (not
+    left out) goes onto the nodes `partners-backend` (its scheduler
+    material) and `partners-api` (its endpoints); a node of that name
+    missing, of another brick or not `write_policy: no-access` refused,
+    naming it; any other partner folder composed with no entry listing
+    the nodes refused as today;
+  - **the loader** (`model`): in the same case, those two nodes (each
+    `no-access`, of those bricks) are the partners' shared nodes: the
+    partners' `api` node for `_check_api_nodes`, serving exactly
+    `owners` (no third party's hostname to serve), and among the third
+    parties' nodes for every out-of-reach check (the bastion's routes and
+    seed files, expected fixes, roles theirs alone, monitoring); one
+    helper giving the partners' nodes to both modules; with an entry
+    listing a scheduler or `api` node, every rule and refusal as today;
+  - the scenario-format skill's third parties' item stating the case.
+  - Out: a purpose's `receiver` or `partner` part still names a node a
+    `third_parties:` entry lists (the owners are no party); the partners'
+    `postgres` node still found through an entry (a domain's owners'
+    `data.sql` needs one); `inject.py`; `fixture-portal` (16b's).
+- Files: `tools/gm/compose.py`, `tools/gm/model.py`;
+  `tools/tests/test_compose.py`, `tools/tests/test_model.py` (test-local
+  scenarios and domain, no fixture directory);
+  `.claude/skills/scenario-format/SKILL.md`.
+- Spec sections: master spec 6.2, 10.2 (the tenth hostname); capture W2
+  items 0 and 1, W3 item 5; spec D369, D421.
+- Done when: a unit test composing a domain's owners' route alone onto
+  `partners-api` and `partners-backend`, the third parties listing
+  `[partners-db]` only, passes `compose` and `load_scenario`, the
+  composed `partners-api` answering under `owners` only; unit tests
+  show the existing refusals unchanged (another partner folder with no
+  entry listing the nodes, compose's scheduler and `api` refusals; a
+  listed party's hostname not served; a hostname served that no entry
+  declares) and the new ones (either node missing, of another brick or
+  not `no-access`; the owners-only `partners-api` answering under another
+  hostname; a bastion seed file naming `partners-api`); the unit suite
+  passes.
+- Verification: chunk checks.
+- Split rule: none.
 
 ## Release gate
 
