@@ -40,13 +40,14 @@ my $OWNER = 'grafana';
 my $GROUP = 'grafconf';
 my $PROV = '/etc/grafana/provisioning';
 my @WRITABLE_PATHS = ($PROV, "$PROV/alerting", "$PROV/dashboards", "$PROV/datasources", '/home/player');
-# [directory, must exist, [the seeded files in it]], in this order; the
+# [directory, must exist, [the seeded files in it]], in this order (a seeded
+# file may be absent: pgwatch.json is optional, a player may remove one); the
 # entrypoint creates the four subdirectories when it seeds, a player may
 # remove one on a fixable node (plugins/ holds no seeded file)
 my @SEEDED = (
     [$PROV, 1, []],
     ["$PROV/datasources", 0, ['datasources.yaml']],
-    ["$PROV/dashboards", 0, ['dashboards.yaml', 'node-health.json', 'postgresql.json']],
+    ["$PROV/dashboards", 0, ['dashboards.yaml', 'node-health.json', 'postgresql.json', 'pgwatch.json']],
     ["$PROV/alerting", 0, ['alert-rules.yaml']],
     ["$PROV/plugins", 0, []],
 );

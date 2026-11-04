@@ -1,0 +1,8 @@
+# Test seed health.yaml of the health-check brick's stack test: the primary
+# db and its standby, both choosing the option monitoring.
+instances:
+  - name: db
+    host: db
+    port: 5432
+    dbname: postgres
+  - {name: standby, host: standby, port: 5432, dbname: postgres, primary: db}

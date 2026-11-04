@@ -1,0 +1,9 @@
+#!/bin/sh
+# s6 service `web` (DO NOT TAMPER): the status page, nginx as www-data,
+# static files only (G9): /var/lib/health/www/health/ under /health/ on
+# port 8080, GET and HEAD, reached by the players through the bastion's
+# web_routes (`health`). Configuration: /usr/local/lib/gm/nginx.conf,
+# root-owned, read-only; its runtime files under /run/nginx.
+exec 2>&1
+exec /command/s6-setuidgid www-data /usr/sbin/nginx -e stderr -p /run/nginx/ \
+    -c /usr/local/lib/gm/nginx.conf -g 'daemon off;'

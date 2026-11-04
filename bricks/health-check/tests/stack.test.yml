@@ -1,0 +1,159 @@
+# Stack test fixture for the health-check brick (v0.5 build plan, chunk
+# 10b): the health node, the postgres 0.5.0 primary `db` and its standby
+# `standby` it checks (both choosing the option monitoring, TLS on), and a
+# stand-in for cold storage's GET /manifests (`cold-storage`, port 8000;
+# spec D362). The databases start at ${DB_REPLICAS:-1} replicas: 0 at
+# first, so the health node starts before the names it resolves (D356).
+# Uses only what a rendered Compose 3.8 stack file can express. Configs and
+# secrets are external, created and removed by run-stack-test.sh.
+version: "3.8"
+
+x-pg: &pg
+  image: 127.0.0.1:5000/dbagm/postgres:0.5.0
+  read_only: true
+  cap_drop: [ALL]
+  cap_add: [AUDIT_WRITE, CHOWN, DAC_OVERRIDE, FOWNER, KILL, NET_BIND_SERVICE, SETGID, SETUID, SYS_CHROOT]
+  healthcheck:
+    test: ["CMD", "/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+    start_period: 60s
+  networks: [net]
+  deploy:
+    replicas: ${DB_REPLICAS:-1}
+    resources:
+      limits: {cpus: "0.5", memory: 512M}
+
+services:
+  health:
+    image: 127.0.0.1:5000/dbagm/health-check:0.1.0
+    hostname: health
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [AUDIT_WRITE, CHOWN, DAC_OVERRIDE, FOWNER, KILL, NET_BIND_SERVICE, SETGID, SETUID, SYS_CHROOT]
+    environment: {TZ: UTC}
+    healthcheck:
+      test: ["CMD", "/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - {type: volume, source: hc_conf, target: /etc/health}
+      - {type: volume, source: hc_data, target: /var/lib/health}
+      - {type: volume, source: hc_cronspool, target: /var/spool/cron/crontabs}
+      - {type: volume, source: hc_home, target: /home/player}
+      - {type: volume, source: hc_gmstate, target: /var/lib/gm-state}
+      - {type: volume, source: hc_run, target: /run}
+    configs:
+      - {source: seed_health_yaml, target: /opt/gm/seed/health.yaml, uid: "0", gid: "0", mode: 0444}
+      - {source: seed_crontab, target: /opt/gm/seed/crontab, uid: "0", gid: "0", mode: 0444}
+      - {source: seed_script_disk_alarm, target: /opt/gm/seed/scripts/disk-alarm, uid: "0", gid: "0", mode: 0444}
+      - {source: seed_script_backup_there, target: /opt/gm/seed/scripts/backup-there, uid: "0", gid: "0", mode: 0444}
+    secrets:
+      - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
+      - {source: monitoring_password, target: /opt/gm/secrets/monitoring_password, uid: "0", gid: "990", mode: 0440}
+    networks: [net]
+    deploy:
+      replicas: 1
+      resources:
+        limits: {cpus: "0.25", memory: 128M}   # the brick footprint's limits, rounded
+
+  db:
+    <<: *pg
+    hostname: db
+    environment: {TZ: UTC, GM_WRITE_POLICY: fixable, GM_WRITE_OVERRIDES: "", GM_OPTIONS: monitoring,
+                  GM_STANDBY_OF: ""}
+    volumes:
+      - {type: volume, source: db_pgdata, target: /var/lib/postgresql/18/data}
+      - {type: volume, source: db_pgconf, target: /etc/postgresql}
+      - {type: volume, source: db_home, target: /home/player}
+      - {type: volume, source: db_gmstate, target: /var/lib/gm-state}
+      - {type: volume, source: db_pglog, target: /var/log/postgresql}
+      - {type: volume, source: db_run, target: /run}
+      - {type: volume, source: db_cronspool, target: /var/spool/cron/crontabs}
+    configs: &pgconfigs
+      - {source: seed_postgresql_conf, target: /opt/gm/seed/postgresql.conf, uid: "0", gid: "0", mode: 0444}
+      - {source: seed_pg_hba_conf, target: /opt/gm/seed/pg_hba.conf, uid: "0", gid: "0", mode: 0444}
+      - {source: envelopes, target: /opt/gm/protected/envelopes.conf, uid: "0", gid: "0", mode: 0444}
+    secrets: &pgsecrets
+      - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
+      - {source: dba_password, target: /opt/gm/secrets/dba_password, uid: "0", gid: "0", mode: 0400}
+      - {source: monitoring_password, target: /opt/gm/secrets/monitoring_password, uid: "0", gid: "102", mode: 0440}
+      - {source: replication_password, target: /opt/gm/secrets/replication_password, uid: "0", gid: "0", mode: 0400}
+      - {source: tls_certificate, target: /opt/gm/secrets/tls.crt, uid: "0", gid: "0", mode: 0444}
+      - {source: tls_key, target: /opt/gm/secrets/tls.key, uid: "0", gid: "102", mode: 0440}
+
+  standby:
+    <<: *pg
+    hostname: standby
+    environment: {TZ: UTC, GM_WRITE_POLICY: fixable, GM_WRITE_OVERRIDES: "", GM_OPTIONS: monitoring,
+                  GM_STANDBY_OF: db}
+    volumes:
+      - {type: volume, source: sb_pgdata, target: /var/lib/postgresql/18/data}
+      - {type: volume, source: sb_pgconf, target: /etc/postgresql}
+      - {type: volume, source: sb_home, target: /home/player}
+      - {type: volume, source: sb_gmstate, target: /var/lib/gm-state}
+      - {type: volume, source: sb_pglog, target: /var/log/postgresql}
+      - {type: volume, source: sb_run, target: /run}
+      - {type: volume, source: sb_cronspool, target: /var/spool/cron/crontabs}
+    configs: *pgconfigs
+    secrets: *pgsecrets
+
+  cold-storage:                     # a stand-in for cold storage's GET /manifests (test only)
+    image: 127.0.0.1:5000/dbagm/postgres:0.5.0
+    hostname: cold-storage
+    entrypoint: ["perl", "/opt/standin/manifests.pl"]
+    configs:
+      - {source: manifests_standin, target: /opt/standin/manifests.pl, uid: "0", gid: "0", mode: 0444}
+    networks: [net]
+    deploy:
+      replicas: 1
+      resources:
+        limits: {cpus: "0.25", memory: 128M}
+
+networks:
+  net:
+    driver: overlay
+    attachable: true   # test only: lets the test client container join
+
+volumes:
+  hc_conf: {}
+  hc_data: {}
+  hc_cronspool: {}
+  hc_home: {}
+  hc_gmstate: {}
+  hc_run: {}
+  db_pgdata: {}
+  db_pgconf: {}
+  db_home: {}
+  db_gmstate: {}
+  db_pglog: {}
+  db_run: {}
+  db_cronspool: {}
+  sb_pgdata: {}
+  sb_pgconf: {}
+  sb_home: {}
+  sb_gmstate: {}
+  sb_pglog: {}
+  sb_run: {}
+  sb_cronspool: {}
+
+configs:
+  seed_health_yaml: {external: true, name: gmtest-health_seed_health_yaml}
+  seed_crontab: {external: true, name: gmtest-health_seed_crontab}
+  seed_script_disk_alarm: {external: true, name: gmtest-health_seed_script_disk_alarm}
+  seed_script_backup_there: {external: true, name: gmtest-health_seed_script_backup_there}
+  seed_postgresql_conf: {external: true, name: gmtest-health_seed_postgresql_conf}
+  seed_pg_hba_conf: {external: true, name: gmtest-health_seed_pg_hba_conf}
+  envelopes: {external: true, name: gmtest-health_envelopes}
+  manifests_standin: {external: true, name: gmtest-health_manifests_standin}
+
+secrets:
+  player_ssh_pubkey: {external: true, name: gmtest-health_player_ssh_pubkey}
+  dba_password: {external: true, name: gmtest-health_dba_password}
+  monitoring_password: {external: true, name: gmtest-health_monitoring_password}
+  replication_password: {external: true, name: gmtest-health_replication_password}
+  tls_certificate: {external: true, name: gmtest-health_tls_certificate}
+  tls_key: {external: true, name: gmtest-health_tls_key}

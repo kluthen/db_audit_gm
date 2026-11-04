@@ -1,0 +1,12 @@
+# Reference crontab of the health-check brick (companion/; capture W2 item
+# 5): OS user postgres's, on the health node. A scenario copies it into
+# nodes/<health node>/crontab as its seed file `crontab`. Each line's
+# results land on the status page (/health/).
+PATH=/usr/local/bin:/usr/bin:/bin
+MAILTO=""
+# the checks (check_postgres over health.yaml), every five minutes
+*/5 * * * * health-run checks
+# the IT's disk alarm on the databases' size: warning at 2 GB, critical at 4 GB
+*/5 * * * * health-run script disk-alarm 2048 4096 records
+# is last night's base backup in cold storage? after the nightly job
+30 6 * * * health-run script backup-there http://cold-storage:8000 records

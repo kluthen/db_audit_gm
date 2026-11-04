@@ -1,0 +1,11 @@
+# sudo rules of the db_audit_gm health node (v0.5 master spec 7.4).
+# DO NOT TAMPER. `player` may run exactly these wrappers, as root: gm-crontab
+# with any arguments (it checks its own), the other two with none.
+Defaults env_reset
+Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Defaults !syslog
+Defaults logfile=/run/gm/sudo.log
+Defaults lecture=never
+Defaults !mail_badpass
+
+player ALL=(root) NOPASSWD: /usr/local/sbin/gm-crontab, /usr/local/sbin/gm-run-checks "", /usr/local/sbin/gm-validate ""

@@ -1,0 +1,9 @@
+
+  db_audit_gm -- pgwatch node (PostgreSQL metrics for Prometheus)
+
+  Sources:        /etc/pgwatch/sources.yaml  (the databases watched, their metric preset)
+  Metrics:        http://localhost:9188/metrics  (curl; pgwatch_instance_up 1 = reached)
+  Apply changes:  pgwatch rereads the file every minute; at once: sudo gm-restart-pgwatch
+  Check:          sudo gm-validate           public validator
+
+  DO NOT TAMPER with SSH, sudo, the gm-* wrappers or the validator.

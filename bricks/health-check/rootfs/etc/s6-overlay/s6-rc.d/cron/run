@@ -1,0 +1,46 @@
+#!/bin/sh
+# s6 service `cron` (DO NOT TAMPER): Debian's cron daemon, in the
+# foreground, for the crontab of OS user `postgres` in its spool (volume
+# cronspool; v0.5 master spec 7.4, capture W2 item 5): health-run's checks
+# every five minutes and the customer's scripts, one line each.
+#
+# Before cron starts, a bounded wait (WAIT seconds) until every host of
+# health.yaml's instances resolves (`getent ahosts`; the pgbouncer lesson,
+# v0.4 spec D305; v0.5 spec D356), then a first run of the checks, so the
+# page has a reading from the start: a host that does not resolve yet is a
+# CRITICAL line on the page (an honest failure), and the next run, once it
+# resolves, reads it. The wait never keeps the node down.
+exec 2>&1
+WAIT=30
+say() { printf 'health-start: %s\n' "$*"; }
+
+hosts=$(/command/s6-setuidgid postgres /usr/local/bin/health-run hosts 2>/dev/null)
+unresolved() {
+    u=
+    for h in $hosts; do
+        timeout 5 getent ahosts "$h" >/dev/null 2>&1 || u="$u $h"
+    done
+    printf '%s' "${u# }"
+}
+if [ -n "$hosts" ]; then
+    list=$(printf '%s' "$hosts" | tr '\n' ' ')
+    start=$(date +%s)
+    left=$(unresolved)
+    if [ -z "$left" ]; then
+        say "instances' hosts resolve: $list"
+    else
+        say "waiting up to ${WAIT}s for instances' hosts to resolve: $left"
+        while [ -n "$left" ] && [ $(($(date +%s) - start)) -lt "$WAIT" ]; do
+            sleep 1
+            left=$(unresolved)
+        done
+        took=$(($(date +%s) - start))
+        if [ -z "$left" ]; then
+            say "instances' hosts resolve after ${took}s: $list"
+        else
+            say "still not resolving after ${took}s: $left; the checks run anyway"
+        fi
+    fi
+fi
+say "first run: $(/command/s6-setuidgid postgres /usr/local/bin/health-run checks 2>&1 | tail -n 1)"
+exec /usr/sbin/cron -f

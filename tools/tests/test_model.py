@@ -341,7 +341,12 @@ class TestMonitoringFixture(ScenarioCopyTest):
     def test_grafana_seeds_are_the_companion_files(self):
         companion = REPO_ROOT / "bricks" / "grafana" / "companion"
         seeds = model.load_scenario(FIXTURE_MONITORING).node("grafana")["seed_files"]
-        self.assertEqual(sorted(seeds), sorted(p.name for p in companion.iterdir()))
+        # every companion file, an optional one (grafana 0.3.0's pgwatch.json,
+        # for a game with a pgwatch node) only where the fixture maps it
+        optional = model.seed_optional(yaml.safe_load(
+            (REPO_ROOT / "bricks" / "grafana" / "brick.yaml").read_text()))
+        self.assertEqual(sorted(seeds), sorted(p.name for p in companion.iterdir()
+                                               if p.name in seeds or p.name not in optional))
         for name, path in seeds.items():
             with self.subTest(seed=name):
                 self.assertEqual((FIXTURE_MONITORING / path).read_bytes(),
@@ -428,7 +433,12 @@ class TestLoadFixture(ScenarioCopyTest):
     def test_grafana_seeds_are_the_companion_files(self):
         companion = REPO_ROOT / "bricks" / "grafana" / "companion"
         seeds = model.load_scenario(FIXTURE_LOAD).node("grafana")["seed_files"]
-        self.assertEqual(sorted(seeds), sorted(p.name for p in companion.iterdir()))
+        # every companion file, an optional one (grafana 0.3.0's pgwatch.json)
+        # only where the fixture maps it
+        optional = model.seed_optional(yaml.safe_load(
+            (REPO_ROOT / "bricks" / "grafana" / "brick.yaml").read_text()))
+        self.assertEqual(sorted(seeds), sorted(p.name for p in companion.iterdir()
+                                               if p.name in seeds or p.name not in optional))
         for name, path in seeds.items():
             with self.subTest(seed=name):
                 self.assertEqual((FIXTURE_LOAD / path).read_bytes(),

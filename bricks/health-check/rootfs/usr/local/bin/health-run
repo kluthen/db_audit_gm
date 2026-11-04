@@ -1,0 +1,380 @@
+#!/usr/bin/perl
+# health-run: the health node's runs (v0.5 master spec 7.4; capture W2
+# item 5). DO NOT TAMPER. Root-owned, read-only. Run as `postgres`, from
+# its crontab (or by sudo gm-run-checks):
+#
+#   health-run checks                 check_postgres over health.yaml's
+#                                     instances, as `monitoring`
+#   health-run script <name> [arg..]  /etc/health/scripts/<name>, a Nagios
+#                                     plugin: its first line, exit 0 OK,
+#                                     1 WARNING, 2 CRITICAL, 3 UNKNOWN
+#   health-run hosts                  the instances' hosts, one a line
+#                                     (the start-up's bounded wait)
+#   health-run check-config           health.yaml's problems, one a line;
+#                                     exit 0 valid, 1 not (the validator)
+#   health-run page                   rewrite the page from the results
+#
+# Each run records its results under /var/lib/health/results/ and rewrites
+# the status page, /var/lib/health/www/health/index.html and status.txt
+# beside it, which nginx serves under /health/. The password comes from
+# libpq's PGPASSFILE, /run/gm-health/pgpass (postgres 0600, written by the
+# entrypoint from the secret monitoring_password); it is never passed on a
+# command line and never printed.
+#
+# health.yaml (parsed here, never evaluated; YAML's block and flow forms of
+# this one shape only):
+#   instances:
+#     - name: records          # [a-z][a-z0-9-]*, unique: the page's label
+#       host: records          # the node's name
+#       port: 5432
+#       dbname: postgres       # the database the checks connect to
+#     - name: standby
+#       host: standby
+#       port: 5432
+#       dbname: postgres
+#       primary: records       # optional: a standby; its replay delay is
+#                              # checked against this instance
+use strict;
+use warnings;
+use Fcntl qw(:flock O_WRONLY O_CREAT O_TRUNC);
+use JSON::PP;
+use POSIX qw(strftime setsid WNOHANG);
+
+my $CONF = '/etc/health/health.yaml';
+my $SCRIPTS = '/etc/health/scripts';
+my $DATA = '/var/lib/health';
+my $RESULTS = "$DATA/results";
+my $WWW = "$DATA/www/health";
+my $PASSFILE = '/run/gm-health/pgpass';
+my $CHECK_POSTGRES = '/usr/bin/check_postgres';
+my $CHECK_TIMEOUT = 30;          # one check_postgres run, hard bound (its own --timeout 15)
+my $SCRIPT_TIMEOUT = 120;        # one customer script, hard bound
+
+# The checks, in the page's order (master spec 7.4: connections, backends,
+# locks, wraparound, the last autovacuum and analyze, database sizes, the
+# standby's replay delay), each within pg_monitor. `where`: every instance,
+# primaries only (a standby runs no autovacuum or analyze of its own), or
+# standbys only. Thresholds are the IT's, fixed here (docs/gm.md).
+my @CHECKS = (
+    ['connection',        'all',     []],
+    ['backends',          'all',     ['--warning=80%', '--critical=90%']],
+    ['locks',             'all',     ['--warning=100', '--critical=150']],
+    ['txn_wraparound',    'all',     ['--warning=1300000000', '--critical=1400000000']],
+    ['last_autovacuum',   'primary', ['--warning=1d', '--critical=7d']],
+    ['last_analyze',      'primary', ['--warning=1d', '--critical=7d']],
+    ['database_size',     'all',     ['--warning=5GB', '--critical=10GB']],
+    ['hot_standby_delay', 'standby', ['--warning=16MB', '--critical=128MB']],
+);
+my %STATE = (0 => 'OK', 1 => 'WARNING', 2 => 'CRITICAL', 3 => 'UNKNOWN');
+my $JSON = JSON::PP->new->canonical->utf8;
+
+sub now_iso { strftime('%Y-%m-%dT%H:%M:%SZ', gmtime()) }
+
+# --- health.yaml ---------------------------------------------------------------
+sub scalar_value {
+    my ($v) = @_;
+    return $1 if $v =~ /^"([^"\\]*)"$/ || $v =~ /^'([^']*)'$/;
+    return $v if $v =~ /^[A-Za-z0-9._\/-]+$/;
+    return undef;
+}
+
+# parse_conf: (\@instances, \@problems)
+sub parse_conf {
+    my @problems;
+    return ([], ["$CONF is a symbolic link; it must be a regular file"]) if -l $CONF;
+    return ([], ["$CONF is missing"]) unless -e $CONF;
+    return ([], ["$CONF is not a regular file"]) unless -f $CONF;
+    open(my $fh, '<', $CONF) or return ([], ["$CONF cannot be read ($!)"]);
+    my (@items, $cur, $seen_top);
+    my %known = map { $_ => 1 } qw(name host port dbname primary);
+    while (my $line = <$fh>) {
+        my $n = $.;
+        $line =~ s/\r?\n\z//;
+        $line =~ s/(^|\s)#.*$//;              # a comment, from a # after a space
+        $line =~ s/\s+$//;
+        next if $line eq '';
+        if ($line =~ /^instances:$/) {
+            push @problems, "line $n: instances: is set twice" if $seen_top++;
+            next;
+        }
+        if ($line =~ /^\S/) {
+            push @problems, "line $n: unknown top-level key (known: instances)";
+            next;
+        }
+        unless ($seen_top) { push @problems, "line $n: an item before instances:"; next; }
+        my ($rest, $new);
+        if ($line =~ /^  - (.*)$/) { ($rest, $new) = ($1, 1); }
+        elsif ($line =~ /^    (\S.*)$/) { $rest = $1; }
+        else { push @problems, "line $n: not an instance item (two spaces, a dash, then key: value)"; next; }
+        if ($new) {
+            $cur = {line => $n};
+            push @items, $cur;
+        } elsif (!$cur) {
+            push @problems, "line $n: a key outside an instance item"; next;
+        }
+        my @pairs;
+        if ($new && $rest =~ /^\{(.*)\}$/) {
+            @pairs = split /\s*,\s*/, $1;
+        } else {
+            @pairs = ($rest);
+        }
+        for my $p (@pairs) {
+            my ($k, $v) = $p =~ /^\s*([a-z_]+):\s+(.*?)\s*$/;
+            unless (defined $k) { push @problems, "line $n: not key: value"; next; }
+            unless ($known{$k}) { push @problems, "line $n: unknown key $k (known: name, host, port, dbname, primary)"; next; }
+            if (exists $cur->{$k}) { push @problems, "line $n: $k is set twice in this instance"; next; }
+            my $val = scalar_value($v);
+            unless (defined $val) { push @problems, "line $n: $k: a plain word or a quoted string"; next; }
+            $cur->{$k} = $val;
+        }
+    }
+    close $fh;
+    push @problems, "instances: is missing" unless $seen_top;
+    my %names;
+    for my $i (@items) {
+        my $where = "the instance at line $i->{line}";
+        for my $k (qw(name host port dbname)) {
+            push @problems, "$where: $k is missing (required)" unless defined $i->{$k};
+        }
+        next unless defined $i->{name};
+        push @problems, "$where: name must be lower-case letters, digits and -" unless $i->{name} =~ /^[a-z][a-z0-9-]*$/;
+        push @problems, "$where: name $i->{name} is used twice" if $names{$i->{name}}++;
+        push @problems, "$where: host must be a host name" if defined $i->{host} && $i->{host} !~ /^[A-Za-z0-9][A-Za-z0-9.-]*$/;
+        push @problems, "$where: port must be a number from 1 to 65535"
+            if defined $i->{port} && !($i->{port} =~ /^[0-9]{1,5}$/ && $i->{port} >= 1 && $i->{port} <= 65535);
+        push @problems, "$where: dbname must be letters, digits, _ and -" if defined $i->{dbname} && $i->{dbname} !~ /^[A-Za-z0-9_-]+$/;
+    }
+    my %by = map { defined $_->{name} ? ($_->{name} => $_) : () } @items;
+    for my $i (@items) {
+        next unless defined $i->{primary};
+        my $p = $by{$i->{primary}};
+        if (!$p) { push @problems, "instance $i->{name}: primary $i->{primary} is not an instance of the file"; }
+        elsif (defined $p->{primary}) { push @problems, "instance $i->{name}: its primary $i->{primary} is itself a standby"; }
+        elsif ($p == $i) { push @problems, "instance $i->{name}: is its own primary"; }
+    }
+    push @problems, "no instance: the checks would watch nothing" if $seen_top && !@items;
+    return (\@items, \@problems);
+}
+
+# --- running a command, bounded ---------------------------------------------------
+# run_bounded(\@argv, \%env, $timeout): ($exit, $first_line). Standard error
+# is merged into standard output; the first non-empty line is kept.
+sub run_bounded {
+    my ($argv, $env, $timeout) = @_;
+    pipe(my $r, my $w) or return (3, "cannot run $argv->[0]: pipe: $!");
+    my $pid = fork();
+    return (3, "cannot run $argv->[0]: fork: $!") unless defined $pid;
+    if ($pid == 0) {
+        close $r;
+        setsid();
+        open(STDIN, '<', '/dev/null');
+        open(STDOUT, '>&', $w);
+        open(STDERR, '>&', $w);
+        %ENV = %$env;
+        chdir '/';
+        { no warnings "exec"; exec { $argv->[0] } @$argv; }
+        print "cannot run $argv->[0]: $!\n";
+        POSIX::_exit(127);
+    }
+    close $w;
+    my $out = '';
+    my $timed_out = 0;
+    eval {
+        local $SIG{ALRM} = sub { die "timeout\n" };
+        alarm $timeout;
+        while (my $l = <$r>) { $out .= $l if length($out) < 65536; }
+        alarm 0;
+    };
+    if ($@) { $timed_out = 1; kill 'KILL', -$pid; kill 'KILL', $pid; }
+    close $r;
+    waitpid($pid, 0);
+    my $status = $?;
+    my ($first) = grep { /\S/ } split /\n/, $out;
+    $first //= '';
+    $first =~ s/\s+$//;
+    $first =~ s/[^\x20-\x7e\x80-\xff\t]//g;
+    $first = substr($first, 0, 400);
+    return (3, "timed out after ${timeout}s" . ($first ne '' ? ": $first" : '')) if $timed_out;
+    return (3, "killed by signal " . ($status & 127) . ($first ne '' ? ": $first" : '')) if $status & 127;
+    my $code = $status >> 8;
+    $first = "(no output, exit $code)" if $first eq '';
+    return ($code, $first);
+}
+
+sub state_of { my ($code) = @_; return $STATE{$code} // 'UNKNOWN'; }
+
+sub base_env {
+    return (PATH => '/usr/local/bin:/usr/bin:/bin', LC_ALL => 'C.UTF-8', TZ => 'UTC',
+            HOME => '/nonexistent', PGPASSFILE => $PASSFILE, PGUSER => 'monitoring',
+            PGCONNECT_TIMEOUT => '10', HEALTH_YAML => $CONF);
+}
+
+# --- results and the page ---------------------------------------------------------
+sub write_atomic {
+    my ($path, $content, $mode) = @_;
+    my $tmp = "$path.tmp.$$";
+    sysopen(my $fh, $tmp, O_WRONLY | O_CREAT | O_TRUNC, $mode) or die "$tmp: $!\n";
+    print $fh $content or die "$tmp: $!\n";
+    close $fh or die "$tmp: $!\n";
+    chmod $mode, $tmp;
+    rename $tmp, $path or die "$path: $!\n";
+}
+
+sub read_json {
+    my ($path) = @_;
+    open(my $fh, '<', $path) or return undef;
+    local $/;
+    my $v = eval { $JSON->decode(<$fh>) };
+    return $v;
+}
+
+sub html { my $s = shift // ''; $s =~ s/&/&amp;/g; $s =~ s/</&lt;/g; $s =~ s/>/&gt;/g; $s =~ s/"/&quot;/g; return $s; }
+
+# The text before check_postgres' performance data (" | ...").
+sub short { my $s = shift // ''; $s =~ s/\s+\|\s.*$//; $s =~ s/\s+\|$//; return $s; }
+
+sub render_page {
+    my $checks = read_json("$RESULTS/checks.json");
+    my @scripts;
+    if (opendir(my $d, $RESULTS)) {
+        for my $f (sort grep { /^script-.*\.json$/ } readdir $d) {
+            my $r = read_json("$RESULTS/$f");
+            push @scripts, $r if ref $r eq 'HASH';
+        }
+        closedir $d;
+    }
+    my $at = now_iso();
+    chomp(my $node = `hostname 2>/dev/null` || 'health');
+    my (@rows, @txt);
+    if (ref $checks eq 'HASH' && ref $checks->{items} eq 'ARRAY') {
+        for my $c (@{$checks->{items}}) {
+            push @rows, sprintf('<tr class="%s"><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>',
+                lc $c->{state}, html($c->{instance}), html($c->{check}), html($c->{state}), html($c->{at}), html(short($c->{line})));
+            push @txt, "$c->{at} $c->{state} $c->{instance} $c->{check}: " . short($c->{line});
+        }
+    }
+    my @srows;
+    for my $s (@scripts) {
+        push @srows, sprintf('<tr class="%s"><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>',
+            lc $s->{state}, html(join(' ', $s->{name}, @{$s->{args} // []})), html($s->{state}), html($s->{at}), html($s->{line}));
+        push @txt, "$s->{at} $s->{state} script $s->{name}: $s->{line}";
+    }
+    my $checks_at = ref $checks eq 'HASH' ? $checks->{at} : undef;
+    my $page = join("\n",
+        '<!DOCTYPE html>',
+        '<html lang="en">',
+        '<head>',
+        '<meta charset="utf-8">',
+        '<meta http-equiv="refresh" content="60">',
+        '<title>Health checks</title>',
+        '<style>body{font-family:sans-serif;margin:1.5em}table{border-collapse:collapse}'
+          . 'td,th{border:1px solid #999;padding:.2em .5em;text-align:left;vertical-align:top}'
+          . 'tr.ok td:nth-child(3){background:#cfc}tr.warning td:nth-child(3){background:#ffc}'
+          . 'tr.critical td:nth-child(3){background:#fcc}tr.unknown td:nth-child(3){background:#ddd}'
+          . '.scripts tr.ok td:nth-child(2){background:#cfc}.scripts tr.warning td:nth-child(2){background:#ffc}'
+          . '.scripts tr.critical td:nth-child(2){background:#fcc}.scripts tr.unknown td:nth-child(2){background:#ddd}</style>',
+        '</head>',
+        '<body>',
+        '<h1>Health checks</h1>',
+        '<p>Page written ' . html($at) . ' on ' . html($node) . '. The checks run every five minutes'
+          . ($checks_at ? ', last at ' . html($checks_at) : ', and have not run yet') . '. Plain text: <a href="status.txt">status.txt</a>.</p>',
+        '<h2>Database checks (check_postgres)</h2>',
+        @rows ? ('<table><tr><th>Instance</th><th>Check</th><th>State</th><th>Time (UTC)</th><th>Output</th></tr>', @rows, '</table>')
+              : ('<p>No result yet.</p>'),
+        '<h2>Scripts</h2>',
+        @srows ? ('<table class="scripts"><tr><th>Script</th><th>State</th><th>Time (UTC)</th><th>Output</th></tr>', @srows, '</table>')
+               : ('<p>No result yet.</p>'),
+        '</body>',
+        '</html>', '');
+    write_atomic("$WWW/index.html", $page, 0644);
+    write_atomic("$WWW/status.txt", join("\n", "# health checks, page written $at", @txt, ''), 0644);
+}
+
+sub locked {
+    my ($code) = @_;
+    open(my $lock, '>>', "$RESULTS/.lock") or die "$RESULTS/.lock: $!\n";
+    flock($lock, LOCK_EX) or die "lock: $!\n";
+    $code->();
+    close $lock;
+}
+
+# --- the runs ------------------------------------------------------------------------
+sub cmd_checks {
+    my ($items, $problems) = parse_conf();
+    my @results;
+    if (@$problems) {
+        push @results, {instance => '-', check => 'health.yaml', code => 3, state => 'UNKNOWN', at => now_iso(),
+                        line => "health.yaml is not valid, no check run: $problems->[0]"};
+    } else {
+        my %by = map { $_->{name} => $_ } @$items;
+        for my $i (@$items) {
+            my $standby = defined $i->{primary};
+            for my $c (@CHECKS) {
+                my ($action, $where, $thresholds) = @$c;
+                next if $where eq 'primary' && $standby;
+                next if $where eq 'standby' && !$standby;
+                my ($host, $port) = ($i->{host}, $i->{port});
+                if ($action eq 'hot_standby_delay') {
+                    my $p = $by{$i->{primary}};
+                    ($host, $port) = ("$p->{host},$i->{host}", "$p->{port},$i->{port}");
+                }
+                my @argv = ($CHECK_POSTGRES, "--action=$action", "--host=$host", "--port=$port",
+                            "--dbname=$i->{dbname}", '--dbuser=monitoring', '--timeout=15', '--output=nagios', @$thresholds);
+                my ($code, $line) = run_bounded(\@argv, {base_env()}, $CHECK_TIMEOUT);
+                push @results, {instance => $i->{name}, check => $action, code => $code, state => state_of($code),
+                                at => now_iso(), line => $line};
+            }
+        }
+    }
+    locked(sub {
+        write_atomic("$RESULTS/checks.json", $JSON->encode({at => now_iso(), items => \@results}), 0644);
+        render_page();
+    });
+    my %count;
+    $count{$_->{state}}++ for @results;
+    print 'health-run checks: ' . join(', ', map { "$count{$_} $_" } grep { $count{$_} } qw(OK WARNING CRITICAL UNKNOWN)) . "\n";
+    return 0;
+}
+
+sub cmd_script {
+    my ($name, @args) = @_;
+    my ($code, $line);
+    my $path = "$SCRIPTS/$name";
+    if ($name !~ /^[A-Za-z0-9][A-Za-z0-9._-]*$/) {
+        print STDERR "health-run: a script name is letters, digits, ., _ and -\n";
+        return 2;
+    } elsif (-l $path || !-f $path) {
+        ($code, $line) = (3, "$path is not a regular file");
+    } elsif (!-x $path) {
+        ($code, $line) = (3, "$path is not executable");
+    } else {
+        ($code, $line) = run_bounded([$path, @args], {base_env()}, $SCRIPT_TIMEOUT);
+        $line = "exit $code: $line" unless exists $STATE{$code};
+    }
+    my $r = {name => $name, args => \@args, code => $code, state => state_of($code), at => now_iso(), line => $line};
+    locked(sub {
+        write_atomic("$RESULTS/script-$name.json", $JSON->encode($r), 0644);
+        render_page();
+    });
+    print "health-run script $name: $r->{state}: $line\n";
+    return 0;
+}
+
+my $cmd = shift(@ARGV) // '';
+if ($cmd eq 'checks' && !@ARGV) { exit cmd_checks(); }
+if ($cmd eq 'script' && @ARGV) { exit cmd_script(@ARGV); }
+if ($cmd eq 'page' && !@ARGV) { locked(\&render_page); exit 0; }
+if ($cmd eq 'hosts' && !@ARGV) {
+    my ($items, $problems) = parse_conf();
+    exit 1 if @$problems;
+    my %seen;
+    print "$_\n" for grep { !$seen{$_}++ } map { $_->{host} } @$items;
+    exit 0;
+}
+if ($cmd eq 'check-config' && !@ARGV) {
+    my ($items, $problems) = parse_conf();
+    print "$_\n" for @$problems;
+    exit(@$problems ? 1 : 0);
+}
+print STDERR "usage: health-run checks | script <name> [arg...] | hosts | check-config | page\n";
+exit 2;

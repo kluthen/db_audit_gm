@@ -1,0 +1,8 @@
+# Test seed sources.yaml of the pgwatch brick's stack test: pgwatch 6.1.0's
+# YAML sources format (capture W2 item 5), one source per watched instance.
+# The URI form, no password: libpq reads it from PGPASSFILE.
+- name: db                          # the label `dbname` of every series
+  conn_str: postgresql://monitoring@db:5432/postgres
+  kind: postgres
+  preset_metrics: basic             # no helper function needed (G9)
+  is_enabled: true                  # pgwatch skips an entry without it

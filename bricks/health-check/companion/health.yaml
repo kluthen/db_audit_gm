@@ -1,0 +1,15 @@
+# Reference health.yaml of the health-check brick (companion/; capture W2
+# item 5). A scenario copies it into nodes/<health node>/health.yaml as its
+# seed file `health.yaml`, one entry per instance in the players' scope
+# (never the partners' database), each a postgres node choosing the option
+# `monitoring`. health-run checks them every five minutes as `monitoring`.
+instances:
+  - name: records                   # the page's label
+    host: records                   # the node's name
+    port: 5432
+    dbname: postgres                # the database the checks connect to
+  - name: standby
+    host: standby
+    port: 5432
+    dbname: postgres
+    primary: records                # a standby: its replay delay, against records

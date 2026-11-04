@@ -1,0 +1,17 @@
+#!/bin/sh
+# gm-run-checks: run the health checks now, as the crontab does, and
+# rewrite the page. Usage: sudo gm-run-checks
+# DO NOT TAMPER. Root-owned, read-only; allowed by /etc/sudoers.d/gm-player.
+# (v0.5 master spec 7.4.) Runs `health-run checks` as `postgres`, never as
+# root, and prints its summary; the results are on the page (/health/).
+# The customer's scripts run from the crontab only.
+set -u
+PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+if [ "$#" -ne 0 ]; then
+    echo "usage: sudo gm-run-checks (no arguments)" >&2
+    exit 2
+fi
+cd /
+exec runuser -u postgres -- env -i PATH=/usr/local/bin:/usr/bin:/bin LC_ALL=C.UTF-8 TZ=UTC \
+    /usr/local/bin/health-run checks

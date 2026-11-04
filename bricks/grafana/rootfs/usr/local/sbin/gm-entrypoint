@@ -12,7 +12,8 @@
 #      /run/gm/write-policy, read by gm-reload-grafana (sudo resets the
 #      environment);
 #   5. seeds /etc/grafana/provisioning from /opt/gm/seed once (marker
-#      /var/lib/gm-state/.gm-seeded, outside the group-writable directory);
+#      /var/lib/gm-state/.gm-seeded, outside the group-writable directory):
+#      the required seed files, and an optional one when it is there;
 #   6. applies the write policy's owner and modes to the seeded files and
 #      the provisioning directories, seeding or not (contents untouched);
 #   7. sets the ownership of the database directory and the player's home;
@@ -85,6 +86,11 @@ if [ ! -e "$MARKER" ]; then
         chmod_setgid "$PROV/$d" grafconf 2775
     done
     printf '%s\n' "$PROV_FILES" | while read -r seed live; do
+        install -o grafana -g grafconf -m 0664 "$SEED_DIR/$seed" "$PROV/$live"
+    done
+    # the optional seed files: installed when the scenario seeds them
+    printf '%s\n' "$PROV_OPTIONAL" | while read -r seed live; do
+        [ -f "$SEED_DIR/$seed" ] || continue
         install -o grafana -g grafconf -m 0664 "$SEED_DIR/$seed" "$PROV/$live"
     done
     date -u '+seeded %Y-%m-%dT%H:%M:%SZ from /opt/gm/seed (DO NOT TAMPER)' > "$MARKER"
