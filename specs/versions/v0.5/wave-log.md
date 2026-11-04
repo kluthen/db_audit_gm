@@ -3142,3 +3142,67 @@ the snapshot or the restart)**
    `load-data`'s mode, unchanged; any other argument a usage error (exit
    2). `inject.clone_standby` takes `restore=False`, passing `--restore`
    when true.
+
+### Chunk 28 — merged (1cfd371), 2026-11-04
+
+`53f4e63`, merged `--no-ff` as `1cfd371` (no conflict; worktree removed,
+branch kept). Done when, from the owner's report:
+- unit tests (`test_snapshot`, `test_restart` on fixture-restore,
+  `test_inject`): `records` (the `vault_target` node) copied first; only
+  the primaries' persistent physical slots recorded (`old_reports`; the
+  standby's own, the temporary `gm_snapshot` and a logical slot left
+  out), a failed slot read a failed snapshot; the restart writing
+  `standby.signal` (`install -o postgres -g postgres -m 0600`) into the
+  restored standby volume before `stack deploy`, re-creating the slot,
+  then `replicator`, `clone-standby --restore` and the streaming wait;
+  record and text naming `slots` and `standbys`; a clone or slot failure
+  a failed restart (snapshot kept, the retry completing); a record
+  without `slots:` restoring with none; a standby without its `pgdata`
+  copy failing before the stack; no snapshot, unchanged. Suite 1105 OK,
+  2 skipped, 174 s.
+- `postgres` 0.5.0 rebuilt, stack test passed, 467 s: `--bogus` exit 2;
+  a `statement_timeout` written into the standby's `postgresql.auto.conf`
+  kept by `--restore` (600 `postgres:postgres`, the conninfo naming the
+  password file only), streaming after it; the default mode keeping
+  nothing and streaming.
+- fixture-restore (`run-short-test.sh`): 36/36, 93 s (the restart 37 s):
+  the standby's log since the restore in standby mode only, never
+  promoted or on a new timeline; its slot active, its sender streaming;
+  a read answered, a write refused; a row written after the restart read
+  on the standby at once, one written between the snapshot and the
+  restart gone; `old_reports` back, inactive, reserving; a switched
+  segment's manifest `records:wal`, `failed_count` unchanged, the vault's
+  earlier manifests kept; teardown leaving nothing, the copies included.
+- measured after a restore (`docs/gm.md`, "Snapshot"): WAL held by the
+  planted slot 48 MB → 33 MB (from its new `restart_lsn`), `pg_wal` 65M →
+  49M, `pg_stat_archiver` counting from the restore, `n_tup_ins` 22000 →
+  1: the backlog and the counters start again, as master spec 15 says.
+- `docs/gm.md` ("The standby", "Snapshot", "Stack test"; D352's known
+  limit removed) and `gmctl.md`'s `restart` row.
+Own choices within W2-g: `slots: []` always written on a taken snapshot;
+the restart record's `slots: [{node, name}]` and `standbys: [{node,
+primary, slot}]`; `--restore` puts the saved file back whole; slots read
+just before each primary's first copy; `tools/tests/__init__.py`'s
+`FakeDocker` answers the slot query (outside Files, three lines). Left:
+`gmctl.md`'s `snapshot` row (copy order, `slots:`) not updated (not in
+Files); the `scenario-document` template has no row for `standby_of` or
+`third_parties` (fixture-restore's README shows the standby through its
+node and flows, as fixture-archive's); `shellcheck` not installed on
+armenelos (only `sh -n`). Risks: a standby whose `postgresql.auto.conf`
+lacks `primary_conninfo` fails the restart at the streaming wait (by
+design); a logical slot is neither recorded nor re-created (W2-g:
+physical).
+
+### Wave 2 gate — reruns after chunk 28, 2026-11-04
+
+On `1cfd371`, armenelos alone, under the lock and the inhibitor: unit
+suite 1105 OK, 2 skipped (169 s); `sh -n` 213 files, 0 fail (no
+`shellcheck` on armenelos); `postgres` 0.5.0 build (image `2ee628d58ded`,
+chunk 28's) and stack test 314 PASS / 1 FAIL (465 s); `smoke.sh` 61/61 (29
+s, the snapshot's new copy order); fixture-restore 36/36 (83 s). The one
+failure is the stack test's own race, no chunk 28 code: "db2: the
+postmaster's children" read `/proc/<pid>/oom_score_adj` of a child that
+had exited between the listing and the read (`cat: /proc/446/...: No
+such file`); it passed in chunk 28's run and at the gate. Sent to a
+`coding-executor`: the check skips a child gone before its read, then
+the stack test rerun.

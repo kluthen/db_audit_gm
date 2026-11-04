@@ -1878,7 +1878,8 @@ Architecture capture: none of its own; it reads W1 to W5.
 
 ### Chunk 28 — A restart from the hand-over snapshot gives back replication
 
-Status: not started
+Status: merged (w2, 1cfd371)
+Record: 53f4e63, merge 1cfd371. One commit, no split; restart record keys `slots` and `standbys` chosen within W2-g; outside the Files list `tools/tests/__init__.py`'s `FakeDocker` slot answer; `gmctl.md`'s `snapshot` row left (wave log).
 Wave: 2
 Depends on: chunk 3 (wave 1); no chunk of wave 2, all merged: cut from
 the gated `v0.5-w2` once its capture is recorded (spec D397, D398)
