@@ -2768,3 +2768,90 @@ Saturday afternoon without a vet), and requests per consultation (vet-core's
 "about two in three" averaging 0.65 cannot hold with the lab's 1.8
 tests per order; built as about 37 % at 1.8, repeating every 40 ids),
 with the core's load time (likely 1–2 minutes, against "a few seconds").
+
+### Chunk 9's second set of points settled, 2026-11-04
+
+`spec-writer` (8a15c8e, spec files only), no owner question; relayed to
+the chunk owner at once:
+- D384: one duty vet per section on Saturday and Sunday, 08:00–20:00,
+  rotating, never that weekend's night vets; the two domestic Saturday
+  morning vets stay (vet-scheduling's rota, vet-core's `core_shifts`).
+- D385: about four in ten consultations make requests, 0.65 per
+  consultation (0.68 in the history); three in ten have one lab order of
+  about 1.8 analyses (about 7 700 orders, within `lab_orders`' 1–14 000
+  with the practices' 6 300); one in eight one imaging study; analyses and
+  imaging decided per consultation. vet-core's "two in three" corrected.
+- D386: no fixed id period (ids run in time order): fixed counts per block
+  shuffled by a hash of the block, or a hash of the id; the stays'
+  section and outcome draws likewise; the current-stay caps rechecked.
+- D387 (text): the core's load expected at one to two minutes (master
+  spec 9.2, vet-core's Loading).
+- D388: the nurses' four-week cycle stands within the working-time rules;
+  absences as one-day to two-week periods, about 600 a year, leave about
+  five weeks a person (Directive 2003/88/EC Art 7).
+- D389: MINH's line on the herd's latest earlier consultation early
+  enough for the withdrawal to end; MINH never drawn without one.
+- D390: inbound exchanges examinations only; exchange ids in
+  `requested_at` order.
+- D391: `given_by` a nurse of the stay's section.
+
+### Chunk 9 paused a third time; D393, D394, 2026-11-04
+
+The third owner applied D384–D391 (WIP `b9dcfaf`, over the `v0.5-w2`
+merges `02b610f` and `fd706bd`): the full `load.sql` and `gm.md`'s "Core
+keys". The core's load: **89.4 s, 49 MB, 299 255 rows at +2; 88.8 s,
+49 MB, 299 448 rows at shift 0** (`postgres:0.5.0` 7cca24d4, a throwaway
+container). Requests at +2: 42.5 % of consultations, 7 432 lab orders of
+1.83 tests, 3 033 imaging studies (59.5/29.3/11.2); the nurses' cycle
+re-made as `(n + week) mod 4`, every shift held, 47.3 h a week on average;
+absences 633 periods, 90 % leave; no fixed id period (most stays at once
+17/9/23 under 21/10/31). It paused, context heavy; a fourth owner resumed
+from `b9dcfaf`. Its two deviations went to `spec-writer` (6862d32, no
+owner question):
+- D393: the history's 61 241 administrations kept ("about 60 000"); the
+  live `administrations.round` doses each active line at its frequency
+  (about 35 a round, 210 a day), not one a round per stay, so there is no
+  step at T0; MR1 and T65's "about 240 a day" become about 210.
+- D394: D388's every-shift rule is the nurses' and technicians'; the
+  carers keep the cycle (4/2/4 per section), the farm's nurses holding
+  the phases its two carers cannot.
+
+### Chunk 9 stopped on a defect; gate fixes to `load-data` and `compose`, 2026-11-04
+
+The fourth owner built the rest (WIP `ce7ad08` over the `v0.5-w2` merge
+`dccec41`): `pms`' 23 keys run as `vet_app`, `fixture-core`, `gm.md` whole,
+the variant figures, the README row. Its fixture failed one check of 32
+three times: the load was not unseen (records' server log held 39 lines
+of the load, `log_min_duration_statement = 100ms`). Cause: chunk 8's
+`run_file` streamed a domain's files with no `UNSEEN_SQL` prelude, against
+master spec 9.2 and D265. Its other finding: `compose` read only the
+string form of a node's `brick:`. Driver: both are code brought to the
+spec, so gate fixes on `v0.5-w2` by a `coding-executor`, not an inserted
+chunk:
+- `e5d158c` (chunk 8): `stream_files(paths, prelude=)`; `run_file` and
+  `create_database_sql` start with `UNSEEN_SQL`: each domain's
+  `schema.sql`, the core's `keys.sql` + `load.sql`, each partner
+  `data.sql`, the `CREATE DATABASE` sessions. v0.4's node data files are
+  unchanged: no spec says they run unseen. The composed test load now
+  asserts records' and partners-db's logs and `pg_stat_statements` hold
+  none of the domain or partner statements, and a guard that a data
+  file's `CREATE DATABASE office` is still logged (the assertion failed on
+  the unfixed code). 2 OK in 10.7 s.
+- `5900212` (chunk 2): `compose._brick_id` reads the mapping form `{id,
+  version}` (the loader's) as well as the fixtures' `api@0.1.0`;
+  `test_bricks_in_the_mapping_form`. `compose`'s refusal of a scenario
+  lacking a node for one of the domain's producer folders is the stated
+  rule (W1-w; master spec 5, 8.4): `fixture-core` gains a `pms` node
+  rather than a hand-copied fragment.
+Unit suite 1092 OK (2 skipped). One trace left: the brick's
+`log_temp_files = 0` still writes "temporary file" lines (no statement
+text) from a big unseen session. **Driver**: the unseen prelude turns
+temp-file logging off as well (next fix).
+- `26bcbba` (chunk 8): `NO_LOG_SQL` ends with `SET log_temp_files = -1`
+  (every session it starts runs as `postgres`), and `CHECK_ROLE_SETTINGS`
+  gains `log_temp_files = -1` for `gm_check`'s remote sessions (set by a
+  superuser, cleared on reset). The composed test load (server at
+  `log_temp_files = 0`, as the seeds) forces a spill with and without the
+  prelude and asserts only the plain session's temporary file is logged,
+  and that `gm_check` logs in with `-1` (the mutation fails as expected).
+  Unit suite 1092 OK.
