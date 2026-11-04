@@ -5,7 +5,8 @@
 #
 # On a copy of tools/tests/fixtures/fixture-instances (bastion, db,
 # reporting) to which it adds the transformer node bi (breaches/bi/, with
-# the `aging:` a scheduler node requires): fit -> render --handover ->
+# the `aging:` a scheduler node requires) and, on db, the option
+# monitoring (v0.5, the role g2-own-role-kept grants): fit -> render --handover ->
 # deploy -> load-data, never inject nor start-load, so no scheduler job
 # runs and nobody triggers one; then:
 #   - one compliant outbox row sent now, CHECK_SINCE a minute before it;
@@ -88,6 +89,9 @@ s = yaml.safe_load(open(d / "scenario.yaml"))
 s["nodes"].append(yaml.safe_load(open(d / "breaches/bi/node.yaml")))
 s["aging"] = {"minimum": "8h", "handover_at": "14:00"}
 s["designed_for"]["placement"]["bi"] = "host-1"
+# v0.5 (master spec 7.1, options): the monitoring role exists only on a node
+# choosing the option; breaches/g2-own-role-kept.sql grants it on db.
+next(n for n in s["nodes"] if n["name"] == "db")["options"] = ["monitoring"]
 yaml.safe_dump(s, open(d / "scenario.yaml", "w"), sort_keys=False)
 EOF
 
