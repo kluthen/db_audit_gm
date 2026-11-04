@@ -4154,3 +4154,17 @@ results about 161 000 not 192 000, batches 9 776 not 22 000, intervals
 (`lab_instruments` on `lab_orders (id, species, priority)` and
 `lab_tests (id, code, discipline)`; `lab_dispatch` the catalogue). A fresh
 owner resumes 12b.
+
+### vet-lab's document to 12a as built (D415), 2026-11-04
+
+`spec-writer` (7b2783d): `vet-lab-domain.md` and master spec 9.3 —
+`lab_samples` about 20 800, no fixed range; results about 161 000 (range
+1–192 000 kept, the sequence set after it), batches about 9 800,
+intervals 61–456 in force, about eight send-outs open at T0 (the
+practices'); sample events about 63 000; the load about 0.33 million
+rows; `lab_instruments` and `lab_dispatch` grants as built. No trap or
+fault witness quotes them. **For wave 4's capture (chunk 18)**:
+`clinic-purposes.md` SO4 still reads "about twenty send-outs in flight at
+T0"; it should read about eight, the practices', so the answer leg has
+little to judge at T0 until new send-outs arrive. Left as is: QC runs
+7 861 (document 7 000), amendments 813 ("a thousand").
