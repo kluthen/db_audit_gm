@@ -235,7 +235,7 @@ Rules:
 
 ## Domain folder — `domains/<domain-id>/` (from v0.4; composed domains from v0.5)
 
-As `specs/formats.md` "Domain" lays it out (v28):
+As `specs/formats.md` "Domain" lays it out (v29):
 
 ```
 <domain-id>/
@@ -248,6 +248,10 @@ As `specs/formats.md` "Domain" lays it out (v28):
     <database>/load.sql       database, in place of the two files above
     derive.sql              from v0.5, optional: a derivation step the GM may
                               sanction (domain.yaml derive)
+    keys.sql                from v0.5, optional, a core's: its key functions,
+                              pg_temp.core_*                (template: keys.sql)
+    coherence.yaml          from v0.5, optional: the post-load coherence queries
+                                                               (template: coherence.yaml)
     classification.yaml     every classed column           (template: classification.yaml)
     register.yaml           from v0.5: the register fragment, one entry per
                               activity                     (template: register.yaml)
@@ -261,11 +265,12 @@ As `specs/formats.md` "Domain" lays it out (v28):
     api/<node>/             from v0.5: an api node the domain owns: its api.yaml
                               fragment (D345; template: api.yaml), routes/ (the
                               endpoints), db/ (their database side)
-    partners/<partner>/     from v0.5: a partner's back-end fragments at its root,
-                              its api.yaml, routes/ and db/
-    public/<name>/          from v0.5, optional: a traffic source that is no
-                              business (the owners' browsers), in place of
-                              partners/<name>/, the choice made at the build
+    partners/<prefix>/      from v0.5: a partner's back-end fragments at its root,
+                              its api.yaml, routes/ and db/, and optionally
+                              data.sql, its tables and state in the partners'
+                              database                     (template: partner-data.sql);
+                              the owners' traffic, no business, is
+                              partners/owners/ (D369; public/ is reserved, unused)
   variants/
     <variant>.yaml          from v0.5: a variant's manifest (a part: its own axes)
                                                                (template: variant.yaml)
@@ -278,11 +283,15 @@ As `specs/formats.md` "Domain" lays it out (v28):
 Rules:
 
 - The id is `[a-z][a-z0-9-]*`, the folder's name; no `version`, never
-  bumps; looked up in the catalog only. A domain is a design-time source:
-  the GM copies its files into a scenario, adapting them, and
-  `scenario.yaml`'s `domain:` names it for provenance; from v0.5 a
-  composed scenario's `domains:` names each with its `at:`, and `gmctl
-  compose` merges its producer fragments. A static scenario needs none.
+  bumps; looked up in the catalog only. In the one-domain form
+  (`domain:`) it is a design-time source: the GM copies its files into a
+  scenario, adapting them, and `scenario.yaml`'s `domain:` names it for
+  provenance. From v0.5 a composed scenario's `domains:` names each with
+  its `at:`; `gmctl compose` merges its producer fragments into the
+  scenario, but its data files (`schema.sql`, `load.sql`, `keys.sql`,
+  `derive.sql`, each partner's `data.sql`, `coherence.yaml`) are never
+  copied: `load-data` reads them from the catalogue at every load. A
+  static scenario needs none.
 - `schema.sql` and `load.sql` follow the data-load contract below;
   copied into a scenario they make its data file, `schema.sql` first.
   `load.sql` may read the two `psql` variables the data load passes.

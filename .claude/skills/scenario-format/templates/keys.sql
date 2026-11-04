@@ -15,9 +15,9 @@
 --     up in pg_temp unqualified); it vanishes with the session, so nothing
 --     reaches the catalog the players read;
 --   - the file creates nothing else: no table, no role, no SET;
---   - IMMUTABLE, but for a function computing a time from its load_epoch
---     argument (STABLE then); a load passes :'load_epoch'::timestamptz,
---     never now();
+--   - IMMUTABLE, a pure function of its arguments, a function computing a
+--     time included: it takes load_epoch as an argument (D379); a load
+--     passes :'load_epoch'::timestamptz, never now();
 --   - each function is listed in docs/gm.md's "Core keys", with its
 --     arguments, what it returns and this file's formula; a part names those
 --     it relies on in its "Core keys used", and the composition record's
@@ -28,4 +28,4 @@ CREATE FUNCTION pg_temp.core_<animal>(n integer) RETURNS integer
   LANGUAGE sql IMMUTABLE AS 'SELECT <1000000> + n';
 
 CREATE FUNCTION pg_temp.core_<admitted>(n integer, load_epoch timestamptz) RETURNS timestamptz
-  LANGUAGE sql STABLE AS 'SELECT load_epoch - n * interval ''<1 day>''';
+  LANGUAGE sql IMMUTABLE AS 'SELECT load_epoch - n * interval ''<1 day>''';

@@ -2936,6 +2936,9 @@ def check_domain_dir(domain_dir, label_base=None):
         out.append(f"{label}: id: {data.get('id')} is not the folder name {domain_dir.name}")
     if not PURPOSE_ID_RE.match(domain_dir.name):
         out.append(f"{label}: id: {domain_dir.name} is not a domain id ([a-z][a-z0-9-]*)")
+    elif domain_dir.name == PARTNERS_DATABASE:
+        out.append(f"{label}: id: {PARTNERS_DATABASE} is reserved: it names the partners' "
+                   "database (a coherence check's reads), never a domain (W2 item 0)")
     if "databases" not in data:
         for key in ("schema", "load"):
             if key not in data:
@@ -4269,8 +4272,7 @@ PATH_NAME_RE = re.compile(r"%\(([A-Za-z_][A-Za-z0-9_]*)\)s")
 PATH_PERCENT_RE = re.compile(r"%(?!\([A-Za-z_][A-Za-z0-9_]*\)s|[0-9A-Fa-f]{2})")
 REPLICATION_HBA = ("host", "replication", "replicator", "samenet", "scram-sha-256")
 GM_HBA_LINES = (("local", "all", "postgres", "peer"), ("local", "replication", "postgres", "peer"),
-                ("local", "all", "gm_check", "scram-sha-256"),
-                ("host", "all", "gm_check", "samenet", "scram-sha-256"), REPLICATION_HBA)
+                ("local", "all", "gm_check", "scram-sha-256"), REPLICATION_HBA)
 CLOSING_HBA = ("host", "all", "all", "all", "reject")
 REGISTER_SEED_FILE = "data-register.md"   # the bastion's register handout (master spec 6.4)
 REGISTER_DIFF_KEYS = ("entry", "field", "true", "handed_out")
@@ -4965,6 +4967,12 @@ def _check_partner_access(data, nodes, bricks, faults, answer_key, third, apis, 
             continue
         for number, f in lines:
             if tuple(f) in GM_HBA_LINES or f[-1] == "reject":
+                continue
+            if f[0].startswith("host") and len(f) >= 3 and "gm_check" in f[2].split(","):
+                out.append(f"{rel}: line {number}: {' '.join(f)}: a third party's database "
+                           "admits gm_check over its own socket only (its local line), never "
+                           "from the network: no host line names gm_check (spec D383, access "
+                           "model 8)")
                 continue
             roles = f[2].split(",") if len(f) == 5 else []
             if len(f) == 5 and f[0] == "host" and f[1] == PARTNERS_DATABASE \

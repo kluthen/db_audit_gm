@@ -388,6 +388,20 @@ class TestComposedPlan(unittest.TestCase):
             path.write_text("CREATE DATABASE docs;\n" + path.read_text())
         case(load_creating_database, "domains/fx-docs/data/load.sql:1")
 
+        def partner_state_switching_database(sc, cat):
+            path = cat / "domains/fx-core/producers/partners/xlab/data.sql"
+            path.write_text(path.read_text() + "\\c partners\n")
+        case(partner_state_switching_database,
+             "domains/fx-core/producers/partners/xlab/data.sql:16: \\c partners: a partner's "
+             "data.sql runs connected to the partners' database (psql -d <db>, named "
+             ":\"DBNAME\"), never create one or \\connect to one")
+
+        def partner_state_creating_database(sc, cat):
+            path = cat / "domains/fx-core/producers/partners/xlab/data.sql"
+            path.write_text("CREATE DATABASE xlab;\n" + path.read_text())
+        case(partner_state_creating_database,
+             "domains/fx-core/producers/partners/xlab/data.sql:1: CREATE DATABASE xlab;")
+
         def missing_derive(sc, cat):
             (cat / "domains/fx-docs/data/derive.sql").unlink()
         case(missing_derive, "domains/fx-docs/data/derive.sql: missing file")

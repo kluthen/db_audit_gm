@@ -893,8 +893,8 @@ above), as `postgres`:
   `<prefix>` (`LOGIN`, no password: render's secret, set by
   `load-data`), the schema `<prefix>` it owns, the partner's tables and
   its planted state; like a schema, it never creates a database nor
-  `\connect`s, naming its database `:"DBNAME"` (the line scan reads only
-  the schema and load files in v0.5). A scenario composing a domain with one needs
+  `\connect`s, naming its database `:"DBNAME"` (`load-data` refuses
+  either, naming the line). A scenario composing a domain with one needs
   that `postgres` node (refused otherwise, naming the folder). Only
   `producers/partners/` holds one: `producers/public/` never holds a
   `data.sql`, which `load-data` never runs (D369; the loader refuses one
@@ -921,8 +921,7 @@ above), as `postgres`:
   history reading it from another node is refused (D383).
 - **Reserved names**: `pg_temp.core_*` functions are the core's;
   `gm_src_*` schemas and servers are `load-data`'s; `partners` names the
-  partners' database, never a domain id (not checked by the loader in
-  v0.5).
+  partners' database, never a domain id (the loader refuses one).
 
 ### Producer material
 

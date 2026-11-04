@@ -661,15 +661,16 @@ def _file(base, rel, where, catalog):
     return path
 
 
-def _check_connected(path, shown):
-    """A domain's schema or load file is run connected to its database (W2
-    item 3): GmError for one creating a database or switching to another."""
+def _check_connected(path, shown, what="a domain's schema and load run connected to their"):
+    """A domain's schema or load file, or a partner's data.sql, is run
+    connected to its database (W2 items 0 and 3): GmError for one creating
+    a database or switching to another."""
     with open(path, encoding="utf-8", errors="replace") as fh:
         for number, line in enumerate(fh, 1):
             if _CONNECT_RE.match(line) or model.data_file_creates(line, shown).databases:
-                raise GmError(f"{shown}:{number}: {line.strip()[:80]}: a domain's schema and load "
-                              "run connected to their database (psql -d <db>, named "
-                              ":\"DBNAME\"), never create one or \\connect to one")
+                raise GmError(f"{shown}:{number}: {line.strip()[:80]}: {what} database "
+                              "(psql -d <db>, named :\"DBNAME\"), never create one or "
+                              "\\connect to one")
 
 
 def partners_node(scenario, impl=None):
@@ -794,6 +795,9 @@ def composed_plan(scenario, impl, catalog_root=model.REPO_ROOT):
                 raise GmError(f"domains/{did}/producers/partners/{folder.name}/{PARTNER_DATA}: "
                               "a partner's state, but no third_parties: entry lists a database "
                               f"node holding {PARTNERS_DB}")
+            _check_connected(path, f"domains/{did}/producers/partners/{folder.name}/"
+                             f"{PARTNER_DATA}",
+                             "a partner's data.sql runs connected to the partners'")
             runs.append(FileRun(f"{did} producers/partners/{folder.name}/{PARTNER_DATA}", pnode,
                                 PARTNERS_DB, keys + [path]))
             partners.append((folder.name, pnode))

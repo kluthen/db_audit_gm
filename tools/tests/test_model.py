@@ -3428,6 +3428,21 @@ class TestThirdPartyRefusals(V05CopyTest):
             "nodes/partners-db/pg_hba.conf: line 12: host all all 0.0.0.0/0 trust",
             "nodes/partners-db/pg_hba.conf: its last line is not host all all all reject")
 
+    def test_their_database_admits_no_gm_check_host_line(self):
+        path = self.scenario / "nodes/partners-db/pg_hba.conf"
+        text = path.read_text().replace(
+            "local   all       gm_check                scram-sha-256\n",
+            "local   all       gm_check                scram-sha-256\n"
+            "host    all       gm_check    samenet     scram-sha-256\n")
+        path.write_text(text)
+        missing = "\n".join(self.assertRefused(
+            "nodes/partners-db/pg_hba.conf: line 9: host all gm_check samenet scram-sha-256: a "
+            "third party's database admits gm_check over its own socket only (its local line), "
+            "never from the network: no host line names gm_check (spec D383, access model 8)"))
+        self.assertNotIn("pg_hba.conf: line 8:", missing)
+        self.assertNotIn("line 9: host all gm_check samenet scram-sha-256: a third party's "
+                         "database admits no role", missing)
+
     def test_a_composed_partner_state_needs_their_database(self):
         out = []
         third = model.ThirdParties()
@@ -3871,6 +3886,16 @@ class TestDomainV05Refusals(V05ComposedTest):
         self.assertProblems(text, "producers/partners/xlab/extra.sql: not a fragment",
                             "producers/partners/north-lab/: north-lab is not a partner's prefix")
         self.assertNotIn("xlab/data.sql: not a fragment", text)
+
+    def test_partners_is_no_domain_id(self):
+        folder = self.catalog_root / "domains/partners"
+        shutil.copytree(self.catalog_root / self.DOMAIN, folder)
+        self.catalog_yaml("domains/partners/domain.yaml", lambda d: d.update(id="partners"))
+        text = "\n".join(model.check_domain_dir(folder))
+        self.assertIn("domains/partners/domain.yaml: id: partners is reserved: it names the "
+                      "partners' database (a coherence check's reads), never a domain (W2 item "
+                      "0)", text)
+        self.assertNotIn("is not the folder name", text)
 
 
 if __name__ == "__main__":
