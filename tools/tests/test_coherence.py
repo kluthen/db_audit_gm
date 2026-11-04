@@ -62,7 +62,7 @@ def game_dir(test):
 
 def write_role_secrets(ldir, plans):
     """A secret for each role the password step sets (render writes them in
-    a game: the domains' login roles once render reads model.node_creates)."""
+    a game, the domains' and the partner file's login roles included)."""
     for _, roles in plans.passwords:
         for _, secret in roles:
             (ldir / "secrets" / secret).write_text(f"pw-{secret}")
@@ -606,41 +606,56 @@ class TestPasswordPlanReadsNodeCreates(unittest.TestCase):
     """password_plan places a role connecting through another node (a
     pooler) on the database nodes where its database is created, as
     model.node_creates reads them from the catalogue load_plans passes
-    (W2 item 1, spec D360): a composed domain's at: database included."""
+    (W2 item 1, spec D360): a composed domain's at: database included; and
+    takes the login roles the domains and the partner file create from the
+    same catalogue (localimpl.data_login_roles, chunk 7)."""
 
     def setUp(self):
         self.scenario = scenario_of(FIXTURE)
         self.impl = impl_of(self.scenario)
+        self.target = None
 
     def connections(self):
-        conns = {"web": {"role": "docs_web", "target": self.target}}
+        conns = {"web": {"role": "docs_web", "target": self.target}} if self.target else {}
         return mock.patch.object(localimpl, "node_connections",
                                  lambda s, node: conns if node["name"] == "records" else {})
 
-    def placed(self, target, catalog_root):
+    def plan(self, catalog_root, target=None):
         self.target = target
         with self.connections():
             return {db: [r for r, _ in roles]
                     for db, roles in inject.password_plan(self.scenario, self.impl, catalog_root)}
 
+    def placed(self, target, catalog_root):
+        """The nodes the connection's role, docs_web, is set on."""
+        return sorted(db for db, roles in self.plan(catalog_root, target).items()
+                      if "docs_web" in roles)
+
     def test_a_database_a_domain_creates_is_its_nodes(self):
-        self.assertEqual(self.placed("pool:6432/docs", CATALOG), {"records": ["docs_web"]})
-        self.assertEqual(self.placed("pool:6432/clinic", CATALOG), {"records": ["docs_web"]})
+        self.assertEqual(self.placed("pool:6432/docs", CATALOG), ["records"])
+        self.assertEqual(self.placed("pool:6432/clinic", CATALOG), ["records"])
 
     def test_a_database_the_data_file_creates_is_its_nodes(self):
-        self.assertEqual(self.placed("pool:6432/partners", CATALOG), {"partners-db": ["docs_web"]})
-        self.assertEqual(self.placed("pool:6432/office", CATALOG), {"records": ["docs_web"]})
+        self.assertEqual(self.placed("pool:6432/partners", CATALOG), ["partners-db"])
+        self.assertEqual(self.placed("pool:6432/office", CATALOG), ["records"])
 
     def test_the_catalogue_is_the_one_passed(self):
         # The repository's catalogue holds no fx-docs: no node creates docs there.
         self.assertEqual(self.placed("pool:6432/docs", model.REPO_ROOT),
-                         {"records": ["docs_web"], "partners-db": ["docs_web"]})
+                         ["partners-db", "records"])
+
+    def test_the_login_roles_the_catalogue_creates(self):
+        self.assertEqual(self.plan(CATALOG), {"records": ["core_app", "ward_app", "docs_app"],
+                                              "partners-db": ["xlab"]})
+        self.assertEqual(self.plan(model.REPO_ROOT), {})
 
     def test_load_plans_passes_its_catalogue(self):
         self.target = "pool:6432/docs"
         with self.connections():
             plans = inject.load_plans(self.scenario, self.impl, CATALOG)
-        self.assertEqual([db for db, _ in plans.passwords], ["records"])
+        self.assertEqual({db: [r for r, _ in roles] for db, roles in plans.passwords},
+                         {"records": ["docs_web", "core_app", "ward_app", "docs_app"],
+                          "partners-db": ["xlab"]})
 
 
 class TestHelpers(unittest.TestCase):

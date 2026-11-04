@@ -426,8 +426,10 @@ def password_plan(scenario, impl, catalog_root=model.REPO_ROOT):
     v0.5 a composed domain or a partner `data.sql` from `catalog_root`,
     W2 item 1, spec D360), or on every `database` node when none is; then (v0.4 capture W1
     item 8) every role a node's `crontab_roles` names, on that node; then
-    (master spec 9.7) every login role a node's data file creates, on that
-    node; topology order, each role once per node."""
+    (master spec 9.7) every login role created on a node with no password
+    of its own (localimpl.data_login_roles, from the same `catalog_root`:
+    its data file's, then its domains' and partner files'), on that node;
+    topology order, each role once per node."""
     primaries = {n["name"]: localimpl.standby_of(n) for n in scenario.nodes
                  if localimpl.standby_of(n)}
     databases = [n["name"] for n in scenario.nodes
@@ -461,7 +463,7 @@ def password_plan(scenario, impl, catalog_root=model.REPO_ROOT):
     for node in scenario.nodes:
         if node.get("role") != DATABASE_ROLE:
             continue
-        for role in localimpl.data_login_roles(scenario, node):
+        for role in localimpl.data_login_roles(scenario, node, catalog_root):
             add(node["name"], role)
     return [(db, [(r, localimpl.role_secret_name(r)) for r in roles_of[db]])
             for db in databases if db in roles_of]
