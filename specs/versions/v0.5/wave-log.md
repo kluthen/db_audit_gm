@@ -3986,3 +3986,95 @@ composed load).
   unresolved. formats.md and master spec 5: G17, after the gate.
 
 Chunk 15 takes the slot.
+
+### W3 item 2, revised: chunk 13's stop settled (spec D408–D414), 2026-11-04
+
+Written by `spec-writer` from chunk 13's report, before chunk 30 and
+chunk 13's restart; plan v11. Where it differs from W3 item 2 or item
+0, it wins for chunks 13, 20, 21 and 30. The column-level text is in
+[vet-scheduling-domain.md](vet-scheduling-domain.md) ("The history on
+the agenda", "An inbound examination's booking", `sched_types`, the
+rooms' hours, `sched_free_slots`, the rota's lifecycle) and
+[vet-core-domain.md](vet-core-domain.md) ("The key functions"). Chunk
+30 records its as-built outcome as **W3-g**.
+
+Why the vet draw alone could not be fixed: on the core as merged
+(reference T0 2026-11-04 09:50 at +2, 17 395 scheduled consultations),
+even an optimal assignment of free section vets leaves 1 474 domestic
+scheduled consultations (11 %) with no vet free at their drawn times
+and lengths, and at 1 380 starts more domestic consultations are under
+way than all 25 section vets on shift: the domestic demand at weekday
+17:00–20:00, 09:00–10:00 and Saturday mornings exceeds the rota's vets.
+Re-timing the domestic shifts does not help (1 382 to 1 920 left), nor
+does option 2 (the booking's vet differing), which meets the same lack
+of vets. So the history caps the agenda, the only draw within the
+approved figures.
+
+- **(a) The agenda (D408; chunk 30 writes it, 13 reads it).** A
+  scheduled consultation sits in the half-hour slot (on the hour or
+  the half-hour, local) of its drawn time; the section's scheduled ones
+  of that slot, in id order, take its vets on a `day` shift covering
+  the slot with no absence, in an order hashed by the slot, while both
+  a vet and a consultation space are left (domestic 4, horse 3, farm
+  2); past that, no row. Started in the slot's first five minutes,
+  closed by its end. Measured on the same T0 as a half-hour count: 666
+  fewer (domestic 616, horse 35, farm 15), about 3.8 %. An unbooked
+  consultation takes an on-shift vet with no placed scheduled
+  consultation over it when one exists (all but about 110 emergencies a
+  year at the evening peak, which keep the present draw).
+- **(b) The attended bookings (D408, D410; chunk 13).** Booking `id` =
+  the consultation's; `starts_at` the slot's start, `ends_at` 30
+  minutes later; the vet allocation the consultation's `vet_id`; the
+  room the section's consultation space of the consultation's rank
+  among the slot's placed ones (id order; domestic 1–4, horse 8, 9, 10,
+  farm 12, 13); arrived at its `started_at`. The cancelled and no-show
+  consultation bookings (25 001–28 000), the theatre plans, imaging
+  bookings, blocks and session days are placed by the part's load in
+  what the agenda leaves free, a no-show's allocations live, a
+  cancelled one's released. The four exclusion constraints exist before
+  the load runs.
+- **(c) Consultation types and spaces (D410).** Every consultation type
+  30 minutes, on its room's half-hour grid; a type's room kind is its
+  section's consultation spaces as in (b); the procedure room and the
+  theatres take no consultation, but the farm's standing-surgery
+  theatre (13) is both a space and a theatre, so a farm theatre plan
+  avoids its consultations. The farm's rooms open Monday to Friday
+  08:00–16:00 (the core's farm consultations run to 16:00).
+- **(d) The rota (D411; corrects item 2's "The rota's published
+  weeks").** The load writes every shift from the history's first week
+  to the end of the seventh week after the week of the last Friday
+  12:00 before T0, `published_at` set (that week's Friday 12:00) on the
+  weeks published by then (to the end of the week after next from that
+  Friday), null on the later ones, which are planned. Each Friday
+  12:00, `sched.rota.publish` generates the seventh week after the
+  current one as planned shifts and publishes the week after next,
+  removing first its planned shifts a live absence covers; both steps
+  idempotent on (`staff_id`, `starts_at`). `sched_shifts.id` 1–24 000.
+  `sched_free_slots` reads planned and published shifts alike, so the
+  42-day horizon always meets the rota. Purpose 12 reads published,
+  clocked shifts only.
+- **(e) The slot function (D412).** Signature as item 2. A staff
+  member's kind, section and specialty from the core's layout copied
+  into its text (`core_staff`'s CASE, the GM notes saying the two are
+  one formula, as for the rota), never from the core's `staff`. For a
+  session type it returns a slot only when the course's number of
+  teaching animals of its species are free within their limits; it
+  returns no animal; the caller picks them (the lowest ids free), the
+  animals' exclusion constraint the guard.
+- **(f) The inbound examinations (D413; chunk 30 the function, 13 and
+  21 the mapping).** `core_exchange` gains `reason` and
+  `partner_species`, the values the core's load writes; the machine by
+  reason and species as vet-scheduling's "An inbound examination's
+  booking" maps it; a second opinion or an endoscopy a consultation
+  booking of the species' section. Purpose 11's `book-requests` reads
+  `exchanges.reason` and the species in `partner_patient` and maps
+  alike.
+- **(g) Grants (D414; corrects chunk 13's reading, item 0 stands).**
+  Master spec 9.2 and vet-core's grants give `vet_reports` the tables
+  of the parts in `clinic`, granted by their schemas: scheduling's
+  `schema.sql` grants `SELECT` on every `sched_` table to `vet_reports`
+  inside a `DO` block when the role exists (not in a database of its
+  own on an instance without the core). The domain document's grants
+  table now has the row.
+- **Unchanged**: item 2's tables and states, ids, slot function
+  signature, booking horizon and fixture.

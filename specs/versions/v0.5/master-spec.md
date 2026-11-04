@@ -38,7 +38,12 @@ traffic in `producers/partners/owners/` (9.7, 24; spec D369). On
 2026-11-04, the owner's ruling on the restore: a restart from the
 hand-over snapshot gives back every node as it was meant to run, a
 standby streaming from its primary again (7.1, 15, 18.2; spec D397,
-superseding D352's known limit).
+superseding D352's known limit). On 2026-11-04, two corrections chunk
+13 found, each settling the text against the rest of it: the history's
+scheduled consultations on the agenda's half-hour slots, never two of a
+vet at once, about 16 700 attended (9.4; spec D408); the rota planned to
+the booking horizon ahead of its publication, shifts 1–24 000 (9.4;
+spec D411).
 
 Baseline: the released [v0.4 master spec](../v0.4/master-spec.md) and
 its [access model](../v0.4/access-model.md). Everything v0.4 specifies
@@ -1630,13 +1635,15 @@ day after two (game values).
 | Key | Range, layout |
 |---|---|
 | `sched_rooms.id` | 1–16: 1–7 domestic, 8–11 horse (10 the arena), 12–13 farm, 14–16 training |
-| `sched_bookings.id` | 1–25 000 an attended history consultation booking, taking its core consultation's id (about 17 600, gaps elsewhere); 25 001–28 000 cancelled and no-show ones; 30 001–47 000 imaging, `30 000 + request id`; 47 001–48 300 theatre plans; 48 301–48 700 blocks; 48 701–49 000 session days; 49 001–50 000 the agenda ahead at T0 |
-| others | types 1–45, courses 1–16, allocations 1–60 000, shifts 1–21 000, sessions 1–125 (101–125 planned), trainees 1–750, enrolments 1–1 250 |
+| `sched_bookings.id` | 1–25 000 an attended history consultation booking, taking its core consultation's id (about 16 700, gaps elsewhere); 25 001–28 000 cancelled and no-show ones; 30 001–47 000 imaging, `30 000 + request id`; 47 001–48 300 theatre plans; 48 301–48 700 blocks; 48 701–49 000 session days; 49 001–50 000 the agenda ahead at T0 |
+| others | types 1–45, courses 1–16, allocations 1–60 000, shifts 1–24 000 (planned to the horizon), sessions 1–125 (101–125 planned), trainees 1–750, enrolments 1–1 250 |
 
 Of the core it computes, never reads: the staff layout within the 85;
 each history consultation's kind, section, vet and start as functions
 of its id, a scheduled one's `booking_id` its own id, its vet on shift
-by the rota's pattern; the teaching animals; the history's deaths by
+by the rota's pattern, the scheduled ones on the agenda's half-hour
+slots within the section's vets and consultation spaces, never two of a
+vet at once; the teaching animals; the history's deaths by
 animal id; the imaging requests' study code and priority by request
 id. The core gains a partial unique index on `consultations.booking_id`
 and loses its `consultations.open` stream: scheduled consultations open
@@ -1645,9 +1652,9 @@ from bookings checked in.
 #### Scale, roles, classification, rules
 
 One variant, `regional-franchise`, no tag added. A year growing from
-about 60 % of today's rate: 20 600 consultation bookings (17 600
+about 60 % of today's rate: 19 700 consultation bookings (16 700
 attended, 2 100 cancelled, 900 no-shows), 3 400 imaging, 1 250 theatre
-plans, 360 blocks, 100 sessions, 1 000 enrolments, 20 600 shifts, 600
+plans, 360 blocks, 100 sessions, 1 000 enrolments, 22 700 shifts, 600
 absences; about 0.11 million rows and 30 MB, 330 new rows and 200
 updates a day.
 
