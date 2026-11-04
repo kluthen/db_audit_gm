@@ -4781,3 +4781,33 @@ about 13 of the 30 minutes left; the owners' traffic low in a 6-minute
 watch (4–9 visits at intensity 10); `n_live_tup` on `portal_outbox`
 reads double. **For the gate**: the bastion, api and postgres images
 predate their bricks' last commits (rebuild and stack-test them).
+
+### Chunk 13 — merged (fa9a480), 2026-11-04
+
+The finishing owner (resumed once after the usage limit): 13b `5a3e192`
+(the WIP amended, with the test fixes), `ca38c80` merging `v0.5-w3` at
+af881c5 (the shared lists: `parts: [vet-lab, vet-housing, vet-machinery,
+vet-portal, vet-scheduling]`, the README row), merged `--no-ff` at
+`fa9a480`; worktree and `c13pg` removed, no stack left. `fixture-bookings`
+on the merged branch 39/39 in 1 186 s (T0 18:45:09Z, 09:45 local,
+Wednesday, shift −9): `load-data` 233 s, coherence six of six; scheduling
+20 MB, `clinic` 71 MB; 24 923 bookings, 51 655 allocations, 23 826 shifts,
+794 absences; an overlapping allocation refused `23P01`; the four
+exclusion constraints before the allocations; a booking through
+`sched_free_slots` (50002) and one 40 days ahead on a planned shift
+(50003); the cancellation releasing both allocations and the slot offered
+again; `sched.rota.publish` moved to the next minute (94 ms: 392 published,
+6 removed, 440 planned, 7 blocks), moved again with no duplicate; no live
+overlap, no error in `pms` or `interfaces`. A first run (30/6) found three
+test bugs, fixed: the `jobs.yaml` rewrite through `docker exec` without
+`-i` (the job never moved; now checked through `/run/scheduler/loaded`),
+a boolean read as `true` not `t`, `start-load` holding until 09:00 local.
+`fit` fits; unit suite 1153 OK, 2 skipped; `check_domain_dir` clean on
+all six clinic domains. **Gate item**: `fixture-bookings`' README was
+written by hand from the template, never generated with the
+`scenario-document` skill.
+
+**All wave 3's chunks merged**: 29, 14, 15, 12, 30, 16, 31, 13. Next: the
+wave gate (a `coding-executor`, verification level: wave gate), and
+`spec-writer` bringing vet-scheduling's and vet-portal's documents to as
+built.

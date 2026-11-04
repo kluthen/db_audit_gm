@@ -125,7 +125,7 @@ none is a gate.
 |---|---|---|---|
 | 1 | 1, 2, 3, 4, 5 | G1; G2 (done); G3, G4; G5 (chunk 3), G6 (chunk 5), G7 (chunk 4, if a package); G8 before its gate | merged into `main` (2026-11-04, 167fec0) |
 | 2 | 6, 7, 8, 9, 10, 11, 28 | wave 1; G9 (chunk 10); G10 before its gate; chunk 28 after the gate, the items it touches rerun (spec D398) | merged into `main` (2026-11-04, f89eb73) |
-| 3 | 12, 13, 14, 15, 16, 29, 30, 31 | wave 2; chunk 30 before chunk 13 (spec D409); chunk 31 before 16b's restart (spec D421): eight chunks, two past the model's six: the three insertions are small (29 from the preflight, 30 and 31 each a gap a running chunk found) and each unblocks a part of this wave, so none can wait for wave 4 | in progress (started 2026-11-04) |
+| 3 | 12, 13, 14, 15, 16, 29, 30, 31 | wave 2; chunk 30 before chunk 13 (spec D409); chunk 31 before 16b's restart (spec D421): eight chunks, two past the model's six: the three insertions are small (29 from the preflight, 30 and 31 each a gap a running chunk found) and each unblocks a part of this wave, so none can wait for wave 4 | chunks merged; wave gate (2026-11-04) |
 | 4 | 17, 18, 19, 20, 21 | wave 3 | planned |
 | 5 | 22, 23, 24, 25, 26, 27 | wave 4; G14 (chunk 27, only if it applies) | planned |
 
@@ -1274,7 +1274,8 @@ the partners' stubs' tables on `partners-db`.
 
 ### Chunk 13 — `vet-scheduling`, bookings, rota and the training centre
 
-Status: in progress (restarted after chunk 30)
+Status: merged (w3, fa9a480)
+Record: 13a a53f395, 13b 5a3e192, merged fa9a480 (stopped once before code, settled by D408–D414 and chunk 30; two owners after); fixture 39/39, 1 186 s; deviations recorded in the GM notes, sent to `spec-writer` (wave log, chunk 13 paused).
 Wave: 3
 Depends on: chunks 4, 8 and 9 (waves 1 and 2); chunk 30, merged into
 `v0.5-w3` before this chunk's branch is cut (spec D409)
