@@ -17,7 +17,7 @@ roles:
   - monitoring                      # v0.3 master spec 6.4's closed list
 technology:
   name: grafana
-  version: "13.2.4"
+  version: "13.3.0"
 image: 127.0.0.1:5000/dbagm/grafana:0.3.0
 
 # --- Footprint --------------------------------------------------------

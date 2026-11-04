@@ -196,7 +196,7 @@ u=$(gm ps -o user= -C grafana | sort -u | tr -d ' ')
 ids=$(gm sh -c 'echo "$(id -u grafana):$(id -g grafana) $(getent group grafconf | cut -d: -f3)"')
 [ "$ids" = "472:472 473" ] && pass "grafana is 472:472, grafconf 473" || fail "ids: $ids"
 v=$(api GET /api/health | jq -r '.version + " " + .database')
-[ "$v" = "13.2.4 ok" ] && pass "/api/health: version 13.2.4, database ok" || fail "/api/health: $v"
+[ "$v" = "13.3.0 ok" ] && pass "/api/health: version 13.3.0, database ok" || fail "/api/health: $v"
 
 # --- administrator ---------------------------------------------------------------
 r=$(api GET /api/user | jq -c '{login, isGrafanaAdmin}')
