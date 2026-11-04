@@ -1,0 +1,31 @@
+# portal-api's fragment (v0.5 master spec 9.7; vet-portal-domain.md, "The
+# applications and their nodes"; capture W3 item 5; template:
+# .claude/skills/scenario-format/templates/api.yaml): the owners' portal, an
+# api node in the players' scope, only answering. Six endpoints under the
+# node's own hostname: session (POST /login, POST /logout), me (the account,
+# its channel, its consents, its closure), animals (the asker's animals and
+# an animal's documents), documents (one document, its view recorded) and
+# accounts (activation, the password reset, the unsubscribe link), all public
+# at the brick: an owner is known by the session cookie portal_session, which
+# the db/ side checks (portal_session) before setting portal.owner_id for the
+# request's transaction; the policies do the rest. desk (POST
+# /desk/consents) behind the desk's credential, portal_desk, sent by pms.
+# Read and written as portal_api, over TLS (the seed's pg_hba.conf: hostssl
+# portal portal_api). Written for the node names portal-api and records and
+# the database portal; the GM renames them as the scenario does.
+endpoints:
+  session:
+    hosts: [portal-api]
+  me:
+    hosts: [portal-api]
+  animals:
+    hosts: [portal-api]
+  documents:
+    hosts: [portal-api]
+  accounts:
+    hosts: [portal-api]
+  desk:
+    hosts: [portal-api]
+    credentials: [portal_desk]
+connections:
+  portal: {driver: sql/postgresql, target: records:5432/portal, role: portal_api, pool: {size: 4}}

@@ -4510,3 +4510,274 @@ Risks: the core's load about 35 % slower; the agenda relies on
 `vc_before` being exact, checked at both shifts only.
 
 Chunk 13 restarts from `v0.5-w3` (fresh owner).
+
+### Chunk 16 — 16a built, paused before 16b, 2026-11-04
+
+Owner paused at about 200k tokens. Branch `v0.5-c16-vet-portal` (worktree
+kept): 16a `2cd9479`, `62b452e` merging `v0.5-w3` at 8389dd6 (chunk 30
+in, no conflict); `c16pg` removed. `check_domain_dir` clean on the five
+domains. Load and derivation by hand, as `load-data` runs them
+(`derive.sql` reading `gm_src_vet_core`, `gm_src_vet_lab` as `gm_check`
+through postgres_fdw); the real `load-data` and `compose` path, with the
+`derive:` record, is 16b's fixture. Figures (`load_epoch` 08:50 local,
+Wednesday): shift 0 load 18 s, derivation 134–142 s, 78 MB, 241 900 rows;
++2 19 s / 130 s, same; after chunk 30, shift 0 17 s / 129 s, 77 MB,
+237 904 rows (38 973 documents, 65 032 views, 38 169 outbox rows); six
+coherence queries clean (`results-gated` rewritten: 158 s to 38 ms).
+Owner scope in SQL as `portal_api` with `portal.owner_id`: a seller 0
+rows of the horse sold, the buyer it and 8 of its 9 documents, a granted
+keeper the animal and 7 documents, a withdrawn or never-granted keeper 0,
+the setting unset 0 everywhere, another owner's document by id 0.
+Accounts: login `ok`; an old token (`session-1`) refused; the fifth wrong
+password `locked`, then the right one refused; an invitation token works
+once. `portal.sessions.purge` (`30 3 * * *`, `portal`,
+`portal_housekeeping`) registered by `data/cron.sql`; a forced pg_cron
+run needs `cron.use_background_workers = on` in `records`' seed (16b).
+
+**The keeper clause (W3 left it to the chunk)**: two `SECURITY DEFINER`
+helpers owned by `portal` (`STABLE`, `search_path = public, pg_temp`,
+`EXECUTE` for `portal_api` only): `portal_keeper_granted(animal,
+keeper)` (the current owner's latest `keeper-access` event for them is a
+grant) and `portal_owner_since(animal)`; `portal_animals_scope` an owner
+branch (`until_at IS NULL`, T270 drops it) and a keeper branch;
+`portal_documents_scope` through `portal_animals` and `record_at >=
+portal_owner_since(animal)` (T271 drops it). **The outbox's id order**:
+the load writes no outbox row; the derivation writes the year's outbox
+numbered 1..n by `queued_at`, ties by `message_key`, the sequence set
+after; the `outbox-order` coherence check enforces it; `message_key =
+md5('<template>:<account>:<reference>')::uuid`, a sent row's
+`provider_id = md5('messaging:' || message_key)::uuid`; one in fifty two
+attempts (a 503, then the same key); the last two minutes unsent.
+
+W3-e so far (chunks 21, 25): roles `portal` (NOLOGIN BYPASSRLS),
+`portal_api`, `portal_housekeeping` (LOGIN, `CONNECT` by name); RLS
+enabled and forced on all ten tables; policies `<table>_scope`, and
+`portal_sessions_purge`; no policy for the purposes' roles (chunk 21).
+**For W4 (chunk 21)**: `gm_check` sees no portal row (`pg_read_all_data`
+does not bypass RLS), so purpose 16's history reading `portal_outbox`
+through `gm_src_*` needs a `gm_check` policy on that table, which its
+`ddl:` can create; the coherence check, as `postgres`, is unaffected.
+Functions `portal_login(email, password)` → `(result, token)` (201, 401,
+423), `portal_session(token)`, `portal_logout(token)` (added: the
+sessions table has no grant), `portal_activate(token, password,
+reminders)`, `portal_request_reset(email)`, `portal_reset(token,
+password)`, `portal_unsubscribe(message_key)`, `portal_close()`,
+`portal_desk_consent(owner_id, purpose, granted)` (`reminders` only). One
+link slot (`invite_hash`, `invite_expires_at`) for an invitation's or a
+reset's link, a reset lasting 14 days. Tokens: invitations and resets
+`portal_hmac('<template>:<id>', key)`, sessions `portal_hmac('session-<rank>:<account>',
+key)`, passwords `portal_hmac('<id>', key)` stored bcrypt cost 6 with a
+deterministic salt; the key `portal_key(load_epoch)` only in
+`owners.settings` (`password_key`). Session ids from 39 301; links
+`https://portal.example.net/{activate,password-reset,documents,unsubscribe}/…`.
+Indexes `portal_ownerships_current_owner_idx` (T262),
+`portal_outbox_notice_idx`, `portal_outbox_reminder_idx` (T288),
+`portal_consent_events_keeper_idx` (T275), `portal_documents_animal_idx`
+(T294). Choices where the documents are silent (for `spec-writer` with
+16b's): `portal_logout`; the reset reusing the invitation's slot and
+life; the activation event only on a grant; the database settings in
+`schema.sql`, `pgaudit.log` left to the seed. Risks: the fixture's
+composed load about 6–7 minutes; `n_live_tup` on `portal_outbox` reads
+double (trust `count(*)`). A fresh owner resumes 16b.
+
+### Chunk 16b — paused for rotation (a5a1877), stopped on a tool gap, 2026-11-04
+
+On the owner's word (rotate), 16b's owner paused at WIP `a5a1877` (on
+62b452e). Built and tried in dev (api 0.1.0 under uvicorn against a
+loaded portal): `portal-api` (`session`, `me`, `animals`, `documents`,
+`accounts`, `desk`): owner scope through the API (seller 1 animal, not the
+horse sold, its documents 404; buyer the horse, 8 of 9; granted keeper 11;
+withdrawn and never-granted keepers 404; planted owner 6; another owner's
+document 404 every time); activation 200 then 401, login 201 with the
+`portal_session` cookie, four wrong 401, the fifth 423, then the right
+one 423, a past token 401; desk 201 (`portal_desk`), 422 for
+`keeper-access`, 401 without the credential; preferences, consents,
+unsubscribe, reset, logout (204, cookie cleared) as the GM notes list;
+1–10 ms each. The desk's `pms` fragment (connection `portal`, stream
+`portal.desk-consent` 0.28/h; `TestPortalDesk` 2 OK). The owners' traffic
+(`producers/partners/owners/`: `owners_tick`, six streams, `POST /tick
+{kind}`; `data.sql` gains `owners.accounts`, loaded equal to
+`portal_accounts`), not yet run end to end. `fixture-portal` drafted (8
+nodes, `derive:`, seven `left_out:`; `compose --check` passes; the short
+test never run; no README). Dev load at shift 0: core 124 s, lab 76 s,
+portal 20 s, derivation 128 s; 77 MB, 238 278 rows. Dev containers
+`c16pg`, `c16portal`, `c16owners` left for the next owner.
+
+**Stopped on a tool gap** (against W3 item 5's fixture): `compose._shared_nodes`
+finds `partners-api` and `partners-backend` only through a `third_parties:`
+entry listing them, and `model._check_api_nodes` requires the partners'
+api node to serve every listed third party's hostname; with both lab
+stubs left out and the messaging stub chunk 21's, no third party can list
+the shared nodes in `fixture-portal`, and listing the lab's two is
+refused ("no endpoint answers under northfield-lab / practices"). The
+owner's options: (a) a fix-sized inserted chunk on `tools/gm/`
+recognising the partners' nodes when only `owners` is served; (b)
+`lab-api` in place of `interfaces` and the lab's stubs composed for real;
+(c) a placeholder messaging third party (chunk 21's material). **Driver's
+ruling: (a)** — (b) changes the fixture chunk 21 builds on and returns
+when chunk 21 adds `interfaces`' purposes; (c) builds chunk 21's material
+early. Sent to `spec-writer` as an inserted chunk 31 for a
+`coding-executor`, ahead of 16b's restart.
+
+Choices where the documents are silent (for `spec-writer` with 16b's
+merge): `owners.accounts (account_id, email, status, link, activates_at)`
+(the route can't read `portal`); `PUT /me/preferences` through gm_api's
+private `_call` (the client has only `get()` and `post()`: for the api
+brick's next bump); constants as one-value choices; the document list
+including superseded versions, no herd listing route; the status codes
+(activation 200, logout 204, reset 202 and 401, desk refusal 422, a
+refused `keeper-access` 403); without the messaging stub resets are asked
+but never used; the desk 422 for a closed account's owner (about one call
+in thirty, an error in `pms`' log); `interfaces`' placeholder connection
+to `portal-api` (`interfaces.idle`, `GET /animals`).
+
+### Chunk 13 — paused for rotation (5c730b2), 2026-11-04
+
+On the owner's word, the restarted chunk 13's owner paused: branch
+`v0.5-c13-vet-scheduling` (cut at 8389dd6), 13a `a53f395` (GM notes,
+schema with the slot function, load, classification, register,
+governance, policy), 13b WIP `5c730b2` (`pms` fragments, coherence,
+variant manifest, `parts:` and the README row, `fixture-bookings`, 5
+nodes: bastion, records, clinic-api, pms, idle `interfaces`; README by
+hand from the template). `check_domain_dir` clean on the five domains;
+unit suite 1137 OK, 2 skipped. Loads (`c13pg`, the four exclusion
+constraints in place before the load): +2 (09:50 local, Wednesday) core
+121 s, part 99 s, 103 500 rows, 20 MB, 16 729 attended bookings (the
+core's placed count); shift 0 115 s / 92 s, 103 538 rows, 16 698. At +2
+24 922 bookings, 51 653 allocations, 23 826 shifts (21 793 published),
+794 absences. Six coherence queries clean at both shifts (slowest 1.8 s).
+The slot function about 150 ms a call; every `pms` key ran as
+`sched_app` (one fix: the trainee phone formula overflowed);
+`sched.rota.publish` in a transaction planned the seventh week (440),
+removed 6 absence-covered shifts, published 392 of the week after next,
+booked 7 blocks, a rerun changing nothing, its pattern equal to
+`core_shifts` for that week; `23P01` on `sched_allocations_staff_excl`
+and a booking 40 days ahead on a planned shift, both dry-run. **Left**:
+the fixture's short test (written, `sh -n` clean, never run; it places
+T0 in the 09:00 hour local, refusing a weekend; start at UTC minute
+40–45), then the final 13b commit and the merge.
+
+W3-b so far (chunks 20, 21): columns as W3 item 0 (`sched_bookings`
+`type_id`, `kind`, `animal_id`, `section_id`, `starts_at`, `ends_at`,
+`state`, `source`, `request_id`, `exchange_id`, `session_id`,
+`booked_at`, `booked_by`, `notes`, `arrived_at`, `cancelled_at`,
+`cancel_reason`; `sched_allocations` one of `staff_id`/`room_id`/
+`machine_id`/`animal_id`, `role`, `during` generated `'[)'`,
+`released_at`; `sched_shifts` with `published_at`, unique
+`sched_shifts_staff_start_key`; additions `sched_rooms.consultation_space`,
+`sched_types.staff` and `course_id`, `sched_machines.operator_kind` and
+`around_the_clock`); `sched_free_slots` as W3 item 2, slots in time
+order, `staff_ids` [vet], [operator], [surgeon, anaesthetist, nurse],
+[instructor], none for a block type, `EXECUTE` to `sched_app` only;
+booking ids: inbound examinations 28 000 + exchange id, imaging 30 000 +
+request id, the rest ahead of T0 49 001+; types 1–12 consultations,
+13–24 imaging, 25–27 surgery, 28–29 blocks, 30–45 sessions; machines 7,
+8, 11–15 around the clock, 9, 10, 16 Monday–Friday 08:00–18:00; blocks'
+`notes` `service: machine 7` etc. (the Friday job's idempotence); the
+booking horizon settled: the 42 days bind `sched_free_slots` only,
+session days and theatre plans inserted directly; grants: `sched_reports`
+and `vet_reports` (guarded) read every `sched_` table, `sched_app` writes
+bookings, allocations, absences, trainees, enrolments, updates only
+`published_at`, `clocked_in_at`, `clocked_out_at` on shifts and `state`
+on sessions.
+
+Deviations, for `spec-writer`: theatre plans about 800, not 1 250 (the
+core's agenda keeps the domestic surgeons consulting); shift ids can pass
+24 000 (a T0 between Friday noon and Sunday plans about 24 230; the
+sequence resumes past both); the inbound examinations' id range
+28 001–28 700 (the owner's choice); future absences recorded before T0;
+an urgent night MRI or scintigraphy booked on the next imaging day;
+equine sessions searching six weeks then the next course (the arena busy
+about half the weekdays); the load reads `vc_agenda`. A fresh owner
+runs the short test and merges.
+
+### Chunk 31 inserted (D421), 2026-11-04
+
+`spec-writer`: plan v12 (045cc6e), D421: with no `third_parties:` entry
+listing a scheduler or api node, the partners' shared nodes are the
+`no-access` nodes named `partners-backend` and `partners-api` (the plan's
+names for chunk 11's nodes); `compose` puts a composed
+`producers/partners/owners/` onto them, `partners-api` serving exactly
+`owners`, both joining the third parties' nodes for every out-of-reach
+check; with an entry listing them, every rule as today. Taken by the
+driver (a `composition.yaml` key naming them would change the format).
+Edges `29 ──> 31`, `31 ──> 16` (16b's restart and fixture only); wave 3
+eight chunks (row 3 says why). Peeks: no intent register, no data
+register, no dependency. Known limit: a scenario with the owners' route
+and no third party at all is still refused for the owners' `data.sql`
+(no v0.5 scenario is). 16b's restart merges `v0.5-w3` first and changes
+`fixture-portal`'s lab entries to `[partners-db]`. Chunk 31 dispatched
+to a `coding-executor`.
+
+### Chunk 31 — merged (b4c5221), 2026-11-04
+
+`coding-executor`: `d6ffc8f`, merged `--no-ff` at `b4c5221`, no conflict;
+worktree removed. Unit suite 1151 OK, 2 skipped (14 new tests; 12 fail on
+the old code). `TestOwnersAlone` (`test_compose.py`): the owners' route
+alone composes and loads (a copy of `fixture-lab-core`, third parties
+`[partners-db]`, `partners-api` serving `owners_tick` under `[owners]`
+only); the existing refusals unchanged; the new ones (a node missing, of
+another brick, not `no-access`; answering under another hostname or not
+under `owners`; a bastion seed file or route naming `partners-api`).
+`TestOwnersAloneLoader` (`test_model.py`). The skill's "Third parties"
+item gains "The owners alone".
+
+W3-h (for 16b and chunk 21): `model.owners_alone_nodes(data,
+left_out=frozenset(), catalog_root=REPO_ROOT) -> OwnersAlone | None`
+(`None` when an entry lists a scheduler or api node, or no composed
+`producers/partners/owners/` is left in; else `OwnersAlone(scheduler,
+api, routes, problems)`); constants `PARTNERS_BACKEND_NODE`,
+`PARTNERS_API_NODE`, `OWNERS_ROUTE`; `model.node_brick_id` (compose's
+`_brick_id` moved). The loader reports the helper's problems too (a stale
+`nodes/` refused); both nodes required whenever an owners' route is
+composed. **For `fixture-portal`**: both lab entries list `[partners-db]`
+only; `partners-api` and `partners-backend` kept (`no-access`, api and
+scheduler); compose again; `partners-db`'s `pg_hba.conf` admits `owners`
+on `partners`; the header comment updated. Risk: `inject.py` and
+`localimpl` find partner nodes through `third_parties:` entries and may
+not see these two; 16b's deployment shows it.
+
+16b restarts on its paused branch.
+
+### Chunk 16 — merged (1ee1a8d), 2026-11-04
+
+16b by a fourth owner (resumed once after the account's usage limit):
+`56b86a5` merging `v0.5-w3` at 5e51776 (one conflict in
+`tools/tests/test_compose.py`, both `TestPortalDesk` and chunk 31's
+`OwnersAloneCase` kept), `207e548` the final 16b commit, merged `--no-ff`
+at `1ee1a8d`; worktree and every `c16*` container and `c16net` removed.
+`check_domain_dir` clean. `fixture-portal` per W3-h (both lab entries
+`[partners-db]`; `partners-db`'s `pg_hba.conf` already admitting
+`owners`); the `derive:` entry needed a `reason` (the loader requires
+one). Chunk 31's risk did not come up (secrets, mounts, `pg_hba`, the
+back end's credential all worked with no third party listing the two
+nodes). Through `load-data`: the core, the lab and its partners'
+`data.sql`, the portal, the owners' `data.sql`, `cron.sql`, then the
+derivation unseen; 11/11 coherence checks. Short test 61/61 in 1008 s (T0
+Wed 11:23 local, shift −6; a first run 1038 s with one script bug,
+fixed): owner scope through the API (planted owner 6 documents; seller
+omits horse 234, 404; buyer 8 of 9; keeper with consent 11; withdrawn and
+never-granted 404; another owner's document 404; 401 without a cookie);
+activation 200 then 401, login 201 with the HttpOnly cookie, the fifth
+wrong password 423 and the right one then 423, a past token 401, the desk
+201 / 401; `portal_api` over TLS; in 360 s after T0, 36 calls by 9
+accounts, every document opened a `portal_views` row, every login a
+session, every listing equal to the policy; `portal-api` 84 requests, 0
+errors. The owners' tick in dev: six kinds 200, `PUT /me/preferences`
+through `_call` 200, 401 without or with a wrong bearer, 422 for an
+unknown kind, 2–49 ms a tick. Unit suite 1153 OK, 2 skipped. `fit` 2 CPU
+/ 4G / 8G (the hand-over snapshot 10.84G of 8G: a fixture's, fine).
+
+Figures: the composed load and derivation through `load-data` 632 s and
+603 s (`portal` 78 MB, `clinic` 48 MB, `lab` 54 MB); reference loads after
+chunk 30 (08:50 local, shift 0 and +2 alike) load 17–18 s, derivation
+121 s, 77 MB, 237 904 rows (38 973 documents, 65 032 views, 38 169 outbox
+rows); the core ahead 118–119 s, the lab 73–75 s. W3-e additions:
+`owners.accounts.account_id` = `portal_accounts.id` = `owner_id`; about
+54 % of keeper ticks find a consent to change (222 of 414 active horse
+owners). Choices beyond the earlier list: the `derive` reason; two fixes
+in the short test. Risks: the fixture's composed load about 10 minutes,
+about 13 of the 30 minutes left; the owners' traffic low in a 6-minute
+watch (4–9 visits at intensity 10); `n_live_tup` on `portal_outbox`
+reads double. **For the gate**: the bastion, api and postgres images
+predate their bricks' last commits (rebuild and stack-test them).

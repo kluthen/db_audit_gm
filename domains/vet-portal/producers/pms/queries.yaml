@@ -1,0 +1,16 @@
+# Query repository of the practice-management software, vet-portal's
+# fragment (v0.5 master spec 9.7; vet-portal-domain.md, "Rates at intensity
+# 1.0"; capture W3 item 5): the desk's one call, prefixed portal, on the
+# connection portal (HTTP, portal-api, as portal_desk). An existing owner (2
+# to 10 000, the core's owners but the clinic) and the reminders' consent
+# granted (two in three) or withdrawn: portal_desk_consent writes the event
+# (source desk) and the account's flag beside it, an invited account's too; a
+# closed account's owner (about one call in thirty) answers 422, an error
+# counted in pms's log, as the desk is refused for an account that is gone.
+queries:
+  portal.desk-consent:
+    call: POST /desk/consents
+    params:
+      owner_id: {int: [2, 10000]}
+      purpose: {choice: [reminders]}
+      granted: {choice: {true: 2, false: 1}}

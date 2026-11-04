@@ -468,7 +468,20 @@ The rules from v0.5 (v0.5 master spec 6.2, 6.3, 6.8, 7.1, 8.4, 8.5, 10,
   hostname on an entry with `nodes: []` aliases nothing. A composed
   domain with a partner `data.sql` needs the partners' `postgres` node,
   unless `composition.yaml`'s `left_out:` names that partner's folder
-  (then skipped when the scenario has none).
+  (then skipped when the scenario has none). **The owners alone** (spec
+  D421): when no entry lists a scheduler or `api` node and a composed
+  domain's `producers/partners/owners/` is not left out, the nodes named
+  `partners-backend` (a `scheduler` node) and `partners-api` (an `api`
+  node), each `no-access`, are the partners' shared nodes with no entry
+  listing them (the entries list `[partners-db]`, the owners' `data.sql`
+  needing it): `compose` puts the owners' route alone onto them, and the
+  loader counts both among the third parties' nodes for every rule above
+  (the bastion's routes and seed files, expected fixes, roles theirs
+  alone, monitoring), `partners-api` answering under `owners` only.
+  Either node missing, of another brick or not `no-access` is refused,
+  naming it; any other partner folder composed then is refused as
+  without the nodes. A purpose's `receiver` or `partner` still names a
+  node an entry lists (the owners are no party).
 - **Options** (`options:` on a node): a non-empty list of unique option
   names the node's brick declares (`[monitoring]` on `postgres` 0.5.0),
   off unless listed; `[]` is refused. Every node an exporter or another
@@ -1162,7 +1175,9 @@ composition beside `scenario.yaml`:
   `endpoints.<name>`, a file by name), the domain layer (each composed
   domain's `producers/<node>/` and `producers/api/<node>/`, every
   `producers/partners/<partner>/` onto the shared back end and `api` node
-  the `third_parties:` entries list), the variant layer
+  the `third_parties:` entries list, or with none listing either a
+  domain's `producers/partners/owners/` alone onto `partners-backend` and
+  `partners-api`, "Third parties" above), the variant layer
   (`variants/<variant>/producers/`) and the scenario layer
   (`compose/<node>/`: the purposes' material the GM adds, each scheduler
   node's `intensity` and `timeline`). Identical units merge silently; a

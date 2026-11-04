@@ -1,0 +1,51 @@
+# schedule.yaml of the owners' traffic, a fragment for partners-backend (v0.5
+# master spec 9.7, 10.2; vet-portal-domain.md, "Rates at intensity 1.0",
+# "The business hours"; capture W3 item 5; spec D369; partners/README.md):
+# its six ticks on its hostname with the credential partners_backend, each a
+# key owners.<kind> calling POST /tick with {kind}. No owners.normal stream
+# and no owners.state: the owners are no third party (master spec 10.2). The
+# rates at 1.0 before the shape (owners-day, 16.2 a day's weight): about 150
+# visits a day, the activations and unsubscribes capacities (a tick with
+# nothing due does nothing), about 5 resets, 1.3 keeper's grants, a closure
+# every four days.
+connections:
+  owners-tick:
+    driver: http
+    target: owners:8000
+    credential: partners_backend
+    pool: 1
+    timeout: 30s
+streams:
+  - key: owners.visit                # about 150 a day
+    connection: owners-tick
+    rate: 9.3/h
+    arrivals: poisson
+    shape: owners-day
+  - key: owners.activate             # a capacity: about 9 a day, following the invitations
+    connection: owners-tick
+    rate: 4/h
+    arrivals: even
+    shape: owners-day
+  - key: owners.reset                # about 5 a day
+    connection: owners-tick
+    rate: 0.31/h
+    arrivals: poisson
+    shape: owners-day
+  - key: owners.unsubscribe          # a capacity: about 1 a day
+    connection: owners-tick
+    rate: 2/h
+    arrivals: even
+    shape: owners-day
+  - key: owners.keeper               # about 1.3 a day
+    connection: owners-tick
+    rate: 0.08/h
+    arrivals: poisson
+    shape: owners-day
+  - key: owners.close                # one every four days
+    connection: owners-tick
+    rate: 0.015/h
+    arrivals: poisson
+    shape: owners-day
+shapes:
+  owners-day:                        # every day: quiet nights, the evening peak
+    hours: {"00-06": 0.1, "07-08": 0.5, "09-17": 0.8, "18-21": 1.6, "22": 0.8, "23": 0.1}

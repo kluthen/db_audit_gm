@@ -1186,3 +1186,15 @@ D337, D341, D359, D371 and D392 were reserved and never used). Take the next num
   "twenty" send-outs at T0 corrected to D415's eight. Now in:
   [vet-lab](versions/v0.5/vet-lab-domain.md#application-roles-and-grants)
   (grants, jobs, the practices); master spec 9.3; [purposes](versions/v0.5/clinic-purposes.md) (SO4).
+- **D421 (2026-11-04, chunk 16b's stop, the driver's ruling (a)): Chunk
+  31 inserted into wave 3 for a `coding-executor`, ahead of 16b's
+  restart (`31 ──> 16`): with no `third_parties:` entry listing a
+  scheduler or `api` node, `compose` and the loader take the `no-access`
+  nodes `partners-backend` and `partners-api` as the partners' shared
+  nodes when the only partner material composed onto them is a domain's
+  `producers/partners/owners/`, serving `owners` alone.** The names are
+  the plan's (chunk 11's nodes): the scenario says nothing else that finds
+  them. Rejected: (b) `lab-api` and the lab's stubs composed for real
+  changes the fixture chunk 21 builds on; (c) a placeholder messaging
+  party builds chunk 21's material early. Now in: [build plan](versions/v0.5/build-plan.md)
+  ("Waves", chunks 16, 31).

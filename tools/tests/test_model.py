@@ -10,6 +10,7 @@ import yaml
 
 from tools.gm import fit, localimpl, model, render
 from tools.tests import REPO_ROOT, FIXTURES, FIXTURE_SCENARIO, ScenarioCopyTest
+from tools.tests.test_compose import OwnersAloneCase
 
 FIXTURE_MOUNTED = FIXTURES / "fixture-mounted"
 FIXTURE_MONITORING = FIXTURES / "fixture-monitoring"
@@ -3615,6 +3616,82 @@ class TestApiNodeRefusals(V05CopyTest):
                            f"{self.LAB}: connections.back.target: nowhere:8000: nowhere is "
                            "neither a node",
                            f"{self.LAB}: extra: not a key of api.yaml")
+
+
+class TestOwnersAloneLoader(OwnersAloneCase):
+    """The loader with no third_parties: entry listing a scheduler or api
+    node (spec D421; build plan chunk 31): partners-api and partners-backend,
+    composed with a domain's owners' route alone, are the partners' shared
+    nodes, partners-api serving exactly owners, both out of the players'
+    reach; with an entry listing them, every rule as before."""
+
+    API = "nodes/partners-api/api.yaml"
+
+    def setUp(self):
+        super().setUp()
+        self.compose()
+        self.assertEqual(self.problems(), "")
+
+    def edit_api(self, change):
+        path = self.scenario / self.API
+        data = model.strict_load(path.read_text())
+        change(data)
+        path.write_text(yaml.safe_dump(data, sort_keys=False))
+
+    def test_answering_under_another_hostname(self):
+        self.edit_api(lambda d: d["endpoints"]["owners_tick"].update(hosts=["owners", "practices"]))
+        self.assertIn(f"{self.API}: endpoints answer under practices: the partners' node serving "
+                      "the owners alone (no third_parties: entry lists it) answers under owners "
+                      "only (spec D421)", self.problems())
+
+    def test_not_answering_under_owners(self):
+        self.edit_api(lambda d: d["endpoints"]["owners_tick"].update(hosts=["northfield-lab"]))
+        problems = self.problems()
+        self.assertIn(f"{self.API}: no endpoint answers under owners: the partners' node serving "
+                      "the owners alone (no third_parties: entry lists it) serves exactly owners "
+                      "(spec D421)", problems)
+        self.assertIn(f"{self.API}: endpoints answer under northfield-lab: the partners' node",
+                      problems)
+
+    def test_a_bastion_seed_file_naming_partners_api(self):
+        with (self.scenario / "player" / "README.md").open("a") as f:
+            f.write("\nThe owners' portal traffic comes from partners-api.\n")
+        self.assertIn("player/README.md: names node partners-api, a third party's: the partners' "
+                      "nodes are not among the starter pack's nodes", self.problems())
+
+    def test_a_bastion_route_to_partners_api(self):
+        self.scenario_yaml(lambda d: self.node(d, "bastion")["parameters"].update(
+            web_routes={"owners": "partners-api:8000"}))
+        self.assertIn("scenario.yaml: nodes[bastion].parameters.web_routes.owners: partners-api "
+                      "is a third party's node", self.problems())
+
+    def test_either_node_missing_or_unfit(self):
+        def drop(d):
+            d["nodes"] = [n for n in d["nodes"] if n["name"] != "partners-backend"]
+            d["designed_for"]["placement"].pop("partners-backend")
+        self.scenario_yaml(drop)
+        self.scenario_yaml(lambda d: self.node(d, "partners-api").update(
+            write_policy="read-only"))
+        problems = self.problems()
+        self.assertIn("scenario.yaml: nodes: no node partners-backend: the owners' route "
+                      "(domains/vet-lab/producers/partners/owners/) goes onto the partners' "
+                      "shared nodes partners-backend and partners-api", problems)
+        self.assertIn("scenario.yaml: nodes[partners-api]: write_policy read-only, not "
+                      "no-access", problems)
+        # not the partners' node: in the players' scope, it answers under its own name only
+        self.assertIn(f"{self.API}: endpoints.owners_tick.hosts: ['owners']: a node in the "
+                      "players' scope answers under its own name only", problems)
+
+    def test_with_an_entry_listing_them_every_rule_as_before(self):
+        def list_them(d):
+            for entry in d["third_parties"]:
+                entry["nodes"] = ["partners-api", "partners-backend", "partners-db"]
+        self.scenario_yaml(list_them)
+        problems = self.problems()
+        for host in ("northfield-lab", "practices"):
+            self.assertIn(f"{self.API}: no endpoint answers under {host}, a third party's "
+                          "hostname (third_parties:)", problems)
+        self.assertNotIn("spec D421", problems)
 
 
 class TestRegisterDiffRefusals(V05CopyTest):
