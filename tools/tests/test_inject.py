@@ -1236,7 +1236,8 @@ class TestDataLoginRoles(unittest.TestCase):
         node = {"name": "db", "data": {"file": "data/db.sql"}}
         created = model.data_file_creates("CREATE ROLE dba LOGIN;\nCREATE ROLE pg_x LOGIN;\n"
                                           "CREATE ROLE app LOGIN;\n", "data/db.sql")
-        with mock.patch.object(localimpl, "node_data_file_creates", lambda sdir, n: created):
+        with mock.patch.object(localimpl, "node_creates",
+                               lambda sdir, data, n, catalog_root=None: created):
             self.assertEqual(localimpl.data_login_roles(scenario, node), ["app"])
 
 
@@ -1348,7 +1349,8 @@ class TestApiNodesConnectionRoles(unittest.TestCase):
         ]
         bricks = {n["name"]: types.SimpleNamespace(id=n["brick"]["id"], data={"secrets": []})
                   for n in self.nodes}
-        self.scenario = types.SimpleNamespace(dir=self.dir, nodes=self.nodes, bricks=bricks)
+        self.scenario = types.SimpleNamespace(dir=self.dir, nodes=self.nodes, bricks=bricks,
+                                              data={"nodes": self.nodes})
         self.impl = {"game_id": "g", "nodes": {n["name"]: {} for n in self.nodes}}
 
     def node(self, name):
@@ -1370,20 +1372,24 @@ class TestApiNodesConnectionRoles(unittest.TestCase):
                          {"clinic", "lab-api", "careless"})
 
     def test_the_secrets_mounted_on_the_api_node(self):
+        # and (v0.5 chunk 7, capture W2 item 2) the HTTP credentials it checks and sends
         names = [s["name"] for s in
                  localimpl.node_secret_declarations(self.scenario, self.node("lab-api"))]
-        self.assertEqual(names, ["role_lab_api_password", "role_portal_api_password"])
+        self.assertEqual(names, ["role_lab_api_password", "role_portal_api_password",
+                                 "http_interfaces_lab_api", "http_xlab_results"])
         sec = localimpl.node_secret_declarations(self.scenario, self.node("lab-api"))[0]
         self.assertEqual((sec["path"], sec["uid"], sec["gid"], sec["mode"], sec["kind"]),
                          ("/opt/gm/secrets/role_lab_api_password", 0, 0, "0400", "password"))
         names = [s["name"] for s in
                  localimpl.node_secret_declarations(self.scenario, self.node("pms"))]
-        self.assertEqual(names, ["role_pms_app_password"])     # none for an HTTP connection
+        # no role secret for an HTTP connection, its credential's secret instead
+        self.assertEqual(names, ["role_pms_app_password", "http_interfaces_lab_api"])
 
     def test_the_game_has_their_secrets_and_none_for_http(self):
         secrets = [s["secret"] for s in localimpl.game_secrets(self.scenario)[0]]
-        self.assertEqual(secrets, ["role_pms_app_password", "role_lab_api_password",
-                                   "role_portal_api_password"])
+        self.assertEqual(secrets, ["role_pms_app_password", "http_interfaces_lab_api",
+                                   "role_lab_api_password", "role_portal_api_password",
+                                   "http_xlab_results"])
         self.assertFalse([s for s in secrets if "not_a_role" in s or "None" in s])
 
     def test_their_passwords_set_on_the_targeted_database_nodes(self):
@@ -1458,7 +1464,8 @@ class TestStandbyPlans(unittest.TestCase):
         ]
         bricks = {n["name"]: types.SimpleNamespace(id=n["brick"]["id"], data={"secrets": []})
                   for n in self.nodes}
-        self.scenario = types.SimpleNamespace(dir=self.dir, nodes=self.nodes, bricks=bricks)
+        self.scenario = types.SimpleNamespace(dir=self.dir, nodes=self.nodes, bricks=bricks,
+                                              data={"nodes": self.nodes})
         self.impl = {"game_id": "g", "nodes": {n["name"]: {} for n in self.nodes}}
 
     def test_helpers(self):

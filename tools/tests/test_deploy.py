@@ -10,8 +10,8 @@ import yaml
 from tools.gm import deploy, docker, execnode, fit, localimpl, render, state, teardown
 from tools.gm.model import GmError
 from tools.tests import REPO_ROOT, SUFFICIENT, FakeDocker, ScenarioCopyTest, run_gmctl
-from tools.tests.test_render import (MANAGER, VPS_ENDPOINT, WORKER, TwoHostScenario, V04Rendered,
-                                     handover_at)
+from tools.tests.test_render import (MANAGER, VPS_ENDPOINT, WORKER, AliasRendered,
+                                     TwoHostScenario, V04Rendered, handover_at)
 
 
 def mode(path):
@@ -963,3 +963,53 @@ class TestOverlayRange(TwoHostRendered):
         self.assertEqual(proc.stderr.strip(), "gmctl deploy: --overlay-range '10.20.0.0/25': "
                                               "narrower than /24, the size of a game's overlay "
                                               "subnet")
+
+
+# --- v0.5 chunk 7: the HTTP credentials (capture W2 item 2, spec D347) -------
+
+class TestHttpCredentialSecrets(AliasRendered):
+    """http_<credential>: a password not handed over (32 characters, the dba
+    alphabet), generated once per game and created once, however many nodes
+    mount it (fixture-alias: the caller and the partners' api node)."""
+
+    def setUp(self):
+        super().setUp()
+        self.fit()
+        self.render()
+        self.fake = FakeDocker()
+        self.result = deploy.deploy(self.scenario, "laptop", docker=self.fake, timeout=30,
+                                    sleep=lambda s: None)
+
+    def test_generated_once_mode_0600(self):
+        path = self.ldir / "secrets" / "http_xlab_status"
+        self.assertEqual(mode(path), 0o600)
+        text = path.read_text()
+        self.assertEqual(len(text), deploy.DBA_PASSWORD_LENGTH)
+        self.assertTrue(set(text) <= set(deploy.DBA_PASSWORD_ALPHABET))
+
+    def test_created_once_from_its_file(self):
+        creates = [call[-2:] for call in self.fake.called("secret", "create")]
+        sdir = str(self.ldir.resolve() / "secrets")
+        self.assertEqual([c for c in creates if c[0] == f"{self.gid}_http_xlab_status"],
+                         [[f"{self.gid}_http_xlab_status", f"{sdir}/http_xlab_status"]])
+
+
+class TestVaultCredentialSecret(RenderedGame):
+    """fixture-audit's db with a `vault_credential`: its http_ secret
+    generated and created as the role passwords are."""
+
+    def setUp(self):
+        ScenarioCopyTest.setUp(self)
+        # the target a node of the topology, as chunk 6's checks require (W2-a, HTTP)
+        self.edit_yaml("scenario.yaml", lambda d: self.node(d, "db").update(
+            parameters={"vault_target": "bastion:8000", "vault_credential": "cold_storage"}))
+        fit.fit(self.scenario, "laptop", **SUFFICIENT)
+        render.render(self.scenario, "laptop")
+        self.ldir = self.scenario / "local" / "laptop"
+        self.impl = localimpl.read_implementation(self.ldir)
+
+    def test_generated(self):
+        deploy.generate_credentials(self.ldir, self.impl)
+        text = (self.ldir / "secrets" / "http_cold_storage").read_text()
+        self.assertEqual(len(text), deploy.DBA_PASSWORD_LENGTH)
+        self.assertTrue(set(text) <= set(deploy.DBA_PASSWORD_ALPHABET))
