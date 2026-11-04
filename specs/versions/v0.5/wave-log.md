@@ -1642,7 +1642,8 @@ Master spec 8.5, 12.1 item 5, 15; formats.md "Composing domains".
   ```
 
   Run once, after the histories, as `postgres` in the domain's
-  database, `READ ONLY`, unseen; a check whose `reads` names a domain
+  database, `READ ONLY`, unseen (except a check whose `reads` names
+  `partners`: it runs in `partners` on the partners' node, D383); a check whose `reads` names a domain
   not composed is skipped and reported so (a cross-part check runs only
   when both are composed). A part carries its references to its core
   and the histories it shares (8.5); the core carries none. Any row
@@ -1810,8 +1811,8 @@ W2-f records; read by 12, 16, 18 to 21, 23, 26, 27). Master spec 10.2,
     against the manifest's range), a JSON list by `received_at`; `/` an
     HTML page with an inline SVG drawn by the route, the last five weeks
     per type, declared against received;
-  - the manifest: `coldstore.manifests (shipment_id text PRIMARY KEY,
-    type, source, name, rows_declared, rows_received, size, date_from,
+  - the manifest: `coldstore.manifests (shipment_id text, source,
+    PRIMARY KEY (source, shipment_id) (D381), type, name, rows_declared, rows_received, size, date_from,
     date_to, received_at)`;
   - planted: `wal` and `basebackup` manifests for the weeks before T0 by
     a snippet in `partners/coldstore/` the GM copies into
@@ -2684,8 +2685,42 @@ readings are Docker 29 on one host.
   `crontab_roles: []`, the three partner nodes; local fault
   `fixture-basebackup-log-unread`), each with `run-short-test.sh`.
 - **Known limits**: every partner calls from `partners-api`'s address;
-  the manifest key collides across archiving nodes; `gm_check` cannot
-  reach `partners` over TCP (both routed).
+  the planted segment names sort above the live ones (D382: no check
+  orders by name). The manifest key across archiving nodes and
+  `gm_check`'s reach into `partners` were settled by D381 and D383 and
+  fixed at wave 2's gate.
 - **For the wave gate**: the `pg_hba` form written into
   `bricks/postgres/docs/gm.md` in its own commit (text in
   `partners/README.md`).
+
+### Plan revision: chunk 11's findings, 2026-11-04
+
+`spec-writer`, build plan v8 (f5c8fd5), no owner question:
+- D381: cold storage's manifest keyed on `(source, shipment_id)`,
+  `source` the node holding the data (the archiving node for
+  `wal`/`basebackup`, `machines` for purpose 14's types); the same id from
+  the same source replaces its manifest (`received_at` the new receipt's),
+  from another source makes a second; `GET /manifests` ordered by
+  `received_at`, `source`, `shipment_id`; the page unchanged (counts per
+  type and day across sources); the receipt and `planted.sql` unchanged.
+- D382: planted segment names sorting above the live ones stays a known
+  limit; no check orders by name (a check for a node's latest `wal`
+  manifest orders by `received_at`); s2's answer key records the jump as a
+  setup limit (chunk 23's scope). `pg_resetwal -l` rejected.
+- D383: no `gm_check` host line on `partners-db` (master spec 10.2,
+  access model 8, chunk 6's `pg_hba` check). A coherence check whose
+  `reads` names `partners` runs in `partners` on the partners' node as
+  `postgres`, read-only, unseen: `gm_src_partners` over that node's
+  socket (the local `gm_check` line), its other reads over TCP as
+  `gm_check` (the customer nodes' lines admit it); every table read
+  through `gm_src_*` (its own domain's through `reads` naming the domain);
+  `database:` refused on such a check. A derivation or history reading
+  `partners` from another node refused at plan time (none in v0.5).
+  Access model 8 reworded ("off the partners' database from the
+  network"), with 14 and the header. First met by chunk 12.
+Both fixes go to wave 2's gate on `v0.5-w2` (the gate row names them):
+chunk 11's code for D381, chunk 8's (`inject.composed_plan`,
+`coherence.read_checks`, the skill) for D383, the composed test load
+started with the shared `pg_hba.conf`. W2 items 3 and 6 and W2-f's known
+limits amended above (driver). **For the owner, information only**:
+access model 8 reworded after approval to match what chunk 11 built.
