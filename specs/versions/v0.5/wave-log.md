@@ -1668,7 +1668,8 @@ records; read by 12 to 16, 18 to 21, 27). Master spec 9.2,
   `core_microchip`, `core_ueln`, `core_passport`, `core_ear_tag`,
   `core_holding`, `core_death`, `core_consultation`, `core_stay`,
   `core_stay_alert`, `core_request`, `core_referring_practice` (a
-  referring vet's practice, the mapping 9.3 reads), each `IMMUTABLE`
+  referring vet's practice, the mapping vet-scheduling's `sched_trainees`
+  reads, master spec 9.4; D378), each `IMMUTABLE`
   but for its `load_epoch` argument where it computes a time. Reason:
   9.2's function table, one name per row, and nothing a part must
   re-derive.
@@ -1693,6 +1694,34 @@ records; read by 12 to 16, 18 to 21, 27). Master spec 9.2,
 - Its fixture deploys `domains: [vet-core]` through `load-data`, so it
   runs once chunks 7 and 8 have merged into its branch (Preflight
   corrections, item 3).
+
+- **Amended 2026-11-04, after chunk 9 stopped (spec D372 to D380)**:
+  the core has **eighteen** key functions, the thirteen above plus
+  `core_animal`, `core_owner`, `core_ownership`, `core_exchange` and
+  `core_shifts` (the rota pattern's shifts for a staff member and local
+  day, with an `absence` column for the history's absences); no
+  `core_withdrawal` (the request carries the withdrawal end). What each
+  returns and who reads it: vet-core-domain.md, "The key functions (D374,
+  D375, D379)", which this item now cites rather than restates.
+  `core_request` returns each request's state at T0 with its times
+  (`resulted` or `cancelled`; one of the last 24 hours `sent`, or
+  `cancelled` by the vet; none `requested`; `sent_at` set on a cancelled
+  one means the part cancelled it after sending), the consultation's
+  priority (urgent for emergencies and stays), its vet, its animal, the
+  request time (the consultation's close) and `withdrawal_ends_on` (the
+  milk inhibitor test only); the parts fit their times inside the core's
+  (D375). The codes it draws come from the parts' catalogues:
+  vet-lab-domain.md "The test catalogue (D372)" and vet-machinery-domain.md
+  "The procedure catalogue (D372, D373)" (codes 26 and 27 and machines 10
+  and 16 horse-only, `species_group` `horse`; a farm animal draws DX, US,
+  CT only, its CT on machine 8; an urgent request never 26 or 27; the
+  imaging split about 60 % domestic, 30 % horses, 10 % farm). Identifiers
+  (D379): every dog, cat, horse and ferret chipped, two rabbits in three
+  not (rabbits about 3 % of domestic animals); `XA` on ear tags and
+  passports, one numeric code 900 to 998 (never 999) as a chip's first
+  three digits and a UELN's country part; time functions take `(n,
+  load_epoch, utc_offset)`, the offset in hours; all `IMMUTABLE`. The
+  variant's `parts: []`, each part chunk 12 to 16 adding its id (D380).
 
 **5. The monitoring breadth** (chunk 10 writes, W2-e records; read by
 6, 27). Master spec 7.4, 14; O223, O225, O226.
@@ -2450,3 +2479,38 @@ starting footprint rows, well above the measured.
 - **Fixture** `tools/tests/fixtures/fixture-monitoring-v05` (6 nodes), run
   by `tools/tests/smoke-monitoring-v05.sh`. The backup script's first
   read against cold storage itself stays G13's.
+
+### Chunk 9 — blocked, then settled, 2026-11-04
+
+The chunk owner stopped at WIP `0a3e43b` (`v0.5-c9-vet-core`, worktree
+kept): writing `core_request` needed decisions no capture or spec
+settled. These were the code catalogues it draws from (imaging's 30
+procedures, the lab's tests and panels), the further functions the parts
+read, three conflicts (routine imaging lead time 2 or 3 working days;
+intensive-care sessions about 13 at once against "about five" and 8
+monitors; `core_referring_practice`'s reader), and its own identifier
+choices. Built by then: `domain.yaml`, `data/schema.sql` (25 tables and a
+view, the five roles, `vet_lookup`'s column grants), classification,
+register, governance, policy, the variant, `clinic-api`, `pms`'s
+`schedule.yaml`, `keys.sql` (`core_staff`) and part of `load.sql`, run
+into `postgres:0.5.0` at shift +2.
+
+`spec-writer` (12418f7), no owner question:
+- D372: the catalogues live in the parts' domain documents (vet-lab
+  "The test catalogue", vet-machinery "The procedure catalogue"); chunk
+  9's `keys.sql` draws from them, chunks 12 and 15 load them;
+- D373: codes 26 and 27 horse-only;
+- D374: eighteen key functions;
+- D375: `core_request`'s states and fields;
+- D376: a routine imaging study booked within two working days, its
+  report within one more (master spec 9.4 and vet-scheduling's
+  `book-requests` corrected);
+- D377: intensive-care sessions (one domestic stay in two, one horse
+  stay in four, never farm; about 5 at once; trap T206's witness about
+  one a day);
+- D378 (text): `core_referring_practice`'s reader;
+- D379: chunk 9's identifier and signature choices confirmed;
+- D380: the variant's `parts:` a shared list in chunks 12 to 16.
+Master spec 9.2, 9.4 and 9.6 corrected as text (cited in their headers).
+D371 and O230 reserved by mistake, unused. W2 item 4 amended above
+(driver). The chunk resumes with a fresh owner from `0a3e43b`.
