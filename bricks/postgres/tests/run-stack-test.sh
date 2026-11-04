@@ -935,20 +935,25 @@ for node in db db2; do
     [ "$w" = "PG_OOM_ADJUST_FILE=/proc/self/oom_score_adj PG_OOM_ADJUST_VALUE=300 " ] \
         && pass "$node: the run script gives the postmaster PG_OOM_ADJUST_FILE and PG_OOM_ADJUST_VALUE=300" \
         || fail "$node: the postmaster's environment: $w"
-    w=$(docker exec "$n_c" sh -c "for p in \$(pgrep -P $ppid); do cat /proc/\$p/oom_score_adj; done | sort -u | tr '\\n' ' '" 2>&1)
+    # A short-lived child can exit between pgrep and the read: a child gone
+    # before its read is skipped; none read at all still fails (empty list).
+    w=$(docker exec "$n_c" sh -c "for p in \$(pgrep -P $ppid); do cat /proc/\$p/oom_score_adj 2>/dev/null; done | sort -u | tr '\\n' ' '" 2>&1)
     [ "$w" = "300 " ] && pass "$node: every child of the postmaster at +300 (backends and background processes)" \
         || fail "$node: the postmaster's children: $w"
-    w=$(docker exec "$n_c" sh -c "printf 'postmaster=%s ' \$(cat /proc/$ppid/oom_score_adj)
-        for p in \$(pgrep -x 's6-svscan|s6-supervise'); do printf 's6=%s ' \$(cat /proc/\$p/oom_score_adj); done
-        for p in \$(pgrep -x sshd); do printf 'sshd=%s ' \$(cat /proc/\$p/oom_score_adj); done
-        for p in \$(pgrep -x cron); do printf 'cron=%s ' \$(cat /proc/\$p/oom_score_adj); done" 2>&1)
+    # Same race (an sshd session or a cron job's fork): a process gone before
+    # its read is skipped; the postmaster, s6 and sshd must still be listed.
+    w=$(docker exec "$n_c" sh -c "adj() { v=\$(cat /proc/\$2/oom_score_adj 2>/dev/null) && printf '%s=%s ' \$1 \"\$v\"; }
+        adj postmaster $ppid
+        for p in \$(pgrep -x 's6-svscan|s6-supervise'); do adj s6 \$p; done
+        for p in \$(pgrep -x sshd); do adj sshd \$p; done
+        for p in \$(pgrep -x cron); do adj cron \$p; done" 2>&1)
     case " $w" in
         *=[!0]*|*=0[0-9]*) fail "$node: a process outside PostgreSQL's children not at 0: $w" ;;
         *" postmaster=0 "*" s6=0 "*" sshd=0 "*) pass "$node: the postmaster, s6, sshd and cron (where it runs) at 0 ($w)" ;;
         *) fail "$node: oom_score_adj outside PostgreSQL's children: $w" ;;
     esac
 done
-case $(j sh -c 'for p in $(pgrep -x cron); do cat /proc/$p/oom_score_adj; done') in
+case $(j sh -c 'for p in $(pgrep -x cron); do cat /proc/$p/oom_score_adj 2>/dev/null; done | sort -u') in
     0) pass "db2: the cron daemon at 0" ;; *) fail "db2: cron's oom_score_adj" ;;
 esac
 
