@@ -4579,3 +4579,54 @@ life; the activation event only on a grant; the database settings in
 `schema.sql`, `pgaudit.log` left to the seed. Risks: the fixture's
 composed load about 6–7 minutes; `n_live_tup` on `portal_outbox` reads
 double (trust `count(*)`). A fresh owner resumes 16b.
+
+### Chunk 16b — paused for rotation (a5a1877), stopped on a tool gap, 2026-11-04
+
+On the owner's word (rotate), 16b's owner paused at WIP `a5a1877` (on
+62b452e). Built and tried in dev (api 0.1.0 under uvicorn against a
+loaded portal): `portal-api` (`session`, `me`, `animals`, `documents`,
+`accounts`, `desk`): owner scope through the API (seller 1 animal, not the
+horse sold, its documents 404; buyer the horse, 8 of 9; granted keeper 11;
+withdrawn and never-granted keepers 404; planted owner 6; another owner's
+document 404 every time); activation 200 then 401, login 201 with the
+`portal_session` cookie, four wrong 401, the fifth 423, then the right
+one 423, a past token 401; desk 201 (`portal_desk`), 422 for
+`keeper-access`, 401 without the credential; preferences, consents,
+unsubscribe, reset, logout (204, cookie cleared) as the GM notes list;
+1–10 ms each. The desk's `pms` fragment (connection `portal`, stream
+`portal.desk-consent` 0.28/h; `TestPortalDesk` 2 OK). The owners' traffic
+(`producers/partners/owners/`: `owners_tick`, six streams, `POST /tick
+{kind}`; `data.sql` gains `owners.accounts`, loaded equal to
+`portal_accounts`), not yet run end to end. `fixture-portal` drafted (8
+nodes, `derive:`, seven `left_out:`; `compose --check` passes; the short
+test never run; no README). Dev load at shift 0: core 124 s, lab 76 s,
+portal 20 s, derivation 128 s; 77 MB, 238 278 rows. Dev containers
+`c16pg`, `c16portal`, `c16owners` left for the next owner.
+
+**Stopped on a tool gap** (against W3 item 5's fixture): `compose._shared_nodes`
+finds `partners-api` and `partners-backend` only through a `third_parties:`
+entry listing them, and `model._check_api_nodes` requires the partners'
+api node to serve every listed third party's hostname; with both lab
+stubs left out and the messaging stub chunk 21's, no third party can list
+the shared nodes in `fixture-portal`, and listing the lab's two is
+refused ("no endpoint answers under northfield-lab / practices"). The
+owner's options: (a) a fix-sized inserted chunk on `tools/gm/`
+recognising the partners' nodes when only `owners` is served; (b)
+`lab-api` in place of `interfaces` and the lab's stubs composed for real;
+(c) a placeholder messaging third party (chunk 21's material). **Driver's
+ruling: (a)** — (b) changes the fixture chunk 21 builds on and returns
+when chunk 21 adds `interfaces`' purposes; (c) builds chunk 21's material
+early. Sent to `spec-writer` as an inserted chunk 31 for a
+`coding-executor`, ahead of 16b's restart.
+
+Choices where the documents are silent (for `spec-writer` with 16b's
+merge): `owners.accounts (account_id, email, status, link, activates_at)`
+(the route can't read `portal`); `PUT /me/preferences` through gm_api's
+private `_call` (the client has only `get()` and `post()`: for the api
+brick's next bump); constants as one-value choices; the document list
+including superseded versions, no herd listing route; the status codes
+(activation 200, logout 204, reset 202 and 401, desk refusal 422, a
+refused `keeper-access` 403); without the messaging stub resets are asked
+but never used; the desk 422 for a closed account's owner (about one call
+in thirty, an error in `pms`' log); `interfaces`' placeholder connection
+to `portal-api` (`interfaces.idle`, `GET /animals`).

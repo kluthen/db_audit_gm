@@ -1411,7 +1411,7 @@ site.
 
 ### Chunk 16 — `vet-portal`, the owners' portal
 
-Status: in progress
+Status: blocked (on chunk 31, the partners' nodes serving `owners` alone; wave log 2026-11-04)
 Wave: 3
 Depends on: chunks 5, 8, 9 and 11 (waves 1 and 2); chunks 12 and 29,
 merged into `v0.5-w3` before this chunk's branch is cut; W3
