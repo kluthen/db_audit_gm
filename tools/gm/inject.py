@@ -554,7 +554,7 @@ class Source:
 @dataclass
 class FileRun:
     """Files streamed in order into one psql session as `postgres`,
-    connected to `database` on `node` (the core's keys first)."""
+    connected to `database` on `node` (the core's keys first), unseen."""
     what: str                       # as printed: "<domain> data/load.sql"
     node: str
     database: str
@@ -1378,11 +1378,13 @@ def clean_launcher_lines(ldir, node, docker, result, timeout=None, out=print):
 UNSEEN_SQL = "\n".join((*NO_LOG_SQL, *NO_AUDIT_SQL, *NO_STATS_SQL, QUIET_SQL)) + "\n"
 
 
-def stream_files(paths):
-    """A temporary file holding `paths`' bytes in order, each ended by a
-    newline, at offset 0: one psql session for the core's keys and a load
-    (a large load streamed, never read into memory)."""
+def stream_files(paths, prelude=""):
+    """A temporary file holding `prelude` (text), then `paths`' bytes in
+    order, each ended by a newline, at offset 0: one psql session for the
+    core's keys and a load (a large load streamed, never read into memory)."""
     fh = tempfile.TemporaryFile()
+    if prelude:
+        fh.write(prelude.encode("utf-8"))
     for path in paths:
         with open(path, "rb") as src:
             shutil.copyfileobj(src, fh)
@@ -1396,8 +1398,9 @@ def stream_files(paths):
 
 def create_database_sql(database):
     """Creates `database` when absent (owner postgres), `CONNECT` revoked from
-    `PUBLIC`, and then prints CREATED_MARK (W2 item 3)."""
-    return (f"SELECT NOT EXISTS (SELECT 1 FROM pg_catalog.pg_database WHERE datname = "
+    `PUBLIC`, and then prints CREATED_MARK (W2 item 3); unseen, as the
+    domain's load it opens (master spec 9.2)."""
+    return (UNSEEN_SQL + f"SELECT NOT EXISTS (SELECT 1 FROM pg_catalog.pg_database WHERE datname = "
             f"{quote_literal(database)}) AS gm_absent \\gset\n"
             "\\if :gm_absent\n"
             f"CREATE DATABASE {quote_ident(database)} OWNER postgres;\n"
@@ -1471,8 +1474,10 @@ def _exec_sql(ldir, node, sql, argv, docker, timeout, out, heading, what, secret
 
 
 def run_file(ldir, run, variables, docker, timeout=None, out=print):
-    """One FileRun: its files streamed into psql -d <database>."""
-    with stream_files(run.paths) as fh:
+    """One FileRun: its files streamed into psql -d <database>, unseen
+    (UNSEEN_SQL ahead: no statement logging, pgaudit and
+    `pg_stat_statements` off; master spec 9.2, spec D265)."""
+    with stream_files(run.paths, UNSEEN_SQL) as fh:
         result = exec_node(ldir, run.node, DATA_USER, stdin=fh, timeout=timeout, docker=docker,
                            argv=data_argv(variables, run.database))
     _print_run(out, f"{run.node}/{run.database} {run.what} (psql as {DATA_USER})", result)

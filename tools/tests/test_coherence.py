@@ -532,7 +532,37 @@ class TestComposedSteps(unittest.TestCase):
             elif "schema (tools/tests" in run["stdin"] or "fx-weekly's history" in run["stdin"]:
                 self.assertNotIn("pg_temp.core_stay(n integer)", run["stdin"])
         load = next(r for r in self.runs if "The test core's load" in r["stdin"])
-        self.assertTrue(load["stdin"].startswith(keys))
+        self.assertTrue(load["stdin"].startswith(inject.UNSEEN_SQL + keys))
+
+    def test_each_domain_file_and_partner_file_unseen_never_a_data_file(self):
+        # Master spec 9.2 (spec D265): schema.sql then load.sql run unseen,
+        # the partners' files as well; v0.4's node data files as before.
+        self.load()
+        domain = [r for r in self.runs if any(f in r["stdin"] for f in (
+            "The test core's schema", "The test core's load", "The external lab's state",
+            "CREATE TABLE doc_requests", "a request per stay", "CREATE TABLE ward_placements",
+            "each current stay placed"))]
+        self.assertEqual(len(domain), 7)            # 3 schemas, 3 loads, 1 partner file
+        for run in domain:
+            self.assertTrue(run["stdin"].startswith(inject.UNSEEN_SQL), run["stdin"][:200])
+            for line in ("SET log_statement = 'none';", "SET log_min_duration_statement = -1;",
+                         "SET log_min_error_statement = 'panic';", "SET pgaudit.log = 'none';",
+                         "SET pg_stat_statements.track = 'none';"):
+                self.assertEqual(run["stdin"].count(line), 1, line)
+            self.assertNotRegex(run["stdin"], r"(?m)^\\c(onnect)?\b")   # one session throughout
+        schema = next(r for r in domain if "CREATE TABLE ward_placements" in r["stdin"])
+        self.assertLess(schema["stdin"].index("SET log_statement = 'none';"),
+                        schema["stdin"].index("CREATE EXTENSION IF NOT EXISTS btree_gist;"))
+        created = [r for r in self.runs if inject.CREATED_MARK in r["stdin"]]
+        self.assertEqual(len(created), 3)
+        for run in created:
+            text = run["stdin"]
+            self.assertTrue(text.startswith(inject.UNSEEN_SQL), text[:200])
+            self.assertLess(text.index("\\gset"), text.index("CREATE DATABASE"))
+            self.assertEqual(run["argv"], list(inject.PSQL_ARGV))
+        for fragment in ("records' data file", "partners-db's data file"):
+            run = next(r for r in self.runs if fragment in r["stdin"])
+            self.assertNotIn("SET log_statement", run["stdin"])
 
     def test_the_derivation_history_and_checks_unseen_their_sources_dropped(self):
         self.load()
@@ -738,6 +768,8 @@ class TestHelpers(unittest.TestCase):
         (tmp / "c").write_bytes(b"SELECT 2;\n")
         with inject.stream_files([tmp / "a", tmp / "b", tmp / "c"]) as fh:
             self.assertEqual(fh.read(), b"SELECT 1;\nSELECT 2;\n")
+        with inject.stream_files([tmp / "a", tmp / "c"], inject.UNSEEN_SQL) as fh:
+            self.assertEqual(fh.read(), inject.UNSEEN_SQL.encode() + b"SELECT 1;\nSELECT 2;\n")
 
     def test_data_argv_names_the_database(self):
         self.assertEqual(inject.data_argv({"a": "1"}, "clinic")[-4:], ("-v", "a=1", "-d", "clinic"))
@@ -787,6 +819,16 @@ def partners_hba(catalog):
     if n != 1 or not roles:
         raise AssertionError(f"{PARTNERS_HBA}: no partners' line to fill, or no partner")
     return text
+
+
+# What the domains' files and the partner file send (their databases'
+# creation included), none of it in a server's log or its statistics.
+LOAD_FRAGMENTS = ('CREATE DATABASE "', "gm_absent", "pg_temp.core_", "INSERT INTO animals",
+                  "INSERT INTO stays", "ward_placements", "doc_requests", "xlab.requests",
+                  "xlab.state", "CREATE ROLE core_app", "CREATE ROLE ward_app",
+                  "CREATE ROLE docs_app", "CREATE ROLE xlab", "btree_gist", "pgcrypto")
+LOAD_STATEMENTS = (r"pg_temp\.core_|ward_placements|doc_requests|xlab\.(requests|state)|"
+                   r"INSERT INTO (animals|stays)|CREATE DATABASE \"|gm_absent|btree_gist|pgcrypto")
 
 
 @unittest.skipUnless(os.environ.get("GM_TEST_COMPOSED_LOAD") == "1",
@@ -877,6 +919,18 @@ class TestComposedLoad(unittest.TestCase):
         scenario = self.load(fixture)
         printed = "\n".join(self.printed)
         r = self.result
+        # the domains' databases, schemas and loads and the partner file ran
+        # unseen (master spec 9.2): read before this test's own queries
+        for name in LIBS:
+            log = self.server_log(name)
+            for fragment in LOAD_FRAGMENTS:
+                self.assertNotIn(fragment, log, f"{name}'s log")
+            self.assertEqual(self.psql(name, "postgres",
+                                       "CREATE EXTENSION IF NOT EXISTS pg_stat_statements; "
+                                       "SELECT count(*) FROM pg_stat_statements WHERE query ~ "
+                                       f"'{LOAD_STATEMENTS}' AND query !~ 'pg_stat_statements';"),
+                             "0", f"{name}'s statistics")
+        self.assertIn("CREATE DATABASE office", self.server_log("records"))   # its data file seen
         # the order follows composition.yaml: fx-docs before fx-ward
         self.assertEqual([d for d, _, _, _ in r.domains],
                          ["fx-core", "fx-core", "fx-core", "fx-docs", "fx-docs", "fx-ward",
