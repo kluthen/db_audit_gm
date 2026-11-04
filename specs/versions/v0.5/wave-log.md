@@ -3019,3 +3019,52 @@ container, stack or volume of the gate's left.
 Wave 2's gate **passed (2026-11-04)**, at `c486fb8`. Wave sync: none (no
 intent register); dependency post-change check: G10, done. G16 next
 (`spec-writer`). Not merged into `main`: the owner's word.
+
+### G16 — wave 2's formats as built (spec-writer, 2026-11-04)
+
+`430d554`: formats.md draft v29 (a "Partners (from v0.5)" section; "Loading
+a composed domain": `:"DBNAME"`, `load_epoch`, `keys.sql` ahead of each
+load, a partner's `data.sql` into `partners`, the load order, `gm_src_*`;
+`coherence.yaml` and D383's placement; the prefix rule; the owners'
+traffic in `producers/partners/owners/`, D369; "a domain is a
+design-time source" corrected for composed domains; `register_diff`
+required on a register fault; the `ops` trace rule; `crontab_roles: []`);
+master spec 5 and 6.1, and 9.7's and 24's "chosen at the build" markers,
+settled to match. No decision added. Left out as not file formats: W2-b's
+aliases and secrets, W2-d's functions, W2-e's seed contents, D381 (master
+spec 10.4 already). G16 **done (2026-11-04)**.
+
+Found, not settled by G16:
+1. `model.GM_HBA_LINES` still accepts `host all gm_check samenet
+   scram-sha-256` in a third party's `pg_hba.conf`, against D383 and
+   access model 8: a gate fix (chunk 6's check, chunk 11's ruling) sent to
+   a `coding-executor` on the wave branch, with two checks the formats
+   state and the loader lacks (a partner `data.sql` never creating a
+   database or `\connect`ing; `partners` refused as a domain id).
+2. A `public/` `data.sql` is accepted, not yet refused: chunk 17's, as
+   planned.
+3. Drift outside the spec, sent with item 1: the scenario-format skill's
+   `templates/keys.sql` (`STABLE`, against D379's `IMMUTABLE`) and
+   `templates/layouts.md` (no `keys.sql`, `coherence.yaml`, partner
+   `data.sql`; "made at the build"); the root README's `domains/` row.
+4. formats.md's scenario layout lacks wave 1's `compose/<node>/` layer:
+   back to `spec-writer`.
+
+### The owner's answers on the open points, 2026-11-04
+
+1. `a100f5a` (wave 1's harness ruling, `smoke-scenario.sh`): **confirmed**.
+2. G6, the PyPI lockfile for `api`: the owner is on the fence and keeps
+   the current set ("we will follow your current usage and see how it
+   goes"); no Debian-only policy.
+3. pgBadger: in `.tech` (13.3, unpinned) since G8; the owner asked for it
+   on the tech list, which it is.
+4. D365, the customer's own partner credentials in the starter pack:
+   kept as is, **tracked**: a DBA may find it odd and report it; the game
+   may keep some distance from ground truth. Sent to `spec-writer` to
+   record as an open item.
+5. G9, pgwatch: the latest release for now (6.1.0). From v1+, versions
+   become a game-wide concern (PostgreSQL 13, older and manual tools,
+   migrating up to standard). Sent to `spec-writer` to record for v1+.
+6. G9/G10, the Go modules in downloaded binaries: the owner asked that
+   they be put where the daily sweep sees them; sent to
+   `security-advisor`.
