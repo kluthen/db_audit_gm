@@ -1233,3 +1233,576 @@ under the host lock and the sleep inhibitor; dispatched to a
 the `brick.yaml` template's secret kinds gaining `certificate` (chunk 3,
 finding 4) and `tarnbeck-outdoor-campaign`'s stale classification
 comment (chunk 2), its README regenerated.
+
+## Wave 2 — started 2026-11-04
+
+Branch `v0.5-w2`, worktree `/home/bastien/work/db_audit_gm-wt/v0.5-w2`,
+cut from the gated `v0.5-w1` at 3aeb094, not from `main`: the owner
+asked the wave to go on without the merge ("work on the second wave
+whenever the first one's done"). Chunks 6 to 11. No intent register,
+so no documentalist preflight; the driver drafted capture W2 from the
+chunks' **Architecture capture** lines, as W1. Wave 1's gate entry lands
+on `v0.5-w1` and is merged in here.
+
+### Capture W2 — v0.5 loader checks, render, load-data, the core, monitoring, the partners (chunks 6–11; read by 7–27)
+
+Recorded 2026-11-04, before any code; drafted for the wave driver from
+the **Architecture capture** lines of chunks 6 to 11 (plan v3, with its
+header, "Read first", the dependency graph, "Left for the build" and
+"The partners, and where each stub is built"), master spec 6, 7.2, 7.4,
+8.5, 9.2, 10.2, 10.4, 11.2, 12.1, 14, 15 and 24, access model 5, 8, 9
+and 10, [cold-storage.md](cold-storage.md) 2 and 3,
+[third-parties.md](third-parties.md) 3, [vet-core-domain.md](vet-core-domain.md)
+("Deterministic key ranges", "Application roles and grants", "The
+applications and their nodes", "Loading"), [formats.md](../../formats.md)
+v28 ("Purpose definition", "Domain", "Composing domains"), spec D344 to
+D358, and the code on `v0.5-w1` at 4f8b341
+(`tools/gm/{model,render,localimpl,deploy,inject,compose}.py`,
+`bricks/{api,scheduler,postgres,postgres-exporter,bastion}/`). W1's
+rules: cited, not restated; **(choice)** marks a point the sources left
+open, settled here with its reason; each item names the chunk that
+writes it and the chunks that read it. Held: W1 items 0 to 8 and its
+addenda W1-w (chunk 2), W1-x (chunk 3), W1-y (chunk 4), W1-z (chunk 5);
+where the merged code differs from W1, the code and the addenda win.
+Chunks record their as-built outcomes as **W2-a** (chunk 6), **W2-b**
+(chunk 7), **W2-c** (chunk 8), **W2-d** (chunk 9), **W2-e** (chunk 10)
+and **W2-f** (chunk 11).
+
+**0. Names shared by the wave** (read by 6 to 27)
+
+- **A partner's prefix** `[a-z][a-z0-9]{0,15}` **(choice)** is its
+  folder's name, `producers/partners/<prefix>/` (or `partners/<prefix>/`,
+  item 6), its role and its schema on the partners' database, its keys
+  `<prefix>.<…>`, its endpoints `<prefix>_<…>` (W1 item 0) and its
+  connections `<prefix>-<…>`. Reason: one token valid as a role, a
+  schema, a Python module and a key, with neither `_` nor `-`, so every
+  split is unambiguous. One folder may serve several hostnames
+  (`vet-core`'s `centres`: two centres and the centres abroad, D306).
+- **The partners' database** is `partners` **(choice)**, on the
+  `postgres` node every `third_parties:` entry with nodes lists (the
+  shared nodes as compose finds them, W1-w), created by that node's
+  data file (item 6). Reason: one fixed name lets a domain's partner
+  material, a coherence query and a history file name it without the
+  scenario.
+- **Reserved (choice)**: `owners` is never a node's name, a
+  `third_parties:` id or hostname (10.2: the tenth hostname, no
+  business); `partners` is never a domain id (it names the partners'
+  database in a coherence query's `reads`, item 3); schemas `gm_src_*`
+  and functions `pg_temp.core_*` are load-data's and the core's (items
+  3, 4).
+
+**1. The loader's v0.5 checks** (chunk 6 writes, W2-a records; read by
+7, 8 and every chunk loading a scenario or fixture). Scope as the plan
+states it (6a, 6b, spec D350, D353, D354, D358); these points fix what
+it leaves open.
+
+- **`model.node_creates(sdir, data, node, catalog_root)` (choice)**: the
+  `DataFileCreates` of what is created on a `postgres` node: its data
+  file's (`node_data_file_creates`), plus, for every `domains:` entry
+  placed there, each `at:` database and the roles and databases its
+  schema and load files create, plus, on the partners' node, each
+  composed domain's partner `data.sql` (item 3). The location check
+  (`_location_problem`: purposes' parts, governance locations), the
+  crontab roles' check and the governance readers' check read it;
+  `localimpl.data_login_roles` (chunk 7) and `inject.password_plan`
+  (chunk 8) switch to it (Preflight corrections, item 2). Reason: a
+  composed scenario's `records/clinic` is created by `load-data` from
+  the domain (item 3), not by `records`' data file, so the v0.4 check
+  would refuse every location in it.
+- **A monitor's targets (choice)**, read per brick from its seed:
+  `postgres-exporter`'s `exporter.conf` (`DATA_SOURCE_URI`'s host),
+  `pgwatch`'s `sources.yaml` (each enabled entry's `conn_str` host, the
+  URI form only) and `health-check`'s `health.yaml` (`instances[].host`)
+  (item 5). Each target is a `postgres` node choosing `monitoring`; a
+  monitored standby's primary chooses it too (the role is the
+  primary's, cloned: W1-x); a third-party node is never a target (7.4,
+  "never the partners' database"). The gap is accepted only when a
+  fault instance whose fault declares `option_absent: monitoring` has
+  that target as its node. Reason: three known readers cost less than a
+  new `brick.yaml` key, and the fault's node is where the gap lies.
+- **`third_parties:`** (10.2, W1 item 2), with these **(choices)**:
+  - **hosts and hostnames agree**: on the api node the entries list,
+    the set of its `api.yaml` hosts equals the hostnames of the entries
+    naming nodes, plus `owners` when listed; the node's own name is
+    never among them; on every other `api` node, an endpoint's hosts
+    are exactly `[<its own name>]`. A hostname on an entry with
+    `nodes: []` aliases nothing (documentation only). Reason: item 2
+    reads the aliases from the hosts, so this equality is what makes
+    the declaration authoritative;
+  - **the partners' roles are theirs alone**: a role a third-party
+    node's SQL connection names is named by no other node's connection
+    or `crontab_roles` (10.2: their passwords mounted on the partners'
+    nodes only, which render then guarantees, one secret per role);
+  - **the third-party `pg_hba.conf` form**: every line is a DO NOT
+    TAMPER line (the template's), a `reject` line, or `host partners
+    <roles> <address> scram-sha-256` whose roles are the partners'
+    (above); the last line is `host all all all reject`. The address
+    field is not checked: its form on one Swarm network is chunk 11's
+    measurement (10.2, item 6), and `samenet` the starting form;
+  - a composed domain with a partner `data.sql` needs a partners'
+    `postgres` node (else refused, naming the folder).
+- **HTTP targets (choice)**: a connection's `target` host (schedule,
+  `api.yaml`, `vault_target`) is a node or an alias (an `api` node's
+  host other than its name, item 2); on an `api` node or an alias the
+  port is 8000 (W1 item 5). Credentials: `[a-z][a-z0-9_]{0,62}`, never
+  `public` (W1-y, D354), no cross-check between caller and endpoint
+  (a mismatch is a 401 in play, fault surface).
+- **`web_routes`**: no third-party node and no alias, with no exception
+  in chunk 6; cold storage's route is chunk 17's (Preflight
+  corrections, item 5).
+- **A standby is no location (choice)**: an `at:`, a purpose's location
+  part and a governance location never name a standby. Reason: every
+  load step skips it (W1-x); it holds only its primary's copy.
+- **A receiver is a declared third party (choice)** only in a scenario
+  with `third_parties:` or `domains:`; the four existing scenarios keep
+  v0.4's `receiver` (`gateway`, 17.5's seeds kept).
+- **`SECURITY DEFINER` (choice)**: in a domain's `schema.sql`,
+  `load.sql`, `derive.sql`, `keys.sql` and partner `data.sql`, each
+  `CREATE [OR REPLACE] FUNCTION|PROCEDURE` statement holding `SECURITY
+  DEFINER` holds a `SET search_path` clause whose value never names
+  `"$user"`; checked by `check_domain_dir` (15).
+- **`register_diff:` (choice)**: the accessor is
+  `model.register_diff_true(item)` (the value under `True` or `"true"`,
+  D353), read by chunks 17 and 23.
+- **A partner folder** `producers/partners/<prefix>/` (and `public/`)
+  accepts one file `data.sql` beside its fragments (`_check_fragments`;
+  compose already skips it as "the other half") **(choice**: item 3's
+  partner state**)**.
+- **Out (choice)**: a domain's `data/coherence.yaml` is not checked by
+  `check_domain_dir` in v0.5; `load-data` refuses a malformed one before
+  any query runs (item 3). Reason: chunk 8 owns its shape and no chunk
+  holding `model.py` follows it before chunk 17.
+
+**2. Render: aliases and HTTP credentials** (chunk 7 writes, W2-b
+records; read by 11, 12, 15 to 21, 23, 27). Master spec 10.2, 15;
+spec D347.
+
+- **The aliases come from the `api.yaml` hosts (choice)**, the point
+  `spec-writer` left to W2 (D347, D358): every `api` node gets as
+  network aliases the hosts its seed `api.yaml` lists other than its own
+  name, sorted, unique; with chunk 6's checks that is the partners' node
+  alone, and its set equals the `third_parties:` hostnames plus
+  `owners`. Reasons: one rule with no special case for `owners`, which
+  has no `third_parties:` entry; the network then resolves exactly what
+  the server dispatches (no alias answering only 404, no served host
+  unresolved); render already reads `api.yaml` (D345, below); the
+  declaration still governs through chunk 6's equality, so on any
+  loaded scenario both sources give the same set.
+- **The stack file (choice)**: a service with aliases takes
+  `networks: {<network>: {aliases: [...]}}`, every other keeps the list
+  form (`[<network>]`), so v0.4's stack files render unchanged;
+  `implementation.yaml`'s node entry gains `aliases` when non-empty. An
+  alias enters Swarm's DNS once its task is healthy (D356).
+- **HTTP credentials**: one password secret `http_<credential>` per name
+  per game, not handed over (32 characters, the dba alphabet), mounted
+  at `/opt/gm/secrets/http_<credential>`, 0:0 `"0400"` (W1 item 0;
+  read there by the scheduler's run script, W1-y, the `api` entrypoint,
+  W1-z, and `postgres`' entrypoint, W1-x) on: a scheduler node for each
+  `credential` its `schedule.yaml` connections name; an `api` node for
+  each name in its `api.yaml` endpoints' `credentials` and connections'
+  `credential`; a `postgres` node for its `vault_credential`
+  **(choice**: what each node names, as role secrets are; no node holds
+  a credential it neither sends nor checks**)**. `_derived_lengths`
+  counts the `http_` names (a long credential shortens the game id, as
+  a long role does).
+- **Login roles a domain creates** get their `role_<role>_password`
+  (master spec 9.7 of v0.4, `data_login_roles` reading
+  `model.node_creates`, item 1).
+- Its two-node fixture: a scheduler caller and an `api` node with one
+  alias, declared under `third_parties:` (the node `no-access`), so it
+  still loads once chunk 6's checks merge (Preflight corrections,
+  items 2 and 4).
+
+**3. `load-data`: the composed load, derivations, history, coherence**
+(chunk 8 writes, W2-c records; read by 9, 12 to 16, 18 to 21, 26, 27).
+Master spec 8.5, 12.1 item 5, 15; formats.md "Composing domains".
+
+- **Domains and purposes are read from the catalogue (choice)**: each
+  `domains:` entry's files from `<catalog>/domains/<id>/`, each
+  `purposes:` entry's `history` from `<catalog>/purposes/<id>/` (the
+  path its `purpose.yaml` names), the catalogue being the one the
+  scenario loads against (`model.REPO_ROOT`, a test's `catalog_root`),
+  as compose and `check_domains_entries` read it. Reason: compose
+  copies no data; D23's self-sufficiency is "with the full repository";
+  domains and faults never bump and are both read from the catalogue.
+  The scenario keeps its classification copy (formats.md).
+- **The database convention (choice)**: `load-data` creates each `at:`
+  database absent from its node (owner `postgres`) and revokes `CONNECT`
+  from `PUBLIC` on every database it creates; a domain's `schema.sql`
+  and `load.sql` are run connected to their database (`psql -d <db>`),
+  never create or `\connect` to one, create their roles at top level,
+  and name their database as psql's `:"DBNAME"` (`GRANT CONNECT ON
+  DATABASE :"DBNAME" TO vet_app`, as vet-core grants `CONNECT` by name).
+  Reason: a part lands in its core's database or its own (`at:`), so
+  the name is the scenario's; the shop's v0.4 schema (`CREATE DATABASE
+  shop`) stays as built for `domain: shop` and is composed through
+  `domains:` by no v0.5 scenario.
+- **The core's key functions (choice)**: a core may ship
+  `data/keys.sql` (a fixed path, no `domain.yaml` key), defining
+  `pg_temp.core_<name>(…)` functions (item 4); `load-data` streams it
+  ahead of the core's `load.sql`, each part's `load.sql`, each partner
+  `data.sql` and `derive.sql`, in the same session, so the functions
+  vanish with it and nothing reaches the catalog the players read.
+  Reason: five parts and three stubs compute the same ids "never
+  reading `clinic`" (9.2); one text keeps them equal, and the coherence
+  check catches the rest.
+- **One reference moment (choice)**: every file `load-data` runs gets,
+  beside v0.4's `customer_timezone` and `customer_utc_offset`, `-v
+  load_epoch=<the run's start, UTC, ISO 8601, to the minute>`; a load's
+  "now" is `:'load_epoch'::timestamptz`, never `now()`. Reason: the
+  parts load in separate sessions minutes apart, and a stay computed at
+  two moments disagrees with itself across instances.
+- **A partner's tables and state (choice)**: each composed domain's
+  `producers/partners/<prefix>/data.sql` is run into the partners'
+  database as `postgres`, after that domain's own load, folders in name
+  order: it creates the role `<prefix>` (`LOGIN`, no password: render's
+  secret, set by the password step), the schema `<prefix>` owned by it,
+  the partner's tables and its planted state (the send-outs open at T0,
+  9.3). Reason: no later chunk holds `inject.py`, and wave 3's first
+  stubs (chunk 12) need it.
+- **The order (choice)**: (1) the nodes' data files, as v0.4 (they
+  create the databases no domain holds: `office`, `partners`); (2) the
+  domains in `composition.yaml`'s `order`, each database's `schema.sql`
+  then `load.sql` (a several-database part in `databases` order), then
+  its partners' `data.sql`; (3) the sanctioned derivations, in
+  `derive` order; (4) each `purposes:` entry's history, in list order;
+  (5) the coherence check; (6) v0.4's passwords, survey, mappings,
+  grants and `pg_cron` clean-up (now after the domains' roles exist);
+  (7) the standby's clone, last (W1 item 6). Every step skips standbys
+  (`standby_plan`, W1-x).
+- **Reading another database (choice)**: before a derivation, a history
+  file or a coherence query, `load-data` creates in the database it
+  runs in, for each source, `postgres_fdw` (dropped after if it created
+  it), a server `gm_src_<name>` (the socket `/run/postgresql` on the same
+  instance, `<node>:5432` on another), a user mapping for `postgres` as
+  `gm_check` with its secret, and imports the source's `public` into
+  schema `gm_src_<name>` and each other schema `<s>` into
+  `gm_src_<name>_<s>`; afterwards it drops every `gm_src_*` schema and
+  server, cascading. `<name>`: a domain id with `-` read as `_`
+  (`vet_core`), `<id>_<database>` for a several-database domain,
+  `partners` for the partners' database, a purpose part's name
+  (`source`). Through `gm_check` because its DO NOT TAMPER lines
+  (`local all gm_check scram-sha-256`, and `host all gm_check samenet`
+  in every scenario with `governance:`, which every composed scenario
+  has, D335) already admit it with `pg_read_all_data`, so no seed
+  changes. **Unseen on both ends**: `NO_LOG_SQL`, `NO_STATS_SQL` and
+  `NO_AUDIT_SQL` in the local session; on each source, `gm_check`'s
+  role settings (`log_statement`, `log_min_duration_statement`,
+  `pg_stat_statements.track`, `pgaudit.log`) set before and reset
+  after, by `postgres`, unseen. A source needing to be written (none in
+  v0.5) is out of this rule.
+- **`derive.sql`** runs in its part's database, its sources the
+  domains of `derive.after`. **History** runs in the purpose entry's
+  `target` location, its sources the entry's other location parts
+  (`gm_src_source`). Purpose 14's planted manifests meet the rule by
+  naming the partners' database as its target (for W4; Preflight
+  corrections, item 9).
+- **The coherence queries (choice)**: a domain's optional
+  `data/coherence.yaml`:
+
+  ```yaml
+  checks:
+    - id: stays-placed              # [a-z][a-z0-9-]*, once in the domain
+      what: every current stay placed in a unit   # one line, the report's
+      database: clinic              # optional: one of databases, for a several-database part
+      reads: [vet-core]             # optional: composed domains or partners, through gm_src_<name>
+      sql: |                        # one SELECT: the offending rows, none when coherent
+        SELECT s.id AS stay_id FROM gm_src_vet_core.stays s ...
+  ```
+
+  Run once, after the histories, as `postgres` in the domain's
+  database, `READ ONLY`, unseen; a check whose `reads` names a domain
+  not composed is skipped and reported so (a cross-part check runs only
+  when both are composed). A part carries its references to its core
+  and the histories it shares (8.5); the core carries none. Any row
+  fails the setup as a design error (`state.SetupFailed`), naming the
+  domain, the check, its `what`, the row count and the first ten rows.
+- **The record (choice)**: `coherence: {run_at, result}` rewritten in
+  `composition.yaml` (that key only, the file's other lines byte for
+  byte), each check's outcome in the game's `state.yaml`. Reason: 15
+  names the record; the per-check detail is the game's, as its stages
+  are.
+- A contrib extension in a part's schema runs as `postgres` (24): no
+  step of its own.
+
+**4. `vet-core`'s keys and its lookup API** (chunk 9 writes, W2-d
+records; read by 12 to 16, 18 to 21, 27). Master spec 9.2,
+[vet-core-domain.md](vet-core-domain.md).
+
+- **"Core keys" in `docs/gm.md`**, the chunk's first deliverable: 9.2's
+  ranges table, then each function as `pg_temp.core_<name>(…)`, its
+  arguments, what it returns and its formula as the SQL of `keys.sql`
+  (item 3). **(choice)** The names the parts' "Core keys used" cite:
+  `core_staff` (kind, section, specialty), `core_species`,
+  `core_microchip`, `core_ueln`, `core_passport`, `core_ear_tag`,
+  `core_holding`, `core_death`, `core_consultation`, `core_stay`,
+  `core_stay_alert`, `core_request`, `core_referring_practice` (a
+  referring vet's practice, the mapping 9.3 reads), each `IMMUTABLE`
+  but for its `load_epoch` argument where it computes a time. Reason:
+  9.2's function table, one name per row, and nothing a part must
+  re-derive.
+- **`clinic-api`'s lookup contract (choice)**, on port 8000 under the
+  hostname `clinic-api`, connection `clinic` as `vet_lookup`:
+  - endpoint `animals`: `GET /animals/{id}` (the animal's identity
+    columns `vet_lookup` reads, never the death columns, never a
+    contact), `GET /animals?microchip=|ueln=|ear_tag=` (exactly one;
+    a JSON list, `[]` when none, so an unknown identifier is told from
+    an unknown route), `GET /animals/{id}/owner` (`{id, kind, name}` of
+    the current owner);
+  - endpoint `stays`: `GET /stays?current=true` (a list of `{stay_id,
+    animal_id, section_id, admitted_at, name, species}` by `stay_id`;
+    any other `current` 422);
+  - JSON keys the column names, times ISO 8601 UTC with `Z`, 404
+    `{"detail": "not found"}`, the brick's 401 (W1-z);
+  - one credential, `clinic_lookup`, for every caller in the estate.
+    Reason: a fragment merges `endpoints.<name>` whole (W1 item 7), so a
+    part adding its caller's credential to the core's endpoint would
+    conflict; the exchange endpoints and their credentials are chunk
+    19's.
+- Its fixture deploys `domains: [vet-core]` through `load-data`, so it
+  runs once chunks 7 and 8 have merged into its branch (Preflight
+  corrections, item 3).
+
+**5. The monitoring breadth** (chunk 10 writes, W2-e records; read by
+6, 27). Master spec 7.4, 14; O223, O225, O226.
+
+- **`pgwatch` (choice)**: seed file `sources.yaml`, pgwatch 3's YAML
+  sources format (G9's release), one entry per instance in scope,
+  `conn_str: postgresql://monitoring@<node>:5432/postgres` (the URI
+  form, no password: libpq's `PGPASSFILE` under `/run`, W1 item 0);
+  its Prometheus sink on port **9188**, path `/metrics`. Reason: 9187
+  is the exporter's; one port per kind keeps Prometheus' target list
+  readable. The scenario's `prometheus.yml` gains `job_name: pgwatch`,
+  `targets: ['pgwatch:9188']`; node-health on 9110 on both new nodes
+  (7.5).
+- **`health-check` (choice)**: seed file `health.yaml`, `instances:` a
+  list of `{name, host, port, dbname}` checked as `monitoring`; the
+  crontab runs `check_postgres` over them every five minutes; seed
+  folder `scripts/`, each customer script a Nagios plugin (one line,
+  exit 0 OK, 1 WARNING, 2 CRITICAL, 3 UNKNOWN) on its own crontab line,
+  its result on the page. The page under `/health/` on port **8080**,
+  the brick's interface `{name: ui, protocol: http, port: 8080,
+  web_path: /health/}`, routed `health: "health:8080"`. Reason: the
+  bastion's front proxies `/<route>/` unchanged (`_check_web_routes`);
+  the plugin convention is the tooling the node stands for. The backup
+  script asks `GET http://cold-storage:8000/manifests?type=basebackup&from=<yesterday>`
+  (item 6, public).
+- **pgCluu** folds into the unreleased `postgres` 0.5.0 (6.7); chunk 10
+  is the only wave-2 chunk building the `postgres` image (item 7).
+
+**6. The partners' shared nodes and cold storage** (chunk 11 writes,
+W2-f records; read by 12, 16, 18 to 21, 23, 26, 27). Master spec 10.2,
+10.4, 11.2; access model 10; cold-storage.md 3.
+
+- **The shared nodes**: `partners-api` (`api`), `partners-backend`
+  (`scheduler`), `partners-db` (`postgres`), each `no-access`, named as
+  10.2 names them.
+- **Where the shared material lives (choice)**: a new catalogue folder
+  `partners/`, holding `shared/` (the three nodes' base: `partners-db`'s
+  `pg_hba.conf`, `postgresql.conf` and data file creating `partners`)
+  and `coldstore/` (item below), laid out as a domain's partner folder;
+  the GM copies them into a scenario as it copies a purpose's material
+  (endpoints into `compose/partners-api/`, DDL into `partners-db`'s data
+  file). Reason: cold storage serves the `postgres` brick's archiving in
+  any scenario and purpose 14, neither one domain nor one purpose (24
+  leaves its home to the build), and a domain's folder would force
+  composing that domain for the vault alone.
+- **A domain's partner joins** through compose (W1-w): its folder's
+  back-end fragments onto `partners-backend`, its `api.yaml`, `routes/`,
+  `db/` onto `partners-api`, its `data.sql` into `partners` (item 3);
+  its SQL connections `<prefix>-db: {target: partners-db:5432/partners,
+  role: <prefix>}`.
+- **Ticks (choice)**: the back end's streams call each partner's own
+  tick routes on its hostname, endpoints `<prefix>_tick…`, accepting one
+  credential, `partners_backend`, mounted on the two partner nodes only.
+  Reason: an undocumented route a player finds answers 401 (access model
+  10, "refused"), and one credential serves every partner without a
+  merge conflict.
+- **A partner's calls to the customer (choice)** set `User-Agent: <its
+  hostname>` (allowed: only `Authorization` and `Host` are the clients',
+  W1-y, W1-z), so the customer's logs show `agent=northfield-lab`. Known
+  limit: every partner calls from `partners-api`'s address (one network,
+  D275).
+- **A misbehaviour key (choice)**: each prefix's table `<prefix>.state
+  (hostname text, name text, value text NOT NULL, set_at timestamptz NOT
+  NULL DEFAULT now(), PRIMARY KEY (hostname, name))`, planted by its
+  `data.sql`, read by its routes at each request; on the back end one
+  stream per prefix, `{key: <prefix>.normal, connection: <prefix>-db,
+  rate: 1/min, arrivals: even}`, its key upserting the baseline rows. A
+  fault's key `<prefix>.<behaviour>` (fault template's
+  `partner_behaviour.key`, `xlab.outage`) is a back-end query upserting
+  other values, added by its material in `compose/partners-backend/`;
+  `placed: timeline` is a timeline change of `<prefix>.normal`'s stream
+  to that key at the planting moment, `placed: standing` the same at
+  `T0`. Reason: a key the timeline switches, read by the partner's own
+  routes, never a stop of a shared node (10.2, 7.2), with the scheduler
+  as built.
+- **Cold storage (choice)**, prefix `coldstore`, hostname `cold-storage`
+  (10.4), on `partners-api`:
+  - `POST /shipments`: W1 item 6's headers and body, credential
+    `cold_storage` (the customer's one account key: `vault_credential`
+    and purpose 14's connection), receipt 201 as W1 item 6;
+    `rows_received` the NDJSON lines for a data type, 1 for a non-empty
+    `wal` or `basebackup`; a shipment id again replaces its manifest;
+  - `GET /manifests` and `GET /`, public (no credential: the bastion's
+    route carries none, 7.3, and the health script calls it):
+    `/manifests?type=&from=&to=&source=` (dates `YYYY-MM-DD`, inclusive,
+    against the manifest's range), a JSON list by `received_at`; `/` an
+    HTML page with an inline SVG drawn by the route, the last five weeks
+    per type, declared against received;
+  - the manifest: `coldstore.manifests (shipment_id text PRIMARY KEY,
+    type, source, name, rows_declared, rows_received, size, date_from,
+    date_to, received_at)`;
+  - planted: `wal` and `basebackup` manifests for the weeks before T0 by
+    a snippet in `partners/coldstore/` the GM copies into
+    `partners-db`'s data file with the scenario's archiving nodes; the
+    data types' by purpose 14's history (item 3).
+- **`pg_hba.conf`** as item 1's form, `samenet` its starting address;
+  chunk 11 measures it on one Swarm network (and that one slow partner
+  never holds another's), records both in W2-f and its seed; the form
+  joins `postgres`' `docs/gm.md` at the wave gate (plan).
+
+**7. Wave 2 coordination** (for the driver and chunks 6 to 11)
+
+- **Order**: 6, 7 and 8 first; 10 at the first free slot (G9 cleared);
+  9 cut once 6 has merged, its fixture run once 7 and 8 have; 11 cut
+  once 6 and 7 have. Chunk 6 merges before 7, 8 and 10 (Preflight
+  corrections, item 2; 10 as planned).
+- **Files**: `model.py` is chunk 6's; `render.py`, `localimpl.py`,
+  `deploy.py` chunk 7's; `inject.py`, `coherence.py` chunk 8's;
+  `bricks/postgres/{Dockerfile,docs/}` chunk 10's; the scenario-format
+  skill chunk 6's then chunk 8's (Preflight corrections, item 6); the
+  root `README.md`'s tables and layout are shared lists.
+- **Images**: chunk 10 alone rebuilds `postgres:0.5.0` (pgCluu, folded
+  in); chunks 8, 9 and 11 test on the tag as it stands, with or without
+  pgCluu, and rebuild it from no branch of theirs.
+
+**Choices made here, not in the spec** (for the driver's review): the
+partner prefix and its uses; the database `partners`; `owners`,
+`partners`, `gm_src_*`, `pg_temp.core_*` reserved; `model.node_creates`;
+monitors' targets read per brick, the primary of a monitored standby,
+the exception on the target node; hosts and hostnames agreeing; the
+partners' roles theirs alone; the third-party `pg_hba.conf` form, its
+address unchecked; HTTP targets, port 8000 on an `api` target, no
+credential cross-check; no standby as a location; the receiver rule only
+for v0.5-shaped scenarios; the `SECURITY DEFINER` reach;
+`register_diff_true`; `data.sql` in a partner folder; `coherence.yaml`
+outside `check_domain_dir`; aliases from the `api.yaml` hosts; the
+stack's aliases form and `implementation.yaml`'s `aliases`; which nodes
+mount which `http_` secret; domains and histories read from the
+catalogue; the database convention and `:"DBNAME"`; `data/keys.sql`
+streamed ahead of each load; `load_epoch`; partner `data.sql` loaded into
+`partners`; the load order; `gm_src_*` through `gm_check`, unseen on both
+ends; derive's and history's sources; `coherence.yaml`'s form and run;
+the record's two places; the core's function names; `clinic-api`'s
+lookup contract and `clinic_lookup`; `pgwatch`'s `sources.yaml` and port
+9188; `health.yaml`, Nagios-style scripts, port 8080; the `partners/`
+catalogue folder; tick routes and `partners_backend`; the partner's
+`User-Agent`; the state table and the misbehaviour key; cold storage's
+endpoints, `cold_storage`, public reads, the manifest, its planting.
+
+### Preflight corrections for spec-writer
+
+1. **A partner's tables and planted state have no loader** (master spec
+   9.3, 9.7 "the partners' database planted from the same functions";
+   chunks 6, 8, 12, 16, 19). No chunk loads a domain's partner state
+   into the partners' database, and no chunk after chunk 8 holds
+   `inject.py`. Proposal: W2 items 1 and 3: chunk 6's scope gains
+   `data.sql` in a partner folder; chunk 8's gains running it, with
+   `data/keys.sql` streamed ahead of every part's load and partner
+   file, and `load_epoch`; chunk 9's Files gain `data/keys.sql`.
+2. **Composed domains create databases and roles the loader does not
+   see** (chunks 6, 7, 8). The location, crontab-role and governance
+   checks, `localimpl.data_login_roles` and `inject.password_plan` read
+   only a node's data file, so every composed scenario's
+   `records/clinic` is refused as a location and a domain's login roles
+   get no secret. Proposal: W2 item 1's `model.node_creates` in chunk
+   6's scope; chunks 7 and 8 switch their reader to it; merge-order
+   edges `6 ──> 7` and `6 ──> 8` (no start delayed: 9 and 11 already
+   wait for 6).
+3. **Chunk 9's fixture needs chunk 8** (dependency graph). It deploys
+   `domains: [vet-core]`, which only chunk 8's `load-data` loads; the
+   plan has no `8 ──> 9`. Proposal: an in-wave edge `8 ──> 9` for its
+   fixture (as the W1-z note already holds it for chunk 7), the branch
+   cut once chunk 6 has merged.
+4. **Chunk 7's fixture is not in its Files** (its Done when names "a
+   two-node fixture"). Proposal: `tools/tests/fixtures/fixture-alias/`
+   (new).
+5. **Cold storage's `web_routes` exception cannot be built in chunk 6**
+   (chunk 6's scope: "none in the bastion's `web_routes` but cold
+   storage's read-only paths"). The route's form is chunk 17's (the
+   front, `render.web_routes_value`), and the `api` brick declares no
+   web interface. Proposal: chunk 6 refuses every third-party node and
+   alias in `web_routes`; chunk 17's scope gains the exception in
+   `model._check_web_routes` (it holds `model.py` in wave 4).
+6. **The scenario-format skill is in no wave-2 chunk's Files**. Chunk 6's
+   checks and chunk 8's files (`data/keys.sql`, `data/coherence.yaml`
+   with a template, partner `data.sql`, the database convention) need
+   the skill's checklist and templates. Proposal: both chunks' Files
+   gain `.claude/skills/scenario-format/`, chunk 8 after chunk 6 (item
+   2's edge).
+7. **formats.md and master spec 5, after the build**: the `partners/`
+   catalogue folder (cold storage's home and the shared nodes' base);
+   `data/keys.sql`, `data/coherence.yaml`, a partner folder's
+   `data.sql`; a domain's schema never creating its database
+   (`:"DBNAME"`); and formats.md's "A domain is a design-time source:
+   the GM copies its files into the scenario", stale for composed
+   domains, which `load-data` reads from the catalogue (W2 item 3).
+   Chunk 11's Files gain `partners/` and the root `README.md`'s layout
+   row.
+8. **No chunk hands an HTTP credential to the players** (10.2: "with the
+   credentials the starter pack gives"; access model 10,
+   `documented-call`). Every `http_` secret is generated and not handed
+   over (W2 item 2). Proposal: chunk 17 adds the documented credentials
+   to the bastion's page, or `partners.md` documents public endpoints
+   only; to place before wave 4. Blocks no wave-2 chunk.
+9. **Ordering risk for W4**: chunk 8 is the last chunk holding
+   `inject.py`. Purpose 14's planted manifests (cold-storage.md 2)
+   must fit W2's history rule (its target the partners' database);
+   should W4 need another form, it is an inserted chunk.
+10. **The health node's backup script is first read end to end at G13**:
+    chunk 10's fixture has no cold storage, and chunk 11's has no health
+    node. Proposal: chunk 10's stack test answers `GET /manifests` with a
+    stand-in, as chunk 3's did for `POST /shipments`.
+
+### Questions for the owner
+
+None.
+
+### W2 reviewed by the driver, 2026-11-04
+
+The 35 **(choice)** points taken as written; none needs the owner. The
+ten preflight corrections went to `spec-writer` before any chunk was
+cut (next entry). Chunks record their as-built outcomes as W2-a to W2-f.
+
+### Plan revision before wave 2, 2026-11-04
+
+`spec-writer`: build plan v4 (8d8273f), spec D360 to D367:
+- D360 (corrections 1, 2): chunk 6 adds `model.node_creates` and a
+  partner folder's `data.sql`; chunk 8 runs it into `partners`, streams
+  `data/keys.sql` ahead of each load, passes `load_epoch`; chunks 7 and
+  8 read `node_creates` and merge after chunk 6.
+- D361: wave 2 keeps two three-chunk completion chains (6, 7, 11 and
+  6, 8, 9), one more than the model's rule; no start delayed, W2 fixes
+  every interface they cross. Moving 9 and 11 to wave 3 (seven chunks)
+  rejected.
+- D362 (corrections 3, 4, 6, 10, 7's Files): Files lines, the edge
+  7, 8 → 9 (chunk 9's fixture), the `GET /manifests` stand-in in chunk
+  10's stack test.
+- D363 (correction 5): chunk 6 refuses every third-party node and alias
+  in `web_routes`; chunk 17 adds cold storage's one exception.
+- D364 (correction 7): new gate G16, spec-writer writes the as-built
+  format items into formats.md and master spec 5 after wave 2's gate;
+  blocks release gate item 6 only.
+- D365 (correction 8): chunk 17 hands players the credentials
+  `partners.md` documents, with the starter pack (the customer's own
+  credential with each partner, at its game value; `cold_storage` never
+  handed over). By access model 3, 6 and master spec 10.2. **For the
+  owner, not blocking**: a separate player credential per partner would
+  change chunk 12's `api.yaml` (wave 3); rule before then if wanted.
+- D366 (correction 9): purpose 14's ordering risk on chunk 21's capture
+  line (W4).
+- D367 (from wave 1's gate): the full quality command's
+  `smoke-scenario.sh` item judges each scenario against its own design
+  within the smoke's minutes.
+D359 and O228 reserved by mistake, unused. `doc-ids lint spec`: 0 errors.
