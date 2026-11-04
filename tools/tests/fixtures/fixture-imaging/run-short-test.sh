@@ -13,10 +13,13 @@
 #
 # T0 is placed by the shift (whole hours) within 30 minutes of 08:50 local
 # on a weekday (the driver's ruling, wave log, chunk 15): the local minute at
-# T0 is the UTC minute, about SETUP seconds after the start, so the local
-# hour is 08 when that minute is 20 or later, 09 before. The local date then
-# follows; on a Saturday or a Sunday there the test refuses to run (exit 2),
-# since the imaging day it stands for is a weekday's.
+# T0 is the UTC minute, about SETUP seconds after the render (the estimate
+# drifts by a minute or two), so the local hour is 08 when that minute is 14
+# or later, 09 before; with 08, a deployment faster than the estimate holds
+# start-load until 08:21 local (a few minutes at most), so that T0 never
+# falls before 08:20. The local date then follows; on a Saturday or a
+# Sunday there the test refuses to run (exit 2), since the imaging day it
+# stands for is a weekday's.
 #
 # On a copy of tools/tests/fixtures/fixture-imaging (bastion 0.5.0, records
 # and machines: postgres 0.5.0, clinic-api: api 0.1.0, pms, equipment and
@@ -150,17 +153,17 @@ import datetime, sys
 setup = int(sys.argv[1])
 now = datetime.datetime.now(datetime.timezone.utc)
 t0 = now + datetime.timedelta(seconds=setup)
-target = 8 if t0.minute >= 20 else 9                # 08:20-08:59 or 09:00-09:19
+target = 8 if t0.minute >= 14 else 9                # 08:21-08:59 (held to 08:21) or 09:00-09:13
 shift = (target - t0.hour + 11) % 24 - 11          # -11..12, render's compute_shift
 moment = now.replace(minute=0, second=0, microsecond=0) + datetime.timedelta(hours=9)   # past the 8h aging floor
 while (moment.hour + shift) % 24 != 14:
     moment += datetime.timedelta(hours=1)
 local = t0 + datetime.timedelta(hours=shift)
 print(moment.strftime("%Y-%m-%dT%H:00Z"), shift, local.strftime("%H:%M"), local.strftime("%a"),
-      local.isoweekday())
+      local.isoweekday(), target)
 EOF
 )
-HANDOVER=$1 SHIFT=$2 LOCAL_T0=$3 LOCAL_DAY=$4 ISODOW=$5
+HANDOVER=$1 SHIFT=$2 LOCAL_T0=$3 LOCAL_DAY=$4 ISODOW=$5 TARGET_HOUR=$6
 if [ "$ISODOW" -gt 5 ]; then
     echo "T0 would fall on a $LOCAL_DAY locally (shift $SHIFT, $LOCAL_T0): the fixture's imaging day is a weekday's; run it on another day" >&2
     exit 2
@@ -317,6 +320,16 @@ same "plants: three worklist entries without their identity" "3" \
 ANIMALS=$(printf '%s\n' $wit | cut -d: -f1 | tr '\n' ',' | sed 's/,$//')
 
 # --- T0 ----------------------------------------------------------------------------
+# T0 at 08:21 local at the earliest (above): a fast deployment holds here.
+if [ "$TARGET_HOUR" = 8 ]; then
+    i=0
+    while [ "$i" -lt 600 ]; do
+        lm=$(( $(date -u -d "@$(( $(date +%s) + SHIFT * 3600 ))" +%-H) * 60 + $(date -u -d "@$(( $(date +%s) + SHIFT * 3600 ))" +%-M) ))
+        [ "$lm" -ge $(( 8 * 60 + 21 )) ] && break
+        sleep 10; i=$((i + 10))
+    done
+    [ "$i" -eq 0 ] || info "start-load held $i s, until 08:21 local"
+fi
 info "gmctl inject"
 $GMCTL inject "$SCN" --playground "$PG" >/dev/null && pass "inject (no state fault: f1 is a seed-file fault)" || fail "inject"
 info "gmctl start-load"
