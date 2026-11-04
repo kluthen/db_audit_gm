@@ -1,0 +1,15 @@
+# Fixed-time operations of the practice-management software, vet-core's
+# fragment (vet-core-domain.md, "Rates at intensity 1.0"), in scenario time:
+# the ward round every four hours, each active line's doses at its
+# frequency (D393), and the night's expiry of prescriptions (rule 1). The
+# expiry is light, set-based work: the GM may move it to the database
+# node's pg_cron (D206, D207).
+jobs:
+  - name: administrations-round
+    key: administrations.round
+    connection: clinic
+    at: "0 2,6,10,14,18,22 * * *"
+  - name: prescriptions-expire
+    key: prescriptions.expire
+    connection: clinic
+    at: "15 0 * * *"

@@ -1,0 +1,19 @@
+# clinic-api's fragment (v0.5 master spec 9.2, "The producer profiles";
+# capture W2 item 4; template: .claude/skills/scenario-format/templates/
+# api.yaml): the core's lookup API, an api node in the players' scope, only
+# answering. Two endpoints under the node's own hostname, behind one
+# credential every caller of the estate sends (clinic_lookup: a part adding
+# its caller's credential here would conflict, since compose merges
+# endpoints.<name> whole); read as vet_lookup, which sees no contact and no
+# death. Written for the node names clinic-api and records and the database
+# clinic; the GM renames them as the scenario does. Purpose 4's exchange
+# endpoints and their credentials (vet_exchange) are that purpose's.
+endpoints:
+  animals:
+    hosts: [clinic-api]
+    credentials: [clinic_lookup]
+  stays:
+    hosts: [clinic-api]
+    credentials: [clinic_lookup]
+connections:
+  clinic: {driver: sql/postgresql, target: records:5432/clinic, role: vet_lookup, pool: {size: 4}}

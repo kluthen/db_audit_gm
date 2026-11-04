@@ -1,0 +1,168 @@
+# Schedule of the practice-management software, vet-core's fragment (v0.5
+# master spec 9.2, "The producer profiles"; vet-core-domain.md, "Rates at
+# intensity 1.0" and "The business hours"): its connection, streams and
+# shapes, in scenario time (the customer's zone, every site in it);
+# intensity and timeline are the scenario's. The rates are
+# regional-franchise's throughput at intensity 1.0, before the shape: a
+# volume stream's rate makes the daily volume; a work stream takes the
+# oldest item waiting, so its rate is a capacity, at least twice the
+# busiest hour's arrivals. The scheduled consultations have no stream: the
+# bookings purpose's check-in opens them (D317). The parts carried by pms
+# (vet-scheduling, vet-housing, the portal's desk) add their own prefixed
+# connections, streams and shapes. Written for the node names pms and
+# records and the database clinic; the GM renames them as the scenario does
+# (or points the connection at the scenario's pooler).
+connections:
+  clinic:
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: vet_app
+    pool: {size: 6}
+streams:
+  # --- volume streams ---
+  - key: owners.register             # 17 / 6 / 0 a day (Mon-Fri / Sat / Sun)
+    connection: clinic
+    rate: 1.6/h
+    arrivals: poisson
+    shape: clinic-day
+  - key: animals.register            # 9 / 3 / 0
+    connection: clinic
+    rate: 0.86/h
+    arrivals: poisson
+    shape: clinic-day
+  - key: referrals.receive           # 18 / 0 / 0
+    connection: clinic
+    rate: 1.82/h
+    arrivals: poisson
+    shape: office
+  - key: consultations.emergency     # 10 every day, a third at night
+    connection: clinic
+    rate: 0.42/h
+    arrivals: poisson
+    shape: around-the-clock
+  - key: consultations.herd-visit    # 10 on Tuesdays and Thursdays
+    connection: clinic
+    rate: 2.1/h
+    arrivals: even
+    shape: herd-days
+  - key: consultations.ward          # 12 every day
+    connection: clinic
+    rate: 3/h
+    arrivals: poisson
+    shape: ward-rounds
+  - key: stays.admit                 # 8 every day
+    connection: clinic
+    rate: 0.34/h
+    arrivals: poisson
+    shape: around-the-clock
+  - key: stays.discharge             # 8 every day, late mornings
+    connection: clinic
+    rate: 2.67/h
+    arrivals: even
+    shape: discharges
+  - key: alerts.record               # 6 / 2 / 0
+    connection: clinic
+    rate: 0.6/h
+    arrivals: poisson
+    shape: clinic-day
+  - key: ownerships.transfer         # 4 / 1.5 / 0
+    connection: clinic
+    rate: 0.37/h
+    arrivals: poisson
+    shape: clinic-day
+  - key: requests.cancel             # 1 / 0.5 / 0
+    connection: clinic
+    rate: 0.12/h
+    arrivals: poisson
+    shape: clinic-day
+  - key: exchanges.request           # 1 / 0 / 0
+    connection: clinic
+    rate: 0.1/h
+    arrivals: poisson
+    shape: office
+  # --- work streams (capacities) ---
+  - key: consultations.close         # follows the opens: 85 a day
+    connection: clinic
+    rate: 40/h
+    arrivals: even
+    shape: flat
+  - key: consultations.sign          # nothing waits a day (the trap stays a fault's)
+    connection: clinic
+    rate: 20/h
+    arrivals: even
+    shape: signing
+  - key: referrals.accept            # 13 a day
+    connection: clinic
+    rate: 6/h
+    arrivals: even
+    shape: office
+  - key: referrals.close             # about 13 a day
+    connection: clinic
+    rate: 4/h
+    arrivals: even
+    shape: office
+  - key: exchanges.decide            # about one a day
+    connection: clinic
+    rate: 2/h
+    arrivals: even
+    shape: office
+  - key: exchanges.report            # under one a day
+    connection: clinic
+    rate: 2/h
+    arrivals: even
+    shape: office
+  # --- reads ---
+  - key: animals.file                # about 640 a weekday
+    connection: clinic
+    rate: 60/h
+    arrivals: poisson
+    shape: clinic-day
+    concurrency: 4
+  - key: wards.list
+    connection: clinic
+    rate: 12/h
+    arrivals: even
+    shape: flat
+  - key: requests.pending
+    connection: clinic
+    rate: 15/h
+    arrivals: poisson
+    shape: clinic-day
+shapes:
+  clinic-day:                        # weekdays 08:00-20:00, the late afternoon peak; Saturday mornings
+    days:
+      mon-fri:
+        hours: {"00-07": 0, "08-09": 0.8, "10-11": 1.0, "12": 0.4, "13": 0.6, "14-16": 1.0,
+                "17-18": 1.2, "19": 0.6, "20-23": 0}
+      sat:
+        hours: {"00-07": 0, "08-12": 0.8, "13-23": 0}
+      sun:
+        hours: {"00-23": 0}
+  office:                            # weekdays 08:00-18:00, flat
+    days:
+      mon-fri:
+        hours: {"00-07": 0, "08-17": 1.0, "18-23": 0}
+      sat-sun:
+        hours: {"00-23": 0}
+  herd-days:                         # Tuesday and Thursday mornings: the herd-health visits
+    days:
+      mon:
+        hours: {"00-23": 0}
+      tue:
+        hours: {"00-07": 0, "08-12": 1.0, "13-23": 0}
+      wed:
+        hours: {"00-23": 0}
+      thu:
+        hours: {"00-07": 0, "08-12": 1.0, "13-23": 0}
+      fri-sun:
+        hours: {"00-23": 0}
+  ward-rounds:                       # every day, the morning round and the late afternoon one
+    hours: {"00-08": 0, "09-11": 1.0, "12-15": 0, "16-17": 0.5, "18-23": 0}
+  around-the-clock:                  # about a third of the volume between 22:00 and 08:00
+    hours: {"00-07": 0.8, "08-21": 1.1, "22-23": 0.9}
+  discharges:                        # late mornings
+    hours: {"00-09": 0, "10-12": 1.0, "13-23": 0}
+  signing:                           # a night's emergencies signed the next morning (rule 8)
+    hours: {"00-07": 0, "08-20": 1.0, "21-23": 0}
+  flat:
+    hours: {"00-23": 1.0}

@@ -1,0 +1,26 @@
+# vet-core's one variant (v0.5 master spec 8.3, 9.2; vet-core-domain.md,
+# "The variant, its scale and its tags", D263, D285, D295): the franchise as
+# briefed, at one centre's scale.
+#
+# parts: the design's are vet-lab, vet-scheduling, vet-housing,
+# vet-machinery and vet-portal (D293). check_domain_dir requires each part
+# named here to be a domain of the catalogue requiring vet-core, with its
+# own variants/regional-franchise.yaml, so each part's chunk adds its id here
+# as it lands (wave 3); until then the list holds the parts built.
+parts: []
+scale:
+  population: {sites: 6, sections: 3, staff: 85, vets: 30, owners: 10000, holdings: 200,
+               horse_owners_and_stables: 700, referring_practices: 400, referring_vets: 800,
+               animals: 17000, domestic: 14600, horses: 1400, farm_animals: 1000, herds: 200,
+               in_hospital: 40}
+  history: {days: 365, consultations: 25000, prescriptions: 15000, prescription_lines: 37000,
+            administrations: 60000, requests: 17000, stays: 2500, exchanges: 700,
+            rows: 280000, growth: "each daily volume from 60 % of today's rate a year ago"}
+  throughput: {consultations_per_day: 85, scheduled: 60, in_hospital: 12, emergencies: 10,
+               herd_visits: 3, new_owners_per_day: 13, new_animals_per_day: 20,
+               administrations_per_day: 210, prescriptions_per_day: 50, requests_per_day: 55,
+               new_rows_per_day: 760, updates_per_day: 450}
+purposes: [vet-lab-centre-orders, vet-centre-exchanges, vet-notifiable-diseases,
+           vet-medicines-registers, vet-antimicrobial-use, vet-head-office-figures,
+           vet-bookings-sync, vet-working-time, vet-imaging-orders, vet-portal-release]
+tags: [managed, regional, regulated, multi-site, 24/7]
