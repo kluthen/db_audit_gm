@@ -987,7 +987,7 @@ type, rows, dates) and discards the payload. The GM decides per type,
 use first, volume second (about 50 000 rows a day at intensity 1.0 only
 marks a candidate). The housing displays log action events only, about
 520 a day, kept all game; the machines read every ten seconds while
-running, about 68 500 rows a day, `vitals` and `machine-readings`
+running, about 59 000 rows a day, `vitals` and `machine-readings`
 shipped nightly, the last full day kept in daily partitions. **Every
 domain's GM notes state each producer's growth an hour at intensity
 1.0**, rows and megabytes, and for each shipped type its retention on
@@ -1771,14 +1771,18 @@ section's units in service), so about 62 % occupancy.
   (open while placed), reason, placed by; partial unique indexes on
   `unit_id` and on `stay_id` where open: one animal per unit, one unit
   per stay. A move ends one and opens the next at one instant, in one
-  transaction; one stay in five moves once. About 3 000 a year.
+  transaction; an animal moves out of intensive care, into isolation
+when its alert comes (as soon as a unit is free) and back to an
+ordinary unit when it ends. About 3 030 a year, 454 stays moving, 157
+of them twice.
 - **`housing_feeding_plans`**: a diet per species list or a
-  `nil-by-mouth` order overriding it, from, until. About 2 900.
+  `nil-by-mouth` order overriding it, from, until. About 2 800.
 - **`housing_care_events`**: unit, the occupant's `stay_id` (none for
   an emptied unit), kind (`feeding` with `eaten` all, part or none,
   `water`, `mucking-out`, `bedding`, `walk`, `grooming`, `check`,
   `disinfection`), at, by; written once. Never a dose: medicines are the
-  core's `administrations`. About 150 000 a year, 520 a day.
+  core's `administrations`. About 133 000 a year (the stays' ramp), 520
+a day.
 
 **`housing_unit_board`**, a view owned by `housing`, one row per unit,
 is what a display shows: the unit, its open placement, the stay and its
@@ -1806,7 +1810,10 @@ units against 40 current stays.
 
 The history follows the core's year: each stay placed ten minutes after
 admission in the lowest-id free unit that fits (isolation when
-infectious), one in five moved, released at its end, disinfected 30 to
+infectious, an ordinary unit while the section's isolation units are
+held, then in at the first one disinfected, and out when the alert
+ends: about one infectious stay in five waits, a few never get in),
+moved out of intensive care, released at its end, disinfected 30 to
 90 minutes later; diets, a nil-by-mouth order for one stay in six, the
 care log day by day, times and carers by hashes. At T0, as a night
 leaves the wards: 40 stays placed once each, the night's checks done,
@@ -1814,16 +1821,16 @@ units released in the last hour `to-clean`. The build fails if a stay
 finds no fitting unit; the GM's post-load coherence check then reads
 every placement on a real stay and every current stay placed, a
 mismatch being a design error caught before hand-over, never a fault.
-About 0.16 million rows and 50 MB; 540 a day; nothing ships to cold
-storage.
+About 0.14 million rows and 17 MB, loaded in about 7.5 s after the
+core; 540 a day; nothing ships to cold storage.
 
 #### Roles, classification, rules
 
 | Role | May |
 |---|---|
-| `housing` | own the tables and the view; no login |
+| `housing` | own the tables and the view; no login; for the view, read `animal_board`, `business_settings`, `stays` (reason) and `animals` (`born_on`) |
 | `housing_app` | the housing screens on `pms`: read housing's tables and the core's `stays`, `animals` (species), `alerts`, `staff` (kind) by column; write placements, plans, and units' `state` only |
-| `housing_ward` | the ward service's writes: insert care events, set units' `state`; nothing else |
+| `housing_ward` | the ward service's writes: insert care events (with `USAGE` on their sequence), set units' `state`; nothing else |
 | `vet_display` (core's) | the displays' reads: `animal_board` and `housing_unit_board` only |
 | `vet_reports` (core's) | the back office on the standby: every housing table |
 
@@ -1832,8 +1839,8 @@ table holds personal data; the board's `animal_id` is
 `customer-linked`; notes are `internal` and may name the owner (a
 trap). Rules (game values): the board shows no owner, contact or
 natural identifier; an animal with a current `infectious` alert is in
-isolation, every emptied unit disinfected before the next, isolation
-always (Regulation (EU) 2016/429, Art 10); nil by mouth shown from its
+isolation as soon as one is free, every emptied unit disinfected
+before the next, isolation always (Regulation (EU) 2016/429, Art 10); nil by mouth shown from its
 start, no feeding while in force (eight hours before an anaesthetic,
 twelve for horses and ruminants); checks every four hours, feeding at
 the species' rounds (horses 06, 12, 17, 21; ruminants 07, 16; dogs 08,
@@ -1899,9 +1906,12 @@ infectious animals outside isolation) and governance (the owner's
 contact on the board, read auditing on). The `housing` fixture
 (`records`, `pms`, `ward`, bastion; about 0.8 CPU and 0.75G) proves in
 under 30 minutes each the load's placements, the board (64 calls a
-minute, no owner), placement and release (T0 10:00), the care log (T0
-before 17:00), and T150 present, reported, cleared by the test turning
-the display's key off. Loading: into `clinic` as `postgres` after the
+minute, no owner), placement and release (T0 in the 10:00 hour, the
+shift moving whole hours; a unit released live is not seen disinfected
+within the run, the ward taking a unit after 30 minutes to clean), the
+care log (T0 in the 16:00 hour), and T150 present, reported, cleared by
+the test turning the display's key off; its hand-over rendered at least
+nine hours out, past the aging floor. Loading: into `clinic` as `postgres` after the
 core's schema, every time following the core's shifted stays. Capacity:
 `ward` (`scheduler`, 0.1 CPU, 64M, 128M disk, armenelos); a few
 hundredths of `records`' CPU.
@@ -1954,11 +1964,17 @@ the databases and revokes `CONNECT` from `PUBLIC`.
   acknowledged), partitioned monthly; `mach_readings` (a row a minute
   per machine, channels in `jsonb`), partitioned daily and shipped;
   `mach_readings_daily`, the kept aggregate.
+- **Each database keeps its one-row settings** (the customer's zone and
+  offset, the window): `mach_settings` in `biomed`, `mach_pacs_settings`
+  (with the turnarounds) in `pacs`, `mach_vitals_settings` (with the
+  chart's intervals) in `vitals`, the names unique across the part.
 - **`pacs`**: 30 procedures (study codes by modality and species
   group); `mach_worklist` (accession `I-<request id>`, unique, the
   idempotency key; the identity the lookup API answered, in DICOM's
   form: `patient_id` `A-<animal id>`, `patient_name` "owner's
-  surname^animal's name", the owner as Responsible Person); studies
+  surname^animal's name", the owner as Responsible Person; a
+  cancellation's reason and `cancelled_at`, purpose 13's watermark);
+  studies
   (operator, restrainer, companion present, images, size, exposure),
   series; reports, `preliminary` or `final`, an addendum a new row
   superseding the final, which is kept.
@@ -1982,15 +1998,19 @@ the census or by staff; a machine `in-service` ⇄ `down` → `retired`.
 
 | Key | Range, layout |
 |---|---|
-| `mach_machines.id` | 1–28: 1–6 the lab's analysers (1–2 haematology, 3–4 biochemistry, 5 blood gas, 6 coagulation; on call at night 1, 3, 5); 7–16 imaging (7 CT small animal, 8 CT large bore, 9 MRI 1.5 T, 10 standing MRI with no helium, 11–13 DR, 14–15 ultrasound, 16 gamma camera), bookable by `vet-scheduling`; 17–20 anaesthesia monitors, 21–28 intensive-care monitors; telemetry 1–9 and 16 |
+| `mach_machines.id` | 1–28: 1–6 the lab's analysers (1–2 haematology, 3–4 biochemistry, 5 blood gas, 6 coagulation; on call at night 1, 3, 5); 7–16 imaging (7 CT small animal, 8 CT large bore, 9 MRI 1.5 T, 10 standing MRI with no helium, 11–13 DR, 14–15 ultrasound, 16 gamma camera), bookable by `vet-scheduling`; 17–20 anaesthesia monitors, 21–28 intensive-care monitors; telemetry 1–10 and 16, 11 machines, machine 10 a status row with no channel |
 | `mach_procedures.id` | 1–30: 1–12 small animal, 13–27 large animal (26 standing MRI and 27 scintigraphy horses only), 28–30 any; DX 45 % of studies, US 30, CT 15, MR 7, NM 3 |
-| History | worklist 1–3 400 (the k-th imaging request of the core, in time order), studies 1–3 470, series 1–8 000, reports 1–3 450, sessions 1–3 800, functions of their ids in the GM notes; studies 3 465–3 470 six unmatched ones (a typed patient id naming no animal), the PACS's mistyped chips |
+| History | worklist 1–3 400 (the k-th imaging request of the core, in time order; about 2 980 loaded), studies 1–3 470 (about 2 915), series 1–8 000 (about 6 500), reports as loaded (about 3 770, preliminaries included), sessions 1–3 800 (about 2 750), functions of their ids in the GM notes; studies 3 465–3 470 six unmatched ones (a typed patient id naming no animal), the PACS's mistyped chips |
 | Core keys used | imaging requests by the core's request function (study code drawn among these 30 by species group); animals 1–17 000; stays 1–2 500 by the stay function; staff 26–28 imaging specialists, 52–55 radiographers, 56 the biomedical engineer |
 
-About 0.34 million rows at load, the raw window a third of it. Live, about 68 500 rows a day: 52 000 raw vitals
-(about five animals in intensive care around the clock, up to four
-under anaesthesia on weekdays), 15 800 readings, about 700 that stay;
-about 11 studies a day (13 a weekday, 6 Saturday, 3 Sunday).
+About 0.28 million rows at load (75 MB, about 51 s), the raw window a
+third of it. Live, about 59 000 rows a day: 42 700 raw vitals (about
+two intensive-care sessions a day by the census's rule, about four
+animals in intensive care around the clock, up to four under
+anaesthesia on weekdays), 15 840 readings, about 700 that stay; about
+10 studies a day (12 a weekday, 6 Saturday, 3 Sunday), from about
+2 980 imaging requests a year reaching the worklist. The build's
+figures, chunk 30's reruns at the wave gate the figures of record.
 
 #### Roles
 
@@ -2000,9 +2020,9 @@ about 11 studies a day (13 a weekday, 6 Saturday, 3 Sunday).
 | `mach_pacs_app` | `pacs` | write worklist scheduling, identity and state, studies, series, reports; never the procedures |
 | `mach_vitals_app` | `vitals` | write census, sessions, vitals, chart, alarms |
 | `mach_biomed_app` | `biomed` | write events, readings, maintenance, downtimes, the machines' `status` and `qa_due_on` only |
-| `mach_maint` | `vitals`, `biomed` | `EXECUTE` on `mach_create_partitions(days)` only |
+| `mach_maint` | `vitals`, `biomed` | `EXECUTE` on `mach_create_partitions(days)` only; `LOGIN` (`pg_cron` runs a job only as a role that can log in), its password a secret no node mounts |
 | `mach_service` | `biomed` | the vendors' remote service (no producer in v0.5): read machines, events, readings, maintenance; write maintenance |
-| `mach_orders` | `pacs` | purpose 13: insert worklist entries, read their states and the reports |
+| `mach_orders` | `pacs` | purpose 13: insert worklist entries, read their states, cancellations (reason, `cancelled_at`) and the reports |
 | `mach_archive` | `vitals`, `biomed` | purpose 14: read raw rows, write aggregates, `EXECUTE` on `mach_drop_shipped`; no ownership |
 
 `CONNECT` on each database goes to its own roles only. The two
@@ -2045,7 +2065,7 @@ included as long as they carry a session's id only.
 `equipment` holds three connections (each database as its `_app` role)
 and an HTTP one to `clinic-api`; the partition jobs run on `machines`'
 `pg_cron` as `mach_maint`. At intensity 1.0: `vitals.sample` 360/h
-(set-based, about 52 000 rows a day), `biomed.readings` 60/h (15 800),
+(set-based, about 42 700 rows a day), `biomed.readings` 60/h (15 840),
 `biomed.events` 10.4/h, `vitals.alarm` 3/h, `vitals.anaesthesia.start`
 1/h on `theatre`; rare flows (unscheduled studies and cancellations
 weekly, addenda every three days); work streams, at capacities, schedule, acquire,
@@ -2067,7 +2087,7 @@ machinery) ship nightly at 00:40, the last full day and today kept;
 both are the GM's call per scenario; nothing else ships. `machines` has
 no standby and no WAL archive: a nightly base backup to the vault, so
 recovery goes back to last night. A stalled shipping grows the disk by
-10 MB a day, never a problem within an aging; it shows on the vault's
+about 7 MB a day, never a problem within an aging; it shows on the vault's
 graph and the partition count.
 
 #### Purposes 13 and 14
@@ -2111,7 +2131,8 @@ without reading `clinic`, partitions for the window and ahead, sessions
 unseen), then purpose 14's manifests. **The build verifies** the
 partition functions' fixed `search_path` and, after load, sessions on
 core stays and entries on imaging requests. Two fixtures under 30
-minutes: *imaging* (7 nodes, T0 a weekday 08:50), a request through to
+minutes: *imaging* (7 nodes, T0 a weekday within 30 minutes of 08:50,
+the shift moving whole hours), a request through to
 `resulted`; *vault* (6 nodes, T0 21:55), a night's shipment to the drop.
 
 ### 9.7 `vet-portal`, the owners' portal
@@ -2486,7 +2507,7 @@ back.
   each producer's growth an hour and, per shipped type, its retention
   on site and the consumers it waits for; the node is sized for the
   retention on site plus the aging's slack.
-- **The clinic's types**: `vitals` (the monitors' readings, about 52 000
+- **The clinic's types**: `vitals` (the monitors' readings, about 42 700
   rows a day) and `machine-readings` (the machines' telemetry, shipped by
   the owner's direction), the last full day kept on site, shipped nightly
   at 00:40; and the vault's `wal` and `basebackup` (11.2).

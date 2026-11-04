@@ -1142,3 +1142,36 @@ D337, D341, D359, D371 and D392 were reserved and never used). Take the next num
   (D408) moves them a few per cent, the wave gate's reruns the figures
   of record. Now in: [vet-lab](versions/v0.5/vet-lab-domain.md#deterministic-key-ranges-d249-d266)
   (the variant, ranges, grants, sizes, T0); master spec 9.3.
+- **D416 (2026-11-04, chunk 15a, documents to as-built): `vet-machinery`
+  as built: a settings row per database; `mach_worklist.cancelled_at`,
+  read by `mach_orders`; `mach_maint` `LOGIN` for `pg_cron`; 11 machines
+  reporting (O227); about 2 intensive-care sessions, 42 700 raw vitals
+  and 59 000 rows a day, 2 980 imaging requests a year, 0.28 million
+  rows, 75 MB, 51 s; the history's finals on the core's turnaround.**
+  Measured within the approved rules; the PACS reading no registry is
+  O235's. Now in: [vet-machinery](versions/v0.5/vet-machinery-domain.md#reference-sizes);
+  master spec 9.6, 10.4; [purposes](versions/v0.5/clinic-purposes.md#the-roles-the-purposes-add).
+- **D417 (2026-11-04, chunk 14, documents to as-built): `vet-housing`
+  as built: `housing` reads `stays.reason`, `animals.born_on` and
+  `business_settings` for the board, `housing_ward` has `USAGE` on the
+  care log's sequence; an animal moves into isolation as soon as one is
+  free and out when its alert ends (157 stays moving twice, 47 of 249
+  infectious ones waiting, 5 never in); about 0.14 million rows, 17 MB,
+  7.5 s; the short test's limits (T0 to the hour, a live release's
+  disinfection unseen, the hand-over nine hours out).** Measured within
+  the approved rules; T163's witness against the waits is O236's. Now
+  in: [vet-housing](versions/v0.5/vet-housing-domain.md#reference-sizes); master spec 9.5.
+- **D418 (2026-11-04, the driver, closes O235): The `pacs` load keeps
+  the history's studies out of `biomed`'s downtime windows, derived by
+  its formulas (salts 502, 505, 506), checked inside `pacs`; live, the
+  PACS reads no registry, and a story taking a machine down stops its
+  acquisitions itself.** As recommended; chunk 15b builds it. Now in:
+  [vet-machinery](versions/v0.5/vet-machinery-domain.md#the-procedure-catalogue-d372-d373);
+  [build plan](versions/v0.5/build-plan.md) chunk 21 (`mach_archive`'s
+  settings reads, for W4).
+- **D419 (2026-11-04, the driver, closes O236): T163's witness is an
+  infectious animal outside isolation while an isolation unit of its
+  section has stood clean and free for more than a day.** As
+  recommended: the history's waits, every isolation unit held, no
+  longer fire it. Now in:
+  [vet-housing](versions/v0.5/vet-housing-domain.md#3-care-feeding-and-biosecurity) (T163, false alarms).

@@ -1,0 +1,18 @@
+# vet-lab's governance: fragment (v0.5 master spec 9.3, 13.1; formats.md
+# "Domain"): where each class of data/classification.yaml may live and who may
+# read it, as docs/policy.md's thirteen rules state it (rule 10, the practices'
+# clients processed for that order only; rule 11, least data). The GM copies
+# it into the scenario's governance: beside vet-core's and adapts it: the
+# locations are written for the node lab and the database lab, renamed as the
+# scenario does; the purposes add their readers (lab_release, lab_watch and
+# the purposes' own roles) and their outbound flows (the send-outs to the
+# external lab, carrying no personal column; the deliveries to the practices,
+# each only its own orders; the notifications to the authority; the
+# statements to office), each with its purpose. No column is customer-linked
+# (vet-lab-domain.md, "Classification").
+classes:
+  personal:
+    locations: [lab/lab]
+    readers: [lab_app, lab_api, lab_dispatch, lab_reports]
+  internal:
+    locations: any

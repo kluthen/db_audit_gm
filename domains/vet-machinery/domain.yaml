@@ -1,0 +1,21 @@
+# vet-machinery, the clinic's machines and their databases (v0.5 master spec
+# 9.6; specs/versions/v0.5/vet-machinery-domain.md): the imaging of the three
+# sections, the theatres' and intensive care's monitors and the lab's
+# analysers, each machine system keeping its own database on the machinery's
+# server (machines by convention): pacs (the imaging archive and its
+# worklist), vitals (the monitors' central station), biomed (biomedical
+# engineering: the registry, the logs, the telemetry). A part of vet-core:
+# it computes the core's keys from vet-core's data/keys.sql and never reads
+# its database. Its producer: the machines and their systems as one node,
+# equipment (producers/equipment/); its pg_cron jobs in data/cron.sql.
+id: vet-machinery
+title: The machines of a veterinary hospital and their three systems' databases (PACS, central station, biomedical engineering)
+classification: data/classification.yaml
+register: data/register.yaml
+producers: producers/
+notes: docs/gm.md
+policy: docs/policy.md
+governance: data/governance.yaml
+requires: [vet-core]
+databases: [pacs, vitals, biomed]
+purposes: [vet-imaging-orders, cold-storage-archive]

@@ -1,0 +1,103 @@
+# vet-machinery's coherence queries (v0.5 master spec 8.5, 9.6 "the build
+# verifies ... sessions on core stays and entries on imaging requests";
+# capture W3 item 4; template coherence.yaml): run once by load-data after
+# the loads, each in its database, the core read through gm_src_vet_core.
+# Any row is a design error of the composition, never a fault.
+checks:
+  - id: sessions-on-stays
+    what: every monitor session lies on a core stay of the same animal, within it
+    database: vitals
+    reads: [vet-core]
+    sql: |
+      SELECT x.id AS session_id, x.stay_id, x.animal_id
+        FROM mach_sessions AS x
+        LEFT JOIN gm_src_vet_core.stays AS s ON s.id = x.stay_id
+       WHERE s.id IS NULL OR s.animal_id <> x.animal_id OR x.started_at < s.admitted_at
+          OR (s.discharged_at IS NOT NULL
+              AND coalesce(x.ended_at, 'infinity') > s.discharged_at + interval '5 minutes')
+
+  - id: census-on-current-stays
+    what: the census's current stays are the core's current stays seen by its last run
+    database: vitals
+    reads: [vet-core]
+    sql: |
+      SELECT coalesce(c.stay_id, s.id) AS stay_id, c.left_at, s.discharged_at
+        FROM (SELECT * FROM mach_census WHERE left_at IS NULL) AS c
+        FULL JOIN (SELECT st.* FROM gm_src_vet_core.stays AS st
+                    WHERE st.discharged_at IS NULL
+                      AND st.admitted_at < (SELECT max(seen_at) FROM mach_census)) AS s ON s.id = c.stay_id
+       WHERE c.stay_id IS NULL OR s.id IS NULL
+
+  - id: vitals-window-rows
+    what: each window day's raw vitals are the 10-second ticks of that day's sessions (docs/gm.md)
+    database: vitals
+    sql: |
+      WITH o AS (SELECT utc_offset_hours AS h FROM mach_vitals_settings),
+      t0 AS (SELECT max(at) + interval '10 seconds' AS e FROM mach_vitals),
+      days AS (SELECT DISTINCT ((v.at AT TIME ZONE 'UTC') + make_interval(hours => o.h))::date AS d
+                 FROM mach_vitals AS v, o),
+      b AS (SELECT d, (d::timestamp - make_interval(hours => o.h)) AT TIME ZONE 'UTC' AS d0,
+                   least(((d + 1)::timestamp - make_interval(hours => o.h)) AT TIME ZONE 'UTC', t0.e) AS d1
+              FROM days, o, t0),
+      expected AS (SELECT b.d, sum(greatest(0, ceil(extract(epoch FROM least(coalesce(x.ended_at, b.d1), b.d1)) / 10)
+                                            - ceil(extract(epoch FROM greatest(x.started_at, b.d0)) / 10)))::bigint AS n
+                     FROM b JOIN mach_sessions AS x ON x.started_at < b.d1 AND coalesce(x.ended_at, 'infinity') > b.d0
+                    GROUP BY b.d),
+      actual AS (SELECT b.d, count(*) AS n FROM b JOIN mach_vitals AS v ON v.at >= b.d0 AND v.at < b.d1 GROUP BY b.d)
+      SELECT coalesce(e.d, a.d) AS day, e.n AS expected, a.n AS loaded
+        FROM expected AS e FULL JOIN actual AS a ON a.d = e.d
+       WHERE e.n IS DISTINCT FROM a.n
+
+  - id: readings-window-rows
+    what: each machine with telemetry has a reading a minute over the window's full day
+    database: biomed
+    sql: |
+      WITH o AS (SELECT utc_offset_hours AS h FROM mach_settings),
+      d AS (SELECT min(((r.read_at AT TIME ZONE 'UTC') + make_interval(hours => o.h))::date) AS d
+              FROM mach_readings AS r, o)
+      SELECT m.id AS machine_id, count(r.read_at) AS rows
+        FROM mach_machines AS m CROSS JOIN d CROSS JOIN o
+        LEFT JOIN mach_readings AS r ON r.machine_id = m.id
+             AND ((r.read_at AT TIME ZONE 'UTC') + make_interval(hours => o.h))::date = d.d
+       WHERE m.telemetry
+       GROUP BY m.id
+      HAVING count(r.read_at) <> 1440
+
+  - id: entries-on-imaging-requests
+    what: every worklist entry is a sent imaging request of the core, its consultation, animal, vet and code
+    database: pacs
+    reads: [vet-core]
+    sql: |
+      SELECT w.id AS worklist_id, w.request_id, r.kind, r.state
+        FROM mach_worklist AS w
+        JOIN mach_procedures AS p ON p.id = w.procedure_id
+        LEFT JOIN gm_src_vet_core.requests AS r ON r.id = w.request_id
+       WHERE r.id IS NULL OR r.kind <> 'imaging' OR r.sent_at IS NULL OR r.consultation_id <> w.consultation_id
+          OR r.animal_id <> w.animal_id OR r.requested_by <> w.requested_by OR r.code <> p.code
+          OR w.accession <> 'I-' || r.id
+
+  - id: sent-requests-on-the-worklist
+    what: every imaging request the core sent has its entry, cancelled when the core's is
+    database: pacs
+    reads: [vet-core]
+    sql: |
+      SELECT r.id AS request_id, r.state, w.state AS entry_state
+        FROM gm_src_vet_core.requests AS r
+        LEFT JOIN mach_worklist AS w ON w.request_id = r.id
+       WHERE r.kind = 'imaging' AND r.sent_at IS NOT NULL
+         AND (w.id IS NULL OR (r.state = 'cancelled') <> (w.state = 'cancelled'))
+
+  - id: finals-before-resulted
+    what: a request is resulted only on a final signed before it, and every final's request is resulted
+    database: pacs
+    reads: [vet-core]
+    sql: |
+      SELECT w.request_id, r.state, r.resulted_at, f.signed_at AS final_at
+        FROM mach_worklist AS w
+        JOIN gm_src_vet_core.requests AS r ON r.id = w.request_id
+        LEFT JOIN mach_studies AS st ON st.worklist_id = w.id
+        LEFT JOIN LATERAL (SELECT min(rp.signed_at) AS signed_at FROM mach_reports AS rp
+                            WHERE rp.study_id = st.id AND rp.kind = 'final') AS f ON true
+       WHERE (r.state = 'resulted' AND (f.signed_at IS NULL OR f.signed_at > r.resulted_at
+                                        OR f.signed_at < r.resulted_at - interval '10 minutes'))
+          OR (r.state <> 'resulted' AND f.signed_at IS NOT NULL)

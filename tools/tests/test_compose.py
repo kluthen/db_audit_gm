@@ -333,6 +333,87 @@ class TestLeftOut(ComposeCopyTest):
                       "domains/fx-core/producers/", text)
 
 
+
+class TestLabStubs(unittest.TestCase):
+    """vet-lab's two stubs' fragments composed onto the partners' three shared
+    nodes (spec D403; capture W3 item 1): fixture-lab-core, its left-out
+    partner folders put back, partners-api and partners-backend added as
+    partners/shared/nodes.yaml declares them, the back end's base its scenario
+    layer; gmctl compose from the repository's catalogue, then the output
+    loaded with the scenario. No deployment."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory(prefix="gmctl-lab-stubs-")
+        self.addCleanup(tmp.cleanup)
+        self.scenario = Path(tmp.name) / "fixture-lab-core"
+        shutil.copytree(FIXTURES / "fixture-lab-core", self.scenario,
+                        ignore=shutil.ignore_patterns("nodes"))
+        shutil.copytree(FIXTURES / "fixture-lab-core" / "nodes", self.scenario / "nodes",
+                        ignore=shutil.ignore_patterns("clinic-api", "lis", "lab-api"))
+        record = self.scenario / "composition.yaml"
+        data = yaml.safe_load(record.read_text())
+        data["left_out"] = [e for e in data["left_out"] if not e["producer"].startswith("partners/")]
+        record.write_text(yaml.safe_dump(data, sort_keys=False))
+        shared = model.REPO_ROOT / "partners" / "shared"
+        declared = yaml.safe_load((shared / "nodes.yaml").read_text())["nodes"]
+        path = self.scenario / "scenario.yaml"
+        data = yaml.safe_load(path.read_text())
+        for node in declared[:2]:            # partners-api, partners-backend
+            node["seed_files"] = {k: v.replace(f"<nodes/{node['name']}/>", f"nodes/{node['name']}/")
+                                  for k, v in node["seed_files"].items()}
+            data["nodes"].append(node)
+            data["designed_for"]["placement"][node["name"]] = "laptop"
+        for entry in data["third_parties"]:
+            entry["nodes"] = ["partners-api", "partners-backend", "partners-db"]
+        path.write_text(yaml.safe_dump(data, sort_keys=False))
+        hba = self.scenario / "nodes" / "partners-db" / "pg_hba.conf"
+        hba.write_text(hba.read_text().replace(
+            "host    all       all", "host    partners  practices,xlab        samenet     scram-sha-256\n"
+            "host    all       all"))
+        layer = self.scenario / "compose" / "partners-backend"
+        layer.mkdir(parents=True)
+        base = yaml.safe_load((shared / "partners-backend" / "schedule.yaml").read_text())
+        (layer / "schedule.yaml").write_text(f"intensity: {base['intensity']}\n")
+        self.result = compose.compose(self.scenario, model.REPO_ROOT)
+
+    def output(self, node, fname):
+        return model.strict_load((self.scenario / "nodes" / node / fname).read_text())
+
+    def test_the_stubs_on_the_shared_nodes(self):
+        api = self.output("partners-api", "api.yaml")
+        self.assertEqual(api["endpoints"], {
+            "practices_results": {"hosts": ["practices"], "credentials": ["practices_customer"]},
+            "practices_tick": {"hosts": ["practices"], "credentials": ["partners_backend"]},
+            "xlab_orders": {"hosts": ["northfield-lab"], "credentials": ["xlab_customer"]},
+            "xlab_tick": {"hosts": ["northfield-lab"], "credentials": ["partners_backend"]}})
+        self.assertEqual(sorted(api["connections"]), ["practices-db", "practices-lab", "xlab-db", "xlab-lab"])
+        self.assertEqual({n: c["credential"] for n, c in api["connections"].items() if c["driver"] == "http"},
+                         {"practices-lab": "lab_practices", "xlab-lab": "lab_xlab"})
+        for name in api["endpoints"]:
+            for folder in ("routes", "db"):
+                self.assertTrue((self.scenario / "nodes" / "partners-api" / folder / f"{name}.py").is_file())
+        backend = self.output("partners-backend", "schedule.yaml")
+        self.assertEqual(backend["intensity"], 1.0)
+        self.assertEqual([(s["key"], s["connection"]) for s in backend["streams"]],
+                         [("practices.normal", "practices-db"), ("practices.order", "practices-tick"),
+                          ("xlab.normal", "xlab-db"), ("xlab.answer", "xlab-tick")])
+        self.assertEqual({n: (c["target"], c["credential"]) for n, c in backend["connections"].items()
+                          if c["driver"] == "http"},
+                         {"practices-tick": ("practices:8000", "partners_backend"),
+                          "xlab-tick": ("northfield-lab:8000", "partners_backend")})
+        self.assertEqual(sorted(backend["shapes"]), ["practice-hours", "xlab-hours"])
+        queries = self.output("partners-backend", "queries.yaml")["queries"]
+        self.assertEqual(queries["practices.order"], {"call": "POST /tick"})
+        self.assertEqual(queries["xlab.answer"], {"call": "POST /tick"})
+        self.assertEqual(self.output("partners-backend", "jobs.yaml"), {"jobs": []})
+
+    def test_the_output_loads(self):
+        scenario = model.load_scenario(self.scenario)
+        self.assertEqual([t["hostname"] for t in scenario.data["third_parties"]],
+                         ["northfield-lab", "practices"])
+        self.assertEqual(self.result.overrides, [])
+
+
 class TestComposition(ComposeCopyTest):
     """composition.yaml against domains: (formats.md "Composing domains"; W1 item 7)."""
 

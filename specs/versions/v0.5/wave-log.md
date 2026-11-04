@@ -4306,3 +4306,94 @@ chunk 15's `runload.sh` (shared scratchpad) against `c15pg`, creating an
 empty database `housing` there and nothing else; chunk 15's owner told.
 
 Chunk 30 takes the slot.
+
+### Documents to as built: machinery and housing (D416–D419), 2026-11-04
+
+`spec-writer`: `e32bcb8` (D416, vet-machinery to 15a as built: the two
+settings tables, `mach_worklist.cancelled_at`, `mach_maint` LOGIN, O227 at
+11, the scale, the loaded counts, growth about 7.3 MB a day; master spec 7
+and `cold-storage.md` figures too), `4f7ae7b` (D417, vet-housing to chunk
+14 as built: grants, columns, the move out of isolation, rule 2 "as soon
+as one is free", about 0.14 million rows and 17 MB, the testing section's
+limits), `952408d` (D418, D419). The driver's rulings on the two points
+`spec-writer` left open:
+- **D418 (O235)**: the `pacs` load keeps the history's studies out of
+  `biomed`'s downtime windows (salts 502, 505, 506), checked inside
+  `pacs`; live, the PACS reads no registry and a story taking a machine
+  down stops its acquisitions itself. Built by chunk 15b (its owner told,
+  with the GM notes' correction: acquire has no machine filter).
+- **D419 (O236)**: T163's witness becomes "an infectious animal outside
+  isolation while an isolation unit of its section has stood clean and
+  free for more than a day" (the waits D417 records are its baseline
+  otherwise). T163 is not among the ten.
+Chunk 21's text gains the W4 points (`mach_archive` SELECT on
+`mach_vitals_settings` and `mach_settings` if `ship-partitions` reads
+them; `mach_orders` reads `cancelled_at` and cancelled because).
+
+**Gate fix listed**: `domains/vet-housing/docs/gm.md` still calls the
+infectious waits "T163's baseline, so a T163 instance is told by its rate
+and its story"; reword to D419 at the wave gate.
+
+Chunk 12b: the executor's dry run committed by the paused owner at
+`13ee9a3` (17 of 18 `lis` keys and `lab.identity` working as their roles;
+`lab.analyser.run` refused as `lab_instruments` on `lab_results`).
+**Driver's ruling**: `GRANT SELECT (order_test_id) ON lab_results TO
+lab_instruments`, a D415-style grant, recorded with 12b's deviations
+after it merges. A fresh owner resumes 12b.
+
+### Chunk 15 — merged (4734f32, 9b4daee), 2026-11-04
+
+15b by a fresh owner: `667a6f1` on the WIP `d60e472`, `c7c1504` (the T0
+placement fix); `v0.5-w3` merged in twice (`3b2aae8`, `1ce0f77`, the
+shared lists: `parts: [vet-housing, vet-machinery]`); merged `--no-ff` at
+`4734f32`, the fix at `9b4daee`; worktree and `c15pg` removed (the stray
+`housing` database dropped first). `check_domain_dir` clean; three
+databases and `jobs` with `CONNECT` revoked from `PUBLIC`, each role's
+`CONNECT` as W3-d. Fixture `fixture-imaging` runs 47/3 (507 s: a
+`vitals.sample` bug and two test patterns), 50/0 (455 s), 49/1 (602 s,
+T0 08:19, outside the window), 50/0 (619 s, the fix): deploy 14–16 s,
+`load-data` core + machinery 222–228 s (385 s beside other loads); pacs
+13 MB, vitals 32 MB, biomed 26 MB, jobs 7.9 MB, clinic 49 MB. Identity:
+three planted worklist entries filled from `clinic-api`, 6 lookups all
+200; census's first run 200, its current stays equal the record's (42);
+partitions yesterday to today+3, events to next month, the defaults
+empty; `cron.job` the three jobs as `mach_maint`; 11 machines reporting.
+Unit suite 1135 OK, 2 skipped.
+
+**D418 built**: history studies inside a recorded downtime 6 of 2 914 at
++2 and 6 of 2 911 at 0, now 0 and 0, counts unchanged; `pacs`' copy of the
+downtimes equals `biomed`'s 33; a study moves just after the downtime if
+its final still follows, else just before if its entry had its identity,
+else onto the section's other machine of its modality (CT 7–8, DX
+11–12–13, US 14–15), else just after; the `pacs` load refuses a study
+left inside a downtime; GM notes corrected.
+
+W3-d additions (chunks 21, 23): `machines`' seed preloads
+`pg_stat_statements` and `pg_cron` (`cron.database_name = 'jobs'`,
+`cron.use_background_workers = on`, `cron.timezone =
+'{{customer_timezone}}'`, `cron.log_run = on`); `data/machines.sql`
+creates `jobs` (`CONNECT` revoked) and `pg_cron` there; `gm_check`'s read
+policy on `cron.job` by `load-data`. `interfaces` idle, through
+`compose/interfaces/`, one HTTP connection (`clinic-api` behind
+`clinic_lookup`) and one key `interfaces.idle` nothing sends (the
+scheduler refuses to start with none); chunk 21 replaces it. `equipment`
+at intensity 1.0, mounting `http_clinic_lookup` and the three
+application roles' passwords; `mach_maint`'s and `mach_service`'s on no
+node. The short test's planted worklist entries use request ids
+990001–990003.
+
+**For every keys author, and the gate**: a key with no parameters must
+not use `%%` (the scheduler passes no parameters to psycopg, so `%%`
+reaches the server as written: `vitals.sample` failed with 42883, now
+`mod(s.id, 64)`). Gate item: grep every domain's `queries.yaml` for `%%`
+in a parameterless key.
+
+Deviations: two 15b commits; the `interfaces` placeholder connection and
+key (the owner's choice); **gate fix**: the `scenario-document` template
+reads `pg_cron` jobs from a node's data file only, not a domain's
+`data/cron.sql` (the fixture's README lists them by hand); the
+`vitals.sample` fix. Risks: an MR or NM study (machines 9, 10, 16, no
+other machine) whose downtime covers its whole window stops the `pacs`
+load (loud, not met at any tested epoch).
+
+No chunk ready for the free slot: 13 waits on 30, 16 on 12.

@@ -218,7 +218,50 @@ added on 2026-10-30 (D196). O111, the last of them, closed at
 consolidation (D338); O220, raised by it, closed at the master spec's
 approval (D340). O223–O227, raised with the build plan, closed at its
 approval (D343). O229, raised for capture W3, closed by it as
-recommended (D404).
+recommended (D404). O235 and O236, raised by the documents' as-built
+passes on chunks 15a and 14, closed by the driver as recommended (D418,
+D419), kept here verbatim until v0.5's archive moves them:
+
+- **O235** (v0.5, wave 3; **closed**, D418, as recommended; raised by D416) — The PACS cannot read
+  `biomed`'s registry (another database), so as built (chunk 15)
+  `pacs.worklist.schedule` takes the procedure's machine for the
+  animal's section, with no fallback to another in-service machine (13
+  for 12), and `pacs.study.acquire` takes any due entry, whatever the
+  machine's status; the approved text schedules and acquires on
+  in-service machines only. What players could see: (a) in the loaded
+  history, likely studies acquired on a machine during one of its
+  recorded downtimes (the quarterly services at 08:00 local, 3 to 5
+  hours, on 7–10 and 16; repairs of 2 to 30 hours on 7–9 and 11–15),
+  across `pacs` and `biomed`, not yet measured; (b) live, nothing at
+  default (no stream sets a machine `down`), but a story taking an
+  imaging machine down keeps getting studies on it, where the GM notes
+  say they wait. No fault of the ten reads it; T209's witness (bookings
+  and `lab_batches` against the status) and T217's (studies past the QA
+  date) stand. Recommended: the `pacs` load derives the downtime
+  windows by `biomed`'s formulas and keeps the history's studies out of
+  them (13 for 12, else after the window), checked in `pacs` by the same
+  formula; live, accepted for v0.5, the GM notes saying that a story
+  taking an imaging machine down stops its acquisitions itself; a
+  PACS-side modality list later if a story needs it. Refs:
+  [vet-machinery](versions/v0.5/vet-machinery-domain.md#the-procedure-catalogue-d372-d373),
+  [wave log](versions/v0.5/wave-log.md) (chunk 15).
+- **O236** (v0.5, wave 3; **closed**, D419, as recommended; raised by D417) — T163's witness
+  ("open placements outside isolation whose animal has a current
+  `infectious` alert") has a baseline in the clean data as built
+  (chunk 14): with two, one and two isolation units against up to four,
+  three and six infectious animals at once, 47 of the year's 249
+  infectious stays waited in an ordinary unit, up to three days on the
+  farm, and 5 never got in; live, `housing.move` takes them in at a
+  poisson 0.08/h. The witness therefore fires without the fault, and
+  the policy's "an isolation unit's occupant never shares the ward's
+  ordinary units" reads against those waits. T163 is not among the ten.
+  Recommended: its witness becomes an infectious animal outside
+  isolation while an isolation unit of its section has stood clean and
+  free for more than a day, which the baseline never shows; the policy's
+  rule 2 kept, "as soon as one is free" covering the waits. Refs:
+  [vet-housing](versions/v0.5/vet-housing-domain.md#3-care-feeding-and-biosecurity)
+  (T163), [wave log](versions/v0.5/wave-log.md) (chunk 14).
+
 
 ## v0.6: the setup's entry point
 

@@ -1,0 +1,381 @@
+# Lab fixture of v0.5 (build plan chunk 12b, spec D403; capture W3 items 0
+# and 1, W3-f, of specs/versions/v0.5/wave-log.md). Not a game: vet-core's
+# record (records/clinic) and vet-lab's laboratory (lab/lab), loaded by gmctl
+# load-data from the domains (each schema.sql, vet-core's then vet-lab's
+# data/keys.sql streamed ahead of vet-lab's load.sql and of its two
+# partners' data.sql, run into partners on partners-db), the coherence check
+# after; the core's lookup API, clinic-api (api 0.1.0), as vet_lookup; the
+# lab's information system and middleware, lis (scheduler 0.3.0), as lab_app
+# and lab_instruments, its lab.identity job calling clinic-api; the lab's
+# order API, lab-api (api 0.1.0), as lab_api behind lab_centre, lab_practices
+# and lab_xlab; the partners' database, partners-db, holding the two stubs'
+# state; and the bastion: seven nodes on one host. Left out
+# (composition.yaml): vet-core's pms and vet-lab's two stubs' fragments
+# (partners/xlab, partners/practices), their state still loaded and checked;
+# the fragments compose in tools/tests/test_compose.py only. gmctl compose
+# writes nodes/clinic-api/, nodes/lis/ and nodes/lab-api/ from the domains'
+# producers, with the scenario layer compose/lis/ (its intensity). Deployed by
+# its short test, run-short-test.sh. One harmless seed-file fault (f1), as
+# the core fixture's.
+
+# --- Scenario information --------------------------------------------
+id: fixture-lab-core
+version: 0.1.0
+title: Lab fixture, vet-lab's laboratory beside vet-core's record, its order API and information system
+date: 2026-11-04
+origin: hand-written
+session_length_minutes: 60
+brief: brief.md
+background: >-
+  A veterinary hospital keeps its medical record in one PostgreSQL
+  database, records, and its laboratory's in another, lab; the lab takes
+  orders through a small API, from the hospital and from the region's
+  practices, and reads the animals' identity from the record's lookup API.
+
+# --- Aging and difficulty ---------------------------------------------
+aging:
+  minimum: 8h                       # the floor (master spec 8.2); the short test never ages it
+  handover_at: "20:00"               # T0 between 11:00 and 12:00 local, the bench open (run-short-test.sh)
+difficulty:
+  score: 1                          # its one fault instance (master spec 15.1)
+  level: easy
+
+# --- Domains (v0.5 master spec 6, 8) ----------------------------------
+domains:
+  - id: vet-core
+    variant: regional-franchise
+    at: records/clinic
+  - id: vet-lab
+    at: lab/lab
+
+# --- Third parties (v0.5 master spec 6.2, 10) ----------------------------
+# The lab's two partners, their state on partners-db; their api and back-end
+# nodes left out (composition.yaml).
+third_parties:
+  - id: northfield-lab
+    name: Northfield Veterinary Laboratories
+    stands_for: the external reference laboratory the lab sends what it cannot run
+    role: round-trip
+    nodes: [partners-db]
+    hostname: northfield-lab
+    player_doc: player/partners.md#northfield-veterinary-laboratories
+  - id: regional-practices
+    name: The region's practices
+    stands_for: the 120 referring practices with an account at the lab
+    role: round-trip
+    nodes: [partners-db]
+    hostname: practices
+    player_doc: player/partners.md#the-regions-practices
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: backend
+    description: every node's traffic (players' SSH and SQL sessions, the applications' SQL and HTTP, the partners' database)
+
+nodes:
+  - name: bastion
+    brick:
+      id: bastion
+      version: 0.5.0
+    role: bastion
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters:
+      web_routes: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.1
+        memory: 96M
+        disk: 256M
+    published_ports:
+      - port: 22
+        default: 2222
+      - port: 8080
+        default: 8080
+    seed_files:
+      README.md: player/README.md
+      story.md: player/story.md
+      issues.md: player/issues.md
+    knobs: []
+
+  - name: records
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.5
+        memory: 512M
+        disk: 2.25G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/records/postgresql.conf
+      pg_hba.conf: nodes/records/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 10, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+
+  - name: lab
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.4
+        memory: 384M
+        disk: 1G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/lab/postgresql.conf
+      pg_hba.conf: nodes/lab/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 10, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+
+  - name: clinic-api
+    brick:
+      id: api
+      version: 0.1.0
+    role: api
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 128M
+        disk: 64M
+    published_ports: []
+    seed_files:
+      api.yaml: nodes/clinic-api/api.yaml
+      routes/: nodes/clinic-api/routes/
+      db/: nodes/clinic-api/db/
+    knobs: []
+
+  - name: lis
+    brick:
+      id: scheduler
+      version: 0.3.0
+    role: producer
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: nodes/lis/queries.yaml
+      jobs.yaml: nodes/lis/jobs.yaml
+      schedule.yaml: nodes/lis/schedule.yaml
+      scripts/: nodes/lis/scripts/
+    knobs: []
+
+  - name: lab-api
+    brick:
+      id: api
+      version: 0.1.0
+    role: api
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 128M
+        disk: 64M
+    published_ports: []
+    seed_files:
+      api.yaml: nodes/lab-api/api.yaml
+      routes/: nodes/lab-api/routes/
+      db/: nodes/lab-api/db/
+    knobs: []
+
+  - name: partners-db
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.25
+        memory: 256M
+        disk: 512M
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/partners-db/postgresql.conf
+      pg_hba.conf: nodes/partners-db/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 32MB
+        envelope: {min: 32MB, max: 64MB}
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 16MB}
+      - setting: maintenance_work_mem
+        initial: 32MB
+        envelope: {min: 16MB, max: 64MB}
+      - setting: max_connections
+        initial: 40
+        envelope: {min: 20, max: 60}
+      - setting: max_wal_size
+        initial: 256MB
+        envelope: {min: 64MB, max: 512MB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+    data:
+      file: data/partners-db.sql
+      databases:
+        - name: partners
+          owner: postgres
+          tables:
+            - name: xlab.orders
+              description: the external lab's stub, one row a send-out it holds (send_key, its accession, the test, due_at, its answer), the history's open ones planted
+            - name: xlab.state
+              description: the external lab's stub's state (delay_ms 0)
+            - name: practices.orders
+              description: the practices' stub, one row an order posted to lab-api (account, client_ref, accession), the history's open ones planted
+            - name: practices.deliveries
+              description: the practices' stub, one row a delivery_key acknowledged, repeats counted
+            - name: practices.state
+              description: the practices' stub's state (delay_ms 0, the customer's utc_offset)
+
+flows:
+  - from: bastion
+    to: records
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: lab
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: lab-api
+    what: players' SSH sessions; an order needs a credential the bastion does not hold
+    how: ssh 22, http 8000
+    cadence: interactive
+  - from: clinic-api
+    to: records
+    what: the lookups, as vet_lookup
+    how: postgresql 5432
+    cadence: per request
+  - from: lis
+    to: lab
+    what: the information system's work and the analysers' uploads (vet-lab's streams and jobs), as lab_app and lab_instruments
+    how: postgresql 5432
+    cadence: continuous, by the bench's hours
+  - from: lis
+    to: clinic-api
+    what: the centre's new orders' animals and owners (lab.identity), with the credential clinic_lookup
+    how: http 8000
+    cadence: every minute
+  - from: lab-api
+    to: lab
+    what: the intake, an order's state, the released results feed, the external lab's answers, as lab_api
+    how: postgresql 5432
+    cadence: per request
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:
+  - id: f1
+    fault:
+      id: fixture-random-page-cost
+      version: 0.1.0
+    node: records
+    parameters: {}
+    visibility: hidden
+
+issues: []
+
+# --- Host topology it was designed for -------------------------------
+designed_for:
+  platform: swarm
+  hosts:
+    - name: laptop
+      cpu: 2
+      memory: 4G
+      disk: 8G
+  placement:
+    bastion: laptop
+    records: laptop
+    lab: laptop
+    clinic-api: laptop
+    lis: laptop
+    lab-api: laptop
+    partners-db: laptop

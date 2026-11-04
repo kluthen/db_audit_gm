@@ -1,0 +1,34 @@
+# schedule.yaml of the external reference lab's stub, a fragment for
+# partners-backend (v0.5 master spec 10.2; vet-lab-domain.md, "The partners the
+# lab meets", "The business hours"; capture W2 item 6, W3 item 1;
+# partners/README.md): its baseline stream, upserting its state once a minute
+# as its own role, and its tick, xlab.answer, on its hostname with the
+# credential partners_backend in its hours (Monday to Saturday 08:00-20:00):
+# each tick posts the send-outs past their due time back to lab-api. A
+# fault's timeline change of xlab.normal to xlab.<behaviour> is the
+# scenario's.
+connections:
+  xlab-db: {driver: sql/postgresql, target: partners-db:5432/partners, role: xlab, pool: {size: 1}}
+  xlab-tick:
+    driver: http
+    target: northfield-lab:8000
+    credential: partners_backend
+    pool: 1
+    timeout: 30s
+streams:
+  - key: xlab.normal
+    connection: xlab-db
+    rate: 1/min
+    arrivals: even
+  - key: xlab.answer                 # follows the send-outs: about 7 a working day
+    connection: xlab-tick
+    rate: 6/h
+    arrivals: even
+    shape: xlab-hours
+shapes:
+  xlab-hours:                        # Monday to Saturday 08:00-20:00
+    days:
+      mon-sat:
+        hours: {"00-07": 0, "08-19": 1.0, "20-23": 0}
+      sun:
+        hours: {"00-23": 0}

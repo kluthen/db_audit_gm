@@ -1,0 +1,23 @@
+# vet-lab, the centre's laboratory (v0.5 master spec 9.3; specs/versions/v0.5/
+# vet-lab-domain.md): the biology lab of the centre a scenario deploys, on a
+# postgres node of its own (lab, answer 1). A part of vet-core: it refers to
+# the core's keys by id with no foreign key and computes them by the core's
+# data/keys.sql (docs/gm.md, "Core keys used"), never reading its database;
+# its own keys are data/keys.sql's ("Part keys"), which its partners' state
+# files share. Its producers: the information system and the analysers'
+# middleware (producers/lis/), the order API (producers/api/lab-api/), the
+# external lab's and the region's practices' stubs (producers/partners/xlab/,
+# producers/partners/practices/).
+id: vet-lab
+title: The clinical pathology laboratory of a veterinary hospital centre, its practices' reference lab
+schema: data/schema.sql
+load: data/load.sql
+classification: data/classification.yaml
+register: data/register.yaml
+producers: producers/
+notes: docs/gm.md
+policy: docs/policy.md
+governance: data/governance.yaml
+requires: [vet-core]
+purposes: [vet-lab-centre-orders, vet-lab-practice-results, vet-lab-send-outs, vet-notifiable-diseases,
+           vet-lab-critical-calls, vet-head-office-figures, vet-lab-statements, vet-portal-release]

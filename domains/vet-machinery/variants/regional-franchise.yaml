@@ -1,0 +1,14 @@
+# vet-machinery's axes in vet-core's variant regional-franchise (v0.5 master
+# spec 8.3, 9.6; vet-machinery-domain.md, "The variant, its scale and its
+# tags", D263, D301): one centre's machine park.
+scale:
+  population: {machines: 28, analysers: 6, imaging: 10, anaesthesia_monitors: 4, icu_monitors: 8,
+               procedures: 30, databases: 3, imaging_staff: 8, monitored_at_once: 9}
+  history: {days: 365, worklist: 3400, studies: 3470, series: 8000, reports: 3450, sessions: 3800,
+            chart_rows: 90000, alarms: 21000, events: 73000, readings_daily: 4000,
+            raw_window: "today and the last full day: up to 104 000 vitals and 32 000 readings",
+            rows: 340000}
+  throughput: {studies_per_day: 11, vitals_rows_per_day: 52000, readings_per_day: 15840,
+               machines_reporting: 11, chart_rows_per_day: 310, alarms_per_day: 72, events_per_day: 250,
+               rows_per_day: 68500, kept_rows_per_day: 700}
+purposes: [vet-imaging-orders, cold-storage-archive]

@@ -1,0 +1,57 @@
+# vet-lab's register fragment (v0.5 master spec 6.1, 9.3, 13.1, D334; template
+# register.yaml): one entry per processing activity, every table of
+# data/schema.sql in exactly one, transcribed from the classification and
+# docs/policy.md's rules (D302). Retention follows rule 12's game values: lab
+# records five years, samples a week or two, custody samples 60 days at most,
+# charges ten years. For a practice's order the lab is the practice's
+# processor (rule 10, GDPR Art 28). The scenario's data register (a player
+# handout, chunks 17 and 27) is built from it.
+activities:
+  - id: vet-lab-orders
+    name: Analysis orders and their samples
+    purpose: Receiving the centre's and the region's practices' orders, accessioning their samples, routing each test in house or to the external lab, and keeping each sample's custody and storage (rules 5, 8, 10)
+    people: [owners, the practices' clients]
+    tables: [lab_orders, lab_samples, lab_order_tests, lab_sample_events]
+    retention:
+      period: orders 5 years (rule 12, a game value), then their personal columns; samples a week or two, custody samples 60 days at most
+      then: anonymised
+  - id: vet-lab-results
+    name: Results, their validation and their quality control
+    purpose: Running the analysers and benches, quality control, flagging against reference intervals, technical and clinical validation, amendments, critical-value calls (rules 1 to 4, 6)
+    people: [the practices' staff called]
+    tables: [lab_results, lab_batches, lab_qc_runs, lab_critical_calls]
+    retention:
+      period: 5 years (rule 12, a game value; ISO/IEC 17025 8.4.2 leaves it to the lab)
+      then: erased
+  - id: vet-lab-notifications
+    name: Notifications of listed diseases
+    purpose: Notifying the authority of a positive or suspect result for a listed disease, and forwarding a category A sample to an official lab under custody (rule 7; Regulation (EU) 2016/429 Art 18)
+    people: [owners, the practices' clients]
+    tables: [lab_notifications]
+    retention:
+      period: 5 years (rule 12, a game value)
+      then: erased
+  - id: vet-lab-round-trips
+    name: Send-outs and the practices' deliveries
+    purpose: Sending tests the lab cannot run to the external reference lab without owner, client or identifier, and posting released results to each practice's callback, only its own (rules 10, 11)
+    people: [the practices' clients]
+    tables: [lab_send_outs, lab_callbacks]
+    retention:
+      period: 5 years (rule 12, a game value)
+      then: erased
+  - id: vet-lab-billing
+    name: Billing the practices
+    purpose: Charging each outside test at its order's day's price, the handling fee and the urgent surcharge, billable on release, for the monthly statements (rule 13)
+    people: []
+    tables: [lab_charges, lab_prices, lab_accounts]
+    retention:
+      period: 10 years (national accounting law commonly, a game value)
+      then: erased
+  - id: vet-lab-catalogue
+    name: Running the lab
+    purpose: The lab's settings, its test catalogue, the analytes each test reports and the reference intervals they are flagged against
+    people: []
+    tables: [lab_settings, lab_analytes, lab_tests, lab_test_analytes, lab_reference_intervals]
+    retention:
+      period: as long as the lab runs; a replaced interval as long as a result flagged against it
+      then: erased

@@ -1361,7 +1361,8 @@ purpose 9 reads.
 
 ### Chunk 15 — `vet-machinery`, the machines and their databases
 
-Status: in progress
+Status: merged (w3, 4734f32; fix 9b4daee)
+Record: 15a c95523a, 15b d60e472 + 667a6f1 + c7c1504 (the T0 placement fix, merged at 9b4daee); D416 and D418 record the documents' changes; deviations: two 15b commits, the idle `interfaces` placeholder connection and key, `vitals.sample` without `%%`, the scenario-document template not reading `data/cron.sql` (wave gate).
 Wave: 3
 Depends on: chunks 4, 5, 8, 9 and 11 (waves 1 and 2); chunk 29 for its
 fixture's `cron.sql` only, merged into `v0.5-w3` before it (spec D401)
@@ -1698,7 +1699,12 @@ chunk 29's (c) accepts (spec D401).
   the partners' `api` node and database, the bastion; T0 21:55, the
   shipping moved to the next minute). **For W4** (spec D403): the four
   fixtures' nodes and `left_out:` counted against compose's rule (W3
-  item 0) within eight.
+  item 0) within eight. **Also for W4** (spec D418): if `ship-partitions` reads the
+  customer's zone or the window from the settings rows,
+  `mach_vitals_settings` in `vitals` and `mach_settings` in `biomed`,
+  `mach_archive` needs `SELECT` on them, a grant purpose 14's roles do
+  not list yet; purpose 13's `mach_orders` reads the worklist's
+  cancelled because and `cancelled_at` (spec D416).
 - Files: `purposes/{vet-bookings-sync,vet-imaging-orders,cold-storage-archive,vet-portal-release,vet-portal-messages}/`
   (new); `tools/tests/fixtures/fixture-{bookings,imaging,portal}/`,
   `tools/tests/fixtures/fixture-vault/` (new); the root `README.md`'s
