@@ -1,0 +1,33 @@
+# The order service's schedule (tools/tests, v0.5 chunk 6): SQL on db, calls
+# to its own order API and to the external lab's hostname (v0.5 W1 item 3).
+intensity: 1.0
+connections:
+  app:
+    driver: sql/postgresql
+    target: db:5432/shop
+    role: shop_app
+    pool: {size: 2}
+  lab-api:
+    driver: http
+    target: lab-api:8000
+    credential: interfaces_lab_api
+    pool: 2
+  xlab:
+    driver: http
+    target: northfield-lab:8000
+    credential: xlab_results
+    pool: 1
+    timeout: 20s
+streams:
+  - key: orders.insert
+    connection: app
+    rate: 20/min
+    arrivals: poisson
+  - key: orders.post
+    connection: lab-api
+    rate: 2/min
+    arrivals: even
+  - key: results.ask
+    connection: xlab
+    rate: 1/min
+    arrivals: even

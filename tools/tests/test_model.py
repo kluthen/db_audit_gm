@@ -1627,8 +1627,8 @@ class TestQueryRefusals(SchedulerFilesTest):
         self.queries(lambda q: q.update({"orders.odd": {"statement": "SELECT 1"},
                                          "orders.empty": []}))
         self.assertRefused(f"{self.Q}: queries.orders.odd: not a query (sql), a pool (a list of "
-                           "queries), a sequence (steps), a builder (builder) or a script "
-                           "(script)",
+                           "queries), a sequence (steps), a builder (builder), a script "
+                           "(script) or a call (call)",
                            f"{self.Q}: queries.orders.empty: a pool lists at least one query")
 
     def test_query_keys(self):
@@ -1734,7 +1734,7 @@ class TestScheduleRefusals(SchedulerFilesTest):
             driver="sql/mysql", target="cache:5432/shop", role="gm_check",
             pool={"size": 0}))
         self.assertRefused(f"{self.S}: connections.app.driver: sql/mysql is not a known driver "
-                           "(sql/postgresql)",
+                           "(sql/postgresql, http)",
                            f"{self.S}: connections.app.target: cache:5432/shop: cache is not a "
                            "node of the topology",
                            f"{self.S}: connections.app.role: gm_check is reserved",
@@ -2118,7 +2118,7 @@ class TestPurposeDefinitionRefusals(V04CopyTest):
         text = self.purpose_problems(change)
         self.assertProblems(text, f"{self.L}: kind: streamed is not one of pulled",
                             f"{self.L}: parts.sink: not a part (source, target, runner, "
-                            "consumer, receiver)",
+                            "consumer, receiver, api, partner)",
                             f"{self.L}: jobs[copy-hourly].method: magic is not one of sql, script",
                             f"{self.L}: jobs[copy-hourly].part: source is not a declared runner "
                             "part (runner, the only one in v0.4)",
@@ -3106,6 +3106,514 @@ class TestCampaignFixture(ScenarioCopyTest):
         render.render(self.scenario, "duo", handover=self.handover())
         stack = (self.scenario / "local" / "duo" / "stack.yml").read_text()
         self.assertIn(f"node.hostname == {self.VPS}", stack)
+
+
+
+# --- v0.5 (build plan chunk 6; capture W2 item 1 of specs/versions/v0.5/wave-log.md) ---
+
+FIXTURE_V05 = FIXTURES / "fixture-v05-refusals"
+
+
+class V05CopyTest(RefusalAsserts, ScenarioCopyTest):
+    """Each test works on a fresh copy of fixture-v05-refusals: db choosing
+    monitoring with a vault on cold storage's hostname, its standby, the
+    exporter on db, the producer's SQL and HTTP connections (a call with the
+    weighted choice), the order API lab-api, and the partners' api and
+    database nodes (no-access) under three third parties."""
+
+    S = "scenario.yaml"
+    SCHEDULE = "nodes/producer/schedule.yaml"
+    QUERIES = "nodes/producer/queries.yaml"
+    JOBS = "nodes/producer/jobs.yaml"
+    LAB = "nodes/lab-api/api.yaml"
+    PARTNERS = "nodes/partners-api/api.yaml"
+
+    def setUp(self):
+        super().setUp()
+        self.scenario = self.tmp / "fixture-v05-refusals"
+        shutil.copytree(FIXTURE_V05, self.scenario)
+
+    def scenario_yaml(self, change):
+        self.edit_yaml("scenario.yaml", change)
+
+    def on_node(self, name, change):
+        self.scenario_yaml(lambda d: change(self.node(d, name)))
+
+    def assertProblems(self, text, *fragments):
+        for fragment in fragments:
+            self.assertIn(fragment, text)
+
+    def append(self, relpath, text):
+        with (self.scenario / relpath).open("a") as f:
+            f.write(text)
+
+    def local_fault(self, fid, change):
+        """A scenario-local copy of fixture-job-every-minute named fid, changed."""
+        src = self.scenario / "faults" / "fixture-job-every-minute"
+        shutil.copytree(src, self.scenario / "faults" / fid)
+        def edit(d):
+            d["id"] = fid
+            d["applies_to"]["bricks"] += [{"id": "postgres", "versions": ["0.5.0"]},
+                                          {"id": "bastion", "versions": ["0.5.0"]}]
+            d["parameters"] = {}
+            d["injection"]["seed_changes"] = [{"file": "postgresql.conf",
+                                               "change": "random_page_cost = 4.0"}]
+            change(d)
+        self.edit_yaml(f"faults/{fid}/fault.yaml", edit)
+
+    def instance(self, iid, fid, node):
+        """A fault instance iid of local fault fid on node, with its answer-key entry."""
+        self.scenario_yaml(lambda d: d["fault_instances"].append(
+            {"id": iid, "fault": {"id": fid, "version": "0.1.0"}, "node": node,
+             "parameters": {}, "visibility": "hidden"}))
+        def key(k):
+            entry = dict(k["instances"][0], instance=iid)
+            entry["sealed_check"] = dict(entry["sealed_check"],
+                                         script=f"faults/{fid}/checks/fixed.sh")
+            k["instances"].append(entry)
+        self.edit_yaml("gm/answer-key.yaml", key)
+        self.scenario_yaml(lambda d: d["difficulty"].update(score=d["difficulty"]["score"] + 1))
+
+
+class TestV05Fixture(unittest.TestCase):
+
+    def test_fixture_loads(self):
+        sc = model.load_scenario(FIXTURE_V05)
+        self.assertEqual(sc.id, "fixture-v05-refusals")
+        self.assertEqual(len(sc.nodes), 8)            # eight nodes at most (plan, Read first)
+        self.assertEqual(sc.node("standby")["standby_of"], "db")
+        self.assertEqual(sc.node("db")["options"], ["monitoring"])
+        self.assertEqual(sc.bricks["partners-api"].id, "api")
+
+    def test_reserved_names(self):
+        self.assertIn("options", model.RESERVED_PARAMETERS)
+        self.assertIn("standby_of", model.RESERVED_PARAMETERS)
+        self.assertIn("replicator", model.RESERVED_DB_ROLES)
+        self.assertIn("http", model.DRIVERS)
+
+    def test_register_diff_true_reads_both_forms(self):
+        self.assertEqual(model.register_diff_true({True: ["a"], "entry": "e"}), ["a"])
+        self.assertEqual(model.register_diff_true({"true": ["b"]}), ["b"])
+        self.assertEqual(model.register_diff_true(yaml.safe_load("true: [c]")), ["c"])
+        self.assertEqual(model.register_diff_true(yaml.safe_load("'true': [d]")), ["d"])
+        self.assertIsNone(model.register_diff_true({1: "one"}))
+        self.assertIsNone(model.register_diff_true("absent"))
+
+    def test_node_creates(self):
+        data = yaml.safe_load((FIXTURE_V05 / "scenario.yaml").read_text())
+        node = lambda name: next(n for n in data["nodes"] if n["name"] == name)
+        created = model.node_creates(FIXTURE_V05, data, node("db"))
+        self.assertEqual(created.databases, {"shop"})
+        self.assertEqual(created.logins, ["shop_app", "lab_api"])
+        self.assertEqual(model.node_creates(FIXTURE_V05, data, "partners-db").roles, {"xlab"})
+        self.assertIsNone(model.node_creates(FIXTURE_V05, data, node("standby")))
+
+    def test_a_standby_is_no_location(self):
+        data = yaml.safe_load((FIXTURE_V05 / "scenario.yaml").read_text())
+        by_name = {n["name"]: n for n in data["nodes"]}
+        self.assertIn("standby is a standby (standby_of db): a standby is no location",
+                      model._location_problem("standby/shop", by_name, {}))
+
+    def test_monitor_targets(self):
+        sc = model.load_scenario(FIXTURE_V05)
+        self.assertEqual(model.monitor_targets(sc.node("exporter"), sc.bricks["exporter"],
+                                               FIXTURE_V05), ["db"])
+        self.assertEqual(model._uri_host("postgresql://monitoring@records:5432/postgres"),
+                         "records")
+
+
+class TestOptionRefusals(V05CopyTest):
+    """options:, no-access and a fault's option (master spec 6.2, 6.4, 7.1, 15)."""
+
+    def test_options_against_the_brick(self):
+        self.on_node("db", lambda n: n.update(options=[]))
+        self.on_node("exporter", lambda n: n.update(options=["monitoring"]))
+        self.assertRefused(f"{self.S}: nodes[db].options: [] is not a non-empty list",
+                           f"{self.S}: nodes[exporter].options: monitoring is not an option of "
+                           "brick postgres-exporter 0.2.0 (it declares none")
+
+    def test_unknown_and_twice(self):
+        self.on_node("db", lambda n: n.update(options=["monitoring", "pgcluu", "monitoring"]))
+        self.assertRefused(f"{self.S}: nodes[db].options: monitoring listed more than once",
+                           f"{self.S}: nodes[db].options: pgcluu is not an option of brick "
+                           "postgres 0.5.0 (it declares monitoring")
+
+    def test_no_access_only_on_a_brick_declaring_it(self):
+        self.on_node("exporter", lambda n: n.update(write_policy="no-access"))
+        self.assertRefused(f"{self.S}: nodes[exporter].write_policy: no-access is not supported "
+                           "by brick postgres-exporter")
+
+    def test_fault_requiring_an_option(self):
+        self.local_fault("fx-lost-grant", lambda d: d.update(requires_option="monitoring"))
+        self.instance("f9", "fx-lost-grant", "standby")
+        self.assertRefused(f"{self.S}: fault_instances[f9].node: fault fx-lost-grant requires "
+                           "option monitoring, which node standby does not choose")
+
+    def test_fault_planting_an_absence_on_a_node_choosing_it(self):
+        self.local_fault("fx-gap", lambda d: d.update(option_absent="monitoring"))
+        self.instance("f9", "fx-gap", "db")
+        self.assertRefused(f"{self.S}: fault_instances[f9].node: fault fx-gap plants the absence "
+                           "of option monitoring, which node db chooses")
+
+    def test_fault_naming_an_option_the_brick_lacks(self):
+        self.local_fault("fx-other", lambda d: d.update(requires_option="pgcluu"))
+        self.instance("f9", "fx-other", "db")
+        self.assertRefused("fault fx-other requires option pgcluu, which brick postgres 0.5.0 "
+                           "of node db does not declare")
+
+    def test_fault_definition_never_both(self):
+        self.local_fault("fx-both", lambda d: d.update(requires_option="monitoring",
+                                                       option_absent="monitoring"))
+        problems = "\n".join(model.check_fault_dir(self.scenario / "faults" / "fx-both"))
+        self.assertIn("option_absent: monitoring is also requires_option", problems)
+
+
+class TestMonitorRefusals(V05CopyTest):
+    """A monitoring node's targets choose monitoring (master spec 7.1 item 3;
+    W2 item 1)."""
+
+    E = "nodes/exporter/exporter.conf"
+
+    def target(self, host):
+        path = self.scenario / self.E
+        path.write_text(path.read_text().replace("DATA_SOURCE_URI=db:", f"DATA_SOURCE_URI={host}:"))
+
+    def test_target_without_the_option(self):
+        self.on_node("db", lambda n: n.pop("options"))
+        self.assertRefused(f"{self.E}: node exporter (postgres-exporter) monitors db, but node db "
+                           "does not choose option monitoring")
+
+    def test_the_gap_a_fault_plants(self):
+        self.on_node("db", lambda n: n.pop("options"))
+        self.local_fault("fx-gap", lambda d: d.update(option_absent="monitoring"))
+        self.instance("f9", "fx-gap", "db")
+        self.load()
+
+    def test_a_standby_and_its_primary(self):
+        self.target("standby")
+        self.on_node("db", lambda n: n.pop("options"))
+        self.assertRefused("monitors standby, but node standby does not choose option monitoring",
+                           "monitors standby, but node db, the primary of the standby standby it "
+                           "monitors, does not choose option monitoring")
+
+    def test_a_monitored_standby(self):
+        self.target("standby")
+        self.on_node("standby", lambda n: n.update(options=["monitoring"]))
+        self.load()
+
+    def test_never_a_third_party(self):
+        self.target("partners-db")
+        self.assertRefused(f"{self.E}: node exporter (postgres-exporter) monitors partners-db, a "
+                           "third party's node")
+
+
+class TestStandbyRefusals(V05CopyTest):
+    """standby_of (master spec 6.2, 7.1; W1 items 2 and 6; spec D350)."""
+
+    P = "scenario.yaml: nodes[standby]"
+
+    def test_primary_a_postgres_node(self):
+        self.on_node("standby", lambda n: n.update(standby_of="exporter"))
+        self.assertRefused(f"{self.P}.standby_of: exporter runs postgres-exporter, not postgres")
+
+    def test_primary_a_node(self):
+        self.on_node("standby", lambda n: n.update(standby_of="records"))
+        self.assertRefused(f"{self.P}.standby_of: records is not a node")
+
+    def test_itself(self):
+        self.on_node("standby", lambda n: n.update(standby_of="standby"))
+        self.assertRefused(f"{self.P}.standby_of: names the node itself")
+
+    def test_no_chain(self):
+        def chain(d):
+            extra = dict(self.node(d, "standby"), name="standby2", standby_of="standby")
+            d["nodes"].append(extra)
+            d["designed_for"]["placement"]["standby2"] = "host-1"
+        self.scenario_yaml(chain)
+        self.assertRefused("nodes[standby2].standby_of: standby is itself a standby (standby_of "
+                           "db)")
+
+    def test_only_a_postgres_standby(self):
+        self.on_node("exporter", lambda n: n.update(standby_of="db"))
+        self.assertRefused("nodes[exporter].standby_of: node exporter runs postgres-exporter: only "
+                           "a postgres node is a standby")
+
+    def test_no_data(self):
+        self.scenario_yaml(lambda d: self.node(d, "standby").update(data=self.node(d, "db")["data"]))
+        self.assertRefused(f"{self.P}.data: a standby has no data: entry")
+
+    def test_the_primarys_replication_line(self):
+        path = self.scenario / "nodes/db/pg_hba.conf"
+        path.write_text(path.read_text().replace("host    replication replicator", "# gone"))
+        self.assertRefused("nodes/db/pg_hba.conf: no line host replication replicator samenet "
+                           "scram-sha-256: node db is the primary of standby")
+
+
+class TestThirdPartyRefusals(V05CopyTest):
+    """third_parties: (master spec 6.2, 6.3, 10.2; W1 item 2, W2 items 0 and 1)."""
+
+    P = "scenario.yaml: third_parties"
+
+    def parties(self, change):
+        self.scenario_yaml(lambda d: change(d["third_parties"]))
+
+    def test_entries(self):
+        def change(t):
+            t[0]["hostname"] = "db"
+            t[1]["id"] = "owners"
+            t[2]["hostname"] = "cold-storage"
+            t[2]["role"] = "sideways"
+            t[2]["nodes"] = ["nowhere"]
+        self.parties(change)
+        self.assertRefused(f"{self.P}[northfield-lab].hostname: db is a node's name",
+                           f"{self.P}[owners].id: owners is reserved",
+                           f"{self.P}[authority].hostname: cold-storage is another third "
+                           "party's hostname",
+                           f"{self.P}[authority].role: 'sideways' is not one of",
+                           f"{self.P}[authority].nodes: nowhere is not a node")
+
+    def test_out_of_reach(self):
+        self.on_node("partners-db", lambda n: n.update(write_policy="fixable"))
+        self.assertRefused(f"{self.P}[northfield-lab].nodes: node partners-db has write_policy "
+                           "fixable, not no-access")
+
+    def test_one_shared_database(self):
+        self.parties(lambda t: t[1].update(nodes=["partners-api", "partners-db", "standby"]))
+        self.on_node("standby", lambda n: n.update(write_policy="no-access"))
+        self.assertRefused(f"{self.P}: 2 postgres nodes (partners-db, standby): every partner "
+                           "shares one postgres node")
+
+    def test_not_on_the_bastions_routes(self):
+        self.on_node("bastion", lambda n: n.update(parameters={"web_routes": {
+            "lab": "partners-api:8000", "vault": "cold-storage:8000"}}))
+        self.assertRefused("web_routes.lab: partners-api is a third party's node: no third party "
+                           "is on the bastion's routes",
+                           "web_routes.vault: cold-storage is a third party's hostname")
+
+    def test_not_in_the_starter_pack(self):
+        self.append("player/README.md", "\nThe lab's database is `partners-db`.\n")
+        self.assertRefused("player/README.md: names node partners-db, a third party's")
+
+    def test_no_expected_fix(self):
+        self.scenario_yaml(lambda d: d["fault_instances"][0].update(node="partners-db"))
+        self.local_fault("fx-gap", lambda d: None)
+        self.assertRefused("gm/answer-key.yaml: instances[f1]: an expected fix on node "
+                           "partners-db, a third party's")
+
+    def test_their_roles_theirs_alone(self):
+        self.edit_yaml(self.SCHEDULE, lambda d: d["connections"]["app"].update(role="xlab"))
+        self.assertRefused("scenario.yaml: nodes[producer]: names role xlab, a third party's "
+                           "(node partners-api's connection)")
+
+    def test_their_database_admits_their_roles_only(self):
+        path = self.scenario / "nodes/partners-db/pg_hba.conf"
+        text = path.read_text().replace(
+            "host    all       all         all         reject",
+            "host    partners  shop_app    samenet     scram-sha-256\n"
+            "host    all       all         0.0.0.0/0   trust")
+        path.write_text(text)
+        self.assertRefused(
+            "nodes/partners-db/pg_hba.conf: line 11: host partners shop_app samenet "
+            "scram-sha-256: a third party's database admits no role but the partners' own (xlab)",
+            "nodes/partners-db/pg_hba.conf: line 12: host all all 0.0.0.0/0 trust",
+            "nodes/partners-db/pg_hba.conf: its last line is not host all all all reject")
+
+    def test_a_composed_partner_state_needs_their_database(self):
+        out = []
+        third = model.ThirdParties()
+        catalog = self.tmp / "catalog"
+        (catalog / "domains/fx/producers/partners/xlab").mkdir(parents=True)
+        (catalog / "domains/fx/producers/partners/xlab/data.sql").write_text("SELECT 1;\n")
+        model._check_domains_v05({"domains": [{"id": "fx", "at": "db/clinic"}]}, [], third,
+                                 catalog, out)
+        self.assertIn("scenario.yaml: domains[fx]: domains/fx/producers/partners/xlab/data.sql "
+                      "plants a partner's state, but no third_parties: entry lists a postgres "
+                      "node", "\n".join(out))
+
+
+class TestHttpRefusals(V05CopyTest):
+    """HTTP connections, calls and the weighted choice (master spec 6.8, 7.2;
+    W1 item 3, W1-y, W2 item 1; spec D354, D358)."""
+
+    def connection(self, name, **change):
+        self.edit_yaml(self.SCHEDULE, lambda d: d["connections"][name].update(change))
+
+    def test_connection(self):
+        self.connection("lab-api", target="lab-api:9000", credential="public", timeout="61s",
+                        pool={"size": 2}, role="shop_app", verify=True)
+        self.connection("xlab", target="vault:8000", credential="Bad-Name")
+        c = f"{self.SCHEDULE}: connections"
+        self.assertRefused(f"{c}.lab-api.target: lab-api:9000: lab-api is an api node or an "
+                           "alias, which answers on port 8000",
+                           f"{c}.lab-api.credential: public is never a credential's name",
+                           f"{c}.lab-api.timeout: '61s' is not <n>s, 1s to 60s",
+                           f"{c}.lab-api.pool: {{'size': 2}} is not a positive integer",
+                           f"{c}.lab-api.role: an http connection has no role",
+                           f"{c}.lab-api.verify: not a key of an http connection",
+                           f"{c}.xlab.target: vault:8000: vault is neither a node of the "
+                           "topology nor an alias",
+                           f"{c}.xlab.credential: 'Bad-Name' is not a credential name")
+
+    def test_a_partners_alias_on_port_8000(self):
+        self.connection("xlab", target="northfield-lab:80")
+        self.assertRefused("northfield-lab is an api node or an alias, which answers on port 8000")
+
+    def test_owners_is_an_alias_when_served(self):
+        self.connection("xlab", target="owners:8000", credential="xlab_results")
+        self.load()
+
+    def test_drivers(self):
+        def streams(d):
+            d["streams"][0]["connection"] = "lab-api"      # orders.insert, SQL, on HTTP
+            d["streams"][1]["connection"] = "app"          # orders.post, a call, on SQL
+        self.edit_yaml(self.SCHEDULE, streams)
+        self.edit_yaml(self.JOBS, lambda d: d["jobs"].extend([
+            {"name": "post", "key": "orders.post", "connection": "app", "at": "5 * * * *"},
+            {"name": "ask", "key": "stats.refresh", "connection": "xlab", "at": "5 * * * *"}]))
+        self.assertRefused(f"{self.SCHEDULE}: streams[orders.insert]: key orders.insert is not a "
+                           "call, but runs on connection lab-api, an http connection",
+                           f"{self.SCHEDULE}: streams[orders.post]: key orders.post is a call, "
+                           "but runs on connection app, which is not an http connection",
+                           f"{self.JOBS}: jobs[post].key: orders.post is a call: a call runs "
+                           "only in a stream",
+                           f"{self.JOBS}: jobs[ask].connection: xlab is an http connection")
+
+    def test_call(self):
+        def queries(d):
+            q = d["queries"]
+            q["orders.post"]["call"] = "POST /orders/%(customer)s/%(lab)s"
+            q["results.ask"] = {"call": "FETCH /results", "params": {}}
+            q["a.b"] = {"call": "GET /x%zz#y", "options": {"a": 1}}
+        self.edit_yaml(self.QUERIES, queries)
+        q = f"{self.QUERIES}: queries"
+        self.assertRefused(f"{q}.orders.post.params: no parameter for the path's %(lab)s",
+                           f"{q}.results.ask.call: 'FETCH /results' is not \"<METHOD> <path>\"",
+                           f"{q}.a.b.call: in the path, a % is %(name)s or a %XX escape, and no #",
+                           f"{q}.a.b.options: only with a builder")
+
+    def test_call_with_a_builder(self):
+        self.edit_yaml(self.QUERIES, lambda d: d["queries"]["orders.post"].update(
+            builder="builders/orders.py:order"))
+        self.assertRefused(f"{self.QUERIES}: queries.orders.post.params: with a builder, params "
+                           "holds only the path's names, not priority",
+                           "builder: builders/orders.py:order, but the node has no builders/ "
+                           "seed folder")
+
+    def test_weighted_choice(self):
+        self.edit_yaml(self.QUERIES, lambda d: d["queries"]["orders.post"]["params"].update(
+            priority={"choice": {"routine": 0, "urgent": 1.5}}, other={"choice": {}}))
+        p = f"{self.QUERIES}: queries.orders.post.params"
+        self.assertRefused(f"{p}.priority.choice: {{'routine': 0, 'urgent': 1.5}} is not a "
+                           "weighted choice: a non-empty map of values to weights, each a whole "
+                           "number at least 1",
+                           f"{p}.other.choice: {{}} is not a weighted choice")
+
+    def test_replicator_is_reserved(self):
+        self.connection("app", role="replicator")
+        self.assertRefused(f"{self.SCHEDULE}: connections.app.role: replicator is reserved")
+
+    def test_vault(self):
+        self.on_node("db", lambda n: n.update(parameters={"vault_target": "cold-storage:9000",
+                                                          "vault_credential": "public"}))
+        p = "scenario.yaml: nodes[db].parameters"
+        self.assertRefused(f"{p}.vault_target: cold-storage:9000: cold-storage is an api node or "
+                           "an alias, which answers on port 8000",
+                           f"{p}.vault_credential: public is never a credential's name")
+
+    def test_vault_on_an_unknown_host(self):
+        self.on_node("db", lambda n: n.update(parameters={"vault_target": "vault:8000"}))
+        self.assertRefused("nodes[db].parameters.vault_target: vault:8000: vault is neither a "
+                           "node of the topology nor an alias")
+
+
+class TestApiNodeRefusals(V05CopyTest):
+    """An api node's api.yaml (master spec 6.5, 7.2; W1 item 5, W1-w, W1-z,
+    W2 item 1; spec D345)."""
+
+    def test_two_files_per_endpoint(self):
+        (self.scenario / "nodes/lab-api/db/orders.py").unlink()
+        self.edit_yaml(self.PARTNERS, lambda d: d["endpoints"].update(
+            xlab_status={"hosts": ["northfield-lab"]}))
+        self.assertRefused(f"{self.LAB}: endpoints.orders: nodes/lab-api/db/orders.py does not "
+                           "exist (each endpoint is served by routes/<name>.py and db/<name>.py",
+                           f"{self.PARTNERS}: endpoints.xlab_status: "
+                           "nodes/partners-api/routes/xlab_status.py does not exist")
+
+    def test_hosts_in_the_players_scope(self):
+        self.edit_yaml(self.LAB, lambda d: d["endpoints"]["orders"].update(
+            hosts=["lab-api", "lab"]))
+        self.assertRefused(f"{self.LAB}: endpoints.orders.hosts: ['lab-api', 'lab']: a node in "
+                           "the players' scope answers under its own name only ([lab-api]")
+
+    def test_hosts_on_the_partners_node(self):
+        def change(d):
+            d["endpoints"]["coldstore_shipments"]["hosts"] = ["partners-api"]
+            d["endpoints"]["owners_home"]["hosts"] = ["owners", "practices"]
+        self.edit_yaml(self.PARTNERS, change)
+        self.assertRefused(f"{self.PARTNERS}: endpoints.coldstore_shipments.hosts: partners-api "
+                           "is the partners' node's own name",
+                           f"{self.PARTNERS}: no endpoint answers under cold-storage, a third "
+                           "party's hostname",
+                           f"{self.PARTNERS}: endpoints answer under practices, which no "
+                           "third_parties: entry naming nodes declares")
+
+    def test_credentials_and_connections(self):
+        def change(d):
+            d["endpoints"]["orders"]["credentials"] = ["public"]
+            d["connections"]["lab"]["role"] = "replicator"
+            d["connections"]["back"] = {"driver": "http", "target": "nowhere:8000", "pool": 1}
+            d["extra"] = True
+        self.edit_yaml(self.LAB, change)
+        self.assertRefused(f"{self.LAB}: endpoints.orders.credentials: public is never a "
+                           "credential's name",
+                           f"{self.LAB}: connections.lab.role: replicator is reserved",
+                           f"{self.LAB}: connections.back.target: nowhere:8000: nowhere is "
+                           "neither a node",
+                           f"{self.LAB}: extra: not a key of api.yaml")
+
+
+class TestRegisterDiffRefusals(V05CopyTest):
+    """register_diff: (master spec 6.3, 6.8; spec D353)."""
+
+    def diff(self, value, index=0):
+        self.edit_yaml("gm/answer-key.yaml",
+                       lambda k: k["instances"][index].update(register_diff=value))
+
+    def test_only_on_a_register_fault(self):
+        self.diff([{"absent": True}])
+        self.assertRefused("gm/answer-key.yaml: instances[f1].register_diff: fault "
+                           "fixture-job-every-minute is no register fault")
+
+    def register_fault(self):
+        self.local_fault("governance-register-fx", lambda d: d["injection"].update(
+            kind="seed-file", seed_changes=[{"file": "data-register.md", "change": "x"}]))
+        self.instance("f9", "governance-register-fx", "bastion")
+
+    def test_required_on_a_register_fault(self):
+        self.register_fault()
+        self.assertRefused("instances[f9].register_diff: missing (fault governance-register-fx "
+                           "is a register fault")
+
+    def test_items(self):
+        self.register_fault()
+        self.diff([{"entry": "core-owners", "field": "shared_with", True: ["a"], "true": ["b"],
+                    "handed_out": ["a"]},
+                   {"entry": "core-owners", "shown": 1},
+                   {"absent": True}], index=2)
+        p = "gm/answer-key.yaml: instances[f9].register_diff"
+        self.assertRefused(f"{p}[0]: true twice, as YAML's boolean key and as \"true\"",
+                           f"{p}[1].field: missing", f"{p}[1].true: missing",
+                           f"{p}[1].shown: not a key of a register_diff item",
+                           f"{p}[2]: {{absent: true}} is the one item of a register left out")
+
+    def test_the_bare_true_key_is_read(self):
+        self.register_fault()
+        self.diff([{"entry": "core-owners", "field": "shared_with", True: ["a", "b"],
+                    "handed_out": ["a"]}], index=2)
+        missing = "\n".join(self.assertRefused("register_diff") if False else
+                            model.check_scenario(self.scenario)[1])
+        self.assertNotIn("register_diff", missing)
+
 
 
 if __name__ == "__main__":

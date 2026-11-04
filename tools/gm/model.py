@@ -79,7 +79,8 @@ HANDOVER_AT_RE = re.compile(r"^([01][0-9]|2[0-3]):00$")
 CUSTOMER_TIMEZONE = "{{customer_timezone}}"
 # Render passes a node's write policy as GM_WRITE_POLICY and GM_WRITE_OVERRIDES
 # (W1 item 5), so no brick parameter may take these names (GM_<NAME>).
-RESERVED_PARAMETERS = ("write_policy", "write_overrides")
+RESERVED_PARAMETERS = ("write_policy", "write_overrides", "options", "standby_of")   # node keys
+                                    # (options, standby_of: v0.5 capture W1 item 0, spec D350)
 SEED_ENTRY_FILE_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]*$")
 # pg_hba methods admitting the GM check role (W1 item 8, D164), and those
 # admitting pg_basebackup's replication connection as postgres (7.3).
@@ -89,10 +90,11 @@ HBA_REPLICATION_METHODS = ("peer", "trust")
 # v0.4: purposes, domains, governance (master spec 6.1, 6.7 to 6.9, 11;
 # capture W1 of specs/versions/v0.4/wave-log.md, items 0 to 6).
 PURPOSE_ID_RE = re.compile(r"^[a-z][a-z0-9-]*$")       # purpose and domain ids (W1 item 0)
-PURPOSE_PARTS = ("source", "target", "runner", "consumer", "receiver")
+PURPOSE_PARTS = ("source", "target", "runner", "consumer", "receiver", "api", "partner")
 DATABASE_PARTS = ("source", "target")
-PART_ROLES = {"runner": "transformer", "consumer": "consumer", "receiver": "producer"}
-PURPOSE_KINDS = ("pulled", "transformed-in-place", "pushed", "pushed-obligation")
+PART_ROLES = {"runner": "transformer", "consumer": "consumer", "receiver": "producer",
+              "api": "api"}           # partner: a third party's node, any role (v0.5 W1 item 1)
+PURPOSE_KINDS = ("pulled", "transformed-in-place", "pushed", "pushed-obligation", "round-trip")
 JOB_METHODS = ("sql", "script", "foreign-tables", "procedure", "pg_cron", "cron-daemon")
 TRACE_KINDS = ("outbox-rows", "published-results", "run-ledger", "definitions")
 INVARIANT_ID_RE = re.compile(r"^[A-Z][0-9]+$")
@@ -949,6 +951,7 @@ def check_fault_dir(fault_dir, label_base=None, catalog_root=None):
                        f"{', '.join(RESOLUTION_KINDS)}")
     _check_fault_v03(data, label, out)
     _check_fault_v04(data, label, catalog_root, out)
+    _check_fault_options(data, label, out)
     return out
 
 
@@ -1145,8 +1148,11 @@ def check_scenario(scenario_dir, catalog_root=REPO_ROOT):
         if brick is not None:
             bricks[node.get("name")] = brick
 
+    third = _check_third_parties(data, nodes, bricks, out)
+    apis = _api_files(nodes, bricks, sdir, out)
+    http = _http_context(nodes, bricks, third, apis)
     _check_node_maps(nodes, bricks, out)
-    routes = _check_web_routes(nodes, bricks, out)
+    routes = _check_web_routes(nodes, bricks, out, http)
 
     for i, flow in enumerate(data.get("flows") or []):
         if isinstance(flow, dict):
@@ -1165,9 +1171,16 @@ def check_scenario(scenario_dir, catalog_root=REPO_ROOT):
     _check_customer_timezone(nodes, scheduled, sdir, out)
     _check_retention(data, nodes, bricks, faults, scheduled, minimum, sdir, out)
     _check_postgres_seeds(nodes, bricks, sdir, out)
-    _check_scheduler_files(data, nodes, faults, minimum, sdir, out)
-    _check_v04(data, nodes, _data_files(nodes, sdir), sdir, catalog_root, out)
+    _check_scheduler_files(data, nodes, faults, minimum, sdir, out, http)
+    creates = {}
+    for node in nodes:
+        created = node_creates(sdir, data, node, catalog_root)
+        if created is not None:
+            creates[node.get("name")] = created
+    _check_v04(data, nodes, creates, sdir, catalog_root, out)
     _check_composition(data, sdir, catalog_root, out)
+    _check_v05(data, nodes, bricks, faults, answer_key, third, apis, http, sdir, catalog_root,
+               out)
 
     if out:
         return None, out
@@ -1238,11 +1251,13 @@ def _check_node(node, sdir, catalog_root, network_names, out):
         if policy not in WRITE_POLICIES:
             out.append(f"{label}: {p}.write_policy: {policy} is not one of "
                        f"{', '.join(WRITE_POLICIES)}")
-        elif policy != "no-access" and policy not in (b.get("write_policies") or []):
+        elif policy not in (b.get("write_policies") or []):
             out.append(f"{label}: {p}.write_policy: {policy} is not supported by brick "
                        f"{brick.id} ({', '.join(b.get('write_policies') or [])})")
     if "write_overrides" in node:
         _check_write_overrides(node, brick, p, out)
+    if "options" in node:
+        _check_node_options(node, brick, p, out)
     if "stateful" in node and node["stateful"] != b.get("stateful"):
         out.append(f"{label}: {p}.stateful: {node['stateful']} differs from the brick's "
                    f"{b.get('stateful')}")
@@ -1520,7 +1535,7 @@ def _check_receiver(node_name, target, mounting, item, out):
                    f"{', '.join(map(str, lacking))}, which {what} requires")
 
 
-def _check_web_routes(nodes, bricks, out):
+def _check_web_routes(nodes, bricks, out, http=None):
     """web-routes parameters against the topology's web interfaces, and the
     web front's published port (v0.2 capture W1, item 3): a node whose brick
     has a web-routes parameter (the bastion) publishes it whatever its routes,
@@ -1558,6 +1573,15 @@ def _check_web_routes(nodes, bricks, out):
                     out.append(f'{label}: {rp}: {target!r} is not "<node>:<port>"')
                     continue
                 tnode, port = m.group(1), int(m.group(3))
+                if http is not None and tnode in http.third_party_nodes:
+                    out.append(f"{label}: {rp}: {tnode} is a third party's node: no third party "
+                               "is on the bastion's routes (master spec 10.2, spec D363)")
+                    continue
+                if http is not None and tnode in http.aliases:
+                    out.append(f"{label}: {rp}: {tnode} is a third party's hostname (an alias on "
+                               "the partners' api node): no third party is on the bastion's "
+                               "routes (master spec 10.2, spec D363)")
+                    continue
                 if tnode not in by_name:
                     out.append(f"{label}: {rp}: {tnode} is not a node")
                     continue
@@ -1934,6 +1958,7 @@ def _check_answer_key(data, nodes, bricks, faults, routes, sdir, out):
             if needed and not acceptable.get(name):
                 out.append(f"{label}: instances[{iid}].acceptable.{name}: missing")
         _check_behavioural(entry, fault, label, out)
+        _check_register_diff(entry, fault, out)
     for entry in entries:
         evidence = entry.get("evidence")
         for i, item in enumerate(evidence if isinstance(evidence, list) else []):
@@ -2350,6 +2375,8 @@ class DataFileCreates:
     roles: set = field(default_factory=set)
     pg_cron: bool = False
     logins: list = field(default_factory=list)
+    sources: list = field(default_factory=list)   # what was read: the data file, then each
+                                                  # domain file (node_creates, v0.5 W2 item 1)
 
 
 def _statement_login(kind, lines):
@@ -2372,7 +2399,7 @@ def _statement_login(kind, lines):
 
 
 def data_file_creates(text, rel):
-    created = DataFileCreates(rel)
+    created = DataFileCreates(rel, sources=[rel])
     lines = text.splitlines()
     for i, line in enumerate(lines):
         m = _CREATE_NAME_RE.match(line)
@@ -2422,10 +2449,16 @@ def _location_problem(value, by_name, creates):
     role = by_name[node].get("role")
     if role != "database":
         return f"{value}: {node} is not a database node (its role is {role})"
+    if by_name[node].get("standby_of") is not None:
+        return (f"{value}: {node} is a standby (standby_of {by_name[node]['standby_of']}): a "
+                "standby is no location, it holds its primary's copy (v0.5 W2 item 1)")
     created = creates.get(node)
     if created is None:
         return f"{value}: node {node} has no data file to create database {database}"
     if database not in created.databases:
+        if created.sources != [created.file]:
+            return (f"{value}: {database} is not a database node {node}'s data file or the "
+                    f"domains placed on it create ({', '.join(created.sources)})")
         return (f"{value}: {database} is not a database node {node}'s data file "
                 f"({created.file}) creates (CREATE DATABASE {database})")
     return None
@@ -3525,6 +3558,8 @@ def _check_crontabs(nodes, creates, sdir, out):
                            "crontab connects as a customer role")
             elif created is None or role not in created.roles:
                 where = f"its data file ({created.file})" if created else "it has no data file"
+                if created is not None and created.sources != [created.file]:
+                    where = f"read: {', '.join(created.sources)}"
                 out.append(f"{p}: {role} is not a role node {name}'s own data file creates "
                            f"({where}; CREATE ROLE {role})")
         rel, path = _seed_path(node, sdir, "crontab")
@@ -3596,13 +3631,14 @@ def _check_pg_cron(nodes, creates, sdir, out):
 
 def _check_v04(data, nodes, creates, sdir, catalog_root, out):
     """v0.4's scenario keys: domain:, purposes:, governance:, crontab_roles,
-    and a data file's pg_cron."""
+    and a data file's pg_cron. `creates`: node_creates of each node (v0.5 W2
+    item 1); pg_cron reads the node's own data file."""
     by_name = {n.get("name"): n for n in nodes}
     _check_domain(data, catalog_root, out)
     _check_purposes(data, by_name, creates, sdir, catalog_root, out)
     _check_governance(data, nodes, by_name, creates, sdir, out)
     _check_crontabs(nodes, creates, sdir, out)
-    _check_pg_cron(nodes, creates, sdir, out)
+    _check_pg_cron(nodes, _data_files(nodes, sdir), sdir, out)
 
 
 # --- The scheduler's files (master spec 7.1; capture W1 of v0.3, item 7) ---
@@ -3611,10 +3647,11 @@ SCHEDULER_FILES = ("queries.yaml", "schedule.yaml", "jobs.yaml")
 QUERY_KEY_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 ISOLATION_LEVELS = ("read committed", "repeatable read", "serializable")
 GENERATORS = ("int", "decimal", "choice", "sequence", "now")
-DRIVERS = ("sql/postgresql",)
+DRIVERS = ("sql/postgresql", "http")      # http: v0.5 capture W1 item 3
 TARGET_RE = re.compile(r"^([a-z]([a-z0-9-]{0,61}[a-z0-9])?):([0-9]+)/([A-Za-z_][A-Za-z0-9_$-]*)$")
 DB_ROLE_RE = re.compile(r"^[a-z_][a-z0-9_]{0,40}$")
-RESERVED_DB_ROLES = ("postgres", "dba", "monitoring", "gm_check", "pgbouncer_lookup")
+RESERVED_DB_ROLES = ("postgres", "dba", "monitoring", "gm_check", "pgbouncer_lookup",
+                     "replicator")    # replicator: the standby's (v0.5 W1 items 0, 6; D350)
 RATE_RE = re.compile(r"^([0-9]+(?:\.[0-9]+)?)/(s|min|h)$")
 ARRIVALS = ("poisson", "even")
 BUILDER_RE = re.compile(r"^builders/([A-Za-z0-9_][A-Za-z0-9_.-]*):([A-Za-z_][A-Za-z0-9_]*)$")
@@ -3631,7 +3668,7 @@ SET_KEYS = ("key", "rate", "connection")
 JOB_KEYS = ("name", "key", "connection", "connections", "at", "timezone_offset")
 
 
-def _check_scheduler_files(data, nodes, faults, minimum, sdir, out):
+def _check_scheduler_files(data, nodes, faults, minimum, sdir, out, http=None):
     """A scheduler node's queries.yaml, builders/, schedule.yaml and
     jobs.yaml, in scenario time (master spec 7.1, normative; W1 item 7;
     D168); their templates are the format skill's."""
@@ -3660,10 +3697,11 @@ def _check_scheduler_files(data, nodes, faults, minimum, sdir, out):
         connections = None
         if loaded.get("schedule.yaml", (None, None))[1] is not None:
             connections = _check_schedule(*loaded["schedule.yaml"], keys, names, data, minimum,
-                                          out, script_keys)
+                                          out, script_keys, http)
         if loaded.get("jobs.yaml", (None, None))[1] is not None:
             _check_jobs(*loaded["jobs.yaml"], keys, connections, node, data, faults, out,
                         script_keys)
+        _check_drivers(loaded, out)
 
 
 def _script_keys(content):
@@ -3708,6 +3746,8 @@ def _check_queries(rel, content, builders, out, scripts=None):
                 out.append(f"{p}: a pool lists at least one query")
             for i, item in enumerate(value):
                 _check_query(item, f"{p}[{i}]", ("sql", "params", "transaction", "weight"), out)
+        elif isinstance(value, dict) and "call" in value:
+            _check_call(value, p, builders, out)
         elif isinstance(value, dict) and "builder" in value:
             _check_builder(value, p, builders, out)
         elif isinstance(value, dict) and "script" in value:
@@ -3725,7 +3765,7 @@ def _check_queries(rel, content, builders, out, scripts=None):
             _check_query(value, p, ("sql", "params", "transaction"), out)
         else:
             out.append(f"{p}: not a query (sql), a pool (a list of queries), a sequence "
-                       "(steps), a builder (builder) or a script (script)")
+                       "(steps), a builder (builder), a script (script) or a call (call)")
     return set(queries)
 
 
@@ -3754,12 +3794,14 @@ def _check_query(query, p, allowed, out):
 
 
 def _check_generator(generator, p, out):
-    """{int: [lo, hi]}, {decimal: [lo, hi, places]}, {choice: [..]},
-    {sequence: [start, step]}, {now: utc} (W1 item 7)."""
+    """{int: [lo, hi]}, {decimal: [lo, hi, places]}, {choice: [..]} or the
+    weighted {choice: {value: weight, ..}} (v0.5 W1 item 3), {sequence:
+    [start, step]}, {now: utc} (W1 item 7)."""
     if not (isinstance(generator, dict) and len(generator) == 1
             and next(iter(generator)) in GENERATORS):
         out.append(f"{p}: {generator!r} is not a generator ({{int: [lo, hi]}}, {{decimal: [lo, "
-                   "hi, places]}}, {choice: [..]}, {sequence: [start, step]}, {now: utc})")
+                   "hi, places]}}, {choice: [..]}, {choice: {value: weight}}, {sequence: [start, "
+                   "step]}, {now: utc})")
         return
     kind, args = next(iter(generator.items()))
     ok = True
@@ -3771,10 +3813,14 @@ def _check_generator(generator, p, out):
         ok = isinstance(args, list) and len(args) == 3 and all(map(_is_number, args[:2])) \
             and args[0] <= args[1] and _is_int(args[2]) and args[2] >= 0
         form = "[lo, hi, places], lo <= hi, places a whole number of digits"
+    elif kind == "choice" and isinstance(args, dict):
+        ok = bool(args) and all(_is_int(w) and w >= 1 for w in args.values())
+        form = ("a weighted choice: a non-empty map of values to weights, each a whole number "
+                "at least 1 (relative, not summing to 100; v0.5 W1 item 3)")
     elif kind == "choice":
         ok = isinstance(args, list) and bool(args) \
             and not any(isinstance(a, (list, dict)) for a in args)
-        form = "a non-empty list of values"
+        form = "a non-empty list of values, or a map of values to weights"
     elif kind == "sequence":
         ok = isinstance(args, list) and len(args) == 2 and all(map(_is_int, args)) \
             and args[1] != 0
@@ -3841,7 +3887,7 @@ def _check_rate(rate, p, out):
         out.append(f"{p}: {rate!r} is not a rate (<number>/s, /min or /h, positive)")
 
 
-def _check_schedule(rel, content, keys, names, data, minimum, out, script_keys=()):
+def _check_schedule(rel, content, keys, names, data, minimum, out, script_keys=(), http=None):
     """schedule.yaml in scenario time; returns its connection names, or None
     when unusable."""
     check_against_schema(content, template_schema("schedule.yaml"), rel, out=out)
@@ -3857,7 +3903,7 @@ def _check_schedule(rel, content, keys, names, data, minimum, out, script_keys=(
         out.append(f"{rel}: intensity: {content['intensity']!r} is not a positive number")
     connections = _dict(content.get("connections"))
     for name, conn in connections.items():
-        _check_connection(conn, f"{rel}: connections.{name}", names, out)
+        _check_connection(conn, f"{rel}: connections.{name}", names, out, http)
     shapes = content.get("shapes")
     if "shapes" in content and not isinstance(shapes, dict):
         out.append(f"{rel}: shapes: not a map of name -> shape")
@@ -3904,9 +3950,12 @@ def _check_key_ref(key, keys, p, out):
         out.append(f"{p}: {key} is not a key of the node's queries.yaml")
 
 
-def _check_connection(conn, p, names, out):
+def _check_connection(conn, p, names, out, http=None):
     if not isinstance(conn, dict):
         return                               # reported against the template
+    if conn.get("driver") == "http":
+        _check_http_connection(conn, p, http or HttpContext(set(names or ())), out)
+        return
     _unknown_keys(conn, CONNECTION_KEYS, p, "a connection", out)
     if "driver" in conn and conn["driver"] not in DRIVERS:
         out.append(f"{p}.driver: {conn['driver']} is not a known driver ({', '.join(DRIVERS)})")
@@ -4175,3 +4224,888 @@ def _check_jobs(rel, content, keys, connections, node, data, faults, out, script
             elif not offset_fault:
                 out.append(f"{p}.timezone_offset: only on a node where a fault instance's seed "
                            "change edits jobs.yaml (the wrong-time-zone fault, spec D168)")
+
+
+# --- v0.5: options, standbys, third parties, HTTP, api nodes (build plan chunk 6a;
+# --- master spec 6.2 to 6.5, 7.1, 7.2, 10.2, 15; capture W1 items 0 to 6, W1-w to
+# --- W1-z, W2 items 0 and 1; spec D350, D353, D354, D358, D360, D363) ---
+
+MONITORING_OPTION = "monitoring"
+OWNERS_HOST = "owners"              # the owners' browsers: a hostname, never a node or a party
+PARTNERS_DATABASE = "partners"      # the partners' database (W2 item 0)
+PARTNER_PREFIX_RE = re.compile(r"^[a-z][a-z0-9]{0,15}$")      # W2 item 0
+THIRD_PARTY_NAME_RE = re.compile(r"^[a-z][a-z0-9-]*$")        # an id, a hostname (W1 item 2)
+THIRD_PARTY_ROLES = ("inbound", "outbound", "round-trip")
+API_BRICK = "api"
+API_PORT = 8000                     # an api node's, and an alias's (W1 item 5)
+HTTP_CREDENTIAL_RE = re.compile(r"^[a-z][a-z0-9_]{0,62}$")    # the scheduler's (W1-y)
+PUBLIC_CREDENTIAL = "public"        # a purpose's value for a public endpoint, never a name (D354)
+HTTP_TARGET_RE = re.compile(r"^([a-z0-9][a-z0-9.-]*):([0-9]{1,5})$")
+HTTP_TIMEOUT_RE = re.compile(r"^([0-9]+)s$")
+HTTP_CONNECTION_FORM = ("driver", "target", "credential", "pool", "timeout")
+CALL_RE = re.compile(r"^(GET|POST|PUT|PATCH|DELETE) (/[\x21-\x7e]*)$")
+PATH_NAME_RE = re.compile(r"%\(([A-Za-z_][A-Za-z0-9_]*)\)s")
+PATH_PERCENT_RE = re.compile(r"%(?!\([A-Za-z_][A-Za-z0-9_]*\)s|[0-9A-Fa-f]{2})")
+REPLICATION_HBA = ("host", "replication", "replicator", "samenet", "scram-sha-256")
+GM_HBA_LINES = (("local", "all", "postgres", "peer"), ("local", "replication", "postgres", "peer"),
+                ("local", "all", "gm_check", "scram-sha-256"),
+                ("host", "all", "gm_check", "samenet", "scram-sha-256"), REPLICATION_HBA)
+CLOSING_HBA = ("host", "all", "all", "all", "reject")
+REGISTER_SEED_FILE = "data-register.md"   # the bastion's register handout (master spec 6.4)
+REGISTER_DIFF_KEYS = ("entry", "field", "true", "handed_out")
+# A monitoring brick's seed file naming the postgres nodes it reads (W2 items 1 and 5)
+MONITOR_SEEDS = {"postgres-exporter": "exporter.conf", "pgwatch": "sources.yaml",
+                 "health-check": "health.yaml"}
+
+
+@dataclass
+class ThirdParties:
+    """What scenario.yaml's third_parties: declares (master spec 6.2, 10.2)."""
+    nodes: set = field(default_factory=set)        # every node an entry lists
+    hostnames: set = field(default_factory=set)    # of the entries listing nodes (the aliases)
+    api_node: object = None                        # the partners' api node, when one
+    db_node: object = None                         # the partners' postgres node, when one
+
+
+@dataclass
+class HttpContext:
+    """What an HTTP connection's target may name (W2 item 1): a node, or an
+    alias (an api node's host other than its name, or a third party's
+    hostname on the partners' node); an api node or an alias on port 8000."""
+    nodes: set
+    aliases: set = field(default_factory=set)
+    api_nodes: set = field(default_factory=set)
+    third_party_nodes: set = field(default_factory=set)
+
+
+def register_diff_true(item):
+    """The true value of an answer key's register_diff item (master spec
+    6.8): under the key PyYAML reads a bare `true:` as, boolean True, or
+    under a quoted "true" (spec D353); None when it has neither. The one
+    accessor every reader shares (chunks 17, 23)."""
+    if not isinstance(item, dict):
+        return None
+    for key, value in item.items():
+        if key is True:
+            return value
+    return item.get("true")
+
+
+def _register_diff_keys(item):
+    """An item's keys, the boolean True read as "true"."""
+    return ["true" if key is True else key for key in item]
+
+
+def _node_options(node):
+    options = node.get("options")
+    return [o for o in options if isinstance(o, str)] if isinstance(options, list) else []
+
+
+def brick_options(brick_data):
+    """The option names a brick declares (brick.yaml options:, master spec 6.5)."""
+    options = brick_data.get("options")
+    return [o.get("name") for o in options if isinstance(o, dict)] \
+        if isinstance(options, list) else []
+
+
+def _check_node_options(node, brick, p, out):
+    """options: a non-empty list of unique names the brick declares (W1 item 2)."""
+    label = "scenario.yaml"
+    options = node.get("options")
+    declared = brick_options(brick.data)
+    if not (isinstance(options, list) and options):
+        out.append(f"{label}: {p}.options: {options!r} is not a non-empty list of option names "
+                   "(absent: no option; master spec 6.2)")
+        return
+    seen = []
+    for option in options:
+        if option in seen:
+            out.append(f"{label}: {p}.options: {option} listed more than once")
+            continue
+        seen.append(option)
+        if option not in declared:
+            offers = f"it declares {', '.join(map(str, declared))}" if declared \
+                else "it declares none"
+            out.append(f"{label}: {p}.options: {option} is not an option of brick {brick.id} "
+                       f"{brick.version} ({offers}; brick.yaml options:, master spec 6.5)")
+
+
+def _check_fault_options(data, label, out):
+    """requires_option and option_absent (master spec 6.4): option names,
+    never both naming one option."""
+    for key in ("requires_option", "option_absent"):
+        if key in data and not (isinstance(data[key], str) and SQL_NAME_RE.match(data[key])):
+            out.append(f"{label}: {key}: {data[key]!r} is not an option name")
+    if "requires_option" in data and data.get("requires_option") == data.get("option_absent"):
+        out.append(f"{label}: option_absent: {data['option_absent']} is also requires_option: a "
+                   "fault needs an option or plants its absence, never both")
+
+
+def _seed_yaml(node, sdir, fname):
+    """A node's seed YAML file as loaded, or None (its problems are reported
+    where the file is checked)."""
+    rel, path = _seed_path(node, sdir, fname)
+    if path is None:
+        return None
+    try:
+        return yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, yaml.YAMLError):
+        return None
+
+
+def _check_third_parties(data, nodes, bricks, out):
+    """third_parties: (master spec 6.2, 10.2; W1 item 2, W2 items 0 and 1):
+    ids and hostnames, each listed node a node with write_policy no-access
+    (on a brick declaring it: the node's own check), one api node and one
+    postgres node shared by every partner. Returns ThirdParties."""
+    label = "scenario.yaml"
+    by_name = {n.get("name"): n for n in nodes}
+    third = ThirdParties()
+    entries = data.get("third_parties")
+    if entries is None:
+        return third
+    if not (isinstance(entries, list) and entries):
+        out.append(f"{label}: third_parties: not a non-empty list of third parties (absent: "
+                   "none)")
+        return third
+    ids, hosts, kinds = [], [], {}
+    for i, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            continue                         # reported against the template
+        p = f"{label}: third_parties[{entry.get('id', i)}]"
+        tid, host = entry.get("id"), entry.get("hostname")
+        for key, value, seen in (("id", tid, ids), ("hostname", host, hosts)):
+            if key not in entry:
+                continue
+            if not (isinstance(value, str) and THIRD_PARTY_NAME_RE.match(value)):
+                out.append(f"{p}.{key}: {value!r} is not [a-z][a-z0-9-]*")
+            elif value == OWNERS_HOST:
+                out.append(f"{p}.{key}: {OWNERS_HOST} is reserved: the owners' browsers' "
+                           "hostname, no third party (master spec 10.2, W2 item 0)")
+            elif key == "hostname" and value in by_name:
+                out.append(f"{p}.hostname: {value} is a node's name: an alias equal to a node "
+                           "name would shadow it on the one network (W1 item 2)")
+            elif value in seen:
+                out.append(f"{p}.{key}: {value} is another third party's {key}")
+            seen.append(value)
+        if "role" in entry and entry["role"] not in THIRD_PARTY_ROLES:
+            out.append(f"{p}.role: {entry['role']!r} is not one of {', '.join(THIRD_PARTY_ROLES)}")
+        listed = entry.get("nodes")
+        if "nodes" in entry and not (isinstance(listed, list)
+                                     and all(isinstance(n, str) for n in listed)):
+            out.append(f"{p}.nodes: not a list of node names (may be [])")
+            continue
+        for name in listed or []:
+            node = by_name.get(name)
+            if node is None:
+                out.append(f"{p}.nodes: {name} is not a node")
+                continue
+            third.nodes.add(name)
+            if node.get("write_policy") != "no-access":
+                out.append(f"{p}.nodes: node {name} has write_policy "
+                           f"{node.get('write_policy')}, not no-access: a third party's nodes "
+                           "are out of the players' reach (master spec 10.2)")
+            brick = bricks.get(name)
+            if brick is not None:
+                kinds.setdefault(brick.id, set()).add(name)
+        if listed and isinstance(host, str):
+            third.hostnames.add(host)
+    for kind, attr in ((API_BRICK, "api_node"), (POSTGRES_BRICK, "db_node")):
+        found = sorted(kinds.get(kind, ()))
+        if len(found) > 1:
+            out.append(f"{label}: third_parties: {len(found)} {kind} nodes ({', '.join(found)}): "
+                       f"every partner shares one {kind} node (master spec 10.2)")
+        elif found:
+            setattr(third, attr, found[0])
+    return third
+
+
+def _api_files(nodes, bricks, sdir, out):
+    """node name -> its seed api.yaml as loaded strictly (an api node,
+    master spec 6.5, W1 item 5), for each api node whose file loads."""
+    apis = {}
+    for node in nodes:
+        brick = bricks.get(node.get("name"))
+        if brick is None or brick.id != API_BRICK:
+            continue
+        rel, path = _seed_path(node, sdir, "api.yaml")
+        if path is None:
+            continue                         # reported with the seed files
+        content = _load_yaml(path, rel, out, strict=True)
+        if content is None:
+            continue
+        if not isinstance(content, dict):
+            out.append(f"{rel}: top level: not a mapping (endpoints, connections)")
+            continue
+        apis[node.get("name")] = (rel, content)
+    return apis
+
+
+def _api_hosts(content):
+    hosts = []
+    for entry in _dict(_dict(content).get("endpoints")).values():
+        for host in _dict(entry).get("hosts") or []:
+            if isinstance(host, str) and host not in hosts:
+                hosts.append(host)
+    return hosts
+
+
+def _http_context(nodes, bricks, third, apis):
+    names = {n.get("name") for n in nodes}
+    aliases = set(third.hostnames)
+    for name, (_, content) in apis.items():
+        aliases.update(h for h in _api_hosts(content) if h != name)
+    api_nodes = {n for n, b in bricks.items() if b.id == API_BRICK}
+    return HttpContext(names, aliases - names, api_nodes, set(third.nodes))
+
+
+def _http_target_problem(target, http):
+    m = HTTP_TARGET_RE.match(target) if isinstance(target, str) else None
+    if m is None:
+        return f"{target!r} is not <host>:<port>"
+    host, port = m.group(1), int(m.group(2))
+    if not _is_port(port):
+        return f"{target}: {port} is not a port"
+    if host not in http.nodes and host not in http.aliases:
+        return (f"{target}: {host} is neither a node of the topology nor an alias (a third "
+                "party's hostname, or owners, on the partners' api node; W2 item 1)")
+    if (host in http.api_nodes or host in http.aliases) and port != API_PORT:
+        return f"{target}: {host} is an api node or an alias, which answers on port {API_PORT}"
+    return None
+
+
+def _credential_problem(credential):
+    if not (isinstance(credential, str) and HTTP_CREDENTIAL_RE.match(credential)):
+        return f"{credential!r} is not a credential name ([a-z][a-z0-9_]{{0,62}})"
+    if credential == PUBLIC_CREDENTIAL:
+        return (f"{PUBLIC_CREDENTIAL} is never a credential's name: an HTTP connection to a public "
+                "endpoint has no credential (spec D354)")
+    return None
+
+
+def _check_http_connection(conn, p, http, out):
+    """An http connection (W1 item 3; the scheduler's own refusals, W1-y):
+    target <host>:<port>, optional credential, pool a positive integer,
+    optional timeout <n>s, 1 to 60; no role."""
+    if "role" in conn:
+        out.append(f"{p}.role: an http connection has no role (its credential, if any; W1 "
+                   "item 3)")
+    _unknown_keys({k: v for k, v in conn.items() if k != "role"}, HTTP_CONNECTION_FORM, p,
+                  "an http connection", out)
+    if "target" in conn:
+        problem = _http_target_problem(conn["target"], http)
+        if problem:
+            out.append(f"{p}.target: {problem}")
+    if "credential" in conn:
+        problem = _credential_problem(conn["credential"])
+        if problem:
+            out.append(f"{p}.credential: {problem}")
+    if "pool" in conn and not (_is_int(conn["pool"]) and conn["pool"] > 0):
+        out.append(f"{p}.pool: {conn['pool']!r} is not a positive integer (kept-alive "
+                   "connections)")
+    if "timeout" in conn:
+        m = HTTP_TIMEOUT_RE.match(conn["timeout"]) if isinstance(conn["timeout"], str) else None
+        if m is None or not 1 <= int(m.group(1)) <= 60:
+            out.append(f"{p}.timeout: {conn['timeout']!r} is not <n>s, 1s to 60s")
+
+
+def _check_call(value, p, builders, out):
+    """A call (W1 item 3; the scheduler's CallEntry, W1-y): "<METHOD>
+    <path>", its params generators holding every %(name)s of the path, and
+    with a builder only those."""
+    _unknown_keys(value, ("call", "params", "builder", "options"), p, "a call", out)
+    call = value.get("call")
+    m = CALL_RE.match(call) if isinstance(call, str) else None
+    if m is None:
+        out.append(f'{p}.call: {call!r} is not "<METHOD> <path>" (GET, POST, PUT, PATCH or '
+                   "DELETE; the path absolute, without spaces)")
+        return
+    path = m.group(2)
+    if "#" in path or PATH_PERCENT_RE.search(path):
+        out.append(f"{p}.call: in the path, a % is %(name)s or a %XX escape, and no #")
+    names = PATH_NAME_RE.findall(path)
+    params = value.get("params", {})
+    if not isinstance(params, dict):
+        out.append(f"{p}.params: not a map of name -> generator")
+        params = {}
+    for name, generator in params.items():
+        _check_generator(generator, f"{p}.params.{name}", out)
+    for name in names:
+        if name not in params:
+            out.append(f"{p}.params: no parameter for the path's %({name})s")
+    if "builder" in value:
+        _check_builder({k: v for k, v in value.items() if k in ("builder", "options")}, p,
+                       builders, out)
+        extra = sorted(str(n) for n in params if n not in names)
+        if extra:
+            out.append(f"{p}.params: with a builder, params holds only the path's names, not "
+                       f"{', '.join(extra)}")
+    elif "options" in value:
+        out.append(f"{p}.options: only with a builder")
+
+
+def _check_drivers(loaded, out):
+    """A call key runs on an http connection and every other key on a SQL
+    one, in each stream and its timeline changes; a job's one connection:
+    names no http connection and runs no call (the scheduler's
+    driver_problems, W1-y)."""
+    q_rel, queries = loaded.get("queries.yaml", (None, None))
+    s_rel, schedule = loaded.get("schedule.yaml", (None, None))
+    j_rel, jobs = loaded.get("jobs.yaml", (None, None))
+    repo = _dict(_dict(queries).get("queries"))
+    calls = {k for k, v in repo.items() if isinstance(v, dict) and "call" in v}
+    conns = _dict(_dict(schedule).get("connections"))
+    http = {n for n, c in conns.items() if _dict(c).get("driver") == "http"}
+    streams = _dict(schedule).get("streams")
+    timeline = _dict(schedule).get("timeline")
+    changes = [c for c in timeline if isinstance(c, dict)] if isinstance(timeline, list) else []
+    for stream in streams if isinstance(streams, list) else []:
+        if not isinstance(stream, dict):
+            continue
+        initial = stream.get("key")
+        sets = [_dict(c.get("set")) for c in changes if c.get("stream") == initial]
+        keys = [initial] + [s["key"] for s in sets if "key" in s]
+        names = [stream.get("connection")] + [s["connection"] for s in sets if "connection" in s]
+        for key in dict.fromkeys(k for k in keys if k in repo):
+            for name in dict.fromkeys(n for n in names if n in conns):
+                if key in calls and name not in http:
+                    out.append(f"{s_rel}: streams[{initial}]: key {key} is a call, but runs on "
+                               f"connection {name}, which is not an http connection")
+                elif key not in calls and name in http:
+                    out.append(f"{s_rel}: streams[{initial}]: key {key} is not a call, but runs "
+                               f"on connection {name}, an http connection")
+    entries = _dict(jobs).get("jobs")
+    for i, job in enumerate(entries if isinstance(entries, list) else []):
+        if not isinstance(job, dict) or "connection" not in job:
+            continue
+        p = f"{j_rel}: jobs[{_item_label(job, i)}]"
+        if job.get("key") in calls:
+            out.append(f"{p}.key: {job['key']} is a call: a call runs only in a stream (W1-y)")
+        elif job["connection"] in http:
+            out.append(f"{p}.connection: {job['connection']} is an http connection: a job with "
+                       "connection: runs SQL; an http connection is a stream's or a script's "
+                       "(W1-y)")
+
+
+def _hba_text_lines(node, sdir):
+    rel, path = _seed_path(node, sdir, "pg_hba.conf")
+    if path is None:
+        return rel, None
+    try:
+        return rel, list(_hba_lines(path.read_text(encoding="utf-8")))
+    except (OSError, UnicodeDecodeError):
+        return rel, None
+
+
+def _check_standbys(nodes, bricks, sdir, out):
+    """standby_of (master spec 6.2, 7.1; W1 items 2 and 6): a postgres node
+    whose primary is a postgres node that is no standby; no data: entry; the
+    primary's seed pg_hba.conf carries the replication line."""
+    label = "scenario.yaml"
+    by_name = {n.get("name"): n for n in nodes}
+    primaries = {}
+    for node in nodes:
+        if "standby_of" not in node:
+            continue
+        name, primary = node.get("name"), node.get("standby_of")
+        p = f"{label}: nodes[{name}].standby_of"
+        brick = bricks.get(name)
+        if brick is not None and brick.id != POSTGRES_BRICK:
+            out.append(f"{p}: node {name} runs {brick.id}: only a postgres node is a standby")
+        if primary == name:
+            out.append(f"{p}: names the node itself")
+        elif primary not in by_name:
+            out.append(f"{p}: {primary} is not a node")
+        elif bricks.get(primary) is not None and bricks[primary].id != POSTGRES_BRICK:
+            out.append(f"{p}: {primary} runs {bricks[primary].id}, not postgres")
+        elif by_name[primary].get("standby_of") is not None:
+            out.append(f"{p}: {primary} is itself a standby (standby_of "
+                       f"{by_name[primary]['standby_of']}): a standby's primary is no standby")
+        else:
+            primaries.setdefault(primary, []).append(name)
+        if "data" in node:
+            out.append(f"{label}: nodes[{name}].data: a standby has no data: entry (cloned from "
+                       "its primary after the load; W1 item 2)")
+    for primary, standbys in primaries.items():
+        rel, lines = _hba_text_lines(by_name[primary], sdir)
+        if lines is not None and not any(tuple(f) == REPLICATION_HBA for _, f in lines):
+            out.append(f"{rel}: no line {' '.join(REPLICATION_HBA)}: node {primary} is the "
+                       f"primary of {', '.join(standbys)} and carries it under its DO NOT "
+                       "TAMPER comment (W1 item 6, spec D350)")
+
+
+def _uri_host(value):
+    """The host of a libpq URI or of the exporter's host:port/db form."""
+    text = value.strip().strip("'\"")
+    for scheme in ("postgresql://", "postgres://"):
+        if text.startswith(scheme):
+            text = text[len(scheme):]
+    text = text.rsplit("@", 1)[-1]
+    return re.split(r"[:/?]", text, 1)[0]
+
+
+def monitor_targets(node, brick, sdir):
+    """The hosts a monitoring node's seed reads (W2 items 1 and 5):
+    postgres-exporter's exporter.conf DATA_SOURCE_URI, pgwatch's sources.yaml
+    (each enabled entry's conn_str, the URI form only), health-check's
+    health.yaml (instances[].host). [] for any other brick."""
+    fname = MONITOR_SEEDS.get(brick.id)
+    if fname is None:
+        return []
+    if brick.id == "postgres-exporter":
+        rel, path = _seed_path(node, sdir, fname)
+        if path is None:
+            return []
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            return []
+        hosts = []
+        for line in text.splitlines():
+            key, sep, value = line.strip().partition("=")
+            if sep and key.strip() == "DATA_SOURCE_URI" and value.strip():
+                hosts.append(_uri_host(value))
+        return hosts
+    content = _seed_yaml(node, sdir, fname)
+    if brick.id == "pgwatch":
+        entries = content if isinstance(content, list) else []
+        return [_uri_host(e["conn_str"]) for e in entries
+                if isinstance(e, dict) and e.get("is_enabled", True) is not False
+                and isinstance(e.get("conn_str"), str) and "://" in e["conn_str"]]
+    instances = _dict(content).get("instances")
+    return [i["host"] for i in instances if isinstance(i, dict) and isinstance(i.get("host"), str)] \
+        if isinstance(instances, list) else []
+
+
+def _check_monitors(data, nodes, bricks, faults, third, sdir, out):
+    """A monitoring node's postgres targets choose monitoring, a monitored
+    standby's primary too, unless a fault instance planting the option's
+    absence has that node as its node; a third party's node is never a
+    target (master spec 7.1 item 3, 7.4; W2 item 1)."""
+    by_name = {n.get("name"): n for n in nodes}
+    gaps = {i.get("node") for i in data.get("fault_instances") or []
+            if isinstance(i, dict) and i.get("id") in faults
+            and faults[i["id"]].data.get("option_absent") == MONITORING_OPTION}
+    for node in nodes:
+        name = node.get("name")
+        brick = bricks.get(name)
+        if brick is None or brick.id not in MONITOR_SEEDS:
+            continue
+        rel = _dict(node.get("seed_files")).get(MONITOR_SEEDS[brick.id])
+        for host in dict.fromkeys(monitor_targets(node, brick, sdir)):
+            target = by_name.get(host)
+            if target is None:
+                continue
+            if host in third.nodes:
+                out.append(f"{rel}: node {name} ({brick.id}) monitors {host}, a third party's "
+                           "node: the partners' nodes are never monitored (master spec 7.4)")
+                continue
+            tbrick = bricks.get(host)
+            if tbrick is None or tbrick.id != POSTGRES_BRICK:
+                continue
+            checked = [host]
+            if target.get("standby_of") in by_name:
+                checked.append(target["standby_of"])
+            for need in checked:
+                if MONITORING_OPTION in _node_options(by_name[need]) or need in gaps \
+                        or (need != host and host in gaps):
+                    continue
+                why = "" if need == host else f", the primary of the standby {host} it monitors,"
+                out.append(f"{rel}: node {name} ({brick.id}) monitors {host}, but node "
+                           f"{need}{why} does not choose option {MONITORING_OPTION} "
+                           f"(options: [{MONITORING_OPTION}]), and no fault instance planting "
+                           f"its absence (option_absent: {MONITORING_OPTION}) targets it "
+                           "(master spec 7.1 item 3)")
+
+
+def _check_fault_instance_options(data, nodes, bricks, faults, out):
+    """A fault requiring an option targets a node choosing it; one planting
+    an option's absence, a node not choosing it; either option one the
+    node's brick declares (master spec 6.4)."""
+    label = "scenario.yaml"
+    by_name = {n.get("name"): n for n in nodes}
+    for inst in data.get("fault_instances") or []:
+        if not isinstance(inst, dict) or inst.get("id") not in faults:
+            continue
+        fault = faults[inst["id"]]
+        node = by_name.get(inst.get("node"))
+        brick = bricks.get(inst.get("node"))
+        if node is None or brick is None:
+            continue
+        p = f"{label}: fault_instances[{inst['id']}].node"
+        for key in ("requires_option", "option_absent"):
+            option = fault.data.get(key)
+            if not isinstance(option, str):
+                continue
+            if option not in brick_options(brick.data):
+                out.append(f"{p}: fault {fault.id} {'requires' if key == 'requires_option' else 'plants the absence of'} "
+                           f"option {option}, which brick {brick.id} {brick.version} of node "
+                           f"{node.get('name')} does not declare")
+            elif key == "requires_option" and option not in _node_options(node):
+                out.append(f"{p}: fault {fault.id} requires option {option}, which node "
+                           f"{node.get('name')} does not choose (options:; master spec 6.4)")
+            elif key == "option_absent" and option in _node_options(node):
+                out.append(f"{p}: fault {fault.id} plants the absence of option {option}, which "
+                           f"node {node.get('name')} chooses (options:; master spec 6.4)")
+
+
+def _is_register_fault(fault_data):
+    """A register fault: a seed-file change of the bastion's
+    data-register.md (master spec 6.4)."""
+    changes = _dict(fault_data.get("injection")).get("seed_changes")
+    return any(isinstance(c, dict) and c.get("file") == REGISTER_SEED_FILE
+               for c in changes if isinstance(changes, list)) if isinstance(changes, list) \
+        else False
+
+
+def _check_register_diff(entry, fault, out):
+    """register_diff: (master spec 6.3, 6.8; spec D353): exactly on a register
+    fault's instance, non-empty, each item entry, field, true and handed_out
+    (true read by register_diff_true, never both forms in one item), or the
+    one item {absent: true}."""
+    p = f"gm/answer-key.yaml: instances[{entry.get('instance')}].register_diff"
+    register = _is_register_fault(fault.data)
+    if "register_diff" not in entry:
+        if register:
+            out.append(f"{p}: missing (fault {fault.id} is a register fault: the entry, the "
+                       "field, the true value and the value handed out; master spec 6.3)")
+        return
+    if not register:
+        out.append(f"{p}: fault {fault.id} is no register fault (a seed-file change of the "
+                   f"bastion's {REGISTER_SEED_FILE}; master spec 6.4), so its instance takes no "
+                   "register_diff")
+    diff = entry["register_diff"]
+    if not (isinstance(diff, list) and diff):
+        out.append(f"{p}: not a non-empty list of items")
+        return
+    for i, item in enumerate(diff):
+        ip = f"{p}[{i}]"
+        if not isinstance(item, dict):
+            out.append(f"{ip}: not a mapping (entry, field, true, handed_out; or absent: true)")
+            continue
+        keys = _register_diff_keys(item)
+        if keys.count("true") > 1:
+            out.append(f"{ip}: true twice, as YAML's boolean key and as \"true\": write one "
+                       "(spec D353)")
+        if "absent" in item:
+            if item["absent"] is not True or len(item) > 1 or len(diff) > 1:
+                out.append(f"{ip}: {{absent: true}} is the one item of a register left out, "
+                           "alone in register_diff (master spec 6.3)")
+            continue
+        for key in REGISTER_DIFF_KEYS:
+            if key not in keys:
+                out.append(f"{ip}.{key}: missing")
+        for key in keys:
+            if key not in REGISTER_DIFF_KEYS:
+                out.append(f"{ip}.{key}: not a key of a register_diff item "
+                           f"({', '.join(REGISTER_DIFF_KEYS)}; or absent: true)")
+
+
+def _check_api_nodes(nodes, bricks, third, apis, http, sdir, out):
+    """An api node's api.yaml (master spec 6.5, 7.2; W1 item 5, W1-z, W2
+    item 1; spec D345): the keys a fragment may hold (W1-w), at least one
+    endpoint, each served by routes/<name>.py and db/<name>.py; its hosts:
+    its own name on a node in the players' scope, on the partners' node the
+    third parties' hostnames (plus owners) and never its own name; its
+    credentials named, never public; its connections a schedule's."""
+    names = {n.get("name") for n in nodes}
+    by_name = {n.get("name"): n for n in nodes}
+    for name, (rel, content) in apis.items():
+        node = by_name[name]
+        _check_api_fragment(rel, content, out)
+        for key in content:
+            if key not in API_YAML_KEYS:
+                out.append(f"{rel}: {key}: not a key of api.yaml ({', '.join(API_YAML_KEYS)})")
+        endpoints = content.get("endpoints")
+        if not (isinstance(endpoints, dict) and endpoints):
+            out.append(f"{rel}: endpoints: not a non-empty mapping (a node's api.yaml serves at "
+                       "least one endpoint)")
+            endpoints = {}
+        folders = {}
+        for folder in API_FRAGMENT_FOLDERS:
+            seed = _dict(node.get("seed_files")).get(folder + "/")
+            path = _inside(sdir, seed) if isinstance(seed, str) else None
+            folders[folder] = (str(seed).rstrip("/"), path)
+        partners = name == third.api_node
+        for ename, entry in endpoints.items():
+            p = f"{rel}: endpoints.{ename}"
+            if not isinstance(entry, dict):
+                continue                     # reported by the fragment's check
+            for folder, (shown, path) in folders.items():
+                if path is None or not (path / f"{ename}.py").is_file():
+                    where = f"{shown}/{ename}.py" if path is not None \
+                        else f"{folder}/{ename}.py (the node seeds no {folder}/ folder)"
+                    out.append(f"{p}: {where} does not exist (each endpoint is served by "
+                               "routes/<name>.py and db/<name>.py; W1 item 5)")
+            hosts = [h for h in entry.get("hosts") or [] if isinstance(h, str)] \
+                if isinstance(entry.get("hosts"), list) else []
+            if partners and name in hosts:
+                out.append(f"{p}.hosts: {name} is the partners' node's own name: it answers "
+                           "only under the third parties' hostnames and owners (W2 item 1)")
+            elif not partners and hosts and hosts != [name]:
+                out.append(f"{p}.hosts: {hosts}: a node in the players' scope answers under its "
+                           f"own name only ([{name}]; W2 item 1)")
+            for cred in entry.get("credentials") or [] \
+                    if isinstance(entry.get("credentials"), list) else []:
+                problem = _credential_problem(cred)
+                if problem and isinstance(cred, str) and SCRIPT_CONNECTION_RE.match(cred):
+                    out.append(f"{p}.credentials: {problem}")   # else the fragment's check
+        if partners:
+            served = set(_api_hosts(content)) - {name}
+            for host in sorted(third.hostnames - served):
+                out.append(f"{rel}: no endpoint answers under {host}, a third party's hostname "
+                           "(third_parties:): the partners' node serves exactly the hostnames of "
+                           f"the entries naming nodes, plus {OWNERS_HOST} (W2 item 1)")
+            for host in sorted(served - third.hostnames - {OWNERS_HOST}):
+                out.append(f"{rel}: endpoints answer under {host}, which no third_parties: entry "
+                           f"naming nodes declares as its hostname (nor {OWNERS_HOST}; W2 item 1)")
+        connections = content.get("connections")
+        for cname, conn in _dict(connections).items():
+            _check_connection(conn, f"{rel}: connections.{cname}", names, out, http)
+
+
+def _sql_roles(conns):
+    return {c["role"] for c in _dict(conns).values()
+            if isinstance(c, dict) and c.get("driver") == "sql/postgresql"
+            and isinstance(c.get("role"), str)}
+
+
+def _node_connection_roles(node, sdir, apis):
+    """The SQL roles a node's connections name: a scheduler node's
+    schedule.yaml, an api node's api.yaml."""
+    roles = set()
+    if is_scheduler_node(node):
+        roles |= _sql_roles(_dict(_seed_yaml(node, sdir, "schedule.yaml")).get("connections"))
+    if node.get("name") in apis:
+        roles |= _sql_roles(apis[node.get("name")][1].get("connections"))
+    return roles
+
+
+def _check_partner_access(data, nodes, bricks, faults, answer_key, third, apis, sdir, out):
+    """Out of reach (master spec 6.3, 10.2; W2 item 1): no third-party node
+    in the starter pack, none an expected fix names, the partners' roles
+    theirs alone, and a third-party postgres node's pg_hba.conf admitting
+    those roles only, on the partners' database."""
+    if not third.nodes:
+        return
+    label = "scenario.yaml"
+    by_name = {n.get("name"): n for n in nodes}
+    for node in nodes:
+        if node.get("role") != "bastion":
+            continue
+        for fname, rel in _dict(node.get("seed_files")).items():
+            if is_seed_folder_entry(fname) or not isinstance(rel, str):
+                continue
+            path = _inside(sdir, rel)
+            try:
+                text = path.read_text(encoding="utf-8") if path is not None and path.is_file() \
+                    else ""
+            except (OSError, UnicodeDecodeError):
+                continue
+            for name in sorted(third.nodes):
+                if re.search(rf"(?<![A-Za-z0-9_.-]){re.escape(name)}(?![A-Za-z0-9_-])", text):
+                    out.append(f"{rel}: names node {name}, a third party's: the partners' nodes "
+                               "are not among the starter pack's nodes (master spec 10.2)")
+    issues = [i for i in data.get("issues") or [] if isinstance(i, dict)]
+    instances = {i.get("id"): i for i in data.get("fault_instances") or [] if isinstance(i, dict)}
+    for entry in _dict(answer_key).get("instances") or []:
+        if not isinstance(entry, dict) or entry.get("instance") not in instances:
+            continue
+        iid = entry["instance"]
+        node = instances[iid].get("node")
+        if node not in third.nodes:
+            continue
+        expected = {i.get("expected_resolution") for i in issues if iid in (i.get("covers") or [])}
+        if "fix" in expected or "fix" in _dict(entry.get("acceptable")):
+            out.append(f"gm/answer-key.yaml: instances[{iid}]: an expected fix on node {node}, a "
+                       "third party's: every fix is the customer's (master spec 6.3, 10.2)")
+    theirs = {}
+    for name in sorted(third.nodes):
+        for role in _node_connection_roles(by_name[name], sdir, apis):
+            theirs.setdefault(role, name)
+    for node in nodes:
+        name = node.get("name")
+        if name in third.nodes:
+            continue
+        crontab = node.get("crontab_roles")
+        named = _node_connection_roles(node, sdir, apis) | (
+            {r for r in crontab if isinstance(r, str)} if isinstance(crontab, list) else set())
+        for role in sorted(named & set(theirs)):
+            out.append(f"{label}: nodes[{name}]: names role {role}, a third party's (node "
+                       f"{theirs[role]}'s connection): the partners' roles are theirs alone "
+                       "(master spec 10.2, W2 item 1)")
+    for name in sorted(third.nodes):
+        brick = bricks.get(name)
+        if brick is None or brick.id != POSTGRES_BRICK:
+            continue
+        rel, lines = _hba_text_lines(by_name[name], sdir)
+        if lines is None:
+            continue
+        for number, f in lines:
+            if tuple(f) in GM_HBA_LINES or f[-1] == "reject":
+                continue
+            roles = f[2].split(",") if len(f) == 5 else []
+            if len(f) == 5 and f[0] == "host" and f[1] == PARTNERS_DATABASE \
+                    and f[4] == "scram-sha-256" and roles and all(r in theirs for r in roles):
+                continue
+            out.append(f"{rel}: line {number}: {' '.join(f)}: a third party's database admits "
+                       f"no role but the partners' own ({', '.join(sorted(theirs)) or 'none'}) on "
+                       f"{PARTNERS_DATABASE} (host {PARTNERS_DATABASE} <roles> <address> "
+                       "scram-sha-256); every other line is the GM's or a reject (master spec "
+                       "10.2, W2 item 1)")
+        if not lines or tuple(lines[-1][1]) != CLOSING_HBA:
+            out.append(f"{rel}: its last line is not {' '.join(CLOSING_HBA)} (a third party's "
+                       "database; W2 item 1)")
+
+
+def _check_vaults(nodes, bricks, http, out):
+    """postgres' vault_target and vault_credential (W1 item 6, W1-x): checked
+    as an http connection's target and credential."""
+    for node in nodes:
+        brick = bricks.get(node.get("name"))
+        if brick is None or brick.id != POSTGRES_BRICK:
+            continue
+        params = _dict(node.get("parameters"))
+        p = f"scenario.yaml: nodes[{node.get('name')}].parameters"
+        if params.get("vault_target") is not None:
+            problem = _http_target_problem(params["vault_target"], http)
+            if problem:
+                out.append(f"{p}.vault_target: {problem}")
+        if params.get("vault_credential") is not None:
+            problem = _credential_problem(params["vault_credential"])
+            if problem:
+                out.append(f"{p}.vault_credential: {problem}")
+
+
+def _domain_entry_locations(entry):
+    """(database, node/database) of a domains: entry's at:."""
+    at = _dict(entry).get("at")
+    if isinstance(at, str):
+        return [(None, at)]
+    return [(db, loc) for db, loc in at.items() if isinstance(loc, str)] \
+        if isinstance(at, dict) else []
+
+
+def _partner_data_files(domain_dir):
+    """A domain's partner state files, producers/partners/<prefix>/data.sql
+    and producers/public/<name>/data.sql (W2 items 1 and 3)."""
+    found = []
+    for folder in ("partners", "public"):
+        base = domain_dir / "producers" / folder
+        if base.is_dir():
+            found += sorted(p for p in base.glob("*/data.sql") if p.is_file())
+    return found
+
+
+def node_creates(sdir, data, node, catalog_root=REPO_ROOT):
+    """The DataFileCreates of what is created on a postgres node (W2 item 1,
+    spec D360): its data file's (node_data_file_creates), plus, for every
+    domains: entry placed there, each at: database and the roles and
+    databases its schema and load files create, plus, on the partners'
+    node (the postgres node the third_parties: entries list), each composed
+    domain's partner data.sql. None when nothing creates anything there.
+    Read by the location, crontab-role and governance checks, by
+    localimpl.data_login_roles and inject.password_plan."""
+    sdir = Path(sdir)
+    nodes = [n for n in _dict(data).get("nodes") or [] if isinstance(n, dict)]
+    name = node.get("name") if isinstance(node, dict) else node
+    node = next((n for n in nodes if n.get("name") == name), node if isinstance(node, dict) else {})
+    own = node_data_file_creates(sdir, node)
+    created = DataFileCreates(own.file if own else f"domains on node {name}", set(), set(),
+                              False, [], [])
+    if own is not None:
+        created.databases |= own.databases
+        created.roles |= own.roles
+        created.pg_cron = own.pg_cron
+        created.logins += own.logins
+        created.sources.append(own.file)
+
+    def take(path, rel):
+        try:
+            found = data_file_creates(path.read_text(encoding="utf-8"), rel)
+        except (OSError, UnicodeDecodeError):
+            return
+        created.databases |= found.databases
+        created.roles |= found.roles
+        created.logins += [r for r in found.logins if r not in created.logins]
+        created.sources.append(rel)
+
+    entries = _dict(data).get("domains")
+    entries = [e for e in entries if isinstance(e, dict)] if isinstance(entries, list) else []
+    for entry in entries:
+        did = entry.get("id")
+        if not (isinstance(did, str) and PURPOSE_ID_RE.match(did)):
+            continue
+        domain_dir = Path(catalog_root) / "domains" / did
+        try:
+            domain = _dict(yaml.safe_load((domain_dir / "domain.yaml").read_text(encoding="utf-8")))
+        except (OSError, UnicodeDecodeError, yaml.YAMLError):
+            continue
+        for database, location in _domain_entry_locations(entry):
+            lnode, sep, ldb = location.partition("/")
+            if lnode != name or not sep:
+                continue
+            created.databases.add(ldb)
+            if database is None:
+                files = [domain.get("schema"), domain.get("load")]
+            else:
+                files = [f"data/{database}/schema.sql", f"data/{database}/load.sql"]
+            for rel in files:
+                path = _inside(domain_dir, rel) if isinstance(rel, str) else None
+                if path is not None and path.is_file():
+                    take(path, f"domains/{did}/{rel}")
+    third = _dict(data).get("third_parties")
+    listed = {n for e in third if isinstance(e, dict) for n in e.get("nodes") or []
+              if isinstance(n, str)} if isinstance(third, list) else set()
+    brick = _dict(node.get("brick")).get("id")
+    if name in listed and brick == POSTGRES_BRICK:
+        for entry in entries:
+            did = entry.get("id")
+            if isinstance(did, str) and PURPOSE_ID_RE.match(did):
+                domain_dir = Path(catalog_root) / "domains" / did
+                for path in _partner_data_files(domain_dir):
+                    take(path, f"domains/{did}/{path.relative_to(domain_dir)}")
+    if not created.sources:
+        return None
+    return created
+
+
+def _check_domains_v05(data, nodes, third, catalog_root, out):
+    """No domain's at: on a standby; a composed domain with a partner
+    data.sql needs a partners' postgres node (W2 item 1)."""
+    label = "scenario.yaml"
+    by_name = {n.get("name"): n for n in nodes}
+    entries = data.get("domains")
+    for i, entry in enumerate(entries if isinstance(entries, list) else []):
+        if not isinstance(entry, dict):
+            continue
+        p = f"{label}: domains[{_item_label(entry, i)}]"
+        for database, location in _domain_entry_locations(entry):
+            lnode = location.partition("/")[0]
+            if _dict(by_name.get(lnode)).get("standby_of") is not None:
+                where = "at" if database is None else f"at.{database}"
+                out.append(f"{p}.{where}: {location}: {lnode} is a standby (standby_of "
+                           f"{by_name[lnode]['standby_of']}): a standby is no location (W2 "
+                           "item 1)")
+        did = entry.get("id")
+        if not (isinstance(did, str) and PURPOSE_ID_RE.match(did)):
+            continue
+        domain_dir = Path(catalog_root) / "domains" / did
+        if third.db_node is None:
+            for path in _partner_data_files(domain_dir):
+                out.append(f"{p}: domains/{did}/{path.relative_to(domain_dir)} plants a "
+                           "partner's state, but no third_parties: entry lists a postgres node "
+                           f"(the partners' database, {PARTNERS_DATABASE}; W2 items 0 and 1)")
+
+
+def _check_v05(data, nodes, bricks, faults, answer_key, third, apis, http, sdir, catalog_root,
+               out):
+    """v0.5's scenario checks beyond the node's own (build plan chunk 6)."""
+    _check_standbys(nodes, bricks, sdir, out)
+    _check_monitors(data, nodes, bricks, faults, third, sdir, out)
+    _check_fault_instance_options(data, nodes, bricks, faults, out)
+    _check_api_nodes(nodes, bricks, third, apis, http, sdir, out)
+    _check_partner_access(data, nodes, bricks, faults, answer_key, third, apis, sdir, out)
+    _check_vaults(nodes, bricks, http, out)
+    _check_domains_v05(data, nodes, third, catalog_root, out)
+
