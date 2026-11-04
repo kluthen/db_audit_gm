@@ -1150,7 +1150,11 @@ explicit ids in the documented ranges, each sequence set after its
 range, the core's ids computed by its functions without reading
 `clinic` (D302, O197); partitions for the window and three days ahead
 and the events' months; the sessions unseen (D265). About 0.34 million
-rows; size and time measured at the build. After the sources' loads,
+rows; size and time measured at the build. The three partition jobs
+are scheduled by `data/cron.sql` (`cron.schedule_in_database(...)`
+calls as `mach_maint`, nothing else), which `load-data` runs on
+`machines` after the part's load, once `vitals`, `biomed` and
+`mach_maint` exist (D405). After the sources' loads,
 `cold-storage-archive`'s material plants the history days' manifests in
 the partners' database.
 

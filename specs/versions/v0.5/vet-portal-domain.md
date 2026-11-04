@@ -421,7 +421,7 @@ Each sequence resumes after its range (D276).
 | History | `portal_documents` 1–41 600, `portal_views` 1–70 000, `portal_outbox` 1–36 000, `portal_consent_events` 1–8 000, in time order; `portal_sessions` the last 30 days' only, their ids where the year left them | |
 | Core and lab keys | `owner_id` 2–10 000, `animal_id` 1–17 000, `herd_id` 1–200 as the core documents them; documents' `source_ref` the core's consultations and stays and the lab's of the lab's order tests of account 1 | the keys computed by the sources' documented functions at load (D249); the documents' ids, in order of their gate and reference, and their content from the derivation step (D322) |
 | A vaccination's due day | day of the year `1 + (animal_id × 211) mod 365` | for domestic animals and horses; farm animals have herd visits instead |
-| Passwords and links (the owners' route) | each active account's password, and each invitation's and reset's token, an HMAC of the account's id and the game's seed | so the owners' route logs in and activates without the partners' database storing a password; the load stores bcrypt hashes and SHA-256 hashes of the tokens |
+| Passwords and links (the owners' route) | each active account's password, and each invitation's and reset's token, an HMAC of the account's id and a key computed from the load's `load_epoch`, kept only in `owners`' schema on the partners' database (D406) | so the owners' route logs in and activates without the partners' database storing a password; the load stores bcrypt hashes and SHA-256 hashes of the tokens |
 
 ### Who sees what: row-level security (ruled, D320)
 
@@ -762,8 +762,11 @@ amendments as versions. In flight at T0, as a night leaves the portal:
 - the planted messages of the last day in the messaging stub, so the
   morning's visits follow them.
 
-The partners' database is planted from the same functions (the tokens,
-the messages of the last 14 days), as the lab's stubs are (D304).
+The messaging stub's messages of the last 14 days (the invitations'
+tokens among them) are planted after the derivation by
+`vet-portal-messages`' history, copying `portal_outbox`'s sent rows;
+the derivation writes `portal` only (D404). The owners' route's key is
+planted by `owners`' `data.sql` (D406).
 
 ### Cold storage (D297)
 
@@ -875,6 +878,13 @@ same key again the same id; it answers 503 to about one call in fifty
 as standing behaviour, so retries have a witness (D214's precedent); it
 keeps what it received (the owners' route reads it for its tokens and
 recent recipients).
+
+**History** (D404): the purpose's `history` plants what the stub
+received in the last 14 days, its `target` the partners' database,
+`portal` its source: `portal_outbox`'s sent rows, read through
+`gm_src_source` after the derivation, the 180 open invitations' tokens
+among them. The stub's DDL is its receiver material, copied into the
+partners' node's data file, with `SELECT` granted to `owners`.
 
 **Jobs** (on `interfaces`, `portal` as `portal_dispatch`):
 
@@ -1091,15 +1101,21 @@ which the master spec carries):
    at T0; the documents of every signed consultation, released centre
    test and ended stay of the year, numbered in order of their gate and
    reference, their versions; the views and the notices that hang off
-   them; the messaging stub's planted notices of the last 14 days. The
+   them. It writes `portal` only, the whole outbox included (D404). The
    step is recorded in the scenario's composition record, beside
    `merge.yaml`, with its order (after `vet-core` and `vet-lab`); the
    post-load coherence check then reads every published document
    against a signed consultation, a released result or an ended stay
    ([procedure](domain-procedure.md) 10). About 0.21 million rows and 6 500
 bcrypt hashes at cost 6 (about 30 seconds); size and time measured at
-the build. The partners' database is planted from the same functions
-(the last 14 days' messages and tokens).
+the build. The partners' database gets the owners' route's key from
+`owners`' `data.sql` (D406) and the messaging stub's messages of the
+last 14 days, their tokens among them, from `vet-portal-messages`'
+history after the derivation (D404). The sessions' purge is scheduled
+by `data/cron.sql` (`cron.schedule_in_database('portal', ...)` as
+`portal_housekeeping`, nothing else), which `load-data` runs on
+`records` after the part's load, once `portal` and its roles exist
+(D405).
 
 ## Questions for the owner
 

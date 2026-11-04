@@ -46,6 +46,8 @@ approval, as it recommended: O223–O227 (D343), their text in
 [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#settled-with-the-owner).
 O230 was reserved and never used (chunk 9's stop, settled as D372–D380
 without a question).
+O233 was reserved and never used (capture W3's corrections, settled as
+D401–D407).
 
 Priority: **next** = shapes everything else, ask first; **soon** = needed
 for the next version (v0.1 until it closed, with none left open);
@@ -215,23 +217,8 @@ Raised when the owner set business domains for v0.5 on 2026-10-28
 added on 2026-10-30 (D196). O111, the last of them, closed at
 consolidation (D338); O220, raised by it, closed at the master spec's
 approval (D340). O223–O227, raised with the build plan, closed at its
-approval (D343).
-
-- **O229** (soon, v0.5; for capture W3, before chunk 16) — Where the
-  messaging stub's planted notices of the last 14 days are written.
-  Master spec 9.7 and vet-portal's "Loading" have the portal's
-  `derive.sql` derive them, but they live in `partners` (purpose 16's
-  stub, built by chunk 21), and W2 item 3 runs `derive.sql` in
-  `portal`, reading its sources through `gm_check`, with no source
-  written. *Recommended:* as D366 for purpose 14, purpose 16's history
-  plants them, its `target` the partners' database and `portal` its
-  source, after the derivation (W2 item 3's order); `derive.sql` writes
-  `portal` only; capture W4 fixes where the stub's role and tables come
-  from within W2's loaders. Any write path from `derive.sql` into
-  `partners` is an inserted chunk. Not the owner's: T0's state is the
-  same either way. Refs:
-  [versions/v0.5/master-spec.md](versions/v0.5/master-spec.md) 9.7,
-  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 16, 21.
+approval (D343). O229, raised for capture W3, closed by it as
+recommended (D404).
 
 ## v0.6: the setup's entry point
 

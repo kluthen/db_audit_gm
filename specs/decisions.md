@@ -26,7 +26,7 @@ stay live: rulings still to be applied in v0.5. The rest is v0.5's: D192,
 D196 and D201, its scope set while v0.4 was drafted, then its drafting
 from D233 on (D233–D238, D248–D251, D260–D280, D285–D304, D306–D309 and
 D314 onward; the numbers between are v0.4's, archived;
-D337, D341 and D371 were reserved and never used). Take the next number from
+D337, D341, D359, D371 and D392 were reserved and never used). Take the next number from
 `doc-ids`; no ID is reused.
 
 - **D107 (2026-10-21, owner direction, relayed by the wave driver): Brick
@@ -1026,3 +1026,51 @@ D337, D341 and D371 were reserved and never used). Take the next number from
 - **D400 (2026-11-04, the owner on G8's open point): pgBadger stays
   unpinned, as is.** Now in:
   [versions/README.md](versions/README.md#from-v10-versions-at-a-game-wide-scope-d396).
+- **D401 (2026-11-04, capture W3's corrections 1 and 4, the wave
+  driver): Chunk 29 is inserted into wave 3, for a `coding-executor`:
+  W3 item 6's (a) to (d) and a `load-data` step running the purposes'
+  target DDL in the composed domains' databases; G17 carries its format
+  items into formats.md.** It is the only chunk holding `inject.py`
+  before wave 4, which cannot be built without it. Now in: [build plan](versions/v0.5/build-plan.md)
+  chunk 29, G17, waves, chunks 12, 15, 16, 18 to 21, release gate item 6.
+- **D402 (2026-11-04, the edges D401 adds): Wave 3 keeps a three-chunk
+  completion chain (29, 12, 16), past the model's two.** `29 ──> 12`
+  holds back only chunk 12's composed check and fixture, so no start is
+  delayed, and W3 items 0 and 6 fix the interfaces it crosses. Now in:
+  [build plan](versions/v0.5/build-plan.md) ("Waves", wave 3).
+- **D403 (2026-11-04, capture W3's correction 2): The fixtures meet
+  compose's rule: chunks 13 and 14 add `clinic-api`, chunks 12 and 16
+  use `left_out:` (W3 items 1 and 5), and chunk 12's stubs are composed
+  by a unit test in `test_compose.py`.** Chunks 18 to 21 carry W4's
+  counts to make. Now in: [build plan](versions/v0.5/build-plan.md) chunks 12 to 14, 16, 18 to 21.
+- **D404 (2026-11-04, capture W3's correction 3): `derive.sql` writes
+  `portal` only; purpose 16's `history` plants the messaging stub's
+  messages, `target` the partners' database, source `portal`, the stub's
+  DDL its receiver material in `partners-db`'s data file, `SELECT`
+  granted to `owners`.** T0's state is the same either way, and only a
+  history writes `partners` from a source. Closes O229. Now in:
+  [master spec](versions/v0.5/master-spec.md) 9.7;
+  [vet-portal](versions/v0.5/vet-portal-domain.md#loading) ("Loading",
+  "The history before T0", `vet-portal-messages`); [build plan](versions/v0.5/build-plan.md) chunks 16, 21.
+- **D405 (2026-11-04, capture W3's correction 5): A composed domain's
+  `pg_cron` jobs go in its `data/cron.sql`, which `load-data` runs on
+  its node after the part's load (chunk 29's (d)).** The node's data file
+  runs before their databases and roles exist; chunk 29 first checks
+  that pg_cron refuses such a job, and may drop (d) if it accepts one. Now in:
+  [vet-machinery](versions/v0.5/vet-machinery-domain.md#loading) and
+  [vet-portal](versions/v0.5/vet-portal-domain.md#loading) "Loading";
+  [build plan](versions/v0.5/build-plan.md) chunks 15, 16, 29.
+- **D406 (2026-11-04, capture W3's correction 6): Text correction: the
+  portal's passwords and tokens use a key computed from the load's
+  `load_epoch`, kept only in `owners`' schema on the partners' database,
+  not "the game's seed",** which reaches neither the load nor the
+  owners' route. Now in: [master spec](versions/v0.5/master-spec.md) 9.7
+  "Keys and scale";
+  [vet-portal](versions/v0.5/vet-portal-domain.md#deterministic-key-ranges-d249-d266);
+  [build plan](versions/v0.5/build-plan.md) chunk 16.
+- **D407 (2026-11-04, capture W3's correction 7): Wave 3's gate loads the
+  six domains on `fixture-clinic-load`, uncomposed, built at the gate's
+  start by a `coding-executor` from the merged parts, and reruns
+  `fixture-lab-core` with the other four.** No chunk's Files held that
+  fixture; chunk 27 changes it later. Now in: [build plan](versions/v0.5/build-plan.md) ("Per-wave gate
+  contents", wave 3), chunk 27.

@@ -2165,9 +2165,10 @@ load about 65 % active, 32 % invited, 3 % closed, by a hash of the id;
 5 200 owners with the reminders' consent, 250 keeper grants; documents
 1–41 600 and the other history in time order. A vaccination is
 due on day `1 + (animal_id × 211) mod 365`, for domestic animals and
-horses only. Passwords and tokens are HMACs of the account's id and the
-game's seed, so the owners' route logs in without the partners'
-database storing one; the load stores bcrypt (cost 6, *gv*) and SHA-256
+horses only. Passwords and tokens are HMACs of the account's id and a
+key computed from the load's `load_epoch`, kept only in `owners`'
+schema on the partners' database, so the owners' route logs in without
+the partners' database storing one; the load stores bcrypt (cost 6, *gv*) and SHA-256
 hashes. About 0.21 million rows at load; live about 720 a day: 140
 documents, 150 visits (mostly 18:00–22:00), 120 messages.
 
@@ -2310,7 +2311,9 @@ regenerate it a third time: `data/derive.sql` runs after those loads as
 `postgres` through a temporary foreign server it then drops, sessions
 unseen, and derives content only: the copies at T0, the year's
 documents in order of gate and reference, their versions, views and
-notices, and the stub's notices of the last 14 days. The post-load
+notices, writing `portal` only. Purpose 16's history (its `target` the
+partners' database, `portal` its source) then plants the messaging
+stub's messages of the last 14 days. The post-load
 coherence check reads every document against its gate; the pre-login
 functions' `search_path` is checked at the build. The `portal` fixture
 (eight nodes, T0 a weekday 08:50, the test writing the gates as
