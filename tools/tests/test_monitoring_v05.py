@@ -80,10 +80,39 @@ class TestMonitorWithoutTheOption(MonitoringV05Copy):
                 self.assertIn(f"{rel}: node {name} ({brick}) monitors records, but node records "
                               "does not choose option monitoring", text)
 
-    def test_a_disabled_pgwatch_source_is_no_target(self):
-        self.drop_option()
+    def fresh(self, line):
+        """A fresh copy whose pgwatch source has line for is_enabled."""
+        shutil.rmtree(self.scenario)
+        shutil.copytree(FIXTURE_MONITORING_V05, self.scenario)
         src = self.scenario / "nodes/pgwatch/sources.yaml"
-        src.write_text(src.read_text().replace("is_enabled: true", "is_enabled: false"))
-        text = self.refused()
-        self.assertNotIn("node pgwatch (pgwatch) monitors records", text)
-        self.assertIn("node health (health-check) monitors records", text)
+        text = src.read_text()
+        self.assertIn("  is_enabled: true\n", text)
+        src.write_text(text.replace("  is_enabled: true\n", line))
+
+    def test_only_an_is_enabled_true_pgwatch_source_is_a_target(self):
+        # pgwatch 6.1.0 watches a source only with is_enabled: true; one
+        # without the key is disabled (capture W2-e, "Sources format")
+        for case, line, targets in (("true", "  is_enabled: true\n", ["records"]),
+                                    ("false", "  is_enabled: false\n", []),
+                                    ("absent", "", []),
+                                    ("string", "  is_enabled: 'true'\n", [])):
+            with self.subTest(is_enabled=case):
+                self.fresh(line)
+                sc = self.load()
+                self.assertEqual(model.monitor_targets(sc.node("pgwatch"), sc.bricks["pgwatch"],
+                                                       self.scenario), targets)
+
+    def test_an_enabled_pgwatch_source_still_needs_the_option(self):
+        self.fresh("  is_enabled: true\n")
+        self.drop_option()
+        self.assertIn("nodes/pgwatch/sources.yaml: node pgwatch (pgwatch) monitors records, "
+                      "but node records does not choose option monitoring", self.refused())
+
+    def test_a_disabled_pgwatch_source_is_no_target(self):
+        for case, line in (("false", "  is_enabled: false\n"), ("absent", "")):
+            with self.subTest(is_enabled=case):
+                self.fresh(line)
+                self.drop_option()
+                text = self.refused()
+                self.assertNotIn("node pgwatch (pgwatch) monitors records", text)
+                self.assertIn("node health (health-check) monitors records", text)

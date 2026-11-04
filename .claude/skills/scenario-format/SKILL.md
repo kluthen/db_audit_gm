@@ -466,8 +466,9 @@ The rules from v0.5 (v0.5 master spec 6.2, 6.3, 6.8, 7.1, 8.4, 8.5, 10,
   off unless listed; `[]` is refused. Every node an exporter or another
   monitoring brick targets chooses `monitoring`: the targets are read from
   `postgres-exporter`'s `exporter.conf` (`DATA_SOURCE_URI`), `pgwatch`'s
-  `sources.yaml` (each entry's `conn_str`, the URI form, unless
-  `is_enabled: false`) and `health-check`'s `health.yaml`
+  `sources.yaml` (each entry's `conn_str`, the URI form, only on an
+  entry with `is_enabled: true`: pgwatch watches no other, an entry
+  without the key included) and `health-check`'s `health.yaml`
   (`instances[].host`); a monitored standby's primary chooses it too; the
   gap is accepted only on the node of a fault instance whose fault plants
   it (`option_absent: monitoring`); a third party's node is never a

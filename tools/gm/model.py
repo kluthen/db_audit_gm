@@ -4668,7 +4668,8 @@ def _uri_host(value):
 def monitor_targets(node, brick, sdir):
     """The hosts a monitoring node's seed reads (W2 items 1 and 5):
     postgres-exporter's exporter.conf DATA_SOURCE_URI, pgwatch's sources.yaml
-    (each enabled entry's conn_str, the URI form only), health-check's
+    (each entry with is_enabled: true, its conn_str, the URI form only;
+    pgwatch 6.1.0 watches no other entry), health-check's
     health.yaml (instances[].host). [] for any other brick."""
     fname = MONITOR_SEEDS.get(brick.id)
     if fname is None:
@@ -4691,7 +4692,7 @@ def monitor_targets(node, brick, sdir):
     if brick.id == "pgwatch":
         entries = content if isinstance(content, list) else []
         return [_uri_host(e["conn_str"]) for e in entries
-                if isinstance(e, dict) and e.get("is_enabled", True) is not False
+                if isinstance(e, dict) and e.get("is_enabled") is True
                 and isinstance(e.get("conn_str"), str) and "://" in e["conn_str"]]
     instances = _dict(content).get("instances")
     return [i["host"] for i in instances if isinstance(i, dict) and isinstance(i.get("host"), str)] \
