@@ -1,0 +1,123 @@
+# vet-portal's coherence queries (v0.5 master spec 8.5, 15; procedure 10;
+# capture W2 item 3's form, W3 item 5): its references to the core's keys, the
+# copies against the core at T0, and the derivation's documents against the
+# gates they passed (published documents matching signed consultations,
+# released results and ended stays, and every gate of the year published).
+# Each SELECT returns the offending rows, none when coherent. load-data runs
+# them once after the loads and the derivation, in the portal's database (as
+# postgres, so row-level security does not hide its rows), the record read as
+# gm_src_vet_core and the lab as gm_src_vet_lab.
+checks:
+  - id: core-keys
+    what: every account's owner, every copied animal, ownership and herd, every document's animal or herd the core's
+    reads: [vet-core]
+    sql: |
+      SELECT 'account' AS what, a.id AS portal_id, a.owner_id AS core_id FROM portal_accounts a
+       WHERE a.owner_id <= 10000
+         AND NOT EXISTS (SELECT 1 FROM gm_src_vet_core.owners o WHERE o.id = a.owner_id AND o.kind = a.kind)
+      UNION ALL
+      SELECT 'animal', a.animal_id, a.animal_id FROM portal_animals a
+       WHERE NOT EXISTS (SELECT 1 FROM gm_src_vet_core.animals x WHERE x.id = a.animal_id)
+      UNION ALL
+      SELECT 'herd', h.herd_id, h.keeper_owner_id FROM portal_herds h
+       WHERE NOT EXISTS (SELECT 1 FROM gm_src_vet_core.herds x
+                          WHERE x.id = h.herd_id AND x.keeper_owner_id = h.keeper_owner_id)
+      UNION ALL
+      SELECT 'document', d.id, coalesce(d.animal_id, d.herd_id) FROM portal_documents d
+       WHERE NOT EXISTS (SELECT 1 FROM portal_animals a WHERE a.animal_id = d.animal_id)
+         AND NOT EXISTS (SELECT 1 FROM portal_herds h WHERE h.herd_id = d.herd_id)
+       ORDER BY 1, 2
+  - id: copies-at-t0
+    what: the copies hold the core's animals (name, species, status, death) and ownerships as the core holds them at T0, no more, no less
+    reads: [vet-core]
+    sql: |
+      SELECT * FROM (
+        (SELECT 'animal' AS what, a.animal_id AS id, a.name, a.status, a.died_at FROM portal_animals a
+         EXCEPT
+         SELECT 'animal', x.id, x.name, x.status, x.died_at FROM gm_src_vet_core.animals x)
+        UNION ALL
+        (SELECT 'ownership', w.animal_id, w.owner_id || '/' || w.role, NULL, w.from_at FROM portal_ownerships w
+          WHERE w.until_at IS NULL
+         EXCEPT
+         SELECT 'ownership', x.animal_id, x.owner_id || '/' || x.role, NULL, x.from_at
+           FROM gm_src_vet_core.ownerships x WHERE x.until_at IS NULL)
+        UNION ALL
+        (SELECT 'ownership missing', x.animal_id, x.owner_id || '/' || x.role, NULL, x.from_at
+           FROM gm_src_vet_core.ownerships x WHERE x.until_at IS NULL
+         EXCEPT
+         SELECT 'ownership missing', w.animal_id, w.owner_id || '/' || w.role, NULL, w.from_at
+           FROM portal_ownerships w WHERE w.until_at IS NULL)
+      ) AS x
+       ORDER BY 1, 2
+  - id: records-gated
+    what: every consultation and discharge document after its gate, the consultation signed and the stay ended at gated_at, its record time the record's, its animal or herd the record's
+    reads: [vet-core]
+    sql: |
+      SELECT d.id AS document_id, d.source_ref, d.gated_at, d.published_at FROM portal_documents d
+       WHERE d.kind = 'consultation'
+         AND NOT (d.published_at >= d.gated_at
+                  AND EXISTS (SELECT 1 FROM gm_src_vet_core.consultations c
+                               WHERE 'C-' || c.id = d.source_ref AND c.state = 'signed' AND c.signed_at = d.gated_at
+                                 AND c.started_at = d.record_at
+                                 AND c.animal_id IS NOT DISTINCT FROM d.animal_id
+                                 AND c.herd_id IS NOT DISTINCT FROM d.herd_id))
+      UNION ALL
+      SELECT d.id, d.source_ref, d.gated_at, d.published_at FROM portal_documents d
+       WHERE d.kind = 'discharge'
+         AND NOT (d.published_at >= d.gated_at
+                  AND EXISTS (SELECT 1 FROM gm_src_vet_core.stays s
+                               WHERE 'S-' || s.id = d.source_ref AND s.discharged_at = d.gated_at
+                                 AND s.admitted_at = d.record_at AND s.animal_id = d.animal_id))
+       ORDER BY 1
+  - id: results-gated
+    what: every result document a centre test (account 1) released at or before its publication, version 1 at the release and each later version at an amendment after it, its animal the order's
+    reads: [vet-lab]
+    sql: |
+      WITH t AS MATERIALIZED (
+        SELECT 'T-' || t.id AS source_ref, o.animal_id, t.released_at, t.id
+          FROM gm_src_vet_lab.lab_order_tests t JOIN gm_src_vet_lab.lab_orders o ON o.id = t.order_id
+         WHERE o.account_id = 1 AND t.status = 'released'),
+      amended AS MATERIALIZED (
+        SELECT DISTINCT 'T-' || r.order_test_id AS source_ref, r.amended_at FROM gm_src_vet_lab.lab_results r
+         WHERE r.supersedes_id IS NOT NULL)
+      SELECT d.id AS document_id, d.source_ref, d.version, d.gated_at, d.published_at FROM portal_documents d
+        LEFT JOIN t ON t.source_ref = d.source_ref AND t.animal_id = d.animal_id
+       WHERE d.kind = 'result'
+         AND NOT coalesce(d.published_at >= d.gated_at AND t.released_at <= d.gated_at
+                          AND (d.version = 1 AND t.released_at = d.gated_at
+                               OR d.version > 1 AND EXISTS (SELECT 1 FROM amended a WHERE a.source_ref = d.source_ref
+                                                               AND a.amended_at = d.gated_at)), false)
+       ORDER BY 1
+  - id: gates-published
+    what: every gate of the year passed 15 minutes before T0 (a signed consultation, an ended stay, a released centre test) has its version 1, once
+    reads: [vet-core, vet-lab]
+    sql: |
+      WITH t0 AS (SELECT (SELECT max(synced_at) FROM portal_animals) AS e,
+                         (SELECT min(gated_at) FROM portal_documents) AS s),
+      gates AS (
+        SELECT 'C-' || c.id AS source_ref, c.signed_at AS gate FROM gm_src_vet_core.consultations c
+         WHERE c.state = 'signed'
+        UNION ALL
+        SELECT 'S-' || s.id, s.discharged_at FROM gm_src_vet_core.stays s WHERE s.discharged_at IS NOT NULL
+        UNION ALL
+        SELECT 'T-' || t.id, t.released_at FROM gm_src_vet_lab.lab_order_tests t
+          JOIN gm_src_vet_lab.lab_orders o ON o.id = t.order_id
+         WHERE o.account_id = 1 AND o.animal_id IS NOT NULL AND t.released_at IS NOT NULL)
+      SELECT g.source_ref, g.gate, (SELECT count(*) FROM portal_documents d
+                                     WHERE d.source_ref = g.source_ref AND d.version = 1) AS versions_1
+        FROM gates g, t0
+       WHERE g.gate >= t0.s AND g.gate < t0.e - interval '15 minutes'
+         AND (SELECT count(*) FROM portal_documents d WHERE d.source_ref = g.source_ref AND d.version = 1) <> 1
+       ORDER BY 1
+  - id: outbox-order
+    what: the outbox numbered in queued_at order, ties by message_key; one notice per document and account, of a document that exists
+    sql: |
+      SELECT 'order' AS what, o.id, o.message_key::text AS ref FROM
+             (SELECT id, message_key, row_number() OVER (ORDER BY queued_at, message_key) AS rn
+                FROM portal_outbox) o
+       WHERE o.id <> o.rn
+      UNION ALL
+      SELECT 'notice', o.id, o.document_id::text FROM portal_outbox o
+       WHERE o.template = 'document-notice'
+         AND NOT EXISTS (SELECT 1 FROM portal_documents d WHERE d.id = o.document_id)
+       ORDER BY 1, 2

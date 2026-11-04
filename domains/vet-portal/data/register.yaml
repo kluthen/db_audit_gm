@@ -1,0 +1,59 @@
+# vet-portal's register fragment (v0.5 master spec 6.1, 9.7, 13.1, D334;
+# template register.yaml): one entry per processing activity, every table of
+# data/schema.sql in exactly one, transcribed from the classification and
+# docs/policy.md's rules (D320). Retention follows rule 11's game values:
+# documents five years, as the record they show; views and messages two
+# years; sessions 30 days; consent events five years after the account; a
+# closed account's personal columns at once (rule 5). The messages go through
+# the franchise's messaging service, the centre's processor (rule 7, GDPR
+# Art 28). The scenario's data register (a player handout, chunks 17 and 27)
+# is built from it.
+activities:
+  - id: vet-portal-accounts
+    name: The owners' portal accounts and their sessions
+    purpose: Inviting every owner of the record to the portal, letting them activate, log in and out, reset their password and close their account, and keeping their sessions by a token's hash (rules 4, 5)
+    people: [owners, keepers]
+    tables: [portal_accounts, portal_sessions]
+    retention:
+      period: an account as long as it is open, its personal columns erased at once on closing (rule 5); sessions 30 days after they end (rule 11, a game value)
+      then: erased
+  - id: vet-portal-copies
+    name: The portal's copies of the core
+    purpose: Holding the animals, the ownerships and the herds as the core holds them, without address or natural identifier, so that each account sees the animals its owner owns now, or keeps with the owner's consent (rules 1, 3)
+    people: [owners, keepers]
+    tables: [portal_animals, portal_ownerships, portal_herds]
+    retention:
+      period: as the core holds them, copied every few minutes (the core's rule 9, a game value)
+      then: erased
+  - id: vet-portal-documents
+    name: Documents released to the owners, and their openings
+    purpose: Publishing signed consultations, released results and ended stays to the animal's current owner once past their gate, amendments as new versions, and recording every document opened (rules 2, 3, 8)
+    people: [owners, keepers, staff]
+    tables: [portal_documents, portal_views]
+    retention:
+      period: documents 5 years, as the record they show (the core's rule 9); views 2 years (rule 11, game values)
+      then: erased
+  - id: vet-portal-consents
+    name: Owners' consents
+    purpose: Keeping every grant and withdrawal of the reminders' consent and of a keeper's access to an animal, the latest the truth, as proof of consent (rule 6; GDPR Art 7(1), 7(3))
+    people: [owners, keepers]
+    tables: [portal_consent_events]
+    retention:
+      period: as long as the account and 5 years after (rule 11, a game value)
+      then: erased
+  - id: vet-portal-outbox
+    name: Messages to the owners
+    purpose: Handing account messages, document notices and vaccination reminders to the franchise's messaging service, each with its key, its address, its template, the animal's name and a link, the reminders on consent (rules 6, 7)
+    people: [owners, keepers]
+    tables: [portal_outbox]
+    retention:
+      period: 2 years (rule 11, a game value)
+      then: erased
+  - id: vet-portal-settings
+    name: Running the portal
+    purpose: The portal's settings, the customer's zone and offset, the sessions' limits, the lock-out, the invitations' life and the reminders' lead and hours
+    people: []
+    tables: [portal_settings]
+    retention:
+      period: as long as the portal runs
+      then: erased

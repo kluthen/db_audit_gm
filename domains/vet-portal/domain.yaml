@@ -1,0 +1,26 @@
+# vet-portal, the owners' portal (v0.5 master spec 9.7; specs/versions/v0.5/
+# vet-portal-domain.md): the centre's own portal, a database portal on the
+# core's instance (records/portal, ruled D320), its tables and roles prefixed
+# portal_. A part of vet-core: it refers to the core's and the lab's keys by id
+# with no foreign key; its load computes the core's keys by the core's
+# data/keys.sql (docs/gm.md, "Core keys used") and its own by data/keys.sql
+# ("Part keys"), never reading a database; its copies and documents come from
+# data/derive.sql, run after the core's and the lab's loads when the
+# composition record sanctions it (D322, D326, D404); its sessions' purge is
+# data/cron.sql's (D405). Its producers: the portal's API
+# (producers/api/portal-api/), the desk's consent stream on the practice
+# software (producers/pms/) and the owners' traffic, a source that is no
+# business, on the partners' nodes (producers/partners/owners/, D369).
+id: vet-portal
+title: The owners' portal of a veterinary hospital centre, its accounts, consents, releases and messages
+schema: data/schema.sql
+load: data/load.sql
+classification: data/classification.yaml
+register: data/register.yaml
+producers: producers/
+notes: docs/gm.md
+policy: docs/policy.md
+governance: data/governance.yaml
+requires: [vet-core]
+derive: {after: [vet-core, vet-lab]}
+purposes: [vet-portal-release, vet-portal-messages]
