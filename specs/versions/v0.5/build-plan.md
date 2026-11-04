@@ -927,7 +927,8 @@ caller and the endpoint read it, are W1's (items 0, 3 to 6; spec D347).
 
 ### Chunk 8 — `load-data` for v0.5 and the coherence check
 
-Status: planned
+Status: merged (w2, 4b22401)
+Record: built fab4f5f, merges of v0.5-w2 7da2e45 and 6432c6d, 61b1b90, 1a7f1ab, merge 4b22401. Two code commits on top, not one (chunk 7 merged mid-way); the password step sets the domains' and partner's login roles (wave log, W2-c).
 Wave: 2
 Depends on: chunks 2 and 3 (wave 1); chunk 6, merge order: merged into
 `v0.5-w2` before this chunk merges, its `model.node_creates` and its

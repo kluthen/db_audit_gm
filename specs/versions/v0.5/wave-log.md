@@ -2209,8 +2209,9 @@ thread a scenario's own); a broken parameter fault raises at `fit`.
   `[]`. Each gets `role_<role>_password`, not mounted, set by load-data.
   The keyword runs along `_derived_lengths`, `max_game_id_length`,
   `game_secrets`, `check_supported`, `implementation_secrets`; every
-  caller (`fit`, `render`, `restart`, `inject.password_plan`) on the
-  default `REPO_ROOT`.
+  caller (`fit`, `render`, `restart`) on the default `REPO_ROOT`;
+  `inject.password_plan` passes `load_plans`' `catalog_root` (chunk 8,
+  1a7f1ab; W2-c).
 
 ### Plan revision: `public/` producer state, 2026-11-04
 
@@ -2234,3 +2235,109 @@ From chunks 6 and 8: the loader accepted a `producers/public/<name>/data.sql`
   `partners` under W2 item 3. Recommended: purpose 16's history plants
   them (target `partners`, source `portal`), as D366 for purpose 14.
 D371 reserved by mistake, unused. No owner question.
+
+### Chunk 8 — merged (4b22401), 2026-11-04
+
+`coding-leader` (built fab4f5f, waited on chunk 6; resumed by a fresh
+owner): merge of `v0.5-w2` (chunk 6) `7da2e45`, its one conflict in the
+scenario-format skill's Domain item resolved with both chunks' rules;
+`61b1b90` (`password_plan` on `node_creates`, `TestFixtureChecks`); merge
+of `v0.5-w2` (chunk 7) `6432c6d`, clean; `1a7f1ab` (`password_plan` passes
+the same `catalog_root` to chunk 7's `data_login_roles`); merge `4b22401`.
+Unit suite 1055 OK (2 skipped, the env-gated composed load), 166 s. The
+composed test load under the lock: 2 OK in 10.6 s (loads 2.7 s passing,
+2.1 s with the broken range), on `postgres:0.5.0` as it stood. Done when:
+the load order follows `composition.yaml` (fx-core, the xlab partner
+`data.sql`, fx-docs, fx-ward); `records/docs` created with `CONNECT`
+revoked from `PUBLIC`; the derivation unseen in the log, pgaudit's trail
+and `pg_stat_statements`, its foreign servers gone; `partners.xlab.requests`
+5001 to 5004 from the core's key functions, the `core_*` functions gone
+after; coherence 5/5 passing and recorded, a broken range failing with
+its ids and recorded `result: fail`. Choices taken (none against W2): a
+failing check recorded before the setup fails; `database:` required only
+on a several-database part; a `derive` on one refused; a domain file
+creating a database or using `\connect` refused (line scan); `gm_check`
+also gets `log_min_error_statement = panic`. Deviations: two merges of the
+wave and two code commits, not one (chunk 7 merged mid-way); the password
+step now also sets the domains' and the partner's login roles' passwords
+(consistent with chunk 7's secrets); W2-b's caller line corrected above.
+Risks: a restart with no snapshot reruns the composed steps and rewrites
+`composition.yaml`'s record; the line scan; a `;` inside a check's string
+literal refused.
+
+**Capture W2-c — chunk 8 outcomes (`load-data`'s composed load, derivations, histories, the coherence check; read by 9, 12 to 16, the purpose chunks)**
+
+- Entry points: `inject.load_plans(scenario, impl, catalog_root=model.REPO_ROOT,
+  now=None)` adds `LoadPlans.composed = inject.composed_plan(...)`; the
+  plans' variables gain `load_epoch` (`inject.load_epoch()`,
+  `%Y-%m-%dT%H:%MZ`, UTC); `inject.load_data(..., catalog_root=)`.
+  `inject.load_steps` runs: data files, then `composed_steps`, then the
+  v0.4 passwords, survey, mappings, access, grants and `pg_cron` clean-up,
+  then the standbys' clone. `restart.py`'s `load_plans(scenario, impl)`
+  call unchanged. New helpers `data_argv(variables, database="postgres")`
+  and `read_argv(database)`.
+- Domain loads: for each `at:` database, a session as `postgres` on
+  `-d postgres` runs `\gset`/`\if`: if absent, `CREATE DATABASE … OWNER
+  postgres`, `REVOKE CONNECT … FROM PUBLIC`, printing
+  `gm-database-created`. Then `schema.sql` alone, then the core's
+  `keys.sql` plus `load.sql` in one session (`psql -d <db>`, all three
+  variables), streamed through a temporary file. Partner files
+  `<catalog>/domains/<id>/producers/partners/<prefix>/data.sql`, in name
+  order, run with keys first into `-d partners` on the one `postgres`
+  node the `third_parties:` entries list (`inject.partners_node`; two such
+  nodes refused); the owners' route's `producers/partners/owners/` is one
+  of them (D369). A `producers/public/<name>/data.sql`, which chunk 6's
+  loader accepts and `node_creates` counts, is not run; chunk 17 refuses
+  it (D369). A domain's schema or load that creates a database or
+  uses `\connect` is refused before anything runs, naming the line (a
+  line scan, not a parser).
+- Sourced runs (derive, history, each check): on every source node, once
+  before the first read, `ALTER ROLE gm_check SET` `log_statement`,
+  `log_min_duration_statement`, `log_min_error_statement` (`panic`),
+  `pg_stat_statements.track`, `pgaudit.log` (a placeholder accepted where
+  pgaudit is not loaded), and `GRANT CONNECT` to `gm_check` on each source
+  database; reset once after the coherence check (on a failure the game is
+  torn down instead). Per run, the source's schemas listed unseen; then
+  `UNSEEN_SQL` (`NO_LOG`, `NO_AUDIT`, `NO_STATS`, `QUIET`); `postgres_fdw`
+  (`\gset` notes whether it existed); per source a server `gm_src_<name>`
+  (host `/run/postgresql` on the same node, else `<node>`; port 5432), a
+  user mapping for `postgres` as `gm_check` with `gm_check_password`,
+  schema `gm_src_<name>` importing `public` and `gm_src_<name>_<s>` each
+  other schema (`pg_*`, `information_schema`, `gm_src_*` excluded; a name
+  over 63 characters refused); the body; then schemas and server dropped
+  `CASCADE`, the extension only if the session created it. psql output on
+  failure redacted. Keys streamed ahead of derive only, never a history.
+  A `derive` on a several-database part is refused (none in v0.5).
+- Coherence (`tools/gm/coherence.py`): `read_checks(path, domain,
+  databases)`, strict YAML, exactly `{checks: [non-empty]}`, keys
+  id/what/database/reads/sql; one SELECT or WITH query (no `;` but a
+  trailing one, so none inside a literal; no psql meta-command);
+  `database:` required on a several-database part, refused otherwise;
+  `reads` may name the domain itself. `query_sql` wraps it as `BEGIN
+  TRANSACTION READ ONLY; WITH gm_rows AS (…) SELECT
+  jsonb_build_object('count',…, 'rows', first 10)`, `psql -A -t`.
+  Outcomes pass, fail, skipped (a catalogue domain not composed, or
+  `partners` with no partners' node); a name that is no catalogue domain
+  refused. `record_composition` rewrites only the `coherence:` key (flow
+  form, other bytes kept, read back; an aliased value refused);
+  `state.yaml` gets `coherence: {run_at, result, checks: [{domain, check,
+  what, result[, rows, first_rows, reason]}]}`. A failure is recorded
+  `result: fail` in both before the setup fails. Source names: `<id, - as
+  _>`, `<id>_<db>` for a several-database part, `partners`, or a purpose
+  part's name (`source`).
+- Skill: templates `keys.sql`, `coherence.yaml`, `partner-data.sql`; the
+  Domain section gains the database convention, the core's keys, a
+  partner's state, the coherence queries; the Composition section gains
+  load-data's order and its record (chunk 6's `SECURITY DEFINER` rule kept
+  in the same item, D362). `fixture-composed` passes `check_domain_dir`
+  (each domain) and `check_composition` (`test_coherence.TestFixtureChecks`).
+- `password_plan` reading `model.node_creates`:
+  `inject.password_plan(scenario, impl, catalog_root=model.REPO_ROOT)`,
+  `catalog_root` passed through from `load_plans`: a connection through a
+  node that is no database node (a pooler) sets its role on the database
+  nodes where `node_creates` finds its target database created (the data
+  file, a `domains:` entry's `at:` database or its schema and load files),
+  else on every database node; the login roles step calls
+  `localimpl.data_login_roles(scenario, node, catalog_root)` with the same
+  root, so the domains' and the partner files' login roles get their
+  passwords set (`test_coherence.TestPasswordPlanReadsNodeCreates`).
