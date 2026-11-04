@@ -1,0 +1,123 @@
+# Schedule of the lab's information system and the analysers' middleware,
+# vet-lab's fragment (v0.5 master spec 9.3, "The producer profiles";
+# vet-lab-domain.md, "Rates at intensity 1.0" and "The business hours"):
+# its connections, streams and shapes, in scenario time (the customer's
+# zone); intensity and timeline are the scenario's. The lab's volume
+# arrives mostly from outside the node (the centre's orders through its
+# purpose, the practices' through their stub, both by lab-api's intake), so
+# nearly every stream here is a work stream: it takes the oldest item
+# waiting, its rate a capacity. The volume streams (amendments,
+# cancellations, add-ons) and the reads follow. The analysers' batch
+# uploads run on their own connection, as lab_instruments; clinic-api, the
+# core's lookup API, is the lab.identity script job's only (jobs.yaml). On
+# its own node the fragment writes every shape it uses (capture W3 item 0).
+# Written for the node names lis, lab and clinic-api and the database lab;
+# the GM renames them as the scenario does.
+connections:
+  lab:
+    driver: sql/postgresql
+    target: lab:5432/lab
+    role: lab_app
+    pool: {size: 4}
+  lab-instruments:
+    driver: sql/postgresql
+    target: lab:5432/lab
+    role: lab_instruments
+    pool: {size: 2}
+  clinic-api:
+    driver: http
+    target: clinic-api:8000
+    credential: clinic_lookup
+    pool: 1
+    timeout: 10s
+streams:
+  # --- work streams (capacities) ---
+  - key: lab.samples.receive         # the centre's orders: about 25 orders, 30 samples a day
+    connection: lab
+    rate: 15/h
+    arrivals: even
+    shape: flat
+  - key: lab.courier.receive         # the practices' orders: about 25 a working day, in two waves
+    connection: lab
+    rate: 40/h
+    arrivals: even
+    shape: courier-waves
+    concurrency: 2
+  - key: lab.analyser.run            # about 75 batches and 700 results a day
+    connection: lab-instruments
+    rate: 5.7/h
+    arrivals: even
+    shape: bench
+  - key: lab.bench.result            # about 100 a day
+    connection: lab
+    rate: 8/h
+    arrivals: even
+    shape: bench
+  - key: lab.validate.technical      # about 80 a day
+    connection: lab
+    rate: 30/h
+    arrivals: even
+    shape: bench
+  - key: lab.release.urgent          # about 15 a day, around the clock
+    connection: lab
+    rate: 10/h
+    arrivals: even
+    shape: flat
+  - key: lab.critical.call           # two or three a day, within the hour (rule 6)
+    connection: lab
+    rate: 6/h
+    arrivals: even
+    shape: flat
+  - key: lab.notify                  # a few a month (rule 7)
+    connection: lab
+    rate: 2/h
+    arrivals: even
+    shape: flat
+  - key: lab.qc.rerun                # about one a week (rule 4)
+    connection: lab
+    rate: 4/h
+    arrivals: even
+    shape: flat
+  # --- volume streams ---
+  - key: lab.amend                   # 4 / 0.6 a day (Mon-Sat / Sun), rule 3
+    connection: lab
+    rate: 0.25/h
+    arrivals: poisson
+    shape: bench
+  - key: lab.orders.cancel           # 1 / 0.2
+    connection: lab
+    rate: 0.08/h
+    arrivals: poisson
+    shape: bench
+  - key: lab.add-on                  # 1.5 / 0.2
+    connection: lab
+    rate: 0.1/h
+    arrivals: poisson
+    shape: bench
+  # --- reads ---
+  - key: lab.worklist
+    connection: lab
+    rate: 30/h
+    arrivals: even
+    shape: bench
+  - key: lab.order.view
+    connection: lab
+    rate: 25/h
+    arrivals: poisson
+    shape: bench
+    concurrency: 2
+shapes:
+  bench:                             # Mon-Sat 07:00-21:00; the on-call technician's urgent work otherwise
+    days:
+      mon-sat:
+        hours: {"00-06": 0.1, "07-20": 1.0, "21-23": 0.1}
+      sun:
+        hours: {"00-23": 0.1}
+  courier-waves:                     # the courier back at about 10:45 and 16:45, a wave accessioned after each
+    days:
+      mon-sat:
+        hours: {"00-10": 0, "11": 1.0, "12-16": 0, "17": 1.0, "18-23": 0}
+      sun:
+        hours: {"00-23": 0}
+  flat:
+    hours: {"00-23": 1.0}

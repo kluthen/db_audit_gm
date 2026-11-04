@@ -1,0 +1,40 @@
+# jobs.yaml of node lis, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+jobs:
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/jobs.yaml
+  - name: lab-qc-morning
+    key: lab.qc.morning
+    connection: lab
+    at: 45 6 * * *
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/jobs.yaml
+  - name: lab-qc-night
+    key: lab.qc.night
+    connection: lab
+    at: 15 21 * * *
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/jobs.yaml
+  - name: lab-release-round
+    key: lab.release.round
+    connection: lab
+    at: 0 11 * * *
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/jobs.yaml
+  - name: lab-release-round-14
+    key: lab.release.round
+    connection: lab
+    at: 0 14 * * 1,2,3,4,5,6
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/jobs.yaml
+  - name: lab-release-round-18
+    key: lab.release.round
+    connection: lab
+    at: 0 18 * * 1,2,3,4,5,6
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/jobs.yaml
+  - name: lab-samples-dispose
+    key: lab.samples.dispose
+    connection: lab
+    at: 0 6 * * *
+  # from vet-lab@regional-franchise: domains/vet-lab/producers/lis/jobs.yaml
+  - name: lab-identity
+    key: lab.identity
+    connections:
+      lab: lab
+      clinic_api: clinic-api
+    at: '* * * * *'
