@@ -1,0 +1,110 @@
+# nodes.yaml: the partners' three shared nodes as a scenario declares them
+# (v0.5 master spec 10.2, 14; capture W2 item 6, W2-f; partners/README.md).
+# The GM copies the three entries into scenario.yaml's nodes:, fills each
+# seed file's path (the scenario's nodes/<node>/ or the composed output) and
+# adds partners-db's data: entry (its data file, the database partners and
+# each partner's tables), then lists the three under each third_parties:
+# entry with nodes. Sized as master spec 14 sizes them: 0.45 CPU and 448M
+# reserved in all (api 0.1 and 128M, nine hostnames; the back end 0.1 and
+# 64M; the database 0.25 and 256M), all three no-access. Not read by gmctl:
+# tools/tests/test_partners.py checks the fixtures' entries against it.
+nodes:
+  - name: partners-api
+    brick:
+      id: api
+      version: 0.1.0
+    role: api
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 128M
+        disk: 64M
+    published_ports: []
+    seed_files:
+      api.yaml: <nodes/partners-api/>api.yaml
+      routes/: <nodes/partners-api/>routes/
+      db/: <nodes/partners-api/>db/
+    knobs: []
+
+  - name: partners-backend
+    brick:
+      id: scheduler
+      version: 0.3.0
+    role: producer
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 128M
+    published_ports: []
+    seed_files:
+      queries.yaml: <nodes/partners-backend/>queries.yaml
+      jobs.yaml: <nodes/partners-backend/>jobs.yaml
+      schedule.yaml: <nodes/partners-backend/>schedule.yaml
+    knobs: []
+
+  - name: partners-db
+    brick:
+      id: postgres
+      version: 0.5.0
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: no-access
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.25
+        memory: 256M
+        disk: 512M
+    published_ports: []
+    seed_files:
+      postgresql.conf: <nodes/partners-db/>postgresql.conf
+      pg_hba.conf: <nodes/partners-db/>pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 32MB
+        envelope:
+          min: 32MB
+          max: 64MB
+      - setting: work_mem
+        initial: 4MB
+        envelope:
+          min: 1MB
+          max: 16MB
+      - setting: maintenance_work_mem
+        initial: 32MB
+        envelope:
+          min: 16MB
+          max: 64MB
+      - setting: max_connections
+        initial: 40
+        envelope:
+          min: 20
+          max: 60
+      - setting: max_wal_size
+        initial: 256MB
+        envelope:
+          min: 64MB
+          max: 512MB
+      - setting: autovacuum
+        initial: 'on'
+        envelope:
+          allowed: ['on']

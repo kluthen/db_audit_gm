@@ -43,6 +43,7 @@ has its own release notes.
 | [`bricks/`](bricks/) | Node definitions: `postgres` 0.5.0, `bastion` 0.5.0, `scheduler` 0.3.0, `api` 0.1.0, `pgbouncer` 0.1.1, `prometheus` and `postgres-exporter` 0.2.0, `grafana` 0.3.0 |
 | [`faults/`](faults/) | The fault catalog (29 faults): PostgreSQL configuration and security, monitoring and alerting, scheduler jobs, purposes and governance |
 | [`domains/`](domains/) | Business domains, design-time sources a scenario copies from: `shop` |
+| [`partners/`](partners/README.md) | The partners' three shared nodes (`shared/`: the `api` node, the back end and the small database every third party runs on) and cold storage, the vault (`coldstore/`), design-time sources a scenario copies from |
 | [`purposes/`](purposes/) | Purposes (what the customer's data is for), design-time sources a scenario copies from: `shop-sales-reporting`, `shop-winback-leads`, `shop-customer-mailing` and `shop-export-declarations` |
 | [`scenarios/`](scenarios/) | Playable scenario folders, one per released version (table above) |
 | [`post_mortem/`](post_mortem/README.md) | Summaries of 27 public database incident reports. They are source material for future games and end-of-game handouts, not fault definitions |
