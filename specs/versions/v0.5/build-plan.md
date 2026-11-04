@@ -1418,7 +1418,8 @@ site.
 
 ### Chunk 16 — `vet-portal`, the owners' portal
 
-Status: in progress (16b restarted after chunk 31)
+Status: merged (w3, 1ee1a8d)
+Record: 16a 2cd9479, 16b a5a1877 + 207e548, merged 1ee1a8d (four owners, a rotation, a stop on the tool gap chunk 31 fixed); fixture 61/61, 1008 s; the composed load and derivation 603–632 s; choices where the documents are silent sent to `spec-writer` (wave log, chunks 16b paused and 16 merged).
 Wave: 3
 Depends on: chunks 5, 8, 9 and 11 (waves 1 and 2); chunks 12 and 29,
 merged into `v0.5-w3` before this chunk's branch is cut; chunk 31,

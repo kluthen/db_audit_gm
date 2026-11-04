@@ -4738,3 +4738,46 @@ on `partners`; the header comment updated. Risk: `inject.py` and
 not see these two; 16b's deployment shows it.
 
 16b restarts on its paused branch.
+
+### Chunk 16 — merged (1ee1a8d), 2026-11-04
+
+16b by a fourth owner (resumed once after the account's usage limit):
+`56b86a5` merging `v0.5-w3` at 5e51776 (one conflict in
+`tools/tests/test_compose.py`, both `TestPortalDesk` and chunk 31's
+`OwnersAloneCase` kept), `207e548` the final 16b commit, merged `--no-ff`
+at `1ee1a8d`; worktree and every `c16*` container and `c16net` removed.
+`check_domain_dir` clean. `fixture-portal` per W3-h (both lab entries
+`[partners-db]`; `partners-db`'s `pg_hba.conf` already admitting
+`owners`); the `derive:` entry needed a `reason` (the loader requires
+one). Chunk 31's risk did not come up (secrets, mounts, `pg_hba`, the
+back end's credential all worked with no third party listing the two
+nodes). Through `load-data`: the core, the lab and its partners'
+`data.sql`, the portal, the owners' `data.sql`, `cron.sql`, then the
+derivation unseen; 11/11 coherence checks. Short test 61/61 in 1008 s (T0
+Wed 11:23 local, shift −6; a first run 1038 s with one script bug,
+fixed): owner scope through the API (planted owner 6 documents; seller
+omits horse 234, 404; buyer 8 of 9; keeper with consent 11; withdrawn and
+never-granted 404; another owner's document 404; 401 without a cookie);
+activation 200 then 401, login 201 with the HttpOnly cookie, the fifth
+wrong password 423 and the right one then 423, a past token 401, the desk
+201 / 401; `portal_api` over TLS; in 360 s after T0, 36 calls by 9
+accounts, every document opened a `portal_views` row, every login a
+session, every listing equal to the policy; `portal-api` 84 requests, 0
+errors. The owners' tick in dev: six kinds 200, `PUT /me/preferences`
+through `_call` 200, 401 without or with a wrong bearer, 422 for an
+unknown kind, 2–49 ms a tick. Unit suite 1153 OK, 2 skipped. `fit` 2 CPU
+/ 4G / 8G (the hand-over snapshot 10.84G of 8G: a fixture's, fine).
+
+Figures: the composed load and derivation through `load-data` 632 s and
+603 s (`portal` 78 MB, `clinic` 48 MB, `lab` 54 MB); reference loads after
+chunk 30 (08:50 local, shift 0 and +2 alike) load 17–18 s, derivation
+121 s, 77 MB, 237 904 rows (38 973 documents, 65 032 views, 38 169 outbox
+rows); the core ahead 118–119 s, the lab 73–75 s. W3-e additions:
+`owners.accounts.account_id` = `portal_accounts.id` = `owner_id`; about
+54 % of keeper ticks find a consent to change (222 of 414 active horse
+owners). Choices beyond the earlier list: the `derive` reason; two fixes
+in the short test. Risks: the fixture's composed load about 10 minutes,
+about 13 of the 30 minutes left; the owners' traffic low in a 6-minute
+watch (4–9 visits at intensity 10); `n_live_tup` on `portal_outbox`
+reads double. **For the gate**: the bastion, api and postgres images
+predate their bricks' last commits (rebuild and stack-test them).
