@@ -1,0 +1,43 @@
+# Schedule of the practice-management software, vet-housing's fragment (v0.5
+# master spec 9.5; vet-housing-domain.md, "Rates at intensity 1.0"): the
+# connection housing, as housing_app, beside the core's clinic (D276, capture
+# W3 item 0: connections unique per node), and its six streams. In scenario
+# time. The shapes are the core's (flat, clinic-day), named, never written
+# here: compose merges them from vet-core's fragment on the same node.
+connections:
+  housing:
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: housing_app
+    pool: {size: 2}
+streams:
+  - key: housing.place               # follows stays.admit: about 8 a day
+    connection: housing
+    rate: 6/h
+    arrivals: even
+    shape: flat
+  - key: housing.release             # follows stays.discharge: about 8 a day
+    connection: housing
+    rate: 6/h
+    arrivals: even
+    shape: flat
+  - key: housing.move                # about 2 a day
+    connection: housing
+    rate: 0.08/h
+    arrivals: poisson
+    shape: flat
+  - key: housing.fast                # about 3 a weekday
+    connection: housing
+    rate: 0.28/h
+    arrivals: poisson
+    shape: clinic-day
+  - key: housing.ward-view
+    connection: housing
+    rate: 12/h
+    arrivals: even
+    shape: flat
+  - key: housing.stay-log
+    connection: housing
+    rate: 10/h
+    arrivals: poisson
+    shape: clinic-day

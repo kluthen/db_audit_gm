@@ -1,0 +1,35 @@
+# vet-housing's coherence queries (v0.5 master spec 8.5, 9.5, 15; capture W2
+# item 3; vet-housing-domain.md, "In flight at T0"): its references to the
+# core's stays. load-data runs them once after the loads, before any fault,
+# as postgres in clinic, read-only, the core reached through gm_src_vet_core
+# (the same database, as every check reads its core). Any row is a design
+# error caught before hand-over (the composition reloaded), never a fault.
+checks:
+  - id: placements-on-stays
+    what: every placement on a stay of the core, inside the stay
+    reads: [vet-core]
+    sql: |
+      SELECT p.id AS placement_id, p.stay_id
+        FROM housing_placements AS p
+        LEFT JOIN gm_src_vet_core.stays AS s ON s.id = p.stay_id
+       WHERE s.id IS NULL OR p.from_at < s.admitted_at
+          OR coalesce(p.until_at, 'infinity') > coalesce(s.discharged_at, 'infinity')
+       ORDER BY p.id
+  - id: stays-placed
+    what: every current stay placed once, no placement open on an ended stay
+    reads: [vet-core]
+    sql: |
+      SELECT s.id AS stay_id, s.discharged_at, count(p.id) AS open_placements
+        FROM gm_src_vet_core.stays AS s
+        LEFT JOIN housing_placements AS p ON p.stay_id = s.id AND p.until_at IS NULL
+       GROUP BY s.id, s.discharged_at
+      HAVING (s.discharged_at IS NULL AND count(p.id) <> 1)
+          OR (s.discharged_at IS NOT NULL AND count(p.id) > 0)
+       ORDER BY s.id
+  - id: units-hold-one
+    what: no unit holding two open placements
+    sql: |
+      SELECT unit_id, count(*) AS open_placements
+        FROM housing_placements WHERE until_at IS NULL
+       GROUP BY unit_id HAVING count(*) > 1
+       ORDER BY unit_id

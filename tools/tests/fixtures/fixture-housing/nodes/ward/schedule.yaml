@@ -1,0 +1,74 @@
+# schedule.yaml of node ward, composed by gmctl compose (v0.5 master spec 8.4):
+# rerun it rather than edit this file; each entry names its source.
+# from scenario: compose/ward/schedule.yaml
+intensity: 1.0
+connections:
+  # from vet-housing@regional-franchise: domains/vet-housing/producers/ward/schedule.yaml
+  ward-board:
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: vet_display
+    pool:
+      size: 4
+  # from vet-housing@regional-franchise: domains/vet-housing/producers/ward/schedule.yaml
+  ward-care:
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: housing_ward
+    pool:
+      size: 2
+streams:
+  # from vet-housing@regional-franchise: domains/vet-housing/producers/ward/schedule.yaml
+  - key: ward.board
+    connection: ward-board
+    rate: 3840/h
+    arrivals: even
+    shape: flat
+    concurrency: 4
+  # from vet-housing@regional-franchise: domains/vet-housing/producers/ward/schedule.yaml
+  - key: ward.feed
+    connection: ward-care
+    rate: 60/h
+    arrivals: even
+    shape: feeding-rounds
+  # from vet-housing@regional-franchise: domains/vet-housing/producers/ward/schedule.yaml
+  - key: ward.check
+    connection: ward-care
+    rate: 10/h
+    arrivals: poisson
+    shape: flat
+  # from vet-housing@regional-franchise: domains/vet-housing/producers/ward/schedule.yaml
+  - key: ward.care
+    connection: ward-care
+    rate: 10/h
+    arrivals: poisson
+    shape: care-day
+  # from vet-housing@regional-franchise: domains/vet-housing/producers/ward/schedule.yaml
+  - key: ward.disinfect
+    connection: ward-care
+    rate: 4/h
+    arrivals: even
+    shape: care-day
+shapes:
+  # from vet-housing@regional-franchise: domains/vet-housing/producers/ward/schedule.yaml
+  flat:
+    hours:
+      00-23: 1.0
+  # from vet-housing@regional-franchise: domains/vet-housing/producers/ward/schedule.yaml
+  feeding-rounds:
+    hours:
+      00-05: 0
+      06-08: 1.0
+      09-11: 0
+      12-13: 1.0
+      14-15: 0
+      16-18: 1.0
+      19-20: 0
+      '21': 1.0
+      22-23: 0
+  # from vet-housing@regional-franchise: domains/vet-housing/producers/ward/schedule.yaml
+  care-day:
+    hours:
+      00-05: 0
+      06-21: 1.0
+      22-23: 0

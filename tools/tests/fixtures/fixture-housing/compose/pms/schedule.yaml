@@ -1,0 +1,23 @@
+# The scenario layer of node pms (v0.5 master spec 8.4): its intensity, no
+# timeline; and, for the short test (vet-housing-domain.md, "Testing"; D264),
+# three streams raised over their domain rates, so a run of under 30 minutes
+# sees them: admissions (vet-core's 0.34/h), discharges (2.67/h, late
+# mornings) and nil-by-mouth orders (vet-housing's 0.28/h, every hour here).
+# The statements are the domains'.
+intensity: 1.0
+streams:
+  - key: stays.admit
+    connection: clinic
+    rate: 12/h
+    arrivals: even
+    shape: around-the-clock
+  - key: stays.discharge
+    connection: clinic
+    rate: 12/h
+    arrivals: even
+    shape: discharges
+  - key: housing.fast
+    connection: housing
+    rate: 12/h
+    arrivals: even
+    shape: flat
