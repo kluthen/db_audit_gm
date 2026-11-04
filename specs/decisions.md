@@ -918,3 +918,60 @@ D337, D341 and D371 were reserved and never used). Take the next number from
   9.3's "stubs' open send-outs and orders matching the lab's". As purpose
   14's history. First met by chunk 12; fixed at wave 2's gate. Now in:
   [access model](versions/v0.5/access-model.md) 8; [build plan](versions/v0.5/build-plan.md) gate, chunk 12.
+- **D384 (2026-11-04, chunk 9's second stop): Each section has a duty vet
+  on Saturday and on Sunday, 08:00–20:00, by rotation over its vets,
+  never one of that weekend's night vets; Saturday's two domestic vets
+  08:00–13:00 stay, for the bookings.** A 24/7 hospital with stays and
+  emergencies had no vet on Saturday afternoon, none for horses and farm
+  all Saturday. `sched.rota.publish` carries the same. Now in:
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md) (the rota's
+  pattern); [vet-core](versions/v0.5/vet-core-domain.md#the-key-functions-d374-d375-d379) (`core_shifts`).
+- **D385 (2026-11-04, the same stop): About four in ten consultations make
+  requests, 0.65 on average: a lab order of 1.8 analyses in three in ten
+  (about 7 700 in the history, no more), an imaging study in one in
+  eight.** "Two in three" at 0.65 cannot give the lab's 1.8 tests an
+  order; an imaging share drawn per request gives about 1.6 and 8 500
+  orders, past the lab's 1–14 000 with the practices' 6 300. Now in:
+  [vet-core](versions/v0.5/vet-core-domain.md#the-key-functions-d374-d375-d379)
+  (`core_request`'s `kind`), `consultations.close`, point 3;
+  [vet-lab](versions/v0.5/vet-lab-domain.md) (the two constraints).
+- **D386 (2026-11-04, the same stop): No history draw repeats with a fixed
+  period in id order: fixed counts per block of ids may stay, their
+  places shuffled per block by a hash of the block's number, or the draw
+  a hash of the id.** Ids run in time order, so the requests' 40-id
+  places (and the stays' section and outcome) show as a period in time;
+  the live streams already vary by a hash of the row's id. Now in:
+  [vet-core](versions/v0.5/vet-core-domain.md#the-key-functions-d374-d375-d379) ("Draws from an id").
+- **D387 (2026-11-04, the same stop): Text correction: the core's load is
+  expected at one to two minutes, not "a few seconds"; it matters for
+  nothing.** Each row is computed by the key functions (about 2 ms a
+  consultation or request); `load-data` has no limit, every test stays
+  under 30 minutes. Now in: [vet-core](versions/v0.5/vet-core-domain.md)
+  (Loading); [master spec](versions/v0.5/master-spec.md) 9.2.
+- **D388 (2026-11-04, the same stop): Chunk 9's nurses' four-week cycle
+  stands, each section's every shift held, no rest, weekly-rest or
+  48-hour breach; the history's absences are periods of one day to two
+  weeks on weekday day and late shifts, leave about five weeks a year a
+  head, about 600 a year.** The chosen 3.5 % of staff-weeks gave under
+  two weeks' leave, below Directive 2003/88/EC Art 7's four, which the
+  working-time purpose's reader knows. Now in:
+  [vet-scheduling](versions/v0.5/vet-scheduling-domain.md) (the rota's
+  pattern, the history's absences); [vet-core](versions/v0.5/vet-core-domain.md#the-key-functions-d374-d375-d379) (`core_shifts`).
+- **D389 (2026-11-04, the same stop): `MINH`'s checked line is on the
+  herd's latest earlier consultation early enough for its withdrawal to
+  end before the request, written by the load; `MINH` is never drawn
+  where none exists.** The request's function must know the date; a
+  count of cases without one would break the lab's validity rule. Now
+  in: [vet-core](versions/v0.5/vet-core-domain.md#the-key-functions-d374-d375-d379)
+  (`withdrawal_ends_on`); [vet-lab](versions/v0.5/vet-lab-domain.md#the-test-catalogue-d372).
+- **D390 (2026-11-04, the same stop): The history's inbound exchanges are
+  examinations of unregistered animals (`partner_patient` kept), no
+  inbound transfer; their ids stay in `requested_at` order, an
+  office-hours time drawn there, never moved past the next id's.** The
+  history's ranges are in time order (vet-core's key ranges). Now in:
+  [vet-core](versions/v0.5/vet-core-domain.md#the-key-functions-d374-d375-d379) (`core_exchange`).
+- **D391 (2026-11-04, the same stop): An administration's `given_by` is a
+  nurse of the stay's section, not matched against the rota, in the
+  history and the live round alike.** The spec ties only a
+  consultation's vet to the rota. Now in:
+  [vet-core](versions/v0.5/vet-core-domain.md) (Loading).

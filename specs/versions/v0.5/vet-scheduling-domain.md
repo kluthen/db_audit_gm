@@ -7,7 +7,8 @@ wins where the two disagree. Amended in wave 2 of the build
 (2026-11-04): a routine imaging request booked within two working days
 (D376); the rota's pattern and the history's absences are the core's
 `core_shifts`, the consultations and exchanges its `core_consultation`
-and `core_exchange` (D374).
+and `core_exchange` (D374); a duty vet a section at the weekend
+(D384), the nurses' cycle and the history's absences (D388).
 Steps 1 to 9 drafted in one pass on 2026-11-03 at the owner's instruction
 ("start an agent for each part, and let them come back with problems
 once they're done"), in parallel with `vet-housing`, `vet-machinery` and
@@ -753,13 +754,32 @@ four weekdays, the fifth off by `(id + week) mod 5`, domestic vets of
 odd id 10:00–20:00, the others 08:00–18:00; one vet a night,
 20:00–08:00, by rotation over the 25 section vets (1–25), the night's
 vet off that day and the next, the imaging vets (26–28) keeping their
-own on-call among the three (D339); two domestic vets on Saturday 08:00–13:00 and one vet of each
-section on Sunday, by rotation; a surgeon and an anaesthetist on call
+own on-call among the three (D339); two domestic vets on Saturday
+08:00–13:00 for the bookings; **a duty vet for each section on Saturday
+and on Sunday, 08:00–20:00** (D384), by rotation over the section's
+vets, never one of that weekend's night vets (Friday's, Saturday's or
+Sunday's), so each section has a vet from 08:00 to 20:00 every day and
+the night vet after; a surgeon and an anaesthetist on call
 each night; nurses and carers in day, late and night shifts around the
-clock (day 07:00–15:30, late 13:30–22:00, night 21:30–07:30); reception
-Monday to Saturday; the lab's staff on the bench's hours and its on-call
-nights; instructors on session days. The pattern leaves 11 hours' rest
-everywhere: a night is always followed by a day off.
+clock (day 07:00–15:30, late 13:30–22:00, night 21:30–07:30), on a
+four-week cycle staggered by id (a day week, a late week, a night week,
+then late on Wednesday and Thursday and day at the weekend), each
+section's every shift of every day held (D388); reception
+Monday to Saturday; the lab's staff alternating day and late weeks on
+the bench's hours, with its on-call nights; the imaging vets and the
+radiographers their own on-call; instructors on four weekdays of five,
+every session day among them. The pattern leaves 11 hours' rest
+everywhere (a night is always followed by a day off), a weekly rest of
+24 hours and at most 48 hours a week on average: WT2's "the rota leaves
+none" holds for it.
+
+**The history's absences** (D388), in `core_shifts` and so in this
+part's load, never in `sched.rota.publish` (live absences are this
+part's table): only on weekday day and late shifts, so the nights and
+the weekend's cover are never short; each a period of one day to two
+weeks; leave about five weeks a year a head (above the four weeks of
+Directive 2003/88/EC, Art 7), training and `absent` the rest; about 600
+periods a year, leave nine in ten.
 
 ### The business hours (shapes)
 

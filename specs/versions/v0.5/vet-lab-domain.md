@@ -6,7 +6,8 @@ passages corrected to the master spec at approval (R16, D339).
 [master spec](master-spec.md)** (procedure step 9, D339), which wins
 where the two disagree. Amended in wave 2 of the build (2026-11-04):
 the test catalogue's layout, its named codes and the centre's draw
-(D372). Steps 2 to 8 are done: the business sketch ruled, every default
+(D372); the centre's orders at about 7 700 (D385), `MINH`'s line
+(D389). Steps 2 to 8 are done: the business sketch ruled, every default
 accepted (D301, closing O151); step 3 not a part's, the lab's boundary
 set by the clinic's split (D279, D293, D294); the data model and the
 default policy ruled (D302, closing O152), `lab_app`'s grants amended
@@ -534,7 +535,8 @@ in [vet-core](vet-core-domain.md#deterministic-key-ranges-d249-d266):
   animal and time are computed from its id, as the core's other history
   is generated, and documented in the core's GM notes; the lab's load
   computes the same, grouping a consultation's analysis requests into
-  one order (1.8 tests each on average).
+  one order (1.8 tests each on average, about 7 700 orders in the
+  history, D385).
 - **Lab staff in a range**: staff 71–78 the lab's technicians, 79–80
   its clinical pathologists (vets, specialty clinical pathology).
 
@@ -641,7 +643,8 @@ section's analysis requests:
   `DIARC`, `TT4` or `ACTHST`. `MINH` is drawn only on a food-producing
   female cow or goat with a prescription line whose milk withdrawal has
   ended before the request; the request carries that line's withdrawal
-  end (`core_request`'s `withdrawal_ends_on`, D375). A consultation's
+  end (`core_request`'s `withdrawal_ends_on`, D375), the line on the
+  herd's latest earlier consultation that allows it (D389). A consultation's
   requests draw distinct codes.
 - **Urgent requests** (an emergency's or a stay's, D375) draw only
   in-house codes with a turnaround of 4 hours or less; outside the

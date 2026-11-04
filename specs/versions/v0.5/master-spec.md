@@ -1265,8 +1265,8 @@ and write `office`, never `clinic`.
 off). The parts' loads and the partners' database compute the core's keys by
 its functions; only `vet-portal`'s copied content comes from a derivation step
 the GM sanctions after this load; the purposes then plant `office`'s past
-periods. The build verifies: load time and size (about 0.28 million rows, a few
-seconds by the shop's measure); every function a part cites documented in the
+periods. The build verifies: load time and size (about 0.28 million rows, one
+to two minutes expected, each row computed by the key functions, D387); every function a part cites documented in the
 GM notes; the post-load coherence check on the composed clinic (no part's
 `animal_id`, `stay_id`, `request_id` or staff id beyond the core's, every
 current stay placed, published documents matching signed consultations and
