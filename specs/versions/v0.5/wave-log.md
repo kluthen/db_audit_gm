@@ -4109,3 +4109,48 @@ the history's agenda is capped (about 4 % fewer scheduled consultations,
 closing 25–30 minutes after they start); the farm's rooms close at 16:00,
 not 13:00. Chunk 30 waits for the next free slot (κ = 3: 12, 14, 15 in
 flight).
+
+### Chunk 12 — 12a built, paused before 12b, 2026-11-04
+
+Owner paused at about 160k tokens. Branch `v0.5-c12-vet-lab` (worktree
+kept): 12a `1e6431c`, then `c441776` merging `v0.5-w3` (chunk 29 in, the
+log to 557e803). The two stubs' `data.sql` moved into 12a
+(`check_domain_dir` and `test_catalog_domains_are_complete` need the
+`producers/` folder). Loads in a throwaway `postgres:0.5.0`, keys
+streamed by hand: +2 71 s, 54 MB, 330 077 rows; shift 0 64–70 s, 329 916
+rows; each stub's `data.sql` about 60 s (xlab 8 open send-outs; practices
+39 orders, 12 deliveries). The five coherence checks clean by hand (one
+fix in `keys.sql`: two lab cancellations after the core's
+`cancelled_at`). Unit tests `test_model`, `test_coherence`, `test_inject`,
+`test_compose`: 613 OK, 2 skipped.
+
+W3-a so far (the 12a owner's): one pass, `pg_temp.lab_order_tests(load_epoch,
+utc_offset)` (about 60 s, 17 000 `core_request` calls), called once by the
+load and once by each stub; `lab_order(n, …)` and `lab_send_out(n, …)`
+lookups over it (about 60 s each, a GM's query, not a loop);
+`lab_catalogue()`, `lab_delivery(accession, kind, revision, event_at)`;
+`send_key = md5('vet-lab-send-out:'‖id)::uuid`; `delivery_key =
+md5('vet-lab-delivery:'‖accession‖':'‖kind‖':'‖revision)::uuid::text`; the
+external accession `NL` 400000 + n, codes `NL-<code>`, labels `ALD` + 8
+digits; `client_ref` `C-<consultation>-<priority>` (centre),
+`<YYMMDD>-<m>` (practices); `lab_order_tests` gains `not_performed_at`,
+`cancelled_at`; `lab_orders` has no status column (state from its times);
+amendments by `supersedes_id`, `amended_by`, `amended_at`,
+`amendment_reason`; indexes `(account_id, client_ref)`, `released_at`
+(T78, T80 baselines); the centre's last-24-hour tests unreleased at T0 (32
+technical, 14 in progress, 8 sent out), purpose 1's first backlog; stubs
+as W3 item 1 (`practices.orders.tests` `text[]`, `xlab.orders.age` whole
+years; open items only; `delay_ms` 0; roles LOGIN); `lab_callbacks` about
+9 500 rows keyed by `lab_delivery` (chunk 18); `lab_charges` kinds `test`,
+`handling`, `urgent`, `billable_on` a local date, `voided_at`, fees in
+`lab_settings` (chunk 20). Risk: a composed load pays the pass three
+times (about 3 minutes on top of the core's 89 s).
+
+Deviations, sent to `spec-writer` (documents to as-built): `lab_samples`
+about 20 800, not 1–18 000 (the core's centre orders give 11 777 alone);
+figures below the document's "about" (open send-outs 8 not about twenty,
+results about 161 000 not 192 000, batches 9 776 not 22 000, intervals
+61–456, 457–460 unused); column grants beyond the read list
+(`lab_instruments` on `lab_orders (id, species, priority)` and
+`lab_tests (id, code, discipline)`; `lab_dispatch` the catalogue). A fresh
+owner resumes 12b.
