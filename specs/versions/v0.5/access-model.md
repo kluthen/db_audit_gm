@@ -7,7 +7,8 @@ among them; the monitoring breadth's rows written in from the same
 ruling (5). Amended on 2026-11-04 after chunk 11, a wording made
 exact against what was built: the GM check role is kept off the
 partners' database from the network, and reads it on its node (8; spec
-D383). Revises the [v0.4 access model](../v0.4/access-model.md),
+D383); and a known gap added, the partner credentials the starter pack
+hands over, kept and tracked (13; spec D395, O231). Revises the [v0.4 access model](../v0.4/access-model.md),
 which it replaces for v0.5 games; "Changes from v0.4" at the end lists
 what moved.
 
@@ -535,6 +536,9 @@ be inferred; the web front on plain HTTP. Added:
   nothing but the code enforces them.
 - **The health node's status page has no login** beyond the web
   front's tools password, as Prometheus has none.
+- **The starter pack hands over the customer's own partner credentials**
+  (3, `documented-call` in 6; D365): kept as is and tracked (O231). A
+  player reporting it as odd makes a plausible, reasonable finding.
 
 ## 14. Changes from v0.4
 

@@ -990,3 +990,16 @@ D337, D341 and D371 were reserved and never used). Take the next number from
   phases in three sections, and two can't hold days and lates daily.
   Now in: [vet-scheduling](versions/v0.5/vet-scheduling-domain.md) (the
   rota's pattern); [vet-housing](versions/v0.5/vet-housing-domain.md).
+- **D395 (2026-11-04, the owner on D365): D365 stays, tracked: the
+  starter pack keeps handing the players the customer's own partner
+  credentials, and whether to rectify it is a later question (O231).**
+  A DBA may find it odd and report it, a plausible, reasonable finding;
+  the owner keeps it as a game's distance from ground truth ("It's
+  still a game"). Now in: [open-questions.md](open-questions.md) O231;
+  [versions/v0.5/access-model.md](versions/v0.5/access-model.md) 13.
+- **D396 (2026-11-04, the owner after D368): Until v1.0 each brick takes
+  its tool's latest available version; from v1.0 versions are handled
+  game-wide (old PostgreSQL majors such as 13, older and hand-installed
+  tools, migrating up to standard).** Now in:
+  [versions/README.md](versions/README.md#from-v10-versions-at-a-game-wide-scope-d396);
+  [open-questions.md](open-questions.md) O11.

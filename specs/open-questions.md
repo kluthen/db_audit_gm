@@ -78,10 +78,13 @@ for the next version (v0.1 until it closed, with none left open);
   Python transformer scripts run by the extended scheduler brick (D203),
   over several PostgreSQL instances, `postgres_fdw` one method among
   others; another engine only if a purpose needs one, which none does
-  (D194). Still open: which engine versions first, and how
+  (D194). Until v1.0 each brick takes its tool's latest release; from
+  v1.0 versions are handled game-wide, older ones included (D396).
+  Still open: which engine versions first, and how
   upgrade scenarios (both binaries, disk space) fit the budget, which
   the direction for v1.0 to v2 makes an exercise (D272). Refs:
   [versions/v1.0/README.md](versions/v1.0/README.md),
+  [versions/README.md](versions/README.md#from-v10-versions-at-a-game-wide-scope-d396),
   [versions/v0.4/README.md](versions/v0.4/README.md).
 - **O12** (later) — Are network-level faults (segmentation, routing-mesh
   exposure) in scope? And the network layout itself (management network,
@@ -164,6 +167,17 @@ for the next version (v0.1 until it closed, with none left open);
   of the game by then)? A scoring system is post-v1.0, unless research
   finds one quick to implement (D120). Refs:
   [scenario-lifecycle.md](scenario-lifecycle.md).
+- **O231** (later, version not set; D395) — The starter pack hands the
+  players the customer's own credentials with each partner (D365). DBAs
+  are not security advisors, but they may find a company's integration
+  credentials in a handout odd and report it; the owner, 2026-11-04:
+  "we may need to rectify it at some point", the game keeping some
+  distance from ground truth. Until then such a report is a plausible,
+  reasonable finding, not a misreading. Open: whether to rectify (the
+  credentials obtained another way, or kept and named a known
+  practice), and how the feedback receives the report meanwhile. Refs:
+  [versions/v0.5/access-model.md](versions/v0.5/access-model.md) 3, 6,
+  13; [versions/v0.5/master-spec.md](versions/v0.5/master-spec.md) 10.2.
 
 ## v0.4: data governance
 

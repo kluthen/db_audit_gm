@@ -1,9 +1,10 @@
 # Formats: scenario, brick, fault
 
-Status: draft v29; its v0.5 items ruled with the v0.5 master spec (D339),
+Status: draft v30; its v0.5 items ruled with the v0.5 master spec (D339),
 amended in v0.5's build (D344, D345, D349, D354) and, after wave 2's gate,
 with its format items as built: the composed load's files, the partners'
-catalogue folder, the owners' traffic folder (D364, D369, D383)
+catalogue folder, the owners' traffic folder (D364, D369, D383), and
+wave 1's scenario layer of the merge, `compose/<node>/`
 
 What a scenario, a brick, a fault definition and, from v0.4, a purpose
 and a domain must contain, and how they are laid out, so that every scenario the GM designs or generates stays
@@ -122,8 +123,9 @@ The owner's requirements (D23), with the earlier rulings that apply:
   D330, D334, D335): `domains:`, the domains the scenario's business is
   composed of, each with its `at:` ("Domain" below, "Composing
   domains"), `domain: <id>` staying accepted as the one-domain form; the
-  composition record `composition.yaml` and, when two profiles
-  collided, `merge.yaml`, beside `scenario.yaml`; and the scenario's
+  composition record `composition.yaml`, when two profiles collided
+  `merge.yaml`, and the merge's scenario layer `compose/<node>/` ("The
+  merge" below), beside `scenario.yaml`; and the scenario's
   **data register**, a player handout of the business's record of
   processing. Every scenario listing `domains:` must have a register,
   and the deploy refuses one without it; v0.4's released shop scenario
@@ -260,7 +262,10 @@ skill (D40).
     data-register.yaml  from v0.5: the true register (generated)
   composition.yaml    from v0.5, with `domains:`: the composition record, written by the GM
   merge.yaml          from v0.5, when two profiles collided: the merge's resolutions
-  nodes/<node>/       files per node, delivered as Swarm configs (D11)
+  compose/<node>/     from v0.5, with `domains:`: the merge's scenario layer, one folder per
+                      scheduler or `api` node, written by the GM, never shipped
+  nodes/<node>/       files per node, delivered as Swarm configs (D11); with `domains:`, a
+                      scheduler or `api` node's merged files, written by `gmctl compose`
   data/<node>.sql     restored-backup data, streamed into the node through the injection path (D39)
   bricks/, faults/    bricks and faults made solely for this scenario, if any (D24)
   local/<playground>/ local implementations, one per playground, git-ignored (D40)
@@ -968,11 +973,18 @@ above), as `postgres`:
   **`gmctl compose`**, which writes ordinary files into the scenario
   folder. Layers, lowest first: the domain's default profile, the
   variant's profile (`variants/<variant>/producers/`, overrides only),
-  the scenario; a higher layer wins silently and the merge report
-  records every override; identical entries merge silently; a conflict
-  between two profiles (two parts on one node) stops the merge and names
-  both sides, the GM writing its resolution into the scenario's
-  `merge.yaml`, so the merge is reproducible. Every output entry carries
+  the scenario's own layer, `compose/<node>/` in the scenario folder,
+  kept apart from `nodes/<node>/` so a rerun reproduces the output: one
+  folder per scheduler or `api` node `scenario.yaml` lists, holding the
+  material the GM adds (the purposes', cold storage's) in that node's
+  files (`queries.yaml`, `schedule.yaml`, `jobs.yaml`, `builders/`,
+  `scripts/`; `api.yaml`, `routes/`, `db/`) and each scheduler node's
+  `intensity` and `timeline`, which a fragment never carries. A higher
+  layer wins silently and the merge report records every override;
+  identical entries merge silently; a conflict between two profiles
+  (two parts on one node) stops the merge and names both sides, the GM
+  writing its resolution into the scenario's `merge.yaml`, so the merge
+  is reproducible. Every output entry carries
   a provenance comment (`# from vet-lab@regional-franchise`). The loader
   refuses duplicate keys in the merge's inputs.
 
