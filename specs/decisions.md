@@ -1142,3 +1142,12 @@ D337, D341, D359, D371 and D392 were reserved and never used). Take the next num
   (D408) moves them a few per cent, the wave gate's reruns the figures
   of record. Now in: [vet-lab](versions/v0.5/vet-lab-domain.md#deterministic-key-ranges-d249-d266)
   (the variant, ranges, grants, sizes, T0); master spec 9.3.
+- **D416 (2026-11-04, chunk 15a, documents to as-built): `vet-machinery`
+  as built: a settings row per database; `mach_worklist.cancelled_at`,
+  read by `mach_orders`; `mach_maint` `LOGIN` for `pg_cron`; 11 machines
+  reporting (O227); about 2 intensive-care sessions, 42 700 raw vitals
+  and 59 000 rows a day, 2 980 imaging requests a year, 0.28 million
+  rows, 75 MB, 51 s; the history's finals on the core's turnaround.**
+  Measured within the approved rules; the PACS reading no registry is
+  O235's. Now in: [vet-machinery](versions/v0.5/vet-machinery-domain.md#reference-sizes);
+  master spec 9.6, 10.4; [purposes](versions/v0.5/clinic-purposes.md#the-roles-the-purposes-add).
