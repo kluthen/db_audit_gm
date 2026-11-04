@@ -249,7 +249,11 @@ As `specs/formats.md` "Domain" lays it out (v29):
     derive.sql              from v0.5, optional: a derivation step the GM may
                               sanction (domain.yaml derive)
     keys.sql                from v0.5, optional, a core's: its key functions,
-                              pg_temp.core_*                (template: keys.sql)
+                              pg_temp.core_*; a part's, pg_temp.<its prefix>_*
+                                                               (template: keys.sql)
+    cron.sql                from v0.5, optional: the domain's pg_cron jobs,
+                              cron.schedule_in_database(...) calls only, run
+                              after its load in its node's cron.database_name
     coherence.yaml          from v0.5, optional: the post-load coherence queries
                                                                (template: coherence.yaml)
     classification.yaml     every classed column           (template: classification.yaml)
@@ -289,8 +293,9 @@ Rules:
   provenance. From v0.5 a composed scenario's `domains:` names each with
   its `at:`; `gmctl compose` merges its producer fragments into the
   scenario, but its data files (`schema.sql`, `load.sql`, `keys.sql`,
-  `derive.sql`, each partner's `data.sql`, `coherence.yaml`) are never
-  copied: `load-data` reads them from the catalogue at every load. A
+  `cron.sql`, `derive.sql`, each partner's `data.sql`, `coherence.yaml`)
+  are never copied: `load-data` reads them from the catalogue at every
+  load. A
   static scenario needs none.
 - `schema.sql` and `load.sql` follow the data-load contract below;
   copied into a scenario they make its data file, `schema.sql` first.

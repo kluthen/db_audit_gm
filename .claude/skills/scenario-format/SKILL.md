@@ -44,7 +44,7 @@ capture W1 in `specs/versions/v0.3/wave-log.md`, v0.4's capture W1 in
 | [templates/classification.yaml](templates/classification.yaml) | `domains/<id>/data/classification.yaml`, copied to `scenarios/<id>/data/classification.yaml` | a domain's column classification (from v0.4) |
 | [templates/register.yaml](templates/register.yaml) | `domains/<id>/data/register.yaml` | a domain's register fragment, one entry per processing activity (from v0.5) |
 | [templates/variant.yaml](templates/variant.yaml) | `domains/<id>/variants/<variant>.yaml` | a variant's manifest (from v0.5) |
-| [templates/keys.sql](templates/keys.sql) | `domains/<core-id>/data/keys.sql` | a core's key functions, `pg_temp.core_*` (from v0.5) |
+| [templates/keys.sql](templates/keys.sql) | `domains/<id>/data/keys.sql` | a core's key functions, `pg_temp.core_*`, or a part's, `pg_temp.<its prefix>_*` (from v0.5) |
 | [templates/coherence.yaml](templates/coherence.yaml) | `domains/<id>/data/coherence.yaml` | a domain's coherence queries (from v0.5) |
 | [templates/partner-data.sql](templates/partner-data.sql) | `domains/<id>/producers/partners/<prefix>/data.sql` | a partner's tables and planted state (from v0.5) |
 | [templates/composition.yaml](templates/composition.yaml) | `scenarios/<id>/composition.yaml` | the composition record (from v0.5) |
@@ -374,7 +374,13 @@ job's `connections:`); the others are checked by reading:
   time. A data file creating `pg_cron` on a node whose seed does not
   preload it is refused (a fault may still remove the preload). At most
   eight jobs run at once under the default `max_worker_processes`, which
-  the seed raises if the scenario needs more.
+  the seed raises if the scenario needs more. A job in a database a
+  composed domain holds is the domain's `data/cron.sql`, never the data
+  file's, which runs before that database and the job's role exist
+  (`cron.schedule_in_database` refuses a missing database or role, and a
+  role without `CONNECT`; spec D405): a composed domain shipping one sits
+  on one node, whose seed preloads `pg_cron` and whose data file creates
+  it (refused otherwise).
 - **The customer's time zone in seed files**: from v0.4
   `{{customer_timezone}}` may also appear in a scheduler node's seed
   files and in a `postgres` node's seed `postgresql.conf`
@@ -460,7 +466,9 @@ The rules from v0.5 (v0.5 master spec 6.2, 6.3, 6.8, 7.1, 8.4, 8.5, 10,
   `api` node the endpoints' hosts are exactly the hostnames of the
   entries naming nodes, plus `owners`, never the node's own name; a
   hostname on an entry with `nodes: []` aliases nothing. A composed
-  domain with a partner `data.sql` needs the partners' `postgres` node.
+  domain with a partner `data.sql` needs the partners' `postgres` node,
+  unless `composition.yaml`'s `left_out:` names that partner's folder
+  (then skipped when the scenario has none).
 - **Options** (`options:` on a node): a non-empty list of unique option
   names the node's brick declares (`[monitoring]` on `postgres` 0.5.0),
   off unless listed; `[]` is refused. Every node an exporter or another
@@ -1017,6 +1025,26 @@ keys. In particular:
   `data.sql` and each `derive.sql`, in the same session (never ahead of a
   schema or a history); called schema-qualified, they vanish with the
   session. `docs/gm.md`'s "Core keys" lists each.
+- **A part's key functions** (v0.5 capture W3 item 0, chunk 29), optional,
+  `data/keys.sql` of a part, on the core's conventions: every `CREATE` at
+  the start of a line a `CREATE [OR REPLACE] FUNCTION
+  pg_temp.<prefix>_<name>(`, one prefix throughout, its own (its table
+  prefix, `lab_`, `portal_`): never `core_` nor a prefix of the core's
+  `keys.sql` (`check_domain_dir` refuses either). load-data streams it
+  after the core's, in the same session, ahead of that part's `load.sql`,
+  its partners' `data.sql` and its `derive.sql`, never ahead of another
+  domain's file, a schema, a `cron.sql` or a history. `docs/gm.md`'s "Part
+  keys" lists each.
+- **A domain's `pg_cron` jobs** (chunk 29, spec D405), optional,
+  `data/cron.sql` (a fixed path, no `domain.yaml` key):
+  `SELECT cron.schedule_in_database(...)` calls only, at least one
+  (`check_domain_dir` refuses anything else). load-data runs it as
+  `postgres` on the domain's one node, connected to that node's
+  `cron.database_name` (its seed `postgresql.conf`; `postgres` unset),
+  unseen, last of the domain's load (after its partners' `data.sql`), so
+  the job's database and role exist and the role has `CONNECT` (granted
+  by the schema). Its jobs survive load-data's later steps. The node
+  preloads `pg_cron` and its data file creates it ("Scenario" above).
 - **A partner's state** ([templates/partner-data.sql](templates/partner-data.sql)),
   optional: `producers/partners/<prefix>/data.sql`, beside the partner's
   fragments, run by load-data as `postgres` into the partners' database
@@ -1121,8 +1149,10 @@ composition beside `scenario.yaml`:
   differing stop the merge, naming the unit and both sources, until
   [templates/merge.yaml](templates/merge.yaml) resolves it (`take` a
   source or write a `value`, with a reason); a resolution meeting no
-  conflict is refused as stale. Every output entry and file carries
-  `# from <domain>@<variant>: <path>` (or `scenario`, `merge.yaml`) and
+  conflict is refused as stale. A producer folder `left_out:` names is
+  merged from in neither layer and needs no node. Every output entry and
+  file carries `# from <domain>@<variant>: <path>` (or `scenario`,
+  `merge.yaml`) and
   `, over <source>` on an override. Never edit `nodes/<node>/` of a
   composed node by hand: change a layer and rerun; `--check` reports a
   file that would differ.
@@ -1133,14 +1163,20 @@ composition beside `scenario.yaml`:
   parts; `scale` `{checked, note}`; `order` every domain once, a part
   after its core, a derivation's domain after its `after`; `derive` only
   for a domain declaring it, its `after` the declared one;
-  `coherence` written at setup. `model.check_composition` checks it on
-  every load of a scenario listing `domains:`.
+  `coherence` written at setup; optional `left_out` (chunk 29), a
+  non-empty list of `{domain, producer, reason}`, each `producer` a folder
+  under a composed domain's `producers/` (`pms`, `api/clinic-api`,
+  `partners/xlab`), once, for a fixture's least environment (a game
+  leaves nothing out). `model.check_composition` checks it on every load
+  of a scenario listing `domains:`.
 - **`gmctl load-data`** (v0.5, W2 item 3) reads the domains and the
   purposes' histories from the catalogue, never from the scenario
   folder, and loads, in this order: the nodes' data files (they create
   the databases no domain holds: `office`, `partners`); each domain in
   `order` (its databases, `schema.sql`, `load.sql`, a several-database
-  part in `databases` order; then its partners' `data.sql`); the
+  part in `databases` order; then its partners' `data.sql`, a left-out
+  partner's only when the scenario has a partners' database; then its
+  `data/cron.sql`, in its node's `cron.database_name`); the
   sanctioned derivations in `derive` order, each in its part's database;
   each `purposes:` entry's `history` in list order, in its `target`;
   then the coherence check. A derivation reads its `after` domains, a

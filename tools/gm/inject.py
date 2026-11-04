@@ -79,7 +79,16 @@ behaviour is fixed by capture W3-A (`specs/versions/v0.1/wave-log.md`):
   `third_parties:` entries list). The core's `data/keys.sql`, when it
   ships one, is streamed ahead of every load, partner file and
   derivation of the core and its parts, in the same session, so its
-  `pg_temp.core_*` functions vanish with it. Then the sanctioned
+  `pg_temp.core_*` functions vanish with it; a part's own `data/keys.sql`
+  (`pg_temp.<its prefix>_*`) after it, ahead of that part's load, partner
+  files and derivation (chunk 29's (a)). A partner folder
+  `composition.yaml`'s `left_out:` names runs as any other when the
+  scenario has a partners' database, and is skipped when it has none
+  (chunk 29's (b)). A domain's `data/cron.sql`
+  (`cron.schedule_in_database(...)` calls only) runs last of its load, on
+  its one node, connected to the node's `cron.database_name` (its seed
+  postgresql.conf), unseen, its jobs' databases and roles now there (chunk
+  29's (d), spec D405). Then the sanctioned
   derivations (`derive`, in order), then each `purposes:` entry's
   `history` (in list order, in its `target`), each reading its sources
   through foreign schemas `gm_src_<name>` (postgres_fdw, as `gm_check`
@@ -184,7 +193,8 @@ STANDBY_WAIT = 300                  # seconds, without --timeout: the clone, the
 # The composed load (v0.5 capture W2 item 3).
 EPOCH_VAR = "load_epoch"            # every file's one reference moment
 COMPOSITION_FILE = "composition.yaml"
-KEYS_FILE = "data/keys.sql"         # a core's key functions, pg_temp.core_*
+KEYS_FILE = model.KEYS_FILE         # a core's key functions, pg_temp.core_*; a part's
+CRON_FILE = model.CRON_FILE         # a domain's pg_cron jobs (chunk 29's (d))
 DERIVE_FILE = "data/derive.sql"
 PARTNERS_DB = coherence.PARTNERS    # the partners' database (W2 item 0)
 PARTNER_DATA = "data.sql"           # producers/partners/<prefix>/data.sql
@@ -572,7 +582,7 @@ class DomainLoad:
     domain: str
     databases: list                 # [(node, database)]: created when absent, in order
     runs: list                      # [FileRun]: each database's schema then load, then
-                                    #   the partner files
+                                    #   the partner files, then data/cron.sql
     partners: list                  # [(prefix, node)]
 
 
@@ -734,10 +744,41 @@ def _composed_domains(scenario, impl, catalog):
 
 
 def _keys(domains, catalog, did):
-    """[the core's data/keys.sql] for domain `did`, [] when its core ships none."""
+    """The key files streamed ahead of domain `did`'s load, partner files and
+    derivation: the core's data/keys.sql, then, for a part, its own (capture
+    W3 item 0, chunk 29's (a)); each when shipped."""
     core = domains[did].core
-    path = catalog / "domains" / core / KEYS_FILE
-    return [path] if path.is_file() else []
+    paths = [catalog / "domains" / core / KEYS_FILE]
+    if did != core:
+        paths.append(domains[did].dir / KEYS_FILE)
+    return [p for p in paths if p.is_file()]
+
+
+def _cron_run(scenario, impl, d, catalog):
+    """The FileRun of domain `d`'s data/cron.sql (capture W3 item 6 (d), spec
+    D405), or None when it ships none: run as postgres on the domain's one
+    node, connected to the node's cron.database_name, after the domain's
+    load; GmError for a domain on several nodes, a node not preloading
+    pg_cron, or a file holding more than cron.schedule_in_database calls."""
+    path = d.dir / CRON_FILE
+    if not path.is_file():
+        return None
+    shown = f"domains/{d.id}/{CRON_FILE}"
+    nodes = list(dict.fromkeys(node for _, node, _ in d.locations))
+    if len(nodes) != 1:
+        raise GmError(f"{shown}: schedules pg_cron jobs on the domain's node, but its at: names "
+                      f"{len(nodes)} nodes ({', '.join(nodes)}); a domain shipping one sits on "
+                      "one node")
+    node = next(n for n in scenario.nodes if n.get("name") == nodes[0])
+    preloaded, database, rel = model.node_pg_cron(node, scenario.dir)
+    if not preloaded:
+        raise GmError(f"{shown}: schedules pg_cron jobs on node {nodes[0]}, which does not "
+                      f"preload pg_cron (its seed postgresql.conf {rel or 'absent'}: "
+                      "shared_preload_libraries)")
+    problems = model.check_cron_file(path.read_text(encoding="utf-8"), shown)
+    if problems:
+        raise GmError("; ".join(problems))
+    return FileRun(f"{d.id} {CRON_FILE}", nodes[0], database, [path])
 
 
 def _refuse_partners_from_afar(run, pnode):
@@ -773,6 +814,7 @@ def composed_plan(scenario, impl, catalog_root=model.REPO_ROOT):
     pnode = partners_node(scenario)
     if pnode is not None:
         _load_node(scenario, impl, pnode, "scenario.yaml: third_parties")
+    left_out = model.left_out_of(record)
     for did in order:
         d = domains[did]
         keys = _keys(domains, catalog, did)
@@ -792,6 +834,8 @@ def composed_plan(scenario, impl, catalog_root=model.REPO_ROOT):
             path = folder / PARTNER_DATA
             if not path.is_file():
                 continue
+            if pnode is None and (did, f"partners/{folder.name}") in left_out:
+                continue                     # left out (W3 item 0): runs only with partners
             if pnode is None:
                 raise GmError(f"domains/{did}/producers/partners/{folder.name}/{PARTNER_DATA}: "
                               "a partner's state, but no third_parties: entry lists a database "
@@ -802,6 +846,9 @@ def composed_plan(scenario, impl, catalog_root=model.REPO_ROOT):
             runs.append(FileRun(f"{did} producers/partners/{folder.name}/{PARTNER_DATA}", pnode,
                                 PARTNERS_DB, keys + [path]))
             partners.append((folder.name, pnode))
+        cron = _cron_run(scenario, impl, d, catalog)
+        if cron is not None:
+            runs.append(cron)
         plan.domains.append(DomainLoad(did, [(n, db) for _, n, db in d.locations], runs,
                                        partners))
     for i, step in enumerate(record.get("derive") or []):
