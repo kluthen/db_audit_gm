@@ -1,12 +1,17 @@
 """The partners' catalogue folder and its two fixtures (v0.5 build plan,
 chunk 11; master spec 10.2, 10.4, 11.2; capture W2 item 6, W2-f).
 
-`partners/shared/` is the three shared partner nodes' base, the GM copies them into a scenario, and
-`fixture-partners` is such a copy. These tests keep
-the copies equal to the catalogue, load and render the fixture."""
+`partners/shared/` is the three shared partner nodes' base, `partners/
+coldstore/` cold storage's stub; the GM copies them into a scenario, and
+`fixture-partners` and `fixture-archive` are such copies. These tests keep
+the copies equal to the catalogue, load and render both fixtures, and read
+cold storage's page code with the brick's imports stood in (the host has
+neither FastAPI nor psycopg; the fixtures' short tests run it for real)."""
 
 import re
 import shutil
+import sys
+import types
 import unittest
 from pathlib import Path
 
@@ -18,7 +23,9 @@ from tools.tests.test_render import handover_at
 
 PARTNERS = REPO_ROOT / "partners"
 SHARED = PARTNERS / "shared"
+COLDSTORE = PARTNERS / "coldstore"
 FX_PARTNERS = FIXTURES / "fixture-partners"
+FX_ARCHIVE = FIXTURES / "fixture-archive"
 HBA_LINE = re.compile(r"^host\s+partners\s+(\S+)\s+samenet\s+scram-sha-256$", re.M)
 
 
@@ -45,6 +52,11 @@ class TestCatalogue(unittest.TestCase):
         files = sorted(str(p.relative_to(PARTNERS)) for p in PARTNERS.rglob("*") if p.is_file())
         self.assertEqual(files, [
             "README.md",
+            "coldstore/api.yaml", "coldstore/data.sql",
+            "coldstore/db/coldstore_manifests.py", "coldstore/db/coldstore_page.py",
+            "coldstore/db/coldstore_shipments.py", "coldstore/planted.sql", "coldstore/queries.yaml",
+            "coldstore/routes/coldstore_manifests.py", "coldstore/routes/coldstore_page.py",
+            "coldstore/routes/coldstore_shipments.py", "coldstore/schedule.yaml",
             "shared/nodes.yaml",
             "shared/partners-backend/jobs.yaml", "shared/partners-backend/queries.yaml",
             "shared/partners-backend/schedule.yaml",
@@ -62,6 +74,25 @@ class TestCatalogue(unittest.TestCase):
             with self.subTest(path=str(path.relative_to(PARTNERS))):
                 compile(text(path), str(path), "exec")
 
+    def test_coldstore_is_laid_out_as_a_partner_folder(self):
+        api = load(COLDSTORE / "api.yaml")
+        self.assertEqual(sorted(api["endpoints"]),
+                         ["coldstore_manifests", "coldstore_page", "coldstore_shipments"])
+        for name, e in api["endpoints"].items():
+            with self.subTest(endpoint=name):
+                self.assertEqual(e["hosts"], ["cold-storage"])
+                self.assertTrue((COLDSTORE / "routes" / f"{name}.py").is_file())
+                self.assertTrue((COLDSTORE / "db" / f"{name}.py").is_file())
+        self.assertEqual(api["endpoints"]["coldstore_shipments"]["credentials"], ["cold_storage"])
+        self.assertNotIn("credentials", api["endpoints"]["coldstore_manifests"])
+        self.assertNotIn("credentials", api["endpoints"]["coldstore_page"])
+        conn = {"driver": "sql/postgresql", "target": "partners-db:5432/partners", "role": "coldstore"}
+        self.assertEqual({k: api["connections"]["coldstore-db"][k] for k in conn}, conn)
+        sched = load(COLDSTORE / "schedule.yaml")
+        self.assertEqual(sched["streams"], [{"key": "coldstore.normal", "connection": "coldstore-db",
+                                             "rate": "1/min", "arrivals": "even"}])
+        self.assertIn("coldstore.normal", load(COLDSTORE / "queries.yaml")["queries"])
+
     def test_the_partners_line_is_the_one_to_fill(self):
         hba = text(SHARED / "partners-db" / "pg_hba.conf")
         rules = [l for l in hba.splitlines() if l.strip() and not l.startswith("#")]
@@ -74,6 +105,12 @@ class TestCatalogue(unittest.TestCase):
                if l.strip() and not l.startswith("--")]
         self.assertEqual(sql, ["CREATE DATABASE partners;", "\\connect partners"])
 
+    def test_coldstore_data_never_connects(self):
+        for name in ("data.sql", "planted.sql"):
+            with self.subTest(file=name):
+                self.assertNotRegex(text(COLDSTORE / name), r"(?m)^\\(c|connect)\b")
+
+
 class TestFixtureCopies(unittest.TestCase):
     """Each fixture holds the catalogue's files as the GM copies them."""
 
@@ -82,7 +119,7 @@ class TestFixtureCopies(unittest.TestCase):
 
     def test_shared_nodes_declared_as_the_catalogue(self):
         shared = {n["name"]: n for n in load(SHARED / "nodes.yaml")["nodes"]}
-        for fixture in (FX_PARTNERS,):
+        for fixture in (FX_PARTNERS, FX_ARCHIVE):
             nodes = self.nodes(fixture)
             for name, entry in shared.items():
                 with self.subTest(fixture=fixture.name, node=name):
@@ -92,7 +129,7 @@ class TestFixtureCopies(unittest.TestCase):
                     self.assertEqual(sorted(nodes[name]["seed_files"]), sorted(entry["seed_files"]))
 
     def test_partners_db_seeds(self):
-        for fixture, roles in ((FX_PARTNERS, ["alpha", "beta"]),):
+        for fixture, roles in ((FX_PARTNERS, ["alpha", "beta"]), (FX_ARCHIVE, ["coldstore"])):
             with self.subTest(fixture=fixture.name):
                 d = fixture / "nodes" / "partners-db"
                 self.assertEqual(text(d / "postgresql.conf"), text(SHARED / "partners-db" / "postgresql.conf"))
@@ -105,7 +142,7 @@ class TestFixtureCopies(unittest.TestCase):
     def test_the_partners_line_names_the_partners_roles(self):
         """The roles pg_hba.conf admits are exactly those the partners' nodes
         connect as (capture W2 item 1: theirs alone)."""
-        for fixture in (FX_PARTNERS,):
+        for fixture in (FX_PARTNERS, FX_ARCHIVE):
             with self.subTest(fixture=fixture.name):
                 api = load(fixture / "nodes" / "partners-api" / "api.yaml")
                 sched = load(fixture / "nodes" / "partners-backend" / "schedule.yaml")
@@ -113,6 +150,25 @@ class TestFixtureCopies(unittest.TestCase):
                          if c["driver"] == "sql/postgresql"}
                 line = HBA_LINE.findall(text(fixture / "nodes" / "partners-db" / "pg_hba.conf"))[0]
                 self.assertEqual(set(line.split(",")), roles)
+
+    def test_archive_holds_cold_storage_verbatim(self):
+        api = FX_ARCHIVE / "nodes" / "partners-api"
+        self.assertEqual(body(api / "api.yaml"), body(COLDSTORE / "api.yaml"))
+        for folder in ("routes", "db"):
+            names = sorted(p.name for p in (COLDSTORE / folder).glob("*.py"))
+            self.assertEqual(sorted(p.name for p in (api / folder).glob("*.py")), names)
+            for n in names:
+                with self.subTest(file=f"{folder}/{n}"):
+                    self.assertEqual(text(api / folder / n), text(COLDSTORE / folder / n))
+        backend = FX_ARCHIVE / "nodes" / "partners-backend"
+        sched, frag = load(backend / "schedule.yaml"), load(COLDSTORE / "schedule.yaml")
+        self.assertEqual((sched["connections"], sched["streams"]), (frag["connections"], frag["streams"]))
+        self.assertEqual(load(backend / "queries.yaml"), load(COLDSTORE / "queries.yaml"))
+        data = text(FX_ARCHIVE / "data" / "partners-db.sql")
+        self.assertIn(text(COLDSTORE / "data.sql"), data)
+        self.assertIn(text(COLDSTORE / "planted.sql"), data)
+        self.assertLess(data.index(text(COLDSTORE / "data.sql")), data.index(text(COLDSTORE / "planted.sql")))
+
 
 class FixtureRendered(ScenarioCopyTest):
     fixture = None
@@ -159,6 +215,104 @@ class TestPartnersFixture(FixtureRendered):
         queries = load(FX_PARTNERS / "nodes" / "partners-backend" / "queries.yaml")["queries"]
         self.assertIn("'delay_ms', '4000'", queries["alpha.slow"]["sql"])
         self.assertIn("'delay_ms', '0'", queries["alpha.normal"]["sql"])
+
+
+class TestArchiveFixture(FixtureRendered):
+    fixture = FX_ARCHIVE
+
+    def test_loads(self):
+        s = model.load_scenario(self.scenario)
+        self.assertEqual([t["hostname"] for t in s.data["third_parties"]], ["cold-storage"])
+
+    def test_aliases_and_secrets(self):
+        services = self.stack["services"]
+        self.assertEqual(services["partners-api"]["networks"], {"backend": {"aliases": ["cold-storage"]}})
+        self.assertEqual(self.secrets("records"), ["http_cold_storage"])
+        self.assertEqual(self.secrets("partners-api"), ["http_cold_storage", "role_coldstore_password"])
+        self.assertEqual(self.secrets("partners-backend"), ["role_coldstore_password"])
+        self.assertEqual(self.secrets("bastion"), [])
+        env = services["records"]["environment"]
+        self.assertEqual((env["GM_VAULT_TARGET"], env["GM_VAULT_CREDENTIAL"]), ("cold-storage:8000", "cold_storage"))
+
+
+# --- cold storage's page, its brick imports stood in --------------------------------
+
+class _Router:
+    def __init__(self):
+        self.routes = []
+
+    def _add(self, method, path, **kw):
+        def deco(fn):
+            self.routes.append((method, path, fn))
+            return fn
+        return deco
+
+    def get(self, path, **kw):
+        return self._add("GET", path, **kw)
+
+    def post(self, path, **kw):
+        return self._add("POST", path, **kw)
+
+
+def _stand_ins(per_day):
+    fastapi = types.ModuleType("fastapi")
+    fastapi.APIRouter = _Router
+    fastapi.Request = object
+    fastapi.Depends = fastapi.Query = lambda *a, **k: None
+    fastapi.HTTPException = type("HTTPException", (Exception,), {})
+    responses = types.ModuleType("fastapi.responses")
+    responses.HTMLResponse = lambda content, **k: content
+    fastapi.responses = responses
+    db = types.ModuleType("db")
+    page = types.ModuleType("db.coldstore_page")
+    page.DAYS = 35
+    page.state = lambda hostname: {"delay_ms": "0"}
+    page.per_day = per_day
+    db.coldstore_page = page
+    return {"fastapi": fastapi, "fastapi.responses": responses, "db": db, "db.coldstore_page": page}
+
+
+class TestColdStoragePage(unittest.TestCase):
+
+    def page(self, rows):
+        mods = _stand_ins(lambda: ("2026-11-04", rows))
+        saved = {k: sys.modules.get(k) for k in mods}
+        sys.modules.update(mods)
+        try:
+            ns = {}
+            exec(compile(text(COLDSTORE / "routes" / "coldstore_page.py"), "coldstore_page.py", "exec"), ns)
+            request = types.SimpleNamespace(headers={"host": "cold-storage:8000"})
+            return ns, ns["page"](request)
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    sys.modules.pop(k, None)
+                else:
+                    sys.modules[k] = v
+
+    def test_one_chart_per_type_vault_first(self):
+        _, html = self.page([("vitals", "2026-11-03", 52000, 52000, 1), ("basebackup", "2026-11-03", 1, 1, 1),
+                             ("wal", "2026-11-03", 30, 30, 30), ("wal", "2026-11-04", 12, 12, 12)])
+        self.assertEqual(re.findall(r"<h2>([^<]*)</h2>", html), ["wal", "basebackup", "vitals"])
+        self.assertEqual(html.count("<svg"), 3)
+        self.assertNotIn("<script", html.lower())
+        self.assertIn("2026-11-03: declared 30, received 30, 30 shipments", html)
+        self.assertNotIn('class="mis"', html)
+        self.assertIn("2026-10-01 to 2026-11-04", html)          # five weeks, today included
+
+    def test_a_mismatch_is_marked_and_named(self):
+        _, html = self.page([("vitals", "2026-11-02", 520, 480, 1)])
+        self.assertEqual(html.count('class="mis"'), 1)
+        self.assertIn("Received differs from declared: 2026-11-02 (declared 520, received 480)", html)
+
+    def test_no_shipment(self):
+        _, html = self.page([])
+        self.assertIn("No shipment received in the last 35 days.", html)
+
+    def test_axis_top(self):
+        ns, _ = self.page([])
+        self.assertEqual([ns["_top"](v) for v in (0, 1, 3, 30, 52000, 100, 101)],
+                         [1, 1, 5, 50, 100000, 100, 200])
 
 
 if __name__ == "__main__":

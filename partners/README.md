@@ -9,22 +9,24 @@ all `no-access`: `partners-api` (one `api` node serving every partner under
 its own hostname, a network alias), `partners-backend` (one `scheduler`
 node, the merged back end, its schedule hidden) and `partners-db` (one
 small `postgres` database, `partners`, each partner's tables and role its
-own). Cold storage, the vault, joins them
-as one more partner (`coldstore/`, next).
+own). Cold storage, the vault, is one partner among them, belonging to no
+domain: it serves the `postgres` brick's archiving in any scenario and the
+clinic's purpose 14.
 
 | Path | What | The GM copies it |
 |---|---|---|
 | [`shared/nodes.yaml`](shared/nodes.yaml) | the three nodes' declarations, sized as master spec 14 (0.45 CPU, 448M reserved) | into `scenario.yaml`'s `nodes:`, the seed paths and `partners-db`'s `data:` filled; the three listed under each `third_parties:` entry with nodes |
 | [`shared/partners-db/`](shared/partners-db/) | `pg_hba.conf` (the partners' roles alone, below), `postgresql.conf` (small: 32MB buffers, 40 connections), `data.sql` (creates `partners`, ends connected to it) | as `partners-db`'s seed files and the start of its data file |
 | [`shared/partners-backend/`](shared/partners-backend/) | the back end's base: `schedule.yaml` (`intensity`, no stream), `queries.yaml`, `jobs.yaml` | as `partners-backend`'s seed files, each partner's fragments joined |
-
+| [`coldstore/`](coldstore/) | cold storage's stub, laid out as a domain's partner folder (`producers/partners/<prefix>/`, prefix `coldstore`): `api.yaml`, `routes/`, `db/` (its three endpoints), `schedule.yaml` and `queries.yaml` (its baseline stream), `data.sql` (its role, schema, manifests and state), `planted.sql` (the vault's history) | the endpoints onto `partners-api` (`compose/partners-api/` in a composed scenario), the fragments onto `partners-backend`, `data.sql` then `planted.sql` (its node list filled) after `shared/partners-db/data.sql` in `partners-db`'s data file, `coldstore` added to `pg_hba.conf`'s partners' line |
 
 A domain's own partners join the same nodes through `gmctl compose`
 (`producers/partners/<prefix>/`: its back-end fragments onto
 `partners-backend`, its `api.yaml`, `routes/` and `db/` onto
 `partners-api`); `load-data` runs its `data.sql` in `partners` (chunk 8).
 The fixtures [`fixture-partners`](../tools/tests/fixtures/fixture-partners/)
-(two sample partners) is such a copy;
+(two sample partners) and [`fixture-archive`](../tools/tests/fixtures/fixture-archive/)
+(cold storage and an archiving node) are such copies;
 `tools/tests/test_partners.py` keeps them equal to this folder.
 
 ## A partner on the shared nodes
@@ -101,6 +103,35 @@ Measured by `fixture-partners`' short test on armenelos, 2026-11-04
 
 The form joins `bricks/postgres/docs/gm.md` at wave 2's gate.
 
+## Cold storage, the vault (`coldstore/`)
+
+Hostname `cold-storage`, prefix `coldstore`, on `partners-api`
+(cold-storage.md 3; master spec 10.4, 11.2).
+
+| Endpoint | Credential | What it does |
+|---|---|---|
+| `POST /shipments` | `cold_storage` (the customer's one account key: `postgres`' `vault_credential`, purpose 14's connection) | headers `Shipment-Id`, `Shipment-Type`, `Shipment-Rows`, `Shipment-From`, `Shipment-To` (dates, inclusive), `Shipment-Source`, `Shipment-Name` (optional, the id when absent); the body streamed, counted and discarded (`wal` and `basebackup`: 1 row when non-empty; a data type: its non-empty NDJSON lines); a manifest written, the same shipment id again replacing it; the receipt 201 `{shipment_id, type, rows_declared, rows_received, size, received_at}`, as `vault-post` checks it (W1 item 6). A header missing or malformed: 400 |
+| `GET /manifests` | public | `?type=&source=&from=&to=` (each optional; dates `YYYY-MM-DD`, a manifest listed when its range meets `[from, to]`; a bad date 422): a JSON list in the order received |
+| `GET /` | public | an HTML page, one inline SVG chart per type over the last 35 days (today included, UTC), rows declared against received per day (a shipment on its range's first day), a day where they differ marked and named, a table under each chart; no script |
+
+- **The manifest**: `coldstore.manifests (shipment_id PRIMARY KEY, type,
+  source, name, rows_declared, rows_received, size, date_from, date_to,
+  received_at)`.
+- **Its state** (`coldstore.state`, host `cold-storage`): `delay_ms`
+  (added before every answer) and `uploads` (`accept`, or `refuse`:
+  `POST /shipments` answers 503, an outage); `coldstore.normal` restores
+  `0` and `accept` once a minute. A fault's key `coldstore.<behaviour>` is
+  its own material.
+- **Planted** (`planted.sql`): for each archiving node the GM lists, the
+  35 days before T0's day: its WAL segments (about `segs` a day, 16 MB
+  each, received through the day) and its nightly base backup (at its
+  crontab time, about `mb` megabytes). T0 is `load_epoch` when `load-data`
+  passes it, else the moment the data file runs. The data types'
+  manifests are their purpose's history (purpose 14), not this file's.
+- **The body is never held**: an `async` dependency streams it and keeps
+  only its size and line count (a base backup is the whole instance;
+  the route itself is plain `def`, as the brick requires).
+
 ## Known limits
 
 - One partner's slow answers hold none of the others' while the server's
@@ -108,3 +139,10 @@ The form joins `bricks/postgres/docs/gm.md` at wave 2's gate.
   further request waits for a thread (measured, W2-f). A caller's pool
   bounds what it keeps in flight.
 - Every partner calls from `partners-api`'s address (one network).
+- A segment's shipment id is its file name: two archiving nodes post the
+  same names (each cluster starts at its first segment), and under
+  `shipment_id PRIMARY KEY` the second replaces the first's manifest. One
+  archiving node per scenario is safe as built; W2-f proposes the key
+  `(source, shipment_id)` for the clinic's two.
+- The planted segment names start at log `0x40`, above a fresh cluster's
+  live names: the history's names are higher than the live ones.
