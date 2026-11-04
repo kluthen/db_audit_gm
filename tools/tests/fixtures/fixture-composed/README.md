@@ -1,0 +1,27 @@
+# fixture-composed
+
+Fixture of `tools/tests/test_coherence.py` (v0.5 chunk 8, capture W2 item
+3): not a game and not a complete scenario. `catalog/` is a test catalogue
+root: a core, `fx-core` (variant `small`), shipping `data/keys.sql` (its
+`pg_temp.core_*` key functions) and a partner's state,
+`producers/partners/xlab/data.sql`; its part `fx-ward` (`lands_with:
+fx-core`, a contrib extension, `btree_gist`, in its schema); its part
+`fx-docs` in a database of its own (`records/docs`, `pgcrypto` in its
+schema) with a derivation, `data/derive.sql`, sanctioned after `fx-core`;
+both parts with `data/coherence.yaml`; and a purpose, `fx-weekly`, whose
+`material/history.sql` plants `records/office`. `scenario/` composes them
+on two `postgres` nodes, `records` and the partners' `partners-db`, its
+`composition.yaml` loading `fx-docs` before `fx-ward` (not `domains:`'
+order).
+
+The unit tests read it with load-data's SQL runs stubbed. The composed
+test load runs it into two throwaway containers of the `postgres` image
+at its current tag (never a Swarm deployment), a passing load, then a
+broken range failing the coherence check, under the host lock:
+
+    flock /tmp/dbagm-docker.lock systemd-inhibit --what=sleep:idle:handle-lid-switch \
+        --who=dbagm --why=composed-load env GM_TEST_COMPOSED_LOAD=1 \
+        python3 -m unittest tools.tests.test_coherence.TestComposedLoad -v
+
+`GM_TEST_PG_IMAGE` names another image (default
+`127.0.0.1:5000/dbagm/postgres:0.5.0`).

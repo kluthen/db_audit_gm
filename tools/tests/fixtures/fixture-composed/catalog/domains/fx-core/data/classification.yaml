@@ -1,0 +1,9 @@
+# The test core's classification (tools/tests, v0.5 chunk 8).
+columns:
+  animals.id: internal
+  animals.name: customer-linked
+  animals.species: internal
+  stays.id: internal
+  stays.animal_id: customer-linked
+  stays.admitted_at: customer-linked
+  stays.discharged_at: customer-linked

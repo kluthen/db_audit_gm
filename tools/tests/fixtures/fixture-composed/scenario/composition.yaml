@@ -1,0 +1,13 @@
+# The composed load fixture's composition record (tools/tests, v0.5 chunk 8):
+# fx-docs loads before fx-ward, against domains:' order.
+domains:
+  - {id: fx-core, variant: small, at: records/clinic}
+  - {id: fx-ward, at: records/clinic, lands_with: fx-core}
+  - {id: fx-docs, at: records/docs}
+keys:
+  fx-ward: [core_stay, core_admitted]
+  fx-docs: [core_stay]
+scale: {checked: true, note: "four units for four current stays"}
+order: [fx-core, fx-docs, fx-ward]
+derive:
+  - {domain: fx-docs, after: [fx-core], reason: "a document copies its stay"}

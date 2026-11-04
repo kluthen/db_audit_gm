@@ -1,0 +1,8 @@
+# The test part's register fragment (tools/tests, v0.5 chunk 8).
+activities:
+  - id: fx-ward-placements
+    name: Placements
+    purpose: Placing the current stays in units
+    people: [owners]
+    tables: [ward_placements]
+    retention: {period: 1 month, then: anonymised}

@@ -1,0 +1,8 @@
+# The test part's register fragment (tools/tests, v0.5 chunk 8).
+activities:
+  - id: fx-docs-documents
+    name: Documents
+    purpose: Documenting the stays
+    people: [owners]
+    tables: [doc_requests, documents]
+    retention: {period: 1 year, then: erased}

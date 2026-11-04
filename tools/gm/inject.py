@@ -65,6 +65,34 @@ behaviour is fixed by capture W3-A (`specs/versions/v0.1/wave-log.md`):
   `pg_stat_replication` shows the slot's sender `streaming`. Any failure
   is a failed setup. The sessions writing a secret (passwords, user
   mappings) turn pgaudit off beside statement logging (G5).
+- v0.5, **the composed load** (master spec 8.5, 12.1 item 5, 15, 24;
+  formats.md "Composing domains"; capture W2 item 3, spec D358, D360):
+  after the nodes' data files, a scenario with `domains:` loads each
+  domain in `composition.yaml`'s `order`, read from the catalogue
+  (`<catalog>/domains/<id>/`): each `at:` database absent from its node
+  created (owner `postgres`, `CONNECT` revoked from `PUBLIC`), then the
+  domain's `schema.sql` and `load.sql` run connected to it (`psql -d
+  <db>`, the database named in them as `:"DBNAME"`; a several-database
+  part in `databases` order), then each of its partner folders'
+  `producers/partners/<prefix>/data.sql`, in name order, into the
+  partners' database `partners` (on the `postgres` node the
+  `third_parties:` entries list). The core's `data/keys.sql`, when it
+  ships one, is streamed ahead of every load, partner file and
+  derivation of the core and its parts, in the same session, so its
+  `pg_temp.core_*` functions vanish with it. Then the sanctioned
+  derivations (`derive`, in order), then each `purposes:` entry's
+  `history` (in list order, in its `target`), each reading its sources
+  through foreign schemas `gm_src_<name>` (postgres_fdw, as `gm_check`
+  with its secret) created for the session and dropped after, with the
+  extension when the session created it; their sessions unseen
+  (statement logging, pgaudit and pg_stat_statements off locally;
+  `gm_check`'s role settings likewise on every source, set before and
+  reset after). Then the coherence check (coherence.py), its record in
+  `composition.yaml` and state.yaml, a failing check failing the setup
+  as a design error. Every file load-data runs gets `-v load_epoch=<the
+  run's start, UTC, to the minute>` beside the zone and its offset. The
+  v0.4 steps (passwords to the `pg_cron` clean-up) follow, then the
+  standbys' clone.
 - `inject`, at `data-loaded` (or `injected`, to replay the idempotent
   scripts): for every fault instance in `fault_instances` order, a `state`
   fault's `injection.scripts` are streamed in their listed order into `sh
@@ -87,10 +115,16 @@ import hashlib
 import hmac
 import json
 import os
+import re
+import shutil
+import tempfile
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 
-from . import localimpl, model, render, state, teardown
+import yaml
+
+from . import coherence, localimpl, model, render, state, teardown
 from .docker import for_local_dir
 from .execnode import exec_node
 from .model import GmError
@@ -140,6 +174,24 @@ REPLICATION_ROLE = "replicator"
 REPLICATION_SECRET = "replication_password"
 CLONE_STANDBY = "/usr/local/lib/gm/clone-standby"
 STANDBY_WAIT = 300                  # seconds, without --timeout: the clone, then streaming
+# The composed load (v0.5 capture W2 item 3).
+EPOCH_VAR = "load_epoch"            # every file's one reference moment
+COMPOSITION_FILE = "composition.yaml"
+KEYS_FILE = "data/keys.sql"         # a core's key functions, pg_temp.core_*
+DERIVE_FILE = "data/derive.sql"
+PARTNERS_DB = coherence.PARTNERS    # the partners' database (W2 item 0)
+PARTNER_DATA = "data.sql"           # producers/partners/<prefix>/data.sql
+SOURCE_PREFIX = "gm_src_"           # load-data's foreign schemas and servers (reserved)
+FDW = "postgres_fdw"
+SOCKET_DIR = "/run/postgresql"      # a source on the same instance
+PG_PORT = 5432
+MAX_NAME = 63                       # PostgreSQL's identifier length
+# gm_check's role settings on a source while load-data reads it: what the
+# local session sets for itself (NO_LOG_SQL, NO_STATS_SQL, NO_AUDIT_SQL).
+CHECK_ROLE_SETTINGS = (("log_statement", "none"), ("log_min_duration_statement", "-1"),
+                       ("log_min_error_statement", "panic"),
+                       ("pg_stat_statements.track", "none"), ("pgaudit.log", "none"))
+_CONNECT_RE = re.compile(r"^\s*\\(c|connect)(\s|$)")
 
 
 # --- Fault parameters --------------------------------------------------------
@@ -256,6 +308,13 @@ class LoadResult:
     game_id: str
     already: str = None             # the stage, when the data was already loaded
     loaded: list = field(default_factory=list)     # [(node, file)]
+    created: list = field(default_factory=list)    # [(node, database)] a domain's, created
+    domains: list = field(default_factory=list)    # [(domain, node, database, what)] run
+    partners: list = field(default_factory=list)   # [(domain, prefix, node)]
+    derived: list = field(default_factory=list)    # [(domain, node, database)]
+    histories: list = field(default_factory=list)  # [(purpose, node, database)]
+    coherence: list = field(default_factory=list)  # [coherence.Outcome]
+    coherence_result: str = None                   # pass | fail, None without domains:
     passwords: list = field(default_factory=list)  # [(database node, [role])]
     mappings: list = field(default_factory=list)   # [(node, database, [Mapping])]
     policies: list = field(default_factory=list)   # [(node, database)]: CHECK_POLICY
@@ -272,8 +331,24 @@ class LoadResult:
                     "loaded; nothing done.")
         out = [f"Game {self.game_id}: data loaded."]
         out += [f"  {node}: {rel}" for node, rel in self.loaded]
-        if not self.loaded:
+        if not self.loaded and not self.domains:
             out.append("  no node holds data")
+        out += [f"  {node}/{db}: database created for the domains, CONNECT revoked from PUBLIC"
+                for node, db in self.created]
+        out += [f"  {node}/{db}: {what}" for _, node, db, what in self.domains]
+        out += [f"  {node}/{PARTNERS_DB}: partner {prefix}'s state ({domain})"
+                for domain, prefix, node in self.partners]
+        out += [f"  {node}/{db}: {domain}'s derivation, unseen" for domain, node, db in self.derived]
+        out += [f"  {node}/{db}: purpose {pid}'s history, unseen"
+                for pid, node, db in self.histories]
+        if self.coherence_result:
+            counts = {r: sum(1 for o in self.coherence if o.result == r)
+                      for r in (coherence.PASS, coherence.FAIL, coherence.SKIPPED)}
+            out.append(f"  coherence check: {self.coherence_result} ({counts['pass']} passed, "
+                       f"{counts['fail']} failed, {counts['skipped']} skipped; recorded in "
+                       f"{COMPOSITION_FILE})")
+            out += [f"    {o.domain} {o.check}: skipped ({o.reason})" for o in self.coherence
+                    if o.result == coherence.SKIPPED]
         out += [f"  {node}: password set from its secret for role(s) {', '.join(roles)}"
                 for node, roles in self.passwords]
         out += [f"  {node}/{db}: user mapping for {m.local_text} on server {m.server} given "
@@ -322,27 +397,44 @@ def psql_variables(impl):
     return {TIMEZONE_VAR: render.zone_name(shift), OFFSET_VAR: str(shift)}
 
 
-def data_argv(variables):
-    """PSQL_ARGV with each variable as `-v <name>=<value>` before `-d`."""
+def load_epoch(now=None):
+    """The run's one reference moment (W2 item 3): its start, UTC, ISO 8601
+    to the minute (`2026-11-04T09:30Z`); a load's "now" is
+    `:'load_epoch'::timestamptz`, never `now()`."""
+    now = now or datetime.now(timezone.utc)
+    return now.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
+
+
+def data_argv(variables, database="postgres"):
+    """PSQL_ARGV with each variable as `-v <name>=<value>` before `-d`,
+    connected to `database`."""
     extra = [arg for name, value in variables.items() for arg in ("-v", f"{name}={value}")]
-    return (*PSQL_ARGV[:-2], *extra, *PSQL_ARGV[-2:])
+    return (*PSQL_ARGV[:-2], *extra, PSQL_ARGV[-2], database)
 
 
-def password_plan(scenario, impl):
+def read_argv(database):
+    """SURVEY_ARGV (unaligned, tuples only) connected to `database`."""
+    return (*SURVEY_ARGV[:-1], database)
+
+
+def password_plan(scenario, impl, catalog_root=model.REPO_ROOT):
     """[(database node, [(role, secret)])]: every role a scheduler node's
     schedule or an `api` node's api.yaml names (spec D345; an HTTP
     connection names none), on the node its connection targets when that node is a
-    `database` node, else (through a pooler) on the `database` nodes whose
-    data file creates the target database, or on every `database` node
-    when none does; then (v0.4 capture W1
+    `database` node, else (through a pooler) on the `database` nodes where
+    the target database is created (model.node_creates: the data file, or
+    v0.5 a composed domain or a partner `data.sql` from `catalog_root`,
+    W2 item 1, spec D360), or on every `database` node when none is; then (v0.4 capture W1
     item 8) every role a node's `crontab_roles` names, on that node; then
-    (master spec 9.7) every login role a node's data file creates, on that
-    node; topology order, each role once per node."""
+    (master spec 9.7) every login role created on a node with no password
+    of its own (localimpl.data_login_roles, from the same `catalog_root`:
+    its data file's, then its domains' and partner files'), on that node;
+    topology order, each role once per node."""
     primaries = {n["name"]: localimpl.standby_of(n) for n in scenario.nodes
                  if localimpl.standby_of(n)}
     databases = [n["name"] for n in scenario.nodes
                  if n.get("role") == DATABASE_ROLE and n["name"] not in primaries]
-    created = {n["name"]: model.node_data_file_creates(Path(scenario.dir), n)
+    created = {n["name"]: model.node_creates(Path(scenario.dir), scenario.data, n, catalog_root)
                for n in scenario.nodes if n["name"] in databases}
     roles_of = {}
 
@@ -371,7 +463,7 @@ def password_plan(scenario, impl):
     for node in scenario.nodes:
         if node.get("role") != DATABASE_ROLE:
             continue
-        for role in localimpl.data_login_roles(scenario, node):
+        for role in localimpl.data_login_roles(scenario, node, catalog_root):
             add(node["name"], role)
     return [(db, [(r, localimpl.role_secret_name(r)) for r in roles_of[db]])
             for db in databases if db in roles_of]
@@ -438,6 +530,311 @@ def data_plan(scenario, impl):
         if node["name"] not in impl["nodes"]:
             raise GmError(f"node {node['name']} is not a node of game {impl['game_id']}")
         plan.append((node["name"], spec["file"], scenario.dir / spec["file"]))
+    return plan
+
+
+# --- The composed load: its plan (v0.5 capture W2 item 3) ---------------------
+
+@dataclass
+class Source:
+    """A database a derivation, a history or a coherence query reads, through
+    the foreign schemas gm_src_<name> (its `public`) and gm_src_<name>_<s>."""
+    name: str
+    node: str
+    database: str
+
+    @property
+    def server(self):
+        return SOURCE_PREFIX + self.name
+
+
+@dataclass
+class FileRun:
+    """Files streamed in order into one psql session as `postgres`,
+    connected to `database` on `node` (the core's keys first)."""
+    what: str                       # as printed: "<domain> data/load.sql"
+    node: str
+    database: str
+    paths: list
+
+
+@dataclass
+class DomainLoad:
+    domain: str
+    databases: list                 # [(node, database)]: created when absent, in order
+    runs: list                      # [FileRun]: each database's schema then load, then
+                                    #   the partner files
+    partners: list                  # [(prefix, node)]
+
+
+@dataclass
+class SourcedRun:
+    """A derivation or a purpose's history: its files run unseen in
+    `database`, its sources reachable as gm_src_<name>."""
+    kind: str                       # derive | history
+    owner: str                      # the domain or the purpose
+    what: str
+    node: str
+    database: str
+    paths: list
+    sources: list
+
+
+@dataclass
+class CheckRun:
+    check: object                   # coherence.Check
+    node: str
+    database: str
+    sources: list
+    skipped: str = None             # why it is not run
+
+
+@dataclass
+class ComposedPlan:
+    domains: list = field(default_factory=list)       # [DomainLoad], in order
+    derivations: list = field(default_factory=list)   # [SourcedRun]
+    histories: list = field(default_factory=list)     # [SourcedRun]
+    checks: list = field(default_factory=list)        # [CheckRun]
+    composition: Path = None        # the record, rewritten after the check
+
+    def reading_nodes(self):
+        """{node: [database]} every derivation, history and check run reads."""
+        nodes = {}
+        for run in self.derivations + self.histories + [c for c in self.checks
+                                                        if not c.skipped]:
+            for src in run.sources:
+                dbs = nodes.setdefault(src.node, [])
+                if src.database not in dbs:
+                    dbs.append(src.database)
+        return nodes
+
+
+def _catalog_yaml(path, label):
+    try:
+        content = model.strict_load(Path(path).read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        raise GmError(f"{label}: missing file") from None
+    except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
+        raise GmError(f"{label}: cannot be read: {' '.join(str(exc).split())}") from None
+    if not isinstance(content, dict):
+        raise GmError(f"{label}: top level: not a mapping")
+    return content
+
+
+def _load_node(scenario, impl, node, where):
+    """`node`, refused unless a primary `database` node of the game (every load
+    step skips a standby, W1-x)."""
+    found = next((n for n in scenario.nodes if n.get("name") == node), None)
+    if found is None or found.get("role") != DATABASE_ROLE:
+        raise GmError(f"{where}: {node} is not a database node of the scenario")
+    if localimpl.standby_of(found):
+        raise GmError(f"{where}: {node} is a standby (standby_of {localimpl.standby_of(found)}): "
+                      "it holds only its primary's copy, never a location")
+    if node not in impl["nodes"]:
+        raise GmError(f"node {node} is not a node of game {impl['game_id']}")
+    return node
+
+
+def _location(value, scenario, impl, where):
+    m = model.AT_RE.match(value) if isinstance(value, str) else None
+    if m is None:
+        raise GmError(f"{where}: {value!r} is not <node>/<database>")
+    return _load_node(scenario, impl, m.group(1), where), m.group(3)
+
+
+def _file(base, rel, where, catalog):
+    path = base / rel
+    if not path.is_file():
+        try:
+            shown = path.relative_to(catalog).as_posix()
+        except ValueError:
+            shown = str(path)
+        raise GmError(f"{shown}: missing file ({where})")
+    return path
+
+
+def _check_connected(path, shown):
+    """A domain's schema or load file is run connected to its database (W2
+    item 3): GmError for one creating a database or switching to another."""
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        for number, line in enumerate(fh, 1):
+            if _CONNECT_RE.match(line) or model.data_file_creates(line, shown).databases:
+                raise GmError(f"{shown}:{number}: {line.strip()[:80]}: a domain's schema and load "
+                              "run connected to their database (psql -d <db>, named "
+                              ":\"DBNAME\"), never create one or \\connect to one")
+
+
+def partners_node(scenario, impl=None):
+    """The `postgres` node the `third_parties:` entries list (the partners'
+    database, W2 item 0), or None; GmError for two."""
+    by_name = {n.get("name"): n for n in scenario.nodes}
+    found = []
+    for entry in scenario.data.get("third_parties") or []:
+        for name in (entry.get("nodes") or []) if isinstance(entry, dict) else []:
+            node = by_name.get(name)
+            if node is not None and node.get("role") == DATABASE_ROLE and name not in found:
+                found.append(name)
+    if len(found) > 1:
+        raise GmError(f"scenario.yaml: third_parties: {len(found)} database nodes "
+                      f"({', '.join(found)}); the partners share one, holding {PARTNERS_DB}")
+    return found[0] if found else None
+
+
+@dataclass
+class _Domain:
+    id: str
+    dir: Path
+    data: dict
+    core: str
+    locations: list                 # [(database of the domain or None, node, database)]
+    sources: list                   # [Source]
+
+    @property
+    def several(self):
+        return isinstance(self.data.get("databases"), list)
+
+
+def _composed_domains(scenario, impl, catalog):
+    """{id: _Domain} of every `domains:` entry, in its order."""
+    out = {}
+    for entry in scenario.data.get("domains") or []:
+        did = entry.get("id")
+        where = f"scenario.yaml: domains[{did}]"
+        ddir = catalog / "domains" / str(did)
+        data = _catalog_yaml(ddir / "domain.yaml", f"domains/{did}/domain.yaml")
+        requires = data.get("requires")
+        core = requires[0] if isinstance(requires, list) and requires else did
+        at = entry.get("at")
+        base = str(did).replace("-", "_")
+        if isinstance(data.get("databases"), list):
+            if not (isinstance(at, dict) and set(at) == set(data["databases"])):
+                raise GmError(f"{where}.at: not a map from each of {did}'s databases")
+            locations = [(db, *_location(at[db], scenario, impl, f"{where}.at.{db}"))
+                         for db in data["databases"]]
+            sources = [Source(f"{base}_{db}", node, database) for db, node, database in locations]
+        else:
+            locations = [(None, *_location(at, scenario, impl, f"{where}.at"))]
+            sources = [Source(base, locations[0][1], locations[0][2])]
+        for src in sources:
+            if len(src.server) > MAX_NAME:
+                raise GmError(f"{where}: its foreign schema {src.server} is longer than "
+                              f"{MAX_NAME} characters")
+        out[did] = _Domain(did, ddir, data, core, locations, sources)
+    return out
+
+
+def _keys(domains, catalog, did):
+    """[the core's data/keys.sql] for domain `did`, [] when its core ships none."""
+    core = domains[did].core
+    path = catalog / "domains" / core / KEYS_FILE
+    return [path] if path.is_file() else []
+
+
+def composed_plan(scenario, impl, catalog_root=model.REPO_ROOT):
+    """The composed load's ComposedPlan (W2 item 3), every file found and
+    every location checked before anything runs; an empty plan for a
+    scenario without `domains:`. GmError on a refusal."""
+    plan = ComposedPlan()
+    if not scenario.data.get("domains"):
+        return plan
+    catalog = Path(catalog_root)
+    plan.composition = Path(scenario.dir) / COMPOSITION_FILE
+    record = _catalog_yaml(plan.composition, COMPOSITION_FILE)
+    domains = _composed_domains(scenario, impl, catalog)
+    order = record.get("order")
+    if not (isinstance(order, list) and sorted(map(str, order)) == sorted(domains)):
+        raise GmError(f"{COMPOSITION_FILE}: order: {order!r} does not list every domain of "
+                      "domains: once")
+    pnode = partners_node(scenario)
+    if pnode is not None:
+        _load_node(scenario, impl, pnode, "scenario.yaml: third_parties")
+    for did in order:
+        d = domains[did]
+        keys = _keys(domains, catalog, did)
+        runs = []
+        for db, node, database in d.locations:
+            folder = Path("data") / db if db else None
+            for key in ("schema", "load"):
+                rel = folder / f"{key}.sql" if folder else d.data.get(key)
+                path = _file(d.dir, str(rel), f"domains/{did}/domain.yaml {key}", catalog)
+                shown = f"domains/{did}/{rel}"
+                _check_connected(path, shown)
+                runs.append(FileRun(f"{did} {rel}", node, database,
+                                    (keys if key == "load" else []) + [path]))
+        partners = []
+        pdir = d.dir / "producers" / "partners"
+        for folder in sorted(p for p in pdir.iterdir() if p.is_dir()) if pdir.is_dir() else []:
+            path = folder / PARTNER_DATA
+            if not path.is_file():
+                continue
+            if pnode is None:
+                raise GmError(f"domains/{did}/producers/partners/{folder.name}/{PARTNER_DATA}: "
+                              "a partner's state, but no third_parties: entry lists a database "
+                              f"node holding {PARTNERS_DB}")
+            runs.append(FileRun(f"{did} producers/partners/{folder.name}/{PARTNER_DATA}", pnode,
+                                PARTNERS_DB, keys + [path]))
+            partners.append((folder.name, pnode))
+        plan.domains.append(DomainLoad(did, [(n, db) for _, n, db in d.locations], runs,
+                                       partners))
+    for i, step in enumerate(record.get("derive") or []):
+        did = step.get("domain") if isinstance(step, dict) else None
+        where = f"{COMPOSITION_FILE}: derive[{did if isinstance(did, str) else i}]"
+        if did not in domains:
+            raise GmError(f"{where}: {did!r} is not a domain of domains:")
+        d = domains[did]
+        if d.several:
+            raise GmError(f"{where}: {did} has several databases; a derivation runs in its "
+                          "part's one database")
+        after = step.get("after") or []
+        missing = [a for a in after if a not in domains]
+        if missing:
+            raise GmError(f"{where}.after: {', '.join(map(str, missing))}: not composed")
+        path = _file(d.dir, DERIVE_FILE, f"{where}", catalog)
+        _, node, database = d.locations[0]
+        plan.derivations.append(SourcedRun(
+            "derive", did, f"{did} {DERIVE_FILE}", node, database,
+            _keys(domains, catalog, did) + [path],
+            [src for a in after for src in domains[a].sources]))
+    for entry in scenario.data.get("purposes") or []:
+        pid = entry.get("id") if isinstance(entry, dict) else None
+        pdir = catalog / "purposes" / str(pid)
+        pdata = _catalog_yaml(pdir / "purpose.yaml", f"purposes/{pid}/purpose.yaml")
+        history = pdata.get("history")
+        if not history:
+            continue
+        where = f"scenario.yaml: purposes[{pid}]"
+        parts = entry.get("parts") if isinstance(entry.get("parts"), dict) else {}
+        path = _file(pdir, str(history), f"purposes/{pid}/purpose.yaml history", catalog)
+        node, database = _location(parts.get("target"), scenario, impl, f"{where}.parts.target")
+        sources = [Source(part, *_location(value, scenario, impl, f"{where}.parts.{part}"))
+                   for part, value in parts.items()
+                   if part != "target" and isinstance(value, str) and "/" in value]
+        plan.histories.append(SourcedRun("history", pid, f"{pid} {history}", node, database,
+                                         [path], sources))
+    for did in order:
+        d = domains[did]
+        checks = coherence.read_checks(d.dir / coherence.COHERENCE_FILE, did,
+                                       d.data.get("databases") if d.several else None)
+        for check in checks:
+            _, node, database = next(loc for loc in d.locations
+                                     if loc[0] == check.database)
+            run = CheckRun(check, node, database, [])
+            for name in check.reads:
+                if name == PARTNERS_DB:
+                    if pnode is None:
+                        run.skipped = f"reads {PARTNERS_DB}: the game has no partners' database"
+                    else:
+                        run.sources.append(Source(PARTNERS_DB, pnode, PARTNERS_DB))
+                elif name in domains:
+                    run.sources += domains[name].sources
+                elif (catalog / "domains" / name / "domain.yaml").is_file():
+                    run.skipped = f"reads {name}, not composed"
+                else:
+                    raise GmError(f"domains/{did}/{coherence.COHERENCE_FILE}: checks[{check.id}]"
+                                  f".reads: {name} is not a domain of the catalogue")
+            if run.skipped:
+                run.sources = []
+            plan.checks.append(run)
     return plan
 
 
@@ -950,6 +1347,234 @@ def clean_launcher_lines(ldir, node, docker, result, timeout=None, out=print):
     result.cleaned.append((node, files))
 
 
+# --- The composed load: its runs (v0.5 capture W2 item 3) ---------------------
+
+UNSEEN_SQL = "\n".join((*NO_LOG_SQL, *NO_AUDIT_SQL, *NO_STATS_SQL, QUIET_SQL)) + "\n"
+
+
+def stream_files(paths):
+    """A temporary file holding `paths`' bytes in order, each ended by a
+    newline, at offset 0: one psql session for the core's keys and a load
+    (a large load streamed, never read into memory)."""
+    fh = tempfile.TemporaryFile()
+    for path in paths:
+        with open(path, "rb") as src:
+            shutil.copyfileobj(src, fh)
+        if fh.tell():
+            fh.seek(-1, os.SEEK_END)
+            if fh.read(1) != b"\n":
+                fh.write(b"\n")
+    fh.seek(0)
+    return fh
+
+
+def create_database_sql(database):
+    """Creates `database` when absent (owner postgres), `CONNECT` revoked from
+    `PUBLIC`, and then prints CREATED_MARK (W2 item 3)."""
+    return (f"SELECT NOT EXISTS (SELECT 1 FROM pg_catalog.pg_database WHERE datname = "
+            f"{quote_literal(database)}) AS gm_absent \\gset\n"
+            "\\if :gm_absent\n"
+            f"CREATE DATABASE {quote_ident(database)} OWNER postgres;\n"
+            f"REVOKE CONNECT ON DATABASE {quote_ident(database)} FROM PUBLIC;\n"
+            f"\\echo {CREATED_MARK}\n"
+            "\\endif\n")
+
+
+CREATED_MARK = "gm-database-created"
+
+
+def check_role_sql(databases=(), reset=False):
+    """gm_check's role settings on a source (W2 item 3), unseen: set, with
+    `CONNECT` on each of `databases` (a database load-data created has it
+    revoked from PUBLIC), or reset."""
+    lines = [UNSEEN_SQL]
+    for name, value in CHECK_ROLE_SETTINGS:
+        lines.append(f"ALTER ROLE {CHECK_ROLE} RESET {name};" if reset else
+                     f"ALTER ROLE {CHECK_ROLE} SET {name} = {quote_literal(value)};")
+    lines += [f"GRANT CONNECT ON DATABASE {quote_ident(db)} TO {CHECK_ROLE};" for db in databases]
+    return "\n".join(lines) + "\n"
+
+
+SCHEMAS_SQL = (UNSEEN_SQL + "SELECT COALESCE(pg_catalog.json_agg(nspname ORDER BY nspname), "
+               "'[]') FROM pg_catalog.pg_namespace WHERE nspname !~ '^pg_' AND nspname <> "
+               f"'information_schema' AND nspname !~ '^{SOURCE_PREFIX}';\n")
+
+
+def foreign_schema(source, schema):
+    return source.server if schema == "public" else f"{source.server}_{schema}"
+
+
+def fdw_sql(node, sources, schemas, password):
+    """(setup, teardown) of a session reading `sources` from `node`: the
+    extension (dropped after only when this session created it), per source
+    a server gm_src_<name> (the socket on the same node, <node>:5432 on
+    another), postgres's mapping as gm_check, and each of its `schemas`
+    ({server: [schema]}) imported, `public` into gm_src_<name>, any other
+    <s> into gm_src_<name>_<s>; the teardown drops all of it, cascading."""
+    setup = [f"SELECT NOT EXISTS (SELECT 1 FROM pg_catalog.pg_extension WHERE extname = "
+             f"{quote_literal(FDW)}) AS gm_fdw_absent \\gset",
+             f"CREATE EXTENSION IF NOT EXISTS {FDW};"]
+    teardown = []
+    for src in sources:
+        server = quote_ident(src.server)
+        host = SOCKET_DIR if src.node == node else src.node
+        setup += [f"CREATE SERVER {server} FOREIGN DATA WRAPPER {FDW} OPTIONS (host "
+                  f"{quote_literal(host)}, port '{PG_PORT}', dbname {quote_literal(src.database)});",
+                  f"CREATE USER MAPPING FOR postgres SERVER {server} OPTIONS (user "
+                  f"{quote_literal(CHECK_ROLE)}, password {quote_literal(password)});"]
+        names = [src.server] + [foreign_schema(src, s) for s in schemas[src.server]
+                                if s != "public"]
+        setup += [f"CREATE SCHEMA {quote_ident(n)};" for n in names]
+        setup += [f"IMPORT FOREIGN SCHEMA {quote_ident(s)} FROM SERVER {server} INTO "
+                  f"{quote_ident(foreign_schema(src, s))};" for s in schemas[src.server]]
+        teardown += [f"DROP SCHEMA IF EXISTS {quote_ident(n)} CASCADE;" for n in names]
+        teardown.append(f"DROP SERVER IF EXISTS {server} CASCADE;")
+    teardown += ["\\if :gm_fdw_absent", f"DROP EXTENSION IF EXISTS {FDW};", "\\endif"]
+    return "\n".join(setup) + "\n", "\n".join(teardown) + "\n"
+
+
+def _exec_sql(ldir, node, sql, argv, docker, timeout, out, heading, what, secrets=()):
+    run = exec_node(ldir, node, DATA_USER, stdin=sql, timeout=timeout, docker=docker, argv=argv)
+    out(f"{heading} (psql as {DATA_USER}): {'ok' if run.ok else f'exit {run.returncode}'}")
+    if not run.ok:
+        for line in output_lines(run):
+            out(f"    {_redacted(line, secrets)}")
+        raise GmError(f"{what}: psql exit {run.returncode}: "
+                      f"{_redacted(psql_error_line(run), secrets)}")
+    return run
+
+
+def run_file(ldir, run, variables, docker, timeout=None, out=print):
+    """One FileRun: its files streamed into psql -d <database>."""
+    with stream_files(run.paths) as fh:
+        result = exec_node(ldir, run.node, DATA_USER, stdin=fh, timeout=timeout, docker=docker,
+                           argv=data_argv(variables, run.database))
+    _print_run(out, f"{run.node}/{run.database} {run.what} (psql as {DATA_USER})", result)
+    if not result.ok:
+        raise GmError(f"load of {run.what} into {run.node}/{run.database}: psql exit "
+                      f"{result.returncode}: {psql_error_line(result)}")
+
+
+def source_schemas(ldir, sources, docker, timeout=None, out=print):
+    """{server: [schema]} of each source's database, read unseen."""
+    found = {}
+    for src in sources:
+        if src.server in found:
+            continue
+        run = _exec_sql(ldir, src.node, SCHEMAS_SQL, read_argv(src.database), docker, timeout,
+                        out, f"{src.node}/{src.database} schemas for {src.server}",
+                        f"listing the schemas of {src.node}/{src.database}")
+        rows = _json_lines(run, f"listing the schemas of {src.node}/{src.database}")
+        names = rows[-1] if rows else None
+        if not (isinstance(names, list) and all(isinstance(n, str) for n in names)):
+            raise GmError(f"listing the schemas of {src.node}/{src.database}: unexpected psql "
+                          f"output: {_first_line(run)}")
+        for name in names:
+            if len(foreign_schema(src, name)) > MAX_NAME:
+                raise GmError(f"{src.node}/{src.database}: schema {name}'s foreign schema "
+                              f"{foreign_schema(src, name)} is longer than {MAX_NAME} characters")
+        found[src.server] = names
+    return found
+
+
+def sourced_session(ldir, node, sources, body, docker, timeout=None, out=print):
+    """(sql, password): `body` (bytes or text) between the unseen prelude and
+    the FDW setup, and the teardown."""
+    password = read_secret(ldir, CHECK_SECRET) if sources else None
+    setup, teardown = fdw_sql(node, sources, source_schemas(ldir, sources, docker, timeout, out),
+                              password) if sources else ("", "")
+    body = body.decode("utf-8") if isinstance(body, (bytes, bytearray)) else body
+    if body and not body.endswith("\n"):
+        body += "\n"
+    return UNSEEN_SQL + setup + body + teardown, password
+
+
+def run_sourced(ldir, run, variables, docker, timeout=None, out=print):
+    """A derivation or a history (SourcedRun), unseen, its sources read."""
+    body = b"".join(Path(p).read_bytes().rstrip(b"\n") + b"\n" for p in run.paths)
+    sql, password = sourced_session(ldir, run.node, run.sources, body, docker, timeout, out)
+    _exec_sql(ldir, run.node, sql, data_argv(variables, run.database), docker, timeout, out,
+              f"{run.node}/{run.database} {run.what}, reading "
+              f"{', '.join(s.server for s in run.sources) or 'nothing'}",
+              f"{run.kind} {run.what} in {run.node}/{run.database}", secrets=[password] if
+              password else [])
+
+
+def run_check(ldir, run, docker, timeout=None, out=print):
+    """One CheckRun: its query in a read-only transaction, unseen; an Outcome."""
+    c = run.check
+    if run.skipped:
+        out(f"  coherence {c.domain} {c.id}: skipped ({run.skipped})")
+        return coherence.Outcome(c.domain, c.id, c.what, coherence.SKIPPED, reason=run.skipped)
+    sql, password = sourced_session(ldir, run.node, run.sources, coherence.query_sql(c),
+                                    docker, timeout, out)
+    what = f"coherence check {c.domain} {c.id} in {run.node}/{run.database}"
+    result = _exec_sql(ldir, run.node, sql, read_argv(run.database), docker, timeout, out,
+                       what, what, secrets=[password] if password else [])
+    count, rows = coherence.parse_answer(output_lines_stdout(result), what)
+    outcome = coherence.Outcome(c.domain, c.id, c.what, coherence.FAIL if count else
+                                coherence.PASS, count, rows)
+    out(f"  coherence {c.domain} {c.id}: {outcome.result}"
+        + (f" ({count} row(s))" if count else ""))
+    return outcome
+
+
+def record_coherence(ldir, plan, run_at, outcomes):
+    """The check's record: composition.yaml's `coherence:`, and each check's
+    outcome in the game's state.yaml."""
+    result = coherence.result_of(outcomes)
+    if plan.composition is not None:
+        coherence.record_composition(plan.composition, run_at, result)
+
+    def change(st):
+        st["coherence"] = {"run_at": run_at, "result": result,
+                           "checks": [o.record() for o in outcomes]}
+    localimpl.update_state(ldir, change)
+    return result
+
+
+def composed_steps(ldir, plans, docker, result, timeout=None, out=print):
+    """The composed load's steps (W2 item 3), into `result`: each domain in
+    order (its databases, schema, load and partner files), the derivations,
+    the histories, the coherence check and its record; gm_check's role
+    settings set on every source before the first read, reset after the
+    last; GmError at the first that fails, a failed check included."""
+    plan, variables = plans.composed, plans.variables
+    for load in plan.domains:
+        for node, database in load.databases:
+            run = _exec_sql(ldir, node, create_database_sql(database), PSQL_ARGV, docker,
+                            timeout, out, f"{node} database {database} for {load.domain}",
+                            f"creating database {database} on {node} for {load.domain}")
+            if CREATED_MARK in output_lines_stdout(run):
+                result.created.append((node, database))
+        for run in load.runs:
+            run_file(ldir, run, variables, docker, timeout=timeout, out=out)
+            result.domains.append((load.domain, run.node, run.database, run.what))
+        result.partners += [(load.domain, prefix, node) for prefix, node in load.partners]
+    reading = plan.reading_nodes()
+    for node, databases in reading.items():
+        _exec_sql(ldir, node, check_role_sql(databases), PSQL_ARGV, docker, timeout, out,
+                  f"{node} {CHECK_ROLE} unseen, CONNECT on {', '.join(databases)}",
+                  f"setting {CHECK_ROLE}'s role settings on {node}")
+    for run in plan.derivations + plan.histories:
+        run_sourced(ldir, run, variables, docker, timeout=timeout, out=out)
+        (result.derived if run.kind == "derive" else result.histories).append(
+            (run.owner, run.node, run.database))
+    if plan.checks:
+        run_at = localimpl.now_iso()
+        outcomes = [run_check(ldir, run, docker, timeout=timeout, out=out) for run in plan.checks]
+        result.coherence = outcomes
+        result.coherence_result = record_coherence(ldir, plan, run_at, outcomes)
+        if result.coherence_result == coherence.FAIL:
+            raise GmError(coherence.failure_text(outcomes))
+    elif plan.composition is not None:
+        result.coherence_result = record_coherence(ldir, plan, localimpl.now_iso(), [])
+    for node in reading:
+        _exec_sql(ldir, node, check_role_sql(reset=True), PSQL_ARGV, docker, timeout, out,
+                  f"{node} {CHECK_ROLE}'s role settings reset",
+                  f"resetting {CHECK_ROLE}'s role settings on {node}")
+
+
 @dataclass
 class LoadPlans:
     """`load-data`'s plans, read and checked before anything runs."""
@@ -961,11 +1586,14 @@ class LoadPlans:
     game_id: str
     secrets: set                    # game_secret_names
     standbys: list = field(default_factory=list)   # standby_plan
+    composed: ComposedPlan = field(default_factory=ComposedPlan)   # composed_plan
 
 
-def load_data(scenario_dir, playground, timeout=None, docker=None, out=print):
+def load_data(scenario_dir, playground, timeout=None, docker=None, out=print,
+              catalog_root=model.REPO_ROOT):
     """`gmctl load-data`; returns a LoadResult. Raises GmError on a refusal
-    (nothing done) or state.SetupFailed on a failure (torn down, recorded)."""
+    (nothing done) or state.SetupFailed on a failure (torn down, recorded),
+    a failed coherence check included."""
     ldir, st = _game(scenario_dir, playground)
     stage = st.get("stage")
     if stage in state.DEPLOYED_STAGES and stage != DEPLOY_STAGE:
@@ -973,9 +1601,9 @@ def load_data(scenario_dir, playground, timeout=None, docker=None, out=print):
     if stage != DEPLOY_STAGE:
         raise GmError(f"game {st.get('game_id')} is at stage {stage}; load-data needs stage "
                       f"{DEPLOY_STAGE} (run gmctl deploy)")
-    scenario = model.load_scenario(scenario_dir)
+    scenario = model.load_scenario(scenario_dir, catalog_root)
     impl = localimpl.read_implementation(ldir)
-    steps = load_plans(scenario, impl)
+    steps = load_plans(scenario, impl, catalog_root)
     docker = docker or for_local_dir(ldir)
     result = LoadResult(impl["game_id"])
 
@@ -985,18 +1613,21 @@ def load_data(scenario_dir, playground, timeout=None, docker=None, out=print):
     return result
 
 
-def load_plans(scenario, impl):
+def load_plans(scenario, impl, catalog_root=model.REPO_ROOT, now=None):
     """`load-data`'s plans (LoadPlans), read and checked before anything
-    runs."""
-    return LoadPlans(data_plan(scenario, impl), password_plan(scenario, impl),
+    runs; the domains and the purposes' histories read from the catalogue
+    `catalog_root` (W2 item 3); `load_epoch` the run's start (`now`)."""
+    return LoadPlans(data_plan(scenario, impl), password_plan(scenario, impl, catalog_root),
                      survey_plan(scenario, impl), grant_plan(scenario, impl),
-                     psql_variables(impl), impl["game_id"], game_secret_names(impl),
-                     standby_plan(scenario, impl))
+                     {**psql_variables(impl), EPOCH_VAR: load_epoch(now)}, impl["game_id"],
+                     game_secret_names(impl), standby_plan(scenario, impl),
+                     composed_plan(scenario, impl, catalog_root))
 
 
 def load_steps(ldir, plans, docker, result, timeout=None, out=print):
     """`load-data`'s steps, in order, into `result` (a LoadResult): each
-    node's data (with the psql variables), the roles' passwords, the survey
+    node's data (with the psql variables), the composed load (v0.5:
+    composed_steps), the roles' passwords, the survey
     of every database node's databases, the user mappings' passwords, the
     check role's read policy and mapping-roles function, the check role's
     `CONNECT`, the `pg_cron` launcher's start-up failures out of the server
@@ -1012,6 +1643,7 @@ def load_steps(ldir, plans, docker, result, timeout=None, out=print):
             raise GmError(f"data load of {node} ({rel}): psql exit {run.returncode}: "
                           f"{psql_error_line(run)}")
         result.loaded.append((node, rel))
+    composed_steps(ldir, plans, docker, result, timeout=timeout, out=out)
     for node, roles in plans.passwords:
         names = ", ".join(r for r, _ in roles)
         run = exec_node(ldir, node, DATA_USER, stdin=password_sql(ldir, roles),

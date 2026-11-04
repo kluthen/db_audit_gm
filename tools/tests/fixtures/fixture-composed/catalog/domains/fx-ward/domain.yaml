@@ -1,0 +1,12 @@
+# A test part of tools/tests (v0.5 chunk 8): not a game domain.
+id: fx-ward
+title: A test part placing the current stays in units
+schema: data/schema.sql
+load: data/load.sql
+classification: data/classification.yaml
+register: data/register.yaml
+producers: producers/
+notes: docs/gm.md
+requires: [fx-core]
+lands_with: fx-core
+purposes: []

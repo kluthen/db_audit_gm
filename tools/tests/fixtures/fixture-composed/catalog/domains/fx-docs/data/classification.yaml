@@ -1,0 +1,6 @@
+# The test part's classification (tools/tests, v0.5 chunk 8).
+columns:
+  doc_requests.stay_id: customer-linked
+  documents.stay_id: customer-linked
+  documents.title: customer-linked
+  documents.digest: internal

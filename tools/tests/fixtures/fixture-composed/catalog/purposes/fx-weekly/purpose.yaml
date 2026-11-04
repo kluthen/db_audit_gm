@@ -1,0 +1,6 @@
+# A test purpose of tools/tests (v0.5 chunk 8): only its history is read
+# (load-data's composed plan); not a complete purpose.
+id: fx-weekly
+title: Weekly stays counted in the back office
+domains: [fx-core]
+history: material/history.sql
