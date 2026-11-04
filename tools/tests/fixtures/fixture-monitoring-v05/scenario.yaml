@@ -1,0 +1,312 @@
+# Integration fixture of v0.5's monitoring breadth (build plan chunk 10;
+# capture W2 item 5). Not a game: the bastion (0.5.0, routes grafana,
+# prometheus and health), records (postgres 0.5.0 with the option
+# monitoring), pgwatch 0.1.0, prometheus 0.2.0 scraping pgwatch's sink,
+# grafana 0.3.0 with its pgwatch dashboard, and the health node
+# (health-check 0.1.0); six nodes on one host. Deployed by
+# tools/tests/smoke-monitoring-v05.sh (chunk 10's fixture short test, rerun
+# at wave 2's gate). Each node's resources is its master spec 14 row, the
+# monitors' from their brick footprints plus the node-health script. One
+# harmless seed-file fault (f1), since a scenario needs at least one; no
+# monitoring fault. No cold storage: the health node's backup script reads
+# UNKNOWN here; its first read against cold storage is G13's (spec D362).
+
+# --- Scenario information --------------------------------------------
+id: fixture-monitoring-v05
+version: 0.1.0
+title: Integration fixture for the v0.5 monitoring breadth
+date: 2026-11-04
+origin: hand-written
+session_length_minutes: 60
+brief: brief.md
+background: >-
+  A small clinic runs one PostgreSQL database, records, watched by pgwatch
+  into Prometheus and Grafana and by a Nagios-style health node with its
+  own status page, reached through a bastion whose web front publishes
+  Prometheus, Grafana and the health page.
+
+# --- Aging and difficulty ---------------------------------------------
+# No aging: no scheduler node, so the fixture does not age and has no
+# `aging:` (v0.3 master spec 8; D157, D158).
+difficulty:
+  score: 1                          # its one fault instance (master spec 15.1)
+
+# --- Topology ---------------------------------------------------------
+networks:
+  - name: backend
+    description: >-
+      players' sessions, the web front's routes, the scrapes, pgwatch's and
+      the health checks' queries, and Grafana's queries to Prometheus
+
+nodes:
+  - name: bastion
+    brick:
+      id: bastion
+      version: 0.5.0
+    role: bastion
+    stateful: true
+    networks: [backend]
+    write_policy: report-only
+    parameters:
+      web_routes: {grafana: "grafana:3000", prometheus: "prometheus:9090", health: "health:8080"}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256M
+      reservations:
+        cpu: 0.1
+        memory: 96M
+        disk: 256M
+    published_ports: [{port: 22, default: 2222}, {port: 8080, default: 8080}]
+    seed_files:
+      README.md: player/README.md
+      story.md: player/story.md
+      issues.md: player/issues.md
+    knobs: []
+
+  - name: records
+    brick:
+      id: postgres
+      version: 0.5.0
+    options: [monitoring]           # pgwatch's and the health node's target (master spec 7.1)
+    role: database
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 1
+        memory: 1G
+      reservations:
+        cpu: 0.5
+        memory: 512M
+        disk: 2.25G
+    published_ports: []
+    seed_files:
+      postgresql.conf: nodes/records/postgresql.conf
+      pg_hba.conf: nodes/records/pg_hba.conf
+    knobs:
+      - setting: shared_buffers
+        initial: 128MB
+        envelope: {min: 64MB, max: 256MB}    # tightened from the brick's 32MB
+      - setting: work_mem
+        initial: 4MB
+        envelope: {min: 1MB, max: 64MB}
+      - setting: maintenance_work_mem
+        initial: 64MB
+        envelope: {min: 16MB, max: 256MB}
+      - setting: max_connections
+        initial: 100
+        envelope: {min: 10, max: 200}
+      - setting: max_wal_size
+        initial: 1GB
+        envelope: {min: 64MB, max: 1GB}
+      - setting: autovacuum
+        initial: "on"
+        envelope: {allowed: ["on"]}
+    data:
+      file: data/records.sql
+      databases:
+        - name: shop
+          owner: shop
+          tables:
+            - name: customers
+              description: 500 customers (id, name); primary key on id.
+            - name: orders
+              description: >-
+                20 000 orders (id, customer_id, placed_at, total); primary key
+                on id, index orders_customer_id_idx on customer_id.
+
+  - name: prometheus
+    brick:
+      id: prometheus
+      version: 0.2.0
+    role: monitoring
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters:
+      node_health: {bastion: default, records: default, prometheus: default, pgwatch: default,
+                    grafana: default, health: default}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 384M
+      reservations:
+        cpu: 0.1
+        memory: 160M
+        disk: 512M
+    published_ports: []
+    seed_files:
+      prometheus.yml: nodes/prometheus/prometheus.yml
+    knobs: []
+
+  - name: pgwatch
+    brick:
+      id: pgwatch
+      version: 0.1.0
+    role: monitoring
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:                      # master spec 14: 0.1 CPU, 96M (the brick's footprint and
+      limits:                       #   the node-health script's 0.005 CPU, 6M)
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 96M
+        disk: 64M
+    published_ports: []
+    seed_files:
+      sources.yaml: nodes/pgwatch/sources.yaml
+    knobs: []
+
+  - name: grafana
+    brick:
+      id: grafana
+      version: 0.3.0
+    role: monitoring
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 384M
+      reservations:
+        cpu: 0.1
+        memory: 272M                # measured (wave log capture W4-D), node-health script included
+        disk: 256M
+    published_ports: []
+    seed_files:                     # copied byte for byte from bricks/grafana/companion/
+      datasources.yaml: nodes/grafana/datasources.yaml
+      dashboards.yaml: nodes/grafana/dashboards.yaml
+      node-health.json: nodes/grafana/node-health.json
+      postgresql.json: nodes/grafana/postgresql.json
+      pgwatch.json: nodes/grafana/pgwatch.json     # grafana 0.3.0's optional pgwatch dashboard
+      alert-rules.yaml: nodes/grafana/alert-rules.yaml
+    knobs: []
+
+  - name: health
+    brick:
+      id: health-check
+      version: 0.1.0
+    role: monitoring
+    stateful: true
+    networks: [backend]
+    write_policy: fixable
+    parameters: {}
+    resources:                      # master spec 14: 0.1 CPU, 64M (the brick's footprint and
+      limits:                       #   the node-health script's 0.005 CPU, 6M)
+        cpu: 0.25
+        memory: 128M
+      reservations:
+        cpu: 0.1
+        memory: 64M
+        disk: 64M
+    published_ports: []
+    seed_files:
+      health.yaml: nodes/health/health.yaml
+      crontab: nodes/health/crontab
+      scripts/: nodes/health/scripts
+    crontab_roles: []               # its crontab connects as monitoring, the brick's own secret
+    knobs: []
+
+flows:
+  - from: bastion
+    to: records
+    what: players' SSH and SQL sessions
+    how: ssh 22, postgresql 5432
+    cadence: interactive
+  - from: bastion
+    to: prometheus
+    what: players' SSH sessions, and the web front's route prometheus
+    how: ssh 22, http 9090
+    cadence: interactive
+  - from: bastion
+    to: pgwatch
+    what: players' SSH sessions
+    how: ssh 22
+    cadence: interactive
+  - from: bastion
+    to: grafana
+    what: players' SSH sessions, and the web front's route grafana
+    how: ssh 22, http 3000
+    cadence: interactive
+  - from: bastion
+    to: health
+    what: players' SSH sessions, and the web front's route health (the status page)
+    how: ssh 22, http 8080
+    cadence: interactive
+  - from: prometheus
+    to: pgwatch
+    what: pgwatch's metrics (its Prometheus sink), and the node-health scrape
+    how: http 9188, http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: bastion
+    what: the node-health scrape
+    how: http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: records
+    what: the node-health scrape
+    how: http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: grafana
+    what: the node-health scrape
+    how: http 9110
+    cadence: every 15 s
+  - from: prometheus
+    to: health
+    what: the node-health scrape
+    how: http 9110
+    cadence: every 15 s
+  - from: pgwatch
+    to: records
+    what: pgwatch's basic preset, as the monitoring role
+    how: postgresql 5432
+    cadence: every 1 min (db_size every 5 min)
+  - from: health
+    to: records
+    what: check_postgres and the disk alarm, as the monitoring role
+    how: postgresql 5432
+    cadence: every 5 min
+  - from: grafana
+    to: prometheus
+    what: dashboard queries and alert rule evaluation
+    how: http 9090
+    cadence: every 1 min, and interactive
+
+# --- Incidents, flaws and defects ------------------------------------
+fault_instances:
+  - id: f1
+    fault:
+      id: fixture-random-page-cost
+      version: 0.1.0
+    node: records
+    parameters: {}
+    visibility: hidden
+
+issues: []
+
+# --- Host topology it was designed for -------------------------------
+designed_for:
+  platform: swarm
+  hosts:
+    - name: laptop
+      cpu: 2
+      memory: 4G
+      disk: 8G
+  placement:
+    bastion: laptop
+    records: laptop
+    prometheus: laptop
+    pgwatch: laptop
+    grafana: laptop
+    health: laptop

@@ -21,7 +21,19 @@ The image:
   PGDG repository (`trixie-pgdg`, major version pinned by package name;
   `pg_stat_statements` ships with the server), pgBadger from the same
   repository (13.2 at the 0.2.0 build), `openssh-server`, `sudo`, `nano`,
-  `vim-tiny`, `less`, `procps`. About 262MB.
+  `vim-tiny`, `less`, `procps`. About 265MB (pgCluu included, 0.5.0).
+- From 0.5.0, pgCluu 5.0 from the same repository (G9: `pgcluu=5.0-1.pgdg13+1`,
+  build argument `PG_CLUU_PACKAGE`, pinned exactly and checked at build;
+  not Debian's 4.0, which does not collect from PostgreSQL 17 and 18), a
+  report tool beside pgBadger (master spec 7.4, O225): run on demand by
+  the players, never a daemon or a node of its own. Its report CGI
+  (`/usr/lib/cgi-bin/pgcluu.cgi`) and Apache configuration
+  (`/etc/apache2/conf-available/pgcluu.conf`) are deleted at build and
+  asserted gone; no `sysstat`, so the collector runs with `--disable-sar
+  --disable-pidstat`. It brings `libjs-jquery` and `libjs-underscore` for
+  the report's own pages (G9: CVE-2026-27601 in underscore, a recursion
+  in the browser's JavaScript, not reachable here). Cosmetic: every run
+  prints `Duplicate specification "no-sysinfo!"`; `--help` exits 1.
 - From 0.4.0, for jobs on the node (see "`pg_cron`" and "The cron
   daemon"): `postgresql-18-cron` from the same repository, pinned exactly
   (`1.6.8-1.pgdg13+2`, build argument `PG_CRON_PACKAGE`, checked at build;
@@ -845,6 +857,15 @@ daemon").
   in its home; the players copy it to the bastion with `scp
   <node>:pgbadger.html .` (sshd's `internal-sftp` subsystem serves `scp`
   and `sftp`) and from the bastion to their machine with `sftp`.
+- pgCluu, the same way (O225): `player` runs `pgcluu_collectd` itself,
+  as `dba` (its `~/.pgpass`), for the window it chooses (`-E`), with a pid
+  file of its own (`-f`), then `pgcluu -o <directory>` writes the report into
+  a directory of its home, which must exist;
+  no wrapper, no `sudo`, no sudoers rule (G9: `pgcluu_collectd` builds
+  shell commands from its arguments, so it never runs as root). A
+  collection is a few queries every `-i` seconds on the node, inside its
+  limits; the fixture short test (`tools/tests/smoke-monitoring-v05.sh`)
+  runs one of 30 s and copies the report to the bastion with `scp`.
 - `monitoring`: the exporter's role, on a node choosing the option
   (see "The monitoring role"); its password is readable on this node by
   root and `postgres` only, never by `player`.

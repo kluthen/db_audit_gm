@@ -1,0 +1,20 @@
+# Reference data source of the grafana brick (companion/; capture W3).
+# A scenario copies this file into nodes/<grafana node>/datasources.yaml as
+# its seed file `datasources.yaml`; Grafana reads it from
+# /etc/grafana/provisioning/datasources/ at start and on
+# `sudo gm-reload-grafana`. The URL names the Prometheus node: change the
+# host part if the scenario's node is not called `prometheus`. A wrong
+# address here is a seed-file fault, a finding, not a broken node.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090/prometheus
+    isDefault: true
+    editable: false          # the file is the source of truth: fix it here, then reload
+    jsonData:
+      httpMethod: POST
+      timeInterval: 15s

@@ -1,7 +1,8 @@
 # PostgreSQL node — player notes
 
 What you may know about a PostgreSQL 18 database node in a db_audit_gm
-game. Version 0.2: server log in files, pgBadger, `pg_stat_statements`.
+game. Version 0.2: server log in files, pgBadger, `pg_stat_statements`;
+0.5.0 adds pgCluu.
 
 ## Getting there
 
@@ -50,6 +51,27 @@ scp <node>:pgbadger.html .
 ```
 
 then, from your machine, `sftp` to the bastion and `get pgbadger.html`.
+
+## pgCluu
+
+pgCluu is installed too: a collector you start for the window you choose,
+then a report built from what it collected. Run both yourself, as
+`player`, no `sudo` needed; keep everything in your home:
+
+```
+mkdir -p ~/pgcluu-stats ~/pgcluu-report
+pgcluu_collectd -h localhost -U dba -d postgres --disable-sar --disable-pidstat \
+    -i 60 -E 2H -f ~/pgcluu-stats/collectd.pid ~/pgcluu-stats
+pgcluu --disable-sar -o ~/pgcluu-report ~/pgcluu-stats
+```
+
+`-i` is the time between two samples, `-E` when the collector stops
+(`-D` puts it in the background; `pgcluu_collectd -k -f <pid file>` stops
+it early). A collection runs queries on this node, sharing its memory and
+CPU with PostgreSQL. The system statistics (`sar`) are not available
+here. `pgcluu` writes into a directory that must exist. Read the report as pgBadger's: from the bastion, `scp -r
+<node>:pgcluu-report .`, then `sftp` to your machine and open
+`index.html`. Each run prints a harmless `Duplicate specification` line.
 
 ## Query statistics
 

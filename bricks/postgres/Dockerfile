@@ -27,6 +27,11 @@ ARG PG_CRON_PACKAGE=1.6.8-1.pgdg13+2
 # pgaudit, pinned exactly (G5, specs/versions/v0.5/wave-log.md): upstream
 # 18.0, always installed, turned on by a seed only (v0.5 master spec 7.1).
 ARG PG_AUDIT_PACKAGE=18.0-3.pgdg13+1
+# pgCluu, pinned exactly (G9, specs/versions/v0.5/wave-log.md): PGDG's 5.0,
+# which collects from PostgreSQL 17 and 18 (Debian's 4.0 does not); a
+# report tool run on demand by the players, as pgBadger is (master spec
+# 7.4), never a daemon. Its CGI and Apache files are removed below.
+ARG PG_CLUU_PACKAGE=5.0-1.pgdg13+1
 # The OpenSSL floor PostgreSQL's TLS runs on (G5: DSA-6531-1, fixed only in
 # trixie-security); the libraries come with postgresql-common.
 ARG LIBSSL_FLOOR=3.5.7-1~deb13u3
@@ -38,7 +43,7 @@ ADD --checksum=sha256:e6befcc96a437a3831386ecfc51808c5d3e939dc5fe3c02ae9284599e8
     https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /tmp/
 
 # PostgreSQL ${PG_MAJOR} (server and client, pg_stat_statements included,
-# built with OpenSSL), pg_cron, pgaudit and pgBadger from the PGDG repository, whose signing key Debian
+# built with OpenSSL), pg_cron, pgaudit, pgBadger and pgCluu from the PGDG repository, whose signing key Debian
 # ships in postgresql-common (packages verified by apt against it), and
 # Debian's cron daemon, unpinned as openssh-server and sudo are (master
 # spec 7.2). Both jobs packages sit idle until a scenario uses them: a seed
@@ -55,7 +60,7 @@ RUN set -eux; \
         > /etc/apt/sources.list.d/pgdg.list; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-        "postgresql-${PG_MAJOR}" "postgresql-client-${PG_MAJOR}" pgbadger \
+        "postgresql-${PG_MAJOR}" "postgresql-client-${PG_MAJOR}" pgbadger "pgcluu=${PG_CLUU_PACKAGE}" \
         "postgresql-${PG_MAJOR}-cron=${PG_CRON_PACKAGE}" \
         "postgresql-${PG_MAJOR}-pgaudit=${PG_AUDIT_PACKAGE}" cron \
         openssh-server openssh-client sudo procps less nano vim-tiny; \
@@ -70,6 +75,17 @@ RUN set -eux; \
     test -x "/usr/lib/postgresql/${PG_MAJOR}/bin/postgres"; \
     test -f "/usr/lib/postgresql/${PG_MAJOR}/lib/pg_stat_statements.so"; \
     pgbadger --version; \
+    # pgCluu (G9): the pinned package; its report CGI and Apache
+    # configuration deleted (no web server here, a report is read with scp);
+    # no sysstat (players pass --disable-sar)
+    test "$(dpkg-query -W -f '${Version}' pgcluu)" = "${PG_CLUU_PACKAGE}"; \
+    rm -f /usr/lib/cgi-bin/pgcluu.cgi /etc/apache2/conf-available/pgcluu.conf; \
+    rmdir --ignore-fail-on-non-empty /usr/lib/cgi-bin /etc/apache2/conf-available /etc/apache2 2>/dev/null || true; \
+    test ! -e /usr/lib/cgi-bin/pgcluu.cgi; \
+    test ! -e /etc/apache2/conf-available/pgcluu.conf; \
+    test -x /usr/bin/pgcluu; \
+    test -x /usr/bin/pgcluu_collectd; \
+    if dpkg-query -W -f '${Status}' sysstat 2>/dev/null | grep -q 'ok installed'; then exit 1; fi; \
     test "$(dpkg-query -W -f '${Version}' "postgresql-${PG_MAJOR}-cron")" = "${PG_CRON_PACKAGE}"; \
     test -f "/usr/lib/postgresql/${PG_MAJOR}/lib/pg_cron.so"; \
     test "$(dpkg-query -W -f '${Version}' "postgresql-${PG_MAJOR}-pgaudit")" = "${PG_AUDIT_PACKAGE}"; \

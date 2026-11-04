@@ -1,0 +1,7 @@
+# Seed health.yaml of the v0.5 monitoring fixture (tools/tests, v0.5 chunk
+# 10): the one instance, records.
+instances:
+  - name: records
+    host: records
+    port: 5432
+    dbname: postgres

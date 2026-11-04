@@ -1,0 +1,7 @@
+# Test seed crontab of the health-check brick's stack test: the companion's,
+# its backup script asking the stand-in for cold storage (D362).
+PATH=/usr/local/bin:/usr/bin:/bin
+MAILTO=""
+*/5 * * * * health-run checks
+*/5 * * * * health-run script disk-alarm 2048 4096 db standby
+30 6 * * * health-run script backup-there http://cold-storage:8000 db
