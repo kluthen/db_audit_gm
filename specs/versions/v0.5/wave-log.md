@@ -4630,3 +4630,63 @@ refused `keeper-access` 403); without the messaging stub resets are asked
 but never used; the desk 422 for a closed account's owner (about one call
 in thirty, an error in `pms`' log); `interfaces`' placeholder connection
 to `portal-api` (`interfaces.idle`, `GET /animals`).
+
+### Chunk 13 — paused for rotation (5c730b2), 2026-11-04
+
+On the owner's word, the restarted chunk 13's owner paused: branch
+`v0.5-c13-vet-scheduling` (cut at 8389dd6), 13a `a53f395` (GM notes,
+schema with the slot function, load, classification, register,
+governance, policy), 13b WIP `5c730b2` (`pms` fragments, coherence,
+variant manifest, `parts:` and the README row, `fixture-bookings`, 5
+nodes: bastion, records, clinic-api, pms, idle `interfaces`; README by
+hand from the template). `check_domain_dir` clean on the five domains;
+unit suite 1137 OK, 2 skipped. Loads (`c13pg`, the four exclusion
+constraints in place before the load): +2 (09:50 local, Wednesday) core
+121 s, part 99 s, 103 500 rows, 20 MB, 16 729 attended bookings (the
+core's placed count); shift 0 115 s / 92 s, 103 538 rows, 16 698. At +2
+24 922 bookings, 51 653 allocations, 23 826 shifts (21 793 published),
+794 absences. Six coherence queries clean at both shifts (slowest 1.8 s).
+The slot function about 150 ms a call; every `pms` key ran as
+`sched_app` (one fix: the trainee phone formula overflowed);
+`sched.rota.publish` in a transaction planned the seventh week (440),
+removed 6 absence-covered shifts, published 392 of the week after next,
+booked 7 blocks, a rerun changing nothing, its pattern equal to
+`core_shifts` for that week; `23P01` on `sched_allocations_staff_excl`
+and a booking 40 days ahead on a planned shift, both dry-run. **Left**:
+the fixture's short test (written, `sh -n` clean, never run; it places
+T0 in the 09:00 hour local, refusing a weekend; start at UTC minute
+40–45), then the final 13b commit and the merge.
+
+W3-b so far (chunks 20, 21): columns as W3 item 0 (`sched_bookings`
+`type_id`, `kind`, `animal_id`, `section_id`, `starts_at`, `ends_at`,
+`state`, `source`, `request_id`, `exchange_id`, `session_id`,
+`booked_at`, `booked_by`, `notes`, `arrived_at`, `cancelled_at`,
+`cancel_reason`; `sched_allocations` one of `staff_id`/`room_id`/
+`machine_id`/`animal_id`, `role`, `during` generated `'[)'`,
+`released_at`; `sched_shifts` with `published_at`, unique
+`sched_shifts_staff_start_key`; additions `sched_rooms.consultation_space`,
+`sched_types.staff` and `course_id`, `sched_machines.operator_kind` and
+`around_the_clock`); `sched_free_slots` as W3 item 2, slots in time
+order, `staff_ids` [vet], [operator], [surgeon, anaesthetist, nurse],
+[instructor], none for a block type, `EXECUTE` to `sched_app` only;
+booking ids: inbound examinations 28 000 + exchange id, imaging 30 000 +
+request id, the rest ahead of T0 49 001+; types 1–12 consultations,
+13–24 imaging, 25–27 surgery, 28–29 blocks, 30–45 sessions; machines 7,
+8, 11–15 around the clock, 9, 10, 16 Monday–Friday 08:00–18:00; blocks'
+`notes` `service: machine 7` etc. (the Friday job's idempotence); the
+booking horizon settled: the 42 days bind `sched_free_slots` only,
+session days and theatre plans inserted directly; grants: `sched_reports`
+and `vet_reports` (guarded) read every `sched_` table, `sched_app` writes
+bookings, allocations, absences, trainees, enrolments, updates only
+`published_at`, `clocked_in_at`, `clocked_out_at` on shifts and `state`
+on sessions.
+
+Deviations, for `spec-writer`: theatre plans about 800, not 1 250 (the
+core's agenda keeps the domestic surgeons consulting); shift ids can pass
+24 000 (a T0 between Friday noon and Sunday plans about 24 230; the
+sequence resumes past both); the inbound examinations' id range
+28 001–28 700 (the owner's choice); future absences recorded before T0;
+an urgent night MRI or scintigraphy booked on the next imaging day;
+equine sessions searching six weeks then the next course (the arena busy
+about half the weekdays); the load reads `vc_agenda`. A fresh owner
+runs the short test and merges.
