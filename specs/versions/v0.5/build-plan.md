@@ -1361,7 +1361,8 @@ purpose 9 reads.
 
 ### Chunk 15 — `vet-machinery`, the machines and their databases
 
-Status: in progress
+Status: merged (w3, 4734f32; fix 9b4daee)
+Record: 15a c95523a, 15b d60e472 + 667a6f1 + c7c1504 (the T0 placement fix, merged at 9b4daee); D416 and D418 record the documents' changes; deviations: two 15b commits, the idle `interfaces` placeholder connection and key, `vitals.sample` without `%%`, the scenario-document template not reading `data/cron.sql` (wave gate).
 Wave: 3
 Depends on: chunks 4, 5, 8, 9 and 11 (waves 1 and 2); chunk 29 for its
 fixture's `cron.sql` only, merged into `v0.5-w3` before it (spec D401)
