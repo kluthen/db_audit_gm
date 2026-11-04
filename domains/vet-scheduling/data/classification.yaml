@@ -1,0 +1,167 @@
+# vet-scheduling's classification (v0.5 master spec 9.4; vet-scheduling-domain.md,
+# "Classification"): every column of every table of the part, in the core's
+# database, schema public, keyed <table>.<column> without the database (v0.5
+# master spec 6.1): the scenario's copy adds it (clinic.<table>.<column>).
+# The domain classifies; a scenario's governance: states each class's rules.
+#
+# Readings, as the core's (vet-core data/classification.yaml):
+#   the patient follows the core: a booking's animal_id with no identifier
+#   beside it is customer-linked (it leads to its owner through ownerships);
+#   a teaching animal leads to the clinic, owner 1, no person: an
+#   allocation's animal_id, which holds teaching animals only, is internal;
+#   staff ids are the clinic's work record, internal on bookings,
+#   allocations, shifts and absences; an absence's note is about a named
+#   staff member and may reveal health: personal, and rule 4 forbids a
+#   reason in it;
+#   trainees are people: their id, name, contacts and a referring vet's id
+#   beside a name personal, their id customer-linked on an enrolment; a
+#   certificate number identifies its holder: personal;
+#   free text (a booking's notes) may name the owner: internal by class, a
+#   trap (T24), as the core's findings are.
+# sched_upcoming is not built in v0.5 (D321).
+columns:
+  # sched_settings
+  sched_settings.id: internal
+  sched_settings.timezone: internal
+  sched_settings.utc_offset: internal
+  sched_settings.horizon_days: internal
+  sched_settings.no_show_minutes: internal
+  sched_settings.teaching_sessions_a_day: internal
+  sched_settings.teaching_hours_a_day: internal
+  sched_settings.teaching_days_before_rest: internal
+  sched_settings.certificate_attendance: internal
+  sched_settings.min_rest_hours: internal
+
+  # sched_rooms
+  sched_rooms.id: internal
+  sched_rooms.code: internal
+  sched_rooms.name: internal
+  sched_rooms.kind: internal
+  sched_rooms.section_id: internal
+  sched_rooms.consultation_space: internal
+  sched_rooms.seats: internal
+  sched_rooms.active: internal
+
+  # sched_hours
+  sched_hours.resource_kind: internal
+  sched_hours.resource_id: internal
+  sched_hours.weekday: internal
+  sched_hours.opens: internal
+  sched_hours.closes: internal
+
+  # sched_machines
+  sched_machines.machine_id: internal
+  sched_machines.section_id: internal
+  sched_machines.room_id: internal
+  sched_machines.name: internal
+  sched_machines.study_kind: internal
+  sched_machines.slot_minutes: internal
+  sched_machines.operator_kind: internal
+  sched_machines.around_the_clock: internal
+
+  # sched_courses
+  sched_courses.id: internal
+  sched_courses.code: internal
+  sched_courses.title: internal
+  sched_courses.audience: internal
+  sched_courses.species: internal
+  sched_courses.days: internal
+  sched_courses.hours: internal
+  sched_courses.seats: internal
+  sched_courses.teaching_animals: internal
+  sched_courses.room_kind: internal
+
+  # sched_types
+  sched_types.id: internal
+  sched_types.code: internal
+  sched_types.name: internal
+  sched_types.kind: internal
+  sched_types.section_id: internal
+  sched_types.duration_minutes: internal
+  sched_types.room_kind: internal
+  sched_types.study_code: internal
+  sched_types.machine_id: internal
+  sched_types.staff: internal
+  sched_types.course_id: internal
+
+  # sched_bookings
+  sched_bookings.id: internal
+  sched_bookings.type_id: internal
+  sched_bookings.kind: internal
+  sched_bookings.animal_id: customer-linked
+  sched_bookings.section_id: internal
+  sched_bookings.starts_at: internal
+  sched_bookings.ends_at: internal
+  sched_bookings.state: internal
+  sched_bookings.source: internal
+  sched_bookings.request_id: internal
+  sched_bookings.exchange_id: internal
+  sched_bookings.session_id: internal
+  sched_bookings.booked_at: internal
+  sched_bookings.booked_by: internal
+  sched_bookings.notes: internal
+  sched_bookings.arrived_at: internal
+  sched_bookings.cancelled_at: internal
+  sched_bookings.cancel_reason: internal
+
+  # sched_allocations
+  sched_allocations.id: internal
+  sched_allocations.booking_id: internal
+  sched_allocations.staff_id: internal
+  sched_allocations.room_id: internal
+  sched_allocations.machine_id: internal
+  sched_allocations.animal_id: internal
+  sched_allocations.role: internal
+  sched_allocations.starts_at: internal
+  sched_allocations.ends_at: internal
+  sched_allocations.during: internal
+  sched_allocations.released_at: internal
+
+  # sched_shifts
+  sched_shifts.id: internal
+  sched_shifts.staff_id: internal
+  sched_shifts.section_id: internal
+  sched_shifts.kind: internal
+  sched_shifts.starts_at: internal
+  sched_shifts.ends_at: internal
+  sched_shifts.clocked_in_at: internal
+  sched_shifts.clocked_out_at: internal
+  sched_shifts.published_at: internal
+
+  # sched_absences
+  sched_absences.id: internal
+  sched_absences.staff_id: internal
+  sched_absences.kind: internal
+  sched_absences.from_at: internal
+  sched_absences.until_at: internal
+  sched_absences.recorded_at: internal
+  sched_absences.recorded_by: internal
+  sched_absences.note: personal
+
+  # sched_sessions
+  sched_sessions.id: internal
+  sched_sessions.course_id: internal
+  sched_sessions.first_on: internal
+  sched_sessions.last_on: internal
+  sched_sessions.led_by: internal
+  sched_sessions.state: internal
+
+  # sched_trainees
+  sched_trainees.id: personal
+  sched_trainees.name: personal
+  sched_trainees.email: personal
+  sched_trainees.phone: personal
+  sched_trainees.kind: internal
+  sched_trainees.practice_id: internal
+  sched_trainees.referring_vet_id: personal
+  sched_trainees.registered_at: internal
+
+  # sched_enrolments
+  sched_enrolments.id: internal
+  sched_enrolments.session_id: internal
+  sched_enrolments.trainee_id: customer-linked
+  sched_enrolments.enrolled_at: internal
+  sched_enrolments.state: internal
+  sched_enrolments.hours_attended: internal
+  sched_enrolments.certificate_number: personal
+  sched_enrolments.issued_at: internal

@@ -1,0 +1,19 @@
+# vet-scheduling's governance: fragment (v0.5 master spec 9.4, 13.1;
+# formats.md "Domain"): where each class of data/classification.yaml may live
+# and who may read it, as docs/policy.md states it (rule 4: absences without a
+# reason; rule 5: least data in a booking; rule 9: the trainees' contacts).
+# The GM merges it into the scenario's governance: beside the core's: the
+# locations are written for the node records and the database clinic,
+# renamed as the scenario does. The personal data is the trainees' and an
+# absence's note; the customer-linked a booking's animal and an enrolment's
+# trainee, read by the practice software (sched_app), the reports (purpose
+# 12's sched_reports) and the back office (vet_reports) on the standby.
+classes:
+  personal:
+    locations: [records/clinic]
+    readers: [sched_app, sched_reports, vet_reports]
+  customer-linked:
+    locations: [records/clinic]
+    readers: [sched_app, sched_reports, vet_reports]
+  internal:
+    locations: any

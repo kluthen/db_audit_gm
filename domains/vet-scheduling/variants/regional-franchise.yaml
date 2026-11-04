@@ -1,0 +1,15 @@
+# vet-scheduling's axes in the core's one variant (v0.5 master spec 8.3, 9.4;
+# vet-scheduling-domain.md, "The variant, its scale and its tags", D301
+# answer 15): the agenda, rota and training centre of one centre, at the
+# core's scale (D295). The core's variant names the part in its parts; tags
+# are the core's (24/7 already says the rota runs around the clock).
+scale:
+  population: {rooms: 16, consultation_spaces: 9, bookable_machines: 10, appointment_types: 45, staff_on_rota: 85,
+               courses: 16, teaching_dogs: 12, teaching_horses: 8}
+  history: {days: 365, consultation_bookings: 19700, attended: 16700, imaging_bookings: 2900, inbound_examinations: 300,
+            theatre_plans: 800, blocks: 370, sessions_held: 100, session_days: 165, shifts: 23800, absences: 790,
+            agenda_ahead: 680, rows: 103500, growth: "each daily volume from 60 % of today's rate a year ago, as the core's"}
+  throughput: {bookings_per_day: 71, cancellations_per_day: 7, theatre_plans_per_weekday: 6, imaging_bookings_per_day: 11,
+               arrivals_per_day: 75, shifts_per_day: 55, clockings_per_day: 110, enrolments_per_weekday: 3.8,
+               new_rows_per_day: 330, updates_per_day: 200}
+purposes: [vet-bookings-sync, vet-working-time]

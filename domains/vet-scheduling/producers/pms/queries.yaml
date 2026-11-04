@@ -1,0 +1,527 @@
+# Query repository of the practice-management software, vet-scheduling's
+# fragment (v0.5 master spec 9.4; vet-scheduling-domain.md, "The producer
+# profiles"): the keys pms sends to clinic as sched_app, on the connection
+# sched, beside the core's (D276), each prefixed sched. Reception's bookings
+# and searches, the theatre planners, the arrivals and no-shows, the rota's
+# clocking and its Friday publication, the training office. Every value is
+# SQL's: a pick is an int parameter or a weighted choice, per-row variation a
+# hash of an id, never random(). The slot is sched_free_slots' (capture W3
+# item 2). A booking's patient is one of the section's animals registered
+# during the year (vet-core's pools: domestic 9 738-14 600, horse
+# 15 537-16 000, farm 16 668-17 000; never a teaching animal, never in a
+# stay, so never dead in hospital), skipping those the core's death function
+# marks as dying at home (u36 < 0.026: hashint8extended(id, 36), the core's
+# vc_u written inline; docs/gm.md, "The booking stream's patients"). The
+# staff ids are the core's layout (vet-core docs/gm.md, "core_staff").
+# Written for the database clinic; no planted fault.
+queries:
+  # --- volume streams --------------------------------------------------------------
+  # A consultation booking: the section by its mix, a type of it, a lead time
+  # by its mix (30 % within two days, 50 % within two weeks, 20 % up to six
+  # weeks), a preferred hour of the section's day; the first slot
+  # sched_free_slots gives at or after it; the booking and its allocations
+  # (the vet, the consultation space) in one statement. Two searches racing
+  # for one slot: the exclusion constraint refuses the second (23P01).
+  sched.bookings.make:
+    sql: >-
+      WITH p AS (
+        SELECT %(section)s::integer AS sec, s.timezone AS tz, %(r)s::bigint AS r,
+               (now() AT TIME ZONE s.timezone)::date
+               + CASE %(lead)s WHEN 0 THEN %(days)s %% 3 WHEN 1 THEN 2 + %(days)s %% 13 ELSE 14 + %(days)s %% 29 END AS day
+          FROM sched_settings AS s WHERE s.id = 1),
+      w AS (
+        SELECT p.*,
+               CASE p.sec WHEN 3 THEN (ARRAY[2, 2, 3, 4, 5, 1])[1 + p.r %% 6]
+                          WHEN 1 THEN (ARRAY[7, 7, 8, 9, 6])[1 + p.r %% 5]
+                          ELSE (ARRAY[11, 11, 12, 10])[1 + p.r %% 4] END AS type_id,
+               greatest(now() + interval '30 minutes',
+                        (p.day + CASE p.sec WHEN 3 THEN 8 + %(hour)s %% 12 ELSE 8 + %(hour)s %% 7 END
+                                 * interval '1 hour') AT TIME ZONE p.tz) AS after
+          FROM p),
+      a AS (
+        SELECT c.animal
+          FROM w, generate_series(0, 5) AS g,
+               LATERAL (SELECT CASE w.sec WHEN 3 THEN 9738 + ((w.r + 7 * g) * 7919) %% 4863
+                                          WHEN 1 THEN 15537 + ((w.r + 7 * g) * 7919) %% 464
+                                          ELSE 16668 + ((w.r + 7 * g) * 7919) %% 333 END AS animal) AS c
+         WHERE (hashint8extended(c.animal::bigint, 36) & 2147483647)::float8 / 2147483648 >= 0.026
+         ORDER BY g LIMIT 1),
+      s AS (SELECT f.* FROM w, sched_free_slots(w.type_id, w.after, 1) AS f),
+      b AS (
+        INSERT INTO sched_bookings (type_id, kind, animal_id, section_id, starts_at, ends_at, state, source, booked_at,
+                                    booked_by)
+        SELECT w.type_id, 'consultation', a.animal, w.sec, s.starts_at, s.ends_at, 'booked',
+               CASE WHEN w.type_id IN (1, 6, 10) THEN 'referral' WHEN w.type_id IN (2, 7, 11) THEN 'follow-up'
+                    WHEN w.r %% 4 = 0 THEN 'desk' ELSE 'phone' END,
+               now(), 67 + w.r %% 4
+          FROM w, a, s
+        RETURNING id, starts_at, ends_at)
+      INSERT INTO sched_allocations (booking_id, staff_id, room_id, role, starts_at, ends_at)
+      SELECT b.id, s.staff_ids[1], NULL, 'vet', b.starts_at, b.ends_at FROM b, s
+      UNION ALL
+      SELECT b.id, NULL, s.room_id, 'room', b.starts_at, b.ends_at FROM b, s
+    params:
+      section: {choice: {3: 75, 1: 18, 2: 7}}
+      lead: {choice: {0: 30, 1: 50, 2: 20}}
+      days: {int: [0, 999]}
+      hour: {int: [0, 999]}
+      r: {int: [0, 999999]}
+  # A future consultation booking cancelled by its owner (three in four) or
+  # the clinic; the trigger sched_release frees its slot at once.
+  sched.bookings.cancel:
+    sql: >-
+      UPDATE sched_bookings SET state = 'cancelled', cancelled_at = now(),
+             cancel_reason = CASE WHEN %(r)s %% 4 = 0 THEN 'clinic' ELSE 'owner' END
+       WHERE id = (SELECT b.id FROM sched_bookings AS b
+                    WHERE b.kind = 'consultation' AND b.state = 'booked' AND b.starts_at > now() + interval '1 hour'
+                    ORDER BY hashint8(b.id::bigint + %(r)s) LIMIT 1)
+    params:
+      r: {int: [0, 999999]}
+  # A theatre plan two to ten days ahead: the section by its mix (domestic
+  # 55, horse 35, farm 10), its theatre, surgeon, anaesthetist and nurse by
+  # sched_free_slots, planned by the section's planner (its first nurse).
+  sched.surgery.plan:
+    sql: >-
+      WITH w AS (
+        SELECT %(section)s::integer AS sec, %(r)s::bigint AS r,
+               CASE %(section)s WHEN 3 THEN 25 WHEN 1 THEN 26 ELSE 27 END AS type_id,
+               now() + (2 + %(days)s %% 9) * interval '1 day' AS after),
+      a AS (
+        SELECT c.animal
+          FROM w, generate_series(0, 5) AS g,
+               LATERAL (SELECT CASE w.sec WHEN 3 THEN 9738 + ((w.r + 7 * g) * 7919) %% 4863
+                                          WHEN 1 THEN 15537 + ((w.r + 7 * g) * 7919) %% 464
+                                          ELSE 16668 + ((w.r + 7 * g) * 7919) %% 333 END AS animal) AS c
+         WHERE (hashint8extended(c.animal::bigint, 36) & 2147483647)::float8 / 2147483648 >= 0.026
+         ORDER BY g LIMIT 1),
+      s AS (SELECT f.* FROM w, sched_free_slots(w.type_id, w.after, 1) AS f),
+      b AS (
+        INSERT INTO sched_bookings (type_id, kind, animal_id, section_id, starts_at, ends_at, state, source, booked_at,
+                                    booked_by)
+        SELECT w.type_id, 'surgery', a.animal, w.sec, s.starts_at, s.ends_at, 'booked', 'planned', now(),
+               CASE w.sec WHEN 1 THEN 29 WHEN 2 THEN 37 ELSE 43 END
+          FROM w, a, s
+        RETURNING id, starts_at, ends_at)
+      INSERT INTO sched_allocations (booking_id, staff_id, room_id, role, starts_at, ends_at)
+      SELECT b.id, NULL, s.room_id, 'room', b.starts_at, b.ends_at FROM b, s
+      UNION ALL SELECT b.id, s.staff_ids[1], NULL, 'surgeon', b.starts_at, b.ends_at FROM b, s
+      UNION ALL SELECT b.id, s.staff_ids[2], NULL, 'anaesthetist', b.starts_at, b.ends_at FROM b, s
+      UNION ALL SELECT b.id, s.staff_ids[3], NULL, 'nurse', b.starts_at, b.ends_at FROM b, s
+    params:
+      section: {choice: {3: 55, 1: 35, 2: 10}}
+      days: {int: [0, 999]}
+      r: {int: [0, 999999]}
+  # An enrolment in an open session (the session row locked), a new trainee
+  # of the course's audience in three of four, else an earlier one; enrolled
+  # while seats are left, waitlisted after; the session full at its last
+  # seat.
+  sched.trainees.enrol:
+    sql: >-
+      WITH s AS (
+        SELECT se.id, c.audience, c.seats,
+               (SELECT count(*) FROM sched_enrolments AS e WHERE e.session_id = se.id AND e.state = 'enrolled') AS taken
+          FROM sched_sessions AS se JOIN sched_courses AS c ON c.id = se.course_id
+         WHERE se.state IN ('open', 'full')
+         ORDER BY hashint8(se.id::bigint + %(r)s) LIMIT 1
+           FOR UPDATE OF se),
+      old AS (
+        SELECT t.id FROM sched_trainees AS t, s
+         WHERE %(new)s = 0 AND t.kind = s.audience
+           AND NOT EXISTS (SELECT 1 FROM sched_enrolments AS e WHERE e.session_id = s.id AND e.trainee_id = t.id)
+         ORDER BY hashint8(t.id::bigint + %(r)s) LIMIT 1),
+      nt AS (
+        INSERT INTO sched_trainees (name, email, phone, kind, registered_at)
+        SELECT f.first || ' ' || f.family, lower(f.first || '.' || f.family) || '.n' || %(r)s || '@example.org',
+               '+999 ' || lpad(((6271::bigint * %(r)s + 3456789) %% 100000000)::text, 8, '0'), s.audience, now()
+          FROM s, (SELECT (ARRAY['Anna', 'Ben', 'Clara', 'David', 'Elena', 'Felix', 'Greta', 'Hugo', 'Ines', 'Jonas',
+                                 'Katrin', 'Lukas', 'Marie', 'Niels', 'Olga', 'Paul', 'Rosa', 'Simon', 'Tara',
+                                 'Victor'])[%(first)s] AS first,
+                          (ARRAY['Adler', 'Becker', 'Claes', 'Dubois', 'Engel', 'Fontaine', 'Gerard', 'Hoffmann',
+                                 'Jansen', 'Keller', 'Lambert', 'Martin', 'Noel', 'Peeters', 'Renard', 'Schmitt',
+                                 'Thomas', 'Vogel', 'Weber', 'Zimmer'])[%(family)s] AS family) AS f
+         WHERE %(new)s = 1 OR NOT EXISTS (SELECT 1 FROM old)
+        RETURNING id),
+      e AS (
+        INSERT INTO sched_enrolments (session_id, trainee_id, enrolled_at, state)
+        SELECT s.id, coalesce((SELECT id FROM nt), (SELECT id FROM old)), now(),
+               CASE WHEN s.taken < s.seats THEN 'enrolled' ELSE 'waitlisted' END
+          FROM s
+        RETURNING session_id, state)
+      UPDATE sched_sessions AS se SET state = 'full'
+        FROM s, e
+       WHERE se.id = s.id AND se.state = 'open' AND e.state = 'enrolled' AND s.taken + 1 >= s.seats
+    params:
+      new: {choice: {1: 3, 0: 1}}
+      first: {int: [1, 20]}
+      family: {int: [1, 20]}
+      r: {int: [0, 999999]}
+  # An enrolment of an open session cancelled; its session's first
+  # waitlisted trainee enrolled in the seat, else the session open again.
+  sched.enrolments.cancel:
+    sql: >-
+      WITH c AS (
+        UPDATE sched_enrolments SET state = 'cancelled'
+         WHERE id = (SELECT e.id FROM sched_enrolments AS e JOIN sched_sessions AS s ON s.id = e.session_id
+                      WHERE e.state = 'enrolled' AND s.state IN ('open', 'full')
+                      ORDER BY hashint8(e.id::bigint + %(r)s) LIMIT 1)
+        RETURNING session_id),
+      w AS (
+        UPDATE sched_enrolments SET state = 'enrolled'
+         WHERE id = (SELECT e.id FROM sched_enrolments AS e, c
+                      WHERE e.session_id = c.session_id AND e.state = 'waitlisted'
+                      ORDER BY e.enrolled_at, e.id LIMIT 1)
+        RETURNING session_id)
+      UPDATE sched_sessions SET state = 'open'
+       WHERE id IN (SELECT session_id FROM c) AND state = 'full' AND NOT EXISTS (SELECT 1 FROM w)
+    params:
+      r: {int: [0, 999999]}
+  # An absence, its kind only (rule 4): leave in nine of ten, one to ten
+  # days from one to six weeks ahead; else absent from today, one to three
+  # days. The staff member's future bookings in it are moved by
+  # sched.bookings.move.
+  sched.absences.record:
+    sql: >-
+      WITH k AS (
+        SELECT CASE %(kind)s WHEN 2 THEN 'absent' ELSE 'leave' END AS kind, s.timezone AS tz,
+               (now() AT TIME ZONE s.timezone)::date + CASE %(kind)s WHEN 2 THEN 0 ELSE 7 + %(r)s %% 35 END AS d0,
+               CASE %(kind)s WHEN 2 THEN 1 + %(r)s %% 3 ELSE 1 + %(r)s %% 10 END AS days
+          FROM sched_settings AS s WHERE s.id = 1)
+      INSERT INTO sched_absences (staff_id, kind, from_at, until_at, recorded_at)
+      SELECT %(staff)s, k.kind, k.d0::timestamp AT TIME ZONE k.tz, (k.d0 + k.days)::timestamp AT TIME ZONE k.tz, now()
+        FROM k
+    params:
+      staff: {int: [1, 85]}
+      kind: {choice: {1: 9, 2: 1}}
+      r: {int: [0, 999999]}
+  # --- work streams ----------------------------------------------------------------
+  # The oldest consultation, imaging or theatre booking starting within the
+  # next ten minutes, still booked: arrived at its start, give or take five
+  # minutes, never later than now; one in twenty (by a hash of its id) left
+  # for the no-show.
+  sched.bookings.arrive:
+    sql: >-
+      UPDATE sched_bookings
+         SET state = 'arrived',
+             arrived_at = least(now(), starts_at + ((hashint4(id) & 2147483647) % 11 - 5) * interval '1 minute')
+       WHERE id = (SELECT b.id FROM sched_bookings AS b
+                    WHERE b.state = 'booked' AND b.kind IN ('consultation', 'imaging', 'surgery')
+                      AND b.starts_at <= now() + interval '10 minutes' AND b.starts_at > now() - interval '30 minutes'
+                      AND (hashint4(b.id) & 2147483647) % 20 <> 0
+                    ORDER BY b.starts_at, b.id LIMIT 1)
+  # A booking 30 minutes past its start (the settings' no-show delay), still
+  # booked: a no-show; and a block ended, still booked: held.
+  sched.bookings.no-show:
+    sql: >-
+      WITH n AS (
+        UPDATE sched_bookings SET state = 'no-show'
+         WHERE id = (SELECT b.id FROM sched_bookings AS b, sched_settings AS s
+                      WHERE s.id = 1 AND b.state = 'booked' AND b.kind IN ('consultation', 'imaging', 'surgery')
+                        AND b.starts_at <= now() - s.no_show_minutes * interval '1 minute'
+                      ORDER BY b.starts_at, b.id LIMIT 1)
+        RETURNING id)
+      UPDATE sched_bookings SET state = 'held'
+       WHERE id = (SELECT b.id FROM sched_bookings AS b
+                    WHERE b.state = 'booked' AND b.kind = 'block' AND b.ends_at <= now()
+                    ORDER BY b.ends_at, b.id LIMIT 1)
+  # The first future consultation booking whose vet has an absence over it:
+  # cancelled (moved), the trigger freeing its slot, and booked again at the
+  # first free slot from an hour ahead, source desk, in one statement.
+  sched.bookings.move:
+    sql: >-
+      WITH m AS (
+        SELECT b.id, b.type_id, b.animal_id, b.section_id
+          FROM sched_bookings AS b
+          JOIN sched_allocations AS a ON a.booking_id = b.id AND a.staff_id IS NOT NULL AND a.released_at IS NULL
+         WHERE b.state = 'booked' AND b.kind = 'consultation' AND b.starts_at > now() + interval '1 hour'
+           AND EXISTS (SELECT 1 FROM sched_absences AS ab
+                        WHERE ab.staff_id = a.staff_id AND ab.from_at < a.ends_at AND ab.until_at > a.starts_at)
+         ORDER BY b.starts_at, b.id LIMIT 1),
+      c AS (
+        UPDATE sched_bookings AS b SET state = 'cancelled', cancelled_at = now(), cancel_reason = 'moved'
+          FROM m WHERE b.id = m.id
+        RETURNING b.id),
+      s AS (SELECT f.* FROM m, sched_free_slots(m.type_id, now() + interval '1 hour', 1) AS f),
+      nb AS (
+        INSERT INTO sched_bookings (type_id, kind, animal_id, section_id, starts_at, ends_at, state, source, booked_at,
+                                    booked_by)
+        SELECT m.type_id, 'consultation', m.animal_id, m.section_id, s.starts_at, s.ends_at, 'booked', 'desk', now(), 67
+          FROM m, s
+        RETURNING id, starts_at, ends_at)
+      INSERT INTO sched_allocations (booking_id, staff_id, room_id, role, starts_at, ends_at)
+      SELECT nb.id, s.staff_ids[1], NULL, 'vet', nb.starts_at, nb.ends_at FROM nb, s
+      UNION ALL
+      SELECT nb.id, NULL, s.room_id, 'room', nb.starts_at, nb.ends_at FROM nb, s
+  # A shift started up to ten minutes ago, not clocked in: clocked in (five
+  # minutes either side of its start, by a hash); a shift ended, not clocked
+  # out: clocked out (on time in four of five, up to an hour late otherwise);
+  # an on-call shift clocked only on a call-out (one in four, by a hash, one
+  # to seven hours into it, for one to three hours).
+  sched.shifts.clock:
+    sql: >-
+      WITH i AS (
+        UPDATE sched_shifts SET clocked_in_at = now()
+         WHERE id = (SELECT h.id FROM sched_shifts AS h
+                      WHERE h.clocked_in_at IS NULL
+                        AND ((h.kind <> 'on-call'
+                              AND h.starts_at <= now() + ((hashint4(h.id) & 2147483647) % 11 - 5) * interval '1 minute'
+                              AND h.starts_at > now() - interval '10 minutes')
+                          OR (h.kind = 'on-call' AND (hashint4(h.id) & 2147483647) % 4 = 0
+                              AND h.starts_at + (1 + (hashint4(h.id + 1) & 2147483647) % 7) * interval '1 hour' <= now()
+                              AND h.starts_at + (1 + (hashint4(h.id + 1) & 2147483647) % 7) * interval '1 hour'
+                                  > now() - interval '10 minutes'))
+                      ORDER BY h.starts_at, h.id LIMIT 1)
+        RETURNING id)
+      UPDATE sched_shifts SET clocked_out_at = now()
+       WHERE id = (SELECT h.id FROM sched_shifts AS h
+                    WHERE h.clocked_in_at IS NOT NULL AND h.clocked_out_at IS NULL
+                      AND h.starts_at > now() - interval '2 days'
+                      AND ((h.kind <> 'on-call'
+                            AND h.ends_at + CASE WHEN (hashint4(h.id) & 2147483647) % 5 = 0
+                                                 THEN (5 + (hashint4(h.id + 2) & 2147483647) % 55) * interval '1 minute'
+                                                 ELSE interval '0' END <= now())
+                        OR (h.kind = 'on-call'
+                            AND h.clocked_in_at + (1 + (hashint4(h.id + 3) & 2147483647) % 3) * interval '1 hour'
+                                <= least(now(), h.ends_at)))
+                    ORDER BY h.ends_at, h.id LIMIT 1)
+  # The oldest session day ended and not yet marked: held, and each enrolled
+  # trainee's seven hours added when attended (95 %, by a hash).
+  sched.sessions.attend:
+    sql: >-
+      WITH d AS (
+        SELECT b.id, b.session_id FROM sched_bookings AS b
+         WHERE b.kind = 'session' AND b.state = 'booked' AND b.ends_at <= now()
+         ORDER BY b.ends_at, b.id LIMIT 1),
+      h AS (UPDATE sched_bookings AS b SET state = 'held' FROM d WHERE b.id = d.id RETURNING b.id)
+      UPDATE sched_enrolments AS e
+         SET hours_attended = coalesce(e.hours_attended, 0)
+                              + CASE WHEN (hashint8(e.id::bigint * 31 + d.id) & 2147483647) % 100 < 95 THEN 7 ELSE 0 END
+        FROM d
+       WHERE e.session_id = d.session_id AND e.state = 'enrolled'
+  # A session whose days are all held: held; its enrolled trainees attended
+  # (or no-shows with no hour), certified at 80 % of the course's hours
+  # (rule 8).
+  sched.sessions.close:
+    sql: >-
+      WITH s AS (
+        SELECT se.id, c.hours FROM sched_sessions AS se JOIN sched_courses AS c ON c.id = se.course_id
+         WHERE se.state IN ('open', 'full', 'running')
+           AND se.last_on <= (SELECT (now() AT TIME ZONE timezone)::date FROM sched_settings WHERE id = 1)
+           AND NOT EXISTS (SELECT 1 FROM sched_bookings AS b WHERE b.session_id = se.id AND b.state = 'booked')
+         ORDER BY se.last_on, se.id LIMIT 1),
+      h AS (UPDATE sched_sessions AS se SET state = 'held' FROM s WHERE se.id = s.id RETURNING se.id)
+      UPDATE sched_enrolments AS e
+         SET state = CASE WHEN coalesce(e.hours_attended, 0) > 0 THEN 'attended' ELSE 'no-show' END,
+             certificate_number = CASE WHEN coalesce(e.hours_attended, 0) >= 0.8 * s.hours
+                                       THEN 'AVH-TC-' || lpad(s.id::text, 3, '0') || '-' || lpad(e.id::text, 4, '0') END,
+             issued_at = CASE WHEN coalesce(e.hours_attended, 0) >= 0.8 * s.hours THEN now() END
+        FROM s
+       WHERE e.session_id = s.id AND e.state = 'enrolled'
+  # A planned session eight weeks ahead of its first day: open; an open or
+  # full one whose first day has come: running.
+  sched.sessions.open:
+    sql: >-
+      WITH t AS (SELECT (now() AT TIME ZONE timezone)::date AS today FROM sched_settings WHERE id = 1),
+      o AS (
+        UPDATE sched_sessions AS se SET state = 'open'
+         WHERE se.id = (SELECT x.id FROM sched_sessions AS x, t
+                         WHERE x.state = 'planned' AND x.first_on <= t.today + 56 ORDER BY x.first_on, x.id LIMIT 1)
+        RETURNING se.id)
+      UPDATE sched_sessions AS se SET state = 'running'
+       WHERE se.id = (SELECT x.id FROM sched_sessions AS x, t
+                       WHERE x.state IN ('open', 'full') AND x.first_on <= t.today ORDER BY x.first_on, x.id LIMIT 1)
+  # --- reads -------------------------------------------------------------------------
+  # Reception's search: a consultation type's next ten free slots from up
+  # to two weeks ahead.
+  sched.slots.find:
+    sql: >-
+      SELECT * FROM sched_free_slots(%(type)s, now() + %(lead)s * interval '1 hour', 10)
+    params:
+      type: {int: [1, 12]}
+      lead: {int: [0, 336]}
+  # A section's day, today or in the next six: its bookings with their live
+  # allocations.
+  sched.agenda.day:
+    sql: >-
+      SELECT b.id, b.starts_at, b.ends_at, b.kind, b.state, t.name AS type, a.role, a.staff_id, a.room_id, a.machine_id
+        FROM sched_settings AS s, sched_bookings AS b
+        JOIN sched_types AS t ON t.id = b.type_id
+        LEFT JOIN sched_allocations AS a ON a.booking_id = b.id AND a.released_at IS NULL
+       WHERE s.id = 1 AND b.section_id = %(section)s
+         AND b.starts_at >= ((now() AT TIME ZONE s.timezone)::date + %(day)s)::timestamp AT TIME ZONE s.timezone
+         AND b.starts_at < ((now() AT TIME ZONE s.timezone)::date + %(day)s + 1)::timestamp AT TIME ZONE s.timezone
+       ORDER BY b.starts_at, b.id, a.role
+    params:
+      section: {choice: {3: 75, 1: 18, 2: 7}}
+      day: {int: [0, 6]}
+  # Today's theatre plans: the theatre and the team.
+  sched.theatre.board:
+    sql: >-
+      SELECT b.id, b.starts_at, b.ends_at, b.state, b.section_id,
+             (SELECT r.code FROM sched_allocations AS a JOIN sched_rooms AS r ON r.id = a.room_id
+               WHERE a.booking_id = b.id AND a.released_at IS NULL) AS theatre,
+             (SELECT array_agg(a.staff_id ORDER BY a.id) FROM sched_allocations AS a
+               WHERE a.booking_id = b.id AND a.staff_id IS NOT NULL AND a.released_at IS NULL) AS team
+        FROM sched_settings AS s, sched_bookings AS b
+       WHERE s.id = 1 AND b.kind = 'surgery' AND b.state <> 'cancelled'
+         AND b.starts_at >= (now() AT TIME ZONE s.timezone)::date::timestamp AT TIME ZONE s.timezone
+         AND b.starts_at < ((now() AT TIME ZONE s.timezone)::date + 1)::timestamp AT TIME ZONE s.timezone
+       ORDER BY b.starts_at, b.id
+  # A section's team's week, this one or the next two.
+  sched.rota.week:
+    sql: >-
+      SELECT h.staff_id, h.kind, h.starts_at, h.ends_at, h.published_at IS NOT NULL AS published, h.clocked_in_at,
+             h.clocked_out_at
+        FROM sched_settings AS s, sched_shifts AS h
+       WHERE s.id = 1 AND h.section_id = %(section)s
+         AND h.starts_at >= (date_trunc('week', now() AT TIME ZONE s.timezone) + %(week)s * interval '7 days')
+                            AT TIME ZONE s.timezone
+         AND h.starts_at < (date_trunc('week', now() AT TIME ZONE s.timezone) + (%(week)s + 1) * interval '7 days')
+                           AT TIME ZONE s.timezone
+       ORDER BY h.staff_id, h.starts_at
+    params:
+      section: {int: [1, 3]}
+      week: {int: [0, 2]}
+  # --- fixed-time operations (jobs.yaml) --------------------------------------------------
+  # Friday 12:00 (D411): the seventh week after this one generated by the
+  # rota's pattern as planned shifts (vet-core's core_shifts, without the
+  # history's absences: the two texts are one formula, docs/gm.md "The
+  # rota"); the week after next's planned shifts a live absence covers
+  # removed, its others published; the week after next's machine and theatre
+  # blocks booked where free. Idempotent: shifts on (staff_id, starts_at),
+  # publication on published_at, blocks on their start and note.
+  sched.rota.publish:
+    sql: >-
+      WITH cw AS (
+        SELECT date_trunc('week', now() AT TIME ZONE s.timezone)::date AS w0, s.timezone AS tz
+          FROM sched_settings AS s WHERE s.id = 1),
+      q AS MATERIALIZED (
+        SELECT day, cw.tz, dn, dn / 7 AS wk, dn % 7 + 1 AS dow, 1 + dn % 25 AS nv0, 1 + (dn + 24) % 25 AS nv1,
+               day - dn % 7 + 4 AS fri
+          FROM cw, LATERAL (SELECT cw.w0 + 49 + i AS day FROM generate_series(0, 6) AS i) AS d,
+               LATERAL (SELECT d.day - date '2000-01-03' AS dn) AS x),
+      we AS MATERIALIZED (
+        SELECT q.day, a.rest,
+               (SELECT 1 + (q.wk + g) % 10 FROM generate_series(0, 9) AS g
+                 WHERE 1 + (q.wk + g) % 10 <> ALL (a.rest) ORDER BY g LIMIT 1) AS horse,
+               (SELECT 11 + (q.wk + g) % 7 FROM generate_series(0, 6) AS g
+                 WHERE 11 + (q.wk + g) % 7 <> ALL (a.rest) ORDER BY g LIMIT 1) AS farm,
+               (SELECT 18 + (q.wk + 3 + g) % 8 FROM generate_series(0, 7) AS g
+                 WHERE 18 + (q.wk + 3 + g) % 8 <> ALL (a.rest) ORDER BY g LIMIT 1) AS dom
+          FROM q, LATERAL (SELECT ARRAY[1 + (q.fri - date '2000-01-03') % 25, 1 + (q.fri + 1 - date '2000-01-03') % 25,
+                                        1 + (q.fri + 2 - date '2000-01-03') % 25] AS rest) AS a),
+      sat AS MATERIALIZED (
+        SELECT we.day, ARRAY(SELECT 18 + (2 * q.wk + g) % 8 FROM generate_series(0, 7) AS g
+                              WHERE 18 + (2 * q.wk + g) % 8 <> ALL (we.rest) AND 18 + (2 * q.wk + g) % 8 <> we.dom
+                              ORDER BY g LIMIT 2) AS consult
+          FROM we JOIN q ON q.day = we.day),
+      r (n, kind, s, e) AS (
+        SELECT g, 'day', q.day + CASE WHEN g BETWEEN 18 AND 25 AND g % 2 = 1 THEN time '10:00' ELSE time '08:00' END,
+               q.day + CASE WHEN g BETWEEN 18 AND 25 AND g % 2 = 1 THEN time '20:00' ELSE time '18:00' END
+          FROM q, generate_series(1, 25) AS g
+         WHERE q.dow <= 5 AND (g + q.wk) % 5 <> q.dow - 1 AND g <> q.nv0 AND g <> q.nv1
+        UNION ALL
+        SELECT q.nv0, 'night', q.day + time '20:00', q.day + 1 + time '08:00' FROM q
+        UNION ALL
+        SELECT g, 'day', q.day + time '08:00', q.day + time '20:00'
+          FROM q JOIN we ON we.day = q.day, unnest(ARRAY[we.horse, we.farm, we.dom]) AS g WHERE q.dow >= 6
+        UNION ALL
+        SELECT g, 'day', q.day + time '08:00', q.day + time '13:00'
+          FROM q JOIN sat ON sat.day = q.day, unnest(sat.consult) AS g WHERE q.dow = 6
+        UNION ALL
+        SELECT (SELECT v FROM unnest(ARRAY[1, 3, 7, 13, 19, 22]) WITH ORDINALITY AS u (v, o)
+                 WHERE v <> q.nv0 ORDER BY (o + q.dn) % 6 LIMIT 1),
+               'on-call', q.day + time '20:00', q.day + 1 + time '08:00' FROM q
+        UNION ALL
+        SELECT (SELECT v FROM unnest(ARRAY[4, 10, 21]) WITH ORDINALITY AS u (v, o)
+                 WHERE v <> q.nv0 ORDER BY (o + q.dn) % 3 LIMIT 1),
+               'on-call', q.day + time '20:00', q.day + 1 + time '08:00' FROM q
+        UNION ALL
+        SELECT g, 'day', q.day + time '08:00', q.day + time '18:00'
+          FROM q, (SELECT generate_series(26, 28) UNION ALL SELECT generate_series(52, 55)) AS x (g)
+         WHERE q.dow <= 5 AND (g + q.wk) % 5 <> q.dow - 1
+        UNION ALL
+        SELECT g, 'on-call', q.day + time '18:00', q.day + 1 + time '08:00'
+          FROM q, unnest(ARRAY[26 + q.dn % 3, 52 + q.dn % 4]) AS g
+        UNION ALL
+        SELECT g, 'on-call', q.day + time '08:00', q.day + time '18:00'
+          FROM q, unnest(ARRAY[26 + q.wk % 3, 52 + q.wk % 4]) AS g WHERE q.dow >= 6
+        UNION ALL
+        SELECT 56, 'day', q.day + time '08:00', q.day + time '16:30' FROM q WHERE q.dow <= 5
+        UNION ALL
+        SELECT g, k.kind,
+               q.day + CASE k.kind WHEN 'day' THEN interval '07:00' WHEN 'late' THEN interval '13:30' ELSE interval '21:30' END,
+               q.day + CASE k.kind WHEN 'day' THEN interval '15:30' WHEN 'late' THEN interval '22:00' ELSE interval '31:30' END
+          FROM q, (SELECT generate_series(29, 51) UNION ALL SELECT generate_series(57, 66)) AS x (g),
+               LATERAL (SELECT CASE (g + q.wk) % 4
+                                 WHEN 0 THEN CASE WHEN q.dow <= 2 THEN 'day' WHEN q.dow >= 4 THEN 'night' END
+                                 WHEN 1 THEN CASE WHEN q.dow <= 3 THEN 'night' WHEN q.dow >= 6 THEN 'late' END
+                                 WHEN 2 THEN CASE WHEN q.dow <= 5 THEN 'late' END
+                                 ELSE CASE WHEN q.dow >= 3 THEN 'day' END END AS kind) AS k
+         WHERE k.kind IS NOT NULL
+        UNION ALL
+        SELECT g, 'day', q.day + CASE WHEN q.dow = 6 OR (g + q.dn) % 2 = 0 THEN time '08:00' ELSE time '11:00' END,
+               q.day + CASE WHEN q.dow = 6 THEN time '12:30' WHEN (g + q.dn) % 2 = 0 THEN time '16:00' ELSE time '19:00' END
+          FROM q, generate_series(67, 70) AS g WHERE q.dow <= 6 AND q.dow <> (g + q.wk) % 6 + 1
+        UNION ALL
+        SELECT g, CASE WHEN (g + q.wk) % 2 = 0 THEN 'day' ELSE 'late' END,
+               q.day + CASE WHEN (g + q.wk) % 2 = 0 THEN time '07:00' ELSE time '13:00' END,
+               q.day + CASE WHEN (g + q.wk) % 2 = 0 THEN time '15:00' ELSE time '21:00' END
+          FROM q, generate_series(71, 78) AS g WHERE q.dow <= 6 AND q.dow <> (g + q.wk) % 6 + 1
+        UNION ALL
+        SELECT 71 + q.dn % 8, 'on-call', q.day + time '21:00', q.day + 1 + time '07:00' FROM q
+        UNION ALL
+        SELECT 71 + q.wk % 8, 'on-call', q.day + time '07:00', q.day + time '21:00' FROM q WHERE q.dow = 7
+        UNION ALL
+        SELECT g, 'day', q.day + time '08:30', q.day + time '17:00'
+          FROM q, (SELECT unnest(ARRAY[79, 80]) UNION ALL SELECT generate_series(81, 85)) AS x (g)
+         WHERE q.dow <= 5 AND (g + q.wk) % 5 <> q.dow - 1),
+      ins AS (
+        INSERT INTO sched_shifts (staff_id, section_id, kind, starts_at, ends_at)
+        SELECT r.n,
+               CASE WHEN r.n BETWEEN 1 AND 10 OR r.n BETWEEN 29 AND 36 OR r.n BETWEEN 57 AND 60 THEN 1
+                    WHEN r.n BETWEEN 11 AND 17 OR r.n BETWEEN 37 AND 42 OR r.n BETWEEN 61 AND 62 THEN 2
+                    WHEN r.n BETWEEN 18 AND 25 OR r.n BETWEEN 43 AND 51 OR r.n BETWEEN 63 AND 66 THEN 3 END,
+               r.kind, r.s AT TIME ZONE cw.tz, r.e AT TIME ZONE cw.tz
+          FROM r, cw
+         ORDER BY r.n, r.s
+        ON CONFLICT (staff_id, starts_at) DO NOTHING
+        RETURNING id),
+      wk2 AS (
+        SELECT (cw.w0 + 14)::timestamp AT TIME ZONE cw.tz AS f, (cw.w0 + 21)::timestamp AT TIME ZONE cw.tz AS u FROM cw),
+      del AS (
+        DELETE FROM sched_shifts AS h USING wk2
+         WHERE h.published_at IS NULL AND h.starts_at >= wk2.f AND h.starts_at < wk2.u
+           AND EXISTS (SELECT 1 FROM sched_absences AS ab
+                        WHERE ab.staff_id = h.staff_id AND ab.from_at < h.ends_at AND ab.until_at > h.starts_at)
+        RETURNING h.id),
+      pub AS (
+        UPDATE sched_shifts AS h SET published_at = now() FROM wk2
+         WHERE h.published_at IS NULL AND h.starts_at >= wk2.f AND h.starts_at < wk2.u
+           AND NOT EXISTS (SELECT 1 FROM sched_absences AS ab
+                            WHERE ab.staff_id = h.staff_id AND ab.from_at < h.ends_at AND ab.until_at > h.starts_at)
+        RETURNING h.id),
+      bl AS (
+        SELECT x.type_id, x.room_id, x.machine_id, x.note, x.mins,
+               ((cw.w0 + 13 + x.dow) + x.at) AT TIME ZONE cw.tz AS s
+          FROM cw, (VALUES (28, NULL::integer, 9, 3, time '08:00', 120, 'quality assurance: machine 9'),
+                           (28, NULL, 7, 2, time '07:00', 60, 'service: machine 7'),
+                           (28, NULL, 8, 4, time '07:00', 60, 'service: machine 8'),
+                           (29, 6, NULL, 5, time '16:00', 120, 'deep clean: room 6'),
+                           (29, 7, NULL, 5, time '16:00', 120, 'deep clean: room 7'),
+                           (29, 11, NULL, 5, time '16:00', 120, 'deep clean: room 11'),
+                           (29, 13, NULL, 5, time '14:00', 120, 'deep clean: room 13'))
+                    AS x (type_id, room_id, machine_id, dow, at, mins, note)),
+      nb AS (
+        INSERT INTO sched_bookings (type_id, kind, starts_at, ends_at, state, source, booked_at, notes)
+        SELECT bl.type_id, 'block', bl.s, bl.s + bl.mins * interval '1 minute', 'booked', 'planned', now(), bl.note
+          FROM bl
+         WHERE NOT EXISTS (SELECT 1 FROM sched_bookings AS b
+                            WHERE b.kind = 'block' AND b.starts_at = bl.s AND b.notes = bl.note)
+           AND NOT EXISTS (SELECT 1 FROM sched_allocations AS a
+                            WHERE a.released_at IS NULL AND (a.room_id = bl.room_id OR a.machine_id = bl.machine_id)
+                              AND a.during && tstzrange(bl.s, bl.s + bl.mins * interval '1 minute', '[)'))
+        RETURNING id, starts_at, ends_at, notes)
+      INSERT INTO sched_allocations (booking_id, room_id, machine_id, role, starts_at, ends_at)
+      SELECT nb.id, bl.room_id, bl.machine_id, CASE WHEN bl.room_id IS NULL THEN 'machine' ELSE 'room' END,
+             nb.starts_at, nb.ends_at
+        FROM nb JOIN bl ON bl.note = nb.notes AND bl.s = nb.starts_at
