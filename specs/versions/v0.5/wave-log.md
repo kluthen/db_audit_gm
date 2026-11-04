@@ -4168,3 +4168,57 @@ fault witness quotes them. **For wave 4's capture (chunk 18)**:
 T0"; it should read about eight, the practices', so the answer leg has
 little to judge at T0 until new send-outs arrive. Left as is: QC runs
 7 861 (document 7 000), amendments 813 ("a thousand").
+
+### Chunk 15 — 15a built, 15b paused at WIP; usage limit, 2026-11-04
+
+Chunk 15's owner paused on context (and long waits on the host lock):
+branch `v0.5-c15-vet-machinery`, 15a `c95523a` (complete: three
+databases, loads, classification, register, rules, 7 coherence checks, GM
+notes, `parts:`, README row), 15b WIP `d60e472` (`equipment`'s
+fragments, `scripts/lookup.py`, `data/cron.sql`). Not merged. Loads
+(throwaway `postgres:0.5.0`, keys streamed by hand): +2 50.8 s (pacs
+40.1, vitals 9.1, biomed 1.6), 282 020 rows, 75.4 MB; shift 0 50.3 s,
+291 087 rows, 76.3 MB. Coherence clean by hand. Related unit tests 511
+OK, 2 skipped. **O227 settled: 11 machines reporting** (machine 10 a
+status row a minute with empty channels, 48 bytes against 116.5; about 70
+kB on a 2.4 MB readings day; 15 840 readings a day, the spec's figure).
+
+W3-d so far (chunks 21, 23): roles once in `pacs/schema.sql`; `mach_maint`
+LOGIN (pg_cron refuses a NOLOGIN role), a secret no node mounts;
+`CONNECT` pacs `mach_pacs_app`, vitals `mach_vitals_app` + `mach_maint`,
+biomed `mach_biomed_app` + `mach_maint` + `mach_service`; `mach_orders`,
+`mach_archive`, `ops` left to chunk 21. Partitions `mach_vitals_<yyyymmdd>`,
+`mach_readings_<yyyymmdd>`, `mach_events_<yyyymm>`, each a `_default`;
+the load creates yesterday to today+3 and the event months to next
+month; `mach_create_partitions(days)`, `mach_drop_shipped(day)` SECURITY
+DEFINER owned by `mach`, `search_path = public, pg_temp`, over
+`mach_partition_day(d)` (biomed also `mach_partition_month(d)`), EXECUTE
+revoked from PUBLIC; biomed's creates the months its days touch;
+`mach_drop_shipped` DETACH then DROP, false when none. A history day's
+readings `sum(mach_readings_daily.rows)` (1 440 a machine-day before the
+window); vitals by the GM notes' tick count over `mach_sessions`.
+Purpose 13: `mach_worklist(accession UNIQUE, state, cancelled_at,
+cancelled_because)`, `mach_reports(kind, status, signed_at,
+supersedes_id, why)`; a history final signed 1–9 minutes before the
+core's `resulted_at`. `mach_census`: stays current at T0 plus those left
+within the window.
+
+Deviations, sent to `spec-writer`: (1) `mach_vitals_settings` and
+`mach_pacs_settings` beside biomed's `mach_settings` (names unique across
+a part's databases); (2) `mach_worklist.cancelled_at` (purpose 13's
+watermark); (3) the PACS can't read biomed's registry (another database):
+`pacs.worklist.schedule` and `pacs.study.acquire` never check a machine
+in service, a down machine's studies just wait; (4) about 2 intensive-care
+sessions a day by D377's rule (not 2.7), about 42 700 raw vitals rows a
+day (not 52 000), about 2 980 imaging requests reaching the worklist
+(not 3 400); (5) some history finals outside reporting hours (the core's
+turnaround draw).
+
+**Driver's ruling on the fixture's T0**: the shift moves whole hours and
+the minute is the clock's, so `fixture-imaging` aims within 30 minutes of
+08:50 local on a weekday (refusing to run on a weekend day), not exactly
+08:50; accepted, since the checks read jobs that run after it.
+
+**Usage limit**: chunks 12b and 14 stopped mid-work on the account's
+5-hour limit; both resumed from where they stopped once it reset. A
+fresh owner resumes 15b.
