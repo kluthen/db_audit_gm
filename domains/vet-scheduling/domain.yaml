@@ -1,0 +1,27 @@
+# vet-scheduling, the centre's bookings, rota and training centre (v0.5
+# master spec 9.4; specs/versions/v0.5/vet-scheduling-domain.md; capture W3
+# item 2 with "W3 item 2, revised", spec D408-D414): the slots of the rooms
+# and bookable machines, the bookings that take staff, rooms, machines and
+# teaching animals with four exclusion constraints against a double booking,
+# the slot function, the staff rota with its clocked hours and absences, and
+# the training centre's courses, sessions and trainees. A part of vet-core:
+# its keys by id with no foreign key, its tables and roles prefixed sched_,
+# in the core's database by the scenario's at: (records/clinic), its schema
+# running as well in a database of its own (no lands_with: every flow with
+# the core is a purpose, O171, O172). Its load computes the core's agenda,
+# rota, requests, exchanges, deaths and staff by the core's functions
+# (vet-core docs/gm.md, "Core keys"), never reading them. Its producer: the
+# practice software's scheduling module, on pms (producers/pms/, connection
+# sched).
+id: vet-scheduling
+title: The agenda of a veterinary hospital, its rota and training centre (bookings, allocations, shifts, courses)
+schema: data/schema.sql
+load: data/load.sql
+classification: data/classification.yaml
+register: data/register.yaml
+producers: producers/
+notes: docs/gm.md
+policy: docs/policy.md
+governance: data/governance.yaml
+requires: [vet-core]
+purposes: [vet-bookings-sync, vet-working-time]
