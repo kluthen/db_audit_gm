@@ -21,7 +21,7 @@ keys:
 scale: {checked: true, note: "the core, its lab and the owners' portal at one centre's scale: about 0.27, 0.33 and 0.24 million rows, 49, 54 and 78 MB"}
 order: [vet-core, vet-lab, vet-portal]
 derive:
-  - {domain: vet-portal, after: [vet-core, vet-lab]}
+  - {domain: vet-portal, after: [vet-core, vet-lab], reason: "the portal copies the signed record and the released results, read through gm_src_vet_core and gm_src_vet_lab (spec D404)"}
 left_out:
   - {domain: vet-core, producer: pms, reason: "the portal's fixture runs no practice software (eight nodes at most, D314)"}
   - {domain: vet-core, producer: api/clinic-api, reason: "no lookup API node: the portal reads the core through its derivation and purpose 15 (chunk 21)"}

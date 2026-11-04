@@ -10,9 +10,10 @@
 # after); the portal's API, portal-api (api 0.1.0), as portal_api over TLS;
 # the integration engine, interfaces (scheduler 0.3.0), idle until chunk 21;
 # the owners' traffic on the partners' three nodes (partners-api serving the
-# hostname owners, partners-backend ticking it, partners-db holding its
-# record of visits and the lab's two stubs' state); and the bastion: eight
-# nodes on one host. Left out (composition.yaml): vet-core's pms and
+# hostname owners alone, partners-backend ticking it, both found by name as
+# no third party lists them, D421; partners-db, which the lab's two third
+# parties list alone, holding its record of visits and the lab's two stubs'
+# state); and the bastion: eight nodes on one host. Left out (composition.yaml): vet-core's pms and
 # clinic-api, vet-lab's lis, lab-api and two stubs' fragments, vet-portal's
 # desk stream on pms; the fragments compose in tools/tests/test_compose.py
 # only. gmctl compose writes nodes/portal-api/, nodes/interfaces/,
@@ -57,21 +58,23 @@ domains:
 
 # --- Third parties (v0.5 master spec 6.2, 10) ----------------------------
 # The lab's two partners, their state on partners-db, their fragments left
-# out (composition.yaml). They list the partners' three nodes, which the
-# owners' traffic (no third party: master spec 10.2, D369) shares.
+# out (composition.yaml). They list partners-db alone: with no entry listing
+# a scheduler or api node, the owners' traffic (no third party: master spec
+# 10.2, D369) goes onto the no-access nodes partners-backend and partners-api,
+# partners-api serving the hostname owners alone (spec D421).
 third_parties:
   - id: northfield-lab
     name: Northfield Veterinary Laboratories
     stands_for: the external reference laboratory the lab sends what it cannot run
     role: round-trip
-    nodes: [partners-api, partners-backend, partners-db]
+    nodes: [partners-db]
     hostname: northfield-lab
     player_doc: player/partners.md#northfield-veterinary-laboratories
   - id: regional-practices
     name: The region's practices
     stands_for: the 120 referring practices with an account at the lab
     role: round-trip
-    nodes: [partners-api, partners-backend, partners-db]
+    nodes: [partners-db]
     hostname: practices
     player_doc: player/partners.md#the-regions-practices
 

@@ -175,7 +175,9 @@ weight, by active accounts; half logged out, the others idle, the last
   `md5('messaging:' ‖ message_key)::uuid`.
 
 At the reference T0 (`load_epoch` 2026-11-04T08:50Z, shift 0, a
-Wednesday morning before the reminders' queue):
+Wednesday morning before the reminders' queue; the core's agenda of
+chunk 30 in place, which leaves about 4 % of the scheduled consultations
+without a row, hence fewer documents than the domain document's):
 
 | Table | Rows | The document's |
 |---|---|---|
@@ -183,9 +185,9 @@ Wednesday morning before the reminders' queue):
 | `portal_consent_events` | 7 285 (232 keeper grants in force) | 8 000 (250) |
 | `portal_sessions` | 4 507 (15 open) | 4 500 |
 | `portal_animals`, `portal_ownerships`, `portal_herds` | 17 000, 18 569, 200 | 17 000, 20 000, 200 |
-| `portal_documents` | 40 028: 24 585 consultations, 13 065 results (497 later versions), 2 378 discharges | 41 600 (25 000, 13 600, 400, 2 300) |
-| `portal_views` | 66 533 | 70 000 |
-| `portal_outbox` | 38 889: 26 448 notices, 6 675 reminders, 4 000 invitations, 1 633 resets, 133 closures | 36 000 (23 000, 8 000, 3 800, 1 500) |
+| `portal_documents` | 38 973: 23 922 consultations, 12 673 results (467 later versions), 2 378 discharges | 41 600 (25 000, 13 600, 400, 2 300) |
+| `portal_views` | 65 032 | 70 000 |
+| `portal_outbox` | 38 169: 25 728 notices, 6 675 reminders, 4 000 invitations, 1 633 resets, 133 closures | 36 000 (23 000, 8 000, 3 800, 1 500) |
 
 ## The roles (vet-portal-domain.md, "Application roles and grants")
 
@@ -336,6 +338,12 @@ misbehaviour key (no `owners.state`, no `owners.normal`; master spec
 | `owners.keeper` | 0.08/h, Poisson | a horse owner (302–901) grants (three in four) or withdraws a keeper's access named in its consents |
 | `owners.close` | 0.015/h, Poisson | an active account closed (`POST /me/close`) |
 
+The partners' nodes are the third parties' when an entry lists a
+scheduler and an api node; when none does (the portal fixture, whose
+lab entries list `[partners-db]` alone), `compose` puts the route onto
+the `no-access` nodes `partners-backend` and `partners-api`, the latter
+serving `owners` alone (D421).
+
 Connections on `partners-api`: `owners-db` (`partners-db:5432/partners`
 as `owners`, pool 2) and `owners-portal` (`portal-api:8000`, no
 credential, pool 2). A tick reads what it needs in one short transaction,
@@ -406,19 +414,27 @@ purposes' `ddl:`), the derivation: `derive.sql`, the two key files
 ahead, in `portal`, `clinic` and `lab` reachable as `gm_src_vet_core`
 and `gm_src_vet_lab`, as the composition record's `derive: [{domain:
 vet-portal, after: [vet-core, vet-lab]}]` sanctions it. Then the
-coherence check. Every session is unseen (D265). Measured on 2026-11-04
-in a throwaway container of `postgres:0.5.0` on armenelos, the keys
-streamed and the foreign schemas created by hand as `load-data` does:
+coherence check. Every session is unseen (D265). Measured on 2026-11-04,
+after the core's agenda (chunk 30), in a throwaway container of
+`postgres:0.5.0` on armenelos, the keys streamed and the foreign schemas
+created by hand as `load-data` does:
 
 | Run (`load_epoch` 08:50 local) | Time | Size | Rows |
 |---|---|---|---|
-| the keys and `load.sql`, shift 0 (`2026-11-04T08:50Z`) | 18 s | | 21 792 |
-| `derive.sql`, shift 0 | 134 to 142 s | 78 MB with the load | 241 900 in all |
-| the keys and `load.sql`, offset +2 (`2026-11-04T06:50Z`) | 19 s | | 21 792 |
-| `derive.sql`, offset +2 | 130 s | 78 MB with the load | 241 900 in all |
+| the keys and `load.sql`, shift 0 (`2026-11-04T08:50Z`) | 17 s | | 21 792 |
+| `derive.sql`, shift 0 | 121 s | 77 MB with the load | 237 904 in all |
+| the keys and `load.sql`, offset +2 (`2026-11-04T06:50Z`) | 18 s | | 21 792 |
+| `derive.sql`, offset +2 | 121 s | 77 MB with the load | 237 904 in all |
 
 The figures are the same at both shifts (the hashes are of ids, the
 times local). The coherence check's six queries returned no row at
 both (the slowest, `gates-published` and `records-gated`, about 4 s);
 `results-gated` caught a document's gate moved by an hour. The core's
-and the lab's loads ahead took 94 to 104 s and 64 to 70 s.
+and the lab's loads ahead took 118 to 119 s and 73 to 75 s.
+
+Composed, through `gmctl load-data` in the portal fixture's short test
+(`tools/tests/fixtures/fixture-portal/`, 2026-11-04, armenelos, eight
+nodes on one host, shifts −5 and −6): the whole load (the core, the lab
+and its two partners' state, the portal and the owners' state, the
+sessions' purge, the derivation, the eleven coherence checks) 603 to
+632 s; `portal` 78 MB, `clinic` 48 MB, `lab` 54 MB.

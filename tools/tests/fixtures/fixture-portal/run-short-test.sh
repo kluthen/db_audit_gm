@@ -398,7 +398,7 @@ info "documents opened since T0: $(echo $opened | wc -w)"
 same "each document the route opened has its portal_views row" "0" "$missing"
 logins=$(dbsql partners-db partners "SELECT count(*) FROM owners.visits WHERE at >= '$T0' AND call = 'POST /login' AND status = 201")
 same "each login the route made has its session" "$logins" \
-    "$(dbsql records portal "SELECT count(*) FROM portal_sessions WHERE created_at >= '$T0' AND account_id IN ($(dbsql partners-db partners "SELECT coalesce(string_agg(DISTINCT account_id::text, ','), '0') FROM owners.visits WHERE at >= '$T0'")))")"
+    "$(dbsql records portal "SELECT count(*) FROM portal_sessions WHERE created_at >= '$T0' AND account_id IN ($(dbsql partners-db partners "SELECT coalesce(string_agg(DISTINCT account_id::text, ','), '0') FROM owners.visits WHERE at >= '$T0'"))")"
 listed=$(dbsql partners-db partners "SELECT coalesce(string_agg(account_id || ':' || coalesce(array_to_string(animal_ids, ','), ''), ' '), '') FROM owners.visits
   WHERE at >= '$T0' AND call = 'GET /animals' AND status = 200")
 wrong=0
@@ -413,7 +413,7 @@ same "each listing the route recorded is the animals the policy shows its owner"
 errs=$(blog | grep ' error ' || true)
 same "partners-backend ran without an error" "0" "$(printf '%s' "$errs" | grep -c . || true)"
 [ -z "$errs" ] || printf '%s\n' "$errs" | head -n 8 | cut -c1-300 | sed 's/^/....  partners-backend: /'
-info "portal-api's request log: $(docker exec "$(ctr portal-api)" sh -c 'grep -c " request " /var/log/api/api.log' 2>/dev/null) requests, $(docker exec "$(ctr portal-api)" sh -c 'grep -c " error " /var/log/api/api.log' 2>/dev/null || echo 0) errors"
+info "portal-api's request log: $(docker exec "$(ctr portal-api)" sh -c 'grep -c " request " /var/log/api/api.log' 2>/dev/null) requests, $(docker exec "$(ctr portal-api)" sh -c 'grep -c " error " /var/log/api/api.log || true' 2>/dev/null) errors"
 
 # --- teardown -------------------------------------------------------------
 info "gmctl teardown"
