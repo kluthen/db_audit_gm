@@ -31,7 +31,10 @@ within two working days, the turnaround staying three (9.4; spec D376);
 an intensive-care session on one domestic stay in two and one horse stay
 in four, until its step-down (9.6; spec D377). On 2026-11-04, after
 chunk 11: a manifest is keyed on its source and shipment id, since two
-archiving nodes post the same segment names (10.4; spec D381).
+archiving nodes post the same segment names (10.4; spec D381). On
+2026-11-04, after wave 2's gate: its format items as built, recorded in
+sections 5 and 6.1 and in formats.md v29 (spec D364), and the owners'
+traffic in `producers/partners/owners/` (9.7, 24; spec D369).
 
 Baseline: the released [v0.4 master spec](../v0.4/master-spec.md) and
 its [access model](../v0.4/access-model.md). Everything v0.4 specifies
@@ -253,17 +256,23 @@ bricks/
                         customer's scripts (7.4)
   grafana/              0.3.0: a seeded pgwatch dashboard (7.4)
 domains/vet-core/, vet-lab/, vet-scheduling/, vet-housing/, vet-machinery/,
-  vet-portal/           new: the clinic's six domains (9)
+  vet-portal/           new: the clinic's six domains (9); the core's key
+                        functions in data/keys.sql, a part's coherence
+                        queries in data/coherence.yaml, a partner's state in
+                        producers/partners/<prefix>/data.sql (6.1)
 domains/shop/           its classification rekeyed, its register fragment, its
                         one variant (8.6), its fragments in producers/producer/
+partners/               new: a catalogue folder beside domains/ and purposes/:
+                        shared/, the base of the partners' three shared nodes;
+                        coldstore/, cold storage, the vault (6.1, 10.2, 10.4)
 purposes/<purpose-id>/  new: the clinic's purposes built in v0.5 (12.2)
 faults/<fault-id>/      new: the test selection's ten (17.2); every fault applying
                         to a bumped brick lists its new version; one fault's
                         precondition widened (17.2)
 scenarios/<clinic-id>/  new: the clinic scenario (17)
 scenarios/*             the existing four re-pinned (17.5)
-tools/                  `gmctl compose`, the loader's checks, the coherence
-                        check (15)
+tools/                  `gmctl compose`, the loader's checks, `load-data`'s
+                        composed load and the coherence check (15)
 tools/tests/fixtures/   the fixtures of the short tests (18)
 .claude/skills/scenario-format/    templates and checks for section 6
 .claude/skills/scenario-document/  third parties, composition, the data register
@@ -271,7 +280,9 @@ tools/tests/fixtures/   the fixtures of the short tests (18)
                                    parties, the register in Setup step 2
 .claude/skills/data-register/      new: the GM sub-skill generating a
                                    scenario's data register (13.3)
-specs/formats.md        draft v28: the domain format, composition, the register
+specs/formats.md        draft v28: the domain format, composition, the register;
+                        v29 after wave 2: the composed load's files and the
+                        partners/ folder, as built
 ```
 
 ## 6. Format changes
@@ -279,7 +290,8 @@ specs/formats.md        draft v28: the domain format, composition, the register
 The cross-version [formats.md](../../formats.md) states the rules for
 every version. Its draft v28 states v0.5's domain format, the
 composition of domains, the data register's files and the purpose
-format's extensions in full; this section lists what v0.5 changes and
+format's extensions in full, and its v29 the composed load's files and
+the partners' folder as wave 2 built them; this section lists what v0.5 changes and
 gives the shapes of the rest, normative until the `scenario-format`
 skill's templates carry them. The skill, its templates and the loader
 change together in the build, as in v0.4.
@@ -292,8 +304,31 @@ As [formats.md](../../formats.md) "Domain" states it:
   optionally `data/<database>/` for a part with several databases,
   `data/derive.sql`, a `governance:` fragment with `docs/policy.md`,
   `producers/<node>/` (the fragments for each scheduler node the domain
-  targets), `producers/api/<node>/` and `producers/partners/<partner>/`,
-  `variants/<variant>.yaml` and `variants/<variant>/producers/`.
+  targets), `producers/api/<node>/` and `producers/partners/<prefix>/`
+  (the folder's name the partner's prefix, `[a-z][a-z0-9]{0,15}`: its
+  role, schema, keys, endpoints and connections), `variants/<variant>.yaml`
+  and `variants/<variant>/producers/`; as built in wave 2, a core's
+  `data/keys.sql`, a part's `data/coherence.yaml` and a partner's
+  `data.sql` (below). The owners' traffic is
+  `producers/partners/owners/`; `producers/public/` holds no `data.sql`.
+- **A composed domain's data files are read, not copied** (formats.md
+  "Domain", "Loading a composed domain"): `load-data` reads the schema,
+  load, keys, derivation, partner and coherence files from the
+  catalogue at every load, as it reads a purpose's history; `gmctl
+  compose` writes the fragments into the scenario, and the GM copies the
+  classification, policy and governance fragment as before. `load-data`
+  creates each `at:` database, so a domain's schema and load never
+  create a database nor `\connect`, and name it `:"DBNAME"`; every file
+  it runs gets `load_epoch`, the run's start, its one "now"; the core's
+  `keys.sql` (`pg_temp.core_*`) is streamed ahead of each load, partner
+  file and derivation in the same session; a partner's `data.sql` runs
+  into `partners`; `coherence.yaml` holds the post-load coherence
+  queries (8.5), a check reading `partners` running on the partners'
+  node.
+- **The partners' catalogue folder**, `partners/` (formats.md
+  "Partners"): `shared/`, the three shared nodes' declarations and
+  seeds, and `coldstore/`, cold storage laid out as a partner folder,
+  both copied into a scenario as a purpose's material is (10.2, 10.4).
 - **`domain.yaml`** gains `register`, and for a part `requires`,
   optionally `lands_with`, `databases` and
   `derive: {after: [...]}`.
@@ -2087,8 +2122,9 @@ created in it. One node, `portal-api` (`api`, players' scope, 0.1 CPU,
 out of reach on the partners' shared `api` node under a tenth hostname,
 `owners`: owners are people, not a third party, so it has no
 `partners.md` entry. It is a traffic source that is no business, under
-`producers/partners/owners/` or `producers/public/owners/` (chosen at
-the build).
+`producers/partners/owners/` (role and schema `owners`), keeping its
+record of visits in the partners' database, whose tables its `data.sql`
+creates.
 
 #### What it holds
 
@@ -3552,7 +3588,7 @@ superuser, no partition created ahead on the machines' readings.
 - where a purpose's `history.sql` and endpoint material sit beside v0.4's
   per-part material folders;
 - `producers/partners/<name>/` or `producers/public/<name>/` for the
-  owners' traffic;
+  owners' traffic (settled: `producers/partners/owners/`, 9.7);
 - the `api` brick's internal layout: `db/` its one writable path, routes
   importing only from `db/` (as drafted);
 - how the partners' `pg_hba.conf` admits only their own nodes on one
