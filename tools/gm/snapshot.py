@@ -29,6 +29,15 @@ When `fit` said the copies do not fit (`implementation.yaml`'s
 `snapshot_fit.fits: false`), nothing is copied and the snapshot is
 recorded as not fitting (master spec 12, "Otherwise, no history").
 
+The order (v0.5 capture W2-g item 1; spec D397): every node with a
+`vault_target` (an archiving `postgres` node) copied first, then the rest
+in `nodes` order, so the vault's copy is the later one and its manifests
+name every segment the restored node counts as archived. When a primary's
+copies are taken (a `postgres` node that is no standby), its persistent
+physical replication slots are read and recorded (a base backup leaves
+`pg_replslot/` out, so a restart re-creates them); its standbys' own slots
+(their clone re-creates them) and temporary slots left out.
+
 `snapshot` needs `load-started` and the earliest hand-over reached, or
 `injected` in a game with no scheduler node (D162); it is refused once the
 game is handed over, when it would capture the players' changes (access
@@ -44,16 +53,19 @@ Recorded in `state.yaml` (capture W2, item 11; chunk 11 owns all but
       finished_at: <instant>
       game: <id of the game that took it>      # its copies' label value
       volumes: [{node, volume, method, host, copy, bytes}]
+      slots: [{node, name}]                    # v0.5: a primary's persistent physical
+                                               #   slots; a record without it: none
       stops: [{node, services, stopped_at, started_at}]
       why: <fit's line>                        # not-fitting
       reason: <first line of the failure>      # failed
 """
 
+import json
 import subprocess
 import tempfile
 from dataclasses import dataclass, field
 
-from . import aging, localimpl, model
+from . import aging, inject, localimpl, model
 from .docker import for_local_dir
 from .execnode import exec_node, node_container, node_docker
 from .model import GmError
@@ -70,6 +82,12 @@ RUN_PATH = "/run"                       # emptied at every start, never copied (
 SSHD = "sshd"                           # never stopped: the exec path and health need it
 SNAPSHOT_DB = "/usr/local/sbin/gm-snapshot-db"
 S6_TIMEOUT_MS = 60000
+VAULT_TARGET = "vault_target"           # a postgres node archiving to the vault (W1-x)
+# A primary's replication slots, one JSON line each, read as psql -A -t
+# (capture W2-g item 1); the selection is snapshot.recorded_slots'.
+SLOTS_SQL = ("SELECT pg_catalog.json_build_object('name', slot_name, 'type', slot_type, "
+             "'temporary', temporary) FROM pg_catalog.pg_replication_slots "
+             "ORDER BY slot_name;\n")
 STEP_TIMEOUT = 300                      # seconds for one stop or start step
 
 
@@ -122,6 +140,52 @@ def start_script(services):
     lines = "".join(f"/command/s6-svc -wu -T {S6_TIMEOUT_MS} -u /run/service/{s} || rc=1\n"
                     for s in reversed(services))
     return "rc=0\n" + lines + "exit $rc\n"
+
+
+def copy_order(scenario):
+    """The nodes in the order their copies are taken (capture W2-g item 1):
+    those with a `vault_target` first, then the rest, each part in `nodes`
+    order."""
+    def archives(node):
+        return (node.get("parameters") or {}).get(VAULT_TARGET) is not None
+    return ([n for n in scenario.nodes if archives(n)]
+            + [n for n in scenario.nodes if not archives(n)])
+
+
+def is_primary(scenario, node):
+    """A `postgres` node that is no standby: its slots are recorded."""
+    return localimpl.is_postgres_node(scenario, node) and not localimpl.standby_of(node)
+
+
+def standby_slots(scenario, primary):
+    """The slots of `primary`'s own standbys (each re-created by its clone)."""
+    return {localimpl.standby_slot(n["name"]) for n in scenario.nodes
+            if localimpl.standby_of(n) == primary}
+
+
+def recorded_slots(scenario, node, rows):
+    """`[{node, name}]` of the slots read on `node` (SLOTS_SQL's rows) the
+    snapshot records: persistent physical slots, its standbys' left out."""
+    own = standby_slots(scenario, node)
+    return [{"node": node, "name": row["name"]} for row in rows
+            if isinstance(row, dict) and row.get("type") == "physical"
+            and not row.get("temporary") and row.get("name") not in own]
+
+
+def read_slots(ldir, docker, scenario, node):
+    """The slots of the primary `node` the snapshot records; GmError when
+    they cannot be read."""
+    run = exec_node(ldir, node, inject.DATA_USER, stdin=SLOTS_SQL, timeout=STEP_TIMEOUT,
+                    docker=docker, argv=inject.SURVEY_ARGV)
+    if not run.ok:
+        raise GmError(f"{node}: reading its replication slots: psql exit {run.returncode}: "
+                      f"{inject.psql_error_line(run)}")
+    try:
+        rows = [json.loads(line) for line in inject.output_lines_stdout(run)]
+    except ValueError:
+        raise GmError(f"{node}: reading its replication slots: unexpected psql output: "
+                      f"{_one_line(run.stdout)}") from None
+    return recorded_slots(scenario, node, rows)
 
 
 # --- The stream into its copy -----------------------------------------------
@@ -234,6 +298,9 @@ class SnapshotResult:
             total = sum(v.get("bytes") or 0 for v in vols)
             out.append(f"Game {self.game_id}: hand-over snapshot taken, {len(vols)} volumes, "
                        f"{model.format_size(total)}, labelled {label(self.game_id)}.")
+            for slot in self.record.get("slots") or []:
+                out.append(f"  {slot['node']}: replication slot {slot['name']} recorded, "
+                           "re-created by a restart")
             for stop in self.record.get("stops") or []:
                 out.append(f"  {stop['node']}: {', '.join(stop['services'])} stopped "
                            f"{stop['stopped_at']}, started again {stop['started_at']}")
@@ -295,9 +362,10 @@ def take(scenario_dir, playground, docker=None, now=None, clock=localimpl.now_is
         record = {"status": NOT_FITTING, "at": began, "why": fit.get("why")}
     else:
         result.replaced = remove_copies(docker, gid)
-        record = {"status": TAKEN, "at": began, "game": gid, "volumes": [], "stops": []}
+        record = {"status": TAKEN, "at": began, "game": gid, "volumes": [], "slots": [],
+                  "stops": []}
         try:
-            for node in scenario.nodes:
+            for node in copy_order(scenario):
                 take_node(ldir, docker, impl, scenario, gid, node["name"], record, clock)
             record["finished_at"] = clock()
         except GmError as exc:
@@ -317,11 +385,15 @@ def take(scenario_dir, playground, docker=None, now=None, clock=localimpl.now_is
 
 
 def take_node(ldir, docker, impl, scenario, gid, node, record, clock):
-    """One node's copies, into `record`: every volume not stopped for
-    first, then, when the node has `stop` volumes, its services stopped,
-    those copied, its services started again (always)."""
+    """One node's copies, into `record`: a primary's slots read first
+    (v0.5), then every volume not stopped for, then, when the node has
+    `stop` volumes, its services stopped, those copied, its services
+    started again (always)."""
     plan = node_plan(scenario, node)
     host = impl["nodes"][node].get("host")
+    entry = next(n for n in scenario.nodes if n["name"] == node)
+    if is_primary(scenario, entry):
+        record["slots"] += read_slots(ldir, docker, scenario, node)
 
     def one(volume, method, script, accepted):
         size = take_copy(ldir, docker, impl, gid, node, volume, script, accepted)

@@ -36,9 +36,17 @@ The rebuild, in order:
    node's host under the new id, labelled as Swarm labels a stack's
    volume, and filled from its copy by a helper container (`--rm`,
    `--pull never`, no network, labelled `dbagm.game=<new id>`, the node's
-   own image); once healthy, each scheduler polled until it reads
-   `running` (it resumes from its marker, T0 unchanged). The copies carry
-   the check role's `CONNECT` with the data (D176).
+   own image); each standby's restored data volume (its `pg_basebackup`
+   copy) given `standby.signal` (postgres, 0600) by a helper of the same
+   kind, so it never runs as a primary (v0.5 capture W2-g item 2; spec
+   D397); once healthy, on each primary the slots the snapshot recorded
+   re-created (physical, reserving WAL at once, inactive), then each
+   standby, in topology order, cloned again from its restored primary as
+   `load-data` does (`inject.clone_standby` in restore mode: `replicator`
+   set, `clone-standby --restore`, the wait until its sender streams),
+   then each scheduler polled until it reads `running` (it resumes from
+   its marker, T0 unchanged). The copies carry the check role's `CONNECT`
+   with the data (D176). A record without `slots:` re-creates none.
    With no snapshot (it did not fit): `load-data`'s steps, its grants
    included; every state fault's scripts at once, those due at T0 and
    those due during the aging; with scheduler nodes, every load started
@@ -66,6 +74,8 @@ Recorded in `state.yaml` (master spec 12 "Record"; access model 9):
         status: started | completed | failed
         finished_at: <instant>          # completed
         previous_t0: <instant>          # with no snapshot, in a game that ages
+        slots: [{node, name}]           # from the snapshot (v0.5): re-created
+        standbys: [{node, primary, slot}]   # from the snapshot (v0.5): cloned again
         reason: <the failure>           # failed
 """
 
@@ -82,6 +92,8 @@ HANDED_OVER = aging.HANDED_OVER
 FROM_STAGES = aging.AFTER_HANDOVER          # handed-over, final-answer, feedback-given
 STARTED, COMPLETED, FAILED = "started", "completed", "failed"
 RESTORE_MOUNT = "/volume"
+STANDBY_SIGNAL = "standby.signal"           # a standby's data directory (capture W2-g item 2)
+PG_OWNER = "postgres"
 BY_RESTART = "restart"
 CONFIRMATION_HINT = '--confirmation "<the player\'s words>"'
 
@@ -264,6 +276,86 @@ def restore_volumes(docker, impl, record):
     return restored
 
 
+def data_volume(record, node):
+    """The volume of `node` the snapshot copied with `pg_basebackup`: its
+    data directory; None when the record holds no such copy."""
+    return next((v["volume"] for v in record.get("volumes") or []
+                 if v["node"] == node and v.get("method") == snapshot.PG_BASEBACKUP), None)
+
+
+def standby_signal_args(impl, node, volume):
+    """The helper container writing `standby.signal`, postgres 0600, into
+    the restored data volume `volume` of the standby `node`."""
+    gid = impl["game_id"]
+    return ["run", "--rm", "--pull", "never", "--network", "none", "--user", "0:0",
+            "--label", f"{localimpl.LABEL_GAME}={gid}",
+            "-v", f"{volume_name(impl, node, volume)}:{RESTORE_MOUNT}",
+            "--entrypoint", "install", impl["nodes"][node]["image"],
+            "-o", PG_OWNER, "-g", PG_OWNER, "-m", "0600", "/dev/null",
+            f"{RESTORE_MOUNT}/{STANDBY_SIGNAL}"]
+
+
+def hold_standbys(docker, scenario, impl, record):
+    """Each standby's restored data volume given `standby.signal` before
+    the stack starts (capture W2-g item 2a). Returns the standbys, in
+    topology order; GmError for one whose data volume the snapshot holds
+    no copy of, or whose signal cannot be written."""
+    held = []
+    for standby, _, _ in inject.standby_plan(scenario, impl):
+        volume = data_volume(record, standby)
+        if volume is None:
+            raise GmError(f"the standby {standby}: the snapshot holds no pg_basebackup copy of "
+                          "its data volume")
+        host = docker.on_host(impl["nodes"][standby].get("host"))
+        proc = host.run(standby_signal_args(impl, standby, volume), check=False)
+        if proc.returncode != 0:
+            detail = " ".join((proc.stderr or "").split()) or f"exit status {proc.returncode}"
+            raise GmError(f"writing {STANDBY_SIGNAL} into the standby {standby}'s restored "
+                          f"{volume}: {detail}")
+        held.append(standby)
+    return held
+
+
+def slots_sql(names):
+    """The recorded slots `names` re-created on their primary: physical,
+    reserving WAL at once, inactive; one that exists already left."""
+    values = ", ".join(f"({inject.quote_literal(n)})" for n in names)
+    return (f"{inject.QUIET_SQL}\n"
+            "SELECT pg_catalog.pg_create_physical_replication_slot(v.name, true) "
+            f"FROM (VALUES {values}) AS v(name) WHERE NOT EXISTS (SELECT 1 FROM "
+            "pg_catalog.pg_replication_slots s WHERE s.slot_name = v.name);\n")
+
+
+def recreate_slots(ldir, record, docker, out=print):
+    """On each primary, the slots the snapshot recorded (`slots:`; none
+    when the record has no such key) re-created, in the record's order
+    (capture W2-g item 2b). Returns `[{node, name}]`; GmError naming the
+    first primary where it fails."""
+    by_node = {}
+    for slot in record.get("slots") or []:
+        by_node.setdefault(slot["node"], []).append(slot["name"])
+    made = []
+    for node, names in by_node.items():
+        run = exec_node(ldir, node, inject.DATA_USER, stdin=slots_sql(names),
+                        docker=docker, argv=inject.PSQL_ARGV)
+        inject._print_run(out, f"{node} replication slot(s) {', '.join(names)} re-created "
+                               f"(psql as {inject.DATA_USER})", run)
+        if not run.ok:
+            raise GmError(f"re-creating the replication slot(s) {', '.join(names)} on {node}: "
+                          f"psql exit {run.returncode}: {inject.psql_error_line(run)}")
+        made += [{"node": node, "name": name} for name in names]
+    return made
+
+
+def clone_standbys(ldir, scenario, impl, docker, result, out=print):
+    """Each standby, in topology order, cloned again from its restored
+    primary as `load-data` does, in restore mode (capture W2-g item 2c),
+    into `result.standbys`; GmError at the first that fails."""
+    for standby, primary, slot in inject.standby_plan(scenario, impl):
+        inject.clone_standby(ldir, standby, primary, slot, docker, result, out=out,
+                             restore=True)
+
+
 def resume_schedulers(ldir, impl, docker):
     """Each scheduler, restored with its marker, reads `running`. Returns
     `{node: running line}`; GmError naming those that do not."""
@@ -346,6 +438,9 @@ class RestartResult:
     at: str
     lines: list = field(default_factory=list)       # the checks' lines
     restored: list = field(default_factory=list)    # volumes filled from the snapshot
+    held: list = field(default_factory=list)        # standbys given standby.signal (v0.5)
+    slots: list = field(default_factory=list)       # [{node, name}] re-created (v0.5)
+    standbys: list = field(default_factory=list)    # [(standby, primary, slot)] cloned (v0.5)
     running: dict = field(default_factory=dict)     # schedulers resumed or started
     t0: str = None                                  # with no snapshot, a game that ages
     planted: list = field(default_factory=list)     # [(instance, script)], no snapshot
@@ -363,6 +458,14 @@ class RestartResult:
             out.append(f"  new seed {self.seed} in every scheduler's schedule.yaml")
         if self.from_snapshot:
             out.append(f"  {len(self.restored)} volumes restored from the snapshot")
+            out += [f"  {standby}: {STANDBY_SIGNAL} written into its restored data volume "
+                    "before the stack started, so it never ran as a primary"
+                    for standby in self.held]
+            out += [f"  {slot['node']}: replication slot {slot['name']} re-created (physical, "
+                    "reserving WAL, inactive)" for slot in self.slots]
+            out += [f"  {standby}: cloned again from {primary} (clone-standby --restore), a "
+                    f"standby streaming from slot {slot}"
+                    for standby, primary, slot in self.standbys]
             out += [f"  {node}: resumed from its marker, {line}"
                     for node, line in self.running.items()]
         else:
@@ -455,9 +558,12 @@ def restart(scenario_dir, playground, confirmation, docker=None, systemd=None,
             deploy.create_objects(docker, scenario_dir, new_impl)
             if from_snapshot:
                 result.restored = restore_volumes(docker, new_impl, record)
+                result.held = hold_standbys(docker, scenario, new_impl, record)
             deploy.stack_deploy(docker, ldir / localimpl.STACK_FILE, new)
             deploy.wait_healthy(docker, new_impl, timeout, sleep=sleep, clock=clock)
             if from_snapshot:
+                result.slots = recreate_slots(ldir, record, docker, out=out)
+                clone_standbys(ldir, scenario, new_impl, docker, result, out=out)
                 result.running = resume_schedulers(ldir, new_impl, docker)
             else:
                 result.loaded = inject.LoadResult(new)
@@ -482,6 +588,10 @@ def restart(scenario_dir, playground, confirmation, docker=None, systemd=None,
     def close(s):
         last = s["restarts"][-1]
         last.update(status=COMPLETED, finished_at=finished)
+        if from_snapshot:
+            last["slots"] = [dict(slot) for slot in result.slots]
+            last["standbys"] = [{"node": standby, "primary": primary, "slot": slot}
+                                for standby, primary, slot in result.standbys]
         if not from_snapshot:
             s["plantings"] = restart_plantings(scenario, new_impl, planted_at)
             if result.t0:

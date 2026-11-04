@@ -3,21 +3,29 @@
 # spec 7.1, 11.1; capture W1 item 6, specs/versions/v0.5/wave-log.md).
 # DO NOT TAMPER. Root-owned, mode 0700: root only, not a sudo wrapper.
 #
-# Usage, as root inside the standby, no arguments (gmctl load-data's last
-# step, after it has set the replication role on the primary):
-#   /usr/local/lib/gm/clone-standby
+# Usage, as root inside the standby, after the replication role is set on
+# the primary:
+#   /usr/local/lib/gm/clone-standby             gmctl load-data's last step
+#   /usr/local/lib/gm/clone-standby --restore   gmctl restart's, from the
+#                                               hand-over snapshot
 # Reads GM_STANDBY_OF, the primary's node name (render), and the password
 # file /run/gm-replication/pgpass gm-entrypoint writes at each start from
 # the secret replication_password. In order:
 #   1. waits, bounded (WAIT), for the primary to answer on 5432 (its name
 #      resolving included: the standby may start before it);
-#   2. stops PostgreSQL here (s6), empties the data directory;
+#   2. stops PostgreSQL here (s6); with --restore, saves the standby's own
+#      postgresql.auto.conf (its restored copy's settings) under /run/gm;
+#      empties the data directory;
 #   3. pg_basebackup -X stream -C -S <slot> -R from the primary, as
 #      replicator: the slot is this node's name, `-` read as `_`, created
 #      on the primary; -R writes standby.signal and primary_conninfo
-#      (passfile=, never the password) with primary_slot_name;
+#      (passfile=, never the password) with primary_slot_name; with
+#      --restore, the saved postgresql.auto.conf put back in place of the
+#      one -R wrote (postgres, 0600); either way, a primary_conninfo
+#      holding a password refused;
 #   4. starts PostgreSQL, now a standby, and waits, bounded, until it
 #      answers in recovery.
+# (v0.5 capture W2-g item 3; spec D397.)
 # Exit 0 on success; 1 when a step fails (the node is left down, with an
 # empty or partial data directory: a failed setup); 2 for a usage error.
 # Diagnostics on standard error, progress on standard output.
@@ -34,10 +42,13 @@ WAIT=120                    # seconds, for the primary and for the restart
 log() { printf 'clone-standby: %s\n' "$*" >&2; }
 say() { printf 'clone-standby: %s\n' "$*"; }
 
-if [ "$#" -ne 0 ]; then
-    echo "usage: clone-standby (no arguments)" >&2
-    exit 2
-fi
+usage() { echo "usage: clone-standby [--restore]" >&2; exit 2; }
+restore=no
+case $# in
+    0) ;;
+    1) [ "$1" = --restore ] || usage; restore=yes ;;
+    *) usage ;;
+esac
 [ "$(id -u)" = 0 ] || { log "run as root"; exit 2; }
 exec </dev/null
 primary=${GM_STANDBY_OF:-}
@@ -64,9 +75,22 @@ until "$PGBIN/pg_isready" -q -h "$primary" -p 5432 -t 2 >/dev/null 2>&1; do
 done
 say "primary $primary answers (after ${i}s)"
 
-# 2. PostgreSQL stopped, the data directory emptied.
+# 2. PostgreSQL stopped; with --restore, the standby's own settings saved;
+# the data directory emptied.
 s6-svc -d "$SERVICE" || { log "cannot stop the service postgres"; exit 1; }
 s6-svwait -d -t $((WAIT * 1000)) "$SERVICE" || { log "postgres did not stop within ${WAIT}s"; exit 1; }
+saved=
+if [ "$restore" = yes ]; then
+    if [ -f "$PGDATA/postgresql.auto.conf" ]; then
+        saved=$(mktemp /run/gm/clone-standby.XXXXXX) || { log "cannot create a file in /run/gm"; exit 1; }
+        trap 'rm -f "$saved"' EXIT
+        cp "$PGDATA/postgresql.auto.conf" "$saved" \
+            || { log "cannot save $PGDATA/postgresql.auto.conf"; exit 1; }
+        say "restore: the standby's postgresql.auto.conf saved"
+    else
+        say "restore: no postgresql.auto.conf to keep"
+    fi
+fi
 find "$PGDATA" -mindepth 1 -delete || { log "cannot empty $PGDATA"; exit 1; }
 say "postgres stopped, $PGDATA emptied"
 
@@ -82,6 +106,11 @@ if [ "$rc" -ne 0 ]; then
     exit 1
 fi
 [ -e "$PGDATA/standby.signal" ] || { log "no standby.signal after pg_basebackup -R"; exit 1; }
+if [ -n "$saved" ]; then
+    install -o postgres -g postgres -m 0600 "$saved" "$PGDATA/postgresql.auto.conf" \
+        || { log "cannot put the saved postgresql.auto.conf back; postgres left down"; exit 1; }
+    say "restore: the standby's postgresql.auto.conf put back"
+fi
 if grep -q 'password=' "$PGDATA/postgresql.auto.conf"; then
     log "primary_conninfo holds a password; refusing to start"
     exit 1

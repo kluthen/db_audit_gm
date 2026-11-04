@@ -6,15 +6,16 @@ model 3, 5, 9; spec D163, D176, D182). Docker stubbed; the snapshot's
 in-node stream is a FakePipe."""
 
 import datetime
+import shutil
 import unittest
 from unittest import mock
 
 import yaml
 
-from tools.gm import (aging, deploy, fit, inject, localimpl, render, restart, snapshot, state,
-                      teardown)
+from tools.gm import (aging, deploy, fit, inject, localimpl, model, render, restart, snapshot,
+                      state, teardown)
 from tools.gm.model import GmError
-from tools.tests import FakeDocker, run_gmctl
+from tools.tests import FIXTURES, FakeDocker, ScenarioCopyTest, run_gmctl
 from tools.tests.test_aging import AgingGame, FakeSystemd
 from tools.tests.test_deploy import MANAGER_NETWORKS, VPS_NETWORKS
 from tools.tests.test_inject import FRAGMENTS
@@ -528,6 +529,211 @@ class TestTwoHostRestart(RestartMixin, TwoHostScenario):
                       "--overlay-range", "fd00::/48")
         self.assertEqual(r.returncode, 1)
         self.assertIn("gmctl restart: --overlay-range 'fd00::/48': not IPv4", r.stderr)
+
+
+# --- v0.5 chunk 28: the restore gives back replication (capture W2-g) ------
+
+FX_RESTORE = FIXTURES / "fixture-restore"
+# What records holds when its copy is taken: the planted slot, the standby's
+# own, the snapshot's temporary one and a logical one; only the first is
+# recorded.
+RECORDS_SLOTS = [{"name": "gm_snapshot", "type": "physical", "temporary": True},
+                 {"name": "old_reports", "type": "physical", "temporary": False},
+                 {"name": "reports_decoder", "type": "logical", "temporary": False},
+                 {"name": "standby", "type": "physical", "temporary": False}]
+STREAMING = (0, '{"exists" : true, "active" : true, "state" : "streaming"}\n', "")
+SLOT_SQL = "pg_create_physical_replication_slot(v.name, true)"
+
+
+class _RestoreCopy(ScenarioCopyTest):
+    """The restore fixture in place of fixture-audit."""
+
+    def setUp(self):
+        super().setUp()
+        self.scenario = self.tmp / FX_RESTORE.name
+        shutil.copytree(FX_RESTORE, self.scenario)
+
+
+class ReplicatedStatic(StaticGame, _RestoreCopy):
+    """fixture-restore (records archiving to the vault, standby its standby,
+    no scheduler node) loaded (the standby cloned) and injected, records
+    holding RECORDS_SLOTS."""
+
+    def deploy(self, fake, **kwargs):
+        fake.slots = {"records": RECORDS_SLOTS}
+        return super().deploy(fake, **kwargs)
+
+    def reply(self, run):
+        if "'state', (SELECT r.state" in run["stdin"] and not any(
+                k in run["stdin"] for k in self.replies):
+            return STREAMING
+        return super().reply(run)
+
+    def runs_on(self, gid, node):
+        return [r for r in self.fake.runs if r["container"] == f"{gid}_{node}.1.ctr"]
+
+    def signal_helpers(self):
+        return [h for h in self.fake.helpers if f"/volume/{restart.STANDBY_SIGNAL}" in h]
+
+
+class HandedOverReplicated(HandedOverStatic, ReplicatedStatic):
+    """ReplicatedStatic, its snapshot taken (or not fitting), handed over."""
+
+
+class TestReplicatedSnapshot(ReplicatedStatic):
+
+    def test_the_vaults_client_first_and_the_primarys_slots_recorded(self):
+        self.assertTrue(self.take().ok)
+        record = self.st()["snapshot"]
+        order = list(dict.fromkeys(v["node"] for v in record["volumes"]))
+        self.assertEqual(order, ["records", "bastion", "standby", "partners-api", "partners-db"])
+        self.assertEqual(snapshot.copy_order(model.load_scenario(self.scenario))[0]["name"],
+                         "records")
+        # its standby's own slot, the temporary and the logical ones left out
+        self.assertEqual(record["slots"], [{"node": "records", "name": "old_reports"}])
+
+    def test_the_slots_read_on_each_primary_only(self):
+        self.assertTrue(self.take().ok)
+        read = [r["container"].split("_", 1)[1].split(".")[0] for r in self.fake.runs
+                if r["stdin"] == snapshot.SLOTS_SQL]
+        self.assertEqual(read, ["records", "partners-db"])       # never the standby
+        slots = next(r for r in self.fake.runs if r["stdin"] == snapshot.SLOTS_SQL)
+        self.assertEqual((slots["user"], slots["argv"]), ("postgres", list(inject.SURVEY_ARGV)))
+        # read before records' copies
+        first_copy = next(i for i, c in enumerate(self.pipe.calls)
+                          if "_records_" in " ".join(c["target_args"]))
+        self.assertEqual(first_copy, 0)
+        self.assertIn("records: replication slot old_reports recorded, re-created by a restart",
+                      self.take().text())
+
+    def test_unreadable_slots_fail_the_snapshot(self):
+        self.replies[snapshot.SLOTS_SQL] = (2, "", "psql: error: connection refused\n")
+        self.fake.slots = {}
+        with mock.patch.object(self.fake, "survey_answer", lambda run: None):
+            result = self.take()
+        self.assertFalse(result.ok)
+        self.assertIn("records: reading its replication slots: psql exit 2: psql: error: "
+                      "connection refused", self.st()["snapshot"]["reason"])
+
+
+class TestReplicatedRestart(HandedOverReplicated):
+
+    def test_the_standby_held_the_slots_back_and_the_standby_cloned_again(self):
+        old = self.gid
+        result = self.restart()
+        new = result.to_game
+        # (a) standby.signal into the standby's restored data volume, before the stack
+        [signal] = self.signal_helpers()
+        impl = self.impl_now()
+        self.assertEqual(signal, restart.standby_signal_args(impl, "standby", "pgdata"))
+        for word in ("--rm", "--pull", "never", "--network", "none", f"dbagm.game={new}",
+                     f"{new}_standby_pgdata:/volume", "install", "-o", "postgres", "-g",
+                     "postgres", "-m", "0600", impl["nodes"]["standby"]["image"]):
+            self.assertIn(word, signal)
+        calls = [" ".join(c) for c in self.fake.calls]
+        restored = calls.index(" ".join(restart.restore_args(
+            impl, "standby", "pgdata", f"dbagm-snapshot_{old}_standby_pgdata")))
+        held = calls.index(" ".join(signal))
+        deployed = next(i for i, c in enumerate(self.fake.calls) if c[:2] == ["stack", "deploy"])
+        self.assertLess(restored, held)
+        self.assertLess(held, deployed)
+        # (b) then (c), once healthy: the slot, then the clone in restore mode
+        runs = self.fake.runs
+        slot = next(i for i, r in enumerate(runs) if SLOT_SQL in r["stdin"])
+        self.assertEqual(runs[slot]["container"], f"{new}_records.1.ctr")
+        self.assertEqual(runs[slot]["argv"], list(inject.PSQL_ARGV))
+        self.assertIn("(VALUES ('old_reports'))", runs[slot]["stdin"])
+        self.assertNotIn("'standby'", runs[slot]["stdin"])
+        role = next(i for i, r in enumerate(runs) if "ALTER ROLE replicator" in r["stdin"])
+        clone = next(i for i, r in enumerate(runs) if r["argv"][:1] == [inject.CLONE_STANDBY])
+        wait = next(i for i, r in enumerate(runs) if "'state', (SELECT r.state" in r["stdin"])
+        self.assertLess(slot, role)
+        self.assertLess(role, clone)
+        self.assertLess(clone, wait)
+        self.assertEqual(runs[clone]["argv"], [inject.CLONE_STANDBY, "--restore"])
+        self.assertEqual(runs[clone]["container"], f"{new}_standby.1.ctr")
+        self.assertEqual(runs[role]["container"], f"{new}_records.1.ctr")
+        # nothing loaded: the data and the planted slot's fault come from the copies
+        self.assertFalse(any("CREATE DATABASE clinic" in r["stdin"] for r in runs))
+        # (d) its text and its record
+        entry = self.st()["restarts"][-1]
+        self.assertEqual(entry["status"], "completed")
+        self.assertEqual(entry["slots"], [{"node": "records", "name": "old_reports"}])
+        self.assertEqual(entry["standbys"],
+                         [{"node": "standby", "primary": "records", "slot": "standby"}])
+        text = result.text()
+        for line in ("  standby: standby.signal written into its restored data volume before "
+                     "the stack started, so it never ran as a primary",
+                     "  records: replication slot old_reports re-created (physical, reserving "
+                     "WAL, inactive)",
+                     "  standby: cloned again from records (clone-standby --restore), a "
+                     "standby streaming from slot standby"):
+            self.assertIn(line, text)
+
+    def test_a_record_without_slots_restores_with_none(self):
+        localimpl.update_state(self.ldir, lambda st: st["snapshot"].pop("slots"))
+        result = self.restart()
+        self.assertFalse(any(SLOT_SQL in r["stdin"] for r in self.fake.runs))
+        self.assertEqual(self.st()["restarts"][-1]["slots"], [])
+        self.assertEqual(len(result.standbys), 1)              # still cloned
+        self.assertEqual(len(self.signal_helpers()), 1)
+
+    def test_a_failed_clone_is_a_failed_restart_and_a_retry_rebuilds(self):
+        self.replies["'state', (SELECT r.state"] = (
+            0, '{"exists" : true, "active" : false, "state" : null}\n', "")
+        with self.assertRaises(state.SetupFailed) as caught:
+            self.restart()
+        self.assertIn("waiting for the standby standby to stream from records",
+                      str(caught.exception))
+        st = self.st()
+        new = st["restarts"][-1]["to_game"]
+        self.assertEqual((st["stage"], st["restarts"][-1]["status"]), ("failed", "failed"))
+        self.assertIn("slot standby not streaming", st["restarts"][-1]["reason"])
+        self.assertEqual(teardown.leftovers(self.fake, new), {})
+        self.assertTrue(self.snapshot_copies())                # the snapshot kept
+        del self.replies["'state', (SELECT r.state"]
+        result = self.restart("try again, yes")
+        self.assertEqual([e["status"] for e in self.st()["restarts"]], ["failed", "completed"])
+        self.assertEqual(self.st()["stage"], "handed-over")
+        self.assertEqual(len(result.standbys), 1)
+
+    def test_a_slot_that_cannot_be_re_created_is_a_failed_restart(self):
+        self.replies[SLOT_SQL] = (3, "", "psql:<stdin>:2: ERROR:  all replication slots are "
+                                         "in use\n")
+        with self.assertRaises(state.SetupFailed) as caught:
+            self.restart()
+        self.assertIn("re-creating the replication slot(s) old_reports on records: psql exit "
+                      "3: psql:<stdin>:2: ERROR: all replication slots are in use",
+                      str(caught.exception))
+        self.assertFalse(any(r["argv"][:1] == [inject.CLONE_STANDBY] for r in self.fake.runs))
+        self.assertTrue(self.snapshot_copies())
+        self.assertIsNone(restart.refusal(self.st()))           # a retry accepted
+
+    def test_a_standby_whose_data_was_not_copied_fails_before_the_stack(self):
+        def drop(st):
+            st["snapshot"]["volumes"] = [v for v in st["snapshot"]["volumes"]
+                                         if (v["node"], v["volume"]) != ("standby", "pgdata")]
+        localimpl.update_state(self.ldir, drop)
+        with self.assertRaisesRegex(state.SetupFailed, "the standby standby: the snapshot holds "
+                                                       "no pg_basebackup copy of its data volume"):
+            self.restart()
+        self.assertFalse(self.fake.called("stack", "deploy"))
+
+
+class TestReplicatedNoHistory(HandedOverReplicated):
+    """With no snapshot, unchanged: load-data's steps clone the standby."""
+
+    fits = False
+
+    def test_cloned_by_the_load_steps_in_the_default_mode(self):
+        result = self.restart()
+        self.assertFalse(result.from_snapshot)
+        self.assertEqual(self.signal_helpers(), [])
+        clones = [r["argv"] for r in self.fake.runs if r["argv"][:1] == [inject.CLONE_STANDBY]]
+        self.assertEqual(clones, [[inject.CLONE_STANDBY]])
+        self.assertFalse(any(SLOT_SQL in r["stdin"] for r in self.fake.runs))
+        self.assertEqual(result.loaded.standbys, [("standby", "records", "standby")])
+        self.assertNotIn("slots", self.st()["restarts"][-1])
 
 
 class TestSubnetStep(unittest.TestCase):
