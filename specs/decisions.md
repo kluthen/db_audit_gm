@@ -809,3 +809,9 @@ D337 and D341 were reserved and never used). Take the next number from
   each existing scenario's smoke against its own design, by the
   harness's rules as wave 1's gate fixed them.** Now in:
   [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#workflow-deltas).
+- **D368 (2026-11-04, G9): Text correction: pgwatch is its latest
+  release at the build (6.1.0 at G9), not "pgwatch 3".** The 3.x line
+  ended at 3.7.0, which G9 rejected; 7.4's own rule already named the
+  latest cleared release. Chunk 10 points to G9's conditions in the wave
+  log. Now in: [versions/v0.5/master-spec.md](versions/v0.5/master-spec.md)
+  7.4, 21; [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) G3, G9, chunk 10.

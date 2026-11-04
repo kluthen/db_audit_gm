@@ -1,0 +1,11 @@
+# A test core of tools/tests (v0.5 chunk 6): not a game domain. Placed on
+# db/clinic, a database db's own data file never creates (W2 item 1).
+id: fx-clinic
+title: A test core holding a clinic's owners
+schema: data/schema.sql
+load: data/load.sql
+classification: data/classification.yaml
+register: data/register.yaml
+producers: producers/
+notes: docs/gm.md
+purposes: [fx-lab-orders]

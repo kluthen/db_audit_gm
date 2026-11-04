@@ -1,0 +1,4 @@
+# The test core's classification (tools/tests, v0.5 chunk 6).
+columns:
+  owners.id: personal
+  owners.name: personal
