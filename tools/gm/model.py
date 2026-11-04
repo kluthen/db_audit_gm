@@ -1148,7 +1148,7 @@ def check_scenario(scenario_dir, catalog_root=REPO_ROOT):
         if brick is not None:
             bricks[node.get("name")] = brick
 
-    third = _check_third_parties(data, nodes, bricks, out)
+    third = _check_third_parties(data, nodes, bricks, out, sdir, catalog_root)
     apis = _api_files(nodes, bricks, sdir, out)
     http = _http_context(nodes, bricks, third, apis)
     _check_node_maps(nodes, bricks, out)
@@ -4293,11 +4293,119 @@ MONITOR_SEEDS = {"postgres-exporter": "exporter.conf", "pgwatch": "sources.yaml"
 
 @dataclass
 class ThirdParties:
-    """What scenario.yaml's third_parties: declares (master spec 6.2, 10.2)."""
-    nodes: set = field(default_factory=set)        # every node an entry lists
+    """What scenario.yaml's third_parties: declares (master spec 6.2, 10.2),
+    with the partners' shared nodes serving the owners alone (spec D421)."""
+    nodes: set = field(default_factory=set)        # every node an entry lists (+ D421's)
     hostnames: set = field(default_factory=set)    # of the entries listing nodes (the aliases)
     api_node: object = None                        # the partners' api node, when one
     db_node: object = None                         # the partners' postgres node, when one
+    owners_alone: bool = False                     # api_node serves owners alone (D421)
+
+
+# The partners' shared scheduler and api nodes when they serve the owners'
+# route alone (spec D421): the build plan's names for chunk 11's nodes
+# (partners/shared/nodes.yaml), found by name since no third_parties: entry
+# lists them.
+PARTNERS_BACKEND_NODE = "partners-backend"
+PARTNERS_API_NODE = "partners-api"
+OWNERS_ROUTE = "partners/owners"    # a domain's producers/partners/owners/ (spec D369)
+
+
+@dataclass
+class OwnersAlone:
+    """The partners' shared nodes serving a composed domain's owners' route
+    alone (spec D421): partners-backend its scheduler material, partners-api
+    its endpoints. A node is None when it is not fit (missing, of another
+    brick or not no-access); problems names each, as scenario.yaml's."""
+    scheduler: object = None
+    api: object = None
+    routes: list = field(default_factory=list)     # the composed owners' folders, as shown
+    problems: list = field(default_factory=list)
+
+
+def node_brick_id(node):
+    """A node's brick id: from the mapping the loader reads (`brick: {id:
+    api, version: 0.1.0}`, _check_node), or from the `api@0.1.0` shorthand
+    (compose's fixtures); None for neither."""
+    brick = node.get("brick") if isinstance(node, dict) else None
+    if isinstance(brick, dict):
+        return brick.get("id") if isinstance(brick.get("id"), str) else None
+    return brick.split("@", 1)[0] if isinstance(brick, str) else None
+
+
+def _owners_routes(data, left_out, catalog_root):
+    """The composed domains' owners' folders (domain and variant layers), as
+    shown from the catalog, none composition.yaml's left_out: names."""
+    domains = data.get("domains")
+    entries = [e for e in domains if isinstance(e, dict)] if isinstance(domains, list) else []
+    variants = {e.get("id"): e.get("variant") for e in entries}
+    catalog = Path(catalog_root)
+    routes = []
+    for entry in entries:
+        did = entry.get("id")
+        if not (isinstance(did, str) and PURPOSE_ID_RE.match(did)) \
+                or (did, OWNERS_ROUTE) in left_out:
+            continue
+        try:
+            ddata = _dict(yaml.safe_load((catalog / "domains" / did / "domain.yaml")
+                                         .read_text(encoding="utf-8")))
+        except (OSError, UnicodeDecodeError, yaml.YAMLError):
+            continue                         # reported by the domains: check
+        requires = ddata.get("requires")
+        core = requires[0] if isinstance(requires, list) and requires else did
+        roots = [Path("domains") / did / "producers"]
+        if isinstance(variants.get(core), str):
+            roots.append(Path("domains") / did / "variants" / variants[core] / "producers")
+        for root in roots:
+            if (catalog / root / OWNERS_ROUTE).is_dir():
+                routes.append(f"{(root / OWNERS_ROUTE).as_posix()}/")
+    return routes
+
+
+def owners_alone_nodes(data, left_out=frozenset(), catalog_root=REPO_ROOT):
+    """The partners' shared nodes when the only partner material the
+    scheduler and api nodes could carry is a composed domain's owners' route
+    (spec D421; build plan chunk 31): with no third_parties: entry listing a
+    scheduler or api node, and a composed domain's producers/partners/owners/
+    (either layer, not left out), the no-access nodes partners-backend (a
+    scheduler node) and partners-api (an api node). OwnersAlone, its problems
+    naming a node missing, of another brick or not no-access; None in any
+    other case (every rule as before). The one source of these nodes for
+    compose and the loader; any other partner folder stays refused there."""
+    data = _dict(data)
+    nodes = data.get("nodes")
+    by_name = {n.get("name"): n for n in nodes if isinstance(n, dict)} \
+        if isinstance(nodes, list) else {}
+    entries = data.get("third_parties")
+    for entry in entries if isinstance(entries, list) else []:
+        listed = _dict(entry).get("nodes")
+        for name in listed if isinstance(listed, list) else []:
+            if isinstance(name, str) and \
+                    node_brick_id(by_name.get(name)) in (SCHEDULER_BRICK, API_BRICK):
+                return None                  # the entries' shared nodes, as before
+    routes = _owners_routes(data, left_out, catalog_root)
+    if not routes:
+        return None
+    found = OwnersAlone(routes=routes)
+    label = "scenario.yaml"
+    why = (f"the owners' route ({', '.join(routes)}) goes onto the partners' shared nodes "
+           f"{PARTNERS_BACKEND_NODE} and {PARTNERS_API_NODE}, as no third_parties: entry lists "
+           "a scheduler or api node (spec D421)")
+    for attr, name, brick in (("scheduler", PARTNERS_BACKEND_NODE, SCHEDULER_BRICK),
+                              ("api", PARTNERS_API_NODE, API_BRICK)):
+        node = by_name.get(name)
+        if node is None:
+            found.problems.append(f"{label}: nodes: no node {name}: {why}")
+        elif node_brick_id(node) != brick:
+            found.problems.append(f"{label}: nodes[{name}]: brick {node_brick_id(node)}, not "
+                                  f"{brick}: {why}")
+        elif node.get("write_policy") != "no-access":
+            found.problems.append(f"{label}: nodes[{name}]: write_policy "
+                                  f"{node.get('write_policy')}, not no-access: {why}, out of "
+                                  "the players' reach (master spec 10.2)")
+        else:
+            setattr(found, attr, name)
+    return found
 
 
 @dataclass
@@ -4386,7 +4494,23 @@ def _seed_yaml(node, sdir, fname):
         return None
 
 
-def _check_third_parties(data, nodes, bricks, out):
+def _check_third_parties(data, nodes, bricks, out, sdir=None, catalog_root=REPO_ROOT):
+    """third_parties: (_listed_third_parties), and with no entry listing a
+    scheduler or api node, the partners' shared nodes serving a composed
+    domain's owners' route alone (owners_alone_nodes, spec D421): both among
+    the third parties' nodes for every out-of-reach check, partners-api the
+    partners' api node, serving exactly owners. Returns ThirdParties."""
+    third = _listed_third_parties(data, nodes, bricks, out)
+    owners = owners_alone_nodes(data, left_out_of(_composition_content(sdir)), catalog_root)
+    if owners is not None:
+        out.extend(owners.problems)
+        third.nodes |= {n for n in (owners.scheduler, owners.api) if n is not None}
+        if owners.api is not None:
+            third.api_node, third.owners_alone = owners.api, True
+    return third
+
+
+def _listed_third_parties(data, nodes, bricks, out):
     """third_parties: (master spec 6.2, 10.2; W1 item 2, W2 items 0 and 1):
     ids and hostnames, each listed node a node with write_policy no-access
     (on a brick declaring it: the node's own check), one api node and one
@@ -4840,7 +4964,8 @@ def _check_api_nodes(nodes, bricks, third, apis, http, sdir, out):
     item 1; spec D345): the keys a fragment may hold (W1-w), at least one
     endpoint, each served by routes/<name>.py and db/<name>.py; its hosts:
     its own name on a node in the players' scope, on the partners' node the
-    third parties' hostnames (plus owners) and never its own name; its
+    third parties' hostnames (plus owners) and never its own name, or
+    exactly owners when it serves the owners alone (spec D421); its
     credentials named, never public; its connections a schedule's."""
     names = {n.get("name") for n in nodes}
     by_name = {n.get("name"): n for n in nodes}
@@ -4884,7 +5009,17 @@ def _check_api_nodes(nodes, bricks, third, apis, http, sdir, out):
                 problem = _credential_problem(cred)
                 if problem and isinstance(cred, str) and SCRIPT_CONNECTION_RE.match(cred):
                     out.append(f"{p}.credentials: {problem}")   # else the fragment's check
-        if partners:
+        if partners and third.owners_alone:
+            served = set(_api_hosts(content)) - {name}
+            if endpoints and OWNERS_HOST not in served:
+                out.append(f"{rel}: no endpoint answers under {OWNERS_HOST}: the partners' node "
+                           "serving the owners alone (no third_parties: entry lists it) serves "
+                           f"exactly {OWNERS_HOST} (spec D421)")
+            for host in sorted(served - {OWNERS_HOST}):
+                out.append(f"{rel}: endpoints answer under {host}: the partners' node serving "
+                           "the owners alone (no third_parties: entry lists it) answers under "
+                           f"{OWNERS_HOST} only (spec D421)")
+        elif partners:
             served = set(_api_hosts(content)) - {name}
             for host in sorted(third.hostnames - served):
                 out.append(f"{rel}: no endpoint answers under {host}, a third party's hostname "
