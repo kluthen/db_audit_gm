@@ -1351,16 +1351,25 @@ class TestStandbyEnvironment(ScenarioCopyTest):
     GM_VAULT_* when set."""
 
     def test_rendered(self):
-        self.edit_yaml("scenario.yaml", lambda d: self.node(d, "db").update(
-            standby_of="records", parameters={"vault_target": "cold-storage:8000",
-                                              "vault_credential": "vault_records"}))
+        def standby(d):
+            # a standby of db with no data: entry; the vault's target a node (the loader
+            # takes a node or an alias, v0.5 W2 item 1), db's pg_hba.conf the replication line
+            node = {k: v for k, v in self.node(d, "db").items() if k != "data"}
+            d["nodes"].append(dict(node, name="records", standby_of="db"))
+            d["designed_for"]["placement"]["records"] = d["designed_for"]["placement"]["db"]
+            self.node(d, "db")["parameters"] = {"vault_target": "records:8000",
+                                                "vault_credential": "vault_records"}
+        self.edit_yaml("scenario.yaml", standby)
+        with (self.scenario / "nodes/db/pg_hba.conf").open("a") as f:
+            f.write("host replication replicator samenet scram-sha-256\n")
         fit.fit(self.scenario, "laptop", **SUFFICIENT)
         render.render(self.scenario, "laptop")
         stack = yaml.safe_load((self.scenario / "local/laptop/stack.yml").read_text())
         env = stack["services"]["db"]["environment"]
         self.assertEqual((env["GM_STANDBY_OF"], env["GM_VAULT_TARGET"],
                           env["GM_VAULT_CREDENTIAL"]),
-                         ("records", "cold-storage:8000", "vault_records"))
+                         ("", "records:8000", "vault_records"))
+        self.assertEqual(stack["services"]["records"]["environment"]["GM_STANDBY_OF"], "db")
         self.assertNotIn("GM_STANDBY_OF", stack["services"]["bastion"]["environment"])
 
     def test_no_standby_no_vault(self):

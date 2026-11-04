@@ -1,0 +1,8 @@
+# The order API (tools/tests, v0.5 chunk 6; W1 item 5): one endpoint under
+# the node's own name, its database side as lab_api.
+endpoints:
+  orders:
+    hosts: [lab-api]
+    credentials: [interfaces_lab_api]
+connections:
+  lab: {driver: sql/postgresql, target: db:5432/shop, role: lab_api, pool: {size: 2}}
