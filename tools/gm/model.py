@@ -3412,6 +3412,13 @@ def _check_purposes(data, by_name, creates, sdir, catalog_root, out):
             elif by_name[value].get("role") != PART_ROLES[part]:
                 out.append(f"{p}.parts.{part}: {value} is not a node of role {PART_ROLES[part]} "
                            f"(its role is {by_name[value].get('role')})")
+        placed = domain_locations(data)
+        for part, _ in purpose_ddl(purpose):
+            if part in parts and parts[part] not in placed:
+                out.append(f"{p}.parts.{part}: {parts[part]}: purpose {pid}'s ddl.{part} runs "
+                           "only in a database a domains: entry's at: holds; for a database no "
+                           "domain holds, its DDL stays in the node's data file (capture W3 "
+                           "addendum, item 6 (e))")
         runner = by_name.get(parts.get("runner"))
         if runner is not None and runner.get("role") == PART_ROLES["runner"]:
             _check_purpose_jobs(purpose, pid, runner, sdir, f"{p}.parts.runner", out)
@@ -5036,7 +5043,9 @@ def node_creates(sdir, data, node, catalog_root=REPO_ROOT):
     domains: entry placed there, each at: database and the roles and
     databases its schema and load files create, plus, on the partners'
     node (the postgres node the third_parties: entries list), each composed
-    domain's partner data.sql. None when nothing creates anything there.
+    domain's partner data.sql, plus each purposes: entry's ddl: file whose
+    part the scenario maps to this node (v0.5 chunk 29b, capture W3
+    addendum item 6 (e)). None when nothing creates anything there.
     Read by the location, crontab-role and governance checks, by
     localimpl.data_login_roles and inject.password_plan."""
     sdir = Path(sdir)
@@ -5098,6 +5107,25 @@ def node_creates(sdir, data, node, catalog_root=REPO_ROOT):
                 domain_dir = Path(catalog_root) / "domains" / did
                 for path in _partner_data_files(domain_dir):
                     take(path, f"domains/{did}/{path.relative_to(domain_dir)}")
+    purposes = _dict(data).get("purposes")
+    for entry in purposes if isinstance(purposes, list) else []:
+        pid = _dict(entry).get("id")
+        if not (isinstance(pid, str) and PURPOSE_ID_RE.match(pid)):
+            continue
+        purpose_dir = Path(catalog_root) / "purposes" / pid
+        try:
+            purpose = _dict(yaml.safe_load((purpose_dir / "purpose.yaml")
+                                           .read_text(encoding="utf-8")))
+        except (OSError, UnicodeDecodeError, yaml.YAMLError):
+            continue
+        mapped = _dict(_dict(entry).get("parts"))
+        for part, rel in purpose_ddl(purpose):
+            location = mapped.get(part)
+            if not (isinstance(location, str) and location.partition("/")[0] == name):
+                continue
+            path = _inside(purpose_dir, rel)
+            if path is not None and path.is_file():
+                take(path, f"purposes/{pid}/{rel}")    # W3 addendum, item 6 (e)
     if not created.sources:
         return None
     return created
@@ -5561,13 +5589,14 @@ def _check_purpose_v05(purpose_dir, data, label, base, parts, jobs, out):
         out.append(f"{label}: history: missing (a periodic purpose, jobs "
                    f"{', '.join(map(str, feeders))} naming their feeder, plants its past "
                    "periods' outputs: material/history.sql; master spec 12.1)")
-    elif "history" in data and not feeders:
-        out.append(f"{label}: history: only on a periodic purpose (a job naming its feeder)")
+    # A history with no feeder is accepted (v0.5 chunk 29's (c); purposes 14
+    # and 16, spec D366, D404): it plants a past no periodic job extends.
     if isinstance(history, str):
         path = _inside(purpose_dir, history)
         if path is None or not path.is_file() or not history.startswith("material/"):
             out.append(f"{_rel(purpose_dir / history, base)}: missing file (history, a file of "
                        "material/)")
+    _check_purpose_ddl(purpose_dir, data, label, base, parts, out)
     endpoints = purpose_dir / "material" / "api"
     if endpoints.is_dir():
         if "api" not in parts:
@@ -5637,6 +5666,46 @@ def _check_purpose_http(purpose, pid, runner, sdir, p, out):
             if value != expected:
                 out.append(f"{p}: purpose {pid}'s job {job['name']} maps {cname} to {value}, but "
                            f"{where} calls with {expected} (spec D354)")
+
+
+def _check_purpose_ddl(purpose_dir, data, label, base, parts, out):
+    """ddl: (capture W3 addendum, item 6 (e); chunk 29b): a non-empty mapping
+    from database parts the purpose declares (source, target) to files of
+    material/, each existing."""
+    if "ddl" not in data:
+        return
+    ddl = data.get("ddl")
+    if not (isinstance(ddl, dict) and ddl):
+        out.append(f"{label}: ddl: {ddl!r} is not a non-empty map of a database part -> its "
+                   "DDL file (ddl: {target: material/target-ddl.sql})")
+        return
+    for part, rel in ddl.items():
+        p = f"{label}: ddl.{part}"
+        if part not in DATABASE_PARTS or part not in _dict(parts):
+            out.append(f"{p}: not a database part the purpose declares ("
+                       f"{', '.join(k for k in DATABASE_PARTS if k in _dict(parts)) or 'none'})")
+            continue
+        path = _inside(purpose_dir, rel) if isinstance(rel, str) else None
+        if path is None or not path.is_file() or not rel.startswith("material/"):
+            out.append(f"{_rel(purpose_dir / str(rel), base)}: missing file (ddl.{part}, a file "
+                       "of material/)")
+
+
+def purpose_ddl(purpose):
+    """[(part, relative file)] of a purpose.yaml's ddl:, its well-formed
+    entries, in the order the purpose's parts: lists them (W3 addendum)."""
+    ddl = _dict(_dict(purpose).get("ddl"))
+    order = list(_dict(_dict(purpose).get("parts")))
+    parts = sorted((p for p in ddl if isinstance(ddl[p], str)),
+                   key=lambda p: order.index(p) if p in order else len(order))
+    return [(p, ddl[p]) for p in parts]
+
+
+def domain_locations(data):
+    """{node/database} every domains: entry's at: places a database at."""
+    entries = _dict(data).get("domains")
+    return {loc for e in entries if isinstance(e, dict) for _, loc in _domain_entry_locations(e)} \
+        if isinstance(entries, list) else set()
 
 
 def _check_purpose_ops(data, purpose, pid, parts, p, out):

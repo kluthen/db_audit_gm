@@ -3837,9 +3837,38 @@ class TestPurposeV05Refusals(V05ComposedTest):
                       self.purpose_problems(lambda d: d["jobs"][1].update(feeder="weekly-orders")))
         self.assertIn(f"{self.L}: history: missing (a periodic purpose",
                       self.purpose_problems(lambda d: d.pop("history")))
-        self.assertIn(f"{self.L}: history: only on a periodic purpose",
-                      self.purpose_problems(lambda d: (d.update(history="material/history.sql"),
-                                                       d["jobs"][1].pop("feeder"))))
+        # chunk 29b's (c): a history with no feeder is accepted (spec D366, D404)
+        self.assertNotIn("history",
+                         self.purpose_problems(lambda d: (d.update(history="material/history.sql"),
+                                                          d["jobs"][1].pop("feeder"))))
+
+    def test_a_history_targeting_the_partners_database(self):
+        """Chunk 29b's (c): its target on the partners' database accepted."""
+        self.scenario_yaml(lambda d: d["purposes"][0]["parts"].update(
+            target="partners-db/partners"))
+        self.assertEqual(self.load().data["purposes"][0]["parts"]["target"],
+                         "partners-db/partners")
+
+    def test_ddl(self):
+        """Chunk 29b's (e): ddl:, a map of the purpose's database parts to
+        files of material/."""
+        ddl = self.catalog_root / self.PURPOSE / "material/target-ddl.sql"
+        ddl.write_text("CREATE ROLE lab_watch LOGIN;\n")
+        self.assertEqual(self.purpose_problems(lambda d: d.update(
+            ddl={"target": "material/target-ddl.sql"})), "")
+        text = self.purpose_problems(lambda d: d.update(ddl={
+            "target": "material/missing.sql", "runner": "material/target-ddl.sql",
+            "receiver": "material/target-ddl.sql", "source": "checks/e1-results-released.sh"}))
+        self.assertProblems(text,
+                            "purposes/fx-lab-orders/material/missing.sql: missing file "
+                            "(ddl.target, a file of material/)",
+                            f"{self.L}: ddl.runner: not a database part the purpose declares "
+                            "(source, target)",
+                            f"{self.L}: ddl.receiver: not a database part",
+                            "purposes/fx-lab-orders/checks/e1-results-released.sh: missing file "
+                            "(ddl.source, a file of material/)")
+        self.assertIn(f"{self.L}: ddl: [] is not a non-empty map",
+                      self.purpose_problems(lambda d: d.update(ddl=[])))
 
     def test_history_file(self):
         (self.catalog_root / self.PURPOSE / "material/history.sql").unlink()
@@ -3862,6 +3891,43 @@ class TestPurposeV05Refusals(V05ComposedTest):
         self.assertProblems(text, f"{self.L}: classification.columns.lab_orders_sent.client_ref: "
                             "'lab_orders_sent.client_ref' is not <database>.<table>.<column>",
                             "'secret' is not a class")
+
+
+class TestPurposeDdlInScenario(V05ComposedTest):
+    """A purpose's ddl: in a scenario (chunk 29b's (e), capture W3 addendum):
+    only for a part mapped to a database a domains: entry's at: holds; its
+    roles counted by node_creates on that node."""
+
+    def setUp(self):
+        super().setUp()
+        (self.catalog_root / self.PURPOSE / "material/target-ddl.sql").write_text(
+            "DO $g$ BEGIN\n  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'lab_watch') "
+            "THEN\n    CREATE ROLE lab_watch LOGIN;\n  END IF;\nEND $g$;\n"
+            "CREATE SCHEMA IF NOT EXISTS ops;\n")
+        self.catalog_yaml(f"{self.PURPOSE}/purpose.yaml",
+                          lambda d: d.update(ddl={"target": "material/target-ddl.sql"}))
+
+    def test_in_a_composed_domains_database(self):
+        sc = self.load()
+        created = model.node_creates(self.scenario, sc.data, "db", self.catalog_root)
+        self.assertIn("lab_watch", created.logins)
+        self.assertIn("purposes/fx-lab-orders/material/target-ddl.sql", created.sources)
+        self.assertNotIn("purposes/fx-lab-orders/material/target-ddl.sql",
+                         model.node_creates(self.scenario, sc.data, "partners-db",
+                                            self.catalog_root).sources)
+
+    def test_refused_in_a_database_no_domain_holds(self):
+        self.scenario_yaml(lambda d: d["purposes"][0]["parts"].update(target="db/shop"))
+        self.assertRefused("scenario.yaml: purposes[fx-lab-orders].parts.target: db/shop: purpose "
+                           "fx-lab-orders's ddl.target runs only in a database a domains: "
+                           "entry's at: holds; for a database no domain holds, its DDL stays in "
+                           "the node's data file")
+
+    def test_purpose_ddl_in_parts_order(self):
+        self.assertEqual(model.purpose_ddl({"parts": {"source": "s", "target": "t"},
+                                            "ddl": {"target": "material/t.sql",
+                                                    "source": "material/s.sql"}}),
+                         [("source", "material/s.sql"), ("target", "material/t.sql")])
 
 
 class TestDomainV05Refusals(V05ComposedTest):

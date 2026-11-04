@@ -10,8 +10,11 @@ fx-core`, a contrib extension, `btree_gist`, in its schema) with a
 database of its own (`records/docs`, `pgcrypto` in its schema) with its
 own key functions, `data/keys.sql` (`pg_temp.docs_*`, chunk 29's (a)),
 and a derivation, `data/derive.sql`, sanctioned after `fx-core`; both
-parts with `data/coherence.yaml`; and a purpose, `fx-weekly`, whose
-`material/history.sql` plants `records/office`. `scenario/` composes them
+parts with `data/coherence.yaml`; a purpose, `fx-weekly`, whose
+`material/history.sql` plants `records/office`; and a purpose,
+`fx-intake`, whose `ddl: {target: material/target-ddl.sql}` creates its
+role, grants, policy and `ops` table in `records/clinic`, a composed
+domain's database (chunk 29b's (e)). `scenario/` composes them
 on two `postgres` nodes, `records` (its seed `postgresql.conf`
 preloading `pg_cron`, its jobs in `office`, which its data file creates
 with the extension) and the partners' `partners-db`, its

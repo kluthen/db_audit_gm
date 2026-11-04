@@ -499,7 +499,8 @@ The rules from v0.5 (v0.5 master spec 6.2, 6.3, 6.8, 7.1, 8.4, 8.5, 10,
   the node's data file creates, plus each `at:` database a `domains:`
   entry places there and what its schema and load files create, plus, on
   the partners' `postgres` node, each composed domain's partner
-  `data.sql`.
+  `data.sql` (a left-out partner's included), plus each `purposes:`
+  entry's `ddl:` file whose part maps to that node (chunk 29b).
 - **The data register** (`governance.register: player/data-register.md`):
   required of every scenario listing `domains:` (v0.4's released shop
   scenario is exempt until it is next revised), allowed with `governance:`
@@ -953,7 +954,27 @@ From v0.5 (formats.md "Purpose definition", D286, D303, D307):
   as the superuser, through a temporary foreign server, every session
   unseen). No periodic report runs on demand. The feeder is another job
   of the purpose; a purpose with a job naming a feeder has `history`, a
-  file under `material/`, and `history` without one is refused.
+  file under `material/`. From v0.5 chunk 29, `history` without a feeder
+  is accepted (a past no periodic job extends: purposes 14 and 16, D366,
+  D404), its `target` the partners' database allowed.
+- **The target's DDL in a composed domain's database** (`ddl:`, chunk
+  29b, capture W3 addendum item 6 (e)): a map from a database part the
+  purpose declares (`source`, `target`) to a file of `material/`
+  (`ddl: {target: material/target-ddl.sql}`): the purpose's roles,
+  grants, policies and `ops` tables. Read from the catalogue at every
+  load, as `history` is, never copied. In a scenario, each part named
+  maps to a database a `domains:` entry's `at:` holds; one mapped to a
+  database no domain holds (`office`, `partners`) is refused, its DDL
+  staying in the node's data file (one place each, never both). load-data
+  runs it after every domain's load and partner `data.sql`, before the
+  derivations (step (2b)), the `purposes:` entries in list order and
+  each entry's parts in its `parts:` order, as `postgres` connected to
+  the mapped database, unseen, with the variables, no keys: never
+  `CREATE DATABASE` nor `\connect` (refused, naming the line), the
+  database named `:"DBNAME"`, roles at top level; a role two purposes
+  create on one node is guarded (`DO ... IF NOT EXISTS`, its `CREATE
+  ROLE` at the start of a line so `model.node_creates` counts it and the
+  role gets its secret).
 - **How an invariant is judged** (`judged:`): `runs`, `triggers`,
   `end-to-end` (on the trace after the fix; the backlog is the answer
   key's), `code` or `definition`; a round trip names exactly one
@@ -1176,7 +1197,8 @@ composition beside `scenario.yaml`:
   `order` (its databases, `schema.sql`, `load.sql`, a several-database
   part in `databases` order; then its partners' `data.sql`, a left-out
   partner's only when the scenario has a partners' database; then its
-  `data/cron.sql`, in its node's `cron.database_name`); the
+  `data/cron.sql`, in its node's `cron.database_name`); each `purposes:`
+  entry's `ddl:` files (step (2b)); the
   sanctioned derivations in `derive` order, each in its part's database;
   each `purposes:` entry's `history` in list order, in its `target`;
   then the coherence check. A derivation reads its `after` domains, a

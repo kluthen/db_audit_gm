@@ -209,6 +209,9 @@ Rules:
                         producers/api/<node>/
     history.sql         optional (v0.5): a periodic purpose's past periods' outputs,
                         planted into the target before T0 (purpose.yaml history)
+    target-ddl.sql      optional (v0.5, chunk 29): a part's DDL in a composed
+                        domain's database (purpose.yaml ddl:), run by load-data
+                        from the catalogue, never copied into the data file
   checks/               one script per invariant
   gm.md                 what the purpose is for, how it goes wrong, feedback notes
 ```

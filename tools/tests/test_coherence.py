@@ -402,6 +402,33 @@ class TestComposedPlan(unittest.TestCase):
         self.assertIn("composition.yaml: derive[fx-docs]: reads partners-db/partners "
                       "(gm_src_fx_core) from records", str(cm.exception))
 
+    def test_a_history_with_no_feeder_targets_the_partners_database(self):
+        """Chunk 29b's (c): a history in the partners' database, on its node,
+        reading its source from records (purposes 14 and 16, spec D366)."""
+        entry = next(p for p in self.scenario.data["purposes"] if p["id"] == "fx-weekly")
+        entry["parts"]["target"] = "partners-db/partners"
+        history, = self.plan().histories
+        self.assertEqual((history.node, history.database), ("partners-db", "partners"))
+        self.assertEqual(history.sources, [inject.Source("source", "records", "clinic")])
+
+    def test_the_purposes_ddl_in_its_composed_database(self):
+        """Chunk 29b's (e): each purposes: entry's ddl:, in list order, its
+        parts in purpose.yaml's parts: order, in the mapped database."""
+        ddl = self.catalog / "purposes/fx-intake/material/target-ddl.sql"
+        run, = self.plan().ddl
+        self.assertEqual((run.purpose, run.part, run.run.node, run.run.database, run.run.paths),
+                         ("fx-intake", "target", "records", "clinic", [ddl]))
+        path = self.catalog / "purposes/fx-intake/purpose.yaml"
+        data = yaml.safe_load(path.read_text())
+        data["ddl"] = {"target": "material/target-ddl.sql", "source": "material/source-ddl.sql"}
+        path.write_text(yaml.safe_dump(data, sort_keys=False))
+        (self.catalog / "purposes/fx-intake/material/source-ddl.sql").write_text("SELECT 1;\n")
+        entry = next(p for p in self.scenario.data["purposes"] if p["id"] == "fx-intake")
+        entry["parts"]["source"] = "records/docs"
+        self.scenario.data["purposes"].reverse()
+        self.assertEqual([(r.purpose, r.part, r.run.database) for r in self.plan().ddl],
+                         [("fx-intake", "source", "docs"), ("fx-intake", "target", "clinic")])
+
     def test_a_check_reading_a_domain_not_composed_is_skipped(self):
         self.scenario.data["domains"] = [d for d in self.scenario.data["domains"]
                                          if d["id"] != "fx-ward"]
@@ -518,6 +545,29 @@ class TestComposedPlan(unittest.TestCase):
         def missing_history(sc, cat):
             (cat / "purposes/fx-weekly/material/history.sql").unlink()
         case(missing_history, "purposes/fx-weekly/material/history.sql: missing file")
+
+        def ddl_in_a_database_no_domain_holds(sc, cat):
+            next(p for p in sc.data["purposes"] if p["id"] == "fx-intake")["parts"]["target"] = \
+                "records/office"
+        case(ddl_in_a_database_no_domain_holds, "scenario.yaml: purposes[fx-intake].parts."
+             "target: records/office: purpose fx-intake's ddl.target runs only in a database a "
+             "domains: entry's at: holds")
+
+        def ddl_switching_database(sc, cat):
+            path = cat / "purposes/fx-intake/material/target-ddl.sql"
+            path.write_text(path.read_text() + "\\connect office\n")
+        case(ddl_switching_database, "purposes/fx-intake/material/target-ddl.sql:22: \\connect "
+             "office: a purpose's DDL runs connected to its part's database")
+
+        def ddl_creating_database(sc, cat):
+            path = cat / "purposes/fx-intake/material/target-ddl.sql"
+            path.write_text("CREATE DATABASE intake;\n" + path.read_text())
+        case(ddl_creating_database, "purposes/fx-intake/material/target-ddl.sql:1: CREATE "
+             "DATABASE intake;")
+
+        def ddl_missing(sc, cat):
+            (cat / "purposes/fx-intake/material/target-ddl.sql").unlink()
+        case(ddl_missing, "purposes/fx-intake/material/target-ddl.sql: missing file")
 
         def order_short(sc, cat):
             path = sc.dir / "composition.yaml"
@@ -797,6 +847,31 @@ class TestComposedSteps(unittest.TestCase):
                       '"clinic" FROM PUBLIC;', run["stdin"])
         self.assertEqual(run["argv"], list(inject.PSQL_ARGV))
 
+    def test_the_purposes_ddl_after_the_loads_before_the_derivations_unseen(self):
+        """Chunk 29b's (e), step (2b): as postgres, -d clinic, unseen, with
+        load_epoch, no keys; after every domain's load and partner file."""
+        result = self.load()
+        stdin = [r["stdin"] for r in self.runs]
+        ddl = next(i for i, s in enumerate(stdin) if "fx-intake's target DDL" in s)
+        last_load = max(i for i, s in enumerate(stdin) if any(f in s for f in (
+            "each current stay placed", "The external lab's state", "cron.schedule_in_database",
+            "a request per stay")))
+        derive = next(i for i, s in enumerate(stdin) if "The test part's derivation" in s)
+        self.assertLess(last_load, ddl)
+        self.assertLess(ddl, derive)
+        run = self.runs[ddl]
+        self.assertEqual((run["node"], run["user"], run["argv"][-2:]),
+                         ("records", "postgres", ["-d", "clinic"]))
+        self.assertTrue(run["stdin"].startswith(inject.UNSEEN_SQL))
+        self.assertNotIn("pg_temp.core_", run["stdin"])
+        self.assertTrue(any(a.startswith("load_epoch=") for a in run["argv"]))
+        self.assertEqual(result.ddl, [("fx-intake", "target", "records", "clinic")])
+        self.assertIn("records/clinic: purpose fx-intake's DDL (target), unseen", result.text())
+        # its login role gets its secret in the passwords' step (node_creates)
+        passwords = next(r for r in self.runs if "intake_watch" in r["stdin"]
+                         and "PASSWORD" in r["stdin"])
+        self.assertEqual(passwords["node"], "records")
+
     def test_a_parts_keys_in_its_load_session_after_the_cores(self):
         """Chunk 29's (a): one session, the core's keys, then the part's."""
         self.load()
@@ -896,7 +971,9 @@ class TestPasswordPlanReadsNodeCreates(unittest.TestCase):
                          ["partners-db", "records"])
 
     def test_the_login_roles_the_catalogue_creates(self):
-        self.assertEqual(self.plan(CATALOG), {"records": ["core_app", "ward_app", "docs_app"],
+        # intake_watch: fx-intake's ddl: (chunk 29b), counted by node_creates
+        self.assertEqual(self.plan(CATALOG), {"records": ["core_app", "ward_app", "docs_app",
+                                                          "intake_watch"],
                                               "partners-db": ["xlab"]})
         self.assertEqual(self.plan(model.REPO_ROOT), {})
 
@@ -905,7 +982,8 @@ class TestPasswordPlanReadsNodeCreates(unittest.TestCase):
         with self.connections():
             plans = inject.load_plans(self.scenario, self.impl, CATALOG)
         self.assertEqual({db: [r for r, _ in roles] for db, roles in plans.passwords},
-                         {"records": ["docs_web", "core_app", "ward_app", "docs_app"],
+                         {"records": ["docs_web", "core_app", "ward_app", "docs_app",
+                                      "intake_watch"],
                           "partners-db": ["xlab"]})
 
 
@@ -988,11 +1066,12 @@ LOAD_FRAGMENTS = ('CREATE DATABASE "', "gm_absent", "pg_temp.core_", "INSERT INT
                   "INSERT INTO stays", "ward_placements", "doc_requests", "xlab.requests",
                   "xlab.state", "CREATE ROLE core_app", "CREATE ROLE ward_app",
                   "CREATE ROLE docs_app", "CREATE ROLE xlab", "btree_gist", "pgcrypto",
-                  "pg_temp.docs_", "schedule_in_database", "fx-ward-tidy")
+                  "pg_temp.docs_", "schedule_in_database", "fx-ward-tidy",
+                  "CREATE ROLE intake_watch", "ops.runs", "intake_current")
 LOAD_STATEMENTS = (r"pg_temp\.(core|docs)_|ward_placements|doc_requests|xlab\.(requests|state)|"
                    r"INSERT INTO (animals|stays)|CREATE DATABASE \"|gm_absent|btree_gist|pgcrypto|"
-                   r"fx-ward-tidy")     # not schedule_in_database: CREATE EXTENSION pg_cron's
-                                        # own script, the data file's, is seen
+                   r"fx-ward-tidy|ops\.runs|intake_current")   # not schedule_in_database:
+                   # CREATE EXTENSION pg_cron's own script, the data file's, is seen
 
 
 @unittest.skipUnless(os.environ.get("GM_TEST_COMPOSED_LOAD") == "1",
@@ -1063,6 +1142,7 @@ class TestComposedLoad(unittest.TestCase):
         impl = impl_of(scenario)
         self.ldir = game_dir(self)
         plans = inject.load_plans(scenario, impl, fixture / "catalog")
+        self.epoch = plans.variables[inject.EPOCH_VAR]
         write_role_secrets(self.ldir, plans)
         self.result = inject.LoadResult("gmtest")
         self.printed = []
@@ -1136,6 +1216,20 @@ class TestComposedLoad(unittest.TestCase):
                          "fx-ward-tidy|0 3 * * *|clinic|ward_app")
         self.assertIn("records", [node for node, _ in r.cleaned])
         self.assertIn(("records", "office"), r.policies)
+        # fx-intake's target DDL (chunk 29b's (e)) in clinic, a composed
+        # domain's database: its role (its password set from its secret),
+        # grants, policy and ops table, its row from load_epoch
+        self.assertEqual(r.ddl, [("fx-intake", "target", "records", "clinic")])
+        self.assertEqual(self.psql("records", "postgres", "SELECT rolcanlogin || '|' || "
+                                   "(rolpassword LIKE 'SCRAM-SHA-256$%') FROM pg_authid WHERE "
+                                   "rolname = 'intake_watch';"), "true|true")
+        self.assertEqual(self.psql("records", "clinic",
+                                   "SELECT has_table_privilege('intake_watch', 'ops.runs', "
+                                   "'INSERT') || '|' || has_table_privilege('intake_watch', "
+                                   "'stays', 'SELECT') || '|' || (SELECT count(*) FROM "
+                                   "pg_policies WHERE policyname = 'intake_current') || '|' || "
+                                   "(SELECT count(*) FROM ops.runs WHERE ran_at = "
+                                   f"'{self.epoch}'::timestamptz);"), "true|true|1|1")
         # the partner's role, schema and planted state in partners
         self.assertEqual(self.psql("partners-db", "partners",
                                    "SELECT r.rolcanlogin, n.nspname, pg_get_userbyid(n.nspowner) "

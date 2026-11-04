@@ -20,6 +20,8 @@ domains:
 purposes:
   - id: fx-weekly
     parts: {source: records/clinic, target: records/office}
+  - id: fx-intake
+    parts: {source: records/clinic, target: records/clinic}
 third_parties:
   - id: xlab
     name: The External Lab

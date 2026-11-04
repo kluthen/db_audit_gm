@@ -88,7 +88,13 @@ behaviour is fixed by capture W3-A (`specs/versions/v0.1/wave-log.md`):
   (`cron.schedule_in_database(...)` calls only) runs last of its load, on
   its one node, connected to the node's `cron.database_name` (its seed
   postgresql.conf), unseen, its jobs' databases and roles now there (chunk
-  29's (d), spec D405). Then the sanctioned
+  29's (d), spec D405). Then (step (2b), chunk 29b, capture W3 addendum
+  item 6 (e)) each `purposes:` entry's `ddl:` files, in list order, each
+  entry's parts in the order its `purpose.yaml` `parts:` lists them: run
+  as `postgres` connected to the part's mapped database, which must be
+  one a `domains:` entry's `at:` holds (refused otherwise, as is a file
+  creating a database or `\\connect`ing), unseen, with the variables, no
+  keys. Then the sanctioned
   derivations (`derive`, in order), then each `purposes:` entry's
   `history` (in list order, in its `target`), each reading its sources
   through foreign schemas `gm_src_<name>` (postgres_fdw, as `gm_check`
@@ -330,6 +336,7 @@ class LoadResult:
     created: list = field(default_factory=list)    # [(node, database)] a domain's, created
     domains: list = field(default_factory=list)    # [(domain, node, database, what)] run
     partners: list = field(default_factory=list)   # [(domain, prefix, node)]
+    ddl: list = field(default_factory=list)        # [(purpose, part, node, database)]
     derived: list = field(default_factory=list)    # [(domain, node, database)]
     histories: list = field(default_factory=list)  # [(purpose, node, database)]
     coherence: list = field(default_factory=list)  # [coherence.Outcome]
@@ -357,6 +364,8 @@ class LoadResult:
         out += [f"  {node}/{db}: {what}" for _, node, db, what in self.domains]
         out += [f"  {node}/{PARTNERS_DB}: partner {prefix}'s state ({domain})"
                 for domain, prefix, node in self.partners]
+        out += [f"  {node}/{db}: purpose {pid}'s DDL ({part}), unseen"
+                for pid, part, node, db in self.ddl]
         out += [f"  {node}/{db}: {domain}'s derivation, unseen" for domain, node, db in self.derived]
         out += [f"  {node}/{db}: purpose {pid}'s history, unseen"
                 for pid, node, db in self.histories]
@@ -587,6 +596,15 @@ class DomainLoad:
 
 
 @dataclass
+class DdlRun:
+    """A purpose's target DDL in a composed domain's database (capture W3
+    addendum, item 6 (e); step (2b)): one part's file, run as a FileRun."""
+    purpose: str
+    part: str
+    run: FileRun
+
+
+@dataclass
 class SourcedRun:
     """A derivation or a purpose's history: its files run unseen in
     `database`, its sources reachable as gm_src_<name>."""
@@ -611,6 +629,7 @@ class CheckRun:
 @dataclass
 class ComposedPlan:
     domains: list = field(default_factory=list)       # [DomainLoad], in order
+    ddl: list = field(default_factory=list)           # [DdlRun]: step (2b), in order
     derivations: list = field(default_factory=list)   # [SourcedRun]
     histories: list = field(default_factory=list)     # [SourcedRun]
     checks: list = field(default_factory=list)        # [CheckRun]
@@ -754,7 +773,7 @@ def _keys(domains, catalog, did):
     return [p for p in paths if p.is_file()]
 
 
-def _cron_run(scenario, impl, d, catalog):
+def _cron_run(scenario, d):
     """The FileRun of domain `d`'s data/cron.sql (capture W3 item 6 (d), spec
     D405), or None when it ships none: run as postgres on the domain's one
     node, connected to the node's cron.database_name, after the domain's
@@ -846,7 +865,7 @@ def composed_plan(scenario, impl, catalog_root=model.REPO_ROOT):
             runs.append(FileRun(f"{did} producers/partners/{folder.name}/{PARTNER_DATA}", pnode,
                                 PARTNERS_DB, keys + [path]))
             partners.append((folder.name, pnode))
-        cron = _cron_run(scenario, impl, d, catalog)
+        cron = _cron_run(scenario, d)
         if cron is not None:
             runs.append(cron)
         plan.domains.append(DomainLoad(did, [(n, db) for _, n, db in d.locations], runs,
@@ -870,15 +889,27 @@ def composed_plan(scenario, impl, catalog_root=model.REPO_ROOT):
             "derive", did, f"{did} {DERIVE_FILE}", node, database,
             _keys(domains, catalog, did) + [path],
             [src for a in after for src in domains[a].sources]))
+    held = {(node, database) for d in domains.values() for _, node, database in d.locations}
     for entry in scenario.data.get("purposes") or []:
         pid = entry.get("id") if isinstance(entry, dict) else None
         pdir = catalog / "purposes" / str(pid)
         pdata = _catalog_yaml(pdir / "purpose.yaml", f"purposes/{pid}/purpose.yaml")
+        where = f"scenario.yaml: purposes[{pid}]"
+        parts = entry.get("parts") if isinstance(entry.get("parts"), dict) else {}
+        for part, rel in model.purpose_ddl(pdata):
+            node, database = _location(parts.get(part), scenario, impl, f"{where}.parts.{part}")
+            if (node, database) not in held:
+                raise GmError(f"{where}.parts.{part}: {node}/{database}: purpose {pid}'s "
+                              f"ddl.{part} runs only in a database a domains: entry's at: "
+                              "holds; for a database no domain holds, its DDL stays in the "
+                              "node's data file")
+            path = _file(pdir, rel, f"purposes/{pid}/purpose.yaml ddl.{part}", catalog)
+            _check_connected(path, f"purposes/{pid}/{rel}",
+                             "a purpose's DDL runs connected to its part's")
+            plan.ddl.append(DdlRun(pid, part, FileRun(f"{pid} {rel}", node, database, [path])))
         history = pdata.get("history")
         if not history:
             continue
-        where = f"scenario.yaml: purposes[{pid}]"
-        parts = entry.get("parts") if isinstance(entry.get("parts"), dict) else {}
         path = _file(pdir, str(history), f"purposes/{pid}/purpose.yaml history", catalog)
         node, database = _location(parts.get("target"), scenario, impl, f"{where}.parts.target")
         sources = [Source(part, *_location(value, scenario, impl, f"{where}.parts.{part}"))
@@ -1627,7 +1658,8 @@ def record_coherence(ldir, plan, run_at, outcomes):
 
 def composed_steps(ldir, plans, docker, result, timeout=None, out=print):
     """The composed load's steps (W2 item 3), into `result`: each domain in
-    order (its databases, schema, load and partner files), the derivations,
+    order (its databases, schema, load, partner files and cron file), the
+    purposes' DDL (step (2b), W3 addendum), the derivations,
     the histories, the coherence check and its record; gm_check's role
     settings set on every source before the first read, reset after the
     last; GmError at the first that fails, a failed check included."""
@@ -1643,6 +1675,9 @@ def composed_steps(ldir, plans, docker, result, timeout=None, out=print):
             run_file(ldir, run, variables, docker, timeout=timeout, out=out)
             result.domains.append((load.domain, run.node, run.database, run.what))
         result.partners += [(load.domain, prefix, node) for prefix, node in load.partners]
+    for ddl in plan.ddl:                                # step (2b), W3 addendum
+        run_file(ldir, ddl.run, variables, docker, timeout=timeout, out=out)
+        result.ddl.append((ddl.purpose, ddl.part, ddl.run.node, ddl.run.database))
     reading = plan.reading_nodes()
     for node, databases in reading.items():
         _exec_sql(ldir, node, check_role_sql(databases), PSQL_ARGV, docker, timeout, out,
