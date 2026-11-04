@@ -44,6 +44,9 @@ capture W1 in `specs/versions/v0.3/wave-log.md`, v0.4's capture W1 in
 | [templates/classification.yaml](templates/classification.yaml) | `domains/<id>/data/classification.yaml`, copied to `scenarios/<id>/data/classification.yaml` | a domain's column classification (from v0.4) |
 | [templates/register.yaml](templates/register.yaml) | `domains/<id>/data/register.yaml` | a domain's register fragment, one entry per processing activity (from v0.5) |
 | [templates/variant.yaml](templates/variant.yaml) | `domains/<id>/variants/<variant>.yaml` | a variant's manifest (from v0.5) |
+| [templates/keys.sql](templates/keys.sql) | `domains/<core-id>/data/keys.sql` | a core's key functions, `pg_temp.core_*` (from v0.5) |
+| [templates/coherence.yaml](templates/coherence.yaml) | `domains/<id>/data/coherence.yaml` | a domain's coherence queries (from v0.5) |
+| [templates/partner-data.sql](templates/partner-data.sql) | `domains/<id>/producers/partners/<prefix>/data.sql` | a partner's tables and planted state (from v0.5) |
 | [templates/composition.yaml](templates/composition.yaml) | `scenarios/<id>/composition.yaml` | the composition record (from v0.5) |
 | [templates/merge.yaml](templates/merge.yaml) | `scenarios/<id>/merge.yaml` | the merge's resolutions (from v0.5) |
 | [templates/api.yaml](templates/api.yaml) | `scenarios/<id>/nodes/<node>/api.yaml`, and a domain's fragment `domains/<id>/producers/api/<node>/api.yaml` | an `api` node's endpoints and connections (from v0.5) |
@@ -918,11 +921,47 @@ keys. In particular:
   domains of the catalogue and needs `data/derive.sql`, run only when
   the scenario's composition record sanctions it.
 - `schema.sql` and `load.sql` follow the data load's contract
-  ([templates/layouts.md](templates/layouts.md)): each `CREATE DATABASE`
-  and `CREATE ROLE` at the start of a line, unquoted; `load.sql` may read
-  the two `psql` variables `:'customer_timezone'` and
-  `:customer_utc_offset`. Every `SECURITY DEFINER` function carries a
-  fixed `search_path` (D323; checked at the domain's build).
+  ([templates/layouts.md](templates/layouts.md)): each `CREATE ROLE` (and,
+  in the shop's v0.4 schema only, `CREATE DATABASE`) at the start of a
+  line, unquoted; `load.sql` may read the `psql`
+  variables `:'customer_timezone'`, `:customer_utc_offset` and (v0.5)
+  `:'load_epoch'`, the run's start (UTC, to the minute), its one "now":
+  a load computes a time from `:'load_epoch'::timestamptz`, never
+  `now()`, so parts loaded minutes apart agree. Every `SECURITY DEFINER`
+  function carries a fixed `search_path` (D323; checked at the domain's
+  build).
+- **The database convention** (v0.5, W2 item 3): load-data creates each
+  `at:` database absent from its node (owner `postgres`, `CONNECT`
+  revoked from `PUBLIC`) and runs `schema.sql` then `load.sql` connected
+  to it (`psql -d <db>`), as `postgres` (a contrib extension, `btree_gist`
+  or `pgcrypto`, is a plain `CREATE EXTENSION` in the schema). So a
+  domain's schema and load **never create a database nor `\connect`**
+  (load-data refuses either, naming the line), create their roles at top
+  level, and name their database `:"DBNAME"` (`GRANT CONNECT ON DATABASE
+  :"DBNAME" TO vet_app`): a part lands in its core's database or its
+  own, the name is the scenario's. The shop's v0.4 schema (`CREATE
+  DATABASE shop`) stays as built for `domain: shop` only.
+- **The core's key functions** ([templates/keys.sql](templates/keys.sql)),
+  optional, `data/keys.sql` of a core (a fixed path, no `domain.yaml`
+  key): `pg_temp.core_<name>(...)` functions, streamed by load-data
+  ahead of the core's and each part's `load.sql`, each partner
+  `data.sql` and each `derive.sql`, in the same session (never ahead of a
+  schema or a history); called schema-qualified, they vanish with the
+  session. `docs/gm.md`'s "Core keys" lists each.
+- **A partner's state** ([templates/partner-data.sql](templates/partner-data.sql)),
+  optional: `producers/partners/<prefix>/data.sql`, beside the partner's
+  fragments, run by load-data as `postgres` into the partners' database
+  `partners` after its domain's load, folders in name order, the core's
+  keys ahead: it creates the role `<prefix>` (`LOGIN`, no password), the
+  schema `<prefix>` it owns, its tables and its planted state. A scenario
+  composing it needs a `postgres` node its `third_parties:` entries list.
+- **Coherence queries** ([templates/coherence.yaml](templates/coherence.yaml)),
+  optional, `data/coherence.yaml`: a part's references to its core and
+  the histories it shares, each check one SELECT of the offending rows,
+  `reads` naming the composed domains or `partners` it reads through
+  `gm_src_<name>`; the core carries none. Not checked by
+  `check_domain_dir` in v0.5: load-data refuses a malformed file before
+  any query runs.
 - **Classification** ([templates/classification.yaml](templates/classification.yaml)):
   every column of every table under `columns:`, each `personal`,
   `customer-linked` or `internal`, `internal` ones listed too, keyed
@@ -1017,6 +1056,24 @@ composition beside `scenario.yaml`:
   for a domain declaring it, its `after` the declared one;
   `coherence` written at setup. `model.check_composition` checks it on
   every load of a scenario listing `domains:`.
+- **`gmctl load-data`** (v0.5, W2 item 3) reads the domains and the
+  purposes' histories from the catalogue, never from the scenario
+  folder, and loads, in this order: the nodes' data files (they create
+  the databases no domain holds: `office`, `partners`); each domain in
+  `order` (its databases, `schema.sql`, `load.sql`, a several-database
+  part in `databases` order; then its partners' `data.sql`); the
+  sanctioned derivations in `derive` order, each in its part's database;
+  each `purposes:` entry's `history` in list order, in its `target`;
+  then the coherence check. A derivation reads its `after` domains, a
+  history its entry's other location parts (`gm_src_source`), through
+  foreign schemas `gm_src_*` created for the session and dropped after,
+  every such session unseen (no statement logging, `pg_stat_statements`
+  or pgaudit, on either end). A failing check stops the setup as a
+  design error, naming the domain, the check, its `what`, the row count
+  and the first ten rows; the result is written to `composition.yaml`'s
+  `coherence: {run_at, result}` (that key only) and each check's outcome
+  to the game's `state.yaml`. Schemas `gm_src_*` and functions
+  `pg_temp.core_*` are load-data's and the core's: never a domain's own.
 
 ## Versions and pins (v0.2 master spec 6.5, v0.3 master spec 6.6, v0.4 master spec 6.6)
 

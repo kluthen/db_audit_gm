@@ -1,0 +1,5 @@
+# The test part's desk repository, a fragment.
+queries:
+  ward.placements.read:
+    sql: SELECT * FROM ward_placements WHERE id = %(id)s
+    params: {id: {int: [1, 4]}}

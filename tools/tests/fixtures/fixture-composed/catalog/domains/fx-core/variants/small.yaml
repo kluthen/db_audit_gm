@@ -1,0 +1,8 @@
+# The test core's one variant (tools/tests, v0.5 chunk 8).
+parts: [fx-ward, fx-docs]
+scale:
+  population: {animals: 10}
+  history: {days: 6}
+  throughput: {lookups_per_minute: 20}
+purposes: []
+tags: [managed, regional]

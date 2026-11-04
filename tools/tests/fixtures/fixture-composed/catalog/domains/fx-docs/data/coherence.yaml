@@ -1,0 +1,15 @@
+# The test part's coherence queries (tools/tests, v0.5 chunk 8).
+checks:
+  - id: documents-match-stays
+    what: every stay documented, every document on a stay of the core
+    reads: [fx-core]
+    sql: |
+      SELECT s.id AS stay_id, d.stay_id AS document_stay
+        FROM gm_src_fx_core.stays s FULL JOIN documents d ON d.stay_id = s.id
+       WHERE s.id IS NULL OR d.stay_id IS NULL
+  - id: placed-stays-documented
+    what: every placed stay documented (a cross-part check, with fx-ward)
+    reads: [fx-ward]
+    sql: |
+      SELECT p.stay_id FROM gm_src_fx_ward.ward_placements p
+       WHERE NOT EXISTS (SELECT 1 FROM documents d WHERE d.stay_id = p.stay_id)

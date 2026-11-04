@@ -199,10 +199,14 @@ class TestLoadData(DeployedGame):
         run = self.fake.runs[0]
         self.assertEqual(run["container"], f"{self.gid}_db.1.ctr")
         self.assertEqual(run["user"], "postgres")
-        # no scheduler node: no shift, the customer's zone is UTC (W1 item 0)
-        self.assertEqual(run["argv"], ["psql", "-X", "-q", "-v", "ON_ERROR_STOP=1",
-                                       "-v", "customer_timezone=Etc/GMT",
-                                       "-v", "customer_utc_offset=0", "-d", "postgres"])
+        # no scheduler node: no shift, the customer's zone is UTC (W1 item 0);
+        # v0.5 (W2 item 3): the run's start, to the minute, as load_epoch
+        self.assertEqual(run["argv"][:9] + run["argv"][-2:],
+                         ["psql", "-X", "-q", "-v", "ON_ERROR_STOP=1",
+                          "-v", "customer_timezone=Etc/GMT",
+                          "-v", "customer_utc_offset=0", "-d", "postgres"])
+        self.assertEqual(run["argv"][9], "-v")
+        self.assertRegex(run["argv"][10], r"^load_epoch=\d{4}-\d\d-\d\dT\d\d:\d\dZ$")
         self.assertEqual(run["env"], {})
         self.assertEqual(run["stdin"],
                          (self.scenario / "data" / "db.sql").read_text())
@@ -766,10 +770,13 @@ class TestLoadDataInstances(InstancesDeployedGame):
         self.load_data()
         data = [r for r in self.fake.runs if step(r) == "data"]
         self.assertEqual(len(data), 2)
+        epochs = {run["argv"][10] for run in data}
+        self.assertEqual(len(epochs), 1)            # one reference moment per run (W2 item 3)
         for run in data:
-            self.assertEqual(run["argv"], ["psql", "-X", "-q", "-v", "ON_ERROR_STOP=1",
-                                           "-v", "customer_timezone=Etc/GMT",
-                                           "-v", "customer_utc_offset=0", "-d", "postgres"])
+            self.assertEqual(run["argv"][:9] + run["argv"][-2:],
+                             ["psql", "-X", "-q", "-v", "ON_ERROR_STOP=1",
+                              "-v", "customer_timezone=Etc/GMT",
+                              "-v", "customer_utc_offset=0", "-d", "postgres"])
 
     def test_the_crontab_roles_password_is_set_on_its_node(self):
         sc = model.load_scenario(self.scenario)

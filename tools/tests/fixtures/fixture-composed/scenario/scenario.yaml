@@ -1,0 +1,26 @@
+# The composed load's fixture scenario (tools/tests, v0.5 chunk 8): only what
+# load-data's composed plan and the composition check read; not a complete
+# scenario.
+id: fixture-composed
+nodes:
+  - {name: records, brick: postgres@0.5.0, role: database, data: {file: data/records.sql}}
+  - name: partners-db
+    brick: postgres@0.5.0
+    role: database
+    write_policy: no-access
+    data: {file: data/partners-db.sql}
+domains:
+  - {id: fx-core, variant: small, at: records/clinic}
+  - {id: fx-ward, at: records/clinic}
+  - {id: fx-docs, at: records/docs}
+purposes:
+  - id: fx-weekly
+    parts: {source: records/clinic, target: records/office}
+third_parties:
+  - id: xlab
+    name: The External Lab
+    stands_for: the lab the clinic sends samples to
+    role: round-trip
+    nodes: [partners-db]
+    hostname: xlab
+    player_doc: player/partners.md#the-external-lab
