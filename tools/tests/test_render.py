@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 import unittest
+from pathlib import Path
 
 import yaml
 
@@ -1372,3 +1373,245 @@ class TestStandbyEnvironment(ScenarioCopyTest):
         self.assertFalse([k for k in env if k.startswith("GM_VAULT")])
         mounts = [s["target"] for s in stack["services"]["db"]["secrets"]]
         self.assertIn("/opt/gm/secrets/replication_password", mounts)
+
+
+# --- v0.5 chunk 7: aliases and HTTP credentials (capture W2 item 2) ----------
+
+ALIAS_FIXTURE = FIXTURES / "fixture-alias"
+
+
+class AliasRendered(ScenarioCopyTest):
+    """A fresh copy of fixture-alias (a scheduler caller and the partners'
+    api node, no-access, under the third party's hostname xlab)."""
+
+    def setUp(self):
+        super().setUp()
+        self.scenario = self.tmp / "fixture-alias"
+        shutil.copytree(ALIAS_FIXTURE, self.scenario)
+        self.ldir = self.scenario / "local" / "laptop"
+
+    def fit(self):
+        fit.fit(self.scenario, "laptop", **SUFFICIENT)
+
+    def render(self):
+        render.render(self.scenario, "laptop", handover=handover_at(16))
+        self.impl = localimpl.read_implementation(self.ldir)
+        self.gid = self.impl["game_id"]
+        self.stack = yaml.safe_load((self.ldir / "stack.yml").read_text())
+
+    def mounts(self, node):
+        return {m["source"]: (m["target"], m["uid"], m["gid"], m["mode"])
+                for m in self.stack["services"][node]["secrets"]}
+
+    def add_partner(self, pid, hostname, endpoint, hosts):
+        """A second third party on the partners node: its entry, and an
+        endpoint answering under `hosts` (routes/ and db/ files with it)."""
+        self.edit_yaml("scenario.yaml", lambda d: d["third_parties"].append({
+            **d["third_parties"][0], "id": pid, "name": pid, "hostname": hostname}))
+        self.edit_yaml("nodes/partners/api.yaml",
+                       lambda d: d["endpoints"].update({endpoint: {"hosts": hosts}}))
+        for folder in ("routes", "db"):
+            source = self.scenario / "nodes/partners" / folder / "xlab_status.py"
+            (source.parent / f"{endpoint}.py").write_text(
+                source.read_text().replace("xlab_status", endpoint))
+
+
+class TestAliases(AliasRendered):
+
+    def test_the_partners_node_gets_its_alias(self):
+        self.fit()
+        self.render()
+        services = self.stack["services"]
+        self.assertEqual(services["partners"]["networks"], {"backend": {"aliases": ["xlab"]}})
+        self.assertEqual(services["caller"]["networks"], ["backend"])   # the list form kept
+        self.assertEqual(self.impl["nodes"]["partners"]["aliases"], ["xlab"])
+        self.assertNotIn("aliases", self.impl["nodes"]["caller"])
+
+    def test_every_hostname_an_alias_sorted_with_owners(self):
+        self.add_partner("centre-north", "centre-north", "centre_status",
+                         ["owners", "centre-north", "xlab"])
+        self.fit()
+        self.render()
+        self.assertEqual(self.stack["services"]["partners"]["networks"],
+                         {"backend": {"aliases": ["centre-north", "owners", "xlab"]}})
+
+    def test_refit_needed_when_the_hostnames_change(self):
+        self.fit()
+        self.edit_yaml("nodes/partners/api.yaml", lambda d: d["endpoints"]["xlab_status"].update(
+            hosts=["xlab", "owners"]))                  # same files, one hostname more
+        with self.assertRaisesRegex(model.GmError, "hostnames .* changed since gmctl fit"):
+            render.render(self.scenario, "laptop", handover=handover_at(16))
+
+    @unittest.skipUnless(shutil.which("docker"), "docker not installed")
+    def test_docker_stack_config_accepts(self):
+        self.fit()
+        self.render()
+        r = subprocess.run(["docker", "stack", "config", "-c", str(self.ldir / "stack.yml")],
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+
+
+class TestHttpCredentialsRendered(AliasRendered):
+
+    def test_the_caller_and_the_api_node_mount_the_credential(self):
+        self.fit()
+        self.render()
+        secret = "http_xlab_status"
+        self.assertEqual(next(s for s in self.impl["secrets"] if s["secret"] == secret),
+                         {"name": f"{self.gid}_{secret}", "secret": secret, "kind": "password",
+                          "handed_over": False, "file": f"local/laptop/secrets/{secret}"})
+        self.assertEqual([s["secret"] for s in self.impl["secrets"]].count(secret), 1)
+        self.assertIn(f"{self.gid}_{secret}", self.stack["secrets"])
+        for node in ("caller", "partners"):
+            self.assertEqual(self.mounts(node)[f"{self.gid}_{secret}"],
+                             (f"/opt/gm/secrets/{secret}", "0", "0", 0o400), node)
+
+    def test_an_api_nodes_own_calls_mount_their_credential(self):
+        self.edit_yaml("nodes/partners/api.yaml", lambda d: d.update(connections={
+            "back": {"driver": "http", "target": "xlab:8000", "credential": "xlab_back",
+                     "pool": 1}}))
+        self.fit()
+        self.render()
+        self.assertIn(f"{self.gid}_http_xlab_back", self.mounts("partners"))
+        self.assertNotIn(f"{self.gid}_http_xlab_back", self.mounts("caller"))
+
+    def test_a_public_call_mounts_nothing(self):
+        def public(d):
+            del d["connections"]["xlab"]["credential"]
+        self.edit_yaml("nodes/caller/schedule.yaml", public)
+        self.edit_yaml("nodes/partners/api.yaml",
+                       lambda d: d["endpoints"]["xlab_status"].pop("credentials"))
+        self.fit()
+        self.render()
+        self.assertFalse([s for s in self.impl["secrets"] if s["secret"].startswith("http_")])
+        for node in ("caller", "partners"):
+            self.assertFalse([s for s in self.mounts(node) if "_http_" in s], node)
+
+
+class TestArchivingCredential(ScenarioCopyTest):
+    """fixture-audit's db, a postgres node: its `vault_credential` mounts
+    http_<credential>, on it alone (W1 item 6, W2 item 2)."""
+
+    def test_the_archiving_node_mounts_its_vault_credential(self):
+        self.edit_yaml("scenario.yaml", lambda d: self.node(d, "db").update(
+            parameters={"vault_target": "cold-storage:8000", "vault_credential": "cold_storage"}))
+        fit.fit(self.scenario, "laptop", **SUFFICIENT)
+        render.render(self.scenario, "laptop")
+        ldir = self.scenario / "local" / "laptop"
+        impl = localimpl.read_implementation(ldir)
+        gid = impl["game_id"]
+        stack = yaml.safe_load((ldir / "stack.yml").read_text())
+        db = {m["source"]: (m["target"], m["uid"], m["gid"], m["mode"])
+              for m in stack["services"]["db"]["secrets"]}
+        self.assertEqual(db[f"{gid}_http_cold_storage"],
+                         ("/opt/gm/secrets/http_cold_storage", "0", "0", 0o400))
+        self.assertFalse([m for m in stack["services"]["bastion"]["secrets"]
+                          if "_http_" in m["source"]])
+        self.assertEqual([s["secret"] for s in impl["secrets"] if s["secret"].startswith("http_")],
+                         ["http_cold_storage"])
+
+    def test_no_vault_no_credential(self):
+        fit.fit(self.scenario, "laptop", **SUFFICIENT)
+        impl = localimpl.read_implementation(self.scenario / "local" / "laptop")
+        self.assertFalse([s for s in impl["secrets"] if s["secret"].startswith("http_")])
+
+
+class TestNodeCredentials(unittest.TestCase):
+    """localimpl.node_credentials and node_aliases on a scenario built in
+    place: which node names which credential (W2 item 2)."""
+
+    def setUp(self):
+        import tempfile
+        import types
+        self.dir = Path(tempfile.mkdtemp(prefix="gmtest-http."))
+        self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
+        files = {
+            "nodes/partners/api.yaml": {
+                "endpoints": {
+                    "xlab_orders": {"hosts": ["xlab"], "credentials": ["lab_orders", "shared"]},
+                    "status": {"hosts": ["xlab", "owners", "centre-north"]},
+                    "own": {"hosts": ["partners"], "credentials": ["shared"]}},
+                "connections": {
+                    "back": {"driver": "http", "target": "lab-api:8000",
+                             "credential": "interfaces_lab_api", "pool": 1},
+                    "db": {"driver": "sql/postgresql", "target": "pdb:5432/partners",
+                           "role": "xlab", "credential": "ignored", "pool": {"size": 1}}}},
+            "nodes/pms/schedule.yaml": {
+                "connections": {
+                    "lab": {"driver": "http", "target": "xlab:8000", "credential": "lab_orders",
+                            "pool": 1},
+                    "again": {"driver": "http", "target": "xlab:8000",
+                              "credential": "lab_orders", "pool": 1},
+                    "public": {"driver": "http", "target": "xlab:8000", "pool": 1}},
+                "streams": []},
+        }
+        for rel, doc in files.items():
+            (self.dir / rel).parent.mkdir(parents=True, exist_ok=True)
+            (self.dir / rel).write_text(yaml.safe_dump(doc, sort_keys=False))
+
+        def node(name, brick, **extra):
+            return {"name": name, "brick": {"id": brick, "version": "0.1.0"}, **extra}
+        self.nodes = [
+            node("records", "postgres",
+                 parameters={"vault_credential": "cold_storage", "vault_target": "x:8000"}),
+            node("lab", "postgres"),
+            node("pms", "scheduler", seed_files={"schedule.yaml": "nodes/pms/schedule.yaml"}),
+            node("partners", "api", seed_files={"api.yaml": "nodes/partners/api.yaml"}),
+        ]
+        vault = {"parameters": {"vault_target": {"default": None},
+                                "vault_credential": {"default": None}}}
+        bricks = {n["name"]: types.SimpleNamespace(
+            id=n["brick"]["id"], data={"secrets": [], **(vault if n["brick"]["id"] == "postgres"
+                                                          else {})})
+            for n in self.nodes}
+        self.scenario = types.SimpleNamespace(dir=self.dir, nodes=self.nodes, bricks=bricks,
+                                              data={"nodes": self.nodes})
+
+    def node(self, name):
+        return next(n for n in self.nodes if n["name"] == name)
+
+    def credentials(self, name, params=None):
+        return localimpl.node_credentials(self.scenario, self.node(name), params)
+
+    def test_what_each_node_names(self):
+        self.assertEqual(self.credentials("partners"),
+                         ["lab_orders", "shared", "interfaces_lab_api"])
+        self.assertEqual(self.credentials("pms"), ["lab_orders"])    # once; none when public
+        self.assertEqual(self.credentials("records"), ["cold_storage"])
+        self.assertEqual(self.credentials("lab"), [])                # no vault_credential
+
+    def test_the_vault_credential_with_the_parameter_faults(self):
+        params = {n["name"]: dict(n.get("parameters") or {}) for n in self.nodes}
+        params["records"]["vault_credential"] = "planted_wrong"
+        self.assertEqual(self.credentials("records", params), ["planted_wrong"])
+        params["records"]["vault_credential"] = None
+        self.assertEqual(self.credentials("records", params), [])
+
+    def test_the_secrets_mounted(self):
+        def names(node):
+            return [s["name"] for s in
+                    localimpl.node_secret_declarations(self.scenario, self.node(node))]
+        self.assertEqual(names("pms"), ["http_lab_orders"])
+        self.assertEqual(names("partners"), ["role_xlab_password", "http_lab_orders",
+                                             "http_shared", "http_interfaces_lab_api"])
+        self.assertEqual(names("records"), ["http_cold_storage"])
+        secrets = [s["secret"] for s in localimpl.game_secrets(self.scenario)[0]]
+        self.assertEqual(secrets.count("http_lab_orders"), 1)        # one per credential per game
+
+    def test_a_long_credential_shortens_the_game_id(self):
+        before = localimpl.max_game_id_length(self.scenario)
+        long_name = "c" * 50
+        self.node("records")["parameters"]["vault_credential"] = long_name
+        self.assertEqual(localimpl.max_game_id_length(self.scenario),
+                         min(before, localimpl.OBJECT_NAME_MAX - len(f"_http_{long_name}")))
+
+    def test_the_aliases(self):
+        self.assertEqual(localimpl.node_aliases(self.scenario, self.node("partners")),
+                         ["centre-north", "owners", "xlab"])     # its own name left out
+        self.assertEqual(localimpl.node_aliases(self.scenario, self.node("pms")), [])
+
+    def test_service_networks(self):
+        self.assertEqual(render.service_networks("backend"), ["backend"])
+        self.assertEqual(render.service_networks("backend", []), ["backend"])
+        self.assertEqual(render.service_networks("backend", ["a", "b"]),
+                         {"backend": {"aliases": ["a", "b"]}})

@@ -12,7 +12,9 @@ Master spec 10.3; files, names and labels fixed by capture W2-A
                          resources (copied, never recomputed), published
                          ports, every derived name, and from v0.3 each
                          node's `host` and the hand-over snapshot's verdict
-                         `snapshot_fit` (capture W3 of v0.3, items 2, 5);
+                         `snapshot_fit` (capture W3 of v0.3, items 2, 5),
+                         from v0.5 an `api` node's network `aliases` (v0.5
+                         capture W2 item 2);
 - `stack.yml`, `envelopes/<node>.conf`, `mounted/<item>/<node>.conf`
                          written by `render` (the last: each receiving
                          node's own config of a mounted item, v0.2 capture
@@ -47,7 +49,10 @@ Master spec 10.3; files, names and labels fixed by capture W2-A
                          items 5 and 6): a certificate `<pair>.crt` and its
                          key `<pair>.key` (the game's TLS pair, `tls`), and
                          the role passwords an `api` node's `api.yaml`
-                         names; an option's secret only where it is chosen.
+                         names; an option's secret only where it is chosen;
+                         (capture W2 item 2, spec D347) a password
+                         `http_<credential>` per HTTP credential, mounted on
+                         each node sending or checking it.
 
 Every path an implementation records (`file:`) is relative to the scenario
 folder.
@@ -160,6 +165,14 @@ ROLE_SECRET_UID, ROLE_SECRET_GID, ROLE_SECRET_MODE = 0, 0, "0400"
 API_BRICK = "api"                   # an api node: a node whose brick id is this (W1 item 5)
 API_FILE = "api.yaml"               # its seed file naming endpoints and connections
 HTTP_DRIVER = "http"                # a connection naming no role (W1 item 3)
+# v0.5 HTTP credentials (spec D347; capture W1 items 0, 3 and 6, W2 item 2):
+# one password `http_<credential>` per name per game, not handed over,
+# mounted like a role secret on each node naming the credential: a
+# scheduler node's schedule.yaml HTTP connections, an `api` node's api.yaml
+# endpoints (`credentials`) and connections (`credential`), a node's
+# `vault_credential` parameter (a `postgres` node's archiving).
+HTTP_SECRET_PREFIX = "http_"
+VAULT_CREDENTIAL = "vault_credential"
 
 GAME_ID_MAX = 63                    # master spec 10.3
 SERVICE_NAME_MAX = 63               # Swarm service names
@@ -714,10 +727,9 @@ def is_api_node(node):
         and node["brick"].get("id") == API_BRICK
 
 
-def _seed_connections(scenario, node, fname):
-    """The `connections` map of the node's seed file `fname` (`{}` when
-    the node seeds none, or when it cannot be read: the loader reports
-    it)."""
+def _seed_map(scenario, node, fname, key):
+    """The `key` map of the node's seed file `fname` (`{}` when the node
+    seeds none, or when it cannot be read: the loader reports it)."""
     rel = (node.get("seed_files") or {}).get(fname)
     if rel is None:
         return {}
@@ -725,8 +737,34 @@ def _seed_connections(scenario, node, fname):
         doc = yaml.safe_load((Path(scenario.dir) / rel).read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, yaml.YAMLError):
         return {}
-    connections = (doc or {}).get("connections") if isinstance(doc, dict) else None
-    return connections if isinstance(connections, dict) else {}
+    found = (doc or {}).get(key) if isinstance(doc, dict) else None
+    return found if isinstance(found, dict) else {}
+
+
+def _seed_connections(scenario, node, fname):
+    """The `connections` map of the node's seed file `fname`."""
+    return _seed_map(scenario, node, fname, "connections")
+
+
+def api_endpoints(scenario, node):
+    """An `api` node's api.yaml `endpoints` map (`{}` for another node, or
+    when the file cannot be read: the loader reports it)."""
+    return _seed_map(scenario, node, API_FILE, "endpoints") if is_api_node(node) else {}
+
+
+def node_aliases(scenario, node):
+    """The network aliases of an `api` node (v0.5 capture W2 item 2): the
+    hosts its seed api.yaml's endpoints list other than its own name,
+    sorted, unique; [] for another node. With the loader's v0.5 checks
+    (W2 item 1) only the partners' node has any: the `third_parties:`
+    hostnames, plus `owners`."""
+    hosts = set()
+    for endpoint in api_endpoints(scenario, node).values():
+        listed = endpoint.get("hosts") if isinstance(endpoint, dict) else None
+        hosts.update(h for h in (listed if isinstance(listed, list) else [])
+                     if isinstance(h, str) and h)
+    hosts.discard(node["name"])
+    return sorted(hosts)
 
 
 def schedule_connections(scenario, node):
@@ -763,6 +801,41 @@ def connection_roles(scenario, node):
         if isinstance(role, str) and role not in roles:
             roles.append(role)
     return roles
+
+
+def http_secret_name(credential):
+    return f"{HTTP_SECRET_PREFIX}{credential}"
+
+
+def _credential(value):
+    return value if isinstance(value, str) and value else None
+
+
+def node_credentials(scenario, node, params=None):
+    """The HTTP credentials a node sends or checks (v0.5 capture W2 item 2),
+    in first-use order: a scheduler node's schedule.yaml HTTP connections'
+    `credential`; an `api` node's api.yaml endpoints' `credentials`, then
+    its HTTP connections' `credential`; the node's `vault_credential`
+    parameter when its brick declares one (a `postgres` node's archiving,
+    W1 item 6), as node_parameters gives it (`params`, computed when not
+    given: the parameter faults applied, so a fault planting another
+    credential mounts that one), else the brick's default. [] for a node
+    naming none: no node holds a credential it neither sends nor checks."""
+    names = []
+    for endpoint in api_endpoints(scenario, node).values():
+        accepted = endpoint.get("credentials") if isinstance(endpoint, dict) else None
+        names += [c for c in (accepted if isinstance(accepted, list) else []) if _credential(c)]
+    for conn in node_connections(scenario, node).values():
+        if isinstance(conn, dict) and conn.get("driver") == HTTP_DRIVER \
+                and _credential(conn.get("credential")):
+            names.append(conn["credential"])
+    spec = (scenario.bricks[node["name"]].data.get("parameters") or {}).get(VAULT_CREDENTIAL)
+    if isinstance(spec, dict):
+        values = (params if params is not None else node_parameters(scenario))[node["name"]]
+        vault = _credential(values.get(VAULT_CREDENTIAL, spec.get("default")))
+        if vault:
+            names.append(vault)
+    return list(dict.fromkeys(names))
 
 
 def crontab_roles(node):
@@ -819,15 +892,20 @@ def node_secret_declarations(scenario, node):
     root-only under /opt/gm/secrets/, per role a scheduler node's schedule
     or an `api` node's api.yaml names (v0.3 W1 item 7, spec D345) or a
     node's `crontab_roles` names (v0.4 W1 item 8): one secret per role per
-    game, shared by every node naming it."""
+    game, shared by every node naming it; then (v0.5 capture W2 item 2,
+    spec D347) one password `http_<credential>` per HTTP credential the
+    node names (node_credentials), mounted as the role secrets are, one
+    per credential per game."""
     roles = topology_roles(scenario)
     brick = scenario.bricks[node["name"]].data
     off = unchosen_option_secrets(brick, node)
     out = [sec for sec in brick.get("secrets") or []
            if (sec.get("only_with_role") is None or sec.get("only_with_role") in roles)
            and sec.get("name") not in off]
-    for role in dict.fromkeys(connection_roles(scenario, node) + crontab_roles(node)):
-        name = role_secret_name(role)
+    names = [role_secret_name(role)
+             for role in dict.fromkeys(connection_roles(scenario, node) + crontab_roles(node))]
+    names += [http_secret_name(c) for c in node_credentials(scenario, node)]
+    for name in names:
         out.append({"name": name, "kind": PASSWORD, "path": posixpath.join(ROLE_SECRET_DIR, name),
                     "uid": ROLE_SECRET_UID, "gid": ROLE_SECRET_GID, "mode": ROLE_SECRET_MODE})
     return out
@@ -1111,7 +1189,8 @@ def build_implementation(scenario, playground, game_id, created_at, hosts, snaps
     """implementation.yaml's content (capture W2-A; v0.2: the network named
     after the scenario's, the secrets by kind, the mounted material and the
     parameter faults applied before it is derived; v0.3 W3 items 2 and 5:
-    `hosts`, node name -> its host, and the snapshot's verdict)."""
+    `hosts`, node name -> its host, and the snapshot's verdict; v0.5 W2
+    item 2: a node's network `aliases`, when it has any, node_aliases)."""
     gid = game_id
     local_rel = f"local/{playground}"
     mounted = mounted_configs(scenario, node_parameters(scenario), playground, gid)
@@ -1147,6 +1226,9 @@ def build_implementation(scenario, playground, game_id, created_at, hosts, snaps
             "configs": configs,
             "secrets": node_secrets,
         }
+        aliases = node_aliases(scenario, node)
+        if aliases:
+            nodes[name]["aliases"] = aliases
     impl = {
         "scenario": {"id": scenario.id, "version": str(scenario.data.get("version")),
                      "path": str(scenario.dir)},

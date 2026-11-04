@@ -1,0 +1,58 @@
+# Scenario-local fault of fixture-alias (tools/tests, v0.5 chunk 7): a
+# seed-file fault in the caller's schedule.yaml, so the fixture has the
+# one fault instance the loader requires. Harmless: nothing is planted at
+# run time.
+id: fixture-status-every-second
+version: 0.1.0
+title: the back office polls the laboratory's status every second
+family: rules
+severity: low
+
+applies_to:
+  bricks:
+    - id: scheduler
+      versions: ["0.3.0"]
+  preconditions: []
+
+# --- How long its evidence takes -----------------------------------------
+aging:
+  technique: real-time
+  minimum: 1h                       # an hour of calls in the laboratory's view
+
+parameters: {}
+
+injection:
+  kind: seed-file
+  stage: seed
+  seed_changes:
+    - file: schedule.yaml
+      change: the xlab.status stream runs at 1/s
+  run_as: root
+
+evidence:
+  - where: node
+    source: the scheduler's log, its minute summaries
+    how: ssh caller, then grep 'key=xlab.status' /var/log/scheduler/scheduler.log
+    shows: sixty status calls a minute
+
+probe:
+  description: checks/probe.md
+  runs_as: player
+
+resolutions:
+  - kind: report
+    write_policies: [report-only, fixable]
+acceptance:
+  diagnosis: names the status polling as far more frequent than a status needs.
+
+sealed_check:
+  script: checks/fixed.sh
+  run_as: root
+
+interactions:
+  masks: []
+  masked_by: []
+  conflicts_with: []
+
+complaint_template: >-
+  The laboratory says we call its status page far too often.

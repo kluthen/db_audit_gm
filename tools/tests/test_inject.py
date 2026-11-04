@@ -1370,20 +1370,24 @@ class TestApiNodesConnectionRoles(unittest.TestCase):
                          {"clinic", "lab-api", "careless"})
 
     def test_the_secrets_mounted_on_the_api_node(self):
+        # and (v0.5 chunk 7, capture W2 item 2) the HTTP credentials it checks and sends
         names = [s["name"] for s in
                  localimpl.node_secret_declarations(self.scenario, self.node("lab-api"))]
-        self.assertEqual(names, ["role_lab_api_password", "role_portal_api_password"])
+        self.assertEqual(names, ["role_lab_api_password", "role_portal_api_password",
+                                 "http_interfaces_lab_api", "http_xlab_results"])
         sec = localimpl.node_secret_declarations(self.scenario, self.node("lab-api"))[0]
         self.assertEqual((sec["path"], sec["uid"], sec["gid"], sec["mode"], sec["kind"]),
                          ("/opt/gm/secrets/role_lab_api_password", 0, 0, "0400", "password"))
         names = [s["name"] for s in
                  localimpl.node_secret_declarations(self.scenario, self.node("pms"))]
-        self.assertEqual(names, ["role_pms_app_password"])     # none for an HTTP connection
+        # no role secret for an HTTP connection, its credential's secret instead
+        self.assertEqual(names, ["role_pms_app_password", "http_interfaces_lab_api"])
 
     def test_the_game_has_their_secrets_and_none_for_http(self):
         secrets = [s["secret"] for s in localimpl.game_secrets(self.scenario)[0]]
-        self.assertEqual(secrets, ["role_pms_app_password", "role_lab_api_password",
-                                   "role_portal_api_password"])
+        self.assertEqual(secrets, ["role_pms_app_password", "http_interfaces_lab_api",
+                                   "role_lab_api_password", "role_portal_api_password",
+                                   "http_xlab_results"])
         self.assertFalse([s for s in secrets if "not_a_role" in s or "None" in s])
 
     def test_their_passwords_set_on_the_targeted_database_nodes(self):
