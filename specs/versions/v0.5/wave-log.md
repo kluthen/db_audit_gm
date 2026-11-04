@@ -3923,3 +3923,66 @@ no teaching animals; inbound examinations carry no study kind
 the core's draw (an inserted chunk, core figures rerun), let the
 booking's vet differ for the colliding ones, or shorter slots (fails).
 Sent to `spec-writer`. Chunk 14 takes the slot.
+
+### Chunk 29 — merged (46ee425), 2026-11-04
+
+`coding-executor`: 29a `34a46b7`, 29b `67535a4`, merged `--no-ff` at
+`46ee425`, no conflict. Unit suite 1135 OK, 2 skipped (1127 before);
+`GM_TEST_COMPOSED_LOAD=1` `TestComposedLoad` OK (2 tests, ~23 s, the load
+13.6 s), part keys, the cron call and the DDL's role, table and policy
+absent from the server log and `pg_stat_statements`; py_compile, YAML
+(PyYAML and `strict_load`) clean.
+
+**Premise (D405)**: in `postgres:0.5.0` (pg_cron 1.6),
+`cron.schedule_in_database` refuses a missing database, a missing role
+and a role without `CONNECT` on the database (load-data revokes it from
+`PUBLIC`: a part's schema grants its job role `CONNECT`). So
+`data/cron.sql` stays; chunks 15 and 16 keep it. Its jobs survive step
+(6) (`clean_launcher_lines` never touches `cron.job`; shown by the
+composed load).
+
+**W3-f, as built** (read by 12, 15, 16, 18–21):
+- (a) A part's `data/keys.sql` streams after the core's, in the same
+  session, ahead of the part's `load.sql`, partner `data.sql` and
+  `derive.sql`; never ahead of a schema, a `cron.sql`, another domain's
+  file, a DDL file or a history. `check_domain_dir` refuses in it any
+  line-start `CREATE` but `CREATE [OR REPLACE] FUNCTION pg_temp.<p>_…(`,
+  more than one prefix, the prefix `core`, or a prefix the core's
+  `keys.sql` uses (vet-core's: `core`, `vc`). A part's function may call
+  the core's.
+- (b) `composition.yaml`'s `left_out:`: a non-empty list of `{domain,
+  producer, reason}`, each producer once; `producer` is `<node>`,
+  `api/<node>`, `partners/<prefix>` or `public/<name>`, an existing
+  folder under the domain's `producers/`. `gmctl compose` skips it (domain
+  and variant layers) and needs no node for it. A left-out
+  `partners/<prefix>/data.sql` still runs (and counts in `node_creates`)
+  where a partners' database exists; with none it is skipped and the
+  partner-database refusal does not apply.
+- (d) `data/cron.sql`: `SELECT cron.schedule_in_database(…)` calls only,
+  at least one; runs last in the domain's load (after its partner
+  files), as `postgres`, on the node's `cron.database_name` (from its
+  seed `postgresql.conf`, `postgres` when unset), unseen, no keys.
+  Refused when the domain's `at:` spans several nodes, the seed doesn't
+  preload pg_cron, or the node's data file doesn't create the extension.
+- (c) `history` without a feeder accepted, its target on the partners'
+  database too; such a history runs on the partners' node and reads its
+  source over TCP.
+- (e) `ddl:` in `purpose.yaml` maps `source` or `target` to a file under
+  `material/`; runs at step (2b), after every domain's load, partner file
+  and `cron.sql`, before the derivations; `purposes:` in list order, each
+  entry's parts in its `purpose.yaml`'s `parts:` order; as `postgres`,
+  `-d` the mapped database, unseen, every variable, no keys. Refused: a
+  part mapped to a database no domain's `at:` holds; `CREATE DATABASE`
+  or `\connect` (naming the line). `node_creates` counts a DDL file's
+  roles (a guarded `CREATE ROLE` in a `DO` block counts when at the
+  start of its own line). `LoadResult.ddl` reports each run.
+- Deviations (the executor's, none against the spec): most new loader
+  tests in `tools/tests/test_coherence.py` (not in Files; the composed
+  plan's tests live there); fx-ward's schema gains `GRANT SELECT, DELETE
+  ON ward_placements TO ward_app`; `cron.sql`'s two extra refusals above.
+- Risks: the composed test's fixed `log_filename` leaves the pg_cron log
+  switch unexercised there (covered by `TestLoadDataPgCronNoise`);
+  `cron.database_name` read from the seed as written, a templated value
+  unresolved. formats.md and master spec 5: G17, after the gate.
+
+Chunk 15 takes the slot.

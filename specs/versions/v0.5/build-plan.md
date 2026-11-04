@@ -1329,7 +1329,7 @@ purpose 9 reads.
 
 ### Chunk 15 — `vet-machinery`, the machines and their databases
 
-Status: planned
+Status: in progress
 Wave: 3
 Depends on: chunks 4, 5, 8, 9 and 11 (waves 1 and 2); chunk 29 for its
 fixture's `cron.sql` only, merged into `v0.5-w3` before it (spec D401)
@@ -2037,7 +2037,8 @@ keeps).
 
 ### Chunk 29 — The loader's support for the parts and the purposes: their keys, producers left out, histories with no feeder, `pg_cron` jobs, the purposes' DDL
 
-Status: in progress
+Status: merged (w3, 46ee425)
+Record: 29a 34a46b7, 29b 67535a4, merge 46ee425; the `pg_cron` premise holds (refused: missing database, missing role, no CONNECT), so (d) stays; `cron.sql` jobs survive step (6). Deviations, reported in the wave log (W3-f): most loader tests in `test_coherence.py`; fx-ward's schema grants `ward_app` SELECT, DELETE; `cron.sql` also refused on a domain over several nodes or a node not creating pg_cron.
 Wave: 3
 Depends on: chunks 6 and 8 (wave 2); inserted after wave 3's preflight
 (spec D401), built by a `coding-executor` handed the brief by the
