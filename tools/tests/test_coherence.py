@@ -238,6 +238,7 @@ class TestComposedPlan(unittest.TestCase):
     def test_the_keys_ahead_of_each_load_partner_file_and_derivation_never_a_schema(self):
         plan = self.plan()
         keys = self.catalog / "domains/fx-core/data/keys.sql"
+        docs_keys = self.catalog / "domains/fx-docs/data/keys.sql"
         runs = [r for d in plan.domains for r in d.runs]
         self.assertEqual([(r.what, r.node, r.database) for r in runs], [
             ("fx-core data/schema.sql", "records", "clinic"),
@@ -246,19 +247,87 @@ class TestComposedPlan(unittest.TestCase):
             ("fx-docs data/schema.sql", "records", "docs"),
             ("fx-docs data/load.sql", "records", "docs"),
             ("fx-ward data/schema.sql", "records", "clinic"),
-            ("fx-ward data/load.sql", "records", "clinic")])
+            ("fx-ward data/load.sql", "records", "clinic"),
+            ("fx-ward data/cron.sql", "records", "office")])
         for run in runs:
-            self.assertEqual(run.paths[0] == keys, not run.what.endswith("schema.sql"), run.what)
+            self.assertEqual(run.paths[0] == keys, run.what.endswith("load.sql")
+                             or "partners" in run.what, run.what)
+        # chunk 29's (a): a part's own keys after the core's, for that part only
+        self.assertEqual([r.paths for r in runs if r.what == "fx-docs data/load.sql"],
+                         [[keys, docs_keys, self.catalog / "domains/fx-docs/data/load.sql"]])
+        self.assertEqual([r.paths for r in runs if r.what == "fx-ward data/load.sql"],
+                         [[keys, self.catalog / "domains/fx-ward/data/load.sql"]])
         self.assertEqual(plan.domains[0].partners, [("xlab", "partners-db")])
         derive, = plan.derivations
-        self.assertEqual(derive.paths, [keys, self.catalog / "domains/fx-docs/data/derive.sql"])
+        self.assertEqual(derive.paths, [keys, docs_keys,
+                                        self.catalog / "domains/fx-docs/data/derive.sql"])
         self.assertEqual((derive.node, derive.database), ("records", "docs"))
         self.assertEqual(derive.sources, [inject.Source("fx_core", "records", "clinic")])
 
     def test_a_core_without_keys(self):
         (self.catalog / "domains/fx-core/data/keys.sql").unlink()
+        (self.catalog / "domains/fx-docs/data/keys.sql").unlink()
         plan = self.plan()
-        self.assertEqual([len(r.paths) for d in plan.domains for r in d.runs], [1] * 7)
+        self.assertEqual([len(r.paths) for d in plan.domains for r in d.runs], [1] * 8)
+
+    def test_a_parts_keys_ahead_of_its_partner_files_never_another_parts(self):
+        """Chunk 29's (a): a part's data/keys.sql streamed after the core's,
+        ahead of that part's load, partner data.sql and derivation, never a
+        schema's, a cron file's, another domain's or a history's."""
+        keys = self.catalog / "domains/fx-core/data/keys.sql"
+        docs_keys = self.catalog / "domains/fx-docs/data/keys.sql"
+        partner = self.catalog / "domains/fx-docs/producers/partners/ylab"
+        partner.mkdir(parents=True)
+        (partner / "data.sql").write_text("SELECT pg_temp.docs_request(1);\n")
+        plan = self.plan()
+        runs = {r.what: r.paths for d in plan.domains for r in d.runs}
+        self.assertEqual(runs["fx-docs producers/partners/ylab/data.sql"],
+                         [keys, docs_keys, partner / "data.sql"])
+        self.assertEqual(runs["fx-core producers/partners/xlab/data.sql"],
+                         [keys, self.catalog / "domains/fx-core/producers/partners/xlab/data.sql"])
+        self.assertEqual(runs["fx-ward data/cron.sql"],
+                         [self.catalog / "domains/fx-ward/data/cron.sql"])
+        for what, paths in runs.items():
+            self.assertEqual(docs_keys in paths, what.startswith("fx-docs ")
+                             and not what.endswith("schema.sql"), what)
+        self.assertNotIn(docs_keys, plan.histories[0].paths)
+
+    def test_a_left_out_partner_runs_with_the_partners_database(self):
+        """Chunk 29's (b): a left-out partner folder's data.sql still runs
+        when the scenario has a partners' database."""
+        record = self.scenario.dir / "composition.yaml"
+        record.write_text(record.read_text() + "  - {domain: fx-core, producer: partners/xlab, "
+                          "reason: no partner nodes}\n")
+        plan = self.plan()
+        self.assertEqual(plan.domains[0].partners, [("xlab", "partners-db")])
+        self.assertIn("fx-core producers/partners/xlab/data.sql",
+                      [r.what for r in plan.domains[0].runs])
+
+    def test_a_left_out_partner_skipped_without_the_partners_database(self):
+        """Chunk 29's (b): skipped, the refusal not applying; its check
+        reading partners skipped, as before."""
+        record = self.scenario.dir / "composition.yaml"
+        record.write_text(record.read_text() + "  - {domain: fx-core, producer: partners/xlab, "
+                          "reason: no partner nodes}\n")
+        self.scenario.data.pop("third_parties")
+        plan = self.plan()
+        self.assertEqual(plan.domains[0].partners, [])
+        self.assertNotIn("partners", " ".join(r.what for d in plan.domains for r in d.runs))
+        self.assertEqual([(c.check.id, c.skipped) for c in plan.checks if c.skipped],
+                         [("requests-on-current-stays",
+                           "reads partners: the game has no partners' database")])
+
+    def test_the_cron_file_last_of_its_domain_in_cron_database_name(self):
+        """Chunk 29's (d): data/cron.sql on the domain's node, connected to
+        its seed's cron.database_name (pg_cron's default, postgres, unset),
+        after its load, no keys ahead."""
+        ward = next(d for d in self.plan().domains if d.domain == "fx-ward")
+        self.assertEqual([(r.what, r.node, r.database) for r in ward.runs][-1],
+                         ("fx-ward data/cron.sql", "records", "office"))
+        conf = self.scenario.dir / "nodes/records/postgresql.conf"
+        conf.write_text(conf.read_text().replace("cron.database_name = 'office'\n", ""))
+        ward = next(d for d in self.plan().domains if d.domain == "fx-ward")
+        self.assertEqual(ward.runs[-1].database, "postgres")
 
     def test_the_history_in_its_target_reading_its_other_location_parts(self):
         history, = self.plan().histories
@@ -333,6 +402,33 @@ class TestComposedPlan(unittest.TestCase):
         self.assertIn("composition.yaml: derive[fx-docs]: reads partners-db/partners "
                       "(gm_src_fx_core) from records", str(cm.exception))
 
+    def test_a_history_with_no_feeder_targets_the_partners_database(self):
+        """Chunk 29b's (c): a history in the partners' database, on its node,
+        reading its source from records (purposes 14 and 16, spec D366)."""
+        entry = next(p for p in self.scenario.data["purposes"] if p["id"] == "fx-weekly")
+        entry["parts"]["target"] = "partners-db/partners"
+        history, = self.plan().histories
+        self.assertEqual((history.node, history.database), ("partners-db", "partners"))
+        self.assertEqual(history.sources, [inject.Source("source", "records", "clinic")])
+
+    def test_the_purposes_ddl_in_its_composed_database(self):
+        """Chunk 29b's (e): each purposes: entry's ddl:, in list order, its
+        parts in purpose.yaml's parts: order, in the mapped database."""
+        ddl = self.catalog / "purposes/fx-intake/material/target-ddl.sql"
+        run, = self.plan().ddl
+        self.assertEqual((run.purpose, run.part, run.run.node, run.run.database, run.run.paths),
+                         ("fx-intake", "target", "records", "clinic", [ddl]))
+        path = self.catalog / "purposes/fx-intake/purpose.yaml"
+        data = yaml.safe_load(path.read_text())
+        data["ddl"] = {"target": "material/target-ddl.sql", "source": "material/source-ddl.sql"}
+        path.write_text(yaml.safe_dump(data, sort_keys=False))
+        (self.catalog / "purposes/fx-intake/material/source-ddl.sql").write_text("SELECT 1;\n")
+        entry = next(p for p in self.scenario.data["purposes"] if p["id"] == "fx-intake")
+        entry["parts"]["source"] = "records/docs"
+        self.scenario.data["purposes"].reverse()
+        self.assertEqual([(r.purpose, r.part, r.run.database) for r in self.plan().ddl],
+                         [("fx-intake", "source", "docs"), ("fx-intake", "target", "clinic")])
+
     def test_a_check_reading_a_domain_not_composed_is_skipped(self):
         self.scenario.data["domains"] = [d for d in self.scenario.data["domains"]
                                          if d["id"] != "fx-ward"]
@@ -380,8 +476,48 @@ class TestComposedPlan(unittest.TestCase):
         def schema_switching_database(sc, cat):
             path = cat / "domains/fx-ward/data/schema.sql"
             path.write_text(path.read_text() + "\\connect other\n")
-        case(schema_switching_database, "domains/fx-ward/data/schema.sql:9",
+        case(schema_switching_database, "domains/fx-ward/data/schema.sql:10",
              "never create one or \\connect to one")
+
+        def left_out_another_producer(sc, cat):
+            sc.data.pop("third_parties")        # left_out names fx-docs desk, not xlab
+        case(left_out_another_producer, "producers/partners/xlab/data.sql: a partner's state")
+
+        def cron_without_preload(sc, cat):
+            conf = sc.dir / "nodes/records/postgresql.conf"
+            conf.write_text(conf.read_text().replace(",pg_cron", ""))
+        case(cron_without_preload, "domains/fx-ward/data/cron.sql: schedules pg_cron jobs on "
+             "node records, which does not preload pg_cron")
+
+        def cron_without_seed(sc, cat):
+            sc.nodes[0].pop("seed_files")
+        case(cron_without_seed, "which does not preload pg_cron (its seed postgresql.conf "
+             "absent")
+
+        def cron_file_with_more(sc, cat):
+            path = cat / "domains/fx-ward/data/cron.sql"
+            path.write_text(path.read_text() + "DELETE FROM cron.job;\n")
+        case(cron_file_with_more, "domains/fx-ward/data/cron.sql:7: DELETE FROM cron.job: a "
+             "cron.sql holds SELECT cron.schedule_in_database(...) calls only")
+
+        def cron_on_two_nodes(sc, cat):
+            shutil.copy(cat / "domains/fx-ward/data/cron.sql", cat / "domains/fx-docs/data")
+            sc.nodes.append({"name": "archive", "role": "database"})
+            self.impl["nodes"]["archive"] = {}
+            path = cat / "domains/fx-docs/domain.yaml"
+            data = yaml.safe_load(path.read_text())
+            data["databases"] = ["docs", "old"]
+            path.write_text(yaml.safe_dump(data))
+            for db in data["databases"]:
+                (cat / "domains/fx-docs/data" / db).mkdir()
+                for name in ("schema.sql", "load.sql"):
+                    shutil.copy(cat / "domains/fx-docs/data" / name,
+                                cat / "domains/fx-docs/data" / db / name)
+            sc.data["domains"][2]["at"] = {"docs": "records/docs", "old": "archive/old"}
+            record = sc.dir / "composition.yaml"
+            record.write_text(record.read_text().split("derive:")[0])
+        case(cron_on_two_nodes, "domains/fx-docs/data/cron.sql: schedules pg_cron jobs on the "
+             "domain's node, but its at: names 2 nodes (records, archive)")
 
         def load_creating_database(sc, cat):
             path = cat / "domains/fx-docs/data/load.sql"
@@ -409,6 +545,29 @@ class TestComposedPlan(unittest.TestCase):
         def missing_history(sc, cat):
             (cat / "purposes/fx-weekly/material/history.sql").unlink()
         case(missing_history, "purposes/fx-weekly/material/history.sql: missing file")
+
+        def ddl_in_a_database_no_domain_holds(sc, cat):
+            next(p for p in sc.data["purposes"] if p["id"] == "fx-intake")["parts"]["target"] = \
+                "records/office"
+        case(ddl_in_a_database_no_domain_holds, "scenario.yaml: purposes[fx-intake].parts."
+             "target: records/office: purpose fx-intake's ddl.target runs only in a database a "
+             "domains: entry's at: holds")
+
+        def ddl_switching_database(sc, cat):
+            path = cat / "purposes/fx-intake/material/target-ddl.sql"
+            path.write_text(path.read_text() + "\\connect office\n")
+        case(ddl_switching_database, "purposes/fx-intake/material/target-ddl.sql:22: \\connect "
+             "office: a purpose's DDL runs connected to its part's database")
+
+        def ddl_creating_database(sc, cat):
+            path = cat / "purposes/fx-intake/material/target-ddl.sql"
+            path.write_text("CREATE DATABASE intake;\n" + path.read_text())
+        case(ddl_creating_database, "purposes/fx-intake/material/target-ddl.sql:1: CREATE "
+             "DATABASE intake;")
+
+        def ddl_missing(sc, cat):
+            (cat / "purposes/fx-intake/material/target-ddl.sql").unlink()
+        case(ddl_missing, "purposes/fx-intake/material/target-ddl.sql: missing file")
 
         def order_short(sc, cat):
             path = sc.dir / "composition.yaml"
@@ -688,6 +847,63 @@ class TestComposedSteps(unittest.TestCase):
                       '"clinic" FROM PUBLIC;', run["stdin"])
         self.assertEqual(run["argv"], list(inject.PSQL_ARGV))
 
+    def test_the_purposes_ddl_after_the_loads_before_the_derivations_unseen(self):
+        """Chunk 29b's (e), step (2b): as postgres, -d clinic, unseen, with
+        load_epoch, no keys; after every domain's load and partner file."""
+        result = self.load()
+        stdin = [r["stdin"] for r in self.runs]
+        ddl = next(i for i, s in enumerate(stdin) if "fx-intake's target DDL" in s)
+        last_load = max(i for i, s in enumerate(stdin) if any(f in s for f in (
+            "each current stay placed", "The external lab's state", "cron.schedule_in_database",
+            "a request per stay")))
+        derive = next(i for i, s in enumerate(stdin) if "The test part's derivation" in s)
+        self.assertLess(last_load, ddl)
+        self.assertLess(ddl, derive)
+        run = self.runs[ddl]
+        self.assertEqual((run["node"], run["user"], run["argv"][-2:]),
+                         ("records", "postgres", ["-d", "clinic"]))
+        self.assertTrue(run["stdin"].startswith(inject.UNSEEN_SQL))
+        self.assertNotIn("pg_temp.core_", run["stdin"])
+        self.assertTrue(any(a.startswith("load_epoch=") for a in run["argv"]))
+        self.assertEqual(result.ddl, [("fx-intake", "target", "records", "clinic")])
+        self.assertIn("records/clinic: purpose fx-intake's DDL (target), unseen", result.text())
+        # its login role gets its secret in the passwords' step (node_creates)
+        passwords = next(r for r in self.runs if "intake_watch" in r["stdin"]
+                         and "PASSWORD" in r["stdin"])
+        self.assertEqual(passwords["node"], "records")
+
+    def test_a_parts_keys_in_its_load_session_after_the_cores(self):
+        """Chunk 29's (a): one session, the core's keys, then the part's."""
+        self.load()
+        core = (FIXTURE / "catalog/domains/fx-core/data/keys.sql").read_text()
+        part = (FIXTURE / "catalog/domains/fx-docs/data/keys.sql").read_text()
+        for fragment in ("a request per stay", "The test part's derivation"):
+            run = next(r for r in self.runs if fragment in r["stdin"])
+            self.assertIn(core + part, run["stdin"], fragment)
+        for run in self.runs:
+            if any(f in run["stdin"] for f in ("each current stay placed", "The test core's load",
+                                               "The external lab's state", "fx-weekly's history",
+                                               "CREATE TABLE doc_requests")):
+                self.assertNotIn("pg_temp.docs_request", run["stdin"])
+
+    def test_the_cron_file_after_its_domains_load_unseen_in_cron_database_name(self):
+        """Chunk 29's (d): on records, -d office (its cron.database_name),
+        after fx-ward's load and before the derivations, unseen, no keys."""
+        result = self.load()
+        stdin = [r["stdin"] for r in self.runs]
+        cron = next(i for i, s in enumerate(stdin) if "cron.schedule_in_database" in s)
+        ward = next(i for i, s in enumerate(stdin) if "each current stay placed" in s)
+        derive = next(i for i, s in enumerate(stdin) if "The test part's derivation" in s)
+        self.assertLess(ward, cron)
+        self.assertLess(cron, derive)
+        run = self.runs[cron]
+        self.assertEqual((run["node"], run["user"], run["argv"][-2:]),
+                         ("records", "postgres", ["-d", "office"]))
+        self.assertTrue(run["stdin"].startswith(inject.UNSEEN_SQL))
+        self.assertNotIn("pg_temp.core_", run["stdin"])
+        self.assertIn(("fx-ward", "records", "office", "fx-ward data/cron.sql"), result.domains)
+        self.assertIn("records/office: fx-ward data/cron.sql", result.text())
+
     def test_a_scenario_without_domains_runs_no_composed_step(self):
         self.scenario.data.pop("domains")
         result = self.load()
@@ -755,7 +971,9 @@ class TestPasswordPlanReadsNodeCreates(unittest.TestCase):
                          ["partners-db", "records"])
 
     def test_the_login_roles_the_catalogue_creates(self):
-        self.assertEqual(self.plan(CATALOG), {"records": ["core_app", "ward_app", "docs_app"],
+        # intake_watch: fx-intake's ddl: (chunk 29b), counted by node_creates
+        self.assertEqual(self.plan(CATALOG), {"records": ["core_app", "ward_app", "docs_app",
+                                                          "intake_watch"],
                                               "partners-db": ["xlab"]})
         self.assertEqual(self.plan(model.REPO_ROOT), {})
 
@@ -764,7 +982,8 @@ class TestPasswordPlanReadsNodeCreates(unittest.TestCase):
         with self.connections():
             plans = inject.load_plans(self.scenario, self.impl, CATALOG)
         self.assertEqual({db: [r for r, _ in roles] for db, roles in plans.passwords},
-                         {"records": ["docs_web", "core_app", "ward_app", "docs_app"],
+                         {"records": ["docs_web", "core_app", "ward_app", "docs_app",
+                                      "intake_watch"],
                           "partners-db": ["xlab"]})
 
 
@@ -816,11 +1035,15 @@ exec runuser -u postgres -- "$PGBIN/postgres" -D /run/gmtest/pgdata -c listen_ad
     -c 'log_line_prefix=%m [%p] %u@%d ' -c log_statement=all -c log_min_duration_statement=0 \
     -c log_temp_files=0 \
     -c pg_stat_statements.track=all -c pg_stat_statements.track_utility=on \
-    -c pgaudit.log=all -c fsync=off -c shared_buffers=32MB
+    -c pgaudit.log=all -c fsync=off -c shared_buffers=32MB \
+    ${GM_CRON_DB:+-c cron.database_name=$GM_CRON_DB}
 """
 # records loads pgaudit (its trail in the log), partners-db does not (a
-# placeholder setting there, as on a node whose seed leaves it off).
-LIBS = {"records": "pg_stat_statements,pgaudit", "partners-db": "pg_stat_statements"}
+# placeholder setting there, as on a node whose seed leaves it off); records
+# preloads pg_cron, its jobs in office, as its seed postgresql.conf says
+# (chunk 29's (d)).
+LIBS = {"records": "pg_stat_statements,pgaudit,pg_cron", "partners-db": "pg_stat_statements"}
+CRON_DB = {"records": "office"}
 PARTNERS_HBA = model.REPO_ROOT / "partners/shared/partners-db/pg_hba.conf"
 _PARTNERS_LINE = re.compile(r"^(host\s+partners\s+)\S+(\s+samenet\s+scram-sha-256)$", re.M)
 
@@ -842,9 +1065,13 @@ def partners_hba(catalog):
 LOAD_FRAGMENTS = ('CREATE DATABASE "', "gm_absent", "pg_temp.core_", "INSERT INTO animals",
                   "INSERT INTO stays", "ward_placements", "doc_requests", "xlab.requests",
                   "xlab.state", "CREATE ROLE core_app", "CREATE ROLE ward_app",
-                  "CREATE ROLE docs_app", "CREATE ROLE xlab", "btree_gist", "pgcrypto")
-LOAD_STATEMENTS = (r"pg_temp\.core_|ward_placements|doc_requests|xlab\.(requests|state)|"
-                   r"INSERT INTO (animals|stays)|CREATE DATABASE \"|gm_absent|btree_gist|pgcrypto")
+                  "CREATE ROLE docs_app", "CREATE ROLE xlab", "btree_gist", "pgcrypto",
+                  "pg_temp.docs_", "schedule_in_database", "fx-ward-tidy",
+                  "CREATE ROLE intake_watch", "ops.runs", "intake_current")
+LOAD_STATEMENTS = (r"pg_temp\.(core|docs)_|ward_placements|doc_requests|xlab\.(requests|state)|"
+                   r"INSERT INTO (animals|stays)|CREATE DATABASE \"|gm_absent|btree_gist|pgcrypto|"
+                   r"fx-ward-tidy|ops\.runs|intake_current")   # not schedule_in_database:
+                   # CREATE EXTENSION pg_cron's own script, the data file's, is seen
 
 
 @unittest.skipUnless(os.environ.get("GM_TEST_COMPOSED_LOAD") == "1",
@@ -865,9 +1092,10 @@ class TestComposedLoad(unittest.TestCase):
         hba = {"partners-db": ["-e", f"GM_HBA={partners_hba(CATALOG)}"]}   # spec D383
         for name, container in self.containers.items():
             self.addCleanup(self.docker, "rm", "-f", container, check=False)
+            cron = ["-e", f"GM_CRON_DB={CRON_DB[name]}"] if name in CRON_DB else []
             self.docker("run", "-d", "--name", container, "--network", self.network,
                         "--network-alias", name, "--memory", "512m", "-e", f"GM_LIBS={LIBS[name]}",
-                        *hba.get(name, []), "--entrypoint", "sh", IMAGE, "-c", PG_START)
+                        *hba.get(name, []), *cron, "--entrypoint", "sh", IMAGE, "-c", PG_START)
         for name in LIBS:
             self.wait_ready(name)
             self.psql(name, "postgres",                  # as the brick's entrypoint, unseen
@@ -914,6 +1142,7 @@ class TestComposedLoad(unittest.TestCase):
         impl = impl_of(scenario)
         self.ldir = game_dir(self)
         plans = inject.load_plans(scenario, impl, fixture / "catalog")
+        self.epoch = plans.variables[inject.EPOCH_VAR]
         write_role_secrets(self.ldir, plans)
         self.result = inject.LoadResult("gmtest")
         self.printed = []
@@ -950,7 +1179,7 @@ class TestComposedLoad(unittest.TestCase):
         # the order follows composition.yaml: fx-docs before fx-ward
         self.assertEqual([d for d, _, _, _ in r.domains],
                          ["fx-core", "fx-core", "fx-core", "fx-docs", "fx-docs", "fx-ward",
-                          "fx-ward"])
+                          "fx-ward", "fx-ward"])
         # the databases load-data created, CONNECT revoked from PUBLIC
         self.assertEqual(r.created, [("records", "clinic"), ("records", "docs")])
         for db in ("clinic", "docs"):
@@ -975,7 +1204,32 @@ class TestComposedLoad(unittest.TestCase):
         for name, db in (("records", "clinic"), ("records", "docs"), ("records", "office"),
                          ("partners-db", "partners")):
             self.assertEqual(self.psql(name, db, "SELECT count(*) FROM pg_proc WHERE proname "
-                                       "LIKE 'core\\_%';"), "0", f"{name}/{db}")
+                                       "LIKE 'core\\_%' OR proname LIKE 'docs\\_%';"), "0",
+                             f"{name}/{db}")
+        # a part's keys (chunk 29's (a)): fx-docs' titles from docs_title
+        self.assertEqual(self.psql("records", "docs", "SELECT title FROM documents ORDER BY "
+                                   "stay_id LIMIT 1;"), "animal 1 (dog)")
+        # its cron.sql's job (chunk 29's (d)), in office, after step (6)'s
+        # pg_cron clean-up ran on records: it survives it
+        self.assertEqual(self.psql("records", "office", "SELECT jobname || '|' || schedule || '|' "
+                                   "|| database || '|' || username FROM cron.job;"),
+                         "fx-ward-tidy|0 3 * * *|clinic|ward_app")
+        self.assertIn("records", [node for node, _ in r.cleaned])
+        self.assertIn(("records", "office"), r.policies)
+        # fx-intake's target DDL (chunk 29b's (e)) in clinic, a composed
+        # domain's database: its role (its password set from its secret),
+        # grants, policy and ops table, its row from load_epoch
+        self.assertEqual(r.ddl, [("fx-intake", "target", "records", "clinic")])
+        self.assertEqual(self.psql("records", "postgres", "SELECT rolcanlogin || '|' || "
+                                   "(rolpassword LIKE 'SCRAM-SHA-256$%') FROM pg_authid WHERE "
+                                   "rolname = 'intake_watch';"), "true|true")
+        self.assertEqual(self.psql("records", "clinic",
+                                   "SELECT has_table_privilege('intake_watch', 'ops.runs', "
+                                   "'INSERT') || '|' || has_table_privilege('intake_watch', "
+                                   "'stays', 'SELECT') || '|' || (SELECT count(*) FROM "
+                                   "pg_policies WHERE policyname = 'intake_current') || '|' || "
+                                   "(SELECT count(*) FROM ops.runs WHERE ran_at = "
+                                   f"'{self.epoch}'::timestamptz);"), "true|true|1|1")
         # the partner's role, schema and planted state in partners
         self.assertEqual(self.psql("partners-db", "partners",
                                    "SELECT r.rolcanlogin, n.nspname, pg_get_userbyid(n.nspowner) "

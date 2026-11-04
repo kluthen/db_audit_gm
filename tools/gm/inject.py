@@ -79,7 +79,22 @@ behaviour is fixed by capture W3-A (`specs/versions/v0.1/wave-log.md`):
   `third_parties:` entries list). The core's `data/keys.sql`, when it
   ships one, is streamed ahead of every load, partner file and
   derivation of the core and its parts, in the same session, so its
-  `pg_temp.core_*` functions vanish with it. Then the sanctioned
+  `pg_temp.core_*` functions vanish with it; a part's own `data/keys.sql`
+  (`pg_temp.<its prefix>_*`) after it, ahead of that part's load, partner
+  files and derivation (chunk 29's (a)). A partner folder
+  `composition.yaml`'s `left_out:` names runs as any other when the
+  scenario has a partners' database, and is skipped when it has none
+  (chunk 29's (b)). A domain's `data/cron.sql`
+  (`cron.schedule_in_database(...)` calls only) runs last of its load, on
+  its one node, connected to the node's `cron.database_name` (its seed
+  postgresql.conf), unseen, its jobs' databases and roles now there (chunk
+  29's (d), spec D405). Then (step (2b), chunk 29b, capture W3 addendum
+  item 6 (e)) each `purposes:` entry's `ddl:` files, in list order, each
+  entry's parts in the order its `purpose.yaml` `parts:` lists them: run
+  as `postgres` connected to the part's mapped database, which must be
+  one a `domains:` entry's `at:` holds (refused otherwise, as is a file
+  creating a database or `\\connect`ing), unseen, with the variables, no
+  keys. Then the sanctioned
   derivations (`derive`, in order), then each `purposes:` entry's
   `history` (in list order, in its `target`), each reading its sources
   through foreign schemas `gm_src_<name>` (postgres_fdw, as `gm_check`
@@ -184,7 +199,8 @@ STANDBY_WAIT = 300                  # seconds, without --timeout: the clone, the
 # The composed load (v0.5 capture W2 item 3).
 EPOCH_VAR = "load_epoch"            # every file's one reference moment
 COMPOSITION_FILE = "composition.yaml"
-KEYS_FILE = "data/keys.sql"         # a core's key functions, pg_temp.core_*
+KEYS_FILE = model.KEYS_FILE         # a core's key functions, pg_temp.core_*; a part's
+CRON_FILE = model.CRON_FILE         # a domain's pg_cron jobs (chunk 29's (d))
 DERIVE_FILE = "data/derive.sql"
 PARTNERS_DB = coherence.PARTNERS    # the partners' database (W2 item 0)
 PARTNER_DATA = "data.sql"           # producers/partners/<prefix>/data.sql
@@ -320,6 +336,7 @@ class LoadResult:
     created: list = field(default_factory=list)    # [(node, database)] a domain's, created
     domains: list = field(default_factory=list)    # [(domain, node, database, what)] run
     partners: list = field(default_factory=list)   # [(domain, prefix, node)]
+    ddl: list = field(default_factory=list)        # [(purpose, part, node, database)]
     derived: list = field(default_factory=list)    # [(domain, node, database)]
     histories: list = field(default_factory=list)  # [(purpose, node, database)]
     coherence: list = field(default_factory=list)  # [coherence.Outcome]
@@ -347,6 +364,8 @@ class LoadResult:
         out += [f"  {node}/{db}: {what}" for _, node, db, what in self.domains]
         out += [f"  {node}/{PARTNERS_DB}: partner {prefix}'s state ({domain})"
                 for domain, prefix, node in self.partners]
+        out += [f"  {node}/{db}: purpose {pid}'s DDL ({part}), unseen"
+                for pid, part, node, db in self.ddl]
         out += [f"  {node}/{db}: {domain}'s derivation, unseen" for domain, node, db in self.derived]
         out += [f"  {node}/{db}: purpose {pid}'s history, unseen"
                 for pid, node, db in self.histories]
@@ -572,8 +591,17 @@ class DomainLoad:
     domain: str
     databases: list                 # [(node, database)]: created when absent, in order
     runs: list                      # [FileRun]: each database's schema then load, then
-                                    #   the partner files
+                                    #   the partner files, then data/cron.sql
     partners: list                  # [(prefix, node)]
+
+
+@dataclass
+class DdlRun:
+    """A purpose's target DDL in a composed domain's database (capture W3
+    addendum, item 6 (e); step (2b)): one part's file, run as a FileRun."""
+    purpose: str
+    part: str
+    run: FileRun
 
 
 @dataclass
@@ -601,6 +629,7 @@ class CheckRun:
 @dataclass
 class ComposedPlan:
     domains: list = field(default_factory=list)       # [DomainLoad], in order
+    ddl: list = field(default_factory=list)           # [DdlRun]: step (2b), in order
     derivations: list = field(default_factory=list)   # [SourcedRun]
     histories: list = field(default_factory=list)     # [SourcedRun]
     checks: list = field(default_factory=list)        # [CheckRun]
@@ -734,10 +763,41 @@ def _composed_domains(scenario, impl, catalog):
 
 
 def _keys(domains, catalog, did):
-    """[the core's data/keys.sql] for domain `did`, [] when its core ships none."""
+    """The key files streamed ahead of domain `did`'s load, partner files and
+    derivation: the core's data/keys.sql, then, for a part, its own (capture
+    W3 item 0, chunk 29's (a)); each when shipped."""
     core = domains[did].core
-    path = catalog / "domains" / core / KEYS_FILE
-    return [path] if path.is_file() else []
+    paths = [catalog / "domains" / core / KEYS_FILE]
+    if did != core:
+        paths.append(domains[did].dir / KEYS_FILE)
+    return [p for p in paths if p.is_file()]
+
+
+def _cron_run(scenario, d):
+    """The FileRun of domain `d`'s data/cron.sql (capture W3 item 6 (d), spec
+    D405), or None when it ships none: run as postgres on the domain's one
+    node, connected to the node's cron.database_name, after the domain's
+    load; GmError for a domain on several nodes, a node not preloading
+    pg_cron, or a file holding more than cron.schedule_in_database calls."""
+    path = d.dir / CRON_FILE
+    if not path.is_file():
+        return None
+    shown = f"domains/{d.id}/{CRON_FILE}"
+    nodes = list(dict.fromkeys(node for _, node, _ in d.locations))
+    if len(nodes) != 1:
+        raise GmError(f"{shown}: schedules pg_cron jobs on the domain's node, but its at: names "
+                      f"{len(nodes)} nodes ({', '.join(nodes)}); a domain shipping one sits on "
+                      "one node")
+    node = next(n for n in scenario.nodes if n.get("name") == nodes[0])
+    preloaded, database, rel = model.node_pg_cron(node, scenario.dir)
+    if not preloaded:
+        raise GmError(f"{shown}: schedules pg_cron jobs on node {nodes[0]}, which does not "
+                      f"preload pg_cron (its seed postgresql.conf {rel or 'absent'}: "
+                      "shared_preload_libraries)")
+    problems = model.check_cron_file(path.read_text(encoding="utf-8"), shown)
+    if problems:
+        raise GmError("; ".join(problems))
+    return FileRun(f"{d.id} {CRON_FILE}", nodes[0], database, [path])
 
 
 def _refuse_partners_from_afar(run, pnode):
@@ -773,6 +833,7 @@ def composed_plan(scenario, impl, catalog_root=model.REPO_ROOT):
     pnode = partners_node(scenario)
     if pnode is not None:
         _load_node(scenario, impl, pnode, "scenario.yaml: third_parties")
+    left_out = model.left_out_of(record)
     for did in order:
         d = domains[did]
         keys = _keys(domains, catalog, did)
@@ -792,6 +853,8 @@ def composed_plan(scenario, impl, catalog_root=model.REPO_ROOT):
             path = folder / PARTNER_DATA
             if not path.is_file():
                 continue
+            if pnode is None and (did, f"partners/{folder.name}") in left_out:
+                continue                     # left out (W3 item 0): runs only with partners
             if pnode is None:
                 raise GmError(f"domains/{did}/producers/partners/{folder.name}/{PARTNER_DATA}: "
                               "a partner's state, but no third_parties: entry lists a database "
@@ -802,6 +865,9 @@ def composed_plan(scenario, impl, catalog_root=model.REPO_ROOT):
             runs.append(FileRun(f"{did} producers/partners/{folder.name}/{PARTNER_DATA}", pnode,
                                 PARTNERS_DB, keys + [path]))
             partners.append((folder.name, pnode))
+        cron = _cron_run(scenario, d)
+        if cron is not None:
+            runs.append(cron)
         plan.domains.append(DomainLoad(did, [(n, db) for _, n, db in d.locations], runs,
                                        partners))
     for i, step in enumerate(record.get("derive") or []):
@@ -823,15 +889,27 @@ def composed_plan(scenario, impl, catalog_root=model.REPO_ROOT):
             "derive", did, f"{did} {DERIVE_FILE}", node, database,
             _keys(domains, catalog, did) + [path],
             [src for a in after for src in domains[a].sources]))
+    held = {(node, database) for d in domains.values() for _, node, database in d.locations}
     for entry in scenario.data.get("purposes") or []:
         pid = entry.get("id") if isinstance(entry, dict) else None
         pdir = catalog / "purposes" / str(pid)
         pdata = _catalog_yaml(pdir / "purpose.yaml", f"purposes/{pid}/purpose.yaml")
+        where = f"scenario.yaml: purposes[{pid}]"
+        parts = entry.get("parts") if isinstance(entry.get("parts"), dict) else {}
+        for part, rel in model.purpose_ddl(pdata):
+            node, database = _location(parts.get(part), scenario, impl, f"{where}.parts.{part}")
+            if (node, database) not in held:
+                raise GmError(f"{where}.parts.{part}: {node}/{database}: purpose {pid}'s "
+                              f"ddl.{part} runs only in a database a domains: entry's at: "
+                              "holds; for a database no domain holds, its DDL stays in the "
+                              "node's data file")
+            path = _file(pdir, rel, f"purposes/{pid}/purpose.yaml ddl.{part}", catalog)
+            _check_connected(path, f"purposes/{pid}/{rel}",
+                             "a purpose's DDL runs connected to its part's")
+            plan.ddl.append(DdlRun(pid, part, FileRun(f"{pid} {rel}", node, database, [path])))
         history = pdata.get("history")
         if not history:
             continue
-        where = f"scenario.yaml: purposes[{pid}]"
-        parts = entry.get("parts") if isinstance(entry.get("parts"), dict) else {}
         path = _file(pdir, str(history), f"purposes/{pid}/purpose.yaml history", catalog)
         node, database = _location(parts.get("target"), scenario, impl, f"{where}.parts.target")
         sources = [Source(part, *_location(value, scenario, impl, f"{where}.parts.{part}"))
@@ -1580,7 +1658,8 @@ def record_coherence(ldir, plan, run_at, outcomes):
 
 def composed_steps(ldir, plans, docker, result, timeout=None, out=print):
     """The composed load's steps (W2 item 3), into `result`: each domain in
-    order (its databases, schema, load and partner files), the derivations,
+    order (its databases, schema, load, partner files and cron file), the
+    purposes' DDL (step (2b), W3 addendum), the derivations,
     the histories, the coherence check and its record; gm_check's role
     settings set on every source before the first read, reset after the
     last; GmError at the first that fails, a failed check included."""
@@ -1596,6 +1675,9 @@ def composed_steps(ldir, plans, docker, result, timeout=None, out=print):
             run_file(ldir, run, variables, docker, timeout=timeout, out=out)
             result.domains.append((load.domain, run.node, run.database, run.what))
         result.partners += [(load.domain, prefix, node) for prefix, node in load.partners]
+    for ddl in plan.ddl:                                # step (2b), W3 addendum
+        run_file(ldir, ddl.run, variables, docker, timeout=timeout, out=out)
+        result.ddl.append((ddl.purpose, ddl.part, ddl.run.node, ddl.run.database))
     reading = plan.reading_nodes()
     for node, databases in reading.items():
         _exec_sql(ldir, node, check_role_sql(databases), PSQL_ARGV, docker, timeout, out,

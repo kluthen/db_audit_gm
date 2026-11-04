@@ -1,5 +1,6 @@
 # The composed load fixture's composition record (tools/tests, v0.5 chunk 8):
-# fx-docs loads before fx-ward, against domains:' order.
+# fx-docs loads before fx-ward, against domains:' order; fx-docs' desk producer
+# left out (chunk 29's (b)).
 domains:
   - {id: fx-core, variant: small, at: records/clinic}
   - {id: fx-ward, at: records/clinic, lands_with: fx-core}
@@ -11,3 +12,5 @@ scale: {checked: true, note: "four units for four current stays"}
 order: [fx-core, fx-docs, fx-ward]
 derive:
   - {domain: fx-docs, after: [fx-core], reason: "a document copies its stay"}
+left_out:
+  - {domain: fx-docs, producer: desk, reason: "the composed load runs no desk node"}

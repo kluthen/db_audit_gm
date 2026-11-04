@@ -283,6 +283,56 @@ class TestRefusedInputs(ComposeCopyTest):
                          ("compose", "scenarios/x", True))
 
 
+class TestLeftOut(ComposeCopyTest):
+    """composition.yaml's left_out: (capture W3 item 0, chunk 29's (b)): no
+    unit merged from a left-out producer folder, in either layer, and no
+    node needed for it."""
+
+    def leave_out(self, *producers):
+        self.edit("scenario/composition.yaml", lambda d: d.update(left_out=[
+            {"domain": did, "producer": producer, "reason": "a fixture's least environment"}
+            for did, producer in producers]))
+
+    def test_nothing_merged_and_no_node_needed(self):
+        self.leave_out(("fx-part", "desk"), ("fx-core", "api/core-api"),
+                       ("fx-core", "partners/practices"))
+        self.edit("scenario/scenario.yaml", lambda d: (
+            d.update(nodes=[n for n in d["nodes"] if n["name"] not in ("core-api",
+                                                                       "partners-api")]),
+            [t.update(nodes=[n for n in t["nodes"] if n != "partners-api"])
+             for t in d["third_parties"]]))
+        self.assertEqual(self.composition_problems(), "")
+        result = self.compose()
+        self.assertEqual(list(self.output("desk", "queries.yaml")["queries"]),
+                         ["owners.lookup", "owners.new"])
+        self.assertEqual(list(self.output("desk", "schedule.yaml")["connections"]), ["app"])
+        written = sorted(str(p.relative_to(self.scenario)) for p in result.files)
+        self.assertFalse([p for p in written if "core-api" in p or "practices" in p], written)
+        backend = (self.scenario / "nodes/partners-backend/schedule.yaml").read_text()
+        self.assertNotIn("fx-core@big: domains/fx-core/producers/partners/practices", backend)
+
+    def test_the_variant_layer_left_out_too(self):
+        self.leave_out(("fx-core", "desk"))
+        self.compose()
+        text = (self.scenario / "nodes/desk/schedule.yaml").read_text()
+        self.assertNotIn("domains/fx-core/variants/big/producers/desk", text)
+        self.assertNotIn("domains/fx-core/producers/desk", text)
+        self.assertIn("domains/fx-part/producers/desk", text)
+
+    def test_a_left_out_folder_still_needs_composing_without_the_entry(self):
+        self.edit("scenario/scenario.yaml", lambda d: d.update(
+            nodes=[n for n in d["nodes"] if n["name"] != "core-api"]))
+        self.assertIn("domains/fx-core/producers/api/core-api/: targets node core-api, which "
+                      "scenario.yaml has no api node of that name", self.refused())
+
+    def test_a_malformed_entry_refused(self):
+        self.leave_out(("fx-core", "api/nowhere"))
+        text = self.refused()
+        self.assertIn("composition.yaml: left_out: cannot be applied", text)
+        self.assertIn("composition.yaml: left_out[0].producer: api/nowhere: not a folder of "
+                      "domains/fx-core/producers/", text)
+
+
 class TestComposition(ComposeCopyTest):
     """composition.yaml against domains: (formats.md "Composing domains"; W1 item 7)."""
 
