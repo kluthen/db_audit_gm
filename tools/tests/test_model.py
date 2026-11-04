@@ -3616,5 +3616,252 @@ class TestRegisterDiffRefusals(V05CopyTest):
 
 
 
+class V05ComposedTest(V05CopyTest):
+    """fixture-v05-refusals composed: its catalog's core fx-clinic placed on
+    db/clinic, a database db's data file never creates, and its round-trip
+    purpose fx-lab-orders run by the producer (made a transformer) on that
+    location, calling lab-api and the external lab. The test catalog holds
+    the fixture's domains and purposes beside the repository's bricks and
+    faults."""
+
+    DOMAIN = "domains/fx-clinic"
+    PURPOSE = "purposes/fx-lab-orders"
+
+    def setUp(self):
+        super().setUp()
+        self.catalog_root = self.tmp / "catalog"
+        shutil.copytree(self.scenario / "catalog", self.catalog_root)
+        for unit in ("bricks", "faults"):
+            (self.catalog_root / unit).symlink_to(REPO_ROOT / unit)
+        def compose(d):
+            d["domains"] = [{"id": "fx-clinic", "variant": "base", "at": "db/clinic"}]
+            d["purposes"] = [{"id": "fx-lab-orders", "parts": {
+                "source": "db/clinic", "target": "db/clinic", "runner": "producer",
+                "api": "lab-api", "partner": "partners-api"}}]
+            producer = self.node(d, "producer")
+            producer["role"] = "transformer"
+            producer["seed_files"]["scripts/"] = "nodes/producer/scripts/"
+        self.scenario_yaml(compose)
+        (self.scenario / "composition.yaml").write_text(yaml.safe_dump({
+            "domains": [{"id": "fx-clinic", "variant": "base", "at": "db/clinic"}], "keys": {},
+            "scale": {"checked": True, "note": "ten owners"}, "order": ["fx-clinic"]}))
+        self.edit_yaml(self.QUERIES, lambda d: d["queries"].update({
+            "lab.orders.post": {"script": "scripts/orders.py:post"},
+            "lab.orders.weekly": {"sql": "SELECT 1"}}))
+        self.edit_yaml(self.JOBS, lambda d: d["jobs"].extend([
+            {"name": "post-lab-orders", "key": "lab.orders.post", "at": "*/5 * * * *",
+             "connections": {"clinic": "app", "api": "lab-api", "partner": "xlab"}},
+            {"name": "weekly-orders", "key": "lab.orders.weekly", "connection": "app",
+             "at": "30 6 * * 1"}]))
+        (self.scenario / "nodes/producer/scripts").mkdir()
+        (self.scenario / "nodes/producer/scripts/orders.py").write_text(
+            "def post(conns, options, log):\n    return None\n")
+
+    def catalog_yaml(self, relpath, change):
+        path = self.catalog_root / relpath
+        data = yaml.safe_load(path.read_text())
+        change(data)
+        path.write_text(yaml.safe_dump(data, sort_keys=False))
+
+    def purpose_problems(self, change=None):
+        if change is not None:
+            self.catalog_yaml(f"{self.PURPOSE}/purpose.yaml", change)
+        return "\n".join(model.check_purpose_dir(self.catalog_root / self.PURPOSE))
+
+    def domain_problems(self):
+        return "\n".join(model.check_domain_dir(self.catalog_root / self.DOMAIN))
+
+
+class TestV05Composed(V05ComposedTest):
+    """A location in a database a composed domain creates (W2 item 1; spec D360)."""
+
+    def test_loads(self):
+        sc = self.load()
+        self.assertEqual(sc.data["purposes"][0]["parts"]["source"], "db/clinic")
+        created = model.node_creates(self.scenario, sc.data, "db", self.catalog_root)
+        self.assertEqual(created.databases, {"shop", "clinic"})
+        self.assertIn("clinic_app", created.logins)
+        self.assertEqual(created.sources, ["data/db.sql", "domains/fx-clinic/data/schema.sql",
+                                           "domains/fx-clinic/data/load.sql"])
+        partners = model.node_creates(self.scenario, sc.data, "partners-db", self.catalog_root)
+        self.assertEqual(partners.sources, ["data/partners.sql",
+                                            "domains/fx-clinic/producers/partners/xlab/data.sql"])
+
+    def test_without_the_domain_the_location_is_refused(self):
+        self.scenario_yaml(lambda d: d.pop("domains"))
+        (self.scenario / "composition.yaml").unlink()
+        self.assertRefused("scenario.yaml: purposes[fx-lab-orders].parts.source: db/clinic: "
+                           "clinic is not a database node db's data file (data/db.sql) creates")
+
+    def test_a_standby_is_no_location(self):
+        def change(d):
+            d["purposes"][0]["parts"]["target"] = "standby/clinic"
+            d["domains"][0]["at"] = "standby/clinic"
+        self.scenario_yaml(change)
+        self.assertRefused("purposes[fx-lab-orders].parts.target: standby/clinic: standby is a "
+                           "standby (standby_of db): a standby is no location",
+                           "scenario.yaml: domains[fx-clinic].at: standby/clinic: standby is a "
+                           "standby")
+
+    def test_parts(self):
+        self.scenario_yaml(lambda d: d["purposes"][0]["parts"].update(
+            api="producer", partner="lab-api"))
+        p = "scenario.yaml: purposes[fx-lab-orders].parts"
+        self.assertRefused(f"{p}.api: producer is not a node of role api",
+                           f"{p}.partner: lab-api is not a node a third_parties: entry lists")
+
+    def test_a_receiver_is_a_declared_third_party(self):
+        self.catalog_yaml(f"{self.PURPOSE}/purpose.yaml",
+                          lambda d: d["parts"].update(receiver="the lab's inbox"))
+        self.scenario_yaml(lambda d: d["purposes"][0]["parts"].update(receiver="lab-api"))
+        self.assertRefused("purposes[fx-lab-orders].parts.receiver: lab-api is not a node a "
+                           "third_parties: entry lists")
+
+    def test_http_credentials_mapped(self):
+        def change(d):
+            d["jobs"][0]["connections"]["api"] = "other_key"
+            d["jobs"][0]["connections"]["partner"] = "public"
+        self.catalog_yaml(f"{self.PURPOSE}/purpose.yaml", change)
+        p = "scenario.yaml: purposes[fx-lab-orders].parts.runner"
+        self.assertRefused(f"{p}: purpose fx-lab-orders's job post-lab-orders maps api to "
+                           "other_key, but producer's job post-lab-orders connection api (lab-api) "
+                           "calls with interfaces_lab_api",
+                           "maps partner to public, but producer's job post-lab-orders connection "
+                           "partner (xlab) calls with xlab_results")
+
+    def test_public_for_an_endpoint_with_no_credential(self):
+        self.catalog_yaml(f"{self.PURPOSE}/purpose.yaml",
+                          lambda d: d["jobs"][0]["connections"].update(partner="public"))
+        self.edit_yaml(self.SCHEDULE, lambda d: d["connections"]["xlab"].pop("credential"))
+        self.load()
+
+    def test_the_ops_schema(self):
+        self.catalog_yaml(f"{self.PURPOSE}/purpose.yaml",
+                          lambda d: d["trace"][0].update(table="lab_orders_sent"))
+        self.assertRefused("purposes[fx-lab-orders]: trace[0].table lab_orders_sent lies in "
+                           "db/clinic, a domain's database: a purpose's own tables there live in "
+                           "schema ops")
+
+
+class TestPurposeV05Refusals(V05ComposedTest):
+    """The purpose format's extensions (master spec 6.6, 12.1; formats.md)."""
+
+    L = "purposes/fx-lab-orders/purpose.yaml"
+
+    def test_valid(self):
+        self.assertEqual(self.purpose_problems(), "")
+
+    def test_round_trips_and_kind(self):
+        self.assertIn(f"{self.L}: round_trips: only on a round-trip purpose (kind pulled)",
+                      self.purpose_problems(lambda d: d.update(kind="pulled")))
+        self.assertIn(f"{self.L}: round_trips: missing (a round-trip purpose",
+                      self.purpose_problems(lambda d: (d.update(kind="round-trip"),
+                                                       d.pop("round_trips"))))
+
+    def test_a_round_trip(self):
+        def change(d):
+            trip = d["round_trips"][0]
+            trip.update(asks="lab", answers=[])
+            d["round_trips"].append(dict(trip, asks="customer",
+                                         request=dict(trip["request"], job="nope")))
+        text = self.purpose_problems(change)
+        self.assertProblems(text, f"{self.L}: round_trips[0].asks: 'lab' is not customer or "
+                            "partner", f"{self.L}: round_trips[0].answers: not a non-empty list",
+                            f"{self.L}: round_trips[1].request.job: nope is not a job of the "
+                            "purpose",
+                            f"{self.L}: invariants: 1 judged end-to-end (E1) for 2 round trip(s)")
+
+    def test_judged(self):
+        self.assertIn(f"{self.L}: invariants[E1].judged: 'by-hand' is not one of runs, triggers, "
+                      "end-to-end, code, definition",
+                      self.purpose_problems(lambda d: d["invariants"][0].update(judged="by-hand")))
+
+    def test_http_connections(self):
+        def change(d):
+            d["jobs"][0]["connections"]["receiver"] = "a_key"
+            d["jobs"][0]["connections"]["api"] = "Not-A-Key"
+        text = self.purpose_problems(change)
+        self.assertProblems(text, f"{self.L}: jobs[post-lab-orders].connections.receiver: an HTTP "
+                            "connection is named for the part it reaches, and the purpose "
+                            "declares no receiver part",
+                            f"{self.L}: jobs[post-lab-orders].connections.api: 'Not-A-Key' is "
+                            "not the HTTP credential it calls with")
+
+    def test_periodic(self):
+        self.assertIn(f"{self.L}: jobs[weekly-orders].feeder: weekly-orders is not another job",
+                      self.purpose_problems(lambda d: d["jobs"][1].update(feeder="weekly-orders")))
+        self.assertIn(f"{self.L}: history: missing (a periodic purpose",
+                      self.purpose_problems(lambda d: d.pop("history")))
+        self.assertIn(f"{self.L}: history: only on a periodic purpose",
+                      self.purpose_problems(lambda d: (d.update(history="material/history.sql"),
+                                                       d["jobs"][1].pop("feeder"))))
+
+    def test_history_file(self):
+        (self.catalog_root / self.PURPOSE / "material/history.sql").unlink()
+        self.assertIn("purposes/fx-lab-orders/material/history.sql: missing file (history",
+                      self.purpose_problems())
+
+    def test_endpoint_material(self):
+        (self.catalog_root / self.PURPOSE / "material/api/lab-api/db/orders.py").unlink()
+        (self.catalog_root / self.PURPOSE / "material/api/lab-api/notes.txt").write_text("x")
+        text = self.purpose_problems(lambda d: d["parts"].pop("api"))
+        self.assertProblems(text, "purposes/fx-lab-orders/material/api/: endpoint material, but "
+                            "the purpose declares no api part",
+                            "purposes/fx-lab-orders/material/api/lab-api/db/orders.py: missing",
+                            "purposes/fx-lab-orders/material/api/lab-api/notes.txt: not endpoint "
+                            "material")
+
+    def test_classification(self):
+        text = self.purpose_problems(lambda d: d["classification"]["columns"].update(
+            {"lab_orders_sent.client_ref": "secret"}))
+        self.assertProblems(text, f"{self.L}: classification.columns.lab_orders_sent.client_ref: "
+                            "'lab_orders_sent.client_ref' is not <database>.<table>.<column>",
+                            "'secret' is not a class")
+
+
+class TestDomainV05Refusals(V05ComposedTest):
+    """SECURITY DEFINER at a domain's build (master spec 6.1, 15) and a
+    partner folder's data.sql (W2 items 0 and 1)."""
+
+    def write(self, relpath, text):
+        (self.catalog_root / self.DOMAIN / relpath).write_text(text)
+
+    def test_valid(self):
+        self.assertEqual(self.domain_problems(), "")
+
+    def test_security_definer(self):
+        self.write("data/load.sql", (
+            "-- load\nCREATE FUNCTION a() RETURNS int LANGUAGE sql SECURITY DEFINER\n"
+            "AS $$ SELECT 1; $$;\n"
+            "CREATE OR REPLACE PROCEDURE b() LANGUAGE sql\n  SECURITY DEFINER\n"
+            "  SET search_path = \"$user\", public\nAS 'SELECT 1';\n"
+            "CREATE FUNCTION c() RETURNS int LANGUAGE sql SECURITY DEFINER SET search_path FROM "
+            "CURRENT AS $x$ SELECT 1 $x$;\n"
+            "CREATE FUNCTION d() RETURNS int LANGUAGE sql SECURITY INVOKER AS $$ SELECT 1 $$;\n"))
+        text = self.domain_problems()
+        rel = "domains/fx-clinic/data/load.sql"
+        self.assertProblems(text, f"{rel}: line 2: FUNCTION a: SECURITY DEFINER without SET "
+                            "search_path", f"{rel}: line 4: PROCEDURE b: SECURITY DEFINER with a "
+                            "search_path naming \"$user\"", f"{rel}: line 8: FUNCTION c: SECURITY "
+                            "DEFINER without SET search_path")
+        self.assertNotIn("FUNCTION d", text)
+
+    def test_in_a_partner_data_file(self):
+        self.write("producers/partners/xlab/data.sql",
+                   "CREATE FUNCTION xlab.f() RETURNS int LANGUAGE sql SECURITY DEFINER "
+                   "AS $$ SELECT 1 $$;\n")
+        self.assertIn("domains/fx-clinic/producers/partners/xlab/data.sql: line 1: FUNCTION "
+                      "xlab.f: SECURITY DEFINER without SET search_path", self.domain_problems())
+
+    def test_partner_folder(self):
+        self.write("producers/partners/xlab/extra.sql", "SELECT 1;\n")
+        shutil.copytree(self.catalog_root / self.DOMAIN / "producers/partners/xlab",
+                        self.catalog_root / self.DOMAIN / "producers/partners/north-lab")
+        text = self.domain_problems()
+        self.assertProblems(text, "producers/partners/xlab/extra.sql: not a fragment",
+                            "producers/partners/north-lab/: north-lab is not a partner's prefix")
+        self.assertNotIn("xlab/data.sql: not a fragment", text)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -2505,13 +2505,16 @@ def check_classification(path, rel, out, domain_databases=None):
     return used
 
 
-def _check_fragments(folder, base, scripts_allowed, out, scheduler=True, api=False):
+def _check_fragments(folder, base, scripts_allowed, out, scheduler=True, api=False,
+                     partner=False):
     """A folder of fragments (formats, "Purpose folder" and "Domain
     folder"): queries.yaml, schedule.yaml and jobs.yaml with the scenario
     file's top-level keys holding only what they add, and builders/ or
     scripts/ folders; with `api`, an api node's api.yaml fragment, routes/
-    and db/ (W1 items 5 and 7); without `scheduler`, those only. A queries
-    fragment is checked as a node's repository."""
+    and db/ (W1 items 5 and 7); without `scheduler`, those only; with
+    `partner`, a partner folder's one data.sql, its state in the partners'
+    database (v0.5 W2 item 1). A queries fragment is checked as a node's
+    repository."""
     rel = _rel(folder, base)
     files, folders = (), ()
     if scheduler:
@@ -2520,11 +2523,15 @@ def _check_fragments(folder, base, scripts_allowed, out, scheduler=True, api=Fal
     if api:
         files += API_FRAGMENT_FILES
         folders += API_FRAGMENT_FOLDERS
+    if partner:
+        files += (PARTNER_DATA_FILE,)
     loaded = {}
     for entry in sorted(folder.iterdir()):
         shown = f"{rel}/{entry.name}"
         if entry.is_dir() and entry.name in folders:
             continue
+        if partner and entry.is_file() and entry.name == PARTNER_DATA_FILE:
+            continue                         # read by the domain's SECURITY DEFINER check
         if not (entry.is_file() and entry.name in files):
             out.append(f"{shown}{'/' if entry.is_dir() else ''}: not a fragment ("
                        f"{', '.join(files + tuple(f + '/' for f in folders))})")
@@ -2776,7 +2783,11 @@ def _check_producers(folder, base, out):
             elif entry.name == "api":
                 _check_fragments(sub, base, True, out, scheduler=False, api=True)
             else:
-                _check_fragments(sub, base, True, out, api=True)
+                if entry.name == "partners" and not PARTNER_PREFIX_RE.match(sub.name):
+                    out.append(f"{sub_shown}/: {sub.name} is not a partner's prefix "
+                               "([a-z][a-z0-9]{0,15}: its role, schema, keys' and endpoints' "
+                               "prefix; v0.5 W2 item 0)")
+                _check_fragments(sub, base, True, out, api=True, partner=True)
 
 
 def _check_scale(scale, p, out):
@@ -2961,6 +2972,8 @@ def check_domain_dir(domain_dir, label_base=None):
         else:
             _check_producers(path, base, out)
     _check_variants(domain_dir, data, base, label, out)
+    for path in _domain_sql_files(domain_dir, data):
+        _check_security_definer(path, _rel(path, base), out)
     purposes = data.get("purposes")
     for pid in purposes if isinstance(purposes, list) else []:
         if not (isinstance(pid, str) and PURPOSE_ID_RE.match(pid)):
@@ -3106,6 +3119,7 @@ def check_purpose_dir(purpose_dir, label_base=None, catalog_root=None):
         if isinstance(role, dict) and "part" in role and role["part"] not in databases:
             out.append(f"{label}: roles[{_item_label(role, i)}].part: {role['part']} is not a "
                        f"declared database part ({', '.join(databases)})")
+    _check_purpose_v05(purpose_dir, data, label, base, parts, jobs, out)
     return out
 
 
@@ -3384,12 +3398,19 @@ def _check_purposes(data, by_name, creates, sdir, catalog_root, out):
                     out.append(f"{p}.parts.{part}: {problem}")
             elif value not in by_name:
                 out.append(f"{p}.parts.{part}: {value} is not a node")
+            elif part in THIRD_PARTY_PARTS and (part == "partner" or _v05_shaped(data)):
+                if value not in _third_party_nodes(data):
+                    out.append(f"{p}.parts.{part}: {value} is not a node a third_parties: entry "
+                               "lists (from v0.5 a receiver and a partner are declared third "
+                               "parties; master spec 12.1)")
             elif by_name[value].get("role") != PART_ROLES[part]:
                 out.append(f"{p}.parts.{part}: {value} is not a node of role {PART_ROLES[part]} "
                            f"(its role is {by_name[value].get('role')})")
         runner = by_name.get(parts.get("runner"))
         if runner is not None and runner.get("role") == PART_ROLES["runner"]:
             _check_purpose_jobs(purpose, pid, runner, sdir, f"{p}.parts.runner", out)
+            _check_purpose_http(purpose, pid, runner, sdir, f"{p}.parts.runner", out)
+        _check_purpose_ops(data, purpose, pid, parts, p, out)
 
 
 def _check_purpose_jobs(purpose, pid, runner, sdir, p, out):
@@ -5109,3 +5130,308 @@ def _check_v05(data, nodes, bricks, faults, answer_key, third, apis, http, sdir,
     _check_vaults(nodes, bricks, http, out)
     _check_domains_v05(data, nodes, third, catalog_root, out)
 
+
+# --- v0.5: purposes and domains (build plan chunk 6b; master spec 6.6, 12.1, 15;
+# --- formats.md "Purpose definition"; W2 item 1; spec D354, D360) ---
+
+PARTNER_DATA_FILE = "data.sql"      # a partner folder's state (W2 item 1)
+THIRD_PARTY_PARTS = ("receiver", "partner")   # a declared third party's node (v0.5)
+HTTP_PARTS = ("api", "partner", "receiver")   # an HTTP connection is named for the part it reaches
+INVARIANT_JUDGED = ("runs", "triggers", "end-to-end", "code", "definition")
+ROUND_TRIP_ASKERS = ("customer", "partner")
+OPS_SCHEMA = "ops"                  # a purpose's own tables in a domain's database (12.1)
+_ROUTINE_RE = re.compile(r"^\s*CREATE\s+(?:OR\s+REPLACE\s+)?(FUNCTION|PROCEDURE)\s+([^\s(]+)",
+                         re.IGNORECASE)
+_SECURITY_DEFINER_RE = re.compile(r"\bSECURITY\s+DEFINER\b", re.IGNORECASE)
+_SEARCH_PATH_RE = re.compile(
+    r"\bSET\s+search_path\s*(?:=|\bTO\b)\s*(.*?)(?=\s+(?:AS|LANGUAGE|SECURITY|SET|IMMUTABLE|"
+    r"STABLE|VOLATILE|STRICT|CALLED|RETURNS|COST|ROWS|PARALLEL|LEAKPROOF|NOT|EXTERNAL|SUPPORT|"
+    r"TRANSFORM|WINDOW|BEGIN|RETURN)\b|\s*$)", re.IGNORECASE | re.DOTALL)
+_DOLLAR_TAG_RE = re.compile(r"\$([A-Za-z_][A-Za-z0-9_]*)?\$")
+
+
+def _v05_shaped(data):
+    """A scenario with third_parties: or domains: (W2 item 1: the receiver rule)."""
+    return "third_parties" in data or "domains" in data
+
+
+def _third_party_nodes(data):
+    entries = data.get("third_parties")
+    return {n for e in entries if isinstance(e, dict) for n in e.get("nodes") or []
+            if isinstance(n, str)} if isinstance(entries, list) else set()
+
+
+def sql_statements(text):
+    """(line, statement) of each statement of a SQL file, comments and
+    dollar-quoted bodies blanked (their newlines kept), single-quoted
+    literals kept; split at each `;` outside them. No SQL parser."""
+    out, buf, line, start = [], [], 1, 1
+    i, n = 0, len(text)
+    while i < n:
+        c = text[i]
+        if c == "-" and text.startswith("--", i):
+            j = text.find("\n", i)
+            j = n if j < 0 else j
+            buf.append(" ")
+            i = j
+            continue
+        if c == "/" and text.startswith("/*", i):
+            j = text.find("*/", i + 2)
+            j = n if j < 0 else j + 2
+            chunk = text[i:j]
+            buf.append("\n" * chunk.count("\n") or " ")
+            line += chunk.count("\n")
+            i = j
+            continue
+        if c == "'":
+            j = i + 1
+            while j < n:
+                if text[j] == "'" and text.startswith("''", j):
+                    j += 2
+                    continue
+                if text[j] == "'":
+                    break
+                j += 1
+            chunk = text[i:j + 1]
+            buf.append(chunk)
+            line += chunk.count("\n")
+            i = j + 1
+            continue
+        if c == "$":
+            m = _DOLLAR_TAG_RE.match(text, i)
+            if m:
+                end = text.find(m.group(0), m.end())
+                end = n if end < 0 else end + len(m.group(0))
+                chunk = text[i:end]
+                buf.append(" $body$ " + "\n" * chunk.count("\n"))
+                line += chunk.count("\n")
+                i = end
+                continue
+        if c == ";":
+            statement = "".join(buf)
+            if statement.strip():
+                out.append((start, statement))
+            buf = []
+            i += 1
+            start = line
+            continue
+        if c == "\n":
+            line += 1
+            if not "".join(buf).strip():
+                start = line
+        buf.append(c)
+        i += 1
+    if "".join(buf).strip():
+        out.append((start, "".join(buf)))
+    return out
+
+
+def _check_security_definer(path, rel, out):
+    """Every CREATE [OR REPLACE] FUNCTION|PROCEDURE holding SECURITY DEFINER
+    holds SET search_path = <a fixed path>, never naming "$user" (master
+    spec 6.1, 15; W2 item 1)."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        out.append(f"{rel}: cannot be read: {exc}")
+        return
+    for number, statement in sql_statements(text):
+        m = _ROUTINE_RE.match(statement)
+        if m is None or not _SECURITY_DEFINER_RE.search(statement):
+            continue
+        what = f"{rel}: line {number}: {m.group(1).upper()} {m.group(2)}"
+        path_set = _SEARCH_PATH_RE.search(statement)
+        if path_set is None:
+            out.append(f"{what}: SECURITY DEFINER without SET search_path = <a fixed path> "
+                       "(master spec 6.1, 15)")
+        elif "$user" in path_set.group(1).lower():
+            out.append(f"{what}: SECURITY DEFINER with a search_path naming \"$user\": a fixed "
+                       "path names schemas only (master spec 6.1, 15)")
+
+
+def _domain_sql_files(domain_dir, data):
+    """The SQL files a domain's SECURITY DEFINER check reads (W2 item 1): its
+    schema and load files, data/derive.sql, data/keys.sql, and each partner
+    folder's data.sql."""
+    files = [path for _, path in _domain_schema_files(domain_dir, data)]
+    databases = data.get("databases")
+    if isinstance(databases, list):
+        files += [domain_dir / "data" / db / "load.sql" for db in databases
+                  if isinstance(db, str) and SQL_NAME_RE.match(db)]
+    elif isinstance(data.get("load"), str):
+        load = _inside(domain_dir, data["load"])
+        files += [load] if load is not None else []
+    files += [domain_dir / "data" / "derive.sql", domain_dir / "data" / "keys.sql"]
+    files += _partner_data_files(domain_dir)
+    seen = []
+    for path in files:
+        if path is not None and path.is_file() and path not in seen:
+            seen.append(path)
+    return seen
+
+
+def _check_purpose_v05(purpose_dir, data, label, base, parts, jobs, out):
+    """The purpose format's v0.5 extensions (master spec 6.6, 12.1;
+    formats.md "Purpose definition"): the round trip, judged:, HTTP
+    connections, periodic jobs and their history, endpoint material, the
+    purpose's classification:."""
+    names = [j.get("name") for j in jobs]
+    kind = data.get("kind")
+    trips = data.get("round_trips")
+    if kind == "round-trip" and "round_trips" not in data:
+        out.append(f"{label}: round_trips: missing (a round-trip purpose: one entry per exchange "
+                   "it carries; master spec 12.1)")
+    elif "round_trips" in data and kind != "round-trip":
+        out.append(f"{label}: round_trips: only on a round-trip purpose (kind {kind})")
+    if "round_trips" in data and not (isinstance(trips, list) and trips):
+        out.append(f"{label}: round_trips: not a non-empty list of exchanges")
+    trips = [t for t in trips if isinstance(t, dict)] if isinstance(trips, list) else []
+    for i, trip in enumerate(trips):
+        p = f"{label}: round_trips[{i}]"
+        asks = trip.get("asks")
+        if "asks" in trip and asks not in ROUND_TRIP_ASKERS:
+            out.append(f"{p}.asks: {asks!r} is not {' or '.join(ROUND_TRIP_ASKERS)}")
+        job = _dict(trip.get("request")).get("job")
+        if asks == "customer" and job is not None and job not in names:
+            out.append(f"{p}.request.job: {job} is not a job of the purpose (the customer asks "
+                       "through one of its jobs)")
+        answers = trip.get("answers")
+        if "answers" in trip and not (isinstance(answers, list) and answers):
+            out.append(f"{p}.answers: not a non-empty list of expected answers")
+        reactions = trip.get("reactions")
+        if "reactions" in trip and not isinstance(reactions, list):
+            out.append(f"{p}.reactions: not a list of the processes an answer starts")
+    invariants = data.get("invariants")
+    invariants = [v for v in invariants if isinstance(v, dict)] \
+        if isinstance(invariants, list) else []
+    for inv in invariants:
+        if "judged" in inv and inv["judged"] not in INVARIANT_JUDGED:
+            out.append(f"{label}: invariants[{_item_label(inv, 0)}].judged: {inv['judged']!r} is "
+                       f"not one of {', '.join(INVARIANT_JUDGED)}")
+    if kind == "round-trip":
+        ends = [v.get("id") for v in invariants if v.get("judged") == "end-to-end"]
+        if len(ends) != len(trips):
+            out.append(f"{label}: invariants: {len(ends)} judged end-to-end "
+                       f"({', '.join(map(str, ends)) or 'none'}) for {len(trips)} round trip(s): "
+                       "a round trip names exactly one end-to-end invariant (master spec 12.1)")
+    feeders = []
+    for i, job in enumerate(jobs):
+        p = f"{label}: jobs[{_item_label(job, i)}]"
+        for cname, value in _dict(job.get("connections")).items():
+            if cname not in HTTP_PARTS:
+                continue
+            if cname not in parts:
+                out.append(f"{p}.connections.{cname}: an HTTP connection is named for the part "
+                           f"it reaches, and the purpose declares no {cname} part")
+            if value != PUBLIC_CREDENTIAL and _credential_problem(value):
+                out.append(f"{p}.connections.{cname}: {value!r} is not the HTTP credential it "
+                           f"calls with ([a-z][a-z0-9_]{{0,62}}) or {PUBLIC_CREDENTIAL} for a "
+                           "public endpoint (spec D354)")
+        if "feeder" in job:
+            feeders.append(job["name"])
+            if job["feeder"] == job.get("name") or job["feeder"] not in names:
+                out.append(f"{p}.feeder: {job['feeder']} is not another job of the purpose (a "
+                           "periodic job's daily feeder, the witness within the aging)")
+    history = data.get("history")
+    if feeders and "history" not in data:
+        out.append(f"{label}: history: missing (a periodic purpose, jobs "
+                   f"{', '.join(map(str, feeders))} naming their feeder, plants its past "
+                   "periods' outputs: material/history.sql; master spec 12.1)")
+    elif "history" in data and not feeders:
+        out.append(f"{label}: history: only on a periodic purpose (a job naming its feeder)")
+    if isinstance(history, str):
+        path = _inside(purpose_dir, history)
+        if path is None or not path.is_file() or not history.startswith("material/"):
+            out.append(f"{_rel(purpose_dir / history, base)}: missing file (history, a file of "
+                       "material/)")
+    endpoints = purpose_dir / "material" / "api"
+    if endpoints.is_dir():
+        if "api" not in parts:
+            out.append(f"{_rel(endpoints, base)}/: endpoint material, but the purpose declares "
+                       "no api part")
+        for node_dir in sorted(endpoints.iterdir()):
+            _check_endpoint_material(node_dir, base, out)
+    classification = data.get("classification")
+    if "classification" in data:
+        columns = _dict(classification).get("columns")
+        if not (isinstance(columns, dict) and columns):
+            out.append(f"{label}: classification.columns: not a non-empty map of column -> "
+                       "class")
+        for key, cls in _dict(columns).items():
+            p = f"{label}: classification.columns.{key}"
+            if not (isinstance(key, str) and SCENARIO_CLASSIFICATION_KEY_RE.match(key)):
+                out.append(f"{p}: {key!r} is not <database>.<table>.<column> "
+                           "(<database>.<schema>.<table>.<column> outside public)")
+            if cls not in CLASSES:
+                out.append(f"{p}: {cls!r} is not a class ({', '.join(CLASSES)})")
+
+
+def _check_endpoint_material(node_dir, base, out):
+    """material/api/<node>/: routes/ and db/, one <name>.py of each per
+    endpoint (formats.md "Purpose definition"; W1 item 5)."""
+    rel = _rel(node_dir, base)
+    if not node_dir.is_dir() or not NAME_RE.match(node_dir.name):
+        out.append(f"{rel}: not a folder named for an api node")
+        return
+    found = {}
+    for entry in sorted(node_dir.iterdir()):
+        if not (entry.is_dir() and entry.name in API_FRAGMENT_FOLDERS):
+            out.append(f"{rel}/{entry.name}: not endpoint material (routes/, db/)")
+            continue
+        found[entry.name] = {p.stem for p in entry.iterdir() if p.suffix == ".py"}
+        for p in sorted(entry.iterdir()):
+            if p.suffix != ".py" or not ENDPOINT_RE.match(p.stem):
+                out.append(f"{rel}/{entry.name}/{p.name}: not <endpoint>.py ([a-z][a-z0-9_]*)")
+    routes, db = found.get("routes", set()), found.get("db", set())
+    for name in sorted(routes ^ db):
+        lacking = "db" if name in routes else "routes"
+        out.append(f"{rel}/{lacking}/{name}.py: missing (each endpoint is served by "
+                   "routes/<name>.py and db/<name>.py)")
+
+
+def _check_purpose_http(purpose, pid, runner, sdir, p, out):
+    """Each HTTP connection of a purpose's job maps to the credential the
+    runner's schedule connection names, or public when it names none (spec
+    D354)."""
+    jobs = {j.get("name"): j for j in _dict(_seed_yaml(runner, sdir, "jobs.yaml")).get("jobs") or []
+            if isinstance(j, dict)}
+    conns = _dict(_dict(_seed_yaml(runner, sdir, "schedule.yaml")).get("connections"))
+    for job in purpose.get("jobs") or []:
+        if not isinstance(job, dict) or job.get("name") not in jobs:
+            continue                         # reported by the jobs' check
+        mapped = _dict(jobs[job["name"]].get("connections"))
+        for cname, value in _dict(job.get("connections")).items():
+            if cname not in HTTP_PARTS or cname not in mapped:
+                continue
+            conn = _dict(conns.get(mapped[cname]))
+            where = f"{runner.get('name')}'s job {job['name']} connection {cname} ({mapped[cname]})"
+            if conn.get("driver") != "http":
+                out.append(f"{p}: {where} is not an http connection, but purpose {pid} names "
+                           f"{cname} for the {cname} part it reaches")
+                continue
+            expected = conn.get("credential", PUBLIC_CREDENTIAL)
+            if value != expected:
+                out.append(f"{p}: purpose {pid}'s job {job['name']} maps {cname} to {value}, but "
+                           f"{where} calls with {expected} (spec D354)")
+
+
+def _check_purpose_ops(data, purpose, pid, parts, p, out):
+    """A purpose's own tables in a domain's database live in schema ops
+    (master spec 12.1): each trace table on a database part placed at a
+    domains: entry's at:."""
+    placed = {loc for e in data.get("domains") or [] if isinstance(e, dict)
+              for _, loc in _domain_entry_locations(e)} if isinstance(data.get("domains"), list) \
+        else set()
+    if not placed:
+        return
+    for i, item in enumerate(purpose.get("trace") or []):
+        if not isinstance(item, dict) or not isinstance(item.get("table"), str):
+            continue
+        part = item.get("part")
+        if part not in DATABASE_PARTS or parts.get(part) not in placed:
+            continue
+        schema = item["table"].split(".")[0] if "." in item["table"] else "public"
+        if schema != OPS_SCHEMA:
+            out.append(f"{p}: trace[{i}].table {item['table']} lies in {parts[part]}, a domain's "
+                       f"database: a purpose's own tables there live in schema {OPS_SCHEMA} "
+                       "(master spec 12.1)")

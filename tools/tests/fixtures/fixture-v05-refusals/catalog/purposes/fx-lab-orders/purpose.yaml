@@ -1,0 +1,78 @@
+# A test round-trip purpose of tools/tests (v0.5 chunk 6): not a game purpose.
+id: fx-lab-orders
+title: The clinic's lab orders, posted to its order API and answered by the external lab
+domains: [fx-clinic]
+kind: round-trip
+parts:
+  source: the clinic's database
+  target: the clinic's database
+  runner: the clinic's transformer
+  api: the clinic's order API
+  partner: the external lab's interface
+jobs:
+  - name: post-lab-orders
+    key: lab.orders.post
+    part: runner
+    source: source
+    target: target
+    method: script
+    computes: posts the consultations' new orders and keeps each accession.
+    cadence: "*/5 * * * *"
+    connections:
+      clinic: shop_app
+      api: interfaces_lab_api
+      partner: xlab_results
+  - name: weekly-orders
+    key: lab.orders.weekly
+    part: runner
+    source: source
+    target: target
+    method: sql
+    computes: the week's orders per priority.
+    cadence: "30 6 * * 1"
+    connections:
+      clinic: shop_app
+    feeder: post-lab-orders
+trace:
+  - kind: outbox-rows
+    part: target
+    table: ops.lab_orders_sent
+    run_column: run_id
+invariants:
+  - id: E1
+    statement: every order posted gets its result released.
+    check: checks/e1-results-released.sh
+    parameters: {}
+    witness: orders posted before the fix.
+    judged: end-to-end
+round_trips:
+  - asks: customer
+    request:
+      job: post-lab-orders
+      counterpart: lab-api POST /orders
+      sends: one order per consultation and priority
+    correlation: client_ref, unique per account
+    answers:
+      - form: accepted
+        when: at once (201)
+        carries: the accession
+    timeout:
+      after: no 2xx within 10s
+      then: retried at the next run with the same client_ref
+    reactions: [the accession kept in ops.lab_orders_sent]
+history: material/history.sql
+data_moved:
+  - job: post-lab-orders
+    reads: [clinic.owners.name]
+    writes: [target:ops.lab_orders_sent]
+  - job: weekly-orders
+    reads: []
+    writes: [target:ops.lab_orders_weekly]
+roles:
+  - name: shop_app
+    part: source
+    reads: [owners]
+    writes: [ops.lab_orders_sent]
+classification:
+  columns:
+    clinic.ops.lab_orders_sent.client_ref: internal
