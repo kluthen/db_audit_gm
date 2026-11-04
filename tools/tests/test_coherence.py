@@ -546,8 +546,8 @@ class TestComposedSteps(unittest.TestCase):
         for run in domain:
             self.assertTrue(run["stdin"].startswith(inject.UNSEEN_SQL), run["stdin"][:200])
             for line in ("SET log_statement = 'none';", "SET log_min_duration_statement = -1;",
-                         "SET log_min_error_statement = 'panic';", "SET pgaudit.log = 'none';",
-                         "SET pg_stat_statements.track = 'none';"):
+                         "SET log_min_error_statement = 'panic';", "SET log_temp_files = -1;",
+                         "SET pgaudit.log = 'none';", "SET pg_stat_statements.track = 'none';"):
                 self.assertEqual(run["stdin"].count(line), 1, line)
             self.assertNotRegex(run["stdin"], r"(?m)^\\c(onnect)?\b")   # one session throughout
         schema = next(r for r in domain if "CREATE TABLE ward_placements" in r["stdin"])
@@ -572,8 +572,8 @@ class TestComposedSteps(unittest.TestCase):
         for run in sourced:
             text = run["stdin"]
             self.assertTrue(text.startswith(inject.UNSEEN_SQL), text[:200])
-            for line in ("SET log_statement = 'none';", "SET pgaudit.log = 'none';",
-                         "SET pg_stat_statements.track = 'none';"):
+            for line in ("SET log_statement = 'none';", "SET log_temp_files = -1;",
+                         "SET pgaudit.log = 'none';", "SET pg_stat_statements.track = 'none';"):
                 self.assertIn(line, text)
             for server in re.findall(r"CREATE SERVER \"(gm_src_[a-z_]+)\"", text):
                 self.assertIn(f'DROP SERVER IF EXISTS "{server}" CASCADE;', text)
@@ -612,6 +612,7 @@ class TestComposedSteps(unittest.TestCase):
         for name, value in inject.CHECK_ROLE_SETTINGS:
             self.assertIn(f"ALTER ROLE gm_check SET {name} = '{value}';", on_records)
             self.assertIn(f"ALTER ROLE gm_check RESET {name};", stdin[resets[0]])
+        self.assertIn("ALTER ROLE gm_check SET log_temp_files = '-1';", on_records)
         self.assertIn('GRANT CONNECT ON DATABASE "clinic" TO gm_check;', on_records)
         self.assertTrue(on_records.startswith(inject.UNSEEN_SQL))
 
@@ -799,6 +800,7 @@ exec runuser -u postgres -- "$PGBIN/postgres" -D /run/gmtest/pgdata -c listen_ad
     -c unix_socket_directories=/run/postgresql -c "shared_preload_libraries=$GM_LIBS" \
     -c logging_collector=on -c log_directory=/run/gmtest/pglog -c log_filename=postgresql.log \
     -c 'log_line_prefix=%m [%p] %u@%d ' -c log_statement=all -c log_min_duration_statement=0 \
+    -c log_temp_files=0 \
     -c pg_stat_statements.track=all -c pg_stat_statements.track_utility=on \
     -c pgaudit.log=all -c fsync=off -c shared_buffers=32MB
 """
@@ -988,6 +990,7 @@ class TestComposedLoad(unittest.TestCase):
                 self.assertNotIn(canary, log, f"{name}'s log")
             self.assertNotRegex(log, r"gm_check@\S+ (LOG:  (statement|duration)|.*AUDIT)",
                                 f"{name}'s log: a gm_check session seen")
+            self.assertNotIn("temporary file", log, f"{name}'s log")
             self.assertEqual(self.psql(name, "postgres",
                                        "CREATE EXTENSION IF NOT EXISTS pg_stat_statements; "
                                        "SELECT count(*) FROM pg_stat_statements WHERE "
@@ -998,6 +1001,26 @@ class TestComposedLoad(unittest.TestCase):
                                        "pg_db_role_setting WHERE setrole = 'gm_check'::regrole;"),
                              "0", f"{name}: gm_check's settings reset")
         self.assertIn("AUDIT: SESSION", self.server_log("records"))   # the trail is on
+        # the load is too small to spill: a forced temporary file, unseen and seen
+        spill = ("SELECT pg_backend_pid(); SET work_mem = '64kB'; SELECT count(*) FROM (SELECT "
+                 "g FROM generate_series(1, 100000) g ORDER BY g DESC) s;")
+        unseen = self.psql("records", "postgres", inject.UNSEEN_SQL + spill).splitlines()[0]
+        seen = self.psql("records", "postgres", spill).splitlines()[0]
+        temp = re.compile(r"(?m)^[^[]*\[(\d+)\] .*LOG:  temporary file: ")
+        start = time.monotonic()
+        while seen not in temp.findall(self.server_log("records")) and \
+                time.monotonic() - start < 10:
+            time.sleep(0.2)
+        pids = temp.findall(self.server_log("records"))
+        self.assertIn(seen, pids)                        # log_temp_files = 0 logs it
+        self.assertNotIn(unseen, pids)                   # the unseen prelude does not
+        # gm_check's role settings: postgres sets log_temp_files for it
+        self.psql("records", "postgres", inject.check_role_sql())
+        shown = self.docker("exec", "-e", f"PGPASSWORD={GM_CHECK_PASSWORD}",
+                            self.containers["records"], "psql", "-X", "-w", "-A", "-t", "-U",
+                            "gm_check", "-d", "postgres", "-c", "SHOW log_temp_files")
+        self.psql("records", "postgres", inject.check_role_sql(reset=True))
+        self.assertEqual((shown.stdout.strip(), shown.stderr.strip()), ("-1", ""))
         self.assertIn("c8_derive_canary", (fixture / "catalog/domains/fx-docs/data/derive.sql")
                       .read_text())
         # partners-db refuses gm_check from the network (its pg_hba.conf, spec D383)

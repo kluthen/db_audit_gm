@@ -155,8 +155,11 @@ MAPPING_FUNCTION = f"{CHECK_SCHEMA}.user_mapping_roles"
 TIMEZONE_VAR, OFFSET_VAR = "customer_timezone", "customer_utc_offset"   # W1 item 0
 # The survey's psql: unaligned, tuples only (one JSON value per line).
 SURVEY_ARGV = ("psql", "-X", "-q", "-A", "-t", "-v", "ON_ERROR_STOP=1", "-d", "postgres")
+# Statement logging off, and the "temporary file" lines a big load or
+# derivation writes under a seed's `log_temp_files = 0` (superuser-only:
+# every session prefixed with it runs as DATA_USER).
 NO_LOG_SQL = ("SET log_statement = 'none';", "SET log_min_duration_statement = -1;",
-              "SET log_min_error_statement = 'panic';")
+              "SET log_min_error_statement = 'panic';", "SET log_temp_files = -1;")
 NO_STATS_SQL = ("SET pg_stat_statements.track = 'none';",)
 # pgaudit off for a session writing a secret (v0.5 G5), beside statement
 # logging: its `role` class logs the statement's text into the log the
@@ -191,8 +194,10 @@ PG_PORT = 5432
 MAX_NAME = 63                       # PostgreSQL's identifier length
 # gm_check's role settings on a source while load-data reads it: what the
 # local session sets for itself (NO_LOG_SQL, NO_STATS_SQL, NO_AUDIT_SQL).
+# Set by postgres, the superuser-only ones (log_temp_files among them)
+# apply at gm_check's login, though gm_check could not SET them itself.
 CHECK_ROLE_SETTINGS = (("log_statement", "none"), ("log_min_duration_statement", "-1"),
-                       ("log_min_error_statement", "panic"),
+                       ("log_min_error_statement", "panic"), ("log_temp_files", "-1"),
                        ("pg_stat_statements.track", "none"), ("pgaudit.log", "none"))
 _CONNECT_RE = re.compile(r"^\s*\\(c|connect)(\s|$)")
 
