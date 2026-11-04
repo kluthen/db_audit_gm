@@ -1,0 +1,15 @@
+# The scenario layer of node interfaces (v0.5 master spec 8.4), the
+# integration engine: idle in v0.5 chunk 15's fixture. Chunk 21 adds the
+# imaging-orders purpose's material here (vet-machinery-domain.md, "What
+# interfaces gains"). Until then the scheduler holds one connection it never
+# opens (the program needs one), the lookup API behind the credential every
+# caller of the estate sends, no stream and no job.
+intensity: 1.0
+connections:
+  clinic-api:
+    driver: http
+    target: clinic-api:8000
+    credential: clinic_lookup
+    pool: 1
+    timeout: 10s
+streams: []

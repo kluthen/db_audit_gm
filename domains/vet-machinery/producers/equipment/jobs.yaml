@@ -1,0 +1,19 @@
+# Fixed-time operations of the machines and their systems, vet-machinery's
+# fragment (vet-machinery-domain.md, "Fixed-time operations"), in scenario
+# time: the identity job every minute and the census every five, script jobs
+# holding a database connection and an HTTP one to the core's lookup API
+# (D303), and the chart every five minutes. The partition jobs are pg_cron's
+# on machines (data/cron.sql), not this node's.
+jobs:
+  - name: mach-identity
+    key: mach.identity
+    connections: {pacs: pacs, clinic: clinic-api}
+    at: "* * * * *"
+  - name: mach-census
+    key: mach.census
+    connections: {vitals: vitals, clinic: clinic-api}
+    at: "*/5 * * * *"
+  - name: vitals-chart
+    key: vitals.chart
+    connection: vitals
+    at: "*/5 * * * *"

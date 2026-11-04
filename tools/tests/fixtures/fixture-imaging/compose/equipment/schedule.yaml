@@ -1,0 +1,5 @@
+# The scenario layer of node equipment (v0.5 master spec 8.4): its intensity,
+# no timeline. 1.0: the machines at their domain rates (vet-machinery
+# docs/gm.md, "The producer"); with no imaging-orders purpose yet, the
+# worklist streams find nothing to do but the entries the short test plants.
+intensity: 1.0
