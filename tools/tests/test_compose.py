@@ -129,6 +129,31 @@ class TestMerge(ComposeCopyTest):
         self.assertEqual(backend["streams"][0]["key"], "practices.referral")
         self.assertEqual(self.output("partners-backend", "jobs.yaml"), {"jobs": []})
 
+    def test_bricks_in_the_mapping_form(self):
+        # the form the loader reads (fixture-partners): the same nodes found
+        shorthand = self.compose()
+        nodes = sorted(p.name for p in (self.scenario / "nodes").iterdir())
+
+        def mapping(data):
+            for node in data["nodes"]:
+                brick, _, version = node["brick"].partition("@")
+                node["brick"] = {"id": brick, "version": version}
+        self.edit("scenario/scenario.yaml", mapping)
+        shutil.rmtree(self.scenario / "nodes")
+        result = self.compose()
+        self.assertEqual(sorted(p.name for p in (self.scenario / "nodes").iterdir()), nodes)
+        self.assertEqual(result.overrides, shorthand.overrides)
+        for node in ("desk", "partners-backend"):
+            self.assertIn("streams", self.output(node, "schedule.yaml"))
+        for node in ("core-api", "partners-api"):
+            self.assertIn("endpoints", self.output(node, "api.yaml"))
+        self.assertEqual(compose._target_nodes({"nodes": [
+            {"name": "a", "brick": {"id": "api", "version": "0.1.0"}},
+            {"name": "s", "brick": {"id": model.SCHEDULER_BRICK, "version": "0.3.0"}},
+            {"name": "p", "brick": {"id": "postgres", "version": "0.5.0"}},
+            {"name": "x", "brick": {"version": "0.1.0"}}, {"name": "y"}]}),
+            {"a": "api", "s": "scheduler"})
+
     def test_api_entries_override(self):
         self.write("scenario/compose/core-api/api.yaml",
                    "endpoints:\n  lookup: {hosts: [core-api]}\n")
