@@ -218,9 +218,11 @@ added on 2026-10-30 (D196). O111, the last of them, closed at
 consolidation (D338); O220, raised by it, closed at the master spec's
 approval (D340). O223–O227, raised with the build plan, closed at its
 approval (D343). O229, raised for capture W3, closed by it as
-recommended (D404).
+recommended (D404). O235 and O236, raised by the documents' as-built
+passes on chunks 15a and 14, closed by the driver as recommended (D418,
+D419), kept here verbatim until v0.5's archive moves them:
 
-- **O235** (v0.5, wave 3; for the driver; D416) — The PACS cannot read
+- **O235** (v0.5, wave 3; **closed**, D418, as recommended; raised by D416) — The PACS cannot read
   `biomed`'s registry (another database), so as built (chunk 15)
   `pacs.worklist.schedule` takes the procedure's machine for the
   animal's section, with no fallback to another in-service machine (13
@@ -243,7 +245,7 @@ recommended (D404).
   PACS-side modality list later if a story needs it. Refs:
   [vet-machinery](versions/v0.5/vet-machinery-domain.md#the-procedure-catalogue-d372-d373),
   [wave log](versions/v0.5/wave-log.md) (chunk 15).
-- **O236** (v0.5, wave 3; for the driver; D417) — T163's witness
+- **O236** (v0.5, wave 3; **closed**, D419, as recommended; raised by D417) — T163's witness
   ("open placements outside isolation whose animal has a current
   `infectious` alert") has a baseline in the clean data as built
   (chunk 14): with two, one and two isolation units against up to four,
@@ -259,6 +261,7 @@ recommended (D404).
   rule 2 kept, "as soon as one is free" covering the waits. Refs:
   [vet-housing](versions/v0.5/vet-housing-domain.md#3-care-feeding-and-biosecurity)
   (T163), [wave log](versions/v0.5/wave-log.md) (chunk 14).
+
 
 ## v0.6: the setup's entry point
 

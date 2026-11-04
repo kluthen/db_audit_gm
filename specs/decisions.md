@@ -1161,3 +1161,17 @@ D337, D341, D359, D371 and D392 were reserved and never used). Take the next num
   disinfection unseen, the hand-over nine hours out).** Measured within
   the approved rules; T163's witness against the waits is O236's. Now
   in: [vet-housing](versions/v0.5/vet-housing-domain.md#reference-sizes); master spec 9.5.
+- **D418 (2026-11-04, the driver, closes O235): The `pacs` load keeps
+  the history's studies out of `biomed`'s downtime windows, derived by
+  its formulas (salts 502, 505, 506), checked inside `pacs`; live, the
+  PACS reads no registry, and a story taking a machine down stops its
+  acquisitions itself.** As recommended; chunk 15b builds it. Now in:
+  [vet-machinery](versions/v0.5/vet-machinery-domain.md#the-procedure-catalogue-d372-d373);
+  [build plan](versions/v0.5/build-plan.md) chunk 21 (`mach_archive`'s
+  settings reads, for W4).
+- **D419 (2026-11-04, the driver, closes O236): T163's witness is an
+  infectious animal outside isolation while an isolation unit of its
+  section has stood clean and free for more than a day.** As
+  recommended: the history's waits, every isolation unit held, no
+  longer fire it. Now in:
+  [vet-housing](versions/v0.5/vet-housing-domain.md#3-care-feeding-and-biosecurity) (T163, false alarms).

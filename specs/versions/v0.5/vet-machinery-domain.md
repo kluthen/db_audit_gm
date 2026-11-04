@@ -12,7 +12,8 @@ database, `mach_worklist.cancelled_at`, the scale and the load at the
 loaded figures (about two intensive-care sessions a day, 42 700 raw
 vitals a day, 2 980 imaging requests a year), 11 machines reporting
 (O227), `mach_maint` a login role, the history's finals on the core's
-turnaround; the PACS reading no registry is open (O235).
+turnaround; the PACS reading no registry, the history kept out of the
+downtimes (D418).
 Steps 1 to 9 of the [procedure](domain-procedure.md) drafted in one pass on
 2026-11-03, on the owner's instruction ("start an agent for each part,
 and let them come back with problems once they're done"); the same day
@@ -583,10 +584,15 @@ horse's then the farm animal's; for `any`, the domestic, horse and
 farm animal's);
 `pacs.worklist.schedule` takes it, or, while it is down, another
 in-service machine of the modality and group if there is one (13 for
-12, a horse radiographed in its stable), else none (**as built, open,
-[O235](../../open-questions.md)**: the PACS cannot read `biomed`'s
-registry, another database, so the build schedules on the procedure's
-machine and acquires whatever the registry says). A
+12, a horse radiographed in its stable), else none. **As built (D418)**: the PACS cannot read `biomed`'s
+registry, another database, so live it schedules on the procedure's
+machine and acquires whatever the registry says; a story that takes an
+imaging machine down stops that machine's acquisitions itself. The load
+keeps the history's studies out of `biomed`'s downtime windows,
+deriving them by `biomed`'s formulas (salts 502, 505 and 506): a study
+falling in one takes the fallback above (13 for 12), else waits for the
+window's end; a check inside `pacs` by the same formulas. Built by
+chunk 15b. A
 study under GA in machine 9 takes the MRI-compatible monitor (20). The
 turnaround of every code is the rule's: urgent 18 hours, the next
 working morning; routine three working days, two to the study and one
@@ -817,8 +823,8 @@ Work streams:
 
 | Key | Connection | What it takes and writes | Capacity | Shape | Follows |
 |---|---|---|---|---|---|
-| `pacs.worklist.schedule` | `pacs` | the oldest `new` entry with its identity: scheduled on an in-service machine of its modality and species group (as built, the procedure's machine for the section, status unread: O235); urgent at once, routine within two working days (a slot by a hash) | 10/h | `flat` | about 11 a day |
-| `pacs.study.acquire` | `pacs` | the oldest scheduled entry due on an in-service machine (as built, any machine: O235): its study (the worklist's identity, the procedure's minutes, series and images by modality, size, a radiographer 52–55, the exposure and the restrainer for an ionising one, a companion present in about one in ten); the entry `completed` | 6/h | `imaging-day` | about 11 a day |
+| `pacs.worklist.schedule` | `pacs` | the oldest `new` entry with its identity: scheduled on an in-service machine of its modality and species group (as built, the procedure's machine for the section, status unread: D418); urgent at once, routine within two working days (a slot by a hash) | 10/h | `flat` | about 11 a day |
+| `pacs.study.acquire` | `pacs` | the oldest scheduled entry due on an in-service machine (as built, any machine; a story taking one down stops it itself: D418): its study (the worklist's identity, the procedure's minutes, series and images by modality, size, a radiographer 52–55, the exposure and the restrainer for an ionising one, a companion present in about one in ten); the entry `completed` | 6/h | `imaging-day` | about 11 a day |
 | `pacs.study.reconcile` | `pacs` | the oldest unscheduled study: matched to the scheduled entry of the same typed `patient_id` and procedure within the day, `reconciled`, the entry `completed`; no match after a day, `unmatched` | 2/h | `office` | about 1 a week |
 | `pacs.report.preliminary` | `pacs` | an urgent study with no report: the duty vet's preliminary, signed at once | 4/h | `flat` | about 3 a day |
 | `pacs.report.final` | `pacs` | the oldest acquired study with no final: the imaging specialist's report (26–28), signed; the study `reported` | 4/h | `reporting` | about 11 a day |
