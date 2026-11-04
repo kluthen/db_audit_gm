@@ -1,5 +1,5 @@
 """Cold storage's manifests, their database side (v0.5 master spec 10.4;
-capture W2 item 6): read as the role coldstore."""
+capture W2 item 6; spec D381): read as the role coldstore."""
 
 import gm_api
 
@@ -12,7 +12,7 @@ WHERE (%(type)s::text IS NULL OR type = %(type)s)
   AND (%(source)s::text IS NULL OR source = %(source)s)
   AND (%(from)s::date IS NULL OR date_to >= %(from)s)
   AND (%(to)s::date IS NULL OR date_from <= %(to)s)
-ORDER BY received_at, shipment_id
+ORDER BY received_at, source, shipment_id
 """
 FIELDS = ("shipment_id", "type", "source", "name", "rows_declared", "rows_received", "size",
           "date_from", "date_to", "received_at")
@@ -27,7 +27,8 @@ def state(hostname):
 
 
 def manifests(kind, source, date_from, date_to):
-    """The manifests meeting the filters (None: no filter), by received_at."""
+    """The manifests meeting the filters (None: no filter), by received_at,
+    source, shipment_id."""
     with gm_api.connection("coldstore-db") as conn:
         rows = conn.execute(LIST, {"type": kind, "source": source, "from": date_from,
                                    "to": date_to}).fetchall()

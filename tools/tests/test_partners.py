@@ -111,6 +111,46 @@ class TestCatalogue(unittest.TestCase):
                 self.assertNotRegex(text(COLDSTORE / name), r"(?m)^\\(c|connect)\b")
 
 
+def coldstore_db(name):
+    """A db/ module's namespace, its brick import (gm_api) stood in."""
+    saved = sys.modules.get("gm_api")
+    sys.modules["gm_api"] = types.ModuleType("gm_api")
+    try:
+        ns = {}
+        exec(compile(text(COLDSTORE / "db" / f"{name}.py"), f"{name}.py", "exec"), ns)
+        return ns
+    finally:
+        if saved is None:
+            sys.modules.pop("gm_api")
+        else:
+            sys.modules["gm_api"] = saved
+
+
+class TestManifestKey(unittest.TestCase):
+    """Cold storage's manifest keyed (source, shipment_id) (spec D381): one
+    segment name from two sources, two manifests; the same source again,
+    its own replaced. The fixture's short test posts both for real."""
+
+    def test_the_key_is_source_and_shipment_id(self):
+        ddl = text(COLDSTORE / "data.sql")
+        table = re.search(r"CREATE TABLE coldstore\.manifests \((.*?)\n\);", ddl, re.S).group(1)
+        self.assertEqual(re.findall(r"PRIMARY KEY[^\n]*", table), ["PRIMARY KEY (source, shipment_id),"])
+        self.assertRegex(table, r"\n    shipment_id   text NOT NULL,")
+
+    def test_the_upsert_replaces_the_sources_own(self):
+        sql = " ".join(coldstore_db("coldstore_shipments")["RECORD"].split())
+        self.assertIn("ON CONFLICT (source, shipment_id) DO UPDATE SET", sql)
+        sets = re.search(r"DO UPDATE SET (.*) RETURNING", sql).group(1)
+        updated = [s.split("=")[0].strip() for s in sets.split(",")]
+        self.assertNotIn("source", updated)
+        self.assertNotIn("shipment_id", updated)
+        self.assertIn("received_at = now()", sets)
+
+    def test_manifests_ordered_received_source_id(self):
+        sql = coldstore_db("coldstore_manifests")["LIST"]
+        self.assertEqual(re.findall(r"ORDER BY ([^\n]*)", sql), ["received_at, source, shipment_id"])
+
+
 class TestFixtureCopies(unittest.TestCase):
     """Each fixture holds the catalogue's files as the GM copies them."""
 

@@ -110,13 +110,19 @@ Hostname `cold-storage`, prefix `coldstore`, on `partners-api`
 
 | Endpoint | Credential | What it does |
 |---|---|---|
-| `POST /shipments` | `cold_storage` (the customer's one account key: `postgres`' `vault_credential`, purpose 14's connection) | headers `Shipment-Id`, `Shipment-Type`, `Shipment-Rows`, `Shipment-From`, `Shipment-To` (dates, inclusive), `Shipment-Source`, `Shipment-Name` (optional, the id when absent); the body streamed, counted and discarded (`wal` and `basebackup`: 1 row when non-empty; a data type: its non-empty NDJSON lines); a manifest written, the same shipment id again replacing it; the receipt 201 `{shipment_id, type, rows_declared, rows_received, size, received_at}`, as `vault-post` checks it (W1 item 6). A header missing or malformed: 400 |
-| `GET /manifests` | public | `?type=&source=&from=&to=` (each optional; dates `YYYY-MM-DD`, a manifest listed when its range meets `[from, to]`; a bad date 422): a JSON list in the order received |
+| `POST /shipments` | `cold_storage` (the customer's one account key: `postgres`' `vault_credential`, purpose 14's connection) | headers `Shipment-Id`, `Shipment-Type`, `Shipment-Rows`, `Shipment-From`, `Shipment-To` (dates, inclusive), `Shipment-Source`, `Shipment-Name` (optional, the id when absent); the body streamed, counted and discarded (`wal` and `basebackup`: 1 row when non-empty; a data type: its non-empty NDJSON lines); a manifest written, the same shipment id from the same source again replacing that source's, from another source making a second; the receipt 201 `{shipment_id, type, rows_declared, rows_received, size, received_at}`, as `vault-post` checks it (W1 item 6). A header missing or malformed: 400 |
+| `GET /manifests` | public | `?type=&source=&from=&to=` (each optional; dates `YYYY-MM-DD`, a manifest listed when its range meets `[from, to]`; a bad date 422): a JSON list in the order received (`received_at`, then `source`, then `shipment_id`) |
 | `GET /` | public | an HTML page, one inline SVG chart per type over the last 35 days (today included, UTC), rows declared against received per day (a shipment on its range's first day), a day where they differ marked and named, a table under each chart; no script |
 
-- **The manifest**: `coldstore.manifests (shipment_id PRIMARY KEY, type,
-  source, name, rows_declared, rows_received, size, date_from, date_to,
-  received_at)`.
+- **The manifest**: `coldstore.manifests (shipment_id, type, source,
+  name, rows_declared, rows_received, size, date_from, date_to,
+  received_at, PRIMARY KEY (source, shipment_id))` (spec D381). The
+  source is the node holding the data (the archiving node for `wal` and
+  `basebackup`, `machines` for purpose 14's types): two archiving nodes
+  post the same segment names (each cluster starts at its first segment),
+  and each keeps its own manifest. The same id from the same source
+  replaces that source's manifest, `received_at` the new receipt's; the
+  page sums the sources (counts per type and day).
 - **Its state** (`coldstore.state`, host `cold-storage`): `delay_ms`
   (added before every answer) and `uploads` (`accept`, or `refuse`:
   `POST /shipments` answers 503, an outage); `coldstore.normal` restores
@@ -139,10 +145,7 @@ Hostname `cold-storage`, prefix `coldstore`, on `partners-api`
   further request waits for a thread (measured, W2-f). A caller's pool
   bounds what it keeps in flight.
 - Every partner calls from `partners-api`'s address (one network).
-- A segment's shipment id is its file name: two archiving nodes post the
-  same names (each cluster starts at its first segment), and under
-  `shipment_id PRIMARY KEY` the second replaces the first's manifest. One
-  archiving node per scenario is safe as built; W2-f proposes the key
-  `(source, shipment_id)` for the clinic's two.
 - The planted segment names start at log `0x40`, above a fresh cluster's
-  live names: the history's names are higher than the live ones.
+  live names: the history's names are higher than the live ones (spec
+  D382). No check reads the manifests in name order: **a check finding a
+  node's latest `wal` manifest orders by `received_at`, never by name**.

@@ -5,7 +5,8 @@ base backup's bytes, application/octet-stream; a data type's rows,
 NDJSON). The payload is counted and discarded, never kept: the body is
 streamed (a base backup is the whole instance) and only its size and, for a
 data type, its non-empty lines are counted. A manifest is written (the same
-shipment id again replaces it) and the receipt answered, 201:
+shipment id again from the same Shipment-Source replaces that source's, from
+another source makes a second; spec D381) and the receipt answered, 201:
 {shipment_id, type, rows_declared, rows_received, size, received_at}.
 
 Behind the credential cold_storage (the brick's dispatch: 401 without it).

@@ -33,12 +33,15 @@ CREATE ROLE coldstore LOGIN;
 CREATE SCHEMA coldstore AUTHORIZATION coldstore;
 
 -- One manifest a shipment (cold-storage.md 3, "A manifest"): what the owner
--- asked for and no more. The same shipment id again replaces its manifest
--- (POST /shipments upserts it); a new id for a day already shipped adds one.
+-- asked for and no more. Keyed (source, shipment_id) (spec D381): the source
+-- is the node holding the data, and two archiving nodes post the same segment
+-- names. The same id from the same source replaces that source's manifest
+-- (POST /shipments upserts it); from another source it makes a second; a new
+-- id for a day already shipped adds one.
 CREATE TABLE coldstore.manifests (
-    shipment_id   text PRIMARY KEY,           -- Shipment-Id: a segment's or backup's name, a data type's own
+    shipment_id   text NOT NULL,              -- Shipment-Id: a segment's or backup's name, a data type's own
     type          text NOT NULL,              -- wal, basebackup, or a data type (vitals, machine-readings)
-    source        text NOT NULL,              -- Shipment-Source: the customer's node
+    source        text NOT NULL,              -- Shipment-Source: the node holding the data
     name          text NOT NULL,              -- Shipment-Name: the segment's or backup's name
     rows_declared bigint NOT NULL,            -- Shipment-Rows
     rows_received bigint NOT NULL,            -- NDJSON lines counted; 1 for a non-empty wal or basebackup
@@ -46,6 +49,7 @@ CREATE TABLE coldstore.manifests (
     date_from     date NOT NULL,              -- Shipment-From, inclusive
     date_to       date NOT NULL,              -- Shipment-To, inclusive
     received_at   timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (source, shipment_id),
     CHECK (date_from <= date_to)
 );
 CREATE INDEX manifests_received_at_idx ON coldstore.manifests (received_at);

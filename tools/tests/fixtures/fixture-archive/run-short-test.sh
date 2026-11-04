@@ -23,8 +23,10 @@
 #     1 of 1, the posting day); the base backup, its crontab line moved to
 #     the next minute, yields one too (basebackup, its size, its job's log);
 #   - POST /shipments: 401 without the credential; a data type's NDJSON rows
-#     counted (rows_received), the same shipment id again replacing its
-#     manifest; a malformed header 400; its state read at each request
+#     counted (rows_received), the same shipment id again from the same
+#     source replacing its manifest; a segment's name posted by a second
+#     source making a second manifest, records' kept, and that source again
+#     replacing its own (spec D381); a malformed header 400; its state read at each request
 #     (uploads refuse: 503, the back end's coldstore.normal restoring it);
 #   - GET /manifests, public: filtered by type, by date (inclusive, against
 #     the manifest's range) and by source; a bad date 422;
@@ -126,14 +128,14 @@ wait_archived() {  # wait_archived <segment> <seconds>
     return 1
 }
 rlog() { cx records sh -c 'cat /var/log/postgresql/postgresql-*.log' 2>/dev/null || true; }
-manifest() {   # manifest <shipment id>: its fields, | separated
-    dbsql partners "select type || '|' || source || '|' || name || '|' || rows_declared || '|' || rows_received || '|' || size || '|' || date_from || '|' || date_to from coldstore.manifests where shipment_id = '$1'"
+manifest() {   # manifest <shipment id> [<source>, records]: its fields, | separated
+    dbsql partners "select type || '|' || source || '|' || name || '|' || rows_declared || '|' || rows_received || '|' || size || '|' || date_from || '|' || date_to from coldstore.manifests where shipment_id = '$1' and source = '${2:-records}'"
 }
 
 # HTTP from the back end's node through the network and the alias (the
 # scheduler image's Python): `web get <path>` and `web post <id> <type>
-# <rows declared> <from> <to> <lines sent> <token|none> [<name>]` print
-# "<status> <body>".
+# <rows declared> <from> <to> <lines sent> <token|none> [<name> [<source>,
+# short-test]]` print "<status> <body>".
 WEB_PY='
 import http.client, sys
 def ask(method, path, body=None, headers=None):
@@ -150,7 +152,8 @@ else:
     sid, kind, rows, d1, d2, lines, token = sys.argv[2:9]
     headers = {"Content-Type": "application/x-ndjson", "Shipment-Id": sid, "Shipment-Type": kind,
                "Shipment-Rows": rows, "Shipment-From": d1, "Shipment-To": d2,
-               "Shipment-Source": "short-test", "Shipment-Name": sys.argv[9] if len(sys.argv) > 9 else sid}
+               "Shipment-Source": sys.argv[10] if len(sys.argv) > 10 else "short-test",
+               "Shipment-Name": sys.argv[9] if len(sys.argv) > 9 else sid}
     if token != "none":
         headers["Authorization"] = "Bearer " + token
     body = b"".join(b"{\"n\": %d, \"v\": 1.5}\n" % i for i in range(int(lines)))
@@ -263,6 +266,15 @@ at1=$(dbsql partners "select received_at from coldstore.manifests where shipment
 r=$(web post "vitals-$LAST" vitals 1000 "$LAST" "$LAST" 1000 "$TOKEN")
 w=$(dbsql partners "select count(*) || ' ' || (received_at > '$at1') from coldstore.manifests where shipment_id = 'vitals-$LAST' group by received_at")
 same "the same shipment id again replaces its manifest (one manifest, received again)" "1 true" "$w"
+at_rec=$(dbsql partners "select received_at from coldstore.manifests where shipment_id = '$SEG1' and source = 'records'")
+r=$(web post "$SEG1" wal 1 "$TODAY" "$TODAY" 1 "$TOKEN" "$SEG1" lab)
+case $r in 201\ *'"shipment_id":"'"$SEG1"'"'*) pass "$SEG1's name posted by a second source, lab: 201" ;; *) fail "lab's $SEG1: [$r]" ;; esac
+w=$(dbsql partners "select string_agg(source || ':' || (received_at = '$at_rec'), ' ' order by source) from coldstore.manifests where shipment_id = '$SEG1'")
+same "one segment name from two sources: two manifests, records' untouched" "lab:false records:true" "$w"
+at_lab=$(dbsql partners "select received_at from coldstore.manifests where shipment_id = '$SEG1' and source = 'lab'")
+r=$(web post "$SEG1" wal 1 "$TODAY" "$TODAY" 1 "$TOKEN" "$SEG1" lab)
+w=$(dbsql partners "select string_agg(source || ':' || (received_at > '$at_lab') || ':' || (received_at = '$at_rec'), ' ' order by source) from coldstore.manifests where shipment_id = '$SEG1'")
+same "lab again replaces its own (received again), records' kept" "lab:true:false records:false:true" "$w"
 r=$(web post bad vitals 3 "$TODAY" 2026-13-01 3 "$TOKEN")
 case $r in 400\ *Shipment-To*) pass "a malformed header: 400 naming it ($r)" ;; *) fail "malformed header: [$r]" ;; esac
 dbsql partners "update coldstore.state set value = 'refuse' where name = 'uploads'" >/dev/null
@@ -296,8 +308,9 @@ info "partners-api's memory after the base backup: $m"
 
 # --- GET /manifests ---------------------------------------------------------------
 r=$(web get "/manifests?type=wal&from=$TODAY&to=$TODAY")
-w=$(printf '%s' "$r" | jq_py 'print(sorted({m["type"] for m in d}), all(m["date_from"] <= sys.argv[1] <= m["date_to"] for m in d), sorted(m["shipment_id"] for m in d if m["shipment_id"] in sys.argv[2:]))' "$TODAY" "$SEG1" "$SEG2" 2>&1)
-same "GET /manifests?type=wal&from=&to= today: wal only, today's, both segments" "['wal'] True ['$SEG1', '$SEG2']" "$w"
+w=$(printf '%s' "$r" | jq_py 'print(sorted({m["type"] for m in d}), all(m["date_from"] <= sys.argv[1] <= m["date_to"] for m in d), sorted(m["shipment_id"] + "@" + m["source"] for m in d if m["shipment_id"] in sys.argv[2:]))' "$TODAY" "$SEG1" "$SEG2" 2>&1)
+same "GET /manifests?type=wal&from=&to= today: wal only, today's, both segments, $SEG1 from both sources" \
+    "['wal'] True ['$SEG1@lab', '$SEG1@records', '$SEG2@records']" "$w"
 r=$(web get "/manifests?type=basebackup&from=$FIRST&to=$LAST")
 w=$(printf '%s' "$r" | jq_py 'print(len(d), min(m["date_from"] for m in d), max(m["date_to"] for m in d), {m["source"] for m in d})')
 same "the planted base backups by date: 35, $FIRST to $LAST, records" "35 $FIRST $LAST {'records'}" "$w"
