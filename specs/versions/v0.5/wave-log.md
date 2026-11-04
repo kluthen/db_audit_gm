@@ -1233,3 +1233,134 @@ under the host lock and the sleep inhibitor; dispatched to a
 the `brick.yaml` template's secret kinds gaining `certificate` (chunk 3,
 finding 4) and `tarnbeck-outdoor-campaign`'s stale classification
 comment (chunk 2), its README regenerated.
+
+### Wave gate — results, 2026-11-04
+
+`coding-executor`, armenelos alone, 2026-11-03 23:20Z to 2026-11-04
+00:33Z, κ = 1, every step under the host lock and the sleep inhibitor;
+every item under 30 minutes. Logs:
+`/tmp/claude-1001/-home-bastien-work-db-audit-gm/626ab41f-a466-4175-9a28-a4f76cedff0e/scratchpad/gate-w1/`
+(session scratchpad, not kept).
+
+| Item | Result | Wall |
+|---|---|---|
+| Unit suite (`tools/tests`), before and after the fixes | 919 OK, both | 145 s, 146 s |
+| `bricks/scheduler` unit runner | 91 OK | 195 s |
+| `bricks/api` unit runner | 36 OK | 4 s |
+| `sh -n` (177 files), `perl -c` (9), `py_compile` (57 outside the suites) | 0 fail | ~2 s |
+| Chunk 2's compose tests (`test_compose`, in the suite) | 27 OK | — |
+| `postgres` 0.5.0 build / stack test | ok / 302 PASS | 0 s / 515 s |
+| `scheduler` 0.3.0 (clean rebuild, rerun) | ok / 178 PASS | 11 s / 851 s |
+| `bastion` 0.5.0 | ok / 90 PASS | 0 s / 82 s |
+| `grafana` 0.3.0 | ok / 119 PASS | 0 s / 161 s |
+| `api` 0.1.0 (clean rebuild, rerun) | ok / 88 PASS | 0 s / 195 s |
+| `pgbouncer` 0.1.1 | ok / 120 PASS | 1 s / 173 s |
+| `prometheus` 0.2.0 | ok / 131 PASS | 0 s / 78 s |
+| `postgres-exporter` 0.2.0 | ok / 103 PASS | 1 s / 98 s |
+| `smoke.sh` (after `1ddf90d`) | 61/61 | 29 s |
+| `smoke-monitoring.sh`, twice | 43/43 | 52 s, 47 s |
+| `smoke-governance.sh armenelos` (after `3aeb094`) | 121/121 | 105 s |
+| `smoke-load.sh armenelos` | 73/73 | 423 s |
+| `smoke-scenario.sh bookshop-new-server`, twice | 19/19 | 22 s, 21 s |
+| `smoke-scenario.sh fernway-clinics-monitoring`, twice | 18/18 | 33 s, 30 s |
+| `smoke-scenario.sh tarnbeck-outdoor-shop` | 26/26 | 836 s |
+| `smoke-scenario.sh tarnbeck-outdoor-campaign`, before the fix | 27 PASS / 6 FAIL (harness, below) | 666 s |
+| `smoke-scenario.sh tarnbeck-outdoor-campaign`, after `a100f5a` | 33/33 | 290 s |
+| `smoke-scenario.sh bookshop-new-server`, after `a100f5a` | 19/19 | 22 s |
+
+Wave 1's own items: the standby, cloned from `rec` on slot `standby`,
+streams, is in recovery, answers a read-only query over TLS (a row
+written after the clone included) and refuses a write; segment `…06`
+switched and archived, a refused segment kept `.ready` and shipped once
+the vault accepts; `api` with two hostnames: each of eight other
+hostnames answers its own `GET /status`, an unknown one 404, the
+footprint recorded at one hostname and at nine.
+
+Image sizes (armenelos, 2026-11-04): `postgres:0.5.0` 262 MB,
+`scheduler:0.3.0` 171 MB, `bastion:0.5.0` 186 MB (the 0.4.0 image ID),
+`grafana:0.3.0` 866 MB (the 0.2.0 image ID), `api:0.1.0` 218 MB,
+`pgbouncer:0.1.1` 182 MB, `prometheus:0.2.0` 488 MB,
+`postgres-exporter:0.2.0` 165 MB. `/var` 36 GB free; nothing pruned.
+
+Fix commits on `v0.5-w1`:
+- `f9f57f0` (chunk 3, known): the `brick.yaml` template's secret kinds
+  `password | key-pair | certificate`, the certificate pair's form.
+- `da887a7` (chunk 2, known): tarnbeck-outdoor-campaign's
+  classification comment (the shop's classes keyed with the `shop.`
+  prefix); README regenerated, identical.
+- `1ddf90d` (chunk 3): `smoke.sh`'s counts, configs+secrets 13 → 15,
+  secret files 7 → 9 (`replication_password`, `tls_certificate`,
+  `tls_key` on every node; `monitoring_password` only with the option).
+- `3aeb094` (chunk 3): `smoke-governance.sh`'s copy of
+  fixture-instances turns on `options: [monitoring]` for db (the
+  `g2-own-role-kept` breach grants the `monitoring` role, which
+  `postgres` 0.5.0 creates only with the option, master spec 7.1).
+
+Run-1 mistakes of the executor's own, not defects: the two
+`<playground>`-taking smokes called without it; `py_compile` left
+`__pycache__` folders in seed folders, which `fit` refuses. Removed,
+all eight images rebuilt (only `scheduler`'s and `api`'s IDs changed,
+their contexts having held `__pycache__`; both stack tests rerun), steps
+3 and 4 rerun.
+
+**tarnbeck-outdoor-campaign through `smoke-scenario.sh`**: deployment,
+data load, planting, all 12 validators and teardown passed from the
+first run; six failures were the harness reading the scenario against
+its design, no chunk regressing: `consent.unsubscribe` renamed `-v2` at
+T0 by the timeline; the consumer's dashboard keys at 12/h, 6/h and 4/h
+silent in 3 minutes; `check` exiting 2 on window-based `too-soon`
+readings and f10's `error` (v0.4's wave log: as designed for a smoke
+run). v0.4's gates ran this scenario through `smoke-purposes.sh` only,
+whose `smoke` mode waits past 47 minutes for f8, over the 30-minute
+rule. **Driver's ruling** (spec D367 words the gate item to match): a
+harness fix on the wave branch, `a100f5a` (chunk 1, which holds
+`smoke-scenario.sh`), a `coding-executor`, nothing a brick, fault or
+scenario does changed:
+- keys read through each schedule's timeline as render applies it (a
+  change at or before T0 from T0; a change inside the judged minutes
+  splits them);
+- keys judged by rate with `smoke-purposes.py`'s own `expected_calls`
+  and `JUDGED` (4), loaded, not copied: a silent key fails only when 4
+  calls were expected; slower keys "not judged", their key lines still
+  required (the campaign's two consent keys and four dashboard keys);
+- `check`'s accepted readings derived from the scenario's files, no
+  fault id written in: `present` always; `too-soon` too when the answer
+  key's `sealed_check.judges` is `runs` or `triggers`; `error` too for an
+  incident check (no `judges`, resolutions only `report`, master spec
+  12.7: only `purpose-heavy-job-on-database-node`); the exit code must
+  match the readings; a scenario expecting `present` everywhere is
+  judged as before.
+Rerun: campaign 33/33 (290 s; f1 to f4, f7, f8 `too-soon`, f10 `error`,
+no `absent` or `fixed` anywhere), bookshop 19/19 (22 s, the same check
+lines). Note: the poll now stops at the first run where every reading is
+as expected, so a quick run may see f1 and f2 at `too-soon` where a
+slower one saw `present`; both are the design's. **For the owner to
+confirm or overrule.**
+"Every fixture short test the wave's chunks ran, rerun": covered by the
+stack tests above (the standby, archiving and two-hostname fixtures are
+stack-test items).
+
+Wave 1's gate **passed (2026-11-04)**, at `a100f5a`. Wave sync: none
+(no intent register). Not merged into `main`: the owner's word.
+
+### Wave 1 — report to the owner, 2026-11-04
+
+- **Chunks merged**: 1 (1c76772), 2 (c9ab20c), 3 (0e152ac), 4
+  (99d5398), 5 (c888d18); none moved, none blocked.
+- **Gates**: G3, G4, G5, G6, G8, G11.1 done; G7 not needed; the wave
+  gate passed (above), five fix commits (`f9f57f0`, `da887a7`,
+  `1ddf90d`, `3aeb094`, `a100f5a`).
+- **Rulings**: spec D344 to D358 (plan v2, v3); D359 unused.
+- **For the owner, none blocking**:
+  1. confirm or overrule the harness ruling above (`a100f5a`);
+  2. G6: the project's first PyPI set and lockfile
+     (`bricks/api/requirements.txt`, 15 hash-pinned wheels); a
+     Debian-only policy would rework chunk 5;
+  3. G8: `.tech` ignore entries for triaged Debian backports, now also
+     OpenSSL 3.5.7 (18 NVD false positives); whether to pin pgBadger
+     (13.2 → 13.3 between builds);
+  4. D352: the standby-after-restore gap a named known limit (a re-clone
+     in `restart.py` would be an inserted chunk 28).
+- **Merge**: `v0.5-w1` → `main` waits for the owner's word; before it,
+  `doc-ids compare main v0.5-w1`. Wave 2 goes on from `v0.5-w1` as the
+  owner asked.
