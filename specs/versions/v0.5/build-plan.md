@@ -1323,7 +1323,8 @@ examination's machine.
 
 ### Chunk 14 — `vet-housing`, the wards and their displays
 
-Status: in progress
+Status: merged (w3, 82c8c6d)
+Record: 7b3eeab, merged 82c8c6d (the driver merged it after the owner's rotation pause); deviations sent to `spec-writer` (wave log, chunk 14 merged): grants beyond the table, the move out of isolation when an alert ends, "disinfected within the hour" not shown live under 30 minutes, T0 placed to the hour.
 Wave: 3
 Depends on: chunks 4 and 9 (waves 1 and 2)
 Architecture capture: W3, for chunks 20 and 25: the board's statement
@@ -2144,7 +2145,7 @@ before the derivations), read by chunks 18 to 21. As built: W3-f.
 
 ### Chunk 30 — The core's agenda: the scheduled consultations on half-hour slots, the exchanges' reason
 
-Status: planned
+Status: in progress
 Wave: 3
 Depends on: chunk 9 (wave 2); inserted into wave 3 after chunk 13
 stopped (spec D409), built by a `coding-executor` handed the brief by
