@@ -422,9 +422,9 @@ created by hand as `load-data` does:
 | Run (`load_epoch` 08:50 local) | Time | Size | Rows |
 |---|---|---|---|
 | the keys and `load.sql`, shift 0 (`2026-11-04T08:50Z`) | 17 s | | 21 792 |
-| `derive.sql`, shift 0 | 121 s | 77 MB with the load | 237 904 in all |
+| `derive.sql`, shift 0 | 121 s | 77 MB with the load | 199 735 in all (by `count(*)`) |
 | the keys and `load.sql`, offset +2 (`2026-11-04T06:50Z`) | 18 s | | 21 792 |
-| `derive.sql`, offset +2 | 121 s | 77 MB with the load | 237 904 in all |
+| `derive.sql`, offset +2 | 121 s | 77 MB with the load | 199 735 in all (by `count(*)`) |
 
 The figures are the same at both shifts (the hashes are of ids, the
 times local). The coherence check's six queries returned no row at

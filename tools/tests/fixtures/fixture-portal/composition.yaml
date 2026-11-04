@@ -18,7 +18,7 @@ domains:
 keys:
   vet-lab: [core_request, core_animal, core_microchip, core_ueln, core_ear_tag, core_ownership, core_owner]
   vet-portal: [core_owner, core_ownership]
-scale: {checked: true, note: "the core, its lab and the owners' portal at one centre's scale: about 0.27, 0.33 and 0.24 million rows, 49, 54 and 78 MB"}
+scale: {checked: true, note: "the core, its lab and the owners' portal at one centre's scale: about 0.27, 0.33 and 0.20 million rows, 49, 54 and 78 MB"}
 order: [vet-core, vet-lab, vet-portal]
 derive:
   - {domain: vet-portal, after: [vet-core, vet-lab], reason: "the portal copies the signed record and the released results, read through gm_src_vet_core and gm_src_vet_lab (spec D404)"}
