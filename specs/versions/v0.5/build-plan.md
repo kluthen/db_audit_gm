@@ -1,6 +1,11 @@
 # db_audit_gm v0.5 — Build plan
 
-Status: v7 (2026-11-04): chunk 9's spec gaps settled (spec D372–D380):
+Status: v8 (2026-11-04): chunk 11's two findings settled (spec
+D381–D383): cold storage's manifest keyed on its source and shipment id,
+and a coherence check reading `partners` run on the partners' node, both
+fixed at wave 2's gate on `v0.5-w2` (the gate's row); chunks 12, 21 and
+23 read them.
+v7 (2026-11-04): chunk 9's spec gaps settled (spec D372–D380):
 the code catalogues in vet-lab's and vet-machinery's documents, adopted
 by chunks 9, 12 and 15; the core's key functions, eighteen; the imaging
 lead time, the intensive-care sessions; `vet-core`'s variant `parts:` a
@@ -327,7 +332,7 @@ have merged.
 | Wave | Adds to the full quality command |
 |---|---|
 | 1 | G8 cleared; the four re-pinned scenarios through `smoke-scenario.sh`; chunk 3's standby fixture (cloned, streaming, read-only queries answered) and a segment switched and archived to a stub; chunk 2's compose tests (merge, override, conflict, `merge.yaml`); the `api` brick's stack test with two hostnames |
-| 2 | G10 cleared; `pgwatch`, `health-check` and `grafana` 0.3.0 built and stack-tested; chunk 10's monitoring fixture; chunk 11's partners fixture (one partner slow, another answering) and archive fixture (a segment and a base backup in the vault, the page and `GET /manifests`); chunk 8's coherence tests (a composed load passing, a broken range failing, a partner's state loaded); chunk 6's refusal fixture; `vet-core`'s load at shift 0 and at a non-zero shift; chunk 11's `pg_hba` form written into `postgres`' `docs/gm.md` |
+| 2 | G10 cleared; `pgwatch`, `health-check` and `grafana` 0.3.0 built and stack-tested; chunk 10's monitoring fixture; chunk 11's partners fixture (one partner slow, another answering) and archive fixture (a segment and a base backup in the vault, the page and `GET /manifests`); chunk 8's coherence tests (a composed load passing, a broken range failing, a partner's state loaded); chunk 6's refusal fixture; `vet-core`'s load at shift 0 and at a non-zero shift; chunk 11's `pg_hba` form written into `postgres`' `docs/gm.md`; **two gate fixes on chunk 8's and chunk 11's code** (spec D381, D383): cold storage's manifest keyed `(source, shipment_id)` (`partners/coldstore/`: the DDL, the upsert, `GET /manifests`' order, `partners/README.md`, the archive fixture's copies) with one segment name posted by two sources making two manifests and the same source again replacing its own; a coherence check whose `reads` names `partners` run in the partners' database on the partners' node (`tools/gm/{inject,coherence}.py`, the scenario-format skill's coherence item and template), shown by the composed test load with `partners-db` on the partners' `pg_hba.conf` |
 | 3 | `check_domain_dir` clean on all six clinic domains and the shop; each domain's load at shift 0 and a non-zero shift, its figures; the bookings, housing, imaging and portal fixtures' domain checks; the composed load of the six domains through the coherence check (load only, the database nodes and the bastion) |
 | 4 | the `bastion` 0.5.0 stack test (both new seed files, the cold-storage route refusing the upload endpoint and every other partner); the register tests (generated, a stale digest refused, a declared absence passed); the orders, send-outs, exchanges, reports, bookings, imaging, vault and portal fixtures with their purposes' checks |
 | 5 | every fault's short test, present and fixed (cleared, for s6 and s9), on its fixture (17.3), one at a time, each under 30 minutes; the false alarm's check; the clinic scenario's format check, register, scenario document and `fit` declaration on armenelos plus the VPS (placement only, no deployment); its load-only fixture through the coherence and governance checks, unfaulted |
@@ -1199,7 +1204,10 @@ the partners' stubs' tables on `partners-db`.
   feed, `POST /send-outs/{send_key}/result`); the external lab's and the
   practices' stubs under `producers/partners/`, planted from the same
   functions so the stubs know every send-out and order the history left
-  open; its coherence queries (W2's contract); its variant manifest;
+  open; its coherence queries (W2's contract; the stubs' open send-outs
+  and orders against the lab's read `partners`, so they run in the
+  partners' database, every table through `gm_src_*`, spec D383); its
+  variant manifest;
   **the test catalogue as [the domain document](vet-lab-domain.md#the-test-catalogue-d372)
   fixes it** (its layout and named codes; the core's draw already in
   `keys.sql`, spec D372), the rest of the 180 named within it;
@@ -1603,7 +1611,8 @@ is an inserted chunk, its decision first (spec D366).
   `checks/` (BS1 to BS5, IO1 to IO4, CA1 to CA4, RL1 to RL6, MS1 to
   MS6), `gm.md`; the messaging service's stub (purpose 16); the
   `bookings`, `imaging` and `portal` fixtures extended with their
-  purposes; the `vault` fixture (`machines`, `equipment`, `interfaces`,
+  purposes; each shipment's source `machines`, the node whose partitions
+  ship (spec D381); the `vault` fixture (`machines`, `equipment`, `interfaces`,
   the partners' `api` node and database, the bastion; T0 21:55, the
   shipping moved to the next minute).
 - Files: `purposes/{vet-bookings-sync,vet-imaging-orders,cold-storage-archive,vet-portal-release,vet-portal-messages}/`
@@ -1684,7 +1693,10 @@ fixture, the answer key noting the interaction (17.2).
   skill, its `register_diff:`, resolved by *propose*, cleared by the
   handout regenerated without the fault; on the archive fixture, s2's
   segment switched by the test (`pg_switch_wal()`), s6's witness the
-  vault's planted manifests and base backups.
+  vault's planted manifests and base backups. A check finding a node's
+  latest `wal` manifest orders by `received_at`, never by name; s2's
+  answer key notes the planted names sorting above the live ones as a
+  setup limit, not a fault (spec D382).
 - Files: `faults/<s2's id>/`, `faults/governance-register-flow-undeclared/`
   (new); `tools/tests/fixtures/fixture-archive/` (its fault instances,
   answer key and register); `bricks/postgres/docs/gm.md`,

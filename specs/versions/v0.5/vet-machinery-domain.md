@@ -975,7 +975,7 @@ domain that ships; `vet-machinery` its first user, with two types.
 |---|---|
 | Who asks | the customer |
 | Request | `ship-partitions`: for each type, each daily partition older than the window, after its aggregate: a header (shipment id, type, rows declared, the day) and the rows as NDJSON, `internal` columns only (rule 10), posted to the vault's `POST /shipments` |
-| Correlation key | the shipment id, `<type>-<day>`, sent again on a resend (cold storage 3: the same id replaces its manifest) |
+| Correlation key | the shipment id, `<type>-<day>`, sent again on a resend (cold storage 3: the same id from the same source replaces its manifest); the source `machines`, the node whose partitions ship (D381) |
 | Expected answers | a receipt with the rows received |
 | Timeout, then | no receipt within 60 seconds, or rows received short of the rows declared: the partition kept, resent at the next run with the same id; still unshipped at 06:00, an `ops.incidents` row |
 | Reactions | on a matching receipt, `mach_drop_shipped(day)` detaches and drops the partition; the shipment recorded |

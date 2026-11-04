@@ -29,7 +29,9 @@ each settling the text against the rest of it: the horse-only MR and NM
 codes 26 and 27 (9.2, 9.6; spec D373); a routine imaging study booked
 within two working days, the turnaround staying three (9.4; spec D376);
 an intensive-care session on one domestic stay in two and one horse stay
-in four, until its step-down (9.6; spec D377).
+in four, until its step-down (9.6; spec D377). On 2026-11-04, after
+chunk 11: a manifest is keyed on its source and shipment id, since two
+archiving nodes post the same segment names (10.4; spec D381).
 
 Baseline: the released [v0.4 master spec](../v0.4/master-spec.md) and
 its [access model](../v0.4/access-model.md). Everything v0.4 specifies
@@ -2403,11 +2405,14 @@ back.
 - **The stub's side**, three endpoints: `POST /shipments` (a header with
   shipment id, data type, rows declared and date range, and the rows as
   NDJSON; counts the rows, discards the payload, writes a manifest,
-  answers a receipt; the same shipment id again replaces its manifest, a
-  new id for a day already shipped adds a second one); `GET /manifests`
-  (JSON, filtered by type and dates); `GET /` (a page graphing rows
+  answers a receipt; the same shipment id from the same source again
+  replaces its manifest, a new id for a day already shipped adds a
+  second one, and one id from two sources, as two archiving nodes'
+  segment names, makes two); `GET /manifests`
+  (JSON, filtered by type, source and dates); `GET /` (a page graphing rows
   shipped per day per type, declared against received, drawn on the
-  server). **A manifest** holds the type, rows declared and received,
+  server). **A manifest** holds the type, its source (the customer's
+  node holding the data), rows declared and received,
   the date range, the shipment's time and id, and for `wal` and
   `basebackup` the segment's or backup's name and size; kept in the
   partners' database. The load plants the history's manifests, so the

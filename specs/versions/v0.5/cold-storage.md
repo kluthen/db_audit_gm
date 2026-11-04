@@ -1,6 +1,6 @@
 # v0.5 — cold storage: a third party for heavy data
 
-Status: draft v4, ruled. The direction is the owner's (D288); the
+Status: draft v5, ruled; v5 (2026-11-04) keys a manifest on its source and shipment id (D381). The direction is the owner's (D288); the
 design was ruled as drafted on 2026-11-02, with the bastion's route to
 its page (D296) and the GM deciding what ships, use first (D297),
 closing O148. Linked from [producer profiles](producer-profiles.md) 11.
@@ -77,13 +77,14 @@ routes dispatched by that name (D308); three endpoints:
 
 | Endpoint | What it does |
 |---|---|
-| `POST /shipments` | takes a header (shipment id, data type, rows declared, the date range) and the rows as NDJSON; counts the rows received, discards the payload, writes a manifest and answers with a receipt (shipment id, rows received). The same shipment id again replaces its manifest, as a write to the same key would; a new id for a day already shipped adds a second manifest |
+| `POST /shipments` | takes a header (shipment id, data type, rows declared, the date range) and the rows as NDJSON; counts the rows received, discards the payload, writes a manifest and answers with a receipt (shipment id, rows received). The same shipment id from the same source again replaces its manifest, as a write to the same key would; a new id for a day already shipped adds a second manifest; one id from two sources (two archiving nodes post the same segment names) makes two (D381) |
 | `GET /manifests` | the manifests as JSON, filtered by data type and dates |
 | `GET /` | a page graphing the rows shipped per day per data type, declared against received, drawn on the server (no script) |
 
 **A manifest** holds what the owner asked for and no more: the data
 type, the rows declared, the rows received, the date range, the time of
-the shipment, and the shipment id. A few rows a day, kept in the
+the shipment, and the shipment id, with its source, the customer's node
+holding the data, the key being the source and the shipment id (D381). A few rows a day, kept in the
 partners' shared database, cold storage's own tables and role (D296,
 following from D293's shared back end).
 

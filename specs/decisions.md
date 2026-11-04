@@ -894,3 +894,27 @@ D337, D341 and D371 were reserved and never used). Take the next number from
   named there to exist with its own manifest. Now in:
   [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 9,
   12 to 16, workflow deltas.
+- **D381 (2026-11-04, chunk 11's finding): Cold storage's manifest is keyed
+  `(source, shipment_id)`, its source the node holding the data; the same id
+  from the same source replaces it, from another source makes a second;
+  `GET /manifests` ordered by `received_at`, source, id; the page sums the
+  sources.** `records` and `lab` post the same segment names. Gate fix. Now
+  in: [master spec](versions/v0.5/master-spec.md) 10.4; [cold-storage.md](versions/v0.5/cold-storage.md) 3; [build plan](versions/v0.5/build-plan.md) gate, chunk 21.
+- **D382 (2026-11-04, the same finding): The planted `wal` names sorting
+  above the live ones stay a known limit: no check reads them in name order
+  (s2's and T38's compare names or sources, the page counts days), and a
+  check finding a node's latest `wal` manifest orders by `received_at`.**
+  A 35-day history cannot sort below a fresh cluster's first segment;
+  pushing the live names up (`pg_resetwal -l`) would change `postgres`
+  0.5.0 for realism alone. s2's answer key notes it as a setup limit. Now
+  in: [build plan](versions/v0.5/build-plan.md) chunk 23.
+- **D383 (2026-11-04, chunk 11's second finding): `partners-db` gets no
+  `gm_check` host line; a coherence check whose `reads` names `partners`
+  runs in the partners' database on the partners' node (as `postgres`, read
+  only, unseen), `gm_src_partners` over that node's socket, its other reads
+  over TCP from there, every table through `gm_src_*`, no `database:`; a
+  derivation or history reading `partners` from another node is refused.**
+  A host line breaks 10.2 and access model 8; dropping such checks drops
+  9.3's "stubs' open send-outs and orders matching the lab's". As purpose
+  14's history. First met by chunk 12; fixed at wave 2's gate. Now in:
+  [access model](versions/v0.5/access-model.md) 8; [build plan](versions/v0.5/build-plan.md) gate, chunk 12.
