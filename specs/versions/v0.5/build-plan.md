@@ -118,8 +118,8 @@ none is a gate.
 
 | Wave | Chunks | Waits for | Status |
 |---|---|---|---|
-| 1 | 1, 2, 3, 4, 5 | G1; G2 (done); G3, G4; G5 (chunk 3), G6 (chunk 5), G7 (chunk 4, if a package); G8 before its gate | in progress (2026-11-03) |
-| 2 | 6, 7, 8, 9, 10, 11 | wave 1; G9 (chunk 10); G10 before its gate | planned |
+| 1 | 1, 2, 3, 4, 5 | G1; G2 (done); G3, G4; G5 (chunk 3), G6 (chunk 5), G7 (chunk 4, if a package); G8 before its gate | gated (2026-11-04, wave log); merge into `main` on the owner's word |
+| 2 | 6, 7, 8, 9, 10, 11 | wave 1; G9 (chunk 10); G10 before its gate | in progress (2026-11-04) |
 | 3 | 12, 13, 14, 15, 16 | wave 2 | planned |
 | 4 | 17, 18, 19, 20, 21 | wave 3 | planned |
 | 5 | 22, 23, 24, 25, 26, 27 | wave 4; G14 (chunk 27, only if it applies) | planned |
