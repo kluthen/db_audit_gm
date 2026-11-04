@@ -1418,7 +1418,7 @@ site.
 
 ### Chunk 16 — `vet-portal`, the owners' portal
 
-Status: blocked (on chunk 31, the partners' nodes serving `owners` alone; wave log 2026-11-04)
+Status: in progress (16b restarted after chunk 31)
 Wave: 3
 Depends on: chunks 5, 8, 9 and 11 (waves 1 and 2); chunks 12 and 29,
 merged into `v0.5-w3` before this chunk's branch is cut; chunk 31,
@@ -2235,7 +2235,8 @@ core's functions, by 12, 15 and 16. As built: W3-g.
 
 ### Chunk 31 — The partners' nodes serving `owners` alone: `compose` and the loader with no `third_parties:` entry listing them
 
-Status: in progress
+Status: merged (w3, b4c5221)
+Record: d6ffc8f, merged b4c5221; `model.owners_alone_nodes(data, left_out, catalog_root)`, compose's `_brick_id` moved to `model.node_brick_id`; the loader also reports the helper's node problems; an owners-only `partners-api` refused when not answering under `owners` (the executor's reading of D421); unit suite 1151 OK, 2 skipped.
 Wave: 3
 Depends on: chunks 2 and 6 (waves 1 and 2: `compose._shared_nodes`,
 `model._check_third_parties` and `_check_api_nodes`); chunk 29, merged

@@ -4708,3 +4708,33 @@ and no third party at all is still refused for the owners' `data.sql`
 (no v0.5 scenario is). 16b's restart merges `v0.5-w3` first and changes
 `fixture-portal`'s lab entries to `[partners-db]`. Chunk 31 dispatched
 to a `coding-executor`.
+
+### Chunk 31 — merged (b4c5221), 2026-11-04
+
+`coding-executor`: `d6ffc8f`, merged `--no-ff` at `b4c5221`, no conflict;
+worktree removed. Unit suite 1151 OK, 2 skipped (14 new tests; 12 fail on
+the old code). `TestOwnersAlone` (`test_compose.py`): the owners' route
+alone composes and loads (a copy of `fixture-lab-core`, third parties
+`[partners-db]`, `partners-api` serving `owners_tick` under `[owners]`
+only); the existing refusals unchanged; the new ones (a node missing, of
+another brick, not `no-access`; answering under another hostname or not
+under `owners`; a bastion seed file or route naming `partners-api`).
+`TestOwnersAloneLoader` (`test_model.py`). The skill's "Third parties"
+item gains "The owners alone".
+
+W3-h (for 16b and chunk 21): `model.owners_alone_nodes(data,
+left_out=frozenset(), catalog_root=REPO_ROOT) -> OwnersAlone | None`
+(`None` when an entry lists a scheduler or api node, or no composed
+`producers/partners/owners/` is left in; else `OwnersAlone(scheduler,
+api, routes, problems)`); constants `PARTNERS_BACKEND_NODE`,
+`PARTNERS_API_NODE`, `OWNERS_ROUTE`; `model.node_brick_id` (compose's
+`_brick_id` moved). The loader reports the helper's problems too (a stale
+`nodes/` refused); both nodes required whenever an owners' route is
+composed. **For `fixture-portal`**: both lab entries list `[partners-db]`
+only; `partners-api` and `partners-backend` kept (`no-access`, api and
+scheduler); compose again; `partners-db`'s `pg_hba.conf` admits `owners`
+on `partners`; the header comment updated. Risk: `inject.py` and
+`localimpl` find partner nodes through `third_parties:` entries and may
+not see these two; 16b's deployment shows it.
+
+16b restarts on its paused branch.
