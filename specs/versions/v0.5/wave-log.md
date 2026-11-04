@@ -1937,3 +1937,78 @@ cut (next entry). Chunks record their as-built outcomes as W2-a to W2-f.
   `smoke-scenario.sh` item judges each scenario against its own design
   within the smoke's minutes.
 D359 and O228 reserved by mistake, unused. `doc-ids lint spec`: 0 errors.
+
+### G9 — dependency preflight on the monitoring breadth (security-advisor, 2026-11-04)
+
+**Clear, with conditions; one text correction (pgwatch's line).** Resolved
+in throwaway `debian:13-slim` containers (Debian 13.7, PGDG where named);
+nothing written, every container removed.
+
+- **pgwatch 6.1.0** (2026-10-26), not a 3.x release: 3.x ended at 3.7.0
+  (2025-07-24), with no PostgreSQL 18 metrics (4.0.0), no Grafana v13
+  dashboards, and a web token key hard-coded in its source
+  (`sampleSecretKey`), fixed in 4.2.0/5.3.0/6.0.0 only, with no CVE or
+  GHSA. Pin `ARG PGWATCH_VERSION=6.1.0`, the
+  `pgwatch_Linux_x86_64.tar.gz` release asset, `ADD
+  --checksum=sha256:8c9bb13978e6e769b2c82f304479c2840bbcb44e9a6ba8209507cdfc24a117da`
+  (agrees with `checksums.txt` and GitHub's digest); the tarball, not the
+  `.deb`. 0 advisories for pgwatch/v6 6.1.0 and pgx 5.11.0; no CPE.
+  Embedded (go1.26.9, static): GO-2026-6809 (`crypto/x509` distrust
+  list, a per-game CA has no public intermediate), GO-2026-6860/-6866
+  (`x/net/html`, not linked): none reachable. Conditions: the binary
+  only, to `/usr/local/bin/` (the chunk may take the
+  `grafana/prometheus/v13/` dashboard JSON from the same tarball for
+  O223); `--web-disable=all`, nothing on :8080 asserted; never
+  `--create-helpers` or `--try-create-listed-exts-if-missing`; a metric
+  set with no `init_sql` (`basic` qualifies, `standard` does not); no
+  password in the sources file (`PGPASSFILE`, 0600, from the
+  `monitoring` secret); the Prometheus sink on the overlay only; build
+  assertion on the banner `Version: ${PGWATCH_VERSION}`
+  (`pgwatch --web-disable=all` with no sources exits 0).
+- **Prometheus 3.13.5**: unchanged, clear; LTS to 2027-07-31, the
+  Dockerfile's checksum re-checked; 0 advisories; embedded matches false
+  positives or not linked.
+- **check_postgres**: Debian `check-postgres=2.26.0-2`, no recommends
+  (13 packages: perl 5.40.1-6+deb13u1, `postgresql-client-17` and
+  `libpq5` 17.11, readline, gdbm, netbase); no CPE, no tracker entry;
+  upstream dormant since 2023 (a watch). Debian's psql 17.11, no PGDG
+  (PGDG's `postgresql-client-18` the fallback if an action fails on 18).
+  Conditions: every chosen action run against PostgreSQL 18 in the
+  brick's tests; `PGPASSFILE`, never `--dbpass`; Debian `cron` as
+  `postgres` (one spool crontab); the backup script through curl or core
+  HTTP::Tiny; the OpenSSL floor `3.5.7-1~deb13u3` asserted.
+- **The health node's web server**: Debian nginx `1.26.3-3+deb13u10`
+  (the bastion's; 10 packages); 2 unimportant open trixie issues.
+  Rejected: busybox httpd, lighttpd, mini-httpd, `http.server`.
+  Conditions: static files only, `autoindex off`, `server_tokens off`,
+  GET and HEAD; no proxy/fastcgi/uwsgi/scgi/grpc/dav/charset/rewrite/
+  mail/stream, no HTTP/2 or 3; no `libnginx-mod-*` (asserted); sites and
+  conf.d cleared; reached only through the bastion's `web_routes`.
+- **pgCluu**: PGDG `pgcluu=5.0-1.pgdg13+1` (PostgreSQL 17/18 collection),
+  not Debian's 4.0-1; no advisory. +3 packages (`libjs-jquery` 3.6.1,
+  `libjs-underscore` 1.13.4: CVE-2026-27601, a recursion DoS in the
+  report's own browser JavaScript, not reachable). Conditions: pinned
+  exactly, `ARG PG_CLUU_PACKAGE=5.0-1.pgdg13+1`, in the PGDG
+  `apt-get install`, `dpkg-query` asserted; no sysstat, `--disable-sar`;
+  `/usr/lib/cgi-bin/pgcluu.cgi` and `/etc/apache2/conf-available/pgcluu.conf`
+  deleted and asserted gone; run as `player`, no sudo wrapper or
+  sudoers rule (`pgcluu_collectd` builds shell commands from its
+  arguments); players pass `-f` for the pid file. Cosmetic: a
+  `Duplicate specification "no-sysinfo!"` line on every run; `--help`
+  exits 1.
+- **`.tech` at G10**: monitoring gains pgwatch 6.1, check_postgres 2.26,
+  pgCluu 5.0; bricks gain `pgwatch` 0.1.0 and `health-check` 0.1.0;
+  platforms pgwatch, check_postgres, pgCluu (no CPE); nginx, libpq 17.11,
+  cron, OpenSSL name `health-check`; Prometheus LTS note.
+
+**Text correction** (to `spec-writer`): master spec 7.4 and G9's row
+read "pgwatch 3"; they should read pgwatch's latest release at the build
+(6.1.0 at G9), which the spec's own rule already says.
+
+**For the owner, not blocking**: (1) if "pgwatch 3" was meant literally,
+that is a ruling, advised against; (2) the daily sweep does not see Go
+modules embedded in downloaded binaries (Prometheus, Grafana,
+`postgres_exporter`, pgwatch); such findings reach `.tech` only through
+a check like this one.
+
+G9 **done (2026-11-04)**.
