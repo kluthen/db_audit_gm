@@ -2562,3 +2562,130 @@ checked at each version bump; (2) check_postgres (no release since
 only as Debian patches; the tracker is the watch.
 
 G10 **done (2026-11-04)**.
+
+### Chunk 11 — merged (dc4fdd5), 2026-11-04
+
+`coding-leader`: 11a `1f000c1` (the shared nodes, the `pg_hba` form, the
+slow partner), 11b `b42448c` (cold storage, the vault, the archive
+fixture), merge `dc4fdd5`. Unit suite 1075 OK on the branch, 1083 OK on
+the merged `v0.5-w2` (11a alone passes too). Fixtures on armenelos under
+the lock, after `fit` on 2 CPU / 4G / 8G: `fixture-partners` 52/52 in
+128 s, `fixture-archive` 42/42 in 326 s, both with chunk 8's `load-data`.
+Done when:
+- two sample partners answer under their hostnames, each reading its
+  own `<prefix>.state` as its own role, neither able to use the other's
+  schema; the back end's ticks 200, a tick without `partners_backend`
+  401;
+- **one slow, the other in time (measured)**: alpha switched to slow
+  66–67 s after T0; with 30 of alpha's requests in flight, alpha
+  4005–4091 ms, beta 20 of 20 at a median of 3–4 ms, slowest 5 ms; with
+  45 in flight (past the server's 40 worker threads) beta's median 4 ms,
+  its slowest 3620 ms;
+- **`partners-db` refuses all but the partners' roles (measured)**:
+  `dba`, `postgres`, `gm_check`, and `alpha` on another database refused
+  ("pg_hba.conf rejects connection"), right password or not. The form:
+  `samenet` covers the game network (10.0.1.0/24) and the host's
+  `docker_gwbridge` (172.18.0.0/16), so `alpha` with its password gets in
+  even from the bastion; through a service name every client on a host
+  arrives from the network's load-balancer address (10.0.1.10); through
+  `tasks.partners-db` from its task address, which changes on restart; a
+  host-name line never matches. **The guard is the password**, mounted on
+  the partners' nodes only;
+- a switched segment and a base backup yield manifests naming `records`
+  (a refused segment kept and shipped on the archiver's retry after
+  `load-data`; a 49,425,920-byte backup streamed, `partners-api` at 43.4
+  of 128 MiB);
+- `GET /` draws declared against received, one inline SVG per type, no
+  script, a short day (520/480) marked and named (looked at in headless
+  Chrome; the dataviz palette);
+- `GET /manifests` filters by type, date and source, a bad date 422;
+  uploads 401 without the credential, NDJSON rows counted, a repeated id
+  replacing its manifest, a bad header 400, `uploads=refuse` 503 until
+  `coldstore.normal` restored it (57 s);
+- the planted manifests show the 35 days before T0 (35 base backups,
+  1064 WAL manifests);
+- `partners-api`'s start-up wait on `partners-db` resolved in 3–4 s, its
+  requests 503 in 26–32 ms until the database was loaded.
+
+Deviations: the upload body is streamed by an `async` FastAPI dependency,
+the route plain `def` (a large base backup on a 128M node);
+`fixture-partners`' sample partners live in its own data file in a
+partner `data.sql`'s form, not through a composed domain. **Findings,
+routed to `spec-writer`** (entry below):
+1. the manifest's `shipment_id PRIMARY KEY` (W2 item 6) collides when two
+   nodes archive (the clinic's `records` and `lab` post the same segment
+   names); proposed key `(source, shipment_id)` before chunks 20, 21, 23;
+2. the shared `pg_hba.conf` has no `gm_check` host line (Done when,
+   access model 14), but W2-c's sourced runs reach `partners-db` over TCP
+   as `gm_check`, so a coherence check reading `partners` from another
+   node is refused.
+Risks: isolation rests on the passwords (measured, not assumed); past 40
+slow requests in flight other partners wait (3.6 s measured); the address
+readings are Docker 29 on one host.
+
+**Capture W2-f — chunk 11 outcomes (the partners' shared nodes and cold storage; read by 12, 16, 18 to 21, 23, 26, 27)**
+
+- **The `partners/` catalogue folder**: `shared/nodes.yaml`, the three
+  nodes, all `no-access`, sized as master spec 14 (0.45 CPU, 448M in
+  all: `partners-api` 0.1/128M, `partners-backend` 0.1/64M, `partners-db`
+  0.25/256M with 512M disk; only `partners-db`'s knob envelopes
+  tightened); `shared/partners-db/` (`pg_hba.conf`; `postgresql.conf`, 32MB
+  shared buffers, 40 connections, connections logged; `data.sql`,
+  `CREATE DATABASE partners` then `\connect partners`);
+  `shared/partners-backend/` the back end's base (`intensity 1.0`, no
+  stream, no job). `tools/tests/test_partners.py` keeps the fixtures'
+  copies equal to the catalogue.
+- **The `pg_hba.conf` form**: the GM's DO NOT TAMPER `local` lines, then
+  `host partners <roles, comma-separated> samenet scram-sha-256`, then
+  `host all all all reject`; no `gm_check` host line. The roles are
+  exactly those the partners' nodes connect as, filled by the GM: each
+  composed partner's prefix, `coldstore` with a vault, `owners`.
+  Measured figures: the chunk entry above.
+- **A partner's state**: `<prefix>.state (hostname, name, value, set_at,
+  PRIMARY KEY (hostname, name))`, owned by `<prefix>`. A route reads its
+  state for the request's `Host`, returns its session, then applies the
+  behaviour (e.g. sleeping `delay_ms`): a slow partner holds a thread per
+  request, never a session. Each partner's connection `<prefix>-db`, its
+  own pool. `<prefix>.normal` upserts the baseline once a minute (even
+  arrivals); a fault's key `<prefix>.<behaviour>` other values; placed
+  standing as a T0 timeline change of `<prefix>.normal`, seen about a
+  minute later. The limit is the server's 40 worker threads, shared.
+- **Ticks**: endpoints `<prefix>_tick`, `POST /tick` on the partner's
+  hostname, credential `partners_backend`, mounted by render on
+  `partners-api` and `partners-backend` only.
+- **Cold storage** (`partners/coldstore/`, prefix `coldstore`, hostname
+  `cold-storage`): endpoints `coldstore_shipments` (credential
+  `cold_storage`), `coldstore_manifests` and `coldstore_page` (public);
+  connection `coldstore-db`, pool 2. `POST /shipments` reads `Shipment-Id`,
+  `-Type`, `-Rows`, `-From`, `-To`, `-Source` (required) and `-Name`
+  (defaults to the id); rows received 1 for a non-empty `wal` or
+  `basebackup`, else the non-empty NDJSON lines; 201 with W1 item 6's
+  receipt (`received_at` ISO UTC with milliseconds and `Z`), 400 on a bad
+  header, 503 when `uploads` is not `accept`. `GET
+  /manifests?type=&source=&from=&to=`: a manifest whose range meets
+  `[from, to]`, ordered by `received_at` then `shipment_id`. `GET /`: the
+  last 35 days including today (UTC), each shipment counted on its
+  `date_from`. State `delay_ms`, `uploads` (`accept`|`refuse`), restored by
+  `coldstore.normal`. Tables `coldstore.manifests` (W2 item 6, `CHECK
+  (date_from <= date_to)`, indexed on `received_at` and `(type,
+  date_from)`) and `coldstore.state`. The GM copies `data.sql`, then
+  `planted.sql`, after the shared `data.sql` in `partners-db`'s data file.
+- **`planted.sql`**: one VALUES list for the GM, `(pos, node, wal,
+  backup, at, segs, mb)` (`records` the example row), planting the 35
+  days before T0's day: about `segs` segments a day (±3, deterministic),
+  16 MiB each, one backup a night at `at` of about `mb` MB. T0 is
+  `:'load_epoch'` when passed, else `now()`. Segment names on timeline 1
+  from log `0x40 + 16 × pos`: never a live name, but sorting above the
+  live names (a known limit).
+- **Fixtures**: `fixture-partners` (bastion, the three partner nodes;
+  local fault `fixture-partner-slow` with a `partner_behaviour` block,
+  standing); `fixture-archive` (bastion, `records` with `vault_target
+  cold-storage:8000`, `vault_credential cold_storage`, a crontab,
+  `crontab_roles: []`, the three partner nodes; local fault
+  `fixture-basebackup-log-unread`), each with `run-short-test.sh`.
+- **Known limits**: every partner calls from `partners-api`'s address;
+  the manifest key collides across archiving nodes; `gm_check` cannot
+  reach `partners` over TCP (both routed).
+- **For the wave gate**: the `pg_hba` form written into
+  `bricks/postgres/docs/gm.md` in its own commit (text in
+  `partners/README.md`).

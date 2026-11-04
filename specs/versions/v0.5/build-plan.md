@@ -1120,7 +1120,8 @@ page and its `web_routes` entry.
 
 ### Chunk 11 — The partners' shared nodes, cold storage and the vault
 
-Status: planned
+Status: merged (w2, dc4fdd5)
+Record: 11a 1f000c1, 11b b42448c, merge dc4fdd5. Two findings routed to spec-writer (the manifest key across archiving nodes; gm_check and partners-db's pg_hba); the pg_hba form into postgres' docs/gm.md left for the gate (wave log, W2-f).
 Wave: 2
 Depends on: chunks 3, 4 and 5 (wave 1); chunks 6 and 7, merged into
 `v0.5-w2` before this chunk's branch is cut (6: its fixtures' HTTP
