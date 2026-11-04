@@ -1028,9 +1028,15 @@ keys. In particular:
   optional, `data/coherence.yaml`: a part's references to its core and
   the histories it shares, each check one SELECT of the offending rows,
   `reads` naming the composed domains or `partners` it reads through
-  `gm_src_<name>`; the core carries none. Not checked by
-  `check_domain_dir` in v0.5: load-data refuses a malformed file before
-  any query runs.
+  `gm_src_<name>`; the core carries none. A check whose `reads` names
+  `partners` runs in the partners' database on the partners' node (spec
+  D383: `partners-db` admits `gm_check` over its own socket only),
+  `gm_src_partners` over that socket, its other reads over TCP as
+  `gm_check`: **every table it reads goes through `gm_src_*`**, its own
+  domain's too (name the domain in `reads`), and it takes **no
+  `database:`** (refused on it, not required on a several-database
+  part). Not checked by `check_domain_dir` in v0.5: load-data refuses a
+  malformed file before any query runs.
 - **Classification** ([templates/classification.yaml](templates/classification.yaml)):
   every column of every table under `columns:`, each `personal`,
   `customer-linked` or `internal`, `internal` ones listed too, keyed
@@ -1139,7 +1145,8 @@ composition beside `scenario.yaml`:
   each `purposes:` entry's `history` in list order, in its `target`;
   then the coherence check. A derivation reads its `after` domains, a
   history its entry's other location parts (`gm_src_source`), through
-  foreign schemas `gm_src_*` created for the session and dropped after,
+  foreign schemas `gm_src_*` created for the session and dropped after
+  (one reading `partners` from another node is refused, spec D383),
   every such session unseen (no statement logging, `pg_stat_statements`
   or pgaudit, on either end). A failing check stops the setup as a
   design error, naming the domain, the check, its `what`, the row count

@@ -129,6 +129,18 @@ class TestReadChecks(unittest.TestCase):
                            databases=["pacs", "vitals"])
         self.assertEqual(checks[0].database, "vitals")
 
+    def test_a_check_reading_the_partners_takes_no_database(self):
+        """Spec D383: it runs in partners on the partners' node."""
+        for databases in (None, ["pacs", "vitals"]):
+            with self.subTest(databases=databases):
+                self.refused("checks: [{id: a, what: b, sql: SELECT 1, database: vitals, "
+                             "reads: [fx-ward, partners]}]\n",
+                             "checks[a].database: refused on a check reading partners",
+                             databases=databases)
+                checks = self.read("checks: [{id: a, what: b, sql: SELECT 1, "
+                                   "reads: [fx-ward, partners]}]\n", databases)
+                self.assertIsNone(checks[0].database)
+
 
 class TestQueryAndAnswer(unittest.TestCase):
 
@@ -264,12 +276,62 @@ class TestComposedPlan(unittest.TestCase):
                                        ("fx-ward", "stays-placed"),
                                        ("fx-ward", "requests-on-current-stays")])
         requests = found[("fx-ward", "requests-on-current-stays")]
-        self.assertEqual((requests.node, requests.database), ("records", "clinic"))
-        self.assertEqual([s.server for s in requests.sources], ["gm_src_fx_core",
-                                                                "gm_src_partners"])
-        self.assertEqual(requests.sources[1], inject.Source("partners", "partners-db", "partners"))
+        # Spec D383: a check reading partners runs in partners on the partners' node.
+        self.assertEqual((requests.node, requests.database), ("partners-db", "partners"))
+        self.assertEqual(requests.sources, [inject.Source("fx_core", "records", "clinic"),
+                                            inject.Source("partners", "partners-db", "partners")])
+        for other in ("placements-on-stays", "stays-placed"):
+            self.assertEqual((found[("fx-ward", other)].node, found[("fx-ward", other)].database),
+                             ("records", "clinic"))
         self.assertEqual(plan.reading_nodes(), {"records": ["clinic"],
                                                 "partners-db": ["partners"]})
+
+    def test_a_partners_check_of_a_several_database_part_runs_on_the_partners_node(self):
+        """No database: on it (refused there), none required: it runs in
+        partners, its own part read through reads (spec D383)."""
+        domain = self.catalog / "domains/fx-docs/domain.yaml"
+        data = yaml.safe_load(domain.read_text())
+        data["databases"] = ["docs", "archive"]
+        domain.write_text(yaml.safe_dump(data))
+        entry = next(d for d in self.scenario.data["domains"] if d["id"] == "fx-docs")
+        entry["at"] = {"docs": "records/docs", "archive": "records/archive"}
+        record = self.scenario.dir / "composition.yaml"   # a several-database part: no derive
+        record.write_text(record.read_text().split("derive:")[0])
+        (self.catalog / "domains/fx-docs/data/coherence.yaml").write_text(
+            "checks:\n  - id: requests-known\n    what: every partner request on a document\n"
+            "    reads: [fx-docs, partners]\n"
+            "    sql: SELECT r.stay_id FROM gm_src_partners_xlab.requests r WHERE NOT EXISTS "
+            "(SELECT 1 FROM gm_src_fx_docs_docs.doc_requests d WHERE d.stay_id = r.stay_id)\n")
+        check = coherence.read_checks(self.catalog / "domains/fx-docs/data/coherence.yaml",
+                                      "fx-docs", data["databases"])[0]
+        self.assertIsNone(check.database)
+        for db in data["databases"]:
+            (self.catalog / "domains/fx-docs/data" / db).mkdir()
+            for name in ("schema.sql", "load.sql"):
+                shutil.copy(self.catalog / "domains/fx-docs/data" / name,
+                            self.catalog / "domains/fx-docs/data" / db / name)
+        plans = self.plan()
+        run = next(c for c in plans.checks if c.check.id == "requests-known")
+        self.assertEqual((run.node, run.database, run.skipped), ("partners-db", "partners", None))
+        self.assertEqual(run.sources, [inject.Source("fx_docs_docs", "records", "docs"),
+                                       inject.Source("fx_docs_archive", "records", "archive"),
+                                       inject.Source("partners", "partners-db", "partners")])
+
+    def test_a_history_reading_the_partners_from_another_node_is_refused(self):
+        entry = next(p for p in self.scenario.data["purposes"] if p["id"] == "fx-weekly")
+        entry["parts"]["source"] = "partners-db/partners"
+        with self.assertRaises(GmError) as cm:
+            self.plan()
+        self.assertIn("scenario.yaml: purposes[fx-weekly]: reads partners-db/partners "
+                      "(gm_src_source) from records", str(cm.exception))
+        self.assertIn("over its own socket only", str(cm.exception))
+
+    def test_a_derivation_reading_the_partners_from_another_node_is_refused(self):
+        self.scenario.data["domains"][0]["at"] = "partners-db/partners"
+        with self.assertRaises(GmError) as cm:
+            self.plan()
+        self.assertIn("composition.yaml: derive[fx-docs]: reads partners-db/partners "
+                      "(gm_src_fx_core) from records", str(cm.exception))
 
     def test_a_check_reading_a_domain_not_composed_is_skipped(self):
         self.scenario.data["domains"] = [d for d in self.scenario.data["domains"]
@@ -495,12 +557,15 @@ class TestComposedSteps(unittest.TestCase):
         self.assertIn("OPTIONS (host '/run/postgresql', port '5432', dbname 'clinic')",
                       derive["stdin"])
         requests = next(r for r in sourced if "gm_src_partners_xlab.requests" in r["stdin"])
+        # Spec D383: on the partners' node, partners over its socket, the core over TCP.
+        self.assertEqual((requests["node"], requests["argv"][-1]), ("partners-db", "partners"))
         self.assertIn('CREATE SERVER "gm_src_partners" FOREIGN DATA WRAPPER postgres_fdw OPTIONS '
-                      "(host 'partners-db', port '5432', dbname 'partners')", requests["stdin"])
+                      "(host '/run/postgresql', port '5432', dbname 'partners')", requests["stdin"])
+        self.assertIn('CREATE SERVER "gm_src_fx_core" FOREIGN DATA WRAPPER postgres_fdw OPTIONS '
+                      "(host 'records', port '5432', dbname 'clinic')", requests["stdin"])
         self.assertIn('IMPORT FOREIGN SCHEMA "xlab" FROM SERVER "gm_src_partners" INTO '
                       '"gm_src_partners_xlab";', requests["stdin"])
         self.assertIn("BEGIN TRANSACTION READ ONLY;", requests["stdin"])
-        self.assertEqual(requests["argv"][-1], "clinic")
         self.assertIn("-A", requests["argv"])
 
     def test_the_check_roles_settings_set_before_the_reads_and_reset_after(self):
@@ -688,12 +753,16 @@ install -d -o postgres -g postgres -m 0700 /run/gmtest/pgdata
 install -d -o postgres -g postgres -m 0750 /run/gmtest/pglog
 runuser -u postgres -- "$PGBIN/initdb" -D /run/gmtest/pgdata -U postgres -A peer -E UTF8 \
     --locale=C.UTF-8 --no-sync >/dev/null
-cat > /run/gmtest/pgdata/pg_hba.conf <<'EOF'
+if [ -n "${GM_HBA:-}" ]; then
+    printf '%s\n' "$GM_HBA" > /run/gmtest/pgdata/pg_hba.conf
+else
+    cat > /run/gmtest/pgdata/pg_hba.conf <<'EOF'
 local all gm_check scram-sha-256
 local all all peer
 host all gm_check samenet scram-sha-256
 host all all all reject
 EOF
+fi
 exec runuser -u postgres -- "$PGBIN/postgres" -D /run/gmtest/pgdata -c listen_addresses='*' \
     -c unix_socket_directories=/run/postgresql -c "shared_preload_libraries=$GM_LIBS" \
     -c logging_collector=on -c log_directory=/run/gmtest/pglog -c log_filename=postgresql.log \
@@ -704,6 +773,20 @@ exec runuser -u postgres -- "$PGBIN/postgres" -D /run/gmtest/pgdata -c listen_ad
 # records loads pgaudit (its trail in the log), partners-db does not (a
 # placeholder setting there, as on a node whose seed leaves it off).
 LIBS = {"records": "pg_stat_statements,pgaudit", "partners-db": "pg_stat_statements"}
+PARTNERS_HBA = model.REPO_ROOT / "partners/shared/partners-db/pg_hba.conf"
+_PARTNERS_LINE = re.compile(r"^(host\s+partners\s+)\S+(\s+samenet\s+scram-sha-256)$", re.M)
+
+
+def partners_hba(catalog):
+    """partners-db's seed pg_hba.conf as the GM fills it (partners/README.md,
+    spec D383): the partners' line naming each composed partner's role (no
+    vault here, so no coldstore), no gm_check host line."""
+    roles = sorted(p.parent.name for p in catalog.glob("domains/*/producers/partners/*/data.sql"))
+    text, n = _PARTNERS_LINE.subn(lambda m: m.group(1) + ",".join(roles) + m.group(2),
+                                  PARTNERS_HBA.read_text(encoding="utf-8"))
+    if n != 1 or not roles:
+        raise AssertionError(f"{PARTNERS_HBA}: no partners' line to fill, or no partner")
+    return text
 
 
 @unittest.skipUnless(os.environ.get("GM_TEST_COMPOSED_LOAD") == "1",
@@ -711,7 +794,9 @@ LIBS = {"records": "pg_stat_statements,pgaudit", "partners-db": "pg_stat_stateme
 class TestComposedLoad(unittest.TestCase):
     """The fixture loaded into two throwaway containers of the postgres
     image, on a network of their own, each named by its node: load-data's
-    steps run with exec_node going through `docker exec`."""
+    steps run with exec_node going through `docker exec`. partners-db on the
+    partners' own pg_hba.conf (no gm_check host line, spec D383), so the
+    check reading partners only passes on the partners' node."""
 
     def setUp(self):
         self.tag = f"gmtest-c8-{os.getpid()}-{len(self.id())}"
@@ -719,11 +804,12 @@ class TestComposedLoad(unittest.TestCase):
         self.containers = {name: f"{self.tag}-{name}" for name in LIBS}
         self.docker("network", "create", self.network)
         self.addCleanup(self.docker, "network", "rm", self.network, check=False)
+        hba = {"partners-db": ["-e", f"GM_HBA={partners_hba(CATALOG)}"]}   # spec D383
         for name, container in self.containers.items():
             self.addCleanup(self.docker, "rm", "-f", container, check=False)
             self.docker("run", "-d", "--name", container, "--network", self.network,
                         "--network-alias", name, "--memory", "512m", "-e", f"GM_LIBS={LIBS[name]}",
-                        "--entrypoint", "sh", IMAGE, "-c", PG_START)
+                        *hba.get(name, []), "--entrypoint", "sh", IMAGE, "-c", PG_START)
         for name in LIBS:
             self.wait_ready(name)
             self.psql(name, "postgres",                  # as the brick's entrypoint, unseen
@@ -832,7 +918,8 @@ class TestComposedLoad(unittest.TestCase):
         self.assertEqual(self.psql("records", "docs", "SELECT count(*) FROM documents;"), "6")
         self.assertEqual(self.psql("records", "office", "SELECT sum(stays) FROM weekly_stays;"),
                          "6")
-        for name, db in (("records", "clinic"), ("records", "docs"), ("records", "office")):
+        for name, db in (("records", "clinic"), ("records", "docs"), ("records", "office"),
+                         ("partners-db", "partners")):
             self.assertEqual(self.psql(name, db,
                                        "SELECT (SELECT count(*) FROM pg_foreign_server) || '|' || "
                                        "(SELECT count(*) FROM pg_namespace WHERE nspname LIKE "
@@ -859,6 +946,16 @@ class TestComposedLoad(unittest.TestCase):
         self.assertIn("AUDIT: SESSION", self.server_log("records"))   # the trail is on
         self.assertIn("c8_derive_canary", (fixture / "catalog/domains/fx-docs/data/derive.sql")
                       .read_text())
+        # partners-db refuses gm_check from the network (its pg_hba.conf, spec D383)
+        refused = self.docker("exec", "-e", f"PGPASSWORD={GM_CHECK_PASSWORD}",
+                              self.containers["records"], "psql", "-X", "-w", "-h", "partners-db",
+                              "-U", "gm_check", "-d", "partners", "-c", "SELECT 1", check=False)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn("pg_hba.conf rejects connection", refused.stderr)
+        # the check reading partners ran on the partners' node, and passed
+        self.assertIn("partners-db/partners", next(line for line in self.printed
+                                                   if "requests-on-current-stays" in line
+                                                   and "coherence check" in line))
         # the coherence check passed, and is recorded
         self.assertEqual(r.coherence_result, "pass")
         self.assertEqual([o.result for o in r.coherence], ["pass"] * 5)

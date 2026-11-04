@@ -16,8 +16,12 @@ order).
 
 The unit tests read it with load-data's SQL runs stubbed. The composed
 test load runs it into two throwaway containers of the `postgres` image
-at its current tag (never a Swarm deployment), a passing load, then a
-broken range failing the coherence check, under the host lock:
+at its current tag (never a Swarm deployment), `partners-db` on the
+partners' own `partners/shared/partners-db/pg_hba.conf` (its partners'
+line naming `xlab`, no `gm_check` host line), so `fx-ward`'s check reading
+`partners` can pass only when run on the partners' node (spec D383); a passing
+load, then a broken range failing the coherence check, under the host
+lock:
 
     flock /tmp/dbagm-docker.lock systemd-inhibit --what=sleep:idle:handle-lid-switch \
         --who=dbagm --why=composed-load env GM_TEST_COMPOSED_LOAD=1 \

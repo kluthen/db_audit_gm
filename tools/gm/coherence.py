@@ -8,6 +8,7 @@ A domain may ship `data/coherence.yaml`, its coherence queries:
       - id: stays-placed              # [a-z][a-z0-9-]*, once in the domain
         what: every current stay placed in a unit   # one line, the report's
         database: clinic              # a several-database part only: one of its databases
+                                      #   (never on a check reading partners)
         reads: [vet-core]             # optional: composed domains or partners
         sql: |                        # one SELECT: the offending rows, none when coherent
           SELECT s.id AS stay_id FROM gm_src_vet_core.stays s ...
@@ -17,8 +18,14 @@ core carries none. `load-data` runs every check once, after the histories and
 before any fault is planted, as `postgres` in the domain's database, in a
 read-only transaction, its session unseen, each `reads` entry reachable
 through the foreign schemas `gm_src_<name>` it creates for the check and
-drops after (inject.py). A check whose `reads` names a domain not composed
-(or the partners' database in a game with none) is skipped and reported so.
+drops after (inject.py). A check whose `reads` names `partners` runs in the
+partners' database on the partners' node instead (spec D383: `partners-db`
+admits `gm_check` over its own socket only), `gm_src_partners` over that
+socket and its other reads over TCP, so every table it reads, its own
+domain's too, is read through `gm_src_*` (its domain named in `reads`);
+`database:` is refused on it. A check whose `reads` names a domain not
+composed (or the partners' database in a game with none) is skipped and
+reported so.
 Any row fails the setup as a design error, naming the domain, the check, its
 `what`, the row count and the first FIRST_ROWS rows.
 
@@ -58,7 +65,8 @@ class Check:
     id: str
     what: str
     sql: str                          # the SELECT, its trailing `;` removed
-    database: str = None              # a several-database part's, else None
+    database: str = None              # a several-database part's, else None (and on
+                                      #   a check reading partners)
     reads: list = field(default_factory=list)
 
 
@@ -137,13 +145,6 @@ def read_checks(path, domain, databases=None, label=None):
         problem = _select_problem(sql) if sql else "missing or empty"
         if problem:
             problems.append(f"{p}.sql: {problem}")
-        database = item.get("database")
-        if databases is None and "database" in item:
-            problems.append(f"{p}.database: {domain} has one database (at:); database is a "
-                            "several-database part's")
-        elif databases is not None and database not in databases:
-            problems.append(f"{p}.database: {database!r} is not one of {domain}'s databases "
-                            f"({', '.join(databases)}), required on a several-database part")
         reads = item.get("reads", [])
         if not (isinstance(reads, list) and all(isinstance(r, str) for r in reads)
                 and len(set(reads)) == len(reads)):
@@ -152,6 +153,19 @@ def read_checks(path, domain, databases=None, label=None):
         for name in reads:
             if name != PARTNERS and not model.PURPOSE_ID_RE.match(name):
                 problems.append(f"{p}.reads: {name!r} is not a domain id or {PARTNERS}")
+        database = item.get("database")
+        if PARTNERS in reads:
+            if "database" in item:
+                problems.append(f"{p}.database: refused on a check reading {PARTNERS}: it runs "
+                                f"in {PARTNERS} on the partners' node, its own domain read "
+                                "through reads (spec D383)")
+        elif databases is None and "database" in item:
+            problems.append(f"{p}.database: {domain} has one database (at:); database is a "
+                            "several-database part's")
+        elif databases is not None and database not in databases:
+            problems.append(f"{p}.database: {database!r} is not one of {domain}'s databases "
+                            f"({', '.join(databases)}), required on a several-database part "
+                            f"unless the check reads {PARTNERS}")
         checks.append(Check(domain, cid, what.strip() if isinstance(what, str) else "",
                             sql, database, list(reads)))
     if problems:

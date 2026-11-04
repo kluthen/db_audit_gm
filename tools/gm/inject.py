@@ -87,9 +87,12 @@ behaviour is fixed by capture W3-A (`specs/versions/v0.1/wave-log.md`):
   extension when the session created it; their sessions unseen
   (statement logging, pgaudit and pg_stat_statements off locally;
   `gm_check`'s role settings likewise on every source, set before and
-  reset after). Then the coherence check (coherence.py), its record in
+  reset after); one reading `partners` from another node is refused
+  (spec D383). Then the coherence check (coherence.py), its record in
   `composition.yaml` and state.yaml, a failing check failing the setup
-  as a design error. Every file load-data runs gets `-v load_epoch=<the
+  as a design error; a check reading `partners` runs in `partners` on the
+  partners' node (that source over the node's socket, its other reads
+  over TCP; spec D383). Every file load-data runs gets `-v load_epoch=<the
   run's start, UTC, to the minute>` beside the zone and its offset. The
   v0.4 steps (passwords to the `pg_cron` clean-up) follow, then the
   standbys' clone.
@@ -730,10 +733,25 @@ def _keys(domains, catalog, did):
     return [path] if path.is_file() else []
 
 
+def _refuse_partners_from_afar(run, pnode):
+    """GmError for a derivation or a history (SourcedRun) reading the
+    partners' database from another node (spec D383): `partners-db` has no
+    `gm_check` host line, so only a session on that node reaches it."""
+    for src in run.sources:
+        if src.node == pnode and src.database == PARTNERS_DB and run.node != pnode:
+            where = (f"{COMPOSITION_FILE}: derive[{run.owner}]" if run.kind == "derive"
+                     else f"scenario.yaml: purposes[{run.owner}]")
+            raise GmError(f"{where}: reads {pnode}/{PARTNERS_DB} ({src.server}) from "
+                          f"{run.node}: the partners' database admits gm_check over its own "
+                          "socket only, never from another node")
+
+
 def composed_plan(scenario, impl, catalog_root=model.REPO_ROOT):
     """The composed load's ComposedPlan (W2 item 3), every file found and
     every location checked before anything runs; an empty plan for a
-    scenario without `domains:`. GmError on a refusal."""
+    scenario without `domains:`. A coherence check reading `partners` runs
+    in that database on the partners' node (spec D383). GmError on a
+    refusal."""
     plan = ComposedPlan()
     if not scenario.data.get("domains"):
         return plan
@@ -811,13 +829,21 @@ def composed_plan(scenario, impl, catalog_root=model.REPO_ROOT):
                    if part != "target" and isinstance(value, str) and "/" in value]
         plan.histories.append(SourcedRun("history", pid, f"{pid} {history}", node, database,
                                          [path], sources))
+    for run in plan.derivations + plan.histories:
+        _refuse_partners_from_afar(run, pnode)
     for did in order:
         d = domains[did]
         checks = coherence.read_checks(d.dir / coherence.COHERENCE_FILE, did,
                                        d.data.get("databases") if d.several else None)
         for check in checks:
-            _, node, database = next(loc for loc in d.locations
-                                     if loc[0] == check.database)
+            if PARTNERS_DB in check.reads and pnode is not None:
+                # Spec D383: partners-db admits gm_check over its socket only,
+                # so the check runs in partners on the partners' node, its
+                # other reads over TCP from there.
+                node, database = pnode, PARTNERS_DB
+            else:
+                _, node, database = next((loc for loc in d.locations
+                                          if loc[0] == check.database), d.locations[0])
             run = CheckRun(check, node, database, [])
             for name in check.reads:
                 if name == PARTNERS_DB:
