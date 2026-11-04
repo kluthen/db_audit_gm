@@ -1175,3 +1175,14 @@ D337, D341, D359, D371 and D392 were reserved and never used). Take the next num
   recommended: the history's waits, every isolation unit held, no
   longer fire it. Now in:
   [vet-housing](versions/v0.5/vet-housing-domain.md#3-care-feeding-and-biosecurity) (T163, false alarms).
+- **D420 (2026-11-04, chunk 12b, documents to as-built): `vet-lab` as
+  built: `lab_instruments` reads `lab_results (order_test_id)` (the
+  driver's ruling), `lab_api` the reference intervals; the release
+  rounds three jobs (`0 11 * * *`, `0 14`/`0 18` on days 1–6), the
+  loader taking no day-of-week range nor two hours; the practices'
+  `client_ref` on the local date, `practices.state`'s `utc_offset`; no
+  food-chain status on an order (no trap reads one).** Grants and job
+  layout the build needed, the times unchanged; 9.3's and SO4's
+  "twenty" send-outs at T0 corrected to D415's eight. Now in:
+  [vet-lab](versions/v0.5/vet-lab-domain.md#application-roles-and-grants)
+  (grants, jobs, the practices); master spec 9.3; [purposes](versions/v0.5/clinic-purposes.md) (SO4).

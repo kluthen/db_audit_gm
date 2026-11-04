@@ -10,7 +10,10 @@ the test catalogue's layout, its named codes and the centre's draw
 (D389). Amended in wave 3 (2026-11-04) to the build's measures: the
 samples about 20 800 and their range as loaded, results, batches,
 intervals in force and open send-outs at the load's figures, two
-roles' reads (D415). Steps 2 to 8 are done: the business sketch
+roles' reads (D415); then to chunk 12b's: `lab_instruments` reading
+`lab_results (order_test_id)`, `lab_api` the reference intervals, the
+release rounds as three jobs, the practices' stub keeping the
+customer's offset, no food-chain status on an order (D420). Steps 2 to 8 are done: the business sketch
 ruled, every default
 accepted (D301, closing O151); step 3 not a part's, the lab's boundary
 set by the clinic's split (D279, D293, D294); the data model and the
@@ -668,8 +671,8 @@ secret.
 |---|---|---|---|
 | `lab` | owns everything; no login | | |
 | `lab_app` | the lab's information system, its staff's screens (a producer node, D276) | every table | orders, samples, order tests, sample events, results (bench work, amendments), critical calls, notifications, QC runs, charges (D304, amending D302: charged at accession, billable at release, voided on a cancellation or an unfit sample); never the reference tables |
-| `lab_api` | the lab's order API, an `api` node (D267, D270) | the catalogue, accounts, orders and their tests and results (status) | orders, samples, order tests (intake); send-outs' answers and their results, from the external lab's callback |
-| `lab_instruments` | the analysers' middleware uploading batches | samples, order tests, analytes, test analytes, reference intervals, QC runs; `lab_orders (id, species, priority)` and `lab_tests (id, code, discipline)`, to flag a result and pick a bench's tests (D415) | batches, results |
+| `lab_api` | the lab's order API, an `api` node (D267, D270) | the catalogue, accounts, orders and their tests and results (status); the reference intervals, for the feed's `low` and `high` (D420) | orders, samples, order tests (intake); send-outs' answers and their results, from the external lab's callback |
+| `lab_instruments` | the analysers' middleware uploading batches | samples, order tests, analytes, test analytes, reference intervals, QC runs; `lab_orders (id, species, priority)` and `lab_tests (id, code, discipline)`, to flag a result and pick a bench's tests (D415); `lab_results (order_test_id)`, to pick the tests no run has resulted yet (D420) | batches, results |
 | `lab_dispatch` | the centre's jobs posting results to the practices and send-outs to the external lab | orders, order tests, results, accounts, samples, the catalogue (tests, analytes), and the callbacks, send-outs and notifications it updates (D415) | callbacks, send-outs, sample events (`sent-out`), notifications' sent columns |
 | `lab_reports` | the periodic reports and statements, writing to `office` (D300) | every table | nothing |
 
@@ -952,9 +955,9 @@ Fixed-time operations (`jobs.yaml`, scenario time):
 |---|---|---|
 | `lab.qc.morning` | `45 6 * * *` | QC on every analyser before the bench opens: three levels for haematology, two for the others, about 15 runs; one in fifty fails, by a hash of the run's id |
 | `lab.qc.night` | `15 21 * * *` | QC on the on-call analysers before the night (machines 1, 3 and 5: one haematology, one biochemistry, the blood gas, D319): about 7 runs |
-| `lab.release.round` | `0 11,14,18 * * 1-6` and `0 11 * * 0` | the pathologist's round: every technically validated test not held released (rule 1), orders completed, the outside tests' charges billable on the release's date (rule 13) |
+| `lab.release.round` | three jobs: `0 11 * * *` (every day, Sunday's one round included), `0 14 * * 1,2,3,4,5,6` and `0 18 * * 1,2,3,4,5,6`; the loader takes no day-of-week range, nor one with more than one hour (D420) | the pathologist's round: every technically validated test not held released (rule 1), orders completed, the outside tests' charges billable on the release's date (rule 13) |
 | `lab.samples.dispose` | `0 6 * * *` | samples past their keep-until disposed, a `disposed` event; a custody sample kept until its case closes (rule 12) |
-| `lab.identity` | `* * * * *` | the centre's new orders lacking the animal's identity: each animal read from the core's lookup API (`GET /animals/{id}`, `/owner`) and its species, sex, born on, natural identifiers, food-chain status and the owner's surname written on the order; a read, a call and a write: a script job holding the `lab` connection and an HTTP one to `clinic-api` (D303) |
+| `lab.identity` | `* * * * *` | the centre's new orders lacking the animal's identity: each animal read from the core's lookup API (`GET /animals/{id}`, `/owner`) and its species, sex, born on, natural identifiers and the owner's surname written on the order (`lab_orders` has no food-chain column: the lab keeps no food-chain status, D420); a read, a call and a write: a script job holding the `lab` connection and an HTTP one to `clinic-api` (D303) |
 
 `lab.samples.dispose` is light, set-based work, the database node's
 `pg_cron` a placement the GM may choose (D206, D207). `lab.identity`
@@ -997,7 +1000,7 @@ fragments holding its normal behaviour (D303).
 
 | Key or endpoint | What | Rate | Shape |
 |---|---|---|---|
-| `practices.order` (back end stream) | ticks the stub: it builds a practice's order (one of accounts 2–121, its patient reference and client's surname, a species mix of 70 % dogs and cats, 15 % horses, 15 % farm animals, about 1.6 tests, one in twenty urgent, a fresh `client_ref`), posts it to `lab-api`'s `POST /orders`, and keeps the accession | 2.9/h | `practice-hours`, poisson: 28 a weekday, 12 on Saturday, 25 a working day on average (step 2) |
+| `practices.order` (back end stream) | ticks the stub: it builds a practice's order (one of accounts 2–121, its patient reference and client's surname, a species mix of 70 % dogs and cats, 15 % horses, 15 % farm animals, about 1.6 tests, one in twenty urgent, a fresh `client_ref` `<local YYMMDD>-<m>`, its date local by the customer's offset, kept as a `utc_offset` row of `practices.state`, D420), posts it to `lab-api`'s `POST /orders`, and keeps the accession | 2.9/h | `practice-hours`, poisson: 28 a weekday, 12 on Saturday, 25 a working day on average (step 2) |
 | `POST /results` (its routes) | takes a delivery (interim, final or amended), acknowledges each `delivery_key` once, a repeat acknowledged again without a second record | | answers the dispatch's calls: about 40 a day |
 
 **The external reference lab** (D268):
