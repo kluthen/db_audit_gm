@@ -1,0 +1,25 @@
+# vet-housing, the centre's wards and their displays (v0.5 master spec 9.5;
+# specs/versions/v0.5/vet-housing-domain.md; capture W3 item 3): the 64
+# boxes, stalls, pens, kennels and cages, which of the core's hospital stays
+# is placed in which, each stay's feeding plans and care log, and the display
+# on each unit with the ward service behind it (D287). A part of vet-core:
+# its keys by id with no foreign key, its tables and roles prefixed housing_,
+# landing in the core's database (lands_with, D318, D322) because each board
+# read joins its units to the core's animal_board in one statement. Its load
+# computes the core's stays, species, infectious alerts and staff by the
+# core's functions (vet-core docs/gm.md, "Core keys"), never reading them.
+# Its producers: the practice software's housing screens (producers/pms/,
+# connection housing) and the ward service (producers/ward/).
+id: vet-housing
+title: The wards of a veterinary hospital, their units, placements, care log and displays
+schema: data/schema.sql
+load: data/load.sql
+classification: data/classification.yaml
+register: data/register.yaml
+producers: producers/
+notes: docs/gm.md
+policy: docs/policy.md
+governance: data/governance.yaml
+requires: [vet-core]
+lands_with: vet-core
+purposes: [vet-head-office-figures]

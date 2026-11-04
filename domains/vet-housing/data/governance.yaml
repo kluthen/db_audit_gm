@@ -1,0 +1,14 @@
+# vet-housing's governance: fragment (v0.5 master spec 9.5, 13.1; formats.md
+# "Domain"): where each class of data/classification.yaml may live and who
+# may read it, as docs/policy.md states it (rule 1: the board's least data;
+# rule 7: least grants). The GM merges it into the scenario's governance:
+# beside the core's: the locations are written for the node records and the
+# database clinic, renamed as the scenario does. Housing holds no personal
+# data; the board's animal_id is customer-linked, read by the displays
+# (vet_display) and the back office (vet_reports) only.
+classes:
+  customer-linked:
+    locations: [records/clinic]
+    readers: [vet_display, vet_reports]
+  internal:
+    locations: any

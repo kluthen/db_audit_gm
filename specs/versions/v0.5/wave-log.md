@@ -4222,3 +4222,87 @@ the minute is the clock's, so `fixture-imaging` aims within 30 minutes of
 **Usage limit**: chunks 12b and 14 stopped mid-work on the account's
 5-hour limit; both resumed from where they stopped once it reset. A
 fresh owner resumes 15b.
+
+### Chunk 12b — paused for rotation (9ef2683), 2026-11-04
+
+On the owner's word ("rotate them": contexts at 444k and 300k), chunks
+12b and 14 asked to pause at a safe point. 12b: WIP `9ef2683` on
+`v0.5-c12-vet-lab` (after `ae01c40`, merging `v0.5-w3` at 7e93aa3). Built:
+`lab-api` (`orders`: `POST /orders` 201 new / 200 same `client_ref`,
+nothing written, 422 unknown or closed account or code; `GET
+/orders/{accession}`; the feed `GET /orders?account=&released_since=`,
+both required; `send_outs`: `POST /send-outs/{send_key}/result`, once,
+200 again, 404 unknown; connection `lab` as `lab_api`, pool 4; all pass
+`gm_api check`); the stubs `xlab` (`northfield-lab`: `POST /orders`,
+`POST /orders/{send_key}/resend`, `xlab_tick`) and `practices`
+(`POST /results` counting repeats per `delivery_key`, `practices_tick`
+posting an order a tick, retrying under the same `client_ref`); streams
+`xlab.normal`, `practices.normal` 1/min, `xlab.answer` 6/h,
+`practices.order` 2.9/h poisson; connections `xlab-lab`, `practices-lab`;
+`TestLabStubs.test_the_stubs_on_the_shared_nodes` passing;
+`fixture-lab-core` (7 nodes, `left_out:` pms and both stubs; hand-over
+20:00, T0 11:00–12:00 local; `run-short-test.sh` never run). A
+`coding-executor` the owner started is still dry-running `lis`'s keys in
+container `c12pg` (uncommitted changes under `producers/lis/`); asked to
+report to the driver. Next: `lis` verified, `lab-release-round`'s cron
+`1-6` written `1,2,3,4,5,6` (the loader refuses ranges), compose again
+(no `__pycache__`), the fixture's README, `@@LIS@@` in the GM notes, the
+full checks, `fit` and the short test, the composed figure, commit and
+merge. Deviations, for `spec-writer`: `lab_api` reads
+`lab_reference_intervals` (the feed's `low`, `high`); `practices.state`
+gains a `utc_offset` row; `lab.identity` writes no food-chain status
+(`lab_orders` has no column); the fixture's `partners-db` `pg_hba.conf`
+has no `host partners` line (both stubs left out). Risk: the ticks hold
+a session while they post over HTTP (the back end serializes them).
+
+### Chunk 14 — merged (82c8c6d), 2026-11-04
+
+Paused for rotation at `f18517b` with every check passing, only the merge
+left; the driver amended it into the chunk's one commit `7b3eeab` (no
+content change; `v0.5-w3` had gained only wave-log lines since its
+base) and merged it `--no-ff` at `82c8c6d`; worktree removed.
+`check_domain_dir` clean (vet-housing, vet-core; `parts: [vet-housing]`
+beside the others); `lands_with` refusing `records/wards` (in the short
+test too). Loads after the core (92–96 s): 7.6 s at shift 0, 7.4 s at +2;
+138 863 / 138 752 rows, 17 MB (`clinic` 67 MB); at +2 64 units, 66
+displays, 3 032 placements, 2 795 plans, 132 795 care events; through
+`load-data` on Swarm core + housing + coherence 102–122 s, the three
+checks clean. `fit` 5 nodes, 0.9 CPU, 864M. The board 63.9–64.0 calls a
+minute, one queryid, 4 sessions at most. Place run (T0 10:04 local)
+39/39, 19.4 min; care run (T0 16:48) 40/40, 22.3 min (an earlier place
+run's two failures were the test's, fixed). Unit suite 1135 OK, 2
+skipped.
+
+W3-c (chunks 20, 25): `ward.board` is exactly `SELECT * FROM
+housing_unit_board WHERE unit_id = %(unit)s`, `unit` `{int: [1, 64]}`, on
+`ward-board` (`vet_display`, pool 4), 3840/h even `flat`, concurrency 4;
+s9's display a stream in `compose/ward/` with that SQL byte for byte and
+`{int: [u, u]}` (units 7 and 41 had two displays: the chain takes the row
+with no `removed_on`; serials `WD7-` + `(7919·id + 1301) mod 100000`);
+occupancy as W3 item 3, its query in `docs/gm.md` "The occupancy
+measure", `vet_reports` reading every housing table and the board; the
+columns as built (units `state_since_at`; displays `serial`,
+`installed_on`, `removed_on`; placements `from_at`, `until_at`, `reason`,
+`placed_by`; plans `kind`, `diet`, `meals_a_day`, `set_by`, `note`; care
+events `kind`, `eaten`, `done_at`, `done_by`, `note`); the board adds
+`meals_due`, `plan_kind`, `plan_until_at`, `age_years`; unit choice
+isolation first for a current infectious alert, else ordinary, intensive
+care, isolation last, lowest id. Housing reads only `core_stay`,
+`core_species`, `core_stay_alert`, `core_staff`: D408 changes nothing
+here.
+
+Deviations, sent to `spec-writer`: (1) grants beyond the table (`housing`
+reads `stays.reason`, `animals.born_on`, `business_settings`;
+`housing_ward` USAGE on the care events' sequence); (2) a move out of
+isolation when the alert ends (the farm's six cattle at once against five
+stalls), 157 stays moving twice, 47 of 249 infectious animals waiting for
+isolation and 5 never reaching it (a background for T163's witness); rows
+about 139k and 17 MB against 0.16 million and 50 MB; (3) "its unit
+disinfected within the hour" not shown for a unit released live under 30
+minutes (the 30-minute rule, a 15-minute call); (4) T0 placed to the
+hour, "just before 17:00" built as 16:00–16:59; (5) the handover planned 9
+hours out (past the 8-hour aging floor). Incident: chunk 14's loop ran
+chunk 15's `runload.sh` (shared scratchpad) against `c15pg`, creating an
+empty database `housing` there and nothing else; chunk 15's owner told.
+
+Chunk 30 takes the slot.

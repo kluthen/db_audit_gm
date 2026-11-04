@@ -1,0 +1,204 @@
+# Query repository of the practice-management software, vet-housing's
+# fragment (v0.5 master spec 9.5; vet-housing-domain.md, "The producer
+# profiles"): the keys pms sends to clinic as housing_app, on the connection
+# housing, beside the core's (D276), each prefixed housing. The nurses'
+# housing screens: placing each new stay, releasing a unit at a stay's end,
+# moving an animal, ordering nil by mouth, and the two reads of the ward.
+# Every value is SQL's: a pick is an int parameter, per-row variation a hash
+# of an id, never random(). A nurse is one of the section's (horse 29, 31,
+# 32, 34, 35; farm 37, 38, 40, 41; domestic 43, 44, 46, 47, 49, 50: the
+# core's layout, vet-core docs/gm.md "core_staff"), picked by a parameter,
+# not matched against the rota. Units fit species as the history's do
+# (docs/gm.md, "The units"): a box a horse, a stall cattle, a pen sheep or
+# goats, a kennel a dog, a cage a cat or a small animal, an intensive-care
+# or isolation unit any species of its section. Written for the database
+# clinic; no planted fault.
+queries:
+  # --- work streams ------------------------------------------------------------
+  # The oldest current stay with no open placement, admitted five minutes
+  # ago or more, placed in the free unit of its section fitting its species
+  # (clean, in service, no open placement): an isolation unit first when its
+  # animal has a current infectious alert; else an ordinary unit, then an
+  # intensive-care one, then (a section full) an isolation one; the lowest
+  # id within each. With its diet from its species' short list, at its
+  # species' meals a day. One statement.
+  housing.place:
+    sql: >-
+      WITH s AS (
+        SELECT st.id, st.section_id, a.species,
+               EXISTS (SELECT 1 FROM alerts AS al
+                        WHERE al.animal_id = st.animal_id AND al.kind = 'infectious' AND al.from_at <= now()
+                          AND (al.until_at IS NULL OR al.until_at > now())) AS infectious
+          FROM stays AS st JOIN animals AS a ON a.id = st.animal_id
+         WHERE st.discharged_at IS NULL AND st.admitted_at <= now() - interval '5 minutes'
+           AND NOT EXISTS (SELECT 1 FROM housing_placements AS p WHERE p.stay_id = st.id AND p.until_at IS NULL)
+         ORDER BY st.admitted_at, st.id LIMIT 1),
+      u AS (
+        SELECT un.id AS unit_id, s.id AS stay_id, s.section_id, s.species
+          FROM s JOIN housing_units AS un ON un.section_id = s.section_id
+         WHERE un.state = 'clean'
+           AND NOT EXISTS (SELECT 1 FROM housing_placements AS p WHERE p.unit_id = un.id AND p.until_at IS NULL)
+           AND (un.isolation OR un.intensive
+                OR (un.kind, s.species) IN (('box', 'horse'), ('stall', 'cattle'), ('pen', 'sheep'), ('pen', 'goat'),
+                                            ('kennel', 'dog'), ('cage', 'cat'), ('cage', 'rabbit'), ('cage', 'ferret')))
+         ORDER BY CASE WHEN un.isolation AND s.infectious THEN 0 WHEN NOT un.isolation AND NOT un.intensive THEN 1
+                       WHEN un.intensive THEN 2 ELSE 3 END, un.id
+         LIMIT 1),
+      n AS (
+        SELECT u.*, CASE u.section_id WHEN 1 THEN (ARRAY[29, 31, 32, 34, 35])[1 + %(nurse)s %% 5]
+                                      WHEN 2 THEN (ARRAY[37, 38, 40, 41])[1 + %(nurse)s %% 4]
+                                      ELSE (ARRAY[43, 44, 46, 47, 49, 50])[1 + %(nurse)s %% 6] END AS nurse
+          FROM u),
+      placed AS (
+        INSERT INTO housing_placements (unit_id, stay_id, from_at, reason, placed_by)
+        SELECT unit_id, stay_id, now(), 'admission', nurse FROM n
+        RETURNING stay_id)
+      INSERT INTO housing_feeding_plans (stay_id, kind, diet, meals_a_day, from_at, set_by)
+      SELECT n.stay_id, 'diet',
+             CASE n.species
+               WHEN 'horse' THEN (ARRAY['hay and concentrate', 'hay only', 'soaked hay, low starch',
+                                        'mash, small and often'])[1 + %(diet)s %% 4]
+               WHEN 'cattle' THEN (ARRAY['hay and silage', 'hay and concentrate', 'calf milk replacer'])[1 + %(diet)s %% 3]
+               WHEN 'dog' THEN (ARRAY['standard dry', 'gastrointestinal', 'renal', 'recovery wet', 'low fat'])
+                               [1 + %(diet)s %% 5]
+               WHEN 'cat' THEN (ARRAY['standard dry', 'renal', 'recovery wet', 'urinary'])[1 + %(diet)s %% 4]
+               WHEN 'rabbit' THEN (ARRAY['hay and pellets', 'critical care feed'])[1 + %(diet)s %% 2]
+               WHEN 'ferret' THEN (ARRAY['standard dry', 'recovery wet'])[1 + %(diet)s %% 2]
+               ELSE (ARRAY['hay and browse', 'hay and concentrate'])[1 + %(diet)s %% 2] END,
+             CASE WHEN n.species = 'horse' THEN 4 WHEN n.species IN ('cattle', 'sheep', 'goat', 'dog') THEN 2 ELSE 3 END,
+             now(), n.nurse
+        FROM n JOIN placed ON placed.stay_id = n.stay_id
+    params:
+      nurse: {int: [0, 999]}
+      diet: {int: [0, 999]}
+  # The longest-ended stay still placed, discharged, transferred or died: its
+  # placement ended at the stay's end, its unit to clean, its plans ended.
+  # One statement.
+  housing.release:
+    sql: >-
+      WITH r AS (
+        SELECT p.id, greatest(st.discharged_at, p.from_at) AS ended_at
+          FROM housing_placements AS p JOIN stays AS st ON st.id = p.stay_id
+         WHERE p.until_at IS NULL AND st.discharged_at IS NOT NULL
+           AND st.outcome IN ('discharged', 'transferred', 'died')
+         ORDER BY st.discharged_at, p.id LIMIT 1),
+      ended AS (
+        UPDATE housing_placements AS p SET until_at = r.ended_at FROM r WHERE p.id = r.id
+        RETURNING p.unit_id, p.stay_id, p.until_at),
+      dirty AS (
+        UPDATE housing_units AS u SET state = 'to-clean', state_since_at = now()
+          FROM ended WHERE u.id = ended.unit_id
+        RETURNING u.id)
+      UPDATE housing_feeding_plans AS f SET until_at = greatest(f.from_at, ended.until_at)
+        FROM ended
+       WHERE f.stay_id = ended.stay_id AND (f.until_at IS NULL OR f.until_at > ended.until_at)
+  # --- volume streams --------------------------------------------------------
+  # A current stay moved to a free unit of its section: an infectious animal
+  # out of an ordinary unit into isolation first, then one a day or more in
+  # intensive care out to an ordinary unit fitting it, else a box change to
+  # another ordinary unit fitting it (an infectious animal in isolation never
+  # moved). One transaction: the open placement ended and the next opened at
+  # the same instant (now(), the transaction's), the old unit to clean.
+  housing.move:
+    transaction: {isolation: read committed}
+    steps:
+      - sql: >-
+          UPDATE housing_placements SET until_at = now()
+           WHERE id = (
+             SELECT p.id
+               FROM housing_placements AS p JOIN housing_units AS u ON u.id = p.unit_id
+               JOIN stays AS st ON st.id = p.stay_id JOIN animals AS a ON a.id = st.animal_id,
+                    LATERAL (SELECT EXISTS (SELECT 1 FROM alerts AS al
+                                             WHERE al.animal_id = st.animal_id AND al.kind = 'infectious'
+                                               AND al.from_at <= now()
+                                               AND (al.until_at IS NULL OR al.until_at > now())) AS inf) AS i
+              WHERE p.until_at IS NULL AND st.discharged_at IS NULL AND NOT (u.isolation AND i.inf)
+                AND EXISTS (SELECT 1 FROM housing_units AS t
+                             WHERE t.section_id = u.section_id AND t.id <> u.id AND t.state = 'clean'
+                               AND NOT EXISTS (SELECT 1 FROM housing_placements AS q
+                                                WHERE q.unit_id = t.id AND q.until_at IS NULL)
+                               AND CASE WHEN i.inf THEN t.isolation
+                                        ELSE NOT t.isolation AND NOT t.intensive
+                                             AND (t.kind, a.species) IN (('box', 'horse'), ('stall', 'cattle'),
+                                                                         ('pen', 'sheep'), ('pen', 'goat'),
+                                                                         ('kennel', 'dog'), ('cage', 'cat'),
+                                                                         ('cage', 'rabbit'), ('cage', 'ferret')) END)
+              ORDER BY CASE WHEN i.inf THEN 0 WHEN u.intensive AND p.from_at <= now() - interval '1 day' THEN 1
+                            ELSE 2 END,
+                       hashint8extended(p.id, %(pick)s)
+              LIMIT 1 FOR UPDATE OF p SKIP LOCKED)
+        params:
+          pick: {int: [1, 1000000]}
+      - sql: >-
+          UPDATE housing_units AS u SET state = 'to-clean', state_since_at = now()
+            FROM housing_placements AS p WHERE p.until_at = now() AND u.id = p.unit_id
+      - sql: >-
+          INSERT INTO housing_placements (unit_id, stay_id, from_at, reason, placed_by)
+          SELECT t.id, p.stay_id, now(), CASE WHEN t.isolation THEN 'isolation' ELSE 'move' END,
+                 CASE u.section_id WHEN 1 THEN (ARRAY[29, 31, 32, 34, 35])[1 + %(nurse)s %% 5]
+                                   WHEN 2 THEN (ARRAY[37, 38, 40, 41])[1 + %(nurse)s %% 4]
+                                   ELSE (ARRAY[43, 44, 46, 47, 49, 50])[1 + %(nurse)s %% 6] END
+            FROM housing_placements AS p JOIN housing_units AS u ON u.id = p.unit_id
+            JOIN stays AS st ON st.id = p.stay_id JOIN animals AS a ON a.id = st.animal_id,
+                 LATERAL (SELECT EXISTS (SELECT 1 FROM alerts AS al
+                                          WHERE al.animal_id = st.animal_id AND al.kind = 'infectious'
+                                            AND al.from_at <= now()
+                                            AND (al.until_at IS NULL OR al.until_at > now())) AS inf) AS i,
+                 LATERAL (SELECT t.id, t.isolation FROM housing_units AS t
+                           WHERE t.section_id = u.section_id AND t.id <> u.id AND t.state = 'clean'
+                             AND NOT EXISTS (SELECT 1 FROM housing_placements AS q
+                                              WHERE q.unit_id = t.id AND q.until_at IS NULL)
+                             AND CASE WHEN i.inf THEN t.isolation
+                                      ELSE NOT t.isolation AND NOT t.intensive
+                                           AND (t.kind, a.species) IN (('box', 'horse'), ('stall', 'cattle'),
+                                                                       ('pen', 'sheep'), ('pen', 'goat'),
+                                                                       ('kennel', 'dog'), ('cage', 'cat'),
+                                                                       ('cage', 'rabbit'), ('cage', 'ferret')) END
+                           ORDER BY t.id LIMIT 1) AS t
+           WHERE p.until_at = now()
+             AND NOT EXISTS (SELECT 1 FROM housing_placements AS o WHERE o.stay_id = p.stay_id AND o.until_at IS NULL)
+        params:
+          nurse: {int: [0, 999]}
+  # A vet's nil-by-mouth order for a placed stay with none in force or ahead,
+  # before tomorrow's anaesthetic: from the next hour, for twelve hours for a
+  # horse or a ruminant, eight for the others; set by a nurse of the section.
+  housing.fast:
+    sql: >-
+      INSERT INTO housing_feeding_plans (stay_id, kind, from_at, until_at, set_by, note)
+      SELECT st.id, 'nil-by-mouth', date_trunc('hour', now()) + interval '1 hour',
+             date_trunc('hour', now()) + interval '1 hour'
+               + CASE WHEN a.species IN ('horse', 'cattle', 'sheep', 'goat') THEN interval '12 hours'
+                      ELSE interval '8 hours' END,
+             CASE st.section_id WHEN 1 THEN (ARRAY[29, 31, 32, 34, 35])[1 + %(nurse)s %% 5]
+                                WHEN 2 THEN (ARRAY[37, 38, 40, 41])[1 + %(nurse)s %% 4]
+                                ELSE (ARRAY[43, 44, 46, 47, 49, 50])[1 + %(nurse)s %% 6] END,
+             'nil by mouth before anaesthesia'
+        FROM stays AS st JOIN animals AS a ON a.id = st.animal_id
+       WHERE st.discharged_at IS NULL
+         AND EXISTS (SELECT 1 FROM housing_placements AS p WHERE p.stay_id = st.id AND p.until_at IS NULL)
+         AND NOT EXISTS (SELECT 1 FROM housing_feeding_plans AS f
+                          WHERE f.stay_id = st.id AND f.kind = 'nil-by-mouth'
+                            AND (f.until_at IS NULL OR f.until_at > now()))
+       ORDER BY hashint8extended(st.id, %(pick)s) LIMIT 1
+    params:
+      nurse: {int: [0, 999]}
+      pick: {int: [1, 1000000]}
+  # --- reads ----------------------------------------------------------------
+  # The nurses' station: a section's units, occupants, plans and the day's
+  # care, off the board.
+  housing.ward-view:
+    sql: >-
+      SELECT * FROM housing_unit_board WHERE section_id = %(section)s ORDER BY unit_id
+    params:
+      section: {int: [1, 3]}
+  # One current stay's placements and its care log there.
+  housing.stay-log:
+    sql: >-
+      SELECT p.stay_id, p.unit_id, p.from_at, p.until_at, p.reason, e.kind, e.eaten, e.done_at, e.done_by
+        FROM housing_placements AS p
+        LEFT JOIN housing_care_events AS e ON e.unit_id = p.unit_id AND e.stay_id = p.stay_id
+       WHERE p.stay_id = (SELECT q.stay_id FROM housing_placements AS q WHERE q.until_at IS NULL
+                           ORDER BY hashint8extended(q.stay_id, %(pick)s) LIMIT 1)
+       ORDER BY p.from_at, e.done_at
+    params:
+      pick: {int: [1, 1000000]}
