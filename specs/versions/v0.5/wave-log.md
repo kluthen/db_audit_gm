@@ -3895,3 +3895,31 @@ starts:
   (W2 item 1).
 - **For 29a**: check that the jobs a `data/cron.sql` schedules survive
   step (6)'s `pg_cron` clean-up, and record it in W3-f.
+
+### Chunks 29, 12, 13 dispatched; chunk 13 stopped, 2026-11-04
+
+Dispatched at 72c1f80: chunk 29 (`coding-executor`, 29a then 29b),
+chunks 12 and 13 (`coding-leader`). Chunk 12 does 12a first; its
+composed check, `test_compose.py` case and fixture wait for 29's merge.
+
+**Chunk 13 stopped before any code** (no commit; branch and worktree
+removed). The merged core's `vc_vet_at` (`domains/vet-core/data/keys.sql`,
+chunk 9) draws an on-shift section vet per consultation regardless of
+that vet's other consultations, so the history's bookings cannot take
+their consultation's vet without overlapping: on a core load at +2 (94
+s; 17 395 scheduled consultations, every vet on a covering shift), one
+vet's bookings overlap in 1 684 pairs at 10-minute slots, 4 461 at 20,
+7 127 at 30; 545 more have the same vet's emergency or ward round within
+15 minutes. `sched_allocations_staff_excl` would refuse the load, and
+T100's witness (one vet's consultations overlapping) would show with no
+fault. Rooms short too at 20 minutes (farm 204 moments with 2–3 at once
+for one crush; horse 32 with 4–5 for two stalls and the arena). Further
+gaps: the booking horizon against a rota published only 10 to 17 days
+ahead (most six-week bookings find no shift); no `sched_` table holds a
+staff member's kind or specialty; `sched_free_slots`' signature returns
+no teaching animals; inbound examinations carry no study kind
+(`core_exchange`'s reason is a hash no part reads); W3 item 0 names
+`vet_reports` grants the domain's table doesn't. Owner's options: change
+the core's draw (an inserted chunk, core figures rerun), let the
+booking's vet differ for the colliding ones, or shorter slots (fails).
+Sent to `spec-writer`. Chunk 14 takes the slot.

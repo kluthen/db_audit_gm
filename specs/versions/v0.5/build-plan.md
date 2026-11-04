@@ -1252,7 +1252,7 @@ the partners' stubs' tables on `partners-db`.
 
 ### Chunk 13 — `vet-scheduling`, bookings, rota and the training centre
 
-Status: in progress
+Status: blocked (on the core's vet draw overlapping, wave log 2026-11-04)
 Wave: 3
 Depends on: chunks 4, 8 and 9 (waves 1 and 2)
 Architecture capture: W3, for chunks 20 and 21: the bookings' tables
@@ -1292,7 +1292,7 @@ and the slot function's signature; the rota's published weeks.
 
 ### Chunk 14 — `vet-housing`, the wards and their displays
 
-Status: planned
+Status: in progress
 Wave: 3
 Depends on: chunks 4 and 9 (waves 1 and 2)
 Architecture capture: W3, for chunks 20 and 25: the board's statement
