@@ -11,6 +11,7 @@ import yaml
 
 from tools.gm import fit, localimpl, model, render
 from tools.tests import FIXTURES, SUFFICIENT, FakeDocker, ScenarioCopyTest, run_gmctl
+from tools.tests import test_model
 
 
 MANAGER, WORKER = "armenelos", "vps-5718ad52"
@@ -1502,8 +1503,9 @@ class TestArchivingCredential(ScenarioCopyTest):
     http_<credential>, on it alone (W1 item 6, W2 item 2)."""
 
     def test_the_archiving_node_mounts_its_vault_credential(self):
+        # the target a node of the topology, as chunk 6's checks require (W2-a, HTTP)
         self.edit_yaml("scenario.yaml", lambda d: self.node(d, "db").update(
-            parameters={"vault_target": "cold-storage:8000", "vault_credential": "cold_storage"}))
+            parameters={"vault_target": "bastion:8000", "vault_credential": "cold_storage"}))
         fit.fit(self.scenario, "laptop", **SUFFICIENT)
         render.render(self.scenario, "laptop")
         ldir = self.scenario / "local" / "laptop"
@@ -1624,3 +1626,32 @@ class TestNodeCredentials(unittest.TestCase):
         self.assertEqual(render.service_networks("backend", []), ["backend"])
         self.assertEqual(render.service_networks("backend", ["a", "b"]),
                          {"backend": {"aliases": ["a", "b"]}})
+
+
+class TestDomainLoginRoles(test_model.V05ComposedTest):
+    """The login roles a composed domain creates get their role secret
+    (capture W2 items 1 and 2, spec D360): data_login_roles reads
+    model.node_creates, from the catalogue the scenario loads against."""
+
+    def test_a_domains_login_role_gets_its_secret(self):
+        sc = self.load()
+        db = sc.node("db")
+        self.assertEqual(localimpl.data_login_roles(sc, db, self.catalog_root),
+                         ["shop_app", "lab_api", "clinic_app"])  # data file first, then the domain
+        secrets = [s["secret"] for s in localimpl.game_secrets(sc, self.catalog_root)[0]]
+        self.assertIn("role_clinic_app_password", secrets)
+        self.assertEqual(secrets.count("role_clinic_app_password"), 1)
+        self.assertLessEqual(localimpl.max_game_id_length(sc, self.catalog_root),
+                             localimpl.OBJECT_NAME_MAX - len("_role_clinic_app_password"))
+
+    def test_read_from_the_catalogue_named(self):
+        sc = self.load()
+        # the repository's catalogue has no fx-clinic: the data file's roles alone
+        self.assertEqual(localimpl.data_login_roles(sc, sc.node("db")), ["shop_app", "lab_api"])
+
+    def test_the_partners_node(self):
+        sc = self.load()
+        self.assertEqual(localimpl.data_login_roles(sc, sc.node("partners-db"), self.catalog_root),
+                         ["xlab"])
+        self.assertEqual(localimpl.data_login_roles(sc, sc.node("standby"), self.catalog_root),
+                         [])

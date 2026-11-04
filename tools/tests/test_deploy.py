@@ -1000,8 +1000,9 @@ class TestVaultCredentialSecret(RenderedGame):
 
     def setUp(self):
         ScenarioCopyTest.setUp(self)
+        # the target a node of the topology, as chunk 6's checks require (W2-a, HTTP)
         self.edit_yaml("scenario.yaml", lambda d: self.node(d, "db").update(
-            parameters={"vault_target": "cold-storage:8000", "vault_credential": "cold_storage"}))
+            parameters={"vault_target": "bastion:8000", "vault_credential": "cold_storage"}))
         fit.fit(self.scenario, "laptop", **SUFFICIENT)
         render.render(self.scenario, "laptop")
         self.ldir = self.scenario / "local" / "laptop"

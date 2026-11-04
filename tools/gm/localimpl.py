@@ -72,10 +72,10 @@ from pathlib import Path
 
 import yaml
 
-from .model import (CUSTOMER_TIMEZONE, POSTGRES_BRICK, POSTGRESQL_CONF, RESERVED_DB_ROLES,
-                    SUBSTITUTION_RE, GmError, has_scheduler_nodes, is_scheduler_node,
-                    is_seed_folder_entry, mounted_items, node_data_file_creates, parse_mode,
-                    parse_size)
+from .model import (CUSTOMER_TIMEZONE, POSTGRES_BRICK, POSTGRESQL_CONF, REPO_ROOT,
+                    RESERVED_DB_ROLES, SUBSTITUTION_RE, GmError, has_scheduler_nodes,
+                    is_scheduler_node, is_seed_folder_entry, mounted_items, node_creates,
+                    parse_mode, parse_size)
 
 PLATFORM = "swarm"
 STAGES = ("fitted", "rendered", "deployed", "data-loaded", "injected", "load-started",
@@ -617,8 +617,9 @@ def config_file_part(file_name):
     return str(file_name).replace("/", "-")
 
 
-def _derived_lengths(scenario):
-    """(name part after the game id, limit) for every derived name."""
+def _derived_lengths(scenario, catalog_root=REPO_ROOT):
+    """(name part after the game id, limit) for every derived name;
+    `catalog_root` the catalogue the scenario's domains are read from."""
     parts = []
     for node in scenario.nodes:
         name = node["name"]
@@ -630,7 +631,7 @@ def _derived_lengths(scenario):
             parts.append((f"_{name}_{pc['name']}", OBJECT_NAME_MAX))
         for sec in node_secret_declarations(scenario, node):
             parts.append((f"_{sec['name']}", OBJECT_NAME_MAX))
-        for role in data_login_roles(scenario, node):
+        for role in data_login_roles(scenario, node, catalog_root):
             parts.append((f"_{role_secret_name(role)}", OBJECT_NAME_MAX))
         # mounted material: any node of the topology may receive it
         for item in mounted_items(brick):
@@ -641,9 +642,9 @@ def _derived_lengths(scenario):
     return parts
 
 
-def max_game_id_length(scenario):
+def max_game_id_length(scenario, catalog_root=REPO_ROOT):
     longest = GAME_ID_MAX
-    for part, limit in _derived_lengths(scenario):
+    for part, limit in _derived_lengths(scenario, catalog_root):
         longest = min(longest, limit - len(part))
     return longest
 
@@ -845,15 +846,18 @@ def crontab_roles(node):
     return [r for r in roles if isinstance(r, str)] if isinstance(roles, list) else []
 
 
-def data_login_roles(scenario, node):
-    """The login roles a node's data file creates with no password of their
-    own (model.data_file_creates: `CREATE ROLE ... LOGIN`, `CREATE USER`;
-    one whose statement sets `PASSWORD '...'` keeps it), in file order,
-    the game's own roles (RESERVED_DB_ROLES, pg_*) left out; [] for a node
-    with none.
+def data_login_roles(scenario, node, catalog_root=REPO_ROOT):
+    """The login roles created on a node with no password of their own
+    (model.data_file_creates: `CREATE ROLE ... LOGIN`, `CREATE USER`; one
+    whose statement sets `PASSWORD '...'` keeps it), the game's own roles
+    (RESERVED_DB_ROLES, pg_*) left out; [] for a node with none. Read
+    through model.node_creates (v0.5 capture W2 items 1 and 2, spec D360):
+    the node's data file's, in file order, then those the domains placed
+    on it (and, on the partners' node, the composed domains' partner
+    data.sql) create, read from `catalog_root`.
     Each has a secret `role_<role>_password`, set by load-data on the node
     (master spec 9.7)."""
-    created = node_data_file_creates(Path(scenario.dir), node)
+    created = node_creates(Path(scenario.dir), scenario.data, node, catalog_root=catalog_root)
     return [r for r in (created.logins if created else [])
             if r not in RESERVED_DB_ROLES and not r.startswith("pg_")]
 
@@ -911,10 +915,10 @@ def node_secret_declarations(scenario, node):
     return out
 
 
-def game_secrets(scenario):
+def game_secrets(scenario, catalog_root=REPO_ROOT):
     """`(secrets, problems)`: the game's secrets, one per name a node
     mounts (node_secret_declarations) in topology order, then one per login
-    role a data file creates (data_login_roles, master spec 9.7) not among
+    role created on a node (data_login_roles, master spec 9.7) not among
     them, mounted nowhere; each `{"secret": name, **identity, "file": file
     in secrets/}`, and what refuses the topology (capture W1, item 7): a
     malformed declaration, a name two bricks declare differently, or a
@@ -939,7 +943,7 @@ def game_secrets(scenario):
                 continue
             found[name] = (brick.id, identity)
     for node in scenario.nodes:
-        for role in data_login_roles(scenario, node):
+        for role in data_login_roles(scenario, node, catalog_root):
             found.setdefault(role_secret_name(role), (
                 scenario.bricks[node["name"]].id, {"kind": PASSWORD, "handed_over": False}))
     pairs = {(i["kind"], i["pair"]) for _, i in found.values() if i["kind"] != PASSWORD}
@@ -969,14 +973,14 @@ def _identity_text(identity):
     return f"key pair {identity['pair']}, {identity['half']} half"
 
 
-def check_supported(scenario):
+def check_supported(scenario, catalog_root=REPO_ROOT):
     """What gmctl cannot render or deploy; [] when all is supported."""
     problems = []
     networks = scenario.data.get("networks") or []
     if len(networks) != 1:
         problems.append(f"the scenario declares {len(networks)} networks; gmctl renders one "
                         "network, <game_id>_<network name> (spec D83, D106)")
-    problems += game_secrets(scenario)[1]
+    problems += game_secrets(scenario, catalog_root)[1]
     for node in scenario.nodes:
         brick = scenario.bricks[node["name"]]
         for pc in brick.data.get("protected_configs") or []:
@@ -986,11 +990,11 @@ def check_supported(scenario):
     return problems
 
 
-def implementation_secrets(scenario, playground, game_id):
+def implementation_secrets(scenario, playground, game_id, catalog_root=REPO_ROOT):
     """implementation.yaml's `secrets`: per game secret, its Swarm name
     `<game_id>_<name>`, its declaration and its file (relative to the
     scenario folder). GmError when the topology is refused."""
-    secrets, problems = game_secrets(scenario)
+    secrets, problems = game_secrets(scenario, catalog_root)
     if problems:
         raise GmError("; ".join(problems))
     return [{"name": f"{game_id}_{sec['secret']}", **sec,

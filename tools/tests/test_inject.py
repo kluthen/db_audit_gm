@@ -1236,7 +1236,8 @@ class TestDataLoginRoles(unittest.TestCase):
         node = {"name": "db", "data": {"file": "data/db.sql"}}
         created = model.data_file_creates("CREATE ROLE dba LOGIN;\nCREATE ROLE pg_x LOGIN;\n"
                                           "CREATE ROLE app LOGIN;\n", "data/db.sql")
-        with mock.patch.object(localimpl, "node_data_file_creates", lambda sdir, n: created):
+        with mock.patch.object(localimpl, "node_creates",
+                               lambda sdir, data, n, catalog_root=None: created):
             self.assertEqual(localimpl.data_login_roles(scenario, node), ["app"])
 
 
@@ -1348,7 +1349,8 @@ class TestApiNodesConnectionRoles(unittest.TestCase):
         ]
         bricks = {n["name"]: types.SimpleNamespace(id=n["brick"]["id"], data={"secrets": []})
                   for n in self.nodes}
-        self.scenario = types.SimpleNamespace(dir=self.dir, nodes=self.nodes, bricks=bricks)
+        self.scenario = types.SimpleNamespace(dir=self.dir, nodes=self.nodes, bricks=bricks,
+                                              data={"nodes": self.nodes})
         self.impl = {"game_id": "g", "nodes": {n["name"]: {} for n in self.nodes}}
 
     def node(self, name):
@@ -1462,7 +1464,8 @@ class TestStandbyPlans(unittest.TestCase):
         ]
         bricks = {n["name"]: types.SimpleNamespace(id=n["brick"]["id"], data={"secrets": []})
                   for n in self.nodes}
-        self.scenario = types.SimpleNamespace(dir=self.dir, nodes=self.nodes, bricks=bricks)
+        self.scenario = types.SimpleNamespace(dir=self.dir, nodes=self.nodes, bricks=bricks,
+                                              data={"nodes": self.nodes})
         self.impl = {"game_id": "g", "nodes": {n["name"]: {} for n in self.nodes}}
 
     def test_helpers(self):
