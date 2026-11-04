@@ -1,0 +1,14 @@
+
+  db_audit_gm -- api node (one of the customer's applications)
+
+  Endpoints:      /srv/api/api.yaml        which hostname serves which endpoint
+                  /srv/api/routes/<name>.py  the contract (read-only)
+                  /srv/api/db/<name>.py      its database side: queries, transactions,
+                                             session settings
+  Request log:    /var/log/api/api.log
+  Served on:      http://<hostname>:8000/
+  Apply changes:  sudo gm-reload-api        check db/, then restart the server
+  Check:          sudo gm-validate          public validator
+
+  DO NOT TAMPER with SSH, sudo, the gm-* wrappers, the validator or gm_api.
+

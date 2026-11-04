@@ -48,6 +48,23 @@ behaviour is fixed by capture W3-A (`specs/versions/v0.1/wave-log.md`):
   launcher" (PID n) exited with exit code 1` and every line PID n logged
   before it (the `[%p]` of the brick's `log_line_prefix`). Nothing else in
   the log changes; the launcher not connected fails the step.
+- v0.5 (master spec 7.1, 11.1, 15; capture W1 item 6 of
+  `specs/versions/v0.5/wave-log.md`): **a standby** (a `postgres` node
+  with `standby_of: <primary>`) takes no step but its clone: no data file,
+  password, survey, mapping, grant or log clean-up runs there, all of them
+  reaching it from its primary (a schedule's role naming a standby as its
+  target gets its password on the primary). **The clone** is load-data's
+  last step, for each standby in topology order: on the primary, the
+  replication role `replicator` (`LOGIN REPLICATION`) created or updated
+  with the secret `replication_password` as a SCRAM verifier, statement
+  logging, pgaudit and statistics off, and an inactive slot of the
+  standby's name dropped; then `/usr/local/lib/gm/clone-standby` run as
+  root in the standby (pg_basebackup from the primary, the slot created,
+  postgres restarted as a standby); then load-data waits, bounded by its
+  `--timeout` (STANDBY_WAIT without one), until the primary's
+  `pg_stat_replication` shows the slot's sender `streaming`. Any failure
+  is a failed setup. The sessions writing a secret (passwords, user
+  mappings) turn pgaudit off beside statement logging (G5).
 - `inject`, at `data-loaded` (or `injected`, to replay the idempotent
   scripts): for every fault instance in `fault_instances` order, a `state`
   fault's `injection.scripts` are streamed in their listed order into `sh
@@ -104,6 +121,12 @@ SURVEY_ARGV = ("psql", "-X", "-q", "-A", "-t", "-v", "ON_ERROR_STOP=1", "-d", "p
 NO_LOG_SQL = ("SET log_statement = 'none';", "SET log_min_duration_statement = -1;",
               "SET log_min_error_statement = 'panic';")
 NO_STATS_SQL = ("SET pg_stat_statements.track = 'none';",)
+# pgaudit off for a session writing a secret (v0.5 G5), beside statement
+# logging: its `role` class logs the statement's text into the log the
+# players' group reads (pgaudit 18.0 redacts a password there; the
+# session's other statements stay out too). Accepted whether pgaudit is
+# loaded or not (a placeholder setting then).
+NO_AUDIT_SQL = ("SET pgaudit.log = 'none';",)
 QUIET_SQL = "SET client_min_messages = warning;"    # no "already exists" notices
 REDACTED = "<password>"
 # The pg_cron noise fix: the launcher's background worker type (its
@@ -112,6 +135,11 @@ REDACTED = "<password>"
 LAUNCHER = "pg_cron launcher"
 LAUNCHER_WAIT = 60                  # seconds; the launcher restarts once a second
 ROTATE_WAIT = 10                    # seconds
+# The standby's clone (v0.5 capture W1 item 6).
+REPLICATION_ROLE = "replicator"
+REPLICATION_SECRET = "replication_password"
+CLONE_STANDBY = "/usr/local/lib/gm/clone-standby"
+STANDBY_WAIT = 300                  # seconds, without --timeout: the clone, then streaming
 
 
 # --- Fault parameters --------------------------------------------------------
@@ -233,6 +261,7 @@ class LoadResult:
     policies: list = field(default_factory=list)   # [(node, database)]: CHECK_POLICY
     functions: list = field(default_factory=list)  # [(node, database)]: MAPPING_FUNCTION
     grants: list = field(default_factory=list)     # database nodes: CHECK_ROLE's CONNECT
+    standbys: list = field(default_factory=list)   # [(standby, primary, slot)] cloned
     cleaned: list = field(default_factory=list)    # [(node, [(log file, lines removed)]
                                                    #   or None: no file log)]
     warnings: list = field(default_factory=list)   # [text]: a log left as it was
@@ -256,6 +285,8 @@ class LoadResult:
                 for node, db in self.functions]
         out += [f"  {node}: {CHECK_ROLE} granted CONNECT on every database"
                 for node in self.grants]
+        out += [f"  {standby}: cloned from {primary}, a standby streaming from slot {slot}"
+                for standby, primary, slot in self.standbys]
         for node, files in self.cleaned:
             removed = sum(n for _, n in files or [])
             out.append(f"  {node}: {LAUNCHER} running; " + (
@@ -299,32 +330,38 @@ def data_argv(variables):
 
 def password_plan(scenario, impl):
     """[(database node, [(role, secret)])]: every role a scheduler node's
-    schedule names, on the node its connection targets when that node is a
+    schedule or an `api` node's api.yaml names (spec D345; an HTTP
+    connection names none), on the node its connection targets when that node is a
     `database` node, else (through a pooler) on the `database` nodes whose
     data file creates the target database, or on every `database` node
     when none does; then (v0.4 capture W1
     item 8) every role a node's `crontab_roles` names, on that node; then
     (master spec 9.7) every login role a node's data file creates, on that
     node; topology order, each role once per node."""
-    databases = [n["name"] for n in scenario.nodes if n.get("role") == DATABASE_ROLE]
+    primaries = {n["name"]: localimpl.standby_of(n) for n in scenario.nodes
+                 if localimpl.standby_of(n)}
+    databases = [n["name"] for n in scenario.nodes
+                 if n.get("role") == DATABASE_ROLE and n["name"] not in primaries]
     created = {n["name"]: model.node_data_file_creates(Path(scenario.dir), n)
                for n in scenario.nodes if n["name"] in databases}
     roles_of = {}
 
     def add(db, role):
+        db = primaries.get(db, db)        # a standby's roles are its primary's (v0.5)
         if db not in impl["nodes"]:
             raise GmError(f"node {db} is not a node of game {impl['game_id']}")
         roles = roles_of.setdefault(db, [])
         if role not in roles:
             roles.append(role)
     for node in scenario.nodes:
-        for conn in localimpl.schedule_connections(scenario, node).values():
+        for conn in localimpl.sql_connections(scenario, node).values():
             role = conn.get("role")
             m = model.TARGET_RE.match(str(conn.get("target")))
             target, database = (m.group(1), m.group(4)) if m else (None, None)
             holders = [db for db in databases
                        if created[db] is not None and database in created[db].databases]
-            for db in [target] if target in databases else holders or databases:
+            for db in [target] if target in databases or target in primaries \
+                    else holders or databases:
                 add(db, role)
     for node in scenario.nodes:
         if node.get("role") != DATABASE_ROLE:
@@ -355,8 +392,8 @@ def read_secret(ldir, secret):
 
 def password_sql(ldir, roles):
     """The SQL setting each role's password from its secret file in
-    `secrets/`, statement logging off for the session."""
-    lines = list(NO_LOG_SQL)
+    `secrets/`, statement logging and pgaudit off for the session."""
+    lines = list(NO_LOG_SQL + NO_AUDIT_SQL)
     for role, secret in roles:
         password = read_secret(ldir, secret)
         lines.append(f'ALTER ROLE "{role}" PASSWORD \'{scram_verifier(password)}\';')
@@ -365,10 +402,11 @@ def password_sql(ldir, roles):
 
 def grant_plan(scenario, impl):
     """The `database` nodes whose check role exists (they mount
-    CHECK_SECRET), topology order."""
+    CHECK_SECRET), topology order; no standby (read-only, its grants its
+    primary's)."""
     plan = []
     for node in scenario.nodes:
-        if node.get("role") != DATABASE_ROLE or not any(
+        if node.get("role") != DATABASE_ROLE or localimpl.standby_of(node) or not any(
                 sec.get("name") == CHECK_SECRET
                 for sec in localimpl.node_secret_declarations(scenario, node)):
             continue
@@ -391,11 +429,11 @@ def grant_sql():
 
 def data_plan(scenario, impl):
     """[(node, relative file, path)] of every node with a `data` entry, in
-    `nodes` order."""
+    `nodes` order; never a standby's (its data is its primary's clone)."""
     plan = []
     for node in scenario.nodes:
         spec = node.get("data")
-        if not isinstance(spec, dict) or not spec.get("file"):
+        if not isinstance(spec, dict) or not spec.get("file") or localimpl.standby_of(node):
             continue
         if node["name"] not in impl["nodes"]:
             raise GmError(f"node {node['name']} is not a node of game {impl['game_id']}")
@@ -404,15 +442,121 @@ def data_plan(scenario, impl):
 
 
 def survey_plan(scenario, impl):
-    """The `database` nodes surveyed after the data load, topology order."""
+    """The `database` nodes surveyed after the data load, topology order;
+    no standby (what it holds is its primary's)."""
     plan = []
     for node in scenario.nodes:
-        if node.get("role") != DATABASE_ROLE:
+        if node.get("role") != DATABASE_ROLE or localimpl.standby_of(node):
             continue
         if node["name"] not in impl["nodes"]:
             raise GmError(f"node {node['name']} is not a node of game {impl['game_id']}")
         plan.append(node["name"])
     return plan
+
+
+def standby_plan(scenario, impl):
+    """[(standby, primary, slot)]: every standby (`standby_of`), in
+    topology order (v0.5 capture W1 item 6); GmError for a standby whose
+    primary is not a node of the game, or is a standby itself."""
+    names = {n["name"]: n for n in scenario.nodes}
+    plan = []
+    for node in scenario.nodes:
+        primary = localimpl.standby_of(node)
+        if primary is None:
+            continue
+        for name in (node["name"], primary):
+            if name not in impl["nodes"]:
+                raise GmError(f"node {name} is not a node of game {impl['game_id']}")
+        if primary not in names or localimpl.standby_of(names[primary]):
+            raise GmError(f"node {node['name']}: standby_of {primary} is not a primary of the "
+                          "game (a postgres node that is no standby)")
+        plan.append((node["name"], primary, localimpl.standby_slot(node["name"])))
+    return plan
+
+
+def replication_sql(ldir, slot):
+    """The primary's side of a clone: `replicator` created or updated
+    (LOGIN REPLICATION, its secret's password as a SCRAM verifier), an
+    inactive slot `slot` left by a previous clone dropped; statement
+    logging, pgaudit and statistics off for the session."""
+    verifier = scram_verifier(read_secret(ldir, REPLICATION_SECRET))
+    role = REPLICATION_ROLE
+    return "\n".join([
+        *NO_LOG_SQL, *NO_AUDIT_SQL, *NO_STATS_SQL, QUIET_SQL,
+        f"DO $gm$BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = "
+        f"{quote_literal(role)}) THEN CREATE ROLE {role}; END IF; END$gm$;",
+        f"ALTER ROLE {role} WITH LOGIN REPLICATION NOSUPERUSER NOCREATEDB NOCREATEROLE "
+        f"PASSWORD {quote_literal(verifier)};",
+        "SELECT pg_catalog.pg_drop_replication_slot(slot_name) FROM pg_catalog.pg_replication_slots "
+        f"WHERE slot_name = {quote_literal(slot)} AND NOT active;",
+    ]) + "\n"
+
+
+def streaming_sql(slot, wait):
+    """Read as psql -A -t on the primary: waits up to `wait` seconds for
+    the slot's sender to be `streaming`, then one JSON line, the slot's
+    state (`exists`, `active`, `state` of its sender or null)."""
+    lit = quote_literal(slot)
+    streaming = ("EXISTS (SELECT 1 FROM pg_catalog.pg_replication_slots s JOIN "
+                 "pg_catalog.pg_stat_replication r ON r.pid = s.active_pid "
+                 f"WHERE s.slot_name = {lit} AND r.state = 'streaming')")
+    return f"""{_NO_LOG}
+DO $gm$
+BEGIN
+  FOR i IN 1..{int(wait) * 2} LOOP
+    PERFORM pg_catalog.pg_stat_clear_snapshot();
+    EXIT WHEN {streaming};
+    PERFORM pg_catalog.pg_sleep(0.5);
+  END LOOP;
+END
+$gm$;
+SELECT pg_catalog.json_build_object(
+  'exists', EXISTS (SELECT 1 FROM pg_catalog.pg_replication_slots WHERE slot_name = {lit}),
+  'active', (SELECT active FROM pg_catalog.pg_replication_slots WHERE slot_name = {lit}),
+  'state', (SELECT r.state FROM pg_catalog.pg_replication_slots s
+              JOIN pg_catalog.pg_stat_replication r ON r.pid = s.active_pid
+             WHERE s.slot_name = {lit}));
+"""
+
+
+def clone_standby(ldir, standby, primary, slot, docker, result, timeout=None, out=print):
+    """The clone of one standby (see the module's docstring), into
+    result.standbys; GmError at the first step that fails."""
+    run = exec_node(ldir, primary, DATA_USER, stdin=replication_sql(ldir, slot),
+                    timeout=timeout, docker=docker, argv=PSQL_ARGV)
+    _print_run(out, f"{primary} replication role {REPLICATION_ROLE} for {standby} "
+                    f"(psql as {DATA_USER})", run)
+    if not run.ok:
+        raise GmError(f"setting the replication role on {primary} for {standby}: psql exit "
+                      f"{run.returncode}: {psql_error_line(run)}")
+    run = exec_node(ldir, standby, DEFAULT_RUN_AS, timeout=timeout, docker=docker,
+                    argv=(CLONE_STANDBY,))
+    _print_run(out, f"{standby} {CLONE_STANDBY} (as {DEFAULT_RUN_AS})", run)
+    if not run.ok:
+        raise GmError(f"cloning the standby {standby} from {primary}: exit {run.returncode}: "
+                      f"{_last_line(run)}")
+    wait = STANDBY_WAIT if timeout is None else max(int(timeout), 1)
+    run = exec_node(ldir, primary, DATA_USER, stdin=streaming_sql(slot, wait),
+                    timeout=None if timeout is None else wait + 30, docker=docker,
+                    argv=SURVEY_ARGV)
+    out(f"{primary} replication slot {slot} streaming (psql as {DATA_USER}): "
+        f"{'ok' if run.ok else f'exit {run.returncode}'}")
+    what = f"waiting for the standby {standby} to stream from {primary}"
+    if not run.ok:
+        raise GmError(f"{what}: psql exit {run.returncode}: {psql_error_line(run)}")
+    rows = _json_lines(run, what)
+    state = rows[-1] if rows and isinstance(rows[-1], dict) else {}
+    if state.get("state") != "streaming":
+        raise GmError(f"{what}: slot {slot} not streaming after {wait} s (exists "
+                      f"{state.get('exists')}, active {state.get('active')}, sender "
+                      f"{state.get('state') or 'none'})")
+    result.standbys.append((standby, primary, slot))
+
+
+def _last_line(result):
+    lines = output_lines(result)
+    errors = [line for line in lines if line.startswith("clone-standby:")]
+    return (errors or lines or ["no output"])[-1]
 
 
 # --- The survey of a node's databases (v0.4) --------------------------------
@@ -567,13 +711,14 @@ def plan_mappings(node, databases, game_id, secrets):
 def mapping_sql(ldir, databases):
     """`(sql, passwords)`: per database holding a mapping, each mapping's
     `password` option set (ADD, or SET when one is there) to its remote
-    role's secret, statement logging and statistics off for each session;
+    role's secret, statement logging, pgaudit and statistics off for each
+    session;
     the passwords, to keep them out of anything printed."""
     parts, passwords = [], []
     for db in databases:
         if not db.mappings:
             continue
-        parts += [connect_line(db.name), *NO_LOG_SQL, *NO_STATS_SQL]
+        parts += [connect_line(db.name), *NO_LOG_SQL, *NO_AUDIT_SQL, *NO_STATS_SQL]
         for m in db.mappings:
             password = read_secret(ldir, m.secret)
             passwords.append(password)
@@ -815,6 +960,7 @@ class LoadPlans:
     variables: dict                 # psql_variables
     game_id: str
     secrets: set                    # game_secret_names
+    standbys: list = field(default_factory=list)   # standby_plan
 
 
 def load_data(scenario_dir, playground, timeout=None, docker=None, out=print):
@@ -844,7 +990,8 @@ def load_plans(scenario, impl):
     runs."""
     return LoadPlans(data_plan(scenario, impl), password_plan(scenario, impl),
                      survey_plan(scenario, impl), grant_plan(scenario, impl),
-                     psql_variables(impl), impl["game_id"], game_secret_names(impl))
+                     psql_variables(impl), impl["game_id"], game_secret_names(impl),
+                     standby_plan(scenario, impl))
 
 
 def load_steps(ldir, plans, docker, result, timeout=None, out=print):
@@ -853,8 +1000,8 @@ def load_steps(ldir, plans, docker, result, timeout=None, out=print):
     of every database node's databases, the user mappings' passwords, the
     check role's read policy and mapping-roles function, the check role's
     `CONNECT`, the `pg_cron` launcher's start-up failures out of the server
-    log; GmError at the first that fails. Also a restart's with no snapshot
-    (chunk 11, spec D176)."""
+    log, last (v0.5) each standby's clone; GmError at the first that fails.
+    Also a restart's with no snapshot (chunk 11, spec D176)."""
     argv = data_argv(plans.variables)
     for node, rel, path in plans.data:
         with open(path, "rb") as fh:
@@ -919,6 +1066,8 @@ def load_steps(ldir, plans, docker, result, timeout=None, out=print):
         result.grants.append(node)
     for node in cron_plan(surveyed):
         clean_launcher_lines(ldir, node, docker, result, timeout=timeout, out=out)
+    for standby, primary, slot in plans.standbys:
+        clone_standby(ldir, standby, primary, slot, docker, result, timeout=timeout, out=out)
 
 
 # --- inject --------------------------------------------------------------------

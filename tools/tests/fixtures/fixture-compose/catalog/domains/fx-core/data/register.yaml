@@ -1,0 +1,8 @@
+# The test core's register fragment (tools/tests, v0.5 chunk 2).
+activities:
+  - id: fx-core-owners
+    name: Owners
+    purpose: Keeping the owners' records
+    people: [owners]
+    tables: [owners]
+    retention: {period: 1 year, then: erased}

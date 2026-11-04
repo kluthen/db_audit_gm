@@ -7,9 +7,10 @@
                  queries.yaml, and each job names `connections:` for a
                  script key, `connection:` otherwise; one problem a line
     check-keys   as root: every key the schedule names is in queries.yaml and
-                 none is a script, and every connection a job names is the
-                 schedule's; never imports a builder or a script and prints
-                 only keys, connection names and the players' job names
+                 none is a script, every connection a job names is the
+                 schedule's, and a call runs only on an HTTP connection (v0.5);
+                 never imports a builder or a script and prints only keys,
+                 connection names and the players' job names
     pending      as `scheduler`: the files changed since the program loaded them
     restore      as root: the write policy's owner and modes (gm_scheduler.policy)
     reloadable   as root: exit 0 when a file gm-reload-scheduler applies is
@@ -28,7 +29,7 @@ from . import ConfigError
 from . import policy as wp
 from .jobs import load_jobs
 from .repository import fingerprint, load_repository, loaded_files, queries_outline
-from .runner import (CONFIG_FILE, check_job_forms, job_connection_problems, load_config, run,
+from .runner import (CONFIG_FILE, check_job_forms, driver_problems, job_connection_problems, load_config, run,
                      schedule_key_problems, write_atomic)
 from .schedule import parse_schedule
 from .repository import load_yaml
@@ -60,7 +61,7 @@ def cmd_check_keys(cfg):
         print("the schedule does not load: the game master's business, not a file of yours")
         return 2
     try:
-        keys, script_keys = queries_outline(cfg["repository"])
+        keys, script_keys, call_keys = queries_outline(cfg["repository"])
     except ConfigError as exc:
         print(str(exc))
         return 1
@@ -71,6 +72,7 @@ def cmd_check_keys(cfg):
         problems.append(str(exc))
         jobs = []
     problems += job_connection_problems(jobs, schedule.connections)
+    problems += driver_problems(schedule, keys - script_keys, call_keys, jobs)
     for p in problems:
         print(p)
     return 1 if problems else 0

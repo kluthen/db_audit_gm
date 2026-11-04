@@ -1,0 +1,46 @@
+# The shop's register fragment (v0.5 master spec 6.1, 8.6, D334; template
+# register.yaml): one entry per processing activity, every table of
+# data/schema.sql in exactly one, transcribed from the classification and
+# docs/gm.md "The rules". The retention periods are game values, stated as
+# such: the shop's data policy says only "as long as the law requires".
+activities:
+  - id: shop-customers
+    name: Customers and their marketing consent
+    purpose: Selling to the shop's customers and recording each grant and withdrawal of marketing e-mail
+    people: [customers]
+    tables: [customers, consent_events]
+    retention:
+      period: 3 years after the customer's last order (a game value)
+      then: erased
+  - id: shop-orders
+    name: Orders, their lines and their deliveries
+    purpose: Taking, packing, shipping and invoicing orders, and following the carriers' events
+    people: [customers]
+    tables: [orders, order_lines, delivery_events]
+    retention:
+      period: 10 years after the invoice, the accounting rule (a game value)
+      then: anonymised
+  - id: shop-marketing
+    name: Win-back campaigns and marketing mail
+    purpose: Winning lapsed customers back with campaign mail sent within their consent and their sending hours
+    people: [lapsed customers]
+    tables: [campaigns, leads, mail_outbox]
+    retention:
+      period: 1 year after the mail is sent (a game value)
+      then: erased
+  - id: shop-exports
+    name: Export declarations
+    purpose: Declaring the orders shipped outside the customs union to customs, once each
+    people: [customers shipping outside the customs union]
+    tables: [customs_outbox, customs_acks]
+    retention:
+      period: 5 years after the declaration, as customs requires (a game value)
+      then: erased
+  - id: shop-operations
+    name: Running the shop
+    purpose: The shop's settings, its catalogue, the export country list, and the reporting runs and their incidents
+    people: []
+    tables: [business_settings, products, export_countries, incidents, etl_runs]
+    retention:
+      period: as long as the shop runs
+      then: erased

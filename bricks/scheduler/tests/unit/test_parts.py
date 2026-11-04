@@ -305,7 +305,7 @@ queries:
             self.assertEqual(r.get("rollup.bare").options, {})
             self.assertFalse(os.path.exists(marker), "only the scripts queries.yaml names are imported")
             self.assertEqual(repo.queries_outline(d), ({"rollup.hourly", "rollup.bare", "q"},
-                                                       {"rollup.hourly", "rollup.bare"}))
+                                                       {"rollup.hourly", "rollup.bare"}, set()))
             files = [os.path.relpath(f, d) for f in repo.loaded_files(d, os.path.join(d, "jobs.yaml"))]
             self.assertEqual(files, ["queries.yaml", "scripts/other.py", "scripts/rollup.py", "jobs.yaml"])
         for bad, why in (({"script": "builders/rollup.py:hourly"}, "scripts/<file>:<function>"),
@@ -503,10 +503,14 @@ class TestJobs(unittest.TestCase):
 
 class TestSchedule(unittest.TestCase):
     def test_input_framing(self):
-        passwords, text = parse_input("gm-scheduler-input 1\npassword shop_app s3cr3t\nschedule\nseed: 1\n")
+        passwords, credentials, text = parse_input("gm-scheduler-input 1\npassword shop_app s3cr3t\n"
+                                                   "credential interfaces_lab_api t0k3n\nschedule\nseed: 1\n")
         self.assertEqual(passwords, {"shop_app": "s3cr3t"})
+        self.assertEqual(credentials, {"interfaces_lab_api": "t0k3n"})
         self.assertEqual(text, "seed: 1\n")
-        for bad in ("", "seed: 1", "gm-scheduler-input 1\npassword x\nschedule\n", "gm-scheduler-input 1\n"):
+        for bad in ("", "seed: 1", "gm-scheduler-input 1\npassword x\nschedule\n", "gm-scheduler-input 1\n",
+                    "gm-scheduler-input 1\ncredential Lab x\nschedule\n",
+                    "gm-scheduler-input 1\ncredential lab\nschedule\n"):
             with self.assertRaises(ConfigError, msg=repr(bad)):
                 parse_input(bad)
 
@@ -525,8 +529,8 @@ class TestSchedule(unittest.TestCase):
     def test_read_from_standard_input(self):
         import yaml
         data = "gm-scheduler-input 1\npassword shop_app pw\nschedule\n" + yaml.safe_dump(schedule_doc())
-        s, pw = read_schedule(data)
-        self.assertEqual(pw, {"shop_app": "pw"})
+        s, pw, cred = read_schedule(data)
+        self.assertEqual((pw, cred), ({"shop_app": "pw"}, {}))
         with self.assertRaisesRegex(ConfigError, "no password"):
             read_schedule("gm-scheduler-input 1\nschedule\n" + yaml.safe_dump(schedule_doc()))
 
@@ -539,7 +543,7 @@ class TestSchedule(unittest.TestCase):
         cases = [
             {"seed": -1}, {"seed": 2 ** 63}, {"seed": "1"}, {"intensity": -1}, {"extra": 1},
             conn(role="postgres"), conn(role="dba"), conn(role="monitoring"), conn(role="gm_check"),
-            conn(role="pgbouncer_lookup"), conn(role="pg_monitor"), conn(role="Shop"),
+            conn(role="pgbouncer_lookup"), conn(role="replicator"), conn(role="pg_monitor"), conn(role="Shop"),
             conn(driver="sql/mysql"), conn(target="db/shop"), conn(pool={"size": 0}), conn(pool={"per-call": False}),
             {"streams": [dict(stream, rate="fast")]}, {"streams": [dict(stream, arrivals="burst")]},
             {"streams": [dict(stream, shape="none")]}, {"streams": [dict(stream, connection="other")]},
@@ -702,6 +706,217 @@ class TestSummaries(unittest.TestCase):
                      'scheduler_calls_total{key="j.key"} 0', "scheduler_running 0"):
             self.assertIn(line + "\n", text)
         self.assertIn("# TYPE scheduler_call_duration_seconds histogram", text)
+
+
+def http_conn(**over):
+    base = {"driver": "http", "target": "lab-api:8000", "credential": "interfaces_lab_api", "pool": 2}
+    base.update(over)
+    return base
+
+
+class TestHttpConnections(unittest.TestCase):
+    """v0.5: the `http` driver's connection form (capture W1 item 3)."""
+
+    def test_valid_http_connection(self):
+        doc = schedule_doc(timeline=[])
+        doc["connections"]["lab-api"] = http_conn()
+        doc["connections"]["owners"] = {"driver": "http", "target": "portal-api:8000", "pool": 1, "timeout": "3s"}
+        s = parse_schedule(doc, {"shop_app": "pw"}, {"interfaces_lab_api": "t"})
+        c = s.connections["lab-api"]
+        self.assertEqual((c.driver, c.host, c.port, c.target, c.credential, c.pool_size, c.timeout, c.role),
+                         ("http", "lab-api", 8000, "lab-api:8000", "interfaces_lab_api", 2, 10, None))
+        self.assertTrue(c.http)
+        public = s.connections["owners"]
+        self.assertEqual((public.credential, public.timeout, public.pool_size), (None, 3, 1))
+        self.assertFalse(s.connections["app"].http)
+
+    def test_a_credential_not_passed_refuses_the_schedule(self):
+        doc = schedule_doc(timeline=[])
+        doc["connections"]["lab-api"] = http_conn()
+        with self.assertRaisesRegex(ConfigError, r"connections\.lab-api: no credential was passed"):
+            parse_schedule(doc, {"shop_app": "pw"}, {})
+        # a public endpoint needs none; the root-side check passes no secrets at all
+        del doc["connections"]["lab-api"]["credential"]
+        parse_schedule(doc, {"shop_app": "pw"}, {})
+        parse_schedule(doc)
+
+    def test_invalid_http_connections(self):
+        for over in ({"target": "lab-api:8000/db"}, {"target": "lab-api"}, {"target": "lab-api:0"},
+                     {"credential": "Lab"}, {"credential": "1lab"}, {"pool": 0}, {"pool": {"size": 2}},
+                     {"pool": True}, {"timeout": "0s"}, {"timeout": "61s"}, {"timeout": "1m"}, {"timeout": 10},
+                     {"role": "lab_api"}, {"tls": True}):
+            doc = schedule_doc(timeline=[])
+            doc["connections"]["lab-api"] = http_conn(**over)
+            with self.assertRaises(ConfigError, msg=repr(over)):
+                parse_schedule(doc)
+        # an SQL connection takes no credential or timeout
+        for over in ({"credential": "x"}, {"timeout": "5s"}):
+            doc = schedule_doc(timeline=[])
+            doc["connections"]["app"].update(over)
+            with self.assertRaises(ConfigError, msg=repr(over)):
+                parse_schedule(doc)
+
+    def test_replicator_is_never_a_schedule_role(self):
+        doc = schedule_doc(timeline=[])
+        doc["connections"]["app"]["role"] = "replicator"
+        with self.assertRaisesRegex(ConfigError, "replicator"):
+            parse_schedule(doc)
+
+
+class TestWeightedChoice(unittest.TestCase):
+    """v0.5: `{choice: {value: weight, ...}}` beside the uniform list."""
+
+    def test_a_seeded_weighted_draw_is_within_tolerance(self):
+        g = gen.compile_param({"choice": {"dog": 45, "cat": 25, "horse": 15, "cattle": 10, "other": 5}},
+                              "species", "k.species")
+
+        def run():
+            rng = derive(4815162342, "pms", "stream:0:k", 0)
+            return [g.draw(rng, Ctx()) for _ in range(20000)]
+        draws = run()
+        self.assertEqual(draws, run())                         # seeded: the same draws twice
+        for value, weight in (("dog", 45), ("cat", 25), ("horse", 15), ("cattle", 10), ("other", 5)):
+            share = draws.count(value) / len(draws)
+            self.assertAlmostEqual(share, weight / 100, delta=0.015, msg=value)
+
+    def test_weights_are_relative(self):
+        g = gen.compile_param({"choice": {"grant": 3, "withdraw": 1}}, "consent", "k.consent")
+        rng = random.Random(7)
+        draws = [g.draw(rng, Ctx()) for _ in range(8000)]
+        self.assertAlmostEqual(draws.count("grant") / len(draws), 0.75, delta=0.02)
+        self.assertEqual(set(draws), {"grant", "withdraw"})
+        one = gen.compile_param({"choice": {7: 1}}, "p", "k.p")
+        self.assertEqual(one.draw(rng, Ctx()), 7)
+
+    def test_invalid_weighted_choices(self):
+        for bad in ({"choice": {}}, {"choice": {"a": 0}}, {"choice": {"a": -1}}, {"choice": {"a": 1.5}},
+                    {"choice": {"a": True}}, {"choice": {"a": "1"}}, {"choice": {"a": 1, "b": None}}):
+            with self.assertRaises(ConfigError, msg=repr(bad)):
+                gen.compile_param(bad, "p", "k.p")
+
+
+class TestCalls(unittest.TestCase):
+    """v0.5: the call, the repository's sixth form (capture W1 item 3)."""
+
+    def parse(self, queries, modules=None):
+        return repo.parse_queries({"queries": queries}, modules or {})
+
+    def test_method_path_and_body_from_parameters(self):
+        import json
+        r = self.parse({"portal.desk-consent": {
+            "call": "POST /owners/%(owner)s/consents",
+            "params": {"owner": {"int": [2, 10000]}, "consent": {"choice": {"grant": 3, "withdraw": 1}},
+                       "amount": {"decimal": [5, 500, 2]}, "at": {"now": "utc"}, "channel": "desk"}}})
+        entry = r.get("portal.desk-consent")
+        self.assertEqual(entry.kind, "call")
+        p = entry.plan(random.Random(3), Ctx(now=ts("2026-11-03T08:15:00Z")), 1.0)
+        self.assertEqual(p.method, "POST")
+        self.assertRegex(p.target, r"^/owners/[0-9]+/consents$")
+        self.assertTrue(2 <= int(p.target.split("/")[2]) <= 10000)
+        self.assertEqual(p.content_type, "application/json")
+        body = json.loads(p.body)
+        self.assertEqual(set(body), {"consent", "amount", "at", "channel"})   # the path's owner is not in it
+        self.assertIn(body["consent"], ("grant", "withdraw"))
+        self.assertIsInstance(body["amount"], float)                         # a number, never a string
+        self.assertRegex(p.body.decode(), r'"amount":[0-9]+\.[0-9]{2}[,}]')    # with its two digits
+        self.assertEqual(body["at"], "2026-11-03T08:15:00Z")
+        self.assertEqual(body["channel"], "desk")
+        # the same seed, the same call
+        self.assertEqual(len({entry.plan(random.Random(9), Ctx(), 1.0).body for _ in range(3)}), 1)
+
+    def test_a_get_puts_its_parameters_in_the_query_string_and_quotes_the_path(self):
+        r = self.parse({"lab.result": {"call": "GET /results/%(sample)s",
+                                       "params": {"sample": {"choice": ["A 1/2"]}, "full": True,
+                                                  "species": {"choice": ["dog"]}}},
+                        "lab.forget": {"call": "DELETE /orders/%(id)s", "params": {"id": 7}},
+                        "lab.ping": {"call": "POST /ping"}})
+        p = r.get("lab.result").plan(random.Random(1), Ctx(), 1.0)
+        self.assertEqual((p.method, p.target, p.body, p.content_type),
+                         ("GET", "/results/A%201%2F2?full=true&species=dog", None, None))
+        p = r.get("lab.forget").plan(random.Random(1), Ctx(), 1.0)
+        self.assertEqual((p.method, p.target, p.body), ("DELETE", "/orders/7", None))
+        p = r.get("lab.ping").plan(random.Random(1), Ctx(), 1.0)
+        self.assertEqual((p.target, p.body), ("/ping", b"{}"))        # no parameter: an empty JSON object
+
+    def test_a_builder_returns_the_body(self):
+        module = type(os)("orders")
+
+        def order(intensity, options, rng=None):
+            return {"urgent": rng.random() < options["urgent_share"], "tests": ["cbc", "chem"],
+                    "n": int(10 * intensity), "price": decimal.Decimal("12.50")}
+        module.order = order
+        module.query = lambda intensity, options: {"since": "2026-11-01"}
+        module.bad = lambda intensity, options: {"at": object()}
+        r = self.parse({"lab.order.post": {"call": "POST /labs/%(lab)s/orders", "builder": "builders/orders.py:order",
+                                           "params": {"lab": "north"}, "options": {"urgent_share": 0.08}},
+                        "lab.order.list": {"call": "GET /orders", "builder": "builders/orders.py:query"},
+                        "lab.order.bad": {"call": "PUT /orders", "builder": "builders/orders.py:bad"}},
+                       {"orders.py": module})
+        p = r.get("lab.order.post").plan(random.Random(5), Ctx(), 2.0)
+        self.assertEqual((p.method, p.target, p.content_type), ("POST", "/labs/north/orders", "application/json"))
+        self.assertRegex(p.body.decode(), r'^\{"urgent":(true|false),"tests":\["cbc","chem"\],"n":20,"price":12\.50\}$')
+        p = r.get("lab.order.list").plan(random.Random(5), Ctx(), 1.0)
+        self.assertEqual((p.target, p.body), ("/orders?since=2026-11-01", None))
+        with self.assertRaisesRegex(repo.BuilderResult, "not JSON"):
+            r.get("lab.order.bad").plan(random.Random(5), Ctx(), 1.0)
+
+    def test_invalid_calls(self):
+        module = type(os)("orders")
+        module.order = lambda intensity, options: {}
+        for bad in ({"call": "post /orders"}, {"call": "FETCH /orders"}, {"call": "POST orders"},
+                    {"call": "POST /a b"}, {"call": "POST"}, {"call": "POST /orders/%(id)s"},
+                    {"call": "POST /orders/%(id)d", "params": {"id": 1}}, {"call": "POST /orders#x"},
+                    {"call": "POST /orders", "options": {"a": 1}}, {"call": "POST /orders", "sql": "SELECT 1"},
+                    {"call": "POST /orders", "transaction": {"isolation": "read committed"}},
+                    {"call": "POST /orders/%(id)s", "builder": "builders/orders.py:order",
+                     "params": {"id": 1, "extra": 2}},
+                    {"call": "POST /orders", "builder": "builders/orders.py:missing"}, {"call": 7}):
+            with self.assertRaises(ConfigError, msg=repr(bad)):
+                self.parse({"k": bad}, {"orders.py": module})
+        # a percent escape stays as written
+        r = self.parse({"k": {"call": "GET /a%20b"}})
+        self.assertEqual(r.get("k").plan(random.Random(1), Ctx(), 1.0).target, "/a%20b")
+
+    def test_json_on_the_wire(self):
+        from gm_scheduler.drivers.http import encode_json, scalar_text
+        when = datetime.datetime(2026, 11, 3, 8, 15, 0, 123456, tzinfo=UTC)
+        self.assertEqual(encode_json({"a": decimal.Decimal("0.10"), "b": [decimal.Decimal("-3.000")], "t": when,
+                                      "u": "é"}),
+                         '{"a":0.10,"b":[-3.000],"t":"2026-11-03T08:15:00.123456Z","u":"é"}'.encode())
+        with self.assertRaises(ValueError):
+            encode_json({"a": decimal.Decimal("NaN")})
+        with self.assertRaises(TypeError):
+            encode_json({"a": object()})
+        self.assertEqual([scalar_text(v) for v in (True, None, decimal.Decimal("1.50"), 3)],
+                         ["true", "", "1.50", "3"])
+
+
+class TestDriverChecks(unittest.TestCase):
+    """v0.5: a call only on an HTTP connection, every other key only on a SQL
+    one; a job with connection: never on an HTTP connection."""
+
+    def test_driver_problems(self):
+        from gm_scheduler.runner import check_references
+        doc = schedule_doc(timeline=[
+            {"at": "2026-10-24T08:00:00Z", "stream": "orders.insert", "set": {"key": "portal.consent"}}])
+        doc["connections"]["portal"] = http_conn(target="portal-api:8000")
+        doc["streams"].append({"key": "portal.consent", "connection": "portal", "rate": "1/min", "arrivals": "even"})
+        doc["streams"].append({"key": "orders.lookup", "connection": "portal", "rate": "1/min", "arrivals": "even"})
+        s = parse_schedule(doc)
+        r = repo.parse_queries({"queries": {"orders.insert": {"sql": "SELECT 1"}, "orders.lookup": {"sql": "SELECT 2"},
+                                            "portal.consent": {"call": "POST /consents"}}}, {})
+        jobs = parse_jobs({"jobs": [
+            {"name": "ping", "key": "portal.consent", "connection": "portal", "at": "5 * * * *"},
+            {"name": "sql", "key": "orders.insert", "connection": "portal", "at": "5 * * * *"},
+            {"name": "fine", "key": "orders.insert", "connection": "app", "at": "5 * * * *"}]})
+        self.assertEqual(check_references(s, r, jobs), [
+            "queries.yaml: key portal.consent is a call, but the schedule runs it on connection app, which is not an "
+            "HTTP connection",
+            "queries.yaml: key orders.lookup is not a call, but the schedule runs it on connection portal, an HTTP "
+            "connection",
+            "jobs.yaml: job ping: key portal.consent is a call: a call runs only in a stream",
+            "jobs.yaml: job sql: connection portal is an HTTP connection: a job with connection: runs SQL; an HTTP "
+            "connection is a stream's or a script's"])
 
 
 if __name__ == "__main__":

@@ -1,0 +1,4 @@
+# The practices' back end repository, a fragment.
+queries:
+  practices.referral:
+    sql: SELECT 1

@@ -1,0 +1,7 @@
+# The test core's desk repository, a fragment.
+queries:
+  owners.lookup:
+    sql: SELECT * FROM owners WHERE id = %(id)s
+    params: {id: {int: [1, 10]}}
+  owners.new:
+    builder: builders/ids.py:owner

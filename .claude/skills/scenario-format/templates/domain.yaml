@@ -1,13 +1,22 @@
 # domain.yaml — template for domains/<domain-id>/domain.yaml
 #
-# Version v0.4, expected to evolve as games are played.
-# Shape: v0.4 master spec 6.8 and 11.3, with the keys capture W1 of
-# specs/versions/v0.4/wave-log.md (item 6) settles; specs/formats.md,
-# "Domain". A domain is a reusable catalogue unit of a business: its data
-# model, its producer material, its classification, its GM notes. It is a
-# design-time source: the GM copies its files into a scenario, adapting
-# them, and scenario.yaml's domain: names it for provenance. It carries no
-# version and never bumps. A static scenario needs none.
+# Version v0.5, expected to evolve as games are played.
+# Shape: v0.5 master spec 6.1, 8.2 to 8.6, with the keys capture W1 of
+# specs/versions/v0.5/wave-log.md (item 7) settles; specs/formats.md,
+# "Domain" and "Composing domains". A domain is a reusable catalogue unit
+# of a business: its data model, its producer material, its
+# classification, its register fragment, its governance, its GM notes. It
+# is a design-time source: the GM copies its files into a scenario,
+# adapting them (gmctl compose merges its producer fragments), and
+# scenario.yaml's domain: or domains: names it. It carries no version and
+# never bumps. A static scenario needs none.
+#
+# A core holds the keys every part shares and may be taken alone; a part
+# names its core (requires) and never another part, and is taken only with
+# it. The folder beside this file: data/, producers/<node>/ (and api/<node>/,
+# partners/<partner>/, public/<name>/; api, partners and public are
+# reserved, never a node's name), variants/<variant>.yaml (at least one)
+# and variants/<variant>/producers/, docs/ (layouts.md, "Domain folder").
 #
 # Markers:
 #   every key is REQUIRED unless marked otherwise;
@@ -20,14 +29,36 @@
 
 id: <shop>                          # [a-z][a-z0-9-]*, the folder's name
 title: <one line>
-schema: data/schema.sql             # the business tables, roles and grants; a data file (the data
-                                    # load's contract), copied into a scenario's data file first
-load: data/load.sql                 # the generated history ("last night's backup"), after the
-                                    # schema; may read :'customer_timezone' and
-                                    # :customer_utc_offset
-classification: data/classification.yaml   # every classed column (template: classification.yaml)
-producers: producers/               # the business's producer material: queries.yaml and
-                                    # schedule.yaml fragments (as a purpose's material)
-notes: docs/gm.md                   # the business, its rules, its traps
+schema: data/schema.sql             # optional: absent with databases (then data/<database>/
+                                    # schema.sql for each), required otherwise. The business
+                                    # tables, roles and grants; a data file (the data load's
+                                    # contract), a part's run after its core's
+load: data/load.sql                 # optional: absent with databases (data/<database>/load.sql),
+                                    # required otherwise. The generated history ("last night's
+                                    # backup"), after the schema; may read :'customer_timezone'
+                                    # and :customer_utc_offset
+classification: data/classification.yaml   # every column of every table, keyed <table>.<column>
+                                    # without the database (template: classification.yaml)
+register: data/register.yaml        # the register fragment: one entry per processing activity,
+                                    # every table in exactly one (template: register.yaml)
+producers: producers/               # the producer fragments, one folder per node they target:
+                                    # producers/<node>/ (a scheduler node), producers/api/<node>/
+                                    # (an api node), producers/partners/<partner>/; nothing at its
+                                    # root
+notes: docs/gm.md                   # the business, its rules, its traps; a part's "Core keys used"
+policy: docs/policy.md              # optional: a business with rules of its own; with governance.
+                                    # Its default data policy, which the GM adapts into the
+                                    # scenario's player/data-policy.md
+governance: data/governance.yaml    # optional: with policy, never without. The governance:
+                                    # fragment (classes, as scenario.yaml's governance.classes)
+requires: [<vet-core>]              # optional: a part only. One item, the core it is taken with,
+                                    # a domain that requires none (one level only)
+lands_with: <vet-core>              # optional: a part whose schema must land in its core's
+                                    # database; its requires' item
+databases: [<pacs>, <vitals>]       # optional: a part with several databases, each
+                                    # [a-z_][a-z0-9_]*, once; schema and load absent
+derive:                             # optional: a part shipping data/derive.sql, run only when
+                                    # the scenario's composition.yaml sanctions it
+  after: [<vet-core>, <vet-lab>]    # the domains whose loads it reads, each once
 purposes: [<shop-sales-reporting>]  # the purpose ids that fit this domain; may be []. Each id's
                                     # form is checked, not that the purpose exists

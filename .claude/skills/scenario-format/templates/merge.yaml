@@ -1,0 +1,30 @@
+# merge.yaml — template for scenarios/<scenario-id>/merge.yaml, the merge's
+# resolutions
+#
+# Version v0.5, expected to evolve as games are played.
+# Shape: v0.5 master spec 8.4, 15, specs/formats.md "Producer material"
+# (D264), with the form capture W1 of specs/versions/v0.5/wave-log.md
+# (item 7) settles. Present only when two profiles collided: gmctl compose
+# stops on a conflict between two sources of one layer (two parts on one
+# node) and names the unit and both sources; the GM writes its resolution
+# here, so the merge is reproducible. A resolution meeting no conflict is
+# refused as stale.
+#
+# Markers:
+#   every key is REQUIRED unless marked otherwise.
+# Replace every <placeholder>. A filled file keeps no <placeholder>.
+
+resolutions:                        # one per conflict
+  - node: <pms>                     # the target node
+    file: <schedule.yaml>           # queries.yaml | schedule.yaml | jobs.yaml | api.yaml, or a
+                                    # folder of files: builders | scripts | routes | db
+    entry: <connections.clinic>     # the unit, as the conflict names it: connections.<name>,
+                                    # shapes.<name>, streams.<key>, intensity, timeline,
+                                    # queries.<key>, jobs.<name>, endpoints.<name>; a file's
+                                    # name in a folder (carrier_feed.py)
+    take: <vet-core@regional-franchise>   # optional: exactly one of take and value. The source
+                                    # that wins, as the conflict names it: <domain>@<variant>,
+                                    # or its catalogue path when two sources share that name
+    value: <the entry, written as is>   # optional: exactly one of take and value. The entry
+                                    # (a mapping, a list, a scalar; a file's text) written as is
+    reason: <one line>

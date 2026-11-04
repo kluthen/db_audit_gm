@@ -33,8 +33,8 @@ class TestGameId(unittest.TestCase):
         self.assertRegex(gid, r"^ab-[a-z0-9]{6}$")
 
 
-POSTGRES = "127.0.0.1:5000/dbagm/postgres:0.4.0"
-BASTION = "127.0.0.1:5000/dbagm/bastion:0.4.0"
+POSTGRES = "127.0.0.1:5000/dbagm/postgres:0.5.0"
+BASTION = "127.0.0.1:5000/dbagm/bastion:0.5.0"
 M = 1024 ** 2
 # the fixture's two images on the default fake engine: the shared base once
 FIXTURE_IMAGES = BASE_LAYER[1] + 2 * OWN_LAYER_SIZE         # 278M
@@ -209,8 +209,8 @@ class TestFit(ScenarioCopyTest):
         self.assertEqual(impl["stack"], gid)
         self.assertEqual(impl["network"], gid + "_backend")   # the scenario's network
         db = impl["nodes"]["db"]
-        self.assertEqual(db["brick"], {"id": "postgres", "version": "0.4.0"})
-        self.assertEqual(db["image"], "127.0.0.1:5000/dbagm/postgres:0.4.0")
+        self.assertEqual(db["brick"], {"id": "postgres", "version": "0.5.0"})
+        self.assertEqual(db["image"], "127.0.0.1:5000/dbagm/postgres:0.5.0")
         self.assertEqual(db["resources"]["limits"], {"cpu": 1, "memory": "1G"})
         self.assertEqual(db["service"], gid + "_db")
         self.assertEqual(db["published_ports"], [])
@@ -240,7 +240,8 @@ class TestFit(ScenarioCopyTest):
         self.assertEqual(db["configs"][2]["file"], "local/laptop/envelopes/db.conf")
         self.assertEqual([s["name"] for s in db["secrets"]],
                          [gid + "_player_ssh_pubkey", gid + "_dba_password",
-                          gid + "_monitoring_password", gid + "_gm_check_password"])
+                          gid + "_gm_check_password", gid + "_replication_password",
+                          gid + "_tls_certificate", gid + "_tls_key"])     # monitoring_password: the option is off
         bastion = impl["nodes"]["bastion"]
         self.assertEqual([v["name"] for v in bastion["volumes"]],
                          [f"{gid}_bastion_{v}" for v in ("home", "hostkeys", "run")])
@@ -251,8 +252,10 @@ class TestFit(ScenarioCopyTest):
             gid + "_player_ssh_key": "local/laptop/secrets/player_ssh_key",
             gid + "_dba_password": "local/laptop/secrets/dba_password",
             gid + "_player_ssh_pubkey": "local/laptop/secrets/player_ssh_key.pub",
-            gid + "_monitoring_password": "local/laptop/secrets/monitoring_password",
             gid + "_gm_check_password": "local/laptop/secrets/gm_check_password",
+            gid + "_replication_password": "local/laptop/secrets/replication_password",
+            gid + "_tls_certificate": "local/laptop/secrets/tls.crt",
+            gid + "_tls_key": "local/laptop/secrets/tls.key",
             gid + "_tools_password": "local/laptop/secrets/tools_password",
         })
         self.assertEqual(impl["labels"], {"com.docker.stack.namespace": gid,

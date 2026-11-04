@@ -1,0 +1,205 @@
+# Stack test fixture for the api brick (v0.5 build plan, chunk 5): the lab's
+# api node `lab-api` (fixable, one hostname, its own name), the partners'
+# api node `partners` (no-access, nine hostnames as network aliases) and the
+# `postgres` 0.5.0 node `db` both reach, deployed at 0 replicas so the api
+# nodes start before their database (run-stack-test.sh scales it up).
+# Uses only what a rendered Compose 3.8 stack file can express. Configs and
+# secrets are external, created and removed by run-stack-test.sh
+# (mirroring gmctl deploy); the node-health script is mounted on lab-api as
+# the GM mounts it. No published port.
+version: "3.8"
+
+x-api: &api
+  image: 127.0.0.1:5000/dbagm/api:0.1.0
+  read_only: true
+  cap_drop: [ALL]
+  cap_add: [AUDIT_WRITE, CHOWN, DAC_OVERRIDE, FOWNER, KILL, NET_BIND_SERVICE, SETGID, SETUID, SYS_CHROOT]
+  healthcheck:
+    test: ["CMD", "/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+    start_period: 60s
+
+services:
+  lab-api:
+    <<: *api
+    hostname: lab-api
+    environment:
+      TZ: UTC
+    volumes:
+      - {type: volume, source: lab_endpoints, target: /srv/api}
+      - {type: volume, source: lab_apilog, target: /var/log/api}
+      - {type: volume, source: lab_home, target: /home/player}
+      - {type: volume, source: lab_gmstate, target: /var/lib/gm-state}
+      - {type: volume, source: lab_run, target: /run}
+    configs:
+      - {source: lab_api_yaml, target: /opt/gm/seed/api.yaml, uid: "0", gid: "0", mode: 0444}
+      - {source: lab_route_orders, target: /opt/gm/seed/routes/orders.py, uid: "0", gid: "0", mode: 0444}
+      - {source: lab_db_orders, target: /opt/gm/seed/db/orders.py, uid: "0", gid: "0", mode: 0444}
+      # node-health script, mounted as the GM would (prometheus' companion.mounted)
+      - {source: nh_script, target: /usr/local/lib/gm/node-health/node-health.pl, uid: "0", gid: "0", mode: 0444}
+      - {source: nh_type, target: /etc/s6-overlay/s6-rc.d/gm-node-health/type, uid: "0", gid: "0", mode: 0444}
+      - {source: nh_run, target: /etc/s6-overlay/s6-rc.d/gm-node-health/run, uid: "0", gid: "0", mode: 0555}
+      - {source: nh_dep_base, target: /etc/s6-overlay/s6-rc.d/gm-node-health/dependencies.d/base, uid: "0", gid: "0", mode: 0444}
+      - {source: nh_bundle, target: /etc/s6-overlay/user-bundles.d/user/contents.d/gm-node-health, uid: "0", gid: "0", mode: 0444}
+      - {source: nh_conf_lab, target: /opt/gm/node-health/node.conf, uid: "0", gid: "0", mode: 0444}
+    secrets:
+      - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
+      - {source: role_lab_api_password, target: /opt/gm/secrets/role_lab_api_password, uid: "0", gid: "0", mode: 0400}
+      - {source: http_interfaces_lab_api, target: /opt/gm/secrets/http_interfaces_lab_api, uid: "0", gid: "0", mode: 0400}
+    networks: [net]
+    deploy:
+      replicas: 1
+      resources:
+        limits: {cpus: "0.25", memory: 128M}
+
+  partners:
+    <<: *api
+    hostname: partners
+    environment:
+      TZ: UTC
+      GM_WRITE_POLICY: no-access
+    volumes:
+      - {type: volume, source: par_endpoints, target: /srv/api}
+      - {type: volume, source: par_apilog, target: /var/log/api}
+      - {type: volume, source: par_home, target: /home/player}
+      - {type: volume, source: par_gmstate, target: /var/lib/gm-state}
+      - {type: volume, source: par_run, target: /run}
+    configs:
+      - {source: par_api_yaml, target: /opt/gm/seed/api.yaml, uid: "0", gid: "0", mode: 0444}
+      - {source: par_route_xlab_results, target: /opt/gm/seed/routes/xlab_results.py, uid: "0", gid: "0", mode: 0444}
+      - {source: par_db_xlab_results, target: /opt/gm/seed/db/xlab_results.py, uid: "0", gid: "0", mode: 0444}
+      - {source: par_route_centre_north_status, target: /opt/gm/seed/routes/centre_north_status.py, uid: "0", gid: "0", mode: 0444}
+      - {source: par_db_centre_north_status, target: /opt/gm/seed/db/centre_north_status.py, uid: "0", gid: "0", mode: 0444}
+      - {source: par_route_centre_south_status, target: /opt/gm/seed/routes/centre_south_status.py, uid: "0", gid: "0", mode: 0444}
+      - {source: par_db_centre_south_status, target: /opt/gm/seed/db/centre_south_status.py, uid: "0", gid: "0", mode: 0444}
+      - {source: par_route_abroad_status, target: /opt/gm/seed/routes/abroad_status.py, uid: "0", gid: "0", mode: 0444}
+      - {source: par_db_abroad_status, target: /opt/gm/seed/db/abroad_status.py, uid: "0", gid: "0", mode: 0444}
+      - {source: par_route_head_office_status, target: /opt/gm/seed/routes/head_office_status.py, uid: "0", gid: "0", mode: 0444}
+      - {source: par_db_head_office_status, target: /opt/gm/seed/db/head_office_status.py, uid: "0", gid: "0", mode: 0444}
+      - {source: par_route_messaging_status, target: /opt/gm/seed/routes/messaging_status.py, uid: "0", gid: "0", mode: 0444}
+      - {source: par_db_messaging_status, target: /opt/gm/seed/db/messaging_status.py, uid: "0", gid: "0", mode: 0444}
+      - {source: par_route_cold_storage_status, target: /opt/gm/seed/routes/cold_storage_status.py, uid: "0", gid: "0", mode: 0444}
+      - {source: par_db_cold_storage_status, target: /opt/gm/seed/db/cold_storage_status.py, uid: "0", gid: "0", mode: 0444}
+      - {source: par_route_practices_status, target: /opt/gm/seed/routes/practices_status.py, uid: "0", gid: "0", mode: 0444}
+      - {source: par_db_practices_status, target: /opt/gm/seed/db/practices_status.py, uid: "0", gid: "0", mode: 0444}
+      - {source: par_route_authority_status, target: /opt/gm/seed/routes/authority_status.py, uid: "0", gid: "0", mode: 0444}
+      - {source: par_db_authority_status, target: /opt/gm/seed/db/authority_status.py, uid: "0", gid: "0", mode: 0444}
+    secrets:
+      - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
+      - {source: role_xlab_password, target: /opt/gm/secrets/role_xlab_password, uid: "0", gid: "0", mode: 0400}
+      - {source: http_xlab_results, target: /opt/gm/secrets/http_xlab_results, uid: "0", gid: "0", mode: 0400}
+      - {source: http_interfaces_lab_api, target: /opt/gm/secrets/http_interfaces_lab_api, uid: "0", gid: "0", mode: 0400}
+    networks:
+      net:
+        aliases: [xlab, centre-north, centre-south, abroad, head-office, messaging, cold-storage, practices, authority]
+    deploy:
+      replicas: 1
+      resources:
+        limits: {cpus: "0.25", memory: 128M}
+
+  db:
+    image: 127.0.0.1:5000/dbagm/postgres:0.5.0
+    hostname: db
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [AUDIT_WRITE, CHOWN, DAC_OVERRIDE, FOWNER, KILL, NET_BIND_SERVICE, SETGID, SETUID, SYS_CHROOT]
+    environment:
+      TZ: UTC
+      GM_OPTIONS: monitoring
+    healthcheck:
+      test: ["CMD", "/bin/sh", "-c", "/usr/local/lib/gm/healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    volumes:
+      - {type: volume, source: db_pgdata, target: /var/lib/postgresql/18/data}
+      - {type: volume, source: db_pgconf, target: /etc/postgresql}
+      - {type: volume, source: db_home, target: /home/player}
+      - {type: volume, source: db_gmstate, target: /var/lib/gm-state}
+      - {type: volume, source: db_pglog, target: /var/log/postgresql}
+      - {type: volume, source: db_run, target: /run}
+      - {type: volume, source: db_cronspool, target: /var/spool/cron/crontabs}
+    configs:
+      - {source: seed_postgresql_conf, target: /opt/gm/seed/postgresql.conf, uid: "0", gid: "0", mode: 0444}
+      - {source: seed_pg_hba_conf, target: /opt/gm/seed/pg_hba.conf, uid: "0", gid: "0", mode: 0444}
+      - {source: db_envelopes, target: /opt/gm/protected/envelopes.conf, uid: "0", gid: "0", mode: 0444}
+    secrets:
+      - {source: player_ssh_pubkey, target: /opt/gm/secrets/player_ssh_pubkey, uid: "0", gid: "0", mode: 0444}
+      - {source: dba_password, target: /opt/gm/secrets/dba_password, uid: "0", gid: "0", mode: 0400}
+      - {source: monitoring_password, target: /opt/gm/secrets/monitoring_password, uid: "0", gid: "102", mode: 0440}
+      - {source: gm_check_password, target: /opt/gm/secrets/gm_check_password, uid: "0", gid: "0", mode: 0400}
+    networks: [net]
+    deploy:
+      replicas: 0          # scaled to 1 by the test, once the api nodes wait for it
+      resources:
+        limits: {cpus: "0.5", memory: 512M}
+
+networks:
+  net:
+    driver: overlay
+    attachable: true   # test only: lets the test client container join
+
+volumes:
+  lab_endpoints: {}
+  lab_apilog: {}
+  lab_home: {}
+  lab_gmstate: {}
+  lab_run: {}
+  par_endpoints: {}
+  par_apilog: {}
+  par_home: {}
+  par_gmstate: {}
+  par_run: {}
+  db_pgdata: {}
+  db_pgconf: {}
+  db_home: {}
+  db_gmstate: {}
+  db_pglog: {}
+  db_run: {}
+  db_cronspool: {}
+
+configs:
+  lab_api_yaml: {external: true, name: gmtest-api_lab_api_yaml}
+  lab_route_orders: {external: true, name: gmtest-api_lab_route_orders}
+  lab_db_orders: {external: true, name: gmtest-api_lab_db_orders}
+  nh_script: {external: true, name: gmtest-api_nh_script}
+  nh_type: {external: true, name: gmtest-api_nh_type}
+  nh_run: {external: true, name: gmtest-api_nh_run}
+  nh_dep_base: {external: true, name: gmtest-api_nh_dep_base}
+  nh_bundle: {external: true, name: gmtest-api_nh_bundle}
+  nh_conf_lab: {external: true, name: gmtest-api_nh_conf_lab}
+  par_api_yaml: {external: true, name: gmtest-api_par_api_yaml}
+  par_route_xlab_results: {external: true, name: gmtest-api_par_route_xlab_results}
+  par_db_xlab_results: {external: true, name: gmtest-api_par_db_xlab_results}
+  par_route_centre_north_status: {external: true, name: gmtest-api_par_route_centre_north_status}
+  par_db_centre_north_status: {external: true, name: gmtest-api_par_db_centre_north_status}
+  par_route_centre_south_status: {external: true, name: gmtest-api_par_route_centre_south_status}
+  par_db_centre_south_status: {external: true, name: gmtest-api_par_db_centre_south_status}
+  par_route_abroad_status: {external: true, name: gmtest-api_par_route_abroad_status}
+  par_db_abroad_status: {external: true, name: gmtest-api_par_db_abroad_status}
+  par_route_head_office_status: {external: true, name: gmtest-api_par_route_head_office_status}
+  par_db_head_office_status: {external: true, name: gmtest-api_par_db_head_office_status}
+  par_route_messaging_status: {external: true, name: gmtest-api_par_route_messaging_status}
+  par_db_messaging_status: {external: true, name: gmtest-api_par_db_messaging_status}
+  par_route_cold_storage_status: {external: true, name: gmtest-api_par_route_cold_storage_status}
+  par_db_cold_storage_status: {external: true, name: gmtest-api_par_db_cold_storage_status}
+  par_route_practices_status: {external: true, name: gmtest-api_par_route_practices_status}
+  par_db_practices_status: {external: true, name: gmtest-api_par_db_practices_status}
+  par_route_authority_status: {external: true, name: gmtest-api_par_route_authority_status}
+  par_db_authority_status: {external: true, name: gmtest-api_par_db_authority_status}
+  seed_postgresql_conf: {external: true, name: gmtest-api_seed_postgresql_conf}
+  seed_pg_hba_conf: {external: true, name: gmtest-api_seed_pg_hba_conf}
+  db_envelopes: {external: true, name: gmtest-api_db_envelopes}
+
+secrets:
+  player_ssh_pubkey: {external: true, name: gmtest-api_player_ssh_pubkey}
+  role_lab_api_password: {external: true, name: gmtest-api_role_lab_api_password}
+  http_interfaces_lab_api: {external: true, name: gmtest-api_http_interfaces_lab_api}
+  role_xlab_password: {external: true, name: gmtest-api_role_xlab_password}
+  http_xlab_results: {external: true, name: gmtest-api_http_xlab_results}
+  dba_password: {external: true, name: gmtest-api_dba_password}
+  monitoring_password: {external: true, name: gmtest-api_monitoring_password}
+  gm_check_password: {external: true, name: gmtest-api_gm_check_password}

@@ -1,0 +1,10 @@
+# A test core of tools/tests (v0.5 chunk 2): not a game domain.
+id: fx-core
+title: A test core holding owners
+schema: data/schema.sql
+load: data/load.sql
+classification: data/classification.yaml
+register: data/register.yaml
+producers: producers/
+notes: docs/gm.md
+purposes: []

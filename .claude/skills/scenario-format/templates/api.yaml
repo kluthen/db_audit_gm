@@ -1,0 +1,35 @@
+# api.yaml — template for scenarios/<scenario-id>/nodes/<node>/api.yaml, an
+# api node's endpoint file (the api brick's seed file api.yaml), and for a
+# domain's fragment of it, domains/<domain-id>/producers/api/<node>/api.yaml
+# or producers/partners/<partner>/api.yaml
+#
+# Version v0.5, expected to evolve as games are played.
+# Shape: v0.5 master spec 6.5, 6.8, 7.2 ("The api brick"), access model 5,
+# with the shape capture W1 of specs/versions/v0.5/wave-log.md (item 5,
+# spec D345) settles. Declarative, no secret: which hostname serves which
+# endpoint, the HTTP credentials each accepts, and the node's connections,
+# from which render derives the application roles' secrets and the
+# credentials it mounts. Each endpoint <name> is served by routes/<name>.py
+# (defines router, a FastAPI APIRouter) and db/<name>.py (its database
+# side), beside this file. A fragment holds only the entries it adds; gmctl
+# compose merges endpoints.<name> and connections.<name>.
+#
+# Markers:
+#   every key is REQUIRED unless marked otherwise;
+#   "# optional: <when>"  the key is present only when <when> holds.
+# Replace every <placeholder>. A filled file keeps no <placeholder>.
+
+endpoints:                          # name -> how it is served; [a-z][a-z0-9_]* (a Python
+                                    # module's), a partner's prefixed <prefix>_ (xlab_orders)
+  <orders>:
+    hosts: [<lab-api>]              # the hostnames it answers under (the request's Host without
+                                    # its port): on a node in the players' scope its own name
+                                    # only; on the partners' node a third party's hostname, or
+                                    # owners
+    credentials: [<interfaces_lab_api>]   # optional: absent for a public endpoint. Those it
+                                    # accepts, any one ([a-z][a-z0-9_]*, the game's secret
+                                    # http_<credential>); missing or wrong: 401
+connections:                        # optional: when an endpoint's db/ side reads or calls.
+                                    # schedule.yaml's two forms: sql/postgresql (target, role,
+                                    # pool {size: N}) or http (target, credential, pool N, timeout)
+  <lab>: {driver: <sql/postgresql>, target: <lab:5432/lab>, role: <lab_api>, pool: {size: <4>}}

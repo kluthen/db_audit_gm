@@ -11,6 +11,10 @@
 # container's memory limit (raising needs no capability), while the
 # postmaster, s6, sshd and cron stay at 0: the kernel's out-of-memory
 # killer ends a backend before any of them.
+# PATH: what archive_command and the server's other shell commands find
+# (vault-post in /usr/local/bin), set here, not inherited (s6 gives its
+# services a minimal environment).
+export PATH=/usr/local/bin:/usr/bin:/bin:/usr/lib/postgresql/18/bin
 export PG_OOM_ADJUST_FILE=/proc/self/oom_score_adj
 export PG_OOM_ADJUST_VALUE=300
 exec 2>&1

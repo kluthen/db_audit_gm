@@ -1,0 +1,11 @@
+# The test part's desk schedule, a fragment.
+connections:
+  part:
+    driver: sql/postgresql
+    target: records:5432/clinic
+    role: part_app
+    pool: {size: 2}
+streams:
+  - key: part.boxes.read
+    connection: part
+    rate: 5/min

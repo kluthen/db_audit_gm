@@ -14,7 +14,7 @@
 version: "3.8"
 
 x-brick: &brick
-  image: 127.0.0.1:5000/dbagm/postgres:0.4.0
+  image: 127.0.0.1:5000/dbagm/postgres:0.5.0
   read_only: true
   cap_drop: [ALL]
   cap_add: [AUDIT_WRITE, CHOWN, DAC_OVERRIDE, FOWNER, KILL, NET_BIND_SERVICE, SETGID, SETUID, SYS_CHROOT]
@@ -30,6 +30,8 @@ services:
   db:
     <<: *brick
     hostname: db
+    environment:                    # the shop's instance chooses the option, as the scenario's db
+      GM_OPTIONS: monitoring        #   does (v0.5 capture W1 items 0, 1; spec D346)
     volumes:
       - {type: volume, source: db_pgdata, target: /var/lib/postgresql/18/data}
       - {type: volume, source: db_pgconf, target: /etc/postgresql}

@@ -43,7 +43,11 @@ Master spec 10.3; files, names and labels fixed by capture W2-A
                          item 8), one per role per game; and (master spec
                          9.7) one per login role a node's data file
                          creates without a password of its own, mounted
-                         nowhere: load-data sets it.
+                         nowhere: load-data sets it. From v0.5 (capture W1
+                         items 5 and 6): a certificate `<pair>.crt` and its
+                         key `<pair>.key` (the game's TLS pair, `tls`), and
+                         the role passwords an `api` node's `api.yaml`
+                         names; an option's secret only where it is chosen.
 
 Every path an implementation records (`file:`) is relative to the scenario
 folder.
@@ -131,20 +135,31 @@ PARAMETER_KIND = "parameter"
 # Per-game secrets, by kind (v0.2 capture W1, item 7): a password writes
 # secrets/<name>; a key pair writes secrets/<pair> and secrets/<pair>.pub,
 # each half mounting the matching file. The Swarm secret is <game_id>_<name>.
+# v0.5 (capture W1 item 6): a certificate writes secrets/<pair>.crt and
+# secrets/<pair>.key, a self-signed certificate naming every `postgres`
+# node and localhost, and its private key.
 PASSWORD = "password"
 KEY_PAIR = "key-pair"
-SECRET_KINDS = (PASSWORD, KEY_PAIR)
+CERTIFICATE = "certificate"
+SECRET_KINDS = (PASSWORD, KEY_PAIR, CERTIFICATE)
 KEY_HALVES = ("private", "public")
 PUBLIC_KEY_SUFFIX = ".pub"
+CERTIFICATE_HALVES = ("certificate", "key")
+CERTIFICATE_SUFFIXES = {"certificate": ".crt", "key": ".key"}
 # A scheduler's connection secrets (v0.3 capture W1, item 7): one password
 # per role its schedule.yaml names, derived here, never declared in
 # brick.yaml; mounted root-only in each scheduler node naming the role.
 # Master spec 9.7: every login role a data file creates has one too, the
 # same name, set by load-data and mounted only where a schedule or a
-# node's crontab_roles names the role.
+# node's crontab_roles names the role. v0.5 (spec D345; capture W1 item
+# 5): an `api` node's `api.yaml` connections name roles as a schedule's
+# do; a `driver: http` connection names none, in either file.
 ROLE_SECRET_PREFIX, ROLE_SECRET_SUFFIX = "role_", "_password"
 ROLE_SECRET_DIR = "/opt/gm/secrets"
 ROLE_SECRET_UID, ROLE_SECRET_GID, ROLE_SECRET_MODE = 0, 0, "0400"
+API_BRICK = "api"                   # an api node: a node whose brick id is this (W1 item 5)
+API_FILE = "api.yaml"               # its seed file naming endpoints and connections
+HTTP_DRIVER = "http"                # a connection naming no role (W1 item 3)
 
 GAME_ID_MAX = 63                    # master spec 10.3
 SERVICE_NAME_MAX = 63               # Swarm service names
@@ -498,6 +513,19 @@ def seed_entries(scenario, node):
     return out
 
 
+def standby_of(node):
+    """The primary's node name of a standby (`standby_of:`, v0.5 master
+    spec 6.2, 7.1), or None for a node that is no standby."""
+    primary = node.get("standby_of") if isinstance(node, dict) else None
+    return primary if isinstance(primary, str) and primary else None
+
+
+def standby_slot(name):
+    """The physical replication slot of the standby `name` on its primary:
+    its node name, `-` read as `_` (v0.5 capture W1 item 6)."""
+    return str(name).replace("-", "_")
+
+
 def rendered_seed_file(playground, node, fname):
     """A seed file render rewrites, relative to the scenario folder."""
     return f"local/{playground}/{RENDERED_DIR}/{node}/{fname}"
@@ -627,17 +655,27 @@ def network_name(scenario):
 
 def secret_file(sec):
     """The file in `secrets/` a declared secret mounts: a password's name,
-    a key pair's `<pair>` (private half) or `<pair>.pub` (public half)."""
+    a key pair's `<pair>` (private half) or `<pair>.pub` (public half), a
+    certificate's `<pair>.crt` or `<pair>.key`."""
     if sec.get("kind") == KEY_PAIR:
         return sec["pair"] + (PUBLIC_KEY_SUFFIX if sec.get("half") == "public" else "")
+    if sec.get("kind") == CERTIFICATE:
+        return sec["pair"] + CERTIFICATE_SUFFIXES[sec.get("half")]
     return sec["name"]
+
+
+def pair_files(kind, pair):
+    """The two files a key pair or a certificate of name `pair` writes."""
+    if kind == CERTIFICATE:
+        return [pair + CERTIFICATE_SUFFIXES[h] for h in CERTIFICATE_HALVES]
+    return [pair, pair + PUBLIC_KEY_SUFFIX]
 
 
 def _secret_identity(sec):
     """What two declarations of one name must agree on (capture W1, item 7)."""
     if sec.get("kind") == PASSWORD:
         return {"kind": PASSWORD, "handed_over": sec.get("handed_over") is True}
-    return {"kind": KEY_PAIR, "pair": sec.get("pair"), "half": sec.get("half")}
+    return {"kind": sec.get("kind"), "pair": sec.get("pair"), "half": sec.get("half")}
 
 
 def _secret_problems(brick, sec):
@@ -654,14 +692,15 @@ def _secret_problems(brick, sec):
         out += [f"{where}: {key} is for a key pair, not a password"
                 for key in ("pair", "half") if key in sec]
     else:
+        halves = KEY_HALVES if kind == KEY_PAIR else CERTIFICATE_HALVES
         pair = sec.get("pair")
         if not isinstance(pair, str) or not OBJECT_NAME_RE.match(pair):
-            out.append(f"{where}: kind key-pair needs pair, the pair's name (got {pair!r})")
-        if sec.get("half") not in KEY_HALVES:
-            out.append(f"{where}: kind key-pair needs half, private or public "
+            out.append(f"{where}: kind {kind} needs pair, the pair's name (got {pair!r})")
+        if sec.get("half") not in halves:
+            out.append(f"{where}: kind {kind} needs half, {' or '.join(halves)} "
                        f"(got {sec.get('half')!r})")
         if "handed_over" in sec:
-            out.append(f"{where}: handed_over is for a password, not a key pair")
+            out.append(f"{where}: handed_over is for a password, not a {kind}")
     return out
 
 
@@ -669,12 +708,17 @@ def role_secret_name(role):
     return f"{ROLE_SECRET_PREFIX}{role}{ROLE_SECRET_SUFFIX}"
 
 
-def schedule_connections(scenario, node):
-    """A scheduler node's schedule.yaml `connections` (`{}` for another
-    node, or when the file cannot be read: the loader reports it)."""
-    if not is_scheduler_node(node):
-        return {}
-    rel = (node.get("seed_files") or {}).get(SCHEDULE_FILE)
+def is_api_node(node):
+    """A node of the `api` brick (v0.5 capture W1 item 5)."""
+    return isinstance(node, dict) and isinstance(node.get("brick"), dict) \
+        and node["brick"].get("id") == API_BRICK
+
+
+def _seed_connections(scenario, node, fname):
+    """The `connections` map of the node's seed file `fname` (`{}` when
+    the node seeds none, or when it cannot be read: the loader reports
+    it)."""
+    rel = (node.get("seed_files") or {}).get(fname)
     if rel is None:
         return {}
     try:
@@ -685,11 +729,37 @@ def schedule_connections(scenario, node):
     return connections if isinstance(connections, dict) else {}
 
 
+def schedule_connections(scenario, node):
+    """A scheduler node's schedule.yaml `connections` (`{}` for another
+    node, or when the file cannot be read: the loader reports it)."""
+    return _seed_connections(scenario, node, SCHEDULE_FILE) if is_scheduler_node(node) else {}
+
+
+def node_connections(scenario, node):
+    """The connections a node's seed declares: a scheduler node's
+    schedule.yaml, an `api` node's api.yaml (spec D345); `{}` for
+    another node."""
+    if is_scheduler_node(node):
+        return schedule_connections(scenario, node)
+    if is_api_node(node):
+        return _seed_connections(scenario, node, API_FILE)
+    return {}
+
+
+def sql_connections(scenario, node):
+    """node_connections without the `driver: http` ones, which name no
+    role and no database (v0.5 capture W1 item 3): `{name: connection}`,
+    in their order."""
+    return {name: conn for name, conn in node_connections(scenario, node).items()
+            if isinstance(conn, dict) and conn.get("driver") != HTTP_DRIVER}
+
+
 def connection_roles(scenario, node):
-    """The roles a scheduler node's schedule names, in first-use order."""
+    """The roles a scheduler node's schedule or an `api` node's api.yaml
+    names, in first-use order; an HTTP connection names none."""
     roles = []
-    for conn in schedule_connections(scenario, node).values():
-        role = conn.get("role") if isinstance(conn, dict) else None
+    for conn in sql_connections(scenario, node).values():
+        role = conn.get("role")
         if isinstance(role, str) and role not in roles:
             roles.append(role)
     return roles
@@ -719,16 +789,43 @@ def topology_roles(scenario):
     return {n.get("role") for n in scenario.nodes}
 
 
+def node_options(node):
+    """The options a node chooses (`options:`, v0.5 master spec 6.8), in
+    their order; [] for a node with none."""
+    options = node.get("options")
+    return [o for o in options if isinstance(o, str)] if isinstance(options, list) else []
+
+
+def unchosen_option_secrets(brick_data, node):
+    """The secrets the brick's options bring that no option the node
+    chooses brings (v0.5 capture W1 item 1): declared under `secrets:`,
+    mounted only on a node choosing an option that brings them."""
+    chosen, brought, kept = set(node_options(node)), set(), set()
+    for option in brick_data.get("options") or []:
+        if not isinstance(option, dict):
+            continue
+        names = ((option.get("brings") or {}).get("secrets") or []) \
+            if isinstance(option.get("brings"), dict) else []
+        (kept if option.get("name") in chosen else brought).update(
+            n for n in names if isinstance(n, str))
+    return brought - kept
+
+
 def node_secret_declarations(scenario, node):
     """The secrets a node mounts, as declarations: its brick's whose
     `only_with_role` condition holds (a node of the topology has that role;
-    v0.3 capture W1, item 3), then one password `role_<role>_password`,
+    v0.3 capture W1, item 3) and that no option the node leaves off brings
+    alone (v0.5 W1 item 1), then one password `role_<role>_password`,
     root-only under /opt/gm/secrets/, per role a scheduler node's schedule
-    names (v0.3 W1 item 7) or a node's `crontab_roles` names (v0.4 W1 item
-    8): one secret per role per game, shared by every node naming it."""
+    or an `api` node's api.yaml names (v0.3 W1 item 7, spec D345) or a
+    node's `crontab_roles` names (v0.4 W1 item 8): one secret per role per
+    game, shared by every node naming it."""
     roles = topology_roles(scenario)
-    out = [sec for sec in scenario.bricks[node["name"]].data.get("secrets") or []
-           if sec.get("only_with_role") is None or sec.get("only_with_role") in roles]
+    brick = scenario.bricks[node["name"]].data
+    off = unchosen_option_secrets(brick, node)
+    out = [sec for sec in brick.get("secrets") or []
+           if (sec.get("only_with_role") is None or sec.get("only_with_role") in roles)
+           and sec.get("name") not in off]
     for role in dict.fromkeys(connection_roles(scenario, node) + crontab_roles(node)):
         name = role_secret_name(role)
         out.append({"name": name, "kind": PASSWORD, "path": posixpath.join(ROLE_SECRET_DIR, name),
@@ -767,12 +864,19 @@ def game_secrets(scenario):
         for role in data_login_roles(scenario, node):
             found.setdefault(role_secret_name(role), (
                 scenario.bricks[node["name"]].id, {"kind": PASSWORD, "handed_over": False}))
-    pairs = {i["pair"] for _, i in found.values() if i["kind"] == KEY_PAIR}
-    pair_files = {f: p for p in pairs for f in (p, p + PUBLIC_KEY_SUFFIX)}
+    pairs = {(i["kind"], i["pair"]) for _, i in found.values() if i["kind"] != PASSWORD}
+    written = {f: (k, p) for k, p in pairs for f in pair_files(k, p)}
     for name, (bid, identity) in found.items():
-        if identity["kind"] == PASSWORD and name in pair_files:
+        if identity["kind"] == PASSWORD and name in written:
+            kind, pair = written[name]
             problems.append(f"password {name} (brick {bid}) would be written to the file of "
-                            f"key pair {pair_files[name]}: rename one of them")
+                            f"{'key pair' if kind == KEY_PAIR else kind} {pair}: rename one "
+                            "of them")
+    for kind, pair in pairs:
+        others = {k for k, p in pairs if p == pair and k != kind}
+        if kind == KEY_PAIR and others:
+            problems.append(f"pair {pair} is declared as a key pair and as a certificate: "
+                            "rename one of them")
     secrets = [{"secret": name, **identity,
                 "file": secret_file({"name": name, **identity})}
                for name, (_, identity) in found.items()]
@@ -782,6 +886,8 @@ def game_secrets(scenario):
 def _identity_text(identity):
     if identity["kind"] == PASSWORD:
         return "password" + (", handed over" if identity["handed_over"] else "")
+    if identity["kind"] == CERTIFICATE:
+        return f"certificate {identity['pair']}, {identity['half']} half"
     return f"key pair {identity['pair']}, {identity['half']} half"
 
 

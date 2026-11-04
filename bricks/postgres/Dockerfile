@@ -2,7 +2,7 @@
 #
 # Generic image: no scenario content. Seed files, the envelope file and the
 # secrets arrive at run time at the fixed paths declared in brick.yaml.
-# Build:  docker build -t 127.0.0.1:5000/dbagm/postgres:0.4.0 bricks/postgres
+# Build:  docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.0 bricks/postgres
 # Architecture: x86_64 only in v0.1 (the s6-overlay archive below).
 
 # --- rootfs/, its modes independent of the checkout --------------------------
@@ -24,6 +24,12 @@ ARG S6_OVERLAY_VERSION=3.2.3.2
 # pgbouncer precedent, D177): 1.6.8 stops cron.unschedule matching a job's
 # owner case-insensitively, so 1.6.7 is not acceptable.
 ARG PG_CRON_PACKAGE=1.6.8-1.pgdg13+2
+# pgaudit, pinned exactly (G5, specs/versions/v0.5/wave-log.md): upstream
+# 18.0, always installed, turned on by a seed only (v0.5 master spec 7.1).
+ARG PG_AUDIT_PACKAGE=18.0-3.pgdg13+1
+# The OpenSSL floor PostgreSQL's TLS runs on (G5: DSA-6531-1, fixed only in
+# trixie-security); the libraries come with postgresql-common.
+ARG LIBSSL_FLOOR=3.5.7-1~deb13u3
 
 # s6-overlay v3, pinned, verified against the release's published SHA-256.
 ADD --checksum=sha256:5379750ed30a84bbd2e2dd74847ba6b5bd29cd0b2e3ea2ec58049b57eb2eda12 \
@@ -31,8 +37,8 @@ ADD --checksum=sha256:5379750ed30a84bbd2e2dd74847ba6b5bd29cd0b2e3ea2ec58049b57eb
 ADD --checksum=sha256:e6befcc96a437a3831386ecfc51808c5d3e939dc5fe3c02ae9284599e8aa2408 \
     https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /tmp/
 
-# PostgreSQL ${PG_MAJOR} (server and client, pg_stat_statements included),
-# pg_cron and pgBadger from the PGDG repository, whose signing key Debian
+# PostgreSQL ${PG_MAJOR} (server and client, pg_stat_statements included,
+# built with OpenSSL), pg_cron, pgaudit and pgBadger from the PGDG repository, whose signing key Debian
 # ships in postgresql-common (packages verified by apt against it), and
 # Debian's cron daemon, unpinned as openssh-server and sudo are (master
 # spec 7.2). Both jobs packages sit idle until a scenario uses them: a seed
@@ -50,7 +56,8 @@ RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
         "postgresql-${PG_MAJOR}" "postgresql-client-${PG_MAJOR}" pgbadger \
-        "postgresql-${PG_MAJOR}-cron=${PG_CRON_PACKAGE}" cron \
+        "postgresql-${PG_MAJOR}-cron=${PG_CRON_PACKAGE}" \
+        "postgresql-${PG_MAJOR}-pgaudit=${PG_AUDIT_PACKAGE}" cron \
         openssh-server openssh-client sudo procps less nano vim-tiny; \
     tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz; \
     tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz; \
@@ -65,6 +72,19 @@ RUN set -eux; \
     pgbadger --version; \
     test "$(dpkg-query -W -f '${Version}' "postgresql-${PG_MAJOR}-cron")" = "${PG_CRON_PACKAGE}"; \
     test -f "/usr/lib/postgresql/${PG_MAJOR}/lib/pg_cron.so"; \
+    test "$(dpkg-query -W -f '${Version}' "postgresql-${PG_MAJOR}-pgaudit")" = "${PG_AUDIT_PACKAGE}"; \
+    test -f "/usr/lib/postgresql/${PG_MAJOR}/lib/pgaudit.so"; \
+    # TLS (G5): OpenSSL at or above the floor; ssl-cert's snakeoil pair, the
+    # same in every game built from this image, deleted: a game's TLS
+    # certificate and key are per-game secrets (brick.yaml)
+    dpkg --compare-versions "$(dpkg-query -W -f '${Version}' libssl3t64)" ge "${LIBSSL_FLOOR}"; \
+    rm -f /etc/ssl/private/ssl-cert-snakeoil.key /etc/ssl/certs/ssl-cert-snakeoil.pem; \
+    test ! -e /etc/ssl/private/ssl-cert-snakeoil.key; \
+    test ! -e /etc/ssl/certs/ssl-cert-snakeoil.pem; \
+    # vault-post's core Perl (G5: no package added for the posting command)
+    perl -MHTTP::Tiny -e 1; \
+    perl -MJSON::PP -MFile::Temp -MSys::Hostname -e 1; \
+    test -x "/usr/lib/postgresql/${PG_MAJOR}/bin/pg_basebackup"; \
     test -x /usr/sbin/cron; \
     # cron reads only postgres's crontab in its spool (volume cronspool):
     # no system crontab, no /etc/cron.d entry, no run-parts job as root
@@ -111,18 +131,44 @@ COPY validator/validate.sh /opt/gm/validator/validate.sh
 
 # Protected files: root-owned, read-only for everyone else.
 RUN set -eux; \
-    chown -R root:root /etc/s6-overlay /usr/local/sbin /usr/local/lib/gm /opt/gm/validator \
+    chown -R root:root /etc/s6-overlay /usr/local/sbin /usr/local/lib/gm /usr/local/bin/vault-post /opt/gm/validator \
         /etc/ssh/sshd_config /etc/sudoers.d/gm-player /etc/motd /etc/profile.d/gm-postgres.sh; \
     chmod 0755 /usr/local/sbin/gm-entrypoint /usr/local/sbin/gm-reload-db /usr/local/sbin/gm-restart-db \
         /usr/local/sbin/gm-validate /usr/local/sbin/gm-crontab /usr/local/lib/gm/healthcheck \
-        /opt/gm/validator/validate.sh \
+        /opt/gm/validator/validate.sh /usr/local/bin/vault-post \
         /etc/s6-overlay/s6-rc.d/postgres/run /etc/s6-overlay/s6-rc.d/sshd/run /etc/s6-overlay/s6-rc.d/cron/run; \
-    # root only: the GM check role's psql (its secret is root's alone) and
-    # the hand-over snapshot of pgdata (not a sudo wrapper)
-    chmod 0700 /usr/local/lib/gm/check-psql /usr/local/sbin/gm-snapshot-db; \
+    # root only: the GM check role's psql (its secret is root's alone), the
+    # hand-over snapshot of pgdata and the standby's clone (not sudo wrappers)
+    chmod 0700 /usr/local/lib/gm/check-psql /usr/local/sbin/gm-snapshot-db /usr/local/lib/gm/clone-standby; \
+    perl -c /usr/local/bin/vault-post; \
     chmod 0644 /etc/ssh/sshd_config /etc/motd /etc/profile.d/gm-postgres.sh; \
     chmod 0440 /etc/sudoers.d/gm-player; \
     visudo -c
+
+# The accounts, generated at each start (v0.5 master spec 10.2, `no-access`;
+# docs/gm.md, "Accounts and access"). The root filesystem is read-only, so
+# the account files and the player's sudo rules live under /run, written
+# by gm-entrypoint from the copies kept here: as built on a `fixable` or
+# `report-only` node; without `player`, its group and its sudo rules on a
+# `no-access` node. The image's own /run/gm-accounts holds the files as
+# built: the Docker daemon resolves `docker exec -u postgres` (gmctl's
+# exec) from the image's root filesystem, where the /run volume is not
+# mounted, so the links must resolve there too; inside the container the
+# volume, rewritten at each start, hides that copy. Last step: nothing
+# after it resolves a name at build.
+RUN set -eux; \
+    install -d -o root -g root -m 0755 /usr/local/lib/gm/accounts /run/gm-accounts; \
+    for f in passwd group shadow gshadow; do \
+        cp -p "/etc/$f" "/usr/local/lib/gm/accounts/$f"; \
+        cp -p "/etc/$f" "/run/gm-accounts/$f"; \
+    done; \
+    mv /etc/sudoers.d/gm-player /usr/local/lib/gm/accounts/sudoers-gm-player; \
+    test "$(stat -c '%a %U:%G' /usr/local/lib/gm/accounts/shadow)" = "640 root:shadow"; \
+    test "$(stat -c '%a %U:%G' /usr/local/lib/gm/accounts/sudoers-gm-player)" = "440 root:root"; \
+    for f in passwd group shadow gshadow; do \
+        ln -sfn "/run/gm-accounts/$f" "/etc/$f"; \
+    done; \
+    ln -s /run/gm-accounts/sudoers-gm-player /etc/sudoers.d/gm-player
 
 ENV S6_READ_ONLY_ROOT=1 \
     S6_BEHAVIOUR_IF_STAGE2_FAILS=2 \

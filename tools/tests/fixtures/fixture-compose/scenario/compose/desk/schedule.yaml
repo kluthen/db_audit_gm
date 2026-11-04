@@ -1,0 +1,6 @@
+# The scenario layer of node desk: its intensity and timeline.
+intensity: 1.0
+timeline:
+  - at: handover-2h
+    stream: owners.lookup
+    set: {rate: 40/min}

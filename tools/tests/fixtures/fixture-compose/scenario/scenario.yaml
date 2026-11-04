@@ -1,0 +1,28 @@
+# The compose fixture's scenario (tools/tests, v0.5 chunk 2): only what
+# gmctl compose and the composition check read; not a complete scenario.
+id: fixture-compose
+nodes:
+  - {name: records, brick: postgres@0.5.0, role: database}
+  - {name: desk, brick: scheduler@0.3.0, role: producer}
+  - {name: core-api, brick: api@0.1.0, role: api}
+  - {name: partners-db, brick: postgres@0.5.0, role: database, write_policy: no-access}
+  - {name: partners-backend, brick: scheduler@0.3.0, role: producer, write_policy: no-access}
+  - {name: partners-api, brick: api@0.1.0, role: api, write_policy: no-access}
+domains:
+  - {id: fx-core, variant: big, at: records/clinic}
+  - {id: fx-part, at: records/clinic}
+third_parties:
+  - id: northfield-practices
+    name: Northfield Practices
+    stands_for: the region's referring practices
+    role: round-trip
+    nodes: [partners-api, partners-backend, partners-db]
+    hostname: practices
+    player_doc: player/partners.md#northfield-practices
+  - id: no-node-authority
+    name: The Authority
+    stands_for: an authority with no node
+    role: outbound
+    nodes: []
+    hostname: authority
+    player_doc: player/partners.md#the-authority

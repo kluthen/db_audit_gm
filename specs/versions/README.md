@@ -231,4 +231,10 @@ aged run is decided then (D193).
     fails, into the bricks' "Footprint" and the scenario's `resources`,
     `fit` re-run;
   - **the clinic's rehearsal**: unattended, with the early check, a
-    scheduler killed and resuming, a restart, on two hosts.
+    scheduler killed and resuming, a restart, on two hosts;
+  - **a restart from a hand-over snapshot with a standby** (D352): not
+    built in v0.5, where no game reaches it; `restart.py` clones the
+    standby again after the restore (a base backup leaves out
+    `standby.signal` and the primary's slot), built and proven before
+    v1.0's test if that test takes a snapshot (v0.5 master spec 18.4:
+    whether one is needed and fits).

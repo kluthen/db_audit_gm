@@ -18,7 +18,7 @@ severity: high
 applies_to:
   bricks:
     - id: scheduler
-      versions: ["0.2.0"]
+      versions: ["0.2.0", "0.3.0"]
   purposes: [shop-winback-leads, shop-customer-mailing]
   preconditions:
     - >-

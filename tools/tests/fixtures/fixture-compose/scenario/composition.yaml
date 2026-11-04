@@ -1,0 +1,8 @@
+# The compose fixture's composition record (tools/tests, v0.5 chunk 2).
+domains:
+  - {id: fx-core, variant: big, at: records/clinic}
+  - {id: fx-part, at: records/clinic, lands_with: fx-core}
+keys:
+  fx-part: [owners-by-id]
+scale: {checked: true, note: "four boxes for ten owners"}
+order: [fx-core, fx-part]

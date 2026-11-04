@@ -1,9 +1,10 @@
-# scheduler node for db_audit_gm (v0.3 master spec 7.1).
+# scheduler node for db_audit_gm (v0.3 master spec 7.1; v0.5 master spec 7.2:
+# the HTTP driver, the scripts' HTTP client, no-access).
 #
 # Generic image: no scenario content. The schedule, the repository, the jobs
 # and the role passwords arrive at run time at the fixed paths declared in
 # brick.yaml.
-# Build:       docker build -t 127.0.0.1:5000/dbagm/scheduler:0.2.0 bricks/scheduler
+# Build:       docker build -t 127.0.0.1:5000/dbagm/scheduler:0.3.0 bricks/scheduler
 # Unit tests:  sh bricks/scheduler/tests/run-unit-tests.sh (the `unit-test` stage)
 # Architecture: x86_64 only (the s6-overlay archive below).
 
@@ -133,6 +134,27 @@ RUN set -eux; \
         PATH=/command:/usr/bin:/bin command -v "$c" >/dev/null; \
     done
 
+# Accounts by write policy (v0.5, `no-access`: master spec 10.2; capture W1
+# item 4; W1-y). On a read-only root no account can be removed at start, so
+# two sets are baked: player/ (every account above) and no-access/ (the same
+# without `player`, whose group goes and `schedconf` has no member). The
+# account files /etc/passwd, group, shadow and gshadow are links into
+# /run/gm-accounts, which the entrypoint fills from one set at every start,
+# before anything looks a name up. Last of the node's RUN steps: no name
+# resolves at build time after it.
+RUN set -eux; \
+    install -d -m 0755 /etc/gm-accounts /etc/gm-accounts/player /etc/gm-accounts/no-access; \
+    for f in passwd group shadow gshadow; do cp -p "/etc/$f" "/etc/gm-accounts/player/$f"; done; \
+    userdel player; \
+    for f in passwd group shadow gshadow; do cp -p "/etc/$f" "/etc/gm-accounts/no-access/$f"; done; \
+    grep -q '^player:' /etc/gm-accounts/player/passwd; \
+    grep -q '^schedconf:x:994:player$' /etc/gm-accounts/player/group; \
+    ! grep -q '^player:' /etc/gm-accounts/no-access/passwd /etc/gm-accounts/no-access/shadow; \
+    grep -q '^schedconf:x:994:$' /etc/gm-accounts/no-access/group; \
+    ! grep -q 'player' /etc/gm-accounts/no-access/group /etc/gm-accounts/no-access/gshadow; \
+    grep -q '^scheduler:x:993:993:' /etc/gm-accounts/no-access/passwd; \
+    for f in passwd group shadow gshadow; do rm -f "/etc/$f" "/etc/$f-"; ln -s "/run/gm-accounts/$f" "/etc/$f"; done
+
 ENV S6_READ_ONLY_ROOT=1 \
     S6_BEHAVIOUR_IF_STAGE2_FAILS=2 \
     S6_SERVICES_GRACETIME=8000 \
@@ -144,3 +166,11 @@ EXPOSE 9120 22
 # gm-entrypoint prepares /run, the policy and the files, then execs
 # s6-overlay's /init, which supervises `scheduler` and `sshd`.
 ENTRYPOINT ["/usr/local/sbin/gm-entrypoint"]
+
+# --- the image: the node, and the account files as the engine reads them ------
+# `docker exec -u scheduler` (the GM's validator run) looks the name up in
+# the image's own files, outside the container's volumes, so the image's
+# /run/gm-accounts holds the full set's passwd and group; inside the
+# container /run is a volume the entrypoint fills (above).
+FROM node
+COPY --from=node /etc/gm-accounts/player/passwd /etc/gm-accounts/player/group /run/gm-accounts/

@@ -1,0 +1,5 @@
+# The test core's api node, a fragment.
+endpoints:
+  lookup: {hosts: [core-api], credentials: [desk_lookup]}
+connections:
+  clinic: {driver: sql/postgresql, target: records:5432/clinic, role: core_api, pool: {size: 2}}

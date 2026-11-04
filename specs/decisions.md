@@ -670,3 +670,100 @@ D337 and D341 were reserved and never used). Take the next number from
   VPS (O226); machine 10's telemetry settled by measurement in chunk 15
   (O227). Closes O223–O227. Now in:
   [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#settled-with-the-owner).
+- **D344 (2026-11-03, wave 1 preflight correction 1): A domain's
+  producer fragments sit in one folder per scheduler node they target,
+  `producers/<node>/`; `api`, `partners` and `public` are reserved; the
+  shop's move to `producers/producer/`.** The approved format said a
+  domain declares the nodes its fragments target, but not how;
+  `vet-housing` feeds `pms` and `ward`. Now in:
+  [formats.md](formats.md#producer-material),
+  [versions/v0.5/master-spec.md](versions/v0.5/master-spec.md#61-the-domain-format) 6.1, 8.4,
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 2, 9, 12.
+- **D345 (2026-11-03, correction 2): An `api` node's `api.yaml` names
+  each endpoint's hostnames and accepted credentials and the node's
+  connections; chunk 3 derives its roles' secrets and passwords from
+  it, skipping `driver: http` connections.** 6.5 named the roles'
+  secrets but nothing derived them; chunk 3 holds `localimpl.py` and
+  `inject.py` in wave 1, so chunks 7 and 8 never share `inject.py`.
+  Now in: [versions/v0.5/master-spec.md](versions/v0.5/master-spec.md#65-brick-definition-brickyaml)
+  6.5, 6.8; [formats.md](formats.md#producer-material);
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 2, 3, 5, 6.
+- **D346 (2026-11-03, correction 3): Chunk 1 writes `GM_OPTIONS:
+  monitoring` into the hand-written stack files whose `postgres` serves
+  an exporter.** Once chunk 3 creates `monitoring` only with the
+  option, they would fail at wave 1's gate. Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#chunk-1--versions-declarations-and-re-pins).
+- **D347 (2026-11-03, correction 4): The HTTP credential's secret, name
+  and readers are W1's, since chunks 4 and 5 read them in wave 1; W2
+  keeps which nodes mount which, and chunk 7 mounts them on callers,
+  `api` nodes and archiving `postgres` nodes.** Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#chunk-7--render-for-v05-aliases-and-http-credentials).
+- **D348 (2026-11-03, correction 5): Chunks 9 and 11 are cut once chunk
+  6 has merged (in-wave edges `6 ──> 9`, `6 ──> 11`), not merge order
+  only as proposed.** Until chunk 6 the loader refuses `driver: http`
+  and the weighted `choice`, so vet-core's `check_domain_dir` and
+  chunk 11's fixtures could not pass on a branch without it; chunk 10's
+  edge stays merge order only (its key passes as unknown). Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#waves) ("Read first", "Waves").
+- **D349 (2026-11-03, correction 6): `api` joins the node roles, the
+  `api` brick's; `pgwatch` and `health-check` take `monitoring`.** Now
+  in: [formats.md](formats.md#roles);
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 1, 2.
+- **D350 (2026-11-03, correction 7): Chunk 6 reserves `options` and
+  `standby_of` as parameters and `replicator` as a role, and checks a
+  primary's replication line; chunk 4 forbids `replicator`.** Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 4, 6.
+- **D351 (2026-11-03, G5 and G6 cleared): Chunk 3 builds under G5's
+  conditions, `vault-post` in Perl with core `HTTP::Tiny`, the snakeoil
+  key deleted as advised; chunk 5 under G6's, from the hash-pinned
+  `bricks/api/requirements.txt`; the PyPI source is listed as pending
+  with the owner.** Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 3, 5,
+  "Pending with the owner".
+- **D352 (2026-11-03, end of wave 1, chunk 3's finding 2): A restart
+  from the hand-over snapshot not bringing a standby back as one is a
+  named known limit of v0.5, not an inserted chunk.** No v0.5 game
+  reaches it: the clinic has no snapshot on its declarations (master
+  spec 14), G13 takes none (18.3), the existing scenarios have no
+  standby (17.5); restarts are v1.0 gating's (18.4). 7.1's "keeps
+  working" holds for taking it (W1-x). Re-cloning after a restore would
+  add restart behaviour 15 does not state: the owner's to ask for. Now
+  in: `bricks/postgres/docs/gm.md` "Known limits"; [versions/README.md](versions/README.md#v10-gating);
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) (release gate, item 12).
+- **D353 (2026-11-03, chunk 2's point): `register_diff`'s key stays
+  `true:` as master spec 6.8 writes it; the loader reads it as PyYAML
+  gives it, boolean `True`, or quoted `"true"`, never both in one item,
+  through one accessor its later readers share.** No author has to
+  remember a quote. Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#chunk-6--loader-checks-for-v05) chunk 6.
+- **D354 (2026-11-03, chunk 2's point): `public` confirmed as a purpose's
+  `connections:` value for an HTTP connection to a public endpoint; an
+  HTTP credential named `public` refused.** It echoes `api.yaml`'s
+  "absent: public" and cannot be a database role. Now in:
+  [formats.md](formats.md#purpose-definition-from-v04);
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#chunk-6--loader-checks-for-v05) chunk 6.
+- **D355 (2026-11-03, W1-y against W1-x, W1-z): The two `no-access`
+  mechanisms stay as built; no chunk unifies them.** Same outcome
+  (access model 5), each documented in its brick's `docs/gm.md`; a
+  rewrite of a working entrypoint buys nothing in play. A later version
+  touching `scheduler`'s entrypoint for its own reasons may adopt the
+  filtering form.
+- **D356 (2026-11-03, chunk 5's finding 3): A caller's bounded wait
+  promises an honest failure past its bound, not resolution within it:**
+  a health-checked peer enters Swarm's DNS only once healthy (a fresh
+  `postgres` node about 49 s). Bounds kept at 30 s. Now in:
+  [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md#read-first)
+  ("Read first", workflow deltas, chunks 7, 10).
+- **D357 (2026-11-03, end of wave 1): Text corrections:** chunk 1's
+  count is twelve `postgres` faults; chunk 2's Done when names
+  `tarnbeck-outdoor-campaign`; pgaudit 18.0 redacts role passwords
+  itself (G5's premise was statement logging's only; the guards kept).
+  formats.md lists no secret kinds, so `certificate` needs no line
+  there. Now in: [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 1, 2, 3.
+- **D358 (2026-11-03, wave 2's chunks read against W1-w to W1-z):**
+  chunk 6 mirrors the scheduler's HTTP refusals (a target may be a
+  partner's alias), checks `api.yaml`'s roles, the partners' hosts and
+  `vault_*`, re-adding no `domains:` check; chunk 7 updates the secret
+  lists' tests; chunk 8 reuses `NO_AUDIT_SQL` and `standby_plan`; chunk
+  9's fixture waits for chunk 7 if `clinic-api` names a credential. Now
+  in: [versions/v0.5/build-plan.md](versions/v0.5/build-plan.md) chunks 6 to 9.

@@ -1,6 +1,6 @@
 # brick.yaml: PostgreSQL 18 node (master spec 7 and 9.1).
 #
-# Version 0.4.0 (unreleased until the v0.4 release gate, D100). Roles, growth
+# Version 0.5.0 (unreleased until the v0.5 release gate, D100). Roles, growth
 # per hour, writable and seed paths, report tools and snapshot methods:
 # capture W1 item 3 (specs/versions/v0.3/wave-log.md).
 # Top-level keys: capture W1-A; fixed paths, secrets, envelope file and
@@ -13,13 +13,13 @@
 
 # --- Identity ---------------------------------------------------------
 id: postgres
-version: 0.4.0
+version: 0.5.0
 roles:
   - database
 technology:
   name: postgresql
   version: "18"
-image: 127.0.0.1:5000/dbagm/postgres:0.4.0
+image: 127.0.0.1:5000/dbagm/postgres:0.5.0
 
 # --- Footprint --------------------------------------------------------
 footprint:                          # CPU and memory: v0.1's figures as reservations, limits
@@ -35,7 +35,17 @@ footprint:                          # CPU and memory: v0.1's figures as reservat
 stateful: true
 
 # --- What the scenario sets -------------------------------------------
-parameters: {}                      # everything scenario-specific is in the seed files
+parameters:                         # v0.5 (capture W1 item 6): the vault archive_command and
+                                    #   the nightly base backup post to, through vault-post;
+                                    #   everything else scenario-specific is in the seed files
+  vault_target:
+    description: cold storage's host and port, host:port (its hostname on the partners' api node), where vault-post posts WAL segments and base backups; null, no vault (vault-post exits 1)
+    default: null
+    required: false
+  vault_credential:
+    description: the name of the credential vault-post sends (Authorization), the game's secret http_ followed by that name, mounted by render; null, none
+    default: null
+    required: false
 knobs:                              # default envelopes, sized for the default footprint;
                                     # a scenario may tighten them, never widen them
   - setting: shared_buffers
@@ -62,10 +72,19 @@ knobs:                              # default envelopes, sized for the default f
     file: /etc/postgresql/postgresql.conf
     default: "on"                   # quoted: a bare `on` is a YAML boolean
     envelope: {allowed: ["on"]}
+options:                            # chosen per node, `options: [monitoring]`; off unless
+                                    #   chosen (v0.5 master spec 6.8, 7.1; capture W1 item 1,
+                                    #   specs/versions/v0.5/wave-log.md)
+  - name: monitoring
+    brings:
+      secrets: [monitoring_password]
+      roles: [monitoring]            # created at initdb, member of pg_monitor
+    docs: docs/gm.md#option-monitoring
 
 # --- Player plane -----------------------------------------------------
 write_policies:                     # v0.1: the database node is fixable (master spec 14)
   - fixable
+  - no-access                       # v0.5: a third party's node (master spec 6.5)
 writable_paths:
   - /etc/postgresql                 # postgres:pgconf, 2775; seeded files 0664
   - /home/player                    # ~/.pgpass (rewritten at each start), ~/report.md,
@@ -75,7 +94,10 @@ writable_paths:
 protected_files:
   - /etc/ssh/sshd_config
   - /etc/sudoers
-  - /etc/sudoers.d/gm-player
+  - /etc/sudoers.d/gm-player        # a link to /run/gm-accounts/sudoers-gm-player, written at
+                                    #   each start from the image's copy; absent on no-access
+  - /usr/local/lib/gm/accounts      # the image's account files and sudo rules, copied into
+                                    #   /run/gm-accounts at each start (docs/gm.md, Accounts)
   - /usr/local/sbin/gm-entrypoint
   - /usr/local/sbin/gm-reload-db
   - /usr/local/sbin/gm-restart-db
@@ -84,6 +106,8 @@ protected_files:
   - /usr/local/sbin/gm-snapshot-db  # root only (0700): the pgdata snapshot (snapshot: below)
   - /usr/local/lib/gm/healthcheck
   - /usr/local/lib/gm/check-psql    # root only (0700): the sealed checks' psql as gm_check
+  - /usr/local/lib/gm/clone-standby # root only (0700): load-data's clone of a standby
+  - /usr/local/bin/vault-post       # the posting command of archive_command and the base backup
   - /opt/gm/validator/validate.sh
   - /opt/gm/protected/envelopes.conf
   - /etc/s6-overlay/s6-rc.d
@@ -134,7 +158,9 @@ secrets:
     gid: 0
     mode: "0400"
   - name: monitoring_password       # password of the role `monitoring` (pg_monitor), set at
-    kind: password                  #   initdb; also on the postgres-exporter node
+    kind: password                  #   initdb; also on the postgres-exporter node. Brought by
+                                    #   the option monitoring (options:): mounted only on a
+                                    #   node choosing it
     path: /opt/gm/secrets/monitoring_password
     uid: 0
     gid: 102                        # postgres' group (the Dockerfile checks 100:102)
@@ -152,6 +178,28 @@ secrets:
     uid: 0
     gid: 0
     mode: "0400"
+  - name: replication_password      # password of the replication role replicator (v0.5
+    kind: password                  #   capture W1 item 6), set on a primary by load-data's
+    path: /opt/gm/secrets/replication_password   # clone step; read by a standby's entrypoint
+    uid: 0                          #   into /run/gm-replication/pgpass; mounted on every
+    gid: 0                          #   postgres node
+    mode: "0400"
+  - name: tls_certificate           # the game's TLS certificate (v0.5 capture W1 item 6):
+    kind: certificate               #   self-signed, every postgres node's name and localhost,
+    pair: tls                       #   valid a year, one per game (secrets/tls.crt); used only
+    half: certificate               #   where a seed turns ssl on (ssl_cert_file)
+    path: /opt/gm/secrets/tls.crt
+    uid: 0
+    gid: 0
+    mode: "0444"
+  - name: tls_key                   # its private key (secrets/tls.key; ssl_key_file)
+    kind: certificate
+    pair: tls
+    half: key
+    path: /opt/gm/secrets/tls.key
+    uid: 0
+    gid: 102                        # postgres' group: PostgreSQL accepts a root-owned key
+    mode: "0440"                    #   readable by its group, at most u=rw,g=r
   # The crontab roles' passwords are not declared here: for each role of the
   # node's crontab_roles (scenario.yaml), render mounts the game's secret
   # role_<role>_password at /opt/gm/secrets/role_<role>_password, 0:0 "0400"

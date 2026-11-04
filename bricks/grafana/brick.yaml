@@ -1,7 +1,7 @@
 # brick.yaml: Grafana node, the game's dashboards and alerting (v0.2 master
 # spec 7 and 7.4).
 #
-# Version 0.2.0 (unreleased until the v0.3 release gate, D100). Roles, growth
+# Version 0.3.0 (unreleased until the v0.5 release gate, D100). Roles, growth
 # per hour, writable and seed paths, report tools and snapshot methods:
 # capture W1 item 3 (specs/versions/v0.3/wave-log.md).
 # Top-level keys: capture W1-A; fixed paths, secrets and wrappers: capture
@@ -12,13 +12,13 @@
 
 # --- Identity ---------------------------------------------------------
 id: grafana
-version: 0.2.0
+version: 0.3.0
 roles:
   - monitoring                      # v0.3 master spec 6.4's closed list
 technology:
   name: grafana
   version: "13.2.4"
-image: 127.0.0.1:5000/dbagm/grafana:0.2.0
+image: 127.0.0.1:5000/dbagm/grafana:0.3.0
 
 # --- Footprint --------------------------------------------------------
 footprint:                          # master spec 12's limits and disk for the node; memory

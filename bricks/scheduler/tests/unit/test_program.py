@@ -176,12 +176,13 @@ class ProgramBase(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.root, ignore_errors=True)
 
-    def scheduler(self, doc):
+    def scheduler(self, doc, stdin=None):
         from gm_scheduler.runner import Scheduler, load_config
         from gm_scheduler.schedule import read_schedule
         from gm_scheduler.textlog import Log
-        schedule, passwords = read_schedule(stdin_for(doc))
-        s = Scheduler(load_config(self.cfg_file), schedule, passwords, Log(self.paths["log"]), "unit-host")
+        schedule, passwords, credentials = read_schedule(stdin if stdin is not None else stdin_for(doc))
+        s = Scheduler(load_config(self.cfg_file), schedule, passwords, Log(self.paths["log"]), "unit-host",
+                      credentials)
         s.repo, s.jobs = s.load_files()
         s.started = time.time()
         self.addCleanup(s.log.close)
@@ -633,6 +634,352 @@ class TestScripts(ProgramRun):
         self.assertEqual(code, 0, out)
         self.assertNotIn("Traceback", out)
         self.assertNotIn(SRC_PASSWORD, "\n".join(read_log(self.paths)))
+
+
+class Stub:
+    """A stand-in HTTP/1.1 server on 127.0.0.1 (v0.5): records every request
+    (method, path, headers, body, the client's port); /fail answers 503 with a
+    long body, /missing 404 with none, /slow after 2.5 s, anything else 201
+    with a small JSON body. `idle` closes a kept connection idle that long."""
+
+    def __init__(self, idle=None):
+        import http.server
+        import json
+        import threading
+        self.requests = []
+        stub = self
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
+            timeout = idle
+
+            def log_message(self, *args):
+                pass
+
+            def answer(self):
+                n = int(self.headers.get("Content-Length") or 0)
+                body = self.rfile.read(n) if n else b""
+                stub.requests.append({"method": self.command, "path": self.path, "headers": dict(self.headers),
+                                      "body": body, "peer": self.client_address[1]})
+                if self.path.startswith("/slow"):
+                    time.sleep(2.5)
+                    status, out = 200, b"{}"
+                elif self.path.startswith("/fail"):
+                    status, out = 503, ("lab closed for maintenance; " * 20).encode()
+                elif self.path.startswith("/missing"):
+                    status, out = 404, b""
+                else:
+                    status, out = 201, json.dumps({"accession": len(stub.requests), "path": self.path}).encode()
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(out)))
+                self.end_headers()
+                self.wfile.write(out)
+
+            do_GET = do_POST = do_PUT = do_PATCH = do_DELETE = answer
+
+        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.server.daemon_threads = True
+        self.port = self.server.server_address[1]
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def close(self):
+        self.server.shutdown()
+        self.server.server_close()
+
+    def of(self, prefix):
+        return [r for r in self.requests if r["path"].startswith(prefix)]
+
+
+CALL_KEYS = """\
+  lab.order:
+    call: POST /orders/%(lab)s
+    params:
+      lab: {choice: [north]}
+      species: {choice: {dog: 3, cat: 1}}
+      amount: {decimal: [5, 500, 2]}
+      at: {now: utc}
+  lab.fail:
+    call: POST /fail
+  lab.missing:
+    call: GET /missing/%(n)s
+    params: {n: {int: [1, 9]}, full: true}
+  lab.slow:
+    call: GET /slow
+"""
+
+
+def http_stdin(doc, credentials=(("interfaces_lab", "t0k3n-lab"),)):
+    lines = "".join(f"credential {n} {v}\n" for n, v in credentials)
+    return f"gm-scheduler-input 1\npassword {ROLE} {PASSWORD}\n{lines}schedule\n" + yaml.safe_dump(doc)
+
+
+class TestHttpStreams(ProgramBase):
+    """v0.5: streams on HTTP connections (master spec 7.2; capture W1 items 3
+    and 4): one request per call, its status and latency counted as a
+    statement's, a non-2xx answer, a timeout or no connection an error."""
+
+    def setUp(self):
+        super().setUp()
+        with open(os.path.join(self.paths["repository"], "queries.yaml"), "a") as f:
+            f.write(CALL_KEYS)
+        self.stub = Stub()
+        self.addCleanup(self.stub.close)
+
+    def doc(self, streams):
+        doc = schedule_doc(streams)
+        doc["connections"]["lab"] = {"driver": "http", "target": f"127.0.0.1:{self.stub.port}",
+                                     "credential": "interfaces_lab", "pool": 1}
+        doc["connections"]["slowlab"] = {"driver": "http", "target": f"127.0.0.1:{self.stub.port}", "pool": 1,
+                                         "timeout": "1s"}
+        doc["connections"]["down"] = {"driver": "http", "target": "127.0.0.1:1", "pool": 1}
+        return doc
+
+    def run_streams(self, s, seconds):
+        async def go():
+            tasks = [asyncio.ensure_future(s.run_stream(st, [])) for st in s.schedule.streams]
+            await asyncio.sleep(seconds)
+            for t in tasks:
+                t.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            await asyncio.gather(*s.calls, return_exceptions=True)
+        asyncio.run(go())
+
+    def test_a_stream_calls_an_http_connection(self):
+        import json
+        doc = self.doc([{"key": "lab.order", "connection": "lab", "rate": "600/min", "arrivals": "even"},
+                        {"key": "lab.fail", "connection": "lab", "rate": "120/min", "arrivals": "even"},
+                        {"key": "lab.missing", "connection": "lab", "rate": "120/min", "arrivals": "even"},
+                        {"key": "lab.slow", "connection": "slowlab", "rate": "120/min", "arrivals": "even"}])
+        s = self.scheduler(doc, stdin=http_stdin(doc))
+        self.run_streams(s, 3.05)
+        orders = self.stub.of("/orders/")
+        self.assertTrue(25 <= len(orders) <= 31, len(orders))      # 10 a second, even
+        r = orders[0]
+        self.assertEqual((r["method"], r["path"]), ("POST", "/orders/north"))
+        h = {k.lower(): v for k, v in r["headers"].items()}
+        self.assertEqual(h["host"], f"127.0.0.1:{self.stub.port}")           # the target as written
+        self.assertEqual(h["authorization"], "Bearer t0k3n-lab")
+        self.assertEqual(h["user-agent"], "unit-host")                       # the caller's hostname
+        self.assertEqual(h["content-type"], "application/json")
+        body = json.loads(r["body"])
+        self.assertEqual(set(body), {"species", "amount", "at"})
+        self.assertIn(body["species"], ("dog", "cat"))
+        self.assertRegex(body["at"], r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}Z$")
+        t = s.stats.totals
+        self.assertEqual((t["lab.order"].calls, t["lab.order"].errors), (len(orders), 0))
+        # a non-2xx answer is an error, its status and the answer's first 200 characters logged
+        self.assertGreaterEqual(t["lab.fail"].calls, 5)
+        self.assertEqual(t["lab.fail"].errors, t["lab.fail"].calls)
+        log = read_log(self.paths)
+        fail = [l for l in log if " error key=lab.fail status=503 " in l]
+        self.assertTrue(fail, log)
+        self.assertEqual(fail[0].split(' message="', 1)[1][:-1], ("lab closed for maintenance; " * 20)[:200].strip())
+        self.assertTrue(any(l.endswith(' error key=lab.missing status=404 message="404 Not Found"') for l in log), log)
+        get = self.stub.of("/missing/")[0]
+        self.assertEqual(get["method"], "GET")
+        self.assertRegex(get["path"], r"^/missing/[1-9]\?full=true$")
+        self.assertEqual(get["body"], b"")
+        # kept alive: the one connection of `lab`'s pool in each stream carried all its calls
+        self.assertEqual(len({r["peer"] for r in orders}), 1)
+        # a timeout is an error: 1 s on slowlab, the stub answering after 2.5 s
+        self.assertGreaterEqual(t["lab.slow"].calls, 1)
+        self.assertEqual(t["lab.slow"].errors, t["lab.slow"].calls)
+        self.assertTrue(any(l.endswith(' error key=lab.slow status=timeout message="no answer within 1s"')
+                            for l in log), log)
+        self.assertNotIn("t0k3n-lab", "\n".join(log))
+
+    def test_no_connection_is_an_error_and_the_minute_counts_it(self):
+        from gm_scheduler.textlog import format_line
+        doc = self.doc([{"key": "lab.order", "connection": "down", "rate": "300/min", "arrivals": "even"}])
+        s = self.scheduler(doc, stdin=http_stdin(doc))
+        self.run_streams(s, 1.05)
+        t = s.stats.totals["lab.order"]
+        self.assertGreaterEqual(t.calls, 4)
+        self.assertEqual(t.errors, t.calls)
+        log = read_log(self.paths)
+        self.assertTrue(any(" error key=lab.order status=refused message=" in l and "ConnectionRefusedError" in l
+                            for l in log), log)
+        calls = sum(v.get("lab.order", [0])[0] for v in s.stats.minutes.values())
+        self.assertEqual(calls, t.calls)
+        lines = []
+        for minute in sorted(s.stats.minutes):
+            lines += [format_line(0, e, f) for e, f in s.stats.summary(minute)]
+        self.assertTrue(any(" key=lab.order calls=" in l and " errors=" in l for l in lines), lines)
+
+    def test_a_kept_connection_the_server_closed_is_opened_again(self):
+        self.stub.close()
+        self.stub = Stub(idle=0.3)
+        self.addCleanup(self.stub.close)
+        doc = self.doc([{"key": "lab.order", "connection": "lab", "rate": "120/min", "arrivals": "even"}])
+        s = self.scheduler(doc, stdin=http_stdin(doc))
+        self.run_streams(s, 3.05)
+        t = s.stats.totals["lab.order"]
+        self.assertGreaterEqual(t.calls, 5)
+        self.assertEqual(t.errors, 0, read_log(self.paths))
+        self.assertGreater(len({r["peer"] for r in self.stub.requests}), 1)    # opened again after each idle close
+
+    def test_the_bounded_wait_for_the_targets_names(self):
+        from gm_scheduler import runner
+        doc = self.doc([])
+        doc["connections"]["lab"]["target"] = f"localhost:{self.stub.port}"
+        s = self.scheduler(doc, stdin=http_stdin(doc))
+        old = runner.NAME_WAIT, runner.NAME_PROBE
+        runner.NAME_WAIT, runner.NAME_PROBE = 2.0, 1.0
+
+        def restore():
+            runner.NAME_WAIT, runner.NAME_PROBE = old
+        self.addCleanup(restore)
+        self.assertEqual(asyncio.run(s.wait_for_names()), [])
+        self.assertRegex(read_log(self.paths)[-1], r" wait status=resolved ms=[0-9]+ connections=down,lab,slowlab$")
+        doc["connections"]["far"] = {"driver": "http", "target": "gm-no-such-host.invalid:8000", "pool": 1}
+        s = self.scheduler(doc, stdin=http_stdin(doc))
+        start = time.monotonic()
+        self.assertEqual(asyncio.run(s.wait_for_names()), ["far"])
+        took = time.monotonic() - start
+        self.assertTrue(2.0 <= took <= 6.0, took)                    # bounded, then it runs anyway
+        log = read_log(self.paths)
+        self.assertTrue(log[-2].endswith(" wait status=waiting bound=2s connections=far"), log)
+        self.assertRegex(log[-1], r" wait status=unresolved ms=[0-9]+ connections=far$")
+
+
+HTTP_SCRIPT_KEYS = """\
+  relay.orders:
+    script: scripts/relay.py:relay
+  relay.unhandled:
+    script: scripts/relay.py:unhandled
+  relay.forbidden:
+    script: scripts/relay.py:forbidden
+"""
+
+HTTP_SCRIPT = """\
+import decimal
+
+
+def relay(conns, options, log):
+    db, lab, slow, down = conns["db"], conns["lab"], conns["slow"], conns["down"]
+    with db.cursor() as cur:                  # reads a database ...
+        cur.execute("SELECT 41 + 1")
+        n = cur.fetchone()[0]
+    db.rollback()
+    a = lab.post("/orders/north", {"n": n, "price": decimal.Decimal("1.50")})   # ... calls an API with it
+    b = lab.post("/shipments", b'{"a":1}\\n{"a":2}\\n',
+                 headers={"Content-Type": "application/x-ndjson", "Shipment-Id": "s-1"})
+    c = lab.post("/fail")                      # an answer whatever its status
+    d = lab.get("/missing/3", {"full": True, "tag": ["a", "b"]})
+    try:
+        slow.get("/slow")
+    except slow.HttpError as exc:
+        log(f"slow: {exc.status}")
+    try:
+        down.get("/x")
+    except down.HttpError as exc:
+        log(f"down: {exc.status}")
+    log(f"{a.status} {a.json()['accession']} {b.status} {c.status} {c.text[:10]} {d.status} {d.headers.get('content-type')}")
+    return 2
+
+
+def unhandled(conns, options, log):
+    conns["down"].get("/x")
+    return 0
+
+
+def forbidden(conns, options, log):
+    conns["lab"].get("/orders/x", headers={"Authorization": "Bearer stolen"})
+    return 0
+"""
+
+
+class TestHttpScripts(ProgramBase):
+    """v0.5: a script job's HTTP connections (capture W1 item 4): the small
+    client beside its psycopg connections, an answer whatever its status,
+    HttpError on a timeout or no connection, each call an `http` line and
+    counted under `<key>/<name>`."""
+
+    def setUp(self):
+        super().setUp()
+        with open(os.path.join(self.paths["repository"], "queries.yaml"), "a") as f:
+            f.write(HTTP_SCRIPT_KEYS)
+        os.makedirs(os.path.join(self.paths["repository"], "scripts"))
+        with open(os.path.join(self.paths["repository"], "scripts", "relay.py"), "w") as f:
+            f.write(HTTP_SCRIPT)
+        self.stub = Stub()
+        self.addCleanup(self.stub.close)
+        conns = {"db": "app", "lab": "lab", "slow": "slowlab", "down": "down"}
+        with open(self.paths["jobs"], "w") as f:
+            yaml.safe_dump({"jobs": [
+                {"name": "relay", "key": "relay.orders", "connections": conns, "at": "0 3 * * *"},
+                {"name": "unhandled", "key": "relay.unhandled", "connections": {"down": "down"}, "at": "0 3 * * *"},
+                {"name": "forbidden", "key": "relay.forbidden", "connections": {"lab": "lab"}, "at": "0 3 * * *"}]}, f)
+
+    def test_a_script_calls_an_api_beside_its_database(self):
+        import json
+        doc = TestHttpStreams.doc(self, [])
+        s = self.scheduler(doc, stdin=http_stdin(doc))
+        s.declare_http_series()
+        self.assertIn("relay.orders/lab", s.stats.totals)       # its series from the start, at 0
+        jobs = {j.name: j for j in s.jobs}
+        for name in ("relay", "unhandled", "forbidden"):
+            asyncio.run(s.job_run(jobs[name], time.time()))
+        log = read_log(self.paths)
+        # the run itself: ok, its rows, as any script's
+        self.assertTrue(any(" run job=relay key=relay.orders phase=end status=ok rows=2 ms=" in l for l in log), log)
+        self.assertTrue(any(l.endswith(" script job=relay 201 1 201 503 lab closed 404 application/json")
+                            for l in log), log)
+        self.assertTrue(any(l.endswith(" script job=relay slow: timeout") for l in log), log)
+        self.assertTrue(any(l.endswith(" script job=relay down: refused") for l in log), log)
+        # one http line per call, the path last
+        http = [l for l in log if " http job=relay " in l]
+        self.assertEqual(len(http), 6, http)
+        self.assertRegex(http[0], r" http job=relay connection=lab method=POST status=201 ms=[0-9.]+ path=/orders/north$")
+        self.assertRegex(http[2], r" http job=relay connection=lab method=POST status=503 ms=[0-9.]+ path=/fail$")
+        self.assertRegex(http[3], r' http job=relay connection=lab method=GET status=404 ms=[0-9.]+ '
+                                  r'path="/missing/3\?full=true&tag=a&tag=b"$')
+        self.assertRegex(http[4], r" http job=relay connection=slow method=GET status=timeout ms=[0-9.]+ path=/slow$")
+        self.assertRegex(http[5], r" http job=relay connection=down method=GET status=refused ms=[0-9.]+ path=/x$")
+        # counted under <key>/<name>, apart from the run's own count
+        t = s.stats.totals
+        self.assertEqual((t["relay.orders/lab"].calls, t["relay.orders/lab"].errors), (4, 2))
+        self.assertEqual((t["relay.orders/slow"].calls, t["relay.orders/slow"].errors), (1, 1))
+        self.assertEqual((t["relay.orders/down"].calls, t["relay.orders/down"].errors), (1, 1))
+        self.assertEqual((t["relay.orders"].calls, t["relay.orders"].errors), (1, 0))
+        # on the wire: the credential, the caller, JSON or bytes as given
+        order = self.stub.of("/orders/north")[0]
+        h = {k.lower(): v for k, v in order["headers"].items()}
+        self.assertEqual((h["authorization"], h["user-agent"], h["content-type"]),
+                         ("Bearer t0k3n-lab", "unit-host", "application/json"))
+        self.assertEqual(order["body"], b'{"n":42,"price":1.50}')
+        ship = self.stub.of("/shipments")[0]
+        h = {k.lower(): v for k, v in ship["headers"].items()}
+        self.assertEqual((h["content-type"], h["shipment-id"]), ("application/x-ndjson", "s-1"))
+        self.assertEqual(ship["body"], b'{"a":1}\n{"a":2}\n')
+        self.assertEqual(json.loads(self.stub.of("/orders/north")[0]["body"])["n"], 42)
+        self.assertEqual(len({r["peer"] for r in self.stub.requests if r["path"] != "/slow"}), 1)   # kept alive
+        # an HttpError not handled ends the run as any exception does
+        self.assertTrue(any(" run job=unhandled key=relay.unhandled phase=end status=error error=HttpError ms=" in l
+                            for l in log), log)
+        self.assertTrue(any(' error key=relay.unhandled job=unhandled sqlstate=- message="script: HttpError: refused: '
+                            in l for l in log), log)
+        # headers never sets Authorization or Host
+        self.assertTrue(any(" run job=forbidden key=relay.forbidden phase=end status=error error=ValueError " in l
+                            for l in log), log)
+        self.assertFalse(any("stolen" in l for l in log))
+        self.assertFalse(self.stub.of("/orders/x"))
+        self.assertNotIn("t0k3n-lab", "\n".join(log))
+
+
+class TestHttpProgram(ProgramRun):
+    """v0.5: an HTTP credential arrives on standard input; one not passed
+    refuses the schedule, as a role without its password does."""
+
+    def test_a_credential_not_passed_refuses_the_schedule(self):
+        doc = schedule_doc([])
+        doc["connections"]["lab"] = {"driver": "http", "target": "lab-api:8000", "credential": "interfaces_lab",
+                                     "pool": 1}
+        code, out = self.finish(self.start(doc))
+        self.assertEqual(code, 2, out)
+        self.assertIn("schedule.connections.lab: no credential was passed for it", out)
+        self.assertNotIn("Traceback", out)
 
 
 @unittest.skipUnless(os.geteuid() == 0, "restore needs root")

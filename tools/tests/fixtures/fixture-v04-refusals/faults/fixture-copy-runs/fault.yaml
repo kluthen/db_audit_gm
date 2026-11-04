@@ -11,7 +11,7 @@ severity: medium
 applies_to:
   bricks:
     - id: scheduler
-      versions: ["0.2.0"]
+      versions: ["0.2.0", "0.3.0"]
   purposes: [fixture-sales-copy]
   preconditions: []
 needs_unshared_host: true

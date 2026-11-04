@@ -1,7 +1,8 @@
 # The shop's classification (master spec 9.9, 11.2, 11.3): every column of
 # every table and view of the shop's database, schema public, keyed
-# <database>.<table>.<column> (capture W1, items 0 and 6). The domain
-# classifies; a scenario's governance: states each class's rules.
+# <table>.<column> without the database (v0.5 master spec 6.1, 8.6; v0.5
+# capture W1, item 7): the scenario's copy adds it (shop.<table>.<column>).
+# The domain classifies; a scenario's governance: states each class's rules.
 #
 # Classes:
 #   personal         names, e-mail and postal addresses, a customer's country
@@ -20,132 +21,132 @@
 # A column with no entry is internal; every column is listed all the same.
 columns:
   # business_settings: the customer's zone and the mailing hours
-  shop.business_settings.timezone: internal
-  shop.business_settings.utc_offset_hours: internal
-  shop.business_settings.mail_window_start: internal
-  shop.business_settings.mail_window_end: internal
+  business_settings.timezone: internal
+  business_settings.utc_offset_hours: internal
+  business_settings.mail_window_start: internal
+  business_settings.mail_window_end: internal
 
   # customers
-  shop.customers.id: personal
-  shop.customers.name: personal
-  shop.customers.email: personal
-  shop.customers.address: personal
-  shop.customers.country: personal
-  shop.customers.timezone: personal
-  shop.customers.marketing_opt_in: personal
-  shop.customers.created_at: internal
-  shop.customers.last_order_at: internal
-  shop.customers.lifetime_value: internal
+  customers.id: personal
+  customers.name: personal
+  customers.email: personal
+  customers.address: personal
+  customers.country: personal
+  customers.timezone: personal
+  customers.marketing_opt_in: personal
+  customers.created_at: internal
+  customers.last_order_at: internal
+  customers.lifetime_value: internal
 
   # consent_events: consent events are personal, every column
-  shop.consent_events.id: personal
-  shop.consent_events.customer_id: personal
-  shop.consent_events.purpose: personal
-  shop.consent_events.granted: personal
-  shop.consent_events.at: personal
-  shop.consent_events.source: personal
+  consent_events.id: personal
+  consent_events.customer_id: personal
+  consent_events.purpose: personal
+  consent_events.granted: personal
+  consent_events.at: personal
+  consent_events.source: personal
 
   # products
-  shop.products.id: internal
-  shop.products.sku: internal
-  shop.products.name: internal
-  shop.products.category: internal
-  shop.products.price: internal
-  shop.products.stock: internal
-  shop.products.sold: internal
+  products.id: internal
+  products.sku: internal
+  products.name: internal
+  products.category: internal
+  products.price: internal
+  products.stock: internal
+  products.sold: internal
 
   # orders
-  shop.orders.id: internal
-  shop.orders.customer_id: customer-linked
-  shop.orders.placed_at: internal
-  shop.orders.status: internal
-  shop.orders.total: internal
-  shop.orders.updated_at: internal
-  shop.orders.packed_at: internal
-  shop.orders.shipped_at: internal
-  shop.orders.ship_country: internal
+  orders.id: internal
+  orders.customer_id: customer-linked
+  orders.placed_at: internal
+  orders.status: internal
+  orders.total: internal
+  orders.updated_at: internal
+  orders.packed_at: internal
+  orders.shipped_at: internal
+  orders.ship_country: internal
 
   # order_lines
-  shop.order_lines.id: internal
-  shop.order_lines.order_id: internal
-  shop.order_lines.product_id: internal
-  shop.order_lines.sku: internal
-  shop.order_lines.product_name: internal
-  shop.order_lines.quantity: internal
-  shop.order_lines.unit_price: internal
-  shop.order_lines.vat_rate: internal
-  shop.order_lines.line_total: internal
-  shop.order_lines.created_at: internal
+  order_lines.id: internal
+  order_lines.order_id: internal
+  order_lines.product_id: internal
+  order_lines.sku: internal
+  order_lines.product_name: internal
+  order_lines.quantity: internal
+  order_lines.unit_price: internal
+  order_lines.vat_rate: internal
+  order_lines.line_total: internal
+  order_lines.created_at: internal
 
   # delivery_events: the carriers' feed
-  shop.delivery_events.id: internal
-  shop.delivery_events.event_id: internal
-  shop.delivery_events.order_id: internal
-  shop.delivery_events.status: internal
-  shop.delivery_events.received_at: internal
+  delivery_events.id: internal
+  delivery_events.event_id: internal
+  delivery_events.order_id: internal
+  delivery_events.status: internal
+  delivery_events.received_at: internal
 
   # export_countries
-  shop.export_countries.country: internal
+  export_countries.country: internal
 
   # campaigns
-  shop.campaigns.id: internal
-  shop.campaigns.code: internal
-  shop.campaigns.segment: internal
-  shop.campaigns.starts_on: internal
-  shop.campaigns.ends_on: internal
-  shop.campaigns.active: internal
+  campaigns.id: internal
+  campaigns.code: internal
+  campaigns.segment: internal
+  campaigns.starts_on: internal
+  campaigns.ends_on: internal
+  campaigns.active: internal
 
   # leads: customer-linked, every column
-  shop.leads.campaign_id: customer-linked
-  shop.leads.customer_id: customer-linked
-  shop.leads.score: customer-linked
-  shop.leads.extracted_at: customer-linked
+  leads.campaign_id: customer-linked
+  leads.customer_id: customer-linked
+  leads.score: customer-linked
+  leads.extracted_at: customer-linked
 
   # mail_outbox: the e-mail and the payload; the customer id beside them
-  shop.mail_outbox.id: internal
-  shop.mail_outbox.customer_id: personal
-  shop.mail_outbox.email: personal
-  shop.mail_outbox.template: internal
-  shop.mail_outbox.campaign_id: internal
-  shop.mail_outbox.order_id: internal
-  shop.mail_outbox.payload: personal
-  shop.mail_outbox.sent_at: internal
+  mail_outbox.id: internal
+  mail_outbox.customer_id: personal
+  mail_outbox.email: personal
+  mail_outbox.template: internal
+  mail_outbox.campaign_id: internal
+  mail_outbox.order_id: internal
+  mail_outbox.payload: personal
+  mail_outbox.sent_at: internal
 
   # customs_outbox: the declaration's payload names the consignee
-  shop.customs_outbox.id: internal
-  shop.customs_outbox.order_id: internal
-  shop.customs_outbox.payload: personal
-  shop.customs_outbox.sent_at: internal
-  shop.customs_outbox.idempotency_key: internal
+  customs_outbox.id: internal
+  customs_outbox.order_id: internal
+  customs_outbox.payload: personal
+  customs_outbox.sent_at: internal
+  customs_outbox.idempotency_key: internal
 
   # customs_acks
-  shop.customs_acks.outbox_id: internal
-  shop.customs_acks.status: internal
-  shop.customs_acks.reference: internal
-  shop.customs_acks.reason: internal
-  shop.customs_acks.received_at: internal
+  customs_acks.outbox_id: internal
+  customs_acks.status: internal
+  customs_acks.reference: internal
+  customs_acks.reason: internal
+  customs_acks.received_at: internal
 
   # incidents
-  shop.incidents.id: internal
-  shop.incidents.source: internal
-  shop.incidents.ref: internal
-  shop.incidents.opened_at: internal
-  shop.incidents.reason: internal
+  incidents.id: internal
+  incidents.source: internal
+  incidents.ref: internal
+  incidents.opened_at: internal
+  incidents.reason: internal
 
   # etl_runs: the run ledger
-  shop.etl_runs.id: internal
-  shop.etl_runs.job: internal
-  shop.etl_runs.started_at: internal
-  shop.etl_runs.finished_at: internal
-  shop.etl_runs.rows_read: internal
-  shop.etl_runs.rows_written: internal
-  shop.etl_runs.watermark: internal
+  etl_runs.id: internal
+  etl_runs.job: internal
+  etl_runs.started_at: internal
+  etl_runs.finished_at: internal
+  etl_runs.rows_read: internal
+  etl_runs.rows_written: internal
+  etl_runs.watermark: internal
 
   # popular_products (materialized view): the best sellers
-  shop.popular_products.category: internal
-  shop.popular_products.rank: internal
-  shop.popular_products.product_id: internal
-  shop.popular_products.sku: internal
-  shop.popular_products.name: internal
-  shop.popular_products.price: internal
-  shop.popular_products.units: internal
+  popular_products.category: internal
+  popular_products.rank: internal
+  popular_products.product_id: internal
+  popular_products.sku: internal
+  popular_products.name: internal
+  popular_products.price: internal
+  popular_products.units: internal

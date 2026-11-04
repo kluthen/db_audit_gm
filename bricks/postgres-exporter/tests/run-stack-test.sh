@@ -35,14 +35,14 @@
 # Needs: a swarm manager (docker swarm init), the images built locally (the
 # postgres image is the test client: it has ssh and perl):
 #   docker build -t 127.0.0.1:5000/dbagm/postgres-exporter:0.2.0 bricks/postgres-exporter
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.4.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.0 bricks/postgres
 # Usage: sh bricks/postgres-exporter/tests/run-stack-test.sh
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 STACK=gmtest-pgexp
 IMAGE=127.0.0.1:5000/dbagm/postgres-exporter:0.2.0
-CLIENT_IMAGE=127.0.0.1:5000/dbagm/postgres:0.4.0
+CLIENT_IMAGE=127.0.0.1:5000/dbagm/postgres:0.5.0
 SERVICE=${STACK}_exporter
 DB_SERVICE=${STACK}_db
 NET=${STACK}_net
@@ -147,7 +147,7 @@ wait_healthy() {  # wait_healthy <service> [old-container-id]: prints the health
 }
 
 if DB=$(wait_healthy "$DB_SERVICE"); then
-    pass "db node (postgres 0.4.0) healthy ($DB)"
+    pass "db node (postgres 0.5.0) healthy ($DB)"
 else
     fail "db node did not become healthy"
     docker service ps --no-trunc "$DB_SERVICE" || true

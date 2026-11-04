@@ -1,5 +1,6 @@
 """Transformer scripts (master spec 7.1, "The transformer script
-contract"; v0.4 capture W1 item 7; as built: W1-y).
+contract"; v0.4 capture W1 item 7; as built: W1-y; v0.5: HTTP connections,
+v0.5 master spec 7.2, capture W1 item 4).
 
 A script key's job runs here, in a worker thread of the program, beside
 the asyncio tasks:
@@ -11,7 +12,13 @@ the asyncio tasks:
      driver's TCP keepalives (a script idle on one connection while it
      works on the other keeps both through a Swarm service VIP). A
      connection that cannot be opened closes the others, and the run is
-     skipped as any job's is (`reason=connection-refused`).
+     skipped as any job's is (`reason=connection-refused`). v0.5: a name
+     whose schedule connection is `http` gets the small HTTP client
+     (gm_scheduler.drivers.http.Client: `get`, `post`), opened at its
+     first call, never refused here: a refused or silent target raises
+     HttpError at the call. Each call is reported to `on_call(name, ...)`,
+     which the runner logs (`http job=<job> connection=<name> ...`) and
+     counts under `<key>/<name>`.
   2. `call`: `<function>(conns, options, log)`; `conns` maps each name to
      its open connection, `options` is a copy of the entry's, `log(text)`
      appends `script job=<name> <text>` to the scheduler's log. The script
@@ -24,49 +31,22 @@ An exception (or a return that is not a number of rows) ends the run with
 `status=error`, `sqlstate=<code>` for a database error, `error=<class>`
 otherwise; nothing else stops. The thread is a daemon: a program stopping
 mid-run does not wait for it, and the server rolls back what was open.
-PostgreSQL only: a script talks psycopg 3, outside the driver interface.
+A script's database connections talk psycopg 3, outside the driver
+interface; its HTTP connections the driver's client.
 """
 
-import asyncio
-import threading
-
-from .drivers import DriverError
+from .drivers import DriverError, in_thread  # noqa: F401  (in_thread: the runner's)
+from .drivers.http import Client, HttpError  # noqa: F401  (HttpError: for a script that imports it)
 
 CONNECT_TIMEOUT = 10
 
 
-def in_thread(fn, *args, name="gm-script"):
-    """Runs `fn(*args)` in a daemon thread; returns an asyncio future of its
-    result (or its exception)."""
-    loop = asyncio.get_running_loop()
-    future = loop.create_future()
-
-    def settle(result, exc):
-        if future.cancelled():
-            return
-        if exc is not None:
-            future.set_exception(exc)
-        else:
-            future.set_result(result)
-
-    def target():
-        try:
-            result, exc = fn(*args), None
-        except BaseException as e:  # handed to the awaiting task, which logs it
-            result, exc = None, e
-        try:
-            loop.call_soon_threadsafe(settle, result, exc)
-        except RuntimeError:
-            pass  # the loop is gone: the program is stopping and nobody awaits the run
-
-    threading.Thread(target=target, name=name, daemon=True).start()
-    return future
-
-
-def open_connections(names, schedule, passwords, application_name):
-    """{script's name: schedule connection name} -> {name: open psycopg
-    connection}; raises DriverError (connect=True) naming the connection
-    that could not be opened, after closing the others."""
+def open_connections(names, schedule, passwords, application_name, credentials=None, on_call=None):
+    """{script's name: schedule connection name} -> {name: an open psycopg
+    connection, or an HTTP client}; raises DriverError (connect=True)
+    naming the connection that could not be opened, after closing the
+    others. `on_call(name, method, target, status, latency, error)`: each
+    HTTP call's report."""
     import psycopg
     from .drivers.postgresql import KEEPALIVES, _error
 
@@ -74,6 +54,14 @@ def open_connections(names, schedule, passwords, application_name):
     try:
         for name, cname in names.items():
             c = schedule.connections[cname]
+            if c.http:
+                secret = (credentials or {}).get(c.credential) if c.credential else None
+                report = None
+                if on_call is not None:
+                    def report(method, target, status, latency, error, _name=name):
+                        on_call(_name, method, target, status, latency, error)
+                conns[name] = Client(c, secret, application_name, report)
+                continue
             try:
                 conns[name] = psycopg.connect(
                     host=c.host, port=c.port, dbname=c.database, user=c.role,
@@ -93,6 +81,9 @@ def open_connections(names, schedule, passwords, application_name):
 def close_connections(conns):
     import psycopg
     for conn in conns.values():
+        if isinstance(conn, Client):
+            conn.close()
+            continue
         try:
             conn.close()
         except (psycopg.Error, OSError):

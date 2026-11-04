@@ -72,7 +72,9 @@ purposes:
       receiver: gateway
 governance:
   policy: player/data-policy.md     # master spec 11.5, in words
-  classification: data/classification.yaml   # the shop domain's, unchanged
+  classification: data/classification.yaml   # the shop domain's classes, keyed with the
+                                    # shop. database prefix the domain's file no longer
+                                    # carries (v0.5 master spec 6.1, 8.6)
   classes:                          # readers: access model 9.3
     personal:
       locations: [db/shop]
@@ -104,7 +106,7 @@ nodes:
   - name: bastion
     brick:
       id: bastion
-      version: 0.4.0
+      version: 0.5.0
     role: bastion
     stateful: true
     networks: [backend]
@@ -130,7 +132,8 @@ nodes:
   - name: db
     brick:
       id: postgres
-      version: 0.4.0
+      version: 0.5.0
+    options: [monitoring]           # the exporter's target (v0.5 master spec 17.5)
     role: database
     stateful: true
     networks: [backend]
@@ -263,7 +266,7 @@ nodes:
   - name: producer
     brick:
       id: scheduler
-      version: 0.2.0
+      version: 0.3.0
     role: producer
     stateful: true
     networks: [backend]
@@ -291,7 +294,7 @@ nodes:
   - name: consumer
     brick:
       id: scheduler
-      version: 0.2.0
+      version: 0.3.0
     role: consumer
     stateful: true
     networks: [backend]
@@ -317,7 +320,7 @@ nodes:
   - name: reporting
     brick:
       id: postgres
-      version: 0.4.0
+      version: 0.5.0
     role: database
     stateful: true
     networks: [backend]
@@ -409,7 +412,7 @@ nodes:
   - name: bi
     brick:
       id: scheduler
-      version: 0.2.0
+      version: 0.3.0
     role: transformer
     stateful: true
     networks: [backend]
@@ -434,7 +437,7 @@ nodes:
   - name: crm
     brick:
       id: scheduler
-      version: 0.2.0
+      version: 0.3.0
     role: transformer
     stateful: true
     networks: [backend]
@@ -461,7 +464,7 @@ nodes:
   - name: gateway
     brick:
       id: scheduler
-      version: 0.2.0
+      version: 0.3.0
     role: producer                  # the customs gateway stub (capture W1 item 1)
     stateful: true
     networks: [backend]
@@ -533,7 +536,7 @@ nodes:
   - name: grafana
     brick:
       id: grafana
-      version: 0.2.0
+      version: 0.3.0
     role: monitoring
     stateful: true
     networks: [backend]

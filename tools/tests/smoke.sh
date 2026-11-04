@@ -19,8 +19,8 @@
 #
 # Needs: a swarm manager on the local engine (docker swarm init), and the
 # bricks' images built locally:
-#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.4.0 bricks/postgres
-#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.4.0 bricks/bastion
+#   docker build -t 127.0.0.1:5000/dbagm/postgres:0.5.0 bricks/postgres
+#   docker build -t 127.0.0.1:5000/dbagm/bastion:0.5.0 bricks/bastion
 # Host ports 2222 and 8080 must be free (the bastion's published ports).
 # Usage: sh tools/tests/smoke.sh        (from anywhere)
 set -eu
@@ -29,7 +29,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/../.." && pwd)
 GMCTL="python3 $REPO/tools/gmctl"
 PG=smoke
-IMAGES="127.0.0.1:5000/dbagm/postgres:0.4.0 127.0.0.1:5000/dbagm/bastion:0.4.0"
+IMAGES="127.0.0.1:5000/dbagm/postgres:0.5.0 127.0.0.1:5000/dbagm/bastion:0.5.0"
 LABELS="com.docker.stack.namespace dbagm.game dbagm.snapshot"
 KINDS="service network volume config secret"
 
@@ -123,7 +123,10 @@ same "credential files are mode 600" "600 600 600 600 600" \
         "$LDIR/secrets/tools_password" | tr '\n' ' ' | sed 's/ $//')"
 # v0.3: postgres adds gm_check_password (W1-x); pgbouncer_lookup_password is
 # only_with_role: pooler, and fixture-audit has no pooler node (chunk 7b).
-same "configs and secrets carry both labels" "13" \
+# v0.5: postgres 0.5.0 adds replication_password, tls_certificate and
+# tls_key on every postgres node; monitoring_password comes only with the
+# option monitoring, which fixture-audit's db does not choose (chunk 3).
+same "configs and secrets carry both labels" "15" \
     "$(for k in config secret; do docker "$k" ls --filter "label=dbagm.game=$GAME" \
         --filter "label=com.docker.stack.namespace=$GAME" -q; done | wc -l | tr -d ' ')"
 # v0.4: postgres adds the cron spool, cronspool (chunk 4), copied by the snapshot.
@@ -146,7 +149,9 @@ same "status: network line" "  network: ${GAME}_backend" \
     "$($GMCTL status "$SCN" --playground "$PG" | grep '^  network:')"
 # v0.4 (D224): the front runs in fixture-audit too, so the tools password
 # is among the secret files and has its line (v0.3's RG-3 assertions reversed).
-same "status: lists the 7 secret files" 7 \
+# v0.5: replication_password, tls.crt and tls.key in, monitoring_password
+# out (the option, not chosen; chunk 3).
+same "status: lists the 9 secret files" 9 \
     "$($GMCTL status "$SCN" --playground "$PG" | sed -n '/^  secrets: /,/^  [^ ]/p' | grep -c '^    ')"
 same "status: the tools-password line" 1 \
     "$($GMCTL status "$SCN" --playground "$PG" | grep -c '^    tools_password: ')"
@@ -230,7 +235,7 @@ same "no copy carries the game's own label" "" \
     "$(docker volume ls -q --filter "label=dbagm.snapshot=$GAME" --filter "label=dbagm.game=$GAME")"
 same "the database's copy is a tar holding PG_VERSION and backup_label" 2 "$(docker run --rm \
     --network none -v "dbagm-snapshot_${GAME}_db_pgdata:/s:ro" --entrypoint tar \
-    127.0.0.1:5000/dbagm/postgres:0.4.0 -tf /s/volume.tar 2>/dev/null \
+    127.0.0.1:5000/dbagm/postgres:0.5.0 -tf /s/volume.tar 2>/dev/null \
     | grep -c -E '^(\./)?(PG_VERSION|backup_label)$')"
 slots=$(printf '%s\n' 'psql -XAtq -c "SELECT count(*) FROM pg_replication_slots"' | exec_db postgres)
 same "no replication slot left on the database" 0 "$slots"

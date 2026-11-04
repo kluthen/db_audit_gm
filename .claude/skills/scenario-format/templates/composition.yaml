@@ -1,0 +1,40 @@
+# composition.yaml — template for scenarios/<scenario-id>/composition.yaml,
+# the composition record
+#
+# Version v0.5, expected to evolve as games are played.
+# Shape: v0.5 master spec 8.5, 15, specs/formats.md "Composing domains"
+# (D322, D326), with the checks capture W1 of specs/versions/v0.5/wave-log.md
+# (item 7) settles. Written by the GM at composition and kept with the
+# scenario, so the composition is reproducible (D23); required with
+# domains:, refused without. The loader checks it against scenario.yaml's
+# domains:.
+#
+# Markers:
+#   every key is REQUIRED unless marked otherwise;
+#   "# optional: <when>"  the key is present only when <when> holds.
+# Replace every <placeholder>. A filled file keeps no <placeholder>.
+
+domains:                            # as scenario.yaml's domains: lists them, in its order, with
+                                    # the constraints checked
+  - id: <vet-core>                  # a domains: entry's id
+    variant: <regional-franchise>   # optional: the core's entry only, as scenario.yaml's
+    at: <records/clinic>            # as scenario.yaml's: node/database, or a map from each of a
+                                    # part's databases to node/database
+    lands_with: <vet-core>          # optional: exactly for a domain declaring lands_with, its
+                                    # value; then the same at: as its core
+keys:                               # what each part relies on, against the core's notes; may be {}
+  <vet-housing>: [<stays-by-id>]    # a listed part -> the core's ranges and functions it uses,
+                                    # by the names the core's docs/gm.md gives them
+scale:                              # the combined scale, the parts' against the core variant's
+  checked: <true>                   # true once checked
+  note: <one line>
+order: [<vet-core>, <vet-housing>]  # the load order: every listed id once, a part after its core,
+                                    # a derivation's domain after its after
+derive:                             # optional: the sanctioned derivation steps, in order; only
+                                    # for a domain declaring derive
+  - domain: <vet-portal>
+    after: [<vet-core>, <vet-lab>]  # the domain's declared derive.after
+    reason: <one line>
+coherence:                          # optional: the post-load coherence check, once, at setup
+  run_at: <setup time>              # (written at setup)
+  result: <pass>
